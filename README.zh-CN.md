@@ -1,7 +1,7 @@
 
 ## 中文版 `README.zh-CN.md`
 
-```markdown
+
 **语言：** [English](README.md) | [中文](README.zh-CN.md)
 
 <div align="center">
@@ -9,7 +9,7 @@
   <p><em>分析始于查询结束之处。</em></p>
 </div>
 
-```
+---
 
 > 如果你也曾在SQL查询结果和Excel之间反复横跳，你不是一个人。这是我们尝试解决这个问题的一次努力。
 
