@@ -6,7 +6,8 @@
 
 <div align="center">
   <h1>📊 RdataStation</h1>
-  <p><em>分析始于查询结束之处。</em></p>
+  <p><em>Analysis begins where the query ends.</em></p>
+  <p><strong>取数立本，分析明道；数不虚取，析不妄断。</strong></p>
 </div>
 
 ---
