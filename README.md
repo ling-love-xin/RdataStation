@@ -3,6 +3,7 @@
 <div align="center">
   <h1>📊 RdataStation</h1>
   <p><em>Analysis begins where the query ends.</em></p>
+  <p><strong>Every query has a purpose. Every analysis, a conscience.</strong></p>
 </div>
 
 ---
