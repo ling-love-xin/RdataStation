@@ -1,0 +1,74 @@
+{
+  "driverId": "sqlite",
+  "driverName": "SQLite",
+  "version": "3.45",
+  "metadata": {
+    "category": "file",
+    "description": "SQLite 轻量级文件数据库",
+    "features": ["事务", "触发器", "视图", "全文搜索"],
+    "defaultPort": null,
+    "requireFile": true,
+    "supportsSsl": false,
+    "supportsSshTunnel": false
+  },
+  "sections": [
+    {
+      "key": "database",
+      "title": "数据库文件",
+      "icon": "database",
+      "fields": [
+        {
+          "key": "database",
+          "label": "数据库文件",
+          "type": "file",
+          "placeholder": "选择或输入 SQLite 数据库文件路径",
+          "required": true
+        }
+      ]
+    },
+    {
+      "key": "advanced",
+      "title": "高级选项",
+      "icon": "settings",
+      "collapsible": true,
+      "collapsed": true,
+      "fields": [
+        {
+          "key": "journalMode",
+          "label": "日志模式",
+          "type": "select",
+          "default": "wal",
+          "options": [
+            { "label": "WAL", "value": "wal" },
+            { "label": "DELETE", "value": "delete" },
+            { "label": "TRUNCATE", "value": "truncate" },
+            { "label": "PERSIST", "value": "persist" }
+          ]
+        },
+        {
+          "key": "synchronous",
+          "label": "同步模式",
+          "type": "select",
+          "default": "normal",
+          "options": [
+            { "label": "OFF", "value": "0" },
+            { "label": "NORMAL", "value": "1" },
+            { "label": "FULL", "value": "2" }
+          ]
+        },
+        {
+          "key": "foreignKeys",
+          "label": "启用外键",
+          "type": "checkbox",
+          "default": true
+        },
+        {
+          "key": "readOnly",
+          "label": "只读模式",
+          "type": "checkbox",
+          "default": false
+        }
+      ]
+    }
+  ]
+}

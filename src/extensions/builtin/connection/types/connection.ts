@@ -1,0 +1,179 @@
+/**
+ * 连接模块类型定义
+ */
+
+// ============================================================================
+// 基础连接类型
+// ============================================================================
+
+export interface Connection {
+  connId: string
+  name: string
+  dbType: string
+  url: string
+  status: 'connected' | 'disconnected' | 'error'
+  isActive: boolean
+  meta: ConnectionMeta
+}
+
+export interface ConnectionMeta {
+  supportsTransaction: boolean
+  supportsStreaming: boolean
+  supportsArrow: boolean
+  supportsFederated: boolean
+  supportsConcurrentWrite: boolean
+  isInMemory: boolean
+}
+
+export interface RecentConnection {
+  id: string
+  name: string
+  dbType: string
+  url: string
+  connectedAt: string
+}
+
+// ============================================================================
+// 连接状态枚举
+// ============================================================================
+
+/**
+ * 连接状态
+ * - disconnected: 未连接（配置已保存，但未建立实际连接）
+ * - connected: 已连接（已建立实际数据库连接）
+ * - connecting: 连接中（正在建立连接）
+ * - error: 连接错误（连接失败）
+ */
+export type ConnectionStatus = 'disconnected' | 'connected' | 'connecting' | 'error'
+
+// ============================================================================
+// 项目连接类型
+// ============================================================================
+
+export interface ProjectConnection {
+  id: string
+  name: string
+  driver: string
+  host?: string
+  port?: number
+  database?: string
+  username?: string
+  password?: string
+  options?: string
+  tags?: string
+  is_active?: boolean
+  /** 连接状态 */
+  status?: ConnectionStatus
+  /** 连接错误信息 */
+  error_message?: string
+  /** 最后连接时间 */
+  last_connected_at?: string
+  properties?: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  connection_type?: 'global' | 'project'
+  project_path?: string
+}
+
+export interface CreateProjectConnectionInput {
+  project_path: string
+  name: string
+  driver: string
+  host?: string
+  port?: number
+  database?: string
+  username?: string
+  password?: string
+  options?: string
+  tags?: string
+  properties?: Record<string, unknown>
+  connection_type?: 'global' | 'project'
+  use_duckdb_fed?: boolean
+}
+
+// ============================================================================
+// 驱动配置类型
+// ============================================================================
+
+export interface DriverConfig {
+  id: string
+  name: string
+  icon: string
+  features: DriverFeature[]
+  defaultPort?: number
+  fields: DriverField[]
+}
+
+export type DriverFeature =
+  | 'schemas'
+  | 'tables'
+  | 'views'
+  | 'procedures'
+  | 'functions'
+  | 'triggers'
+  | 'indexes'
+  | 'foreignKeys'
+  | 'ssl'
+  | 'sshTunnel'
+  | 'httpProxy'
+
+export interface DriverField {
+  name: string
+  label: string
+  type: 'text' | 'number' | 'password' | 'file' | 'select' | 'checkbox'
+  fieldType?: 'text' | 'number' | 'password' | 'file' | 'select' | 'checkbox'
+  required?: boolean
+  default?: unknown
+  placeholder?: string
+  description?: string
+  options?: { label: string; value: unknown }[]
+}
+
+// ============================================================================
+// 连接表单类型
+// ============================================================================
+
+export interface ConnectionFormData {
+  name: string
+  driver: string
+  host: string
+  port?: number
+  database?: string
+  username?: string
+  password?: string
+  ssl?: boolean
+  sshTunnel?: boolean
+  properties?: Record<string, unknown>
+}
+
+// ============================================================================
+// API 响应类型
+// ============================================================================
+
+export interface ConnectionResponse {
+  conn_id: string
+  name: string
+  db_type: string
+  url: string
+  connection_type: string
+  project_id: string | null
+  status: 'connected' | 'disconnected' | 'error'
+  is_active: boolean
+  meta?: {
+    supports_transaction?: boolean
+    supports_streaming?: boolean
+    supports_arrow?: boolean
+    supports_federated?: boolean
+    supports_concurrent_write?: boolean
+    is_in_memory?: boolean
+  }
+}
+
+export interface RecentConnectionResponse {
+  id: string
+  name: string
+  db_type: string
+  url: string
+  connection_type?: string
+  connected_at: string
+}

@@ -1,0 +1,132 @@
+<template>
+  <div class="empty-workbench-panel">
+    <div class="welcome-content">
+      <div class="welcome-icon">
+        <Database :size="48" />
+      </div>
+      <h2 class="welcome-title">欢迎使用 RdataStation</h2>
+      <p class="welcome-desc">开始使用数据库管理工具</p>
+      
+      <div class="action-buttons">
+        <NButton type="primary" size="large" @click="handleNewConnection">
+          <template #icon>
+            <Plug :size="16" />
+          </template>
+          新建连接
+        </NButton>
+        <NButton size="large" @click="handleNewQuery">
+          <template #icon>
+            <FileText :size="16" />
+          </template>
+          新建查询
+        </NButton>
+      </div>
+
+      <div class="quick-links">
+        <h3>快速开始</h3>
+        <ul>
+          <li @click="handleNewConnection">创建第一个数据库连接</li>
+          <li @click="handleNewQuery">打开 SQL 编辑器</li>
+          <li>浏览数据库对象和表结构</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { Database, Plug, FileText } from 'lucide-vue-next'
+import { NButton } from 'naive-ui'
+
+const handleNewQuery = () => {
+  window.dispatchEvent(new CustomEvent('open-sql-editor', {
+    detail: { connectionId: '', databaseName: '', sql: '' }
+  }))
+}
+
+const handleNewConnection = () => {
+  window.dispatchEvent(new CustomEvent('open-connection-modal'))
+}
+</script>
+
+<style scoped>
+.empty-workbench-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.welcome-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover, #0ea5e9) 100%);
+  color: white;
+}
+
+.welcome-title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.welcome-desc {
+  margin: 0 0 32px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.quick-links {
+  text-align: left;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.quick-links h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quick-links ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-links li {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.quick-links li:hover {
+  background: var(--bg-hover);
+  color: var(--primary-color);
+}
+</style>

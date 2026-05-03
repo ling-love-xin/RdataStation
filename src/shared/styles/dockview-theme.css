@@ -1,0 +1,108 @@
+/* dockview-vue 主题覆盖 */
+
+/* 深色主题 */
+.dockview-theme-dark {
+  --dv-background-color: var(--bg-primary) !important;
+  --dv-paneview-background-color: var(--bg-secondary) !important;
+  --dv-group-view-background-color: var(--bg-primary) !important;
+  --dv-tabs-and-actions-container-background-color: var(--bg-secondary) !important;
+  --dv-tab-background-color: var(--bg-secondary) !important;
+  --dv-tab-active-background-color: var(--bg-primary) !important;
+  --dv-tab-divider-color: var(--border-color) !important;
+  --dv-tab-color: var(--text-secondary) !important;
+  --dv-tab-active-color: var(--text-primary) !important;
+  --dv-group-control-background-color: var(--bg-secondary) !important;
+  --dv-active-sash-color: var(--primary-color) !important;
+  --dv-sash-color: transparent !important;
+  --dv-sash-hover-color: var(--primary-color) !important;
+}
+
+/* 浅色主题 */
+.dockview-theme-light {
+  --dv-background-color: var(--bg-primary) !important;
+  --dv-paneview-background-color: var(--bg-secondary) !important;
+  --dv-group-view-background-color: var(--bg-primary) !important;
+  --dv-tabs-and-actions-container-background-color: var(--bg-secondary) !important;
+  --dv-tab-background-color: var(--bg-secondary) !important;
+  --dv-tab-active-background-color: var(--bg-primary) !important;
+  --dv-tab-divider-color: var(--border-color) !important;
+  --dv-tab-color: var(--text-secondary) !important;
+  --dv-tab-active-color: var(--text-primary) !important;
+  --dv-group-control-background-color: var(--bg-secondary) !important;
+  --dv-active-sash-color: var(--primary-color) !important;
+  --dv-sash-color: transparent !important;
+  --dv-sash-hover-color: var(--primary-color) !important;
+}
+
+/* 标签页样式 - 深色主题 */
+.dockview-theme-dark .dv-tabs-container {
+  background: var(--bg-secondary) !important;
+}
+
+.dockview-theme-dark .dv-tab {
+  background: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-right: 1px solid var(--border-color) !important;
+}
+
+.dockview-theme-dark .dv-tab.dv-active-tab {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-top: 2px solid var(--primary-color) !important;
+}
+
+.dockview-theme-dark .dv-tab:hover {
+  background: var(--bg-hover) !important;
+}
+
+/* 标签页样式 - 浅色主题 */
+.dockview-theme-light .dv-tabs-container {
+  background: var(--bg-secondary) !important;
+}
+
+.dockview-theme-light .dv-tab {
+  background: var(--bg-secondary) !important;
+  color: var(--text-secondary) !important;
+  border-right: 1px solid var(--border-color) !important;
+}
+
+.dockview-theme-light .dv-tab.dv-active-tab {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-top: 2px solid var(--primary-color) !important;
+}
+
+.dockview-theme-light .dv-tab:hover {
+  background: var(--bg-hover) !important;
+}
+
+/* 内容区域 */
+.dv-content-container {
+  background: var(--bg-primary) !important;
+}
+
+/* 分组头部 */
+.dv-groupview {
+  background: var(--bg-secondary) !important;
+}
+
+/* 拖拽时的遮罩 */
+.dv-drag-overlay {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border: 2px dashed var(--primary-color) !important;
+}
+
+/* 分割条 */
+.dv-sash {
+  background: transparent !important;
+}
+
+.dv-sash:hover,
+.dv-sash.dv-sash-active {
+  background: var(--primary-color) !important;
+}
+
+/* 空面板 */
+.dv-empty-space {
+  background: var(--bg-primary) !important;
+}

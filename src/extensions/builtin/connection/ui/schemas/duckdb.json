@@ -1,0 +1,73 @@
+{
+  "driverId": "duckdb",
+  "driverName": "DuckDB",
+  "version": "1.1",
+  "metadata": {
+    "category": "file",
+    "description": "DuckDB 分析型数据库",
+    "features": ["列式存储", "向量化执行", "并行查询", "SQL 兼容"],
+    "defaultPort": null,
+    "requireFile": true,
+    "supportsSsl": false,
+    "supportsSshTunnel": false
+  },
+  "sections": [
+    {
+      "key": "database",
+      "title": "数据库文件",
+      "icon": "database",
+      "fields": [
+        {
+          "key": "database",
+          "label": "数据库文件",
+          "type": "file",
+          "placeholder": "选择或输入 DuckDB 数据库文件路径",
+          "required": true
+        }
+      ]
+    },
+    {
+      "key": "advanced",
+      "title": "高级选项",
+      "icon": "settings",
+      "collapsible": true,
+      "collapsed": true,
+      "fields": [
+        {
+          "key": "threads",
+          "label": "线程数",
+          "type": "select",
+          "default": "auto",
+          "options": [
+            { "label": "自动", "value": "auto" },
+            { "label": "1", "value": "1" },
+            { "label": "2", "value": "2" },
+            { "label": "4", "value": "4" },
+            { "label": "8", "value": "8" }
+          ]
+        },
+        {
+          "key": "memoryLimit",
+          "label": "内存限制 (GB)",
+          "type": "number",
+          "placeholder": "0 表示不限制",
+          "default": 0,
+          "min": 0,
+          "max": 64
+        },
+        {
+          "key": "readOnly",
+          "label": "只读模式",
+          "type": "checkbox",
+          "default": false
+        },
+        {
+          "key": "allowUnsignedExtensions",
+          "label": "允许未签名扩展",
+          "type": "checkbox",
+          "default": false
+        }
+      ]
+    }
+  ]
+}

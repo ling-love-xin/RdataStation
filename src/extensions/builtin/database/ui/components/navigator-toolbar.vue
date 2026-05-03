@@ -1,0 +1,108 @@
+<template>
+  <div class="dbeaver-toolbar">
+    <button class="toolbar-btn" title="新建连接" @click="$emit('new-connection')">
+      <Plug :size="16" />
+    </button>
+    <button class="toolbar-btn" title="断开连接" :disabled="!hasConnection" @click="$emit('disconnect')">
+      <Unplug :size="16" />
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="刷新" :disabled="isRefreshing" @click="$emit('refresh')">
+      <RefreshCw :size="16" :class="{ spinning: isRefreshing }" />
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="搜索" @click="$emit('focus-search')">
+      <Search :size="16" />
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="过滤器" @click="$emit('toggle-filter')">
+      <Filter :size="16" :class="{ active: showFilter }" />
+    </button>
+    <button class="toolbar-btn" title="视图" @click="$emit('toggle-view')">
+      <LayoutTemplate :size="16" />
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import {
+  Plug,
+  Unplug,
+  RefreshCw,
+  Search,
+  Filter,
+  LayoutTemplate
+} from 'lucide-vue-next'
+
+defineProps<{
+  hasConnection: boolean
+  isRefreshing: boolean
+  showFilter: boolean
+}>()
+
+defineEmits<{
+  'new-connection': []
+  disconnect: []
+  refresh: []
+  'focus-search': []
+  'toggle-filter': []
+  'toggle-view': []
+}>()
+</script>
+
+<style scoped>
+.dbeaver-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  gap: 2px;
+}
+
+.toolbar-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  padding: 0;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.active {
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color);
+  margin: 0 2px;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
