@@ -1,7 +1,7 @@
 # 查询结果面板文档
 
-> 版本：v3.0
-> 最后更新：2026-05-03
+> 版本：v3.1
+> 最后更新：2026-05-04
 > 状态：✅ 持续更新
 
 > 本文档描述 RdataStation 查询结果面板的完整设计与实现
@@ -99,17 +99,54 @@ SqlEditorPanel #2 ┌─ 编辑器 ───────────────
 
 ```
 QueryResultPanel.vue (主面板 — DBeaver风格多标签)
-├── ResultTab Bar                 — 结果标签切换栏
-├── SqlPreviewBar.vue             — SQL 只读预览 + 复制按钮
-├── FilterModeSwitcher.vue        — 三模式切换按钮组
-├── QuickFilterInput.vue          — 模式1: 即时过滤 (300ms防抖)
-├── SqlFilterInput.vue            — 模式2: SQL WHERE 条件输入
-├── DuckDBAnalysisInput.vue       — 模式3: DuckDB 分析 + 快捷按钮
-├── AG Grid                       — 高性能数据表格（全部优化开启）
-├── StatusBar（内置）             — 底部状态栏（刷新/保存/导出/行数/时间）
-└── ResultContextMenu.vue         — 右键菜单 (teleport to body)
+├── result-tabs                    — 结果标签切换栏
+├── toolbar-strip                  — 顶条
+│   ├── FilterModeSwitcher.vue    — 三模式切换按钮组
+│   ├── QuickFilterInput.vue      — 模式1: 即时过滤 (前端300ms防抖)
+│   ├── SqlFilterInput.vue        — 模式2: SQL WHERE 条件输入
+│   └── DuckDBAnalysisInput.vue   — 模式3: DuckDB 分析 + 快捷按钮
+├── result-body                   — DBeaver风格主体布局
+│   ├── view-sidebar              — 左侧视图切换栏 (网格/文本/记录)
+│   ├── grid-area                 — 中间表格区
+│   │   ├── AG Grid               — 高性能数据表格（ag-grid-community）
+│   │   ├── text-view             — 文本视图 (textarea)
+│   │   └── record-view           — 记录视图 (单行详情)
+│   └── value-viewer              — 右侧值查看器 (可折叠)
+├── result-statusbar              — 底部状态栏
+│   ├── sbar-left                 — 操作按钮 (刷新/保存/取消/导出)
+│   ├── sbar-center               — 模式标签 + 行数 + 执行时间
+│   └── sbar-right                — 分页控制 (首页/上页/页码/下页/末页)
+└── ResultContextMenu.vue         — 右键菜单 (cell/header)
+
+MultiTabResults.vue (多语句结果包装器)
+├── tab-bar                       — 多结果 Tab 栏 (NTabs)
+├── tab-content                   — 结果内容区
+│   └── QueryResultPanel          — 委托渲染
+└── status-bar                    — 底部状态栏
 
 ColumnInsightsPanel.vue (独立 dockview 右侧面板)
+```
+
+### 2.1 文件路径
+
+```
+src/extensions/builtin/workbench/ui/
+├── components/panels/
+│   ├── QueryResultPanel.vue           # 主结果面板
+│   ├── MultiTabResults.vue            # 多语句结果包装器
+│   └── result-panel/
+│       ├── FilterModeSwitcher.vue     # 模式切换器
+│       ├── QuickFilterInput.vue       # 即时过滤输入
+│       ├── SqlFilterInput.vue         # SQL过滤输入
+│       ├── DuckDBAnalysisInput.vue    # DuckDB分析输入
+│       ├── ResultStatusBar.vue        # 状态栏
+│       ├── ResultContextMenu.vue      # 右键菜单
+│       ├── SqlPreviewBar.vue          # SQL预览条
+│       └── QuickFilterInput.vue       # 快速过滤输入
+├── stores/
+│   └── result-store.ts                # 结果状态管理 (Pinia)
+└── services/
+    └── result-analysis.ts             # Tauri API 调用层
 ```
 
 ---
@@ -127,12 +164,15 @@ interface ResultTab {
   duckdbTempTable: string       // DuckDB 临时表名
   columns: string[]             // 列名数组
   rows: unknown[][]             // 行数据
-  originalRowCount: number      // 原始行数
-  displayedRowCount: number     // 显示行数
+  originalRowCount: number       // 原始行数
+  displayedRowCount: number      // 显示行数
+  filteredRowCount: number       // 过滤后行数
   filterMode: FilterMode        // 当前过滤模式
   quickFilterExpression: string // 即时过滤表达式
   sqlFilterExpression: string   // SQL WHERE 条件
+  isSqlFilterLoading: boolean   // SQL过滤加载中
   duckdbSql: string             // DuckDB 分析 SQL
+  isDuckdbLoading: boolean      // DuckDB分析加载中
   isAnalysisActive: boolean     // 是否为 DuckDB 分析模式
   executionTime: number         // 执行耗时 ms
   timestamp: string             // 执行时间
@@ -146,6 +186,26 @@ interface ResultTab {
 execute（覆盖）→ query-result-updated 事件 → 复用或新建标签
 execute+（新增）→ query-result-new 事件 → 始终新建标签
 关闭标签 → splice 移除 → 自动切换到最近标签
+```
+
+### 3.3 三视图模式
+
+| 视图 | 组件 | 说明 |
+|------|------|------|
+| 网格视图 | AG Grid | 默认视图，高性能虚拟滚动表格 |
+| 文本视图 | textarea | TSV 格式显示所有数据 |
+| 记录视图 | div | 单行详细视图，支持上下翻页 |
+
+### 3.4 值查看器
+
+右侧可折叠面板，显示选中单元格的完整内容：
+
+```typescript
+interface SelectedCell {
+  column: string   // 列名
+  row: number       // 行索引 (0-based)
+  value: any        // 原始值
+}
 ```
 
 ---
@@ -194,13 +254,17 @@ execute+（新增）→ query-result-new 事件 → 始终新建标签
 | `rowHeight` | `22` | 行高 |
 | `rowBuffer` | `20` | 预渲染行数 |
 | `font-size` | `11px` (grid), `10px` (header) | 全局字号 |
+| `pagination` | `自动` | <50000行时分页，否则虚拟滚动 |
+| `paginationPageSize` | `100` | 默认每页100行 |
+| `paginationPageSelector` | `[50, 100, 200, 500]` | 页大小选择器 |
 
-### 5.2 Grid ↔ Record 联动
+### 5.2 Grid ↔ Record ↔ Text 联动
 
 | 操作 | 行为 |
 |------|------|
-| 点击左侧栏 📋 图标 | 切换到网格视图（默认）|
-| 点击左侧栏 📄 图标 | 切换到记录视图 |
+| 点击左侧栏 Database 图标 | 切换到网格视图（默认）|
+| 点击左侧栏 AlignLeft 图标 | 切换到文本视图 |
+| 点击左侧栏 List 图标 | 切换到记录视图 |
 | **点击任意一行** | **自动切换到记录视图并显示该行数据** |
 | 记录模式下◀▶按钮 | 上下翻页切换记录 |
 
@@ -220,29 +284,42 @@ execute+（新增）→ query-result-new 事件 → 始终新建标签
 └───────────────────────────────────────────────────┘
 ```
 
+### 5.4 Text 视图布局
+
+TSV 格式文本显示，便于复制：
+
+```
+[1]    1    AC/DC    acdc@mail.com    42
+[2]    2    Rock     rock@mail.com    35
+[3]    3    Metal    metal@mail.com   28
+```
+
+### 5.5 列类型检测
+
 ```typescript
 // 列类型检测
 isLikelyNumeric(col) → width: 110, flex: 0, text-align: right
 isLikelyDate(col)    → width: 140, flex: 1
 isLikelyLongText(col) → width: 200, flex: 2
-其他                 → width: 130, flex: 1
+其他                   → width: 130, flex: 1
 ```
 
-### 5.2 全局行号（#2）
+### 5.6 全局行号（#2）
 
 支持分页的全局行号：`page * pageSize + rowIndex + 1`
 
-### 5.3 性能优化参数（#18-#22）
+### 5.7 性能优化参数（#18-#22）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
 | `columnVirtualisation` | `true` | 列虚拟化，大宽表优化 |
-| `rowBuffer` | `30` | 预渲染行数，减少滚动白屏 |
+| `rowBuffer` | `20` | 预渲染行数，减少滚动白屏 |
 | `blockLoadDebounceMs` | `50` | 滚动节流 |
 | `domLayout` | `'normal'` | 标准 DOM 布局 |
-| `suppressColumnVirtualisation` | `false` | 不抑制列虚拟化 |
+| `singleClickEdit` | `false` | 单击编辑关闭 |
+| `stopEditingWhenCellsLoseFocus` | `true` | 失焦自动停止编辑 |
 
-### 5.4 视觉优化（#11-#16）
+### 5.8 视觉优化（#11-#16）
 
 | 优化 | 实现 |
 |------|------|
@@ -256,7 +333,7 @@ isLikelyLongText(col) → width: 200, flex: 2
 
 > **布局原则**：结果集表格不设单独的筛选过滤行，保持 DBeaver 风格的干净表格。筛选通过列头右键菜单或顶部的三模式过滤面板完成。
 
-### 5.5 导出菜单
+### 5.9 导出菜单
 
 | 格式 | 实现 |
 |------|------|
