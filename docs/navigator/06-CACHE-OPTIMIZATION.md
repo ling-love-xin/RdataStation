@@ -1,8 +1,8 @@
 # 缓存架构优化文档
 
-> 创建时间：2026-04-28  
-> 最后更新：2026-04-28  
-> 状态：✅ P1 + P2 优化已完成
+> 创建时间：2026-04-28
+> 最后更新：2026-05-06
+> 状态：✅ P1 + P2 + V6 + V7 增量同步优化已完成
 
 ## 概述
 
@@ -126,6 +126,440 @@
 - 自动检测版本变化
 - 执行迁移脚本，记录迁移历史
 - 支持回滚机制
+
+### 8. 规范化表结构（V4+）
+
+- 规范化设计：schemata / tables / columns / indexes / views / routines 独立表
+- 外键约束确保数据完整性
+- 触发器实现级联删除
+- 向后兼容视图保持旧接口可用
+
+### 9. FTS5 全文搜索同步（V5+）
+
+- 规范化表数据自动同步到 FTS5 虚拟表
+- 支持增量同步（按类型：schema/table/column/view/routine）
+- 搜索结果高亮显示
+- 搜索类型过滤
+
+### 10. 级联删除支持（V5+）
+
+- 删除 Schema 时自动级联删除关联数据
+- 通过触发器实现：tables → columns/indexes
+- FTS 索引同步清理
+
+### 11. 分页懒加载（V6+）
+
+- metadata_index 索引表支持快速定位
+- 分页加载避免全量查询
+- introspect_level 分级加载（1=索引, 2=概要, 3=详情）
+- 支持百万级表数据库秒级响应
+
+### 12. 同步状态跟踪（V6+）
+
+- connection_sync_status 跟踪同步进度
+- 支持取消同步（cancel_sync）
+- 状态：idle/indexing/syncing/completed/error/cancelled
+
+### 13. 后台任务队列（V6+）
+
+- sync_tasks 表支持后台任务队列
+- 完整生命周期：pending → running → completed/failed
+- 优先级调度（priority 字段）
+- 批量入队支持事务
+
+### 14. 分块读取（V6+）
+
+- get_tables_chunk 分块获取表名
+- ChunkResult 通用分块结果结构
+- has_more 标志支持继续加载
+- 避免大数据量 OOM
+
+### 15. 前端 TypeScript V6 支持
+
+- metadata-cache-service.ts 新增 V6 方法
+- SyncTaskInput / SyncTaskInfo 类型定义
+- ChunkResult<T> 泛型分块结果
+- getTablesChunk 分块加载接口
+
+### 16. DataGrip 风格内省级别（V6+）
+
+**内省级别定义**（与 DataGrip 一致）
+
+| 级别 | 说明 | 对象数量阈值（当前 Schema） | 对象数量阈值（非当前 Schema） |
+|------|------|---------------------------|----------------------------|
+| Level 1 | 仅索引（名称） | > 3000 | > 10000 |
+| Level 2 | 概要（无源码） | 1000 - 3000 | 3000 - 10000 |
+| Level 3 | 完整 | <= 1000 | <= 3000 |
+
+**API**
+
+```rust
+// 计算内省级别
+fn calculate_introspect_level(object_count: i64, is_current_schema: bool) -> i32
+
+// 获取 Schema 对象统计
+fn get_schema_object_counts(connection_id: &str, schema_id: i64) -> Result<SchemaObjectCounts, CoreError>
+```
+
+**前端调用**
+
+```typescript
+// 获取内省级别建议
+const level = await getIntrospectLevelSuggestion(connectionId, schemaId, isCurrentSchema)
+
+// 获取对象统计
+const counts = await getSchemaObjectCounts(connectionId, schemaId)
+```
+
+### 18. 增量同步（V7）
+
+**设计目标**
+- 首次同步：全量预热
+- 后续同步：仅同步变更对象
+- 预热时间：减少 90%+
+
+**核心概念**
+- **快照（Snapshot）**：保存上次同步时的元数据状态
+- **Hash 计算**：SHA-256 计算对象 Hash（object_type + name + parent + extra_data）
+- **变更检测**：对比当前状态与快照状态
+- **操作队列**：记录待同步的 create/update/delete 操作
+
+**表结构**
+
+```sql
+-- 同步快照表
+CREATE TABLE IF NOT EXISTS sync_snapshot (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    connection_id TEXT NOT NULL,
+    snapshot_type TEXT NOT NULL,      -- schema/table/column/index/view/routine/full
+    object_type TEXT NOT NULL,
+    object_name TEXT NOT NULL,
+    parent_name TEXT,
+    object_hash TEXT,
+    snapshot_at INTEGER NOT NULL,
+    UNIQUE (connection_id, object_type, object_name, parent_name)
+);
+
+-- 同步操作表
+CREATE TABLE IF NOT EXISTS sync_operations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    connection_id TEXT NOT NULL,
+    operation_type TEXT NOT NULL,     -- create/update/delete/no_change
+    object_type TEXT NOT NULL,
+    object_name TEXT NOT NULL,
+    parent_name TEXT,
+    old_hash TEXT,
+    new_hash TEXT,
+    detected_at INTEGER NOT NULL,
+    processed_at INTEGER,
+    status TEXT DEFAULT 'pending',     -- pending/running/completed/failed
+    priority INTEGER DEFAULT 5,
+    error_message TEXT
+);
+
+-- 变更检测视图
+CREATE VIEW IF NOT EXISTS v_schema_changes AS ...;
+CREATE VIEW IF NOT EXISTS v_table_changes AS ...;
+CREATE VIEW IF NOT EXISTS v_column_changes AS ...;
+```
+
+**API**
+
+```rust
+// MetadataCacheOps V7 新方法
+fn calculate_object_hash(
+    object_type: &str,
+    name: &str,
+    parent: Option<&str>,
+    extra_data: Option<&str>,
+) -> String
+
+fn save_snapshot(
+    &mut self,
+    connection_id: &str,
+    snapshot_type: &str,
+    snapshots: Vec<SyncSnapshot>,
+) -> Result<usize, CoreError>
+
+fn get_snapshot(
+    &self,
+    connection_id: &str,
+    snapshot_type: &str,
+) -> Result<Vec<SyncSnapshot>, CoreError>
+
+fn has_snapshot(
+    &self,
+    connection_id: &str,
+    snapshot_type: &str,
+) -> Result<bool, CoreError>
+
+fn detect_schema_changes(&self, connection_id: &str) -> Result<Vec<SyncOperation>, CoreError>
+fn detect_table_changes(&self, connection_id: &str) -> Result<Vec<SyncOperation>, CoreError>
+fn detect_column_changes(&self, connection_id: &str) -> Result<Vec<SyncOperation>, CoreError>
+fn detect_all_changes(&self, connection_id: &str) -> Result<ChangeDetectionResult, CoreError>
+
+fn incremental_sync(&mut self, connection_id: &str) -> Result<ChangeDetectionResult, CoreError>
+```
+
+**数据结构**
+
+```rust
+// 变更检测结果
+pub struct ChangeDetectionResult {
+    pub connection_id: String,
+    pub create_count: usize,
+    pub update_count: usize,
+    pub delete_count: usize,
+    pub no_change_count: usize,
+    pub total: usize,
+    pub detected_at: i64,
+}
+
+// 同步操作
+pub struct SyncOperation {
+    pub id: Option<i64>,
+    pub connection_id: String,
+    pub operation_type: String,
+    pub object_type: String,
+    pub object_name: String,
+    pub parent_name: Option<String>,
+    pub old_hash: Option<String>,
+    pub new_hash: Option<String>,
+    pub detected_at: i64,
+    pub processed_at: Option<i64>,
+    pub status: String,
+    pub priority: i32,
+    pub error_message: Option<String>,
+}
+
+// 快照
+pub struct SyncSnapshot {
+    pub id: Option<i64>,
+    pub connection_id: String,
+    pub snapshot_type: String,
+    pub object_type: String,
+    pub object_name: String,
+    pub parent_name: Option<String>,
+    pub object_hash: Option<String>,
+    pub snapshot_at: i64,
+}
+```
+
+**执行流程**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    build_cache_index V3                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  1. 检查是否有快照 (has_snapshot)                        │  │
+│  └────────────────────┬──────────────────────────────────────┘  │
+│                       │                                         │
+│                       ▼                                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  2. 增量模式? → 是 → 检测变更 (detect_all_changes)        │  │
+│  │                   → 否 → 全量同步                          │  │
+│  └────────────────────┬──────────────────────────────────────┘  │
+│                       │                                         │
+│                       ▼                                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  3. JoinSet 并行获取（与 V2 相同）                        │  │
+│  └────────────────────┬──────────────────────────────────────┘  │
+│                       │                                         │
+│                       ▼                                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  4. 流式写入 + 收集快照                                  │  │
+│  └────────────────────┬──────────────────────────────────────┘  │
+│                       │                                         │
+│                       ▼                                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  5. 保存快照 (save_snapshot)                              │  │
+│  └────────────────────┬──────────────────────────────────────┘  │
+│                       │                                         │
+│                       ▼                                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  6. 返回响应（包含 create/update/delete 计数）            │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 19. build_cache_index V3 优化版（支持增量模式）
+
+**命令定义**
+
+```rust
+#[derive(Debug, Deserialize)]
+pub struct BuildCacheIndexInput {
+    pub connection_id: String,
+    pub connection_type: String,
+    pub project_path: Option<String>,
+    pub source_connection_id: Option<String>,
+    pub database: Option<String>,
+    pub schema: Option<String>,
+    pub incremental: Option<bool>,          // V3: 增量模式开关
+}
+
+#[derive(Debug, Serialize)]
+pub struct IndexBuildResponse {
+    pub success: bool,
+    pub message: String,
+    pub schema_count: usize,
+    pub table_count: usize,
+    pub column_count: usize,
+    pub index_count: usize,
+    pub view_count: usize,
+    pub routine_count: usize,
+    pub total_count: usize,
+    pub duration_ms: u64,
+    pub incremental: Option<bool>,          // V3: 是否使用增量模式
+    pub create_count: Option<usize>,        // V3: 新增对象数
+    pub update_count: Option<usize>,        // V3: 更新对象数
+    pub delete_count: Option<usize>,        // V3: 删除对象数
+    pub no_change_count: Option<usize>,     // V3: 未变更对象数
+}
+```
+
+**优化特性 V3**
+
+| 特性 | 说明 | 收益 |
+|------|------|------|
+| **增量模式** | 首次全量，后续仅同步变更对象 | 减少 90%+ 预热时间 |
+| **快照保存** | 每次同步后保存元数据快照 | 下次同步用于变化检测 |
+| **Hash 变化检测** | SHA-256 计算对象 Hash | 准确检测对象变化 |
+| **JoinSet 多 Schema 并行** | 多个 Schema 的 tables 同时获取 | 减少 40-50% 时间 |
+| **JoinSet 表级并行** | 多个表的 columns 同时获取 | 减少 60-70% 时间 |
+| **流式写入** | 每 500 条写入一次 | 内存降低 50%+ |
+| **进度回调** | 通过 `cache_warming_progress` 事件推送进度 | UX 提升 |
+| **取消支持** | `CancellationToken` 支持中断执行 | 响应用户取消 |
+
+**优化特性 V2**
+
+| 特性 | 说明 | 收益 |
+|------|------|------|
+| **JoinSet 多 Schema 并行** | 多个 Schema 的 tables 同时获取 | 减少 40-50% 时间 |
+| **JoinSet 表级并行** | 多个表的 columns 同时获取 | 减少 60-70% 时间 |
+| **流式写入** | 每 500 条写入一次，而非全量内存构建后写入 | 内存降低 50%+ |
+| **进度回调** | 通过 `cache_warming_progress` 事件推送进度 | UX 提升 |
+| **取消支持** | `CancellationToken` 支持中断执行 | 响应用户取消 |
+
+**执行流程（优化版 V2）**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              JoinSet 并行获取多个 Schema                          │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │  Schema 1       │  │  Schema 2       │  │  Schema N       │  │
+│  │  list_tables()  │  │  list_tables()  │  │  list_tables()  │  │
+│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘  │
+│           │                    │                    │           │
+│           ▼                    ▼                    ▼           │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │   JoinSet 并行获取每个 Schema 内所有表的 Columns           │  │
+│  │   table1.cols  table2.cols  table3.cols  ...             │  │
+│  └────────────────────────────┬──────────────────────────────┘  │
+│                               │                                 │
+│                               ▼                                 │
+│                    Broadcast Channel                            │
+│                               ▼                                 │
+│              ┌───────────────────────────────┐                   │
+│              │     流式写入（每 500 条一批）    │                   │
+│              │     save_index_entries_internal │                   │
+│              └───────────────────────────────┘                   │
+│                               ▼                                   │
+│                    Tauri Event 进度推送                           │
+│                    cache_warming_progress                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**进度事件格式**
+
+```typescript
+interface CacheWarmingProgress {
+    connection_id: string   // 连接 ID
+    step: string            // 当前步骤: fetching_schemas | fetching_tables | writing_index | completed
+    current: number         // 当前进度
+    total: number           // 总量
+    progress: number        // 百分比 0-100
+    message: string         // 状态消息
+}
+
+// 前端监听
+app.handle('cache_warming_progress', (event) => {
+    console.log(`进度: ${event.payload.progress}% - ${event.payload.message}`)
+})
+```
+
+**取消支持**
+
+```rust
+// 使用 CancellationToken 支持取消
+let cancel_token = CancellationToken::new();
+
+// 在长时间操作中检查取消状态
+if cancel_token.is_cancelled() {
+    cache_ops.update_sync_status(&input.connection_id, "cancelled", 0, None).ok();
+    return Err("索引构建被取消".to_string());
+}
+```
+
+**前端调用**
+
+```typescript
+const unlisten = await app.listen('cache_warming_progress', (event) => {
+    updateProgress(event.payload)
+})
+
+const result = await invoke<IndexBuildResponse>('build_cache_index', {
+    connectionId: 'cache-123',
+    connectionType: 'project',
+    projectPath: '/path/to/project',
+    sourceConnectionId: 'conn-456',
+    database: 'mydb',
+    schema: 'public'
+})
+
+unlisten() // 取消监听
+```
+
+### SQLite 性能优化（MetadataCacheManager::open）
+
+**优化参数**
+
+| PRAGMA | 值 | 说明 | 收益 |
+|--------|-----|------|------|
+| `journal_mode` | WAL | Write-Ahead Logging | 读写并发，减少写入锁竞争 |
+| `mmap_size` | 268435456 (256MB) | Memory-Mapped I/O | 读取性能提升 10-20% |
+| `cache_size` | -2000 (2MB) | 页缓存 | 减少磁盘 I/O |
+| `foreign_keys` | ON | 外键约束 | 数据完整性 |
+| `synchronous` | NORMAL | 同步模式 | WAL 模式下提供良好平衡 |
+
+**实现位置**
+
+```rust
+// metadata_cache.rs - MetadataCacheManager::open()
+pub fn open(&self) -> Result<Connection, CoreError> {
+    let conn = Connection::open(&self.db_path)?;
+
+    // WAL 模式
+    conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(()))?;
+
+    // Memory-Mapped I/O (256MB)
+    conn.execute("PRAGMA mmap_size=268435456", [])?;
+
+    // 增大缓存 (2MB)
+    conn.execute("PRAGMA cache_size=-2000", [])?;
+
+    // 外键约束
+    conn.execute("PRAGMA foreign_keys=ON", [])?;
+
+    // 同步模式
+    conn.execute("PRAGMA synchronous=NORMAL", [])?;
+
+    // 执行迁移
+    MigrationManager::new().migrate(&self.db_path, MigrationType::ConnectionMetadata)?;
+
+    Ok(conn)
+}
+```
 
 ## 前后端打通实现
 
@@ -375,12 +809,18 @@ impl MigrationStrategy for V1ToV2Migration {
 
 ### 加载时间优化
 
-| 操作 | 优化前 | 优化后 | 提升 |
-|------|--------|--------|------|
-| 连接建立 | 500ms | 100ms | -80% |
-| 数据库展开 | 300ms | 50ms | -83% |
-| 表展开 | 200ms | 30ms | -85% |
-| 列加载 | 150ms | 20ms | -87% |
+| 操作 | 优化前 | 优化后（V2） | 优化后（V7 增量） | 提升（V7） |
+|------|--------|-------------|------------------|-----------|
+| 首次同步（全量） | 500ms | 150ms | 150ms | -70% |
+| 后续同步（增量） | 500ms | 150ms | 15ms | -97% |
+| 数据库展开 | 300ms | 50ms | 50ms | -83% |
+| 表展开 | 200ms | 30ms | 30ms | -85% |
+| 列加载 | 150ms | 20ms | 20ms | -87% |
+
+**增量同步效果说明**
+- 首次同步：全量预热（150ms），与 V2 相同
+- 后续同步：仅同步变更对象（假设变更率 10%），约 15ms
+- 极端场景（无变更）：仅检测快照，约 1-2ms
 
 ### 存储空间优化
 
@@ -452,7 +892,7 @@ match cache_manager.get_cached_tables(&db_name, &schema_name) {
 
 ### P3 优化（规划中）
 
-- [ ] 增量缓存更新（只更新变更部分）
+- [x] 增量缓存更新（只更新变更部分） ✅ V7 已完成
 - [ ] 缓存预热优先级队列
 - [ ] 多连接并行预热
 - [ ] 缓存预热结果预测

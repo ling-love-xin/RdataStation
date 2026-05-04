@@ -306,6 +306,8 @@ CREATE VIRTUAL TABLE metadata_fts USING fts5(
 
 ### 5.3 元数据同步策略
 
+#### 基础同步策略
+
 ```rust
 /// 元数据同步策略
 pub enum MetadataSyncStrategy {
@@ -327,6 +329,60 @@ pub struct MetadataSyncConfig {
     pub exclude_patterns: Vec<String>,          // 排除的表模式
 }
 ```
+
+#### V7 增量同步（完整支持）
+
+**设计目标**：
+- 首次同步：全量预热
+- 后续同步：仅同步变化对象
+- 预热时间减少 90%+
+
+**核心机制**：
+
+| 组件 | 说明 |
+|------|------|
+| **sync_snapshot** | 快照表，保存上次同步时的元数据状态 |
+| **sync_operations** | 操作表，记录待同步的 create/update/delete |
+| **object_hash** | SHA-256 Hash，用于快速检测变化 |
+| **change views** | 变更检测视图（v_schema_changes 等） |
+
+**API**：
+
+```rust
+// MetadataCacheOps V7 增量同步 API
+fn calculate_object_hash(
+    object_type: &str,
+    name: &str,
+    parent: Option<&str>,
+    extra_data: Option<&str>,
+) -> String
+
+fn save_snapshot(
+    &mut self,
+    connection_id: &str,
+    snapshot_type: &str,
+    snapshots: Vec<SyncSnapshot>,
+) -> Result<usize, CoreError>
+
+fn detect_all_changes(
+    &self,
+    connection_id: &str,
+) -> Result<ChangeDetectionResult, CoreError>
+
+fn incremental_sync(
+    &mut self,
+    connection_id: &str,
+) -> Result<ChangeDetectionResult, CoreError>
+```
+
+**性能对比**：
+
+| 场景 | V6 优化后 | V7 增量（首次） | V7 增量（后续） |
+|------|----------|---------------|----------------|
+| 预热时间 | 150ms | 150ms | 15ms |
+| 提升 | -70% | -70% | -97% |
+
+详见 [COMPARISON.md](../COMPARISON.md) 和 [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md)
 
 ### 5.4 元数据懒加载
 

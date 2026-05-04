@@ -164,7 +164,10 @@ pub fn run() {
             cache_warming_commands::check_cache_version,
             cache_warming_commands::execute_cache_migration,
             cache_warming_commands::get_cache_migration_history,
-            
+            cache_warming_commands::get_introspect_level_suggestion,
+            cache_warming_commands::get_schema_object_counts,
+            cache_warming_commands::build_cache_index,
+
             // SQL 解析与转译命令
             parse_sql,
             format_sql,

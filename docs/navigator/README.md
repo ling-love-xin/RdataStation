@@ -1,8 +1,8 @@
 # IVM 数据库导航栏设计文档
 
-> 版本：v1.0
-> 最后更新：2026-05-03
-> 状态：✅ 持续更新
+> 版本：v1.1
+> 最后更新：2026-05-06
+> 状态：✅ V7 增量同步已完成
 
 ---
 
@@ -15,7 +15,8 @@
 | [03-INTERFACES.md](./03-INTERFACES.md) | 接口规范 | ✅ |
 | [04-IMPLEMENTATION.md](./04-IMPLEMENTATION.md) | 实施步骤 | ✅ |
 | [05-OPTIMIZATION.md](./05-OPTIMIZATION.md) | 优化策略 | ✅ |
-| [06-CACHE-OPTIMIZATION.md](./06-CACHE-OPTIMIZATION.md) | 缓存优化 | ✅ |
+| [06-CACHE-OPTIMIZATION.md](./06-CACHE-OPTIMIZATION.md) | 缓存优化（V7 增量同步） | ✅ |
+| [COMPARISON.md](../COMPARISON.md) | 竞品对比分析 | ✅ |
 
 ## 已知问题
 

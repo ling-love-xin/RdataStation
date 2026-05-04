@@ -324,6 +324,184 @@ export interface WarmingProgressResponse {
   current_table: string | null
 }
 
+// ==================== V6: 索引表与分页 ====================
+
+/**
+ * 索引条目
+ */
+export interface IndexEntry {
+  id: number
+  schema_id: number | null
+  object_type: string
+  object_name: string
+  parent_name: string | null
+  path: string
+  introspect_level: number
+  is_loaded: boolean
+  last_sync: number | null
+  row_count_estimate: number | null
+  sort_weight: number | null
+}
+
+/**
+ * 分页索引结果
+ */
+export interface PaginatedIndexResult {
+  entries: IndexEntry[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+/**
+ * 同步状态信息
+ */
+export interface SyncStatusInfo {
+  connection_id: string
+  status: string
+  progress: number
+  total_objects: number | null
+  synced_objects: number | null
+  current_object: string | null
+  started_at: number | null
+  completed_at: number | null
+  last_error: string | null
+}
+
+/**
+ * 获取分页索引条目
+ */
+export async function getIndexEntries(
+  connectionId: string,
+  objectType: string,
+  schemaId?: number,
+  page: number = 1,
+  pageSize: number = 100
+): Promise<PaginatedIndexResult> {
+  return invoke<PaginatedIndexResult>('get_index_entries', {
+    connectionId,
+    objectType,
+    schemaId,
+    page,
+    pageSize
+  })
+}
+
+/**
+ * 获取同步状态
+ */
+export async function getSyncStatus(connectionId: string): Promise<SyncStatusInfo | null> {
+  return invoke<SyncStatusInfo | null>('get_sync_status', {
+    connectionId
+  })
+}
+
+/**
+ * 取消同步
+ */
+export async function cancelSync(connectionId: string): Promise<void> {
+  return invoke('cancel_sync', {
+    connectionId
+  })
+}
+
+// ==================== V6: 后台同步任务队列 ====================
+
+/**
+ * 同步任务输入
+ */
+export interface SyncTaskInput {
+  connection_id: string
+  task_type: string
+  object_name: string
+  parent_name?: string
+  priority: number
+}
+
+/**
+ * 同步任务信息
+ */
+export interface SyncTaskInfo {
+  id: number
+  connection_id: string
+  task_type: string
+  object_name: string
+  parent_name?: string
+  priority: number
+  status: string
+  created_at: number | null
+}
+
+/**
+ * 入队同步任务
+ */
+export async function enqueueSyncTask(
+  connectionId: string,
+  taskType: string,
+  objectName: string,
+  parentName?: string,
+  priority: number = 5
+): Promise<number> {
+  return invoke<number>('enqueue_sync_task', {
+    connectionId,
+    taskType,
+    objectName,
+    parentName,
+    priority
+  })
+}
+
+/**
+ * 入队多个同步任务（批量）
+ */
+export async function enqueueSyncTasksBatch(
+  tasks: SyncTaskInput[]
+): Promise<number> {
+  return invoke<number>('enqueue_sync_tasks_batch', {
+    tasks
+  })
+}
+
+/**
+ * 获取待处理任务数量
+ */
+export async function getPendingTaskCount(connectionId: string): Promise<number> {
+  return invoke<number>('get_pending_task_count', {
+    connectionId
+  })
+}
+
+// ==================== V6: 分块读取 ====================
+
+/**
+ * 分块读取结果
+ */
+export interface ChunkResult<T> {
+  items: T[]
+  total: number
+  offset: number
+  limit: number
+  has_more: boolean
+}
+
+/**
+ * 分块获取表名（避免 OOM）
+ */
+export async function getTablesChunk(
+  connectionId: string,
+  schemaId?: number,
+  offset: number = 0,
+  limit: number = 100
+): Promise<ChunkResult<IndexEntry>> {
+  return invoke<ChunkResult<IndexEntry>>('get_tables_chunk', {
+    connectionId,
+    schemaId,
+    offset,
+    limit
+  })
+}
+
 /**
  * 迁移响应
  */
@@ -423,5 +601,62 @@ export async function getCacheMigrationHistory(
     connectionId,
     connectionType,
     projectPath
+  })
+}
+
+// ==================== V6: DataGrip 风格内省级别 ====================
+
+/**
+ * Schema 对象数量统计
+ */
+export interface SchemaObjectCounts {
+  table_count: number
+  view_count: number
+  column_count: number
+  routine_count: number
+  total: number
+}
+
+/**
+ * 获取内省级别建议（DataGrip 风格）
+ *
+ * 根据对象数量自动计算合适的内省级别：
+ * - Level 1: 仅索引（对象数量大）
+ * - Level 2: 概要（中等数量）
+ * - Level 3: 完整（少量对象）
+ *
+ * @param schemaId Schema ID
+ * @param isCurrentSchema 是否为当前 Schema
+ */
+export async function getIntrospectLevelSuggestion(
+  connectionId: string,
+  connectionType: 'global' | 'project',
+  schemaId: number,
+  isCurrentSchema: boolean,
+  projectPath?: string
+): Promise<number> {
+  return invoke<number>('get_introspect_level_suggestion', {
+    connectionId,
+    connectionType,
+    projectPath,
+    schemaId,
+    isCurrentSchema
+  })
+}
+
+/**
+ * 获取 Schema 对象数量统计
+ */
+export async function getSchemaObjectCounts(
+  connectionId: string,
+  connectionType: 'global' | 'project',
+  schemaId: number,
+  projectPath?: string
+): Promise<SchemaObjectCounts> {
+  return invoke<SchemaObjectCounts>('get_schema_object_counts', {
+    connectionId,
+    connectionType,
+    projectPath,
+    schemaId
   })
 }
