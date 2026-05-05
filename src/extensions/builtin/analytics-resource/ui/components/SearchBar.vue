@@ -97,8 +97,8 @@ defineExpose({ focus })
 
 <style scoped>
 .search-bar {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #d9d9d9);
+  padding: var(--size-md) var(--size-lg);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .search-input-wrapper {
@@ -111,30 +111,31 @@ defineExpose({ focus })
   position: absolute;
   left: 12px;
   font-size: 14px;
-  color: var(--text-tertiary, #999);
+  color: var(--text-tertiary);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: 10px 36px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 8px;
-  background: var(--color-background-elevated, #f5f5f5);
-  font-size: 14px;
-  color: var(--text-primary, #333);
+  padding: 6px 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  font-size: 13px;
+  color: var(--text-primary);
   transition: all 0.2s;
+  height: var(--height-input);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--color-primary, #165dff);
-  background: var(--color-background, #fff);
-  box-shadow: 0 0 0 2px var(--color-primary-lighter, rgba(22, 93, 255, 0.1));
+  border-color: var(--primary-color);
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
 }
 
 .search-input::placeholder {
-  color: var(--text-tertiary, #999);
+  color: var(--text-tertiary);
 }
 
 .clear-btn {
@@ -147,14 +148,14 @@ defineExpose({ focus })
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--text-tertiary, #999);
+  color: var(--text-tertiary);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s;
 }
 
 .clear-btn:hover {
-  background: var(--color-border, #d9d9d9);
-  color: var(--text-primary, #333);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 </style>

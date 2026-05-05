@@ -94,10 +94,10 @@ const handleColumnInsight = async (event: CustomEvent) => {
 }
 
 onMounted(() => {
-  window.addEventListener('open-column-insight', handleColumnInsight as (e: Event) => void)
+  window.addEventListener('open-column-insight', handleColumnInsight as unknown as (e: Event) => void)
 })
 onUnmounted(() => {
-  window.removeEventListener('open-column-insight', handleColumnInsight as (e: Event) => void)
+  window.removeEventListener('open-column-insight', handleColumnInsight as unknown as (e: Event) => void)
 })
 
 function formatNum(n: number): string {

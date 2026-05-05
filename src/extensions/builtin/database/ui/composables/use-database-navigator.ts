@@ -2,15 +2,17 @@ import { ref, computed } from 'vue'
 
 
 
-import { getGlobalConnections, saveNavigatorState } from '../../connection/ui/services/connection'
-import { useProjectConnectionStore } from '../../connection/ui/stores/project-connection-store'
-import { useWorkbenchStore } from '../../workbench/ui/stores/workbench-store'
+import { getGlobalConnections, saveNavigatorState, loadNavigatorState as fetchNavigatorState } from '../../../connection/ui/services/connection'
+import { useProjectConnectionStore } from '../../../connection/ui/stores/project-connection-store'
+import { useWorkbenchStore } from '../../../workbench/ui/stores/workbench-store'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 
 import type {
   GlobalConnection,
   FilterConfig
 } from '../types/navigator'
+
+import type { ProjectConnection } from '../../../connection/types/connection'
 
 export function useDatabaseNavigator() {
   const navigatorStore = useDatabaseNavigatorStore()
@@ -20,7 +22,7 @@ export function useDatabaseNavigator() {
   const searchQuery = ref('')
   const expandedKeys = ref<string[]>([])
   const selectedKeys = ref<string[]>([])
-  const currentConnection = ref<GlobalConnection | null>(null)
+  const currentConnection = ref<GlobalConnection | ProjectConnection | null>(null)
   const isRefreshing = ref(false)
   const showSearch = ref(false)
   const showFilter = ref(false)
@@ -84,7 +86,7 @@ export function useDatabaseNavigator() {
     const projectPath = projectStore.currentProject?.path
 
     for (const conn of projectConnectionStore.connections) {
-      navigatorStore.setConnectionInfo(conn.id, 'project', projectPath, conn.db_type)
+      navigatorStore.setConnectionInfo(conn.id, 'project', projectPath, conn.driver)
       await navigatorStore.loadDatabases(conn.id)
     }
   }
@@ -218,7 +220,7 @@ export function useDatabaseNavigator() {
       const firstConn = allConnections.value[0]
       if (!firstConn) return
 
-      const state = await loadNavigatorState(firstConn.id)
+      const state = await fetchNavigatorState(firstConn.id)
 
       if (state.expanded_keys.length > 0) {
         expandedKeys.value = state.expanded_keys
@@ -229,11 +231,12 @@ export function useDatabaseNavigator() {
       }
 
       if (state.filter_config) {
+        const fc = state.filter_config as Record<string, boolean>
         filterConfig.value = {
-          showTables: state.filter_config.showTables ?? true,
-          showViews: state.filter_config.showViews ?? true,
-          showColumns: state.filter_config.showColumns ?? true,
-          showSystemSchemas: state.filter_config.showSystemSchemas ?? false
+          showTables: fc.showTables ?? true,
+          showViews: fc.showViews ?? true,
+          showColumns: fc.showColumns ?? true,
+          showSystemSchemas: fc.showSystemSchemas ?? false
         }
       }
     } catch (error) {

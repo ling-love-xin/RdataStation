@@ -230,10 +230,11 @@ const updateChart = () => {
       option = {
         tooltip: {
           trigger: 'item',
-          formatter: (params: Record<string, unknown>) => {
-            return `${xAxisColumn.value}: ${params.data?.[0]}<br/>${yAxisColumn.value}: ${params.data?.[1]}`
+          formatter: (params: unknown) => {
+            const p = params as { data?: [number, number] }
+            return `${xAxisColumn.value}: ${p.data?.[0] ?? '-'}<br/>${yAxisColumn.value}: ${p.data?.[1] ?? '-'}`
           }
-        },
+        } as Record<string, unknown>,
         xAxis: { type: 'value', name: xAxisColumn.value },
         yAxis: { type: 'value', name: yAxisColumn.value },
         series: [{

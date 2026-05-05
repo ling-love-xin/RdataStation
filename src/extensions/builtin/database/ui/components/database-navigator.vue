@@ -153,6 +153,7 @@ function handleVirtualTreeToggle(node: VirtualTreeNode) {
 
   if (node.isExpanded && node.data) {
     const { connectionId, dbName, schemaName, tableName } = node.data
+    if (!connectionId || !dbName) return
     const connectionType = navigatorStore.getConnectionType(connectionId) || 'global'
     const projectPath = navigatorStore.getProjectPath(connectionId)
 
@@ -743,8 +744,8 @@ function handleOpenConnectionEditor(event: Event) {
 }
 
 const handleContextMenuRefresh = async () => {
-  if (contextMenuNodeData.value.connectionId) {
-    const connId = contextMenuNodeData.value.connectionId as string
+  if (contextMenuCurrentNode.value?.data?.connectionId) {
+    const connId = contextMenuCurrentNode.value.data.connectionId as string
     clearConnection(connId)
     await navigatorStore.loadDatabases(connId)
     initializeRootNodes()

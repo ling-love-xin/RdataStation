@@ -372,16 +372,11 @@ const confirmCreateProject = async () => {
     console.log('createProject 返回结果:', result)
 
     if (result) {
-      // 处理 path 字段，后端返回的是 { type: 'Local', path: '...' } 格式
-      const projectPath = typeof result.path === 'string' 
-        ? result.path 
-        : (result.path?.path || newProjectPath.value.trim())
-
       const project: Project = {
         id: result.id,
         name: result.name,
         description: result.description,
-        path: projectPath,
+        path: result.path,
         lastOpened: Date.now()
       }
 

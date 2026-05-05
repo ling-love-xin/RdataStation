@@ -8,7 +8,8 @@ import {
 } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
-import type { IDockviewApi, IGroupviewPanelApi } from 'dockview-vue'
+import type { DockviewApi } from 'dockview-vue'
+import type { IDockviewPanel } from 'dockview-core'
 
 // ============================================
 // 类型定义
@@ -129,7 +130,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   // Dockview API 引用
   // ============================================
-  const dockviewApi = shallowRef<IDockviewApi | null>(null)
+  const dockviewApi = shallowRef<DockviewApi | null>(null)
 
   // ============================================
   // 面板位置配置
@@ -147,6 +148,17 @@ export const useLayoutStore = defineStore('layout', () => {
   const layoutData = ref<any | null>(null)
 
   // ============================================
+  // 底部 Panel 模式: 'editor' (仅B区下方) | 'full' (横跨全宽)
+  // ============================================
+  const bottomPanelMode = ref<'editor' | 'full'>('editor')
+
+  // ============================================
+  // 面板布局模式: 'tabs' | 'vertical-split'
+  // ============================================
+  const leftPanelLayoutMode = ref<'tabs' | 'vertical-split'>('tabs')
+  const rightPanelLayoutMode = ref<'tabs' | 'vertical-split'>('tabs')
+
+  // ============================================
   // 计算属性
   // ============================================
   const leftSidebarVisible = computed(() => leftActivityBarVisible.value || primarySideBarVisible.value)
@@ -161,7 +173,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   // 方法 - Dockview API
   // ============================================
-  function setDockviewApi(api: IDockviewApi) {
+  function setDockviewApi(api: DockviewApi) {
     dockviewApi.value = api
     console.log('[LayoutStore] Dockview API registered')
   }
@@ -209,7 +221,7 @@ export const useLayoutStore = defineStore('layout', () => {
     const panel = dockviewApi.value.getPanel(panelId)
     if (panel) {
       try {
-        panel.setActive()
+        panel.api.setActive()
         console.log('[LayoutStore] Activated panel:', panelId)
       } catch (e) {
         console.warn('[LayoutStore] Failed to activate panel:', e)
@@ -259,14 +271,14 @@ export const useLayoutStore = defineStore('layout', () => {
   /**
    * 获取所有面板
    */
-  function getAllPanels(): IGroupviewPanelApi[] {
+  function getAllPanels(): IDockviewPanel[] {
     return dockviewApi.value?.panels || []
   }
 
   /**
    * 获取指定位置的所有面板
    */
-  function getPanelsByLocation(location: PanelLocation): IGroupviewPanelApi[] {
+  function getPanelsByLocation(location: PanelLocation): IDockviewPanel[] {
     return getAllPanels().filter(p => panelConfigs.value.get(p.id)?.location === location)
   }
 
@@ -313,7 +325,7 @@ export const useLayoutStore = defineStore('layout', () => {
   /**
    * 获取浮动面板列表
    */
-  function getFloatingPanels(): IGroupviewPanelApi[] {
+  function getFloatingPanels(): any[] {
     return floatingPanels.value
   }
 
@@ -346,6 +358,16 @@ export const useLayoutStore = defineStore('layout', () => {
 
   function toggleStatusBar() {
     statusBarVisible.value = !statusBarVisible.value
+  }
+
+  function setBottomPanelMode(mode: 'editor' | 'full') {
+    bottomPanelMode.value = mode
+    saveLayoutConfig()
+  }
+
+  function toggleBottomPanelMode() {
+    bottomPanelMode.value = bottomPanelMode.value === 'editor' ? 'full' : 'editor'
+    saveLayoutConfig()
   }
 
   // ============================================
@@ -396,7 +418,7 @@ export const useLayoutStore = defineStore('layout', () => {
     if (panel) {
       // 面板已存在，激活它
       try {
-        panel.setActive()
+        panel.api.setActive()
         console.log('[LayoutStore] Activated panel:', panelId)
       } catch (e) {
         console.warn('[LayoutStore] Failed to activate panel:', e)
@@ -533,6 +555,14 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
+  function setLeftPanelLayoutMode(mode: 'tabs' | 'vertical-split') {
+    leftPanelLayoutMode.value = mode
+  }
+
+  function setRightPanelLayoutMode(mode: 'tabs' | 'vertical-split') {
+    rightPanelLayoutMode.value = mode
+  }
+
   // ============================================
   // 返回
   // ============================================
@@ -558,6 +588,10 @@ export const useLayoutStore = defineStore('layout', () => {
     primarySideBarWidth,
     secondarySideBarWidth,
     panelHeight,
+
+    // 面板布局模式
+    leftPanelLayoutMode,
+    rightPanelLayoutMode,
 
     // 计算属性
     leftSidebarVisible,
@@ -605,6 +639,11 @@ export const useLayoutStore = defineStore('layout', () => {
     togglePanel,
     toggleStatusBar,
 
+    // 底部 Panel 模式
+    bottomPanelMode,
+    setBottomPanelMode,
+    toggleBottomPanelMode,
+
     // 方法 - 选择
     selectLeftItem,
     selectRightItem,
@@ -619,5 +658,7 @@ export const useLayoutStore = defineStore('layout', () => {
     setLayoutVisibility,
     saveLayoutConfig,
     loadLayoutConfig,
+    setLeftPanelLayoutMode,
+    setRightPanelLayoutMode,
   }
 })

@@ -87,10 +87,10 @@ defineExpose({ open, close })
   position: fixed;
   z-index: 10000;
   min-width: 180px;
-  background: var(--color-background, #fff);
-  border: 1px solid var(--border-color, #d9d9d9);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   padding: 4px 0;
 }
 
@@ -98,13 +98,15 @@ defineExpose({ open, close })
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   cursor: pointer;
   transition: background 0.15s;
+  font-size: 13px;
+  color: var(--text-primary);
 }
 
 .context-menu-item:hover:not(.disabled) {
-  background: var(--color-primary-lighter, #e8f0ff);
+  background: var(--primary-light);
 }
 
 .context-menu-item.disabled {
@@ -113,11 +115,11 @@ defineExpose({ open, close })
 }
 
 .context-menu-item.danger {
-  color: var(--color-error, #f53f3f);
+  color: var(--danger-color);
 }
 
 .context-menu-item.danger:hover:not(.disabled) {
-  background: #fff1f0;
+  background: var(--danger-light);
 }
 
 .item-icon {
@@ -132,8 +134,8 @@ defineExpose({ open, close })
 }
 
 .item-shortcut {
-  font-size: 12px;
-  color: var(--text-tertiary, #999);
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 .context-menu-overlay {

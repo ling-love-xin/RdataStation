@@ -130,7 +130,7 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
    */
   function watchConnectionSwitch(): void {
     watch(
-      () => runtimeConnectionStore.activeConnectionId,
+      () => runtimeConnectionStore.currentRuntimeConnId,
       (newConnectionId, oldConnectionId) => {
         if (oldConnectionId && oldConnectionId !== newConnectionId) {
           cancelWarmingForConnection(oldConnectionId, '用户切换连接')
@@ -145,7 +145,7 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
    */
   function watchNavigatorConnectionSwitch(): void {
     watch(
-      () => navigatorStore.currentConnectionId,
+      () => navigatorStore.selectedObject?.connectionId,
       (newConnectionId, oldConnectionId) => {
         if (oldConnectionId && oldConnectionId !== newConnectionId) {
           cancelWarmingForConnection(oldConnectionId, '用户切换数据库导航')

@@ -88,7 +88,7 @@ const activeSqlEditorPanel = ref<unknown>(null)
 const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
   console.log('保存连接:', data)
   try {
-    const driver = (data as Record<string, unknown>).db_type || data.driver
+    const driver = String((data as Record<string, unknown>).db_type || data.driver)
     if (!driver) {
       message.error('请选择数据库类型')
       return
@@ -189,11 +189,13 @@ let sqlEditorCounter = 0
 
 const ACTIVITY_BAR_WIDTH = 48
 const SIDEBAR_INITIAL_WIDTH = 280
+const MIN_SIDEBAR_WIDTH = 200
+const DEFAULT_PANEL_HEIGHT = 250
 
 const onReady = (event: DockviewReadyEvent) => {
   const api = event.api as unknown as DockviewApi
   dockviewApi = api
-  layoutStore.setDockviewApi(api as unknown as import('dockview-vue').IDockviewApi)
+  layoutStore.setDockviewApi(api as unknown as import('dockview-vue').DockviewApi)
 
   const panels = panelRegistry.getAll()
   console.log(`[Workbench] Creating ${panels.length} panels from registry`)
@@ -203,12 +205,18 @@ const onReady = (event: DockviewReadyEvent) => {
   const rightPanels = panels.filter(p => p.location === 'right').sort((a, b) => (a.order || 0) - (b.order || 0))
   const bottomPanels = panels.filter(p => p.location === 'bottom' && p.id !== 'queryResult' && p.id !== 'multiTabResult').sort((a, b) => (a.order || 0) - (b.order || 0))
 
-  console.log('[Workbench] Left panels:', leftPanels.map(p => p.id))
-  console.log('[Workbench] Center panels:', centerPanels.map(p => p.id))
-  console.log('[Workbench] Right panels:', rightPanels.map(p => p.id))
-  console.log('[Workbench] Bottom panels:', bottomPanels.map(p => p.id))
+  const containerEl = dockviewRef.value?.$el as HTMLElement | undefined
+  const totalWidth = containerEl?.clientWidth || 1200
+  const availableWidth = totalWidth - ACTIVITY_BAR_WIDTH * 2
+  const ratioA = availableWidth / 4
+  const ratioB = availableWidth / 2
+  const ratioC = availableWidth / 4
 
-  // 1. 左侧活动栏（固定 48px）
+  console.log(`[Workbench] Container width: ${totalWidth}, A:${Math.round(ratioA)} B:${Math.round(ratioB)} C:${Math.round(ratioC)}`)
+
+  // ============================================
+  // 1. Left Activity Bar (固定 48px)
+  // ============================================
   api.addPanel({
     id: 'panel_leftActivityBar',
     component: 'leftActivityBar',
@@ -223,90 +231,85 @@ const onReady = (event: DockviewReadyEvent) => {
       isHidden: !layoutStore.primarySideBarVisible
     }
   })
-  console.log('[Workbench] Created left activity bar')
 
-  // 2. 左侧面板组（数据库导航、分析资源、插件、设置、自定义布局）
-  let leftRefId: string | null = null
-  leftPanels.forEach((panel, index) => {
+  // ============================================
+  // 2. A 区 — 左侧内容面板组 (flex 1)
+  // ============================================
+  let aRefId: string | null = null
+  const allLeftPanels = [
+    ...leftPanels,
+    { id: 'settings', name: '设置', location: 'left' as const, order: 90 },
+    { id: 'customizeLayout', name: '自定义布局', location: 'left' as const, order: 99 },
+  ]
+
+  allLeftPanels.forEach((panel, index) => {
     const panelId = `panel_${panel.id}`
     const config: Record<string, unknown> = {
       id: panelId,
       component: panel.id,
       title: panel.name,
-      initialWidth: SIDEBAR_INITIAL_WIDTH,
+      initialWidth: Math.round(ratioA),
+      minimumWidth: MIN_SIDEBAR_WIDTH,
     }
     if (index === 0) {
       config.position = { referencePanel: 'panel_leftActivityBar', direction: 'right' }
-    } else if (leftRefId) {
-      config.position = { referencePanel: leftRefId, direction: 'within' }
+    } else if (aRefId) {
+      config.position = { referencePanel: aRefId, direction: 'within' }
     }
     api.addPanel(config)
-    if (index === 0) leftRefId = panelId
-    console.log(`[Workbench] Created left panel: ${panelId}`)
+    if (index === 0) aRefId = panelId
+    layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: panel.order || index })
   })
 
-  // 添加设置面板到左侧组
-  if (leftRefId) {
-    api.addPanel({
-      id: 'panel_settings',
-      component: 'settings',
-      title: '设置',
-      position: { referencePanel: leftRefId, direction: 'within' }
-    })
-    console.log('[Workbench] Created left panel: panel_settings')
-  }
-
-  // 添加自定义布局面板到左侧组
-  if (leftRefId) {
-    api.addPanel({
-      id: 'panel_customizeLayout',
-      component: 'customizeLayout',
-      title: '自定义布局',
-      position: { referencePanel: leftRefId, direction: 'within' }
-    })
-    console.log('[Workbench] Created left panel: panel_customizeLayout')
-  }
-
-  // 3. 中心面板（空工作台）
-  let centerRefId: string | null = null
+  // ============================================
+  // 3. B 区 — 中心编辑区 (flex 2)
+  // ============================================
+  let bRefId: string | null = null
   centerPanels.forEach((panel, index) => {
     const panelId = `panel_${panel.id}`
     const config: Record<string, unknown> = {
       id: panelId,
       component: panel.id,
       title: panel.name,
+      initialWidth: Math.round(ratioB),
+      minimumWidth: 300,
     }
-    if (index === 0 && leftRefId) {
-      config.position = { referencePanel: leftRefId, direction: 'right' }
-    } else if (index > 0 && centerRefId) {
-      config.position = { referencePanel: centerRefId, direction: 'within' }
+    if (index === 0 && aRefId) {
+      config.position = { referencePanel: aRefId, direction: 'right' }
+    } else if (index > 0 && bRefId) {
+      config.position = { referencePanel: bRefId, direction: 'within' }
     }
     api.addPanel(config)
-    if (index === 0) centerRefId = panelId
-    console.log(`[Workbench] Created center panel: ${panelId}`)
+    if (index === 0) bRefId = panelId
+    layoutStore.updatePanelConfig(panelId, { location: 'center', isVisible: true, order: panel.order || index })
   })
 
-  // 4. 右侧面板组（列洞察、SQL历史）
-  let rightRefId: string | null = null
+  // ============================================
+  // 4. C 区 — 右侧内容面板组 (flex 1)
+  // ============================================
+  let cRefId: string | null = null
   rightPanels.forEach((panel, index) => {
     const panelId = `panel_${panel.id}`
     const config: Record<string, unknown> = {
       id: panelId,
       component: panel.id,
       title: panel.name,
-      initialWidth: SIDEBAR_INITIAL_WIDTH,
+      initialWidth: Math.round(ratioC),
+      minimumWidth: MIN_SIDEBAR_WIDTH,
     }
-    if (index === 0 && centerRefId) {
-      config.position = { referencePanel: centerRefId, direction: 'right' }
-    } else if (index > 0 && rightRefId) {
-      config.position = { referencePanel: rightRefId, direction: 'within' }
+    if (index === 0 && bRefId) {
+      config.position = { referencePanel: bRefId, direction: 'right' }
+    } else if (index > 0 && cRefId) {
+      config.position = { referencePanel: cRefId, direction: 'within' }
     }
     api.addPanel(config)
-    if (index === 0) rightRefId = panelId
-    console.log(`[Workbench] Created right panel: ${panelId}`)
+    if (index === 0) cRefId = panelId
+    layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: panel.order || index })
   })
 
-  // 5. 右侧活动栏（固定 48px）
+  // ============================================
+  // 5. Right Activity Bar (固定 48px)
+  // ============================================
   api.addPanel({
     id: 'panel_rightActivityBar',
     component: 'rightActivityBar',
@@ -314,7 +317,7 @@ const onReady = (event: DockviewReadyEvent) => {
     minimumWidth: ACTIVITY_BAR_WIDTH,
     maximumWidth: ACTIVITY_BAR_WIDTH,
     initialWidth: ACTIVITY_BAR_WIDTH,
-    position: { referencePanel: rightRefId || centerRefId || '', direction: 'right' },
+    position: { referencePanel: cRefId || bRefId || '', direction: 'right' },
     params: {
       items: layoutStore.rightActivityItems,
       position: 'right',
@@ -322,9 +325,10 @@ const onReady = (event: DockviewReadyEvent) => {
       isHidden: !layoutStore.secondarySideBarVisible
     }
   })
-  console.log('[Workbench] Created right activity bar')
 
-  // 6. 底部面板（输出）
+  // ============================================
+  // 6. 底部 Panel — 默认在 B 区下方
+  // ============================================
   let bottomRefId: string | null = null
   bottomPanels.forEach((panel, index) => {
     const panelId = `panel_${panel.id}`
@@ -332,18 +336,24 @@ const onReady = (event: DockviewReadyEvent) => {
       id: panelId,
       component: panel.id,
       title: panel.name,
-      initialHeight: 200,
+      initialHeight: DEFAULT_PANEL_HEIGHT,
+      minimumHeight: 100,
     }
-    if (index === 0 && centerRefId) {
-      config.position = { referencePanel: centerRefId, direction: 'below' }
+    if (index === 0 && bRefId) {
+      config.position = { referencePanel: bRefId, direction: 'below' }
     } else if (index > 0 && bottomRefId) {
       config.position = { referencePanel: bottomRefId, direction: 'within' }
     }
     api.addPanel(config)
     if (index === 0) bottomRefId = panelId
-    console.log(`[Workbench] Created bottom panel: ${panelId}`)
+    layoutStore.updatePanelConfig(panelId, { location: 'bottom', isVisible: true, order: panel.order || index })
   })
 
+  layoutStore.setBottomPanelMode('editor')
+
+  // ============================================
+  // 事件监听
+  // ============================================
   api.onDidActivePanelChange?.((panel: DockviewPanel | undefined) => {
     if (panel?.id?.startsWith('panel_sqlEditor_')) {
       activeSqlEditorPanel.value = panel

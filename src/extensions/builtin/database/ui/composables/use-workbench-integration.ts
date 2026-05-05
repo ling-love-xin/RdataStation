@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-import { useWorkbenchStore } from '../../workbench/ui/stores/workbench-store'
+import { useWorkbenchStore } from '../../../workbench/ui/stores/workbench-store'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 
 export interface WorkbenchIntegrationState {

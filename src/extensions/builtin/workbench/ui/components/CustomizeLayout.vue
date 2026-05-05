@@ -212,14 +212,14 @@
 import { computed } from 'vue'
 import { ExternalLink, X } from 'lucide-vue-next'
 import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
-import type { DockviewPanelInstance } from '@/core/dockview-types'
+import type { IDockviewPanel } from '@/core/dockview-types'
 
 const layoutStore = useLayoutStore()
 
 const allPanels = computed(() => layoutStore.getAllPanels())
 const floatingPanels = computed(() => layoutStore.getFloatingPanels())
 
-function getLocationName(panel: DockviewPanelInstance): string {
+function getLocationName(panel: IDockviewPanel): string {
   const location = layoutStore.getPanelConfig(panel.id)?.location || 'center'
   const locationNames: Record<PanelLocation, string> = {
     left: 'Left',
@@ -246,7 +246,7 @@ function handleCreateFloating(panelId: string) {
 function handleClosePanel(panelId: string) {
   const panel = layoutStore.dockviewApi?.getPanel(panelId)
   if (panel) {
-    panel.close()
+    panel.api.close()
   }
 }
 

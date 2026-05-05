@@ -1,7 +1,6 @@
 <template>
   <div class="multi-tab-results">
-    <!-- Tab 栏 -->
-    <div v-if="results.length > 0" class="tab-bar">
+    <div v-if="tabResults.length > 0" class="tab-bar">
       <NTabs
         v-model:value="activeTab"
         type="card"
@@ -11,7 +10,7 @@
         @close="handleCloseTab"
       >
         <NTab
-          v-for="(result, index) in results"
+          v-for="(result, index) in tabResults"
           :key="result.id"
           :name="result.id"
           :tab="result.tabName"
@@ -42,9 +41,8 @@
       </NTabs>
     </div>
 
-    <!-- 结果内容区 -->
     <div class="tab-content">
-      <template v-if="results.length === 0">
+      <template v-if="tabResults.length === 0">
         <div class="empty-state">
           <NEmpty description="执行 SQL 查看结果" />
         </div>
@@ -52,25 +50,22 @@
       
       <template v-else>
         <div
-          v-for="result in results"
+          v-for="result in tabResults"
           v-show="result.id === activeTab"
           :key="result.id"
           class="result-panel-wrapper"
         >
-          <!-- 成功结果 -->
           <QueryResultPanel
             v-if="result.success && result.data"
             :result="result.data"
           />
           
-          <!-- 错误结果 -->
           <div v-else-if="result.error" class="error-state">
             <NAlert type="error" :title="result.errorTitle || '执行错误'">
               <pre class="error-message">{{ result.error }}</pre>
             </NAlert>
           </div>
           
-          <!-- 执行中 -->
           <div v-else class="loading-state">
             <NSpin size="large">
               <template #description>
@@ -82,10 +77,9 @@
       </template>
     </div>
 
-    <!-- 底部状态栏 -->
-    <div v-if="results.length > 0" class="status-bar">
+    <div v-if="tabResults.length > 0" class="status-bar">
       <span class="status-item">
-        共 {{ results.length }} 个语句
+        共 {{ tabResults.length }} 个语句
       </span>
       <span class="status-item">
         成功: {{ successCount }}

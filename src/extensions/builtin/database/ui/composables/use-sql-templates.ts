@@ -1,3 +1,5 @@
+import { ref } from 'vue'
+
 export interface SqlTemplateVariable {
   name: string
   type: string

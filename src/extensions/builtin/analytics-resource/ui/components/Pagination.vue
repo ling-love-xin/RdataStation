@@ -110,25 +110,26 @@ const visiblePages = computed<(number | string)[]>(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-top: 1px solid var(--color-border, #d9d9d9);
-  background: var(--color-background-elevated, #f5f5f5);
+  padding: var(--size-md) var(--size-lg);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .pagination-info {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--text-secondary, #666);
+  gap: var(--size-md);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .page-size-select {
   padding: 4px 8px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 4px;
-  background: var(--color-background, #fff);
-  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -139,21 +140,23 @@ const visiblePages = computed<(number | string)[]>(() => {
 }
 
 .page-btn {
-  min-width: 32px;
-  height: 32px;
+  min-width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 4px;
-  background: var(--color-background, #fff);
-  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .page-btn:hover:not(:disabled) {
-  border-color: var(--color-primary, #165dff);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .page-btn:disabled {
@@ -162,13 +165,13 @@ const visiblePages = computed<(number | string)[]>(() => {
 }
 
 .page-btn.active {
-  background: var(--color-primary, #165dff);
-  border-color: var(--color-primary, #165dff);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: white;
 }
 
 .page-ellipsis {
   padding: 0 4px;
-  color: var(--text-tertiary, #999);
+  color: var(--text-tertiary);
 }
 </style>

@@ -53,22 +53,23 @@ function selectFolder(id: string | null) {
 
 <style scoped>
 .folders-section {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #d9d9d9);
+  padding: var(--size-md) var(--size-lg);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .folders-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: var(--size-sm);
 }
 
 .folders-title {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary, #666);
+  color: var(--text-tertiary);
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .btn {
@@ -76,17 +77,18 @@ function selectFolder(id: string | null) {
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   background: transparent;
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn:hover {
-  border-color: var(--color-primary, #165dff);
-  color: var(--color-primary, #165dff);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .btn-sm {
@@ -101,36 +103,37 @@ function selectFolder(id: string | null) {
 .folders-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--size-sm);
 }
 
 .folder-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 8px;
-  background: var(--color-background, #fff);
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .folder-item:hover {
-  border-color: var(--color-primary, #165dff);
+  border-color: var(--primary-color);
 }
 
 .folder-item.active {
-  border-color: var(--color-primary, #165dff);
-  background: var(--color-primary-lighter, #e8f0ff);
+  border-color: var(--primary-color);
+  background: var(--primary-light);
 }
 
 .folder-icon {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .folder-name {
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--text-primary);
 }
 
 .folder-color {

@@ -14,7 +14,7 @@
     </div>
 
     <!-- 主内容区 -->
-    <template v-if="activeTab">
+    <template v-if="hasActiveTab">
       <!-- SQL 预览 + 模式切换条 -->
       <div class="toolbar-strip">
         <FilterModeSwitcher v-model="activeTab.filterMode" class="mode-switcher-inline" />
@@ -71,7 +71,6 @@
           </div>
           <div v-show="currentView === 'grid'" class="grid-fill">
             <AgGridVue
-              v-if="activeTab"
               :key="activeTab.id + '_grid'"
               :class="gridThemeClass"
               :column-defs="columnDefs"
@@ -299,7 +298,8 @@ watch(() => uiStore.isDark, (v) => { configProviderPropsRef.value = { theme: v ?
 // ─── 多标签状态 ──────────────────────────────────────────
 const resultTabs = ref<ResultTab[]>([])
 const activeTabId = ref<string | null>(null)
-const activeTab = computed(() => resultTabs.value.find(t => t.id === activeTabId.value) || null)
+const hasActiveTab = computed(() => activeTabId.value !== null && resultTabs.value.some(t => t.id === activeTabId.value))
+const activeTab = computed(() => resultTabs.value.find(t => t.id === activeTabId.value)!)
 const tabCounter = ref(0)
 
 // ─── AG Grid ─────────────────────────────────────────────

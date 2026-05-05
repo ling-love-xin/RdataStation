@@ -64,7 +64,7 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
       // 构建连接 URL
       const url = buildConnectionUrl(projectConn)
       // 兼容 driver 和 db_type 字段
-      const dbType = projectConn.db_type || projectConn.driver
+      const dbType = projectConn.driver
       if (!dbType) {
         throw new Error('数据库类型未定义')
       }
@@ -249,7 +249,7 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
    */
   function buildConnectionUrl(projectConn: ProjectConnection): string {
     // 兼容 driver 和 db_type 字段
-    const dbType = projectConn.db_type || projectConn.driver
+    const dbType = projectConn.driver
     if (!dbType) {
       throw new Error('数据库类型未定义')
     }

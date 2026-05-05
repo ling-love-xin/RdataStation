@@ -195,7 +195,7 @@ watch(() => props.items, () => {
 .resource-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: var(--size-sm);
   position: relative;
 }
 
@@ -213,12 +213,12 @@ watch(() => props.items, () => {
 .resource-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  background: var(--color-background-elevated, #fff);
+  gap: var(--size-md);
+  padding: var(--size-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--size-sm);
+  background: var(--bg-primary);
   cursor: pointer;
   transition: all 0.2s;
   height: 56px;
@@ -226,16 +226,16 @@ watch(() => props.items, () => {
 }
 
 .resource-item:hover {
-  border-color: var(--color-primary, #165dff);
+  border-color: var(--primary-color);
 }
 
 .resource-item.selected {
-  border-color: var(--color-primary, #165dff);
-  background: var(--color-primary-lighter, #e8f0ff);
+  border-color: var(--primary-color);
+  background: var(--primary-light);
 }
 
 .resource-icon {
-  font-size: 24px;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
@@ -245,8 +245,9 @@ watch(() => props.items, () => {
 }
 
 .resource-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
+  color: var(--text-primary);
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -254,31 +255,31 @@ watch(() => props.items, () => {
 }
 
 .resource-meta {
-  font-size: 12px;
-  color: var(--text-secondary, #666);
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 .scope-tag {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
   font-weight: 500;
   flex-shrink: 0;
 }
 
 .scope-tag.global {
-  background: var(--tag-global-bg, #e3f2fd);
-  color: var(--tag-global-text, #1976d2);
+  background: var(--primary-light);
+  color: var(--primary-color);
 }
 
 .scope-tag.project {
-  background: var(--tag-project-bg, #e8f5e9);
-  color: var(--tag-project-text, #388e3c);
+  background: var(--success-light);
+  color: var(--success-color);
 }
 
 .scope-tag.session {
-  background: var(--tag-session-bg, #fff3e0);
-  color: var(--tag-session-text, #f57c00);
+  background: var(--warning-light);
+  color: var(--warning-color);
 }
 
 .empty-state {
@@ -287,12 +288,12 @@ watch(() => props.items, () => {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--text-secondary, #666);
+  color: var(--text-tertiary);
 }
 
 .empty-icon {
   font-size: 48px;
-  margin-bottom: 16px;
+  margin-bottom: var(--size-lg);
   opacity: 0.5;
 }
 </style>

@@ -123,7 +123,7 @@
 
       <!-- 布局控制按钮 -->
       <div class="layout-controls">
-        <button class="layout-btn" title="自定义布局">
+        <button class="layout-btn" title="自定义布局" @click="toggleCustomizeLayout">
           <LayoutTemplate :size="14" />
         </button>
         <button class="layout-btn" title="面板最大化">
@@ -231,6 +231,7 @@ import { useRouter } from 'vue-router'
 
 import { useProjectStore } from '@/core/project/stores/project'
 import { useUiStore } from '@/shared/stores/ui'
+import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 
 interface Props {
   isMaximized?: boolean
@@ -248,6 +249,7 @@ const emit = defineEmits<{
 
 const uiStore = useUiStore()
 const projectStore = useProjectStore()
+const layoutStore = useLayoutStore()
 const router = useRouter()
 
 // 菜单栏显示状态
@@ -406,6 +408,11 @@ const openProject = async () => {
 const toggleCustomToolbar = () => {
   showCustomToolbar.value = !showCustomToolbar.value
   showProjectMenu.value = false
+}
+
+// 切换自定义布局面板
+const toggleCustomizeLayout = () => {
+  layoutStore.selectLeftItem('customizeLayout')
 }
 
 // 保存工具栏配置
@@ -635,8 +642,6 @@ onMounted(async () => {
 }
 
 /* 搜索框 */
-.command-center {
-}
 
 .command-btn {
   display: flex;

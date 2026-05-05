@@ -10,15 +10,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import ActivityBar from './ActivityBar.vue'
+import type { LeftActivityItem, RightActivityItem } from '@/extensions/builtin/workbench/ui/stores/layout-store'
+
+interface ActivityBarPanelParams {
+  items: LeftActivityItem[] | RightActivityItem[]
+  position?: 'left' | 'right'
+  showToggle?: boolean
+  isHidden?: boolean
+}
 
 const props = defineProps<{
   params: {
-    params: Record<string, unknown>
+    params: ActivityBarPanelParams
     api: unknown
     containerApi: unknown
-    tabLocation?: string
   }
 }>()
 
-const panelParams = computed(() => (props.params.params || {}) as Record<string, unknown>)
+const panelParams = computed(() => props.params.params)
 </script>

@@ -30,9 +30,8 @@ export default {
 
     // 注册面板
     context.window.registerViewProvider('navigator', {
-      id: 'navigator',
-      name: '数据库导航',
       component: NavigatorPanel,
+      title: '数据库导航',
       location: 'left',
       icon: 'Database',
       order: 0

@@ -91,7 +91,7 @@ const types = [
   { value: 'file', label: '📄 文件' },
 ]
 
-const sortOptions = [
+const sortOptions: { value: SortField; label: string }[] = [
   { value: 'name', label: '名称' },
   { value: 'created_at', label: '创建时间' },
   { value: 'updated_at', label: '更新时间' },
@@ -125,21 +125,21 @@ function clearSelection() {
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #d9d9d9);
-  background: var(--color-background-elevated, #f5f5f5);
+  gap: var(--size-lg);
+  padding: var(--size-md) var(--size-lg);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--size-sm);
 }
 
 .filter-label {
-  font-size: 13px;
-  color: var(--text-secondary, #666);
+  font-size: 12px;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -149,47 +149,74 @@ function clearSelection() {
 }
 
 .filter-btn {
-  padding: 6px 12px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 6px;
-  background: var(--color-background, #fff);
-  font-size: 13px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  height: 28px;
 }
 
 .filter-btn:hover {
-  border-color: var(--color-primary, #165dff);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .filter-btn.active {
-  background: var(--color-primary, #165dff);
-  border-color: var(--color-primary, #165dff);
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: white;
+}
+
+.sort-indicator {
+  margin-left: 2px;
 }
 
 .selection-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--size-md);
   margin-left: auto;
-  font-size: 13px;
-  color: var(--text-secondary, #666);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .clear-selection-btn {
   padding: 4px 8px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   background: transparent;
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .clear-selection-btn:hover {
-  border-color: var(--color-error, #f53f3f);
-  color: var(--color-error, #f53f3f);
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+}
+
+.batch-action-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.batch-action-btn.danger {
+  color: var(--danger-color);
+}
+
+.batch-action-btn.danger:hover {
+  border-color: var(--danger-color);
+  background: var(--danger-light);
 }
 </style>

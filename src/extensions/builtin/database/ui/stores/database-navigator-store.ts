@@ -967,6 +967,21 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return await executeSqlService(connectionId, sql)
   }
 
+  function expandToNode(_nodeKey: string): void {
+    // Tree expansion managed by database-navigator component
+  }
+
+  function selectNode(nodeKey: string): void {
+    const parts = nodeKey.split('_')
+    if (parts.length >= 3) {
+      setSelectedObject({
+        name: parts[parts.length - 1],
+        kind: 'table',
+        connectionId: parts[1],
+      } as SelectedObject)
+    }
+  }
+
   return {
     connectionDatabases,
     selectedObject,
@@ -993,7 +1008,9 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     clearCache,
     clearError,
     disconnectConnection,
-    executeSql
+    executeSql,
+    expandToNode,
+    selectNode
   }
 })
 

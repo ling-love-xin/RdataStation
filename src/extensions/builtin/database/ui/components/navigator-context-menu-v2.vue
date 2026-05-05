@@ -7,7 +7,7 @@
         :style="{ left: `${position.x}px`, top: `${position.y}px` }"
         @click.stop
       >
-        <template v-for="(item, index) in menuItems" :key="item.id || `sep-${index}`">
+        <template v-for="(item, index) in menuItems" :key="('id' in item ? item.id : `sep-${index}`)">
           <div
             v-if="item.separator"
             class="context-menu-divider"
@@ -75,7 +75,7 @@ function hide() {
 }
 
 function handleItemClick(item: IContextMenuItem) {
-  if (!item.disabled && item.action) {
+  if (!('separator' in item && item.separator) && !item.disabled && item.action) {
     item.action()
     hide()
   }

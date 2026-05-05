@@ -13,7 +13,7 @@
         </NTooltip>
       </label>
       <input
-        :value="formData[field.key]"
+        :value="String(formData[field.key] ?? '')"
         type="text"
         class="field-input"
         :placeholder="field.placeholder"
@@ -145,7 +145,7 @@
         <span v-if="field.required" class="required">*</span>
       </label>
       <textarea
-        :value="formData[field.key]"
+        :value="String(formData[field.key] ?? '')"
         class="field-textarea"
         :placeholder="field.placeholder"
         :rows="3"

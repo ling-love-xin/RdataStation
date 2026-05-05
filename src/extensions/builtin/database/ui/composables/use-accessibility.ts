@@ -84,7 +84,7 @@ export function useAccessibility() {
       'aria-label': getAriaLabel(type, name, `${isExpanded ? '已展开' : '已折叠'}, ${isSelected ? '已选中' : '未选中'}`),
       'aria-expanded': isExpanded,
       'aria-selected': isSelected,
-      'aria-level': 1,
+      'aria-level': '1',
       role: 'treeitem'
     }
   }

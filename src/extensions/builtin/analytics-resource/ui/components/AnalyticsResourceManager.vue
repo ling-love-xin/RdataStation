@@ -12,7 +12,7 @@
 
     <SearchBar
       v-model="searchQuery"
-      debounce-ms="300"
+      :debounce-ms="300"
       @search="handleSearch"
       @clear="handleClearSearch"
     />
@@ -364,53 +364,59 @@ watch([selectedScope, selectedType], () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-background, #fff);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--color-border, #d9d9d9);
+  padding: var(--size-lg);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--size-sm);
 }
 
 .footer {
   display: flex;
-  gap: 12px;
-  padding: 16px;
-  border-top: 1px solid var(--color-border, #d9d9d9);
+  gap: var(--size-md);
+  padding: var(--size-lg);
+  border-top: 1px solid var(--border-color);
 }
 
 .btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 16px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 8px;
-  background: var(--color-background, #fff);
-  font-size: 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
+  height: var(--height-btn);
 }
 
 .btn:hover {
-  border-color: var(--color-primary, #165dff);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .icon {
-  font-size: 16px;
+  font-size: 14px;
 }
 </style>

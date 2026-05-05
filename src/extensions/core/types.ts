@@ -78,6 +78,7 @@ export interface WorkspaceAPI {
 export interface DatabaseAPI {
   executeQuery(connId: string, sql: string): Promise<unknown>
   getConnection(connId: string): unknown
+  registerConnectionProvider(provider: ConnectionProvider): Disposable
 }
 
 /** SQL 编辑器 API */

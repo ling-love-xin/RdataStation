@@ -229,10 +229,10 @@ export function useIndexConstraintCache() {
         name: idx.name,
         tableName,
         columns: idx.columns || [],
-        isUnique: idx.is_unique || false,
-        isPrimary: idx.is_primary || false,
-        type: idx.type || 'BTREE',
-        comment: idx.comment || null
+        isUnique: idx.isUnique || false,
+        isPrimary: idx.isPrimary || false,
+        type: (idx as unknown as Record<string, unknown>).type as string || 'BTREE',
+        comment: (idx as unknown as Record<string, unknown>).comment as string || null
       }))
 
       const constraintMetas: ConstraintMeta[] = constraints.map(con => ({
@@ -241,9 +241,9 @@ export function useIndexConstraintCache() {
         tableName,
         type: con.type as ConstraintMeta['type'],
         columns: con.columns || [],
-        referencedTable: con.referenced_table,
-        referencedColumns: con.referenced_columns,
-        comment: con.comment || null
+        referencedTable: (con as unknown as Record<string, unknown>).referenced_table as string | undefined,
+        referencedColumns: (con as unknown as Record<string, unknown>).referenced_columns as string[] | undefined,
+        comment: (con as unknown as Record<string, unknown>).comment as string || null
       }))
 
       indexConstraintCacheManager.setCache(

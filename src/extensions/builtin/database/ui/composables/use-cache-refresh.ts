@@ -62,7 +62,7 @@ export async function refreshCacheComplete(
     const tableInputs: TableInput[] = tables.map(t => ({
       id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
       name: t.name,
-      comment: null
+      comment: undefined
     }))
 
     let tablesSaved = 0

@@ -43,6 +43,7 @@ export interface CacheKey {
   databaseName: string
   schemaName?: string
   tableName?: string
+  columnName?: string
 }
 
 /**

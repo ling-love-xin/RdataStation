@@ -89,12 +89,15 @@ export interface TableInfo {
   name: string
   type: string
   columns: ColumnInfo[]
+  description?: string
 }
 
 export interface ViewInfo {
   name: string
   type: string
   columns: ColumnInfo[]
+  description?: string
+  definition?: string
 }
 
 export interface ColumnInfo {

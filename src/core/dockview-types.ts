@@ -5,15 +5,8 @@
  * 提供完整的类型安全支持
  */
 
-// 直接从 dockview-vue 重新导出所有核心类型
 export * from 'dockview-vue'
 
-import type {
-  IDockviewApi,
-  IGroupPanelViewApi,
-  IGroupviewPanelApi,
-} from 'dockview-vue'
-
-export type DockviewApi = IDockviewApi
-export type DockviewPanelInstance = IGroupviewPanelApi
-export type DockviewGroupInstance = IGroupPanelViewApi
+export type { DockviewApi } from 'dockview-core'
+export type { IDockviewPanel } from 'dockview-core'
+export type { DockviewGroupPanelApi } from 'dockview-core'

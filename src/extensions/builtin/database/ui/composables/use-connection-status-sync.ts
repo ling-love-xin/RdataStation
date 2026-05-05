@@ -114,12 +114,12 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
     if (!healthInfo || healthInfo.isCacheWarmed) return
 
     try {
-      const connType = navigatorStore.getConnectionType(connectionId)
+      const connType = navigatorStore.getConnectionType(connectionId) || 'global'
       const projectPath = navigatorStore.getProjectPath(connectionId)
       const databases = navigatorStore.getDatabases(connectionId)
 
       if (databases.length > 0) {
-        await warmConnection(connectionId, connType, databases, projectPath)
+        await warmConnection(connectionId, connType as 'global' | 'project', databases.map((d: { name: string }) => d.name), projectPath)
         
         healthInfo.isCacheWarmed = true
         healthInfoMap.value.set(connectionId, healthInfo)

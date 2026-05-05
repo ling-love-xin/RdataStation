@@ -281,8 +281,8 @@ const editingConnectionAsConfig = computed<ConnectionConfiguration | null>(() =>
   return {
     id: conn.id,
     name: conn.name,
-    driver: conn.db_type,
-    host: conn.host,
+    driver: conn.driver,
+    host: conn.host || '',
     port: conn.port,
     database: conn.database,
     username: conn.username,
@@ -316,7 +316,7 @@ const filteredConnections = computed(() => {
 
   // 按类型过滤
   if (currentFilter.value !== 'all') {
-    connections = connections.filter(conn => conn.db_type === currentFilter.value)
+    connections = connections.filter(conn => conn.driver === currentFilter.value)
   }
 
   return connections
@@ -345,11 +345,11 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
   try {
     console.log('=== handleSaveConnection 被调用 ===')
     console.log('接收到的完整数据:', JSON.stringify(data, null, 2))
-    console.log('data.db_type:', data.db_type)
+    console.log('data.driver:', data.driver)
     console.log('saveToGlobal:', data.saveToGlobal)
     console.log('saveToProject:', data.saveToProject)
     
-    const driver = data.db_type
+    const driver = data.driver
     if (!driver) {
       message.error('请选择数据库类型')
       console.error('db_type 为空，完整数据:', data)
@@ -372,7 +372,7 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
     const isFileDatabase = driver === 'sqlite' || driver === 'duckdb'
     const connectionData = {
       name: data.name || '',
-      db_type: driver,
+      driver: driver,
       host: isFileDatabase ? (data.database || data.host || '') : (data.host || ''),
       port: isFileDatabase ? 0 : (data.port || 0),
       database: isFileDatabase ? (data.database || '') : (data.database || ''),
@@ -471,7 +471,7 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
 
 // 辅助函数：从数据构建连接 URL
 function buildConnectionUrlFromData(data: Partial<ProjectConnection>): string {
-  const driver = data.db_type
+  const driver = data.driver
   if (!driver) return ''
 
   if (driver === 'sqlite' || driver === 'duckdb') {
