@@ -358,7 +358,6 @@ watch([selectedScope, selectedType], () => {
   loadData()
 })
 </script>
-</script>
 
 <style scoped>
 .analytics-resource-manager {
