@@ -67,6 +67,7 @@ pub struct MemoryStats {
 /// 内存防护管理器
 ///
 /// 负责监控和管理整个应用的内存使用
+#[allow(dead_code)]
 pub struct MemoryGuard {
     /// 配置
     config: MemoryGuardConfig,

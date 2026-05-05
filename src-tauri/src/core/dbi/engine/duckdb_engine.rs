@@ -470,6 +470,7 @@ impl DuckDBEngine {
     }
 }
 
+#[allow(dead_code)]
 fn duckdb_value_to_value(row: &duckdb::Row, index: usize) -> crate::core::models::Value {
     if let Ok(value) = row.get::<_, Option<i64>>(index) {
         if let Some(v) = value {

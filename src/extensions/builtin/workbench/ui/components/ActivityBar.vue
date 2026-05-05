@@ -106,13 +106,13 @@ function handleToggle() {
   margin: 0 auto;
   border-radius: 6px;
   cursor: pointer;
-  color: var(--text-tertiary, #808080);
+  color: var(--text-tertiary, #666666);
   transition: all 0.15s ease;
 }
 
 .activity-item:hover {
-  background-color: var(--bg-secondary, #333);
-  color: var(--text-primary, #fff);
+  background-color: var(--bg-secondary, #252526);
+  color: var(--text-primary, #cccccc);
 }
 
 .activity-item.active {

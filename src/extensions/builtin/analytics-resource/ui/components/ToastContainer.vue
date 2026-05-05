@@ -75,19 +75,19 @@ function getIcon(type: string) {
 }
 
 .toast-success {
-  border-left: 4px solid #00b42a;
+  border-left: 4px solid var(--success-color);
 }
 
 .toast-error {
-  border-left: 4px solid #f53f3f;
+  border-left: 4px solid var(--danger-color);
 }
 
 .toast-warning {
-  border-left: 4px solid #ff7d00;
+  border-left: 4px solid var(--warning-color);
 }
 
 .toast-info {
-  border-left: 4px solid #165dff;
+  border-left: 4px solid var(--info-color);
 }
 
 .toast-enter-from {

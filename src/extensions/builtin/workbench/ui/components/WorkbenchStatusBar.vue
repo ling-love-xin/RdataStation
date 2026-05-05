@@ -72,6 +72,6 @@ withDefaults(defineProps<Props>(), {
 }
 
 .status-dot.builtin {
-  background: var(--warning-color, #f59e0b);
+  background: var(--warning-color, #FF7D00);
 }
 </style>

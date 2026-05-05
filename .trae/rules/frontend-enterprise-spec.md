@@ -81,85 +81,70 @@ src/
 
 # 2. 布局设计规范（frontend-design 强化）
 
-## 2.1 全局布局结构
+## 2.1 全局布局结构（VSCode 风格）
 
 ```
-MainLayout
-├── Header（36px，自定义标题栏 + 拖拽区）
-├── AppContainer
-│   └── 路由页面
-└── StatusBar（底部状态栏）
+┌──────────────────────────────────────────────────┐
+│ Menu Bar（36px，非 dockview，自定义标题栏）         │
+├────┬──────────┬───────────────────┬──────────┬────┤
+│Left│Left      │                   │Right     │Rght│
+│Act │Primary   │   Center Area     │Primary   │Act │
+│Bar │Side Bar  │  (SQL Editor,     │Side Bar  │Bar │
+│48px│(280px)   │   Welcome Page)   │(280px)   │48px│
+│    │          │                   │          │    │
+│    │• 数据库   │                   │• 列洞察   │    │
+│    │  导航     │                   │• SQL历史  │    │
+│    │• 分析资源 │                   │          │    │
+│    │  管理器   │                   │          │    │
+│    │• 插件     │                   │          │    │
+│    │• 设置     │                   │          │    │
+│    │• 自定义   │                   │          │    │
+│    │  布局     │                   │          │    │
+├────┴──────────┴───────────────────┴──────────┴────┤
+│ Panel / Bottom Area（输出、查询结果，可拖拽高度）    │
+├──────────────────────────────────────────────────┤
+│ Status Bar（22px，非 dockview）                    │
+└──────────────────────────────────────────────────┘
 ```
 
-## 2.2 Workbench 工作台布局
+**核心原则：除 Menu Bar 和 Status Bar 外，所有区域均使用 dockview-vue 6.0 管理。**
 
-### 两层状态栏架构
+## 2.2 布局区域职责
 
-**全局状态栏**（应用级）
-- 位置：WorkbenchView 底部，dockview 下方
-- 组件：`WorkbenchStatusBar.vue`
-- 显示内容：全局信息（DuckDB 加速状态、当前连接、应用版本等）
-- 高度：24px
+| 区域 | 技术 | 宽度/高度 | 说明 |
+|------|------|-----------|------|
+| Menu Bar | 自定义组件 | 36px | 标题栏 + 菜单，非 dockview |
+| Left Activity Bar | dockview | 48px（固定） | 左侧图标导航，切换 Primary Side Bar |
+| Left Primary Side Bar | dockview | 280px（可拖拽） | 数据库导航、分析资源、插件、设置 |
+| Center Area | dockview | 自适应 | SQL 编辑器、欢迎页 |
+| Right Primary Side Bar | dockview | 280px（可拖拽） | 列洞察、SQL 历史 |
+| Right Activity Bar | dockview | 48px（固定） | 右侧图标导航，切换右侧面板 |
+| Panel/Bottom | dockview | 200px（可拖拽） | 输出、查询结果 |
+| Status Bar | 自定义组件 | 22px | 连接状态、执行信息，非 dockview |
 
-**面板状态栏**（页面级）
-- 每个面板可以有自己独立的状态栏
-- 显示该面板特定的信息
-- 例如：
-  - SQL 编辑器：光标位置、选中文本、执行状态
-  - 数据库导航：节点数量、加载状态
-  - 结果集：行数、执行耗时
+## 2.3 Workbench 工作台布局
 
-### 标准布局结构
+- **左侧面板组**：数据库导航、分析资源管理器、插件、设置、自定义布局（dockview tab 组）
+- **中心区域**：SQL 编辑器（按需创建）、欢迎页
+- **右侧面板组**：列洞察、SQL 历史（dockview tab 组）
+- **底部面板**：输出面板、查询结果（按需创建）
+- **所有面板支持拖拽、重组、关闭、最大化**
 
-```
-WorkbenchView
-├── DockviewVue (flex: 1)
-│   ├── 数据库导航面板 (左侧)
-│   │   ├── NavigatorToolbar
-│   │   ├── NavigatorSearch
-│   │   ├── VirtualTree
-│   │   └── NavigatorStatus (面板状态栏)
-│   ├── SQL 编辑器面板 (右侧)
-│   │   ├── EditorToolbar
-│   │   ├── Monaco Editor
-│   │   └── .editor-statusbar (面板状态栏)
-│   ── 结果集面板 (底部，按需创建)
-│       ├── TabBar
-│       ├── QueryResultPanel
-│       └── .status-bar (面板状态栏)
-└── WorkbenchStatusBar (全局状态栏，24px)
-```
+## 2.4 dockview-vue 6.0 规则
 
-### 布局规则
-
-- **上部**：SQL 编辑器区域（默认 60%）
-  - Query Tabs
-  - Editor Toolbar
-  - Monaco Editor
-  - 面板状态栏（可选）
-- **下部**：结果面板（可拖拽调整高度）
-  - 结果表格 / 日志
-  - 面板状态栏（可选）
-- **右侧**：历史/搜索滑出面板
-- **底部**：全局状态栏（固定 24px）
-
-### 常见问题
-
-**问题：全局状态栏不显示**
-- 原因：`.dockview` 使用 `flex: 1` 占满所有空间
-- 解决：改为 `flex: 1 1 0%` 确保正确分配剩余空间
-- 参考：[WorkbenchView.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/views/WorkbenchView.vue#L608)
-
-## 2.3 dockview-vue 规则
-
+- 版本：**dockview-vue 6.0+**
+- 组件注册：通过 `getCurrentInstance().appContext.components` 全局注册
+- 面板创建：使用 `api.addPanel({ id, component, title, position, ... })`
+- 固定宽度面板：设置 `minimumWidth` = `maximumWidth` = 目标宽度
 - 面板内边距：**12px**
 - 间距：**8px**
 - 分割线：**2px**
 - 面板标题高度：**36px**
-- 支持：拖拽、折叠、关闭、最大化、分栏
+- 支持：拖拽、折叠、关闭、最大化、分栏、标签组
 - **禁止过度嵌套、禁止面板混乱**
+- **布局数据持久化到 localStorage，启动时恢复**
 
-## 2.4 交互统一
+## 2.5 交互统一
 
 - 双击标题栏 = 最大化/还原
 - 面板拖拽实时响应

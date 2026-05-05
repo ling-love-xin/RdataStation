@@ -846,12 +846,12 @@ onMounted(async () => {
 }
 
 .modal-container {
-  background: var(--bg-secondary, #ffffff);
+  background: var(--bg-secondary, #252526);
   border-radius: 16px;
   width: 100%;
   max-width: 480px;
   overflow: hidden;
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: 1px solid var(--border-color, #3e3e42);
 }
 
 .modal-header {
@@ -859,13 +859,13 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  border-bottom: 1px solid var(--border-color, #3e3e42);
 }
 
 .modal-header h2 {
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary, #cccccc);
   margin: 0;
 }
 
@@ -874,8 +874,8 @@ onMounted(async () => {
   height: 32px;
   border-radius: 8px;
   border: none;
-  background: var(--bg-tertiary, #f1f5f9);
-  color: var(--text-secondary, #64748b);
+  background: var(--bg-tertiary, #2d2d30);
+  color: var(--text-secondary, #858585);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -884,8 +884,8 @@ onMounted(async () => {
 }
 
 .btn-close:hover {
-  background: var(--bg-hover, #e2e8f0);
-  color: var(--text-primary, #475569);
+  background: var(--bg-hover, #3c3c3c);
+  color: var(--text-primary, #cccccc);
 }
 
 .modal-body {
@@ -904,35 +904,35 @@ onMounted(async () => {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-secondary, #374151);
+  color: var(--text-secondary, #858585);
   margin-bottom: 8px;
 }
 
 .form-label .required {
-  color: var(--danger-color, #ef4444);
+  color: var(--danger-color, #F53F3F);
   margin-left: 4px;
 }
 
 .form-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid var(--border-color, #d1d5db);
+  border: 1px solid var(--border-color, #3e3e42);
   border-radius: 8px;
   font-size: 14px;
-  color: var(--text-primary, #1e293b);
-  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #cccccc);
+  background: var(--bg-primary, #1e1e1e);
   transition: all 0.2s;
   resize: vertical;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--primary-color, #667eea);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(102, 126, 234, 0.1));
+  border-color: var(--primary-color, #165DFF);
+  box-shadow: 0 0 0 3px var(--primary-light, rgba(22, 93, 255, 0.1));
 }
 
 .form-input::placeholder {
-  color: var(--text-tertiary, #94a3b8);
+  color: var(--text-tertiary, #666666);
 }
 
 .path-input-wrapper {
@@ -946,10 +946,10 @@ onMounted(async () => {
 
 .btn-browse {
   padding: 10px 16px;
-  border: 1px solid var(--border-color, #d1d5db);
+  border: 1px solid var(--border-color, #3e3e42);
   border-radius: 8px;
-  background: var(--bg-tertiary, #f1f5f9);
-  color: var(--text-secondary, #374151);
+  background: var(--bg-tertiary, #2d2d30);
+  color: var(--text-secondary, #858585);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
@@ -957,8 +957,8 @@ onMounted(async () => {
 }
 
 .btn-browse:hover {
-  background: var(--bg-hover, #e2e8f0);
-  border-color: var(--border-color, #9ca3af);
+  background: var(--bg-hover, #3c3c3c);
+  border-color: var(--border-color-hover, #4e4e52);
 }
 
 .modal-footer {
@@ -966,16 +966,16 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-color, #e0e0e0);
-  background: var(--bg-tertiary, #f8fafc);
+  border-top: 1px solid var(--border-color, #3e3e42);
+  background: var(--bg-tertiary, #2d2d30);
 }
 
 .btn-secondary {
   padding: 10px 20px;
-  border: 1px solid var(--border-color, #d1d5db);
+  border: 1px solid var(--border-color, #3e3e42);
   border-radius: 8px;
-  background: var(--bg-secondary, #ffffff);
-  color: var(--text-secondary, #374151);
+  background: var(--bg-secondary, #252526);
+  color: var(--text-secondary, #858585);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -983,15 +983,15 @@ onMounted(async () => {
 }
 
 .btn-secondary:hover {
-  background: var(--bg-hover, #f9fafb);
-  border-color: var(--border-color, #9ca3af);
+  background: var(--bg-hover, #3c3c3c);
+  border-color: var(--border-color-hover, #4e4e52);
 }
 
 .btn-primary {
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
-  background: var(--primary-color, #667eea);
+  background: var(--primary-color, #165DFF);
   color: white;
   font-size: 14px;
   font-weight: 500;
@@ -1000,7 +1000,7 @@ onMounted(async () => {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-dark, #5a67d8);
+  background: var(--primary-dark, #0E42D2);
 }
 
 .btn-primary:disabled {

@@ -264,6 +264,7 @@ impl StreamEngine {
 }
 
 /// 比较两个 Value 值
+#[allow(dead_code)]
 fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
     match (a, b) {
         (Value::Null, Value::Null) => std::cmp::Ordering::Equal,

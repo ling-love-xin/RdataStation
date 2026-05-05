@@ -20,6 +20,7 @@ impl AppState {
 }
 
 /// 状态扩展trait
+#[allow(dead_code)]
 trait StateExt {
     /// 获取连接管理器
     fn connection_manager(&self) -> &Arc<ConnectionManager>;

@@ -27,7 +27,7 @@ pub use sql_template_store::{SqlTemplate, SqlTemplateStore};
 pub use workbench_context_store::{WorkbenchContextStore, WorkbenchLayout, EditorContext};
 pub use analytics_resource_store::{
     AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
-    CreateResourceRequest, CreateFolderRequest, CreateTagRequest,
+    CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
 };
 
 use crate::core::error::{CoreError, StorageError};

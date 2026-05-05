@@ -267,18 +267,18 @@ watch(() => props.items, () => {
 }
 
 .scope-tag.global {
-  background: #e3f2fd;
-  color: #1976d2;
+  background: var(--tag-global-bg, #e3f2fd);
+  color: var(--tag-global-text, #1976d2);
 }
 
 .scope-tag.project {
-  background: #e8f5e9;
-  color: #388e3c;
+  background: var(--tag-project-bg, #e8f5e9);
+  color: var(--tag-project-text, #388e3c);
 }
 
 .scope-tag.session {
-  background: #fff3e0;
-  color: #f57c00;
+  background: var(--tag-session-bg, #fff3e0);
+  color: var(--tag-session-text, #f57c00);
 }
 
 .empty-state {

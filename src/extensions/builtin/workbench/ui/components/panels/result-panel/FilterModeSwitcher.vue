@@ -34,7 +34,7 @@ const modes: ModeItem[] = [
   padding: 0 4px;
   gap: 2px;
   background: var(--bg-secondary, #252526);
-  border-bottom: 1px solid var(--border-color, #333);
+  border-bottom: 1px solid var(--border-color, #3e3e42);
   flex-shrink: 0;
 }
 .mode-btn {
@@ -45,14 +45,14 @@ const modes: ModeItem[] = [
   font-size: 12px;
   border: none;
   background: transparent;
-  color: var(--text-secondary, #888);
+  color: var(--text-secondary, #858585);
   cursor: pointer;
   border-radius: 3px;
   transition: all 0.15s;
 }
-.mode-btn:hover { background: var(--bg-hover, #333); color: var(--text-primary); }
+.mode-btn:hover { background: var(--bg-hover, #3c3c3c); color: var(--text-primary); }
 .mode-btn.active {
-  background: var(--primary-color, #0078d4);
+  background: var(--primary-color, #165DFF);
   color: #fff;
 }
 </style>

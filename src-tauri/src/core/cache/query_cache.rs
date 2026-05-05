@@ -31,6 +31,7 @@ impl Default for QueryCacheConfig {
 
 /// 缓存条目
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CacheEntry {
     /// 查询结果
     result: QueryResult,

@@ -785,6 +785,7 @@ impl GlobalDatabaseManager {
     // ==================== 项目管理 ====================
 
     /// 项目相关 SQL 常量
+    #[allow(dead_code)]
     const PROJECT_SELECT_COLUMNS: &'static str = 
         "id, name, description, path, status, created_at, updated_at, last_opened_at";
     

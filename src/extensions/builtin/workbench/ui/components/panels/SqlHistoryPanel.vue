@@ -99,7 +99,7 @@
               @click.stop="toggleFavorite(item.id)"
             >
               <template #icon>
-                <Star :size="14" :fill="item.isFavorite ? '#FFD700' : 'none'" :color="item.isFavorite ? '#FFD700' : 'currentColor'" />
+                <Star :size="14" :fill="item.isFavorite ? 'var(--favorite-color)' : 'none'" :color="item.isFavorite ? 'var(--favorite-color)' : 'currentColor'" />
               </template>
             </NButton>
             <NButton
@@ -359,7 +359,7 @@ onMounted(() => {
 }
 
 .history-item.is-favorite {
-  border-left: 3px solid #FFD700;
+  border-left: 3px solid var(--favorite-color);
 }
 
 .item-header {
@@ -431,11 +431,11 @@ onMounted(() => {
 }
 
 .item-status.success {
-  color: #00B42A;
+  color: var(--success-color);
 }
 
 .item-status.error {
-  color: #F53F3F;
+  color: var(--danger-color);
 }
 
 .item-rows {

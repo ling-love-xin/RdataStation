@@ -33,5 +33,4 @@ pub use result_commands::*;
 pub use sql_commands::*;
 pub use sql_template_commands::*;
 pub use sql_parser_commands::*;
-pub use sql_template_commands::*;
 pub use analytics_resource_commands::*;

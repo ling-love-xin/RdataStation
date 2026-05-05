@@ -78,71 +78,9 @@ onMounted(() => {
 </script>
 
 <style>
-/* App-level styles */
 #app {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-}
-
-/* 全局重置 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  font-size: 14px;
-}
-
-body {
-  font-family: var(--font-sans);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* 滚动条全局统一 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
-}
-
-/* 选中文字样式 */
-::selection {
-  background: var(--primary-color);
-  color: white;
-}
-
-/* 禁用文字选择（拖拽区域） */
-.no-select {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/* 隐藏滚动条但保持滚动功能 */
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
 }
 </style>

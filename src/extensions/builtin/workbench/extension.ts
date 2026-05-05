@@ -4,6 +4,11 @@
  * 提供工作台布局管理能力
  */
 
+import EmptyWorkbenchPanel from './ui/components/panels/EmptyWorkbenchPanel.vue'
+import SqlHistoryPanel from './ui/components/panels/SqlHistoryPanel.vue'
+import OutputPanel from './ui/components/panels/OutputPanel.vue'
+import PluginsPanel from './ui/components/panels/PluginsPanel.vue'
+
 import type {
   ExtensionContext,
   ExtensionAPI,
@@ -65,7 +70,43 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     }
   }
 
+  // 注册空工作台面板（初始显示）
+  const emptyPanelDisposable = context.window.registerViewProvider('emptyWorkbench', {
+    component: EmptyWorkbenchPanel,
+    title: '欢迎',
+    location: 'center',
+    order: 1
+  })
+
+  // 注册SQL历史面板（右侧）
+  const sqlHistoryDisposable = context.window.registerViewProvider('sqlHistory', {
+    component: SqlHistoryPanel,
+    title: 'SQL历史',
+    location: 'right',
+    order: 2
+  })
+
+  // 注册输出面板（底部）
+  const outputDisposable = context.window.registerViewProvider('output', {
+    component: OutputPanel,
+    title: '输出',
+    location: 'bottom',
+    order: 1
+  })
+
+  // 注册插件面板（左侧）
+  const pluginsDisposable = context.window.registerViewProvider('plugins', {
+    component: PluginsPanel,
+    title: '插件',
+    location: 'left',
+    order: 3
+  })
+
   const disposables: Disposable[] = [
+    emptyPanelDisposable,
+    sqlHistoryDisposable,
+    outputDisposable,
+    pluginsDisposable,
     context.commands.registerCommand('workbench.openPanel', (...args: unknown[]) => openPanel(args[0] as string, args[1] as { title?: string; component?: unknown })),
     context.commands.registerCommand('workbench.closePanel', (...args: unknown[]) => closePanel(args[0] as string)),
     context.commands.registerCommand('workbench.focusPanel', (...args: unknown[]) => focusPanel(args[0] as string)),

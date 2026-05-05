@@ -1,4 +1,4 @@
-/* dockview-vue 主题覆盖 */
+/* dockview-vue 6.0 主题覆盖 */
 
 /* 深色主题 */
 .dockview-theme-dark {
@@ -15,6 +15,20 @@
   --dv-active-sash-color: var(--primary-color) !important;
   --dv-sash-color: transparent !important;
   --dv-sash-hover-color: var(--primary-color) !important;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary) !important;
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-tertiary) !important;
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-tertiary) !important;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-tertiary) !important;
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary) !important;
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-tertiary) !important;
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-tertiary) !important;
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary) !important;
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-activegroup-visiblepanel-tab-height: 35px;
+  --dv-activegroup-hiddenpanel-tab-height: 35px;
+  --dv-inactivegroup-visiblepanel-tab-height: 35px;
+  --dv-inactivegroup-hiddenpanel-tab-height: 35px;
 }
 
 /* 浅色主题 */
@@ -32,6 +46,20 @@
   --dv-active-sash-color: var(--primary-color) !important;
   --dv-sash-color: transparent !important;
   --dv-sash-hover-color: var(--primary-color) !important;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-primary) !important;
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-tertiary) !important;
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-tertiary) !important;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-tertiary) !important;
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary) !important;
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-secondary) !important;
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary) !important;
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary) !important;
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-activegroup-visiblepanel-tab-height: 35px;
+  --dv-activegroup-hiddenpanel-tab-height: 35px;
+  --dv-inactivegroup-visiblepanel-tab-height: 35px;
+  --dv-inactivegroup-hiddenpanel-tab-height: 35px;
 }
 
 /* 标签页样式 - 深色主题 */

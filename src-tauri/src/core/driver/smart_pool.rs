@@ -93,6 +93,7 @@ pub struct PoolStats {
 }
 
 /// 单个连接元数据
+#[allow(dead_code)]
 struct ConnectionMetadata {
     /// 创建时间
     created_at: Instant,
@@ -104,6 +105,7 @@ struct ConnectionMetadata {
     in_use: bool,
 }
 
+#[allow(dead_code)]
 impl ConnectionMetadata {
     fn new() -> Self {
         let now = Instant::now();
@@ -256,6 +258,7 @@ pub struct SmartPool {
     name: String,
 }
 
+#[allow(dead_code)]
 impl SmartPool {
     /// 创建新的智能连接池
     pub fn new(name: impl Into<String>, config: SmartPoolConfig) -> Self {

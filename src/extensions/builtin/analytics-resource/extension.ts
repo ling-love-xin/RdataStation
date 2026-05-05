@@ -20,7 +20,8 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
     component: AnalyticsResourceManager,
     title: '分析资源管理器',
     location: 'left',
-    icon: '📊'
+    icon: '📊',
+    order: 2
   })
 
   const disposables: Disposable[] = [

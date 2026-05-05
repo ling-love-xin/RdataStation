@@ -4,7 +4,6 @@ import {
   Puzzle,
   Settings,
   FileText,
-  Terminal,
   Sparkles
 } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
@@ -72,9 +71,8 @@ export const leftActivityItems: LeftActivityItem[] = [
 ]
 
 export const rightActivityItems: RightActivityItem[] = [
-  { id: 'sql-history', icon: FileText, title: 'SQL历史' },
-  { id: 'output', icon: Terminal, title: '输出' },
-  { id: 'column-insights', icon: Sparkles, title: '列洞察' }
+  { id: 'column-insights', icon: Sparkles, title: '列洞察' },
+  { id: 'sql-history', icon: FileText, title: 'SQL历史' }
 ]
 
 // ActivityBar 到面板映射
@@ -113,7 +111,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // 选中状态
   // ============================================
   const selectedLeftItem = ref<string | null>('database')
-  const selectedRightItem = ref<string | null>('sql-history')
+  const selectedRightItem = ref<string | null>('column-insights')
 
   // ============================================
   // 展开状态
@@ -437,7 +435,7 @@ export const useLayoutStore = defineStore('layout', () => {
     primarySideBarExpanded.value = true
     secondarySideBarExpanded.value = true
     selectedLeftItem.value = 'database'
-    selectedRightItem.value = 'sql-history'
+    selectedRightItem.value = 'column-insights'
     primarySideBarWidth.value = DEFAULT_PRIMARY_SIDEBAR_WIDTH
     secondarySideBarWidth.value = DEFAULT_SECONDARY_SIDEBAR_WIDTH
     panelHeight.value = DEFAULT_PANEL_HEIGHT
@@ -520,7 +518,7 @@ export const useLayoutStore = defineStore('layout', () => {
           }
           if (config.selection) {
             selectedLeftItem.value = config.selection.selectedLeftItem ?? 'database'
-            selectedRightItem.value = config.selection.selectedRightItem ?? 'sql-history'
+            selectedRightItem.value = config.selection.selectedRightItem ?? 'column-insights'
           }
           if (config.sizes) {
             primarySideBarWidth.value = config.sizes.primarySideBarWidth ?? DEFAULT_PRIMARY_SIDEBAR_WIDTH

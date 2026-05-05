@@ -205,12 +205,14 @@ impl MetadataCacheManager {
 /// 元数据缓存操作封装
 /// 
 /// 提供常用的元数据缓存读写操作
+#[allow(dead_code)]
 pub struct MetadataCacheOps {
     conn: Connection,
     /// 是否启用压缩（默认对大于 1KB 的数据启用压缩）
     compression_threshold: usize,
 }
 
+#[allow(dead_code)]
 impl MetadataCacheOps {
     /// 创建新的元数据缓存操作实例
     pub fn new(conn: Connection) -> Self {
@@ -490,7 +492,7 @@ impl MetadataCacheOps {
     /// 保存表元数据（兼容旧接口，通过 schema/table 名）
     pub fn save_table_metadata(
         &self,
-        id: &str,
+        _id: &str,
         database_name: &str,
         schema_name: &str,
         table_name: &str,
@@ -522,7 +524,7 @@ impl MetadataCacheOps {
     /// 获取表列表（规范化）
     pub fn list_tables_normalized(&self, schema_id: i64, table_type: Option<&str>) -> Result<Vec<TableDetailInfo>, CoreError> {
         let query = match table_type {
-            Some(t) => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, t.last_sync, s.schema_name
+            Some(_t) => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, t.last_sync, s.schema_name
                         FROM tables t INNER JOIN schemata s ON t.schema_id = s.id
                         WHERE t.schema_id = ?1 AND t.table_type = ?2 ORDER BY t.table_name",
             None => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, t.last_sync, s.schema_name
@@ -591,7 +593,7 @@ impl MetadataCacheOps {
         ordinal_position: i32,
         is_nullable: bool,
         is_primary: bool,
-        is_unique: bool,
+        _is_unique: bool,
         column_default: Option<&str>,
         comment: Option<&str>,
     ) -> Result<i64, CoreError> {
@@ -619,7 +621,7 @@ impl MetadataCacheOps {
     /// 保存列元数据（兼容旧接口）
     pub fn save_column_metadata(
         &self,
-        id: &str,
+        _id: &str,
         database_name: &str,
         schema_name: &str,
         table_name: &str,
@@ -627,7 +629,7 @@ impl MetadataCacheOps {
         data_type: &str,
         is_nullable: bool,
         is_primary: bool,
-        is_unique: bool,
+        _is_unique: bool,
         last_sync: i64,
     ) -> Result<(), CoreError> {
         let schema_id = self.get_schema_id(database_name, schema_name)?
@@ -1459,7 +1461,7 @@ impl MetadataCacheOps {
         let search_pattern = format!("{}*", query);
 
         let sql = match search_type {
-            Some(t) => "SELECT search_type, schema_name, object_name, parent_name,
+            Some(_t) => "SELECT search_type, schema_name, object_name, parent_name,
                                snippet(metadata_fts, 4, '<mark>', '</mark>', '...', 32) as snippet
                         FROM metadata_fts WHERE search_content MATCH ?1 AND search_type = ?2
                         ORDER BY rank LIMIT 50",
@@ -2289,7 +2291,7 @@ impl MetadataCacheOps {
         limit: i64,
     ) -> Result<ChunkResult<IndexEntry>, CoreError> {
         let (count_sql, query_sql) = match schema_id {
-            Some(sid) => (
+            Some(_sid) => (
                 "SELECT COUNT(*) FROM metadata_index WHERE connection_id = ?1 AND object_type = 'table' AND schema_id = ?2",
                 "SELECT id, schema_id, object_type, object_name, parent_name, path,
                         introspect_level, is_loaded, last_sync, row_count_estimate, sort_weight
@@ -2398,7 +2400,7 @@ impl MetadataCacheOps {
         batch_size: usize,
     ) -> Result<usize, CoreError> {
         let mut total_saved = 0;
-        let mut tx = self.conn.transaction().map_err(|e| CoreError::storage(
+        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
             StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
@@ -2569,7 +2571,7 @@ impl MetadataCacheOps {
             .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
             .as_secs() as i64;
 
-        let mut tx = self.conn.transaction().map_err(|e| CoreError::storage(
+        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
             StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
@@ -2842,7 +2844,7 @@ impl MetadataCacheOps {
             .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
             .as_secs() as i64;
 
-        let mut tx = self.conn.transaction().map_err(|e| CoreError::storage(
+        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
             StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),

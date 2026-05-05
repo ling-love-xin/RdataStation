@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::core::persistence::{
     AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
-    CreateResourceRequest, CreateFolderRequest, CreateTagRequest,
+    CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
 };
 use crate::commands::project_commands::ProjectState;
 
@@ -32,7 +32,7 @@ impl AnalyticsResourceState {
 pub async fn create_analytics_resource(
     input: CreateResourceRequest,
     analytics_state: State<'_, AnalyticsResourceState>,
-    project_state: State<'_, ProjectState>,
+    _project_state: State<'_, ProjectState>,
 ) -> Result<AnalyticsResource, String> {
     tracing::info!(resource_type = %input.resource_type, name = %input.name, "Creating analytics resource");
     
@@ -205,15 +205,6 @@ pub struct PaginationInput {
 pub struct SortInput {
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-pub struct ListResourcesOutput {
-    pub items: Vec<AnalyticsResource>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
 }
 
 #[tauri::command]
@@ -481,7 +472,7 @@ pub async fn get_analytics_recycle_bin(
         "分析资源存储未初始化".to_string()
     })?;
     
-    let items = store.get_recycle_bin().await.map_err(|e| e.to_string())?;
+    let items = store.get_recycle_items().await.map_err(|e| e.to_string())?;
     
     Ok(items)
 }
@@ -494,10 +485,12 @@ pub async fn restore_analytics_resource_from_recycle(
 ) -> Result<AnalyticsResource, String> {
     tracing::info!(recycle_id = %recycle_id, "Restoring analytics resource from recycle bin");
     
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
+    let store = {
+        let analytics_guard = analytics_state.store.lock().await;
+        analytics_guard.as_ref().ok_or_else(|| {
+            "分析资源存储未初始化".to_string()
+        })?.clone()
+    };
     
     let resource = store.restore_from_recycle(&recycle_id).await.map_err(|e| e.to_string())?;
     

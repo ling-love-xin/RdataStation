@@ -105,6 +105,7 @@ impl MemoryPressure {
 /// LRU 缓存
 ///
 /// 基于 HashMap + 访问顺序列表实现
+#[allow(dead_code)]
 pub struct LruCache<K, V> {
     /// 容量
     capacity: usize,

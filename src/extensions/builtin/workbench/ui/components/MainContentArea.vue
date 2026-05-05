@@ -4,11 +4,11 @@
     <div
       class="sql-editor-area"
       :style="{ height: `${sqlEditorHeight}px` }"
+      :class="uiStore.isDark ? 'dockview-theme-dark' : 'dockview-theme-light'"
     >
       <DockviewVue
         ref="dockviewRef"
         class="dockview"
-        :style="dockviewStyle"
         @ready="onReady"
       />
     </div>
@@ -89,32 +89,6 @@ const activeResult = computed(() => {
     return resultSets.value[activeResultIndex.value]
   }
   return null
-})
-
-const dockviewStyle = computed(() => {
-  const isDark = uiStore.isDark
-  return {
-    height: '100%',
-    width: '100%',
-    '--dv-group-view-background-color': isDark ? '#1e1e1e' : '#ffffff',
-    '--dv-tabs-and-actions-container-background-color': isDark ? '#252526' : '#f5f5f5',
-    '--dv-activegroup-visiblepanel-tab-background-color': isDark ? '#1e1e1e' : '#ffffff',
-    '--dv-activegroup-hiddenpanel-tab-background-color': isDark ? '#2d2d30' : '#e8e8e8',
-    '--dv-inactivegroup-visiblepanel-tab-background-color': isDark ? '#2d2d30' : '#e8e8e8',
-    '--dv-inactivegroup-hiddenpanel-tab-background-color': isDark ? '#2d2d30' : '#e8e8e8',
-    '--dv-tab-divider-color': isDark ? '#3e3e42' : '#d4d4d4',
-    '--dv-border-color': isDark ? '#3e3e42' : '#d4d4d4',
-    '--dv-activegroup-visiblepanel-tab-color': isDark ? '#ffffff' : '#333333',
-    '--dv-activegroup-hiddenpanel-tab-color': isDark ? '#999999' : '#666666',
-    '--dv-inactivegroup-visiblepanel-tab-color': isDark ? '#999999' : '#666666',
-    '--dv-inactivegroup-hiddenpanel-tab-color': isDark ? '#666666' : '#999999',
-    '--dv-tabs-and-actions-container-font-size': '12px',
-    '--dv-tabs-and-actions-container-height': '35px',
-    '--dv-activegroup-visiblepanel-tab-height': '35px',
-    '--dv-activegroup-hiddenpanel-tab-height': '35px',
-    '--dv-inactivegroup-visiblepanel-tab-height': '35px',
-    '--dv-inactivegroup-hiddenpanel-tab-height': '35px',
-  }
 })
 
 // Event handlers
@@ -316,7 +290,7 @@ onUnmounted(() => {
   padding: 0 12px;
   height: 30px;
   font-size: 12px;
-  color: var(--text-secondary, #969696);
+  color: var(--text-secondary, #858585);
   background-color: transparent;
   border-radius: 4px 4px 0 0;
   cursor: pointer;
@@ -325,12 +299,12 @@ onUnmounted(() => {
 }
 
 .panel-tab:hover {
-  color: var(--text-primary, #d4d4d4);
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  color: var(--text-primary, #cccccc);
+  background-color: var(--bg-hover, #3c3c3c);
 }
 
 .panel-tab.active {
-  color: var(--text-primary, #d4d4d4);
+  color: var(--text-primary, #cccccc);
   background-color: var(--bg-secondary, #252526);
 }
 
@@ -342,7 +316,7 @@ onUnmounted(() => {
 }
 
 .close-btn:hover {
-  color: var(--danger-color, #f53f3f);
+  color: var(--danger-color, #F53F3F);
 }
 
 .add-tab-btn {

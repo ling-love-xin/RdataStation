@@ -122,7 +122,7 @@ pub fn format_sql(sql: &str, dialect: Option<SqlDialect>) -> FormatResponse {
                 error: None,
             }
         }
-        Err(e) => {
+        Err(_e) => {
             // 解析失败时返回原始 SQL，不报错（优雅降级）
             // 某些数据库特有语法（如 {} 占位符、变量等）不被 sqlglot-rust 支持
             FormatResponse {

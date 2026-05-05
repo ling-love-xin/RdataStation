@@ -67,7 +67,6 @@ pub async fn build_cache_index(
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<IndexBuildResponse, String> {
-    use crate::core::driver::traits::Database;
     use crate::core::persistence::metadata_cache::{SyncSnapshot, ChangeDetectionResult};
     use tokio::sync::broadcast;
     use tokio::task::JoinSet;
@@ -88,7 +87,7 @@ pub async fn build_cache_index(
         input.project_path.as_deref(),
     ).map_err(|e| e.to_string())?;
 
-    let mut cache_conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let cache_conn = cache_manager.open().map_err(|e| e.to_string())?;
     let mut cache_ops = MetadataCacheOps::new(cache_conn);
 
     let version_manager = CacheVersionManager::new();

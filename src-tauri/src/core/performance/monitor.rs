@@ -76,7 +76,7 @@ impl PerformanceMonitor {
     }
 
     /// 记录请求完成
-    pub async fn record_request_end(&self, request_id: u64, duration_ms: f64, success: bool) {
+    pub async fn record_request_end(&self, _request_id: u64, duration_ms: f64, success: bool) {
         let mut metrics = self.metrics.write().await;
         metrics.active_requests -= 1;
         

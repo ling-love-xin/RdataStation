@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use chrono::{Utc, DateTime};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
@@ -95,6 +94,7 @@ pub struct CreateTagRequest {
     pub scope: String,
 }
 
+#[derive(Clone)]
 pub struct AnalyticsResourceStore {
     pool: Arc<ProjectSqlitePool>,
 }
@@ -215,8 +215,8 @@ impl AnalyticsResourceStore {
                 parent_version_id: row.get(10)?,
                 parent_resource_id: row.get(11)?,
                 source_query: row.get(12)?,
-                created_at: Self::parse_datetime(row.get(13)?)?,
-                updated_at: Self::parse_datetime(row.get(14)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
+                updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
                 created_by: row.get(15)?,
                 deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
@@ -296,8 +296,8 @@ impl AnalyticsResourceStore {
                 parent_version_id: row.get(10)?,
                 parent_resource_id: row.get(11)?,
                 source_query: row.get(12)?,
-                created_at: Self::parse_datetime(row.get(13)?)?,
-                updated_at: Self::parse_datetime(row.get(14)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
+                updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
                 created_by: row.get(15)?,
                 deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
@@ -411,8 +411,8 @@ impl AnalyticsResourceStore {
                 sort_order: row.get(4)?,
                 color: row.get(5)?,
                 icon: row.get(6)?,
-                created_at: Self::parse_datetime(row.get(7)?)?,
-                updated_at: Self::parse_datetime(row.get(8)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(7)?)?,
+                updated_at: Self::parse_datetime_sqlite(row.get(8)?)?,
                 deleted_at: row.get(9).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
         }).map_err(|e| CoreError::storage(StorageError::Persistence {
@@ -466,8 +466,8 @@ impl AnalyticsResourceStore {
                 sort_order: row.get(4)?,
                 color: row.get(5)?,
                 icon: row.get(6)?,
-                created_at: Self::parse_datetime(row.get(7)?)?,
-                updated_at: Self::parse_datetime(row.get(8)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(7)?)?,
+                updated_at: Self::parse_datetime_sqlite(row.get(8)?)?,
                 deleted_at: row.get(9).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
         }).map_err(|e| CoreError::storage(StorageError::Persistence {
@@ -561,7 +561,7 @@ impl AnalyticsResourceStore {
                 color: row.get(2)?,
                 icon: row.get(3)?,
                 scope: row.get(4)?,
-                created_at: Self::parse_datetime(row.get(5)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(5)?)?,
                 deleted_at: row.get(6).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
         }).map_err(|e| CoreError::storage(StorageError::Persistence {
@@ -606,7 +606,7 @@ impl AnalyticsResourceStore {
                 color: row.get(2)?,
                 icon: row.get(3)?,
                 scope: row.get(4)?,
-                created_at: Self::parse_datetime(row.get(5)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(5)?)?,
                 deleted_at: row.get(6).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
         }).map_err(|e| CoreError::storage(StorageError::Persistence {
@@ -684,7 +684,7 @@ impl AnalyticsResourceStore {
                 resource_name: row.get(3)?,
                 resource_data,
                 deleted_by: row.get(5)?,
-                deleted_at: Self::parse_datetime(row.get(6)?)?,
+                deleted_at: Self::parse_datetime_sqlite(row.get(6)?)?,
             })
         }).map_err(|e| CoreError::storage(StorageError::Persistence {
             store: "analytics_recycle_bin".to_string(),
@@ -700,51 +700,55 @@ impl AnalyticsResourceStore {
     }
 
     pub async fn restore_from_recycle(&self, recycle_id: &str) -> Result<AnalyticsResource, CoreError> {
-        let conn = self.get_conn().await?;
+        let resource = {
+            let conn = self.get_conn().await?;
 
-        let mut stmt = conn.inner().prepare(
-            r#"
-            SELECT resource_data FROM analytics_recycle_bin WHERE id = ?
-            "#,
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "analytics_recycle_bin".to_string(),
-            operation: "select".to_string(),
-            reason: e.to_string(),
-        }))?;
-
-        let data_str: String = stmt.query_row(rusqlite::params![recycle_id], |row| row.get(0))
-            .map_err(|e| CoreError::storage(StorageError::Persistence {
+            let mut stmt = conn.inner().prepare(
+                r#"
+                SELECT resource_data FROM analytics_recycle_bin WHERE id = ?
+                "#,
+            ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "analytics_recycle_bin".to_string(),
                 operation: "select".to_string(),
                 reason: e.to_string(),
             }))?;
 
-        let resource: AnalyticsResource = serde_json::from_str(&data_str)
-            .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+            let data_str: String = stmt.query_row(rusqlite::params![recycle_id], |row| row.get(0))
+                .map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_recycle_bin".to_string(),
+                    operation: "select".to_string(),
+                    reason: e.to_string(),
+                }))?;
 
-        conn.inner().execute(
-            r#"
-            UPDATE analytics_resources
-            SET deleted_at = NULL
-            WHERE id = ?
-            "#,
-            rusqlite::params![&resource.id],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "analytics_resources".to_string(),
-            operation: "update".to_string(),
-            reason: e.to_string(),
-        }))?;
+            let resource: AnalyticsResource = serde_json::from_str(&data_str)
+                .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
 
-        conn.inner().execute(
-            r#"
-            DELETE FROM analytics_recycle_bin WHERE id = ?
-            "#,
-            rusqlite::params![recycle_id],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "analytics_recycle_bin".to_string(),
-            operation: "delete".to_string(),
-            reason: e.to_string(),
-        }))?;
+            conn.inner().execute(
+                r#"
+                UPDATE analytics_resources
+                SET deleted_at = NULL
+                WHERE id = ?
+                "#,
+                rusqlite::params![&resource.id],
+            ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "analytics_resources".to_string(),
+                operation: "update".to_string(),
+                reason: e.to_string(),
+            }))?;
+
+            conn.inner().execute(
+                r#"
+                DELETE FROM analytics_recycle_bin WHERE id = ?
+                "#,
+                rusqlite::params![recycle_id],
+            ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "analytics_recycle_bin".to_string(),
+                operation: "delete".to_string(),
+                reason: e.to_string(),
+            }))?;
+
+            resource
+        };
 
         self.get_resource_by_id(&resource.id).await
     }
@@ -773,7 +777,8 @@ impl AnalyticsResourceStore {
 
         let cloned_id = format!("ar_{}", uuid::Uuid::new_v4().simple());
         let now = Utc::now();
-        let cloned_name = new_name.unwrap_or(&format!("{} (副本)", original.name));
+        let default_name = format!("{} (副本)", original.name);
+        let cloned_name = new_name.unwrap_or(&default_name);
 
         conn.inner().execute(
             r#"
@@ -822,7 +827,7 @@ impl AnalyticsResourceStore {
         let conn = self.get_conn().await?;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
-        let mut params: Vec<String> = Vec::new();
+        let _params: Vec<String> = Vec::new();
 
         if let Some(s) = scope {
             where_clauses.push(format!("scope = '{}'", s));
@@ -918,8 +923,8 @@ impl AnalyticsResourceStore {
                 parent_version_id: row.get(10)?,
                 parent_resource_id: row.get(11)?,
                 source_query: row.get(12)?,
-                created_at: Self::parse_datetime(row.get(13)?)?,
-                updated_at: Self::parse_datetime(row.get(14)?)?,
+                created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
+                updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
                 created_by: row.get(15)?,
                 deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
             })
@@ -952,8 +957,13 @@ impl AnalyticsResourceStore {
             .map(|dt| dt.with_timezone(&Utc))
             .map_err(|e| CoreError::common(CommonError::General(format!("Invalid datetime: {}", e))))
     }
+
+    fn parse_datetime_sqlite(s: String) -> Result<DateTime<Utc>, rusqlite::Error> {
+        Self::parse_datetime(s).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListResourcesOutput {
     pub items: Vec<AnalyticsResource>,
     pub total: i64,
