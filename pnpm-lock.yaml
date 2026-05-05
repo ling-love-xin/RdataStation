@@ -27,8 +27,8 @@ importers:
         specifier: ^2.7.0
         version: 2.7.0
       dockview-vue:
-        specifier: ^5.2.0
-        version: 5.2.0(vue@3.5.32(typescript@5.6.3))
+        specifier: ^6.0.1
+        version: 6.0.1(vue@3.5.32(typescript@5.6.3))
       echarts:
         specifier: ^6.0.0
         version: 6.0.0
@@ -1036,11 +1036,11 @@ packages:
     resolution: {integrity: sha512-8QmQKqEASLd5nx0U1B1okLElbUuuttJ/AnYmRXbbbGDWh6uS208EjD4Xqq/I9wK7u0v6O08XhTWnt5XtEbR6Dg==}
     engines: {node: '>= 0.4'}
 
-  dockview-core@5.2.0:
-    resolution: {integrity: sha512-Gib8yhK2Ng7w47ASvbUZ7GdhBYbeXEflbIDxf/vobdQBMrN/QXmPaouSsSSkEx5YH0N8ap8GYljfvqjug7h5Fg==}
+  dockview-core@6.0.1:
+    resolution: {integrity: sha512-Mreb+kTjSrfN9NtVU3LddpA76WXwviaFunAsPCzg04uwZIpjEx7OC607Qfrqg26C6S1r28pxxifkgUWGIs8r6w==}
 
-  dockview-vue@5.2.0:
-    resolution: {integrity: sha512-fkXLYHPFaCUmpWT30SRHzoe9yAfo1r0ia0BCm6WWH21gFzQXkVb75dhjHmzVvqALIdJcafE+E//RE0LG56qIzQ==}
+  dockview-vue@6.0.1:
+    resolution: {integrity: sha512-Qf7nwTOjayvLI/ILzVl+nrFFWA/2QWMo2A/nV1WSNnLh4cd1c1yYyUkPa9i71Cei1exDfsU4TJHGR1I+kttcyA==}
     peerDependencies:
       vue: ^3.4.0
 
@@ -2880,11 +2880,11 @@ snapshots:
       has-property-descriptors: 1.0.2
       object-keys: 1.1.1
 
-  dockview-core@5.2.0: {}
+  dockview-core@6.0.1: {}
 
-  dockview-vue@5.2.0(vue@3.5.32(typescript@5.6.3)):
+  dockview-vue@6.0.1(vue@3.5.32(typescript@5.6.3)):
     dependencies:
-      dockview-core: 5.2.0
+      dockview-core: 6.0.1
       vue: 3.5.32(typescript@5.6.3)
 
   doctrine@2.1.0:
