@@ -26,6 +26,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.7.0
         version: 2.7.0
+      dockview-core:
+        specifier: ^6.0.1
+        version: 6.0.1
       dockview-vue:
         specifier: ^6.0.1
         version: 6.0.1(vue@3.5.32(typescript@5.6.3))
