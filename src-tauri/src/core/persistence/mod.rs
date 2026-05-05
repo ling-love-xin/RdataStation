@@ -17,6 +17,7 @@ pub mod project_db;
 pub mod project_store;
 pub mod sql_template_store;
 pub mod workbench_context_store;
+pub mod analytics_resource_store;
 
 pub use cache_version_migration::{CacheVersionManager, CURRENT_CACHE_VERSION};
 pub use global_db::{GlobalDatabaseManager, GlobalDuckdbConnection, GlobalSqlitePool};
@@ -24,6 +25,10 @@ pub use metadata_cache::{ConnectionType, MetadataCacheManager, MetadataCacheOps}
 pub use project_db::{ProjectDatabaseManager, ProjectDuckdbConnection, ProjectSqlitePool};
 pub use sql_template_store::{SqlTemplate, SqlTemplateStore};
 pub use workbench_context_store::{WorkbenchContextStore, WorkbenchLayout, EditorContext};
+pub use analytics_resource_store::{
+    AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
+    CreateResourceRequest, CreateFolderRequest, CreateTagRequest,
+};
 
 use crate::core::error::{CoreError, StorageError};
 use std::path::Path;

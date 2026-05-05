@@ -20,6 +20,8 @@ use commands::*;
 
 // 项目状态管理
 use commands::project_commands::ProjectState;
+// 分析资源状态管理
+use commands::analytics_resource_commands::AnalyticsResourceState;
 
 /// 注册所有数据库驱动
 ///
@@ -59,6 +61,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(ProjectState::new())
+        .manage(AnalyticsResourceState::new())
         .invoke_handler(tauri::generate_handler![
             // 连接命令
             connect_database,
@@ -185,6 +188,29 @@ pub fn run() {
             // 旧的 project_management_commands 模块已删除
             // save_project_info_to_system, get_all_projects, update_project_last_opened, delete_project_info
             // 现在使用: save_project_info_to_system, get_all_projects, add_recent_project, delete_project
+            
+            // 分析资源管理命令
+            create_analytics_resource,
+            update_analytics_resource,
+            get_analytics_resource,
+            list_analytics_resources,
+            list_analytics_resources_paginated,
+            delete_analytics_resource,
+            batch_delete_analytics_resources,
+            clone_analytics_resource,
+            create_analytics_folder,
+            get_analytics_folder,
+            list_analytics_folders,
+            add_analytics_resource_to_folder,
+            remove_analytics_resource_from_folder,
+            create_analytics_tag,
+            list_analytics_tags,
+            add_analytics_tag_to_resource,
+            remove_analytics_tag_from_resource,
+            get_analytics_recycle_bin,
+            restore_analytics_resource_from_recycle,
+            permanent_delete_analytics_resource,
+            init_analytics_resource_store,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
