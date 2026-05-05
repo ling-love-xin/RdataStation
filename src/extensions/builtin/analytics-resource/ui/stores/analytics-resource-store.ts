@@ -1,0 +1,455 @@
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import type {
+  AnalyticsResource,
+  AnalyticsFolder,
+  AnalyticsTag,
+  AnalyticsRecycleItem,
+  CreateResourceRequest,
+  CreateFolderRequest,
+  CreateTagRequest,
+  ListResourcesInput,
+  ListFoldersInput,
+  ListTagsInput,
+  SortField,
+  SortOrder,
+} from '../../types';
+import * as analyticsApi from '../../infrastructure/api/analytics-resource-api';
+
+export const useAnalyticsResourceStore = defineStore('analytics-resource', () => {
+  // State
+  const resources = ref<AnalyticsResource[]>([]);
+  const folders = ref<AnalyticsFolder[]>([]);
+  const tags = ref<AnalyticsTag[]>([]);
+  const recycleBin = ref<AnalyticsRecycleItem[]>([]);
+  const loading = ref(false);
+  const initialized = ref(false);
+
+  // Pagination
+  const total = ref(0);
+  const page = ref(1);
+  const pageSize = ref(20);
+  const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
+
+  // Sorting
+  const sortBy = ref<SortField | null>(null);
+  const sortOrder = ref<SortOrder>('asc');
+
+  // Selected items
+  const selectedResources = ref<string[]>([]);
+  const selectedFolderId = ref<string | null>(null);
+  const selectedScope = ref<string | null>(null);
+  const selectedType = ref<string | null>(null);
+
+  // Computed
+  const filteredResources = computed(() => {
+  let result = resources.value;
+
+  if (selectedScope.value) {
+    result = result.filter(r => r.scope === selectedScope.value);
+  }
+
+  if (selectedType.value) {
+    result = result.filter(r => r.resource_type === selectedType.value);
+  }
+
+  if (selectedFolderId.value) {
+    // Filter resources in folder (simplified, real implementation would check folder mapping)
+  }
+
+  return result;
+});
+
+  // Actions - Initialization
+  async function initStore() {
+    if (initialized.value) return;
+
+    try {
+      loading.value = true;
+      await analyticsApi.initAnalyticsResourceStore();
+      await Promise.all([
+        loadResources(),
+        loadFolders(),
+        loadTags(),
+      ]);
+      initialized.value = true;
+    } catch (error) {
+      console.error('Failed to init analytics resource store:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Actions - Resources
+  async function loadResources(input?: ListResourcesInput) {
+    try {
+      resources.value = await analyticsApi.listAnalyticsResources(input || {});
+    } catch (error) {
+      console.error('Failed to load resources:', error);
+      throw error;
+    }
+  }
+
+  async function loadResourcesPaginated(input?: ListResourcesInput) {
+    try {
+      loading.value = true;
+      const result = await analyticsApi.listAnalyticsResourcesPaginated({
+        ...input,
+        pagination: {
+          page: page.value,
+          pageSize: pageSize.value,
+        },
+        sort: sortBy.value ? {
+          sortBy: sortBy.value,
+          sortOrder: sortOrder.value,
+        } : undefined,
+      });
+      resources.value = result.items;
+      total.value = result.total;
+      page.value = result.page;
+      pageSize.value = result.pageSize;
+    } catch (error) {
+      console.error('Failed to load resources:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function createResource(input: CreateResourceRequest) {
+    try {
+      loading.value = true;
+      const resource = await analyticsApi.createAnalyticsResource(input);
+      resources.value.unshift(resource);
+      total.value += 1;
+      return resource;
+    } catch (error) {
+      console.error('Failed to create resource:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function updateResource(id: string, input: CreateResourceRequest) {
+    try {
+      loading.value = true;
+      const resource = await analyticsApi.updateAnalyticsResource(id, input);
+      const index = resources.value.findIndex(r => r.id === id);
+      if (index !== -1) {
+        resources.value[index] = resource;
+      }
+      return resource;
+    } catch (error) {
+      console.error('Failed to update resource:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function deleteResource(id: string) {
+    try {
+      loading.value = true;
+      await analyticsApi.deleteAnalyticsResource(id);
+      resources.value = resources.value.filter(r => r.id !== id);
+      selectedResources.value = selectedResources.value.filter(rid => rid !== id);
+      total.value -= 1;
+    } catch (error) {
+      console.error('Failed to delete resource:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function batchDeleteResources(ids: string[]) {
+    try {
+      loading.value = true;
+      await analyticsApi.batchDeleteResources(ids);
+      resources.value = resources.value.filter(r => !ids.includes(r.id));
+      selectedResources.value = selectedResources.value.filter(id => !ids.includes(id));
+      total.value -= ids.length;
+    } catch (error) {
+      console.error('Failed to batch delete resources:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function cloneResource(id: string, newName?: string) {
+    try {
+      loading.value = true;
+      const cloned = await analyticsApi.cloneAnalyticsResource(id, newName);
+      resources.value.unshift(cloned);
+      total.value += 1;
+      return cloned;
+    } catch (error) {
+      console.error('Failed to clone resource:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Sorting
+  function setSort(field: SortField | null, order?: SortOrder) {
+    sortBy.value = field;
+    if (order) {
+      sortOrder.value = order;
+    } else if (sortBy.value === field) {
+      sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+    }
+  }
+
+  function toggleSortOrder() {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  }
+
+  // Pagination
+  function setPage(newPage: number) {
+    if (newPage >= 1 && newPage <= totalPages.value) {
+      page.value = newPage;
+    }
+  }
+
+  function setPageSize(size: number) {
+    pageSize.value = size;
+    page.value = 1;
+  }
+
+  function nextPage() {
+    if (page.value < totalPages.value) {
+      page.value += 1;
+    }
+  }
+
+  function prevPage() {
+    if (page.value > 1) {
+      page.value -= 1;
+    }
+  }
+
+  // Actions - Folders
+  async function loadFolders(input?: ListFoldersInput) {
+    try {
+      folders.value = await analyticsApi.listAnalyticsFolders(input || {});
+    } catch (error) {
+      console.error('Failed to load folders:', error);
+      throw error;
+    }
+  }
+
+  async function createFolder(input: CreateFolderRequest) {
+    try {
+      loading.value = true;
+      const folder = await analyticsApi.createAnalyticsFolder(input);
+      folders.value.unshift(folder);
+      return folder;
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function addResourceToFolder(resourceId: string, folderId: string) {
+    try {
+      await analyticsApi.addAnalyticsResourceToFolder(resourceId, folderId);
+    } catch (error) {
+      console.error('Failed to add resource to folder:', error);
+      throw error;
+    }
+  }
+
+  async function removeResourceFromFolder(resourceId: string, folderId: string) {
+    try {
+      await analyticsApi.removeAnalyticsResourceFromFolder(resourceId, folderId);
+    } catch (error) {
+      console.error('Failed to remove resource from folder:', error);
+      throw error;
+    }
+  }
+
+  // Actions - Tags
+  async function loadTags(input?: ListTagsInput) {
+    try {
+      tags.value = await analyticsApi.listAnalyticsTags(input || {});
+    } catch (error) {
+      console.error('Failed to load tags:', error);
+      throw error;
+    }
+  }
+
+  async function createTag(input: CreateTagRequest) {
+    try {
+      loading.value = true;
+      const tag = await analyticsApi.createAnalyticsTag(input);
+      tags.value.unshift(tag);
+      return tag;
+    } catch (error) {
+      console.error('Failed to create tag:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function addTagToResource(resourceId: string, tagId: string) {
+    try {
+      await analyticsApi.addAnalyticsTagToResource(resourceId, tagId);
+    } catch (error) {
+      console.error('Failed to add tag to resource:', error);
+      throw error;
+    }
+  }
+
+  async function removeTagFromResource(resourceId: string, tagId: string) {
+    try {
+      await analyticsApi.removeAnalyticsTagFromResource(resourceId, tagId);
+    } catch (error) {
+      console.error('Failed to remove tag from resource:', error);
+      throw error;
+    }
+  }
+
+  // Actions - Recycle Bin
+  async function loadRecycleBin() {
+    try {
+      recycleBin.value = await analyticsApi.getAnalyticsRecycleBin();
+    } catch (error) {
+      console.error('Failed to load recycle bin:', error);
+      throw error;
+    }
+  }
+
+  async function restoreResource(recycleId: string) {
+    try {
+      loading.value = true;
+      const resource = await analyticsApi.restoreAnalyticsResourceFromRecycle(recycleId);
+      resources.value.unshift(resource);
+      recycleBin.value = recycleBin.value.filter(item => item.id !== recycleId);
+      return resource;
+    } catch (error) {
+      console.error('Failed to restore resource:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function permanentDeleteResource(recycleId: string) {
+    try {
+      loading.value = true;
+      await analyticsApi.permanentDeleteAnalyticsResource(recycleId);
+      recycleBin.value = recycleBin.value.filter(item => item.id !== recycleId);
+    } catch (error) {
+      console.error('Failed to permanent delete resource:', error);
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Selection
+  function selectResource(id: string, multiple = false) {
+    if (multiple) {
+      const index = selectedResources.value.indexOf(id);
+      if (index !== -1) {
+        selectedResources.value.splice(index, 1);
+      } else {
+        selectedResources.value.push(id);
+      }
+    } else {
+      selectedResources.value = [id];
+    }
+  }
+
+  function clearSelection() {
+    selectedResources.value = [];
+  }
+
+  function selectScope(scope: string | null) {
+    selectedScope.value = scope;
+  }
+
+  function selectType(type: string | null) {
+    selectedType.value = type;
+  }
+
+  function selectFolder(folderId: string | null) {
+    selectedFolderId.value = folderId;
+  }
+
+  return {
+    // State
+    resources,
+    folders,
+    tags,
+    recycleBin,
+    loading,
+    initialized,
+    selectedResources,
+    selectedFolderId,
+    selectedScope,
+    selectedType,
+
+    // Computed
+    filteredResources,
+
+    // Actions - Init
+    initStore,
+
+    // Actions - Resources
+    loadResources,
+    loadResourcesPaginated,
+    createResource,
+    updateResource,
+    deleteResource,
+    batchDeleteResources,
+    cloneResource,
+
+    // Sorting
+    setSort,
+    toggleSortOrder,
+    sortBy,
+    sortOrder,
+
+    // Pagination
+    setPage,
+    setPageSize,
+    nextPage,
+    prevPage,
+    total,
+    page,
+    pageSize,
+    totalPages,
+
+    // Actions - Folders
+    loadFolders,
+    createFolder,
+    addResourceToFolder,
+    removeResourceFromFolder,
+
+    // Actions - Tags
+    loadTags,
+    createTag,
+    addTagToResource,
+    removeTagFromResource,
+
+    // Actions - Recycle Bin
+    loadRecycleBin,
+    restoreResource,
+    permanentDeleteResource,
+
+    // Selection
+    selectResource,
+    clearSelection,
+    selectScope,
+    selectType,
+    selectFolder,
+  };
+});

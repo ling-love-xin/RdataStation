@@ -12,6 +12,7 @@ import databaseExtension from '@/extensions/builtin/database/extension'
 import mysqlDriverExtension from '@/extensions/builtin/mysql-driver/extension'
 import queryExtension from '@/extensions/builtin/query/extension'
 import workbenchExtension from '@/extensions/builtin/workbench/extension'
+import analyticsResourceExtension from '@/extensions/builtin/analytics-resource/extension'
 import type { ExtensionModule } from '@/extensions/core/types'
 
 /**
@@ -22,7 +23,8 @@ import type { ExtensionModule } from '@/extensions/core/types'
  * 2. database - 数据库导航（依赖 connection）
  * 3. query - SQL 查询执行（依赖 connection）
  * 4. workbench - 工作台布局（依赖所有）
- * 5. mysql-driver - 数据库驱动（可选）
+ * 5. analytics-resource - 分析资源管理
+ * 6. mysql-driver - 数据库驱动（可选）
  */
 export interface BuiltinExtension {
   id: string
@@ -34,5 +36,6 @@ export const builtinExtensions: BuiltinExtension[] = [
   { id: 'database', module: databaseExtension },
   { id: 'query', module: queryExtension },
   { id: 'workbench', module: workbenchExtension },
+  { id: 'analytics-resource', module: analyticsResourceExtension },
   { id: 'mysql-driver', module: mysqlDriverExtension },
 ]
