@@ -6,6 +6,10 @@
       ref="dockviewRef"
       class="dockview"
       :style="dockviewStyle"
+      :popout-url="'/popout.html'"
+      :floating-group-bounds="'boundedWithinViewport'"
+      :right-header-actions-component="'panelHeaderActions'"
+      :get-tab-context-menu-items="getTabContextMenuItems"
       @ready="onReady"
     />
 
@@ -27,17 +31,14 @@
 </template>
 
 <script setup lang="ts">
-import { DockviewVue, type DockviewReadyEvent, type DockviewApi as DockviewVueApi, type IDockviewPanel } from 'dockview-vue'
+import { DockviewVue, type DockviewReadyEvent, type DockviewApi as DockviewVueApi, type IDockviewPanel, type GetTabContextMenuItemsParams, type ContextMenuItem } from 'dockview-vue'
 import { useMessage } from 'naive-ui'
-import { ref, computed, onMounted, onUnmounted, type Component } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 import { panelRegistry } from '@/core/panel-registry'
-import { useProjectStore } from '@/core/project/stores/project'
 import ConnectionModal from '@/extensions/builtin/connection/ui/components/ConnectionModal.vue'
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
-import { useQueryStore } from '@/extensions/builtin/query/ui/stores/query-store'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
@@ -45,10 +46,7 @@ import { useUiStore } from '@/shared/stores/ui'
 
 const uiStore = useUiStore()
 const layoutStore = useLayoutStore()
-const projectStore = useProjectStore()
 const connectionStore = useConnectionStore()
-const _queryStore = useQueryStore()
-const _router = useRouter()
 const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
@@ -64,6 +62,49 @@ const activeSqlEditorPanel = ref<IDockviewPanel | null>(null)
 
 let dockviewApi: DockviewVueApi | null = null
 let sqlEditorCounter = 0
+
+const pinnedPanelIds = new Set<string>()
+
+const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMenuItem[] => {
+  const { panel, group, api } = params
+  const maximized = !!group.api.isMaximized?.()
+  const isPinned = pinnedPanelIds.has(panel.id)
+  return [
+    {
+      label: isPinned ? '取消钉住' : '钉住',
+      action: () => {
+        if (isPinned) pinnedPanelIds.delete(panel.id)
+        else pinnedPanelIds.add(panel.id)
+      }
+    },
+    'separator',
+    {
+      label: 'Float Tab',
+      action: () => { api.addFloatingGroup(panel) }
+    },
+    {
+      label: 'Popout Tab',
+      action: () => { api.addPopoutGroup(panel) }
+    },
+    'separator',
+    {
+      label: maximized ? '还原最大化' : '最大化组',
+      action: () => { if (maximized) group.api.exitMaximized(); else group.api.maximize() }
+    },
+    {
+      label: '浮动整组',
+      action: () => { api.addFloatingGroup(group) }
+    },
+    {
+      label: '弹出整组窗口',
+      action: () => { api.addPopoutGroup(group) }
+    },
+    'separator',
+    'close',
+    'closeOthers',
+    'closeAll',
+  ]
+}
 
 
 const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {

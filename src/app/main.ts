@@ -14,6 +14,9 @@ import 'dockview-vue/dist/styles/dockview.css'
 // dockview 主题覆盖必须在 dockview 默认样式之后导入
 import '@/shared/styles/dockview-theme.css'
 
+// 导入自定义组件（用于 dockview rightHeaderActionsComponent）
+import PanelHeaderActions from '@/extensions/builtin/workbench/ui/components/PanelHeaderActions.vue'
+
 // Configure Monaco Editor for Tauri environment
 // 完全禁用 Web Worker，在主线程中运行所有功能
 // Tauri 的安全策略和 CSP 限制使得 Web Worker 加载不稳定
@@ -78,6 +81,10 @@ async function main() {
     }
   }
   console.log(`[Main] Registered ${panels.length} panel components globally`)
+
+  // 注册 Dockview 面板操作组件（最大化/弹出/钉住按钮）
+  app.component('panelHeaderActions', PanelHeaderActions)
+  console.log('[Main] Registered panelHeaderActions component')
 
   // 步骤 3：再挂载 Vue 应用
   // Dockview 的 onReady 事件将在 Vue 渲染后触发

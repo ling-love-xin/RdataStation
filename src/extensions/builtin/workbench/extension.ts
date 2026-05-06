@@ -89,7 +89,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
   })
 
   // 注册输出面板（底部）
-  const outputDisposable = context.window.registerViewProvider('output', {
+  const outputDisposable = context.window.registerViewProvider('outputPanel', {
     component: OutputPanel,
     title: '输出',
     location: 'bottom',

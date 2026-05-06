@@ -216,6 +216,138 @@ src/
 - 平滑动画、无闪烁
 - 符合原生桌面体验
 
+## 4.4 Tauri WebView2 HTML5 DnD 配置（强制规则）
+
+### 关键发现
+
+Tauri v2 的 `dragDropEnabled` 默认值为 `true`，其含义为：**启用 Tauri 内部拖放系统 → 拦截所有 DOM `dragover`/`drop` 事件 → 转为 `tauri://drag-drop` Rust 事件 → HTML5 原生 DnD 完全失效。**
+
+dockview 依赖 HTML5 Drag and Drop API 实现 tab 拖拽、分组、浮动。因此 **`dragDropEnabled` 必须设置为 `false`**。
+
+### 强制配置
+
+`src-tauri/tauri.conf.json`:
+```json
+{
+  "app": {
+    "windows": [
+      {
+        "dragDropEnabled": false
+      }
+    ]
+  }
+}
+```
+
+### 补充权限
+
+`src-tauri/capabilities/default.json`:
+```json
+{
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "core:webview:allow-create-webview-window"
+  ]
+}
+```
+
+| 权限 | 作用 |
+|------|------|
+| `core:window:allow-start-dragging` | 允许 Tauri 原生窗口拖拽（标题栏 `data-tauri-drag-region`） |
+| `core:webview:allow-create-webview-window` | 允许 dockview `addPopoutGroup()` 创建独立弹出窗口 |
+
+## 4.5 dockview Popout 独立窗口配置
+
+### 前提
+
+1. `dragDropEnabled: false`（见 4.4）
+2. `core:webview:allow-create-webview-window` 权限已添加（见 4.4）
+
+### 创建承载页面
+
+`public/popout.html`:
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1e1e1e; }
+  </style>
+</head>
+<body>
+  <div id="popout-root" style="width: 100%; height: 100%;"></div>
+  <script type="module" src="/src/app/popout.ts"></script>
+</body>
+</html>
+```
+
+### DockviewVue 配置
+
+```vue
+<DockviewVue
+  :popout-url="'/popout.html'"
+  :floating-group-bounds="'boundedWithinViewport'"
+/>
+```
+
+## 4.6 dockview Context Menu / Header Actions 规则
+
+### 组件注册
+
+Header actions 组件必须全局注册（`app.component`）才能在 dockview 内部被 Vue 解析：
+```typescript
+// main.ts
+app.component('panelHeaderActions', PanelHeaderActions)
+```
+
+### params 结构（由 dockview-vue VueHeaderActionsRenderer 传入）
+
+```
+params.api              = DockviewGroupPanelApi（group 级别 API）
+params.containerApi     = DockviewGroupPanelApi（同 params.api）
+params.group            = DockviewGroupPanel（→ group.model.accessor.api = DockviewApi 根 API）
+params.panels           = DockviewPanel[]
+params.activePanel      = DockviewPanel | undefined
+params.location         = { type: 'grid' | 'edge' | 'floating', position?: string }
+```
+
+### 获取根 DockviewApi
+
+HeaderActions 中 `params.api` 和 `params.containerApi` 都是 `DockviewGroupPanelApi`，**不包含** `addFloatingGroup()`。
+
+获取根 `DockviewApi`（用于浮动/弹出）：
+```typescript
+const dApi = params.group.model.accessor.api
+dApi.addFloatingGroup(group)   // 浮动整组
+dApi.addFloatingGroup(panel)   // 浮动单个 tab
+dApi.addPopoutGroup(group)     // 弹出整组窗口
+dApi.addPopoutGroup(panel)     // 弹出单个 tab 窗口
+```
+
+### Context Menu API 区别
+
+右键菜单 callback 中的 `params.api` **已经是 `DockviewApi`（根 API）**，可直接使用：
+```typescript
+getTabContextMenuItems(params) {
+  params.api.addFloatingGroup(params.group)   // ✅ 直接可用
+  params.api.addPopoutGroup(params.panel)     // ✅ 直接可用
+}
+```
+
+### 钉住 panel 实现
+
+钉住是前端行为，通过 `Set<string>` 记录 panel ID：
+```typescript
+const pinnedPanelIds = new Set<string>()
+pinnedPanelIds.add(panel.id)    // 钉住
+pinnedPanelIds.delete(panel.id) // 取消
+```
+
+### 最大化
+
+`api.maximize()` 仅在 `location.type === 'grid'` 时生效。Edge Group（侧边栏）不支持最大化。
+
 ---
 
 # 5. 组件开发规范

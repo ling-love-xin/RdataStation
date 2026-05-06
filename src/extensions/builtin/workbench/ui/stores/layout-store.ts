@@ -85,7 +85,7 @@ export const ACTIVEBAR_TO_PANEL_ID: Record<string, string> = {
   'settings': 'settings',
   'customizeLayout': 'customizeLayout',
   'sql-history': 'sqlHistory',
-  'output': 'output',
+  'output': 'outputPanel',
   'column-insights': 'columnInsights'
 }
 
