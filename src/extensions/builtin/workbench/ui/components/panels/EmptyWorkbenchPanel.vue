@@ -22,6 +22,24 @@
         </NButton>
       </div>
 
+      <div v-if="recentProjects.length > 0" class="recent-projects">
+        <h3>最近项目</h3>
+        <div class="project-list">
+          <div
+            v-for="project in recentProjects.slice(0, 5)"
+            :key="project.id"
+            class="project-item"
+            @click="switchProject(project)"
+          >
+            <div class="project-info">
+              <FolderOpen :size="16" class="project-icon" />
+              <span class="project-name">{{ project.name }}</span>
+            </div>
+            <span class="project-path">{{ project.path }}</span>
+          </div>
+        </div>
+      </div>
+
       <div class="quick-links">
         <h3>快速开始</h3>
         <ul>
@@ -35,8 +53,15 @@
 </template>
 
 <script setup lang="ts">
-import { Database, Plug, FileText } from 'lucide-vue-next'
+import { Database, Plug, FileText, FolderOpen } from 'lucide-vue-next'
 import { NButton } from 'naive-ui'
+import { computed } from 'vue'
+
+import { useProjectStore } from '@/core/project/stores/project'
+
+const projectStore = useProjectStore()
+
+const recentProjects = computed(() => projectStore.recentProjects || [])
 
 const handleNewQuery = () => {
   window.dispatchEvent(new CustomEvent('open-sql-editor', {
@@ -47,6 +72,14 @@ const handleNewQuery = () => {
 const handleNewConnection = () => {
   window.dispatchEvent(new CustomEvent('open-connection-modal'))
 }
+
+const switchProject = async (project: { id: string; name: string; path: string }) => {
+  try {
+    await projectStore.switchProject(project.id)
+  } catch (error) {
+    console.error('切换项目失败:', error)
+  }
+}
 </script>
 
 <style scoped>
@@ -56,11 +89,13 @@ const handleNewConnection = () => {
   justify-content: center;
   height: 100%;
   padding: 40px;
+  overflow-y: auto;
 }
 
 .welcome-content {
   text-align: center;
   max-width: 500px;
+  width: 100%;
 }
 
 .welcome-icon {
@@ -92,12 +127,73 @@ const handleNewConnection = () => {
   display: flex;
   gap: 12px;
   justify-content: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
+}
+
+.recent-projects {
+  text-align: left;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 24px;
+}
+
+.recent-projects h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.project-item:hover {
+  background: var(--bg-hover);
+}
+
+.project-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-icon {
+  color: var(--primary-color);
+}
+
+.project-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.project-path {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-links {
   text-align: left;
-  padding: 20px;
+  padding: 16px;
   background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid var(--border-color);

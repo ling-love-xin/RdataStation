@@ -8,8 +8,9 @@ import {
 } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
-import type { DockviewApi } from 'dockview-vue'
+
 import type { IDockviewPanel } from 'dockview-core'
+import type { DockviewApi } from 'dockview-vue'
 
 // ============================================
 // 类型定义
@@ -98,15 +99,21 @@ export const PANEL_ID_TO_ACTIVITYBAR: Record<string, string> = Object.fromEntrie
 // ============================================
 export const useLayoutStore = defineStore('layout', () => {
   // ============================================
-  // 可见性状态
-  // ============================================
-  const menuBarVisible = ref(true)
-  const leftActivityBarVisible = ref(true)
-  const rightActivityBarVisible = ref(true)
-  const primarySideBarVisible = ref(true)
-  const secondarySideBarVisible = ref(true)
-  const panelVisible = ref(true)
-  const statusBarVisible = ref(true)
+// 可见性状态
+// ============================================
+const menuBarVisible = ref(true)
+const leftActivityBarVisible = ref(true)
+const rightActivityBarVisible = ref(true)
+const primarySideBarVisible = ref(true)
+const secondarySideBarVisible = ref(true)
+const panelVisible = ref(true)
+const statusBarVisible = ref(true)
+
+// ============================================
+// 侧边栏锁定状态（VSCode 风格：侧边栏始终存在，不可关闭）
+// ============================================
+const primarySideBarLocked = ref(true)
+const secondarySideBarLocked = ref(true)
 
   // ============================================
   // 选中状态
@@ -346,10 +353,18 @@ export const useLayoutStore = defineStore('layout', () => {
 
   function togglePrimarySideBar() {
     primarySideBarVisible.value = !primarySideBarVisible.value
+    
+    // 切换左侧面板组的可见性
+    // 注意：DockviewApi 没有直接的 setVisible 方法，这里通过关闭/重新添加面板来实现
+    // 或者使用 CSS 控制侧边栏容器的显示/隐藏
+    console.log('[LayoutStore] Primary sidebar visibility toggled:', primarySideBarVisible.value)
   }
 
   function toggleSecondarySideBar() {
     secondarySideBarVisible.value = !secondarySideBarVisible.value
+    
+    // 切换右侧面板组的可见性
+    console.log('[LayoutStore] Secondary sidebar visibility toggled:', secondarySideBarVisible.value)
   }
 
   function togglePanel() {
@@ -413,7 +428,7 @@ export const useLayoutStore = defineStore('layout', () => {
     }
 
     const panelId = `panel_${registryId}`
-    let panel = dockviewApi.value.getPanel(panelId)
+    const panel = dockviewApi.value.getPanel(panelId)
 
     if (panel) {
       // 面板已存在，激活它
@@ -575,6 +590,10 @@ export const useLayoutStore = defineStore('layout', () => {
     secondarySideBarVisible,
     panelVisible,
     statusBarVisible,
+
+    // 侧边栏锁定状态
+    primarySideBarLocked,
+    secondarySideBarLocked,
 
     // 选中状态
     selectedLeftItem,

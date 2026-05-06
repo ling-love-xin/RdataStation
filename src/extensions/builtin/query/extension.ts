@@ -89,6 +89,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     component: SqlEditorPanel,
     title: 'SQL 编辑器',
     location: 'center',
+    icon: 'Code',
     order: 1
   })
 
@@ -97,6 +98,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     component: QueryResultPanel,
     title: '查询结果',
     location: 'bottom',
+    icon: 'Table2',
     order: 2
   })
 
@@ -105,6 +107,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     component: MultiTabResults,
     title: '查询结果',
     location: 'bottom',
+    icon: 'Table2',
     order: 3
   })
 
@@ -113,6 +116,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     component: ColumnInsightsPanel,
     title: '列洞察',
     location: 'right',
+    icon: 'Eye',
     order: 4
   })
 

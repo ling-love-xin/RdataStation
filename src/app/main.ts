@@ -1,6 +1,7 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
+import { panelRegistry } from '@/core/panel-registry'
 import { builtinExtensions } from '@/core/builtin-extensions'
 import { extensionHost } from '@/core/extension-host'
 
@@ -45,9 +46,10 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 
-// 激活内置扩展
-// 使用默认项目信息（实际项目中应该从项目存储加载）
-async function activateExtensions() {
+async function main() {
+  // 步骤 1：先激活所有内置扩展
+  // 此时 panelRegistry 中会注册所有面板，但 Vue 应用尚未渲染
+  // 确保 Dockview 的 onReady 事件触发时，面板已就绪
   try {
     await extensionHost.activateExtensions(builtinExtensions, {
       id: 'default',
@@ -61,8 +63,26 @@ async function activateExtensions() {
   } catch (error) {
     console.error('[Main] Failed to activate extensions:', error)
   }
+
+  // 步骤 2：全局注册所有面板组件（给 dockview-vue 的 findComponent 使用）
+  // dockview-vue 通过 appContext.components 查找组件，必须全局注册
+  const panels = panelRegistry.getAll()
+  for (const panel of panels) {
+    if (panel.component) {
+      try {
+        app.component(panel.id, panel.component as any)
+        console.log(`[Main] Registered global component: ${panel.id}`)
+      } catch (e) {
+        console.warn(`[Main] Failed to register component '${panel.id}':`, e)
+      }
+    }
+  }
+  console.log(`[Main] Registered ${panels.length} panel components globally`)
+
+  // 步骤 3：再挂载 Vue 应用
+  // Dockview 的 onReady 事件将在 Vue 渲染后触发
+  // 此时 panelRegistry 中已有所有面板数据，组件也已全局注册
+  app.mount('#app')
 }
 
-// 在应用挂载后激活扩展
-app.mount('#app')
-activateExtensions()
+main()

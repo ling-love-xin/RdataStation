@@ -1,58 +1,61 @@
 <template>
   <div class="filter-bar">
-    <div class="filter-group">
-      <span class="filter-label">作用域:</span>
-      <div class="filter-buttons">
-        <button
-          v-for="scope in scopes"
-          :key="scope.value ?? 'all'"
-          :class="['filter-btn', { active: selectedScope === scope.value }]"
-          @click="selectScope(scope.value)"
+    <div class="filter-row">
+      <div class="filter-group compact">
+        <span class="filter-label">作用域:</span>
+        <select
+          class="filter-select"
+          :value="selectedScope ?? 'all'"
+          @change="selectScope(($event.target as HTMLSelectElement).value === 'all' ? null : ($event.target as HTMLSelectElement).value)"
         >
-          {{ scope.label }}
+          <option value="all">全部</option>
+          <option value="global">🌍 全局</option>
+          <option value="project">📂 项目</option>
+          <option value="session">📌 会话</option>
+        </select>
+      </div>
+
+      <div class="filter-group compact">
+        <span class="filter-label">类型:</span>
+        <select
+          class="filter-select"
+          :value="selectedType ?? 'all'"
+          @change="selectType(($event.target as HTMLSelectElement).value === 'all' ? null : ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="all">全部</option>
+          <option value="connection">🔌 连接</option>
+          <option value="table">📊 表</option>
+          <option value="file">📄 文件</option>
+        </select>
+      </div>
+
+      <div class="filter-group compact">
+        <span class="filter-label">排序:</span>
+        <select
+          class="filter-select"
+          :value="selectedSort ?? 'name'"
+          @change="selectSort(($event.target as HTMLSelectElement).value as SortField)"
+        >
+          <option value="name">名称</option>
+          <option value="created_at">创建时间</option>
+          <option value="updated_at">更新时间</option>
+          <option value="row_count">行数</option>
+          <option value="file_size">大小</option>
+        </select>
+        <button
+          class="sort-order-btn"
+          :title="sortOrder === 'asc' ? '升序' : '降序'"
+          @click="toggleSortOrder"
+        >
+          {{ sortOrder === 'asc' ? '↑' : '↓' }}
         </button>
       </div>
-    </div>
 
-    <div class="filter-group">
-      <span class="filter-label">类型:</span>
-      <div class="filter-buttons">
-        <button
-          v-for="type in types"
-          :key="type.value ?? 'all'"
-          :class="['filter-btn', { active: selectedType === type.value }]"
-          @click="selectType(type.value)"
-        >
-          {{ type.label }}
-        </button>
+      <div v-if="selectedCount > 0" class="selection-info">
+        <span>已选 {{ selectedCount }} 项</span>
+        <button class="batch-action-btn danger" @click="emit('batchDelete')">🗑️</button>
+        <button class="clear-selection-btn" @click="clearSelection">清空</button>
       </div>
-    </div>
-
-    <div class="filter-group">
-      <span class="filter-label">排序:</span>
-      <div class="filter-buttons">
-        <button
-          v-for="sort in sortOptions"
-          :key="sort.value"
-          :class="['filter-btn', { active: selectedSort === sort.value }]"
-          @click="selectSort(sort.value)"
-        >
-          {{ sort.label }}
-          <span v-if="selectedSort === sort.value" class="sort-indicator">
-            {{ sortOrder === 'asc' ? '↑' : '↓' }}
-          </span>
-        </button>
-      </div>
-    </div>
-
-    <div v-if="selectedCount > 0" class="selection-info">
-      <span>已选择 {{ selectedCount }} 项</span>
-      <button class="batch-action-btn danger" @click="emit('batchDelete')">
-        🗑️ 批量删除
-      </button>
-      <button class="clear-selection-btn" @click="clearSelection">
-        清空选择
-      </button>
     </div>
   </div>
 </template>
@@ -116,6 +119,10 @@ function selectSort(value: SortField | null) {
   }
 }
 
+function toggleSortOrder() {
+  emit('update:sortOrder', props.sortOrder === 'asc' ? 'desc' : 'asc')
+}
+
 function clearSelection() {
   emit('clearSelection')
 }
@@ -123,18 +130,26 @@ function clearSelection() {
 
 <style scoped>
 .filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--size-lg);
-  padding: var(--size-md) var(--size-lg);
+  padding: var(--size-sm) var(--size-md);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-md);
+  flex-wrap: nowrap;
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: var(--size-sm);
+  gap: var(--size-xs);
+}
+
+.filter-group.compact {
+  gap: 4px;
 }
 
 .filter-label {
@@ -143,57 +158,68 @@ function clearSelection() {
   white-space: nowrap;
 }
 
-.filter-buttons {
-  display: flex;
-  gap: 4px;
+.filter-select {
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  height: 26px;
+  min-width: 80px;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-.filter-btn {
-  padding: 4px 10px;
+.filter-select:hover {
+  border-color: var(--primary-color);
+}
+
+.filter-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.sort-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap;
-  height: 28px;
 }
 
-.filter-btn:hover {
+.sort-order-btn:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
-}
-
-.filter-btn.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
-}
-
-.sort-indicator {
-  margin-left: 2px;
 }
 
 .selection-info {
   display: flex;
   align-items: center;
-  gap: var(--size-md);
+  gap: var(--size-sm);
   margin-left: auto;
   font-size: 12px;
   color: var(--text-secondary);
 }
 
 .clear-selection-btn {
-  padding: 4px 8px;
+  padding: 2px 6px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.15s;
+  height: 24px;
 }
 
 .clear-selection-btn:hover {
@@ -202,7 +228,11 @@ function clearSelection() {
 }
 
 .batch-action-btn {
-  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;

@@ -50,8 +50,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import type { AnalyticsResource } from '../../types'
+
 import ContextMenu, { type ContextMenuItem } from './ContextMenu.vue'
+
+import type { AnalyticsResource } from '../../types'
 
 const props = withDefaults(defineProps<{
   items: AnalyticsResource[]

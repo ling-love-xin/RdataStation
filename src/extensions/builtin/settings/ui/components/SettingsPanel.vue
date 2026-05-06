@@ -204,7 +204,7 @@
             <RotateCcw :size="16" />
             恢复默认布局
           </button>
-          <button class="action-btn" @click="resetToDefault">
+          <button class="action-btn" @click="saveSettings">
             <Save :size="16" />
             保存当前布局
           </button>
@@ -301,7 +301,7 @@ import {
   Layers,
   Columns
 } from 'lucide-vue-next'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 
 import { useLayoutStore } from '../../../workbench/ui/stores/layout-store'
 
@@ -460,8 +460,7 @@ function saveSettings() {
 
 function handleLayoutModeChange() {
   dispatchLayoutUpdate()
-  // Recreate layout to apply changes immediately
-  window.dispatchEvent(new CustomEvent('reset-workbench-layout'))
+  saveSettings()
 }
 
 function handleWidthChange() {
@@ -546,6 +545,20 @@ onMounted(() => {
   updateContainerWidth()
   window.addEventListener('resize', updateContainerWidth)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateContainerWidth)
+})
+
+watch(
+  [leftWidth, rightWidth, minimumPanelWidth, maximumPanelWidth, enableMaxWidthConstraint, autoResize, debounceDelay, leftPanelLayoutMode, rightPanelLayoutMode],
+  () => {
+    if (autoResize.value) {
+      saveSettings()
+    }
+  },
+  { deep: true }
+)
 </script>
 
 <style scoped>

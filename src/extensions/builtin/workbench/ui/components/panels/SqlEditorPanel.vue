@@ -152,54 +152,15 @@
       </div>
     </div>
 
-    <!-- 欢迎页（编辑器为空时显示） -->
-    <div v-if="showWelcome" class="welcome-overlay" @click="focusEditor">
-      <div class="welcome-card">
-        <h2 class="welcome-title">SQL 编辑器</h2>
-        <p class="welcome-desc">选择数据库连接后开始编写 SQL，或使用以下快捷操作</p>
-        
-        <div class="welcome-actions">
-          <div class="action-group">
-            <h3 class="action-group-title">常用快捷键</h3>
-            <div class="shortcut-list">
-              <div class="shortcut-item">
-                <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
-                <span>执行 SQL</span>
-              </div>
-              <div class="shortcut-item">
-                <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd>
-                <span>格式化 SQL</span>
-              </div>
-              <div class="shortcut-item">
-                <kbd>Ctrl</kbd> + <kbd>/</kbd>
-                <span>注释/取消注释</span>
-              </div>
-              <div class="shortcut-item">
-                <kbd>Ctrl</kbd> + <kbd>L</kbd>
-                <span>清空编辑器</span>
-              </div>
-              <div class="shortcut-item">
-                <kbd>Ctrl</kbd> + <kbd>S</kbd>
-                <span>保存 SQL</span>
-              </div>
-              <div class="shortcut-item">
-                <kbd>F5</kbd>
-                <span>执行全部</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="action-group">
-            <h3 class="action-group-title">快速开始</h3>
-            <div class="quick-actions">
-              <NButton size="small" @click.stop="insertSampleSql">
-                插入示例 SQL
-              </NButton>
-              <NButton size="small" @click.stop="showHistory = true">
-                查看历史记录
-              </NButton>
-            </div>
-          </div>
+    <!-- 编辑器水印（空编辑器时显示为透明背景提示） -->
+    <div v-if="showWelcome" class="editor-watermark">
+      <div class="watermark-text">
+        <div class="watermark-title">SQL 编辑器</div>
+        <div class="watermark-shortcuts">
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> 执行</span>
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 格式化</span>
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>/</kbd> 注释</span>
+          <span class="shortcut-hint"><kbd>F5</kbd> 执行全部</span>
         </div>
       </div>
     </div>
@@ -1704,13 +1665,6 @@ onUnmounted(() => {
   padding-bottom: 24px;
 }
 
-.sql-editor-panel.toolbar-left .welcome-overlay {
-  top: 0;
-  left: 48px;
-  right: 0;
-  bottom: 24px;
-}
-
 .sql-editor-panel.toolbar-left .editor-statusbar {
   position: absolute;
   bottom: 0;
@@ -1769,13 +1723,6 @@ onUnmounted(() => {
 .sql-editor-panel.toolbar-right .editor-container {
   flex: 1 1 0;
   padding-bottom: 24px;
-}
-
-.sql-editor-panel.toolbar-right .welcome-overlay {
-  top: 0;
-  left: 0;
-  right: 48px;
-  bottom: 24px;
 }
 
 .sql-editor-panel.toolbar-right .editor-statusbar {
@@ -1982,8 +1929,8 @@ onUnmounted(() => {
   }
 }
 
-/* 欢迎页样式 */
-.welcome-overlay {
+/* 编辑器水印样式（空编辑器时显示为透明提示） */
+.editor-watermark {
   position: absolute;
   top: 40px;
   left: 0;
@@ -1992,84 +1939,46 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  cursor: pointer;
+  pointer-events: none;
   z-index: 1;
 }
 
-.welcome-card {
-  max-width: 600px;
-  padding: 32px;
-  background: var(--bg-secondary, #252526);
-  border: 1px solid var(--border-color, #3e3e42);
-  border-radius: 8px;
+.watermark-text {
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0.35;
+  user-select: none;
 }
 
-.welcome-title {
-  margin: 0 0 12px;
-  font-size: 24px;
+.watermark-title {
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-primary, #cccccc);
+  margin-bottom: 16px;
 }
 
-.welcome-desc {
-  margin: 0 0 24px;
-  font-size: 14px;
+.watermark-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.shortcut-hint {
+  font-size: 12px;
   color: var(--text-secondary, #858585);
   line-height: 1.6;
 }
 
-.welcome-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.action-group {
-  text-align: left;
-}
-
-.action-group-title {
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary, #cccccc);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.shortcut-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.shortcut-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-tertiary, #2d2d30);
-  border-radius: 4px;
-  font-size: 13px;
-  color: var(--text-secondary, #858585);
-}
-
-.shortcut-item kbd {
+.shortcut-hint kbd {
   display: inline-block;
-  padding: 2px 6px;
-  background: var(--bg-primary, #1e1e1e);
+  padding: 1px 5px;
+  margin: 0 2px;
+  background: var(--bg-tertiary, #2d2d30);
   border: 1px solid var(--border-color, #3e3e42);
   border-radius: 3px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: var(--text-primary, #cccccc);
-}
-
-.shortcut-item span {
-  flex: 1;
+  color: var(--text-secondary, #858585);
 }
 
 /* 方言转换弹窗样式 */

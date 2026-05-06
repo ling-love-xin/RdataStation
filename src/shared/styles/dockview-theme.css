@@ -1,4 +1,4 @@
-/* dockview-vue 6.0 主题覆盖 */
+/* dockview-vue 6.0 主题覆盖 - 最简版 */
 
 /* 深色主题 */
 .dockview-theme-dark {
@@ -25,10 +25,6 @@
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary) !important;
   --dv-tabs-and-actions-container-font-size: 12px;
   --dv-tabs-and-actions-container-height: 35px;
-  --dv-activegroup-visiblepanel-tab-height: 35px;
-  --dv-activegroup-hiddenpanel-tab-height: 35px;
-  --dv-inactivegroup-visiblepanel-tab-height: 35px;
-  --dv-inactivegroup-hiddenpanel-tab-height: 35px;
 }
 
 /* 浅色主题 */
@@ -56,81 +52,16 @@
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary) !important;
   --dv-tabs-and-actions-container-font-size: 12px;
   --dv-tabs-and-actions-container-height: 35px;
-  --dv-activegroup-visiblepanel-tab-height: 35px;
-  --dv-activegroup-hiddenpanel-tab-height: 35px;
-  --dv-inactivegroup-visiblepanel-tab-height: 35px;
-  --dv-inactivegroup-hiddenpanel-tab-height: 35px;
-}
-
-/* 标签页样式 - 深色主题 */
-.dockview-theme-dark .dv-tabs-container {
-  background: var(--bg-secondary) !important;
-}
-
-.dockview-theme-dark .dv-tab {
-  background: var(--bg-secondary) !important;
-  color: var(--text-secondary) !important;
-  border-right: 1px solid var(--border-color) !important;
-}
-
-.dockview-theme-dark .dv-tab.dv-active-tab {
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-  border-top: 2px solid var(--primary-color) !important;
-}
-
-.dockview-theme-dark .dv-tab:hover {
-  background: var(--bg-hover) !important;
-}
-
-/* 标签页样式 - 浅色主题 */
-.dockview-theme-light .dv-tabs-container {
-  background: var(--bg-secondary) !important;
-}
-
-.dockview-theme-light .dv-tab {
-  background: var(--bg-secondary) !important;
-  color: var(--text-secondary) !important;
-  border-right: 1px solid var(--border-color) !important;
-}
-
-.dockview-theme-light .dv-tab.dv-active-tab {
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-  border-top: 2px solid var(--primary-color) !important;
-}
-
-.dockview-theme-light .dv-tab:hover {
-  background: var(--bg-hover) !important;
-}
-
-/* 内容区域 */
-.dv-content-container {
-  background: var(--bg-primary) !important;
-}
-
-/* 分组头部 */
-.dv-groupview {
-  background: var(--bg-secondary) !important;
-}
-
-/* 拖拽时的遮罩 */
-.dv-drag-overlay {
-  background: rgba(59, 130, 246, 0.1) !important;
-  border: 2px dashed var(--primary-color) !important;
 }
 
 /* 分割条 */
 .dv-sash {
   background: transparent !important;
+  z-index: 10 !important;
+  transition: background 0.2s ease !important;
 }
 
 .dv-sash:hover,
 .dv-sash.dv-sash-active {
   background: var(--primary-color) !important;
-}
-
-/* 空面板 */
-.dv-empty-space {
-  background: var(--bg-primary) !important;
 }

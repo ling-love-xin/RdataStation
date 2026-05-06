@@ -9,8 +9,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import ActivityBar from './ActivityBar.vue'
+
 import type { LeftActivityItem, RightActivityItem } from '@/extensions/builtin/workbench/ui/stores/layout-store'
+
+import ActivityBar from './ActivityBar.vue'
 
 interface ActivityBarPanelParams {
   items: LeftActivityItem[] | RightActivityItem[]

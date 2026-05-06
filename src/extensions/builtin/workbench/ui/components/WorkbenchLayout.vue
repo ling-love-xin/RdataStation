@@ -7,10 +7,10 @@
 </template>
 
 <script setup lang="ts">
-import { useUiStore } from '@/shared/stores/ui'
+import DockviewLayout from '@/extensions/builtin/workbench/ui/components/DockviewLayout.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import WorkbenchTitleBar from '@/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue'
-import DockviewLayout from '@/extensions/builtin/workbench/ui/components/DockviewLayout.vue'
+import { useUiStore } from '@/shared/stores/ui'
 
 const uiStore = useUiStore()
 </script>

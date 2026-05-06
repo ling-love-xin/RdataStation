@@ -1,10 +1,11 @@
+import AnalyticsResourceManager from './ui/components/AnalyticsResourceManager.vue'
+
 import type {
   ExtensionContext,
   ExtensionAPI,
   ExtensionModule,
   Disposable,
 } from '../../core/types'
-import AnalyticsResourceManager from './ui/components/AnalyticsResourceManager.vue'
 
 interface AnalyticsResourceExtensionAPI extends ExtensionAPI {
   analyticsResource: {
@@ -20,7 +21,7 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
     component: AnalyticsResourceManager,
     title: '分析资源管理器',
     location: 'left',
-    icon: '📊',
+    icon: 'BarChart3',
     order: 2
   })
 

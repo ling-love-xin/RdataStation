@@ -1,6 +1,7 @@
 <template>
   <div :class="['workbench-view', uiStore.isDark ? 'dockview-theme-dark' : 'dockview-theme-light']">
-    <!-- Dockview 布局（包含 ActivityBar + Sidebar + Center + Panel） -->
+    <!-- Dockview 布局 -->
+    <!-- 面板组件通过 app.component() 全局注册，由 dockview-vue 的 findComponent 自动解析 -->
     <DockviewVue
       ref="dockviewRef"
       class="dockview"
@@ -16,13 +17,19 @@
       v-model="showConnectionModal"
       @save="handleSaveConnection"
     />
+
+    <!-- 自定义布局对话框 -->
+    <CustomizeLayoutDialog
+      v-if="showCustomizeLayoutDialog"
+      @close="showCustomizeLayoutDialog = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { DockviewVue, type DockviewReadyEvent } from 'dockview-vue'
+import { DockviewVue, type DockviewReadyEvent, type DockviewApi as DockviewVueApi, type IDockviewPanel } from 'dockview-vue'
 import { useMessage } from 'naive-ui'
-import { ref, computed, onMounted, onUnmounted, getCurrentInstance, type Component } from 'vue'
+import { ref, computed, onMounted, onUnmounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { panelRegistry } from '@/core/panel-registry'
@@ -31,12 +38,8 @@ import ConnectionModal from '@/extensions/builtin/connection/ui/components/Conne
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
 import { useQueryStore } from '@/extensions/builtin/query/ui/stores/query-store'
-import ActivityBarPanel from '@/extensions/builtin/workbench/ui/components/ActivityBarPanel.vue'
-import CustomizeLayout from '@/extensions/builtin/workbench/ui/components/CustomizeLayout.vue'
-import DynamicObjectPropertiesPanel from '@/extensions/builtin/workbench/ui/components/panels/DynamicObjectPropertiesPanel.vue'
-import TableStructurePanel from '@/extensions/builtin/workbench/ui/components/panels/TableStructurePanel.vue'
+import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
-import SettingsPanel from '@/extensions/builtin/settings/ui/components/SettingsPanel.vue'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
 
@@ -50,40 +53,18 @@ const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const showConnectionModal = ref(false)
-
-const instance = getCurrentInstance()
-if (instance) {
-  const components: Record<string, Component> = {}
-
-  components['leftActivityBar'] = ActivityBarPanel as unknown as Component
-  components['rightActivityBar'] = ActivityBarPanel as unknown as Component
-  components['tableStructure'] = TableStructurePanel as unknown as Component
-  components['dynamicObjectProperties'] = DynamicObjectPropertiesPanel as unknown as Component
-  components['customizeLayout'] = CustomizeLayout as unknown as Component
-  components['settings'] = SettingsPanel as unknown as Component
-
-  const panels = panelRegistry.getAll()
-  panels.forEach(panel => {
-    const kebabName = panel.id.replace(/([A-Z])/g, '-$1').toLowerCase()
-    components[panel.id] = panel.component as Component
-    if (panel.id !== kebabName) {
-      components[kebabName] = panel.component as Component
-    }
-    console.log(`[Workbench] Registered component: ${panel.id}`)
-  })
-
-  instance.appContext.components = {
-    ...instance.appContext.components,
-    ...components,
-  }
-}
+const showCustomizeLayoutDialog = ref(false)
 
 const dockviewStyle = computed(() => ({
   height: '100%',
   width: '100%',
 }))
 
-const activeSqlEditorPanel = ref<unknown>(null)
+const activeSqlEditorPanel = ref<IDockviewPanel | null>(null)
+
+let dockviewApi: DockviewVueApi | null = null
+let sqlEditorCounter = 0
+
 
 const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
   console.log('保存连接:', data)
@@ -127,9 +108,9 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
     window.dispatchEvent(new CustomEvent('navigator-refresh'))
 
     if (dockviewApi) {
-      const emptyPanel = dockviewApi.getPanel?.('panel_emptyWorkbench')
+      const emptyPanel = dockviewApi.getPanel('panel_emptyWorkbench')
       if (emptyPanel) {
-        emptyPanel.api?.close?.()
+        emptyPanel.api.close()
       }
 
       sqlEditorCounter++
@@ -138,13 +119,15 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
         id: panelId,
         component: 'sqlEditor',
         title: `SQL ${sqlEditorCounter}`,
-        position: { referencePanel: 'panel_databaseNavigator', direction: 'right' },
+        position: { direction: 'center' },
         params: {
           connectionId: data.name,
           databaseName: data.database || '',
           initialSql: ''
         }
       })
+
+      ensureResultPanel()
     }
 
     message.success(`连接 "${data.name}" 保存成功`)
@@ -155,206 +138,128 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
   }
 }
 
-interface DockviewPanelApi {
-  close?: () => void
-  setActive?: () => void
-}
-
-interface DockviewPanel {
-  id: string
-  api: DockviewPanelApi
-  group?: {
-    id: string
-    addPanel: (config: Record<string, unknown>) => void
-    model: {
-      panels: Array<{ id: string }>
-    }
-  }
-}
-
-interface DockviewApi {
-  addPanel: (config: Record<string, unknown>) => DockviewPanel
-  getPanel: (id: string) => DockviewPanel | undefined
-  closePanel: (id: string) => void
-  setActivePanel: (panel: DockviewPanel) => void
-  onDidActivePanelChange: (callback: (panel: DockviewPanel | undefined) => void) => void
-  onDidRemovePanel: (callback: (panel: DockviewPanel) => void) => void
-  onDidAddPanel: (callback: (panel: DockviewPanel) => void) => void
-  moveToGroup: (fromPanel: DockviewPanel, toGroup: string) => void
-  groups: Array<{ id: string; model: { panels: Array<{ id: string }> } }>
-}
-
-let dockviewApi: DockviewApi | null = null
-let sqlEditorCounter = 0
-
-const ACTIVITY_BAR_WIDTH = 48
-const SIDEBAR_INITIAL_WIDTH = 280
-const MIN_SIDEBAR_WIDTH = 200
-const DEFAULT_PANEL_HEIGHT = 250
-
 const onReady = (event: DockviewReadyEvent) => {
-  const api = event.api as unknown as DockviewApi
+  const api = event.api
   dockviewApi = api
-  layoutStore.setDockviewApi(api as unknown as import('dockview-vue').DockviewApi)
+  layoutStore.setDockviewApi(api)
 
   const panels = panelRegistry.getAll()
   console.log(`[Workbench] Creating ${panels.length} panels from registry`)
 
   const leftPanels = panels.filter(p => p.location === 'left').sort((a, b) => (a.order || 0) - (b.order || 0))
-  const centerPanels = panels.filter(p => p.location === 'center' && p.id !== 'sqlEditor').sort((a, b) => (a.order || 0) - (b.order || 0))
+  const centerPanels = panels.filter(p => p.location === 'center').sort((a, b) => (a.order || 0) - (b.order || 0))
   const rightPanels = panels.filter(p => p.location === 'right').sort((a, b) => (a.order || 0) - (b.order || 0))
-  const bottomPanels = panels.filter(p => p.location === 'bottom' && p.id !== 'queryResult' && p.id !== 'multiTabResult').sort((a, b) => (a.order || 0) - (b.order || 0))
 
   const containerEl = dockviewRef.value?.$el as HTMLElement | undefined
   const totalWidth = containerEl?.clientWidth || 1200
-  const availableWidth = totalWidth - ACTIVITY_BAR_WIDTH * 2
-  const ratioA = availableWidth / 4
-  const ratioB = availableWidth / 2
-  const ratioC = availableWidth / 4
-
-  console.log(`[Workbench] Container width: ${totalWidth}, A:${Math.round(ratioA)} B:${Math.round(ratioB)} C:${Math.round(ratioC)}`)
+  const ratioA = Math.round(totalWidth * 0.2)
+  const ratioC = Math.round(totalWidth * 0.2)
 
   // ============================================
-  // 1. Left Activity Bar (固定 48px)
+  // 使用 dockview 6.0 创建布局
+  // B 区域初始只显示欢迎页（EmptyWorkbenchPanel），SQL 编辑器和结果面板在用户操作时动态创建
+  // 侧边栏使用 Edge Group，中心/底部区域使用普通 Group
   // ============================================
-  api.addPanel({
-    id: 'panel_leftActivityBar',
-    component: 'leftActivityBar',
-    title: '',
-    minimumWidth: ACTIVITY_BAR_WIDTH,
-    maximumWidth: ACTIVITY_BAR_WIDTH,
-    initialWidth: ACTIVITY_BAR_WIDTH,
-    params: {
-      items: layoutStore.leftActivityItems,
-      position: 'left',
-      showToggle: true,
-      isHidden: !layoutStore.primarySideBarVisible
-    }
-  })
 
-  // ============================================
-  // 2. A 区 — 左侧内容面板组 (flex 1)
-  // ============================================
-  let aRefId: string | null = null
-  const allLeftPanels = [
-    ...leftPanels,
-    { id: 'settings', name: '设置', location: 'left' as const, order: 90 },
-    { id: 'customizeLayout', name: '自定义布局', location: 'left' as const, order: 99 },
-  ]
+  // ---- 第 1 步：B 区域 - 欢迎页面（EmptyWorkbenchPanel） ----
+  // 注意：只创建 emptyWorkbench，不自动创建 sqlEditor 和底部面板
+  // SQL 编辑器会在用户点击"新建查询"或创建连接时通过 handleOpenSqlEditor 动态创建
+  const welcomePanel = centerPanels.find(p => p.id === 'emptyWorkbench')
 
-  allLeftPanels.forEach((panel, index) => {
-    const panelId = `panel_${panel.id}`
-    const config: Record<string, unknown> = {
-      id: panelId,
-      component: panel.id,
-      title: panel.name,
-      initialWidth: Math.round(ratioA),
-      minimumWidth: MIN_SIDEBAR_WIDTH,
-    }
-    if (index === 0) {
-      config.position = { referencePanel: 'panel_leftActivityBar', direction: 'right' }
-    } else if (aRefId) {
-      config.position = { referencePanel: aRefId, direction: 'within' }
-    }
-    api.addPanel(config)
-    if (index === 0) aRefId = panelId
-    layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: panel.order || index })
-  })
+  if (welcomePanel) {
+    api.addPanel({
+      id: `panel_${welcomePanel.id}`,
+      component: welcomePanel.id,
+      title: welcomePanel.name,
+      position: { direction: 'right' },
+    })
+    console.log(`[Workbench] Created welcome panel: panel_${welcomePanel.id}`)
+    layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, { location: 'center', isVisible: true, order: welcomePanel.order || 0 })
+  }
 
-  // ============================================
-  // 3. B 区 — 中心编辑区 (flex 2)
-  // ============================================
-  let bRefId: string | null = null
-  centerPanels.forEach((panel, index) => {
-    const panelId = `panel_${panel.id}`
-    const config: Record<string, unknown> = {
-      id: panelId,
-      component: panel.id,
-      title: panel.name,
-      initialWidth: Math.round(ratioB),
-      minimumWidth: 300,
-    }
-    if (index === 0 && aRefId) {
-      config.position = { referencePanel: aRefId, direction: 'right' }
-    } else if (index > 0 && bRefId) {
-      config.position = { referencePanel: bRefId, direction: 'within' }
-    }
-    api.addPanel(config)
-    if (index === 0) bRefId = panelId
-    layoutStore.updatePanelConfig(panelId, { location: 'center', isVisible: true, order: panel.order || index })
-  })
+  // ---- 第 3 步：左侧 Edge Group（侧边栏） ----
+  // Edge Group 会在中心区域左侧自动插入，中心内容自适应
+  if (leftPanels.length > 0) {
+    api.addEdgeGroup('left', {
+      id: 'left-edge',
+      initialSize: ratioA,
+      minimumSize: 200,
+      maximumSize: 500,
+    })
 
-  // ============================================
-  // 4. C 区 — 右侧内容面板组 (flex 1)
-  // ============================================
-  let cRefId: string | null = null
-  rightPanels.forEach((panel, index) => {
-    const panelId = `panel_${panel.id}`
-    const config: Record<string, unknown> = {
-      id: panelId,
-      component: panel.id,
-      title: panel.name,
-      initialWidth: Math.round(ratioC),
-      minimumWidth: MIN_SIDEBAR_WIDTH,
-    }
-    if (index === 0 && bRefId) {
-      config.position = { referencePanel: bRefId, direction: 'right' }
-    } else if (index > 0 && cRefId) {
-      config.position = { referencePanel: cRefId, direction: 'within' }
-    }
-    api.addPanel(config)
-    if (index === 0) cRefId = panelId
-    layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: panel.order || index })
-  })
+    const firstLeftPanel = leftPanels[0]
+    const firstLeftPanelId = `panel_${firstLeftPanel.id}`
 
-  // ============================================
-  // 5. Right Activity Bar (固定 48px)
-  // ============================================
-  api.addPanel({
-    id: 'panel_rightActivityBar',
-    component: 'rightActivityBar',
-    title: '',
-    minimumWidth: ACTIVITY_BAR_WIDTH,
-    maximumWidth: ACTIVITY_BAR_WIDTH,
-    initialWidth: ACTIVITY_BAR_WIDTH,
-    position: { referencePanel: cRefId || bRefId || '', direction: 'right' },
-    params: {
-      items: layoutStore.rightActivityItems,
-      position: 'right',
-      showToggle: true,
-      isHidden: !layoutStore.secondarySideBarVisible
-    }
-  })
+    api.addPanel({
+      id: firstLeftPanelId,
+      component: firstLeftPanel.id,
+      title: firstLeftPanel.name,
+      position: { referenceGroup: 'left-edge' },
+    })
+    console.log(`[Workbench] Created left edge panel: ${firstLeftPanelId}`)
+    layoutStore.updatePanelConfig(firstLeftPanelId, { location: 'left', isVisible: true, order: firstLeftPanel.order || 0 })
 
-  // ============================================
-  // 6. 底部 Panel — 默认在 B 区下方
-  // ============================================
-  let bottomRefId: string | null = null
-  bottomPanels.forEach((panel, index) => {
-    const panelId = `panel_${panel.id}`
-    const config: Record<string, unknown> = {
-      id: panelId,
-      component: panel.id,
-      title: panel.name,
-      initialHeight: DEFAULT_PANEL_HEIGHT,
-      minimumHeight: 100,
+    for (let i = 1; i < leftPanels.length; i++) {
+      const panel = leftPanels[i]
+      const panelId = `panel_${panel.id}`
+      api.addPanel({
+        id: panelId,
+        component: panel.id,
+        title: panel.name,
+        position: { referencePanel: firstLeftPanelId, direction: 'within' },
+      })
+      console.log(`[Workbench] Added left edge panel: ${panelId}`)
+      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: panel.order || i })
     }
-    if (index === 0 && bRefId) {
-      config.position = { referencePanel: bRefId, direction: 'below' }
-    } else if (index > 0 && bottomRefId) {
-      config.position = { referencePanel: bottomRefId, direction: 'within' }
+  }
+
+  // ---- 第 4 步：右侧 Edge Group（侧边栏） ----
+  if (rightPanels.length > 0) {
+    api.addEdgeGroup('right', {
+      id: 'right-edge',
+      initialSize: ratioC,
+      minimumSize: 200,
+      maximumSize: 500,
+    })
+
+    const firstRightPanel = rightPanels[0]
+    const firstRightPanelId = `panel_${firstRightPanel.id}`
+
+    api.addPanel({
+      id: firstRightPanelId,
+      component: firstRightPanel.id,
+      title: firstRightPanel.name,
+      position: { referenceGroup: 'right-edge' },
+    })
+    console.log(`[Workbench] Created right edge panel: ${firstRightPanelId}`)
+    layoutStore.updatePanelConfig(firstRightPanelId, { location: 'right', isVisible: true, order: firstRightPanel.order || 0 })
+
+    for (let i = 1; i < rightPanels.length; i++) {
+      const panel = rightPanels[i]
+      const panelId = `panel_${panel.id}`
+      api.addPanel({
+        id: panelId,
+        component: panel.id,
+        title: panel.name,
+        position: { referencePanel: firstRightPanelId, direction: 'within' },
+      })
+      console.log(`[Workbench] Added right edge panel: ${panelId}`)
+      layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: panel.order || i })
     }
-    api.addPanel(config)
-    if (index === 0) bottomRefId = panelId
-    layoutStore.updatePanelConfig(panelId, { location: 'bottom', isVisible: true, order: panel.order || index })
-  })
+  }
+
+  console.log(`[Workbench] Final layout - groups: ${api.groups.length}, panels: ${api.panels.length}`)
+  console.log('[Workbench] All groups:', api.groups.map(g => ({
+    id: g.id,
+    panels: g.panels.map(p => p.id)
+  })))
 
   layoutStore.setBottomPanelMode('editor')
 
   // ============================================
   // 事件监听
   // ============================================
-  api.onDidActivePanelChange?.((panel: DockviewPanel | undefined) => {
+  api.onDidActivePanelChange?.((panel) => {
     if (panel?.id?.startsWith('panel_sqlEditor_')) {
       activeSqlEditorPanel.value = panel
     }
@@ -363,6 +268,73 @@ const onReady = (event: DockviewReadyEvent) => {
   window.addEventListener('open-object-properties', handleOpenObjectProperties as (e: Event) => void)
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
   window.addEventListener('sql-execution-result', handleSqlExecutionResult as (e: Event) => void)
+}
+
+const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
+  const { leftWidth, rightWidth, minimumWidth, maximumWidth } = _event.detail || {}
+  if (!dockviewApi) return
+
+  try {
+    const groups = dockviewApi.groups || []
+
+    if (leftWidth !== undefined) {
+      const leftGroup = groups.find((g: { model?: { panels?: { id: string }[] } }) =>
+        g.model?.panels?.some((p: { id: string }) => {
+          const panelId = p.id
+          return panelId === 'panel_databaseNavigator' || panelId === 'panel_analytics-resource-manager' || panelId === 'panel_plugins'
+        })
+      )
+      if (leftGroup) {
+        const g = leftGroup as unknown as Record<string, (args: Record<string, number>) => void>
+        g.setSize?.({ width: leftWidth })
+      }
+    }
+
+    if (rightWidth !== undefined) {
+      const rightGroup = groups.find((g: { model?: { panels?: { id: string }[] } }) =>
+        g.model?.panels?.some((p: { id: string }) => {
+          const panelId = p.id
+          return panelId === 'panel_sqlHistory' || panelId === 'panel_columnInsights'
+        })
+      )
+      if (rightGroup) {
+        const g = rightGroup as unknown as Record<string, (args: Record<string, number>) => void>
+        g.setSize?.({ width: rightWidth })
+      }
+    }
+
+    if (minimumWidth !== undefined || maximumWidth !== undefined) {
+      for (const group of groups) {
+        const constraints: Record<string, number> = {}
+        if (minimumWidth !== undefined) constraints.minimumWidth = minimumWidth
+        if (maximumWidth !== undefined) constraints.maximumWidth = maximumWidth
+        const g = group as unknown as Record<string, (args: Record<string, number>) => void>
+        g.updateConstraints?.(constraints)
+      }
+    }
+  } catch (error) {
+    console.error('[Workbench] Failed to apply layout settings:', error)
+  }
+}
+
+const handleResetLayout = () => {
+  if (!dockviewApi) return
+  try {
+    const allGroups = dockviewApi.groups || []
+    for (const group of allGroups) {
+      const g = group as { model?: { panels?: { id: string }[] } }
+      const panels = g.model?.panels || []
+      for (const panelInfo of panels) {
+        const panel = dockviewApi.getPanel?.(panelInfo.id)
+        panel?.api?.close?.()
+      }
+    }
+    setTimeout(() => {
+      onReady({ api: dockviewApi } as unknown as DockviewReadyEvent)
+    }, 100)
+  } catch (error) {
+    console.error('[Workbench] Failed to reset layout:', error)
+  }
 }
 
 const handleSqlExecutionResult = (event: CustomEvent) => {
@@ -409,7 +381,8 @@ const ensureResultPanel = () => {
     if (hasResultPanel) break
   }
   if (!hasResultPanel) {
-    const refPanelId = findActiveSqlEditorPanelId() || 'panel_databaseNavigator'
+    const refPanelId = findActiveSqlEditorPanelId()
+    if (!refPanelId) return
     dockviewApi.addPanel({
       id: 'panel_queryResult',
       component: 'queryResult',
@@ -433,14 +406,15 @@ const ensureMultiTabResultPanel = () => {
     if (hasMultiTabPanel) break
   }
   if (!hasMultiTabPanel) {
-    const refPanelId = findActiveSqlEditorPanelId() || 'panel_databaseNavigator'
+    const refPanelId = findActiveSqlEditorPanelId()
+    if (!refPanelId) return
     dockviewApi.addPanel({
       id: 'panel_multiTabResult',
       component: 'multiTabResult',
       title: '查询结果',
       position: { referencePanel: refPanelId, direction: 'below' }
     })
-    console.log(`[Workbench] 自动创建多 Tab 查询结果面板，位置参考: ${refPanelId}`)
+    console.log(`[Workbench] 自动创建多 TAB 查询结果面板，位置参考: ${refPanelId}`)
   }
 }
 
@@ -451,12 +425,12 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
   const panelId = `panel_sqlEditor_${sqlEditorCounter}`
   const { connectionId, databaseName, sql } = event.detail || {}
 
-  let existingSqlPanel: DockviewPanel | undefined
+  let existingSqlPanel: IDockviewPanel | undefined
   let existingSqlPanelId: string | null = null
 
   for (const group of dockviewApi.groups || []) {
     for (const panelInfo of group.model?.panels || []) {
-      const panel = dockviewApi.getPanel?.(panelInfo.id)
+      const panel = dockviewApi.getPanel(panelInfo.id)
       if (panel?.id?.startsWith('panel_sqlEditor_')) {
         existingSqlPanel = panel
         existingSqlPanelId = panel.id
@@ -467,95 +441,56 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
   }
 
   try {
-    const emptyPanel = dockviewApi.getPanel?.('panel_emptyWorkbench')
-    if (emptyPanel) {
-      emptyPanel.api?.close?.()
-    }
-  } catch (e) {
-    console.warn('[SQL Editor] 关闭空工作台面板失败:', e)
-  }
-
-  if (existingSqlPanel && existingSqlPanelId) {
-    const editorPanel = dockviewApi.addPanel({
+    dockviewApi.addPanel({
       id: panelId,
       component: 'sqlEditor',
       title: `SQL ${sqlEditorCounter}`,
-      position: { referencePanel: existingSqlPanelId, direction: 'within' },
-      params: { connectionId, databaseName, initialSql: sql }
+      position: existingSqlPanelId
+        ? { referencePanel: existingSqlPanelId, direction: 'within' }
+        : { direction: 'center' },
+      params: {
+        connectionId: connectionId || '',
+        databaseName: databaseName || '',
+        initialSql: sql || ''
+      }
     })
-    activeSqlEditorPanel.value = editorPanel
-    console.log('[SQL Editor] 添加到已有组（tab 模式）:', editorPanel)
-    return
+    console.log(`[Workbench] 创建 SQL 编辑器面板: ${panelId}`)
+  } catch (error) {
+    console.error('[Workbench] 创建 SQL 编辑器面板失败:', error)
   }
-
-  const editorPanel = dockviewApi.addPanel({
-    id: panelId,
-    component: 'sqlEditor',
-    title: `SQL ${sqlEditorCounter}`,
-    position: { referencePanel: 'panel_databaseNavigator', direction: 'right' },
-    params: { connectionId, databaseName, initialSql: sql }
-  })
-  activeSqlEditorPanel.value = editorPanel
-  console.log('[SQL Editor] 首次创建（单栏模式）:', editorPanel)
 }
 
 const handleOpenObjectProperties = (event: CustomEvent) => {
   if (!dockviewApi) return
+  const { objectType, objectName, schema, database } = event.detail || {}
 
-  const { objectType, objectName, connectionName, databaseName, connectionId, dbType, schemaName } = event.detail
-  const panelId = `panel_props_${connectionId}_${objectName}`
-
-  const existingPanel = dockviewApi.getPanel?.(panelId)
-  if (existingPanel) {
-    dockviewApi.setActivePanel?.(existingPanel)
-    return
-  }
-
-  if (objectType === 'table') {
-    dockviewApi.addPanel({
-      id: panelId,
-      component: 'tableStructure',
-      title: `${objectName}`,
-      params: { connectionId, databaseName, schemaName: schemaName || 'public', tableName: objectName },
-      position: { referencePanel: 'panel_navigator', direction: 'right' },
-    })
-    return
-  }
-
+  const panelId = `panel_dynamicObjectProperties_${Date.now()}`
   dockviewApi.addPanel({
     id: panelId,
     component: 'dynamicObjectProperties',
-    title: `${objectName}`,
-    params: { objectType, objectName, connectionName, databaseName, connectionId, dbType: dbType || 'mysql' },
-    position: { referencePanel: 'panel_navigator', direction: 'right' },
+    title: `${objectType}: ${objectName}`,
+    position: { direction: 'center' },
+    params: {
+      objectType,
+      objectName,
+      schema,
+      database
+    }
   })
+  console.log(`[Workbench] 创建对象属性面板: ${panelId}`)
 }
 
-const handleProjectSwitched = async () => {
-  connectionStore.reset()
-  await connectionStore.loadConnections()
-  message.info('已切换到新项目')
-}
-
-const handleOpenConnectionModal = () => {
-  showConnectionModal.value = true
-}
-
-onMounted(async () => {
-  await projectStore.loadRecentProjects()
-  if (!projectStore.currentProject) {
-    await projectStore.loadLastProject()
-  }
-  await connectionStore.loadConnections()
-  window.addEventListener('project-switched', handleProjectSwitched as (e: Event) => void)
-  window.addEventListener('open-connection-modal', handleOpenConnectionModal)
+onMounted(() => {
+  window.addEventListener('layout-settings-update', handleLayoutSettingsUpdate as (e: Event) => void)
+  window.addEventListener('reset-layout', handleResetLayout as (e: Event) => void)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('layout-settings-update', handleLayoutSettingsUpdate as (e: Event) => void)
+  window.removeEventListener('reset-layout', handleResetLayout as (e: Event) => void)
   window.removeEventListener('open-object-properties', handleOpenObjectProperties as (e: Event) => void)
   window.removeEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
-  window.removeEventListener('project-switched', handleProjectSwitched as (e: Event) => void)
-  window.removeEventListener('open-connection-modal', handleOpenConnectionModal)
+  window.removeEventListener('sql-execution-result', handleSqlExecutionResult as (e: Event) => void)
 })
 </script>
 

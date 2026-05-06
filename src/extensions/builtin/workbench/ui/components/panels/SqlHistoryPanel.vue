@@ -1,6 +1,5 @@
 <template>
-  <n-message-provider>
-    <div class="sql-history-panel">
+  <div class="sql-history-panel">
     <!-- 头部工具栏 -->
     <div class="history-header">
       <h3 class="history-title">执行历史</h3>
@@ -144,19 +143,18 @@
         收藏 {{ favoriteCount }} 条
       </span>
     </div>
-    </div>
-  </n-message-provider>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { Filter, RefreshCw, Trash2, Search, Star, X } from 'lucide-vue-next'
-import { NButton, NInput, NSelect, NTabs, NTab, NEmpty, NMessageProvider, useMessage } from 'naive-ui'
+import { NButton, NInput, NSelect, NTabs, NTab, NEmpty, createDiscreteApi } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import { getHistory, deleteHistory, clearHistory, toggleFavorite, type SqlHistoryItem } from '@/extensions/builtin/workbench/services/sql-history-service'
 
-const message = useMessage()
+const { message } = createDiscreteApi(['message'])
 const connectionStore = useConnectionStore()
 
 // 状态

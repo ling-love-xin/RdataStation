@@ -23,6 +23,10 @@ const ColumnInsightsComponent = defineAsyncComponent(() =>
   import('@/extensions/builtin/workbench/ui/components/panels/ColumnInsightsPanel.vue')
 )
 
+const RightSidebarPlaceholder = defineAsyncComponent(() =>
+  import('@/extensions/builtin/workbench/ui/components/panels/RightSidebarPlaceholder.vue')
+)
+
 const currentComponent = computed(() => {
   switch (layoutStore.selectedRightItem) {
     case 'sql-history':
@@ -32,7 +36,7 @@ const currentComponent = computed(() => {
     case 'column-insights':
       return ColumnInsightsComponent
     default:
-      return null
+      return RightSidebarPlaceholder
   }
 })
 </script>

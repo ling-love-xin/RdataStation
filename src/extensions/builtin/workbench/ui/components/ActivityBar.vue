@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 import { PanelLeft, PanelLeftClose } from 'lucide-vue-next'
-import type { Component } from 'vue'
+
 
 import { useLayoutStore, type LeftActivityItem, type RightActivityItem } from '../stores/layout-store'
 

@@ -1,4 +1,5 @@
 import { ref, computed, watch } from 'vue'
+
 import { useDebounceFn } from './use-debounce'
 
 export interface UseSearchOptions {

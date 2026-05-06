@@ -1,4 +1,4 @@
-import { ref, reactive } from 'vue'
+import { reactive } from 'vue'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 

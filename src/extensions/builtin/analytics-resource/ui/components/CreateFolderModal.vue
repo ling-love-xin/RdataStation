@@ -45,8 +45,8 @@
               v-for="icon in icons"
               :key="icon"
               :class="['icon-btn', { active: form.icon === icon }]"
-              @click="form.icon = icon"
               type="button"
+              @click="form.icon = icon"
             >
               {{ icon }}
             </button>
@@ -58,7 +58,7 @@
         <button class="btn btn-secondary" @click="$emit('close')">
           取消
         </button>
-        <button class="btn btn-primary" @click="handleCreate" :disabled="!isValid">
+        <button class="btn btn-primary" :disabled="!isValid" @click="handleCreate">
           创建
         </button>
       </div>
@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+
 import type { CreateFolderRequest, ResourceScope } from '../../types';
 
 const emit = defineEmits<{

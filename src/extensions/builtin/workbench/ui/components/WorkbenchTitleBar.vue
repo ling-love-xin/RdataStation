@@ -230,8 +230,8 @@ import { ref, computed, markRaw, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useProjectStore } from '@/core/project/stores/project'
-import { useUiStore } from '@/shared/stores/ui'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
+import { useUiStore } from '@/shared/stores/ui'
 
 interface Props {
   isMaximized?: boolean
@@ -410,9 +410,9 @@ const toggleCustomToolbar = () => {
   showProjectMenu.value = false
 }
 
-// 切换自定义布局面板
+// 切换自定义布局对话框
 const toggleCustomizeLayout = () => {
-  layoutStore.selectLeftItem('customizeLayout')
+  window.dispatchEvent(new CustomEvent('open-customize-layout-dialog'))
 }
 
 // 保存工具栏配置

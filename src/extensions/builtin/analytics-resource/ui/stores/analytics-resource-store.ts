@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+
+import * as analyticsApi from '../../infrastructure/api/analytics-resource-api';
+
 import type {
   AnalyticsResource,
   AnalyticsFolder,
@@ -14,7 +17,6 @@ import type {
   SortField,
   SortOrder,
 } from '../../types';
-import * as analyticsApi from '../../infrastructure/api/analytics-resource-api';
 
 export const useAnalyticsResourceStore = defineStore('analytics-resource', () => {
   // State

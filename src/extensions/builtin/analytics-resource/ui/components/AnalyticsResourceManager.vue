@@ -18,27 +18,27 @@
     />
 
     <FilterBar
-      v-model:selectedScope="selectedScope"
-      v-model:selectedType="selectedType"
-      v-model:selectedSort="sortBy"
-      v-model:sortOrder="sortOrder"
-      :selectedCount="selectedResources.length"
-      @clearSelection="clearSelection"
-      @batchDelete="handleBatchDelete"
+      v-model:selected-scope="selectedScope"
+      v-model:selected-type="selectedType"
+      v-model:selected-sort="sortBy"
+      v-model:sort-order="sortOrder"
+      :selected-count="selectedResources.length"
+      @clear-selection="clearSelection"
+      @batch-delete="handleBatchDelete"
     />
 
     <FolderList
       :folders="folders"
-      :selectedFolderId="selectedFolderId"
-      @selectFolder="selectFolder"
-      @createFolder="showCreateFolder = true"
+      :selected-folder-id="selectedFolderId"
+      @select-folder="selectFolder"
+      @create-folder="showCreateFolder = true"
     />
 
     <ResourceList
       :items="filteredResources"
-      :selectedIds="selectedResources"
-      emptyIcon="📭"
-      emptyText="暂无资源"
+      :selected-ids="selectedResources"
+      empty-icon="📭"
+      empty-text="暂无资源"
       @select="handleSelectResource"
       @open="handleOpenResource"
       @delete="handleDeleteResource"
@@ -49,11 +49,11 @@
     <Pagination
       v-if="total > 0"
       :page="page"
-      :pageSize="pageSize"
+      :page-size="pageSize"
       :total="total"
-      :totalPages="totalPages"
+      :total-pages="totalPages"
       @update:page="handlePageChange"
-      @update:pageSize="handlePageSizeChange"
+      @update:page-size="handlePageSizeChange"
       @prev="handlePrevPage"
       @next="handleNextPage"
     />
@@ -92,19 +92,21 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useAnalyticsResourceStore } from '../stores/analytics-resource-store'
-import { useToast } from '../composables/use-toast'
-import type { CreateResourceRequest, CreateFolderRequest, AnalyticsResource, SortField, SortOrder } from '../../types'
 
-import SearchBar from './SearchBar.vue'
+
+import CreateFolderModal from './CreateFolderModal.vue'
+import CreateResourceModal from './CreateResourceModal.vue'
 import FilterBar from './FilterBar.vue'
 import FolderList from './FolderList.vue'
-import ResourceList from './ResourceList.vue'
 import Pagination from './Pagination.vue'
-import CreateResourceModal from './CreateResourceModal.vue'
-import CreateFolderModal from './CreateFolderModal.vue'
 import RecycleBinModal from './RecycleBinModal.vue'
+import ResourceList from './ResourceList.vue'
+import SearchBar from './SearchBar.vue'
 import ToastContainer from './ToastContainer.vue'
+import { useToast } from '../composables/use-toast'
+import { useAnalyticsResourceStore } from '../stores/analytics-resource-store'
+
+import type { CreateResourceRequest, CreateFolderRequest, AnalyticsResource } from '../../types'
 
 const store = useAnalyticsResourceStore()
 const toast = useToast()

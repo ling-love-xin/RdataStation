@@ -5,7 +5,7 @@
   >
     <div v-if="isExpanded && isVisible" class="sidebar-header">
       <span class="sidebar-title">{{ currentTitle }}</span>
-      <button class="sidebar-close" @click="handleClose" :title="'关闭'">
+      <button class="sidebar-close" :title="'关闭'" @click="handleClose">
         <X :size="16" />
       </button>
     </div>
@@ -25,9 +25,10 @@
 
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 
 import { panelRegistry } from '@/core/panel-registry'
+
 import { useLayoutStore, ACTIVEBAR_TO_PANEL_ID } from '../stores/layout-store'
 
 interface Props {
@@ -111,7 +112,7 @@ function startResize(e: MouseEvent) {
 function handleResize(e: MouseEvent) {
   if (!isResizing.value) return
   
-  let delta = props.position === 'left' 
+  const delta = props.position === 'left' 
     ? e.clientX - startX.value
     : startX.value - e.clientX
   

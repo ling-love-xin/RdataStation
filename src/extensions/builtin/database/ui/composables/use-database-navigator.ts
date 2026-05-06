@@ -7,12 +7,12 @@ import { useProjectConnectionStore } from '../../../connection/ui/stores/project
 import { useWorkbenchStore } from '../../../workbench/ui/stores/workbench-store'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 
+import type { ProjectConnection } from '../../../connection/types/connection'
 import type {
   GlobalConnection,
   FilterConfig
 } from '../types/navigator'
 
-import type { ProjectConnection } from '../../../connection/types/connection'
 
 export function useDatabaseNavigator() {
   const navigatorStore = useDatabaseNavigatorStore()

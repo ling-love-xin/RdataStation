@@ -5,15 +5,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { DockviewVue } from 'dockview-vue'
-import type { DockviewReadyEvent } from 'dockview-core'
-import { useUiStore } from '@/shared/stores/ui'
-import { registerGlobalComponent } from '@/core/vue-app-manager'
+import { ref } from 'vue'
 
+
+import { registerGlobalComponent } from '@/core/vue-app-manager'
+import { useUiStore } from '@/shared/stores/ui'
+
+import TestBottomPanel from './TestBottomPanel.vue'
 import TestCenterPanel from './TestCenterPanel.vue'
 import TestLeftPanel from './TestLeftPanel.vue'
-import TestBottomPanel from './TestBottomPanel.vue'
+
+import type { DockviewReadyEvent } from 'dockview-core'
 
 const uiStore = useUiStore()
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)

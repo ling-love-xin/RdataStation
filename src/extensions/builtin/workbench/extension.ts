@@ -5,9 +5,9 @@
  */
 
 import EmptyWorkbenchPanel from './ui/components/panels/EmptyWorkbenchPanel.vue'
-import SqlHistoryPanel from './ui/components/panels/SqlHistoryPanel.vue'
 import OutputPanel from './ui/components/panels/OutputPanel.vue'
 import PluginsPanel from './ui/components/panels/PluginsPanel.vue'
+import SqlHistoryPanel from './ui/components/panels/SqlHistoryPanel.vue'
 
 import type {
   ExtensionContext,
@@ -70,12 +70,13 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     }
   }
 
-  // 注册空工作台面板（初始显示）
+  // 注册空工作台面板（作为欢迎页，不注册到具体位置，由 WorkbenchView 动态控制）
   const emptyPanelDisposable = context.window.registerViewProvider('emptyWorkbench', {
     component: EmptyWorkbenchPanel,
     title: '欢迎',
     location: 'center',
-    order: 1
+    icon: 'Home',
+    order: 0
   })
 
   // 注册SQL历史面板（右侧）
@@ -83,6 +84,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     component: SqlHistoryPanel,
     title: 'SQL历史',
     location: 'right',
+    icon: 'Clock',
     order: 2
   })
 
@@ -91,6 +93,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     component: OutputPanel,
     title: '输出',
     location: 'bottom',
+    icon: 'Terminal',
     order: 1
   })
 
@@ -99,6 +102,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     component: PluginsPanel,
     title: '插件',
     location: 'left',
+    icon: 'Puzzle',
     order: 3
   })
 

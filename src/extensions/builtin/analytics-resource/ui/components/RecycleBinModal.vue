@@ -52,7 +52,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+
 import { useAnalyticsResourceStore } from '../stores/analytics-resource-store';
+
 import type { AnalyticsRecycleItem } from '../../types';
 
 const emit = defineEmits<{

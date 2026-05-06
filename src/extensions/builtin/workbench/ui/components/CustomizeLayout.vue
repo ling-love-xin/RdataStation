@@ -40,25 +40,25 @@
         </label>
       </div>
 
-      <div class="layout-option">
+      <div class="layout-option locked">
         <label class="checkbox-label">
           <input
             type="checkbox"
-            :checked="layoutStore.primarySideBarVisible"
-            @change="layoutStore.togglePrimarySideBar"
+            :checked="true"
+            disabled
           />
-          <span>Primary Side Bar</span>
+          <span>Primary Side Bar <em>(始终显示)</em></span>
         </label>
       </div>
 
-      <div class="layout-option">
+      <div class="layout-option locked">
         <label class="checkbox-label">
           <input
             type="checkbox"
-            :checked="layoutStore.secondarySideBarVisible"
-            @change="layoutStore.toggleSecondarySideBar"
+            :checked="true"
+            disabled
           />
-          <span>Secondary Side Bar</span>
+          <span>Secondary Side Bar <em>(始终显示)</em></span>
         </label>
       </div>
 
@@ -153,15 +153,15 @@
             </select>
             <button
               class="action-btn floating-btn"
-              @click="handleCreateFloating(panel.id)"
               title="创建浮动窗口"
+              @click="handleCreateFloating(panel.id)"
             >
               <ExternalLink :size="14" />
             </button>
             <button
               class="action-btn close-btn"
-              @click="handleClosePanel(panel.id)"
               title="关闭面板"
+              @click="handleClosePanel(panel.id)"
             >
               <X :size="14" />
             </button>
@@ -190,8 +190,8 @@
           <div class="panel-actions">
             <button
               class="action-btn close-btn"
-              @click="handleCloseFloating(panel.id)"
               title="关闭浮动窗口"
+              @click="handleCloseFloating(panel.id)"
             >
               <X :size="14" />
             </button>
@@ -209,10 +209,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { ExternalLink, X } from 'lucide-vue-next'
-import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
+import { computed } from 'vue'
+
 import type { IDockviewPanel } from '@/core/dockview-types'
+
+import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
+
 
 const layoutStore = useLayoutStore()
 
@@ -294,6 +297,17 @@ function handleReset() {
 
 .layout-option {
   margin-bottom: 8px;
+}
+
+.layout-option.locked {
+  opacity: 0.5;
+}
+
+.layout-option.locked em {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-style: normal;
+  margin-left: 4px;
 }
 
 .checkbox-label {
