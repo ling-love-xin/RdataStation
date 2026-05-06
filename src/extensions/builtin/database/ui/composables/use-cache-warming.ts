@@ -56,13 +56,13 @@ interface UserBehavior {
 
 const defaultConfig: CacheWarmingConfig = {
   enabled: true,
-  depth: 'tables',
-  delay: 30,
-  maxDatabases: 10,
-  maxSchemas: 20,
-  maxTables: 100,
+  depth: 'schemas',
+  delay: 100,
+  maxDatabases: 5,
+  maxSchemas: 10,
+  maxTables: 50,
   smartWarming: true,
-  concurrency: 5
+  concurrency: 2
 }
 
 /**

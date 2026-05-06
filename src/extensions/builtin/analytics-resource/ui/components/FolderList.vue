@@ -11,6 +11,9 @@
       <div
         :class="['folder-item', { active: selectedFolderId === null }]"
         @click="selectFolder(null)"
+        @dragover.prevent="handleDragOver(null, $event)"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop(null, $event)"
       >
         <span class="folder-icon">📁</span>
         <span class="folder-name">全部资源</span>
@@ -18,8 +21,11 @@
       <div
         v-for="folder in folders"
         :key="folder.id"
-        :class="['folder-item', { active: selectedFolderId === folder.id }]"
+        :class="['folder-item', { active: selectedFolderId === folder.id, 'drag-over': dragOverFolder === folder.id }]"
         @click="selectFolder(folder.id)"
+        @dragover.prevent="handleDragOver(folder.id, $event)"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop(folder.id, $event)"
       >
         <span class="folder-icon">{{ folder.icon || '📁' }}</span>
         <span class="folder-name">{{ folder.name }}</span>
@@ -34,7 +40,9 @@
 </template>
 
 <script setup lang="ts">
-import type { AnalyticsFolder } from '../../types'
+import { ref } from 'vue'
+
+import type { AnalyticsFolder, AnalyticsResource } from '../../types'
 
 defineProps<{
   folders: AnalyticsFolder[]
@@ -44,10 +52,37 @@ defineProps<{
 const emit = defineEmits<{
   selectFolder: [id: string | null]
   createFolder: []
+  dropResource: [folderId: string | null, resources: AnalyticsResource[]]
 }>()
+
+const dragOverFolder = ref<string | null>(null)
 
 function selectFolder(id: string | null) {
   emit('selectFolder', id)
+}
+
+function handleDragOver(folderId: string | null, event: DragEvent) {
+  event.dataTransfer!.dropEffect = 'move'
+  dragOverFolder.value = folderId
+}
+
+function handleDragLeave() {
+  dragOverFolder.value = null
+}
+
+function handleDrop(folderId: string | null, event: DragEvent) {
+  event.preventDefault()
+  dragOverFolder.value = null
+  
+  try {
+    const data = event.dataTransfer?.getData('application/json')
+    if (data) {
+      const resources = JSON.parse(data) as AnalyticsResource[]
+      emit('dropResource', folderId, resources)
+    }
+  } catch (e) {
+    console.error('Failed to parse dropped data:', e)
+  }
 }
 </script>
 
@@ -125,6 +160,12 @@ function selectFolder(id: string | null) {
 .folder-item.active {
   border-color: var(--primary-color);
   background: var(--primary-light);
+}
+
+.folder-item.drag-over {
+  border-color: var(--success-color);
+  background: var(--success-light);
+  box-shadow: inset 0 0 0 1px var(--success-color);
 }
 
 .folder-icon {

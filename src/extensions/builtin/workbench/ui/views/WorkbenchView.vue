@@ -24,8 +24,8 @@
 
     <!-- 自定义布局对话框 -->
     <CustomizeLayoutDialog
-      v-if="showCustomizeLayoutDialog"
-      @close="showCustomizeLayoutDialog = false"
+      v-if="layoutStore.showCustomizeLayoutDialog"
+      @close="layoutStore.closeCustomizeLayoutDialog()"
     />
   </div>
 </template>
@@ -51,59 +51,87 @@ const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const showConnectionModal = ref(false)
-const showCustomizeLayoutDialog = ref(false)
 
 const dockviewStyle = computed(() => ({
   height: '100%',
   width: '100%',
 }))
 
-const activeSqlEditorPanel = ref<IDockviewPanel | null>(null)
+let activeSqlEditorPanelId: string | null = null
 
 let dockviewApi: DockviewVueApi | null = null
 let sqlEditorCounter = 0
 
-const pinnedPanelIds = new Set<string>()
-
 const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMenuItem[] => {
-  const { panel, group, api } = params
-  const maximized = !!group.api.isMaximized?.()
-  const isPinned = pinnedPanelIds.has(panel.id)
-  return [
+  const panelId = params.panel.id
+  const maximized = !!params.group.api.isMaximized?.()
+  const isPinned = layoutStore.isPanelPinned(panelId)
+  
+  const groupApi = params.group.api as any
+  const panelApi = params.panel.api as any
+  
+  const menuItems: ContextMenuItem[] = [
     {
       label: isPinned ? '取消钉住' : '钉住',
       action: () => {
-        if (isPinned) pinnedPanelIds.delete(panel.id)
-        else pinnedPanelIds.add(panel.id)
+        layoutStore.togglePanelPinned(panelId)
       }
     },
     'separator',
     {
       label: 'Float Tab',
-      action: () => { api.addFloatingGroup(panel) }
+      action: () => { params.api.addFloatingGroup(params.panel) }
     },
     {
       label: 'Popout Tab',
-      action: () => { api.addPopoutGroup(panel) }
+      action: () => { params.api.addPopoutGroup(params.panel) }
+    },
+    'separator',
+    {
+      label: 'Add to new group',
+      action: () => { 
+        const tabGroup = groupApi.createTabGroup?.({
+          label: 'New Group',
+          color: 'blue'
+        })
+        if (tabGroup) {
+          panelApi.moveToTabGroup?.(tabGroup)
+        }
+      }
+    },
+    {
+      label: 'Move to next group',
+      action: () => { 
+        const groups = groupApi.getTabGroups?.() || []
+        const currentGroup = groupApi.getTabGroupForPanel?.(params.panel)
+        if (currentGroup && groups.length > 1) {
+          const currentIndex = groups.indexOf(currentGroup)
+          const nextIndex = (currentIndex + 1) % groups.length
+          panelApi.moveToTabGroup?.(groups[nextIndex])
+        }
+      }
     },
     'separator',
     {
       label: maximized ? '还原最大化' : '最大化组',
-      action: () => { if (maximized) group.api.exitMaximized(); else group.api.maximize() }
+      action: () => { if (maximized) params.group.api.exitMaximized(); else params.group.api.maximize() }
     },
     {
       label: '浮动整组',
-      action: () => { api.addFloatingGroup(group) }
+      action: () => { params.api.addFloatingGroup(params.group) }
     },
     {
       label: '弹出整组窗口',
-      action: () => { api.addPopoutGroup(group) }
+      action: () => { params.api.addPopoutGroup(params.group) }
     },
     'separator',
-    'close',
-    'closeOthers',
-    'closeAll',
   ]
+  
+  if (!isPinned) {
+    menuItems.push('close', 'closeOthers', 'closeAll')
+  }
+  
+  return menuItems
 }
 
 
@@ -187,26 +215,85 @@ const onReady = (event: DockviewReadyEvent) => {
   const panels = panelRegistry.getAll()
   console.log(`[Workbench] Creating ${panels.length} panels from registry`)
 
-  const leftPanels = panels.filter(p => p.location === 'left').sort((a, b) => (a.order || 0) - (b.order || 0))
+  const leftPanelsAll = panels.filter(p => p.location === 'left').sort((a, b) => (a.order || 0) - (b.order || 0))
   const centerPanels = panels.filter(p => p.location === 'center').sort((a, b) => (a.order || 0) - (b.order || 0))
   const rightPanels = panels.filter(p => p.location === 'right').sort((a, b) => (a.order || 0) - (b.order || 0))
 
+  // 分离数据库导航面板：放入独立 Normal Group
+  const dbNavPanel = leftPanelsAll.find(p => p.id === 'databaseNavigator')
+  // 其余左侧面板仍放回左侧 Edge Group（分析资源管理、插件管理等）
+  const leftEdgePanels = leftPanelsAll.filter(p => p.id !== 'databaseNavigator')
+
   const containerEl = dockviewRef.value?.$el as HTMLElement | undefined
   const totalWidth = containerEl?.clientWidth || 1200
-  const ratioA = Math.round(totalWidth * 0.2)
   const ratioC = Math.round(totalWidth * 0.2)
 
   // ============================================
-  // 使用 dockview 6.0 创建布局
-  // B 区域初始只显示欢迎页（EmptyWorkbenchPanel），SQL 编辑器和结果面板在用户操作时动态创建
-  // 侧边栏使用 Edge Group，中心/底部区域使用普通 Group
+  // 第 1 步：左侧 Edge Group（VSCode Activity Bar 风格，默认 48px 窄条）
+  // 只放 ActivityBarPanel，用于展示左侧活动栏图标
   // ============================================
+  api.addEdgeGroup('left', {
+    id: 'left-edge',
+    initialSize: 48,
+    minimumSize: 48,
+    maximumSize: 500,
+  })
 
-  // ---- 第 1 步：B 区域 - 欢迎页面（EmptyWorkbenchPanel） ----
-  // 注意：只创建 emptyWorkbench，不自动创建 sqlEditor 和底部面板
-  // SQL 编辑器会在用户点击"新建查询"或创建连接时通过 handleOpenSqlEditor 动态创建
+  api.addPanel({
+    id: 'panel_leftActivityBar',
+    component: 'leftActivityBar',
+    title: '',
+    position: { referenceGroup: 'left-edge' },
+    params: {
+      position: 'left',
+    }
+  })
+  console.log('[Workbench] Created left edge group (activity bar, 48px)')
+  layoutStore.updatePanelConfig('panel_leftActivityBar', { location: 'left', isVisible: true, order: 99 })
+
+  // 其他左侧面板放入左侧 Edge Group（分析资源管理、插件管理等）
+  if (leftEdgePanels.length > 0) {
+    const firstEdgePanel = leftEdgePanels[0]
+    const firstEdgePanelId = `panel_${firstEdgePanel.id}`
+    api.addPanel({
+      id: firstEdgePanelId,
+      component: firstEdgePanel.id,
+      title: firstEdgePanel.name,
+      position: { referencePanel: 'panel_leftActivityBar', direction: 'within' },
+    })
+    layoutStore.updatePanelConfig(firstEdgePanelId, { location: 'left', isVisible: false, order: 0 })
+
+    for (let i = 1; i < leftEdgePanels.length; i++) {
+      const panel = leftEdgePanels[i]
+      const panelId = `panel_${panel.id}`
+      api.addPanel({
+        id: panelId,
+        component: panel.id,
+        title: panel.name,
+        position: { referencePanel: firstEdgePanelId, direction: 'within' },
+      })
+      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: false, order: i })
+    }
+  }
+
+  // ============================================
+  // 第 2 步：数据库导航面板（独立 Normal Group，中心左侧）
+  // ============================================
+  if (dbNavPanel) {
+    api.addPanel({
+      id: `panel_${dbNavPanel.id}`,
+      component: dbNavPanel.id,
+      title: dbNavPanel.name,
+      position: { direction: 'left' },
+    })
+    console.log(`[Workbench] Created database navigator as normal group: panel_${dbNavPanel.id}`)
+    layoutStore.updatePanelConfig(`panel_${dbNavPanel.id}`, { location: 'center', isVisible: true, order: 0 })
+  }
+
+  // ============================================
+  // 第 3 步：欢迎页（EmptyWorkbenchPanel，中心区域）
+  // ============================================
   const welcomePanel = centerPanels.find(p => p.id === 'emptyWorkbench')
-
   if (welcomePanel) {
     api.addPanel({
       id: `panel_${welcomePanel.id}`,
@@ -215,46 +302,12 @@ const onReady = (event: DockviewReadyEvent) => {
       position: { direction: 'right' },
     })
     console.log(`[Workbench] Created welcome panel: panel_${welcomePanel.id}`)
-    layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, { location: 'center', isVisible: true, order: welcomePanel.order || 0 })
+    layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, { location: 'center', isVisible: true, order: 0 })
   }
 
-  // ---- 第 3 步：左侧 Edge Group（侧边栏） ----
-  // Edge Group 会在中心区域左侧自动插入，中心内容自适应
-  if (leftPanels.length > 0) {
-    api.addEdgeGroup('left', {
-      id: 'left-edge',
-      initialSize: ratioA,
-      minimumSize: 200,
-      maximumSize: 500,
-    })
-
-    const firstLeftPanel = leftPanels[0]
-    const firstLeftPanelId = `panel_${firstLeftPanel.id}`
-
-    api.addPanel({
-      id: firstLeftPanelId,
-      component: firstLeftPanel.id,
-      title: firstLeftPanel.name,
-      position: { referenceGroup: 'left-edge' },
-    })
-    console.log(`[Workbench] Created left edge panel: ${firstLeftPanelId}`)
-    layoutStore.updatePanelConfig(firstLeftPanelId, { location: 'left', isVisible: true, order: firstLeftPanel.order || 0 })
-
-    for (let i = 1; i < leftPanels.length; i++) {
-      const panel = leftPanels[i]
-      const panelId = `panel_${panel.id}`
-      api.addPanel({
-        id: panelId,
-        component: panel.id,
-        title: panel.name,
-        position: { referencePanel: firstLeftPanelId, direction: 'within' },
-      })
-      console.log(`[Workbench] Added left edge panel: ${panelId}`)
-      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: panel.order || i })
-    }
-  }
-
-  // ---- 第 4 步：右侧 Edge Group（侧边栏） ----
+  // ============================================
+  // 第 4 步：右侧 Edge Group（默认展开）
+  // ============================================
   if (rightPanels.length > 0) {
     api.addEdgeGroup('right', {
       id: 'right-edge',
@@ -273,7 +326,7 @@ const onReady = (event: DockviewReadyEvent) => {
       position: { referenceGroup: 'right-edge' },
     })
     console.log(`[Workbench] Created right edge panel: ${firstRightPanelId}`)
-    layoutStore.updatePanelConfig(firstRightPanelId, { location: 'right', isVisible: true, order: firstRightPanel.order || 0 })
+    layoutStore.updatePanelConfig(firstRightPanelId, { location: 'right', isVisible: true, order: 0 })
 
     for (let i = 1; i < rightPanels.length; i++) {
       const panel = rightPanels[i]
@@ -285,7 +338,7 @@ const onReady = (event: DockviewReadyEvent) => {
         position: { referencePanel: firstRightPanelId, direction: 'within' },
       })
       console.log(`[Workbench] Added right edge panel: ${panelId}`)
-      layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: panel.order || i })
+      layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: i })
     }
   }
 
@@ -302,13 +355,41 @@ const onReady = (event: DockviewReadyEvent) => {
   // ============================================
   api.onDidActivePanelChange?.((panel) => {
     if (panel?.id?.startsWith('panel_sqlEditor_')) {
-      activeSqlEditorPanel.value = panel
+      activeSqlEditorPanelId = panel.id
+    }
+  })
+
+  api.onDidRemovePanel?.((panel) => {
+    const panelId = panel.id
+    if (layoutStore.isPanelPinned(panelId)) {
+      console.log(`[Workbench] Attempted to close pinned panel: ${panelId}, restoring...`)
+      setTimeout(() => {
+        restorePinnedPanel(panelId)
+      }, 100)
     }
   })
 
   window.addEventListener('open-object-properties', handleOpenObjectProperties as (e: Event) => void)
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
   window.addEventListener('sql-execution-result', handleSqlExecutionResult as (e: Event) => void)
+}
+
+function restorePinnedPanel(panelId: string) {
+  if (!dockviewApi) return
+  
+  const panelConfig = layoutStore.getPanelConfig(panelId)
+  if (!panelConfig) return
+  
+  const panelInfo = panelRegistry.get(panelId.replace('panel_', ''))
+  if (!panelInfo) return
+  
+  dockviewApi.addPanel({
+    id: panelId,
+    component: panelInfo.id,
+    title: panelInfo.name,
+    position: { direction: panelConfig.location === 'left' ? 'left' : panelConfig.location === 'right' ? 'right' : 'center' }
+  })
+  console.log(`[Workbench] Restored pinned panel: ${panelId}`)
 }
 
 const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
@@ -396,8 +477,8 @@ const handleSqlExecutionResult = (event: CustomEvent) => {
 
 function findActiveSqlEditorPanelId(): string | null {
   if (!dockviewApi) return null
-  if (activeSqlEditorPanel.value && typeof activeSqlEditorPanel.value === 'object' && (activeSqlEditorPanel.value as any)?.id) {
-    return (activeSqlEditorPanel.value as any).id
+  if (activeSqlEditorPanelId) {
+    return activeSqlEditorPanelId
   }
   for (const group of dockviewApi.groups || []) {
     for (const panelInfo of group.model?.panels || []) {

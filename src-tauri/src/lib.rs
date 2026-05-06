@@ -182,7 +182,10 @@ pub fn run() {
             re_execute_with_filter,
             execute_duckdb_analysis,
             get_column_insights,
+            get_column_insight_full,
             create_duckdb_temp_table,
+            save_column_insight_snapshot,
+            get_column_insight_history,
             
             // 项目管理命令（已合并到 project_commands）
             // 旧的 project_management_commands 模块已删除

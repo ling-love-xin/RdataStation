@@ -83,7 +83,7 @@ import { Table2, Eye, Code } from 'lucide-vue-next'
 import { NTag, NTabs, NTabPane, NDataTable, NButton, NButtonGroup, NEmpty, NCode } from 'naive-ui'
 import { ref, onMounted } from 'vue'
 
-import * as metadataApi from '@/extensions/builtin/navigator/infrastructure/api/metadataApi'
+import { navigatorApi } from '@/shared/api'
 
 interface Props {
   connectionId: string
@@ -136,7 +136,7 @@ async function loadTableStructure() {
     const schema = props.schemaName || 'public'
     
     // 获取列信息
-    const columnNodes = await metadataApi.getColumns(
+    const columnNodes = await navigatorApi.getColumns(
       props.connectionId,
       props.databaseName,
       schema,

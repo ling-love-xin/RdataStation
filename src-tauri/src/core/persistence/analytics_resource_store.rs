@@ -356,6 +356,115 @@ impl AnalyticsResourceStore {
         Ok(())
     }
 
+    pub async fn batch_delete_resources(&self, ids: &[String]) -> Result<(), CoreError> {
+        let conn = self.get_conn().await?;
+        let now = Utc::now();
+
+        conn.inner().execute("BEGIN TRANSACTION", []).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resources".to_string(),
+            operation: "begin_transaction".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let result = (|| -> Result<(), CoreError> {
+            for id in ids {
+                let resource = {
+                    let mut stmt = conn.inner().prepare(
+                        r#"
+                        SELECT id, resource_type, name, alias, config, scope, row_count, column_count, file_size,
+                               version, parent_version_id, parent_resource_id, source_query, created_at, updated_at,
+                               created_by, deleted_at
+                        FROM analytics_resources
+                        WHERE id = ?
+                        "#,
+                    ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                        store: "analytics_resources".to_string(),
+                        operation: "select".to_string(),
+                        reason: e.to_string(),
+                    }))?;
+
+                    stmt.query_row(rusqlite::params![id], |row| {
+                        let config_str: String = row.get(4)?;
+                        let config: Value = serde_json::from_str(&config_str).unwrap_or(Value::Null);
+
+                        Ok(AnalyticsResource {
+                            id: row.get(0)?,
+                            resource_type: row.get(1)?,
+                            name: row.get(2)?,
+                            alias: row.get(3)?,
+                            config,
+                            scope: row.get(5)?,
+                            row_count: row.get(6)?,
+                            column_count: row.get(7)?,
+                            file_size: row.get(8)?,
+                            version: row.get(9)?,
+                            parent_version_id: row.get(10)?,
+                            parent_resource_id: row.get(11)?,
+                            source_query: row.get(12)?,
+                            created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
+                            updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
+                            created_by: row.get(15)?,
+                            deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
+                        })
+                    }).map_err(|e| CoreError::storage(StorageError::Persistence {
+                        store: "analytics_resources".to_string(),
+                        operation: "select".to_string(),
+                        reason: e.to_string(),
+                    }))?
+                };
+
+                conn.inner().execute(
+                    r#"
+                    INSERT INTO analytics_recycle_bin (
+                        id, resource_id, resource_type, resource_name, resource_data, deleted_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    "#,
+                    rusqlite::params![
+                        format!("rb_{}", uuid::Uuid::new_v4().simple()),
+                        &resource.id,
+                        &resource.resource_type,
+                        &resource.name,
+                        serde_json::to_string(&resource).map_err(|e| CoreError::common(CommonError::General(e.to_string())))?,
+                        now.to_rfc3339(),
+                    ],
+                ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_recycle_bin".to_string(),
+                    operation: "insert".to_string(),
+                    reason: e.to_string(),
+                }))?;
+
+                conn.inner().execute(
+                    r#"
+                    UPDATE analytics_resources
+                    SET deleted_at = ?
+                    WHERE id = ?
+                    "#,
+                    rusqlite::params![now.to_rfc3339(), id],
+                ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_resources".to_string(),
+                    operation: "update".to_string(),
+                    reason: e.to_string(),
+                }))?;
+            }
+            Ok(())
+        })();
+
+        match result {
+            Ok(()) => {
+                conn.inner().execute("COMMIT", []).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_resources".to_string(),
+                    operation: "commit".to_string(),
+                    reason: e.to_string(),
+                }))?;
+                Ok(())
+            }
+            Err(e) => {
+                let _ = conn.inner().execute("ROLLBACK", []);
+                Err(e)
+            }
+        }
+    }
+
     pub async fn create_folder(&self, req: CreateFolderRequest) -> Result<AnalyticsFolder, CoreError> {
         let conn = self.get_conn().await?;
         let id = format!("af_{}", uuid::Uuid::new_v4().simple());
@@ -827,28 +936,30 @@ impl AnalyticsResourceStore {
         let conn = self.get_conn().await?;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
-        let _params: Vec<String> = Vec::new();
+        let mut params: Vec<rusqlite::types::Value> = Vec::new();
 
         if let Some(s) = scope {
-            where_clauses.push(format!("scope = '{}'", s));
+            where_clauses.push("scope = ?".to_string());
+            params.push(rusqlite::types::Value::Text(s.to_string()));
         }
 
         if let Some(t) = resource_type {
-            where_clauses.push(format!("resource_type = '{}'", t));
+            where_clauses.push("resource_type = ?".to_string());
+            params.push(rusqlite::types::Value::Text(t.to_string()));
         }
 
         if let Some(f) = folder_id {
-            where_clauses.push(format!(
-                "id IN (SELECT resource_id FROM analytics_resource_folder WHERE folder_id = '{}')",
-                f
-            ));
+            where_clauses.push(
+                "id IN (SELECT resource_id FROM analytics_resource_folder WHERE folder_id = ?)".to_string()
+            );
+            params.push(rusqlite::types::Value::Text(f.to_string()));
         }
 
         if let Some(search_term) = search {
-            where_clauses.push(format!(
-                "(name LIKE '%{}%' OR alias LIKE '%{}%')",
-                search_term, search_term
-            ));
+            where_clauses.push("(name LIKE ? OR alias LIKE ?)".to_string());
+            let search_pattern = format!("%{}%", search_term);
+            params.push(rusqlite::types::Value::Text(search_pattern.clone()));
+            params.push(rusqlite::types::Value::Text(search_pattern));
         }
 
         let where_sql = if where_clauses.is_empty() {
@@ -863,7 +974,7 @@ impl AnalyticsResourceStore {
         );
 
         let total: i64 = conn.inner()
-            .query_row(&count_sql, [], |row| row.get(0))
+            .query_row(&count_sql, rusqlite::params_from_iter(params.iter()), |row| row.get(0))
             .map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "analytics_resources".to_string(),
                 operation: "count".to_string(),
@@ -894,10 +1005,13 @@ impl AnalyticsResourceStore {
             FROM analytics_resources
             {}
             ORDER BY {} {}
-            LIMIT {} OFFSET {}
+            LIMIT ? OFFSET ?
             "#,
-            where_sql, sort_field, sort_dir, page_size, offset
+            where_sql, sort_field, sort_dir
         );
+
+        params.push(rusqlite::types::Value::Integer(page_size));
+        params.push(rusqlite::types::Value::Integer(offset));
 
         let mut stmt = conn.inner().prepare(&sql).map_err(|e| CoreError::storage(StorageError::Persistence {
             store: "analytics_resources".to_string(),
@@ -905,7 +1019,7 @@ impl AnalyticsResourceStore {
             reason: e.to_string(),
         }))?;
 
-        let resources = stmt.query_map([], |row| {
+        let resources = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
             let config_str: String = row.get(4)?;
             let config: Value = serde_json::from_str(&config_str).unwrap_or(Value::Null);
 

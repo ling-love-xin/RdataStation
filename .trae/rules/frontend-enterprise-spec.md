@@ -81,54 +81,55 @@ src/
 
 # 2. 布局设计规范（frontend-design 强化）
 
-## 2.1 全局布局结构（VSCode 风格）
+## 2.1 全局布局结构（VSCode 风格，基于 dockview Edge Group）
 
 ```
 ┌──────────────────────────────────────────────────┐
 │ Menu Bar（36px，非 dockview，自定义标题栏）         │
-├────┬──────────┬───────────────────┬──────────┬────┤
-│Left│Left      │                   │Right     │Rght│
-│Act │Primary   │   Center Area     │Primary   │Act │
-│Bar │Side Bar  │  (SQL Editor,     │Side Bar  │Bar │
-│48px│(280px)   │   Welcome Page)   │(280px)   │48px│
-│    │          │                   │          │    │
-│    │• 数据库   │                   │• 列洞察   │    │
-│    │  导航     │                   │• SQL历史  │    │
-│    │• 分析资源 │                   │          │    │
-│    │  管理器   │                   │          │    │
-│    │• 插件     │                   │          │    │
-│    │• 设置     │                   │          │    │
-│    │• 自定义   │                   │          │    │
-│    │  布局     │                   │          │    │
-├────┴──────────┴───────────────────┴──────────┴────┤
-│ Panel / Bottom Area（输出、查询结果，可拖拽高度）    │
-├──────────────────────────────────────────────────┤
-│ Status Bar（22px，非 dockview）                    │
+├─────┬───────────────────────────────┬────────────┬┤
+│Left │ Database Navigator            │Right       ││
+│Edge │ (Normal Group, 280px)         │Edge Group  ││
+│Group│                               │(展开 ~250px)││
+│48px ├───────────────────────────────┤            ││
+│     │ Workbench                     │• 列洞察     ││
+│     │ (Normal Group, 自适应)         │• SQL历史    ││
+│     │ • Welcome Page                │            ││
+│     │ • SQL Editor                  │            ││
+│     │ • Query Result                │• 底栏图标区  ││
+│     │                               │  (ActivityBar)│
+│     ├───────────────────────────────┤            ││
+├─────┴───────────────────────────────┴────────────┤│
+│ Status Bar（22px，非 dockview，含 ⚙ 设置入口）    │
 └──────────────────────────────────────────────────┘
 ```
 
-**核心原则：除 Menu Bar 和 Status Bar 外，所有区域均使用 dockview-vue 6.0 管理。**
+**核心原则：**
+- **除了 Menu Bar 和 Status Bar，所有区域均由 dockview-vue 6.0 管理**
+- **左侧 Edge Group 默认收起（48px），内部为 ActivityBarPanel，不包含面板内容**
+- **数据库导航是独立的 Normal Group（非 Edge Group），位于中心区域左侧**
+- **Edge Group 面板不显示关闭按钮（CSS 隐藏）**
+- **展开/收起使用 dockview 内置的 `collapse()` / `expand()` API，不做自定义实现**
+- **设置入口位于状态栏右侧齿轮图标，打开 CustomizeLayoutDialog**
 
 ## 2.2 布局区域职责
 
 | 区域 | 技术 | 宽度/高度 | 说明 |
 |------|------|-----------|------|
 | Menu Bar | 自定义组件 | 36px | 标题栏 + 菜单，非 dockview |
-| Left Activity Bar | dockview | 48px（固定） | 左侧图标导航，切换 Primary Side Bar |
-| Left Primary Side Bar | dockview | 280px（可拖拽） | 数据库导航、分析资源、插件、设置 |
-| Center Area | dockview | 自适应 | SQL 编辑器、欢迎页 |
-| Right Primary Side Bar | dockview | 280px（可拖拽） | 列洞察、SQL 历史 |
-| Right Activity Bar | dockview | 48px（固定） | 右侧图标导航，切换右侧面板 |
-| Panel/Bottom | dockview | 200px（可拖拽） | 输出、查询结果 |
-| Status Bar | 自定义组件 | 22px | 连接状态、执行信息，非 dockview |
+| Left Edge Group | dockview Edge Group | 48px→可拖拽 | 左侧活动栏，默认 48px 收起，展开后可显示 Analytics/Plugins 面板 |
+| Database Navigator | dockview Normal Group | ~280px（可拖拽） | 数据库导航，独立 Normal Group（非 Edge Group），支持拖拽/浮动/弹出 |
+| Center Area | dockview Normal Group | 自适应 | Welcome Page、SQL Editor、Query Result |
+| Right Edge Group | dockview Edge Group | ~250px（可拖拽） | 列洞察、SQL 历史，默认展开 |
+| Status Bar | 自定义组件 | 22px | 连接状态、执行信息、⚙ 设置入口，非 dockview |
 
 ## 2.3 Workbench 工作台布局
 
-- **左侧面板组**：数据库导航、分析资源管理器、插件、设置、自定义布局（dockview tab 组）
-- **中心区域**：SQL 编辑器（按需创建）、欢迎页
-- **右侧面板组**：列洞察、SQL 历史（dockview tab 组）
-- **底部面板**：输出面板、查询结果（按需创建）
-- **所有面板支持拖拽、重组、关闭、最大化**
+- **左侧 Edge Group**：ActivityBarPanel（活动栏图标 + 底部 toggle 按钮），默认收起为 48px 窄条
+- **数据库导航 Normal Group**：独立普通 Group，位于中心区域左侧，可拖拽移动
+- **中心区域**：Welcome Page、SQL Editor（按需创建）、Query Result（按需创建）
+- **右侧 Edge Group**：列洞察、SQL 历史（dockview tab 组），默认展开
+- **所有面板支持拖拽、浮动、弹出、重组、最大化**
+- **Edge Group 面板无关闭按钮，普通 Group 面板有关闭按钮**
 
 ## 2.4 dockview-vue 6.0 规则
 
@@ -136,6 +137,9 @@ src/
 - 组件注册：通过 `getCurrentInstance().appContext.components` 全局注册
 - 面板创建：使用 `api.addPanel({ id, component, title, position, ... })`
 - 固定宽度面板：设置 `minimumWidth` = `maximumWidth` = 目标宽度
+- Edge Group 创建：`api.addEdgeGroup('left'|'right', { id, initialSize, minimumSize, maximumSize })`
+- Edge Group 收起/展开：使用 dockview 内置 `group.api.collapse()` / `group.api.expand()`
+- 浮动面板：`api.addFloatingGroup(panel)` / `panel.api.moveTo({ position: 'center' })`
 - 面板内边距：**12px**
 - 间距：**8px**
 - 分割线：**2px**
@@ -152,6 +156,37 @@ src/
 - 最小点击区域 **32px**
 - 滚动条全局统一
 - 全局无突兀跳转、无视觉割裂
+
+## 2.6 面板头部操作按钮（PanelHeaderActions）
+
+每个面板 tab 头部右侧包含三个操作按钮：
+
+| 按钮 | 图标 | 未激活状态 | 激活状态 | 功能 |
+|------|------|-----------|---------|------|
+| 最大化 | Maximize2 / Minimize2 | 普通 | 切换为还原图标 | 调用 `group.api.maximize()` / `group.api.exitMaximized()` |
+| 浮动 | ExternalLink / ArrowLeftToLine | 普通 | 切换图标 | `api.addFloatingGroup(group)` / `api.moveTo({ position: 'center' })` |
+| 钉住 | Pin / PinOff | 普通 | 主题色高亮 | 切换 `layoutStore.togglePanelPinned(panelId)` |
+
+钉住规则：
+- 被钉住的面板在右键菜单中不显示关闭相关选项
+- 被钉住的面板关闭时自动恢复
+- 钉住状态存储在 `layoutStore.pinnedPanelIds` Set 中
+
+## 2.7 设置页面（CustomizeLayoutDialog + SettingsPanel）
+
+| 组件 | 触发方式 | 用途 |
+|------|---------|------|
+| CustomizeLayoutDialog | 状态栏 ⚙ 齿轮图标 或 快捷键 | VSCode 风格弹窗设置 |
+| SettingsPanel | 左侧面板入口（dockview panel） | 完整设置面板（布局比例、预设等） |
+| CustomizeLayout | 左侧面板入口（dockview panel） | 面板管理面板（可见性、尺寸、位置） |
+
+CustomizeLayoutDialog 功能：
+- 侧边栏：左侧/右侧 Edge Group 展开/收起（使用 dockview 内置 API）
+- 界面元素：菜单栏、状态栏可见性切换
+- 窗口：全屏（F11）
+- 重置布局
+
+**重要原则：展开/收起等 dockview 原生功能不重复实现，直接调用 dockview API。**
 
 ---
 

@@ -7,15 +7,44 @@ export interface Toast {
   message: string
   type: ToastType
   duration: number
+  detail?: string
 }
 
 const toasts = reactive<Toast[]>([])
 let toastId = 0
 
+export interface ErrorInfo {
+  message: string
+  code?: string
+  detail?: string
+}
+
+export function parseError(error: unknown): ErrorInfo {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      detail: error.stack,
+    }
+  }
+  if (typeof error === 'string') {
+    try {
+      const parsed = JSON.parse(error)
+      return {
+        message: parsed.message || parsed.error || error,
+        code: parsed.code,
+        detail: parsed.detail,
+      }
+    } catch {
+      return { message: error }
+    }
+  }
+  return { message: String(error) }
+}
+
 export function useToast() {
-  function show(message: string, type: ToastType = 'info', duration: number = 3000) {
+  function show(message: string, type: ToastType = 'info', duration: number = 3000, detail?: string) {
     const id = ++toastId
-    const toast: Toast = { id, message, type, duration }
+    const toast: Toast = { id, message, type, duration, detail }
     toasts.push(toast)
 
     if (duration > 0) {
@@ -31,8 +60,8 @@ export function useToast() {
     return show(message, 'success', duration)
   }
 
-  function error(message: string, duration?: number) {
-    return show(message, 'error', duration)
+  function error(message: string, duration?: number, detail?: string) {
+    return show(message, 'error', duration, detail)
   }
 
   function warning(message: string, duration?: number) {
@@ -41,6 +70,11 @@ export function useToast() {
 
   function info(message: string, duration?: number) {
     return show(message, 'info', duration)
+  }
+
+  function showError(error: unknown) {
+    const info = parseError(error)
+    return show(info.message, 'error', 5000, info.detail)
   }
 
   function remove(id: number) {
@@ -61,6 +95,7 @@ export function useToast() {
     error,
     warning,
     info,
+    showError,
     remove,
     clear,
   }

@@ -4,8 +4,13 @@
       :has-connection="!!currentConnection"
       :is-refreshing="isRefreshing"
       :show-filter="showFilter"
+      :is-in-transaction="isInTransaction"
       @new-connection="handleNewConnection"
+      @new-group="openCreateGroupDialog"
       @disconnect="handleDisconnect"
+      @begin-transaction="handleBeginTransaction"
+      @commit-transaction="handleCommitTransaction"
+      @rollback-transaction="handleRollbackTransaction"
       @refresh="handleRefresh"
       @focus-search="focusSearch"
       @toggle-filter="toggleFilter"
@@ -51,7 +56,22 @@
       :items="contextMenuItems"
     />
 
-    <NavigatorStatus :text="statusText" />
+    <NavigatorError
+      :visible="showError"
+      :error="currentError"
+      @retry="handleErrorRetry"
+      @close="handleErrorClose"
+    />
+
+    <NavigatorGroupDialog
+      :visible="showGroupDialog"
+      :is-edit="isEditGroup"
+      :initial-data="getEditingGroupData()"
+      @close="closeGroupDialog"
+      @submit="handleGroupSubmit"
+    />
+
+    <NavigatorStatus :text="statusText" :is-in-transaction="isInTransaction" :transaction-duration="transactionDuration" />
   </div>
 </template>
 
@@ -67,7 +87,9 @@ import type { ProjectConnection } from '@/extensions/builtin/connection/ui/types
 import { useWorkbenchStore } from '@/extensions/builtin/workbench/ui/stores/workbench-store'
 import { useUiStore } from '@/shared/stores/ui'
 
+import NavigatorGroupDialog from './group-dialog.vue'
 import NavigatorContextMenuV2 from './navigator-context-menu-v2.vue'
+import NavigatorError from './navigator-error.vue'
 import NavigatorFilter from './navigator-filter.vue'
 import NavigatorSearch from './navigator-search.vue'
 import NavigatorStatus from './navigator-status.vue'
@@ -82,11 +104,14 @@ import { useDatabaseTreeLoader } from '../composables/use-database-tree-loader'
 import { useDatabaseTreeSearch } from '../composables/use-database-tree-search'
 import { useDragDrop } from '../composables/use-drag-drop'
 import { useFavorites } from '../composables/use-favorites'
+import { useGroupManager } from '../composables/use-group-manager'
 import { useIncrementalRefresh } from '../composables/use-incremental-refresh'
+import { useKeyboardShortcuts } from '../composables/use-keyboard-shortcuts'
 import { useVirtualTree } from '../composables/use-virtual-tree'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
 
+import type { NavigatorError as NavigatorErrorType } from './navigator-error.vue'
 import type { IContextMenuItem } from '../composables/use-context-menu-actions'
 import type { VirtualTreeNode } from '../types/virtual-tree'
 
@@ -113,6 +138,16 @@ const currentConnection = ref<ProjectConnection | null>(null)
 const isRefreshing = ref(false)
 const showSearch = ref(false)
 const showFilter = ref(false)
+const isInTransaction = ref(false)
+const transactionDuration = ref(0)
+let transactionTimer: ReturnType<typeof setInterval> | null = null
+const showError = ref(false)
+const currentError = ref<NavigatorErrorType | null>(null)
+
+// 分组相关状态
+const showGroupDialog = ref(false)
+const isEditGroup = ref(false)
+const editingGroupId = ref<string | null>(null)
 const searchRef = ref<InstanceType<typeof NavigatorSearch> | null>(null)
 const contextMenuRef = ref<InstanceType<typeof NavigatorContextMenuV2> | null>(null)
 const virtualTreeRef = ref<InstanceType<typeof VirtualTree> | null>(null)
@@ -131,6 +166,7 @@ const filterConfig = ref<FilterConfig>({
 const treeLoader = useDatabaseTreeLoader()
 const treeSearch = useDatabaseTreeSearch()
 const cacheWarming = useCacheWarming()
+const groupManager = useGroupManager()
 const adjacentPreload = useAdjacentPreload()
 const connectionHandler = useConnectionHandler()
 const contextMenuActions = useContextMenuActions()
@@ -567,6 +603,7 @@ const handleDisconnect = async () => {
     console.log('断开连接:', currentConnection.value.name)
     await navigatorStore.disconnectConnection(currentConnection.value.id)
     currentConnection.value = null
+    stopTransactionTimer()
   }
 }
 
@@ -579,17 +616,139 @@ const handleRefresh = async () => {
     const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
     
     for (const conn of allConnections) {
-      clearConnection(conn.id)
-      // TODO: 刷新连接元数据
+      navigatorStore.clearCache(conn.id)
       await navigatorStore.loadDatabases(conn.id)
     }
     
     initializeRootNodes()
+    handleErrorClose()
   } catch (error) {
     console.error('刷新连接失败:', error)
+    showErrorMessage('刷新失败', error instanceof Error ? error.message : '无法刷新数据库连接')
   } finally {
     isRefreshing.value = false
   }
+}
+
+const handleBeginTransaction = async () => {
+  if (!currentConnection.value) return
+  
+  try {
+    await connectionStore.beginTransaction(currentConnection.value.id)
+    isInTransaction.value = true
+    transactionDuration.value = 0
+    
+    if (transactionTimer) {
+      clearInterval(transactionTimer)
+    }
+    
+    transactionTimer = setInterval(() => {
+      transactionDuration.value += 1000
+    }, 1000)
+    
+    console.log('事务已开始')
+  } catch (error) {
+    console.error('开始事务失败:', error)
+    showErrorMessage('事务失败', error instanceof Error ? error.message : '无法开始事务')
+  }
+}
+
+const handleCommitTransaction = async () => {
+  if (!currentConnection.value) return
+  
+  try {
+    await connectionStore.commitTransaction(currentConnection.value.id)
+    stopTransactionTimer()
+    console.log('事务已提交')
+  } catch (error) {
+    console.error('提交事务失败:', error)
+    showErrorMessage('事务失败', error instanceof Error ? error.message : '无法提交事务')
+  }
+}
+
+const handleRollbackTransaction = async () => {
+  if (!currentConnection.value) return
+  
+  try {
+    await connectionStore.rollbackTransaction(currentConnection.value.id)
+    stopTransactionTimer()
+    console.log('事务已回滚')
+  } catch (error) {
+    console.error('回滚事务失败:', error)
+    showErrorMessage('事务失败', error instanceof Error ? error.message : '无法回滚事务')
+  }
+}
+
+function stopTransactionTimer() {
+  if (transactionTimer) {
+    clearInterval(transactionTimer)
+    transactionTimer = null
+  }
+  isInTransaction.value = false
+  transactionDuration.value = 0
+}
+
+function openCreateGroupDialog() {
+  isEditGroup.value = false
+  editingGroupId.value = null
+  showGroupDialog.value = true
+}
+
+function openEditGroupDialog(groupId: string) {
+  isEditGroup.value = true
+  editingGroupId.value = groupId
+  showGroupDialog.value = true
+}
+
+function closeGroupDialog() {
+  showGroupDialog.value = false
+  editingGroupId.value = null
+}
+
+function getEditingGroupData() {
+  if (!editingGroupId.value) return undefined
+  const group = groupManager.getGroupById(editingGroupId.value)
+  if (group) {
+    return {
+      name: group.name,
+      description: group.description,
+      color: group.color
+    }
+  }
+  return undefined
+}
+
+function handleGroupSubmit(data: { name: string; description?: string; color?: string }) {
+  if (isEditGroup.value && editingGroupId.value) {
+    groupManager.updateGroup(editingGroupId.value, {
+      name: data.name,
+      description: data.description,
+      color: data.color
+    })
+  } else {
+    groupManager.createGroup(data.name, data.description)
+  }
+  closeGroupDialog()
+}
+
+function handleDeleteGroup(groupId: string) {
+  groupManager.deleteGroup(groupId)
+}
+
+function showErrorMessage(title: string, message: string) {
+  currentError.value = { title, message }
+  showError.value = true
+}
+
+function handleErrorClose() {
+  showError.value = false
+  currentError.value = null
+}
+
+async function handleErrorRetry() {
+  showError.value = false
+  currentError.value = null
+  await handleRefresh()
 }
 
 handleVirtualTreeSelectRef = async (node: VirtualTreeNode) => {
@@ -742,6 +901,17 @@ function handleOpenConnectionEditor(event: Event) {
   const detail = (event as CustomEvent).detail
   console.log('打开连接编辑器:', detail)
 }
+
+// 键盘快捷键 - 必须在所有函数定义之后初始化
+const keyboardShortcuts = useKeyboardShortcuts({
+  onNewConnection: handleNewConnection,
+  onDisconnect: handleDisconnect,
+  onRefresh: handleRefresh,
+  onSearch: focusSearch,
+  onBeginTransaction: handleBeginTransaction,
+  onCommitTransaction: handleCommitTransaction,
+  onRollbackTransaction: handleRollbackTransaction
+})
 
 const handleContextMenuRefresh = async () => {
   if (contextMenuCurrentNode.value?.data?.connectionId) {

@@ -2,14 +2,14 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h3>添加资源</h3>
+        <h3>{{ isEdit ? '编辑资源' : '添加资源' }}</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
           <label>资源类型 *</label>
-          <select v-model="form.resource_type" class="form-input">
+          <select v-model="form.resource_type" class="form-input" :disabled="isEdit">
             <option value="connection">🔌 连接</option>
             <option value="table">📊 表</option>
             <option value="file">📄 文件</option>
@@ -76,6 +76,16 @@
         </div>
 
         <div class="form-group">
+          <label>源查询</label>
+          <textarea
+            v-model="form.source_query"
+            class="form-input form-textarea"
+            placeholder="SELECT * FROM table_name"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
           <label>配置 JSON</label>
           <textarea
             v-model="configJson"
@@ -90,8 +100,8 @@
         <button class="btn btn-secondary" @click="$emit('close')">
           取消
         </button>
-        <button class="btn btn-primary" :disabled="!isValid" @click="handleCreate">
-          创建
+        <button class="btn btn-primary" :disabled="!isValid" @click="handleSubmit">
+          {{ isEdit ? '保存' : '创建' }}
         </button>
       </div>
     </div>
@@ -99,14 +109,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
-import type { CreateResourceRequest, ResourceType, ResourceScope } from '../../types';
+import type { CreateResourceRequest, ResourceType, ResourceScope, AnalyticsResource } from '../../types';
+
+const props = defineProps<{
+  editResource?: AnalyticsResource;
+}>();
 
 const emit = defineEmits<{
   close: [];
   create: [input: CreateResourceRequest];
+  update: [id: string, input: CreateResourceRequest];
 }>();
+
+const isEdit = computed(() => !!props.editResource);
 
 const form = ref({
   resource_type: 'connection' as ResourceType,
@@ -126,7 +143,7 @@ const isValid = computed(() => {
   return form.value.name.trim() !== '';
 });
 
-function handleCreate() {
+function handleSubmit() {
   try {
     const config = JSON.parse(configJson.value);
     
@@ -140,14 +157,36 @@ function handleCreate() {
       column_count: form.value.column_count,
       file_size: form.value.file_size,
       parent_resource_id: form.value.parent_resource_id,
-      source_query: form.value.source_query,
+      source_query: form.value.source_query || undefined,
     };
     
-    emit('create', input);
+    if (isEdit.value && props.editResource) {
+      emit('update', props.editResource.id, input);
+    } else {
+      emit('create', input);
+    }
   } catch (e) {
     alert('配置 JSON 格式错误');
   }
 }
+
+onMounted(() => {
+  if (props.editResource) {
+    const r = props.editResource;
+    form.value = {
+      resource_type: r.resource_type,
+      name: r.name,
+      alias: r.alias || '',
+      scope: r.scope,
+      row_count: r.row_count,
+      column_count: r.column_count,
+      file_size: r.file_size,
+      parent_resource_id: r.parent_resource_id,
+      source_query: r.source_query,
+    };
+    configJson.value = JSON.stringify(r.config, null, 2);
+  }
+});
 </script>
 
 <style scoped>

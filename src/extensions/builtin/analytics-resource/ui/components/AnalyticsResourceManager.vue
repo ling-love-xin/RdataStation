@@ -7,6 +7,10 @@
           <span class="icon">🔄</span>
           刷新
         </button>
+        <button class="btn" @click="showSettings = true">
+          <span class="icon">⚙️</span>
+          设置
+        </button>
       </div>
     </div>
 
@@ -32,11 +36,13 @@
       :selected-folder-id="selectedFolderId"
       @select-folder="selectFolder"
       @create-folder="showCreateFolder = true"
+      @drop-resource="handleDropResource"
     />
 
     <ResourceList
       :items="filteredResources"
       :selected-ids="selectedResources"
+      :display-settings="store.settings.display"
       empty-icon="📭"
       empty-text="暂无资源"
       @select="handleSelectResource"
@@ -44,6 +50,8 @@
       @delete="handleDeleteResource"
       @edit="handleEditResource"
       @copy="handleCopyResource"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
     />
 
     <Pagination
@@ -70,9 +78,11 @@
     </div>
 
     <CreateResourceModal
-      v-if="showCreateResource"
-      @close="showCreateResource = false"
+      v-if="showCreateResource || showEditResource"
+      :edit-resource="editingResource"
+      @close="closeEditModal"
       @create="handleCreateResource"
+      @update="handleUpdateResource"
     />
 
     <CreateFolderModal
@@ -84,6 +94,14 @@
     <RecycleBinModal
       v-if="showRecycleBin"
       @close="showRecycleBin = false"
+    />
+
+    <SettingsModal
+      v-if="showSettings"
+      :settings="store.settings"
+      @close="showSettings = false"
+      @save="handleSaveSettings"
+      @clear-cache="handleClearCache"
     />
 
     <ToastContainer />
@@ -102,11 +120,12 @@ import Pagination from './Pagination.vue'
 import RecycleBinModal from './RecycleBinModal.vue'
 import ResourceList from './ResourceList.vue'
 import SearchBar from './SearchBar.vue'
+import SettingsModal from './SettingsModal.vue'
 import ToastContainer from './ToastContainer.vue'
 import { useToast } from '../composables/use-toast'
 import { useAnalyticsResourceStore } from '../stores/analytics-resource-store'
 
-import type { CreateResourceRequest, CreateFolderRequest, AnalyticsResource } from '../../types'
+import type { CreateResourceRequest, CreateFolderRequest, AnalyticsResource , AnalyticsResourceSettings } from '../../types'
 
 const store = useAnalyticsResourceStore()
 const toast = useToast()
@@ -115,6 +134,9 @@ const searchQuery = ref('')
 const showCreateResource = ref(false)
 const showCreateFolder = ref(false)
 const showRecycleBin = ref(false)
+const showEditResource = ref(false)
+const showSettings = ref(false)
+const editingResource = ref<AnalyticsResource | null>(null)
 
 const resources = computed(() => store.resources)
 const folders = computed(() => store.folders)
@@ -142,19 +164,7 @@ const total = computed(() => store.total)
 const totalPages = computed(() => store.totalPages)
 
 const filteredResources = computed(() => {
-  let result = [...resources.value]
-
-  if (selectedScope.value) {
-    result = result.filter(r => r.scope === selectedScope.value)
-  }
-
-  if (selectedType.value) {
-    result = result.filter(r => r.resource_type === selectedType.value)
-  }
-
-  if (selectedFolderId.value) {
-    // Filter by folder
-  }
+  let result = store.filteredResources
 
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
@@ -164,9 +174,8 @@ const filteredResources = computed(() => {
     )
   }
 
-  // Apply sorting
   if (sortBy.value) {
-    result.sort((a, b) => {
+    result = [...result].sort((a, b) => {
       const aVal = a[sortBy.value as keyof AnalyticsResource]
       const bVal = b[sortBy.value as keyof AnalyticsResource]
 
@@ -217,7 +226,9 @@ function handleBatchDelete() {
 }
 
 function handleEditResource(resource: AnalyticsResource) {
-  toast.info(`编辑资源: ${resource.name}`)
+  editingResource.value = resource
+  showEditResource.value = true
+  showCreateResource.value = false
 }
 
 function handleCopyResource(resource: AnalyticsResource) {
@@ -315,6 +326,22 @@ async function handleCreateResource(input: CreateResourceRequest) {
   }
 }
 
+function closeEditModal() {
+  showEditResource.value = false
+  showCreateResource.value = false
+  editingResource.value = null
+}
+
+async function handleUpdateResource(id: string, input: CreateResourceRequest) {
+  try {
+    await store.updateResource(id, input)
+    closeEditModal()
+    toast.success('更新成功')
+  } catch (error) {
+    toast.error('更新失败')
+  }
+}
+
 async function handleCreateFolder(input: CreateFolderRequest) {
   try {
     await store.createFolder(input)
@@ -325,18 +352,89 @@ async function handleCreateFolder(input: CreateFolderRequest) {
   }
 }
 
+function handleDragStart(resources: AnalyticsResource[]) {
+  console.log('Dragging resources:', resources.map(r => r.name))
+}
+
+function handleDragEnd() {
+  console.log('Drag ended')
+}
+
+async function handleDropResource(folderId: string | null, resources: AnalyticsResource[]) {
+  try {
+    if (folderId) {
+      for (const resource of resources) {
+        await store.addResourceToFolder(resource.id, folderId)
+      }
+      toast.success(`已将 ${resources.length} 个资源添加到文件夹`)
+    } else {
+      for (const resource of resources) {
+        const existingFolders = store.getResourceFolders(resource.id)
+        for (const fId of existingFolders) {
+          await store.removeResourceFromFolder(resource.id, fId)
+        }
+      }
+      toast.success(`已将 ${resources.length} 个资源移出文件夹`)
+    }
+  } catch (error) {
+    toast.error('移动资源失败')
+  }
+}
+
+
+
+function handleSaveSettings(settings: AnalyticsResourceSettings) {
+  store.saveSettings(settings)
+  showSettings.value = false
+  toast.success('设置已保存')
+}
+
+function handleClearCache() {
+  store.clearCache()
+  toast.success('缓存已清除')
+}
+
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Delete' && selectedResources.value.length > 0) {
     e.preventDefault()
     handleBatchDelete()
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault()
+    showCreateResource.value = true
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+    e.preventDefault()
+    const selected = store.resources.find(r => selectedResources.value.includes(r.id))
+    if (selected) {
+      handleEditResource(selected)
+    }
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+    e.preventDefault()
+    if (selectedResources.value.length > 0) {
+      handleBatchDelete()
+    }
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'c') {
+    e.preventDefault()
+    const selected = store.resources.find(r => selectedResources.value.includes(r.id))
+    if (selected) {
+      handleCopyResource(selected)
+    }
+    return
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     e.preventDefault()
-    // Focus search - handled by SearchBar
+    return
   }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'a' && selectedResources.value.length > 0) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
     e.preventDefault()
-    // Select all (handled by ResourceList)
+    return
   }
 }
 

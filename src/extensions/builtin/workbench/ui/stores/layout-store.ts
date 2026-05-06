@@ -2,7 +2,6 @@ import {
   Database,
   BarChart3,
   Puzzle,
-  Settings,
   FileText,
   Sparkles
 } from 'lucide-vue-next'
@@ -68,8 +67,6 @@ export const leftActivityItems: LeftActivityItem[] = [
   { id: 'database', icon: Database, title: '数据库导航' },
   { id: 'analytics', icon: BarChart3, title: '分析资源管理' },
   { id: 'plugins', icon: Puzzle, title: '插件管理' },
-  { id: 'settings', icon: Settings, title: '设置' },
-  { id: 'customizeLayout', icon: Settings, title: 'Customize Layout' }
 ]
 
 export const rightActivityItems: RightActivityItem[] = [
@@ -82,8 +79,6 @@ export const ACTIVEBAR_TO_PANEL_ID: Record<string, string> = {
   'database': 'databaseNavigator',
   'analytics': 'analytics-resource-manager',
   'plugins': 'plugins',
-  'settings': 'settings',
-  'customizeLayout': 'customizeLayout',
   'sql-history': 'sqlHistory',
   'output': 'outputPanel',
   'column-insights': 'columnInsights'
@@ -140,6 +135,17 @@ const secondarySideBarLocked = ref(true)
   const dockviewApi = shallowRef<DockviewApi | null>(null)
 
   // ============================================
+  // Edge Group 折叠状态
+  // ============================================
+  const leftEdgeGroupCollapsed = ref(true)
+  const rightEdgeGroupCollapsed = ref(false)
+
+  // ============================================
+  // 设置页面显示状态
+  // ============================================
+  const showCustomizeLayoutDialog = ref(false)
+
+  // ============================================
   // 面板位置配置
   // ============================================
   const panelConfigs = ref<Map<string, PanelConfig>>(new Map())
@@ -148,6 +154,11 @@ const secondarySideBarLocked = ref(true)
   // 浮动窗口列表
   // ============================================
   const floatingPanels = ref<any[]>([])
+
+  // ============================================
+  // 钉住的面板 ID 集合
+  // ============================================
+  const pinnedPanelIds = ref<Set<string>>(new Set())
 
   // ============================================
   // Dockview 布局数据（完全托管）
@@ -183,6 +194,51 @@ const secondarySideBarLocked = ref(true)
   function setDockviewApi(api: DockviewApi) {
     dockviewApi.value = api
     console.log('[LayoutStore] Dockview API registered')
+  }
+
+  /**
+   * 折叠左侧 Edge Group
+   */
+  function collapseLeftEdgeGroup() {
+    leftEdgeGroupCollapsed.value = true
+    const panel = dockviewApi.value?.getPanel('panel_leftActivityBar')
+    const groupApi = (panel as any)?.group?.api
+    groupApi?.collapse?.()
+  }
+
+  /**
+   * 展开左侧 Edge Group
+   */
+  function expandLeftEdgeGroup() {
+    leftEdgeGroupCollapsed.value = false
+    const panel = dockviewApi.value?.getPanel('panel_leftActivityBar')
+    const groupApi = (panel as any)?.group?.api
+    groupApi?.expand?.()
+  }
+
+  /**
+   * 切换左侧 Edge Group 折叠状态
+   */
+  function toggleLeftEdgeGroup() {
+    if (leftEdgeGroupCollapsed.value) {
+      expandLeftEdgeGroup()
+    } else {
+      collapseLeftEdgeGroup()
+    }
+  }
+
+  /**
+   * 打开设置页面
+   */
+  function openCustomizeLayoutDialog() {
+    showCustomizeLayoutDialog.value = true
+  }
+
+  /**
+   * 关闭设置页面
+   */
+  function closeCustomizeLayoutDialog() {
+    showCustomizeLayoutDialog.value = false
   }
 
   /**
@@ -334,6 +390,33 @@ const secondarySideBarLocked = ref(true)
    */
   function getFloatingPanels(): any[] {
     return floatingPanels.value
+  }
+
+  /**
+   * 检查面板是否被钉住
+   */
+  function isPanelPinned(panelId: string): boolean {
+    return pinnedPanelIds.value.has(panelId)
+  }
+
+  /**
+   * 切换面板钉住状态
+   */
+  function togglePanelPinned(panelId: string): boolean {
+    if (pinnedPanelIds.value.has(panelId)) {
+      pinnedPanelIds.value.delete(panelId)
+      return false
+    } else {
+      pinnedPanelIds.value.add(panelId)
+      return true
+    }
+  }
+
+  /**
+   * 获取所有钉住的面板 ID
+   */
+  function getPinnedPanelIds(): Set<string> {
+    return pinnedPanelIds.value
   }
 
   // ============================================
@@ -630,13 +713,26 @@ const secondarySideBarLocked = ref(true)
     // 面板配置
     panelConfigs,
     floatingPanels,
+    pinnedPanelIds,
 
     // Dockview 布局数据
     layoutData,
 
+    // Edge Group 折叠状态
+    leftEdgeGroupCollapsed,
+    rightEdgeGroupCollapsed,
+
+    // 设置页面
+    showCustomizeLayoutDialog,
+
     // 方法 - API
     setDockviewApi,
     setLayoutData,
+    collapseLeftEdgeGroup,
+    expandLeftEdgeGroup,
+    toggleLeftEdgeGroup,
+    openCustomizeLayoutDialog,
+    closeCustomizeLayoutDialog,
 
     // 方法 - 面板管理
     getPanelConfig,
@@ -648,6 +744,9 @@ const secondarySideBarLocked = ref(true)
     createFloatingPanel,
     closeFloatingPanel,
     getFloatingPanels,
+    isPanelPinned,
+    togglePanelPinned,
+    getPinnedPanelIds,
 
     // 方法 - 可见性
     toggleMenuBar,

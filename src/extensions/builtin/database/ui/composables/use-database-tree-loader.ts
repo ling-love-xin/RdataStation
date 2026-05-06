@@ -407,6 +407,58 @@ export function useDatabaseTreeLoader() {
   }
 
   /**
+   * 创建存储过程节点
+   */
+  function createProcedureNodes(connectionId: string, dbName: string, schemaName: string | undefined): VirtualTreeNode[] {
+    const schema = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+      .find(s => s.name === (schemaName || ''))
+    
+    if (!schema || !schema.procedures) return []
+    
+    const parentKey = schemaName
+      ? NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName, schemaName])
+      : NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName])
+    
+    return schema.procedures.map(proc => ({
+      key: NodeKeyEncoder.encode(['procedure', connectionId, dbName, schemaName || '', proc.name]),
+      level: schemaName ? 4 : 3,
+      isExpanded: false,
+      isLeaf: true,
+      label: proc.name,
+      type: 'procedure',
+      data: { connectionId, dbName, schemaName, procedureName: proc.name },
+      parentId: parentKey,
+      childCount: 0
+    }))
+  }
+
+  /**
+   * 创建函数节点
+   */
+  function createFunctionNodes(connectionId: string, dbName: string, schemaName: string | undefined): VirtualTreeNode[] {
+    const schema = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+      .find(s => s.name === (schemaName || ''))
+    
+    if (!schema || !schema.functions) return []
+    
+    const parentKey = schemaName
+      ? NodeKeyEncoder.encode(['functions-folder', connectionId, dbName, schemaName])
+      : NodeKeyEncoder.encode(['functions-folder', connectionId, dbName])
+    
+    return schema.functions.map(func => ({
+      key: NodeKeyEncoder.encode(['function', connectionId, dbName, schemaName || '', func.name]),
+      level: schemaName ? 4 : 3,
+      isExpanded: false,
+      isLeaf: true,
+      label: func.name,
+      type: 'function',
+      data: { connectionId, dbName, schemaName, functionName: func.name },
+      parentId: parentKey,
+      childCount: 0
+    }))
+  }
+
+  /**
    * 创建表的子文件夹节点（DBeaver 风格）
    */
   function createTableSubFolderNodes(connectionId: string, dbName: string, schemaName: string | undefined, tableName: string, config: ITreeStructureConfig): VirtualTreeNode[] {
@@ -618,6 +670,30 @@ export function useDatabaseTreeLoader() {
         }
         
         return createViewNodes(connectionId, dbName, schemaName)
+      }
+      
+      // Level 2/3: Procedures 文件夹 -> 存储过程列表
+      if (nodeType === 'procedures-folder') {
+        const dbName = keyParts[2]
+        const schemaName = keyParts[3] || undefined
+        
+        if (schemaName) {
+          await navigatorStore.loadProcedures(connectionId, dbName, schemaName)
+        }
+        
+        return createProcedureNodes(connectionId, dbName, schemaName)
+      }
+      
+      // Level 2/3: Functions 文件夹 -> 函数列表
+      if (nodeType === 'functions-folder') {
+        const dbName = keyParts[2]
+        const schemaName = keyParts[3] || undefined
+        
+        if (schemaName) {
+          await navigatorStore.loadFunctions(connectionId, dbName, schemaName)
+        }
+        
+        return createFunctionNodes(connectionId, dbName, schemaName)
       }
       
       // Level 3/4: 表节点 -> Columns/Indexes/Constraints 文件夹

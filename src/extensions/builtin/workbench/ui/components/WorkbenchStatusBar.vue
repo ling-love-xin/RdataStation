@@ -14,13 +14,21 @@
       <CacheWarmingStatus />
     </div>
     <div class="status-right">
+      <span class="status-item clickable" title="设置" @click="handleOpenSettings">
+        <Settings :size="14" />
+      </span>
       <span class="status-item">RdataStation • Wasm 插件版</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Settings } from 'lucide-vue-next'
+
 import CacheWarmingStatus from '@/extensions/builtin/database/ui/components/cache-warming-status.vue'
+import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
+
+const layoutStore = useLayoutStore()
 
 interface Props {
   executionTime?: number
@@ -31,6 +39,10 @@ withDefaults(defineProps<Props>(), {
   executionTime: 0,
   rowCount: undefined
 })
+
+function handleOpenSettings() {
+  layoutStore.openCustomizeLayoutDialog()
+}
 </script>
 
 <style scoped>
@@ -57,6 +69,16 @@ withDefaults(defineProps<Props>(), {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.status-item.clickable {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.status-item.clickable:hover {
+  opacity: 1;
 }
 
 .status-item.connection {

@@ -34,7 +34,10 @@
       </template>
     </span>
 
-    <span v-if="node.connectionStatus === 'connected'" class="status-dot connected" title="已连接"></span>
+    <span v-if="node.connectionStatus === 'connected'" class="status-dot connected" title="已连接">
+      <span class="pulse-ring"></span>
+    </span>
+    <span v-else-if="node.connectionStatus === 'connecting'" class="status-dot connecting" title="连接中"></span>
     <span v-else-if="node.type === 'connection'" class="status-dot disconnected" title="未连接"></span>
 
     <span v-if="node.connectionTags?.length" class="connection-tags">
@@ -206,11 +209,29 @@ function handleContextMenu(event: MouseEvent) {
   border-radius: 50%;
   margin-left: 6px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .status-dot.connected {
   background-color: #22c55e;
   box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+}
+
+.status-dot.connected .pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #22c55e;
+  transform: translate(-50%, -50%);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+.status-dot.connecting {
+  background-color: #f59e0b;
+  animation: blink 1s ease-in-out infinite;
 }
 
 .status-dot.disconnected {
@@ -251,6 +272,28 @@ function handleContextMenu(event: MouseEvent) {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+  }
+  100% {
+    width: 200%;
+    height: 200%;
+    opacity: 0;
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
   }
 }
 </style>

@@ -69,7 +69,7 @@ export interface IVirtualTreeNode {
   /** 连接标签（仅 connection 类型） */
   connectionTags?: string[]
   /** 连接状态（仅 connection 类型） */
-  connectionStatus?: 'connected' | 'disconnected'
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected'
   /** 节点是否已加载过子节点（用于缓存判断） */
   isLoaded?: boolean
 }

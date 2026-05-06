@@ -18,6 +18,7 @@ export type PanelType =
   | 'properties'
   | 'database-nav'
   | 'history'
+  | 'settings'
 
 // 面板位置
 export type PanelPosition = 'left' | 'center' | 'right' | 'bottom'

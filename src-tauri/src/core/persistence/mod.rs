@@ -18,6 +18,8 @@ pub mod project_store;
 pub mod sql_template_store;
 pub mod workbench_context_store;
 pub mod analytics_resource_store;
+pub mod insight_store;
+pub mod insight_meta_store;
 
 pub use cache_version_migration::{CacheVersionManager, CURRENT_CACHE_VERSION};
 pub use global_db::{GlobalDatabaseManager, GlobalDuckdbConnection, GlobalSqlitePool};
@@ -29,6 +31,8 @@ pub use analytics_resource_store::{
     AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
     CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
 };
+pub use insight_store::{InsightStorage, InsightColumnStore, InsightTableReportStore, InsightSchemaReportStore, InsightVersionEntry};
+pub use insight_meta_store::InsightMetaStore;
 
 use crate::core::error::{CoreError, StorageError};
 use std::path::Path;

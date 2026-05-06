@@ -12,6 +12,7 @@ import { ref } from 'vue'
 import { registerGlobalComponent } from '@/core/vue-app-manager'
 import { useUiStore } from '@/shared/stores/ui'
 
+import ColumnInsightPanel from './panels/ColumnInsightPanel.vue'
 import TestBottomPanel from './TestBottomPanel.vue'
 import TestCenterPanel from './TestCenterPanel.vue'
 import TestLeftPanel from './TestLeftPanel.vue'
@@ -24,6 +25,7 @@ const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 registerGlobalComponent('testCenter', TestCenterPanel)
 registerGlobalComponent('testLeft', TestLeftPanel)
 registerGlobalComponent('testBottom', TestBottomPanel)
+registerGlobalComponent('columnInsight', ColumnInsightPanel)
 
 function onReady(event: DockviewReadyEvent) {
     event.api.addPanel({
@@ -53,6 +55,18 @@ function onReady(event: DockviewReadyEvent) {
             direction: 'below',
         },
         minimumHeight: 150,
+    })
+
+    event.api.addPanel({
+        id: 'right-insight',
+        component: 'columnInsight',
+        title: '洞察',
+        position: {
+            referencePanel: 'test-center',
+            direction: 'right',
+        },
+        minimumWidth: 260,
+        initialWidth: 300,
     })
 }
 </script>

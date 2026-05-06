@@ -9,82 +9,51 @@
       </div>
 
       <div class="dialog-body">
-        <!-- Visibility Section -->
+        <!-- Edge Group 控制 -->
         <div class="section">
+          <div class="section-title">侧边栏</div>
+
+          <div class="section-item" @click="toggleLeftEdgeGroup">
+            <div class="item-left">
+              <PanelLeft :size="16" class="item-icon" />
+              <span class="item-label">左侧边栏</span>
+            </div>
+            <div class="item-right">
+              <span class="item-hint">{{ layoutStore.leftEdgeGroupCollapsed ? '已收起' : '已展开' }}</span>
+              <div class="checkbox" :class="{ checked: !layoutStore.leftEdgeGroupCollapsed }">
+                <Check v-if="!layoutStore.leftEdgeGroupCollapsed" :size="12" />
+              </div>
+            </div>
+          </div>
+
+          <div class="section-item" @click="toggleRightEdgeGroup">
+            <div class="item-left">
+              <PanelRight :size="16" class="item-icon" />
+              <span class="item-label">右侧边栏</span>
+            </div>
+            <div class="item-right">
+              <span class="item-hint">{{ layoutStore.rightEdgeGroupCollapsed ? '已收起' : '已展开' }}</span>
+              <div class="checkbox" :class="{ checked: !layoutStore.rightEdgeGroupCollapsed }">
+                <Check v-if="!layoutStore.rightEdgeGroupCollapsed" :size="12" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 界面元素可见性 -->
+        <div class="section">
+          <div class="section-title">界面元素</div>
+
           <div class="section-item" @click="toggleVisibility('menuBar')">
             <div class="item-left">
               <Menu :size="16" class="item-icon" />
-              <span class="item-label">Menu Bar</span>
+              <span class="item-label">菜单栏</span>
             </div>
             <div class="item-right">
-              <span class="item-action">Visibility</span>
-              <div class="checkbox" :class="{ checked: visibility.menuBar }">
-                <Check v-if="visibility.menuBar" :size="12" />
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="toggleVisibility('activityBar')">
-            <div class="item-left">
-              <LayoutGrid :size="16" class="item-icon" />
-              <span class="item-label">Activity Bar</span>
-            </div>
-            <div class="item-right">
-              <div class="checkbox" :class="{ checked: visibility.activityBar }">
-                <Check v-if="visibility.activityBar" :size="12" />
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="toggleVisibility('primarySideBar')">
-            <div class="item-left">
-              <PanelLeft :size="16" class="item-icon" />
-              <span class="item-label">Primary Side Bar</span>
-            </div>
-            <div class="item-right">
-              <div class="shortcut">
-                <kbd>Ctrl</kbd>
-                <span>+</span>
-                <kbd>B</kbd>
-              </div>
-              <div class="checkbox" :class="{ checked: visibility.primarySideBar }">
-                <Check v-if="visibility.primarySideBar" :size="12" />
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="toggleVisibility('secondarySideBar')">
-            <div class="item-left">
-              <PanelRight :size="16" class="item-icon" />
-              <span class="item-label">Secondary Side Bar</span>
-            </div>
-            <div class="item-right">
-              <div class="shortcut">
-                <kbd>Ctrl</kbd>
-                <span>+</span>
-                <kbd>Alt</kbd>
-                <span>+</span>
-                <kbd>B</kbd>
-              </div>
-              <div class="checkbox" :class="{ checked: visibility.secondarySideBar }">
-                <Check v-if="visibility.secondarySideBar" :size="12" />
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="toggleVisibility('panel')">
-            <div class="item-left">
-              <PanelBottom :size="16" class="item-icon" />
-              <span class="item-label">Panel</span>
-            </div>
-            <div class="item-right">
-              <div class="shortcut">
-                <kbd>Ctrl</kbd>
-                <span>+</span>
-                <kbd>J</kbd>
-              </div>
-              <div class="checkbox" :class="{ checked: visibility.panel }">
-                <Check v-if="visibility.panel" :size="12" />
+              <div class="checkbox" :class="{ checked: layoutStore.menuBarVisible }">
+                <Check v-if="layoutStore.menuBarVisible" :size="12" />
               </div>
             </div>
           </div>
@@ -92,11 +61,11 @@
           <div class="section-item" @click="toggleVisibility('statusBar')">
             <div class="item-left">
               <Minus :size="16" class="item-icon" />
-              <span class="item-label">Status Bar</span>
+              <span class="item-label">状态栏</span>
             </div>
             <div class="item-right">
-              <div class="checkbox" :class="{ checked: visibility.statusBar }">
-                <Check v-if="visibility.statusBar" :size="12" />
+              <div class="checkbox" :class="{ checked: layoutStore.statusBarVisible }">
+                <Check v-if="layoutStore.statusBarVisible" :size="12" />
               </div>
             </div>
           </div>
@@ -104,126 +73,14 @@
 
         <div class="divider"></div>
 
-        <!-- Primary Side Bar Position -->
+        <!-- 全屏 -->
         <div class="section">
-          <div class="section-item" @click="setPrimarySideBarPosition('left')">
-            <div class="item-left">
-              <PanelLeft :size="16" class="item-icon" />
-              <span class="item-label">Left</span>
-            </div>
-            <div class="item-right">
-              <span class="item-hint">Primary Side Bar Position</span>
-              <div class="radio" :class="{ checked: primarySideBarPosition === 'left' }">
-                <div v-if="primarySideBarPosition === 'left'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
+          <div class="section-title">窗口</div>
 
-          <div class="section-item" @click="setPrimarySideBarPosition('right')">
-            <div class="item-left">
-              <PanelRight :size="16" class="item-icon" />
-              <span class="item-label">Right</span>
-            </div>
-            <div class="item-right">
-              <div class="radio" :class="{ checked: primarySideBarPosition === 'right' }">
-                <div v-if="primarySideBarPosition === 'right'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- Panel Alignment -->
-        <div class="section">
-          <div class="section-item" @click="setPanelAlignment('left')">
-            <div class="item-left">
-              <AlignLeft :size="16" class="item-icon" />
-              <span class="item-label">Left</span>
-            </div>
-            <div class="item-right">
-              <span class="item-hint">Panel Alignment</span>
-              <div class="radio" :class="{ checked: panelAlignment === 'left' }">
-                <div v-if="panelAlignment === 'left'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="setPanelAlignment('right')">
-            <div class="item-left">
-              <AlignRight :size="16" class="item-icon" />
-              <span class="item-label">Right</span>
-            </div>
-            <div class="item-right">
-              <div class="radio" :class="{ checked: panelAlignment === 'right' }">
-                <div v-if="panelAlignment === 'right'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="setPanelAlignment('center')">
-            <div class="item-left">
-              <AlignCenter :size="16" class="item-icon" />
-              <span class="item-label">Center</span>
-            </div>
-            <div class="item-right">
-              <div class="radio" :class="{ checked: panelAlignment === 'center' }">
-                <div v-if="panelAlignment === 'center'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="setPanelAlignment('justify')">
-            <div class="item-left">
-              <AlignStartVertical :size="16" class="item-icon" />
-              <span class="item-label">Justify</span>
-            </div>
-            <div class="item-right">
-              <div class="radio" :class="{ checked: panelAlignment === 'justify' }">
-                <div v-if="panelAlignment === 'justify'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- Quick Input Position -->
-        <div class="section">
-          <div class="section-item" @click="setQuickInputPosition('top')">
-            <div class="item-left">
-              <ArrowUp :size="16" class="item-icon" />
-              <span class="item-label">Top</span>
-            </div>
-            <div class="item-right">
-              <span class="item-hint">Quick Input Position</span>
-              <div class="radio" :class="{ checked: quickInputPosition === 'top' }">
-                <div v-if="quickInputPosition === 'top'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-item" @click="setQuickInputPosition('center')">
-            <div class="item-left">
-              <Circle :size="16" class="item-icon" />
-              <span class="item-label">Center</span>
-            </div>
-            <div class="item-right">
-              <div class="radio" :class="{ checked: quickInputPosition === 'center' }">
-                <div v-if="quickInputPosition === 'center'" class="radio-dot"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- Full Screen -->
-        <div class="section">
           <div class="section-item" @click="toggleFullScreen">
             <div class="item-left">
               <Maximize :size="16" class="item-icon" />
-              <span class="item-label">Full Screen</span>
+              <span class="item-label">全屏</span>
             </div>
             <div class="item-right">
               <div class="shortcut">
@@ -235,6 +92,16 @@
             </div>
           </div>
         </div>
+
+        <div class="divider"></div>
+
+        <!-- 重置 -->
+        <div class="section">
+          <div class="reset-item" @click="handleResetLayout">
+            <RotateCcw :size="16" class="item-icon" />
+            <span class="item-label">重置布局</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -244,19 +111,12 @@
 import {
   X,
   Menu,
-  LayoutGrid,
   PanelLeft,
   PanelRight,
-  PanelBottom,
   Minus,
   Check,
-  AlignLeft,
-  AlignRight,
-  AlignCenter,
-  AlignStartVertical,
-  ArrowUp,
-  Circle,
-  Maximize
+  Maximize,
+  RotateCcw
 } from 'lucide-vue-next'
 import { ref, onMounted, onUnmounted } from 'vue'
 
@@ -268,60 +128,44 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const visibility = ref({
-  menuBar: layoutStore.menuBarVisible,
-  activityBar: layoutStore.leftActivityBarVisible && layoutStore.rightActivityBarVisible,
-  primarySideBar: layoutStore.primarySideBarVisible,
-  secondarySideBar: layoutStore.secondarySideBarVisible,
-  panel: layoutStore.panelVisible,
-  statusBar: layoutStore.statusBarVisible
-})
-
-const primarySideBarPosition = ref<'left' | 'right'>('left')
-const panelAlignment = ref<'left' | 'right' | 'center' | 'justify'>('center')
-const quickInputPosition = ref<'top' | 'center'>('top')
 const fullScreen = ref(false)
 
 function handleClose() {
   emit('close')
 }
 
-function toggleVisibility(key: keyof typeof visibility.value) {
-  visibility.value[key] = !visibility.value[key]
+function getGroupApi(panelId: string) {
+  const panel = layoutStore.dockviewApi?.getPanel(panelId)
+  return (panel as any)?.group?.api
+}
 
+function toggleLeftEdgeGroup() {
+  if (layoutStore.leftEdgeGroupCollapsed) {
+    layoutStore.expandLeftEdgeGroup()
+  } else {
+    layoutStore.collapseLeftEdgeGroup()
+  }
+}
+
+function toggleRightEdgeGroup() {
+  layoutStore.rightEdgeGroupCollapsed = !layoutStore.rightEdgeGroupCollapsed
+  const groupApi = getGroupApi('panel_rightActivityBar')
+  if (layoutStore.rightEdgeGroupCollapsed) {
+    groupApi?.collapse?.()
+  } else {
+    groupApi?.expand?.()
+  }
+}
+
+function toggleVisibility(key: string) {
   switch (key) {
     case 'menuBar':
       layoutStore.toggleMenuBar()
-      break
-    case 'activityBar':
-      layoutStore.toggleLeftActivityBar()
-      layoutStore.toggleRightActivityBar()
-      break
-    case 'primarySideBar':
-      layoutStore.togglePrimarySideBar()
-      break
-    case 'secondarySideBar':
-      layoutStore.toggleSecondarySideBar()
-      break
-    case 'panel':
-      layoutStore.togglePanel()
       break
     case 'statusBar':
       layoutStore.toggleStatusBar()
       break
   }
-}
-
-function setPrimarySideBarPosition(pos: 'left' | 'right') {
-  primarySideBarPosition.value = pos
-}
-
-function setPanelAlignment(align: 'left' | 'right' | 'center' | 'justify') {
-  panelAlignment.value = align
-}
-
-function setQuickInputPosition(pos: 'top' | 'center') {
-  quickInputPosition.value = pos
 }
 
 function toggleFullScreen() {
@@ -333,6 +177,14 @@ function toggleFullScreen() {
   }
 }
 
+function handleResetLayout() {
+  layoutStore.resetLayout()
+}
+
+function onFullScreenChange() {
+  fullScreen.value = !!document.fullscreenElement
+}
+
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     handleClose()
@@ -341,10 +193,12 @@ function handleKeyDown(e: KeyboardEvent) {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('fullscreenchange', onFullScreenChange)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
+  document.removeEventListener('fullscreenchange', onFullScreenChange)
 })
 </script>
 
@@ -418,6 +272,15 @@ onUnmounted(() => {
 
 .section {
   padding: 4px 0;
+}
+
+.section-title {
+  padding: 4px 16px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-tertiary, #606060);
 }
 
 .section-item {
@@ -531,5 +394,19 @@ onUnmounted(() => {
   height: 1px;
   background: var(--color-border, #3c3c3c);
   margin: 4px 16px;
+}
+
+.reset-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--color-text-primary, #cccccc);
+}
+
+.reset-item:hover {
+  background: var(--color-bg-hover, #2a2d2e);
 }
 </style>

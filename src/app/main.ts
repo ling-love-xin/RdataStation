@@ -1,9 +1,16 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
-import { panelRegistry } from '@/core/panel-registry'
 import { builtinExtensions } from '@/core/builtin-extensions'
 import { extensionHost } from '@/core/extension-host'
+import { panelRegistry } from '@/core/panel-registry'
+import ActivityBarPanel from '@/extensions/builtin/workbench/ui/components/ActivityBarPanel.vue'
+
+// Configure Monaco Editor for Tauri environment
+// 完全禁用 Web Worker，在主线程中运行所有功能
+// Tauri 的安全策略和 CSP 限制使得 Web Worker 加载不稳定
+;
+import PanelHeaderActions from '@/extensions/builtin/workbench/ui/components/PanelHeaderActions.vue'
 
 import App from './App.vue'
 import router from './router'
@@ -15,12 +22,7 @@ import 'dockview-vue/dist/styles/dockview.css'
 import '@/shared/styles/dockview-theme.css'
 
 // 导入自定义组件（用于 dockview rightHeaderActionsComponent）
-import PanelHeaderActions from '@/extensions/builtin/workbench/ui/components/PanelHeaderActions.vue'
-
-// Configure Monaco Editor for Tauri environment
-// 完全禁用 Web Worker，在主线程中运行所有功能
-// Tauri 的安全策略和 CSP 限制使得 Web Worker 加载不稳定
-;(self as any).MonacoEnvironment = {
+(self as any).MonacoEnvironment = {
   getWorker: function () {
     // 返回一个模拟 worker 对象，包含所有 Monaco 内部可能调用的方法
     return {
@@ -85,6 +87,10 @@ async function main() {
   // 注册 Dockview 面板操作组件（最大化/弹出/钉住按钮）
   app.component('panelHeaderActions', PanelHeaderActions)
   console.log('[Main] Registered panelHeaderActions component')
+
+  // 注册左侧活动栏组件（类似 VSCode Activity Bar）
+  app.component('leftActivityBar', ActivityBarPanel)
+  console.log('[Main] Registered leftActivityBar component')
 
   // 步骤 3：再挂载 Vue 应用
   // Dockview 的 onReady 事件将在 Vue 渲染后触发

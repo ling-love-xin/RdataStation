@@ -1,10 +1,10 @@
 /**
- * 结果集服务
+ * 结果集服务 + 洞察计算引擎
  *
- * 提供结果集的二次分析功能：
+ * 提供：
  * - SQL 过滤（拼接 WHERE 重新查询）
  * - DuckDB 深度分析（针对临时表）
- * - 列洞察统计
+ * - 列洞察全量统计（统计 + 样本 + 直方图）
  */
 
 use std::sync::Arc;
@@ -14,7 +14,8 @@ use crate::core::services::sql_service::SqlExecuteOptions;
 use crate::core::services::SqlService;
 use crate::core::error::{CoreError, CommonError};
 
-/// 结果集响应
+// ==================== 结果集响应 ====================
+
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct ResultSet {
     pub columns: Vec<String>,
@@ -24,40 +25,110 @@ pub struct ResultSet {
     pub temp_table: String,
 }
 
-/// 列统计信息
-#[derive(Debug, serde::Serialize)]
+// ==================== 洞察体系 — 顶层结构 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ColumnInsightFull {
+    pub stats: ColumnStats,
+    pub sample: Vec<serde_json::Value>,
+    pub histogram: Option<Vec<DistributionBin>>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ColumnStats {
     pub column_name: String,
     pub data_type: String,
     pub total_count: usize,
     pub null_count: usize,
+    pub null_rate: f64,
     pub unique_count: Option<usize>,
-    pub numeric_stats: Option<NumericStats>,
-    pub text_stats: Option<TextStats>,
+    pub stats_detail: ColumnStatsDetail,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind")]
+pub enum ColumnStatsDetail {
+    Numeric(NumericStats),
+    Text(TextStats),
+    DateTime(DateTimeStats),
+    Boolean(BooleanStats),
+    Unknown,
+}
+
+// ==================== 数值列统计 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct NumericStats {
     pub min: f64,
     pub max: f64,
     pub avg: f64,
     pub median: f64,
+    pub p25: f64,
+    pub p75: f64,
     pub sum: f64,
     pub stddev: Option<f64>,
+    pub skewness: Option<f64>,
+    pub kurtosis: Option<f64>,
+    pub is_extreme: Vec<ExtremeValue>,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ExtremeValue {
+    pub value: f64,
+    pub kind: String,
+}
+
+// ==================== 文本列统计 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct TextStats {
     pub min_length: usize,
     pub max_length: usize,
-    pub top_values: Vec<(String, usize)>,
+    pub top_values: Vec<TextFrequency>,
 }
 
-/// 结果集服务
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct TextFrequency {
+    pub value: String,
+    pub count: usize,
+    pub ratio: f64,
+}
+
+// ==================== 日期时间列统计 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct DateTimeStats {
+    pub earliest: String,
+    pub latest: String,
+    pub span_days: i64,
+    pub monthly_distribution: Vec<TextFrequency>,
+}
+
+// ==================== 布尔列统计 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct BooleanStats {
+    pub true_count: usize,
+    pub false_count: usize,
+    pub true_ratio: f64,
+}
+
+// ==================== 分箱直方图 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct DistributionBin {
+    pub label: String,
+    pub count: usize,
+    pub ratio: f64,
+}
+
+// ==================== ResultService ====================
+
 pub struct ResultService;
 
 impl ResultService {
-    /// SQL 过滤：拼接 WHERE 重新查询
+    // ═══════════════════ SQL 过滤 ═══════════════════
+
     pub async fn re_execute_with_filter(
         conn_id: String,
         original_sql: &str,
@@ -87,7 +158,6 @@ impl ResultService {
         let result = service.execute(Some(conn_id), &filtered_sql, options).await?;
         let elapsed = start.elapsed().as_millis() as u64;
 
-        // 通过 serde 序列化获取标准化的行列结构
         let json_value = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
             CommonError::General(format!("Serialize error: {}", e))
         ))?;
@@ -95,11 +165,9 @@ impl ResultService {
         let columns = json_value["columns"]
             .as_array()
             .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<String>>())
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
 
-        // 从序列化后的 result.batches 中提取行数据
         let rows = extract_rows_from_serialized(&json_value);
-
         let temp_table = Self::create_duckdb_temp_table(&columns, &rows)?;
 
         Ok(ResultSet {
@@ -111,7 +179,8 @@ impl ResultService {
         })
     }
 
-    /// DuckDB 分析：对临时表执行 SQL
+    // ═══════════════════ DuckDB 分析 ═══════════════════
+
     pub fn execute_duckdb_analysis(
         temp_table: &str,
         sql: &str,
@@ -153,16 +222,42 @@ impl ResultService {
         })
     }
 
-    /// 获取列洞察统计
-    pub fn get_column_insights(
+    // ═══════════════════ 洞察计算引擎 ═══════════════════
+
+    /// 获取列的全量洞察（统计 + 样本 + 直方图）
+    pub fn get_column_insight_full(
         temp_table: &str,
         column_name: &str,
-    ) -> Result<ColumnStats, CoreError> {
+    ) -> Result<ColumnInsightFull, CoreError> {
         let duckdb = Self::get_or_create_duckdb()?;
         let conn = duckdb.lock().map_err(|e| CoreError::common(
             CommonError::General(format!("DuckDB lock error: {}", e))
         ))?;
 
+        let stats = Self::get_column_stats_internal(&conn, temp_table, column_name)?;
+        let sample = Self::get_column_sample_internal(&conn, temp_table, column_name)?;
+
+        let histogram = match &stats.stats_detail {
+            ColumnStatsDetail::Numeric(_) => {
+                Self::get_column_histogram_internal(&conn, temp_table, column_name).ok()
+            }
+            _ => None,
+        };
+
+        Ok(ColumnInsightFull {
+            stats,
+            sample,
+            histogram,
+        })
+    }
+
+    // ═══════════════════ 内部统计计算 ═══════════════════
+
+    fn get_column_stats_internal(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<ColumnStats, CoreError> {
         let count_sql = format!(
             "SELECT COUNT(*), COUNT(\"{}\"), COUNT(DISTINCT \"{}\") FROM \"{}\"",
             column_name, column_name, temp_table
@@ -170,10 +265,15 @@ impl ResultService {
         let (total, non_null, unique_cnt): (i64, i64, i64) = conn.query_row(&count_sql, [], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?))
         }).map_err(|e| CoreError::common(CommonError::General(
-            format!("DuckDB count failed: {}", e)
+            format!("DuckDB count failed for '{}': {}", column_name, e)
         )))?;
 
         let null_count = (total - non_null) as usize;
+        let null_rate = if total > 0 {
+            null_count as f64 / total as f64
+        } else {
+            0.0
+        };
 
         let type_sql = format!(
             "SELECT typeof(\"{}\") FROM \"{}\" WHERE \"{}\" IS NOT NULL LIMIT 1",
@@ -182,74 +282,355 @@ impl ResultService {
         let data_type: String = conn.query_row(&type_sql, [], |row| row.get(0))
             .unwrap_or_else(|_| "VARCHAR".to_string());
 
-        let is_numeric = matches!(data_type.to_lowercase().as_str(),
-            "bigint" | "integer" | "smallint" | "tinyint" | "double" | "float" | "hugeint" | "decimal" | "numeric"
+        let dt_lower = data_type.to_lowercase();
+
+        let stats_detail = if is_numeric_type(&dt_lower) {
+            Self::compute_numeric_stats(conn, temp_table, column_name)?
+        } else if is_datetime_type(&dt_lower) {
+            Self::compute_datetime_stats(conn, temp_table, column_name)?
+        } else if dt_lower == "boolean" {
+            Self::compute_boolean_stats(conn, temp_table, column_name)?
+        } else {
+            Self::compute_text_stats(conn, temp_table, column_name)?
+        };
+
+        Ok(ColumnStats {
+            column_name: column_name.to_string(),
+            data_type,
+            total_count: total as usize,
+            null_count,
+            null_rate,
+            unique_count: Some(unique_cnt as usize),
+            stats_detail,
+        })
+    }
+
+    fn compute_numeric_stats(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<ColumnStatsDetail, CoreError> {
+        let stats_sql = format!(
+            "SELECT \
+             MIN(\"{}\")::DOUBLE, MAX(\"{}\")::DOUBLE, AVG(\"{}\")::DOUBLE, \
+             MEDIAN(\"{}\")::DOUBLE, \
+             PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY \"{}\")::DOUBLE, \
+             PERCENTILE_DISC(0.75) WITHIN GROUP (ORDER BY \"{}\")::DOUBLE, \
+             SUM(\"{}\")::DOUBLE, \
+             STDDEV_SAMP(\"{}\")::DOUBLE, \
+             SKEWNESS(\"{}\")::DOUBLE, \
+             KURTOSIS(\"{}\")::DOUBLE \
+             FROM \"{}\"",
+            column_name, column_name, column_name,
+            column_name,
+            column_name, column_name,
+            column_name,
+            column_name,
+            column_name, column_name,
+            temp_table
         );
 
-        if is_numeric {
-            let stats_sql = format!(
-                "SELECT MIN(\"{}\")::DOUBLE, MAX(\"{}\")::DOUBLE, AVG(\"{}\")::DOUBLE, \
-                 MEDIAN(\"{}\")::DOUBLE, SUM(\"{}\")::DOUBLE, STDDEV_SAMP(\"{}\")::DOUBLE \
-                 FROM \"{}\"",
-                column_name, column_name, column_name, column_name, column_name, column_name, temp_table
-            );
-            let (min_v, max_v, avg_v, median_v, sum_v, stddev_v): (f64, f64, f64, f64, f64, Option<f64>) =
-                conn.query_row(&stats_sql, [], |row| Ok((
-                    row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5).ok(),
-                ))).map_err(|e| CoreError::common(CommonError::General(
-                    format!("DuckDB numeric stats failed: {}", e)
-                )))?;
+        let row_result: Result<(f64, f64, f64, f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), _> =
+            conn.query_row(&stats_sql, [], |row| Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get::<_, Option<f64>>(7)?,
+                row.get::<_, Option<f64>>(8)?,
+                row.get::<_, Option<f64>>(9)?,
+            )));
 
-            Ok(ColumnStats {
-                column_name: column_name.to_string(),
-                data_type,
-                total_count: total as usize,
-                null_count,
-                unique_count: Some(unique_cnt as usize),
-                numeric_stats: Some(NumericStats { min: min_v, max: max_v, avg: avg_v, median: median_v, sum: sum_v, stddev: stddev_v }),
-                text_stats: None,
-            })
-        } else {
-            let top_sql = format!(
-                "SELECT \"{}\"::VARCHAR, COUNT(*) FROM \"{}\" \
-                 WHERE \"{}\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 10",
-                column_name, temp_table, column_name
-            );
-            let mut stmt = conn.prepare(&top_sql).map_err(|e| CoreError::common(
-                CommonError::General(format!("DuckDB prepare failed: {}", e))
-            ))?;
-            let top_values: Vec<(String, usize)> = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
-            }).map_err(|e| CoreError::common(CommonError::General(
-                format!("DuckDB top values query failed: {}", e)
-            )))?.filter_map(|r| r.ok()).collect();
+        match row_result {
+            Ok((min_v, max_v, avg_v, median_v, p25, p75, sum_v, stddev_v, skewness_v, kurtosis_v)) => {
+                let is_extreme = detect_extremes(min_v, max_v, stddev_v.unwrap_or(0.0));
 
-            let len_sql = format!(
-                "SELECT MIN(LENGTH(\"{}\"::VARCHAR)), MAX(LENGTH(\"{}\"::VARCHAR)) \
-                 FROM \"{}\" WHERE \"{}\" IS NOT NULL",
-                column_name, column_name, temp_table, column_name
-            );
-            let (min_len, max_len): (i64, i64) = conn.query_row(&len_sql, [], |row| {
-                Ok((row.get(0)?, row.get(1)?))
-            }).unwrap_or((0, 0));
+                Ok(ColumnStatsDetail::Numeric(NumericStats {
+                    min: min_v,
+                    max: max_v,
+                    avg: avg_v,
+                    median: median_v,
+                    p25,
+                    p75,
+                    sum: sum_v,
+                    stddev: stddev_v,
+                    skewness: skewness_v,
+                    kurtosis: kurtosis_v,
+                    is_extreme,
+                }))
+            }
+            Err(e) => {
+                let fallback_sql = format!(
+                    "SELECT \
+                     MIN(\"{}\")::DOUBLE, MAX(\"{}\")::DOUBLE, AVG(\"{}\")::DOUBLE, \
+                     MEDIAN(\"{}\")::DOUBLE, \
+                     SUM(\"{}\")::DOUBLE, \
+                     STDDEV_SAMP(\"{}\")::DOUBLE \
+                     FROM \"{}\"",
+                    column_name, column_name, column_name,
+                    column_name,
+                    column_name,
+                    column_name,
+                    temp_table
+                );
+                let (min_v, max_v, avg_v, median_v, sum_v, stddev_v): (f64, f64, f64, f64, f64, Option<f64>) =
+                    conn.query_row(&fallback_sql, [], |row| Ok((
+                        row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get::<_, Option<f64>>(5)?,
+                    ))).map_err(|_| CoreError::common(CommonError::General(
+                        format!("DuckDB numeric fallback failed: {}", e)
+                    )))?;
 
-            Ok(ColumnStats {
-                column_name: column_name.to_string(),
-                data_type,
-                total_count: total as usize,
-                null_count,
-                unique_count: Some(unique_cnt as usize),
-                numeric_stats: None,
-                text_stats: Some(TextStats {
-                    min_length: min_len as usize,
-                    max_length: max_len as usize,
-                    top_values,
-                }),
-            })
+                Ok(ColumnStatsDetail::Numeric(NumericStats {
+                    min: min_v,
+                    max: max_v,
+                    avg: avg_v,
+                    median: median_v,
+                    p25: 0.0,
+                    p75: 0.0,
+                    sum: sum_v,
+                    stddev: stddev_v,
+                    skewness: None,
+                    kurtosis: None,
+                    is_extreme: vec![],
+                }))
+            }
         }
     }
 
-    // ==================== 辅助方法 ====================
+    fn compute_text_stats(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<ColumnStatsDetail, CoreError> {
+        let top_sql = format!(
+            "SELECT \"{}\"::VARCHAR, COUNT(*), COUNT(*) * 1.0 / SUM(COUNT(*)) OVER() \
+             FROM \"{}\" WHERE \"{}\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 10",
+            column_name, temp_table, column_name
+        );
+        let mut stmt = conn.prepare(&top_sql).map_err(|e| CoreError::common(
+            CommonError::General(format!("DuckDB prepare failed: {}", e))
+        ))?;
+        let top_values: Vec<TextFrequency> = stmt.query_map([], |row| {
+            Ok(TextFrequency {
+                value: row.get::<_, String>(0)?,
+                count: row.get::<_, i64>(1)? as usize,
+                ratio: row.get::<_, f64>(2)?,
+            })
+        }).map_err(|e| CoreError::common(CommonError::General(
+            format!("DuckDB top values query failed: {}", e)
+        )))?.filter_map(|r| r.ok()).collect();
+
+        let len_sql = format!(
+            "SELECT MIN(LENGTH(\"{}\"::VARCHAR)), MAX(LENGTH(\"{}\"::VARCHAR)) \
+             FROM \"{}\" WHERE \"{}\" IS NOT NULL",
+            column_name, column_name, temp_table, column_name
+        );
+        let (min_len, max_len): (i64, i64) = conn.query_row(&len_sql, [], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        }).unwrap_or((0, 0));
+
+        Ok(ColumnStatsDetail::Text(TextStats {
+            min_length: min_len as usize,
+            max_length: max_len as usize,
+            top_values,
+        }))
+    }
+
+    fn compute_datetime_stats(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<ColumnStatsDetail, CoreError> {
+        let range_sql = format!(
+            "SELECT \
+             MIN(\"{}\")::VARCHAR, MAX(\"{}\")::VARCHAR, \
+             DATEDIFF('day', MIN(\"{}\"), MAX(\"{}\")) \
+             FROM \"{}\" WHERE \"{}\" IS NOT NULL",
+            column_name, column_name,
+            column_name, column_name,
+            temp_table, column_name
+        );
+        let (earliest, latest, span): (String, String, i64) = conn.query_row(&range_sql, [], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        }).unwrap_or_else(|_| ("N/A".to_string(), "N/A".to_string(), 0));
+
+        let monthly_distribution = Self::compute_monthly_distribution(
+            conn, temp_table, column_name
+        ).unwrap_or_default();
+
+        Ok(ColumnStatsDetail::DateTime(DateTimeStats {
+            earliest,
+            latest,
+            span_days: span,
+            monthly_distribution,
+        }))
+    }
+
+    fn compute_monthly_distribution(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<Vec<TextFrequency>, CoreError> {
+        let sql = format!(
+            "SELECT \
+             STRFTIME(\"{}\", '%Y-%m') AS month, \
+             COUNT(*) AS cnt, \
+             COUNT(*) * 1.0 / SUM(COUNT(*)) OVER() AS ratio \
+             FROM \"{}\" WHERE \"{}\" IS NOT NULL \
+             GROUP BY 1 ORDER BY 1",
+            column_name, temp_table, column_name
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| CoreError::common(
+            CommonError::General(format!("DuckDB prepare monthly failed: {}", e))
+        ))?;
+        let results: Vec<TextFrequency> = stmt.query_map([], |row| {
+            Ok(TextFrequency {
+                value: row.get::<_, String>(0)?,
+                count: row.get::<_, i64>(1)? as usize,
+                ratio: row.get::<_, f64>(2)?,
+            })
+        }).map_err(|e| CoreError::common(CommonError::General(
+            format!("DuckDB monthly query failed: {}", e)
+        )))?.filter_map(|r| r.ok()).collect();
+
+        Ok(results)
+    }
+
+    fn compute_boolean_stats(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<ColumnStatsDetail, CoreError> {
+        let sql = format!(
+            "SELECT \
+             COUNT(*) FILTER (WHERE \"{}\"), \
+             COUNT(*) FILTER (WHERE NOT \"{}\") \
+             FROM \"{}\"",
+            column_name, column_name, temp_table
+        );
+        let (true_count, false_count): (i64, i64) = conn.query_row(&sql, [], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+        }).map_err(|e| CoreError::common(CommonError::General(
+            format!("DuckDB boolean stats failed: {}", e)
+        )))?;
+
+        let total = true_count + false_count;
+        let true_ratio = if total > 0 {
+            true_count as f64 / total as f64
+        } else {
+            0.0
+        };
+
+        Ok(ColumnStatsDetail::Boolean(BooleanStats {
+            true_count: true_count as usize,
+            false_count: false_count as usize,
+            true_ratio,
+        }))
+    }
+
+    fn get_column_sample_internal(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<Vec<serde_json::Value>, CoreError> {
+        let sql = format!(
+            "SELECT \"{}\" FROM \"{}\" LIMIT 5",
+            column_name, temp_table
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| CoreError::common(
+            CommonError::General(format!("DuckDB sample prepare failed: {}", e))
+        ))?;
+        let samples: Vec<serde_json::Value> = stmt.query_map([], |row| {
+            let v: duckdb::types::Value = row.get_unwrap(0);
+            Ok(duckdb_value_to_json(&v))
+        }).map_err(|e| CoreError::common(CommonError::General(
+            format!("DuckDB sample query failed: {}", e)
+        )))?.filter_map(|r| r.ok()).collect();
+
+        Ok(samples)
+    }
+
+    fn get_column_histogram_internal(
+        conn: &duckdb::Connection,
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<Vec<DistributionBin>, CoreError> {
+        let count_sql = format!(
+            "SELECT COUNT(*) FROM \"{}\" WHERE \"{}\" IS NOT NULL",
+            temp_table, column_name
+        );
+        let count: i64 = conn.query_row(&count_sql, [], |row| row.get(0)).unwrap_or(0);
+
+        let bins = if count < 10 {
+            vec![]
+        } else {
+            let bin_count = 10;
+            let sql = format!(
+                "WITH bounds AS ( \
+                 SELECT MIN(\"{}\")::DOUBLE AS lo, MAX(\"{}\")::DOUBLE AS hi \
+                 FROM \"{}\" WHERE \"{}\" IS NOT NULL \
+                 ), \
+                 bins AS (SELECT UNNEST(GENERATE_SERIES(1, {})) AS r) \
+                 SELECT \
+                 CASE \
+                   WHEN r = {} THEN CAST(> AS VARCHAR) || ' ' || CAST(lo + ({}-1.0) * (hi - lo) / {} AS VARCHAR) \
+                   ELSE CAST(lo + (r - 1) * (hi - lo) / {} AS VARCHAR) \
+                   || ' ~ ' || CAST(lo + r * (hi - lo) / {} AS VARCHAR) \
+                 END AS label, \
+                 COUNT(\"{}\") AS cnt \
+                 FROM \"{}\", bounds, bins \
+                 WHERE \"{}\" IS NOT NULL \
+                   AND \"{}\" >= lo + (r - 1) * (hi - lo) / {} \
+                   AND (\"{}\" < lo + r * (hi - lo) / {} OR r = {}) \
+                 GROUP BY r, lo, hi ORDER BY r",
+                column_name, column_name, temp_table, column_name,
+                bin_count,
+                bin_count, bin_count, bin_count as f64,
+                bin_count as f64, bin_count as f64,
+                column_name, temp_table,
+                column_name,
+                column_name, bin_count as f64,
+                column_name, bin_count as f64, bin_count,
+            );
+            let mut stmt = match conn.prepare(&sql) {
+                Ok(s) => s,
+                Err(_) => return Ok(vec![]),
+            };
+            let raw: Vec<(String, i64)> = match stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            }) {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+                Err(_) => vec![],
+            };
+
+            raw.into_iter().map(|(label, cnt)| DistributionBin {
+                label,
+                count: cnt as usize,
+                ratio: if count > 0 { cnt as f64 / count as f64 } else { 0.0 },
+            }).collect()
+        };
+
+        Ok(bins)
+    }
+
+    // ═══════════════════ 旧版兼容 API ═══════════════════
+
+    /// 获取列洞察统计（旧版，保留兼容）
+    pub fn get_column_insights(
+        temp_table: &str,
+        column_name: &str,
+    ) -> Result<ColumnStats, CoreError> {
+        let duckdb = Self::get_or_create_duckdb()?;
+        let conn = duckdb.lock().map_err(|e| CoreError::common(
+            CommonError::General(format!("DuckDB lock error: {}", e))
+        ))?;
+        Self::get_column_stats_internal(&conn, temp_table, column_name)
+    }
+
+    // ═══════════════════ DuckDB 管理 ═══════════════════
 
     fn get_or_create_duckdb() -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
         static DUCKDB: std::sync::OnceLock<Arc<std::sync::Mutex<duckdb::Connection>>> = std::sync::OnceLock::new();
@@ -277,7 +658,6 @@ impl ResultService {
         rows: &[Vec<serde_json::Value>],
     ) -> Result<String, CoreError> {
         let table_name = format!("rs_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
-
         let col_defs: Vec<String> = columns.iter().enumerate().map(|(i, col)| {
             let dtype = if rows.is_empty() { "VARCHAR" } else { infer_type(rows, i) };
             format!("\"{}\" {}", col, dtype)
@@ -323,18 +703,7 @@ impl ResultService {
         let rows_result = stmt.query_map([], |row| {
             Ok((0..col_count).map(|i| {
                 let v: duckdb::types::Value = row.get_unwrap(i);
-                match v {
-                    duckdb::types::Value::Null => serde_json::Value::Null,
-                    duckdb::types::Value::Boolean(b) => serde_json::json!(b),
-                    duckdb::types::Value::TinyInt(n) => serde_json::json!(n),
-                    duckdb::types::Value::SmallInt(n) => serde_json::json!(n),
-                    duckdb::types::Value::Int(n) => serde_json::json!(n),
-                    duckdb::types::Value::BigInt(n) => serde_json::json!(n),
-                    duckdb::types::Value::Float(f) => serde_json::json!(f),
-                    duckdb::types::Value::Double(f) => serde_json::json!(f),
-                    duckdb::types::Value::Text(s) => serde_json::Value::String(s),
-                    _ => serde_json::Value::Null,
-                }
+                duckdb_value_to_json(&v)
             }).collect())
         }).map_err(|e| CoreError::common(CommonError::General(
             format!("DuckDB query failed: {}", e)
@@ -353,7 +722,6 @@ impl ResultService {
 
 // ==================== 工具函数 ====================
 
-/// 从 serde 序列化后的 JSON 中提取行数据
 fn extract_rows_from_serialized(result_json: &serde_json::Value) -> Vec<Vec<serde_json::Value>> {
     let columns = match result_json["columns"].as_array() {
         Some(c) => c.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<_>>(),
@@ -368,7 +736,6 @@ fn extract_rows_from_serialized(result_json: &serde_json::Value) -> Vec<Vec<serd
     let mut rows = Vec::new();
     for batch in batches {
         if let Some(data) = batch["data"].as_object() {
-            // data 是 { "col_name": [v1, v2, ...], ... } 格式
             let num_rows = columns.first()
                 .and_then(|c| data.get(c))
                 .and_then(|v| v.as_array())
@@ -421,4 +788,116 @@ fn json_to_duckdb_value(v: &serde_json::Value) -> duckdb::types::Value {
         serde_json::Value::String(s) => duckdb::types::Value::Text(s.clone()),
         _ => duckdb::types::Value::Text(v.to_string()),
     }
+}
+
+fn duckdb_value_to_json(v: &duckdb::types::Value) -> serde_json::Value {
+    match v {
+        duckdb::types::Value::Null => serde_json::Value::Null,
+        duckdb::types::Value::Boolean(b) => serde_json::json!(b),
+        duckdb::types::Value::TinyInt(n) => serde_json::json!(n),
+        duckdb::types::Value::SmallInt(n) => serde_json::json!(n),
+        duckdb::types::Value::Int(n) => serde_json::json!(n),
+        duckdb::types::Value::BigInt(n) => serde_json::json!(n),
+        duckdb::types::Value::Float(f) => serde_json::json!(f),
+        duckdb::types::Value::Double(f) => serde_json::json!(f),
+        duckdb::types::Value::Text(s) => serde_json::Value::String(s.clone()),
+        _ => serde_json::Value::Null,
+    }
+}
+
+fn is_numeric_type(dt_lower: &str) -> bool {
+    matches!(dt_lower,
+        "bigint" | "integer" | "int" | "smallint" | "tinyint" |
+        "double" | "float" | "hugeint" | "decimal" | "numeric" | "real"
+    )
+}
+
+fn is_datetime_type(dt_lower: &str) -> bool {
+    matches!(dt_lower,
+        "date" | "timestamp" | "datetime" | "time" | "timestamp with time zone" | "timestamptz"
+    )
+}
+
+fn detect_extremes(_min: f64, _max: f64, _stddev: f64) -> Vec<ExtremeValue> {
+    let mut results = Vec::new();
+    if _stddev > 0.0 && _max > 0.0 {
+        let range = _max - _min;
+        if range > 10.0 * _stddev && range > 1000.0 {
+            results.push(ExtremeValue {
+                value: _max,
+                kind: "outlier_high".to_string(),
+            });
+        }
+    }
+    results
+}
+
+// ==================== 持久化 API ====================
+
+impl ResultService {
+    /// 保存列洞察快照到持久化存储
+    ///
+    /// 同时写入 DuckDB（JSON 数据）和 SQLite（元数据）
+    pub async fn save_column_insight_snapshot(
+        insight: &ColumnInsightFull,
+        conn_id: Option<&str>,
+        db_name: Option<&str>,
+        schema_name: Option<&str>,
+        table_name: Option<&str>,
+        row_count: Option<i64>,
+        elapsed_ms: Option<i64>,
+        insight_store: &crate::core::persistence::InsightStorage,
+        meta_store: &crate::core::persistence::InsightMetaStore,
+    ) -> Result<(String, String), CoreError> {
+        let parent_version_id = meta_store
+            .get_latest_meta("column", &insight.stats.column_name)
+            .await
+            .ok()
+            .flatten()
+            .map(|m| m.version_id);
+
+        let (snapshot_id, version_id) = insight_store.columns
+            .save_snapshot(insight, parent_version_id.as_deref())
+            .await?;
+
+        let entity_source = {
+            let mut parts = Vec::new();
+            if let Some(c) = conn_id { parts.push(format!("conn={}", c)); }
+            if let Some(d) = db_name { parts.push(format!("db={}", d)); }
+            if let Some(s) = schema_name { parts.push(format!("schema={}", s)); }
+            if let Some(t) = table_name { parts.push(format!("table={}", t)); }
+            if parts.is_empty() { None } else { Some(parts.join(",")) }
+        };
+
+        let checksum = sha256_hex(&serde_json::to_string(insight).unwrap_or_default());
+
+        meta_store.save_meta(
+            "column",
+            &insight.stats.column_name,
+            entity_source.as_deref(),
+            &snapshot_id,
+            row_count,
+            elapsed_ms,
+            &version_id,
+            parent_version_id.as_deref(),
+            &checksum,
+        ).await?;
+
+        Ok((snapshot_id, version_id))
+    }
+
+    /// 获取列洞察历史版本
+    pub async fn get_column_insight_history(
+        column_name: &str,
+        insight_store: &crate::core::persistence::InsightStorage,
+    ) -> Result<Vec<crate::core::persistence::InsightVersionEntry>, CoreError> {
+        insight_store.columns.get_history(column_name, Some(10)).await
+    }
+}
+
+fn sha256_hex(input: &str) -> String {
+    use sha2::{Sha256, Digest};
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    format!("{:x}", hasher.finalize())
 }

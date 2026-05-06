@@ -141,7 +141,7 @@ pub async fn delete_analytics_resource(
     Ok(())
 }
 
-/// 批量删除资源
+/// 批量删除资源（事务支持）
 #[tauri::command]
 pub async fn batch_delete_analytics_resources(
     ids: Vec<String>,
@@ -154,9 +154,7 @@ pub async fn batch_delete_analytics_resources(
         "分析资源存储未初始化".to_string()
     })?;
 
-    for id in &ids {
-        store.delete_resource(id).await.map_err(|e| e.to_string())?;
-    }
+    store.batch_delete_resources(&ids).await.map_err(|e| e.to_string())?;
 
     tracing::info!(count = ids.len(), "Batch delete completed successfully");
 

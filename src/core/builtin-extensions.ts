@@ -11,7 +11,6 @@ import analyticsResourceExtension from '@/extensions/builtin/analytics-resource/
 import connectionExtension from '@/extensions/builtin/connection/extension'
 import databaseExtension from '@/extensions/builtin/database/extension'
 import mysqlDriverExtension from '@/extensions/builtin/mysql-driver/extension'
-import navigatorExtension from '@/extensions/builtin/navigator/index'
 import queryExtension from '@/extensions/builtin/query/extension'
 import workbenchExtension from '@/extensions/builtin/workbench/extension'
 import type { ExtensionModule } from '@/extensions/core/types'
@@ -34,7 +33,6 @@ export interface BuiltinExtension {
 
 export const builtinExtensions: BuiltinExtension[] = [
   { id: 'connection', module: connectionExtension },
-  { id: 'navigator', module: navigatorExtension },
   { id: 'database', module: databaseExtension },
   { id: 'query', module: queryExtension },
   { id: 'workbench', module: workbenchExtension },

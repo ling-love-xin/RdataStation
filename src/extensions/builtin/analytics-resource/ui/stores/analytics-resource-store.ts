@@ -2,6 +2,8 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 import * as analyticsApi from '../../infrastructure/api/analytics-resource-api';
+import { DEFAULT_SETTINGS } from '../../types';
+import { useCache, createCacheKey } from '../composables/use-cache';
 
 import type {
   AnalyticsResource,
@@ -16,6 +18,7 @@ import type {
   ListTagsInput,
   SortField,
   SortOrder,
+  AnalyticsResourceSettings,
 } from '../../types';
 
 export const useAnalyticsResourceStore = defineStore('analytics-resource', () => {
@@ -24,8 +27,12 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   const folders = ref<AnalyticsFolder[]>([]);
   const tags = ref<AnalyticsTag[]>([]);
   const recycleBin = ref<AnalyticsRecycleItem[]>([]);
+  const resourceFolderMap = ref<Map<string, string[]>>(new Map());
   const loading = ref(false);
   const initialized = ref(false);
+  
+  const resourceCache = useCache<AnalyticsResource[]>({ maxSize: 20, ttl: 30000 });
+  const folderCache = useCache<AnalyticsFolder[]>({ maxSize: 10, ttl: 60000 });
 
   // Pagination
   const total = ref(0);
@@ -39,13 +46,33 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
 
   // Selected items
   const selectedResources = ref<string[]>([]);
+  
+  // Settings
+  const settings = ref<AnalyticsResourceSettings>({ ...DEFAULT_SETTINGS });
+
+  function applySettingsToState() {
+    const s = settings.value;
+    pageSize.value = s.general.defaultPageSize;
+    sortBy.value = s.general.defaultSortField;
+    sortOrder.value = s.general.defaultSortOrder || 'desc';
+    resourceCache.updateConfig({
+      enabled: s.cache.enabled,
+      ttl: s.cache.ttlSeconds * 1000,
+      maxSize: s.cache.maxSize,
+    });
+    folderCache.updateConfig({
+      enabled: s.cache.enabled,
+      ttl: s.cache.ttlSeconds * 1000,
+      maxSize: s.cache.maxSize,
+    });
+  }
   const selectedFolderId = ref<string | null>(null);
   const selectedScope = ref<string | null>(null);
   const selectedType = ref<string | null>(null);
 
   // Computed
   const filteredResources = computed(() => {
-  let result = resources.value;
+  let result = [...resources.value];
 
   if (selectedScope.value) {
     result = result.filter(r => r.scope === selectedScope.value);
@@ -56,7 +83,8 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   }
 
   if (selectedFolderId.value) {
-    // Filter resources in folder (simplified, real implementation would check folder mapping)
+    const folderResources = resourceFolderMap.value.get(selectedFolderId.value) || [];
+    result = result.filter(r => folderResources.includes(r.id));
   }
 
   return result;
@@ -68,6 +96,8 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
 
     try {
       loading.value = true;
+      loadSettings();
+      applySettingsToState();
       await analyticsApi.initAnalyticsResourceStore();
       await Promise.all([
         loadResources(),
@@ -86,7 +116,15 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   // Actions - Resources
   async function loadResources(input?: ListResourcesInput) {
     try {
-      resources.value = await analyticsApi.listAnalyticsResources(input || {});
+      const cacheKey = createCacheKey('resources', input?.scope, input?.resource_type, input?.folder_id);
+      const cached = resourceCache.get(cacheKey);
+      if (cached) {
+        resources.value = cached;
+        return;
+      }
+      const data = await analyticsApi.listAnalyticsResources(input || {});
+      resources.value = data;
+      resourceCache.set(cacheKey, data);
     } catch (error) {
       console.error('Failed to load resources:', error);
       throw error;
@@ -96,6 +134,22 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   async function loadResourcesPaginated(input?: ListResourcesInput) {
     try {
       loading.value = true;
+      const cacheKey = createCacheKey(
+        'resources_paginated',
+        input?.scope,
+        input?.resource_type,
+        input?.folder_id,
+        input?.search,
+        page.value,
+        pageSize.value,
+        sortBy.value,
+        sortOrder.value
+      );
+      const cached = resourceCache.get(cacheKey);
+      if (cached) {
+        resources.value = cached;
+        return;
+      }
       const result = await analyticsApi.listAnalyticsResourcesPaginated({
         ...input,
         pagination: {
@@ -111,12 +165,17 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       total.value = result.total;
       page.value = result.page;
       pageSize.value = result.pageSize;
+      resourceCache.set(cacheKey, result.items);
     } catch (error) {
       console.error('Failed to load resources:', error);
       throw error;
     } finally {
       loading.value = false;
     }
+  }
+  
+  function invalidateResourceCache() {
+    resourceCache.clear();
   }
 
   async function createResource(input: CreateResourceRequest) {
@@ -125,6 +184,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       const resource = await analyticsApi.createAnalyticsResource(input);
       resources.value.unshift(resource);
       total.value += 1;
+      invalidateResourceCache();
       return resource;
     } catch (error) {
       console.error('Failed to create resource:', error);
@@ -142,6 +202,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       if (index !== -1) {
         resources.value[index] = resource;
       }
+      invalidateResourceCache();
       return resource;
     } catch (error) {
       console.error('Failed to update resource:', error);
@@ -158,6 +219,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       resources.value = resources.value.filter(r => r.id !== id);
       selectedResources.value = selectedResources.value.filter(rid => rid !== id);
       total.value -= 1;
+      invalidateResourceCache();
     } catch (error) {
       console.error('Failed to delete resource:', error);
       throw error;
@@ -261,6 +323,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   async function addResourceToFolder(resourceId: string, folderId: string) {
     try {
       await analyticsApi.addAnalyticsResourceToFolder(resourceId, folderId);
+      updateResourceFolderMap(folderId, resourceId, true);
     } catch (error) {
       console.error('Failed to add resource to folder:', error);
       throw error;
@@ -270,10 +333,36 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   async function removeResourceFromFolder(resourceId: string, folderId: string) {
     try {
       await analyticsApi.removeAnalyticsResourceFromFolder(resourceId, folderId);
+      updateResourceFolderMap(folderId, resourceId, false);
     } catch (error) {
       console.error('Failed to remove resource from folder:', error);
       throw error;
     }
+  }
+
+  function updateResourceFolderMap(folderId: string, resourceId: string, add: boolean) {
+    const current = resourceFolderMap.value.get(folderId) || [];
+    if (add) {
+      if (!current.includes(resourceId)) {
+        current.push(resourceId);
+      }
+    } else {
+      const index = current.indexOf(resourceId);
+      if (index !== -1) {
+        current.splice(index, 1);
+      }
+    }
+    resourceFolderMap.value.set(folderId, current);
+  }
+
+  function getResourceFolders(resourceId: string): string[] {
+    const folderIds: string[] = [];
+    for (const [folderId, resourceIds] of resourceFolderMap.value) {
+      if (resourceIds.includes(resourceId)) {
+        folderIds.push(folderId);
+      }
+    }
+    return folderIds;
   }
 
   // Actions - Tags
@@ -435,6 +524,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     createFolder,
     addResourceToFolder,
     removeResourceFromFolder,
+    getResourceFolders,
 
     // Actions - Tags
     loadTags,
@@ -453,5 +543,40 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     selectScope,
     selectType,
     selectFolder,
+
+    // Settings
+    settings,
+    loadSettings,
+    saveSettings,
+    resetSettings,
+    clearCache,
   };
+
+  function loadSettings() {
+    const stored = localStorage.getItem('analytics_resource_settings');
+    if (stored) {
+      try {
+        settings.value = JSON.parse(stored);
+      } catch {
+        settings.value = { ...DEFAULT_SETTINGS };
+      }
+    }
+  }
+
+  function saveSettings(newSettings: AnalyticsResourceSettings) {
+    settings.value = newSettings;
+    localStorage.setItem('analytics_resource_settings', JSON.stringify(newSettings));
+    applySettingsToState();
+  }
+
+  function resetSettings() {
+    settings.value = { ...DEFAULT_SETTINGS };
+    localStorage.setItem('analytics_resource_settings', JSON.stringify(settings.value));
+    applySettingsToState();
+  }
+
+  function clearCache() {
+    resourceCache.clear();
+    folderCache.clear();
+  }
 });

@@ -2,38 +2,71 @@
   <div
     ref="containerRef"
     class="resource-list"
-    @scroll="handleScroll"
+    @scroll="useVirtualScroll ? handleScroll : undefined"
     @contextmenu.prevent="handleContextMenu"
   >
-    <div class="virtual-spacer" :style="{ height: `${totalHeight}px` }">
-      <div
-        class="virtual-content"
-        :style="{ transform: `translateY(${offsetY}px)` }"
-      >
+    <template v-if="useVirtualScroll">
+      <div class="virtual-spacer" :style="{ height: `${totalHeight}px` }">
         <div
-          v-for="item in visibleItems"
-          :key="item.id"
-          :class="['resource-item', { selected: isSelected(item.id) }]"
-          @click="handleClick(item, $event)"
-          @dblclick="handleDoubleClick(item)"
+          class="virtual-content"
+          :style="{ transform: `translateY(${offsetY}px)` }"
         >
-          <span class="resource-icon">
-            {{ getResourceIcon(item.resource_type) }}
-          </span>
+          <div
+            v-for="item in visibleItems"
+            :key="item.id"
+            :class="['resource-item', { selected: isSelected(item.id) }]"
+            draggable="true"
+            @click="handleClick(item, $event)"
+            @dblclick="handleDoubleClick(item)"
+            @dragstart="handleDragStart(item, $event)"
+            @dragend="handleDragEnd"
+          >
+            <span v-if="showIcons" class="resource-icon">
+              {{ getResourceIcon(item.resource_type) }}
+            </span>
 
-          <div class="resource-info">
-            <div class="resource-name">{{ item.name }}</div>
-            <div class="resource-meta">
-              {{ getResourceMeta(item) }}
+            <div class="resource-info">
+              <div class="resource-name">{{ item.name }}</div>
+              <div v-if="showMetadata" class="resource-meta">
+                {{ getResourceMeta(item) }}
+              </div>
             </div>
-          </div>
 
-          <span :class="['scope-tag', item.scope]">
-            {{ getScopeLabel(item.scope) }}
-          </span>
+            <span v-if="showScopeTags" :class="['scope-tag', item.scope]">
+              {{ getScopeLabel(item.scope) }}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
+
+    <template v-else>
+      <div
+        v-for="item in items"
+        :key="item.id"
+        :class="['resource-item', { selected: isSelected(item.id) }]"
+        draggable="true"
+        @click="handleClick(item, $event)"
+        @dblclick="handleDoubleClick(item)"
+        @dragstart="handleDragStart(item, $event)"
+        @dragend="handleDragEnd"
+      >
+        <span v-if="showIcons" class="resource-icon">
+          {{ getResourceIcon(item.resource_type) }}
+        </span>
+
+        <div class="resource-info">
+          <div class="resource-name">{{ item.name }}</div>
+          <div v-if="showMetadata" class="resource-meta">
+            {{ getResourceMeta(item) }}
+          </div>
+        </div>
+
+        <span v-if="showScopeTags" :class="['scope-tag', item.scope]">
+          {{ getScopeLabel(item.scope) }}
+        </span>
+      </div>
+    </template>
 
     <div v-if="items.length === 0" class="empty-state">
       <span class="empty-icon">{{ emptyIcon }}</span>
@@ -53,7 +86,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 
 import ContextMenu, { type ContextMenuItem } from './ContextMenu.vue'
 
-import type { AnalyticsResource } from '../../types'
+import type { AnalyticsResource, AnalyticsResourceDisplaySettings } from '../../types'
 
 const props = withDefaults(defineProps<{
   items: AnalyticsResource[]
@@ -61,11 +94,23 @@ const props = withDefaults(defineProps<{
   itemHeight?: number
   emptyIcon?: string
   emptyText?: string
+  displaySettings?: AnalyticsResourceDisplaySettings
 }>(), {
   itemHeight: 72,
   emptyIcon: '📭',
   emptyText: '暂无资源',
+  displaySettings: () => ({
+    showIcons: true,
+    showScopeTags: true,
+    showMetadata: true,
+    enableVirtualScroll: true,
+  }),
 })
+
+const showIcons = computed(() => props.displaySettings?.showIcons ?? true)
+const showScopeTags = computed(() => props.displaySettings?.showScopeTags ?? true)
+const showMetadata = computed(() => props.displaySettings?.showMetadata ?? true)
+const useVirtualScroll = computed(() => props.displaySettings?.enableVirtualScroll ?? true)
 
 const emit = defineEmits<{
   select: [id: string, multiSelect: boolean]
@@ -73,6 +118,8 @@ const emit = defineEmits<{
   delete: [id: string]
   edit: [resource: AnalyticsResource]
   copy: [resource: AnalyticsResource]
+  dragstart: [resources: AnalyticsResource[]]
+  dragend: []
 }>()
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -165,6 +212,28 @@ function handleContextMenu(event: MouseEvent) {
 
 function handleContextMenuSelect(item: ContextMenuItem) {
   // ContextMenu handles the action
+}
+
+function handleDragStart(item: AnalyticsResource, event: DragEvent) {
+  const draggedResources = selectedIds.value.length > 0
+    ? props.items.filter(i => selectedIds.value.includes(i.id))
+    : [item]
+  
+  event.dataTransfer?.setData('application/json', JSON.stringify(draggedResources))
+  event.dataTransfer!.effectAllowed = 'move'
+  
+  if (event.target instanceof HTMLElement) {
+    event.target.style.opacity = '0.5'
+  }
+  
+  emit('dragstart', draggedResources)
+}
+
+function handleDragEnd(event: DragEvent) {
+  if (event.target instanceof HTMLElement) {
+    event.target.style.opacity = '1'
+  }
+  emit('dragend')
 }
 
 function handleScroll() {

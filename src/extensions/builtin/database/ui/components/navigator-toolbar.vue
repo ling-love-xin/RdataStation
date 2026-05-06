@@ -3,8 +3,21 @@
     <button class="toolbar-btn" title="新建连接" @click="$emit('new-connection')">
       <Plug :size="16" />
     </button>
+    <button class="toolbar-btn" title="新建分组" @click="$emit('new-group')">
+      <FolderPlus :size="16" />
+    </button>
     <button class="toolbar-btn" title="断开连接" :disabled="!hasConnection" @click="$emit('disconnect')">
       <Unplug :size="16" />
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" :class="{ disabled: !hasConnection || isInTransaction, 'transaction-active': isInTransaction }" title="开始事务" :disabled="!hasConnection || isInTransaction" @click="$emit('begin-transaction')">
+      <PlayCircle :size="16" />
+    </button>
+    <button class="toolbar-btn" :class="{ disabled: !hasConnection || !isInTransaction, 'transaction-active': isInTransaction }" title="提交事务" :disabled="!hasConnection || !isInTransaction" @click="$emit('commit-transaction')">
+      <CheckCircle :size="16" />
+    </button>
+    <button class="toolbar-btn" :class="{ disabled: !hasConnection || !isInTransaction, 'transaction-active': isInTransaction, 'transaction-warning': isInTransaction }" title="回滚事务" :disabled="!hasConnection || !isInTransaction" @click="$emit('rollback-transaction')">
+      <XCircle :size="16" />
     </button>
     <div class="toolbar-separator"></div>
     <button class="toolbar-btn" title="刷新" :disabled="isRefreshing" @click="$emit('refresh')">
@@ -31,18 +44,27 @@ import {
   RefreshCw,
   Search,
   Filter,
-  LayoutTemplate
+  LayoutTemplate,
+  PlayCircle,
+  CheckCircle,
+  XCircle,
+  FolderPlus
 } from 'lucide-vue-next'
 
 defineProps<{
   hasConnection: boolean
   isRefreshing: boolean
   showFilter: boolean
+  isInTransaction: boolean
 }>()
 
 defineEmits<{
   'new-connection': []
+  'new-group': []
   disconnect: []
+  'begin-transaction': []
+  'commit-transaction': []
+  'rollback-transaction': []
   refresh: []
   'focus-search': []
   'toggle-filter': []
@@ -88,6 +110,23 @@ defineEmits<{
 .toolbar-btn.active {
   background: var(--primary-light);
   color: var(--primary-color);
+}
+
+.toolbar-btn.transaction-active {
+  background: var(--bg-hover);
+  color: var(--success-color);
+}
+
+.toolbar-btn.transaction-warning {
+  color: var(--warning-color);
+}
+
+.toolbar-btn.transaction-active:hover:not(:disabled) {
+  background: var(--success-light);
+}
+
+.toolbar-btn.transaction-warning:hover:not(:disabled) {
+  background: var(--warning-light);
 }
 
 .toolbar-separator {

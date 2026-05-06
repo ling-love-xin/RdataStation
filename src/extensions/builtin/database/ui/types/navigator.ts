@@ -146,7 +146,11 @@ export const NODE_TYPE_MAP: Record<string, string> = {
   view: 'view',
   col: 'column',
   tables: 'folder',
-  views: 'folder'
+  views: 'folder',
+  procedure: 'procedure',
+  function: 'function',
+  procedures: 'folder',
+  functions: 'folder'
 }
 
 export const NODE_TYPE_ICONS: Record<string, string> = {
@@ -156,7 +160,9 @@ export const NODE_TYPE_ICONS: Record<string, string> = {
   table: 'Table',
   view: 'FileText',
   column: 'Columns',
-  folder: 'FolderOpen'
+  folder: 'FolderOpen',
+  procedure: 'Code',
+  function: 'FunctionSquare'
 }
 
 export const NODE_TYPE_COLORS: Record<string, string> = {
@@ -166,5 +172,7 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   table: '#3b82f6',
   view: '#8b5cf6',
   column: '#6b7280',
-  folder: '#f59e0b'
+  folder: '#f59e0b',
+  procedure: '#ef4444',
+  function: '#14b8a6'
 }

@@ -34,9 +34,30 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   const connectionTypes = ref<Map<string, 'global' | 'project'>>(new Map())
   const connectionProjectPaths = ref<Map<string, string | undefined>>(new Map())
   const connectionDbTypes = ref<Map<string, string>>(new Map())
+  
+  const lastSyncTimes = ref<Map<string, number>>(new Map())
+  const syncModes = ref<Map<string, 'full' | 'incremental'>>(new Map())
 
   function getDatabases(connectionId: string): DatabaseNode[] {
     return connectionDatabases.value.get(connectionId) || []
+  }
+
+  function getLastSyncTime(connectionId: string, dbName?: string, schemaName?: string): number {
+    const key = dbName ? (schemaName ? `${connectionId}:${dbName}:${schemaName}` : `${connectionId}:${dbName}`) : connectionId
+    return lastSyncTimes.value.get(key) || 0
+  }
+
+  function setLastSyncTime(connectionId: string, dbName?: string, schemaName?: string) {
+    const key = dbName ? (schemaName ? `${connectionId}:${dbName}:${schemaName}` : `${connectionId}:${dbName}`) : connectionId
+    lastSyncTimes.value.set(key, Date.now())
+  }
+
+  function setSyncMode(connectionId: string, mode: 'full' | 'incremental') {
+    syncModes.value.set(connectionId, mode)
+  }
+
+  function getSyncMode(connectionId: string): 'full' | 'incremental' {
+    return syncModes.value.get(connectionId) || 'incremental'
   }
 
   const isLoadingDatabases = computed(() => {
@@ -197,6 +218,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     newMap.set(connectionId, newDatabases)
     connectionDatabases.value = newMap
     
+    setLastSyncTime(connectionId)
+    
     console.log(`loadDatabasesFromDb 完成，databases:`, newDatabases)
   }
 
@@ -313,6 +336,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       tables: [],
       views: []
     })))
+    
+    setLastSyncTime(connectionId, dbName)
   }
 
   function updateDatabaseSchemas(connectionId: string, dbName: string, schemas: SchemaNode[]) {
@@ -434,15 +459,21 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }))
 
     if (tableInputs.length > 0) {
-      await saveTablesBatchToCache(
-        connectionId,
-        connType,
-        dbName,
-        schemaName,
-        tableInputs,
-        projectPath
-      ).catch(err => console.error('保存表缓存失败:', err))
+      try {
+        await saveTablesBatchToCache(
+          connectionId,
+          connType,
+          dbName,
+          schemaName,
+          tableInputs,
+          projectPath
+        )
+      } catch (err) {
+        console.warn('保存表缓存失败（非致命）:', err)
+      }
     }
+    
+    setLastSyncTime(connectionId, dbName, schemaName)
   }
 
   function updateSchemaTables(
@@ -549,6 +580,160 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载视图列表失败'
       console.error('加载视图列表失败:', e)
+    } finally {
+      loadingTables.value.delete(key)
+    }
+  }
+
+  async function loadProcedures(connectionId: string, dbName: string, schemaName: string) {
+    const key = `${connectionId}:${dbName}:${schemaName}:procedures`
+    if (loadingTables.value.has(key)) return
+
+    loadingTables.value.add(key)
+    error.value = null
+
+    try {
+      const dbType = connectionDbTypes.value.get(connectionId)
+      const safeDbName = escapeSql(dbName)
+      const safeSchemaName = escapeSql(schemaName)
+      let procedures: Array<{ name: string }> = []
+
+      if (dbType === 'mysql') {
+        const sql = `
+          SELECT ROUTINE_NAME as name
+          FROM INFORMATION_SCHEMA.ROUTINES
+          WHERE ROUTINE_TYPE = 'PROCEDURE'
+          AND ROUTINE_SCHEMA = '${safeSchemaName}'
+          ORDER BY ROUTINE_NAME
+        `
+        const result = await executeSqlService(connectionId, sql)
+        const rows = result?.result?.rows || []
+        procedures = rows.map((row: Record<string, unknown>) => ({
+          name: row.name as string
+        }))
+      } else if (dbType === 'postgres') {
+        const sql = `
+          SELECT proname as name
+          FROM pg_proc
+          JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
+          WHERE pg_namespace.nspname = '${safeSchemaName}'
+          AND pg_proc.prokind = 'p'
+          ORDER BY proname
+        `
+        const result = await executeSqlService(connectionId, sql)
+        const rows = result?.result?.rows || []
+        procedures = rows.map((row: Record<string, unknown>) => ({
+          name: row.name as string
+        }))
+      } else if (dbType === 'sqlite') {
+        procedures = []
+      } else {
+        const sql = `
+          SELECT ROUTINE_NAME as name
+          FROM INFORMATION_SCHEMA.ROUTINES
+          WHERE ROUTINE_TYPE = 'PROCEDURE'
+          AND ROUTINE_SCHEMA = '${safeSchemaName}'
+          ORDER BY ROUTINE_NAME
+        `
+        const result = await executeSqlService(connectionId, sql)
+        const rows = result?.result?.rows || []
+        procedures = rows.map((row: Record<string, unknown>) => ({
+          name: row.name as string
+        }))
+      }
+
+      const databases = connectionDatabases.value.get(connectionId)
+      if (databases) {
+        const db = databases.find((d: { name: string }) => d.name === dbName)
+        if (db) {
+          const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
+          if (schema) {
+            schema.procedures = procedures.map((p: { name: string }) => ({
+              name: p.name
+            }))
+          }
+        }
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载存储过程列表失败'
+      console.error('加载存储过程列表失败:', e)
+    } finally {
+      loadingTables.value.delete(key)
+    }
+  }
+
+  async function loadFunctions(connectionId: string, dbName: string, schemaName: string) {
+    const key = `${connectionId}:${dbName}:${schemaName}:functions`
+    if (loadingTables.value.has(key)) return
+
+    loadingTables.value.add(key)
+    error.value = null
+
+    try {
+      const dbType = connectionDbTypes.value.get(connectionId)
+      const safeDbName = escapeSql(dbName)
+      const safeSchemaName = escapeSql(schemaName)
+      let functions: Array<{ name: string }> = []
+
+      if (dbType === 'mysql') {
+        const sql = `
+          SELECT ROUTINE_NAME as name
+          FROM INFORMATION_SCHEMA.ROUTINES
+          WHERE ROUTINE_TYPE = 'FUNCTION'
+          AND ROUTINE_SCHEMA = '${safeSchemaName}'
+          ORDER BY ROUTINE_NAME
+        `
+        const result = await executeSqlService(connectionId, sql)
+        const rows = result?.result?.rows || []
+        functions = rows.map((row: Record<string, unknown>) => ({
+          name: row.name as string
+        }))
+      } else if (dbType === 'postgres') {
+        const sql = `
+          SELECT proname as name
+          FROM pg_proc
+          JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
+          WHERE pg_namespace.nspname = '${safeSchemaName}'
+          AND pg_proc.prokind IN ('f', 'a')
+          ORDER BY proname
+        `
+        const result = await executeSqlService(connectionId, sql)
+        const rows = result?.result?.rows || []
+        functions = rows.map((row: Record<string, unknown>) => ({
+          name: row.name as string
+        }))
+      } else if (dbType === 'sqlite') {
+        functions = []
+      } else {
+        const sql = `
+          SELECT ROUTINE_NAME as name
+          FROM INFORMATION_SCHEMA.ROUTINES
+          WHERE ROUTINE_TYPE = 'FUNCTION'
+          AND ROUTINE_SCHEMA = '${safeSchemaName}'
+          ORDER BY ROUTINE_NAME
+        `
+        const result = await executeSqlService(connectionId, sql)
+        const rows = result?.result?.rows || []
+        functions = rows.map((row: Record<string, unknown>) => ({
+          name: row.name as string
+        }))
+      }
+
+      const databases = connectionDatabases.value.get(connectionId)
+      if (databases) {
+        const db = databases.find((d: { name: string }) => d.name === dbName)
+        if (db) {
+          const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
+          if (schema) {
+            schema.functions = functions.map((f: { name: string }) => ({
+              name: f.name
+            }))
+          }
+        }
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载函数列表失败'
+      console.error('加载函数列表失败:', e)
     } finally {
       loadingTables.value.delete(key)
     }
@@ -727,15 +912,19 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }))
 
     if (columnInputs.length > 0) {
-      await saveColumnsBatchToCache(
-        connectionId,
-        connType,
-        dbName,
-        schemaName,
-        tableName,
-        columnInputs,
-        projectPath
-      ).catch(err => console.error('保存列缓存失败:', err))
+      try {
+        await saveColumnsBatchToCache(
+          connectionId,
+          connType,
+          dbName,
+          schemaName,
+          tableName,
+          columnInputs,
+          projectPath
+        )
+      } catch (err) {
+        console.warn('保存列缓存失败（非致命）:', err)
+      }
     }
 
     updateTableColumns(connectionId, dbName, schemaName, tableName, columns.map((col: {
@@ -1001,6 +1190,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     loadSchemas,
     loadTables,
     loadViews,
+    loadProcedures,
+    loadFunctions,
     loadColumns,
     refreshMetadata,
     searchObjects,
@@ -1010,7 +1201,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     disconnectConnection,
     executeSql,
     expandToNode,
-    selectNode
+    selectNode,
+    getLastSyncTime,
+    setLastSyncTime,
+    setSyncMode,
+    getSyncMode
   }
 })
 

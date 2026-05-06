@@ -126,3 +126,51 @@ export interface ListFoldersInput {
 export interface ListTagsInput {
   scope?: string;
 }
+
+// ==================== Settings ====================
+
+export interface AnalyticsResourceGeneralSettings {
+  defaultScope: ResourceScope;
+  defaultPageSize: number;
+  defaultSortField: SortField;
+  defaultSortOrder: SortOrder;
+}
+
+export interface AnalyticsResourceDisplaySettings {
+  showIcons: boolean;
+  showScopeTags: boolean;
+  showMetadata: boolean;
+  enableVirtualScroll: boolean;
+}
+
+export interface AnalyticsResourceCacheSettings {
+  enabled: boolean;
+  ttlSeconds: number;
+  maxSize: number;
+}
+
+export interface AnalyticsResourceSettings {
+  general: AnalyticsResourceGeneralSettings;
+  display: AnalyticsResourceDisplaySettings;
+  cache: AnalyticsResourceCacheSettings;
+}
+
+export const DEFAULT_SETTINGS: AnalyticsResourceSettings = {
+  general: {
+    defaultScope: 'project',
+    defaultPageSize: 20,
+    defaultSortField: 'created_at',
+    defaultSortOrder: 'desc',
+  },
+  display: {
+    showIcons: true,
+    showScopeTags: true,
+    showMetadata: true,
+    enableVirtualScroll: true,
+  },
+  cache: {
+    enabled: true,
+    ttlSeconds: 30,
+    maxSize: 50,
+  },
+};

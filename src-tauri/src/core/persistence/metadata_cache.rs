@@ -118,15 +118,16 @@ impl MetadataCacheManager {
             }
         ))?;
 
-        // 设置 Memory-Mapped I/O（4GB，对于大型数据库效果显著）
-        // Windows: mmap_size 是 64 位值，需要使用特殊的设置方式
-        conn.execute("PRAGMA mmap_size=268435456", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        // 设置 Memory-Mapped I/O（256MB，对于大型数据库效果显著）
+        // 使用 execute 设置 PRAGMA，忽略可能的返回值
+        let _ = conn.execute("PRAGMA mmap_size=268435456", []).map_err(|e| {
+            tracing::warn!("Failed to set mmap_size: {}", e);
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_mmap_size".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        });
 
         // 设置缓存大小（-1000 表示 1000KB）
         conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| CoreError::storage(

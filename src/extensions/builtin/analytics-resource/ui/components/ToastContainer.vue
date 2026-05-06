@@ -6,10 +6,19 @@
           v-for="toast in toasts"
           :key="toast.id"
           :class="['toast', `toast-${toast.type}`]"
-          @click="remove(toast.id)"
+          @click="toggleDetail(toast.id)"
         >
           <span class="toast-icon">{{ getIcon(toast.type) }}</span>
-          <span class="toast-message">{{ toast.message }}</span>
+          <div class="toast-content">
+            <span class="toast-message">{{ toast.message }}</span>
+            <Transition name="detail">
+              <pre v-if="expandedIds.includes(toast.id) && toast.detail" class="toast-detail">{{ toast.detail }}</pre>
+            </Transition>
+          </div>
+          <button v-if="toast.detail" class="toast-toggle" @click.stop="toggleDetail(toast.id)">
+            {{ expandedIds.includes(toast.id) ? '▼' : '▶' }}
+          </button>
+          <button class="toast-close" @click.stop="remove(toast.id)">✕</button>
         </div>
       </TransitionGroup>
     </div>
@@ -17,9 +26,12 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+
 import { useToast } from '../composables/use-toast'
 
 const { toasts, remove } = useToast()
+const expandedIds = ref<number[]>([])
 
 function getIcon(type: string) {
   switch (type) {
@@ -28,6 +40,15 @@ function getIcon(type: string) {
     case 'warning': return '⚠️'
     case 'info': return 'ℹ️'
     default: return 'ℹ️'
+  }
+}
+
+function toggleDetail(id: number) {
+  const index = expandedIds.value.indexOf(id)
+  if (index !== -1) {
+    expandedIds.value.splice(index, 1)
+  } else {
+    expandedIds.value.push(id)
   }
 }
 </script>
@@ -46,7 +67,7 @@ function getIcon(type: string) {
 
 .toast {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: var(--size-md) var(--size-lg);
   border-radius: var(--radius-md);
@@ -55,7 +76,7 @@ function getIcon(type: string) {
   box-shadow: var(--shadow-md);
   cursor: pointer;
   pointer-events: auto;
-  max-width: 360px;
+  max-width: 420px;
   transition: all 0.3s ease;
 }
 
@@ -66,12 +87,62 @@ function getIcon(type: string) {
 .toast-icon {
   font-size: 16px;
   flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .toast-message {
   font-size: 13px;
   color: var(--text-primary);
   line-height: 1.4;
+}
+
+.toast-detail {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.toast-toggle {
+  background: none;
+  border: none;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.toast-toggle:hover {
+  color: var(--text-primary);
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.toast-close:hover {
+  color: var(--text-primary);
 }
 
 .toast-success {
@@ -102,5 +173,23 @@ function getIcon(type: string) {
 
 .toast-move {
   transition: transform 0.3s ease;
+}
+
+.detail-enter-active,
+.detail-leave-active {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.detail-enter-from,
+.detail-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.detail-enter-to,
+.detail-leave-from {
+  opacity: 1;
+  max-height: 150px;
 }
 </style>

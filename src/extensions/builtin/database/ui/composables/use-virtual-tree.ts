@@ -80,39 +80,40 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
    * 更新根节点列表
    */
   function setRootNodes(nodes: VirtualTreeNode[]) {
-    // 保存已展开节点的子节点数据
-    const expandedChildren = new Map<string, VirtualTreeNode[]>()
-    rootKeys.value.forEach(rootKey => {
-      const rootNode = nodeMap.get(rootKey)
-      if (rootNode && rootNode.isExpanded) {
-        const children = getChildren(rootKey)
-        if (children.length > 0) {
-          expandedChildren.set(rootKey, children)
+    try {
+      // 保存所有节点的展开状态（不仅仅是根节点）
+      const expandedNodes = new Map<string, VirtualTreeNode>()
+      nodeMap.forEach((node, key) => {
+        if (node.isExpanded && !node.isLeaf) {
+          expandedNodes.set(key, node)
         }
-      }
-    })
+      })
 
-    // 清除旧数据
-    nodeMap.clear()
-    rootKeys.value = []
-    loadingKeys.clear()
-    
-    // 添加新节点
-    nodes.forEach(node => {
-      nodeMap.set(node.key, node)
-      rootKeys.value.push(node.key)
-    })
-    
-    flatNodes.value = [...nodes]
+      // 清除旧数据
+      nodeMap.clear()
+      rootKeys.value = []
+      loadingKeys.clear()
+      
+      // 添加新节点
+      nodes.forEach(node => {
+        nodeMap.set(node.key, node)
+        rootKeys.value.push(node.key)
+      })
+      
+      flatNodes.value = [...nodes]
 
-    // 恢复已展开节点的子节点
-    expandedChildren.forEach((children, parentKey) => {
-      const parentNode = nodeMap.get(parentKey)
-      if (parentNode && parentNode.isExpanded) {
-        insertChildren(parentKey, children)
-        parentNode.childCount = children.length
-      }
-    })
+      // 恢复已展开状态标记（子节点需要重新加载）
+      expandedNodes.forEach((oldNode, key) => {
+        const newNode = nodeMap.get(key)
+        if (newNode) {
+          newNode.isExpanded = true
+          newNode.isLoaded = oldNode.isLoaded
+          newNode.childCount = oldNode.childCount
+        }
+      })
+    } catch (error) {
+      console.error('setRootNodes failed:', error)
+    }
   }
 
   /**

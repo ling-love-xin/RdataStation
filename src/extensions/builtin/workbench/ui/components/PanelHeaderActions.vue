@@ -3,10 +3,11 @@
     <NTooltip v-if="!isFloating" trigger="hover" placement="bottom">
       <template #trigger>
         <NButton size="tiny" quaternary @click="handleMaximize">
-          <Maximize :size="14" />
+          <Maximize2 v-if="!isMaximized" :size="14" />
+          <Minimize2 v-else :size="14" />
         </NButton>
       </template>
-      <span>最大化（将当前组铺满中心区域，有多个组时效果更明显）</span>
+      <span>{{ isMaximized ? '还原' : '最大化（将当前组铺满中心区域，有多个组时效果更明显）' }}</span>
     </NTooltip>
     <NTooltip trigger="hover" placement="bottom">
       <template #trigger>
@@ -17,43 +18,108 @@
       </template>
       <span>{{ isFloating ? '放回主网格' : '浮动窗口' }}</span>
     </NTooltip>
+    <NTooltip trigger="hover" placement="bottom">
+      <template #trigger>
+        <NButton size="tiny" quaternary :class="{ 'is-pinned': isPinned }" @click="handlePin">
+          <Pin v-if="!isPinned" :size="14" />
+          <PinOff v-else :size="14" />
+        </NButton>
+      </template>
+      <span>{{ isPinned ? '取消钉住' : '钉住（防止面板被关闭）' }}</span>
+    </NTooltip>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ExternalLink, Maximize, ArrowLeftToLine } from 'lucide-vue-next'
+import { ExternalLink, Maximize2, Minimize2, ArrowLeftToLine, Pin, PinOff } from 'lucide-vue-next'
 import { NButton, NTooltip } from 'naive-ui'
-import { watch, ref, computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+
+import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 
 const p = defineProps<{ params: any }>()
 
-const lastGroup = ref<any>(null)
-const lastApi = ref<any>(null)
-const lastAccessor = ref<any>(null)
-const locationType = ref<string>('grid')
-const isFloating = computed(() => locationType.value === 'floating')
+const layoutStore = useLayoutStore()
+
+const localMaximized = ref(false)
 
 watch(() => p.params, (params) => {
-  if (!params) return
-  if (params.group) {
-    lastGroup.value = params.group
-    lastAccessor.value = params.group.model?.accessor
+  if (params?.group?.api) {
+    const groupApi = params.group.api
+    localMaximized.value = groupApi.isMaximized?.() ?? false
+    
+    groupApi.onDidMaximizedChange?.((isMax: boolean) => {
+      localMaximized.value = isMax
+    })
   }
-  if (params.api) {
-    lastApi.value = params.api
-    locationType.value = params.api.location?.type || 'grid'
-  }
-}, { immediate: true, deep: true })
+}, { immediate: true })
+
+function getGroup() {
+  return p.params?.group
+}
+
+function getAccessor() {
+  return p.params?.group?.model?.accessor
+}
+
+function getApi() {
+  return p.params?.api
+}
+
+function getGroupApi() {
+  return p.params?.group?.api
+}
+
+function getPanelId() {
+  return p.params?.panel?.id
+}
+
+const isFloating = computed(() => {
+  const api = getApi()
+  return api?.location?.type === 'floating'
+})
+
+const isMaximized = computed(() => {
+  return localMaximized.value
+})
+
+const isPinned = computed(() => {
+  const panelId = getPanelId()
+  if (!panelId) return false
+  return layoutStore.isPanelPinned(panelId)
+})
 
 function handleMaximize() {
-  lastApi.value?.maximize?.()
+  const groupApi = getGroupApi()
+  if (isMaximized.value) {
+    groupApi?.exitMaximized?.()
+  } else {
+    groupApi?.maximize?.()
+  }
 }
 
 function handleFloat() {
+  const group = getGroup()
+  const accessor = getAccessor()
+  const api = getApi()
+  
   if (isFloating.value) {
-    lastApi.value?.moveTo?.({ position: 'center' })
+    api?.moveTo?.({ position: 'center' })
   } else {
-    lastAccessor.value?.addFloatingGroup?.(lastGroup.value)
+    accessor?.addFloatingGroup?.(group)
+  }
+}
+
+function handlePin() {
+  const panelId = getPanelId()
+  if (panelId) {
+    layoutStore.togglePanelPinned(panelId)
   }
 }
 </script>
+
+<style scoped>
+.is-pinned {
+  color: var(--primary-color, #165DFF);
+}
+</style>

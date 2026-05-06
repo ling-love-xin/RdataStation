@@ -65,3 +65,10 @@
 .dv-sash.dv-sash-active {
   background: var(--primary-color) !important;
 }
+
+/* Edge Group 面板不显示关闭按钮 */
+.dv-edge-group .dv-tab-close-button,
+.dv-edge-group .close-button,
+[data-edge="true"] .close-button {
+  display: none !important;
+}
