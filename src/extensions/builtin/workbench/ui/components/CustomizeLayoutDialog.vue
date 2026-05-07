@@ -118,7 +118,7 @@ import {
   Maximize,
   RotateCcw
 } from 'lucide-vue-next'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useLayoutStore } from '../stores/layout-store'

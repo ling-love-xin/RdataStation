@@ -14,17 +14,17 @@
         <div class="section-content">
           <label class="checkbox-item">
             <input
-              v-model="layoutStore.primarySideBarVisible"
+              v-model="layoutStore.leftEdgeGroupVisible"
               type="checkbox"
-              @change="layoutStore.togglePrimarySideBar()"
+              @change="layoutStore.setLeftEdgeGroupVisible(layoutStore.leftEdgeGroupVisible)"
             >
             <span>{{ t('workbench.primarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
           </label>
           <label class="checkbox-item">
             <input
-              v-model="layoutStore.secondarySideBarVisible"
+              v-model="layoutStore.rightEdgeGroupVisible"
               type="checkbox"
-              @change="layoutStore.toggleSecondarySideBar()"
+              @change="layoutStore.setRightEdgeGroupVisible(layoutStore.rightEdgeGroupVisible)"
             >
             <span>{{ t('workbench.secondarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
           </label>
@@ -40,21 +40,21 @@
           <div class="size-input">
             <span>{{ t('workbench.primarySideBar') }}</span>
             <input
-              v-model.number="primarySideBarWidth"
+              v-model.number="layoutStore.leftEdgeGroupSize"
               type="number"
               min="100"
               max="500"
-              @change="layoutStore.setPrimarySideBarWidth(primarySideBarWidth)"
+              @change="layoutStore.setLeftEdgeGroupSize(layoutStore.leftEdgeGroupSize)"
             >
           </div>
           <div class="size-input">
             <span>{{ t('workbench.secondarySideBar') }}</span>
             <input
-              v-model.number="secondarySideBarWidth"
+              v-model.number="layoutStore.rightEdgeGroupSize"
               type="number"
               min="100"
               max="500"
-              @change="layoutStore.setSecondarySideBarWidth(secondarySideBarWidth)"
+              @change="layoutStore.setRightEdgeGroupSize(layoutStore.rightEdgeGroupSize)"
             >
           </div>
         </div>
@@ -66,11 +66,11 @@
       <div class="section">
         <div class="section-title">{{ t('workbench.panelManagement') }}</div>
         <div class="section-content">
-          <div v-if="allPanels.length === 0" class="empty-state">
+          <div v-if="panels.length === 0" class="empty-state">
             {{ t('workbench.noPanels') }}
           </div>
           <div
-            v-for="panel in allPanels"
+            v-for="panel in panels"
             :key="panel.id"
             class="panel-item"
           >
@@ -146,7 +146,7 @@
 
 <script setup lang="ts">
 import { ExternalLink, X } from 'lucide-vue-next'
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { IDockviewPanel } from '@/core/dockview-types'
@@ -157,40 +157,8 @@ import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
 
-const primarySideBarWidth = ref(280)
-const secondarySideBarWidth = ref(280)
-
-const emit = defineEmits<{
-  close: []
-}>()
-
 const allPanels = computed(() => layoutStore.getAllPanels())
 const floatingPanels = computed(() => layoutStore.getFloatingPanels())
-
-const floatingPanelIds = computed(() => new Set(floatingPanels.value.map(p => p.id)))
-
-function isFloating(panel: IDockviewPanel): boolean {
-  return floatingPanelIds.value.has(panel.id)
-}
-
-function dockPanel(panel: IDockviewPanel) {
-  const panelApi = layoutStore.dockviewApi?.getPanel(panel.id)
-  if (panelApi) {
-    layoutStore.dockviewApi?.addPanel({
-      id: panel.id,
-      component: panelApi.id,
-      title: panelApi.title ?? panel.id,
-      position: { referencePanel: panel.id }
-    })
-  }
-}
-
-function closePanel(panel: IDockviewPanel) {
-  const panelApi = layoutStore.dockviewApi?.getPanel(panel.id)
-  if (panelApi) {
-    panelApi.api.close()
-  }
-}
 
 function getLocationName(panel: IDockviewPanel): string {
   const location = layoutStore.getPanelConfig(panel.id)?.location || 'center'

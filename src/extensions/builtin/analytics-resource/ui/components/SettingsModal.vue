@@ -202,8 +202,9 @@ import type { AnalyticsResourceSettings } from '../../types';
 
 const { t } = useI18n();
 
-const settings = defineModel<AnalyticsResourceSettings>('settings', { required: true });
-
+const props = defineProps<{
+ settings: AnalyticsResourceSettings;
+}>();
 const emit = defineEmits<{
   close: [];
   save: [settings: AnalyticsResourceSettings];
@@ -225,8 +226,8 @@ const shortcuts = [
  { key: 'Ctrl+A', label: t('common.selectAll') },
  { key: 'Delete', label: t('common.deleteSelected') },
 ];
-const localSettings = reactive<AnalyticsResourceSettings>(JSON.parse(JSON.stringify(settings.value)));
-watch(() => settings.value, (newSettings) => {
+const localSettings = reactive<AnalyticsResourceSettings>(JSON.parse(JSON.stringify(props.settings)));
+watch(() => props.settings, (newSettings) => {
  Object.assign(localSettings, newSettings);
 }, { deep: true });
 function handleSave() {

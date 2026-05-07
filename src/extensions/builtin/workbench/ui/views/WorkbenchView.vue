@@ -63,9 +63,7 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
   const maximized = !!params.group.api.isMaximized?.()
   const isPinned = layoutStore.isPanelPinned(panelId)
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const groupApi = params.group.api as any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const panelApi = params.panel.api as any
   
   const menuItems: ContextMenuItem[] = [
@@ -77,34 +75,35 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
     },
     'separator',
     {
-      label: t('workbench.floatTab'),
-      action: () => {
-        params.api.addFloatingGroup(params.panel)
+      label: 'Float Tab',
+      action: () => { params.api.addFloatingGroup(params.panel) }
+    },
+    {
+      label: 'Popout Tab',
+      action: () => { params.api.addPopoutGroup(params.panel) }
+    },
+    'separator',
+    {
+      label: 'Add to new group',
+      action: () => { 
+        const tabGroup = groupApi.createTabGroup?.({
+          label: 'New Group',
+          color: 'blue'
+        })
+        if (tabGroup) {
+          panelApi.moveToTabGroup?.(tabGroup)
+        }
       }
     },
     {
-      label: t('workbench.popoutTab'),
-      action: () => {
-        params.api.addPopoutGroup(params.panel)
-      }
-    },
-    {
-      label: t('workbench.addToNewGroup'),
-      action: () => {
-        const label = t('workbench.newGroupLabel')
-        const color = '#CCCCCC'
-        groupApi.createTabGroup?.({ label, color })
-      }
-    },
-    {
-      label: t('workbench.moveToNextGroup'),
-      action: () => {
+      label: 'Move to next group',
+      action: () => { 
         const groups = groupApi.getTabGroups?.() || []
         const currentGroup = groupApi.getTabGroupForPanel?.(params.panel)
-        const currentIdx = groups.indexOf(currentGroup)
-        const nextGroup = groups[(currentIdx + 1) % groups.length]
-        if (nextGroup) {
-          panelApi.moveToTabGroup?.(nextGroup)
+        if (currentGroup && groups.length > 1) {
+          const currentIndex = groups.indexOf(currentGroup)
+          const nextIndex = (currentIndex + 1) % groups.length
+          panelApi.moveToTabGroup?.(groups[nextIndex])
         }
       }
     },
