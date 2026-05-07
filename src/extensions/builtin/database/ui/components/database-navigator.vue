@@ -77,6 +77,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { getGlobalConnections } from '@/extensions/builtin/connection/ui/services/connection'
 import type { GlobalConnectionInfo } from '@/extensions/builtin/connection/ui/services/connection'
@@ -125,6 +126,7 @@ interface FilterConfig {
   showColumns: boolean
 }
 
+const { t } = useI18n()
 const uiStore = useUiStore()
 const projectConnectionStore = useProjectConnectionStore()
 const runtimeConnectionStore = useRuntimeConnectionStore()
@@ -142,7 +144,7 @@ const isInTransaction = ref(false)
 const transactionDuration = ref(0)
 let transactionTimer: ReturnType<typeof setInterval> | null = null
 const showError = ref(false)
-const currentError = ref<NavigatorErrorType | null>(null)
+const currentError = ref<NavigatorErrorType>()
 
 // 分组相关状态
 const showGroupDialog = ref(false)
@@ -176,12 +178,12 @@ const connectionStatusSync = useConnectionStatusSync()
 const dragDrop = useDragDrop()
 
 // 虚拟树控制器 - 先声明回调函数的引用
-let handleVirtualTreeLoadChildrenRef: (node: VirtualTreeNode) => Promise<VirtualTreeNode[]>
-let handleVirtualTreeSelectRef: (node: VirtualTreeNode) => void
+const handleVirtualTreeLoadChildrenRef: { value: (node: VirtualTreeNode) => Promise<VirtualTreeNode[]> } = { value: async () => [] }
+const handleVirtualTreeSelectRef: { value: (node: VirtualTreeNode) => void } = { value: () => {} }
 
 // 模板中使用的事件处理器
 function handleVirtualTreeSelect(node: VirtualTreeNode) {
-  handleVirtualTreeSelectRef(node)
+  handleVirtualTreeSelectRef.value(node)
 }
 
 function handleVirtualTreeToggle(node: VirtualTreeNode) {
@@ -226,8 +228,8 @@ const {
   clearConnection,
   clearAll
 } = useVirtualTree({
-  onLoadChildren: async (node: VirtualTreeNode) => handleVirtualTreeLoadChildrenRef(node),
-  onSelect: (node: VirtualTreeNode) => handleVirtualTreeSelectRef(node)
+  onLoadChildren: async (node: VirtualTreeNode) => handleVirtualTreeLoadChildrenRef.value(node),
+  onSelect: (node: VirtualTreeNode) => handleVirtualTreeSelectRef.value(node)
 })
 
 const statusText = computed(() => {
@@ -250,13 +252,18 @@ const statusText = computed(() => {
     })
   })
 
-  return `连接数: ${totalConnections} | 数据库: ${totalDatabases} | 表: ${totalTables} | 视图: ${totalViews}`
+  return t('navigator.statusSummary', {
+    connections: totalConnections,
+    databases: totalDatabases,
+    tables: totalTables,
+    views: totalViews
+  })
 })
 
 /**
  * 加载子节点 - 委托给 treeLoader composable
  */
-handleVirtualTreeLoadChildrenRef = async function(node: VirtualTreeNode): Promise<VirtualTreeNode[]> {
+handleVirtualTreeLoadChildrenRef.value = async function(node: VirtualTreeNode): Promise<VirtualTreeNode[]> {
   return treeLoader.loadChildren(node)
 }
 
@@ -278,7 +285,7 @@ function createConnectionNode(conn: ProjectConnection, scope: 'global' | 'projec
     data: { connectionId: conn.id, driver: conn.driver, scope },
     parentId: null,
     childCount: databases.length,
-    connectionTags: [scope === 'global' ? '全局' : '项目'],
+    connectionTags: [scope === 'global' ? t('navigator.global') : t('navigator.project')],
     connectionStatus: hasRuntimeConn ? 'connected' as const : 'disconnected' as const
   }
 }
@@ -624,7 +631,7 @@ const handleRefresh = async () => {
     handleErrorClose()
   } catch (error) {
     console.error('刷新连接失败:', error)
-    showErrorMessage('刷新失败', error instanceof Error ? error.message : '无法刷新数据库连接')
+    showErrorMessage(t('navigator.refreshFailed'), error instanceof Error ? error.message : t('navigator.refreshError'))
   } finally {
     isRefreshing.value = false
   }
@@ -649,7 +656,7 @@ const handleBeginTransaction = async () => {
     console.log('事务已开始')
   } catch (error) {
     console.error('开始事务失败:', error)
-    showErrorMessage('事务失败', error instanceof Error ? error.message : '无法开始事务')
+    showErrorMessage(t('navigator.transactionFailed'), error instanceof Error ? error.message : t('navigator.beginTransactionError'))
   }
 }
 
@@ -662,7 +669,7 @@ const handleCommitTransaction = async () => {
     console.log('事务已提交')
   } catch (error) {
     console.error('提交事务失败:', error)
-    showErrorMessage('事务失败', error instanceof Error ? error.message : '无法提交事务')
+    showErrorMessage(t('navigator.transactionFailed'), error instanceof Error ? error.message : t('navigator.commitTransactionError'))
   }
 }
 
@@ -675,7 +682,7 @@ const handleRollbackTransaction = async () => {
     console.log('事务已回滚')
   } catch (error) {
     console.error('回滚事务失败:', error)
-    showErrorMessage('事务失败', error instanceof Error ? error.message : '无法回滚事务')
+    showErrorMessage(t('navigator.transactionFailed'), error instanceof Error ? error.message : t('navigator.rollbackTransactionError'))
   }
 }
 
@@ -742,16 +749,16 @@ function showErrorMessage(title: string, message: string) {
 
 function handleErrorClose() {
   showError.value = false
-  currentError.value = null
+  currentError.value = undefined
 }
 
 async function handleErrorRetry() {
   showError.value = false
-  currentError.value = null
+  currentError.value = undefined
   await handleRefresh()
 }
 
-handleVirtualTreeSelectRef = async (node: VirtualTreeNode) => {
+handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
   if (node.type === 'connection') {
     const currentConn = await connectionHandler.handleConnectionClick(
       node,

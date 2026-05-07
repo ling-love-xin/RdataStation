@@ -124,40 +124,48 @@ src/
 - 双主题：dark / light
 - 风格：克制、专业、长时间办公友好
 
-## 3.2 颜色体系
+## 3.2 颜色体系（新版设计系统）
 
+品牌基色（`src/shared/styles/tokens.css`）：
 ```css
 :root {
-  /* 背景 3 级分层 */
-  --bg-primary: #ffffff;      /* 主背景 */
-  --bg-secondary: #f5f5f5;    /* 次级背景 */
-  --bg-tertiary: #e8e8e8;     /* 第三级背景 */
-  
-  /* 文字 3 级梯度 */
-  --text-primary: #333333;    /* 主文字 */
-  --text-secondary: #666666;  /* 次级文字 */
-  --text-tertiary: #999999;   /* 辅助文字 */
-  
-  /* 边框/分割线 */
-  --border-color: #d9d9d9;
-  
-  /* 功能色 */
-  --primary-color: #165DFF;
-  --success-color: #00B42A;
-  --warning-color: #FF7D00;
-  --danger-color: #F53F3F;
+  --brand-accent: #E17055;
+  --brand-accent-hover: #D35400;
+  --brand-accent-soft: rgba(225, 112, 85, 0.15);
+  --brand-success: #00B894;
+  --brand-danger: #D63031;
+  --brand-warning: #FDCB6E;
 }
+```
 
-.dark {
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #252526;
-  --bg-tertiary: #2d2d30;
-  --text-primary: #cccccc;
-  --text-secondary: #858585;
-  --text-tertiary: #666666;
-  --border-color: #3e3e42;
-  --primary-color: #165DFF;
-}
+暗色主题（`body.theme-dark`）：
+```css
+--color-bg-primary: #1E1F22;
+--color-bg-secondary: #2B2D30;
+--color-bg-tertiary: #2D3436;
+--color-bg-elevated: #3D4446;
+--color-text-primary: #E5E7EB;
+--color-text-secondary: #9CA3AF;
+--color-text-muted: #6B7280;
+--color-border: #4A5458;
+--color-border-subtle: #3C3F41;
+--color-hover: #454545;
+--color-selection: rgba(225, 112, 85, 0.25);
+```
+
+亮色主题（`body.theme-light`）：
+```css
+--color-bg-primary: #FFFFFF;
+--color-bg-secondary: #F5F5F5;
+--color-bg-tertiary: #E5E7EB;
+--color-bg-elevated: #FFFFFF;
+--color-text-primary: #1F2937;
+--color-text-secondary: #4B5563;
+--color-text-muted: #9CA3AF;
+--color-border: #B2BEC3;
+--color-border-subtle: #E5E7EB;
+--color-hover: #E5E7E9;
+--color-selection: rgba(225, 112, 85, 0.15);
 ```
 
 ## 3.3 字体
@@ -476,9 +484,26 @@ defineEmits<{
 
 ---
 
-# 11. 常用代码模板
+# 11. 设计系统关键原则（AI 强制执行）
 
-## 11.1 组件模板
+以下原则适用于所有前端代码生成，必须严格遵守：
+
+1. **所有颜色必须使用 CSS 变量**，禁止硬编码十六进制色值或 RGB 值；禁止使用 white、black、gray 等颜色关键字
+2. **所有间距只从 `--spacing-xs/sm/md/lg` 中选择**；所有圆角只从 `--border-radius-sm/md` 中选择；所有字号只从 `--font-size-sm/md/lg` 中选择
+3. **新颜色需求必须先在 `tokens.css` 中定义**，并同时为暗色和亮色模式提供对应值
+4. **所有用户可见文本必须使用 `$t('key.subkey')` 或 `useI18n().t()`** 引用翻译键，禁止硬编码中英文字符串
+5. **新页面需要同时在 `zh-CN.json` 和 `en.json` 中提供对应的翻译键对**
+6. **暗色（`.theme-dark`）和亮色（`.theme-light`）必须都正常显示**，禁止只为一种主题写样式
+7. **主题和语言的切换必须通过 Pinia `useAppStore` 进行**，禁止直接从组件中调用底层 Store API
+8. **禁止在组件 `<style>` 中使用 `:root {}` 覆盖全局 CSS 变量**
+9. **禁止对 `--color-*` 或 `--brand-*` 开头的全局 CSS 变量做本地覆盖**
+10. **组件销毁时必须清理事件监听和定时器**
+
+---
+
+# 12. 常用代码模板
+
+## 12.1 组件模板
 
 ```vue
 <template>
@@ -506,7 +531,7 @@ defineEmits<{
 </style>
 ```
 
-## 11.2 Composable 模板
+## 12.2 Composable 模板
 
 ```typescript
 import { ref, computed } from 'vue'
@@ -530,7 +555,7 @@ export function useXxx() {
 }
 ```
 
-## 11.3 Store 模板
+## 12.3 Store 模板
 
 ```typescript
 import { defineStore } from 'pinia'

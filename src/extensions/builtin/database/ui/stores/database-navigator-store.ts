@@ -1220,6 +1220,8 @@ interface SchemaNode {
   name: string
   tables: TableNode[]
   views: ViewNode[]
+  procedures?: ProcedureNode[]
+  functions?: FunctionNode[]
 }
 
 interface TableNode {
@@ -1247,6 +1249,14 @@ interface ViewNode {
   name: string
   type: string
   columns: ColumnNode[]
+}
+
+interface ProcedureNode {
+  name: string
+}
+
+interface FunctionNode {
+  name: string
 }
 
 interface ColumnNode {

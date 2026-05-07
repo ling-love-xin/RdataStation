@@ -6,22 +6,25 @@
         size="tiny"
         type="textarea"
         :autosize="{ minRows: 1, maxRows: 3 }"
-        placeholder="输入 WHERE 条件，可包含子查询&#10;示例: ArtistId IN (SELECT id FROM artists)"
+        :placeholder="t('resultPanel.sqlFilterPlaceholder')"
         @update:value="emit('update:expression', $event || '')"
         @keydown.enter.ctrl="onExecute"
       />
       <NButton size="tiny" type="primary" :loading="loading" @click="onExecute">
         <template #icon><Play :size="12" /></template>
-        执行
+        {{ t('resultPanel.execute') }}
       </NButton>
     </div>
-    <div class="hint">Ctrl+Enter 执行，将拼接为 SELECT ... FROM (原始SQL) WHERE 条件</div>
+    <div class="hint">{{ t('resultPanel.executeHint') }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Play } from 'lucide-vue-next'
 import { NInput, NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   expression: string

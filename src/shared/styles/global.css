@@ -1,0 +1,137 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: var(--font-size-lg);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.theme-dark {
+  --color-bg-primary: #1E1F22;
+  --color-bg-secondary: #2B2D30;
+  --color-bg-tertiary: #2D3436;
+  --color-bg-elevated: #3D4446;
+  --color-text-primary: #E5E7EB;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --color-border: #4A5458;
+  --color-border-subtle: #3C3F41;
+  --color-hover: #454545;
+  --color-selection: rgba(225, 112, 85, 0.25);
+}
+
+body.theme-light {
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F5F5F5;
+  --color-bg-tertiary: #E5E7EB;
+  --color-bg-elevated: #FFFFFF;
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #9CA3AF;
+  --color-border: #B2BEC3;
+  --color-border-subtle: #E5E7EB;
+  --color-hover: #E5E7E9;
+  --color-selection: rgba(225, 112, 85, 0.15);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+::selection {
+  background: var(--brand-accent);
+  color: #FFFFFF;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+[data-tauri-drag-region] {
+  cursor: default;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.2s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.2s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}

@@ -84,13 +84,12 @@ import { ref, computed, watch } from 'vue'
 
 import type { DriverDescriptor, ConnectionConfig } from '../../types/connection'
 
-interface Props {
-  formData: Partial<ConnectionConfig>
+const formData = defineModel<Partial<ConnectionConfig>>('formData', { required: true })
+
+defineProps<{
   selectedDriver: DriverDescriptor | null
   errors: Record<string, string>
-}
-
-const props = defineProps<Props>()
+}>()
 
 const emit = defineEmits<{
   'update:formData': [data: Partial<ConnectionConfig>]
@@ -99,22 +98,22 @@ const emit = defineEmits<{
 const showPassword = ref(false)
 
 const authMethod = computed({
-  get: () => props.formData.authMethod || 'password',
+  get: () => formData.value.authMethod || 'password',
   set: (val: 'password' | 'trust' | 'ssh' | 'ssl') => {
     emit('update:formData', {
-      ...props.formData,
+      ...formData.value,
       authMethod: val
     })
   }
 })
 
 const savePassword = computed({
-  get: () => props.formData.options?.savePassword || false,
+  get: () => formData.value.options?.savePassword || false,
   set: (val: boolean) => {
     emit('update:formData', {
-      ...props.formData,
+      ...formData.value,
       options: {
-        ...props.formData.options,
+        ...formData.value.options,
         savePassword: val
       }
     })
@@ -125,7 +124,7 @@ const savePassword = computed({
 watch(authMethod, (newMethod) => {
   if (newMethod === 'trust') {
     emit('update:formData', {
-      ...props.formData,
+      ...formData.value,
       username: '',
       password: ''
     })

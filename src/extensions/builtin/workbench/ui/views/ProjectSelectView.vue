@@ -8,7 +8,7 @@
             <Database :size="48" />
           </div>
           <h1 class="brand-title">RdataStation</h1>
-          <p class="brand-subtitle">新一代数据库管理工具</p>
+          <p class="brand-subtitle">{{ t('workbench.nextGenDbTool') }}</p>
         </div>
 
         <div class="features">
@@ -17,8 +17,8 @@
               <Zap :size="24" />
             </div>
             <div class="feature-text">
-              <h3>高性能</h3>
-              <p>基于 DuckDB 的本地加速引擎</p>
+              <h3>{{ t('workbench.highPerformance') }}</h3>
+              <p>{{ t('workbench.duckdbLocalEngine') }}</p>
             </div>
           </div>
           <div class="feature-item">
@@ -26,8 +26,8 @@
               <Shield :size="24" />
             </div>
             <div class="feature-text">
-              <h3>安全可靠</h3>
-              <p>本地存储，数据完全掌控</p>
+              <h3>{{ t('workbench.safeReliable') }}</h3>
+              <p>{{ t('workbench.localStorageControl') }}</p>
             </div>
           </div>
           <div class="feature-item">
@@ -35,8 +35,8 @@
               <Layers :size="24" />
             </div>
             <div class="feature-text">
-              <h3>多数据库支持</h3>
-              <p>MySQL、PostgreSQL、SQLite、DuckDB</p>
+              <h3>{{ t('workbench.multiDbSupport') }}</h3>
+              <p>{{ t('workbench.supportedDatabases') }}</p>
             </div>
           </div>
         </div>
@@ -50,8 +50,8 @@
               <FolderPlus :size="32" />
             </div>
             <div class="action-content">
-              <h2>新建项目</h2>
-              <p>创建一个新的工作空间</p>
+              <h2>{{ t('workbench.newProject') }}</h2>
+              <p>{{ t('workbench.createWorkspace') }}</p>
             </div>
             <ChevronRight :size="20" />
           </div>
@@ -61,8 +61,8 @@
               <FolderOpen :size="32" />
             </div>
             <div class="action-content">
-              <h2>打开项目</h2>
-              <p>浏览并打开已有项目</p>
+              <h2>{{ t('workbench.openProject') }}</h2>
+              <p>{{ t('workbench.browseOpenProject') }}</p>
             </div>
             <ChevronRight :size="20" />
           </div>
@@ -71,15 +71,15 @@
         <!-- 最近项目 -->
         <div class="recent-section">
           <div class="recent-header">
-            <h3>最近打开</h3>
+            <h3>{{ t('workbench.recentlyOpened') }}</h3>
             <button v-if="recentProjects.length > 0" class="clear-btn" @click="clearRecentProjects">
-              清除历史
+              {{ t('workbench.clearHistory') }}
             </button>
           </div>
 
           <div v-if="recentProjects.length === 0" class="recent-empty">
             <FolderX :size="32" />
-            <p>暂无最近项目</p>
+            <p>{{ t('workbench.noRecentProjects') }}</p>
           </div>
 
           <div v-else class="recent-list">
@@ -109,7 +109,7 @@
         <div v-if="showNewProjectModal" class="modal-overlay" @click.self="closeModal">
           <div class="modal-container">
             <header class="modal-header">
-              <h2>新建项目</h2>
+              <h2>{{ t('workbench.newProject') }}</h2>
               <button class="btn-close" @click="closeModal">
                 <X :size="20" />
               </button>
@@ -117,31 +117,31 @@
             <div class="modal-body">
               <div class="form-section">
                 <label class="form-label">
-                  项目名称
+                  {{ t('workbench.projectName') }}
                   <span class="required">*</span>
                 </label>
                 <input
                   v-model="newProjectName"
                   type="text"
                   class="form-input"
-                  placeholder="输入项目名称"
+                  :placeholder="t('workbench.projectName')"
                   @keyup.enter="confirmCreateProject"
                 />
               </div>
               <div class="form-section">
                 <label class="form-label">
-                  项目描述
+                  {{ t('workbench.projectDescription') }}
                 </label>
                 <textarea
                   v-model="newProjectDescription"
                   class="form-input"
-                  placeholder="输入项目描述（可选）"
+                  :placeholder="t('workbench.projectDescription')"
                   rows="3"
                 />
               </div>
               <div class="form-section">
                 <label class="form-label">
-                  项目路径
+                  {{ t('workbench.projectPath') }}
                   <span class="required">*</span>
                 </label>
                 <div class="path-input-wrapper">
@@ -149,24 +149,24 @@
                     v-model="newProjectPath"
                     type="text"
                     class="form-input"
-                    placeholder="选择项目保存路径"
+                    :placeholder="t('workbench.selectProjectPath')"
                     readonly
                   />
                   <button class="btn-browse" @click="browseProjectPath">
-                    浏览
+                    {{ t('workbench.browse') }}
                   </button>
                 </div>
               </div>
             </div>
             <footer class="modal-footer">
-              <button class="btn-secondary" @click="closeModal">取消</button>
+              <button class="btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
               <button
                 class="btn-primary"
                 :disabled="!canCreateProject || isCreating"
                 @click="confirmCreateProject"
               >
-                <span v-if="isCreating">创建中...</span>
-                <span v-else>创建</span>
+                <span v-if="isCreating">{{ t('workbench.creating') }}</span>
+                <span v-else>{{ t('workbench.create') }}</span>
               </button>
             </footer>
           </div>
@@ -189,6 +189,7 @@ import {
   X
 } from 'lucide-vue-next'
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { useProjectStore } from '@/core/project/stores/project'
@@ -202,6 +203,7 @@ interface Project {
   lastOpened: number
 }
 
+const { t } = useI18n()
 const router = useRouter()
 const uiStore = useUiStore()
 const projectStore = useProjectStore()
@@ -240,15 +242,15 @@ const formatTime = (timestamp: number): string => {
     const hours = Math.floor(diff / (1000 * 60 * 60))
     if (hours === 0) {
       const minutes = Math.floor(diff / (1000 * 60))
-      return minutes === 0 ? '刚刚' : `${minutes} 分钟前`
+      return minutes === 0 ? t('workbench.justNow') : t('workbench.minutesAgo', { count: minutes })
     }
-    return `${hours} 小时前`
+    return t('workbench.hoursAgo', { count: hours })
   } else if (days === 1) {
-    return '昨天'
+    return t('workbench.yesterday')
   } else if (days < 7) {
-    return `${days} 天前`
+    return t('workbench.daysAgo', { count: days })
   } else {
-    return date.toLocaleDateString('zh-CN')
+    return date.toLocaleDateString()
   }
 }
 
@@ -267,11 +269,11 @@ const openExistingProject = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: '选择项目文件夹'
+      title: t('workbench.selectProjectFolder')
     })
 
     if (selected && typeof selected === 'string') {
-      const projectName = selected.split(/[/\\]/).pop() || '未命名项目'
+      const projectName = selected.split(/[/\\]/).pop() || t('workbench.untitledProject')
       const project: Project = {
         id: Date.now().toString(),
         name: projectName,
@@ -342,7 +344,7 @@ const browseProjectPath = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: '选择项目保存位置'
+      title: t('workbench.selectProjectPath')
     })
 
     if (selected && typeof selected === 'string') {

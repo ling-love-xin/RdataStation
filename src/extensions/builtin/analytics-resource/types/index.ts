@@ -50,11 +50,19 @@ export interface AnalyticsTag {
 export interface AnalyticsRecycleItem {
   id: string;
   resource_id: string;
-  resource_type: ResourceType;
+  resource_type: string;
   resource_name: string;
-  resource_data: Record<string, any>;
+  resource_data: Record<string, unknown>;
   deleted_by?: string;
   deleted_at: string;
+}
+
+export interface ResourceVersion {
+  id: string;
+  resource_id: string;
+  version: number;
+  snapshot: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface CreateResourceRequest {

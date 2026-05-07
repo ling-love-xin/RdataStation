@@ -4,10 +4,10 @@
       <div class="placeholder-icon">
         <PanelRight :size="48" />
       </div>
-      <h3>辅助面板</h3>
-      <p>此处将显示 SQL 历史、列洞察等辅助信息</p>
+      <h3>{{ t('workbench.auxiliaryPanel') }}</h3>
+      <p>{{ t('workbench.auxiliaryPanelDesc') }}</p>
       <div class="placeholder-tips">
-        <p>提示：点击右侧活动栏图标切换面板</p>
+        <p>{{ t('workbench.panelTip') }}</p>
       </div>
     </div>
   </div>
@@ -15,6 +15,9 @@
 
 <script setup lang="ts">
 import { PanelRight } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <style scoped>

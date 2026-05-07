@@ -366,6 +366,7 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, S
                 duration_ms = duration.as_millis(),
                 "Project opened successfully"
             );
+            crate::core::insight::load_user_rules(&std::path::PathBuf::from(&path));
             Ok(p.into())
         }
         None => {
@@ -426,6 +427,7 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, S
                 "Project loaded from filesystem and saved to database"
             );
             
+            crate::core::insight::load_user_rules(&path_buf);
             Ok(build_project_response(&info, actual_path))
         }
     }

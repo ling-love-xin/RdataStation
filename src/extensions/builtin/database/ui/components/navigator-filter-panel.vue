@@ -2,14 +2,14 @@
   <div class="filter-panel" :class="{ expanded: isExpanded }">
     <button class="filter-toggle" @click="isExpanded = !isExpanded">
       <Filter :size="14" />
-      <span>过滤</span>
+      <span>{{ t('navigator.filter') }}</span>
       <ChevronDown :size="14" :class="{ rotated: isExpanded }" />
     </button>
 
     <Transition name="slide">
       <div v-if="isExpanded" class="filter-content">
         <div class="filter-section">
-          <label class="filter-label">数据库类型</label>
+          <label class="filter-label">{{ t('navigator.databaseType') }}</label>
           <div class="filter-options">
             <button
               v-for="type in databaseTypes"
@@ -24,7 +24,7 @@
         </div>
 
         <div class="filter-section">
-          <label class="filter-label">连接状态</label>
+          <label class="filter-label">{{ t('navigator.connectionStatus') }}</label>
           <div class="filter-options">
             <button
               v-for="status in connectionStatuses"
@@ -39,7 +39,7 @@
         </div>
 
         <div class="filter-section">
-          <label class="filter-label">节点类型</label>
+          <label class="filter-label">{{ t('navigator.nodeType') }}</label>
           <div class="filter-options">
             <button
               v-for="type in nodeTypes"
@@ -56,13 +56,13 @@
         <div class="filter-section">
           <label class="filter-label">
             <input v-model="filters.showSystemObjects" type="checkbox" />
-            显示系统对象
+            {{ t('navigator.showSystemObjects') }}
           </label>
         </div>
 
         <div class="filter-actions">
-          <button class="btn-reset" @click="resetFilters">重置</button>
-          <button class="btn-apply" @click="applyFilters">应用</button>
+          <button class="btn-reset" @click="resetFilters">{{ t('navigator.reset') }}</button>
+          <button class="btn-apply" @click="applyFilters">{{ t('navigator.apply') }}</button>
         </div>
       </div>
     </Transition>
@@ -72,6 +72,9 @@
 <script setup lang="ts">
 import { Filter, ChevronDown } from 'lucide-vue-next'
 import { ref, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Filters {
   databaseType: string
@@ -94,7 +97,7 @@ const filters = reactive<Filters>({
 })
 
 const databaseTypes = [
-  { value: '', label: '全部' },
+  { value: '', label: t('navigator.all') },
   { value: 'mysql', label: 'MySQL' },
   { value: 'postgresql', label: 'PostgreSQL' },
   { value: 'sqlite', label: 'SQLite' },
@@ -102,18 +105,18 @@ const databaseTypes = [
 ]
 
 const connectionStatuses = [
-  { value: '', label: '全部' },
-  { value: 'connected', label: '已连接' },
-  { value: 'connecting', label: '连接中' },
-  { value: 'disconnected', label: '未连接' }
+  { value: '', label: t('navigator.all') },
+  { value: 'connected', label: t('navigator.connected') },
+  { value: 'connecting', label: t('navigator.connecting') },
+  { value: 'disconnected', label: t('navigator.disconnected') }
 ]
 
 const nodeTypes = [
-  { value: 'table', label: '表' },
-  { value: 'view', label: '视图' },
-  { value: 'procedure', label: '存储过程' },
-  { value: 'function', label: '函数' },
-  { value: 'column', label: '列' }
+  { value: 'table', label: t('navigator.table') },
+  { value: 'view', label: t('navigator.view') },
+  { value: 'procedure', label: t('navigator.procedure') },
+  { value: 'function', label: t('navigator.function') },
+  { value: 'column', label: t('navigator.column') }
 ]
 
 function updateFilter(key: keyof Filters, value: string) {

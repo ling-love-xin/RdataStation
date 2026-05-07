@@ -1,7 +1,7 @@
 <template>
   <div class="table-schema-panel">
     <NTabs type="line" size="small">
-      <NTabPane name="columns" tab="列">
+      <NTabPane name="columns" :tab="t('workbench.columnsTab')">
         <NDataTable
           :columns="columnColumns"
           :data="columns"
@@ -9,11 +9,11 @@
           size="small"
         />
       </NTabPane>
-      <NTabPane name="indexes" tab="索引">
-        <NEmpty description="暂无索引" />
+      <NTabPane name="indexes" :tab="t('workbench.indexesTab')">
+        <NEmpty :description="t('workbench.noIndexes')" />
       </NTabPane>
-      <NTabPane name="constraints" tab="约束">
-        <NEmpty description="暂无约束" />
+      <NTabPane name="constraints" :tab="t('workbench.constraintsTab')">
+        <NEmpty :description="t('workbench.noConstraints')" />
       </NTabPane>
     </NTabs>
   </div>
@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 import { NTabs, NTabPane, NDataTable, NEmpty } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 
 import type { DataTableColumns } from 'naive-ui'
 
@@ -35,15 +36,17 @@ interface Props {
   columns?: ColumnInfo[]
 }
 
+const { t } = useI18n()
+
 const props = withDefaults(defineProps<Props>(), {
   columns: () => []
 })
 
 const columnColumns: DataTableColumns<ColumnInfo> = [
-  { title: '名称', key: 'name' },
-  { title: '类型', key: 'type' },
-  { title: '可空', key: 'nullable', render: (row) => row.nullable ? '是' : '否' },
-  { title: '默认值', key: 'defaultValue' }
+  { title: t('workbench.columnName'), key: 'name' },
+  { title: t('workbench.dataType'), key: 'type' },
+  { title: t('workbench.nullable'), key: 'nullable', render: (row) => row.nullable ? t('workbench.yes') : t('workbench.no') },
+  { title: t('workbench.defaultValue'), key: 'defaultValue' }
 ]
 </script>
 

@@ -986,6 +986,219 @@ interface ProjectConfig {
 }
 ```
 
+## 洞察引擎 🔍
+
+洞察系统提供 12 个 Tauri 命令，覆盖列洞察、多列分析、规则引擎、持久化和存储管理。
+
+### get_column_insight_full
+
+计算并返回完整的列洞察报告。
+
+**参数**：
+```typescript
+{
+  tempTable: string;
+  column: string;
+}
+```
+
+**返回**：`ColumnInsightFull` (包含 stats / histogram / sample)
+
+### save_column_insight_snapshot
+
+将当前列洞察保存为持久化版本快照。
+
+**参数**：
+```typescript
+{
+  temp_table: string;
+  column_name: string;
+}
+```
+
+**返回**：`string` (version_id)
+
+### get_column_insight_history
+
+查询某列的所有洞察版本历史。
+
+**参数**：
+```typescript
+{
+  column_name: string;
+}
+```
+
+**返回**：`InsightVersionEntry[]`
+
+### get_insight_storage_stats
+
+获取洞察存储统计（快照数、列数、体积）。
+
+**参数**：无
+
+**返回**：`InsightStorageStats`
+
+### cleanup_insight_snapshots
+
+清理超过指定天数的旧洞察快照。
+
+**参数**：
+```typescript
+{
+  older_than_days: number;  // 默认 90
+}
+```
+
+**返回**：`CleanupResult { removed_count, freed_bytes }`
+
+### get_insight_version_detail
+
+获取指定版本的完整洞察数据。
+
+**参数**：
+```typescript
+{
+  version_id: string;
+}
+```
+
+**返回**：`ColumnInsightFull | null`
+
+### get_table_profile
+
+获取表的元数据探查（列名/类型/可空/主键/行数）。
+
+**参数**：
+```typescript
+{
+  conn_id: string;
+  db_type: string;
+  database: string;
+  schema: string;
+  table: string;
+}
+```
+
+**返回**：`TableProfile { table_name, db_type, columns: TableColumnMeta[], row_count, schema_name }`
+
+### profile_column_from_table
+
+从表探查结果中点击列名，触发端到端列洞察（无需预先建立 DuckDB temp 表）。
+
+> 后端自动：`SqlService 取样 → DuckDB temp 表 → 列洞察全量分析` 一步完成。
+
+**参数**：
+```typescript
+{
+  conn_id: string;
+  database: string;
+  schema: string;
+  table: string;
+  column_name: string;
+}
+```
+
+**返回**：`ColumnInsightFull { table_name, column_name, column_type, stats_detail, histogram, sample_values }`
+
+### get_column_quality
+
+计算列数据质量评分（0-100），基于完整性、唯一性、类型一致性、分布均匀性四维度加权。
+
+**参数**：
+```typescript
+{
+  column_name: string;
+  temp_table: string;
+}
+```
+
+**返回**：`QualityScore { column_name, overall_score, level, dimensions: [{ name, score, weight, detail }], summary }`
+
+**等级划分**：
+| 分数 | 等级 | 颜色 |
+|:--:|:--:|:--:|
+| ≥85 | 优秀 | 绿色 |
+| ≥70 | 良好 | 蓝色 |
+| ≥50 | 一般 | 黄色 |
+| ≥30 | 较差 | 橙色 |
+| <30 | 差 | 红色 |
+
+### batch_evaluate_columns
+
+一次调用完成全表所有列的质量评估（取样 → DuckDB 临时表 → 逐列洞察 → 聚合评分）。
+
+> 后端自动：SELECT LIMIT 500 → JSON 解析 → DuckDB temp 表 → 全列 insight → 聚合 TableQuality
+
+**参数**：
+```typescript
+{
+  conn_id: string;
+  database: string;
+  schema: string;
+  table: string;
+}
+```
+
+**返回**：`TableQuality { table_name, overall_score, level, column_scores: [{ column_name, quality_score, level, null_rate }], summary, scored_count, total_columns }`
+
+**使用场景**：TableProfileView "质量评估" 按钮，导航树右键表探查后一键评估
+
+### execute_insight_rule
+
+执行一条声明式规则（支持列洞察和多列分析）。
+
+**参数**：
+```typescript
+{
+  rule_id: string;           // 规则 ID (如 "correlation")
+  params: Record<string, string>;  // SQL 模板参数
+  temp_table: string;
+}
+```
+
+**返回**：动态 `Value` (JSON)
+
+### list_insight_rules
+
+列出所有可用的洞察规则。
+
+**参数**：`category?: string` (可选过滤 "column" / "multi")
+
+**返回**：`RuleMeta[]`
+
+### list_rules_for_column
+
+根据列类型过滤适用规则。
+
+**参数**：
+```typescript
+{
+  column_type: string;  // "Numeric" | "Text" | "DateTime" | "Boolean"
+}
+```
+
+**返回**：`RuleMeta[]`
+
+**示例**：
+```typescript
+// 执行多列相关性分析
+const result = await invoke('execute_insight_rule', {
+  input: {
+    rule_id: 'correlation',
+    params: { table: 'tmp_abc', col1: 'age', col2: 'salary' },
+    temp_table: 'tmp_abc'
+  }
+});
+// result: { correlation: 0.87, p_value: 0.001 }
+
+// 清理 90 天前的旧快照
+const cleaned = await invoke('cleanup_insight_snapshots', {
+  input: { older_than_days: 90 }
+});
+// cleaned: { removed_count: 15, freed_bytes: 204800 }
+```
+
 ## 错误处理
 
 ### 错误响应格式

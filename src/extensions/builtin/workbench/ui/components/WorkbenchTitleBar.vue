@@ -5,7 +5,7 @@
       <button
         class="hamburger-btn"
         :class="{ active: showMenuBar }"
-        title="菜单"
+        :title="t('workbench.menu')"
         @click="toggleMenuBar"
       >
         <Menu :size="16" />
@@ -14,13 +14,13 @@
       <!-- 可展开的菜单栏 -->
       <Transition name="menu-slide">
         <div v-if="showMenuBar" class="menu-bar">
-          <div class="menu-item">文件</div>
-          <div class="menu-item">编辑</div>
-          <div class="menu-item">视图</div>
-          <div class="menu-item">连接</div>
-          <div class="menu-item">运行</div>
-          <div class="menu-item">工具</div>
-          <div class="menu-item">帮助</div>
+          <div class="menu-item">{{ t('workbench.fileMenu') }}</div>
+          <div class="menu-item">{{ t('workbench.editMenu') }}</div>
+          <div class="menu-item">{{ t('workbench.viewMenu') }}</div>
+          <div class="menu-item">{{ t('workbench.connectionMenu') }}</div>
+          <div class="menu-item">{{ t('workbench.runMenu') }}</div>
+          <div class="menu-item">{{ t('workbench.toolsMenu') }}</div>
+          <div class="menu-item">{{ t('workbench.helpMenu') }}</div>
         </div>
       </Transition>
 
@@ -35,7 +35,7 @@
         <!-- 项目下拉菜单 -->
         <div v-if="showProjectMenu" class="project-dropdown">
           <div class="dropdown-section">
-            <div class="dropdown-label">最近项目</div>
+            <div class="dropdown-label">{{ t('workbench.recentProjects') }}</div>
             <div
               v-for="project in recentProjects"
               :key="project.id"
@@ -51,11 +51,11 @@
           <div class="dropdown-section">
             <div class="dropdown-item" @click="newProject">
               <Plus :size="14" />
-              <span>新建项目</span>
+              <span>{{ t('workbench.newProject') }}</span>
             </div>
             <div class="dropdown-item" @click="openProject">
               <FolderOpen :size="14" />
-              <span>打开项目...</span>
+              <span>{{ t('workbench.openProject') }}</span>
             </div>
           </div>
         </div>
@@ -65,10 +65,10 @@
     <div class="title-bar-center">
       <!-- 搜索/命令面板 -->
       <div class="command-center">
-        <button class="command-btn" title="搜索 (⌘P)">
+        <button class="command-btn" :title="t('workbench.search') + ' (' + t('workbench.searchShortcut') + ')'">
           <Search :size="14" />
-          <span class="command-text">搜索</span>
-          <span class="shortcut">⌘P</span>
+          <span class="command-text">{{ t('workbench.search') }}</span>
+          <span class="shortcut">{{ t('workbench.searchShortcut') }}</span>
         </button>
       </div>
     </div>
@@ -86,7 +86,7 @@
 
         <!-- 自定义工具栏下拉菜单 -->
         <div v-if="showCustomToolbar" class="custom-toolbar-dropdown">
-          <div class="dropdown-header">自定义工具栏</div>
+          <div class="dropdown-header">{{ t('workbench.customizeToolbar') }}</div>
           <div class="dropdown-divider" />
           <div class="toolbar-options">
             <label
@@ -106,7 +106,7 @@
           <div class="dropdown-divider" />
           <div class="dropdown-item" @click="resetToolbar">
             <RotateCcw :size="14" />
-            <span>重置为默认</span>
+            <span>{{ t('workbench.resetToDefault') }}</span>
           </div>
         </div>
       </div>
@@ -114,7 +114,7 @@
       <!-- 主题切换按钮 -->
       <button
         class="theme-toggle-btn"
-        :title="uiStore.isDark ? '切换到浅色主题' : '切换到深色主题'"
+        :title="uiStore.isDark ? t('workbench.switchToLight') : t('workbench.switchToDark')"
         @click="uiStore.toggleTheme"
       >
         <Sun v-if="uiStore.isDark" :size="14" />
@@ -123,24 +123,24 @@
 
       <!-- 布局控制按钮 -->
       <div class="layout-controls">
-        <button class="layout-btn" title="自定义布局" @click="toggleCustomizeLayout">
+        <button class="layout-btn" :title="t('workbench.customizeLayout')" @click="toggleCustomizeLayout">
           <LayoutTemplate :size="14" />
         </button>
-        <button class="layout-btn" title="面板最大化">
+        <button class="layout-btn" :title="t('workbench.maximize')">
           <PanelTop :size="14" />
         </button>
       </div>
 
       <!-- 窗口控制按钮 -->
       <div class="window-controls">
-        <button class="window-btn minimize" title="最小化" @click="$emit('minimize')">
+        <button class="window-btn minimize" :title="t('workbench.minimize')" @click="$emit('minimize')">
           <Minus :size="14" />
         </button>
-        <button class="window-btn maximize" title="最大化" @click="$emit('maximize')">
+        <button class="window-btn maximize" :title="t('workbench.maximize')" @click="$emit('maximize')">
           <Square v-if="!isMaximized" :size="12" />
           <Copy v-else :size="12" />
         </button>
-        <button class="window-btn close" title="关闭" @click="$emit('close')">
+        <button class="window-btn close" :title="t('workbench.close')" @click="$emit('close')">
           <X :size="14" />
         </button>
       </div>
@@ -153,7 +153,7 @@
       <div v-if="showNewProjectModal" class="modal-overlay" @click.self="closeNewProjectModal">
         <div class="modal-container">
           <header class="modal-header">
-            <h2>新建项目</h2>
+            <h2>{{ t('workbench.newProject') }}</h2>
             <button class="btn-close" @click="closeNewProjectModal">
               <X :size="20" />
             </button>
@@ -161,31 +161,31 @@
           <div class="modal-body">
             <div class="form-section">
               <label class="form-label">
-                项目名称
+                {{ t('workbench.projectName') }}
                 <span class="required">*</span>
               </label>
               <input
                 v-model="newProjectName"
                 type="text"
                 class="form-input"
-                placeholder="输入项目名称"
+                :placeholder="t('workbench.projectName')"
                 @keyup.enter="confirmCreateProject"
               />
             </div>
             <div class="form-section">
               <label class="form-label">
-                项目描述
+                {{ t('workbench.projectDescription') }}
               </label>
               <textarea
                 v-model="newProjectDescription"
                 class="form-input"
-                placeholder="输入项目描述（可选）"
+                :placeholder="t('workbench.projectDescription')"
                 rows="3"
               />
             </div>
             <div class="form-section">
               <label class="form-label">
-                项目路径
+                {{ t('workbench.projectPath') }}
                 <span class="required">*</span>
               </label>
               <div class="path-input-wrapper">
@@ -193,24 +193,24 @@
                   v-model="newProjectPath"
                   type="text"
                   class="form-input"
-                  placeholder="选择项目保存路径"
+                  :placeholder="t('workbench.selectProjectPath')"
                   readonly
                 />
                 <button class="btn-browse" @click="browseProjectPath">
-                  浏览
+                  {{ t('workbench.browse') }}
                 </button>
               </div>
             </div>
           </div>
           <footer class="modal-footer">
-            <button class="btn-secondary" @click="closeNewProjectModal">取消</button>
+            <button class="btn-secondary" @click="closeNewProjectModal">{{ t('common.cancel') }}</button>
             <button
               class="btn-primary"
               :disabled="!canCreateProject || isCreating"
               @click="confirmCreateProject"
             >
-              <span v-if="isCreating">创建中...</span>
-              <span v-else>创建</span>
+              <span v-if="isCreating">{{ t('workbench.creating') }}</span>
+              <span v-else>{{ t('workbench.create') }}</span>
             </button>
           </footer>
         </div>
@@ -227,6 +227,7 @@ import {
   Terminal, Zap
 } from 'lucide-vue-next'
 import { ref, computed, markRaw, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { useProjectStore } from '@/core/project/stores/project'
@@ -247,6 +248,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const { t } = useI18n()
 const uiStore = useUiStore()
 const projectStore = useProjectStore()
 const layoutStore = useLayoutStore()
@@ -257,7 +259,7 @@ const showMenuBar = ref(false)
 
 // 项目菜单状态
 const showProjectMenu = ref(false)
-const currentProject = computed(() => projectStore.currentProject?.name || '默认项目')
+const currentProject = computed(() => projectStore.currentProject?.name || t('workbench.defaultProject'))
 
 // 最近项目列表（从 ProjectStore 获取）
 const recentProjects = computed(() => projectStore.recentProjects)
@@ -267,12 +269,12 @@ const showCustomToolbar = ref(false)
 
 // 可用工具列表
 const availableTools = ref([
-  { id: 'settings', name: '设置', icon: markRaw(Settings), enabled: false, action: () => console.log('打开设置') },
-  { id: 'history', name: '历史记录', icon: markRaw(History), enabled: false, action: () => console.log('打开历史') },
-  { id: 'docs', name: '文档', icon: markRaw(BookOpen), enabled: false, action: () => console.log('打开文档') },
-  { id: 'shortcuts', name: '快捷键', icon: markRaw(Keyboard), enabled: false, action: () => console.log('打开快捷键') },
-  { id: 'terminal', name: '终端', icon: markRaw(Terminal), enabled: false, action: () => console.log('打开终端') },
-  { id: 'quick', name: '快速操作', icon: markRaw(Zap), enabled: false, action: () => console.log('快速操作') },
+  { id: 'settings', name: t('workbench.settings'), icon: markRaw(Settings), enabled: false, action: () => console.log('open settings') },
+  { id: 'history', name: t('workbench.history'), icon: markRaw(History), enabled: false, action: () => console.log('open history') },
+  { id: 'docs', name: t('workbench.docs'), icon: markRaw(BookOpen), enabled: false, action: () => console.log('open docs') },
+  { id: 'shortcuts', name: t('workbench.shortcuts'), icon: markRaw(Keyboard), enabled: false, action: () => console.log('open shortcuts') },
+  { id: 'terminal', name: t('workbench.terminal'), icon: markRaw(Terminal), enabled: false, action: () => console.log('open terminal') },
+  { id: 'quick', name: t('workbench.quickActions'), icon: markRaw(Zap), enabled: false, action: () => console.log('quick actions') },
 ])
 
 // 启用的工具
@@ -334,7 +336,7 @@ const browseProjectPath = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: '选择项目保存位置'
+      title: t('workbench.selectProjectPath')
     })
 
     if (selected && typeof selected === 'string') {
@@ -392,7 +394,7 @@ const openProject = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: '选择项目文件夹'
+      title: t('workbench.selectProjectFolder')
     })
 
     if (selected && typeof selected === 'string') {

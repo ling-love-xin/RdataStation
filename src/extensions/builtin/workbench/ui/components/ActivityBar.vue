@@ -15,7 +15,7 @@
       <div
         v-if="showToggle"
         class="activity-item toggle"
-        :title="isHidden ? '显示' : '隐藏'"
+        :title="isHidden ? t('workbench.show') : t('workbench.hide')"
         @click="handleToggle"
       >
         <PanelLeftClose v-if="!isHidden" class="activity-icon" :size="20" />
@@ -27,9 +27,11 @@
 
 <script setup lang="ts">
 import { PanelLeft, PanelLeftClose } from 'lucide-vue-next'
-
+import { useI18n } from 'vue-i18n'
 
 import { useLayoutStore, type LeftActivityItem, type RightActivityItem } from '../stores/layout-store'
+
+const { t } = useI18n()
 
 interface Props {
   items: LeftActivityItem[] | RightActivityItem[]

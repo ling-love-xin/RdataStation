@@ -2,7 +2,7 @@
   <div class="column-insights-panel">
     <div v-if="loading" class="loading-state">
       <NSpin size="small" />
-      <span>正在分析...</span>
+      <span>{{ t('workbench.analyzing') }}</span>
     </div>
     <template v-else-if="stats">
       <div class="insight-header">
@@ -11,51 +11,51 @@
       </div>
       <div class="insight-section">
         <div class="insight-row">
-          <span class="label">总行数</span>
+          <span class="label">{{ t('workbench.totalRows') }}</span>
           <span class="value">{{ stats.total_count }}</span>
         </div>
         <div class="insight-row">
-          <span class="label">非空值</span>
+          <span class="label">{{ t('workbench.nonNullValues') }}</span>
           <span class="value">{{ stats.total_count - stats.null_count }}</span>
         </div>
         <div class="insight-row">
-          <span class="label">NULL 值</span>
+          <span class="label">{{ t('workbench.nullValues') }}</span>
           <span class="value">{{ stats.null_count }}</span>
         </div>
         <div class="insight-row">
-          <span class="label">唯一值</span>
+          <span class="label">{{ t('workbench.uniqueValues') }}</span>
           <span class="value">{{ stats.unique_count ?? '-' }}</span>
         </div>
       </div>
-      <div v-if="stats.numeric_stats" class="insight-section">
-        <div class="section-title">数值统计</div>
-        <div class="insight-row"><span class="label">最小值</span><span class="value">{{ formatNum(stats.numeric_stats.min) }}</span></div>
-        <div class="insight-row"><span class="label">最大值</span><span class="value">{{ formatNum(stats.numeric_stats.max) }}</span></div>
-        <div class="insight-row"><span class="label">平均值</span><span class="value">{{ formatNum(stats.numeric_stats.avg) }}</span></div>
-        <div class="insight-row"><span class="label">中位数</span><span class="value">{{ formatNum(stats.numeric_stats.median) }}</span></div>
-        <div class="insight-row"><span class="label">总和</span><span class="value">{{ formatNum(stats.numeric_stats.sum) }}</span></div>
-        <div v-if="stats.numeric_stats.stddev" class="insight-row">
-          <span class="label">标准差</span><span class="value">{{ formatNum(stats.numeric_stats.stddev) }}</span>
+      <div v-if="numericStats" class="insight-section">
+        <div class="section-title">{{ t('workbench.numericStats') }}</div>
+        <div class="insight-row"><span class="label">{{ t('resultPanel.minLabel') }}</span><span class="value">{{ formatNum(numericStats.min) }}</span></div>
+        <div class="insight-row"><span class="label">{{ t('resultPanel.maxLabel') }}</span><span class="value">{{ formatNum(numericStats.max) }}</span></div>
+        <div class="insight-row"><span class="label">{{ t('resultPanel.meanLabel') }}</span><span class="value">{{ formatNum(numericStats.avg) }}</span></div>
+        <div class="insight-row"><span class="label">{{ t('resultPanel.medianLabel') }}</span><span class="value">{{ formatNum(numericStats.median) }}</span></div>
+        <div class="insight-row"><span class="label">{{ t('workbench.sum') }}</span><span class="value">{{ formatNum(numericStats.sum) }}</span></div>
+        <div v-if="numericStats.stddev" class="insight-row">
+          <span class="label">{{ t('resultPanel.stddevLabel') }}</span><span class="value">{{ formatNum(numericStats.stddev) }}</span>
         </div>
       </div>
-      <div v-if="stats.text_stats" class="insight-section">
-        <div class="section-title">文本统计</div>
+      <div v-if="textStats" class="insight-section">
+        <div class="section-title">{{ t('workbench.textStats') }}</div>
         <div class="insight-row">
-          <span class="label">最短长度</span><span class="value">{{ stats.text_stats.min_length }}</span>
+          <span class="label">{{ t('workbench.minLength') }}</span><span class="value">{{ textStats.min_length }}</span>
         </div>
         <div class="insight-row">
-          <span class="label">最长长度</span><span class="value">{{ stats.text_stats.max_length }}</span>
+          <span class="label">{{ t('workbench.maxLength') }}</span><span class="value">{{ textStats.max_length }}</span>
         </div>
-        <div class="section-subtitle">TOP 10 频率分布</div>
-        <div v-for="(item, i) in stats.text_stats.top_values" :key="i" class="freq-row">
-          <span class="freq-value">{{ item[0] }}</span>
-          <span class="freq-count">{{ item[1] }}</span>
+        <div class="section-subtitle">{{ t('workbench.top10Frequency') }}</div>
+        <div v-for="(item, i) in textStats.top_values" :key="i" class="freq-row">
+          <span class="freq-value">{{ item.value }}</span>
+          <span class="freq-count">{{ item.count }}</span>
         </div>
       </div>
     </template>
     <div v-else class="empty-state">
       <BarChart3 :size="24" />
-      <span>右键表格列 → 列洞察</span>
+      <span>{{ t('workbench.rightClickInsight') }}</span>
     </div>
   </div>
 </template>
@@ -63,15 +63,28 @@
 <script setup lang="ts">
 import { BarChart3 } from 'lucide-vue-next'
 import { NSpin } from 'naive-ui'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { getColumnInsights } from '../../services/result-analysis'
 
-import type { ColumnStats } from '../../services/result-analysis'
+import type { ColumnStats, NumericStatsDetail, TextStatsDetail } from '../../services/result-analysis'
+
+const { t } = useI18n()
 
 const stats = ref<ColumnStats | null>(null)
 const loading = ref(false)
 const currentTempTable = ref('')
+
+const numericStats = computed((): NumericStatsDetail | null => {
+  if (!stats.value || stats.value.stats_detail.kind !== 'Numeric') return null
+  return stats.value.stats_detail as NumericStatsDetail
+})
+
+const textStats = computed((): TextStatsDetail | null => {
+  if (!stats.value || stats.value.stats_detail.kind !== 'Text') return null
+  return stats.value.stats_detail as TextStatsDetail
+})
 
 const handleColumnInsight = async (event: CustomEvent) => {
   const columnName = event.detail?.column

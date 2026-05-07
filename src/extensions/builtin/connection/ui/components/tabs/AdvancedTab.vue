@@ -167,12 +167,11 @@ import { ref, computed } from 'vue'
 
 import type { DriverDescriptor, ConnectionConfig } from '../../types/connection'
 
-interface Props {
-  formData: Partial<ConnectionConfig>
-  selectedDriver: DriverDescriptor | null
-}
+const formData = defineModel<Partial<ConnectionConfig>>('formData', { required: true })
 
-const props = defineProps<Props>()
+defineProps<{
+  selectedDriver: DriverDescriptor | null
+}>()
 
 const emit = defineEmits<{
   'update:formData': [data: Partial<ConnectionConfig>]
@@ -181,17 +180,17 @@ const emit = defineEmits<{
 const showSshPassword = ref(false)
 
 const enableSsh = computed({
-  get: () => props.formData.authMethod === 'ssh' || !!props.formData.sshHost,
+  get: () => formData.value.authMethod === 'ssh' || !!formData.value.sshHost,
   set: (val: boolean) => {
     if (val) {
       emit('update:formData', {
-        ...props.formData,
+        ...formData.value,
         authMethod: 'ssh',
-        sshPort: props.formData.sshPort || 22
+        sshPort: formData.value.sshPort || 22
       })
     } else {
       emit('update:formData', {
-        ...props.formData,
+        ...formData.value,
         authMethod: 'password',
         sshHost: '',
         sshPort: 22,
@@ -204,10 +203,10 @@ const enableSsh = computed({
 })
 
 const enableSsl = computed({
-  get: () => props.formData.sslMode && props.formData.sslMode !== 'disable',
+  get: () => formData.value.sslMode && formData.value.sslMode !== 'disable',
   set: (val: boolean) => {
     emit('update:formData', {
-      ...props.formData,
+      ...formData.value,
       sslMode: val ? 'require' : 'disable'
     })
   }

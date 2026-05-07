@@ -18,6 +18,8 @@ pub mod sql_parser_commands;
 pub mod sql_template_commands;
 pub mod analytics_resource_commands;
 
+pub mod scratchpad_commands;
+
 // 重新导出所有命令，方便 lib.rs 统一导入
 pub use cache_warming_commands::*;
 pub use connection_commands::*;
@@ -34,3 +36,4 @@ pub use sql_commands::*;
 pub use sql_template_commands::*;
 pub use sql_parser_commands::*;
 pub use analytics_resource_commands::*;
+pub use scratchpad_commands::*;

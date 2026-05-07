@@ -12,17 +12,21 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 export type FilterMode = 'quick' | 'sql' | 'duckdb'
 
 interface ModeItem { key: FilterMode; icon: string; label: string }
+
+const { t } = useI18n()
 
 defineProps<{ modelValue: FilterMode }>()
 const emit = defineEmits<{ 'update:modelValue': [FilterMode] }>()
 
 const modes: ModeItem[] = [
-  { key: 'quick', icon: '🔍', label: '即时过滤' },
-  { key: 'sql', icon: '🗄️', label: 'SQL过滤' },
-  { key: 'duckdb', icon: '🧠', label: 'DuckDB分析' },
+  { key: 'quick', icon: '🔍', label: t('resultPanel.instantFilter') },
+  { key: 'sql', icon: '🗄️', label: t('resultPanel.sqlFilter') },
+  { key: 'duckdb', icon: '🧠', label: t('resultPanel.duckdbAnalysis') },
 ]
 </script>
 

@@ -2,19 +2,19 @@
   <div class="sql-history-panel">
     <!-- 头部工具栏 -->
     <div class="history-header">
-      <h3 class="history-title">执行历史</h3>
+      <h3 class="history-title">{{ t('sqlEditor.history') }}</h3>
       <div class="header-actions">
-        <NButton size="small" quaternary title="筛选" @click="toggleFilter">
+        <NButton size="small" quaternary :title="t('common.filter')" @click="toggleFilter">
           <template #icon>
             <Filter :size="14" />
           </template>
         </NButton>
-        <NButton size="small" quaternary title="刷新" @click="refreshHistory">
+        <NButton size="small" quaternary :title="t('common.refresh')" @click="refreshHistory">
           <template #icon>
             <RefreshCw :size="14" />
           </template>
         </NButton>
-        <NButton size="small" quaternary title="清空历史" @click="clearAllHistory">
+        <NButton size="small" quaternary :title="t('sqlEditor.clearHistory')" @click="clearAllHistory">
           <template #icon>
             <Trash2 :size="14" />
           </template>
@@ -27,7 +27,7 @@
       <NInput
         v-model:value="searchText"
         size="small"
-        placeholder="搜索 SQL 历史..."
+        :placeholder="t('sqlEditor.searchHistory')"
         clearable
       >
         <template #prefix>
@@ -42,7 +42,7 @@
         v-model:value="filterConnection"
         size="small"
         :options="connectionOptions"
-        placeholder="所有连接"
+        :placeholder="t('sqlEditor.allConnections')"
         clearable
         style="width: 100%; margin-bottom: 8px"
       />
@@ -50,7 +50,7 @@
         v-model:value="filterType"
         size="small"
         :options="typeOptions"
-        placeholder="所有类型"
+        :placeholder="t('sqlEditor.allTypes')"
         clearable
         style="width: 100%; margin-bottom: 8px"
       />
@@ -58,7 +58,7 @@
         v-model:value="filterStatus"
         size="small"
         :options="statusOptions"
-        placeholder="所有状态"
+        :placeholder="t('sqlEditor.allStatuses')"
         clearable
         style="width: 100%"
       />
@@ -67,16 +67,16 @@
     <!-- Tab 切换 -->
     <div class="tab-section">
       <NTabs v-model:value="activeTab" type="line" size="small">
-        <NTab name="all" tab="全部" />
-        <NTab name="favorites" tab="收藏" />
-        <NTab name="recent" tab="最近" />
+        <NTab name="all" :tab="t('navigator.all')" />
+        <NTab name="favorites" :tab="t('sqlEditor.favorites')" />
+        <NTab name="recent" :tab="t('sqlEditor.recent')" />
       </NTabs>
     </div>
 
     <!-- 历史列表 -->
     <div class="history-list">
       <div v-if="filteredHistory.length === 0" class="empty-state">
-        <NEmpty description="暂无执行历史" />
+        <NEmpty :description="t('sqlEditor.noHistory')" />
       </div>
       
       <div
@@ -137,10 +137,10 @@
     <!-- 底部统计 -->
     <div class="history-footer">
       <span class="stat-item">
-        共 {{ filteredHistory.length }} 条
+        {{ t('sqlEditor.totalCount', { count: filteredHistory.length }) }}
       </span>
-      <span class="stat-item">
-        收藏 {{ favoriteCount }} 条
+      <span v-if="favoriteCount > 0" class="stat-item">
+        {{ t('sqlEditor.favoriteCount', { count: favoriteCount }) }}
       </span>
     </div>
   </div>
@@ -150,10 +150,12 @@
 import { Filter, RefreshCw, Trash2, Search, Star, X } from 'lucide-vue-next'
 import { NButton, NInput, NSelect, NTabs, NTab, NEmpty, createDiscreteApi } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import { getHistory, deleteHistory, clearHistory, toggleFavorite, type SqlHistoryItem } from '@/extensions/builtin/workbench/services/sql-history-service'
 
+const { t } = useI18n()
 const { message } = createDiscreteApi(['message'])
 const connectionStore = useConnectionStore()
 
@@ -183,8 +185,8 @@ const typeOptions = computed(() => {
 })
 
 const statusOptions = [
-  { label: '成功', value: 'success' },
-  { label: '失败', value: 'error' }
+  { label: t('sqlEditor.success'), value: 'success' },
+  { label: t('sqlEditor.failed'), value: 'error' },
 ]
 
 // 计算属性
@@ -234,13 +236,13 @@ const toggleFilter = () => {
 
 const refreshHistory = () => {
   historyList.value = getHistory(200)
-  message.success('已刷新历史记录')
+  message.success(t('workbench.refreshHistory'))
 }
 
 const clearAllHistory = () => {
   clearHistory()
   historyList.value = []
-  message.success('已清空历史记录')
+  message.success(t('workbench.clearHistorySuccess'))
 }
 
 const selectHistory = (item: SqlHistoryItem) => {
@@ -262,7 +264,7 @@ const _toggleFavoriteItem = (id: string) => {
 const deleteHistoryItem = (id: string) => {
   deleteHistory(id)
   historyList.value = getHistory(200)
-  message.success('已删除历史记录')
+  message.success(t('workbench.deleteHistorySuccess'))
 }
 
 const truncateSql = (sql: string, maxLength: number): string => {
@@ -274,11 +276,11 @@ const truncateSql = (sql: string, maxLength: number): string => {
 const formatTime = (timestamp: number): string => {
   const now = Date.now()
   const diff = now - timestamp
-  
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
-  
+
+  if (diff < 60000) return t('workbench.justNow')
+  if (diff < 3600000) return t('workbench.minutesAgo', { count: Math.floor(diff / 60000) })
+  if (diff < 86400000) return t('workbench.hoursAgo', { count: Math.floor(diff / 3600000) })
+
   const date = new Date(timestamp)
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`
 }

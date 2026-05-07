@@ -7,7 +7,7 @@
           <Minimize2 v-else :size="14" />
         </NButton>
       </template>
-      <span>{{ isMaximized ? '还原' : '最大化（将当前组铺满中心区域，有多个组时效果更明显）' }}</span>
+      <span>{{ isMaximized ? t('workbench.restore') : t('workbench.maximizeTooltip') }}</span>
     </NTooltip>
     <NTooltip trigger="hover" placement="bottom">
       <template #trigger>
@@ -16,7 +16,7 @@
           <ArrowLeftToLine v-else :size="14" />
         </NButton>
       </template>
-      <span>{{ isFloating ? '放回主网格' : '浮动窗口' }}</span>
+      <span>{{ isFloating ? t('workbench.dockBack') : t('workbench.floatWindow') }}</span>
     </NTooltip>
     <NTooltip trigger="hover" placement="bottom">
       <template #trigger>
@@ -25,7 +25,7 @@
           <PinOff v-else :size="14" />
         </NButton>
       </template>
-      <span>{{ isPinned ? '取消钉住' : '钉住（防止面板被关闭）' }}</span>
+      <span>{{ isPinned ? t('workbench.unpin') : t('workbench.pinTooltip') }}</span>
     </NTooltip>
   </div>
 </template>
@@ -34,8 +34,11 @@
 import { ExternalLink, Maximize2, Minimize2, ArrowLeftToLine, Pin, PinOff } from 'lucide-vue-next'
 import { NButton, NTooltip } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
+
+const { t } = useI18n()
 
 const p = defineProps<{ params: any }>()
 

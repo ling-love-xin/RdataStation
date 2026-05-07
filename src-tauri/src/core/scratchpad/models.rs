@@ -1,0 +1,49 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ScratchpadEntryKind {
+    File,
+    Folder,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScratchpadEntry {
+    pub name: String,
+    pub path: PathBuf,
+    pub kind: ScratchpadEntryKind,
+    pub size: u64,
+    pub modified_at: DateTime<Utc>,
+    pub extension: String,
+    pub is_external_ref: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalReference {
+    pub alias: String,
+    pub path: PathBuf,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalyzableFile {
+    pub name: String,
+    pub relative_path: String,
+    pub file_type: String,
+    pub size_bytes: u64,
+    pub duckdb_query_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ScratchpadConfig {
+    pub external_references: Vec<ExternalReference>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScratchpadResponse {
+    pub local_entries: Vec<ScratchpadEntry>,
+    pub external_references: Vec<ExternalReference>,
+    pub scratchpad_path: PathBuf,
+}

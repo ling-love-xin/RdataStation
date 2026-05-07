@@ -1,11 +1,11 @@
 <template>
   <div class="output-panel">
     <div class="output-header">
-      <h3>输出</h3>
+      <h3>{{ t('workbench.output') }}</h3>
     </div>
     <div class="output-content">
       <div v-if="logs.length === 0" class="empty-output">
-        <p>暂无输出</p>
+        <p>{{ t('workbench.noOutput') }}</p>
       </div>
       <div v-for="(log, index) in logs" :key="index" :class="['log-item', log.type]">
         <span class="log-time">{{ log.time }}</span>
@@ -17,11 +17,14 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const logs = ref([
-  { type: 'info', time: '10:30:00', message: 'RdataStation 已启动' },
-  { type: 'info', time: '10:30:01', message: '加载项目配置完成' },
-  { type: 'success', time: '10:30:02', message: 'DuckDB 加速已启用' },
+  { type: 'info', time: '10:30:00', message: 'RdataStation started' },
+  { type: 'info', time: '10:30:01', message: 'Project config loaded' },
+  { type: 'success', time: '10:30:02', message: 'DuckDB acceleration enabled' },
 ])
 </script>
 

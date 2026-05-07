@@ -1,27 +1,36 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-export type Theme = 'light' | 'dark' | 'system'
+import type { Theme } from '@/stores/config'
+import { useAppStore } from '@/stores/useAppStore'
+
+
+export type { Theme }
 
 export const useUiStore = defineStore('ui', () => {
-  // State
-  const theme = ref<Theme>('dark')
   const sidebarCollapsed = ref(false)
   const sidebarWidth = ref(280)
   const showHistoryPanel = ref(false)
   const showConnectionPanel = ref(true)
 
-  // Getters
   const isDark = computed(() => {
-    if (theme.value === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return theme.value === 'dark'
+    const appStore = useAppStore()
+    return appStore.isDark
   })
 
-  const effectiveTheme = computed(() => isDark.value ? 'dark' : 'light')
+  const theme = computed<Theme>({
+    get: () => {
+      const appStore = useAppStore()
+      return appStore.effectiveTheme
+    },
+    set: (value: Theme) => {
+      const appStore = useAppStore()
+      appStore.setTheme(value)
+    },
+  })
 
-  // Actions
+  const effectiveTheme = computed(() => (isDark.value ? 'dark' : 'light'))
+
   function setTheme(newTheme: Theme) {
     theme.value = newTheme
     applyTheme()
@@ -33,12 +42,8 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   function applyTheme() {
-    const html = document.documentElement
-    if (isDark.value) {
-      html.classList.add('dark')
-    } else {
-      html.classList.remove('dark')
-    }
+    const appStore = useAppStore()
+    appStore.applyTheme()
   }
 
   function toggleSidebar() {
@@ -57,34 +62,25 @@ export const useUiStore = defineStore('ui', () => {
     showConnectionPanel.value = !showConnectionPanel.value
   }
 
-  // 初始化主题
   function initTheme() {
     applyTheme()
-    // 监听系统主题变化
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      if (theme.value === 'system') {
-        applyTheme()
-      }
-    })
   }
 
   return {
-    // State
     theme,
     sidebarCollapsed,
     sidebarWidth,
     showHistoryPanel,
     showConnectionPanel,
-    // Getters
     isDark,
     effectiveTheme,
-    // Actions
     setTheme,
     toggleTheme,
     toggleSidebar,
     setSidebarWidth,
     toggleHistoryPanel,
     toggleConnectionPanel,
-    initTheme
+    initTheme,
+    applyTheme,
   }
 })

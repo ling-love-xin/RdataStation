@@ -1,226 +1,196 @@
 <template>
   <div class="customize-layout">
-    <div class="layout-header">
-      <h3>Customize Layout</h3>
-    </div>
-
-    <div class="layout-section">
-      <h4>显示/隐藏</h4>
-
-      <div class="layout-option">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="layoutStore.menuBarVisible"
-            @change="layoutStore.toggleMenuBar"
-          />
-          <span>Menu Bar</span>
-        </label>
-      </div>
-
-      <div class="layout-option">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="layoutStore.leftActivityBarVisible"
-            @change="layoutStore.toggleLeftActivityBar"
-          />
-          <span>Left Activity Bar</span>
-        </label>
-      </div>
-
-      <div class="layout-option">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="layoutStore.rightActivityBarVisible"
-            @change="layoutStore.toggleRightActivityBar"
-          />
-          <span>Right Activity Bar</span>
-        </label>
-      </div>
-
-      <div class="layout-option locked">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="true"
-            disabled
-          />
-          <span>Primary Side Bar <em>(始终显示)</em></span>
-        </label>
-      </div>
-
-      <div class="layout-option locked">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="true"
-            disabled
-          />
-          <span>Secondary Side Bar <em>(始终显示)</em></span>
-        </label>
-      </div>
-
-      <div class="layout-option">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="layoutStore.panelVisible"
-            @change="layoutStore.togglePanel"
-          />
-          <span>Panel</span>
-        </label>
-      </div>
-
-      <div class="layout-option">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="layoutStore.statusBarVisible"
-            @change="layoutStore.toggleStatusBar"
-          />
-          <span>Status Bar</span>
-        </label>
-      </div>
-    </div>
-
-    <div class="layout-section">
-      <h4>尺寸设置</h4>
-
-      <div class="size-option">
-        <label>Primary Side Bar Width: {{ layoutStore.primarySideBarWidth }}px</label>
-        <input
-          type="range"
-          :min="200"
-          :max="600"
-          :value="layoutStore.primarySideBarWidth"
-          @input="(e) => layoutStore.setPrimarySideBarWidth(parseInt((e.target as HTMLInputElement).value))"
-        />
-      </div>
-
-      <div class="size-option">
-        <label>Secondary Side Bar Width: {{ layoutStore.secondarySideBarWidth }}px</label>
-        <input
-          type="range"
-          :min="200"
-          :max="600"
-          :value="layoutStore.secondarySideBarWidth"
-          @input="(e) => layoutStore.setSecondarySideBarWidth(parseInt((e.target as HTMLInputElement).value))"
-        />
-      </div>
-
-      <div class="size-option">
-        <label>Panel Height: {{ layoutStore.panelHeight }}px</label>
-        <input
-          type="range"
-          :min="100"
-          :max="600"
-          :value="layoutStore.panelHeight"
-          @input="(e) => layoutStore.setPanelHeight(parseInt((e.target as HTMLInputElement).value))"
-        />
-      </div>
-    </div>
-
-    <div class="layout-section">
-      <h4>面板管理</h4>
-
-      <div class="panel-list">
-        <div v-if="allPanels.length === 0" class="no-panels">
-          暂无面板
-        </div>
-
-        <div
-          v-for="panel in allPanels"
-          :key="panel.id"
-          class="panel-item"
-        >
-          <div class="panel-info">
-            <span class="panel-title">{{ panel.title }}</span>
-            <span class="panel-location">{{ getLocationName(panel) }}</span>
-          </div>
-          <div class="panel-actions">
-            <select
-              class="location-select"
-              :value="getPanelLocation(panel.id)"
-              @change="(e) => handleMovePanel(panel.id, (e.target as HTMLSelectElement).value as any)"
-            >
-              <option value="center">Center</option>
-              <option value="left">Left</option>
-              <option value="right">Right</option>
-              <option value="bottom">Bottom</option>
-              <option value="floating">Floating</option>
-            </select>
-            <button
-              class="action-btn floating-btn"
-              title="创建浮动窗口"
-              @click="handleCreateFloating(panel.id)"
-            >
-              <ExternalLink :size="14" />
-            </button>
-            <button
-              class="action-btn close-btn"
-              title="关闭面板"
-              @click="handleClosePanel(panel.id)"
-            >
-              <X :size="14" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="layout-section">
-      <h4>浮动窗口</h4>
-
-      <div class="floating-list">
-        <div v-if="floatingPanels.length === 0" class="no-panels">
-          暂无浮动窗口
-        </div>
-
-        <div
-          v-for="panel in floatingPanels"
-          :key="panel.id"
-          class="panel-item floating"
-        >
-          <div class="panel-info">
-            <span class="panel-title">{{ panel.title }}</span>
-            <span class="panel-location">Floating</span>
-          </div>
-          <div class="panel-actions">
-            <button
-              class="action-btn close-btn"
-              title="关闭浮动窗口"
-              @click="handleCloseFloating(panel.id)"
-            >
-              <X :size="14" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="layout-actions">
-      <button class="reset-btn" @click="handleReset">
-        重置布局
+    <div class="dialog-header">
+      <h3>{{ t('workbench.layout') }}</h3>
+      <button class="close-btn" @click="emit('close')">
+        <X :size="16" />
       </button>
+    </div>
+
+    <div class="dialog-body">
+      <!-- 显示/隐藏 -->
+      <div class="section">
+        <div class="section-title">{{ t('workbench.showHideElements') }}</div>
+        <div class="section-content">
+          <label class="checkbox-item">
+            <input
+              v-model="layoutStore.primarySideBarVisible"
+              type="checkbox"
+              @change="layoutStore.togglePrimarySideBar()"
+            >
+            <span>{{ t('workbench.primarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
+          </label>
+          <label class="checkbox-item">
+            <input
+              v-model="layoutStore.secondarySideBarVisible"
+              type="checkbox"
+              @change="layoutStore.toggleSecondarySideBar()"
+            >
+            <span>{{ t('workbench.secondarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="divider" />
+
+      <!-- 尺寸设置 -->
+      <div class="section">
+        <div class="section-title">{{ t('workbench.sizeSettings') }}</div>
+        <div class="section-content">
+          <div class="size-input">
+            <span>{{ t('workbench.primarySideBar') }}</span>
+            <input
+              v-model.number="primarySideBarWidth"
+              type="number"
+              min="100"
+              max="500"
+              @change="layoutStore.setPrimarySideBarWidth(primarySideBarWidth)"
+            >
+          </div>
+          <div class="size-input">
+            <span>{{ t('workbench.secondarySideBar') }}</span>
+            <input
+              v-model.number="secondarySideBarWidth"
+              type="number"
+              min="100"
+              max="500"
+              @change="layoutStore.setSecondarySideBarWidth(secondarySideBarWidth)"
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="divider" />
+
+      <!-- 面板管理 -->
+      <div class="section">
+        <div class="section-title">{{ t('workbench.panelManagement') }}</div>
+        <div class="section-content">
+          <div v-if="allPanels.length === 0" class="empty-state">
+            {{ t('workbench.noPanels') }}
+          </div>
+          <div
+            v-for="panel in allPanels"
+            :key="panel.id"
+            class="panel-item"
+          >
+            <span class="panel-title">{{ panel.title }}</span>
+            <div class="panel-actions">
+              <button
+                v-if="isFloating(panel)"
+                class="action-btn"
+                :title="t('workbench.dockBack')"
+                @click="dockPanel(panel)"
+              >
+                <ExternalLink :size="14" />
+              </button>
+              <button
+                class="action-btn"
+                :title="t('workbench.close')"
+                @click="closePanel(panel)"
+              >
+                <X :size="14" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider" />
+
+      <!-- 浮动窗口 -->
+      <div class="section">
+        <div class="section-title">{{ t('workbench.floatingWindows') }}</div>
+        <div class="section-content">
+          <div v-if="floatingPanels.length === 0" class="empty-state">
+            {{ t('workbench.noFloatingWindows') }}
+          </div>
+          <div
+            v-for="panel in floatingPanels"
+            :key="panel.id"
+            class="panel-item"
+          >
+            <span class="panel-title">{{ panel.title }}</span>
+            <div class="panel-actions">
+              <button
+                class="action-btn"
+                :title="t('workbench.dockBack')"
+                @click="dockPanel(panel)"
+              >
+                <ExternalLink :size="14" />
+              </button>
+              <button
+                class="action-btn"
+                :title="t('workbench.close')"
+                @click="closePanel(panel)"
+              >
+                <X :size="14" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider" />
+
+      <!-- 重置 -->
+      <div class="section">
+        <button class="reset-btn" @click="layoutStore.resetLayout()">
+          <RotateCcw :size="14" />
+          {{ t('workbench.resetLayout') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ExternalLink, X } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { IDockviewPanel } from '@/core/dockview-types'
 
 import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
 
 
+const { t } = useI18n()
 const layoutStore = useLayoutStore()
+
+const primarySideBarWidth = ref(280)
+const secondarySideBarWidth = ref(280)
+
+const emit = defineEmits<{
+  close: []
+}>()
 
 const allPanels = computed(() => layoutStore.getAllPanels())
 const floatingPanels = computed(() => layoutStore.getFloatingPanels())
+
+const floatingPanelIds = computed(() => new Set(floatingPanels.value.map(p => p.id)))
+
+function isFloating(panel: IDockviewPanel): boolean {
+  return floatingPanelIds.value.has(panel.id)
+}
+
+function dockPanel(panel: IDockviewPanel) {
+  const panelApi = layoutStore.dockviewApi?.getPanel(panel.id)
+  if (panelApi) {
+    layoutStore.dockviewApi?.addPanel({
+      id: panel.id,
+      component: panelApi.id,
+      title: panelApi.title ?? panel.id,
+      position: { referencePanel: panel.id }
+    })
+  }
+}
+
+function closePanel(panel: IDockviewPanel) {
+  const panelApi = layoutStore.dockviewApi?.getPanel(panel.id)
+  if (panelApi) {
+    panelApi.api.close()
+  }
+}
 
 function getLocationName(panel: IDockviewPanel): string {
   const location = layoutStore.getPanelConfig(panel.id)?.location || 'center'

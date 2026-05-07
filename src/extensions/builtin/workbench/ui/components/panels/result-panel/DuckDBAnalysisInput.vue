@@ -6,41 +6,41 @@
         size="tiny"
         type="textarea"
         :autosize="{ minRows: 1, maxRows: 3 }"
-        placeholder="输入 DuckDB SQL 分析语句&#10;用 {table} 或 result_temp 引用临时表"
+        :placeholder="t('resultPanel.duckdbPlaceholder')"
         @update:value="emit('update:sql', $event || '')"
         @keydown.enter.ctrl="onExecute"
       />
       <div class="action-btns">
         <NButton size="tiny" type="primary" :loading="loading" @click="onExecute">
           <template #icon><Play :size="12" /></template>
-          执行
+          {{ t('resultPanel.execute') }}
         </NButton>
         <NButton size="tiny" quaternary @click="emit('clear')">
           <template #icon><X :size="12" /></template>
-          清除
+          {{ t('resultPanel.clear') }}
         </NButton>
       </div>
     </div>
     <div class="quick-actions">
-      <span class="label">快捷分析:</span>
+      <span class="label">{{ t('resultPanel.quickAnalysis') }}:</span>
       <NButton size="tiny" text @click="emit('quick', 'count')">
         <template #icon><Hash :size="11" /></template>
-        计数
+        {{ t('resultPanel.count') }}
       </NButton>
       <NButton size="tiny" text @click="emit('quick', 'distinct')">
         <template #icon><List :size="11" /></template>
-        去重
+        {{ t('resultPanel.distinct') }}
       </NButton>
       <NButton size="tiny" text @click="emit('quick', 'group')">
         <template #icon><BarChart3 :size="11" /></template>
-        分组
+        {{ t('resultPanel.groupBy') }}
       </NButton>
       <span class="divider" />
-      <NButton size="tiny" text title="将当前前端过滤结果写入 DuckDB 临时表进行分析" @click="emit('bridgeFilter')">
+      <NButton size="tiny" text :title="t('resultPanel.bridgeFilter')" @click="emit('bridgeFilter')">
         <template #icon><Zap :size="11" /></template>
-        基于前端过滤结果分析
+        {{ t('resultPanel.bridgeFilter') }}
       </NButton>
-      <span class="hint">Ctrl+Enter 执行</span>
+      <span class="hint">{{ t('resultPanel.executeHint') }}</span>
     </div>
   </div>
 </template>
@@ -48,6 +48,9 @@
 <script setup lang="ts">
 import { Play, X, Hash, List, BarChart3, Zap } from 'lucide-vue-next'
 import { NInput, NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   sql: string

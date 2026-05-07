@@ -1,7 +1,7 @@
 <template>
   <div class="settings-panel">
     <div class="settings-header">
-      <h2>设置</h2>
+      <h2>{{ t('workbench.settingsTitle') }}</h2>
     </div>
 
     <div class="settings-nav">
@@ -20,277 +20,277 @@
     <div class="settings-content">
       <!-- 连接池设置 -->
       <div v-if="activeTab === 'connection-pool'" class="settings-section">
-        <h3>连接池设置</h3>
-        
+        <h3>{{ t('workbench.connectionPool') }}</h3>
+
         <div class="setting-item">
-          <label>最大连接数</label>
+          <label>{{ t('workbench.maxConnections') }}</label>
           <input
-            type="number"
             v-model.number="settings.connectionPool.maxConnections"
+            type="number"
             min="1"
             max="100"
           />
-          <span class="hint">控制同时打开的最大数据库连接数</span>
+          <span class="hint">{{ t('workbench.maxConnectionsHint') }}</span>
         </div>
 
         <div class="setting-item">
-          <label>最小空闲连接数</label>
+          <label>{{ t('workbench.minIdleConnections') }}</label>
           <input
-            type="number"
             v-model.number="settings.connectionPool.minIdleConnections"
+            type="number"
             min="0"
             max="50"
           />
-          <span class="hint">保持的最小空闲连接数</span>
+          <span class="hint">{{ t('workbench.minIdleConnectionsHint') }}</span>
         </div>
 
         <div class="setting-item">
-          <label>连接超时时间（秒）</label>
+          <label>{{ t('workbench.connectionTimeout') }}</label>
           <input
-            type="number"
             v-model.number="settings.connectionPool.connectionTimeout"
+            type="number"
             min="1"
             max="300"
           />
-          <span class="hint">建立连接的超时时间</span>
+          <span class="hint">{{ t('workbench.connectionTimeoutHint') }}</span>
         </div>
 
         <div class="setting-item">
-          <label>连接空闲超时（秒）</label>
+          <label>{{ t('workbench.idleTimeout') }}</label>
           <input
-            type="number"
             v-model.number="settings.connectionPool.idleTimeout"
+            type="number"
             min="10"
             max="3600"
           />
-          <span class="hint">连接空闲后自动释放的时间</span>
+          <span class="hint">{{ t('workbench.idleTimeoutHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.connectionPool.autoReconnect" />
-            自动重连
+            <input v-model="settings.connectionPool.autoReconnect" type="checkbox" />
+            {{ t('workbench.autoReconnect') }}
           </label>
-          <span class="hint">连接断开时自动尝试重新连接</span>
+          <span class="hint">{{ t('workbench.autoReconnectHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.connectionPool.healthCheck" />
-            健康检查
+            <input v-model="settings.connectionPool.healthCheck" type="checkbox" />
+            {{ t('workbench.healthCheck') }}
           </label>
-          <span class="hint">定期检查连接健康状态</span>
+          <span class="hint">{{ t('workbench.healthCheckHint') }}</span>
         </div>
 
-        <div class="setting-item" v-if="settings.connectionPool.healthCheck">
-          <label>健康检查间隔（秒）</label>
+        <div v-if="settings.connectionPool.healthCheck" class="setting-item">
+          <label>{{ t('workbench.healthCheckInterval') }}</label>
           <input
-            type="number"
             v-model.number="settings.connectionPool.healthCheckInterval"
+            type="number"
             min="10"
             max="300"
           />
-          <span class="hint">健康检查的时间间隔</span>
+          <span class="hint">{{ t('workbench.healthCheckIntervalHint') }}</span>
         </div>
       </div>
 
       <!-- 操作历史设置 -->
       <div v-if="activeTab === 'history'" class="settings-section">
-        <h3>操作历史设置</h3>
-        
+        <h3>{{ t('workbench.historySettings') }}</h3>
+
         <div class="setting-item">
-          <label>保留历史记录数量</label>
+          <label>{{ t('workbench.maxHistoryItems') }}</label>
           <input
-            type="number"
             v-model.number="settings.history.maxHistoryItems"
+            type="number"
             min="10"
             max="1000"
           />
-          <span class="hint">最大保留的历史记录数量</span>
+          <span class="hint">{{ t('workbench.maxHistoryItemsHint') }}</span>
         </div>
 
         <div class="setting-item">
-          <label>历史记录保留天数</label>
+          <label>{{ t('workbench.retentionDays') }}</label>
           <input
-            type="number"
             v-model.number="settings.history.retentionDays"
+            type="number"
             min="1"
             max="365"
           />
-          <span class="hint">历史记录保留的天数</span>
+          <span class="hint">{{ t('workbench.retentionDaysHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.history.enableHistory" />
-            启用操作历史
+            <input v-model="settings.history.enableHistory" type="checkbox" />
+            {{ t('workbench.enableHistory') }}
           </label>
-          <span class="hint">记录用户的操作历史</span>
+          <span class="hint">{{ t('workbench.enableHistoryHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.history.includeSQL" />
-            记录 SQL 语句
+            <input v-model="settings.history.includeSQL" type="checkbox" />
+            {{ t('workbench.includeSQL') }}
           </label>
-          <span class="hint">在历史记录中包含执行的 SQL 语句</span>
+          <span class="hint">{{ t('workbench.includeSQLHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.history.enableUndo" />
-            启用撤销/重做
+            <input v-model="settings.history.enableUndo" type="checkbox" />
+            {{ t('workbench.enableUndo') }}
           </label>
-          <span class="hint">支持操作的撤销和重做</span>
+          <span class="hint">{{ t('workbench.enableUndoHint') }}</span>
         </div>
 
         <button class="btn-clear-history" @click="clearHistory">
           <Trash2 :size="14" />
-          清除所有历史记录
+          {{ t('workbench.clearAllHistory') }}
         </button>
       </div>
 
       <!-- 健康监控设置 -->
       <div v-if="activeTab === 'monitoring'" class="settings-section">
-        <h3>健康监控设置</h3>
-        
+        <h3>{{ t('workbench.monitoringSettings') }}</h3>
+
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.monitoring.enableMonitoring" />
-            启用健康监控
+            <input v-model="settings.monitoring.enableMonitoring" type="checkbox" />
+            {{ t('workbench.enableMonitoring') }}
           </label>
-          <span class="hint">监控数据库连接和系统状态</span>
+          <span class="hint">{{ t('workbench.enableMonitoringHint') }}</span>
         </div>
 
-        <div class="setting-item" v-if="settings.monitoring.enableMonitoring">
-          <label>监控更新间隔（秒）</label>
+        <div v-if="settings.monitoring.enableMonitoring" class="setting-item">
+          <label>{{ t('workbench.updateInterval') }}</label>
           <input
-            type="number"
             v-model.number="settings.monitoring.updateInterval"
+            type="number"
             min="1"
             max="60"
           />
-          <span class="hint">监控数据更新的时间间隔</span>
+          <span class="hint">{{ t('workbench.updateIntervalHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.monitoring.enableAlerts" />
-            启用告警通知
+            <input v-model="settings.monitoring.enableAlerts" type="checkbox" />
+            {{ t('workbench.enableAlerts') }}
           </label>
-          <span class="hint">当连接状态发生变化时发送通知</span>
+          <span class="hint">{{ t('workbench.enableAlertsHint') }}</span>
         </div>
 
-        <div class="setting-item" v-if="settings.monitoring.enableAlerts">
+        <div v-if="settings.monitoring.enableAlerts" class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.monitoring.alertOnDisconnect" />
-            连接断开时告警
+            <input v-model="settings.monitoring.alertOnDisconnect" type="checkbox" />
+            {{ t('workbench.alertOnDisconnect') }}
           </label>
         </div>
 
-        <div class="setting-item" v-if="settings.monitoring.enableAlerts">
+        <div v-if="settings.monitoring.enableAlerts" class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.monitoring.alertOnSlowQuery" />
-            慢查询告警
+            <input v-model="settings.monitoring.alertOnSlowQuery" type="checkbox" />
+            {{ t('workbench.alertOnSlowQuery') }}
           </label>
-          <span class="hint">查询执行时间超过阈值时告警</span>
+          <span class="hint">{{ t('workbench.alertOnSlowQueryHint') }}</span>
         </div>
 
-        <div class="setting-item" v-if="settings.monitoring.alertOnSlowQuery">
-          <label>慢查询阈值（毫秒）</label>
+        <div v-if="settings.monitoring.alertOnSlowQuery" class="setting-item">
+          <label>{{ t('workbench.slowQueryThreshold') }}</label>
           <input
-            type="number"
             v-model.number="settings.monitoring.slowQueryThreshold"
+            type="number"
             min="100"
             max="30000"
           />
-          <span class="hint">超过此时间的查询被视为慢查询</span>
+          <span class="hint">{{ t('workbench.slowQueryThresholdHint') }}</span>
         </div>
       </div>
 
       <!-- 性能设置 -->
       <div v-if="activeTab === 'performance'" class="settings-section">
-        <h3>性能设置</h3>
-        
+        <h3>{{ t('workbench.performanceSettings') }}</h3>
+
         <div class="setting-item">
-          <label>虚拟滚动缓冲区大小</label>
+          <label>{{ t('workbench.virtualScrollBuffer') }}</label>
           <input
-            type="number"
             v-model.number="settings.performance.virtualScrollBuffer"
+            type="number"
             min="1"
             max="20"
           />
-          <span class="hint">虚拟滚动的缓冲区大小（项数）</span>
+          <span class="hint">{{ t('workbench.virtualScrollBufferHint') }}</span>
         </div>
 
         <div class="setting-item">
-          <label>缓存最大大小（MB）</label>
+          <label>{{ t('workbench.maxCacheSize') }}</label>
           <input
-            type="number"
             v-model.number="settings.performance.maxCacheSize"
+            type="number"
             min="10"
             max="500"
           />
-          <span class="hint">内存缓存的最大大小</span>
+          <span class="hint">{{ t('workbench.maxCacheSizeHint') }}</span>
         </div>
 
         <div class="setting-item">
-          <label>缓存过期时间（分钟）</label>
+          <label>{{ t('workbench.cacheExpireMinutes') }}</label>
           <input
-            type="number"
             v-model.number="settings.performance.cacheExpireMinutes"
+            type="number"
             min="5"
             max="1440"
           />
-          <span class="hint">缓存数据的过期时间</span>
+          <span class="hint">{{ t('workbench.cacheExpireMinutesHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.performance.enableLazyLoad" />
-            启用懒加载
+            <input v-model="settings.performance.enableLazyLoad" type="checkbox" />
+            {{ t('workbench.enableLazyLoad') }}
           </label>
-          <span class="hint">只在需要时加载数据</span>
+          <span class="hint">{{ t('workbench.enableLazyLoadHint') }}</span>
         </div>
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.performance.enablePreload" />
-            启用预加载
+            <input v-model="settings.performance.enablePreload" type="checkbox" />
+            {{ t('workbench.enablePreload') }}
           </label>
-          <span class="hint">提前加载相邻节点的数据</span>
+          <span class="hint">{{ t('workbench.enablePreloadHint') }}</span>
         </div>
       </div>
 
       <!-- 快捷键设置 -->
       <div v-if="activeTab === 'shortcuts'" class="settings-section">
-        <h3>快捷键设置</h3>
-        
+        <h3>{{ t('workbench.shortcutsSettings') }}</h3>
+
         <div class="shortcuts-list">
           <div v-for="shortcut in shortcuts" :key="shortcut.key" class="shortcut-item">
             <span class="shortcut-name">{{ shortcut.name }}</span>
             <input
-              type="text"
               v-model="shortcut.value"
+              type="text"
               class="shortcut-input"
               readonly
             />
-            <button class="btn-edit-shortcut">修改</button>
+            <button class="btn-edit-shortcut">{{ t('workbench.editShortcut') }}</button>
           </div>
         </div>
 
         <button class="btn-reset-shortcuts">
           <RotateCcw :size="14" />
-          重置为默认
+          {{ t('workbench.resetShortcuts') }}
         </button>
       </div>
 
       <!-- 外观设置 -->
       <div v-if="activeTab === 'appearance'" class="settings-section">
-        <h3>外观设置</h3>
-        
+        <h3>{{ t('workbench.appearanceSettings') }}</h3>
+
         <div class="setting-item">
-          <label>主题</label>
+          <label>{{ t('workbench.theme') }}</label>
           <div class="theme-options">
             <button
               v-for="theme in themes"
@@ -306,7 +306,7 @@
         </div>
 
         <div class="setting-item">
-          <label>字体大小</label>
+          <label>{{ t('workbench.fontSize') }}</label>
           <select v-model="settings.appearance.fontSize">
             <option :value="12">12px</option>
             <option :value="13">13px</option>
@@ -318,23 +318,22 @@
 
         <div class="setting-item">
           <label>
-            <input type="checkbox" v-model="settings.appearance.compactMode" />
-            紧凑模式
+            <input v-model="settings.appearance.compactMode" type="checkbox" />
+            {{ t('workbench.compactMode') }}
           </label>
-          <span class="hint">减少组件间距，更紧凑的布局</span>
+          <span class="hint">{{ t('workbench.compactModeHint') }}</span>
         </div>
       </div>
     </div>
 
     <div class="settings-footer">
-      <button class="btn-cancel" @click="resetSettings">取消</button>
-      <button class="btn-save" @click="saveSettings">保存设置</button>
+      <button class="btn-cancel" @click="resetSettings">{{ t('common.cancel') }}</button>
+      <button class="btn-save" @click="saveSettings">{{ t('workbench.saveSettings') }}</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
 import {
   Database,
   History,
@@ -345,32 +344,39 @@ import {
   Trash2,
   RotateCcw
 } from 'lucide-vue-next'
+import { ref, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+import type { Theme } from '@/stores/config'
+import { useAppStore } from '@/stores/useAppStore'
+
+const { t } = useI18n()
 
 const tabs = [
-  { id: 'connection-pool', label: '连接池', icon: Database },
-  { id: 'history', label: '操作历史', icon: History },
-  { id: 'monitoring', label: '健康监控', icon: Activity },
-  { id: 'performance', label: '性能', icon: Zap },
-  { id: 'shortcuts', label: '快捷键', icon: Keyboard },
-  { id: 'appearance', label: '外观', icon: Palette }
+  { id: 'connection-pool', label: t('workbench.connectionPool'), icon: Database },
+  { id: 'history', label: t('workbench.historySettings'), icon: History },
+  { id: 'monitoring', label: t('workbench.monitoringSettings'), icon: Activity },
+  { id: 'performance', label: t('workbench.performanceSettings'), icon: Zap },
+  { id: 'shortcuts', label: t('workbench.shortcutsSettings'), icon: Keyboard },
+  { id: 'appearance', label: t('workbench.appearanceSettings'), icon: Palette }
 ]
 
 const activeTab = ref('connection-pool')
 
 const themes = [
-  { id: 'light', name: '浅色' },
-  { id: 'dark', name: '深色' },
-  { id: 'system', name: '跟随系统' }
+  { id: 'light', name: t('workbench.lightTheme') },
+  { id: 'dark', name: t('workbench.darkTheme') },
+  { id: 'system', name: t('workbench.systemTheme') }
 ]
 
 const shortcuts = reactive([
-  { key: 'newConnection', name: '新建连接', value: 'Ctrl+N' },
-  { key: 'disconnect', name: '断开连接', value: 'Ctrl+D' },
-  { key: 'refresh', name: '刷新', value: 'Ctrl+R' },
-  { key: 'search', name: '搜索', value: 'Ctrl+F' },
-  { key: 'beginTransaction', name: '开始事务', value: 'Ctrl+B' },
-  { key: 'commitTransaction', name: '提交事务', value: 'Ctrl+Shift+B' },
-  { key: 'rollbackTransaction', name: '回滚事务', value: 'Ctrl+Shift+R' }
+  { key: 'newConnection', name: t('workbench.newConnectionTooltip'), value: 'Ctrl+N' },
+  { key: 'disconnect', name: t('workbench.disconnectTooltip'), value: 'Ctrl+D' },
+  { key: 'refresh', name: t('workbench.refreshTooltip'), value: 'Ctrl+R' },
+  { key: 'search', name: t('workbench.searchTooltip'), value: 'Ctrl+F' },
+  { key: 'beginTransaction', name: t('workbench.beginTransaction'), value: 'Ctrl+B' },
+  { key: 'commitTransaction', name: t('workbench.commitTooltip'), value: 'Ctrl+Shift+B' },
+  { key: 'rollbackTransaction', name: t('workbench.rollbackTooltip'), value: 'Ctrl+Shift+R' }
 ])
 
 const settings = reactive({
@@ -413,8 +419,8 @@ const settings = reactive({
 })
 
 function clearHistory() {
-  if (confirm('确定要清除所有历史记录吗？')) {
-    console.log('清除历史记录')
+  if (confirm(t('workbench.confirmClearHistory'))) {
+    console.log('clear history')
   }
 }
 
@@ -458,18 +464,30 @@ function resetSettings() {
 }
 
 function saveSettings() {
-  localStorage.setItem('rdata-station-settings', JSON.stringify(settings))
-  console.log('设置已保存')
+  const appStore = useAppStore()
+  const newTheme = settings.appearance.theme as Theme
+  appStore.setTheme(newTheme)
+
+  const { appearance, ...restSettings } = settings
+  localStorage.setItem('rdata-station-settings', JSON.stringify(restSettings))
+  console.log('[WorkbenchSettings] settings saved')
 }
 
 function loadSettings() {
+  try {
+    const appStore = useAppStore()
+    settings.appearance.theme = appStore.effectiveTheme
+  } catch {
+    /* ignore */
+  }
+
   const saved = localStorage.getItem('rdata-station-settings')
   if (saved) {
     try {
       const savedSettings = JSON.parse(saved)
       Object.assign(settings, savedSettings)
     } catch {
-      console.error('加载设置失败')
+      console.error('[WorkbenchSettings] failed to load settings')
     }
   }
 }

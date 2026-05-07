@@ -1,0 +1,389 @@
+<template>
+  <div class="table-profile-panel" :class="{ dark: uiStore.isDark }">
+    <div v-if="isLoading" class="profile-loading">
+      <NSpin size="small" />
+      <span class="loading-text">{{ t('resultPanel.probing', { table: tableName }) }}...</span>
+    </div>
+
+    <div v-else-if="error" class="profile-error">
+      <AlertTriangle :size="20" class="error-icon" />
+      <span class="error-text">{{ error }}</span>
+      <NButton size="tiny" quaternary @click="retry">{{ t('navigator.retry') }}</NButton>
+    </div>
+
+    <div v-else-if="profile" class="profile-content">
+      <div class="profile-header">
+        <div class="profile-title-row">
+          <Table :size="16" class="title-icon" />
+          <span class="profile-title">{{ profile.table_name }}</span>
+          <NTag :bordered="false" size="tiny" type="info">{{ profile.db_type }}</NTag>
+          <NTag v-if="profile.row_count != null" :bordered="false" size="tiny">
+            {{ profile.row_count.toLocaleString() }} {{ t('resultPanel.rowCount') }}
+          </NTag>
+        </div>
+        <div class="profile-header-actions">
+          <NButton
+            size="tiny"
+            :type="isEvaluating ? undefined : 'primary'"
+            :loading="isEvaluating"
+            ghost
+            @click="evaluateQuality"
+          >
+            {{ isEvaluating ? t('resultPanel.evaluating') : t('resultPanel.qualityAssessment') }}
+          </NButton>
+        </div>
+      </div>
+
+      <div v-if="tableQuality" class="quality-summary-bar">
+        <div class="quality-overall">
+          <span class="quality-score-big" :style="{ color: scoreColor(tableQuality.overall_score) }">
+            {{ Math.round(tableQuality.overall_score) }}
+          </span>
+          <span class="quality-level-big" :style="{ color: scoreColor(tableQuality.overall_score) }">
+            {{ tableQuality.level }}
+          </span>
+          <span class="quality-desc">{{ tableQuality.summary }}</span>
+        </div>
+      </div>
+
+      <div v-if="evalError" class="eval-error">
+        <span>{{ evalError }}</span>
+      </div>
+
+      <div class="profile-body">
+        <NDataTable
+          :columns="columnDefs"
+          :data="profile.columns"
+          :bordered="false"
+          :single-line="false"
+          size="small"
+          :max-height="'calc(100vh - 200px)'"
+          virtual-scroll
+        />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { AlertTriangle, Table } from 'lucide-vue-next'
+import { NButton, NSpin, NTag, NDataTable } from 'naive-ui'
+import { onMounted, onUnmounted, ref, h } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+import { useUiStore } from '@/shared/stores/ui'
+
+import { getTableProfile, batchEvaluateColumns } from '../../services/result-analysis'
+
+import type { TableProfile, TableColumnMeta, TableQuality } from '../../services/result-analysis'
+import type { DataTableColumn } from 'naive-ui'
+
+interface Props {
+  connId?: string
+  dbType?: string
+  database?: string
+  schema?: string
+  table?: string
+}
+
+const props = defineProps<Props>()
+
+const { t } = useI18n()
+const uiStore = useUiStore()
+
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+const profile = ref<TableProfile | null>(null)
+const tableName = ref(props.table ?? '')
+
+const isEvaluating = ref(false)
+const tableQuality = ref<TableQuality | null>(null)
+const evalError = ref<string | null>(null)
+
+const columnDefs: DataTableColumn<TableColumnMeta>[] = [
+  {
+    title: '#',
+    key: 'ordinal_position',
+    width: 40,
+    render: (row) => row.ordinal_position
+  },
+  {
+    title: t('resultPanel.column'),
+    key: 'column_name',
+    render: (row) => {
+      return h('div', { style: { display: 'flex', alignItems: 'center', gap: '4px' } }, [
+        row.is_primary_key
+          ? h('span', { style: { color: '#f0a020', fontSize: '10px', fontWeight: '600' } }, 'PK')
+          : null,
+        h('span', { style: { fontFamily: 'monospace', fontSize: '12px', cursor: 'pointer', color: 'var(--primary-color)' }, onClick: () => emitColumnClick(row) }, row.column_name)
+      ])
+    }
+  },
+  {
+    title: t('resultPanel.type'),
+    key: 'data_type',
+    width: 120,
+    render: (row) => {
+      return h('span', { style: { fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' } }, row.data_type)
+    }
+  },
+  {
+    title: t('resultPanel.nullable'),
+    key: 'is_nullable',
+    width: 50,
+    align: 'center',
+    render: (row) => {
+      return row.is_nullable
+        ? h('span', { style: { color: 'var(--text-tertiary)' } }, 'YES')
+        : h('span', { style: { color: 'var(--text-primary)', fontWeight: '500' } }, 'NO')
+    }
+  },
+  {
+    title: t('resultPanel.qualityScore'),
+    key: '_quality',
+    width: 84,
+    align: 'center',
+    render: (row) => {
+      const entry = tableQuality.value?.column_scores?.find(
+        (e) => e.column_name === row.column_name
+      )
+      if (!entry) {
+        return h('span', { style: { fontSize: '10px', color: 'var(--text-tertiary)' } }, '\u2014')
+      }
+      return h('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' } }, [
+        h('span', {
+          style: {
+            fontWeight: '700',
+            fontSize: '13px',
+            color: scoreColor(entry.quality_score),
+          }
+        }, String(Math.round(entry.quality_score))),
+        h('span', {
+          style: {
+            fontSize: '9px',
+            color: scoreColor(entry.quality_score),
+            opacity: '0.8',
+          }
+        }, entry.level),
+      ])
+    }
+  }
+]
+
+async function loadProfile(
+  connId: string,
+  dbType: string,
+  database: string,
+  schema: string,
+  table: string
+): Promise<void> {
+  if (isLoading.value) return
+
+  isLoading.value = true
+  error.value = null
+  tableName.value = table
+
+  try {
+    const result = await getTableProfile({ conn_id: connId, db_type: dbType, database, schema, table })
+    profile.value = result
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = `探查失败: ${msg}`
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function retry(): void {
+  if (props.connId && props.dbType && props.database && props.schema && props.table) {
+    loadProfile(props.connId, props.dbType, props.database, props.schema, props.table)
+  }
+}
+
+function scoreColor(score: number): string {
+  if (score >= 85) return '#1a7a1a'
+  if (score >= 70) return '#1a6db5'
+  if (score >= 50) return '#b57a1a'
+  if (score >= 30) return '#b54a1a'
+  return '#b51a1a'
+}
+
+async function evaluateQuality(): Promise<void> {
+  if (
+    !props.connId ||
+    !props.database ||
+    !props.schema ||
+    !props.table ||
+    isEvaluating.value
+  )
+    return
+
+  isEvaluating.value = true
+  evalError.value = null
+  tableQuality.value = null
+
+  try {
+    const result = await batchEvaluateColumns({
+      conn_id: props.connId,
+      database: props.database,
+      schema: props.schema,
+      table: props.table,
+    })
+    tableQuality.value = result
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    evalError.value = `质量评估失败: ${msg}`
+  } finally {
+    isEvaluating.value = false
+  }
+}
+
+function emitColumnClick(col: TableColumnMeta): void {
+  window.dispatchEvent(new CustomEvent('table-column-click', {
+    detail: {
+      column: col.column_name,
+      dataType: col.data_type,
+      table: props.table,
+      database: props.database,
+      schema: props.schema,
+      connId: props.connId,
+    }
+  }))
+}
+
+function handleOpenProfile(event: Event): void {
+  const detail = (event as CustomEvent).detail as {
+    connId: string
+    dbType: string
+    database: string
+    schema: string
+    table: string
+  }
+  if (detail?.connId && detail?.table) {
+    loadProfile(
+      detail.connId,
+      detail.dbType ?? 'unknown',
+      detail.database ?? '',
+      detail.schema ?? '',
+      detail.table
+    )
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('open-table-profile', handleOpenProfile)
+  if (props.connId && props.dbType && props.database && props.schema && props.table) {
+    loadProfile(props.connId, props.dbType, props.database, props.schema, props.table)
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('open-table-profile', handleOpenProfile)
+})
+</script>
+
+<style scoped>
+.table-profile-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.profile-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+.loading-text { font-size: 11px; }
+
+.profile-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  color: var(--danger-color);
+  padding: 24px 16px;
+  text-align: center;
+}
+.error-icon { opacity: 0.7; }
+.error-text { font-size: 11px; word-break: break-all; }
+
+.profile-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.profile-header {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+.profile-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.title-icon { color: var(--primary-color); flex-shrink: 0; }
+.profile-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.profile-schema { font-size: 10px; color: var(--text-tertiary); display: block; margin-top: 2px; }
+.profile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.quality-summary-bar {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+.quality-overall {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.quality-score-big {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.quality-level-big {
+  font-size: 13px;
+  font-weight: 600;
+}
+.quality-desc {
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.eval-error {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: 10px;
+  color: #b51a1a;
+  background: #fff0f0;
+}
+
+.profile-body {
+  flex: 1;
+  overflow: auto;
+}
+
+.table-profile-panel.dark .profile-body :deep(.n-data-table) {
+  --n-td-color: var(--bg-primary);
+  --n-th-color: var(--bg-secondary);
+}
+</style>

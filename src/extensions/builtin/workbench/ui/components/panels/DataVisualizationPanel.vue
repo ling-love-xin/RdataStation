@@ -5,7 +5,7 @@
       <div class="toolbar-left">
         <span class="viz-title">
           <BarChart3 :size="18" />
-          数据可视化
+          {{ t('workbench.dataVisualization') }}
         </span>
       </div>
       <div class="toolbar-center">
@@ -14,25 +14,25 @@
             <template #icon>
               <BarChart3 :size="14" />
             </template>
-            柱状图
+            {{ t('workbench.barChart') }}
           </NRadioButton>
           <NRadioButton value="line">
             <template #icon>
               <LineChart :size="14" />
             </template>
-            折线图
+            {{ t('workbench.lineChart') }}
           </NRadioButton>
           <NRadioButton value="pie">
             <template #icon>
               <PieChart :size="14" />
             </template>
-            饼图
+            {{ t('workbench.pieChart') }}
           </NRadioButton>
           <NRadioButton value="scatter">
             <template #icon>
               <ScatterChart :size="14" />
             </template>
-            散点图
+            {{ t('workbench.scatterChart') }}
           </NRadioButton>
         </NRadioGroup>
       </div>
@@ -40,14 +40,14 @@
         <NSelect
           v-model:value="xAxisColumn"
           size="small"
-          placeholder="X轴列"
+          :placeholder="t('workbench.xAxisColumn')"
           :options="columnOptions"
           style="width: 120px"
         />
         <NSelect
           v-model:value="yAxisColumn"
           size="small"
-          placeholder="Y轴列"
+          :placeholder="t('workbench.yAxisColumn')"
           :options="columnOptions"
           style="width: 120px"
         />
@@ -58,23 +58,23 @@
     <div class="chart-container">
       <div ref="chartRef" class="chart-wrapper" />
       <div v-if="!hasData" class="empty-state">
-        <NEmpty description="请选择数据列以生成图表" />
+        <NEmpty :description="t('workbench.selectColumnsToGenerate')" />
       </div>
     </div>
 
     <!-- 数据摘要 -->
     <div v-if="hasData" class="data-summary">
       <NDescriptions :column="4" size="small" bordered>
-        <NDescriptionsItem label="数据行数">
+        <NDescriptionsItem :label="t('workbench.dataRows')">
           {{ data.length }}
         </NDescriptionsItem>
-        <NDescriptionsItem label="X轴列">
+        <NDescriptionsItem :label="t('workbench.xAxisColumn')">
           {{ xAxisColumn || '-' }}
         </NDescriptionsItem>
-        <NDescriptionsItem label="Y轴列">
+        <NDescriptionsItem :label="t('workbench.yAxisColumn')">
           {{ yAxisColumn || '-' }}
         </NDescriptionsItem>
-        <NDescriptionsItem label="图表类型">
+        <NDescriptionsItem :label="t('workbench.chartType')">
           {{ chartTypeName }}
         </NDescriptionsItem>
       </NDescriptions>
@@ -95,6 +95,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart3, LineChart, PieChart, ScatterChart } from 'lucide-vue-next'
 import { NRadioGroup, NRadioButton, NSelect, NEmpty, NDescriptions, NDescriptionsItem } from 'naive-ui'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { EChartsOption } from 'echarts'
 
@@ -117,6 +118,8 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const { t } = useI18n()
+
 // 图表类型
 const chartType = ref<'bar' | 'line' | 'pie' | 'scatter'>('bar')
 const xAxisColumn = ref('')
@@ -138,10 +141,10 @@ const hasData = computed(() => {
 
 const chartTypeName = computed(() => {
   const names: Record<string, string> = {
-    bar: '柱状图',
-    line: '折线图',
-    pie: '饼图',
-    scatter: '散点图'
+    bar: t('workbench.barChart'),
+    line: t('workbench.lineChart'),
+    pie: t('workbench.pieChart'),
+    scatter: t('workbench.scatterChart')
   }
   return names[chartType.value] || chartType.value
 })

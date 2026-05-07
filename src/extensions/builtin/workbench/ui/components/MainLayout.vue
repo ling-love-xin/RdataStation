@@ -12,8 +12,8 @@
         <!-- 工作台内容将从导航栏启动 -->
         <div class="empty-workbench">
           <div class="empty-content">
-            <p class="empty-title">欢迎使用 RdataStation</p>
-            <p class="empty-subtitle">从左侧导航栏选择数据库对象开始工作</p>
+            <p class="empty-title">{{ t('workbench.welcomeToRdataStation') }}</p>
+            <p class="empty-subtitle">{{ t('workbench.selectDbObjectToStart') }}</p>
           </div>
         </div>
       </div>
@@ -22,8 +22,12 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 import DatabaseNavigator from '@/extensions/builtin/database/ui/components/database-navigator.vue'
 import { useUiStore } from '@/shared/stores/ui'
+
+const { t } = useI18n()
 
 // UI Store
 const uiStore = useUiStore()

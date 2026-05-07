@@ -5,7 +5,7 @@
   >
     <div v-if="isExpanded && isVisible" class="sidebar-header">
       <span class="sidebar-title">{{ currentTitle }}</span>
-      <button class="sidebar-close" :title="'关闭'" @click="handleClose">
+      <button class="sidebar-close" :title="t('workbench.close')" @click="handleClose">
         <X :size="16" />
       </button>
     </div>
@@ -26,6 +26,7 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
 import { computed, ref, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { panelRegistry } from '@/core/panel-registry'
 
@@ -37,6 +38,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const { t } = useI18n()
 const layoutStore = useLayoutStore()
 
 const isResizing = ref(false)

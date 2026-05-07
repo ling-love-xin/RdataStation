@@ -1,274 +1,135 @@
 # RdataStation 洞察体系 — 实施总体规划
 
-> 版本：v1.0
+> 版本：v10.0
 > 创建日期：2026-05-07
-> 状态：🚀 Phase 1 进行中
-> 负责人：开发团队
+> 最后更新：2026-05-07
+> 状态：✅ 全阶段完成（含端到端表列探查联动 + 过渡动画 + 质量评分 + 表级质量聚合）
 
 ---
 
 ## 一、文档索引
 
-| 文档 | 路径 | 说明 |
-|------|------|------|
-| 实施总体规划（本文档） | `docs/frontend/INSIGHT-SYSTEM-PLAN.md` | 总体规划、阶段划分、架构决策 |
-| 技术架构文档 | `docs/frontend/INSIGHT-ARCHITECTURE.md` | 数据流、组件树、API 契约、类型系统 |
-| 开发进度跟踪 | `docs/frontend/INSIGHT-DEV-PROGRESS.md` | 每日进度、已完成/待完成清单、变更日志 |
+| 文档 | 路径 | 版本 |
+|------|------|:--:|
+| 实施总体规划（本文档） | `docs/frontend/INSIGHT-SYSTEM-PLAN.md` | v10.0 |
+| 技术架构文档 | `docs/frontend/INSIGHT-ARCHITECTURE.md` | v10.0 |
+| 开发进度跟踪 | `docs/frontend/INSIGHT-DEV-PROGRESS.md` | v10.0 |
 
 ---
 
-## 二、洞察体系全景回顾
-
-### 2.1 三级洞察定位
+## 二、洞察体系全景
 
 ```
-┌──────────────────────────────────────────────┐
-│              第一级：列洞察 (Lightweight)       │
-│  触发：点击结果集列头 | 容器：右侧洞察面板       │
-│  引擎：本地 DuckDB 毫秒级 | 用户：数据分析师     │
-├──────────────────────────────────────────────┤
-│              第二级：表探查 (Medium)            │
-│  触发：导航树右键"快速探查" | 容器：中央标签页   │
-│  引擎：information_schema + DuckDB | 用户：分析师/工程师 │
-├──────────────────────────────────────────────┤
-│              第三级：Schema 洞察 (Heavyweight) │
-│  触发：Schema 节点右键 | 容器：中央标签页        │
-│  引擎：information_schema + 规则引擎 | 用户：工程师/架构师 │
-└──────────────────────────────────────────────┘
+第一级：列洞察 ✅ → 右侧面板 NTabs { 列洞察 | 多列分析 }
+第二级：表探查 ✅ → 中央标签页 + 导航树右键
+第三级：Schema 洞察 ⏳ → 规则引擎 + 质量评分
 ```
 
-### 2.2 支持的六种列数据类型
+### 核心设计原则
 
-| 类型 | Phase 1 | Phase 2 | 核心指标 |
-|------|---------|---------|---------|
-| 数值 (Numeric) | ✅ | — | 均值/中位数/标准差/偏度/分箱直方图 |
-| 文本/枚举 (Text) | ✅ | — | 去重数/频率分布 Top5/长度范围 |
-| 日期时间 (DateTime) | ✅ | — | 最早/最晚/时间跨度/月度分布 |
-| 布尔 (Boolean) | ✅ | — | 真值率/假值率 |
-| JSON (Json) | ❌ | ✅ | 嵌套深度/顶层键分布 |
-| 数组 (Array) | ❌ | ✅ | 平均长度/空数组比例/元素频率 |
-| IP 地址 (Ip) | ❌ | ✅ | IPv4/IPv6 比例/IP 段分布 |
+> **SQL 定义是数据，Rust 是执行引擎，TOML 是合约**
 
 ---
 
-## 三、Phase 划分与里程碑
+## 三、Phase 划分
 
-### Phase 1：第一级列洞察 MVP（目标：端到端可用）
+### Phase 1：列洞察 MVP + 持久化 + 规则引擎 ✅
 
-**里程碑**：用户在结果集中点击列头 → 右侧洞察面板展示统计信息
+- 13 个内置 TOML 规则（`insight-rules/`，`include_dir!` 嵌入）
+- `insight/` 模块：`RuleRegistry` + `RuleExecutor` + `OnceLock<RwLock<>>`
+- DuckDB SQL 模板全部与 Rust 代码分离
+- DuckDB + SQLite 双库持久化 + 版本链 + 三级存储防护
+- 前端 `ColumnInsightPanel.vue` 四栏折叠 + Save/存储底栏
+- 3 个规则引擎 Tauri Commands
 
-**交付物**：
-1. 后端 `ColumnStats` 扩展（null_rate、DateTimeStats、BooleanStats）
-2. 前端 `ColumnInsightPanel.vue` 组件（上下分栏 + NCollapse）
-3. `useInsightStore` Pinia Store
-4. Dockview 右侧面板注册
-5. 事件连线（列头点击 → 面板渲染）
+### Phase 1.5：多列分析 + 用户自定义规则 ✅
 
-**预估工作量**：2-3 天
-**状态**：🚀 进行中
+- 前端 `ColumnInsightPanel` → `NTabs`：列洞察 / 多列分析
+- 新增 `MultiColumnView.vue`：列选择器 + 规则列表 + 执行 + 结果渲染
+- 4 条多列规则：correlation / grouped-stats / cross-tab / scatter-sample
+- `open_project_by_path` 自动扫描 `{project}/.RSMETA/insight-rules/`
+- 用户自定义规则即插即用（同名覆盖内置）
+- **P0打通修复**: MultiColumnView 改用 insightStore, Store 新增 executeMultiRule/loadMultiRules/cleanupOldSnapshots, 清理按钮 + 适用规则推荐标签
 
-### Phase 2：第一级列洞察增强 + 表探查
+### Phase 2：表探查 (Table Profiling) ✅
 
-**里程碑**：六种类型全覆盖 + 导航树快速探查入口
+- 后端 `TableProfile` struct：`table_name` / `db_type` / `columns: Vec<TableColumnMeta>` / `row_count`
+- 查询 `information_schema.columns` 获取列元数据（列名、类型、可空性、主键）
+- 3 条 table-level TOML 规则：`table-row-count` / `table-column-overview` / `table-null-overview`
+- 前端 `TableProfileView.vue`：NDataTable 列元数据表格 + NTag 行数/dbType
+- 导航树表节点右键 → "快速探查" → `CustomEvent('open-table-profile')` → DockviewLayout 动态创建面板
+- 去重机制：同表重复点击聚焦已有面板
+- 骨架屏优化：ColumnInsightPanel 加载中显示 6 行脉冲动画
 
-**交付物**：
-1. JSON/Array/IP 类型统计支持
-2. 洞察面板中可点击过滤联动
-3. `get_table_profile` Tauri Command
-4. `TableProfileView.vue` 中央标签页
-5. 导航树右键菜单"快速探查"入口
+### 优化增强 ✅
 
-**预估工作量**：3-4 天
-**状态**：⏳ 待开始
+- **版本历史对比**：ColumnInsightPanel 新增"历史"Tab
+  - 版本列表（date + checksum）点击加载完整快照数据
+  - Diff 面板：旧值 → 新值，绿增/红减/灰不变颜色
+  - 后端 `get_insight_version_detail` 从 DuckDB 取单个版本 `ColumnInsightFull`
+- **导出功能**：
+  - JSON 导出：Download 按钮 → `insight-{col}-{date}.json` 文件下载
+  - Markdown 导出：`exportMarkdown()` → 表格格式 `.md` 文件下载
+- **面板联动**：
+  - TableProfileView 列名可点击（蓝色 + cursor:pointer）
+  - `table-column-click` CustomEvent → `handleTableColumnClick` → `loadColumnFromTable`
+  - 后端 `profile_column_from_table` 合并命令（取样→DuckDB→洞察）
+  - 端到端链路：TableProfile → SqlService取样 → DuckDB temp → ColumnInsightFull → 面板
+- **过渡动画**：
+  - NTabs `tab-fade-in` 0.18s（opacity 0.6→1 + translateY 3px→0）
 
-### Phase 3：Schema 宏观洞察
+> **待办**：DuckDB 实例统一（当前 ResultService 与 DBI DuckDBEngine 各持一个 DuckDB 实例，计划统一为全局单例）⏳
 
-**里程碑**：Schema 级别质量评分与全景视图
+### Phase 3：Schema 洞察 + 质量评分 🟡 60%
 
-**交付物**：
-1. `schema_insight_service.rs` 规则引擎
-2. `SchemaInsightView.vue` 中央标签页
-3. 质量评分仪表盘（分项得分 + 总分）
-4. 表关系发现与可视化
-
-**预估工作量**：3-4 天
-**状态**：⏳ 待开始
-
-### Phase 4：持久化与打磨
-
-**里程碑**：报告可保存、可导出、可版本对比
-
-**交付物**：
-1. 探查报告持久化（DuckDB JSON 存储）
-2. 导出 Markdown / JSON
-3. 性能调优 + 边界情况处理
-4. 交互细节打磨（过渡动画、骨架屏、空状态）
-
-**预估工作量**：2-3 天
-**状态**：⏳ 待开始
-
----
-
-## 四、关键架构决策
-
-### 决策 1：DuckDB 实例统一
-
-**背景**：当前存在两个独立的 DuckDB 实例——`DuckDBEngine`（功能丰富）和 `get_or_create_duckdb()`（结果服务专用）。
-
-**决策**：Phase 1 暂不合并（降低风险），Phase 2 统一到 `DuckDBEngine`。
-
-**理由**：Phase 1 重点是快速交付可用的洞察面板。统一 DuckDB 实例涉及状态管理重构，风险较高，延后到 Phase 2 做更安全。
-
-### 决策 2：统计计算不出本地
-
-| 计算类型 | 引擎 | 说明 |
-|---------|------|------|
-| COUNT/AVG/MIN/MAX/SUM | DuckDB SQL | 毫秒级 |
-| MEDIAN/STDDEV | DuckDB SQL | `MEDIAN()` / `STDDEV_SAMP()` |
-| 频率分布 TOP N | DuckDB SQL | `GROUP BY ... ORDER BY COUNT(*) DESC LIMIT N` |
-| 分箱直方图 | DuckDB SQL | `NTILE()` 或 `CASE WHEN` |
-| 偏度/峰度 | DuckDB SQL | `SKEWNESS()` / `KURTOSIS()`（DuckDB >= 0.9） |
-| 类型推断 | DuckDB `typeof()` | 已有 |
-| JSON 解析 | DuckDB JSON 函数 | Phase 2 |
-| IP 分类 | Rust（`std::net::IpAddr`） | Phase 2 |
-| 质量评分 | Rust | Phase 3 |
-
-### 决策 3：性能保护红线
-
-| 场景 | 保护措施 |
-|------|---------|
-| 列洞察 | 仅查询 DuckDB 临时表，0 次远程数据库查询 |
-| 表探查行数 | `information_schema.TABLE_ROWS`（近似值），禁止 `SELECT COUNT(*)` |
-| 大表（> 100 万行） | 不做抽样，仅展示元数据 |
-| Schema 洞察 | 仅 `information_schema`，不碰用户数据 |
-| 频率分布 | `LIMIT 20`，绝不拉全部去重值 |
-
-### 决策 4：前端状态管理
-
-新增 `useInsightStore` Pinia Store，不污染现有 store。
-
-### 决策 5：事件通信
-
-沿用项目已有的 `window.dispatchEvent(new CustomEvent(...))` 事件驱动架构，与导航树右键菜单保持一致。
+- **质量评分 ✅**：四维度加权评分（完整性/唯一性/类型一致/分布均匀）+ 前端徽章
+- **表级质量聚合 ✅**：`batch_evaluate_columns` 一次调用全表评估 + TableProfileView 增强
+- **Schema 洞察 ⏳**：跨表关系发现、类型一致性检查、冗余检测
 
 ---
 
-## 五、技术风险与缓解
+## 四、规则引擎架构
 
-| 风险 | 级别 | 缓解措施 |
-|------|------|---------|
-| DuckDB 偏度/峰度函数版本兼容 | 低 | 已有 DuckDB >= 1.1，内置支持 |
-| dockview 右侧面板浮层交互复杂 | 中 | 先用最简单的方式注册，逐步完善 |
-| information_schema 权限不足 | 中 | 降级策略：权限不足时仅展示缓存元数据 |
-| 大数据量结果集 IPC 开销 | 中 | 强制要求后端自动建临时表，前端只传表名 |
-| 规则引擎扩展性 | 低 | MVP 硬编码，后续改为配置驱动 |
+```
+insight-rules/*.toml ──include_dir!──▶ 编译时嵌入 ──▶ OnceLock<RwLock<RuleRegistry>>
+                                                          │
+{project}/.RSMETA/insight-rules/ ──load_from_dir()──▶     │  (项目打开时)
+                                                          ▼
+                                                  RuleExecutor::execute()
+                                                          │
+                                                  DuckDB SQL → JSON
+```
+
+### 规则文件格式
+
+```toml
+[meta]
+id = "correlation"; name = "Pearson 相关系数"
+category = "multi"; applies_to = ["Numeric", "Numeric"]
+
+[query]
+template = """SELECT CORR("{col1}", "{col2}") ..."""
+parameters = ["table", "col1", "col2"]
+
+[[output]]
+sql_name = "corr"; json_name = "correlation"; value_type = "f64?"
+```
+
+### 用户自定义规则流程
+
+1. 在项目 `.RSMETA/insight-rules/` 下创建 `*.rule.toml`
+2. 重新打开项目（`open_project_by_path` 自动扫描）
+3. `list_insight_rules` 包含自定义规则
+4. `MultiColumnView` 下拉自动出现
 
 ---
 
-## 六、与现有系统的集成点
+## 五、关键决策一览
 
-| 集成点 | 方式 | 状态 |
-|--------|------|------|
-| 结果集面板 → 洞察面板 | CustomEvent `open-column-insight` | 已有事件发送代码，需完善监听 |
-| DuckDB 临时表 | `createDuckdbTempTable` API | 已有 |
-| 列统计计算 | `getColumnInsights` API | 已有，需扩展 |
-| 导航树右键菜单 | `useContextMenuActions` | 已有，需增加入口 |
-| Dockview 右侧面板 | `registerGlobalComponent` | 待实现 |
-
----
-
-## 七、附录：洞察面板 UI 线框图
-
-### 数值列
-
-```
-┌─────────────────────────────────┐
-│ 🔍 列洞察: amount           [×] │
-├─────────────────────────────────┤
-│ ▼ 基础统计                       │
-│   计数: 45,678                   │
-│   空值率: 2.1% (959 行)          │
-│   均值: 245.32   中位数: 198.00 │
-│   最小值: 0.01   最大值: 9999.99│
-│   标准差: 187.45                 │
-│   偏度: 1.82 (轻微右偏)          │
-├─────────────────────────────────┤
-│ ▼ 数值分布                       │
-│   0-100      ████████████ 45.2% │
-│   100-500    ██████████   38.1% │
-│   500-1000   ██████       12.4% │
-│   1000-5000  ██            3.1% │
-│   >5000      █             1.2% │
-├─────────────────────────────────┤
-│ ▼ 数据质量                       │
-│   ⚠️ 存在 1 个极端值 (9,999.99) │
-│   ℹ️ 数据分布轻微右偏            │
-├─────────────────────────────────┤
-│ ▼ 样例数据 (前 5 条)             │
-│   245.30                         │
-│   189.00                         │
-│   1,234.56                       │
-│   876.50                         │
-│   9,999.99                       │
-└─────────────────────────────────┘
-```
-
-### 文本/枚举列
-
-```
-┌─────────────────────────────────┐
-│ 🔍 列洞察: region           [×] │
-├─────────────────────────────────┤
-│ ▼ 基础统计                       │
-│   计数: 45,678                   │
-│   空值率: 0.5% (228 行)          │
-│   去重数: 7                      │
-│   长度范围: 2 ~ 6                │
-├─────────────────────────────────┤
-│ ▼ 频率分布 (Top 5)              │
-│   [华东] ██████████ 58.2%       │  ← 可点击
-│   [华北] ██████     15.3%       │  ← 可点击
-│   [华南] █████      12.1%       │
-│   [西南] ███         7.8%       │
-│   [西北] ██          4.2%       │
-├─────────────────────────────────┤
-│ ▼ 数据质量                       │
-│   ✅ 空值率低于阈值 (0.5%)       │
-│   ℹ️ 分类数为 7                  │
-├─────────────────────────────────┤
-│ ▼ 样例数据 (前 5 条)             │
-│   华东                            │
-│   华北                            │
-│   华南                            │
-│   华东                            │
-│   西南                            │
-└─────────────────────────────────┘
-```
-
-### 日期/时间列
-
-```
-┌─────────────────────────────────┐
-│ 🔍 列洞察: created_at       [×] │
-├─────────────────────────────────┤
-│ ▼ 基础统计                       │
-│   计数: 45,678                   │
-│   空值率: 0%                     │
-│   最早: 2025-01-01 00:00:01      │
-│   最晚: 2026-05-02 23:59:59      │
-│   时间跨度: 486 天               │
-├─────────────────────────────────┤
-│ ▼ 时间分布 (按月份)              │
-│   2025-01  ██████████  10.2%    │
-│   2025-02  █████████    9.1%    │
-│   2025-03  ██████████  10.5%    │
-│   ... (滚动查看)                 │
-├─────────────────────────────────┤
-│ ▼ 样例数据 (前 5 条)             │
-│   2026-05-02 14:30:00            │
-│   2026-05-01 09:15:00            │
-│   2026-04-30 23:59:59            │
-│   2026-04-30 18:00:00            │
-│   2026-04-29 12:00:00            │
-└─────────────────────────────────┘
-```
+| 决策 | 说明 |
+|------|------|
+| SQL 与 Rust 分离 | `.rule.toml` 独立文件，零编译扩展 |
+| `RwLock<RuleRegistry>` | 支持运行时加载用户规则 |
+| 同名覆盖 | 用户规则与内置同名 → 用户优先 |
+| 多列分析 UI | NTabs 切换，共用右侧面板 |
+| DuckDB 实例暂不统一 | Phase 2 |

@@ -4,26 +4,26 @@
       <div class="welcome-icon">
         <Database :size="48" />
       </div>
-      <h2 class="welcome-title">欢迎使用 RdataStation</h2>
-      <p class="welcome-desc">开始使用数据库管理工具</p>
-      
+      <h2 class="welcome-title">{{ t('workbench.welcomeTitle') }}</h2>
+      <p class="welcome-desc">{{ t('workbench.welcomeDesc') }}</p>
+
       <div class="action-buttons">
         <NButton type="primary" size="large" @click="handleNewConnection">
           <template #icon>
             <Plug :size="16" />
           </template>
-          新建连接
+          {{ t('workbench.newConnection') }}
         </NButton>
         <NButton size="large" @click="handleNewQuery">
           <template #icon>
             <FileText :size="16" />
           </template>
-          新建查询
+          {{ t('workbench.newQuery') }}
         </NButton>
       </div>
 
       <div v-if="recentProjects.length > 0" class="recent-projects">
-        <h3>最近项目</h3>
+        <h3>{{ t('workbench.recentProjects') }}</h3>
         <div class="project-list">
           <div
             v-for="project in recentProjects.slice(0, 5)"
@@ -41,11 +41,11 @@
       </div>
 
       <div class="quick-links">
-        <h3>快速开始</h3>
+        <h3>{{ t('workbench.quickStart') }}</h3>
         <ul>
-          <li @click="handleNewConnection">创建第一个数据库连接</li>
-          <li @click="handleNewQuery">打开 SQL 编辑器</li>
-          <li>浏览数据库对象和表结构</li>
+          <li @click="handleNewConnection">{{ t('workbench.createFirstConnection') }}</li>
+          <li @click="handleNewQuery">{{ t('workbench.openSqlEditor') }}</li>
+          <li>{{ t('workbench.browseObjects') }}</li>
         </ul>
       </div>
     </div>
@@ -56,9 +56,11 @@
 import { Database, Plug, FileText, FolderOpen } from 'lucide-vue-next'
 import { NButton } from 'naive-ui'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
 
+const { t } = useI18n()
 const projectStore = useProjectStore()
 
 const recentProjects = computed(() => projectStore.recentProjects || [])

@@ -5,11 +5,14 @@
  * - SQL 过滤（拼接 WHERE 重新查询）
  * - DuckDB 深度分析（针对临时表）
  * - 列洞察全量统计（统计 + 样本 + 直方图）
+ * - 规则引擎 API（统一入口，SQL 模板与 Rust 代码分离）
  */
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::core::get_connection_manager;
+use crate::core::insight::{self, RuleExecutor};
 use crate::core::services::sql_service::SqlExecuteOptions;
 use crate::core::services::SqlService;
 use crate::core::error::{CoreError, CommonError};
@@ -120,6 +123,64 @@ pub struct DistributionBin {
     pub label: String,
     pub count: usize,
     pub ratio: f64,
+}
+
+// ==================== 表探查 ====================
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct TableProfile {
+    pub table_name: String,
+    pub db_type: String,
+    pub columns: Vec<TableColumnMeta>,
+    pub row_count: Option<i64>,
+    pub schema_name: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct TableColumnMeta {
+    pub column_name: String,
+    pub data_type: String,
+    pub is_nullable: bool,
+    pub is_primary_key: bool,
+    pub ordinal_position: i32,
+}
+
+// ==================== 质量评分 ====================
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QualityScore {
+    pub column_name: String,
+    pub overall_score: f64,
+    pub level: String,
+    pub dimensions: Vec<QualityDimension>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct QualityDimension {
+    pub name: String,
+    pub score: f64,
+    pub weight: f64,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TableQuality {
+    pub table_name: String,
+    pub overall_score: f64,
+    pub level: String,
+    pub column_scores: Vec<ColumnQualityEntry>,
+    pub summary: String,
+    pub scored_count: usize,
+    pub total_columns: usize,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ColumnQualityEntry {
+    pub column_name: String,
+    pub quality_score: f64,
+    pub level: String,
+    pub null_rate: f64,
 }
 
 // ==================== ResultService ====================
@@ -310,92 +371,80 @@ impl ResultService {
         temp_table: &str,
         column_name: &str,
     ) -> Result<ColumnStatsDetail, CoreError> {
-        let stats_sql = format!(
-            "SELECT \
-             MIN(\"{}\")::DOUBLE, MAX(\"{}\")::DOUBLE, AVG(\"{}\")::DOUBLE, \
-             MEDIAN(\"{}\")::DOUBLE, \
-             PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY \"{}\")::DOUBLE, \
-             PERCENTILE_DISC(0.75) WITHIN GROUP (ORDER BY \"{}\")::DOUBLE, \
-             SUM(\"{}\")::DOUBLE, \
-             STDDEV_SAMP(\"{}\")::DOUBLE, \
-             SKEWNESS(\"{}\")::DOUBLE, \
-             KURTOSIS(\"{}\")::DOUBLE \
-             FROM \"{}\"",
-            column_name, column_name, column_name,
-            column_name,
-            column_name, column_name,
-            column_name,
-            column_name,
-            column_name, column_name,
-            temp_table
-        );
+        let registry = insight::global_registry()
+            .read()
+            .map_err(|e| CoreError::common(CommonError::General(format!("Registry lock error: {}", e))))?;
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), temp_table.to_string());
+        params.insert("col".to_string(), column_name.to_string());
 
-        let row_result: Result<(f64, f64, f64, f64, f64, f64, f64, Option<f64>, Option<f64>, Option<f64>), _> =
-            conn.query_row(&stats_sql, [], |row| Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get(3)?,
-                row.get(4)?,
-                row.get(5)?,
-                row.get(6)?,
-                row.get::<_, Option<f64>>(7)?,
-                row.get::<_, Option<f64>>(8)?,
-                row.get::<_, Option<f64>>(9)?,
-            )));
+        let rule = registry.get("numeric-stats").ok_or_else(|| {
+            CoreError::common(CommonError::General("Rule 'numeric-stats' not found".to_string()))
+        })?;
 
-        match row_result {
-            Ok((min_v, max_v, avg_v, median_v, p25, p75, sum_v, stddev_v, skewness_v, kurtosis_v)) => {
+        match RuleExecutor::execute(rule, conn, &params) {
+            Ok(serde_json::Value::Object(map)) => {
+                let extract = |key: &str| -> f64 {
+                    map.get(key).and_then(|v| v.as_f64()).unwrap_or(0.0)
+                };
+                let extract_opt = |key: &str| -> Option<f64> {
+                    map.get(key).and_then(|v| v.as_f64())
+                };
+                let min_v = extract("min");
+                let max_v = extract("max");
+                let stddev_v = extract_opt("stddev");
                 let is_extreme = detect_extremes(min_v, max_v, stddev_v.unwrap_or(0.0));
 
                 Ok(ColumnStatsDetail::Numeric(NumericStats {
                     min: min_v,
                     max: max_v,
-                    avg: avg_v,
-                    median: median_v,
-                    p25,
-                    p75,
-                    sum: sum_v,
+                    avg: extract("avg"),
+                    median: extract("median"),
+                    p25: extract("p25"),
+                    p75: extract("p75"),
+                    sum: extract("sum"),
                     stddev: stddev_v,
-                    skewness: skewness_v,
-                    kurtosis: kurtosis_v,
+                    skewness: extract_opt("skewness"),
+                    kurtosis: extract_opt("kurtosis"),
                     is_extreme,
                 }))
             }
+            Ok(_) => Err(CoreError::common(CommonError::General(
+                "numeric-stats rule returned unexpected result type".to_string(),
+            ))),
             Err(e) => {
-                let fallback_sql = format!(
-                    "SELECT \
-                     MIN(\"{}\")::DOUBLE, MAX(\"{}\")::DOUBLE, AVG(\"{}\")::DOUBLE, \
-                     MEDIAN(\"{}\")::DOUBLE, \
-                     SUM(\"{}\")::DOUBLE, \
-                     STDDEV_SAMP(\"{}\")::DOUBLE \
-                     FROM \"{}\"",
-                    column_name, column_name, column_name,
-                    column_name,
-                    column_name,
-                    column_name,
-                    temp_table
-                );
-                let (min_v, max_v, avg_v, median_v, sum_v, stddev_v): (f64, f64, f64, f64, f64, Option<f64>) =
-                    conn.query_row(&fallback_sql, [], |row| Ok((
-                        row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get::<_, Option<f64>>(5)?,
-                    ))).map_err(|_| CoreError::common(CommonError::General(
-                        format!("DuckDB numeric fallback failed: {}", e)
-                    )))?;
-
-                Ok(ColumnStatsDetail::Numeric(NumericStats {
-                    min: min_v,
-                    max: max_v,
-                    avg: avg_v,
-                    median: median_v,
-                    p25: 0.0,
-                    p75: 0.0,
-                    sum: sum_v,
-                    stddev: stddev_v,
-                    skewness: None,
-                    kurtosis: None,
-                    is_extreme: vec![],
-                }))
+                let basic_rule = registry.get("numeric-basic").ok_or_else(|| {
+                    CoreError::common(CommonError::General(
+                        "Rule 'numeric-basic' not found".to_string(),
+                    ))
+                })?;
+                match RuleExecutor::execute(basic_rule, conn, &params) {
+                    Ok(serde_json::Value::Object(map)) => {
+                        let extract = |key: &str| -> f64 {
+                            map.get(key).and_then(|v| v.as_f64()).unwrap_or(0.0)
+                        };
+                        Ok(ColumnStatsDetail::Numeric(NumericStats {
+                            min: extract("min"),
+                            max: extract("max"),
+                            avg: extract("avg"),
+                            median: extract("median"),
+                            p25: 0.0,
+                            p75: 0.0,
+                            sum: extract("sum"),
+                            stddev: map.get("stddev").and_then(|v| v.as_f64()),
+                            skewness: None,
+                            kurtosis: None,
+                            is_extreme: vec![],
+                        }))
+                    }
+                    Ok(_) => Err(CoreError::common(CommonError::General(
+                        "numeric-basic rule returned unexpected result type".to_string(),
+                    ))),
+                    Err(e2) => Err(CoreError::common(CommonError::General(format!(
+                        "DuckDB numeric stats failed: {} / fallback: {}",
+                        e, e2
+                    )))),
+                }
             }
         }
     }
@@ -405,36 +454,43 @@ impl ResultService {
         temp_table: &str,
         column_name: &str,
     ) -> Result<ColumnStatsDetail, CoreError> {
-        let top_sql = format!(
-            "SELECT \"{}\"::VARCHAR, COUNT(*), COUNT(*) * 1.0 / SUM(COUNT(*)) OVER() \
-             FROM \"{}\" WHERE \"{}\" IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 10",
-            column_name, temp_table, column_name
-        );
-        let mut stmt = conn.prepare(&top_sql).map_err(|e| CoreError::common(
-            CommonError::General(format!("DuckDB prepare failed: {}", e))
-        ))?;
-        let top_values: Vec<TextFrequency> = stmt.query_map([], |row| {
-            Ok(TextFrequency {
-                value: row.get::<_, String>(0)?,
-                count: row.get::<_, i64>(1)? as usize,
-                ratio: row.get::<_, f64>(2)?,
-            })
-        }).map_err(|e| CoreError::common(CommonError::General(
-            format!("DuckDB top values query failed: {}", e)
-        )))?.filter_map(|r| r.ok()).collect();
+        let registry = insight::global_registry()
+            .read()
+            .map_err(|e| CoreError::common(CommonError::General(format!("Registry lock error: {}", e))))?;
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), temp_table.to_string());
+        params.insert("col".to_string(), column_name.to_string());
 
-        let len_sql = format!(
-            "SELECT MIN(LENGTH(\"{}\"::VARCHAR)), MAX(LENGTH(\"{}\"::VARCHAR)) \
-             FROM \"{}\" WHERE \"{}\" IS NOT NULL",
-            column_name, column_name, temp_table, column_name
-        );
-        let (min_len, max_len): (i64, i64) = conn.query_row(&len_sql, [], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        }).unwrap_or((0, 0));
+        let freq_rule = registry.get("text-frequency").ok_or_else(|| {
+            CoreError::common(CommonError::General("Rule 'text-frequency' not found".to_string()))
+        })?;
+
+        let top_values: Vec<TextFrequency> = match RuleExecutor::execute(freq_rule, conn, &params) {
+            Ok(serde_json::Value::Array(arr)) => arr.iter().filter_map(|item| {
+                let obj = item.as_object()?;
+                Some(TextFrequency {
+                    value: obj.get("value")?.as_str()?.to_string(),
+                    count: obj.get("count")?.as_u64()? as usize,
+                    ratio: obj.get("ratio")?.as_f64()?,
+                })
+            }).collect(),
+            _ => vec![],
+        };
+
+        let len_rule = registry.get("text-length").ok_or_else(|| {
+            CoreError::common(CommonError::General("Rule 'text-length' not found".to_string()))
+        })?;
+        let (min_len, max_len): (usize, usize) = match RuleExecutor::execute(len_rule, conn, &params) {
+            Ok(serde_json::Value::Object(map)) => (
+                map.get("min_length").and_then(|v| v.as_i64()).unwrap_or(0) as usize,
+                map.get("max_length").and_then(|v| v.as_i64()).unwrap_or(0) as usize,
+            ),
+            _ => (0, 0),
+        };
 
         Ok(ColumnStatsDetail::Text(TextStats {
-            min_length: min_len as usize,
-            max_length: max_len as usize,
+            min_length: min_len,
+            max_length: max_len,
             top_values,
         }))
     }
@@ -444,22 +500,54 @@ impl ResultService {
         temp_table: &str,
         column_name: &str,
     ) -> Result<ColumnStatsDetail, CoreError> {
-        let range_sql = format!(
-            "SELECT \
-             MIN(\"{}\")::VARCHAR, MAX(\"{}\")::VARCHAR, \
-             DATEDIFF('day', MIN(\"{}\"), MAX(\"{}\")) \
-             FROM \"{}\" WHERE \"{}\" IS NOT NULL",
-            column_name, column_name,
-            column_name, column_name,
-            temp_table, column_name
-        );
-        let (earliest, latest, span): (String, String, i64) = conn.query_row(&range_sql, [], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        }).unwrap_or_else(|_| ("N/A".to_string(), "N/A".to_string(), 0));
+        let registry = insight::global_registry()
+            .read()
+            .map_err(|e| CoreError::common(CommonError::General(format!("Registry lock error: {}", e))))?;
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), temp_table.to_string());
+        params.insert("col".to_string(), column_name.to_string());
 
-        let monthly_distribution = Self::compute_monthly_distribution(
-            conn, temp_table, column_name
-        ).unwrap_or_default();
+        let range_rule = registry.get("datetime-range").ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "Rule 'datetime-range' not found".to_string(),
+            ))
+        })?;
+
+        let (earliest, latest, span) = match RuleExecutor::execute(range_rule, conn, &params) {
+            Ok(serde_json::Value::Object(map)) => (
+                map.get("earliest")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("N/A")
+                    .to_string(),
+                map.get("latest")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("N/A")
+                    .to_string(),
+                map.get("span_days").and_then(|v| v.as_i64()).unwrap_or(0),
+            ),
+            _ => ("N/A".to_string(), "N/A".to_string(), 0),
+        };
+
+        let monthly_rule = registry.get("datetime-monthly").ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "Rule 'datetime-monthly' not found".to_string(),
+            ))
+        })?;
+        let monthly_distribution: Vec<TextFrequency> =
+            match RuleExecutor::execute(monthly_rule, conn, &params) {
+                Ok(serde_json::Value::Array(arr)) => arr
+                    .iter()
+                    .filter_map(|item| {
+                        let obj = item.as_object()?;
+                        Some(TextFrequency {
+                            value: obj.get("value")?.as_str()?.to_string(),
+                            count: obj.get("count")?.as_u64()? as usize,
+                            ratio: obj.get("ratio")?.as_f64()?,
+                        })
+                    })
+                    .collect(),
+                _ => vec![],
+            };
 
         Ok(ColumnStatsDetail::DateTime(DateTimeStats {
             earliest,
@@ -469,66 +557,46 @@ impl ResultService {
         }))
     }
 
-    fn compute_monthly_distribution(
-        conn: &duckdb::Connection,
-        temp_table: &str,
-        column_name: &str,
-    ) -> Result<Vec<TextFrequency>, CoreError> {
-        let sql = format!(
-            "SELECT \
-             STRFTIME(\"{}\", '%Y-%m') AS month, \
-             COUNT(*) AS cnt, \
-             COUNT(*) * 1.0 / SUM(COUNT(*)) OVER() AS ratio \
-             FROM \"{}\" WHERE \"{}\" IS NOT NULL \
-             GROUP BY 1 ORDER BY 1",
-            column_name, temp_table, column_name
-        );
-        let mut stmt = conn.prepare(&sql).map_err(|e| CoreError::common(
-            CommonError::General(format!("DuckDB prepare monthly failed: {}", e))
-        ))?;
-        let results: Vec<TextFrequency> = stmt.query_map([], |row| {
-            Ok(TextFrequency {
-                value: row.get::<_, String>(0)?,
-                count: row.get::<_, i64>(1)? as usize,
-                ratio: row.get::<_, f64>(2)?,
-            })
-        }).map_err(|e| CoreError::common(CommonError::General(
-            format!("DuckDB monthly query failed: {}", e)
-        )))?.filter_map(|r| r.ok()).collect();
-
-        Ok(results)
-    }
-
     fn compute_boolean_stats(
         conn: &duckdb::Connection,
         temp_table: &str,
         column_name: &str,
     ) -> Result<ColumnStatsDetail, CoreError> {
-        let sql = format!(
-            "SELECT \
-             COUNT(*) FILTER (WHERE \"{}\"), \
-             COUNT(*) FILTER (WHERE NOT \"{}\") \
-             FROM \"{}\"",
-            column_name, column_name, temp_table
-        );
-        let (true_count, false_count): (i64, i64) = conn.query_row(&sql, [], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
-        }).map_err(|e| CoreError::common(CommonError::General(
-            format!("DuckDB boolean stats failed: {}", e)
-        )))?;
+        let registry = insight::global_registry()
+            .read()
+            .map_err(|e| CoreError::common(CommonError::General(format!("Registry lock error: {}", e))))?;
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), temp_table.to_string());
+        params.insert("col".to_string(), column_name.to_string());
 
-        let total = true_count + false_count;
-        let true_ratio = if total > 0 {
-            true_count as f64 / total as f64
-        } else {
-            0.0
-        };
+        let rule = registry.get("boolean-ratio").ok_or_else(|| {
+            CoreError::common(CommonError::General("Rule 'boolean-ratio' not found".to_string()))
+        })?;
 
-        Ok(ColumnStatsDetail::Boolean(BooleanStats {
-            true_count: true_count as usize,
-            false_count: false_count as usize,
-            true_ratio,
-        }))
+        match RuleExecutor::execute(rule, conn, &params) {
+            Ok(serde_json::Value::Object(map)) => {
+                let true_count = map.get("true_count").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
+                let false_count = map.get("false_count").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
+                let total = true_count + false_count;
+                let true_ratio = if total > 0 {
+                    true_count as f64 / total as f64
+                } else {
+                    0.0
+                };
+                Ok(ColumnStatsDetail::Boolean(BooleanStats {
+                    true_count,
+                    false_count,
+                    true_ratio,
+                }))
+            }
+            Ok(_) => Err(CoreError::common(CommonError::General(
+                "boolean-ratio rule returned unexpected result type".to_string(),
+            ))),
+            Err(e) => Err(CoreError::common(CommonError::General(format!(
+                "DuckDB boolean stats failed: {}",
+                e
+            )))),
+        }
     }
 
     fn get_column_sample_internal(
@@ -564,56 +632,38 @@ impl ResultService {
         );
         let count: i64 = conn.query_row(&count_sql, [], |row| row.get(0)).unwrap_or(0);
 
-        let bins = if count < 10 {
-            vec![]
-        } else {
-            let bin_count = 10;
-            let sql = format!(
-                "WITH bounds AS ( \
-                 SELECT MIN(\"{}\")::DOUBLE AS lo, MAX(\"{}\")::DOUBLE AS hi \
-                 FROM \"{}\" WHERE \"{}\" IS NOT NULL \
-                 ), \
-                 bins AS (SELECT UNNEST(GENERATE_SERIES(1, {})) AS r) \
-                 SELECT \
-                 CASE \
-                   WHEN r = {} THEN CAST(> AS VARCHAR) || ' ' || CAST(lo + ({}-1.0) * (hi - lo) / {} AS VARCHAR) \
-                   ELSE CAST(lo + (r - 1) * (hi - lo) / {} AS VARCHAR) \
-                   || ' ~ ' || CAST(lo + r * (hi - lo) / {} AS VARCHAR) \
-                 END AS label, \
-                 COUNT(\"{}\") AS cnt \
-                 FROM \"{}\", bounds, bins \
-                 WHERE \"{}\" IS NOT NULL \
-                   AND \"{}\" >= lo + (r - 1) * (hi - lo) / {} \
-                   AND (\"{}\" < lo + r * (hi - lo) / {} OR r = {}) \
-                 GROUP BY r, lo, hi ORDER BY r",
-                column_name, column_name, temp_table, column_name,
-                bin_count,
-                bin_count, bin_count, bin_count as f64,
-                bin_count as f64, bin_count as f64,
-                column_name, temp_table,
-                column_name,
-                column_name, bin_count as f64,
-                column_name, bin_count as f64, bin_count,
-            );
-            let mut stmt = match conn.prepare(&sql) {
-                Ok(s) => s,
-                Err(_) => return Ok(vec![]),
-            };
-            let raw: Vec<(String, i64)> = match stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-            }) {
-                Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-                Err(_) => vec![],
-            };
+        if count < 10 {
+            return Ok(vec![]);
+        }
 
-            raw.into_iter().map(|(label, cnt)| DistributionBin {
-                label,
-                count: cnt as usize,
-                ratio: if count > 0 { cnt as f64 / count as f64 } else { 0.0 },
-            }).collect()
-        };
+        let registry = insight::global_registry()
+            .read()
+            .map_err(|e| CoreError::common(CommonError::General(format!("Registry lock error: {}", e))))?;
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), temp_table.to_string());
+        params.insert("col".to_string(), column_name.to_string());
 
-        Ok(bins)
+        let rule = registry.get("histogram").ok_or_else(|| {
+            CoreError::common(CommonError::General("Rule 'histogram' not found".to_string()))
+        })?;
+
+        match RuleExecutor::execute(rule, conn, &params) {
+            Ok(serde_json::Value::Array(arr)) => {
+                let bins: Vec<DistributionBin> = arr
+                    .iter()
+                    .filter_map(|item| {
+                        let obj = item.as_object()?;
+                        Some(DistributionBin {
+                            label: obj.get("label")?.as_str()?.to_string(),
+                            count: obj.get("count")?.as_u64()? as usize,
+                            ratio: obj.get("ratio")?.as_f64()?,
+                        })
+                    })
+                    .collect();
+                Ok(bins)
+            }
+            _ => Ok(vec![]),
+        }
     }
 
     // ═══════════════════ 旧版兼容 API ═══════════════════
@@ -632,7 +682,7 @@ impl ResultService {
 
     // ═══════════════════ DuckDB 管理 ═══════════════════
 
-    fn get_or_create_duckdb() -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
+    pub fn get_or_create_duckdb() -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
         static DUCKDB: std::sync::OnceLock<Arc<std::sync::Mutex<duckdb::Connection>>> = std::sync::OnceLock::new();
         Ok(DUCKDB.get_or_init(|| {
             let conn = duckdb::Connection::open_in_memory()
@@ -717,6 +767,73 @@ impl ResultService {
         }
 
         Ok((col_names, rows))
+    }
+
+    // ═══════════════════ 规则引擎公开 API ═══════════════════
+
+    /// 执行指定规则并返回原始 JSON 结果
+    pub fn execute_insight_rule(
+        rule_id: &str,
+        conn: &duckdb::Connection,
+        params: &HashMap<String, String>,
+    ) -> Result<serde_json::Value, CoreError> {
+        let registry = insight::global_registry()
+            .read()
+            .map_err(|e| CoreError::common(CommonError::General(format!("Registry lock error: {}", e))))?;
+        let rule = registry.get(rule_id).ok_or_else(|| {
+            CoreError::common(CommonError::General(format!(
+                "Rule '{}' not found",
+                rule_id
+            )))
+        })?;
+        RuleExecutor::execute(rule, conn, params)
+    }
+
+    /// 列出所有可用规则的元数据
+    pub fn list_insight_rules(category: Option<&str>) -> Vec<serde_json::Value> {
+        let registry = insight::global_registry()
+            .read()
+            .expect("failed to lock insight registry");
+        let rules: Vec<&crate::core::insight::RuleFile> = match category {
+            Some(cat) => registry.list_by_category(cat),
+            None => registry.all_rules(),
+        };
+        rules
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.meta.id,
+                    "name": r.meta.name,
+                    "description": r.meta.description,
+                    "version": r.meta.version,
+                    "category": r.meta.category,
+                    "applies_to": r.meta.applies_to,
+                    "builtin": r.meta.builtin,
+                    "parameters": r.query.parameters,
+                    "result_type": r.query.result_type,
+                })
+            })
+            .collect()
+    }
+
+    /// 获取适用于指定列类型的规则列表
+    pub fn list_rules_for_column(column_type: &str) -> Vec<serde_json::Value> {
+        let registry = insight::global_registry()
+            .read()
+            .expect("failed to lock insight registry");
+        registry
+            .rules_for_column_type(column_type)
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.meta.id,
+                    "name": r.meta.name,
+                    "category": r.meta.category,
+                    "applies_to": r.meta.applies_to,
+                    "parameters": r.query.parameters,
+                })
+            })
+            .collect()
     }
 }
 
@@ -892,6 +1009,532 @@ impl ResultService {
         insight_store: &crate::core::persistence::InsightStorage,
     ) -> Result<Vec<crate::core::persistence::InsightVersionEntry>, CoreError> {
         insight_store.columns.get_history(column_name, Some(10)).await
+    }
+
+    /// 清理 N 天前的洞察快照（DuckDB + SQLite 双写清理）
+    pub async fn cleanup_old_insight_snapshots(
+        days: i64,
+        insight_store: &crate::core::persistence::InsightStorage,
+        meta_store: &crate::core::persistence::InsightMetaStore,
+    ) -> Result<(i64, usize), CoreError> {
+        let duckdb_deleted = insight_store.columns.cleanup_older_than(days).await?;
+        let sqlite_deleted = meta_store.cleanup_older_than(days).await?;
+        Ok((duckdb_deleted, sqlite_deleted))
+    }
+
+    /// 获取表探查概要（列元数据 + 行数估算）
+    pub async fn get_table_profile(
+        conn_id: String,
+        db_type: String,
+        database: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<TableProfile, CoreError> {
+        let manager = get_connection_manager().clone();
+        let service = SqlService::new(manager);
+        let conn_id_opt = Some(conn_id.clone());
+
+        let columns = Self::fetch_table_columns(&service, conn_id_opt.clone(), database, schema, table).await?;
+
+        let row_count = match Self::fetch_row_count(&service, conn_id_opt, database, schema, table).await {
+            Ok(count) => Some(count),
+            Err(_) => None,
+        };
+
+        Ok(TableProfile {
+            table_name: table.to_string(),
+            db_type,
+            columns,
+            row_count,
+            schema_name: Some(schema.to_string()),
+        })
+    }
+
+    async fn fetch_table_columns(
+        service: &SqlService,
+        conn_id: Option<String>,
+        _database: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<TableColumnMeta>, CoreError> {
+        use crate::core::services::sql_service::SqlExecuteOptions;
+
+        let sql = format!(
+            "SELECT column_name, data_type, is_nullable, ordinal_position, column_key \
+             FROM information_schema.columns \
+             WHERE table_schema = '{}' AND table_name = '{}' \
+             ORDER BY ordinal_position",
+            schema, table
+        );
+
+        let opts = SqlExecuteOptions {
+            record_history: false,
+            use_transaction: false,
+            timeout_ms: Some(15000),
+            use_cache: false,
+        };
+
+        let result = service.execute(conn_id, &sql, opts).await?;
+        let json = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
+            CommonError::General(format!("Serialize error: {}", e))
+        ))?;
+
+        let rows = json["batches"]
+            .as_array()
+            .and_then(|batches| {
+                batches.first()?.get("columns").and_then(|c| c.as_array()).and_then(|columns_arr| {
+                    batches.first()?.get("rows").and_then(|r| r.as_array()).map(|rows_arr| {
+                        (columns_arr.clone(), rows_arr.clone())
+                    })
+                })
+            });
+
+        let columns: Vec<TableColumnMeta> = match rows {
+            Some((col_names, row_data)) => {
+                let col_idx = |name: &str| -> Option<usize> {
+                    col_names.iter().position(|c| c.as_str() == Some(name))
+                };
+                row_data.iter().filter_map(|row| {
+                    let arr = row.as_array()?;
+                    let name = arr.get(col_idx("column_name")?)?.as_str()?.to_string();
+                    let dtype = arr.get(col_idx("data_type")?)?.as_str()?.to_string();
+                    let nullable = arr.get(col_idx("is_nullable")?)
+                        .and_then(|v| v.as_str())
+                        .map(|s| s == "YES")
+                        .unwrap_or(false);
+                    let pos = arr.get(col_idx("ordinal_position")?)
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(0) as i32;
+                    let is_pk = arr.get(col_idx("column_key")?)
+                        .and_then(|v| v.as_str())
+                        .map(|s| s == "PRI")
+                        .unwrap_or(false);
+                    Some(TableColumnMeta {
+                        column_name: name,
+                        data_type: dtype,
+                        is_nullable: nullable,
+                        is_primary_key: is_pk,
+                        ordinal_position: pos,
+                    })
+                }).collect()
+            }
+            None => vec![],
+        };
+
+        Ok(columns)
+    }
+
+    async fn fetch_row_count(
+        service: &SqlService,
+        conn_id: Option<String>,
+        database: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<i64, CoreError> {
+        use crate::core::services::sql_service::SqlExecuteOptions;
+
+        let sql = format!("SELECT COUNT(*) AS cnt FROM `{}`.`{}`.`{}`", database, schema, table);
+
+        let opts = SqlExecuteOptions {
+            record_history: false,
+            use_transaction: false,
+            timeout_ms: Some(30000),
+            use_cache: false,
+        };
+
+        let result = service.execute(conn_id, &sql, opts).await?;
+        let json = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
+            CommonError::General(format!("Serialize error: {}", e))
+        ))?;
+
+        let count = json["batches"]
+            .as_array()
+            .and_then(|batches| batches.first())
+            .and_then(|batch| batch["rows"].as_array())
+            .and_then(|rows| rows.first())
+            .and_then(|row| row.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+
+        Ok(count)
+    }
+
+    /// 获取洞察存储用量统计
+    pub async fn get_insight_storage_stats(
+        insight_store: &crate::core::persistence::InsightStorage,
+    ) -> Result<crate::core::persistence::InsightStorageStats, CoreError> {
+        insight_store.columns.get_storage_stats().await
+    }
+
+    /// 获取指定版本的完整洞察数据
+    pub async fn get_insight_version_detail(
+        version_id: &str,
+        insight_store: &crate::core::persistence::InsightStorage,
+    ) -> Result<Option<ColumnInsightFull>, CoreError> {
+        insight_store.columns.get_snapshot_by_version(version_id).await
+    }
+
+    /// 从真实表取样并生成列洞察（端到端：取样→DuckDB→洞察）
+    pub async fn profile_column_from_table(
+        conn_id: String,
+        database: &str,
+        schema: &str,
+        table: &str,
+        column_name: &str,
+    ) -> Result<ColumnInsightFull, CoreError> {
+        use crate::core::services::sql_service::SqlExecuteOptions;
+
+        let manager = get_connection_manager().clone();
+        let service = SqlService::new(manager);
+
+        let sample_sql = format!(
+            "SELECT * FROM `{}`.`{}`.`{}` LIMIT 500",
+            database, schema, table
+        );
+
+        let opts = SqlExecuteOptions {
+            record_history: false,
+            use_transaction: false,
+            timeout_ms: Some(15000),
+            use_cache: false,
+        };
+
+        let result = service.execute(Some(conn_id.clone()), &sample_sql, opts).await?;
+        let json = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
+            CommonError::General(format!("Serialize error: {}", e))
+        ))?;
+
+        let (columns, rows) = match json["batches"].as_array().and_then(|batches| batches.first()) {
+            Some(batch) => {
+                let cols: Vec<String> = batch["columns"]
+                    .as_array()
+                    .map(|arr| arr.iter().filter_map(|c| c.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
+
+                let rows_data: Vec<Vec<serde_json::Value>> = batch["rows"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter().map(|row| {
+                            row.as_array().cloned().unwrap_or_default()
+                        }).collect()
+                    })
+                    .unwrap_or_default();
+
+                (cols, rows_data)
+            }
+            None => (vec![], vec![]),
+        };
+
+        if columns.is_empty() {
+            return Err(CoreError::common(CommonError::General(
+                "无法从表中读取数据".to_string()
+            )));
+        }
+
+        let temp_table = Self::create_duckdb_temp_table(&columns, &rows)?;
+
+        let stats = Self::get_column_insight_full(&temp_table, column_name)?;
+
+        Ok(stats)
+    }
+
+    pub async fn batch_evaluate_columns(
+        conn_id: String,
+        database: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<TableQuality, CoreError> {
+        use crate::core::services::sql_service::SqlExecuteOptions;
+
+        let manager = get_connection_manager().clone();
+        let service = SqlService::new(manager);
+
+        let sample_sql = format!(
+            "SELECT * FROM `{}`.`{}`.`{}` LIMIT 500",
+            database, schema, table
+        );
+
+        let opts = SqlExecuteOptions {
+            record_history: false,
+            use_transaction: false,
+            timeout_ms: Some(15000),
+            use_cache: false,
+        };
+
+        let result = service.execute(Some(conn_id), &sample_sql, opts).await?;
+        let json = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
+            CommonError::General(format!("Serialize error: {}", e))
+        ))?;
+
+        let (col_names, rows_data) = match json["batches"].as_array().and_then(|b| b.first()) {
+            Some(batch) => {
+                let cols: Vec<String> = batch["columns"]
+                    .as_array()
+                    .map(|arr| arr.iter().filter_map(|c| c.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
+
+                let rows: Vec<Vec<serde_json::Value>> = batch["rows"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter().map(|row| {
+                            row.as_array().cloned().unwrap_or_default()
+                        }).collect()
+                    })
+                    .unwrap_or_default();
+
+                (cols, rows)
+            }
+            None => (vec![], vec![]),
+        };
+
+        if col_names.is_empty() {
+            return Ok(TableQuality {
+                table_name: table.into(),
+                overall_score: 0.0,
+                level: "无数据".into(),
+                column_scores: vec![],
+                summary: "表为空或无数据".into(),
+                scored_count: 0,
+                total_columns: 0,
+            });
+        }
+
+        let temp_table = Self::create_duckdb_temp_table(&col_names, &rows_data)?;
+
+        let mut stats_list: Vec<ColumnInsightFull> = Vec::new();
+        for col_name in &col_names {
+            match Self::get_column_insight_full(&temp_table, col_name) {
+                Ok(stats) => stats_list.push(stats),
+                Err(_) => continue,
+            }
+        }
+
+        Ok(Self::compute_table_quality(table, &stats_list))
+    }
+
+    pub fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore {
+        let null_rate = stats.stats.null_rate;
+        let total = stats.stats.total_count as f64;
+        let unique = stats.stats.unique_count.unwrap_or(0) as f64;
+        let non_null = total * (1.0 - null_rate);
+
+        let completeness = if total > 0.0 {
+            (1.0 - null_rate) * 100.0
+        } else {
+            0.0
+        };
+
+        let uniqueness = if non_null > 0.0 {
+            let ratio = unique / non_null;
+            if ratio > 0.9 {
+                100.0
+            } else if ratio > 0.5 {
+                80.0
+            } else if ratio > 0.2 {
+                60.0
+            } else if ratio > 0.05 {
+                40.0
+            } else if ratio > 0.01 {
+                20.0
+            } else {
+                10.0
+            }
+        } else {
+            0.0
+        };
+
+        let type_consistency = match stats.stats.stats_detail {
+            ColumnStatsDetail::Numeric(_) => {
+                if null_rate > 0.5 {
+                    40.0
+                } else {
+                    90.0
+                }
+            }
+            ColumnStatsDetail::Text(_) => {
+                if unique < 2.0 {
+                    30.0
+                } else if null_rate > 0.6 {
+                    40.0
+                } else {
+                    75.0
+                }
+            }
+            ColumnStatsDetail::DateTime(_) => {
+                let has_range = stats.histogram.as_ref()
+                    .map_or(false, |h| h.len() > 1);
+                if has_range { 85.0 } else { 60.0 }
+            }
+            ColumnStatsDetail::Boolean(_) => 95.0,
+            ColumnStatsDetail::Unknown => 50.0,
+        };
+
+        fn detail_variant_name(detail: &ColumnStatsDetail) -> &str {
+            match detail {
+                ColumnStatsDetail::Numeric(_) => "Numeric",
+                ColumnStatsDetail::Text(_) => "Text",
+                ColumnStatsDetail::DateTime(_) => "DateTime",
+                ColumnStatsDetail::Boolean(_) => "Boolean",
+                ColumnStatsDetail::Unknown => "Unknown",
+            }
+        }
+
+        let distribution = if let Some(ref hist) = stats.histogram {
+            let bins = hist.len() as f64;
+            if bins > 0.0 {
+                let values: Vec<f64> = hist.iter().map(|b| b.count as f64).collect();
+                let sum: f64 = values.iter().sum();
+                if sum > 0.0 {
+                    let avg = sum / bins;
+                    let variance: f64 = values.iter().map(|v| (v - avg).powi(2)).sum::<f64>() / bins;
+                    let cv = variance.sqrt() / avg.max(1.0);
+                    if cv < 0.3 {
+                        90.0
+                    } else if cv < 0.7 {
+                        75.0
+                    } else if cv < 1.5 {
+                        50.0
+                    } else {
+                        30.0
+                    }
+                } else {
+                    50.0
+                }
+            } else {
+                50.0
+            }
+        } else {
+            50.0
+        };
+
+        let unique_display = stats.stats.unique_count.unwrap_or(0);
+
+        let dimensions = vec![
+            QualityDimension {
+                name: "完整性".into(),
+                score: completeness,
+                weight: 0.35,
+                detail: format!("空值率 {:.1}%", null_rate * 100.0),
+            },
+            QualityDimension {
+                name: "唯一性".into(),
+                score: uniqueness,
+                weight: 0.25,
+                detail: format!("去重 {}/{}", unique_display, stats.stats.total_count),
+            },
+            QualityDimension {
+                name: "类型一致".into(),
+                score: type_consistency,
+                weight: 0.20,
+                detail: detail_variant_name(&stats.stats.stats_detail).into(),
+            },
+            QualityDimension {
+                name: "分布均匀".into(),
+                score: distribution,
+                weight: 0.20,
+                detail: "直方图分布评估".into(),
+            },
+        ];
+
+        let overall: f64 = dimensions
+            .iter()
+            .map(|d| d.score * d.weight)
+            .sum();
+
+        let level = if overall >= 85.0 {
+            "优秀"
+        } else if overall >= 70.0 {
+            "良好"
+        } else if overall >= 50.0 {
+            "一般"
+        } else if overall >= 30.0 {
+            "较差"
+        } else {
+            "差"
+        };
+
+        let summary = if overall >= 85.0 {
+            format!("数据质量优秀 ({:.0}分)，可直接用于分析", overall)
+        } else if overall >= 70.0 {
+            format!("数据质量良好 ({:.0}分)，建议关注空值", overall)
+        } else if overall >= 50.0 {
+            format!("数据质量一般 ({:.0}分)，存在明显质量问题", overall)
+        } else {
+            format!("数据质量较差 ({:.0}分)，建议清洗后使用", overall)
+        };
+
+        QualityScore {
+            column_name: stats.stats.column_name.clone(),
+            overall_score: overall,
+            level: level.into(),
+            dimensions,
+            summary,
+        }
+    }
+
+    pub fn compute_table_quality(
+        table_name: &str,
+        stats_list: &[ColumnInsightFull],
+    ) -> TableQuality {
+        let mut entries: Vec<ColumnQualityEntry> = stats_list
+            .iter()
+            .map(|s| {
+                let qs = Self::compute_column_quality(s);
+                ColumnQualityEntry {
+                    column_name: s.stats.column_name.clone(),
+                    quality_score: qs.overall_score,
+                    level: qs.level,
+                    null_rate: s.stats.null_rate,
+                }
+            })
+            .collect();
+
+        entries.sort_by(|a, b| a.quality_score.partial_cmp(&b.quality_score).unwrap_or(std::cmp::Ordering::Equal));
+
+        let scored_count = entries.len();
+        let total_columns = scored_count;
+        let overall = if scored_count > 0 {
+            entries.iter().map(|e| e.quality_score).sum::<f64>() / scored_count as f64
+        } else {
+            0.0
+        };
+
+        let level = if overall >= 85.0 {
+            "优秀"
+        } else if overall >= 70.0 {
+            "良好"
+        } else if overall >= 50.0 {
+            "一般"
+        } else if overall >= 30.0 {
+            "较差"
+        } else {
+            "差"
+        };
+
+        let problem_columns = entries.iter().filter(|e| e.quality_score < 50.0).count();
+        let summary = if scored_count == 0 {
+            "无数据".into()
+        } else if overall >= 85.0 {
+            format!("表质量优秀 ({:.0}分)，{} 列均健康", overall, scored_count)
+        } else if problem_columns > 0 {
+            format!(
+                "表质量{} ({:.0}分)，{} 列需关注 ({}风险列)",
+                level, overall, scored_count, problem_columns
+            )
+        } else {
+            format!("表质量{} ({:.0}分)，{} 列已评估", level, overall, scored_count)
+        };
+
+        TableQuality {
+            table_name: table_name.into(),
+            overall_score: overall,
+            level: level.into(),
+            column_scores: entries,
+            summary,
+            scored_count,
+            total_columns,
+        }
     }
 }
 

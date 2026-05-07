@@ -1,0 +1,749 @@
+use std::path::{Path, PathBuf};
+
+use chrono::Utc;
+use tokio::fs;
+
+use crate::core::error::{CoreError, StorageError};
+use crate::core::scratchpad::models::{
+        AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry, ScratchpadEntryKind,
+        ScratchpadResponse,
+    };
+
+const MAX_DEPTH: u32 = 4;
+const CONFIG_FILE: &str = ".scratchpad.json";
+const TRASH_DIR: &str = ".trash";
+
+#[derive(Clone)]
+pub struct ScratchpadStore {
+    scratchpad_dir: PathBuf,
+    config_path: PathBuf,
+}
+
+impl ScratchpadStore {
+    pub fn new(project_path: PathBuf) -> Self {
+        let scratchpad_dir = project_path.join(".scratchpad");
+        let config_path = scratchpad_dir.join(CONFIG_FILE);
+        Self {
+            scratchpad_dir,
+            config_path,
+        }
+    }
+
+    pub fn scratchpad_dir(&self) -> &Path {
+        &self.scratchpad_dir
+    }
+
+    pub async fn ensure_dir(&self) -> Result<(), CoreError> {
+        if !self.scratchpad_dir.exists() {
+            fs::create_dir_all(&self.scratchpad_dir)
+                .await
+                .map_err(|e| {
+                    CoreError::storage(StorageError::io(
+                        self.scratchpad_dir.display().to_string(),
+                        "create_dir",
+                        e.to_string(),
+                    ))
+                })?;
+        }
+        Ok(())
+    }
+
+    pub async fn load_config(&self) -> Result<ScratchpadConfig, CoreError> {
+        if !self.config_path.exists() {
+            return Ok(ScratchpadConfig::default());
+        }
+        let content = fs::read_to_string(&self.config_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                self.config_path.display().to_string(),
+                "read",
+                e.to_string(),
+            ))
+        })?;
+        serde_json::from_str(&content).map_err(|e| {
+            CoreError::storage(StorageError::Deserialization {
+                format: "JSON".to_string(),
+                data: content[..content.len().min(200)].to_string(),
+                reason: e.to_string(),
+            })
+        })
+    }
+
+    pub async fn save_config(&self, config: &ScratchpadConfig) -> Result<(), CoreError> {
+        self.ensure_dir().await?;
+        let json = serde_json::to_string_pretty(config).map_err(|e| {
+            CoreError::storage(StorageError::Serialization {
+                format: "JSON".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+        fs::write(&self.config_path, &json).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                self.config_path.display().to_string(),
+                "write",
+                e.to_string(),
+            ))
+        })?;
+        Ok(())
+    }
+
+    pub async fn list_local_entries(&self, depth: u32) -> Result<Vec<ScratchpadEntry>, CoreError> {
+        self.ensure_dir().await?;
+        let mut entries = Vec::new();
+        self.scan_dir(&self.scratchpad_dir, 0, depth, &mut entries)
+            .await?;
+        Ok(entries)
+    }
+
+    async fn scan_dir(
+        &self,
+        dir: &Path,
+        current_depth: u32,
+        max_depth: u32,
+        entries: &mut Vec<ScratchpadEntry>,
+    ) -> Result<(), CoreError> {
+        if current_depth > max_depth {
+            return Ok(());
+        }
+
+        let mut read_dir = fs::read_dir(dir).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                dir.display().to_string(),
+                "read_dir",
+                e.to_string(),
+            ))
+        })?;
+
+        while let Ok(Some(entry)) = read_dir.next_entry().await {
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            if name == CONFIG_FILE || name.starts_with('.') {
+                continue;
+            }
+
+            let file_type = entry.file_type().await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    entry.path().display().to_string(),
+                    "file_type",
+                    e.to_string(),
+                ))
+            })?;
+
+            let metadata = entry.metadata().await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    entry.path().display().to_string(),
+                    "metadata",
+                    e.to_string(),
+                ))
+            })?;
+
+            let modified_at = metadata
+                .modified()
+                .ok()
+                .and_then(|t| {
+                    t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| {
+                        chrono::DateTime::from_timestamp(d.as_secs() as i64, d.subsec_nanos())
+                            .unwrap_or_default()
+                    })
+                })
+                .unwrap_or_else(Utc::now);
+
+            if file_type.is_dir() {
+                entries.push(ScratchpadEntry {
+                    name: name.clone(),
+                    path: entry.path(),
+                    kind: ScratchpadEntryKind::Folder,
+                    size: 0,
+                    modified_at,
+                    extension: String::new(),
+                    is_external_ref: false,
+                });
+
+                if current_depth < max_depth {
+                    Box::pin(self.scan_dir(&entry.path(), current_depth + 1, max_depth, entries))
+                        .await?;
+                }
+            } else if file_type.is_file() {
+                let extension = entry
+                    .path()
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy()))
+                    .unwrap_or_default();
+
+                entries.push(ScratchpadEntry {
+                    name,
+                    path: entry.path(),
+                    kind: ScratchpadEntryKind::File,
+                    size: metadata.len(),
+                    modified_at,
+                    extension,
+                    is_external_ref: false,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn get_full_response(&self) -> Result<ScratchpadResponse, CoreError> {
+        let config = self.load_config().await?;
+        let local_entries = self.list_local_entries(MAX_DEPTH).await?;
+
+        Ok(ScratchpadResponse {
+            local_entries,
+            external_references: config.external_references.clone(),
+            scratchpad_path: self.scratchpad_dir.clone(),
+        })
+    }
+
+    pub async fn create_entry(
+        &self,
+        name: &str,
+        is_folder: bool,
+    ) -> Result<ScratchpadEntry, CoreError> {
+        self.ensure_dir().await?;
+        self.validate_name(name)?;
+
+        let target_path = self.scratchpad_dir.join(name);
+
+        if target_path.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                target_path.display().to_string(),
+                "create",
+                "entry already exists".to_string(),
+            )));
+        }
+
+        if is_folder {
+            fs::create_dir(&target_path).await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    target_path.display().to_string(),
+                    "create_dir",
+                    e.to_string(),
+                ))
+            })?;
+        } else {
+            fs::write(&target_path, "").await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    target_path.display().to_string(),
+                    "create_file",
+                    e.to_string(),
+                ))
+            })?;
+        }
+
+        let extension = target_path
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+
+        Ok(ScratchpadEntry {
+            name: name.to_string(),
+            path: target_path,
+            kind: if is_folder {
+                ScratchpadEntryKind::Folder
+            } else {
+                ScratchpadEntryKind::File
+            },
+            size: 0,
+            modified_at: Utc::now(),
+            extension,
+            is_external_ref: false,
+        })
+    }
+
+    pub async fn delete_entry(&self, relative_path: &str) -> Result<(), CoreError> {
+        let target_path = self.resolve_path(relative_path)?;
+
+        let trash_dir = self.scratchpad_dir.join(TRASH_DIR);
+        if !trash_dir.exists() {
+            fs::create_dir_all(&trash_dir).await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    trash_dir.display().to_string(),
+                    "create_trash_dir",
+                    e.to_string(),
+                ))
+            })?;
+        }
+
+        let file_name = target_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let trash_target = unique_path(trash_dir.join(&file_name));
+
+        fs::rename(&target_path, &trash_target).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                target_path.display().to_string(),
+                "move_to_trash",
+                e.to_string(),
+            ))
+        })?;
+
+        Ok(())
+    }
+
+    pub async fn list_trash(&self) -> Result<Vec<ScratchpadEntry>, CoreError> {
+        let trash_dir = self.scratchpad_dir.join(TRASH_DIR);
+        if !trash_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut entries = Vec::new();
+        self.scan_dir(&trash_dir, 0, 1, &mut entries).await?;
+        Ok(entries)
+    }
+
+    pub async fn restore_from_trash(&self, trash_name: &str) -> Result<ScratchpadEntry, CoreError> {
+        let trash_path = self.scratchpad_dir.join(TRASH_DIR).join(trash_name);
+        if !trash_path.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                trash_path.display().to_string(),
+                "restore",
+                "entry not found in trash".to_string(),
+            )));
+        }
+
+        let target_path = unique_path(self.scratchpad_dir.join(trash_name));
+        fs::rename(&trash_path, &target_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                trash_path.display().to_string(),
+                "restore_from_trash",
+                e.to_string(),
+            ))
+        })?;
+
+        let extension = target_path
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+
+        let is_dir = fs::metadata(&target_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                target_path.display().to_string(),
+                "metadata",
+                e.to_string(),
+            ))
+        })?.is_dir();
+
+        Ok(ScratchpadEntry {
+            name: target_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: target_path,
+            kind: if is_dir { ScratchpadEntryKind::Folder } else { ScratchpadEntryKind::File },
+            size: 0,
+            modified_at: Utc::now(),
+            extension,
+            is_external_ref: false,
+        })
+    }
+
+    pub async fn empty_trash(&self) -> Result<(), CoreError> {
+        let trash_dir = self.scratchpad_dir.join(TRASH_DIR);
+        if trash_dir.exists() {
+            fs::remove_dir_all(&trash_dir).await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    trash_dir.display().to_string(),
+                    "empty_trash",
+                    e.to_string(),
+                ))
+            })?;
+        }
+        Ok(())
+    }
+
+    pub async fn rename_entry(
+        &self,
+        relative_path: &str,
+        new_name: &str,
+    ) -> Result<ScratchpadEntry, CoreError> {
+        let old_path = self.resolve_path(relative_path)?;
+        self.validate_name(new_name)?;
+
+        if !old_path.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                old_path.display().to_string(),
+                "rename",
+                "source not found".to_string(),
+            )));
+        }
+
+        let parent = old_path.parent().unwrap_or(&self.scratchpad_dir);
+        let new_path = parent.join(new_name);
+
+        if new_path.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                new_path.display().to_string(),
+                "rename",
+                "target already exists".to_string(),
+            )));
+        }
+
+        let is_dir = fs::metadata(&old_path)
+            .await
+            .map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    old_path.display().to_string(),
+                    "metadata",
+                    e.to_string(),
+                ))
+            })?
+            .is_dir();
+
+        fs::rename(&old_path, &new_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                old_path.display().to_string(),
+                "rename",
+                e.to_string(),
+            ))
+        })?;
+
+        let extension = new_path
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+
+        Ok(ScratchpadEntry {
+            name: new_name.to_string(),
+            path: new_path,
+            kind: if is_dir {
+                ScratchpadEntryKind::Folder
+            } else {
+                ScratchpadEntryKind::File
+            },
+            size: 0,
+            modified_at: Utc::now(),
+            extension,
+            is_external_ref: false,
+        })
+    }
+
+    pub async fn read_file(&self, relative_path: &str) -> Result<String, CoreError> {
+        let file_path = self.resolve_path(relative_path)?;
+
+        fs::read_to_string(&file_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                file_path.display().to_string(),
+                "read",
+                e.to_string(),
+            ))
+        })
+    }
+
+    pub async fn check_file_size(&self, relative_path: &str) -> Result<u64, CoreError> {
+        let file_path = self.resolve_path(relative_path)?;
+        let metadata = fs::metadata(&file_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                file_path.display().to_string(),
+                "metadata",
+                e.to_string(),
+            ))
+        })?;
+        Ok(metadata.len())
+    }
+
+    pub async fn open_in_system_explorer(&self, path_to_open: &Path) -> Result<(), CoreError> {
+        opener::open(path_to_open).map_err(|e| {
+            CoreError::storage(StorageError::io(
+                path_to_open.display().to_string(),
+                "open_explorer",
+                e.to_string(),
+            ))
+        })
+    }
+
+    pub async fn save_file(&self, relative_path: &str, content: &str) -> Result<(), CoreError> {
+        let file_path = self.resolve_path(relative_path)?;
+
+        let tmp_path = file_path.with_extension(
+            format!(
+                "{}.tmp",
+                file_path.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default()
+            ),
+        );
+
+        fs::write(&tmp_path, content).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                tmp_path.display().to_string(),
+                "write_tmp",
+                e.to_string(),
+            ))
+        })?;
+
+        fs::rename(&tmp_path, &file_path).await.map_err(|e| {
+            let _ = std::fs::remove_file(&tmp_path);
+            CoreError::storage(StorageError::io(
+                file_path.display().to_string(),
+                "rename_tmp",
+                e.to_string(),
+            ))
+        })
+    }
+
+    pub async fn import_external_file(&self, source: &Path) -> Result<ScratchpadEntry, CoreError> {
+        self.ensure_dir().await?;
+
+        if !source.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                source.display().to_string(),
+                "import",
+                "source not found".to_string(),
+            )));
+        }
+
+        let file_name = source
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "imported_file".to_string());
+
+        let dest = self.scratchpad_dir.join(&file_name);
+        let dest = unique_path(dest);
+
+        fs::copy(source, &dest).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                source.display().to_string(),
+                "copy",
+                e.to_string(),
+            ))
+        })?;
+
+        let extension = dest
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+
+        let size = fs::metadata(&dest)
+            .await
+            .map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    dest.display().to_string(),
+                    "metadata",
+                    e.to_string(),
+                ))
+            })?
+            .len();
+
+        Ok(ScratchpadEntry {
+            name: dest
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            path: dest,
+            kind: ScratchpadEntryKind::File,
+            size,
+            modified_at: Utc::now(),
+            extension,
+            is_external_ref: false,
+        })
+    }
+
+    pub async fn add_external_reference(
+        &self,
+        alias: String,
+        path: PathBuf,
+    ) -> Result<ExternalReference, CoreError> {
+        let mut config = self.load_config().await?;
+
+        if config.external_references.iter().any(|r| r.alias == alias) {
+            return Err(CoreError::storage(StorageError::persistence(
+                "scratchpad_config",
+                "add_reference",
+                format!("alias '{}' already exists", alias),
+            )));
+        }
+
+        let reference = ExternalReference {
+            alias,
+            path,
+            created_at: Utc::now(),
+        };
+
+        config.external_references.push(reference.clone());
+        self.save_config(&config).await?;
+
+        Ok(reference)
+    }
+
+    pub async fn remove_external_reference(&self, alias: &str) -> Result<(), CoreError> {
+        let mut config = self.load_config().await?;
+
+        let len_before = config.external_references.len();
+        config.external_references.retain(|r| r.alias != alias);
+
+        if config.external_references.len() == len_before {
+            return Err(CoreError::storage(StorageError::persistence(
+                "scratchpad_config",
+                "remove_reference",
+                format!("alias '{}' not found", alias),
+            )));
+        }
+
+        self.save_config(&config).await?;
+        Ok(())
+    }
+
+    fn resolve_path(&self, relative_path: &str) -> Result<PathBuf, CoreError> {
+        self.resolve_path_impl(relative_path, true)
+    }
+
+    fn resolve_path_maybe_missing(&self, relative_path: &str) -> Result<PathBuf, CoreError> {
+        self.resolve_path_impl(relative_path, false)
+    }
+
+    fn resolve_path_impl(&self, relative_path: &str, must_exist: bool) -> Result<PathBuf, CoreError> {
+        let clean = relative_path
+            .trim_start_matches('/')
+            .trim_start_matches('\\');
+
+        if clean.contains("..") {
+            return Err(CoreError::storage(StorageError::io(
+                relative_path.to_string(),
+                "resolve",
+                "path traversal detected".to_string(),
+            )));
+        }
+
+        let target = self.scratchpad_dir.join(clean);
+
+        if must_exist {
+            if !target.exists() {
+                return Err(CoreError::storage(StorageError::io(
+                    target.display().to_string(),
+                    "resolve",
+                    "path not found".to_string(),
+                )));
+            }
+
+            let canonical_base = self.scratchpad_dir.canonicalize().map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    self.scratchpad_dir.display().to_string(),
+                    "canonicalize_base",
+                    e.to_string(),
+                ))
+            })?;
+
+            let canonical_target = target.canonicalize().map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    target.display().to_string(),
+                    "canonicalize_target",
+                    e.to_string(),
+                ))
+            })?;
+
+            if !canonical_target.starts_with(&canonical_base) {
+                return Err(CoreError::storage(StorageError::io(
+                    relative_path.to_string(),
+                    "resolve",
+                    "path outside scratchpad directory".to_string(),
+                )));
+            }
+
+            Ok(canonical_target)
+        } else {
+            let parent = target.parent().unwrap_or(&self.scratchpad_dir);
+            if parent.starts_with(&self.scratchpad_dir) {
+                Ok(target)
+            } else {
+                Err(CoreError::storage(StorageError::io(
+                    relative_path.to_string(),
+                    "resolve",
+                    "path outside scratchpad directory".to_string(),
+                )))
+            }
+        }
+    }
+
+    pub async fn get_analyzable_files(&self) -> Result<Vec<AnalyzableFile>, CoreError> {
+        let response = self.get_full_response().await?;
+        let analyzable_extensions: std::collections::HashSet<&str> = [
+            "csv", "tsv", "parquet", "json", "ndjson",
+            "xlsx", "xls",
+            "sqlite", "db", "duckdb",
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
+        let mut results = Vec::new();
+        for entry in &response.local_entries {
+            let ext = entry
+                .extension
+                .trim_start_matches('.')
+                .to_lowercase();
+
+            if !analyzable_extensions.contains(ext.as_str()) {
+                continue;
+            }
+
+            let hint = duckdb_query_hint(&ext, &entry.name);
+
+            if let Ok(rel_path) = entry.path.strip_prefix(&self.scratchpad_dir) {
+                results.push(AnalyzableFile {
+                    name: entry.name.clone(),
+                    relative_path: rel_path.to_string_lossy().to_string(),
+                    file_type: ext,
+                    size_bytes: entry.size,
+                    duckdb_query_hint: hint,
+                });
+            }
+        }
+
+        Ok(results)
+    }
+
+    fn validate_name(&self, name: &str) -> Result<(), CoreError> {
+        if name.is_empty() {
+            return Err(CoreError::storage(StorageError::io(
+                name.to_string(),
+                "validate",
+                "name cannot be empty".to_string(),
+            )));
+        }
+
+        if name.contains('/') || name.contains('\\') || name.contains("..") {
+            return Err(CoreError::storage(StorageError::io(
+                name.to_string(),
+                "validate",
+                "name contains invalid characters".to_string(),
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+fn duckdb_query_hint(ext: &str, name: &str) -> String {
+    match ext {
+        "csv" => format!("SELECT * FROM read_csv_auto('{}');", name),
+        "tsv" => format!("SELECT * FROM read_csv_auto('{}', delim='\\t');", name),
+        "parquet" => format!("SELECT * FROM read_parquet('{}');", name),
+        "json" | "ndjson" => format!("SELECT * FROM read_json_auto('{}');", name),
+        "xlsx" | "xls" => format!("SELECT * FROM st_read('{}');", name),
+        "sqlite" | "db" => format!("ATTACH '{}' AS sqlite_db (TYPE sqlite);", name),
+        "duckdb" => format!("ATTACH '{}' AS duckdb_db;", name),
+        _ => format!("-- Unsupported type: {}", ext),
+    }
+}
+
+fn unique_path(path: PathBuf) -> PathBuf {
+    if !path.exists() {
+        return path;
+    }
+
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "file".to_string());
+    let ext = path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+
+    for i in 1..1000 {
+        let new_name = format!("{}_{}{}", stem, i, ext);
+        let new_path = parent.join(&new_name);
+        if !new_path.exists() {
+            return new_path;
+        }
+    }
+
+    let ts = Utc::now().timestamp_millis();
+    let new_name = format!("{}_{}{}", stem, ts, ext);
+    parent.join(&new_name)
+}

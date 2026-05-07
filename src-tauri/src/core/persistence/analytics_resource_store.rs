@@ -64,6 +64,15 @@ pub struct AnalyticsRecycleItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceVersion {
+    pub id: String,
+    pub resource_id: String,
+    pub version: i32,
+    pub snapshot: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateResourceRequest {
     pub resource_type: String,
     pub name: String,
@@ -151,6 +160,9 @@ impl AnalyticsResourceStore {
         let now = Utc::now();
 
         let current = self.get_resource_by_id(id).await?;
+
+        let snapshot = serde_json::to_string(&current).map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+        self.save_resource_version(id, current.version, &snapshot).await?;
 
         conn.inner().execute(
             r#"
@@ -247,19 +259,19 @@ impl AnalyticsResourceStore {
             "#,
         );
 
-        let mut params: Vec<&str> = Vec::new();
+        let mut params: Vec<rusqlite::types::Value> = Vec::new();
 
         if let Some(s) = scope {
             sql.push_str(" AND scope = ?");
-            params.push(s);
+            params.push(rusqlite::types::Value::Text(s.to_string()));
         }
 
         if let Some(t) = resource_type {
             sql.push_str(" AND resource_type = ?");
-            params.push(t);
+            params.push(rusqlite::types::Value::Text(t.to_string()));
         }
 
-        if let Some(folder_id) = folder_id {
+        if let Some(f) = folder_id {
             sql.push_str(
                 r#"
                 AND id IN (
@@ -267,7 +279,7 @@ impl AnalyticsResourceStore {
                 )
                 "#,
             );
-            params.push(folder_id);
+            params.push(rusqlite::types::Value::Text(f.to_string()));
         }
 
         sql.push_str(" ORDER BY created_at DESC");
@@ -350,6 +362,30 @@ impl AnalyticsResourceStore {
         ).map_err(|e| CoreError::storage(StorageError::Persistence {
             store: "analytics_resources".to_string(),
             operation: "update".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        conn.inner().execute(
+            r#"
+            DELETE FROM analytics_resource_folder
+            WHERE resource_id = ?
+            "#,
+            rusqlite::params![id],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_folder".to_string(),
+            operation: "delete".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        conn.inner().execute(
+            r#"
+            DELETE FROM analytics_resource_tags
+            WHERE resource_id = ?
+            "#,
+            rusqlite::params![id],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "delete".to_string(),
             reason: e.to_string(),
         }))?;
 
@@ -443,6 +479,30 @@ impl AnalyticsResourceStore {
                 ).map_err(|e| CoreError::storage(StorageError::Persistence {
                     store: "analytics_resources".to_string(),
                     operation: "update".to_string(),
+                    reason: e.to_string(),
+                }))?;
+
+                conn.inner().execute(
+                    r#"
+                    DELETE FROM analytics_resource_folder
+                    WHERE resource_id = ?
+                    "#,
+                    rusqlite::params![id],
+                ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_resource_folder".to_string(),
+                    operation: "delete".to_string(),
+                    reason: e.to_string(),
+                }))?;
+
+                conn.inner().execute(
+                    r#"
+                    DELETE FROM analytics_resource_tags
+                    WHERE resource_id = ?
+                    "#,
+                    rusqlite::params![id],
+                ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_resource_tags".to_string(),
+                    operation: "delete".to_string(),
                     reason: e.to_string(),
                 }))?;
             }
@@ -544,16 +604,16 @@ impl AnalyticsResourceStore {
             "#,
         );
 
-        let mut params: Vec<&str> = Vec::new();
+        let mut params: Vec<rusqlite::types::Value> = Vec::new();
 
         if let Some(s) = scope {
             sql.push_str(" AND scope = ?");
-            params.push(s);
+            params.push(rusqlite::types::Value::Text(s.to_string()));
         }
 
         if let Some(p) = parent_folder_id {
             sql.push_str(" AND parent_folder_id = ?");
-            params.push(p);
+            params.push(rusqlite::types::Value::Text(p.to_string()));
         } else {
             sql.push_str(" AND parent_folder_id IS NULL");
         }
@@ -693,11 +753,11 @@ impl AnalyticsResourceStore {
             "#,
         );
 
-        let mut params: Vec<&str> = Vec::new();
+        let mut params: Vec<rusqlite::types::Value> = Vec::new();
 
         if let Some(s) = scope {
             sql.push_str(" AND scope = ?");
-            params.push(s);
+            params.push(rusqlite::types::Value::Text(s.to_string()));
         }
 
         sql.push_str(" ORDER BY name ASC");
@@ -809,9 +869,9 @@ impl AnalyticsResourceStore {
     }
 
     pub async fn restore_from_recycle(&self, recycle_id: &str) -> Result<AnalyticsResource, CoreError> {
-        let resource = {
-            let conn = self.get_conn().await?;
+        let conn = self.get_conn().await?;
 
+        let resource_id = {
             let mut stmt = conn.inner().prepare(
                 r#"
                 SELECT resource_data FROM analytics_recycle_bin WHERE id = ?
@@ -832,34 +892,58 @@ impl AnalyticsResourceStore {
             let resource: AnalyticsResource = serde_json::from_str(&data_str)
                 .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
 
-            conn.inner().execute(
-                r#"
-                UPDATE analytics_resources
-                SET deleted_at = NULL
-                WHERE id = ?
-                "#,
-                rusqlite::params![&resource.id],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            conn.inner().execute("BEGIN TRANSACTION", []).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "analytics_resources".to_string(),
-                operation: "update".to_string(),
+                operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
             }))?;
 
-            conn.inner().execute(
-                r#"
-                DELETE FROM analytics_recycle_bin WHERE id = ?
-                "#,
-                rusqlite::params![recycle_id],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "analytics_recycle_bin".to_string(),
-                operation: "delete".to_string(),
-                reason: e.to_string(),
-            }))?;
+            let restore_result = (|| -> Result<(), CoreError> {
+                conn.inner().execute(
+                    r#"
+                    UPDATE analytics_resources
+                    SET deleted_at = NULL
+                    WHERE id = ?
+                    "#,
+                    rusqlite::params![&resource.id],
+                ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_resources".to_string(),
+                    operation: "update".to_string(),
+                    reason: e.to_string(),
+                }))?;
 
-            resource
+                conn.inner().execute(
+                    r#"
+                    DELETE FROM analytics_recycle_bin WHERE id = ?
+                    "#,
+                    rusqlite::params![recycle_id],
+                ).map_err(|e| CoreError::storage(StorageError::Persistence {
+                    store: "analytics_recycle_bin".to_string(),
+                    operation: "delete".to_string(),
+                    reason: e.to_string(),
+                }))?;
+
+                Ok(())
+            })();
+
+            match restore_result {
+                Ok(()) => {
+                    conn.inner().execute("COMMIT", []).map_err(|e| CoreError::storage(StorageError::Persistence {
+                        store: "analytics_resources".to_string(),
+                        operation: "commit".to_string(),
+                        reason: e.to_string(),
+                    }))?;
+                }
+                Err(e) => {
+                    let _ = conn.inner().execute("ROLLBACK", []);
+                    return Err(e);
+                }
+            }
+
+            resource.id
         };
 
-        self.get_resource_by_id(&resource.id).await
+        self.get_resource_by_id(&resource_id).await
     }
 
     pub async fn permanent_delete(&self, recycle_id: &str) -> Result<(), CoreError> {
@@ -1073,7 +1157,166 @@ impl AnalyticsResourceStore {
     }
 
     fn parse_datetime_sqlite(s: String) -> Result<DateTime<Utc>, rusqlite::Error> {
-        Self::parse_datetime(s).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        DateTime::parse_from_rfc3339(&s)
+            .map(|dt| dt.with_timezone(&Utc))
+            .map_err(|e| rusqlite::Error::InvalidParameterName(format!("Invalid datetime: {}", e)))
+    }
+
+    // ==================== 版本历史 ====================
+
+    pub async fn get_resource_versions(&self, resource_id: &str) -> Result<Vec<ResourceVersion>, CoreError> {
+        let conn = self.get_conn().await?;
+
+        let mut stmt = conn.inner().prepare(
+            r#"
+            SELECT id, resource_id, version, snapshot, created_at
+            FROM analytics_resource_versions
+            WHERE resource_id = ?
+            ORDER BY version DESC
+            "#,
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_versions".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let versions = stmt.query_map(rusqlite::params![resource_id], |row| {
+            let snapshot_str: String = row.get(3)?;
+            Ok(ResourceVersion {
+                id: row.get(0)?,
+                resource_id: row.get(1)?,
+                version: row.get(2)?,
+                snapshot: serde_json::from_str(&snapshot_str).unwrap_or(Value::Null),
+                created_at: Self::parse_datetime_sqlite(row.get(4)?)?,
+            })
+        }).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_versions".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        versions.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_versions".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))
+    }
+
+    pub async fn save_resource_version(&self, resource_id: &str, version: i32, snapshot: &str) -> Result<(), CoreError> {
+        let conn = self.get_conn().await?;
+        let id = format!("arv_{}", uuid::Uuid::new_v4().simple());
+
+        conn.inner().execute(
+            r#"
+            INSERT OR IGNORE INTO analytics_resource_versions (id, resource_id, version, snapshot, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            "#,
+            rusqlite::params![&id, resource_id, version, snapshot, Utc::now().to_rfc3339()],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_versions".to_string(),
+            operation: "insert".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(())
+    }
+
+    // ==================== 标签双向查询 ====================
+
+    pub async fn get_tags_for_resource(&self, resource_id: &str) -> Result<Vec<AnalyticsTag>, CoreError> {
+        let conn = self.get_conn().await?;
+
+        let mut stmt = conn.inner().prepare(
+            r#"
+            SELECT t.id, t.name, t.color, t.icon, t.scope, t.created_at, t.deleted_at
+            FROM analytics_tags t
+            INNER JOIN analytics_resource_tags rt ON t.id = rt.tag_id
+            WHERE rt.resource_id = ? AND t.deleted_at IS NULL
+            ORDER BY t.name ASC
+            "#,
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let tags = stmt.query_map(rusqlite::params![resource_id], |row| {
+            Ok(AnalyticsTag {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+                icon: row.get(3)?,
+                scope: row.get(4)?,
+                created_at: Self::parse_datetime_sqlite(row.get(5)?)?,
+                deleted_at: row.get(6).ok().and_then(|s| Self::parse_datetime(s).ok()),
+            })
+        }).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        tags.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))
+    }
+
+    pub async fn get_resources_by_tag(&self, tag_id: &str) -> Result<Vec<AnalyticsResource>, CoreError> {
+        let conn = self.get_conn().await?;
+
+        let mut stmt = conn.inner().prepare(
+            r#"
+            SELECT r.id, r.resource_type, r.name, r.alias, r.config, r.scope,
+                   r.row_count, r.column_count, r.file_size, r.version,
+                   r.parent_version_id, r.parent_resource_id, r.source_query,
+                   r.created_at, r.updated_at, r.created_by, r.deleted_at
+            FROM analytics_resources r
+            INNER JOIN analytics_resource_tags rt ON r.id = rt.resource_id
+            WHERE rt.tag_id = ? AND r.deleted_at IS NULL
+            ORDER BY r.created_at DESC
+            "#,
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let resources = stmt.query_map(rusqlite::params![tag_id], |row| {
+            let config_str: String = row.get(4)?;
+            let config: Value = serde_json::from_str(&config_str).unwrap_or(Value::Null);
+
+            Ok(AnalyticsResource {
+                id: row.get(0)?,
+                resource_type: row.get(1)?,
+                name: row.get(2)?,
+                alias: row.get(3)?,
+                config,
+                scope: row.get(5)?,
+                row_count: row.get(6)?,
+                column_count: row.get(7)?,
+                file_size: row.get(8)?,
+                version: row.get(9)?,
+                parent_version_id: row.get(10)?,
+                parent_resource_id: row.get(11)?,
+                source_query: row.get(12)?,
+                created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
+                updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
+                created_by: row.get(15)?,
+                deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
+            })
+        }).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        resources.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "analytics_resource_tags".to_string(),
+            operation: "select".to_string(),
+            reason: e.to_string(),
+        }))
     }
 }
 

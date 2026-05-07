@@ -11,15 +11,15 @@
       <div class="dialog-body">
         <!-- Edge Group 控制 -->
         <div class="section">
-          <div class="section-title">侧边栏</div>
+          <div class="section-title">{{ t('workbench.sidebar') }}</div>
 
           <div class="section-item" @click="toggleLeftEdgeGroup">
             <div class="item-left">
               <PanelLeft :size="16" class="item-icon" />
-              <span class="item-label">左侧边栏</span>
+              <span class="item-label">{{ t('workbench.leftSidebar') }}</span>
             </div>
             <div class="item-right">
-              <span class="item-hint">{{ layoutStore.leftEdgeGroupCollapsed ? '已收起' : '已展开' }}</span>
+              <span class="item-hint">{{ layoutStore.leftEdgeGroupCollapsed ? t('workbench.collapsed') : t('workbench.expanded') }}</span>
               <div class="checkbox" :class="{ checked: !layoutStore.leftEdgeGroupCollapsed }">
                 <Check v-if="!layoutStore.leftEdgeGroupCollapsed" :size="12" />
               </div>
@@ -29,10 +29,10 @@
           <div class="section-item" @click="toggleRightEdgeGroup">
             <div class="item-left">
               <PanelRight :size="16" class="item-icon" />
-              <span class="item-label">右侧边栏</span>
+              <span class="item-label">{{ t('workbench.rightSidebar') }}</span>
             </div>
             <div class="item-right">
-              <span class="item-hint">{{ layoutStore.rightEdgeGroupCollapsed ? '已收起' : '已展开' }}</span>
+              <span class="item-hint">{{ layoutStore.rightEdgeGroupCollapsed ? t('workbench.collapsed') : t('workbench.expanded') }}</span>
               <div class="checkbox" :class="{ checked: !layoutStore.rightEdgeGroupCollapsed }">
                 <Check v-if="!layoutStore.rightEdgeGroupCollapsed" :size="12" />
               </div>
@@ -44,12 +44,12 @@
 
         <!-- 界面元素可见性 -->
         <div class="section">
-          <div class="section-title">界面元素</div>
+          <div class="section-title">{{ t('workbench.uiElements') }}</div>
 
           <div class="section-item" @click="toggleVisibility('menuBar')">
             <div class="item-left">
               <Menu :size="16" class="item-icon" />
-              <span class="item-label">菜单栏</span>
+              <span class="item-label">{{ t('workbench.menuBar') }}</span>
             </div>
             <div class="item-right">
               <div class="checkbox" :class="{ checked: layoutStore.menuBarVisible }">
@@ -61,7 +61,7 @@
           <div class="section-item" @click="toggleVisibility('statusBar')">
             <div class="item-left">
               <Minus :size="16" class="item-icon" />
-              <span class="item-label">状态栏</span>
+              <span class="item-label">{{ t('workbench.statusBar') }}</span>
             </div>
             <div class="item-right">
               <div class="checkbox" :class="{ checked: layoutStore.statusBarVisible }">
@@ -75,12 +75,12 @@
 
         <!-- 全屏 -->
         <div class="section">
-          <div class="section-title">窗口</div>
+          <div class="section-title">{{ t('workbench.window') }}</div>
 
           <div class="section-item" @click="toggleFullScreen">
             <div class="item-left">
               <Maximize :size="16" class="item-icon" />
-              <span class="item-label">全屏</span>
+              <span class="item-label">{{ t('workbench.fullscreen') }}</span>
             </div>
             <div class="item-right">
               <div class="shortcut">
@@ -99,7 +99,7 @@
         <div class="section">
           <div class="reset-item" @click="handleResetLayout">
             <RotateCcw :size="16" class="item-icon" />
-            <span class="item-label">重置布局</span>
+            <span class="item-label">{{ t('workbench.resetLayout') }}</span>
           </div>
         </div>
       </div>
@@ -119,9 +119,11 @@ import {
   RotateCcw
 } from 'lucide-vue-next'
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useLayoutStore } from '../stores/layout-store'
 
+const { t } = useI18n()
 const layoutStore = useLayoutStore()
 
 const emit = defineEmits<{

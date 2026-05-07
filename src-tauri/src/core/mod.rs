@@ -44,6 +44,8 @@ pub mod services;
 pub mod cache;
 pub mod utils;
 pub mod migration;
+pub mod insight;
+pub mod scratchpad;
 
 // 错误处理宏模块
 #[macro_use]
@@ -123,4 +125,10 @@ pub use stream::{
 // 重新导出工具模块
 pub use utils::{
     hash, time, string,
+};
+
+// 重新导出草稿箱模块
+pub use scratchpad::{
+    ScratchpadEntry, ScratchpadEntryKind, ScratchpadConfig,
+    ExternalReference, ScratchpadResponse, ScratchpadStore,
 };

@@ -30,8 +30,9 @@ pub use workbench_context_store::{WorkbenchContextStore, WorkbenchLayout, Editor
 pub use analytics_resource_store::{
     AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
     CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
+    ResourceVersion,
 };
-pub use insight_store::{InsightStorage, InsightColumnStore, InsightTableReportStore, InsightSchemaReportStore, InsightVersionEntry};
+pub use insight_store::{InsightStorage, InsightColumnStore, InsightTableReportStore, InsightSchemaReportStore, InsightVersionEntry, InsightStorageStats};
 pub use insight_meta_store::InsightMetaStore;
 
 use crate::core::error::{CoreError, StorageError};

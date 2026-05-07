@@ -6,7 +6,3 @@
  */
 
 export * from 'dockview-vue'
-
-export type { DockviewApi } from 'dockview-core'
-export type { IDockviewPanel } from 'dockview-core'
-export type { DockviewGroupPanelApi } from 'dockview-core'

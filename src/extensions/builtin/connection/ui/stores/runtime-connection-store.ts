@@ -271,15 +271,17 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
         }
         return `postgresql://${host}:${port}/${database}`
 
-      case 'sqlite':
+      case 'sqlite': {
         // SQLite 使用 host 字段存储文件路径（如果 host 为空，使用 database）
         const sqlitePath = host || database || ''
         return `sqlite://${sqlitePath}`
+      }
 
-      case 'duckdb':
+      case 'duckdb': {
         // DuckDB 使用 host 字段存储文件路径（如果 host 为空，使用 database）
         const duckdbPath = host || database || ''
         return `duckdb://${duckdbPath}`
+      }
 
       default:
         throw new Error(`不支持的数据库类型: ${dbType}`)

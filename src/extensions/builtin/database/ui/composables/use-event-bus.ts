@@ -25,7 +25,7 @@ export class EventBus {
 
     const subscription: EventSubscription = {
       eventName,
-      handler,
+      handler: handler as EventHandler,
       once: false
     }
 
@@ -46,7 +46,7 @@ export class EventBus {
 
     const subscription: EventSubscription = {
       eventName,
-      handler,
+      handler: handler as EventHandler,
       once: true
     }
 

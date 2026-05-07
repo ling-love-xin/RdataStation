@@ -353,18 +353,21 @@ export function useIncrementalRefresh() {
     const connectionId = keyParts[1]
 
     switch (nodeType) {
-      case 'connection':
+      case 'connection': {
         const databases = navigatorStore.getDatabases(connectionId)
         return JSON.stringify(databases.map(db => db.name))
-      case 'database':
+      }
+      case 'database': {
         const dbName = keyParts[2]
         const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
         return JSON.stringify(schemas.map(s => s.name))
-      case 'schema':
+      }
+      case 'schema': {
         const schemaDbName = keyParts[2]
         const schemaName = keyParts[3]
         const tables = navigatorStore.getSchemaTables(connectionId, schemaDbName, schemaName)
         return JSON.stringify(tables.map(t => t.name))
+      }
       default:
         return ''
     }

@@ -2,65 +2,65 @@
   <div class="toolbar-container">
     <!-- 连接工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn" title="新建连接" @click="$emit('new-connection')">
+      <button class="toolbar-btn" :title="t('workbench.newConnectionTooltip')" @click="$emit('new-connection')">
         <Plug :size="16" />
       </button>
-      <button class="toolbar-btn" title="断开连接" @click="$emit('disconnect')">
+      <button class="toolbar-btn" :title="t('workbench.disconnectTooltip')" @click="$emit('disconnect')">
         <Unplug :size="16" />
       </button>
       <div class="toolbar-divider" />
-      <button class="toolbar-btn" title="刷新" @click="$emit('refresh')">
+      <button class="toolbar-btn" :title="t('workbench.refreshTooltip')" @click="$emit('refresh')">
         <RefreshCw :size="16" />
       </button>
     </div>
 
     <!-- SQL 工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn primary" title="执行 SQL (Ctrl+Enter)" @click="$emit('execute')">
+      <button class="toolbar-btn primary" :title="t('workbench.executeSqlTooltip')" @click="$emit('execute')">
         <Play :size="16" />
       </button>
-      <button class="toolbar-btn" title="执行脚本" @click="$emit('execute-script')">
+      <button class="toolbar-btn" :title="t('workbench.executeScriptTooltip')" @click="$emit('execute-script')">
         <FileCode :size="16" />
       </button>
-      <button class="toolbar-btn" title="停止执行" @click="$emit('stop')">
+      <button class="toolbar-btn" :title="t('workbench.stopExecutionTooltip')" @click="$emit('stop')">
         <Square :size="14" />
       </button>
       <div class="toolbar-divider" />
-      <button class="toolbar-btn" title="格式化 SQL" @click="$emit('format')">
+      <button class="toolbar-btn" :title="t('workbench.formatSqlTooltip')" @click="$emit('format')">
         <AlignLeft :size="16" />
       </button>
-      <button class="toolbar-btn" title="解释执行计划" @click="$emit('explain')">
+      <button class="toolbar-btn" :title="t('workbench.explainPlanTooltip')" @click="$emit('explain')">
         <GitBranch :size="16" />
       </button>
     </div>
 
     <!-- 事务工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn" title="提交事务" @click="$emit('commit')">
+      <button class="toolbar-btn" :title="t('workbench.commitTooltip')" @click="$emit('commit')">
         <Check :size="16" />
       </button>
-      <button class="toolbar-btn" title="回滚事务" @click="$emit('rollback')">
+      <button class="toolbar-btn" :title="t('workbench.rollbackTooltip')" @click="$emit('rollback')">
         <RotateCcw :size="16" />
       </button>
       <div class="toolbar-divider" />
-      <button class="toolbar-btn" title="自动提交">
+      <button class="toolbar-btn" :title="t('workbench.autoCommitTooltip')">
         <ToggleLeft :size="16" />
       </button>
     </div>
 
     <!-- 数据工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn" title="导出数据" @click="$emit('export')">
+      <button class="toolbar-btn" :title="t('workbench.exportDataTooltip')" @click="$emit('export')">
         <Download :size="16" />
       </button>
-      <button class="toolbar-btn" title="导入数据" @click="$emit('import')">
+      <button class="toolbar-btn" :title="t('workbench.importDataTooltip')" @click="$emit('import')">
         <Upload :size="16" />
       </button>
       <div class="toolbar-divider" />
-      <button class="toolbar-btn" title="筛选">
+      <button class="toolbar-btn" :title="t('workbench.filterTooltip')">
         <Filter :size="16" />
       </button>
-      <button class="toolbar-btn" title="搜索">
+      <button class="toolbar-btn" :title="t('workbench.searchTooltip')">
         <Search :size="16" />
       </button>
     </div>
@@ -73,6 +73,9 @@ import {
   AlignLeft, GitBranch, Check, RotateCcw, ToggleLeft,
   Download, Upload, Filter, Search
 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineEmits<{
   'new-connection': []

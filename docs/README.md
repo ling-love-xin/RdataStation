@@ -1,8 +1,8 @@
 # RdataStation 文档中心
 
-> 版本：v2.1
-> 最后更新：2026-05-06
-> 状态：✅ V7 增量同步已完成
+> 版本：v2.2
+> 最后更新：2026-05-08
+> 状态：✅ V7 增量同步已完成 | ⏳ SQL 编辑器架构优化待确认
 
 ---
 
@@ -13,6 +13,7 @@
 | 了解项目架构 | [架构总览](./architecture.md) | 四层微内核、四层数据库架构 |
 | 开始后端开发 | [后端文档](./backend/README.md) | Rust Core + Tauri |
 | 开始前端开发 | [前端文档](./frontend/INDEX.md) | Vue 3 + TypeScript |
+| 了解 SQL 编辑器优化 | [优化计划](./frontend/SQL-EDITOR-OPTIMIZATION-PLAN.md) | 架构优化 4 Phase |
 | 了解数据库导航 | [导航器文档](./navigator/README.md) | IVM 增量视图设计 |
 | 查看竞品对比 | [竞品对比](./COMPARISON.md) | vs DBeaver/DataGrip |
 | 查看任务进度 | [任务清单](./backend/TASKS.md) | 开发任务追踪 |
@@ -46,7 +47,8 @@ docs/
 │   ├── ARCHITECTURE.md        # 前端架构（插件化、DDD）
 │   ├── COMPONENTS.md          # 组件规范
 │   ├── DEVELOPMENT-GUIDE.md   # 开发指南
-│   ├── SQL-EDITOR.md         # SQL 编辑器
+│   ├── SQL-EDITOR.md         # SQL 编辑器完整文档
+│   ├── SQL-EDITOR-OPTIMIZATION-PLAN.md  # SQL 编辑器架构优化计划
 │   ├── QUERY-RESULT.md       # 结果面板
 │   ├── QUERY-RESULT-DESIGN.md
 │   └── PLUGIN-ARCHITECTURE-REFACTOR.md
@@ -126,6 +128,7 @@ docs/
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定 |
 | v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档 |
 | v2.0 | 2026-05-03 | 创建文档中心，优化索引结构 |
 | v1.0 | 2026-04-23 | 初始文档架构 |

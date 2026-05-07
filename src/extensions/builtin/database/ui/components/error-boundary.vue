@@ -4,11 +4,11 @@
       <div class="error-icon">
         <AlertTriangle :size="48" />
       </div>
-      <h3 class="error-title">组件加载失败</h3>
+      <h3 class="error-title">{{ t('navigator.componentError') }}</h3>
       <p class="error-message">{{ errorMessage }}</p>
       <button class="retry-btn" @click="handleRetry">
         <RefreshCw :size="16" />
-        重试
+        {{ t('navigator.retry') }}
       </button>
     </div>
   </div>
@@ -18,6 +18,9 @@
 <script setup lang="ts">
 import { AlertTriangle, RefreshCw } from 'lucide-vue-next'
 import { ref, onErrorCaptured, type ComponentPublicInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   error: [error: Error]
@@ -29,7 +32,7 @@ const errorMessage = ref('')
 
 onErrorCaptured((error: Error, instance: ComponentPublicInstance | null, info: string) => {
   hasError.value = true
-  errorMessage.value = error.message || '未知错误'
+  errorMessage.value = error.message || t('navigator.unknownError')
   
   console.error('Error Boundary caught error:', error)
   console.error('Component:', instance)

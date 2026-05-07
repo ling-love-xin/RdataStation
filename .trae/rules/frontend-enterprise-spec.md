@@ -84,52 +84,74 @@ src/
 ## 2.1 全局布局结构（VSCode 风格，基于 dockview Edge Group）
 
 ```
+                    收起态（默认）
+            B : C : D = 1 : 2 : 1
+
 ┌──────────────────────────────────────────────────┐
-│ Menu Bar（36px，非 dockview，自定义标题栏）         │
-├─────┬───────────────────────────────┬────────────┬┤
-│Left │ Database Navigator            │Right       ││
-│Edge │ (Normal Group, 280px)         │Edge Group  ││
-│Group│                               │(展开 ~250px)││
-│48px ├───────────────────────────────┤            ││
-│     │ Workbench                     │• 列洞察     ││
-│     │ (Normal Group, 自适应)         │• SQL历史    ││
-│     │ • Welcome Page                │            ││
-│     │ • SQL Editor                  │            ││
-│     │ • Query Result                │• 底栏图标区  ││
-│     │                               │  (ActivityBar)│
-│     ├───────────────────────────────┤            ││
-├─────┴───────────────────────────────┴────────────┤│
-│ Status Bar（22px，非 dockview，含 ⚙ 设置入口）    │
+│ Menu Bar（36px，非 dockview）                      │
+├──┬──────────┬──────────────────────┬───────────┬┤
+│A*│ B        │ C                    │ D         ││
+│48│ Database │ Workbench            │ Right     ││
+│px│Navigator │ (Normal Group, ~50%) │ Edge Group││
+│  │(Normal)  │                      │ (25%)     ││
+│  │          │ • Welcome Page       │• 列洞察   ││
+│  │          │ • SQL Editor         │• SQL历史  ││
+│  │          │ • Query Result       │           ││
+├──┴──────────┴──────────────────────┴───────────┤│
+│ Status Bar（22px，含 ⚙ 设置入口）                 │
 └──────────────────────────────────────────────────┘
+
+                    展开态
+         A : B : C : D = 1 : 1 : 1 : 1
+
+┌──────────────────────────────────────────────────┐
+│ Menu Bar（36px，非 dockview）                      │
+├────┬──────────┬──────────────┬─────────────────┬┤
+│ A  │ B        │ C            │ D               ││
+│Left│ Database │ Workbench    │ Right           ││
+│Edge│Navigator │ (Normal Grp) │ Edge Group      ││
+│Grp │(Normal)  │              │                 ││
+│25% │ 25%      │ 25%          │ 25%             ││
+├────┴──────────┴──────────────┴─────────────────┤│
+│ Status Bar（22px，含 ⚙ 设置入口）                 │
+└──────────────────────────────────────────────────┘
+A* = 收起态下 Left Edge Group 仅 48px Activity Bar 窄条
 ```
 
 **核心原则：**
-- **除了 Menu Bar 和 Status Bar，所有区域均由 dockview-vue 6.0 管理**
-- **左侧 Edge Group 默认收起（48px），内部为 ActivityBarPanel，不包含面板内容**
-- **数据库导航是独立的 Normal Group（非 Edge Group），位于中心区域左侧**
+- 收起态（默认）：`B : C : D = 1 : 2 : 1`，A 为 48px Activity Bar 窄条
+- 展开态：`A : B : C : D = 1 : 1 : 1 : 1`，四区等宽
+- 切换方式：点击左侧 Activity Bar 底部的展开/收起按钮
+- **ActivityBar 作为 dockview 面板渲染在左侧 Edge Group 内（panel_leftActivityBar，组件名 leftActivityBar）**
 - **Edge Group 面板不显示关闭按钮（CSS 隐藏）**
-- **展开/收起使用 dockview 内置的 `collapse()` / `expand()` API，不做自定义实现**
-- **设置入口位于状态栏右侧齿轮图标，打开 CustomizeLayoutDialog**
+- **展开/收起使用 dockview 内置的 `group.api.collapse()` / `group.api.expand()`**
+- **设置入口位于状态栏右侧齿轮图标**
 
 ## 2.2 布局区域职责
 
-| 区域 | 技术 | 宽度/高度 | 说明 |
-|------|------|-----------|------|
-| Menu Bar | 自定义组件 | 36px | 标题栏 + 菜单，非 dockview |
-| Left Edge Group | dockview Edge Group | 48px→可拖拽 | 左侧活动栏，默认 48px 收起，展开后可显示 Analytics/Plugins 面板 |
-| Database Navigator | dockview Normal Group | ~280px（可拖拽） | 数据库导航，独立 Normal Group（非 Edge Group），支持拖拽/浮动/弹出 |
-| Center Area | dockview Normal Group | 自适应 | Welcome Page、SQL Editor、Query Result |
-| Right Edge Group | dockview Edge Group | ~250px（可拖拽） | 列洞察、SQL 历史，默认展开 |
-| Status Bar | 自定义组件 | 22px | 连接状态、执行信息、⚙ 设置入口，非 dockview |
+| 区域 | 代号 | 技术 | 收起态宽度 | 展开态宽度 | 说明 |
+|------|------|------|-----------|-----------|------|
+| Menu Bar | - | 自定义 | 36px | 36px | 标题栏+菜单，非 dockview |
+| Left Edge Group | A | dockview Edge Group | 48px | 25% | 含 ActivityBar 面板 + analytics/plugins 面板 |
+| ActivityBar | A | dockview 面板 | 48px(收起) | 25%(展开) | 左侧 Edge Group 内 panel_leftActivityBar |
+| Database Navigator | B | dockview Normal Grp | 25%* | 25% | 独立 Normal Group，非 Edge |
+| Center Area | C | dockview Normal Grp | 50%* | 25% | Welcome Page、SQL Editor、Result |
+| Right Edge Group | D | dockview Edge Grp | 25%* | 25% | 列洞察、SQL 历史，始终展开 |
+| Status Bar | - | 自定义 | 22px | 22px | 状态信息+⚙ 设置入口，非 dockview |
+
+\* 收起态比例 B:C:D = 1:2:1 为 dockview 内扣除左侧 Edge Group 48px 后的剩余宽度比例
 
 ## 2.3 Workbench 工作台布局
 
-- **左侧 Edge Group**：ActivityBarPanel（活动栏图标 + 底部 toggle 按钮），默认收起为 48px 窄条
-- **数据库导航 Normal Group**：独立普通 Group，位于中心区域左侧，可拖拽移动
-- **中心区域**：Welcome Page、SQL Editor（按需创建）、Query Result（按需创建）
-- **右侧 Edge Group**：列洞察、SQL 历史（dockview tab 组），默认展开
+- **收起态（默认）** `B : C : D = 1 : 2 : 1`：A 仅占 48px Activity Bar 窄条
+- **展开态** `A : B : C : D = 1 : 1 : 1 : 1`：四区等宽，各 25%
+- **切换**：点击左侧 Edge Group 的展开/收起按钮（dockview 内置控件）
+- **A 区（左侧 Edge Group）**：ActivityBar 作为 dockview 面板渲染（panel_leftActivityBar），含数据库/分析/插件图标切换，通过 dockview Edge Group 内置展开/收起按钮控制
+- **B 区（Database Navigator）**：独立 Normal Group，可拖拽/浮动/弹出
+- **C 区（Center Area）**：Welcome Page、SQL Editor（按需）、Query Result（按需）
+- **D 区（Right Edge Group）**：列洞察、SQL 历史（dockview tab 组），始终展开
+- **Edge Group 面板无关闭按钮，Normal Group 面板有关闭按钮**
 - **所有面板支持拖拽、浮动、弹出、重组、最大化**
-- **Edge Group 面板无关闭按钮，普通 Group 面板有关闭按钮**
 
 ## 2.4 dockview-vue 6.0 规则
 

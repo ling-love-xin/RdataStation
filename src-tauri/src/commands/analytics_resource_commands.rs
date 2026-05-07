@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 use crate::core::persistence::{
     AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
     CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
+    ResourceVersion,
 };
 use crate::commands::project_commands::ProjectState;
 
@@ -515,6 +516,64 @@ pub async fn permanent_delete_analytics_resource(
     tracing::info!(recycle_id = %recycle_id, "Analytics resource permanently deleted");
     
     Ok(())
+}
+
+// ==================== Version History Commands ====================
+
+/// 获取资源的版本历史
+#[tauri::command]
+pub async fn get_resource_versions(
+    resource_id: String,
+    analytics_state: State<'_, AnalyticsResourceState>,
+) -> Result<Vec<ResourceVersion>, String> {
+    tracing::debug!(resource_id = %resource_id, "Getting resource versions");
+
+    let analytics_guard = analytics_state.store.lock().await;
+    let store = analytics_guard.as_ref().ok_or_else(|| {
+        "分析资源存储未初始化".to_string()
+    })?;
+
+    let versions = store.get_resource_versions(&resource_id).await.map_err(|e| e.to_string())?;
+
+    Ok(versions)
+}
+
+// ==================== Tag Bidirectional Commands ====================
+
+/// 获取资源的标签列表
+#[tauri::command]
+pub async fn get_tags_for_resource(
+    resource_id: String,
+    analytics_state: State<'_, AnalyticsResourceState>,
+) -> Result<Vec<AnalyticsTag>, String> {
+    tracing::debug!(resource_id = %resource_id, "Getting tags for resource");
+
+    let analytics_guard = analytics_state.store.lock().await;
+    let store = analytics_guard.as_ref().ok_or_else(|| {
+        "分析资源存储未初始化".to_string()
+    })?;
+
+    let tags = store.get_tags_for_resource(&resource_id).await.map_err(|e| e.to_string())?;
+
+    Ok(tags)
+}
+
+/// 获取标签关联的资源列表
+#[tauri::command]
+pub async fn get_resources_by_tag(
+    tag_id: String,
+    analytics_state: State<'_, AnalyticsResourceState>,
+) -> Result<Vec<AnalyticsResource>, String> {
+    tracing::debug!(tag_id = %tag_id, "Getting resources by tag");
+
+    let analytics_guard = analytics_state.store.lock().await;
+    let store = analytics_guard.as_ref().ok_or_else(|| {
+        "分析资源存储未初始化".to_string()
+    })?;
+
+    let resources = store.get_resources_by_tag(&tag_id).await.map_err(|e| e.to_string())?;
+
+    Ok(resources)
 }
 
 // ==================== Initialization ====================

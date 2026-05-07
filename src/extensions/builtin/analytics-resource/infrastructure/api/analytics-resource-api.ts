@@ -12,6 +12,7 @@ import type {
   ListFoldersInput,
   ListTagsInput,
   ListResourcesOutput,
+  ResourceVersion,
 } from '../../types';
 
 // ==================== Resource API ====================
@@ -158,4 +159,26 @@ export async function permanentDeleteAnalyticsResource(
 
 export async function initAnalyticsResourceStore(): Promise<void> {
   return await invoke('init_analytics_resource_store');
+}
+
+// ==================== Version History API ====================
+
+export async function getResourceVersions(
+  resourceId: string
+): Promise<ResourceVersion[]> {
+  return await invoke('get_resource_versions', { resourceId });
+}
+
+// ==================== Tag Bidirectional API ====================
+
+export async function getTagsForResource(
+  resourceId: string
+): Promise<AnalyticsTag[]> {
+  return await invoke('get_tags_for_resource', { resourceId });
+}
+
+export async function getResourcesByTag(
+  tagId: string
+): Promise<AnalyticsResource[]> {
+  return await invoke('get_resources_by_tag', { tagId });
 }

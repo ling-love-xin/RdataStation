@@ -25,7 +25,7 @@
                 type="error"
                 class="tab-status"
               >
-                错误
+                {{ t('workbench.error') }}
               </NTag>
               <NTag
                 v-else-if="result.success"
@@ -33,7 +33,7 @@
                 type="success"
                 class="tab-status"
               >
-                {{ result.rowCount }} 行
+                {{ result.rowCount }} {{ t('resultPanel.rows') }}
               </NTag>
             </div>
           </template>
@@ -44,7 +44,7 @@
     <div class="tab-content">
       <template v-if="tabResults.length === 0">
         <div class="empty-state">
-          <NEmpty description="执行 SQL 查看结果" />
+          <NEmpty :description="t('workbench.executeSqlToSeeResults')" />
         </div>
       </template>
       
@@ -61,15 +61,15 @@
           />
           
           <div v-else-if="result.error" class="error-state">
-            <NAlert type="error" :title="result.errorTitle || '执行错误'">
+            <NAlert type="error" :title="result.errorTitle || t('workbench.executionFailed')">
               <pre class="error-message">{{ result.error }}</pre>
             </NAlert>
           </div>
-          
+
           <div v-else class="loading-state">
             <NSpin size="large">
               <template #description>
-                正在执行...
+                {{ t('workbench.executing') }}
               </template>
             </NSpin>
           </div>
@@ -79,16 +79,16 @@
 
     <div v-if="tabResults.length > 0" class="status-bar">
       <span class="status-item">
-        共 {{ tabResults.length }} 个语句
+        {{ t('workbench.statements', { count: tabResults.length }) }}
       </span>
       <span class="status-item">
-        成功: {{ successCount }}
+        {{ t('workbench.successCount', { count: successCount }) }}
       </span>
       <span v-if="errorCount > 0" class="status-item error">
-        失败: {{ errorCount }}
+        {{ t('workbench.errorCount', { count: errorCount }) }}
       </span>
       <span class="status-item">
-        总耗时: {{ totalExecutionTime }}ms
+        {{ t('workbench.totalTime', { time: totalExecutionTime }) }}
       </span>
     </div>
   </div>
@@ -97,6 +97,7 @@
 <script setup lang="ts">
 import { NTabs, NTab, NTag, NEmpty, NAlert, NSpin } from 'naive-ui'
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import QueryResultPanel from './QueryResultPanel.vue'
 
@@ -130,6 +131,8 @@ interface Props {
   isExecuting?: boolean
 }
 
+const { t } = useI18n()
+
 const props = withDefaults(defineProps<Props>(), {
   results: () => [],
   isExecuting: false
@@ -149,11 +152,11 @@ const _handleMultiTabResultUpdate = (event: CustomEvent) => {
       
       return {
         id,
-        tabName: `语句 ${item.index + 1}`,
+        tabName: t('workbench.statement', { index: item.index + 1 }),
         statementIndex: item.index,
         success: !item.error,
         error: item.error || undefined,
-        errorTitle: item.error ? `语句 ${item.index + 1} 执行失败` : undefined,
+        errorTitle: item.error ? t('workbench.statementFailed', { index: item.index + 1 }) : undefined,
         data: item.result,
         rowCount,
         executionTime
@@ -191,11 +194,11 @@ watch(() => props.results, (newResults) => {
     
     return {
       id,
-      tabName: `语句 ${item.index + 1}`,
+      tabName: t('workbench.statement', { index: item.index + 1 }),
       statementIndex: item.index,
       success: !item.error,
       error: item.error || undefined,
-      errorTitle: item.error ? `语句 ${item.index + 1} 执行失败` : undefined,
+      errorTitle: item.error ? t('workbench.statementFailed', { index: item.index + 1 }) : undefined,
       data: item.result,
       rowCount,
       executionTime

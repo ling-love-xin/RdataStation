@@ -190,6 +190,18 @@ export interface InsightVersionEntry {
   created_at: string
 }
 
+export interface InsightStorageStats {
+  total_snapshots: number
+  unique_columns: number
+  total_size_bytes: number
+  total_size_display: string
+}
+
+export interface CleanupResult {
+  duckdb_deleted: number
+  sqlite_deleted: number
+}
+
 export async function saveColumnInsightSnapshot(
   input: SaveInsightSnapshotInput
 ): Promise<string> {
@@ -206,4 +218,178 @@ export async function getColumnInsightHistory(
       column_name: columnName
     }
   })
+}
+
+export async function cleanupInsightSnapshots(
+  days: number
+): Promise<CleanupResult> {
+  return invoke<CleanupResult>('cleanup_insight_snapshots', {
+    input: {
+      days
+    }
+  })
+}
+
+export async function getInsightStorageStats(): Promise<InsightStorageStats> {
+  return invoke<InsightStorageStats>('get_insight_storage_stats')
+}
+
+// ═══════════════════ 规则引擎 API ═══════════════════
+
+export interface RuleMeta {
+  id: string
+  name: string
+  description: string
+  version: string
+  category: string
+  applies_to: string[]
+  builtin: boolean
+  parameters: string[]
+  result_type: string | null
+}
+
+export interface ExecuteRuleInput {
+  rule_id: string
+  params: Record<string, string>
+  temp_table: string
+}
+
+export async function executeInsightRule(
+  input: ExecuteRuleInput
+): Promise<unknown> {
+  return invoke<unknown>('execute_insight_rule', { input })
+}
+
+export async function listInsightRules(
+  category?: string
+): Promise<RuleMeta[]> {
+  return invoke<RuleMeta[]>('list_insight_rules', { category: category ?? null })
+}
+
+export async function listRulesForColumn(
+  columnType: string
+): Promise<RuleMeta[]> {
+  return invoke<RuleMeta[]>('list_rules_for_column', {
+    input: { column_type: columnType }
+  })
+}
+
+// ═══════════════════ 表探查 API ═══════════════════
+
+export interface TableProfile {
+  table_name: string
+  db_type: string
+  columns: TableColumnMeta[]
+  row_count: number | null
+  schema_name: string | null
+}
+
+export interface TableColumnMeta {
+  column_name: string
+  data_type: string
+  is_nullable: boolean
+  is_primary_key: boolean
+  ordinal_position: number
+}
+
+// ═══════════════════ 质量评分 ═══════════════════
+
+export interface QualityScore {
+  column_name: string
+  overall_score: number
+  level: string
+  dimensions: QualityDimension[]
+  summary: string
+}
+
+export interface QualityDimension {
+  name: string
+  score: number
+  weight: number
+  detail: string
+}
+
+export interface GetColumnQualityInput {
+  column_name: string
+  temp_table: string
+}
+
+export async function getColumnQuality(
+  input: GetColumnQualityInput
+): Promise<QualityScore> {
+  return invoke<QualityScore>('get_column_quality', { input })
+}
+
+// ═══════════════════ 表质量评估 ═══════════════════
+
+export interface TableQuality {
+  table_name: string
+  overall_score: number
+  level: string
+  column_scores: ColumnQualityEntry[]
+  summary: string
+  scored_count: number
+  total_columns: number
+}
+
+export interface ColumnQualityEntry {
+  column_name: string
+  quality_score: number
+  level: string
+  null_rate: number
+}
+
+export interface BatchEvaluateInput {
+  conn_id: string
+  database: string
+  schema: string
+  table: string
+}
+
+export async function batchEvaluateColumns(
+  input: BatchEvaluateInput
+): Promise<TableQuality> {
+  return invoke<TableQuality>('batch_evaluate_columns', { input })
+}
+
+// ═══════════════════ 表探查 ═══════════════════
+
+export interface GetTableProfileInput {
+  conn_id: string
+  db_type: string
+  database: string
+  schema: string
+  table: string
+}
+
+export async function getTableProfile(
+  input: GetTableProfileInput
+): Promise<TableProfile> {
+  return invoke<TableProfile>('get_table_profile', { input })
+}
+
+// ═══════════════════ 版本详情 API ═══════════════════
+
+export async function getInsightVersionDetail(
+  versionId: string
+): Promise<ColumnInsightFull | null> {
+  return invoke<ColumnInsightFull | null>('get_insight_version_detail', {
+    input: { version_id: versionId }
+  })
+}
+
+// ═══════════════════ 表列探查 API ═══════════════════
+
+export interface ProfileColumnFromTableInput {
+  conn_id: string
+  database: string
+  schema: string
+  table: string
+  column_name: string
+}
+
+export async function profileColumnFromTable(
+  input: ProfileColumnFromTableInput
+): Promise<ColumnInsightFull> {
+  return invoke<ColumnInsightFull>('profile_column_from_table', { input })
 }

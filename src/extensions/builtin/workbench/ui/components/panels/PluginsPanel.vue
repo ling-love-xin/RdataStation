@@ -1,17 +1,20 @@
 <template>
   <div class="plugins-panel">
     <div class="plugins-header">
-      <h3>插件管理</h3>
+      <h3>{{ t('workbench.pluginManagement') }}</h3>
     </div>
     <div class="plugins-content">
       <div class="empty-plugins">
-        <p>暂无已安装的插件</p>
+        <p>{{ t('workbench.noPlugins') }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 </script>
 
 <style scoped>

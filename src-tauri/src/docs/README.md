@@ -28,10 +28,11 @@ src-tauri/src/
 ├── main.rs         # 程序入口
 ├── api/            # DTO / 共享类型
 ├── core/           # 核心业务逻辑
-│   ├── dbi/        # 🔥 统一数据访问层（总调度）
-│   ├── driver/     # 驱动核心：native + JDBC + wasm 统一管理
-│   ├── services/   # 业务服务：SQL执行、连接管理
-│   └── datasource/ # 数据源管理：注册/路由
+│   ├── dbi/            # 🔥 统一数据访问层（总调度）
+│   ├── driver/         # 驱动核心：native + JDBC + wasm 统一管理
+│   ├── insight/        # 洞察规则引擎：TOML 规则 + RuleRegistry + RuleExecutor
+│   ├── services/       # 业务服务：SQL执行、连接管理
+│   └── datasource/     # 数据源管理：注册/路由
 ├── adapters/       # 适配器层（Tauri）
 └── commands/       # 命令模块
 ```

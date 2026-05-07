@@ -5,7 +5,6 @@
     <DockviewVue
       ref="dockviewRef"
       class="dockview"
-      :style="dockviewStyle"
       :popout-url="'/popout.html'"
       :floating-group-bounds="'boundedWithinViewport'"
       :right-header-actions-component="'panelHeaderActions'"
@@ -33,7 +32,8 @@
 <script setup lang="ts">
 import { DockviewVue, type DockviewReadyEvent, type DockviewApi as DockviewVueApi, type IDockviewPanel, type GetTabContextMenuItemsParams, type ContextMenuItem } from 'dockview-vue'
 import { useMessage } from 'naive-ui'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { panelRegistry } from '@/core/panel-registry'
 import ConnectionModal from '@/extensions/builtin/connection/ui/components/ConnectionModal.vue'
@@ -44,6 +44,7 @@ import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/Wor
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
 
+const { t } = useI18n()
 const uiStore = useUiStore()
 const layoutStore = useLayoutStore()
 const connectionStore = useConnectionStore()
@@ -51,11 +52,6 @@ const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const showConnectionModal = ref(false)
-
-const dockviewStyle = computed(() => ({
-  height: '100%',
-  width: '100%',
-}))
 
 let activeSqlEditorPanelId: string | null = null
 
@@ -67,61 +63,62 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
   const maximized = !!params.group.api.isMaximized?.()
   const isPinned = layoutStore.isPanelPinned(panelId)
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const groupApi = params.group.api as any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const panelApi = params.panel.api as any
   
   const menuItems: ContextMenuItem[] = [
     {
-      label: isPinned ? '取消钉住' : '钉住',
+      label: isPinned ? t('workbench.unpin') : t('workbench.pin'),
       action: () => {
         layoutStore.togglePanelPinned(panelId)
       }
     },
     'separator',
     {
-      label: 'Float Tab',
-      action: () => { params.api.addFloatingGroup(params.panel) }
-    },
-    {
-      label: 'Popout Tab',
-      action: () => { params.api.addPopoutGroup(params.panel) }
-    },
-    'separator',
-    {
-      label: 'Add to new group',
-      action: () => { 
-        const tabGroup = groupApi.createTabGroup?.({
-          label: 'New Group',
-          color: 'blue'
-        })
-        if (tabGroup) {
-          panelApi.moveToTabGroup?.(tabGroup)
-        }
+      label: t('workbench.floatTab'),
+      action: () => {
+        params.api.addFloatingGroup(params.panel)
       }
     },
     {
-      label: 'Move to next group',
-      action: () => { 
+      label: t('workbench.popoutTab'),
+      action: () => {
+        params.api.addPopoutGroup(params.panel)
+      }
+    },
+    {
+      label: t('workbench.addToNewGroup'),
+      action: () => {
+        const label = t('workbench.newGroupLabel')
+        const color = '#CCCCCC'
+        groupApi.createTabGroup?.({ label, color })
+      }
+    },
+    {
+      label: t('workbench.moveToNextGroup'),
+      action: () => {
         const groups = groupApi.getTabGroups?.() || []
         const currentGroup = groupApi.getTabGroupForPanel?.(params.panel)
-        if (currentGroup && groups.length > 1) {
-          const currentIndex = groups.indexOf(currentGroup)
-          const nextIndex = (currentIndex + 1) % groups.length
-          panelApi.moveToTabGroup?.(groups[nextIndex])
+        const currentIdx = groups.indexOf(currentGroup)
+        const nextGroup = groups[(currentIdx + 1) % groups.length]
+        if (nextGroup) {
+          panelApi.moveToTabGroup?.(nextGroup)
         }
       }
     },
     'separator',
     {
-      label: maximized ? '还原最大化' : '最大化组',
+      label: maximized ? t('workbench.restoreMaximize') : t('workbench.maximizeGroup'),
       action: () => { if (maximized) params.group.api.exitMaximized(); else params.group.api.maximize() }
     },
     {
-      label: '浮动整组',
+      label: t('workbench.floatGroup'),
       action: () => { params.api.addFloatingGroup(params.group) }
     },
     {
-      label: '弹出整组窗口',
+      label: t('workbench.popoutGroup'),
       action: () => { params.api.addPopoutGroup(params.group) }
     },
     'separator',
@@ -140,7 +137,7 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
   try {
     const driver = String((data as Record<string, unknown>).db_type || data.driver)
     if (!driver) {
-      message.error('请选择数据库类型')
+      message.error(t('workbench.selectDbType'))
       return
     }
 
@@ -150,14 +147,14 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
     if (isFileDb) {
       const filePath = data.database
       if (!filePath) {
-        message.error('请选择数据库文件')
+        message.error(t('workbench.selectDbFile'))
         return
       }
       url = `${driver}://${filePath}`
     } else {
       const host = data.host
       if (!host) {
-        message.error('请输入主机地址')
+        message.error(t('workbench.enterHost'))
         return
       }
       const port = data.port || (driver === 'postgres' ? 5432 : 3306)
@@ -199,10 +196,10 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
       ensureResultPanel()
     }
 
-    message.success(`连接 "${data.name}" 保存成功`)
+    message.success(t('workbench.connectionSaved', { name: data.name }))
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '保存连接失败'
-    message.error(`保存失败: ${errorMsg}`)
+    const errorMsg = error instanceof Error ? error.message : t('workbench.saveConnectionFailed')
+    message.error(t('workbench.saveFailed', { error: errorMsg }))
     console.error('保存连接失败:', error)
   }
 }
@@ -226,55 +223,40 @@ const onReady = (event: DockviewReadyEvent) => {
 
   const containerEl = dockviewRef.value?.$el as HTMLElement | undefined
   const totalWidth = containerEl?.clientWidth || 1200
-  const ratioC = Math.round(totalWidth * 0.2)
+  const oneQuarter = Math.round(totalWidth * 0.25)
 
   // ============================================
-  // 第 1 步：左侧 Edge Group（VSCode Activity Bar 风格，默认 48px 窄条）
-  // 只放 ActivityBarPanel，用于展示左侧活动栏图标
+  // 第 1 步：左侧 Edge Group（dockview 内部 Activity Bar 面板）
+  // 收起态: 48px 窄条  展开态: 25%，使 A:B:C:D = 1:1:1:1
   // ============================================
   api.addEdgeGroup('left', {
     id: 'left-edge',
-    initialSize: 48,
+    initialSize: oneQuarter,
     minimumSize: 48,
-    maximumSize: 500,
+    maximumSize: Math.round(totalWidth * 0.4),
   })
 
   api.addPanel({
     id: 'panel_leftActivityBar',
     component: 'leftActivityBar',
-    title: '',
+    title: t('workbench.activityBar'),
     position: { referenceGroup: 'left-edge' },
-    params: {
-      position: 'left',
-    }
+    params: { position: 'left' },
   })
-  console.log('[Workbench] Created left edge group (activity bar, 48px)')
   layoutStore.updatePanelConfig('panel_leftActivityBar', { location: 'left', isVisible: true, order: 99 })
 
-  // 其他左侧面板放入左侧 Edge Group（分析资源管理、插件管理等）
-  if (leftEdgePanels.length > 0) {
-    const firstEdgePanel = leftEdgePanels[0]
-    const firstEdgePanelId = `panel_${firstEdgePanel.id}`
+  for (let i = 0; i < leftEdgePanels.length; i++) {
+    const panel = leftEdgePanels[i]
+    const panelId = `panel_${panel.id}`
     api.addPanel({
-      id: firstEdgePanelId,
-      component: firstEdgePanel.id,
-      title: firstEdgePanel.name,
+      id: panelId,
+      component: panel.id,
+      title: panel.name,
       position: { referencePanel: 'panel_leftActivityBar', direction: 'within' },
     })
-    layoutStore.updatePanelConfig(firstEdgePanelId, { location: 'left', isVisible: false, order: 0 })
-
-    for (let i = 1; i < leftEdgePanels.length; i++) {
-      const panel = leftEdgePanels[i]
-      const panelId = `panel_${panel.id}`
-      api.addPanel({
-        id: panelId,
-        component: panel.id,
-        title: panel.name,
-        position: { referencePanel: firstEdgePanelId, direction: 'within' },
-      })
-      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: false, order: i })
-    }
+    layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: false, order: i })
   }
+  console.log(`[Workbench] Created left edge group with ${leftEdgePanels.length + 1} panels`)
 
   // ============================================
   // 第 2 步：数据库导航面板（独立 Normal Group，中心左侧）
@@ -311,9 +293,9 @@ const onReady = (event: DockviewReadyEvent) => {
   if (rightPanels.length > 0) {
     api.addEdgeGroup('right', {
       id: 'right-edge',
-      initialSize: ratioC,
+      initialSize: oneQuarter,
       minimumSize: 200,
-      maximumSize: 500,
+      maximumSize: Math.round(totalWidth * 0.4),
     })
 
     const firstRightPanel = rightPanels[0]
@@ -349,6 +331,8 @@ const onReady = (event: DockviewReadyEvent) => {
   })))
 
   layoutStore.setBottomPanelMode('editor')
+
+  layoutStore.collapseLeftEdgeGroup()
 
   // ============================================
   // 事件监听
@@ -508,7 +492,7 @@ const ensureResultPanel = () => {
     dockviewApi.addPanel({
       id: 'panel_queryResult',
       component: 'queryResult',
-      title: '查询结果',
+      title: t('workbench.queryResult'),
       position: { referencePanel: refPanelId, direction: 'below' }
     })
     console.log(`[Workbench] 自动创建查询结果面板，位置参考: ${refPanelId}`)
@@ -533,7 +517,7 @@ const ensureMultiTabResultPanel = () => {
     dockviewApi.addPanel({
       id: 'panel_multiTabResult',
       component: 'multiTabResult',
-      title: '查询结果',
+      title: t('workbench.queryResult'),
       position: { referencePanel: refPanelId, direction: 'below' }
     })
     console.log(`[Workbench] 自动创建多 TAB 查询结果面板，位置参考: ${refPanelId}`)

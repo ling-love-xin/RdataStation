@@ -1,5 +1,10 @@
 <template>
-  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+  <NConfigProvider
+    :theme="naiveTheme"
+    :theme-overrides="themeOverrides"
+    :locale="naiveLocale"
+    :date-locale="naiveDateLocale"
+  >
     <NMessageProvider>
       <NDialogProvider>
         <router-view />
@@ -9,71 +14,82 @@
 </template>
 
 <script setup lang="ts">
-import { darkTheme, lightTheme, type GlobalThemeOverrides } from 'naive-ui'
-import { NConfigProvider, NMessageProvider, NDialogProvider } from 'naive-ui'
-import { computed, onMounted } from 'vue'
+import {
+  darkTheme,
+  lightTheme,
+  zhCN,
+  dateZhCN,
+  enUS,
+  dateEnUS,
+  NConfigProvider,
+  NMessageProvider,
+  NDialogProvider,
+} from 'naive-ui'
+import { computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-import { useUiStore } from '@/shared/stores/ui'
+import { useAppStore } from '@/stores/useAppStore'
 
-const uiStore = useUiStore()
+const appStore = useAppStore()
+const { locale: i18nLocale } = useI18n()
 
-// 根据当前主题选择 naive-ui 主题
 const naiveTheme = computed(() => {
-  return uiStore.isDark ? darkTheme : lightTheme
+  return appStore.isDark ? darkTheme : lightTheme
 })
 
-// 主题覆盖 - 统一使用企业级规范颜色
-const themeOverrides = computed<GlobalThemeOverrides>(() => {
-  const isDark = uiStore.isDark
+const naiveLocale = computed(() => {
+  return appStore.effectiveLanguage === 'zh-CN' ? zhCN : enUS
+})
+
+const naiveDateLocale = computed(() => {
+  return appStore.effectiveLanguage === 'zh-CN' ? dateZhCN : dateEnUS
+})
+
+const themeOverrides = computed(() => {
+  const accent = '#E17055'
+  const accentHover = '#D35400'
   return {
     common: {
-      // 主色 - 专业数据蓝 #165DFF
-      primaryColor: '#165DFF',
-      primaryColorHover: '#2B6DF5',
-      primaryColorPressed: '#0E42D2',
-      primaryColorSuppl: '#165DFF',
-      // 功能色
-      successColor: '#00B42A',
-      warningColor: '#FF7D00',
-      errorColor: '#F53F3F',
-      infoColor: '#165DFF',
-      // 文本色 - 3级梯度
-      textColorBase: isDark ? '#cccccc' : '#333333',
-      textColor1: isDark ? '#cccccc' : '#333333',
-      textColor2: isDark ? '#858585' : '#666666',
-      textColor3: isDark ? '#666666' : '#999999',
-      // 背景色 - 3级分层
-      bodyColor: isDark ? '#1e1e1e' : '#ffffff',
-      cardColor: isDark ? '#252526' : '#f5f5f5',
-      modalColor: isDark ? '#252526' : '#ffffff',
-      popoverColor: isDark ? '#2d2d30' : '#ffffff',
-      // 边框色
-      borderColor: isDark ? '#3e3e42' : '#d9d9d9',
-      dividerColor: isDark ? '#3e3e42' : '#d9d9d9',
-    },
-    Button: {
-      textColor: isDark ? '#cccccc' : '#333333',
-    },
-    Input: {
-      textColor: isDark ? '#cccccc' : '#333333',
-      placeholderColor: isDark ? '#666666' : '#999999',
-    },
-    Tree: {
-      nodeTextColor: isDark ? '#cccccc' : '#333333',
-    },
-    Tabs: {
-      tabTextColor: isDark ? '#858585' : '#666666',
-      tabTextColorActive: isDark ? '#cccccc' : '#333333',
-    },
-    DataTable: {
-      thTextColor: isDark ? '#cccccc' : '#333333',
-      tdTextColor: isDark ? '#cccccc' : '#333333',
+      primaryColor: accent,
+      primaryColorHover: accentHover,
+      primaryColorPressed: accentHover,
+      primaryColorSuppl: accent,
+      successColor: '#00B894',
+      warningColor: '#FDCB6E',
+      errorColor: '#D63031',
+      infoColor: accent,
     },
   }
 })
 
+watch(
+  () => appStore.effectiveLanguage,
+  (newLang) => {
+    i18nLocale.value = newLang
+  },
+  { immediate: true }
+)
+
+let systemThemeListener: (() => void) | null = null
+
+function setupSystemThemeListener() {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  const handler = () => {
+    if (appStore.effectiveTheme === 'system') {
+      appStore.applyTheme()
+    }
+  }
+  mediaQuery.addEventListener('change', handler)
+  systemThemeListener = () => mediaQuery.removeEventListener('change', handler)
+}
+
 onMounted(() => {
-  uiStore.initTheme()
+  setupSystemThemeListener()
+  appStore.applyTheme()
+})
+
+onUnmounted(() => {
+  systemThemeListener?.()
 })
 </script>
 

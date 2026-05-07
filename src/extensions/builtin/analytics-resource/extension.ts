@@ -8,9 +8,8 @@ import type {
 } from '../../core/types'
 
 interface AnalyticsResourceExtensionAPI extends ExtensionAPI {
-  analyticsResource: {
-    // 可以在这里添加扩展特定的 API
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  analyticsResource: {}
 }
 
 const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {

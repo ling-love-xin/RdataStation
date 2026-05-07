@@ -10,17 +10,17 @@
       </div>
       <div class="table-actions">
         <NButtonGroup size="small">
-          <NButton title="查看数据" @click="handleViewData">
+          <NButton :title="t('workbench.viewData')" @click="handleViewData">
             <template #icon>
               <Eye :size="14" />
             </template>
-            查看数据
+            {{ t('workbench.viewData') }}
           </NButton>
-          <NButton title="生成查询" @click="handleGenerateSelect">
+          <NButton :title="t('workbench.generateQuery')" @click="handleGenerateSelect">
             <template #icon>
               <Code :size="14" />
             </template>
-            生成查询
+            {{ t('workbench.generateQuery') }}
           </NButton>
         </NButtonGroup>
       </div>
@@ -28,7 +28,7 @@
 
     <!-- 标签页 -->
     <NTabs v-model:value="activeTab" type="line" size="small" class="structure-tabs">
-      <NTabPane name="columns" tab="列">
+      <NTabPane name="columns" :tab="t('workbench.columnsTab')">
         <div class="tab-content">
           <NDataTable
             :columns="columnColumns"
@@ -41,9 +41,9 @@
         </div>
       </NTabPane>
 
-      <NTabPane name="indexes" tab="索引">
+      <NTabPane name="indexes" :tab="t('workbench.indexesTab')">
         <div class="tab-content">
-          <NEmpty v-if="indexes.length === 0" description="暂无索引信息" />
+          <NEmpty v-if="indexes.length === 0" :description="t('workbench.noIndexes')" />
           <NDataTable
             v-else
             :columns="indexColumns"
@@ -55,9 +55,9 @@
         </div>
       </NTabPane>
 
-      <NTabPane name="constraints" tab="约束">
+      <NTabPane name="constraints" :tab="t('workbench.constraintsTab')">
         <div class="tab-content">
-          <NEmpty v-if="constraints.length === 0" description="暂无约束信息" />
+          <NEmpty v-if="constraints.length === 0" :description="t('workbench.noConstraints')" />
           <NDataTable
             v-else
             :columns="constraintColumns"
@@ -69,7 +69,7 @@
         </div>
       </NTabPane>
 
-      <NTabPane name="ddl" tab="DDL">
+      <NTabPane name="ddl" :tab="t('workbench.ddlTab')">
         <div class="tab-content">
           <NCode :code="ddl" language="sql" show-line-numbers />
         </div>
@@ -82,6 +82,7 @@
 import { Table2, Eye, Code } from 'lucide-vue-next'
 import { NTag, NTabs, NTabPane, NDataTable, NButton, NButtonGroup, NEmpty, NCode } from 'naive-ui'
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { navigatorApi } from '@/shared/api'
 
@@ -93,6 +94,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   viewData: [tableName: string]
@@ -109,24 +112,24 @@ const ddl = ref('')
 
 // 列定义
 const columnColumns = [
-  { title: '列名', key: 'name', width: 150 },
-  { title: '数据类型', key: 'dataType', width: 120 },
-  { title: '可空', key: 'nullable', width: 60 },
-  { title: '默认值', key: 'defaultValue', width: 120 },
-  { title: '注释', key: 'comment', ellipsis: { tooltip: true } }
+  { title: t('workbench.columnName'), key: 'name', width: 150 },
+  { title: t('workbench.dataType'), key: 'dataType', width: 120 },
+  { title: t('workbench.nullable'), key: 'nullable', width: 60 },
+  { title: t('workbench.defaultValue'), key: 'defaultValue', width: 120 },
+  { title: t('workbench.comment'), key: 'comment', ellipsis: { tooltip: true } }
 ]
 
 const indexColumns = [
-  { title: '索引名', key: 'name', width: 150 },
-  { title: '类型', key: 'type', width: 100 },
-  { title: '列', key: 'columns', ellipsis: { tooltip: true } },
-  { title: '唯一', key: 'unique', width: 60 }
+  { title: t('workbench.indexName'), key: 'name', width: 150 },
+  { title: t('workbench.indexType'), key: 'type', width: 100 },
+  { title: t('workbench.indexColumns'), key: 'columns', ellipsis: { tooltip: true } },
+  { title: t('workbench.unique'), key: 'unique', width: 60 }
 ]
 
 const constraintColumns = [
-  { title: '约束名', key: 'name', width: 150 },
-  { title: '类型', key: 'type', width: 100 },
-  { title: '列', key: 'columns', ellipsis: { tooltip: true } }
+  { title: t('workbench.constraintName'), key: 'name', width: 150 },
+  { title: t('workbench.constraintType'), key: 'type', width: 100 },
+  { title: t('workbench.constraintColumns'), key: 'columns', ellipsis: { tooltip: true } }
 ]
 
 // 加载表结构
@@ -146,7 +149,7 @@ async function loadTableStructure() {
     columns.value = columnNodes.map(col => ({
       name: col.name,
       dataType: col.metadata?.dataType || 'unknown',
-      nullable: col.metadata?.nullable ? '是' : '否',
+      nullable: col.metadata?.nullable ? t('workbench.yes') : t('workbench.no'),
       defaultValue: col.metadata?.defaultValue || '',
       comment: col.metadata?.comment || ''
     }))

@@ -3,7 +3,8 @@ import {
   BarChart3,
   Puzzle,
   FileText,
-  Sparkles
+  Sparkles,
+  StickyNote
 } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
@@ -66,6 +67,7 @@ const MAX_SIDEBAR_WIDTH = 600
 export const leftActivityItems: LeftActivityItem[] = [
   { id: 'database', icon: Database, title: '数据库导航' },
   { id: 'analytics', icon: BarChart3, title: '分析资源管理' },
+  { id: 'scratchpad', icon: StickyNote, title: '草稿箱' },
   { id: 'plugins', icon: Puzzle, title: '插件管理' },
 ]
 
@@ -78,6 +80,7 @@ export const rightActivityItems: RightActivityItem[] = [
 export const ACTIVEBAR_TO_PANEL_ID: Record<string, string> = {
   'database': 'databaseNavigator',
   'analytics': 'analytics-resource-manager',
+  'scratchpad': 'scratchpad',
   'plugins': 'plugins',
   'sql-history': 'sqlHistory',
   'output': 'outputPanel',
@@ -196,9 +199,6 @@ const secondarySideBarLocked = ref(true)
     console.log('[LayoutStore] Dockview API registered')
   }
 
-  /**
-   * 折叠左侧 Edge Group
-   */
   function collapseLeftEdgeGroup() {
     leftEdgeGroupCollapsed.value = true
     const panel = dockviewApi.value?.getPanel('panel_leftActivityBar')
@@ -206,9 +206,6 @@ const secondarySideBarLocked = ref(true)
     groupApi?.collapse?.()
   }
 
-  /**
-   * 展开左侧 Edge Group
-   */
   function expandLeftEdgeGroup() {
     leftEdgeGroupCollapsed.value = false
     const panel = dockviewApi.value?.getPanel('panel_leftActivityBar')

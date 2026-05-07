@@ -9,7 +9,7 @@
             <Play :size="14" />
           </NButton>
         </template>
-        <span>执行 SQL (Ctrl+Enter)</span>
+        <span>{{ $t('sqlEditor.execute') }}</span>
       </NTooltip>
 
       <NTooltip trigger="hover" placement="bottom">
@@ -18,7 +18,7 @@
             <Plus :size="14" />
           </NButton>
         </template>
-        <span>新标签执行 (Ctrl+Shift+Enter)</span>
+        <span>{{ $t('sqlEditor.executeNew') }}</span>
       </NTooltip>
 
       <NTooltip v-if="isDuckDbConnection" trigger="hover" placement="bottom">
@@ -27,7 +27,7 @@
             <Zap :size="14" />
           </NButton>
         </template>
-        <span>DuckDB 加速执行</span>
+        <span>{{ $t('sqlEditor.duckdbAccelerate') }}</span>
       </NTooltip>
 
       <NTooltip trigger="hover" placement="bottom">
@@ -36,7 +36,7 @@
             <Search :size="14" />
           </NButton>
         </template>
-        <span>执行计划</span>
+        <span>{{ $t('sqlEditor.explain') }}</span>
       </NTooltip>
 
       <NDivider vertical class="toolbar-divider" />
@@ -48,7 +48,7 @@
             <AlignLeft :size="14" />
           </NButton>
         </template>
-        <span>格式化 (Ctrl+Shift+F)</span>
+        <span>{{ $t('sqlEditor.format') }}</span>
       </NTooltip>
 
       <NTooltip trigger="hover" placement="bottom">
@@ -57,7 +57,7 @@
             <Sparkles :size="14" />
           </NButton>
         </template>
-        <span>验证 SQL</span>
+        <span>{{ $t('sqlEditor.validate') }}</span>
       </NTooltip>
 
       <NTooltip trigger="hover" placement="bottom">
@@ -66,7 +66,7 @@
             <ArrowLeftRight :size="14" />
           </NButton>
         </template>
-        <span>方言转换</span>
+        <span>{{ $t('sqlEditor.transpile') }}</span>
       </NTooltip>
 
       <NDivider vertical class="toolbar-divider" />
@@ -78,7 +78,7 @@
             <History :size="14" />
           </NButton>
         </template>
-        <span>执行历史</span>
+        <span>{{ $t('sqlEditor.history') }}</span>
       </NTooltip>
 
       <NTooltip trigger="hover" placement="bottom">
@@ -87,7 +87,7 @@
             <Settings :size="14" />
           </NButton>
         </template>
-        <span>设置</span>
+        <span>{{ $t('sqlEditor.settings') }}</span>
       </NTooltip>
 
       <div class="toolbar-spacer" />
@@ -101,7 +101,7 @@
             <PanelTopClose v-else :size="14" />
           </NButton>
         </template>
-        <span>工具栏位置</span>
+        <span>{{ $t('sqlEditor.toolbarPosition') }}</span>
       </NTooltip>
     </div>
 
@@ -109,12 +109,12 @@
     <NModal v-model:show="showTranspileMenu">
       <div class="transpile-modal">
         <div class="transpile-header">
-          <h3>SQL 方言转换</h3>
+          <h3>{{ $t('sqlEditor.transpileTitle') }}</h3>
           <NButton quaternary circle size="small" @click="showTranspileMenu = false">
             <X :size="16" />
           </NButton>
         </div>
-        <p class="transpile-hint">将当前 SQL 转换为目标方言：</p>
+        <p class="transpile-hint">{{ $t('sqlEditor.transpileHint') }}</p>
         <div class="transpile-options">
           <NButton
             v-for="opt in dialectOptions"
@@ -155,12 +155,13 @@
     <!-- 编辑器水印（空编辑器时显示为透明背景提示） -->
     <div v-if="showWelcome" class="editor-watermark">
       <div class="watermark-text">
-        <div class="watermark-title">SQL 编辑器</div>
+        <div class="watermark-title">{{ $t('sqlEditor.title') }}</div>
         <div class="watermark-shortcuts">
-          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> 执行</span>
-          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 格式化</span>
-          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>/</kbd> 注释</span>
-          <span class="shortcut-hint"><kbd>F5</kbd> 执行全部</span>
+          <span class="shortcut-hint">{{ $t('sqlEditor.welcomeShortcuts') }}</span>
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> {{ $t('sqlEditor.shortcutExecute') }}</span>
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> {{ $t('sqlEditor.shortcutFormat') }}</span>
+          <span class="shortcut-hint"><kbd>Ctrl</kbd>+<kbd>/</kbd> {{ $t('sqlEditor.shortcutComment') }}</span>
+          <span class="shortcut-hint"><kbd>F5</kbd> {{ $t('sqlEditor.shortcutExecuteAll') }}</span>
         </div>
       </div>
     </div>
@@ -176,7 +177,7 @@
         <!-- 执行状态指示器 -->
         <span v-if="executing" class="status-item executing">
           <span class="loading-dot"></span>
-          执行中...
+          {{ $t('sqlEditor.executing') }}
         </span>
         <span v-else-if="lastExecutionTime" class="status-item success">
           ✓ {{ lastExecutionTime }}ms
@@ -216,9 +217,7 @@ import {
 import * as monaco from 'monaco-editor'
 import { createDiscreteApi, darkTheme, lightTheme, NButton, NPopselect, NTooltip, NDivider, NModal } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-
-// 导入 SQL 语言支持
-import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
+import { useI18n } from 'vue-i18n'
 
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import { useRuntimeConnectionStore } from '@/extensions/builtin/connection/ui/stores/runtime-connection-store'
@@ -230,24 +229,29 @@ import {
   transpileSql,
   type SqlDialect,
   unregisterCompletionProvider,
-  validateSql
+  validateSql,
 } from '@/extensions/builtin/workbench/services/sql-editor-service'
+// 导入 SQL 语言支持
+import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 import { addHistory } from '@/extensions/builtin/workbench/services/sql-history-service'
 import { getAllSnippets } from '@/extensions/builtin/workbench/services/sql-snippets'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
 import { useUiStore } from '@/shared/stores/ui'
+import { rdataDark, rdataLight } from '@/shared/styles/monaco-theme'
+
 
 import QueryResultPanel from './QueryResultPanel.vue'
 
 // 使用 createDiscreteApi 创建独立于 NMessageProvider 的 message/dialog 实例
 const uiStore = useUiStore()
+const { t } = useI18n()
 const configProviderPropsRef = ref({
   theme: uiStore.isDark ? darkTheme : lightTheme
 })
 const { message, dialog } = createDiscreteApi(
   ['message', 'dialog'],
   {
-    configProviderProps: configProviderPropsRef
+    configProviderProps: configProviderPropsRef,
   }
 )
 
@@ -309,7 +313,11 @@ function startSplitDrag(e: MouseEvent) {
     const newRatio = startRatio + delta / containerHeight
     splitRatio.value = Math.max(0.2, Math.min(0.85, newRatio))
   }
-  const onUp = () => { splitDragging = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+  const onUp = () => {
+    splitDragging = false
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }
@@ -336,7 +344,7 @@ const popselectOptions = computed(() => {
   for (const [connId] of runtimeConnectionStore.runtimeConnectionIds) {
     if (!seen.has(connId)) {
       options.push({
-        label: `${connId} (已连接)`,
+        label: `${connId} (${t('sqlEditor.connected')})`,
         value: connId
       })
       seen.add(connId)
@@ -442,7 +450,7 @@ const connectionInfoText = computed(() => {
   
   // 方式二：运行时连接已建立但 connectionStore 未同步
   if (selectedConnection.value && runtimeConnectionStore.runtimeConnectionIds.has(selectedConnection.value)) {
-    return `${selectedConnection.value} (已连接)`
+    return `${selectedConnection.value} (${t('common.connected')})`
   }
   
   // 方式三：有 ID 但无运行时连接
@@ -450,7 +458,7 @@ const connectionInfoText = computed(() => {
     return selectedConnection.value
   }
   
-  return '未连接'
+  return t('sqlEditor.notConnected')
 })
 
 // 方言转换选项
@@ -476,6 +484,10 @@ const dialectOptions = computed(() => {
 const initEditor = () => {
   if (!editorContainer.value) return
 
+  // 注册 RdataStation 主题
+  monaco.editor.defineTheme('rdata-dark', rdataDark)
+  monaco.editor.defineTheme('rdata-light', rdataLight)
+
   // 获取初始 SQL（优先使用 params.initialSql）
   let initialValue = props.params?.initialSql || props.modelValue
   
@@ -484,14 +496,18 @@ const initEditor = () => {
   const draft = localStorage.getItem(draftKey)
   if (draft && !initialValue) {
     initialValue = draft
-    message.info('已恢复上次未保存的内容')
+    message.info(t('sqlEditor.draftRestored'))
   }
+
+  // 根据当前主题选择 Monaco 主题
+  const isDarkTheme = document.body.classList.contains('theme-dark')
+  const monacoTheme = isDarkTheme ? 'rdata-dark' : 'rdata-light'
 
   // 配置 Monaco Editor
   editor = monaco.editor.create(editorContainer.value, {
     value: initialValue,
     language: props.language,
-    theme: props.theme,
+    theme: monacoTheme,
     automaticLayout: true,
     minimap: {
       enabled: true,
@@ -629,7 +645,7 @@ const initEditor = () => {
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL, () => {
     if (editor) {
       editor.setValue('')
-      message.success('已清空编辑器')
+      message.success(t('sqlEditor.editorCleared'))
     }
   })
 
@@ -782,7 +798,7 @@ const handleExecute = async () => {
   }
 
   if (!selectedConnection.value) {
-    message.warning('请先选择数据库连接')
+    message.warning(t('sqlEditor.noConnection'))
     return
   }
 
@@ -794,7 +810,7 @@ const handleExecute = async () => {
   // 自动建立运行时连接（如果尚未建立）
   const connOk = await ensureConnection(selectedConnection.value)
   if (!connOk) {
-    message.error('无法连接到数据库，请检查连接配置')
+    message.error(t('sqlEditor.connectionFailed'))
     return
   }
 
@@ -821,7 +837,7 @@ const handleExecute = async () => {
       await executeSingleStatement(executeSql)
     }
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error) || '执行失败'
+    const errorMsg = error instanceof Error ? error.message : String(error) || t('sqlEditor.executionFailed')
     message.error(errorMsg)
     console.error('[handleExecute] 执行失败:', error)
   } finally {
@@ -842,13 +858,13 @@ const handleExecuteNew = async () => {
   }
 
   if (!selectedConnection.value) {
-    message.warning('请先选择数据库连接')
+    message.warning(t('sqlEditor.noConnection'))
     return
   }
 
   const connOk = await ensureConnection(selectedConnection.value)
   if (!connOk) {
-    message.error('无法连接到数据库')
+    message.error(t('sqlEditor.connectionFailed'))
     return
   }
 
@@ -885,7 +901,7 @@ const handleExecuteNew = async () => {
     if (result.error) {
       message.error(result.error)
     } else {
-      message.success(`执行成功，${result.result?.rowCount || 0} 行`)
+      message.success(t('sqlEditor.executionSuccess', { rowCount: result.result?.rowCount || 0, duration: executionTime }))
     }
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
@@ -909,7 +925,7 @@ const executeSingleStatement = async (sql: string) => {
     message.error(e instanceof Error ? e.message : String(e))
     return
   }
-  
+
   const executionTime = Date.now() - startTime
   lastExecutionTime.value = executionTime
 
@@ -958,7 +974,7 @@ const executeSingleStatement = async (sql: string) => {
   if (result.error) {
     message.error(result.error)
   } else {
-    message.success(`执行成功，${result.result?.rowCount || 0} 行，耗时 ${result.result?.executionTime || 0}ms`)
+    message.success(t('sqlEditor.executionSuccess', { rowCount: result.result?.rowCount || 0, duration: result.result?.executionTime || 0 }))
   }
 }
 
@@ -1004,7 +1020,7 @@ const executeMultipleStatements = async (sql: string, dialect: SqlDialect) => {
     }))
     
     const successCount = results.filter(r => !r.error).length
-    message.success(`批量执行完成，${successCount}/${statements.length} 成功`)
+    message.success(t('sqlEditor.batchComplete', { successCount, totalCount: statements.length }))
   } else {
     // 逐条执行（立即显示每条结果）
     for (let i = 0; i < statements.length; i++) {
@@ -1028,9 +1044,9 @@ const executeMultipleStatements = async (sql: string, dialect: SqlDialect) => {
           }
         }))
         
-        message.success(`语句 ${i + 1}/${statements.length} 执行成功`)
+        message.success(t('sqlEditor.statementSuccess', { index: i + 1, total: statements.length }))
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : '执行失败'
+        const errorMsg = error instanceof Error ? error.message : t('sqlEditor.executionFailed')
         results.push({ index: i, result: null, error: errorMsg })
         
         window.dispatchEvent(new CustomEvent('sql-execution-result', {
@@ -1044,7 +1060,7 @@ const executeMultipleStatements = async (sql: string, dialect: SqlDialect) => {
           }
         }))
         
-        message.error(`语句 ${i + 1}/${statements.length} 执行失败: ${errorMsg}`)
+        message.error(t('sqlEditor.statementFailed', { index: i + 1, total: statements.length, error: errorMsg }))
         // 逐条模式下遇到错误停止执行
         break
       }
@@ -1079,11 +1095,11 @@ const splitSqlStatements = async (sql: string, dialect: SqlDialect): Promise<str
 const showExecutionModeDialog = (statementCount: number): Promise<'batch' | 'sequential' | 'cancel'> => {
   return new Promise((resolve) => {
     // 使用 naive-ui 对话框
-    const d = dialog.info({
-      title: '检测到多条 SQL 语句',
-      content: `共 ${statementCount} 条语句，请选择执行模式：`,
-      positiveText: '批量执行',
-      negativeText: '逐条执行',
+    dialog.info({
+      title: t('sqlEditor.multiStatementTitle'),
+      content: t('sqlEditor.multiStatementContent', { count: statementCount }),
+      positiveText: t('sqlEditor.batchExecute'),
+      negativeText: t('sqlEditor.sequentialExecute'),
       closable: true,
       onPositiveClick: () => resolve('batch'),
       onNegativeClick: () => resolve('sequential'),
@@ -1092,10 +1108,7 @@ const showExecutionModeDialog = (statementCount: number): Promise<'batch' | 'seq
     
     // 5 秒后自动选择批量执行
     setTimeout(() => {
-      if (d) {
-        d.destroy()
-        resolve('batch')
-      }
+      resolve('batch')
     }, 5000)
   })
 }
@@ -1107,7 +1120,7 @@ const handleFormat = async () => {
   const sql = editor.getValue()
   const dialect = getCurrentDialect()
   const formatted = await formatSql(sql, dialect)
-  
+
   editor.setValue(formatted)
   emit('format', formatted)
 }
@@ -1119,7 +1132,7 @@ const handleValidate = async () => {
   const sql = editor.getValue()
   const dialect = getCurrentDialect()
   const markers = await validateSql(sql, dialect)
-  
+
   // 在编辑器中显示错误标记
   const model = editor!.getModel()
   if (model) {
@@ -1135,7 +1148,7 @@ const handleValidate = async () => {
     if (model) {
       monaco.editor.setModelMarkers(model, 'sql-validation', [{
         severity: monaco.MarkerSeverity.Info,
-        message: '✓ SQL 语法检查通过',
+        message: `✓ ${t('sqlEditor.validationPassed')}`,
         startLineNumber: 1,
         startColumn: 1,
         endLineNumber: 1,
@@ -1147,8 +1160,7 @@ const handleValidate = async () => {
 
 // 设置
 const handleSettings = () => {
-  // TODO: 打开编辑器设置面板
-  console.log('打开编辑器设置')
+  window.dispatchEvent(new CustomEvent('open-settings-panel'))
 }
 
 // 保存 SQL 文件
@@ -1157,10 +1169,10 @@ const handleSaveSql = () => {
   
   const sql = editor.getValue()
   if (!sql.trim()) {
-    message.warning('没有可保存的内容')
+    message.warning(t('sqlEditor.noContent'))
     return
   }
-  
+
   // 触发保存对话框
   window.dispatchEvent(new CustomEvent('save-sql-file', {
     detail: {
@@ -1168,8 +1180,8 @@ const handleSaveSql = () => {
       panelId: panelId.value
     }
   }))
-  
-  message.success('SQL 已保存')
+
+  message.success(t('sqlEditor.sqlSaved'))
 }
 
 // 执行计划
@@ -1180,14 +1192,14 @@ const handleExplain = async () => {
   if (!sql) return
 
   if (!selectedConnection.value) {
-    message.warning('请先选择数据库连接')
+    message.warning(t('sqlEditor.noConnection'))
     return
   }
 
   // 自动建立运行时连接
   const connOk = await ensureConnection(selectedConnection.value)
   if (!connOk) {
-    message.error('无法连接到数据库，请检查连接配置')
+    message.error(t('sqlEditor.connectionFailed'))
     return
   }
 
@@ -1221,10 +1233,10 @@ const handleExplain = async () => {
     if (result.error) {
       message.error(result.error)
     } else {
-      message.success('执行计划已生成')
+      message.success(t('sqlEditor.explainSuccess'))
     }
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '执行失败'
+    const errorMsg = error instanceof Error ? error.message : t('sqlEditor.executionFailed')
     message.error(errorMsg)
   } finally {
     executing.value = false
@@ -1239,14 +1251,14 @@ const handleDuckDbExecute = async () => {
   if (!sql) return
 
   if (!selectedConnection.value) {
-    message.warning('请先选择数据库连接')
+    message.warning(t('sqlEditor.noConnection'))
     return
   }
 
   // 自动建立运行时连接
   const connOk = await ensureConnection(selectedConnection.value)
   if (!connOk) {
-    message.error('无法连接到数据库，请检查连接配置')
+    message.error(t('sqlEditor.connectionFailed'))
     return
   }
 
@@ -1276,10 +1288,10 @@ const handleDuckDbExecute = async () => {
     } else {
       const rowCount = result.result?.rowCount || 0
       const execTime = result.result?.executionTime || 0
-      message.success(`DuckDB 加速执行成功，${rowCount} 行，耗时 ${execTime}ms`)
+      message.success(t('sqlEditor.duckdbSuccess', { rowCount, duration: execTime }))
     }
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '执行失败'
+    const errorMsg = error instanceof Error ? error.message : t('sqlEditor.executionFailed')
     message.error(errorMsg)
   } finally {
     executing.value = false
@@ -1292,7 +1304,7 @@ const handleTranspileSql = async (targetDialect: SqlDialect) => {
 
   const sql = editor.getValue().trim()
   if (!sql) {
-    message.warning('编辑器中没有 SQL')
+    message.warning(t('sqlEditor.noContent'))
     return
   }
 
@@ -1302,14 +1314,14 @@ const handleTranspileSql = async (targetDialect: SqlDialect) => {
     
     if (transpiled && transpiled !== sql) {
       editor.setValue(transpiled)
-      message.success(`已转换为 ${targetDialect} 方言`)
+      message.success(t('sqlEditor.transpileSuccess', { dialect: targetDialect }))
     } else if (transpiled === sql) {
-      message.info('转换结果与原 SQL 相同')
+      message.info(t('sqlEditor.transpileSame'))
     } else {
-      message.warning('转换失败，请检查 SQL 语法')
+      message.warning(t('sqlEditor.transpileFailed'))
     }
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '转换失败'
+    const errorMsg = error instanceof Error ? error.message : t('sqlEditor.transpileFailed')
     message.error(errorMsg)
   }
 }
@@ -1337,7 +1349,9 @@ watch(() => props.modelValue, (newVal) => {
 // 监听主题变化
 watch(() => props.theme, (newTheme) => {
   if (editor) {
-    monaco.editor.setTheme(newTheme)
+    const isDarkTheme = document.body.classList.contains('theme-dark')
+    const monacoTheme = isDarkTheme ? 'rdata-dark' : 'rdata-light'
+    monaco.editor.setTheme(monacoTheme)
   }
 })
 

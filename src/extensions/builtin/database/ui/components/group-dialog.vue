@@ -2,7 +2,7 @@
   <div v-if="visible" class="group-dialog-overlay" @click="handleClose">
     <div class="group-dialog" @click.stop>
       <div class="dialog-header">
-        <h3>{{ isEdit ? '编辑分组' : '新建分组' }}</h3>
+        <h3>{{ isEdit ? t('navigator.editGroup') : t('navigator.newGroupTitle') }}</h3>
         <button class="close-btn" @click="handleClose">
           <X :size="16" />
         </button>
@@ -10,29 +10,29 @@
 
       <div class="dialog-body">
         <div class="form-group">
-          <label>分组名称</label>
+          <label>{{ t('navigator.groupName') }}</label>
           <input
             v-model="form.name"
             type="text"
             class="form-input"
-            placeholder="请输入分组名称"
+            :placeholder="t('navigator.groupNamePlaceholder')"
             autofocus
             @keyup.enter="handleSubmit"
           />
         </div>
 
         <div class="form-group">
-          <label>描述（可选）</label>
+          <label>{{ t('navigator.groupDescription') }}</label>
           <input
             v-model="form.description"
             type="text"
             class="form-input"
-            placeholder="请输入分组描述"
+            :placeholder="t('navigator.groupDescriptionPlaceholder')"
           />
         </div>
 
         <div class="form-group">
-          <label>颜色</label>
+          <label>{{ t('navigator.groupColor') }}</label>
           <div class="color-picker">
             <button
               v-for="color in colors"
@@ -48,9 +48,9 @@
       </div>
 
       <div class="dialog-footer">
-        <button class="btn btn-secondary" @click="handleClose">取消</button>
+        <button class="btn btn-secondary" @click="handleClose">{{ t('common.cancel') }}</button>
         <button class="btn btn-primary" :disabled="!form.name.trim()" @click="handleSubmit">
-          {{ isEdit ? '保存' : '创建' }}
+          {{ isEdit ? t('common.save') : t('navigator.create') }}
         </button>
       </div>
     </div>
@@ -60,8 +60,11 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { GROUP_COLORS } from '../types/group'
+
+const { t } = useI18n()
 
 interface Props {
   visible: boolean

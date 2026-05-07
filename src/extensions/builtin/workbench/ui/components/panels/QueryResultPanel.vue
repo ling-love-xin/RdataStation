@@ -67,7 +67,7 @@
         <div ref="gridContainerRef" class="grid-area" @contextmenu.prevent="handleGridContextMenu">
           <div v-if="!(rowData.length > 0 && columnDefs.length > 0)" class="grid-empty">
             <div class="empty-icon"><Database :size="32" /></div>
-            <div class="empty-text">{{ emptyText }}</div>
+            <div class="empty-text">{{ t('workbench.executeSqlToSeeResults') }}</div>
           </div>
           <div v-show="currentView === 'grid'" class="grid-fill">
             <AgGridVue
@@ -132,18 +132,18 @@
         <!-- 右侧数值查看器 -->
         <div v-if="showValueViewer" class="value-viewer">
           <div class="viewer-header">
-            <span class="viewer-title">值查看器</span>
+            <span class="viewer-title">{{ t('workbench.valueViewer') }}</span>
             <NButton size="tiny" quaternary @click="showValueViewer = false">
               <X :size="12" />
             </NButton>
           </div>
           <div class="viewer-content">
             <div class="viewer-field">
-              <span class="field-label">列</span>
+              <span class="field-label">{{ t('workbench.columnLabel') }}</span>
               <span class="field-val">{{ selectedCell?.column || '-' }}</span>
             </div>
             <div class="viewer-field">
-              <span class="field-label">行</span>
+              <span class="field-label">{{ t('workbench.rowLabel') }}</span>
               <span class="field-val">{{ selectedCell?.row != null ? selectedCell.row + 1 : '-' }}</span>
             </div>
             <textarea
@@ -159,7 +159,7 @@
           size="tiny"
           quaternary
           class="viewer-toggle"
-          title="打开值查看器"
+          :title="t('workbench.openValueViewer')"
           @click="showValueViewer = true"
         >
           <PanelRight :size="14" />
@@ -170,17 +170,17 @@
       <div class="result-statusbar">
         <div class="sbar-left">
           <span :class="['mode-badge', activeTab.filterMode]">{{ modeLabel(activeTab) }}</span>
-          <NButton size="tiny" quaternary title="刷新" @click="handleRefresh(activeTab)">
+          <NButton size="tiny" quaternary :title="t('resultPanel.refresh')" @click="handleRefresh(activeTab)">
             <RotateCw :size="11" />
           </NButton>
-          <NButton size="tiny" quaternary :disabled="!tabHasDirty(activeTab)" title="保存" @click="handleSave(activeTab)">
+          <NButton size="tiny" quaternary :disabled="!tabHasDirty(activeTab)" :title="t('resultPanel.save')" @click="handleSave(activeTab)">
             <Save :size="11" />
           </NButton>
-          <NButton size="tiny" quaternary :disabled="!tabHasDirty(activeTab)" title="取消" @click="handleCancel(activeTab)">
+          <NButton size="tiny" quaternary :disabled="!tabHasDirty(activeTab)" :title="t('resultPanel.cancel')" @click="handleCancel(activeTab)">
             <X :size="11" />
           </NButton>
           <NDropdown trigger="hover" :options="exportMenuOptions" @select="(k: string) => handleExport(k)">
-            <NButton size="tiny" quaternary title="导出">
+            <NButton size="tiny" quaternary :title="t('resultPanel.export')">
               <Download :size="11" />
             </NButton>
           </NDropdown>
@@ -190,17 +190,17 @@
           <span v-if="activeTab.executionTime" class="exec-time">{{ (activeTab.executionTime / 1000).toFixed(3) }}s</span>
         </div>
         <div class="sbar-right">
-          <NButton size="tiny" quaternary :disabled="!gridApi" title="第一页" @click="firstPage">
+          <NButton size="tiny" quaternary :disabled="!gridApi" :title="t('workbench.firstPage')" @click="firstPage">
             <SkipBack :size="11" />
           </NButton>
-          <NButton size="tiny" quaternary :disabled="!gridApi" title="上一页" @click="prevPage">
+          <NButton size="tiny" quaternary :disabled="!gridApi" :title="t('workbench.prevPage')" @click="prevPage">
             <ChevronLeft :size="11" />
           </NButton>
           <span v-if="gridApi" class="page-indicator">{{ pageInfoText }}</span>
-          <NButton size="tiny" quaternary :disabled="!gridApi" title="下一页" @click="nextPage">
+          <NButton size="tiny" quaternary :disabled="!gridApi" :title="t('workbench.nextPage')" @click="nextPage">
             <ChevronRight :size="11" />
           </NButton>
-          <NButton size="tiny" quaternary :disabled="!gridApi" title="最后一页" @click="lastPage">
+          <NButton size="tiny" quaternary :disabled="!gridApi" :title="t('workbench.lastPage')" @click="lastPage">
             <SkipForward :size="11" />
           </NButton>
         </div>
@@ -228,6 +228,7 @@ import { AgGridVue } from '@ag-grid-community/vue3'
 import { Database, RotateCw, Save, X, Download, PanelRight, ChevronLeft, ChevronRight, SkipBack, SkipForward, AlignLeft, List } from 'lucide-vue-next'
 import { createDiscreteApi, darkTheme, lightTheme, NButton, NDropdown } from 'naive-ui'
 import { computed, ref, onMounted, onUnmounted, watch, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])
 import '@ag-grid-community/styles/ag-grid.css'
@@ -321,10 +322,12 @@ const selectedRecordIndex = ref(0)
 interface SelectedCell { column: string; row: number; value: any }
 const selectedCell = ref<SelectedCell | null>(null)
 
+const { t } = useI18n()
+
 const viewModes = [
-  { key: 'grid' as ViewMode, icon: Database, label: '网格视图' },
-  { key: 'text' as ViewMode, icon: AlignLeft, label: '文本视图' },
-  { key: 'record' as ViewMode, icon: List, label: '记录视图' },
+  { key: 'grid' as ViewMode, icon: Database, label: t('workbench.gridView') },
+  { key: 'text' as ViewMode, icon: AlignLeft, label: t('workbench.textView') },
+  { key: 'record' as ViewMode, icon: List, label: t('workbench.recordView') },
 ]
 
 function switchView(mode: ViewMode) {
@@ -363,17 +366,17 @@ function onFirstDataRendered(params: any) {
 const displayRowText = computed(() => {
   if (!activeTab.value) return ''
   if (activeTab.value.filterMode === 'quick' && activeTab.value.filteredRowCount !== activeTab.value.originalRowCount) {
-    return `${activeTab.value.originalRowCount} → ${activeTab.value.filteredRowCount} 行`
+    return `${activeTab.value.originalRowCount} → ${activeTab.value.filteredRowCount} ${t('resultPanel.rows')}`
   }
-  return `${activeTab.value.displayedRowCount} 行`
+  return `${activeTab.value.displayedRowCount} ${t('resultPanel.rows')}`
 })
 
 // ─── 导出菜单 ────────────────────────────────────────────
-const exportMenuOptions = [
-  { key: 'csv', label: '导出 CSV' },
-  { key: 'json', label: '导出 JSON' },
-  { key: 'insert', label: '导出 INSERT' },
-]
+const exportMenuOptions = computed(() => [
+  { key: 'csv', label: t('workbench.exportCsv') },
+  { key: 'json', label: t('workbench.exportJson') },
+  { key: 'insert', label: t('workbench.exportInsert') },
+])
 
 // ─── 列定义 - 智能分辨 ───────────────────────────────────
 const numericColPatterns = ['id', '_id', 'count', 'num', 'year', 'age', 'price', 'amount', 'total', 'qty', 'rate']
@@ -456,7 +459,7 @@ const defaultColDef = {
 
 const gridThemeClass = computed(() => uiStore.isDark ? 'ag-theme-alpine-dark' : 'ag-theme-alpine')
 
-const emptyText = computed(() => '执行 SQL 查看结果')
+// emptyText removed - using t('workbench.executeSqlToSeeResults') directly
 
 const pagination = computed(() => {
   if (!activeTab.value) return true
@@ -467,11 +470,11 @@ const pageInfoText = computed(() => {
   if (!gridApi.value || !gridApi.value.paginationGetCurrentPage) return ''
   const total = gridApi.value.paginationGetTotalPages()
   const current = gridApi.value.paginationGetCurrentPage() + 1
-  return `${current}/${total} 页`
+  return `${current}/${total} ${t('resultPanel.page')}`
 })
 
 function modeLabel(tab: ResultTab): string {
-  const map = { quick: '即时过滤', sql: 'SQL过滤', duckdb: 'DuckDB分析' }
+  const map = { quick: t('resultPanel.instantFilter'), sql: t('resultPanel.sqlFilter'), duckdb: t('resultPanel.duckdbAnalysis') }
   return map[tab.filterMode]
 }
 
@@ -721,7 +724,7 @@ async function handleBridgeFilter(tab: ResultTab) {
     const tableName = await apiCreateTempTable(tab.columns, rowsData)
     tab.duckdbTempTable = tableName
     tab.duckdbSql = `SELECT * FROM ${tableName} LIMIT 100`
-    message.success(`已写入 ${visibleRows.length} 行到 DuckDB 临时表`)
+    message.success(`${t('resultPanel.rows')}: ${visibleRows.length} → DuckDB`)
   } catch (e: any) { message.error(String(e)) } finally { tab.isDuckdbLoading = false }
 }
 
@@ -808,9 +811,9 @@ function handleContextAction(payload: Record<string, any>) {
       break
     case 'openColumnInsights':
       if (tab.duckdbTempTable) {
-        window.dispatchEvent(new CustomEvent('open-column-insight', { detail: { column: col, tempTable: tab.duckdbTempTable } }))
+        window.dispatchEvent(new CustomEvent('open-column-insight', { detail: { column: col, tempTable: tab.duckdbTempTable, allColumns: tab.columns } }))
       } else {
-        message.warning('需先执行 DuckDB 分析')
+        message.warning(t('resultPanel.needDuckdbFirst'))
       }
       break
     case 'sortAsc': if (gridApi.value) gridApi.value.applySortState([{ colId: col, sort: 'asc' }]); break

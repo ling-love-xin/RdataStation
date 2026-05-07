@@ -299,6 +299,13 @@ export function useContextMenuActions() {
         icon: 'BarChart3',
         action: () => analyzeTable(connectionId as string, dbName as string, schemaName as string, tableName as string)
       },
+      {
+        id: 'quick-profile',
+        label: '快速探查',
+        icon: 'Eye',
+        shortcut: 'Ctrl+Shift+P',
+        action: () => quickProfile(connectionId as string, dbName as string, schemaName as string, tableName as string)
+      },
       { separator: true },
       {
         id: 'generate-select',
@@ -661,6 +668,32 @@ export function useContextMenuActions() {
     } catch (error) {
       console.error('分析表失败:', error)
     }
+  }
+
+  async function quickProfile(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
+    const dbType = getDbTypeForConnection(connectionId)
+    window.dispatchEvent(new CustomEvent('open-table-profile', {
+      detail: {
+        connId: connectionId,
+        dbType,
+        database: dbName,
+        schema: schemaName,
+        table: tableName
+      }
+    }))
+  }
+
+  function getDbTypeForConnection(connectionId: string): string {
+    const conn = connectionStore.connections.find(c => c.connId === connectionId)
+    if (conn) return conn.dbType
+    const runtimeConnId = runtimeConnectionStore.runtimeConnectionIds.get(connectionId)
+    if (runtimeConnId) {
+      const runtimeConn = connectionStore.connections.find(c => c.connId === runtimeConnId)
+      if (runtimeConn) return runtimeConn.dbType
+    }
+    const projectConn = projectConnectionStore.connections.find(c => c.id === connectionId)
+    if (projectConn) return projectConn.driver
+    return 'unknown'
   }
 
   async function generateSelect(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {

@@ -9,60 +9,60 @@
     >
       <div v-if="type === 'cell'" class="menu-group">
         <div class="menu-item" @click.stop="emit('action', { action: 'copyCell', value, column })">
-          <Copy :size="12" /><span>复制单元格值</span>
+          <Copy :size="12" /><span>{{ t('resultPanel.copyCell') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'copyRow', value, column })">
-          <ClipboardList :size="12" /><span>复制行(TSV)</span>
+          <ClipboardList :size="12" /><span>{{ t('resultPanel.copyRow') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'copyRowJson', value, column })">
-          <FileJson :size="12" /><span>复制为 JSON</span>
+          <FileJson :size="12" /><span>{{ t('resultPanel.copyJson') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'copyRowInsert', value, column })">
-          <FileCode :size="12" /><span>复制为 INSERT</span>
+          <FileCode :size="12" /><span>{{ t('resultPanel.copyInsert') }}</span>
         </div>
         <div class="menu-divider" />
         <div class="menu-item" @click.stop="emit('action', { action: 'filterByValue', value, column })">
-          <Filter :size="12" /><span>以此值过滤 (即时过滤)</span>
+          <Filter :size="12" /><span>{{ t('resultPanel.filterByValueQuick') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'sqlFilterByValue', value, column })">
-          <Database :size="12" /><span>以此值过滤 (SQL过滤)</span>
+          <Database :size="12" /><span>{{ t('resultPanel.filterByValueSql') }}</span>
         </div>
         <div class="menu-divider" />
         <div class="menu-item" @click.stop="emit('action', { action: 'openColumnInsights', value, column })">
-          <BarChart3 :size="12" /><span>列洞察</span>
+          <BarChart3 :size="12" /><span>{{ t('resultPanel.columnInsight') }}</span>
         </div>
       </div>
 
       <div v-if="type === 'header'" class="menu-group">
         <div class="menu-item" @click.stop="emit('action', { action: 'sortAsc', column })">
-          <ArrowUp :size="12" /><span>升序排序</span>
+          <ArrowUp :size="12" /><span>{{ t('resultPanel.sortAsc') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'sortDesc', column })">
-          <ArrowDown :size="12" /><span>降序排序</span>
+          <ArrowDown :size="12" /><span>{{ t('resultPanel.sortDesc') }}</span>
         </div>
         <div class="menu-divider" />
         <div class="menu-item" @click.stop="emit('action', { action: 'sendSortToSql', column, sortDir })">
-          <Database :size="12" /><span>发送排序到 SQL 过滤模式</span>
+          <Database :size="12" /><span>{{ t('resultPanel.sendSortToSql') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'sendSortToDuckdb', column, sortDir })">
-          <Brain :size="12" /><span>发送排序到 DuckDB 分析</span>
+          <Brain :size="12" /><span>{{ t('resultPanel.sendSortToDuckdb') }}</span>
         </div>
         <div class="menu-divider" />
         <div class="menu-item" @click.stop="emit('action', { action: 'hideColumn', column })">
-          <EyeOff :size="12" /><span>隐藏列</span>
+          <EyeOff :size="12" /><span>{{ t('resultPanel.hideColumn') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'autoSizeColumn', column })">
-          <Maximize2 :size="12" /><span>自适应列宽</span>
+          <Maximize2 :size="12" /><span>{{ t('resultPanel.autoColumnWidth') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'autoSizeAll', column })">
-          <Maximize2 :size="12" /><span>自适应所有列宽</span>
+          <Maximize2 :size="12" /><span>{{ t('resultPanel.autoAllColumnWidth') }}</span>
         </div>
         <div class="menu-divider" />
         <div class="menu-item" @click.stop="emit('action', { action: 'columnSummary', column })">
-          <Calculator :size="12" /><span>列汇总 (发送到 DuckDB)</span>
+          <Calculator :size="12" /><span>{{ t('resultPanel.columnSummary') }}</span>
         </div>
         <div class="menu-item" @click.stop="emit('action', { action: 'openColumnInsights', column })">
-          <BarChart3 :size="12" /><span>列洞察面板</span>
+          <BarChart3 :size="12" /><span>{{ t('resultPanel.columnInsightPanel') }}</span>
         </div>
       </div>
     </div>
@@ -74,6 +74,9 @@ import {
   Copy, ClipboardList, FileJson, FileCode, Filter, Database,
   BarChart3, ArrowUp, ArrowDown, EyeOff, Maximize2, Calculator, Brain
 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   visible: boolean

@@ -3,19 +3,19 @@
     <div class="status-left">
       <NButton size="tiny" quaternary @click="$emit('refresh')">
         <template #icon><RotateCw :size="12" /></template>
-        刷新
+        {{ t('resultPanel.refresh') }}
       </NButton>
       <NButton size="tiny" quaternary :disabled="!hasDirty" @click="$emit('save')">
         <template #icon><Save :size="12" /></template>
-        保存
+        {{ t('resultPanel.save') }}
       </NButton>
       <NButton size="tiny" quaternary :disabled="!hasDirty" @click="$emit('cancel')">
         <template #icon><X :size="12" /></template>
-        取消
+        {{ t('resultPanel.cancel') }}
       </NButton>
       <NButton size="tiny" quaternary @click="$emit('export')">
         <template #icon><Download :size="12" /></template>
-        导出数据...
+        {{ t('resultPanel.export') }}
       </NButton>
     </div>
     <div class="status-center">
@@ -33,8 +33,11 @@
 import { RotateCw, Save, X, Download } from 'lucide-vue-next'
 import { NButton } from 'naive-ui'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { FilterMode } from '../../../stores/result-store'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   filterMode: FilterMode
@@ -54,24 +57,32 @@ defineEmits<{
 }>()
 
 const modeLabel = computed(() => {
-  const map: Record<FilterMode, string> = { quick: '即时过滤', sql: 'SQL过滤', duckdb: 'DuckDB分析' }
+  const map: Record<FilterMode, string> = {
+    quick: t('resultPanel.instantFilter'),
+    sql: t('resultPanel.sqlFilter'),
+    duckdb: t('resultPanel.duckdbAnalysis')
+  }
   return map[props.filterMode]
 })
 
 const rowInfoText = computed(() => {
   if (props.filterMode === 'duckdb') {
-    return `原始 ${props.originalRows} 行 | 分析结果 ${props.visibleRows} 行`
+    return `${t('resultPanel.originalRows', { rows: props.originalRows })} | ${t('resultPanel.analysisResult', { rows: props.visibleRows })}`
   }
   if (props.visibleRows !== props.totalRows) {
-    return `原始 ${props.totalRows} 行 → 过滤后 ${props.visibleRows} 行`
+    return `${t('resultPanel.originalRows', { rows: props.totalRows })} → ${t('resultPanel.filteredRows', { rows: props.visibleRows })}`
   }
-  return `${props.totalRows} 行`
+  return `${props.totalRows} ${t('resultPanel.rowCount')}`
 })
 
 const durationText = computed(() => {
   if (!props.duration) return ''
   const sec = (props.duration / 1000).toFixed(3)
-  const map: Record<FilterMode, string> = { quick: '', sql: `数据库 ${sec}s`, duckdb: `DuckDB ${sec}s` }
+  const map: Record<FilterMode, string> = {
+    quick: '',
+    sql: t('resultPanel.databaseTime', { sec }),
+    duckdb: t('resultPanel.duckdbTime', { sec })
+  }
   return map[props.filterMode]
 })
 </script>

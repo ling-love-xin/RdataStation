@@ -1,7 +1,7 @@
 # RdataStation 变更日志
 
-> 版本：v2.3
-> 最后更新：2026-05-05
+> 版本：v2.5
+> 最后更新：2026-05-07
 > 状态：📋 持续更新
 
 ---
@@ -15,6 +15,39 @@
 ---
 
 ## 项目变更日志
+
+### [v2.5] - 2026-05-07
+
+#### 新增
+
+- **配置系统（Phase 1：全局配置链）**
+  - 三层优先级架构：项目覆盖 > 全局默认 > 系统硬编码
+  - tauri-plugin-store 集成（Rust crate + npm 包 + lib.rs 注册）
+  - `src/stores/config.ts` — 统一配置注册表 + 类型定义 + 可覆盖性标记
+  - `src/stores/useAppStore.ts` — 核心 Pinia Store（单一数据入口）
+  - `src/shared/styles/theme-tokens.ts` — naive-ui 主题颜色令牌
+  - `saveConfig(key, value, scope)` 写入抽象层（迁移就绪）
+  - Schema 版本管理（`_schemaVersion`）
+  - `SaveResult` 返回类型
+  - 种子驱动表初始化（`GLOBAL_SEED_KEYS`）
+  - 项目覆盖 diff 模式（只存储与全局值不同的字段）
+  - Store 实例进 Pinia state（`shallowRef`，devtools 可观察）
+  - `Language` 联合类型（`'zh-CN' | 'en-US'`）
+  - `dockviewLayout` / `sidebarState` 类型化
+
+#### 重构
+
+- **useUiStore** — 去除 try/catch 假安全；去除重复系统主题监听器；委派给 useAppStore
+- **App.vue** — 主题/locale 从 useAppStore 读取；themeOverrides 抽取到 tokens 文件
+- **SettingsPanel** — 全局/项目配置分离；外观/编辑器/引擎/布局四区；应用按钮模式；项目覆盖恢复按钮
+- **main.ts** — Pinia → 全局配置加载 → extension → mount 严格初始化顺序
+
+#### 文档
+
+- `docs/frontend/CONFIG-SYSTEM.md` — 配置系统完整文档
+- `docs/frontend/INDEX.md` — 新增配置系统条目
+
+---
 
 ### [v2.4] - 2026-05-06
 

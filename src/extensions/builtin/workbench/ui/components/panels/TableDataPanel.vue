@@ -1,17 +1,17 @@
 <template>
   <div class="table-data-panel">
     <div class="panel-header">
-      <span class="panel-title">表数据</span>
+      <span class="panel-title">{{ t('workbench.tableData') }}</span>
     </div>
     <div class="panel-content">
       <div v-if="!tableName" class="empty-state">
         <Table :size="32" />
-        <p>请选择要查看的表</p>
+        <p>{{ t('workbench.selectTableToView') }}</p>
       </div>
       <div v-else class="table-container">
         <div class="table-info">
           <span class="table-name">{{ tableName }}</span>
-          <span class="row-count">{{ rowCount }} 行</span>
+          <span class="row-count">{{ rowCount }} {{ t('resultPanel.rows') }}</span>
         </div>
         <ResultTable :columns="columns" :rows="rows" :loading="loading" />
       </div>
@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import { Table } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ResultTable from '@/extensions/builtin/query/ui/components/result/ResultTable.vue'
 
@@ -35,6 +36,8 @@ interface Props {
     connectionId?: string
   }
 }
+
+const { t } = useI18n()
 
 const props = defineProps<Props>()
 

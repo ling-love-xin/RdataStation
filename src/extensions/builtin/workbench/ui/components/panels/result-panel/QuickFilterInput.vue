@@ -4,7 +4,7 @@
       <NInput
         :value="expression"
         size="tiny"
-        placeholder="输入过滤表达式，如 Title LIKE '%Rock%'"
+        :placeholder="t('resultPanel.quickFilterPlaceholder')"
         clearable
         @update:value="onInput"
         @keydown.enter="onApply"
@@ -19,7 +19,7 @@
     </div>
     <div class="filter-info">
       <span v-if="visibleCount !== null && totalCount !== null" class="info-text">
-        当前内存中 {{ totalCount }} 行 → 过滤后 {{ visibleCount }} 行
+        {{ t('resultPanel.filterResult', { total: totalCount, filtered: visibleCount }) }}
       </span>
     </div>
   </div>
@@ -28,6 +28,9 @@
 <script setup lang="ts">
 import { Search, X } from 'lucide-vue-next'
 import { NInput, NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{
   expression: string

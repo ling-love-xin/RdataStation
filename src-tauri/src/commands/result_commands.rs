@@ -5,7 +5,8 @@
 use crate::commands::project_commands::ProjectState;
 use crate::core::persistence::{InsightStorage, InsightMetaStore};
 use crate::core::services::result_service::{
-    ResultService, ResultSet, ColumnStats, ColumnInsightFull,
+    ResultService, ResultSet, ColumnStats, ColumnInsightFull, TableProfile,
+    QualityScore, TableQuality,
 };
 
 /// 重新执行带过滤条件的 SQL
@@ -32,6 +33,95 @@ pub async fn re_execute_with_filter(
     )
     .await
     .map_err(|e| e.to_string())
+}
+
+/// 列质量评分输入
+#[derive(serde::Deserialize, Debug)]
+pub struct ColumnQualityInput {
+    pub column_name: String,
+    pub temp_table: String,
+}
+
+/// 计算列数据质量评分 (0-100)
+#[tauri::command]
+pub async fn get_column_quality(
+    input: ColumnQualityInput,
+) -> Result<QualityScore, String> {
+    let stats = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
+        .map_err(|e| e.to_string())?;
+    Ok(ResultService::compute_column_quality(&stats))
+}
+
+/// 批量评估表质量 — 一次调用完成全表所有列的质量评分
+#[derive(serde::Deserialize, Debug)]
+pub struct BatchEvaluateInput {
+    pub conn_id: String,
+    pub database: String,
+    pub schema: String,
+    pub table: String,
+}
+
+#[tauri::command]
+pub async fn batch_evaluate_columns(
+    input: BatchEvaluateInput,
+) -> Result<TableQuality, String> {
+    ResultService::batch_evaluate_columns(
+        input.conn_id,
+        &input.database,
+        &input.schema,
+        &input.table,
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+// ═══════════════ 从表直接探查列命令 ═══════════════
+
+#[derive(serde::Deserialize, Debug)]
+pub struct ProfileColumnFromTableInput {
+    pub conn_id: String,
+    pub database: String,
+    pub schema: String,
+    pub table: String,
+    pub column_name: String,
+}
+
+#[tauri::command]
+pub async fn profile_column_from_table(
+    input: ProfileColumnFromTableInput,
+) -> Result<ColumnInsightFull, String> {
+    ResultService::profile_column_from_table(
+        input.conn_id,
+        &input.database,
+        &input.schema,
+        &input.table,
+        &input.column_name,
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+// ═══════════════ 版本详情命令 ═══════════════
+
+#[derive(serde::Deserialize, Debug)]
+pub struct InsightVersionDetailInput {
+    pub version_id: String,
+}
+
+#[tauri::command]
+pub async fn get_insight_version_detail(
+    input: InsightVersionDetailInput,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<Option<crate::core::services::result_service::ColumnInsightFull>, String> {
+    let store_guard = state.store.lock().await;
+    let store = store_guard.as_ref().ok_or("No project store available")?;
+    let db = &store.db_manager;
+
+    let insight_store = InsightStorage::new(db.duckdb_conn());
+
+    ResultService::get_insight_version_detail(&input.version_id, &insight_store)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// DuckDB 分析输入
@@ -166,4 +256,123 @@ pub async fn get_column_insight_history(
     ResultService::get_column_insight_history(&input.column_name, &insight_store)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// 清理洞察快照输入
+#[derive(serde::Deserialize, Debug)]
+pub struct CleanupInsightInput {
+    pub days: i64,
+}
+
+/// 清理 N 天前的洞察快照（DuckDB + SQLite 双写清理）
+#[tauri::command]
+pub async fn cleanup_insight_snapshots(
+    input: CleanupInsightInput,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<CleanupResult, String> {
+    let store_guard = state.store.lock().await;
+    let store = store_guard.as_ref().ok_or("No project store available")?;
+    let db = &store.db_manager;
+
+    let insight_store = InsightStorage::new(db.duckdb_conn());
+    let meta_store = InsightMetaStore::new(db.sqlite_pool());
+
+    let (duckdb_deleted, sqlite_deleted) = ResultService::cleanup_old_insight_snapshots(
+        input.days,
+        &insight_store,
+        &meta_store,
+    ).await.map_err(|e| e.to_string())?;
+
+    Ok(CleanupResult {
+        duckdb_deleted,
+        sqlite_deleted: sqlite_deleted as i64,
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct CleanupResult {
+    pub duckdb_deleted: i64,
+    pub sqlite_deleted: i64,
+}
+
+/// 获取洞察存储用量统计
+#[tauri::command]
+pub async fn get_insight_storage_stats(
+    state: tauri::State<'_, ProjectState>,
+) -> Result<crate::core::persistence::InsightStorageStats, String> {
+    let store_guard = state.store.lock().await;
+    let store = store_guard.as_ref().ok_or("No project store available")?;
+    let db = &store.db_manager;
+
+    let insight_store = InsightStorage::new(db.duckdb_conn());
+
+    ResultService::get_insight_storage_stats(&insight_store)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ═══════════════ 规则引擎公开命令 ═══════════════
+
+#[derive(serde::Deserialize, Debug)]
+pub struct ExecuteRuleInput {
+    pub rule_id: String,
+    pub params: std::collections::HashMap<String, String>,
+    pub temp_table: String,
+}
+
+#[tauri::command]
+pub async fn execute_insight_rule(
+    input: ExecuteRuleInput,
+) -> Result<serde_json::Value, String> {
+    let duckdb = ResultService::get_or_create_duckdb()
+        .map_err(|e| e.to_string())?;
+    let conn = duckdb.lock().map_err(|e| e.to_string())?;
+
+    ResultService::execute_insight_rule(&input.rule_id, &conn, &input.params)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_insight_rules(
+    category: Option<String>,
+) -> Result<Vec<serde_json::Value>, String> {
+    Ok(ResultService::list_insight_rules(category.as_deref()))
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct RulesForColumnInput {
+    pub column_type: String,
+}
+
+#[tauri::command]
+pub async fn list_rules_for_column(
+    input: RulesForColumnInput,
+) -> Result<Vec<serde_json::Value>, String> {
+    Ok(ResultService::list_rules_for_column(&input.column_type))
+}
+
+// ═══════════════ 表探查命令 ═══════════════
+
+#[derive(serde::Deserialize, Debug)]
+pub struct TableProfileInput {
+    pub conn_id: String,
+    pub db_type: String,
+    pub database: String,
+    pub schema: String,
+    pub table: String,
+}
+
+#[tauri::command]
+pub async fn get_table_profile(
+    input: TableProfileInput,
+) -> Result<TableProfile, String> {
+    ResultService::get_table_profile(
+        input.conn_id,
+        input.db_type,
+        &input.database,
+        &input.schema,
+        &input.table,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }

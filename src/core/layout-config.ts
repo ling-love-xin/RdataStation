@@ -105,7 +105,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'database-nav',
           name: '数据库',
-          component: () => import('@/extensions/builtin/database/ui/components/DatabaseNavigator.vue'),
+          component: () => import('@/extensions/builtin/database/ui/components/database-navigator.vue'),
           location: 'left',
           order: 1,
           defaultVisible: true,
@@ -114,7 +114,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'analytics',
           name: '分析资源',
-          component: () => import('@/extensions/builtin/analytics/ui/components/AnalyticsPanel.vue'),
+          component: () => import('@/extensions/builtin/analytics-resource/ui/components/AnalyticsResourceManager.vue'),
           location: 'left',
           order: 2,
           defaultVisible: false
@@ -122,7 +122,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'plugins',
           name: '插件',
-          component: () => import('@/extensions/builtin/plugins/ui/components/PluginsPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/PluginsPanel.vue'),
           location: 'left',
           order: 3,
           defaultVisible: false
@@ -140,7 +140,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'empty-workbench',
           name: '欢迎',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/empty-workbench-panel/EmptyWorkbenchPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/EmptyWorkbenchPanel.vue'),
           location: 'center',
           order: 1,
           defaultVisible: true,
@@ -151,7 +151,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'sql-history',
           name: 'SQL历史',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/sql-history-panel/SqlHistoryPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/SqlHistoryPanel.vue'),
           location: 'right',
           order: 1,
           defaultVisible: false
@@ -159,7 +159,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'output',
           name: '输出',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/output-panel/OutputPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/OutputPanel.vue'),
           location: 'right',
           order: 2,
           defaultVisible: false
@@ -167,7 +167,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'column-insights',
           name: '列洞察',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/column-insights-panel/ColumnInsightsPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/ColumnInsightsPanel.vue'),
           location: 'right',
           order: 3,
           defaultVisible: false
@@ -181,7 +181,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'database-nav',
           name: '数据库',
-          component: () => import('@/extensions/builtin/database/ui/components/DatabaseNavigator.vue'),
+          component: () => import('@/extensions/builtin/database/ui/components/database-navigator.vue'),
           location: 'left',
           order: 1,
           defaultVisible: true,
@@ -190,7 +190,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'empty-workbench',
           name: '欢迎',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/empty-workbench-panel/EmptyWorkbenchPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/EmptyWorkbenchPanel.vue'),
           location: 'center',
           order: 1,
           defaultVisible: true,
@@ -205,7 +205,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'database-nav',
           name: '数据库',
-          component: () => import('@/extensions/builtin/database/ui/components/DatabaseNavigator.vue'),
+          component: () => import('@/extensions/builtin/database/ui/components/database-navigator.vue'),
           location: 'left',
           order: 1,
           defaultVisible: true,
@@ -214,7 +214,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'analytics',
           name: '分析资源',
-          component: () => import('@/extensions/builtin/analytics/ui/components/AnalyticsPanel.vue'),
+          component: () => import('@/extensions/builtin/analytics-resource/ui/components/AnalyticsResourceManager.vue'),
           location: 'left',
           order: 2,
           defaultVisible: true
@@ -222,7 +222,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'empty-workbench',
           name: '欢迎',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/empty-workbench-panel/EmptyWorkbenchPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/EmptyWorkbenchPanel.vue'),
           location: 'center',
           order: 1,
           defaultVisible: true,
@@ -231,7 +231,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'column-insights',
           name: '列洞察',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/column-insights-panel/ColumnInsightsPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/ColumnInsightsPanel.vue'),
           location: 'right',
           order: 1,
           defaultVisible: true
@@ -239,7 +239,7 @@ export const defaultLayoutConfig: LayoutConfig = {
         {
           id: 'output',
           name: '输出',
-          component: () => import('@/extensions/builtin/workbench/ui/components/panels/output-panel/OutputPanel.vue'),
+          component: () => import('@/extensions/builtin/workbench/ui/components/panels/OutputPanel.vue'),
           location: 'right',
           order: 2,
           defaultVisible: false

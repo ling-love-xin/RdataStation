@@ -154,7 +154,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
       )
       if (nameIndex !== -1 && nameIndex + 1 < parts.length) {
         let name = parts[nameIndex + 1]
-        name = name.replace(/[`"'\[\]]/g, '')
+        name = name.replace(/[`"'[\]]/g, '')
 
         const nameParts = name.split('.')
         if (nameParts.length >= 2) {
@@ -167,7 +167,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
     } else if (ddlType.includes('COLUMN')) {
       const nameIndex = parts.findIndex(p => p === 'COLUMN')
       if (nameIndex !== -1 && nameIndex + 1 < parts.length) {
-        metadata.columnName = parts[nameIndex + 1].replace(/[`"'\[\]]/g, '')
+        metadata.columnName = parts[nameIndex + 1].replace(/[`"'[\]]/g, '')
       }
     }
 

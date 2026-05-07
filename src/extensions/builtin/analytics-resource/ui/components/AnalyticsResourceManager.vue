@@ -136,7 +136,7 @@ const showCreateFolder = ref(false)
 const showRecycleBin = ref(false)
 const showEditResource = ref(false)
 const showSettings = ref(false)
-const editingResource = ref<AnalyticsResource | null>(null)
+const editingResource = ref<AnalyticsResource>()
 
 const resources = computed(() => store.resources)
 const folders = computed(() => store.folders)
@@ -329,7 +329,7 @@ async function handleCreateResource(input: CreateResourceRequest) {
 function closeEditModal() {
   showEditResource.value = false
   showCreateResource.value = false
-  editingResource.value = null
+  editingResource.value = undefined
 }
 
 async function handleUpdateResource(id: string, input: CreateResourceRequest) {

@@ -1,0 +1,34 @@
+[meta]
+id = "quality-score"
+name = "列质量评分"
+category = "quality"
+applies_to = ["Any"]
+result_type = "single"
+version = "1.0"
+description = "基于空值率、去重率、数据分布计算列质量评分 (0-100)"
+
+[query]
+template = """
+WITH stats AS (
+    SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN "{col}" IS NULL THEN 1 ELSE 0 END) as nulls,
+        COUNT(DISTINCT "{col}") as distinct_vals
+    FROM "{table}"
+),
+bounds AS (
+    SELECT
+        MIN("{col}") as min_val,
+        MAX("{col}") as max_val,
+        AVG("{col}") as avg_val
+    FROM "{table}"
+    WHERE "{col}" IS NOT NULL
+)
+SELECT
+    total, nulls, distinct_vals,
+    ROUND(CAST(nulls AS FLOAT) / NULLIF(total, 0) * 100, 2) as null_pct,
+    ROUND(CAST(distinct_vals AS FLOAT) / NULLIF(total - nulls, 0) * 100, 2) as distinct_pct,
+    min_val, max_val, avg_val
+FROM stats, bounds
+"""
+parameters = ["table", "col"]

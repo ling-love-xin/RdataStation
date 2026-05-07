@@ -237,4 +237,59 @@ impl InsightMetaStore {
 
         Ok(count)
     }
+
+    /// 按 snapshot_id 删除元数据记录
+    pub async fn delete_meta_by_snapshot_id(&self, snapshot_id: &str) -> Result<usize, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+
+        let deleted = conn.inner().execute(
+            "DELETE FROM insight_snapshots WHERE snapshot_id = ?1",
+            rusqlite::params![snapshot_id],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "delete_meta_by_snapshot_id".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(deleted)
+    }
+
+    /// 统计某列的版本总数
+    pub async fn count_versions_for_column(
+        &self,
+        column_name: &str,
+    ) -> Result<usize, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+
+        let count: i64 = conn.inner().query_row(
+            "SELECT COUNT(*) FROM insight_snapshots WHERE entity_type = 'column' AND entity_name = ?1",
+            rusqlite::params![column_name],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "count_versions_for_column".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(count as usize)
+    }
+
+    /// 按天数清理过期元数据
+    ///
+    /// 返回清理的条目数
+    pub async fn cleanup_older_than(&self, days: i64) -> Result<usize, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+
+        let deleted = conn.inner().execute(
+            "DELETE FROM insight_snapshots
+             WHERE created_at < datetime('now', ?1 || ' days')",
+            rusqlite::params![format!("-{}", days)],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "cleanup_older_than".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(deleted)
+    }
 }

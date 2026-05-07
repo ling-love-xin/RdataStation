@@ -5,6 +5,11 @@
 //!
 //! 版本化：每条记录包含 version_id / parent_version_id / checksum，
 //! 支持历史版本链和快照对比。
+//!
+//! 存储防护：
+//! - 每列最多保留 MAX_VERSIONS_PER_COLUMN (100) 个版本
+//! - 支持按天数清理过期快照 (cleanup_older_than)
+//! - 提供存储用量查询
 
 use std::sync::Arc;
 use uuid::Uuid;
@@ -13,6 +18,8 @@ use crate::core::error::{CoreError, CommonError, StorageError};
 use crate::core::persistence::project_db::ProjectDuckdbConnection;
 
 use super::super::services::result_service::ColumnInsightFull;
+
+const MAX_VERSIONS_PER_COLUMN: usize = 100;
 
 // ==================== 列洞察快照存储 ====================
 
@@ -25,27 +32,25 @@ impl InsightColumnStore {
         Self { duckdb }
     }
 
-    /// 保存列洞察快照到 DuckDB
-    ///
-    /// # 参数
-    /// - `insight`: 洞察全量数据
-    /// - `parent_version_id`: 父版本 ID（None 表示首个版本）
-    ///
-    /// # 返回
-    /// - `snapshot_id`: 生成的快照 ID
     pub async fn save_snapshot(
         &self,
         insight: &ColumnInsightFull,
         parent_version_id: Option<&str>,
     ) -> Result<(String, String), CoreError> {
+        let column_name = insight.stats.column_name.clone();
+        let data_type = insight.stats.data_type.clone();
+
+        let existing_count = self.count_versions(&column_name).await?;
+        if existing_count >= MAX_VERSIONS_PER_COLUMN {
+            self.evict_oldest_version(&column_name, existing_count - MAX_VERSIONS_PER_COLUMN + 1).await?;
+        }
+
         let snapshot_id = Uuid::new_v4().to_string();
         let version_id = Uuid::new_v4().to_string();
         let stats_json = serde_json::to_string(insight).map_err(|e| CoreError::common(
             CommonError::General(format!("Serialize insight failed: {}", e))
         ))?;
         let checksum = sha256_hex(&stats_json);
-        let column_name = insight.stats.column_name.clone();
-        let data_type = insight.stats.data_type.clone();
 
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
@@ -74,7 +79,6 @@ impl InsightColumnStore {
         Ok((snapshot_id.clone(), version_id))
     }
 
-    /// 获取列洞察最新快照
     pub async fn get_latest_snapshot(
         &self,
         column_name: &str,
@@ -102,7 +106,6 @@ impl InsightColumnStore {
         }
     }
 
-    /// 获取列洞察所有历史版本（从新到旧）
     pub async fn get_history(
         &self,
         column_name: &str,
@@ -147,7 +150,6 @@ impl InsightColumnStore {
         Ok(entries)
     }
 
-    /// 按版本 ID 获取特定快照
     pub async fn get_snapshot_by_version(
         &self,
         version_id: &str,
@@ -175,7 +177,6 @@ impl InsightColumnStore {
         }
     }
 
-    /// 删除指定快照（标记删除，保留数据用于版本链）
     pub async fn delete_snapshot(&self, snapshot_id: &str) -> Result<(), CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
@@ -194,6 +195,106 @@ impl InsightColumnStore {
 
         Ok(())
     }
+
+    // ═══════════════════ 存储防护 ═══════════════════
+
+    /// 统计某列的版本总数
+    pub async fn count_versions(&self, column_name: &str) -> Result<usize, CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
+            CommonError::General("DuckDB connection is closed".to_string())
+        ))?;
+
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM insight_column_snapshots WHERE column_name = ?",
+            duckdb::params![column_name],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "duckdb".to_string(),
+            operation: "count_versions".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(count as usize)
+    }
+
+    /// 淘汰指定列最旧的 N 个版本（版本链保持不变）
+    async fn evict_oldest_version(&self, column_name: &str, count: usize) -> Result<(), CoreError> {
+        if count == 0 { return Ok(()); }
+
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
+            CommonError::General("DuckDB connection is closed".to_string())
+        ))?;
+
+        conn.execute(
+            "DELETE FROM insight_column_snapshots WHERE snapshot_id IN (
+                SELECT snapshot_id FROM insight_column_snapshots
+                WHERE column_name = ? ORDER BY created_at ASC LIMIT ?
+            )",
+            duckdb::params![column_name, count as i64],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "duckdb".to_string(),
+            operation: "evict_oldest_version".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(())
+    }
+
+    /// 清理 N 天前的洞察快照
+    ///
+    /// 返回清理的条目数
+    pub async fn cleanup_older_than(&self, days: i64) -> Result<i64, CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
+            CommonError::General("DuckDB connection is closed".to_string())
+        ))?;
+
+        let deleted = conn.execute(
+            "DELETE FROM insight_column_snapshots
+             WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL ? DAY)",
+            duckdb::params![days],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "duckdb".to_string(),
+            operation: "cleanup_older_than".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(deleted as i64)
+    }
+
+    /// 获取存储用量统计
+    pub async fn get_storage_stats(&self) -> Result<InsightStorageStats, CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
+            CommonError::General("DuckDB connection is closed".to_string())
+        ))?;
+
+        let total_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM insight_column_snapshots", [], |row| row.get(0)
+        ).unwrap_or(0);
+
+        let unique_columns: i64 = conn.query_row(
+            "SELECT COUNT(DISTINCT column_name) FROM insight_column_snapshots", [], |row| row.get(0)
+        ).unwrap_or(0);
+
+        let total_size_approx: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(LENGTH(stats_json)), 0)::DOUBLE FROM insight_column_snapshots",
+            [], |row| row.get(0)
+        ).unwrap_or(0.0);
+
+        Ok(InsightStorageStats {
+            total_snapshots: total_count as usize,
+            unique_columns: unique_columns as usize,
+            total_size_bytes: total_size_approx,
+            total_size_display: format_storage_size(total_size_approx),
+        })
+    }
 }
 
 // ==================== 历史版本条目 ====================
@@ -211,12 +312,21 @@ pub struct InsightVersionEntry {
 }
 
 impl InsightVersionEntry {
-    /// 反序列化 stats_json 为 ColumnInsightFull
     pub fn parse_insight(&self) -> Result<ColumnInsightFull, CoreError> {
         serde_json::from_str(&self.stats_json).map_err(|e| CoreError::common(
             CommonError::General(format!("Parse insight from version entry failed: {}", e))
         ))
     }
+}
+
+// ==================== 存储用量统计 ====================
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct InsightStorageStats {
+    pub total_snapshots: usize,
+    pub unique_columns: usize,
+    pub total_size_bytes: f64,
+    pub total_size_display: String,
 }
 
 // ==================== 表探查报告存储（Phase 2 预留） ====================
@@ -268,4 +378,16 @@ fn sha256_hex(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+fn format_storage_size(bytes: f64) -> String {
+    if bytes < 1024.0 {
+        format!("{} B", bytes as u64)
+    } else if bytes < 1024.0 * 1024.0 {
+        format!("{:.1} KB", bytes / 1024.0)
+    } else if bytes < 1024.0 * 1024.0 * 1024.0 {
+        format!("{:.1} MB", bytes / (1024.0 * 1024.0))
+    } else {
+        format!("{:.2} GB", bytes / (1024.0 * 1024.0 * 1024.0))
+    }
 }

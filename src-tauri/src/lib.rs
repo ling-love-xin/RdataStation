@@ -22,6 +22,7 @@ use commands::*;
 use commands::project_commands::ProjectState;
 // 分析资源状态管理
 use commands::analytics_resource_commands::AnalyticsResourceState;
+use crate::core::scratchpad::ScratchpadState;
 
 /// 注册所有数据库驱动
 ///
@@ -60,8 +61,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(ProjectState::new())
         .manage(AnalyticsResourceState::new())
+        .manage(ScratchpadState::new())
         .invoke_handler(tauri::generate_handler![
             // 连接命令
             connect_database,
@@ -180,12 +183,22 @@ pub fn run() {
             
             // 结果集分析命令
             re_execute_with_filter,
+            profile_column_from_table,
+            get_insight_version_detail,
             execute_duckdb_analysis,
             get_column_insights,
             get_column_insight_full,
             create_duckdb_temp_table,
             save_column_insight_snapshot,
             get_column_insight_history,
+            cleanup_insight_snapshots,
+            get_insight_storage_stats,
+            execute_insight_rule,
+            list_insight_rules,
+            list_rules_for_column,
+            get_table_profile,
+            get_column_quality,
+            batch_evaluate_columns,
             
             // 项目管理命令（已合并到 project_commands）
             // 旧的 project_management_commands 模块已删除
@@ -214,6 +227,27 @@ pub fn run() {
             restore_analytics_resource_from_recycle,
             permanent_delete_analytics_resource,
             init_analytics_resource_store,
+            get_resource_versions,
+            get_tags_for_resource,
+            get_resources_by_tag,
+
+            // 草稿箱命令
+            list_scratchpad_files,
+            create_scratchpad_entry,
+            delete_scratchpad_entry,
+            rename_scratchpad_entry,
+            read_scratchpad_file,
+            save_scratchpad_file,
+            import_external_file,
+            add_external_reference,
+            remove_external_reference,
+            open_scratchpad_in_explorer,
+            check_scratchpad_file_size,
+            init_scratchpad_store,
+            list_scratchpad_trash,
+            restore_scratchpad_from_trash,
+            empty_scratchpad_trash,
+            get_analyzable_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
