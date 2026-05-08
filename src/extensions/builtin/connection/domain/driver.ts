@@ -6,12 +6,7 @@
  */
 
 /** 驱动字段类型 */
-export type DriverFieldType =
-  | 'text'
-  | 'password'
-  | 'number'
-  | 'file'
-  | 'select'
+export type DriverFieldType = 'text' | 'password' | 'number' | 'file' | 'select'
 
 /** 驱动选项类型 */
 export type DriverOptionType =
@@ -90,12 +85,7 @@ export interface DriverDescriptor {
 }
 
 /** 连接方式类型 */
-export type ConnectionMethodType =
-  | 'direct'
-  | 'ssl'
-  | 'ssh'
-  | 'http_proxy'
-  | 'socks_proxy'
+export type ConnectionMethodType = 'direct' | 'ssl' | 'ssh' | 'http_proxy' | 'socks_proxy'
 
 /** TLS 版本 */
 export type TlsVersion = 'tls1_0' | 'tls1_1' | 'tls1_2' | 'tls1_3'

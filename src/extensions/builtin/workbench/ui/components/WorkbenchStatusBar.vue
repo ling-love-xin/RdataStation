@@ -39,7 +39,7 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
   executionTime: 0,
-  rowCount: undefined
+  rowCount: undefined,
 })
 
 function handleOpenSettings() {
@@ -96,6 +96,6 @@ function handleOpenSettings() {
 }
 
 .status-dot.builtin {
-  background: var(--warning-color, #FF7D00);
+  background: var(--warning-color, #ff7d00);
 }
 </style>

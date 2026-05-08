@@ -38,11 +38,7 @@
           :class="{ error: errors[field.key] }"
           @input="handleInput($event, 'text')"
         />
-        <button
-          type="button"
-          class="btn-toggle-password"
-          @click="togglePassword"
-        >
+        <button type="button" class="btn-toggle-password" @click="togglePassword">
           <Eye v-if="!passwordVisible[field.key]" :size="16" />
           <EyeOff v-else :size="16" />
         </button>
@@ -91,11 +87,7 @@
     <!-- 复选框 -->
     <template v-else-if="field.type === 'checkbox'">
       <label class="checkbox-wrapper">
-        <input
-          type="checkbox"
-          :checked="!!formData[field.key]"
-          @change="handleCheckbox"
-        />
+        <input type="checkbox" :checked="!!formData[field.key]" @change="handleCheckbox" />
         <span class="checkmark"></span>
         <span class="checkbox-label">
           {{ field.label }}
@@ -183,21 +175,21 @@ function handleInput(event: Event, type: string) {
   const target = event.target as HTMLInputElement
   const value = type === 'number' ? Number(target.value) : target.value
   emit('update:formData', {
-    [props.field.key]: value
+    [props.field.key]: value,
   })
 }
 
 function handleSelect(event: Event) {
   const target = event.target as HTMLSelectElement
   emit('update:formData', {
-    [props.field.key]: target.value
+    [props.field.key]: target.value,
   })
 }
 
 function handleCheckbox(event: Event) {
   const target = event.target as HTMLInputElement
   emit('update:formData', {
-    [props.field.key]: target.checked
+    [props.field.key]: target.checked,
   })
 }
 
@@ -355,7 +347,7 @@ function handleCreateFile() {
   cursor: pointer;
 }
 
-.checkbox-wrapper input[type="checkbox"] {
+.checkbox-wrapper input[type='checkbox'] {
   display: none;
 }
 
@@ -368,12 +360,12 @@ function handleCreateFile() {
   transition: all 0.2s;
 }
 
-.checkbox-wrapper input[type="checkbox"]:checked + .checkmark {
+.checkbox-wrapper input[type='checkbox']:checked + .checkmark {
   background: var(--primary-color);
   border-color: var(--primary-color);
 }
 
-.checkbox-wrapper input[type="checkbox"]:checked + .checkmark::after {
+.checkbox-wrapper input[type='checkbox']:checked + .checkmark::after {
   content: '';
   position: absolute;
   left: 4px;

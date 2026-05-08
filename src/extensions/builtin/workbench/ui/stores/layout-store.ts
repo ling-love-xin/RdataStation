@@ -1,11 +1,4 @@
-import {
-  Database,
-  BarChart3,
-  Puzzle,
-  FileText,
-  Sparkles,
-  StickyNote
-} from 'lucide-vue-next'
+import { Database, BarChart3, Puzzle, FileText, Sparkles, StickyNote } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
 
@@ -73,18 +66,18 @@ export const leftActivityItems: LeftActivityItem[] = [
 
 export const rightActivityItems: RightActivityItem[] = [
   { id: 'column-insights', icon: Sparkles, title: '列洞察' },
-  { id: 'sql-history', icon: FileText, title: 'SQL历史' }
+  { id: 'sql-history', icon: FileText, title: 'SQL历史' },
 ]
 
 // ActivityBar 到面板映射
 export const ACTIVEBAR_TO_PANEL_ID: Record<string, string> = {
-  'database': 'databaseNavigator',
-  'analytics': 'analytics-resource-manager',
-  'scratchpad': 'scratchpad',
-  'plugins': 'plugins',
+  database: 'databaseNavigator',
+  analytics: 'analytics-resource-manager',
+  scratchpad: 'scratchpad',
+  plugins: 'plugins',
   'sql-history': 'sqlHistory',
-  'output': 'outputPanel',
-  'column-insights': 'columnInsights'
+  output: 'outputPanel',
+  'column-insights': 'columnInsights',
 }
 
 // 面板注册表 ID 到 ActivityBar ID 的反向映射
@@ -97,21 +90,21 @@ export const PANEL_ID_TO_ACTIVITYBAR: Record<string, string> = Object.fromEntrie
 // ============================================
 export const useLayoutStore = defineStore('layout', () => {
   // ============================================
-// 可见性状态
-// ============================================
-const menuBarVisible = ref(true)
-const leftActivityBarVisible = ref(true)
-const rightActivityBarVisible = ref(true)
-const primarySideBarVisible = ref(true)
-const secondarySideBarVisible = ref(true)
-const panelVisible = ref(true)
-const statusBarVisible = ref(true)
+  // 可见性状态
+  // ============================================
+  const menuBarVisible = ref(true)
+  const leftActivityBarVisible = ref(true)
+  const rightActivityBarVisible = ref(true)
+  const primarySideBarVisible = ref(true)
+  const secondarySideBarVisible = ref(true)
+  const panelVisible = ref(true)
+  const statusBarVisible = ref(true)
 
-// ============================================
-// 侧边栏锁定状态（VSCode 风格：侧边栏始终存在，不可关闭）
-// ============================================
-const primarySideBarLocked = ref(true)
-const secondarySideBarLocked = ref(true)
+  // ============================================
+  // 侧边栏锁定状态（VSCode 风格：侧边栏始终存在，不可关闭）
+  // ============================================
+  const primarySideBarLocked = ref(true)
+  const secondarySideBarLocked = ref(true)
 
   // ============================================
   // 选中状态
@@ -182,11 +175,19 @@ const secondarySideBarLocked = ref(true)
   // ============================================
   // 计算属性
   // ============================================
-  const leftSidebarVisible = computed(() => leftActivityBarVisible.value || primarySideBarVisible.value)
-  const rightSidebarVisible = computed(() => rightActivityBarVisible.value || secondarySideBarVisible.value)
+  const leftSidebarVisible = computed(
+    () => leftActivityBarVisible.value || primarySideBarVisible.value
+  )
+  const rightSidebarVisible = computed(
+    () => rightActivityBarVisible.value || secondarySideBarVisible.value
+  )
 
-  const leftContentVisible = computed(() => primarySideBarVisible.value && primarySideBarExpanded.value)
-  const rightContentVisible = computed(() => secondarySideBarVisible.value && secondarySideBarExpanded.value)
+  const leftContentVisible = computed(
+    () => primarySideBarVisible.value && primarySideBarExpanded.value
+  )
+  const rightContentVisible = computed(
+    () => secondarySideBarVisible.value && secondarySideBarExpanded.value
+  )
 
   const currentLeftComponentId = computed(() => selectedLeftItem.value || null)
   const currentRightComponentId = computed(() => selectedRightItem.value || null)
@@ -264,7 +265,7 @@ const secondarySideBarLocked = ref(true)
     const current = panelConfigs.value.get(panelId) || {
       location: 'center' as PanelLocation,
       isVisible: true,
-      order: 0
+      order: 0,
     }
     panelConfigs.value.set(panelId, { ...current, ...config })
   }
@@ -324,7 +325,9 @@ const secondarySideBarLocked = ref(true)
    * 获取第一个中心面板 ID
    */
   function getFirstCenterPanelId(): string | undefined {
-    const centerPanels = dockviewApi.value?.panels?.filter(p => panelConfigs.value.get(p.id)?.location === 'center')
+    const centerPanels = dockviewApi.value?.panels?.filter(
+      p => panelConfigs.value.get(p.id)?.location === 'center'
+    )
     return centerPanels?.[0]?.id
   }
 
@@ -345,7 +348,10 @@ const secondarySideBarLocked = ref(true)
   /**
    * 创建浮动面板
    */
-  function createFloatingPanel(panelId: string, coordinates?: { x?: number; y?: number; width?: number; height?: number }) {
+  function createFloatingPanel(
+    panelId: string,
+    coordinates?: { x?: number; y?: number; width?: number; height?: number }
+  ) {
     if (!dockviewApi.value) {
       console.warn('[LayoutStore] Dockview API not available')
       return
@@ -433,7 +439,7 @@ const secondarySideBarLocked = ref(true)
 
   function togglePrimarySideBar() {
     primarySideBarVisible.value = !primarySideBarVisible.value
-    
+
     // 切换左侧面板组的可见性
     // 注意：DockviewApi 没有直接的 setVisible 方法，这里通过关闭/重新添加面板来实现
     // 或者使用 CSS 控制侧边栏容器的显示/隐藏
@@ -442,9 +448,12 @@ const secondarySideBarLocked = ref(true)
 
   function toggleSecondarySideBar() {
     secondarySideBarVisible.value = !secondarySideBarVisible.value
-    
+
     // 切换右侧面板组的可见性
-    console.log('[LayoutStore] Secondary sidebar visibility toggled:', secondarySideBarVisible.value)
+    console.log(
+      '[LayoutStore] Secondary sidebar visibility toggled:',
+      secondarySideBarVisible.value
+    )
   }
 
   function togglePanel() {
@@ -569,8 +578,10 @@ const secondarySideBarLocked = ref(true)
       leftActivityBarVisible.value = visibility.activityBar
       rightActivityBarVisible.value = visibility.activityBar
     }
-    if (visibility.primarySideBar !== undefined) primarySideBarVisible.value = visibility.primarySideBar
-    if (visibility.secondarySideBar !== undefined) secondarySideBarVisible.value = visibility.secondarySideBar
+    if (visibility.primarySideBar !== undefined)
+      primarySideBarVisible.value = visibility.primarySideBar
+    if (visibility.secondarySideBar !== undefined)
+      secondarySideBarVisible.value = visibility.secondarySideBar
     if (visibility.panel !== undefined) panelVisible.value = visibility.panel
     if (visibility.statusBar !== undefined) statusBarVisible.value = visibility.statusBar
   }
@@ -603,7 +614,7 @@ const secondarySideBarLocked = ref(true)
         },
         panelConfigs: Object.fromEntries(panelConfigs.value),
         layoutData: layoutData.value,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
       localStorage.setItem('rdata_station_layout_config', JSON.stringify(config))
     } catch (error) {
@@ -638,8 +649,10 @@ const secondarySideBarLocked = ref(true)
             selectedRightItem.value = config.selection.selectedRightItem ?? 'column-insights'
           }
           if (config.sizes) {
-            primarySideBarWidth.value = config.sizes.primarySideBarWidth ?? DEFAULT_PRIMARY_SIDEBAR_WIDTH
-            secondarySideBarWidth.value = config.sizes.secondarySideBarWidth ?? DEFAULT_SECONDARY_SIDEBAR_WIDTH
+            primarySideBarWidth.value =
+              config.sizes.primarySideBarWidth ?? DEFAULT_PRIMARY_SIDEBAR_WIDTH
+            secondarySideBarWidth.value =
+              config.sizes.secondarySideBarWidth ?? DEFAULT_SECONDARY_SIDEBAR_WIDTH
             panelHeight.value = config.sizes.panelHeight ?? DEFAULT_PANEL_HEIGHT
           }
           // 注意：不加载旧的 panelConfigs 和 layoutData，因为架构已变更

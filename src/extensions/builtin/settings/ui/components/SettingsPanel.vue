@@ -15,7 +15,9 @@
         <div class="setting-item">
           <div class="setting-label">
             <span class="label-text">{{ $t('settings.theme') }}</span>
-            <span v-if="hasProjectThemeOverride" class="label-hint">({{ $t('settings.projectOverride') }})</span>
+            <span v-if="hasProjectThemeOverride" class="label-hint"
+              >({{ $t('settings.projectOverride') }})</span
+            >
           </div>
           <div class="theme-selector">
             <button
@@ -28,11 +30,7 @@
               {{ opt.label }}
             </button>
           </div>
-          <button
-            v-if="hasProjectThemeOverride"
-            class="reset-btn"
-            @click="resetProjectTheme"
-          >
+          <button v-if="hasProjectThemeOverride" class="reset-btn" @click="resetProjectTheme">
             <AppIcon name="RotateCcw" :size="14" />
             {{ $t('settings.resetToGlobal') }}
           </button>
@@ -127,6 +125,19 @@
             <span class="slider-switch"></span>
           </label>
         </div>
+
+        <div class="setting-item">
+          <div class="setting-label">
+            <span class="label-text">{{ $t('settings.fontFamily') }}</span>
+            <span class="label-hint">{{ $t('settings.fontFamilyHint') }}</span>
+          </div>
+          <input
+            v-model="localEditorSettings.fontFamily"
+            type="text"
+            class="text-input"
+            spellcheck="false"
+          />
+        </div>
       </div>
 
       <div class="settings-section">
@@ -168,6 +179,10 @@
             <AppIcon name="RotateCcw" :size="16" />
             {{ $t('settings.resetDefault') }}
           </button>
+          <button class="action-btn danger" @click="resetToFactory">
+            <AppIcon name="Trash2" :size="16" />
+            {{ $t('settings.resetFactory') }}
+          </button>
         </div>
       </div>
     </div>
@@ -175,11 +190,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import AppIcon from '@/shared/components/common/AppIcon.vue'
-import { CONFIG_KEYS } from '@/stores/config'
+import { CONFIG_KEYS, DEFAULT_GLOBAL_CONFIG, DEFAULT_EDITOR_SETTINGS } from '@/stores/config'
 import type { Theme, Language, EditorSettings, DefaultEngine } from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 
@@ -214,29 +229,72 @@ function resetProjectTheme() {
   localTheme.value = appStore.effectiveTheme
 }
 
+watch(
+  () => appStore.effectiveTheme,
+  val => {
+    localTheme.value = val
+  }
+)
+watch(
+  () => appStore.effectiveLanguage,
+  val => {
+    localLanguage.value = val
+  }
+)
+watch(
+  () => appStore.effectiveEditorSettings,
+  val => {
+    Object.assign(localEditorSettings, val)
+  },
+  { deep: true }
+)
+watch(
+  () => appStore.effectiveDefaultEngine,
+  val => {
+    localDefaultEngine.value = val
+  }
+)
+
 async function applyAllSettings() {
-  await appStore.setTheme(localTheme.value)
-  await appStore.setLanguage(localLanguage.value)
-  await appStore.setEditorSettings({ ...localEditorSettings })
-  await appStore.setDefaultEngine(localDefaultEngine.value)
+  const results = await appStore.saveBatch([
+    { key: CONFIG_KEYS.THEME, value: localTheme.value, scope: 'global' as const },
+    { key: CONFIG_KEYS.LANGUAGE, value: localLanguage.value, scope: 'global' as const },
+    {
+      key: CONFIG_KEYS.EDITOR_SETTINGS,
+      value: { ...localEditorSettings },
+      scope: 'global' as const,
+    },
+    { key: CONFIG_KEYS.DEFAULT_ENGINE, value: localDefaultEngine.value, scope: 'global' as const },
+  ])
+
+  const failures = results.filter(r => !r.success)
+  if (failures.length > 0) {
+    console.error('[SettingsPanel] Failed to apply settings:', failures)
+  }
+
   appStore.applyTheme()
-  console.log('[SettingsPanel] All settings applied')
 }
 
 function resetToDefault() {
-  localTheme.value = 'dark'
-  localLanguage.value = 'zh-CN'
-  Object.assign(localEditorSettings, {
-    fontSize: 14,
-    tabSize: 2,
-    wordWrap: true,
-    minimap: true,
-    lineNumbers: true,
-    fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-  })
-  localDefaultEngine.value = 'native'
+  localTheme.value = DEFAULT_GLOBAL_CONFIG.theme
+  localLanguage.value = DEFAULT_GLOBAL_CONFIG.language
+  Object.assign(localEditorSettings, DEFAULT_EDITOR_SETTINGS)
+  localDefaultEngine.value = DEFAULT_GLOBAL_CONFIG.defaultEngine
   applyAllSettings()
-  console.log('[SettingsPanel] Settings reset to default')
+}
+
+async function resetToFactory() {
+  const results = await appStore.resetToFactory()
+  const failures = results.filter(r => !r.success)
+  if (failures.length === 0) {
+    localTheme.value = appStore.effectiveTheme
+    localLanguage.value = appStore.effectiveLanguage
+    Object.assign(localEditorSettings, appStore.effectiveEditorSettings)
+    localDefaultEngine.value = appStore.effectiveDefaultEngine
+    console.log('[SettingsPanel] Settings reset to factory')
+  } else {
+    console.error('[SettingsPanel] resetToFactory failed:', failures)
+  }
 }
 
 onMounted(() => {
@@ -353,7 +411,7 @@ onMounted(() => {
 .theme-btn.active {
   background: var(--brand-accent);
   border-color: var(--brand-accent);
-  color: #FFFFFF;
+  color: #ffffff;
 }
 
 .reset-btn {
@@ -474,7 +532,7 @@ onMounted(() => {
 .action-btn.primary {
   background: var(--brand-accent);
   border-color: var(--brand-accent);
-  color: #FFFFFF;
+  color: #ffffff;
 }
 
 .action-btn.primary:hover {

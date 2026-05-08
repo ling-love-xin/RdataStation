@@ -24,9 +24,4 @@ export type {
   ExtensionRegistry,
 } from './types'
 
-export {
-  ConnectionEvents,
-  QueryEvents,
-  ProjectEvents,
-  NavigatorEvents,
-} from './types'
+export { ConnectionEvents, QueryEvents, ProjectEvents, NavigatorEvents } from './types'

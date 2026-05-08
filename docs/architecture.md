@@ -63,12 +63,12 @@ Project（项目）
 
 ### 3. 数据分层
 
-| 类型 | 存储 | 用途 | 示例 |
-|------|------|------|------|
-| **事务性** | SQLite | 连接信息、SQL历史、项目元数据 | connections, sql_history |
-| **分析性** | DuckDB | 查询结果、数据分析、报表 | query_results, analytics |
-| **配置性** | JSON文件 | 用户偏好、编辑器设置 | settings.json |
-| **元数据缓存** | SQLite (每连接独立) | 表结构、列信息、索引 | tables, columns, indexes |
+| 类型           | 存储                | 用途                          | 示例                     |
+| -------------- | ------------------- | ----------------------------- | ------------------------ |
+| **事务性**     | SQLite              | 连接信息、SQL历史、项目元数据 | connections, sql_history |
+| **分析性**     | DuckDB              | 查询结果、数据分析、报表      | query_results, analytics |
+| **配置性**     | JSON文件            | 用户偏好、编辑器设置          | settings.json            |
+| **元数据缓存** | SQLite (每连接独立) | 表结构、列信息、索引          | tables, columns, indexes |
 
 ### 4. 动态渲染架构
 
@@ -108,6 +108,7 @@ WorkbenchStore（工作台级）
 ### 6. 本地持久化策略
 
 #### 系统级 SQLite 数据库结构
+
 ```sql
 -- 全局连接信息表
 CREATE TABLE global_connections (
@@ -142,6 +143,7 @@ CREATE TABLE recent_connections (
 ```
 
 #### 项目级 SQLite 数据库结构
+
 ```sql
 -- 连接信息表
 CREATE TABLE connections (
@@ -179,6 +181,7 @@ CREATE TABLE project_settings (
 ```
 
 #### 连接级元数据缓存结构
+
 ```sql
 -- 表信息
 CREATE TABLE tables (
@@ -219,6 +222,7 @@ CREATE VIRTUAL TABLE metadata_fts USING fts5(
 ```
 
 #### DuckDB 数据库结构（分析性）
+
 ```sql
 -- 查询结果缓存表
 CREATE TABLE query_results (
@@ -264,15 +268,16 @@ CREATE TABLE analytics (
 ### 8. 组件动态渲染设计
 
 #### DatabaseNavigator（动态导航）
+
 ```typescript
 interface NavigatorNode {
-  id: string;
-  type: 'connection' | 'database' | 'schema' | 'table' | 'view' | 'column';
-  name: string;
-  icon: string;
-  children?: NavigatorNode[];
-  metadata?: Record<string, any>;
-  actions?: NavigatorAction[];
+  id: string
+  type: 'connection' | 'database' | 'schema' | 'table' | 'view' | 'column'
+  name: string
+  icon: string
+  children?: NavigatorNode[]
+  metadata?: Record<string, any>
+  actions?: NavigatorAction[]
 }
 
 // 根据连接类型动态渲染不同结构
@@ -282,14 +287,15 @@ interface NavigatorNode {
 ```
 
 #### WorkbenchPanel（动态面板）
+
 ```typescript
 interface Panel {
-  id: string;
-  type: 'sql-editor' | 'table-data' | 'query-result' | 'properties';
-  title: string;
-  component: Component;
-  props: Record<string, any>;
-  state: PanelState;
+  id: string
+  type: 'sql-editor' | 'table-data' | 'query-result' | 'properties'
+  title: string
+  component: Component
+  props: Record<string, any>
+  state: PanelState
 }
 
 // 根据用户操作动态添加/移除面板

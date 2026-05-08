@@ -7,18 +7,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as monaco from 'monaco-editor'
 
-// SQL 方言类型
-export type SqlDialect = 
-  | 'generic'
-  | 'mysql'
-  | 'postgres'
-  | 'sqlite'
-  | 'duckdb'
-  | 'mssql'
-  | 'oracle'
-  | 'snowflake'
-  | 'bigquery'
-  | 'redshift'
+import type { SqlDialect } from '@/shared/types/sql'
 
 // 缓存的表结构信息
 interface TableSchema {
@@ -56,7 +45,7 @@ export async function getDatabaseSchema(
   dbType?: string
 ): Promise<DatabaseSchema | null> {
   const cacheKey = `${connectionId}_${database}_${schema || 'default'}`
-  
+
   // 检查缓存（带 TTL）
   const cacheItem = schemaCache.get(cacheKey)
   if (cacheItem) {
@@ -82,11 +71,13 @@ export async function getDatabaseSchema(
     }
 
     const tablesResult: any = await invoke('execute_sql', {
-      input: { conn_id: connectionId, sql: tablesSql, timeout_ms: 5000 }
+      input: { conn_id: connectionId, sql: tablesSql, timeout_ms: 5000 },
     })
 
     const tableRows: string[][] = tablesResult?.result?.rows || []
-    const tableNames = tableRows.map((r: any) => String(Array.isArray(r) ? r[0] : r.name ?? r.table_name ?? '')).filter(Boolean)
+    const tableNames = tableRows
+      .map((r: any) => String(Array.isArray(r) ? r[0] : (r.name ?? r.table_name ?? '')))
+      .filter(Boolean)
 
     // 获取每个表的列信息
     const tableSchemas: TableSchema[] = []
@@ -102,17 +93,21 @@ export async function getDatabaseSchema(
         }
 
         const colsResult: any = await invoke('execute_sql', {
-          input: { conn_id: connectionId, sql: colsSql, timeout_ms: 5000 }
+          input: { conn_id: connectionId, sql: colsSql, timeout_ms: 5000 },
         })
 
         const colRows: string[][] = colsResult?.result?.rows || []
         // SQLite PRAGMA table_info: [cid, name, type, notnull, dflt_value, pk]
         // information_schema.columns: [column_name]
-        const colNames = colRows.map((r: any) => String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : r.name ?? r.column_name ?? '')).filter(Boolean)
+        const colNames = colRows
+          .map((r: any) =>
+            String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : (r.name ?? r.column_name ?? ''))
+          )
+          .filter(Boolean)
 
         tableSchemas.push({
           name: tableName,
-          columns: colNames
+          columns: colNames,
         })
       } catch (e) {
         console.warn(`Failed to get columns for ${tableName}:`, e)
@@ -122,14 +117,14 @@ export async function getDatabaseSchema(
     const dbSchema: DatabaseSchema = {
       tables: tableSchemas,
       views: [],
-      functions: []
+      functions: [],
     }
 
     // 缓存结果（带 TTL）
     schemaCache.set(cacheKey, {
       data: dbSchema,
       timestamp: Date.now(),
-      ttl: CACHE_TTL
+      ttl: CACHE_TTL,
     })
     return dbSchema
   } catch (error) {
@@ -149,12 +144,12 @@ export function registerDatabaseCompletionProvider(
   dbType?: string
 ): monaco.IDisposable {
   const disposableKey = `${connectionId}_${database}`
-  
+
   // 清除之前的提供器
   if (completionDisposables.has(disposableKey)) {
     completionDisposables.get(disposableKey)!.dispose()
   }
-  
+
   const disposable = monaco.languages.registerCompletionItemProvider('sql', {
     triggerCharacters: ['.', ' '],
     provideCompletionItems: async (model, position) => {
@@ -163,7 +158,7 @@ export function registerDatabaseCompletionProvider(
         startLineNumber: position.lineNumber,
         endLineNumber: position.lineNumber,
         startColumn: word.startColumn,
-        endColumn: word.endColumn
+        endColumn: word.endColumn,
       }
 
       const suggestions: monaco.languages.CompletionItem[] = []
@@ -179,7 +174,7 @@ export function registerDatabaseCompletionProvider(
             insertText: table.name,
             detail: 'Table',
             range,
-            sortText: `a${String(index).padStart(3, '0')}`
+            sortText: `a${String(index).padStart(3, '0')}`,
           })
 
           // 添加列名补全（带表名前缀）
@@ -190,19 +185,19 @@ export function registerDatabaseCompletionProvider(
               insertText: `${table.name}.${col}`,
               detail: `Column of ${table.name}`,
               range,
-              sortText: `b${String(index).padStart(3, '0')}${String(colIndex).padStart(3, '0')}`
+              sortText: `b${String(index).padStart(3, '0')}${String(colIndex).padStart(3, '0')}`,
             })
           })
         })
       }
 
       return { suggestions }
-    }
+    },
   })
-  
+
   // 存储 disposable
   completionDisposables.set(disposableKey, disposable)
-  
+
   return disposable
 }
 
@@ -211,14 +206,14 @@ export function registerDatabaseCompletionProvider(
  */
 export function unregisterCompletionProvider(connectionId: string) {
   const keysToDelete: string[] = []
-  
+
   for (const key of completionDisposables.keys()) {
     if (key.startsWith(connectionId)) {
       completionDisposables.get(key)?.dispose()
       keysToDelete.push(key)
     }
   }
-  
+
   keysToDelete.forEach(key => completionDisposables.delete(key))
 }
 
@@ -252,8 +247,8 @@ export async function validateSql(
     const result = await invoke<any>('validate_sql', {
       input: {
         sql,
-        dialect: dialect || 'generic'
-      }
+        dialect: dialect || 'generic',
+      },
     })
 
     if (!result.valid && result.errors && result.errors.length > 0) {
@@ -264,7 +259,7 @@ export async function validateSql(
           startLineNumber: 1,
           startColumn: 1,
           endLineNumber: 1,
-          endColumn: sql.length + 1
+          endColumn: sql.length + 1,
         })
       })
     }
@@ -298,7 +293,7 @@ function basicValidateSql(sql: string): monaco.editor.IMarkerData[] {
         startLineNumber: lineNum,
         startColumn: 1,
         endLineNumber: lineNum,
-        endColumn: line.length + 1
+        endColumn: line.length + 1,
       })
     }
 
@@ -311,7 +306,7 @@ function basicValidateSql(sql: string): monaco.editor.IMarkerData[] {
         startLineNumber: lineNum,
         startColumn: 1,
         endLineNumber: lineNum,
-        endColumn: line.length + 1
+        endColumn: line.length + 1,
       })
     }
   })
@@ -322,16 +317,13 @@ function basicValidateSql(sql: string): monaco.editor.IMarkerData[] {
 /**
  * 格式化 SQL（基于 sqlglot-rust）
  */
-export async function formatSql(
-  sql: string,
-  dialect?: SqlDialect
-): Promise<string> {
+export async function formatSql(sql: string, dialect?: SqlDialect): Promise<string> {
   try {
     const result = await invoke<any>('format_sql', {
       input: {
         sql,
-        dialect: dialect || 'generic'
-      }
+        dialect: dialect || 'generic',
+      },
     })
 
     if (result.success) {
@@ -359,8 +351,8 @@ export async function transpileSql(
       input: {
         sql,
         source_dialect: sourceDialect,
-        target_dialect: targetDialect
-      }
+        target_dialect: targetDialect,
+      },
     })
 
     if (result.success) {
@@ -385,20 +377,216 @@ export async function parseSql(
   try {
     const result = await invoke<any>('parse_sql', {
       sql,
-      dialect: dialect || 'generic'
+      dialect: dialect || 'generic',
     })
 
     return {
       success: result.success,
       statementsCount: result.statements_count,
-      error: result.error
+      error: result.error,
     }
   } catch (error) {
     console.error('Failed to parse SQL:', error)
     return {
       success: false,
       statementsCount: 0,
-      error: String(error)
+      error: String(error),
     }
   }
+}
+
+/**
+ * 分割多语句 SQL（基于 sqlglot-rust）
+ */
+export async function splitSql(sql: string, dialect?: SqlDialect): Promise<string[]> {
+  try {
+    return await invoke<string[]>('split_sql', {
+      sql,
+      dialect: dialect ? String(dialect) : null,
+    })
+  } catch {
+    return [sql]
+  }
+}
+
+/**
+ * 注册 SQL 代码折叠提供器
+ *
+ * 识别可折叠区域：
+ * - 多行括号子查询 (SELECT ... )
+ * - CTE 块 WITH ... AS ( ... )
+ * - BEGIN ... END 事务块
+ * - 连续注释块
+ */
+export function registerSqlFoldingProvider(): monaco.IDisposable {
+  return monaco.languages.registerFoldingRangeProvider('sql', {
+    provideFoldingRanges(model) {
+      const ranges: monaco.languages.FoldingRange[] = []
+      const lines = model.getLinesContent()
+
+      // Track bracket-based folding: open parentheses on separate lines
+      const bracketStack: number[] = []
+
+      // Track BEGIN...END blocks
+      const beginStack: number[] = []
+
+      // Track comment blocks
+      let commentStart: number | null = null
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        const trimmed = line.trimStart()
+        const upperTrimmed = trimmed.toUpperCase()
+
+        // Multi-line comment blocks (/* ... */)
+        if (trimmed.includes('/*') && !trimmed.includes('*/')) {
+          if (commentStart === null) {
+            commentStart = i + 1
+          }
+        }
+        if (commentStart !== null && trimmed.includes('*/')) {
+          if (i + 1 > commentStart) {
+            ranges.push({
+              start: commentStart,
+              end: i + 1,
+              kind: monaco.languages.FoldingRangeKind.Comment.value,
+            })
+          }
+          commentStart = null
+        }
+
+        // CTE start: WITH ... AS (
+        if (upperTrimmed.startsWith('WITH ')) {
+          bracketStack.push(i + 1)
+        }
+
+        // BEGIN transaction blocks
+        if (upperTrimmed === 'BEGIN' || upperTrimmed === 'BEGIN TRANSACTION' || upperTrimmed.startsWith('START TRANSACTION')) {
+          beginStack.push(i + 1)
+        }
+        if ((upperTrimmed === 'END' || upperTrimmed === 'COMMIT' || upperTrimmed === 'ROLLBACK') && beginStack.length > 0) {
+          const start = beginStack.pop()!
+          if (i + 1 > start) {
+            ranges.push({ start, end: i + 1 })
+          }
+        }
+
+        // Parenthesized subquery: line ending with ( or starting with (
+        const openParens = (trimmed.match(/\(/g) || []).length
+        const closeParens = (trimmed.match(/\)/g) || []).length
+        const netParens = openParens - closeParens
+
+        // Push stacking for multi-line parenthesized blocks
+        for (let p = 0; p < openParens; p++) {
+          bracketStack.push(i + 1)
+        }
+        for (let p = 0; p < closeParens; p++) {
+          if (bracketStack.length > 0) {
+            const start = bracketStack.pop()!
+            if (i + 1 > start) {
+              ranges.push({ start, end: i + 1 })
+            }
+          }
+        }
+
+        // Dedicated line that is just "(" — fold everything until matching ")"
+        if (trimmed === '(') {
+          bracketStack.push(i + 1)
+        }
+        if (trimmed === ')') {
+          if (bracketStack.length > 0 && lines[bracketStack[bracketStack.length - 1] - 1]?.trim() === '(') {
+            const start = bracketStack.pop()!
+            if (i + 1 > start) {
+              ranges.push({ start, end: i + 1 })
+            }
+          }
+        }
+      }
+
+      return ranges
+    },
+  })
+}
+
+/**
+ * 生成 DuckDB ATTACH 名称（与后端 `ext_{sanitized_name}` 保持一致）
+ */
+export function generateAttachName(connectionName: string): string {
+  return `ext_${connectionName.replace(/[^a-zA-Z0-9_]/g, '_')}`
+}
+
+/**
+ * 为 DuckDB 联邦查询重写 SQL：给无前缀表名加 ATTACH 前缀
+ *
+ * 例如：SELECT * FROM users WHERE id = 1
+ *    → SELECT * FROM ext_MyConn.users WHERE id = 1
+ *
+ * 识别范围：FROM | JOIN | INSERT INTO 后的表名
+ * 安全过滤：跳过 SQL 关键字、已有 '.' 前缀的表名
+ */
+export function rewriteDuckDBSQL(sql: string, attachName: string): string {
+  if (!attachName) return sql
+
+  const SQL_KEYWORDS = new Set([
+    'WHERE', 'SET', 'VALUES', 'SELECT', 'ON', 'AS', 'AND', 'OR',
+    'NOT', 'IN', 'IS', 'NULL', 'TRUE', 'FALSE', 'LIKE', 'BETWEEN',
+    'EXISTS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'GROUP', 'BY',
+    'ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT',
+  ])
+
+  const tableKeywords = [
+    'FROM', 'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN',
+    'FULL JOIN', 'CROSS JOIN', 'NATURAL JOIN', 'LEFT OUTER JOIN',
+    'RIGHT OUTER JOIN', 'FULL OUTER JOIN', 'INSERT INTO', 'UPDATE', 'INTO',
+  ]
+
+  let result = sql
+
+  for (const keyword of tableKeywords) {
+    const pattern = new RegExp(
+      `(\\b${keyword}\\b)\\s+(?!${attachName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.)([a-zA-Z_][a-zA-Z0-9_]*)\\b(?!\\s*\\.)`,
+      'gi'
+    )
+    result = result.replace(pattern, (_match, kw, tableName) => {
+      if (SQL_KEYWORDS.has(tableName.toUpperCase())) {
+        return _match
+      }
+      return `${kw} ${attachName}.${tableName}`
+    })
+  }
+
+  return result
+}
+
+export interface ParamInfo {
+  name: string
+  occurrences: number
+}
+
+export function detectParams(sql: string): ParamInfo[] {
+  const paramMap = new Map<string, number>()
+  const regex = /:([a-zA-Z_][a-zA-Z0-9_]*)/g
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(sql)) !== null) {
+    const name = match[1]
+    paramMap.set(name, (paramMap.get(name) || 0) + 1)
+  }
+
+  const result: ParamInfo[] = []
+  paramMap.forEach((occurrences, name) => {
+    result.push({ name, occurrences })
+  })
+
+  return result
+}
+
+export function bindParams(sql: string, values: Record<string, string>): string {
+  let result = sql
+  for (const [name, value] of Object.entries(values)) {
+    const escapedValue = value.replace(/'/g, "''")
+    const regex = new RegExp(`:${name}\\b`, 'g')
+    result = result.replace(regex, `'${escapedValue}'`)
+  }
+  return result
 }

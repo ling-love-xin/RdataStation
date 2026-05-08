@@ -1,26 +1,23 @@
 <template>
-  <div
-    class="scratchpad-panel"
-    @click="handleGlobalClick"
-  >
+  <div class="scratchpad-panel" @click="handleGlobalClick">
     <div class="toolbar">
       <NButton size="small" :disabled="isLoading" @click="handleCreateFile">
         <template #icon>
           <NIcon><FilePlus /></NIcon>
         </template>
-        新建
+        {{ t('scratchpad.newFile') }}
       </NButton>
       <NButton size="small" :disabled="isLoading" @click="handleImportFile">
         <template #icon>
           <NIcon><Upload /></NIcon>
         </template>
-        导入
+        {{ t('scratchpad.import') }}
       </NButton>
       <NButton size="small" :disabled="isLoading" @click="handleAddReference">
         <template #icon>
           <NIcon><FolderSymlink /></NIcon>
         </template>
-        引用
+        {{ t('scratchpad.reference') }}
       </NButton>
       <NButton size="small" :disabled="isLoading" @click="loadFiles">
         <template #icon>
@@ -30,10 +27,15 @@
       <NInput
         v-model:value="searchQuery"
         size="small"
-        placeholder="搜索..."
+        :placeholder="contentSearchMode ? t('scratchpad.searchContent') + '…' : t('scratchpad.search')"
         clearable
         class="search-input"
       />
+      <NButton size="small" :type="contentSearchMode ? 'primary' : 'default'" @click="toggleSearchMode">
+        <template #icon>
+          <NIcon><Search /></NIcon>
+        </template>
+      </NButton>
     </div>
 
     <div v-if="isLoading" class="loading-state">
@@ -42,7 +44,7 @@
 
     <div v-else-if="error" class="error-state">
       <span class="error-text">{{ error }}</span>
-      <NButton size="tiny" @click="loadFiles">重试</NButton>
+      <NButton size="tiny" @click="loadFiles">{{ t('navigator.retry') }}</NButton>
     </div>
 
     <div v-else class="tree-container">
@@ -52,7 +54,7 @@
             <component :is="groupExpanded.external ? ChevronDown : ChevronRight" />
           </NIcon>
           <NIcon size="14"><FolderSymlink /></NIcon>
-          <span class="group-title">外部引用</span>
+          <span class="group-title">{{ t('scratchpad.externalReferences') }}</span>
           <span class="group-count">{{ externalReferences.length }}</span>
         </div>
         <div v-show="groupExpanded.external" class="group-content">
@@ -70,8 +72,9 @@
             <span
               :class="['ref-path', { 'ref-path-invalid': isRefInvalid(ref) }]"
               :title="ref.path"
-            >{{ ref.path }}</span>
-            <span v-if="isRefInvalid(ref)" class="ref-badge">已失效</span>
+              >{{ ref.path }}</span
+            >
+            <span v-if="isRefInvalid(ref)" class="ref-badge">{{ t('scratchpad.invalid') }}</span>
           </div>
         </div>
       </div>
@@ -82,15 +85,15 @@
             <component :is="groupExpanded.local ? ChevronDown : ChevronRight" />
           </NIcon>
           <NIcon size="14"><Folder /></NIcon>
-          <span class="group-title">本地草稿</span>
-          <span class="group-count">{{ localEntries.length }}</span>
+          <span class="group-title">{{ t('scratchpad.localDrafts') }}</span>
+          <span class="group-count">{{ filteredLocalEntries.length }}</span>
         </div>
         <div v-show="groupExpanded.local" class="group-content">
-          <div v-if="localEntries.length === 0" class="empty-hint">
-            尚无草稿文件，点击 [新建] 或 [导入]
+          <div v-if="filteredLocalEntries.length === 0" class="empty-hint">
+            {{ contentSearchMode && searchQuery ? '无匹配结果' : t('scratchpad.noDrafts') }}
           </div>
           <ScratchpadTreeNode
-            v-for="entry in localEntries"
+            v-for="entry in filteredLocalEntries"
             :key="entry.path"
             :entry="entry"
             :depth="0"
@@ -107,49 +110,98 @@
           />
         </div>
       </div>
+
+      <div class="tree-group">
+        <div class="group-header" @click="toggleTrash">
+          <NIcon size="14">
+            <component :is="showTrash ? ChevronDown : ChevronRight" />
+          </NIcon>
+          <NIcon size="14"><Trash2 /></NIcon>
+          <span class="group-title">{{ t('scratchpad.trash') }}</span>
+          <span class="group-count">{{ trashEntries.length }}</span>
+          <NButton
+            v-if="showTrash && trashEntries.length > 0"
+            size="tiny"
+            type="error"
+            quaternary
+            @click.stop="handleEmptyTrash"
+          >
+            {{ t('scratchpad.emptyTrash') }}
+          </NButton>
+        </div>
+        <div v-show="showTrash" class="group-content">
+          <div v-if="trashEntries.length === 0" class="empty-hint">
+            {{ t('scratchpad.noTrashItems') }}
+          </div>
+          <div
+            v-for="item in trashEntries"
+            :key="item.path"
+            class="ref-row"
+          >
+            <NIcon size="14"><FileText /></NIcon>
+            <span class="ref-name">{{ item.name }}</span>
+            <span class="ref-path" :title="item.path">{{ item.path }}</span>
+            <NButton
+              size="tiny"
+              quaternary
+              type="primary"
+              @click.stop="restoreTrashEntry(item.name)"
+            >
+              {{ t('scratchpad.restoreFromTrash') }}
+            </NButton>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <NModal v-model:show="showCreateModal" title="新建草稿">
+    <NModal v-model:show="showCreateModal" :title="t('scratchpad.newDraft')">
       <div class="modal-body">
         <NInput
           ref="createInputRef"
           v-model:value="newFileName"
-          placeholder="输入完整文件名，如 临时查询.sql"
+          :placeholder="t('scratchpad.fileNamePlaceholder')"
           @keyup.enter="confirmCreate"
         />
         <div class="modal-actions">
-          <NButton size="small" @click="showCreateModal = false">取消</NButton>
-          <NButton size="small" type="primary" :disabled="!newFileName.trim()" @click="confirmCreate">确定</NButton>
+          <NButton size="small" @click="showCreateModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton
+            size="small"
+            type="primary"
+            :disabled="!newFileName.trim()"
+            @click="confirmCreate"
+            >{{ t('common.confirm') }}</NButton
+          >
         </div>
       </div>
     </NModal>
 
-    <NModal v-model:show="showRefModal" title="添加外部引用">
+    <NModal v-model:show="showRefModal" :title="t('scratchpad.addReference')">
       <div class="modal-body">
         <NInput
           v-model:value="newRefAlias"
-          placeholder="引用别名，如 下载数据"
+          :placeholder="t('scratchpad.aliasPlaceholder')"
           class="modal-input"
         />
         <NInput
           v-model:value="newRefPath"
-          placeholder="目录路径，如 /home/user/Downloads"
+          :placeholder="t('scratchpad.pathPlaceholder')"
           class="modal-input"
         />
         <NButton size="small" @click="browseRefPath">
           <template #icon>
             <NIcon><FolderOpen /></NIcon>
           </template>
-          浏览...
+          {{ t('scratchpad.browse') }}
         </NButton>
         <div class="modal-actions">
-          <NButton size="small" @click="showRefModal = false">取消</NButton>
+          <NButton size="small" @click="showRefModal = false">{{ t('common.cancel') }}</NButton>
           <NButton
             size="small"
             type="primary"
             :disabled="!newRefAlias.trim() || !newRefPath.trim()"
             @click="confirmAddReference"
-          >确定</NButton>
+            >{{ t('common.confirm') }}</NButton
+          >
         </div>
       </div>
     </NModal>
@@ -175,35 +227,101 @@
 
 <script setup lang="ts">
 import {
-  FilePlus, Folder, FolderOpen, RefreshCw, Upload,
-  ChevronDown, ChevronRight, FolderSymlink,
-  FileText, Trash2, Pencil, Copy, ExternalLink, X
+  FilePlus,
+  Folder,
+  FolderOpen,
+  RefreshCw,
+  Upload,
+  Search,
+  ChevronDown,
+  ChevronRight,
+  FolderSymlink,
+  FileText,
+  Trash2,
+  Pencil,
+  Copy,
+  ExternalLink,
+  X,
+  BarChart3,
 } from 'lucide-vue-next'
 import { NButton, NIcon, NInput, NSpin, NModal } from 'naive-ui'
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ScratchpadTreeNode from './ScratchpadTreeNode.vue'
 import { useScratchpad } from '../composables/use-scratchpad'
 
 import type { ScratchpadEntry, ExternalReference } from '../../types'
 
+const { t } = useI18n()
+
 const {
+  response,
   isLoading,
   error,
   searchQuery,
   localEntries,
   externalReferences,
+  scratchpadPath,
   loadFiles,
   createEntry,
   deleteEntry,
   renameEntry,
+  loadFileContent,
   importFile,
   addReference,
   removeReference,
   isRefInvalid,
   openInExplorerAction,
-  getFileSize,
+  searchContent,
+  trashEntries,
+  loadTrashEntries,
+  restoreTrashEntry,
+  emptyTrashBin,
+  analyzableFiles,
+  loadAnalyzableFiles,
 } = useScratchpad()
+
+const fileMeta = computed(() => response.value?.file_meta ?? {})
+
+const contentSearchMode = ref(false)
+const contentResults = ref<Set<string>>(new Set())
+const showTrash = ref(false)
+let contentSearchTimer: ReturnType<typeof setTimeout> | null = null
+
+function toggleSearchMode(): void {
+  contentSearchMode.value = !contentSearchMode.value
+  if (contentSearchMode.value) {
+    searchQuery.value = ''
+    contentResults.value = new Set()
+  }
+}
+
+watch(searchQuery, async (val) => {
+  if (!contentSearchMode.value) return
+  if (contentSearchTimer) clearTimeout(contentSearchTimer)
+  if (!val.trim()) {
+    contentResults.value = new Set()
+    return
+  }
+  contentSearchTimer = setTimeout(async () => {
+    const results = await searchContent(val.trim())
+    contentResults.value = new Set(results)
+  }, 300)
+})
+
+const filteredLocalEntries = computed(() => {
+  if (!contentSearchMode.value) return localEntries.value
+  const results = contentResults.value
+  const base = scratchpadPath.value || ''
+  return localEntries.value.filter(e => {
+    let rel = e.path
+    if (base) {
+      rel = e.path.replace(base.replace(/\\/g, '/'), '').replace(/^\//, '')
+    }
+    return results.has(rel)
+  })
+})
 
 const expandedKeys = ref<Set<string>>(new Set())
 const selectedKey = ref<string | null>(null)
@@ -245,12 +363,24 @@ const contextMenu = reactive<{
 
 let openDialog: typeof import('@tauri-apps/plugin-dialog').open | null = null
 if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-  import('@tauri-apps/plugin-dialog').then((m) => { openDialog = m.open }).catch(() => { openDialog = null })
+  import('@tauri-apps/plugin-dialog')
+    .then(m => {
+      openDialog = m.open
+    })
+    .catch(() => {
+      openDialog = null
+    })
 }
 
-onMounted(() => {
-  loadFiles()
+onMounted(async () => {
+  await loadFiles()
   document.addEventListener('click', closeContextMenu)
+
+  window.addEventListener('project-switched', loadFiles)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('project-switched', loadFiles)
 })
 
 onUnmounted(() => {
@@ -265,6 +395,19 @@ function handleGlobalClick(): void {
 
 function toggleGroup(group: 'external' | 'local'): void {
   groupExpanded[group] = !groupExpanded[group]
+}
+
+function toggleTrash(): void {
+  showTrash.value = !showTrash.value
+  if (showTrash.value) {
+    loadTrashEntries()
+  }
+}
+
+async function handleEmptyTrash(): Promise<void> {
+  const confirmed = window.confirm(t('scratchpad.emptyTrashConfirm'))
+  if (!confirmed) return
+  await emptyTrashBin()
 }
 
 function handleSelect(entry: ScratchpadEntry): void {
@@ -291,28 +434,41 @@ function handleOpen(entry: ScratchpadEntry): void {
 }
 
 async function openFileInEditor(entry: ScratchpadEntry): Promise<void> {
-  const MAX_MB = 50
+  const ext = entry.extension.toLowerCase()
+  const langMap: Record<string, string> = {
+    '.sql': 'sql',
+    '.py': 'python',
+    '.json': 'json',
+    '.txt': 'plaintext',
+    '.md': 'markdown',
+  }
+  const language = langMap[ext] || 'plaintext'
 
-  try {
-    const size = await getFileSize(entry.path)
-    if (size !== null && size > MAX_MB * 1024 * 1024) {
-      console.warn(`[Scratchpad] File too large: ${entry.name} (${(size / (1024 * 1024)).toFixed(1)} MB > ${MAX_MB} MB limit)`)
-      return
-    }
-  } catch {
-    // 文件可能已被删除，忽略
+  const scratchpadBase = scratchpadPath.value || ''
+  const relativePath = scratchpadBase
+    ? entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+    : entry.path
+
+  const content = await loadFileContent(relativePath)
+  if (content === null) {
+    return
   }
 
-  const editorMap: Record<string, string> = {
-    '.sql': 'sql-editor',
-    '.py': 'code-editor',
-    '.csv': 'data-preview',
-    '.json': 'code-editor',
-    '.txt': 'code-editor',
-    '.md': 'code-editor',
-  }
-  const editorType = editorMap[entry.extension.toLowerCase()] || 'code-editor'
-  console.log(`[Scratchpad] Opening ${entry.name} in ${editorType}`, entry.path)
+  const metaForFile = fileMeta.value[relativePath]
+  const lastConnectionId = metaForFile?.last_connection_id || ''
+
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId: lastConnectionId,
+        databaseName: '',
+        sql: content,
+        scratchpadRelativePath: relativePath,
+        scratchpadFileName: entry.name,
+        language,
+      },
+    })
+  )
 }
 
 async function handleCreateFile(): Promise<void> {
@@ -337,8 +493,8 @@ async function handleImportFile(): Promise<void> {
   try {
     const selected = await openDialog({
       multiple: false,
-      title: '选择要导入的文件',
-      filters: [{ name: '所有文件', extensions: ['*'] }],
+      title: t('scratchpad.selectFileToImport'),
+      filters: [{ name: t('scratchpad.allFiles'), extensions: ['*'] }],
     })
     if (selected && typeof selected === 'string') {
       await importFile(selected)
@@ -360,7 +516,7 @@ async function browseRefPath(): Promise<void> {
     const selected = await openDialog({
       directory: true,
       multiple: false,
-      title: '选择要引用的目录',
+      title: t('scratchpad.selectRefDirectory'),
     })
     if (selected && typeof selected === 'string') {
       newRefPath.value = selected
@@ -387,23 +543,68 @@ function closeContextMenu(): void {
   contextMenu.target = null
 }
 
+const ANALYZABLE_EXTENSIONS = ['.csv', '.parquet', '.json', '.xlsx']
+
+function isAnalyzableFile(entry: ScratchpadEntry): boolean {
+  return ANALYZABLE_EXTENSIONS.includes(entry.extension.toLowerCase())
+}
+
+async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
+  await loadAnalyzableFiles()
+  const match = analyzableFiles.value.find(f => f.relative_path === entry.path)
+  if (!match) return
+
+  const scratchpadBase = scratchpadPath.value || ''
+  const content = match.duckdb_query_hint
+
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId: '',
+        databaseName: '',
+        sql: content,
+        scratchpadRelativePath: '',
+        scratchpadFileName: `${entry.name} (DuckDB Preview)`,
+        language: 'sql',
+      },
+    })
+  )
+}
+
 function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
   event.preventDefault()
   event.stopPropagation()
   selectedKey.value = entry.path
-  const pos = clampToViewport(event.clientX, event.clientY, 180, 210)
+  const pos = clampToViewport(event.clientX, event.clientY, 180, 240)
   contextMenu.x = pos.x
   contextMenu.y = pos.y
   contextMenu.isRefTarget = false
   contextMenu.target = entry
   contextMenu.items = [
-    { key: 'open', label: '打开', icon: FileText },
-    ...(entry.kind === 'folder'
-      ? [{ key: 'toggle-folder', label: expandedKeys.value.has(entry.path) ? '折叠' : '展开', icon: ChevronRight }]
+    { key: 'open', label: t('scratchpad.open'), icon: FileText },
+    ...(isAnalyzableFile(entry)
+      ? [
+          {
+            key: 'analyze-duckdb',
+            label: t('scratchpad.analyzeWithDuckDB'),
+            icon: BarChart3,
+          },
+        ]
       : []),
-    { key: 'rename', label: '重命名', icon: Pencil, shortcut: 'F2' },
-    { key: 'copy-path', label: '复制路径', icon: Copy },
-    { key: 'delete', label: '删除', icon: Trash2, danger: true, shortcut: 'Del' },
+    ...(entry.kind === 'folder'
+      ? [
+          {
+            key: 'toggle-folder',
+            label: expandedKeys.value.has(entry.path)
+              ? t('scratchpad.collapse')
+              : t('scratchpad.expand'),
+            icon: ChevronRight,
+          },
+        ]
+      : []),
+    { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
+    { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
+    { key: 'delete', label: t('scratchpad.delete'), icon: Trash2, danger: true, shortcut: 'Del' },
   ]
   contextMenu.visible = true
 }
@@ -417,15 +618,17 @@ function showRefMenu(event: MouseEvent, ref: ExternalReference): void {
   contextMenu.isRefTarget = true
   contextMenu.target = ref
   contextMenu.items = [
-    { key: 'open-ref-location', label: '打开位置', icon: ExternalLink },
-    { key: 'remove-ref', label: '移除引用', icon: X, danger: true },
+    { key: 'open-ref-location', label: t('scratchpad.openLocation'), icon: ExternalLink },
+    { key: 'remove-ref', label: t('scratchpad.removeReference'), icon: X, danger: true },
   ]
   contextMenu.visible = true
 }
 
 function clampToViewport(
-  x: number, y: number,
-  menuWidth: number, menuHeight: number,
+  x: number,
+  y: number,
+  menuWidth: number,
+  menuHeight: number
 ): { x: number; y: number } {
   const w = window.innerWidth
   const h = window.innerHeight
@@ -451,6 +654,9 @@ async function handleMenuAction(key: string): Promise<void> {
   switch (key) {
     case 'open':
       openFileInEditor(entry)
+      break
+    case 'analyze-duckdb':
+      handleAnalyzeDuckDB(entry)
       break
     case 'toggle-folder':
       handleToggleExpand(entry)
@@ -491,11 +697,11 @@ function handleKeydown(event: KeyboardEvent): void {
   if (!selectedKey.value) return
   if (event.key === 'F2') {
     event.preventDefault()
-    const entry = localEntries.value.find((e) => e.path === selectedKey.value)
+    const entry = localEntries.value.find(e => e.path === selectedKey.value)
     if (entry) startRename(entry)
   } else if (event.key === 'Delete') {
     event.preventDefault()
-    const entry = localEntries.value.find((e) => e.path === selectedKey.value)
+    const entry = localEntries.value.find(e => e.path === selectedKey.value)
     if (entry) deleteEntry(entry.path)
   }
 }
@@ -522,7 +728,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 8px;
-  border-bottom: 1px solid var(--border-color, #d9d9d9);
+  border-bottom: 1px solid var(--color-border, #4a5458);
   flex-shrink: 0;
 }
 
@@ -546,7 +752,7 @@ onUnmounted(() => {
 }
 
 .error-text {
-  color: var(--danger-color, #F53F3F);
+  color: var(--brand-danger, #d63031);
   font-size: 13px;
 }
 
@@ -563,13 +769,13 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #666666);
+  color: var(--color-text-secondary, #9ca3af);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .group-header:hover {
-  background-color: var(--bg-tertiary, #e8e8e8);
+  background-color: var(--color-bg-tertiary, #2d3436);
 }
 
 .group-title {
@@ -578,7 +784,7 @@ onUnmounted(() => {
 
 .group-count {
   font-size: 11px;
-  color: var(--text-tertiary, #999999);
+  color: var(--color-text-muted, #6b7280);
 }
 
 .ref-row {
@@ -592,17 +798,17 @@ onUnmounted(() => {
 }
 
 .ref-row:hover {
-  background-color: var(--bg-tertiary, #e8e8e8);
+  background-color: var(--color-bg-tertiary, #2d3436);
 }
 
 .ref-name {
-  color: var(--text-primary, #333333);
+  color: var(--color-text-primary, #e5e7eb);
   font-weight: 500;
 }
 
 .ref-path {
   font-size: 11px;
-  color: var(--text-tertiary, #999999);
+  color: var(--color-text-muted, #6b7280);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -610,27 +816,27 @@ onUnmounted(() => {
 }
 
 .ref-path-invalid {
-  color: var(--danger-color, #F53F3F);
+  color: var(--brand-danger, #d63031);
   text-decoration: line-through;
 }
 
 .ref-badge {
   font-size: 10px;
-  color: var(--danger-color, #F53F3F);
-  background: rgba(245, 63, 63, 0.1);
+  color: var(--brand-danger, #d63031);
+  background: rgba(214, 48, 49, 0.1);
   padding: 1px 4px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
 .ref-invalid {
-  color: var(--danger-color, #F53F3F);
+  color: var(--brand-danger, #d63031);
 }
 
 .empty-hint {
   padding: 12px 24px;
   font-size: 12px;
-  color: var(--text-tertiary, #999999);
+  color: var(--color-text-muted, #6b7280);
   text-align: center;
 }
 
@@ -655,8 +861,8 @@ onUnmounted(() => {
 .scratchpad-context-menu {
   position: fixed;
   z-index: 1000;
-  background: var(--bg-primary, #ffffff);
-  border: 1px solid var(--border-color, #d9d9d9);
+  background: var(--color-bg-elevated, #3d4446);
+  border: 1px solid var(--color-border, #4a5458);
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   min-width: 180px;
@@ -675,11 +881,11 @@ onUnmounted(() => {
 }
 
 .menu-item:hover {
-  background-color: var(--bg-tertiary, #e8e8e8);
+  background-color: var(--color-bg-tertiary, #2d3436);
 }
 
 .menu-item-danger {
-  color: var(--danger-color, #F53F3F);
+  color: var(--brand-danger, #d63031);
 }
 
 .menu-item-danger:hover {
@@ -689,7 +895,7 @@ onUnmounted(() => {
 .menu-shortcut {
   margin-left: auto;
   font-size: 11px;
-  color: var(--text-tertiary, #999999);
+  color: var(--color-text-muted, #6b7280);
 }
 
 .menu-item-danger .menu-shortcut {

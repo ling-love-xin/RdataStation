@@ -2,11 +2,11 @@
   <div class="database-manager">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1 class="page-title">数据库连接管理</h1>
+      <h1 class="page-title">{{ t('navigator.databaseConnectionManager') }}</h1>
       <div class="header-actions">
         <button class="btn btn-primary" @click="handleNewConnection">
           <Plus :size="16" class="btn-icon" />
-          新建连接
+          {{ t('navigator.newConnection') }}
         </button>
       </div>
     </div>
@@ -19,7 +19,7 @@
           v-model="searchQuery"
           type="text"
           class="search-input"
-          placeholder="搜索连接名称、主机..."
+          :placeholder="t('navigator.searchConnection')"
         />
         <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">
           <X :size="14" />
@@ -42,16 +42,16 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-overlay">
         <Loader2 :size="24" class="loading-icon" />
-        <span>加载连接中...</span>
+        <span>{{ t('navigator.loadingConnections') }}</span>
       </div>
 
       <!-- 空状态 -->
       <div v-else-if="filteredConnections.length === 0" class="empty-state">
         <Database :size="48" class="empty-icon" />
-        <h3 class="empty-title">没有数据库连接</h3>
-        <p class="empty-desc">点击上方按钮新建一个连接</p>
+        <h3 class="empty-title">{{ t('navigator.noDatabaseConnections') }}</h3>
+        <p class="empty-desc">{{ t('navigator.clickNewConnection') }}</p>
         <button class="btn btn-primary" @click="handleNewConnection">
-          新建连接
+          {{ t('navigator.newConnection') }}
         </button>
       </div>
 
@@ -59,20 +59,16 @@
       <table v-else class="connection-table">
         <thead>
           <tr>
-            <th class="col-name">连接名称</th>
-            <th class="col-type">数据库类型</th>
-            <th class="col-host">主机</th>
-            <th class="col-db">数据库</th>
-            <th class="col-status">状态</th>
-            <th class="col-actions">操作</th>
+            <th class="col-name">{{ t('navigator.connectionName') }}</th>
+            <th class="col-type">{{ t('navigator.databaseType') }}</th>
+            <th class="col-host">{{ t('navigator.host') }}</th>
+            <th class="col-db">{{ t('navigator.database') }}</th>
+            <th class="col-status">{{ t('navigator.status') }}</th>
+            <th class="col-actions">{{ t('navigator.operation') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="connection in filteredConnections"
-            :key="connection.id"
-            class="connection-row"
-          >
+          <tr v-for="connection in filteredConnections" :key="connection.id" class="connection-row">
             <td class="col-name">
               <div class="connection-info">
                 <DbIcon :type="connection.driver" :size="18" class="db-icon" />
@@ -89,8 +85,13 @@
               {{ connection.database || '-' }}
             </td>
             <td class="col-status">
-              <div class="status-indicator" :class="`status-${connection.status || 'disconnected'}`">
-                <div :class="['status-dot', `status-dot-${connection.status || 'disconnected'}`]"></div>
+              <div
+                class="status-indicator"
+                :class="`status-${connection.status || 'disconnected'}`"
+              >
+                <div
+                  :class="['status-dot', `status-dot-${connection.status || 'disconnected'}`]"
+                ></div>
                 <span class="status-text">{{ getStatusLabel(connection.status) }}</span>
               </div>
             </td>
@@ -99,7 +100,7 @@
                 <button
                   v-if="connection.status === 'disconnected' || connection.status === 'error'"
                   class="action-btn action-btn-success"
-                  title="连接数据库"
+                  :title="t('navigator.connectDatabase')"
                   :disabled="connectingId === connection.id"
                   @click="handleConnectDatabase(connection)"
                 >
@@ -108,7 +109,7 @@
                 <button
                   v-else-if="connection.status === 'connected'"
                   class="action-btn action-btn-warning"
-                  title="断开连接"
+                  :title="t('navigator.disconnect')"
                   :disabled="connectingId === connection.id"
                   @click="handleDisconnectDatabase(connection)"
                 >
@@ -116,14 +117,14 @@
                 </button>
                 <button
                   class="action-btn"
-                  title="编辑连接"
+                  :title="t('navigator.editConnection')"
                   @click="handleEditConnection(connection)"
                 >
                   <Pencil :size="14" />
                 </button>
                 <button
                   class="action-btn action-btn-danger"
-                  title="删除连接"
+                  :title="t('navigator.deleteConnection')"
                   @click="handleDeleteConnection(connection.id)"
                 >
                   <Trash2 :size="14" />
@@ -146,7 +147,6 @@
 </template>
 
 <script setup lang="ts">
-
 import {
   Plus,
   Search,
@@ -158,10 +158,11 @@ import {
   Pencil,
   Trash2,
   Power,
-  PowerOff
+  PowerOff,
 } from 'lucide-vue-next'
-import { NDropdown , useMessage } from 'naive-ui'
+import { NDropdown, useMessage } from 'naive-ui'
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
 import DbIcon from '@/shared/components/common/DbIcon.vue'
@@ -195,6 +196,7 @@ interface FilterOption {
 }
 
 // 状态管理
+const { t } = useI18n()
 const projectConnectionStore = useProjectConnectionStore()
 const runtimeConnectionStore = useRuntimeConnectionStore()
 const projectStore = useProjectStore()
@@ -212,40 +214,40 @@ const connectingId = ref<string | null>(null)
 const getStatusLabel = (status?: string): string => {
   switch (status) {
     case 'connected':
-      return '已连接'
+      return t('navigator.connected')
     case 'connecting':
-      return '连接中'
+      return t('navigator.connecting')
     case 'error':
-      return '连接错误'
+      return t('navigator.connectionError')
     default:
-      return '未连接'
+      return t('navigator.disconnected')
   }
 }
 
 // 处理连接数据库
 const handleConnectDatabase = async (connection: ProjectConnection) => {
   if (connectingId.value) return
-  
+
   connectingId.value = connection.id
-  
+
   try {
     // 更新状态为连接中
     await projectConnectionStore.updateConnectionStatus(connection.id, 'connecting')
-    
+
     // 建立运行时连接
     const runtimeConnId = await runtimeConnectionStore.establishRuntimeConnection(connection)
-    
+
     if (runtimeConnId) {
       // 更新状态为已连接
       await projectConnectionStore.updateConnectionStatus(connection.id, 'connected')
-      message.success(`连接 "${connection.name}" 成功`)
+      message.success(t('navigator.connectionSuccess', { name: connection.name }))
     } else {
       // 更新状态为错误
       await projectConnectionStore.updateConnectionStatus(connection.id, 'error', '连接失败')
-      message.error(`连接 "${connection.name}" 失败`)
+      message.error(t('navigator.connectionFailed', { name: connection.name }))
     }
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '连接失败'
+    const errorMsg = error instanceof Error ? error.message : t('navigator.connectionFailedGeneric')
     await projectConnectionStore.updateConnectionStatus(connection.id, 'error', errorMsg)
     message.error(`连接失败: ${errorMsg}`)
   } finally {
@@ -256,19 +258,19 @@ const handleConnectDatabase = async (connection: ProjectConnection) => {
 // 处理断开连接
 const handleDisconnectDatabase = async (connection: ProjectConnection) => {
   if (connectingId.value) return
-  
+
   connectingId.value = connection.id
-  
+
   try {
     // 关闭运行时连接
     await runtimeConnectionStore.closeRuntimeConnection(connection.id)
-    
+
     // 更新状态为未连接
     await projectConnectionStore.updateConnectionStatus(connection.id, 'disconnected')
-    message.success(`连接 "${connection.name}" 已断开`)
+    message.success(t('navigator.disconnectedSuccess', { name: connection.name }))
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '断开连接失败'
-    message.error(`断开连接失败: ${errorMsg}`)
+    const errorMsg = error instanceof Error ? error.message : t('navigator.disconnectFailed')
+    message.error(`${t('navigator.disconnectFailed')}: ${errorMsg}`)
   } finally {
     connectingId.value = null
   }
@@ -287,17 +289,17 @@ const editingConnectionAsConfig = computed<ConnectionConfiguration | null>(() =>
     database: conn.database,
     username: conn.username,
     password: conn.password,
-    properties: conn.properties
+    properties: conn.properties,
   }
 })
 
 // 过滤选项
 const filterOptions = [
-  { key: 'all', label: '所有连接' },
+  { key: 'all', label: t('navigator.allConnections') },
   { key: 'mysql', label: 'MySQL' },
   { key: 'postgres', label: 'PostgreSQL' },
   { key: 'sqlite', label: 'SQLite' },
-  { key: 'duckdb', label: 'DuckDB' }
+  { key: 'duckdb', label: 'DuckDB' },
 ]
 
 // 计算属性：过滤后的连接列表
@@ -307,10 +309,11 @@ const filteredConnections = computed(() => {
   // 按搜索词过滤
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    connections = connections.filter(conn => 
-      conn.name.toLowerCase().includes(query) ||
-      conn.host?.toLowerCase().includes(query) ||
-      conn.database?.toLowerCase().includes(query)
+    connections = connections.filter(
+      conn =>
+        conn.name.toLowerCase().includes(query) ||
+        conn.host?.toLowerCase().includes(query) ||
+        conn.database?.toLowerCase().includes(query)
     )
   }
 
@@ -325,7 +328,7 @@ const filteredConnections = computed(() => {
 // 辅助函数：获取过滤标签
 const getFilterLabel = (key: string): string => {
   const option = filterOptions.find(opt => opt.key === key)
-  return option?.label || '所有连接'
+  return option?.label || t('navigator.allConnections')
 }
 
 // 处理新建连接
@@ -341,17 +344,24 @@ const handleEditConnection = (connection: ProjectConnection) => {
 }
 
 // 处理保存连接
-const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToGlobal?: boolean; saveToProject?: boolean; useDuckdbFed?: boolean; url?: string }) => {
+const handleSaveConnection = async (
+  data: Partial<ProjectConnection> & {
+    saveToGlobal?: boolean
+    saveToProject?: boolean
+    useDuckdbFed?: boolean
+    url?: string
+  }
+) => {
   try {
     console.log('=== handleSaveConnection 被调用 ===')
     console.log('接收到的完整数据:', JSON.stringify(data, null, 2))
     console.log('data.driver:', data.driver)
     console.log('saveToGlobal:', data.saveToGlobal)
     console.log('saveToProject:', data.saveToProject)
-    
+
     const driver = data.driver
     if (!driver) {
-      message.error('请选择数据库类型')
+      message.error(t('navigator.selectDbType'))
       console.error('db_type 为空，完整数据:', data)
       return
     }
@@ -359,13 +369,13 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
     // 构建连接 URL
     const url = data.url || buildConnectionUrlFromData(data)
     if (!url) {
-      message.error('连接 URL 构建失败')
+      message.error(t('navigator.buildUrlFailed'))
       return
     }
 
     // 检查是否至少选择了一个保存位置
     if (!data.saveToGlobal && !data.saveToProject) {
-      message.error('请至少选择全局或项目中的一个保存位置')
+      message.error(t('navigator.selectSaveLocation'))
       return
     }
 
@@ -373,13 +383,13 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
     const connectionData = {
       name: data.name || '',
       driver: driver,
-      host: isFileDatabase ? (data.database || data.host || '') : (data.host || ''),
-      port: isFileDatabase ? 0 : (data.port || 0),
-      database: isFileDatabase ? (data.database || '') : (data.database || ''),
+      host: isFileDatabase ? data.database || data.host || '' : data.host || '',
+      port: isFileDatabase ? 0 : data.port || 0,
+      database: isFileDatabase ? data.database || '' : data.database || '',
       username: data.username || '',
       password: data.password || '',
       properties: data.properties || {},
-      use_duckdb_fed: data.useDuckdbFed || false
+      use_duckdb_fed: data.useDuckdbFed || false,
     }
 
     if (editingConnection.value) {
@@ -387,10 +397,10 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
       const updatedConnection: ProjectConnection = {
         ...editingConnection.value,
         ...data,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       }
       await projectConnectionStore.updateConnection(updatedConnection)
-      message.success(`连接 "${data.name}" 更新成功`)
+      message.success(t('navigator.connectionUpdated', { name: data.name }))
     } else {
       // 新建连接：根据选择保存到全局和/或项目
       const savedLocations: string[] = []
@@ -399,13 +409,8 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
       if (data.saveToGlobal) {
         try {
           // 建立全局运行时连接
-          await connectionService.connectDatabase(
-            driver,
-            url,
-            data.name,
-            'global'
-          )
-          savedLocations.push('全局')
+          await connectionService.connectDatabase(driver, url, data.name, 'global')
+          savedLocations.push(t('navigator.global'))
           console.log('全局连接创建成功')
         } catch (error) {
           console.error('创建全局连接失败:', error)
@@ -416,7 +421,7 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
       // 2. 保存到项目
       if (data.saveToProject) {
         if (!projectStore.currentProject?.path) {
-          message.warning('没有打开的项目，跳过项目连接保存')
+          message.warning(t('navigator.noOpenProject'))
         } else {
           try {
             // 建立项目运行时连接
@@ -430,7 +435,7 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
 
             // 保存配置到项目存储
             await projectConnectionStore.createConnection(connectionData)
-            savedLocations.push('项目')
+            savedLocations.push(t('navigator.project'))
             console.log('项目连接创建成功')
           } catch (error) {
             console.error('创建项目连接失败:', error)
@@ -439,32 +444,39 @@ const handleSaveConnection = async (data: Partial<ProjectConnection> & { saveToG
       }
 
       if (savedLocations.length > 0) {
-        message.success(`连接 "${data.name}" 已保存到: ${savedLocations.join('、')}`)
+        message.success(
+          t('navigator.connectionSavedTo', {
+            name: data.name,
+            locations: savedLocations.join(', '),
+          })
+        )
       } else {
-        message.error('连接保存失败')
+        message.error(t('navigator.connectionSaveFailed'))
         return
       }
     }
-    
+
     // 刷新连接列表
     await projectConnectionStore.loadConnections()
-    
+
     // 触发导航树刷新事件
     window.dispatchEvent(new CustomEvent('navigator-refresh'))
-    
+
     // 触发打开工作台事件，传入新连接信息
-    window.dispatchEvent(new CustomEvent('open-sql-editor', {
-      detail: {
-        connectionId: data.name,
-        databaseName: data.database || '',
-        sql: ''
-      }
-    }))
-    
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: {
+          connectionId: data.name,
+          databaseName: data.database || '',
+          sql: '',
+        },
+      })
+    )
+
     handleCloseConnectionModal()
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '保存连接失败'
-    message.error(`操作失败: ${errorMsg}`)
+    const errorMsg = error instanceof Error ? error.message : t('navigator.connectionSaveFailed')
+    message.error(`${t('common.operationFailed')}: ${errorMsg}`)
     console.error('保存连接失败:', error)
   }
 }
@@ -502,11 +514,11 @@ const handleCloseConnectionModal = () => {
 const handleDeleteConnection = async (connectionId: string) => {
   try {
     await projectConnectionStore.deleteConnection(connectionId)
-    message.success('连接删除成功')
+    message.success(t('navigator.connectionDeleted'))
     await projectConnectionStore.loadConnections()
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '删除连接失败'
-    message.error(`删除失败: ${errorMsg}`)
+    const errorMsg = error instanceof Error ? error.message : t('navigator.deleteFailed')
+    message.error(`${t('common.deleteFailed')}: ${errorMsg}`)
   }
 }
 
@@ -516,16 +528,20 @@ const handleFilterChange = (key: string) => {
 }
 
 // 监听项目变化
-watch(() => projectStore.currentProject, async (newProject) => {
-  if (newProject?.path) {
-    loading.value = true
-    await projectConnectionStore.loadConnections()
-    loading.value = false
-  } else {
-    // 没有项目打开时，清空连接列表
-    projectConnectionStore.reset()
-  }
-}, { immediate: true })
+watch(
+  () => projectStore.currentProject,
+  async newProject => {
+    if (newProject?.path) {
+      loading.value = true
+      await projectConnectionStore.loadConnections()
+      loading.value = false
+    } else {
+      // 没有项目打开时，清空连接列表
+      projectConnectionStore.reset()
+    }
+  },
+  { immediate: true }
+)
 
 // 组件挂载
 onMounted(async () => {
@@ -726,8 +742,12 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 连接表格 */
@@ -855,7 +875,8 @@ onMounted(async () => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

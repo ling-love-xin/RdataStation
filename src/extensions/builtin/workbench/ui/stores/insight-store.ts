@@ -17,6 +17,8 @@ import {
   getInsightVersionDetail,
   profileColumnFromTable,
   getColumnQuality,
+  batchEvaluateColumns,
+  getSchemaInsight,
 } from '../services/result-analysis'
 
 import type {
@@ -26,6 +28,10 @@ import type {
   RuleMeta,
   CleanupResult,
   QualityScore,
+  TableQuality,
+  SchemaInsightReport,
+  DistributionBin,
+  MultiRuleResult,
 } from '../services/result-analysis'
 
 export const useInsightStore = defineStore('insight', () => {
@@ -34,6 +40,10 @@ export const useInsightStore = defineStore('insight', () => {
   const insightData = ref<ColumnInsightFull | null>(null)
   const isLoading = ref(false)
   const isSaving = ref(false)
+  const isOpen = ref(true)
+
+  const autoOpenVisualization = ref(false)
+
   const error = ref<string | null>(null)
 
   const history = ref<InsightVersionEntry[]>([])
@@ -43,7 +53,7 @@ export const useInsightStore = defineStore('insight', () => {
   // === 多列分析 ===
   const availableColumns = ref<string[]>([])
   const multiRules = ref<RuleMeta[]>([])
-  const multiResult = ref<unknown>(null)
+  const multiResult = ref<MultiRuleResult | null>(null)
   const isMultiExecuting = ref(false)
 
   // === 清理 ===
@@ -58,6 +68,37 @@ export const useInsightStore = defineStore('insight', () => {
   // === 质量评分 ===
   const qualityScore = ref<QualityScore | null>(null)
   const isQualityLoading = ref(false)
+
+  // === 表质量评估 ===
+  const tableQuality = ref<TableQuality | null>(null)
+  const isTableQualityLoading = ref(false)
+
+  // === Schema 洞察 ===
+  const schemaInsight = ref<SchemaInsightReport | null>(null)
+  const isSchemaInsightLoading = ref(false)
+  const schemaInsightKey = ref<string | null>(null)
+
+  const pendingSchemaInsightRequest = ref<{
+    connId: string
+    dbType?: string
+    database: string
+    schema: string
+  } | null>(null)
+
+  const pendingTableProfileRequest = ref<{
+    connId: string
+    dbType: string
+    database: string
+    schema: string
+    table: string
+    autoEvaluate?: boolean
+  } | null>(null)
+
+  const pendingVisualizationRequest = ref<{
+    data: Record<string, unknown>[]
+    columns: string[]
+    title?: string
+  } | null>(null)
 
   const statsKind = computed<string>(() => {
     return insightData.value?.stats?.stats_detail?.kind ?? 'Unknown'
@@ -82,20 +123,75 @@ export const useInsightStore = defineStore('insight', () => {
 
   const historyCount = computed(() => history.value.length)
 
+  const diffColumns = computed<string[]>(() => {
+    const cols: string[] = []
+    if (!insightData.value || !diffData.value) return cols
+
+    const a = insightData.value.stats
+    const b = diffData.value.stats
+    if (a.column_name !== b.column_name) cols.push('column_name')
+    if (a.data_type !== b.data_type) cols.push('data_type')
+    if (a.total_count !== b.total_count) cols.push('total_count')
+    if (a.null_count !== b.null_count) cols.push('null_count')
+    if ((a.null_rate - b.null_rate).toFixed(4) !== '0.0000') cols.push('null_rate')
+    if (a.unique_count !== b.unique_count) cols.push('unique_count')
+    return cols
+  })
+
+  const diffSummary = computed<Record<string, string>>(() => {
+    const summary: Record<string, string> = {}
+    if (!insightData.value || !diffData.value) return summary
+
+    const a = insightData.value.stats
+    const b = diffData.value.stats
+
+    if (a.total_count !== b.total_count) {
+      summary['total_count'] =
+        `${b.total_count.toLocaleString()} → ${a.total_count.toLocaleString()}`
+    }
+    if (a.null_count !== b.null_count) {
+      const delta = a.null_count - b.null_count
+      summary['null_count'] = `${b.null_count} → ${a.null_count} (${delta >= 0 ? '+' : ''}${delta})`
+    }
+    if (a.null_rate !== b.null_rate) {
+      summary['null_rate'] =
+        `${(b.null_rate * 100).toFixed(1)}% → ${(a.null_rate * 100).toFixed(1)}%`
+    }
+    return summary
+  })
+
+  function histogramForChart(histogram?: DistributionBin[] | null): {
+    labels: string[]
+    data: number[]
+  } {
+    if (!histogram || histogram.length === 0) {
+      return { labels: [], data: [] }
+    }
+    return {
+      labels: histogram.map(bin => bin.label),
+      data: histogram.map(bin => bin.count),
+    }
+  }
+
   const columnRules = computed<RuleMeta[]>(() => {
     if (!statsKind.value || statsKind.value === 'Unknown') return []
-    return multiRules.value.filter((r) =>
-      r.category === 'column' || r.applies_to.includes(statsKind.value) || r.applies_to.includes('Any')
+    return multiRules.value.filter(
+      r =>
+        r.category === 'column' ||
+        r.applies_to.includes(statsKind.value) ||
+        r.applies_to.includes('Any')
     )
   })
 
   const multiColumnRules = computed<RuleMeta[]>(() =>
-    multiRules.value.filter((r) => r.category === 'multi')
+    multiRules.value.filter(r => r.category === 'multi')
   )
 
   async function loadColumnInsight(tempTable: string, column: string): Promise<void> {
     if (isLoading.value) return
+    if (!tempTable || !column) return
 
+    isOpen.value = true
     isLoading.value = true
     error.value = null
     savedVersionId.value = null
@@ -123,7 +219,7 @@ export const useInsightStore = defineStore('insight', () => {
     try {
       const versionId = await saveColumnInsightSnapshot({
         temp_table: currentTempTable.value,
-        column_name: currentColumn.value
+        column_name: currentColumn.value,
       })
       savedVersionId.value = versionId
       await loadHistory(currentColumn.value)
@@ -143,6 +239,7 @@ export const useInsightStore = defineStore('insight', () => {
     try {
       history.value = await getColumnInsightHistory(col)
     } catch {
+      console.error('[insightStore] loadHistory failed')
       history.value = []
     }
   }
@@ -151,6 +248,7 @@ export const useInsightStore = defineStore('insight', () => {
     try {
       storageStats.value = await getInsightStorageStats()
     } catch {
+      console.error('[insightStore] loadStorageStats failed')
       storageStats.value = null
     }
   }
@@ -164,6 +262,11 @@ export const useInsightStore = defineStore('insight', () => {
     isSaving.value = false
     savedVersionId.value = null
     multiResult.value = null
+    isOpen.value = false
+  }
+
+  function closeInsight(): void {
+    isOpen.value = false
   }
 
   function clearMultiResult() {
@@ -178,14 +281,12 @@ export const useInsightStore = defineStore('insight', () => {
       const rules = await listInsightRules()
       multiRules.value = rules
     } catch {
+      console.error('[insightStore] loadMultiRules failed')
       multiRules.value = []
     }
   }
 
-  async function executeMultiRule(
-    ruleId: string,
-    params: Record<string, string>
-  ): Promise<void> {
+  async function executeMultiRule(ruleId: string, params: Record<string, string>): Promise<void> {
     if (!currentTempTable.value || isMultiExecuting.value) return
 
     isMultiExecuting.value = true
@@ -241,6 +342,7 @@ export const useInsightStore = defineStore('insight', () => {
       const result = await getInsightVersionDetail(versionId)
       diffData.value = result
     } catch {
+      console.error('[insightStore] loadVersionDetail failed')
       diffData.value = null
     } finally {
       isDiffLoading.value = false
@@ -268,10 +370,115 @@ export const useInsightStore = defineStore('insight', () => {
       })
       qualityScore.value = score
     } catch {
+      console.error('[insightStore] loadQualityScore failed')
       qualityScore.value = null
     } finally {
       isQualityLoading.value = false
     }
+  }
+
+  // === 表质量评估 action ===
+
+  async function loadTableQuality(input: {
+    connId: string
+    database: string
+    schema: string
+    table: string
+  }): Promise<void> {
+    if (isTableQualityLoading.value) return
+
+    isTableQualityLoading.value = true
+    tableQuality.value = null
+
+    try {
+      const result = await batchEvaluateColumns({
+        conn_id: input.connId,
+        database: input.database,
+        schema: input.schema,
+        table: input.table,
+      })
+      tableQuality.value = result
+    } catch {
+      console.error('[insightStore] loadTableQuality failed')
+      tableQuality.value = null
+    } finally {
+      isTableQualityLoading.value = false
+    }
+  }
+
+  // === Schema 洞察 action ===
+
+  async function loadSchemaInsight(input: {
+    connId: string
+    database: string
+    schema: string
+  }): Promise<void> {
+    const key = `${input.connId}:${input.database}:${input.schema}`
+    if (schemaInsightKey.value === key && schemaInsight.value) return
+    if (isSchemaInsightLoading.value) return
+
+    isSchemaInsightLoading.value = true
+    schemaInsightKey.value = key
+
+    try {
+      const result = await getSchemaInsight({
+        conn_id: input.connId,
+        database: input.database,
+        schema: input.schema,
+      })
+      schemaInsight.value = result
+    } catch {
+      console.error('[insightStore] loadSchemaInsight failed')
+      schemaInsight.value = null
+    } finally {
+      isSchemaInsightLoading.value = false
+    }
+  }
+
+  function requestSchemaInsight(input: {
+    connId: string
+    dbType?: string
+    database: string
+    schema: string
+  }) {
+    pendingSchemaInsightRequest.value = { ...input }
+  }
+
+  function clearSchemaInsightRequest() {
+    pendingSchemaInsightRequest.value = null
+  }
+
+  function requestTableProfile(input: {
+    connId: string
+    dbType: string
+    database: string
+    schema: string
+    table: string
+    autoEvaluate?: boolean
+  }) {
+    pendingTableProfileRequest.value = { ...input }
+  }
+
+  function clearTableProfileRequest() {
+    pendingTableProfileRequest.value = null
+  }
+
+  function requestVisualization(input: {
+    data: Record<string, unknown>[]
+    columns: string[]
+    title?: string
+  }) {
+    pendingVisualizationRequest.value = { ...input }
+  }
+
+  function clearVisualizationRequest() {
+    pendingVisualizationRequest.value = null
+  }
+
+  const tableProfileReloadKey = ref(0)
+
+  function triggerTableProfileReload() {
+    tableProfileReloadKey.value++
   }
 
   // === 表列探查 action ===
@@ -316,6 +523,8 @@ export const useInsightStore = defineStore('insight', () => {
     insightData,
     isLoading,
     isSaving,
+    isOpen,
+    autoOpenVisualization,
     error,
     history,
     storageStats,
@@ -326,6 +535,9 @@ export const useInsightStore = defineStore('insight', () => {
     nullRateDisplay,
     totalCountDisplay,
     historyCount,
+    diffColumns,
+    diffSummary,
+    histogramForChart,
     columnRules,
     multiColumnRules,
 
@@ -352,10 +564,32 @@ export const useInsightStore = defineStore('insight', () => {
     isQualityLoading,
     loadQualityScore,
 
+    tableQuality,
+    isTableQualityLoading,
+    loadTableQuality,
+
+    schemaInsight,
+    isSchemaInsightLoading,
+    schemaInsightKey,
+    loadSchemaInsight,
+
+    pendingSchemaInsightRequest,
+    pendingTableProfileRequest,
+    requestSchemaInsight,
+    clearSchemaInsightRequest,
+    requestTableProfile,
+    clearTableProfileRequest,
+    pendingVisualizationRequest,
+    requestVisualization,
+    clearVisualizationRequest,
+    tableProfileReloadKey,
+    triggerTableProfileReload,
+
+    closeInsight,
     loadColumnInsight,
     saveCurrentInsight,
     loadHistory,
     loadStorageStats,
-    clear
+    clear,
   }
 })

@@ -154,6 +154,7 @@ CREATE TABLE audit_log (
 ### 2.2 global.db（应用级数据库）
 
 结构与 project.db 相同，主要存储：
+
 - 全局连接模板
 - DuckDB 全局表
 - 全局共享文件
@@ -442,55 +443,60 @@ pub struct GlobalTableResult {
 
 ## 六、SQL 引用协议
 
-| 资源类型 | 作用域 | SQL 前缀 | 示例 |
-|----------|--------|----------|------|
-| 远程表 | 项目 | `{conn_id}.{schema}.{table}` | `mysql_conn1.public.users` |
-| 临时表 | 会话 | `temp.{table_name}` | `temp.result_123` |
-| 持久表 | 项目 | `persist.{table_name}` | `persist.sales_summary` |
-| 全局表 | 应用 | `global.{table_name}_v{version}` | `global.region_dim_v3` |
-| 项目文件 | 项目 | `read_csv_auto('{path}')` | `read_csv_auto('project_files/data.csv')` |
-| 全局文件 | 应用 | `read_csv_auto('shared://{filename}')` | `read_csv_auto('shared://dim_region.csv')` |
+| 资源类型 | 作用域 | SQL 前缀                               | 示例                                       |
+| -------- | ------ | -------------------------------------- | ------------------------------------------ |
+| 远程表   | 项目   | `{conn_id}.{schema}.{table}`           | `mysql_conn1.public.users`                 |
+| 临时表   | 会话   | `temp.{table_name}`                    | `temp.result_123`                          |
+| 持久表   | 项目   | `persist.{table_name}`                 | `persist.sales_summary`                    |
+| 全局表   | 应用   | `global.{table_name}_v{version}`       | `global.region_dim_v3`                     |
+| 项目文件 | 项目   | `read_csv_auto('{path}')`              | `read_csv_auto('project_files/data.csv')`  |
+| 全局文件 | 应用   | `read_csv_auto('shared://{filename}')` | `read_csv_auto('shared://dim_region.csv')` |
 
 ---
 
 ## 七、关键技术决策
 
-| 决策项 | 方案 | 理由 |
-|--------|------|------|
-| 文件夹存储 | project.db + global.db | 跟随项目/应用迁移 |
-| 临时表生命周期 | SQL Tab 关闭 | 每个分析上下文独立 |
-| 资源引用 | 多对多关联表 | 同一资源可属于多个文件夹 |
-| 依赖追踪 | resource_references 表 | 显示引用链，防止误删 |
-| 全局文件存储 | ~/.rdatastation/shared-files/ | 统一路径，跨项目共享 |
-| 回收站 | 软删除 + 30天过期 | 数据安全，恢复机制 |
-| 全局表版本 | 自动创建新版本 | 不破坏旧引用，平稳升级 |
-| 懒加载 | 文件夹展开时加载 | 性能优化 |
+| 决策项         | 方案                          | 理由                     |
+| -------------- | ----------------------------- | ------------------------ |
+| 文件夹存储     | project.db + global.db        | 跟随项目/应用迁移        |
+| 临时表生命周期 | SQL Tab 关闭                  | 每个分析上下文独立       |
+| 资源引用       | 多对多关联表                  | 同一资源可属于多个文件夹 |
+| 依赖追踪       | resource_references 表        | 显示引用链，防止误删     |
+| 全局文件存储   | ~/.rdatastation/shared-files/ | 统一路径，跨项目共享     |
+| 回收站         | 软删除 + 30天过期             | 数据安全，恢复机制       |
+| 全局表版本     | 自动创建新版本                | 不破坏旧引用，平稳升级   |
+| 懒加载         | 文件夹展开时加载              | 性能优化                 |
 
 ---
 
 ## 八、优化空间
 
 ### 8.1 性能优化
+
 - 虚拟滚动 + 懒加载（ag-Grid）
 - 资源元数据缓存（复用 metadata_cache）
 - 预加载策略（用户浏览时预加载）
 
 ### 8.2 用户体验优化
+
 - 资源搜索与模糊匹配
 - 智能推荐（最近使用/最常用）
 - 批量操作
 
 ### 8.3 架构灵活性优化
+
 - 资源类型可扩展（插件机制）
 - 自定义资源标签
 - 资源模板
 
 ### 8.4 数据安全优化
+
 - 回收站（已实现）
 - 操作审计
 - 删除前依赖检查（已实现）
 
 ### 8.5 团队协作优化（未来）
+
 - 资源评论
 - 资源变更通知
 - 权限控制
@@ -565,4 +571,3 @@ async fn generate_sql_reference(resource_id: String) -> Result<String, CoreError
 分析资源管理器 = 数据资源的「统一视图 + 快速引用 + 灵活组织 + 生命周期管理」
 
 定位是 **"数据兵器库"**，而非简单的文件浏览器。
-

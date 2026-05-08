@@ -15,7 +15,13 @@
       <div class="form-section">
         <label class="form-label">CA 证书</label>
         <div class="file-input-wrapper">
-          <input v-model="config.caCert" type="text" class="form-input" placeholder="选择 CA 证书文件" readonly />
+          <input
+            v-model="config.caCert"
+            type="text"
+            class="form-input"
+            placeholder="选择 CA 证书文件"
+            readonly
+          />
           <button type="button" class="btn-browse" @click="selectFile('caCert')">浏览</button>
         </div>
       </div>
@@ -23,7 +29,13 @@
       <div class="form-section">
         <label class="form-label">客户端证书</label>
         <div class="file-input-wrapper">
-          <input v-model="config.clientCert" type="text" class="form-input" placeholder="选择客户端证书" readonly />
+          <input
+            v-model="config.clientCert"
+            type="text"
+            class="form-input"
+            placeholder="选择客户端证书"
+            readonly
+          />
           <button type="button" class="btn-browse" @click="selectFile('clientCert')">浏览</button>
         </div>
       </div>
@@ -31,7 +43,13 @@
       <div class="form-section">
         <label class="form-label">客户端私钥</label>
         <div class="file-input-wrapper">
-          <input v-model="config.clientKey" type="text" class="form-input" placeholder="选择私钥文件" readonly />
+          <input
+            v-model="config.clientKey"
+            type="text"
+            class="form-input"
+            placeholder="选择私钥文件"
+            readonly
+          />
           <button type="button" class="btn-browse" @click="selectFile('clientKey')">浏览</button>
         </div>
       </div>
@@ -56,19 +74,19 @@ const config = reactive({
   mode: 'preferred',
   caCert: '',
   clientCert: '',
-  clientKey: ''
+  clientKey: '',
 })
 
-watch(config, (val) => emit('update:modelValue', { ...val }), { deep: true })
+watch(config, val => emit('update:modelValue', { ...val }), { deep: true })
 
 async function selectFile(field: string) {
   // 浏览器环境：使用原生文件选择
   const input = document.createElement('input')
   input.type = 'file'
-  input.onchange = (e) => {
+  input.onchange = e => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (file) {
-      (config as Record<string, string>)[field] = file.name
+      ;(config as Record<string, string>)[field] = file.name
     }
   }
   input.click()

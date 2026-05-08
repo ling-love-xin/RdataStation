@@ -2,49 +2,65 @@
   <div class="filter-bar">
     <div class="filter-row">
       <div class="filter-group compact">
-        <span class="filter-label">作用域:</span>
+        <span class="filter-label">{{ t('analyticsResource.scope') }}:</span>
         <select
           class="filter-select"
           :value="selectedScope ?? 'all'"
-          @change="selectScope(($event.target as HTMLSelectElement).value === 'all' ? null : ($event.target as HTMLSelectElement).value)"
+          @change="
+            selectScope(
+              ($event.target as HTMLSelectElement).value === 'all'
+                ? null
+                : ($event.target as HTMLSelectElement).value
+            )
+          "
         >
-          <option value="all">全部</option>
-          <option value="global">🌍 全局</option>
-          <option value="project">📂 项目</option>
-          <option value="session">📌 会话</option>
+          <option value="all">{{ t('analyticsResource.all') }}</option>
+          <option value="global">🌍 {{ t('analyticsResource.global') }}</option>
+          <option value="project">📂 {{ t('analyticsResource.project') }}</option>
+          <option value="session">📌 {{ t('analyticsResource.session') }}</option>
         </select>
       </div>
 
       <div class="filter-group compact">
-        <span class="filter-label">类型:</span>
+        <span class="filter-label">{{ t('analyticsResource.type') }}:</span>
         <select
           class="filter-select"
           :value="selectedType ?? 'all'"
-          @change="selectType(($event.target as HTMLSelectElement).value === 'all' ? null : ($event.target as HTMLSelectElement).value)"
+          @change="
+            selectType(
+              ($event.target as HTMLSelectElement).value === 'all'
+                ? null
+                : ($event.target as HTMLSelectElement).value
+            )
+          "
         >
-          <option value="all">全部</option>
-          <option value="connection">🔌 连接</option>
-          <option value="table">📊 表</option>
-          <option value="file">📄 文件</option>
+          <option value="all">{{ t('analyticsResource.all') }}</option>
+          <option value="connection">🔌 {{ t('analyticsResource.connection') }}</option>
+          <option value="table">📊 {{ t('analyticsResource.table') }}</option>
+          <option value="file">📄 {{ t('analyticsResource.file') }}</option>
         </select>
       </div>
 
       <div class="filter-group compact">
-        <span class="filter-label">排序:</span>
+        <span class="filter-label">{{ t('analyticsResource.sort') }}:</span>
         <select
           class="filter-select"
           :value="selectedSort ?? 'name'"
           @change="selectSort(($event.target as HTMLSelectElement).value as SortField)"
         >
-          <option value="name">名称</option>
-          <option value="created_at">创建时间</option>
-          <option value="updated_at">更新时间</option>
-          <option value="row_count">行数</option>
-          <option value="file_size">大小</option>
+          <option value="name">{{ t('analyticsResource.name') }}</option>
+          <option value="created_at">{{ t('analyticsResource.createdAt') }}</option>
+          <option value="updated_at">{{ t('analyticsResource.updatedAt') }}</option>
+          <option value="row_count">{{ t('analyticsResource.rowCount') }}</option>
+          <option value="file_size">{{ t('analyticsResource.fileSize') }}</option>
         </select>
         <button
           class="sort-order-btn"
-          :title="sortOrder === 'asc' ? '升序' : '降序'"
+          :title="
+            sortOrder === 'asc'
+              ? t('analyticsResource.ascending')
+              : t('analyticsResource.descending')
+          "
           @click="toggleSortOrder"
         >
           {{ sortOrder === 'asc' ? '↑' : '↓' }}
@@ -52,16 +68,22 @@
       </div>
 
       <div v-if="selectedCount > 0" class="selection-info">
-        <span>已选 {{ selectedCount }} 项</span>
+        <span>{{ t('analyticsResource.selectedCount', { count: selectedCount }) }}</span>
         <button class="batch-action-btn danger" @click="emit('batchDelete')">🗑️</button>
-        <button class="clear-selection-btn" @click="clearSelection">清空</button>
+        <button class="clear-selection-btn" @click="clearSelection">{{
+          t('analyticsResource.clearSelection')
+        }}</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
 import type { SortField, SortOrder } from '../../types'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   selectedScope: string | null
@@ -76,30 +98,30 @@ const emit = defineEmits<{
   'update:selectedType': [value: string | null]
   'update:selectedSort': [value: SortField | null]
   'update:sortOrder': [value: SortOrder]
-  'clearSelection': []
-  'batchDelete': []
+  clearSelection: []
+  batchDelete: []
 }>()
 
 const scopes = [
-  { value: null, label: '全部' },
-  { value: 'global', label: '🌍 全局' },
-  { value: 'project', label: '📂 项目' },
-  { value: 'session', label: '📌 会话' },
+  { value: null, label: t('analyticsResource.all') },
+  { value: 'global', label: '🌍 ' + t('analyticsResource.global') },
+  { value: 'project', label: '📂 ' + t('analyticsResource.project') },
+  { value: 'session', label: '📌 ' + t('analyticsResource.session') },
 ]
 
 const types = [
-  { value: null, label: '全部' },
-  { value: 'connection', label: '🔌 连接' },
-  { value: 'table', label: '📊 表' },
-  { value: 'file', label: '📄 文件' },
+  { value: null, label: t('analyticsResource.all') },
+  { value: 'connection', label: '🔌 ' + t('analyticsResource.connection') },
+  { value: 'table', label: '📊 ' + t('analyticsResource.table') },
+  { value: 'file', label: '📄 ' + t('analyticsResource.file') },
 ]
 
 const sortOptions: { value: SortField; label: string }[] = [
-  { value: 'name', label: '名称' },
-  { value: 'created_at', label: '创建时间' },
-  { value: 'updated_at', label: '更新时间' },
-  { value: 'row_count', label: '行数' },
-  { value: 'file_size', label: '大小' },
+  { value: 'name', label: t('analyticsResource.name') },
+  { value: 'created_at', label: t('analyticsResource.createdAt') },
+  { value: 'updated_at', label: t('analyticsResource.updatedAt') },
+  { value: 'row_count', label: t('analyticsResource.rowCount') },
+  { value: 'file_size', label: t('analyticsResource.fileSize') },
 ]
 
 function selectScope(value: string | null) {

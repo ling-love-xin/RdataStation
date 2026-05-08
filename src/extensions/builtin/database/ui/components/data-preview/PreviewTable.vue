@@ -5,12 +5,7 @@
         <thead>
           <tr>
             <th class="row-number">#</th>
-            <th
-              v-for="col in columns"
-              :key="col.key"
-              class="sortable"
-              @click="handleSort(col.key)"
-            >
+            <th v-for="col in columns" :key="col.key" class="sortable" @click="handleSort(col.key)">
               <span>{{ col.title }}</span>
               <span v-if="sortField === col.key" class="sort-icon">
                 {{ sortOrder === 'asc' ? '↑' : '↓' }}
@@ -31,13 +26,16 @@
 
     <div v-if="data.length === 0" class="empty-state">
       <Database :size="48" />
-      <span>暂无数据</span>
+      <span>{{ t('dataPreview.noData') }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Database } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface Column {
   key: string

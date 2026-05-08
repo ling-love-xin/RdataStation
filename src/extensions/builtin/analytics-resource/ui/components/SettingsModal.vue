@@ -28,7 +28,7 @@
                 <span>{{ t('analytics.defaultScope') }}</span>
                 <span class="setting-description">{{ t('analytics.defaultScopeDesc') }}</span>
               </label>
-              <select v-model="settings.general.defaultScope" class="form-input">
+              <select v-model="localSettings.general.defaultScope" class="form-input">
                 <option value="project">📂 {{ t('analytics.scopeProject') }}</option>
                 <option value="global">🌍 {{ t('analytics.scopeGlobal') }}</option>
                 <option value="session">📌 {{ t('analytics.scopeSession') }}</option>
@@ -40,7 +40,7 @@
                 <span>{{ t('analytics.pageSize') }}</span>
                 <span class="setting-description">{{ t('analytics.pageSizeDesc') }}</span>
               </label>
-              <select v-model.number="settings.general.defaultPageSize" class="form-input">
+              <select v-model.number="localSettings.general.defaultPageSize" class="form-input">
                 <option :value="10">10</option>
                 <option :value="20">20</option>
                 <option :value="50">50</option>
@@ -53,7 +53,7 @@
                 <span>{{ t('analytics.defaultSortField') }}</span>
                 <span class="setting-description">{{ t('analytics.defaultSortFieldDesc') }}</span>
               </label>
-              <select v-model="settings.general.defaultSortField" class="form-input">
+              <select v-model="localSettings.general.defaultSortField" class="form-input">
                 <option value="name">{{ t('analytics.sortName') }}</option>
                 <option value="created_at">{{ t('analytics.sortCreatedAt') }}</option>
                 <option value="updated_at">{{ t('analytics.sortUpdatedAt') }}</option>
@@ -65,7 +65,7 @@
               <label class="setting-label">
                 <span>{{ t('analytics.defaultSortDirection') }}</span>
               </label>
-              <select v-model="settings.general.defaultSortOrder" class="form-input">
+              <select v-model="localSettings.general.defaultSortOrder" class="form-input">
                 <option value="asc">{{ t('analytics.sortAsc') }}</option>
                 <option value="desc">{{ t('analytics.sortDesc') }}</option>
               </select>
@@ -82,7 +82,7 @@
                 <span class="setting-description">{{ t('analytics.showResourceIconDesc') }}</span>
               </label>
               <label class="toggle-switch">
-                <input v-model="settings.display.showIcons" type="checkbox" />
+                <input v-model="localSettings.display.showIcons" type="checkbox" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -93,7 +93,7 @@
                 <span class="setting-description">{{ t('analytics.showScopeTagDesc') }}</span>
               </label>
               <label class="toggle-switch">
-                <input v-model="settings.display.showScopeTags" type="checkbox" />
+                <input v-model="localSettings.display.showScopeTags" type="checkbox" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -104,7 +104,7 @@
                 <span class="setting-description">{{ t('analytics.showMetadataDesc') }}</span>
               </label>
               <label class="toggle-switch">
-                <input v-model="settings.display.showMetadata" type="checkbox" />
+                <input v-model="localSettings.display.showMetadata" type="checkbox" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -112,10 +112,12 @@
             <div class="setting-item">
               <label class="setting-label">
                 <span>{{ t('analytics.enableVirtualScroll') }}</span>
-                <span class="setting-description">{{ t('analytics.enableVirtualScrollDesc') }}</span>
+                <span class="setting-description">{{
+                  t('analytics.enableVirtualScrollDesc')
+                }}</span>
               </label>
               <label class="toggle-switch">
-                <input v-model="settings.display.enableVirtualScroll" type="checkbox" />
+                <input v-model="localSettings.display.enableVirtualScroll" type="checkbox" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -131,7 +133,7 @@
                 <span class="setting-description">{{ t('analytics.enableQueryCacheDesc') }}</span>
               </label>
               <label class="toggle-switch">
-                <input v-model="settings.cache.enabled" type="checkbox" />
+                <input v-model="localSettings.cache.enabled" type="checkbox" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -142,7 +144,7 @@
                 <span class="setting-description">{{ t('analytics.cacheTtlDesc') }}</span>
               </label>
               <input
-                v-model.number="settings.cache.ttlSeconds"
+                v-model.number="localSettings.cache.ttlSeconds"
                 type="number"
                 min="10"
                 max="3600"
@@ -156,7 +158,7 @@
                 <span class="setting-description">{{ t('analytics.maxCacheSizeDesc') }}</span>
               </label>
               <input
-                v-model.number="settings.cache.maxSize"
+                v-model.number="localSettings.cache.maxSize"
                 type="number"
                 min="5"
                 max="200"
@@ -172,7 +174,7 @@
           <!-- 快捷键设置 -->
           <div v-if="activeTab === 'shortcuts'" class="settings-section">
             <h4>{{ t('analytics.shortcuts') }}</h4>
-            
+
             <div class="shortcuts-list">
               <div v-for="shortcut in shortcuts" :key="shortcut.key" class="shortcut-item">
                 <span class="shortcut-action">{{ shortcut.label }}</span>
@@ -195,67 +197,75 @@
   </div>
 </template>
 
-<script setup lang="ts">import { ref, reactive, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
+<script setup lang="ts">
+import { ref, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-import type { AnalyticsResourceSettings } from '../../types';
+import type { AnalyticsResourceSettings } from '../../types'
 
-const { t } = useI18n();
+const { t } = useI18n()
 
 const props = defineProps<{
- settings: AnalyticsResourceSettings;
-}>();
+  settings: AnalyticsResourceSettings
+}>()
 const emit = defineEmits<{
-  close: [];
-  save: [settings: AnalyticsResourceSettings];
-  clearCache: [];
-}>();
+  close: []
+  save: [settings: AnalyticsResourceSettings]
+  clearCache: []
+}>()
 const tabs = [
- { id: 'general', label: t('analytics.generalSettings'), icon: '⚙️' },
- { id: 'display', label: t('analytics.displaySettings'), icon: '🎨' },
- { id: 'cache', label: t('analytics.cacheSettings'), icon: '💾' },
- { id: 'shortcuts', label: t('analytics.shortcuts'), icon: '⌨️' },
-];
-const activeTab = ref('general');
+  { id: 'general', label: t('analytics.generalSettings'), icon: '⚙️' },
+  { id: 'display', label: t('analytics.displaySettings'), icon: '🎨' },
+  { id: 'cache', label: t('analytics.cacheSettings'), icon: '💾' },
+  { id: 'shortcuts', label: t('analytics.shortcuts'), icon: '⌨️' },
+]
+const activeTab = ref('general')
 const shortcuts = [
- { key: 'Ctrl+N', label: t('analytics.newResource') },
- { key: 'Ctrl+E', label: t('analytics.editResource') },
- { key: 'Ctrl+D', label: t('analytics.deleteResource') },
- { key: 'Ctrl+Shift+C', label: t('analytics.cloneResource') },
- { key: 'Ctrl+F', label: t('common.search') },
- { key: 'Ctrl+A', label: t('common.selectAll') },
- { key: 'Delete', label: t('common.deleteSelected') },
-];
-const localSettings = reactive<AnalyticsResourceSettings>(JSON.parse(JSON.stringify(props.settings)));
-watch(() => props.settings, (newSettings) => {
- Object.assign(localSettings, newSettings);
-}, { deep: true });
+  { key: 'Ctrl+N', label: t('analytics.newResource') },
+  { key: 'Ctrl+E', label: t('analytics.editResource') },
+  { key: 'Ctrl+D', label: t('analytics.deleteResource') },
+  { key: 'Ctrl+Shift+C', label: t('analytics.cloneResource') },
+  { key: 'Ctrl+Shift+V', label: t('analytics.viewVersions') },
+  { key: 'Ctrl+F', label: t('common.search') },
+  { key: 'Ctrl+A', label: t('common.selectAll') },
+  { key: 'Delete', label: t('common.deleteSelected') },
+]
+const localSettings = reactive<AnalyticsResourceSettings>(
+  JSON.parse(JSON.stringify(props.settings))
+)
+watch(
+  () => props.settings,
+  newSettings => {
+    Object.assign(localSettings, newSettings)
+  },
+  { deep: true }
+)
 function handleSave() {
- emit('save', JSON.parse(JSON.stringify(localSettings)));
+  emit('save', JSON.parse(JSON.stringify(localSettings)))
 }
 function resetSettings() {
- Object.assign(localSettings, {
- general: {
- defaultScope: 'project',
- defaultPageSize: 20,
- defaultSortField: 'created_at',
- defaultSortOrder: 'desc',
- },
- display: {
- showIcons: true,
- showScopeTags: true,
- showMetadata: true,
- enableVirtualScroll: true,
- },
- cache: {
- enabled: true,
- ttlSeconds: 30,
- maxSize: 50,
- },
- });
+  Object.assign(localSettings, {
+    general: {
+      defaultScope: 'project',
+      defaultPageSize: 20,
+      defaultSortField: 'created_at',
+      defaultSortOrder: 'desc',
+    },
+    display: {
+      showIcons: true,
+      showScopeTags: true,
+      showMetadata: true,
+      enableVirtualScroll: true,
+    },
+    cache: {
+      enabled: true,
+      ttlSeconds: 30,
+      maxSize: 50,
+    },
+  })
 }
 function clearCache() {
-  emit('clearCache');
+  emit('clearCache')
 }
 </script>
 
@@ -359,7 +369,7 @@ function clearCache() {
 
 .toggle-switch .slider:before {
   position: absolute;
-  content: "";
+  content: '';
   height: 20px;
   width: 20px;
   left: 3px;

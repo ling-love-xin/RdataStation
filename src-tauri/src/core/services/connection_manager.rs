@@ -76,6 +76,8 @@ pub struct ConnectionManager {
     connection_info: tokio::sync::RwLock<HashMap<ConnId, ConnectionInfo>>,
     /// 当前活动连接 ID
     active_conn_id: tokio::sync::RwLock<Option<ConnId>>,
+    /// 取消令牌映射（每个连接一个正在执行的查询令牌）
+    cancel_tokens: tokio::sync::RwLock<HashMap<ConnId, tokio_util::sync::CancellationToken>>,
 }
 
 impl ConnectionManager {
@@ -85,6 +87,7 @@ impl ConnectionManager {
             connections: tokio::sync::RwLock::new(HashMap::new()),
             connection_info: tokio::sync::RwLock::new(HashMap::new()),
             active_conn_id: tokio::sync::RwLock::new(None),
+            cancel_tokens: tokio::sync::RwLock::new(HashMap::new()),
         }
     }
 
@@ -367,6 +370,35 @@ impl ConnectionManager {
         } else {
             false
         }
+    }
+
+    /// 为指定连接创建取消令牌
+    ///
+    /// 取消旧令牌并创建新令牌，用于后续查询取消
+    pub async fn create_cancel_token(&self, conn_id: &ConnId) -> tokio_util::sync::CancellationToken {
+        let token = tokio_util::sync::CancellationToken::new();
+        let mut tokens = self.cancel_tokens.write().await;
+        tokens.insert(conn_id.clone(), token.clone());
+        token
+    }
+
+    /// 取消指定连接的正在执行的查询
+    ///
+    /// 返回 true 表示存在并已触发取消，false 表示没有正在执行的查询
+    pub async fn cancel_query(&self, conn_id: &ConnId) -> bool {
+        let tokens = self.cancel_tokens.read().await;
+        if let Some(token) = tokens.get(conn_id) {
+            token.cancel();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// 移除指定连接的取消令牌（查询完成后清理）
+    pub async fn remove_cancel_token(&self, conn_id: &ConnId) {
+        let mut tokens = self.cancel_tokens.write().await;
+        tokens.remove(conn_id);
     }
 }
 

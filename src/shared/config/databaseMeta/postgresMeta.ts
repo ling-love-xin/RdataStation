@@ -13,7 +13,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'Database',
     isContainer: true,
     children: ['database-folder'],
-    actions: ['refresh', 'disconnect', 'properties']
+    actions: ['refresh', 'disconnect', 'properties'],
   },
   {
     id: 'database-folder',
@@ -27,7 +27,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM pg_database 
       WHERE datistemplate = false 
       ORDER BY datname
-    `
+    `,
   },
   {
     id: 'database',
@@ -36,7 +36,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     isContainer: true,
     children: ['schema-folder'],
     actions: ['query', 'backup', 'restore'],
-    metadata: ['encoding', 'collate', 'ctype', 'size']
+    metadata: ['encoding', 'collate', 'ctype', 'size'],
   },
   {
     id: 'schema-folder',
@@ -50,15 +50,22 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.schemata 
       WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
       ORDER BY schema_name
-    `
+    `,
   },
   {
     id: 'schema',
     label: 'Schema',
     icon: 'FolderOpen',
     isContainer: true,
-    children: ['table-folder', 'view-folder', 'function-folder', 'procedure-folder', 'sequence-folder', 'type-folder'],
-    actions: ['query', 'properties']
+    children: [
+      'table-folder',
+      'view-folder',
+      'function-folder',
+      'procedure-folder',
+      'sequence-folder',
+      'type-folder',
+    ],
+    actions: ['query', 'properties'],
   },
   // 表
   {
@@ -73,7 +80,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.tables 
       WHERE table_schema = $1 AND table_type = 'BASE TABLE'
       ORDER BY table_name
-    `
+    `,
   },
   {
     id: 'table',
@@ -82,7 +89,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     isContainer: true,
     children: ['column-folder', 'index-folder', 'constraint-folder', 'trigger-folder'],
     actions: ['query', 'design', 'truncate', 'drop'],
-    metadata: ['rowCount', 'size', 'owner', 'created']
+    metadata: ['rowCount', 'size', 'owner', 'created'],
   },
   {
     id: 'column-folder',
@@ -96,7 +103,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.columns
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY ordinal_position
-    `
+    `,
   },
   {
     id: 'column',
@@ -104,7 +111,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'Hash',
     isContainer: false,
     actions: ['properties'],
-    metadata: ['dataType', 'nullable', 'default', 'isPrimaryKey', 'isForeignKey']
+    metadata: ['dataType', 'nullable', 'default', 'isPrimaryKey', 'isForeignKey'],
   },
   {
     id: 'index-folder',
@@ -118,7 +125,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM pg_indexes
       WHERE schemaname = $1 AND tablename = $2
       ORDER BY indexname
-    `
+    `,
   },
   {
     id: 'index',
@@ -126,7 +133,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'List',
     isContainer: false,
     actions: ['drop'],
-    metadata: ['isUnique', 'isPrimary', 'columns']
+    metadata: ['isUnique', 'isPrimary', 'columns'],
   },
   {
     id: 'constraint-folder',
@@ -140,7 +147,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.table_constraints
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY constraint_name
-    `
+    `,
   },
   {
     id: 'constraint',
@@ -148,7 +155,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'Key',
     isContainer: false,
     actions: ['drop'],
-    metadata: ['constraintType', 'columns']
+    metadata: ['constraintType', 'columns'],
   },
   // 视图
   {
@@ -163,7 +170,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.views 
       WHERE table_schema = $1
       ORDER BY table_name
-    `
+    `,
   },
   {
     id: 'view',
@@ -172,7 +179,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     isContainer: false,
     children: ['column-folder'],
     actions: ['query', 'design', 'drop'],
-    metadata: ['definition', 'owner']
+    metadata: ['definition', 'owner'],
   },
   // 函数
   {
@@ -187,7 +194,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.routines
       WHERE routine_schema = $1 AND routine_type = 'FUNCTION'
       ORDER BY routine_name
-    `
+    `,
   },
   {
     id: 'function',
@@ -195,7 +202,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'FunctionSquare',
     isContainer: false,
     actions: ['execute', 'edit', 'drop'],
-    metadata: ['returnType', 'arguments', 'language']
+    metadata: ['returnType', 'arguments', 'language'],
   },
   // 存储过程
   {
@@ -210,7 +217,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.routines
       WHERE routine_schema = $1 AND routine_type = 'PROCEDURE'
       ORDER BY routine_name
-    `
+    `,
   },
   {
     id: 'procedure',
@@ -218,7 +225,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'Workflow',
     isContainer: false,
     actions: ['execute', 'edit', 'drop'],
-    metadata: ['arguments', 'language']
+    metadata: ['arguments', 'language'],
   },
   // 序列
   {
@@ -233,7 +240,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.sequences
       WHERE sequence_schema = $1
       ORDER BY sequence_name
-    `
+    `,
   },
   {
     id: 'sequence',
@@ -241,7 +248,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'ArrowRightLeft',
     isContainer: false,
     actions: ['properties', 'drop'],
-    metadata: ['startValue', 'increment', 'minValue', 'maxValue', 'currentValue']
+    metadata: ['startValue', 'increment', 'minValue', 'maxValue', 'currentValue'],
   },
   // 自定义类型
   {
@@ -257,7 +264,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       JOIN pg_namespace n ON t.typnamespace = n.oid
       WHERE n.nspname = $1 AND t.typtype = 'c'
       ORDER BY typname
-    `
+    `,
   },
   {
     id: 'type',
@@ -265,7 +272,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'Type',
     isContainer: false,
     actions: ['properties', 'drop'],
-    metadata: ['type', 'attributes']
+    metadata: ['type', 'attributes'],
   },
   // 触发器
   {
@@ -280,7 +287,7 @@ const postgresNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.triggers
       WHERE event_object_schema = $1 AND event_object_table = $2
       ORDER BY trigger_name
-    `
+    `,
   },
   {
     id: 'trigger',
@@ -288,8 +295,8 @@ const postgresNodeTypes: NodeTypeConfig[] = [
     icon: 'Zap',
     isContainer: false,
     actions: ['enable', 'disable', 'drop'],
-    metadata: ['event', 'timing', 'action']
-  }
+    metadata: ['event', 'timing', 'action'],
+  },
 ]
 
 // PostgreSQL 元数据配置
@@ -298,7 +305,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
   id: 'postgresql',
   name: 'PostgreSQL',
   version: '14.0+',
-  
+
   // 支持的节点类型
   supportedNodeTypes: [
     'connection',
@@ -313,7 +320,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
     'column',
     'index',
     'constraint',
-    'trigger'
+    'trigger',
   ],
 
   // 标签页配置
@@ -322,7 +329,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
     { id: 'columns', label: '列', icon: 'Columns' },
     { id: 'indexes', label: '索引', icon: 'List' },
     { id: 'ddl', label: 'DDL', icon: 'Code' },
-    { id: 'data', label: '数据', icon: 'Table2' }
+    { id: 'data', label: '数据', icon: 'Table2' },
   ],
 
   // 节点类型配置
@@ -338,7 +345,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
     { level: 5, type: 'table-folder' },
     { level: 6, type: 'table' },
     { level: 7, type: 'column-folder' },
-    { level: 8, type: 'column' }
+    { level: 8, type: 'column' },
   ],
 
   // 功能特性
@@ -354,7 +361,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
     supportsSequence: true,
     supportsCustomType: true,
     supportsPartition: true,
-    supportsInheritance: true
+    supportsInheritance: true,
   },
 
   // 默认查询
@@ -392,7 +399,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
         pg_size_pretty(pg_total_relation_size(relid)) as size
       FROM pg_stat_user_tables
       WHERE schemaname = $1 AND relname = $2
-    `
+    `,
   },
 
   // 属性面板配置
@@ -404,7 +411,7 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
         { id: 'columns', label: '列', icon: 'Columns' },
         { id: 'indexes', label: '索引', icon: 'List' },
         { id: 'ddl', label: 'DDL', icon: 'Code' },
-        { id: 'data', label: '数据', icon: 'Table2' }
+        { id: 'data', label: '数据', icon: 'Table2' },
       ],
       generalFields: [
         { key: 'name', label: '表名', type: 'text' },
@@ -412,36 +419,34 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
         { key: 'rowCount', label: '行数', type: 'number' },
         { key: 'dataSize', label: '数据大小', type: 'size' },
         { key: 'createdAt', label: '创建时间', type: 'datetime' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
     },
     view: {
       tabs: [
         { id: 'general', label: '通用', icon: 'Info', default: true },
         { id: 'columns', label: '列', icon: 'Columns' },
         { id: 'ddl', label: 'DDL', icon: 'Code' },
-        { id: 'data', label: '数据', icon: 'Table2' }
+        { id: 'data', label: '数据', icon: 'Table2' },
       ],
       generalFields: [
         { key: 'name', label: '视图名', type: 'text' },
         { key: 'schema', label: '模式', type: 'text' },
         { key: 'createdAt', label: '创建时间', type: 'datetime' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
     },
     column: {
-      tabs: [
-        { id: 'general', label: '通用', icon: 'Info', default: true }
-      ],
+      tabs: [{ id: 'general', label: '通用', icon: 'Info', default: true }],
       generalFields: [
         { key: 'name', label: '列名', type: 'text' },
         { key: 'dataType', label: '数据类型', type: 'text' },
         { key: 'nullable', label: '可空', type: 'boolean' },
         { key: 'defaultValue', label: '默认值', type: 'text' },
         { key: 'isPrimaryKey', label: '主键', type: 'boolean' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
-    }
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
+    },
   },
 
   // 图标映射
@@ -458,6 +463,6 @@ export const PostgresMetaConfig: DatabaseMetaConfig = {
     column: 'Hash',
     index: 'List',
     constraint: 'Key',
-    trigger: 'Zap'
-  }
+    trigger: 'Zap',
+  },
 }

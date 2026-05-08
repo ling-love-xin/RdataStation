@@ -112,7 +112,7 @@ class IndexConstraintCacheManager {
       indexes,
       constraints,
       lastSync: Date.now(),
-      isValid: true
+      isValid: true,
     })
 
     cacheStateManager.markValid(
@@ -143,7 +143,7 @@ class IndexConstraintCacheManager {
       connectionId,
       databaseName: dbName,
       schemaName,
-      tableName
+      tableName,
     })
   }
 
@@ -205,12 +205,7 @@ export function useIndexConstraintCache() {
     tableName: string,
     projectPath?: string
   ): Promise<{ indexes: IndexMeta[]; constraints: ConstraintMeta[] }> {
-    const cached = indexConstraintCacheManager.getCache(
-      connectionId,
-      dbName,
-      schemaName,
-      tableName
-    )
+    const cached = indexConstraintCacheManager.getCache(connectionId, dbName, schemaName, tableName)
 
     if (cached) {
       return { indexes: cached.indexes, constraints: cached.constraints }
@@ -221,7 +216,7 @@ export function useIndexConstraintCache() {
 
       const [indexes, constraints] = await Promise.all([
         loadIndexes(connectionId, dbName, schemaName || '', tableName),
-        loadConstraints(connectionId, dbName, schemaName || '', tableName)
+        loadConstraints(connectionId, dbName, schemaName || '', tableName),
       ])
 
       const indexMetas: IndexMeta[] = indexes.map(idx => ({
@@ -231,8 +226,8 @@ export function useIndexConstraintCache() {
         columns: idx.columns || [],
         isUnique: idx.isUnique || false,
         isPrimary: idx.isPrimary || false,
-        type: (idx as unknown as Record<string, unknown>).type as string || 'BTREE',
-        comment: (idx as unknown as Record<string, unknown>).comment as string || null
+        type: ((idx as unknown as Record<string, unknown>).type as string) || 'BTREE',
+        comment: ((idx as unknown as Record<string, unknown>).comment as string) || null,
       }))
 
       const constraintMetas: ConstraintMeta[] = constraints.map(con => ({
@@ -241,9 +236,13 @@ export function useIndexConstraintCache() {
         tableName,
         type: con.type as ConstraintMeta['type'],
         columns: con.columns || [],
-        referencedTable: (con as unknown as Record<string, unknown>).referenced_table as string | undefined,
-        referencedColumns: (con as unknown as Record<string, unknown>).referenced_columns as string[] | undefined,
-        comment: (con as unknown as Record<string, unknown>).comment as string || null
+        referencedTable: (con as unknown as Record<string, unknown>).referenced_table as
+          | string
+          | undefined,
+        referencedColumns: (con as unknown as Record<string, unknown>).referenced_columns as
+          | string[]
+          | undefined,
+        comment: ((con as unknown as Record<string, unknown>).comment as string) || null,
       }))
 
       indexConstraintCacheManager.setCache(
@@ -273,12 +272,7 @@ export function useIndexConstraintCache() {
     tableName: string,
     projectPath?: string
   ): Promise<{ indexes: IndexMeta[]; constraints: ConstraintMeta[] }> {
-    indexConstraintCacheManager.invalidateCache(
-      connectionId,
-      dbName,
-      schemaName,
-      tableName
-    )
+    indexConstraintCacheManager.invalidateCache(connectionId, dbName, schemaName, tableName)
 
     return loadAndCacheIndexConstraint(
       connectionId,
@@ -299,12 +293,7 @@ export function useIndexConstraintCache() {
     schemaName: string | undefined,
     tableName: string
   ): IndexMeta[] {
-    const cached = indexConstraintCacheManager.getCache(
-      connectionId,
-      dbName,
-      schemaName,
-      tableName
-    )
+    const cached = indexConstraintCacheManager.getCache(connectionId, dbName, schemaName, tableName)
 
     return cached?.indexes || []
   }
@@ -318,12 +307,7 @@ export function useIndexConstraintCache() {
     schemaName: string | undefined,
     tableName: string
   ): ConstraintMeta[] {
-    const cached = indexConstraintCacheManager.getCache(
-      connectionId,
-      dbName,
-      schemaName,
-      tableName
-    )
+    const cached = indexConstraintCacheManager.getCache(connectionId, dbName, schemaName, tableName)
 
     return cached?.constraints || []
   }
@@ -333,6 +317,6 @@ export function useIndexConstraintCache() {
     refreshIndexConstraint,
     getTableIndexes,
     getTableConstraints,
-    cacheManager: indexConstraintCacheManager
+    cacheManager: indexConstraintCacheManager,
   }
 }

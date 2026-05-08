@@ -150,7 +150,7 @@ export const NODE_TYPE_MAP: Record<string, string> = {
   procedure: 'procedure',
   function: 'function',
   procedures: 'folder',
-  functions: 'folder'
+  functions: 'folder',
 }
 
 export const NODE_TYPE_ICONS: Record<string, string> = {
@@ -162,7 +162,7 @@ export const NODE_TYPE_ICONS: Record<string, string> = {
   column: 'Columns',
   folder: 'FolderOpen',
   procedure: 'Code',
-  function: 'FunctionSquare'
+  function: 'FunctionSquare',
 }
 
 export const NODE_TYPE_COLORS: Record<string, string> = {
@@ -174,5 +174,5 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   column: '#6b7280',
   folder: '#f59e0b',
   procedure: '#ef4444',
-  function: '#14b8a6'
+  function: '#14b8a6',
 }

@@ -1,4 +1,3 @@
-
 import type { DriverFormSchema } from '../types/form-schema'
 
 export { generateDefaultFormData, validateFormData } from '../types/form-schema'

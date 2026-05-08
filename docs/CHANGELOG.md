@@ -1,10 +1,7 @@
 # RdataStation 变更日志
 
-> 版本：v2.5
-> 最后更新：2026-05-07
-> 状态：📋 持续更新
-
----
+> 版本：v2.5.11
+> 最后更新：2026-05-08
 
 ## 目录
 
@@ -15,6 +12,259 @@
 ---
 
 ## 项目变更日志
+
+### [v2.5.11] - 2026-05-08
+
+#### ⚡️ 性能优化
+
+- **SettingsPanel `saveBatch` 批写** — `applyAllSettings()` 从 4 次并行 `saveConfig`（4 次独立 `store.save()` I/O）改为 1 次 `saveBatch` 调用（1 次 I/O），`resetToDefault()` 同步受益
+
+#### 🧹 代码清理
+
+- **移除 `SeedEntry` 死导出** — 接口仅在 config.ts 内部使用，无外部文件导入
+- **移除 `ui.ts` `initTheme()` 死函数** — 无任何调用方，仅为 `applyTheme()` 一层包装。`applyTheme()` 已在 `main.ts` 和 `setTheme`/`toggleTheme` 中直接调用
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.11 条目
+- **CONFIG-PROGRESS.md v1.9** — 进度 50%→51%
+
+---
+
+### [v2.5.10] - 2026-05-08
+
+#### 🐛 Bug 修复
+
+- **saveBatch `written` 未声明** — 批量写入时 `written` 数组使用前未 `const` 声明，运行时会抛 `ReferenceError`。已在 try 块前补全 `const written: BatchSaveEntry[] = []`
+
+#### 🧹 代码清理
+
+- **移除 `ConfigOverrideRule` 死导出** — 接口仅在 config.ts 内部 `satisfies` 子句使用，从未被外部文件导入
+- **移除 `ui.ts` Theme 死重导出** — `export type { Theme }` 无任何文件引用。各消费方已直接从 `@/stores/config` 导入
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.10 条目
+- **CONFIG-PROGRESS.md v1.8** — 进度 49%→50%
+
+---
+
+### [v2.5.9] - 2026-05-08
+
+#### 🧹 代码清理
+
+- **移除 `GlobalConfigParsed` 死导出** — 类型从未被外部导入，仅 `z.infer<>` 定义未消费
+- **main.ts 适配 `openProject` 新签名** — `.catch()` 冗余回调 → `const result = await` + 检查 `result.success` + 使用 `result.error`
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.9 条目
+- **CONFIG-PROGRESS.md v1.7** — 进度 48%→49%
+
+---
+
+### [v2.5.8] - 2026-05-08
+
+#### 🛡️ 安全加固
+
+- **saveBatch 写入校验** — 补全 `VALUE_SCHEMAS` 验证，与 `saveConfig` 保持一致。校验失败条目单独返回 `SaveResult.error`，仅写入通过校验的条目，`onConfigChanged` 仅对实际写入的条目触发
+- **reloadConfig 补全 `_schemaVersion`** — 新增版本检测 + `migrateConfig()` 调用，与 `initialize()` 行为一致。外部手动升级 JSON 文件后 `reloadConfig()` 可正确触发迁移
+
+#### 🟢 代码质量
+
+- **SeedEntry.key 收窄为 `ConfigKey`** — `interface SeedEntry { key: ConfigKey }` 替代 `{ key: string }`，消除 `resetToFactory` 中 2 处 `key as ConfigKey` 类型断言
+- **openProject 返回有意义结果** — `Promise<void>` → `Promise<{ success: boolean; error?: string }>`，调用方可通过 `result.success` 感知打开成功/失败
+- **config.ts MIGRATIONS 示例注释** — 新增 `@example` 展示如何为 `SCHEMA_VERSION` 升级编写迁移函数
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.8 条目
+- **CONFIG-PROGRESS.md v1.6** — 进度 46%→48%，1.15 优化轮 v8 明细
+
+---
+
+### [v2.5.7] - 2026-05-08
+
+#### 🟡 功能补全
+
+- **SettingsPanel store → 本地状态响应式同步** — 新增 4 个 `watch`：`effectiveTheme`/`effectiveLanguage`/`effectiveEditorSettings`/`effectiveDefaultEngine` 变化时自动同步 `localTheme`/`localLanguage`/`localEditorSettings`/`localDefaultEngine`。快捷键切主题等外部变更即时反映到设置面板
+- **SettingsPanel 补全 `fontFamily` 控件** — 编辑器设置区域新增字体族文本输入框，填平 `EditorSettings.fontFamily` 有类型定义无 UI 的缺口
+
+#### 🟢 代码质量
+
+- **SettingsPanel 区分本地重置 / 出厂重置** — 新增 `resetToFactory()` 按钮，调用 `appStore.resetToFactory()` 清除 JSON 文件后同步本地状态，与原 `resetToDefault()`（仅重置本地+写入）区分开
+- **`settings.resetFactory` i18n 键** — `zh-CN`: "出厂重置", `en`: "Factory Reset"
+- **`settings.fontFamily` / `settings.fontFamilyHint` i18n 键** — `zh-CN`: "字体" / "Monaco Editor 等宽字体", `en`: "Font Family" / "Monaco Editor monospace font"
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.7 条目
+- **CONFIG-PROGRESS.md v1.5** — 进度 44%→46%，1.14 优化轮 v7 明细
+
+---
+
+### [v2.5.6] - 2026-05-08
+
+#### 🔴 Bug 修复
+
+- **workbench SettingsPanel `useAppStore()` 反模式** — `saveSettings()` / `loadSettings()` 中在函数内调用 `useAppStore()`（Pinia 反模式），改为模块顶层单次调用 + 移除静默吞错的 try/catch
+
+#### 🟡 功能补全
+
+- **settings SettingsPanel `resetToDefault()` 使用 config 常量** — 不再硬编码 9 个默认值，改为引用 `DEFAULT_GLOBAL_CONFIG` + `DEFAULT_EDITOR_SETTINGS`，单一事实来源
+- **settings SettingsPanel `applyAllSettings()` SaveResult 反馈** — 改为 `Promise.all()` 并行写入 + 收集失败项并 `console.error`，替代先前串行忽略返回值
+
+#### 🟢 代码质量
+
+- **ui.ts `SIDEBAR_WIDTH_MIN/MAX` 消除魔数** — `setSidebarWidth()` 改为引用 `config.ts` 导出常量，替代硬编码 `200` / `400`
+- **SIDEBAR_WIDTH_MIN/MAX 导出** — `config.ts` 新增导出，供其他 store/组件复用
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.6 条目
+- **CONFIG-PROGRESS.md v1.4** — 新增 1.13 优化轮 v6 明细，T24 追加子项
+- **CONFIG-API.md v1.3** — 补充 SIDEBAR_WIDTH_MIN/MAX API
+- **stores/README.md** — 自维护特性表不变，左侧导航示例补充常量引用
+
+---
+
+### [v2.5.5] - 2026-05-08
+
+#### 🏗️ 架构改进
+
+- **T22: ConfigValueType 从 CONFIG_REGISTRY 自动派生** — 新增 `writeType` 字段到注册表条目，`ConfigValueType<K>` 改为 `(typeof CONFIG_REGISTRY)[K]['writeType']`，消除 7 分支硬编码条件类型。新增配置键只需添加注册表条目，类型映射自动生效
+- **T21: Schema 版本迁移函数** — 新增 `MIGRATIONS` 注册表 + `migrateConfig(fromVersion, data)` 函数，`initialize()` 在检测到旧版本时自动运行迁移链。首次启动无历史版本无需迁移
+- **原子 zod schemas 提取** — 新增 `ThemeSchema` / `LanguageSchema` / `DefaultEngineSchema` / `DockviewLayoutSchema` / `SidebarStateSchema` / `RecentProjectsSchema` / `SerializedPanelStateSchema`，被 `GlobalConfigSchema` / `ProjectConfigSchema` 组合复用
+
+#### 🛡️ 安全加固
+
+- **saveConfig 写入时 zod 校验** — 每次写入前通过 `VALUE_SCHEMAS` 校验值合法性，editorSettings 项目 scope 使用 `partial()` 校验。写入非法值直接拒绝并返回 `SaveResult.error`，不再静默存入 JSON 文件
+- **VALUE_SCHEMAS 查找表** — 从 CONFIG_REGISTRY 自动派生 `ValueSchemaLookup`，供 saveConfig / saveBatch 写入校验使用
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.5.5 条目
+- **CONFIG-PROGRESS.md v1.3** — 总进度 40%→42%，T21/T22 标记完成，新增 1.12 优化轮 v5 明细
+- **CONFIG-API.md v1.2** — writeType 派生说明 / 写入校验行为 / migrateConfig / VALUE_SCHEMAS
+- **stores/README.md v1.1** — 自维护特性表新增：写入校验 / Schema 迁移
+- **CONFIG-SYSTEM.md v1.3** — 故障排查新增 Q6（写入校验拒绝），变更历史追加 v1.3
+
+---
+
+### [v2.5.4] - 2026-05-08
+
+#### 🔴 Bug 修复
+
+- **openProject 异常设 projectOpen=true** — catch 分支不再标记项目已打开，改为重置 `projectStoreRef` / `projectPath` / `projectOpen` 为 null/false
+- **autoSaveTimer 未取消** — `closeProject()` 新增 `cancelAutoSaveTimer()` 调用，避免关闭后残留定时器
+
+#### 🟡 功能补全
+
+- **reloadConfig zod 校验** — 从 JSON 重新读取后执行逐字段 zod 校验，与 `initialize()` 一致，防止手动破坏 JSON 导致静默数据损坏
+- **beforeunload 退出保存** — `initialize()` 注册 `window.beforeunload` 事件，退出时取消 autoSaveTimer 并同步保存 global/project store，确保 500ms 内的修改不丢失
+- **initError 可关闭** — `NAlert` 新增 `closable` + `@close` 回调，用户可手动关闭错误横幅；新增 `clearInitError()` 方法
+
+#### 🟢 代码质量
+
+- **loadStoreWithDefaults 接入** — `initialize()` 和 `reloadConfig()` 统一使用辅助函数，消除 30 行重复内联代码
+- **死代码清理** — 移除 `EditorSettingsParsed` 未使用类型导出、`RESERVED_KEYS` 未使用常量导出
+- **saveBatch 审计完整** — 成功保存后调用 `onConfigChanged`，补全审计链路盲区
+- **safeErrorMessage 提取** — `e instanceof Error ? e.message : String(e)` 提取为公共工具函数
+- **globalConfig/projectConfig 只读暴露** — 返回 `readonly(ref)` 包装，防止组件绕过 `saveConfig` 直接写内存
+- **initialized/initError/projectOpen/projectPath 只读暴露** — 状态字段统一 `readonly()` 包装
+- **setConfigChangeHandler 公开** — 替换原 `const onConfigChanged = null` 写死变量，允许外部注入审计 handler
+
+#### 📝 文档
+
+- **INDEX.md** — 快速查找表新增 `Store 架构/数据流` 条目 → [stores/README.md](../../src/stores/README.md)
+- **i18n locale** — `zh-CN.json` / `en.json` 新增 `config.initError.title` / `config.initError.hint` 键
+- **CONFIG-SYSTEM.md v1.2** — 新增故障排查章节（5 个 FAQ）：配置丢失 / 组件未反应 / 项目覆盖异常 / 退出保存 / 只读报错
+- **CHANGELOG.md** — v2.5.4 条目
+- **CONFIG-PROGRESS.md v1.2** — 进度更新：全局生效 50%→60%、新增 T21-T25 技术债务
+
+---
+
+### [v2.5.3] - 2026-05-08
+
+#### 🔴 Bug 修复
+
+- **单字段校验失败触发全局 reseed** — `initialize()` 改为逐字段 zod sub-schema 校验，一个字段损坏仅 reseed 该字段，其余合法数据保留
+- **`as EditorSettings` 假断言** — `setEditorSettings` project 模式 diff 路径移除类型断言
+
+#### 🟡 功能补全
+
+- **OVERRIDE_RULES 驱动** — `getConfigInternal` 消除硬编码 if-chain，统一由 `OVERRIDE_RULES[key]` 驱动三层 fallback 逻辑
+- **`reloadConfig()`** — 外部修改同步：从 JSON 文件重新读取所有字段 + 逐字段校验，无需重启应用
+
+#### 🟢 代码质量
+
+- **`computeDiff<T>` 泛型提取** — 从 `setEditorSettings` 内联代码抽取为独立泛型深比较工具，可复用
+- **`loadStoreWithDefaults` 辅助函数** — Store 加载 + 逐字段校验 + seed 通用化封装
+- **`onConfigChanged` 审计 hook 占位** — 预留 `ConfigChangeHandler` 类型，迁移 Rust 后端后赋值日志审计函数
+- **auto-persist watcher** — `projectConfig` deep watch + 500ms debounce 自动调用 `projectStore.save()`，无需手动保存
+
+#### 🏗️ 架构改进
+
+- **`resetToFactory` 增强** — 清除 globalStore 前先 `closeProject()`，避免 orphan `projectStoreRef`
+
+#### 🎨 UI 改进
+
+- **initError 横幅** — `App.vue` 新增 `NAlert` 固定顶部显示初始化失败原因，用户可感知配置系统错误
+
+#### 📝 文档
+
+- **stores/README.md** — 新建目录文档：架构位置 / 数据流 / 使用方式 / 迁移路径 / 文件速查 / 自维护特性
+- **CONFIG-PROGRESS.md v1.1** — 更新总进度 25%→37%，阶段四 0%→50%，新增优化轮 v3 16 项明细，新增 T15-T20 技术债务并全部标记完成，新增 4.9 initError UI 任务
+- **CONFIG-API.md v1.1** — 新增第 11 节"新增方法"（`reloadConfig` / `onConfigChanged`），新增第 12 节"自维护特性"（auto-persist / 逐字段校验 / 懒升级 / 事务写入 / 批量 I/O / 外部同步 + `loadStoreWithDefaults` + `computeDiff` API 签名）
+
+---
+
+### [v2.5.2] - 2026-05-07
+
+#### 🔴 Bug 修复
+
+- **系统主题切换不触发 naive-ui 重渲染** — `App.vue` 新增 `systemThemeEpoch` ref，`naiveTheme` computed 依赖 epoch 确保 `matchMedia` 变化时重新求值
+- **dockviewLayout/sidebarState 空对象默认值** — `config.ts` 改为合法默认值 `{ panels: [], activePanel: null }` / `{ collapsed: false, width: 280, activeItem: null }`
+- **closeProject/openProject 主题不回退** — `closeProject()` 末尾 + `openProject()` 成功/失败分支均调用 `applyTheme()`
+
+#### 🟡 功能补全
+
+- **openProject 改用 PROJECT_SEED_KEYS** — 去硬编码，从 CONFIG_REGISTRY 自动派生加载键列表
+- **JSON 运行时校验（zod）** — `config.ts` 新增 `EditorSettingsSchema` / `GlobalConfigSchema` / `ProjectConfigSchema`；`initialize()` 对全局配置 `safeParse`，校验失败自动 reseed；`openProject()` 对项目配置校验，失败则逐字段 partial 加载
+- **恢复出厂设置** — `useAppStore.resetToFactory()` 清除 globalStore 后重新 seed 所有默认值 + 写入 schema 版本
+- **SaveResult 统一返回** — `addRecentProject` / `removeRecentProject` 返回值从 `void` 改为 `Promise<SaveResult>`
+- **初始化失败区分** — `initError: Ref<string | null>` 暴露给 UI 展示错误横幅
+
+#### 🟢 代码质量
+
+- **`deepClone` → `structuredClone`** — 替换 JSON hack，支持 undefined/循环引用安全
+- **`saveConfig` 泛型类型安全** — `<K extends ConfigKey>(key: K, value: ConfigValueType<K>, scope)` 类型映射防止写错类型
+- **批量保存 `saveBatch()`** — 跨 global/project scope 分组，统一一次 `store.save()` 减少文件 I/O
+- **`useUiStore.effectiveTheme` 保持 'system' 语义** — 直接从 appStore 取，不再降级为 'dark'/'light'
+- **`toggleTheme()` 三态循环** — dark → light → system → dark
+- **main.ts 自动打开上次项目** — mount 后读取 `appStore.recentProjects[0]` 调用 `openProject()`
+
+#### 📝 文档
+
+- CHANGELOG.md v2.5.2 条目
+
+---
+
+### [v2.5.1] - 2026-05-07
+
+#### 文档完善
+
+- **`CONFIG-SYSTEM.md` v1.1** — 重写为设计文档：设计目标 / 架构全景图 / 4 个数据流图 / 初始化时序 / 关键设计决策 / 迁移路径细化
+- **`CONFIG-API.md` v1.0** — 新建完整 API 参考：所有类型定义 / 18 个方法完整签名 / SaveResult / JSON 格式规范 / 组件使用示例
+- **`CONFIG-PROGRESS.md` v1.0** — 新建开发进度：4 阶段进度条 / 每阶段任务清单 / 文件影响矩阵 / 5 项技术债务 / 工时预估
+- **`INDEX.md`** — 新增 3 个配置系统条目到目录 + 快速查找表
+
+#### 源码
+
+- **`config.ts`** — 补充完整 JSDoc 注释（模块级 + 类型级 + 常量级）
+- **`useAppStore.ts`** — 补充完整 JSDoc 注释（15 个方法 + 12 个属性 + 模块级数据流/迁移路径说明）
+
+---
 
 ### [v2.5] - 2026-05-07
 
@@ -290,17 +540,17 @@
 
 ### 类型
 
-| 类型 | Emoji | 说明 |
-|------|-------|------|
-| feat | ✨ | 新增功能 |
-| fix | 🐛 | 修复 Bug |
-| docs | 📝 | 文档变更 |
-| refactor | ♻️ | 代码重构 |
-| perf | ⚡️ | 性能优化 |
-| style | 💄 | 格式调整 |
-| test | 🧪 | 测试相关 |
-| build | 📦 | 构建相关 |
-| chore | 🔧 | 杂项配置 |
+| 类型     | Emoji | 说明     |
+| -------- | ----- | -------- |
+| feat     | ✨    | 新增功能 |
+| fix      | 🐛    | 修复 Bug |
+| docs     | 📝    | 文档变更 |
+| refactor | ♻️    | 代码重构 |
+| perf     | ⚡️    | 性能优化 |
+| style    | 💄    | 格式调整 |
+| test     | 🧪    | 测试相关 |
+| build    | 📦    | 构建相关 |
+| chore    | 🔧    | 杂项配置 |
 
 ### 示例
 

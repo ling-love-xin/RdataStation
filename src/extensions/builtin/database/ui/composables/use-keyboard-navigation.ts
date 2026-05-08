@@ -1,6 +1,6 @@
 /**
  * 虚拟树键盘导航
- * 
+ *
  * 支持方向键、Enter、Space 等键盘操作
  */
 
@@ -124,6 +124,6 @@ export function useKeyboardNavigation(options: UseKeyboardNavigationOptions) {
   }
 
   return {
-    handleKeydown
+    handleKeydown,
   }
 }

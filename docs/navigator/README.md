@@ -8,15 +8,15 @@
 
 ## 文档索引
 
-| 文档 | 说明 | 状态 |
-|------|------|------|
-| [01-ARCHITECTURE.md](./01-ARCHITECTURE.md) | 架构设计 | ✅ |
-| [02-DATAFLOW.md](./02-DATAFLOW.md) | 数据流设计 | ✅ |
-| [03-INTERFACES.md](./03-INTERFACES.md) | 接口规范 | ✅ |
-| [04-IMPLEMENTATION.md](./04-IMPLEMENTATION.md) | 实施步骤 | ✅ |
-| [05-OPTIMIZATION.md](./05-OPTIMIZATION.md) | 优化策略 | ✅ |
-| [06-CACHE-OPTIMIZATION.md](./06-CACHE-OPTIMIZATION.md) | 缓存优化（V7 增量同步） | ✅ |
-| [COMPARISON.md](../COMPARISON.md) | 竞品对比分析 | ✅ |
+| 文档                                                   | 说明                    | 状态 |
+| ------------------------------------------------------ | ----------------------- | ---- |
+| [01-ARCHITECTURE.md](./01-ARCHITECTURE.md)             | 架构设计                | ✅   |
+| [02-DATAFLOW.md](./02-DATAFLOW.md)                     | 数据流设计              | ✅   |
+| [03-INTERFACES.md](./03-INTERFACES.md)                 | 接口规范                | ✅   |
+| [04-IMPLEMENTATION.md](./04-IMPLEMENTATION.md)         | 实施步骤                | ✅   |
+| [05-OPTIMIZATION.md](./05-OPTIMIZATION.md)             | 优化策略                | ✅   |
+| [06-CACHE-OPTIMIZATION.md](./06-CACHE-OPTIMIZATION.md) | 缓存优化（V7 增量同步） | ✅   |
+| [COMPARISON.md](../COMPARISON.md)                      | 竞品对比分析            | ✅   |
 
 ## 已知问题
 
@@ -62,18 +62,18 @@
 ```typescript
 import { useNavigator } from './composables/useNavigator'
 
-const { 
-  view,           // 物化视图
-  expand,         // 展开节点
-  search,         // 搜索
-  refresh         // 刷新
+const {
+  view, // 物化视图
+  expand, // 展开节点
+  search, // 搜索
+  refresh, // 刷新
 } = useNavigator({
   connectionId: 'conn_001',
   options: {
     virtualScroll: true,
     incrementalUpdate: true,
-    offlineCache: true
-  }
+    offlineCache: true,
+  },
 })
 ```
 
@@ -113,12 +113,12 @@ const {
 
 ## 性能目标
 
-| 指标 | 目标 | 说明 |
-|------|------|------|
+| 指标     | 目标    | 说明           |
+| -------- | ------- | -------------- |
 | 初始加载 | < 100ms | 从本地缓存加载 |
-| 滚动性能 | 60fps | 虚拟滚动 |
-| 搜索响应 | < 50ms | 增量索引 |
-| 内存占用 | < 50MB | 视口内数据 |
+| 滚动性能 | 60fps   | 虚拟滚动       |
+| 搜索响应 | < 50ms  | 增量索引       |
+| 内存占用 | < 50MB  | 视口内数据     |
 | 实时延迟 | < 100ms | WebSocket 推送 |
 
 ## 相关资源

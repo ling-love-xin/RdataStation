@@ -10,22 +10,22 @@
 
 ## 一、变更概览
 
-| 数据库 | 表名 | 变更次数 | 当前版本 | 主要变更 |
-|--------|------|---------|---------|---------|
-| 项目 SQLite | connections | 7 | v1.7 | 恢复 schema_name/use_duckdb_fed/metadata_path，支持 DuckDB 联邦分析 |
-| 全局 SQLite | global_connections | 6 | v1.6 | 恢复 schema_name/use_duckdb_fed/metadata_path，支持 DuckDB 联邦分析 |
-| 项目 SQLite | query_history | 3 | v2.0 | 重构为完整查询历史表，支持 exec_mode/category/sql_hash/is_pinned |
-| 项目 SQLite | sql_history | 2 | v1.2 | 改为 query_history 的兼容视图 |
-| 全局 SQLite | project_info | 2 | v1.2 | 新增 last_opened_at 字段 |
-| 项目 SQLite | project_settings | 1 | v1.0 | 无变更 |
-| 项目 SQLite | workbench_state | 1 | v1.0 | 无变更 |
-| 全局 SQLite | navigator_states | 1 | v1.0 | 无变更 |
-| 全局 SQLite | favorite_objects | 1 | v1.0 | 无变更 |
-| 全局 SQLite | plugins | 1 | v1.0 | 无变更 |
-| 项目 DuckDB | query_results | 1 | v1.0 | 无变更 |
-| 项目 DuckDB | analytics | 1 | v1.0 | 无变更 |
-| 连接元数据 | metadata | 1 | v1.0 | 无变更 |
-| 连接元数据 | sync_log | 1 | v1.0 | 无变更 |
+| 数据库      | 表名               | 变更次数 | 当前版本 | 主要变更                                                            |
+| ----------- | ------------------ | -------- | -------- | ------------------------------------------------------------------- |
+| 项目 SQLite | connections        | 7        | v1.7     | 恢复 schema_name/use_duckdb_fed/metadata_path，支持 DuckDB 联邦分析 |
+| 全局 SQLite | global_connections | 6        | v1.6     | 恢复 schema_name/use_duckdb_fed/metadata_path，支持 DuckDB 联邦分析 |
+| 项目 SQLite | query_history      | 3        | v2.0     | 重构为完整查询历史表，支持 exec_mode/category/sql_hash/is_pinned    |
+| 项目 SQLite | sql_history        | 2        | v1.2     | 改为 query_history 的兼容视图                                       |
+| 全局 SQLite | project_info       | 2        | v1.2     | 新增 last_opened_at 字段                                            |
+| 项目 SQLite | project_settings   | 1        | v1.0     | 无变更                                                              |
+| 项目 SQLite | workbench_state    | 1        | v1.0     | 无变更                                                              |
+| 全局 SQLite | navigator_states   | 1        | v1.0     | 无变更                                                              |
+| 全局 SQLite | favorite_objects   | 1        | v1.0     | 无变更                                                              |
+| 全局 SQLite | plugins            | 1        | v1.0     | 无变更                                                              |
+| 项目 DuckDB | query_results      | 1        | v1.0     | 无变更                                                              |
+| 项目 DuckDB | analytics          | 1        | v1.0     | 无变更                                                              |
+| 连接元数据  | metadata           | 1        | v1.0     | 无变更                                                              |
+| 连接元数据  | sync_log           | 1        | v1.0     | 无变更                                                              |
 
 ---
 
@@ -38,6 +38,7 @@
 **变更次数**: 4 次
 
 #### 版本 v1.0 - 初始版本
+
 ```sql
 CREATE TABLE connections (
     id          TEXT PRIMARY KEY,
@@ -55,48 +56,58 @@ CREATE TABLE connections (
 ```
 
 **变更说明**:
+
 - 使用 `db_type` 字段表示数据库类型
 - 密码字段为明文 `password`
 - 无标签、无激活状态控制
 
 #### 版本 v1.1 - 密码加密支持
+
 ```sql
 ALTER TABLE connections RENAME COLUMN password TO password_encrypted;
 ```
 
 **变更说明**:
+
 - 将 `password` 重命名为 `password_encrypted`
 - 为后续加密存储做准备
 
 #### 版本 v1.2 - 字段名统一
+
 ```sql
 ALTER TABLE connections RENAME COLUMN db_type TO driver;
 ```
 
 **变更说明**:
+
 - 将 `db_type` 重命名为 `driver`
 - 与全局 `global_connections` 表保持一致
 - 原因：`driver` 更符合驱动选型的语义
 
 #### 版本 v1.3 - 标签支持
+
 ```sql
 ALTER TABLE connections ADD COLUMN tags TEXT;
 ```
 
 **变更说明**:
+
 - 新增 `tags` 字段（JSON 数组字符串）
 - 用于标识连接的分类（如 "全局"、"项目"、"生产" 等）
 
 #### 版本 v1.4 - 激活状态控制
+
 ```sql
 ALTER TABLE connections ADD COLUMN is_active BOOLEAN DEFAULT 1;
 ```
 
 **变更说明**:
+
 - 新增 `is_active` 字段
 - 用于软删除和连接启用/禁用控制
 
 #### 当前版本（v1.4 - 最终）
+
 ```sql
 CREATE TABLE IF NOT EXISTS connections (
     id                 TEXT PRIMARY KEY,
@@ -120,36 +131,43 @@ CREATE INDEX IF NOT EXISTS idx_connections_updated ON connections(updated_at DES
 ```
 
 #### 版本 v1.5 - 恢复 Schema 名
+
 ```sql
 ALTER TABLE connections ADD COLUMN schema_name TEXT;
 ```
 
 **变更说明**:
+
 - 恢复 `schema_name` 字段
 - 用于记录 PostgreSQL/Oracle 等多 Schema 数据库的默认 Schema
 - 原因：用户在切换项目时需要记住最后使用的 Schema
 
 #### 版本 v1.6 - 恢复 DuckDB 联邦分析开关
+
 ```sql
 ALTER TABLE connections ADD COLUMN use_duckdb_fed BOOLEAN DEFAULT 0;
 ```
 
 **变更说明**:
+
 - 恢复 `use_duckdb_fed` 字段
 - **核心功能**：标记该连接是否启用 DuckDB 联邦查询
 - 用于加速分析查询，将外部数据源导入 DuckDB 进行高性能分析
 
 #### 版本 v1.7 - 恢复元数据缓存路径
+
 ```sql
 ALTER TABLE connections ADD COLUMN metadata_path TEXT;
 ```
 
 **变更说明**:
+
 - 恢复 `metadata_path` 字段
 - 记录每个连接的元数据缓存文件路径
 - 元数据包括：表/列/索引信息，存储在独立的 SQLite 文件中
 
 #### 当前版本（v1.7 - 最终）
+
 ```sql
 CREATE TABLE IF NOT EXISTS connections (
     id                 TEXT PRIMARY KEY,
@@ -185,6 +203,7 @@ CREATE INDEX IF NOT EXISTS idx_connections_duckdb_fed ON connections(use_duckdb_
 **变更次数**: 3 次
 
 #### 版本 v1.0 - 初始版本
+
 ```sql
 CREATE TABLE global_connections (
     id          TEXT PRIMARY KEY,
@@ -202,21 +221,25 @@ CREATE TABLE global_connections (
 ```
 
 #### 版本 v1.1 - 密码加密支持
+
 ```sql
 ALTER TABLE global_connections RENAME COLUMN password TO password_encrypted;
 ```
 
 #### 版本 v1.2 - 标签支持
+
 ```sql
 ALTER TABLE global_connections ADD COLUMN tags TEXT;
 ```
 
 #### 版本 v1.3 - 激活状态控制
+
 ```sql
 ALTER TABLE global_connections ADD COLUMN is_active BOOLEAN DEFAULT 1;
 ```
 
 #### 当前版本（v1.3 - 最终）
+
 ```sql
 CREATE TABLE IF NOT EXISTS global_connections (
     id                 TEXT PRIMARY KEY,
@@ -240,36 +263,43 @@ CREATE INDEX IF NOT EXISTS idx_global_connections_updated ON global_connections(
 ```
 
 #### 版本 v1.4 - 恢复 Schema 名
+
 ```sql
 ALTER TABLE global_connections ADD COLUMN schema_name TEXT;
 ```
 
 **变更说明**:
+
 - 恢复 `schema_name` 字段
 - 用于记录 PostgreSQL/Oracle 等多 Schema 数据库的默认 Schema
 
 #### 版本 v1.5 - 恢复 DuckDB 联邦分析开关
+
 ```sql
 ALTER TABLE global_connections ADD COLUMN use_duckdb_fed BOOLEAN DEFAULT 0;
 ```
 
 **变更说明**:
+
 - 恢复 `use_duckdb_fed` 字段
 - **核心功能**：标记该连接是否启用 DuckDB 联邦查询
 - 全局连接同样需要支持 DuckDB 联邦分析
 
 #### 版本 v1.6 - 恢复元数据缓存路径
+
 ```sql
 ALTER TABLE global_connections ADD COLUMN metadata_path TEXT;
 ```
 
 **变更说明**:
+
 - 恢复 `metadata_path` 字段
 - 记录全局连接的元数据缓存文件路径
 - **相对路径**：相对于全局数据目录（如 `metadata/{conn_id}.db`）
 - 项目连接的 `metadata_path` 相对于项目根目录（如 `project_metadata/{conn_id}.db`）
 
 #### 当前版本（v1.6 - 最终）
+
 ```sql
 CREATE TABLE IF NOT EXISTS global_connections (
     id                 TEXT PRIMARY KEY,
@@ -305,6 +335,7 @@ CREATE INDEX IF NOT EXISTS idx_global_connections_duckdb_fed ON global_connectio
 **变更次数**: 3 次
 
 #### 版本 v1.0 - 初始版本（sql_history）
+
 ```sql
 CREATE TABLE sql_history (
     id                TEXT PRIMARY KEY,
@@ -319,15 +350,18 @@ CREATE TABLE sql_history (
 ```
 
 #### 版本 v1.1 - 收藏支持
+
 ```sql
 ALTER TABLE sql_history ADD COLUMN is_favorite BOOLEAN DEFAULT 0;
 ```
 
 **变更说明**:
+
 - 新增 `is_favorite` 字段
 - 支持用户收藏常用的 SQL 语句
 
 #### 版本 v2.0 - 重构为 query_history（企业级）
+
 ```sql
 -- 重命名旧表
 ALTER TABLE sql_history RENAME TO sql_history_old;
@@ -361,7 +395,7 @@ CREATE INDEX IF NOT EXISTS idx_qh_pinned ON query_history(is_pinned);
 
 -- 创建兼容视图（保持旧代码兼容）
 CREATE VIEW IF NOT EXISTS sql_history AS
-SELECT 
+SELECT
     id,
     connection_id,
     sql AS sql_text,
@@ -374,6 +408,7 @@ FROM query_history;
 ```
 
 **变更说明**:
+
 - 重构为完整的查询历史表，支持企业级功能
 - 新增字段：
   - `database_name`: 执行时使用的数据库
@@ -388,6 +423,7 @@ FROM query_history;
 - 创建 `sql_history` 兼容视图，确保旧代码无需修改
 
 #### 当前版本（v2.0 - 最终）
+
 ```sql
 CREATE TABLE IF NOT EXISTS query_history (
     id              TEXT PRIMARY KEY,
@@ -416,7 +452,7 @@ CREATE INDEX IF NOT EXISTS idx_qh_pinned ON query_history(is_pinned);
 
 -- 兼容视图
 CREATE VIEW IF NOT EXISTS sql_history AS
-SELECT 
+SELECT
     id,
     connection_id,
     sql AS sql_text,
@@ -437,6 +473,7 @@ FROM query_history;
 **变更次数**: 2 次
 
 #### 版本 v1.0 - 初始版本
+
 ```sql
 CREATE TABLE project_info (
     id          TEXT PRIMARY KEY,
@@ -450,15 +487,18 @@ CREATE TABLE project_info (
 ```
 
 #### 版本 v1.1 - 最后打开时间
+
 ```sql
 ALTER TABLE project_info ADD COLUMN last_opened_at TIMESTAMP;
 ```
 
 **变更说明**:
+
 - 新增 `last_opened_at` 字段
 - 用于排序最近使用的项目
 
 #### 当前版本（v1.1 - 最终）
+
 ```sql
 CREATE TABLE IF NOT EXISTS project_info (
     id              TEXT PRIMARY KEY,
@@ -482,6 +522,7 @@ CREATE INDEX IF NOT EXISTS idx_project_info_status ON project_info(status);
 以下表自创建以来未发生过结构变更：
 
 #### project_settings（项目设置）
+
 ```sql
 CREATE TABLE IF NOT EXISTS project_settings (
     key        TEXT PRIMARY KEY,
@@ -491,6 +532,7 @@ CREATE TABLE IF NOT EXISTS project_settings (
 ```
 
 #### workbench_state（工作台状态）
+
 ```sql
 CREATE TABLE IF NOT EXISTS workbench_state (
     id              TEXT PRIMARY KEY DEFAULT 'default',
@@ -502,6 +544,7 @@ CREATE TABLE IF NOT EXISTS workbench_state (
 ```
 
 #### navigator_states（导航器状态）
+
 ```sql
 CREATE TABLE IF NOT EXISTS navigator_states (
     id              TEXT PRIMARY KEY,
@@ -516,6 +559,7 @@ CREATE INDEX IF NOT EXISTS idx_navigator_states_connection ON navigator_states(c
 ```
 
 #### favorite_objects（收藏对象）
+
 ```sql
 CREATE TABLE IF NOT EXISTS favorite_objects (
     id              TEXT PRIMARY KEY,
@@ -533,6 +577,7 @@ CREATE INDEX IF NOT EXISTS idx_favorite_objects_type ON favorite_objects(object_
 ```
 
 #### plugins（插件注册）
+
 ```sql
 CREATE TABLE IF NOT EXISTS plugins (
     id              TEXT PRIMARY KEY,
@@ -554,6 +599,7 @@ CREATE TABLE IF NOT EXISTS plugins (
 ```
 
 #### query_results（查询结果缓存 - DuckDB）
+
 ```sql
 CREATE TABLE IF NOT EXISTS query_results (
     id                TEXT PRIMARY KEY,
@@ -572,6 +618,7 @@ CREATE INDEX IF NOT EXISTS idx_query_results_hash ON query_results(sql_hash);
 ```
 
 #### analytics（数据分析 - DuckDB）
+
 ```sql
 CREATE TABLE IF NOT EXISTS analytics (
     id                TEXT PRIMARY KEY,
@@ -587,6 +634,7 @@ CREATE INDEX IF NOT EXISTS idx_analytics_source ON analytics(source_connection);
 ```
 
 #### metadata（连接元数据）
+
 ```sql
 CREATE TABLE IF NOT EXISTS metadata (
     id              TEXT PRIMARY KEY,
@@ -612,6 +660,7 @@ CREATE INDEX IF NOT EXISTS idx_meta_table ON metadata(database_name, schema_name
 ```
 
 #### sync_log（元数据同步日志）
+
 ```sql
 CREATE TABLE IF NOT EXISTS sync_log (
     id              TEXT PRIMARY KEY,
@@ -632,12 +681,12 @@ CREATE INDEX IF NOT EXISTS idx_sync_log_success ON sync_log(success);
 
 由于项目经历了多次调整，当前迁移文件与表结构的对应关系如下：
 
-| 迁移文件 | 对应版本 | 说明 |
-|---------|---------|------|
-| `migrations/project_meta/001_init.sql` | v1.4 (connections) | 包含所有最新变更 |
-| `migrations/global/001_init.sql` | v1.3 (global_connections) | 包含所有最新变更 |
-| `migrations/project_analysis/001_init.sql` | v1.0 | 初始版本 |
-| `migrations/connection_metadata/001_init.sql` | v1.0 | 初始版本 |
+| 迁移文件                                      | 对应版本                  | 说明             |
+| --------------------------------------------- | ------------------------- | ---------------- |
+| `migrations/project_meta/001_init.sql`        | v1.4 (connections)        | 包含所有最新变更 |
+| `migrations/global/001_init.sql`              | v1.3 (global_connections) | 包含所有最新变更 |
+| `migrations/project_analysis/001_init.sql`    | v1.0                      | 初始版本         |
+| `migrations/connection_metadata/001_init.sql` | v1.0                      | 初始版本         |
 
 **注意**: 所有迁移文件当前都是 `001_init.sql`，表示这些是完整表结构的定义，而非增量变更。
 
@@ -648,13 +697,17 @@ CREATE INDEX IF NOT EXISTS idx_sync_log_success ON sync_log(success);
 当需要修改表结构时，应遵循以下策略：
 
 ### 4.1 添加新字段
+
 创建新的迁移文件，如 `002_add_new_column.sql`:
+
 ```sql
 ALTER TABLE connections ADD COLUMN new_column TEXT;
 ```
 
 ### 4.2 修改字段类型
+
 创建新的迁移文件，如 `003_modify_column.sql`:
+
 ```sql
 -- SQLite 不支持直接修改列类型，需要重建表
 CREATE TABLE connections_new AS SELECT * FROM connections;
@@ -663,13 +716,17 @@ ALTER TABLE connections_new RENAME TO connections;
 ```
 
 ### 4.3 删除字段
+
 创建新的迁移文件，如 `004_drop_column.sql`:
+
 ```sql
 -- SQLite 不支持直接删除列（3.35.0+ 支持），需要重建表
 ```
 
 ### 4.4 添加索引
+
 创建新的迁移文件，如 `005_add_index.sql`:
+
 ```sql
 CREATE INDEX IF NOT EXISTS idx_connections_name ON connections(name);
 ```
@@ -678,48 +735,50 @@ CREATE INDEX IF NOT EXISTS idx_connections_name ON connections(name);
 
 ## 五、已废弃的字段
 
-| 表名 | 字段名 | 废弃版本 | 替代方案 |
-|------|--------|---------|---------|
-| connections | password | v1.1 | password_encrypted |
-| connections | db_type | v1.2 | driver |
-| global_connections | password | v1.1 | password_encrypted |
+| 表名               | 字段名   | 废弃版本 | 替代方案           |
+| ------------------ | -------- | -------- | ------------------ |
+| connections        | password | v1.1     | password_encrypted |
+| connections        | db_type  | v1.2     | driver             |
+| global_connections | password | v1.1     | password_encrypted |
 
 ---
 
 ## 六、前端 TypeScript 类型对应关系
 
 ### ProjectConnection（前端）
+
 ```typescript
 export interface ProjectConnection {
   id: string
   name: string
-  driver: string              // 对应 driver 字段
-  host?: string               // 对应 host 字段
-  port?: number               // 对应 port 字段
-  database?: string           // 对应 database 字段
-  schema_name?: string        // 对应 schema_name 字段（PostgreSQL/Oracle 等）
-  username?: string           // 对应 username 字段
-  password?: string           // 对应 password_encrypted 字段（传输时）
-  options?: string            // 对应 options 字段
-  tags?: string               // 对应 tags 字段
-  use_duckdb_fed?: boolean    // 对应 use_duckdb_fed 字段（DuckDB 联邦分析开关）
-  metadata_path?: string      // 对应 metadata_path 字段（元数据缓存路径）
-  is_active?: boolean         // 对应 is_active 字段
-  status?: ConnectionStatus   // 运行时状态（不存储）
-  error_message?: string      // 运行时错误（不存储）
-  last_connected_at?: string  // 运行时信息（不存储）
+  driver: string // 对应 driver 字段
+  host?: string // 对应 host 字段
+  port?: number // 对应 port 字段
+  database?: string // 对应 database 字段
+  schema_name?: string // 对应 schema_name 字段（PostgreSQL/Oracle 等）
+  username?: string // 对应 username 字段
+  password?: string // 对应 password_encrypted 字段（传输时）
+  options?: string // 对应 options 字段
+  tags?: string // 对应 tags 字段
+  use_duckdb_fed?: boolean // 对应 use_duckdb_fed 字段（DuckDB 联邦分析开关）
+  metadata_path?: string // 对应 metadata_path 字段（元数据缓存路径）
+  is_active?: boolean // 对应 is_active 字段
+  status?: ConnectionStatus // 运行时状态（不存储）
+  error_message?: string // 运行时错误（不存储）
+  last_connected_at?: string // 运行时信息（不存储）
   created_at: string
   updated_at: string
 }
 ```
 
 ### 字段映射说明
-| 前端字段 | 后端字段 | 说明 |
-|---------|---------|------|
-| driver | driver | 一致 |
-| password | password_encrypted | 前端传输明文，后端加密存储 |
-| schema_name | schema_name | 默认 Schema 名 |
-| use_duckdb_fed | use_duckdb_fed | DuckDB 联邦分析开关 |
-| metadata_path | metadata_path | 元数据缓存文件路径 |
-| status | - | 运行时状态，不持久化 |
-| error_message | - | 运行时错误，不持久化 |
+
+| 前端字段       | 后端字段           | 说明                       |
+| -------------- | ------------------ | -------------------------- |
+| driver         | driver             | 一致                       |
+| password       | password_encrypted | 前端传输明文，后端加密存储 |
+| schema_name    | schema_name        | 默认 Schema 名             |
+| use_duckdb_fed | use_duckdb_fed     | DuckDB 联邦分析开关        |
+| metadata_path  | metadata_path      | 元数据缓存文件路径         |
+| status         | -                  | 运行时状态，不持久化       |
+| error_message  | -                  | 运行时错误，不持久化       |

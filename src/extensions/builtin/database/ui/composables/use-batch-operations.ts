@@ -92,9 +92,7 @@ export function useBatchOperations() {
   }
 
   function getSelectedConnectionIds(): string[] {
-    return selectedNodes.value
-      .filter(key => key.startsWith('conn_'))
-      .map(key => key.split('_')[1])
+    return selectedNodes.value.filter(key => key.startsWith('conn_')).map(key => key.split('_')[1])
   }
 
   return {
@@ -106,6 +104,6 @@ export function useBatchOperations() {
     clearSelection,
     batchRefresh,
     batchDisconnect,
-    getSelectedConnectionIds
+    getSelectedConnectionIds,
   }
 }

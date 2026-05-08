@@ -46,16 +46,20 @@ const layoutStore = useLayoutStore()
 
 const localMaximized = ref(false)
 
-watch(() => p.params, (params) => {
-  if (params?.group?.api) {
-    const groupApi = params.group.api
-    localMaximized.value = groupApi.isMaximized?.() ?? false
-    
-    groupApi.onDidMaximizedChange?.((isMax: boolean) => {
-      localMaximized.value = isMax
-    })
-  }
-}, { immediate: true })
+watch(
+  () => p.params,
+  params => {
+    if (params?.group?.api) {
+      const groupApi = params.group.api
+      localMaximized.value = groupApi.isMaximized?.() ?? false
+
+      groupApi.onDidMaximizedChange?.((isMax: boolean) => {
+        localMaximized.value = isMax
+      })
+    }
+  },
+  { immediate: true }
+)
 
 function getGroup() {
   return p.params?.group
@@ -105,7 +109,7 @@ function handleFloat() {
   const group = getGroup()
   const accessor = getAccessor()
   const api = getApi()
-  
+
   if (isFloating.value) {
     api?.moveTo?.({ position: 'center' })
   } else {
@@ -123,6 +127,6 @@ function handlePin() {
 
 <style scoped>
 .is-pinned {
-  color: var(--primary-color, #165DFF);
+  color: var(--primary-color, #165dff);
 }
 </style>

@@ -36,7 +36,12 @@
         {{ t('resultPanel.groupBy') }}
       </NButton>
       <span class="divider" />
-      <NButton size="tiny" text :title="t('resultPanel.bridgeFilter')" @click="emit('bridgeFilter')">
+      <NButton
+        size="tiny"
+        text
+        :title="t('resultPanel.bridgeFilter')"
+        @click="emit('bridgeFilter')"
+      >
         <template #icon><Zap :size="11" /></template>
         {{ t('resultPanel.bridgeFilter') }}
       </NButton>
@@ -65,18 +70,44 @@ const emit = defineEmits<{
   bridgeFilter: []
 }>()
 
-function onExecute() { emit('execute') }
+function onExecute() {
+  emit('execute')
+}
 </script>
 
 <style scoped>
-.duckdb-analysis-input { padding: 4px 8px; border-bottom: 1px solid var(--border-color, #333); flex-shrink: 0; }
-.filter-row { display: flex; gap: 4px; align-items: flex-start; }
-.action-btns { display: flex; flex-direction: column; gap: 2px; }
-.quick-actions {
-  display: flex; align-items: center; gap: 6px; margin-top: 4px;
-  font-size: 11px; color: var(--text-tertiary, #888);
+.duckdb-analysis-input {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
 }
-.label { white-space: nowrap; }
-.divider { width: 1px; height: 14px; background: var(--border-color, #444); }
-.hint { margin-left: auto; }
+.filter-row {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+.action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+}
+.label {
+  white-space: nowrap;
+}
+.divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-color, #444);
+}
+.hint {
+  margin-left: auto;
+}
 </style>

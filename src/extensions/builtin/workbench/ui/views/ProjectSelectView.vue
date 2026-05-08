@@ -186,7 +186,7 @@ import {
   Zap,
   Shield,
   Layers,
-  X
+  X,
 } from 'lucide-vue-next'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -227,7 +227,7 @@ const recentProjects = computed(() => {
     name: p.name,
     description: p.description,
     path: p.path,
-    lastOpened: new Date(p.updatedAt).getTime()
+    lastOpened: new Date(p.updatedAt).getTime(),
   }))
 })
 
@@ -269,7 +269,7 @@ const openExistingProject = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: t('workbench.selectProjectFolder')
+      title: t('workbench.selectProjectFolder'),
     })
 
     if (selected && typeof selected === 'string') {
@@ -278,7 +278,7 @@ const openExistingProject = async () => {
         id: Date.now().toString(),
         name: projectName,
         path: selected,
-        lastOpened: Date.now()
+        lastOpened: Date.now(),
       }
 
       addToRecentProjects(project)
@@ -299,7 +299,7 @@ const openProject = async (project: Project) => {
 // 进入工作台
 const enterWorkbench = async (project: Project) => {
   console.log('enterWorkbench 被调用:', project)
-  
+
   // 保存到 localStorage
   localStorage.setItem('currentProject', JSON.stringify(project))
 
@@ -311,7 +311,7 @@ const enterWorkbench = async (project: Project) => {
     description: project.description,
     path: project.path,
     createdAt: new Date(project.lastOpened).toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   })
 
   console.log('准备跳转到工作台')
@@ -344,7 +344,7 @@ const browseProjectPath = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: t('workbench.selectProjectPath')
+      title: t('workbench.selectProjectPath'),
     })
 
     if (selected && typeof selected === 'string') {
@@ -379,7 +379,7 @@ const confirmCreateProject = async () => {
         name: result.name,
         description: result.description,
         path: result.path,
-        lastOpened: Date.now()
+        lastOpened: Date.now(),
       }
 
       console.log('准备进入工作台:', project)

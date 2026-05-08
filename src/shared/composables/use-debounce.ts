@@ -27,10 +27,7 @@ export interface UseDebounceReturn<T> {
   cancel: () => void
 }
 
-export function useDebounce<T>(
-  source: WatchSource<T>,
-  delay = 300
-): UseDebounceReturn<T> {
+export function useDebounce<T>(source: WatchSource<T>, delay = 300): UseDebounceReturn<T> {
   const debouncedValue = ref<T>(
     typeof source === 'function' ? (source as () => T)() : (source as Ref<T>).value
   ) as Ref<T>
@@ -48,15 +45,13 @@ export function useDebounce<T>(
 
   function flush() {
     cancel()
-    const value = typeof source === 'function'
-      ? (source as () => T)()
-      : (source as Ref<T>).value
+    const value = typeof source === 'function' ? (source as () => T)() : (source as Ref<T>).value
     debouncedValue.value = value
   }
 
   watch(
     source,
-    (newValue) => {
+    newValue => {
       cancel()
       isDebouncing.value = true
 

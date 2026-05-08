@@ -16,7 +16,9 @@
               :key="type.value"
               class="filter-option"
               :class="{ active: filters.databaseType === type.value }"
-              @click="updateFilter('databaseType', filters.databaseType === type.value ? '' : type.value)"
+              @click="
+                updateFilter('databaseType', filters.databaseType === type.value ? '' : type.value)
+              "
             >
               {{ type.label }}
             </button>
@@ -31,7 +33,12 @@
               :key="status.value"
               class="filter-option"
               :class="{ active: filters.connectionStatus === status.value }"
-              @click="updateFilter('connectionStatus', filters.connectionStatus === status.value ? '' : status.value)"
+              @click="
+                updateFilter(
+                  'connectionStatus',
+                  filters.connectionStatus === status.value ? '' : status.value
+                )
+              "
             >
               {{ status.label }}
             </button>
@@ -93,7 +100,7 @@ const filters = reactive<Filters>({
   databaseType: '',
   connectionStatus: '',
   nodeTypes: ['table', 'view'],
-  showSystemObjects: false
+  showSystemObjects: false,
 })
 
 const databaseTypes = [
@@ -101,14 +108,14 @@ const databaseTypes = [
   { value: 'mysql', label: 'MySQL' },
   { value: 'postgresql', label: 'PostgreSQL' },
   { value: 'sqlite', label: 'SQLite' },
-  { value: 'duckdb', label: 'DuckDB' }
+  { value: 'duckdb', label: 'DuckDB' },
 ]
 
 const connectionStatuses = [
   { value: '', label: t('navigator.all') },
   { value: 'connected', label: t('navigator.connected') },
   { value: 'connecting', label: t('navigator.connecting') },
-  { value: 'disconnected', label: t('navigator.disconnected') }
+  { value: 'disconnected', label: t('navigator.disconnected') },
 ]
 
 const nodeTypes = [
@@ -116,11 +123,11 @@ const nodeTypes = [
   { value: 'view', label: t('navigator.view') },
   { value: 'procedure', label: t('navigator.procedure') },
   { value: 'function', label: t('navigator.function') },
-  { value: 'column', label: t('navigator.column') }
+  { value: 'column', label: t('navigator.column') },
 ]
 
 function updateFilter(key: keyof Filters, value: string) {
-  (filters[key] as string) = value
+  ;(filters[key] as string) = value
 }
 
 function toggleNodeType(type: string) {
@@ -203,7 +210,7 @@ function applyFilters() {
   cursor: pointer;
 }
 
-.filter-label input[type="checkbox"] {
+.filter-label input[type='checkbox'] {
   margin-right: 6px;
 }
 

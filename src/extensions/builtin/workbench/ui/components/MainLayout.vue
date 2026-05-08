@@ -6,7 +6,7 @@
       <div class="database-navigator-container">
         <DatabaseNavigator />
       </div>
-      
+
       <!-- 右侧空白区域 -->
       <div class="right-panel">
         <!-- 工作台内容将从导航栏启动 -->

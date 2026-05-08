@@ -214,10 +214,11 @@ export const navigatorApi = {
   },
 
   listTables(connId: string, database: string, schema?: string) {
-    return tauriInvoke<Array<{ name: string; kind: string; children?: unknown[] }>>(
-      'list_tables',
-      { conn_id: connId, database, schema }
-    )
+    return tauriInvoke<Array<{ name: string; kind: string; children?: unknown[] }>>('list_tables', {
+      conn_id: connId,
+      database,
+      schema,
+    })
   },
 
   listColumns(connId: string, database: string, schema: string | null, table: string) {

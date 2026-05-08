@@ -14,8 +14,8 @@
     <!-- 无 schema 时的默认提示 -->
     <div v-else class="empty-state">
       <Database :size="48" class="empty-icon" />
-      <h3 class="empty-title">未找到表单配置</h3>
-      <p class="empty-desc">请在 schemas 目录下添加对应的 JSON 配置文件</p>
+      <h3 class="empty-title">{{ t('connection.generalTab.noSchemaTitle') }}</h3>
+      <p class="empty-desc">{{ t('connection.generalTab.noSchemaDesc') }}</p>
     </div>
   </div>
 </template>
@@ -23,12 +23,14 @@
 <script setup lang="ts">
 import { Database } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import DynamicFormRenderer from '../DynamicFormRenderer.vue'
 
 import type { DriverDescriptor, ConnectionConfig } from '../../types/connection'
 import type { FormSectionConfig } from '../../types/form-schema'
-
 
 interface Props {
   formData: Partial<ConnectionConfig>
@@ -39,7 +41,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  formSections: () => []
+  formSections: () => [],
 })
 
 const emit = defineEmits<{
@@ -53,7 +55,7 @@ const hasSchema = computed(() => props.formSections.length > 0)
 function updateFormData(data: Record<string, unknown>) {
   emit('update:formData', {
     ...props.formData,
-    ...data
+    ...data,
   })
 }
 

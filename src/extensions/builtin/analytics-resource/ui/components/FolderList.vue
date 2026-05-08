@@ -21,7 +21,10 @@
       <div
         v-for="folder in folders"
         :key="folder.id"
-        :class="['folder-item', { active: selectedFolderId === folder.id, 'drag-over': dragOverFolder === folder.id }]"
+        :class="[
+          'folder-item',
+          { active: selectedFolderId === folder.id, 'drag-over': dragOverFolder === folder.id },
+        ]"
         @click="selectFolder(folder.id)"
         @dragover.prevent="handleDragOver(folder.id, $event)"
         @dragleave="handleDragLeave"
@@ -29,11 +32,7 @@
       >
         <span class="folder-icon">{{ folder.icon || '📁' }}</span>
         <span class="folder-name">{{ folder.name }}</span>
-        <span
-          v-if="folder.color"
-          class="folder-color"
-          :style="{ backgroundColor: folder.color }"
-        />
+        <span v-if="folder.color" class="folder-color" :style="{ backgroundColor: folder.color }" />
       </div>
     </div>
   </div>
@@ -73,7 +72,7 @@ function handleDragLeave() {
 function handleDrop(folderId: string | null, event: DragEvent) {
   event.preventDefault()
   dragOverFolder.value = null
-  
+
   try {
     const data = event.dataTransfer?.getData('application/json')
     if (data) {

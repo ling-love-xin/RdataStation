@@ -9,12 +9,7 @@ import OutputPanel from './ui/components/panels/OutputPanel.vue'
 import PluginsPanel from './ui/components/panels/PluginsPanel.vue'
 import SqlHistoryPanel from './ui/components/panels/SqlHistoryPanel.vue'
 
-import type {
-  ExtensionContext,
-  ExtensionAPI,
-  ExtensionModule,
-  Disposable,
-} from '../../core/types'
+import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
 // Workbench 扩展特定的 API 接口
 interface WorkbenchExtensionAPI extends ExtensionAPI {
@@ -76,7 +71,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     title: '欢迎',
     location: 'center',
     icon: 'Home',
-    order: 0
+    order: 0,
   })
 
   // 注册SQL历史面板（右侧）
@@ -85,7 +80,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     title: 'SQL历史',
     location: 'right',
     icon: 'Clock',
-    order: 2
+    order: 2,
   })
 
   // 注册输出面板（底部）
@@ -94,7 +89,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     title: '输出',
     location: 'bottom',
     icon: 'Terminal',
-    order: 1
+    order: 1,
   })
 
   // 注册插件面板（左侧）
@@ -103,7 +98,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     title: '插件',
     location: 'left',
     icon: 'Puzzle',
-    order: 3
+    order: 3,
   })
 
   const disposables: Disposable[] = [
@@ -111,9 +106,15 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     sqlHistoryDisposable,
     outputDisposable,
     pluginsDisposable,
-    context.commands.registerCommand('workbench.openPanel', (...args: unknown[]) => openPanel(args[0] as string, args[1] as { title?: string; component?: unknown })),
-    context.commands.registerCommand('workbench.closePanel', (...args: unknown[]) => closePanel(args[0] as string)),
-    context.commands.registerCommand('workbench.focusPanel', (...args: unknown[]) => focusPanel(args[0] as string)),
+    context.commands.registerCommand('workbench.openPanel', (...args: unknown[]) =>
+      openPanel(args[0] as string, args[1] as { title?: string; component?: unknown })
+    ),
+    context.commands.registerCommand('workbench.closePanel', (...args: unknown[]) =>
+      closePanel(args[0] as string)
+    ),
+    context.commands.registerCommand('workbench.focusPanel', (...args: unknown[]) =>
+      focusPanel(args[0] as string)
+    ),
   ]
 
   return {
@@ -137,7 +138,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     dispose: () => {
       disposables.forEach(d => d.dispose())
       panels.clear()
-    }
+    },
   }
 }
 

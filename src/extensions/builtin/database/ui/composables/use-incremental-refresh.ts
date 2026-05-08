@@ -1,6 +1,6 @@
 /**
  * 增量刷新机制
- * 
+ *
  * 只刷新变化的节点，而非整个树
  * 支持局部刷新、按需刷新、智能检测变化
  */
@@ -35,7 +35,7 @@ export interface IRefreshOptions {
 const DEFAULT_OPTIONS: IRefreshOptions = {
   recursive: false,
   refreshCache: false,
-  timeout: 30000
+  timeout: 30000,
 }
 
 export function useIncrementalRefresh() {
@@ -45,7 +45,10 @@ export function useIncrementalRefresh() {
   /**
    * 刷新单个节点
    */
-  async function refreshNode(node: VirtualTreeNode, options?: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshNode(
+    node: VirtualTreeNode,
+    options?: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const opts = { ...DEFAULT_OPTIONS, ...options }
     const startTime = Date.now()
     const affectedKeys: string[] = []
@@ -94,14 +97,14 @@ export function useIncrementalRefresh() {
         success: result.success,
         affectedKeys,
         duration: Date.now() - startTime,
-        error: result.error
+        error: result.error,
       }
     } catch (error) {
       return {
         success: false,
         affectedKeys,
         duration: Date.now() - startTime,
-        error: error instanceof Error ? error.message : '刷新失败'
+        error: error instanceof Error ? error.message : '刷新失败',
       }
     }
   }
@@ -109,7 +112,10 @@ export function useIncrementalRefresh() {
   /**
    * 刷新连接节点
    */
-  async function refreshConnection(keyParts: string[], options: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshConnection(
+    keyParts: string[],
+    options: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const connectionId = keyParts[2]
     const affectedKeys: string[] = []
 
@@ -130,7 +136,7 @@ export function useIncrementalRefresh() {
         success: false,
         affectedKeys,
         duration: 0,
-        error: error instanceof Error ? error.message : '刷新连接失败'
+        error: error instanceof Error ? error.message : '刷新连接失败',
       }
     }
   }
@@ -138,7 +144,10 @@ export function useIncrementalRefresh() {
   /**
    * 刷新数据库节点
    */
-  async function refreshDatabase(keyParts: string[], options: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshDatabase(
+    keyParts: string[],
+    options: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const connectionId = keyParts[1]
     const dbName = keyParts[2]
     const affectedKeys: string[] = []
@@ -160,7 +169,7 @@ export function useIncrementalRefresh() {
         success: false,
         affectedKeys,
         duration: 0,
-        error: error instanceof Error ? error.message : '刷新数据库失败'
+        error: error instanceof Error ? error.message : '刷新数据库失败',
       }
     }
   }
@@ -168,7 +177,10 @@ export function useIncrementalRefresh() {
   /**
    * 刷新 Schema 节点
    */
-  async function refreshSchema(keyParts: string[], options: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshSchema(
+    keyParts: string[],
+    options: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const connectionId = keyParts[1]
     const dbName = keyParts[2]
     const schemaName = keyParts[3]
@@ -177,7 +189,7 @@ export function useIncrementalRefresh() {
     try {
       await Promise.all([
         navigatorStore.loadTables(connectionId, dbName, schemaName),
-        navigatorStore.loadViews(connectionId, dbName, schemaName)
+        navigatorStore.loadViews(connectionId, dbName, schemaName),
       ])
       affectedKeys.push(keyParts.join(':'))
 
@@ -199,7 +211,7 @@ export function useIncrementalRefresh() {
         success: false,
         affectedKeys,
         duration: 0,
-        error: error instanceof Error ? error.message : '刷新 Schema 失败'
+        error: error instanceof Error ? error.message : '刷新 Schema 失败',
       }
     }
   }
@@ -207,7 +219,10 @@ export function useIncrementalRefresh() {
   /**
    * 刷新文件夹节点
    */
-  async function refreshFolder(keyParts: string[], options: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshFolder(
+    keyParts: string[],
+    options: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const connectionId = keyParts[1]
     const dbName = keyParts[2]
     const schemaName = keyParts[3]
@@ -229,7 +244,7 @@ export function useIncrementalRefresh() {
         success: false,
         affectedKeys,
         duration: 0,
-        error: error instanceof Error ? error.message : '刷新文件夹失败'
+        error: error instanceof Error ? error.message : '刷新文件夹失败',
       }
     }
   }
@@ -237,7 +252,10 @@ export function useIncrementalRefresh() {
   /**
    * 刷新表/视图节点
    */
-  async function refreshTable(keyParts: string[], options: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshTable(
+    keyParts: string[],
+    options: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const connectionId = keyParts[1]
     const dbName = keyParts[2]
     const schemaName = keyParts[3]
@@ -254,7 +272,7 @@ export function useIncrementalRefresh() {
         success: false,
         affectedKeys,
         duration: 0,
-        error: error instanceof Error ? error.message : '刷新表失败'
+        error: error instanceof Error ? error.message : '刷新表失败',
       }
     }
   }
@@ -262,7 +280,10 @@ export function useIncrementalRefresh() {
   /**
    * 批量刷新多个节点（去重优化）
    */
-  async function refreshBatch(nodes: VirtualTreeNode[], options?: IRefreshOptions): Promise<IRefreshResult> {
+  async function refreshBatch(
+    nodes: VirtualTreeNode[],
+    options?: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const opts = { ...DEFAULT_OPTIONS, ...options }
     const startTime = Date.now()
     const allAffectedKeys: string[] = []
@@ -289,7 +310,7 @@ export function useIncrementalRefresh() {
     return {
       success: results.every(r => r.status === 'fulfilled' && r.value.success),
       affectedKeys: [...new Set(allAffectedKeys)],
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     }
   }
 
@@ -297,7 +318,10 @@ export function useIncrementalRefresh() {
    * 智能检测变化并刷新
    * 通过比较元数据哈希值判断是否需要刷新
    */
-  async function smartRefresh(node: VirtualTreeNode, options?: IRefreshOptions): Promise<IRefreshResult> {
+  async function smartRefresh(
+    node: VirtualTreeNode,
+    options?: IRefreshOptions
+  ): Promise<IRefreshResult> {
     const opts = { ...DEFAULT_OPTIONS, ...options }
     const startTime = Date.now()
 
@@ -332,14 +356,14 @@ export function useIncrementalRefresh() {
       return {
         success: true,
         affectedKeys: hasChanges ? refreshResult.affectedKeys : [],
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       }
     } catch (error) {
       return {
         success: false,
         affectedKeys: [],
         duration: Date.now() - startTime,
-        error: error instanceof Error ? error.message : '智能刷新失败'
+        error: error instanceof Error ? error.message : '智能刷新失败',
       }
     }
   }
@@ -376,6 +400,6 @@ export function useIncrementalRefresh() {
   return {
     refreshNode,
     refreshBatch,
-    smartRefresh
+    smartRefresh,
   }
 }

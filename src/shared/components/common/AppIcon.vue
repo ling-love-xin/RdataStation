@@ -1,8 +1,5 @@
 <template>
-  <component
-    :is="iconComponent"
-    v-bind="iconProps"
-  />
+  <component :is="iconComponent" v-bind="iconProps" />
 </template>
 
 <script setup lang="ts">
@@ -11,7 +8,6 @@ import { computed } from 'vue'
 import { useAppStore } from '@/stores/useAppStore'
 
 import type { LucideIcon } from 'lucide-vue-next'
-
 
 // 使用动态导入避免 namespace 问题
 const iconModules = import.meta.glob('lucide-vue-next', { eager: true })
@@ -37,11 +33,7 @@ const iconComponent = computed<LucideIcon>(() => {
 })
 
 const iconProps = computed(() => {
-  const color = props.accent
-    ? '#E17055'
-    : appStore.isDark
-      ? '#E5E7EB'
-      : '#1F2937'
+  const color = props.accent ? '#E17055' : appStore.isDark ? '#E5E7EB' : '#1F2937'
   return {
     size: props.size,
     'stroke-width': props.strokeWidth,

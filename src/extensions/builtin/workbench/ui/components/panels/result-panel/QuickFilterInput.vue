@@ -53,8 +53,12 @@ function onInput(val: string | null) {
   timer = setTimeout(() => emit('apply', v), 300)
 }
 
-function onApply() { /* handled by debounce */ }
-function onClear() { emit('clear') }
+function onApply() {
+  /* handled by debounce */
+}
+function onClear() {
+  emit('clear')
+}
 </script>
 
 <style scoped>
@@ -63,7 +67,16 @@ function onClear() { emit('clear') }
   border-bottom: 1px solid var(--border-color, #333);
   flex-shrink: 0;
 }
-.filter-row { display: flex; align-items: center; gap: 4px; }
-.filter-info { margin-top: 2px; }
-.info-text { font-size: 11px; color: var(--text-tertiary, #888); }
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.filter-info {
+  margin-top: 2px;
+}
+.info-text {
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+}
 </style>

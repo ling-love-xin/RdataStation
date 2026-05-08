@@ -11,10 +11,10 @@ import { ref, computed } from 'vue'
 import type { QueryResult, QueryTab } from '@/shared/types'
 
 // 面板类型
-export type PanelType = 
-  | 'sql-editor' 
-  | 'table-data' 
-  | 'query-result' 
+export type PanelType =
+  | 'sql-editor'
+  | 'table-data'
+  | 'query-result'
   | 'properties'
   | 'database-nav'
   | 'history'
@@ -82,45 +82,43 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       order: 0,
     },
   ])
-  
+
   const activePanelId = ref<string | null>('sql-editor')
   const layout = ref({
     leftWidth: 280,
     rightWidth: 0,
     bottomHeight: 200,
   })
-  
+
   // 编辑器状态
   const editorState = ref<EditorState>({
     tabs: [],
     activeTabId: null,
     cursorPosition: { line: 1, column: 1 },
   })
-  
+
   // 查询结果
   const queryResults = ref<Map<string, QueryResult>>(new Map())
 
   // Getters
-  const leftPanels = computed(() => 
+  const leftPanels = computed(() =>
     panels.value.filter(p => p.position === 'left').sort((a, b) => a.order - b.order)
   )
-  
-  const centerPanels = computed(() => 
+
+  const centerPanels = computed(() =>
     panels.value.filter(p => p.position === 'center').sort((a, b) => a.order - b.order)
   )
-  
-  const rightPanels = computed(() => 
+
+  const rightPanels = computed(() =>
     panels.value.filter(p => p.position === 'right').sort((a, b) => a.order - b.order)
   )
-  
-  const bottomPanels = computed(() => 
+
+  const bottomPanels = computed(() =>
     panels.value.filter(p => p.position === 'bottom').sort((a, b) => a.order - b.order)
   )
-  
-  const activePanel = computed(() => 
-    panels.value.find(p => p.id === activePanelId.value)
-  )
-  
+
+  const activePanel = computed(() => panels.value.find(p => p.id === activePanelId.value))
+
   const activeTab = computed(() =>
     editorState.value.tabs.find(t => t.id === editorState.value.activeTabId)
   )
@@ -133,16 +131,16 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   function addPanel(panel: Omit<Panel, 'id' | 'order'>): string {
     const id = `${panel.type}_${Date.now()}`
     const existingCount = panels.value.filter(p => p.position === panel.position).length
-    
+
     panels.value.push({
       ...panel,
       id,
       order: existingCount,
     })
-    
+
     // 激活新面板
     activePanelId.value = id
-    
+
     return id
   }
 
@@ -152,17 +150,19 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   function removePanel(id: string): void {
     const index = panels.value.findIndex(p => p.id === id)
     if (index === -1) return
-    
+
     const panel = panels.value[index]
     if (!panel.isClosable) return
-    
+
     panels.value.splice(index, 1)
-    
+
     // 重新排序
     panels.value
       .filter(p => p.position === panel.position)
-      .forEach((p, i) => { p.order = i })
-    
+      .forEach((p, i) => {
+        p.order = i
+      })
+
     // 如果关闭的是当前激活面板，激活其他面板
     if (activePanelId.value === id) {
       const samePosition = panels.value.filter(p => p.position === panel.position)
@@ -187,19 +187,26 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   function movePanel(id: string, position: PanelPosition): void {
     const panel = panels.value.find(p => p.id === id)
     if (!panel) return
-    
+
     panel.position = position
-    
+
     // 重新排序
     panels.value
       .filter(p => p.position === position)
-      .forEach((p, i) => { p.order = i })
+      .forEach((p, i) => {
+        p.order = i
+      })
   }
 
   /**
    * 打开表数据面板
    */
-  function openTableData(connectionId: string, database: string, schema: string, table: string): void {
+  function openTableData(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: string
+  ): void {
     const id = addPanel({
       type: 'table-data',
       title: `${database}.${schema}.${table}`,
@@ -221,7 +228,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
    */
   function openQueryResult(queryId: string, title: string, result: QueryResult): void {
     queryResults.value.set(queryId, result)
-    
+
     addPanel({
       type: 'query-result',
       title: `结果: ${title}`,
@@ -254,10 +261,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       error: null,
       elapsedMs: 0,
     }
-    
+
     editorState.value.tabs.push(tab)
     editorState.value.activeTabId = id
-    
+
     return id
   }
 
@@ -267,12 +274,13 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   function closeEditorTab(id: string): void {
     const index = editorState.value.tabs.findIndex(t => t.id === id)
     if (index === -1) return
-    
+
     editorState.value.tabs.splice(index, 1)
-    
+
     // 激活其他标签页
     if (editorState.value.activeTabId === id) {
-      editorState.value.activeTabId = editorState.value.tabs[Math.min(index, editorState.value.tabs.length - 1)]?.id || null
+      editorState.value.activeTabId =
+        editorState.value.tabs[Math.min(index, editorState.value.tabs.length - 1)]?.id || null
     }
   }
 
@@ -296,18 +304,21 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         activePanelId: activePanelId.value,
         layout: layout.value,
       }
-      
+
       await invoke('save_workbench_state', {
         stateData: state,
       })
     } catch (e) {
       console.error('保存工作台状态失败:', e)
       // 保存到 localStorage 作为备份
-      localStorage.setItem('workbench_state', JSON.stringify({
-        panels: panels.value,
-        activePanelId: activePanelId.value,
-        layout: layout.value,
-      }))
+      localStorage.setItem(
+        'workbench_state',
+        JSON.stringify({
+          panels: panels.value,
+          activePanelId: activePanelId.value,
+          layout: layout.value,
+        })
+      )
     }
   }
 
@@ -317,7 +328,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   async function loadState(): Promise<void> {
     try {
       const state = await invoke<WorkbenchState | null>('get_workbench_state')
-      
+
       if (state) {
         panels.value = state.panels
         activePanelId.value = state.activePanelId
@@ -377,7 +388,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     layout,
     editorState,
     queryResults,
-    
+
     // Getters
     leftPanels,
     centerPanels,
@@ -385,7 +396,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     bottomPanels,
     activePanel,
     activeTab,
-    
+
     // Actions
     addPanel,
     removePanel,

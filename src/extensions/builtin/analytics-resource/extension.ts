@@ -1,11 +1,6 @@
 import AnalyticsResourceManager from './ui/components/AnalyticsResourceManager.vue'
 
-import type {
-  ExtensionContext,
-  ExtensionAPI,
-  ExtensionModule,
-  Disposable,
-} from '../../core/types'
+import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
 interface AnalyticsResourceExtensionAPI extends ExtensionAPI {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -21,12 +16,10 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
     title: '分析资源管理器',
     location: 'left',
     icon: 'BarChart3',
-    order: 2
+    order: 2,
   })
 
-  const disposables: Disposable[] = [
-    panelDisposable,
-  ]
+  const disposables: Disposable[] = [panelDisposable]
 
   return {
     version: '1.0.0',
@@ -45,7 +38,7 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
     },
 
     dispose: () => {
-      disposables.forEach((d) => d.dispose())
+      disposables.forEach(d => d.dispose())
     },
   }
 }
@@ -59,4 +52,4 @@ const extension: ExtensionModule = {
   deactivate,
 }
 
-export default extension;
+export default extension

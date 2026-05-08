@@ -6,17 +6,50 @@
     <button class="toolbar-btn" title="新建分组" @click="$emit('new-group')">
       <FolderPlus :size="16" />
     </button>
-    <button class="toolbar-btn" title="断开连接" :disabled="!hasConnection" @click="$emit('disconnect')">
+    <button
+      class="toolbar-btn"
+      title="断开连接"
+      :disabled="!hasConnection"
+      @click="$emit('disconnect')"
+    >
       <Unplug :size="16" />
     </button>
     <div class="toolbar-separator"></div>
-    <button class="toolbar-btn" :class="{ disabled: !hasConnection || isInTransaction, 'transaction-active': isInTransaction }" title="开始事务" :disabled="!hasConnection || isInTransaction" @click="$emit('begin-transaction')">
+    <button
+      class="toolbar-btn"
+      :class="{
+        disabled: !hasConnection || isInTransaction,
+        'transaction-active': isInTransaction,
+      }"
+      title="开始事务"
+      :disabled="!hasConnection || isInTransaction"
+      @click="$emit('begin-transaction')"
+    >
       <PlayCircle :size="16" />
     </button>
-    <button class="toolbar-btn" :class="{ disabled: !hasConnection || !isInTransaction, 'transaction-active': isInTransaction }" title="提交事务" :disabled="!hasConnection || !isInTransaction" @click="$emit('commit-transaction')">
+    <button
+      class="toolbar-btn"
+      :class="{
+        disabled: !hasConnection || !isInTransaction,
+        'transaction-active': isInTransaction,
+      }"
+      title="提交事务"
+      :disabled="!hasConnection || !isInTransaction"
+      @click="$emit('commit-transaction')"
+    >
       <CheckCircle :size="16" />
     </button>
-    <button class="toolbar-btn" :class="{ disabled: !hasConnection || !isInTransaction, 'transaction-active': isInTransaction, 'transaction-warning': isInTransaction }" title="回滚事务" :disabled="!hasConnection || !isInTransaction" @click="$emit('rollback-transaction')">
+    <button
+      class="toolbar-btn"
+      :class="{
+        disabled: !hasConnection || !isInTransaction,
+        'transaction-active': isInTransaction,
+        'transaction-warning': isInTransaction,
+      }"
+      title="回滚事务"
+      :disabled="!hasConnection || !isInTransaction"
+      @click="$emit('rollback-transaction')"
+    >
       <XCircle :size="16" />
     </button>
     <div class="toolbar-separator"></div>
@@ -48,7 +81,7 @@ import {
   PlayCircle,
   CheckCircle,
   XCircle,
-  FolderPlus
+  FolderPlus,
 } from 'lucide-vue-next'
 
 defineProps<{
@@ -141,7 +174,11 @@ defineEmits<{
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

@@ -16,7 +16,6 @@ import '@/shared/styles/global.css'
 import 'dockview-vue/dist/styles/dockview.css'
 import '@/shared/styles/dockview-brand.css'
 import '@/shared/styles/ag-grid-theme.css'
-
 ;(self as unknown as Record<string, unknown>).MonacoEnvironment = {
   getWorker: function () {
     return {
@@ -74,6 +73,18 @@ async function main() {
   console.log('[Main] Registered leftActivityBar component')
 
   app.mount('#app')
+
+  const recent = appStore.recentProjects
+  if (recent.length > 0) {
+    const lastProject = recent[0]
+    console.log('[Main] Opening last project:', lastProject)
+    const result = await appStore.openProject(lastProject)
+    if (!result.success) {
+      console.warn('[Main] Failed to open last project:', result.error)
+    } else {
+      console.log('[Main] Opened last project:', lastProject)
+    }
+  }
 }
 
 main()

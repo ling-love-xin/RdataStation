@@ -6,7 +6,11 @@
 
 import { invoke } from '@tauri-apps/api/core'
 
-import type { ProjectConnection, CreateProjectConnectionInput, ConnectionStatus } from '../../types/connection'
+import type {
+  ProjectConnection,
+  CreateProjectConnectionInput,
+  ConnectionStatus,
+} from '../../types/connection'
 
 /**
  * 获取项目所有连接
@@ -43,7 +47,12 @@ export async function updateProjectConnectionStatus(
   status: ConnectionStatus,
   errorMessage?: string
 ): Promise<void> {
-  return invoke('update_project_connection_status', { projectPath, connectionId, status, errorMessage })
+  return invoke('update_project_connection_status', {
+    projectPath,
+    connectionId,
+    status,
+    errorMessage,
+  })
 }
 
 /**

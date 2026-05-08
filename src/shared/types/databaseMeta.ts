@@ -123,7 +123,16 @@ export interface TabGroupConfig {
 export interface NavigatorNode {
   id: string
   name: string
-  type: 'connection' | 'database' | 'schema' | 'table' | 'view' | 'column' | 'index' | 'folder' | string
+  type:
+    | 'connection'
+    | 'database'
+    | 'schema'
+    | 'table'
+    | 'view'
+    | 'column'
+    | 'index'
+    | 'folder'
+    | string
   connectionId?: string
   database?: string
   schema?: string
@@ -194,17 +203,48 @@ export interface DatabaseMetaAdapter {
   getSchemas(connectionId: string, database?: string): Promise<SchemaInfo[]>
   getTables(connectionId: string, database?: string, schema?: string): Promise<TableInfo[]>
   getViews(connectionId: string, database?: string, schema?: string): Promise<ViewInfo[]>
-  getColumns(connectionId: string, database: string, schema: string, table: string): Promise<ColumnInfo[]>
-  getIndexes(connectionId: string, database: string, schema: string, table: string): Promise<IndexInfo[]>
-  getForeignKeys(connectionId: string, database: string, schema: string, table: string): Promise<ForeignKeyInfo[]>
+  getColumns(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: string
+  ): Promise<ColumnInfo[]>
+  getIndexes(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: string
+  ): Promise<IndexInfo[]>
+  getForeignKeys(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: string
+  ): Promise<ForeignKeyInfo[]>
 
   // 构建导航器节点
   buildConnectionNode(connectionId: string, name: string): NavigatorNode
   buildDatabaseNode(connectionId: string, database: DatabaseInfo): NavigatorNode
   buildSchemaNode(connectionId: string, database: string, schema: SchemaInfo): NavigatorNode
-  buildTableNode(connectionId: string, database: string, schema: string, table: TableInfo): NavigatorNode
-  buildViewNode(connectionId: string, database: string, schema: string, view: ViewInfo): NavigatorNode
-  buildColumnNode(connectionId: string, database: string, schema: string, table: string, column: ColumnInfo): NavigatorNode
+  buildTableNode(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: TableInfo
+  ): NavigatorNode
+  buildViewNode(
+    connectionId: string,
+    database: string,
+    schema: string,
+    view: ViewInfo
+  ): NavigatorNode
+  buildColumnNode(
+    connectionId: string,
+    database: string,
+    schema: string,
+    table: string,
+    column: ColumnInfo
+  ): NavigatorNode
 
   // 导航器加载方法
   getChildrenQuery(nodeType: string, context: QueryContext): string | null

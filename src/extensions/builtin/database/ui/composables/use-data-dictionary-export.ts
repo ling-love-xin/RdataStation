@@ -10,10 +10,7 @@ export interface DataDictionaryOptions {
 }
 
 export function useDataDictionaryExport() {
-  function generateMarkdown(
-    schema: SchemaInfo,
-    options: DataDictionaryOptions
-  ): string {
+  function generateMarkdown(schema: SchemaInfo, options: DataDictionaryOptions): string {
     let md = `# 数据字典 - ${schema.name}\n\n`
     md += `生成时间：${new Date().toLocaleString()}\n\n`
 
@@ -52,10 +49,7 @@ export function useDataDictionaryExport() {
     return md
   }
 
-  function generateTableMarkdown(
-    table: TableInfo,
-    options: DataDictionaryOptions
-  ): string {
+  function generateTableMarkdown(table: TableInfo, options: DataDictionaryOptions): string {
     let md = `### ${table.name}\n\n`
 
     if (table.description) {
@@ -76,10 +70,7 @@ export function useDataDictionaryExport() {
     return md
   }
 
-  function generateHtml(
-    schema: SchemaInfo,
-    options: DataDictionaryOptions
-  ): string {
+  function generateHtml(schema: SchemaInfo, options: DataDictionaryOptions): string {
     let html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -129,10 +120,7 @@ export function useDataDictionaryExport() {
     return html
   }
 
-  function generateTableHtml(
-    table: TableInfo,
-    options: DataDictionaryOptions
-  ): string {
+  function generateTableHtml(table: TableInfo, options: DataDictionaryOptions): string {
     let html = `<h3>${table.name}</h3>\n`
 
     if (table.description) {
@@ -164,25 +152,19 @@ export function useDataDictionaryExport() {
     return html
   }
 
-  function generateJson(
-    schema: SchemaInfo,
-    options: DataDictionaryOptions
-  ): string {
+  function generateJson(schema: SchemaInfo, options: DataDictionaryOptions): string {
     const data = {
       schema: schema.name,
       generatedAt: new Date().toISOString(),
       tables: options.includeTables ? schema.tables : [],
       views: options.includeViews ? schema.views : [],
-      indexes: options.includeIndexes ? schema.indexes : []
+      indexes: options.includeIndexes ? schema.indexes : [],
     }
 
     return JSON.stringify(data, null, 2)
   }
 
-  function exportDataDictionary(
-    schema: SchemaInfo,
-    options: DataDictionaryOptions
-  ): string {
+  function exportDataDictionary(schema: SchemaInfo, options: DataDictionaryOptions): string {
     switch (options.format) {
       case 'markdown':
         return generateMarkdown(schema, options)
@@ -229,6 +211,6 @@ export function useDataDictionaryExport() {
     exportAndDownload,
     generateMarkdown,
     generateHtml,
-    generateJson
+    generateJson,
   }
 }

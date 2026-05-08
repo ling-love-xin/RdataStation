@@ -398,16 +398,16 @@ async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
             }
             _ => CoreError::database_error(e.to_string()),
         })?;
-    
+
     Ok(convert_rows(rows))
 }
 
 // 服务层：SqlService
 pub async fn execute(&self, sql: &str) -> Result<QueryResult, CoreError> {
     let start = Instant::now();
-    
+
     let result = self.db.query(sql).await;
-    
+
     if let Err(ref e) = result {
         error!(
             sql = sql,
@@ -416,7 +416,7 @@ pub async fn execute(&self, sql: &str) -> Result<QueryResult, CoreError> {
             "SQL execution failed"
         );
     }
-    
+
     result
 }
 
@@ -424,7 +424,7 @@ pub async fn execute(&self, sql: &str) -> Result<QueryResult, CoreError> {
 #[tauri::command]
 pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, String> {
     let service = SqlService::new();
-    
+
     service.execute(&input.sql).await
         .map(|r| r.into())
         .map_err(|e| {
@@ -438,7 +438,7 @@ pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, S
                 }
                 _ => "执行失败，请稍后重试".to_string(),
             };
-            
+
             // 脱敏：移除 SQL 中的敏感信息
             sanitize_error_message(msg)
         })
@@ -490,7 +490,7 @@ use sqlx::Row;
 
 fn convert_row(row: &PgRow, columns: &[String]) -> Result<Vec<Value>, CoreError> {
     let mut values = Vec::with_capacity(columns.len());
-    
+
     for (i, col) in columns.iter().enumerate() {
         let value: Value = match row.try_get::<Option<String>, _>(i)? {
             Some(s) => Value::String(s),
@@ -498,7 +498,7 @@ fn convert_row(row: &PgRow, columns: &[String]) -> Result<Vec<Value>, CoreError>
         };
         values.push(value);
     }
-    
+
     Ok(values)
 }
 ```
@@ -520,7 +520,7 @@ async fn get_tables_info(
             let size = db.query(&format!(
                 "SELECT pg_total_relation_size('{table}')"
             )).await?;
-            
+
             Ok(TableInfo {
                 name: table.clone(),
                 row_count: row_count.get::<i64, _>(0) as usize,
@@ -528,10 +528,10 @@ async fn get_tables_info(
             })
         }
     });
-    
+
     // 并发执行
     let results = futures::future::join_all(futures).await;
-    
+
     // 收集结果
     results.into_iter().collect::<Result<Vec<_>, _>>()
 }
@@ -552,12 +552,12 @@ where
 {
     let mut stream = sqlx::query(sql)
         .fetch(&self.pool);
-    
+
     while let Some(row) = stream.try_next().await? {
         let values = convert_row(&row)?;
         callback(values)?;
     }
-    
+
     Ok(())
 }
 ```
@@ -570,10 +570,10 @@ where
 pub struct MetadataCache {
     // L1: 内存缓存（当前会话）
     l1: Arc<RwLock<HashMap<String, CachedValue>>>,
-    
+
     // L2: IndexedDB（跨会话）
     l2: Arc<dyn CacheStore>,
-    
+
     // L3: 后端 SQLite（项目级）
     l3: Arc<dyn CacheStore>,
 }
@@ -586,14 +586,14 @@ impl MetadataCache {
                 return Some(value.clone());
             }
         }
-        
+
         // 2. 检查 L2
         if let Some(value) = self.l2.get(key).await.ok().flatten() {
             // 回填 L1
             self.l1.write().await.insert(key.to_string(), value.clone());
             return Some(value);
         }
-        
+
         // 3. 检查 L3
         if let Some(value) = self.l3.get(key).await.ok().flatten() {
             // 回填 L1 和 L2
@@ -601,10 +601,10 @@ impl MetadataCache {
             self.l2.set(key, &value).await.ok()?;
             return Some(value);
         }
-        
+
         None
     }
-    
+
     pub async fn set(
         &self,
         key: &str,
@@ -612,15 +612,15 @@ impl MetadataCache {
         ttl: Duration,
     ) {
         let value = value.with_ttl(ttl);
-        
+
         // 写入 L1
         self.l1.write().await.insert(key.to_string(), value.clone());
-        
+
         // 异步写入 L2 和 L3
         let l2 = self.l2.clone();
         let l3 = self.l3.clone();
         let key = key.to_string();
-        
+
         tokio::spawn(async move {
             l2.set(&key, &value).await.ok();
             l3.set(&key, &value).await.ok();
@@ -645,7 +645,7 @@ pub async fn batch_insert(
     if rows.is_empty() {
         return Ok(());
     }
-    
+
     // 构建批量插入 SQL
     let placeholders: Vec<String> = (0..rows.len())
         .map(|i| {
@@ -654,20 +654,20 @@ pub async fn batch_insert(
             format!("({})", (start..end).map(|n| format!("${}", n)).join(", "))
         })
         .collect();
-    
+
     let sql = format!(
         "INSERT INTO {} ({}) VALUES {}",
         table,
         columns.join(", "),
         placeholders.join(", ")
     );
-    
+
     // 扁平化参数
     let params: Vec<&(dyn ToSql + Sync)> = rows
         .iter()
         .flat_map(|row| row.iter().map(|v| v as &(dyn ToSql + Sync)))
         .collect();
-    
+
     self.execute(&sql, &params).await
 }
 ```

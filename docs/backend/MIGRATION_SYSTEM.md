@@ -18,13 +18,13 @@
 
 ### 1.2 为什么不选 ORM
 
-| 维度 | ORM | SQL 迁移 |
-|------|-----|---------|
-| 适用场景 | 业务应用、固定模型 | 系统工具、动态结构 |
-| 多数据库支持 | 抽象层丢失特性 | 原生 SQL 100% 支持 |
-| 性能 | 多层抽象开销 | 直接执行 |
-| 可控性 | 黑盒生成 SQL | 完全透明 |
-| 维护成本 | 高（依赖 + 模型 + 迁移） | 低（仅 SQL 文件） |
+| 维度         | ORM                      | SQL 迁移           |
+| ------------ | ------------------------ | ------------------ |
+| 适用场景     | 业务应用、固定模型       | 系统工具、动态结构 |
+| 多数据库支持 | 抽象层丢失特性           | 原生 SQL 100% 支持 |
+| 性能         | 多层抽象开销             | 直接执行           |
+| 可控性       | 黑盒生成 SQL             | 完全透明           |
+| 维护成本     | 高（依赖 + 模型 + 迁移） | 低（仅 SQL 文件）  |
 
 ---
 
@@ -103,6 +103,7 @@ src-tauri/
 **迁移类型**：`MigrationType::Global`
 
 **职责**：
+
 - 应用版本和运行记录
 - 全局项目索引
 - 插件注册中心（唯一权威）
@@ -116,6 +117,7 @@ src-tauri/
 **迁移类型**：`MigrationType::ProjectMeta`
 
 **职责**：
+
 - 项目基础信息
 - 项目内数据库连接配置
 - SQL 执行历史
@@ -131,6 +133,7 @@ src-tauri/
 **迁移类型**：`MigrationType::ProjectAnalysis`
 
 **职责**：
+
 - 查询结果缓存
 - 联邦连接状态（ATTACH 管理）
 - 文件数据集索引（CSV/Parquet/Excel）
@@ -143,6 +146,7 @@ src-tauri/
 **迁移类型**：`MigrationType::ConnectionMetadata`
 
 **职责**：
+
 - 数据库对象元数据缓存（表/视图/列/索引/函数）
 - 元数据同步日志
 - 每个连接独立，互不干扰
@@ -217,11 +221,11 @@ CREATE TABLE IF NOT EXISTS schema_version (
 
 ### 6.2 字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| version | INTEGER | 迁移版本号 |
-| name | TEXT | 迁移描述（不含版本号前缀） |
-| applied_at | INTEGER | 应用时间戳（Unix 秒） |
+| 字段       | 类型    | 说明                       |
+| ---------- | ------- | -------------------------- |
+| version    | INTEGER | 迁移版本号                 |
+| name       | TEXT    | 迁移描述（不含版本号前缀） |
+| applied_at | INTEGER | 应用时间戳（Unix 秒）      |
 
 ---
 
@@ -251,11 +255,13 @@ tx.commit()?;
 ### 8.1 添加新迁移
 
 1. 在对应目录创建 SQL 文件：
+
    ```
    migrations/global/002_add_new_feature.sql
    ```
 
 2. 编写 SQL（使用 `CREATE TABLE IF NOT EXISTS` 等安全语句）：
+
    ```sql
    CREATE TABLE IF NOT EXISTS new_feature (
        id TEXT PRIMARY KEY,
@@ -326,46 +332,49 @@ for m in pending {
 
 ### 11.1 项目连接表 (connections)
 
-| 版本 | 迁移文件 | 变更内容 | 说明 |
-|------|---------|---------|------|
-| v1.0 | 001_init.sql | 初始表结构 | 包含基础连接字段 |
-| v1.1 | 002_refactor_query_history.sql | 重构 SQL 历史 | 将 sql_history 重构为 query_history，添加兼容视图 |
-| v1.2 | 003_add_schema_name.sql | 添加 schema_name | 支持 PostgreSQL/Oracle 等多 Schema 数据库 |
-| v1.3 | 004_add_duckdb_fed.sql | 添加 use_duckdb_fed | 标记是否启用 DuckDB 联邦分析功能 |
-| v1.4 | 005_add_metadata_path.sql | 添加 metadata_path | 记录元数据缓存文件路径（相对于项目根目录） |
+| 版本 | 迁移文件                       | 变更内容            | 说明                                              |
+| ---- | ------------------------------ | ------------------- | ------------------------------------------------- |
+| v1.0 | 001_init.sql                   | 初始表结构          | 包含基础连接字段                                  |
+| v1.1 | 002_refactor_query_history.sql | 重构 SQL 历史       | 将 sql_history 重构为 query_history，添加兼容视图 |
+| v1.2 | 003_add_schema_name.sql        | 添加 schema_name    | 支持 PostgreSQL/Oracle 等多 Schema 数据库         |
+| v1.3 | 004_add_duckdb_fed.sql         | 添加 use_duckdb_fed | 标记是否启用 DuckDB 联邦分析功能                  |
+| v1.4 | 005_add_metadata_path.sql      | 添加 metadata_path  | 记录元数据缓存文件路径（相对于项目根目录）        |
 
 ### 11.2 全局连接表 (global_connections)
 
-| 版本 | 迁移文件 | 变更内容 | 说明 |
-|------|---------|---------|------|
-| v1.0 | 001_init.sql | 初始表结构 | 包含基础连接字段 |
-| v1.1 | 002_add_schema_name.sql | 添加 schema_name | 支持 PostgreSQL/Oracle 等多 Schema 数据库 |
-| v1.2 | 003_add_duckdb_fed.sql | 添加 use_duckdb_fed | 标记是否启用 DuckDB 联邦分析功能 |
-| v1.3 | 004_add_metadata_path.sql | 添加 metadata_path | 记录元数据缓存文件路径（相对于全局数据目录） |
+| 版本 | 迁移文件                  | 变更内容            | 说明                                         |
+| ---- | ------------------------- | ------------------- | -------------------------------------------- |
+| v1.0 | 001_init.sql              | 初始表结构          | 包含基础连接字段                             |
+| v1.1 | 002_add_schema_name.sql   | 添加 schema_name    | 支持 PostgreSQL/Oracle 等多 Schema 数据库    |
+| v1.2 | 003_add_duckdb_fed.sql    | 添加 use_duckdb_fed | 标记是否启用 DuckDB 联邦分析功能             |
+| v1.3 | 004_add_metadata_path.sql | 添加 metadata_path  | 记录元数据缓存文件路径（相对于全局数据目录） |
 
 ### 11.3 路径语义说明
 
 `metadata_path` 字段存储的是**相对路径**，但基准目录不同：
 
-| 连接类型 | 存储路径示例 | 相对基准 |
-|---------|-------------|---------|
-| **项目连接** | `project_metadata/{conn_id}.db` | 相对于项目根目录 `.RSMETA/` |
-| **全局连接** | `metadata/{conn_id}.db` | 相对于全局数据目录 `{data_dir}/RdataStation/` |
+| 连接类型     | 存储路径示例                    | 相对基准                                      |
+| ------------ | ------------------------------- | --------------------------------------------- |
+| **项目连接** | `project_metadata/{conn_id}.db` | 相对于项目根目录 `.RSMETA/`                   |
+| **全局连接** | `metadata/{conn_id}.db`         | 相对于全局数据目录 `{data_dir}/RdataStation/` |
 
 ### 11.4 关键字段说明
 
 #### schema_name
+
 - **用途**：指定默认 Schema 名
 - **适用数据库**：PostgreSQL、Oracle、SQL Server 等多 Schema 数据库
 - **示例值**：`public`、`dbo`、`hr`
 
 #### use_duckdb_fed
+
 - **用途**：标记是否启用 DuckDB 联邦分析功能
 - **类型**：BOOLEAN (0/1)
 - **默认值**：0 (不启用)
 - **说明**：启用后，该连接的数据可通过 DuckDB 进行联邦查询和分析
 
 #### metadata_path
+
 - **用途**：记录元数据缓存文件路径
 - **类型**：TEXT (可选)
 - **说明**：用于缓存数据库对象的元数据（表结构、列信息等），提升加载速度
@@ -444,23 +453,27 @@ if !applied.is_empty() {
 ### 12.5 迁移文件编写规范
 
 1. **使用幂等语句**：
+
    ```sql
    CREATE TABLE IF NOT EXISTS ...
    CREATE INDEX IF NOT EXISTS ...
    ```
 
 2. **添加字段使用 ALTER TABLE**：
+
    ```sql
    ALTER TABLE connections ADD COLUMN schema_name TEXT;
    ALTER TABLE connections ADD COLUMN use_duckdb_fed BOOLEAN DEFAULT 0;
    ```
 
 3. **添加索引优化查询**：
+
    ```sql
    CREATE INDEX IF NOT EXISTS idx_connections_duckdb_fed ON connections(use_duckdb_fed);
    ```
 
 4. **数据迁移（如需要）**：
+
    ```sql
    -- 迁移旧数据到新表
    INSERT OR IGNORE INTO new_table (...)
@@ -480,19 +493,20 @@ if !applied.is_empty() {
 
 ### 13.1 版本演进
 
-| 版本 | 迁移文件 | 变更内容 | 说明 |
-|------|---------|---------|------|
-| v1.0 | 001_init.sql | 初始统一表结构 | schemata/tables/columns/views/routines/indexes |
-| v2.0 | 002_add_cache_version_and_compression.sql | 版本控制与压缩 | 添加版本跟踪和 gzip 压缩支持 |
-| v3.0 | 003_add_fts_search.sql | FTS5 全文搜索 | 添加 fts_schemata/fts_tables/fts_columns 虚拟表 |
-| v4.0 | 004_refactor_to_normalized.sql | 规范化表结构 | 独立表：schemata/tables/columns/indexes/views/routines |
-| v5.0 | 005_normalized_fts_and_cascade.sql | FTS 同步与级联删除 | FTS 索引同步，删除 Schema 自动级联清理 |
-| v6.0 | 006_add_metadata_index.sql | 索引表支持分页懒加载 | metadata_index 索引表，introspect_level 分级加载 |
-| v7.0 | 007_incremental_sync.sql | 增量同步支持 | object_hash 字段，sync_snapshot 表，sync_operations 表 |
+| 版本 | 迁移文件                                  | 变更内容             | 说明                                                   |
+| ---- | ----------------------------------------- | -------------------- | ------------------------------------------------------ |
+| v1.0 | 001_init.sql                              | 初始统一表结构       | schemata/tables/columns/views/routines/indexes         |
+| v2.0 | 002_add_cache_version_and_compression.sql | 版本控制与压缩       | 添加版本跟踪和 gzip 压缩支持                           |
+| v3.0 | 003_add_fts_search.sql                    | FTS5 全文搜索        | 添加 fts_schemata/fts_tables/fts_columns 虚拟表        |
+| v4.0 | 004_refactor_to_normalized.sql            | 规范化表结构         | 独立表：schemata/tables/columns/indexes/views/routines |
+| v5.0 | 005_normalized_fts_and_cascade.sql        | FTS 同步与级联删除   | FTS 索引同步，删除 Schema 自动级联清理                 |
+| v6.0 | 006_add_metadata_index.sql                | 索引表支持分页懒加载 | metadata_index 索引表，introspect_level 分级加载       |
+| v7.0 | 007_incremental_sync.sql                  | 增量同步支持         | object_hash 字段，sync_snapshot 表，sync_operations 表 |
 
 ### 13.2 V7 增量同步架构
 
 **设计目标**：
+
 - 首次同步：全量预热
 - 后续同步：仅同步变化对象
 - 预热时间减少 90%+
@@ -537,24 +551,25 @@ CREATE VIEW IF NOT EXISTS v_column_changes AS ...;
 ```
 
 **Hash 计算**：
+
 - 算法：SHA-256
 - 输入：`object_type | name | parent | extra_data`
 - 用途：快速检测对象是否发生变化
 
 ### 13.3 性能对比
 
-| 指标 | V6 优化后 | V7 增量（首次） | V7 增量（后续） |
-|------|----------|---------------|----------------|
-| 预热时间 | 150ms | 150ms | 15ms |
-| 相对提升 | -70% | -70% | -97% |
+| 指标     | V6 优化后 | V7 增量（首次） | V7 增量（后续） |
+| -------- | --------- | --------------- | --------------- |
+| 预热时间 | 150ms     | 150ms           | 15ms            |
+| 相对提升 | -70%      | -70%            | -97%            |
 
 ### 13.4 与竞品对比
 
-| 特性 | RdataStation V7 | DBeaver 24.x | DataGrip 2024.2 |
-|------|----------------|-------------|-----------------|
-| 增量同步 | ✅ 完整支持 | ⚠️ 部分支持 | ⚠️ 部分支持 |
-| 首次预热 | 150ms 🏆 | 400ms | 300ms |
-| 增量预热 | 15ms 🏆 | 350ms | 250ms |
-| 内存占用 | 80MB 🏆 | 350MB | 500MB |
+| 特性     | RdataStation V7 | DBeaver 24.x | DataGrip 2024.2 |
+| -------- | --------------- | ------------ | --------------- |
+| 增量同步 | ✅ 完整支持     | ⚠️ 部分支持  | ⚠️ 部分支持     |
+| 首次预热 | 150ms 🏆        | 400ms        | 300ms           |
+| 增量预热 | 15ms 🏆         | 350ms        | 250ms           |
+| 内存占用 | 80MB 🏆         | 350MB        | 500MB           |
 
 详见 [COMPARISON.md](../COMPARISON.md)

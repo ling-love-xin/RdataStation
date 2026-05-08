@@ -1,16 +1,10 @@
 <template>
   <div class="preview-pagination">
-    <button
-      class="page-btn"
-      :disabled="currentPage <= 1"
-      @click="$emit('change', currentPage - 1)"
-    >
+    <button class="page-btn" :disabled="currentPage <= 1" @click="$emit('change', currentPage - 1)">
       <ChevronLeft :size="16" />
     </button>
 
-    <span class="page-info">
-      第 {{ currentPage }} / {{ totalPages }} 页
-    </span>
+    <span class="page-info"> 第 {{ currentPage }} / {{ totalPages }} 页 </span>
 
     <button
       class="page-btn"
@@ -20,11 +14,7 @@
       <ChevronRight :size="16" />
     </button>
 
-    <select
-      class="page-size-select"
-      :value="pageSize"
-      @change="$emit('change', 1)"
-    >
+    <select class="page-size-select" :value="pageSize" @change="$emit('change', 1)">
       <option :value="50">50 行/页</option>
       <option :value="100">100 行/页</option>
       <option :value="200">200 行/页</option>

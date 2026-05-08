@@ -42,7 +42,12 @@ export function parseError(error: unknown): ErrorInfo {
 }
 
 export function useToast() {
-  function show(message: string, type: ToastType = 'info', duration: number = 3000, detail?: string) {
+  function show(
+    message: string,
+    type: ToastType = 'info',
+    duration: number = 3000,
+    detail?: string
+  ) {
     const id = ++toastId
     const toast: Toast = { id, message, type, duration, detail }
     toasts.push(toast)

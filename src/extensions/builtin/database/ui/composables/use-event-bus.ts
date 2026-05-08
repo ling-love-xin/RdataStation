@@ -1,6 +1,6 @@
 /**
  * 事件总线实现
- * 
+ *
  * 提供组件间松耦合的通信机制
  */
 
@@ -26,7 +26,7 @@ export class EventBus {
     const subscription: EventSubscription = {
       eventName,
       handler: handler as EventHandler,
-      once: false
+      once: false,
     }
 
     this.subscriptions.get(eventName)!.push(subscription)
@@ -47,7 +47,7 @@ export class EventBus {
     const subscription: EventSubscription = {
       eventName,
       handler: handler as EventHandler,
-      once: true
+      once: true,
     }
 
     this.subscriptions.get(eventName)!.push(subscription)

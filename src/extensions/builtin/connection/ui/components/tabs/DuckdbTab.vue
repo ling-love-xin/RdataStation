@@ -6,10 +6,9 @@
         <Zap :size="20" />
       </div>
       <div class="intro-content">
-        <h4 class="intro-title">DuckDB 联邦查询加速</h4>
+        <h4 class="intro-title">{{ t('connection.duckdbTab.title') }}</h4>
         <p class="intro-desc">
-          将远程数据库数据缓存到本地 DuckDB，利用 DuckDB 的分析型查询引擎大幅提升复杂查询性能。
-          适用于数据探索、BI 分析和复杂聚合场景。
+          {{ t('connection.duckdbTab.description') }}
         </p>
       </div>
     </div>
@@ -17,7 +16,7 @@
     <!-- 启用开关 -->
     <div class="enable-section">
       <div class="enable-header">
-        <label class="enable-label">启用 DuckDB 联邦加速</label>
+        <label class="enable-label">{{ t('connection.duckdbTab.enable') }}</label>
         <button
           type="button"
           class="enable-switch"
@@ -28,7 +27,7 @@
         </button>
       </div>
       <p v-if="!formData.useDuckdbFed" class="enable-hint">
-        启用后，查询结果将自动缓存到本地 DuckDB，后续查询可直接使用缓存数据
+        {{ t('connection.duckdbTab.enableHint') }}
       </p>
     </div>
 
@@ -36,17 +35,17 @@
     <div v-if="formData.useDuckdbFed" class="config-section">
       <!-- 缓存策略 -->
       <div class="config-group">
-        <h5 class="group-title">缓存策略</h5>
-        
+        <h5 class="group-title">{{ t('connection.duckdbTab.cachePolicy') }}</h5>
+
         <div class="config-item">
           <label class="item-label">
             <Database :size="14" class="item-icon" />
-            缓存模式
+            {{ t('connection.duckdbTab.cacheMode') }}
           </label>
           <select v-model="cacheMode" class="form-select">
-            <option value="manual">手动缓存</option>
-            <option value="auto">自动缓存（推荐）</option>
-            <option value="smart">智能缓存（根据查询频率）</option>
+            <option value="manual">{{ t('connection.duckdbTab.manual') }}</option>
+            <option value="auto">{{ t('connection.duckdbTab.auto') }}</option>
+            <option value="smart">{{ t('connection.duckdbTab.smart') }}</option>
           </select>
           <p class="item-hint">{{ cacheModeHint }}</p>
         </div>
@@ -54,20 +53,14 @@
         <div class="config-item">
           <label class="item-label">
             <Clock :size="14" class="item-icon" />
-            缓存过期时间
+            {{ t('connection.duckdbTab.cacheTtl') }}
           </label>
           <div class="time-input-wrapper">
-            <input
-              v-model.number="cacheTtl"
-              type="number"
-              class="form-input"
-              min="1"
-              max="1440"
-            />
+            <input v-model.number="cacheTtl" type="number" class="form-input" min="1" max="1440" />
             <select v-model="cacheTtlUnit" class="form-select">
-              <option value="minutes">分钟</option>
-              <option value="hours">小时</option>
-              <option value="days">天</option>
+              <option value="minutes">{{ t('connection.duckdbTab.minutes') }}</option>
+              <option value="hours">{{ t('connection.duckdbTab.hours') }}</option>
+              <option value="days">{{ t('connection.duckdbTab.days') }}</option>
             </select>
           </div>
         </div>
@@ -75,33 +68,31 @@
 
       <!-- 存储配置 -->
       <div class="config-group">
-        <h5 class="group-title">存储配置</h5>
-        
+        <h5 class="group-title">{{ t('connection.duckdbTab.storageConfig') }}</h5>
+
         <div class="config-item">
           <label class="item-label">
             <FolderOpen :size="14" class="item-icon" />
-            缓存文件路径
+            {{ t('connection.duckdbTab.cachePath') }}
           </label>
           <div class="file-input-wrapper">
             <input
               v-model="cachePath"
               type="text"
               class="form-input"
-              placeholder="使用默认路径或自定义"
+              :placeholder="t('connection.duckdbTab.cachePathPlaceholder')"
             />
             <button type="button" class="btn-file" @click="selectCachePath">
               <FolderOpen :size="14" />
             </button>
           </div>
-          <p class="item-hint">
-            默认：项目目录下的 <code>analytics/data.duckdb</code>
-          </p>
+          <p class="item-hint"> {{ t('connection.duckdbTab.cachePathDefault') }} </p>
         </div>
 
         <div class="config-item">
           <label class="item-label">
             <HardDrive :size="14" class="item-icon" />
-            最大缓存大小
+            {{ t('connection.duckdbTab.maxCacheSize') }}
           </label>
           <div class="size-input-wrapper">
             <input
@@ -118,24 +109,24 @@
 
       <!-- 高级选项 -->
       <div class="config-group">
-        <h5 class="group-title">高级选项</h5>
-        
+        <h5 class="group-title">{{ t('connection.duckdbTab.advancedOptions') }}</h5>
+
         <label class="checkbox-wrapper">
           <input v-model="autoSync" type="checkbox" />
           <span class="checkmark"></span>
-          <span class="checkbox-label">自动同步远程数据变更</span>
+          <span class="checkbox-label">{{ t('connection.duckdbTab.autoSync') }}</span>
         </label>
 
         <label class="checkbox-wrapper">
           <input v-model="compressCache" type="checkbox" />
           <span class="checkmark"></span>
-          <span class="checkbox-label">压缩缓存数据（节省空间）</span>
+          <span class="checkbox-label">{{ t('connection.duckdbTab.compressCache') }}</span>
         </label>
 
         <label class="checkbox-wrapper">
           <input v-model="useDirectQuery" type="checkbox" />
           <span class="checkmark"></span>
-          <span class="checkbox-label">优先使用直接查询（绕过缓存）</span>
+          <span class="checkbox-label">{{ t('connection.duckdbTab.useDirectQuery') }}</span>
         </label>
       </div>
 
@@ -143,19 +134,21 @@
       <div class="performance-estimate">
         <h5 class="estimate-title">
           <TrendingUp :size="14" />
-          性能预估
+          {{ t('connection.duckdbTab.performanceEstimate') }}
         </h5>
         <div class="estimate-grid">
           <div class="estimate-item">
-            <span class="estimate-label">查询加速比</span>
+            <span class="estimate-label">{{ t('connection.duckdbTab.querySpeedup') }}</span>
             <span class="estimate-value">5-50x</span>
           </div>
           <div class="estimate-item">
-            <span class="estimate-label">首次查询延迟</span>
+            <span class="estimate-label">{{ t('connection.duckdbTab.firstQueryLatency') }}</span>
             <span class="estimate-value">+10-30%</span>
           </div>
           <div class="estimate-item">
-            <span class="estimate-label">后续查询延迟</span>
+            <span class="estimate-label">{{
+              t('connection.duckdbTab.subsequentQueryLatency')
+            }}</span>
             <span class="estimate-value">-80-95%</span>
           </div>
         </div>
@@ -167,6 +160,9 @@
 <script setup lang="ts">
 import { Zap, Database, Clock, FolderOpen, HardDrive, TrendingUp } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import type { ConnectionConfig } from '../../types/connection'
 
@@ -183,7 +179,7 @@ const emit = defineEmits<{
 function toggleDuckdbFed() {
   emit('update:formData', {
     ...props.formData,
-    useDuckdbFed: !props.formData.useDuckdbFed
+    useDuckdbFed: !props.formData.useDuckdbFed,
   })
 }
 
@@ -194,17 +190,17 @@ const cacheMode = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbCacheMode: val
-      }
+        duckdbCacheMode: val,
+      },
     })
-  }
+  },
 })
 
 const cacheModeHint = computed(() => {
   const hints: Record<string, string> = {
-    manual: '手动触发缓存，适合数据不常变化的场景',
-    auto: '查询后自动缓存，适合大多数场景（推荐）',
-    smart: '根据查询频率自动决定是否缓存，适合复杂场景'
+    manual: t('connection.duckdbTab.manualHint'),
+    auto: t('connection.duckdbTab.autoHint'),
+    smart: t('connection.duckdbTab.smartHint'),
   }
   return hints[cacheMode.value] || ''
 })
@@ -216,10 +212,10 @@ const cacheTtl = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbCacheTtl: val
-      }
+        duckdbCacheTtl: val,
+      },
     })
-  }
+  },
 })
 
 const cacheTtlUnit = computed({
@@ -229,10 +225,10 @@ const cacheTtlUnit = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbCacheTtlUnit: val
-      }
+        duckdbCacheTtlUnit: val,
+      },
     })
-  }
+  },
 })
 
 const cachePath = computed({
@@ -242,10 +238,10 @@ const cachePath = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbCachePath: val
-      }
+        duckdbCachePath: val,
+      },
     })
-  }
+  },
 })
 
 const maxCacheSize = computed({
@@ -255,10 +251,10 @@ const maxCacheSize = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbMaxCacheSize: val
-      }
+        duckdbMaxCacheSize: val,
+      },
     })
-  }
+  },
 })
 
 const autoSync = computed({
@@ -268,10 +264,10 @@ const autoSync = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbAutoSync: val
-      }
+        duckdbAutoSync: val,
+      },
     })
-  }
+  },
 })
 
 const compressCache = computed({
@@ -281,10 +277,10 @@ const compressCache = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbCompressCache: val
-      }
+        duckdbCompressCache: val,
+      },
     })
-  }
+  },
 })
 
 const useDirectQuery = computed({
@@ -294,10 +290,10 @@ const useDirectQuery = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        duckdbUseDirectQuery: val
-      }
+        duckdbUseDirectQuery: val,
+      },
     })
-  }
+  },
 })
 
 function selectCachePath() {

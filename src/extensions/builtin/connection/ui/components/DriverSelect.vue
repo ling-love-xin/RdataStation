@@ -3,9 +3,15 @@
     <!-- 搜索和筛选 -->
     <div class="driver-header">
       <div class="search-box">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
+        <svg
+          class="search-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
         </svg>
         <input
           v-model="searchQuery"
@@ -35,8 +41,8 @@
 
     <div v-else-if="filteredDrivers.length === 0" class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M8 12h8M12 8v8"/>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12h8M12 8v8" />
       </svg>
       <p>未找到匹配的数据库驱动</p>
     </div>
@@ -46,9 +52,9 @@
         v-for="driver in filteredDrivers"
         :key="driver.id"
         class="driver-card"
-        :class="{ 
+        :class="{
           selected: selectedDriver?.id === driver.id,
-          recommended: isRecommended(driver.id)
+          recommended: isRecommended(driver.id),
         }"
         @click="selectDriver(driver)"
       >
@@ -62,7 +68,7 @@
         </div>
         <div v-if="selectedDriver?.id === driver.id" class="selected-indicator">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <polyline points="20 6 9 17 4 12"/>
+            <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
       </div>
@@ -72,12 +78,16 @@
     <div v-if="selectedDriver" class="selected-info">
       <div class="info-item">
         <span class="info-label">默认端口:</span>
-        <span class="info-value">{{ selectedDriver.defaultPort || selectedDriver.default_port || '无' }}</span>
+        <span class="info-value">{{
+          selectedDriver.defaultPort || selectedDriver.default_port || '无'
+        }}</span>
       </div>
       <div class="info-item">
         <span class="info-label">支持功能:</span>
         <div class="feature-tags">
-          <span v-for="(feature, idx) in selectedDriver.features" :key="idx" class="feature-tag">{{ feature }}</span>
+          <span v-for="(feature, idx) in selectedDriver.features" :key="idx" class="feature-tag">{{
+            feature
+          }}</span>
         </div>
       </div>
     </div>
@@ -88,7 +98,6 @@
 import { ref, computed } from 'vue'
 
 import DbIcon from '@/shared/components/common/DbIcon.vue'
-
 
 import type { DriverDescriptor } from '../types/driver'
 
@@ -105,7 +114,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
-  modelValue: null
+  modelValue: null,
 })
 
 const emit = defineEmits<Emits>()
@@ -120,7 +129,7 @@ const categories = [
   { key: 'relational', label: '关系型' },
   { key: 'nosql', label: 'NoSQL' },
   { key: 'file', label: '文件型' },
-  { key: 'cloud', label: '云数据库' }
+  { key: 'cloud', label: '云数据库' },
 ]
 
 // 推荐驱动列表
@@ -131,13 +140,13 @@ const driverCategories: Record<string, string[]> = {
   relational: ['mysql', 'postgres', 'mariadb', 'oracle', 'sqlserver'],
   nosql: ['mongodb', 'redis', 'cassandra', 'dynamodb'],
   file: ['sqlite', 'duckdb'],
-  cloud: ['snowflake', 'bigquery', 'redshift', 'athena']
+  cloud: ['snowflake', 'bigquery', 'redshift', 'athena'],
 }
 
 // 当前选中的驱动
 const selectedDriver = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: value => emit('update:modelValue', value),
 })
 
 // 过滤后的驱动列表
@@ -153,10 +162,11 @@ const filteredDrivers = computed(() => {
   // 按搜索词筛选
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(d => 
-      d.name.toLowerCase().includes(query) ||
-      (d.description || '').toLowerCase().includes(query) ||
-      d.id.toLowerCase().includes(query)
+    result = result.filter(
+      d =>
+        d.name.toLowerCase().includes(query) ||
+        (d.description || '').toLowerCase().includes(query) ||
+        d.id.toLowerCase().includes(query)
     )
   }
 
@@ -281,7 +291,9 @@ function selectDriver(driver: DriverDescriptor) {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 空状态 */

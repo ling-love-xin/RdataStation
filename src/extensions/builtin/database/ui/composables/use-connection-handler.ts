@@ -1,6 +1,6 @@
 /**
  * 数据库导航器连接处理逻辑
- * 
+ *
  * 处理连接的建立、关闭、刷新等操作
  * 从 database-navigator.vue 中提取，实现业务逻辑与 UI 分离
  */
@@ -29,10 +29,10 @@ export function useConnectionHandler() {
   ): Promise<ProjectConnection | null> {
     const connectionId = node.data.connectionId as string
     const scope = node.data.scope as 'global' | 'project'
-    
+
     // 尝试建立运行时连接
     let conn: ProjectConnection | undefined
-    
+
     if (scope === 'project') {
       conn = projectConnections.find(c => c.id === connectionId)
     } else {
@@ -50,17 +50,17 @@ export function useConnectionHandler() {
           password: globalConn.password || undefined,
           connection_type: 'global',
           created_at: globalConn.created_at,
-          updated_at: globalConn.updated_at
+          updated_at: globalConn.updated_at,
         } as ProjectConnection
       }
     }
-    
+
     if (conn) {
       await runtimeConnectionStore.establishRuntimeConnection(conn)
       initializeRootNodes()
       return conn
     }
-    
+
     return null
   }
 
@@ -88,14 +88,14 @@ export function useConnectionHandler() {
     loadGlobalConnections: () => Promise<void>
   ): Promise<void> {
     await loadGlobalConnections()
-    
+
     const allConnections = [...globalConnections, ...projectConnections]
-    
+
     for (const conn of allConnections) {
       clearConnection(conn.id)
       await navigatorStore.loadDatabases(conn.id)
     }
-    
+
     initializeRootNodes()
   }
 
@@ -105,18 +105,24 @@ export function useConnectionHandler() {
   function handleOpenTableOrView(
     node: VirtualTreeNode,
     projectConnections: ProjectConnection[]
-  ): { connection: ProjectConnection | null; tableName: string; connectionId?: string; dbName?: string; schemaName?: string } | null {
+  ): {
+    connection: ProjectConnection | null
+    tableName: string
+    connectionId?: string
+    dbName?: string
+    schemaName?: string
+  } | null {
     const { connectionId, dbName, schemaName } = node.data
     const tableName = node.data.tableName || node.data.viewName || ''
-    
+
     const conn = projectConnections.find(c => c.id === connectionId)
-    
+
     return {
       connection: conn || null,
       tableName: tableName as string,
       connectionId: connectionId as string | undefined,
       dbName: dbName as string | undefined,
-      schemaName: schemaName as string | undefined
+      schemaName: schemaName as string | undefined,
     }
   }
 
@@ -124,6 +130,6 @@ export function useConnectionHandler() {
     handleConnectionClick,
     handleDisconnect,
     handleRefresh,
-    handleOpenTableOrView
+    handleOpenTableOrView,
   }
 }

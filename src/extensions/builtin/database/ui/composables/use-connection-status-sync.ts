@@ -1,6 +1,6 @@
 /**
  * 连接状态实时同步
- * 
+ *
  * 实时监测连接健康状态
  * 自动重连机制
  * 状态变更通知
@@ -58,7 +58,7 @@ const DEFAULT_OPTIONS: IConnectionStatusSyncOptions = {
   enableAutoReconnect: true,
   reconnectDelay: 5000,
   maxReconnectAttempts: 5,
-  enableCacheWarming: true
+  enableCacheWarming: true,
 }
 
 export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) {
@@ -119,8 +119,13 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
       const databases = navigatorStore.getDatabases(connectionId)
 
       if (databases.length > 0) {
-        await warmConnection(connectionId, connType as 'global' | 'project', databases.map((d: { name: string }) => d.name), projectPath)
-        
+        await warmConnection(
+          connectionId,
+          connType as 'global' | 'project',
+          databases.map((d: { name: string }) => d.name),
+          projectPath
+        )
+
         healthInfo.isCacheWarmed = true
         healthInfoMap.value.set(connectionId, healthInfo)
       }
@@ -143,7 +148,7 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
       lastChecked: Date.now(),
       consecutiveFailures,
       isChecking: true,
-      isCacheWarmed: existingInfo?.isCacheWarmed || false
+      isCacheWarmed: existingInfo?.isCacheWarmed || false,
     }
 
     healthInfoMap.value.set(connectionId, newInfo)
@@ -151,7 +156,7 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
     try {
       const dbType = navigatorStore.getDbType(connectionId)
       let pingSql = 'SELECT 1'
-      
+
       if (dbType === 'oracle') {
         pingSql = 'SELECT 1 FROM DUAL'
       } else if (dbType === 'mysql') {
@@ -260,17 +265,17 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
         if (projectConn) {
           await runtimeConnectionStore.closeRuntimeConnection(connectionId)
           await runtimeConnectionStore.establishRuntimeConnection(projectConn)
-          
+
           await checkConnectionHealth(connectionId)
         }
       } catch (error) {
         console.error('重连失败:', connectionId, error)
-        
+
         const healthInfo = healthInfoMap.value.get(connectionId)
         if (healthInfo) {
           healthInfo.consecutiveFailures += 1
           healthInfoMap.value.set(connectionId, healthInfo)
-          
+
           if (healthInfo.consecutiveFailures < opts.maxReconnectAttempts!) {
             scheduleReconnect(connectionId)
           }
@@ -333,6 +338,6 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
     startHealthCheck,
     stopHealthCheck,
     triggerReconnect,
-    cleanup
+    cleanup,
   }
 }

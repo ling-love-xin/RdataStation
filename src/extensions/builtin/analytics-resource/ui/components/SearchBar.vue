@@ -7,45 +7,73 @@
         v-model="localQuery"
         type="text"
         class="search-input"
-        placeholder="搜索资源名称..."
+        :placeholder="t('analyticsResource.searchPlaceholder')"
         @input="handleInput"
         @keydown="handleKeyDown"
+        @focus="showHistory = searchHistory.length > 0 && !localQuery"
+        @blur="handleBlur"
       />
-      <button
-        v-if="localQuery"
-        class="clear-btn"
-        @click="clearSearch"
+      <button v-if="localQuery" class="clear-btn" @click="clearSearch"> ✕ </button>
+    </div>
+
+    <div v-if="showHistory && searchHistory.length > 0" class="history-dropdown">
+      <div class="history-header">
+        <span class="history-title">{{ t('analyticsResource.recentSearch') }}</span>
+        <button class="history-clear-btn" @click="$emit('clear-history')">
+          {{ t('analyticsResource.clear') }}
+        </button>
+      </div>
+      <div
+        v-for="item in searchHistory"
+        :key="item"
+        class="history-item"
+        @mousedown.prevent="selectHistory(item)"
       >
-        ✕
-      </button>
+        <span class="history-icon">🕐</span>
+        <span class="history-text">{{ item }}</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-const props = withDefaults(defineProps<{
-  modelValue?: string
-  debounceMs?: number
-}>(), {
-  modelValue: '',
-  debounceMs: 300,
-})
+const { t } = useI18n()
+
+const props = withDefaults(
+  defineProps<{
+    modelValue?: string
+    debounceMs?: number
+    searchHistory?: string[]
+  }>(),
+  {
+    modelValue: '',
+    debounceMs: 300,
+    searchHistory: () => [],
+  }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
-  'search': [value: string]
-  'clear': []
+  search: [value: string]
+  clear: []
+  'clear-history': []
+  'history-select': [query: string]
 }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const localQuery = ref(props.modelValue)
+const showHistory = ref(false)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-watch(() => props.modelValue, (newVal) => {
-  localQuery.value = newVal
-})
+watch(
+  () => props.modelValue,
+  newVal => {
+    localQuery.value = newVal
+  }
+)
 
 function handleInput() {
   if (debounceTimer) {
@@ -66,8 +94,24 @@ function clearSearch() {
 
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
+    showHistory.value = false
     clearSearch()
   }
+}
+
+function handleBlur() {
+  setTimeout(() => {
+    showHistory.value = false
+  }, 200)
+}
+
+function selectHistory(query: string) {
+  localQuery.value = query
+  emit('update:modelValue', query)
+  emit('search', query)
+  emit('history-select', query)
+  showHistory.value = false
+  inputRef.value?.focus()
 }
 
 function focus() {
@@ -157,5 +201,73 @@ defineExpose({ focus })
 .clear-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.history-dropdown {
+  position: absolute;
+  top: 100%;
+  left: var(--size-lg);
+  right: var(--size-lg);
+  margin-top: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--size-sm) var(--size-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.history-clear-btn {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.history-clear-btn:hover {
+  color: var(--danger-color);
+  background: var(--bg-hover);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-sm);
+  padding: var(--size-sm) var(--size-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.history-item:hover {
+  background: var(--bg-hover);
+}
+
+.history-icon {
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+.history-text {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 </style>

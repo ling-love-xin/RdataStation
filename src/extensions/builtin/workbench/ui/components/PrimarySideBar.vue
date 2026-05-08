@@ -14,12 +14,7 @@
       <component :is="currentComponent" />
     </div>
 
-    <div
-      v-if="isVisible"
-      class="sidebar-resizer"
-      :class="position"
-      @mousedown="startResize"
-    />
+    <div v-if="isVisible" class="sidebar-resizer" :class="position" @mousedown="startResize" />
   </div>
 </template>
 
@@ -71,7 +66,7 @@ const currentComponentId = computed(() => {
 
 const sidebarStyle = computed(() => {
   return {
-    width: isExpanded.value ? `${sidebarWidth.value}px` : '0px'
+    width: isExpanded.value ? `${sidebarWidth.value}px` : '0px',
   }
 })
 
@@ -105,7 +100,7 @@ function startResize(e: MouseEvent) {
   isResizing.value = true
   startX.value = e.clientX
   startWidth.value = sidebarWidth.value
-  
+
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
   e.preventDefault()
@@ -113,13 +108,11 @@ function startResize(e: MouseEvent) {
 
 function handleResize(e: MouseEvent) {
   if (!isResizing.value) return
-  
-  const delta = props.position === 'left' 
-    ? e.clientX - startX.value
-    : startX.value - e.clientX
-  
+
+  const delta = props.position === 'left' ? e.clientX - startX.value : startX.value - e.clientX
+
   const newWidth = startWidth.value + delta
-  
+
   if (props.position === 'left') {
     layoutStore.setPrimarySideBarWidth(newWidth)
   } else {

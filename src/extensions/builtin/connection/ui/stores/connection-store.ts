@@ -6,7 +6,6 @@ import type { Connection, RecentConnection, ConnectionType } from '@/shared/type
 import { useRuntimeConnectionStore } from './runtime-connection-store'
 import * as connectionService from '../services/connection'
 
-
 /**
  * 连接状态管理
  *
@@ -42,8 +41,10 @@ export const useConnectionStore = defineStore('connection', () => {
     error.value = null
     try {
       // 获取项目 store
-      const projectStore = await import('@/core/project/stores/project').then(m => m.useProjectStore())
-      
+      const projectStore = await import('@/core/project/stores/project').then(m =>
+        m.useProjectStore()
+      )
+
       // 使用 runtimeConnectionStore 判断运行时连接状态
       const runtimeIds = useRuntimeConnectionStore().runtimeConnectionIds
       const hasRuntime = (connId: string) => runtimeIds.has(connId)
@@ -53,7 +54,7 @@ export const useConnectionStore = defineStore('connection', () => {
         const projectConnections = await connectionService.getProjectConnections(
           projectStore.currentProject.path
         )
-        
+
         connections.value = projectConnections.map(r => ({
           connId: r.id,
           name: r.name,
@@ -69,8 +70,8 @@ export const useConnectionStore = defineStore('connection', () => {
             supportsArrow: false,
             supportsFederated: false,
             supportsConcurrentWrite: false,
-            isInMemory: false
-          }
+            isInMemory: false,
+          },
         }))
       }
 
@@ -91,8 +92,8 @@ export const useConnectionStore = defineStore('connection', () => {
           supportsArrow: false,
           supportsFederated: false,
           supportsConcurrentWrite: false,
-          isInMemory: false
-        }
+          isInMemory: false,
+        },
       }))
 
       // 合并：项目连接优先，然后是全局连接
@@ -148,8 +149,8 @@ export const useConnectionStore = defineStore('connection', () => {
           supportsArrow: result.meta?.supports_arrow ?? false,
           supportsFederated: result.meta?.supports_federated ?? false,
           supportsConcurrentWrite: result.meta?.supports_concurrent_write ?? false,
-          isInMemory: result.meta?.is_in_memory ?? false
-        }
+          isInMemory: result.meta?.is_in_memory ?? false,
+        },
       }
       connections.value.push(newConn)
       currentConnection.value = newConn
@@ -223,7 +224,7 @@ export const useConnectionStore = defineStore('connection', () => {
     if (!conn) {
       throw new Error('连接不存在')
     }
-    
+
     loading.value = true
     error.value = null
     try {
@@ -246,10 +247,10 @@ export const useConnectionStore = defineStore('connection', () => {
     try {
       // 断开旧连接
       await connectionService.closeConnection(connId)
-      
+
       // 创建新连接
       const result = await connectionService.connectDatabase(dbType, url, name)
-      
+
       // 更新连接列表
       const newConn: Connection = {
         connId: result.conn_id,
@@ -266,10 +267,10 @@ export const useConnectionStore = defineStore('connection', () => {
           supportsArrow: result.meta?.supports_arrow ?? false,
           supportsFederated: result.meta?.supports_federated ?? false,
           supportsConcurrentWrite: result.meta?.supports_concurrent_write ?? false,
-          isInMemory: result.meta?.is_in_memory ?? false
-        }
+          isInMemory: result.meta?.is_in_memory ?? false,
+        },
       }
-      
+
       // 替换旧连接
       const index = connections.value.findIndex(c => c.connId === connId)
       if (index !== -1) {
@@ -277,12 +278,12 @@ export const useConnectionStore = defineStore('connection', () => {
       } else {
         connections.value.push(newConn)
       }
-      
+
       // 如果是当前连接，更新当前连接
       if (currentConnection.value?.connId === connId) {
         currentConnection.value = newConn
       }
-      
+
       return newConn
     } catch (e) {
       error.value = e instanceof Error ? e.message : '更新连接失败'
@@ -304,7 +305,7 @@ export const useConnectionStore = defineStore('connection', () => {
         dbType: r.db_type,
         url: r.url,
         connectionType: (r.connection_type || 'global') as ConnectionType,
-        connectedAt: r.connected_at
+        connectedAt: r.connected_at,
       }))
     } catch (e) {
       console.error('加载最近连接失败:', e)
@@ -317,9 +318,7 @@ export const useConnectionStore = defineStore('connection', () => {
   async function removeRecentConnection(name: string) {
     try {
       await connectionService.removeRecentConnection(name)
-      recentConnections.value = recentConnections.value.filter(
-        r => r.name !== name
-      )
+      recentConnections.value = recentConnections.value.filter(r => r.name !== name)
     } catch (e) {
       console.error('删除最近连接失败:', e)
     }
@@ -344,17 +343,20 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   // ==================== 事务管理 ====================
-  
+
   /**
    * 开始事务
    */
   async function beginTransaction(connId?: string) {
     const targetConnId = connId || currentConnection.value?.connId
     if (!targetConnId) throw new Error('没有活动的连接')
-    
+
     loading.value = true
     try {
-      await connectionService.executeSql(targetConnId, 'BEGIN TRANSACTION')
+      const result = await invoke<TransactionStatusResponse>('begin_transaction', {
+        connId: targetConnId,
+      })
+      return result
     } finally {
       loading.value = false
     }
@@ -366,10 +368,13 @@ export const useConnectionStore = defineStore('connection', () => {
   async function commitTransaction(connId?: string) {
     const targetConnId = connId || currentConnection.value?.connId
     if (!targetConnId) throw new Error('没有活动的连接')
-    
+
     loading.value = true
     try {
-      await connectionService.executeSql(targetConnId, 'COMMIT')
+      const result = await invoke<TransactionStatusResponse>('commit_transaction', {
+        connId: targetConnId,
+      })
+      return result
     } finally {
       loading.value = false
     }
@@ -381,13 +386,29 @@ export const useConnectionStore = defineStore('connection', () => {
   async function rollbackTransaction(connId?: string) {
     const targetConnId = connId || currentConnection.value?.connId
     if (!targetConnId) throw new Error('没有活动的连接')
-    
+
     loading.value = true
     try {
-      await connectionService.executeSql(targetConnId, 'ROLLBACK')
+      const result = await invoke<TransactionStatusResponse>('rollback_transaction', {
+        connId: targetConnId,
+      })
+      return result
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * 获取事务状态
+   */
+  async function getTransactionStatus(connId?: string) {
+    const targetConnId = connId || currentConnection.value?.connId
+    if (!targetConnId) throw new Error('没有活动的连接')
+
+    const result = await invoke<TransactionStatusResponse>('get_transaction_status', {
+      connId: targetConnId,
+    })
+    return result
   }
 
   return {
@@ -417,6 +438,7 @@ export const useConnectionStore = defineStore('connection', () => {
     // 事务管理
     beginTransaction,
     commitTransaction,
-    rollbackTransaction
+    rollbackTransaction,
+    getTransactionStatus,
   }
 })

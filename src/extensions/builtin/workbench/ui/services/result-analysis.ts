@@ -5,6 +5,10 @@
  */
 import { invoke } from '@tauri-apps/api/core'
 
+import type { MultiRuleResult } from '../types/result'
+
+export type { MultiRuleResult }
+
 // ==================== 基础接口 ====================
 
 export interface ResultSet {
@@ -111,8 +115,8 @@ export async function reExecuteWithFilter(
       conn_id: connId,
       original_sql: originalSql,
       where_clause: whereClause || null,
-      order_clause: orderClause || null
-    }
+      order_clause: orderClause || null,
+    },
   })
 }
 
@@ -127,8 +131,8 @@ export async function executeDuckdbAnalysis(
       temp_table: tempTable,
       sql,
       columns: columns || null,
-      rows: rows || null
-    }
+      rows: rows || null,
+    },
   })
 }
 
@@ -139,8 +143,8 @@ export async function getColumnInsights(
   return invoke<ColumnStats>('get_column_insights', {
     input: {
       temp_table: tempTable,
-      column_name: columnName
-    }
+      column_name: columnName,
+    },
   })
 }
 
@@ -151,20 +155,17 @@ export async function getColumnInsightFull(
   return invoke<ColumnInsightFull>('get_column_insight_full', {
     input: {
       temp_table: tempTable,
-      column_name: columnName
-    }
+      column_name: columnName,
+    },
   })
 }
 
-export async function createDuckdbTempTable(
-  columns: string[],
-  rows: unknown[][]
-): Promise<string> {
+export async function createDuckdbTempTable(columns: string[], rows: unknown[][]): Promise<string> {
   return invoke<string>('create_duckdb_temp_table', {
     input: {
       columns,
-      rows
-    }
+      rows,
+    },
   })
 }
 
@@ -202,31 +203,25 @@ export interface CleanupResult {
   sqlite_deleted: number
 }
 
-export async function saveColumnInsightSnapshot(
-  input: SaveInsightSnapshotInput
-): Promise<string> {
+export async function saveColumnInsightSnapshot(input: SaveInsightSnapshotInput): Promise<string> {
   return invoke<string>('save_column_insight_snapshot', {
-    input
+    input,
   })
 }
 
-export async function getColumnInsightHistory(
-  columnName: string
-): Promise<InsightVersionEntry[]> {
+export async function getColumnInsightHistory(columnName: string): Promise<InsightVersionEntry[]> {
   return invoke<InsightVersionEntry[]>('get_column_insight_history', {
     input: {
-      column_name: columnName
-    }
+      column_name: columnName,
+    },
   })
 }
 
-export async function cleanupInsightSnapshots(
-  days: number
-): Promise<CleanupResult> {
+export async function cleanupInsightSnapshots(days: number): Promise<CleanupResult> {
   return invoke<CleanupResult>('cleanup_insight_snapshots', {
     input: {
-      days
-    }
+      days,
+    },
   })
 }
 
@@ -254,23 +249,17 @@ export interface ExecuteRuleInput {
   temp_table: string
 }
 
-export async function executeInsightRule(
-  input: ExecuteRuleInput
-): Promise<unknown> {
+export async function executeInsightRule(input: ExecuteRuleInput): Promise<MultiRuleResult> {
   return invoke<unknown>('execute_insight_rule', { input })
 }
 
-export async function listInsightRules(
-  category?: string
-): Promise<RuleMeta[]> {
+export async function listInsightRules(category?: string): Promise<RuleMeta[]> {
   return invoke<RuleMeta[]>('list_insight_rules', { category: category ?? null })
 }
 
-export async function listRulesForColumn(
-  columnType: string
-): Promise<RuleMeta[]> {
+export async function listRulesForColumn(columnType: string): Promise<RuleMeta[]> {
   return invoke<RuleMeta[]>('list_rules_for_column', {
-    input: { column_type: columnType }
+    input: { column_type: columnType },
   })
 }
 
@@ -314,9 +303,7 @@ export interface GetColumnQualityInput {
   temp_table: string
 }
 
-export async function getColumnQuality(
-  input: GetColumnQualityInput
-): Promise<QualityScore> {
+export async function getColumnQuality(input: GetColumnQualityInput): Promise<QualityScore> {
   return invoke<QualityScore>('get_column_quality', { input })
 }
 
@@ -346,10 +333,66 @@ export interface BatchEvaluateInput {
   table: string
 }
 
-export async function batchEvaluateColumns(
-  input: BatchEvaluateInput
-): Promise<TableQuality> {
+export async function batchEvaluateColumns(input: BatchEvaluateInput): Promise<TableQuality> {
   return invoke<TableQuality>('batch_evaluate_columns', { input })
+}
+
+// ═══════════════════ Schema 洞察 ═══════════════════
+
+export interface SchemaInsightReport {
+  schema_name: string
+  table_count: number
+  total_columns: number
+  fk_candidates: ForeignKeyCandidate[]
+  type_mismatches: TypeMismatch[]
+  orphan_tables: OrphanTable[]
+  redundant_columns: RedundantColumn[]
+  summary: string
+  health_score: number
+  health_level: string
+}
+
+export interface ForeignKeyCandidate {
+  source_table: string
+  source_column: string
+  target_table: string
+  target_column: string
+  confidence: string
+  naming_pattern: string
+}
+
+export interface TypeMismatch {
+  column_name: string
+  tables: TypeMismatchEntry[]
+  severity: string
+}
+
+export interface TypeMismatchEntry {
+  table_name: string
+  data_type: string
+}
+
+export interface OrphanTable {
+  table_name: string
+  column_count: number
+  reason: string
+}
+
+export interface RedundantColumn {
+  column_name: string
+  table_count: number
+  tables: string[]
+  suggestion: string
+}
+
+export interface SchemaInsightInput {
+  conn_id: string
+  database: string
+  schema: string
+}
+
+export async function getSchemaInsight(input: SchemaInsightInput): Promise<SchemaInsightReport> {
+  return invoke<SchemaInsightReport>('get_schema_insight', { input })
 }
 
 // ═══════════════════ 表探查 ═══════════════════
@@ -362,9 +405,7 @@ export interface GetTableProfileInput {
   table: string
 }
 
-export async function getTableProfile(
-  input: GetTableProfileInput
-): Promise<TableProfile> {
+export async function getTableProfile(input: GetTableProfileInput): Promise<TableProfile> {
   return invoke<TableProfile>('get_table_profile', { input })
 }
 
@@ -374,7 +415,7 @@ export async function getInsightVersionDetail(
   versionId: string
 ): Promise<ColumnInsightFull | null> {
   return invoke<ColumnInsightFull | null>('get_insight_version_detail', {
-    input: { version_id: versionId }
+    input: { version_id: versionId },
   })
 }
 
@@ -392,4 +433,36 @@ export async function profileColumnFromTable(
   input: ProfileColumnFromTableInput
 ): Promise<ColumnInsightFull> {
   return invoke<ColumnInsightFull>('profile_column_from_table', { input })
+}
+
+// ═══════════════════ 单元格编辑持久化 ═══════════════════
+
+export interface CellUpdateInput {
+  conn_id: string
+  table_name: string
+  column_name: string
+  new_value: unknown
+  row_identity: Record<string, unknown>
+}
+
+export interface CellUpdateResult {
+  success: boolean
+  affected_rows: number
+  message: string
+}
+
+export async function saveCellUpdate(input: CellUpdateInput): Promise<CellUpdateResult> {
+  return invoke<CellUpdateResult>('save_cell_update', { input })
+}
+
+// ═══════════════════ 数据导出 ═══════════════════
+
+export interface ExportResultInput {
+  temp_table: string
+  file_path: string
+  format: string
+}
+
+export async function exportResultToFile(input: ExportResultInput): Promise<string> {
+  return invoke<string>('export_result_to_file', { input })
 }

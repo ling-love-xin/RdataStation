@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -37,8 +39,16 @@ pub struct AnalyzableFile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FileMeta {
+    pub last_connection_id: Option<String>,
+    pub last_executed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ScratchpadConfig {
     pub external_references: Vec<ExternalReference>,
+    #[serde(default)]
+    pub file_meta: HashMap<String, FileMeta>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,4 +56,5 @@ pub struct ScratchpadResponse {
     pub local_entries: Vec<ScratchpadEntry>,
     pub external_references: Vec<ExternalReference>,
     pub scratchpad_path: PathBuf,
+    pub file_meta: HashMap<String, FileMeta>,
 }

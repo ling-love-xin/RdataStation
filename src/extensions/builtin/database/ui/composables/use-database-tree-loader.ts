@@ -1,6 +1,6 @@
 /**
  * 数据库树节点加载器
- * 
+ *
  * 实现 DBeaver 级别的目录树结构
  * 支持动态渲染，根据数据库类型自适应结构
  */
@@ -69,7 +69,7 @@ const DB_TYPE_TREE_CONFIGS: Record<string, ITreeStructureConfig> = {
     tableHasColumnsFolder: true,
     tableHasIndexesFolder: true,
     tableHasConstraintsFolder: true,
-    systemSchemas: ['information_schema', 'performance_schema', 'mysql', 'sys']
+    systemSchemas: ['information_schema', 'performance_schema', 'mysql', 'sys'],
   },
   postgres: {
     hasSchemas: true,
@@ -82,7 +82,7 @@ const DB_TYPE_TREE_CONFIGS: Record<string, ITreeStructureConfig> = {
     tableHasColumnsFolder: true,
     tableHasIndexesFolder: true,
     tableHasConstraintsFolder: true,
-    systemSchemas: ['information_schema', 'pg_catalog', 'pg_toast']
+    systemSchemas: ['information_schema', 'pg_catalog', 'pg_toast'],
   },
   sqlite: {
     hasSchemas: false,
@@ -95,7 +95,7 @@ const DB_TYPE_TREE_CONFIGS: Record<string, ITreeStructureConfig> = {
     tableHasColumnsFolder: true,
     tableHasIndexesFolder: true,
     tableHasConstraintsFolder: false,
-    systemSchemas: ['sqlite_schema']
+    systemSchemas: ['sqlite_schema'],
   },
   duckdb: {
     hasSchemas: true,
@@ -108,8 +108,8 @@ const DB_TYPE_TREE_CONFIGS: Record<string, ITreeStructureConfig> = {
     tableHasColumnsFolder: true,
     tableHasIndexesFolder: true,
     tableHasConstraintsFolder: true,
-    systemSchemas: ['information_schema', 'pg_catalog']
-  }
+    systemSchemas: ['information_schema', 'pg_catalog'],
+  },
 }
 
 export function useDatabaseTreeLoader() {
@@ -126,11 +126,14 @@ export function useDatabaseTreeLoader() {
   /**
    * 创建连接节点
    */
-  function createConnectionNode(conn: ProjectConnection | GlobalConnection, scope: 'global' | 'project'): VirtualTreeNode {
+  function createConnectionNode(
+    conn: ProjectConnection | GlobalConnection,
+    scope: 'global' | 'project'
+  ): VirtualTreeNode {
     const databases = navigatorStore.getDatabases(conn.id)
     const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(conn.id)
     const key = NodeKeyEncoder.encode(['connection', scope, conn.id])
-    
+
     return {
       key,
       level: 0,
@@ -142,17 +145,20 @@ export function useDatabaseTreeLoader() {
       parentId: null,
       childCount: databases.length,
       connectionTags: [scope === 'global' ? '全局' : '项目'],
-      connectionStatus: hasRuntimeConn ? 'connected' : 'disconnected'
+      connectionStatus: hasRuntimeConn ? 'connected' : 'disconnected',
     }
   }
 
   /**
    * 创建数据库节点
    */
-  function createDatabaseNodes(connectionId: string, scope: 'global' | 'project'): VirtualTreeNode[] {
+  function createDatabaseNodes(
+    connectionId: string,
+    scope: 'global' | 'project'
+  ): VirtualTreeNode[] {
     const databases = navigatorStore.getDatabases(connectionId)
     const parentKey = NodeKeyEncoder.encode(['connection', scope, connectionId])
-    
+
     return databases.map(db => ({
       key: NodeKeyEncoder.encode(['database', connectionId, db.name]),
       level: 1,
@@ -162,17 +168,21 @@ export function useDatabaseTreeLoader() {
       type: 'database',
       data: { connectionId, dbName: db.name },
       parentId: parentKey,
-      childCount: db.schemas?.length || 0
+      childCount: db.schemas?.length || 0,
     }))
   }
 
   /**
    * 创建 Schema 节点（PostgreSQL/DuckDB）
    */
-  function createSchemaNodes(connectionId: string, dbName: string, config: ITreeStructureConfig): VirtualTreeNode[] {
+  function createSchemaNodes(
+    connectionId: string,
+    dbName: string,
+    config: ITreeStructureConfig
+  ): VirtualTreeNode[] {
     const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
     const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
-    
+
     return schemas
       .filter(schema => !config.systemSchemas.includes(schema.name))
       .map(schema => ({
@@ -184,14 +194,18 @@ export function useDatabaseTreeLoader() {
         type: 'schema',
         data: { connectionId, dbName, schemaName: schema.name },
         parentId: parentKey,
-        childCount: 8 // Tables/Views/Functions/Procedures/Sequences/Triggers + 系统对象
+        childCount: 8, // Tables/Views/Functions/Procedures/Sequences/Triggers + 系统对象
       }))
   }
 
   /**
    * 创建数据库下的对象文件夹（MySQL/SQLite 无 Schema 时使用）
    */
-  function createDatabaseObjectNodes(connectionId: string, dbName: string, config: ITreeStructureConfig): VirtualTreeNode[] {
+  function createDatabaseObjectNodes(
+    connectionId: string,
+    dbName: string,
+    config: ITreeStructureConfig
+  ): VirtualTreeNode[] {
     const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
     const nodes: VirtualTreeNode[] = []
 
@@ -205,7 +219,7 @@ export function useDatabaseTreeLoader() {
         type: 'tables-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -219,7 +233,7 @@ export function useDatabaseTreeLoader() {
         type: 'views-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -233,7 +247,7 @@ export function useDatabaseTreeLoader() {
         type: 'functions-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -247,7 +261,7 @@ export function useDatabaseTreeLoader() {
         type: 'procedures-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -261,7 +275,7 @@ export function useDatabaseTreeLoader() {
         type: 'triggers-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -271,7 +285,12 @@ export function useDatabaseTreeLoader() {
   /**
    * 创建 Schema 下的对象文件夹（DBeaver 风格）
    */
-  function createSchemaObjectNodes(connectionId: string, dbName: string, schemaName: string, config: ITreeStructureConfig): VirtualTreeNode[] {
+  function createSchemaObjectNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    config: ITreeStructureConfig
+  ): VirtualTreeNode[] {
     const parentKey = NodeKeyEncoder.encode(['schema', connectionId, dbName, schemaName])
     const nodes: VirtualTreeNode[] = []
 
@@ -285,7 +304,7 @@ export function useDatabaseTreeLoader() {
         type: 'tables-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -299,7 +318,7 @@ export function useDatabaseTreeLoader() {
         type: 'views-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -313,7 +332,7 @@ export function useDatabaseTreeLoader() {
         type: 'functions-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -327,7 +346,7 @@ export function useDatabaseTreeLoader() {
         type: 'procedures-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -341,7 +360,7 @@ export function useDatabaseTreeLoader() {
         type: 'sequences-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -355,7 +374,7 @@ export function useDatabaseTreeLoader() {
         type: 'triggers-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0
+        childCount: 0,
       })
     }
 
@@ -365,12 +384,17 @@ export function useDatabaseTreeLoader() {
   /**
    * 创建表节点
    */
-  function createTableNodes(connectionId: string, dbName: string, schemaName: string | undefined, config: ITreeStructureConfig): VirtualTreeNode[] {
+  function createTableNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined,
+    config: ITreeStructureConfig
+  ): VirtualTreeNode[] {
     const tables = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['tables-folder', connectionId, dbName])
-    
+
     return tables.map(table => ({
       key: NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName || '', table.name]),
       level: schemaName ? 4 : 3,
@@ -380,19 +404,23 @@ export function useDatabaseTreeLoader() {
       type: 'table',
       data: { connectionId, dbName, schemaName, tableName: table.name },
       parentId: parentKey,
-      childCount: config.tableHasColumnsFolder ? (table.columns?.length || 0) + 3 : 0
+      childCount: config.tableHasColumnsFolder ? (table.columns?.length || 0) + 3 : 0,
     }))
   }
 
   /**
    * 创建视图节点
    */
-  function createViewNodes(connectionId: string, dbName: string, schemaName: string | undefined): VirtualTreeNode[] {
+  function createViewNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined
+  ): VirtualTreeNode[] {
     const views = navigatorStore.getSchemaViews(connectionId, dbName, schemaName || '')
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['views-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['views-folder', connectionId, dbName])
-    
+
     return views.map(view => ({
       key: NodeKeyEncoder.encode(['view', connectionId, dbName, schemaName || '', view.name]),
       level: schemaName ? 4 : 3,
@@ -402,23 +430,28 @@ export function useDatabaseTreeLoader() {
       type: 'view',
       data: { connectionId, dbName, schemaName, viewName: view.name },
       parentId: parentKey,
-      childCount: view.columns?.length || 0
+      childCount: view.columns?.length || 0,
     }))
   }
 
   /**
    * 创建存储过程节点
    */
-  function createProcedureNodes(connectionId: string, dbName: string, schemaName: string | undefined): VirtualTreeNode[] {
-    const schema = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+  function createProcedureNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined
+  ): VirtualTreeNode[] {
+    const schema = navigatorStore
+      .getDatabaseSchemas(connectionId, dbName)
       .find(s => s.name === (schemaName || ''))
-    
+
     if (!schema || !schema.procedures) return []
-    
+
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName])
-    
+
     return schema.procedures.map(proc => ({
       key: NodeKeyEncoder.encode(['procedure', connectionId, dbName, schemaName || '', proc.name]),
       level: schemaName ? 4 : 3,
@@ -428,23 +461,28 @@ export function useDatabaseTreeLoader() {
       type: 'procedure',
       data: { connectionId, dbName, schemaName, procedureName: proc.name },
       parentId: parentKey,
-      childCount: 0
+      childCount: 0,
     }))
   }
 
   /**
    * 创建函数节点
    */
-  function createFunctionNodes(connectionId: string, dbName: string, schemaName: string | undefined): VirtualTreeNode[] {
-    const schema = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+  function createFunctionNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined
+  ): VirtualTreeNode[] {
+    const schema = navigatorStore
+      .getDatabaseSchemas(connectionId, dbName)
       .find(s => s.name === (schemaName || ''))
-    
+
     if (!schema || !schema.functions) return []
-    
+
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['functions-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['functions-folder', connectionId, dbName])
-    
+
     return schema.functions.map(func => ({
       key: NodeKeyEncoder.encode(['function', connectionId, dbName, schemaName || '', func.name]),
       level: schemaName ? 4 : 3,
@@ -454,26 +492,45 @@ export function useDatabaseTreeLoader() {
       type: 'function',
       data: { connectionId, dbName, schemaName, functionName: func.name },
       parentId: parentKey,
-      childCount: 0
+      childCount: 0,
     }))
   }
 
   /**
    * 创建表的子文件夹节点（DBeaver 风格）
    */
-  function createTableSubFolderNodes(connectionId: string, dbName: string, schemaName: string | undefined, tableName: string, config: ITreeStructureConfig): VirtualTreeNode[] {
-    const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
+  function createTableSubFolderNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined,
+    tableName: string,
+    config: ITreeStructureConfig
+  ): VirtualTreeNode[] {
+    const table = navigatorStore
+      .getSchemaTables(connectionId, dbName, schemaName || '')
       .find(t => t.name === tableName)
-    
+
     if (!table) return []
-    
-    const parentKey = NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName || '', tableName])
+
+    const parentKey = NodeKeyEncoder.encode([
+      'table',
+      connectionId,
+      dbName,
+      schemaName || '',
+      tableName,
+    ])
     const level = schemaName ? 5 : 4
     const nodes: VirtualTreeNode[] = []
-    
+
     if (config.tableHasColumnsFolder && table.columns) {
       nodes.push({
-        key: NodeKeyEncoder.encode(['columns-folder', connectionId, dbName, schemaName || '', tableName]),
+        key: NodeKeyEncoder.encode([
+          'columns-folder',
+          connectionId,
+          dbName,
+          schemaName || '',
+          tableName,
+        ]),
         level,
         isExpanded: false,
         isLeaf: false,
@@ -481,13 +538,19 @@ export function useDatabaseTreeLoader() {
         type: 'columns-folder',
         data: { connectionId, dbName, schemaName, tableName },
         parentId: parentKey,
-        childCount: table.columns.length
+        childCount: table.columns.length,
       })
     }
-    
+
     if (config.tableHasIndexesFolder && table.indexes && table.indexes.length > 0) {
       nodes.push({
-        key: NodeKeyEncoder.encode(['indexes-folder', connectionId, dbName, schemaName || '', tableName]),
+        key: NodeKeyEncoder.encode([
+          'indexes-folder',
+          connectionId,
+          dbName,
+          schemaName || '',
+          tableName,
+        ]),
         level,
         isExpanded: false,
         isLeaf: false,
@@ -495,13 +558,19 @@ export function useDatabaseTreeLoader() {
         type: 'indexes-folder',
         data: { connectionId, dbName, schemaName, tableName },
         parentId: parentKey,
-        childCount: table.indexes.length
+        childCount: table.indexes.length,
       })
     }
-    
+
     if (config.tableHasConstraintsFolder && table.constraints && table.constraints.length > 0) {
       nodes.push({
-        key: NodeKeyEncoder.encode(['constraints-folder', connectionId, dbName, schemaName || '', tableName]),
+        key: NodeKeyEncoder.encode([
+          'constraints-folder',
+          connectionId,
+          dbName,
+          schemaName || '',
+          tableName,
+        ]),
         level,
         isExpanded: false,
         isLeaf: false,
@@ -509,82 +578,161 @@ export function useDatabaseTreeLoader() {
         type: 'constraints-folder',
         data: { connectionId, dbName, schemaName, tableName },
         parentId: parentKey,
-        childCount: table.constraints.length
+        childCount: table.constraints.length,
       })
     }
-    
+
     return nodes
   }
 
   /**
    * 创建列节点
    */
-  function createColumnNodes(connectionId: string, dbName: string, schemaName: string | undefined, tableName: string): VirtualTreeNode[] {
-    const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
+  function createColumnNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined,
+    tableName: string
+  ): VirtualTreeNode[] {
+    const table = navigatorStore
+      .getSchemaTables(connectionId, dbName, schemaName || '')
       .find(t => t.name === tableName)
-    
+
     if (!table || !table.columns) return []
-    
-    const parentKey = NodeKeyEncoder.encode(['columns-folder', connectionId, dbName, schemaName || '', tableName])
-    
+
+    const parentKey = NodeKeyEncoder.encode([
+      'columns-folder',
+      connectionId,
+      dbName,
+      schemaName || '',
+      tableName,
+    ])
+
     return table.columns.map(col => ({
-      key: NodeKeyEncoder.encode(['column', connectionId, dbName, schemaName || '', tableName, col.name]),
+      key: NodeKeyEncoder.encode([
+        'column',
+        connectionId,
+        dbName,
+        schemaName || '',
+        tableName,
+        col.name,
+      ]),
       level: schemaName ? 6 : 5,
       isExpanded: false,
       isLeaf: true,
       label: col.name,
       type: 'column',
-      data: { connectionId, dbName, schemaName, tableName, columnName: col.name, dataType: col.dataType },
+      data: {
+        connectionId,
+        dbName,
+        schemaName,
+        tableName,
+        columnName: col.name,
+        dataType: col.dataType,
+      },
       parentId: parentKey,
-      childCount: 0
+      childCount: 0,
     }))
   }
 
   /**
    * 创建索引节点
    */
-  function createIndexNodes(connectionId: string, dbName: string, schemaName: string | undefined, tableName: string): VirtualTreeNode[] {
-    const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
+  function createIndexNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined,
+    tableName: string
+  ): VirtualTreeNode[] {
+    const table = navigatorStore
+      .getSchemaTables(connectionId, dbName, schemaName || '')
       .find(t => t.name === tableName)
-    
+
     if (!table || !table.indexes) return []
-    
-    const parentKey = NodeKeyEncoder.encode(['indexes-folder', connectionId, dbName, schemaName || '', tableName])
-    
+
+    const parentKey = NodeKeyEncoder.encode([
+      'indexes-folder',
+      connectionId,
+      dbName,
+      schemaName || '',
+      tableName,
+    ])
+
     return table.indexes.map(idx => ({
-      key: NodeKeyEncoder.encode(['index', connectionId, dbName, schemaName || '', tableName, idx.name]),
+      key: NodeKeyEncoder.encode([
+        'index',
+        connectionId,
+        dbName,
+        schemaName || '',
+        tableName,
+        idx.name,
+      ]),
       level: schemaName ? 6 : 5,
       isExpanded: false,
       isLeaf: true,
       label: idx.name,
       type: 'index',
-      data: { connectionId, dbName, schemaName, tableName, indexName: idx.name, isUnique: idx.isUnique, isPrimary: idx.isPrimary },
+      data: {
+        connectionId,
+        dbName,
+        schemaName,
+        tableName,
+        indexName: idx.name,
+        isUnique: idx.isUnique,
+        isPrimary: idx.isPrimary,
+      },
       parentId: parentKey,
-      childCount: 0
+      childCount: 0,
     }))
   }
 
   /**
    * 创建约束节点
    */
-  function createConstraintNodes(connectionId: string, dbName: string, schemaName: string | undefined, tableName: string): VirtualTreeNode[] {
-    const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
+  function createConstraintNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined,
+    tableName: string
+  ): VirtualTreeNode[] {
+    const table = navigatorStore
+      .getSchemaTables(connectionId, dbName, schemaName || '')
       .find(t => t.name === tableName)
-    
+
     if (!table || !table.constraints) return []
-    
-    const parentKey = NodeKeyEncoder.encode(['constraints-folder', connectionId, dbName, schemaName || '', tableName])
-    
+
+    const parentKey = NodeKeyEncoder.encode([
+      'constraints-folder',
+      connectionId,
+      dbName,
+      schemaName || '',
+      tableName,
+    ])
+
     return table.constraints.map(con => ({
-      key: NodeKeyEncoder.encode(['constraint', connectionId, dbName, schemaName || '', tableName, con.name]),
+      key: NodeKeyEncoder.encode([
+        'constraint',
+        connectionId,
+        dbName,
+        schemaName || '',
+        tableName,
+        con.name,
+      ]),
       level: schemaName ? 6 : 5,
       isExpanded: false,
       isLeaf: true,
       label: con.name,
       type: 'constraint',
-      data: { connectionId, dbName, schemaName, tableName, constraintName: con.name, constraintType: con.type },
+      data: {
+        connectionId,
+        dbName,
+        schemaName,
+        tableName,
+        constraintName: con.name,
+        constraintType: con.type,
+      },
       parentId: parentKey,
-      childCount: 0
+      childCount: 0,
     }))
   }
 
@@ -594,20 +742,20 @@ export function useDatabaseTreeLoader() {
   async function loadChildren(node: VirtualTreeNode): Promise<VirtualTreeNode[]> {
     const keyParts = NodeKeyEncoder.decode(node.key)
     if (keyParts.length === 0) return []
-    
+
     const nodeType = keyParts[0]
     const connectionId = keyParts[1]
     const dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
     const config = getDbTypeConfig(dbType)
-    
+
     try {
       // Level 0: 连接节点 -> 数据库列表
       if (nodeType === 'connection') {
         const scope = keyParts[1] as 'global' | 'project'
         const connId = keyParts[2]
-        
+
         const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(connId)
-        
+
         if (hasRuntimeConn) {
           await navigatorStore.loadDatabases(connId)
           return createDatabaseNodes(connId, scope)
@@ -619,11 +767,11 @@ export function useDatabaseTreeLoader() {
           return []
         }
       }
-      
+
       // Level 1: 数据库节点 -> Schema 或对象文件夹
       if (nodeType === 'database') {
         const dbName = keyParts[2]
-        
+
         if (config.hasSchemas) {
           await navigatorStore.loadSchemas(connectionId, dbName)
           return createSchemaNodes(connectionId, dbName, config)
@@ -631,82 +779,82 @@ export function useDatabaseTreeLoader() {
           return createDatabaseObjectNodes(connectionId, dbName, config)
         }
       }
-      
+
       // Level 2: Schema 节点 -> 对象文件夹
       if (nodeType === 'schema') {
         const dbName = keyParts[2]
         const schemaName = keyParts[3]
-        
+
         await Promise.all([
           navigatorStore.loadTables(connectionId, dbName, schemaName),
-          navigatorStore.loadViews(connectionId, dbName, schemaName)
+          navigatorStore.loadViews(connectionId, dbName, schemaName),
         ])
-        
+
         return createSchemaObjectNodes(connectionId, dbName, schemaName, config)
       }
-      
+
       // Level 2/3: Tables 文件夹 -> 表列表
       if (nodeType === 'tables-folder') {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
-        
+
         if (schemaName) {
           await navigatorStore.loadTables(connectionId, dbName, schemaName)
         } else {
           // MySQL 等无 Schema 的数据库：用 dbName 代替 schemaName
           await navigatorStore.loadTables(connectionId, dbName, dbName)
         }
-        
+
         return createTableNodes(connectionId, dbName, schemaName, config)
       }
-      
+
       // Level 2/3: Views 文件夹 -> 视图列表
       if (nodeType === 'views-folder') {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
-        
+
         if (schemaName) {
           await navigatorStore.loadViews(connectionId, dbName, schemaName)
         }
-        
+
         return createViewNodes(connectionId, dbName, schemaName)
       }
-      
+
       // Level 2/3: Procedures 文件夹 -> 存储过程列表
       if (nodeType === 'procedures-folder') {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
-        
+
         if (schemaName) {
           await navigatorStore.loadProcedures(connectionId, dbName, schemaName)
         }
-        
+
         return createProcedureNodes(connectionId, dbName, schemaName)
       }
-      
+
       // Level 2/3: Functions 文件夹 -> 函数列表
       if (nodeType === 'functions-folder') {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
-        
+
         if (schemaName) {
           await navigatorStore.loadFunctions(connectionId, dbName, schemaName)
         }
-        
+
         return createFunctionNodes(connectionId, dbName, schemaName)
       }
-      
+
       // Level 3/4: 表节点 -> Columns/Indexes/Constraints 文件夹
       if (nodeType === 'table') {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
         const tableName = keyParts[4]
-        
+
         await navigatorStore.loadColumns(connectionId, dbName, schemaName || '', tableName)
-        
+
         return createTableSubFolderNodes(connectionId, dbName, schemaName, tableName, config)
       }
-      
+
       // Level 3/4: 视图节点 -> 列列表
       if (nodeType === 'view') {
         const dbName = keyParts[2]
@@ -714,7 +862,7 @@ export function useDatabaseTreeLoader() {
         const viewName = keyParts[4]
         return createColumnNodes(connectionId, dbName, schemaName, viewName)
       }
-      
+
       // Level 4/5: Columns 文件夹 -> 列列表
       if (nodeType === 'columns-folder') {
         const dbName = keyParts[2]
@@ -722,7 +870,7 @@ export function useDatabaseTreeLoader() {
         const tableName = keyParts[4]
         return createColumnNodes(connectionId, dbName, schemaName, tableName)
       }
-      
+
       // Level 4/5: Indexes 文件夹 -> 索引列表
       if (nodeType === 'indexes-folder') {
         const dbName = keyParts[2]
@@ -730,7 +878,7 @@ export function useDatabaseTreeLoader() {
         const tableName = keyParts[4]
         return createIndexNodes(connectionId, dbName, schemaName, tableName)
       }
-      
+
       // Level 4/5: Constraints 文件夹 -> 约束列表
       if (nodeType === 'constraints-folder') {
         const dbName = keyParts[2]
@@ -741,7 +889,7 @@ export function useDatabaseTreeLoader() {
     } catch (error) {
       console.error('加载树节点失败:', error)
     }
-    
+
     return []
   }
 
@@ -779,6 +927,6 @@ export function useDatabaseTreeLoader() {
     createConstraintNodes,
     loadChildren,
     createRootNodes,
-    getDbTypeConfig
+    getDbTypeConfig,
   }
 }

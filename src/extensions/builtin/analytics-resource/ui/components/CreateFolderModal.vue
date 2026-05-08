@@ -2,44 +2,43 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h3>创建文件夹</h3>
+        <h3>{{ t('analyticsResource.createFolder') }}</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
-          <label>文件夹名称 *</label>
+          <label>{{ t('analyticsResource.folderName') }} *</label>
           <input
             v-model="form.name"
             type="text"
             class="form-input"
-            placeholder="输入文件夹名称"
+            :placeholder="t('analyticsResource.folderNamePlaceholder')"
           />
         </div>
 
         <div class="form-group">
-          <label>作用域 *</label>
+          <label>{{ t('analyticsResource.scope') }} *</label>
           <select v-model="form.scope" class="form-input">
-            <option value="global">🌍 全局</option>
-            <option value="project">📂 项目</option>
-            <option value="session">📌 会话</option>
+            <option value="global">🌍 {{ t('analyticsResource.global') }}</option>
+            <option value="project">📂 {{ t('analyticsResource.project') }}</option>
+            <option value="session">📌 {{ t('analyticsResource.session') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label>颜色</label>
+          <label>{{ t('analyticsResource.color') }}</label>
           <div class="color-picker">
-            <input
-              v-model="form.color"
-              type="color"
-              class="color-input"
-            />
-            <span class="color-preview" :style="{ backgroundColor: form.color || '#6366f1' }"></span>
+            <input v-model="form.color" type="color" class="color-input" />
+            <span
+              class="color-preview"
+              :style="{ backgroundColor: form.color || '#6366f1' }"
+            ></span>
           </div>
         </div>
 
         <div class="form-group">
-          <label>图标</label>
+          <label>{{ t('analyticsResource.icon') }}</label>
           <div class="icon-selector">
             <button
               v-for="icon in icons"
@@ -56,10 +55,10 @@
 
       <div class="modal-footer">
         <button class="btn btn-secondary" @click="$emit('close')">
-          取消
+          {{ t('analyticsResource.cancel') }}
         </button>
         <button class="btn btn-primary" :disabled="!isValid" @click="handleCreate">
-          创建
+          {{ t('analyticsResource.create') }}
         </button>
       </div>
     </div>
@@ -67,14 +66,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-import type { CreateFolderRequest, ResourceScope } from '../../types';
+import type { CreateFolderRequest, ResourceScope } from '../../types'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
-  close: [];
-  create: [input: CreateFolderRequest];
-}>();
+  close: []
+  create: [input: CreateFolderRequest]
+}>()
 
 const form = ref({
   name: '',
@@ -82,13 +84,13 @@ const form = ref({
   parent_folder_id: undefined as string | undefined,
   color: '#6366f1',
   icon: '📁',
-});
+})
 
-const icons = ['📁', '📂', '🗂️', '📦', '💼', '📋', '📊', '📈', '🎯', '⭐'];
+const icons = ['📁', '📂', '🗂️', '📦', '💼', '📋', '📊', '📈', '🎯', '⭐']
 
 const isValid = computed(() => {
-  return form.value.name.trim() !== '';
-});
+  return form.value.name.trim() !== ''
+})
 
 function handleCreate() {
   const input: CreateFolderRequest = {
@@ -97,9 +99,9 @@ function handleCreate() {
     parent_folder_id: form.value.parent_folder_id,
     color: form.value.color,
     icon: form.value.icon,
-  };
-  
-  emit('create', input);
+  }
+
+  emit('create', input)
 }
 </script>
 

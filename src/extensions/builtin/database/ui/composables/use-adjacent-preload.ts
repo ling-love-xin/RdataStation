@@ -1,11 +1,11 @@
 /**
  * 相邻节点预加载器
- * 
+ *
  * 实现智能预加载策略：
  * - 展开表 A 时，预加载相邻的表 B、C
  * - 展开列文件夹时，预加载相邻表的列
  * - 减少用户等待时间，提升体验
- * 
+ *
  * 遵循架构规范：前端只负责调度，不实现业务逻辑
  */
 
@@ -32,7 +32,7 @@ const defaultConfig: PreloadConfig = {
   enabled: true,
   adjacentCount: 2,
   delay: 100,
-  maxConcurrency: 3
+  maxConcurrency: 3,
 }
 
 /**
@@ -53,7 +53,7 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
   const state = ref<PreloadState>({
     isPreloading: false,
     preloadedNodes: new Set(),
-    totalPreloaded: 0
+    totalPreloaded: 0,
   })
 
   const cfg = ref<PreloadConfig>({ ...defaultConfig, ...config })
@@ -83,7 +83,7 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
         if (i !== currentIndex) {
           adjacent.push({
             type: 'table',
-            name: tables[i].name
+            name: tables[i].name,
           })
         }
       }
@@ -100,7 +100,7 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
         if (i !== currentIndex) {
           adjacent.push({
             type: 'columns',
-            name: tables[i].name
+            name: tables[i].name,
           })
         }
       }
@@ -130,15 +130,18 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
       connectionId,
       databaseName: dbName,
       schemaName,
-      tableName
+      tableName,
     })
 
-    if (cacheState?.isValid && !cacheStateManager.isExpired({
-      connectionId,
-      databaseName: dbName,
-      schemaName,
-      tableName
-    })) {
+    if (
+      cacheState?.isValid &&
+      !cacheStateManager.isExpired({
+        connectionId,
+        databaseName: dbName,
+        schemaName,
+        tableName,
+      })
+    ) {
       state.value.preloadedNodes.add(cacheKey)
       return true
     }
@@ -289,6 +292,6 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
     config: cfg,
     preloadAdjacentNodes,
     clearPreloadState,
-    updateConfig
+    updateConfig,
   }
 }

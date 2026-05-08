@@ -31,6 +31,7 @@ src/
 ## 模块结构规范
 
 每个模块内部结构：
+
 ```
 modules/{module-name}/
 ├── components/       # 模块私有组件

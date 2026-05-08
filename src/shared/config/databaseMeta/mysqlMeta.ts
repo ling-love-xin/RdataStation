@@ -4,10 +4,7 @@
  * MySQL 结构：Connection → Database → [Tables/Views/Procedures/Functions/Triggers/Events] → Object
  */
 
-import type {
-  DatabaseMetaConfig,
-  NavigatorNode
-} from '@/shared/types/databaseMeta'
+import type { DatabaseMetaConfig, NavigatorNode } from '@/shared/types/databaseMeta'
 
 export const MySQLMetaConfig: DatabaseMetaConfig = {
   dbType: 'mysql',
@@ -16,7 +13,18 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
   urlTemplate: 'mysql://{host}:{port}/{database}',
 
   // 支持的节点类型
-  supportedNodeTypes: ['connection', 'database', 'table', 'view', 'procedure', 'function', 'trigger', 'event', 'column', 'index'],
+  supportedNodeTypes: [
+    'connection',
+    'database',
+    'table',
+    'view',
+    'procedure',
+    'function',
+    'trigger',
+    'event',
+    'column',
+    'index',
+  ],
 
   // 标签页配置
   tabsConfig: [
@@ -24,7 +32,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
     { id: 'columns', label: '列', icon: 'Columns' },
     { id: 'indexes', label: '索引', icon: 'List' },
     { id: 'ddl', label: 'DDL', icon: 'Code' },
-    { id: 'data', label: '数据', icon: 'Table2' }
+    { id: 'data', label: '数据', icon: 'Table2' },
   ],
 
   // 节点类型定义
@@ -34,7 +42,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       label: '连接',
       icon: 'Database',
       isContainer: true,
-      children: ['database']
+      children: ['database'],
     },
     {
       id: 'database',
@@ -48,8 +56,8 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
         'procedure-folder',
         'function-folder',
         'trigger-folder',
-        'event-folder'
-      ]
+        'event-folder',
+      ],
     },
     // 分类文件夹
     {
@@ -59,7 +67,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['table'],
-      parentTypes: ['database']
+      parentTypes: ['database'],
     },
     {
       id: 'view-folder',
@@ -68,7 +76,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['view'],
-      parentTypes: ['database']
+      parentTypes: ['database'],
     },
     {
       id: 'procedure-folder',
@@ -77,7 +85,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['procedure'],
-      parentTypes: ['database']
+      parentTypes: ['database'],
     },
     {
       id: 'function-folder',
@@ -86,7 +94,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['function'],
-      parentTypes: ['database']
+      parentTypes: ['database'],
     },
     {
       id: 'trigger-folder',
@@ -95,7 +103,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['trigger'],
-      parentTypes: ['database', 'table']
+      parentTypes: ['database', 'table'],
     },
     {
       id: 'event-folder',
@@ -104,7 +112,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['event'],
-      parentTypes: ['database']
+      parentTypes: ['database'],
     },
     // 具体对象
     {
@@ -118,8 +126,8 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
         { id: 'open', label: '查看数据', icon: 'Table2', type: 'open' },
         { id: 'edit', label: '编辑表', icon: 'Edit', type: 'edit' },
         { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' },
-        { id: 'refresh', label: '刷新', icon: 'RefreshCw', type: 'refresh' }
-      ]
+        { id: 'refresh', label: '刷新', icon: 'RefreshCw', type: 'refresh' },
+      ],
     },
     {
       id: 'view',
@@ -130,8 +138,8 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       parentTypes: ['view-folder'],
       actions: [
         { id: 'open', label: '查看数据', icon: 'Table2', type: 'open' },
-        { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' }
-      ]
+        { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' },
+      ],
     },
     {
       id: 'procedure',
@@ -141,8 +149,8 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       parentTypes: ['procedure-folder'],
       actions: [
         { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' },
-        { id: 'execute', label: '执行', icon: 'Play', type: 'execute' }
-      ]
+        { id: 'execute', label: '执行', icon: 'Play', type: 'execute' },
+      ],
     },
     {
       id: 'function',
@@ -152,8 +160,8 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       parentTypes: ['function-folder'],
       actions: [
         { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' },
-        { id: 'execute', label: '执行', icon: 'Play', type: 'execute' }
-      ]
+        { id: 'execute', label: '执行', icon: 'Play', type: 'execute' },
+      ],
     },
     {
       id: 'trigger',
@@ -161,9 +169,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       icon: 'Zap',
       isContainer: false,
       parentTypes: ['trigger-folder'],
-      actions: [
-        { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' }
-      ]
+      actions: [{ id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' }],
     },
     {
       id: 'event',
@@ -171,9 +177,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       icon: 'Clock',
       isContainer: false,
       parentTypes: ['event-folder'],
-      actions: [
-        { id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' }
-      ]
+      actions: [{ id: 'ddl', label: '查看DDL', icon: 'Code', type: 'ddl' }],
     },
     // 子对象文件夹
     {
@@ -183,7 +187,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['column'],
-      parentTypes: ['table', 'view']
+      parentTypes: ['table', 'view'],
     },
     {
       id: 'index-folder',
@@ -192,7 +196,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       isContainer: true,
       showCount: true,
       children: ['index'],
-      parentTypes: ['table']
+      parentTypes: ['table'],
     },
     // 子对象
     {
@@ -200,15 +204,15 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       label: '列',
       icon: 'Columns',
       isContainer: false,
-      parentTypes: ['column-folder']
+      parentTypes: ['column-folder'],
     },
     {
       id: 'index',
       label: '索引',
       icon: 'List',
       isContainer: false,
-      parentTypes: ['index-folder']
-    }
+      parentTypes: ['index-folder'],
+    },
   ],
 
   // 层级结构
@@ -218,7 +222,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
     { level: 2, type: 'object-type-folder' },
     { level: 3, type: 'object' },
     { level: 4, type: 'sub-object-folder' },
-    { level: 5, type: 'sub-object' }
+    { level: 5, type: 'sub-object' },
   ],
 
   // 属性面板配置
@@ -229,7 +233,7 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
         { id: 'columns', label: '列', icon: 'Columns' },
         { id: 'indexes', label: '索引', icon: 'List' },
         { id: 'ddl', label: 'DDL', icon: 'Code' },
-        { id: 'data', label: '数据', icon: 'Table2' }
+        { id: 'data', label: '数据', icon: 'Table2' },
       ],
       generalFields: [
         { key: 'name', label: '表名', type: 'text' },
@@ -243,15 +247,15 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
         { key: 'collation', label: '排序规则', type: 'text' },
         { key: 'createdAt', label: '创建时间', type: 'datetime' },
         { key: 'updatedAt', label: '更新时间', type: 'datetime' },
-        { key: 'comment', label: '注释', type: 'text', editable: true }
-      ]
+        { key: 'comment', label: '注释', type: 'text', editable: true },
+      ],
     },
     view: {
       tabs: [
         { id: 'general', label: '通用', icon: 'Info', default: true },
         { id: 'columns', label: '列', icon: 'Columns' },
         { id: 'ddl', label: 'DDL', icon: 'Code' },
-        { id: 'data', label: '数据', icon: 'Table2' }
+        { id: 'data', label: '数据', icon: 'Table2' },
       ],
       generalFields: [
         { key: 'name', label: '视图名', type: 'text' },
@@ -259,13 +263,11 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
         { key: 'definer', label: '定义者', type: 'text' },
         { key: 'isUpdatable', label: '可更新', type: 'boolean' },
         { key: 'createdAt', label: '创建时间', type: 'datetime' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
     },
     column: {
-      tabs: [
-        { id: 'general', label: '通用', icon: 'Info', default: true }
-      ],
+      tabs: [{ id: 'general', label: '通用', icon: 'Info', default: true }],
       generalFields: [
         { key: 'name', label: '列名', type: 'text' },
         { key: 'dataType', label: '数据类型', type: 'text' },
@@ -273,9 +275,9 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
         { key: 'defaultValue', label: '默认值', type: 'text' },
         { key: 'isPrimaryKey', label: '主键', type: 'boolean' },
         { key: 'isAutoIncrement', label: '自增', type: 'boolean' },
-        { key: 'comment', label: '注释', type: 'text', editable: true }
-      ]
-    }
+        { key: 'comment', label: '注释', type: 'text', editable: true },
+      ],
+    },
   },
 
   // 标签分组配置
@@ -284,51 +286,51 @@ export const MySQLMetaConfig: DatabaseMetaConfig = {
       id: 'tables',
       label: '表',
       icon: 'Table2',
-      filter: (nodeType) => nodeType === 'table',
+      filter: nodeType => nodeType === 'table',
       order: 1,
-      expanded: true
+      expanded: true,
     },
     {
       id: 'views',
       label: '视图',
       icon: 'Eye',
-      filter: (nodeType) => nodeType === 'view',
+      filter: nodeType => nodeType === 'view',
       order: 2,
-      expanded: false
+      expanded: false,
     },
     {
       id: 'procedures',
       label: '存储过程',
       icon: 'Cog',
-      filter: (nodeType) => nodeType === 'procedure',
+      filter: nodeType => nodeType === 'procedure',
       order: 3,
-      expanded: false
+      expanded: false,
     },
     {
       id: 'functions',
       label: '函数',
       icon: 'FunctionSquare',
-      filter: (nodeType) => nodeType === 'function',
+      filter: nodeType => nodeType === 'function',
       order: 4,
-      expanded: false
+      expanded: false,
     },
     {
       id: 'triggers',
       label: '触发器',
       icon: 'Zap',
-      filter: (nodeType) => nodeType === 'trigger',
+      filter: nodeType => nodeType === 'trigger',
       order: 5,
-      expanded: false
+      expanded: false,
     },
     {
       id: 'events',
       label: '事件',
       icon: 'Clock',
-      filter: (nodeType) => nodeType === 'event',
+      filter: nodeType => nodeType === 'event',
       order: 6,
-      expanded: false
-    }
-  ]
+      expanded: false,
+    },
+  ],
 }
 
 // MySQL 查询模板
@@ -407,7 +409,7 @@ export const MySQLQueries = {
   // 获取表DDL
   getTableDDL: (database: string, table: string) => `
     SHOW CREATE TABLE \`${database}\`.\`${table}\`
-  `
+  `,
 }
 
 // 辅助函数：格式化大小
@@ -429,6 +431,6 @@ export function parseTableStatus(row: any): Partial<NavigatorNode['metadata']> {
     indexSize: formatSize(row.indexLength || 0),
     comment: row.comment,
     createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+    updatedAt: row.updatedAt,
   }
 }

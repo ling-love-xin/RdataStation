@@ -28,7 +28,7 @@ export class EventBus {
     this.handlers.get(event)!.add(handler)
 
     return {
-      dispose: () => this.off(event, handler)
+      dispose: () => this.off(event, handler),
     }
   }
 

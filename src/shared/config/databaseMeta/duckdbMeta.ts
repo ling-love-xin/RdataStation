@@ -13,7 +13,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     icon: 'Database',
     isContainer: true,
     children: ['database-folder'],
-    actions: ['refresh', 'disconnect', 'properties']
+    actions: ['refresh', 'disconnect', 'properties'],
   },
   {
     id: 'database-folder',
@@ -22,7 +22,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     isContainer: true,
     children: ['database'],
     showCount: true,
-    query: `SELECT database_name as name FROM information_schema.schemata GROUP BY database_name`
+    query: `SELECT database_name as name FROM information_schema.schemata GROUP BY database_name`,
   },
   {
     id: 'database',
@@ -31,7 +31,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     isContainer: true,
     children: ['schema-folder'],
     actions: ['query', 'attach', 'detach'],
-    metadata: ['path', 'size']
+    metadata: ['path', 'size'],
   },
   {
     id: 'schema-folder',
@@ -40,7 +40,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     isContainer: true,
     children: ['schema'],
     showCount: true,
-    query: `SELECT schema_name as name FROM information_schema.schemata ORDER BY schema_name`
+    query: `SELECT schema_name as name FROM information_schema.schemata ORDER BY schema_name`,
   },
   {
     id: 'schema',
@@ -48,7 +48,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     icon: 'FolderOpen',
     isContainer: true,
     children: ['table-folder', 'view-folder', 'macro-folder', 'sequence-folder'],
-    actions: ['query', 'properties']
+    actions: ['query', 'properties'],
   },
   // 表
   {
@@ -63,7 +63,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.tables 
       WHERE table_schema = $1 AND table_type = 'BASE TABLE'
       ORDER BY table_name
-    `
+    `,
   },
   {
     id: 'table',
@@ -72,7 +72,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     isContainer: true,
     children: ['column-folder', 'constraint-folder'],
     actions: ['query', 'design', 'export', 'drop'],
-    metadata: ['rowCount', 'size', 'estimatedSize']
+    metadata: ['rowCount', 'size', 'estimatedSize'],
   },
   {
     id: 'column-folder',
@@ -90,7 +90,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.columns
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY ordinal_position
-    `
+    `,
   },
   {
     id: 'column',
@@ -98,7 +98,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     icon: 'Hash',
     isContainer: false,
     actions: ['properties'],
-    metadata: ['dataType', 'nullable', 'default']
+    metadata: ['dataType', 'nullable', 'default'],
   },
   {
     id: 'constraint-folder',
@@ -114,7 +114,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.table_constraints
       WHERE table_schema = $1 AND table_name = $2
       ORDER BY constraint_name
-    `
+    `,
   },
   {
     id: 'constraint',
@@ -122,7 +122,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     icon: 'Key',
     isContainer: false,
     actions: ['drop'],
-    metadata: ['constraintType', 'columns']
+    metadata: ['constraintType', 'columns'],
   },
   // 视图
   {
@@ -137,7 +137,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.views 
       WHERE table_schema = $1
       ORDER BY table_name
-    `
+    `,
   },
   {
     id: 'view',
@@ -146,7 +146,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     isContainer: false,
     children: ['column-folder'],
     actions: ['query', 'design', 'drop'],
-    metadata: ['definition']
+    metadata: ['definition'],
   },
   // 宏 (DuckDB特有)
   {
@@ -161,7 +161,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
       FROM duckdb_macros()
       WHERE schema_name = $1
       ORDER BY macro_name
-    `
+    `,
   },
   {
     id: 'macro',
@@ -169,7 +169,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     icon: 'FunctionSquare',
     isContainer: false,
     actions: ['execute', 'edit', 'drop'],
-    metadata: ['parameters', 'returnType', 'definition']
+    metadata: ['parameters', 'returnType', 'definition'],
   },
   // 序列
   {
@@ -184,7 +184,7 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
       FROM information_schema.sequences
       WHERE sequence_schema = $1
       ORDER BY sequence_name
-    `
+    `,
   },
   {
     id: 'sequence',
@@ -192,8 +192,8 @@ const duckdbNodeTypes: NodeTypeConfig[] = [
     icon: 'ArrowRightLeft',
     isContainer: false,
     actions: ['properties', 'drop'],
-    metadata: ['startValue', 'increment', 'minValue', 'maxValue', 'currentValue']
-  }
+    metadata: ['startValue', 'increment', 'minValue', 'maxValue', 'currentValue'],
+  },
 ]
 
 // DuckDB 元数据配置
@@ -202,7 +202,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
   id: 'duckdb',
   name: 'DuckDB',
   version: '0.10+',
-  
+
   // 支持的节点类型
   supportedNodeTypes: [
     'connection',
@@ -213,7 +213,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
     'macro',
     'sequence',
     'column',
-    'constraint'
+    'constraint',
   ],
 
   // 标签页配置
@@ -222,7 +222,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
     { id: 'columns', label: '列', icon: 'Columns' },
     { id: 'indexes', label: '索引', icon: 'List' },
     { id: 'ddl', label: 'DDL', icon: 'Code' },
-    { id: 'data', label: '数据', icon: 'Table2' }
+    { id: 'data', label: '数据', icon: 'Table2' },
   ],
 
   // 节点类型配置
@@ -238,7 +238,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
     { level: 5, type: 'table-folder' },
     { level: 6, type: 'table' },
     { level: 7, type: 'column-folder' },
-    { level: 8, type: 'column' }
+    { level: 8, type: 'column' },
   ],
 
   // 功能特性
@@ -254,7 +254,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
     supportsSequence: true,
     supportsCustomType: false,
     supportsPartition: true,
-    supportsInheritance: false
+    supportsInheritance: false,
   },
 
   // 默认查询
@@ -293,7 +293,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
       FROM duckdb_macros()
       WHERE schema_name = $1
       ORDER BY macro_name
-    `
+    `,
   },
 
   // 属性面板配置
@@ -305,7 +305,7 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
         { id: 'columns', label: '列', icon: 'Columns' },
         { id: 'indexes', label: '索引', icon: 'List' },
         { id: 'ddl', label: 'DDL', icon: 'Code' },
-        { id: 'data', label: '数据', icon: 'Table2' }
+        { id: 'data', label: '数据', icon: 'Table2' },
       ],
       generalFields: [
         { key: 'name', label: '表名', type: 'text' },
@@ -313,36 +313,34 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
         { key: 'rowCount', label: '行数', type: 'number' },
         { key: 'dataSize', label: '数据大小', type: 'size' },
         { key: 'createdAt', label: '创建时间', type: 'datetime' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
     },
     view: {
       tabs: [
         { id: 'general', label: '通用', icon: 'Info', default: true },
         { id: 'columns', label: '列', icon: 'Columns' },
         { id: 'ddl', label: 'DDL', icon: 'Code' },
-        { id: 'data', label: '数据', icon: 'Table2' }
+        { id: 'data', label: '数据', icon: 'Table2' },
       ],
       generalFields: [
         { key: 'name', label: '视图名', type: 'text' },
         { key: 'schema', label: '模式', type: 'text' },
         { key: 'createdAt', label: '创建时间', type: 'datetime' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
     },
     column: {
-      tabs: [
-        { id: 'general', label: '通用', icon: 'Info', default: true }
-      ],
+      tabs: [{ id: 'general', label: '通用', icon: 'Info', default: true }],
       generalFields: [
         { key: 'name', label: '列名', type: 'text' },
         { key: 'dataType', label: '数据类型', type: 'text' },
         { key: 'nullable', label: '可空', type: 'boolean' },
         { key: 'defaultValue', label: '默认值', type: 'text' },
         { key: 'isPrimaryKey', label: '主键', type: 'boolean' },
-        { key: 'comment', label: '注释', type: 'text' }
-      ]
-    }
+        { key: 'comment', label: '注释', type: 'text' },
+      ],
+    },
   },
 
   // 图标映射
@@ -355,6 +353,6 @@ export const DuckDBMetaConfig: DatabaseMetaConfig = {
     macro: 'FunctionSquare',
     sequence: 'ArrowRightLeft',
     column: 'Hash',
-    constraint: 'Key'
-  }
+    constraint: 'Key',
+  },
 }

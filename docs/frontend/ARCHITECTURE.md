@@ -29,17 +29,17 @@ RdataStation 前端采用 **插件化架构（Extension-based）**，基于 VSCo
 
 ### 技术栈
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Vue | 3.5.13 | 响应式框架 |
-| TypeScript | 5.8.3 | 类型安全 |
-| Vite | 6.x | 构建工具 |
-| dockview-vue | 5.2.0 | IDE 布局引擎 |
-| naive-ui | 最新 | 组件库 |
-| lucide-vue-next | 最新 | 图标库 |
-| AG Grid | 33.0.0 | 表格引擎 |
-| Monaco Editor | 0.52.2 | SQL 编辑器 |
-| Pinia | 2.3.1 | 状态管理 |
+| 技术            | 版本   | 用途         |
+| --------------- | ------ | ------------ |
+| Vue             | 3.5.13 | 响应式框架   |
+| TypeScript      | 5.8.3  | 类型安全     |
+| Vite            | 6.x    | 构建工具     |
+| dockview-vue    | 5.2.0  | IDE 布局引擎 |
+| naive-ui        | 最新   | 组件库       |
+| lucide-vue-next | 最新   | 图标库       |
+| AG Grid         | 33.0.0 | 表格引擎     |
+| Monaco Editor   | 0.52.2 | SQL 编辑器   |
+| Pinia           | 2.3.1  | 状态管理     |
 
 ---
 
@@ -192,16 +192,16 @@ export default extension
 
 ```typescript
 interface ExtensionContext {
-  project: ProjectInfo          // 当前项目信息
-  events: EventBus              // 事件总线（插件间通信）
-  commands: CommandRegistry     // 命令注册表
-  window: WindowAPI             // 窗口 API
-  workspace: WorkspaceAPI       // 工作区 API
-  database: DatabaseAPI         // 数据库 API
-  sqlEditor: SqlEditorAPI       // SQL 编辑器 API
+  project: ProjectInfo // 当前项目信息
+  events: EventBus // 事件总线（插件间通信）
+  commands: CommandRegistry // 命令注册表
+  window: WindowAPI // 窗口 API
+  workspace: WorkspaceAPI // 工作区 API
+  database: DatabaseAPI // 数据库 API
+  sqlEditor: SqlEditorAPI // SQL 编辑器 API
   configuration: ConfigurationAPI // 配置 API
-  utils: UtilsAPI               // 工具 API
-  extensionPath: string         // 扩展存储路径
+  utils: UtilsAPI // 工具 API
+  extensionPath: string // 扩展存储路径
   subscribe(disposable: Disposable): void
 }
 ```
@@ -246,12 +246,14 @@ NavigatorEvents = {
 ### 领域层（domain/）
 
 **职责**：
+
 - 业务逻辑实现
 - 实体和值对象定义
 - 领域服务
 - 不依赖外部基础设施
 
 **示例**：
+
 ```
 domain/
 ├── services/           # 领域服务
@@ -265,11 +267,13 @@ domain/
 ### 基础设施层（infrastructure/）
 
 **职责**：
+
 - 外部 API 调用
 - 数据持久化
 - 第三方服务集成
 
 **示例**：
+
 ```
 infrastructure/
 └── api/
@@ -279,12 +283,14 @@ infrastructure/
 ### 表现层（ui/）
 
 **职责**：
+
 - Vue 组件
 - 视图页面
 - Composables（UI 相关）
 - UI 专用服务
 
 **示例**：
+
 ```
 ui/
 ├── components/         # 可复用组件
@@ -302,6 +308,7 @@ ui/
 **位置**：`extensions/core/event-bus.ts`
 
 **API**：
+
 ```typescript
 class EventBus {
   on(event: string, handler: EventHandler): EventSubscription
@@ -321,7 +328,7 @@ class EventBus {
 context.events.emit(ConnectionEvents.CHANGED, { connId, status })
 
 // 订阅事件（workbench 插件）
-context.events.on(ConnectionEvents.CHANGED, (data) => {
+context.events.on(ConnectionEvents.CHANGED, data => {
   console.log('连接状态变化:', data)
 })
 
@@ -379,7 +386,7 @@ export interface NavigatorNode {
 }
 ```
 
-### 插件类型（extensions/builtin/*/types/）
+### 插件类型（extensions/builtin/\*/types/）
 
 插件内部专用类型，每个插件有唯一的 types/ 目录：
 
@@ -516,7 +523,7 @@ export class AppError extends Error {
 
   constructor(code: ErrorCode, message: string, options?: { details?: unknown; cause?: Error })
   toJSON(): Record<string, unknown>
-  getUserMessage(): string  // 用户友好消息
+  getUserMessage(): string // 用户友好消息
 }
 ```
 
@@ -582,29 +589,29 @@ if (!connection) {
 
 ### 文件命名
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| TypeScript 文件 | kebab-case | `view-engine.ts` |
-| Vue 组件 | PascalCase | `NavigatorPanel.vue` |
-| 测试文件 | `*.test.ts` | `event-bus.test.ts` |
-| 类型定义 | `types/index.ts` 或 `*.types.ts` | `types/connection.ts` |
+| 类型            | 规范                             | 示例                  |
+| --------------- | -------------------------------- | --------------------- |
+| TypeScript 文件 | kebab-case                       | `view-engine.ts`      |
+| Vue 组件        | PascalCase                       | `NavigatorPanel.vue`  |
+| 测试文件        | `*.test.ts`                      | `event-bus.test.ts`   |
+| 类型定义        | `types/index.ts` 或 `*.types.ts` | `types/connection.ts` |
 
 ### 代码命名
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| 变量/函数 | camelCase | `getConnections()` |
-| 组件 | PascalCase | `DatabaseNavigator` |
-| 接口/类型 | PascalCase | `ConnectionConfig` |
-| 常量 | UPPER_SNAKE_CASE | `MAX_RETRY_COUNT` |
-| 私有属性 | `_` 前缀 + camelCase | `_cache` |
+| 类型      | 规范                 | 示例                |
+| --------- | -------------------- | ------------------- |
+| 变量/函数 | camelCase            | `getConnections()`  |
+| 组件      | PascalCase           | `DatabaseNavigator` |
+| 接口/类型 | PascalCase           | `ConnectionConfig`  |
+| 常量      | UPPER_SNAKE_CASE     | `MAX_RETRY_COUNT`   |
+| 私有属性  | `_` 前缀 + camelCase | `_cache`            |
 
 ### 目录命名
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| 功能目录 | kebab-case | `database-navigator/` |
-| DDD 层 | 小写 | `domain/`, `infrastructure/`, `ui/` |
+| 类型     | 规范       | 示例                                |
+| -------- | ---------- | ----------------------------------- |
+| 功能目录 | kebab-case | `database-navigator/`               |
+| DDD 层   | 小写       | `domain/`, `infrastructure/`, `ui/` |
 
 ---
 
@@ -636,7 +643,7 @@ import { useNavigator } from '../../composables/useNavigator'
 // ✅ 使用 Pinia store
 export const useConnectionStore = defineStore('connection', {
   state: () => ({
-    connections: [] as Connection[]
+    connections: [] as Connection[],
   }),
   actions: {
     async loadConnections() {
@@ -644,8 +651,8 @@ export const useConnectionStore = defineStore('connection', {
       if (result.ok) {
         this.connections = result.value
       }
-    }
-  }
+    },
+  },
 })
 ```
 
@@ -699,27 +706,27 @@ import type { NavigatorNode } from '../../types'
 
 #### 完成的优化项
 
-| 优先级 | 优化项 | 状态 | 说明 |
-|--------|--------|------|------|
-| P0 | build_cache_index V3 增量模式 | ✅ | 支持 incremental 参数 |
-| P0 | 增量同步 API 封装 | ✅ | calculate_object_hash, save_snapshot, detect_all_changes |
-| P1 | 竞品对比分析 | ✅ | vs DBeaver/DataGrip 全面领先 |
+| 优先级 | 优化项                        | 状态 | 说明                                                     |
+| ------ | ----------------------------- | ---- | -------------------------------------------------------- |
+| P0     | build_cache_index V3 增量模式 | ✅   | 支持 incremental 参数                                    |
+| P0     | 增量同步 API 封装             | ✅   | calculate_object_hash, save_snapshot, detect_all_changes |
+| P1     | 竞品对比分析                  | ✅   | vs DBeaver/DataGrip 全面领先                             |
 
 #### 性能提升
 
-| 指标 | V6 优化后 | V7 增量（首次） | V7 增量（后续） |
-|------|----------|---------------|----------------|
-| 预热时间 | 150ms | 150ms | 15ms |
-| 相对提升 | -70% | -70% | -97% |
+| 指标     | V6 优化后 | V7 增量（首次） | V7 增量（后续） |
+| -------- | --------- | --------------- | --------------- |
+| 预热时间 | 150ms     | 150ms           | 15ms            |
+| 相对提升 | -70%      | -70%            | -97%            |
 
 #### 竞品对比
 
-| 特性 | RdataStation V7 | DBeaver 24.x | DataGrip 2024.2 |
-|------|----------------|-------------|-----------------|
-| 增量同步 | ✅ 完整支持 🏆 | ⚠️ 部分支持 | ⚠️ 部分支持 |
-| 首次预热 | 150ms 🏆 | 400ms | 300ms |
-| 增量预热 | 15ms 🏆 | 350ms | 250ms |
-| 内存占用 | 80MB 🏆 | 350MB | 500MB |
+| 特性     | RdataStation V7 | DBeaver 24.x | DataGrip 2024.2 |
+| -------- | --------------- | ------------ | --------------- |
+| 增量同步 | ✅ 完整支持 🏆  | ⚠️ 部分支持  | ⚠️ 部分支持     |
+| 首次预热 | 150ms 🏆        | 400ms        | 300ms           |
+| 增量预热 | 15ms 🏆         | 350ms        | 250ms           |
+| 内存占用 | 80MB 🏆         | 350MB        | 500MB           |
 
 详见 [COMPARISON.md](../COMPARISON.md)
 
@@ -727,19 +734,20 @@ import type { NavigatorNode } from '../../types'
 
 #### 完成的优化项
 
-| 优先级 | 优化项 | 状态 | 说明 |
-|--------|--------|------|------|
-| P0 | 扩展间事件总线通信 | ✅ | 创建 EventBus，禁止直接引用 store |
-| P1 | 统一 connection 类型定义 | ✅ | 合并 4 处重复类型到单一文件 |
-| P1 | 重构 navigator 为 DDD | ✅ | 创建 domain/infrastructure/ui 分层 |
-| P2 | 创建统一 API 层 | ✅ | shared/api/ 封装所有 Tauri 调用 |
-| P2 | 重构 database 为 DDD | ✅ | 清理职责混乱，统一 mock 数据 |
-| P3 | 移动 ExtensionContext | ✅ | 从 core/project/ 移到 extensions/core/ |
-| P3 | 统一错误处理 | ✅ | AppError + Result 类型 + 工具函数 |
+| 优先级 | 优化项                   | 状态 | 说明                                   |
+| ------ | ------------------------ | ---- | -------------------------------------- |
+| P0     | 扩展间事件总线通信       | ✅   | 创建 EventBus，禁止直接引用 store      |
+| P1     | 统一 connection 类型定义 | ✅   | 合并 4 处重复类型到单一文件            |
+| P1     | 重构 navigator 为 DDD    | ✅   | 创建 domain/infrastructure/ui 分层     |
+| P2     | 创建统一 API 层          | ✅   | shared/api/ 封装所有 Tauri 调用        |
+| P2     | 重构 database 为 DDD     | ✅   | 清理职责混乱，统一 mock 数据           |
+| P3     | 移动 ExtensionContext    | ✅   | 从 core/project/ 移到 extensions/core/ |
+| P3     | 统一错误处理             | ✅   | AppError + Result 类型 + 工具函数      |
 
 #### 架构变更
 
 **变更前**：
+
 ```
 src/
 ├── composables/        # ❌ 与 shared/composables/ 重复
@@ -754,6 +762,7 @@ src/
 ```
 
 **变更后**：
+
 ```
 src/
 ├── extensions/
@@ -773,13 +782,13 @@ src/
 
 #### 文件变更统计
 
-| 操作 | 数量 | 说明 |
-|------|------|------|
-| 新增文件 | 8 | event-bus.ts, types.ts, api/index.ts, error.ts 等 |
-| 重命名文件 | 30+ | 统一 kebab-case 命名 |
-| 移动文件 | 20+ | DDD 分层重构 |
-| 删除目录 | 4 | core/, api/, composables/, services/ (旧) |
-| 更新导入路径 | 25+ | 适配新结构 |
+| 操作         | 数量 | 说明                                              |
+| ------------ | ---- | ------------------------------------------------- |
+| 新增文件     | 8    | event-bus.ts, types.ts, api/index.ts, error.ts 等 |
+| 重命名文件   | 30+  | 统一 kebab-case 命名                              |
+| 移动文件     | 20+  | DDD 分层重构                                      |
+| 删除目录     | 4    | core/, api/, composables/, services/ (旧)         |
+| 更新导入路径 | 25+  | 适配新结构                                        |
 
 #### 编译验证
 
@@ -827,15 +836,15 @@ query
 
 ### C. 快速参考
 
-| 需求 | 位置 |
-|------|------|
+| 需求       | 位置                           |
+| ---------- | ------------------------------ |
 | 插件间通信 | `extensions/core/event-bus.ts` |
-| 扩展类型 | `extensions/core/types.ts` |
-| 全局类型 | `shared/types/index.ts` |
-| API 调用 | `shared/api/index.ts` |
-| 错误处理 | `shared/utils/error.ts` |
-| 通用组件 | `shared/components/common/` |
-| 通用 hooks | `shared/composables/` |
+| 扩展类型   | `extensions/core/types.ts`     |
+| 全局类型   | `shared/types/index.ts`        |
+| API 调用   | `shared/api/index.ts`          |
+| 错误处理   | `shared/utils/error.ts`        |
+| 通用组件   | `shared/components/common/`    |
+| 通用 hooks | `shared/composables/`          |
 
 ---
 

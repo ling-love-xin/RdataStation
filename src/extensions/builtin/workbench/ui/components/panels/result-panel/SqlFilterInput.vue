@@ -36,11 +36,25 @@ const emit = defineEmits<{
   execute: []
 }>()
 
-function onExecute() { emit('execute') }
+function onExecute() {
+  emit('execute')
+}
 </script>
 
 <style scoped>
-.sql-filter-input { padding: 4px 8px; border-bottom: 1px solid var(--border-color, #333); flex-shrink: 0; }
-.filter-row { display: flex; align-items: flex-start; gap: 4px; }
-.hint { font-size: 10px; color: var(--text-tertiary, #666); margin-top: 2px; }
+.sql-filter-input {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+.filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.hint {
+  font-size: 10px;
+  color: var(--text-tertiary, #666);
+  margin-top: 2px;
+}
 </style>

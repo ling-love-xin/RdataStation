@@ -80,7 +80,7 @@ export function useMemoryProtection() {
       cacheManagers: cacheManagers.length,
       cleanupFns: cleanupFns.length,
       intervals: intervals.length,
-      timeouts: timeouts.length
+      timeouts: timeouts.length,
     }
   }
 
@@ -99,6 +99,6 @@ export function useMemoryProtection() {
     cleanup,
     trimNotifications,
     trimSearchHistory,
-    getMemoryStats
+    getMemoryStats,
   }
 }

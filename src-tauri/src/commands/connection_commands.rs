@@ -558,6 +558,43 @@ pub struct GlobalConnectionInfoResponse {
     pub updated_at: String,
 }
 
+/// 连接池状态响应
+#[derive(serde::Serialize, Debug)]
+pub struct ConnectionPoolStatusResponse {
+    pub conn_id: String,
+    pub active_connections: usize,
+    pub idle_connections: usize,
+    pub max_connections: usize,
+    pub min_connections: usize,
+    pub connection_timeout_ms: u64,
+    pub idle_timeout_ms: u64,
+    pub total_connections: usize,
+    pub wait_queue_size: usize,
+}
+
+/// 获取连接池状态
+#[tauri::command]
+pub async fn get_connection_pool_status(conn_id: String) -> Result<ConnectionPoolStatusResponse, String> {
+    let manager = get_connection_manager().clone();
+    
+    // 获取连接信息
+    let _connection_info = manager.get_connection_info(&conn_id).await
+        .ok_or_else(|| format!("Connection not found: {}", conn_id))?;
+    
+    // 返回连接池状态（简化实现）
+    Ok(ConnectionPoolStatusResponse {
+        conn_id: conn_id.clone(),
+        active_connections: 0,  // 实际应从连接池获取
+        idle_connections: 0,    // 实际应从连接池获取
+        max_connections: 10,    // 默认值，实际应从配置获取
+        min_connections: 2,     // 默认值，实际应从配置获取
+        connection_timeout_ms: 30000,  // 30秒
+        idle_timeout_ms: 300000,       // 5分钟
+        total_connections: 0,   // 实际应从连接池获取
+        wait_queue_size: 0,     // 实际应从连接池获取
+    })
+}
+
 /// 获取所有全局连接
 #[tauri::command]
 pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse>, String> {

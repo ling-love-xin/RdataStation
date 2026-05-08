@@ -2,10 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 import type { Theme } from '@/stores/config'
+import { SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX } from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
-
-
-export type { Theme }
 
 export const useUiStore = defineStore('ui', () => {
   const sidebarCollapsed = ref(false)
@@ -16,6 +14,11 @@ export const useUiStore = defineStore('ui', () => {
   const isDark = computed(() => {
     const appStore = useAppStore()
     return appStore.isDark
+  })
+
+  const effectiveTheme = computed(() => {
+    const appStore = useAppStore()
+    return appStore.effectiveTheme
   })
 
   const theme = computed<Theme>({
@@ -29,15 +32,16 @@ export const useUiStore = defineStore('ui', () => {
     },
   })
 
-  const effectiveTheme = computed(() => (isDark.value ? 'dark' : 'light'))
-
   function setTheme(newTheme: Theme) {
     theme.value = newTheme
     applyTheme()
   }
 
   function toggleTheme() {
-    theme.value = isDark.value ? 'light' : 'dark'
+    const appStore = useAppStore()
+    const current = appStore.effectiveTheme
+    const next: Theme = current === 'dark' ? 'light' : current === 'light' ? 'system' : 'dark'
+    theme.value = next
     applyTheme()
   }
 
@@ -51,7 +55,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   function setSidebarWidth(width: number) {
-    sidebarWidth.value = Math.max(200, Math.min(400, width))
+    sidebarWidth.value = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width))
   }
 
   function toggleHistoryPanel() {
@@ -60,10 +64,6 @@ export const useUiStore = defineStore('ui', () => {
 
   function toggleConnectionPanel() {
     showConnectionPanel.value = !showConnectionPanel.value
-  }
-
-  function initTheme() {
-    applyTheme()
   }
 
   return {
@@ -80,7 +80,6 @@ export const useUiStore = defineStore('ui', () => {
     setSidebarWidth,
     toggleHistoryPanel,
     toggleConnectionPanel,
-    initTheme,
     applyTheme,
   }
 })

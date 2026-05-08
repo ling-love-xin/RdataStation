@@ -87,13 +87,20 @@ import {
   BarChart as EChartsBarChart,
   LineChart as EChartsLineChart,
   PieChart as EChartsPieChart,
-  ScatterChart as EChartsScatterChart
+  ScatterChart as EChartsScatterChart,
 } from 'echarts/charts'
 import { TooltipComponent, GridComponent, LegendComponent } from 'echarts/components'
 import * as echarts from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart3, LineChart, PieChart, ScatterChart } from 'lucide-vue-next'
-import { NRadioGroup, NRadioButton, NSelect, NEmpty, NDescriptions, NDescriptionsItem } from 'naive-ui'
+import {
+  NRadioGroup,
+  NRadioButton,
+  NSelect,
+  NEmpty,
+  NDescriptions,
+  NDescriptionsItem,
+} from 'naive-ui'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -108,11 +115,11 @@ echarts.use([
   TooltipComponent,
   GridComponent,
   LegendComponent,
-  CanvasRenderer
+  CanvasRenderer,
 ])
 
 interface Props {
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   columns: string[]
 }
 
@@ -131,7 +138,7 @@ let chartInstance: ReturnType<typeof echarts.init> | null = null
 const columnOptions = computed(() => {
   return props.columns.map(col => ({
     label: col,
-    value: col
+    value: col,
   }))
 })
 
@@ -144,7 +151,7 @@ const chartTypeName = computed(() => {
     bar: t('workbench.barChart'),
     line: t('workbench.lineChart'),
     pie: t('workbench.pieChart'),
-    scatter: t('workbench.scatterChart')
+    scatter: t('workbench.scatterChart'),
   }
   return names[chartType.value] || chartType.value
 })
@@ -152,7 +159,7 @@ const chartTypeName = computed(() => {
 // 初始化图表
 const initChart = () => {
   if (!chartRef.value) return
-  
+
   chartInstance = echarts.init(chartRef.value)
   updateChart()
 }
@@ -175,17 +182,19 @@ const updateChart = () => {
         tooltip: { trigger: 'axis' },
         xAxis: { type: 'category', data: xData },
         yAxis: { type: 'value' },
-        series: [{
-          type: 'bar',
-          data: yData,
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#83bff6' },
-              { offset: 0.5, color: '#188df0' },
-              { offset: 1, color: '#188df0' }
-            ])
-          }
-        }]
+        series: [
+          {
+            type: 'bar',
+            data: yData,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#83bff6' },
+                { offset: 0.5, color: '#188df0' },
+                { offset: 1, color: '#188df0' },
+              ]),
+            },
+          },
+        ],
       }
       break
 
@@ -194,38 +203,42 @@ const updateChart = () => {
         tooltip: { trigger: 'axis' },
         xAxis: { type: 'category', data: xData },
         yAxis: { type: 'value' },
-        series: [{
-          type: 'line',
-          data: yData,
-          smooth: true,
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(128, 255, 165, 0.5)' },
-              { offset: 1, color: 'rgba(1, 191, 236, 0.1)' }
-            ])
-          }
-        }]
+        series: [
+          {
+            type: 'line',
+            data: yData,
+            smooth: true,
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(128, 255, 165, 0.5)' },
+                { offset: 1, color: 'rgba(1, 191, 236, 0.1)' },
+              ]),
+            },
+          },
+        ],
       }
       break
 
     case 'pie':
       option = {
         tooltip: { trigger: 'item' },
-        series: [{
-          type: 'pie',
-          radius: ['40%', '70%'],
-          data: xData.map((x, i) => ({
-            name: String(x),
-            value: yData[i]
-          })),
-          emphasis: {
-            itemStyle: {
-              shadowBlur: 10,
-              shadowOffsetX: 0,
-              shadowColor: 'rgba(0, 0, 0, 0.5)'
-            }
-          }
-        }]
+        series: [
+          {
+            type: 'pie',
+            radius: ['40%', '70%'],
+            data: xData.map((x, i) => ({
+              name: String(x),
+              value: yData[i],
+            })),
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowOffsetX: 0,
+                shadowColor: 'rgba(0, 0, 0, 0.5)',
+              },
+            },
+          },
+        ],
       }
       break
 
@@ -236,18 +249,17 @@ const updateChart = () => {
           formatter: (params: unknown) => {
             const p = params as { data?: [number, number] }
             return `${xAxisColumn.value}: ${p.data?.[0] ?? '-'}<br/>${yAxisColumn.value}: ${p.data?.[1] ?? '-'}`
-          }
+          },
         } as Record<string, unknown>,
         xAxis: { type: 'value', name: xAxisColumn.value },
         yAxis: { type: 'value', name: yAxisColumn.value },
-        series: [{
-          type: 'scatter',
-          data: xData.map((x, i) => [
-            typeof x === 'number' ? x : parseFloat(x) || 0,
-            yData[i]
-          ]),
-          symbolSize: 10
-        }]
+        series: [
+          {
+            type: 'scatter',
+            data: xData.map((x, i) => [typeof x === 'number' ? x : parseFloat(x) || 0, yData[i]]),
+            symbolSize: 10,
+          },
+        ],
       }
       break
 
@@ -259,9 +271,13 @@ const updateChart = () => {
 }
 
 // 监听变化
-watch([chartType, xAxisColumn, yAxisColumn, () => props.data], () => {
-  updateChart()
-}, { deep: true })
+watch(
+  [chartType, xAxisColumn, yAxisColumn, () => props.data],
+  () => {
+    updateChart()
+  },
+  { deep: true }
+)
 
 // 窗口大小变化
 const handleResize = () => {

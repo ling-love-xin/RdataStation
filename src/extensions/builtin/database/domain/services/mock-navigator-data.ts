@@ -5,7 +5,18 @@
 export interface NavigatorNode {
   id: string
   name: string
-  type: 'connection' | 'database' | 'schema' | 'table' | 'view' | 'procedure' | 'function' | 'column' | 'index' | 'trigger' | 'folder'
+  type:
+    | 'connection'
+    | 'database'
+    | 'schema'
+    | 'table'
+    | 'view'
+    | 'procedure'
+    | 'function'
+    | 'column'
+    | 'index'
+    | 'trigger'
+    | 'folder'
   children?: NavigatorNode[]
   isLeaf?: boolean
   data?: any
@@ -22,8 +33,14 @@ export interface Connection {
 // 示例连接列表
 export const mockConnections: Connection[] = [
   { id: 'conn_1', name: '本地 MySQL', type: 'mysql', host: 'localhost:3306', database: 'test_db' },
-  { id: 'conn_2', name: '生产 PostgreSQL', type: 'postgres', host: 'prod.db.com:5432', database: 'production' },
-  { id: 'conn_3', name: '开发 SQLite', type: 'sqlite', host: '', database: 'dev.db' }
+  {
+    id: 'conn_2',
+    name: '生产 PostgreSQL',
+    type: 'postgres',
+    host: 'prod.db.com:5432',
+    database: 'production',
+  },
+  { id: 'conn_3', name: '开发 SQLite', type: 'sqlite', host: '', database: 'dev.db' },
 ]
 
 // 示例导航节点数据
@@ -53,30 +70,30 @@ export const mockNavigatorNodes: NavigatorNode[] = [
                     name: 'id',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'INT', nullable: false, isPrimaryKey: true }
+                    data: { dataType: 'INT', nullable: false, isPrimaryKey: true },
                   },
                   {
                     id: 'col_2',
                     name: 'username',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'VARCHAR(50)', nullable: false }
+                    data: { dataType: 'VARCHAR(50)', nullable: false },
                   },
                   {
                     id: 'col_3',
                     name: 'email',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'VARCHAR(100)', nullable: false }
+                    data: { dataType: 'VARCHAR(100)', nullable: false },
                   },
                   {
                     id: 'col_4',
                     name: 'created_at',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'TIMESTAMP', nullable: false }
-                  }
-                ]
+                    data: { dataType: 'TIMESTAMP', nullable: false },
+                  },
+                ],
               },
               {
                 id: 'table_2',
@@ -88,30 +105,30 @@ export const mockNavigatorNodes: NavigatorNode[] = [
                     name: 'id',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'INT', nullable: false, isPrimaryKey: true }
+                    data: { dataType: 'INT', nullable: false, isPrimaryKey: true },
                   },
                   {
                     id: 'col_6',
                     name: 'user_id',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'INT', nullable: false, isForeignKey: true }
+                    data: { dataType: 'INT', nullable: false, isForeignKey: true },
                   },
                   {
                     id: 'col_7',
                     name: 'total_amount',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'DECIMAL(10,2)', nullable: false }
+                    data: { dataType: 'DECIMAL(10,2)', nullable: false },
                   },
                   {
                     id: 'col_8',
                     name: 'status',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'VARCHAR(20)', nullable: false }
-                  }
-                ]
+                    data: { dataType: 'VARCHAR(20)', nullable: false },
+                  },
+                ],
               },
               {
                 id: 'table_3',
@@ -123,25 +140,25 @@ export const mockNavigatorNodes: NavigatorNode[] = [
                     name: 'id',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'INT', nullable: false, isPrimaryKey: true }
+                    data: { dataType: 'INT', nullable: false, isPrimaryKey: true },
                   },
                   {
                     id: 'col_10',
                     name: 'name',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'VARCHAR(200)', nullable: false }
+                    data: { dataType: 'VARCHAR(200)', nullable: false },
                   },
                   {
                     id: 'col_11',
                     name: 'price',
                     type: 'column',
                     isLeaf: true,
-                    data: { dataType: 'DECIMAL(10,2)', nullable: false }
-                  }
-                ]
-              }
-            ]
+                    data: { dataType: 'DECIMAL(10,2)', nullable: false },
+                  },
+                ],
+              },
+            ],
           },
           {
             id: 'views_folder',
@@ -152,15 +169,15 @@ export const mockNavigatorNodes: NavigatorNode[] = [
                 id: 'view_1',
                 name: 'user_orders_view',
                 type: 'view',
-                isLeaf: true
+                isLeaf: true,
               },
               {
                 id: 'view_2',
                 name: 'product_summary',
                 type: 'view',
-                isLeaf: true
-              }
-            ]
+                isLeaf: true,
+              },
+            ],
           },
           {
             id: 'procedures_folder',
@@ -171,15 +188,15 @@ export const mockNavigatorNodes: NavigatorNode[] = [
                 id: 'proc_1',
                 name: 'sp_get_user_orders',
                 type: 'procedure',
-                isLeaf: true
+                isLeaf: true,
               },
               {
                 id: 'proc_2',
                 name: 'sp_update_inventory',
                 type: 'procedure',
-                isLeaf: true
-              }
-            ]
+                isLeaf: true,
+              },
+            ],
           },
           {
             id: 'functions_folder',
@@ -190,21 +207,21 @@ export const mockNavigatorNodes: NavigatorNode[] = [
                 id: 'func_1',
                 name: 'fn_calculate_total',
                 type: 'function',
-                isLeaf: true
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
+                isLeaf: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ]
 
 // 模拟异步加载子节点
 export async function loadNavigatorChildren(parentId: string): Promise<NavigatorNode[]> {
   // 模拟网络延迟
   await new Promise(resolve => setTimeout(resolve, 300))
-  
+
   // 这里可以根据 parentId 返回对应的子节点
   // 目前返回空数组，表示已加载完成
   return []

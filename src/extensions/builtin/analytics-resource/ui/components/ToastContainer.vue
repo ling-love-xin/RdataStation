@@ -12,7 +12,9 @@
           <div class="toast-content">
             <span class="toast-message">{{ toast.message }}</span>
             <Transition name="detail">
-              <pre v-if="expandedIds.includes(toast.id) && toast.detail" class="toast-detail">{{ toast.detail }}</pre>
+              <pre v-if="expandedIds.includes(toast.id) && toast.detail" class="toast-detail">{{
+                toast.detail
+              }}</pre>
             </Transition>
           </div>
           <button v-if="toast.detail" class="toast-toggle" @click.stop="toggleDetail(toast.id)">
@@ -35,11 +37,16 @@ const expandedIds = ref<number[]>([])
 
 function getIcon(type: string) {
   switch (type) {
-    case 'success': return '✅'
-    case 'error': return '❌'
-    case 'warning': return '⚠️'
-    case 'info': return 'ℹ️'
-    default: return 'ℹ️'
+    case 'success':
+      return '✅'
+    case 'error':
+      return '❌'
+    case 'warning':
+      return '⚠️'
+    case 'info':
+      return 'ℹ️'
+    default:
+      return 'ℹ️'
   }
 }
 

@@ -51,10 +51,7 @@
       />
     </div>
 
-    <NavigatorContextMenuV2
-      ref="contextMenuRef"
-      :items="contextMenuItems"
-    />
+    <NavigatorContextMenuV2 ref="contextMenuRef" :items="contextMenuItems" />
 
     <NavigatorError
       :visible="showError"
@@ -71,7 +68,11 @@
       @submit="handleGroupSubmit"
     />
 
-    <NavigatorStatus :text="statusText" :is-in-transaction="isInTransaction" :transaction-duration="transactionDuration" />
+    <NavigatorStatus
+      :text="statusText"
+      :is-in-transaction="isInTransaction"
+      :transaction-duration="transactionDuration"
+    />
   </div>
 </template>
 
@@ -116,9 +117,6 @@ import type { NavigatorError as NavigatorErrorType } from './navigator-error.vue
 import type { IContextMenuItem } from '../composables/use-context-menu-actions'
 import type { VirtualTreeNode } from '../types/virtual-tree'
 
-
-
-
 interface FilterConfig {
   showTables: boolean
   showViews: boolean
@@ -161,7 +159,7 @@ const filterConfig = ref<FilterConfig>({
   showTables: true,
   showViews: true,
   showSystemSchemas: false,
-  showColumns: true
+  showColumns: true,
 })
 
 // 业务逻辑 composables
@@ -178,7 +176,9 @@ const connectionStatusSync = useConnectionStatusSync()
 const dragDrop = useDragDrop()
 
 // 虚拟树控制器 - 先声明回调函数的引用
-const handleVirtualTreeLoadChildrenRef: { value: (node: VirtualTreeNode) => Promise<VirtualTreeNode[]> } = { value: async () => [] }
+const handleVirtualTreeLoadChildrenRef: {
+  value: (node: VirtualTreeNode) => Promise<VirtualTreeNode[]>
+} = { value: async () => [] }
 const handleVirtualTreeSelectRef: { value: (node: VirtualTreeNode) => void } = { value: () => {} }
 
 // 模板中使用的事件处理器
@@ -196,25 +196,29 @@ function handleVirtualTreeToggle(node: VirtualTreeNode) {
     const projectPath = navigatorStore.getProjectPath(connectionId)
 
     if (node.type === 'table' && tableName) {
-      adjacentPreload.preloadAdjacentNodes(
-        connectionId,
-        connectionType,
-        dbName,
-        schemaName,
-        'table',
-        tableName,
-        projectPath
-      ).catch(err => console.error('相邻节点预加载失败:', err))
+      adjacentPreload
+        .preloadAdjacentNodes(
+          connectionId,
+          connectionType,
+          dbName,
+          schemaName,
+          'table',
+          tableName,
+          projectPath
+        )
+        .catch(err => console.error('相邻节点预加载失败:', err))
     } else if (node.type === 'columns-folder' && tableName) {
-      adjacentPreload.preloadAdjacentNodes(
-        connectionId,
-        connectionType,
-        dbName,
-        schemaName,
-        'columns-folder',
-        tableName,
-        projectPath
-      ).catch(err => console.error('相邻节点预加载失败:', err))
+      adjacentPreload
+        .preloadAdjacentNodes(
+          connectionId,
+          connectionType,
+          dbName,
+          schemaName,
+          'columns-folder',
+          tableName,
+          projectPath
+        )
+        .catch(err => console.error('相邻节点预加载失败:', err))
     }
   }
 }
@@ -226,10 +230,10 @@ const {
   toggleNode,
   selectNode,
   clearConnection,
-  clearAll
+  clearAll,
 } = useVirtualTree({
   onLoadChildren: async (node: VirtualTreeNode) => handleVirtualTreeLoadChildrenRef.value(node),
-  onSelect: (node: VirtualTreeNode) => handleVirtualTreeSelectRef.value(node)
+  onSelect: (node: VirtualTreeNode) => handleVirtualTreeSelectRef.value(node),
 })
 
 const statusText = computed(() => {
@@ -256,25 +260,30 @@ const statusText = computed(() => {
     connections: totalConnections,
     databases: totalDatabases,
     tables: totalTables,
-    views: totalViews
+    views: totalViews,
   })
 })
 
 /**
  * 加载子节点 - 委托给 treeLoader composable
  */
-handleVirtualTreeLoadChildrenRef.value = async function(node: VirtualTreeNode): Promise<VirtualTreeNode[]> {
+handleVirtualTreeLoadChildrenRef.value = async function (
+  node: VirtualTreeNode
+): Promise<VirtualTreeNode[]> {
   return treeLoader.loadChildren(node)
 }
 
 /**
  * 创建连接节点
  */
-function createConnectionNode(conn: ProjectConnection, scope: 'global' | 'project'): VirtualTreeNode {
+function createConnectionNode(
+  conn: ProjectConnection,
+  scope: 'global' | 'project'
+): VirtualTreeNode {
   const databases = navigatorStore.getDatabases(conn.id)
   const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(conn.id)
   const key = NodeKeyEncoder.encode(['connection', scope, conn.id])
-  
+
   return {
     key,
     level: 0,
@@ -286,7 +295,7 @@ function createConnectionNode(conn: ProjectConnection, scope: 'global' | 'projec
     parentId: null,
     childCount: databases.length,
     connectionTags: [scope === 'global' ? t('navigator.global') : t('navigator.project')],
-    connectionStatus: hasRuntimeConn ? 'connected' as const : 'disconnected' as const
+    connectionStatus: hasRuntimeConn ? ('connected' as const) : ('disconnected' as const),
   }
 }
 
@@ -296,7 +305,7 @@ function createConnectionNode(conn: ProjectConnection, scope: 'global' | 'projec
 function createDatabaseNodes(connectionId: string, scope: 'global' | 'project'): VirtualTreeNode[] {
   const databases = navigatorStore.getDatabases(connectionId)
   const parentKey = NodeKeyEncoder.encode(['connection', scope, connectionId])
-  
+
   return databases.map(db => ({
     key: NodeKeyEncoder.encode(['database', connectionId, db.name]),
     level: 1,
@@ -306,7 +315,7 @@ function createDatabaseNodes(connectionId: string, scope: 'global' | 'project'):
     type: 'database' as const,
     data: { connectionId, dbName: db.name },
     parentId: parentKey,
-    childCount: db.schemas?.length || 0
+    childCount: db.schemas?.length || 0,
   }))
 }
 
@@ -316,7 +325,7 @@ function createDatabaseNodes(connectionId: string, scope: 'global' | 'project'):
 function createSchemaNodes(connectionId: string, dbName: string): VirtualTreeNode[] {
   const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
   const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
-  
+
   return schemas.map(schema => ({
     key: NodeKeyEncoder.encode(['schema', connectionId, dbName, schema.name]),
     level: 2,
@@ -326,18 +335,22 @@ function createSchemaNodes(connectionId: string, dbName: string): VirtualTreeNod
     type: 'schema' as const,
     data: { connectionId, dbName, schemaName: schema.name },
     parentId: parentKey,
-    childCount: (schema.tables?.length || 0) + (schema.views?.length || 0)
+    childCount: (schema.tables?.length || 0) + (schema.views?.length || 0),
   }))
 }
 
 /**
  * 创建表和视图文件夹节点
  */
-function createTableAndViewNodes(connectionId: string, dbName: string, schemaName: string): VirtualTreeNode[] {
+function createTableAndViewNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string
+): VirtualTreeNode[] {
   const tables = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
   const views = navigatorStore.getSchemaViews(connectionId, dbName, schemaName)
   const parentKey = NodeKeyEncoder.encode(['schema', connectionId, dbName, schemaName])
-  
+
   return [
     {
       key: NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName]),
@@ -348,7 +361,7 @@ function createTableAndViewNodes(connectionId: string, dbName: string, schemaNam
       type: 'tables-folder' as const,
       data: { connectionId, dbName, schemaName },
       parentId: parentKey,
-      childCount: tables.length
+      childCount: tables.length,
     },
     {
       key: NodeKeyEncoder.encode(['views-folder', connectionId, dbName, schemaName]),
@@ -359,18 +372,22 @@ function createTableAndViewNodes(connectionId: string, dbName: string, schemaNam
       type: 'views-folder' as const,
       data: { connectionId, dbName, schemaName },
       parentId: parentKey,
-      childCount: views.length
-    }
+      childCount: views.length,
+    },
   ]
 }
 
 /**
  * 创建表节点
  */
-function createTableNodes(connectionId: string, dbName: string, schemaName: string): VirtualTreeNode[] {
+function createTableNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string
+): VirtualTreeNode[] {
   const tables = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
   const parentKey = NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName])
-  
+
   return tables.map(table => ({
     key: NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName, table.name]),
     level: 4,
@@ -380,17 +397,21 @@ function createTableNodes(connectionId: string, dbName: string, schemaName: stri
     type: 'table' as const,
     data: { connectionId, dbName, schemaName, tableName: table.name },
     parentId: parentKey,
-    childCount: table.columns?.length || 0
+    childCount: table.columns?.length || 0,
   }))
 }
 
 /**
  * 创建视图节点
  */
-function createViewNodes(connectionId: string, dbName: string, schemaName: string): VirtualTreeNode[] {
+function createViewNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string
+): VirtualTreeNode[] {
   const views = navigatorStore.getSchemaViews(connectionId, dbName, schemaName)
   const parentKey = NodeKeyEncoder.encode(['views-folder', connectionId, dbName, schemaName])
-  
+
   return views.map(view => ({
     key: NodeKeyEncoder.encode(['view', connectionId, dbName, schemaName, view.name]),
     level: 4,
@@ -400,21 +421,27 @@ function createViewNodes(connectionId: string, dbName: string, schemaName: strin
     type: 'view' as const,
     data: { connectionId, dbName, schemaName, viewName: view.name },
     parentId: parentKey,
-    childCount: view.columns?.length || 0
+    childCount: view.columns?.length || 0,
   }))
 }
 
 /**
  * 创建列节点（第6层）
  */
-function createColumnNodes(connectionId: string, dbName: string, schemaName: string, tableName: string): VirtualTreeNode[] {
-  const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
+function createColumnNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): VirtualTreeNode[] {
+  const table = navigatorStore
+    .getSchemaTables(connectionId, dbName, schemaName)
     .find(t => t.name === tableName)
-  
+
   if (!table || !table.columns) return []
-  
+
   const parentKey = NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName, tableName])
-  
+
   return table.columns.map(col => ({
     key: NodeKeyEncoder.encode(['column', connectionId, dbName, schemaName, tableName, col.name]),
     level: 5,
@@ -422,24 +449,37 @@ function createColumnNodes(connectionId: string, dbName: string, schemaName: str
     isLeaf: true,
     label: col.name,
     type: 'column' as const,
-    data: { connectionId, dbName, schemaName, tableName, columnName: col.name, dataType: col.dataType },
+    data: {
+      connectionId,
+      dbName,
+      schemaName,
+      tableName,
+      columnName: col.name,
+      dataType: col.dataType,
+    },
     parentId: parentKey,
-    childCount: 0
+    childCount: 0,
   }))
 }
 
 /**
  * 创建表/视图的子文件夹节点（索引、约束等）- 第6层
  */
-function createTableSubFolderNodes(connectionId: string, dbName: string, schemaName: string, tableName: string): VirtualTreeNode[] {
-  const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
+function createTableSubFolderNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): VirtualTreeNode[] {
+  const table = navigatorStore
+    .getSchemaTables(connectionId, dbName, schemaName)
     .find(t => t.name === tableName)
-  
+
   if (!table) return []
-  
+
   const parentKey = NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName, tableName])
   const nodes: VirtualTreeNode[] = []
-  
+
   if (table.indexes && table.indexes.length > 0) {
     nodes.push({
       key: NodeKeyEncoder.encode(['indexes-folder', connectionId, dbName, schemaName, tableName]),
@@ -450,13 +490,19 @@ function createTableSubFolderNodes(connectionId: string, dbName: string, schemaN
       type: 'indexes-folder' as const,
       data: { connectionId, dbName, schemaName, tableName },
       parentId: parentKey,
-      childCount: table.indexes.length
+      childCount: table.indexes.length,
     })
   }
-  
+
   if (table.constraints && table.constraints.length > 0) {
     nodes.push({
-      key: NodeKeyEncoder.encode(['constraints-folder', connectionId, dbName, schemaName, tableName]),
+      key: NodeKeyEncoder.encode([
+        'constraints-folder',
+        connectionId,
+        dbName,
+        schemaName,
+        tableName,
+      ]),
       level: 5,
       isExpanded: false,
       isLeaf: false,
@@ -464,24 +510,36 @@ function createTableSubFolderNodes(connectionId: string, dbName: string, schemaN
       type: 'constraints-folder' as const,
       data: { connectionId, dbName, schemaName, tableName },
       parentId: parentKey,
-      childCount: table.constraints.length
+      childCount: table.constraints.length,
     })
   }
-  
+
   return nodes
 }
 
 /**
  * 创建索引节点（第7层）
  */
-function createIndexNodes(connectionId: string, dbName: string, schemaName: string, tableName: string): VirtualTreeNode[] {
-  const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
+function createIndexNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): VirtualTreeNode[] {
+  const table = navigatorStore
+    .getSchemaTables(connectionId, dbName, schemaName)
     .find(t => t.name === tableName)
-  
+
   if (!table || !table.indexes) return []
-  
-  const parentKey = NodeKeyEncoder.encode(['indexes-folder', connectionId, dbName, schemaName, tableName])
-  
+
+  const parentKey = NodeKeyEncoder.encode([
+    'indexes-folder',
+    connectionId,
+    dbName,
+    schemaName,
+    tableName,
+  ])
+
   return table.indexes.map(idx => ({
     key: NodeKeyEncoder.encode(['index', connectionId, dbName, schemaName, tableName, idx.name]),
     level: 6,
@@ -489,33 +547,67 @@ function createIndexNodes(connectionId: string, dbName: string, schemaName: stri
     isLeaf: true,
     label: idx.name,
     type: 'index' as const,
-    data: { connectionId, dbName, schemaName, tableName, indexName: idx.name, isUnique: idx.isUnique, isPrimary: idx.isPrimary },
+    data: {
+      connectionId,
+      dbName,
+      schemaName,
+      tableName,
+      indexName: idx.name,
+      isUnique: idx.isUnique,
+      isPrimary: idx.isPrimary,
+    },
     parentId: parentKey,
-    childCount: 0
+    childCount: 0,
   }))
 }
 
 /**
  * 创建约束节点（第7层）
  */
-function createConstraintNodes(connectionId: string, dbName: string, schemaName: string, tableName: string): VirtualTreeNode[] {
-  const table = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
+function createConstraintNodes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): VirtualTreeNode[] {
+  const table = navigatorStore
+    .getSchemaTables(connectionId, dbName, schemaName)
     .find(t => t.name === tableName)
-  
+
   if (!table || !table.constraints) return []
-  
-  const parentKey = NodeKeyEncoder.encode(['constraints-folder', connectionId, dbName, schemaName, tableName])
-  
+
+  const parentKey = NodeKeyEncoder.encode([
+    'constraints-folder',
+    connectionId,
+    dbName,
+    schemaName,
+    tableName,
+  ])
+
   return table.constraints.map(con => ({
-    key: NodeKeyEncoder.encode(['constraint', connectionId, dbName, schemaName, tableName, con.name]),
+    key: NodeKeyEncoder.encode([
+      'constraint',
+      connectionId,
+      dbName,
+      schemaName,
+      tableName,
+      con.name,
+    ]),
     level: 6,
     isExpanded: false,
     isLeaf: true,
     label: con.name,
     type: 'constraint' as const,
-    data: { connectionId, dbName, schemaName, tableName, constraintName: con.name, constraintType: con.type },
+    data: {
+      connectionId,
+      dbName,
+      schemaName,
+      tableName,
+      constraintName: con.name,
+      constraintType: con.type,
+    },
     parentId: parentKey,
-    childCount: 0
+    childCount: 0,
   }))
 }
 
@@ -525,7 +617,7 @@ function createConstraintNodes(connectionId: string, dbName: string, schemaName:
 function initializeRootNodes() {
   const globalConns = globalConnections.value.map(conn => ({
     ...conn,
-    db_type: conn.driver
+    db_type: conn.driver,
   }))
   const projectConns = projectConnectionStore.connections
 
@@ -535,14 +627,14 @@ function initializeRootNodes() {
 
 const onSearchQueryChange = async (query: string) => {
   searchQuery.value = query
-  
+
   const results = treeSearch.searchTables(
     query,
     filterConfig.value,
     globalConnections.value,
     projectConnectionStore.connections
   )
-  
+
   if (searchRef.value) {
     searchRef.value.setSearchResults(results)
   }
@@ -557,14 +649,14 @@ const handleSearchSelect = async (result: {
   schemaName: string
 }) => {
   const { nodeKey, connectionId, dbName, schemaName } = result
-  
+
   const pathNodes = treeSearch.findNodePath(
     connectionId,
     dbName,
     schemaName,
     virtualTreeNodes.value
   )
-  
+
   for (const pathNode of pathNodes) {
     if (!pathNode.isExpanded) {
       await toggleNode(pathNode)
@@ -574,7 +666,7 @@ const handleSearchSelect = async (result: {
   const targetNode = virtualTreeNodes.value.find(n => n.key === nodeKey)
   if (targetNode) {
     selectNode(targetNode)
-    
+
     if (virtualTreeRef.value) {
       virtualTreeRef.value.scrollToNode(nodeKey)
     }
@@ -616,22 +708,25 @@ const handleDisconnect = async () => {
 
 const handleRefresh = async () => {
   isRefreshing.value = true
-  
+
   try {
     await loadGlobalConnections()
-    
+
     const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
-    
+
     for (const conn of allConnections) {
       navigatorStore.clearCache(conn.id)
       await navigatorStore.loadDatabases(conn.id)
     }
-    
+
     initializeRootNodes()
     handleErrorClose()
   } catch (error) {
     console.error('刷新连接失败:', error)
-    showErrorMessage(t('navigator.refreshFailed'), error instanceof Error ? error.message : t('navigator.refreshError'))
+    showErrorMessage(
+      t('navigator.refreshFailed'),
+      error instanceof Error ? error.message : t('navigator.refreshError')
+    )
   } finally {
     isRefreshing.value = false
   }
@@ -639,50 +734,59 @@ const handleRefresh = async () => {
 
 const handleBeginTransaction = async () => {
   if (!currentConnection.value) return
-  
+
   try {
     await connectionStore.beginTransaction(currentConnection.value.id)
     isInTransaction.value = true
     transactionDuration.value = 0
-    
+
     if (transactionTimer) {
       clearInterval(transactionTimer)
     }
-    
+
     transactionTimer = setInterval(() => {
       transactionDuration.value += 1000
     }, 1000)
-    
+
     console.log('事务已开始')
   } catch (error) {
     console.error('开始事务失败:', error)
-    showErrorMessage(t('navigator.transactionFailed'), error instanceof Error ? error.message : t('navigator.beginTransactionError'))
+    showErrorMessage(
+      t('navigator.transactionFailed'),
+      error instanceof Error ? error.message : t('navigator.beginTransactionError')
+    )
   }
 }
 
 const handleCommitTransaction = async () => {
   if (!currentConnection.value) return
-  
+
   try {
     await connectionStore.commitTransaction(currentConnection.value.id)
     stopTransactionTimer()
     console.log('事务已提交')
   } catch (error) {
     console.error('提交事务失败:', error)
-    showErrorMessage(t('navigator.transactionFailed'), error instanceof Error ? error.message : t('navigator.commitTransactionError'))
+    showErrorMessage(
+      t('navigator.transactionFailed'),
+      error instanceof Error ? error.message : t('navigator.commitTransactionError')
+    )
   }
 }
 
 const handleRollbackTransaction = async () => {
   if (!currentConnection.value) return
-  
+
   try {
     await connectionStore.rollbackTransaction(currentConnection.value.id)
     stopTransactionTimer()
     console.log('事务已回滚')
   } catch (error) {
     console.error('回滚事务失败:', error)
-    showErrorMessage(t('navigator.transactionFailed'), error instanceof Error ? error.message : t('navigator.rollbackTransactionError'))
+    showErrorMessage(
+      t('navigator.transactionFailed'),
+      error instanceof Error ? error.message : t('navigator.rollbackTransactionError')
+    )
   }
 }
 
@@ -719,7 +823,7 @@ function getEditingGroupData() {
     return {
       name: group.name,
       description: group.description,
-      color: group.color
+      color: group.color,
     }
   }
   return undefined
@@ -730,7 +834,7 @@ function handleGroupSubmit(data: { name: string; description?: string; color?: s
     groupManager.updateGroup(editingGroupId.value, {
       name: data.name,
       description: data.description,
-      color: data.color
+      color: data.color,
     })
   } else {
     groupManager.createGroup(data.name, data.description)
@@ -776,7 +880,7 @@ handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
       )
     }
   }
-  
+
   if (node.type === 'table' || node.type === 'view') {
     const result = connectionHandler.handleOpenTableOrView(node, projectConnectionStore.connections)
     if (result?.connection) {
@@ -788,7 +892,12 @@ handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
       )
     }
     if (result?.connectionId && result?.dbName && result?.schemaName && result?.tableName) {
-      workbenchStore.openTableData(result.connectionId, result.dbName, result.schemaName, result.tableName)
+      workbenchStore.openTableData(
+        result.connectionId,
+        result.dbName,
+        result.schemaName,
+        result.tableName
+      )
     }
   }
 }
@@ -796,7 +905,7 @@ handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
 const handleVirtualTreeContextMenu = (node: VirtualTreeNode, event: MouseEvent) => {
   contextMenuCurrentNode.value = node
   contextMenuItems.value = contextMenuActions.getNodeMenu(node)
-  
+
   if (contextMenuRef.value) {
     contextMenuRef.value.show(event)
   }
@@ -823,9 +932,11 @@ function handleNodeDblClick(node: VirtualTreeNode) {
     const objectName = keyParts[4]
     // 双击表/视图时，打开 SQL 编辑器并自动生成 SELECT 语句
     const sql = `SELECT * FROM ${dbName}.${schemaName}.${objectName} LIMIT 100;`
-    window.dispatchEvent(new CustomEvent('open-sql-editor', {
-      detail: { connectionId, databaseName: dbName, schemaName, sql }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: { connectionId, databaseName: dbName, schemaName, sql },
+      })
+    )
   }
 }
 
@@ -893,14 +1004,14 @@ function handleOpenSqlEditor(event: Event) {
 function handleOpenTableData(event: Event) {
   const detail = (event as CustomEvent).detail
   const { connectionId, dbName, schemaName, tableName } = detail
-  
+
   workbenchStore.openTableData(connectionId, dbName, schemaName, tableName)
 }
 
 function handleOpenTableDdl(event: Event) {
   const detail = (event as CustomEvent).detail
   const { connectionId, dbName, schemaName, tableName } = detail
-  
+
   workbenchStore.openTableData(connectionId, dbName, schemaName, tableName)
 }
 
@@ -917,7 +1028,7 @@ const keyboardShortcuts = useKeyboardShortcuts({
   onSearch: focusSearch,
   onBeginTransaction: handleBeginTransaction,
   onCommitTransaction: handleCommitTransaction,
-  onRollbackTransaction: handleRollbackTransaction
+  onRollbackTransaction: handleRollbackTransaction,
 })
 
 const handleContextMenuRefresh = async () => {
@@ -961,11 +1072,11 @@ async function loadGlobalConnections() {
   try {
     const connections = await getGlobalConnections()
     globalConnections.value = connections
-    
+
     for (const conn of connections) {
       navigatorStore.setConnectionInfo(conn.id, 'global', undefined, conn.driver)
     }
-    
+
     // 同步到 connectionStore
     for (const conn of connections) {
       connectionStore.syncConnectionStatus(
@@ -1018,15 +1129,15 @@ watch(
 onMounted(async () => {
   await loadGlobalConnections()
   await projectConnectionStore.loadConnections()
-  
+
   for (const conn of projectConnectionStore.connections) {
     navigatorStore.setConnectionInfo(conn.id, 'project', undefined, conn.driver)
   }
-  
+
   initializeRootNodes()
-  
+
   setupDragDropListeners()
-  
+
   const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
   for (const conn of allConnections) {
     connectionStatusSync.startHealthCheck(conn.id)

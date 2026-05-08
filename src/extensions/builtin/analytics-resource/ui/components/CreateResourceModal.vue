@@ -2,81 +2,83 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h3>{{ isEdit ? '编辑资源' : '添加资源' }}</h3>
+        <h3>{{
+          isEdit ? t('analyticsResource.editResource') : t('analyticsResource.createResource')
+        }}</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
-          <label>资源类型 *</label>
+          <label>{{ t('analyticsResource.resourceType') }} *</label>
           <select v-model="form.resource_type" class="form-input" :disabled="isEdit">
-            <option value="connection">🔌 连接</option>
-            <option value="table">📊 表</option>
-            <option value="file">📄 文件</option>
+            <option value="connection">🔌 {{ t('analyticsResource.connection') }}</option>
+            <option value="table">📊 {{ t('analyticsResource.table') }}</option>
+            <option value="file">📄 {{ t('analyticsResource.file') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label>资源名称 *</label>
+          <label>{{ t('analyticsResource.resourceName') }} *</label>
           <input
             v-model="form.name"
             type="text"
             class="form-input"
-            placeholder="输入资源名称"
+            :placeholder="t('analyticsResource.resourceName')"
           />
         </div>
 
         <div class="form-group">
-          <label>别名</label>
+          <label>{{ t('analyticsResource.alias') }}</label>
           <input
             v-model="form.alias"
             type="text"
             class="form-input"
-            placeholder="输入别名（可选）"
+            :placeholder="t('analyticsResource.aliasPlaceholder')"
           />
         </div>
 
         <div class="form-group">
-          <label>作用域 *</label>
+          <label>{{ t('analyticsResource.scope') }} *</label>
           <select v-model="form.scope" class="form-input">
-            <option value="global">🌍 全局</option>
-            <option value="project">📂 项目</option>
-            <option value="session">📌 会话</option>
+            <option value="global">🌍 {{ t('analyticsResource.global') }}</option>
+            <option value="project">📂 {{ t('analyticsResource.project') }}</option>
+            <option value="session">📌 {{ t('analyticsResource.session') }}</option>
           </select>
         </div>
 
         <div v-if="form.resource_type === 'table'" class="form-group">
-          <label>行数</label>
+          <label>{{ t('analyticsResource.rowCountLabel') }}</label>
           <input
             v-model.number="form.row_count"
             type="number"
             class="form-input"
-            placeholder="输入行数"
+            :placeholder="t('analyticsResource.rowCountLabel')"
           />
         </div>
 
         <div v-if="form.resource_type === 'table'" class="form-group">
-          <label>列数</label>
+          <label>{{ t('analyticsResource.columnCount') }}</label>
           <input
             v-model.number="form.column_count"
             type="number"
             class="form-input"
-            placeholder="输入列数"
+            :placeholder="t('analyticsResource.columnCount')"
           />
         </div>
 
         <div v-if="form.resource_type === 'file'" class="form-group">
-          <label>文件大小（字节）</label>
+          <label>{{ t('analyticsResource.fileSizeLabel') }}</label>
           <input
             v-model.number="form.file_size"
             type="number"
             class="form-input"
-            placeholder="输入文件大小"
+            :placeholder="t('analyticsResource.fileSizeLabel')"
           />
         </div>
 
         <div class="form-group">
-          <label>源查询</label>
+          <label>{{ t('analyticsResource.sourceQuery') }}</label>
           <textarea
             v-model="form.source_query"
             class="form-input form-textarea"
@@ -86,11 +88,11 @@
         </div>
 
         <div class="form-group">
-          <label>配置 JSON</label>
+          <label>{{ t('analyticsResource.configJson') }}</label>
           <textarea
             v-model="configJson"
             class="form-input form-textarea"
-            placeholder='{"connectionId": "xxx", "tableName": "yyy"}'
+            :placeholder="t('analyticsResource.configJsonPlaceholder')"
             rows="4"
           ></textarea>
         </div>
@@ -98,10 +100,10 @@
 
       <div class="modal-footer">
         <button class="btn btn-secondary" @click="$emit('close')">
-          取消
+          {{ t('analyticsResource.cancel') }}
         </button>
         <button class="btn btn-primary" :disabled="!isValid" @click="handleSubmit">
-          {{ isEdit ? '保存' : '创建' }}
+          {{ isEdit ? t('analyticsResource.save') : t('analyticsResource.create') }}
         </button>
       </div>
     </div>
@@ -109,21 +111,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-import type { CreateResourceRequest, ResourceType, ResourceScope, AnalyticsResource } from '../../types';
+import type {
+  CreateResourceRequest,
+  ResourceType,
+  ResourceScope,
+  AnalyticsResource,
+} from '../../types'
+
+const { t } = useI18n()
 
 const props = defineProps<{
-  editResource?: AnalyticsResource;
-}>();
+  editResource?: AnalyticsResource
+}>()
 
 const emit = defineEmits<{
-  close: [];
-  create: [input: CreateResourceRequest];
-  update: [id: string, input: CreateResourceRequest];
-}>();
+  close: []
+  create: [input: CreateResourceRequest]
+  update: [id: string, input: CreateResourceRequest]
+}>()
 
-const isEdit = computed(() => !!props.editResource);
+const isEdit = computed(() => !!props.editResource)
 
 const form = ref({
   resource_type: 'connection' as ResourceType,
@@ -135,18 +145,18 @@ const form = ref({
   file_size: undefined as number | undefined,
   parent_resource_id: undefined as string | undefined,
   source_query: undefined as string | undefined,
-});
+})
 
-const configJson = ref('{}');
+const configJson = ref('{}')
 
 const isValid = computed(() => {
-  return form.value.name.trim() !== '';
-});
+  return form.value.name.trim() !== ''
+})
 
 function handleSubmit() {
   try {
-    const config = JSON.parse(configJson.value);
-    
+    const config = JSON.parse(configJson.value)
+
     const input: CreateResourceRequest = {
       resource_type: form.value.resource_type,
       name: form.value.name.trim(),
@@ -158,21 +168,21 @@ function handleSubmit() {
       file_size: form.value.file_size,
       parent_resource_id: form.value.parent_resource_id,
       source_query: form.value.source_query || undefined,
-    };
-    
+    }
+
     if (isEdit.value && props.editResource) {
-      emit('update', props.editResource.id, input);
+      emit('update', props.editResource.id, input)
     } else {
-      emit('create', input);
+      emit('create', input)
     }
   } catch (e) {
-    alert('配置 JSON 格式错误');
+    alert(t('analyticsResource.jsonFormatError'))
   }
 }
 
 onMounted(() => {
   if (props.editResource) {
-    const r = props.editResource;
+    const r = props.editResource
     form.value = {
       resource_type: r.resource_type,
       name: r.name,
@@ -183,10 +193,10 @@ onMounted(() => {
       file_size: r.file_size,
       parent_resource_id: r.parent_resource_id,
       source_query: r.source_query,
-    };
-    configJson.value = JSON.stringify(r.config, null, 2);
+    }
+    configJson.value = JSON.stringify(r.config, null, 2)
   }
-});
+})
 </script>
 
 <style scoped>

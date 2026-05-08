@@ -1,22 +1,23 @@
 # RdataStation 文档中心
 
-> 版本：v2.2
+> 版本：v2.4
 > 最后更新：2026-05-08
-> 状态：✅ V7 增量同步已完成 | ⏳ SQL 编辑器架构优化待确认
+> 状态：✅ SQL 编辑器架构优化全部完成（含方言高亮优化）
 
 ---
 
 ## 快速导航
 
-| 我想... | 查看文档 | 说明 |
-|---------|----------|------|
-| 了解项目架构 | [架构总览](./architecture.md) | 四层微内核、四层数据库架构 |
-| 开始后端开发 | [后端文档](./backend/README.md) | Rust Core + Tauri |
-| 开始前端开发 | [前端文档](./frontend/INDEX.md) | Vue 3 + TypeScript |
-| 了解 SQL 编辑器优化 | [优化计划](./frontend/SQL-EDITOR-OPTIMIZATION-PLAN.md) | 架构优化 4 Phase |
-| 了解数据库导航 | [导航器文档](./navigator/README.md) | IVM 增量视图设计 |
-| 查看竞品对比 | [竞品对比](./COMPARISON.md) | vs DBeaver/DataGrip |
-| 查看任务进度 | [任务清单](./backend/TASKS.md) | 开发任务追踪 |
+| 我想...             | 查看文档                                                 | 说明                         |
+| ------------------- | -------------------------------------------------------- | ---------------------------- |
+| 了解项目架构        | [架构总览](./architecture.md)                            | 四层微内核、四层数据库架构   |
+| 开始后端开发        | [后端文档](./backend/README.md)                          | Rust Core + Tauri            |
+| 开始前端开发        | [前端文档](./frontend/INDEX.md)                          | Vue 3 + TypeScript           |
+| 了解 SQL 编辑器优化 | [优化计划](./frontend/SQL-EDITOR-OPTIMIZATION-PLAN.md)   | 架构优化 4 Phase             |
+| 了解结果集模块优化  | [优化计划](./frontend/QUERY-RESULT-OPTIMIZATION-PLAN.md) | 8 组 39 项优化 (⏳ 设计阶段) |
+| 了解数据库导航      | [导航器文档](./navigator/README.md)                      | IVM 增量视图设计             |
+| 查看竞品对比        | [竞品对比](./COMPARISON.md)                              | vs DBeaver/DataGrip          |
+| 查看任务进度        | [任务清单](./backend/TASKS.md)                           | 开发任务追踪                 |
 
 ---
 
@@ -49,8 +50,12 @@ docs/
 │   ├── DEVELOPMENT-GUIDE.md   # 开发指南
 │   ├── SQL-EDITOR.md         # SQL 编辑器完整文档
 │   ├── SQL-EDITOR-OPTIMIZATION-PLAN.md  # SQL 编辑器架构优化计划
-│   ├── QUERY-RESULT.md       # 结果面板
-│   ├── QUERY-RESULT-DESIGN.md
+│   ├── QUERY-RESULT.md                 # 结果面板 V3.1 (⏳ 重构中)
+│   ├── QUERY-RESULT-DESIGN.md          # 结果面板需求文档
+│   ├── QUERY-RESULT-OPTIMIZATION-PLAN.md    # 结果集模块架构优化计划 (⏳ 设计阶段)
+│   ├── QUERY-RESULT-OPTIMIZATION-PROGRESS.md # 结果集优化进度追踪
+│   ├── QUERY-RESULT-API-V2.md              # 结果集 V2 接口契约
+│   ├── QUERY-RESULT-ARCHITECTURE-V2.md     # 结果集 V2 架构设计
 │   └── PLUGIN-ARCHITECTURE-REFACTOR.md
 │
 └── navigator/                   # 🧭 导航器文档
@@ -69,28 +74,28 @@ docs/
 
 ### 后端 (Rust Core)
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Rust Edition | 2021 | 开发语言 |
-| Tokio | 1.44.x | 异步运行时 |
-| Tauri | 2.10.x | 桌面框架 |
-| sqlx | 0.8.x | MySQL/PostgreSQL |
-| rusqlite | 0.32.x | SQLite |
-| duckdb-rs | 1.1.x | DuckDB |
-| wasmtime | 43.x | WASM 运行时 |
+| 技术         | 版本   | 用途             |
+| ------------ | ------ | ---------------- |
+| Rust Edition | 2021   | 开发语言         |
+| Tokio        | 1.44.x | 异步运行时       |
+| Tauri        | 2.10.x | 桌面框架         |
+| sqlx         | 0.8.x  | MySQL/PostgreSQL |
+| rusqlite     | 0.32.x | SQLite           |
+| duckdb-rs    | 1.1.x  | DuckDB           |
+| wasmtime     | 43.x   | WASM 运行时      |
 
 ### 前端 (Vue 3 + TS)
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Vue | 3.5.x | 响应式框架 |
-| TypeScript | 5.8.x | 类型安全 |
-| Vite | 6.x | 构建工具 |
-| dockview-vue | 5.2.x | IDE 布局 |
-| naive-ui | latest | 组件库 |
-| AG Grid | 33.x | 表格引擎 |
+| 技术          | 版本   | 用途       |
+| ------------- | ------ | ---------- |
+| Vue           | 3.5.x  | 响应式框架 |
+| TypeScript    | 5.8.x  | 类型安全   |
+| Vite          | 6.x    | 构建工具   |
+| dockview-vue  | 5.2.x  | IDE 布局   |
+| naive-ui      | latest | 组件库     |
+| AG Grid       | 33.x   | 表格引擎   |
 | Monaco Editor | 0.52.x | SQL 编辑器 |
-| Pinia | 2.3.x | 状态管理 |
+| Pinia         | 2.3.x  | 状态管理   |
 
 ---
 
@@ -115,23 +120,25 @@ docs/
 
 ## 相关资源
 
-| 资源 | 路径 |
-|------|------|
-| AI 开发规范 | `.trae/rules/` |
-| 前端技能规范 | `.trae/skills/frontend-enterprise-spec/` |
-| Rust 后端详细文档 | `src-tauri/src/docs/` |
-| SQL 迁移脚本 | `docs/SQL/` |
+| 资源              | 路径                                     |
+| ----------------- | ---------------------------------------- |
+| AI 开发规范       | `.trae/rules/`                           |
+| 前端技能规范      | `.trae/skills/frontend-enterprise-spec/` |
+| Rust 后端详细文档 | `src-tauri/src/docs/`                    |
+| SQL 迁移脚本      | `docs/SQL/`                              |
 
 ---
 
 ## 文档版本
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定 |
-| v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档 |
-| v2.0 | 2026-05-03 | 创建文档中心，优化索引结构 |
-| v1.0 | 2026-04-23 | 初始文档架构 |
+| 版本 | 日期       | 说明                                           |
+| ---- | ---------- | ---------------------------------------------- |
+| v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成（方言高亮增量更新） |
+| v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）          |
+| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定                     |
+| v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档                   |
+| v2.0 | 2026-05-03 | 创建文档中心，优化索引结构                     |
+| v1.0 | 2026-04-23 | 初始文档架构                                   |
 
 ---
 

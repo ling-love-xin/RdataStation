@@ -1,19 +1,19 @@
 # RdataStation 洞察体系 — 实施总体规划
 
-> 版本：v10.0
+> 版本：v11.0
 > 创建日期：2026-05-07
 > 最后更新：2026-05-07
-> 状态：✅ 全阶段完成（含端到端表列探查联动 + 过渡动画 + 质量评分 + 表级质量聚合）
+> 状态：✅ 全阶段完成（含端到端表列探查联动 + 过渡动画 + 质量评分 + 表级质量聚合 + Schema 洞察）
 
 ---
 
 ## 一、文档索引
 
-| 文档 | 路径 | 版本 |
-|------|------|:--:|
-| 实施总体规划（本文档） | `docs/frontend/INSIGHT-SYSTEM-PLAN.md` | v10.0 |
-| 技术架构文档 | `docs/frontend/INSIGHT-ARCHITECTURE.md` | v10.0 |
-| 开发进度跟踪 | `docs/frontend/INSIGHT-DEV-PROGRESS.md` | v10.0 |
+| 文档                   | 路径                                    | 版本  |
+| ---------------------- | --------------------------------------- | :---: |
+| 实施总体规划（本文档） | `docs/frontend/INSIGHT-SYSTEM-PLAN.md`  | v11.0 |
+| 技术架构文档           | `docs/frontend/INSIGHT-ARCHITECTURE.md` | v11.0 |
+| 开发进度跟踪           | `docs/frontend/INSIGHT-DEV-PROGRESS.md` | v11.0 |
 
 ---
 
@@ -78,13 +78,14 @@
 - **过渡动画**：
   - NTabs `tab-fade-in` 0.18s（opacity 0.6→1 + translateY 3px→0）
 
-> **待办**：DuckDB 实例统一（当前 ResultService 与 DBI DuckDBEngine 各持一个 DuckDB 实例，计划统一为全局单例）⏳
+> **已完成**：DuckDB 实例统一（`DuckDBManager` 全局单例，ResultService 与 DuckDBEngine 共用同一实例）✅
 
-### Phase 3：Schema 洞察 + 质量评分 🟡 60%
+### Phase 3：Schema 洞察 + 质量评分 ✅ 100%
 
-- **质量评分 ✅**：四维度加权评分（完整性/唯一性/类型一致/分布均匀）+ 前端徽章
+- **质量评分 ✅**：四维度加权评分（完整性/唯一性/类型一致/分布均匀）+ 前端徽章 + 进度条
 - **表级质量聚合 ✅**：`batch_evaluate_columns` 一次调用全表评估 + TableProfileView 增强
-- **Schema 洞察 ⏳**：跨表关系发现、类型一致性检查、冗余检测
+- **Schema 洞察 ✅**：外键推断（4 种命名模式）、跨表类型一致性、孤立表检测、冗余列检测 + Schema 健康评分
+- **DuckDB 实例统一 ✅**：`DuckDBManager` 全局单例，`ResultService` + `DuckDBEngine` 共用同一实例
 
 ---
 
@@ -126,10 +127,10 @@ sql_name = "corr"; json_name = "correlation"; value_type = "f64?"
 
 ## 五、关键决策一览
 
-| 决策 | 说明 |
-|------|------|
-| SQL 与 Rust 分离 | `.rule.toml` 独立文件，零编译扩展 |
-| `RwLock<RuleRegistry>` | 支持运行时加载用户规则 |
-| 同名覆盖 | 用户规则与内置同名 → 用户优先 |
-| 多列分析 UI | NTabs 切换，共用右侧面板 |
-| DuckDB 实例暂不统一 | Phase 2 |
+| 决策                   | 说明                              |
+| ---------------------- | --------------------------------- |
+| SQL 与 Rust 分离       | `.rule.toml` 独立文件，零编译扩展 |
+| `RwLock<RuleRegistry>` | 支持运行时加载用户规则            |
+| 同名覆盖               | 用户规则与内置同名 → 用户优先     |
+| 多列分析 UI            | NTabs 切换，共用右侧面板          |
+| DuckDB 实例暂不统一    | Phase 2                           |

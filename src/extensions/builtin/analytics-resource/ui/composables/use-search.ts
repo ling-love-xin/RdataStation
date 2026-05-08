@@ -24,7 +24,7 @@ export function useSearch(options: UseSearchOptions = {}) {
     }
   }, debounceMs)
 
-  watch(searchQuery, (newQuery) => {
+  watch(searchQuery, newQuery => {
     debouncedSearch(newQuery)
   })
 

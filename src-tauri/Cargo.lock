@@ -5025,8 +5025,6 @@ name = "rdata-station"
 version = "0.1.0"
 dependencies = [
  "arrow",
- "arrow-array",
- "arrow-buffer",
  "async-trait",
  "base64 0.22.1",
  "chrono",

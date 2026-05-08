@@ -32,7 +32,7 @@ export async function connectDatabase(
       name,
       connection_type: connectionType || 'global',
       project_id: projectId,
-    }
+    },
   })
 }
 
@@ -107,8 +107,8 @@ export async function createDatabaseFile(
   return invoke<CreateDatabaseFileResponse>('create_database_file', {
     input: {
       db_type: dbType,
-      file_path: filePath
-    }
+      file_path: filePath,
+    },
   })
 }
 
@@ -120,8 +120,8 @@ export async function executeSql(connId: string, sql: string): Promise<any> {
     input: {
       conn_id: connId,
       sql,
-      timeout_ms: null
-    }
+      timeout_ms: null,
+    },
   })
 }
 
@@ -171,8 +171,8 @@ export async function saveNavigatorState(
       connection_id: connectionId,
       expanded_keys: expandedKeys,
       selected_keys: selectedKeys,
-      filter_config: filterConfig || null
-    }
+      filter_config: filterConfig || null,
+    },
   })
 }
 

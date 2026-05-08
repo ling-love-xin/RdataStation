@@ -1,19 +1,45 @@
+/**
+ * 应用配置 Pinia Store —— 单一配置数据入口
+ *
+ * ─── 数据流 ───
+ *   Component → setTheme(...) → saveConfig(key, value, scope)
+ *            → tauri-plugin-store (JSON 文件)
+ *            → 内存同步 → Vue 响应式 → 组件更新
+ *
+ * ─── 迁移路径 ───
+ *   当前: tauri-plugin-store Store.load/set/save
+ *   目标: invoke('set_config', { key, value, scope }) → Rust SQLite
+ *   改动: 仅 modify saveConfig / initialize / openProject 内部
+ *
+ * @module useAppStore
+ * @version 1.5
+ */
+
 import { Store } from '@tauri-apps/plugin-store'
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef } from 'vue'
+import { ref, computed, shallowRef, watch, readonly } from 'vue'
 
 import {
   CONFIG_KEYS,
+  OVERRIDE_RULES,
   DEFAULT_GLOBAL_CONFIG,
   DEFAULT_EDITOR_SETTINGS,
   SCHEMA_VERSION,
   STORE_FILENAME_GLOBAL,
   STORE_FILENAME_PROJECT,
   GLOBAL_SEED_KEYS,
+  PROJECT_SEED_KEYS,
+  RECENT_PROJECTS_MAX,
+  VALUE_SCHEMAS,
+  EditorSettingsSchema,
+  GlobalConfigSchema,
+  ProjectConfigSchema,
+  migrateConfig,
 } from './config'
 
 import type {
   ConfigKey,
+  ConfigValueType,
   Theme,
   Language,
   DefaultEngine,
@@ -33,24 +59,106 @@ interface SaveResult {
   error?: string
 }
 
+interface BatchSaveEntry {
+  key: ConfigKey
+  value: unknown
+  scope: ConfigScope
+}
+
+type ConfigChangeHandler = (
+  key: ConfigKey,
+  newValue: unknown,
+  oldValue: unknown,
+  scope: ConfigScope
+) => void
+
 function buildProjectStoreFilename(projectPath: string): string {
   const normalized = projectPath.replace(/[/\\:]/g, '_')
   return `project-${normalized}-${STORE_FILENAME_PROJECT}`
 }
 
-function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj))
+function safeErrorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
+/** 计算对象 T 中与 base 不同的字段 (deep diff) */
+function computeDiff<T extends Record<string, unknown>>(candidate: T, base: T): Partial<T> {
+  const diff: Partial<T> = {}
+  for (const key of Object.keys(candidate) as (keyof T)[]) {
+    const cv = candidate[key]
+    const bv = base[key]
+    if (typeof cv === 'object' && cv !== null && typeof bv === 'object' && bv !== null) {
+      const subDiff = computeDiff(cv as Record<string, unknown>, bv as Record<string, unknown>)
+      if (Object.keys(subDiff).length > 0) {
+        ;(diff as Record<string, unknown>)[key as string] = subDiff
+      }
+    } else if (cv !== bv) {
+      ;(diff as Record<string, unknown>)[key as string] = cv
+    }
+  }
+  return diff
+}
+
+/**
+ * 通用 Store 加载 + 逐字段校验 + seed 辅助函数
+ *
+ * 对每个种子键：
+ *   - 先从 store 读已有值
+ *   - 用单个 zod 子 schema 校验（不因一个字段损坏丢弃全局）
+ *   - 校验失败 / 不存在 → seed 默认值
+ */
+async function loadStoreWithDefaults(
+  store: Store,
+  seedKeys: readonly { key: string; default: unknown }[],
+  fullSchema: typeof GlobalConfigSchema.shape,
+  target: Record<string, unknown>,
+  scope: ConfigScope
+): Promise<boolean> {
+  let needsSave = false
+
+  for (const { key, default: defaultVal } of seedKeys) {
+    const stored = await store.get<unknown>(key)
+
+    if (stored === null || stored === undefined) {
+      await store.set(key, defaultVal)
+      target[key] = defaultVal
+      needsSave = true
+      continue
+    }
+
+    const subValidator = (fullSchema as Record<string, unknown>)[key]
+    if (subValidator && typeof subValidator === 'object' && 'safeParse' in subValidator) {
+      const subResult = (
+        subValidator as { safeParse: (v: unknown) => { success: boolean } }
+      ).safeParse(stored)
+      if (subResult.success) {
+        target[key] = stored
+      } else {
+        console.warn(`[useAppStore] Validation failed for ${scope}.${key}, reseeding`)
+        await store.set(key, defaultVal)
+        target[key] = defaultVal
+        needsSave = true
+      }
+    } else {
+      target[key] = stored
+    }
+  }
+
+  return needsSave
 }
 
 export const useAppStore = defineStore('appConfig', () => {
-  const globalConfig = ref<GlobalConfig>(deepClone(DEFAULT_GLOBAL_CONFIG))
+  const globalConfig = ref<GlobalConfig>(structuredClone(DEFAULT_GLOBAL_CONFIG))
   const projectConfig = ref<ProjectConfig>({})
   const initialized = ref(false)
+  const initError = ref<string | null>(null)
   const projectOpen = ref(false)
   const projectPath = ref<string | null>(null)
 
   const globalStoreRef = shallowRef<Store | null>(null)
   const projectStoreRef = shallowRef<Store | null>(null)
+
+  let onConfigChanged: ConfigChangeHandler | null = null
 
   const effectiveTheme = computed<Theme>(() => {
     if (projectConfig.value.theme !== undefined) {
@@ -70,7 +178,7 @@ export const useAppStore = defineStore('appConfig', () => {
   const effectiveLanguage = computed<Language>(() => globalConfig.value.language)
 
   const effectiveEditorSettings = computed<EditorSettings>(() => {
-    const base = deepClone(DEFAULT_EDITOR_SETTINGS)
+    const base = structuredClone(DEFAULT_EDITOR_SETTINGS)
     Object.assign(base, globalConfig.value.editorSettings)
     if (projectConfig.value.editorSettings) {
       Object.assign(base, projectConfig.value.editorSettings)
@@ -102,14 +210,21 @@ export const useAppStore = defineStore('appConfig', () => {
   function getConfigInternal(key: string): unknown {
     const rawGlobal = globalConfig.value as Record<string, unknown>
     const rawProject = projectConfig.value as Record<string, unknown>
+    const rule = OVERRIDE_RULES[key]
 
-    if (key === CONFIG_KEYS.DOCKVIEW_LAYOUT || key === CONFIG_KEYS.SIDEBAR_STATE) {
+    if (!rule) {
+      return undefined
+    }
+
+    if (rule.projectOnly) {
       return rawProject[key]
     }
 
-    if (key === CONFIG_KEYS.LANGUAGE || key === CONFIG_KEYS.RECENT_PROJECTS) {
+    if (!rule.projectOverridable) {
       const gv = rawGlobal[key]
-      return gv !== undefined ? gv : (DEFAULT_GLOBAL_CONFIG as unknown as Record<string, unknown>)[key]
+      return gv !== undefined
+        ? gv
+        : (DEFAULT_GLOBAL_CONFIG as unknown as Record<string, unknown>)[key]
     }
 
     const pv = rawProject[key]
@@ -125,9 +240,9 @@ export const useAppStore = defineStore('appConfig', () => {
     return (DEFAULT_GLOBAL_CONFIG as unknown as Record<string, unknown>)[key]
   }
 
-  async function saveConfig(
-    key: ConfigKey,
-    value: unknown,
+  async function saveConfig<K extends ConfigKey>(
+    key: K,
+    value: ConfigValueType<K>,
     scope: ConfigScope
   ): Promise<SaveResult> {
     const store = scope === 'global' ? globalStoreRef.value : projectStoreRef.value
@@ -142,17 +257,111 @@ export const useAppStore = defineStore('appConfig', () => {
 
     const prevValue = rawTarget[key]
 
+    const schema = VALUE_SCHEMAS[key]
+    if (schema) {
+      const validator =
+        key === 'editorSettings' && scope === 'project' ? EditorSettingsSchema.partial() : schema
+      const vr = validator.safeParse(value)
+      if (!vr.success) {
+        return {
+          success: false,
+          key,
+          scope,
+          error: `validation: ${vr.error.issues[0]?.message ?? 'invalid value'}`,
+        }
+      }
+    }
+
     try {
       await store.set(key, value)
       await store.save()
       rawTarget[key] = value
+
+      onConfigChanged?.(key, value, prevValue, scope)
       return { success: true, key, scope }
     } catch (e) {
       rawTarget[key] = prevValue
-      const message = e instanceof Error ? e.message : String(e)
-      console.error(`[useAppStore] saveConfig failed: ${key}=${value} (${scope})`, e)
-      return { success: false, key, scope, error: message }
+      console.error(`[useAppStore] saveConfig failed: ${key} (${scope})`, e)
+      return { success: false, key, scope, error: safeErrorMessage(e) }
     }
+  }
+
+  async function saveBatch(entries: BatchSaveEntry[]): Promise<SaveResult[]> {
+    const results: SaveResult[] = []
+
+    const storeEntries = new Map<Store, BatchSaveEntry[]>()
+    for (const entry of entries) {
+      const store = entry.scope === 'global' ? globalStoreRef.value : projectStoreRef.value
+      if (!store) {
+        results.push({
+          success: false,
+          key: entry.key,
+          scope: entry.scope,
+          error: 'store not initialized',
+        })
+        continue
+      }
+      const list = storeEntries.get(store) ?? []
+      list.push(entry)
+      storeEntries.set(store, list)
+    }
+
+    for (const [store, storeEntriesList] of storeEntries) {
+      const snapshot: Map<string, unknown> = new Map()
+      const scope = store === globalStoreRef.value ? 'global' : 'project'
+      const rawTarget =
+        scope === 'global'
+          ? (globalConfig.value as Record<string, unknown>)
+          : (projectConfig.value as Record<string, unknown>)
+
+      for (const entry of storeEntriesList) {
+        snapshot.set(entry.key, rawTarget[entry.key])
+      }
+
+      const written: BatchSaveEntry[] = []
+
+      try {
+        for (const entry of storeEntriesList) {
+          const schema = VALUE_SCHEMAS[entry.key]
+          if (schema) {
+            const validator =
+              entry.key === 'editorSettings' && scope === 'project'
+                ? EditorSettingsSchema.partial()
+                : schema
+            const vr = validator.safeParse(entry.value)
+            if (!vr.success) {
+              results.push({
+                success: false,
+                key: entry.key,
+                scope: entry.scope,
+                error: `validation: ${vr.error.issues[0]?.message ?? 'invalid value'}`,
+              })
+              continue
+            }
+          }
+
+          await store.set(entry.key, entry.value)
+          rawTarget[entry.key] = entry.value
+          written.push(entry)
+        }
+        await store.save()
+        for (const entry of written) {
+          const prevValue = snapshot.get(entry.key)
+          onConfigChanged?.(entry.key, entry.value, prevValue, scope)
+          results.push({ success: true, key: entry.key, scope: entry.scope })
+        }
+      } catch (e) {
+        for (const entry of storeEntriesList) {
+          rawTarget[entry.key] = snapshot.get(entry.key)
+        }
+        const message = safeErrorMessage(e)
+        for (const entry of storeEntriesList) {
+          results.push({ success: false, key: entry.key, scope: entry.scope, error: message })
+        }
+      }
+    }
+
+    return results
   }
 
   async function resetProjectOverride(key: ConfigKey): Promise<void> {
@@ -187,23 +396,21 @@ export const useAppStore = defineStore('appConfig', () => {
     scope: ConfigScope = 'global'
   ): Promise<SaveResult> {
     if (scope === 'global') {
-      const current = deepClone(globalConfig.value.editorSettings)
+      const current = structuredClone(globalConfig.value.editorSettings)
       const merged = { ...current, ...settings }
       return saveConfig(CONFIG_KEYS.EDITOR_SETTINGS, merged, scope)
     }
 
-    const current = deepClone(projectConfig.value.editorSettings ?? {})
-    const globalCurrent = deepClone(globalConfig.value.editorSettings)
-    const newMerged = { ...globalCurrent, ...current, ...settings }
+    const current = structuredClone(projectConfig.value.editorSettings ?? {})
+    const globalCurrent = structuredClone(globalConfig.value.editorSettings)
+    const candidate = { ...globalCurrent, ...current, ...settings }
+    const diff = computeDiff(candidate, globalCurrent)
 
-    const diff: Partial<EditorSettings> = {}
-    for (const entry of Object.entries(newMerged) as [keyof EditorSettings, unknown][]) {
-      if (entry[1] !== globalCurrent[entry[0]]) {
-        ;(diff as Record<string, unknown>)[entry[0] as string] = entry[1]
-      }
-    }
-
-    return saveConfig(CONFIG_KEYS.EDITOR_SETTINGS, diff, scope)
+    return saveConfig(
+      CONFIG_KEYS.EDITOR_SETTINGS,
+      diff as EditorSettings | Partial<EditorSettings>,
+      scope
+    )
   }
 
   async function setDefaultEngine(
@@ -213,22 +420,22 @@ export const useAppStore = defineStore('appConfig', () => {
     return saveConfig(CONFIG_KEYS.DEFAULT_ENGINE, engine, scope)
   }
 
-  async function addRecentProject(projectId: string): Promise<void> {
+  async function addRecentProject(projectId: string): Promise<SaveResult> {
     const list = [...globalConfig.value.recentProjects]
     const idx = list.indexOf(projectId)
     if (idx !== -1) {
       list.splice(idx, 1)
     }
     list.unshift(projectId)
-    if (list.length > 10) {
-      list.length = 10
+    if (list.length > RECENT_PROJECTS_MAX) {
+      list.length = RECENT_PROJECTS_MAX
     }
-    await saveConfig(CONFIG_KEYS.RECENT_PROJECTS, list, 'global')
+    return saveConfig(CONFIG_KEYS.RECENT_PROJECTS, list, 'global')
   }
 
-  async function removeRecentProject(projectId: string): Promise<void> {
-    const list = globalConfig.value.recentProjects.filter((id) => id !== projectId)
-    await saveConfig(CONFIG_KEYS.RECENT_PROJECTS, list, 'global')
+  async function removeRecentProject(projectId: string): Promise<SaveResult> {
+    const list = globalConfig.value.recentProjects.filter(id => id !== projectId)
+    return saveConfig(CONFIG_KEYS.RECENT_PROJECTS, list, 'global')
   }
 
   async function saveDockviewLayout(layout: SerializedDockviewLayout): Promise<SaveResult> {
@@ -248,38 +455,121 @@ export const useAppStore = defineStore('appConfig', () => {
       const store = await Store.load(STORE_FILENAME_GLOBAL)
       globalStoreRef.value = store
 
-      const storedVersion = await store.get<number>('_schemaVersion')
       const rawGlobal = globalConfig.value as Record<string, unknown>
 
-      let needsSave = false
+      let shouldSave = false
 
-      for (const { key, default: defaultVal } of GLOBAL_SEED_KEYS) {
-        const stored = await store.get<unknown>(key)
-        if (stored !== null && stored !== undefined) {
-          rawGlobal[key] = stored
-        } else {
-          await store.set(key, defaultVal)
-          needsSave = true
-        }
+      const storedVersion = await store.get<number>('_schemaVersion')
+      if (storedVersion !== undefined && storedVersion < SCHEMA_VERSION) {
+        const migrated = migrateConfig(storedVersion, rawGlobal)
+        Object.assign(rawGlobal, migrated)
+        shouldSave = true
       }
 
-      if (storedVersion !== SCHEMA_VERSION) {
+      const needsSeed = await loadStoreWithDefaults(
+        store,
+        GLOBAL_SEED_KEYS,
+        GlobalConfigSchema.shape,
+        rawGlobal,
+        'global'
+      )
+
+      shouldSave = shouldSave || needsSeed
+
+      if (shouldSave) {
         await store.set('_schemaVersion', SCHEMA_VERSION)
-        needsSave = true
-      }
-
-      if (needsSave) {
         await store.save()
       }
 
+      registerBeforeUnloadHandler()
+
       initialized.value = true
+      initError.value = null
     } catch (e) {
+      const message = safeErrorMessage(e)
       console.error('[useAppStore] Failed to initialize global store:', e)
+      initError.value = message
       initialized.value = true
     }
   }
 
-  async function openProject(p: string): Promise<void> {
+  async function reloadConfig(): Promise<void> {
+    const store = globalStoreRef.value
+    if (!store) {
+      return
+    }
+
+    try {
+      const rawGlobal = globalConfig.value as Record<string, unknown>
+
+      const storedVersion = await store.get<number>('_schemaVersion')
+      if (storedVersion !== undefined && storedVersion < SCHEMA_VERSION) {
+        const migrated = migrateConfig(storedVersion, rawGlobal)
+        Object.assign(rawGlobal, migrated)
+      }
+
+      const needsSave = await loadStoreWithDefaults(
+        store,
+        GLOBAL_SEED_KEYS,
+        GlobalConfigSchema.shape,
+        rawGlobal,
+        'global'
+      )
+
+      if (needsSave) {
+        await store.set('_schemaVersion', SCHEMA_VERSION)
+        await store.save()
+      }
+    } catch (e) {
+      console.error('[useAppStore] reloadConfig failed:', e)
+    }
+  }
+
+  async function resetToFactory(): Promise<SaveResult[]> {
+    const store = globalStoreRef.value
+    if (!store) {
+      return [
+        {
+          success: false,
+          key: CONFIG_KEYS.THEME,
+          scope: 'global',
+          error: 'global store not initialized',
+        },
+      ]
+    }
+
+    try {
+      await store.clear()
+
+      if (projectOpen.value) {
+        await closeProject()
+      }
+
+      const results: SaveResult[] = []
+
+      for (const { key, default: defaultVal } of GLOBAL_SEED_KEYS) {
+        await store.set(key, defaultVal)
+        ;(globalConfig.value as Record<string, unknown>)[key] = defaultVal
+        results.push({ success: true, key, scope: 'global' })
+      }
+
+      await store.set('_schemaVersion', SCHEMA_VERSION)
+      await store.save()
+
+      applyTheme()
+      return results
+    } catch (e) {
+      const message = safeErrorMessage(e)
+      return GLOBAL_SEED_KEYS.map(({ key }) => ({
+        success: false,
+        key,
+        scope: 'global' as ConfigScope,
+        error: message,
+      }))
+    }
+  }
+
+  async function openProject(p: string): Promise<{ success: boolean; error?: string }> {
     if (projectOpen.value) {
       await closeProject()
     }
@@ -290,28 +580,43 @@ export const useAppStore = defineStore('appConfig', () => {
       projectStoreRef.value = store
 
       const newConfig: ProjectConfig = {}
-      const keys = [
-        CONFIG_KEYS.THEME,
-        CONFIG_KEYS.EDITOR_SETTINGS,
-        CONFIG_KEYS.DEFAULT_ENGINE,
-        CONFIG_KEYS.DOCKVIEW_LAYOUT,
-        CONFIG_KEYS.SIDEBAR_STATE,
-      ]
 
-      for (const key of keys) {
+      for (const { key } of PROJECT_SEED_KEYS) {
         const stored = await store.get<unknown>(key)
         if (stored !== null && stored !== undefined) {
           ;(newConfig as Record<string, unknown>)[key] = stored
         }
       }
 
-      projectConfig.value = newConfig
+      const validation = ProjectConfigSchema.safeParse(newConfig)
+      if (validation.success) {
+        projectConfig.value = validation.data
+      } else {
+        console.warn(
+          '[useAppStore] Project config validation failed, using partial',
+          validation.error.issues
+        )
+        const partial: ProjectConfig = {}
+        for (const { key } of PROJECT_SEED_KEYS) {
+          const v = (newConfig as Record<string, unknown>)[key]
+          if (v !== undefined) {
+            ;(partial as Record<string, unknown>)[key] = v
+          }
+        }
+        projectConfig.value = partial
+      }
+
       projectPath.value = p
       projectOpen.value = true
+      applyTheme()
+      return { success: true }
     } catch (e) {
       console.error('[useAppStore] Failed to open project store:', e)
-      projectOpen.value = true
-      projectPath.value = p
+      projectStoreRef.value = null
+      projectPath.value = null
+      projectOpen.value = false
+      applyTheme()
+      return { success: false, error: safeErrorMessage(e) }
     }
   }
 
@@ -319,6 +624,8 @@ export const useAppStore = defineStore('appConfig', () => {
     if (!projectOpen.value) {
       return
     }
+
+    cancelAutoSaveTimer()
 
     const store = projectStoreRef.value
     if (store) {
@@ -333,6 +640,63 @@ export const useAppStore = defineStore('appConfig', () => {
     projectConfig.value = {}
     projectPath.value = null
     projectOpen.value = false
+    applyTheme()
+  }
+
+  let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+  function cancelAutoSaveTimer() {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+      autoSaveTimer = null
+    }
+  }
+
+  watch(
+    projectConfig,
+    () => {
+      if (!projectOpen.value || !projectStoreRef.value) {
+        return
+      }
+      cancelAutoSaveTimer()
+      autoSaveTimer = setTimeout(() => {
+        projectStoreRef.value?.save().catch(() => {})
+      }, 500)
+    },
+    { deep: true }
+  )
+
+  let beforeUnloadRegistered = false
+
+  function registerBeforeUnloadHandler() {
+    if (beforeUnloadRegistered) {
+      return
+    }
+    beforeUnloadRegistered = true
+
+    window.addEventListener('beforeunload', () => {
+      cancelAutoSaveTimer()
+      const saveOps: Promise<void>[] = []
+
+      if (globalStoreRef.value) {
+        saveOps.push(globalStoreRef.value.save().catch(() => {}))
+      }
+      if (projectOpen.value && projectStoreRef.value) {
+        saveOps.push(projectStoreRef.value.save().catch(() => {}))
+      }
+
+      if (saveOps.length > 0) {
+        Promise.all(saveOps).catch(() => {})
+      }
+    })
+  }
+
+  function setConfigChangeHandler(handler: ConfigChangeHandler | null) {
+    onConfigChanged = handler
+  }
+
+  function clearInitError() {
+    initError.value = null
   }
 
   function applyTheme() {
@@ -343,11 +707,12 @@ export const useAppStore = defineStore('appConfig', () => {
   }
 
   return {
-    globalConfig,
-    projectConfig,
-    initialized,
-    projectOpen,
-    projectPath,
+    globalConfig: readonly(globalConfig),
+    projectConfig: readonly(projectConfig),
+    initialized: readonly(initialized),
+    initError: readonly(initError),
+    projectOpen: readonly(projectOpen),
+    projectPath: readonly(projectPath),
 
     globalStoreRef,
     projectStoreRef,
@@ -363,6 +728,7 @@ export const useAppStore = defineStore('appConfig', () => {
 
     getConfig,
     saveConfig,
+    saveBatch,
     resetProjectOverride,
     hasProjectOverride,
 
@@ -376,8 +742,13 @@ export const useAppStore = defineStore('appConfig', () => {
     saveSidebarState,
 
     initialize,
+    reloadConfig,
+    resetToFactory,
     openProject,
     closeProject,
     applyTheme,
+
+    setConfigChangeHandler,
+    clearInitError,
   }
 })

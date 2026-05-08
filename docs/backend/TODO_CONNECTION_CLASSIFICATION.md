@@ -16,23 +16,23 @@
 
 ### 2.1 全局连接（Global Connection）
 
-| 属性 | 说明 |
-|------|------|
-| **归属** | 软件全局 |
+| 属性         | 说明                                                          |
+| ------------ | ------------------------------------------------------------- |
+| **归属**     | 软件全局                                                      |
 | **存储路径** | `{系统应用目录}/RdataStation/metadata/conn_global_xxx.sqlite` |
-| **生命周期** | 与软件共存，不跟随项目 |
-| **迁移行为** | 项目迁移时不迁移 |
-| **适用场景** | 个人常用数据库、本地开发库、公共连接 |
+| **生命周期** | 与软件共存，不跟随项目                                        |
+| **迁移行为** | 项目迁移时不迁移                                              |
+| **适用场景** | 个人常用数据库、本地开发库、公共连接                          |
 
 ### 2.2 项目专属连接（Project Connection）
 
-| 属性 | 说明 |
-|------|------|
-| **归属** | 项目私有 |
+| 属性         | 说明                                                         |
+| ------------ | ------------------------------------------------------------ |
+| **归属**     | 项目私有                                                     |
 | **存储路径** | `{项目目录}/.rdata-station/metadata/conn_project_xxx.sqlite` |
-| **生命周期** | 与项目共存 |
-| **迁移行为** | 项目迁移时完整带走 |
-| **适用场景** | 客户环境、交付项目、临时环境、跨设备工作 |
+| **生命周期** | 与项目共存                                                   |
+| **迁移行为** | 项目迁移时完整带走                                           |
+| **适用场景** | 客户环境、交付项目、临时环境、跨设备工作                     |
 
 ---
 
@@ -46,6 +46,7 @@
 - [x] 项目连接存储到项目目录
 
 **实现文件**：
+
 - `src/core/services/connection_manager.rs` - 添加 `ConnectionType` 枚举
 - `src/core/services/connection_service.rs` - `connect_with_type()` 方法
 - `src/commands/connection_commands.rs` - `connect_database` 命令支持类型参数
@@ -62,6 +63,7 @@
   - [x] 原项目连接移除
 
 **实现文件**：
+
 - `src/core/services/connection_service.rs` - `convert_to_project_connection()` / `convert_to_global_connection()`
 - `src/core/services/connection_manager.rs` - `update_connection_info()` 方法
 - `src/commands/connection_commands.rs` - `convert_connection_type` 命令
@@ -73,6 +75,7 @@
 - [ ] 提供"转为项目连接"快捷操作（前端实现）
 
 **实现文件**：
+
 - `src/core/services/connection_service.rs` - `detect_global_connections_in_project()`
 - `src/commands/connection_commands.rs` - `detect_global_connections_in_project` 命令
 
@@ -127,8 +130,8 @@ await invoke('connect_database', {
   db_type: 'mysql',
   url: 'mysql://localhost:3306/test',
   name: '本地 MySQL',
-  connection_type: 'global'
-});
+  connection_type: 'global',
+})
 
 // 创建项目连接
 await invoke('connect_database', {
@@ -136,8 +139,8 @@ await invoke('connect_database', {
   url: 'mysql://localhost:3306/test',
   name: '客户数据库',
   connection_type: 'project',
-  project_id: '/path/to/project'
-});
+  project_id: '/path/to/project',
+})
 ```
 
 ### 5.2 转换连接类型
@@ -147,14 +150,14 @@ await invoke('connect_database', {
 await invoke('convert_connection_type', {
   conn_id: 'mysql-localhost',
   target_type: 'project',
-  project_id: '/path/to/project'
-});
+  project_id: '/path/to/project',
+})
 
 // 项目 → 全局
 await invoke('convert_connection_type', {
   conn_id: 'mysql-localhost',
-  target_type: 'global'
-});
+  target_type: 'global',
+})
 ```
 
 ### 5.3 检测全局连接
@@ -162,15 +165,15 @@ await invoke('convert_connection_type', {
 ```typescript
 // 检测项目中的全局连接
 const globalConnections = await invoke('detect_global_connections_in_project', {
-  project_id: '/path/to/project'
-});
+  project_id: '/path/to/project',
+})
 ```
 
 ### 5.4 获取连接列表
 
 ```typescript
 // 返回的连接信息包含类型字段
-const connections = await invoke('get_connections');
+const connections = await invoke('get_connections')
 // [
 //   {
 //     id: 'mysql-localhost',

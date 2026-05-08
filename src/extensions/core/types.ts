@@ -58,13 +58,16 @@ export interface PanelDescriptor {
 
 /** 窗口 API */
 export interface WindowAPI {
-  registerViewProvider(id: string, provider: {
-    component: unknown
-    title: string
-    location: 'left' | 'right' | 'bottom' | 'center'
-    icon?: string
-    order?: number
-  }): Disposable
+  registerViewProvider(
+    id: string,
+    provider: {
+      component: unknown
+      title: string
+      location: 'left' | 'right' | 'bottom' | 'center'
+      icon?: string
+      order?: number
+    }
+  ): Disposable
   showNotification(message: string, type?: 'info' | 'warning' | 'error'): void
 }
 
@@ -110,14 +113,14 @@ export interface DatabaseDriverContribution {
   connectionSchema: ConnectionSchema
 }
 
-export type DatabaseFeature = 
-  | 'schemas' 
-  | 'tables' 
-  | 'views' 
-  | 'procedures' 
-  | 'functions' 
-  | 'triggers' 
-  | 'indexes' 
+export type DatabaseFeature =
+  | 'schemas'
+  | 'tables'
+  | 'views'
+  | 'procedures'
+  | 'functions'
+  | 'triggers'
+  | 'indexes'
   | 'foreignKeys'
   | 'ssl'
   | 'sshTunnel'

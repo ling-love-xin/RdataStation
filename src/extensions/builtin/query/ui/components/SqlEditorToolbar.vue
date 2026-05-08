@@ -1,16 +1,13 @@
 <template>
   <div
     class="sql-toolbar"
-    :class="[
-      `toolbar-${position}`,
-      { 'is-pinned': isPinned, 'is-collapsed': isCollapsed }
-    ]"
+    :class="[`toolbar-${position}`, { 'is-pinned': isPinned, 'is-collapsed': isCollapsed }]"
   >
     <!-- Pin 按钮 -->
     <button
       class="toolbar-pin-btn"
       :class="`pin-${position}`"
-      :title="isPinned ? '取消固定' : '固定工具栏'"
+      :title="isPinned ? t('sqlToolbar.unpin') : t('sqlToolbar.pin')"
       @click="togglePin"
     >
       <Pin :size="12" :class="{ 'pin-active': isPinned }" />
@@ -108,7 +105,7 @@
           <div class="toolbar-section">
             <button
               class="toolbar-btn"
-              title="编辑器设置"
+              :title="t('sqlToolbar.editorSettings')"
               @click="$emit('showSettings')"
             >
               <Settings :size="14" />
@@ -169,7 +166,7 @@
           <!-- 设置按钮 -->
           <button
             class="toolbar-btn btn-vertical"
-            title="编辑器设置"
+            :title="t('sqlToolbar.editorSettings')"
             @click="$emit('showSettings')"
           >
             <Settings :size="14" />
@@ -190,11 +187,34 @@
 
 <script setup lang="ts">
 import {
-  Play, Square, FileCode, AlignLeft, GitBranch, Check, RotateCcw, ToggleLeft,
-  Download, Upload, Filter, Search, Plus, FileText, Save, FolderOpen,
-  Settings, History, BookOpen, Keyboard, Terminal, Zap, Pin
+  Play,
+  Square,
+  FileCode,
+  AlignLeft,
+  GitBranch,
+  Check,
+  RotateCcw,
+  ToggleLeft,
+  Download,
+  Upload,
+  Filter,
+  Search,
+  Plus,
+  FileText,
+  Save,
+  FolderOpen,
+  Settings,
+  History,
+  BookOpen,
+  Keyboard,
+  Terminal,
+  Zap,
+  Pin,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   position: 'left' | 'right' | 'top' | 'bottom'
@@ -245,48 +265,171 @@ const togglePin = () => {
 
 // 图标映射
 const iconMap: Record<string, any> = {
-  Play, Square, FileCode, AlignLeft, GitBranch, Check, RotateCcw, ToggleLeft,
-  Download, Upload, Filter, Search, Plus, FileText, Save, FolderOpen,
-  Settings, History, BookOpen, Keyboard, Terminal, Zap
+  Play,
+  Square,
+  FileCode,
+  AlignLeft,
+  GitBranch,
+  Check,
+  RotateCcw,
+  ToggleLeft,
+  Download,
+  Upload,
+  Filter,
+  Search,
+  Plus,
+  FileText,
+  Save,
+  FolderOpen,
+  Settings,
+  History,
+  BookOpen,
+  Keyboard,
+  Terminal,
+  Zap,
 }
 
 const getIcon = (name: string) => iconMap[name] || Play
 
 // 执行按钮组
 const executeButtons = [
-  { id: 'execute', icon: 'Play', label: '执行', title: '执行 SQL (Ctrl+Enter)', action: 'execute', primary: true },
-  { id: 'executeSelected', icon: 'FileCode', label: '执行选中', title: '执行选中 SQL', action: 'executeSelected' },
-  { id: 'explain', icon: 'GitBranch', label: '执行计划', title: '解释执行计划', action: 'explain' },
-  { id: 'stop', icon: 'Square', label: '停止', title: '停止执行', action: 'stop', danger: true },
+  {
+    id: 'execute',
+    icon: 'Play',
+    label: t('sqlToolbar.execute'),
+    title: t('sqlToolbar.executeSql'),
+    action: 'execute',
+    primary: true,
+  },
+  {
+    id: 'executeSelected',
+    icon: 'FileCode',
+    label: t('sqlToolbar.executeSelected'),
+    title: t('sqlToolbar.executeSelectedSql'),
+    action: 'executeSelected',
+  },
+  {
+    id: 'explain',
+    icon: 'GitBranch',
+    label: t('sqlToolbar.explainPlan'),
+    title: t('sqlToolbar.explainExecutionPlan'),
+    action: 'explain',
+  },
+  {
+    id: 'stop',
+    icon: 'Square',
+    label: t('sqlToolbar.stop'),
+    title: t('sqlToolbar.stopExecution'),
+    action: 'stop',
+    danger: true,
+  },
 ]
 
 // 编辑按钮组
 const editButtons = [
-  { id: 'format', icon: 'AlignLeft', label: '格式化', title: '格式化 SQL', action: 'format' },
-  { id: 'comment', icon: 'Terminal', label: '注释', title: '注释/取消注释', action: 'comment' },
-  { id: 'uppercase', icon: 'Zap', label: '大写', title: '转为大写', action: 'uppercase' },
-  { id: 'lowercase', icon: 'Zap', label: '小写', title: '转为小写', action: 'lowercase' },
+  {
+    id: 'format',
+    icon: 'AlignLeft',
+    label: t('sqlToolbar.format'),
+    title: t('sqlToolbar.formatSql'),
+    action: 'format',
+  },
+  {
+    id: 'comment',
+    icon: 'Terminal',
+    label: t('sqlToolbar.comment'),
+    title: t('sqlToolbar.toggleComment'),
+    action: 'comment',
+  },
+  {
+    id: 'uppercase',
+    icon: 'Zap',
+    label: t('sqlToolbar.uppercase'),
+    title: t('sqlToolbar.toUppercase'),
+    action: 'uppercase',
+  },
+  {
+    id: 'lowercase',
+    icon: 'Zap',
+    label: t('sqlToolbar.lowercase'),
+    title: t('sqlToolbar.toLowercase'),
+    action: 'lowercase',
+  },
 ]
 
 // 文件按钮组
 const fileButtons = [
-  { id: 'newTab', icon: 'Plus', label: '新建', title: '新建脚本', action: 'newTab' },
-  { id: 'openFile', icon: 'FolderOpen', label: '打开', title: '打开文件', action: 'openFile' },
-  { id: 'saveFile', icon: 'Save', label: '保存', title: '保存', action: 'saveFile' },
+  {
+    id: 'newTab',
+    icon: 'Plus',
+    label: t('sqlToolbar.newScript'),
+    title: t('sqlToolbar.newScriptTooltip'),
+    action: 'newTab',
+  },
+  {
+    id: 'openFile',
+    icon: 'FolderOpen',
+    label: t('sqlToolbar.openFile'),
+    title: t('sqlToolbar.openFileTooltip'),
+    action: 'openFile',
+  },
+  {
+    id: 'saveFile',
+    icon: 'Save',
+    label: t('sqlToolbar.save'),
+    title: t('sqlToolbar.saveTooltip'),
+    action: 'saveFile',
+  },
 ]
 
 // 导航按钮组
 const navigateButtons = [
-  { id: 'find', icon: 'Search', label: '查找', title: '查找', action: 'find' },
-  { id: 'replace', icon: 'FileText', label: '替换', title: '替换', action: 'replace' },
-  { id: 'goto', icon: 'Keyboard', label: '跳转', title: '跳转到行', action: 'goto' },
+  {
+    id: 'find',
+    icon: 'Search',
+    label: t('sqlToolbar.find'),
+    title: t('sqlToolbar.findTooltip'),
+    action: 'find',
+  },
+  {
+    id: 'replace',
+    icon: 'FileText',
+    label: t('sqlToolbar.replace'),
+    title: t('sqlToolbar.replaceTooltip'),
+    action: 'replace',
+  },
+  {
+    id: 'goto',
+    icon: 'Keyboard',
+    label: t('sqlToolbar.goto'),
+    title: t('sqlToolbar.gotoTooltip'),
+    action: 'goto',
+  },
 ]
 
 // 工具按钮组
 const toolButtons = [
-  { id: 'showHistory', icon: 'History', label: '历史', title: '执行历史', action: 'showHistory' },
-  { id: 'showFavorites', icon: 'BookOpen', label: '收藏', title: '收藏夹', action: 'showFavorites' },
-  { id: 'showSnippets', icon: 'FileText', label: '片段', title: '代码片段', action: 'showSnippets' },
+  {
+    id: 'showHistory',
+    icon: 'History',
+    label: t('sqlToolbar.history'),
+    title: t('sqlToolbar.historyTooltip'),
+    action: 'showHistory',
+  },
+  {
+    id: 'showFavorites',
+    icon: 'BookOpen',
+    label: t('sqlToolbar.favorites'),
+    title: t('sqlToolbar.favoritesTooltip'),
+    action: 'showFavorites',
+  },
+  {
+    id: 'showSnippets',
+    icon: 'FileText',
+    label: t('sqlToolbar.snippets'),
+    title: t('sqlToolbar.snippetsTooltip'),
+    action: 'showSnippets',
+  },
 ]
 
 // 处理按钮点击

@@ -1,63 +1,61 @@
 <template>
   <div class="pagination">
     <div class="pagination-info">
-      <span>共 {{ total }} 项</span>
+      <span>{{ t('analyticsResource.totalItems', { total }) }}</span>
       <select v-model="localPageSize" class="page-size-select" @change="handlePageSizeChange">
-        <option :value="10">10/页</option>
-        <option :value="20">20/页</option>
-        <option :value="50">50/页</option>
-        <option :value="100">100/页</option>
+        <option :value="10">{{ t('analyticsResource.perPage', { size: 10 }) }}</option>
+        <option :value="20">{{ t('analyticsResource.perPage', { size: 20 }) }}</option>
+        <option :value="50">{{ t('analyticsResource.perPage', { size: 50 }) }}</option>
+        <option :value="100">{{ t('analyticsResource.perPage', { size: 100 }) }}</option>
       </select>
     </div>
 
     <div class="pagination-controls">
-      <button class="page-btn" :disabled="page <= 1" @click="emit('prev')">
-        ‹
-      </button>
+      <button class="page-btn" :disabled="page <= 1" @click="emit('prev')"> ‹ </button>
 
       <template v-for="p in visiblePages" :key="p">
         <span v-if="p === '...'" class="page-ellipsis">...</span>
-        <button
-          v-else
-          :class="['page-btn', { active: p === page }]"
-          @click="goToPage(p as number)"
-        >
+        <button v-else :class="['page-btn', { active: p === page }]" @click="goToPage(p as number)">
           {{ p }}
         </button>
       </template>
 
-      <button class="page-btn" :disabled="page >= totalPages" @click="emit('next')">
-        ›
-      </button>
+      <button class="page-btn" :disabled="page >= totalPages" @click="emit('next')"> › </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-const props = withDefaults(defineProps<{
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-}>(), {
-  page: 1,
-  pageSize: 20,
-  total: 0,
-  totalPages: 1,
-})
+const { t } = useI18n()
+
+const props = withDefaults(
+  defineProps<{
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }>(),
+  {
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 1,
+  }
+)
 
 const emit = defineEmits<{
   'update:page': [page: number]
   'update:pageSize': [size: number]
-  'prev': []
-  'next': []
+  prev: []
+  next: []
 }>()
 
 const localPageSize = ref(props.pageSize)
 
-watch(localPageSize, (newSize) => {
+watch(localPageSize, newSize => {
   emit('update:pageSize', newSize)
 })
 

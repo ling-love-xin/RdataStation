@@ -17,7 +17,7 @@
               v-model="layoutStore.leftEdgeGroupVisible"
               type="checkbox"
               @change="layoutStore.setLeftEdgeGroupVisible(layoutStore.leftEdgeGroupVisible)"
-            >
+            />
             <span>{{ t('workbench.primarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
           </label>
           <label class="checkbox-item">
@@ -25,7 +25,7 @@
               v-model="layoutStore.rightEdgeGroupVisible"
               type="checkbox"
               @change="layoutStore.setRightEdgeGroupVisible(layoutStore.rightEdgeGroupVisible)"
-            >
+            />
             <span>{{ t('workbench.secondarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
           </label>
         </div>
@@ -45,7 +45,7 @@
               min="100"
               max="500"
               @change="layoutStore.setLeftEdgeGroupSize(layoutStore.leftEdgeGroupSize)"
-            >
+            />
           </div>
           <div class="size-input">
             <span>{{ t('workbench.secondarySideBar') }}</span>
@@ -55,7 +55,7 @@
               min="100"
               max="500"
               @change="layoutStore.setRightEdgeGroupSize(layoutStore.rightEdgeGroupSize)"
-            >
+            />
           </div>
         </div>
       </div>
@@ -69,11 +69,7 @@
           <div v-if="panels.length === 0" class="empty-state">
             {{ t('workbench.noPanels') }}
           </div>
-          <div
-            v-for="panel in panels"
-            :key="panel.id"
-            class="panel-item"
-          >
+          <div v-for="panel in panels" :key="panel.id" class="panel-item">
             <span class="panel-title">{{ panel.title }}</span>
             <div class="panel-actions">
               <button
@@ -84,11 +80,7 @@
               >
                 <ExternalLink :size="14" />
               </button>
-              <button
-                class="action-btn"
-                :title="t('workbench.close')"
-                @click="closePanel(panel)"
-              >
+              <button class="action-btn" :title="t('workbench.close')" @click="closePanel(panel)">
                 <X :size="14" />
               </button>
             </div>
@@ -105,25 +97,13 @@
           <div v-if="floatingPanels.length === 0" class="empty-state">
             {{ t('workbench.noFloatingWindows') }}
           </div>
-          <div
-            v-for="panel in floatingPanels"
-            :key="panel.id"
-            class="panel-item"
-          >
+          <div v-for="panel in floatingPanels" :key="panel.id" class="panel-item">
             <span class="panel-title">{{ panel.title }}</span>
             <div class="panel-actions">
-              <button
-                class="action-btn"
-                :title="t('workbench.dockBack')"
-                @click="dockPanel(panel)"
-              >
+              <button class="action-btn" :title="t('workbench.dockBack')" @click="dockPanel(panel)">
                 <ExternalLink :size="14" />
               </button>
-              <button
-                class="action-btn"
-                :title="t('workbench.close')"
-                @click="closePanel(panel)"
-              >
+              <button class="action-btn" :title="t('workbench.close')" @click="closePanel(panel)">
                 <X :size="14" />
               </button>
             </div>
@@ -153,7 +133,6 @@ import type { IDockviewPanel } from '@/core/dockview-types'
 
 import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
 
-
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
 
@@ -167,7 +146,7 @@ function getLocationName(panel: IDockviewPanel): string {
     right: 'Right',
     center: 'Center',
     bottom: 'Bottom',
-    floating: 'Floating'
+    floating: 'Floating',
   }
   return locationNames[location] || 'Unknown'
 }
@@ -258,7 +237,7 @@ function handleReset() {
   user-select: none;
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -276,7 +255,7 @@ function handleReset() {
   color: var(--color-text-primary);
 }
 
-.size-option input[type="range"] {
+.size-option input[type='range'] {
   width: 100%;
   cursor: pointer;
   accent-color: var(--color-accent);

@@ -2,7 +2,7 @@
   <div class="navigator-status">
     <span v-if="isInTransaction" class="transaction-indicator">
       <span class="transaction-dot"></span>
-      <span class="transaction-text">事务进行中</span>
+      <span class="transaction-text">{{ t('navigator.transactionInProgress') }}</span>
       <span class="transaction-duration">{{ formatDuration(transactionDuration) }}</span>
     </span>
     <span class="status-text">{{ text }}</span>
@@ -10,6 +10,10 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 defineProps<{
   text: string
   isInTransaction?: boolean
@@ -20,11 +24,11 @@ function formatDuration(ms: number = 0): string {
   const seconds = Math.floor(ms / 1000)
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = seconds % 60
-  
+
   if (minutes > 0) {
-    return `${minutes}分${remainingSeconds}秒`
+    return t('navigator.minutesSeconds', { minutes, seconds: remainingSeconds })
   }
-  return `${seconds}秒`
+  return t('navigator.seconds', { seconds })
 }
 </script>
 
@@ -70,7 +74,8 @@ function formatDuration(ms: number = 0): string {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

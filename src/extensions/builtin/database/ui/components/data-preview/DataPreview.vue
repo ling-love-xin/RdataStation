@@ -17,13 +17,13 @@
 
     <div v-if="isLoading" class="preview-loading">
       <Loader2 :size="24" class="spinning" />
-      <span>加载中...</span>
+      <span>{{ t('dataPreview.loading') }}</span>
     </div>
 
     <div v-else-if="error" class="preview-error">
       <AlertCircle :size="24" />
       <span>{{ error }}</span>
-      <button @click="handleRefresh">重试</button>
+      <button @click="handleRefresh">{{ t('dataPreview.retry') }}</button>
     </div>
 
     <PreviewTable
@@ -50,6 +50,9 @@
 import { invoke } from '@tauri-apps/api/core'
 import { Loader2, AlertCircle } from 'lucide-vue-next'
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import PreviewPagination from './PreviewPagination.vue'
 import PreviewTable from './PreviewTable.vue'
@@ -63,7 +66,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  objectType: 'table'
+  objectType: 'table',
 })
 
 defineEmits<{
@@ -102,14 +105,14 @@ async function loadData() {
 
     const result = await invoke<any>('execute_query', {
       connectionId: props.connectionId,
-      sql
+      sql,
     })
 
     if (result.columns && result.rows) {
       columns.value = result.columns.map((col: any) => ({
         key: col.name,
         title: col.name,
-        dataType: col.dataType
+        dataType: col.dataType,
       }))
 
       tableData.value = result.rows
@@ -117,7 +120,7 @@ async function loadData() {
       totalPages.value = Math.ceil(rowCount.value / pageSize.value)
     }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '加载数据失败'
+    error.value = e instanceof Error ? e.message : t('dataPreview.loadFailed')
     console.error('加载预览数据失败:', e)
   } finally {
     isLoading.value = false
@@ -202,7 +205,11 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

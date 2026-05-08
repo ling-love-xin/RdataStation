@@ -2,12 +2,7 @@
   <div class="table-schema-panel">
     <NTabs type="line" size="small">
       <NTabPane name="columns" :tab="t('workbench.columnsTab')">
-        <NDataTable
-          :columns="columnColumns"
-          :data="columns"
-          :bordered="false"
-          size="small"
-        />
+        <NDataTable :columns="columnColumns" :data="columns" :bordered="false" size="small" />
       </NTabPane>
       <NTabPane name="indexes" :tab="t('workbench.indexesTab')">
         <NEmpty :description="t('workbench.noIndexes')" />
@@ -39,14 +34,18 @@ interface Props {
 const { t } = useI18n()
 
 const props = withDefaults(defineProps<Props>(), {
-  columns: () => []
+  columns: () => [],
 })
 
 const columnColumns: DataTableColumns<ColumnInfo> = [
   { title: t('workbench.columnName'), key: 'name' },
   { title: t('workbench.dataType'), key: 'type' },
-  { title: t('workbench.nullable'), key: 'nullable', render: (row) => row.nullable ? t('workbench.yes') : t('workbench.no') },
-  { title: t('workbench.defaultValue'), key: 'defaultValue' }
+  {
+    title: t('workbench.nullable'),
+    key: 'nullable',
+    render: row => (row.nullable ? t('workbench.yes') : t('workbench.no')),
+  },
+  { title: t('workbench.defaultValue'), key: 'defaultValue' },
 ]
 </script>
 

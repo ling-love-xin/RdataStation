@@ -10,7 +10,6 @@ import type { NavigatorNode, QueryContext } from '@/shared/types/databaseMeta'
 
 import * as mockService from './mock-database-navigator'
 
-
 /**
  * 加载节点子节点
  * 根据节点类型和数据库类型选择正确的加载方式
@@ -38,7 +37,7 @@ export async function loadNodeChildren(
     connectionId: node.connectionId || '',
     database: node.database,
     schema: node.schema,
-    table: (node.metadata?.tableName as string) || node.name
+    table: (node.metadata?.tableName as string) || node.name,
   }
 
   // 获取查询 SQL
@@ -74,7 +73,7 @@ function loadConnectionChildren(
   console.log(`[NavigatorLoader] 加载连接子节点, dbType: ${dbType}`)
 
   const context: QueryContext = {
-    connectionId: node.connectionId || ''
+    connectionId: node.connectionId || '',
   }
 
   // 使用适配器创建对象类型文件夹
@@ -85,11 +84,7 @@ function loadConnectionChildren(
  * 模拟查询（临时方案）
  * 后续替换为真实的后端 API 调用
  */
-async function simulateQuery(
-  query: string,
-  nodeType: string,
-  dbType: string
-): Promise<any[]> {
+async function simulateQuery(query: string, nodeType: string, dbType: string): Promise<any[]> {
   // 模拟延迟
   await new Promise(resolve => setTimeout(resolve, 300))
 
@@ -118,14 +113,17 @@ function simulateTables(dbType: string): any[] {
     return [
       { name: 'users', ddl: 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)' },
       { name: 'orders', ddl: 'CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER)' },
-      { name: 'products', ddl: 'CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL)' }
+      {
+        name: 'products',
+        ddl: 'CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, price REAL)',
+      },
     ]
   }
   // MySQL 等网络数据库
   return [
     { name: 'users', engine: 'InnoDB', rowCount: 1000 },
     { name: 'orders', engine: 'InnoDB', rowCount: 5000 },
-    { name: 'products', engine: 'InnoDB', rowCount: 100 }
+    { name: 'products', engine: 'InnoDB', rowCount: 100 },
   ]
 }
 
@@ -135,12 +133,13 @@ function simulateTables(dbType: string): any[] {
 function simulateViews(dbType: string): any[] {
   if (dbType === 'sqlite') {
     return [
-      { name: 'v_active_users', ddl: 'CREATE VIEW v_active_users AS SELECT * FROM users WHERE active = 1' }
+      {
+        name: 'v_active_users',
+        ddl: 'CREATE VIEW v_active_users AS SELECT * FROM users WHERE active = 1',
+      },
     ]
   }
-  return [
-    { name: 'v_active_users', definer: 'root@localhost', isUpdatable: 'NO' }
-  ]
+  return [{ name: 'v_active_users', definer: 'root@localhost', isUpdatable: 'NO' }]
 }
 
 /**
@@ -149,13 +148,23 @@ function simulateViews(dbType: string): any[] {
 function simulateIndexes(dbType: string): any[] {
   if (dbType === 'sqlite') {
     return [
-      { name: 'idx_users_name', tableName: 'users', ddl: 'CREATE INDEX idx_users_name ON users(name)', isUnique: 0 },
-      { name: 'idx_orders_user_id', tableName: 'orders', ddl: 'CREATE INDEX idx_orders_user_id ON orders(user_id)', isUnique: 0 }
+      {
+        name: 'idx_users_name',
+        tableName: 'users',
+        ddl: 'CREATE INDEX idx_users_name ON users(name)',
+        isUnique: 0,
+      },
+      {
+        name: 'idx_orders_user_id',
+        tableName: 'orders',
+        ddl: 'CREATE INDEX idx_orders_user_id ON orders(user_id)',
+        isUnique: 0,
+      },
     ]
   }
   return [
     { name: 'PRIMARY', isUnique: 1, type: 'BTREE', columns: 'id' },
-    { name: 'idx_users_name', isUnique: 0, type: 'BTREE', columns: 'name' }
+    { name: 'idx_users_name', isUnique: 0, type: 'BTREE', columns: 'name' },
   ]
 }
 
@@ -165,7 +174,11 @@ function simulateIndexes(dbType: string): any[] {
 function simulateTriggers(dbType: string): any[] {
   if (dbType === 'sqlite') {
     return [
-      { name: 'trg_users_updated', tableName: 'users', ddl: 'CREATE TRIGGER trg_users_updated AFTER UPDATE ON users BEGIN UPDATE users SET updated_at = datetime() WHERE id = NEW.id; END' }
+      {
+        name: 'trg_users_updated',
+        tableName: 'users',
+        ddl: 'CREATE TRIGGER trg_users_updated AFTER UPDATE ON users BEGIN UPDATE users SET updated_at = datetime() WHERE id = NEW.id; END',
+      },
     ]
   }
   return []
@@ -180,12 +193,12 @@ function simulateColumns(dbType: string): any[] {
       { cid: 0, name: 'id', type: 'INTEGER', notnull: 0, dflt_value: null, pk: 1 },
       { cid: 1, name: 'name', type: 'TEXT', notnull: 0, dflt_value: null, pk: 0 },
       { cid: 2, name: 'email', type: 'TEXT', notnull: 0, dflt_value: null, pk: 0 },
-      { cid: 3, name: 'created_at', type: 'TEXT', notnull: 0, dflt_value: null, pk: 0 }
+      { cid: 3, name: 'created_at', type: 'TEXT', notnull: 0, dflt_value: null, pk: 0 },
     ]
   }
   return [
     { name: 'id', dataType: 'int', nullable: 'NO', isPrimaryKey: 1, isAutoIncrement: 1 },
     { name: 'name', dataType: 'varchar', nullable: 'YES', isPrimaryKey: 0 },
-    { name: 'email', dataType: 'varchar', nullable: 'YES', isPrimaryKey: 0 }
+    { name: 'email', dataType: 'varchar', nullable: 'YES', isPrimaryKey: 0 },
   ]
 }

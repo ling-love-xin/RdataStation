@@ -1,6 +1,6 @@
 /**
  * 缓存版本控制
- * 
+ *
  * 支持缓存版本升级和迁移
  * 当缓存结构发生变化时，自动迁移或清除旧缓存
  */
@@ -49,7 +49,7 @@ export interface MigrationStrategy {
 
 /**
  * 当前缓存版本
- * 
+ *
  * 每次缓存结构变化时递增此版本号
  */
 export const CURRENT_CACHE_VERSION = 1
@@ -65,11 +65,13 @@ class CacheVersionManager {
    * 获取连接的缓存版本信息
    */
   getVersionInfo(connectionId: string): CacheVersionInfo {
-    return this.versionInfo.value.get(connectionId) || {
-      currentVersion: 0,
-      lastUpgrade: null,
-      upgradeHistory: []
-    }
+    return (
+      this.versionInfo.value.get(connectionId) || {
+        currentVersion: 0,
+        lastUpgrade: null,
+        upgradeHistory: [],
+      }
+    )
   }
 
   /**
@@ -84,13 +86,13 @@ class CacheVersionManager {
         fromVersion: oldVersion,
         toVersion: version,
         timestamp: Date.now(),
-        reason: '手动设置版本'
+        reason: '手动设置版本',
       }
 
       this.versionInfo.value.set(connectionId, {
         currentVersion: version,
         lastUpgrade: Date.now(),
-        upgradeHistory: [...info.upgradeHistory, record]
+        upgradeHistory: [...info.upgradeHistory, record],
       })
     }
   }
@@ -123,26 +125,26 @@ class CacheVersionManager {
 
     for (let version = currentVersion + 1; version <= CURRENT_CACHE_VERSION; version++) {
       const strategy = this.migrationStrategies.value.get(version)
-      
+
       if (strategy) {
         try {
           await strategy.migrate(connectionId)
-          
+
           const record: VersionUpgradeRecord = {
             fromVersion: version - 1,
             toVersion: version,
             timestamp: Date.now(),
-            reason: `自动升级到版本 ${version}`
+            reason: `自动升级到版本 ${version}`,
           }
 
           this.versionInfo.value.set(connectionId, {
             currentVersion: version,
             lastUpgrade: Date.now(),
-            upgradeHistory: [...info.upgradeHistory, record]
+            upgradeHistory: [...info.upgradeHistory, record],
           })
         } catch (error) {
           console.error(`升级到版本 ${version} 失败:`, error)
-          
+
           if (strategy.canRollback && strategy.rollback) {
             try {
               await strategy.rollback(connectionId)
@@ -151,7 +153,7 @@ class CacheVersionManager {
               console.error(`回滚失败:`, rollbackError)
             }
           }
-          
+
           return false
         }
       } else {
@@ -202,7 +204,7 @@ class CacheVersionManager {
     return {
       total,
       byVersion,
-      needsUpgrade: needsUpgradeCount
+      needsUpgrade: needsUpgradeCount,
     }
   }
 }
@@ -259,6 +261,6 @@ export function useCacheVersion() {
     clearVersion,
     clearAll,
     getVersionStats,
-    CURRENT_CACHE_VERSION
+    CURRENT_CACHE_VERSION,
   }
 }

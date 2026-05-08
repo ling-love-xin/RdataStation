@@ -19,20 +19,10 @@
             <div class="tab-label">
               <span class="tab-index">#{{ index + 1 }}</span>
               <span class="tab-name">{{ result.tabName }}</span>
-              <NTag
-                v-if="result.error"
-                size="small"
-                type="error"
-                class="tab-status"
-              >
+              <NTag v-if="result.error" size="small" type="error" class="tab-status">
                 {{ t('workbench.error') }}
               </NTag>
-              <NTag
-                v-else-if="result.success"
-                size="small"
-                type="success"
-                class="tab-status"
-              >
+              <NTag v-else-if="result.success" size="small" type="success" class="tab-status">
                 {{ result.rowCount }} {{ t('resultPanel.rows') }}
               </NTag>
             </div>
@@ -47,7 +37,7 @@
           <NEmpty :description="t('workbench.executeSqlToSeeResults')" />
         </div>
       </template>
-      
+
       <template v-else>
         <div
           v-for="result in tabResults"
@@ -55,11 +45,8 @@
           :key="result.id"
           class="result-panel-wrapper"
         >
-          <QueryResultPanel
-            v-if="result.success && result.data"
-            :result="result.data"
-          />
-          
+          <QueryResultPanel v-if="result.success && result.data" :result="result.data" />
+
           <div v-else-if="result.error" class="error-state">
             <NAlert type="error" :title="result.errorTitle || t('workbench.executionFailed')">
               <pre class="error-message">{{ result.error }}</pre>
@@ -135,7 +122,7 @@ const { t } = useI18n()
 
 const props = withDefaults(defineProps<Props>(), {
   results: () => [],
-  isExecuting: false
+  isExecuting: false,
 })
 
 const activeTab = ref<string>('')
@@ -145,23 +132,30 @@ const tabResults = ref<TabResult[]>([])
 const _handleMultiTabResultUpdate = (event: CustomEvent) => {
   if (event.detail?.results) {
     // 转换为 TabResult 格式
-    tabResults.value = event.detail.results.map((item: { index: number; result: QueryResultData | null; error: string | null }, _index: number) => {
-      const id = `result-${item.index}`
-      const rowCount = item.result?.rowCount || item.result?.rows?.length || 0
-      const executionTime = item.result?.executionTime || 0
-      
-      return {
-        id,
-        tabName: t('workbench.statement', { index: item.index + 1 }),
-        statementIndex: item.index,
-        success: !item.error,
-        error: item.error || undefined,
-        errorTitle: item.error ? t('workbench.statementFailed', { index: item.index + 1 }) : undefined,
-        data: item.result,
-        rowCount,
-        executionTime
+    tabResults.value = event.detail.results.map(
+      (
+        item: { index: number; result: QueryResultData | null; error: string | null },
+        _index: number
+      ) => {
+        const id = `result-${item.index}`
+        const rowCount = item.result?.rowCount || item.result?.rows?.length || 0
+        const executionTime = item.result?.executionTime || 0
+
+        return {
+          id,
+          tabName: t('workbench.statement', { index: item.index + 1 }),
+          statementIndex: item.index,
+          success: !item.error,
+          error: item.error || undefined,
+          errorTitle: item.error
+            ? t('workbench.statementFailed', { index: item.index + 1 })
+            : undefined,
+          data: item.result,
+          rowCount,
+          executionTime,
+        }
       }
-    })
+    )
 
     // 设置默认激活的 tab
     if (tabResults.value.length > 0) {
@@ -174,44 +168,50 @@ const _handleMultiTabResultUpdate = (event: CustomEvent) => {
 // 计算属性
 const successCount = computed(() => tabResults.value.filter(r => r.success).length)
 const errorCount = computed(() => tabResults.value.filter(r => r.error).length)
-const totalExecutionTime = computed(() => 
+const totalExecutionTime = computed(() =>
   tabResults.value.reduce((sum, r) => sum + r.executionTime, 0)
 )
 
 // 监听 props.results 变化
-watch(() => props.results, (newResults) => {
-  if (!newResults || newResults.length === 0) {
-    tabResults.value = []
-    activeTab.value = ''
-    return
-  }
-
-  // 转换为 TabResult 格式
-  tabResults.value = newResults.map((item, _index) => {
-    const id = `result-${item.index}`
-    const rowCount = item.result?.rowCount || item.result?.rows?.length || 0
-    const executionTime = item.result?.executionTime || 0
-    
-    return {
-      id,
-      tabName: t('workbench.statement', { index: item.index + 1 }),
-      statementIndex: item.index,
-      success: !item.error,
-      error: item.error || undefined,
-      errorTitle: item.error ? t('workbench.statementFailed', { index: item.index + 1 }) : undefined,
-      data: item.result,
-      rowCount,
-      executionTime
+watch(
+  () => props.results,
+  newResults => {
+    if (!newResults || newResults.length === 0) {
+      tabResults.value = []
+      activeTab.value = ''
+      return
     }
-  })
 
-  // 设置默认激活的 tab
-  if (tabResults.value.length > 0) {
-    // 优先显示第一个错误的 tab
-    const firstError = tabResults.value.find(r => r.error)
-    activeTab.value = firstError?.id || tabResults.value[0].id
-  }
-}, { deep: true, immediate: true })
+    // 转换为 TabResult 格式
+    tabResults.value = newResults.map((item, _index) => {
+      const id = `result-${item.index}`
+      const rowCount = item.result?.rowCount || item.result?.rows?.length || 0
+      const executionTime = item.result?.executionTime || 0
+
+      return {
+        id,
+        tabName: t('workbench.statement', { index: item.index + 1 }),
+        statementIndex: item.index,
+        success: !item.error,
+        error: item.error || undefined,
+        errorTitle: item.error
+          ? t('workbench.statementFailed', { index: item.index + 1 })
+          : undefined,
+        data: item.result,
+        rowCount,
+        executionTime,
+      }
+    })
+
+    // 设置默认激活的 tab
+    if (tabResults.value.length > 0) {
+      // 优先显示第一个错误的 tab
+      const firstError = tabResults.value.find(r => r.error)
+      activeTab.value = firstError?.id || tabResults.value[0].id
+    }
+  },
+  { deep: true, immediate: true }
+)
 
 // 关闭 tab
 const handleCloseTab = (name: string) => {
@@ -237,7 +237,7 @@ defineExpose({
     if (index >= 0 && index < tabResults.value.length) {
       activeTab.value = tabResults.value[index].id
     }
-  }
+  },
 })
 </script>
 

@@ -181,9 +181,7 @@ export function isFailure<T, E>(result: Result<T, E>): result is Failure<E> {
  * @param fn 异步函数
  * @returns Result<T, AppError>
  */
-export async function safeAsync<T>(
-  fn: () => Promise<T>
-): Promise<Result<T, AppError>> {
+export async function safeAsync<T>(fn: () => Promise<T>): Promise<Result<T, AppError>> {
   try {
     const value = await fn()
     return success(value)
@@ -217,9 +215,7 @@ export function toAppError(error: unknown): AppError {
  * @param fn 同步函数
  * @returns Result<T, AppError>
  */
-export function safeSync<T>(
-  fn: () => T
-): Result<T, AppError> {
+export function safeSync<T>(fn: () => T): Result<T, AppError> {
   try {
     const value = fn()
     return success(value)
@@ -251,10 +247,7 @@ export function unwrapOr<T, E>(result: Result<T, E>, defaultValue: T): T {
 /**
  * 解包 Result，成功返回值，失败执行回调
  */
-export function unwrapOrElse<T, E>(
-  result: Result<T, E>,
-  fn: (error: E) => T
-): T {
+export function unwrapOrElse<T, E>(result: Result<T, E>, fn: (error: E) => T): T {
   if (result.ok) {
     return result.value
   }

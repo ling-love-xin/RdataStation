@@ -40,13 +40,15 @@
           />
           <button type="button" class="btn-browse" @click="selectFile(getFieldName(field))">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
             </svg>
             浏览
           </button>
         </div>
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 主机地址字段 -->
@@ -67,7 +69,9 @@
           :placeholder="field.placeholder || 'localhost'"
           @blur="validateField(getFieldName(field))"
         />
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 端口字段 -->
@@ -90,7 +94,9 @@
           max="65535"
           @blur="validateField(getFieldName(field))"
         />
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 数据库名字段 -->
@@ -111,7 +117,9 @@
           :placeholder="field.placeholder || '数据库名称'"
           @blur="validateField(getFieldName(field))"
         />
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 用户名字段 -->
@@ -132,7 +140,9 @@
           :placeholder="field.placeholder || '用户名'"
           @blur="validateField(getFieldName(field))"
         />
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 密码字段 -->
@@ -155,17 +165,27 @@
             @blur="validateField(getFieldName(field))"
           />
           <button type="button" class="toggle-password" @click="showPassword = !showPassword">
-            <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+            <svg
+              v-if="showPassword"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
             <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
+              <path
+                d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+              />
+              <line x1="1" y1="1" x2="23" y2="23" />
             </svg>
           </button>
         </div>
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 其他文本字段 -->
@@ -186,7 +206,9 @@
           :placeholder="field.placeholder || ''"
           @blur="validateField(getFieldName(field))"
         />
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
 
       <!-- 数字字段 -->
@@ -207,7 +229,9 @@
           :placeholder="field.placeholder || ''"
           @blur="validateField(getFieldName(field))"
         />
-        <span v-if="errors[getFieldName(field)]" class="error-text">{{ errors[getFieldName(field)] }}</span>
+        <span v-if="errors[getFieldName(field)]" class="error-text">{{
+          errors[getFieldName(field)]
+        }}</span>
       </div>
     </template>
 
@@ -215,19 +239,38 @@
     <div v-if="hasAdvancedOptions" class="advanced-options">
       <div class="section-header" @click="showAdvanced = !showAdvanced">
         <div class="header-left">
-          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          <svg
+            class="section-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+            />
           </svg>
           <span>高级选项</span>
         </div>
-        <svg class="toggle-icon" :class="{ expanded: showAdvanced }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="6 9 12 15 18 9"/>
+        <svg
+          class="toggle-icon"
+          :class="{ expanded: showAdvanced }"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="6 9 12 15 18 9" />
         </svg>
       </div>
 
       <div v-show="showAdvanced" class="advanced-content">
-        <div v-for="(option, optIndex) in driver?.extraOptions || []" :key="optIndex" class="form-section">
+        <div
+          v-for="(option, optIndex) in driver?.extraOptions || []"
+          :key="optIndex"
+          class="form-section"
+        >
           <label class="form-label">
             {{ option.label }}
             <span v-if="option.required" class="required">*</span>
@@ -281,10 +324,14 @@
                 :placeholder="option.description || '选择文件'"
                 readonly
               />
-              <button type="button" class="btn-browse" @click="selectOptionFile(getFieldName(option))">
+              <button
+                type="button"
+                class="btn-browse"
+                @click="selectOptionFile(getFieldName(option))"
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
                 </svg>
                 浏览
               </button>
@@ -304,11 +351,13 @@ import type { DriverDescriptor, ConnectionConfig } from '../types/driver'
 // 安全地导入 Tauri API
 let openDialog: typeof import('@tauri-apps/plugin-dialog').open | null = null
 if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-  import('@tauri-apps/plugin-dialog').then(m => {
-    openDialog = m.open
-  }).catch(() => {
-    openDialog = null
-  })
+  import('@tauri-apps/plugin-dialog')
+    .then(m => {
+      openDialog = m.open
+    })
+    .catch(() => {
+      openDialog = null
+    })
 }
 
 interface Props {
@@ -323,14 +372,14 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  existingConnections: () => []
+  existingConnections: () => [],
 })
 const emit = defineEmits<Emits>()
 
 // 表单数据 - 动态字段
 const formData = reactive<Record<string, any>>({
   name: '',
-  options: {}
+  options: {},
 })
 
 // 错误信息
@@ -386,34 +435,42 @@ const connectionNamePlaceholder = computed(() => {
 })
 
 // 监听驱动变化，重置表单
-watch(() => props.driver, (newDriver) => {
-  if (newDriver) {
-    // 重置表单数据
-    Object.keys(formData).forEach(key => {
-      if (key !== 'options') delete (formData as any)[key]
-    })
-    formData.name = ''
-    formData.options = {}
+watch(
+  () => props.driver,
+  newDriver => {
+    if (newDriver) {
+      // 重置表单数据
+      Object.keys(formData).forEach(key => {
+        if (key !== 'options') delete (formData as any)[key]
+      })
+      formData.name = ''
+      formData.options = {}
 
-    // 根据驱动字段初始化默认值
-    newDriver.fields?.forEach(field => {
-      const fieldName = getFieldName(field)
-      if (fieldName === 'port') {
-        ;(formData as any)[fieldName] = newDriver.defaultPort || newDriver.default_port
-      } else {
-        ;(formData as any)[fieldName] = ''
-      }
-    })
+      // 根据驱动字段初始化默认值
+      newDriver.fields?.forEach(field => {
+        const fieldName = getFieldName(field)
+        if (fieldName === 'port') {
+          ;(formData as any)[fieldName] = newDriver.defaultPort || newDriver.default_port
+        } else {
+          ;(formData as any)[fieldName] = ''
+        }
+      })
 
-    clearErrors()
-  }
-}, { immediate: true })
+      clearErrors()
+    }
+  },
+  { immediate: true }
+)
 
 // 监听表单变化
-watch(formData, (newValue) => {
-  emit('update:modelValue', { ...newValue })
-  validateAll()
-}, { deep: true })
+watch(
+  formData,
+  newValue => {
+    emit('update:modelValue', { ...newValue })
+    validateAll()
+  },
+  { deep: true }
+)
 
 // 验证单个字段
 function validateField(field: string): boolean {
@@ -493,7 +550,7 @@ async function selectFile(fieldKey: string) {
     // 浏览器环境：使用原生文件选择
     const input = document.createElement('input')
     input.type = 'file'
-    input.onchange = (e) => {
+    input.onchange = e => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
         formData[fieldKey] = file.name
@@ -507,7 +564,7 @@ async function selectFile(fieldKey: string) {
   try {
     const selected = await openDialog({
       multiple: false,
-      directory: false
+      directory: false,
     })
     if (selected) {
       formData[fieldKey] = selected as string
@@ -524,7 +581,7 @@ async function selectOptionFile(optionKey: string) {
     // 浏览器环境：使用原生文件选择
     const input = document.createElement('input')
     input.type = 'file'
-    input.onchange = (e) => {
+    input.onchange = e => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (file) {
         if (!formData.options) formData.options = {}
@@ -538,7 +595,7 @@ async function selectOptionFile(optionKey: string) {
   try {
     const selected = await openDialog({
       multiple: false,
-      directory: false
+      directory: false,
     })
     if (selected) {
       if (!formData.options) formData.options = {}
@@ -552,7 +609,7 @@ async function selectOptionFile(optionKey: string) {
 // 暴露方法
 defineExpose({
   validate: validateAll,
-  clearErrors
+  clearErrors,
 })
 </script>
 

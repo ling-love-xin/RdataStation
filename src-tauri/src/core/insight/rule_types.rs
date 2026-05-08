@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleMeta {
@@ -64,4 +65,26 @@ pub struct RenderHint {
     pub component: Option<String>,
     #[serde(default)]
     pub display_order: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct QualityReport {
+    pub passed: bool,
+    pub checks: Vec<QualityCheck>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct QualityCheck {
+    pub field: String,
+    pub passed: bool,
+    pub rule: String,
+    pub actual: Option<f64>,
+    pub severity: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ExecutionResult {
+    pub data: Value,
+    pub quality: Option<QualityReport>,
 }

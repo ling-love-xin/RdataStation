@@ -16,15 +16,30 @@ export async function loadMockChildren(node: NavigatorNode): Promise<NavigatorNo
   switch (node.type) {
     case 'connection':
       return [
-        { id: `${node.id}-tables`, name: 'Tables', type: 'folder', connectionId: node.connectionId },
+        {
+          id: `${node.id}-tables`,
+          name: 'Tables',
+          type: 'folder',
+          connectionId: node.connectionId,
+        },
         { id: `${node.id}-views`, name: 'Views', type: 'folder', connectionId: node.connectionId },
-        { id: `${node.id}-indexes`, name: 'Indexes', type: 'folder', connectionId: node.connectionId },
+        {
+          id: `${node.id}-indexes`,
+          name: 'Indexes',
+          type: 'folder',
+          connectionId: node.connectionId,
+        },
       ]
     case 'folder':
       if (node.name === 'Tables') {
         return [
           { id: `${node.id}-users`, name: 'users', type: 'table', connectionId: node.connectionId },
-          { id: `${node.id}-orders`, name: 'orders', type: 'table', connectionId: node.connectionId },
+          {
+            id: `${node.id}-orders`,
+            name: 'orders',
+            type: 'table',
+            connectionId: node.connectionId,
+          },
         ]
       }
       return []
@@ -38,17 +53,17 @@ export async function loadMockChildren(node: NavigatorNode): Promise<NavigatorNo
  */
 export function getMockConnections(): NavigatorNode[] {
   return [
-    { 
-      id: 'conn-1', 
-      name: 'Local MySQL', 
+    {
+      id: 'conn-1',
+      name: 'Local MySQL',
       type: 'connection',
-      metadata: { dbType: 'mysql', host: 'localhost', port: 3306 }
+      metadata: { dbType: 'mysql', host: 'localhost', port: 3306 },
     },
-    { 
-      id: 'conn-2', 
-      name: 'Production DB', 
+    {
+      id: 'conn-2',
+      name: 'Production DB',
       type: 'connection',
-      metadata: { dbType: 'postgres', host: 'prod-server', port: 5432 }
+      metadata: { dbType: 'postgres', host: 'prod-server', port: 5432 },
     },
   ]
 }

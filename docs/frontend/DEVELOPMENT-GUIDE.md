@@ -70,7 +70,7 @@ const activate = (context: ExtensionContext): ExtensionAPI => {
   })
 
   // 订阅事件
-  context.events.on('connection:changed', (data) => {
+  context.events.on('connection:changed', data => {
     console.log('Connection changed:', data)
   })
 
@@ -211,7 +211,7 @@ context.events.emit('myPlugin:dataLoaded', { data: '...' })
 ### 订阅事件
 
 ```typescript
-context.events.on('myPlugin:dataLoaded', (data) => {
+context.events.on('myPlugin:dataLoaded', data => {
   console.log('Data loaded:', data)
 })
 ```
@@ -220,12 +220,12 @@ context.events.on('myPlugin:dataLoaded', (data) => {
 
 ## 命名规范
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| 文件 | kebab-case | `my-component.ts` |
-| 组件 | PascalCase | `MyComponent.vue` |
-| 变量/函数 | camelCase | `getData()` |
-| 常量 | UPPER_SNAKE_CASE | `MAX_COUNT` |
+| 类型      | 规范             | 示例              |
+| --------- | ---------------- | ----------------- |
+| 文件      | kebab-case       | `my-component.ts` |
+| 组件      | PascalCase       | `MyComponent.vue` |
+| 变量/函数 | camelCase        | `getData()`       |
+| 常量      | UPPER_SNAKE_CASE | `MAX_COUNT`       |
 
 ---
 

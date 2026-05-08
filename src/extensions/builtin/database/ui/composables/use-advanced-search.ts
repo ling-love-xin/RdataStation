@@ -26,7 +26,7 @@ export function useAdvancedSearch() {
   const searchFilter = ref<SearchFilter>({
     objectType: 'all',
     connectionId: 'all',
-    databaseName: 'all'
+    databaseName: 'all',
   })
 
   const filteredResults = computed(() => {
@@ -70,7 +70,7 @@ export function useAdvancedSearch() {
     searchHistory.value.unshift({
       query,
       timestamp: new Date(),
-      resultCount: results.length
+      resultCount: results.length,
     })
 
     if (searchHistory.value.length > 50) {
@@ -95,13 +95,17 @@ export function useAdvancedSearch() {
   function selectPrevResult() {
     if (filteredResults.value.length === 0) return
 
-    selectedResultIndex.value = selectedResultIndex.value <= 0
-      ? filteredResults.value.length - 1
-      : selectedResultIndex.value - 1
+    selectedResultIndex.value =
+      selectedResultIndex.value <= 0
+        ? filteredResults.value.length - 1
+        : selectedResultIndex.value - 1
   }
 
   function getSelectedResult(): SearchObjectResult | null {
-    if (selectedResultIndex.value < 0 || selectedResultIndex.value >= filteredResults.value.length) {
+    if (
+      selectedResultIndex.value < 0 ||
+      selectedResultIndex.value >= filteredResults.value.length
+    ) {
       return null
     }
     return filteredResults.value[selectedResultIndex.value]
@@ -135,6 +139,6 @@ export function useAdvancedSearch() {
     getSelectedResult,
     clearHistory,
     getHighlightedName,
-    updateFilter
+    updateFilter,
   }
 }

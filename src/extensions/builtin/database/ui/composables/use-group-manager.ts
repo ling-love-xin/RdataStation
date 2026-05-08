@@ -1,6 +1,6 @@
 /**
  * 分组管理逻辑
- * 
+ *
  * 实现连接分组的创建、编辑、删除和管理功能
  */
 
@@ -14,12 +14,16 @@ const STORAGE_KEY = 'rdata-station-database-groups'
 
 export function useGroupManager() {
   const groups = ref<ConnectionGroup[]>([])
-  
+
   loadGroups()
 
-  watch(groups, (newGroups) => {
-    saveGroups(newGroups)
-  }, { deep: true })
+  watch(
+    groups,
+    newGroups => {
+      saveGroups(newGroups)
+    },
+    { deep: true }
+  )
 
   function loadGroups() {
     try {
@@ -50,14 +54,17 @@ export function useGroupManager() {
       expanded: true,
       color: GROUP_COLORS[colorIndex],
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     }
-    
+
     groups.value.push(group)
     return group
   }
 
-  function updateGroup(groupId: string, updates: Partial<Pick<ConnectionGroup, 'name' | 'description' | 'color' | 'expanded'>>) {
+  function updateGroup(
+    groupId: string,
+    updates: Partial<Pick<ConnectionGroup, 'name' | 'description' | 'color' | 'expanded'>>
+  ) {
     const group = groups.value.find(g => g.id === groupId)
     if (group) {
       Object.assign(group, updates)
@@ -91,7 +98,11 @@ export function useGroupManager() {
     }
   }
 
-  function moveConnectionToGroup(fromGroupId: string | null, toGroupId: string, connectionId: string) {
+  function moveConnectionToGroup(
+    fromGroupId: string | null,
+    toGroupId: string,
+    connectionId: string
+  ) {
     if (fromGroupId) {
       removeConnectionFromGroup(fromGroupId, connectionId)
     }
@@ -139,6 +150,6 @@ export function useGroupManager() {
     isConnectionInGroup,
     toggleGroupExpanded,
     hasGroups,
-    clearAllGroups
+    clearAllGroups,
   }
 }

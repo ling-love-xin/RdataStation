@@ -2,7 +2,7 @@
  * 虚拟树节点类型定义
  */
 
-export type VirtualTreeNodeType = 
+export type VirtualTreeNodeType =
   | 'connection'
   | 'database'
   | 'schema'
@@ -93,14 +93,14 @@ export const NodeKeyEncoder = {
   encode(parts: string[]): string {
     return btoa(JSON.stringify(parts))
   },
-  
+
   decode(key: string): string[] {
     try {
       return JSON.parse(atob(key))
     } catch {
       return []
     }
-  }
+  },
 }
 
 // 保持向后兼容的别名

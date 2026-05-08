@@ -176,9 +176,9 @@ const useDuckdbFed = computed({
   set: (val: boolean) => {
     emit('update:formData', {
       ...props.formData,
-      useDuckdbFed: val
+      useDuckdbFed: val,
     })
-  }
+  },
 })
 
 const cacheStrategy = computed({
@@ -188,10 +188,10 @@ const cacheStrategy = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        cacheStrategy: val
-      }
+        cacheStrategy: val,
+      },
     })
-  }
+  },
 })
 
 const memoryLimit = computed({
@@ -201,10 +201,10 @@ const memoryLimit = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        memoryLimit: val
-      }
+        memoryLimit: val,
+      },
     })
-  }
+  },
 })
 
 const threadCount = computed({
@@ -214,10 +214,10 @@ const threadCount = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        threadCount: val
-      }
+        threadCount: val,
+      },
     })
-  }
+  },
 })
 
 const batchSize = computed({
@@ -227,10 +227,10 @@ const batchSize = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        batchSize: val
-      }
+        batchSize: val,
+      },
     })
-  }
+  },
 })
 
 const cacheTtl = computed({
@@ -240,10 +240,10 @@ const cacheTtl = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        cacheTtl: val
-      }
+        cacheTtl: val,
+      },
     })
-  }
+  },
 })
 
 const autoCleanup = computed({
@@ -253,10 +253,10 @@ const autoCleanup = computed({
       ...props.formData,
       options: {
         ...props.formData.options,
-        autoCleanup: val
-      }
+        autoCleanup: val,
+      },
     })
-  }
+  },
 })
 </script>
 

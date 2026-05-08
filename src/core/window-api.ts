@@ -9,7 +9,6 @@ import type { WindowAPI, Disposable } from '@/extensions/core/types'
 
 import { panelRegistry } from './panel-registry'
 
-
 /**
  * 视图提供者配置接口
  */
@@ -35,9 +34,9 @@ export const windowAPI: WindowAPI = {
     // 支持两种注册方式：
     // 1. 直接传入 Vue 组件（向后兼容）
     // 2. 传入 ViewProviderConfig 对象（推荐）
-    
+
     let config: ViewProviderConfig
-    
+
     if (typeof provider === 'object' && provider !== null && 'component' in provider) {
       config = provider as ViewProviderConfig
     } else {
@@ -45,17 +44,17 @@ export const windowAPI: WindowAPI = {
       config = {
         component: provider,
         title: id,
-        location: 'center'
+        location: 'center',
       }
     }
-    
+
     return panelRegistry.register({
       id,
       name: config.title,
       component: config.component,
       location: config.location,
       icon: config.icon,
-      order: config.order
+      order: config.order,
     })
   },
 
@@ -68,8 +67,10 @@ export const windowAPI: WindowAPI = {
     console.log(`[WindowAPI] Notification [${type}]: ${message}`)
     // TODO: 集成 Naive UI 的 notification 组件
     // 可以使用 window.dispatchEvent 触发自定义事件
-    window.dispatchEvent(new CustomEvent('show-notification', {
-      detail: { message, type }
-    }))
-  }
+    window.dispatchEvent(
+      new CustomEvent('show-notification', {
+        detail: { message, type },
+      })
+    )
+  },
 }

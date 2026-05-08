@@ -11,20 +11,20 @@ import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-
 
 const layoutStore = useLayoutStore()
 
-const SqlHistoryComponent = defineAsyncComponent(() =>
-  import('@/extensions/builtin/workbench/ui/components/panels/SqlHistoryPanel.vue')
+const SqlHistoryComponent = defineAsyncComponent(
+  () => import('@/extensions/builtin/workbench/ui/components/panels/SqlHistoryPanel.vue')
 )
 
-const OutputComponent = defineAsyncComponent(() =>
-  import('@/extensions/builtin/workbench/ui/components/panels/EmptyWorkbenchPanel.vue')
+const OutputComponent = defineAsyncComponent(
+  () => import('@/extensions/builtin/workbench/ui/components/panels/EmptyWorkbenchPanel.vue')
 )
 
-const ColumnInsightsComponent = defineAsyncComponent(() =>
-  import('@/extensions/builtin/workbench/ui/components/panels/ColumnInsightsPanel.vue')
+const ColumnInsightsComponent = defineAsyncComponent(
+  () => import('@/extensions/builtin/workbench/ui/components/panels/ColumnInsightsPanel.vue')
 )
 
-const RightSidebarPlaceholder = defineAsyncComponent(() =>
-  import('@/extensions/builtin/workbench/ui/components/panels/RightSidebarPlaceholder.vue')
+const RightSidebarPlaceholder = defineAsyncComponent(
+  () => import('@/extensions/builtin/workbench/ui/components/panels/RightSidebarPlaceholder.vue')
 )
 
 const currentComponent = computed(() => {

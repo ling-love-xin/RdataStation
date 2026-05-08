@@ -46,15 +46,15 @@ function addToast(type: Toast['type'], message: string, duration = 3000) {
     type,
     message,
     duration,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   }
-  
+
   toasts.value.push(toast)
-  
+
   if (duration > 0) {
     scheduleRemove(id, duration)
   }
-  
+
   return id
 }
 
@@ -118,7 +118,7 @@ defineExpose({
   error,
   info,
   warning,
-  removeToast
+  removeToast,
 })
 
 let observer: MutationObserver | null = null

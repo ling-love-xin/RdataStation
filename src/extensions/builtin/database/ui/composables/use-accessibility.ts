@@ -14,7 +14,7 @@ export function useAccessibility() {
     highContrast: false,
     reducedMotion: false,
     fontSize: 'medium',
-    screenReaderOptimized: false
+    screenReaderOptimized: false,
   })
 
   const fontSizeClass = computed(() => {
@@ -28,9 +28,7 @@ export function useAccessibility() {
     }
   })
 
-  const highContrastClass = computed(() =>
-    config.value.highContrast ? 'high-contrast' : ''
-  )
+  const highContrastClass = computed(() => (config.value.highContrast ? 'high-contrast' : ''))
 
   function loadConfig() {
     try {
@@ -64,11 +62,7 @@ export function useAccessibility() {
     saveConfig()
   }
 
-  function getAriaLabel(
-    type: string,
-    name: string,
-    additional?: string
-  ): string {
+  function getAriaLabel(type: string, name: string, additional?: string): string {
     const base = `${type}: ${name}`
     return additional ? `${base} - ${additional}` : base
   }
@@ -81,11 +75,15 @@ export function useAccessibility() {
     isSelected: boolean
   ): Record<string, string | boolean> {
     return {
-      'aria-label': getAriaLabel(type, name, `${isExpanded ? '已展开' : '已折叠'}, ${isSelected ? '已选中' : '未选中'}`),
+      'aria-label': getAriaLabel(
+        type,
+        name,
+        `${isExpanded ? '已展开' : '已折叠'}, ${isSelected ? '已选中' : '未选中'}`
+      ),
       'aria-expanded': isExpanded,
       'aria-selected': isSelected,
       'aria-level': '1',
-      role: 'treeitem'
+      role: 'treeitem',
     }
   }
 
@@ -97,7 +95,7 @@ export function useAccessibility() {
     return {
       'aria-label': additional ? `${label} - ${additional}` : label,
       'aria-disabled': disabled,
-      role: 'button'
+      role: 'button',
     }
   }
 
@@ -105,7 +103,7 @@ export function useAccessibility() {
     return {
       'aria-live': 'polite',
       'aria-atomic': 'true',
-      role: 'status'
+      role: 'status',
     }
   }
 
@@ -119,6 +117,6 @@ export function useAccessibility() {
     getAriaLabel,
     getTreeItemAriaAttributes,
     getButtonAriaAttributes,
-    getLiveRegionAttributes
+    getLiveRegionAttributes,
   }
 }

@@ -339,6 +339,65 @@ impl InsightTableReportStore {
     pub fn new(duckdb: Arc<ProjectDuckdbConnection>) -> Self {
         Self { duckdb }
     }
+
+    pub async fn save_table_quality(
+        &self,
+        table_name: &str,
+        report_json: &str,
+    ) -> Result<(), CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".into(),
+            ))
+        })?;
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS insight_table_reports \
+             (table_name TEXT PRIMARY KEY, report_json TEXT, saved_at TEXT)",
+            [],
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::write(
+                "insight_table_reports",
+                format!("Failed to create insight_table_reports: {}", e),
+            ))
+        })?;
+        conn.execute(
+            "INSERT OR REPLACE INTO insight_table_reports \
+             (table_name, report_json, saved_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            duckdb::params![table_name, report_json],
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::write(
+                "insight_table_reports",
+                format!("Failed to save table quality: {}", e),
+            ))
+        })?;
+        Ok(())
+    }
+
+    pub async fn load_table_quality(
+        &self,
+        table_name: &str,
+    ) -> Result<Option<String>, CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".into(),
+            ))
+        })?;
+        let result: Option<String> = conn
+            .query_row(
+                "SELECT report_json FROM insight_table_reports WHERE table_name = ?",
+                duckdb::params![table_name],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+        Ok(result)
+    }
 }
 
 // ==================== Schema 洞察报告存储（Phase 3 预留） ====================
@@ -350,6 +409,65 @@ pub struct InsightSchemaReportStore {
 impl InsightSchemaReportStore {
     pub fn new(duckdb: Arc<ProjectDuckdbConnection>) -> Self {
         Self { duckdb }
+    }
+
+    pub async fn save_schema_insight(
+        &self,
+        schema_name: &str,
+        report_json: &str,
+    ) -> Result<(), CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".into(),
+            ))
+        })?;
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS insight_schema_reports \
+             (schema_name TEXT PRIMARY KEY, report_json TEXT, saved_at TEXT)",
+            [],
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::write(
+                "insight_schema_reports",
+                format!("Failed to create insight_schema_reports: {}", e),
+            ))
+        })?;
+        conn.execute(
+            "INSERT OR REPLACE INTO insight_schema_reports \
+             (schema_name, report_json, saved_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            duckdb::params![schema_name, report_json],
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::write(
+                "insight_schema_reports",
+                format!("Failed to save schema insight: {}", e),
+            ))
+        })?;
+        Ok(())
+    }
+
+    pub async fn load_schema_insight(
+        &self,
+        schema_name: &str,
+    ) -> Result<Option<String>, CoreError> {
+        let duckdb_conn = self.duckdb.acquire().await?;
+        let mut guard = duckdb_conn.lock().await;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".into(),
+            ))
+        })?;
+        let result: Option<String> = conn
+            .query_row(
+                "SELECT report_json FROM insight_schema_reports WHERE schema_name = ?",
+                duckdb::params![schema_name],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+        Ok(result)
     }
 }
 

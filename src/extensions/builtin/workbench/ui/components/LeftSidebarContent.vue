@@ -11,12 +11,12 @@ import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-
 
 const layoutStore = useLayoutStore()
 
-const DatabaseNavComponent = defineAsyncComponent(() =>
-  import('@/extensions/builtin/database/ui/components/database-navigator.vue')
+const DatabaseNavComponent = defineAsyncComponent(
+  () => import('@/extensions/builtin/database/ui/components/database-navigator.vue')
 )
 
-const AnalyticsResourceComponent = defineAsyncComponent(() =>
-  import('@/extensions/builtin/analytics-resource/ui/components/AnalyticsResourceManager.vue')
+const AnalyticsResourceComponent = defineAsyncComponent(
+  () => import('@/extensions/builtin/analytics-resource/ui/components/AnalyticsResourceManager.vue')
 )
 
 const currentComponent = computed(() => {

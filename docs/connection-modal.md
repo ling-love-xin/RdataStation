@@ -47,6 +47,7 @@ src/extensions/builtin/connection/ui/
 - **底部操作栏**：测试连接、保存连接按钮
 
 **标签页结构**：
+
 - **常规**：动态渲染的数据库连接配置表单
 - **本地加速**：DuckDB 本地加速配置（文件数据库置灰不可用）
 - **驱动**：驱动信息和自定义选项
@@ -103,44 +104,44 @@ src/extensions/builtin/connection/ui/
 
 ### Metadata 字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| category | string | 数据库类别：relational（网络数据库）、file（文件数据库） |
-| description | string | 数据库描述 |
-| features | string[] | 支持的功能特性 |
-| defaultPort | number | 默认端口号 |
-| requireFile | boolean | 是否需要文件路径（文件数据库为 true） |
-| supportsSsl | boolean | 是否支持 SSL |
-| supportsSshTunnel | boolean | 是否支持 SSH 隧道 |
+| 字段              | 类型     | 说明                                                     |
+| ----------------- | -------- | -------------------------------------------------------- |
+| category          | string   | 数据库类别：relational（网络数据库）、file（文件数据库） |
+| description       | string   | 数据库描述                                               |
+| features          | string[] | 支持的功能特性                                           |
+| defaultPort       | number   | 默认端口号                                               |
+| requireFile       | boolean  | 是否需要文件路径（文件数据库为 true）                    |
+| supportsSsl       | boolean  | 是否支持 SSL                                             |
+| supportsSshTunnel | boolean  | 是否支持 SSH 隧道                                        |
 
 ### Section 字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| key | string | 区块唯一标识 |
-| title | string | 区块标题 |
-| icon | string | 图标名称（lucide-vue-next） |
-| collapsible | boolean | 是否可折叠 |
-| collapsed | boolean | 默认是否折叠 |
-| fields | FieldConfig[] | 字段配置数组 |
+| 字段        | 类型          | 说明                        |
+| ----------- | ------------- | --------------------------- |
+| key         | string        | 区块唯一标识                |
+| title       | string        | 区块标题                    |
+| icon        | string        | 图标名称（lucide-vue-next） |
+| collapsible | boolean       | 是否可折叠                  |
+| collapsed   | boolean       | 默认是否折叠                |
+| fields      | FieldConfig[] | 字段配置数组                |
 
 ### Field 字段说明
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| key | string | 字段唯一标识 |
-| label | string | 字段标签 |
-| type | string | 字段类型：text、password、number、select、checkbox、file、textarea |
-| placeholder | string | 占位符文本 |
-| required | boolean | 是否必填 |
-| default | any | 默认值 |
-| options | Option[] | 下拉选项（type 为 select 时使用） |
-| validation | object | 验证规则 |
-| tooltip | string | 提示文本 |
-| hidden | boolean | 是否隐藏 |
-| dependsOn | object | 依赖条件 |
-| inline | boolean | 是否行内布局 |
-| flex | number | 行内布局的 flex 比例 |
+| 字段        | 类型     | 说明                                                               |
+| ----------- | -------- | ------------------------------------------------------------------ |
+| key         | string   | 字段唯一标识                                                       |
+| label       | string   | 字段标签                                                           |
+| type        | string   | 字段类型：text、password、number、select、checkbox、file、textarea |
+| placeholder | string   | 占位符文本                                                         |
+| required    | boolean  | 是否必填                                                           |
+| default     | any      | 默认值                                                             |
+| options     | Option[] | 下拉选项（type 为 select 时使用）                                  |
+| validation  | object   | 验证规则                                                           |
+| tooltip     | string   | 提示文本                                                           |
+| hidden      | boolean  | 是否隐藏                                                           |
+| dependsOn   | object   | 依赖条件                                                           |
+| inline      | boolean  | 是否行内布局                                                       |
+| flex        | number   | 行内布局的 flex 比例                                               |
 
 ### 示例：添加新的数据库类型
 

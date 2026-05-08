@@ -78,7 +78,7 @@ export async function getMetadataCacheStatus(
       connectionType,
       projectPath,
       databaseName,
-      schemaName
+      schemaName,
     })
 
     return { success: true, data, error: null }
@@ -86,7 +86,7 @@ export async function getMetadataCacheStatus(
     return {
       success: false,
       data: { is_valid: false, last_sync: null, stats: null },
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -100,7 +100,7 @@ export async function refreshMetadataCache(
     await invokeWithRetry<void>('refresh_metadata_cache', {
       connectionId,
       connectionType,
-      projectPath
+      projectPath,
     })
 
     return { success: true, data: undefined, error: null }
@@ -108,7 +108,7 @@ export async function refreshMetadataCache(
     return {
       success: false,
       data: undefined,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -122,7 +122,7 @@ export async function clearMetadataCache(
     await invokeWithRetry<void>('clear_metadata_cache', {
       connectionId,
       connectionType,
-      projectPath
+      projectPath,
     })
 
     return { success: true, data: undefined, error: null }
@@ -130,7 +130,7 @@ export async function clearMetadataCache(
     return {
       success: false,
       data: undefined,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -144,7 +144,7 @@ export async function getDatabasesFromCache(
     const data = await invokeWithRetry<any[]>('get_databases_from_cache', {
       connectionId,
       connectionType,
-      projectPath
+      projectPath,
     })
 
     return {
@@ -152,15 +152,15 @@ export async function getDatabasesFromCache(
       data: data.map(item => ({
         id: item.id,
         name: item.name,
-        last_sync: item.last_sync
+        last_sync: item.last_sync,
       })),
-      error: null
+      error: null,
     }
   } catch (error) {
     return {
       success: false,
       data: [],
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -178,7 +178,7 @@ export async function getTablesFromCache(
       connectionType,
       projectPath,
       databaseName,
-      schemaName
+      schemaName,
     })
 
     return {
@@ -187,15 +187,15 @@ export async function getTablesFromCache(
         id: item.id,
         name: item.name,
         comment: item.comment,
-        last_sync: item.last_sync
+        last_sync: item.last_sync,
       })),
-      error: null
+      error: null,
     }
   } catch (error) {
     return {
       success: false,
       data: [],
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }
@@ -215,7 +215,7 @@ export async function getColumnsFromCache(
       projectPath,
       databaseName,
       tableName,
-      schemaName
+      schemaName,
     })
 
     return {
@@ -227,15 +227,15 @@ export async function getColumnsFromCache(
         is_nullable: item.is_nullable,
         column_default: item.column_default,
         is_primary_key: item.is_primary_key,
-        last_sync: item.last_sync
+        last_sync: item.last_sync,
       })),
-      error: null
+      error: null,
     }
   } catch (error) {
     return {
       success: false,
       data: [],
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }

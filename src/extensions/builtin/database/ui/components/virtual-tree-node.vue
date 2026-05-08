@@ -5,7 +5,7 @@
       'is-expanded': node.isExpanded,
       'is-selected': isSelected,
       'is-loading': node.isLoading,
-      'is-favorite': isFavorite
+      'is-favorite': isFavorite,
     }"
     :style="{ paddingLeft: `${node.level * 16 + 8}px` }"
     @click="handleClick"
@@ -25,7 +25,11 @@
 
     <span class="node-label" :class="{ 'is-highlight': isHighlighted }">
       <template v-if="isHighlighted">
-        <span v-for="(part, index) in labelParts" :key="index" :class="{ 'highlight-match': part.isMatch }">
+        <span
+          v-for="(part, index) in labelParts"
+          :key="index"
+          :class="{ 'highlight-match': part.isMatch }"
+        >
           {{ part.text }}
         </span>
       </template>
@@ -37,8 +41,16 @@
     <span v-if="node.connectionStatus === 'connected'" class="status-dot connected" title="已连接">
       <span class="pulse-ring"></span>
     </span>
-    <span v-else-if="node.connectionStatus === 'connecting'" class="status-dot connecting" title="连接中"></span>
-    <span v-else-if="node.type === 'connection'" class="status-dot disconnected" title="未连接"></span>
+    <span
+      v-else-if="node.connectionStatus === 'connecting'"
+      class="status-dot connecting"
+      title="连接中"
+    ></span>
+    <span
+      v-else-if="node.type === 'connection'"
+      class="status-dot disconnected"
+      title="未连接"
+    ></span>
 
     <span v-if="node.connectionTags?.length" class="connection-tags">
       <span v-for="tag in node.connectionTags" :key="tag" class="tag">{{ tag }}</span>
@@ -63,14 +75,14 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   searchQuery: '',
-  favoriteKeys: () => new Set()
+  favoriteKeys: () => new Set(),
 })
 
 const emit = defineEmits<{
   expand: [node: VirtualTreeNode]
   select: [node: VirtualTreeNode]
   'context-menu': [node: VirtualTreeNode, event: MouseEvent]
-  'dblclick': [node: VirtualTreeNode]
+  dblclick: [node: VirtualTreeNode]
 }>()
 
 const iconConfig = computed(() => getNodeIcon(props.node.type))
@@ -85,20 +97,22 @@ const iconColor = computed(() => {
 const isFavorite = computed(() => props.favoriteKeys.has(props.node.key))
 
 const isHighlighted = computed(() => {
-  return props.searchQuery && props.node.label.toLowerCase().includes(props.searchQuery.toLowerCase())
+  return (
+    props.searchQuery && props.node.label.toLowerCase().includes(props.searchQuery.toLowerCase())
+  )
 })
 
 const labelParts = computed(() => {
   if (!props.searchQuery) return [{ text: props.node.label, isMatch: false }]
-  
+
   const label = props.node.label
   const query = props.searchQuery.toLowerCase()
   const labelLower = label.toLowerCase()
   const parts: Array<{ text: string; isMatch: boolean }> = []
-  
+
   let lastIndex = 0
   let index = labelLower.indexOf(query)
-  
+
   while (index !== -1) {
     if (index > lastIndex) {
       parts.push({ text: label.slice(lastIndex, index), isMatch: false })
@@ -107,11 +121,11 @@ const labelParts = computed(() => {
     lastIndex = index + query.length
     index = labelLower.indexOf(query, lastIndex)
   }
-  
+
   if (lastIndex < label.length) {
     parts.push({ text: label.slice(lastIndex), isMatch: false })
   }
-  
+
   return parts
 })
 
@@ -289,7 +303,8 @@ function handleContextMenu(event: MouseEvent) {
 }
 
 @keyframes blink {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

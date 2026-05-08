@@ -5,7 +5,7 @@
       <div class="section-header">
         <div class="header-left">
           <Shield :size="16" class="section-icon" />
-          <h4 class="section-title">SSH 隧道</h4>
+          <h4 class="section-title">{{ t('connection.advancedTab.sshTunnel') }}</h4>
         </div>
         <button
           type="button"
@@ -20,45 +20,49 @@
       <div v-if="enableSsh" class="section-content">
         <div class="form-row">
           <div class="form-section flex-2">
-            <label class="form-label">SSH 主机</label>
+            <label class="form-label">{{ t('connection.advancedTab.sshHost') }}</label>
             <input
               v-model="formData.sshHost"
               type="text"
               class="form-input"
-              placeholder="例如：192.168.1.100"
+              :placeholder="t('connection.advancedTab.sshHostPlaceholder')"
             />
           </div>
           <div class="form-section flex-1">
-            <label class="form-label">SSH 端口</label>
+            <label class="form-label">{{ t('connection.advancedTab.sshPort') }}</label>
             <input
               v-model.number="formData.sshPort"
               type="number"
               class="form-input"
-              placeholder="22"
+              :placeholder="t('connection.advancedTab.sshPortPlaceholder')"
             />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-section flex-1">
-            <label class="form-label">SSH 用户名</label>
+            <label class="form-label">{{ t('connection.advancedTab.sshUsername') }}</label>
             <input
               v-model="formData.sshUsername"
               type="text"
               class="form-input"
-              placeholder="例如：admin"
+              :placeholder="t('connection.advancedTab.sshUsernamePlaceholder')"
             />
           </div>
           <div class="form-section flex-1">
-            <label class="form-label">SSH 密码</label>
+            <label class="form-label">{{ t('connection.advancedTab.sshPassword') }}</label>
             <div class="password-wrapper">
               <input
                 v-model="formData.sshPassword"
                 :type="showSshPassword ? 'text' : 'password'"
                 class="form-input"
-                placeholder="输入密码"
+                :placeholder="t('connection.advancedTab.sshPasswordPlaceholder')"
               />
-              <button type="button" class="btn-toggle-password" @click="showSshPassword = !showSshPassword">
+              <button
+                type="button"
+                class="btn-toggle-password"
+                @click="showSshPassword = !showSshPassword"
+              >
                 <Eye v-if="!showSshPassword" :size="14" />
                 <EyeOff v-else :size="14" />
               </button>
@@ -67,13 +71,13 @@
         </div>
 
         <div class="form-section">
-          <label class="form-label">私钥路径（可选）</label>
+          <label class="form-label">{{ t('connection.advancedTab.sshKeyPath') }}</label>
           <div class="file-input-wrapper">
             <input
               v-model="formData.sshKeyPath"
               type="text"
               class="form-input"
-              placeholder="选择私钥文件"
+              :placeholder="t('connection.advancedTab.sshKeyPathPlaceholder')"
             />
             <button type="button" class="btn-file" @click="selectSshKeyFile">
               <FolderOpen :size="14" />
@@ -88,7 +92,7 @@
       <div class="section-header">
         <div class="header-left">
           <Lock :size="16" class="section-icon" />
-          <h4 class="section-title">SSL/TLS 加密</h4>
+          <h4 class="section-title">{{ t('connection.advancedTab.sslTls') }}</h4>
         </div>
         <button
           type="button"
@@ -102,23 +106,23 @@
 
       <div v-if="enableSsl" class="section-content">
         <div class="form-section">
-          <label class="form-label">SSL 模式</label>
+          <label class="form-label">{{ t('connection.advancedTab.sslMode') }}</label>
           <select v-model="formData.sslMode" class="form-select">
-            <option value="disable">禁用 SSL</option>
-            <option value="require">必须 SSL</option>
-            <option value="verify-ca">验证 CA</option>
-            <option value="verify-full">完全验证</option>
+            <option value="disable">{{ t('connection.advancedTab.sslDisable') }}</option>
+            <option value="require">{{ t('connection.advancedTab.sslRequire') }}</option>
+            <option value="verify-ca">{{ t('connection.advancedTab.sslVerifyCa') }}</option>
+            <option value="verify-full">{{ t('connection.advancedTab.sslVerifyFull') }}</option>
           </select>
         </div>
 
         <div class="form-section">
-          <label class="form-label">CA 证书</label>
+          <label class="form-label">{{ t('connection.advancedTab.sslCa') }}</label>
           <div class="file-input-wrapper">
             <input
               v-model="formData.sslCa"
               type="text"
               class="form-input"
-              placeholder="选择 CA 证书文件"
+              :placeholder="t('connection.advancedTab.sslCaPlaceholder')"
             />
             <button type="button" class="btn-file" @click="selectSslFile('ca')">
               <FolderOpen :size="14" />
@@ -128,13 +132,13 @@
 
         <div class="form-row">
           <div class="form-section flex-1">
-            <label class="form-label">客户端证书</label>
+            <label class="form-label">{{ t('connection.advancedTab.sslCert') }}</label>
             <div class="file-input-wrapper">
               <input
                 v-model="formData.sslCert"
                 type="text"
                 class="form-input"
-                placeholder="选择客户端证书"
+                :placeholder="t('connection.advancedTab.sslCertPlaceholder')"
               />
               <button type="button" class="btn-file" @click="selectSslFile('cert')">
                 <FolderOpen :size="14" />
@@ -142,13 +146,13 @@
             </div>
           </div>
           <div class="form-section flex-1">
-            <label class="form-label">客户端密钥</label>
+            <label class="form-label">{{ t('connection.advancedTab.sslKey') }}</label>
             <div class="file-input-wrapper">
               <input
                 v-model="formData.sslKey"
                 type="text"
                 class="form-input"
-                placeholder="选择客户端密钥"
+                :placeholder="t('connection.advancedTab.sslKeyPlaceholder')"
               />
               <button type="button" class="btn-file" @click="selectSslFile('key')">
                 <FolderOpen :size="14" />
@@ -164,6 +168,9 @@
 <script setup lang="ts">
 import { Shield, Lock, Eye, EyeOff, FolderOpen } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import type { DriverDescriptor, ConnectionConfig } from '../../types/connection'
 
@@ -186,7 +193,7 @@ const enableSsh = computed({
       emit('update:formData', {
         ...formData.value,
         authMethod: 'ssh',
-        sshPort: formData.value.sshPort || 22
+        sshPort: formData.value.sshPort || 22,
       })
     } else {
       emit('update:formData', {
@@ -196,10 +203,10 @@ const enableSsh = computed({
         sshPort: 22,
         sshUsername: '',
         sshPassword: '',
-        sshKeyPath: ''
+        sshKeyPath: '',
       })
     }
-  }
+  },
 })
 
 const enableSsl = computed({
@@ -207,9 +214,9 @@ const enableSsl = computed({
   set: (val: boolean) => {
     emit('update:formData', {
       ...formData.value,
-      sslMode: val ? 'require' : 'disable'
+      sslMode: val ? 'require' : 'disable',
     })
-  }
+  },
 })
 
 function selectSshKeyFile() {

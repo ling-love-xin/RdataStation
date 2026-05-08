@@ -3,7 +3,7 @@
     class="group-node"
     :class="{
       'is-expanded': group.expanded,
-      'is-selected': isSelected
+      'is-selected': isSelected,
     }"
     @click="handleClick"
     @contextmenu.prevent="handleContextMenu"
@@ -18,7 +18,7 @@
     </span>
 
     <span class="group-label">{{ group.name }}</span>
-    
+
     <span class="group-count">{{ group.connectionIds.length }}</span>
 
     <button class="group-actions" @click.stop="showActions = !showActions">

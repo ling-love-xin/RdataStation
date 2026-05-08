@@ -1,6 +1,6 @@
 /**
  * 性能监控工具
- * 
+ *
  * 用于监控数据库导航栏的性能指标
  */
 
@@ -20,7 +20,7 @@ export class PerformanceMonitor {
     nodeLoadTime: 0,
     renderTime: 0,
     requestCount: 0,
-    cacheHitRate: 0
+    cacheHitRate: 0,
   }
 
   private cacheHits = 0
@@ -107,7 +107,7 @@ export class PerformanceMonitor {
       nodeLoadTime: 0,
       renderTime: 0,
       requestCount: 0,
-      cacheHitRate: 0
+      cacheHitRate: 0,
     }
     this.cacheHits = 0
     this.cacheMisses = 0

@@ -1,6 +1,6 @@
 /**
  * 元数据缓存服务
- * 
+ *
  * 提供数据库元数据缓存的读取、刷新、保存等操作
  * 优先使用缓存，缓存失效时回退到实时查询
  */
@@ -86,7 +86,7 @@ export async function getMetadataCacheStatus(
     connectionType,
     projectPath,
     databaseName,
-    schemaName
+    schemaName,
   })
 }
 
@@ -106,8 +106,8 @@ export async function refreshMetadataCache(
       connectionType,
       projectPath,
       databaseName,
-      schemaName
-    }
+      schemaName,
+    },
   })
 }
 
@@ -127,8 +127,8 @@ export async function clearMetadataCache(
       connectionType,
       projectPath,
       databaseName,
-      schemaName
-    }
+      schemaName,
+    },
   })
 }
 
@@ -147,14 +147,14 @@ export async function getTablesFromCache(
     connectionType,
     projectPath,
     databaseName,
-    schemaName
+    schemaName,
   })
-  
+
   return result.map(item => ({
     id: item.id,
     name: item.name,
     comment: item.comment,
-    last_sync: item.last_sync
+    last_sync: item.last_sync,
   }))
 }
 
@@ -175,9 +175,9 @@ export async function getColumnsFromCache(
     projectPath,
     databaseName,
     schemaName,
-    tableName
+    tableName,
   })
-  
+
   return result.map(item => ({
     id: item.id,
     name: item.name,
@@ -186,7 +186,7 @@ export async function getColumnsFromCache(
     is_primary: item.is_primary,
     is_unique: item.is_unique,
     comment: item.comment,
-    last_sync: item.last_sync
+    last_sync: item.last_sync,
   }))
 }
 
@@ -211,7 +211,7 @@ export async function saveTableMetadataToCache(
     databaseName,
     schemaName,
     tableName,
-    comment
+    comment,
   })
 }
 
@@ -244,7 +244,7 @@ export async function saveColumnMetadataToCache(
     dataType,
     isNullable,
     isPrimary,
-    isUnique
+    isUnique,
   })
 }
 
@@ -265,7 +265,7 @@ export async function saveTablesBatchToCache(
     projectPath,
     databaseName,
     schemaName,
-    tables
+    tables,
   })
 }
 
@@ -288,13 +288,13 @@ export async function saveColumnsBatchToCache(
     databaseName,
     schemaName,
     tableName,
-    columns
+    columns,
   })
 }
 
 /**
  * 生成稳定的缓存 ID
- * 
+ *
  * 使用稳定的 ID 策略，避免每次生成新 ID 导致缓存积累
  * ID 格式：{connectionId}:{databaseName}:{schemaName}:{tableName}:{columnName}
  */
@@ -384,7 +384,7 @@ export async function getIndexEntries(
     objectType,
     schemaId,
     page,
-    pageSize
+    pageSize,
   })
 }
 
@@ -393,7 +393,7 @@ export async function getIndexEntries(
  */
 export async function getSyncStatus(connectionId: string): Promise<SyncStatusInfo | null> {
   return invoke<SyncStatusInfo | null>('get_sync_status', {
-    connectionId
+    connectionId,
   })
 }
 
@@ -402,7 +402,7 @@ export async function getSyncStatus(connectionId: string): Promise<SyncStatusInf
  */
 export async function cancelSync(connectionId: string): Promise<void> {
   return invoke('cancel_sync', {
-    connectionId
+    connectionId,
   })
 }
 
@@ -448,18 +448,16 @@ export async function enqueueSyncTask(
     taskType,
     objectName,
     parentName,
-    priority
+    priority,
   })
 }
 
 /**
  * 入队多个同步任务（批量）
  */
-export async function enqueueSyncTasksBatch(
-  tasks: SyncTaskInput[]
-): Promise<number> {
+export async function enqueueSyncTasksBatch(tasks: SyncTaskInput[]): Promise<number> {
   return invoke<number>('enqueue_sync_tasks_batch', {
-    tasks
+    tasks,
   })
 }
 
@@ -468,7 +466,7 @@ export async function enqueueSyncTasksBatch(
  */
 export async function getPendingTaskCount(connectionId: string): Promise<number> {
   return invoke<number>('get_pending_task_count', {
-    connectionId
+    connectionId,
   })
 }
 
@@ -498,7 +496,7 @@ export async function getTablesChunk(
     connectionId,
     schemaId,
     offset,
-    limit
+    limit,
   })
 }
 
@@ -527,8 +525,8 @@ export async function startCacheWarming(
       connectionId,
       connectionType,
       projectPath,
-      databases
-    }
+      databases,
+    },
   })
 }
 
@@ -538,8 +536,8 @@ export async function startCacheWarming(
 export async function cancelCacheWarming(connectionId: string): Promise<void> {
   return invoke('cancel_cache_warming', {
     input: {
-      connectionId
-    }
+      connectionId,
+    },
   })
 }
 
@@ -548,7 +546,7 @@ export async function cancelCacheWarming(connectionId: string): Promise<void> {
  */
 export async function getWarmingProgress(connectionId: string): Promise<WarmingProgressResponse> {
   return invoke<WarmingProgressResponse>('get_warming_progress', {
-    connectionId
+    connectionId,
   })
 }
 
@@ -563,7 +561,7 @@ export async function checkCacheVersion(
   return invoke<number>('check_cache_version', {
     connectionId,
     connectionType,
-    projectPath
+    projectPath,
   })
 }
 
@@ -578,7 +576,7 @@ export async function executeCacheMigration(
   return invoke<MigrationResponse>('execute_cache_migration', {
     connectionId,
     connectionType,
-    projectPath
+    projectPath,
   })
 }
 
@@ -589,18 +587,20 @@ export async function getCacheMigrationHistory(
   connectionId: string,
   connectionType: 'global' | 'project',
   projectPath?: string
-): Promise<Array<{
-  from_version: number
-  to_version: number
-  migrated_at: number
-  reason: string | null
-  duration_ms: number | null
-  success: boolean
-}>> {
+): Promise<
+  Array<{
+    from_version: number
+    to_version: number
+    migrated_at: number
+    reason: string | null
+    duration_ms: number | null
+    success: boolean
+  }>
+> {
   return invoke('get_cache_migration_history', {
     connectionId,
     connectionType,
-    projectPath
+    projectPath,
   })
 }
 
@@ -640,7 +640,7 @@ export async function getIntrospectLevelSuggestion(
     connectionType,
     projectPath,
     schemaId,
-    isCurrentSchema
+    isCurrentSchema,
   })
 }
 
@@ -657,6 +657,6 @@ export async function getSchemaObjectCounts(
     connectionId,
     connectionType,
     projectPath,
-    schemaId
+    schemaId,
   })
 }

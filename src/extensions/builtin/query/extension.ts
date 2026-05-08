@@ -13,12 +13,7 @@ import MultiTabResults from '../workbench/ui/components/panels/MultiTabResults.v
 import QueryResultPanel from '../workbench/ui/components/panels/QueryResultPanel.vue'
 import SqlEditorPanel from '../workbench/ui/components/panels/SqlEditorPanel.vue'
 
-import type {
-  ExtensionContext,
-  ExtensionAPI,
-  ExtensionModule,
-  Disposable,
-} from '../../core/types'
+import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
 interface QueryExtensionAPI extends ExtensionAPI {
   query: {
@@ -53,7 +48,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     })
 
     const result: QueryResult = {
-      columns: response.result.columns.map((c) => c.name),
+      columns: response.result.columns.map(c => c.name),
       rows: response.result.rows,
       rowCount: response.result.row_count,
       executionTime: response.elapsed_ms,
@@ -74,7 +69,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
 
   const getHistory = async (): Promise<QueryHistoryItem[]> => {
     const history: SqlHistoryResponse[] = await sqlApi.getSqlHistory(100)
-    return history.map((item) => ({
+    return history.map(item => ({
       id: item.id,
       sql: item.sql,
       connectionId: item.conn_id || '',
@@ -90,7 +85,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     title: 'SQL 编辑器',
     location: 'center',
     icon: 'Code',
-    order: 1
+    order: 1,
   })
 
   // 注册查询结果面板（单语句结果）
@@ -99,7 +94,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     title: '查询结果',
     location: 'bottom',
     icon: 'Table2',
-    order: 2
+    order: 2,
   })
 
   // 注册多 Tab 结果面板（多语句结果）
@@ -108,7 +103,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     title: '查询结果',
     location: 'bottom',
     icon: 'Table2',
-    order: 3
+    order: 3,
   })
 
   // 注册列洞察面板（右侧可选面板）
@@ -117,7 +112,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     title: '列洞察',
     location: 'right',
     icon: 'Eye',
-    order: 4
+    order: 4,
   })
 
   const disposables: Disposable[] = [
@@ -153,8 +148,8 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     },
 
     dispose: () => {
-      disposables.forEach((d) => d.dispose())
-      activeQueries.forEach((controller) => controller.abort())
+      disposables.forEach(d => d.dispose())
+      activeQueries.forEach(controller => controller.abort())
       activeQueries.clear()
     },
   }

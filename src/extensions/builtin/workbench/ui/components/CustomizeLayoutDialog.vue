@@ -19,7 +19,11 @@
               <span class="item-label">{{ t('workbench.leftSidebar') }}</span>
             </div>
             <div class="item-right">
-              <span class="item-hint">{{ layoutStore.leftEdgeGroupCollapsed ? t('workbench.collapsed') : t('workbench.expanded') }}</span>
+              <span class="item-hint">{{
+                layoutStore.leftEdgeGroupCollapsed
+                  ? t('workbench.collapsed')
+                  : t('workbench.expanded')
+              }}</span>
               <div class="checkbox" :class="{ checked: !layoutStore.leftEdgeGroupCollapsed }">
                 <Check v-if="!layoutStore.leftEdgeGroupCollapsed" :size="12" />
               </div>
@@ -32,7 +36,11 @@
               <span class="item-label">{{ t('workbench.rightSidebar') }}</span>
             </div>
             <div class="item-right">
-              <span class="item-hint">{{ layoutStore.rightEdgeGroupCollapsed ? t('workbench.collapsed') : t('workbench.expanded') }}</span>
+              <span class="item-hint">{{
+                layoutStore.rightEdgeGroupCollapsed
+                  ? t('workbench.collapsed')
+                  : t('workbench.expanded')
+              }}</span>
               <div class="checkbox" :class="{ checked: !layoutStore.rightEdgeGroupCollapsed }">
                 <Check v-if="!layoutStore.rightEdgeGroupCollapsed" :size="12" />
               </div>
@@ -108,17 +116,8 @@
 </template>
 
 <script setup lang="ts">
-import {
-  X,
-  Menu,
-  PanelLeft,
-  PanelRight,
-  Minus,
-  Check,
-  Maximize,
-  RotateCcw
-} from 'lucide-vue-next'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { X, Menu, PanelLeft, PanelRight, Minus, Check, Maximize, RotateCcw } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useLayoutStore } from '../stores/layout-store'

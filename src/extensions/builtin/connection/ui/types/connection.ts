@@ -2,7 +2,15 @@
  * 连接类型定义
  */
 
-import type { Connection, RecentConnection, ProjectConnection, CreateProjectConnectionInput, DriverConfig, DriverField, ConnectionFormData } from '../../types/connection'
+import type {
+  Connection,
+  RecentConnection,
+  ProjectConnection,
+  CreateProjectConnectionInput,
+  DriverConfig,
+  DriverField,
+  ConnectionFormData,
+} from '../../types/connection'
 import type { DriverOption, ConnectionMethodConfig } from '../../types/index'
 
 export type {
@@ -13,7 +21,7 @@ export type {
   DriverConfig,
   DriverField,
   DriverOption,
-  ConnectionFormData
+  ConnectionFormData,
 }
 
 // 连接状态
@@ -34,17 +42,17 @@ export interface ConnectionConfiguration {
   connectionMethod?: ConnectionMethodConfig
   connectionType?: 'global' | 'project'
   useDuckdbFed?: boolean
-  
+
   // 认证方式
   authMethod?: 'password' | 'trust' | 'ssh' | 'ssl'
-  
+
   // SSH 配置
   sshHost?: string
   sshPort?: number
   sshUsername?: string
   sshPassword?: string
   sshKeyPath?: string
-  
+
   // SSL 配置
   sslMode?: 'disable' | 'require' | 'verify-ca' | 'verify-full'
   sslCa?: string

@@ -5,7 +5,6 @@
  * 扩展按顺序激活，确保依赖关系正确
  */
 
-
 // 导入所有内置扩展
 import analyticsResourceExtension from '@/extensions/builtin/analytics-resource/extension'
 import connectionExtension from '@/extensions/builtin/connection/extension'

@@ -65,7 +65,10 @@
     <div class="title-bar-center">
       <!-- 搜索/命令面板 -->
       <div class="command-center">
-        <button class="command-btn" :title="t('workbench.search') + ' (' + t('workbench.searchShortcut') + ')'">
+        <button
+          class="command-btn"
+          :title="t('workbench.search') + ' (' + t('workbench.searchShortcut') + ')'"
+        >
           <Search :size="14" />
           <span class="command-text">{{ t('workbench.search') }}</span>
           <span class="shortcut">{{ t('workbench.searchShortcut') }}</span>
@@ -76,11 +79,7 @@
     <div class="title-bar-right">
       <!-- 自定义工具栏按钮 (三点菜单) -->
       <div class="custom-toolbar-section">
-        <button
-          class="more-btn"
-          title="自定义工具栏"
-          @click="toggleCustomToolbar"
-        >
+        <button class="more-btn" title="自定义工具栏" @click="toggleCustomToolbar">
           <MoreHorizontal :size="16" />
         </button>
 
@@ -89,16 +88,8 @@
           <div class="dropdown-header">{{ t('workbench.customizeToolbar') }}</div>
           <div class="dropdown-divider" />
           <div class="toolbar-options">
-            <label
-              v-for="tool in availableTools"
-              :key="tool.id"
-              class="toolbar-option"
-            >
-              <input
-                v-model="tool.enabled"
-                type="checkbox"
-                @change="saveToolbarConfig"
-              >
+            <label v-for="tool in availableTools" :key="tool.id" class="toolbar-option">
+              <input v-model="tool.enabled" type="checkbox" @change="saveToolbarConfig" />
               <component :is="tool.icon" :size="14" />
               <span>{{ tool.name }}</span>
             </label>
@@ -123,7 +114,11 @@
 
       <!-- 布局控制按钮 -->
       <div class="layout-controls">
-        <button class="layout-btn" :title="t('workbench.customizeLayout')" @click="toggleCustomizeLayout">
+        <button
+          class="layout-btn"
+          :title="t('workbench.customizeLayout')"
+          @click="toggleCustomizeLayout"
+        >
           <LayoutTemplate :size="14" />
         </button>
         <button class="layout-btn" :title="t('workbench.maximize')">
@@ -133,10 +128,18 @@
 
       <!-- 窗口控制按钮 -->
       <div class="window-controls">
-        <button class="window-btn minimize" :title="t('workbench.minimize')" @click="$emit('minimize')">
+        <button
+          class="window-btn minimize"
+          :title="t('workbench.minimize')"
+          @click="$emit('minimize')"
+        >
           <Minus :size="14" />
         </button>
-        <button class="window-btn maximize" :title="t('workbench.maximize')" @click="$emit('maximize')">
+        <button
+          class="window-btn maximize"
+          :title="t('workbench.maximize')"
+          @click="$emit('maximize')"
+        >
           <Square v-if="!isMaximized" :size="12" />
           <Copy v-else :size="12" />
         </button>
@@ -203,7 +206,9 @@
             </div>
           </div>
           <footer class="modal-footer">
-            <button class="btn-secondary" @click="closeNewProjectModal">{{ t('common.cancel') }}</button>
+            <button class="btn-secondary" @click="closeNewProjectModal">{{
+              t('common.cancel')
+            }}</button>
             <button
               class="btn-primary"
               :disabled="!canCreateProject || isCreating"
@@ -221,10 +226,28 @@
 
 <script setup lang="ts">
 import {
-  Menu, Database, ChevronDown, Plus, FolderOpen, Search,
-  MoreHorizontal, RotateCcw, Sun, Moon, LayoutTemplate, PanelTop,
-  Minus, Square, X, Copy, Settings, History, BookOpen, Keyboard,
-  Terminal, Zap
+  Menu,
+  Database,
+  ChevronDown,
+  Plus,
+  FolderOpen,
+  Search,
+  MoreHorizontal,
+  RotateCcw,
+  Sun,
+  Moon,
+  LayoutTemplate,
+  PanelTop,
+  Minus,
+  Square,
+  X,
+  Copy,
+  Settings,
+  History,
+  BookOpen,
+  Keyboard,
+  Terminal,
+  Zap,
 } from 'lucide-vue-next'
 import { ref, computed, markRaw, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -239,7 +262,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isMaximized: false
+  isMaximized: false,
 })
 
 const emit = defineEmits<{
@@ -259,7 +282,9 @@ const showMenuBar = ref(false)
 
 // 项目菜单状态
 const showProjectMenu = ref(false)
-const currentProject = computed(() => projectStore.currentProject?.name || t('workbench.defaultProject'))
+const currentProject = computed(
+  () => projectStore.currentProject?.name || t('workbench.defaultProject')
+)
 
 // 最近项目列表（从 ProjectStore 获取）
 const recentProjects = computed(() => projectStore.recentProjects)
@@ -269,12 +294,48 @@ const showCustomToolbar = ref(false)
 
 // 可用工具列表
 const availableTools = ref([
-  { id: 'settings', name: t('workbench.settings'), icon: markRaw(Settings), enabled: false, action: () => console.log('open settings') },
-  { id: 'history', name: t('workbench.history'), icon: markRaw(History), enabled: false, action: () => console.log('open history') },
-  { id: 'docs', name: t('workbench.docs'), icon: markRaw(BookOpen), enabled: false, action: () => console.log('open docs') },
-  { id: 'shortcuts', name: t('workbench.shortcuts'), icon: markRaw(Keyboard), enabled: false, action: () => console.log('open shortcuts') },
-  { id: 'terminal', name: t('workbench.terminal'), icon: markRaw(Terminal), enabled: false, action: () => console.log('open terminal') },
-  { id: 'quick', name: t('workbench.quickActions'), icon: markRaw(Zap), enabled: false, action: () => console.log('quick actions') },
+  {
+    id: 'settings',
+    name: t('workbench.settings'),
+    icon: markRaw(Settings),
+    enabled: false,
+    action: () => console.log('open settings'),
+  },
+  {
+    id: 'history',
+    name: t('workbench.history'),
+    icon: markRaw(History),
+    enabled: false,
+    action: () => console.log('open history'),
+  },
+  {
+    id: 'docs',
+    name: t('workbench.docs'),
+    icon: markRaw(BookOpen),
+    enabled: false,
+    action: () => console.log('open docs'),
+  },
+  {
+    id: 'shortcuts',
+    name: t('workbench.shortcuts'),
+    icon: markRaw(Keyboard),
+    enabled: false,
+    action: () => console.log('open shortcuts'),
+  },
+  {
+    id: 'terminal',
+    name: t('workbench.terminal'),
+    icon: markRaw(Terminal),
+    enabled: false,
+    action: () => console.log('open terminal'),
+  },
+  {
+    id: 'quick',
+    name: t('workbench.quickActions'),
+    icon: markRaw(Zap),
+    enabled: false,
+    action: () => console.log('quick actions'),
+  },
 ])
 
 // 启用的工具
@@ -336,7 +397,7 @@ const browseProjectPath = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: t('workbench.selectProjectPath')
+      title: t('workbench.selectProjectPath'),
     })
 
     if (selected && typeof selected === 'string') {
@@ -354,7 +415,7 @@ const confirmCreateProject = async () => {
   console.log('[WorkbenchTitleBar] 项目路径:', newProjectPath.value)
   console.log('[WorkbenchTitleBar] 项目描述:', newProjectDescription.value)
   console.log('[WorkbenchTitleBar] canCreateProject:', canCreateProject.value)
-  
+
   if (!canCreateProject.value) {
     console.warn('[WorkbenchTitleBar] 项目创建条件不满足')
     return
@@ -394,7 +455,7 @@ const openProject = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: t('workbench.selectProjectFolder')
+      title: t('workbench.selectProjectFolder'),
     })
 
     if (selected && typeof selected === 'string') {
@@ -419,12 +480,15 @@ const toggleCustomizeLayout = () => {
 
 // 保存工具栏配置
 const saveToolbarConfig = () => {
-  localStorage.setItem('customToolbar', JSON.stringify(availableTools.value.map(t => ({ id: t.id, enabled: t.enabled }))))
+  localStorage.setItem(
+    'customToolbar',
+    JSON.stringify(availableTools.value.map(t => ({ id: t.id, enabled: t.enabled })))
+  )
 }
 
 // 重置工具栏
 const resetToolbar = () => {
-  availableTools.value.forEach(t => t.enabled = false)
+  availableTools.value.forEach(t => (t.enabled = false))
   saveToolbarConfig()
   showCustomToolbar.value = false
 }
@@ -446,7 +510,7 @@ const loadToolbarConfig = () => {
 // 暴露给父组件
 defineExpose({
   enabledTools,
-  loadToolbarConfig
+  loadToolbarConfig,
 })
 
 // 生命周期
@@ -753,7 +817,7 @@ onMounted(async () => {
   color: var(--text-primary);
 }
 
-.toolbar-option input[type="checkbox"] {
+.toolbar-option input[type='checkbox'] {
   width: 14px;
   height: 14px;
   accent-color: var(--primary-color);
@@ -916,7 +980,7 @@ onMounted(async () => {
 }
 
 .form-label .required {
-  color: var(--danger-color, #F53F3F);
+  color: var(--danger-color, #f53f3f);
   margin-left: 4px;
 }
 
@@ -934,7 +998,7 @@ onMounted(async () => {
 
 .form-input:focus {
   outline: none;
-  border-color: var(--primary-color, #165DFF);
+  border-color: var(--primary-color, #165dff);
   box-shadow: 0 0 0 3px var(--primary-light, rgba(22, 93, 255, 0.1));
 }
 
@@ -998,7 +1062,7 @@ onMounted(async () => {
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
-  background: var(--primary-color, #165DFF);
+  background: var(--primary-color, #165dff);
   color: white;
   font-size: 14px;
   font-weight: 500;
@@ -1007,7 +1071,7 @@ onMounted(async () => {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-dark, #0E42D2);
+  background: var(--primary-dark, #0e42d2);
 }
 
 .btn-primary:disabled {

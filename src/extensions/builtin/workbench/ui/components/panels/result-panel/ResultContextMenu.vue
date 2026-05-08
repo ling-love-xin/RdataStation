@@ -14,22 +14,43 @@
         <div class="menu-item" @click.stop="emit('action', { action: 'copyRow', value, column })">
           <ClipboardList :size="12" /><span>{{ t('resultPanel.copyRow') }}</span>
         </div>
-        <div class="menu-item" @click.stop="emit('action', { action: 'copyRowJson', value, column })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'copyRowJson', value, column })"
+        >
           <FileJson :size="12" /><span>{{ t('resultPanel.copyJson') }}</span>
         </div>
-        <div class="menu-item" @click.stop="emit('action', { action: 'copyRowInsert', value, column })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'copyRowInsert', value, column })"
+        >
           <FileCode :size="12" /><span>{{ t('resultPanel.copyInsert') }}</span>
         </div>
         <div class="menu-divider" />
-        <div class="menu-item" @click.stop="emit('action', { action: 'filterByValue', value, column })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'filterByValue', value, column })"
+        >
           <Filter :size="12" /><span>{{ t('resultPanel.filterByValueQuick') }}</span>
         </div>
-        <div class="menu-item" @click.stop="emit('action', { action: 'sqlFilterByValue', value, column })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'sqlFilterByValue', value, column })"
+        >
           <Database :size="12" /><span>{{ t('resultPanel.filterByValueSql') }}</span>
         </div>
         <div class="menu-divider" />
-        <div class="menu-item" @click.stop="emit('action', { action: 'openColumnInsights', value, column })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'openColumnInsights', value, column })"
+        >
           <BarChart3 :size="12" /><span>{{ t('resultPanel.columnInsight') }}</span>
+        </div>
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'openColumnVisualization', value, column })"
+        >
+          <PieChart :size="12" /><span>{{ t('resultPanel.openVisualization') }}</span>
         </div>
       </div>
 
@@ -41,10 +62,16 @@
           <ArrowDown :size="12" /><span>{{ t('resultPanel.sortDesc') }}</span>
         </div>
         <div class="menu-divider" />
-        <div class="menu-item" @click.stop="emit('action', { action: 'sendSortToSql', column, sortDir })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'sendSortToSql', column, sortDir })"
+        >
           <Database :size="12" /><span>{{ t('resultPanel.sendSortToSql') }}</span>
         </div>
-        <div class="menu-item" @click.stop="emit('action', { action: 'sendSortToDuckdb', column, sortDir })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'sendSortToDuckdb', column, sortDir })"
+        >
           <Brain :size="12" /><span>{{ t('resultPanel.sendSortToDuckdb') }}</span>
         </div>
         <div class="menu-divider" />
@@ -61,7 +88,10 @@
         <div class="menu-item" @click.stop="emit('action', { action: 'columnSummary', column })">
           <Calculator :size="12" /><span>{{ t('resultPanel.columnSummary') }}</span>
         </div>
-        <div class="menu-item" @click.stop="emit('action', { action: 'openColumnInsights', column })">
+        <div
+          class="menu-item"
+          @click.stop="emit('action', { action: 'openColumnInsights', column })"
+        >
           <BarChart3 :size="12" /><span>{{ t('resultPanel.columnInsightPanel') }}</span>
         </div>
       </div>
@@ -71,8 +101,20 @@
 
 <script setup lang="ts">
 import {
-  Copy, ClipboardList, FileJson, FileCode, Filter, Database,
-  BarChart3, ArrowUp, ArrowDown, EyeOff, Maximize2, Calculator, Brain
+  Copy,
+  ClipboardList,
+  FileJson,
+  FileCode,
+  Filter,
+  Database,
+  BarChart3,
+  PieChart,
+  ArrowUp,
+  ArrowDown,
+  EyeOff,
+  Maximize2,
+  Calculator,
+  Brain,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -93,7 +135,9 @@ const emit = defineEmits<{
   close: []
 }>()
 
-function close() { emit('close') }
+function close() {
+  emit('close')
+}
 </script>
 
 <style scoped>
@@ -104,11 +148,12 @@ function close() { emit('close') }
   background: var(--bg-primary, #2d2d30);
   border: 1px solid var(--border-color, #3e3e42);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   padding: 4px 0;
   font-size: 12px;
 }
-.menu-group {}
+.menu-group {
+}
 .menu-item {
   display: flex;
   align-items: center;
@@ -118,6 +163,13 @@ function close() { emit('close') }
   color: var(--text-primary, #ccc);
   transition: background 0.1s;
 }
-.menu-item:hover { background: var(--primary-color, #0078d4); color: #fff; }
-.menu-divider { height: 1px; background: var(--border-color, #3e3e42); margin: 4px 0; }
+.menu-item:hover {
+  background: var(--primary-color, #0078d4);
+  color: #fff;
+}
+.menu-divider {
+  height: 1px;
+  background: var(--border-color, #3e3e42);
+  margin: 4px 0;
+}
 </style>

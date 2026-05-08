@@ -116,20 +116,20 @@ const columnColumns = [
   { title: t('workbench.dataType'), key: 'dataType', width: 120 },
   { title: t('workbench.nullable'), key: 'nullable', width: 60 },
   { title: t('workbench.defaultValue'), key: 'defaultValue', width: 120 },
-  { title: t('workbench.comment'), key: 'comment', ellipsis: { tooltip: true } }
+  { title: t('workbench.comment'), key: 'comment', ellipsis: { tooltip: true } },
 ]
 
 const indexColumns = [
   { title: t('workbench.indexName'), key: 'name', width: 150 },
   { title: t('workbench.indexType'), key: 'type', width: 100 },
   { title: t('workbench.indexColumns'), key: 'columns', ellipsis: { tooltip: true } },
-  { title: t('workbench.unique'), key: 'unique', width: 60 }
+  { title: t('workbench.unique'), key: 'unique', width: 60 },
 ]
 
 const constraintColumns = [
   { title: t('workbench.constraintName'), key: 'name', width: 150 },
   { title: t('workbench.constraintType'), key: 'type', width: 100 },
-  { title: t('workbench.constraintColumns'), key: 'columns', ellipsis: { tooltip: true } }
+  { title: t('workbench.constraintColumns'), key: 'columns', ellipsis: { tooltip: true } },
 ]
 
 // 加载表结构
@@ -137,7 +137,7 @@ async function loadTableStructure() {
   loading.value = true
   try {
     const schema = props.schemaName || 'public'
-    
+
     // 获取列信息
     const columnNodes = await navigatorApi.getColumns(
       props.connectionId,
@@ -145,15 +145,15 @@ async function loadTableStructure() {
       schema,
       props.tableName
     )
-    
+
     columns.value = columnNodes.map(col => ({
       name: col.name,
       dataType: col.metadata?.dataType || 'unknown',
       nullable: col.metadata?.nullable ? t('workbench.yes') : t('workbench.no'),
       defaultValue: col.metadata?.defaultValue || '',
-      comment: col.metadata?.comment || ''
+      comment: col.metadata?.comment || '',
     }))
-    
+
     // 生成 DDL
     generateDDL()
   } catch (error) {
@@ -165,13 +165,15 @@ async function loadTableStructure() {
 
 // 生成 DDL
 function generateDDL() {
-  const columnDefs = columns.value.map(col => {
-    let def = `  ${col.name} ${col.dataType}`
-    if (!col.nullable) def += ' NOT NULL'
-    if (col.defaultValue) def += ` DEFAULT ${col.defaultValue}`
-    return def
-  }).join(',\n')
-  
+  const columnDefs = columns.value
+    .map(col => {
+      let def = `  ${col.name} ${col.dataType}`
+      if (!col.nullable) def += ' NOT NULL'
+      if (col.defaultValue) def += ` DEFAULT ${col.defaultValue}`
+      return def
+    })
+    .join(',\n')
+
   ddl.value = `CREATE TABLE ${props.tableName} (\n${columnDefs}\n);`
 }
 

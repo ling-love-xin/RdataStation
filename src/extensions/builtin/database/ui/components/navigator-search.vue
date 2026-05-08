@@ -7,7 +7,7 @@
         :value="query"
         type="text"
         class="search-input"
-        placeholder="搜索表名..."
+        :placeholder="t('search.placeholder')"
         @input="$emit('update:query', ($event.target as HTMLInputElement).value)"
         @keydown.esc="$emit('clear')"
         @keydown.enter="handleEnter"
@@ -33,7 +33,7 @@
       </div>
     </div>
     <div v-if="query && searchResults.length === 0 && searched" class="search-empty">
-      未找到匹配的表
+      {{ t('search.noResults') }}
     </div>
   </div>
 </template>
@@ -41,6 +41,9 @@
 <script setup lang="ts">
 import { X, Search, Table } from 'lucide-vue-next'
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface SearchResult {
   nodeKey: string
@@ -69,22 +72,25 @@ const searched = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-watch(() => props.query, (newQuery) => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
+watch(
+  () => props.query,
+  newQuery => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+    }
+
+    if (!newQuery || newQuery.trim().length === 0) {
+      searchResults.value = []
+      searched.value = false
+      return
+    }
+
+    debounceTimer = setTimeout(() => {
+      searched.value = true
+      activeIndex.value = 0
+    }, 300)
   }
-  
-  if (!newQuery || newQuery.trim().length === 0) {
-    searchResults.value = []
-    searched.value = false
-    return
-  }
-  
-  debounceTimer = setTimeout(() => {
-    searched.value = true
-    activeIndex.value = 0
-  }, 300)
-})
+)
 
 function handleEnter() {
   if (searchResults.value.length > 0 && activeIndex.value >= 0) {
@@ -103,7 +109,7 @@ defineExpose({
     searchResults.value = results
     searched.value = true
     activeIndex.value = 0
-  }
+  },
 })
 </script>
 

@@ -1,13 +1,21 @@
 pub mod rule_types;
 pub mod rule_registry;
 pub mod rule_executor;
+pub mod schema_analyzer;
 
 use include_dir::{include_dir, Dir};
 use std::sync::{OnceLock, RwLock};
 
-pub use rule_types::{RuleFile, RuleMeta, RuleQuery, OutputField, QualityRule, RenderHint};
+pub use rule_types::{
+    ExecutionResult, OutputField, QualityCheck, QualityReport, QualityRule,
+    RenderHint, RuleFile, RuleMeta, RuleQuery,
+};
 pub use rule_registry::{RuleRegistry, get_project_rules_dir};
 pub use rule_executor::RuleExecutor;
+pub use schema_analyzer::{
+    SchemaAnalyzer, SchemaInsightReport, ForeignKeyCandidate, TypeMismatch,
+    TypeMismatchEntry, OrphanTable, RedundantColumn, TableColumnInfo,
+};
 
 pub const BUILTIN_RULES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/insight-rules");
 

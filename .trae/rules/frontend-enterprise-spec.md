@@ -1,11 +1,12 @@
 ---
-name: "frontend-enterprise-spec"
-description: "RdataStation 企业级前端一体化规范，包含目录结构、布局设计、UI主题、组件规范、TS规范、Tauri桌面客户端规则、数据库工作台交互规范。Invoke when developing frontend components, layouts, or UI features for the RdataStation desktop database tool."
+name: 'frontend-enterprise-spec'
+description: 'RdataStation 企业级前端一体化规范，包含目录结构、布局设计、UI主题、组件规范、TS规范、Tauri桌面客户端规则、数据库工作台交互规范。Invoke when developing frontend components, layouts, or UI features for the RdataStation desktop database tool.'
 ---
 
 # RdataStation 企业级前端一体化规范
 
 ## 定位
+
 适用于 **Tauri + Vue3 + TS + dockview-vue + Monaco** 桌面数据库工具
 目标：专业、统一、无割裂、可长期维护、可团队协作
 
@@ -72,6 +73,7 @@ src/
 ```
 
 **说明**：
+
 - 扩展架构将功能模块化，每个扩展独立管理自己的 UI 逻辑
 - `extensions/builtin/` 包含内置扩展（数据库、连接、工作台）
 - `shared/` 包含跨扩展共享的模块
@@ -119,6 +121,7 @@ A* = 收起态下 Left Edge Group 仅 48px Activity Bar 窄条
 ```
 
 **核心原则：**
+
 - 收起态（默认）：`B : C : D = 1 : 2 : 1`，A 为 48px Activity Bar 窄条
 - 展开态：`A : B : C : D = 1 : 1 : 1 : 1`，四区等宽
 - 切换方式：点击左侧 Activity Bar 底部的展开/收起按钮
@@ -129,15 +132,15 @@ A* = 收起态下 Left Edge Group 仅 48px Activity Bar 窄条
 
 ## 2.2 布局区域职责
 
-| 区域 | 代号 | 技术 | 收起态宽度 | 展开态宽度 | 说明 |
-|------|------|------|-----------|-----------|------|
-| Menu Bar | - | 自定义 | 36px | 36px | 标题栏+菜单，非 dockview |
-| Left Edge Group | A | dockview Edge Group | 48px | 25% | 含 ActivityBar 面板 + analytics/plugins 面板 |
-| ActivityBar | A | dockview 面板 | 48px(收起) | 25%(展开) | 左侧 Edge Group 内 panel_leftActivityBar |
-| Database Navigator | B | dockview Normal Grp | 25%* | 25% | 独立 Normal Group，非 Edge |
-| Center Area | C | dockview Normal Grp | 50%* | 25% | Welcome Page、SQL Editor、Result |
-| Right Edge Group | D | dockview Edge Grp | 25%* | 25% | 列洞察、SQL 历史，始终展开 |
-| Status Bar | - | 自定义 | 22px | 22px | 状态信息+⚙ 设置入口，非 dockview |
+| 区域               | 代号 | 技术                | 收起态宽度 | 展开态宽度 | 说明                                         |
+| ------------------ | ---- | ------------------- | ---------- | ---------- | -------------------------------------------- |
+| Menu Bar           | -    | 自定义              | 36px       | 36px       | 标题栏+菜单，非 dockview                     |
+| Left Edge Group    | A    | dockview Edge Group | 48px       | 25%        | 含 ActivityBar 面板 + analytics/plugins 面板 |
+| ActivityBar        | A    | dockview 面板       | 48px(收起) | 25%(展开)  | 左侧 Edge Group 内 panel_leftActivityBar     |
+| Database Navigator | B    | dockview Normal Grp | 25%\*      | 25%        | 独立 Normal Group，非 Edge                   |
+| Center Area        | C    | dockview Normal Grp | 50%\*      | 25%        | Welcome Page、SQL Editor、Result             |
+| Right Edge Group   | D    | dockview Edge Grp   | 25%\*      | 25%        | 列洞察、SQL 历史，始终展开                   |
+| Status Bar         | -    | 自定义              | 22px       | 22px       | 状态信息+⚙ 设置入口，非 dockview             |
 
 \* 收起态比例 B:C:D = 1:2:1 为 dockview 内扣除左侧 Edge Group 48px 后的剩余宽度比例
 
@@ -183,26 +186,28 @@ A* = 收起态下 Left Edge Group 仅 48px Activity Bar 窄条
 
 每个面板 tab 头部右侧包含三个操作按钮：
 
-| 按钮 | 图标 | 未激活状态 | 激活状态 | 功能 |
-|------|------|-----------|---------|------|
-| 最大化 | Maximize2 / Minimize2 | 普通 | 切换为还原图标 | 调用 `group.api.maximize()` / `group.api.exitMaximized()` |
-| 浮动 | ExternalLink / ArrowLeftToLine | 普通 | 切换图标 | `api.addFloatingGroup(group)` / `api.moveTo({ position: 'center' })` |
-| 钉住 | Pin / PinOff | 普通 | 主题色高亮 | 切换 `layoutStore.togglePanelPinned(panelId)` |
+| 按钮   | 图标                           | 未激活状态 | 激活状态       | 功能                                                                 |
+| ------ | ------------------------------ | ---------- | -------------- | -------------------------------------------------------------------- |
+| 最大化 | Maximize2 / Minimize2          | 普通       | 切换为还原图标 | 调用 `group.api.maximize()` / `group.api.exitMaximized()`            |
+| 浮动   | ExternalLink / ArrowLeftToLine | 普通       | 切换图标       | `api.addFloatingGroup(group)` / `api.moveTo({ position: 'center' })` |
+| 钉住   | Pin / PinOff                   | 普通       | 主题色高亮     | 切换 `layoutStore.togglePanelPinned(panelId)`                        |
 
 钉住规则：
+
 - 被钉住的面板在右键菜单中不显示关闭相关选项
 - 被钉住的面板关闭时自动恢复
 - 钉住状态存储在 `layoutStore.pinnedPanelIds` Set 中
 
 ## 2.7 设置页面（CustomizeLayoutDialog + SettingsPanel）
 
-| 组件 | 触发方式 | 用途 |
-|------|---------|------|
-| CustomizeLayoutDialog | 状态栏 ⚙ 齿轮图标 或 快捷键 | VSCode 风格弹窗设置 |
-| SettingsPanel | 左侧面板入口（dockview panel） | 完整设置面板（布局比例、预设等） |
-| CustomizeLayout | 左侧面板入口（dockview panel） | 面板管理面板（可见性、尺寸、位置） |
+| 组件                  | 触发方式                       | 用途                               |
+| --------------------- | ------------------------------ | ---------------------------------- |
+| CustomizeLayoutDialog | 状态栏 ⚙ 齿轮图标 或 快捷键    | VSCode 风格弹窗设置                |
+| SettingsPanel         | 左侧面板入口（dockview panel） | 完整设置面板（布局比例、预设等）   |
+| CustomizeLayout       | 左侧面板入口（dockview panel） | 面板管理面板（可见性、尺寸、位置） |
 
 CustomizeLayoutDialog 功能：
+
 - 侧边栏：左侧/右侧 Edge Group 展开/收起（使用 dockview 内置 API）
 - 界面元素：菜单栏、状态栏可见性切换
 - 窗口：全屏（F11）
@@ -225,23 +230,23 @@ CustomizeLayoutDialog 功能：
 ```css
 :root {
   /* 背景 3 级分层 */
-  --bg-primary: #ffffff;      /* 主背景 */
-  --bg-secondary: #f5f5f5;    /* 次级背景 */
-  --bg-tertiary: #e8e8e8;     /* 第三级背景 */
-  
+  --bg-primary: #ffffff; /* 主背景 */
+  --bg-secondary: #f5f5f5; /* 次级背景 */
+  --bg-tertiary: #e8e8e8; /* 第三级背景 */
+
   /* 文字 3 级梯度 */
-  --text-primary: #333333;    /* 主文字 */
-  --text-secondary: #666666;  /* 次级文字 */
-  --text-tertiary: #999999;   /* 辅助文字 */
-  
+  --text-primary: #333333; /* 主文字 */
+  --text-secondary: #666666; /* 次级文字 */
+  --text-tertiary: #999999; /* 辅助文字 */
+
   /* 边框/分割线 */
   --border-color: #d9d9d9;
-  
+
   /* 功能色 */
-  --primary-color: #165DFF;
-  --success-color: #00B42A;
-  --warning-color: #FF7D00;
-  --danger-color: #F53F3F;
+  --primary-color: #165dff;
+  --success-color: #00b42a;
+  --warning-color: #ff7d00;
+  --danger-color: #f53f3f;
 }
 
 .dark {
@@ -252,7 +257,7 @@ CustomizeLayoutDialog 功能：
   --text-secondary: #858585;
   --text-tertiary: #666666;
   --border-color: #3e3e42;
-  --primary-color: #165DFF;
+  --primary-color: #165dff;
 }
 ```
 
@@ -271,13 +276,13 @@ CustomizeLayoutDialog 功能：
 
 ## 3.5 组件规范
 
-| 组件 | 规范 |
-|------|------|
-| 按钮 | 32px 高度，圆角 4px |
-| 输入框 | 32px 高度 |
-| 表格 | 行高 36px |
-| 标签页 | 紧凑统一 |
-| 图标 | 线性、2px 线条、16/20/24px |
+| 组件   | 规范                       |
+| ------ | -------------------------- |
+| 按钮   | 32px 高度，圆角 4px        |
+| 输入框 | 32px 高度                  |
+| 表格   | 行高 36px                  |
+| 标签页 | 紧凑统一                   |
+| 图标   | 线性、2px 线条、16/20/24px |
 
 ## 3.6 无割裂原则
 
@@ -375,14 +380,14 @@ defineEmits<{
 
 # 7. 业务分层规范（核心架构）
 
-| 层级 | 职责 | 位置 |
-|------|------|------|
-| 页面 | 只做展示 | `views/` 或 `extensions/*/ui/components/` |
-| 逻辑 | 业务 hooks | `composables/` 或 `extensions/*/ui/composables/` |
-| 状态 | Pinia stores | `stores/` 或 `extensions/*/ui/stores/` |
-| 请求 | API 层 | `api/` 或 `extensions/*/ui/api/` |
-| 工具 | 工具函数 | `utils/` 或 `extensions/*/ui/utils/` |
-| UI | 组件 | `components/` 或 `extensions/*/ui/components/` |
+| 层级 | 职责         | 位置                                             |
+| ---- | ------------ | ------------------------------------------------ |
+| 页面 | 只做展示     | `views/` 或 `extensions/*/ui/components/`        |
+| 逻辑 | 业务 hooks   | `composables/` 或 `extensions/*/ui/composables/` |
+| 状态 | Pinia stores | `stores/` 或 `extensions/*/ui/stores/`           |
+| 请求 | API 层       | `api/` 或 `extensions/*/ui/api/`                 |
+| 工具 | 工具函数     | `utils/` 或 `extensions/*/ui/utils/`             |
+| UI   | 组件         | `components/` 或 `extensions/*/ui/components/`   |
 
 **禁止在页面写请求，禁止在组件写复杂业务。**
 
@@ -433,15 +438,15 @@ defineEmits<{
 
 # 9. 命名规范
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| 文件 | kebab-case | `sql-editor.vue` |
-| 组件 | base-xxx.vue | `base-button.vue` |
-| hooks | use-xxx.ts | `use-sql.ts` |
-| 页面 | index.vue | `index.vue` |
-| 变量 | camelCase | `currentTab` |
-| 常量 | UPPER_SNAKE_CASE | `MAX_RETRY` |
-| 路由 | kebab-case | `/sql-editor` |
+| 类型  | 规范             | 示例              |
+| ----- | ---------------- | ----------------- |
+| 文件  | kebab-case       | `sql-editor.vue`  |
+| 组件  | base-xxx.vue     | `base-button.vue` |
+| hooks | use-xxx.ts       | `use-sql.ts`      |
+| 页面  | index.vue        | `index.vue`       |
+| 变量  | camelCase        | `currentTab`      |
+| 常量  | UPPER_SNAKE_CASE | `MAX_RETRY`       |
+| 路由  | kebab-case       | `/sql-editor`     |
 
 ---
 
@@ -494,19 +499,19 @@ import { ref, computed } from 'vue'
 
 export function useXxx() {
   const state = ref('')
-  
+
   const computedValue = computed(() => {
     return state.value
   })
-  
+
   function action() {
     // 动作
   }
-  
+
   return {
     state,
     computedValue,
-    action
+    action,
   }
 }
 ```
@@ -520,19 +525,19 @@ import { ref, computed } from 'vue'
 export const useXxxStore = defineStore('xxx', () => {
   // State
   const items = ref<Item[]>([])
-  
+
   // Getters
   const count = computed(() => items.value.length)
-  
+
   // Actions
   function add(item: Item) {
     items.value.push(item)
   }
-  
+
   return {
     items,
     count,
-    add
+    add,
   }
 })
 ```
@@ -560,60 +565,78 @@ Rust Core (后端)
 ## 12.2 Composables 清单
 
 ### 12.2.1 use-database-tree-loader.ts
+
 **职责**：树节点懒加载逻辑
+
 - 支持 7-8 层深度树
 - 数据库特定树结构配置（MySQL/PostgreSQL/SQLite/DuckDB）
 - Base64 编码节点键
 - 展开状态保持
 
 ### 12.2.2 use-database-tree-search.ts
+
 **职责**：搜索过滤与定位
+
 - 支持表/视图/列/索引/约束搜索
 - 搜索结果高亮
 - 快速定位到节点
 
 ### 12.2.3 use-cache-warming.ts
+
 **职责**：缓存预热策略
+
 - TTL 过期机制（默认 5 分钟）
 - 并发控制（最大 3 个并发）
 - 数据库类型特定预热策略
 - 预热状态查询
 
 ### 12.2.4 use-connection-handler.ts
+
 **职责**：连接生命周期管理
+
 - 建立/断开连接
 - 连接状态同步
 - 错误重试
 
 ### 12.2.5 use-context-menu-actions.ts
+
 **职责**：右键菜单操作
+
 - 20+ 种节点类型菜单
 - 创建/删除/刷新/复制操作
 - 事件驱动架构（CustomEvent）
 
 ### 12.2.6 use-incremental-refresh.ts
+
 **职责**：增量刷新机制
+
 - 单节点刷新
 - 批量刷新（去重优化）
 - 智能检测变化后刷新
 - 哈希值比较
 
 ### 12.2.7 use-favorites.ts
+
 **职责**：收藏功能
+
 - localStorage 持久化
 - 访问时间排序
 - 访问次数统计
 - 导入/导出收藏
 
 ### 12.2.8 use-connection-status-sync.ts
+
 **职责**：连接健康监控
+
 - 定期健康检查（默认 30 秒）
 - 自动重连机制（最大 5 次）
 - 延迟监测
 - 健康状态：healthy/degraded/unhealthy/unknown
 
 ### 12.2.9 use-drag-drop.ts
+
 **职责**：拖拽支持
+
 - 表/视图/列拖拽
 - SQL 片段自动生成
 - 拖拽目标检测
@@ -622,53 +645,55 @@ Rust Core (后端)
 
 使用 `lucide-vue-next` 图标库，20+ 种节点类型图标映射：
 
-| 节点类型 | 图标 | 用途 |
-|---------|------|------|
-| connection | Server | 数据库连接 |
-| database | Database | 数据库 |
-| schema | Layers | Schema |
-| table | Table | 数据表 |
-| view | FileText | 视图 |
-| column | Columns | 列 |
-| index | Key | 索引 |
-| constraint | Lock | 约束 |
-| function | FunctionSquare | 函数 |
-| procedure | GitBranch | 存储过程 |
-| sequence | List | 序列 |
-| trigger | Zap | 触发器 |
-| folder | Folder/FolderOpen | 文件夹 |
+| 节点类型   | 图标              | 用途       |
+| ---------- | ----------------- | ---------- |
+| connection | Server            | 数据库连接 |
+| database   | Database          | 数据库     |
+| schema     | Layers            | Schema     |
+| table      | Table             | 数据表     |
+| view       | FileText          | 视图       |
+| column     | Columns           | 列         |
+| index      | Key               | 索引       |
+| constraint | Lock              | 约束       |
+| function   | FunctionSquare    | 函数       |
+| procedure  | GitBranch         | 存储过程   |
+| sequence   | List              | 序列       |
+| trigger    | Zap               | 触发器     |
+| folder     | Folder/FolderOpen | 文件夹     |
 
 ## 12.4 右键菜单系统
 
 ### 12.4.1 菜单项类型
 
 ```typescript
-export type IContextMenuItem = {
-  separator: true
-} | {
-  id: string
-  label: string
-  icon?: string
-  shortcut?: string
-  disabled?: boolean
-  hidden?: boolean
-  children?: IContextMenuItem[]
-  separator?: false
-  action?: () => Promise<void> | void
-}
+export type IContextMenuItem =
+  | {
+      separator: true
+    }
+  | {
+      id: string
+      label: string
+      icon?: string
+      shortcut?: string
+      disabled?: boolean
+      hidden?: boolean
+      children?: IContextMenuItem[]
+      separator?: false
+      action?: () => Promise<void> | void
+    }
 ```
 
 ### 12.4.2 节点操作映射
 
-| 节点类型 | 可用操作 |
-|---------|---------|
-| connection | 编辑、测试、连接/断开、刷新、复制名称、删除 |
-| database | 新建表、新建视图、刷新、SQL编辑器、复制名称 |
-| schema | 新建表/视图/函数/存储过程、刷新、SQL编辑器 |
-| table | 查看数据、查看DDL、清空表、删除表、分析表、生成SQL |
-| view | 查看数据、查看DDL、删除视图 |
-| column | 复制名称、复制限定名称 |
-| folder | 新建对应类型对象、刷新 |
+| 节点类型   | 可用操作                                           |
+| ---------- | -------------------------------------------------- |
+| connection | 编辑、测试、连接/断开、刷新、复制名称、删除        |
+| database   | 新建表、新建视图、刷新、SQL编辑器、复制名称        |
+| schema     | 新建表/视图/函数/存储过程、刷新、SQL编辑器         |
+| table      | 查看数据、查看DDL、清空表、删除表、分析表、生成SQL |
+| view       | 查看数据、查看DDL、删除视图                        |
+| column     | 复制名称、复制限定名称                             |
+| folder     | 新建对应类型对象、刷新                             |
 
 ### 12.4.3 事件驱动架构
 
@@ -676,12 +701,14 @@ export type IContextMenuItem = {
 
 ```typescript
 // 触发事件
-window.dispatchEvent(new CustomEvent('open-create-table', { 
-  detail: { connectionId, dbName, schemaName } 
-}))
+window.dispatchEvent(
+  new CustomEvent('open-create-table', {
+    detail: { connectionId, dbName, schemaName },
+  })
+)
 
 // 监听事件（在需要的地方）
-window.addEventListener('open-create-table', (e) => {
+window.addEventListener('open-create-table', e => {
   const { connectionId, dbName, schemaName } = e.detail
   // 处理逻辑
 })
@@ -697,14 +724,14 @@ type ConnectionHealthStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
 
 ### 12.5.2 Ping SQL 映射
 
-| 数据库类型 | Ping SQL |
-|-----------|----------|
-| MySQL | `SELECT 1` |
-| PostgreSQL | `SELECT 1` |
-| SQLite | `SELECT 1` |
-| DuckDB | `SELECT 1` |
-| Oracle | `SELECT 1 FROM DUAL` |
-| SQL Server | `SELECT 1` |
+| 数据库类型 | Ping SQL             |
+| ---------- | -------------------- |
+| MySQL      | `SELECT 1`           |
+| PostgreSQL | `SELECT 1`           |
+| SQLite     | `SELECT 1`           |
+| DuckDB     | `SELECT 1`           |
+| Oracle     | `SELECT 1 FROM DUAL` |
+| SQL Server | `SELECT 1`           |
 
 ### 12.5.3 重连策略
 
@@ -741,9 +768,9 @@ L3: Rust Core - 网络/磁盘
 ### 12.7.1 刷新模式
 
 ```typescript
-refreshNode()     // 单节点刷新
-refreshBatch()    // 批量刷新（去重优化）
-smartRefresh()    // 智能检测变化后刷新
+refreshNode() // 单节点刷新
+refreshBatch() // 批量刷新（去重优化）
+smartRefresh() // 智能检测变化后刷新
 ```
 
 ### 12.7.2 变化检测
@@ -794,11 +821,11 @@ interface IDragData {
 
 ### 12.9.2 SQL 片段生成
 
-| 拖拽对象 | 生成片段 |
-|---------|---------|
-| table | `SELECT * FROM db.schema.table` |
-| view | `SELECT * FROM db.schema.view` |
-| column | `db.schema.table.column` |
+| 拖拽对象 | 生成片段                        |
+| -------- | ------------------------------- |
+| table    | `SELECT * FROM db.schema.table` |
+| view     | `SELECT * FROM db.schema.view`  |
+| column   | `db.schema.table.column`        |
 
 ### 12.9.3 拖拽目标
 
@@ -813,7 +840,7 @@ interface IDragData {
 ```vue
 <span class="node-label" :class="{ 'is-highlight': isHighlighted }">
   <template v-if="isHighlighted">
-    <span v-for="(part, index) in labelParts" :key="index" 
+    <span v-for="(part, index) in labelParts" :key="index"
           :class="{ 'highlight-match': part.isMatch }">
       {{ part.text }}
     </span>
@@ -918,12 +945,12 @@ connection
 
 默认隐藏以下系统对象：
 
-| 数据库类型 | 过滤模式 |
-|-----------|---------|
-| MySQL | `information_schema`, `mysql`, `performance_schema`, `sys` |
-| PostgreSQL | `pg_catalog`, `information_schema` |
-| SQLite | `sqlite_%` |
-| DuckDB | `information_schema`, `pg_catalog` |
+| 数据库类型 | 过滤模式                                                   |
+| ---------- | ---------------------------------------------------------- |
+| MySQL      | `information_schema`, `mysql`, `performance_schema`, `sys` |
+| PostgreSQL | `pg_catalog`, `information_schema`                         |
+| SQLite     | `sqlite_%`                                                 |
+| DuckDB     | `information_schema`, `pg_catalog`                         |
 
 ## 12.13 错误处理
 
@@ -962,22 +989,22 @@ connection
 
 ## 12.15 企业级特性对比
 
-| 特性 | DBeaver | DataGrip | RdataStation |
-|------|---------|----------|--------------|
-| 多数据库树结构 | ✅ | ✅ | ✅ |
-| 系统对象过滤 | ✅ | ✅ | ✅ |
-| 右键菜单操作 | ✅ | ✅ | ✅ |
-| 增量刷新 | ✅ | ✅ | ✅ |
-| 收藏功能 | ✅ | ✅ | ✅ |
-| 连接健康检查 | ✅ | ✅ | ✅ |
-| 拖拽支持 | ✅ | ✅ | ✅ |
-| 搜索高亮 | ✅ | ✅ | ✅ |
-| 离线缓存 | ✅ | ✅ | ✅ (IndexedDB) |
-| 图标系统 | ✅ | ✅ | ✅ (lucide-vue-next) |
-| 虚拟滚动 | ✅ | ✅ | ✅ |
-| 懒加载 | ✅ | ✅ | ✅ |
-| 缓存预热 | ❌ | ❌ | ✅ |
-| 自动重连 | ✅ | ✅ | ✅ |
+| 特性           | DBeaver | DataGrip | RdataStation         |
+| -------------- | ------- | -------- | -------------------- |
+| 多数据库树结构 | ✅      | ✅       | ✅                   |
+| 系统对象过滤   | ✅      | ✅       | ✅                   |
+| 右键菜单操作   | ✅      | ✅       | ✅                   |
+| 增量刷新       | ✅      | ✅       | ✅                   |
+| 收藏功能       | ✅      | ✅       | ✅                   |
+| 连接健康检查   | ✅      | ✅       | ✅                   |
+| 拖拽支持       | ✅      | ✅       | ✅                   |
+| 搜索高亮       | ✅      | ✅       | ✅                   |
+| 离线缓存       | ✅      | ✅       | ✅ (IndexedDB)       |
+| 图标系统       | ✅      | ✅       | ✅ (lucide-vue-next) |
+| 虚拟滚动       | ✅      | ✅       | ✅                   |
+| 懒加载         | ✅      | ✅       | ✅                   |
+| 缓存预热       | ❌      | ❌       | ✅                   |
+| 自动重连       | ✅      | ✅       | ✅                   |
 
 ## 12.16 拖拽到工作台完整集成
 
@@ -987,9 +1014,11 @@ connection
 
 ```typescript
 // 发送事件（database-navigator.vue）
-window.dispatchEvent(new CustomEvent('open-table-data', {
-  detail: { connectionId, dbName, schemaName, tableName }
-}))
+window.dispatchEvent(
+  new CustomEvent('open-table-data', {
+    detail: { connectionId, dbName, schemaName, tableName },
+  })
+)
 
 // 监听事件（workbench）
 window.addEventListener('open-table-data', handleOpenTableData)
@@ -997,16 +1026,16 @@ window.addEventListener('open-table-data', handleOpenTableData)
 
 ### 12.16.2 支持的事件类型
 
-| 事件名称 | 触发场景 | 处理方 |
-|---------|---------|--------|
-| open-table-data | 双击表/视图节点 | workbenchStore.openTableData() |
-| open-table-ddl | 右键菜单打开 DDL | workbenchStore.openTableData() |
-| open-create-table | 右键菜单创建表 | 待实现对话框 |
-| open-create-view | 右键菜单创建视图 | 待实现对话框 |
-| open-create-function | 右键菜单创建函数 | 待实现对话框 |
-| open-create-procedure | 右键菜单创建存储过程 | 待实现对话框 |
-| open-sql-editor | 新建 SQL 编辑器 | 待实现 |
-| open-connection-editor | 编辑连接 | 待实现对话框 |
+| 事件名称               | 触发场景             | 处理方                         |
+| ---------------------- | -------------------- | ------------------------------ |
+| open-table-data        | 双击表/视图节点      | workbenchStore.openTableData() |
+| open-table-ddl         | 右键菜单打开 DDL     | workbenchStore.openTableData() |
+| open-create-table      | 右键菜单创建表       | 待实现对话框                   |
+| open-create-view       | 右键菜单创建视图     | 待实现对话框                   |
+| open-create-function   | 右键菜单创建函数     | 待实现对话框                   |
+| open-create-procedure  | 右键菜单创建存储过程 | 待实现对话框                   |
+| open-sql-editor        | 新建 SQL 编辑器      | 待实现                         |
+| open-connection-editor | 编辑连接             | 待实现对话框                   |
 
 ### 12.16.3 拖拽数据格式
 
@@ -1097,13 +1126,13 @@ function saveToStorage(): void {
 
 ### 12.17.5 图标映射
 
-| 对象类型 | 图标 |
-|---------|------|
-| table | Table |
-| view | FileText |
-| database | Database |
-| schema | Layers |
-| connection | Server |
+| 对象类型   | 图标     |
+| ---------- | -------- |
+| table      | Table    |
+| view       | FileText |
+| database   | Database |
+| schema     | Layers   |
+| connection | Server   |
 
 ## 12.18 缓存架构与后端集成（重构版）
 
@@ -1282,6 +1311,7 @@ pub async fn get_columns_from_cache(...) -> Result<Vec<serde_json::Value>, Strin
 位置：`src/extensions/builtin/database/ui/composables/use-cache-state.ts`
 
 **功能**：
+
 - 维护缓存有效性状态，避免频繁调用后端检查
 - 支持缓存版本控制
 - 支持缓存失效策略
@@ -1290,14 +1320,14 @@ pub async fn get_columns_from_cache(...) -> Result<Vec<serde_json::Value>, Strin
 
 ```typescript
 interface CacheState {
-  isValid: boolean           // 缓存是否有效
-  lastSync: number | null    // 最后同步时间
-  version: number            // 缓存版本号
-  tableCount: number         // 表数量
-  columnCount: number        // 列数量
-  createdAt: number          // 缓存创建时间
-  lastAccessed: number       // 最后访问时间（LRU）
-  accessCount: number        // 访问次数（LRU）
+  isValid: boolean // 缓存是否有效
+  lastSync: number | null // 最后同步时间
+  version: number // 缓存版本号
+  tableCount: number // 表数量
+  columnCount: number // 列数量
+  createdAt: number // 缓存创建时间
+  lastAccessed: number // 最后访问时间（LRU）
+  accessCount: number // 访问次数（LRU）
 }
 
 interface CacheKey {
@@ -1313,23 +1343,24 @@ export const cacheStateManager = new CacheStateManager()
 // Composable 函数
 export function useCacheState() {
   return {
-    stats,                    // 缓存统计信息
-    getState,                 // 获取缓存状态
-    setState,                 // 设置缓存状态
-    markValid,               // 标记缓存为有效
-    markInvalid,             // 标记缓存为无效
-    clearConnection,         // 清除指定连接的缓存状态
-    clearAll,                // 清除所有缓存状态
-    isExpired,               // 检查缓存是否过期
-    getVersion,              // 获取缓存版本号
-    incrementVersion,        // 递增缓存版本号
-    getConnectionStats,      // 获取指定连接的缓存统计（新增）
-    setMaxTablesPerConnection // 设置 LRU 限制（新增）
+    stats, // 缓存统计信息
+    getState, // 获取缓存状态
+    setState, // 设置缓存状态
+    markValid, // 标记缓存为有效
+    markInvalid, // 标记缓存为无效
+    clearConnection, // 清除指定连接的缓存状态
+    clearAll, // 清除所有缓存状态
+    isExpired, // 检查缓存是否过期
+    getVersion, // 获取缓存版本号
+    incrementVersion, // 递增缓存版本号
+    getConnectionStats, // 获取指定连接的缓存统计（新增）
+    setMaxTablesPerConnection, // 设置 LRU 限制（新增）
   }
 }
 ```
 
 **LRU 淘汰策略**：
+
 ```typescript
 // 淘汰评分公式：score = lastAccessed + accessCount * 1000
 // 评分最低的缓存优先被淘汰
@@ -1345,6 +1376,7 @@ private enforceLRULimit(connectionId: string): void {
 位置：`src/extensions/builtin/database/ui/composables/use-cache-warming.ts`
 
 **重构内容**：
+
 - 根据用户行为动态调整预热深度
 - 支持四级预热：databases → schemas → tables → columns
 - 集成到连接健康检查流程
@@ -1356,53 +1388,54 @@ private enforceLRULimit(connectionId: string): void {
 type WarmingDepth = 'databases' | 'schemas' | 'tables' | 'columns'
 
 interface CacheWarmingConfig {
-  enabled: boolean           // 是否启用自动预热
-  depth: WarmingDepth        // 预热深度
-  delay: number              // 预热延迟（毫秒，默认 30ms）
-  maxDatabases: number       // 最大预热数据库数量
-  maxSchemas: number         // 最大预热 Schema 数量
-  maxTables: number          // 最大预热表数量
-  smartWarming: boolean      // 是否启用智能预热
-  concurrency: number        // 并发预热数量（默认 5）
+  enabled: boolean // 是否启用自动预热
+  depth: WarmingDepth // 预热深度
+  delay: number // 预热延迟（毫秒，默认 30ms）
+  maxDatabases: number // 最大预热数据库数量
+  maxSchemas: number // 最大预热 Schema 数量
+  maxTables: number // 最大预热表数量
+  smartWarming: boolean // 是否启用智能预热
+  concurrency: number // 并发预热数量（默认 5）
 }
 
 interface UserBehavior {
-  expandedDatabases: Set<string>    // 展开的数据库列表
-  expandedSchemas: Set<string>      // 展开的 Schema 列表
-  clickedTables: Set<string>        // 点击的表列表
-  expandCount: number               // 展开次数
-  lastActive: number                // 最后活跃时间
+  expandedDatabases: Set<string> // 展开的数据库列表
+  expandedSchemas: Set<string> // 展开的 Schema 列表
+  clickedTables: Set<string> // 点击的表列表
+  expandCount: number // 展开次数
+  lastActive: number // 最后活跃时间
 }
 
 interface CacheWarmingState {
   isWarming: boolean
   warmedConnections: Set<string>
-  progress: number             // 预热进度（0-100）
+  progress: number // 预热进度（0-100）
   currentDepth: WarmingDepth
   warmedDatabases: number
   warmedSchemas: number
   warmedTables: number
-  isCancelled: boolean         // 是否已取消
-  currentConnectionId: string | null  // 当前正在预热的连接 ID
+  isCancelled: boolean // 是否已取消
+  currentConnectionId: string | null // 当前正在预热的连接 ID
 }
 
 // Composable 函数
 export function useCacheWarming() {
   return {
-    state,                    // 预热状态
-    config,                   // 预热配置
-    warmConnection,           // 预热整个连接（并发版本）
-    warmDatabase,             // 预热单个数据库
-    warmSchema,               // 预热单个 Schema
-    recordBehavior,           // 记录用户行为
-    cancelWarming,            // 取消当前预热（新增）
-    clearWarmingState,        // 清除预热状态
-    updateConfig              // 更新配置
+    state, // 预热状态
+    config, // 预热配置
+    warmConnection, // 预热整个连接（并发版本）
+    warmDatabase, // 预热单个数据库
+    warmSchema, // 预热单个 Schema
+    recordBehavior, // 记录用户行为
+    cancelWarming, // 取消当前预热（新增）
+    clearWarmingState, // 清除预热状态
+    updateConfig, // 更新配置
   }
 }
 ```
 
 **智能预热策略**：
+
 - 展开次数 < 3：预热 databases
 - 展开数据库 > 2：预热 schemas
 - 展开 Schema > 1：预热 tables
@@ -1410,6 +1443,7 @@ export function useCacheWarming() {
 - 不活跃 > 5 分钟：降级到 schemas
 
 **并发预热实现**：
+
 ```typescript
 // 并发控制器
 interface ConcurrencyController {
@@ -1435,22 +1469,23 @@ await Promise.all(warmingPromises)
 位置：`src/extensions/builtin/database/ui/composables/use-cache-version.ts`
 
 **功能**：
+
 - 支持缓存版本升级和迁移
 - 当缓存结构发生变化时，自动迁移或清除旧缓存
 - 支持回滚机制
 
 ```typescript
 interface CacheVersionInfo {
-  currentVersion: number           // 当前版本号
-  lastUpgrade: number | null       // 最后升级时间
-  upgradeHistory: VersionUpgradeRecord[]  // 升级历史
+  currentVersion: number // 当前版本号
+  lastUpgrade: number | null // 最后升级时间
+  upgradeHistory: VersionUpgradeRecord[] // 升级历史
 }
 
 interface MigrationStrategy {
-  targetVersion: number            // 目标版本
-  migrate: (connectionId: string) => Promise<void>  // 迁移函数
-  canRollback: boolean             // 是否可回滚
-  rollback?: (connectionId: string) => Promise<void>  // 回滚函数
+  targetVersion: number // 目标版本
+  migrate: (connectionId: string) => Promise<void> // 迁移函数
+  canRollback: boolean // 是否可回滚
+  rollback?: (connectionId: string) => Promise<void> // 回滚函数
 }
 
 export const CURRENT_CACHE_VERSION = 1
@@ -1458,15 +1493,15 @@ export const CURRENT_CACHE_VERSION = 1
 // Composable 函数
 export function useCacheVersion() {
   return {
-    getVersionInfo,        // 获取版本信息
-    setVersion,            // 设置版本
-    registerMigration,     // 注册迁移策略
-    needsUpgrade,          // 检查是否需要升级
-    upgrade,               // 执行升级
-    clearVersion,          // 清除版本信息
-    clearAll,              // 清除所有版本信息
-    getVersionStats,       // 获取版本统计
-    CURRENT_CACHE_VERSION  // 当前缓存版本
+    getVersionInfo, // 获取版本信息
+    setVersion, // 设置版本
+    registerMigration, // 注册迁移策略
+    needsUpgrade, // 检查是否需要升级
+    upgrade, // 执行升级
+    clearVersion, // 清除版本信息
+    clearAll, // 清除所有版本信息
+    getVersionStats, // 获取版本统计
+    CURRENT_CACHE_VERSION, // 当前缓存版本
   }
 }
 ```
@@ -1476,11 +1511,13 @@ export function useCacheVersion() {
 位置：`src/extensions/builtin/database/ui/composables/use-cache-refresh.ts`
 
 **重构内容**：
+
 - 使用稳定的缓存 ID（替代随机 ID）
 - 集成前端缓存状态管理器
 - 支持数据库级别批量刷新
 
 完整刷新流程：
+
 1. 调用 `refreshMetadataCache` 清除旧缓存（后端）
 2. 调用数据库 API 获取元数据（后端数据库驱动）
 3. 调用 `saveTablesBatchToCache` 批量保存表缓存（后端）
@@ -1495,12 +1532,14 @@ export async function refreshCacheComplete(
   schemaName: string,
   projectPath: string | undefined,
   fetchTablesFn: () => Promise<Array<{ name: string }>>,
-  fetchColumnsFn: (tableName: string) => Promise<Array<{
-    name: string
-    data_type: string
-    nullable: boolean
-    is_primary_key: boolean
-  }>>
+  fetchColumnsFn: (tableName: string) => Promise<
+    Array<{
+      name: string
+      data_type: string
+      nullable: boolean
+      is_primary_key: boolean
+    }>
+  >
 ): Promise<CacheRefreshResult>
 
 export async function refreshDatabaseCache(
@@ -1510,12 +1549,17 @@ export async function refreshDatabaseCache(
   projectPath: string | undefined,
   fetchSchemasFn: () => Promise<Array<{ name: string }>>,
   fetchTablesFn: (schemaName: string) => Promise<Array<{ name: string }>>,
-  fetchColumnsFn: (schemaName: string, tableName: string) => Promise<Array<{
-    name: string
-    data_type: string
-    nullable: boolean
-    is_primary_key: boolean
-  }>>
+  fetchColumnsFn: (
+    schemaName: string,
+    tableName: string
+  ) => Promise<
+    Array<{
+      name: string
+      data_type: string
+      nullable: boolean
+      is_primary_key: boolean
+    }>
+  >
 ): Promise<{ success: boolean; errors: string[] }>
 ```
 
@@ -1524,18 +1568,19 @@ export async function refreshDatabaseCache(
 位置：`src/extensions/builtin/database/ui/composables/use-connection-status-sync.ts`
 
 **集成内容**：
+
 - 健康检查成功后自动触发缓存预热
 - 记录用户行为用于智能预热
 - 重连时清除缓存状态
 
 ```typescript
 interface IConnectionStatusSyncOptions {
-  healthCheckInterval?: number       // 健康检查间隔
-  maxConsecutiveFailures?: number    // 最大连续失败次数
-  enableAutoReconnect?: boolean      // 是否启用自动重连
-  reconnectDelay?: number            // 自动重连延迟
-  maxReconnectAttempts?: number      // 最大重连次数
-  enableCacheWarming?: boolean       // 是否启用缓存预热（新增）
+  healthCheckInterval?: number // 健康检查间隔
+  maxConsecutiveFailures?: number // 最大连续失败次数
+  enableAutoReconnect?: boolean // 是否启用自动重连
+  reconnectDelay?: number // 自动重连延迟
+  maxReconnectAttempts?: number // 最大重连次数
+  enableCacheWarming?: boolean // 是否启用缓存预热（新增）
 }
 
 interface IConnectionHealthInfo {
@@ -1546,7 +1591,7 @@ interface IConnectionHealthInfo {
   error?: string
   consecutiveFailures: number
   isChecking: boolean
-  isCacheWarmed?: boolean            // 是否已预热缓存（新增）
+  isCacheWarmed?: boolean // 是否已预热缓存（新增）
 }
 ```
 
@@ -1555,6 +1600,7 @@ interface IConnectionHealthInfo {
 位置：`src/extensions/builtin/database/ui/utils/cache-error-handler.ts`
 
 **功能**：
+
 - 缓存读取失败：静默失败，返回默认值
 - 缓存写入失败：记录错误日志，不影响主流程
 - 缓存刷新失败：记录错误日志，返回失败状态
@@ -1585,6 +1631,7 @@ export async function safeCacheRefresh(
 位置：`src/extensions/builtin/database/ui/composables/use-cache-metrics.ts`
 
 **功能**：
+
 - 自动记录每次缓存操作的命中率、延迟
 - 按连接、按操作类型聚合统计
 - 提供 `wrapCacheOperation` 包装器，自动埋点
@@ -1606,12 +1653,12 @@ interface CacheOperationRecord {
 }
 
 interface CacheMetrics {
-  totalOperations: number    // 总操作次数
-  hits: number               // 命中次数
-  misses: number             // 未命中次数
-  hitRate: number            // 命中率（0-1）
-  avgLatency: number         // 平均延迟（毫秒）
-  recentLatencies: number[]  // 最近 100 次延迟
+  totalOperations: number // 总操作次数
+  hits: number // 命中次数
+  misses: number // 未命中次数
+  hitRate: number // 命中率（0-1）
+  avgLatency: number // 平均延迟（毫秒）
+  recentLatencies: number[] // 最近 100 次延迟
   byConnection: Map<string, ConnectionMetrics>
   byOperationType: Map<CacheOperationType, OperationTypeMetrics>
 }
@@ -1640,6 +1687,7 @@ export async function wrapCacheOperation<T>(
 ```
 
 **使用示例**：
+
 ```typescript
 // 获取全局指标
 const metrics = cacheMetricsManager.getMetrics()
@@ -1785,6 +1833,7 @@ interface ColumnInput {
 **解决方案**：使用稳定的缓存 ID，格式为 `{connectionId}:{databaseName}:{schemaName}:{tableName}:{columnName}`
 
 **优势**：
+
 - 相同元数据始终使用相同 ID
 - 避免缓存积累
 - 支持 INSERT OR REPLACE 语义
@@ -1794,58 +1843,58 @@ interface ColumnInput {
 
 ### 12.19.1 已完成功能
 
-| 功能模块 | 状态 | 文件 |
-|---------|------|------|
-| 虚拟树核心 | ✅ 完成 | use-virtual-tree.ts |
-| 数据库树加载 | ✅ 完成 | use-database-tree-loader.ts |
-| 搜索过滤 | ✅ 完成 | use-database-tree-search.ts, navigator-search.vue |
-| 缓存预热 | ✅ 完成 | use-cache-warming.ts |
-| 缓存刷新流程 | ✅ 完成 | use-cache-refresh.ts |
-| 缓存服务层 | ✅ 完成 | metadata-cache-service.ts |
-| 批量保存接口 | ✅ 完成 | saveTablesBatchToCache/saveColumnsBatchToCache |
-| 后端批量保存 | ✅ 完成 | save_tables_batch/save_columns_batch |
-| 连接处理 | ✅ 完成 | use-connection-handler.ts |
-| 右键菜单操作 | ✅ 完成 | use-context-menu-actions.ts |
-| 增量刷新 | ✅ 完成 | use-incremental-refresh.ts |
-| 收藏功能 | ✅ 完成 | use-favorites.ts, favorites-panel.vue |
-| 连接健康检查 | ✅ 完成 | use-connection-status-sync.ts |
-| 拖拽支持 | ✅ 完成 | use-drag-drop.ts |
-| 拖拽到工作台 | ✅ 完成 | database-navigator.vue |
-| 图标系统 | ✅ 完成 | node-icons.ts |
-| 数据库特定树结构 | ✅ 完成 | use-database-tree-loader.ts |
-| 系统对象过滤 | ✅ 完成 | use-database-tree-loader.ts |
+| 功能模块         | 状态    | 文件                                              |
+| ---------------- | ------- | ------------------------------------------------- |
+| 虚拟树核心       | ✅ 完成 | use-virtual-tree.ts                               |
+| 数据库树加载     | ✅ 完成 | use-database-tree-loader.ts                       |
+| 搜索过滤         | ✅ 完成 | use-database-tree-search.ts, navigator-search.vue |
+| 缓存预热         | ✅ 完成 | use-cache-warming.ts                              |
+| 缓存刷新流程     | ✅ 完成 | use-cache-refresh.ts                              |
+| 缓存服务层       | ✅ 完成 | metadata-cache-service.ts                         |
+| 批量保存接口     | ✅ 完成 | saveTablesBatchToCache/saveColumnsBatchToCache    |
+| 后端批量保存     | ✅ 完成 | save_tables_batch/save_columns_batch              |
+| 连接处理         | ✅ 完成 | use-connection-handler.ts                         |
+| 右键菜单操作     | ✅ 完成 | use-context-menu-actions.ts                       |
+| 增量刷新         | ✅ 完成 | use-incremental-refresh.ts                        |
+| 收藏功能         | ✅ 完成 | use-favorites.ts, favorites-panel.vue             |
+| 连接健康检查     | ✅ 完成 | use-connection-status-sync.ts                     |
+| 拖拽支持         | ✅ 完成 | use-drag-drop.ts                                  |
+| 拖拽到工作台     | ✅ 完成 | database-navigator.vue                            |
+| 图标系统         | ✅ 完成 | node-icons.ts                                     |
+| 数据库特定树结构 | ✅ 完成 | use-database-tree-loader.ts                       |
+| 系统对象过滤     | ✅ 完成 | use-database-tree-loader.ts                       |
 
 ### 12.19.2 待实现功能
 
-| 功能模块 | 优先级 | 说明 |
-|---------|--------|------|
-| 创建表对话框 | 中 | 需要 UI 组件 |
-| 创建视图对话框 | 中 | 需要 UI 组件 |
-| 创建函数对话框 | 低 | 需要 UI 组件 |
-| 创建存储过程对话框 | 低 | 需要 UI 组件 |
-| 连接编辑器 | 中 | 需要 UI 组件 |
-| SQL 片段拖入编辑器 | 中 | 需要 Monaco 集成 |
-| 收藏面板集成到布局 | 低 | 需要 dockview 面板注册 |
+| 功能模块           | 优先级 | 说明                   |
+| ------------------ | ------ | ---------------------- |
+| 创建表对话框       | 中     | 需要 UI 组件           |
+| 创建视图对话框     | 中     | 需要 UI 组件           |
+| 创建函数对话框     | 低     | 需要 UI 组件           |
+| 创建存储过程对话框 | 低     | 需要 UI 组件           |
+| 连接编辑器         | 中     | 需要 UI 组件           |
+| SQL 片段拖入编辑器 | 中     | 需要 Monaco 集成       |
+| 收藏面板集成到布局 | 低     | 需要 dockview 面板注册 |
 
 ### 12.19.3 性能指标
 
-| 指标 | 目标值 | 当前状态 |
-|------|--------|---------|
-| 树节点加载延迟 | < 50ms | ✅ 已达标 |
-| 搜索响应时间 | < 100ms | ✅ 已达标 |
-| 内存占用（1000 节点） | < 10MB | ✅ 已达标 |
-| 缓存命中率 | > 80% | ✅ 已达标 |
-| 拖拽延迟 | < 16ms | ✅ 已达标 |
+| 指标                  | 目标值  | 当前状态  |
+| --------------------- | ------- | --------- |
+| 树节点加载延迟        | < 50ms  | ✅ 已达标 |
+| 搜索响应时间          | < 100ms | ✅ 已达标 |
+| 内存占用（1000 节点） | < 10MB  | ✅ 已达标 |
+| 缓存命中率            | > 80%   | ✅ 已达标 |
+| 拖拽延迟              | < 16ms  | ✅ 已达标 |
 
 ### 12.19.4 技术栈版本
 
-| 技术 | 版本 | 说明 |
-|------|------|------|
-| Vue | 3.5.13 | 最新稳定版 |
-| TypeScript | 5.8.3 | 最新稳定版 |
-| Pinia | 2.3.1 | 最新稳定版 |
-| dockview-vue | 5.2.0 | 布局引擎 |
-| naive-ui | 最新 | 组件库 |
-| lucide-vue-next | 最新 | 图标库 |
-| AG Grid | 33.0.0 | 表格引擎 |
-| Monaco Editor | 0.52.2 | 代码编辑器 |
+| 技术            | 版本   | 说明       |
+| --------------- | ------ | ---------- |
+| Vue             | 3.5.13 | 最新稳定版 |
+| TypeScript      | 5.8.3  | 最新稳定版 |
+| Pinia           | 2.3.1  | 最新稳定版 |
+| dockview-vue    | 5.2.0  | 布局引擎   |
+| naive-ui        | 最新   | 组件库     |
+| lucide-vue-next | 最新   | 图标库     |
+| AG Grid         | 33.0.0 | 表格引擎   |
+| Monaco Editor   | 0.52.2 | 代码编辑器 |

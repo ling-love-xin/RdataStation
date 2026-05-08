@@ -85,6 +85,10 @@ pub fn run() {
             // SQL 命令
             execute_sql,
             execute_transaction,
+            begin_transaction,
+            commit_transaction,
+            rollback_transaction,
+            get_transaction_status,
             get_sql_history,
             search_sql_history,
             clear_sql_history,
@@ -180,6 +184,8 @@ pub fn run() {
             transpile_sql,
             validate_sql,
             split_sql,
+            cancel_sql_query,
+            execute_duckdb_accelerated,
             
             // 结果集分析命令
             re_execute_with_filter,
@@ -189,6 +195,7 @@ pub fn run() {
             get_column_insights,
             get_column_insight_full,
             create_duckdb_temp_table,
+            save_cell_update,
             save_column_insight_snapshot,
             get_column_insight_history,
             cleanup_insight_snapshots,
@@ -199,6 +206,15 @@ pub fn run() {
             get_table_profile,
             get_column_quality,
             batch_evaluate_columns,
+            get_schema_insight,
+            
+            // DuckDB 连接池配置命令
+            get_duckdb_pool_info,
+            set_duckdb_pool_size,
+            restart_duckdb_pool,
+            
+            // 数据导出命令
+            export_result_to_file,
             
             // 项目管理命令（已合并到 project_commands）
             // 旧的 project_management_commands 模块已删除
@@ -248,6 +264,8 @@ pub fn run() {
             restore_scratchpad_from_trash,
             empty_scratchpad_trash,
             get_analyzable_files,
+            update_scratchpad_file_meta,
+            search_scratchpad_content,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

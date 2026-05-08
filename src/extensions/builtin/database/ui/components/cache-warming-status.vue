@@ -3,14 +3,7 @@
     <div v-if="isWarming" class="warming-progress">
       <Loader2 :size="12" class="spinner" />
       <span class="status-text">缓存预热中 {{ progress.toFixed(0) }}%</span>
-      <NButton
-        text
-        size="tiny"
-        class="cancel-btn"
-        @click="handleCancel"
-      >
-        取消
-      </NButton>
+      <NButton text size="tiny" class="cancel-btn" @click="handleCancel"> 取消 </NButton>
     </div>
     <div v-if="showMetrics" class="cache-metrics">
       <span class="metric">

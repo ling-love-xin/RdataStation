@@ -67,16 +67,16 @@ class MySQLConnection implements Connection {
  */
 const mysqlConnectionProvider: ConnectionProvider = {
   driverId: 'mysql',
-  
+
   async connect(config: unknown): Promise<Connection> {
     const mysqlConfig = config as MySQLConfig
     const connectionId = `mysql_${Date.now()}`
-    
+
     // TODO: 实际建立连接
     console.log(`[MySQL] Connecting to ${mysqlConfig.host}:${mysqlConfig.port}`)
-    
+
     return new MySQLConnection(connectionId, mysqlConfig)
-  }
+  },
 }
 
 /**
@@ -110,13 +110,13 @@ const activate = (context: ExtensionContext): MySQLDriverExtensionAPI => {
         { name: 'username', label: 'Username', type: 'text', required: true },
         { name: 'password', label: 'Password', type: 'password', required: true },
         { name: 'ssl', label: 'Use SSL', type: 'checkbox', required: false, default: false },
-      ]
-    }
+      ],
+    },
   }
 
   // 注册连接提供者
   const disposables: Disposable[] = [
-    context.database.registerConnectionProvider(mysqlConnectionProvider)
+    context.database.registerConnectionProvider(mysqlConnectionProvider),
   ]
 
   return {
@@ -133,12 +133,12 @@ const activate = (context: ExtensionContext): MySQLDriverExtensionAPI => {
 
     driver: {
       driverId: 'mysql',
-      getContribution: () => driverContribution
+      getContribution: () => driverContribution,
     },
 
     dispose: () => {
       disposables.forEach(d => d.dispose())
-    }
+    },
   }
 }
 

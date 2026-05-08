@@ -28,8 +28,6 @@ import ResultTable from '@/extensions/builtin/query/ui/components/result/ResultT
 
 import type { IDockviewPanelProps } from 'dockview-vue'
 
-
-
 interface Props {
   params?: IDockviewPanelProps & {
     tableName?: string

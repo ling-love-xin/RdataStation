@@ -49,7 +49,9 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
   /**
    * 为项目连接建立运行时连接
    */
-  async function establishRuntimeConnection(projectConn: ProjectConnection): Promise<string | null> {
+  async function establishRuntimeConnection(
+    projectConn: ProjectConnection
+  ): Promise<string | null> {
     // 检查是否已有运行时连接
     const existingConnId = runtimeConnectionIds.value.get(projectConn.id)
     if (existingConnId) {
@@ -68,7 +70,9 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
       if (!dbType) {
         throw new Error('数据库类型未定义')
       }
-      console.log(`建立运行时连接: id=${projectConn.id}, name=${projectConn.name}, db_type=${dbType}, url=${url}`)
+      console.log(
+        `建立运行时连接: id=${projectConn.id}, name=${projectConn.name}, db_type=${dbType}, url=${url}`
+      )
 
       // 确定连接类型和项目 ID
       const connectionType = projectConn.connection_type || 'global'
@@ -223,7 +227,9 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
         obj[k] = v
       }
       localStorage.setItem('duckdb-enabled-connections', JSON.stringify(obj))
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return newVal
   }
 
@@ -241,7 +247,9 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
         }
         duckdbEnabled.value = newMap
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   /**

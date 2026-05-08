@@ -17,12 +17,12 @@
 
 ### 1.2 接口分层
 
-| 层级 | 接口类型 | 说明 |
-|------|---------|------|
-| L1 | 数据源接口 | 与后端通信的接口 |
-| L2 | 视图引擎接口 | 视图管理和操作接口 |
-| L3 | 组件接口 | Vue 组件 Props/Events |
-| L4 | 扩展接口 | 插件扩展点接口 |
+| 层级 | 接口类型     | 说明                  |
+| ---- | ------------ | --------------------- |
+| L1   | 数据源接口   | 与后端通信的接口      |
+| L2   | 视图引擎接口 | 视图管理和操作接口    |
+| L3   | 组件接口     | Vue 组件 Props/Events |
+| L4   | 扩展接口     | 插件扩展点接口        |
 
 ## 2. 数据源接口 (L1)
 
@@ -44,11 +44,11 @@ interface IWebSocketDataSource {
   connect(config: WebSocketConfig): Promise<void>
   disconnect(): void
   reconnect(): Promise<void>
-  
+
   // 状态查询
   isConnected(): boolean
   getConnectionState(): ConnectionState
-  
+
   // 事件订阅
   onMessage(handler: (event: MetadataEvent) => void): () => void
   onConnect(handler: () => void): () => void
@@ -97,26 +97,19 @@ interface IHTTPDataSource {
     parentId?: string,
     options?: FetchOptions
   ): Promise<MetadataResponse>
-  
+
   // 增量同步
-  syncMetadata(
-    connectionId: string,
-    since: Timestamp,
-    options?: SyncOptions
-  ): Promise<SyncResponse>
-  
+  syncMetadata(connectionId: string, since: Timestamp, options?: SyncOptions): Promise<SyncResponse>
+
   // 搜索
   searchMetadata(
     connectionId: string,
     query: string,
     options?: SearchOptions
   ): Promise<SearchResponse>
-  
+
   // 批量获取
-  batchFetch(
-    connectionId: string,
-    requests: BatchRequest[]
-  ): Promise<BatchResponse>
+  batchFetch(connectionId: string, requests: BatchRequest[]): Promise<BatchResponse>
 }
 
 // 请求选项
@@ -176,24 +169,24 @@ interface ILocalCache {
   set<T>(key: string, value: T, options?: CacheOptions): Promise<void>
   delete(key: string): Promise<void>
   clear(): Promise<void>
-  
+
   // 批量操作
   batchGet<T>(keys: string[]): Promise<Map<string, T>>
   batchSet<T>(entries: Array<[string, T]>, options?: CacheOptions): Promise<void>
   batchDelete(keys: string[]): Promise<void>
-  
+
   // 查询操作
   query<T>(predicate: (value: T) => boolean): Promise<T[]>
   find<T>(predicate: (value: T) => boolean): Promise<T | undefined>
-  
+
   // 索引操作
   createIndex(name: string, keyExtractor: (value: unknown) => string): Promise<void>
   queryByIndex(indexName: string, key: string): Promise<unknown[]>
-  
+
   // 元数据
   getMetadata(key: string): Promise<CacheMetadata | undefined>
   setMetadata(key: string, metadata: CacheMetadata): Promise<void>
-  
+
   // 统计
   getStats(): Promise<CacheStats>
 }
@@ -233,22 +226,22 @@ interface IViewEngine {
   getView<T>(name: string): MaterializedView<T> | undefined
   deleteView(name: string): void
   listViews(): string[]
-  
+
   // 视图操作
   applyDelta<T>(viewName: string, delta: Delta<T>): void
   applyBatch<T>(viewName: string, deltas: Delta<T>[]): void
   refreshView(viewName: string): Promise<void>
-  
+
   // 依赖管理
   addDependency(view: string, dependsOn: string): void
   removeDependency(view: string, dependsOn: string): void
   getDependencies(view: string): string[]
   getDependents(view: string): string[]
-  
+
   // 订阅管理
   subscribe<T>(viewName: string, callback: ViewChangeCallback<T>): () => void
   subscribeToDelta<T>(viewName: string, callback: DeltaCallback<T>): () => void
-  
+
   // 事务支持
   beginTransaction(): ViewTransaction
   commitTransaction(transaction: ViewTransaction): void
@@ -270,7 +263,7 @@ interface MaterializedView<T> {
   readonly version: number
   readonly snapshot: readonly T[]
   readonly size: number
-  
+
   // 查询
   getById(id: string): T | undefined
   getByIndex(index: number): T | undefined
@@ -278,11 +271,11 @@ interface MaterializedView<T> {
   filter(predicate: (item: T) => boolean): T[]
   map<R>(mapper: (item: T) => R): R[]
   reduce<R>(reducer: (acc: R, item: T) => R, initial: R): R
-  
+
   // 排序和分页
   sort(compareFn: (a: T, b: T) => number): T[]
   slice(start: number, end: number): T[]
-  
+
   // 订阅
   onChange(callback: (delta: Delta<T>) => void): () => void
   onBatch(callback: (deltas: Delta<T>[]) => void): () => void
@@ -296,7 +289,7 @@ type DeltaCallback<T> = (delta: Delta<T>) => void
 interface ViewTransaction {
   id: string
   views: Map<string, TransactionView>
-  
+
   apply<T>(viewName: string, delta: Delta<T>): void
   commit(): void
   rollback(): void
@@ -309,29 +302,22 @@ interface ViewTransaction {
 // 增量处理器接口
 interface IDeltaProcessor {
   // 差异计算
-  computeDiff<T>(
-    oldSnapshot: T[],
-    newSnapshot: T[],
-    keyExtractor: (item: T) => string
-  ): Delta<T>[]
-  
+  computeDiff<T>(oldSnapshot: T[], newSnapshot: T[], keyExtractor: (item: T) => string): Delta<T>[]
+
   // 增量合并
   mergeDeltas<T>(deltas: Delta<T>[]): Delta<T>[]
-  
+
   // 增量压缩
   compressDeltas<T>(deltas: Delta<T>[]): Delta<T>[]
-  
+
   // 增量应用
   applyToSnapshot<T>(snapshot: T[], deltas: Delta<T>[]): T[]
-  
+
   // 增量验证
   validateDelta<T>(delta: Delta<T>, schema: ZodSchema<T>): ValidationResult
-  
+
   // 增量转换
-  transformDelta<T, R>(
-    delta: Delta<T>,
-    transformer: (item: T) => R
-  ): Delta<R>
+  transformDelta<T, R>(delta: Delta<T>, transformer: (item: T) => R): Delta<R>
 }
 
 // 差异算法选项
@@ -362,22 +348,22 @@ interface ValidationError {
 interface IVirtualViewport {
   // 配置
   config: ViewportConfig
-  
+
   // 状态
   scrollTop: number
   containerHeight: number
   visibleRange: Range
-  
+
   // 计算
   computeVisibleRange(scrollTop: number): Range
   getVisibleItems<T>(items: T[]): T[]
   computeTotalHeight(itemCount: number): number
   computeScrollPosition(index: number): number
-  
+
   // 事件
   onScroll(callback: (scrollTop: number) => void): () => void
   onResize(callback: (height: number) => void): () => void
-  
+
   // 滚动到指定位置
   scrollToIndex(index: number, behavior?: ScrollBehavior): void
   scrollToItem(itemId: string, behavior?: ScrollBehavior): void
@@ -406,14 +392,14 @@ interface NavigatorTreeProps {
   // 数据源
   viewName: string
   connectionId?: string
-  
+
   // 配置
   config?: NavigatorConfig
-  
+
   // 初始状态
   defaultExpandedKeys?: string[]
   defaultSelectedKeys?: string[]
-  
+
   // 自定义渲染
   renderNode?: (node: NavigatorNode, props: NodeRenderProps) => VNode
   renderPrefix?: (node: NavigatorNode) => VNode
@@ -431,12 +417,12 @@ interface NavigatorTreeEvents {
   onNodeExpand(node: NavigatorNode): void
   onNodeCollapse(node: NavigatorNode): void
   onNodeSelect(node: NavigatorNode, selected: boolean): void
-  
+
   // 加载事件
   onLoadStart(nodeId: string): void
   onLoadComplete(nodeId: string): void
   onLoadError(nodeId: string, error: Error): void
-  
+
   // 拖拽事件
   onNodeDragStart(node: NavigatorNode, event: DragEvent): void
   onNodeDragEnd(node: NavigatorNode, event: DragEvent): void
@@ -449,25 +435,25 @@ interface NavigatorConfig {
   virtualScroll?: boolean
   itemHeight?: number
   overscan?: number
-  
+
   // 懒加载
   lazyLoad?: boolean
   loadOnExpand?: boolean
-  
+
   // 选择
   selectable?: boolean
   multiSelect?: boolean
   checkable?: boolean
-  
+
   // 拖拽
   draggable?: boolean
   droppable?: boolean
   dragPreview?: (node: NavigatorNode) => VNode
-  
+
   // 动画
   animate?: boolean
   animationDuration?: number
-  
+
   // 搜索
   searchable?: boolean
   searchDebounce?: number
@@ -483,16 +469,16 @@ interface NavigatorNodeProps {
   node: NavigatorNode
   level: number
   index: number
-  
+
   // 状态
   expanded: boolean
   selected: boolean
   loading: boolean
   highlighted: boolean
-  
+
   // 配置
   config?: NodeConfig
-  
+
   // 自定义渲染
   renderIcon?: (node: NavigatorNode) => VNode
   renderLabel?: (node: NavigatorNode) => VNode
@@ -504,17 +490,17 @@ interface NodeConfig {
   // 缩进
   indentSize: number
   showIndentGuide: boolean
-  
+
   // 图标
   iconSize: number
   showExpandIcon: boolean
   expandIconPosition: 'left' | 'right'
-  
+
   // 标签
   labelMaxLength: number
   showTooltip: boolean
   tooltipDelay: number
-  
+
   // 交互
   clickToExpand: boolean
   doubleClickToOpen: boolean
@@ -529,10 +515,10 @@ interface NodeConfig {
 interface SearchPanelProps {
   // 数据源
   viewName: string
-  
+
   // 配置
   config?: SearchConfig
-  
+
   // 初始值
   defaultQuery?: string
   defaultFilters?: SearchFilter[]
@@ -552,17 +538,17 @@ interface SearchConfig {
   debounce?: number
   minLength?: number
   maxLength?: number
-  
+
   // 筛选
   filters?: FilterOption[]
   defaultFilter?: string
-  
+
   // 结果
   pageSize?: number
   highlightMatches?: boolean
   showRecentSearches?: boolean
   maxRecentSearches?: number
-  
+
   // 快捷键
   shortcut?: string
 }
@@ -586,22 +572,22 @@ interface INodeProvider {
   readonly id: string
   readonly name: string
   readonly version: string
-  
+
   // 支持的节点类型
   readonly supportedTypes: NodeType[]
-  
+
   // 获取子节点
   getChildren(parentId: string, context: ProviderContext): Promise<NavigatorNode[]>
-  
+
   // 获取节点详情
   getNodeDetails(nodeId: string): Promise<NodeMetadata>
-  
+
   // 搜索节点
   searchNodes(query: string, options: SearchOptions): Promise<NavigatorNode[]>
-  
+
   // 监听变更
   onChanges(callback: (delta: Delta<NavigatorNode>) => void): () => void
-  
+
   // 生命周期
   activate(context: ExtensionContext): Promise<void>
   deactivate(): Promise<void>
@@ -621,15 +607,15 @@ interface ExtensionContext {
   viewEngine: IViewEngine
   cache: ILocalCache
   api: IHTTPDataSource
-  
+
   // 工具
   logger: ILogger
   telemetry: ITelemetry
-  
+
   // 存储
   globalState: IStorage
   workspaceState: IStorage
-  
+
   // 事件
   onDidChangeConnection: Event<ConnectionChangeEvent>
   onDidChangeConfiguration: Event<ConfigurationChangeEvent>
@@ -645,19 +631,19 @@ interface IViewTransform<T, R> {
   readonly name: string
   readonly sourceView: string
   readonly targetView: string
-  
+
   // 依赖声明
   readonly dependencies: string[]
-  
+
   // 转换函数
   transform(snapshot: T[]): R[]
-  
+
   // 增量转换
   transformDelta(delta: Delta<T>, currentSnapshot: R[]): Delta<R>
-  
+
   // 批量转换优化
   transformBatch?(deltas: Delta<T>[], currentSnapshot: R[]): Delta<R>[]
-  
+
   // 验证
   validate?(data: R[]): ValidationResult
 }
@@ -665,29 +651,19 @@ interface IViewTransform<T, R> {
 // 内置转换器
 interface BuiltInTransforms {
   // 筛选转换器
-  createFilterTransform<T>(
-    predicate: (item: T) => boolean
-  ): IViewTransform<T, T>
-  
+  createFilterTransform<T>(predicate: (item: T) => boolean): IViewTransform<T, T>
+
   // 排序转换器
-  createSortTransform<T>(
-    compareFn: (a: T, b: T) => number
-  ): IViewTransform<T, T>
-  
+  createSortTransform<T>(compareFn: (a: T, b: T) => number): IViewTransform<T, T>
+
   // 映射转换器
-  createMapTransform<T, R>(
-    mapper: (item: T) => R
-  ): IViewTransform<T, R>
-  
+  createMapTransform<T, R>(mapper: (item: T) => R): IViewTransform<T, R>
+
   // 聚合转换器
-  createAggregateTransform<T, R>(
-    aggregator: (items: T[]) => R
-  ): IViewTransform<T, R>
-  
+  createAggregateTransform<T, R>(aggregator: (items: T[]) => R): IViewTransform<T, R>
+
   // 分组转换器
-  createGroupTransform<T>(
-    keyExtractor: (item: T) => string
-  ): IViewTransform<T, GroupedItems<T>>
+  createGroupTransform<T>(keyExtractor: (item: T) => string): IViewTransform<T, GroupedItems<T>>
 }
 ```
 
@@ -699,11 +675,11 @@ interface INodeRenderer {
   // 标识
   readonly id: string
   readonly name: string
-  
+
   // 支持的节点类型
   readonly supportedTypes: NodeType[]
   readonly priority: number
-  
+
   // 渲染方法
   render(node: NavigatorNode, props: RenderProps): VNode
   renderIcon?(node: NavigatorNode): VNode
@@ -712,7 +688,7 @@ interface INodeRenderer {
   renderContextMenu?(node: NavigatorNode): MenuItem[]
   renderTooltip?(node: NavigatorNode): VNode
   renderPreview?(node: NavigatorNode): VNode
-  
+
   // 交互处理
   handleClick?(node: NavigatorNode, event: MouseEvent): boolean
   handleDoubleClick?(node: NavigatorNode, event: MouseEvent): boolean
@@ -752,12 +728,12 @@ interface IDragDropHandler {
   canDrag(node: NavigatorNode): boolean
   getDragData(node: NavigatorNode): DragData
   getDragPreview(node: NavigatorNode): VNode
-  
+
   // 拖放目标
   canDrop(target: NavigatorNode, data: DragData): boolean
   getDropEffect(target: NavigatorNode, data: DragData): 'move' | 'copy' | 'link'
   handleDrop(target: NavigatorNode, data: DragData, event: DragEvent): void
-  
+
   // 拖拽反馈
   onDragEnter?(target: NavigatorNode, data: DragData): void
   onDragLeave?(target: NavigatorNode, data: DragData): void
@@ -793,27 +769,27 @@ enum NavigatorErrorCode {
   CONNECTION_FAILED = 'CONN_001',
   CONNECTION_LOST = 'CONN_002',
   CONNECTION_TIMEOUT = 'CONN_003',
-  
+
   // 数据错误
   DATA_LOAD_FAILED = 'DATA_001',
   DATA_PARSE_ERROR = 'DATA_002',
   DATA_VALIDATION_ERROR = 'DATA_003',
   DATA_SYNC_ERROR = 'DATA_004',
-  
+
   // 视图错误
   VIEW_NOT_FOUND = 'VIEW_001',
   VIEW_UPDATE_ERROR = 'VIEW_002',
   VIEW_TRANSFORM_ERROR = 'VIEW_003',
-  
+
   // 缓存错误
   CACHE_READ_ERROR = 'CACHE_001',
   CACHE_WRITE_ERROR = 'CACHE_002',
   CACHE_CORRUPTED = 'CACHE_003',
-  
+
   // 扩展错误
   EXTENSION_LOAD_ERROR = 'EXT_001',
   EXTENSION_ACTIVATE_ERROR = 'EXT_002',
-  EXTENSION_INCOMPATIBLE = 'EXT_003'
+  EXTENSION_INCOMPATIBLE = 'EXT_003',
 }
 
 // 错误接口
@@ -828,10 +804,10 @@ interface INavigatorError extends Error {
 interface IErrorHandler {
   // 错误处理
   handle(error: INavigatorError): ErrorAction
-  
+
   // 错误恢复
   recover(error: INavigatorError): Promise<boolean>
-  
+
   // 错误报告
   report(error: INavigatorError): void
 }

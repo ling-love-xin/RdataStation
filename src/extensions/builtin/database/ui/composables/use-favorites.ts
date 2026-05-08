@@ -1,6 +1,6 @@
 /**
  * 数据库对象收藏功能
- * 
+ *
  * 支持收藏常用表/视图/数据库对象
  * 使用 localStorage 持久化存储
  */
@@ -50,8 +50,8 @@ export function useFavorites() {
       id: 'default',
       name: '默认收藏',
       items: [],
-      isExpanded: true
-    }
+      isExpanded: true,
+    },
   ])
 
   /**
@@ -90,7 +90,7 @@ export function useFavorites() {
     const favorite: IFavoriteItem = {
       ...item,
       createdAt: Date.now(),
-      accessCount: 0
+      accessCount: 0,
     }
 
     favorites.value.set(item.key, favorite)
@@ -136,8 +136,9 @@ export function useFavorites() {
    * 获取收藏列表
    */
   const favoriteList = computed(() => {
-    return Array.from(favorites.value.values())
-      .sort((a, b) => (b.lastAccessedAt || b.createdAt) - (a.lastAccessedAt || a.createdAt))
+    return Array.from(favorites.value.values()).sort(
+      (a, b) => (b.lastAccessedAt || b.createdAt) - (a.lastAccessedAt || a.createdAt)
+    )
   })
 
   /**
@@ -158,12 +159,12 @@ export function useFavorites() {
    */
   function searchFavorites(query: string): IFavoriteItem[] {
     const queryLower = query.toLowerCase()
-    return Array.from(favorites.value.values())
-      .filter(item => 
+    return Array.from(favorites.value.values()).filter(
+      item =>
         item.label.toLowerCase().includes(queryLower) ||
         item.type.toLowerCase().includes(queryLower) ||
         (item.objectName && item.objectName.toLowerCase().includes(queryLower))
-      )
+    )
   }
 
   /**
@@ -204,7 +205,7 @@ export function useFavorites() {
 
     return {
       total: items.length,
-      byType
+      byType,
     }
   }
 
@@ -226,6 +227,6 @@ export function useFavorites() {
     exportFavorites,
     clearAll,
     getStats,
-    saveToStorage
+    saveToStorage,
   }
 }

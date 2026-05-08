@@ -1,18 +1,16 @@
 import { ref, computed } from 'vue'
 
-
-
-import { getGlobalConnections, saveNavigatorState, loadNavigatorState as fetchNavigatorState } from '../../../connection/ui/services/connection'
+import {
+  getGlobalConnections,
+  saveNavigatorState,
+  loadNavigatorState as fetchNavigatorState,
+} from '../../../connection/ui/services/connection'
 import { useProjectConnectionStore } from '../../../connection/ui/stores/project-connection-store'
 import { useWorkbenchStore } from '../../../workbench/ui/stores/workbench-store'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 
 import type { ProjectConnection } from '../../../connection/types/connection'
-import type {
-  GlobalConnection,
-  FilterConfig
-} from '../types/navigator'
-
+import type { GlobalConnection, FilterConfig } from '../types/navigator'
 
 export function useDatabaseNavigator() {
   const navigatorStore = useDatabaseNavigatorStore()
@@ -31,14 +29,14 @@ export function useDatabaseNavigator() {
     showTables: true,
     showViews: true,
     showSystemSchemas: false,
-    showColumns: true
+    showColumns: true,
   })
 
   const globalConnections = ref<GlobalConnection[]>([])
 
   const allConnections = computed(() => [
     ...globalConnections.value,
-    ...projectConnectionStore.connections
+    ...projectConnectionStore.connections,
   ])
 
   const statusText = computed(() => {
@@ -82,7 +80,9 @@ export function useDatabaseNavigator() {
       await projectConnectionStore.loadConnections()
     }
 
-    const projectStore = await import('@/core/project/stores/project').then(m => m.useProjectStore())
+    const projectStore = await import('@/core/project/stores/project').then(m =>
+      m.useProjectStore()
+    )
     const projectPath = projectStore.currentProject?.path
 
     for (const conn of projectConnectionStore.connections) {
@@ -96,12 +96,8 @@ export function useDatabaseNavigator() {
 
     try {
       await Promise.all([
-        ...projectConnectionStore.connections.map(conn =>
-          navigatorStore.refreshMetadata(conn.id)
-        ),
-        ...globalConnections.value.map(conn =>
-          navigatorStore.refreshMetadata(conn.id)
-        )
+        ...projectConnectionStore.connections.map(conn => navigatorStore.refreshMetadata(conn.id)),
+        ...globalConnections.value.map(conn => navigatorStore.refreshMetadata(conn.id)),
       ])
 
       expandedKeys.value = []
@@ -205,7 +201,7 @@ export function useDatabaseNavigator() {
               showTables: filterConfig.value.showTables,
               showViews: filterConfig.value.showViews,
               showColumns: filterConfig.value.showColumns,
-              showSystemSchemas: filterConfig.value.showSystemSchemas
+              showSystemSchemas: filterConfig.value.showSystemSchemas,
             }
           )
         }
@@ -236,7 +232,7 @@ export function useDatabaseNavigator() {
           showTables: fc.showTables ?? true,
           showViews: fc.showViews ?? true,
           showColumns: fc.showColumns ?? true,
-          showSystemSchemas: fc.showSystemSchemas ?? false
+          showSystemSchemas: fc.showSystemSchemas ?? false,
         }
       }
     } catch (error) {
@@ -268,6 +264,6 @@ export function useDatabaseNavigator() {
     focusSearch,
     toggleFilter,
     loadNavigatorState,
-    saveNavigatorStateDebounced
+    saveNavigatorStateDebounced,
   }
 }

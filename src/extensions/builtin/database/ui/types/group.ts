@@ -26,7 +26,7 @@ export const GROUP_COLORS = [
   '#ef4444',
   '#8b5cf6',
   '#ec4899',
-  '#06b6d4'
+  '#06b6d4',
 ]
 
 export function generateGroupId(): string {

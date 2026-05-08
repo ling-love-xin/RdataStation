@@ -1,12 +1,12 @@
 /**
  * 缓存命中率统计与监控
- * 
+ *
  * 提供缓存操作的统计指标：
  * - 命中率（hits / total）
  * - 平均延迟
  * - 缓存大小
  * - 预热进度
- * 
+ *
  * 用于数据驱动优化缓存策略
  */
 
@@ -125,7 +125,7 @@ class CacheMetricsManager {
       connectionId,
       databaseName,
       schemaName,
-      tableName
+      tableName,
     }
 
     this.records.value.push(record)
@@ -144,9 +144,7 @@ class CacheMetricsManager {
     const hits = records.filter(r => r.hit).length
     const misses = total - hits
     const hitRate = total > 0 ? hits / total : 0
-    const avgLatency = total > 0
-      ? records.reduce((sum, r) => sum + r.latency, 0) / total
-      : 0
+    const avgLatency = total > 0 ? records.reduce((sum, r) => sum + r.latency, 0) / total : 0
 
     const recentLatencies = records.slice(-100).map(r => r.latency)
 
@@ -161,7 +159,7 @@ class CacheMetricsManager {
       avgLatency,
       recentLatencies,
       byConnection,
-      byOperationType
+      byOperationType,
     }
   }
 
@@ -183,7 +181,7 @@ class CacheMetricsManager {
       hits,
       hitRate: hits / total,
       avgLatency,
-      lastOperation
+      lastOperation,
     }
   }
 
@@ -197,9 +195,7 @@ class CacheMetricsManager {
 
     const total = records.length
     const hits = records.filter(r => r.hit).length
-    const avgLatency = total > 0
-      ? records.reduce((sum, r) => sum + r.latency, 0) / total
-      : 0
+    const avgLatency = total > 0 ? records.reduce((sum, r) => sum + r.latency, 0) / total : 0
 
     return {
       totalOperations: total,
@@ -209,7 +205,7 @@ class CacheMetricsManager {
       avgLatency,
       recentLatencies: records.map(r => r.latency),
       byConnection: this.aggregateByConnection(records),
-      byOperationType: this.aggregateByOperationType(records)
+      byOperationType: this.aggregateByOperationType(records),
     }
   }
 
@@ -224,17 +220,13 @@ class CacheMetricsManager {
    * 清除指定连接的记录
    */
   clearConnection(connectionId: string): void {
-    this.records.value = this.records.value.filter(
-      r => r.connectionId !== connectionId
-    )
+    this.records.value = this.records.value.filter(r => r.connectionId !== connectionId)
   }
 
   /**
    * 按连接 ID 聚合指标
    */
-  private aggregateByConnection(
-    records: CacheOperationRecord[]
-  ): Map<string, ConnectionMetrics> {
+  private aggregateByConnection(records: CacheOperationRecord[]): Map<string, ConnectionMetrics> {
     const map = new Map<string, ConnectionMetrics>()
 
     for (const record of records) {
@@ -246,7 +238,7 @@ class CacheMetricsManager {
           hits: 0,
           hitRate: 0,
           avgLatency: 0,
-          lastOperation: 0
+          lastOperation: 0,
         }
         map.set(record.connectionId, metrics)
       }
@@ -257,9 +249,7 @@ class CacheMetricsManager {
     }
 
     for (const metrics of map.values()) {
-      metrics.hitRate = metrics.totalOperations > 0
-        ? metrics.hits / metrics.totalOperations
-        : 0
+      metrics.hitRate = metrics.totalOperations > 0 ? metrics.hits / metrics.totalOperations : 0
     }
 
     return map
@@ -281,7 +271,7 @@ class CacheMetricsManager {
           totalOperations: 0,
           hits: 0,
           hitRate: 0,
-          avgLatency: 0
+          avgLatency: 0,
         }
         map.set(record.type, metrics)
       }
@@ -291,9 +281,7 @@ class CacheMetricsManager {
     }
 
     for (const metrics of map.values()) {
-      metrics.hitRate = metrics.totalOperations > 0
-        ? metrics.hits / metrics.totalOperations
-        : 0
+      metrics.hitRate = metrics.totalOperations > 0 ? metrics.hits / metrics.totalOperations : 0
     }
 
     return map
@@ -302,7 +290,7 @@ class CacheMetricsManager {
 
 /**
  * 缓存操作性能包装器
- * 
+ *
  * 自动记录操作的命中率和延迟
  */
 export async function wrapCacheOperation<T>(

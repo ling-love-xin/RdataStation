@@ -3,17 +3,9 @@
     <!-- 驱动选择 -->
     <div class="form-section">
       <label class="form-label">数据库类型</label>
-      <select
-        v-model="selectedDriverId"
-        class="form-select"
-        @change="onDriverChange"
-      >
+      <select v-model="selectedDriverId" class="form-select" @change="onDriverChange">
         <option value="">请选择数据库类型</option>
-        <option
-          v-for="driver in drivers"
-          :key="driver.id"
-          :value="driver.id"
-        >
+        <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
           {{ driver.name }}
         </option>
       </select>
@@ -32,11 +24,7 @@
 
     <!-- 驱动特定字段 -->
     <template v-if="selectedDriver">
-      <div
-        v-for="(field, idx) in (selectedDriver.fields || [])"
-        :key="idx"
-        class="form-section"
-      >
+      <div v-for="(field, idx) in selectedDriver.fields || []" :key="idx" class="form-section">
         <label class="form-label">
           {{ field.label }}
           <span v-if="field.required" class="required">*</span>
@@ -80,9 +68,7 @@
             :placeholder="field.placeholder"
             readonly
           />
-          <button type="button" class="btn-file" @click="selectFile(field.name)">
-            浏览...
-          </button>
+          <button type="button" class="btn-file" @click="selectFile(field.name)"> 浏览... </button>
         </div>
 
         <!-- 下拉选择 -->
@@ -93,7 +79,7 @@
           :required="field.required"
         >
           <option
-            v-for="(option, optIdx) in (field.options || [])"
+            v-for="(option, optIdx) in field.options || []"
             :key="optIdx"
             :value="option.value"
           >
@@ -104,19 +90,20 @@
     </template>
 
     <!-- 额外选项 -->
-    <div v-if="(selectedDriver?.extraOptions?.length || selectedDriver?.extra_options?.length)" class="form-section">
-      <button
-        type="button"
-        class="btn-toggle"
-        @click="showAdvanced = !showAdvanced"
-      >
+    <div
+      v-if="selectedDriver?.extraOptions?.length || selectedDriver?.extra_options?.length"
+      class="form-section"
+    >
+      <button type="button" class="btn-toggle" @click="showAdvanced = !showAdvanced">
         <span class="toggle-icon">{{ showAdvanced ? '▼' : '▶' }}</span>
         高级选项
       </button>
 
       <div v-show="showAdvanced" class="advanced-options">
         <div
-          v-for="(option, optIdx) in (selectedDriver?.extraOptions || selectedDriver?.extra_options || [])"
+          v-for="(option, optIdx) in selectedDriver?.extraOptions ||
+          selectedDriver?.extra_options ||
+          []"
           :key="optIdx"
           class="form-section"
         >
@@ -144,10 +131,7 @@
             v-else-if="(option.optionType || option.option_type) === 'boolean'"
             class="checkbox-label"
           >
-            <input
-              v-model="(formData as any).options![option.name]"
-              type="checkbox"
-            />
+            <input v-model="(formData as any).options![option.name]" type="checkbox" />
             {{ option.description }}
           </label>
 
@@ -158,7 +142,7 @@
             class="form-select"
           >
             <option
-              v-for="(opt, oIdx) in (option.options || [])"
+              v-for="(opt, oIdx) in option.options || []"
               :key="oIdx"
               :value="opt.value || opt"
             >
@@ -198,7 +182,7 @@ const selectedDriver = computed(() => {
 
 const formData = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: value => emit('update:modelValue', value),
 })
 
 function onDriverChange() {
@@ -210,7 +194,7 @@ function onDriverChange() {
     const newFormData: Partial<ConnectionConfig> = {
       driver: driver.id,
       name: formData.value.name || '',
-      options: {}
+      options: {},
     }
 
     // 设置字段默认值
@@ -242,8 +226,8 @@ async function selectFile(fieldName: string) {
       multiple: false,
       filters: [
         { name: '数据库文件', extensions: ['db', 'sqlite', 'duckdb'] },
-        { name: '所有文件', extensions: ['*'] }
-      ]
+        { name: '所有文件', extensions: ['*'] },
+      ],
     })
     if (selected && typeof selected === 'string') {
       formData.value[fieldName as keyof ConnectionConfig] = selected as any
@@ -254,11 +238,15 @@ async function selectFile(fieldName: string) {
 }
 
 // 监听外部 modelValue 变化
-watch(() => props.modelValue.driver, (driverId) => {
-  if (driverId && driverId !== selectedDriverId.value) {
-    selectedDriverId.value = driverId
-  }
-}, { immediate: true })
+watch(
+  () => props.modelValue.driver,
+  driverId => {
+    if (driverId && driverId !== selectedDriverId.value) {
+      selectedDriverId.value = driverId
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
@@ -362,7 +350,7 @@ watch(() => props.modelValue.driver, (driverId) => {
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 16px;
   height: 16px;
 }

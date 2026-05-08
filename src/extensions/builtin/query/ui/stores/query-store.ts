@@ -5,7 +5,6 @@ import type { SqlHistory, QueryTab } from '@/shared/types'
 
 import * as queryService from '../services/query'
 
-
 /**
  * 查询状态管理
  *
@@ -27,21 +26,19 @@ export const useQueryStore = defineStore('query', () => {
       isExecuting: false,
       loading: false,
       error: null,
-      elapsedMs: 0
-    }
+      elapsedMs: 0,
+    },
   ])
   const activeTabId = ref('1')
   const sqlHistory = ref<SqlHistory[]>([])
   const historyLoading = ref(false)
 
   // ==================== Getters ====================
-  const activeTab = computed(() =>
-    tabs.value.find(t => t.id === activeTabId.value) || tabs.value[0]
+  const activeTab = computed(
+    () => tabs.value.find(t => t.id === activeTabId.value) || tabs.value[0]
   )
   const tabCount = computed(() => tabs.value.length)
-  const hasResults = computed(() =>
-    activeTab.value?.result !== null
-  )
+  const hasResults = computed(() => activeTab.value?.result !== null)
 
   // ==================== Actions ====================
 
@@ -60,7 +57,7 @@ export const useQueryStore = defineStore('query', () => {
       isExecuting: false,
       loading: false,
       error: null,
-      elapsedMs: 0
+      elapsedMs: 0,
     }
     tabs.value.push(newTab)
     activeTabId.value = newId
@@ -145,14 +142,14 @@ export const useQueryStore = defineStore('query', () => {
           columns: result.result.columns,
           rows: result.result.rows,
           rowCount: result.rowCount || result.result.rows.length,
-          executionTime: result.executionTime || result.elapsed_ms || 0
+          executionTime: result.executionTime || result.elapsed_ms || 0,
         }
       } else if (result.rows) {
         tab.result = {
           columns: result.columns,
           rows: result.rows,
           rowCount: result.rowCount || result.rows.length,
-          executionTime: result.executionTime || result.elapsed_ms || 0
+          executionTime: result.executionTime || result.elapsed_ms || 0,
         }
       }
       tab.elapsedMs = result.elapsed_ms ?? result.executionTime ?? 0
@@ -185,7 +182,7 @@ export const useQueryStore = defineStore('query', () => {
             columns: lastResult.columns,
             rows: lastResult.rows,
             rowCount: lastResult.rowCount || lastResult.rows?.length || 0,
-            executionTime: lastResult.executionTime || 0
+            executionTime: lastResult.executionTime || 0,
           }
         }
       }
@@ -212,7 +209,7 @@ export const useQueryStore = defineStore('query', () => {
         executionTime: r.execution_time,
         rowCount: r.row_count,
         success: r.success,
-        error: r.error
+        error: r.error,
       }))
     } catch (e) {
       console.error('加载SQL历史失败:', e)
@@ -236,7 +233,7 @@ export const useQueryStore = defineStore('query', () => {
         executionTime: r.execution_time,
         rowCount: r.row_count,
         success: r.success,
-        error: r.error
+        error: r.error,
       }))
     } catch (e) {
       console.error('搜索SQL历史失败:', e)
@@ -273,9 +270,7 @@ export const useQueryStore = defineStore('query', () => {
    * 清除标签页错误
    */
   function clearTabError(tabId?: string) {
-    const targetTab = tabId
-      ? tabs.value.find(t => t.id === tabId)
-      : activeTab.value
+    const targetTab = tabId ? tabs.value.find(t => t.id === tabId) : activeTab.value
     if (targetTab) {
       targetTab.error = null
     }
@@ -303,6 +298,6 @@ export const useQueryStore = defineStore('query', () => {
     searchSqlHistory,
     clearSqlHistory,
     removeSqlHistory,
-    clearTabError
+    clearTabError,
   }
 })

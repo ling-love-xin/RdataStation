@@ -111,12 +111,7 @@
 
         <div class="setting-item">
           <label>{{ t('workbench.retentionDays') }}</label>
-          <input
-            v-model.number="settings.history.retentionDays"
-            type="number"
-            min="1"
-            max="365"
-          />
+          <input v-model.number="settings.history.retentionDays" type="number" min="1" max="365" />
           <span class="hint">{{ t('workbench.retentionDaysHint') }}</span>
         </div>
 
@@ -269,12 +264,7 @@
         <div class="shortcuts-list">
           <div v-for="shortcut in shortcuts" :key="shortcut.key" class="shortcut-item">
             <span class="shortcut-name">{{ shortcut.name }}</span>
-            <input
-              v-model="shortcut.value"
-              type="text"
-              class="shortcut-input"
-              readonly
-            />
+            <input v-model="shortcut.value" type="text" class="shortcut-input" readonly />
             <button class="btn-edit-shortcut">{{ t('workbench.editShortcut') }}</button>
           </div>
         </div>
@@ -342,7 +332,7 @@ import {
   Keyboard,
   Palette,
   Trash2,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-vue-next'
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -351,6 +341,7 @@ import type { Theme } from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 
 const { t } = useI18n()
+const appStore = useAppStore()
 
 const tabs = [
   { id: 'connection-pool', label: t('workbench.connectionPool'), icon: Database },
@@ -358,7 +349,7 @@ const tabs = [
   { id: 'monitoring', label: t('workbench.monitoringSettings'), icon: Activity },
   { id: 'performance', label: t('workbench.performanceSettings'), icon: Zap },
   { id: 'shortcuts', label: t('workbench.shortcutsSettings'), icon: Keyboard },
-  { id: 'appearance', label: t('workbench.appearanceSettings'), icon: Palette }
+  { id: 'appearance', label: t('workbench.appearanceSettings'), icon: Palette },
 ]
 
 const activeTab = ref('connection-pool')
@@ -366,7 +357,7 @@ const activeTab = ref('connection-pool')
 const themes = [
   { id: 'light', name: t('workbench.lightTheme') },
   { id: 'dark', name: t('workbench.darkTheme') },
-  { id: 'system', name: t('workbench.systemTheme') }
+  { id: 'system', name: t('workbench.systemTheme') },
 ]
 
 const shortcuts = reactive([
@@ -376,7 +367,7 @@ const shortcuts = reactive([
   { key: 'search', name: t('workbench.searchTooltip'), value: 'Ctrl+F' },
   { key: 'beginTransaction', name: t('workbench.beginTransaction'), value: 'Ctrl+B' },
   { key: 'commitTransaction', name: t('workbench.commitTooltip'), value: 'Ctrl+Shift+B' },
-  { key: 'rollbackTransaction', name: t('workbench.rollbackTooltip'), value: 'Ctrl+Shift+R' }
+  { key: 'rollbackTransaction', name: t('workbench.rollbackTooltip'), value: 'Ctrl+Shift+R' },
 ])
 
 const settings = reactive({
@@ -387,14 +378,14 @@ const settings = reactive({
     idleTimeout: 300,
     autoReconnect: true,
     healthCheck: true,
-    healthCheckInterval: 60
+    healthCheckInterval: 60,
   },
   history: {
     maxHistoryItems: 100,
     retentionDays: 30,
     enableHistory: true,
     includeSQL: true,
-    enableUndo: true
+    enableUndo: true,
   },
   monitoring: {
     enableMonitoring: true,
@@ -402,20 +393,20 @@ const settings = reactive({
     enableAlerts: true,
     alertOnDisconnect: true,
     alertOnSlowQuery: true,
-    slowQueryThreshold: 1000
+    slowQueryThreshold: 1000,
   },
   performance: {
     virtualScrollBuffer: 5,
     maxCacheSize: 100,
     cacheExpireMinutes: 60,
     enableLazyLoad: true,
-    enablePreload: true
+    enablePreload: true,
   },
   appearance: {
     theme: 'system',
     fontSize: 13,
-    compactMode: false
-  }
+    compactMode: false,
+  },
 })
 
 function clearHistory() {
@@ -432,14 +423,14 @@ function resetSettings() {
     idleTimeout: 300,
     autoReconnect: true,
     healthCheck: true,
-    healthCheckInterval: 60
+    healthCheckInterval: 60,
   })
   Object.assign(settings.history, {
     maxHistoryItems: 100,
     retentionDays: 30,
     enableHistory: true,
     includeSQL: true,
-    enableUndo: true
+    enableUndo: true,
   })
   Object.assign(settings.monitoring, {
     enableMonitoring: true,
@@ -447,24 +438,23 @@ function resetSettings() {
     enableAlerts: true,
     alertOnDisconnect: true,
     alertOnSlowQuery: true,
-    slowQueryThreshold: 1000
+    slowQueryThreshold: 1000,
   })
   Object.assign(settings.performance, {
     virtualScrollBuffer: 5,
     maxCacheSize: 100,
     cacheExpireMinutes: 60,
     enableLazyLoad: true,
-    enablePreload: true
+    enablePreload: true,
   })
   Object.assign(settings.appearance, {
     theme: 'system',
     fontSize: 13,
-    compactMode: false
+    compactMode: false,
   })
 }
 
 function saveSettings() {
-  const appStore = useAppStore()
   const newTheme = settings.appearance.theme as Theme
   appStore.setTheme(newTheme)
 
@@ -474,12 +464,7 @@ function saveSettings() {
 }
 
 function loadSettings() {
-  try {
-    const appStore = useAppStore()
-    settings.appearance.theme = appStore.effectiveTheme
-  } catch {
-    /* ignore */
-  }
+  settings.appearance.theme = appStore.effectiveTheme
 
   const saved = localStorage.getItem('rdata-station-settings')
   if (saved) {
@@ -590,7 +575,7 @@ loadSettings()
   cursor: pointer;
 }
 
-.setting-item input[type="number"],
+.setting-item input[type='number'],
 .setting-item select {
   width: 150px;
   padding: 6px 10px;
@@ -602,12 +587,12 @@ loadSettings()
   outline: none;
 }
 
-.setting-item input[type="number"]:focus,
+.setting-item input[type='number']:focus,
 .setting-item select:focus {
   border-color: var(--primary-color);
 }
 
-.setting-item input[type="checkbox"] {
+.setting-item input[type='checkbox'] {
   width: 16px;
   height: 16px;
 }

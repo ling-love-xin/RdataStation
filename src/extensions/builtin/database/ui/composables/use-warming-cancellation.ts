@@ -1,12 +1,12 @@
 /**
  * 缓存预热取消机制
- * 
+ *
  * 实现用户切换连接时自动取消当前预热：
  * - 监听连接切换事件
  * - 取消正在进行的预热任务
  * - 清理预热状态
  * - 防止资源浪费
- * 
+ *
  * 遵循架构规范：前端只负责调度，不实现业务逻辑
  */
 
@@ -34,7 +34,7 @@ export interface WarmingCancellationConfig {
 const defaultConfig: WarmingCancellationConfig = {
   enabled: true,
   cleanupDelay: 1000,
-  showNotification: true
+  showNotification: true,
 }
 
 /**
@@ -64,7 +64,7 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
     isCancelling: false,
     cancelledConnectionId: null,
     reason: null,
-    cancellationCount: 0
+    cancellationCount: 0,
   })
 
   /**
@@ -181,7 +181,7 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
     return {
       totalCancellations: state.value.cancellationCount,
       lastCancelledConnection: state.value.cancelledConnectionId,
-      lastReason: state.value.reason
+      lastReason: state.value.reason,
     }
   }
 
@@ -193,6 +193,6 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
     cleanupWarmingState,
     startWatching,
     updateConfig,
-    getCancellationStats
+    getCancellationStats,
   }
 }

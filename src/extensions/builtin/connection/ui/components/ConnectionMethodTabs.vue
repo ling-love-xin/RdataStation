@@ -8,7 +8,13 @@
         :class="{ active: modelValue === tab.key }"
         @click="selectTab(tab.key)"
       >
-        <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg
+          class="tab-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <component :is="tab.icon" />
         </svg>
         <span>{{ tab.label }}</span>
@@ -20,9 +26,9 @@
       <div v-show="modelValue === 'direct'" class="tab-panel">
         <div class="panel-info">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="16" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12.01" y2="8"/>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <p>直接连接到数据库服务器，适用于本地开发或内网环境。</p>
         </div>
@@ -70,7 +76,7 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   driverSupportsSsh: false,
   driverSupportsSsl: false,
-  driverSupportsProxy: false
+  driverSupportsProxy: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -81,15 +87,13 @@ const sslConfig = ref<Record<string, unknown>>({})
 const proxyConfig = ref<Record<string, unknown>>({})
 
 // 监听配置变化
-watch(sshConfig, (value) => emit('update:sshConfig', value), { deep: true })
-watch(sslConfig, (value) => emit('update:sslConfig', value), { deep: true })
-watch(proxyConfig, (value) => emit('update:proxyConfig', value), { deep: true })
+watch(sshConfig, value => emit('update:sshConfig', value), { deep: true })
+watch(sslConfig, value => emit('update:sslConfig', value), { deep: true })
+watch(proxyConfig, value => emit('update:proxyConfig', value), { deep: true })
 
 // 可用的标签页
 const availableTabs = computed(() => {
-  const tabs = [
-    { key: 'direct', label: '直接连接', icon: 'DirectIcon' }
-  ]
+  const tabs = [{ key: 'direct', label: '直接连接', icon: 'DirectIcon' }]
 
   if (props.driverSupportsSsh) {
     tabs.push({ key: 'ssh', label: 'SSH 隧道', icon: 'SshIcon' })
@@ -111,8 +115,6 @@ function selectTab(key: string) {
   emit('update:modelValue', key)
 }
 </script>
-
-
 
 <style scoped>
 .connection-method-tabs {

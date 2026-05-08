@@ -162,7 +162,10 @@ export async function getDatabases(connId: string): Promise<Array<{ name: string
 /**
  * 获取 Schema 列表
  */
-export async function getSchemas(connId: string, database: string): Promise<Array<{ name: string }>> {
+export async function getSchemas(
+  connId: string,
+  database: string
+): Promise<Array<{ name: string }>> {
   return invoke('get_schemas', { connId, database })
 }
 
@@ -196,12 +199,14 @@ export async function getColumns(
   database: string,
   schema: string,
   table: string
-): Promise<Array<{
-  name: string
-  data_type: string
-  nullable?: boolean
-  default_value?: string
-  is_primary_key?: boolean
-}>> {
+): Promise<
+  Array<{
+    name: string
+    data_type: string
+    nullable?: boolean
+    default_value?: string
+    is_primary_key?: boolean
+  }>
+> {
   return invoke('get_columns', { connId, database, schema, table })
 }

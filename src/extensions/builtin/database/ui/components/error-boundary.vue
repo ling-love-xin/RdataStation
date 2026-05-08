@@ -33,13 +33,13 @@ const errorMessage = ref('')
 onErrorCaptured((error: Error, instance: ComponentPublicInstance | null, info: string) => {
   hasError.value = true
   errorMessage.value = error.message || t('navigator.unknownError')
-  
+
   console.error('Error Boundary caught error:', error)
   console.error('Component:', instance)
   console.error('Info:', info)
-  
+
   emit('error', error)
-  
+
   return false
 })
 

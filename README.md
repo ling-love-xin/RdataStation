@@ -44,7 +44,7 @@ You want to group by region and summarize. You export to CSV. Excel struggles to
 
 Meanwhile, all you wanted to do was ask a few follow-up questions about your query results.
 
-**In a test with 500,000 rows:** Excel took 30+ seconds to load and froze during filtering. Python + pandas took ~8 seconds to load and ~3 seconds to group. RdataStation + DuckDB returned the same grouping result in roughly 0.3 seconds, directly on the query result panel. *(Benchmark on a standard laptop; your results may vary.)*
+**In a test with 500,000 rows:** Excel took 30+ seconds to load and froze during filtering. Python + pandas took ~8 seconds to load and ~3 seconds to group. RdataStation + DuckDB returned the same grouping result in roughly 0.3 seconds, directly on the query result panel. _(Benchmark on a standard laptop; your results may vary.)_
 
 **With RdataStation:** click the **"DuckDB Analysis"** button on the result panel. The 200,000 rows become a local temporary table inside DuckDB. Type in your aggregation SQL. Results come back in milliseconds. No export. No Excel. No Python. The entire chain of questioning happens inside one tool.
 
@@ -77,22 +77,22 @@ RdataStation uses SQL as the entry point for analysis — connecting, querying, 
 ---
 
 ## ⚙️ How it works: the architecture behind it
-<img width="5044" height="4164" alt="image" src="https://github.com/user-attachments/assets/3e8be19f-b95d-4a16-89a5-81b022c22e76" />
 
+<img width="5044" height="4164" alt="image" src="https://github.com/user-attachments/assets/3e8be19f-b95d-4a16-89a5-81b022c22e76" />
 
 ### 🧠 DuckDB as the analysis engine
 
 DuckDB is not "just another connectable data source" in RdataStation — it's embedded into the core.
 
 - **Secondary analysis**: any query result set can be transferred into a local DuckDB table with one click. `GROUP BY`, window functions, subqueries — all happen in milliseconds, locally.
-  - *When you need this:* You just ran a query. Instead of exporting to Excel and waiting, you keep exploring right inside the tool.
+  - _When you need this:_ You just ran a query. Instead of exporting to Excel and waiting, you keep exploring right inside the tool.
 - **Federated queries**: join tables across MySQL, PostgreSQL, and local CSV files in a single SQL statement.
-  - *When you need this:* Your user data is in one database, orders in another, and a mapping file is on your desktop. You join them with one query.
+  - _When you need this:_ Your user data is in one database, orders in another, and a mapping file is on your desktop. You join them with one query.
 - **Data profiling**: click any column in the result grid. A side panel instantly shows the column's profile — mean, min, max, median for numeric columns; distinct count, null ratio, top-10 frequency for text columns. All powered by DuckDB, locally, without touching the remote database.
-  - *When you need this:* Before analyzing, you want to know what the data looks like — are there empty values? What's the distribution? You get answers in one click.
+  - _When you need this:_ Before analyzing, you want to know what the data looks like — are there empty values? What's the distribution? You get answers in one click.
 - **Three result-set modes**: instant filtering (frontend, zero latency), SQL filtering (re-executes the query with appended WHERE clause, like DBeaver), and DuckDB deep analysis (aggregation, window functions, federated queries on the local DuckDB copy).
 - **Version snapshots**: when a shared dimension table is updated, the old version is preserved as a snapshot rather than being overwritten. Each project locks to a specific version. Analysis results remain reproducible.
-  - *When you need this:* You wrote a quarterly report in January based on the "product categories v1" table. In March, someone updates it to v2. Without version snapshots, your January report silently changes. With snapshots, it stays exactly as it was.
+  - _When you need this:_ You wrote a quarterly report in January based on the "product categories v1" table. In March, someone updates it to v2. Without version snapshots, your January report silently changes. With snapshots, it stays exactly as it was.
 
 ### 🏗️ Two-tier architecture: App-level + Project-level
 
@@ -135,6 +135,7 @@ cd RdataStation
 npm install
 cargo tauri dev
 ```
+
 If you need a stable, production-ready database tool, DBeaver, DataGrip, Navicat, and TablePlus are all excellent choices with years of refinement behind them.
 
 If RdataStation's direction resonates with you — making analysis happen after the query, isolating projects while sharing common assets, keeping data entirely local — then you're welcome to follow along, try it out, share feedback, or even contribute.
@@ -142,15 +143,15 @@ If RdataStation's direction resonates with you — making analysis happen after 
 🔍 How we differ
 RdataStation is not trying to be a "better DBeaver" or a "better DataGrip." Those tools are already excellent at what they do. RdataStation simply focuses on a different part of the workflow. That doesn't make one approach right and the other wrong — just different starting points for different needs.
 
-Traditional DB tools	RdataStation	Why it matters
-Core focus	Connecting to databases, writing SQL, displaying results	What happens after the results come back	You don't need another tool just to explore your query results
-Analysis engine	Not built-in. Users export data to Excel, Python, or BI tools	DuckDB embedded in the core	Analysis stays inside the tool. No export, no waiting
-Performance	Remote query execution only. Repeated analysis hits the remote database every time	DuckDB local acceleration. First query fetches data; all subsequent analysis runs locally in milliseconds	The first query is the only round trip; every follow-up is local
-Result-set workflow	Display results. Export if you need more	Three modes: instant filtering, SQL re-query, DuckDB deep analysis — all in one panel	From "just browsing" to "deep analysis" without switching tools
-Data architecture	Flat connection list. No project isolation	Two-tier: project-level isolation + app-level shared services	Your marketing analysis doesn't accidentally interfere with your inventory analysis
-Shared assets	No built-in mechanism. Manual file exchange	Dimension tables and master data can be promoted to the app level, versioned, and reused	Clean once, use everywhere. No more three copies of the same supplier table
-Data sovereignty	Most tools now push cloud sync, telemetry, or login	Local-first. No cloud. No telemetry	Your database passwords and analysis results never leave your machine
-Extensibility	Either closed ecosystem or traditional plugin model	Extism WASM sandbox for lightweight plugins + Sidecar for heavy dependencies. Multi-language support	Safe community extensions + isolated heavy runtimes, both in one architecture
+Traditional DB tools RdataStation Why it matters
+Core focus Connecting to databases, writing SQL, displaying results What happens after the results come back You don't need another tool just to explore your query results
+Analysis engine Not built-in. Users export data to Excel, Python, or BI tools DuckDB embedded in the core Analysis stays inside the tool. No export, no waiting
+Performance Remote query execution only. Repeated analysis hits the remote database every time DuckDB local acceleration. First query fetches data; all subsequent analysis runs locally in milliseconds The first query is the only round trip; every follow-up is local
+Result-set workflow Display results. Export if you need more Three modes: instant filtering, SQL re-query, DuckDB deep analysis — all in one panel From "just browsing" to "deep analysis" without switching tools
+Data architecture Flat connection list. No project isolation Two-tier: project-level isolation + app-level shared services Your marketing analysis doesn't accidentally interfere with your inventory analysis
+Shared assets No built-in mechanism. Manual file exchange Dimension tables and master data can be promoted to the app level, versioned, and reused Clean once, use everywhere. No more three copies of the same supplier table
+Data sovereignty Most tools now push cloud sync, telemetry, or login Local-first. No cloud. No telemetry Your database passwords and analysis results never leave your machine
+Extensibility Either closed ecosystem or traditional plugin model Extism WASM sandbox for lightweight plugins + Sidecar for heavy dependencies. Multi-language support Safe community extensions + isolated heavy runtimes, both in one architecture
 🤝 Getting involved
 All contributions are welcome, no matter your background.
 
@@ -166,4 +167,3 @@ All contributions are welcome, no matter your background.
 
 📄 License
 Dual-licensed under MIT / Apache-2.0.
-

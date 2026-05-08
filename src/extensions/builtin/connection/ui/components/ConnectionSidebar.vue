@@ -84,7 +84,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  recentDriverIds: () => []
+  recentDriverIds: () => [],
 })
 
 const emit = defineEmits<{
@@ -102,20 +102,20 @@ const categories = computed<DatabaseCategory[]>(() => {
       key: 'relational',
       label: '关系型数据库',
       expanded: true,
-      databases: allDrivers.filter(d => ['mysql', 'postgres', 'mariadb'].includes(d.id))
+      databases: allDrivers.filter(d => ['mysql', 'postgres', 'mariadb'].includes(d.id)),
     },
     {
       key: 'file-based',
       label: '文件数据库',
       expanded: true,
-      databases: allDrivers.filter(d => ['sqlite', 'duckdb'].includes(d.id))
+      databases: allDrivers.filter(d => ['sqlite', 'duckdb'].includes(d.id)),
     },
     {
       key: 'nosql',
       label: 'NoSQL',
       expanded: false,
-      databases: allDrivers.filter(d => ['mongodb', 'redis'].includes(d.id))
-    }
+      databases: allDrivers.filter(d => ['mongodb', 'redis'].includes(d.id)),
+    },
   ].filter(cat => cat.databases.length > 0)
 })
 
@@ -135,10 +135,9 @@ const filteredCategories = computed(() => {
   return categories.value
     .map(cat => ({
       ...cat,
-      databases: cat.databases.filter(db =>
-        db.name.toLowerCase().includes(query) ||
-        db.description?.toLowerCase().includes(query)
-      )
+      databases: cat.databases.filter(
+        db => db.name.toLowerCase().includes(query) || db.description?.toLowerCase().includes(query)
+      ),
     }))
     .filter(cat => cat.databases.length > 0)
 })

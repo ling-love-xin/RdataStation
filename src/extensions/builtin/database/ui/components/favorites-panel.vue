@@ -19,21 +19,12 @@
     </div>
 
     <div class="favorites-search">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="搜索收藏..."
-        class="search-input"
-      />
+      <input v-model="searchQuery" type="text" placeholder="搜索收藏..." class="search-input" />
     </div>
 
     <div v-if="stats.total > 0" class="favorites-stats">
       <span class="stat-item">总计: {{ stats.total }}</span>
-      <span
-        v-for="(count, type) in stats.byType"
-        :key="type"
-        class="stat-item"
-      >
+      <span v-for="(count, type) in stats.byType" :key="type" class="stat-item">
         {{ type }}: {{ count }}
       </span>
     </div>
@@ -48,26 +39,16 @@
         @dblclick="handleOpen(item)"
         @contextmenu.prevent="handleContextMenu(item, $event)"
       >
-        <component
-          :is="getNodeIcon(item.type)"
-          :size="16"
-          class="item-icon"
-        />
+        <component :is="getNodeIcon(item.type)" :size="16" class="item-icon" />
         <div class="item-info">
           <span class="item-label">{{ item.label }}</span>
-          <span class="item-meta">
-            {{ item.dbName }}.{{ item.schemaName }}
-          </span>
+          <span class="item-meta"> {{ item.dbName }}.{{ item.schemaName }} </span>
         </div>
         <div class="item-actions">
           <span class="access-count" title="访问次数">
             {{ item.accessCount }}
           </span>
-          <button
-            class="icon-btn remove-btn"
-            title="移除收藏"
-            @click.stop="handleRemove(item.key)"
-          >
+          <button class="icon-btn remove-btn" title="移除收藏" @click.stop="handleRemove(item.key)">
             <X :size="12" />
           </button>
         </div>
@@ -87,12 +68,7 @@
         class="menu-item"
         @click="handleMenuItemClick(menuItem)"
       >
-        <component
-          :is="menuItem.icon"
-          v-if="menuItem.icon"
-          :size="14"
-          class="menu-icon"
-        />
+        <component :is="menuItem.icon" v-if="menuItem.icon" :size="14" class="menu-icon" />
         <span class="menu-label">{{ menuItem.label }}</span>
       </div>
     </div>
@@ -111,7 +87,7 @@ import {
   FileText,
   Database,
   Layers,
-  Server
+  Server,
 } from 'lucide-vue-next'
 import { ref, computed, onMounted } from 'vue'
 
@@ -126,7 +102,7 @@ const contextMenu = ref({
   visible: false,
   x: 0,
   y: 0,
-  item: null as IFavoriteItem | null
+  item: null as IFavoriteItem | null,
 })
 
 const filteredFavorites = computed(() => {
@@ -144,7 +120,7 @@ function getNodeIcon(type: string) {
     view: FileText,
     database: Database,
     schema: Layers,
-    connection: Server
+    connection: Server,
   }
   return iconMap[type] || Database
 }
@@ -155,7 +131,7 @@ function handleDragStart(item: IFavoriteItem, event: DragEvent) {
     connectionId: item.connectionId,
     dbName: item.dbName,
     schemaName: item.schemaName,
-    objectName: item.objectName
+    objectName: item.objectName,
   }
   event.dataTransfer!.setData('application/x-rdatastation-favorite', JSON.stringify(dragData))
   event.dataTransfer!.effectAllowed = 'copy'
@@ -165,14 +141,16 @@ function handleOpen(item: IFavoriteItem) {
   favorites.updateAccessTime(item.key)
 
   if (item.type === 'table' || item.type === 'view') {
-    window.dispatchEvent(new CustomEvent('open-table-data', {
-      detail: {
-        connectionId: item.connectionId,
-        dbName: item.dbName,
-        schemaName: item.schemaName,
-        tableName: item.objectName
-      }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('open-table-data', {
+        detail: {
+          connectionId: item.connectionId,
+          dbName: item.dbName,
+          schemaName: item.schemaName,
+          tableName: item.objectName,
+        },
+      })
+    )
   }
 }
 
@@ -188,12 +166,12 @@ function handleImport() {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = '.json'
-  input.onchange = (e) => {
+  input.onchange = e => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = event => {
       try {
         const items = JSON.parse(event.target?.result as string) as IFavoriteItem[]
         favorites.importFavorites(items)
@@ -228,7 +206,7 @@ function handleContextMenu(item: IFavoriteItem, event: MouseEvent) {
     visible: true,
     x: event.clientX,
     y: event.clientY,
-    item
+    item,
   }
 }
 
@@ -240,14 +218,14 @@ const contextMenuItems = computed(() => {
       id: 'open',
       label: '打开',
       icon: Table,
-      action: () => handleOpen(contextMenu.value.item!)
+      action: () => handleOpen(contextMenu.value.item!),
     },
     {
       id: 'remove',
       label: '移除收藏',
       icon: X,
-      action: () => handleRemove(contextMenu.value.item!.key)
-    }
+      action: () => handleRemove(contextMenu.value.item!.key),
+    },
   ]
 })
 

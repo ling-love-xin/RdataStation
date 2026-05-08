@@ -35,7 +35,7 @@ import { NButton } from 'naive-ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { FilterMode } from '../../../stores/result-store'
+import type { FilterMode } from '../../../types/result'
 
 const { t } = useI18n()
 
@@ -60,7 +60,7 @@ const modeLabel = computed(() => {
   const map: Record<FilterMode, string> = {
     quick: t('resultPanel.instantFilter'),
     sql: t('resultPanel.sqlFilter'),
-    duckdb: t('resultPanel.duckdbAnalysis')
+    duckdb: t('resultPanel.duckdbAnalysis'),
   }
   return map[props.filterMode]
 })
@@ -81,7 +81,7 @@ const durationText = computed(() => {
   const map: Record<FilterMode, string> = {
     quick: '',
     sql: t('resultPanel.databaseTime', { sec }),
-    duckdb: t('resultPanel.duckdbTime', { sec })
+    duckdb: t('resultPanel.duckdbTime', { sec }),
   }
   return map[props.filterMode]
 })
@@ -100,7 +100,9 @@ const durationText = computed(() => {
   color: var(--text-secondary, #858585);
   flex-shrink: 0;
 }
-.status-left, .status-center, .status-right {
+.status-left,
+.status-center,
+.status-right {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -111,10 +113,27 @@ const durationText = computed(() => {
   font-size: 10px;
   font-weight: 600;
 }
-.mode-tag.quick { background: #2d6a4f33; color: #52c41a; }
-.mode-tag.sql { background: #1a5a8a33; color: #1890ff; }
-.mode-tag.duckdb { background: #613a8a33; color: #b37feb; }
-.row-info { margin-left: 8px; }
-.duration { color: var(--primary-color, #0078d4); }
-.timestamp { color: var(--text-tertiary, #666); font-size: 10px; margin-left: 8px; }
+.mode-tag.quick {
+  background: #2d6a4f33;
+  color: #52c41a;
+}
+.mode-tag.sql {
+  background: #1a5a8a33;
+  color: #1890ff;
+}
+.mode-tag.duckdb {
+  background: #613a8a33;
+  color: #b37feb;
+}
+.row-info {
+  margin-left: 8px;
+}
+.duration {
+  color: var(--primary-color, #0078d4);
+}
+.timestamp {
+  color: var(--text-tertiary, #666);
+  font-size: 10px;
+  margin-left: 8px;
+}
 </style>

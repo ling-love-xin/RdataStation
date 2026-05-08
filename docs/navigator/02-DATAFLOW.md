@@ -79,16 +79,16 @@
 class WebSocketDataSource implements DataSource<MetadataEvent> {
   private ws: WebSocket
   private eventStream = new Subject<MetadataEvent>()
-  
+
   connect(connectionId: string) {
     this.ws = new WebSocket(`ws://localhost:${port}/metadata/${connectionId}`)
-    
-    this.ws.onmessage = (event) => {
+
+    this.ws.onmessage = event => {
       const message: MetadataEvent = JSON.parse(event.data)
       this.eventStream.next(message)
     }
   }
-  
+
   // 订阅事件流
   subscribe(callback: (event: MetadataEvent) => void): Subscription {
     return this.eventStream.subscribe(callback)
@@ -116,13 +116,10 @@ class HTTPDataSource implements DataSource<MetadataResponse> {
     type: MetadataType,
     parentId?: string
   ): Promise<MetadataResponse>
-  
+
   // 增量同步
-  async syncMetadata(
-    connectionId: string,
-    since: Timestamp
-  ): Promise<Delta<Metadata>[]> 
-  
+  async syncMetadata(connectionId: string, since: Timestamp): Promise<Delta<Metadata>[]>
+
   // 搜索
   async searchMetadata(
     connectionId: string,
@@ -138,7 +135,7 @@ class HTTPDataSource implements DataSource<MetadataResponse> {
 // SQLite 数据源
 class SQLiteDataSource implements DataSource<LocalMetadata> {
   private db: Database
-  
+
   // 初始化表结构
   async initialize() {
     await this.db.exec(`
@@ -156,15 +153,14 @@ class SQLiteDataSource implements DataSource<LocalMetadata> {
       CREATE INDEX IF NOT EXISTS idx_updated ON navigator_cache(updated_at);
     `)
   }
-  
+
   // 获取子节点
   async getChildren(parentId: string): Promise<LocalMetadata[]> {
-    return this.db.all(
-      'SELECT * FROM navigator_cache WHERE parent_id = ? ORDER BY name',
-      [parentId]
-    )
+    return this.db.all('SELECT * FROM navigator_cache WHERE parent_id = ? ORDER BY name', [
+      parentId,
+    ])
   }
-  
+
   // 批量写入
   async batchWrite(items: LocalMetadata[]): Promise<void> {
     const stmt = await this.db.prepare(`
@@ -172,7 +168,7 @@ class SQLiteDataSource implements DataSource<LocalMetadata> {
       (id, type, parent_id, data, version, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `)
-    
+
     for (const item of items) {
       await stmt.run(
         item.id,
@@ -183,7 +179,7 @@ class SQLiteDataSource implements DataSource<LocalMetadata> {
         Date.now()
       )
     }
-    
+
     await stmt.finalize()
   }
 }
@@ -209,14 +205,14 @@ class DataNormalizer {
         throw new Error(`Unknown source: ${source}`)
     }
   }
-  
+
   private normalizeWebSocketEvent(event: MetadataEvent): NormalizedData<unknown> {
     return {
       id: this.generateId(event),
       type: this.mapEventType(event.type),
       data: event.data,
       timestamp: Date.now(),
-      source: 'websocket'
+      source: 'websocket',
     }
   }
 }
@@ -236,9 +232,9 @@ class DataValidator {
       parentId: z.string().nullable(),
       metadata: z.object({}).optional()
     })
-    
+
     const result = schema.safeParse(node)
-    
+
     if (result.success) {
       return { valid: true, data: result.data }
     } else {
@@ -262,21 +258,21 @@ class DataEnricher {
         displayName: this.formatName(node),
         iconType: this.determineIcon(node),
         hasChildren: this.checkChildren(node),
-        statistics: this.computeStats(node)
-      }
+        statistics: this.computeStats(node),
+      },
     }
   }
-  
+
   private computePath(node: NavigatorNode): string {
     // 计算完整路径
     const parts: string[] = []
     let current: NavigatorNode | undefined = node
-    
+
     while (current) {
       parts.unshift(current.name)
       current = this.getParent(current)
     }
-    
+
     return parts.join('.')
   }
 }
@@ -305,27 +301,23 @@ class ViewUpdateFlow {
   async updateView(viewName: string, newData: unknown[]) {
     // 1. 获取当前快照
     const currentSnapshot = this.viewEngine.getSnapshot(viewName)
-    
+
     // 2. 计算差异
-    const deltas = this.deltaProcessor.computeDiff(
-      currentSnapshot,
-      newData,
-      item => item.id
-    )
-    
+    const deltas = this.deltaProcessor.computeDiff(currentSnapshot, newData, item => item.id)
+
     // 3. 应用增量
     for (const delta of deltas) {
       await this.applyDelta(viewName, delta)
     }
-    
+
     // 4. 通知订阅者
     this.notifySubscribers(viewName, deltas)
   }
-  
+
   // 应用单个增量
   private async applyDelta(viewName: string, delta: Delta<unknown>) {
     const view = this.viewEngine.getView(viewName)
-    
+
     switch (delta.type) {
       case 'ADD':
         await this.handleAdd(view, delta)
@@ -340,7 +332,7 @@ class ViewUpdateFlow {
         await this.handleMove(view, delta)
         break
     }
-    
+
     // 更新依赖视图
     await this.propagateToDependents(viewName, delta)
   }
@@ -352,12 +344,12 @@ class ViewUpdateFlow {
 ```typescript
 // 视图依赖关系
 const viewDependencies = {
-  'raw': [],
-  'object': ['raw'],
-  'filtered': ['object'],
-  'sorted': ['filtered'],
-  'aggregated': ['sorted'],
-  'viewport': ['aggregated']
+  raw: [],
+  object: ['raw'],
+  filtered: ['object'],
+  sorted: ['filtered'],
+  aggregated: ['sorted'],
+  viewport: ['aggregated'],
 }
 
 // 变更传播
@@ -365,30 +357,26 @@ class ViewPropagation {
   // 传播变更到依赖视图
   propagate(sourceView: string, delta: Delta<unknown>) {
     const dependents = this.getDependents(sourceView)
-    
+
     for (const dependent of dependents) {
       // 转换增量
-      const transformedDelta = this.transformDelta(
-        delta,
-        sourceView,
-        dependent
-      )
-      
+      const transformedDelta = this.transformDelta(delta, sourceView, dependent)
+
       // 应用到依赖视图
       this.viewEngine.applyDelta(dependent, transformedDelta)
     }
   }
-  
+
   // 获取依赖视图（拓扑排序）
   private getDependents(sourceView: string): string[] {
     const dependents: string[] = []
-    
+
     for (const [view, deps] of Object.entries(viewDependencies)) {
       if (deps.includes(sourceView)) {
         dependents.push(view)
       }
     }
-    
+
     // 按依赖深度排序
     return this.topologicalSort(dependents)
   }
@@ -408,43 +396,41 @@ export function useNavigatorView(options: ViewOptions) {
     loading: false,
     error: null,
     expandedKeys: new Set<string>(),
-    selectedKeys: new Set<string>()
+    selectedKeys: new Set<string>(),
   })
-  
+
   // 订阅视图变更
-  const unsubscribe = viewEngine.subscribe(options.viewName, (delta) => {
+  const unsubscribe = viewEngine.subscribe(options.viewName, delta => {
     // 应用增量到响应式状态
     applyDeltaToState(state, delta)
   })
-  
+
   // 计算属性
   const visibleNodes = computed(() => {
-    return state.nodes.filter(node => 
-      isNodeVisible(node, state.expandedKeys)
-    )
+    return state.nodes.filter(node => isNodeVisible(node, state.expandedKeys))
   })
-  
+
   // 方法
   const expandNode = async (nodeId: string) => {
     state.expandedKeys.add(nodeId)
-    
+
     // 加载子节点
     if (!hasChildrenLoaded(nodeId)) {
       await loadChildren(nodeId)
     }
   }
-  
+
   // 清理
   onUnmounted(() => {
     unsubscribe()
   })
-  
+
   return {
     state,
     visibleNodes,
     expandNode,
     collapseNode,
-    selectNode
+    selectNode,
   }
 }
 ```
@@ -459,31 +445,31 @@ class VirtualScrollDataFlow {
     scrollTop: 0,
     containerHeight: 0,
     itemHeight: 28,
-    overscan: 5
+    overscan: 5,
   })
-  
+
   // 计算可见范围
   visibleRange = computed(() => {
     const start = Math.floor(viewport.scrollTop / viewport.itemHeight)
     const count = Math.ceil(viewport.containerHeight / viewport.itemHeight)
-    
+
     return {
       start: Math.max(0, start - viewport.overscan),
-      end: start + count + viewport.overscan
+      end: start + count + viewport.overscan,
     }
   })
-  
+
   // 可见项
   visibleItems = computed(() => {
     const { start, end } = visibleRange.value
     return allNodes.value.slice(start, end)
   })
-  
+
   // 总高度
   totalHeight = computed(() => {
     return allNodes.value.length * viewport.itemHeight
   })
-  
+
   // 处理滚动
   onScroll(scrollTop: number) {
     viewport.scrollTop = scrollTop
@@ -518,14 +504,14 @@ class CacheSynchronizer {
   async write(key: string, value: unknown, options: WriteOptions) {
     // 1. 写入 L1
     this.l1Cache.set(key, value)
-    
+
     // 2. 异步写入 L2
     if (options.persist !== false) {
       this.l2Cache.set(key, value).catch(err => {
         console.warn('L2 cache write failed:', err)
       })
     }
-    
+
     // 3. 批量写入 L3
     if (options.batch) {
       this.batchBuffer.push({ key, value })
@@ -534,7 +520,7 @@ class CacheSynchronizer {
       await this.l3Cache.set(key, value)
     }
   }
-  
+
   // 读取时逐级查找
   async read<T>(key: string): Promise<T | undefined> {
     // 1. 尝试 L1
@@ -542,7 +528,7 @@ class CacheSynchronizer {
     if (l1Value !== undefined) {
       return l1Value as T
     }
-    
+
     // 2. 尝试 L2
     const l2Value = await this.l2Cache.get(key)
     if (l2Value !== undefined) {
@@ -550,7 +536,7 @@ class CacheSynchronizer {
       this.l1Cache.set(key, l2Value)
       return l2Value as T
     }
-    
+
     // 3. 尝试 L3
     const l3Value = await this.l3Cache.get(key)
     if (l3Value !== undefined) {
@@ -559,7 +545,7 @@ class CacheSynchronizer {
       this.l2Cache.set(key, l3Value).catch(console.warn)
       return l3Value as T
     }
-    
+
     return undefined
   }
 }
@@ -578,9 +564,9 @@ class WebSocketEventHandler {
     ['TABLE_DROPPED', this.handleTableDropped],
     ['TABLE_ALTERED', this.handleTableAltered],
     ['COLUMN_ADDED', this.handleColumnAdded],
-    ['INDEX_CREATED', this.handleIndexCreated]
+    ['INDEX_CREATED', this.handleIndexCreated],
   ])
-  
+
   // 处理事件
   async handleEvent(event: MetadataEvent) {
     const handler = this.handlers.get(event.type)
@@ -588,17 +574,17 @@ class WebSocketEventHandler {
       console.warn(`No handler for event type: ${event.type}`)
       return
     }
-    
+
     // 转换为增量
     const delta = await handler(event.data)
-    
+
     // 应用到视图
     await this.viewEngine.applyDelta('raw', delta)
-    
+
     // 更新缓存
     await this.updateCache(delta)
   }
-  
+
   // 处理表创建
   private async handleTableCreated(data: TableMetadata): Promise<Delta<unknown>> {
     return {
@@ -608,10 +594,10 @@ class WebSocketEventHandler {
         type: 'table',
         name: data.name,
         parentId: data.schemaId,
-        metadata: data
+        metadata: data,
       },
       position: -1, // 追加到末尾
-      parentId: data.schemaId
+      parentId: data.schemaId,
     }
   }
 }
@@ -624,13 +610,13 @@ class WebSocketEventHandler {
 class OfflineSyncManager {
   private pendingChanges: LocalChange[] = []
   private isOnline = true
-  
+
   // 监听网络状态
   constructor() {
     window.addEventListener('online', () => this.onOnline())
     window.addEventListener('offline', () => this.onOffline())
   }
-  
+
   // 离线时缓存变更
   async queueChange(change: LocalChange) {
     if (!this.isOnline) {
@@ -638,18 +624,18 @@ class OfflineSyncManager {
       await this.persistPendingChanges()
       return
     }
-    
+
     // 在线时直接发送
     await this.sendChange(change)
   }
-  
+
   // 恢复在线时同步
   private async onOnline() {
     this.isOnline = true
-    
+
     // 加载待同步的变更
     const changes = await this.loadPendingChanges()
-    
+
     // 批量同步
     for (const change of changes) {
       try {
@@ -677,22 +663,19 @@ class DataFlowMonitor {
     viewUpdateLatency: new Histogram(),
     renderLatency: new Histogram(),
     cacheHitRate: new Gauge(),
-    deltaCount: new Counter()
+    deltaCount: new Counter(),
   }
-  
+
   // 记录数据源延迟
   recordSourceLatency(source: string, latency: number) {
     this.metrics.sourceLatency.observe(latency, { source })
   }
-  
+
   // 记录缓存命中率
   recordCacheAccess(level: CacheLevel, hit: boolean) {
-    this.metrics.cacheHitRate.set(
-      hit ? 1 : 0,
-      { level }
-    )
+    this.metrics.cacheHitRate.set(hit ? 1 : 0, { level })
   }
-  
+
   // 记录增量数量
   recordDeltaCount(viewName: string, count: number) {
     this.metrics.deltaCount.inc(count, { view: viewName })
@@ -706,18 +689,18 @@ class DataFlowMonitor {
 // 数据流追踪
 class DataFlowTracer {
   private traces: Map<string, DataTrace> = new Map()
-  
+
   // 开始追踪
   startTrace(dataId: string): TraceContext {
     const trace: DataTrace = {
       id: generateTraceId(),
       dataId,
       startTime: performance.now(),
-      stages: []
+      stages: [],
     }
-    
+
     this.traces.set(trace.id, trace)
-    
+
     return {
       id: trace.id,
       stage: (name: string, data: unknown) => {
@@ -725,19 +708,19 @@ class DataFlowTracer {
       },
       end: () => {
         this.endTrace(trace.id)
-      }
+      },
     }
   }
-  
+
   // 记录阶段
   private recordStage(traceId: string, stageName: string, data: unknown) {
     const trace = this.traces.get(traceId)
     if (!trace) return
-    
+
     trace.stages.push({
       name: stageName,
       timestamp: performance.now(),
-      dataSize: JSON.stringify(data).length
+      dataSize: JSON.stringify(data).length,
     })
   }
 }

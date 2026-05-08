@@ -6,45 +6,18 @@
       :style="{ height: `${sqlEditorHeight}px` }"
       :class="uiStore.isDark ? 'dockview-theme-dark' : 'dockview-theme-light'"
     >
-      <DockviewVue
-        ref="dockviewRef"
-        class="dockview"
-        @ready="onReady"
-      />
+      <DockviewVue ref="dockviewRef" class="dockview" @ready="onReady" />
     </div>
 
     <!-- Resizable Divider -->
-    <div
-      v-if="showPanel"
-      class="vertical-divider"
-      @mousedown="startResize"
-    >
+    <div v-if="resultStore.showPanel" class="vertical-divider" @mousedown="startResize">
       <div class="divider-handle"></div>
     </div>
 
     <!-- Result Panel Area -->
-    <div
-      v-if="showPanel"
-      class="panel-area"
-      :style="{ height: `${panelHeight}px` }"
-    >
-      <div class="panel-tabs">
-        <div
-          v-for="(result, index) in resultSets"
-          :key="index"
-          :class="['panel-tab', { active: activeResultIndex === index }]"
-          @click="activeResultIndex = index"
-        >
-          {{ result.name || `Result ${index + 1}` }}
-          <span class="close-btn" @click.stop="closeResult(index)">×</span>
-        </div>
-        <button class="add-tab-btn" @click="addNewResultTab">+</button>
-      </div>
+    <div v-if="resultStore.showPanel" class="panel-area" :style="{ height: `${panelHeight}px` }">
       <div class="panel-content">
-        <QueryResultPanel
-          v-if="activeResult"
-          :result="activeResult"
-        />
+        <QueryResultPanel />
       </div>
     </div>
   </div>
@@ -52,48 +25,28 @@
 
 <script setup lang="ts">
 import { DockviewVue, type DockviewReadyEvent } from 'dockview-vue'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 
 import { panelRegistry } from '@/core/panel-registry'
 import QueryResultPanel from '@/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue'
+import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useUiStore } from '@/shared/stores/ui'
 
-interface ResultSet {
-  name: string
-  data: unknown[]
-  columns: string[]
-  rowCount: number
-  executionTime?: number
-}
-
 const uiStore = useUiStore()
+const resultStore = useResultStore()
 
 const containerRef = ref<HTMLElement | null>(null)
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 
-// Panel visibility
-const showPanel = ref(false)
-const resultSets = ref<ResultSet[]>([])
-const activeResultIndex = ref(0)
-
-// Resize state
 const sqlEditorHeight = ref(400)
 const panelHeight = ref(300)
 const isResizing = ref(false)
 const resizeStartY = ref(0)
 const resizeStartHeight = ref(0)
 
-// Computed
-const activeResult = computed(() => {
-  if (activeResultIndex.value >= 0 && activeResultIndex.value < resultSets.value.length) {
-    return resultSets.value[activeResultIndex.value]
-  }
-  return null
-})
-
 // Event handlers
 function onReady(event: DockviewReadyEvent) {
-  const api = event.api as any
+  const api = event.api
 
   // Get all registered panels
   const panels = panelRegistry.getAll()
@@ -118,7 +71,7 @@ function onReady(event: DockviewReadyEvent) {
     } else if (centerPanelId) {
       panelConfig.position = {
         referencePanel: centerPanelId,
-        direction: 'within'
+        direction: 'within',
       }
       api.addPanel(panelConfig)
     }
@@ -126,26 +79,6 @@ function onReady(event: DockviewReadyEvent) {
 }
 
 // Panel management
-function addNewResultTab() {
-  const newIndex = resultSets.value.length + 1
-  resultSets.value.push({
-    name: `Result ${newIndex}`,
-    data: [],
-    columns: [],
-    rowCount: 0
-  })
-  activeResultIndex.value = resultSets.value.length - 1
-}
-
-function closeResult(index: number) {
-  resultSets.value.splice(index, 1)
-  if (activeResultIndex.value >= resultSets.value.length) {
-    activeResultIndex.value = Math.max(0, resultSets.value.length - 1)
-  }
-  if (resultSets.value.length === 0) {
-    showPanel.value = false
-  }
-}
 
 // Resize handling
 function startResize(event: MouseEvent) {
@@ -167,7 +100,9 @@ function handleMouseMove(event: MouseEvent) {
 
   // Constrain to min/max
   sqlEditorHeight.value = Math.max(100, Math.min(800, newSqlEditorHeight))
-  panelHeight.value = containerRef.value ? containerRef.value.offsetHeight - sqlEditorHeight.value - 4 : 300
+  panelHeight.value = containerRef.value
+    ? containerRef.value.offsetHeight - sqlEditorHeight.value - 4
+    : 300
 }
 
 function stopResize() {
@@ -177,45 +112,6 @@ function stopResize() {
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
 }
-
-// Listen for SQL execution results
-function handleSqlExecutionResult(event: CustomEvent) {
-  const { result, results } = event.detail || {}
-
-  if (results && Array.isArray(results) && results.length > 0) {
-    // Multi-statement results
-    results.forEach((r: any, index: number) => {
-      resultSets.value.push({
-        name: `Result ${resultSets.value.length + 1}`,
-        data: r.rows || [],
-        columns: r.columns || [],
-        rowCount: r.rowCount || 0,
-        executionTime: r.executionTime
-      })
-    })
-    activeResultIndex.value = resultSets.value.length - 1
-  } else if (result) {
-    // Single result
-    resultSets.value.push({
-      name: `Result ${resultSets.value.length + 1}`,
-      data: result.rows || [],
-      columns: result.columns || [],
-      rowCount: result.rowCount || 0,
-      executionTime: result.executionTime
-    })
-    activeResultIndex.value = resultSets.value.length - 1
-  }
-
-  showPanel.value = true
-}
-
-onMounted(() => {
-  window.addEventListener('sql-execution-result', handleSqlExecutionResult as any)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('sql-execution-result', handleSqlExecutionResult as any)
-})
 </script>
 
 <style scoped>
@@ -250,7 +146,7 @@ onUnmounted(() => {
 }
 
 .vertical-divider:hover {
-  background-color: var(--primary-color, #165DFF);
+  background-color: var(--primary-color, #165dff);
 }
 
 .divider-handle {
@@ -316,7 +212,7 @@ onUnmounted(() => {
 }
 
 .close-btn:hover {
-  color: var(--danger-color, #F53F3F);
+  color: var(--danger-color, #f53f3f);
 }
 
 .add-tab-btn {

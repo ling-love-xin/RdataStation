@@ -4,7 +4,7 @@
       'base-button',
       `variant-${variant}`,
       `size-${size}`,
-      { loading, disabled: disabled || loading }
+      { loading, disabled: disabled || loading },
     ]"
     :disabled="disabled || loading"
     @click="$emit('click', $event)"
@@ -111,6 +111,8 @@ defineEmits<{
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

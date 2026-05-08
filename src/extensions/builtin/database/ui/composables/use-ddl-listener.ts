@@ -1,12 +1,12 @@
 /**
  * DDL 监听缓存失效
- * 
+ *
  * 监听 SQL 执行中的 DDL 语句，自动失效相关缓存：
  * - CREATE TABLE/DATABASE/SCHEMA
  * - ALTER TABLE/COLUMN
  * - DROP TABLE/VIEW/INDEX
  * - TRUNCATE TABLE
- * 
+ *
  * 遵循架构规范：前端只负责调度，不实现业务逻辑
  */
 
@@ -67,7 +67,7 @@ export interface DDLListenerConfig {
 const defaultConfig: DDLListenerConfig = {
   enabled: true,
   autoInvalidate: true,
-  notifyBackend: true
+  notifyBackend: true,
 }
 
 /**
@@ -98,7 +98,7 @@ const DDL_KEYWORDS: Record<string, DDLType> = {
   'DROP INDEX': 'DROP_INDEX',
   'DROP DATABASE': 'DROP_DATABASE',
   'DROP SCHEMA': 'DROP_SCHEMA',
-  'TRUNCATE TABLE': 'TRUNCATE_TABLE'
+  'TRUNCATE TABLE': 'TRUNCATE_TABLE',
 }
 
 /**
@@ -108,7 +108,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
   const state = ref<DDLListenerState>({
     isListening: false,
     capturedEvents: [],
-    invalidatedCaches: 0
+    invalidatedCaches: 0,
   })
 
   const cfg = ref<DDLListenerConfig>({ ...defaultConfig, ...config })
@@ -143,15 +143,13 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
       type: ddlType,
       connectionId,
       databaseName,
-      schemaName
+      schemaName,
     }
 
     const parts = normalizedSql.split(/\s+/)
 
     if (ddlType.includes('TABLE') || ddlType.includes('VIEW')) {
-      const nameIndex = parts.findIndex(p =>
-        p === 'TABLE' || p === 'VIEW' || p === 'INDEX'
-      )
+      const nameIndex = parts.findIndex(p => p === 'TABLE' || p === 'VIEW' || p === 'INDEX')
       if (nameIndex !== -1 && nameIndex + 1 < parts.length) {
         let name = parts[nameIndex + 1]
         name = name.replace(/[`"'[\]]/g, '')
@@ -189,7 +187,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
           connectionId: event.connectionId,
           databaseName: event.databaseName,
           schemaName: event.schemaName,
-          tableName: event.tableName
+          tableName: event.tableName,
         })
         invalidated++
         break
@@ -200,7 +198,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
           databaseName: event.databaseName,
           schemaName: event.schemaName,
           tableName: event.tableName,
-          columnName: event.columnName
+          columnName: event.columnName,
         })
         invalidated++
         break
@@ -215,7 +213,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
       case 'DROP_SCHEMA':
         cacheStateManager.markInvalid({
           connectionId: event.connectionId,
-          databaseName: event.databaseName
+          databaseName: event.databaseName,
         })
         invalidated++
         break
@@ -225,7 +223,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
         cacheStateManager.markInvalid({
           connectionId: event.connectionId,
           databaseName: event.databaseName,
-          schemaName: event.schemaName
+          schemaName: event.schemaName,
         })
         invalidated++
         break
@@ -236,7 +234,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
           connectionId: event.connectionId,
           databaseName: event.databaseName,
           schemaName: event.schemaName,
-          tableName: event.tableName
+          tableName: event.tableName,
         })
         invalidated++
         break
@@ -268,7 +266,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
       schemaName,
       tableName: metadata.tableName,
       columnName: metadata.columnName,
-      executedAt: Date.now()
+      executedAt: Date.now(),
     }
 
     state.value.capturedEvents.push(event)
@@ -279,9 +277,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
     }
 
     if (cfg.value.notifyBackend) {
-      notifyBackendDDL(event).catch(err =>
-        console.error('通知后端 DDL 事件失败:', err)
-      )
+      notifyBackendDDL(event).catch(err => console.error('通知后端 DDL 事件失败:', err))
     }
 
     return event
@@ -301,8 +297,8 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
           schemaName: event.schemaName,
           tableName: event.tableName,
           columnName: event.columnName,
-          executedAt: event.executedAt
-        }
+          executedAt: event.executedAt,
+        },
       })
     } catch (error) {
       console.warn('通知后端 DDL 事件失败（后端可能未实现）:', error)
@@ -346,6 +342,6 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
     startListening,
     stopListening,
     clearState,
-    updateConfig
+    updateConfig,
   }
 }

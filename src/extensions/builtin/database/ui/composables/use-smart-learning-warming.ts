@@ -1,14 +1,13 @@
 /**
  * 基于用户行为学习的智能缓存预热策略
- * 
+ *
  * 实现高级预热策略：
  * - 学习用户访问模式（时间、频率、深度）
  * - 预测用户下一步操作
  * - 根据学习结果动态调整预热策略
- * 
+ *
  * 遵循架构规范：前端只负责调度，不实现业务逻辑
  */
-
 
 import { cacheStateManager } from './use-cache-state'
 import { useCacheWarming, type WarmingDepth } from './use-cache-warming'
@@ -76,7 +75,7 @@ const defaultConfig: LearningConfig = {
   minSamples: 5,
   learningRate: 0.1,
   confidenceThreshold: 0.7,
-  maxHistorySize: 1000
+  maxHistorySize: 1000,
 }
 
 /**
@@ -131,7 +130,7 @@ class SmartLearningManager {
         frequentTables: new Map(),
         activeTimeSlots: new Map(),
         avgDepth: 0,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       }
       this.profiles.set(connectionId, profile)
     }
@@ -142,7 +141,7 @@ class SmartLearningManager {
       table,
       timestamp: Date.now(),
       accessType,
-      dwellTime
+      dwellTime,
     }
 
     profile.accessHistory.push(pattern)
@@ -161,21 +160,12 @@ class SmartLearningManager {
     const dbKey = `${pattern.database}`
     const tableKey = `${pattern.database}.${pattern.schema}.${pattern.table}`
 
-    profile.frequentDatabases.set(
-      dbKey,
-      (profile.frequentDatabases.get(dbKey) || 0) + 1
-    )
+    profile.frequentDatabases.set(dbKey, (profile.frequentDatabases.get(dbKey) || 0) + 1)
 
-    profile.frequentTables.set(
-      tableKey,
-      (profile.frequentTables.get(tableKey) || 0) + 1
-    )
+    profile.frequentTables.set(tableKey, (profile.frequentTables.get(tableKey) || 0) + 1)
 
     const hour = new Date(pattern.timestamp).getHours()
-    profile.activeTimeSlots.set(
-      hour,
-      (profile.activeTimeSlots.get(hour) || 0) + 1
-    )
+    profile.activeTimeSlots.set(hour, (profile.activeTimeSlots.get(hour) || 0) + 1)
 
     const depth = pattern.table ? 3 : pattern.schema ? 2 : 1
     profile.avgDepth = (profile.avgDepth + depth) / 2
@@ -186,17 +176,20 @@ class SmartLearningManager {
   /**
    * 预测用户下一步操作
    */
-  predict(connectionId: string, currentContext: {
-    database?: string
-    schema?: string
-    table?: string
-  }): PredictionResult {
+  predict(
+    connectionId: string,
+    currentContext: {
+      database?: string
+      schema?: string
+      table?: string
+    }
+  ): PredictionResult {
     const profile = this.profiles.get(connectionId)
     if (!profile || profile.accessHistory.length < this.config.minSamples) {
       return {
         predictedTables: [],
         confidence: 0,
-        recommendedDepth: 'tables'
+        recommendedDepth: 'tables',
       }
     }
 
@@ -224,10 +217,7 @@ class SmartLearningManager {
       const nextKey = `${next.database}.${next.schema}.${next.table}`
 
       if (currentContext.table && currentKey.includes(currentContext.table)) {
-        sequencePatterns.set(
-          nextKey,
-          (sequencePatterns.get(nextKey) || 0) + 1
-        )
+        sequencePatterns.set(nextKey, (sequencePatterns.get(nextKey) || 0) + 1)
       }
 
       tableFrequency.set(
@@ -241,29 +231,21 @@ class SmartLearningManager {
       .slice(0, 5)
       .map(([key]) => key.split('.').pop() || '')
 
-    const confidence = sortedTables.length > 0
-      ? Math.min(0.9, (sortedTables.length / 5) * 0.8)
-      : 0
+    const confidence = sortedTables.length > 0 ? Math.min(0.9, (sortedTables.length / 5) * 0.8) : 0
 
-    const recommendedDepth = this.calculateRecommendedDepth(
-      sortedTables.length,
-      confidence
-    )
+    const recommendedDepth = this.calculateRecommendedDepth(sortedTables.length, confidence)
 
     return {
       predictedTables: sortedTables,
       confidence,
-      recommendedDepth
+      recommendedDepth,
     }
   }
 
   /**
    * 计算推荐的预热深度
    */
-  private calculateRecommendedDepth(
-    tableCount: number,
-    confidence: number
-  ): WarmingDepth {
+  private calculateRecommendedDepth(tableCount: number, confidence: number): WarmingDepth {
     if (confidence < 0.3) return 'databases'
     if (confidence < 0.5) return 'schemas'
     if (tableCount < 3) return 'tables'
@@ -321,14 +303,7 @@ export function useSmartLearningWarming(config?: Partial<LearningConfig>) {
     accessType: AccessPattern['accessType'],
     dwellTime: number
   ): void {
-    learningManager.recordAccess(
-      connectionId,
-      database,
-      schema,
-      table,
-      accessType,
-      dwellTime
-    )
+    learningManager.recordAccess(connectionId, database, schema, table, accessType, dwellTime)
 
     cacheWarming.recordBehavior(
       connectionId,
@@ -364,24 +339,22 @@ export function useSmartLearningWarming(config?: Partial<LearningConfig>) {
           connectionId,
           databaseName: dbName,
           schemaName,
-          tableName
+          tableName,
         })
 
-        if (!cacheState?.isValid || cacheStateManager.isExpired({
-          connectionId,
-          databaseName: dbName,
-          schemaName,
-          tableName
-        })) {
-          const { getTablesFromCache, getColumnsFromCache } = await import('../services/metadata-cache-service')
-
-          await getTablesFromCache(
+        if (
+          !cacheState?.isValid ||
+          cacheStateManager.isExpired({
             connectionId,
-            connectionType,
-            dbName,
+            databaseName: dbName,
             schemaName,
-            projectPath
-          )
+            tableName,
+          })
+        ) {
+          const { getTablesFromCache, getColumnsFromCache } =
+            await import('../services/metadata-cache-service')
+
+          await getTablesFromCache(connectionId, connectionType, dbName, schemaName, projectPath)
 
           if (prediction.recommendedDepth === 'columns') {
             await getColumnsFromCache(
@@ -432,7 +405,7 @@ export function useSmartLearningWarming(config?: Partial<LearningConfig>) {
       activeHours: Array.from(profile.activeTimeSlots.entries())
         .map(([hour, count]) => ({ hour, count }))
         .sort((a, b) => b.count - a.count),
-      avgDepth: profile.avgDepth
+      avgDepth: profile.avgDepth,
     }
   }
 
@@ -440,6 +413,6 @@ export function useSmartLearningWarming(config?: Partial<LearningConfig>) {
     learningManager,
     recordAndLearn,
     warmBasedOnLearning,
-    getLearningStats
+    getLearningStats,
   }
 }

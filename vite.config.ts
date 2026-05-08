@@ -1,10 +1,10 @@
-import { resolve } from "path";
+import { resolve } from 'path'
 
-import vue from "@vitejs/plugin-vue";
-import { defineConfig } from "vite";
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
 
 // @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
+const host = process.env.TAURI_DEV_HOST
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -12,15 +12,15 @@ export default defineConfig(async () => ({
 
   resolve: {
     alias: {
-      "@": resolve(__dirname, "src"),
+      '@': resolve(__dirname, 'src'),
     },
   },
 
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        popout: resolve(__dirname, "public/popout.html"),
+        main: resolve(__dirname, 'index.html'),
+        popout: resolve(__dirname, 'public/popout.html'),
       },
     },
   },
@@ -36,18 +36,18 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
           port: 1421,
         }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ['**/src-tauri/**'],
     },
   },
   // Monaco Editor worker configuration
   worker: {
-    format: 'es'
+    format: 'es',
   },
-}));
+}))

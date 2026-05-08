@@ -26,7 +26,7 @@ export const useProjectStore = defineStore('project', () => {
   const recentProjects = ref<Project[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
-  
+
   // 缓存相关
   const lastLoadTime = ref<number>(0)
   const CACHE_TTL = 5 * 60 * 1000 // 5 分钟缓存有效期
@@ -45,7 +45,7 @@ export const useProjectStore = defineStore('project', () => {
    */
   async function setCurrentProject(project: Project | null): Promise<void> {
     currentProject.value = project
-    
+
     // 如果设置了项目，初始化项目存储
     if (project?.path) {
       try {
@@ -67,22 +67,26 @@ export const useProjectStore = defineStore('project', () => {
     if (!force && isCacheValid.value && recentProjects.value.length > 0) {
       return
     }
-    
+
     try {
       const projects = await ProjectService.getRecentProjects(10)
       recentProjects.value = projects.map(p => ({
         id: p.id,
         name: p.name,
         description: p.description,
-        path: p.path?.type === 'Local' ? (p.path.path || '') : (p.path.url || ''),
+        path: p.path?.type === 'Local' ? p.path.path || '' : p.path.url || '',
         createdAt: p.created_at,
-        updatedAt: p.updated_at
+        updatedAt: p.updated_at,
       }))
       lastLoadTime.value = Date.now()
     } catch (e) {
       // 在开发环境或 Tauri 未初始化时，静默失败
       const errorMsg = e instanceof Error ? e.message : String(e)
-      if (errorMsg.includes('invoke') || errorMsg.includes('Tauri') || errorMsg.includes('undefined')) {
+      if (
+        errorMsg.includes('invoke') ||
+        errorMsg.includes('Tauri') ||
+        errorMsg.includes('undefined')
+      ) {
         recentProjects.value = []
         return
       }
@@ -98,7 +102,7 @@ export const useProjectStore = defineStore('project', () => {
     try {
       // 从 SQLite 加载最近项目
       await loadRecentProjects()
-      
+
       if (recentProjects.value.length > 0) {
         // 自动打开最近的项目
         const lastProject = recentProjects.value[0]
@@ -123,30 +127,32 @@ export const useProjectStore = defineStore('project', () => {
 
     try {
       const result = await openFn()
-      
+
       const project: Project = {
         id: result.id,
         name: result.name,
         description: result.description,
-        path: result.path?.type === 'Local' ? (result.path.path || '') : (result.path.url || ''),
+        path: result.path?.type === 'Local' ? result.path.path || '' : result.path.url || '',
         createdAt: result.created_at,
         updatedAt: result.updated_at,
       }
-      
+
       // 乐观更新
       currentProject.value = project
-      
+
       // 初始化项目存储
       await setCurrentProject(project)
-      
+
       // 强制刷新最近项目列表
       await loadRecentProjects(true)
-      
+
       // 发射项目切换事件
-      window.dispatchEvent(new CustomEvent('project-switched', {
-        detail: { project }
-      }))
-      
+      window.dispatchEvent(
+        new CustomEvent('project-switched', {
+          detail: { project },
+        })
+      )
+
       return project
     } catch (e) {
       error.value = e instanceof Error ? e.message : '打开项目失败'
@@ -173,7 +179,11 @@ export const useProjectStore = defineStore('project', () => {
   /**
    * 创建新项目
    */
-  async function createProject(name: string, path: string, description?: string): Promise<Project | null> {
+  async function createProject(
+    name: string,
+    path: string,
+    description?: string
+  ): Promise<Project | null> {
     loading.value = true
     error.value = null
 
@@ -183,38 +193,40 @@ export const useProjectStore = defineStore('project', () => {
       const result = await ProjectService.createAndSaveProject({
         name,
         path,
-        description
+        description,
       })
-      
+
       console.log('[ProjectStore] 后端返回结果:', result)
-      
+
       const project: Project = {
         id: result.id,
         name: result.name,
         description: result.description,
-        path: result.path?.type === 'Local' ? (result.path.path || '') : (result.path.url || ''),
+        path: result.path?.type === 'Local' ? result.path.path || '' : result.path.url || '',
         createdAt: result.created_at,
         updatedAt: result.updated_at,
       }
-      
+
       console.log('[ProjectStore] 项目对象:', project)
-      
+
       // 乐观更新
       currentProject.value = project
-      
+
       // 初始化项目存储
       await setCurrentProject(project)
-      
+
       // 强制刷新最近项目列表
       await loadRecentProjects(true)
-      
+
       // 发射项目切换事件
-      window.dispatchEvent(new CustomEvent('project-switched', {
-        detail: { project }
-      }))
-      
+      window.dispatchEvent(
+        new CustomEvent('project-switched', {
+          detail: { project },
+        })
+      )
+
       console.log('[ProjectStore] 项目创建成功')
-      
+
       return project
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e)
@@ -233,30 +245,32 @@ export const useProjectStore = defineStore('project', () => {
     // 保存当前状态用于回滚
     const previousProject = currentProject.value
     const previousRecentProjects = [...recentProjects.value]
-    
+
     // 1. 乐观更新 UI
     const project = recentProjects.value.find(p => p.id === projectId)
     if (!project) {
       error.value = '项目不存在'
       throw new Error('项目不存在')
     }
-    
+
     currentProject.value = project
-    
+
     // 2. 后台同步到 SQLite
     try {
       await ProjectService.addRecentProject(projectId)
-      
+
       // 强制刷新最近项目列表
       await loadRecentProjects(true)
-      
+
       // 4. 初始化项目存储
       await setCurrentProject(project)
-      
+
       // 5. 发射项目切换事件
-      window.dispatchEvent(new CustomEvent('project-switched', {
-        detail: { project }
-      }))
+      window.dispatchEvent(
+        new CustomEvent('project-switched', {
+          detail: { project },
+        })
+      )
     } catch (e) {
       // 失败回滚
       currentProject.value = previousProject
@@ -272,12 +286,12 @@ export const useProjectStore = defineStore('project', () => {
   async function deleteProject(projectId: string): Promise<void> {
     try {
       await invoke('delete_project', { projectId })
-      
+
       // 如果删除的是当前项目，清空当前项目
       if (currentProject.value?.id === projectId) {
         currentProject.value = null
       }
-      
+
       // 强制刷新最近项目列表
       await loadRecentProjects(true)
     } catch (e) {
@@ -289,25 +303,29 @@ export const useProjectStore = defineStore('project', () => {
   /**
    * 更新项目信息（名称、描述）
    */
-  async function updateProjectInfo(projectId: string, name: string, description?: string): Promise<void> {
+  async function updateProjectInfo(
+    projectId: string,
+    name: string,
+    description?: string
+  ): Promise<void> {
     try {
       await invoke('update_project', {
         input: {
           id: projectId,
           name,
-          description: description || null
-        }
+          description: description || null,
+        },
       })
-      
+
       // 如果更新的是当前项目，更新本地状态
       if (currentProject.value?.id === projectId) {
         currentProject.value = {
           ...currentProject.value,
           name,
-          description
+          description,
         }
       }
-      
+
       // 强制刷新最近项目列表
       await loadRecentProjects(true)
     } catch (e) {

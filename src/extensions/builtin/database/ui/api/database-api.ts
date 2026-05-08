@@ -1,6 +1,6 @@
 /**
  * 数据库导航 API 层
- * 
+ *
  * 统一处理与 Tauri 后端的通信
  * 遵循规范：所有数据交互必须通过 tauri.invoke 调用 Rust 核心接口
  */
@@ -71,36 +71,69 @@ export async function loadSchemas(connectionId: string, dbName: string): Promise
 /**
  * 加载表列表
  */
-export async function loadTables(connectionId: string, dbName: string, schemaName: string): Promise<ITableMeta[]> {
+export async function loadTables(
+  connectionId: string,
+  dbName: string,
+  schemaName: string
+): Promise<ITableMeta[]> {
   return await invoke<ITableMeta[]>('load_tables', { connectionId, dbName, schemaName })
 }
 
 /**
  * 加载视图列表
  */
-export async function loadViews(connectionId: string, dbName: string, schemaName: string): Promise<IViewMeta[]> {
+export async function loadViews(
+  connectionId: string,
+  dbName: string,
+  schemaName: string
+): Promise<IViewMeta[]> {
   return await invoke<IViewMeta[]>('load_views', { connectionId, dbName, schemaName })
 }
 
 /**
  * 加载列信息
  */
-export async function loadColumns(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<IColumnMeta[]> {
-  return await invoke<IColumnMeta[]>('load_columns', { connectionId, dbName, schemaName, tableName })
+export async function loadColumns(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): Promise<IColumnMeta[]> {
+  return await invoke<IColumnMeta[]>('load_columns', {
+    connectionId,
+    dbName,
+    schemaName,
+    tableName,
+  })
 }
 
 /**
  * 加载索引信息
  */
-export async function loadIndexes(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<IIndexMeta[]> {
+export async function loadIndexes(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): Promise<IIndexMeta[]> {
   return await invoke<IIndexMeta[]>('load_indexes', { connectionId, dbName, schemaName, tableName })
 }
 
 /**
  * 加载约束信息
  */
-export async function loadConstraints(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<IConstraintMeta[]> {
-  return await invoke<IConstraintMeta[]>('load_constraints', { connectionId, dbName, schemaName, tableName })
+export async function loadConstraints(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+): Promise<IConstraintMeta[]> {
+  return await invoke<IConstraintMeta[]>('load_constraints', {
+    connectionId,
+    dbName,
+    schemaName,
+    tableName,
+  })
 }
 
 /**

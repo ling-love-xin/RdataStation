@@ -1,27 +1,43 @@
 <template>
   <div v-if="show" class="filter-panel">
     <div class="filter-header">
-      <span class="filter-title">过滤器</span>
+      <span class="filter-title">{{ t('filter.title') }}</span>
       <button class="filter-close-btn" @click="$emit('close')">
         <X :size="14" />
       </button>
     </div>
     <div class="filter-options">
       <label class="filter-option">
-        <input type="checkbox" :checked="config.showTables" @change="$emit('update:showTables', ($event.target as HTMLInputElement).checked)" />
-        <span>显示表</span>
+        <input
+          type="checkbox"
+          :checked="config.showTables"
+          @change="$emit('update:showTables', ($event.target as HTMLInputElement).checked)"
+        />
+        <span>{{ t('filter.showTables') }}</span>
       </label>
       <label class="filter-option">
-        <input type="checkbox" :checked="config.showViews" @change="$emit('update:showViews', ($event.target as HTMLInputElement).checked)" />
-        <span>显示视图</span>
+        <input
+          type="checkbox"
+          :checked="config.showViews"
+          @change="$emit('update:showViews', ($event.target as HTMLInputElement).checked)"
+        />
+        <span>{{ t('filter.showViews') }}</span>
       </label>
       <label class="filter-option">
-        <input type="checkbox" :checked="config.showColumns" @change="$emit('update:showColumns', ($event.target as HTMLInputElement).checked)" />
-        <span>显示列</span>
+        <input
+          type="checkbox"
+          :checked="config.showColumns"
+          @change="$emit('update:showColumns', ($event.target as HTMLInputElement).checked)"
+        />
+        <span>{{ t('filter.showColumns') }}</span>
       </label>
       <label class="filter-option">
-        <input type="checkbox" :checked="config.showSystemSchemas" @change="$emit('update:showSystemSchemas', ($event.target as HTMLInputElement).checked)" />
-        <span>显示系统 Schema</span>
+        <input
+          type="checkbox"
+          :checked="config.showSystemSchemas"
+          @change="$emit('update:showSystemSchemas', ($event.target as HTMLInputElement).checked)"
+        />
+        <span>{{ t('filter.showSystemSchemas') }}</span>
       </label>
     </div>
   </div>
@@ -29,6 +45,9 @@
 
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface FilterConfig {
   showTables: boolean
@@ -108,7 +127,7 @@ defineEmits<{
   color: var(--text-primary);
 }
 
-.filter-option input[type="checkbox"] {
+.filter-option input[type='checkbox'] {
   margin: 0;
 }
 </style>

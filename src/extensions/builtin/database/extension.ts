@@ -9,20 +9,28 @@ import type { NavigatorNodeResponse } from '@/shared/api'
 
 import DatabaseNavigator from './ui/components/database-navigator.vue'
 
-import type {
-  ExtensionContext,
-  ExtensionAPI,
-  ExtensionModule,
-  Disposable,
-} from '../../core/types'
+import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
 interface DatabaseExtensionAPI extends ExtensionAPI {
   databaseBrowser: {
     getDatabases(connectionId: string): Promise<NavigatorNodeResponse[]>
     getSchemas(connectionId: string, database: string): Promise<NavigatorNodeResponse[]>
-    getTables(connectionId: string, database: string, schema: string): Promise<NavigatorNodeResponse[]>
-    getViews(connectionId: string, database: string, schema: string): Promise<NavigatorNodeResponse[]>
-    getColumns(connectionId: string, database: string, schema: string, table: string): Promise<NavigatorNodeResponse[]>
+    getTables(
+      connectionId: string,
+      database: string,
+      schema: string
+    ): Promise<NavigatorNodeResponse[]>
+    getViews(
+      connectionId: string,
+      database: string,
+      schema: string
+    ): Promise<NavigatorNodeResponse[]>
+    getColumns(
+      connectionId: string,
+      database: string,
+      schema: string,
+      table: string
+    ): Promise<NavigatorNodeResponse[]>
     refresh(connectionId: string): Promise<void>
   }
 }
@@ -34,15 +42,26 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
     return navigatorApi.getDatabases(connectionId)
   }
 
-  const getSchemas = async (connectionId: string, database: string): Promise<NavigatorNodeResponse[]> => {
+  const getSchemas = async (
+    connectionId: string,
+    database: string
+  ): Promise<NavigatorNodeResponse[]> => {
     return navigatorApi.getSchemas(connectionId, database)
   }
 
-  const getTables = async (connectionId: string, database: string, schema: string): Promise<NavigatorNodeResponse[]> => {
+  const getTables = async (
+    connectionId: string,
+    database: string,
+    schema: string
+  ): Promise<NavigatorNodeResponse[]> => {
     return navigatorApi.getTables(connectionId, database, schema)
   }
 
-  const getViews = async (connectionId: string, database: string, schema: string): Promise<NavigatorNodeResponse[]> => {
+  const getViews = async (
+    connectionId: string,
+    database: string,
+    schema: string
+  ): Promise<NavigatorNodeResponse[]> => {
     return navigatorApi.getViews(connectionId, database, schema)
   }
 
@@ -65,7 +84,7 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
     title: '数据库导航',
     location: 'left',
     icon: 'database',
-    order: 1
+    order: 1,
   })
 
   const disposables: Disposable[] = [
@@ -112,7 +131,7 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
     },
 
     dispose: () => {
-      disposables.forEach((d) => d.dispose())
+      disposables.forEach(d => d.dispose())
     },
   }
 }

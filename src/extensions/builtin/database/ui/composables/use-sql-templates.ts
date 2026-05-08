@@ -27,10 +27,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     description: '查询表的所有数据，限制返回行数',
     variables: [
       { name: 'table', type: 'string', description: '表名' },
-      { name: 'limit', type: 'number', description: '限制行数', defaultValue: '100' }
+      { name: 'limit', type: 'number', description: '限制行数', defaultValue: '100' },
     ],
     tags: ['查询', '基础'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'select-where',
@@ -41,10 +41,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     variables: [
       { name: 'columns', type: 'string', description: '列名，逗号分隔', defaultValue: '*' },
       { name: 'table', type: 'string', description: '表名' },
-      { name: 'condition', type: 'string', description: 'WHERE 条件' }
+      { name: 'condition', type: 'string', description: 'WHERE 条件' },
     ],
     tags: ['查询', '条件'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'insert',
@@ -55,10 +55,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     variables: [
       { name: 'table', type: 'string', description: '表名' },
       { name: 'columns', type: 'string', description: '列名，逗号分隔' },
-      { name: 'values', type: 'string', description: '值，逗号分隔' }
+      { name: 'values', type: 'string', description: '值，逗号分隔' },
     ],
     tags: ['插入', '基础'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'update',
@@ -69,10 +69,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     variables: [
       { name: 'table', type: 'string', description: '表名' },
       { name: 'assignments', type: 'string', description: '赋值语句，如 col1 = val1, col2 = val2' },
-      { name: 'condition', type: 'string', description: 'WHERE 条件' }
+      { name: 'condition', type: 'string', description: 'WHERE 条件' },
     ],
     tags: ['更新', '基础'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'delete',
@@ -82,10 +82,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     description: '删除表中符合条件的记录',
     variables: [
       { name: 'table', type: 'string', description: '表名' },
-      { name: 'condition', type: 'string', description: 'WHERE 条件' }
+      { name: 'condition', type: 'string', description: 'WHERE 条件' },
     ],
     tags: ['删除', '基础'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'inner-join',
@@ -98,10 +98,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
       { name: 'table1', type: 'string', description: '左表名' },
       { name: 'table2', type: 'string', description: '右表名' },
       { name: 'joinColumn1', type: 'string', description: '左表连接列' },
-      { name: 'joinColumn2', type: 'string', description: '右表连接列' }
+      { name: 'joinColumn2', type: 'string', description: '右表连接列' },
     ],
     tags: ['连接', 'JOIN'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'left-join',
@@ -114,10 +114,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
       { name: 'table1', type: 'string', description: '左表名' },
       { name: 'table2', type: 'string', description: '右表名' },
       { name: 'joinColumn1', type: 'string', description: '左表连接列' },
-      { name: 'joinColumn2', type: 'string', description: '右表连接列' }
+      { name: 'joinColumn2', type: 'string', description: '右表连接列' },
     ],
     tags: ['连接', 'LEFT JOIN'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'count',
@@ -127,10 +127,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     description: '统计符合条件的行数',
     variables: [
       { name: 'table', type: 'string', description: '表名' },
-      { name: 'condition', type: 'string', description: 'WHERE 条件', defaultValue: '1=1' }
+      { name: 'condition', type: 'string', description: 'WHERE 条件', defaultValue: '1=1' },
     ],
     tags: ['聚合', 'COUNT'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'group-by',
@@ -140,11 +140,15 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
     description: '按列分组并计算聚合值',
     variables: [
       { name: 'groupByColumns', type: 'string', description: '分组列' },
-      { name: 'aggregateFunctions', type: 'string', description: '聚合函数，如 COUNT(*), SUM(col)' },
-      { name: 'table', type: 'string', description: '表名' }
+      {
+        name: 'aggregateFunctions',
+        type: 'string',
+        description: '聚合函数，如 COUNT(*), SUM(col)',
+      },
+      { name: 'table', type: 'string', description: '表名' },
     ],
     tags: ['聚合', 'GROUP BY'],
-    isBuiltIn: true
+    isBuiltIn: true,
   },
   {
     id: 'create-table',
@@ -156,12 +160,10 @@ const BUILTIN_TEMPLATES: SqlTemplate[] = [
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );`,
     description: '创建新表',
-    variables: [
-      { name: 'table', type: 'string', description: '表名' }
-    ],
+    variables: [{ name: 'table', type: 'string', description: '表名' }],
     tags: ['DDL', 'CREATE'],
-    isBuiltIn: true
-  }
+    isBuiltIn: true,
+  },
 ]
 
 export function useSqlTemplates() {
@@ -208,6 +210,6 @@ export function useSqlTemplates() {
     searchTemplates,
     fillTemplate,
     addCustomTemplate,
-    removeCustomTemplate
+    removeCustomTemplate,
   }
 }

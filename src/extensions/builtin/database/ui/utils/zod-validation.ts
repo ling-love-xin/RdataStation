@@ -1,6 +1,6 @@
 /**
  * Zod 类型验证工具
- * 
+ *
  * 提供运行时类型验证功能
  */
 
@@ -17,7 +17,7 @@ export const ConnectionSchema = z.object({
   password: z.string().optional(),
   connectionStatus: z.enum(['connected', 'connecting', 'disconnected']).optional(),
   createdAt: z.number().optional(),
-  updatedAt: z.number().optional()
+  updatedAt: z.number().optional(),
 })
 
 export const ConnectionGroupSchema = z.object({
@@ -28,7 +28,7 @@ export const ConnectionGroupSchema = z.object({
   expanded: z.boolean(),
   color: z.string().optional(),
   createdAt: z.number(),
-  updatedAt: z.number()
+  updatedAt: z.number(),
 })
 
 export const VirtualTreeNodeSchema = z.object({
@@ -44,28 +44,28 @@ export const VirtualTreeNodeSchema = z.object({
   icon: z.string().optional(),
   color: z.string().optional(),
   loading: z.boolean().optional(),
-  expanded: z.boolean().optional()
+  expanded: z.boolean().optional(),
 })
 
 export const SearchIndexEntrySchema = z.object({
   nodeId: z.string(),
   nodeType: z.string(),
   connectionId: z.string(),
-  labels: z.array(z.string())
+  labels: z.array(z.string()),
 })
 
 export const ToastMessageSchema = z.object({
   id: z.string(),
   type: z.enum(['success', 'error', 'info', 'warning']),
   message: z.string(),
-  duration: z.number().optional()
+  duration: z.number().optional(),
 })
 
 export const FiltersSchema = z.object({
   databaseType: z.string(),
   connectionStatus: z.string(),
   nodeTypes: z.array(z.string()),
-  showSystemObjects: z.boolean()
+  showSystemObjects: z.boolean(),
 })
 
 export type Connection = z.infer<typeof ConnectionSchema>

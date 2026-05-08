@@ -18,7 +18,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  options: () => []
+  options: () => [],
 })
 
 const emit = defineEmits<{
@@ -28,7 +28,7 @@ const emit = defineEmits<{
 
 const positionStyle = computed(() => ({
   left: `${props.x}px`,
-  top: `${props.y}px`
+  top: `${props.y}px`,
 }))
 
 const menuOptions = computed(() => props.options)

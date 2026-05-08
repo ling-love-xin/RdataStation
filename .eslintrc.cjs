@@ -72,14 +72,14 @@ module.exports = {
           order: 'asc',
           caseInsensitive: true,
         },
-        'pathGroups': [
+        pathGroups: [
           {
             pattern: '@/**',
             group: 'internal',
             position: 'before',
           },
         ],
-        'pathGroupsExcludedImportTypes': ['builtin'],
+        pathGroupsExcludedImportTypes: ['builtin'],
       },
     ],
     'import/no-unresolved': 'error',
@@ -90,7 +90,7 @@ module.exports = {
     'no-debugger': 'warn',
     'prefer-const': 'error',
     'no-var': 'error',
-    'eqeqeq': ['error', 'always', { null: 'ignore' }],
+    eqeqeq: ['error', 'always', { null: 'ignore' }],
   },
   overrides: [
     {

@@ -20,13 +20,13 @@
 
 ### 1.2 设计原则
 
-| 原则 | 描述 | 实现方式 |
-|------|------|----------|
-| **解耦** | 命令层与核心逻辑分离 | Tauri Command → Core Store → Database |
-| **缓存优先** | 减少数据库查询 | 30秒TTL内存缓存 |
-| **错误分类** | 结构化错误处理 | `ProjectError` 枚举 + 错误码 |
-| **路径一致性** | 支持跨电脑项目迁移 | 智能路径处理 + 冲突解决 |
-| **可扩展** | 支持未来 DuckLake 协同 | `ProjectPath` 抽象（Local/Remote） |
+| 原则           | 描述                   | 实现方式                              |
+| -------------- | ---------------------- | ------------------------------------- |
+| **解耦**       | 命令层与核心逻辑分离   | Tauri Command → Core Store → Database |
+| **缓存优先**   | 减少数据库查询         | 30秒TTL内存缓存                       |
+| **错误分类**   | 结构化错误处理         | `ProjectError` 枚举 + 错误码          |
+| **路径一致性** | 支持跨电脑项目迁移     | 智能路径处理 + 冲突解决               |
+| **可扩展**     | 支持未来 DuckLake 协同 | `ProjectPath` 抽象（Local/Remote）    |
 
 ---
 
@@ -241,57 +241,57 @@ impl ProjectError {
 
 ### 4.1 项目生命周期命令
 
-| 命令 | 输入 | 输出 | 描述 |
-|------|------|------|------|
-| `create_project` | `CreateProjectInput` | `CreateProjectResponse` | 创建新项目 |
-| `create_and_save_project` | `CreateProjectInput` | `ProjectInfoResponse` | 创建并保存到全局数据库 |
-| `open_project_by_id` | `id: String` | `ProjectInfoResponse` | 根据 ID 打开项目 |
-| `open_project_by_path` | `path: String` | `ProjectInfoResponse` | 根据路径打开项目 |
-| `delete_project` | `project_id: String` | `()` | 删除项目（从全局数据库） |
-| `rename_project` | `RenameProjectInput` | `()` | 重命名项目 |
+| 命令                      | 输入                 | 输出                    | 描述                     |
+| ------------------------- | -------------------- | ----------------------- | ------------------------ |
+| `create_project`          | `CreateProjectInput` | `CreateProjectResponse` | 创建新项目               |
+| `create_and_save_project` | `CreateProjectInput` | `ProjectInfoResponse`   | 创建并保存到全局数据库   |
+| `open_project_by_id`      | `id: String`         | `ProjectInfoResponse`   | 根据 ID 打开项目         |
+| `open_project_by_path`    | `path: String`       | `ProjectInfoResponse`   | 根据路径打开项目         |
+| `delete_project`          | `project_id: String` | `()`                    | 删除项目（从全局数据库） |
+| `rename_project`          | `RenameProjectInput` | `()`                    | 重命名项目               |
 
 ### 4.2 项目配置命令
 
-| 命令 | 输入 | 输出 | 描述 |
-|------|------|------|------|
-| `get_project_config` | `path: String` | `ProjectConfig` | 获取项目配置 |
-| `update_project_config` | `UpdateProjectConfigInput` | `()` | 更新项目配置 |
+| 命令                    | 输入                       | 输出            | 描述         |
+| ----------------------- | -------------------------- | --------------- | ------------ |
+| `get_project_config`    | `path: String`             | `ProjectConfig` | 获取项目配置 |
+| `update_project_config` | `UpdateProjectConfigInput` | `()`            | 更新项目配置 |
 
 ### 4.3 项目验证命令
 
-| 命令 | 输入 | 输出 | 描述 |
-|------|------|------|------|
-| `validate_project` | `project_id: String` | `bool` | 验证项目基本结构 |
-| `validate_project_full` | `project_id: String` | `ProjectValidationResult` | 验证项目完整性 |
+| 命令                    | 输入                 | 输出                      | 描述             |
+| ----------------------- | -------------------- | ------------------------- | ---------------- |
+| `validate_project`      | `project_id: String` | `bool`                    | 验证项目基本结构 |
+| `validate_project_full` | `project_id: String` | `ProjectValidationResult` | 验证项目完整性   |
 
 ### 4.4 最近项目命令
 
-| 命令 | 输入 | 输出 | 描述 |
-|------|------|------|------|
+| 命令                  | 输入                   | 输出                       | 描述             |
+| --------------------- | ---------------------- | -------------------------- | ---------------- |
 | `get_recent_projects` | `limit: Option<usize>` | `Vec<ProjectInfoResponse>` | 获取最近项目列表 |
-| `add_recent_project` | `project_id: String` | `()` | 添加到最近项目 |
+| `add_recent_project`  | `project_id: String`   | `()`                       | 添加到最近项目   |
 
 ### 4.5 系统级项目命令
 
-| 命令 | 输入 | 输出 | 描述 |
-|------|------|------|------|
-| `get_all_projects` | - | `Vec<ProjectInfoResponse>` | 获取所有项目 |
-| `update_project` | `UpdateProjectInput` | `()` | 更新项目信息 |
+| 命令               | 输入                 | 输出                       | 描述         |
+| ------------------ | -------------------- | -------------------------- | ------------ |
+| `get_all_projects` | -                    | `Vec<ProjectInfoResponse>` | 获取所有项目 |
+| `update_project`   | `UpdateProjectInput` | `()`                       | 更新项目信息 |
 
 ### 4.6 项目存储命令
 
-| 命令 | 输入 | 输出 | 描述 |
-|------|------|------|------|
-| `init_project_store` | `project_path: String` | `()` | 初始化项目存储 |
-| `close_project_store` | - | `()` | 关闭项目存储 |
-| `save_project_store_connection` | `StoredConnection` | `()` | 保存连接 |
-| `get_project_store_connections` | - | `Vec<StoredConnection>` | 获取所有连接 |
-| `get_project_store_connection` | `id: String` | `Option<StoredConnection>` | 获取单个连接 |
-| `delete_project_store_connection` | `id: String` | `()` | 删除连接 |
-| `save_project_store_sql_history` | `SqlHistoryRecord` | `()` | 保存 SQL 历史 |
-| `get_project_store_sql_history` | `connection_id, limit` | `Vec<SqlHistoryRecord>` | 获取 SQL 历史 |
-| `save_project_store_workbench_state` | `WorkbenchState` | `()` | 保存工作台状态 |
-| `get_project_store_workbench_state` | - | `Option<WorkbenchState>` | 获取工作台状态 |
+| 命令                                 | 输入                   | 输出                       | 描述           |
+| ------------------------------------ | ---------------------- | -------------------------- | -------------- |
+| `init_project_store`                 | `project_path: String` | `()`                       | 初始化项目存储 |
+| `close_project_store`                | -                      | `()`                       | 关闭项目存储   |
+| `save_project_store_connection`      | `StoredConnection`     | `()`                       | 保存连接       |
+| `get_project_store_connections`      | -                      | `Vec<StoredConnection>`    | 获取所有连接   |
+| `get_project_store_connection`       | `id: String`           | `Option<StoredConnection>` | 获取单个连接   |
+| `delete_project_store_connection`    | `id: String`           | `()`                       | 删除连接       |
+| `save_project_store_sql_history`     | `SqlHistoryRecord`     | `()`                       | 保存 SQL 历史  |
+| `get_project_store_sql_history`      | `connection_id, limit` | `Vec<SqlHistoryRecord>`    | 获取 SQL 历史  |
+| `save_project_store_workbench_state` | `WorkbenchState`       | `()`                       | 保存工作台状态 |
+| `get_project_store_workbench_state`  | -                      | `Option<WorkbenchState>`   | 获取工作台状态 |
 
 ---
 
@@ -316,8 +316,9 @@ fn get_recent_projects_cache() -> &'static RecentProjectsCache {
 ```
 
 **缓存策略：**
+
 - **TTL**: 30秒
-- **失效时机**: 
+- **失效时机**:
   - `add_recent_project` 后
   - `delete_project` 后
   - `update_project` 后
@@ -325,6 +326,7 @@ fn get_recent_projects_cache() -> &'static RecentProjectsCache {
   - `update_project_config` 后
 
 **性能提升：**
+
 - 首次查询：~50ms（数据库查询）
 - 缓存命中：<1ms（内存读取）
 - 缓存命中率：~80%（典型使用场景）
@@ -347,15 +349,15 @@ let result = global_db.some_operation()
 
 #### 5.2.2 错误分类
 
-| 错误类型 | 使用场景 | 示例 |
-|----------|----------|------|
-| `NotFound` | 项目不存在 | `open_project_by_id` 找不到项目 |
-| `InvalidPath` | 路径无效 | `open_project_by_path` 路径不存在 |
-| `InvalidStructure` | 结构不完整 | 缺少 `.RSmeta` 目录 |
-| `PathConflict` | 路径冲突 | 创建项目时路径已存在 |
-| `Database` | 数据库错误 | SQLite/DuckDB 操作失败 |
-| `Io` | IO 错误 | 文件读写失败 |
-| `OperationFailed` | 操作失败 | 通用操作失败 |
+| 错误类型           | 使用场景   | 示例                              |
+| ------------------ | ---------- | --------------------------------- |
+| `NotFound`         | 项目不存在 | `open_project_by_id` 找不到项目   |
+| `InvalidPath`      | 路径无效   | `open_project_by_path` 路径不存在 |
+| `InvalidStructure` | 结构不完整 | 缺少 `.RSmeta` 目录               |
+| `PathConflict`     | 路径冲突   | 创建项目时路径已存在              |
+| `Database`         | 数据库错误 | SQLite/DuckDB 操作失败            |
+| `Io`               | IO 错误    | 文件读写失败                      |
+| `OperationFailed`  | 操作失败   | 通用操作失败                      |
 
 ### 5.3 路径一致性处理
 
@@ -433,18 +435,18 @@ pub async fn init_project_store(
             let _ = store.db_manager.close().await;
         }
     }
-    
+
     // 2. 等待文件句柄释放（200ms）
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-    
+
     // 3. 打开新的项目存储
     let path = PathBuf::from(&project_path);
     let store = ProjectStore::new(&path).await.map_err(|e| e.to_string())?;
-    
+
     // 4. 更新状态
     let mut guard = state.store.lock().await;
     *guard = Some(store);
-    
+
     Ok(())
 }
 ```
@@ -469,20 +471,20 @@ CREATE TABLE IF NOT EXISTS project_info (
     last_opened_at TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_project_info_last_opened 
+CREATE INDEX IF NOT EXISTS idx_project_info_last_opened
     ON project_info(last_opened_at DESC);
 ```
 
-| 字段 | 类型 | 描述 |
-|------|------|------|
-| `id` | TEXT | 项目 UUID |
-| `name` | TEXT | 项目名称 |
-| `description` | TEXT | 项目描述 |
-| `path` | TEXT | 项目路径 |
-| `status` | TEXT | 项目状态（active/archived/syncing/offline） |
-| `created_at` | TIMESTAMP | 创建时间 |
-| `updated_at` | TIMESTAMP | 更新时间 |
-| `last_opened_at` | TIMESTAMP | 最后打开时间 |
+| 字段             | 类型      | 描述                                        |
+| ---------------- | --------- | ------------------------------------------- |
+| `id`             | TEXT      | 项目 UUID                                   |
+| `name`           | TEXT      | 项目名称                                    |
+| `description`    | TEXT      | 项目描述                                    |
+| `path`           | TEXT      | 项目路径                                    |
+| `status`         | TEXT      | 项目状态（active/archived/syncing/offline） |
+| `created_at`     | TIMESTAMP | 创建时间                                    |
+| `updated_at`     | TIMESTAMP | 更新时间                                    |
+| `last_opened_at` | TIMESTAMP | 最后打开时间                                |
 
 ### 6.2 项目 SQLite（meta/project.db）
 
@@ -622,7 +624,7 @@ try {
   // 解析错误码
   const match = error.match(/\[(.*?)\]/)
   const errorCode = match ? match[1] : 'UNKNOWN'
-  
+
   switch (errorCode) {
     case 'PROJECT_NOT_FOUND':
       // 显示项目不存在提示
@@ -634,7 +636,7 @@ try {
       // 显示结构不完整提示
       break
     default:
-      // 显示通用错误
+    // 显示通用错误
   }
 }
 ```
@@ -645,9 +647,9 @@ try {
 
 ### 9.1 缓存策略
 
-| 缓存类型 | TTL | 失效条件 | 命中率 |
-|----------|-----|----------|--------|
-| 最近项目列表 | 30秒 | 项目操作后 | ~80% |
+| 缓存类型     | TTL  | 失效条件   | 命中率 |
+| ------------ | ---- | ---------- | ------ |
+| 最近项目列表 | 30秒 | 项目操作后 | ~80%   |
 
 ### 9.2 数据库优化
 
@@ -692,17 +694,17 @@ try {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_create_project() {
         // 测试项目创建
     }
-    
+
     #[tokio::test]
     async fn test_open_project_by_path() {
         // 测试路径打开
     }
-    
+
     #[tokio::test]
     async fn test_validate_project() {
         // 测试项目验证
@@ -753,6 +755,7 @@ mod tests {
 **原因**：全局数据库中的路径与实际路径不一致
 
 **解决方案**：
+
 1. 使用 `open_project_by_path` 命令，使用实际路径打开
 2. 系统会自动更新全局数据库中的路径记录
 
@@ -761,6 +764,7 @@ mod tests {
 **原因**：缺少 `.RSmeta` 目录或 `project.json` 文件
 
 **解决方案**：
+
 1. 使用 `validate_project_full` 命令检查具体缺失项
 2. 手动创建缺失的目录和文件
 3. 或重新创建项目
@@ -770,6 +774,7 @@ mod tests {
 **原因**：文件句柄未释放
 
 **解决方案**：
+
 1. 等待几秒后重试
 2. 检查是否有其他进程占用项目文件
 3. 重启应用
@@ -784,4 +789,4 @@ mod tests {
 
 ---
 
-*文档结束*
+_文档结束_

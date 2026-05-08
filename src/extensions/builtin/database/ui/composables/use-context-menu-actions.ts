@@ -1,6 +1,6 @@
 /**
  * 数据库导航树右键菜单操作
- * 
+ *
  * 为不同节点类型提供完整的上下文菜单操作
  * 支持创建、删除、刷新、复制等操作
  */
@@ -14,29 +14,31 @@ import { NodeKeyEncoder } from '../types/virtual-tree'
 
 import type { VirtualTreeNode } from '../types/virtual-tree'
 
-export type IContextMenuItem = {
-  /** 分隔线 */
-  separator: true
-} | {
-  /** 菜单项 ID */
-  id: string
-  /** 显示文本 */
-  label: string
-  /** 图标 */
-  icon?: string
-  /** 快捷键 */
-  shortcut?: string
-  /** 是否禁用 */
-  disabled?: boolean
-  /** 是否隐藏 */
-  hidden?: boolean
-  /** 子菜单 */
-  children?: IContextMenuItem[]
-  /** 分隔线 */
-  separator?: false
-  /** 点击回调 */
-  action?: () => Promise<void> | void
-}
+export type IContextMenuItem =
+  | {
+      /** 分隔线 */
+      separator: true
+    }
+  | {
+      /** 菜单项 ID */
+      id: string
+      /** 显示文本 */
+      label: string
+      /** 图标 */
+      icon?: string
+      /** 快捷键 */
+      shortcut?: string
+      /** 是否禁用 */
+      disabled?: boolean
+      /** 是否隐藏 */
+      hidden?: boolean
+      /** 子菜单 */
+      children?: IContextMenuItem[]
+      /** 分隔线 */
+      separator?: false
+      /** 点击回调 */
+      action?: () => Promise<void> | void
+    }
 
 export interface IContextMenuConfig {
   /** 菜单项列表 */
@@ -66,20 +68,20 @@ export function useContextMenuActions() {
         label: '编辑连接',
         icon: 'Settings',
         shortcut: 'F4',
-        action: () => editConnection(connectionId)
+        action: () => editConnection(connectionId),
       },
       {
         id: 'test-connection',
         label: '测试连接',
         icon: 'Zap',
-        action: () => testConnection(connectionId)
+        action: () => testConnection(connectionId),
       },
       {
         id: isConnected ? 'disconnect' : 'connect',
         label: isConnected ? '断开连接' : '连接',
         icon: isConnected ? 'LogOut' : 'LogIn',
         shortcut: isConnected ? 'Ctrl+D' : 'Ctrl+E',
-        action: () => toggleConnection(connectionId, isConnected)
+        action: () => toggleConnection(connectionId, isConnected),
       },
       { separator: true },
       {
@@ -88,7 +90,7 @@ export function useContextMenuActions() {
         icon: 'Zap',
         action: () => {
           runtimeConnectionStore.toggleDuckDbEnabled(connectionId)
-        }
+        },
       },
       { separator: true },
       {
@@ -96,7 +98,7 @@ export function useContextMenuActions() {
         label: '打开 SQL 编辑器',
         icon: 'Code',
         shortcut: 'Ctrl+Shift+E',
-        action: () => openSqlEditor(connectionId)
+        action: () => openSqlEditor(connectionId),
       },
       { separator: true },
       {
@@ -104,14 +106,14 @@ export function useContextMenuActions() {
         label: '刷新',
         icon: 'RefreshCw',
         shortcut: 'F5',
-        action: () => refreshConnection(connectionId)
+        action: () => refreshConnection(connectionId),
       },
       {
         id: 'refresh-all',
         label: '刷新所有',
         icon: 'RefreshCw',
         shortcut: 'Ctrl+F5',
-        action: () => refreshAllConnections()
+        action: () => refreshAllConnections(),
       },
       { separator: true },
       {
@@ -119,15 +121,15 @@ export function useContextMenuActions() {
         label: '复制名称',
         icon: 'Copy',
         shortcut: 'Ctrl+C',
-        action: () => copyToClipboard(node.label)
+        action: () => copyToClipboard(node.label),
       },
       { separator: true },
       {
         id: 'delete-connection',
         label: '删除连接',
         icon: 'Trash2',
-        action: () => deleteConnection(connectionId)
-      }
+        action: () => deleteConnection(connectionId),
+      },
     ]
   }
 
@@ -145,13 +147,13 @@ export function useContextMenuActions() {
         label: '新建表',
         icon: 'Plus',
         shortcut: 'Ctrl+T',
-        action: () => createTable(connectionId as string, dbName as string)
+        action: () => createTable(connectionId as string, dbName as string),
       },
       {
         id: 'new-view',
         label: '新建视图',
         icon: 'Plus',
-        action: () => createView(connectionId as string, dbName as string)
+        action: () => createView(connectionId as string, dbName as string),
       },
       { separator: true },
       {
@@ -159,7 +161,7 @@ export function useContextMenuActions() {
         label: '刷新',
         icon: 'RefreshCw',
         shortcut: 'F5',
-        action: () => refreshDatabase(connectionId as string, dbName as string)
+        action: () => refreshDatabase(connectionId as string, dbName as string),
       },
       { separator: true },
       {
@@ -167,7 +169,7 @@ export function useContextMenuActions() {
         label: '打开 SQL 编辑器',
         icon: 'Code',
         shortcut: 'Ctrl+Shift+E',
-        action: () => openSqlEditor(connectionId as string, dbName as string)
+        action: () => openSqlEditor(connectionId as string, dbName as string),
       },
       { separator: true },
       {
@@ -175,14 +177,14 @@ export function useContextMenuActions() {
         label: '复制名称',
         icon: 'Copy',
         shortcut: 'Ctrl+C',
-        action: () => copyToClipboard(dbName as string)
+        action: () => copyToClipboard(dbName as string),
       },
       {
         id: 'copy-qualified-name',
         label: '复制限定名称',
         icon: 'Copy',
-        action: () => copyToClipboard(dbName as string)
-      }
+        action: () => copyToClipboard(dbName as string),
+      },
     ]
   }
 
@@ -201,25 +203,27 @@ export function useContextMenuActions() {
         label: '新建表',
         icon: 'Plus',
         shortcut: 'Ctrl+T',
-        action: () => createTable(connectionId as string, dbName as string, schemaName as string)
+        action: () => createTable(connectionId as string, dbName as string, schemaName as string),
       },
       {
         id: 'new-view',
         label: '新建视图',
         icon: 'Plus',
-        action: () => createView(connectionId as string, dbName as string, schemaName as string)
+        action: () => createView(connectionId as string, dbName as string, schemaName as string),
       },
       {
         id: 'new-function',
         label: '新建函数',
         icon: 'Plus',
-        action: () => createFunction(connectionId as string, dbName as string, schemaName as string)
+        action: () =>
+          createFunction(connectionId as string, dbName as string, schemaName as string),
       },
       {
         id: 'new-procedure',
         label: '新建存储过程',
         icon: 'Plus',
-        action: () => createProcedure(connectionId as string, dbName as string, schemaName as string)
+        action: () =>
+          createProcedure(connectionId as string, dbName as string, schemaName as string),
       },
       { separator: true },
       {
@@ -227,7 +231,7 @@ export function useContextMenuActions() {
         label: '刷新',
         icon: 'RefreshCw',
         shortcut: 'F5',
-        action: () => refreshSchema(connectionId as string, dbName as string, schemaName as string)
+        action: () => refreshSchema(connectionId as string, dbName as string, schemaName as string),
       },
       { separator: true },
       {
@@ -235,7 +239,15 @@ export function useContextMenuActions() {
         label: '打开 SQL 编辑器',
         icon: 'Code',
         shortcut: 'Ctrl+Shift+E',
-        action: () => openSqlEditor(connectionId as string, dbName as string, schemaName as string)
+        action: () => openSqlEditor(connectionId as string, dbName as string, schemaName as string),
+      },
+      { separator: true },
+      {
+        id: 'schema-insight',
+        label: 'Schema 洞察',
+        icon: 'Search',
+        action: () =>
+          quickSchemaInsight(connectionId as string, dbName as string, schemaName as string),
       },
       { separator: true },
       {
@@ -243,14 +255,14 @@ export function useContextMenuActions() {
         label: '复制名称',
         icon: 'Copy',
         shortcut: 'Ctrl+C',
-        action: () => copyToClipboard(schemaName as string)
+        action: () => copyToClipboard(schemaName as string),
       },
       {
         id: 'copy-qualified-name',
         label: '复制限定名称',
         icon: 'Copy',
-        action: () => copyToClipboard(`${dbName}.${schemaName}`)
-      }
+        action: () => copyToClipboard(`${dbName}.${schemaName}`),
+      },
     ]
   }
 
@@ -270,54 +282,138 @@ export function useContextMenuActions() {
         label: '查看数据',
         icon: 'Table',
         shortcut: 'F4',
-        action: () => viewTableData(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          viewTableData(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       {
         id: 'view-ddl',
         label: '查看 DDL',
         icon: 'Code',
         shortcut: 'Ctrl+D',
-        action: () => viewTableDDL(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          viewTableDDL(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       { separator: true },
       {
         id: 'truncate-table',
         label: '清空表',
         icon: 'Trash2',
-        action: () => truncateTable(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          truncateTable(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       {
         id: 'drop-table',
         label: '删除表',
         icon: 'Trash2',
-        action: () => dropTable(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          dropTable(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       { separator: true },
       {
         id: 'analyze-table',
         label: '分析表',
         icon: 'BarChart3',
-        action: () => analyzeTable(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          analyzeTable(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       {
         id: 'quick-profile',
         label: '快速探查',
         icon: 'Eye',
         shortcut: 'Ctrl+Shift+P',
-        action: () => quickProfile(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          quickProfile(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
+      },
+      {
+        id: 'eval-quality',
+        label: '评估表质量',
+        icon: 'Search',
+        action: () =>
+          evaluateTableQuality(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       { separator: true },
       {
         id: 'generate-select',
         label: '生成 SELECT 语句',
         icon: 'FileText',
-        action: () => generateSelect(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          generateSelect(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       {
         id: 'generate-insert',
         label: '生成 INSERT 语句',
         icon: 'FileText',
-        action: () => generateInsert(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          generateInsert(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
+      },
+      {
+        id: 'generate-update',
+        label: '生成 UPDATE 语句',
+        icon: 'FileEdit',
+        action: () =>
+          generateUpdate(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
+      },
+      {
+        id: 'generate-delete',
+        label: '生成 DELETE 语句',
+        icon: 'Trash2',
+        action: () =>
+          generateDelete(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       { separator: true },
       {
@@ -325,7 +421,13 @@ export function useContextMenuActions() {
         label: '打开 SQL 编辑器',
         icon: 'Code',
         shortcut: 'Ctrl+Shift+E',
-        action: () => openSqlEditor(connectionId as string, dbName as string, schemaName as string, tableName as string)
+        action: () =>
+          openSqlEditor(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
       },
       { separator: true },
       {
@@ -333,14 +435,14 @@ export function useContextMenuActions() {
         label: '复制名称',
         icon: 'Copy',
         shortcut: 'Ctrl+C',
-        action: () => copyToClipboard(tableName as string)
+        action: () => copyToClipboard(tableName as string),
       },
       {
         id: 'copy-qualified-name',
         label: '复制限定名称',
         icon: 'Copy',
-        action: () => copyToClipboard(`${dbName}.${schemaName}.${tableName}`)
-      }
+        action: () => copyToClipboard(`${dbName}.${schemaName}.${tableName}`),
+      },
     ]
   }
 
@@ -360,21 +462,52 @@ export function useContextMenuActions() {
         label: '查看数据',
         icon: 'Table',
         shortcut: 'F4',
-        action: () => viewTableData(connectionId as string, dbName as string, schemaName as string, viewName as string)
+        action: () =>
+          viewTableData(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            viewName as string
+          ),
       },
       {
         id: 'view-ddl',
         label: '查看 DDL',
         icon: 'Code',
         shortcut: 'Ctrl+D',
-        action: () => viewTableDDL(connectionId as string, dbName as string, schemaName as string, viewName as string)
+        action: () =>
+          viewTableDDL(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            viewName as string
+          ),
+      },
+      { separator: true },
+      {
+        id: 'generate-select-view',
+        label: '生成 SELECT 语句',
+        icon: 'FileText',
+        action: () =>
+          generateSelect(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            viewName as string
+          ),
       },
       { separator: true },
       {
         id: 'drop-view',
         label: '删除视图',
         icon: 'Trash2',
-        action: () => dropTable(connectionId as string, dbName as string, schemaName as string, viewName as string)
+        action: () =>
+          dropTable(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            viewName as string
+          ),
       },
       { separator: true },
       {
@@ -382,7 +515,13 @@ export function useContextMenuActions() {
         label: '打开 SQL 编辑器',
         icon: 'Code',
         shortcut: 'Ctrl+Shift+E',
-        action: () => openSqlEditor(connectionId as string, dbName as string, schemaName as string, viewName as string)
+        action: () =>
+          openSqlEditor(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            viewName as string
+          ),
       },
       { separator: true },
       {
@@ -390,14 +529,14 @@ export function useContextMenuActions() {
         label: '复制名称',
         icon: 'Copy',
         shortcut: 'Ctrl+C',
-        action: () => copyToClipboard(viewName as string)
+        action: () => copyToClipboard(viewName as string),
       },
       {
         id: 'copy-qualified-name',
         label: '复制限定名称',
         icon: 'Copy',
-        action: () => copyToClipboard(`${dbName}.${schemaName}.${viewName}`)
-      }
+        action: () => copyToClipboard(`${dbName}.${schemaName}.${viewName}`),
+      },
     ]
   }
 
@@ -418,13 +557,13 @@ export function useContextMenuActions() {
         label: '复制名称',
         icon: 'Copy',
         shortcut: 'Ctrl+C',
-        action: () => copyToClipboard(columnName as string)
+        action: () => copyToClipboard(columnName as string),
       },
       {
         id: 'copy-qualified-name',
         label: '复制限定名称',
         icon: 'Copy',
-        action: () => copyToClipboard(`${tableName}.${columnName}`)
+        action: () => copyToClipboard(`${tableName}.${columnName}`),
       },
       { separator: true },
       {
@@ -432,8 +571,14 @@ export function useContextMenuActions() {
         label: '打开 SQL 编辑器',
         icon: 'Code',
         shortcut: 'Ctrl+Shift+E',
-        action: () => openSqlEditor(connectionId as string, dbName as string, schemaName as string, tableName as string)
-      }
+        action: () =>
+          openSqlEditor(
+            connectionId as string,
+            dbName as string,
+            schemaName as string,
+            tableName as string
+          ),
+      },
     ]
   }
 
@@ -455,14 +600,14 @@ export function useContextMenuActions() {
         label: '新建表',
         icon: 'Plus',
         shortcut: 'Ctrl+T',
-        action: () => createTable(connectionId as string, dbName as string, schemaName)
+        action: () => createTable(connectionId as string, dbName as string, schemaName),
       })
     } else if (folderType === 'views-folder') {
       items.push({
         id: 'new-view',
         label: '新建视图',
         icon: 'Plus',
-        action: () => createView(connectionId as string, dbName as string, schemaName)
+        action: () => createView(connectionId as string, dbName as string, schemaName),
       })
     }
 
@@ -475,7 +620,7 @@ export function useContextMenuActions() {
       label: '刷新',
       icon: 'RefreshCw',
       shortcut: 'F5',
-      action: () => refreshFolder(node)
+      action: () => refreshFolder(node),
     })
 
     items.push({ separator: true })
@@ -485,7 +630,7 @@ export function useContextMenuActions() {
       label: '打开 SQL 编辑器',
       icon: 'Code',
       shortcut: 'Ctrl+Shift+E',
-      action: () => openSqlEditor(connectionId as string, dbName as string, schemaName)
+      action: () => openSqlEditor(connectionId as string, dbName as string, schemaName),
     })
 
     return items
@@ -577,42 +722,75 @@ export function useContextMenuActions() {
     }
   }
 
-  async function createTable(connectionId: string, dbName: string, schemaName?: string): Promise<void> {
-    window.dispatchEvent(new CustomEvent('open-create-table', { 
-      detail: { connectionId, dbName, schemaName } 
-    }))
+  async function createTable(
+    connectionId: string,
+    dbName: string,
+    schemaName?: string
+  ): Promise<void> {
+    window.dispatchEvent(
+      new CustomEvent('open-create-table', {
+        detail: { connectionId, dbName, schemaName },
+      })
+    )
   }
 
-  async function createView(connectionId: string, dbName: string, schemaName?: string): Promise<void> {
-    window.dispatchEvent(new CustomEvent('open-create-view', { 
-      detail: { connectionId, dbName, schemaName } 
-    }))
+  async function createView(
+    connectionId: string,
+    dbName: string,
+    schemaName?: string
+  ): Promise<void> {
+    window.dispatchEvent(
+      new CustomEvent('open-create-view', {
+        detail: { connectionId, dbName, schemaName },
+      })
+    )
   }
 
-  async function createFunction(connectionId: string, dbName: string, schemaName?: string): Promise<void> {
-    window.dispatchEvent(new CustomEvent('open-create-function', { 
-      detail: { connectionId, dbName, schemaName } 
-    }))
+  async function createFunction(
+    connectionId: string,
+    dbName: string,
+    schemaName?: string
+  ): Promise<void> {
+    window.dispatchEvent(
+      new CustomEvent('open-create-function', {
+        detail: { connectionId, dbName, schemaName },
+      })
+    )
   }
 
-  async function createProcedure(connectionId: string, dbName: string, schemaName?: string): Promise<void> {
-    window.dispatchEvent(new CustomEvent('open-create-procedure', { 
-      detail: { connectionId, dbName, schemaName } 
-    }))
+  async function createProcedure(
+    connectionId: string,
+    dbName: string,
+    schemaName?: string
+  ): Promise<void> {
+    window.dispatchEvent(
+      new CustomEvent('open-create-procedure', {
+        detail: { connectionId, dbName, schemaName },
+      })
+    )
   }
 
   async function refreshDatabase(connectionId: string, dbName: string): Promise<void> {
     await navigatorStore.loadDatabases(connectionId)
   }
 
-  async function refreshSchema(connectionId: string, dbName: string, schemaName: string): Promise<void> {
+  async function refreshSchema(
+    connectionId: string,
+    dbName: string,
+    schemaName: string
+  ): Promise<void> {
     await Promise.all([
       navigatorStore.loadTables(connectionId, dbName, schemaName),
-      navigatorStore.loadViews(connectionId, dbName, schemaName)
+      navigatorStore.loadViews(connectionId, dbName, schemaName),
     ])
   }
 
-  async function openSqlEditor(connectionId: string, dbName?: string, schemaName?: string, objectName?: string): Promise<void> {
+  async function openSqlEditor(
+    connectionId: string,
+    dbName?: string,
+    schemaName?: string,
+    objectName?: string
+  ): Promise<void> {
     // 确保 connectionStore 中有此连接的状态
     const hasRuntime = runtimeConnectionStore.runtimeConnectionIds.has(connectionId)
     if (hasRuntime) {
@@ -620,67 +798,143 @@ export function useContextMenuActions() {
     }
 
     let sql = ''
-    
+
     if (dbName && schemaName && objectName) {
       sql = `SELECT * FROM ${dbName}.${schemaName}.${objectName} LIMIT 100;`
     }
-    
-    window.dispatchEvent(new CustomEvent('open-sql-editor', {
-      detail: { connectionId, databaseName: dbName, sql }
-    }))
+
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: { connectionId, databaseName: dbName, sql },
+      })
+    )
   }
 
-  async function viewTableData(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
-    window.dispatchEvent(new CustomEvent('open-table-data', { 
-      detail: { connectionId, dbName, schemaName, tableName } 
-    }))
+  async function viewTableData(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
+    window.dispatchEvent(
+      new CustomEvent('open-table-data', {
+        detail: { connectionId, dbName, schemaName, tableName },
+      })
+    )
   }
 
-  async function viewTableDDL(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
-    window.dispatchEvent(new CustomEvent('open-table-ddl', { 
-      detail: { connectionId, dbName, schemaName, tableName } 
-    }))
+  async function viewTableDDL(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
+    window.dispatchEvent(
+      new CustomEvent('open-table-ddl', {
+        detail: { connectionId, dbName, schemaName, tableName },
+      })
+    )
   }
 
-  async function truncateTable(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
+  async function truncateTable(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
     if (confirm(`确定要清空表 ${tableName} 吗？此操作不可恢复。`)) {
       try {
-        await navigatorStore.executeSql(connectionId, dbName, `TRUNCATE TABLE ${schemaName}.${tableName}`)
+        await navigatorStore.executeSql(
+          connectionId,
+          dbName,
+          `TRUNCATE TABLE ${schemaName}.${tableName}`
+        )
       } catch (error) {
         console.error('清空表失败:', error)
       }
     }
   }
 
-  async function dropTable(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
+  async function dropTable(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
     if (confirm(`确定要删除表 ${tableName} 吗？此操作不可恢复。`)) {
       try {
-        await navigatorStore.executeSql(connectionId, dbName, `DROP TABLE ${schemaName}.${tableName}`)
+        await navigatorStore.executeSql(
+          connectionId,
+          dbName,
+          `DROP TABLE ${schemaName}.${tableName}`
+        )
       } catch (error) {
         console.error('删除表失败:', error)
       }
     }
   }
 
-  async function analyzeTable(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
+  async function analyzeTable(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
     try {
-      await navigatorStore.executeSql(connectionId, dbName, `ANALYZE TABLE ${schemaName}.${tableName}`)
+      await navigatorStore.executeSql(
+        connectionId,
+        dbName,
+        `ANALYZE TABLE ${schemaName}.${tableName}`
+      )
     } catch (error) {
       console.error('分析表失败:', error)
     }
   }
 
-  async function quickProfile(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
+  async function quickProfile(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
     const dbType = getDbTypeForConnection(connectionId)
-    window.dispatchEvent(new CustomEvent('open-table-profile', {
-      detail: {
-        connId: connectionId,
-        dbType,
-        database: dbName,
-        schema: schemaName,
-        table: tableName
-      }
-    }))
+    const insightStore = useInsightStore()
+    insightStore.requestTableProfile({
+      connId: connectionId,
+      dbType,
+      database: dbName,
+      schema: schemaName,
+      table: tableName,
+    })
+  }
+
+  function evaluateTableQuality(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): void {
+    const dbType = getDbTypeForConnection(connectionId)
+    const insightStore = useInsightStore()
+    insightStore.requestTableProfile({
+      connId: connectionId,
+      dbType,
+      database: dbName,
+      schema: schemaName,
+      table: tableName,
+      autoEvaluate: true,
+    })
+  }
+
+  function quickSchemaInsight(connectionId: string, dbName: string, schemaName: string): void {
+    const insightStore = useInsightStore()
+    const dbType = getDbTypeForConnection(connectionId)
+    insightStore.requestSchemaInsight({
+      connId: connectionId,
+      dbType,
+      database: dbName,
+      schema: schemaName,
+    })
   }
 
   function getDbTypeForConnection(connectionId: string): string {
@@ -696,14 +950,64 @@ export function useContextMenuActions() {
     return 'unknown'
   }
 
-  async function generateSelect(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
+  async function generateSelect(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
     const sql = `SELECT * FROM ${dbName}.${schemaName}.${tableName} LIMIT 100;`
     await copyToClipboard(sql)
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: { connectionId, databaseName: dbName, sql },
+      })
+    )
   }
 
-  async function generateInsert(connectionId: string, dbName: string, schemaName: string, tableName: string): Promise<void> {
-    const sql = `INSERT INTO ${dbName}.${schemaName}.${tableName} () VALUES ();`
+  async function generateInsert(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
+    const sql = `INSERT INTO ${dbName}.${schemaName}.${tableName} (\n  -- column_list\n) VALUES (\n  -- value_list\n);`
     await copyToClipboard(sql)
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: { connectionId, databaseName: dbName, sql },
+      })
+    )
+  }
+
+  async function generateUpdate(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
+    const sql = `UPDATE ${dbName}.${schemaName}.${tableName}\nSET\n  -- column = value\nWHERE\n  -- condition;`
+    await copyToClipboard(sql)
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: { connectionId, databaseName: dbName, sql },
+      })
+    )
+  }
+
+  async function generateDelete(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ): Promise<void> {
+    const sql = `DELETE FROM ${dbName}.${schemaName}.${tableName}\nWHERE\n  -- condition;`
+    await copyToClipboard(sql)
+    window.dispatchEvent(
+      new CustomEvent('open-sql-editor', {
+        detail: { connectionId, databaseName: dbName, sql },
+      })
+    )
   }
 
   async function refreshFolder(node: VirtualTreeNode): Promise<void> {
@@ -734,6 +1038,6 @@ export function useContextMenuActions() {
   }
 
   return {
-    getNodeMenu
+    getNodeMenu,
   }
 }

@@ -14,7 +14,7 @@ const mockConnections = [
     dbType: 'mysql',
     host: 'localhost',
     port: 3306,
-    databases: ['test_db', 'production_db', 'analytics_db']
+    databases: ['test_db', 'production_db', 'analytics_db'],
   },
   {
     id: 'conn-2',
@@ -22,20 +22,20 @@ const mockConnections = [
     dbType: 'postgresql',
     host: 'dev-pg.example.com',
     port: 5432,
-    databases: ['dev_db', 'staging_db']
+    databases: ['dev_db', 'staging_db'],
   },
   {
     id: 'conn-3',
     name: 'SQLite 本地文件',
     dbType: 'sqlite',
     filePath: '/data/local.db',
-    databases: ['main']
-  }
+    databases: ['main'],
+  },
 ]
 
 // Mock 数据库结构
 const mockDatabaseStructure: Record<string, any> = {
-  'test_db': {
+  test_db: {
     tables: [
       { name: 'users', comment: '用户表', rowCount: 15420 },
       { name: 'orders', comment: '订单表', rowCount: 89321 },
@@ -51,23 +51,19 @@ const mockDatabaseStructure: Record<string, any> = {
       { name: 'sp_get_user_stats', comment: '获取用户统计' },
       { name: 'sp_cleanup_old_data', comment: '清理旧数据' },
     ],
-    functions: [
-      { name: 'fn_calculate_discount', comment: '计算折扣' },
-    ]
+    functions: [{ name: 'fn_calculate_discount', comment: '计算折扣' }],
   },
-  'production_db': {
+  production_db: {
     tables: [
       { name: 'customers', comment: '客户表', rowCount: 892341 },
       { name: 'transactions', comment: '交易表', rowCount: 4521092 },
       { name: 'audit_log', comment: '审计日志', rowCount: 89234109 },
     ],
-    views: [
-      { name: 'v_daily_report', comment: '日报视图' },
-    ],
+    views: [{ name: 'v_daily_report', comment: '日报视图' }],
     procedures: [],
-    functions: []
+    functions: [],
   },
-  'dev_db': {
+  dev_db: {
     tables: [
       { name: 'employees', comment: '员工表', rowCount: 150 },
       { name: 'departments', comment: '部门表', rowCount: 12 },
@@ -75,21 +71,39 @@ const mockDatabaseStructure: Record<string, any> = {
     ],
     views: [],
     procedures: [],
-    functions: []
-  }
+    functions: [],
+  },
 }
 
 // Mock 表结构
 const mockTableStructure: Record<string, any> = {
-  'users': {
+  users: {
     columns: [
       { name: 'id', type: 'BIGINT', nullable: false, default: 'AUTO_INCREMENT', comment: '主键ID' },
       { name: 'username', type: 'VARCHAR(50)', nullable: false, default: '', comment: '用户名' },
       { name: 'email', type: 'VARCHAR(100)', nullable: false, default: '', comment: '邮箱' },
-      { name: 'password_hash', type: 'VARCHAR(255)', nullable: false, default: '', comment: '密码哈希' },
-      { name: 'created_at', type: 'DATETIME', nullable: false, default: 'CURRENT_TIMESTAMP', comment: '创建时间' },
+      {
+        name: 'password_hash',
+        type: 'VARCHAR(255)',
+        nullable: false,
+        default: '',
+        comment: '密码哈希',
+      },
+      {
+        name: 'created_at',
+        type: 'DATETIME',
+        nullable: false,
+        default: 'CURRENT_TIMESTAMP',
+        comment: '创建时间',
+      },
       { name: 'updated_at', type: 'DATETIME', nullable: true, default: null, comment: '更新时间' },
-      { name: 'status', type: 'TINYINT', nullable: false, default: '1', comment: '状态:1正常,0禁用' },
+      {
+        name: 'status',
+        type: 'TINYINT',
+        nullable: false,
+        default: '1',
+        comment: '状态:1正常,0禁用',
+      },
     ],
     indexes: [
       { name: 'PRIMARY', type: 'PRIMARY', columns: ['id'] },
@@ -98,16 +112,28 @@ const mockTableStructure: Record<string, any> = {
       { name: 'idx_created_at', type: 'INDEX', columns: ['created_at'] },
     ],
     foreignKeys: [],
-    triggers: []
+    triggers: [],
   },
-  'orders': {
+  orders: {
     columns: [
       { name: 'id', type: 'BIGINT', nullable: false, default: 'AUTO_INCREMENT', comment: '主键ID' },
       { name: 'user_id', type: 'BIGINT', nullable: false, default: '', comment: '用户ID' },
       { name: 'order_no', type: 'VARCHAR(32)', nullable: false, default: '', comment: '订单号' },
-      { name: 'total_amount', type: 'DECIMAL(10,2)', nullable: false, default: '0.00', comment: '总金额' },
+      {
+        name: 'total_amount',
+        type: 'DECIMAL(10,2)',
+        nullable: false,
+        default: '0.00',
+        comment: '总金额',
+      },
       { name: 'status', type: 'TINYINT', nullable: false, default: '0', comment: '订单状态' },
-      { name: 'created_at', type: 'DATETIME', nullable: false, default: 'CURRENT_TIMESTAMP', comment: '创建时间' },
+      {
+        name: 'created_at',
+        type: 'DATETIME',
+        nullable: false,
+        default: 'CURRENT_TIMESTAMP',
+        comment: '创建时间',
+      },
     ],
     indexes: [
       { name: 'PRIMARY', type: 'PRIMARY', columns: ['id'] },
@@ -117,9 +143,9 @@ const mockTableStructure: Record<string, any> = {
     foreignKeys: [
       { name: 'fk_orders_user', column: 'user_id', refTable: 'users', refColumn: 'id' },
     ],
-    triggers: []
+    triggers: [],
   },
-  'products': {
+  products: {
     columns: [
       { name: 'id', type: 'BIGINT', nullable: false, default: 'AUTO_INCREMENT', comment: '主键ID' },
       { name: 'name', type: 'VARCHAR(200)', nullable: false, default: '', comment: '产品名称' },
@@ -132,8 +158,8 @@ const mockTableStructure: Record<string, any> = {
       { name: 'idx_category', type: 'INDEX', columns: ['category_id'] },
     ],
     foreignKeys: [],
-    triggers: []
-  }
+    triggers: [],
+  },
 }
 
 /**
@@ -146,7 +172,7 @@ export function getMockConnections() {
     dbType: conn.dbType,
     host: conn.host,
     port: conn.port,
-    filePath: conn.filePath
+    filePath: conn.filePath,
   }))
 }
 
@@ -167,8 +193,8 @@ export function getMockDatabases(connectionId: string): NavigatorNode[] {
     database: dbName,
     metadata: {
       charset: 'utf8mb4',
-      collation: 'utf8mb4_unicode_ci'
-    }
+      collation: 'utf8mb4_unicode_ci',
+    },
   }))
 }
 
@@ -190,8 +216,8 @@ export function getMockTables(connectionId: string, database: string): Navigator
     metadata: {
       comment: table.comment,
       rowCount: table.rowCount,
-      tableName: table.name
-    }
+      tableName: table.name,
+    },
   }))
 }
 
@@ -212,8 +238,8 @@ export function getMockViews(connectionId: string, database: string): NavigatorN
     database,
     metadata: {
       comment: view.comment,
-      tableName: view.name
-    }
+      tableName: view.name,
+    },
   }))
 }
 
@@ -233,8 +259,8 @@ export function getMockProcedures(connectionId: string, database: string): Navig
     connectionId,
     database,
     metadata: {
-      comment: proc.comment
-    }
+      comment: proc.comment,
+    },
   }))
 }
 
@@ -254,15 +280,19 @@ export function getMockFunctions(connectionId: string, database: string): Naviga
     connectionId,
     database,
     metadata: {
-      comment: fn.comment
-    }
+      comment: fn.comment,
+    },
   }))
 }
 
 /**
  * 获取 Mock 列列表
  */
-export function getMockColumns(connectionId: string, database: string, tableName: string): NavigatorNode[] {
+export function getMockColumns(
+  connectionId: string,
+  database: string,
+  tableName: string
+): NavigatorNode[] {
   const tableStructure = mockTableStructure[tableName]
   if (!tableStructure) return []
 
@@ -279,15 +309,19 @@ export function getMockColumns(connectionId: string, database: string, tableName
       nullable: col.nullable,
       defaultValue: col.default,
       comment: col.comment,
-      ordinalPosition: index + 1
-    }
+      ordinalPosition: index + 1,
+    },
   }))
 }
 
 /**
  * 获取 Mock 索引列表
  */
-export function getMockIndexes(connectionId: string, database: string, tableName: string): NavigatorNode[] {
+export function getMockIndexes(
+  connectionId: string,
+  database: string,
+  tableName: string
+): NavigatorNode[] {
   const tableStructure = mockTableStructure[tableName]
   if (!tableStructure) return []
 
@@ -301,15 +335,19 @@ export function getMockIndexes(connectionId: string, database: string, tableName
     database,
     metadata: {
       indexType: idx.type,
-      columns: idx.columns.join(', ')
-    }
+      columns: idx.columns.join(', '),
+    },
   }))
 }
 
 /**
  * 获取 Mock 外键列表
  */
-export function getMockForeignKeys(connectionId: string, database: string, tableName: string): NavigatorNode[] {
+export function getMockForeignKeys(
+  connectionId: string,
+  database: string,
+  tableName: string
+): NavigatorNode[] {
   const tableStructure = mockTableStructure[tableName]
   if (!tableStructure || !tableStructure.foreignKeys) return []
 
@@ -324,8 +362,8 @@ export function getMockForeignKeys(connectionId: string, database: string, table
     metadata: {
       column: fk.column,
       refTable: fk.refTable,
-      refColumn: fk.refColumn
-    }
+      refColumn: fk.refColumn,
+    },
   }))
 }
 
@@ -334,7 +372,7 @@ export function getMockForeignKeys(connectionId: string, database: string, table
  */
 export function getMockNodeProperties(node: NavigatorNode): NodeProperties {
   const properties: NodeProperties = {
-    general: {}
+    general: {},
   }
 
   switch (node.type) {
@@ -343,7 +381,12 @@ export function getMockNodeProperties(node: NavigatorNode): NodeProperties {
       properties.general = {
         name: { label: '连接名称', value: node.name, type: 'text', editable: false },
         host: { label: '主机', value: conn?.host || '-', type: 'text', editable: false },
-        port: { label: '端口', value: conn?.port?.toString() || '-', type: 'text', editable: false },
+        port: {
+          label: '端口',
+          value: conn?.port?.toString() || '-',
+          type: 'text',
+          editable: false,
+        },
         type: { label: '数据库类型', value: conn?.dbType || '-', type: 'text', editable: false },
       }
       break
@@ -352,16 +395,36 @@ export function getMockNodeProperties(node: NavigatorNode): NodeProperties {
     case 'database':
       properties.general = {
         name: { label: '数据库名', value: node.name, type: 'text', editable: false },
-        charset: { label: '字符集', value: node.metadata?.charset || 'utf8mb4', type: 'text', editable: false },
-        collation: { label: '排序规则', value: node.metadata?.collation || 'utf8mb4_unicode_ci', type: 'text', editable: false },
+        charset: {
+          label: '字符集',
+          value: node.metadata?.charset || 'utf8mb4',
+          type: 'text',
+          editable: false,
+        },
+        collation: {
+          label: '排序规则',
+          value: node.metadata?.collation || 'utf8mb4_unicode_ci',
+          type: 'text',
+          editable: false,
+        },
       }
       break
 
     case 'table':
       properties.general = {
         name: { label: '表名', value: node.name, type: 'text', editable: true },
-        comment: { label: '注释', value: node.metadata?.comment || '-', type: 'text', editable: true },
-        rowCount: { label: '行数', value: node.metadata?.rowCount?.toString() || '-', type: 'text', editable: false },
+        comment: {
+          label: '注释',
+          value: node.metadata?.comment || '-',
+          type: 'text',
+          editable: true,
+        },
+        rowCount: {
+          label: '行数',
+          value: node.metadata?.rowCount?.toString() || '-',
+          type: 'text',
+          editable: false,
+        },
         engine: { label: '存储引擎', value: 'InnoDB', type: 'text', editable: false },
       }
       break
@@ -369,18 +432,48 @@ export function getMockNodeProperties(node: NavigatorNode): NodeProperties {
     case 'column':
       properties.general = {
         name: { label: '列名', value: node.name, type: 'text', editable: true },
-        dataType: { label: '数据类型', value: node.metadata?.dataType || '-', type: 'text', editable: true },
-        nullable: { label: '可空', value: node.metadata?.nullable ? '是' : '否', type: 'text', editable: true },
-        defaultValue: { label: '默认值', value: node.metadata?.defaultValue || '-', type: 'text', editable: true },
-        comment: { label: '注释', value: node.metadata?.comment || '-', type: 'text', editable: true },
+        dataType: {
+          label: '数据类型',
+          value: node.metadata?.dataType || '-',
+          type: 'text',
+          editable: true,
+        },
+        nullable: {
+          label: '可空',
+          value: node.metadata?.nullable ? '是' : '否',
+          type: 'text',
+          editable: true,
+        },
+        defaultValue: {
+          label: '默认值',
+          value: node.metadata?.defaultValue || '-',
+          type: 'text',
+          editable: true,
+        },
+        comment: {
+          label: '注释',
+          value: node.metadata?.comment || '-',
+          type: 'text',
+          editable: true,
+        },
       }
       break
 
     case 'index':
       properties.general = {
         name: { label: '索引名', value: node.name, type: 'text', editable: true },
-        type: { label: '类型', value: node.metadata?.indexType || '-', type: 'text', editable: false },
-        columns: { label: '列', value: node.metadata?.columns || '-', type: 'text', editable: false },
+        type: {
+          label: '类型',
+          value: node.metadata?.indexType || '-',
+          type: 'text',
+          editable: false,
+        },
+        columns: {
+          label: '列',
+          value: node.metadata?.columns || '-',
+          type: 'text',
+          editable: false,
+        },
       }
       break
   }
@@ -411,48 +504,48 @@ export async function loadMockChildren(node: NavigatorNode): Promise<NavigatorNo
       return [
         {
           id: `tables-folder-${node.id}`,
-        type: 'tables-folder',
-        name: '表',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      },
-      {
-        id: `views-folder-${node.id}`,
-        type: 'views-folder',
-        name: '视图',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      },
-      {
-        id: `procedures-folder-${node.id}`,
-        type: 'procedures-folder',
-        name: '存储过程',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      },
-      {
-        id: `functions-folder-${node.id}`,
-        type: 'functions-folder',
-        name: '函数',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      }
+          type: 'tables-folder',
+          name: '表',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
+        {
+          id: `views-folder-${node.id}`,
+          type: 'views-folder',
+          name: '视图',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
+        {
+          id: `procedures-folder-${node.id}`,
+          type: 'procedures-folder',
+          name: '存储过程',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
+        {
+          id: `functions-folder-${node.id}`,
+          type: 'functions-folder',
+          name: '函数',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
       ]
 
     case 'tables-folder':
@@ -473,51 +566,63 @@ export async function loadMockChildren(node: NavigatorNode): Promise<NavigatorNo
       return [
         {
           id: `columns-folder-${node.id}`,
-        type: 'columns-folder',
-        name: '列',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      },
-      {
-        id: `indexes-folder-${node.id}`,
-        type: 'indexes-folder',
-        name: '索引',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      },
-      {
-        id: `foreignkeys-folder-${node.id}`,
-        type: 'foreignkeys-folder',
-        name: '外键',
-        state: 'idle',
-        expanded: false,
-        connectionId: node.connectionId,
-        database: node.database,
-        parentId: node.id,
-        metadata: { isContainer: true }
-      }
+          type: 'columns-folder',
+          name: '列',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
+        {
+          id: `indexes-folder-${node.id}`,
+          type: 'indexes-folder',
+          name: '索引',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
+        {
+          id: `foreignkeys-folder-${node.id}`,
+          type: 'foreignkeys-folder',
+          name: '外键',
+          state: 'idle',
+          expanded: false,
+          connectionId: node.connectionId,
+          database: node.database,
+          parentId: node.id,
+          metadata: { isContainer: true },
+        },
       ]
 
     case 'columns-folder': {
-      const parentTable = node.parentId?.replace(/^(table|view)-/, '').split('-').pop() || ''
+      const parentTable =
+        node.parentId
+          ?.replace(/^(table|view)-/, '')
+          .split('-')
+          .pop() || ''
       return getMockColumns(node.connectionId || '', node.database || '', parentTable)
     }
 
     case 'indexes-folder': {
-      const idxTable = node.parentId?.replace(/^(table|view)-/, '').split('-').pop() || ''
+      const idxTable =
+        node.parentId
+          ?.replace(/^(table|view)-/, '')
+          .split('-')
+          .pop() || ''
       return getMockIndexes(node.connectionId || '', node.database || '', idxTable)
     }
 
     case 'foreignkeys-folder': {
-      const fkTable = node.parentId?.replace(/^(table|view)-/, '').split('-').pop() || ''
+      const fkTable =
+        node.parentId
+          ?.replace(/^(table|view)-/, '')
+          .split('-')
+          .pop() || ''
       return getMockForeignKeys(node.connectionId || '', node.database || '', fkTable)
     }
 

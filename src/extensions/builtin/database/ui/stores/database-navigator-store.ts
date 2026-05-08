@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-import { closeConnection, executeSql as executeSqlService } from '@/extensions/builtin/connection/ui/services/connection'
+import {
+  closeConnection,
+  executeSql as executeSqlService,
+} from '@/extensions/builtin/connection/ui/services/connection'
 
 import {
   clearMetadataCache,
@@ -10,7 +13,7 @@ import {
   getTablesFromCache,
   saveTablesBatchToCache,
   saveColumnsBatchToCache,
-  generateStableCacheId
+  generateStableCacheId,
 } from '../services/metadata-cache-service'
 
 import type { TableInput, ColumnInput } from '../services/metadata-cache-service'
@@ -34,7 +37,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   const connectionTypes = ref<Map<string, 'global' | 'project'>>(new Map())
   const connectionProjectPaths = ref<Map<string, string | undefined>>(new Map())
   const connectionDbTypes = ref<Map<string, string>>(new Map())
-  
+
   const lastSyncTimes = ref<Map<string, number>>(new Map())
   const syncModes = ref<Map<string, 'full' | 'incremental'>>(new Map())
 
@@ -43,12 +46,20 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   }
 
   function getLastSyncTime(connectionId: string, dbName?: string, schemaName?: string): number {
-    const key = dbName ? (schemaName ? `${connectionId}:${dbName}:${schemaName}` : `${connectionId}:${dbName}`) : connectionId
+    const key = dbName
+      ? schemaName
+        ? `${connectionId}:${dbName}:${schemaName}`
+        : `${connectionId}:${dbName}`
+      : connectionId
     return lastSyncTimes.value.get(key) || 0
   }
 
   function setLastSyncTime(connectionId: string, dbName?: string, schemaName?: string) {
-    const key = dbName ? (schemaName ? `${connectionId}:${dbName}:${schemaName}` : `${connectionId}:${dbName}`) : connectionId
+    const key = dbName
+      ? schemaName
+        ? `${connectionId}:${dbName}:${schemaName}`
+        : `${connectionId}:${dbName}`
+      : connectionId
     lastSyncTimes.value.set(key, Date.now())
   }
 
@@ -101,7 +112,9 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const connType = connectionTypes.value.get(connectionId) || 'global'
       const projectPath = connectionProjectPaths.value.get(connectionId)
       const dbType = connectionDbTypes.value.get(connectionId)
-      console.log(`loadDatabases: connectionId=${connectionId}, connType=${connType}, dbType=${dbType}`)
+      console.log(
+        `loadDatabases: connectionId=${connectionId}, connType=${connType}, dbType=${dbType}`
+      )
 
       const cacheStatus = await getMetadataCacheStatus(
         connectionId,
@@ -123,7 +136,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       }
 
       await loadDatabasesFromDb(connectionId)
-      console.log(`loadDatabases 完成，当前 databases:`, connectionDatabases.value.get(connectionId))
+      console.log(
+        `loadDatabases 完成，当前 databases:`,
+        connectionDatabases.value.get(connectionId)
+      )
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载数据库列表失败'
       console.error('加载数据库列表失败:', e)
@@ -141,8 +157,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     connType: 'global' | 'project',
     projectPath?: string
   ): Promise<DatabaseNode[]> {
-    const tables = await getTablesFromCache(connectionId, connType, 'all', undefined, projectPath)
-      .catch(() => [])
+    const tables = await getTablesFromCache(
+      connectionId,
+      connType,
+      'all',
+      undefined,
+      projectPath
+    ).catch(() => [])
 
     const dbMap = new Map<string, Set<string>>()
     tables.forEach(table => {
@@ -159,14 +180,14 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
     return Array.from(dbMap.entries()).map(([name, schemas]) => ({
       name,
-      schemas: Array.from(schemas).map(s => ({ name: s, tables: [], views: [] }))
+      schemas: Array.from(schemas).map(s => ({ name: s, tables: [], views: [] })),
     }))
   }
 
   async function loadDatabasesFromDb(connectionId: string) {
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
     console.log(`loadDatabasesFromDb: connectionId=${connectionId}, dbType=${dbType}`)
-    
+
     let sql: string
     let databases: { name: string }[]
 
@@ -184,7 +205,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const result = await executeSqlService(connectionId, sql)
       const rows = result?.result?.rows || []
       databases = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string
+        name: row.name as string,
       }))
       if (databases.length === 0) {
         databases = [{ name: 'memory' }]
@@ -200,7 +221,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const result = await executeSqlService(connectionId, sql)
       const rows = result?.result?.rows || []
       databases = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string
+        name: row.name as string,
       }))
       if (databases.length === 0) {
         databases = [{ name: 'default' }]
@@ -209,17 +230,17 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
     const newDatabases = databases.map((db: { name: string }) => ({
       name: db.name,
-      schemas: []
+      schemas: [],
     }))
-    
+
     // 创建新的 Map 来触发 Vue 响应式更新
     const currentMap = connectionDatabases.value
     const newMap = new Map(currentMap)
     newMap.set(connectionId, newDatabases)
     connectionDatabases.value = newMap
-    
+
     setLastSyncTime(connectionId)
-    
+
     console.log(`loadDatabasesFromDb 完成，databases:`, newDatabases)
   }
 
@@ -272,8 +293,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     dbName: string,
     projectPath?: string
   ): Promise<SchemaNode[]> {
-    const tables = await getTablesFromCache(connectionId, connType, dbName, undefined, projectPath)
-      .catch(() => [])
+    const tables = await getTablesFromCache(
+      connectionId,
+      connType,
+      dbName,
+      undefined,
+      projectPath
+    ).catch(() => [])
 
     const schemaSet = new Set<string>()
     tables.forEach(table => {
@@ -287,9 +313,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadSchemasFromDb(connectionId: string, dbName: string) {
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
-    console.log(`loadSchemasFromDb: connectionId=${connectionId}, dbName=${dbName}, dbType=${dbType}`)
+    console.log(
+      `loadSchemasFromDb: connectionId=${connectionId}, dbName=${dbName}, dbType=${dbType}`
+    )
     const safeDbName = escapeSql(dbName)
-    
+
     let sql: string
     let schemas: { name: string }[]
 
@@ -308,7 +336,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const result = await executeSqlService(connectionId, sql)
       const rows = result?.result?.rows || []
       schemas = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string
+        name: row.name as string,
       }))
       if (schemas.length === 0) {
         schemas = [{ name: 'main' }]
@@ -324,19 +352,23 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const result = await executeSqlService(connectionId, sql)
       const rows = result?.result?.rows || []
       schemas = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string
+        name: row.name as string,
       }))
       if (schemas.length === 0) {
         schemas = [{ name: 'public' }]
       }
     }
 
-    updateDatabaseSchemas(connectionId, dbName, schemas.map((s: { name: string }) => ({
-      name: s.name,
-      tables: [],
-      views: []
-    })))
-    
+    updateDatabaseSchemas(
+      connectionId,
+      dbName,
+      schemas.map((s: { name: string }) => ({
+        name: s.name,
+        tables: [],
+        views: [],
+      }))
+    )
+
     setLastSyncTime(connectionId, dbName)
   }
 
@@ -357,7 +389,9 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadTables(connectionId: string, dbName: string, schemaName: string) {
     const key = `${connectionId}:${dbName}:${schemaName}`
-    console.log(`loadTables 被调用: connectionId=${connectionId}, dbName=${dbName}, schemaName=${schemaName}`)
+    console.log(
+      `loadTables 被调用: connectionId=${connectionId}, dbName=${dbName}, schemaName=${schemaName}`
+    )
     if (loadingTables.value.has(key)) return
 
     loadingTables.value.add(key)
@@ -376,13 +410,24 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       ).catch(() => ({ is_valid: false, last_sync: null, stats: null }))
 
       if (cacheStatus.is_valid && cacheStatus.stats && cacheStatus.stats.table_count > 0) {
-        const tables = await getTablesFromCache(connectionId, connType, dbName, schemaName, projectPath)
+        const tables = await getTablesFromCache(
+          connectionId,
+          connType,
+          dbName,
+          schemaName,
+          projectPath
+        )
         if (tables.length > 0) {
-          updateSchemaTables(connectionId, dbName, schemaName, tables.map(t => ({
-            name: t.name,
-            type: 'table',
-            columns: []
-          })))
+          updateSchemaTables(
+            connectionId,
+            dbName,
+            schemaName,
+            tables.map(t => ({
+              name: t.name,
+              type: 'table',
+              columns: [],
+            }))
+          )
           return
         }
       }
@@ -400,7 +445,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
     const safeDbName = escapeSql(dbName)
     const safeSchemaName = escapeSql(schemaName)
-    
+
     let sql: string
 
     if (dbType === 'sqlite') {
@@ -438,24 +483,35 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     // SELECT name, type (sqlite)               → [0]=name, [1]=type
     console.log(`解析后的 rows (${dbType}):`, rows)
     const tables = rows.map((row: any) => ({
-      name: typeof row === 'object' && !Array.isArray(row) ? (row as Record<string, unknown>).name as string : String(row[0] ?? ''),
-      type: typeof row === 'object' && !Array.isArray(row) ? ((row as Record<string, unknown>).type as string) || 'table' : String(row[1] ?? 'table')
+      name:
+        typeof row === 'object' && !Array.isArray(row)
+          ? ((row as Record<string, unknown>).name as string)
+          : String(row[0] ?? ''),
+      type:
+        typeof row === 'object' && !Array.isArray(row)
+          ? ((row as Record<string, unknown>).type as string) || 'table'
+          : String(row[1] ?? 'table'),
     }))
     console.log(`解析后的 tables (${dbType}):`, tables)
 
-    updateSchemaTables(connectionId, dbName, schemaName, tables.map((t: { name: string; type: string }) => ({
-      name: t.name,
-      type: t.type || 'table',
-      columns: []
-    })))
+    updateSchemaTables(
+      connectionId,
+      dbName,
+      schemaName,
+      tables.map((t: { name: string; type: string }) => ({
+        name: t.name,
+        type: t.type || 'table',
+        columns: [],
+      }))
+    )
 
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
-    
+
     const tableInputs: TableInput[] = tables.map((t: { name: string; type: string }) => ({
       id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
       name: t.name,
-      comment: null
+      comment: null,
     }))
 
     if (tableInputs.length > 0) {
@@ -472,7 +528,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         console.warn('保存表缓存失败（非致命）:', err)
       }
     }
-    
+
     setLastSyncTime(connectionId, dbName, schemaName)
   }
 
@@ -482,7 +538,9 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     schemaName: string,
     tables: TableNode[]
   ) {
-    console.log(`updateSchemaTables: connectionId=${connectionId}, dbName=${dbName}, schemaName=${schemaName}, tables=${tables.length}`)
+    console.log(
+      `updateSchemaTables: connectionId=${connectionId}, dbName=${dbName}, schemaName=${schemaName}, tables=${tables.length}`
+    )
     const databases = connectionDatabases.value.get(connectionId)
     console.log(`databases:`, databases)
     if (databases) {
@@ -528,7 +586,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
       const safeDbName = escapeSql(dbName)
       const safeSchemaName = escapeSql(schemaName)
-      
+
       let sql: string
       let views: { name: string }[]
 
@@ -546,7 +604,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         views = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       } else {
         sql = `
@@ -559,7 +617,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         views = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       }
 
@@ -572,7 +630,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
             schema.views = views.map((view: { name: string }) => ({
               name: view.name,
               type: 'view',
-              columns: []
+              columns: [],
             }))
           }
         }
@@ -609,7 +667,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         procedures = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       } else if (dbType === 'postgres') {
         const sql = `
@@ -623,7 +681,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         procedures = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       } else if (dbType === 'sqlite') {
         procedures = []
@@ -638,7 +696,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         procedures = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       }
 
@@ -649,7 +707,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
             schema.procedures = procedures.map((p: { name: string }) => ({
-              name: p.name
+              name: p.name,
             }))
           }
         }
@@ -686,7 +744,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         functions = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       } else if (dbType === 'postgres') {
         const sql = `
@@ -700,7 +758,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         functions = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       } else if (dbType === 'sqlite') {
         functions = []
@@ -715,7 +773,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const result = await executeSqlService(connectionId, sql)
         const rows = result?.result?.rows || []
         functions = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string
+          name: row.name as string,
         }))
       }
 
@@ -726,7 +784,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
             schema.functions = functions.map((f: { name: string }) => ({
-              name: f.name
+              name: f.name,
             }))
           }
         }
@@ -739,7 +797,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadColumns(connectionId: string, dbName: string, schemaName: string, tableName: string) {
+  async function loadColumns(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ) {
     const key = `${connectionId}:${dbName}:${schemaName}:${tableName}`
     if (loadingColumns.value.has(key)) return
 
@@ -769,13 +832,19 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         ).catch(() => [])
 
         if (columns.length > 0) {
-          updateTableColumns(connectionId, dbName, schemaName, tableName, columns.map(c => ({
-            name: c.name,
-            dataType: c.data_type,
-            nullable: c.is_nullable,
-            defaultValue: undefined,
-            isPrimaryKey: c.is_primary
-          })))
+          updateTableColumns(
+            connectionId,
+            dbName,
+            schemaName,
+            tableName,
+            columns.map(c => ({
+              name: c.name,
+              dataType: c.data_type,
+              nullable: c.is_nullable,
+              defaultValue: undefined,
+              isPrimaryKey: c.is_primary,
+            }))
+          )
           return
         }
       }
@@ -789,12 +858,17 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadColumnsFromDb(connectionId: string, dbName: string, schemaName: string, tableName: string) {
+  async function loadColumnsFromDb(
+    connectionId: string,
+    dbName: string,
+    schemaName: string,
+    tableName: string
+  ) {
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
     const safeDbName = escapeSql(dbName)
     const safeSchemaName = escapeSql(schemaName)
     const safeTableName = escapeSql(tableName)
-    
+
     let sql: string
     let columns: {
       name: string
@@ -809,7 +883,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       sql = `PRAGMA table_info(${safeTableName})`
       const result = await executeSqlService(connectionId, sql)
       const rows = result?.result?.rows || []
-      
+
       // SQLite PRAGMA table_info 返回的 pk 字段表示是否为主键
       // Tauri IPC: rows 为 unknown[][], 列顺序: [cid, name, type, notnull, dflt_value, pk]
       const tableRows = rows
@@ -820,7 +894,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           data_type: String(r[2] ?? ''),
           nullable: !Number(r[3] ?? 0),
           default_value: r[4] != null ? String(r[4]) : undefined,
-          is_primary_key: Number(r[5] ?? 0) === 1
+          is_primary_key: Number(r[5] ?? 0) === 1,
         }
       })
     } else if (dbType === 'duckdb') {
@@ -853,7 +927,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           data_type: String(r[1] ?? ''),
           nullable: r[2] === true || String(r[2]).toLowerCase() === 'yes',
           default_value: r[3] != null ? String(r[3]) : undefined,
-          is_primary_key: r[4] === true || String(r[4]).toLowerCase() === 'true'
+          is_primary_key: r[4] === true || String(r[4]).toLowerCase() === 'true',
         }
       })
     } else {
@@ -888,7 +962,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           data_type: String(r[1] ?? ''),
           nullable: r[2] === true || String(r[2]).toLowerCase() === 'yes' || String(r[2]) === '1',
           default_value: r[3] != null ? String(r[3]) : undefined,
-          is_primary_key: r[4] === true || String(r[4]).toLowerCase() === 'true' || String(r[4]) === '1'
+          is_primary_key:
+            r[4] === true || String(r[4]).toLowerCase() === 'true' || String(r[4]) === '1',
         }
       })
     }
@@ -896,20 +971,22 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
-    const columnInputs: ColumnInput[] = columns.map((col: {
-      name: string
-      data_type: string
-      nullable: boolean
-      default_value: string | undefined
-      is_primary_key: boolean
-    }) => ({
-      id: generateStableCacheId(connectionId, dbName, schemaName, tableName, col.name),
-      name: col.name,
-      data_type: col.data_type,
-      is_nullable: col.nullable,
-      is_primary: col.is_primary_key,
-      is_unique: false
-    }))
+    const columnInputs: ColumnInput[] = columns.map(
+      (col: {
+        name: string
+        data_type: string
+        nullable: boolean
+        default_value: string | undefined
+        is_primary_key: boolean
+      }) => ({
+        id: generateStableCacheId(connectionId, dbName, schemaName, tableName, col.name),
+        name: col.name,
+        data_type: col.data_type,
+        is_nullable: col.nullable,
+        is_primary: col.is_primary_key,
+        is_unique: false,
+      })
+    )
 
     if (columnInputs.length > 0) {
       try {
@@ -927,19 +1004,27 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       }
     }
 
-    updateTableColumns(connectionId, dbName, schemaName, tableName, columns.map((col: {
-      name: string
-      data_type: string
-      nullable: boolean
-      default_value: string | undefined
-      is_primary_key: boolean
-    }) => ({
-      name: col.name,
-      dataType: col.data_type,
-      nullable: col.nullable,
-      defaultValue: col.default_value ?? undefined,
-      isPrimaryKey: col.is_primary_key
-    })))
+    updateTableColumns(
+      connectionId,
+      dbName,
+      schemaName,
+      tableName,
+      columns.map(
+        (col: {
+          name: string
+          data_type: string
+          nullable: boolean
+          default_value: string | undefined
+          is_primary_key: boolean
+        }) => ({
+          name: col.name,
+          dataType: col.data_type,
+          nullable: col.nullable,
+          defaultValue: col.default_value ?? undefined,
+          isPrimaryKey: col.is_primary_key,
+        })
+      )
+    )
   }
 
   function updateTableColumns(
@@ -1032,7 +1117,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
             type: 'database',
             name: db.name,
             path: db.name,
-            matchType: 'name'
+            matchType: 'name',
           })
         }
 
@@ -1043,7 +1128,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
               type: 'schema',
               name: schema.name,
               path: `${db.name}.${schema.name}`,
-              matchType: 'name'
+              matchType: 'name',
             })
           }
 
@@ -1054,7 +1139,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                 type: 'table',
                 name: table.name,
                 path: `${db.name}.${schema.name}.${table.name}`,
-                matchType: 'name'
+                matchType: 'name',
               })
             }
 
@@ -1066,7 +1151,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   name: `${table.name}.${col.name}`,
                   path: `${db.name}.${schema.name}.${table.name}.${col.name}`,
                   matchType: 'name',
-                  parentTable: table.name
+                  parentTable: table.name,
                 })
               }
               if (col.dataType.toLowerCase().includes(lowerQuery)) {
@@ -1076,7 +1161,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   name: `${table.name}.${col.name}`,
                   path: `${db.name}.${schema.name}.${table.name}.${col.name}`,
                   matchType: 'type',
-                  parentTable: table.name
+                  parentTable: table.name,
                 })
               }
             })
@@ -1089,7 +1174,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                 type: 'view',
                 name: view.name,
                 path: `${db.name}.${schema.name}.${view.name}`,
-                matchType: 'name'
+                matchType: 'name',
               })
             }
 
@@ -1101,7 +1186,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   name: `${view.name}.${col.name}`,
                   path: `${db.name}.${schema.name}.${view.name}.${col.name}`,
                   matchType: 'name',
-                  parentTable: view.name
+                  parentTable: view.name,
                 })
               }
             })
@@ -1205,7 +1290,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     getLastSyncTime,
     setLastSyncTime,
     setSyncMode,
-    getSyncMode
+    getSyncMode,
   }
 })
 

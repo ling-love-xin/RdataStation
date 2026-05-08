@@ -5,7 +5,9 @@ use serde_json::{json, Value};
 
 use crate::core::error::{CommonError, CoreError};
 
-use super::rule_types::RuleFile;
+use super::rule_types::{
+    ExecutionResult, OutputField, QualityCheck, QualityReport, RuleFile,
+};
 
 pub struct RuleExecutor;
 
@@ -26,10 +28,21 @@ impl RuleExecutor {
         }
     }
 
+    pub fn execute_qualified(
+        rule: &RuleFile,
+        conn: &Connection,
+        params: &HashMap<String, String>,
+    ) -> Result<ExecutionResult, CoreError> {
+        let data = Self::execute(rule, conn, params)?;
+        let quality = Self::evaluate_quality(rule, &data);
+        Ok(ExecutionResult { data, quality })
+    }
+
     fn build_sql(rule: &RuleFile, params: &HashMap<String, String>) -> Result<String, CoreError> {
         let mut sql = rule.query.template.clone();
 
         for param_name in &rule.query.parameters {
+            let marker = format!("@{}@", param_name);
             let placeholder = format!("{{{}}}", param_name);
             let value = params.get(param_name).ok_or_else(|| {
                 CoreError::common(CommonError::General(format!(
@@ -37,7 +50,8 @@ impl RuleExecutor {
                     param_name, rule.meta.id
                 )))
             })?;
-            sql = sql.replace(&placeholder, value);
+            sql = sql.replace(&placeholder, &marker);
+            sql = sql.replace(&marker, value);
         }
 
         if sql.contains('{') {
@@ -74,6 +88,91 @@ impl RuleExecutor {
         Ok(())
     }
 
+    fn build_col_map(stmt: &duckdb::Statement) -> HashMap<String, usize> {
+        let mut map = HashMap::new();
+        for i in 0.. {
+            if let Ok(name) = stmt.column_name(i) {
+                map.insert(name.to_lowercase(), i);
+            } else {
+                break;
+            }
+        }
+        map
+    }
+
+    fn col_index(col_map: &HashMap<String, usize>, col_name: &str) -> Option<usize> {
+        col_map.get(&col_name.to_lowercase()).copied()
+    }
+
+    fn extract_field_value(
+        row: &duckdb::Row,
+        field: &OutputField,
+        col_map: &HashMap<String, usize>,
+    ) -> Result<Value, CoreError> {
+        let idx = Self::col_index(col_map, &field.sql_name).ok_or_else(|| {
+            CoreError::common(CommonError::General(format!(
+                "Column '{}' not found in result for rule output field '{}'",
+                field.sql_name, field.json_name
+            )))
+        })?;
+
+        let val: Value = match field.value_type.as_str() {
+            "f64" => {
+                let v: f64 = row.get_unwrap(idx);
+                json!(v)
+            }
+            "f64?" => {
+                let v: Option<f64> = row.get_unwrap(idx);
+                match v {
+                    Some(x) => json!(x),
+                    None => Value::Null,
+                }
+            }
+            "i64" => {
+                let v: i64 = row.get_unwrap(idx);
+                json!(v)
+            }
+            "i64?" => {
+                let v: Option<i64> = row.get_unwrap(idx);
+                match v {
+                    Some(x) => json!(x),
+                    None => Value::Null,
+                }
+            }
+            "String" | "string" => {
+                let v: String = row.get_unwrap(idx);
+                json!(v)
+            }
+            "String?" | "string?" => {
+                let v: Option<String> = row.get_unwrap(idx);
+                match v {
+                    Some(s) => json!(s),
+                    None => Value::Null,
+                }
+            }
+            "bool" => {
+                let v: bool = row.get_unwrap(idx);
+                json!(v)
+            }
+            "bool?" => {
+                let v: Option<bool> = row.get_unwrap(idx);
+                match v {
+                    Some(b) => json!(b),
+                    None => Value::Null,
+                }
+            }
+            "usize" => {
+                let v: i64 = row.get_unwrap(idx);
+                json!(v as usize)
+            }
+            _ => {
+                let v: String = row.get_unwrap(idx);
+                json!(v)
+            }
+        };
+        Ok(val)
+    }
+
     fn execute_single(
         rule: &RuleFile,
         conn: &Connection,
@@ -86,71 +185,24 @@ impl RuleExecutor {
             )))
         })?;
 
+        let col_map = Self::build_col_map(&stmt);
+
+        for field in &rule.output {
+            if Self::col_index(&col_map, &field.sql_name).is_none() {
+                return Err(CoreError::common(CommonError::General(format!(
+                    "Rule '{}' output field '{}' references non-existent column '{}'",
+                    rule.meta.id, field.json_name, field.sql_name
+                ))));
+            }
+        }
+
         let mut map = serde_json::Map::new();
 
         let has_row = stmt
             .query_map([], |row| {
                 for field in &rule.output {
-                    let val: Value = match field.value_type.as_str() {
-                        "f64" => {
-                            let v: f64 = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "f64?" => {
-                            let v: Option<f64> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(x) => json!(x),
-                                None => Value::Null,
-                            }
-                        }
-                        "i64" => {
-                            let v: i64 = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "i64?" => {
-                            let v: Option<i64> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(x) => json!(x),
-                                None => Value::Null,
-                            }
-                        }
-                        "String" | "string" => {
-                            let v: String =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "String?" | "string?" => {
-                            let v: Option<String> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(s) => json!(s),
-                                None => Value::Null,
-                            }
-                        }
-                        "bool" => {
-                            let v: bool = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "bool?" => {
-                            let v: Option<bool> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(b) => json!(b),
-                                None => Value::Null,
-                            }
-                        }
-                        "usize" => {
-                            let v: i64 = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v as usize)
-                        }
-                        _ => {
-                            let v: String =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                    };
+                    let val = Self::extract_field_value(row, field, &col_map)
+                        .map_err(|e| duckdb::Error::InvalidParameterName(e.to_string()))?;
                     map.insert(field.json_name.clone(), val);
                 }
                 Ok(())
@@ -186,62 +238,23 @@ impl RuleExecutor {
             )))
         })?;
 
+        let col_map = Self::build_col_map(&stmt);
+
+        for field in &rule.output {
+            if Self::col_index(&col_map, &field.sql_name).is_none() {
+                return Err(CoreError::common(CommonError::General(format!(
+                    "Rule '{}' output field '{}' references non-existent column '{}'",
+                    rule.meta.id, field.json_name, field.sql_name
+                ))));
+            }
+        }
+
         let rows: Vec<Value> = stmt
             .query_map([], |row| {
                 let mut map = serde_json::Map::new();
                 for field in &rule.output {
-                    let val: Value = match field.value_type.as_str() {
-                        "f64" => {
-                            let v: f64 = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "f64?" => {
-                            let v: Option<f64> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(x) => json!(x),
-                                None => Value::Null,
-                            }
-                        }
-                        "i64" => {
-                            let v: i64 = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "i64?" => {
-                            let v: Option<i64> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(x) => json!(x),
-                                None => Value::Null,
-                            }
-                        }
-                        "String" | "string" => {
-                            let v: String =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "String?" | "string?" => {
-                            let v: Option<String> =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            match v {
-                                Some(s) => json!(s),
-                                None => Value::Null,
-                            }
-                        }
-                        "bool" => {
-                            let v: bool = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                        "usize" => {
-                            let v: i64 = row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v as usize)
-                        }
-                        _ => {
-                            let v: String =
-                                row.get_unwrap(Self::col_index(row, &field.sql_name));
-                            json!(v)
-                        }
-                    };
+                    let val = Self::extract_field_value(row, field, &col_map)
+                        .map_err(|e| duckdb::Error::InvalidParameterName(e.to_string()))?;
                     map.insert(field.json_name.clone(), val);
                 }
                 Ok(Value::Object(map))
@@ -258,16 +271,442 @@ impl RuleExecutor {
         Ok(Value::Array(rows))
     }
 
-    fn col_index(row: &duckdb::Row, col_name: &str) -> usize {
-        for i in 0.. {
-            if let Ok(name) = row.as_ref().column_name(i) {
-                if name.eq_ignore_ascii_case(col_name) {
-                    return i;
-                }
-            } else {
-                break;
-            }
+    fn evaluate_quality(rule: &RuleFile, data: &Value) -> Option<QualityReport> {
+        let quality_rules = rule.quality.as_ref()?;
+        if quality_rules.is_empty() {
+            return None;
         }
-        panic!("Column '{}' not found in result", col_name)
+
+        let mut checks = Vec::new();
+        let mut all_passed = true;
+
+        for qr in quality_rules {
+            let field = &qr.field;
+            let actual = match data {
+                Value::Object(map) => map.get(field).and_then(|v| v.as_f64()),
+                _ => None,
+            };
+
+            let mut field_passed = true;
+            let mut rule_desc = String::new();
+
+            if let Some(min) = qr.min {
+                if let Some(val) = actual {
+                    if val < min {
+                        field_passed = false;
+                        rule_desc.push_str(&format!("min={}, actual={}", min, val));
+                    }
+                } else if actual.is_none() {
+                    field_passed = false;
+                    rule_desc.push_str(&format!("min={}, actual=null", min));
+                }
+            }
+
+            if let Some(max) = qr.max {
+                if let Some(val) = actual {
+                    if val > max {
+                        if !rule_desc.is_empty() {
+                            rule_desc.push_str("; ");
+                        }
+                        field_passed = false;
+                        rule_desc.push_str(&format!("max={}, actual={}", max, val));
+                    }
+                }
+            }
+
+            if field_passed && rule_desc.is_empty() {
+                if let Some(min) = qr.min {
+                    rule_desc.push_str(&format!("min={}", min));
+                }
+                if let Some(max) = qr.max {
+                    if !rule_desc.is_empty() {
+                        rule_desc.push_str(", ");
+                    }
+                    rule_desc.push_str(&format!("max={}", max));
+                }
+            }
+
+            if !field_passed {
+                all_passed = false;
+            }
+
+            checks.push(QualityCheck {
+                field: field.clone(),
+                passed: field_passed,
+                rule: rule_desc,
+                actual,
+                severity: qr.severity.clone().unwrap_or_else(|| "warning".to_string()),
+                message: qr
+                    .message
+                    .clone()
+                    .unwrap_or_else(|| format!("Quality check for {}", field)),
+            });
+        }
+
+        Some(QualityReport {
+            passed: all_passed,
+            checks,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::insight::rule_types;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_build_col_map_extracts_column_names() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE test (id INTEGER, name TEXT, value REAL)").unwrap();
+        let stmt = conn.prepare("SELECT id, name, value FROM test").unwrap();
+        let map = RuleExecutor::build_col_map(&stmt);
+        assert_eq!(map.len(), 3);
+        assert_eq!(map.get("id"), Some(&0));
+        assert_eq!(map.get("name"), Some(&1));
+        assert_eq!(map.get("value"), Some(&2));
+    }
+
+    #[test]
+    fn test_col_index_case_insensitive() {
+        let mut map = HashMap::new();
+        map.insert("column_a".to_string(), 0);
+        map.insert("column_b".to_string(), 1);
+        assert_eq!(RuleExecutor::col_index(&map, "COLUMN_A"), Some(0));
+        assert_eq!(RuleExecutor::col_index(&map, "column_b"), Some(1));
+        assert_eq!(RuleExecutor::col_index(&map, "missing"), None);
+    }
+
+    #[test]
+    fn test_validate_identifiers_allows_alphanumeric() {
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), "my_table_123".to_string());
+        assert!(RuleExecutor::validate_identifiers(&params).is_ok());
+    }
+
+    #[test]
+    fn test_validate_identifiers_rejects_special_chars() {
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), "malicious; DROP".to_string());
+        assert!(RuleExecutor::validate_identifiers(&params).is_err());
+    }
+
+    #[test]
+    fn test_build_sql_replaces_params() {
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "test".into(),
+                name: "Test".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT {col} FROM {table}".into(),
+                parameters: vec!["table".into(), "col".into()],
+                result_type: Some("single".into()),
+            },
+            output: vec![],
+            quality: None,
+            render: None,
+        };
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), "users".to_string());
+        params.insert("col".to_string(), "COUNT(*)".to_string());
+        let sql = RuleExecutor::build_sql(&rule, &params).unwrap();
+        assert_eq!(sql, "SELECT COUNT(*) FROM users");
+    }
+
+    #[test]
+    fn test_build_sql_handles_similar_param_names() {
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "test".into(),
+                name: "Test".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "{col} vs {col_name}".into(),
+                parameters: vec!["col".into(), "col_name".into()],
+                result_type: Some("single".into()),
+            },
+            output: vec![],
+            quality: None,
+            render: None,
+        };
+        let mut params = HashMap::new();
+        params.insert("col".to_string(), "A".to_string());
+        params.insert("col_name".to_string(), "B".to_string());
+        let sql = RuleExecutor::build_sql(&rule, &params).unwrap();
+        assert_eq!(sql, "A vs B");
+    }
+
+    #[test]
+    fn test_build_sql_missing_param_returns_error() {
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "test".into(),
+                name: "Test".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT {col} FROM {table}".into(),
+                parameters: vec!["table".into(), "col".into()],
+                result_type: Some("single".into()),
+            },
+            output: vec![],
+            quality: None,
+            render: None,
+        };
+        let params = HashMap::new();
+        assert!(RuleExecutor::build_sql(&rule, &params).is_err());
+    }
+
+    #[test]
+    fn test_execute_single_with_valid_rule() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);"
+        ).unwrap();
+
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "test_single".into(),
+                name: "Test Single".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT {col} FROM {table}".into(),
+                parameters: vec!["table".into(), "col".into()],
+                result_type: Some("single".into()),
+            },
+            output: vec![rule_types::OutputField {
+                json_name: "value".into(),
+                sql_name: "col1".into(),
+                value_type: "i64".into(),
+            }],
+            quality: None,
+            render: None,
+        };
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), "t".to_string());
+        params.insert("col".to_string(), "col1".to_string());
+        let result = RuleExecutor::execute(&rule, &conn, &params).unwrap();
+        assert_eq!(result["value"], json!(42));
+    }
+
+    #[test]
+    fn test_execute_list_with_valid_rule() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1), (2), (3);"
+        ).unwrap();
+
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "test_list".into(),
+                name: "Test List".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT {col} FROM {table}".into(),
+                parameters: vec!["table".into(), "col".into()],
+                result_type: Some("list".into()),
+            },
+            output: vec![rule_types::OutputField {
+                json_name: "value".into(),
+                sql_name: "col1".into(),
+                value_type: "i64".into(),
+            }],
+            quality: None,
+            render: None,
+        };
+        let mut params = HashMap::new();
+        params.insert("table".to_string(), "t".to_string());
+        params.insert("col".to_string(), "col1".to_string());
+        let result = RuleExecutor::execute(&rule, &conn, &params).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0]["value"], json!(1));
+        assert_eq!(arr[2]["value"], json!(3));
+    }
+
+    #[test]
+    fn test_execute_rejects_missing_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER)").unwrap();
+
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "bad_rule".into(),
+                name: "Bad".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT col1 FROM t".into(),
+                parameters: vec![],
+                result_type: Some("single".into()),
+            },
+            output: vec![rule_types::OutputField {
+                json_name: "value".into(),
+                sql_name: "nonexistent".into(),
+                value_type: "i64".into(),
+            }],
+            quality: None,
+            render: None,
+        };
+        let result = RuleExecutor::execute(&rule, &conn, &HashMap::new());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_execute_qualified_with_quality_rules_passing() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);"
+        ).unwrap();
+
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "q_pass".into(),
+                name: "Quality Passing".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT col1 FROM t".into(),
+                parameters: vec![],
+                result_type: Some("single".into()),
+            },
+            output: vec![rule_types::OutputField {
+                json_name: "value".into(),
+                sql_name: "col1".into(),
+                value_type: "i64".into(),
+            }],
+            quality: Some(vec![rule_types::QualityRule {
+                field: "value".into(),
+                min: Some(0.0),
+                max: Some(100.0),
+                severity: Some("error".to_string()),
+                message: Some("Out of range".to_string()),
+            }]),
+            render: None,
+        };
+
+        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new()).unwrap();
+        assert_eq!(result.data["value"], json!(42));
+
+        let quality = result.quality.unwrap();
+        assert!(quality.passed);
+        assert_eq!(quality.checks.len(), 1);
+        assert!(quality.checks[0].passed);
+        assert_eq!(quality.checks[0].field, "value");
+        assert_eq!(quality.checks[0].actual, Some(42.0));
+    }
+
+    #[test]
+    fn test_execute_qualified_with_quality_rules_failing_min() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (-5);"
+        ).unwrap();
+
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "q_fail_min".into(),
+                name: "Quality Failing Min".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT col1 FROM t".into(),
+                parameters: vec![],
+                result_type: Some("single".into()),
+            },
+            output: vec![rule_types::OutputField {
+                json_name: "value".into(),
+                sql_name: "col1".into(),
+                value_type: "i64".into(),
+            }],
+            quality: Some(vec![rule_types::QualityRule {
+                field: "value".into(),
+                min: Some(0.0),
+                max: None,
+                severity: Some("error".to_string()),
+                message: Some("Must be non-negative".to_string()),
+            }]),
+            render: None,
+        };
+
+        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new()).unwrap();
+        let quality = result.quality.unwrap();
+        assert!(!quality.passed);
+        assert_eq!(quality.checks.len(), 1);
+        assert!(!quality.checks[0].passed);
+        assert_eq!(quality.checks[0].actual, Some(-5.0));
+        assert_eq!(quality.checks[0].severity, "error");
+    }
+
+    #[test]
+    fn test_execute_qualified_no_quality_rules() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1)").unwrap();
+
+        let rule = RuleFile {
+            meta: rule_types::RuleMeta {
+                id: "no_q".into(),
+                name: "No Quality".into(),
+                description: "".into(),
+                version: "1.0".into(),
+                category: "test".into(),
+                applies_to: vec![],
+                builtin: true,
+            },
+            query: rule_types::RuleQuery {
+                template: "SELECT col1 FROM t".into(),
+                parameters: vec![],
+                result_type: Some("single".into()),
+            },
+            output: vec![rule_types::OutputField {
+                json_name: "value".into(),
+                sql_name: "col1".into(),
+                value_type: "i64".into(),
+            }],
+            quality: None,
+            render: None,
+        };
+
+        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new()).unwrap();
+        assert!(result.quality.is_none());
+        assert_eq!(result.data["value"], json!(1));
     }
 }

@@ -13,29 +13,29 @@ RdataStation 使用 Trait-based 的驱动架构，支持多种数据库类型。
 pub trait Database: Send + Sync {
     /// 执行 SQL 查询（返回结果集）
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
-    
+
     /// 执行 SQL（不返回结果集）
     async fn execute(&self, sql: &str) -> Result<ExecuteResult, CoreError>;
-    
+
     /// 开始事务
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError>;
-    
+
     /// 获取数据源元数据
     fn meta(&self) -> DataSourceMeta;
-    
+
     /// 列出所有数据库
     async fn list_databases(&self) -> Result<Vec<String>, CoreError>;
-    
+
     /// 列出 Schema
     async fn list_schemas(&self, database: &str) -> Result<Vec<String>, CoreError>;
-    
+
     /// 列出表和视图
     async fn list_tables(
         &self,
         database: &str,
         schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError>;
-    
+
     /// 列出列
     async fn list_columns(
         &self,
@@ -43,10 +43,10 @@ pub trait Database: Send + Sync {
         schema: Option<&str>,
         table: &str,
     ) -> Result<Vec<SchemaObject>, CoreError>;
-    
+
     /// 测试连接
     async fn ping(&self) -> Result<Duration, CoreError>;
-    
+
     /// 关闭连接
     async fn close(&self) -> Result<(), CoreError>;
 }
@@ -59,13 +59,13 @@ pub trait Database: Send + Sync {
 pub trait Transaction: Send + Sync {
     /// 执行查询
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
-    
+
     /// 执行 SQL
     async fn execute(&self, sql: &str) -> Result<ExecuteResult, CoreError>;
-    
+
     /// 提交事务
     async fn commit(&self) -> Result<(), CoreError>;
-    
+
     /// 回滚事务
     async fn rollback(&self) -> Result<(), CoreError>;
 }
@@ -78,10 +78,10 @@ pub trait Transaction: Send + Sync {
 pub trait DbPool: Send + Sync {
     /// 获取连接
     async fn acquire(&self) -> Result<Box<dyn Database>, CoreError>;
-    
+
     /// 连接池状态
     fn status(&self) -> PoolStatus;
-    
+
     /// 关闭连接池
     async fn close(&self);
 }
@@ -102,21 +102,21 @@ impl DriverRegistry {
         static INSTANCE: OnceCell<DriverRegistry> = OnceCell::new();
         INSTANCE.get_or_init(|| Self::new())
     }
-    
+
     /// 注册驱动工厂
     pub fn register<F: DriverFactory + 'static>(factory: F) {
         let registry = Self::global();
         let mut factories = registry.factories.write();
         factories.insert(factory.id().to_string(), Box::new(factory));
     }
-    
+
     /// 获取驱动工厂
     pub fn get(id: &str) -> Option<Box<dyn DriverFactory>> {
         let registry = Self::global();
         let factories = registry.factories.read();
         factories.get(id).map(|f| f.box_clone())
     }
-    
+
     /// 列出所有驱动
     pub fn list_all() -> Vec<DriverDescriptor> {
         let registry = Self::global();
@@ -132,13 +132,13 @@ impl DriverRegistry {
 pub trait DriverFactory: Send + Sync {
     /// 驱动 ID
     fn id(&self) -> &'static str;
-    
+
     /// 驱动描述
     fn descriptor(&self) -> DriverDescriptor;
-    
+
     /// 创建连接
     async fn create(&self, config: ConnectionConfig) -> Result<Box<dyn Database>, CoreError>;
-    
+
     /// 克隆（用于 Registry）
     fn box_clone(&self) -> Box<dyn DriverFactory>;
 }
@@ -158,49 +158,49 @@ pub struct PostgresDriver {
 impl Database for PostgresDriver {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
         let start = Instant::now();
-        
+
         let rows = sqlx::query(sql)
             .fetch_all(&self.pool)
             .await
             .map_err(|e| self.convert_error(e, sql))?;
-        
+
         let columns = rows.first()
             .map(|r| r.columns().iter().map(|c| c.name().to_string()).collect())
             .unwrap_or_default();
-        
+
         let values: Vec<Vec<Value>> = rows.iter()
             .map(|r| self.convert_row(r))
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         Ok(QueryResult {
             columns,
             rows: values,
             execution_time_ms: start.elapsed().as_millis() as u64,
         })
     }
-    
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         let sql = "SELECT datname FROM pg_database WHERE datistemplate = false";
         let result = self.query(sql).await?;
-        
+
         Ok(result.rows.iter()
             .map(|row| row[0].as_str().unwrap_or_default().to_string())
             .collect())
     }
-    
+
     async fn list_schemas(&self, _database: &str) -> Result<Vec<String>, CoreError> {
         let sql = r#"
-            SELECT schema_name 
-            FROM information_schema.schemata 
+            SELECT schema_name
+            FROM information_schema.schemata
             WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
         "#;
         let result = self.query(sql).await?;
-        
+
         Ok(result.rows.iter()
             .map(|row| row[0].as_str().unwrap_or_default().to_string())
             .collect())
     }
-    
+
     async fn list_tables(
         &self,
         database: &str,
@@ -209,9 +209,9 @@ impl Database for PostgresDriver {
         let schema = schema.unwrap_or("public");
         let sql = format!(
             r#"
-            SELECT 
+            SELECT
                 table_name,
-                CASE table_type 
+                CASE table_type
                     WHEN 'BASE TABLE' THEN 'table'
                     WHEN 'VIEW' THEN 'view'
                 END as type
@@ -220,9 +220,9 @@ impl Database for PostgresDriver {
             "#,
             schema
         );
-        
+
         let result = self.query(&sql).await?;
-        
+
         Ok(result.rows.iter()
             .map(|row| SchemaObject {
                 name: row[0].as_str().unwrap_or_default().to_string(),
@@ -234,7 +234,7 @@ impl Database for PostgresDriver {
             })
             .collect())
     }
-    
+
     fn meta(&self) -> DataSourceMeta {
         self.meta.clone()
     }
@@ -261,10 +261,10 @@ impl PostgresDriver {
             _ => CoreError::database_error(err.to_string()),
         }
     }
-    
+
     fn convert_row(&self, row: &PgRow) -> Result<Vec<Value>, CoreError> {
         let mut values = Vec::new();
-        
+
         for i in 0..row.len() {
             let value: Value = if let Ok(v) = row.try_get::<Option<String>, _>(i) {
                 v.map(Value::String).unwrap_or(Value::Null)
@@ -279,7 +279,7 @@ impl PostgresDriver {
             };
             values.push(value);
         }
-        
+
         Ok(values)
     }
 }
@@ -291,7 +291,7 @@ impl DriverFactory for PostgresDriverFactory {
     fn id(&self) -> &'static str {
         "postgresql"
     }
-    
+
     fn descriptor(&self) -> DriverDescriptor {
         DriverDescriptor {
             id: "postgresql".to_string(),
@@ -350,7 +350,7 @@ impl DriverFactory for PostgresDriverFactory {
             },
         }
     }
-    
+
     async fn create(&self, config: ConnectionConfig) -> Result<Box<dyn Database>, CoreError> {
         let url = format!(
             "postgres://{}:{}@{}:{}/{}",
@@ -360,10 +360,10 @@ impl DriverFactory for PostgresDriverFactory {
             config.port,
             config.database
         );
-        
+
         let pool = PgPool::connect(&url).await
             .map_err(|e| CoreError::connection_failed(e.to_string()))?;
-        
+
         let meta = DataSourceMeta {
             supports_transaction: true,
             supports_streaming: true,
@@ -372,10 +372,10 @@ impl DriverFactory for PostgresDriverFactory {
             supports_concurrent_write: true,
             is_in_memory: false,
         };
-        
+
         Ok(Box::new(PostgresDriver { pool, meta }))
     }
-    
+
     fn box_clone(&self) -> Box<dyn DriverFactory> {
         Box::new(PostgresDriverFactory)
     }
@@ -396,25 +396,25 @@ impl Database for MySqlDriver {
         // 类似 PostgreSQL 实现
         // ...
     }
-    
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         let sql = r#"
-            SELECT schema_name 
-            FROM information_schema.schemata 
+            SELECT schema_name
+            FROM information_schema.schemata
             WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
         "#;
         let result = self.query(sql).await?;
-        
+
         Ok(result.rows.iter()
             .map(|row| row[0].as_str().unwrap_or_default().to_string())
             .collect())
     }
-    
+
     async fn list_schemas(&self, _database: &str) -> Result<Vec<String>, CoreError> {
         // MySQL 中 schema = database，返回自身
         Ok(vec![_database.to_string()])
     }
-    
+
     // ... 其他方法
 }
 ```
@@ -433,27 +433,27 @@ impl Database for SqliteDriver {
         // SQLite 实现
         // ...
     }
-    
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         // SQLite 是文件数据库，返回主数据库名
         Ok(vec!["main".to_string()])
     }
-    
+
     async fn list_schemas(&self, _database: &str) -> Result<Vec<String>, CoreError> {
         Ok(vec!["main".to_string()])
     }
-    
+
     async fn list_tables(
         &self,
         _database: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let sql = r#"
-            SELECT name, type FROM sqlite_master 
+            SELECT name, type FROM sqlite_master
             WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'
         "#;
         let result = self.query(sql).await?;
-        
+
         Ok(result.rows.iter()
             .map(|row| SchemaObject {
                 name: row[0].as_str().unwrap_or_default().to_string(),
@@ -465,7 +465,7 @@ impl Database for SqliteDriver {
             })
             .collect())
     }
-    
+
     // ... 其他方法
 }
 ```
@@ -482,17 +482,17 @@ pub struct DuckDbDriver {
 impl Database for DuckDbDriver {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
         let conn = self.conn.lock().await;
-        
+
         let start = Instant::now();
-        
+
         let mut stmt = conn.prepare(sql)
             .map_err(|e| CoreError::database_error(e.to_string()))?;
-        
+
         let column_names: Vec<String> = stmt.column_names()
             .iter()
             .map(|s| s.to_string())
             .collect();
-        
+
         let rows = stmt.query_map([], |row| {
             let mut values = Vec::new();
             for i in 0..column_names.len() {
@@ -509,43 +509,43 @@ impl Database for DuckDbDriver {
             }
             Ok(values)
         }).map_err(|e| CoreError::database_error(e.to_string()))?;
-        
+
         let values: Vec<Vec<Value>> = rows.collect::<Result<Vec<_>, _>>()
             .map_err(|e| CoreError::database_error(e.to_string()))?;
-        
+
         Ok(QueryResult {
             columns: column_names,
             rows: values,
             execution_time_ms: start.elapsed().as_millis() as u64,
         })
     }
-    
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         let sql = "SELECT database_name FROM information_schema.schemata GROUP BY database_name";
         let result = self.query(sql).await?;
-        
+
         Ok(result.rows.iter()
             .map(|row| row[0].as_str().unwrap_or_default().to_string())
             .collect())
     }
-    
+
     // ... 其他方法
 }
 ```
 
 ## 驱动特性支持
 
-| 特性 | PostgreSQL | MySQL | SQLite | DuckDB |
-|------|------------|-------|--------|--------|
-| 事务 | ✅ | ✅ | ✅ | ✅ |
-| SSL | ✅ | ✅ | ❌ | ❌ |
-| SSH 隧道 | ✅ | ✅ | ❌ | ❌ |
-| 多数据库 | ✅ | ✅ | ❌ | ✅ |
-| Schema | ✅ | ❌ | ❌ | ✅ |
-| 视图 | ✅ | ✅ | ✅ | ✅ |
-| 存储过程 | ✅ | ✅ | ❌ | ❌ |
-| 函数 | ✅ | ✅ | ❌ | ✅ (宏) |
-| 触发器 | ✅ | ✅ | ✅ | ❌ |
+| 特性     | PostgreSQL | MySQL | SQLite | DuckDB  |
+| -------- | ---------- | ----- | ------ | ------- |
+| 事务     | ✅         | ✅    | ✅     | ✅      |
+| SSL      | ✅         | ✅    | ❌     | ❌      |
+| SSH 隧道 | ✅         | ✅    | ❌     | ❌      |
+| 多数据库 | ✅         | ✅    | ❌     | ✅      |
+| Schema   | ✅         | ❌    | ❌     | ✅      |
+| 视图     | ✅         | ✅    | ✅     | ✅      |
+| 存储过程 | ✅         | ✅    | ❌     | ❌      |
+| 函数     | ✅         | ✅    | ❌     | ✅ (宏) |
+| 触发器   | ✅         | ✅    | ✅     | ❌      |
 
 ## 连接池管理
 
@@ -588,10 +588,10 @@ impl DbPool for PgPoolWrapper {
     async fn acquire(&self) -> Result<Box<dyn Database>, CoreError> {
         let conn = self.inner.acquire().await
             .map_err(|e| CoreError::connection_pool_exhausted(e.to_string()))?;
-        
+
         Ok(Box::new(PgConnection::new(conn)))
     }
-    
+
     fn status(&self) -> PoolStatus {
         PoolStatus {
             size: self.inner.size(),
@@ -599,7 +599,7 @@ impl DbPool for PgPoolWrapper {
             active: self.inner.size() - self.inner.num_idle(),
         }
     }
-    
+
     async fn close(&self) {
         self.inner.close().await;
     }
@@ -675,7 +675,7 @@ impl SmartPoolWrapper {
     pub async fn adjust_pool_size(&self) -> Result<(), CoreError> {
         let current_load = self.metrics.get_active_connections();
         let max_connections = self.config.max_connections;
-        
+
         if current_load > (max_connections as f64 * 0.8) as u32 {
             // 高负载：扩容
             self.expand_pool().await?;
@@ -683,15 +683,15 @@ impl SmartPoolWrapper {
             // 低负载：缩容
             self.shrink_pool().await?;
         }
-        
+
         Ok(())
     }
-    
+
     /// 健康检查
     pub async fn health_check(&self) -> PoolHealthStatus {
         let status = self.inner.status();
         let error_rate = self.metrics.get_error_rate();
-        
+
         if error_rate > 0.5 {
             PoolHealthStatus::Unhealthy
         } else if status.active > (status.size as f64 * 0.9) as u32 {
@@ -708,16 +708,16 @@ impl DbPool for SmartPoolWrapper {
         if self.closed.load(Ordering::SeqCst) {
             return Err(CoreError::connection_pool_closed());
         }
-        
+
         let db = self.inner.acquire().await?;
         self.metrics.record_connection_acquired();
         Ok(db)
     }
-    
+
     fn status(&self) -> PoolStatus {
         self.inner.status()
     }
-    
+
     async fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
         self.inner.close().await;
@@ -740,7 +740,7 @@ impl PoolMetrics {
     pub fn get_active_connections(&self) -> u32 {
         self.active_connections.load(Ordering::SeqCst)
     }
-    
+
     pub fn get_error_rate(&self) -> f64 {
         let total = self.total_acquisitions.load(Ordering::SeqCst);
         if total == 0 {
@@ -748,12 +748,12 @@ impl PoolMetrics {
         }
         self.errors.load(Ordering::SeqCst) as f64 / total as f64
     }
-    
+
     pub fn record_connection_acquired(&self) {
         self.active_connections.fetch_add(1, Ordering::SeqCst);
         self.total_acquisitions.fetch_add(1, Ordering::SeqCst);
     }
-    
+
     pub fn record_connection_released(&self) {
         self.active_connections.fetch_sub(1, Ordering::SeqCst);
         self.total_releases.fetch_add(1, Ordering::SeqCst);
@@ -783,43 +783,43 @@ impl DuckDBEngine {
         connection_string: &str,
     ) -> Result<(), CoreError> {
         let mut connections = self.external_connections.lock().await;
-        
+
         // 检查是否已存在
         if connections.iter().any(|c| c.name == name) {
             return Err(CoreError::common(CommonError::General(
                 format!("External database '{}' already registered", name),
             )));
         }
-        
+
         connections.push(ExternalConnection {
             name: name.to_string(),
             driver: driver.to_string(),
             connection_string: connection_string.to_string(),
             read_only: true, // DuckDB 加速模式只读
         });
-        
+
         // 执行 ATTACH 命令
         let attach_sql = format!(
             "ATTACH '{}' AS {} (READ_ONLY)",
             connection_string, name
         );
-        
+
         self.execute_internal(&attach_sql).await?;
-        
+
         Ok(())
     }
-    
+
     /// 卸载外部数据库
     pub async fn detach_external_database(&self, name: &str) -> Result<(), CoreError> {
         let detach_sql = format!("DETACH {}", name);
         self.execute_internal(&detach_sql).await?;
-        
+
         let mut connections = self.external_connections.lock().await;
         connections.retain(|c| c.name != name);
-        
+
         Ok(())
     }
-    
+
     /// 加载文件数据源
     pub async fn load_file_source(
         &self,
@@ -846,10 +846,10 @@ impl DuckDBEngine {
                 format!("Unsupported file type: {}", path),
             )));
         };
-        
+
         self.execute_internal(&sql).await
     }
-    
+
     /// 创建持久化结果集
     pub async fn persist_result_set(
         &self,
@@ -860,25 +860,25 @@ impl DuckDBEngine {
             "CREATE TABLE {} AS {}",
             result_name, sql
         );
-        
+
         self.execute_internal(&persist_sql).await?;
-        
+
         let mut result_sets = self.result_sets.lock().await;
         result_sets.push(result_name.to_string());
-        
+
         Ok(())
     }
-    
+
     /// 执行联邦查询
     pub async fn execute_federated_query(
         &self,
         sql: &str,
     ) -> Result<QueryResult, CoreError> {
         let start = Instant::now();
-        
+
         // DuckDB 会自动优化查询并下推到外部数据源
         let result = self.execute_internal(sql).await?;
-        
+
         Ok(QueryResult {
             columns: result.columns,
             rows: result.rows,
@@ -929,16 +929,16 @@ impl DuckDBExtensionManager {
     /// 加载扩展
     pub async fn load_extension(&self, extension: &str) -> Result<(), CoreError> {
         let sql = format!("LOAD {}", extension);
-        
+
         // 执行加载
         // TODO: 实际执行
-        
+
         let mut extensions = self.loaded_extensions.lock().await;
         extensions.push(extension.to_string());
-        
+
         Ok(())
     }
-    
+
     /// 列出已加载扩展
     pub async fn list_extensions(&self) -> Vec<String> {
         self.loaded_extensions.lock().await.clone()
@@ -964,7 +964,7 @@ impl Database for MockDriver {
         queries.get(sql).cloned()
             .ok_or_else(|| CoreError::database_error("Query not mocked"))
     }
-    
+
     // ... 其他方法
 }
 
@@ -975,7 +975,7 @@ impl MockDriver {
             queries: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-    
+
     pub async fn mock_query(&self, sql: &str, result: QueryResult) {
         let mut queries = self.queries.lock().await;
         queries.insert(sql.to_string(), result);
@@ -996,14 +996,14 @@ async fn test_postgres_driver() {
         password: "password".to_string(),
         ..Default::default()
     };
-    
+
     let factory = PostgresDriverFactory;
     let db = factory.create(config).await.unwrap();
-    
+
     // 测试 ping
     let latency = db.ping().await.unwrap();
     assert!(latency < Duration::from_secs(1));
-    
+
     // 测试查询
     let result = db.query("SELECT 1 as one").await.unwrap();
     assert_eq!(result.columns, vec!["one"]);

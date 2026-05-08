@@ -1,0 +1,457 @@
+import { useMessage } from 'naive-ui'
+import { ref, type Ref } from 'vue'
+
+import * as queryService from '@/extensions/builtin/query/ui/services/query'
+import { parseSql, splitSql, rewriteDuckDBSQL, generateAttachName, detectParams, bindParams } from '@/extensions/builtin/workbench/services/sql-editor-service'
+import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
+import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
+
+interface SqlExecutionOptions {
+  panelId: string
+  getEditorValue: () => string
+  getSelectedText: () => string
+  runtimeConnId: Ref<string>
+  currentDatabaseType?: Ref<string | null>
+  currentConnectionName?: Ref<string>
+}
+
+export function useSqlExecution(options: SqlExecutionOptions) {
+  const { panelId, getEditorValue, getSelectedText, runtimeConnId, currentDatabaseType, currentConnectionName } = options
+
+  const message = useMessage()
+  const store = useSqlExecutionStore()
+  const executing = ref(false)
+  const lastExecutionTime = ref<number | null>(null)
+  const hasResults = ref(false)
+  let abortController: AbortController | null = null
+  const currentResultData = ref<{
+    columns: string[]
+    rows: unknown[][]
+    totalRows: number
+    elapsedMs: number
+    affectedRows: number
+    error: string | null
+  } | null>(null)
+
+  const inTransaction = ref(false)
+
+  const statementCount = ref(0)
+  let parseTimer: ReturnType<typeof setTimeout> | null = null
+
+  function scheduleParse(): void {
+    if (parseTimer) clearTimeout(parseTimer)
+    parseTimer = setTimeout(async () => {
+      const sql = getEditorValue()
+      if (!sql.trim()) {
+        statementCount.value = 0
+        return
+      }
+      try {
+        const result = await parseSql(sql)
+        if (result.success) {
+          statementCount.value = result.statementsCount
+        }
+      } catch {
+        statementCount.value = 0
+      }
+    }, 500)
+  }
+
+  async function beginTransaction(): Promise<void> {
+    const connId = runtimeConnId.value
+    if (!connId) {
+      message.warning('No active connection')
+      return
+    }
+    try {
+      const status = await queryService.beginTransaction(connId)
+      inTransaction.value = status.isInTransaction
+    } catch {
+      message.error('Failed to begin transaction')
+    }
+  }
+
+  async function commitTransaction(): Promise<void> {
+    const connId = runtimeConnId.value
+    if (!connId) return
+    try {
+      await queryService.commitTransaction(connId)
+      inTransaction.value = false
+      message.success('Transaction committed')
+    } catch {
+      message.error('Failed to commit transaction')
+    }
+  }
+
+  async function rollbackTransaction(): Promise<void> {
+    const connId = runtimeConnId.value
+    if (!connId) return
+    try {
+      await queryService.rollbackTransaction(connId)
+      inTransaction.value = false
+      message.success('Transaction rolled back')
+    } catch {
+      message.error('Failed to rollback transaction')
+    }
+  }
+
+  function storeResult(data: {
+    columns: string[]
+    rows: unknown[][]
+    totalRows: number
+    elapsedMs: number
+    affectedRows: number
+    error: string | null
+  }): void {
+    currentResultData.value = data
+    hasResults.value = true
+
+    const executionResult = {
+      panelId,
+      result: {
+        columns: data.columns,
+        rows: data.rows,
+        rowCount: data.totalRows,
+        executionTime: data.elapsedMs,
+        affectedRows: data.affectedRows,
+      },
+      error: data.error,
+      timestamp: Date.now(),
+    }
+    store.executionResults.set(panelId, executionResult)
+    store.executionResults = new Map(store.executionResults)
+    store.setActiveEditorPanelId(panelId)
+  }
+
+  async function executeSql(
+    sql: string,
+    connId: string
+  ): Promise<{
+    columns: string[]
+    rows: unknown[][]
+    totalRows: number
+    elapsedMs: number
+    affectedRows: number
+    error: string | null
+  }> {
+    const result = await queryService.executeSql(sql, connId)
+
+    const qr = (result as Record<string, unknown>).result || result
+    const qrTyped = qr as Record<string, unknown>
+
+    if (qrTyped.error) {
+      return {
+        columns: [],
+        rows: [],
+        totalRows: 0,
+        elapsedMs: ((result as Record<string, unknown>).elapsed_ms as number) ?? 0,
+        affectedRows: 0,
+        error: qrTyped.error as string,
+      }
+    }
+
+    return {
+      columns: (qrTyped.columns as string[]) ?? [],
+      rows: (qrTyped.rows as unknown[][]) ?? [],
+      totalRows: (qrTyped.total_rows as number) ?? (qrTyped.rows as unknown[][])?.length ?? 0,
+      elapsedMs: ((result as Record<string, unknown>).elapsed_ms as number) ?? 0,
+      affectedRows: (qrTyped.affected_rows as number) ?? 0,
+      error: null,
+    }
+  }
+
+  async function executeSingleStatement(): Promise<void> {
+    const sql = getSelectedText() || getEditorValue()
+    if (!sql.trim()) {
+      message.warning('No SQL to execute')
+      return
+    }
+
+    const connId = runtimeConnId.value
+    if (!connId) {
+      message.warning('No active connection')
+      return
+    }
+
+    abortController = new AbortController()
+    executing.value = true
+
+    try {
+      if (abortController.signal.aborted) return
+
+      const result = await executeSql(sql, connId)
+      lastExecutionTime.value = result.elapsedMs
+
+      storeResult(result)
+
+      if (abortController.signal.aborted) return
+
+      if (result.error) {
+        message.error(result.error)
+      } else if (result.totalRows > 0) {
+        message.success(`${result.totalRows} rows returned in ${result.elapsedMs}ms`)
+      } else {
+        message.success(`Done in ${result.elapsedMs}ms, ${result.affectedRows} rows affected`)
+      }
+    } catch (error) {
+      if (abortController?.signal.aborted) {
+        message.info('Query cancelled')
+        return
+      }
+      const elapsed = lastExecutionTime.value ?? 0
+      lastExecutionTime.value = elapsed
+      storeResult({
+        columns: [],
+        rows: [],
+        totalRows: 0,
+        elapsedMs: elapsed,
+        affectedRows: 0,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      message.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      abortController = null
+      executing.value = false
+    }
+  }
+
+  async function executeBatch(): Promise<void> {
+    const sql = getSelectedText() || getEditorValue()
+    if (!sql.trim()) {
+      message.warning('No SQL to execute')
+      return
+    }
+
+    const connId = runtimeConnId.value
+    if (!connId) {
+      message.warning('No active connection')
+      return
+    }
+
+    const statements = await splitSql(sql)
+    const meaningfulStatements = statements.filter(s => s.trim())
+
+    if (meaningfulStatements.length <= 1) {
+      await executeSingleStatement()
+      return
+    }
+
+    abortController = new AbortController()
+    executing.value = true
+    const resultStore = useResultStore()
+
+    let totalElapsed = 0
+    let successCount = 0
+    let errorCount = 0
+
+    for (let i = 0; i < meaningfulStatements.length; i++) {
+      if (abortController.signal.aborted) break
+
+      const stmt = meaningfulStatements[i]
+      const startTime = performance.now()
+
+      try {
+        const result = await executeSql(stmt, connId)
+        const elapsed = performance.now() - startTime
+        totalElapsed += elapsed
+
+        const tab = resultStore.addTab(stmt, connId)
+        tab.title = `语句 #${i + 1}`
+        resultStore.setTabResult(tab.id, {
+          columns: result.columns,
+          rows: result.rows,
+          rowCount: result.totalRows,
+          elapsedMs: elapsed,
+        })
+
+        if (result.error) {
+          errorCount++
+        } else {
+          successCount++
+        }
+      } catch (error) {
+        const elapsed = performance.now() - startTime
+        totalElapsed += elapsed
+        errorCount++
+
+        const tab = resultStore.addTab(stmt, connId)
+        tab.title = `语句 #${i + 1} (错误)`
+        resultStore.setTabResult(tab.id, {
+          columns: [],
+          rows: [],
+          rowCount: 0,
+          elapsedMs: elapsed,
+        })
+      }
+    }
+
+    lastExecutionTime.value = totalElapsed
+    executing.value = false
+    abortController = null
+
+    const total = successCount + errorCount
+    if (abortController?.signal.aborted) {
+      message.info(`Batch cancelled: ${successCount}/${total} completed`)
+    } else if (errorCount === 0) {
+      message.success(`${total} statements executed in ${Math.round(totalElapsed)}ms`)
+    } else {
+      message.warning(`${successCount} ok, ${errorCount} failed — ${Math.round(totalElapsed)}ms`)
+    }
+  }
+
+  async function cancelExecution(): Promise<void> {
+    if (abortController) {
+      abortController.abort()
+      try {
+        await queryService.cancelQuery(runtimeConnId.value)
+      } catch {
+        // 后端取消失败不影响前端状态
+      }
+      message.info('Query cancelled')
+    }
+  }
+
+  async function executeNewTab(): Promise<void> {
+    const sql = getSelectedText() || getEditorValue()
+    if (!sql.trim()) {
+      message.warning('No SQL to execute')
+      return
+    }
+
+    const connId = runtimeConnId.value
+    if (!connId) {
+      message.warning('No active connection')
+      return
+    }
+
+    executing.value = true
+
+    try {
+      const result = await executeSql(sql, connId)
+      lastExecutionTime.value = result.elapsedMs
+
+      const executionResult = {
+        panelId,
+        result: {
+          columns: result.columns,
+          rows: result.rows,
+          rowCount: result.totalRows,
+          executionTime: result.elapsedMs,
+          affectedRows: result.affectedRows,
+        },
+        error: result.error,
+        timestamp: Date.now(),
+      }
+      store.requestNewTab(panelId, executionResult)
+
+      if (result.error) {
+        message.error(result.error)
+      }
+    } catch (error) {
+      lastExecutionTime.value = 0
+      message.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      executing.value = false
+    }
+  }
+
+  async function executeDuckDBAccelerated(): Promise<void> {
+    const sql = getSelectedText() || getEditorValue()
+    if (!sql.trim()) {
+      message.warning('No SQL to execute')
+      return
+    }
+
+    const connId = runtimeConnId.value
+    if (!connId) {
+      message.warning('No active connection')
+      return
+    }
+
+    const connName = currentConnectionName?.value ?? 'remote'
+    const attachName = generateAttachName(connName)
+    const rewrittenSql = rewriteDuckDBSQL(sql, attachName)
+
+    executing.value = true
+    const startTime = performance.now()
+
+    try {
+      const { appDataDir } = await import('@tauri-apps/api/path')
+      const dataDir = await appDataDir()
+
+      const result = await queryService.executeDuckDBAccelerated({
+        sql: rewrittenSql,
+        connId,
+        dbType: currentDatabaseType?.value ?? undefined,
+        dataDir,
+      })
+
+      const elapsed = performance.now() - startTime
+      lastExecutionTime.value = elapsed
+
+      if (result.error) {
+        storeResult({
+          columns: [],
+          rows: [],
+          totalRows: 0,
+          elapsedMs: elapsed,
+          affectedRows: 0,
+          error: result.error,
+        })
+        message.error(result.error)
+      } else {
+        storeResult({
+          columns: result.columns,
+          rows: result.rows,
+          totalRows: result.rows.length,
+          elapsedMs: elapsed,
+          affectedRows: 0,
+          error: null,
+        })
+        message.success(`${result.rows.length} rows returned in ${Math.round(elapsed)}ms`)
+      }
+    } catch (error) {
+      const elapsed = performance.now() - startTime
+      lastExecutionTime.value = elapsed
+      storeResult({
+        columns: [],
+        rows: [],
+        totalRows: 0,
+        elapsedMs: elapsed,
+        affectedRows: 0,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      message.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      executing.value = false
+    }
+  }
+
+  function checkForParams(sql: string) {
+    return detectParams(sql)
+  }
+
+  function buildBoundSql(sql: string, values: Record<string, string>): string {
+    return bindParams(sql, values)
+  }
+
+  return {
+    executing,
+    lastExecutionTime,
+    hasResults,
+    currentResultData,
+    inTransaction,
+    statementCount,
+    scheduleParse,
+    executeSingleStatement,
+    cancelExecution,
+    executeNewTab,
+    beginTransaction,
+    commitTransaction,
+    rollbackTransaction,
+    executeDuckDBAccelerated,
+    executeBatch,
+    checkForParams,
+    buildBoundSql,
+  }
+}

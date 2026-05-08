@@ -13,23 +13,24 @@ const router = createRouter({
           path: '',
           name: 'ProjectSelect',
           component: () => import('@/extensions/builtin/workbench/ui/views/ProjectSelectView.vue'),
-          meta: { title: '选择项目' }
+          meta: { title: '选择项目' },
         },
         {
           path: 'workbench',
           name: 'Workbench',
           component: () => import('@/extensions/builtin/workbench/ui/views/WorkbenchView.vue'),
-          meta: { title: '工作台', requiresProject: true }
+          meta: { title: '工作台', requiresProject: true },
         },
         {
           path: 'database-manager',
           name: 'DatabaseManager',
-          component: () => import('@/extensions/builtin/connection/ui/components/DatabaseManager.vue'),
-          meta: { title: '数据库管理', requiresProject: true }
-        }
-      ]
-    }
-  ]
+          component: () =>
+            import('@/extensions/builtin/connection/ui/components/DatabaseManager.vue'),
+          meta: { title: '数据库管理', requiresProject: true },
+        },
+      ],
+    },
+  ],
 })
 
 // 路由守卫

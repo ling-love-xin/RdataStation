@@ -474,33 +474,53 @@ pub async fn start_cache_warming(
 #[tauri::command]
 pub async fn cancel_cache_warming(
     input: CancelWarmingInput,
+    state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
 ) -> Result<(), String> {
-    tracing::info!(
-        connection_id = %input.connection_id,
-        "取消缓存预热"
-    );
-
-    Ok(())
+    let success = state.warming_task_manager.cancel_task(&input.connection_id);
+    
+    if success {
+        tracing::info!(
+            connection_id = %input.connection_id,
+            "缓存预热已取消"
+        );
+        Ok(())
+    } else {
+        Err(format!("未找到连接 {} 的预热任务", input.connection_id))
+    }
 }
 
 /// 获取预热进度
 #[tauri::command]
 pub async fn get_warming_progress(
     connection_id: String,
+    state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
 ) -> Result<WarmingProgressResponse, String> {
-    // 返回当前预热进度
-    // 实际进度由前端状态管理器维护
-    Ok(WarmingProgressResponse {
-        connection_id,
-        is_warming: false,
-        current_step: "空闲".to_string(),
-        total_steps: 0,
-        completed_steps: 0,
-        progress_percentage: 0.0,
-        current_database: None,
-        current_schema: None,
-        current_table: None,
-    })
+    if let Some(task) = state.warming_task_manager.get_task(&connection_id) {
+        let progress = task.progress.lock().unwrap();
+        Ok(WarmingProgressResponse {
+            connection_id: connection_id.clone(),
+            is_warming: progress.is_warming,
+            current_step: progress.current_step.clone(),
+            total_steps: progress.total_steps,
+            completed_steps: progress.completed_steps,
+            progress_percentage: progress.progress_percentage,
+            current_database: progress.current_database.clone(),
+            current_schema: progress.current_schema.clone(),
+            current_table: progress.current_table.clone(),
+        })
+    } else {
+        Ok(WarmingProgressResponse {
+            connection_id,
+            is_warming: false,
+            current_step: "空闲".to_string(),
+            total_steps: 0,
+            completed_steps: 0,
+            progress_percentage: 0.0,
+            current_database: None,
+            current_schema: None,
+            current_table: None,
+        })
+    }
 }
 
 /// 检查缓存版本

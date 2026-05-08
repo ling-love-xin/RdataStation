@@ -7,6 +7,15 @@ use crate::core::models::QueryResult;
 use crate::core::persistence::history_store;
 use crate::core::cache::get_query_cache;
 
+/// 事务状态结果
+#[derive(Debug)]
+pub struct TransactionStatusResult {
+    pub conn_id: String,
+    pub is_in_transaction: bool,
+    pub transaction_start_time_ms: Option<u64>,
+    pub transaction_duration_ms: Option<u64>,
+}
+
 /// SQL 执行服务
 ///
 /// 负责 SQL 查询的执行和管理，包括：
@@ -103,21 +112,25 @@ impl SqlService {
         // 获取数据库连接
         let db = self.get_database(conn_id.clone()).await?;
 
-        // 执行查询
-        let result = if let Some(timeout_ms) = options.timeout_ms {
-            let token = tokio_util::sync::CancellationToken::new();
-            let token_clone = token.clone();
+        // 创建取消令牌（支持前端 cancel_query）
+        let conn_key = conn_id.clone().unwrap_or_else(|| "active".to_string());
+        let cancel_token = self.manager.create_cancel_token(&conn_key).await;
 
-            // 设置超时
+        // 执行查询（支持取消和超时）
+        let result = if let Some(timeout_ms) = options.timeout_ms {
+            let token = cancel_token.clone();
             tokio::spawn(async move {
                 tokio::time::sleep(tokio::time::Duration::from_millis(timeout_ms)).await;
-                token_clone.cancel();
+                token.cancel();
             });
 
-            db.query_with_cancel(sql, token).await?
+            db.query_with_cancel(sql, cancel_token.clone()).await?
         } else {
-            db.query(sql).await?
+            db.query_with_cancel(sql, cancel_token.clone()).await?
         };
+
+        // 清理取消令牌
+        self.manager.remove_cancel_token(&conn_key).await;
 
         // 将结果存入缓存（仅当启用缓存且不是事务操作时）
         if options.use_cache && !options.use_transaction {
@@ -334,6 +347,109 @@ impl SqlService {
 
         // 创建外部表
         db.create_external_table(external_db_name, schema_name, table_name, external_table_name).await
+    }
+
+    /// 开始事务
+    pub async fn begin_transaction(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+        let db = self.get_database(conn_id.clone()).await?;
+        
+        // 获取连接 ID
+        let conn_id_str = match conn_id {
+            Some(id) => id,
+            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
+        };
+
+        // 执行 BEGIN TRANSACTION
+        db.query("BEGIN TRANSACTION").await?;
+
+        // 返回事务状态
+        Ok(TransactionStatusResult {
+            conn_id: conn_id_str,
+            is_in_transaction: true,
+            transaction_start_time_ms: Some(std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64),
+            transaction_duration_ms: Some(0),
+        })
+    }
+
+    /// 提交事务
+    pub async fn commit_transaction(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+        let db = self.get_database(conn_id.clone()).await?;
+        
+        // 获取连接 ID
+        let conn_id_str = match conn_id {
+            Some(id) => id,
+            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
+        };
+
+        // 执行 COMMIT
+        db.query("COMMIT").await?;
+
+        // 返回事务状态
+        Ok(TransactionStatusResult {
+            conn_id: conn_id_str,
+            is_in_transaction: false,
+            transaction_start_time_ms: None,
+            transaction_duration_ms: None,
+        })
+    }
+
+    /// 回滚事务
+    pub async fn rollback_transaction(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+        let db = self.get_database(conn_id.clone()).await?;
+        
+        // 获取连接 ID
+        let conn_id_str = match conn_id {
+            Some(id) => id,
+            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
+        };
+
+        // 执行 ROLLBACK
+        db.query("ROLLBACK").await?;
+
+        // 返回事务状态
+        Ok(TransactionStatusResult {
+            conn_id: conn_id_str,
+            is_in_transaction: false,
+            transaction_start_time_ms: None,
+            transaction_duration_ms: None,
+        })
+    }
+
+    /// 获取事务状态
+    pub async fn get_transaction_status(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+        // 获取连接 ID
+        let conn_id_str = match &conn_id {
+            Some(id) => id.clone(),
+            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
+        };
+
+        // 检查连接是否存在
+        if conn_id_str.is_empty() {
+            return Err(CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection));
+        }
+
+        // 检查事务状态（简化实现，实际应从 session 获取）
+        Ok(TransactionStatusResult {
+            conn_id: conn_id_str,
+            is_in_transaction: false,  // 实际应从 session 查询
+            transaction_start_time_ms: None,
+            transaction_duration_ms: None,
+        })
+    }
+
+    /// 取消指定连接正在执行的查询
+    pub async fn cancel_query(&self, conn_id: Option<String>) -> Result<bool, CoreError> {
+        let conn_id_str = match &conn_id {
+            Some(id) => id.clone(),
+            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
+        };
+        if conn_id_str.is_empty() {
+            return Err(CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection));
+        }
+        Ok(self.manager.cancel_query(&conn_id_str).await)
     }
 }
 

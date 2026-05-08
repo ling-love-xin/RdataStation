@@ -12,24 +12,24 @@
 
 ### 1.2 测试范围
 
-| 模块 | 测试内容 |
-|------|---------|
-| **版本迁移** | V1-V7 自动迁移、迁移历史记录 |
+| 模块         | 测试内容                              |
+| ------------ | ------------------------------------- |
+| **版本迁移** | V1-V7 自动迁移、迁移历史记录          |
 | **增量同步** | SHA-256 Hash 计算、变更检测、快照管理 |
-| **并行加载** | JoinSet Schema 并行、Table 并行 |
-| **缓存操作** | CRUD 操作、FTS 搜索、级联删除 |
-| **性能指标** | 首次预热、增量预热、内存占用 |
+| **并行加载** | JoinSet Schema 并行、Table 并行       |
+| **缓存操作** | CRUD 操作、FTS 搜索、级联删除         |
+| **性能指标** | 首次预热、增量预热、内存占用          |
 
 ### 1.3 测试环境
 
-| 项目 | 版本/值 |
-|------|--------|
-| Rust 版本 | stable |
+| 项目        | 版本/值        |
+| ----------- | -------------- |
+| Rust 版本   | stable         |
 | SQLite 版本 | 3.x (rusqlite) |
-| 测试框架 | cargo test |
-| 测试用例数 | 111 |
-| 通过数 | 104 |
-| 失败数 | 7 |
+| 测试框架    | cargo test     |
+| 测试用例数  | 111            |
+| 通过数      | 104            |
+| 失败数      | 7              |
 
 ---
 
@@ -43,14 +43,15 @@ cargo check 2>&1
 
 **结果**：✅ 通过
 
-| 指标 | 值 |
-|------|-----|
-| 耗时 | 2.63s |
-| 警告数 | 26 |
-| 错误数 | 0 |
-| 状态 | ✅ 可编译 |
+| 指标   | 值        |
+| ------ | --------- |
+| 耗时   | 2.63s     |
+| 警告数 | 26        |
+| 错误数 | 0         |
+| 状态   | ✅ 可编译 |
 
 **警告详情**：
+
 - 未使用的导入：`ConnectionError`, `Database`
 - 未使用的字段：`policy`, `created_at`, `last_check`
 - 未使用的 trait：`StateExt`
@@ -69,26 +70,27 @@ cargo test --lib 2>&1
 
 ### 3.2 测试结果
 
-| 状态 | 数量 | 占比 |
-|------|------|------|
-| ✅ 通过 | 104 | 93.7% |
-| ❌ 失败 | 7 | 6.3% |
-| ⏭️ 跳过 | 0 | 0% |
+| 状态     | 数量    | 占比     |
+| -------- | ------- | -------- |
+| ✅ 通过  | 104     | 93.7%    |
+| ❌ 失败  | 7       | 6.3%     |
+| ⏭️ 跳过  | 0       | 0%       |
 | **总计** | **111** | **100%** |
 
 ### 3.3 失败测试分析
 
-| 测试文件 | 测试名称 | 失败原因 | 优先级 |
-|---------|---------|---------|--------|
-| `metadata_cache.rs` | `test_metadata_cache_manager_global` | 路径断言失败：期望包含 "metadata/global" | P2 |
-| `metadata_cache.rs` | `test_metadata_cache_ops` | 未执行迁移：表不存在 | P2 |
-| `cache_version_migration.rs` | `test_cache_version_manager` | `cache_migration_history` 表不存在 | P2 |
-| `global_db.rs` | `test_global_sqlite_pool` | 版本断言失败：left=3, right=2 | P3 |
-| `project_db.rs` | `test_project_db_creation` | manager 创建失败 | P3 |
-| `project_store.rs` | `test_project_store_create` | 路径断言失败 | P3 |
-| `port_negotiation.rs` | `test_is_port_available` | 端口可用性测试环境问题 | P3 |
+| 测试文件                     | 测试名称                             | 失败原因                                 | 优先级 |
+| ---------------------------- | ------------------------------------ | ---------------------------------------- | ------ |
+| `metadata_cache.rs`          | `test_metadata_cache_manager_global` | 路径断言失败：期望包含 "metadata/global" | P2     |
+| `metadata_cache.rs`          | `test_metadata_cache_ops`            | 未执行迁移：表不存在                     | P2     |
+| `cache_version_migration.rs` | `test_cache_version_manager`         | `cache_migration_history` 表不存在       | P2     |
+| `global_db.rs`               | `test_global_sqlite_pool`            | 版本断言失败：left=3, right=2            | P3     |
+| `project_db.rs`              | `test_project_db_creation`           | manager 创建失败                         | P3     |
+| `project_store.rs`           | `test_project_store_create`          | 路径断言失败                             | P3     |
+| `port_negotiation.rs`        | `test_is_port_available`             | 端口可用性测试环境问题                   | P3     |
 
 **失败原因分类**：
+
 1. **P2（需修复）**：测试未正确执行迁移，导致表结构不存在
 2. **P3（环境问题）**：测试环境配置问题，不影响生产代码
 
@@ -98,11 +100,11 @@ cargo test --lib 2>&1
 cargo test --lib persistence::metadata_cache -- --nocapture
 ```
 
-| 测试名称 | 结果 | 说明 |
-|---------|------|------|
-| `test_metadata_cache_manager_global` | ❌ 失败 | 路径格式问题 |
+| 测试名称                              | 结果    | 说明             |
+| ------------------------------------- | ------- | ---------------- |
+| `test_metadata_cache_manager_global`  | ❌ 失败 | 路径格式问题     |
 | `test_metadata_cache_manager_project` | ✅ 通过 | 项目缓存路径正确 |
-| `test_metadata_cache_ops` | ❌ 失败 | 未执行迁移 |
+| `test_metadata_cache_ops`             | ❌ 失败 | 未执行迁移       |
 
 ---
 
@@ -110,14 +112,14 @@ cargo test --lib persistence::metadata_cache -- --nocapture
 
 ### 4.1 版本迁移（V1-V7）
 
-| 版本 | 迁移文件 | 功能 | 状态 |
-|------|---------|------|------|
-| V1→V2 | `002_add_cache_version_and_compression.sql` | 添加缓存版本控制 | ✅ |
-| V2→V3 | `003_add_fts_search.sql` | FTS5 全文搜索 | ✅ |
-| V3→V4 | `004_refactor_to_normalized.sql` | 规范化结构 | ✅ |
-| V4→V5 | `005_normalized_fts_and_cascade.sql` | FTS + 级联删除 | ✅ |
-| V5→V6 | `006_add_metadata_index.sql` | metadata_index 索引 | ✅ |
-| V6→V7 | `007_incremental_sync.sql` | 增量同步支持 | ✅ |
+| 版本  | 迁移文件                                    | 功能                | 状态 |
+| ----- | ------------------------------------------- | ------------------- | ---- |
+| V1→V2 | `002_add_cache_version_and_compression.sql` | 添加缓存版本控制    | ✅   |
+| V2→V3 | `003_add_fts_search.sql`                    | FTS5 全文搜索       | ✅   |
+| V3→V4 | `004_refactor_to_normalized.sql`            | 规范化结构          | ✅   |
+| V4→V5 | `005_normalized_fts_and_cascade.sql`        | FTS + 级联删除      | ✅   |
+| V5→V6 | `006_add_metadata_index.sql`                | metadata_index 索引 | ✅   |
+| V6→V7 | `007_incremental_sync.sql`                  | 增量同步支持        | ✅   |
 
 **V7 迁移文件结构**：
 
@@ -147,31 +149,31 @@ CREATE VIEW v_column_changes AS ...;
 
 ### 4.2 增量同步功能
 
-| 功能 | 实现状态 | 说明 |
-|------|---------|------|
-| SHA-256 Hash 计算 | ✅ | `sha2` crate 实现 |
-| 快照管理 | ✅ | `sync_snapshot` 表 |
-| 变更检测 | ✅ | `v_*_changes` 视图 |
-| 操作队列 | ✅ | `sync_operations` 表 |
-| 增量预热 | ✅ | `incremental_sync()` 方法 |
+| 功能              | 实现状态 | 说明                      |
+| ----------------- | -------- | ------------------------- |
+| SHA-256 Hash 计算 | ✅       | `sha2` crate 实现         |
+| 快照管理          | ✅       | `sync_snapshot` 表        |
+| 变更检测          | ✅       | `v_*_changes` 视图        |
+| 操作队列          | ✅       | `sync_operations` 表      |
+| 增量预热          | ✅       | `incremental_sync()` 方法 |
 
 ### 4.3 并行加载
 
-| 功能 | 实现状态 | 说明 |
-|------|---------|------|
-| Schema 级并行 | ✅ | `JoinSet` |
-| Table 级并行 | ✅ | `JoinSet` |
-| 流式写入 | ✅ | 每批 500 条 |
+| 功能          | 实现状态 | 说明        |
+| ------------- | -------- | ----------- |
+| Schema 级并行 | ✅       | `JoinSet`   |
+| Table 级并行  | ✅       | `JoinSet`   |
+| 流式写入      | ✅       | 每批 500 条 |
 
 ### 4.4 SQLite 优化
 
-| 优化项 | 配置 | 状态 |
-|-------|------|------|
-| WAL 模式 | `PRAGMA journal_mode=WAL` | ✅ |
-| MMAP I/O | `PRAGMA mmap_size=268435456` | ✅ |
-| 页缓存 | `PRAGMA cache_size=-2000` | ✅ |
-| 外键约束 | `PRAGMA foreign_keys=ON` | ✅ |
-| 同步模式 | `PRAGMA synchronous=NORMAL` | ✅ |
+| 优化项   | 配置                         | 状态 |
+| -------- | ---------------------------- | ---- |
+| WAL 模式 | `PRAGMA journal_mode=WAL`    | ✅   |
+| MMAP I/O | `PRAGMA mmap_size=268435456` | ✅   |
+| 页缓存   | `PRAGMA cache_size=-2000`    | ✅   |
+| 外键约束 | `PRAGMA foreign_keys=ON`     | ✅   |
+| 同步模式 | `PRAGMA synchronous=NORMAL`  | ✅   |
 
 ---
 
@@ -179,21 +181,21 @@ CREATE VIEW v_column_changes AS ...;
 
 ### 5.1 预期性能指标
 
-| 场景 | RdataStation V7 | DBeaver 26.0.3 | DataGrip 2026.1 |
-|------|-----------------|---------------|-----------------|
-| **首次连接预热** | **150ms** 🏆 | 15-25 秒 | 未知 |
-| **增量预热** | **15ms** 🏆 | 需手动刷新 | 250ms |
-| **导航栏加载** | **< 100ms** 🏆 | 5-10 秒 | 未知 |
-| **内存占用** | **< 100MB** 🏆 | 300-600MB | 1GB+ |
+| 场景             | RdataStation V7 | DBeaver 26.0.3 | DataGrip 2026.1 |
+| ---------------- | --------------- | -------------- | --------------- |
+| **首次连接预热** | **150ms** 🏆    | 15-25 秒       | 未知            |
+| **增量预热**     | **15ms** 🏆     | 需手动刷新     | 250ms           |
+| **导航栏加载**   | **< 100ms** 🏆  | 5-10 秒        | 未知            |
+| **内存占用**     | **< 100MB** 🏆  | 300-600MB      | 1GB+            |
 
 ### 5.2 V7 性能优化点
 
-| 优化项 | 优化效果 |
-|--------|---------|
-| 增量同步 Hash 检测 | 90%+ 预热时间减少 |
-| JoinSet 并行加载 | 60-70% 加载时间减少 |
-| 流式写入（500条/批） | 50%+ 内存降低 |
-| SQLite WAL + MMAP | 3-5x I/O 性能提升 |
+| 优化项               | 优化效果            |
+| -------------------- | ------------------- |
+| 增量同步 Hash 检测   | 90%+ 预热时间减少   |
+| JoinSet 并行加载     | 60-70% 加载时间减少 |
+| 流式写入（500条/批） | 50%+ 内存降低       |
+| SQLite WAL + MMAP    | 3-5x I/O 性能提升   |
 
 ---
 
@@ -201,21 +203,21 @@ CREATE VIEW v_column_changes AS ...;
 
 ### 6.1 编译警告
 
-| 类型 | 数量 | 示例 |
-|------|------|------|
-| 未使用导入 | 3 | `ConnectionError`, `Database`, `StateExt` |
-| 未使用字段 | 4 | `policy`, `created_at`, `last_check`, `compression_threshold` |
-| 未使用方法 | 3 | `compress_data`, `decompress_data`, `is_compressed` |
-| 未使用 trait | 1 | `StateExt` |
+| 类型         | 数量 | 示例                                                          |
+| ------------ | ---- | ------------------------------------------------------------- |
+| 未使用导入   | 3    | `ConnectionError`, `Database`, `StateExt`                     |
+| 未使用字段   | 4    | `policy`, `created_at`, `last_check`, `compression_threshold` |
+| 未使用方法   | 3    | `compress_data`, `decompress_data`, `is_compressed`           |
+| 未使用 trait | 1    | `StateExt`                                                    |
 
 ### 6.2 架构合规性
 
-| 检查项 | 状态 | 说明 |
-|--------|------|------|
-| 无循环依赖 | ✅ | core → adapters 依赖正确 |
-| 无层级越界 | ✅ | factory 只返回 Box |
-| 无 unwrap() | ⚠️ | 测试代码中存在，生产代码已避免 |
-| 使用 CoreError | ✅ | 统一错误处理 |
+| 检查项         | 状态 | 说明                           |
+| -------------- | ---- | ------------------------------ |
+| 无循环依赖     | ✅   | core → adapters 依赖正确       |
+| 无层级越界     | ✅   | factory 只返回 Box             |
+| 无 unwrap()    | ⚠️   | 测试代码中存在，生产代码已避免 |
+| 使用 CoreError | ✅   | 统一错误处理                   |
 
 ---
 
@@ -223,20 +225,20 @@ CREATE VIEW v_column_changes AS ...;
 
 ### 7.1 功能完整性
 
-| 模块 | 状态 | 说明 |
-|------|------|------|
-| 版本迁移 V1-V7 | ✅ | 所有迁移文件正常 |
-| 增量同步 V7 | ✅ | Hash + 快照 + 变更检测 |
-| 并行加载 | ✅ | JoinSet 实现 |
-| SQLite 优化 | ✅ | WAL + MMAP + 页缓存 |
+| 模块           | 状态 | 说明                   |
+| -------------- | ---- | ---------------------- |
+| 版本迁移 V1-V7 | ✅   | 所有迁移文件正常       |
+| 增量同步 V7    | ✅   | Hash + 快照 + 变更检测 |
+| 并行加载       | ✅   | JoinSet 实现           |
+| SQLite 优化    | ✅   | WAL + MMAP + 页缓存    |
 
 ### 7.2 需要修复的问题
 
-| 优先级 | 问题 | 建议 |
-|--------|------|------|
-| P1 | 单元测试失败（7个） | 修复测试环境配置 |
-| P2 | 编译警告（26个） | 清理未使用代码 |
-| P3 | 文档更新 | 更新测试报告 |
+| 优先级 | 问题                | 建议             |
+| ------ | ------------------- | ---------------- |
+| P1     | 单元测试失败（7个） | 修复测试环境配置 |
+| P2     | 编译警告（26个）    | 清理未使用代码   |
+| P3     | 文档更新            | 更新测试报告     |
 
 ### 7.3 测试通过标准
 
@@ -252,20 +254,20 @@ CREATE VIEW v_column_changes AS ...;
 
 ### 8.1 修复计划
 
-| 优先级 | 任务 | 负责 |
-|--------|------|------|
-| P1 | 修复 7 个失败的单元测试 | 开发 |
-| P1 | 清理 26 个编译警告 | 开发 |
-| P2 | 添加集成测试（实际数据库） | 开发 |
-| P2 | 添加性能基准测试 | 开发 |
+| 优先级 | 任务                       | 负责 |
+| ------ | -------------------------- | ---- |
+| P1     | 修复 7 个失败的单元测试    | 开发 |
+| P1     | 清理 26 个编译警告         | 开发 |
+| P2     | 添加集成测试（实际数据库） | 开发 |
+| P2     | 添加性能基准测试           | 开发 |
 
 ### 8.2 文档更新
 
-| 文档 | 更新内容 |
-|------|---------|
-| CHANGELOG.md | 添加 V7 测试记录 |
+| 文档                  | 更新内容         |
+| --------------------- | ---------------- |
+| CHANGELOG.md          | 添加 V7 测试记录 |
 | CACHE-OPTIMIZATION.md | 添加测试验证数据 |
-| COMPARISON.md | 添加实际测试数据 |
+| COMPARISON.md         | 添加实际测试数据 |
 
 ---
 

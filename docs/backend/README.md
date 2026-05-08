@@ -8,27 +8,30 @@
 
 ## 文档列表
 
-| 文档 | 说明 |
-|------|------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | 后端架构设计，包含目录结构、核心模块、DuckDB 功能、技术栈 |
-| [TASKS.md](./TASKS.md) | 开发任务清单，包含已完成/进行中/待完成任务 |
-| [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md) | 项目模块架构设计，包括连接分类、元数据缓存 |
-| [SCHEMA_CHANGELOG.md](./SCHEMA_CHANGELOG.md) | Schema 变更日志 |
-| [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md) | 数据库迁移系统 |
+| 文档                                                                           | 说明                                                      |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| [ARCHITECTURE.md](./ARCHITECTURE.md)                                           | 后端架构设计，包含目录结构、核心模块、DuckDB 功能、技术栈 |
+| [TASKS.md](./TASKS.md)                                                         | 开发任务清单，包含已完成/进行中/待完成任务                |
+| [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md)             | 项目模块架构设计，包括连接分类、元数据缓存                |
+| [SCHEMA_CHANGELOG.md](./SCHEMA_CHANGELOG.md)                                   | Schema 变更日志                                           |
+| [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md)                                   | 数据库迁移系统                                            |
+| [ANALYTICS_RESOURCE_SCHEMA.md](./ANALYTICS_RESOURCE_SCHEMA.md)                 | 分析资源模块后端 Schema 设计                              |
+| [ANALYTICS_RESOURCE_MANAGER_DESIGN.md](./ANALYTICS_RESOURCE_MANAGER_DESIGN.md) | 分析资源后端设计方案（v1.0 设计阶段）                     |
 
 ### 洞察系统
 
-| 文档 | 说明 |
-|------|------|
-| [INSIGHT-SYSTEM-PLAN.md](../frontend/INSIGHT-SYSTEM-PLAN.md) | 洞察体系实施总体规划（v5.0） |
-| [INSIGHT-ARCHITECTURE.md](../frontend/INSIGHT-ARCHITECTURE.md) | 洞察技术架构文档（v6.0） |
-| [INSIGHT-DEV-PROGRESS.md](../frontend/INSIGHT-DEV-PROGRESS.md) | 洞察开发进度跟踪（v5.0） |
+| 文档                                                           | 说明                         |
+| -------------------------------------------------------------- | ---------------------------- |
+| [INSIGHT-SYSTEM-PLAN.md](../frontend/INSIGHT-SYSTEM-PLAN.md)   | 洞察体系实施总体规划（v5.0） |
+| [INSIGHT-ARCHITECTURE.md](../frontend/INSIGHT-ARCHITECTURE.md) | 洞察技术架构文档（v6.0）     |
+| [INSIGHT-DEV-PROGRESS.md](../frontend/INSIGHT-DEV-PROGRESS.md) | 洞察开发进度跟踪（v5.0）     |
 
 ---
 
 ## 快速导航
 
 ### 架构相关
+
 - [整体架构](./ARCHITECTURE.md#二架构风格)
 - [目录结构](./ARCHITECTURE.md#三目录结构)
 - [DBI 设计](./ARCHITECTURE.md#41-dbi-统一数据访问层)
@@ -36,6 +39,7 @@
 - [DuckDB 功能](./ARCHITECTURE.md#五duckdb-核心功能)
 
 ### 开发相关
+
 - [任务清单](./TASKS.md)
 - [已完成任务](./TASKS.md#一已完成任务-)
 - [进行中任务](./TASKS.md#二进行中任务-)

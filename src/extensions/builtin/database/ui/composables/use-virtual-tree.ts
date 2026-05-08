@@ -1,6 +1,6 @@
 /**
  * 虚拟树控制器 - 重构版
- * 
+ *
  * 支持：
  * - 动态层级深度（7-8层）
  * - 健壮的 key 编码（base64）
@@ -28,16 +28,16 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
 
   // 扁平化的节点数组（纯对象，无响应式）
   const flatNodes = shallowRef<VirtualTreeNode[]>([])
-  
+
   // 节点映射表（用于快速查找）
   const nodeMap = new Map<string, VirtualTreeNode>()
-  
+
   // 根节点 keys
   const rootKeys = shallowRef<string[]>([])
-  
+
   // 选中的节点 key
   const selectedKey = ref<string | null>(null)
-  
+
   // 当前选中的节点
   const selectedNode = computed<VirtualTreeNode | null>(() => {
     if (!selectedKey.value) return null
@@ -65,14 +65,14 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
 
     const parentLevel = flatNodes.value[parentIndex].level
     const children: VirtualTreeNode[] = []
-    
+
     let i = parentIndex + 1
     while (i < flatNodes.value.length) {
       if (flatNodes.value[i].level <= parentLevel) break
       children.push(flatNodes.value[i])
       i++
     }
-    
+
     return children
   }
 
@@ -93,13 +93,13 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
       nodeMap.clear()
       rootKeys.value = []
       loadingKeys.clear()
-      
+
       // 添加新节点
       nodes.forEach(node => {
         nodeMap.set(node.key, node)
         rootKeys.value.push(node.key)
       })
-      
+
       flatNodes.value = [...nodes]
 
       // 恢复已展开状态标记（子节点需要重新加载）
@@ -121,7 +121,7 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
    */
   async function toggleNode(node: VirtualTreeNode) {
     if (node.isLeaf) return
-    
+
     if (node.isLoading) return
 
     const realNode = nodeMap.get(node.key)
@@ -198,7 +198,7 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
     const newNodes = [
       ...flatNodes.value.slice(0, insertIndex),
       ...children,
-      ...flatNodes.value.slice(insertIndex)
+      ...flatNodes.value.slice(insertIndex),
     ]
     flatNodes.value = newNodes
   }
@@ -211,7 +211,7 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
     if (parentIndex === -1) return
 
     const parentLevel = flatNodes.value[parentIndex].level
-    
+
     let endIndex = parentIndex + 1
     while (endIndex < flatNodes.value.length) {
       if (flatNodes.value[endIndex].level <= parentLevel) {
@@ -225,7 +225,7 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
 
     const newNodes = [
       ...flatNodes.value.slice(0, parentIndex + 1),
-      ...flatNodes.value.slice(endIndex)
+      ...flatNodes.value.slice(endIndex),
     ]
     flatNodes.value = newNodes
   }
@@ -260,7 +260,7 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
     removeChildren(nodeKey)
     node.isLoaded = false
     node.childCount = 0
-    
+
     // 重新加载
     if (node.isExpanded) {
       node.isLoading = true
@@ -323,6 +323,6 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
     updateNode,
     refreshNode,
     clearConnection,
-    clearAll
+    clearAll,
   }
 }

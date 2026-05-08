@@ -1,6 +1,6 @@
 /**
  * 数据库导航树拖拽支持
- * 
+ *
  * 支持表/视图拖拽到工作台
  * 支持节点排序和重组
  */
@@ -63,7 +63,7 @@ export function useDragDrop() {
       nodeType,
       connectionId,
       dbName,
-      schemaName
+      schemaName,
     }
 
     if (nodeType === 'table') {
@@ -95,7 +95,7 @@ export function useDragDrop() {
    */
   function handleDrop(event: DragEvent, target: IDropTarget): IDragData | null {
     event.preventDefault()
-    
+
     try {
       const dataStr = event.dataTransfer!.getData(DRAG_DATA_TYPE)
       if (!dataStr) return null
@@ -159,6 +159,6 @@ export function useDragDrop() {
     handleDrop,
     handleDragEnd,
     isDraggable,
-    generateSqlFragment
+    generateSqlFragment,
   }
 }

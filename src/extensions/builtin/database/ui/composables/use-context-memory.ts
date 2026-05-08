@@ -19,7 +19,7 @@ const DEFAULT_CONTEXT: NavigatorContext = {
   lastSearchQuery: '',
   lastConnectionId: null,
   lastScrollPosition: 0,
-  timestamp: 0
+  timestamp: 0,
 }
 
 export function useContextMemory() {
@@ -49,7 +49,7 @@ export function useContextMemory() {
       context.value = {
         ...context.value,
         ...data,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }
 
       localStorage.setItem(CONTEXT_STORAGE_KEY, JSON.stringify(context.value))
@@ -105,6 +105,6 @@ export function useContextMemory() {
     updateFilterConfig,
     updateSearchQuery,
     updateConnectionId,
-    updateScrollPosition
+    updateScrollPosition,
   }
 }

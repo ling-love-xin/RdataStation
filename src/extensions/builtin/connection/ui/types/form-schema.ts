@@ -65,7 +65,7 @@ export function parseDriverSchema(schema: DriverFormSchema): DriverDescriptor {
     requireFile: schema.metadata?.requireFile,
     supportsSsl: schema.metadata?.supportsSsl,
     supportsSshTunnel: schema.metadata?.supportsSshTunnel,
-    extraOptions: extractExtraOptions(schema.sections)
+    extraOptions: extractExtraOptions(schema.sections),
   }
 }
 
@@ -94,15 +94,15 @@ function extractExtraOptions(sections: FormSectionConfig[]): Array<{
           description: field.placeholder,
           options: field.options.map(opt => ({
             label: opt.label,
-            value: String(opt.value)
-          }))
+            value: String(opt.value),
+          })),
         })
       } else if (field.type === 'text' || field.type === 'number') {
         options.push({
           name: field.key,
           label: field.label,
           type: field.type as 'string' | 'number',
-          description: field.placeholder
+          description: field.placeholder,
         })
       }
     }
@@ -161,20 +161,42 @@ export function validateFormData(
           }
         }
 
-        if (field.validation.minLength && typeof value === 'string' && value.length < field.validation.minLength) {
-          errors[field.key] = field.validation.message || `${field.label} 长度不能少于 ${field.validation.minLength} 个字符`
+        if (
+          field.validation.minLength &&
+          typeof value === 'string' &&
+          value.length < field.validation.minLength
+        ) {
+          errors[field.key] =
+            field.validation.message ||
+            `${field.label} 长度不能少于 ${field.validation.minLength} 个字符`
         }
 
-        if (field.validation.maxLength && typeof value === 'string' && value.length > field.validation.maxLength) {
-          errors[field.key] = field.validation.message || `${field.label} 长度不能超过 ${field.validation.maxLength} 个字符`
+        if (
+          field.validation.maxLength &&
+          typeof value === 'string' &&
+          value.length > field.validation.maxLength
+        ) {
+          errors[field.key] =
+            field.validation.message ||
+            `${field.label} 长度不能超过 ${field.validation.maxLength} 个字符`
         }
 
-        if (field.validation.min !== undefined && typeof value === 'number' && value < field.validation.min) {
-          errors[field.key] = field.validation.message || `${field.label} 不能小于 ${field.validation.min}`
+        if (
+          field.validation.min !== undefined &&
+          typeof value === 'number' &&
+          value < field.validation.min
+        ) {
+          errors[field.key] =
+            field.validation.message || `${field.label} 不能小于 ${field.validation.min}`
         }
 
-        if (field.validation.max !== undefined && typeof value === 'number' && value > field.validation.max) {
-          errors[field.key] = field.validation.message || `${field.label} 不能大于 ${field.validation.max}`
+        if (
+          field.validation.max !== undefined &&
+          typeof value === 'number' &&
+          value > field.validation.max
+        ) {
+          errors[field.key] =
+            field.validation.message || `${field.label} 不能大于 ${field.validation.max}`
         }
       }
     }

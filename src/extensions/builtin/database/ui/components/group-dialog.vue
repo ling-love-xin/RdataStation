@@ -77,7 +77,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isEdit: false
+  isEdit: false,
 })
 
 const emit = defineEmits<{
@@ -90,26 +90,29 @@ const colors = GROUP_COLORS
 const form = ref({
   name: '',
   description: '',
-  color: colors[0]
+  color: colors[0],
 })
 
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    if (props.isEdit && props.initialData) {
-      form.value = {
-        name: props.initialData.name,
-        description: props.initialData.description || '',
-        color: props.initialData.color || colors[0]
-      }
-    } else {
-      form.value = {
-        name: '',
-        description: '',
-        color: colors[0]
+watch(
+  () => props.visible,
+  newVal => {
+    if (newVal) {
+      if (props.isEdit && props.initialData) {
+        form.value = {
+          name: props.initialData.name,
+          description: props.initialData.description || '',
+          color: props.initialData.color || colors[0],
+        }
+      } else {
+        form.value = {
+          name: '',
+          description: '',
+          color: colors[0],
+        }
       }
     }
   }
-})
+)
 
 function handleClose() {
   emit('close')
@@ -117,17 +120,17 @@ function handleClose() {
 
 function handleSubmit() {
   if (!form.value.name.trim()) return
-  
+
   emit('submit', {
     name: form.value.name.trim(),
     description: form.value.description.trim() || undefined,
-    color: form.value.color
+    color: form.value.color,
   })
-  
+
   form.value = {
     name: '',
     description: '',
-    color: colors[0]
+    color: colors[0],
   }
 }
 </script>

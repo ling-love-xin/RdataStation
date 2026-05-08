@@ -24,25 +24,34 @@
         <div class="profile-header-actions">
           <NButton
             size="tiny"
-            :type="isEvaluating ? undefined : 'primary'"
-            :loading="isEvaluating"
-            ghost
+            :type="insightStore.isTableQualityLoading ? undefined : 'primary'"
+            :loading="insightStore.isTableQualityLoading"
             @click="evaluateQuality"
           >
-            {{ isEvaluating ? t('resultPanel.evaluating') : t('resultPanel.qualityAssessment') }}
+            {{
+              insightStore.isTableQualityLoading
+                ? t('resultPanel.evaluating')
+                : t('resultPanel.qualityAssessment')
+            }}
           </NButton>
         </div>
       </div>
 
-      <div v-if="tableQuality" class="quality-summary-bar">
-        <div class="quality-overall">
-          <span class="quality-score-big" :style="{ color: scoreColor(tableQuality.overall_score) }">
-            {{ Math.round(tableQuality.overall_score) }}
+      <div v-if="insightStore.tableQuality" class="quality-summary-bar">
+        <div class="quality-score-big">
+          <span
+            class="score-number"
+            :style="{ color: scoreColor(insightStore.tableQuality.overall_score) }"
+          >
+            {{ Math.round(insightStore.tableQuality.overall_score) }}
           </span>
-          <span class="quality-level-big" :style="{ color: scoreColor(tableQuality.overall_score) }">
-            {{ tableQuality.level }}
+          <span
+            class="score-label"
+            :style="{ color: scoreColor(insightStore.tableQuality.overall_score) }"
+          >
+            {{ insightStore.tableQuality.level }}
           </span>
-          <span class="quality-desc">{{ tableQuality.summary }}</span>
+          <span class="quality-desc">{{ insightStore.tableQuality.summary }}</span>
         </div>
       </div>
 
@@ -68,14 +77,15 @@
 <script setup lang="ts">
 import { AlertTriangle, Table } from 'lucide-vue-next'
 import { NButton, NSpin, NTag, NDataTable } from 'naive-ui'
-import { onMounted, onUnmounted, ref, h } from 'vue'
+import { onMounted, ref, watch, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useUiStore } from '@/shared/stores/ui'
 
-import { getTableProfile, batchEvaluateColumns } from '../../services/result-analysis'
+import { getTableProfile } from '../../services/result-analysis'
+import { useInsightStore } from '../../stores/insight-store'
 
-import type { TableProfile, TableColumnMeta, TableQuality } from '../../services/result-analysis'
+import type { TableProfile, TableColumnMeta } from '../../services/result-analysis'
 import type { DataTableColumn } from 'naive-ui'
 
 interface Props {
@@ -84,90 +94,116 @@ interface Props {
   database?: string
   schema?: string
   table?: string
+  autoEvaluate?: boolean
 }
 
 const props = defineProps<Props>()
 
 const { t } = useI18n()
 const uiStore = useUiStore()
+const insightStore = useInsightStore()
 
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const profile = ref<TableProfile | null>(null)
 const tableName = ref(props.table ?? '')
 
-const isEvaluating = ref(false)
-const tableQuality = ref<TableQuality | null>(null)
-const evalError = ref<string | null>(null)
-
 const columnDefs: DataTableColumn<TableColumnMeta>[] = [
   {
     title: '#',
     key: 'ordinal_position',
     width: 40,
-    render: (row) => row.ordinal_position
+    render: row => row.ordinal_position,
   },
   {
     title: t('resultPanel.column'),
     key: 'column_name',
-    render: (row) => {
+    render: row => {
       return h('div', { style: { display: 'flex', alignItems: 'center', gap: '4px' } }, [
         row.is_primary_key
           ? h('span', { style: { color: '#f0a020', fontSize: '10px', fontWeight: '600' } }, 'PK')
           : null,
-        h('span', { style: { fontFamily: 'monospace', fontSize: '12px', cursor: 'pointer', color: 'var(--primary-color)' }, onClick: () => emitColumnClick(row) }, row.column_name)
+        h(
+          'span',
+          {
+            style: {
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              cursor: 'pointer',
+              color: 'var(--primary-color)',
+            },
+            onClick: () => emitColumnClick(row),
+          },
+          row.column_name
+        ),
       ])
-    }
+    },
   },
   {
     title: t('resultPanel.type'),
     key: 'data_type',
     width: 120,
-    render: (row) => {
-      return h('span', { style: { fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' } }, row.data_type)
-    }
+    render: row => {
+      return h(
+        'span',
+        { style: { fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' } },
+        row.data_type
+      )
+    },
   },
   {
     title: t('resultPanel.nullable'),
     key: 'is_nullable',
     width: 50,
     align: 'center',
-    render: (row) => {
+    render: row => {
       return row.is_nullable
         ? h('span', { style: { color: 'var(--text-tertiary)' } }, 'YES')
         : h('span', { style: { color: 'var(--text-primary)', fontWeight: '500' } }, 'NO')
-    }
+    },
   },
   {
     title: t('resultPanel.qualityScore'),
     key: '_quality',
     width: 84,
     align: 'center',
-    render: (row) => {
-      const entry = tableQuality.value?.column_scores?.find(
-        (e) => e.column_name === row.column_name
+    render: row => {
+      const entry = insightStore.tableQuality?.column_scores?.find(
+        e => e.column_name === row.column_name
       )
       if (!entry) {
         return h('span', { style: { fontSize: '10px', color: 'var(--text-tertiary)' } }, '\u2014')
       }
-      return h('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' } }, [
-        h('span', {
-          style: {
-            fontWeight: '700',
-            fontSize: '13px',
-            color: scoreColor(entry.quality_score),
-          }
-        }, String(Math.round(entry.quality_score))),
-        h('span', {
-          style: {
-            fontSize: '9px',
-            color: scoreColor(entry.quality_score),
-            opacity: '0.8',
-          }
-        }, entry.level),
-      ])
-    }
-  }
+      return h(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' } },
+        [
+          h(
+            'span',
+            {
+              style: {
+                fontWeight: '700',
+                fontSize: '13px',
+                color: scoreColor(entry.quality_score),
+              },
+            },
+            String(Math.round(entry.quality_score))
+          ),
+          h(
+            'span',
+            {
+              style: {
+                fontSize: '9px',
+                color: scoreColor(entry.quality_score),
+                opacity: '0.8',
+              },
+            },
+            entry.level
+          ),
+        ]
+      )
+    },
+  },
 ]
 
 async function loadProfile(
@@ -184,11 +220,17 @@ async function loadProfile(
   tableName.value = table
 
   try {
-    const result = await getTableProfile({ conn_id: connId, db_type: dbType, database, schema, table })
+    const result = await getTableProfile({
+      conn_id: connId,
+      db_type: dbType,
+      database,
+      schema,
+      table,
+    })
     profile.value = result
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    error.value = `探查失败: ${msg}`
+    error.value = `${t('tableProfile.probingFailed')}: ${msg}`
   } finally {
     isLoading.value = false
   }
@@ -209,76 +251,42 @@ function scoreColor(score: number): string {
 }
 
 async function evaluateQuality(): Promise<void> {
-  if (
-    !props.connId ||
-    !props.database ||
-    !props.schema ||
-    !props.table ||
-    isEvaluating.value
-  )
-    return
+  if (!props.connId || !props.database || !props.schema || !props.table) return
 
-  isEvaluating.value = true
-  evalError.value = null
-  tableQuality.value = null
-
-  try {
-    const result = await batchEvaluateColumns({
-      conn_id: props.connId,
-      database: props.database,
-      schema: props.schema,
-      table: props.table,
-    })
-    tableQuality.value = result
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    evalError.value = `质量评估失败: ${msg}`
-  } finally {
-    isEvaluating.value = false
-  }
+  await insightStore.loadTableQuality({
+    connId: props.connId,
+    database: props.database,
+    schema: props.schema,
+    table: props.table,
+  })
 }
 
 function emitColumnClick(col: TableColumnMeta): void {
-  window.dispatchEvent(new CustomEvent('table-column-click', {
-    detail: {
-      column: col.column_name,
-      dataType: col.data_type,
-      table: props.table,
-      database: props.database,
-      schema: props.schema,
-      connId: props.connId,
-    }
-  }))
+  insightStore.loadColumnFromTable({
+    connId: props.connId,
+    database: props.database,
+    schema: props.schema,
+    table: props.table,
+    column: col.column_name,
+  })
 }
 
-function handleOpenProfile(event: Event): void {
-  const detail = (event as CustomEvent).detail as {
-    connId: string
-    dbType: string
-    database: string
-    schema: string
-    table: string
+watch(
+  () => insightStore.tableProfileReloadKey,
+  () => {
+    if (props.connId && props.dbType && props.database && props.schema && props.table) {
+      loadProfile(props.connId, props.dbType, props.database, props.schema, props.table)
+    }
   }
-  if (detail?.connId && detail?.table) {
-    loadProfile(
-      detail.connId,
-      detail.dbType ?? 'unknown',
-      detail.database ?? '',
-      detail.schema ?? '',
-      detail.table
-    )
-  }
-}
+)
 
 onMounted(() => {
-  window.addEventListener('open-table-profile', handleOpenProfile)
   if (props.connId && props.dbType && props.database && props.schema && props.table) {
     loadProfile(props.connId, props.dbType, props.database, props.schema, props.table)
   }
-})
-
-onUnmounted(() => {
-  window.removeEventListener('open-table-profile', handleOpenProfile)
+  if (props.autoEvaluate) {
+    evaluateQuality()
+  }
 })
 </script>
 
@@ -300,7 +308,9 @@ onUnmounted(() => {
   gap: 10px;
   color: var(--text-secondary);
 }
-.loading-text { font-size: 11px; }
+.loading-text {
+  font-size: 11px;
+}
 
 .profile-error {
   display: flex;
@@ -313,8 +323,13 @@ onUnmounted(() => {
   padding: 24px 16px;
   text-align: center;
 }
-.error-icon { opacity: 0.7; }
-.error-text { font-size: 11px; word-break: break-all; }
+.error-icon {
+  opacity: 0.7;
+}
+.error-text {
+  font-size: 11px;
+  word-break: break-all;
+}
 
 .profile-content {
   display: flex;
@@ -333,9 +348,21 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
 }
-.title-icon { color: var(--primary-color); flex-shrink: 0; }
-.profile-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.profile-schema { font-size: 10px; color: var(--text-tertiary); display: block; margin-top: 2px; }
+.title-icon {
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+.profile-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.profile-schema {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-top: 2px;
+}
 .profile-header-actions {
   display: flex;
   align-items: center;

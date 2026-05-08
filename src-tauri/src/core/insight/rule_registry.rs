@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use include_dir::Dir;
+use tracing;
 use crate::core::error::{CommonError, CoreError};
 
 use super::rule_types::RuleFile;
@@ -47,17 +48,22 @@ impl RuleRegistry {
             if path.is_dir() {
                 self.scan_directory(&path, count)?;
             } else if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-                if let Ok(rule) = self.parse_rule_file(&path) {
-                    let category = rule.meta.category.clone();
-                    let id = rule.meta.id.clone();
+                match self.parse_rule_file(&path) {
+                    Ok(rule) => {
+                        let category = rule.meta.category.clone();
+                        let id = rule.meta.id.clone();
 
-                    self.by_category
-                        .entry(category)
-                        .or_default()
-                        .push(id.clone());
+                        self.by_category
+                            .entry(category)
+                            .or_default()
+                            .push(id.clone());
 
-                    self.rules.insert(id, rule);
-                    *count += 1;
+                        self.rules.insert(id, rule);
+                        *count += 1;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Skipping invalid rule file '{}': {}", path.display(), e);
+                    }
                 }
             }
         }
@@ -74,15 +80,24 @@ impl RuleRegistry {
                 include_dir::DirEntry::File(file) => {
                     if file.path().extension().and_then(|s| s.to_str()) == Some("toml") {
                         if let Some(content) = file.contents_utf8() {
-                            if let Ok(rule) = self.parse_toml(content) {
-                                let category = rule.meta.category.clone();
-                                let id = rule.meta.id.clone();
-                                self.by_category
-                                    .entry(category)
-                                    .or_default()
-                                    .push(id.clone());
-                                self.rules.insert(id, rule);
-                                count += 1;
+                            match self.parse_toml(content) {
+                                Ok(rule) => {
+                                    let category = rule.meta.category.clone();
+                                    let id = rule.meta.id.clone();
+                                    self.by_category
+                                        .entry(category)
+                                        .or_default()
+                                        .push(id.clone());
+                                    self.rules.insert(id, rule);
+                                    count += 1;
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "Skipping invalid embedded rule '{}': {}",
+                                        file.path().display(),
+                                        e
+                                    );
+                                }
                             }
                         }
                     }
@@ -143,4 +158,111 @@ impl RuleRegistry {
 
 pub fn get_project_rules_dir(project_path: &Path) -> PathBuf {
     project_path.join(".RSMETA").join("insight-rules")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_toml() -> &'static str {
+        r#"
+[meta]
+id = "test-rule-1"
+name = "Test Rule"
+description = "A rule for testing"
+version = "1.0"
+category = "test"
+applies_to = ["Numeric", "i64"]
+builtin = true
+
+[query]
+template = "SELECT {col} FROM {table}"
+parameters = ["table", "col"]
+result_type = "single"
+
+[[output]]
+json_name = "result"
+sql_name = "col"
+value_type = "f64"
+"#
+    }
+
+    #[test]
+    fn test_parse_toml_valid() {
+        let registry = RuleRegistry::new();
+        let rule = registry.parse_toml(sample_toml()).unwrap();
+        assert_eq!(rule.meta.id, "test-rule-1");
+        assert_eq!(rule.meta.name, "Test Rule");
+        assert_eq!(rule.meta.category, "test");
+        assert_eq!(rule.meta.applies_to, vec!["Numeric", "i64"]);
+        assert_eq!(rule.query.parameters, vec!["table", "col"]);
+        assert_eq!(rule.output.len(), 1);
+        assert_eq!(rule.output[0].json_name, "result");
+    }
+
+    #[test]
+    fn test_parse_toml_invalid() {
+        let registry = RuleRegistry::new();
+        let result = registry.parse_toml("not valid toml {{");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_and_list() {
+        let registry = RuleRegistry::new();
+        let rule = registry.parse_toml(sample_toml()).unwrap();
+
+        let mut reg = RuleRegistry::new();
+        reg.rules.insert(rule.meta.id.clone(), rule);
+
+        assert!(reg.get("test-rule-1").is_some());
+        assert!(reg.get("nonexistent").is_none());
+        assert_eq!(reg.rule_count(), 1);
+    }
+
+    #[test]
+    fn test_list_by_category() {
+        let mut registry = RuleRegistry::new();
+        let rule = registry.parse_toml(sample_toml()).unwrap();
+
+        let mut by_cat = std::collections::HashMap::new();
+        by_cat.insert(rule.meta.category.clone(), vec![rule.meta.id.clone()]);
+        registry.rules.insert(rule.meta.id.clone(), rule);
+        registry.by_category = by_cat;
+
+        assert_eq!(registry.list_by_category("test").len(), 1);
+        assert_eq!(registry.list_by_category("unknown").len(), 0);
+    }
+
+    #[test]
+    fn test_rules_for_column_type() {
+        let mut registry = RuleRegistry::new();
+        let rule = registry.parse_toml(sample_toml()).unwrap();
+        registry.rules.insert(rule.meta.id.clone(), rule);
+
+        let numeric_rules = registry.rules_for_column_type("Numeric");
+        assert_eq!(numeric_rules.len(), 1);
+
+        let i64_rules = registry.rules_for_column_type("i64");
+        assert_eq!(i64_rules.len(), 1);
+
+        let text_rules = registry.rules_for_column_type("Text");
+        assert_eq!(text_rules.len(), 0);
+    }
+
+    #[test]
+    fn test_all_rules() {
+        let mut registry = RuleRegistry::new();
+        let rule = registry.parse_toml(sample_toml()).unwrap();
+        registry.rules.insert(rule.meta.id.clone(), rule);
+
+        assert_eq!(registry.all_rules().len(), 1);
+    }
+
+    #[test]
+    fn test_new_registry_is_empty() {
+        let registry = RuleRegistry::new();
+        assert_eq!(registry.rule_count(), 0);
+        assert!(registry.all_rules().is_empty());
+    }
 }

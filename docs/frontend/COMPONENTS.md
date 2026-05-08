@@ -11,12 +11,14 @@
 通用、可复用的基础 UI 组件，不包含业务逻辑。
 
 **示例**：
+
 - `BaseButton.vue`
 - `BaseModal.vue`
 - `DbIcon.vue`
 - `LoadingOverlay.vue`
 
 **规范**：
+
 ```vue
 <template>
   <button :class="['base-button', variant, sizeClass]" :disabled="disabled">
@@ -41,25 +43,22 @@ const sizeClass = computed(() => `base-button--${props.size}`)
 </script>
 ```
 
-### 2. 业务组件（extensions/builtin/*/ui/components/）
+### 2. 业务组件（extensions/builtin/\*/ui/components/）
 
 包含特定业务逻辑的组件，属于具体插件。
 
 **示例**：
+
 - `DatabaseNavigatorTreeReal.vue`
 - `TableStructurePanel.vue`
 - `QueryResultGrid.vue`
 
 **规范**：
+
 ```vue
 <template>
   <div class="database-navigator">
-    <NavigatorNode
-      v-for="node in nodes"
-      :key="node.id"
-      :node="node"
-      @select="handleSelect"
-    />
+    <NavigatorNode v-for="node in nodes" :key="node.id" :node="node" @select="handleSelect" />
   </div>
 </template>
 

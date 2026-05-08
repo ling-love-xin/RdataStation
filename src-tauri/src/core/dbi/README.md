@@ -40,18 +40,18 @@ let result = dbi.execute("INSERT INTO users ...").await?;
 
 ### 2. 执行模式
 
-| 模式 | 说明 | 适用场景 |
-|------|------|---------|
-| `Native` | 原生数据库驱动执行 | 写操作、简单查询 |
-| `DuckDB` | DuckDB 加速执行 | 复杂分析、跨库 JOIN |
-| `Stream` | 流式执行 | 大数据量、流式处理 |
-| `UserChoice` | 智能推荐 | 由系统自动判断 |
+| 模式         | 说明               | 适用场景            |
+| ------------ | ------------------ | ------------------- |
+| `Native`     | 原生数据库驱动执行 | 写操作、简单查询    |
+| `DuckDB`     | DuckDB 加速执行    | 复杂分析、跨库 JOIN |
+| `Stream`     | 流式执行           | 大数据量、流式处理  |
+| `UserChoice` | 智能推荐           | 由系统自动判断      |
 
 ### 3. 会话模式
 
-| 模式 | 说明 | 存储位置 |
-|------|------|---------|
-| `Session` | 会话级，关闭后消失 | DuckDB 内存表 |
+| 模式         | 说明               | 存储位置                |
+| ------------ | ------------------ | ----------------------- |
+| `Session`    | 会话级，关闭后消失 | DuckDB 内存表           |
 | `Persistent` | 持久化，保存到项目 | `analytics/data.duckdb` |
 
 ### 4. 结果集管理
@@ -93,13 +93,13 @@ duckdb_engine.load_file_source("/path/to/data.parquet", "parquet_data").await?;
 
 DBI 内置智能推荐引擎，根据 SQL 特征自动推荐执行模式：
 
-| SQL 特征 | 推荐模式 | 原因 |
-|----------|---------|------|
-| `INSERT/UPDATE/DELETE` | Native | 写操作必须走原生 |
-| `GROUP BY` | DuckDB | 列式存储聚合快 |
-| `JOIN` | DuckDB | 向量化执行 |
-| `ORDER BY + LIMIT` | DuckDB | 排序优化 |
-| 简单 `SELECT` | UserChoice | 由用户决定 |
+| SQL 特征               | 推荐模式   | 原因             |
+| ---------------------- | ---------- | ---------------- |
+| `INSERT/UPDATE/DELETE` | Native     | 写操作必须走原生 |
+| `GROUP BY`             | DuckDB     | 列式存储聚合快   |
+| `JOIN`                 | DuckDB     | 向量化执行       |
+| `ORDER BY + LIMIT`     | DuckDB     | 排序优化         |
+| 简单 `SELECT`          | UserChoice | 由用户决定       |
 
 ## 数据流
 

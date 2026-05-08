@@ -2,11 +2,12 @@ use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use tokio::fs;
+use tokio::sync::Mutex;
 
 use crate::core::error::{CoreError, StorageError};
 use crate::core::scratchpad::models::{
-        AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry, ScratchpadEntryKind,
-        ScratchpadResponse,
+        AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry,
+        ScratchpadEntryKind, ScratchpadResponse,
     };
 
 const MAX_DEPTH: u32 = 4;
@@ -17,6 +18,7 @@ const TRASH_DIR: &str = ".trash";
 pub struct ScratchpadStore {
     scratchpad_dir: PathBuf,
     config_path: PathBuf,
+    config_cache: std::sync::Arc<Mutex<Option<ScratchpadConfig>>>,
 }
 
 impl ScratchpadStore {
@@ -26,6 +28,7 @@ impl ScratchpadStore {
         Self {
             scratchpad_dir,
             config_path,
+            config_cache: std::sync::Arc::new(Mutex::new(None)),
         }
     }
 
@@ -49,23 +52,37 @@ impl ScratchpadStore {
     }
 
     pub async fn load_config(&self) -> Result<ScratchpadConfig, CoreError> {
-        if !self.config_path.exists() {
-            return Ok(ScratchpadConfig::default());
+        {
+            let cache = self.config_cache.lock().await;
+            if let Some(ref config) = *cache {
+                return Ok(config.clone());
+            }
         }
-        let content = fs::read_to_string(&self.config_path).await.map_err(|e| {
-            CoreError::storage(StorageError::io(
-                self.config_path.display().to_string(),
-                "read",
-                e.to_string(),
-            ))
-        })?;
-        serde_json::from_str(&content).map_err(|e| {
-            CoreError::storage(StorageError::Deserialization {
-                format: "JSON".to_string(),
-                data: content[..content.len().min(200)].to_string(),
-                reason: e.to_string(),
-            })
-        })
+
+        let config = if !self.config_path.exists() {
+            ScratchpadConfig::default()
+        } else {
+            let content = fs::read_to_string(&self.config_path).await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    self.config_path.display().to_string(),
+                    "read",
+                    e.to_string(),
+                ))
+            })?;
+            serde_json::from_str(&content).map_err(|e| {
+                CoreError::storage(StorageError::Deserialization {
+                    format: "JSON".to_string(),
+                    data: content[..content.len().min(200)].to_string(),
+                    reason: e.to_string(),
+                })
+            })?
+        };
+
+        {
+            let mut cache = self.config_cache.lock().await;
+            *cache = Some(config.clone());
+        }
+        Ok(config)
     }
 
     pub async fn save_config(&self, config: &ScratchpadConfig) -> Result<(), CoreError> {
@@ -83,6 +100,11 @@ impl ScratchpadStore {
                 e.to_string(),
             ))
         })?;
+
+        {
+            let mut cache = self.config_cache.lock().await;
+            *cache = Some(config.clone());
+        }
         Ok(())
     }
 
@@ -192,6 +214,7 @@ impl ScratchpadStore {
             local_entries,
             external_references: config.external_references.clone(),
             scratchpad_path: self.scratchpad_dir.clone(),
+            file_meta: config.file_meta.clone(),
         })
     }
 
@@ -393,6 +416,17 @@ impl ScratchpadStore {
             ))
         })?;
 
+        if let Ok(mut config) = self.load_config().await {
+            if let Some(meta) = config.file_meta.remove(relative_path) {
+                if let Ok(new_relative) = new_path.strip_prefix(&self.scratchpad_dir) {
+                    config
+                        .file_meta
+                        .insert(new_relative.to_string_lossy().to_string(), meta);
+                    let _ = self.save_config(&config).await;
+                }
+            }
+        }
+
         let extension = new_path
             .extension()
             .map(|e| format!(".{}", e.to_string_lossy()))
@@ -575,6 +609,50 @@ impl ScratchpadStore {
 
         self.save_config(&config).await?;
         Ok(())
+    }
+
+    pub async fn update_file_meta(
+        &self,
+        relative_path: &str,
+        connection_id: Option<String>,
+    ) -> Result<(), CoreError> {
+        let mut config = self.load_config().await?;
+
+        let entry = config
+            .file_meta
+            .entry(relative_path.to_string())
+            .or_default();
+
+        if let Some(cid) = connection_id {
+            entry.last_connection_id = Some(cid);
+        }
+        entry.last_executed_at = Some(Utc::now());
+
+        self.save_config(&config).await
+    }
+
+    pub async fn search_file_content(&self, query: &str) -> Result<Vec<String>, CoreError> {
+        let entries = self.list_local_entries(MAX_DEPTH).await?;
+        let mut results = Vec::new();
+
+        for entry in &entries {
+            if entry.kind == ScratchpadEntryKind::Folder {
+                continue;
+            }
+            let content = fs::read_to_string(&entry.path).await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    entry.path.display().to_string(),
+                    "read",
+                    e.to_string(),
+                ))
+            })?;
+            if content.to_lowercase().contains(&query.to_lowercase()) {
+                if let Ok(rel) = entry.path.strip_prefix(&self.scratchpad_dir) {
+                    results.push(rel.to_string_lossy().to_string());
+                }
+            }
+        }
+        Ok(results)
     }
 
     fn resolve_path(&self, relative_path: &str) -> Result<PathBuf, CoreError> {

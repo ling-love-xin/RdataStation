@@ -10,13 +10,13 @@
 
 ## 架构目标
 
-| 指标 | 目标 | 说明 |
-|------|------|------|
-| 初始加载 | < 100ms | 从本地缓存加载 |
-| 缓存命中率 | > 80% | 智能预热策略 |
-| 内存占用 | < 100MB | LRU 淘汰策略 |
-| 预热取消 | < 50ms | 用户切换连接时 |
-| 版本迁移 | 自动 | 后端 SQLite 自动升级 |
+| 指标       | 目标    | 说明                 |
+| ---------- | ------- | -------------------- |
+| 初始加载   | < 100ms | 从本地缓存加载       |
+| 缓存命中率 | > 80%   | 智能预热策略         |
+| 内存占用   | < 100MB | LRU 淘汰策略         |
+| 预热取消   | < 50ms  | 用户切换连接时       |
+| 版本迁移   | 自动    | 后端 SQLite 自动升级 |
 
 ## 完整缓存架构
 
@@ -72,26 +72,29 @@
 
 ### 1. 三层缓存架构
 
-| 层级 | 位置 | 用途 | 淘汰策略 |
-|------|------|------|----------|
-| L1 - 前端状态 | Pinia Store | 当前会话热数据 | 组件卸载时清理 |
-| L2 - 后端缓存 | SQLite (每连接独立) | 持久化元数据 | LRU + 时间过期 |
-| L3 - 源数据库 | MySQL/PostgreSQL 等 | 真实数据源 | N/A |
+| 层级          | 位置                | 用途           | 淘汰策略       |
+| ------------- | ------------------- | -------------- | -------------- |
+| L1 - 前端状态 | Pinia Store         | 当前会话热数据 | 组件卸载时清理 |
+| L2 - 后端缓存 | SQLite (每连接独立) | 持久化元数据   | LRU + 时间过期 |
+| L3 - 源数据库 | MySQL/PostgreSQL 等 | 真实数据源     | N/A            |
 
 ### 2. 智能缓存预热
 
 #### 预热策略
+
 - **连接建立时**：自动预热数据库列表
 - **数据库展开时**：预热表列表
 - **表展开时**：预热列、索引、约束信息
 - **基于用户行为**：学习用户访问模式，预测下一步操作
 
 #### 预热取消机制
+
 - 用户切换连接时自动取消当前预热
 - 防止资源浪费和状态混乱
 - 提供预热状态显示
 
 #### 预热状态显示
+
 - 状态栏显示预热进度
 - 显示预热连接数、表数等统计
 - 支持手动取消预热
@@ -185,11 +188,11 @@
 
 **内省级别定义**（与 DataGrip 一致）
 
-| 级别 | 说明 | 对象数量阈值（当前 Schema） | 对象数量阈值（非当前 Schema） |
-|------|------|---------------------------|----------------------------|
-| Level 1 | 仅索引（名称） | > 3000 | > 10000 |
-| Level 2 | 概要（无源码） | 1000 - 3000 | 3000 - 10000 |
-| Level 3 | 完整 | <= 1000 | <= 3000 |
+| 级别    | 说明           | 对象数量阈值（当前 Schema） | 对象数量阈值（非当前 Schema） |
+| ------- | -------------- | --------------------------- | ----------------------------- |
+| Level 1 | 仅索引（名称） | > 3000                      | > 10000                       |
+| Level 2 | 概要（无源码） | 1000 - 3000                 | 3000 - 10000                  |
+| Level 3 | 完整           | <= 1000                     | <= 3000                       |
 
 **API**
 
@@ -214,11 +217,13 @@ const counts = await getSchemaObjectCounts(connectionId, schemaId)
 ### 18. 增量同步（V7）
 
 **设计目标**
+
 - 首次同步：全量预热
 - 后续同步：仅同步变更对象
 - 预热时间：减少 90%+
 
 **核心概念**
+
 - **快照（Snapshot）**：保存上次同步时的元数据状态
 - **Hash 计算**：SHA-256 计算对象 Hash（object_type + name + parent + extra_data）
 - **变更检测**：对比当前状态与快照状态
@@ -420,26 +425,26 @@ pub struct IndexBuildResponse {
 
 **优化特性 V3**
 
-| 特性 | 说明 | 收益 |
-|------|------|------|
-| **增量模式** | 首次全量，后续仅同步变更对象 | 减少 90%+ 预热时间 |
-| **快照保存** | 每次同步后保存元数据快照 | 下次同步用于变化检测 |
-| **Hash 变化检测** | SHA-256 计算对象 Hash | 准确检测对象变化 |
-| **JoinSet 多 Schema 并行** | 多个 Schema 的 tables 同时获取 | 减少 40-50% 时间 |
-| **JoinSet 表级并行** | 多个表的 columns 同时获取 | 减少 60-70% 时间 |
-| **流式写入** | 每 500 条写入一次 | 内存降低 50%+ |
-| **进度回调** | 通过 `cache_warming_progress` 事件推送进度 | UX 提升 |
-| **取消支持** | `CancellationToken` 支持中断执行 | 响应用户取消 |
+| 特性                       | 说明                                       | 收益                 |
+| -------------------------- | ------------------------------------------ | -------------------- |
+| **增量模式**               | 首次全量，后续仅同步变更对象               | 减少 90%+ 预热时间   |
+| **快照保存**               | 每次同步后保存元数据快照                   | 下次同步用于变化检测 |
+| **Hash 变化检测**          | SHA-256 计算对象 Hash                      | 准确检测对象变化     |
+| **JoinSet 多 Schema 并行** | 多个 Schema 的 tables 同时获取             | 减少 40-50% 时间     |
+| **JoinSet 表级并行**       | 多个表的 columns 同时获取                  | 减少 60-70% 时间     |
+| **流式写入**               | 每 500 条写入一次                          | 内存降低 50%+        |
+| **进度回调**               | 通过 `cache_warming_progress` 事件推送进度 | UX 提升              |
+| **取消支持**               | `CancellationToken` 支持中断执行           | 响应用户取消         |
 
 **优化特性 V2**
 
-| 特性 | 说明 | 收益 |
-|------|------|------|
-| **JoinSet 多 Schema 并行** | 多个 Schema 的 tables 同时获取 | 减少 40-50% 时间 |
-| **JoinSet 表级并行** | 多个表的 columns 同时获取 | 减少 60-70% 时间 |
-| **流式写入** | 每 500 条写入一次，而非全量内存构建后写入 | 内存降低 50%+ |
-| **进度回调** | 通过 `cache_warming_progress` 事件推送进度 | UX 提升 |
-| **取消支持** | `CancellationToken` 支持中断执行 | 响应用户取消 |
+| 特性                       | 说明                                       | 收益             |
+| -------------------------- | ------------------------------------------ | ---------------- |
+| **JoinSet 多 Schema 并行** | 多个 Schema 的 tables 同时获取             | 减少 40-50% 时间 |
+| **JoinSet 表级并行**       | 多个表的 columns 同时获取                  | 减少 60-70% 时间 |
+| **流式写入**               | 每 500 条写入一次，而非全量内存构建后写入  | 内存降低 50%+    |
+| **进度回调**               | 通过 `cache_warming_progress` 事件推送进度 | UX 提升          |
+| **取消支持**               | `CancellationToken` 支持中断执行           | 响应用户取消     |
 
 **执行流程（优化版 V2）**
 
@@ -474,17 +479,17 @@ pub struct IndexBuildResponse {
 
 ```typescript
 interface CacheWarmingProgress {
-    connection_id: string   // 连接 ID
-    step: string            // 当前步骤: fetching_schemas | fetching_tables | writing_index | completed
-    current: number         // 当前进度
-    total: number           // 总量
-    progress: number        // 百分比 0-100
-    message: string         // 状态消息
+  connection_id: string // 连接 ID
+  step: string // 当前步骤: fetching_schemas | fetching_tables | writing_index | completed
+  current: number // 当前进度
+  total: number // 总量
+  progress: number // 百分比 0-100
+  message: string // 状态消息
 }
 
 // 前端监听
-app.handle('cache_warming_progress', (event) => {
-    console.log(`进度: ${event.payload.progress}% - ${event.payload.message}`)
+app.handle('cache_warming_progress', event => {
+  console.log(`进度: ${event.payload.progress}% - ${event.payload.message}`)
 })
 ```
 
@@ -504,17 +509,17 @@ if cancel_token.is_cancelled() {
 **前端调用**
 
 ```typescript
-const unlisten = await app.listen('cache_warming_progress', (event) => {
-    updateProgress(event.payload)
+const unlisten = await app.listen('cache_warming_progress', event => {
+  updateProgress(event.payload)
 })
 
 const result = await invoke<IndexBuildResponse>('build_cache_index', {
-    connectionId: 'cache-123',
-    connectionType: 'project',
-    projectPath: '/path/to/project',
-    sourceConnectionId: 'conn-456',
-    database: 'mydb',
-    schema: 'public'
+  connectionId: 'cache-123',
+  connectionType: 'project',
+  projectPath: '/path/to/project',
+  sourceConnectionId: 'conn-456',
+  database: 'mydb',
+  schema: 'public',
 })
 
 unlisten() // 取消监听
@@ -524,13 +529,13 @@ unlisten() // 取消监听
 
 **优化参数**
 
-| PRAGMA | 值 | 说明 | 收益 |
-|--------|-----|------|------|
-| `journal_mode` | WAL | Write-Ahead Logging | 读写并发，减少写入锁竞争 |
-| `mmap_size` | 268435456 (256MB) | Memory-Mapped I/O | 读取性能提升 10-20% |
-| `cache_size` | -2000 (2MB) | 页缓存 | 减少磁盘 I/O |
-| `foreign_keys` | ON | 外键约束 | 数据完整性 |
-| `synchronous` | NORMAL | 同步模式 | WAL 模式下提供良好平衡 |
+| PRAGMA         | 值                | 说明                | 收益                     |
+| -------------- | ----------------- | ------------------- | ------------------------ |
+| `journal_mode` | WAL               | Write-Ahead Logging | 读写并发，减少写入锁竞争 |
+| `mmap_size`    | 268435456 (256MB) | Memory-Mapped I/O   | 读取性能提升 10-20%      |
+| `cache_size`   | -2000 (2MB)       | 页缓存              | 减少磁盘 I/O             |
+| `foreign_keys` | ON                | 外键约束            | 数据完整性               |
+| `synchronous`  | NORMAL            | 同步模式            | WAL 模式下提供良好平衡   |
 
 **实现位置**
 
@@ -570,22 +575,22 @@ pub fn open(&self) -> Result<Connection, CoreError> {
 export class CacheStateManager {
   // 前端缓存状态
   private cacheState = ref<Map<string, ICacheEntry>>(new Map())
-  
+
   // 检查缓存是否存在
   hasCache(key: string): boolean
-  
+
   // 获取缓存
   getCache(key: string): ICacheEntry | null
-  
+
   // 设置缓存
   setCache(key: string, data: any, ttl: number): void
-  
+
   // 删除缓存
   deleteCache(key: string): void
-  
+
   // 清理过期缓存
   cleanupExpired(): void
-  
+
   // 清理连接相关缓存
   clearConnection(connectionId: string): void
 }
@@ -602,13 +607,13 @@ pub struct MetadataCacheManager {
 impl MetadataCacheOps for MetadataCacheManager {
     // 获取缓存元数据
     fn get_cached_tables(&self, db_name: &str, schema_name: &str) -> Result<Vec<TableMeta>, CoreError>
-    
+
     // 保存缓存元数据
     fn save_tables_batch(&mut self, tables: Vec<...>) -> Result<(), CoreError>
-    
+
     // 使缓存失效
     fn invalidate_cache(&mut self, db_name: &str, schema_name: &str, table_name: Option<&str>) -> Result<(), CoreError>
-    
+
     // 获取缓存统计
     fn get_cache_stats(&self, db_name: &str, schema_name: &str) -> Result<CacheStats, CoreError>
 }
@@ -727,16 +732,26 @@ async function onDatabaseExpanded(connectionId: string, dbName: string) {
 }
 
 // 表展开时预热
-async function onTableExpanded(connectionId: string, dbName: string, schemaName: string, tableName: string) {
+async function onTableExpanded(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  tableName: string
+) {
   await warmTable(connectionId, 'global', dbName, schemaName, tableName, undefined)
   preloadAdjacent(connectionId, 'global', dbName, schemaName, tableName)
-  
+
   // 基于学习结果预热
-  warmBasedOnLearning(connectionId, 'global', {
-    database: dbName,
-    schema: schemaName,
-    table: tableName
-  }, undefined)
+  warmBasedOnLearning(
+    connectionId,
+    'global',
+    {
+      database: dbName,
+      schema: schemaName,
+      table: tableName,
+    },
+    undefined
+  )
 }
 </script>
 ```
@@ -776,21 +791,21 @@ pub struct V1ToV2Migration;
 
 impl MigrationStrategy for V1ToV2Migration {
     fn target_version(&self) -> u32 { 2 }
-    
+
     fn migrate(&self, conn: &Connection) -> Result<(), CoreError> {
         // 更新缓存版本记录
         conn.execute(
             "UPDATE cache_version SET version = ?1, upgraded_at = ?2, updated_at = ?3 WHERE id = 1",
             rusqlite::params![CURRENT_CACHE_VERSION, now, now],
         )?;
-        
+
         // 记录迁移历史
         conn.execute(
             "INSERT INTO cache_migration_history (from_version, to_version, migrated_at, reason, success)
              VALUES (?1, ?2, ?3, ?4, 1)",
             rusqlite::params![1, CURRENT_CACHE_VERSION, now, "升级到版本 2"],
         )?;
-        
+
         Ok(())
     }
 }
@@ -800,24 +815,25 @@ impl MigrationStrategy for V1ToV2Migration {
 
 ### 缓存命中率提升
 
-| 场景 | 优化前 | 优化后 | 提升 |
-|------|--------|--------|------|
-| 首次连接 | 0% | 60% | +60% |
-| 数据库展开 | 30% | 85% | +55% |
-| 表展开 | 20% | 90% | +70% |
-| 相邻节点 | 10% | 75% | +65% |
+| 场景       | 优化前 | 优化后 | 提升 |
+| ---------- | ------ | ------ | ---- |
+| 首次连接   | 0%     | 60%    | +60% |
+| 数据库展开 | 30%    | 85%    | +55% |
+| 表展开     | 20%    | 90%    | +70% |
+| 相邻节点   | 10%    | 75%    | +65% |
 
 ### 加载时间优化
 
-| 操作 | 优化前 | 优化后（V2） | 优化后（V7 增量） | 提升（V7） |
-|------|--------|-------------|------------------|-----------|
-| 首次同步（全量） | 500ms | 150ms | 150ms | -70% |
-| 后续同步（增量） | 500ms | 150ms | 15ms | -97% |
-| 数据库展开 | 300ms | 50ms | 50ms | -83% |
-| 表展开 | 200ms | 30ms | 30ms | -85% |
-| 列加载 | 150ms | 20ms | 20ms | -87% |
+| 操作             | 优化前 | 优化后（V2） | 优化后（V7 增量） | 提升（V7） |
+| ---------------- | ------ | ------------ | ----------------- | ---------- |
+| 首次同步（全量） | 500ms  | 150ms        | 150ms             | -70%       |
+| 后续同步（增量） | 500ms  | 150ms        | 15ms              | -97%       |
+| 数据库展开       | 300ms  | 50ms         | 50ms              | -83%       |
+| 表展开           | 200ms  | 30ms         | 30ms              | -85%       |
+| 列加载           | 150ms  | 20ms         | 20ms              | -87%       |
 
 **增量同步效果说明**
+
 - 首次同步：全量预热（150ms），与 V2 相同
 - 后续同步：仅同步变更对象（假设变更率 10%），约 15ms
 - 极端场景（无变更）：仅检测快照，约 1-2ms
@@ -825,11 +841,11 @@ impl MigrationStrategy for V1ToV2Migration {
 ### 存储空间优化
 
 | 数据类型 | 优化前 | 优化后（压缩） | 节省 |
-|----------|--------|----------------|------|
-| 表元数据 | 100KB | 30KB | -70% |
-| 列元数据 | 500KB | 150KB | -70% |
-| 索引信息 | 200KB | 60KB | -70% |
-| 约束信息 | 100KB | 30KB | -70% |
+| -------- | ------ | -------------- | ---- |
+| 表元数据 | 100KB  | 30KB           | -70% |
+| 列元数据 | 500KB  | 150KB          | -70% |
+| 索引信息 | 200KB  | 60KB           | -70% |
+| 约束信息 | 100KB  | 30KB           | -70% |
 
 ## 错误处理
 

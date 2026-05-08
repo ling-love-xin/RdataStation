@@ -1,6 +1,6 @@
 /**
  * 智能缓存预热策略
- * 
+ *
  * 实现智能缓存预热，根据用户行为动态调整预热深度
  * 支持并发控制、取消机制和进度追踪
  * 遵循架构规范：前端不实现业务逻辑，只负责调度后端 API
@@ -9,7 +9,11 @@
 import { ref } from 'vue'
 
 import { cacheStateManager } from './use-cache-state'
-import { refreshMetadataCache, getTablesFromCache, getColumnsFromCache } from '../services/metadata-cache-service'
+import {
+  refreshMetadataCache,
+  getTablesFromCache,
+  getColumnsFromCache,
+} from '../services/metadata-cache-service'
 
 /**
  * 预热深度
@@ -62,7 +66,7 @@ const defaultConfig: CacheWarmingConfig = {
   maxSchemas: 10,
   maxTables: 50,
   smartWarming: true,
-  concurrency: 2
+  concurrency: 2,
 }
 
 /**
@@ -109,7 +113,7 @@ export function useCacheWarming() {
     warmedSchemas: 0,
     warmedTables: 0,
     isCancelled: false,
-    currentConnectionId: null
+    currentConnectionId: null,
   })
 
   const config = ref<CacheWarmingConfig>({ ...defaultConfig })
@@ -131,7 +135,7 @@ export function useCacheWarming() {
         expandedSchemas: new Set(),
         clickedTables: new Set(),
         expandCount: 0,
-        lastActive: Date.now()
+        lastActive: Date.now(),
       }
       userBehaviors.value.set(connectionId, behavior)
     }
@@ -195,7 +199,7 @@ export function useCacheWarming() {
       running: 0,
       maxConcurrency: config.value.concurrency,
       cancelled: false,
-      abortController: new AbortController()
+      abortController: new AbortController(),
     }
   }
 
@@ -254,13 +258,16 @@ export function useCacheWarming() {
       try {
         const cacheState = cacheStateManager.getState({
           connectionId,
-          databaseName: dbName
+          databaseName: dbName,
         })
 
-        if (!cacheState?.isValid || cacheStateManager.isExpired({
-          connectionId,
-          databaseName: dbName
-        })) {
+        if (
+          !cacheState?.isValid ||
+          cacheStateManager.isExpired({
+            connectionId,
+            databaseName: dbName,
+          })
+        ) {
           await refreshMetadataCache(
             connectionId,
             connectionType,
@@ -281,7 +288,7 @@ export function useCacheWarming() {
 
           if ((smartDepth === 'tables' || smartDepth === 'columns') && tables.length > 0) {
             const tablesToWarm = tables.slice(0, config.value.maxTables)
-            
+
             for (const table of tablesToWarm) {
               if (controller.cancelled || controller.abortController.signal.aborted) {
                 return false
@@ -305,11 +312,7 @@ export function useCacheWarming() {
           }
         }
 
-        cacheStateManager.markValid(
-          { connectionId, databaseName: dbName },
-          0,
-          0
-        )
+        cacheStateManager.markValid({ connectionId, databaseName: dbName }, 0, 0)
 
         return true
       } catch (error) {
@@ -345,7 +348,7 @@ export function useCacheWarming() {
     const dbsToWarm = databases.slice(0, config.value.maxDatabases)
     let warmed = 0
 
-    const warmingPromises = dbsToWarm.map(async (dbName) => {
+    const warmingPromises = dbsToWarm.map(async dbName => {
       if (controller.cancelled || controller.abortController.signal.aborted) {
         return
       }
@@ -392,13 +395,16 @@ export function useCacheWarming() {
     try {
       const cacheState = cacheStateManager.getState({
         connectionId,
-        databaseName: dbName
+        databaseName: dbName,
       })
 
-      if (!cacheState?.isValid || cacheStateManager.isExpired({
-        connectionId,
-        databaseName: dbName
-      })) {
+      if (
+        !cacheState?.isValid ||
+        cacheStateManager.isExpired({
+          connectionId,
+          databaseName: dbName,
+        })
+      ) {
         await refreshMetadataCache(
           connectionId,
           connectionType,
@@ -417,11 +423,7 @@ export function useCacheWarming() {
           projectPath
         ).catch(() => [])
 
-        cacheStateManager.markValid(
-          { connectionId, databaseName: dbName },
-          tables.length,
-          0
-        )
+        cacheStateManager.markValid({ connectionId, databaseName: dbName }, tables.length, 0)
       }
     } catch (error) {
       console.error(`预热数据库 ${dbName} 失败:`, error)
@@ -459,7 +461,7 @@ export function useCacheWarming() {
 
       if ((smartDepth === 'tables' || smartDepth === 'columns') && tables.length > 0) {
         const tablesToWarm = tables.slice(0, config.value.maxTables)
-        
+
         for (const table of tablesToWarm) {
           if (smartDepth === 'columns') {
             await getColumnsFromCache(
@@ -508,7 +510,6 @@ export function useCacheWarming() {
     recordBehavior,
     cancelWarming,
     clearWarmingState,
-    updateConfig
+    updateConfig,
   }
 }
-

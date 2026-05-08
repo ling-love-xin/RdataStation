@@ -30,7 +30,9 @@
         @click.stop
       />
 
-      <span v-if="entry.kind === 'file' && entry.size > 0" class="node-size">{{ formatSize(entry.size) }}</span>
+      <span v-if="entry.kind === 'file' && entry.size > 0" class="node-size">{{
+        formatSize(entry.size)
+      }}</span>
       <span v-if="entry.kind === 'folder'" class="node-arrow" />
     </div>
 
@@ -57,8 +59,17 @@
 
 <script setup lang="ts">
 import {
-  File, Folder, FolderOpen, Database, FileCode,
-  Table2, FileText, Braces, BookOpen, ChevronDown, ChevronRight
+  File,
+  Folder,
+  FolderOpen,
+  Database,
+  FileCode,
+  Table2,
+  FileText,
+  Braces,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-vue-next'
 import { NIcon } from 'naive-ui'
 import { computed, ref, watch, nextTick } from 'vue'
@@ -108,7 +119,7 @@ const fileIcon = computed(() => {
   return extensionIconMap[ext] || File
 })
 
-watch(isRenaming, async (val) => {
+watch(isRenaming, async val => {
   if (val) {
     renameValue.value = props.entry.name
     await nextTick()
@@ -204,7 +215,7 @@ function formatSize(bytes: number): string {
 }
 
 .node-row.selected {
-  background-color: var(--primary-color, #165DFF);
+  background-color: var(--primary-color, #165dff);
   color: #ffffff;
 }
 
@@ -239,7 +250,7 @@ function formatSize(bytes: number): string {
   height: 22px;
   padding: 0 4px;
   font-size: 13px;
-  border: 1px solid var(--primary-color, #165DFF);
+  border: 1px solid var(--primary-color, #165dff);
   border-radius: 2px;
   outline: none;
   background: var(--bg-primary, #ffffff);

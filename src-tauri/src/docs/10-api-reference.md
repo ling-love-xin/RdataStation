@@ -11,43 +11,46 @@
 创建数据库连接。
 
 **参数**：
+
 ```typescript
 interface ConnectDatabaseInput {
-  db_type: string;      // 数据库类型: "mysql", "postgresql", "sqlite", "duckdb"
-  url: string;          // 连接 URL
-  name?: string;        // 连接名称（可选）
+  db_type: string // 数据库类型: "mysql", "postgresql", "sqlite", "duckdb"
+  url: string // 连接 URL
+  name?: string // 连接名称（可选）
 }
 ```
 
 **返回**：
+
 ```typescript
 interface ConnectDatabaseResponse {
-  conn_id: string;      // 连接 ID
-  name: string;         // 连接名称
-  db_type: string;      // 数据库类型
-  url: string;          // 连接 URL
-  meta: DataSourceMeta; // 数据源元数据
+  conn_id: string // 连接 ID
+  name: string // 连接名称
+  db_type: string // 数据库类型
+  url: string // 连接 URL
+  meta: DataSourceMeta // 数据源元数据
 }
 
 interface DataSourceMeta {
-  supports_transaction: boolean;
-  supports_streaming: boolean;
-  supports_arrow: boolean;
-  supports_federated: boolean;
-  supports_concurrent_write: boolean;
-  is_in_memory: boolean;
+  supports_transaction: boolean
+  supports_streaming: boolean
+  supports_arrow: boolean
+  supports_federated: boolean
+  supports_concurrent_write: boolean
+  is_in_memory: boolean
 }
 ```
 
 **示例**：
+
 ```typescript
 const result = await invoke('connect_database', {
   input: {
     db_type: 'postgresql',
     url: 'postgres://user:pass@localhost:5432/mydb',
-    name: 'My PostgreSQL'
-  }
-});
+    name: 'My PostgreSQL',
+  },
+})
 // result.conn_id: "conn_abc123"
 ```
 
@@ -58,22 +61,24 @@ const result = await invoke('connect_database', {
 **参数**：无
 
 **返回**：
+
 ```typescript
 interface ConnectionInfoResponse {
-  id: string;
-  name: string;
-  db_type: string;
-  url: string;
-  is_active: boolean;
-  connected_at: string;  // ISO 8601 格式
+  id: string
+  name: string
+  db_type: string
+  url: string
+  is_active: boolean
+  connected_at: string // ISO 8601 格式
 }
 
 // 返回: ConnectionInfoResponse[]
 ```
 
 **示例**：
+
 ```typescript
-const connections = await invoke('get_connections');
+const connections = await invoke('get_connections')
 // connections: [{ id: "conn_1", name: "MyDB", ... }]
 ```
 
@@ -82,19 +87,21 @@ const connections = await invoke('get_connections');
 切换当前活动连接。
 
 **参数**：
+
 ```typescript
 interface SwitchConnectionInput {
-  conn_id: string;
+  conn_id: string
 }
 ```
 
 **返回**：`void`
 
 **示例**：
+
 ```typescript
 await invoke('switch_connection', {
-  input: { conn_id: 'conn_abc123' }
-});
+  input: { conn_id: 'conn_abc123' },
+})
 ```
 
 ### close_connection
@@ -102,17 +109,19 @@ await invoke('switch_connection', {
 关闭指定连接。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
+  conn_id: string
 }
 ```
 
 **返回**：`void`
 
 **示例**：
+
 ```typescript
-await invoke('close_connection', { conn_id: 'conn_abc123' });
+await invoke('close_connection', { conn_id: 'conn_abc123' })
 ```
 
 ### close_all_connections
@@ -130,11 +139,12 @@ await invoke('close_connection', { conn_id: 'conn_abc123' });
 **参数**：无
 
 **返回**：
+
 ```typescript
 interface ActiveConnectionResponse {
-  conn_id: string;
-  name: string;
-  db_type: string;
+  conn_id: string
+  name: string
+  db_type: string
 }
 // 或 null（如果没有活动连接）
 ```
@@ -144,20 +154,22 @@ interface ActiveConnectionResponse {
 测试数据库连接（不保存）。
 
 **参数**：
+
 ```typescript
 {
-  db_type: string;
-  url: string;
+  db_type: string
+  url: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface TestConnectionResponse {
-  success: boolean;
-  message: string;
-  server_version: string;
-  response_time_ms: number;
+  success: boolean
+  message: string
+  server_version: string
+  response_time_ms: number
 }
 ```
 
@@ -168,24 +180,26 @@ interface TestConnectionResponse {
 执行 SQL 查询。
 
 **参数**：
+
 ```typescript
 interface ExecuteSqlInput {
-  conn_id?: string;     // 连接 ID（可选，使用活动连接）
-  sql: string;          // SQL 语句
-  timeout_ms?: number;  // 超时时间（毫秒，可选）
+  conn_id?: string // 连接 ID（可选，使用活动连接）
+  sql: string // SQL 语句
+  timeout_ms?: number // 超时时间（毫秒，可选）
 }
 ```
 
 **返回**：
+
 ```typescript
 interface ExecuteSqlResponse {
-  columns: string[];           // 列名
-  rows: Value[][];            // 数据行
-  affected_rows?: number;     // 影响的行数（INSERT/UPDATE/DELETE）
-  execution_time_ms: number;  // 执行时间
+  columns: string[] // 列名
+  rows: Value[][] // 数据行
+  affected_rows?: number // 影响的行数（INSERT/UPDATE/DELETE）
+  execution_time_ms: number // 执行时间
 }
 
-type Value = 
+type Value =
   | { type: 'null' }
   | { type: 'string'; value: string }
   | { type: 'int64'; value: number }
@@ -194,18 +208,19 @@ type Value =
   | { type: 'bytes'; value: number[] }
   | { type: 'date'; value: string }
   | { type: 'time'; value: string }
-  | { type: 'datetime'; value: string };
+  | { type: 'datetime'; value: string }
 ```
 
 **示例**：
+
 ```typescript
 const result = await invoke('execute_sql', {
   input: {
     conn_id: 'conn_abc123',
     sql: 'SELECT * FROM users WHERE id = $1',
-    timeout_ms: 30000
-  }
-});
+    timeout_ms: 30000,
+  },
+})
 
 // result:
 // {
@@ -222,21 +237,24 @@ const result = await invoke('execute_sql', {
 在事务中执行多个 SQL。
 
 **参数**：
+
 ```typescript
 interface ExecuteTransactionInput {
-  conn_id?: string;
-  sqls: string[];       // SQL 语句数组
+  conn_id?: string
+  sqls: string[] // SQL 语句数组
 }
 ```
 
 **返回**：
+
 ```typescript
 interface ExecuteTransactionResponse {
-  results: ExecuteSqlResponse[];
+  results: ExecuteSqlResponse[]
 }
 ```
 
 **示例**：
+
 ```typescript
 const result = await invoke('execute_transaction', {
   input: {
@@ -244,10 +262,10 @@ const result = await invoke('execute_transaction', {
       'BEGIN',
       'UPDATE accounts SET balance = balance - 100 WHERE id = 1',
       'UPDATE accounts SET balance = balance + 100 WHERE id = 2',
-      'COMMIT'
-    ]
-  }
-});
+      'COMMIT',
+    ],
+  },
+})
 ```
 
 ## 元数据查询
@@ -257,23 +275,26 @@ const result = await invoke('execute_transaction', {
 获取数据库列表。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
+  conn_id: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface DatabaseInfoResponse {
-  name: string;
+  name: string
 }
 // 返回: DatabaseInfoResponse[]
 ```
 
 **示例**：
+
 ```typescript
-const databases = await invoke('get_databases', { conn_id: 'conn_abc123' });
+const databases = await invoke('get_databases', { conn_id: 'conn_abc123' })
 // databases: [{ name: "postgres" }, { name: "myapp" }]
 ```
 
@@ -282,17 +303,19 @@ const databases = await invoke('get_databases', { conn_id: 'conn_abc123' });
 获取 Schema 列表。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
+  conn_id: string
+  database: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface SchemaInfoResponse {
-  name: string;
+  name: string
 }
 // 返回: SchemaInfoResponse[]
 ```
@@ -302,19 +325,21 @@ interface SchemaInfoResponse {
 获取表列表。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
-  schema: string;
+  conn_id: string
+  database: string
+  schema: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface TableInfoResponse {
-  name: string;
-  type: string;  // "table" | "view"
+  name: string
+  type: string // "table" | "view"
 }
 // 返回: TableInfoResponse[]
 ```
@@ -324,11 +349,12 @@ interface TableInfoResponse {
 获取视图列表。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
-  schema: string;
+  conn_id: string
+  database: string
+  schema: string
 }
 ```
 
@@ -339,23 +365,25 @@ interface TableInfoResponse {
 获取表的列信息。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
-  schema: string;
-  table: string;
+  conn_id: string
+  database: string
+  schema: string
+  table: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface ColumnInfoResponse {
-  name: string;
-  data_type: string;
-  nullable?: boolean;
-  default_value?: string;
-  is_primary_key?: boolean;
+  name: string
+  data_type: string
+  nullable?: boolean
+  default_value?: string
+  is_primary_key?: boolean
 }
 // 返回: ColumnInfoResponse[]
 ```
@@ -365,9 +393,10 @@ interface ColumnInfoResponse {
 列出数据库（简化版）。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
+  conn_id: string
 }
 ```
 
@@ -378,10 +407,11 @@ interface ColumnInfoResponse {
 列出 Schema。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
+  conn_id: string
+  database: string
 }
 ```
 
@@ -392,6 +422,7 @@ interface ColumnInfoResponse {
 列出表和视图。
 
 **参数**：
+
 ```typescript
 {
   conn_id: string;
@@ -401,11 +432,12 @@ interface ColumnInfoResponse {
 ```
 
 **返回**：
+
 ```typescript
 interface SchemaObjectResponse {
-  name: string;
-  kind: string;  // "database" | "schema" | "table" | "view" | "column"
-  children?: SchemaObjectResponse[];
+  name: string
+  kind: string // "database" | "schema" | "table" | "view" | "column"
+  children?: SchemaObjectResponse[]
 }
 // 返回: SchemaObjectResponse[]
 ```
@@ -415,6 +447,7 @@ interface SchemaObjectResponse {
 列出表的列。
 
 **参数**：
+
 ```typescript
 {
   conn_id: string;
@@ -433,6 +466,7 @@ interface SchemaObjectResponse {
 获取 SQL 执行历史。
 
 **参数**：
+
 ```typescript
 {
   limit?: number;  // 默认 100
@@ -440,12 +474,13 @@ interface SchemaObjectResponse {
 ```
 
 **返回**：
+
 ```typescript
 interface SqlHistoryResponse {
-  id: string;
-  sql: string;
-  conn_id?: string;
-  executed_at: string;  // ISO 8601
+  id: string
+  sql: string
+  conn_id?: string
+  executed_at: string // ISO 8601
 }
 // 返回: SqlHistoryResponse[]
 ```
@@ -455,6 +490,7 @@ interface SqlHistoryResponse {
 搜索 SQL 历史。
 
 **参数**：
+
 ```typescript
 {
   keyword: string;
@@ -477,9 +513,10 @@ interface SqlHistoryResponse {
 删除单条 SQL 历史。
 
 **参数**：
+
 ```typescript
 {
-  id: string;
+  id: string
 }
 ```
 
@@ -494,12 +531,13 @@ interface SqlHistoryResponse {
 **参数**：无
 
 **返回**：
+
 ```typescript
 interface RecentConnectionResponse {
-  name: string;
-  db_type: string;
-  url: string;
-  last_used_at: string;  // ISO 8601
+  name: string
+  db_type: string
+  url: string
+  last_used_at: string // ISO 8601
 }
 // 返回: RecentConnectionResponse[]
 ```
@@ -509,9 +547,10 @@ interface RecentConnectionResponse {
 删除最近连接记录。
 
 **参数**：
+
 ```typescript
 {
-  name: string;
+  name: string
 }
 ```
 
@@ -526,37 +565,38 @@ interface RecentConnectionResponse {
 **参数**：无
 
 **返回**：
+
 ```typescript
 interface DriverDescriptor {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
-  icon?: string;
-  default_port: number;
-  connection_fields: DriverField[];
-  features: DriverFeatures;
+  id: string
+  name: string
+  description: string
+  version: string
+  icon?: string
+  default_port: number
+  connection_fields: DriverField[]
+  features: DriverFeatures
 }
 
 interface DriverField {
-  name: string;
-  label: string;
-  field_type: 'string' | 'number' | 'password' | 'boolean' | 'select';
-  required: boolean;
-  default_value?: string;
-  options?: string[];  // 用于 select 类型
+  name: string
+  label: string
+  field_type: 'string' | 'number' | 'password' | 'boolean' | 'select'
+  required: boolean
+  default_value?: string
+  options?: string[] // 用于 select 类型
 }
 
 interface DriverFeatures {
-  supports_transactions: boolean;
-  supports_ssl: boolean;
-  supports_ssh_tunnel: boolean;
-  supports_multiple_databases: boolean;
-  supports_schemas: boolean;
-  supports_views: boolean;
-  supports_stored_procedures: boolean;
-  supports_functions: boolean;
-  supports_triggers: boolean;
+  supports_transactions: boolean
+  supports_ssl: boolean
+  supports_ssh_tunnel: boolean
+  supports_multiple_databases: boolean
+  supports_schemas: boolean
+  supports_views: boolean
+  supports_stored_procedures: boolean
+  supports_functions: boolean
+  supports_triggers: boolean
 }
 
 // 返回: DriverDescriptor[]
@@ -567,9 +607,10 @@ interface DriverFeatures {
 获取指定驱动的详细信息。
 
 **参数**：
+
 ```typescript
 {
-  driver_id: string;
+  driver_id: string
 }
 ```
 
@@ -582,45 +623,48 @@ interface DriverFeatures {
 通过 DBI 执行查询（支持智能路由）。
 
 **参数**：
+
 ```typescript
 interface DBIQueryInput {
-  sql: string;
-  conn_id?: string;
-  mode?: 'native' | 'duckdb' | 'stream' | 'auto';  // 默认 'auto'
-  timeout_ms?: number;
+  sql: string
+  conn_id?: string
+  mode?: 'native' | 'duckdb' | 'stream' | 'auto' // 默认 'auto'
+  timeout_ms?: number
 }
 ```
 
 **返回**：
+
 ```typescript
 interface DBIQueryResponse {
-  columns: string[];
-  rows: Value[][];
-  affected_rows?: number;
-  execution_time_ms: number;
-  execution_mode: 'native' | 'duckdb' | 'stream';  // 实际使用的执行模式
-  is_read_only: boolean;
+  columns: string[]
+  rows: Value[][]
+  affected_rows?: number
+  execution_time_ms: number
+  execution_mode: 'native' | 'duckdb' | 'stream' // 实际使用的执行模式
+  is_read_only: boolean
 }
 ```
 
 **示例**：
+
 ```typescript
 // 自动模式（智能推荐）
 const result = await invoke('dbi_query', {
   input: {
     sql: 'SELECT u.*, o.total FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.id',
-    mode: 'auto'
-  }
-});
+    mode: 'auto',
+  },
+})
 // result.execution_mode: "duckdb" (复杂查询自动路由到 DuckDB)
 
 // 强制使用原生驱动
 const result2 = await invoke('dbi_query', {
   input: {
     sql: 'SELECT * FROM users WHERE id = 1',
-    mode: 'native'
-  }
-});
+    mode: 'native',
+  },
+})
 ```
 
 ### dbi_execute
@@ -628,28 +672,31 @@ const result2 = await invoke('dbi_query', {
 通过 DBI 执行写操作（INSERT/UPDATE/DELETE）。
 
 **参数**：
+
 ```typescript
 interface DBIExecuteInput {
-  sql: string;
-  conn_id?: string;
+  sql: string
+  conn_id?: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface DBIExecuteResponse {
-  affected_rows: number;
-  execution_time_ms: number;
+  affected_rows: number
+  execution_time_ms: number
 }
 ```
 
 **示例**：
+
 ```typescript
 const result = await invoke('dbi_execute', {
   input: {
-    sql: "UPDATE users SET name = 'John' WHERE id = 1"
-  }
-});
+    sql: "UPDATE users SET name = 'John' WHERE id = 1",
+  },
+})
 // result.affected_rows: 1
 ```
 
@@ -658,25 +705,27 @@ const result = await invoke('dbi_execute', {
 注册外部数据库到 DuckDB（用于联邦查询）。
 
 **参数**：
+
 ```typescript
 interface RegisterExternalDBInput {
-  name: string;           // 数据库别名
-  driver: string;         // 驱动类型: "mysql", "postgresql"
-  connection_string: string;  // 连接字符串
+  name: string // 数据库别名
+  driver: string // 驱动类型: "mysql", "postgresql"
+  connection_string: string // 连接字符串
 }
 ```
 
 **返回**：`void`
 
 **示例**：
+
 ```typescript
 await invoke('register_external_database', {
   input: {
     name: 'mysql_prod',
     driver: 'mysql',
-    connection_string: 'mysql://user:pass@prod-host:3306/mydb'
-  }
-});
+    connection_string: 'mysql://user:pass@prod-host:3306/mydb',
+  },
+})
 ```
 
 ### detach_external_database
@@ -684,9 +733,10 @@ await invoke('register_external_database', {
 卸载外部数据库。
 
 **参数**：
+
 ```typescript
 {
-  name: string;
+  name: string
 }
 ```
 
@@ -697,31 +747,33 @@ await invoke('register_external_database', {
 加载文件数据源到 DuckDB（CSV/Excel/Parquet）。
 
 **参数**：
+
 ```typescript
 interface LoadFileSourceInput {
-  path: string;         // 文件绝对路径
-  table_name: string;   // 临时表名
+  path: string // 文件绝对路径
+  table_name: string // 临时表名
 }
 ```
 
 **返回**：`void`
 
 **示例**：
+
 ```typescript
 await invoke('load_file_source', {
   input: {
     path: '/path/to/data.csv',
-    table_name: 'temp_csv_data'
-  }
-});
+    table_name: 'temp_csv_data',
+  },
+})
 
 // 现在可以查询
 const result = await invoke('dbi_query', {
   input: {
     sql: 'SELECT * FROM temp_csv_data WHERE column1 > 100',
-    mode: 'duckdb'
-  }
-});
+    mode: 'duckdb',
+  },
+})
 ```
 
 ### persist_result_set
@@ -729,16 +781,18 @@ const result = await invoke('dbi_query', {
 持久化结果集到 DuckDB。
 
 **参数**：
+
 ```typescript
 interface PersistResultSetInput {
-  result_name: string;  // 结果集名称
-  sql: string;          // 查询 SQL
+  result_name: string // 结果集名称
+  sql: string // 查询 SQL
 }
 ```
 
 **返回**：`void`
 
 **示例**：
+
 ```typescript
 await invoke('persist_result_set', {
   input: {
@@ -748,17 +802,17 @@ await invoke('persist_result_set', {
       FROM mysql_prod.users u 
       JOIN pg_prod.orders o ON u.id = o.user_id 
       WHERE o.created_at > '2024-01-01'
-    `
-  }
-});
+    `,
+  },
+})
 
 // 后续可以查询持久化的结果集
 const result = await invoke('dbi_query', {
   input: {
     sql: 'SELECT * FROM user_orders_2024 WHERE total > 1000',
-    mode: 'duckdb'
-  }
-});
+    mode: 'duckdb',
+  },
+})
 ```
 
 ### list_external_databases
@@ -768,13 +822,14 @@ const result = await invoke('dbi_query', {
 **参数**：无
 
 **返回**：
+
 ```typescript
 interface ExternalDatabaseInfo {
-  name: string;
-  driver: string;
-  connection_string: string;
-  read_only: boolean;
-  is_attached: boolean;
+  name: string
+  driver: string
+  connection_string: string
+  read_only: boolean
+  is_attached: boolean
 }
 // 返回: ExternalDatabaseInfo[]
 ```
@@ -786,12 +841,13 @@ interface ExternalDatabaseInfo {
 **参数**：无
 
 **返回**：
+
 ```typescript
 interface ResultSetInfo {
-  name: string;
-  created_at: string;  // ISO 8601
-  row_count: number;
-  source_sql: string;
+  name: string
+  created_at: string // ISO 8601
+  row_count: number
+  source_sql: string
 }
 // 返回: ResultSetInfo[]
 ```
@@ -801,9 +857,10 @@ interface ResultSetInfo {
 删除持久化的结果集。
 
 **参数**：
+
 ```typescript
 {
-  result_name: string;
+  result_name: string
 }
 ```
 
@@ -814,27 +871,30 @@ interface ResultSetInfo {
 智能推荐执行模式（基于 SQL 分析）。
 
 **参数**：
+
 ```typescript
 {
-  sql: string;
+  sql: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface RecommendModeResponse {
-  mode: 'native' | 'duckdb' | 'stream';
-  reason: string;  // 推荐理由
+  mode: 'native' | 'duckdb' | 'stream'
+  reason: string // 推荐理由
 }
 ```
 
 **示例**：
+
 ```typescript
 const recommendation = await invoke('recommend_execution_mode', {
   input: {
-    sql: 'SELECT u.*, COUNT(o.id) as order_count FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id ORDER BY order_count DESC'
-  }
-});
+    sql: 'SELECT u.*, COUNT(o.id) as order_count FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id ORDER BY order_count DESC',
+  },
+})
 // recommendation.mode: "duckdb"
 // recommendation.reason: "Complex query with JOIN, GROUP BY, and ORDER BY - DuckDB acceleration recommended"
 ```
@@ -846,6 +906,7 @@ const recommendation = await invoke('recommend_execution_mode', {
 创建新项目。
 
 **参数**：
+
 ```typescript
 {
   name: string;
@@ -855,14 +916,15 @@ const recommendation = await invoke('recommend_execution_mode', {
 ```
 
 **返回**：
+
 ```typescript
 interface ProjectInfo {
-  id: string;
-  name: string;
-  path: string;
-  status: 'active' | 'archived';
-  created_at: string;
-  updated_at: string;
+  id: string
+  name: string
+  path: string
+  status: 'active' | 'archived'
+  created_at: string
+  updated_at: string
 }
 ```
 
@@ -871,9 +933,10 @@ interface ProjectInfo {
 打开项目。
 
 **参数**：
+
 ```typescript
 {
-  path: string;
+  path: string
 }
 ```
 
@@ -884,18 +947,20 @@ interface ProjectInfo {
 获取项目配置。
 
 **参数**：
+
 ```typescript
 {
-  project_id: string;
+  project_id: string
 }
 ```
 
 **返回**：
+
 ```typescript
 interface ProjectConfig {
-  theme: 'light' | 'dark' | 'system';
-  editor: EditorConfig;
-  connections: ConnectionConfig[];
+  theme: 'light' | 'dark' | 'system'
+  editor: EditorConfig
+  connections: ConnectionConfig[]
 }
 ```
 
@@ -904,10 +969,11 @@ interface ProjectConfig {
 更新项目配置。
 
 **参数**：
+
 ```typescript
 {
-  project_id: string;
-  config: Partial<ProjectConfig>;
+  project_id: string
+  config: Partial<ProjectConfig>
 }
 ```
 
@@ -926,9 +992,10 @@ interface ProjectConfig {
 添加项目到最近列表。
 
 **参数**：
+
 ```typescript
 {
-  path: string;
+  path: string
 }
 ```
 
@@ -941,6 +1008,7 @@ interface ProjectConfig {
 协商可用端口。
 
 **参数**：
+
 ```typescript
 {
   preferred_port?: number;
@@ -949,10 +1017,11 @@ interface ProjectConfig {
 ```
 
 **返回**：
+
 ```typescript
 {
-  port: number;
-  is_preferred: boolean;
+  port: number
+  is_preferred: boolean
 }
 ```
 
@@ -961,9 +1030,10 @@ interface ProjectConfig {
 检查端口是否可用。
 
 **参数**：
+
 ```typescript
 {
-  port: number;
+  port: number
 }
 ```
 
@@ -976,12 +1046,13 @@ interface ProjectConfig {
 **参数**：无
 
 **返回**：
+
 ```typescript
 {
-  mysql: 3306;
-  postgresql: 5432;
-  mongodb: 27017;
-  redis: 6379;
+  mysql: 3306
+  postgresql: 5432
+  mongodb: 27017
+  redis: 6379
   // ...
 }
 ```
@@ -995,10 +1066,11 @@ interface ProjectConfig {
 计算并返回完整的列洞察报告。
 
 **参数**：
+
 ```typescript
 {
-  tempTable: string;
-  column: string;
+  tempTable: string
+  column: string
 }
 ```
 
@@ -1009,10 +1081,11 @@ interface ProjectConfig {
 将当前列洞察保存为持久化版本快照。
 
 **参数**：
+
 ```typescript
 {
-  temp_table: string;
-  column_name: string;
+  temp_table: string
+  column_name: string
 }
 ```
 
@@ -1023,9 +1096,10 @@ interface ProjectConfig {
 查询某列的所有洞察版本历史。
 
 **参数**：
+
 ```typescript
 {
-  column_name: string;
+  column_name: string
 }
 ```
 
@@ -1044,9 +1118,10 @@ interface ProjectConfig {
 清理超过指定天数的旧洞察快照。
 
 **参数**：
+
 ```typescript
 {
-  older_than_days: number;  // 默认 90
+  older_than_days: number // 默认 90
 }
 ```
 
@@ -1057,9 +1132,10 @@ interface ProjectConfig {
 获取指定版本的完整洞察数据。
 
 **参数**：
+
 ```typescript
 {
-  version_id: string;
+  version_id: string
 }
 ```
 
@@ -1070,13 +1146,14 @@ interface ProjectConfig {
 获取表的元数据探查（列名/类型/可空/主键/行数）。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  db_type: string;
-  database: string;
-  schema: string;
-  table: string;
+  conn_id: string
+  db_type: string
+  database: string
+  schema: string
+  table: string
 }
 ```
 
@@ -1089,13 +1166,14 @@ interface ProjectConfig {
 > 后端自动：`SqlService 取样 → DuckDB temp 表 → 列洞察全量分析` 一步完成。
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
-  schema: string;
-  table: string;
-  column_name: string;
+  conn_id: string
+  database: string
+  schema: string
+  table: string
+  column_name: string
 }
 ```
 
@@ -1106,10 +1184,11 @@ interface ProjectConfig {
 计算列数据质量评分（0-100），基于完整性、唯一性、类型一致性、分布均匀性四维度加权。
 
 **参数**：
+
 ```typescript
 {
-  column_name: string;
-  temp_table: string;
+  column_name: string
+  temp_table: string
 }
 ```
 
@@ -1131,12 +1210,13 @@ interface ProjectConfig {
 > 后端自动：SELECT LIMIT 500 → JSON 解析 → DuckDB temp 表 → 全列 insight → 聚合 TableQuality
 
 **参数**：
+
 ```typescript
 {
-  conn_id: string;
-  database: string;
-  schema: string;
-  table: string;
+  conn_id: string
+  database: string
+  schema: string
+  table: string
 }
 ```
 
@@ -1144,16 +1224,46 @@ interface ProjectConfig {
 
 **使用场景**：TableProfileView "质量评估" 按钮，导航树右键表探查后一键评估
 
+### get_schema_insight
+
+Schema 级洞察分析：外键推断、跨表类型一致性检查、孤立表检测、冗余列检测、Schema 健康评分。
+
+> 后端自动：`information_schema.tables + columns` → 模式匹配外键 → 类型对比 → 评分
+
+**参数**：
+
+```typescript
+{
+  conn_id: string
+  database: string
+  schema: string
+}
+```
+
+**返回**：`SchemaInsightReport { schema_name, table_count, total_columns, fk_candidates: [{ source_table, source_column, target_table, confidence }], type_mismatches: [{ column_name, tables, severity }], orphan_tables: [{ table_name, column_count, reason }], redundant_columns: [{ column_name, table_count, suggestion }], summary, health_score, health_level }`
+
+**检测维度**：
+| 维度 | 方法 | 说明 |
+|:--|:--|:--|
+| 外键候选 | `infer_foreign_keys()` | 4 种命名模式（\_id/\_key/\_ref/\_uuid）+ 置信度（high/medium/low） |
+| 类型一致 | `detect_type_mismatches()` | 同名列在不同表类型对比（critical/warning/info） |
+| 孤立表 | `detect_orphan_tables()` | 未被任何表引用的表（含原因说明） |
+| 冗余列 | `detect_redundant_columns()` | 时间戳/审计列扩散检测 + 规范化建议 |
+| 健康评分 | `compute_health()` | 加权评分算法（0-100） |
+
+> **架构优化（v12.0+）**：DuckDB 实例已统一为全局单例 `DuckDBManager`。`ResultService` 和 `DuckDBEngine`（DBI）共用同一个 DuckDB 连接，避免重复创建 in-memory 实例。`duckdb_engine.rs` 的 `tokio::sync::Mutex` 已替换为 `std::sync::Mutex`（DuckDB 操作均为同步无 I/O 等待）。
+
 ### execute_insight_rule
 
 执行一条声明式规则（支持列洞察和多列分析）。
 
 **参数**：
+
 ```typescript
 {
-  rule_id: string;           // 规则 ID (如 "correlation")
-  params: Record<string, string>;  // SQL 模板参数
-  temp_table: string;
+  rule_id: string // 规则 ID (如 "correlation")
+  params: Record<string, string> // SQL 模板参数
+  temp_table: string
 }
 ```
 
@@ -1172,30 +1282,32 @@ interface ProjectConfig {
 根据列类型过滤适用规则。
 
 **参数**：
+
 ```typescript
 {
-  column_type: string;  // "Numeric" | "Text" | "DateTime" | "Boolean"
+  column_type: string // "Numeric" | "Text" | "DateTime" | "Boolean"
 }
 ```
 
 **返回**：`RuleMeta[]`
 
 **示例**：
+
 ```typescript
 // 执行多列相关性分析
 const result = await invoke('execute_insight_rule', {
   input: {
     rule_id: 'correlation',
     params: { table: 'tmp_abc', col1: 'age', col2: 'salary' },
-    temp_table: 'tmp_abc'
-  }
-});
+    temp_table: 'tmp_abc',
+  },
+})
 // result: { correlation: 0.87, p_value: 0.001 }
 
 // 清理 90 天前的旧快照
 const cleaned = await invoke('cleanup_insight_snapshots', {
-  input: { older_than_days: 90 }
-});
+  input: { older_than_days: 90 },
+})
 // cleaned: { removed_count: 15, freed_bytes: 204800 }
 ```
 
@@ -1211,43 +1323,43 @@ const cleaned = await invoke('cleanup_insight_snapshots', {
 
 // 错误响应
 {
-  error: string;  // 错误消息
+  error: string // 错误消息
 }
 ```
 
 ### 错误代码
 
-| 错误 | 说明 |
-|------|------|
-| `Connection not found` | 连接不存在 |
-| `Connection timeout` | 连接超时 |
-| `Authentication failed` | 认证失败 |
-| `Database not found` | 数据库不存在 |
-| `Query syntax error` | SQL 语法错误 |
-| `Constraint violation` | 约束冲突 |
-| `Pool exhausted` | 连接池耗尽 |
+| 错误                    | 说明         |
+| ----------------------- | ------------ |
+| `Connection not found`  | 连接不存在   |
+| `Connection timeout`    | 连接超时     |
+| `Authentication failed` | 认证失败     |
+| `Database not found`    | 数据库不存在 |
+| `Query syntax error`    | SQL 语法错误 |
+| `Constraint violation`  | 约束冲突     |
+| `Pool exhausted`        | 连接池耗尽   |
 
 ### 前端错误处理示例
 
 ```typescript
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
 try {
   const result = await invoke('execute_sql', {
-    input: { sql: 'SELECT * FROM users' }
-  });
-  console.log(result);
+    input: { sql: 'SELECT * FROM users' },
+  })
+  console.log(result)
 } catch (error) {
   // 错误处理
   if (error.includes('Connection not found')) {
     // 提示用户连接已断开
-    showReconnectDialog();
+    showReconnectDialog()
   } else if (error.includes('syntax error')) {
     // 高亮 SQL 错误位置
-    highlightSqlError(error);
+    highlightSqlError(error)
   } else {
     // 通用错误提示
-    showErrorNotification(error);
+    showErrorNotification(error)
   }
 }
 ```
@@ -1259,24 +1371,24 @@ try {
 ```typescript
 // types/api.ts
 
-export type DatabaseType = 'mysql' | 'postgresql' | 'sqlite' | 'duckdb' | 'mongodb';
+export type DatabaseType = 'mysql' | 'postgresql' | 'sqlite' | 'duckdb' | 'mongodb'
 
 export interface ConnectionConfig {
-  host: string;
-  port: number;
-  database: string;
-  username: string;
-  password: string;
-  ssl?: boolean;
-  ssh?: SshConfig;
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+  ssl?: boolean
+  ssh?: SshConfig
 }
 
 export interface SshConfig {
-  host: string;
-  port: number;
-  username: string;
-  private_key?: string;
-  password?: string;
+  host: string
+  port: number
+  username: string
+  private_key?: string
+  password?: string
 }
 
 export type Value =
@@ -1288,13 +1400,13 @@ export type Value =
   | { type: 'bytes'; value: Uint8Array }
   | { type: 'date'; value: string }
   | { type: 'time'; value: string }
-  | { type: 'datetime'; value: string };
+  | { type: 'datetime'; value: string }
 
 export interface QueryResult {
-  columns: string[];
-  rows: Value[][];
-  affected_rows?: number;
-  execution_time_ms: number;
+  columns: string[]
+  rows: Value[][]
+  affected_rows?: number
+  execution_time_ms: number
 }
 
 // ... 其他类型定义
@@ -1305,22 +1417,19 @@ export interface QueryResult {
 ```typescript
 // utils/api.ts
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
-export async function executeSql(
-  sql: string,
-  connId?: string
-): Promise<QueryResult> {
+export async function executeSql(sql: string, connId?: string): Promise<QueryResult> {
   const response = await invoke<ExecuteSqlResponse>('execute_sql', {
-    input: { sql, conn_id: connId }
-  });
-  
+    input: { sql, conn_id: connId },
+  })
+
   return {
     columns: response.columns,
     rows: response.rows,
     affected_rows: response.affected_rows,
-    execution_time_ms: response.execution_time_ms
-  };
+    execution_time_ms: response.execution_time_ms,
+  }
 }
 
 export async function getTables(
@@ -1329,10 +1438,10 @@ export async function getTables(
   schema: string
 ): Promise<string[]> {
   const response = await invoke<TableInfoResponse[]>('get_tables', {
-    input: { conn_id: connId, database, schema }
-  });
-  
-  return response.map(t => t.name);
+    input: { conn_id: connId, database, schema },
+  })
+
+  return response.map(t => t.name)
 }
 
 // ... 其他工具函数

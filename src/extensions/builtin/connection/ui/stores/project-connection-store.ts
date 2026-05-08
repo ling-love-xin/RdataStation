@@ -12,7 +12,11 @@ import { useProjectStore } from '@/core/project/stores/project'
 
 import * as projectConnectionService from '../services/project-connection'
 
-import type { ProjectConnection, CreateProjectConnectionInput, ConnectionStatus } from '../../types/connection'
+import type {
+  ProjectConnection,
+  CreateProjectConnectionInput,
+  ConnectionStatus,
+} from '../../types/connection'
 
 export const useProjectConnectionStore = defineStore('projectConnection', () => {
   // ==================== State ====================
@@ -61,7 +65,7 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
       connections.value = result.map(conn => ({
         ...conn,
         connection_type: 'project' as const,
-        project_path: projectStore.currentProject?.path
+        project_path: projectStore.currentProject?.path,
       }))
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载连接失败'
@@ -207,7 +211,10 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
           ...connections.value[index],
           status,
           error_message: errorMessage,
-          last_connected_at: status === 'connected' ? new Date().toISOString() : connections.value[index].last_connected_at
+          last_connected_at:
+            status === 'connected'
+              ? new Date().toISOString()
+              : connections.value[index].last_connected_at,
         }
       }
 
@@ -217,7 +224,10 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
           ...currentConnection.value,
           status,
           error_message: errorMessage,
-          last_connected_at: status === 'connected' ? new Date().toISOString() : currentConnection.value.last_connected_at
+          last_connected_at:
+            status === 'connected'
+              ? new Date().toISOString()
+              : currentConnection.value.last_connected_at,
         }
       }
     } catch (e) {

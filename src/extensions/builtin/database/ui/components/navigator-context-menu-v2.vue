@@ -7,11 +7,8 @@
         :style="{ left: `${position.x}px`, top: `${position.y}px` }"
         @click.stop
       >
-        <template v-for="(item, index) in menuItems" :key="('id' in item ? item.id : `sep-${index}`)">
-          <div
-            v-if="item.separator"
-            class="context-menu-divider"
-          />
+        <template v-for="(item, index) in menuItems" :key="'id' in item ? item.id : `sep-${index}`">
+          <div v-if="item.separator" class="context-menu-divider" />
           <div
             v-else-if="item.hidden !== true"
             class="context-menu-item"
@@ -47,7 +44,7 @@ import {
   Table,
   BarChart3,
   Eye,
-  FileText
+  FileText,
 } from 'lucide-vue-next'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
@@ -99,7 +96,7 @@ function getIcon(iconName: string) {
     Table,
     BarChart3,
     Eye,
-    FileText
+    FileText,
   }
   return iconMap[iconName] || FileText
 }

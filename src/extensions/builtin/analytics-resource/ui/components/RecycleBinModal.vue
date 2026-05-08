@@ -2,22 +2,18 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal large">
       <div class="modal-header">
-        <h3>🗑️ 回收站</h3>
+        <h3>🗑️ {{ t('analyticsResource.recycleBinTitle') }}</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </div>
 
       <div class="modal-body">
         <div v-if="recycleBin.length === 0" class="empty-state">
           <span class="empty-icon">🗑️</span>
-          <p>回收站为空</p>
+          <p>{{ t('analyticsResource.recycleBinEmpty') }}</p>
         </div>
 
         <div v-else class="recycle-list">
-          <div
-            v-for="item in recycleBin"
-            :key="item.id"
-            class="recycle-item"
-          >
+          <div v-for="item in recycleBin" :key="item.id" class="recycle-item">
             <span class="resource-icon">
               {{ getResourceIcon(item.resource_type) }}
             </span>
@@ -25,16 +21,16 @@
             <div class="resource-info">
               <div class="resource-name">{{ item.resource_name }}</div>
               <div class="resource-meta">
-                删除于: {{ formatDate(item.deleted_at) }}
+                {{ t('analyticsResource.deletedAt') }}: {{ formatDate(item.deleted_at) }}
               </div>
             </div>
 
             <div class="item-actions">
               <button class="btn btn-sm btn-primary" @click="restoreItem(item)">
-                ↩️ 恢复
+                ↩️ {{ t('analyticsResource.restore') }}
               </button>
               <button class="btn btn-sm btn-danger" @click="permanentDeleteItem(item)">
-                🗑️ 永久删除
+                🗑️ {{ t('analyticsResource.permanentDelete') }}
               </button>
             </div>
           </div>
@@ -43,7 +39,7 @@
 
       <div class="modal-footer">
         <button class="btn btn-secondary" @click="$emit('close')">
-          关闭
+          {{ t('analyticsResource.close') }}
         </button>
       </div>
     </div>
@@ -51,58 +47,65 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-import { useAnalyticsResourceStore } from '../stores/analytics-resource-store';
+import { useAnalyticsResourceStore } from '../stores/analytics-resource-store'
 
-import type { AnalyticsRecycleItem } from '../../types';
+import type { AnalyticsRecycleItem } from '../../types'
 
 const emit = defineEmits<{
-  close: [];
-}>();
+  close: []
+}>()
 
-const store = useAnalyticsResourceStore();
-const recycleBin = ref<AnalyticsRecycleItem[]>([]);
+const { t } = useI18n()
+
+const store = useAnalyticsResourceStore()
+const recycleBin = ref<AnalyticsRecycleItem[]>([])
 
 async function loadRecycleBin() {
-  await store.loadRecycleBin();
-  recycleBin.value = store.recycleBin;
+  await store.loadRecycleBin()
+  recycleBin.value = store.recycleBin
 }
 
 function getResourceIcon(type: string) {
   switch (type) {
-    case 'connection': return '🔌';
-    case 'table': return '📊';
-    case 'file': return '📄';
-    default: return '📦';
+    case 'connection':
+      return '🔌'
+    case 'table':
+      return '📊'
+    case 'file':
+      return '📄'
+    default:
+      return '📦'
   }
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString('zh-CN');
+  return new Date(dateStr).toLocaleString('zh-CN')
 }
 
 async function restoreItem(item: AnalyticsRecycleItem) {
-  if (!confirm(`确定恢复资源 "${item.resource_name}" 吗？`)) {
-    return;
+  if (!confirm(t('analyticsResource.restoreConfirm', { name: item.resource_name }))) {
+    return
   }
-  
-  await store.restoreResource(item.id);
-  await loadRecycleBin();
+
+  await store.restoreResource(item.id)
+  await loadRecycleBin()
 }
 
 async function permanentDeleteItem(item: AnalyticsRecycleItem) {
-  if (!confirm(`确定永久删除资源 "${item.resource_name}" 吗？此操作无法撤销！`)) {
-    return;
+  if (!confirm(t('analyticsResource.permanentDeleteConfirm', { name: item.resource_name }))) {
+    return
   }
-  
-  await store.permanentDeleteResource(item.id);
-  await loadRecycleBin();
+
+  await store.permanentDeleteResource(item.id)
+  await loadRecycleBin()
 }
 
 onMounted(async () => {
-  await loadRecycleBin();
-});
+  await loadRecycleBin()
+})
 </script>
 
 <style scoped>

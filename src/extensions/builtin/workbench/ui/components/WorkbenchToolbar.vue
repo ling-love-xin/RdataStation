@@ -2,10 +2,18 @@
   <div class="toolbar-container">
     <!-- 连接工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn" :title="t('workbench.newConnectionTooltip')" @click="$emit('new-connection')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.newConnectionTooltip')"
+        @click="$emit('new-connection')"
+      >
         <Plug :size="16" />
       </button>
-      <button class="toolbar-btn" :title="t('workbench.disconnectTooltip')" @click="$emit('disconnect')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.disconnectTooltip')"
+        @click="$emit('disconnect')"
+      >
         <Unplug :size="16" />
       </button>
       <div class="toolbar-divider" />
@@ -16,20 +24,36 @@
 
     <!-- SQL 工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn primary" :title="t('workbench.executeSqlTooltip')" @click="$emit('execute')">
+      <button
+        class="toolbar-btn primary"
+        :title="t('workbench.executeSqlTooltip')"
+        @click="$emit('execute')"
+      >
         <Play :size="16" />
       </button>
-      <button class="toolbar-btn" :title="t('workbench.executeScriptTooltip')" @click="$emit('execute-script')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.executeScriptTooltip')"
+        @click="$emit('execute-script')"
+      >
         <FileCode :size="16" />
       </button>
-      <button class="toolbar-btn" :title="t('workbench.stopExecutionTooltip')" @click="$emit('stop')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.stopExecutionTooltip')"
+        @click="$emit('stop')"
+      >
         <Square :size="14" />
       </button>
       <div class="toolbar-divider" />
       <button class="toolbar-btn" :title="t('workbench.formatSqlTooltip')" @click="$emit('format')">
         <AlignLeft :size="16" />
       </button>
-      <button class="toolbar-btn" :title="t('workbench.explainPlanTooltip')" @click="$emit('explain')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.explainPlanTooltip')"
+        @click="$emit('explain')"
+      >
         <GitBranch :size="16" />
       </button>
     </div>
@@ -39,7 +63,11 @@
       <button class="toolbar-btn" :title="t('workbench.commitTooltip')" @click="$emit('commit')">
         <Check :size="16" />
       </button>
-      <button class="toolbar-btn" :title="t('workbench.rollbackTooltip')" @click="$emit('rollback')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.rollbackTooltip')"
+        @click="$emit('rollback')"
+      >
         <RotateCcw :size="16" />
       </button>
       <div class="toolbar-divider" />
@@ -50,10 +78,18 @@
 
     <!-- 数据工具组 -->
     <div class="toolbar-group">
-      <button class="toolbar-btn" :title="t('workbench.exportDataTooltip')" @click="$emit('export')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.exportDataTooltip')"
+        @click="$emit('export')"
+      >
         <Download :size="16" />
       </button>
-      <button class="toolbar-btn" :title="t('workbench.importDataTooltip')" @click="$emit('import')">
+      <button
+        class="toolbar-btn"
+        :title="t('workbench.importDataTooltip')"
+        @click="$emit('import')"
+      >
         <Upload :size="16" />
       </button>
       <div class="toolbar-divider" />
@@ -69,9 +105,21 @@
 
 <script setup lang="ts">
 import {
-  Plug, Unplug, RefreshCw, Play, FileCode, Square,
-  AlignLeft, GitBranch, Check, RotateCcw, ToggleLeft,
-  Download, Upload, Filter, Search
+  Plug,
+  Unplug,
+  RefreshCw,
+  Play,
+  FileCode,
+  Square,
+  AlignLeft,
+  GitBranch,
+  Check,
+  RotateCcw,
+  ToggleLeft,
+  Download,
+  Upload,
+  Filter,
+  Search,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -79,17 +127,17 @@ const { t } = useI18n()
 
 defineEmits<{
   'new-connection': []
-  'disconnect': []
-  'refresh': []
-  'execute': []
+  disconnect: []
+  refresh: []
+  execute: []
   'execute-script': []
-  'stop': []
-  'format': []
-  'explain': []
-  'commit': []
-  'rollback': []
-  'export': []
-  'import': []
+  stop: []
+  format: []
+  explain: []
+  commit: []
+  rollback: []
+  export: []
+  import: []
 }>()
 </script>
 

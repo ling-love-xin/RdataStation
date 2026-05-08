@@ -1,6 +1,6 @@
 /**
  * 拖拽排序逻辑
- * 
+ *
  * 实现节点的拖拽排序功能，支持连接和分组的拖拽
  */
 
@@ -22,7 +22,7 @@ export function useDragSort() {
     draggedNodeType: null,
     targetNodeId: null,
     targetNodeType: null,
-    dropPosition: null
+    dropPosition: null,
   })
 
   function startDrag(nodeId: string, nodeType: 'connection' | 'group') {
@@ -32,11 +32,15 @@ export function useDragSort() {
       draggedNodeType: nodeType,
       targetNodeId: null,
       targetNodeType: null,
-      dropPosition: null
+      dropPosition: null,
     }
   }
 
-  function updateDrag(targetNodeId: string | null, targetNodeType: 'connection' | 'group' | null, position: 'before' | 'after' | 'inside' | null) {
+  function updateDrag(
+    targetNodeId: string | null,
+    targetNodeType: 'connection' | 'group' | null,
+    position: 'before' | 'after' | 'inside' | null
+  ) {
     if (!dragState.value.isDragging) return
 
     dragState.value.targetNodeId = targetNodeId
@@ -52,7 +56,7 @@ export function useDragSort() {
       draggedNodeType: null,
       targetNodeId: null,
       targetNodeType: null,
-      dropPosition: null
+      dropPosition: null,
     }
     return state
   }
@@ -64,7 +68,7 @@ export function useDragSort() {
       draggedNodeType: null,
       targetNodeId: null,
       targetNodeType: null,
-      dropPosition: null
+      dropPosition: null,
     }
   }
 
@@ -73,6 +77,6 @@ export function useDragSort() {
     startDrag,
     updateDrag,
     endDrag,
-    cancelDrag
+    cancelDrag,
   }
 }

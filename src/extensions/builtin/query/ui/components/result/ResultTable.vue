@@ -27,7 +27,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   result: null,
-  maxHeight: 400
+  maxHeight: 400,
 })
 
 const columns = computed((): DataTableColumns<Record<string, unknown>> => {
@@ -36,7 +36,7 @@ const columns = computed((): DataTableColumns<Record<string, unknown>> => {
     title: col,
     key: col,
     ellipsis: true,
-    width: 150
+    width: 150,
   }))
 })
 

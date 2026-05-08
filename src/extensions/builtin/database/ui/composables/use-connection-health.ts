@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { ref, onUnmounted } from 'vue'
 
-
 export interface ConnectionHealth {
   status: 'online' | 'offline' | 'busy'
   latency: number
@@ -39,7 +38,7 @@ export function useConnectionHealth() {
         lastCheck: new Date(),
         poolSize: 0,
         activeConnections: 0,
-        errorMessage: null
+        errorMessage: null,
       }
 
       healthMap.value.set(connectionId, health)
@@ -51,7 +50,7 @@ export function useConnectionHealth() {
         lastCheck: new Date(),
         poolSize: 0,
         activeConnections: 0,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
       }
 
       healthMap.value.set(connectionId, health)
@@ -60,9 +59,7 @@ export function useConnectionHealth() {
   }
 
   async function checkAllConnectionsHealth(connectionIds: string[]) {
-    await Promise.all(
-      connectionIds.map(id => checkConnectionHealth(id))
-    )
+    await Promise.all(connectionIds.map(id => checkConnectionHealth(id)))
   }
 
   function startMonitoring(connectionIds: string[], intervalMs = 30000) {
@@ -105,6 +102,6 @@ export function useConnectionHealth() {
     checkAllConnectionsHealth,
     startMonitoring,
     stopMonitoring,
-    clearHealth
+    clearHealth,
   }
 }

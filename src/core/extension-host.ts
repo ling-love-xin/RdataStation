@@ -5,7 +5,7 @@
  * - 加载和激活扩展
  * - 注入 ExtensionContext
  * - 管理扩展的停用和资源清理
- * 
+ *
  * 遵循 VSCode 式扩展架构，确保插件隔离和生命周期管理
  */
 
@@ -20,8 +20,6 @@ import type {
 
 import { commandRegistry } from './command-registry'
 import { windowAPI } from './window-api'
-
-
 
 /**
  * 简单的 Memento 实现（用于存储扩展状态）
@@ -59,7 +57,9 @@ class ExtensionHost {
     extensions: Array<{ id: string; module: ExtensionModule }>,
     projectInfo: ProjectInfo
   ): Promise<void> {
-    console.log(`[ExtensionHost] Activating ${extensions.length} extensions for project: ${projectInfo.name}`)
+    console.log(
+      `[ExtensionHost] Activating ${extensions.length} extensions for project: ${projectInfo.name}`
+    )
 
     for (const { id, module } of extensions) {
       try {
@@ -87,7 +87,9 @@ class ExtensionHost {
       }
     }
 
-    console.log(`[ExtensionHost] Successfully activated ${this.activatedExtensions.size}/${extensions.length} extensions`)
+    console.log(
+      `[ExtensionHost] Successfully activated ${this.activatedExtensions.size}/${extensions.length} extensions`
+    )
   }
 
   /**
@@ -163,12 +165,12 @@ class ExtensionHost {
       registerConnectionProvider(provider: { driverId: string }): Disposable {
         connectionProviders.set(provider.driverId, provider)
         console.log(`[DatabaseAPI] Registered connection provider: ${provider.driverId}`)
-        
+
         return {
           dispose: () => {
             connectionProviders.delete(provider.driverId)
             console.log(`[DatabaseAPI] Unregistered connection provider: ${provider.driverId}`)
-          }
+          },
         }
       },
       async executeQuery(_connId: string, _sql: string): Promise<unknown> {

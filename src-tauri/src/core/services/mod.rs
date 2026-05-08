@@ -11,6 +11,12 @@ pub mod connection_service;
 pub mod sql_service;
 pub mod sql_parser_service;
 pub mod result_service;
+pub mod duckdb_service;
+pub mod insight_engine;
+pub mod execution_service;
+pub mod table_profile_service;
+pub mod quality_scorer;
+pub mod persistence_service;
 
 #[cfg(test)]
 mod tests;

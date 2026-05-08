@@ -1,10 +1,6 @@
 <template>
   <div class="dynamic-form-renderer">
-    <div
-      v-for="section in visibleSections"
-      :key="section.key"
-      class="form-section-wrapper"
-    >
+    <div v-for="section in visibleSections" :key="section.key" class="form-section-wrapper">
       <!-- 分区头部 -->
       <div
         v-if="section.title"
@@ -23,11 +19,7 @@
         </div>
         <div class="header-right">
           <!-- 启用开关（如果有 enableField 配置） -->
-          <label
-            v-if="section.enableField"
-            class="section-toggle"
-            @click.stop
-          >
+          <label v-if="section.enableField" class="section-toggle" @click.stop>
             <input
               :checked="formData[section.enableField] === true"
               type="checkbox"
@@ -98,15 +90,12 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ChevronDown
-} from 'lucide-vue-next'
+import { ChevronDown } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 
 import FieldRenderer from './FieldRenderer.vue'
 
 import type { FormSectionConfig, FormFieldConfig } from '../types/form-schema'
-
 
 interface Props {
   sections: FormSectionConfig[]
@@ -173,7 +162,7 @@ function toggleSectionEnable(fieldKey: string, event: Event) {
   const target = event.target as HTMLInputElement
   emit('update:formData', {
     ...props.formData,
-    [fieldKey]: target.checked
+    [fieldKey]: target.checked,
   })
 }
 
@@ -192,18 +181,18 @@ function createFile(fieldKey: string) {
 function updateFormData(data: Record<string, unknown>) {
   emit('update:formData', {
     ...props.formData,
-    ...data
+    ...data,
   })
 }
 
 function getIconComponent(iconName: string) {
   const iconMap: Record<string, string> = {
-    'shield': 'Shield',
-    'lock': 'Lock',
-    'database': 'Database',
-    'settings': 'Settings',
-    'user': 'User',
-    'zap': 'Zap'
+    shield: 'Shield',
+    lock: 'Lock',
+    database: 'Database',
+    settings: 'Settings',
+    user: 'User',
+    zap: 'Zap',
   }
   return iconMap[iconName] || 'Settings'
 }
@@ -465,7 +454,7 @@ function getIconComponent(iconName: string) {
   cursor: pointer;
 }
 
-.checkbox-wrapper input[type="checkbox"] {
+.checkbox-wrapper input[type='checkbox'] {
   display: none;
 }
 
@@ -478,12 +467,12 @@ function getIconComponent(iconName: string) {
   transition: all 0.2s;
 }
 
-.checkbox-wrapper input[type="checkbox"]:checked + .checkmark {
+.checkbox-wrapper input[type='checkbox']:checked + .checkmark {
   background: var(--primary-color);
   border-color: var(--primary-color);
 }
 
-.checkbox-wrapper input[type="checkbox"]:checked + .checkmark::after {
+.checkbox-wrapper input[type='checkbox']:checked + .checkmark::after {
   content: '';
   position: absolute;
   left: 4px;

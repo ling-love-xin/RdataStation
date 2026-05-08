@@ -38,7 +38,7 @@ const defaultMessages: LocaleMessages = {
       transactionRolledBack: '事务已回滚',
       groupCreated: '分组创建成功',
       groupUpdated: '分组已更新',
-      groupDeleted: '分组已删除'
+      groupDeleted: '分组已删除',
     },
     filter: {
       databaseType: '数据库类型',
@@ -55,14 +55,14 @@ const defaultMessages: LocaleMessages = {
       function: '函数',
       column: '列',
       reset: '重置',
-      apply: '应用'
+      apply: '应用',
     },
     toast: {
       success: '成功',
       error: '错误',
       info: '提示',
-      warning: '警告'
-    }
+      warning: '警告',
+    },
   },
   'en-US': {
     navigator: {
@@ -87,7 +87,7 @@ const defaultMessages: LocaleMessages = {
       transactionRolledBack: 'Transaction rolled back',
       groupCreated: 'Group created',
       groupUpdated: 'Group updated',
-      groupDeleted: 'Group deleted'
+      groupDeleted: 'Group deleted',
     },
     filter: {
       databaseType: 'Database Type',
@@ -104,15 +104,15 @@ const defaultMessages: LocaleMessages = {
       function: 'Function',
       column: 'Column',
       reset: 'Reset',
-      apply: 'Apply'
+      apply: 'Apply',
     },
     toast: {
       success: 'Success',
       error: 'Error',
       info: 'Info',
-      warning: 'Warning'
-    }
-  }
+      warning: 'Warning',
+    },
+  },
 }
 
 const currentLocale = ref<Locale>('zh-CN')
@@ -159,7 +159,7 @@ export function useI18n() {
 
   const availableLocales: { code: Locale; label: string }[] = [
     { code: 'zh-CN', label: '中文' },
-    { code: 'en-US', label: 'English' }
+    { code: 'en-US', label: 'English' },
   ]
 
   return {
@@ -167,6 +167,6 @@ export function useI18n() {
     setLocale,
     loadLocale,
     t,
-    availableLocales
+    availableLocales,
   }
 }

@@ -1,7 +1,7 @@
 <template>
   <div class="config-summary">
     <h3 class="summary-title">配置摘要</h3>
-    
+
     <div class="summary-card">
       <div class="summary-section">
         <h4>基本信息</h4>
@@ -64,22 +64,38 @@
     <div class="test-section">
       <button
         class="btn-test"
-        :class="{ testing: isTesting, success: testStatus === 'success', error: testStatus === 'error' }"
+        :class="{
+          testing: isTesting,
+          success: testStatus === 'success',
+          error: testStatus === 'error',
+        }"
         :disabled="isTesting || !canTest"
         @click="testConnection"
       >
         <span v-if="isTesting" class="spinner"></span>
-        <svg v-else-if="testStatus === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-          <polyline points="20 6 9 17 4 12"/>
+        <svg
+          v-else-if="testStatus === 'success'"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+        >
+          <polyline points="20 6 9 17 4 12" />
         </svg>
-        <svg v-else-if="testStatus === 'error'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
+        <svg
+          v-else-if="testStatus === 'error'"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
         </svg>
         <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
         {{ testButtonText }}
       </button>
@@ -139,7 +155,7 @@ const methodLabel = computed(() => {
     direct: '直接连接',
     ssh: 'SSH 隧道',
     ssl: 'SSL/TLS',
-    proxy: '代理'
+    proxy: '代理',
   }
   return labels[props.connectionMethod] || props.connectionMethod
 })
@@ -158,7 +174,7 @@ const getServerVersion = computed(() => {
     mysql: 'MySQL 8.0.32',
     postgres: 'PostgreSQL 15.2',
     sqlite: 'SQLite 3.40.0',
-    duckdb: 'DuckDB 0.9.2'
+    duckdb: 'DuckDB 0.9.2',
   }
   return versions[driverId || ''] || 'Unknown'
 })
@@ -175,10 +191,10 @@ async function testConnection() {
   try {
     // 构建连接 URL
     const { invoke } = await import('@tauri-apps/api/core')
-    
+
     let url = ''
     const config = props.config as any
-    
+
     if (props.driver.requireFile) {
       // 文件型数据库
       url = `${props.driver.id}:///${config.file_path || config.filePath || ''}`
@@ -192,25 +208,25 @@ async function testConnection() {
         : ''
       url = `${props.driver.id}://${auth}${config.host || 'localhost'}:${port}/${encodeURIComponent(config.database || '')}`
     }
-    
+
     // 调用真实的测试 API
     const result = await invoke<{
       success: boolean
       message: string
       server_version: string
       response_time_ms: number
-    }>('test_connection', { 
+    }>('test_connection', {
       dbType: props.driver.id,
-      url 
+      url,
     })
-    
+
     // 显示成功信息
     const driverName = props.driver?.name || '数据库'
     testStatus.value = 'success'
     testMessage.value = `连接成功！${driverName} 服务器响应正常。`
     testDetails.value = {
       responseTime: result.response_time_ms,
-      serverVersion: result.server_version
+      serverVersion: result.server_version,
     }
   } catch (error) {
     testStatus.value = 'error'
@@ -366,7 +382,9 @@ async function testConnection() {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .test-message {

@@ -43,20 +43,20 @@ export function getHistory(limit: number = 100): SqlHistoryItem[] {
  */
 export function addHistory(item: Omit<SqlHistoryItem, 'id' | 'executedAt'>): SqlHistoryItem {
   const history = getHistory(1000)
-  
+
   const newItem: SqlHistoryItem = {
     ...item,
     id: `history-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    executedAt: Date.now()
+    executedAt: Date.now(),
   }
-  
+
   history.unshift(newItem)
-  
+
   // 限制历史记录数量
   if (history.length > 1000) {
     history.splice(1000)
   }
-  
+
   saveHistory(history)
   return newItem
 }
@@ -67,11 +67,11 @@ export function addHistory(item: Omit<SqlHistoryItem, 'id' | 'executedAt'>): Sql
 export function deleteHistory(id: string): boolean {
   const history = getHistory(1000)
   const filtered = history.filter(item => item.id !== id)
-  
+
   if (filtered.length === history.length) {
     return false
   }
-  
+
   saveHistory(filtered)
   return true
 }
@@ -89,11 +89,11 @@ export function clearHistory(): void {
 export function toggleFavorite(id: string): boolean {
   const history = getHistory(1000)
   const index = history.findIndex(item => item.id === id)
-  
+
   if (index === -1) {
     return false
   }
-  
+
   history[index].isFavorite = !history[index].isFavorite
   saveHistory(history)
   return true
@@ -113,7 +113,7 @@ export function getFavorites(): SqlHistoryItem[] {
 export function searchHistory(query: string): SqlHistoryItem[] {
   const history = getHistory(1000)
   const lowerQuery = query.toLowerCase()
-  
+
   return history.filter(
     item =>
       item.sql.toLowerCase().includes(lowerQuery) ||
@@ -144,9 +144,7 @@ export function filterByDatabaseType(databaseType: string): SqlHistoryItem[] {
  */
 export function filterByDateRange(startDate: number, endDate: number): SqlHistoryItem[] {
   const history = getHistory(1000)
-  return history.filter(
-    item => item.executedAt >= startDate && item.executedAt <= endDate
-  )
+  return history.filter(item => item.executedAt >= startDate && item.executedAt <= endDate)
 }
 
 /**
@@ -160,7 +158,7 @@ export function getStatistics(): {
   topConnections: Array<{ connectionName: string; count: number }>
 } {
   const history = getHistory(1000)
-  
+
   const totalExecutions = history.length
   const successCount = history.filter(item => item.success).length
   const successRate = totalExecutions > 0 ? (successCount / totalExecutions) * 100 : 0
@@ -169,27 +167,24 @@ export function getStatistics(): {
       ? history.reduce((sum, item) => sum + item.executionTime, 0) / totalExecutions
       : 0
   const totalFavorites = history.filter(item => item.isFavorite).length
-  
+
   // 统计最常用的连接
   const connectionCounts = new Map<string, number>()
   history.forEach(item => {
-    connectionCounts.set(
-      item.connectionName,
-      (connectionCounts.get(item.connectionName) || 0) + 1
-    )
+    connectionCounts.set(item.connectionName, (connectionCounts.get(item.connectionName) || 0) + 1)
   })
-  
+
   const topConnections = Array.from(connectionCounts.entries())
     .map(([connectionName, count]) => ({ connectionName, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
-  
+
   return {
     totalExecutions,
     successRate,
     averageExecutionTime,
     totalFavorites,
-    topConnections
+    topConnections,
   }
 }
 
@@ -199,20 +194,20 @@ export function getStatistics(): {
 export function addTag(id: string, tag: string): boolean {
   const history = getHistory(1000)
   const index = history.findIndex(item => item.id === id)
-  
+
   if (index === -1) {
     return false
   }
-  
+
   if (!history[index].tags) {
     history[index].tags = []
   }
-  
+
   if (!history[index].tags.includes(tag)) {
     history[index].tags.push(tag)
     saveHistory(history)
   }
-  
+
   return true
 }
 
@@ -222,16 +217,16 @@ export function addTag(id: string, tag: string): boolean {
 export function removeTag(id: string, tag: string): boolean {
   const history = getHistory(1000)
   const index = history.findIndex(item => item.id === id)
-  
+
   if (index === -1) {
     return false
   }
-  
+
   if (history[index].tags) {
     history[index].tags = history[index].tags.filter(t => t !== tag)
     saveHistory(history)
   }
-  
+
   return true
 }
 
@@ -241,11 +236,11 @@ export function removeTag(id: string, tag: string): boolean {
 export function addNote(id: string, note: string): boolean {
   const history = getHistory(1000)
   const index = history.findIndex(item => item.id === id)
-  
+
   if (index === -1) {
     return false
   }
-  
+
   history[index].note = note
   saveHistory(history)
   return true
@@ -279,10 +274,10 @@ export function importHistory(json: string): boolean {
     if (!Array.isArray(history)) {
       return false
     }
-    
+
     const existingHistory = getHistory(1000)
     const mergedHistory = [...history, ...existingHistory]
-    
+
     // 去重（基于 id）
     const uniqueIds = new Set<string>()
     const deduplicatedHistory = mergedHistory.filter(item => {
@@ -292,7 +287,7 @@ export function importHistory(json: string): boolean {
       uniqueIds.add(item.id)
       return true
     })
-    
+
     saveHistory(deduplicatedHistory)
     return true
   } catch (error) {
@@ -307,12 +302,12 @@ export function importHistory(json: string): boolean {
 export function getFrequentSql(limit: number = 10): Array<{ sql: string; count: number }> {
   const history = getHistory(1000)
   const sqlCounts = new Map<string, number>()
-  
+
   history.forEach(item => {
     const normalizedSql = item.sql.trim().toLowerCase()
     sqlCounts.set(normalizedSql, (sqlCounts.get(normalizedSql) || 0) + 1)
   })
-  
+
   return Array.from(sqlCounts.entries())
     .map(([sql, count]) => ({ sql, count }))
     .sort((a, b) => b.count - a.count)

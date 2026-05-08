@@ -1,6 +1,6 @@
 /**
  * 数据库树搜索功能
- * 
+ *
  * 提供搜索表/视图并定位到树节点的功能
  * 从 DatabaseNavigator.vue 中提取，实现业务逻辑与 UI 分离
  */
@@ -62,27 +62,35 @@ export function useDatabaseTreeSearch() {
 
     for (const conn of allConnections) {
       const databases = navigatorStore.getDatabases(conn.id)
-      
+
       for (const db of databases) {
         if (!db.schemas) continue
-        
+
         for (const schema of db.schemas) {
-          if (!filterConfig.showSystemSchemas && 
-              (schema.name === 'information_schema' || schema.name === 'pg_catalog')) {
+          if (
+            !filterConfig.showSystemSchemas &&
+            (schema.name === 'information_schema' || schema.name === 'pg_catalog')
+          ) {
             continue
           }
 
           if (filterConfig.showTables && schema.tables) {
             for (const table of schema.tables) {
               if (table.name.toLowerCase().includes(lowerQuery)) {
-                const tableKey = NodeKeyEncoder.encode(['table', conn.id, db.name, schema.name, table.name])
+                const tableKey = NodeKeyEncoder.encode([
+                  'table',
+                  conn.id,
+                  db.name,
+                  schema.name,
+                  table.name,
+                ])
                 results.push({
                   nodeKey: tableKey,
                   tableName: table.name,
                   path: `${conn.name} / ${db.name} / ${schema.name} / ${table.name}`,
                   connectionId: conn.id,
                   dbName: db.name,
-                  schemaName: schema.name
+                  schemaName: schema.name,
                 })
               }
             }
@@ -91,14 +99,20 @@ export function useDatabaseTreeSearch() {
           if (filterConfig.showViews && schema.views) {
             for (const view of schema.views) {
               if (view.name.toLowerCase().includes(lowerQuery)) {
-                const viewKey = NodeKeyEncoder.encode(['view', conn.id, db.name, schema.name, view.name])
+                const viewKey = NodeKeyEncoder.encode([
+                  'view',
+                  conn.id,
+                  db.name,
+                  schema.name,
+                  view.name,
+                ])
                 results.push({
                   nodeKey: viewKey,
                   tableName: view.name,
                   path: `${conn.name} / ${db.name} / ${schema.name} / ${view.name} (视图)`,
                   connectionId: conn.id,
                   dbName: db.name,
-                  schemaName: schema.name
+                  schemaName: schema.name,
                 })
               }
             }
@@ -135,7 +149,12 @@ export function useDatabaseTreeSearch() {
 
     const schemaNode = nodes.find(n => {
       const parts = NodeKeyEncoder.decode(n.key)
-      return parts[0] === 'schema' && parts[1] === connectionId && parts[2] === dbName && parts[3] === schemaName
+      return (
+        parts[0] === 'schema' &&
+        parts[1] === connectionId &&
+        parts[2] === dbName &&
+        parts[3] === schemaName
+      )
     })
     if (schemaNode) path.push(schemaNode)
 
@@ -144,6 +163,6 @@ export function useDatabaseTreeSearch() {
 
   return {
     searchTables,
-    findNodePath
+    findNodePath,
   }
 }

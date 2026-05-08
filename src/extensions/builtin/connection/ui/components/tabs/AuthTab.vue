@@ -2,31 +2,31 @@
   <div class="auth-tab">
     <!-- 基础认证 -->
     <div class="auth-section">
-      <h4 class="section-title">用户认证</h4>
-      
+      <h4 class="section-title">{{ t('connection.authTab.title') }}</h4>
+
       <div class="form-section">
         <label class="form-label">
-          用户名
+          {{ t('connection.authTab.username') }}
           <span class="required">*</span>
         </label>
         <input
           v-model="formData.username"
           type="text"
           class="form-input"
-          placeholder="例如：root"
+          :placeholder="t('connection.authTab.usernamePlaceholder')"
           :class="{ error: errors.username }"
         />
         <span v-if="errors.username" class="error-text">{{ errors.username }}</span>
       </div>
 
       <div class="form-section">
-        <label class="form-label">密码</label>
+        <label class="form-label">{{ t('connection.authTab.password') }}</label>
         <div class="password-wrapper">
           <input
             v-model="formData.password"
             :type="showPassword ? 'text' : 'password'"
             class="form-input"
-            placeholder="输入密码"
+            :placeholder="t('connection.authTab.passwordPlaceholder')"
           />
           <button type="button" class="btn-toggle-password" @click="showPassword = !showPassword">
             <Eye v-if="!showPassword" :size="16" />
@@ -38,21 +38,21 @@
       <label class="checkbox-wrapper">
         <input v-model="savePassword" type="checkbox" />
         <span class="checkmark"></span>
-        <span class="checkbox-label">保存密码（不安全）</span>
+        <span class="checkbox-label">{{ t('connection.authTab.savePassword') }}</span>
       </label>
     </div>
 
     <!-- 认证方式选择 -->
     <div class="auth-method-section">
-      <h4 class="section-title">认证方式</h4>
-      
+      <h4 class="section-title">{{ t('connection.authTab.authMethod') }}</h4>
+
       <div class="method-options">
         <label class="method-option">
           <input v-model="authMethod" type="radio" value="password" />
           <span class="method-radio"></span>
           <div class="method-info">
-            <span class="method-name">密码认证</span>
-            <span class="method-desc">使用用户名和密码登录</span>
+            <span class="method-name">{{ t('connection.authTab.passwordAuth') }}</span>
+            <span class="method-desc">{{ t('connection.authTab.passwordAuthDesc') }}</span>
           </div>
         </label>
 
@@ -60,8 +60,8 @@
           <input v-model="authMethod" type="radio" value="trust" />
           <span class="method-radio"></span>
           <div class="method-info">
-            <span class="method-name">信任认证</span>
-            <span class="method-desc">无需密码（本地连接）</span>
+            <span class="method-name">{{ t('connection.authTab.trustAuth') }}</span>
+            <span class="method-desc">{{ t('connection.authTab.trustAuthDesc') }}</span>
           </div>
         </label>
 
@@ -69,8 +69,8 @@
           <input v-model="authMethod" type="radio" value="ssl" />
           <span class="method-radio"></span>
           <div class="method-info">
-            <span class="method-name">SSL 证书认证</span>
-            <span class="method-desc">使用客户端证书认证</span>
+            <span class="method-name">{{ t('connection.authTab.sslAuth') }}</span>
+            <span class="method-desc">{{ t('connection.authTab.sslAuthDesc') }}</span>
           </div>
         </label>
       </div>
@@ -81,6 +81,9 @@
 <script setup lang="ts">
 import { Eye, EyeOff } from 'lucide-vue-next'
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import type { DriverDescriptor, ConnectionConfig } from '../../types/connection'
 
@@ -102,9 +105,9 @@ const authMethod = computed({
   set: (val: 'password' | 'trust' | 'ssh' | 'ssl') => {
     emit('update:formData', {
       ...formData.value,
-      authMethod: val
+      authMethod: val,
     })
-  }
+  },
 })
 
 const savePassword = computed({
@@ -114,19 +117,19 @@ const savePassword = computed({
       ...formData.value,
       options: {
         ...formData.value.options,
-        savePassword: val
-      }
+        savePassword: val,
+      },
     })
-  }
+  },
 })
 
 // 监听认证方式变化，自动更新表单
-watch(authMethod, (newMethod) => {
+watch(authMethod, newMethod => {
   if (newMethod === 'trust') {
     emit('update:formData', {
       ...formData.value,
       username: '',
-      password: ''
+      password: '',
     })
   }
 })

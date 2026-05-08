@@ -35,7 +35,12 @@
       </div>
       <div class="form-section">
         <label class="form-label">密码</label>
-        <input v-model="config.password" type="password" class="form-input" placeholder="代理密码" />
+        <input
+          v-model="config.password"
+          type="password"
+          class="form-input"
+          placeholder="代理密码"
+        />
       </div>
     </div>
   </div>
@@ -60,10 +65,10 @@ const config = reactive({
   port: 8080,
   auth: false,
   username: '',
-  password: ''
+  password: '',
 })
 
-watch(config, (val) => emit('update:modelValue', { ...val }), { deep: true })
+watch(config, val => emit('update:modelValue', { ...val }), { deep: true })
 </script>
 
 <style scoped>

@@ -1,16 +1,21 @@
 /**
  * 缓存刷新流程
- * 
+ *
  * 实现完整的缓存刷新流程：
  * 1. 清除旧缓存（后端）
  * 2. 从数据库获取元数据（后端数据库驱动）
  * 3. 批量保存新缓存（后端）
- * 
+ *
  * 遵循架构规范：前端只负责调度，不实现业务逻辑
  */
 
 import { cacheStateManager } from './use-cache-state'
-import { refreshMetadataCache, saveTablesBatchToCache, saveColumnsBatchToCache, generateStableCacheId } from '../services/metadata-cache-service'
+import {
+  refreshMetadataCache,
+  saveTablesBatchToCache,
+  saveColumnsBatchToCache,
+  generateStableCacheId,
+} from '../services/metadata-cache-service'
 
 import type { TableInput, ColumnInput } from '../services/metadata-cache-service'
 
@@ -26,7 +31,7 @@ export interface CacheRefreshResult {
 
 /**
  * 完整的缓存刷新流程
- * 
+ *
  * @param connectionId 连接 ID
  * @param connectionType 连接类型
  * @param dbName 数据库名
@@ -42,27 +47,23 @@ export async function refreshCacheComplete(
   schemaName: string,
   projectPath: string | undefined,
   fetchTablesFn: () => Promise<Array<{ name: string }>>,
-  fetchColumnsFn: (tableName: string) => Promise<Array<{
-    name: string
-    data_type: string
-    nullable: boolean
-    is_primary_key: boolean
-  }>>
+  fetchColumnsFn: (tableName: string) => Promise<
+    Array<{
+      name: string
+      data_type: string
+      nullable: boolean
+      is_primary_key: boolean
+    }>
+  >
 ): Promise<CacheRefreshResult> {
   try {
-    await refreshMetadataCache(
-      connectionId,
-      connectionType,
-      dbName,
-      schemaName,
-      projectPath
-    )
+    await refreshMetadataCache(connectionId, connectionType, dbName, schemaName, projectPath)
 
     const tables = await fetchTablesFn()
     const tableInputs: TableInput[] = tables.map(t => ({
       id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
       name: t.name,
-      comment: undefined
+      comment: undefined,
     }))
 
     let tablesSaved = 0
@@ -86,7 +87,7 @@ export async function refreshCacheComplete(
           data_type: c.data_type,
           is_nullable: c.nullable,
           is_primary: c.is_primary_key,
-          is_unique: false
+          is_unique: false,
         }))
 
         if (columnInputs.length > 0) {
@@ -113,20 +114,20 @@ export async function refreshCacheComplete(
     return {
       tablesCount: tablesSaved,
       columnsCount: columnsSaved,
-      success: true
+      success: true,
     }
   } catch (error) {
     cacheStateManager.markInvalid({
       connectionId,
       databaseName: dbName,
-      schemaName
+      schemaName,
     })
 
     return {
       tablesCount: 0,
       columnsCount: 0,
       success: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     }
   }
 }
@@ -141,12 +142,17 @@ export async function refreshDatabaseCache(
   projectPath: string | undefined,
   fetchSchemasFn: () => Promise<Array<{ name: string }>>,
   fetchTablesFn: (schemaName: string) => Promise<Array<{ name: string }>>,
-  fetchColumnsFn: (schemaName: string, tableName: string) => Promise<Array<{
-    name: string
-    data_type: string
-    nullable: boolean
-    is_primary_key: boolean
-  }>>
+  fetchColumnsFn: (
+    schemaName: string,
+    tableName: string
+  ) => Promise<
+    Array<{
+      name: string
+      data_type: string
+      nullable: boolean
+      is_primary_key: boolean
+    }>
+  >
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = []
   const schemas = await fetchSchemasFn()
@@ -160,7 +166,7 @@ export async function refreshDatabaseCache(
         schema.name,
         projectPath,
         () => fetchTablesFn(schema.name),
-        (tableName) => fetchColumnsFn(schema.name, tableName)
+        tableName => fetchColumnsFn(schema.name, tableName)
       )
     } catch (error) {
       errors.push(`刷新 ${dbName}.${schema.name} 失败: ${error}`)
@@ -169,7 +175,7 @@ export async function refreshDatabaseCache(
 
   return {
     success: errors.length === 0,
-    errors
+    errors,
   }
 }
 
@@ -183,12 +189,14 @@ export async function refreshTableCache(
   schemaName: string,
   tableName: string,
   projectPath: string | undefined,
-  fetchColumnsFn: () => Promise<Array<{
-    name: string
-    data_type: string
-    nullable: boolean
-    is_primary_key: boolean
-  }>>
+  fetchColumnsFn: () => Promise<
+    Array<{
+      name: string
+      data_type: string
+      nullable: boolean
+      is_primary_key: boolean
+    }>
+  >
 ): Promise<CacheRefreshResult> {
   try {
     const columns = await fetchColumnsFn()
@@ -198,7 +206,7 @@ export async function refreshTableCache(
       data_type: c.data_type,
       is_nullable: c.nullable,
       is_primary: c.is_primary_key,
-      is_unique: false
+      is_unique: false,
     }))
 
     let columnsSaved = 0
@@ -217,14 +225,14 @@ export async function refreshTableCache(
     return {
       tablesCount: 1,
       columnsCount: columnsSaved,
-      success: true
+      success: true,
     }
   } catch (error) {
     return {
       tablesCount: 0,
       columnsCount: 0,
       success: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     }
   }
 }

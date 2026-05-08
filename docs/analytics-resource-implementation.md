@@ -62,19 +62,19 @@
 
 ### 2.2 资源类型
 
-| 类型 | 说明 | 示例 |
-|------|------|------|
+| 类型         | 说明       | 示例                              |
+| ------------ | ---------- | --------------------------------- |
 | `connection` | 数据库连接 | MySQL、PostgreSQL、SQLite、DuckDB |
-| `table` | 数据表 | 查询结果集、DuckDB 表 |
-| `file` | 分析文件 | CSV、Parquet、JSON |
+| `table`      | 数据表     | 查询结果集、DuckDB 表             |
+| `file`       | 分析文件   | CSV、Parquet、JSON                |
 
 ### 2.3 作用域
 
-| 作用域 | 说明 | 持久化位置 |
-|--------|------|------------|
-| `global` | 应用级全局 | 系统数据库 |
-| `project` | 项目级 | 项目 SQLite 数据库 |
-| `session` | 会话级临时 | 内存/会话结束清除 |
+| 作用域    | 说明       | 持久化位置         |
+| --------- | ---------- | ------------------ |
+| `global`  | 应用级全局 | 系统数据库         |
+| `project` | 项目级     | 项目 SQLite 数据库 |
+| `session` | 会话级临时 | 内存/会话结束清除  |
 
 ## 三、数据库设计
 
@@ -261,29 +261,29 @@ pub struct AnalyticsRecycleItem {
 
 ### 4.3 Tauri Commands
 
-| Command | 说明 | 参数 |
-|---------|------|------|
-| `create_analytics_resource` | 创建资源 | `CreateResourceRequest` |
-| `update_analytics_resource` | 更新资源 | `id`, `CreateResourceRequest` |
-| `get_analytics_resource` | 获取资源详情 | `id` |
-| `list_analytics_resources` | 列出资源 | `ListResourcesInput` |
-| `list_analytics_resources_paginated` | 分页列出资源 | `ListResourcesInput` |
-| `delete_analytics_resource` | 删除资源（软删除） | `id` |
-| `batch_delete_analytics_resources` | 批量删除资源 | `ids: Vec<String>` |
-| `clone_analytics_resource` | 克隆资源 | `id`, `new_name: Option<String>` |
-| `create_analytics_folder` | 创建文件夹 | `CreateFolderRequest` |
-| `get_analytics_folder` | 获取文件夹详情 | `id` |
-| `list_analytics_folders` | 列出文件夹 | `ListFoldersInput` |
-| `add_analytics_resource_to_folder` | 添加资源到文件夹 | `input: {resourceId, folderId}` |
-| `remove_analytics_resource_from_folder` | 从文件夹移除资源 | `input: {resourceId, folderId}` |
-| `create_analytics_tag` | 创建标签 | `CreateTagRequest` |
-| `list_analytics_tags` | 列出标签 | `ListTagsInput` |
-| `add_analytics_tag_to_resource` | 添加标签到资源 | `input: {resourceId, tagId}` |
-| `remove_analytics_tag_from_resource` | 从资源移除标签 | `input: {resourceId, tagId}` |
-| `get_analytics_recycle_bin` | 获取回收站 | - |
-| `restore_analytics_resource_from_recycle` | 从回收站恢复 | `recycleId` |
-| `permanent_delete_analytics_resource` | 永久删除 | `recycleId` |
-| `init_analytics_resource_store` | 初始化存储 | - |
+| Command                                   | 说明               | 参数                             |
+| ----------------------------------------- | ------------------ | -------------------------------- |
+| `create_analytics_resource`               | 创建资源           | `CreateResourceRequest`          |
+| `update_analytics_resource`               | 更新资源           | `id`, `CreateResourceRequest`    |
+| `get_analytics_resource`                  | 获取资源详情       | `id`                             |
+| `list_analytics_resources`                | 列出资源           | `ListResourcesInput`             |
+| `list_analytics_resources_paginated`      | 分页列出资源       | `ListResourcesInput`             |
+| `delete_analytics_resource`               | 删除资源（软删除） | `id`                             |
+| `batch_delete_analytics_resources`        | 批量删除资源       | `ids: Vec<String>`               |
+| `clone_analytics_resource`                | 克隆资源           | `id`, `new_name: Option<String>` |
+| `create_analytics_folder`                 | 创建文件夹         | `CreateFolderRequest`            |
+| `get_analytics_folder`                    | 获取文件夹详情     | `id`                             |
+| `list_analytics_folders`                  | 列出文件夹         | `ListFoldersInput`               |
+| `add_analytics_resource_to_folder`        | 添加资源到文件夹   | `input: {resourceId, folderId}`  |
+| `remove_analytics_resource_from_folder`   | 从文件夹移除资源   | `input: {resourceId, folderId}`  |
+| `create_analytics_tag`                    | 创建标签           | `CreateTagRequest`               |
+| `list_analytics_tags`                     | 列出标签           | `ListTagsInput`                  |
+| `add_analytics_tag_to_resource`           | 添加标签到资源     | `input: {resourceId, tagId}`     |
+| `remove_analytics_tag_from_resource`      | 从资源移除标签     | `input: {resourceId, tagId}`     |
+| `get_analytics_recycle_bin`               | 获取回收站         | -                                |
+| `restore_analytics_resource_from_recycle` | 从回收站恢复       | `recycleId`                      |
+| `permanent_delete_analytics_resource`     | 永久删除           | `recycleId`                      |
+| `init_analytics_resource_store`           | 初始化存储         | -                                |
 
 ## 五、前端实现
 
@@ -324,6 +324,7 @@ src/extensions/builtin/analytics-resource/
 #### AnalyticsResourceManager
 
 主面板组件，提供：
+
 - 搜索栏：按名称/别名搜索资源
 - 标签筛选栏：作用域筛选、类型筛选
 - 文件夹列表：支持文件夹选择和创建
@@ -333,6 +334,7 @@ src/extensions/builtin/analytics-resource/
 #### CreateResourceModal
 
 创建资源弹窗，提供：
+
 - 资源类型选择（连接/表/文件）
 - 名称和别名输入
 - 作用域选择
@@ -342,6 +344,7 @@ src/extensions/builtin/analytics-resource/
 #### CreateFolderModal
 
 创建文件夹弹窗，提供：
+
 - 文件夹名称输入
 - 作用域选择
 - 颜色选择器
@@ -350,6 +353,7 @@ src/extensions/builtin/analytics-resource/
 #### RecycleBinModal
 
 回收站弹窗，提供：
+
 - 已删除资源列表
 - 恢复功能
 - 永久删除功能
@@ -396,17 +400,35 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   })
 
   // Actions
-  async function initStore() { /* ... */ }
-  async function loadResources(input?: ListResourcesInput) { /* ... */ }
-  async function loadResourcesPaginated(input?: ListResourcesInput) { /* ... */ }
-  async function createResource(input: CreateResourceRequest) { /* ... */ }
-  async function updateResource(id: string, input: CreateResourceRequest) { /* ... */ }
-  async function deleteResource(id: string) { /* ... */ }
-  async function batchDeleteResources(ids: string[]) { /* ... */ }
-  async function cloneResource(id: string, newName?: string) { /* ... */ }
+  async function initStore() {
+    /* ... */
+  }
+  async function loadResources(input?: ListResourcesInput) {
+    /* ... */
+  }
+  async function loadResourcesPaginated(input?: ListResourcesInput) {
+    /* ... */
+  }
+  async function createResource(input: CreateResourceRequest) {
+    /* ... */
+  }
+  async function updateResource(id: string, input: CreateResourceRequest) {
+    /* ... */
+  }
+  async function deleteResource(id: string) {
+    /* ... */
+  }
+  async function batchDeleteResources(ids: string[]) {
+    /* ... */
+  }
+  async function cloneResource(id: string, newName?: string) {
+    /* ... */
+  }
   // ... 其他 actions
 
-  return { /* ... */ }
+  return {
+    /* ... */
+  }
 })
 ```
 
@@ -434,7 +456,7 @@ const panelDisposable = context.window.registerViewProvider('analytics-resource-
   component: AnalyticsResourceManager,
   title: '分析资源管理器',
   location: 'left',
-  icon: '📊'
+  icon: '📊',
 })
 ```
 
@@ -497,14 +519,14 @@ const panelDisposable = context.window.registerViewProvider('analytics-resource-
 
 主组件 `AnalyticsResourceManager` 拆分为多个小型组件，提高可维护性：
 
-| 组件 | 职责 |
-|------|------|
-| `SearchBar` | 搜索输入，支持 Ctrl+F 聚焦 |
-| `FilterBar` | 作用域和类型筛选 |
-| `FolderList` | 文件夹选择和创建 |
-| `ResourceList` | 资源列表（虚拟滚动） |
-| `ContextMenu` | 右键菜单 |
-| `ToastContainer` | Toast 通知 |
+| 组件             | 职责                       |
+| ---------------- | -------------------------- |
+| `SearchBar`      | 搜索输入，支持 Ctrl+F 聚焦 |
+| `FilterBar`      | 作用域和类型筛选           |
+| `FolderList`     | 文件夹选择和创建           |
+| `ResourceList`   | 资源列表（虚拟滚动）       |
+| `ContextMenu`    | 右键菜单                   |
+| `ToastContainer` | Toast 通知                 |
 
 ### 10.2 防抖搜索
 
@@ -540,15 +562,16 @@ const visibleRange = computed(() => {
 
 ### 10.5 快捷键支持
 
-| 快捷键 | 功能 |
-|--------|------|
-| `Ctrl + F` | 聚焦搜索框 |
-| `Delete` | 删除选中资源 |
-| `Escape` | 清空搜索 / 关闭弹窗 |
+| 快捷键     | 功能                |
+| ---------- | ------------------- |
+| `Ctrl + F` | 聚焦搜索框          |
+| `Delete`   | 删除选中资源        |
+| `Escape`   | 清空搜索 / 关闭弹窗 |
 
 ### 10.6 右键菜单
 
 支持资源项右键菜单：
+
 - 打开
 - 编辑
 - 复制
@@ -558,26 +581,26 @@ const visibleRange = computed(() => {
 
 `Pagination` 组件提供完整的分页支持：
 
-| 功能 | 说明 |
-|------|------|
-| 页码显示 | 显示总页数和当前页码 |
-| 页大小选择 | 支持 10/20/50/100 条/页 |
-| 上一页/下一页 | 基础导航 |
-| 跳转页码 | 点击页码直接跳转 |
-| 省略号 | 超过7页时显示省略号 |
+| 功能          | 说明                    |
+| ------------- | ----------------------- |
+| 页码显示      | 显示总页数和当前页码    |
+| 页大小选择    | 支持 10/20/50/100 条/页 |
+| 上一页/下一页 | 基础导航                |
+| 跳转页码      | 点击页码直接跳转        |
+| 省略号        | 超过7页时显示省略号     |
 
 ```typescript
 interface PaginationInput {
-  page?: number;
-  pageSize?: number;
+  page?: number
+  pageSize?: number
 }
 
 interface ListResourcesOutput {
-  items: AnalyticsResource[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+  items: AnalyticsResource[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 ```
 
@@ -616,20 +639,20 @@ pub async fn list_resources_paginated(
 
 支持多字段排序：
 
-| 排序字段 | 说明 |
-|----------|------|
-| `name` | 按资源名称 |
+| 排序字段     | 说明       |
+| ------------ | ---------- |
+| `name`       | 按资源名称 |
 | `created_at` | 按创建时间 |
 | `updated_at` | 按更新时间 |
-| `row_count` | 按行数 |
-| `file_size` | 按文件大小 |
+| `row_count`  | 按行数     |
+| `file_size`  | 按文件大小 |
 
 排序方向：`asc`（升序）或 `desc`（降序）
 
 ```typescript
 interface SortInput {
-  sortBy?: SortField;
-  sortOrder?: SortOrder;
+  sortBy?: SortField
+  sortOrder?: SortOrder
 }
 ```
 
@@ -655,6 +678,7 @@ async function batchDeleteResources(ids: string[]) {
 ```
 
 **UI 交互**：
+
 - 选中资源时显示选中数量
 - 提供「批量删除」按钮
 - 提供「清空选择」按钮
@@ -682,6 +706,7 @@ async function cloneResource(id: string, newName?: string) {
 ```
 
 克隆行为：
+
 - 生成新的资源 ID
 - 默认名称为「原名称 (副本)」
 - 可指定自定义名称
@@ -690,5 +715,5 @@ async function cloneResource(id: string, newName?: string) {
 
 ---
 
-*文档版本：1.2.0*
-*最后更新：2026-05-05*
+_文档版本：1.2.0_
+_最后更新：2026-05-05_

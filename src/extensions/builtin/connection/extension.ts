@@ -11,12 +11,7 @@ import type {
   ConnectionInfoResponse,
 } from '@/shared/api'
 
-import type {
-  ExtensionContext,
-  ExtensionAPI,
-  ExtensionModule,
-  Disposable,
-} from '../../core/types'
+import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
 interface ConnectionExtensionAPI extends ExtensionAPI {
   connection: {
@@ -49,7 +44,7 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
 
   const getConnections = async (): Promise<Connection[]> => {
     const connections: ConnectionInfoResponse[] = await connectionApi.getConnections()
-    return connections.map((c) => ({
+    return connections.map(c => ({
       id: c.id,
       name: c.name,
       dbType: c.db_type,
@@ -67,9 +62,7 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
     }))
   }
 
-  const createConnection = async (
-    input: ConnectDatabaseInput
-  ): Promise<Connection> => {
+  const createConnection = async (input: ConnectDatabaseInput): Promise<Connection> => {
     const response: ConnectDatabaseResponse = await connectionApi.connectDatabase(input)
     return {
       id: response.conn_id,
@@ -98,21 +91,17 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
   }
 
   const disposables: Disposable[] = [
-    context.commands.registerCommand(
-      'connection.getConnections',
-      (...args: unknown[]) => getConnections()
+    context.commands.registerCommand('connection.getConnections', (...args: unknown[]) =>
+      getConnections()
     ),
-    context.commands.registerCommand(
-      'connection.createConnection',
-      (...args: unknown[]) => createConnection(args[0] as ConnectDatabaseInput)
+    context.commands.registerCommand('connection.createConnection', (...args: unknown[]) =>
+      createConnection(args[0] as ConnectDatabaseInput)
     ),
-    context.commands.registerCommand(
-      'connection.testConnection',
-      (...args: unknown[]) => testConnection(args[0] as string, args[1] as string)
+    context.commands.registerCommand('connection.testConnection', (...args: unknown[]) =>
+      testConnection(args[0] as string, args[1] as string)
     ),
-    context.commands.registerCommand(
-      'connection.disconnect',
-      (...args: unknown[]) => disconnectConnection(args[0] as string)
+    context.commands.registerCommand('connection.disconnect', (...args: unknown[]) =>
+      disconnectConnection(args[0] as string)
     ),
   ]
 
@@ -136,7 +125,7 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
     },
 
     dispose: () => {
-      disposables.forEach((d) => d.dispose())
+      disposables.forEach(d => d.dispose())
     },
   }
 }

@@ -1,6 +1,6 @@
 /**
  * VS Code 式 Extension Platform 类型定义
- * 
+ *
  * 设计原则：
  * 1. Project 是第一公民 - 所有扩展都运行在 Project 上下文中
  * 2. 声明式贡献 - 通过 package.json 声明贡献点
@@ -43,31 +43,31 @@ export interface ExtensionManifest {
 export interface ExtensionContributes {
   // 命令贡献
   commands?: CommandContribution[]
-  
+
   // 菜单贡献
   menus?: MenuContributions
-  
+
   // 视图容器贡献 (左侧/右侧/底部面板)
   viewsContainers?: ViewsContainerContribution[]
-  
+
   // 视图贡献
   views?: ViewsContribution
-  
+
   // 配置贡献
   configuration?: ConfigurationContribution
-  
+
   // 数据库驱动贡献
   databaseDrivers?: DatabaseDriverContribution[]
-  
+
   // SQL 方言贡献
   sqlDialects?: SQLDialectContribution[]
-  
+
   // 主题贡献
   themes?: ThemeContribution[]
-  
+
   // 图标主题贡献
   iconThemes?: IconThemeContribution[]
-  
+
   // 快捷键贡献
   keybindings?: KeybindingContribution[]
 }
@@ -85,14 +85,14 @@ export interface CommandContribution {
 }
 
 export interface MenuContributions {
-  'commandPalette'?: MenuItem[]
+  commandPalette?: MenuItem[]
   'editor/context'?: MenuItem[]
   'editor/title'?: MenuItem[]
   'editor/title/context'?: MenuItem[]
   'explorer/context'?: MenuItem[]
   'view/title'?: MenuItem[]
   'view/item/context'?: MenuItem[]
-  'statusBar'?: MenuItem[]
+  statusBar?: MenuItem[]
 }
 
 export interface MenuItem {
@@ -158,14 +158,14 @@ export interface DatabaseDriverContribution {
   connectionSchema: ConnectionSchema
 }
 
-export type DatabaseFeature = 
-  | 'schemas' 
-  | 'tables' 
-  | 'views' 
-  | 'procedures' 
-  | 'functions' 
-  | 'triggers' 
-  | 'indexes' 
+export type DatabaseFeature =
+  | 'schemas'
+  | 'tables'
+  | 'views'
+  | 'procedures'
+  | 'functions'
+  | 'triggers'
+  | 'indexes'
   | 'foreignKeys'
   | 'ssl'
   | 'sshTunnel'
@@ -242,50 +242,50 @@ export interface KeybindingContribution {
 export interface ExtensionContext {
   // 当前项目上下文 - 这是核心！
   readonly project: ProjectContext
-  
+
   // 扩展信息
   readonly extension: ExtensionIdentifier
-  
+
   // 全局状态 (跨项目)
   readonly globalState: Memento
-  
+
   // 工作区状态 (项目级别)
   readonly workspaceState: Memento
-  
+
   // 存储路径
   readonly storagePath: string
   readonly globalStoragePath: string
-  
+
   // 日志通道
   readonly logPath: string
-  
+
   // 订阅列表 (用于资源清理)
   readonly subscriptions: Disposable[]
-  
+
   // ===== API 访问 =====
   // 这些 API 由 Extension Host 注入，供扩展使用
-  
+
   // 命令 API
   readonly commands: CommandsAPI
-  
+
   // 窗口/视图 API
   readonly window: WindowAPI
-  
+
   // 工作区 API
   readonly workspace: WorkspaceAPI
-  
+
   // 配置 API
   readonly configuration: ConfigurationAPI
-  
+
   // 数据库 API
   readonly database: DatabaseAPI
-  
+
   // SQL 编辑器 API
   readonly sqlEditor: SQLEditorAPI
-  
+
   // 事件 API
   readonly events: EventsAPI
-  
+
   // 工具 API
   readonly utils: UtilsAPI
 }
@@ -295,7 +295,7 @@ export interface ProjectContext {
   readonly name: string
   readonly path: string
   readonly isActive: boolean
-  
+
   // 项目级别的事件
   onDidChangeState: Event<ProjectStateChangeEvent>
   onDidClose: Event<void>
@@ -330,34 +330,34 @@ export interface Disposable {
 export interface ExtensionAPI {
   // 版本
   readonly version: string
-  
+
   // 项目上下文 (使用 ProjectContext 而不是 ProjectAPI)
   readonly project: ProjectContext
-  
+
   // 命令
   readonly commands: CommandsAPI
-  
+
   // 窗口/视图
   readonly window: WindowAPI
-  
+
   // 工作区
   readonly workspace: WorkspaceAPI
-  
+
   // 配置
   readonly configuration: ConfigurationAPI
-  
+
   // 数据库
   readonly database: DatabaseAPI
-  
+
   // SQL 编辑器
   readonly sqlEditor: SQLEditorAPI
-  
+
   // 事件
   readonly events: EventsAPI
-  
+
   // 工具
   readonly utils: UtilsAPI
-  
+
   // 资源清理方法
   dispose?(): void
 }
@@ -369,15 +369,15 @@ export interface ExtensionAPI {
 export interface ProjectAPI {
   // 当前项目
   readonly current: ProjectContext | undefined
-  
+
   // 所有打开的项目
   readonly all: readonly ProjectContext[]
-  
+
   // 事件
   readonly onDidChangeProject: Event<ProjectContext | undefined>
   readonly onDidOpenProject: Event<ProjectContext>
   readonly onDidCloseProject: Event<ProjectContext>
-  
+
   // 方法
   open(path: string): Promise<ProjectContext>
   close(projectId: string): Promise<void>
@@ -390,7 +390,10 @@ export interface ProjectAPI {
 // ============================================================================
 
 export interface CommandsAPI {
-  registerCommand(command: string, callback: (...args: unknown[]) => unknown | Promise<unknown>): Disposable
+  registerCommand(
+    command: string,
+    callback: (...args: unknown[]) => unknown | Promise<unknown>
+  ): Disposable
   executeCommand<T>(command: string, ...args: unknown[]): Promise<T | undefined>
 }
 
@@ -401,16 +404,19 @@ export interface CommandsAPI {
 export interface WindowAPI {
   // 视图
   registerViewProvider(viewId: string, provider: ViewProvider): Disposable
-  
+
   // 通知
   showInformationMessage(message: string, ...items: string[]): Promise<string | undefined>
   showWarningMessage(message: string, ...items: string[]): Promise<string | undefined>
   showErrorMessage(message: string, ...items: string[]): Promise<string | undefined>
-  
+
   // 输入
   showInputBox(options?: InputBoxOptions): Promise<string | undefined>
-  showQuickPick<T extends QuickPickItem>(items: T[], options?: QuickPickOptions): Promise<T | undefined>
-  
+  showQuickPick<T extends QuickPickItem>(
+    items: T[],
+    options?: QuickPickOptions
+  ): Promise<T | undefined>
+
   // 状态栏
   createStatusBarItem(alignment?: StatusBarAlignment, priority?: number): StatusBarItem
 }
@@ -462,7 +468,7 @@ export interface WorkspaceAPI {
   readFile(path: string): Promise<Uint8Array>
   writeFile(path: string, content: Uint8Array): Promise<void>
   exists(path: string): Promise<boolean>
-  
+
   // 项目配置
   getConfiguration(section?: string): Configuration
 }
@@ -488,10 +494,10 @@ export interface ConfigurationAPI {
 export interface DatabaseAPI {
   // 连接管理
   registerConnectionProvider(provider: ConnectionProvider): Disposable
-  
+
   // 元数据
   getMetadata(connectionId: string, objectPath: string[]): Promise<MetadataObject | undefined>
-  
+
   // 查询
   executeQuery(connectionId: string, sql: string): Promise<QueryResult>
 }
@@ -529,11 +535,11 @@ export interface QueryResult {
 export interface SQLEditorAPI {
   // 注册 SQL 方言
   registerSQLDialect(dialect: SQLDialectContribution): Disposable
-  
+
   // 编辑器操作
   getActiveEditor(): SQLEditor | undefined
   openQuery(connectionId: string, sql?: string): Promise<SQLEditor>
-  
+
   // 事件
   readonly onDidChangeActiveEditor: Event<SQLEditor | undefined>
 }
@@ -542,7 +548,7 @@ export interface SQLEditor {
   readonly id: string
   readonly connectionId: string | undefined
   readonly document: SQLDocument
-  
+
   execute(): Promise<QueryResult>
   format(): Promise<void>
 }
@@ -562,11 +568,11 @@ export interface EventsAPI {
   readonly onProjectOpen: Event<ProjectContext>
   readonly onProjectClose: Event<ProjectContext>
   readonly onProjectDataChange: Event<{ projectId: string; key: string; value: unknown }>
-  
+
   // 数据库事件
   readonly onConnectionConnect: Event<{ connectionId: string; projectId: string }>
   readonly onConnectionDisconnect: Event<{ connectionId: string; projectId: string }>
-  
+
   // SQL 编辑器事件
   readonly onQueryExecute: Event<{ editorId: string; sql: string; connectionId: string }>
   readonly onQueryComplete: Event<{ editorId: string; result: QueryResult }>
@@ -582,14 +588,14 @@ export interface UtilsAPI {
     file(path: string): { scheme: string; path: string }
     parse(uri: string): { scheme: string; path: string }
   }
-  
+
   // 事件辅助
   Event: {
     readonly None: Event<unknown>
     map<T, U>(event: Event<T>, mapFunc: (e: T) => U): Event<U>
     filter<T>(event: Event<T>, filterFunc: (e: T) => boolean): Event<T>
   }
-  
+
   // Disposable 辅助
   Disposable: {
     from(...disposables: Disposable[]): Disposable
@@ -601,7 +607,9 @@ export interface UtilsAPI {
 // 扩展激活/停用
 // ============================================================================
 
-export type ExtensionActivateFunc = (context: ExtensionContext) => ExtensionAPI | Promise<ExtensionAPI>
+export type ExtensionActivateFunc = (
+  context: ExtensionContext
+) => ExtensionAPI | Promise<ExtensionAPI>
 export type ExtensionDeactivateFunc = () => void | Promise<void>
 
 export interface ExtensionModule {

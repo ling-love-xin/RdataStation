@@ -37,8 +37,8 @@ sqlx = { version = "0.8.3", features = [
 ] }
 # SQLite (本地文件数据库，官方驱动)
 rusqlite = { version = "0.32.1", features = ["bundled", "chrono", "serde_json"] }
-# DuckDB (分析型数据库，官方驱动)
-duckdb = { version = "1.1.1", features = ["bundled"] }
+# DuckDB (分析型数据库，官方驱动，bundled 静态链接)
+duckdb = { version = "1.10502.0", features = ["bundled"] }
 
 # ===== 序列化 =====
 serde = { version = "1.0.219", features = ["derive"] }
@@ -64,8 +64,6 @@ hex = "0.4"
 
 # ===== Arrow 格式支持 =====
 arrow = "58.1.0"
-arrow-array = "58.1.0"
-arrow-buffer = "58.1.0"
 
 # ===== 日志追踪 =====
 tracing = "0.1.41"

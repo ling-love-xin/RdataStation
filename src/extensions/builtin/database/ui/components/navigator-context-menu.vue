@@ -25,14 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  RefreshCw,
-  Copy,
-  Table,
-  Eye,
-  FolderPlus,
-  FolderMinus
-} from 'lucide-vue-next'
+import { RefreshCw, Copy, Table, Eye, FolderPlus, FolderMinus } from 'lucide-vue-next'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 interface MenuItem {
@@ -73,39 +66,92 @@ const menuItems = computed((): MenuItem[] => {
   if (props.nodeType === 'connection') {
     items.push(
       { key: 'refresh', label: '刷新连接', icon: RefreshCw, action: () => emit('refresh') },
-      { key: 'expandAll', label: '全部展开', icon: FolderPlus, action: () => emit('expandAll'), divider: true },
-      { key: 'collapseAll', label: '全部折叠', icon: FolderMinus, action: () => emit('collapseAll') }
+      {
+        key: 'expandAll',
+        label: '全部展开',
+        icon: FolderPlus,
+        action: () => emit('expandAll'),
+        divider: true,
+      },
+      {
+        key: 'collapseAll',
+        label: '全部折叠',
+        icon: FolderMinus,
+        action: () => emit('collapseAll'),
+      }
     )
   } else if (props.nodeType === 'database') {
     items.push(
-      { key: 'refresh', label: '刷新数据库', icon: RefreshCw, action: () => emit('refreshDatabase') },
-      { key: 'copyName', label: '复制名称', icon: Copy, action: () => emit('copyName'), divider: true },
+      {
+        key: 'refresh',
+        label: '刷新数据库',
+        icon: RefreshCw,
+        action: () => emit('refreshDatabase'),
+      },
+      {
+        key: 'copyName',
+        label: '复制名称',
+        icon: Copy,
+        action: () => emit('copyName'),
+        divider: true,
+      },
       { key: 'expandAll', label: '全部展开', icon: FolderPlus, action: () => emit('expandAll') },
-      { key: 'collapseAll', label: '全部折叠', icon: FolderMinus, action: () => emit('collapseAll') }
+      {
+        key: 'collapseAll',
+        label: '全部折叠',
+        icon: FolderMinus,
+        action: () => emit('collapseAll'),
+      }
     )
   } else if (props.nodeType === 'schema') {
     items.push(
-      { key: 'refresh', label: '刷新 Schema', icon: RefreshCw, action: () => emit('refreshSchema') },
-      { key: 'copyName', label: '复制名称', icon: Copy, action: () => emit('copyName'), divider: true },
+      {
+        key: 'refresh',
+        label: '刷新 Schema',
+        icon: RefreshCw,
+        action: () => emit('refreshSchema'),
+      },
+      {
+        key: 'copyName',
+        label: '复制名称',
+        icon: Copy,
+        action: () => emit('copyName'),
+        divider: true,
+      },
       { key: 'expandAll', label: '全部展开', icon: FolderPlus, action: () => emit('expandAll') },
-      { key: 'collapseAll', label: '全部折叠', icon: FolderMinus, action: () => emit('collapseAll') }
+      {
+        key: 'collapseAll',
+        label: '全部折叠',
+        icon: FolderMinus,
+        action: () => emit('collapseAll'),
+      }
     )
   } else if (props.nodeType === 'table') {
     items.push(
       { key: 'openTable', label: '打开表数据', icon: Table, action: () => emit('openTable') },
-      { key: 'refresh', label: '刷新表', icon: RefreshCw, action: () => emit('refresh'), divider: true },
+      {
+        key: 'refresh',
+        label: '刷新表',
+        icon: RefreshCw,
+        action: () => emit('refresh'),
+        divider: true,
+      },
       { key: 'copyName', label: '复制名称', icon: Copy, action: () => emit('copyName') }
     )
   } else if (props.nodeType === 'view') {
     items.push(
       { key: 'openView', label: '打开视图数据', icon: Eye, action: () => emit('openView') },
-      { key: 'refresh', label: '刷新视图', icon: RefreshCw, action: () => emit('refresh'), divider: true },
+      {
+        key: 'refresh',
+        label: '刷新视图',
+        icon: RefreshCw,
+        action: () => emit('refresh'),
+        divider: true,
+      },
       { key: 'copyName', label: '复制名称', icon: Copy, action: () => emit('copyName') }
     )
   } else if (props.nodeType === 'column') {
-    items.push(
-      { key: 'copyName', label: '复制列名', icon: Copy, action: () => emit('copyName') }
-    )
+    items.push({ key: 'copyName', label: '复制列名', icon: Copy, action: () => emit('copyName') })
   }
 
   return items

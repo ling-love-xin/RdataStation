@@ -7,10 +7,7 @@
   >
     <template v-if="useVirtualScroll">
       <div class="virtual-spacer" :style="{ height: `${totalHeight}px` }">
-        <div
-          class="virtual-content"
-          :style="{ transform: `translateY(${offsetY}px)` }"
-        >
+        <div class="virtual-content" :style="{ transform: `translateY(${offsetY}px)` }">
           <div
             v-for="item in visibleItems"
             :key="item.id"
@@ -35,6 +32,17 @@
             <span v-if="showScopeTags" :class="['scope-tag', item.scope]">
               {{ getScopeLabel(item.scope) }}
             </span>
+
+            <div v-if="getItemTags(item.id).length > 0" class="tag-badges">
+              <span
+                v-for="tag in getItemTags(item.id)"
+                :key="tag.id"
+                class="tag-badge"
+                :style="{ background: tag.color + '20', color: tag.color, borderColor: tag.color }"
+              >
+                {{ tag.name }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -65,47 +73,60 @@
         <span v-if="showScopeTags" :class="['scope-tag', item.scope]">
           {{ getScopeLabel(item.scope) }}
         </span>
+
+        <div v-if="getItemTags(item.id).length > 0" class="tag-badges">
+          <span
+            v-for="tag in getItemTags(item.id)"
+            :key="tag.id"
+            class="tag-badge"
+            :style="{ background: tag.color + '20', color: tag.color, borderColor: tag.color }"
+          >
+            {{ tag.name }}
+          </span>
+        </div>
       </div>
     </template>
 
     <div v-if="items.length === 0" class="empty-state">
       <span class="empty-icon">{{ emptyIcon }}</span>
-      <p>{{ emptyText }}</p>
+      <p>{{ emptyText || t('analyticsResource.noResources') }}</p>
     </div>
 
-    <ContextMenu
-      ref="contextMenuRef"
-      :items="contextMenuItems"
-      @select="handleContextMenuSelect"
-    />
+    <ContextMenu ref="contextMenuRef" :items="contextMenuItems" @select="handleContextMenuSelect" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ContextMenu, { type ContextMenuItem } from './ContextMenu.vue'
 
-import type { AnalyticsResource, AnalyticsResourceDisplaySettings } from '../../types'
+import type { AnalyticsResource, AnalyticsResourceDisplaySettings, AnalyticsTag } from '../../types'
 
-const props = withDefaults(defineProps<{
-  items: AnalyticsResource[]
-  selectedIds: string[]
-  itemHeight?: number
-  emptyIcon?: string
-  emptyText?: string
-  displaySettings?: AnalyticsResourceDisplaySettings
-}>(), {
-  itemHeight: 72,
-  emptyIcon: '📭',
-  emptyText: '暂无资源',
-  displaySettings: () => ({
-    showIcons: true,
-    showScopeTags: true,
-    showMetadata: true,
-    enableVirtualScroll: true,
-  }),
-})
+const props = withDefaults(
+  defineProps<{
+    items: AnalyticsResource[]
+    selectedIds: string[]
+    itemHeight?: number
+    emptyIcon?: string
+    emptyText?: string
+    displaySettings?: AnalyticsResourceDisplaySettings
+    resourceTagMap?: Map<string, AnalyticsTag[]>
+  }>(),
+  {
+    itemHeight: 72,
+    emptyIcon: '📭',
+    emptyText: '',
+    displaySettings: () => ({
+      showIcons: true,
+      showScopeTags: true,
+      showMetadata: true,
+      enableVirtualScroll: true,
+    }),
+    resourceTagMap: () => new Map(),
+  }
+)
 
 const showIcons = computed(() => props.displaySettings?.showIcons ?? true)
 const showScopeTags = computed(() => props.displaySettings?.showScopeTags ?? true)
@@ -118,9 +139,12 @@ const emit = defineEmits<{
   delete: [id: string]
   edit: [resource: AnalyticsResource]
   copy: [resource: AnalyticsResource]
+  'view-versions': [resource: AnalyticsResource]
   dragstart: [resources: AnalyticsResource[]]
   dragend: []
 }>()
+
+const { t } = useI18n()
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const contextMenuRef = ref<InstanceType<typeof ContextMenu> | null>(null)
@@ -145,11 +169,38 @@ const visibleItems = computed(() => {
 })
 
 const contextMenuItems = computed<ContextMenuItem[]>(() => [
-  { id: 'open', label: '打开', icon: '📖', action: () => emit('open', props.items.find(i => i.id === selectedIds.value[0])!) },
-  { id: 'edit', label: '编辑', icon: '✏️', action: () => emit('edit', props.items.find(i => i.id === selectedIds.value[0])!) },
-  { id: 'copy', label: '复制', icon: '📋', action: () => emit('copy', props.items.find(i => i.id === selectedIds.value[0])!) },
+  {
+    id: 'open',
+    label: t('analyticsResource.open'),
+    icon: '📖',
+    action: () => emit('open', props.items.find(i => i.id === selectedIds.value[0])!),
+  },
+  {
+    id: 'edit',
+    label: t('analyticsResource.edit'),
+    icon: '✏️',
+    action: () => emit('edit', props.items.find(i => i.id === selectedIds.value[0])!),
+  },
+  {
+    id: 'copy',
+    label: t('analyticsResource.copy'),
+    icon: '📋',
+    action: () => emit('copy', props.items.find(i => i.id === selectedIds.value[0])!),
+  },
+  {
+    id: 'versions',
+    label: t('analyticsResource.viewVersions'),
+    icon: '📜',
+    action: () => emit('view-versions', props.items.find(i => i.id === selectedIds.value[0])!),
+  },
   { id: 'separator', label: '---', disabled: true },
-  { id: 'delete', label: '删除', icon: '🗑️', danger: true, action: () => emit('delete', selectedIds.value[0]) },
+  {
+    id: 'delete',
+    label: t('analyticsResource.delete'),
+    icon: '🗑️',
+    danger: true,
+    action: () => emit('delete', selectedIds.value[0]),
+  },
 ])
 
 const selectedIds = computed(() => props.selectedIds)
@@ -158,31 +209,43 @@ function isSelected(id: string) {
   return selectedIds.value.includes(id)
 }
 
+function getItemTags(resourceId: string): AnalyticsTag[] {
+  return props.resourceTagMap?.get(resourceId) ?? []
+}
+
 function getResourceIcon(type: string) {
   switch (type) {
-    case 'connection': return '🔌'
-    case 'table': return '📊'
-    case 'file': return '📄'
-    default: return '📦'
+    case 'connection':
+      return '🔌'
+    case 'table':
+      return '📊'
+    case 'file':
+      return '📄'
+    default:
+      return '📦'
   }
 }
 
 function getScopeLabel(scope: string) {
   switch (scope) {
-    case 'global': return '🌍 全局'
-    case 'project': return '📂 项目'
-    case 'session': return '📌 会话'
-    default: return scope
+    case 'global':
+      return '🌍 ' + t('analyticsResource.global')
+    case 'project':
+      return '📂 ' + t('analyticsResource.project')
+    case 'session':
+      return '📌 ' + t('analyticsResource.session')
+    default:
+      return scope
   }
 }
 
 function getResourceMeta(resource: AnalyticsResource) {
   const meta: string[] = []
   if (resource.row_count !== undefined && resource.row_count !== null) {
-    meta.push(`${resource.row_count.toLocaleString()} 行`)
+    meta.push(`${resource.row_count.toLocaleString()} ${t('resultPanel.rows')}`)
   }
   if (resource.column_count !== undefined && resource.column_count !== null) {
-    meta.push(`${resource.column_count} 列`)
+    meta.push(`${resource.column_count} ${t('resultPanel.column')}`)
   }
   if (resource.file_size !== undefined && resource.file_size !== null) {
     meta.push(`${formatFileSize(resource.file_size)}`)
@@ -215,17 +278,18 @@ function handleContextMenuSelect(item: ContextMenuItem) {
 }
 
 function handleDragStart(item: AnalyticsResource, event: DragEvent) {
-  const draggedResources = selectedIds.value.length > 0
-    ? props.items.filter(i => selectedIds.value.includes(i.id))
-    : [item]
-  
+  const draggedResources =
+    selectedIds.value.length > 0
+      ? props.items.filter(i => selectedIds.value.includes(i.id))
+      : [item]
+
   event.dataTransfer?.setData('application/json', JSON.stringify(draggedResources))
   event.dataTransfer!.effectAllowed = 'move'
-  
+
   if (event.target instanceof HTMLElement) {
     event.target.style.opacity = '0.5'
   }
-  
+
   emit('dragstart', draggedResources)
 }
 
@@ -257,9 +321,12 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateContainerHeight)
 })
 
-watch(() => props.items, () => {
-  updateContainerHeight()
-})
+watch(
+  () => props.items,
+  () => {
+    updateContainerHeight()
+  }
+)
 </script>
 
 <style scoped>
@@ -351,6 +418,26 @@ watch(() => props.items, () => {
 .scope-tag.session {
   background: var(--warning-light);
   color: var(--warning-color);
+}
+
+.tag-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tag-badge {
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.resource-item:hover .tag-badges {
+  display: flex;
 }
 
 .empty-state {

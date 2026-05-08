@@ -48,27 +48,27 @@
 
 ### Core 层内部依赖
 
-| 模块 | 允许依赖 | 禁止依赖 |
-|------|----------|----------|
-| `models` | 无（基础层） | 所有其他模块 |
-| `error` | 无（基础层） | 所有其他模块 |
-| `macros` | 无（基础层） | 所有其他模块 |
-| `driver` | `error`, `macros`, `models` | `connection`, `datasource`, `dbi` |
-| `connection` | `error`, `models` | `driver`, `datasource`, `dbi` |
-| `datasource` | `driver`, `connection`, `error`, `models` | `api`, `services`, `dbi` |
-| `persistence` | `error`, `models` | `driver`, `datasource`, `dbi` |
-| `project` | `error`, `models`, `persistence` | `driver`, `datasource`, `dbi` |
-| `services` | `driver`, `persistence`, `connection`, `error`, `models`, `project` | `api`, `adapters`, `dbi` |
-| `dbi` | `driver`, `services`, `connection`, `error`, `models`, `datasource` | `api`, `adapters` |
-| `dbi/engine` | `driver`, `error`, `models` | `services`, `adapters` |
+| 模块          | 允许依赖                                                            | 禁止依赖                          |
+| ------------- | ------------------------------------------------------------------- | --------------------------------- |
+| `models`      | 无（基础层）                                                        | 所有其他模块                      |
+| `error`       | 无（基础层）                                                        | 所有其他模块                      |
+| `macros`      | 无（基础层）                                                        | 所有其他模块                      |
+| `driver`      | `error`, `macros`, `models`                                         | `connection`, `datasource`, `dbi` |
+| `connection`  | `error`, `models`                                                   | `driver`, `datasource`, `dbi`     |
+| `datasource`  | `driver`, `connection`, `error`, `models`                           | `api`, `services`, `dbi`          |
+| `persistence` | `error`, `models`                                                   | `driver`, `datasource`, `dbi`     |
+| `project`     | `error`, `models`, `persistence`                                    | `driver`, `datasource`, `dbi`     |
+| `services`    | `driver`, `persistence`, `connection`, `error`, `models`, `project` | `api`, `adapters`, `dbi`          |
+| `dbi`         | `driver`, `services`, `connection`, `error`, `models`, `datasource` | `api`, `adapters`                 |
+| `dbi/engine`  | `driver`, `error`, `models`                                         | `services`, `adapters`            |
 
 ### 层间依赖
 
-| 层 | 允许依赖 | 禁止依赖 |
-|----|----------|----------|
-| `api` | 无（被依赖） | `core`, `adapters` |
-| `core` | `api`（仅错误类型） | `adapters` |
-| `adapters` | `api`, `core` | 无 |
+| 层         | 允许依赖            | 禁止依赖           |
+| ---------- | ------------------- | ------------------ |
+| `api`      | 无（被依赖）        | `core`, `adapters` |
+| `core`     | `api`（仅错误类型） | `adapters`         |
+| `adapters` | `api`, `core`       | 无                 |
 
 ## 依赖规则详解
 
@@ -194,8 +194,8 @@ pub struct DBI {
 }
 
 impl DBI {
-    pub async fn query(&self, sql: &str, mode: ExecutionMode) 
-        -> Result<QueryResult, CoreError> 
+    pub async fn query(&self, sql: &str, mode: ExecutionMode)
+        -> Result<QueryResult, CoreError>
     {
         let context = QueryContext::new(
             self.session.current_connection_id(),
@@ -246,6 +246,7 @@ use crate::A::AType; // 循环依赖！
 ### 如何避免
 
 1. **提取公共类型到基础层**
+
 ```rust
 // ❌ 错误：循环依赖
 // A.rs
@@ -266,6 +267,7 @@ use crate::core::models::SharedType;
 ```
 
 2. **使用 trait 抽象**
+
 ```rust
 // ❌ 错误：直接依赖
 // service.rs
@@ -281,6 +283,7 @@ pub struct Service<T: Database> {
 ```
 
 3. **依赖注入**
+
 ```rust
 // ✅ 正确：通过参数注入
 pub async fn process(db: &dyn Database) -> Result<()> {
@@ -330,7 +333,7 @@ use mockall::mock;
 
 mock! {
     pub Database {}
-    
+
     #[async_trait]
     impl Database for Database {
         async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
@@ -342,7 +345,7 @@ async fn test_service() {
     let mut mock_db = MockDatabase::new();
     mock_db.expect_query()
         .returning(|_| Ok(QueryResult::default()));
-    
+
     let service = SqlService::new();
     let result = service.execute_with_db(&mock_db, "SELECT 1").await;
     assert!(result.is_ok());

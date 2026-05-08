@@ -1,9 +1,9 @@
 # 草稿箱 (Scratchpad) 设计方案
 
-> 版本：v2.0
+> 版本：v2.7
 > 创建日期：2026-05-07
-> 最后更新：2026-05-07
-> 状态：✅ 交互完善 + 安全合规 + 性能优化
+> 最后更新：2026-05-08
+> 状态：✅ v2.7 全功能完成 — 回收站/元数据/代码编辑器/内容搜索/Config缓存/主题适配/DuckDB分析
 
 ---
 
@@ -13,13 +13,13 @@
 
 ### 核心特征
 
-| 特征 | 说明 |
-|------|------|
-| **物理跟随项目** | 文件存储在 `{项目}/.scratchpad/` 中，跟随项目迁移 |
-| **逻辑暂存** | 不属于项目核心资产，不写入 `project.meta.sqlite` |
-| **临时性与实验性** | 存放不成熟的验证脚本、随手写的 SQL、测试用数据文件 |
+| 特征                 | 说明                                               |
+| -------------------- | -------------------------------------------------- |
+| **物理跟随项目**     | 文件存储在 `{项目}/.scratchpad/` 中，跟随项目迁移  |
+| **逻辑暂存**         | 不属于项目核心资产，不写入 `project.meta.sqlite`   |
+| **临时性与实验性**   | 存放不成熟的验证脚本、随手写的 SQL、测试用数据文件 |
 | **用户主动决定归属** | 文件是否从草稿箱"提升"到项目资产区，完全由用户决定 |
-| **个人化** | 草稿文件是个人的、临时的，不与团队成员共享 |
+| **个人化**           | 草稿文件是个人的、临时的，不与团队成员共享         |
 
 ---
 
@@ -42,9 +42,15 @@
     {
       "alias": "下载数据",
       "path": "/home/user/Downloads/data",
-      "added_at": "2026-05-07T10:30:00Z"
+      "created_at": "2026-05-07T10:30:00Z"
     }
-  ]
+  ],
+  "file_meta": {
+    "临时订单分析.sql": {
+      "last_connection_id": "conn-mysql-prod-001",
+      "last_executed_at": "2026-05-08T14:20:00Z"
+    }
+  }
 }
 ```
 
@@ -56,15 +62,14 @@
 ┌──────────────────────────────┐
 │ 草稿箱 (Scratchpad)          │  ← dockview tab 标题
 ├──────────────────────────────┤
-│ [+新建] [导入] [刷新] [搜索] │  ← 顶部工具栏
+│ [新建] [导入] [引用] [刷新] [🔍 搜索...] │  ← 工具栏
 ├──────────────────────────────┤
-│ 📁 外部引用                  │  ← 外部目录/文件的快捷方式
-│   ├─ 📂 下载数据 (链接)      │
-│   └─ 📄 共享文档.csv         │
-│ 📁 本地草稿                  │  ← 本地临时文件（扁平结构）
-│   ├─ 🐍 用户留存探索.py      │
-│   ├─ 📜 临时订单分析.sql     │
-│   └─ 📊 test_data_sample.csv │
+│ ▼ 📁 外部引用                  │
+│   └ ⚡ 数据 (D:\data\)       │
+│ ▼ 📁 本地草稿                  │
+│   ├ 🐍 用户留存探索.py       │
+│   ├ 📜 临时订单分析.sql      │  ← 双击应打开 SQL 编辑器
+│   └ 📊 test_data_sample.csv │
 └──────────────────────────────┘
 ```
 
@@ -74,31 +79,34 @@
 - 按"外部引用"和"本地草稿"分组显示
 - 使用 dockview-vue 的 paneview 实现
 - 文件图标根据后缀自动识别
+- 搜索结果实时过滤，匹配文件名 + 引用别名/路径
 
 ---
 
 ## 四、核心交互
 
-| 操作 | 说明 |
-|------|------|
-| **新建文件** | 点击 [+新建]，输入完整文件名（不预设后缀），系统在 `.scratchpad/` 创建空文件 |
-| **打开文件** | 双击文件，根据后缀自动选择合适的编辑器（.sql → SQL 编辑器，.py → Monaco，.csv → 数据预览） |
-| **编辑保存** | 编辑后 Ctrl+S 保存回 `.scratchpad/` |
-| **删除文件** | 右键删除，无需确认对话框（因为是临时文件） |
-| **重命名** | 右键重命名或选中后按 F2 |
-| **导入外部文件** | 通过系统文件对话框选择文件，复制到 `.scratchpad/` |
-| **链接外部目录** | 将外部目录添加到"外部引用"列表（不复制文件，只记录路径引用） |
+| 操作             | 说明                                                                                | 状态 |
+| ---------------- | ----------------------------------------------------------------------------------- | :--: |
+| **新建文件**     | 点击 [+新建]，输入完整文件名（不预设后缀），系统在 `.scratchpad/` 创建空文件        |  ✅  |
+| **打开文件**     | 双击文件，根据后缀自动选择合适的编辑器（.sql → SQL 编辑器），自动恢复上次使用的连接 |  ✅  |
+| **编辑保存**     | 编辑后 Ctrl+S 保存回 `.scratchpad/`（原子写入）                                     |  ✅  |
+| **删除文件**     | 右键删除，移入 `.trash/` 回收站（软删除，可恢复）                                   |  ✅  |
+| **重命名**       | 右键重命名或选中后按 F2                                                             |  ✅  |
+| **导入外部文件** | 通过系统文件对话框选择文件，复制到 `.scratchpad/`                                   |  ✅  |
+| **链接外部目录** | 将外部目录添加到"外部引用"列表（不复制文件，只记录路径引用）                        |  ✅  |
+| **回收站管理**   | list/restore/empty，面板折叠区域含恢复和清空按钮 |  ✅  |
+| **Python 编辑**  | 双击 `.py`，在代码编辑器打开，Monaco Python 语法高亮，Ctrl+S 保存回草稿箱 |  ✅  |
 
 ---
 
 ## 五、与项目的关系
 
-| 维度 | 说明 |
-|------|------|
-| **物理存储** | 跟随项目，存储在 `{项目}/.scratchpad/` 中 |
-| **逻辑归属** | 不属于项目资产管理视图，不写入 `project.meta.sqlite` |
-| **迁移行为** | 跟随项目目录迁移（因为是项目目录下的物理文件） |
-| **资产化** | 暂不引入"提升"机制，草稿就是草稿，用户自行决定是否手动复制到正式目录 |
+| 维度         | 说明                                                                 |
+| ------------ | -------------------------------------------------------------------- |
+| **物理存储** | 跟随项目，存储在 `{项目}/.scratchpad/` 中                            |
+| **逻辑归属** | 不属于项目资产管理视图，不写入 `project.meta.sqlite`                 |
+| **迁移行为** | 跟随项目目录迁移（因为是项目目录下的物理文件）                       |
+| **资产化**   | 暂不引入"提升"机制，草稿就是草稿，用户自行决定是否手动复制到正式目录 |
 
 ---
 
@@ -107,70 +115,144 @@
 ```
 ┌─────────────────────────────────────────────┐
 │              Frontend (Vue 3 + TS)           │
-│  ┌────────────┐  ┌───────────┐  ┌─────────┐ │
-│  │ Panel      │  │ File Tree │  │ Store   │ │
-│  │ (dockview) │  │ (递归组件) │  │ (Pinia) │ │
-│  └─────┬──────┘  └─────┬─────┘  └────┬────┘ │
-│        └───────────────┴──────────────┘      │
-│  ┌──────────────────────────────────────┐    │
-│  │    infrastructure/api/scratchpad-api  │    │
-│  │         invoke() + plugin-fs          │    │
-│  └──────────────────┬───────────────────┘    │
-├─────────────────────┼────────────────────────┤
-│              Tauri IPC                         │
-├─────────────────────┼────────────────────────┤
-│            Backend (Rust)                      │
-│  ┌──────────────────┴───────────────────┐    │
-│  │    commands/scratchpad_commands.rs    │    │
-│  │  list | create | delete | rename     │    │
-│  │  read  | save   | import | ref       │    │
-│  └──────────────────┬───────────────────┘    │
-│  ┌──────────────────┴───────────────────┐    │
-│  │     core/scratchpad/                  │    │
-│  │     ├── models.rs (DTO)               │    │
-│  │     └── store.rs  (文件操作+配置)     │    │
-│  └──────────────────────────────────────┘    │
-│  ┌──────────────────────────────────────┐    │
-│  │ tauri-plugin-fs | tauri-plugin-dialog │    │
-│  └──────────────────────────────────────┘    │
+│  ┌────────────┐  ┌───────────┐              │
+│  │ Panel      │  │ TreeNode  │              │
+│  │ (dockview) │  │ (递归组件) │              │
+│  └─────┬──────┘  └─────┬─────┘              │
+│        └───────────────┘                     │
+│  ┌─────────────────────────────┐            │
+│  │     use-scratchpad.ts       │            │
+│  │   (状态管理 + 业务逻辑)      │            │
+│  └─────────────┬───────────────┘            │
+│  ┌─────────────┴───────────────┐            │
+│  │       scratchpad-api.ts      │            │
+│  │     (17 个 Tauri IPC 封装)    │            │
+│  └─────────────┬───────────────┘            │
+├────────────────┼────────────────────────────┤
+│              Tauri IPC                       │
+├────────────────┼────────────────────────────┤
+│            Backend (Rust)                    │
+│  ┌─────────────┴───────────────┐            │
+│  │   scratchpad_commands.rs    │            │
+│  │   (20 个 #[tauri::command])  │            │
+│  └─────────────┬───────────────┘            │
+│  ┌─────────────┴───────────────┐            │
+│  │     core/scratchpad/         │            │
+│  │     ├── models.rs            │            │
+│  │     ├── state.rs             │            │
+│  │     └── store.rs             │            │
+│  └──────────────────────────────┘            │
 └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## 七、Tauri Commands
+## 七、SQL 编辑器集成路线（v2.1 核心）
 
-| 命令 | 功能 |
-|------|------|
-| `list_scratchpad_files` | 读取 `.scratchpad/` 目录内容 + `.scratchpad.json` 外部引用 |
-| `create_scratchpad_entry` | 创建新文件或文件夹 |
-| `delete_scratchpad_entry` | 删除文件或文件夹 |
-| `rename_scratchpad_entry` | 重命名文件或文件夹 |
-| `read_scratchpad_file` | 读取文件内容（用于编辑器打开） |
-| `save_scratchpad_file` | 保存文件内容 |
-| `import_external_file` | 复制外部文件到草稿箱 |
-| `add_external_reference` | 添加外部目录引用 |
-| `remove_external_reference` | 移除外部目录引用 |
+### 7.1 为什么集成而非独立？
+
+草稿箱 SQL 文件不是"只能写一句话的便签"，用户完全可能在草稿箱里写几十行 SQL（DDL + DML + SELECT），连上一个连接后完整执行。草稿箱 SQL 需要的执行能力与正式 SQL 编辑器高度重合。
+
+| 需求                                   | 草稿箱 SQL 文件 | 正式 SQL 编辑器 |
+| -------------------------------------- | :-------------: | :-------------: |
+| Monaco 编辑（语法高亮、快捷键）        |       ✅        |       ✅        |
+| 完整执行引擎（单语句/多语句/选中执行） |       ✅        |       ✅        |
+| 结果展示（AG Grid + 排序/筛选/分页）   |       ✅        |       ✅        |
+| 连接管理（自动建连、ensureConnection） |       ✅        |       ✅        |
+| 方言高亮 / 数据库补全                  |       ❌        |       ✅        |
+| 方言转换 / 执行计划 / DuckDB 加速      |       ❌        |       ✅        |
+| localStorage 草稿缓存                  |       ❌        |       ✅        |
+| 执行历史记录                           |       ❌        |       ✅        |
+
+### 7.2 集成方式：精简模式（Scratchpad Mode）
+
+让 `SqlEditorPanel.vue` 支持一个 **"草稿箱文件模式"**。在该模式下：
+
+- **编辑器标题** 显示草稿文件名（如 `📜 临时订单分析.sql`）
+- **连接管理** 完全保留——用户需要手动选择连接来执行
+- **快捷键 Ctrl+S** 保存回 `.scratchpad/` 文件路径（原子写入）
+- **关闭/禁用**：方言高亮、数据库补全、方言转换弹窗、DuckDB 加速、执行计划
+- **替换持久化**：localStorage 草稿 → `.scratchpad/` 文件读写
+
+### 7.3 新增参数
+
+```typescript
+// src/shared/types/sql.ts 新增字段
+export interface SqlEditorParams {
+  connectionId?: string
+  databaseName?: string
+  initialSql?: string
+  panelId?: string
+  schema?: string
+
+  // v2.2 草稿箱模式字段
+  scratchpadRelativePath?: string // 相对于 .scratchpad/ 的文件路径，非空 = 草稿箱模式
+  scratchpadFileName?: string // 显示用的文件名（如 "临时订单分析.sql"）
+}
+```
+
+### 7.4 数据流（草稿箱文件模式）
+
+```
+用户双击草稿箱 .sql 文件
+       │
+       ▼
+openFileInEditor(entry)
+  ├── readScratchpadFile(entry.path) → 文件内容
+  ├── 创建 SqlEditorPanel (dockview floating/center)
+  │      params: { scratchpadFilePath, scratchpadFileName, initialSql }
+  │
+  ▼
+SqlEditorPanel (scratchpad mode)
+  ├── 初始化编辑器（Monaco），加载文件内容
+  ├── 状态栏：显示文件名 + 连接选择器
+  ├── Ctrl+S → saveScratchpadFile(path, editor.getValue())
+  ├── 用户选择连接 → ensureConnection → 执行 SQL
+  └── 结果展示（内嵌 QueryResultPanel）
+```
+
+### 7.5 需要改动的文件
+
+| 文件                      | 改动                                                              |
+| ------------------------- | ----------------------------------------------------------------- |
+| `src/shared/types/sql.ts` | `SqlEditorParams` 新增 `scratchpadFilePath`、`scratchpadFileName` |
+| `ScratchpadPanel.vue`     | `openFileInEditor` 逻辑打通——调用 dockview API 创建编辑器面板     |
+| `SqlEditorPanel.vue`      | `scratchpadFilePath` 非空时启用精简模式                           |
+
+> **不改动的文件**：Rust 后端完全不需要变——`read/save_scratchpad_file` 已有，`execute_sql` 已有。
+
+---
+
+## 七点五、文件元数据层（v2.3）
+
+草稿箱为每个文件记录元数据，存储在 `.scratchpad.json` 的 `file_meta` 字段中。当前记录的元数据包括：
+
+- `last_connection_id`：文件上次执行 SQL 时使用的数据库连接 ID
+- `last_executed_at`：上次执行时间
+
+这使得用户在再次打开 SQL 文件时，编辑器能自动恢复到上次使用的连接，提升使用连贯性。
 
 ---
 
 ## 八、设计决策
 
-| 事项 | 决策 | 理由 |
-|------|------|------|
-| 草稿不进 SQLite | ✅ | 保持临时性，零管理负担 |
-| 不预设文件后缀 | ✅ | 用户输入完整文件名，自由灵活 |
-| 暂不引入"提升"机制 | ✅ | 保持简洁；analytics_resource 已预留"出口" |
-| 删除无确认 | ✅ | 草稿即临时，确认对话框增加摩擦 |
-| 外部引用用 alias | ✅ | 避免存储重复，解决"下载目录临时数据"场景 |
-| 递归最多 4 层 | ✅ | 防止复杂嵌套超出草稿定位 |
-| 使用 tauri-plugin-fs | ✅ | 安全沙箱、权限可控 |
-| 图标映射 + 编辑器关联 | ✅ | 与 SQL 编辑器、Monaco、数据预览无缝集成 |
-| 路径遍历防护 | ✅ | `resolve_path` 中校验 `..` 和路径前缀 |
+| 事项                 | 决策 | 理由                                          |
+| -------------------- | ---- | --------------------------------------------- |
+| 草稿不进 SQLite      | ✅   | 保持临时性，零管理负担                        |
+| 不预设文件后缀       | ✅   | 用户输入完整文件名，自由灵活                  |
+| 暂不引入"提升"机制   | ✅   | 保持简洁；analytics_resource 已预留"出口"     |
+| 删除无确认但软删除   | ✅   | 移入 `.trash/`，避免误删，可恢复              |
+| 外部引用用 alias     | ✅   | 避免存储重复，解决"下载目录临时数据"场景      |
+| 递归最多 4 层        | ✅   | 防止复杂嵌套超出草稿定位                      |
+| 路径遍历防护         | ✅   | `resolve_path` 三重校验                       |
+| 编辑器集成而非独立   | ✅   | SQL 编辑+执行能力高度重合，独立实现是重复建设 |
+| 精简模式而非完整模式 | ✅   | 草稿箱不需要方言高亮/补全/转换/DuckDB 加速    |
 
 ---
 
 ## 九、待办事项
+
+### 已完成 ✅
 
 - [x] 右键菜单完整实现（打开/重命名/删除/复制路径/展开折叠）
 - [x] 外部引用右键菜单（移除引用/打开位置）
@@ -183,12 +265,53 @@
 - [x] Ctrl+N 新建草稿快捷键
 - [x] 新建文件对话框（输入框自动聚焦 + Enter 确认）
 - [x] 搜索过滤（文件名 + 引用别名/路径）
-- [x] Composable 中 invalidReferences/validReferences 计算属性
-- [x] **路径安全合规**（resolve_path 中 unwrap 替换为 CoreError 错误返回）
-- [x] **大文件检查**（50MB 限制，前端 + 后端双重校验）
-- [x] **外部引用打开系统管理器**（opener crate 集成，右键"打开位置"）
-- [x] **右键菜单溢出检测**（clampToViewport 防止超出屏幕）
-- [x] **去重 isRefInvalid**（统一到 composable，panel 不再重复）
-- [ ] 双击打开对应编辑器面板（SQL 编辑器 / Monaco / 数据预览）— `openFileInEditor` 已根据后缀推断 + 文件大小检查
-- [ ] 文件颜色图标主题适配（Dark/Light）
-- [ ] 与 analytics_resource 的"提升"机制（后续版本）
+- [x] 路径安全合规（resolve_path 中 unwrap 替换为 CoreError 错误返回）
+- [x] 大文件检查（50MB 限制，前端 + 后端双重校验）
+- [x] 外部引用打开系统管理器（opener crate 集成，右键"打开位置"）
+- [x] 右键菜单溢出检测（clampToViewport 防止超出屏幕）
+- [x] 去重 isRefInvalid（统一到 composable，panel 不再重复）
+
+### v2.1 已完成 ✅
+
+- [x] **打通 openFileInEditor** — 双击 `.sql` 文件读取内容 → 派发 `open-sql-editor` 事件
+- [x] **SqlEditorPanel 精简模式** — 支持 `scratchpadRelativePath` 入参，关闭方言高亮/补全/验证/转换/DuckDB加速
+- [x] **Ctrl+S 保存回 .scratchpad/** — 草稿箱模式 Ctrl+S 调用 `save_scratchpad_file`
+- [x] **编辑器标题显示草稿文件名** — dockview tab title 显示 `📜 文件名.sql`
+- [x] **EditorToolbar 高级功能开关** — `showAdvanced` prop 控制格式/验证/转换按钮可见性
+
+### v2.3 已完成 ✅
+
+- [x] **FileMeta 数据模型** — Rust `FileMeta { last_connection_id, last_executed_at }` + HashMap 存储
+- [x] **store.update_file_meta()** — 写入/更新文件的连接与执行时间元数据
+- [x] **Tauri Command `update_scratchpad_file_meta`** — 注册到 lib.rs
+- [x] **前端 API `updateFileMeta()` + Composable `saveFileMeta()`** — 12 个 Tauri IPC 封装
+- [x] **打开文件自动恢复连接** — `openFileInEditor` 读取 `file_meta` 中的 `last_connection_id` 并传入编辑器
+- [x] **保存/执行时更新元数据** — `handleScratchpadSave` / `handleExecute` 自动调用 `update_scratchpad_file_meta`
+
+### v2.4 已完成 ✅
+
+- [x] **重命名迁移 file_meta 键** — `rename_entry()` 同步迁移 `file_meta` HashMap 中的旧 path → 新 path
+- [x] **代码编辑器打通** — `.py`/`.json`/`.txt`/`.md` 在 SqlEditorPanel 打开，Monaco 自动切换语法高亮，Ctrl+S 保存
+- [x] **文件内容搜索** — Rust `search_file_content()` + Command `search_scratchpad_content` + 前端 API `searchFileContent()` + Panel 全文/文件名双模式
+
+### v2.5 已完成 ✅
+
+- [x] **内容搜索路径匹配修复** — `filteredLocalEntries` 对齐 Rust 相对路径与前端绝对路径
+- [x] **Config 内存缓存** — `ScratchpadStore` 新增 `config_cache: Arc<Mutex<Option<ScratchpadConfig>>>`，`load_config()` 缓存命中免磁盘 IO，`save_config()` 同步更新缓存
+
+### v2.6 已完成 ✅
+
+- [x] **回收站 UI** — `trashEntries` ref + `loadTrashEntries()` / `restoreTrashEntry()` / `emptyTrashBin()` 前端 API → Composable → 面板折叠区域（恢复 / 清空按钮）
+- [x] **草稿箱自动保存** — `markDirty()` 触发 2s 防抖 `scheduleAutoSave()`，失焦后自动写回 `.scratchpad/`，组件卸载清理 timer
+
+### v2.7 已完成 ✅
+
+- [x] **图标主题适配** — CSS 变量全面对齐 `global.css`（`--color-text-primary/secondary/muted` / `--color-border` / `--color-bg-elevated/tertiary` / `--brand-danger`），Dark/Light 模式跟随全局 `body.theme-dark` / `body.theme-light` 切换
+- [x] **DuckDB 分析入口** — `AnalyzableFile` TS 接口 + `getAnalyzableFiles()` API + `loadAnalyzableFiles()` composable + 右键菜单 "用 DuckDB 分析"（`.csv`/`.parquet`/`.json`/`.xlsx`），打开 DuckDB Query Hint 到 SQL 编辑器
+
+### 后续版本 🔮
+
+- [ ] 文件监控（watch `.scratchpad/` 目录变化）
+- [ ] 与 analytics_resource 的"提升"机制
+      </parameter>
+      </｜DSML｜inv

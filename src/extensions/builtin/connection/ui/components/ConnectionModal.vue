@@ -6,10 +6,12 @@
           <!-- 头部 - 优化布局 -->
           <header class="modal-header">
             <div class="header-left">
-              <h2 class="header-title">{{ isEditing ? '编辑连接' : '新建数据库连接' }}</h2>
+              <h2 class="header-title">{{
+                isEditing ? t('navigator.editConnection') : t('navigator.newDatabaseConnection')
+              }}</h2>
               <DbIcon v-if="selectedDriver" :type="selectedDriver.id" class="header-db-icon" />
             </div>
-            
+
             <!-- 连接名称输入框 -->
             <div v-if="selectedDriver" class="header-connection-name">
               <input
@@ -21,27 +23,27 @@
               />
               <span v-if="errors.name" class="error-text">{{ errors.name }}</span>
             </div>
-            
+
             <!-- 全局/项目多选 -->
             <div v-if="selectedDriver" class="header-scope-toggle">
               <label class="scope-checkbox">
                 <input v-model="saveToGlobal" type="checkbox" />
                 <span class="checkmark"></span>
-                <span class="scope-label">全局</span>
+                <span class="scope-label">{{ t('navigator.global') }}</span>
               </label>
               <label class="scope-checkbox" :class="{ disabled: !hasProject }">
                 <input v-model="saveToProject" type="checkbox" :disabled="!hasProject" />
                 <span class="checkmark"></span>
-                <span class="scope-label">项目</span>
+                <span class="scope-label">{{ t('navigator.project') }}</span>
               </label>
               <NTooltip v-if="!hasProject" trigger="hover">
                 <template #trigger>
                   <HelpCircle :size="14" class="help-icon" />
                 </template>
-                当前未打开项目
+                {{ t('navigator.noProjectOpen') }}
               </NTooltip>
             </div>
-            
+
             <button class="btn-close" @click="close">
               <X :size="18" />
             </button>
@@ -188,16 +190,20 @@
             </div>
             <div class="footer-right">
               <!-- 测试结果展示 -->
-              <div v-if="testResult" class="test-result" :class="testResult.success ? 'success' : 'error'">
+              <div
+                v-if="testResult"
+                class="test-result"
+                :class="testResult.success ? 'success' : 'error'"
+              >
                 <CheckCircle v-if="testResult.success" :size="14" />
                 <XCircle v-else :size="14" />
                 <span class="test-result-message">{{ testResult.message }}</span>
-                <span v-if="testResult.response_time_ms" class="test-result-time">{{ testResult.response_time_ms }}ms</span>
+                <span v-if="testResult.response_time_ms" class="test-result-time"
+                  >{{ testResult.response_time_ms }}ms</span
+                >
               </div>
-              
-              <button type="button" class="btn-secondary" @click="close">
-                取消
-              </button>
+
+              <button type="button" class="btn-secondary" @click="close"> 取消 </button>
               <button
                 v-if="selectedDriver"
                 type="button"
@@ -209,14 +215,9 @@
                 <TestTube v-else :size="14" />
                 {{ testing ? '测试中...' : '测试连接' }}
               </button>
-              <button
-                type="button"
-                class="btn-primary"
-                :disabled="saving"
-                @click="saveConnection"
-              >
+              <button type="button" class="btn-primary" :disabled="saving" @click="saveConnection">
                 <Check :size="14" />
-                {{ saving ? '保存中...' : (isEditing ? '保存' : '保存连接') }}
+                {{ saving ? '保存中...' : isEditing ? '保存' : '保存连接' }}
               </button>
             </div>
           </footer>
@@ -240,10 +241,11 @@ import {
   Zap,
   Loader2,
   CheckCircle,
-  XCircle
+  XCircle,
 } from 'lucide-vue-next'
 import { NTooltip, useMessage } from 'naive-ui'
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
 import DbIcon from '@/shared/components/common/DbIcon.vue'
@@ -263,7 +265,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  editingConnection: null
+  editingConnection: null,
 })
 
 const emit = defineEmits<{
@@ -271,6 +273,7 @@ const emit = defineEmits<{
   save: [connection: Record<string, unknown>]
 }>()
 
+const { t } = useI18n()
 const projectStore = useProjectStore()
 const message = useMessage()
 
@@ -329,7 +332,7 @@ const DRIVER_DEFAULTS: Record<string, Partial<ConnectionFormData>> = {
   mysql: { host: 'localhost', port: 3306, username: 'root' },
   postgres: { host: 'localhost', port: 5432, username: 'postgres' },
   sqlite: { database: './database.db' },
-  duckdb: { database: './database.duckdb' }
+  duckdb: { database: './database.duckdb' },
 }
 
 // 表单数据
@@ -352,7 +355,7 @@ const formData = ref<ConnectionFormData>({
   enableSsl: false,
   sslCa: '',
   sslCert: '',
-  sslKey: ''
+  sslKey: '',
 })
 
 // 驱动列表缓存
@@ -365,7 +368,7 @@ async function loadDrivers(force = false) {
     drivers.value = driversCache.value
     return
   }
-  
+
   try {
     drivers.value = await invoke<DriverDescriptor[]>('get_drivers')
     driversCache.value = drivers.value
@@ -378,7 +381,7 @@ async function loadDrivers(force = false) {
 const connectionUrl = computed(() => {
   const driver = formData.value.driver
   if (!driver) return ''
-  
+
   if (requiresFile.value) {
     return `${driver}://${formData.value.database}`
   }
@@ -389,7 +392,7 @@ const connectionUrl = computed(() => {
 const autoGenerateName = computed(() => {
   const driver = formData.value.driver
   if (!driver) return ''
-  
+
   if (requiresFile.value) {
     const path = formData.value.database
     if (!path) return driver
@@ -397,7 +400,7 @@ const autoGenerateName = computed(() => {
     const fileName = parts[parts.length - 1]
     return fileName.split('.')[0] || driver
   }
-  
+
   const host = formData.value.host || 'localhost'
   const database = formData.value.database
   return `${driver}@${host}${database ? '/' + database : ''}`
@@ -419,7 +422,7 @@ const visibleTabs = computed(() => {
   if (!selectedDriver.value) return []
 
   const tabs: Array<{ key: string; label: string; icon: typeof Settings; disabled?: boolean }> = [
-    { key: 'general', label: '常规', icon: Settings }
+    { key: 'general', label: '常规', icon: Settings },
   ]
 
   // DuckDB 加速标签页：DuckDB 本身不需要加速，其他数据库都支持
@@ -438,7 +441,7 @@ const requiresFile = computed(() => {
 // 监听编辑连接
 watch(
   () => props.editingConnection,
-  (conn) => {
+  conn => {
     if (conn) {
       formData.value = {
         name: conn.name || '',
@@ -459,9 +462,10 @@ watch(
         enableSsl: false,
         sslCa: '',
         sslCert: '',
-        sslKey: ''
+        sslKey: '',
       }
-      selectedDriver.value = drivers.value.find((d: DriverDescriptor) => d.id === conn.driver) || null
+      selectedDriver.value =
+        drivers.value.find((d: DriverDescriptor) => d.id === conn.driver) || null
       showDriverTree.value = false
     }
   },
@@ -478,7 +482,7 @@ onMounted(async () => {
   } catch (e) {
     console.error('加载最近使用的驱动失败:', e)
   }
-  
+
   // 加载驱动列表
   await loadDrivers()
 })
@@ -486,15 +490,15 @@ onMounted(async () => {
 async function onDriverSelect(driver: DriverDescriptor) {
   console.log('=== onDriverSelect 被调用 ===')
   console.log('选择的驱动:', driver.id)
-  
+
   selectedDriver.value = driver
   showDriverTree.value = true
   formData.value.driver = driver.id
-  
+
   console.log('设置后 formData.value.driver:', formData.value.driver)
   console.log('设置后 selectedDriver.value:', selectedDriver.value?.id)
   formData.value.port = driver.defaultPort
-  
+
   // 应用智能默认值
   const defaults = DRIVER_DEFAULTS[driver.id]
   if (defaults) {
@@ -511,12 +515,12 @@ async function onDriverSelect(driver: DriverDescriptor) {
       formData.value.database = defaults.database
     }
   }
-  
+
   // 重置名称编辑状态
   nameManuallyEdited.value = false
   formData.value.name = autoGenerateName.value
   previousAutoName = autoGenerateName.value
-  
+
   activeTab.value = 'general'
 
   // 加载动态表单配置
@@ -542,7 +546,7 @@ watch(
 // 监听名称手动修改
 watch(
   () => formData.value.name,
-  (newName) => {
+  newName => {
     if (newName && newName !== previousAutoName && !nameManuallyEdited.value) {
       nameManuallyEdited.value = true
     }
@@ -551,17 +555,17 @@ watch(
 
 async function loadDynamicForm(driverId: string) {
   const schema = await loadDriverSchema(driverId)
-  
+
   if (schema) {
     currentSchema.value = schema
     dynamicFormSections.value = schema.sections
     dynamicFormData.value = generateDefaultFormData(schema)
-    
+
     // 合并到 formData
     formData.value = {
       ...formData.value,
       ...dynamicFormData.value,
-      port: schema.metadata?.defaultPort || formData.value.port
+      port: schema.metadata?.defaultPort || formData.value.port,
     }
   } else {
     // 如果没有找到 schema，使用默认配置
@@ -586,7 +590,7 @@ function updateRecentDrivers(driverId: string) {
 function updateFormData(data: Partial<ConnectionConfig>) {
   formData.value = {
     ...formData.value,
-    ...data
+    ...data,
   }
 }
 
@@ -598,23 +602,25 @@ async function testConnection() {
 
   testing.value = true
   testResult.value = null
-  
+
   try {
     const driver = formData.value.driver
     if (!driver) return
 
     const url = connectionUrl.value
     const result = await connectionService.testConnection(driver, url)
-    
+
     testResult.value = {
       success: result.success,
       message: result.message,
       server_version: result.server_version,
-      response_time_ms: result.response_time_ms
+      response_time_ms: result.response_time_ms,
     }
-    
+
     if (result.success) {
-      message.success(`连接成功！服务器版本: ${result.server_version}，响应时间: ${result.response_time_ms}ms`)
+      message.success(
+        `连接成功！服务器版本: ${result.server_version}，响应时间: ${result.response_time_ms}ms`
+      )
     } else {
       message.error(`连接失败：${result.message}`)
     }
@@ -622,7 +628,7 @@ async function testConnection() {
     const errorMsg = error instanceof Error ? error.message : String(error)
     testResult.value = {
       success: false,
-      message: errorMsg
+      message: errorMsg,
     }
     message.error(`连接测试失败: ${errorMsg}`)
   } finally {
@@ -635,7 +641,7 @@ async function saveConnection() {
   console.log('formData.value.driver:', formData.value.driver)
   console.log('selectedDriver.value:', selectedDriver.value)
   console.log('selectedDriver.value?.id:', selectedDriver.value?.id)
-  
+
   if (!validateForm()) {
     message.warning('请填写必填字段')
     return
@@ -645,12 +651,17 @@ async function saveConnection() {
   try {
     // 优先使用 formData.value.driver，如果为空则从 selectedDriver 获取
     const driver = formData.value.driver || selectedDriver.value?.id || ''
-    
+
     console.log('最终获取到的 driver:', driver)
-    
+
     if (!driver) {
       message.error('请选择数据库类型')
-      console.error('driver 为空，formData.driver:', formData.value.driver, 'selectedDriver:', selectedDriver.value?.id)
+      console.error(
+        'driver 为空，formData.driver:',
+        formData.value.driver,
+        'selectedDriver:',
+        selectedDriver.value?.id
+      )
       saving.value = false
       return
     }
@@ -673,23 +684,27 @@ async function saveConnection() {
         useDuckdbFed: formData.value.useDuckdbFed,
         enableSsh: formData.value.enableSsh,
         enableSsl: formData.value.enableSsl,
-        sshConfig: formData.value.enableSsh ? {
-          host: formData.value.sshHost,
-          port: formData.value.sshPort,
-          username: formData.value.sshUsername,
-          password: formData.value.sshPassword
-        } : null,
-        sslConfig: formData.value.enableSsl ? {
-          caCert: formData.value.sslCa,
-          clientCert: formData.value.sslCert,
-          clientKey: formData.value.sslKey
-        } : null,
-        ...formData.value.options
+        sshConfig: formData.value.enableSsh
+          ? {
+              host: formData.value.sshHost,
+              port: formData.value.sshPort,
+              username: formData.value.sshUsername,
+              password: formData.value.sshPassword,
+            }
+          : null,
+        sslConfig: formData.value.enableSsl
+          ? {
+              caCert: formData.value.sslCa,
+              clientCert: formData.value.sslCert,
+              clientKey: formData.value.sslKey,
+            }
+          : null,
+        ...formData.value.options,
       },
       // 传递多选标志
       saveToGlobal: saveToGlobal.value,
       saveToProject: saveToProject.value && projectStore.hasProject,
-      useDuckdbFed: formData.value.useDuckdbFed
+      useDuckdbFed: formData.value.useDuckdbFed,
     }
 
     console.log('ConnectionModal emit save:', connectionConfig)
@@ -732,9 +747,10 @@ async function selectDatabaseFile() {
     filters: [
       {
         name: 'Database Files',
-        extensions: selectedDriver.value?.id === 'sqlite' ? ['db', 'sqlite', 'sqlite3'] : ['duckdb', 'db']
-      }
-    ]
+        extensions:
+          selectedDriver.value?.id === 'sqlite' ? ['db', 'sqlite', 'sqlite3'] : ['duckdb', 'db'],
+      },
+    ],
   })
   if (selected) {
     formData.value.database = selected as string
@@ -744,28 +760,25 @@ async function selectDatabaseFile() {
 async function createNewDatabaseFile() {
   const ext = selectedDriver.value?.id === 'sqlite' ? 'db' : 'duckdb'
   const defaultName = formData.value.name || 'new_database'
-  
+
   const selected = await save({
     filters: [
       {
         name: 'Database Files',
-        extensions: [ext]
-      }
+        extensions: [ext],
+      },
     ],
     defaultPath: `${defaultName}.${ext}`,
-    title: '保存数据库文件'
+    title: '保存数据库文件',
   })
-  
+
   if (selected) {
     try {
       // 调用后端创建文件
       const driverId = selectedDriver.value?.id
       if (!driverId) return
-      
-      const result = await connectionService.createDatabaseFile(
-        driverId,
-        selected
-      )
+
+      const result = await connectionService.createDatabaseFile(driverId, selected)
       if (result.success) {
         formData.value.database = selected
       } else {
@@ -807,7 +820,7 @@ function resetForm() {
     enableSsl: false,
     sslCa: '',
     sslCert: '',
-    sslKey: ''
+    sslKey: '',
   }
   errors.value = {}
 }
@@ -927,7 +940,7 @@ function resetForm() {
   cursor: not-allowed;
 }
 
-.scope-checkbox input[type="checkbox"] {
+.scope-checkbox input[type='checkbox'] {
   display: none;
 }
 
@@ -940,12 +953,12 @@ function resetForm() {
   transition: all 0.2s;
 }
 
-.scope-checkbox input[type="checkbox"]:checked + .checkmark {
+.scope-checkbox input[type='checkbox']:checked + .checkmark {
   background: var(--primary-color);
   border-color: var(--primary-color);
 }
 
-.scope-checkbox input[type="checkbox"]:checked + .checkmark::after {
+.scope-checkbox input[type='checkbox']:checked + .checkmark::after {
   content: '';
   position: absolute;
   left: 4px;

@@ -34,7 +34,10 @@ function handleCopy() {
   overflow: hidden;
   flex-shrink: 0;
 }
-.label { color: var(--text-tertiary, #888); white-space: nowrap; }
+.label {
+  color: var(--text-tertiary, #888);
+  white-space: nowrap;
+}
 .sql-text {
   flex: 1;
   overflow: hidden;

@@ -11,14 +11,14 @@ export function useErrorBoundary() {
   const state = ref<ErrorBoundaryState>({
     hasError: false,
     error: null,
-    errorInfo: null
+    errorInfo: null,
   })
 
   function handleError(error: Error, info?: string) {
     state.value = {
       hasError: true,
       error,
-      errorInfo: info || null
+      errorInfo: info || null,
     }
 
     console.error('[ErrorBoundary]', error, info)
@@ -28,7 +28,7 @@ export function useErrorBoundary() {
     state.value = {
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
     }
   }
 
@@ -42,11 +42,7 @@ export function useErrorBoundary() {
     })
   }
 
-  function withRetry<T>(
-    fn: () => Promise<T>,
-    maxRetries = 3,
-    delayMs = 1000
-  ): Promise<T> {
+  function withRetry<T>(fn: () => Promise<T>, maxRetries = 3, delayMs = 1000): Promise<T> {
     return fn().catch(async error => {
       for (let i = 0; i < maxRetries; i++) {
         try {
@@ -68,7 +64,7 @@ export function useErrorBoundary() {
     handleError,
     reset,
     withErrorHandling,
-    withRetry
+    withRetry,
   }
 }
 
@@ -76,30 +72,32 @@ export const ErrorBoundaryFallback = defineComponent({
   props: {
     error: {
       type: Error,
-      default: null
+      default: null,
     },
     errorInfo: {
       type: String,
-      default: null
+      default: null,
     },
     onRetry: {
       type: Function,
-      default: () => {}
-    }
+      default: () => {},
+    },
   },
   setup(props) {
-    return () => h('div', { class: 'error-boundary-fallback' }, [
-      h(AlertTriangle, { size: 32, class: 'error-icon' }),
-      h('h3', { class: 'error-title' }, '加载失败'),
-      h('p', { class: 'error-message' }, props.error?.message || '未知错误'),
-      props.errorInfo && h('p', { class: 'error-info' }, props.errorInfo),
-      h('button', {
-        class: 'retry-btn',
-        onClick: props.onRetry
-      }, [
-        h(RefreshCw, { size: 14 }),
-        ' 重试'
+    return () =>
+      h('div', { class: 'error-boundary-fallback' }, [
+        h(AlertTriangle, { size: 32, class: 'error-icon' }),
+        h('h3', { class: 'error-title' }, '加载失败'),
+        h('p', { class: 'error-message' }, props.error?.message || '未知错误'),
+        props.errorInfo && h('p', { class: 'error-info' }, props.errorInfo),
+        h(
+          'button',
+          {
+            class: 'retry-btn',
+            onClick: props.onRetry,
+          },
+          [h(RefreshCw, { size: 14 }), ' 重试']
+        ),
       ])
-    ])
-  }
+  },
 })

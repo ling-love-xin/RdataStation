@@ -84,9 +84,7 @@
 
 <script setup lang="ts">
 import { Play, Eraser, BarChart3 } from 'lucide-vue-next'
-import {
-  NSelect, NButton, NSpin, NTag, NDivider, NDataTable,
-} from 'naive-ui'
+import { NSelect, NButton, NSpin, NTag, NDivider, NDataTable } from 'naive-ui'
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -106,41 +104,44 @@ const insightStore = useInsightStore()
 const selectedColumns = ref<string[]>([])
 const selectedRuleId = ref<string | null>(null)
 
-const columnOptions = computed(() =>
-  props.allColumns.map((col) => ({ label: col, value: col }))
-)
+const columnOptions = computed(() => props.allColumns.map(col => ({ label: col, value: col })))
 
 const ruleOptions = computed(() =>
-  insightStore.multiColumnRules.map((r) => ({
+  insightStore.multiColumnRules.map(r => ({
     label: `${r.name} (${r.category})`,
     value: r.id,
   }))
 )
 
 const selectedRuleName = computed(() => {
-  const rule = insightStore.multiColumnRules.find((r) => r.id === selectedRuleId.value)
+  const rule = insightStore.multiColumnRules.find(r => r.id === selectedRuleId.value)
   return rule?.name ?? ''
 })
 
 const canExecute = computed(
-  () => selectedColumns.value.length >= 2 && selectedRuleId.value !== null && !insightStore.isMultiExecuting
+  () =>
+    selectedColumns.value.length >= 2 &&
+    selectedRuleId.value !== null &&
+    !insightStore.isMultiExecuting
 )
 
 const isListResult = computed(() => {
-  const rule = insightStore.multiColumnRules.find((r) => r.id === selectedRuleId.value)
+  const rule = insightStore.multiColumnRules.find(r => r.id === selectedRuleId.value)
   return rule?.result_type === 'list'
 })
 
 const isSingleResult = computed(() => !isListResult.value)
 
-const resultType = computed(() => (isListResult.value ? t('workbench.list') : t('workbench.singleValue')))
+const resultType = computed(() =>
+  isListResult.value ? t('workbench.list') : t('workbench.singleValue')
+)
 
 const listColumns = computed(() => {
   const data = insightStore.multiResult
   if (!isListResult.value || !Array.isArray(data)) return []
   const first = data[0]
   if (!first || typeof first !== 'object') return []
-  return Object.keys(first).map((key) => ({
+  return Object.keys(first).map(key => ({
     title: formatKey(key),
     key,
     ellipsis: true,
@@ -194,7 +195,7 @@ function formatValue(value: unknown): string {
 }
 
 function buildParams(): Record<string, string> {
-  const rule = insightStore.multiColumnRules.find((r) => r.id === selectedRuleId.value)
+  const rule = insightStore.multiColumnRules.find(r => r.id === selectedRuleId.value)
   const params: Record<string, string> = { table: props.tempTable }
   const cols = selectedColumns.value
 
@@ -222,7 +223,7 @@ function clearResult(): void {
 
 watch(
   () => props.allColumns,
-  (newCols) => {
+  newCols => {
     if (newCols.length > 0 && selectedColumns.value.length === 0) {
       selectedColumns.value = newCols.slice(0, Math.min(3, newCols.length))
     }
@@ -232,7 +233,7 @@ watch(
 
 watch(
   () => insightStore.multiColumnRules,
-  (rules) => {
+  rules => {
     if (rules.length > 0 && !selectedRuleId.value) {
       selectedRuleId.value = rules[0].id
     }

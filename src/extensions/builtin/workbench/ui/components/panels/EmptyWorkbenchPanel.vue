@@ -66,9 +66,11 @@ const projectStore = useProjectStore()
 const recentProjects = computed(() => projectStore.recentProjects || [])
 
 const handleNewQuery = () => {
-  window.dispatchEvent(new CustomEvent('open-sql-editor', {
-    detail: { connectionId: '', databaseName: '', sql: '' }
-  }))
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: { connectionId: '', databaseName: '', sql: '' },
+    })
+  )
 }
 
 const handleNewConnection = () => {

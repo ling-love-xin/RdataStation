@@ -164,3 +164,28 @@ pub async fn empty_scratchpad_trash(
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad.empty_trash().await.map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn update_scratchpad_file_meta(
+    relative_path: String,
+    connection_id: Option<String>,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<(), String> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .update_file_meta(&relative_path, connection_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn search_scratchpad_content(
+    query: String,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<Vec<String>, String> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .search_file_content(&query)
+        .await
+        .map_err(|e| e.to_string())
+}

@@ -20,7 +20,7 @@ export function searchDatabaseObjects(
             databaseName: db.name,
             schemaName: schema.name,
             objectName: schema.name,
-            objectType: 'table'
+            objectType: 'table',
           })
         }
 
@@ -31,7 +31,7 @@ export function searchDatabaseObjects(
               databaseName: db.name,
               schemaName: schema.name,
               objectName: table.name,
-              objectType: 'table'
+              objectType: 'table',
             })
           }
 
@@ -42,7 +42,7 @@ export function searchDatabaseObjects(
                 databaseName: db.name,
                 schemaName: schema.name,
                 objectName: `${table.name}.${col.name}`,
-                objectType: 'column'
+                objectType: 'column',
               })
             }
           }
@@ -55,7 +55,7 @@ export function searchDatabaseObjects(
               databaseName: db.name,
               schemaName: schema.name,
               objectName: view.name,
-              objectType: 'view'
+              objectType: 'view',
             })
           }
 
@@ -66,7 +66,7 @@ export function searchDatabaseObjects(
                 databaseName: db.name,
                 schemaName: schema.name,
                 objectName: `${view.name}.${col.name}`,
-                objectType: 'column'
+                objectType: 'column',
               })
             }
           }

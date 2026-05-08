@@ -42,16 +42,16 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  itemHeight: 28
+  itemHeight: 28,
 })
 
 const emit = defineEmits<{
-  'expand': [node: VirtualTreeNodeType]
-  'select': [node: VirtualTreeNodeType]
+  expand: [node: VirtualTreeNodeType]
+  select: [node: VirtualTreeNodeType]
   'context-menu': [node: VirtualTreeNodeType, event: MouseEvent]
-  'dblclick': [node: VirtualTreeNodeType]
-  'scroll': [scrollTop: number]
-  'toggle': [node: VirtualTreeNodeType]
+  dblclick: [node: VirtualTreeNodeType]
+  scroll: [scrollTop: number]
+  toggle: [node: VirtualTreeNodeType]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -60,9 +60,12 @@ const containerHeight = ref(600)
 const selectedKeyRef = ref<string | null>(props.selectedKey)
 
 // 同步外部 selectedKey
-watch(() => props.selectedKey, (newKey) => {
-  selectedKeyRef.value = newKey
-})
+watch(
+  () => props.selectedKey,
+  newKey => {
+    selectedKeyRef.value = newKey
+  }
+)
 
 // 虚拟滚动计算
 const { totalHeight, visibleStart, visibleEnd, offsetY } = useVirtualScroll({
@@ -70,20 +73,18 @@ const { totalHeight, visibleStart, visibleEnd, offsetY } = useVirtualScroll({
   scrollTop,
   itemHeight: props.itemHeight,
   totalItems: computed(() => props.nodes.length),
-  bufferSize: 5
+  bufferSize: 5,
 })
 
 // 可见节点
-const visibleNodes = computed(() =>
-  props.nodes.slice(visibleStart.value, visibleEnd.value)
-)
+const visibleNodes = computed(() => props.nodes.slice(visibleStart.value, visibleEnd.value))
 
 // 键盘导航
 const { handleKeydown } = useKeyboardNavigation({
   nodes: computed(() => props.nodes),
   selectedKey: selectedKeyRef,
-  onSelect: (node) => emit('select', node),
-  onToggle: (node) => emit('toggle', node)
+  onSelect: node => emit('select', node),
+  onToggle: node => emit('toggle', node),
 })
 
 function onScroll() {
@@ -139,7 +140,7 @@ defineExpose({
     if (index !== -1 && containerRef.value) {
       containerRef.value.scrollTop = index * props.itemHeight - containerHeight.value / 2
     }
-  }
+  },
 })
 </script>
 

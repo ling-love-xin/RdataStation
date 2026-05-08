@@ -19,15 +19,15 @@ class PanelRegistryImpl {
     if (this.panels.has(panel.id)) {
       console.warn(`[PanelRegistry] Panel '${panel.id}' already registered, overwriting`)
     }
-    
+
     this.panels.set(panel.id, panel)
     console.log(`[PanelRegistry] Registered panel: ${panel.id} at ${panel.location}`)
-    
+
     return {
       dispose: () => {
         this.panels.delete(panel.id)
         console.log(`[PanelRegistry] Unregistered panel: ${panel.id}`)
-      }
+      },
     }
   }
 

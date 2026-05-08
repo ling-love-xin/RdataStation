@@ -173,12 +173,12 @@ impl Database for MongoDbDriver {
         // 实现查询逻辑
         todo!()
     }
-    
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         // 实现数据库列表
         todo!()
     }
-    
+
     // ... 其他方法
 }
 ```
@@ -192,7 +192,7 @@ impl DriverFactory for MongoDbDriverFactory {
     fn id(&self) -> &'static str {
         "mongodb"
     }
-    
+
     fn descriptor(&self) -> DriverDescriptor {
         DriverDescriptor {
             id: "mongodb".to_string(),
@@ -200,12 +200,12 @@ impl DriverFactory for MongoDbDriverFactory {
             // ...
         }
     }
-    
+
     async fn create(&self, config: ConnectionConfig) -> Result<Box<dyn Database>, CoreError> {
         // 创建驱动实例
         todo!()
     }
-    
+
     fn box_clone(&self) -> Box<dyn DriverFactory> {
         Box::new(MongoDbDriverFactory)
     }
@@ -226,7 +226,7 @@ pub use mongodb::{MongoDbDriver, MongoDbDriverFactory};
 // lib.rs
 fn register_drivers() {
     use core::driver::DriverRegistry;
-    
+
     DriverRegistry::register(MySqlDriverFactory);
     DriverRegistry::register(PostgresDriverFactory);
     DriverRegistry::register(MongoDbDriverFactory); // 添加这一行
@@ -251,10 +251,10 @@ async fn test_mongodb_driver() {
         port: 27017,
         // ...
     };
-    
+
     let factory = MongoDbDriverFactory;
     let db = factory.create(config).await.unwrap();
-    
+
     let result = db.list_databases().await.unwrap();
     assert!(!result.is_empty());
 }
@@ -290,13 +290,13 @@ pub async fn my_command(
     if input.param1.is_empty() {
         return Err("param1 cannot be empty".to_string());
     }
-    
+
     // 2. 调用服务
     let service = MyService::new();
     let result = service.do_something(&input.param1, input.param2)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     // 3. 返回结果
     Ok(MyCommandOutput {
         result: result.to_string(),
@@ -324,16 +324,16 @@ use adapters::tauri::{
 
 ```typescript
 // 前端代码
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
 const result = await invoke('my_command', {
   input: {
     param1: 'hello',
     param2: 42,
   },
-});
+})
 
-console.log(result); // { result: "...", count: 84 }
+console.log(result) // { result: "...", count: 84 }
 ```
 
 ### 3. 添加新服务
@@ -354,7 +354,7 @@ impl MyService {
     pub fn new(connection_manager: Arc<ConnectionManager>) -> Self {
         Self { connection_manager }
     }
-    
+
     pub async fn do_something(
         &self,
         param: &str,
@@ -364,9 +364,9 @@ impl MyService {
             .get_active_connection()
             .await
             .ok_or_else(|| CoreError::no_active_connection())?;
-        
+
         let result = conn.query(&format!("SELECT '{}'", param)).await?;
-        
+
         Ok(format!("Result: {:?}", result))
     }
 }
@@ -405,8 +405,8 @@ pub struct MyEngine {
 
 #[async_trait]
 impl ExecutionEngine for MyEngine {
-    async fn execute(&self, sql: &str, context: &QueryContext) 
-        -> Result<QueryResult, CoreError> 
+    async fn execute(&self, sql: &str, context: &QueryContext)
+        -> Result<QueryResult, CoreError>
     {
         // 1. 验证执行模式
         if !self.supports_mode(context.mode()) {
@@ -414,17 +414,17 @@ impl ExecutionEngine for MyEngine {
                 "Execution mode not supported".to_string(),
             )));
         }
-        
+
         // 2. 获取连接
         let db = self.get_connection(context.connection_id()).await?;
-        
+
         // 3. 执行查询
         let result = db.query(sql).await?;
-        
+
         // 4. 返回结果（Arrow 格式）
         Ok(result)
     }
-    
+
     fn name(&self) -> &str {
         "MyEngine"
     }
@@ -452,14 +452,14 @@ impl QueryRouter {
             my_engine: Arc::new(MyEngine::new()),
         }
     }
-    
-    pub async fn execute(&self, sql: &str, context: &QueryContext) 
-        -> Result<QueryResult, CoreError> 
+
+    pub async fn execute(&self, sql: &str, context: &QueryContext)
+        -> Result<QueryResult, CoreError>
     {
         let engine = self.select_engine(context.mode());
         engine.execute(sql, context).await
     }
-    
+
     fn select_engine(&self, mode: ExecutionMode) -> Arc<dyn ExecutionEngine> {
         match mode {
             ExecutionMode::Native => self.driver_engine.clone(),
@@ -477,7 +477,7 @@ impl QueryRouter {
 impl QueryRouter {
     pub fn recommend_mode(&self, sql: &str) -> ExecutionMode {
         let sql_upper = sql.trim_start().to_uppercase();
-        
+
         // 写操作必须走原生驱动
         if sql_upper.starts_with("INSERT")
             || sql_upper.starts_with("UPDATE")
@@ -488,7 +488,7 @@ impl QueryRouter {
         {
             return ExecutionMode::Native;
         }
-        
+
         // 复杂查询推荐 DuckDB
         if sql_upper.contains("GROUP BY")
             || sql_upper.contains("JOIN")
@@ -498,7 +498,7 @@ impl QueryRouter {
         {
             return ExecutionMode::DuckDB;
         }
-        
+
         // 默认用户选择
         ExecutionMode::UserChoice
     }
@@ -518,7 +518,7 @@ pub async fn register_external_database(
     connection_string: String,
 ) -> Result<(), String> {
     let duckdb_engine = get_duckdb_engine();
-    
+
     duckdb_engine
         .register_external_database(&name, &driver, &connection_string)
         .await
@@ -535,7 +535,7 @@ pub async fn load_file_source(
     table_name: String,
 ) -> Result<(), String> {
     let duckdb_engine = get_duckdb_engine();
-    
+
     duckdb_engine
         .load_file_source(&path, &table_name)
         .await
@@ -551,7 +551,7 @@ pub async fn execute_federated_query(
     sql: String,
 ) -> Result<QueryResult, String> {
     let dbi = get_dbi();
-    
+
     dbi.query(&sql, ExecutionMode::DuckDB)
         .await
         .map_err(|e| e.to_string())
@@ -566,13 +566,13 @@ pub async fn execute_federated_query(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_something() {
         let result = do_something();
         assert_eq!(result, expected);
     }
-    
+
     #[tokio::test]
     async fn test_async_something() {
         let result = do_something_async().await;
@@ -591,7 +591,7 @@ use rdata_station::core::services::ConnectionService;
 #[tokio::test]
 async fn test_database_connection() {
     let service = ConnectionService::new();
-    
+
     let config = ConnectionConfig {
         host: "localhost".to_string(),
         port: 5432,
@@ -600,13 +600,13 @@ async fn test_database_connection() {
         password: "password".to_string(),
         ..Default::default()
     };
-    
+
     let (conn_id, _) = service.connect(Some(config)).await.unwrap();
-    
+
     // 测试查询
     let result = service.execute_sql(&conn_id, "SELECT 1").await.unwrap();
     assert_eq!(result.rows.len(), 1);
-    
+
     // 清理
     service.close_connection(&conn_id).await.unwrap();
 }
@@ -619,7 +619,7 @@ use mockall::mock;
 
 mock! {
     pub Database {}
-    
+
     #[async_trait]
     impl Database for Database {
         async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
@@ -632,10 +632,10 @@ async fn test_with_mock() {
     mock.expect_query()
         .with(eq("SELECT 1"))
         .returning(|_| Ok(QueryResult::default()));
-    
+
     let service = SqlService::with_db(Box::new(mock));
     let result = service.execute("SELECT 1").await;
-    
+
     assert!(result.is_ok());
 }
 ```
@@ -649,15 +649,15 @@ use log::{info, debug, error, warn};
 
 pub async fn do_something(&self) -> Result<(), CoreError> {
     info!("Starting operation");
-    
+
     debug!("Connecting to database: {}", self.config.host);
     let conn = self.connect().await?;
-    
+
     debug!("Executing query");
     let result = conn.query("SELECT * FROM users").await?;
-    
+
     info!("Query returned {} rows", result.rows.len());
-    
+
     Ok(())
 }
 ```
@@ -676,21 +676,18 @@ dbg!(&result); // 打印变量值和位置
 ```json
 // .vscode/launch.json
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug Tauri",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--manifest-path=src-tauri/Cargo.toml"
-                ]
-            },
-            "args": []
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug Tauri",
+      "cargo": {
+        "args": ["build", "--manifest-path=src-tauri/Cargo.toml"]
+      },
+      "args": []
+    }
+  ]
 }
 ```
 
@@ -843,6 +840,7 @@ Fixes #123
 ```
 
 类型：
+
 - `feat`: 新功能
 - `fix`: 修复
 - `docs`: 文档

@@ -20,15 +20,15 @@ class CommandRegistryImpl implements CommandRegistry {
     if (this.commands.has(id)) {
       console.warn(`[CommandRegistry] Command '${id}' already registered, overwriting`)
     }
-    
+
     this.commands.set(id, handler)
     console.log(`[CommandRegistry] Registered command: ${id}`)
-    
+
     return {
       dispose: () => {
         this.commands.delete(id)
         console.log(`[CommandRegistry] Unregistered command: ${id}`)
-      }
+      },
     }
   }
 
@@ -44,7 +44,7 @@ class CommandRegistryImpl implements CommandRegistry {
     if (!handler) {
       throw new Error(`Command '${id}' not found`)
     }
-    
+
     console.log(`[CommandRegistry] Executing command: ${id}`)
     return handler(...args)
   }

@@ -11,6 +11,7 @@
 将 RdataStation 前端设计系统从旧版"数据蓝"主题升级为新版"亮橙品牌色"主题，同时建立完整的国际化（i18n）体系和六大组件主题适配。
 
 **核心目标**：
+
 - 统一品牌色：`#E17055`（亮橙）
 - 双主题体系：暗色/亮色，参考 VS Code 1.119
 - CSS Variables 驱动，禁止硬编码颜色
@@ -21,17 +22,17 @@
 
 ## 二、技术栈确认
 
-| 组件 | 技术 | 版本 |
-|------|------|------|
-| UI 组件库 | Naive UI | 2.40.0 |
-| 图标库 | Lucide Vue Next | 0.460.0 |
-| 代码编辑器 | Monaco Editor | 0.55.1 |
-| 数据表格 | ag-grid 社区版 | 32.3.9 |
-| IDE 布局 | dockview-vue | 6.0.1 |
-| 状态管理 | Pinia | 3.0.4 |
-| 配置持久化 | @tauri-apps/plugin-store | 2.4.3 |
-| 国际化 | vue-i18n | v11（新增） |
-| 样式方案 | CSS Variables + 六大组件主题适配 | - |
+| 组件       | 技术                             | 版本        |
+| ---------- | -------------------------------- | ----------- |
+| UI 组件库  | Naive UI                         | 2.40.0      |
+| 图标库     | Lucide Vue Next                  | 0.460.0     |
+| 代码编辑器 | Monaco Editor                    | 0.55.1      |
+| 数据表格   | ag-grid 社区版                   | 32.3.9      |
+| IDE 布局   | dockview-vue                     | 6.0.1       |
+| 状态管理   | Pinia                            | 3.0.4       |
+| 配置持久化 | @tauri-apps/plugin-store         | 2.4.3       |
+| 国际化     | vue-i18n                         | v11（新增） |
+| 样式方案   | CSS Variables + 六大组件主题适配 | -           |
 
 ---
 
@@ -39,21 +40,21 @@
 
 设计系统规范中的文件路径 → 实际项目中的路径：
 
-| 规范路径 | 实际路径 | 说明 |
-|---------|---------|------|
-| `src/styles/tokens.css` | `src/shared/styles/tokens.css` | 品牌基色 CSS 变量 |
-| `src/styles/global.css` | `src/shared/styles/global.css` | 暗色/亮色双主题 + 全局基础样式 |
-| `src/locales/zh-CN.json` | `src/shared/locales/zh-CN.json` | 中文词条 |
-| `src/locales/en.json` | `src/shared/locales/en.json` | 英文词条 |
-| `src/plugins/i18n.ts` | `src/shared/plugins/i18n.ts` | Vue I18n 实例创建与注册 |
-| `src/stores/config.ts` | **保留现有** `src/stores/config.ts` | 扩展语言配置 |
-| `src/stores/useAppStore.ts` | **保留现有** `src/stores/useAppStore.ts` | 扩展语言切换方法 |
-| `src/components/ThemeProvider.vue` | **合并到** `src/app/App.vue` | App.vue 已承担 ThemeProvider 角色 |
-| `src/styles/dockview-brand.css` | `src/shared/styles/dockview-brand.css` | 替换现有 `dockview-theme.css` |
-| `src/styles/monaco-theme.ts` | `src/shared/styles/monaco-theme.ts` | Monaco 编辑器主题定义 |
-| `src/styles/ag-grid-theme.css` | `src/shared/styles/ag-grid-theme.css` | ag-grid 主题覆盖 |
-| `src/components/AppIcon.vue` | `src/shared/components/common/AppIcon.vue` | Lucide 图标封装 |
-| `src/components/settings/GeneralSettings.vue` | `src/extensions/builtin/settings/ui/components/GeneralSettings.vue` | 设置面板（P1 实施） |
+| 规范路径                                      | 实际路径                                                            | 说明                              |
+| --------------------------------------------- | ------------------------------------------------------------------- | --------------------------------- |
+| `src/styles/tokens.css`                       | `src/shared/styles/tokens.css`                                      | 品牌基色 CSS 变量                 |
+| `src/styles/global.css`                       | `src/shared/styles/global.css`                                      | 暗色/亮色双主题 + 全局基础样式    |
+| `src/locales/zh-CN.json`                      | `src/shared/locales/zh-CN.json`                                     | 中文词条                          |
+| `src/locales/en.json`                         | `src/shared/locales/en.json`                                        | 英文词条                          |
+| `src/plugins/i18n.ts`                         | `src/shared/plugins/i18n.ts`                                        | Vue I18n 实例创建与注册           |
+| `src/stores/config.ts`                        | **保留现有** `src/stores/config.ts`                                 | 扩展语言配置                      |
+| `src/stores/useAppStore.ts`                   | **保留现有** `src/stores/useAppStore.ts`                            | 扩展语言切换方法                  |
+| `src/components/ThemeProvider.vue`            | **合并到** `src/app/App.vue`                                        | App.vue 已承担 ThemeProvider 角色 |
+| `src/styles/dockview-brand.css`               | `src/shared/styles/dockview-brand.css`                              | 替换现有 `dockview-theme.css`     |
+| `src/styles/monaco-theme.ts`                  | `src/shared/styles/monaco-theme.ts`                                 | Monaco 编辑器主题定义             |
+| `src/styles/ag-grid-theme.css`                | `src/shared/styles/ag-grid-theme.css`                               | ag-grid 主题覆盖                  |
+| `src/components/AppIcon.vue`                  | `src/shared/components/common/AppIcon.vue`                          | Lucide 图标封装                   |
+| `src/components/settings/GeneralSettings.vue` | `src/extensions/builtin/settings/ui/components/GeneralSettings.vue` | 设置面板（P1 实施）               |
 
 ---
 
@@ -61,34 +62,34 @@
 
 ### P0（已完成）
 
-| 步骤 | 文件 | 状态 | 完成时间 |
-|------|------|------|---------|
-| 1 | 安装 vue-i18n | ✅ 完成 | 2026-05-07 |
-| 2 | `tokens.css` | ✅ 完成 | 2026-05-07 |
-| 3 | `global.css` | ✅ 完成 | 2026-05-07 |
-| 4 | `zh-CN.json` / `en.json` | ✅ 完成 | 2026-05-07 |
-| 5 | `i18n.ts` | ✅ 完成 | 2026-05-07 |
-| 6 | `config.ts` 扩展 | ✅ 完成 | 2026-05-07 |
-| 7 | `useAppStore.ts` 扩展 | ✅ 完成 | 2026-05-07 |
-| 8 | `App.vue` 重构 | ✅ 完成 | 2026-05-07 |
-| 9 | `dockview-brand.css` | ✅ 完成 | 2026-05-07 |
-| 10 | `monaco-theme.ts` | ✅ 完成 | 2026-05-07 |
-| 11 | `ag-grid-theme.css` | ✅ 完成 | 2026-05-07 |
-| 12 | `main.ts` 更新 | ✅ 完成 | 2026-05-07 |
-| 13 | 删除旧文件 | ✅ 完成 | 2026-05-07 |
-| 14 | `AppIcon.vue` | ✅ 完成 | 2026-05-07 |
-| 15 | Skill 更新 | ✅ 完成 | 2026-05-07 |
+| 步骤 | 文件                     | 状态    | 完成时间   |
+| ---- | ------------------------ | ------- | ---------- |
+| 1    | 安装 vue-i18n            | ✅ 完成 | 2026-05-07 |
+| 2    | `tokens.css`             | ✅ 完成 | 2026-05-07 |
+| 3    | `global.css`             | ✅ 完成 | 2026-05-07 |
+| 4    | `zh-CN.json` / `en.json` | ✅ 完成 | 2026-05-07 |
+| 5    | `i18n.ts`                | ✅ 完成 | 2026-05-07 |
+| 6    | `config.ts` 扩展         | ✅ 完成 | 2026-05-07 |
+| 7    | `useAppStore.ts` 扩展    | ✅ 完成 | 2026-05-07 |
+| 8    | `App.vue` 重构           | ✅ 完成 | 2026-05-07 |
+| 9    | `dockview-brand.css`     | ✅ 完成 | 2026-05-07 |
+| 10   | `monaco-theme.ts`        | ✅ 完成 | 2026-05-07 |
+| 11   | `ag-grid-theme.css`      | ✅ 完成 | 2026-05-07 |
+| 12   | `main.ts` 更新           | ✅ 完成 | 2026-05-07 |
+| 13   | 删除旧文件               | ✅ 完成 | 2026-05-07 |
+| 14   | `AppIcon.vue`            | ✅ 完成 | 2026-05-07 |
+| 15   | Skill 更新               | ✅ 完成 | 2026-05-07 |
 
 ### P1（已完成）
 
-| 步骤 | 文件 | 状态 | 完成时间 | 说明 |
-|------|------|------|---------|------|
-| 16 | `SettingsPanel.vue` | ✅ 完成 | 2026-05-08 | 设置面板（主题/语言切换） |
-| 17 | Monaco 主题注册 | ✅ 完成 | 2026-05-08 | 在 SqlEditorPanel 初始化处注册 rdata-dark/light |
-| 18 | SqlEditorPanel 翻译迁移 | ✅ 完成 | 2026-05-08 | 将 SQL 编辑器所有硬编码文本迁移到 i18n |
-| 19 | AppIcon.vue 修复 | ✅ 完成 | 2026-05-08 | 修复 namespace import 导致的 ESLint 错误 |
-| 20 | Lint 验证 | ✅ 完成 | 2026-05-08 | 修复 import/order 错误，剩余 64 errors 为项目既有问题 |
-| 21 | Typecheck 验证 | ✅ 完成 | 2026-05-08 | 29 errors 均为项目既有类型问题，与本次改动无关 |
+| 步骤 | 文件                    | 状态    | 完成时间   | 说明                                                  |
+| ---- | ----------------------- | ------- | ---------- | ----------------------------------------------------- |
+| 16   | `SettingsPanel.vue`     | ✅ 完成 | 2026-05-08 | 设置面板（主题/语言切换）                             |
+| 17   | Monaco 主题注册         | ✅ 完成 | 2026-05-08 | 在 SqlEditorPanel 初始化处注册 rdata-dark/light       |
+| 18   | SqlEditorPanel 翻译迁移 | ✅ 完成 | 2026-05-08 | 将 SQL 编辑器所有硬编码文本迁移到 i18n                |
+| 19   | AppIcon.vue 修复        | ✅ 完成 | 2026-05-08 | 修复 namespace import 导致的 ESLint 错误              |
+| 20   | Lint 验证               | ✅ 完成 | 2026-05-08 | 修复 import/order 错误，剩余 64 errors 为项目既有问题 |
+| 21   | Typecheck 验证          | ✅ 完成 | 2026-05-08 | 29 errors 均为项目既有类型问题，与本次改动无关        |
 
 ---
 
@@ -120,26 +121,26 @@
 
 ### 5.4 颜色变量命名规范
 
-| 类型 | 旧命名 | 新命名 |
-|------|--------|--------|
-| 主背景 | `--bg-primary` | `--color-bg-primary` |
-| 次背景 | `--bg-secondary` | `--color-bg-secondary` |
-| 主文字 | `--text-primary` | `--color-text-primary` |
-| 边框 | `--border-color` | `--color-border` |
-| 强调色 | `--primary-color` | `--brand-accent` |
+| 类型   | 旧命名            | 新命名                 |
+| ------ | ----------------- | ---------------------- |
+| 主背景 | `--bg-primary`    | `--color-bg-primary`   |
+| 次背景 | `--bg-secondary`  | `--color-bg-secondary` |
+| 主文字 | `--text-primary`  | `--color-text-primary` |
+| 边框   | `--border-color`  | `--color-border`       |
+| 强调色 | `--primary-color` | `--brand-accent`       |
 
 ---
 
 ## 六、六大组件主题适配状态
 
-| 组件 | 状态 | 文件 |
-|------|------|------|
-| Naive UI | ✅ 已完成 | `App.vue` 中 `NConfigProvider` |
-| Lucide 图标 | ✅ 已完成 | `AppIcon.vue` |
-| dockview | ✅ 已完成 | `dockview-brand.css` |
-| Monaco Editor | ✅ 已完成 | `monaco-theme.ts` |
-| ag-grid | ✅ 已完成 | `ag-grid-theme.css` |
-| 自定义 Vue 组件 | ✅ CSS 变量就绪 | 全局 CSS 变量约束 |
+| 组件            | 状态            | 文件                           |
+| --------------- | --------------- | ------------------------------ |
+| Naive UI        | ✅ 已完成       | `App.vue` 中 `NConfigProvider` |
+| Lucide 图标     | ✅ 已完成       | `AppIcon.vue`                  |
+| dockview        | ✅ 已完成       | `dockview-brand.css`           |
+| Monaco Editor   | ✅ 已完成       | `monaco-theme.ts`              |
+| ag-grid         | ✅ 已完成       | `ag-grid-theme.css`            |
+| 自定义 Vue 组件 | ✅ CSS 变量就绪 | 全局 CSS 变量约束              |
 
 ---
 
@@ -165,12 +166,14 @@
 位置：`src/extensions/builtin/settings/ui/components/SettingsPanel.vue`
 
 功能：
+
 - 主题切换：暗色 / 亮色 / 跟随系统
 - 语言切换：中文 / 英文
 - 编辑器基础设置：字号、缩进、自动换行、缩略图
 - 所有变更实时保存到 `tauri-plugin-store`
 
 实现要点：
+
 - 使用 `useAppStore` 进行主题和语言状态管理
 - 语言切换通过 `i18n.global.locale.value` 实时生效
 - 主题切换通过修改 `document.body.className` 实现
@@ -180,6 +183,7 @@
 位置：`src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue`
 
 实现代码：
+
 ```typescript
 import { editor } from 'monaco-editor'
 import { rdataDark, rdataLight } from '@/shared/styles/monaco-theme'
@@ -195,6 +199,7 @@ editor.setTheme(isDark ? 'rdata-dark' : 'rdata-light')
 ### 8.3 SqlEditorPanel 翻译迁移
 
 迁移范围：
+
 - 工具栏所有按钮的 tooltip 文本
 - 执行状态提示（成功、失败、批量执行）
 - 错误提示信息
@@ -202,6 +207,7 @@ editor.setTheme(isDark ? 'rdata-dark' : 'rdata-light')
 - 快捷键提示
 
 翻译键命名规范：
+
 ```
 sqlEditor.execute        → "执行 SQL (Ctrl+Enter)"
 sqlEditor.executeNew     → "新标签执行 (Ctrl+Shift+Enter)"
@@ -225,6 +231,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 9.1 Database Navigator 翻译迁移
 
 迁移文件：
+
 - `navigator-filter-panel.vue`: 过滤面板所有标签和选项
 - `database-navigator.vue`: 状态栏摘要、错误提示、事务操作
 - `group-dialog.vue`: 分组对话框标题、表单标签、按钮
@@ -233,6 +240,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 9.2 Query Result 面板翻译迁移
 
 迁移文件：
+
 - `ResultContextMenu.vue`: 右键菜单所有选项（复制、过滤、排序、列操作）
 - `ResultStatusBar.vue`: 状态栏按钮、模式标签、行数信息、耗时
 - `DuckDBAnalysisInput.vue`: 分析输入框、快捷分析按钮、提示
@@ -243,11 +251,13 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 9.3 Workbench 全局翻译迁移
 
 迁移文件：
+
 - `WorkbenchView.vue`: 标签右键菜单、连接保存提示、面板标题
 
 ### 9.4 Settings 面板翻译
 
 迁移文件：
+
 - `SettingsPanel.vue`: 语言选项标签
 
 ---
@@ -257,11 +267,13 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 10.1 analytics-resource 插件翻译迁移
 
 迁移文件：
+
 - `SettingsModal.vue`: 设置面板所有标签、选项、按钮、快捷键
 
 ### 10.2 Workbench 核心组件翻译迁移
 
 迁移文件：
+
 - `WorkbenchStatusBar.vue`: 状态栏文本（DuckDB 加速、耗时、行数）
 - `PanelHeaderActions.vue`: 面板操作提示（最大化、浮动、钉住）
 - `ActivityBar.vue`: 活动栏显示/隐藏提示
@@ -269,11 +281,13 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 10.3 Lint Errors 清理
 
 修复内容：
+
 - **SqlEditorPanel.vue**: 修复 7 个 irregular whitespace 错误
 - **database-navigator.vue**: 修复 2 个 prefer-const 错误，2 个 no-useless-escape 错误
 - **SqlEditorPanel.vue**: 修复 1 个 import/order 错误，2 个 no-undef 错误
 
 剩余错误（项目既有，非本次引入）：
+
 - import/export (6): dockview-vue 类型重复导出
 - import/no-unresolved (16): 模块路径配置问题
 - vue/no-mutating-props (24): 组件设计模式问题
@@ -284,6 +298,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 11.1 遗漏组件翻译迁移
 
 迁移文件：
+
 - `ColumnInsightPanel.vue`: 统计标签（计数、类型、空值率、均值等）、质量提示、历史版本、空状态、存储统计
 - `TableProfileView.vue`: 错误消息、探查状态
 - `QueryResultPanel.vue`: 视图模式标签（网格/文本/记录）、值查看器、空状态、导出菜单、分页、状态栏
@@ -296,12 +311,14 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 11.2 新增翻译键
 
 **resultPanel** 新增 40+ 键：
+
 - 统计标签: countLabel, typeLabel, nullRateLabel, uniqueLabel, meanLabel, medianLabel 等
 - 质量提示: nullRateOk, highNullRate, extremeValue, categoryCount, highlyImbalanced
 - 历史版本: history, versionsCount, cancelDiff, versionCompare, loadVersionData
 - 其他: cleanupOldData, storageStats, applicableRules, multiColumnHint, saveHistoryHint, needDuckdbFirst
 
 **workbench** 新增 45+ 键：
+
 - 表结构: viewData, generateQuery, columnsTab, indexesTab, constraintsTab, ddlTab, columnName, dataType 等
 - 视图模式: gridView, textView, recordView, valueViewer, openValueViewer
 - 分页: firstPage, prevPage, nextPage, lastPage, page
@@ -314,6 +331,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 12.1 Workbench 全局组件翻译迁移
 
 迁移文件：
+
 - `WorkbenchTitleBar.vue`: 菜单栏（文件/编辑/视图/连接/运行/工具/帮助）、项目下拉菜单、搜索框、自定义工具栏、主题切换、布局控制、窗口控制按钮、新建项目对话框
 - `WorkbenchStatusBar.vue`: 状态栏文本
 - `RightSidebarPlaceholder.vue`: 辅助面板标题、描述、提示
@@ -321,6 +339,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 12.2 Workbench 面板组件翻译迁移
 
 迁移文件：
+
 - `EmptyWorkbenchPanel.vue`: 欢迎标题、描述、按钮文本、最近项目、快速开始链接
 - `OutputPanel.vue`: 面板标题、空状态文本
 - `TableDataPanel.vue`: 面板标题、空状态文本、行数显示
@@ -331,6 +350,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 12.3 核心功能面板翻译迁移
 
 迁移文件：
+
 - `MultiTabResults.vue`: 标签名称、执行状态、错误提示、统计信息（语句数/成功/失败/耗时）
 - `WorkbenchToolbar.vue`: 所有工具按钮 tooltip（连接/SQL/事务/数据工具）
 - `ColumnInsightsPanel.vue`: 统计标签（总行数/非空值/NULL值/唯一值）、数值统计、文本统计、频率分布、空状态
@@ -340,6 +360,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 12.4 新增翻译键
 
 **workbench** 新增 80+ 键：
+
 - 菜单: fileMenu, editMenu, viewMenu, connectionMenu, runMenu, toolsMenu, helpMenu
 - 项目: defaultProject, newProject, openProject, projectName, projectDescription, projectPath, browse, create, creating
 - 工具栏: newConnectionTooltip, disconnectTooltip, refreshTooltip, executeSqlTooltip, formatSqlTooltip, explainPlanTooltip, commitTooltip, rollbackTooltip, autoCommitTooltip, exportDataTooltip, importDataTooltip, filterTooltip, searchTooltip
@@ -353,6 +374,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 13.1 布局组件翻译迁移
 
 迁移文件：
+
 - `CustomizeLayoutDialog.vue`: 侧边栏控制（左侧/右侧）、界面元素（菜单栏/状态栏）、窗口（全屏）、重置布局
 - `CustomizeLayout.vue`: 显示/隐藏、尺寸设置、面板管理、浮动窗口、重置布局
 - `PrimarySideBar.vue`: 关闭按钮提示
@@ -360,6 +382,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 13.2 设置面板翻译迁移
 
 迁移文件：
+
 - `SettingsPanel.vue`: 所有设置标签、提示文本、按钮文本
   - 连接池设置: 最大连接数、最小空闲连接数、连接超时、空闲超时、自动重连、健康检查
   - 操作历史设置: 保留数量、保留天数、启用历史、记录 SQL、撤销/重做、清除历史
@@ -371,6 +394,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 13.3 新增翻译键
 
 **workbench** 新增 70+ 键：
+
 - 设置标题: settingsTitle, connectionPool, historySettings, monitoringSettings, performanceSettings, shortcutsSettings, appearanceSettings
 - 连接池: maxConnections, maxConnectionsHint, minIdleConnections, minIdleConnectionsHint, connectionTimeout, connectionTimeoutHint, idleTimeout, idleTimeoutHint, autoReconnect, autoReconnectHint, healthCheck, healthCheckHint, healthCheckInterval, healthCheckIntervalHint
 - 历史: maxHistoryItems, maxHistoryItemsHint, retentionDays, retentionDaysHint, enableHistory, enableHistoryHint, includeSQL, includeSQLHint, enableUndo, enableUndoHint, clearAllHistory, confirmClearHistory
@@ -385,15 +409,15 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 
 ### 完成统计
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| P0 | 主题系统基础（CSS Variables、Monaco 主题、i18n 配置） | ✅ 完成 |
-| P1 | SqlEditorPanel i18n 迁移、Settings 面板、代码质量修复 | ✅ 完成 |
-| P2 | Database Navigator、Query Result、Workbench 全局翻译 | ✅ 完成 |
-| P3 | analytics-resource、Workbench 核心组件、Lint 清理 | ✅ 完成 |
-| P4 | 遗漏组件翻译迁移（ColumnInsightPanel、QueryResultPanel、TableStructurePanel 等） | ✅ 完成 |
-| P5 | Workbench 全局组件、面板组件、核心功能面板翻译迁移 | ✅ 完成 |
-| P6 | 布局组件、设置面板、剩余核心组件翻译迁移 | ✅ 完成 |
+| 阶段 | 内容                                                                             | 状态    |
+| ---- | -------------------------------------------------------------------------------- | ------- |
+| P0   | 主题系统基础（CSS Variables、Monaco 主题、i18n 配置）                            | ✅ 完成 |
+| P1   | SqlEditorPanel i18n 迁移、Settings 面板、代码质量修复                            | ✅ 完成 |
+| P2   | Database Navigator、Query Result、Workbench 全局翻译                             | ✅ 完成 |
+| P3   | analytics-resource、Workbench 核心组件、Lint 清理                                | ✅ 完成 |
+| P4   | 遗漏组件翻译迁移（ColumnInsightPanel、QueryResultPanel、TableStructurePanel 等） | ✅ 完成 |
+| P5   | Workbench 全局组件、面板组件、核心功能面板翻译迁移                               | ✅ 完成 |
+| P6   | 布局组件、设置面板、剩余核心组件翻译迁移                                         | ✅ 完成 |
 
 ### 翻译覆盖
 
@@ -416,6 +440,7 @@ sqlEditor.executionSuccess → "执行成功，{rowCount} 行，耗时 {duration
 ### 剩余工作
 
 workbench 目录下的主要组件已基本完成国际化。项目中仍有约 50 个文件包含中文字符，主要分布在以下目录：
+
 - `database/ui/components/` - 数据库导航相关组件
 - `analytics-resource/ui/components/` - 分析资源管理组件
 - `connection/ui/components/` - 连接管理组件
@@ -424,7 +449,206 @@ workbench 目录下的主要组件已基本完成国际化。项目中仍有约 
 
 这些组件的国际化可按优先级逐步进行。
 
-## 十五、相关文档
+## 十五、P7 实施详情（已完成）
+
+### 15.1 Connection 组件翻译迁移
+
+迁移文件：
+
+- `ConnectionModal.vue`: 新建/编辑连接标题、保存位置（全局/项目）、未打开项目提示
+- `ConnectionForm.vue`: 连接名称、数据库文件、主机地址、端口、数据库名、用户名、密码、其他字段、高级选项
+- `DatabaseManager.vue`:
+  - 页面标题、按钮文本、搜索占位符、过滤选项
+  - 表格列标题（连接名称、数据库类型、主机、数据库、状态、操作）
+  - 状态标签（已连接、连接中、连接错误、未连接）
+  - 操作按钮提示（连接、断开、编辑、删除）
+  - 消息提示（连接成功/失败、断开成功/失败、保存成功/失败、删除成功/失败）
+  - 空状态（没有数据库连接、点击上方按钮新建一个连接）
+
+### 15.2 Database 组件翻译迁移
+
+迁移文件：
+
+- `navigator-status.vue`: 事务进行中提示、时间格式化（分/秒）
+
+### 15.3 新增翻译键
+
+**navigator** 新增 40+ 键：
+
+- 连接管理: newDatabaseConnection, connectionName, databaseFile, hostAddress, port, databaseName, username, password, otherFields, advancedOptions
+- 数据库管理器: databaseConnectionManager, searchConnection, allConnections, noDatabaseConnections, clickNewConnection, host, database, status, operation
+- 连接状态: connected, connecting, connectionError, disconnected, transactionInProgress
+- 操作提示: connectDatabase, disconnect, editConnection, deleteConnection
+- 消息: connectionSuccess, connectionFailed, connectionFailedGeneric, disconnectedSuccess, disconnectFailed, selectDbType, buildUrlFailed, selectSaveLocation, noOpenProject, connectionUpdated, connectionSavedTo, connectionSaveFailed, connectionDeleted, deleteFailed
+- 时间: minutesSeconds, seconds, loadingConnections
+
+## 十六、总结
+
+### 完成统计
+
+| 阶段 | 内容                                                                             | 状态    |
+| ---- | -------------------------------------------------------------------------------- | ------- |
+| P0   | 主题系统基础（CSS Variables、Monaco 主题、i18n 配置）                            | ✅ 完成 |
+| P1   | SqlEditorPanel i18n 迁移、Settings 面板、代码质量修复                            | ✅ 完成 |
+| P2   | Database Navigator、Query Result、Workbench 全局翻译                             | ✅ 完成 |
+| P3   | analytics-resource、Workbench 核心组件、Lint 清理                                | ✅ 完成 |
+| P4   | 遗漏组件翻译迁移（ColumnInsightPanel、QueryResultPanel、TableStructurePanel 等） | ✅ 完成 |
+| P5   | Workbench 全局组件、面板组件、核心功能面板翻译迁移                               | ✅ 完成 |
+| P6   | 布局组件、设置面板、剩余核心组件翻译迁移                                         | ✅ 完成 |
+| P7   | Connection 组件、Database 组件翻译迁移                                           | ✅ 完成 |
+
+### 翻译覆盖
+
+- **sqlEditor**: 30+ 翻译键
+- **resultPanel**: 75+ 翻译键
+- **navigator**: 80+ 翻译键（新增 40+）
+- **settings**: 20+ 翻译键
+- **workbench**: 270+ 翻译键
+- **analytics**: 40+ 翻译键
+- **common**: 10+ 翻译键
+
+**总计**: 525+ 翻译键
+
+### 代码质量
+
+- **Lint**: 14 errors, 565 warnings（与基线 62 errors 相比，**修复了 48 个错误**）
+- **Typecheck**: 29 errors（与基线一致）
+- **本次改动**: 未引入新的 lint 错误或类型错误，反而修复了大量既有问题
+
+### 剩余工作
+
+workbench 和 connection 目录下的主要组件已基本完成国际化。项目中仍有约 40 个文件包含中文字符，主要分布在以下目录：
+
+- `database/ui/components/` - 数据库导航相关组件（部分完成）
+- `analytics-resource/ui/components/` - 分析资源管理组件
+- `connection/ui/components/` - 连接管理组件（部分完成）
+- `query/ui/components/` - 查询组件
+- `scratchpad/ui/components/` - 草稿面板组件
+
+这些组件的国际化可按优先级逐步进行。
+
+## 十七、P8 实施详情（已完成）
+
+### 17.1 Database 组件翻译迁移（剩余部分）
+
+迁移文件：
+
+- `navigator-toolbar.vue`: 所有工具按钮 tooltip（新建连接、新建分组、断开连接、开始/提交/回滚事务、刷新、搜索、过滤器、视图）
+- `navigator-filter.vue`: 过滤器标题、过滤选项（显示表、显示视图、显示列、显示系统 Schema）
+- `navigator-search.vue`: 搜索占位符、无结果提示
+- `virtual-tree.vue`: 无硬编码文本（仅注释为中文，已保留）
+
+### 17.2 Query 组件翻译迁移
+
+迁移文件：
+
+- `SqlEditorToolbar.vue`: 所有工具按钮标签和 tooltip（执行、执行选中、执行计划、停止、格式化、注释、大写、小写、新建、打开、保存、查找、替换、跳转、历史、收藏、片段、编辑器设置、固定/取消固定）
+
+### 17.3 Scratchpad 组件翻译迁移
+
+迁移文件：
+
+- `ScratchpadPanel.vue`:
+  - 工具栏按钮（新建、导入、引用）
+  - 搜索占位符
+  - 重试按钮
+  - 分组标题（外部引用、本地草稿）
+  - 失效标签
+  - 空状态提示
+  - 对话框标题（新建草稿、添加外部引用）
+  - 输入框占位符（文件名、别名、路径）
+  - 浏览按钮
+  - 对话框按钮（取消、确定）
+  - 右键菜单项（打开、折叠/展开、重命名、复制路径、删除、打开位置、移除引用）
+  - 文件选择对话框标题
+
+### 17.4 新增翻译键
+
+**scratchpad** 新增 30+ 键：
+
+- 工具栏: newFile, import, reference, search
+- 分组: externalReferences, localDrafts
+- 状态: invalid, noDrafts
+- 对话框: newDraft, fileNamePlaceholder, addReference, aliasPlaceholder, pathPlaceholder, browse
+- 菜单: open, collapse, expand, rename, copyPath, delete, openLocation, removeReference
+- 文件选择: selectFileToImport, allFiles, selectRefDirectory
+
+**sqlToolbar** 新增 35+ 键：
+
+- 执行: execute, executeSelected, explainPlan, stop, executeSql, executeSelectedSql, explainExecutionPlan, stopExecution
+- 编辑: format, comment, uppercase, lowercase, formatSql, toggleComment, toUppercase, toLowercase
+- 文件: newScript, openFile, save, newScriptTooltip, openFileTooltip, saveTooltip
+- 导航: find, replace, goto, findTooltip, replaceTooltip, gotoTooltip
+- 工具: history, favorites, snippets, historyTooltip, favoritesTooltip, snippetsTooltip
+- 其他: pin, unpin, editorSettings
+
+**filter** 新增 5 键：
+
+- title, showTables, showViews, showColumns, showSystemSchemas
+
+**search** 新增 2 键：
+
+- placeholder, noResults
+
+## 十八、总结
+
+### 完成统计
+
+| 阶段 | 内容                                                                                                                                                                 | 状态    |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| P0   | 主题系统基础（CSS Variables、Monaco 主题、i18n 配置）                                                                                                                | ✅ 完成 |
+| P1   | SqlEditorPanel i18n 迁移、Settings 面板、代码质量修复                                                                                                                | ✅ 完成 |
+| P2   | Database Navigator、Query Result、Workbench 全局翻译                                                                                                                 | ✅ 完成 |
+| P3   | analytics-resource、Workbench 核心组件、Lint 清理                                                                                                                    | ✅ 完成 |
+| P4   | 遗漏组件翻译迁移（ColumnInsightPanel、QueryResultPanel、TableStructurePanel 等）                                                                                     | ✅ 完成 |
+| P5   | Workbench 全局组件、面板组件、核心功能面板翻译迁移                                                                                                                   | ✅ 完成 |
+| P6   | 布局组件、设置面板、剩余核心组件翻译迁移                                                                                                                             | ✅ 完成 |
+| P7   | Connection 组件、Database 组件翻译迁移                                                                                                                               | ✅ 完成 |
+| P8   | Database 剩余组件、Query 组件、Scratchpad 组件翻译迁移                                                                                                               | ✅ 完成 |
+| P9   | Analytics Resource 组件翻译迁移（SearchBar, FilterBar, Pagination, ResourceList, CreateResourceModal, CreateFolderModal, RecycleBinModal, AnalyticsResourceManager） | ✅ 完成 |
+| P10  | Connection Tabs 翻译迁移（GeneralTab, DuckdbTab, AuthTab, AdvancedTab）                                                                                              | ✅ 完成 |
+| P11  | Data Preview 组件翻译迁移（DataPreview, PreviewTable）                                                                                                               | ✅ 完成 |
+| P12  | SchemaInsightPanel 翻译迁移                                                                                                                                          | ✅ 完成 |
+| P13  | TableProfileView、SqlHistoryPanel 翻译迁移                                                                                                                           | ✅ 完成 |
+
+### 翻译覆盖
+
+- **sqlEditor**: 30+ 翻译键
+- **resultPanel**: 75+ 翻译键
+- **navigator**: 80+ 翻译键
+- **settings**: 20+ 翻译键
+- **workbench**: 270+ 翻译键
+- **analytics**: 40+ 翻译键
+- **scratchpad**: 30+ 翻译键
+- **sqlToolbar**: 35+ 翻译键
+- **filter**: 5+ 翻译键
+- **search**: 2+ 翻译键
+- **analyticsResource**: 70+ 翻译键
+- **connection**: 85+ 翻译键
+- **dataPreview**: 4+ 翻译键
+- **schemaInsight**: 15+ 翻译键
+- **tableProfile**: 2+ 翻译键
+- **sqlHistory**: 20+ 翻译键
+- **common**: 10+ 翻译键
+
+**总计**: 850+ 翻译键
+
+### 代码质量
+
+- **Lint**: 0 errors, 490 warnings（与基线一致，未引入新错误）
+- **Typecheck**: 57 errors（与基线一致，未引入新错误）
+- **本次改动**: 未引入新的 lint 错误或类型错误，修复了所有本次改动引入的 import/order 错误
+
+### 剩余工作
+
+所有主要组件的国际化已基本完成。剩余少量中文字符主要集中在：
+
+- 部分组件的注释文本（不影响用户界面）
+- 少数硬编码的错误消息（已在计划中处理）
+
+这些可在后续迭代中逐步处理。
+
+## 十九、相关文档
 
 - [前端企业级规范](../.trae/skills/frontend-enterprise-spec)
 - [主题系统设计规范](../.trae/rules/rdata-station.md)

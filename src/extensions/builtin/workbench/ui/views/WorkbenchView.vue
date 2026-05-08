@@ -16,10 +16,7 @@
     <WorkbenchStatusBar />
 
     <!-- 新建连接对话框 -->
-    <ConnectionModal
-      v-model="showConnectionModal"
-      @save="handleSaveConnection"
-    />
+    <ConnectionModal v-model="showConnectionModal" @save="handleSaveConnection" />
 
     <!-- 自定义布局对话框 -->
     <CustomizeLayoutDialog
@@ -30,7 +27,14 @@
 </template>
 
 <script setup lang="ts">
-import { DockviewVue, type DockviewReadyEvent, type DockviewApi as DockviewVueApi, type IDockviewPanel, type GetTabContextMenuItemsParams, type ContextMenuItem } from 'dockview-vue'
+import {
+  DockviewVue,
+  type DockviewReadyEvent,
+  type DockviewApi as DockviewVueApi,
+  type IDockviewPanel,
+  type GetTabContextMenuItemsParams,
+  type ContextMenuItem,
+} from 'dockview-vue'
 import { useMessage } from 'naive-ui'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -62,42 +66,46 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
   const panelId = params.panel.id
   const maximized = !!params.group.api.isMaximized?.()
   const isPinned = layoutStore.isPanelPinned(panelId)
-  
+
   const groupApi = params.group.api as any
   const panelApi = params.panel.api as any
-  
+
   const menuItems: ContextMenuItem[] = [
     {
       label: isPinned ? t('workbench.unpin') : t('workbench.pin'),
       action: () => {
         layoutStore.togglePanelPinned(panelId)
-      }
+      },
     },
     'separator',
     {
       label: 'Float Tab',
-      action: () => { params.api.addFloatingGroup(params.panel) }
+      action: () => {
+        params.api.addFloatingGroup(params.panel)
+      },
     },
     {
       label: 'Popout Tab',
-      action: () => { params.api.addPopoutGroup(params.panel) }
+      action: () => {
+        params.api.addPopoutGroup(params.panel)
+      },
     },
     'separator',
     {
       label: 'Add to new group',
-      action: () => { 
+      action: () => {
         const tabGroup = groupApi.createTabGroup?.({
           label: 'New Group',
-          color: 'blue'
+          color: 'blue',
         })
         if (tabGroup) {
           panelApi.moveToTabGroup?.(tabGroup)
         }
-      }
+      },
     },
     {
       label: 'Move to next group',
-      action: () => { 
+      action: () => {
         const groups = groupApi.getTabGroups?.() || []
         const currentGroup = groupApi.getTabGroupForPanel?.(params.panel)
         if (currentGroup && groups.length > 1) {
@@ -105,31 +113,37 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
           const nextIndex = (currentIndex + 1) % groups.length
           panelApi.moveToTabGroup?.(groups[nextIndex])
         }
-      }
+      },
     },
     'separator',
     {
       label: maximized ? t('workbench.restoreMaximize') : t('workbench.maximizeGroup'),
-      action: () => { if (maximized) params.group.api.exitMaximized(); else params.group.api.maximize() }
+      action: () => {
+        if (maximized) params.group.api.exitMaximized()
+        else params.group.api.maximize()
+      },
     },
     {
       label: t('workbench.floatGroup'),
-      action: () => { params.api.addFloatingGroup(params.group) }
+      action: () => {
+        params.api.addFloatingGroup(params.group)
+      },
     },
     {
       label: t('workbench.popoutGroup'),
-      action: () => { params.api.addPopoutGroup(params.group) }
+      action: () => {
+        params.api.addPopoutGroup(params.group)
+      },
     },
     'separator',
   ]
-  
+
   if (!isPinned) {
     menuItems.push('close', 'closeOthers', 'closeAll')
   }
-  
+
   return menuItems
 }
-
 
 const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
   console.log('保存连接:', data)
@@ -188,8 +202,8 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
         params: {
           connectionId: data.name,
           databaseName: data.database || '',
-          initialSql: ''
-        }
+          initialSql: '',
+        },
       })
 
       ensureResultPanel()
@@ -211,9 +225,15 @@ const onReady = (event: DockviewReadyEvent) => {
   const panels = panelRegistry.getAll()
   console.log(`[Workbench] Creating ${panels.length} panels from registry`)
 
-  const leftPanelsAll = panels.filter(p => p.location === 'left').sort((a, b) => (a.order || 0) - (b.order || 0))
-  const centerPanels = panels.filter(p => p.location === 'center').sort((a, b) => (a.order || 0) - (b.order || 0))
-  const rightPanels = panels.filter(p => p.location === 'right').sort((a, b) => (a.order || 0) - (b.order || 0))
+  const leftPanelsAll = panels
+    .filter(p => p.location === 'left')
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+  const centerPanels = panels
+    .filter(p => p.location === 'center')
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+  const rightPanels = panels
+    .filter(p => p.location === 'right')
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
 
   // 分离数据库导航面板：放入独立 Normal Group
   const dbNavPanel = leftPanelsAll.find(p => p.id === 'databaseNavigator')
@@ -242,7 +262,11 @@ const onReady = (event: DockviewReadyEvent) => {
     position: { referenceGroup: 'left-edge' },
     params: { position: 'left' },
   })
-  layoutStore.updatePanelConfig('panel_leftActivityBar', { location: 'left', isVisible: true, order: 99 })
+  layoutStore.updatePanelConfig('panel_leftActivityBar', {
+    location: 'left',
+    isVisible: true,
+    order: 99,
+  })
 
   for (let i = 0; i < leftEdgePanels.length; i++) {
     const panel = leftEdgePanels[i]
@@ -268,7 +292,11 @@ const onReady = (event: DockviewReadyEvent) => {
       position: { direction: 'left' },
     })
     console.log(`[Workbench] Created database navigator as normal group: panel_${dbNavPanel.id}`)
-    layoutStore.updatePanelConfig(`panel_${dbNavPanel.id}`, { location: 'center', isVisible: true, order: 0 })
+    layoutStore.updatePanelConfig(`panel_${dbNavPanel.id}`, {
+      location: 'center',
+      isVisible: true,
+      order: 0,
+    })
   }
 
   // ============================================
@@ -283,7 +311,11 @@ const onReady = (event: DockviewReadyEvent) => {
       position: { direction: 'right' },
     })
     console.log(`[Workbench] Created welcome panel: panel_${welcomePanel.id}`)
-    layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, { location: 'center', isVisible: true, order: 0 })
+    layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, {
+      location: 'center',
+      isVisible: true,
+      order: 0,
+    })
   }
 
   // ============================================
@@ -307,7 +339,11 @@ const onReady = (event: DockviewReadyEvent) => {
       position: { referenceGroup: 'right-edge' },
     })
     console.log(`[Workbench] Created right edge panel: ${firstRightPanelId}`)
-    layoutStore.updatePanelConfig(firstRightPanelId, { location: 'right', isVisible: true, order: 0 })
+    layoutStore.updatePanelConfig(firstRightPanelId, {
+      location: 'right',
+      isVisible: true,
+      order: 0,
+    })
 
     for (let i = 1; i < rightPanels.length; i++) {
       const panel = rightPanels[i]
@@ -323,11 +359,16 @@ const onReady = (event: DockviewReadyEvent) => {
     }
   }
 
-  console.log(`[Workbench] Final layout - groups: ${api.groups.length}, panels: ${api.panels.length}`)
-  console.log('[Workbench] All groups:', api.groups.map(g => ({
-    id: g.id,
-    panels: g.panels.map(p => p.id)
-  })))
+  console.log(
+    `[Workbench] Final layout - groups: ${api.groups.length}, panels: ${api.panels.length}`
+  )
+  console.log(
+    '[Workbench] All groups:',
+    api.groups.map(g => ({
+      id: g.id,
+      panels: g.panels.map(p => p.id),
+    }))
+  )
 
   layoutStore.setBottomPanelMode('editor')
 
@@ -336,13 +377,13 @@ const onReady = (event: DockviewReadyEvent) => {
   // ============================================
   // 事件监听
   // ============================================
-  api.onDidActivePanelChange?.((panel) => {
+  api.onDidActivePanelChange?.(panel => {
     if (panel?.id?.startsWith('panel_sqlEditor_')) {
       activeSqlEditorPanelId = panel.id
     }
   })
 
-  api.onDidRemovePanel?.((panel) => {
+  api.onDidRemovePanel?.(panel => {
     const panelId = panel.id
     if (layoutStore.isPanelPinned(panelId)) {
       console.log(`[Workbench] Attempted to close pinned panel: ${panelId}, restoring...`)
@@ -352,25 +393,34 @@ const onReady = (event: DockviewReadyEvent) => {
     }
   })
 
-  window.addEventListener('open-object-properties', handleOpenObjectProperties as (e: Event) => void)
+  window.addEventListener(
+    'open-object-properties',
+    handleOpenObjectProperties as (e: Event) => void
+  )
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
-  window.addEventListener('sql-execution-result', handleSqlExecutionResult as (e: Event) => void)
 }
 
 function restorePinnedPanel(panelId: string) {
   if (!dockviewApi) return
-  
+
   const panelConfig = layoutStore.getPanelConfig(panelId)
   if (!panelConfig) return
-  
+
   const panelInfo = panelRegistry.get(panelId.replace('panel_', ''))
   if (!panelInfo) return
-  
+
   dockviewApi.addPanel({
     id: panelId,
     component: panelInfo.id,
     title: panelInfo.name,
-    position: { direction: panelConfig.location === 'left' ? 'left' : panelConfig.location === 'right' ? 'right' : 'center' }
+    position: {
+      direction:
+        panelConfig.location === 'left'
+          ? 'left'
+          : panelConfig.location === 'right'
+            ? 'right'
+            : 'center',
+    },
   })
   console.log(`[Workbench] Restored pinned panel: ${panelId}`)
 }
@@ -386,7 +436,11 @@ const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
       const leftGroup = groups.find((g: { model?: { panels?: { id: string }[] } }) =>
         g.model?.panels?.some((p: { id: string }) => {
           const panelId = p.id
-          return panelId === 'panel_databaseNavigator' || panelId === 'panel_analytics-resource-manager' || panelId === 'panel_plugins'
+          return (
+            panelId === 'panel_databaseNavigator' ||
+            panelId === 'panel_analytics-resource-manager' ||
+            panelId === 'panel_plugins'
+          )
         })
       )
       if (leftGroup) {
@@ -442,22 +496,6 @@ const handleResetLayout = () => {
   }
 }
 
-const handleSqlExecutionResult = (event: CustomEvent) => {
-  const { panelId, result, error, results, originalSql, connectionId, elapsedMs } = event.detail || {}
-  if (!panelId) return
-
-  if (results && Array.isArray(results) && results.length > 0) {
-    ensureMultiTabResultPanel()
-    window.dispatchEvent(new CustomEvent('multi-tab-result-updated', {
-      detail: { panelId, results }
-    }))
-  } else {
-    window.dispatchEvent(new CustomEvent('query-result-updated', {
-      detail: { panelId, result, error, originalSql, connectionId, elapsedMs }
-    }))
-  }
-}
-
 function findActiveSqlEditorPanelId(): string | null {
   if (!dockviewApi) return null
   if (activeSqlEditorPanelId) {
@@ -492,7 +530,7 @@ const ensureResultPanel = () => {
       id: 'panel_queryResult',
       component: 'queryResult',
       title: t('workbench.queryResult'),
-      position: { referencePanel: refPanelId, direction: 'below' }
+      position: { referencePanel: refPanelId, direction: 'below' },
     })
     console.log(`[Workbench] 自动创建查询结果面板，位置参考: ${refPanelId}`)
   }
@@ -517,7 +555,7 @@ const ensureMultiTabResultPanel = () => {
       id: 'panel_multiTabResult',
       component: 'multiTabResult',
       title: t('workbench.queryResult'),
-      position: { referencePanel: refPanelId, direction: 'below' }
+      position: { referencePanel: refPanelId, direction: 'below' },
     })
     console.log(`[Workbench] 自动创建多 TAB 查询结果面板，位置参考: ${refPanelId}`)
   }
@@ -528,7 +566,8 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
 
   sqlEditorCounter++
   const panelId = `panel_sqlEditor_${sqlEditorCounter}`
-  const { connectionId, databaseName, sql } = event.detail || {}
+  const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language } =
+    event.detail || {}
 
   let existingSqlPanel: IDockviewPanel | undefined
   let existingSqlPanelId: string | null = null
@@ -549,15 +588,18 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
     dockviewApi.addPanel({
       id: panelId,
       component: 'sqlEditor',
-      title: `SQL ${sqlEditorCounter}`,
+      title: scratchpadFileName ? `📜 ${scratchpadFileName}` : `SQL ${sqlEditorCounter}`,
       position: existingSqlPanelId
         ? { referencePanel: existingSqlPanelId, direction: 'within' }
         : { direction: 'center' },
       params: {
         connectionId: connectionId || '',
         databaseName: databaseName || '',
-        initialSql: sql || ''
-      }
+        initialSql: sql || '',
+        scratchpadRelativePath: scratchpadRelativePath || '',
+        scratchpadFileName: scratchpadFileName || '',
+        language: language || 'sql',
+      },
     })
     console.log(`[Workbench] 创建 SQL 编辑器面板: ${panelId}`)
   } catch (error) {
@@ -579,23 +621,55 @@ const handleOpenObjectProperties = (event: CustomEvent) => {
       objectType,
       objectName,
       schema,
-      database
-    }
+      database,
+    },
   })
   console.log(`[Workbench] 创建对象属性面板: ${panelId}`)
 }
 
+const handleKeydown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyE') {
+    e.preventDefault()
+    const conns = connectionStore.connections
+    const firstConn = conns.length > 0 ? conns[0] : null
+    handleOpenSqlEditor(
+      new CustomEvent('open-sql-editor', {
+        detail: {
+          connectionId: firstConn?.name || '',
+          databaseName: firstConn?.database || '',
+          sql: '',
+        },
+      })
+    )
+  }
+}
+
 onMounted(() => {
-  window.addEventListener('layout-settings-update', handleLayoutSettingsUpdate as (e: Event) => void)
+  window.addEventListener(
+    'layout-settings-update',
+    handleLayoutSettingsUpdate as (e: Event) => void
+  )
   window.addEventListener('reset-layout', handleResetLayout as (e: Event) => void)
+  window.addEventListener(
+    'open-object-properties',
+    handleOpenObjectProperties as (e: Event) => void
+  )
+  window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
+  window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('layout-settings-update', handleLayoutSettingsUpdate as (e: Event) => void)
+  window.removeEventListener(
+    'layout-settings-update',
+    handleLayoutSettingsUpdate as (e: Event) => void
+  )
   window.removeEventListener('reset-layout', handleResetLayout as (e: Event) => void)
-  window.removeEventListener('open-object-properties', handleOpenObjectProperties as (e: Event) => void)
+  window.removeEventListener(
+    'open-object-properties',
+    handleOpenObjectProperties as (e: Event) => void
+  )
   window.removeEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
-  window.removeEventListener('sql-execution-result', handleSqlExecutionResult as (e: Event) => void)
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 

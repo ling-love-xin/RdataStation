@@ -6,7 +6,7 @@ import 'dockview-vue/dist/styles/dockview.css'
 
 const app = createApp({
   components: { DockviewVue },
-  template: `<DockviewVue class="dockview" />`
+  template: `<DockviewVue class="dockview" />`,
 })
 
 app.use(createPinia())

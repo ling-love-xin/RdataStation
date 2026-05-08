@@ -2,14 +2,14 @@
  * 连接类型定义
  */
 
-import type { Connection, RecentConnection, ProjectConnection, CreateProjectConnectionInput } from '../../types/connection'
-
-export type {
+import type {
   Connection,
   RecentConnection,
   ProjectConnection,
-  CreateProjectConnectionInput
-}
+  CreateProjectConnectionInput,
+} from '../../types/connection'
+
+export type { Connection, RecentConnection, ProjectConnection, CreateProjectConnectionInput }
 
 // 项目连接响应
 export interface ProjectConnectionResponse {

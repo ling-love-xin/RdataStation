@@ -25,7 +25,6 @@ import { ref, computed, watch } from 'vue'
 
 import { useUiStore } from '@/shared/stores/ui'
 
-
 // 注册 ag-Grid 模块
 ModuleRegistry.registerModules([ClientSideRowModelModule])
 
@@ -61,7 +60,7 @@ const columnDefs = computed(() => {
         return 'cell-null'
       }
       return ''
-    }
+    },
   }))
 })
 
@@ -80,7 +79,7 @@ const defaultColDef = {
   sortable: true,
   filter: true,
   resizable: true,
-  minWidth: 80
+  minWidth: 80,
 }
 
 function onGridReady(params: any) {
@@ -90,13 +89,17 @@ function onGridReady(params: any) {
 }
 
 // 监听数据变化，自动调整列宽
-watch(() => props.rows, () => {
-  if (gridApi.value) {
-    setTimeout(() => {
-      gridApi.value.sizeColumnsToFit()
-    }, 0)
-  }
-}, { deep: true })
+watch(
+  () => props.rows,
+  () => {
+    if (gridApi.value) {
+      setTimeout(() => {
+        gridApi.value.sizeColumnsToFit()
+      }, 0)
+    }
+  },
+  { deep: true }
+)
 </script>
 
 <style scoped>

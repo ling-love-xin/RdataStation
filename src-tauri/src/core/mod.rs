@@ -44,6 +44,7 @@ pub mod services;
 pub mod cache;
 pub mod utils;
 pub mod migration;
+pub mod duckdb;
 pub mod insight;
 pub mod scratchpad;
 
@@ -126,6 +127,9 @@ pub use stream::{
 pub use utils::{
     hash, time, string,
 };
+
+// 重新导出 DuckDB 管理模块
+pub use duckdb::DuckDBManager;
 
 // 重新导出草稿箱模块
 pub use scratchpad::{

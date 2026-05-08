@@ -32,7 +32,7 @@ export function useNotification() {
       message,
       duration,
       closable: true,
-      createdAt: new Date()
+      createdAt: new Date(),
     }
 
     notifications.value.push(notification)
@@ -81,6 +81,6 @@ export function useNotification() {
     success,
     error,
     warning,
-    info
+    info,
   }
 }

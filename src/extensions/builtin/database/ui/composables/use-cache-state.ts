@@ -1,6 +1,6 @@
 /**
  * 前端缓存状态管理器
- * 
+ *
  * 维护缓存有效性状态，减少不必要的 IPC 调用
  * 实现智能缓存策略：
  * - 前端维护缓存状态，避免频繁调用后端检查
@@ -98,7 +98,7 @@ class CacheStateManager {
     const startTime = performance.now()
     const cacheKey = this.generateKey(key)
     const existing = this.cacheStates.value.get(cacheKey)
-    
+
     const newState: CacheState = {
       isValid: state.isValid ?? existing?.isValid ?? false,
       lastSync: state.lastSync ?? existing?.lastSync ?? null,
@@ -107,7 +107,7 @@ class CacheStateManager {
       columnCount: state.columnCount ?? existing?.columnCount ?? 0,
       createdAt: existing?.createdAt ?? Date.now(),
       lastAccessed: Date.now(),
-      accessCount: existing?.accessCount ?? 0
+      accessCount: existing?.accessCount ?? 0,
     }
 
     this.cacheStates.value.set(cacheKey, newState)
@@ -163,7 +163,7 @@ class CacheStateManager {
       isValid: true,
       lastSync: Date.now(),
       tableCount,
-      columnCount
+      columnCount,
     })
   }
 
@@ -175,7 +175,7 @@ class CacheStateManager {
       isValid: false,
       lastSync: null,
       tableCount: 0,
-      columnCount: 0
+      columnCount: 0,
     })
   }
 
@@ -348,6 +348,6 @@ export function useCacheState() {
     getVersion,
     incrementVersion,
     getConnectionStats,
-    setMaxTablesPerConnection
+    setMaxTablesPerConnection,
   }
 }

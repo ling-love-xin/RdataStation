@@ -96,6 +96,7 @@ pub struct ErrorResponse {
 ```
 
 **设计原则**：
+
 - DTO 与内部模型分离
 - 使用 serde 支持序列化
 - 版本化管理（未来）
@@ -114,15 +115,15 @@ pub struct ErrorResponse {
 pub trait Database: Send + Sync {
     /// 执行 SQL 查询
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
-    
+
     /// 获取数据源元数据
     fn meta(&self) -> DataSourceMeta;
-    
+
     /// 列出数据库
     async fn list_databases(&self) -> Result<Vec<String>, CoreError>;
-    
+
     /// 列出表
-    async fn list_tables(&self, database: &str, schema: Option<&str>) 
+    async fn list_tables(&self, database: &str, schema: Option<&str>)
         -> Result<Vec<SchemaObject>, CoreError>;
 }
 
@@ -161,11 +162,11 @@ pub struct DBI {
 
 impl DBI {
     /// 执行查询（只读）
-    pub async fn query(&self, sql: &str, mode: ExecutionMode) 
+    pub async fn query(&self, sql: &str, mode: ExecutionMode)
         -> Result<QueryResult, CoreError>;
-    
+
     /// 执行更新（写操作）
-    pub async fn execute(&self, sql: &str) 
+    pub async fn execute(&self, sql: &str)
         -> Result<QueryResult, CoreError>;
 }
 ```
@@ -226,15 +227,15 @@ pub struct ConnectionService {
 
 impl ConnectionService {
     /// 创建连接
-    pub async fn connect(&self, config: ConnectionConfig) 
+    pub async fn connect(&self, config: ConnectionConfig)
         -> Result<String, CoreError>;
-    
+
     /// 关闭连接
-    pub async fn close_connection(&self, conn_id: &str) 
+    pub async fn close_connection(&self, conn_id: &str)
         -> Result<(), CoreError>;
-    
+
     /// 执行 SQL
-    pub async fn execute_sql(&self, conn_id: &str, sql: &str) 
+    pub async fn execute_sql(&self, conn_id: &str, sql: &str)
         -> Result<QueryResult, CoreError>;
 }
 ```
@@ -250,7 +251,7 @@ pub struct ConnectionStore;
 impl ConnectionStore {
     /// 保存连接配置
     pub fn save(config: &ConnectionConfig) -> Result<(), StorageError>;
-    
+
     /// 加载最近连接
     pub fn load_recent() -> Result<Vec<RecentConnection>, StorageError>;
 }
@@ -270,12 +271,12 @@ pub async fn execute_sql(
     if input.sql.trim().is_empty() {
         return Err("SQL cannot be empty".into());
     }
-    
+
     // 2. 调用 Core 服务
     let service = SqlService::new(get_connection_manager());
     let result = service.execute(&input.sql).await
         .map_err(|e| e.to_string())?;
-    
+
     // 3. 转换为响应 DTO
     Ok(result.into())
 }
@@ -398,6 +399,7 @@ Result (Arrow RecordBatch)
 ### 1. 添加新数据库支持
 
 步骤：
+
 1. 在 `driver/native/` 添加实现文件
 2. 实现 `Database` trait
 3. 在 `lib.rs` 注册驱动
@@ -424,6 +426,7 @@ fn register_drivers() {
 RdataStation 使用 Extism 1.21 作为 WASM 插件运行时，支持热插拔插件扩展。
 
 插件架构：
+
 ```
 ┌─────────────────────────────────────────┐
 │  Rust Core                              │
@@ -445,6 +448,7 @@ RdataStation 使用 Extism 1.21 作为 WASM 插件运行时，支持热插拔插
 ```
 
 插件开发步骤：
+
 1. 编写 WASM 插件（支持 Rust/Python/C 等）
 2. 编译为 `.wasm` 文件
 3. 通过 `ExtismPluginManager::load_plugin()` 加载
@@ -459,6 +463,7 @@ Rust Core → JDBC Driver → JVM → JDBC Driver (.jar)
 ```
 
 支持的数据库：
+
 - Oracle
 - SQL Server
 - DB2
@@ -467,6 +472,7 @@ Rust Core → JDBC Driver → JVM → JDBC Driver (.jar)
 ### 4. 添加新命令
 
 步骤：
+
 1. 在 `adapters/tauri/command.rs` 添加命令函数
 2. 在 `lib.rs` 注册命令
 
@@ -487,6 +493,7 @@ pub async fn my_command(input: MyInput) -> Result<MyOutput, String> {
 ### 5. 添加新服务
 
 步骤：
+
 1. 在 `core/services/` 创建服务文件
 2. 在 `core/mod.rs` 导出
 
@@ -517,7 +524,7 @@ pub struct DbPool {
 impl DbPool {
     /// 获取连接
     pub async fn acquire(&self) -> Result<PoolConnection, CoreError>;
-    
+
     /// 连接池状态
     pub fn status(&self) -> PoolStatus;
 }

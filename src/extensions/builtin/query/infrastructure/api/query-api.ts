@@ -21,7 +21,7 @@ export async function executeSql(
   timeoutMs?: number
 ): Promise<ExecuteSqlResponse> {
   return invoke('execute_sql', {
-    input: { sql, conn_id: connId, timeout_ms: timeoutMs }
+    input: { sql, conn_id: connId, timeout_ms: timeoutMs },
   })
 }
 
@@ -33,7 +33,7 @@ export async function executeTransaction(
   connId?: string
 ): Promise<ExecuteTransactionResponse> {
   return invoke('execute_transaction', {
-    input: { sqls, conn_id: connId }
+    input: { sqls, conn_id: connId },
   })
 }
 

@@ -5,6 +5,11 @@
 // 重新导出 databaseMeta 类型
 export * from './databaseMeta'
 
+// 重新导出 SQL 相关类型
+export * from './sql'
+
+import type { DatabaseType } from './sql'
+
 // ============================================================================
 // 连接分类类型
 // ============================================================================
@@ -57,7 +62,7 @@ export interface ConvertConnectionResponse {
 export interface Connection {
   connId: string
   name: string
-  dbType: string
+  dbType: DatabaseType
   url: string
   connectionType: ConnectionType
   projectId?: string | null
@@ -145,3 +150,15 @@ export interface SqlHistory {
 // ============================================================================
 
 // NavigatorNode 类型已从 databaseMeta.ts 导出
+
+// ============================================================================
+// 事务相关类型
+// ============================================================================
+
+/** 事务状态响应 */
+export interface TransactionStatusResponse {
+  connId: string
+  isInTransaction: boolean
+  transactionStartTimeMs?: number
+  transactionDurationMs?: number
+}

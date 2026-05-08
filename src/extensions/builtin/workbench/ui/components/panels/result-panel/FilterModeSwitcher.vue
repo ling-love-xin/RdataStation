@@ -14,9 +14,13 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-export type FilterMode = 'quick' | 'sql' | 'duckdb'
+import type { FilterMode } from '../../../types/result'
 
-interface ModeItem { key: FilterMode; icon: string; label: string }
+interface ModeItem {
+  key: FilterMode
+  icon: string
+  label: string
+}
 
 const { t } = useI18n()
 
@@ -54,9 +58,12 @@ const modes: ModeItem[] = [
   border-radius: 3px;
   transition: all 0.15s;
 }
-.mode-btn:hover { background: var(--bg-hover, #3c3c3c); color: var(--text-primary); }
+.mode-btn:hover {
+  background: var(--bg-hover, #3c3c3c);
+  color: var(--text-primary);
+}
 .mode-btn.active {
-  background: var(--primary-color, #165DFF);
+  background: var(--primary-color, #165dff);
   color: #fff;
 }
 </style>

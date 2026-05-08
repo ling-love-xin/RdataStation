@@ -16,7 +16,7 @@ export function useWorkbenchIntegration() {
   const state = ref<WorkbenchIntegrationState>({
     activeEditorConnectionId: null,
     activeEditorTable: null,
-    isSyncingNavigation: false
+    isSyncingNavigation: false,
   })
 
   function openTableInWorkbench(
@@ -34,11 +34,7 @@ export function useWorkbenchIntegration() {
     state.value.activeEditorTable = `${schemaName}.${tableName}`
   }
 
-  function openViewInWorkbench(
-    connectionId: string,
-    schemaName: string,
-    viewName: string
-  ) {
+  function openViewInWorkbench(connectionId: string, schemaName: string, viewName: string) {
     openTableInWorkbench(connectionId, schemaName, viewName, 'view')
   }
 
@@ -55,11 +51,7 @@ export function useWorkbenchIntegration() {
     workbenchStore.addEditorTab(connectionId, sql, `INSERT: ${schemaName}.${tableName}`)
   }
 
-  function generateCreateTableSQL(
-    connectionId: string,
-    schemaName: string,
-    tableName: string
-  ) {
+  function generateCreateTableSQL(connectionId: string, schemaName: string, tableName: string) {
     const sql = `CREATE TABLE ${schemaName}.${tableName} (
   id SERIAL PRIMARY KEY,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -92,7 +84,7 @@ export function useWorkbenchIntegration() {
   function getActiveEditorContext() {
     return {
       connectionId: state.value.activeEditorConnectionId,
-      table: state.value.activeEditorTable
+      table: state.value.activeEditorTable,
     }
   }
 
@@ -104,6 +96,6 @@ export function useWorkbenchIntegration() {
     generateCreateTableSQL,
     syncNavigationToTree,
     onEditorTabChanged,
-    getActiveEditorContext
+    getActiveEditorContext,
   }
 }

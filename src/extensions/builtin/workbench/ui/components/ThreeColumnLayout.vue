@@ -2,7 +2,11 @@
   <div ref="containerRef" class="three-column-layout">
     <div
       class="column column-a"
-      :style="{ width: `${columnAWidth}px`, minWidth: `${minWidthA}px`, maxWidth: `${maxWidthA}px` }"
+      :style="{
+        width: `${columnAWidth}px`,
+        minWidth: `${minWidthA}px`,
+        maxWidth: `${maxWidthA}px`,
+      }"
     >
       <slot name="column-a"></slot>
     </div>
@@ -15,10 +19,7 @@
       <div class="divider-handle"></div>
     </div>
 
-    <div
-      class="column column-b"
-      :style="{ width: `${columnBWidth}px` }"
-    >
+    <div class="column column-b" :style="{ width: `${columnBWidth}px` }">
       <slot name="column-b"></slot>
     </div>
 
@@ -32,7 +33,11 @@
 
     <div
       class="column column-c"
-      :style="{ width: `${columnCWidth}px`, minWidth: `${minWidthC}px`, maxWidth: `${maxWidthC}px` }"
+      :style="{
+        width: `${columnCWidth}px`,
+        minWidth: `${minWidthC}px`,
+        maxWidth: `${maxWidthC}px`,
+      }"
     >
       <slot name="column-c"></slot>
     </div>
@@ -63,7 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
   maxWidthC: 500,
   defaultRatio: () => [1, 2, 1],
   showLeftDivider: true,
-  showRightDivider: true
+  showRightDivider: true,
 })
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -147,9 +152,12 @@ onUnmounted(() => {
   window.removeEventListener('resize', initializeWidths)
 })
 
-watch(() => props.defaultRatio, () => {
-  initializeWidths()
-})
+watch(
+  () => props.defaultRatio,
+  () => {
+    initializeWidths()
+  }
+)
 </script>
 
 <style scoped>
@@ -193,7 +201,7 @@ watch(() => props.defaultRatio, () => {
 }
 
 .divider:hover {
-  background-color: var(--primary-color, #165DFF);
+  background-color: var(--primary-color, #165dff);
 }
 
 .divider-handle {

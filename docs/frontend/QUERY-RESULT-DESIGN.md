@@ -75,6 +75,7 @@
 ```
 
 **可选侧边面板（通过 dockview 注册）**：
+
 - **列洞察面板**：点击表格某一列或通过右键菜单触发，显示该列基于 DuckDB 的统计信息（数值列：AVG、MIN、MAX、MEDIAN；文本列：频率分布 Top 10）。面板可自由拖拽。
 
 ## 4. 详细功能清单（TODO 项，不可遗漏）
@@ -233,7 +234,7 @@ interface ResultState {
   // 模式3（DuckDB分析）
   duckdbSql: string
   isDuckdbLoading: boolean
-  isAnalysisActive: boolean       // 表格是否展示分析结果
+  isAnalysisActive: boolean // 表格是否展示分析结果
 
   // 编辑状态
   dirtyRows: Set<number>
@@ -252,19 +253,19 @@ interface ResultState {
 
 ## 6. 开发顺序与优先级
 
-| 阶段 | 功能 | 预估范围 |
-|------|------|---------|
-| P0 基础骨架 | 创建 ResultPanel.vue，集成 dockview；实现 ResultGrid.vue 展示静态数据；打通 execute_sql 命令 | 前端+后端 |
-| P0 模式 1 即时过滤 | 实现 QuickFilterInput 及 ag-grid 客户端过滤 | 纯前端 |
-| P0 模式 2 SQL 过滤 | 实现 SqlFilterInput，对接 re_execute_with_filter 命令，拼接 WHERE 重新查询 | 前端+后端 |
-| P0 模式 3 DuckDB 分析 | 实现 DuckDBAnalysisInput，对接 execute_duckdb 命令，结果回填表格 | 前端+后端 |
-| P1 状态栏完善 | 动态显示行数、性能指标、时间戳 | 纯前端 |
-| P1 编辑功能 | 单元格编辑、脏标记、保存/取消 | 前端+后端 |
-| P1 右键菜单与列头菜单 | 集成三模式交互发送 | 纯前端 |
-| P2 导出功能 | 全部四种格式与文件保存对话框 | 前端+后端 |
-| P2 列洞察面板 | 独立 dockview 面板，DuckDB 实时统计 | 前端+后端 |
-| P2 模式衔接 | 模式1→模式3 的过滤子集转移 | 前端+后端 |
-| P2 快捷键与细节打磨 | 全局快捷键增强 | 纯前端 |
+| 阶段                  | 功能                                                                                         | 预估范围  |
+| --------------------- | -------------------------------------------------------------------------------------------- | --------- |
+| P0 基础骨架           | 创建 ResultPanel.vue，集成 dockview；实现 ResultGrid.vue 展示静态数据；打通 execute_sql 命令 | 前端+后端 |
+| P0 模式 1 即时过滤    | 实现 QuickFilterInput 及 ag-grid 客户端过滤                                                  | 纯前端    |
+| P0 模式 2 SQL 过滤    | 实现 SqlFilterInput，对接 re_execute_with_filter 命令，拼接 WHERE 重新查询                   | 前端+后端 |
+| P0 模式 3 DuckDB 分析 | 实现 DuckDBAnalysisInput，对接 execute_duckdb 命令，结果回填表格                             | 前端+后端 |
+| P1 状态栏完善         | 动态显示行数、性能指标、时间戳                                                               | 纯前端    |
+| P1 编辑功能           | 单元格编辑、脏标记、保存/取消                                                                | 前端+后端 |
+| P1 右键菜单与列头菜单 | 集成三模式交互发送                                                                           | 纯前端    |
+| P2 导出功能           | 全部四种格式与文件保存对话框                                                                 | 前端+后端 |
+| P2 列洞察面板         | 独立 dockview 面板，DuckDB 实时统计                                                          | 前端+后端 |
+| P2 模式衔接           | 模式1→模式3 的过滤子集转移                                                                   | 前端+后端 |
+| P2 快捷键与细节打磨   | 全局快捷键增强                                                                               | 纯前端    |
 
 ---
 
@@ -272,38 +273,38 @@ interface ResultState {
 
 ### 5.1 已实现
 
-| 功能 | 状态 | 说明 |
-|------|------|------|
-| AG Grid 基础表格 | ✅ | 社区版，ClientSideRowModel |
-| 行序号列 | ✅ | 固定左侧 # 列 |
-| 列头排序 | ✅ | 单列排序，状态栏显示 |
-| 列宽调整 | ✅ | 拖拽 + 自适应按钮 |
-| 行多选 | ✅ | multiple 模式 |
-| 复制 TSV/CSV | ✅ | toolbar 按钮 |
-| 复制 INSERT | ✅ | toolbar 按钮 |
-| 导出 CSV/JSON | ✅ | 文件下载 |
-| 空状态 | ✅ | 友好提示 |
-| 暗色模式 | ✅ | 跟随系统 |
-| 分页 | ✅ | 200条/页，可切换 |
-| 搜索 | ✅ | quick filter + 高亮 |
-| NULL 显示 | ✅ | `<span class="null-value">` |
-| 事件通信 | ✅ | 通过 window event |
-| Tab 导航 | ✅ | 结果 / 输出 |
+| 功能             | 状态 | 说明                        |
+| ---------------- | ---- | --------------------------- |
+| AG Grid 基础表格 | ✅   | 社区版，ClientSideRowModel  |
+| 行序号列         | ✅   | 固定左侧 # 列               |
+| 列头排序         | ✅   | 单列排序，状态栏显示        |
+| 列宽调整         | ✅   | 拖拽 + 自适应按钮           |
+| 行多选           | ✅   | multiple 模式               |
+| 复制 TSV/CSV     | ✅   | toolbar 按钮                |
+| 复制 INSERT      | ✅   | toolbar 按钮                |
+| 导出 CSV/JSON    | ✅   | 文件下载                    |
+| 空状态           | ✅   | 友好提示                    |
+| 暗色模式         | ✅   | 跟随系统                    |
+| 分页             | ✅   | 200条/页，可切换            |
+| 搜索             | ✅   | quick filter + 高亮         |
+| NULL 显示        | ✅   | `<span class="null-value">` |
+| 事件通信         | ✅   | 通过 window event           |
+| Tab 导航         | ✅   | 结果 / 输出                 |
 
 ### 5.2 待实现（按设计文档）
 
-| 功能 | 优先级 | 说明 |
-|------|--------|------|
-| SQL 预览栏 | P0 | 当前结果所属 SQL 的只读显示 + 复制按钮 |
-| 三模式切换 | P0 | 即时过滤 / SQL过滤 / DuckDB分析 |
-| 模式1：即时过滤表达式 | P0 | 类似 DBeaver 的表达式语法，300ms 防抖 |
-| 模式2：SQL 过滤 | P0 | 拼接 WHERE 重新查询数据库 + 后端 Tauri 命令 |
-| 模式3：DuckDB 分析 | P0 | 针对临时表执行完整 SQL + 快捷分析 |
-| 底部状态栏（完整版） | P0 | 刷新/保存/取消/导出按钮 + 模式标签 + 性能时间 |
-| 列头右键菜单 | P0 | 排序/发送到模式/隐藏列/自适应 |
-| 单元格右键菜单 | P0 | 复制/INSERT/JSON/发送到模式 |
-| 单元格编辑 | P1 | 双击编辑 + 保存/取消 |
-| 数据导出增强 | P1 | 后端生成 Excel/SQL INSERT/JSON |
-| 列洞察面板 | P2 | 侧边独立 dockview 面板 |
-| DuckDB 临时表管理 | P0 | 结果集自动写入 DuckDB 临时表 |
-| 后端 filter/analyze 命令 | P0 | Tauri `re_execute_with_filter` / `execute_duckdb_analysis` |
+| 功能                     | 优先级 | 说明                                                       |
+| ------------------------ | ------ | ---------------------------------------------------------- |
+| SQL 预览栏               | P0     | 当前结果所属 SQL 的只读显示 + 复制按钮                     |
+| 三模式切换               | P0     | 即时过滤 / SQL过滤 / DuckDB分析                            |
+| 模式1：即时过滤表达式    | P0     | 类似 DBeaver 的表达式语法，300ms 防抖                      |
+| 模式2：SQL 过滤          | P0     | 拼接 WHERE 重新查询数据库 + 后端 Tauri 命令                |
+| 模式3：DuckDB 分析       | P0     | 针对临时表执行完整 SQL + 快捷分析                          |
+| 底部状态栏（完整版）     | P0     | 刷新/保存/取消/导出按钮 + 模式标签 + 性能时间              |
+| 列头右键菜单             | P0     | 排序/发送到模式/隐藏列/自适应                              |
+| 单元格右键菜单           | P0     | 复制/INSERT/JSON/发送到模式                                |
+| 单元格编辑               | P1     | 双击编辑 + 保存/取消                                       |
+| 数据导出增强             | P1     | 后端生成 Excel/SQL INSERT/JSON                             |
+| 列洞察面板               | P2     | 侧边独立 dockview 面板                                     |
+| DuckDB 临时表管理        | P0     | 结果集自动写入 DuckDB 临时表                               |
+| 后端 filter/analyze 命令 | P0     | Tauri `re_execute_with_filter` / `execute_duckdb_analysis` |

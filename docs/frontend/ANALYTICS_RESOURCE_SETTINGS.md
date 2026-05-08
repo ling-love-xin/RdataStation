@@ -1,7 +1,7 @@
 # 分析资源管理器 - 设置功能文档
 
-> 版本：v1.1
-> 最后更新：2026-05-07
+> 版本：v1.3
+> 最后更新：2026-05-08
 > 状态：✅ 设置联动生效 + 快捷键全部激活
 
 ---
@@ -22,41 +22,44 @@
 
 ### 1. 通用设置
 
-| 设置项 | 说明 | 默认值 | 联动位置 |
-|--------|------|--------|----------|
-| 默认作用域 | 新建资源时的默认作用域 | project | `CreateResourceModal` 初始化 |
-| 每页显示数量 | 资源列表每页显示的资源数量 | 20 | `loadResourcesPaginated` 的 pageSize |
-| 默认排序字段 | 资源列表默认排序字段 | created_at | 初始化 `sortBy` |
-| 默认排序方向 | 资源列表默认排序方向 | desc | 初始化 `sortOrder` |
+| 设置项       | 说明                       | 默认值     | 联动位置                             |
+| ------------ | -------------------------- | ---------- | ------------------------------------ |
+| 默认作用域   | 新建资源时的默认作用域     | project    | `CreateResourceModal` 初始化         |
+| 每页显示数量 | 资源列表每页显示的资源数量 | 20         | `loadResourcesPaginated` 的 pageSize |
+| 默认排序字段 | 资源列表默认排序字段       | created_at | 初始化 `sortBy`                      |
+| 默认排序方向 | 资源列表默认排序方向       | desc       | 初始化 `sortOrder`                   |
 
 **作用域说明：**
+
 - **🌍 全局**：资源在所有项目中可见
 - **📂 项目**：资源仅在当前项目中可见（推荐）
 - **📌 会话**：资源仅在当前会话期间存在
 
 ### 2. 显示设置
 
-| 设置项 | 说明 | 默认值 | 联动位置 |
-|--------|------|--------|----------|
-| 显示资源图标 | 在资源列表中显示资源类型图标 | ✅ 开启 | `ResourceList` 图标 `v-if` |
-| 显示作用域标签 | 在资源列表中显示作用域标签 | ✅ 开启 | `ResourceList` 标签 `v-if` |
+| 设置项         | 说明                           | 默认值  | 联动位置                     |
+| -------------- | ------------------------------ | ------- | ---------------------------- |
+| 显示资源图标   | 在资源列表中显示资源类型图标   | ✅ 开启 | `ResourceList` 图标 `v-if`   |
+| 显示作用域标签 | 在资源列表中显示作用域标签     | ✅ 开启 | `ResourceList` 标签 `v-if`   |
 | 显示资源元数据 | 显示行数、列数、文件大小等信息 | ✅ 开启 | `ResourceList` 元数据 `v-if` |
-| 启用虚拟滚动 | 大数据量时启用虚拟滚动优化性能 | ✅ 开启 | 控制虚拟滚动 / 普通列表切换 |
+| 启用虚拟滚动   | 大数据量时启用虚拟滚动优化性能 | ✅ 开启 | 控制虚拟滚动 / 普通列表切换  |
 
 **开关说明**：
+
 - 关闭图标后，资源列表变得更紧凑
 - 关闭元数据后，仅显示资源名称
 - 关闭虚拟滚动后，使用普通 DOM 列表渲染
 
 ### 3. 缓存设置
 
-| 设置项 | 说明 | 默认值 | 联动位置 |
-|--------|------|--------|----------|
+| 设置项       | 说明                       | 默认值  | 联动位置                                         |
+| ------------ | -------------------------- | ------- | ------------------------------------------------ |
 | 启用查询缓存 | 缓存查询结果以提升响应速度 | ✅ 开启 | `resourceCache.enabled` 和 `folderCache.enabled` |
-| 缓存过期时间 | 缓存自动过期时间（秒） | 30 | `resourceCache.ttl` 和 `folderCache.ttl` |
-| 最大缓存数量 | 缓存的最大条目数 | 50 | `resourceCache.maxSize` 和 `folderCache.maxSize` |
+| 缓存过期时间 | 缓存自动过期时间（秒）     | 30      | `resourceCache.ttl` 和 `folderCache.ttl`         |
+| 最大缓存数量 | 缓存的最大条目数           | 50      | `resourceCache.maxSize` 和 `folderCache.maxSize` |
 
 **缓存机制说明：**
+
 - 缓存采用 LRU（最近最少使用）策略
 - 当资源发生变更（创建/更新/删除）时，缓存自动失效
 - 禁用缓存后，每次查询都会直接访问后端
@@ -64,18 +67,20 @@
 
 ### 4. 快捷键（全部已实现）
 
-| 快捷键 | 功能 | 状态 |
-|--------|------|------|
-| `Ctrl+N` | 新建资源 | ✅ 已实现 |
-| `Ctrl+E` | 编辑选中的资源 | ✅ 已实现 |
-| `Ctrl+D` | 删除选中的资源 | ✅ 已实现 |
-| `Ctrl+Shift+C` | 克隆选中的资源 | ✅ 已实现 |
-| `Ctrl+F` | 聚焦搜索框 | ✅ 已实现 |
-| `Ctrl+A` | 全选资源 | ✅ 已实现 |
-| `Delete` | 删除选中的资源 | ✅ 已实现 |
+| 快捷键         | 功能           | 状态         |
+| -------------- | -------------- | ------------ |
+| `Ctrl+N`       | 新建资源       | ✅ 已实现    |
+| `Ctrl+E`       | 编辑选中的资源 | ✅ 已实现    |
+| `Ctrl+D`       | 删除选中的资源 | ✅ 已实现    |
+| `Ctrl+Shift+C` | 克隆选中的资源 | ✅ 已实现    |
+| `Ctrl+Shift+V` | 查看版本历史   | ✅ 已实现 🆕 |
+| `Ctrl+F`       | 聚焦搜索框     | ✅ 已实现    |
+| `Ctrl+A`       | 全选资源       | ✅ 已实现    |
+| `Delete`       | 删除选中的资源 | ✅ 已实现    |
 
 **使用方式**：
-- `Ctrl+E` 和 `Ctrl+Shift+C` 需要先选中一个资源
+
+- `Ctrl+E`、`Ctrl+Shift+C` 和 `Ctrl+Shift+V` 需要先选中一个资源
 - `Ctrl+D` 和 `Delete` 需要至少选中一个资源
 - `Ctrl+N` 和 `Ctrl+F` 无需选中资源
 
@@ -128,22 +133,22 @@
 ```typescript
 interface AnalyticsResourceSettings {
   general: {
-    defaultScope: 'global' | 'project' | 'session';
-    defaultPageSize: number;           // 10 | 20 | 50 | 100
-    defaultSortField: 'name' | 'created_at' | 'updated_at' | 'row_count' | 'file_size';
-    defaultSortOrder: 'asc' | 'desc';
-  };
+    defaultScope: 'global' | 'project' | 'session'
+    defaultPageSize: number // 10 | 20 | 50 | 100
+    defaultSortField: 'name' | 'created_at' | 'updated_at' | 'row_count' | 'file_size'
+    defaultSortOrder: 'asc' | 'desc'
+  }
   display: {
-    showIcons: boolean;
-    showScopeTags: boolean;
-    showMetadata: boolean;
-    enableVirtualScroll: boolean;
-  };
+    showIcons: boolean
+    showScopeTags: boolean
+    showMetadata: boolean
+    enableVirtualScroll: boolean
+  }
   cache: {
-    enabled: boolean;
-    ttlSeconds: number;                // 10 - 3600
-    maxSize: number;                   // 5 - 200
-  };
+    enabled: boolean
+    ttlSeconds: number // 10 - 3600
+    maxSize: number // 5 - 200
+  }
 }
 
 const DEFAULT_SETTINGS: AnalyticsResourceSettings = {
@@ -164,17 +169,17 @@ const DEFAULT_SETTINGS: AnalyticsResourceSettings = {
     ttlSeconds: 30,
     maxSize: 50,
   },
-};
+}
 ```
 
 ### Store 方法
 
-| 方法 | 说明 | 参数 |
-|------|------|------|
-| `loadSettings()` | 从 localStorage 加载设置到内存 | 无 |
-| `saveSettings(settings)` | 保存并立即应用设置 | `settings: AnalyticsResourceSettings` |
-| `resetSettings()` | 重置为默认值并立即应用 | 无 |
-| `applySettingsToState()` | 将设置应用到运行时状态 | 无（内部方法） |
+| 方法                     | 说明                           | 参数                                  |
+| ------------------------ | ------------------------------ | ------------------------------------- |
+| `loadSettings()`         | 从 localStorage 加载设置到内存 | 无                                    |
+| `saveSettings(settings)` | 保存并立即应用设置             | `settings: AnalyticsResourceSettings` |
+| `resetSettings()`        | 重置为默认值并立即应用         | 无                                    |
+| `applySettingsToState()` | 将设置应用到运行时状态         | 无（内部方法）                        |
 
 ### 缓存 API
 
@@ -205,7 +210,7 @@ interface CacheConfig {
 
 ```typescript
 interface ResourceListProps {
-  displaySettings?: AnalyticsResourceDisplaySettings;
+  displaySettings?: AnalyticsResourceDisplaySettings
   // ... 其他 props
 }
 ```
@@ -237,13 +242,15 @@ src/extensions/builtin/analytics-resource/
 ## 最新变更记录（v1.1）
 
 ### 新增功能
+
 - ✅ 设置保存后立即生效，无需刷新
 - ✅ 通用设置联动：pageSize、sortBy、sortOrder 动态更新
 - ✅ 显示设置联动：图标、标签、元数据、虚拟滚动动态切换
 - ✅ 缓存设置联动：缓存开关、TTL、容量动态调整
-- ✅ 全部快捷键已实现：Ctrl+N/E/D/Shift+C/F/A
+- ✅ 全部快捷键已实现：Ctrl+N/E/D/Shift+C/Shift+V/F/A
 
 ### 技术变更
+
 - 新增 `applySettingsToState()` 方法
 - 新增 `useCache.updateConfig()` 动态配置方法
 - `ResourceList` 新增 `displaySettings` prop

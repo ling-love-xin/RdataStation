@@ -10,7 +10,7 @@
         <input v-model.number="config.port" type="number" class="form-input" placeholder="22" />
       </div>
     </div>
-    
+
     <div class="form-row">
       <div class="form-section flex-1">
         <label class="form-label">用户名 <span class="required">*</span></label>
@@ -33,7 +33,13 @@
     <div v-else class="form-section">
       <label class="form-label">私钥文件 <span class="required">*</span></label>
       <div class="file-input-wrapper">
-        <input v-model="config.privateKey" type="text" class="form-input" placeholder="选择私钥文件" readonly />
+        <input
+          v-model="config.privateKey"
+          type="text"
+          class="form-input"
+          placeholder="选择私钥文件"
+          readonly
+        />
         <button type="button" class="btn-browse" @click="selectKeyFile">浏览</button>
       </div>
     </div>
@@ -59,16 +65,16 @@ const config = reactive({
   username: '',
   authType: 'password',
   password: '',
-  privateKey: ''
+  privateKey: '',
 })
 
-watch(config, (val) => emit('update:modelValue', { ...val }), { deep: true })
+watch(config, val => emit('update:modelValue', { ...val }), { deep: true })
 
 async function selectKeyFile() {
   // 浏览器环境：使用原生文件选择
   const input = document.createElement('input')
   input.type = 'file'
-  input.onchange = (e) => {
+  input.onchange = e => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (file) {
       config.privateKey = file.name

@@ -4,8 +4,14 @@
   "version": "1.0.0",
   "displayName": "MySQL Driver",
   "description": "MySQL database driver for RdataStation",
-  "categories": ["Database Drivers"],
-  "keywords": ["mysql", "database", "driver"],
+  "categories": [
+    "Database Drivers"
+  ],
+  "keywords": [
+    "mysql",
+    "database",
+    "driver"
+  ],
   "engines": {
     "rdatastation": "^0.1.0"
   },
@@ -85,17 +91,58 @@
       {
         "id": "mysql",
         "name": "MySQL",
-        "fileExtensions": [".sql", ".mysql"],
+        "fileExtensions": [
+          ".sql",
+          ".mysql"
+        ],
         "keywords": [
-          "SELECT", "INSERT", "UPDATE", "DELETE", "FROM", "WHERE", "JOIN",
-          "LEFT", "RIGHT", "INNER", "OUTER", "ON", "GROUP", "BY", "ORDER",
-          "LIMIT", "OFFSET", "HAVING", "UNION", "ALL", "DISTINCT"
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE",
+          "FROM",
+          "WHERE",
+          "JOIN",
+          "LEFT",
+          "RIGHT",
+          "INNER",
+          "OUTER",
+          "ON",
+          "GROUP",
+          "BY",
+          "ORDER",
+          "LIMIT",
+          "OFFSET",
+          "HAVING",
+          "UNION",
+          "ALL",
+          "DISTINCT"
         ],
         "functions": [
-          "COUNT", "SUM", "AVG", "MAX", "MIN", "CONCAT", "SUBSTRING",
-          "DATE_FORMAT", "NOW", "CURDATE", "CURTIME"
+          "COUNT",
+          "SUM",
+          "AVG",
+          "MAX",
+          "MIN",
+          "CONCAT",
+          "SUBSTRING",
+          "DATE_FORMAT",
+          "NOW",
+          "CURDATE",
+          "CURTIME"
         ],
-        "operators": ["=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "IN", "BETWEEN"],
+        "operators": [
+          "=",
+          "!=",
+          "<>",
+          "<",
+          ">",
+          "<=",
+          ">=",
+          "LIKE",
+          "IN",
+          "BETWEEN"
+        ],
         "formatter": {
           "indentSize": 2,
           "keywordCase": "upper",

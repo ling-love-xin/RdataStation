@@ -1,10 +1,10 @@
 :root {
-  --brand-accent: #E17055;
-  --brand-accent-hover: #D35400;
+  --brand-accent: #e17055;
+  --brand-accent-hover: #d35400;
   --brand-accent-soft: rgba(225, 112, 85, 0.15);
-  --brand-success: #00B894;
-  --brand-danger: #D63031;
-  --brand-warning: #FDCB6E;
+  --brand-success: #00b894;
+  --brand-danger: #d63031;
+  --brand-warning: #fdcb6e;
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;

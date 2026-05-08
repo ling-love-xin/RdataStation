@@ -1,8 +1,8 @@
 /**
  * 虚拟滚动核心逻辑
- * 
+ *
  * 计算可见区域，只渲染可见范围内的节点
- * 
+ *
  * 性能优化：
  * - 使用整数计算避免浮点运算
  * - 缓存计算结果避免重复计算
@@ -61,6 +61,6 @@ export function useVirtualScroll(options: UseVirtualScrollOptions) {
     visibleStart,
     visibleEnd,
     visibleCount,
-    offsetY
+    offsetY,
   }
 }

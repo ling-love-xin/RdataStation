@@ -12,26 +12,30 @@ import {
   removeExternalReference,
   openInExplorer,
   checkFileSize,
+  updateFileMeta,
+  searchFileContent,
+  listTrash,
+  restoreFromTrash,
+  emptyTrash,
+  getAnalyzableFiles,
 } from '../../infrastructure/api/scratchpad-api'
 
-import type {
-  ScratchpadEntry,
-  ExternalReference,
-  ScratchpadResponse,
-} from '../../types'
+import type { ExternalReference, ScratchpadEntry, ScratchpadResponse, AnalyzableFile } from '../../types'
 
 export function useScratchpad() {
   const response = ref<ScratchpadResponse | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   const searchQuery = ref('')
+  const trashEntries = ref<ScratchpadEntry[]>([])
+  const analyzableFiles = ref<AnalyzableFile[]>([])
 
   const localEntries = computed(() => {
     if (!response.value) return []
     const entries = response.value.local_entries
     if (!searchQuery.value) return entries
     const q = searchQuery.value.toLowerCase()
-    return entries.filter((e) => e.name.toLowerCase().includes(q))
+    return entries.filter(e => e.name.toLowerCase().includes(q))
   })
 
   const externalReferences = computed(() => {
@@ -39,27 +43,25 @@ export function useScratchpad() {
     const refs = response.value.external_references
     if (!searchQuery.value) return refs
     const q = searchQuery.value.toLowerCase()
-    return refs.filter(
-      (r) => r.alias.toLowerCase().includes(q) || r.path.toLowerCase().includes(q),
-    )
+    return refs.filter(r => r.alias.toLowerCase().includes(q) || r.path.toLowerCase().includes(q))
   })
 
   const scratchpadPath = computed(() => response.value?.scratchpad_path ?? '')
 
   const invalidReferences = computed(() =>
-    externalReferences.value.filter((ref) => {
+    externalReferences.value.filter(ref => {
       if (!ref.path) return true
       const pathPattern = /^([A-Za-z]:[\\/]|[/\\])/
       return !pathPattern.test(ref.path) || ref.path.includes('..')
-    }),
+    })
   )
 
   const validReferences = computed(() =>
-    externalReferences.value.filter((ref) => {
+    externalReferences.value.filter(ref => {
       if (!ref.path) return false
       const pathPattern = /^([A-Za-z]:[\\/]|[/\\])/
       return pathPattern.test(ref.path) && !ref.path.includes('..')
-    }),
+    })
   )
 
   async function loadFiles(): Promise<void> {
@@ -75,10 +77,7 @@ export function useScratchpad() {
     }
   }
 
-  async function createEntry(
-    name: string,
-    isFolder: boolean,
-  ): Promise<ScratchpadEntry | null> {
+  async function createEntry(name: string, isFolder: boolean): Promise<ScratchpadEntry | null> {
     try {
       const entry = await createScratchpadEntry(name, isFolder)
       await loadFiles()
@@ -102,7 +101,7 @@ export function useScratchpad() {
 
   async function renameEntry(
     relativePath: string,
-    newName: string,
+    newName: string
   ): Promise<ScratchpadEntry | null> {
     try {
       const entry = await renameScratchpadEntry(relativePath, newName)
@@ -114,9 +113,7 @@ export function useScratchpad() {
     }
   }
 
-  async function loadFileContent(
-    relativePath: string,
-  ): Promise<string | null> {
+  async function loadFileContent(relativePath: string): Promise<string | null> {
     try {
       return await readScratchpadFile(relativePath)
     } catch (e) {
@@ -125,10 +122,7 @@ export function useScratchpad() {
     }
   }
 
-  async function saveFile(
-    relativePath: string,
-    content: string,
-  ): Promise<boolean> {
+  async function saveFile(relativePath: string, content: string): Promise<boolean> {
     try {
       await saveScratchpadFile(relativePath, content)
       return true
@@ -138,9 +132,7 @@ export function useScratchpad() {
     }
   }
 
-  async function importFile(
-    sourcePath: string,
-  ): Promise<ScratchpadEntry | null> {
+  async function importFile(sourcePath: string): Promise<ScratchpadEntry | null> {
     try {
       const entry = await importExternalFile(sourcePath)
       await loadFiles()
@@ -151,10 +143,7 @@ export function useScratchpad() {
     }
   }
 
-  async function addReference(
-    alias: string,
-    path: string,
-  ): Promise<ExternalReference | null> {
+  async function addReference(alias: string, path: string): Promise<ExternalReference | null> {
     try {
       const ref = await addExternalReference(alias, path)
       await loadFiles()
@@ -183,7 +172,7 @@ export function useScratchpad() {
   }
 
   function findEntry(entryPath: string): ScratchpadEntry | undefined {
-    return localEntries.value.find((e) => e.path === entryPath)
+    return localEntries.value.find(e => e.path === entryPath)
   }
 
   async function openInExplorerAction(path: string): Promise<boolean> {
@@ -213,6 +202,67 @@ export function useScratchpad() {
     error.value = null
   }
 
+  async function loadTrashEntries(): Promise<void> {
+    try {
+      trashEntries.value = await listTrash()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  async function restoreTrashEntry(trashName: string): Promise<boolean> {
+    try {
+      await restoreFromTrash(trashName)
+      await loadTrashEntries()
+      await loadFiles()
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
+    }
+  }
+
+  async function emptyTrashBin(): Promise<boolean> {
+    try {
+      await emptyTrash()
+      trashEntries.value = []
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
+    }
+  }
+
+  async function loadAnalyzableFiles(): Promise<void> {
+    try {
+      analyzableFiles.value = await getAnalyzableFiles()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  async function saveFileMeta(
+    relativePath: string,
+    connectionId?: string
+  ): Promise<boolean> {
+    try {
+      await updateFileMeta(relativePath, connectionId)
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return false
+    }
+  }
+
+  async function searchContent(query: string): Promise<string[]> {
+    try {
+      return await searchFileContent(query)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return []
+    }
+  }
+
   return {
     response,
     isLoading,
@@ -238,5 +288,13 @@ export function useScratchpad() {
     openInExplorerAction,
     getFileSize,
     clearError,
+    saveFileMeta,
+    searchContent,
+    trashEntries,
+    loadTrashEntries,
+    restoreTrashEntry,
+    emptyTrashBin,
+    analyzableFiles,
+    loadAnalyzableFiles,
   }
 }

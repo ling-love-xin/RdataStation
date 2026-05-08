@@ -29,7 +29,11 @@
 import { PanelLeft, PanelLeftClose } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { useLayoutStore, type LeftActivityItem, type RightActivityItem } from '../stores/layout-store'
+import {
+  useLayoutStore,
+  type LeftActivityItem,
+  type RightActivityItem,
+} from '../stores/layout-store'
 
 const { t } = useI18n()
 
@@ -44,7 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
   items: () => [],
   position: 'left',
   showToggle: true,
-  isHidden: false
+  isHidden: false,
 })
 
 const layoutStore = useLayoutStore()
@@ -118,7 +122,7 @@ function handleToggle() {
 }
 
 .activity-item.active {
-  background-color: var(--primary-color, #165DFF);
+  background-color: var(--primary-color, #165dff);
   color: #ffffff;
 }
 

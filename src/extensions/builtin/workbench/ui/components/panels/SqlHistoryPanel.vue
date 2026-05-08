@@ -14,7 +14,12 @@
             <RefreshCw :size="14" />
           </template>
         </NButton>
-        <NButton size="small" quaternary :title="t('sqlEditor.clearHistory')" @click="clearAllHistory">
+        <NButton
+          size="small"
+          quaternary
+          :title="t('sqlHistory.clearHistory')"
+          @click="clearAllHistory"
+        >
           <template #icon>
             <Trash2 :size="14" />
           </template>
@@ -27,7 +32,7 @@
       <NInput
         v-model:value="searchText"
         size="small"
-        :placeholder="t('sqlEditor.searchHistory')"
+        :placeholder="t('sqlHistory.searchHistory')"
         clearable
       >
         <template #prefix>
@@ -42,7 +47,7 @@
         v-model:value="filterConnection"
         size="small"
         :options="connectionOptions"
-        :placeholder="t('sqlEditor.allConnections')"
+        :placeholder="t('sqlHistory.allConnections')"
         clearable
         style="width: 100%; margin-bottom: 8px"
       />
@@ -50,7 +55,7 @@
         v-model:value="filterType"
         size="small"
         :options="typeOptions"
-        :placeholder="t('sqlEditor.allTypes')"
+        :placeholder="t('sqlHistory.allTypes')"
         clearable
         style="width: 100%; margin-bottom: 8px"
       />
@@ -58,7 +63,7 @@
         v-model:value="filterStatus"
         size="small"
         :options="statusOptions"
-        :placeholder="t('sqlEditor.allStatuses')"
+        :placeholder="t('sqlHistory.allStatuses')"
         clearable
         style="width: 100%"
       />
@@ -68,17 +73,17 @@
     <div class="tab-section">
       <NTabs v-model:value="activeTab" type="line" size="small">
         <NTab name="all" :tab="t('navigator.all')" />
-        <NTab name="favorites" :tab="t('sqlEditor.favorites')" />
-        <NTab name="recent" :tab="t('sqlEditor.recent')" />
+        <NTab name="favorites" :tab="t('sqlHistory.favorites')" />
+        <NTab name="recent" :tab="t('sqlHistory.recent')" />
       </NTabs>
     </div>
 
     <!-- 历史列表 -->
     <div class="history-list">
       <div v-if="filteredHistory.length === 0" class="empty-state">
-        <NEmpty :description="t('sqlEditor.noHistory')" />
+        <NEmpty :description="t('sqlHistory.noHistory')" />
       </div>
-      
+
       <div
         v-for="item in filteredHistory"
         :key="item.id"
@@ -92,44 +97,36 @@
             <span class="item-type">{{ item.databaseType }}</span>
           </div>
           <div class="item-actions">
-            <NButton
-              size="small"
-              quaternary
-              circle
-              @click.stop="toggleFavorite(item.id)"
-            >
+            <NButton size="small" quaternary circle @click.stop="toggleFavorite(item.id)">
               <template #icon>
-                <Star :size="14" :fill="item.isFavorite ? 'var(--favorite-color)' : 'none'" :color="item.isFavorite ? 'var(--favorite-color)' : 'currentColor'" />
+                <Star
+                  :size="14"
+                  :fill="item.isFavorite ? 'var(--favorite-color)' : 'none'"
+                  :color="item.isFavorite ? 'var(--favorite-color)' : 'currentColor'"
+                />
               </template>
             </NButton>
-            <NButton
-              size="small"
-              quaternary
-              circle
-              @click.stop="deleteHistoryItem(item.id)"
-            >
+            <NButton size="small" quaternary circle @click.stop="deleteHistoryItem(item.id)">
               <template #icon>
                 <X :size="14" />
               </template>
             </NButton>
           </div>
         </div>
-        
+
         <div class="item-sql">
           <pre>{{ truncateSql(item.sql, 100) }}</pre>
         </div>
-        
+
         <div class="item-footer">
           <span class="item-time">{{ formatTime(item.executedAt) }}</span>
           <span class="item-status" :class="item.success ? 'success' : 'error'">
             {{ item.success ? '✓' : '✗' }}
           </span>
           <span v-if="item.rowCount > 0" class="item-rows">
-            {{ item.rowCount }} 行
+            {{ item.rowCount }} {{ t('sqlHistory.rows') }}
           </span>
-          <span class="item-duration">
-            {{ item.executionTime }}ms
-          </span>
+          <span class="item-duration"> {{ item.executionTime }}ms </span>
         </div>
       </div>
     </div>
@@ -137,10 +134,10 @@
     <!-- 底部统计 -->
     <div class="history-footer">
       <span class="stat-item">
-        {{ t('sqlEditor.totalCount', { count: filteredHistory.length }) }}
+        {{ t('sqlHistory.totalCount', { count: filteredHistory.length }) }}
       </span>
       <span v-if="favoriteCount > 0" class="stat-item">
-        {{ t('sqlEditor.favoriteCount', { count: favoriteCount }) }}
+        {{ t('sqlHistory.favoriteCount', { count: favoriteCount }) }}
       </span>
     </div>
   </div>
@@ -153,7 +150,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
-import { getHistory, deleteHistory, clearHistory, toggleFavorite, type SqlHistoryItem } from '@/extensions/builtin/workbench/services/sql-history-service'
+import {
+  getHistory,
+  deleteHistory,
+  clearHistory,
+  toggleFavorite,
+  type SqlHistoryItem,
+} from '@/extensions/builtin/workbench/services/sql-history-service'
 
 const { t } = useI18n()
 const { message } = createDiscreteApi(['message'])
@@ -172,7 +175,7 @@ const historyList = ref<SqlHistoryItem[]>([])
 const connectionOptions = computed(() => {
   return connectionStore.connections.map(conn => ({
     label: conn.name || conn.connId,
-    value: conn.connId
+    value: conn.connId,
   }))
 })
 
@@ -180,13 +183,13 @@ const typeOptions = computed(() => {
   const types = [...new Set(historyList.value.map(item => item.databaseType))]
   return types.map(type => ({
     label: type,
-    value: type
+    value: type,
   }))
 })
 
 const statusOptions = [
-  { label: t('sqlEditor.success'), value: 'success' },
-  { label: t('sqlEditor.failed'), value: 'error' },
+  { label: t('sqlHistory.success'), value: 'success' },
+  { label: t('sqlHistory.failed'), value: 'error' },
 ]
 
 // 计算属性
@@ -205,9 +208,10 @@ const filteredHistory = computed(() => {
   // 按搜索文本过滤
   if (searchText.value) {
     const search = searchText.value.toLowerCase()
-    result = result.filter(item => 
-      item.sql.toLowerCase().includes(search) ||
-      item.connectionName.toLowerCase().includes(search)
+    result = result.filter(
+      item =>
+        item.sql.toLowerCase().includes(search) ||
+        item.connectionName.toLowerCase().includes(search)
     )
   }
 
@@ -236,24 +240,26 @@ const toggleFilter = () => {
 
 const refreshHistory = () => {
   historyList.value = getHistory(200)
-  message.success(t('workbench.refreshHistory'))
+  message.success(t('sqlHistory.refreshHistory'))
 }
 
 const clearAllHistory = () => {
   clearHistory()
   historyList.value = []
-  message.success(t('workbench.clearHistorySuccess'))
+  message.success(t('sqlHistory.clearHistorySuccess'))
 }
 
 const selectHistory = (item: SqlHistoryItem) => {
   // 发送事件到 SQL 编辑器
-  window.dispatchEvent(new CustomEvent('sql-history-select', {
-    detail: {
-      sql: item.sql,
-      connectionId: item.connectionId,
-      historyItem: item
-    }
-  }))
+  window.dispatchEvent(
+    new CustomEvent('sql-history-select', {
+      detail: {
+        sql: item.sql,
+        connectionId: item.connectionId,
+        historyItem: item,
+      },
+    })
+  )
 }
 
 const _toggleFavoriteItem = (id: string) => {
@@ -264,7 +270,7 @@ const _toggleFavoriteItem = (id: string) => {
 const deleteHistoryItem = (id: string) => {
   deleteHistory(id)
   historyList.value = getHistory(200)
-  message.success(t('workbench.deleteHistorySuccess'))
+  message.success(t('sqlHistory.deleteHistorySuccess'))
 }
 
 const truncateSql = (sql: string, maxLength: number): string => {
@@ -277,9 +283,9 @@ const formatTime = (timestamp: number): string => {
   const now = Date.now()
   const diff = now - timestamp
 
-  if (diff < 60000) return t('workbench.justNow')
-  if (diff < 3600000) return t('workbench.minutesAgo', { count: Math.floor(diff / 60000) })
-  if (diff < 86400000) return t('workbench.hoursAgo', { count: Math.floor(diff / 3600000) })
+  if (diff < 60000) return t('sqlHistory.justNow')
+  if (diff < 3600000) return t('sqlHistory.minutesAgo', { count: Math.floor(diff / 60000) })
+  if (diff < 86400000) return t('sqlHistory.hoursAgo', { count: Math.floor(diff / 3600000) })
 
   const date = new Date(timestamp)
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`
