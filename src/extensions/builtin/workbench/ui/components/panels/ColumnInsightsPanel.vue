@@ -79,6 +79,15 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * ColumnInsightsPanel — 轻量级快速统计视图
+ *
+ * 与 ColumnInsightPanel 的区别：
+ * - ColumnInsightsPanel: 快速一览（count/null/type/unique），140行，用于快速扫视
+ * - ColumnInsightPanel:   完整洞察面板（统计/分布/质量/采样/多列/历史），~280行，用于深度分析
+ *
+ * 两个面板互补而非冗余：轻量版适合数据库树右键"查看统计"，完整版适合结果表右键"洞察"。
+ */
 import { BarChart3 } from 'lucide-vue-next'
 import { NSpin } from 'naive-ui'
 import { ref, computed, watch } from 'vue'
@@ -132,6 +141,7 @@ watch(
 )
 
 function formatNum(n: number): string {
+  if (n == null || Number.isNaN(n)) return '\u2014'
   if (Number.isInteger(n)) return n.toLocaleString()
   return n.toLocaleString(undefined, { maximumFractionDigits: 4 })
 }
@@ -201,7 +211,7 @@ function formatNum(n: number): string {
   color: var(--text-secondary, #888);
 }
 .value {
-  font-family: monospace;
+  font-family: var(--font-mono);
   color: var(--text-primary);
 }
 .freq-row {
@@ -217,7 +227,7 @@ function formatNum(n: number): string {
   flex: 1;
 }
 .freq-count {
-  font-family: monospace;
+  font-family: var(--font-mono);
   color: var(--primary-color, #0078d4);
   margin-left: 8px;
 }

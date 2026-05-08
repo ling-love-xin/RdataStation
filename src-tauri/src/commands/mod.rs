@@ -17,6 +17,7 @@ pub mod sql_commands;
 pub mod sql_parser_commands;
 pub mod sql_template_commands;
 pub mod analytics_resource_commands;
+pub mod mock_commands;
 
 pub mod scratchpad_commands;
 
@@ -37,3 +38,4 @@ pub use sql_template_commands::*;
 pub use sql_parser_commands::*;
 pub use analytics_resource_commands::*;
 pub use scratchpad_commands::*;
+pub use mock_commands::*;

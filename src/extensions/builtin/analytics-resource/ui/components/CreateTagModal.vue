@@ -68,14 +68,8 @@ const tagColor = ref('#165DFF')
 const tagScope = ref('project')
 
 const presetColors = [
-  '#165DFF',
-  '#00B42A',
-  '#FF7D00',
-  '#F53F3F',
-  '#722ED1',
-  '#14C9C9',
-  '#F77234',
-  '#3491FA',
+  '#165DFF', '#00B42A', '#FF7D00', '#F53F3F',
+  '#722ED1', '#14C9C9', '#F77234', '#3491FA',
 ]
 
 function handleCreate() {
@@ -201,9 +195,7 @@ function handleCreate() {
 
 .color-swatch.active {
   border-color: var(--text-primary);
-  box-shadow:
-    0 0 0 2px var(--bg-primary),
-    0 0 0 4px currentColor;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px currentColor;
 }
 
 .modal-footer {

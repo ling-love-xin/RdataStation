@@ -1,8 +1,8 @@
 # 草稿箱模块 — 全栈数据模型与接口文档
 
-> 版本：v1.8
-> 最后更新：2026-05-08
-> 状态：✅ v1.8 全栈打通 — 17 API / 29 composable / 20 commands
+> 版本：v2.2
+> 最后更新：2026-05-09
+> 状态：✅ v2.2 — 排序/搜索行上下文/SearchMatch 结构体
 
 ---
 
@@ -37,10 +37,10 @@ src-tauri/src/
 ├── core/scratchpad/
 │   ├── mod.rs          # re-export（~10 行）
 │   ├── models.rs       # DTO：Entry / AnalyzableFile / Reference / Response（~49 行）
-│   ├── state.rs        # Arc<Mutex<Option<Store>>> 全局缓存（~33 行）
+│   ├── state.rs        # Arc<Mutex<Option<Store>>> 全局缓存 + AtomicBool watcher（~48 行）
 │   └── store.rs        # 文件系统操作（~749 行）
 ├── commands/
-│   └── scratchpad_commands.rs  # 18 个 Tauri Command（~166 行）
+│   └── scratchpad_commands.rs  # 23 个 Tauri Command（~370 行）
 └── lib.rs              # 状态注册 + generate_handler! 注册
 ```
 
@@ -54,13 +54,13 @@ src/extensions/builtin/scratchpad/
 │   └── index.ts                        # TypeScript 类型定义
 ├── infrastructure/
 │   └── api/
-│       └── scratchpad-api.ts           # 11 个 Tauri invoke 封装函数
+│       └── scratchpad-api.ts           # 20 个 Tauri invoke 封装函数
 └── ui/
     ├── composables/
-    │   └── use-scratchpad.ts           # 业务逻辑 hook（21 个导出项）
+    │   └── use-scratchpad.ts           # 业务逻辑 hook（33 个导出项）
     └── components/
-        ├── ScratchpadPanel.vue         # 主面板（工具栏 + 分组 + 搜索 + 新建/导入/引用模态框 + 右键菜单）
-        └── ScratchpadTreeNode.vue      # 递归树节点（图标映射 + 内联重命名）
+        ├── ScratchpadPanel.vue         # 主面板（工具栏/搜索/回收站/右键菜单/提升确认/拖放导入/事件监听）
+        └── ScratchpadTreeNode.vue      # 递归树节点（图标映射 + 内联重命名 + 主题变量对齐）
 ```
 
 ---
@@ -77,9 +77,17 @@ pub struct ScratchpadEntry {
     pub path: PathBuf,             // 绝对路径
     pub kind: ScratchpadEntryKind, // File | Folder
     pub size: u64,                 // 文件大小（字节）
-    pub modified_at: DateTime<Utc>,// 最后修改时间
-    pub extension: String,         // 扩展名（含点，如 ".sql"）
-    pub is_external_ref: bool,     // 是否为外部引用
+    pub modified_at: Option<String>, // 最后修改时间（ISO 8601），None 表示读取失败
+}
+```
+
+#### SearchMatch (v2.2 新增)
+
+```rust
+pub struct SearchMatch {
+    pub file: String,              // 相对路径文件名
+    pub line_number: usize,        // 匹配行号
+    pub line_content: String,      // 匹配行内容
 }
 ```
 
@@ -135,10 +143,15 @@ export interface ScratchpadEntry {
   name: string
   path: string
   kind: ScratchpadEntryKind
+  children: ScratchpadEntry[] | null
   size: number
-  modified_at: string
-  extension: string
-  is_external_ref: boolean
+  modified_at: string | null
+}
+
+export interface SearchMatch {
+  file: string
+  line_number: number
+  line_content: string
 }
 
 export interface ExternalReference {
@@ -157,6 +170,16 @@ export interface ScratchpadResponse {
 export interface FileMeta {
   last_connection_id?: string
   last_executed_at?: string
+}
+
+export interface PromoteResult {
+  resource: {
+    id: string
+    resource_type: string
+    name: string
+    scope: string
+  }
+  removed: boolean
 }
 ```
 
@@ -184,12 +207,15 @@ export interface FileMeta {
 | 12  | `check_scratchpad_file_size`    | `checkFileSize(relativePath)`                  | 工具     |  ✅  |
 | 13  | `get_analyzable_files`          | `getAnalyzableFiles()`                           | 分析     |  ✅  |
 | 14  | `update_scratchpad_file_meta`   | `updateFileMeta(relativePath, connectionId?)`   | 元数据   |  ✅  |
-| 15  | `search_scratchpad_content`     | `searchFileContent(query)`                      | 搜索     |  ✅  |
+| 15 | `search_scratchpad_content` | `searchFileContent(query)` | 搜索 | ✅ (→ `SearchMatch[]`) |
 | 16  | `list_scratchpad_trash`         | `listTrash()`                                    | 回收站   |  ✅  |
 | 17  | `restore_scratchpad_from_trash` | `restoreFromTrash(trashName)`                   | 回收站   |  ✅  |
 | 18  | `empty_scratchpad_trash`        | `emptyTrash()`                                  | 回收站   |  ✅  |
+| 19  | `watch_scratchpad`              | `watchScratchpad()`                               | 监控     |  ✅  |
+| 20  | `unwatch_scratchpad`            | `unwatchScratchpad()`                             | 监控     |  ✅  |
+| 21  | `promote_scratchpad_to_resource` | `promoteScratchpadToResource(relativePath, removeAfter)` | 提升（完成后 emit `analytics-resource-changed`） | ✅ |
 
-> **状态说明**：18/18 main 命令全部封装（不含 1 个 size_check + 1 个 analysis）。回收站、元数据、内容搜索全栈打通。
+> **状态说明**：21/21 main 命令全部封装。回收站、元数据、内容搜索、文件监控、"提升"机制全栈打通。
 
 ### 4.2 前端 Composable（useScratchpad）完整导出
 
@@ -228,13 +254,20 @@ export function useScratchpad() {
     getFileSize, // (relativePath) => Promise<number | null>
     clearError, // () => void
     saveFileMeta, // (relativePath, connectionId?) => Promise<boolean>
-    searchContent, // (query) => Promise<string[]>
+    searchContent, // (query: string) => Promise<SearchMatch[]>
     trashEntries, // Ref<ScratchpadEntry[]>
     loadTrashEntries, // () => Promise<void>
     restoreTrashEntry, // (trashName) => Promise<boolean>
     emptyTrashBin, // () => Promise<boolean>
     analyzableFiles, // Ref<AnalyzableFile[]>
     loadAnalyzableFiles, // () => Promise<void>
+
+    // ── 文件监控 ──
+    startWatching, // () => Promise<void>
+    stopWatching, // () => Promise<void>
+
+    // ── 提升机制 ──
+    promoteToResource, // (relativePath: string, removeAfter: boolean) => Promise<PromoteResult | null>
   }
 }
 ```
@@ -254,7 +287,7 @@ export function useScratchpad() {
 │                            Tauri IPC Bridge                   │
 ├──────────────────────────────────────┼───────────────────────┤
 │                                      ▼                        │
-│  scratchpad_commands.rs (18 cmd) ─ ─ ▶ ScratchpadState        │
+│  scratchpad_commands.rs (21 cmd) ─ ─ ▶ ScratchpadState        │
 │                                      └─ ─ ▶ ScratchpadStore   │
 │                                           ├─ resolve_path()  │
 │                                           ├─ scan_dir()      │
@@ -281,12 +314,12 @@ export function useScratchpad() {
 
 | 后缀                     | 目标编辑器                                            |  状态   |
 | ------------------------ | ----------------------------------------------------- | :-----: |
-| `.sql`                   | **sql-editor**（核心场景——需打通连接管理 + 执行引擎） | ⏳ v2.1 |
-| `.py`                    | code-editor（Monaco 通用）                            |   ⏳    |
-| `.csv`                   | data-preview（DuckDB 导入场景）                       |   ⏳    |
-| `.json` / `.txt` / `.md` | code-editor                                           |   ⏳    |
+| `.sql`                   | **sql-editor**（核心场景——自动恢复连接 + 执行引擎）   |   ✅    |
+| `.py`                    | code-editor（Monaco Python 高亮 + Ctrl+S 保存）       |   ✅    |
+| `.csv`                   | data-preview / DuckDB 分析入口                        |   ✅    |
+| `.json` / `.txt` / `.md` | code-editor                                           |   ✅    |
 
-> **⚠️ 当前**：`openFileInEditor()` 骨架已就绪（含 50MB 大小预检），但实际编辑器面板创建逻辑尚未打通——这是 v2.1 阶段核心任务。
+> **✅ 全部打通**：`openFileInEditor()` 已完整实现，含 50MB 大小预检、file_meta 恢复连接、dockview 面板创建。
 
 ---
 
@@ -306,6 +339,16 @@ export function useScratchpad() {
 | ✅ 大文件检查           | Panel + Store               | 前端 50MB 前置校验 + 后端 `check_file_size`                                   |
 | ✅ 系统管理器打开       | `store.rs` + `opener` crate | 外部引用右键"打开位置"                                                        |
 | ✅ 右键菜单溢出检测     | `ScratchpadPanel.vue`       | `clampToViewport()` 防越界                                                    |
+| ✅ 文件监控             | `state.rs` + `commands`     | `notify` crate + `AtomicBool` watcher + `scratchpad-changed` event            |
+| ✅ 防重复 Tab           | `WorkbenchView.vue`         | `handleOpenSqlEditor` 检测同 `scratchpadRelativePath` 面板                      |
+| ✅ 拖放导入             | `ScratchpadPanel.vue`       | dragover/dragleave/drop 文件从资源管理器导入                                    |
+| ✅ 主题变量对齐         | `ScratchpadTreeNode.vue`    | CSS 变量迁移至 `--color-bg-*` / `--color-text-*` 全局主题                       |
+| ✅ 工具栏人性化优化     | `ScratchpadPanel.vue`       | 两行布局（操作行+搜索行）、`type="primary"` 主操作、硬编码文本 i18n 化          |
+| ✅ "提升"机制           | `commands.rs` + 全栈链路      | `promote_scratchpad_to_resource` → CreateResourceRequest → 分析资源管理器        |
+| ✅ 键盘导航             | `ScratchpadPanel.vue`        | ↑↓/Enter/F2/Delete/Ctrl+N 快捷键 + `scrollToSelected` 自动滚屏              |
+| ✅ 重命名 feedback      | `ScratchpadTreeNode.vue`     | `renamingSaving` loading spinner + input `:disabled`                        |
+| ✅ 提升事件联动         | `commands.rs`                | `app.emit("analytics-resource-changed")` 通知分析资源面板刷新                 |
+| ✅ Entry 精简 + SearchMatch (v2.2) | `models.rs`, `store.rs`, `types/index.ts`, `ScratchpadPanel.vue` | 移除 `extension`/`is_external_ref`，`modified_at` 改 ISO 8601；新增 `SearchMatch` 结构体（file+line_number+line_content）；搜索返回行级上下文 |
 
 </parameter>
 </｜DSML｜inv

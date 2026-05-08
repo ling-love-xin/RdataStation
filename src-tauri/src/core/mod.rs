@@ -47,6 +47,7 @@ pub mod migration;
 pub mod duckdb;
 pub mod insight;
 pub mod scratchpad;
+pub mod mock;
 
 // 错误处理宏模块
 #[macro_use]

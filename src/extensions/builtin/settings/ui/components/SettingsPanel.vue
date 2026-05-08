@@ -190,6 +190,7 @@
 </template>
 
 <script setup lang="ts">
+import { useMessage } from 'naive-ui'
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -200,6 +201,7 @@ import { useAppStore } from '@/stores/useAppStore'
 
 const appStore = useAppStore()
 const { t } = useI18n()
+const message = useMessage()
 
 const themeOptions = [
   { value: 'dark' as Theme, label: t('settings.dark'), icon: 'Moon' as const },
@@ -270,6 +272,9 @@ async function applyAllSettings() {
   const failures = results.filter(r => !r.success)
   if (failures.length > 0) {
     console.error('[SettingsPanel] Failed to apply settings:', failures)
+    message.error(t('settings.saveFailed'))
+  } else {
+    message.success(t('settings.saveSuccess'))
   }
 
   appStore.applyTheme()
@@ -411,7 +416,7 @@ onMounted(() => {
 .theme-btn.active {
   background: var(--brand-accent);
   border-color: var(--brand-accent);
-  color: #ffffff;
+  color: var(--color-bg-primary);
 }
 
 .reset-btn {
@@ -532,7 +537,7 @@ onMounted(() => {
 .action-btn.primary {
   background: var(--brand-accent);
   border-color: var(--brand-accent);
-  color: #ffffff;
+  color: var(--color-bg-primary);
 }
 
 .action-btn.primary:hover {

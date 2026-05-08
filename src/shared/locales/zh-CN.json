@@ -145,7 +145,8 @@
     "noOrphanTables": "所有表均有引用关系",
     "redundantColumns": "冗余列",
     "noRedundantColumns": "无明显冗余列",
-    "schemaInsightReport": "Schema 洞察报告"
+    "schemaInsightReport": "Schema 洞察报告",
+    "noAffectedTables": "无关联表"
   },
   "resultPanel": {
     "title": "结果集",
@@ -164,7 +165,11 @@
     "filterPreset": {
       "placeholder": "选择过滤预设...",
       "header": "已保存的预设",
-      "savePrompt": "预设名称:"
+      "savePrompt": "预设名称:",
+      "saveTitle": "保存过滤预设",
+      "deleteTitle": "删除预设",
+      "deleteConfirm": "确定删除预设 \"{name}\"？",
+      "namePlaceholder": "输入预设名称"
     },
     "quickAnalysis": "快捷分析",
     "count": "计数",
@@ -271,7 +276,11 @@
     "distribution": "{column} 分布",
     "topValues": "{column} Top 值",
     "monthlyDistribution": "{column} 月度分布",
-    "booleanDistribution": "{column} 布尔分布"
+    "booleanDistribution": "{column} 布尔分布",
+    "insightHistory": "洞察历史",
+    "comparing": "对比中",
+    "diffResult": "对比结果",
+    "noDiff": "无变化"
   },
   "settings": {
     "title": "设置",
@@ -301,6 +310,8 @@
     "applyAll": "应用所有设置",
     "resetDefault": "恢复默认设置",
     "resetFactory": "出厂重置",
+    "saveSuccess": "设置已保存",
+    "saveFailed": "设置保存失败，请重试",
     "simplifiedChinese": "简体中文",
     "english": "English"
   },
@@ -357,7 +368,17 @@
     "saveSnippet": "保存为收藏",
     "snippetSaved": "已保存到收藏",
     "paramBinding": "参数绑定",
-    "paramHint": "请为以下占位符参数提供值："
+    "paramHint": "请为以下占位符参数提供值：",
+    "toggleMinimap": "切换小地图",
+    "editorSettings": "编辑器设置",
+    "fontSize": "字号",
+    "tabSize": "缩进",
+    "wordWrap": "自动换行",
+    "lineNumbers": "行号",
+    "executeSelected": "执行选中 SQL",
+    "copyAsValues": "复制为 VALUES",
+    "recentConnections": "最近连接",
+    "fontFamily": "字体"
   },
   "navigator": {
     "title": "数据库导航",
@@ -529,6 +550,10 @@
     "prevPage": "上一页",
     "nextPage": "下一页",
     "lastPage": "最后一页",
+    "goPage": "跳页",
+    "disablePagination": "关闭分页",
+    "enablePagination": "开启分页",
+    "pageUnit": "页",
     "exportCsv": "导出 CSV",
     "exportJson": "导出 JSON",
     "exportInsert": "导出 INSERT",
@@ -973,7 +998,20 @@
     "emptyTrash": "清空回收站",
     "emptyTrashConfirm": "确认清空回收站？此操作不可撤销。",
     "noTrashItems": "回收站为空",
-    "analyzeWithDuckDB": "用 DuckDB 分析"
+    "analyzeWithDuckDB": "用 DuckDB 分析",
+    "dragToImport": "拖放文件到此处导入",
+    "noMatchResults": "无匹配结果",
+    "searchContentHint": "搜索文件内容…",
+    "searchNameHint": "搜索文件名…",
+    "promoteToResource": "提升为分析资源",
+    "promoteToResourceConfirm": "将 \"{name}\" 提升为分析资源？提升后文件将出现在分析资源管理器中。",
+    "sortByName": "按名称",
+    "sortBySize": "按大小",
+    "sortByModified": "按修改时间",
+    "sortAsc": "升序",
+    "sortDesc": "降序",
+    "matchesCount": "{count} 处匹配",
+    "searchFileResults": "搜索结果"
   },
   "sqlToolbar": {
     "pin": "固定工具栏",

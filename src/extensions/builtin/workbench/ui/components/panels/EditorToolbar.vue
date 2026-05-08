@@ -83,12 +83,32 @@
         </template>
         {{ $t('sqlEditor.saveSnippet') }}
       </NTooltip>
+
+      <div v-if="props.showAdvanced" class="toolbar-divider" />
+
+      <NTooltip trigger="hover">
+        <template #trigger>
+          <NButton quaternary size="small" class="toolbar-btn" @click="$emit('toggleMinimap')">
+            <Map :size="16" />
+          </NButton>
+        </template>
+        {{ $t('sqlEditor.toggleMinimap') }}
+      </NTooltip>
+
+      <NTooltip trigger="hover">
+        <template #trigger>
+          <NButton quaternary size="small" class="toolbar-btn" @click="$emit('toggleSettings')">
+            <Settings :size="16" />
+          </NButton>
+        </template>
+        {{ $t('sqlEditor.editorSettings') }}
+      </NTooltip>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Play, Plus, Zap, Sparkles, ArrowLeftRight, AlignLeft, ListChecks, FileSearch, Star } from 'lucide-vue-next'
+import { Play, Plus, Zap, Sparkles, ArrowLeftRight, AlignLeft, ListChecks, FileSearch, Star, Map, Settings } from 'lucide-vue-next'
 import { NButton, NTooltip } from 'naive-ui'
 
 interface Props {
@@ -111,6 +131,8 @@ interface Emits {
   (e: 'transpile'): void
   (e: 'explain'): void
   (e: 'saveSnippet'): void
+  (e: 'toggleMinimap'): void
+  (e: 'toggleSettings'): void
 }
 
 defineEmits<Emits>()

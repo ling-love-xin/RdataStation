@@ -10,7 +10,7 @@
         :class="themeClass"
         :column-defs="columnDefs"
         :default-col-def="localDefaultColDef"
-        :row-data="displayedRowData"
+        :row-data="rowData"
         :pagination="pagination"
         :pagination-page-size="pageSize"
         :pagination-page-selector="paginationPageSelector"
@@ -36,6 +36,7 @@
         @first-data-rendered="onFirstDataRendered"
         @row-data-updated="onRowDataUpdated"
         @sort-changed="onSortChanged"
+        @pagination-changed="onPaginationChanged"
         @keydown="onKeydown"
       />
     </div>
@@ -82,6 +83,7 @@ const emit = defineEmits<{
   firstDataRendered: [event: unknown]
   rowDataUpdated: [event: unknown]
   sortChanged: [event: unknown]
+  paginationChanged: [event: unknown]
   keydown: [event: KeyboardEvent]
 }>()
 
@@ -95,8 +97,6 @@ const localDefaultColDef = computed(() => ({
   resizable: true,
   ...props.defaultColDef,
 }))
-
-const displayedRowData = computed(() => props.rowData)
 
 function onGridReady(params: { api: GridApi }) {
   gridApi.value = params.api
@@ -129,6 +129,10 @@ function onRowDataUpdated(event: unknown) {
 
 function onSortChanged(event: unknown) {
   emit('sortChanged', event)
+}
+
+function onPaginationChanged(event: unknown) {
+  emit('paginationChanged', event)
 }
 
 function onKeydown(event: KeyboardEvent) {

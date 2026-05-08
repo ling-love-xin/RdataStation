@@ -19,16 +19,19 @@
       </NIcon>
 
       <span v-if="renamingKey !== entry.path" class="node-name">{{ entry.name }}</span>
-      <input
-        v-else
-        ref="renameInputRef"
-        v-model="renameValue"
-        class="rename-input"
-        @keyup.enter="commitRename"
-        @keyup.escape="cancelRename"
-        @blur="commitRename"
-        @click.stop
-      />
+      <div v-else class="rename-wrapper">
+        <input
+          ref="renameInputRef"
+          v-model="renameValue"
+          class="rename-input"
+          :disabled="renamingSaving"
+          @keyup.enter="commitRename"
+          @keyup.escape="cancelRename"
+          @blur="commitRename"
+          @click.stop
+        />
+        <span v-if="renamingSaving" class="rename-spinner" />
+      </div>
 
       <span v-if="entry.kind === 'file' && entry.size > 0" class="node-size">{{
         formatSize(entry.size)
@@ -102,8 +105,9 @@ const isRenaming = computed(() => props.renamingKey === props.entry.path)
 
 const renameValue = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
+const renamingSaving = ref(false)
 
-const children = computed<ScratchpadEntry[]>(() => [])
+const children = computed(() => props.entry.children || [])
 
 const extensionIconMap: Record<string, typeof File> = {
   '.sql': Database,
@@ -147,11 +151,12 @@ function handleToggleExpand(): void {
 
 function commitRename(): void {
   const trimmed = renameValue.value.trim()
-  if (trimmed) {
-    emit('finish-rename', props.entry, trimmed)
-  } else {
+  if (!trimmed) {
     emit('cancel-rename')
+    return
   }
+  renamingSaving.value = true
+  emit('finish-rename', props.entry, trimmed)
 }
 
 function cancelRename(): void {
@@ -202,21 +207,21 @@ function formatSize(bytes: number): string {
 .node-row {
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 28px;
+  gap: 4px;
+  height: 32px;
   padding-right: 8px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--border-radius-sm, 4px);
   transition: background-color 0.1s;
 }
 
 .node-row:hover {
-  background-color: var(--bg-tertiary, #e8e8e8);
+  background-color: var(--color-bg-tertiary);
 }
 
 .node-row.selected {
-  background-color: var(--primary-color, #165dff);
-  color: #ffffff;
+  background-color: var(--brand-accent);
+  color: var(--color-bg-primary);
 }
 
 .folder-toggle,
@@ -247,19 +252,45 @@ function formatSize(bytes: number): string {
 
 .rename-input {
   flex: 1;
-  height: 22px;
-  padding: 0 4px;
+  height: 24px;
+  padding: 0 6px;
   font-size: 13px;
-  border: 1px solid var(--primary-color, #165dff);
-  border-radius: 2px;
+  border: 1px solid var(--brand-accent);
+  border-radius: var(--border-radius-sm, 4px);
   outline: none;
-  background: var(--bg-primary, #ffffff);
-  color: var(--text-primary, #333333);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.rename-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rename-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 4px;
+}
+
+.rename-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border-subtle);
+  border-top-color: var(--brand-accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .node-size {
   font-size: 11px;
-  color: var(--text-tertiary, #999999);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 

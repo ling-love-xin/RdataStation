@@ -121,14 +121,16 @@ echarts.use([
 interface Props {
   data: Record<string, unknown>[]
   columns: string[]
+  chartType?: string
 }
 
 const props = defineProps<Props>()
 
 const { t } = useI18n()
 
-// 图表类型
-const chartType = ref<'bar' | 'line' | 'pie' | 'scatter'>('bar')
+const chartType = ref<'bar' | 'line' | 'pie' | 'scatter'>(
+  (['bar', 'line', 'pie', 'scatter'].includes(props.chartType ?? '') ? props.chartType as 'bar' | 'line' | 'pie' | 'scatter' : 'bar')
+)
 const xAxisColumn = ref('')
 const yAxisColumn = ref('')
 const chartRef = ref<HTMLElement>()

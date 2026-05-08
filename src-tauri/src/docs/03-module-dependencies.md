@@ -1,5 +1,9 @@
 # 模块依赖规则
 
+> 版本：v1.1
+> 最后更新：2026-05-09
+> 状态：✅ 路径已更正
+
 ## 核心原则
 
 **依赖方向**：`adapters` → `api` → `core` → `external`
@@ -46,21 +50,22 @@
 
 ## 依赖规则矩阵
 
-### Core 层内部依赖
+### Core 层内部依赖（实际）
 
 | 模块          | 允许依赖                                                            | 禁止依赖                          |
 | ------------- | ------------------------------------------------------------------- | --------------------------------- |
 | `models`      | 无（基础层）                                                        | 所有其他模块                      |
 | `error`       | 无（基础层）                                                        | 所有其他模块                      |
-| `macros`      | 无（基础层）                                                        | 所有其他模块                      |
-| `driver`      | `error`, `macros`, `models`                                         | `connection`, `datasource`, `dbi` |
-| `connection`  | `error`, `models`                                                   | `driver`, `datasource`, `dbi`     |
-| `datasource`  | `driver`, `connection`, `error`, `models`                           | `api`, `services`, `dbi`          |
-| `persistence` | `error`, `models`                                                   | `driver`, `datasource`, `dbi`     |
-| `project`     | `error`, `models`, `persistence`                                    | `driver`, `datasource`, `dbi`     |
-| `services`    | `driver`, `persistence`, `connection`, `error`, `models`, `project` | `api`, `adapters`, `dbi`          |
-| `dbi`         | `driver`, `services`, `connection`, `error`, `models`, `datasource` | `api`, `adapters`                 |
-| `dbi/engine`  | `driver`, `error`, `models`                                         | `services`, `adapters`            |
+| `driver/traits` | `error`, `models`                                                 | `connection`, `datasource`, `services` |
+| `driver/registry` | `error`, `models`, `driver/traits`, `connection`               | `services`, `adapters`            |
+| `driver/native` | `driver/traits`, `driver/registry`, `error`, `models`            | `services`, `adapters`            |
+| `connection`  | `error`, `models`                                                   | `driver`, `datasource`            |
+| `datasource`  | `driver`, `connection`, `error`, `models`                           | `api`, `services`                 |
+| `persistence` | `error`, `models`                                                   | `driver`, `datasource`            |
+| `project`     | `error`, `models`, `persistence`                                    | `driver`, `datasource`            |
+| `services`    | `driver`, `persistence`, `connection`, `error`, `models`, `project` | `api`, `adapters`                 |
+
+> ⚠️ 注意：`driver/traits.rs` 是宪法文件，禁止修改已有 trait 签名。`datasource/` 只做路由，不存放具体驱动实现。具体实现在 `driver/native/`。
 
 ### 层间依赖
 
@@ -127,28 +132,28 @@ pub struct ConnectionConfig {
 
 ### 4. Datasource 层
 
-**规则**：依赖 driver 和 connection，实现具体数据库
+**规则**：依赖 driver，只做路由，不存放具体驱动实现
 
 ```rust
-// ✅ 正确：datasource 依赖 driver 和 connection
-// core/datasource/mysql.rs
-use crate::core::driver::{Database, DriverFactory};
-use crate::core::connection::ConnectionConfig;
+// ✅ 正确：datasource 只依赖 driver
+// core/datasource/router.rs
+use crate::core::driver::{DriverRegistry, DriverFactory};
 use crate::core::error::CoreError;
-use crate::core::models::QueryResult;
 
-pub struct MySqlDriver;
+pub struct DataSourceRouter;
 
-#[async_trait]
-impl Database for MySqlDriver {
-    async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        // 实现
+impl DataSourceRouter {
+    pub async fn route(config: ConnectionConfig) -> Result<DynDatabase, CoreError> {
+        let factory = DriverRegistry::get(&config.driver)?;
+        factory.create(config).await
     }
 }
 
-// ❌ 错误：datasource 不能依赖 api
-// use crate::api::dto::QueryResultDto; // 禁止！
+// ❌ 错误：datasource 不能直接实例化驱动
+// use crate::core::driver::native::mysql::MySqlDatabase; // 禁止！
 ```
+
+> ⚠️ 具体驱动实现位于 `driver/native/{mysql,postgres,sqlite,duckdb}.rs`，不在 `datasource/` 中。
 
 ### 5. Services 层
 
@@ -175,61 +180,28 @@ impl ConnectionService {
 // use crate::adapters::tauri::TauriWindow; // 禁止！
 ```
 
-### 6. DBI 层 🔥
+### 7. Commands 层
 
-**规则**：统一数据访问入口，可依赖 driver、services、connection，但不能依赖 adapters
-
-```rust
-// ✅ 正确：dbi 依赖 driver 和 services
-// core/dbi/dbi.rs
-use crate::core::driver::Database;
-use crate::core::services::ConnectionManager;
-use crate::core::error::CoreError;
-use crate::core::models::QueryResult;
-use crate::core::dbi::engine::{QueryRouter, ExecutionMode};
-
-pub struct DBI {
-    router: Arc<QueryRouter>,
-    session: Arc<Session>,
-}
-
-impl DBI {
-    pub async fn query(&self, sql: &str, mode: ExecutionMode)
-        -> Result<QueryResult, CoreError>
-    {
-        let context = QueryContext::new(
-            self.session.current_connection_id(),
-            mode,
-        );
-        self.router.execute(sql, &context).await
-    }
-}
-
-// ❌ 错误：dbi 不能依赖 adapters
-// use crate::adapters::tauri::TauriWindow; // 禁止！
-```
-
-### 7. Adapters 层
-
-**规则**：可以依赖 api 和 core，处理框架特定逻辑
+**规则**：可以依赖 api 和 core services，处理 Tauri 命令
 
 ```rust
-// ✅ 正确：adapters 依赖 api 和 core
-// adapters/tauri/command.rs
-use crate::api::dto::QueryResult;
-use crate::core::services::{ConnectionService, SqlService};
+// ✅ 正确：commands 依赖 api 和 core
+// commands/sql_commands.rs
+use crate::core::services::{ConnectionManager, SqlService};
 use crate::core::error::CoreError;
 
 #[tauri::command]
-pub async fn execute_sql(sql: String) -> Result<QueryResult, String> {
-    let service = SqlService::new();
-    service.execute(&sql).await
-        .map_err(|e| e.to_string())
+pub async fn execute_sql(conn_id: String, sql: String) -> Result<QueryResult, String> {
+    let manager = get_connection_manager();
+    let db = manager.get_connection(&conn_id).await
+        .ok_or("Connection not found")?;
+    db.query(&sql).await.map_err(|e| e.to_string())
 }
 
-// ❌ 错误：adapters 不应该被 core 依赖
-// （这个错误会在 core 中体现）
+// ❌ 错误：commands 不应该被 core 依赖
 ```
+
+> ⚠️ 命令已从 `adapters/tauri/command.rs` 迁移到 `commands/` 目录。旧路径不再有效。
 
 ## 循环依赖检测
 

@@ -7,8 +7,8 @@ use tokio::sync::Mutex;
 use crate::core::error::{CoreError, StorageError};
 use crate::core::scratchpad::models::{
         AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry,
-        ScratchpadEntryKind, ScratchpadResponse,
-    };
+        ScratchpadEntryKind, ScratchpadResponse, SearchMatch,
+};
 
 const MAX_DEPTH: u32 = 4;
 const CONFIG_FILE: &str = ".scratchpad.json";
@@ -164,10 +164,10 @@ impl ScratchpadStore {
                 .and_then(|t| {
                     t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| {
                         chrono::DateTime::from_timestamp(d.as_secs() as i64, d.subsec_nanos())
-                            .unwrap_or_default()
+                            .map(|dt| dt.to_rfc3339())
                     })
                 })
-                .unwrap_or_else(Utc::now);
+                .flatten();
 
             if file_type.is_dir() {
                 entries.push(ScratchpadEntry {
@@ -176,8 +176,6 @@ impl ScratchpadStore {
                     kind: ScratchpadEntryKind::Folder,
                     size: 0,
                     modified_at,
-                    extension: String::new(),
-                    is_external_ref: false,
                 });
 
                 if current_depth < max_depth {
@@ -185,20 +183,12 @@ impl ScratchpadStore {
                         .await?;
                 }
             } else if file_type.is_file() {
-                let extension = entry
-                    .path()
-                    .extension()
-                    .map(|e| format!(".{}", e.to_string_lossy()))
-                    .unwrap_or_default();
-
                 entries.push(ScratchpadEntry {
                     name,
                     path: entry.path(),
                     kind: ScratchpadEntryKind::File,
                     size: metadata.len(),
                     modified_at,
-                    extension,
-                    is_external_ref: false,
                 });
             }
         }
@@ -254,11 +244,6 @@ impl ScratchpadStore {
             })?;
         }
 
-        let extension = target_path
-            .extension()
-            .map(|e| format!(".{}", e.to_string_lossy()))
-            .unwrap_or_default();
-
         Ok(ScratchpadEntry {
             name: name.to_string(),
             path: target_path,
@@ -268,9 +253,7 @@ impl ScratchpadStore {
                 ScratchpadEntryKind::File
             },
             size: 0,
-            modified_at: Utc::now(),
-            extension,
-            is_external_ref: false,
+            modified_at: Some(Utc::now().to_rfc3339()),
         })
     }
 
@@ -332,11 +315,6 @@ impl ScratchpadStore {
             ))
         })?;
 
-        let extension = target_path
-            .extension()
-            .map(|e| format!(".{}", e.to_string_lossy()))
-            .unwrap_or_default();
-
         let is_dir = fs::metadata(&target_path).await.map_err(|e| {
             CoreError::storage(StorageError::io(
                 target_path.display().to_string(),
@@ -350,9 +328,7 @@ impl ScratchpadStore {
             path: target_path,
             kind: if is_dir { ScratchpadEntryKind::Folder } else { ScratchpadEntryKind::File },
             size: 0,
-            modified_at: Utc::now(),
-            extension,
-            is_external_ref: false,
+            modified_at: Some(Utc::now().to_rfc3339()),
         })
     }
 
@@ -427,11 +403,6 @@ impl ScratchpadStore {
             }
         }
 
-        let extension = new_path
-            .extension()
-            .map(|e| format!(".{}", e.to_string_lossy()))
-            .unwrap_or_default();
-
         Ok(ScratchpadEntry {
             name: new_name.to_string(),
             path: new_path,
@@ -441,9 +412,7 @@ impl ScratchpadStore {
                 ScratchpadEntryKind::File
             },
             size: 0,
-            modified_at: Utc::now(),
-            extension,
-            is_external_ref: false,
+            modified_at: Some(Utc::now().to_rfc3339()),
         })
     }
 
@@ -536,11 +505,6 @@ impl ScratchpadStore {
             ))
         })?;
 
-        let extension = dest
-            .extension()
-            .map(|e| format!(".{}", e.to_string_lossy()))
-            .unwrap_or_default();
-
         let size = fs::metadata(&dest)
             .await
             .map_err(|e| {
@@ -560,9 +524,7 @@ impl ScratchpadStore {
             path: dest,
             kind: ScratchpadEntryKind::File,
             size,
-            modified_at: Utc::now(),
-            extension,
-            is_external_ref: false,
+            modified_at: Some(Utc::now().to_rfc3339()),
         })
     }
 
@@ -631,9 +593,10 @@ impl ScratchpadStore {
         self.save_config(&config).await
     }
 
-    pub async fn search_file_content(&self, query: &str) -> Result<Vec<String>, CoreError> {
+    pub async fn search_file_content(&self, query: &str) -> Result<Vec<SearchMatch>, CoreError> {
         let entries = self.list_local_entries(MAX_DEPTH).await?;
         let mut results = Vec::new();
+        let query_lower = query.to_lowercase();
 
         for entry in &entries {
             if entry.kind == ScratchpadEntryKind::Folder {
@@ -646,9 +609,21 @@ impl ScratchpadStore {
                     e.to_string(),
                 ))
             })?;
-            if content.to_lowercase().contains(&query.to_lowercase()) {
-                if let Ok(rel) = entry.path.strip_prefix(&self.scratchpad_dir) {
-                    results.push(rel.to_string_lossy().to_string());
+
+            let rel_path = entry
+                .path
+                .strip_prefix(&self.scratchpad_dir)
+                .unwrap_or(&entry.path)
+                .to_string_lossy()
+                .to_string();
+
+            for (idx, line) in content.lines().enumerate() {
+                if line.to_lowercase().contains(&query_lower) {
+                    results.push(SearchMatch {
+                        file: rel_path.clone(),
+                        line_number: idx + 1,
+                        line_content: line.to_string(),
+                    });
                 }
             }
         }
@@ -740,8 +715,10 @@ impl ScratchpadStore {
         let mut results = Vec::new();
         for entry in &response.local_entries {
             let ext = entry
-                .extension
-                .trim_start_matches('.')
+                .path
+                .extension()
+                .map(|e| e.to_string_lossy().to_string())
+                .unwrap_or_default()
                 .to_lowercase();
 
             if !analyzable_extensions.contains(ext.as_str()) {

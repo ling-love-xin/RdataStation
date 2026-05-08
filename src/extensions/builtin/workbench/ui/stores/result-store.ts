@@ -293,14 +293,12 @@ export const useResultStore = defineStore('result', () => {
   function markCellDirty(tabId: string, rowIndex: number): void {
     const tab = tabs.value.find(t => t.id === tabId)
     if (!tab) return
-    const newSet = new Set(tab.dirtyRows)
-    newSet.add(rowIndex)
-    tab.dirtyRows = newSet
+    tab.dirtyRows.add(rowIndex)
   }
 
   function resetDirtyCells(tabId: string): void {
     const tab = tabs.value.find(t => t.id === tabId)
-    if (tab) tab.dirtyRows = new Set()
+    if (tab) tab.dirtyRows.clear()
   }
 
   function setPage(id: string, page: number): void {

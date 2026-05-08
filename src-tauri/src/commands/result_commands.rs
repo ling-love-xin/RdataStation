@@ -105,11 +105,7 @@ pub async fn save_cell_update(
                 message: format!("更新成功，影响 {} 行", affected),
             })
         }
-        Err(e) => Ok(CellUpdateResult {
-            success: false,
-            affected_rows: 0,
-            message: format!("更新失败: {}", e),
-        }),
+        Err(e) => Err(format!("更新失败: {}", e)),
     }
 }
 
@@ -131,7 +127,10 @@ fn value_to_sql(val: &serde_json::Value) -> String {
         serde_json::Value::String(s) => {
             format!("'{}'", s.replace('\'', "''"))
         }
-        _ => format!("'{}'", val),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            let json_str = serde_json::to_string(val).unwrap_or_default();
+            format!("'{}'", json_str.replace('\'', "''"))
+        }
     }
 }
 

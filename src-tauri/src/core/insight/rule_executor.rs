@@ -118,55 +118,105 @@ impl RuleExecutor {
 
         let val: Value = match field.value_type.as_str() {
             "f64" => {
-                let v: f64 = row.get_unwrap(idx);
+                let v: f64 = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get f64 value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 json!(v)
             }
             "f64?" => {
-                let v: Option<f64> = row.get_unwrap(idx);
+                let v: Option<f64> = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get Option<f64> value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 match v {
                     Some(x) => json!(x),
                     None => Value::Null,
                 }
             }
             "i64" => {
-                let v: i64 = row.get_unwrap(idx);
+                let v: i64 = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get i64 value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 json!(v)
             }
             "i64?" => {
-                let v: Option<i64> = row.get_unwrap(idx);
+                let v: Option<i64> = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get Option<i64> value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 match v {
                     Some(x) => json!(x),
                     None => Value::Null,
                 }
             }
             "String" | "string" => {
-                let v: String = row.get_unwrap(idx);
+                let v: String = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get String value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 json!(v)
             }
             "String?" | "string?" => {
-                let v: Option<String> = row.get_unwrap(idx);
+                let v: Option<String> = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get Option<String> value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 match v {
                     Some(s) => json!(s),
                     None => Value::Null,
                 }
             }
             "bool" => {
-                let v: bool = row.get_unwrap(idx);
+                let v: bool = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get bool value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 json!(v)
             }
             "bool?" => {
-                let v: Option<bool> = row.get_unwrap(idx);
+                let v: Option<bool> = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get Option<bool> value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 match v {
                     Some(b) => json!(b),
                     None => Value::Null,
                 }
             }
             "usize" => {
-                let v: i64 = row.get_unwrap(idx);
+                let v: i64 = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get usize value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 json!(v as usize)
             }
             _ => {
-                let v: String = row.get_unwrap(idx);
+                let v: String = row.get(idx).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to get String value for field '{}' at col {}: {}",
+                        field.json_name, idx, e
+                    )))
+                })?;
                 json!(v)
             }
         };

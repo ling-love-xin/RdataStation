@@ -299,7 +299,7 @@ defineExpose({
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
 }

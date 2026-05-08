@@ -7,7 +7,7 @@
       class="dockview"
       :popout-url="'/popout.html'"
       :floating-group-bounds="'boundedWithinViewport'"
-      :right-header-actions-component="'panelHeaderActions'"
+      :right-header-actions-component="'PanelHeaderActions'"
       :get-tab-context-menu-items="getTabContextMenuItems"
       @ready="onReady"
     />
@@ -47,10 +47,12 @@ import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
+import { useAppStore } from '@/stores/useAppStore'
 
 const { t } = useI18n()
 const uiStore = useUiStore()
 const layoutStore = useLayoutStore()
+const appStore = useAppStore()
 const connectionStore = useConnectionStore()
 const message = useMessage()
 
@@ -235,17 +237,20 @@ const onReady = (event: DockviewReadyEvent) => {
     .filter(p => p.location === 'right')
     .sort((a, b) => (a.order || 0) - (b.order || 0))
 
-  // 分离数据库导航面板：放入独立 Normal Group
+  // 分离数据库导航 + 草稿箱面板：放入 B 区独立 Normal Group
   const dbNavPanel = leftPanelsAll.find(p => p.id === 'databaseNavigator')
+  const scratchpadPanel = leftPanelsAll.find(p => p.id === 'scratchpad')
   // 其余左侧面板仍放回左侧 Edge Group（分析资源管理、插件管理等）
-  const leftEdgePanels = leftPanelsAll.filter(p => p.id !== 'databaseNavigator')
+  const leftEdgePanels = leftPanelsAll.filter(
+    p => p.id !== 'databaseNavigator' && p.id !== 'scratchpad'
+  )
 
   const containerEl = dockviewRef.value?.$el as HTMLElement | undefined
   const totalWidth = containerEl?.clientWidth || 1200
   const oneQuarter = Math.round(totalWidth * 0.25)
 
   // ============================================
-  // 第 1 步：左侧 Edge Group（dockview 内部 Activity Bar 面板）
+  // 第 1 步：左侧 Edge Group
   // 收起态: 48px 窄条  展开态: 25%，使 A:B:C:D = 1:1:1:1
   // ============================================
   api.addEdgeGroup('left', {
@@ -255,34 +260,33 @@ const onReady = (event: DockviewReadyEvent) => {
     maximumSize: Math.round(totalWidth * 0.4),
   })
 
-  api.addPanel({
-    id: 'panel_leftActivityBar',
-    component: 'leftActivityBar',
-    title: t('workbench.activityBar'),
-    position: { referenceGroup: 'left-edge' },
-    params: { position: 'left' },
-  })
-  layoutStore.updatePanelConfig('panel_leftActivityBar', {
-    location: 'left',
-    isVisible: true,
-    order: 99,
-  })
-
-  for (let i = 0; i < leftEdgePanels.length; i++) {
-    const panel = leftEdgePanels[i]
-    const panelId = `panel_${panel.id}`
+  if (leftEdgePanels.length > 0) {
+    const firstLeftPanel = leftEdgePanels[0]
+    const firstLeftPanelId = `panel_${firstLeftPanel.id}`
     api.addPanel({
-      id: panelId,
-      component: panel.id,
-      title: panel.name,
-      position: { referencePanel: 'panel_leftActivityBar', direction: 'within' },
+      id: firstLeftPanelId,
+      component: firstLeftPanel.id,
+      title: firstLeftPanel.name,
+      position: { referenceGroup: 'left-edge' },
     })
-    layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: false, order: i })
+    layoutStore.updatePanelConfig(firstLeftPanelId, { location: 'left', isVisible: false, order: 0 })
+
+    for (let i = 1; i < leftEdgePanels.length; i++) {
+      const panel = leftEdgePanels[i]
+      const panelId = `panel_${panel.id}`
+      api.addPanel({
+        id: panelId,
+        component: panel.id,
+        title: panel.name,
+        position: { referencePanel: firstLeftPanelId, direction: 'within' },
+      })
+      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: false, order: i })
+    }
   }
-  console.log(`[Workbench] Created left edge group with ${leftEdgePanels.length + 1} panels`)
+  console.log(`[Workbench] Created left edge group with ${leftEdgePanels.length} panels`)
 
   // ============================================
-  // 第 2 步：数据库导航面板（独立 Normal Group，中心左侧）
+  // 第 2 步：B 区 — 数据库导航 + 草稿箱（同一 Normal Group，tab 切换）
   // ============================================
   if (dbNavPanel) {
     api.addPanel({
@@ -296,6 +300,24 @@ const onReady = (event: DockviewReadyEvent) => {
       location: 'center',
       isVisible: true,
       order: 0,
+    })
+  }
+
+  if (scratchpadPanel) {
+    const scratchpadPanelId = `panel_${scratchpadPanel.id}`
+    api.addPanel({
+      id: scratchpadPanelId,
+      component: scratchpadPanel.id,
+      title: scratchpadPanel.name,
+      position: dbNavPanel
+        ? { referencePanel: `panel_${dbNavPanel.id}`, direction: 'within' }
+        : { direction: 'left' },
+    })
+    console.log(`[Workbench] Created scratchpad panel: ${scratchpadPanelId}`)
+    layoutStore.updatePanelConfig(scratchpadPanelId, {
+      location: 'center',
+      isVisible: true,
+      order: 1,
     })
   }
 
@@ -398,6 +420,47 @@ const onReady = (event: DockviewReadyEvent) => {
     handleOpenObjectProperties as (e: Event) => void
   )
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
+
+  api.onDidLayoutChange?.(() => {
+    try {
+      const serialized = api.toJSON()
+      layoutStore.setLayoutData(serialized)
+
+      const ids = api.panels.map((p: { id: string }) => p.id)
+      layoutStore.setOpenPanelIds(ids)
+    } catch {
+      // dockview serialization may fail transiently
+    }
+  })
+
+  restoreSavedPanels()
+}
+
+function restoreSavedPanels() {
+  if (!dockviewApi) return
+
+  const savedIds = layoutStore.openPanelIds
+  if (!savedIds || savedIds.length === 0) return
+
+  const currentIds = new Set(dockviewApi.panels.map((p: { id: string }) => p.id))
+
+  for (const panelId of savedIds) {
+    if (currentIds.has(panelId)) continue
+
+    const componentKey = panelId.replace(/^panel_/, '').replace(/_\d+$/, '')
+    const panelInfo = panelRegistry.get(componentKey)
+    if (!panelInfo) continue
+
+    try {
+      dockviewApi.addPanel({
+        id: panelId,
+        component: panelInfo.id,
+        title: panelInfo.name,
+      })
+    } catch {
+      // restore of individual panel may fail
+    }
+  }
 }
 
 function restorePinnedPanel(panelId: string) {
@@ -564,10 +627,27 @@ const ensureMultiTabResultPanel = () => {
 const handleOpenSqlEditor = (event: CustomEvent) => {
   if (!dockviewApi) return
 
-  sqlEditorCounter++
-  const panelId = `panel_sqlEditor_${sqlEditorCounter}`
   const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language } =
     event.detail || {}
+
+  if (scratchpadRelativePath) {
+    for (const group of dockviewApi.groups || []) {
+      for (const panelInfo of group.model?.panels || []) {
+        const panel = dockviewApi.getPanel(panelInfo.id)
+        const params = panel?.params?.params as Record<string, unknown> | undefined
+        if (
+          panel?.id?.startsWith('panel_sqlEditor_') &&
+          params?.scratchpadRelativePath === scratchpadRelativePath
+        ) {
+          panel.focus()
+          return
+        }
+      }
+    }
+  }
+
+  sqlEditorCounter++
+  const panelId = `panel_sqlEditor_${sqlEditorCounter}`
 
   let existingSqlPanel: IDockviewPanel | undefined
   let existingSqlPanelId: string | null = null
@@ -645,6 +725,8 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 onMounted(() => {
+  layoutStore.loadLayoutConfig()
+
   window.addEventListener(
     'layout-settings-update',
     handleLayoutSettingsUpdate as (e: Event) => void
@@ -659,6 +741,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  appStore.closeProject().catch(() => {})
+
   window.removeEventListener(
     'layout-settings-update',
     handleLayoutSettingsUpdate as (e: Event) => void

@@ -228,6 +228,43 @@ export function useMonacoEditor(options: MonacoEditorOptions) {
     disposeMonacoDisposables()
   })
 
+  function setMinimap(enabled: boolean): void {
+    editor.value?.updateOptions({ minimap: { enabled } })
+  }
+
+  function setFontSize(size: number): void {
+    editor.value?.updateOptions({ fontSize: Math.max(10, Math.min(30, size)) })
+  }
+
+  function setWordWrap(enabled: boolean): void {
+    editor.value?.updateOptions({ wordWrap: enabled ? 'on' : 'off' })
+  }
+
+  function setLineNumbers(enabled: boolean): void {
+    editor.value?.updateOptions({ lineNumbers: enabled ? 'on' : 'off' })
+  }
+
+  function setTabSize(size: number): void {
+    editor.value?.updateOptions({ tabSize: Math.max(1, Math.min(8, size)) })
+  }
+
+  function setFontFamily(family: string): void {
+    editor.value?.updateOptions({ fontFamily: family })
+  }
+
+  function registerContextActions(
+    actions: monaco.editor.IActionDescriptor[]
+  ): monaco.IDisposable[] {
+    const disposables: monaco.IDisposable[] = []
+    for (const action of actions) {
+      const disposable = editor.value?.addAction(action)
+      if (disposable) {
+        disposables.push(disposable)
+      }
+    }
+    return disposables
+  }
+
   return {
     editor,
     editorModel,
@@ -244,6 +281,13 @@ export function useMonacoEditor(options: MonacoEditorOptions) {
     insertText,
     focus,
     updateLanguage,
+    setMinimap,
+    setFontSize,
+    setWordWrap,
+    setLineNumbers,
+    setTabSize,
+    setFontFamily,
+    registerContextActions,
     disposeEditor,
     disposeMonacoDisposables,
     monacoDisposables,

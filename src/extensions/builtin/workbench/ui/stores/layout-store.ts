@@ -1,9 +1,16 @@
-import { Database, BarChart3, Puzzle, FileText, Sparkles, StickyNote } from 'lucide-vue-next'
+import { Database, BarChart3, Puzzle, FileText, Sparkles } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
 
+import type {
+  SerializedDockviewLayout,
+  SerializedSidebarState,
+} from '@/stores/config'
+import { useAppStore } from '@/stores/useAppStore'
+
 import type { IDockviewPanel } from 'dockview-core'
 import type { DockviewApi } from 'dockview-vue'
+
 
 // ============================================
 // 类型定义
@@ -60,7 +67,6 @@ const MAX_SIDEBAR_WIDTH = 600
 export const leftActivityItems: LeftActivityItem[] = [
   { id: 'database', icon: Database, title: '数据库导航' },
   { id: 'analytics', icon: BarChart3, title: '分析资源管理' },
-  { id: 'scratchpad', icon: StickyNote, title: '草稿箱' },
   { id: 'plugins', icon: Puzzle, title: '插件管理' },
 ]
 
@@ -165,6 +171,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // 底部 Panel 模式: 'editor' (仅B区下方) | 'full' (横跨全宽)
   // ============================================
   const bottomPanelMode = ref<'editor' | 'full'>('editor')
+const openPanelIds = ref<string[]>([])
 
   // ============================================
   // 面板布局模式: 'tabs' | 'vertical-split'
@@ -202,16 +209,16 @@ export const useLayoutStore = defineStore('layout', () => {
 
   function collapseLeftEdgeGroup() {
     leftEdgeGroupCollapsed.value = true
-    const panel = dockviewApi.value?.getPanel('panel_leftActivityBar')
-    const groupApi = (panel as any)?.group?.api
-    groupApi?.collapse?.()
+    const groups = dockviewApi.value?.groups || []
+    const leftGroup = groups.find((g: any) => g.id === 'left-edge')
+    leftGroup?.api?.collapse?.()
   }
 
   function expandLeftEdgeGroup() {
     leftEdgeGroupCollapsed.value = false
-    const panel = dockviewApi.value?.getPanel('panel_leftActivityBar')
-    const groupApi = (panel as any)?.group?.api
-    groupApi?.expand?.()
+    const groups = dockviewApi.value?.groups || []
+    const leftGroup = groups.find((g: any) => g.id === 'left-edge')
+    leftGroup?.api?.expand?.()
   }
 
   /**
@@ -245,6 +252,11 @@ export const useLayoutStore = defineStore('layout', () => {
   function setLayoutData(data: any) {
     layoutData.value = data
     saveLayoutConfig()
+
+    const appStore = useAppStore()
+    if (appStore.projectOpen && data) {
+      appStore.saveDockviewLayout(data as SerializedDockviewLayout).catch(() => {})
+    }
   }
 
   // ============================================
@@ -466,7 +478,10 @@ export const useLayoutStore = defineStore('layout', () => {
 
   function setBottomPanelMode(mode: 'editor' | 'full') {
     bottomPanelMode.value = mode
-    saveLayoutConfig()
+  }
+
+  function setOpenPanelIds(ids: string[]) {
+    openPanelIds.value = ids
   }
 
   function toggleBottomPanelMode() {
@@ -617,21 +632,63 @@ export const useLayoutStore = defineStore('layout', () => {
         timestamp: Date.now(),
       }
       localStorage.setItem('rdata_station_layout_config', JSON.stringify(config))
+
+      const appStore = useAppStore()
+      if (appStore.projectOpen) {
+        const sidebarState: SerializedSidebarState = {
+          leftActivityBarVisible: leftActivityBarVisible.value,
+          rightActivityBarVisible: rightActivityBarVisible.value,
+          primarySideBarVisible: primarySideBarVisible.value,
+          secondarySideBarVisible: secondarySideBarVisible.value,
+          panelVisible: panelVisible.value,
+          statusBarVisible: statusBarVisible.value,
+          primarySideBarExpanded: primarySideBarExpanded.value,
+          secondarySideBarExpanded: secondarySideBarExpanded.value,
+          selectedLeftItem: selectedLeftItem.value,
+          selectedRightItem: selectedRightItem.value,
+          primarySideBarWidth: primarySideBarWidth.value,
+          secondarySideBarWidth: secondarySideBarWidth.value,
+          panelHeight: panelHeight.value,
+          bottomPanelMode: bottomPanelMode.value,
+          openPanelIds: openPanelIds.value,
+        }
+        appStore.saveSidebarState(sidebarState).catch(() => {})
+      }
     } catch (error) {
       console.error('[LayoutStore] Failed to save layout config:', error)
     }
   }
 
   function loadLayoutConfig() {
+    const appStore = useAppStore()
+
+    if (appStore.projectOpen && appStore.effectiveSidebarState) {
+      const state = appStore.effectiveSidebarState
+      leftActivityBarVisible.value = state.leftActivityBarVisible ?? true
+      rightActivityBarVisible.value = state.rightActivityBarVisible ?? true
+      primarySideBarVisible.value = state.primarySideBarVisible ?? true
+      secondarySideBarVisible.value = state.secondarySideBarVisible ?? true
+      panelVisible.value = state.panelVisible ?? true
+      statusBarVisible.value = state.statusBarVisible ?? true
+      primarySideBarExpanded.value = state.primarySideBarExpanded ?? true
+      secondarySideBarExpanded.value = state.secondarySideBarExpanded ?? true
+      selectedLeftItem.value = state.selectedLeftItem ?? 'database'
+      selectedRightItem.value = state.selectedRightItem ?? 'column-insights'
+      primarySideBarWidth.value = state.primarySideBarWidth ?? DEFAULT_PRIMARY_SIDEBAR_WIDTH
+      secondarySideBarWidth.value = state.secondarySideBarWidth ?? DEFAULT_SECONDARY_SIDEBAR_WIDTH
+      panelHeight.value = state.panelHeight ?? DEFAULT_PANEL_HEIGHT
+      bottomPanelMode.value = state.bottomPanelMode ?? 'editor'
+      openPanelIds.value = state.openPanelIds ?? []
+      return
+    }
+
     try {
       const stored = localStorage.getItem('rdata_station_layout_config')
       if (stored) {
         const config = JSON.parse(stored)
         const age = Date.now() - config.timestamp
-        const maxAge = 30 * 24 * 60 * 60 * 1000 // 30天
+        const maxAge = 30 * 24 * 60 * 60 * 1000
 
-        // 重要：避免加载旧的布局数据，因为架构已完全变更为 Dockview 驱动
-        // 我们只加载基础配置，不加载 layoutData
         if (age < maxAge) {
           if (config.visibility) {
             menuBarVisible.value = config.visibility.menuBarVisible ?? true
@@ -655,7 +712,6 @@ export const useLayoutStore = defineStore('layout', () => {
               config.sizes.secondarySideBarWidth ?? DEFAULT_SECONDARY_SIDEBAR_WIDTH
             panelHeight.value = config.sizes.panelHeight ?? DEFAULT_PANEL_HEIGHT
           }
-          // 注意：不加载旧的 panelConfigs 和 layoutData，因为架构已变更
         }
       }
     } catch (error) {
@@ -771,6 +827,10 @@ export const useLayoutStore = defineStore('layout', () => {
     bottomPanelMode,
     setBottomPanelMode,
     toggleBottomPanelMode,
+
+    // 面板 ID 追踪
+    openPanelIds,
+    setOpenPanelIds,
 
     // 方法 - 选择
     selectLeftItem,

@@ -1,9 +1,9 @@
 # 草稿箱 (Scratchpad) 设计方案
 
-> 版本：v2.7
+> 版本：v3.1
 > 创建日期：2026-05-07
-> 最后更新：2026-05-08
-> 状态：✅ v2.7 全功能完成 — 回收站/元数据/代码编辑器/内容搜索/Config缓存/主题适配/DuckDB分析
+> 最后更新：2026-05-09
+> 状态：✅ v3.1 排序 + 搜索行上下文 — 按名称/大小/时间排序，内容搜索结果带行号预览
 
 ---
 
@@ -92,10 +92,18 @@
 | **编辑保存**     | 编辑后 Ctrl+S 保存回 `.scratchpad/`（原子写入）                                     |  ✅  |
 | **删除文件**     | 右键删除，移入 `.trash/` 回收站（软删除，可恢复）                                   |  ✅  |
 | **重命名**       | 右键重命名或选中后按 F2                                                             |  ✅  |
-| **导入外部文件** | 通过系统文件对话框选择文件，复制到 `.scratchpad/`                                   |  ✅  |
+| **导入外部文件** | 通过系统文件对话框或拖放文件到面板，复制到 `.scratchpad/`                           |  ✅  |
 | **链接外部目录** | 将外部目录添加到"外部引用"列表（不复制文件，只记录路径引用）                        |  ✅  |
 | **回收站管理**   | list/restore/empty，面板折叠区域含恢复和清空按钮 |  ✅  |
 | **Python 编辑**  | 双击 `.py`，在代码编辑器打开，Monaco Python 语法高亮，Ctrl+S 保存回草稿箱 |  ✅  |
+| **防重复 Tab**   | 同一草稿文件不重复打开 editor tab，自动聚焦已有面板 |  ✅  |
+| **文件监控** | `notify` crate 监控 `.scratchpad/` 目录，文件变更自动刷新面板树 |  ✅  |
+| **提升为分析资源** | 右键 → 将草稿提升为正式分析资源，可选保留/删除原稿 |  ✅  |
+| **键盘导航** | ↑↓ 切换选中、Enter 打开、F2 重命名、Delete 删除、Ctrl+N 新建 |  ✅  |
+| **重命名反馈** | 提交时输入框禁用 + CSS 旋转 spinner，防止重复提交 |  ✅  |
+| **提升事件联动** | promote 完成后 emit `analytics-resource-changed` 事件通知面板刷新 |  ✅  |
+| **文件排序** | 工具栏提供按名称/大小/修改时间排序按钮，点击切换升序/降序，图标实时反馈 |  ✅  |
+| **内容搜索行上下文** | 搜索结果面板显示文件名、匹配行号、匹配行内容，最多预览 5 行 |  ✅  |
 
 ---
 
@@ -126,7 +134,7 @@
 │  └─────────────┬───────────────┘            │
 │  ┌─────────────┴───────────────┐            │
 │  │       scratchpad-api.ts      │            │
-│  │     (17 个 Tauri IPC 封装)    │            │
+│  │     (20 个 Tauri IPC 封装)    │            │
 │  └─────────────┬───────────────┘            │
 ├────────────────┼────────────────────────────┤
 │              Tauri IPC                       │
@@ -134,7 +142,7 @@
 │            Backend (Rust)                    │
 │  ┌─────────────┴───────────────┐            │
 │  │   scratchpad_commands.rs    │            │
-│  │   (20 个 #[tauri::command])  │            │
+│  │   (23 个 #[tauri::command])  │            │
 │  └─────────────┬───────────────┘            │
 │  ┌─────────────┴───────────────┐            │
 │  │     core/scratchpad/         │            │
@@ -247,6 +255,11 @@ SqlEditorPanel (scratchpad mode)
 | 路径遍历防护         | ✅   | `resolve_path` 三重校验                       |
 | 编辑器集成而非独立   | ✅   | SQL 编辑+执行能力高度重合，独立实现是重复建设 |
 | 精简模式而非完整模式 | ✅   | 草稿箱不需要方言高亮/补全/转换/DuckDB 加速    |
+| 文件监控自动刷新     | ✅   | `notify` crate 后台线程监控，Tauri event 推送面板刷新 |
+| 提升机制命令在 scratchpad | ✅ | 触发源于草稿箱，跨模块访问 AnalyticsResourceState |
+| 键盘导航在面板级实现 | ✅ | document keydown listener 统一处理，保持 TreeNode 纯展示 |
+| 文件排序在面板 computed 实现 | ✅ | `filteredLocalEntries` 对 `[...entries].sort()` 按 sortBy/sortOrder |
+| 搜索行上下文展示 | ✅ | `SearchMatch` 结构体（file+line_number+line_content），Map 分组，面板独立区域展示 |
 
 ---
 
@@ -309,9 +322,33 @@ SqlEditorPanel (scratchpad mode)
 - [x] **图标主题适配** — CSS 变量全面对齐 `global.css`（`--color-text-primary/secondary/muted` / `--color-border` / `--color-bg-elevated/tertiary` / `--brand-danger`），Dark/Light 模式跟随全局 `body.theme-dark` / `body.theme-light` 切换
 - [x] **DuckDB 分析入口** — `AnalyzableFile` TS 接口 + `getAnalyzableFiles()` API + `loadAnalyzableFiles()` composable + 右键菜单 "用 DuckDB 分析"（`.csv`/`.parquet`/`.json`/`.xlsx`），打开 DuckDB Query Hint 到 SQL 编辑器
 
+### v2.8 已完成 ✅
+
+- [x] **防重复 Tab** — `WorkbenchView.vue` `handleOpenSqlEditor` 检测已有同 `scratchpadRelativePath` 面板，自动聚焦而非新建
+- [x] **拖放文件导入** — `ScratchpadPanel.vue` 支持 dragover/dragleave/drop，从文件资源管理器拖入文件自动导入
+- [x] **文件监控 watch .scratchpad/** — `notify` crate 后台线程监控目录变更，500ms 防抖后通过 `scratchpad-changed` Tauri event 推送前端自动刷新
+- [x] **CSS 主题变量对齐** — `ScratchpadTreeNode.vue` CSS 变量迁移至 `--color-bg-*` / `--color-text-*` 全局主题系统
+- [x] **工具栏人性化优化** — 两行布局（操作行+搜索行）、按钮图标化、`type="primary"` 主操作、主题变量全面对齐、硬编码文本 i18n 化
+
+### v3.0 已完成 ✅
+
+- [x] **键盘导航** — ↑↓ 在 `filteredLocalEntries` 中移动选中项 + `scrollIntoView({ block: 'nearest' })` 自动滚到可视区；无选中时 ↓ 选第一个 ↑ 选最后一个
+- [x] **Enter 打开** — 选中文件按 Enter = `handleOpen(entry)` 打开编辑器
+- [x] **重命名 loading 反馈** — 提交时 `renamingSaving=true` → 输入框 `:disabled` + 右侧 CSS `@keyframes spin` 旋转动画，后台完成后面板自动清 `renamingKey`
+- [x] **提升事件联动** — `promote_scratchpad_to_resource` 完成后 `app.emit("analytics-resource-changed", ())`，分析资源管理器监听此事件自动刷新
+
+### v3.1 已完成 ✅
+
+- [x] **ScratchpadEntry 精简** — 移除 `extension`/`is_external_ref` 字段，`modified_at` 改为 `Option<String>` (ISO 8601)，前端 `extension` 用 `path.extension()` 方法获取
+- [x] **SearchMatch 结构体** — Rust 新增 `SearchMatch { file, line_number, line_content }`，`search_file_content` 返回 `Vec<SearchMatch>` 而非 `Vec<String>`
+- [x] **文件排序** — 工具栏三按钮（按名称/大小/修改时间），点击切换升序/降序，图标 ArrowUpDown→ArrowUp→ArrowDown 实时反馈
+- [x] **搜索行上下文展示** — 内容搜索结果面板：文件名 + 匹配计数 badge + 行号 + 行内容（等宽字体），最多显示 5 行 + "...还有 N 处匹配"
+- [x] **i18n 扩展** — 新增 `sortByName/sortBySize/sortByModified/sortAsc/sortDesc/matchesCount/searchFileResults` 7 个 key
+
 ### 后续版本 🔮
 
-- [ ] 文件监控（watch `.scratchpad/` 目录变化）
-- [ ] 与 analytics_resource 的"提升"机制
+- [ ] 多选批量操作（Shift/Ctrl 多选 + 批量删除/导出）
+- [ ] 文件拖拽重排序（HTML5 DnD 同级拖拽排序）
+- [ ] 草稿箱与 DuckDB 深度集成（直连 .duckdb 文件）
       </parameter>
       </｜DSML｜inv

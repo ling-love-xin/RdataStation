@@ -73,7 +73,7 @@ const logs = ref([
   color: var(--text-secondary, #858585);
   font-size: 12px;
   flex-shrink: 0;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .log-message {

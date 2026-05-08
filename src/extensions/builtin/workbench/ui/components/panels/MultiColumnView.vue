@@ -323,7 +323,7 @@ watch(
 
 .kv-value {
   font-size: 13px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text-primary);
   font-weight: 500;
 }

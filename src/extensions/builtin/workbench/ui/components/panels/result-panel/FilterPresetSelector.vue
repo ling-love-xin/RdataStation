@@ -12,25 +12,44 @@
       <template #header>
         <div class="preset-header">
           <span>{{ t('resultPanel.filterPreset.header') }}</span>
-          <NButton size="tiny" quaternary @click.stop="onSaveCurrent">
+          <NButton size="tiny" quaternary @click.stop="showSaveModal = true">
             <Save :size="14" />
           </NButton>
         </div>
       </template>
       <template #action>
         <div v-if="selectedPresetId" class="preset-action">
-          <NButton size="tiny" type="error" quaternary @click.stop="onDeleteSelected">
+          <NButton size="tiny" type="error" quaternary @click.stop="showDeleteModal = true">
             <Trash2 :size="14" />
           </NButton>
         </div>
       </template>
     </NSelect>
+
+    <NModal v-model:show="showSaveModal" preset="dialog" :title="t('resultPanel.filterPreset.saveTitle')" :show-icon="false">
+      <div class="save-form">
+        <span class="form-label">{{ t('resultPanel.filterPreset.savePrompt') }}</span>
+        <NInput v-model:value="saveName" :placeholder="t('resultPanel.filterPreset.namePlaceholder')" @keyup.enter="confirmSave" />
+      </div>
+      <template #action>
+        <NButton size="small" @click="showSaveModal = false">取消</NButton>
+        <NButton size="small" type="primary" :disabled="!saveName.trim()" @click="confirmSave">保存</NButton>
+      </template>
+    </NModal>
+
+    <NModal v-model:show="showDeleteModal" preset="dialog" :title="t('resultPanel.filterPreset.deleteTitle')" :show-icon="false">
+      <div class="delete-confirm">{{ t('resultPanel.filterPreset.deleteConfirm', { name: selectedPresetName }) }}</div>
+      <template #action>
+        <NButton size="small" @click="showDeleteModal = false">取消</NButton>
+        <NButton size="small" type="error" @click="confirmDelete">删除</NButton>
+      </template>
+    </NModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Save, Trash2 } from 'lucide-vue-next'
-import { NButton, NSelect } from 'naive-ui'
+import { NButton, NInput, NModal, NSelect } from 'naive-ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -61,6 +80,9 @@ const { t } = useI18n()
 const { presets, getPresetsByMode, removePreset } = useFilterPresets()
 
 const selectedPresetId = ref<string | null>(null)
+const showSaveModal = ref(false)
+const showDeleteModal = ref(false)
+const saveName = ref('')
 
 const filteredPresets = computed(() => {
   if (props.filterMode) {
@@ -77,6 +99,11 @@ const presetOptions = computed<SelectOption[]>(() =>
   }))
 )
 
+const selectedPresetName = computed(() => {
+  const preset = presets.value.find(p => p.id === selectedPresetId.value)
+  return preset?.name ?? ''
+})
+
 function onSelectPreset(value: string | null) {
   if (!value) return
   selectedPresetId.value = value
@@ -91,21 +118,20 @@ function onSelectPreset(value: string | null) {
   }
 }
 
-function onSaveCurrent() {
-  const name = prompt(t('resultPanel.filterPreset.savePrompt') ?? 'Preset name:')
-  if (name && name.trim()) {
-    emit('save', name.trim(), props.currentExpression, props.filterMode)
-  }
+function confirmSave() {
+  const name = saveName.value.trim()
+  if (!name) return
+  emit('save', name, props.currentExpression, props.filterMode)
+  saveName.value = ''
+  showSaveModal.value = false
 }
 
-function onDeleteSelected() {
+function confirmDelete() {
   if (!selectedPresetId.value) return
-  const preset = presets.value.find(p => p.id === selectedPresetId.value)
-  if (preset && confirm(`删除预设 "${preset.name}"？`)) {
-    removePreset(selectedPresetId.value)
-    emit('delete', selectedPresetId.value)
-    selectedPresetId.value = null
-  }
+  removePreset(selectedPresetId.value)
+  emit('delete', selectedPresetId.value)
+  selectedPresetId.value = null
+  showDeleteModal.value = false
 }
 </script>
 
@@ -133,5 +159,22 @@ function onDeleteSelected() {
   display: flex;
   justify-content: flex-end;
   padding: 4px 8px;
+}
+
+.save-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.form-label {
+  font-size: 13px;
+  color: var(--text-color-secondary);
+}
+
+.delete-confirm {
+  padding: 12px 0;
+  font-size: 14px;
 }
 </style>

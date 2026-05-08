@@ -462,7 +462,7 @@ function selectCachePath() {
   background: var(--bg-tertiary);
   padding: 2px 4px;
   border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 
@@ -640,6 +640,6 @@ function selectCachePath() {
   font-size: 16px;
   font-weight: 600;
   color: var(--success-color);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 </style>

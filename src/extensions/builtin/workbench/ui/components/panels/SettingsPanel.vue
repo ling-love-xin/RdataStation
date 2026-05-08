@@ -650,7 +650,7 @@ loadSettings()
   font-size: 12px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-family: monospace;
+  font-family: var(--font-mono);
   text-align: center;
 }
 

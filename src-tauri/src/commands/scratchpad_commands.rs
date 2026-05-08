@@ -1,9 +1,15 @@
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
-use tauri::State;
+use notify::Watcher;
+use serde_json::Value;
+use tauri::{Emitter, State};
 
+use crate::commands::analytics_resource_commands::AnalyticsResourceState;
+use crate::core::persistence::{AnalyticsResource, CreateResourceRequest};
 use crate::core::scratchpad::{
     AnalyzableFile, ExternalReference, ScratchpadEntry, ScratchpadResponse, ScratchpadState, ScratchpadStore,
+    SearchMatch,
 };
 
 async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, String> {
@@ -182,10 +188,165 @@ pub async fn update_scratchpad_file_meta(
 pub async fn search_scratchpad_content(
     query: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<SearchMatch>, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .search_file_content(&query)
         .await
         .map_err(|e| e.to_string())
+}
+
+// ==================== File Watcher Commands ====================
+
+#[tauri::command]
+pub async fn watch_scratchpad(
+    app: tauri::AppHandle,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<(), String> {
+    if scratchpad_state.is_watching() {
+        return Ok(());
+    }
+
+    let scratchpad = get_store(&scratchpad_state).await?;
+    let watch_dir = scratchpad.scratchpad_dir().to_path_buf();
+
+    scratchpad.ensure_dir().await.map_err(|e| e.to_string())?;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
+        if res.is_ok() {
+            let _ = tx.send(());
+        }
+    })
+    .map_err(|e| e.to_string())?;
+
+    watcher
+        .watch(&watch_dir, notify::RecursiveMode::Recursive)
+        .map_err(|e| e.to_string())?;
+
+    scratchpad_state.set_watching(true);
+
+    let watcher_flag = scratchpad_state.watcher_active.clone();
+
+    tokio::task::spawn_blocking(move || {
+        let _watcher = watcher;
+        let debounce_ms = std::time::Duration::from_millis(500);
+        let mut last_emit = std::time::Instant::now() - debounce_ms;
+        loop {
+            if !watcher_flag.load(Ordering::Relaxed) {
+                break;
+            }
+            match rx.recv_timeout(std::time::Duration::from_millis(200)) {
+                Ok(()) => {
+                    let now = std::time::Instant::now();
+                    if now.duration_since(last_emit) >= debounce_ms {
+                        let _ = app.emit("scratchpad-changed", ());
+                        last_emit = now;
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn unwatch_scratchpad(
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<(), String> {
+    scratchpad_state.set_watching(false);
+    Ok(())
+}
+
+// ==================== Promote Command ====================
+
+fn extension_to_resource_type(ext: &str) -> &str {
+    match ext {
+        "sql" => "sql_script",
+        "py" => "python_script",
+        "csv" => "csv_data",
+        "parquet" => "parquet_data",
+        "json" => "json_data",
+        "xlsx" => "excel_data",
+        "txt" | "md" => "document",
+        _ => "file",
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PromoteResult {
+    pub resource: AnalyticsResource,
+    pub removed: bool,
+}
+
+#[tauri::command]
+pub async fn promote_scratchpad_to_resource(
+    app: tauri::AppHandle,
+    relative_path: String,
+    remove_after: bool,
+    scratchpad_state: State<'_, ScratchpadState>,
+    analytics_state: State<'_, AnalyticsResourceState>,
+) -> Result<PromoteResult, String> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+
+    let file_content = scratchpad.read_file(&relative_path).await.map_err(|e| e.to_string())?;
+    let file_size = scratchpad.check_file_size(&relative_path).await.map_err(|e| e.to_string())?;
+
+    let file_name = std::path::Path::new(&relative_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&relative_path)
+        .to_string();
+
+    let ext = std::path::Path::new(&relative_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let resource_type = extension_to_resource_type(&ext).to_string();
+
+    let mut config = serde_json::Map::new();
+    config.insert("source".to_string(), Value::String("scratchpad".to_string()));
+    config.insert("scratchpad_relative_path".to_string(), Value::String(relative_path.clone()));
+
+    if resource_type == "sql_script" {
+        config.insert("sql".to_string(), Value::String(file_content.clone()));
+    }
+
+    let req = CreateResourceRequest {
+        resource_type,
+        name: file_name,
+        alias: None,
+        config: Value::Object(config),
+        scope: "project".to_string(),
+        row_count: None,
+        column_count: None,
+        file_size: Some(file_size as i64),
+        parent_resource_id: None,
+        source_query: if ext == "sql" { Some(file_content) } else { None },
+    };
+
+    let analytics_guard = analytics_state.store.lock().await;
+    let ar_store = analytics_guard.as_ref().ok_or_else(|| {
+        "分析资源存储未初始化".to_string()
+    })?;
+
+    let resource = ar_store.create_resource(req).await.map_err(|e| e.to_string())?;
+
+    let _ = app.emit("analytics-resource-changed", ());
+
+    let mut removed = false;
+    if remove_after {
+        scratchpad.delete_entry(&relative_path).await.map_err(|e| e.to_string())?;
+        removed = true;
+    }
+
+    Ok(PromoteResult {
+        resource,
+        removed,
+    })
 }

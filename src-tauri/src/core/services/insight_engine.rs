@@ -390,7 +390,7 @@ fn get_column_sample_internal(
     })?;
     let samples: Vec<serde_json::Value> = stmt
         .query_map([], |row| {
-            let v: duckdb::types::Value = row.get_unwrap(0);
+            let v: duckdb::types::Value = row.get(0)?;
             Ok(duckdb_value_to_json(&v))
         })
         .map_err(|e| {
@@ -501,6 +501,283 @@ pub(crate) fn list_insight_rules(
         })
         .collect();
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::services::quality_scorer;
+
+    fn setup_test_table(conn: &duckdb::Connection) -> (&str, &str) {
+        let table = "rs_test_insight";
+        let col = "amount";
+        conn.execute_batch(&format!(
+            "CREATE TABLE \"{}\" (\"{}\" DOUBLE, name VARCHAR, created_date DATE, is_active BOOLEAN)",
+            table, col
+        ))
+        .expect("create test table");
+        conn.execute_batch(&format!(
+            "INSERT INTO \"{}\" VALUES \
+             (100.0, 'Alice', '2025-01-15', true), \
+             (200.0, 'Bob', '2025-02-20', true), \
+             (300.0, 'Charlie', '2025-03-25', false), \
+             (400.0, 'Diana', '2025-04-10', true), \
+             (500.0, 'Eve', '2025-05-05', true), \
+             (null, 'Frank', null, null), \
+             (150.0, 'Grace', '2025-01-30', false), \
+             (250.0, 'Heidi', '2025-06-15', true), \
+             (350.0, 'Ivan', '2025-07-20', false), \
+             (450.0, 'Judy', '2025-08-25', true)",
+            table
+        ))
+        .expect("insert test data");
+
+        let _ = crate::core::insight::global_registry();
+        (table, col)
+    }
+
+    #[test]
+    fn test_get_column_stats_numeric() {
+        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+        let (table, col) = setup_test_table(&conn);
+
+        let stats = get_column_stats_internal(&conn, table, col).expect("get column stats");
+
+        assert_eq!(stats.column_name, col);
+        assert_eq!(stats.total_count, 10);
+        assert_eq!(stats.null_count, 1);
+        assert!((stats.null_rate - 0.1).abs() < 0.001);
+        assert_eq!(stats.unique_count, Some(9));
+
+        match &stats.stats_detail {
+            ColumnStatsDetail::Numeric(n) => {
+                assert!(n.min > 0.0);
+                assert!(n.max > n.min);
+                assert!(n.avg > n.min && n.avg < n.max);
+            }
+            other => panic!("Expected Numeric stats, got: {:?}", std::mem::discriminant(other)),
+        }
+    }
+
+    #[test]
+    fn test_get_column_stats_all_null() {
+        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+        conn.execute_batch("CREATE TABLE \"rs_null\" (\"col\" DOUBLE)")
+            .expect("create");
+        conn.execute_batch("INSERT INTO \"rs_null\" VALUES (null), (null)")
+            .expect("insert");
+
+        let stats = get_column_stats_internal(&conn, "rs_null", "col").expect("get stats");
+        assert_eq!(stats.total_count, 2);
+        assert_eq!(stats.null_count, 2);
+        assert_eq!(stats.null_rate, 1.0);
+    }
+
+    #[test]
+    fn test_get_column_stats_text() {
+        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+        conn.execute_batch("CREATE TABLE \"rs_text\" (\"name\" VARCHAR)")
+            .expect("create");
+        conn.execute_batch(
+            "INSERT INTO \"rs_text\" VALUES ('Alice'), ('Bob'), ('Alice'), ('Charlie'), ('Bob')",
+        )
+        .expect("insert");
+
+        let stats = get_column_stats_internal(&conn, "rs_text", "name").expect("get stats");
+
+        assert_eq!(stats.total_count, 5);
+        assert_eq!(stats.null_count, 0);
+        assert_eq!(stats.unique_count, Some(3));
+
+        match &stats.stats_detail {
+            ColumnStatsDetail::Text(t) => {
+                assert!(!t.top_values.is_empty());
+                assert!(t.min_length > 0);
+                assert!(t.max_length >= t.min_length);
+            }
+            _other => panic!("Expected Text stats, got variant"),
+        }
+    }
+
+    #[test]
+    fn test_get_column_stats_boolean() {
+        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+        conn.execute_batch("CREATE TABLE \"rs_bool\" (\"active\" BOOLEAN)")
+            .expect("create");
+        conn.execute_batch(
+            "INSERT INTO \"rs_bool\" VALUES (true), (true), (false), (true), (null)",
+        )
+        .expect("insert");
+
+        let stats = get_column_stats_internal(&conn, "rs_bool", "active").expect("get stats");
+
+        assert_eq!(stats.total_count, 5);
+        assert_eq!(stats.null_count, 1);
+
+        match &stats.stats_detail {
+            ColumnStatsDetail::Boolean(b) => {
+                assert_eq!(b.true_count, 3);
+                assert_eq!(b.false_count, 1);
+                assert!((b.true_ratio - 0.75).abs() < 0.01);
+            }
+            _other => panic!("Expected Boolean stats, got variant"),
+        }
+    }
+
+    #[test]
+    fn test_get_column_sample_returns_limit_5() {
+        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+        let (table, col) = setup_test_table(&conn);
+
+        let sample = get_column_sample_internal(&conn, table, col).expect("get sample");
+        assert!(sample.len() <= 5, "sample should be at most 5 rows");
+    }
+
+    #[test]
+    fn test_quality_scorer_high_score() {
+        let stats = ColumnInsightFull {
+            stats: crate::core::services::result_service::ColumnStats {
+                column_name: "score".into(),
+                data_type: "DOUBLE".into(),
+                total_count: 100,
+                null_count: 2,
+                null_rate: 0.02,
+                unique_count: Some(95),
+                stats_detail: ColumnStatsDetail::Numeric(
+                    crate::core::services::result_service::NumericStats {
+                        min: 1.0,
+                        max: 100.0,
+                        avg: 50.0,
+                        median: 50.5,
+                        p25: 25.0,
+                        p75: 75.0,
+                        sum: 4900.0,
+                        stddev: Some(28.0),
+                        skewness: None,
+                        kurtosis: None,
+                        is_extreme: vec![],
+                    },
+                ),
+            },
+            sample: vec![serde_json::json!(50.0)],
+            histogram: Some(vec![
+                DistributionBin { label: "0-25".into(), count: 25, ratio: 0.25 },
+                DistributionBin { label: "25-50".into(), count: 24, ratio: 0.24 },
+                DistributionBin { label: "50-75".into(), count: 26, ratio: 0.26 },
+                DistributionBin { label: "75-100".into(), count: 25, ratio: 0.25 },
+            ]),
+        };
+
+        let qs = quality_scorer::compute_column_quality(&stats);
+        assert!(qs.overall_score > 70.0, "high quality data should score > 70");
+
+        assert_eq!(qs.dimensions.len(), 4);
+        let dim_names: Vec<&str> = qs.dimensions.iter().map(|d| d.name.as_str()).collect();
+        assert!(dim_names.contains(&"完整性"));
+        assert!(dim_names.contains(&"唯一性"));
+        assert!(dim_names.contains(&"类型一致"));
+        assert!(dim_names.contains(&"分布均匀"));
+    }
+
+    #[test]
+    fn test_quality_scorer_low_score() {
+        let stats = ColumnInsightFull {
+            stats: crate::core::services::result_service::ColumnStats {
+                column_name: "bad".into(),
+                data_type: "VARCHAR".into(),
+                total_count: 100,
+                null_count: 60,
+                null_rate: 0.6,
+                unique_count: Some(1),
+                stats_detail: ColumnStatsDetail::Text(
+                    crate::core::services::result_service::TextStats {
+                        min_length: 3,
+                        max_length: 3,
+                        top_values: vec![],
+                    },
+                ),
+            },
+            sample: vec![],
+            histogram: None,
+        };
+
+        let qs = quality_scorer::compute_column_quality(&stats);
+        assert!(qs.overall_score < 50.0, "low quality data should score < 50");
+    }
+
+    #[test]
+    fn test_compute_table_quality() {
+        let make_stats = |name: &str, score: f64| {
+            ColumnInsightFull {
+                stats: crate::core::services::result_service::ColumnStats {
+                    column_name: name.into(),
+                    data_type: "INTEGER".into(),
+                    total_count: 100,
+                    null_count: ((1.0 - score / 100.0) * 100.0) as usize,
+                    null_rate: 1.0 - score / 100.0,
+                    unique_count: Some((score * 0.9) as usize),
+                    stats_detail: ColumnStatsDetail::Numeric(
+                        crate::core::services::result_service::NumericStats {
+                            min: 0.0,
+                            max: 100.0,
+                            avg: 50.0,
+                            median: 50.0,
+                            p25: 25.0,
+                            p75: 75.0,
+                            sum: 5000.0,
+                            stddev: Some(10.0),
+                            skewness: None,
+                            kurtosis: None,
+                            is_extreme: vec![],
+                        },
+                    ),
+                },
+                sample: vec![],
+                histogram: Some(vec![
+                    DistributionBin { label: "a".into(), count: 50, ratio: 0.5 },
+                    DistributionBin { label: "b".into(), count: 50, ratio: 0.5 },
+                ]),
+            }
+        };
+
+        let stats_list = vec![
+            make_stats("col_a", 90.0),
+            make_stats("col_b", 30.0),
+            make_stats("col_c", 80.0),
+        ];
+
+        let tq = quality_scorer::compute_table_quality("test_table", &stats_list);
+
+        assert_eq!(tq.table_name, "test_table");
+        assert_eq!(tq.scored_count, 3);
+        assert_eq!(tq.total_columns, 3);
+        assert_eq!(tq.column_scores.len(), 3);
+        assert!(tq.column_scores[0].quality_score <= tq.column_scores[1].quality_score,
+            "column scores should be sorted ascending");
+
+        let avg = (90.0 + 30.0 + 80.0) / 3.0;
+        assert!((tq.overall_score - avg).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_list_insight_rules_all() {
+        let rules = list_insight_rules(None).expect("list rules");
+        assert!(!rules.is_empty(), "built-in rules should exist");
+        for rule in &rules {
+            assert!(rule["id"].is_string(), "every rule should have an id");
+            assert!(rule["name"].is_string(), "every rule should have a name");
+        }
+    }
+
+    #[test]
+    fn test_list_rules_for_numeric_column() {
+        let rules = list_rules_for_column("numeric").expect("list numeric rules");
+        assert!(!rules.is_empty(), "should have numeric rules");
+        let ids: Vec<&str> = rules.iter()
+            .filter_map(|r| r["id"].as_str())
+            .collect();
+        assert!(ids.contains(&"numeric-stats"), "should contain numeric-stats");
+    }
 }
 
 pub(crate) fn list_rules_for_column(

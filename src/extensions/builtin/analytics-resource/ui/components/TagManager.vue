@@ -11,22 +11,14 @@
         v-for="tag in tags"
         :key="tag.id"
         :class="['tag-chip', { active: activeTagId === tag.id }]"
-        :style="
-          activeTagId === tag.id
-            ? { background: tag.color || '#165DFF', borderColor: tag.color || '#165DFF' }
-            : {}
-        "
+        :style="activeTagId === tag.id ? { background: tag.color || '#165DFF', borderColor: tag.color || '#165DFF' } : {}"
         @click="handleSelectTag(tag.id)"
       >
         <span class="tag-dot" :style="{ background: tag.color || '#165DFF' }" />
         {{ tag.name }}
       </button>
     </div>
-    <button
-      class="add-tag-btn"
-      :title="t('analyticsResource.createTag')"
-      @click="$emit('create-tag')"
-    >
+    <button class="add-tag-btn" :title="t('analyticsResource.createTag')" @click="$emit('create-tag')">
       + {{ t('analyticsResource.newTag') }}
     </button>
   </div>

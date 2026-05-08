@@ -450,6 +450,8 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     rollbackTransaction,
     executeDuckDBAccelerated,
     executeBatch,
+    executeSql,
+    storeResult,
     checkForParams,
     buildBoundSql,
   }

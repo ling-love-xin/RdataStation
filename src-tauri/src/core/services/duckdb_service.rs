@@ -89,14 +89,6 @@ impl DuckDbService {
         Ok(table_name)
     }
 
-    pub fn register_temp_table(table_name: &str) {
-        DuckDBManager::global().register_temp_table(table_name);
-    }
-
-    pub fn cleanup_temp_table(table_name: &str) {
-        DuckDBManager::global().cleanup_temp_table(table_name);
-    }
-
     pub(crate) fn query_duckdb(
         conn: &mut duckdb::Connection,
         sql: &str,

@@ -89,7 +89,8 @@
         :key="item.id"
         class="history-item"
         :class="{ 'is-favorite': item.isFavorite }"
-        @click="selectHistory(item)"
+        @click="selectHistory(item as SqlHistoryItem)"
+        @dblclick="reExecuteHistory(item as SqlHistoryItem)"
       >
         <div class="item-header">
           <div class="item-info">
@@ -250,9 +251,20 @@ const clearAllHistory = () => {
 }
 
 const selectHistory = (item: SqlHistoryItem) => {
-  // 发送事件到 SQL 编辑器
   window.dispatchEvent(
     new CustomEvent('sql-history-select', {
+      detail: {
+        sql: item.sql,
+        connectionId: item.connectionId,
+        historyItem: item,
+      },
+    })
+  )
+}
+
+const reExecuteHistory = (item: SqlHistoryItem) => {
+  window.dispatchEvent(
+    new CustomEvent('sql-history-re-execute', {
       detail: {
         sql: item.sql,
         connectionId: item.connectionId,
@@ -414,7 +426,7 @@ onMounted(() => {
 
 .item-sql pre {
   margin: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.4;

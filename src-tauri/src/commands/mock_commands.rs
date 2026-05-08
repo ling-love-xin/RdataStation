@@ -1,0 +1,121 @@
+use crate::core::mock::{
+    ColumnMappingResponse, MockConfig, MockEngine, MockExportInput,
+    MockGenerateResult, ScenarioTemplate, ColumnDef, ImportSchemaInput,
+    MockSaveToScratchpadInput, MockPersistAssetInput, MockPersistAssetResult,
+    MockHistoryRecord,
+};
+use tauri::Manager;
+
+#[tauri::command]
+pub async fn mock_generate(config: MockConfig) -> Result<MockGenerateResult, String> {
+    MockEngine::generate(config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_preview(table_name: String, limit: usize) -> Result<Vec<Vec<serde_json::Value>>, String> {
+    MockEngine::preview(&table_name, limit).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_export(input: MockExportInput) -> Result<String, String> {
+    MockEngine::export(
+        &input.temp_table_name,
+        &input.format,
+        input.output_path.as_deref(),
+        input.table_name.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_map_column(
+    column_name: String,
+    data_type: String,
+) -> Result<ColumnMappingResponse, String> {
+    MockEngine::map_column(&column_name, &data_type).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_map_columns_batch(
+    columns: Vec<(String, String)>,
+) -> Result<Vec<ColumnMappingResponse>, String> {
+    MockEngine::map_columns_batch(columns).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_list_templates() -> Result<Vec<ScenarioTemplate>, String> {
+    MockEngine::list_templates().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_import_schema(
+    input: ImportSchemaInput,
+) -> Result<Vec<ColumnDef>, String> {
+    MockEngine::import_schema(&input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_apply_template(template_id: String) -> Result<ScenarioTemplate, String> {
+    MockEngine::apply_template(&template_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_save_to_scratchpad(
+    input: MockSaveToScratchpadInput,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let scratchpad_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("scratchpad")
+        .join("mock");
+
+    std::fs::create_dir_all(&scratchpad_dir)
+        .map_err(|e| format!("Failed to create scratchpad/mock dir: {}", e))?;
+
+    let scratchpad_path = scratchpad_dir
+        .to_str()
+        .ok_or_else(|| "Invalid scratchpad dir path".to_string())?;
+
+    MockEngine::save_to_scratchpad(
+        &input.temp_table_name,
+        &input.format,
+        scratchpad_path,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_persist_as_asset(
+    input: MockPersistAssetInput,
+) -> Result<MockPersistAssetResult, String> {
+    let (table_name, row_count, column_count) =
+        MockEngine::persist_as_asset(&input.temp_table_name, &input.name)
+            .map_err(|e| e.to_string())?;
+
+    Ok(MockPersistAssetResult {
+        table_name,
+        row_count,
+        column_count,
+    })
+}
+
+#[tauri::command]
+pub async fn mock_get_history(limit: usize) -> Result<Vec<MockHistoryRecord>, String> {
+    MockEngine::get_history(limit).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_clear_history() -> Result<usize, String> {
+    MockEngine::clear_history().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn mock_re_generate(history_id: String) -> Result<MockGenerateResult, String> {
+    MockEngine::re_generate(&history_id)
+        .await
+        .map_err(|e| e.to_string())
+}

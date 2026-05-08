@@ -348,7 +348,7 @@ function rowPreview(row: Record<string, unknown>): string {
 
 .col-name {
   font-size: 13px;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .diff-table-wrapper {
@@ -389,7 +389,7 @@ function rowPreview(row: Record<string, unknown>): string {
 
 .key-col {
   width: 160px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   word-break: break-all;
 }

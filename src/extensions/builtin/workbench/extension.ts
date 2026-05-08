@@ -4,7 +4,9 @@
  * 提供工作台布局管理能力
  */
 
+import DynamicObjectPropertiesPanel from './ui/components/panels/DynamicObjectPropertiesPanel.vue'
 import EmptyWorkbenchPanel from './ui/components/panels/EmptyWorkbenchPanel.vue'
+import MockPanel from './ui/components/panels/MockPanel.vue'
 import OutputPanel from './ui/components/panels/OutputPanel.vue'
 import PluginsPanel from './ui/components/panels/PluginsPanel.vue'
 import SqlHistoryPanel from './ui/components/panels/SqlHistoryPanel.vue'
@@ -101,11 +103,31 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     order: 3,
   })
 
+  // 注册Mock数据生成面板（右侧）
+  const mockPanelDisposable = context.window.registerViewProvider('mockPanel', {
+    component: MockPanel,
+    title: 'Mock 数据',
+    location: 'right',
+    icon: 'Database',
+    order: 1,
+  })
+
+  // 注册动态对象属性面板（中心区域，动态创建）
+  const objectPropertiesDisposable = context.window.registerViewProvider('dynamicObjectProperties', {
+    component: DynamicObjectPropertiesPanel,
+    title: '对象属性',
+    location: 'center',
+    icon: 'Info',
+    order: 10,
+  })
+
   const disposables: Disposable[] = [
     emptyPanelDisposable,
     sqlHistoryDisposable,
     outputDisposable,
     pluginsDisposable,
+    mockPanelDisposable,
+    objectPropertiesDisposable,
     context.commands.registerCommand('workbench.openPanel', (...args: unknown[]) =>
       openPanel(args[0] as string, args[1] as { title?: string; component?: unknown })
     ),

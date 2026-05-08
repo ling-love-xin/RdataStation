@@ -82,11 +82,32 @@ extism = "1.21.0"
 # ===== 迁移系统 =====
 include_dir = "0.7.4"
 
+# ===== 模拟数据生成 =====
+fake = { version = "5", features = [
+    "derive",
+    "chrono",
+    "uuid",
+    "http",
+    "ferroid",
+    "ulid",
+    "semver",
+    "random_color",
+    "geo",
+    "url",
+    "serde_json",
+    "bigdecimal",
+    "rust_decimal",
+    "time",
+] }
+
 # ===== 压缩存储 =====
 flate2 = "1.0.35"
 
 # ===== 配置文件解析 (规则引擎) =====
 toml = "0.8"
+
+# ===== 文件系统监控 =====
+notify = "6"
 
 # ===== SQL 解析与转译 =====
 sqlglot-rust = "0.9.24"

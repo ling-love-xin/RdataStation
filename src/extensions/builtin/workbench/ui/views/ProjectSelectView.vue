@@ -194,6 +194,7 @@ import { useRouter } from 'vue-router'
 
 import { useProjectStore } from '@/core/project/stores/project'
 import { useUiStore } from '@/shared/stores/ui'
+import { useAppStore } from '@/stores/useAppStore'
 
 interface Project {
   id: string
@@ -300,10 +301,8 @@ const openProject = async (project: Project) => {
 const enterWorkbench = async (project: Project) => {
   console.log('enterWorkbench 被调用:', project)
 
-  // 保存到 localStorage
   localStorage.setItem('currentProject', JSON.stringify(project))
 
-  // 同时更新 project store
   const projectStore = useProjectStore()
   await projectStore.setCurrentProject({
     id: project.id,
@@ -313,6 +312,9 @@ const enterWorkbench = async (project: Project) => {
     createdAt: new Date(project.lastOpened).toISOString(),
     updatedAt: new Date().toISOString(),
   })
+
+  const appStore = useAppStore()
+  await appStore.openProject(project.path)
 
   console.log('准备跳转到工作台')
   router.push('/workbench')

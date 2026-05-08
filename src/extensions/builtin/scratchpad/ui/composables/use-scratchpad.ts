@@ -18,9 +18,19 @@ import {
   restoreFromTrash,
   emptyTrash,
   getAnalyzableFiles,
+  watchScratchpad,
+  unwatchScratchpad,
+  promoteScratchpadToResource,
 } from '../../infrastructure/api/scratchpad-api'
 
-import type { ExternalReference, ScratchpadEntry, ScratchpadResponse, AnalyzableFile } from '../../types'
+import type {
+  ScratchpadResponse,
+  ScratchpadEntry,
+  ExternalReference,
+  AnalyzableFile,
+  PromoteResult,
+  SearchMatch,
+} from '../../types'
 
 export function useScratchpad() {
   const response = ref<ScratchpadResponse | null>(null)
@@ -254,12 +264,44 @@ export function useScratchpad() {
     }
   }
 
-  async function searchContent(query: string): Promise<string[]> {
+  async function searchContent(query: string): Promise<SearchMatch[]> {
     try {
       return await searchFileContent(query)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       return []
+    }
+  }
+
+  async function startWatching(): Promise<void> {
+    try {
+      await watchScratchpad()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  async function stopWatching(): Promise<void> {
+    try {
+      await unwatchScratchpad()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  async function promoteToResource(
+    relativePath: string,
+    removeAfter: boolean
+  ): Promise<PromoteResult | null> {
+    try {
+      const result = await promoteScratchpadToResource(relativePath, removeAfter)
+      if (removeAfter) {
+        await loadFiles()
+      }
+      return result
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
     }
   }
 
@@ -296,5 +338,8 @@ export function useScratchpad() {
     emptyTrashBin,
     analyzableFiles,
     loadAnalyzableFiles,
+    startWatching,
+    stopWatching,
+    promoteToResource,
   }
 }

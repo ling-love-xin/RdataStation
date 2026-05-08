@@ -63,17 +63,21 @@ const naiveDateLocale = computed(() => {
 })
 
 const themeOverrides = computed(() => {
-  const accent = '#E17055'
-  const accentHover = '#D35400'
+  const rootStyles = getComputedStyle(document.documentElement)
+  const accent = rootStyles.getPropertyValue('--brand-accent').trim() || '#E17055'
+  const accentHover = rootStyles.getPropertyValue('--brand-accent-hover').trim() || '#D35400'
+  const success = rootStyles.getPropertyValue('--brand-success').trim() || '#00B894'
+  const warning = rootStyles.getPropertyValue('--brand-warning').trim() || '#FDCB6E'
+  const danger = rootStyles.getPropertyValue('--brand-danger').trim() || '#D63031'
   return {
     common: {
       primaryColor: accent,
       primaryColorHover: accentHover,
       primaryColorPressed: accentHover,
       primaryColorSuppl: accent,
-      successColor: '#00B894',
-      warningColor: '#FDCB6E',
-      errorColor: '#D63031',
+      successColor: success,
+      warningColor: warning,
+      errorColor: danger,
       infoColor: accent,
     },
   }

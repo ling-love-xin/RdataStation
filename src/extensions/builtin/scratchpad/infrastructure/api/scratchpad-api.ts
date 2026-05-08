@@ -1,6 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 
-import type { ScratchpadEntry, ExternalReference, ScratchpadResponse, AnalyzableFile } from '../../types'
+import type {
+  ScratchpadResponse,
+  ScratchpadEntry,
+  ExternalReference,
+  AnalyzableFile,
+  PromoteResult,
+  SearchMatch,
+} from '../../types'
 
 export async function listScratchpadFiles(): Promise<ScratchpadResponse> {
   return invoke<ScratchpadResponse>('list_scratchpad_files')
@@ -89,8 +96,8 @@ export async function updateFileMeta(
   })
 }
 
-export async function searchFileContent(query: string): Promise<string[]> {
-  return invoke<string[]>('search_scratchpad_content', { query })
+export async function searchFileContent(query: string): Promise<SearchMatch[]> {
+  return invoke<SearchMatch[]>('search_scratchpad_content', { query })
 }
 
 export async function listTrash(): Promise<ScratchpadEntry[]> {
@@ -107,4 +114,22 @@ export async function emptyTrash(): Promise<void> {
 
 export async function getAnalyzableFiles(): Promise<AnalyzableFile[]> {
   return invoke<AnalyzableFile[]>('get_analyzable_files')
+}
+
+export async function watchScratchpad(): Promise<void> {
+  return invoke<void>('watch_scratchpad')
+}
+
+export async function unwatchScratchpad(): Promise<void> {
+  return invoke<void>('unwatch_scratchpad')
+}
+
+export async function promoteScratchpadToResource(
+  relativePath: string,
+  removeAfter: boolean
+): Promise<PromoteResult> {
+  return invoke<PromoteResult>('promote_scratchpad_to_resource', {
+    relativePath,
+    removeAfter,
+  })
 }

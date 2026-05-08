@@ -1,6 +1,6 @@
 # RdataStation 变更日志
 
-> 版本：v2.5.11
+> 版本：v2.8.0
 > 最后更新：2026-05-08
 
 ## 目录
@@ -12,6 +12,86 @@
 ---
 
 ## 项目变更日志
+
+### [v2.8.0] - 2026-05-08
+
+#### ✨ Phase 2.1 面板恢复：项目重新打开时还原面板
+
+**面板 ID 追踪与恢复：**
+- `WorkbenchView.onDidLayoutChange()` → 提取当前所有打开的面板 ID (`api.panels.map(p => p.id)`) → 存入 `layoutStore.openPanelIds` → 持久化到 `appStore.saveSidebarState({ openPanelIds })`
+- `WorkbenchView.restoreSavedPanels()` → 项目重新打开时，对比已保存面板 ID 与默认布局面板 ID → 从 `panelRegistry` 查找组件 → `api.addPanel()` 还原缺失的面板
+
+**类型扩展：**
+- `SerializedSidebarState.openPanelIds: string[]` — 新增字段，追踪上次会话打开的面板列表
+- `SidebarStateSchema` zod 校验新增 `z.array(z.string()).default([])`
+
+**恢复策略：**
+- 默认布局始终创建（保证基础面板可用）
+- 额外面板按 session 快照恢复
+- 面板 ID 格式 `panel_<componentName>_<N>` → 提取组件名匹配 `panelRegistry`
+- 单个面板恢复失败不影响其他面板
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.8.0 条目
+- **CONFIG-PROGRESS.md v2.2** — 进度 73%→78%
+
+---
+
+### [v2.7.0] - 2026-05-08
+
+#### ✨ Phase 3/4 打通：编辑器设置实时生效 + 保存反馈
+
+**Monaco Editor 设置实时同步：**
+- `SqlEditorPanel.vue` 增加 `watch(appStore.effectiveEditorSettings)` — 设置面板修改 fontSize/wordWrap/lineNumbers/tabSize/minimap 后，所有已打开的 SQL 编辑器立即应用，无需刷新页面
+- 编辑器初始状态改为从 `appStore.effectiveEditorSettings` 读取（消除硬编码默认值）
+- 所有打开的编辑器面板独立响应设置变更
+
+**SaveResult toast 反馈：**
+- `SettingsPanel.applyAllSettings()` 调用 `message.success()` / `message.error()` 显示保存结果
+- i18n 新增 `settings.saveSuccess` / `settings.saveFailed` 双语键
+- 替换原来的静默 console.error
+
+#### 🧹 代码清理
+
+- 影响矩阵修正：`MainLayout.vue` / `useLayoutStore` Phase 2 标记为 ✅ (v2.6.0)
+- 影响矩阵新增：`SqlEditorPanel.vue` Phase 4 标记为 ✅ (v2.7.0)
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.7.0 条目
+- **CONFIG-PROGRESS.md v2.1** — 进度 70%→73%
+
+---
+
+### [v2.6.0] - 2026-05-08
+
+#### ✨ Phase 2 打通：布局持久化全线贯通
+
+**项目生命周期：**
+- `ProjectSelectView.enterWorkbench()` → 打开项目时调用 `appStore.openProject(path)` 初始化 project-settings.json 存储
+- `WorkbenchView.onUnmounted()` → 离开工作台时调用 `appStore.closeProject()` 清理
+
+**侧边栏状态持久化（config 系统）：**
+- `layout-store.saveLayoutConfig()` → 双写：localStorage（兼容）+ `appStore.saveSidebarState()`（config 系统）
+- `layout-store.loadLayoutConfig()` → 优先从 `appStore.effectiveSidebarState` 恢复，回退 localStorage
+- `layout-store.setLayoutData()` → 同步调用 `appStore.saveDockviewLayout()` 持久化 dockview 面板布局
+
+**Dockview 布局自动保存：**
+- `WorkbenchView.onReady()` → 注册 `api.onDidLayoutChange()` 监听，布局变化时自动序列化并保存到 project-settings.json
+- `WorkbenchView.onMounted()` → 调用 `layoutStore.loadLayoutConfig()` 恢复侧边栏状态
+
+**类型扩展：**
+- `SerializedSidebarState` 从 3 字段扩展到 14 字段，覆盖完整的工作台布局状态（活动栏、侧边栏、面板可见性、选中项、尺寸、底部面板模式）
+- `SidebarStateSchema` zod 校验同步扩展，所有字段带 `.default()`
+- `CONFIG_REGISTRY.sidebarState.default` 同步更新
+
+#### 📝 文档
+
+- **CHANGELOG.md** — v2.6.0 条目
+- **CONFIG-PROGRESS.md v2.0** — 进度 51%→70%，阶段二 "项目配置链打通" ✅
+
+---
 
 ### [v2.5.11] - 2026-05-08
 

@@ -588,7 +588,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     // Tag Bidirectional
     getTagsForResource,
     getResourcesByTag,
-  }
+  };
 
   function loadSettings() {
     const stored = localStorage.getItem('analytics_resource_settings')

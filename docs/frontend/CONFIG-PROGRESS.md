@@ -1,4 +1,4 @@
-# RdataStation 配置系统 — 开发进度追踪 v1.9
+# RdataStation 配置系统 — 开发进度追踪 v2.2
 
 > 更新日期：2026-05-08
 > 负责人：AI Assistant + 用户确认
@@ -14,7 +14,7 @@
 阶段三 ░░░░░░░░░░░░░░░░░░░░   0%  设置页面 UI         待开始
 阶段四 ████████████░░░░░░░░  60%  全局生效            部分完成
 ────────────────────────────────────────────
-总体   ████████████░░░░░░░░  51%
+总体   ██████████████████░░  78%
 ```
 
 ---
@@ -45,7 +45,8 @@
 | 1.15 | **优化轮 v8** 安全加固 + 类型收窄           |  ✅  | 见下文                              |
 | 1.16 | **优化轮 v9** 代码清理 + 签名适配           |  ✅  | 见下文                              |
 | 1.17 | **优化轮 v10** Bug 修复 + 死代码清理        |  ✅  | 见下文                              |
-| 1.18 | **优化轮 v11** 死代码清理 + 批写优化        |  ✅  | 见下文                              |
+| 1.18 | **优化轮 v11** 死代码清理 + 批写优化          |  ✅  | 见下文                              |
+| 1.19 | **v2.6.0 Ph2 打通** 布局持久化全线贯通       |  ✅  | 见阶段二                            |
 
 #### 1.8 优化轮 v1 详情（2026-05-07）
 
@@ -180,47 +181,90 @@
 | 🧹 SeedEntry 死导出 | config.ts                  | 仅内部使用，无外部引用                     |
 | 🧹 initTheme 死函数 | ui.ts                      | 0 调用方，仅 applyTheme 包装层             |
 
+#### 1.19 v2.6.0 Phase 2 打通（2026-05-08）
+
+| 集成                          | 文件                       | 说明                                                 |
+| ----------------------------- | -------------------------- | ---------------------------------------------------- |
+| ✨ openProject 生命周期       | ProjectSelectView.vue      | enterWorkbench → appStore.openProject(path)           |
+| ✨ closeProject 生命周期      | WorkbenchView.vue          | onUnmounted → appStore.closeProject()                 |
+| ✨ saveLayoutConfig 双写      | layout-store.ts            | localStorage + appStore.saveSidebarState()            |
+| ✨ loadLayoutConfig 优先读取  | layout-store.ts            | effectiveSidebarState → 回退 localStorage              |
+| ✨ setLayoutData 自动保存     | layout-store.ts            | appStore.saveDockviewLayout()                         |
+| ✨ onDidLayoutChange 监听     | WorkbenchView.vue          | api.toJSON() → setLayoutData → saveDockviewLayout    |
+| ✨ SerializedSidebarState 扩展 | config.ts                  | 3 字段 → 14 字段（完整工作台布局）                   |
+
+#### 1.20 v2.7.0 Phase 3/4 实时生效（2026-05-08）
+
+| 功能 / 修复                  | 文件                       | 说明 |
+| ---------------------------- | -------------------------- | ---- |
+| ✨ 编辑器设置实时同步         | SqlEditorPanel.vue         | watch effectiveEditorSettings → 所有编辑器面板立即更新 |
+| ✨ 编辑器初始状态从 config 读取 | SqlEditorPanel.vue         | 消除 fontSize=14/wordWrap=true 硬编码 |
+| ✨ SaveResult toast 反馈      | settings/SettingsPanel.vue | message.success/error + zh-CN/en i18n 键 |
+| 🧹 影响矩阵修正              | CONFIG-PROGRESS.md         | MainLayout/useLayoutStore Ph2 ✅ + SqlEditorPanel Ph4 ✅ |
+
+#### 1.21 v2.8.0 Phase 2.1 面板恢复（2026-05-08）
+
+| 功能 / 修复        | 文件              | 说明 |
+| ------------------ | ----------------- | ---- |
+| ✨ 面板 ID 追踪    | WorkbenchView.vue | onDidLayoutChange → api.panels.map(p => p.id) |
+| ✨ 面板 ID 持久化  | layout-store.ts   | openPanelIds ref → saveLayoutConfig → saveSidebarState |
+| ✨ 面板恢复        | WorkbenchView.vue | restoreSavedPanels → panelRegistry 匹配 → api.addPanel |
+| ✨ openPanelIds    | config.ts         | SerializedSidebarState + zod schema + default 新增 15th 字段 |
+
 ### 阶段一 验证
 
-| 检查                |         结果          |
-| ------------------- | :-------------------: |
-| TypeScript (新文件) | v2.5.11 0 新增错误 ✅ |
-| ESLint (新文件)     | v2.5.11 0 新增错误 ✅ |
+| 检查                |        结果          |
+| ------------------- | :------------------: |
+| TypeScript (新文件) | v2.8.0 0 新增错误 ✅ |
+| ESLint (新文件)     | v2.8.0 0 新增错误 ✅ |
 | Rust cargo check    |   预存错误，无关 ✅   |
 
 ---
 
-## 阶段二：项目配置链 ⬜ 待开始
+## 阶段二：项目配置链 ✅ 已完成
 
-**工期**：预估 1 天
+**工期**：实际 2026-05-08（v2.6.0）
 **完成标准**：打开不同项目可以有不同的布局和配置
 
 ### 任务清单
 
-| #   | 任务                                      | 依赖    | 文件             |
-| --- | ----------------------------------------- | ------- | ---------------- |
-| 2.1 | AppLayout 集成 `openProject()`            | 1.3     | `MainLayout.vue` |
-| 2.2 | AppLayout 集成 `closeProject()`           | 2.1     | `MainLayout.vue` |
-| 2.3 | dockview 布局读 `effectiveDockviewLayout` | 2.1     | `useLayoutStore` |
-| 2.4 | dockview 布局写 `saveDockviewLayout()`    | 2.3     | `useLayoutStore` |
-| 2.5 | 侧边栏状态读 `effectiveSidebarState`      | 2.1     | `MainLayout.vue` |
-| 2.6 | 侧边栏状态写 `saveSidebarState()`         | 2.5     | `MainLayout.vue` |
-| 2.7 | 编辑器设置优先级合并验证                  | 2.1     | 集成测试         |
-| 2.8 | 项目切换协议测试                          | 2.1-2.6 | 集成测试         |
+| #   | 任务                                      | 依赖    | 文件                                  | 状态 |
+| --- | ----------------------------------------- | ------- | ------------------------------------- | ---- |
+| 2.1 | AppLayout 集成 `openProject()`            | 1.3     | `ProjectSelectView.vue`               | ✅   |
+| 2.2 | AppLayout 集成 `closeProject()`           | 2.1     | `WorkbenchView.vue`                   | ✅   |
+| 2.3 | dockview 布局读 `effectiveDockviewLayout` | 2.1     | `layout-store.ts` (setLayoutData)     | ✅   |
+| 2.4 | dockview 布局写 `saveDockviewLayout()`    | 2.3     | `layout-store.ts` / `WorkbenchView`   | ✅   |
+| 2.5 | 侧边栏状态读 `effectiveSidebarState`      | 2.1     | `layout-store.ts` (loadLayoutConfig)  | ✅   |
+| 2.6 | 侧边栏状态写 `saveSidebarState()`         | 2.5     | `layout-store.ts` (saveLayoutConfig)  | ✅   |
+| 2.7 | 编辑器设置优先级合并验证                  | 2.1     | 集成测试                              | ✅   |
+| 2.8 | 项目切换协议测试                          | 2.1-2.6 | 集成测试                              | ✅   |
 
-### API 就绪状态
+### 数据流
 
-API 已在 Phase 1 完成：
+```
+ProjectSelectView.enterWorkbench()
+  ├── appStore.openProject(project.path)
+  │     └── 加载 project-settings.json（sidebarState + dockviewLayout + project config）
+  └── router.push('/workbench')
+        └── WorkbenchView.onMounted()
+              ├── layoutStore.loadLayoutConfig()
+              │     └── 优先: appStore.effectiveSidebarState → 回退: localStorage
+              └── WorkbenchView.onReady()
+                    ├── 创建默认面板布局
+                    └── api.onDidLayoutChange() → saveDockviewLayout()
 
-- `openProject(path)` ✅
-- `closeProject()` ✅
-- `saveDockviewLayout(layout)` ✅
-- `saveSidebarState(state)` ✅
-- `effectiveDockviewLayout` ✅
-- `effectiveSidebarState` ✅
-- `resetProjectOverride(key)` ✅
+WorkbenchView.onUnmounted()
+  └── appStore.closeProject()
+        └── 保存 + 清理 projectStore
+```
 
-**结论**：Phase 2 是纯集成工作，不需要新 API。
+### 持久化策略
+
+| 数据               | 主存储                          | 兼容层            |
+| ------------------ | ------------------------------- | ----------------- |
+| 侧边栏状态 (14 字段) | `project-settings.json`         | localStorage      |
+| Dockview 面板布局  | `project-settings.json`         | —                 |
+| 主题/语言/编辑器   | `global-settings.json` (已有)   | —                 |
 
 ---
 
@@ -289,9 +333,9 @@ useAppStore.effectiveEditorSettings.fontSize 变化
 | `src/app/App.vue`                    | ✅ 修改 |    —    |    —    |   ✅    |
 | `...settings/.../SettingsPanel.vue`  | ✅ 重构 |    —    |   ✅    |    —    |
 | `...workbench/.../SettingsPanel.vue` | ✅ 修改 |    —    |   ✅    |    —    |
-| `MainLayout.vue`                     |    —    |   ⬜    |    —    |    —    |
-| `useLayoutStore`                     |    —    |   ⬜    |    —    |    —    |
-| `MonacoEditor.vue`                   |    —    |    —    |    —    |   ⬜    |
+| `MainLayout.vue`                     |    —    |   ✅    |    —    |    —    |
+| `useLayoutStore`                     |    —    |   ✅    |    —    |    —    |
+| `SqlEditorPanel.vue`                 |    —    |    —    |    —    |   ✅    |
 | `QueryEditor.vue`                    |    —    |    —    |    —    |   ⬜    |
 
 ---
@@ -327,6 +371,8 @@ useAppStore.effectiveEditorSettings.fontSize 变化
 | T25 | 无集中式配置变更通知机制                                             |   低   |     ⚠️     |
 | T26 | `written` 变量在 saveBatch 中未声明（运行时 ReferenceError）         | 🔴 Bug | ✅ v2.5.10 |
 | T27 | SettingsPanel 4 次独立 store.save() I/O → 未使用 saveBatch 批写      |   中   | ✅ v2.5.11 |
+| T28 | 布局持久化未贯通（Phase 2 未连线），侧边栏状态/dockview 布局丢失      | 🔴 高  | ✅ v2.6.0  |
+| T29 | `SerializedSidebarState` 仅 3 字段，无法承载完整工作台布局状态          |   中   | ✅ v2.6.0  |
 
 ---
 
@@ -334,7 +380,10 @@ useAppStore.effectiveEditorSettings.fontSize 变化
 
 | 日期               | 变更                                                                                                                                                                                           |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-08 v2.5.11 | 优化轮 v11：SettingsPanel saveBatch 批写 + SeedEntry 死导出清理 + ui.ts initTheme 死函数清理                                                                                                   |
+| 2026-05-08 v2.8.0  | **Phase 2.1 面板恢复**：onDidLayoutChange 追踪面板 ID + SerializedSidebarState.openPanelIds + restoreSavedPanels 还原面板                                                                       |
+| 2026-05-08 v2.7.0  | **Phase 3/4 打通**：Monaco Editor 实时同步编辑器设置 + SettingsPanel SaveResult toast 反馈 + 编辑器初始状态从 config 读取 + 影响矩阵修正                                                       |
+| 2026-05-08 v2.6.0  | **Phase 2 打通**：项目生命周期（openProject/closeProject）+ 侧边栏状态持久化（双写 localStorage + config）+ dockview 布局自动保存 + SerializedSidebarState 扩展至 14 字段                        |
+| 2026-05-08 v2.5.11 | 优化轮 v11：SettingsPanel saveBatch 批写 + SeedEntry 死导出清理 + ui.ts initTheme 死函数清理                                                                                                  |
 | 2026-05-08 v2.5.10 | 优化轮 v10：saveBatch written 未声明修复 + ConfigOverrideRule 死导出清理 + ui.ts Theme 死重导出清理                                                                                            |
 | 2026-05-08 v2.5.9  | 优化轮 v9：GlobalConfigParsed 死导出清理 + main.ts openProject 签名适配                                                                                                                        |
 | 2026-05-08 v2.5.8  | 优化轮 v8：saveBatch 校验 + reloadConfig schema + SeedEntry 类型收窄 + openProject 返回 + MIGRATIONS 示例                                                                                      |

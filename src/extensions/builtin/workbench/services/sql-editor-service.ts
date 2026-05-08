@@ -558,6 +558,114 @@ export function rewriteDuckDBSQL(sql: string, attachName: string): string {
   return result
 }
 
+export interface ErrorPosition {
+  line: number
+  column: number
+  message: string
+}
+
+export function parseErrorPosition(errorMessage: string): ErrorPosition | null {
+  const patterns: { regex: RegExp; extract: (m: RegExpExecArray) => ErrorPosition }[] = [
+    {
+      regex: /at line (\d+)(?:,| at) column (\d+)/i,
+      extract: (m) => ({
+        line: parseInt(m[1], 10),
+        column: parseInt(m[2], 10),
+        message: errorMessage,
+      }),
+    },
+    {
+      regex: /line\s*(\d+).*?(?:column|col|char|position)\s*(\d+)/i,
+      extract: (m) => ({
+        line: parseInt(m[1], 10),
+        column: parseInt(m[2], 10),
+        message: errorMessage,
+      }),
+    },
+    {
+      regex: /near\s+["'`](.+?)["'`]\s+at line\s+(\d+)/i,
+      extract: (m) => ({
+        line: parseInt(m[2], 10),
+        column: 1,
+        message: errorMessage,
+      }),
+    },
+    {
+      regex: /at\s+position:\s*(\d+)/i,
+      extract: (m) => ({
+        line: 0,
+        column: parseInt(m[1], 10),
+        message: errorMessage,
+      }),
+    },
+  ]
+
+  for (const pattern of patterns) {
+    const match = pattern.regex.exec(errorMessage)
+    if (match) {
+      return pattern.extract(match)
+    }
+  }
+
+  return null
+}
+
+export function clearErrorMarkers(editor: monaco.editor.IStandaloneCodeEditor): void {
+  const model = editor.getModel()
+  if (!model) return
+  monaco.editor.setModelMarkers(model, 'sql-execution', [])
+}
+
+const MAX_SQL_LENGTH = 2000
+
+export function setErrorMarker(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  errorMessage: string,
+  sql: string
+): void {
+  const model = editor.getModel()
+  if (!model) return
+
+  const position = parseErrorPosition(errorMessage)
+  if (position) {
+    let { line, column } = position
+
+    if (line === 0 && column > 0 && sql) {
+      const textBefore = sql.slice(0, Math.min(column, sql.length))
+      line = (textBefore.match(/\n/g)?.length ?? 0) + 1
+      const lastNewline = textBefore.lastIndexOf('\n')
+      column = lastNewline >= 0 ? column - lastNewline : column
+    }
+
+    line = Math.max(1, Math.min(line, model.getLineCount()))
+    column = Math.max(1, Math.min(column, model.getLineMaxColumn(line)))
+
+    const marker: monaco.editor.IMarkerData = {
+      severity: monaco.MarkerSeverity.Error,
+      message: errorMessage.slice(0, MAX_SQL_LENGTH),
+      startLineNumber: line,
+      startColumn: column,
+      endLineNumber: line,
+      endColumn: model.getLineMaxColumn(line),
+    }
+
+    monaco.editor.setModelMarkers(model, 'sql-execution', [marker])
+    editor.revealLineInCenter(line)
+    editor.setPosition({ lineNumber: line, column })
+    editor.focus()
+  } else {
+    const marker: monaco.editor.IMarkerData = {
+      severity: monaco.MarkerSeverity.Error,
+      message: errorMessage.slice(0, MAX_SQL_LENGTH),
+      startLineNumber: 1,
+      startColumn: 1,
+      endLineNumber: 1,
+      endColumn: 1,
+    }
+    monaco.editor.setModelMarkers(model, 'sql-execution', [marker])
+  }
+}
+
 export interface ParamInfo {
   name: string
   occurrences: number

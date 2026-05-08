@@ -1,5 +1,9 @@
 # 开发指南
 
+> 版本：v1.1
+> 最后更新：2026-05-09
+> 状态：✅ 路径已更正
+
 ## 环境准备
 
 ### 1. 安装 Rust
@@ -147,80 +151,65 @@ git commit -m "feat: 添加新功能"
 
 ### 1. 添加新数据库驱动
 
+> ⚠️ **路径注意**：具体驱动实现位于 `core/driver/native/`，而非 `core/datasource/`。`datasource/` 只做路由。
+
 #### 步骤 1: 创建驱动文件
 
 ```bash
-# 创建文件
-touch src-tauri/src/core/datasource/mongodb.rs
+touch src-tauri/src/core/driver/native/mongodb.rs
+touch src-tauri/src/core/driver/native/mongodb_pool.rs
 ```
 
 #### 步骤 2: 实现 Database trait
 
 ```rust
-// core/datasource/mongodb.rs
-use crate::core::driver::{Database, Transaction};
+// core/driver/native/mongodb.rs
+use crate::core::driver::traits::Database;
 use crate::core::error::CoreError;
 use crate::core::models::QueryResult;
 
-pub struct MongoDbDriver {
-    client: mongodb::Client,
-    meta: DataSourceMeta,
-}
+pub struct MongoDatabase { /* ... */ }
 
-#[async_trait]
-impl Database for MongoDbDriver {
-    async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        // 实现查询逻辑
-        todo!()
-    }
-
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
-        // 实现数据库列表
-        todo!()
-    }
-
-    // ... 其他方法
+#[async_trait::async_trait]
+impl Database for MongoDatabase {
+    async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> { todo!() }
+    async fn list_databases(&self) -> Result<Vec<String>, CoreError> { todo!() }
+    fn meta(&self) -> DataSourceMeta { /* ... */ }
 }
 ```
 
-#### 步骤 3: 实现 DriverFactory
+#### 步骤 3: 创建 DriverFactory
 
 ```rust
-pub struct MongoDbDriverFactory;
+// core/driver/factory.rs
+pub struct MongoDriverFactory;
 
-impl DriverFactory for MongoDbDriverFactory {
-    fn id(&self) -> &'static str {
-        "mongodb"
-    }
-
+impl DriverFactory for MongoDriverFactory {
     fn descriptor(&self) -> DriverDescriptor {
-        DriverDescriptor {
-            id: "mongodb".to_string(),
-            name: "MongoDB".to_string(),
-            // ...
-        }
+        DriverDescriptor::new("mongodb", "MongoDB")
     }
 
-    async fn create(&self, config: ConnectionConfig) -> Result<Box<dyn Database>, CoreError> {
-        // 创建驱动实例
-        todo!()
-    }
-
-    fn box_clone(&self) -> Box<dyn DriverFactory> {
-        Box::new(MongoDbDriverFactory)
+    fn create(&self, config: ConnectionConfig)
+        -> Pin<Box<dyn Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
+        Box::pin(async move { /* 创建连接 */ })
     }
 }
 ```
 
-#### 步骤 4: 导出模块
+#### 步骤 4: 注册驱动
 
 ```rust
-// core/datasource/mod.rs
-pub mod mongodb;
-pub use mongodb::{MongoDbDriver, MongoDbDriverFactory};
+// core/driver/auto_register.rs
+impl AutoDriverRegistrar {
+    pub fn register_builtin_drivers() {
+        // ... 现有 4 种
+        DriverRegistry::register(MongoDriverFactory);
+    }
+}
 ```
 
-#### 步骤 5: 注册驱动
+> ⚠️ **Phase 1 目标**：移除 `DRIVER_FACTORY_MANAGER` 双重注册，统一到 `DriverRegistry`。
 
 ```rust
 // lib.rs
@@ -265,78 +254,39 @@ async fn test_mongodb_driver() {
 #### 步骤 1: 创建命令函数
 
 ```rust
-// adapters/tauri/command.rs
+// commands/my_commands.rs (或在现有 commands 文件中添加)
+use crate::core::services::ConnectionManager;
+use crate::core::error::CoreError;
 
-/// 请求参数
-#[derive(Deserialize)]
-pub struct MyCommandInput {
-    pub param1: String,
-    pub param2: i32,
-}
-
-/// 响应数据
-#[derive(Serialize)]
-pub struct MyCommandOutput {
-    pub result: String,
-    pub count: i32,
-}
-
-/// 命令实现
 #[tauri::command]
-pub async fn my_command(
-    input: MyCommandInput,
-) -> Result<MyCommandOutput, String> {
-    // 1. 参数校验
-    if input.param1.is_empty() {
-        return Err("param1 cannot be empty".to_string());
-    }
-
-    // 2. 调用服务
-    let service = MyService::new();
-    let result = service.do_something(&input.param1, input.param2)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // 3. 返回结果
-    Ok(MyCommandOutput {
-        result: result.to_string(),
-        count: input.param2 * 2,
-    })
+pub async fn my_new_command(conn_id: String, param: String) -> Result<MyOutput, String> {
+    let manager = get_connection_manager();
+    let db = manager.get_connection(&conn_id).await
+        .ok_or_else(|| "Connection not found".to_string())?;
+    // 业务逻辑
+    Ok(MyOutput { /* ... */ })
 }
 ```
 
-#### 步骤 2: 注册命令
+#### 步骤 2: 在 commands/mod.rs 导出
+
+```rust
+// commands/mod.rs
+pub mod my_commands;
+pub use my_commands::*;
+```
+
+#### 步骤 3: 在 lib.rs 注册
 
 ```rust
 // lib.rs
-use adapters::tauri::{
-    // ... existing commands
-    my_command, // 添加这一行
-};
-
 .invoke_handler(tauri::generate_handler![
-    // ... existing commands
-    my_command, // 添加这一行
+    // ... 现有命令
+    my_new_command,
 ])
 ```
 
-#### 步骤 3: 前端调用
-
-```typescript
-// 前端代码
-import { invoke } from '@tauri-apps/api/core'
-
-const result = await invoke('my_command', {
-  input: {
-    param1: 'hello',
-    param2: 42,
-  },
-})
-
-console.log(result) // { result: "...", count: 84 }
-```
-
-### 3. 添加新服务
+> ⚠️ **命令约束**：Command 只能调用 Service 层（ConnectionService / SqlService），禁止直接访问 datasource 或 driver/native。### 3. 添加新服务
 
 #### 步骤 1: 创建服务文件
 

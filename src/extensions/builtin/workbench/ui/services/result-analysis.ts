@@ -231,6 +231,11 @@ export async function getInsightStorageStats(): Promise<InsightStorageStats> {
 
 // ═══════════════════ 规则引擎 API ═══════════════════
 
+export interface RenderHint {
+  component: string | null
+  display_order: number | null
+}
+
 export interface RuleMeta {
   id: string
   name: string
@@ -241,6 +246,7 @@ export interface RuleMeta {
   builtin: boolean
   parameters: string[]
   result_type: string | null
+  render: RenderHint | null
 }
 
 export interface ExecuteRuleInput {

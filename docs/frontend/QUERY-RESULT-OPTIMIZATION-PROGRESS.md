@@ -1,9 +1,9 @@
 # 结果集模块优化 — 开发进度文档
 
-> 版本：v2.1
+> 版本：v2.4
 > 最后更新：2026-05-08
 > 作者：RdataStation 团队
-> 状态：✅ 全部完成 (49/49 核心完成) + 洞察子系统测试修复
+> 状态：✅ 全部完成 (49/49 核心完成) + 洞察子系统测试修复 + 深度优化轮
 
 ---
 
@@ -70,7 +70,11 @@ tracing::info!("按需加载: httpfs")
 | Phase 8: 缺失功能补齐      | H 组 (5项)     | ✅ 已完成 | 100%     |
 | Phase 9: 导出 + 集成打通    | I 组 (5项)     | ✅ 已完成 | 100%      |
 | Phase 10: QueryResultPanel 重构 | J 组 (5项)     | ✅ 已完成 | 100%      |
-| **合计**                   | **10 组 49 项** |           | **100%**  |
+| Phase 11: 洞察测试修复        | K 组 (3项)     | ✅ 已完成 | 100%      |
+| Phase 12: 深度优化            | L 组 (8项)     | ✅ 已完成 | 100%      |
+| Phase 13: 架构收敛 + Rust 安全 | M 组 (6项)     | ✅ 已完成 | 100%      |
+| Phase 14: 分页双向同步          | N 组 (8项)     | ✅ 已完成 | 100%      |
+| **合计**                   | **14 组 71 项** |           | **100%**  |
 
 ---
 
@@ -302,13 +306,115 @@ ResultDiffViewer.vue 渲染
 
 ---
 
+## 十三、Phase 12: 深度优化（L 组）
+
+> 全量审计结果集模块后，按优先级修复 8 项 bug + UX + 代码质量
+
+| 编号 | 优先级 | 任务 | 状态 |
+| ---- | ------ | ---- | ---- |
+| L1   | 🔴 P0 | `executeSqlFilter` finally 块写错 flag（`isDuckdbLoading`→`isSqlFilterLoading`） | ✅ |
+| L2   | 🔴 P0 | `executeDuckdbAnalysis` finally 块写错 flag（`isSqlFilterLoading`→`isDuckdbLoading`） | ✅ |
+| L3   | 🔴 P0 | `rowData` 重复转换 + `displayedRowData` 穿透 → `tab.objectRows` 直读 | ✅ |
+| L4   | 🟡 P1 | FilterPresetSelector `prompt()`/`confirm()` → `NModal` dialog + i18n | ✅ |
+| L5   | 🟡 P1 | 导出无进度 → `message.loading()` + `message.success()`/`message.error()` | ✅ |
+| L6   | 🟡 P1 | `ResultRecordView` 重复 `rows[][→obj]` → `tab.objectRows[idx]` | ✅ |
+| L7   | 🟡 P1 | 快捷键 `Ctrl+Shift+Z` 撤销所有脏单元 | ✅ |
+| L8   | 🟢 P2 | `markCellDirty`/`resetDirtyCells` O(n) Set→`Set.add()`/`Set.clear()` O(1) | ✅ |
+
+---
+
+## 十四、Phase 13: 架构收敛 + Rust 安全（M 组）
+
+> 第二轮全量审计的收益项，聚焦消除代码重复和安全加固
+
+| 编号 | 优先级 | 任务 | 状态 | 涉及文件 |
+| ---- | ------ | ---- | ---- | -------- |
+| M1   | 🟡 P1 | **Panel 接入 `useGridConfig` composable** — 消除 ~130 行重复代码 | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) + [useGridConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useGridConfig.ts) 全量重写 |
+| M2   | 🟡 P1 | `useGridConfig` 增强 — 合并面板的 `cellRenderer`/`NULL`/`JSON.stringify`/`numericColPatterns`/`comparator` | ✅ | [useGridConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useGridConfig.ts) — 从简单 wrapper 升级为全功能 composable |
+| M3   | 🟡 P1 | 移除 Panel 内 `columnDefs`/`rowData`/`defaultColDef`/`pagination`/`onGridReady` 本地定义 | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) — 删除 ~130 行 |
+| M4   | 🟡 P1 | `value_to_sql` Array/Object → `serde_json::to_string()` 正确 JSON 转义 + 移除 unreachable `_` arm | ✅ | [result_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/result_commands.rs#L134) |
+| M5   | 🟡 P1 | `save_cell_update` 失败 → `Err(...)` 替代 `Ok({success: false})`，让前端 catch 块可获取错误原因 | ✅ | [result_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/result_commands.rs#L108) |
+| M6   | 🟢 P2 | 消除 `onFirstDataRendered` 父面板重复调用（子组件 `ResultGridView` 已处理） | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue#L496) 事件绑定移除 |
+
+### 架构收敛效果
+
+```
+修复前:
+  useGridConfig.ts           ── 独立但有缺陷的简单 wrapper
+  QueryResultPanel.vue       ── 自实现 columnDefs/rowData/pagination/defaultColDef (~130行)
+  ResultGridView.vue         ── 接收 props 透传
+
+修复后:
+  useGridConfig.ts           ── 全功能 composable (columnDefs + rowData + pagination + 列状态)
+  QueryResultPanel.vue       ── 一行解构消费全部
+  ResultGridView.vue         ── 不变
+```
+
+| 指标 | 修复前 | 修复后 |
+|------|--------|--------|
+| Panel script 行数 | ~899 行 | ~760 行 | **-139 行** |
+| 列定义来源 | 面板本地 computed | composable shallowRef |
+| 数据行来源 | 面板本地 computed | composable computed |
+| 分页逻辑来源 | 面板本地 computed | composable computed |
+| 默认列配置 | 面板本地对象 | composable 统一 |
+| columnDefs 修改 | 需改面板 | 只改 composable |
+
+---
+
+## 十五、Phase 14: 分页双向同步（N 组）
+
+> 修复分页状态断裂：Panel ↔ AG Grid 分页全链路双向绑定 + 新增入口
+
+| 编号 | 优先级 | 任务 | 状态 | 涉及文件 |
+| ---- | ------ | ---- | ---- | -------- |
+| N1   | 🔴 P0 | `paginationPageSelector` 从 Panel 传入 Grid（此前从未传 prop） | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue#L80) |
+| N2   | 🔴 P0 | 移除本地 `pageSize = ref(100)`，改用 composable `paginationPageSize` | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue#L378) |
+| N3   | 🔴 P0 | `ResultGridView` 新增 `@pagination-changed` 事件 emit | ✅ | [ResultGridView.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/result-panel/ResultGridView.vue) |
+| N4   | 🔴 P0 | Panel 监听 `@pagination-changed` → 保存 pageSize 到 localStorage + 清空跳页输入 | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) `onPaginationChanged()` |
+| N5   | 🟡 P1 | **「跳到第 N 页」输入框** — `NInput` + Enter 跳转 + 输入校验 | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) 状态栏新增 |
+| N6   | 🟡 P1 | **分页开关按钮** — `Layers` 图标 toggle `paginationEnabled` | ✅ | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) 状态栏新增 |
+| N7   | 🟡 P1 | **每页条数 localStorage 持久化** — 切 Tab 自动恢复上次选择的 pageSize | ✅ | [useGridConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useGridConfig.ts) `PAGE_SIZE_KEY_PREFIX` + `savePageSize()` |
+| N8   | 🟡 P1 | `useGridConfig` 暴露 `paginationEnabled`/`paginationPageSelector`/`savePageSize` | ✅ | [useGridConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useGridConfig.ts) return 新增 3 项 |
+
+### 修复效果：分页链路图
+
+```
+修复前:
+  Panel pageSize=ref(100) ──→ Grid (单向)
+  Grid 下拉改值 ──→ Panel 无感知    ← ❌ 断裂
+  pageSize 始终=100    ← ❌ 断裂
+  displayRowText 计算错误  ← ❌ 断裂
+
+修复后:
+  Panel paginationPageSize ←─ localStorage 恢复 ──→ Grid
+  Grid @pagination-changed ──→ Panel onPaginationChanged() ──→ savePageSize()
+  Panel goPageInput ──→ Grid paginationGoToPage()          ← ✅ 双向同步
+  Panel paginationEnabled ──→ Grid pagination toggle        ← ✅ 可控
+```
+
+### 新增 UI 入口
+
+| 入口 | 图标 | 位置 | 功能 |
+|------|------|------|------|
+| 跳页输入框 | NInput | 状态栏末尾翻页按钮右侧 | 输入页码 + Enter 跳转 |
+| 分页开关 | Layers 图标 | 状态栏最右 | 手动开启/关闭分页 |
+
+---
+
 ## 版本历史
 
 | 版本 | 日期       | 说明                                                                                                                                                                              |
 | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.4 | 2026-05-08 | Phase 14 分页双向同步 — paginationPageSelector 传入 + pageSize 统一 composable + @pagination-changed 双向 + localStorage pageSize 恢复 + 跳页输入 + 分页开关；71/71 = 100% |
+| v2.3 | 2026-05-08 | Phase 13 架构收敛 — Panel 接入 useGridConfig 消除 139 行重复 + composable 全量重写 + Rust value_to_sql 安全修复 + save_cell_update Err 传播；63/63 = 100% |
+| v2.2 | 2026-05-08 | Phase 12 深度优化 — 2 P0 flag 写反修复 + rowData 双重转换消除 + FilterPresetSelector NModal 重写 + 导出 loading + 快捷键 + markCellDirty O(1) + 双 sizeColumnsToFit 去重；57/57 = 100% |
+| v1.15 | 2026-05-08 | Phase 18 洞察深度优化 — P0 InsightHistoryTab diff 渲染修复 + P1 InsightStatsSection 消除 22 处 as 转换 + statsKind 联合类型收紧 + 4 新 i18n key + 3 子组件 import path 修正 |
+| v1.14 | 2026-05-08 | Phase 17 洞察 P2 扫尾 — ColumnInsightPanel 960→276 行拆分 (3 新子组件) + ColumnInsightsPanel 角色 JSDoc 明确 + RenderHint 前后端打通 (chartType 流经 store→DockviewLayout→DataVisualizationPanel) |
+| v1.13 | 2026-05-08 | Phase 16 洞察扫尾优化 — duckdb_service.rs 死代码消除(-1 warning) + quality_scorer 7独立测试 + SchemaInsightPanel空状态 + ColumnInsightsPanel NaN防护 + i18n新key |
+| v1.12 | 2026-05-08 | Phase 15 洞察全栈审计 — rule_executor get_unwrap→get 消除11处生产panic + insight_engine 10新测试 + API/规则2份新文档 + 架构文档v14；schema_analyzer审计通过 |
+| v1.11 | 2026-05-08 | 洞察子系统 DuckDB TTL — `cleanup_expired_tables()` 30分钟过期清理 + `register_temp_table()` 自动触发 + 2 TTL 测试；`TEMP_TABLE_PREFIX` 死代码消除 + `unused_mut` 修复 |
 | v2.1 | 2026-05-08 | 洞察子系统测试修复 — rule_executor 2 测试 `.quality`/`.data` → 正确 Value 访问 + connection_commands unused variable |
 | v2.0 | 2026-05-08 | 🎉 **全部完成** — Phase 10: QueryResultPanel 重构（子组件替换 + 冗余清理 -117行）+ Rust state.rs warming 编译修复；49/49 = 100% |
-| v1.11 | 2026-05-08 | 洞察子系统 DuckDB TTL — `cleanup_expired_tables()` 30分钟过期清理 + `register_temp_table()` 自动触发 + 2 TTL 测试；`TEMP_TABLE_PREFIX` 死代码消除 + `unused_mut` 修复 |
 | v1.10 | 2026-05-08 | 洞察子系统规则内务优化 — rule_executor panic!消除+代码去重+10单测+占位符安全, rule_registry tracing日志, schema_analyzer Arrow解析器去重, 前端P0/P1修复（any/!非空断言/空catch/i18n/isOpen） |
 | v1.9 | 2026-05-08 | I 组：Save → saveCellUpdate 真写DB + Cancel 脏行回滚 + FilterPresetSelector 集成 + DuckDB Parquet/Excel 导出 (COPY TO) + ResultDiffViewer NModal 集成 + exportMenuOptions 扩展 i18n |
 | v1.8 | 2026-05-08 | DuckDB 扩展架构重构：离线 .duckdb_extension + SQL LOAD 替代 Cargo feature flags；P0/P1 分级加载；Cargo.toml 去 parquet/excel/json features；arrow-array/arrow-buffer 噪音依赖删除 |

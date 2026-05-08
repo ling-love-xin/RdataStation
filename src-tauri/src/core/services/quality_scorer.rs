@@ -240,3 +240,142 @@ pub(crate) fn compute_table_quality(
         total_columns,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::services::result_service::{
+        BooleanStats, ColumnInsightFull, ColumnStats, ColumnStatsDetail,
+        DistributionBin, NumericStats, TextStats,
+    };
+
+    fn make_insight(null_rate: f64, unique_ratio: f64) -> ColumnInsightFull {
+        let total = 100.0;
+        ColumnInsightFull {
+            stats: ColumnStats {
+                column_name: "test_col".into(),
+                data_type: "DOUBLE".into(),
+                total_count: total as usize,
+                null_count: (total * null_rate) as usize,
+                null_rate,
+                unique_count: Some((total * unique_ratio) as usize),
+                stats_detail: ColumnStatsDetail::Numeric(NumericStats {
+                    min: 1.0,
+                    max: 100.0,
+                    avg: 50.0,
+                    median: 50.5,
+                    p25: 25.0,
+                    p75: 75.0,
+                    sum: 5000.0,
+                    stddev: Some(28.0),
+                    skewness: None,
+                    kurtosis: None,
+                    is_extreme: vec![],
+                }),
+            },
+            sample: vec![],
+            histogram: Some(vec![
+                DistributionBin { label: "a".into(), count: 50, ratio: 0.5 },
+                DistributionBin { label: "b".into(), count: 50, ratio: 0.5 },
+            ]),
+        }
+    }
+
+    #[test]
+    fn test_column_quality_perfect() {
+        let qi = make_insight(0.0, 1.0);
+        let qs = compute_column_quality(&qi);
+        assert!(qs.overall_score > 85.0, "perfect data = excellent score");
+        assert_eq!(qs.level, "优秀");
+    }
+
+    #[test]
+    fn test_column_quality_abysmal() {
+        let qi = make_insight(0.9, 0.01);
+        let qs = compute_column_quality(&qi);
+        assert!(qs.overall_score < 30.0, "90% null + 1% unique = very poor");
+        assert_eq!(qs.dimensions.len(), 4);
+    }
+
+    #[test]
+    fn test_column_quality_text_type() {
+        let qi = ColumnInsightFull {
+            stats: ColumnStats {
+                column_name: "name".into(),
+                data_type: "VARCHAR".into(),
+                total_count: 100,
+                null_count: 5,
+                null_rate: 0.05,
+                unique_count: Some(80),
+                stats_detail: ColumnStatsDetail::Text(TextStats {
+                    min_length: 1,
+                    max_length: 20,
+                    top_values: vec![],
+                }),
+            },
+            sample: vec![],
+            histogram: None,
+        };
+        let qs = compute_column_quality(&qi);
+        assert!(qs.overall_score > 50.0);
+    }
+
+    #[test]
+    fn test_column_quality_boolean_type() {
+        let qi = ColumnInsightFull {
+            stats: ColumnStats {
+                column_name: "active".into(),
+                data_type: "BOOLEAN".into(),
+                total_count: 100,
+                null_count: 0,
+                null_rate: 0.0,
+                unique_count: Some(2),
+                stats_detail: ColumnStatsDetail::Boolean(BooleanStats {
+                    true_count: 80,
+                    false_count: 20,
+                    true_ratio: 0.8,
+                }),
+            },
+            sample: vec![],
+            histogram: None,
+        };
+        let qs = compute_column_quality(&qi);
+        assert!(qs.overall_score > 70.0);
+    }
+
+    #[test]
+    fn test_table_quality_sorted_worst_first() {
+        let stats_list = vec![
+            make_insight(0.01, 0.98),
+            make_insight(0.5, 0.1),
+            make_insight(0.1, 0.8),
+        ];
+        let tq = compute_table_quality("sorted_table", &stats_list);
+        assert_eq!(tq.column_scores.len(), 3);
+        assert!(
+            tq.column_scores[0].quality_score <= tq.column_scores[1].quality_score,
+            "column scores must be sorted ascending (worst first)"
+        );
+        assert!(tq.column_scores[1].quality_score <= tq.column_scores[2].quality_score);
+    }
+
+    #[test]
+    fn test_table_quality_empty() {
+        let tq = compute_table_quality("empty", &[]);
+        assert_eq!(tq.overall_score, 0.0);
+        assert_eq!(tq.level, "无数据");
+        assert_eq!(tq.scored_count, 0);
+    }
+
+    #[test]
+    fn test_dimensions_includes_four() {
+        let qi = make_insight(0.02, 0.95);
+        let qs = compute_column_quality(&qi);
+        assert_eq!(qs.dimensions.len(), 4);
+        let names: Vec<&str> = qs.dimensions.iter().map(|d| d.name.as_str()).collect();
+        assert!(names.contains(&"完整性"));
+        assert!(names.contains(&"唯一性"));
+        assert!(names.contains(&"类型一致"));
+        assert!(names.contains(&"分布均匀"));
+    }
+}

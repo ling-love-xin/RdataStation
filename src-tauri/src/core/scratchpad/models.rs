@@ -17,9 +17,14 @@ pub struct ScratchpadEntry {
     pub path: PathBuf,
     pub kind: ScratchpadEntryKind,
     pub size: u64,
-    pub modified_at: DateTime<Utc>,
-    pub extension: String,
-    pub is_external_ref: bool,
+    pub modified_at: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SearchMatch {
+    pub file: String,
+    pub line_number: usize,
+    pub line_content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

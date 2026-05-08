@@ -8,18 +8,10 @@
           <span v-if="resource.alias" class="alias-hint">({{ resource.name }})</span>
         </div>
         <div class="header-right">
-          <button
-            class="icon-btn"
-            :title="t('analyticsResource.edit')"
-            @click="$emit('edit', resource)"
-          >
+          <button class="icon-btn" :title="t('analyticsResource.edit')" @click="$emit('edit', resource)">
             ✏️
           </button>
-          <button
-            class="icon-btn"
-            :title="t('analyticsResource.copy')"
-            @click="$emit('copy', resource)"
-          >
+          <button class="icon-btn" :title="t('analyticsResource.copy')" @click="$emit('copy', resource)">
             📋
           </button>
           <button class="close-btn" @click="$emit('close')">✕</button>

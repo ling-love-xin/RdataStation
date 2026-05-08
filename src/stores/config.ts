@@ -54,11 +54,23 @@ interface SerializedDockviewLayout {
   activePanel: string | null
 }
 
-/** 侧边栏序列化状态 */
+/** 侧边栏/布局序列化状态（项目级持久化） */
 interface SerializedSidebarState {
-  collapsed: boolean
-  width: number
-  activeItem: string | null
+  leftActivityBarVisible: boolean
+  rightActivityBarVisible: boolean
+  primarySideBarVisible: boolean
+  secondarySideBarVisible: boolean
+  panelVisible: boolean
+  statusBarVisible: boolean
+  primarySideBarExpanded: boolean
+  secondarySideBarExpanded: boolean
+  selectedLeftItem: string | null
+  selectedRightItem: string | null
+  primarySideBarWidth: number
+  secondarySideBarWidth: number
+  panelHeight: number
+  bottomPanelMode: 'editor' | 'full'
+  openPanelIds: string[]
 }
 
 /** 配置项可覆盖性规则 */
@@ -119,9 +131,21 @@ const DockviewLayoutSchema = z.object({
 })
 
 const SidebarStateSchema = z.object({
-  collapsed: z.boolean(),
-  width: z.number().min(200).max(400),
-  activeItem: z.string().nullable(),
+  leftActivityBarVisible: z.boolean().default(true),
+  rightActivityBarVisible: z.boolean().default(true),
+  primarySideBarVisible: z.boolean().default(true),
+  secondarySideBarVisible: z.boolean().default(true),
+  panelVisible: z.boolean().default(true),
+  statusBarVisible: z.boolean().default(true),
+  primarySideBarExpanded: z.boolean().default(true),
+  secondarySideBarExpanded: z.boolean().default(true),
+  selectedLeftItem: z.string().nullable().default('database'),
+  selectedRightItem: z.string().nullable().default('column-insights'),
+  primarySideBarWidth: z.number().min(200).max(600).default(300),
+  secondarySideBarWidth: z.number().min(200).max(600).default(300),
+  panelHeight: z.number().min(100).max(600).default(250),
+  bottomPanelMode: z.enum(['editor', 'full']).default('editor'),
+  openPanelIds: z.array(z.string()).default([]),
 })
 
 const RecentProjectsSchema = z.array(z.string()).max(10)
@@ -206,7 +230,23 @@ const CONFIG_REGISTRY = {
   },
   sidebarState: {
     key: 'sidebarState' as const,
-    default: { collapsed: false, width: 280, activeItem: null } satisfies SerializedSidebarState,
+    default: {
+      leftActivityBarVisible: true,
+      rightActivityBarVisible: true,
+      primarySideBarVisible: true,
+      secondarySideBarVisible: true,
+      panelVisible: true,
+      statusBarVisible: true,
+      primarySideBarExpanded: true,
+      secondarySideBarExpanded: true,
+      selectedLeftItem: 'database',
+      selectedRightItem: 'column-insights',
+      primarySideBarWidth: 300,
+      secondarySideBarWidth: 300,
+      panelHeight: 250,
+      bottomPanelMode: 'editor',
+      openPanelIds: [],
+    } satisfies SerializedSidebarState,
     writeType: {} as SerializedSidebarState,
     valueSchema: SidebarStateSchema,
     rule: {

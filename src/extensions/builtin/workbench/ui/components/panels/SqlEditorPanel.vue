@@ -12,6 +12,10 @@
       @format="handleFormat"
       @validate="handleValidate"
       @transpile="showTranspileMenu = true"
+      @explain="handleExplain"
+      @save-snippet="handleSaveSnippet"
+      @toggle-minimap="toggleMinimap"
+      @toggle-settings="toggleSettings"
     />
 
     <div class="editor-result-split">
@@ -28,7 +32,7 @@
           }"
         >
           <div ref="editorContainer" class="monaco-container" />
-          <EditorWelcome :visible="showWelcome" />
+          <EditorWelcome :visible="showWelcome" @connect="handleWelcomeConnect" />
         </div>
 
         <div v-if="hasResults" class="split-handle" @mousedown="startSplitDrag" />
@@ -69,8 +73,6 @@
       :dialect-options="dialectOptions"
       @close="showTranspileMenu = false"
       @transpile="handleTranspile"
-      @explain="handleExplain"
-      @save-snippet="handleSaveSnippet"
     />
 
     <ParamBindingModal
@@ -79,24 +81,78 @@
       @confirm="handleParamConfirm"
       @cancel="handleParamCancel"
     />
+
+    <NPopover
+      v-if="editorReady"
+      :show="showSettings"
+      trigger="manual"
+      placement="bottom"
+      display-directive="show"
+      @clickoutside="showSettings = false"
+    >
+      <template #trigger>
+        <div />
+      </template>
+      <div class="editor-settings-popover">
+        <div class="settings-group">
+          <label>{{ $t('sqlEditor.fontSize') }}</label>
+          <NSlider
+            :value="editorFontSize"
+            :min="10"
+            :max="28"
+            :step="1"
+            :marks="{ 10: '10', 14: '14', 18: '18', 24: '24' }"
+            @update:value="applyFontSize"
+          />
+        </div>
+        <div class="settings-group">
+          <label>{{ $t('sqlEditor.tabSize') }}</label>
+          <NInputNumber
+            :value="editorTabSize"
+            :min="1"
+            :max="8"
+            size="small"
+            @update:value="applyTabSize"
+          />
+        </div>
+        <div class="settings-group settings-row">
+          <label>{{ $t('sqlEditor.wordWrap') }}</label>
+          <NSwitch :value="editorWordWrap" @update:value="applyWordWrap" />
+        </div>
+        <div class="settings-group settings-row">
+          <label>{{ $t('sqlEditor.lineNumbers') }}</label>
+          <NSwitch :value="editorLineNumbers" @update:value="applyLineNumbers" />
+        </div>
+        <div class="settings-group">
+          <label>{{ $t('sqlEditor.fontFamily') }}</label>
+          <NInput
+            :value="editorFontFamily"
+            size="small"
+            placeholder="Cascadia Code, Fira Code, Consolas, monospace"
+            @update:value="applyFontFamily"
+          />
+        </div>
+      </div>
+    </NPopover>
   </div>
 </template>
 
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 import * as monaco from 'monaco-editor'
-import { darkTheme, lightTheme, createDiscreteApi } from 'naive-ui'
+import { createDiscreteApi, darkTheme, lightTheme, NPopover, NSlider, NInputNumber, NSwitch, NInput } from 'naive-ui'
 import { ref, computed, watch, onMounted, onBeforeUnmount, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 
-import * as queryService from '@/extensions/builtin/query/ui/services/query'
 import {
   transpileSql,
   formatSql,
   validateSql,
   registerDatabaseCompletionProvider,
-  registerSqlFoldingProvider,
+ registerSqlFoldingProvider,
+  setErrorMarker,
+  clearErrorMarkers,
 } from '@/extensions/builtin/workbench/services/sql-editor-service'
 import { addCustomSnippet } from '@/extensions/builtin/workbench/services/sql-snippets'
 import { useConnectionBinding } from '@/extensions/builtin/workbench/ui/composables/useConnectionBinding'
@@ -108,6 +164,8 @@ import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/s
 import { useUiStore } from '@/shared/stores/ui'
 import { rdataDark, rdataLight } from '@/shared/styles/monaco-theme'
 import type { SqlDialect } from '@/shared/types/sql'
+import type { EditorSettings } from '@/stores/config'
+import { useAppStore } from '@/stores/useAppStore'
 
 import EditorStatusbar from './EditorStatusbar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -145,6 +203,7 @@ const emit = defineEmits<{
 }>()
 
 const uiStore = useUiStore()
+const appStore = useAppStore()
 const { t } = useI18n()
 
 const configProviderPropsRef = ref({
@@ -195,6 +254,103 @@ const showParamBinding = ref(false)
 const detectedParams = ref<string[]>([])
 const pendingParamSql = ref('')
 
+const showSettings = ref(false)
+const editorSettings = appStore.effectiveEditorSettings
+const editorFontSize = ref(editorSettings.fontSize)
+const editorWordWrap = ref(editorSettings.wordWrap)
+const editorLineNumbers = ref(editorSettings.lineNumbers)
+const editorTabSize = ref(editorSettings.tabSize)
+const showMinimap = ref(editorSettings.minimap ?? true)
+const editorFontFamily = ref(editorSettings.fontFamily)
+
+watch(
+  () => appStore.effectiveEditorSettings,
+  (settings) => {
+    if (editorFontSize.value !== settings.fontSize) {
+      editorFontSize.value = settings.fontSize
+      setFontSize(settings.fontSize)
+    }
+    if (editorWordWrap.value !== settings.wordWrap) {
+      editorWordWrap.value = settings.wordWrap
+      setWordWrap(settings.wordWrap)
+    }
+    if (editorLineNumbers.value !== settings.lineNumbers) {
+      editorLineNumbers.value = settings.lineNumbers
+      setLineNumbers(settings.lineNumbers)
+    }
+    if (editorTabSize.value !== settings.tabSize) {
+      editorTabSize.value = settings.tabSize
+      setTabSize(settings.tabSize)
+    }
+    if (settings.minimap !== undefined && showMinimap.value !== settings.minimap) {
+      showMinimap.value = settings.minimap
+      setMinimap(settings.minimap)
+    }
+    if (editorFontFamily.value !== settings.fontFamily) {
+      editorFontFamily.value = settings.fontFamily
+      setFontFamily(settings.fontFamily)
+    }
+  },
+  { deep: true }
+)
+
+function buildEditorSettingsPayload(): EditorSettings {
+  return {
+    fontSize: editorFontSize.value,
+    tabSize: editorTabSize.value,
+    wordWrap: editorWordWrap.value,
+    minimap: showMinimap.value,
+    lineNumbers: editorLineNumbers.value,
+    fontFamily: editorFontFamily.value,
+  }
+}
+
+function persistEditorSettings(): void {
+  appStore
+    .saveConfig('editorSettings', buildEditorSettingsPayload(), 'global')
+    .catch(() => {})
+}
+
+function toggleMinimap(): void {
+  showMinimap.value = !showMinimap.value
+  setMinimap(showMinimap.value)
+  persistEditorSettings()
+}
+
+function toggleSettings(): void {
+  showSettings.value = !showSettings.value
+}
+
+function applyFontSize(size: number): void {
+  editorFontSize.value = size
+  setFontSize(size)
+  persistEditorSettings()
+}
+
+function applyWordWrap(enabled: boolean): void {
+  editorWordWrap.value = enabled
+  setWordWrap(enabled)
+  persistEditorSettings()
+}
+
+function applyLineNumbers(enabled: boolean): void {
+  editorLineNumbers.value = enabled
+  setLineNumbers(enabled)
+  persistEditorSettings()
+}
+
+function applyTabSize(size: number): void {
+  editorTabSize.value = size
+  setTabSize(size)
+  persistEditorSettings()
+}
+
+function applyFontFamily(family: string): void {
+  editorFontFamily.value = family
+  setFontFamily(family)
+  persistEditorSettings()
+}
+
 const binding = useConnectionBinding({
   initialConnectionId: props.connectionId,
 })
@@ -219,6 +375,7 @@ const {
   cursorPosition,
   selectedTextInfo,
   editorReady,
+  editor,
   editorModel,
   createEditor,
   setupEditorEvents,
@@ -227,6 +384,13 @@ const {
   setValue,
   getSelectedText,
   insertText,
+  setMinimap,
+  registerContextActions,
+  setFontSize,
+  setWordWrap,
+  setLineNumbers,
+  setTabSize,
+  setFontFamily,
   disposeEditor,
   disposeMonacoDisposables,
 } = useMonacoEditor({
@@ -264,6 +428,8 @@ const {
   rollbackTransaction,
   executeDuckDBAccelerated,
   executeBatch,
+  executeSql,
+  storeResult,
   checkForParams,
   buildBoundSql,
 } = useSqlExecution({
@@ -361,51 +527,14 @@ async function handleParamConfirm(values: Record<string, string>): Promise<void>
 
   executing.value = true
   try {
-    const result = await queryService.executeSql(boundSql, connId)
-    const qr = ((result as unknown) as Record<string, unknown>).result || ((result as unknown) as Record<string, unknown>)
+    const result = await executeSql(boundSql, connId)
+    lastExecutionTime.value = result.elapsedMs
+    storeResult(result)
 
-    lastExecutionTime.value = ((result as unknown) as Record<string, unknown>).elapsed_ms as number ?? 0
-
-    if ((qr as Record<string, unknown>).error) {
-      currentResultData.value = {
-        columns: [],
-        rows: [],
-        totalRows: 0,
-        elapsedMs: lastExecutionTime.value,
-        affectedRows: 0,
-        error: (qr as Record<string, unknown>).error as string,
-      }
-      hasResults.value = true
-      message.error((qr as Record<string, unknown>).error as string)
+    if (result.error) {
+      message.error(result.error)
     } else {
-      currentResultData.value = {
-        columns: ((qr as Record<string, unknown>).columns as string[]) ?? [],
-        rows: ((qr as Record<string, unknown>).rows as unknown[][]) ?? [],
-        totalRows: (qr as Record<string, unknown>).total_rows as number ?? ((qr as Record<string, unknown>).rows as unknown[][])?.length ?? 0,
-        elapsedMs: lastExecutionTime.value,
-        affectedRows: (qr as Record<string, unknown>).affected_rows as number ?? 0,
-        error: null,
-      }
-      hasResults.value = true
-
-      const storeResult = useSqlExecutionStore()
-      const executionResult = {
-        panelId: panelId.value,
-        result: {
-          columns: ((qr as Record<string, unknown>).columns as string[]) ?? [],
-          rows: ((qr as Record<string, unknown>).rows as unknown[][]) ?? [],
-          rowCount: (qr as Record<string, unknown>).total_rows as number ?? ((qr as Record<string, unknown>).rows as unknown[][])?.length ?? 0,
-          executionTime: lastExecutionTime.value,
-          affectedRows: (qr as Record<string, unknown>).affected_rows as number ?? 0,
-        },
-        error: null,
-        timestamp: Date.now(),
-      }
-      storeResult.executionResults.set(panelId.value, executionResult)
-      storeResult.executionResults = new Map(storeResult.executionResults)
-      storeResult.setActiveEditorPanelId(panelId.value)
-
-      message.success(`${currentResultData.value.totalRows} rows returned in ${lastExecutionTime.value}ms`)
+      message.success(`${result.totalRows} rows returned in ${result.elapsedMs}ms`)
     }
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
@@ -418,6 +547,12 @@ function handleParamCancel(): void {
   showParamBinding.value = false
   pendingParamSql.value = ''
   detectedParams.value = []
+}
+
+async function handleWelcomeConnect(connId: string): Promise<void> {
+  selectedConnection.value = connId
+  await ensureConnection(connId)
+  setValue('')
 }
 
 async function handleDuckDbExecute(): Promise<void> {
@@ -579,6 +714,8 @@ function markDirty() {
 }
 
 let foldingDisposable: monaco.IDisposable | null = null
+let contextActionDisposables: monaco.IDisposable[] = []
+let historyReExecuteHandler: ((e: Event) => void) | null = null
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleAutoSave(): void {
@@ -611,6 +748,13 @@ onMounted(async () => {
   monaco.editor.defineTheme('rdata-light', rdataLight)
 
   createEditor()
+
+  setFontSize(editorFontSize.value)
+  setTabSize(editorTabSize.value)
+  setWordWrap(editorWordWrap.value)
+  setLineNumbers(editorLineNumbers.value)
+  setMinimap(showMinimap.value)
+  setFontFamily(editorFontFamily.value)
 
   setupEditorEvents(
     value => {
@@ -659,6 +803,48 @@ onMounted(async () => {
   window.addEventListener('insert-snippet', handleInsertSnippet as (e: Event) => void)
 
   foldingDisposable = registerSqlFoldingProvider()
+
+  const contextActions = registerContextActions([
+    {
+      id: 'rdata-execute-selected',
+      label: t('sqlEditor.executeSelected'),
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.1,
+      run: () => {
+        handleExecute()
+      },
+    },
+    {
+      id: 'rdata-copy-as-values',
+      label: t('sqlEditor.copyAsValues'),
+      contextMenuGroupId: '9_cutcopypaste',
+      contextMenuOrder: 2.1,
+      run: () => {
+        const selected = getSelectedText() || getValue()
+        const trimmed = selected.trim()
+        if (trimmed) {
+          const wrapped = `VALUES (${trimmed})`
+          navigator.clipboard.writeText(wrapped).catch(() => {})
+        }
+      },
+    },
+  ])
+  contextActionDisposables = contextActions
+
+  const handleHistoryReExecute = async (e: Event) => {
+    const detail = (e as CustomEvent).detail as {
+      sql: string
+      connectionId: string
+    }
+    if (!detail?.sql) return
+    setValue(detail.sql)
+    if (detail.connectionId && detail.connectionId !== runtimeConnId.value) {
+      await ensureConnection(detail.connectionId)
+    }
+    await handleExecute()
+  }
+  window.addEventListener('sql-history-re-execute', handleHistoryReExecute)
+  historyReExecuteHandler = handleHistoryReExecute
 })
 
 onBeforeUnmount(() => {
@@ -672,8 +858,42 @@ onBeforeUnmount(() => {
     foldingDisposable.dispose()
     foldingDisposable = null
   }
+  contextActionDisposables.forEach(d => d.dispose())
+  contextActionDisposables = []
+  if (historyReExecuteHandler) {
+    window.removeEventListener('sql-history-re-execute', historyReExecuteHandler)
+    historyReExecuteHandler = null
+  }
+  if (isScratchpadMode.value && isDirty.value && scratchpadRelativePath.value) {
+    const content = getValue()
+    invoke('save_scratchpad_file', {
+      relativePath: scratchpadRelativePath.value,
+      content,
+    })
+      .then(() =>
+        invoke('update_scratchpad_file_meta', {
+          relativePath: scratchpadRelativePath.value,
+          connectionId: runtimeConnId.value,
+        })
+      )
+      .catch(() => {})
+  }
   disposeEditor()
 })
+
+watch(
+  () => currentResultData.value?.error,
+  (errorMsg) => {
+    const ed = editor.value
+    if (!ed) return
+    if (errorMsg) {
+      const sql = getSelectedText() || getValue()
+      setErrorMarker(ed, errorMsg, sql)
+    } else {
+      clearErrorMarkers(ed)
+    }
+  }
+)
 
 watch(
   () => sqlExecutionStore.refreshRequests.get(panelId.value),
@@ -733,7 +953,34 @@ watch(
 }
 
 .split-handle:hover {
-  background: var(--accent-color, #e17055);
+  background: var(--brand-accent, #e17055);
+}
+
+.editor-settings-popover {
+  width: 240px;
+  padding: 4px 0;
+}
+
+.editor-settings-popover .settings-group {
+  margin-bottom: 12px;
+}
+
+.editor-settings-popover .settings-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #9ca3af);
+  margin-bottom: 6px;
+}
+
+.editor-settings-popover .settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editor-settings-popover .settings-row label {
+  margin-bottom: 0;
 }
 
 .result-container {

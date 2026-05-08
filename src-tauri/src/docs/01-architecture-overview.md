@@ -1,77 +1,60 @@
 # 架构概述
 
+> 版本：v2.0
+> 最后更新：2026-05-09
+> 状态：✅ 实际代码对齐
+
 ## 设计目标
 
 RdataStation 后端架构设计目标：
 
 1. **可维护性**：代码结构清晰，易于理解和维护
 2. **可测试性**：业务逻辑可独立单元测试
-3. **可扩展性**：轻松添加新的数据库支持
+3. **可扩展性**：轻松添加新的数据库支持（当前锁定 4 种，后续通过插件扩展）
 4. **可移植性**：Core 层无框架依赖，可复用
+5. **性能**：启动速度 < 1.5s，核心内存 < 150MB
+6. **10 年兼容**：核心接口保持向前兼容
 
 ## 架构风格
 
-采用**分层架构（Layered Architecture）** + **六边形架构（Hexagonal Architecture）**混合风格：
+采用**分层架构（Layered Architecture）** + **六边形架构（Hexagonal Architecture）** 混合风格：
 
-### 分层架构
-
-```
-┌─────────────────────────────────────────┐
-│  Presentation Layer (Adapters)          │
-│  - Tauri Commands                        │
-│  - CLI Commands (未来)                   │
-│  - HTTP API (未来)                       │
-├─────────────────────────────────────────┤
-│  Application Layer (Services)           │
-│  - 业务服务编排                           │
-│  - 连接管理                              │
-│  - SQL 执行                              │
-├─────────────────────────────────────────┤
-│  DBI Layer (统一数据访问) 🔥             │
-│  - DBI::query() / execute()             │
-│  - QueryRouter (智能路由)                │
-│  - Session / Context 管理                │
-│  - 执行引擎路由                          │
-├─────────────────────────────────────────┤
-│  Domain Layer (Core)                    │
-│  - 领域模型                              │
-│  - 业务规则                              │
-│  - 驱动抽象                              │
-├─────────────────────────────────────────┤
-│  Infrastructure Layer                   │
-│  ├── driver/native/    - 原生驱动实现    │
-│  ├── driver/jdbc/      - JDBC 桥接驱动   │
-│  ├── driver/wasm/      - WASM 驱动       │
-│  ├── dbi/engine/       - 执行引擎        │
-│  │   ├── driver_engine   - 原生引擎      │
-│  │   ├── duckdb_engine   - DuckDB加速    │
-│  │   └── stream_engine   - 流处理引擎    │
-│  └── datasource/       - 数据源路由      │
-└─────────────────────────────────────────┘
-```
-
-### 六边形架构视角
+### 分层架构（实际）
 
 ```
-                    ┌─────────────┐
-                    │  Frontend   │
-                    │   (Vue3)    │
-                    └──────┬──────┘
-                           │
-┌──────────────┐    ┌──────▼──────┐    ┌──────────────┐
-│   CLI        │◄──►│             │◄──►│   HTTP API   │
-│  Adapter     │    │    Core     │    │   Adapter    │
-└──────────────┘    │   (Domain)  │    └──────────────┘
-                    │             │
-┌──────────────┐    │             │    ┌──────────────┐
-│   Tauri      │◄──►│             │◄──►│   Extism     │
-│  Adapter     │    └──────┬──────┘    │   Plugins    │
-└──────────────┘           │           └──────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Database   │
-                    │  Drivers    │
-                    └─────────────┘
+┌──────────────────────────────────────────────────────┐
+│                Presentation Layer                     │
+│  commands/ 目录（Tauri Command 实现）                  │
+│  - connection_commands / driver_commands              │
+│  - sql_commands / project_commands                    │
+│  - metadata_cache_commands / analytics_resource       │
+│  - 输入校验、DTO 转换、错误处理                        │
+├──────────────────────────────────────────────────────┤
+│                Service Layer                          │
+│  core/services/                                       │
+│  - ConnectionService（连接创建、管理）                  │
+│  - ConnectionManager（连接生命周期）                   │
+│  - SqlService（SQL 执行、事务）                        │
+├──────────────────────────────────────────────────────┤
+│                Domain Layer (Core)                    │
+│  core/driver/traits.rs  - Database / Transaction / DbPool │
+│  core/driver/registry.rs - DriverRegistry + DriverFactory │
+│  core/datasource/router.rs - DataSourceRouter         │
+│  core/models.rs - QueryResult / Row / Value           │
+│  core/error.rs  - CoreError 统一错误                   │
+├──────────────────────────────────────────────────────┤
+│                Infrastructure Layer                   │
+│  ├── driver/native/    4 种原生驱动（mysql/pg/sqlite/duckdb）│
+│  ├── driver/jdbc/      JDBC 桥接（骨架）              │
+│  ├── driver/wasm/      WASM 插件（骨架）              │
+│  ├── driver/smart_pool.rs - 智能连接池                │
+│  └── persistence/      双层存储（SQLite + DuckDB）    │
+│      ├── global_db.rs  - 全局系统数据库               │
+│      ├── project_db.rs - 项目数据库                   │
+│      ├── connection_store.rs / history_store.rs       │
+│      ├── metadata_cache.rs / insight_store.rs         │
+│      └── analytics_resource_store.rs                  │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## 核心模块
@@ -81,11 +64,13 @@ RdataStation 后端架构设计目标：
 **职责**：定义前后端共享的数据类型
 
 ```rust
-// api/dto.rs
+// api/dto.rs - 实际存在的类型
 pub struct QueryResult {
     pub columns: Vec<String>,
     pub rows: Vec<Vec<Value>>,
     pub execution_time_ms: u64,
+    pub affected_rows: Option<u64>,
+    pub is_read_only: bool,
 }
 
 pub struct ErrorResponse {
@@ -95,497 +80,203 @@ pub struct ErrorResponse {
 }
 ```
 
-**设计原则**：
-
-- DTO 与内部模型分离
-- 使用 serde 支持序列化
-- 版本化管理（未来）
-
 ### 2. Core 层 (`core/`)
 
-**职责**：纯业务逻辑，无外部依赖
+**职责**：纯业务逻辑，无框架依赖
 
 #### 2.1 Driver 模块 (`driver/`)
 
-数据库驱动抽象：
+数据库驱动抽象，详见 [05-驱动架构](./05-driver-architecture.md)。
 
-```rust
-// driver/traits.rs
-#[async_trait]
-pub trait Database: Send + Sync {
-    /// 执行 SQL 查询
-    async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
+核心 Trait：
 
-    /// 获取数据源元数据
-    fn meta(&self) -> DataSourceMeta;
+- `Database`：SQL 执行 + 元数据 + 联邦查询
+- `Transaction`：事务管理
+- `DbPool`：连接池抽象
+- `DriverFactory`：驱动工厂（创建连接）
 
-    /// 列出数据库
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError>;
+当前实现：4 种内置驱动（MySQL/sqlx, PostgreSQL/sqlx, SQLite/rusqlite, DuckDB/duckdb-rs）
 
-    /// 列出表
-    async fn list_tables(&self, database: &str, schema: Option<&str>)
-        -> Result<Vec<SchemaObject>, CoreError>;
-}
+#### 2.2 Datasource 模块 (`datasource/`)
 
-/// 事务支持
-trait Transaction {
-    async fn commit(&self) -> Result<(), CoreError>;
-    async fn rollback(&self) -> Result<(), CoreError>;
-}
-```
+数据源路由层，详见 [05-驱动架构](./05-driver-architecture.md#数据源路由层)：
 
-#### 2.2 DBI 模块 (`dbi/`) 🔥
+- `DataSourceRouter::route(config)` - 根据配置从 DriverRegistry 获取工厂并创建连接
 
-统一数据访问层：
-
-```
-dbi/
-├── mod.rs              # 模块导出
-├── dbi.rs              # DBI 主接口
-├── session.rs          # 会话管理
-├── context.rs          # 查询上下文
-└── engine/             # 执行引擎
-    ├── mod.rs          # 引擎模块导出
-    ├── driver_engine.rs # 原生驱动引擎
-    ├── duckdb_engine.rs # DuckDB 加速引擎
-    └── stream_engine.rs # 流处理引擎
-```
-
-DBI 接口：
-
-```rust
-// dbi/dbi.rs
-pub struct DBI {
-    router: Arc<QueryRouter>,
-    session: Arc<Session>,
-}
-
-impl DBI {
-    /// 执行查询（只读）
-    pub async fn query(&self, sql: &str, mode: ExecutionMode)
-        -> Result<QueryResult, CoreError>;
-
-    /// 执行更新（写操作）
-    pub async fn execute(&self, sql: &str)
-        -> Result<QueryResult, CoreError>;
-}
-```
-
-执行模式：
-
-```rust
-// dbi/engine/mod.rs
-pub enum ExecutionMode {
-    Native,      // 原生驱动执行
-    DuckDB,      // DuckDB 加速执行
-    Stream,      // 流式执行
-    UserChoice,  // 用户选择
-}
-```
-
-智能路由：
-
-```rust
-// dbi/engine/mod.rs
-pub struct QueryRouter {
-    driver_engine: Arc<DriverEngine>,
-    duckdb_engine: Arc<DuckDBEngine>,
-    stream_engine: Arc<StreamEngine>,
-}
-
-impl QueryRouter {
-    /// 智能推荐执行模式
-    pub fn recommend_mode(&self, sql: &str) -> ExecutionMode {
-        // 写操作 → Native
-        // 复杂查询 → DuckDB
-        // 默认 → UserChoice
-    }
-}
-```
-
-#### 2.3 Datasource 模块 (`datasource/`)
-
-数据源路由层（注册/路由，不存放具体驱动实现）：
-
-```
-datasource/
-├── mod.rs          # 模块导出
-└── router.rs       # 数据源路由器
-```
-
-具体驱动实现在 `driver/native/`、`driver/jdbc/`、`driver/wasm/` 中。
-
-#### 2.4 Services 模块 (`services/`)
+#### 2.3 Services 模块 (`services/`)
 
 业务服务：
 
-```rust
-// services/connection_service.rs
-pub struct ConnectionService {
-    manager: Arc<ConnectionManager>,
-}
+- `ConnectionManager`：连接生命周期管理（创建、复用、关闭、切换）
+- `ConnectionService`：连接业务逻辑（连接、断开、测试、元数据缓存初始化）
+- `SqlService`：SQL 执行业务（查询、事务、历史记录）
 
-impl ConnectionService {
-    /// 创建连接
-    pub async fn connect(&self, config: ConnectionConfig)
-        -> Result<String, CoreError>;
+#### 2.4 Persistence 模块 (`persistence/`)
 
-    /// 关闭连接
-    pub async fn close_connection(&self, conn_id: &str)
-        -> Result<(), CoreError>;
+双层存储架构，详见 [06-存储架构](./06-storage-architecture.md)。
 
-    /// 执行 SQL
-    pub async fn execute_sql(&self, conn_id: &str, sql: &str)
-        -> Result<QueryResult, CoreError>;
-}
-```
+全局层：`system/global.db` (SQLite) + `system/analytics/global.duckdb` (DuckDB)
+项目层：`{project}/meta/project.db` (SQLite) + `{project}/analytics/data.duckdb` (DuckDB)
 
-#### 2.5 Persistence 模块 (`persistence/`)
+### 3. Commands 层 (`commands/`)
 
-数据持久化：
+**职责**：Tauri Command 实现，按功能组织
 
-```rust
-// persistence/connection_store.rs
-pub struct ConnectionStore;
+| 模块                         | 职责         | 命令数   |
+| ---------------------------- | ------------ | -------- |
+| `connection_commands.rs`     | 连接管理     | ~15      |
+| `driver_commands.rs`         | 驱动管理     | ~4       |
+| `sql_commands.rs`            | SQL 执行     | ~12      |
+| `project_commands.rs`        | 项目管理     | ~12      |
+| `project_store_commands.rs`  | 项目存储     | ~8       |
+| `metadata_cache_commands.rs` | 元数据缓存   | ~8       |
+| `cache_warming_commands.rs`  | 缓存预热     | ~9       |
+| `analytics_resource_commands.rs` | 分析资源 | ~25     |
 
-impl ConnectionStore {
-    /// 保存连接配置
-    pub fn save(config: &ConnectionConfig) -> Result<(), StorageError>;
-
-    /// 加载最近连接
-    pub fn load_recent() -> Result<Vec<RecentConnection>, StorageError>;
-}
-```
-
-### 3. Adapters 层 (`adapters/`)
-
-**职责**：框架适配，输入输出转换
-
-```rust
-// adapters/tauri/command.rs
-#[tauri::command]
-pub async fn execute_sql(
-    input: ExecuteSqlInput,
-) -> Result<ExecuteSqlResponse, String> {
-    // 1. 输入校验
-    if input.sql.trim().is_empty() {
-        return Err("SQL cannot be empty".into());
-    }
-
-    // 2. 调用 Core 服务
-    let service = SqlService::new(get_connection_manager());
-    let result = service.execute(&input.sql).await
-        .map_err(|e| e.to_string())?;
-
-    // 3. 转换为响应 DTO
-    Ok(result.into())
-}
-```
+> ⚠️ 命令已从 `adapters/tauri/command.rs` 迁移到 `commands/` 目录。旧路径不再有效。
 
 ## 数据流
 
-### 请求处理流程
+### SQL 执行流程（实际）
 
 ```
 Frontend (Vue3)
-    │
-    │ invoke('execute_sql', { sql: 'SELECT * FROM users' })
+    │ invoke('execute_sql', { connId, sql })
     ▼
 Tauri Runtime
     │
     ▼
-Adapter Layer (command.rs)
-    │ 1. 输入校验
-    │ 2. DTO 转换
+commands/sql_commands.rs
+    │ 1. 从 ConnectionManager 获取连接
+    │ 2. 调用 db.query(sql)
     ▼
-Core Services
-    │ 1. 业务逻辑处理
-    │ 2. 调用 Driver
+driver/native/{db}.rs
+    │ Database::query()
+    │ → QueryResult { columns, rows, ... }
     ▼
-Database Driver
-    │ 1. 执行 SQL
-    │ 2. 返回结果
-    ▼
-Result Propagation
-    │ (逐层返回)
+commands/sql_commands.rs
+    │ 返回 QueryResult（自动序列化为 JSON）
     ▼
 Frontend
 ```
 
-### 元数据查询流程
+### 连接创建流程（实际）
 
 ```
-Navigator Panel (Frontend)
-    │
-    │ 1. 展开连接节点
+Frontend
+    │ invoke('create_connection', { config })
     ▼
-MetaNavigatorService
-    │ 2. 检查缓存
-    │ 3. 调用后端 API
-    ▼
-Tauri Command (get_databases)
-    │ 4. 获取连接
-    ▼
-Database.list_databases()
-    │ 5. 执行元数据查询
-    ▼
-PostgreSQL / MySQL / etc.
+commands/connection_commands.rs
     │
     ▼
-Result ←── (逐层返回) ←──
+ConnectionService::connect(config)
+    │ 1. create_database(db_type, url) [P0: 硬编码]
+    │ 2. 注册到 ConnectionManager
+    │ 3. 初始化元数据缓存
+    ▼
+ConnectionManager
+    │ 管理连接生命周期
 ```
 
-### DBI 查询流程（新架构）🔥
+> 详见 [04-数据流设计](./04-data-flow.md)
+
+## 双层存储架构
 
 ```
-Frontend (Vue3)
-    │
-    │ invoke('dbi_query', { sql: 'SELECT * FROM users', mode: 'auto' })
-    ▼
-Tauri Command
-    │ 1. 输入校验
-    │ 2. 创建 DBI 实例
-    ▼
-DBI::query(sql, mode)
-    │ 3. 创建 QueryContext
-    │ 4. 调用 QueryRouter
-    ▼
-QueryRouter.execute(context)
-    │ 5. 智能推荐执行模式
-    │    - 写操作 → Native
-    │    - 复杂查询 → DuckDB
-    │    - 默认 → UserChoice
-    ▼
-┌─────────────────────────────────────┐
-│  执行引擎选择                        │
-├─────────────────────────────────────┤
-│  Native Engine → Driver → Database  │
-│  DuckDB Engine → ATTACH → 联邦查询   │
-│  Stream Engine → 流式处理            │
-└─────────────────────────────────────┘
-    │
-    ▼
-Result (Arrow Format) ←── (逐层返回) ←──
+┌──────────────────────────────────────┐
+│           SQLite 事务层               │
+│  • 连接信息 / SQL 历史 / 项目元数据    │
+│  • 元数据缓存 / 分析资源管理          │
+│  • WAL 模式 + 共享缓存 + 并发池       │
+├──────────────────────────────────────┤
+│           DuckDB 分析层               │
+│  • 联邦查询 / 洞察分析 / 大数据加速   │
+│  • Arrow 原生 / CSV/Parquet 导入      │
+│  • 单例长连接（串行化）              │
+└──────────────────────────────────────┘
 ```
 
-### DuckDB 联邦查询流程 🔥
+> 详见 [06-存储架构](./06-storage-architecture.md)
 
-```
-DBI::query(sql, ExecutionMode::DuckDB)
-    │
-    ▼
-DuckDBEngine.execute(sql)
-    │ 1. 检查外部数据库注册
-    │ 2. 执行 ATTACH 命令
-    ▼
-┌─────────────────────────────────────┐
-│  DuckDB 实例                         │
-│  ├── 本地数据库                      │
-│  ├── ATTACH 'mysql://...' AS mysql  │
-│  ├── ATTACH 'postgres://...' AS pg  │
-│  └── read_csv_auto('data.csv')      │
-└─────────────────────────────────────┘
-    │
-    ▼
-联邦查询执行
-    │ SELECT * FROM mysql.users u
-    │ JOIN pg.orders o ON u.id = o.user_id
-    ▼
-Result (Arrow RecordBatch)
-```
+## 升级策略
+
+分层升级，禁止主版本升级：
+
+| 依赖       | 当前版本    | 策略                    |
+| ---------- | ----------- | ----------------------- |
+| Tokio      | 1.44.x      | ✅ minor/patch，❌ major |
+| Tauri      | 2.10.x      | ✅ patch only            |
+| sqlx       | 0.8.x       | ✅ patch only            |
+| wasmtime   | 43.0.x      | ✅ minor/patch，❌ major |
+
+> 详见 [07-升级策略](./07-upgrade-strategy.md)
 
 ## 扩展点
 
-### 1. 添加新数据库支持
+### 1. 添加新数据库驱动（后续阶段）
+
+当前锁定 4 种内置数据库。后续通过以下方式新增：
+
+- **JVM Sidecar**：JDBC 驱动通过 Go Sidecar 管理 JVM，gRPC + Arrow Flight 通信
+- **WASM 插件**：通过 wasmtime 加载 .wasm 插件
+- **ADBC**：Arrow Database Connectivity 标准协议
+
+### 2. 添加新 Tauri Command
 
 步骤：
 
-1. 在 `driver/native/` 添加实现文件
-2. 实现 `Database` trait
-3. 在 `lib.rs` 注册驱动
+1. 在 `commands/` 目录创建或编辑命令文件
+2. 在 `commands/mod.rs` 导出
+3. 在 `lib.rs` 的 `invoke_handler` 中注册
 
-```rust
-// driver/native/mongodb.rs
-pub struct MongoDbDriver;
+## 当前 P0 问题
 
-#[async_trait]
-impl Database for MongoDbDriver {
-    async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        // 实现查询逻辑
-    }
-}
+| 编号 | 问题                             | 影响                   |
+| ---- | -------------------------------- | ---------------------- |
+| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册 | 维护两套注册表         |
+| P0-2 | `create_database()` 硬编码匹配   | 新增数据库需改多处代码 |
+| P0-3 | `to_url()` 硬编码匹配            | 同上                   |
+| P0-4 | `SchemaObject` 缺少列详情        | 无法展示列注释/类型    |
 
-// lib.rs
-fn register_drivers() {
-    DriverRegistry::register(MongoDbDriverFactory);
-}
-```
+> 详见 [05-驱动架构](./05-driver-architecture.md#p0-问题总结)
 
-### 2. 添加 WASM 插件支持
+## 五阶段调整计划
 
-RdataStation 使用 Extism 1.21 作为 WASM 插件运行时，支持热插拔插件扩展。
+| 阶段 | 目标                   | 内容                                  |
+| ---- | ---------------------- | ------------------------------------- |
+| 1    | 架构归一化             | 消除 DRIVER_FACTORY_MANAGER，统一创建  |
+| 2    | Database trait 增强    | 引入 MetadataBrowser trait            |
+| 3    | DriverDescriptor 增强  | 增加 driver_kind / url_template       |
+| 4    | Command 层清理         | 合并重复命令，统一走 DataSourceRouter  |
+| 5    | 质量保证               | 单元测试、集成测试、clippy/fmt         |
 
-插件架构：
+## 性能目标
 
-```
-┌─────────────────────────────────────────┐
-│  Rust Core                              │
-│  ┌───────────────────────────────────┐  │
-│  │  ExtismPluginManager              │  │
-│  │  ├── load_plugin()                │  │
-│  │  ├── call_plugin()                │  │
-│  │  ├── unload_plugin()              │  │
-│  │  └── list_plugins()               │  │
-│  └───────────────────────────────────┘  │
-└──────────────┬──────────────────────────┘
-               │ WASM 调用
-┌──────────────▼──────────────────────────┐
-│  WASM Plugin (.wasm)                    │
-│  ├── Python 插件 (wasi-python)          │
-│  ├── 自定义数据库驱动                   │
-│  └── 数据分析工具                       │
-└─────────────────────────────────────────┘
-```
+- ✅ 启动速度 < 1.5 秒
+- ✅ Core 内存 < 150MB（MVP）
+- ✅ 插件内存 ≤ 500MB（可配置）
+- ✅ 插件崩溃不影响主程序
 
-插件开发步骤：
+## 技术栈总览
 
-1. 编写 WASM 插件（支持 Rust/Python/C 等）
-2. 编译为 `.wasm` 文件
-3. 通过 `ExtismPluginManager::load_plugin()` 加载
-4. 通过 `call_plugin()` 调用插件函数
+| 层级       | 技术                    | 版本        |
+| ---------- | ----------------------- | ----------- |
+| **Rust**   | Edition / Tokio / Tauri  | 2021 / 1.44 / 2.10 |
+| **数据库** | sqlx / rusqlite / duckdb-rs | 0.8 / 0.32 / 1.10502 |
+| **插件**   | wasmtime / Arrow         | 43.0 / 53.0 |
+| **前端**   | Vue 3 / TypeScript / Vite | 3.5 / 5.8 / 6 |
+| **UI**     | naive-ui / dockview-vue / AG Grid | latest / 5.2 / 33 |
+| **编辑器** | Monaco Editor            | 0.52        |
 
-### 3. 添加 JDBC 数据库支持
+## 相关文档
 
-JDBC 驱动通过 JVM 桥接支持 JDBC 兼容的数据库：
-
-```
-Rust Core → JDBC Driver → JVM → JDBC Driver (.jar)
-```
-
-支持的数据库：
-
-- Oracle
-- SQL Server
-- DB2
-- 其他 JDBC 兼容数据库
-
-### 4. 添加新命令
-
-步骤：
-
-1. 在 `adapters/tauri/command.rs` 添加命令函数
-2. 在 `lib.rs` 注册命令
-
-```rust
-// command.rs
-#[tauri::command]
-pub async fn my_command(input: MyInput) -> Result<MyOutput, String> {
-    // 实现
-}
-
-// lib.rs
-.invoke_handler(tauri::generate_handler![
-    // ... existing commands
-    my_command,
-])
-```
-
-### 5. 添加新服务
-
-步骤：
-
-1. 在 `core/services/` 创建服务文件
-2. 在 `core/mod.rs` 导出
-
-```rust
-// services/my_service.rs
-pub struct MyService;
-
-impl MyService {
-    pub async fn do_something(&self) -> Result<(), CoreError> {
-        // 实现
-    }
-}
-
-// core/mod.rs
-pub use services::MyService;
-```
-
-## 性能考虑
-
-### 1. 连接池
-
-```rust
-// driver/native/pool.rs
-pub struct DbPool {
-    inner: Pool<Postgres>, // sqlx Pool
-}
-
-impl DbPool {
-    /// 获取连接
-    pub async fn acquire(&self) -> Result<PoolConnection, CoreError>;
-
-    /// 连接池状态
-    pub fn status(&self) -> PoolStatus;
-}
-```
-
-### 2. 缓存策略
-
-```rust
-// 元数据缓存
-pub struct MetadataCache {
-    l1: Arc<RwLock<HashMap<String, CachedValue>>>, // 内存缓存
-    l2: Arc<dyn CacheStore>, // IndexedDB / SQLite
-}
-
-impl MetadataCache {
-    pub async fn get(&self, key: &str) -> Option<CachedValue>;
-    pub async fn set(&self, key: &str, value: CachedValue, ttl: Duration);
-}
-```
-
-### 3. 异步处理
-
-- 使用 `tokio` 作为异步运行时
-- 所有 I/O 操作均为异步
-- 使用 `Arc` 共享状态，避免克隆
-
-## 安全考虑
-
-### 1. SQL 注入防护
-
-- 使用参数化查询（sqlx）
-- 禁止字符串拼接 SQL
-- 输入校验在 Adapter 层
-
-### 2. 连接安全
-
-- 支持 SSL/TLS 连接
-- 密码加密存储
-- SSH 隧道支持
-
-### 3. 错误处理
-
-- 不向客户端暴露内部错误细节
-- 错误日志记录
-- 敏感信息脱敏
-
-## 监控与日志
-
-### 日志级别
-
-```rust
-// error! - 系统错误，需要处理
-// warn!  - 警告，可能影响功能
-// info!  - 重要操作记录
-// debug! - 调试信息
-// trace! - 详细跟踪
-```
-
-### 性能指标
-
-- SQL 执行时间
-- 连接池使用率
-- 缓存命中率
-- 内存使用量
+| 文档           | 说明             |
+| -------------- | ---------------- |
+| [02-目录结构](./02-directory-structure.md)     | 目录组织及职责   |
+| [03-模块依赖](./03-module-dependencies.md)     | 依赖关系及约束   |
+| [04-数据流](./04-data-flow.md)                 | 请求处理流程     |
+| [05-驱动架构](./05-driver-architecture.md)      | 数据库驱动设计   |
+| [06-存储架构](./06-storage-architecture.md)     | SQLite + DuckDB 双层存储 |
+| [07-升级策略](./07-upgrade-strategy.md)        | 版本升级策略     |
+| [09-开发指南](./09-development-guide.md)       | 开发规范及实践   |
+| [10-API 参考](./10-api-reference.md)           | Tauri 命令参考   |

@@ -6,6 +6,8 @@
 // - adapters/: 适配器层（Tauri/CLI/HTTP/WASM）
 // - commands/: Tauri 命令（统一入口）
 
+#![allow(dependency_on_unit_never_type_fallback)]
+
 pub mod api;
 pub mod core;
 pub mod adapters;
@@ -266,6 +268,24 @@ pub fn run() {
             get_analyzable_files,
             update_scratchpad_file_meta,
             search_scratchpad_content,
+            watch_scratchpad,
+            unwatch_scratchpad,
+            promote_scratchpad_to_resource,
+
+            // 模拟数据生成 Mock
+            mock_generate,
+            mock_preview,
+            mock_export,
+            mock_map_column,
+            mock_map_columns_batch,
+            mock_list_templates,
+            mock_import_schema,
+            mock_apply_template,
+            mock_save_to_scratchpad,
+            mock_persist_as_asset,
+            mock_get_history,
+            mock_clear_history,
+            mock_re_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

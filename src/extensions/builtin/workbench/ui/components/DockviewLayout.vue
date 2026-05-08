@@ -184,6 +184,7 @@ function openVisualization(detail: {
   data: Record<string, unknown>[]
   columns: string[]
   title?: string
+  chartType?: string
 }): void {
   if (!dockviewApi) return
   if (!detail?.data?.length) return
@@ -201,6 +202,7 @@ function openVisualization(detail: {
     params: {
       data: detail.data,
       columns: detail.columns,
+      chartType: detail.chartType,
     },
   })
 }

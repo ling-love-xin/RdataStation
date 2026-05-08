@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -6,12 +7,14 @@ use crate::core::scratchpad::ScratchpadStore;
 
 pub struct ScratchpadState {
     pub store: Arc<Mutex<Option<ScratchpadStore>>>,
+    pub watcher_active: Arc<AtomicBool>,
 }
 
 impl ScratchpadState {
     pub fn new() -> Self {
         Self {
             store: Arc::new(Mutex::new(None)),
+            watcher_active: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -23,6 +26,14 @@ impl ScratchpadState {
                 *guard = Some(store);
             });
         });
+    }
+
+    pub fn is_watching(&self) -> bool {
+        self.watcher_active.load(Ordering::Relaxed)
+    }
+
+    pub fn set_watching(&self, active: bool) {
+        self.watcher_active.store(active, Ordering::Relaxed);
     }
 }
 

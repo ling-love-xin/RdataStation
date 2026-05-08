@@ -36,15 +36,9 @@ const props = withDefaults(
 
 const recordRow = computed(() => {
   const tab = props.tab
-  if (!tab || tab.columns.length === 0) return null
-  if (props.selectedRowIndex < 0 || props.selectedRowIndex >= tab.rows.length) return null
-
-  const row = tab.rows[props.selectedRowIndex]
-  const obj: Record<string, unknown> = {}
-  tab.columns.forEach((col, i) => {
-    obj[col] = row[i]
-  })
-  return obj
+  if (!tab || tab.columns.length === 0 || tab.objectRows.length === 0) return null
+  if (props.selectedRowIndex < 0 || props.selectedRowIndex >= tab.objectRows.length) return null
+  return tab.objectRows[props.selectedRowIndex]
 })
 
 function valueClass(value: unknown): string {
@@ -98,9 +92,9 @@ function formatValue(value: unknown): string {
   font-style: italic;
 }
 .is-number {
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .is-bool {
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 </style>

@@ -1,8 +1,34 @@
 # API 接口文档
 
+> 版本：v1.1
+> 最后更新：2026-05-09
+> 状态：✅ 路径已更正
+
 ## 概述
 
 本文档描述 RdataStation 后端提供的所有 Tauri 命令（API 接口）。
+
+> ⚠️ 所有命令入口在 `commands/` 目录（非 `adapters/tauri/command.rs`）。实际注册的命令以 [lib.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/lib.rs) 中的 `invoke_handler` 为准（共 70+ 命令）。
+
+## 命令分类
+
+| 分类         | 命令模块                      | 命令数   |
+| ------------ | ----------------------------- | -------- |
+| 连接管理     | `connection_commands`         | ~15      |
+| 驱动管理     | `driver_commands`             | ~4       |
+| SQL 执行     | `sql_commands`                | ~12      |
+| 项目管理     | `project_commands`            | ~12      |
+| 项目存储     | `project_store_commands`      | ~8       |
+| 元数据缓存   | `metadata_cache_commands`     | ~8       |
+| 缓存预热     | `cache_warming_commands`      | ~9       |
+| 分析资源     | `analytics_resource_commands` | ~25      |
+| 洞察分析     | `insight_commands`            | ~10      |
+| 联邦查询     | `federation_commands`         | ~2       |
+| 草稿箱       | `scratchpad_commands`         | ~20      |
+| SQL 解析     | `sql_parse_commands`          | ~6       |
+| 数据导出     | `export_commands`             | ~1       |
+| 模拟数据     | `mock_commands`               | ~12      |
+| DuckDB 连接池| `duckdb_pool_commands`        | ~3       |
 
 ## 连接管理
 

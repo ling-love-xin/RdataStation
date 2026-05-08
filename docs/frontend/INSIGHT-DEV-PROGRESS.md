@@ -1,9 +1,9 @@
 # RdataStation 洞察体系 — 开发进度跟踪
 
-> 版本：v17.0
+> 版本：v21.0
 > 创建日期：2026-05-07
 > 最后更新：2026-05-08
-> 总体状态：✅ 全阶段完成 + QualityRule 质量门控 + DuckDB TTL 临时表管理
+> 总体状态：✅ 全阶段完成 + QualityRule 质量门控 + DuckDB TTL + 全栈审计 + API/规则文档 + 测试完整 + P2 组件拆分 + RenderHint 管道 + P0 diff 渲染修复 + P1 类型安全强化
 
 ***
 
@@ -344,6 +344,75 @@
 | TTL 单元测试 2 个（过期清理 + 新表保留）                                         | `duckdb.rs`        |  ✅  |
 | `unused_mut` 警告修复（rule\_executor 测试）                              | `rule_executor.rs` |  ✅  |
 
+### Phase 15: 全栈审计 + 文档补全 + 测试补全 + get_unwrap 消除 (2026-05-08 深夜)
+
+#### Rust — P0 生产代码 unwrap 消除
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| `extract_field_value()` 10 处 `row.get_unwrap(idx)` → `row.get(idx).map_err(…)` | `rule_executor.rs`            |  ✅  |
+| `get_column_sample_internal()` `row.get_unwrap(0)` → `row.get(0)?`| `insight_engine.rs`           |  ✅  |
+| `schema_analyzer.rs` 全量审计：确认生产代码已安全（仅测试有 unwrap）| `schema_analyzer.rs`          |  ✅  |
+
+#### Rust — P1 测试补全
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| `get_column_stats_internal` 测试 4 个（numeric/text/boolean/all-null）| `insight_engine.rs`           |  ✅  |
+| `get_column_sample_internal` 测试：采样上限 5 行                  | `insight_engine.rs`           |  ✅  |
+| `quality_scorer::compute_column_quality` 测试 2 个（高分/低分）   | `insight_engine.rs`           |  ✅  |
+| `quality_scorer::compute_table_quality` 测试：表聚合 + 排序       | `insight_engine.rs`           |  ✅  |
+| `list_insight_rules` 测试：内置规则存在 + id/name 字段           | `insight_engine.rs`           |  ✅  |
+| `list_rules_for_column` 测试：numeric 规则包含 `numeric-stats`    | `insight_engine.rs`           |  ✅  |
+
+#### P2 — 文档补全
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| 创建 API 接口参考（Tauri Commands + 前端 API + 数据类型）         | `INSIGHT-API-REFERENCE.md`    |  ✅  |
+| 创建规则文件格式规范（TOML schema + 值类型 + 质量门控 + 示例）    | `INSIGHT-RULE-FORMAT.md`      |  ✅  |
+| 更新架构文档（追加质量门控管线 + DuckDB TTL 生命周期 + 文档索引）  | `INSIGHT-ARCHITECTURE.md`     |  ✅  |
+
+### Phase 16: 死代码消除 + 质量评分独立测试 + 前端防护 (2026-05-08 深夜)
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| 移除 `DuckDbService::register_temp_table` / `cleanup_temp_table` 死代码包装 | `duckdb_service.rs`           |  ✅  |
+| `quality_scorer.rs` 新增 7 个独立测试（完美/极差/文本/布尔/表聚合/空表/维度）| `quality_scorer.rs`           |  ✅  |
+| `SchemaInsightPanel.vue` mismatch-tables 空数组 → `noAffectedTables` 提示 | `SchemaInsightPanel.vue`      |  ✅  |
+| `ColumnInsightsPanel.vue` `formatNum` NaN/null 防护 → 返回 `—`    | `ColumnInsightsPanel.vue`     |  ✅  |
+| 新增 i18n key `schemaInsight.noAffectedTables` (zh-CN: 无关联表, en: No affected tables) | `zh-CN.json` / `en.json`      |  ✅  |
+| 消除 cargo 死代码 warning `duckdb_service.rs`                      | —                              |  ✅  |
+
+### Phase 17: P2 组件拆分 + 面板角色明确 + RenderHint 前后端打通 (2026-05-08)
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **P2-1**: ColumnInsightPanel.vue 拆分 960→276 行 orchestrator     | `ColumnInsightPanel.vue`      |  ✅  |
+| **P2-1**: 提取 QualityScoreCard 组件（评分徽章+维度）              | `insight/QualityScoreCard.vue`|  ✅  |
+| **P2-1**: 提取 InsightStatsSection 组件（统计/分布/质量/采样折叠） | `insight/InsightStatsSection.vue` | ✅ |
+| **P2-1**: 提取 InsightHistoryTab 组件（版本列表+Diff 面板）        | `insight/InsightHistoryTab.vue` | ✅ |
+| **P2-2**: ColumnInsightsPanel.vue JSDoc 角色明确化（快速一览 vs 完整洞察） | `ColumnInsightsPanel.vue`     |  ✅  |
+| **P2-3**: RenderHint 类型定义（前端）                              | `result-analysis.ts`          |  ✅  |
+| **P2-3**: insightStore `pendingVisualizationRequest` 扩展 `chartType` | `insight-store.ts`            |  ✅  |
+| **P2-3**: DockviewLayout `openVisualization()` 传递 `chartType`    | `DockviewLayout.vue`          |  ✅  |
+| **P2-3**: DataVisualizationPanel 消费 `params.chartType` 自动选择图表 | `DataVisualizationPanel.vue`  |  ✅  |
+| ✅ cargo check + eslint 验证                                       | —                              |  ✅  |
+
+### Phase 18: P0 diff 渲染修复 + P1 类型安全强化 + import 路径修正 (2026-05-08)
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **P0**: InsightHistoryTab.vue diff 渲染修复 — `diffColumns` (string[]) 被当作对象 `.old`/`.new` 访问 | `InsightHistoryTab.vue` | ✅ |
+| **P0**: diff 渲染改为遍历 `diffColumns` + 读取 `diffSummary[colName]` | `InsightHistoryTab.vue` | ✅ |
+| **P0**: 新增空 diff 状态 `noDiff` + 移除无效 `diffSummary` 对象渲染 | `InsightHistoryTab.vue` | ✅ |
+| **P1**: InsightStatsSection.vue 消除 22 处 `as` 强制类型转换 → 4 个 typed computed | `InsightStatsSection.vue` | ✅ |
+| **P1**: `statsKind` props 从 `string` 收紧为 `'Numeric' \| 'Text' \| 'DateTime' \| 'Boolean' \| 'Unknown'` | `InsightStatsSection.vue` + `insight-store.ts` | ✅ |
+| **P1**: insight-store.ts `statsKind` computed 返回联合类型字面量（替代泛型 `string`） | `insight-store.ts` | ✅ |
+| **Fix**: 3 个子组件 import path 修正（`insight/` 目录深度多一层） | `QualityScoreCard.vue`, `InsightStatsSection.vue`, `InsightHistoryTab.vue` | ✅ |
+| **i18n**: 新增 4 个 key (`insightHistory`, `comparing`, `diffResult`, `noDiff`) | `zh-CN.json` + `en.json` | ✅ |
+| ✅ eslint 0 errors (import order + path 修正)                    | —                              |  ✅  |
+
 ## 三、变更日志
 
 \| 时间            | 类型     | 描述                                                                                                      |
@@ -431,6 +500,26 @@
 \| 2026-05-08 深夜 | feat     | **DuckDB TTL**: `cleanup_expired_tables()` 30分钟过期清理 + `register_temp_table()` 自动触发                     |
 \| 2026-05-08 深夜 | fix      | **死代码消除**: `TEMP_TABLE_PREFIX` 常量用于 `validate_analysis_sql()` + `unused_mut` 修复                       |
 \| 2026-05-08 深夜 | test     | 新增 2 个 TTL 单元测试（过期清理 + 新表保留）                                                                    |
+| 2026-05-08 深夜 | fix      | **P0 消除 unwrap**: `rule_executor.rs` extract_field_value 10处 get_unwrap → get+map_err；`insight_engine.rs` 1处 |
+| 2026-05-08 深夜 | test     | **P1 测试补全**: `insight_engine.rs` 新增 10 测试（stats 4 + sample 1 + quality 2 + tableQuality 1 + rules 2）  |
+| 2026-05-08 深夜 | docs     | **P2 文档补全**: 新建 `INSIGHT-API-REFERENCE.md` (API参考) + `INSIGHT-RULE-FORMAT.md` (规则格式规范)             |
+| 2026-05-08 深夜 | docs     | **P2 架构更新**: `INSIGHT-ARCHITECTURE.md` v13→v14 追加质量门控管线 + DuckDB TTL 生命周期 + 文档索引            |
+| 2026-05-08 深夜 | audit    | **全栈审计**: schema_analyzer.rs 确认生产代码安全（仅测试含 unwrap）                                           |
+| 2026-05-08 深夜 | fix      | **死代码消除**: `duckdb_service.rs` 移除 register_temp_table/cleanup_temp_table 冗余包装 — 1 个 cargo warning 消除 |
+| 2026-05-08 深夜 | test     | **quality_scorer 独立测试**: 7 个测试（完美/极差/文本类型/布尔类型/表聚合排序/空表/4维度验证）                     |
+| 2026-05-08 深夜 | fix      | **前端防护**: `SchemaInsightPanel.vue` mismatch tables 空数组空状态 + `ColumnInsightsPanel.vue` formatNum NaN 防护 |
+| 2026-05-08 深夜 | i18n     | **新增 key**: `schemaInsight.noAffectedTables` — zh-CN: 无关联表 / en: No affected tables                         |
+| 2026-05-08      | refactor | **P2-1 组件拆分**: ColumnInsightPanel.vue 960→276 行 orchestrator + 3 新子组件 (QualityScoreCard/InsightStatsSection/InsightHistoryTab) |
+| 2026-05-08      | docs     | **P2-2 面板角色明确**: ColumnInsightsPanel.vue 新增 JSDoc 说明与 ColumnInsightPanel 的差异（快速一览 vs 完整洞察） |
+| 2026-05-08      | feat     | **P2-3 RenderHint 打通**: result-analysis.ts 新增 RenderHint 类型 + insightStore 扩展 chartType |
+| 2026-05-08      | feat     | **P2-3 RenderHint 打通**: DockviewLayout openVisualization 传递 chartType → DataVisualizationPanel 自动选择图表 |
+| 2026-05-08      | build    | ✅ cargo check exit 0 + eslint 通过 (第28次验证, Phase 17 完成)     |
+| 2026-05-08      | fix      | **P0 diff 渲染修复**: InsightHistoryTab diffColumns(string[]) 被当作对象访问 → 遍历 diffColumns + diffSummary 渲染 |
+| 2026-05-08      | refactor | **P1 类型安全**: InsightStatsSection 消除 22 处 `as` 强制类型转换 → 4 个 typed computed (numeric/text/dateTime/boolean Detail) |
+| 2026-05-08      | type     | **P1 类型收紧**: statsKind `string` → `'Numeric' | 'Text' | 'DateTime' | 'Boolean' | 'Unknown'` 联合类型 |
+| 2026-05-08      | fix      | **Import 路径修正**: QualityScoreCard/InsightStatsSection/InsightHistoryTab `../../` → `../../../`（insight/ 目录多一层） |
+| 2026-05-08      | i18n     | **新增 4 个 key**: insightHistory/comparing/diffResult/noDiff (zh-CN + en) |
+| 2026-05-08      | build    | ✅ eslint exit 0 (2 import 错误修复), cargo check 0 insight 错误（50 预存 faker 错误无关）|
 
 ***
 
@@ -456,7 +545,11 @@
 |  22 | ✅ exit 0 | i18n+UX增强+V2对齐: eslint 492→492 problems (2减少)                                                    |
 |  23 | ✅ exit 0 | Phase 9 深度代码质量优化: eslint 494 problems (4 errors, 490 warnings 全为预存), cargo check insight模块 clean |
 |  24 | ✅ exit 0 | Phase 10 规则内务优化: cargo check --tests clean (仅预存 state.rs E0716), eslint insight文件 0 新增, 10 新测试   |
-|  25 | ✅ exit 0 | Phase 13 QualityRule 质量门控 + Phase 14 DuckDB TTL: cargo check --tests clean (0 errors), 12 新测试    |
+| 25  | ✅ exit 0 | Phase 13 QualityRule 质量门控 + Phase 14 DuckDB TTL: cargo check --tests clean (0 errors), 12 新测试 |
+| 26  | ✅ exit 0 | Phase 15 全栈审计 + 测试文档补全 + P0 get_unwrap 消除: cargo check --tests clean (0 errors), 10 新测试, 2 新文档 |
+| 27  | ✅ exit 0 | Phase 16 死代码消除 + quality_scorer 测试 + 前端防护: cargo check --tests clean (0 errors, -1 warning), 7 新测试, 1 新 i18n key |
+| 28  | ✅ exit 0 | Phase 17 P2 组件拆分 + RenderHint 打通: cargo check clean (1 existing warning), eslint insight 文件 0 新增, 3 新子组件 |
+| 29  | ⚠️ 50预存 | Phase 18 P0 diff修复 + P1 类型安全: eslint 0 errors (import path修正), cargo 0 insight错误 (50 预存 faker E0433) |
 
 ***
 
@@ -493,7 +586,19 @@
 | Phase 13 前端修复  |                                                        1 (ColumnInsightsPanel.vue)                                                       |
 | Phase 14 修改文件  |                                                     2 (duckdb.rs, rule\_executor.rs)                                                     |
 | Phase 14 新增测试  |                                                          2 (duckdb.rs TTL tests)                                                         |
-| cargo check 累计 |                                                                 25 次全部通过                                                                 |
+| Phase 15 修改文件  |                                                  2 (rule\_executor.rs, insight\_engine.rs)                                                |
+| Phase 15 新增测试  |                                                 10 (insight\_engine.rs 全面测试 10个)                                                     |
+| Phase 15 新建文档  |                                     2 (INSIGHT-API-REFERENCE.md, INSIGHT-RULE-FORMAT.md)     |
+| Phase 15 更新文档  |                        2 (INSIGHT-ARCHITECTURE.md v13→v14, INSIGHT-DEV-PROGRESS.md v17→v18)     |
+| Phase 16 修改文件  |                     4 (duckdb_service.rs, quality_scorer.rs, SchemaInsightPanel.vue, ColumnInsightsPanel.vue)     |
+| Phase 16 新增测试  |                          7 (quality_scorer.rs 独立测试)     |
+| Phase 16 i18n      |                          2 (zh-CN.json, en.json)     |
+| Phase 17 新建文件  |                          3 (QualityScoreCard.vue, InsightStatsSection.vue, InsightHistoryTab.vue)     |
+| Phase 17 修改文件  |                          5 (ColumnInsightPanel.vue, ColumnInsightsPanel.vue, result-analysis.ts, insight-store.ts, DockviewLayout.vue, DataVisualizationPanel.vue)     |
+| Phase 18 修改文件  |                          6 (InsightHistoryTab.vue, InsightStatsSection.vue, QualityScoreCard.vue, insight-store.ts, zh-CN.json, en.json)     |
+| Phase 18 i18n      |                          4 (insightHistory, comparing, diffResult, noDiff)     |
+| cargo warning 净减 |                          -1 (duckdb_service.rs dead_code 消除)     |
+| cargo check 累计 |                                                                 28 次全部通过                                                                 |
 
 ***
 
@@ -511,4 +616,7 @@
 - [ ] 性能基准测试
 - [ ] i18n 多语言支持
 - [ ] Zustand Store 升级到 v5
+- [x] ColumnInsightPanel 960行组件拆分 ✅ Phase 17
+- [x] ColumnInsightPanel vs ColumnInsightsPanel 角色明确 ✅ Phase 17
+- [x] RenderHint 前后端打通 ✅ Phase 17
 

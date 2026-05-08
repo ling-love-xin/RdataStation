@@ -98,9 +98,10 @@ export const useInsightStore = defineStore('insight', () => {
     data: Record<string, unknown>[]
     columns: string[]
     title?: string
+    chartType?: string
   } | null>(null)
 
-  const statsKind = computed<string>(() => {
+  const statsKind = computed<'Numeric' | 'Text' | 'DateTime' | 'Boolean' | 'Unknown'>(() => {
     return insightData.value?.stats?.stats_detail?.kind ?? 'Unknown'
   })
 

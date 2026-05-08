@@ -72,7 +72,7 @@ body.theme-light {
 
 ::selection {
   background: var(--brand-accent);
-  color: #ffffff;
+  color: var(--color-bg-primary);
 }
 
 .no-select {

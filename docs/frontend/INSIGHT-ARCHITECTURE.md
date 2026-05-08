@@ -1,9 +1,9 @@
 # RdataStation 洞察体系 — 技术架构文档
 
-> 版本：v13.0
+> 版本：v16.0
 > 创建日期：2026-05-07
 > 最后更新：2026-05-08
-> 状态：✅ 完整架构（DuckDB 实例统一 + 端到端联动 + 动画 + 质量评分 + 表聚合 + Schema 洞察）
+> 状态：✅ 完整架构（DuckDB 实例统一 + 端到端联动 + 动画 + 质量评分 + 表聚合 + Schema 洞察 + QualityRule 质量门控 + DuckDB TTL + API 参考 + RenderHint 图表自动选择 + 组件类型安全强化）
 
 ---
 
@@ -97,13 +97,17 @@ pub fn load_user_rules(project_path: &Path) { ... }  // 项目打开时调用
 ## 三、前端组件树
 
 ```
-ColumnInsightPanel.vue
+ColumnInsightPanel.vue (~276 行 orchestrator) ← Phase 17 拆分
 └─ NTabs { default: 'column' }
     ├─ NTabPane name="column" tab="列洞察"
     │   ├─ [Empty/Loading(骨架屏)/Error/Data] 四状态
     │   ├─ HeaderActions: Download(导出JSON) + FileText(导出Markdown) + Save(保存快照)
-    │   ├─ QualityScore → 评分徽章(分数+等级+颜色) + 四维度进度条
-    │   ├─ NCollapse (basic/dist/quality/sample)
+    │   ├─ QualityScoreCard.vue → 评分徽章(分数+等级+颜色) + 四维度进度条 ← extracted
+    │   ├─ InsightStatsSection.vue (NCollapse: basic/dist/quality/sample) ← extracted
+    │   │   ├─ NCollapseItem basic → 基础统计 (count/null/unique/min/max/mean/median/mode)
+    │   │   ├─ NCollapseItem dist → 直方图/分布图 (按数据类型)
+    │   │   ├─ NCollapseItem quality → 质量评分维度明细
+    │   │   └─ NCollapseItem sample → 样本值 Top 10
     │   ├─ StorageFooter → 版本数 + "清理旧数据"按钮 + columnRules 推荐标签
     │   └─ uses: insightStore.qualityScore (自动加载)
     │
@@ -115,11 +119,12 @@ ColumnInsightPanel.vue
     │       └─ NDataTable / KV 对 → 结果渲染 (insightStore.multiResult)
     │
     └─ NTabPane name="history" tab="历史"
-        ├─ [Empty/List] 两状态
-        ├─ 版本列表 → entry.version_id + checksum + 日期
-        ├─ onClick → insightStore.loadVersionDetail(version_id) → 加载 diffData
-        ├─ DiffPanel → 旧值 → 新值（绿增/红减/灰不变）
-        └─ 取消对比 → clearDiff()
+        └─ InsightHistoryTab.vue ← extracted
+            ├─ [Empty/List] 两状态
+            ├─ 版本列表 → entry.version_id + checksum + 日期
+            ├─ onClick → insightStore.loadVersionDetail(version_id) → 加载 diffData
+            ├─ DiffPanel → 旧值 → 新值（绿增/红减/灰不变）
+            └─ 取消对比 → clearDiff()
 
 TableProfileView.vue (dockview 'tableProfile')
 ├─ props: { connId, dbType, database, schema, table }
@@ -169,6 +174,9 @@ src-tauri/src/core/insight/schema_analyzer.rs ← Schema 洞察
 src/.../components/panels/MultiColumnView.vue
 src/.../components/panels/TableProfileView.vue
 src/.../components/panels/SchemaInsightPanel.vue ← Schema 洞察
+src/.../components/panels/insight/QualityScoreCard.vue ← Phase 17 提取
+src/.../components/panels/insight/InsightStatsSection.vue ← Phase 17 提取
+src/.../components/panels/insight/InsightHistoryTab.vue ← Phase 17 提取
 ```
 
 ### 修改 (18 → 多轮迭代)
@@ -190,3 +198,115 @@ src/.../components/panels/MultiColumnView.vue (P0打通: 改用 Store)
 src/.../components/DockviewLayout.vue (注册 tableProfile + 动态创建面板)
 src/.../composables/use-context-menu-actions.ts (快速探查菜单 + getDbTypeForConnection)
 ```
+
+---
+
+## 六、质量门控管线（Phase 13）
+
+```
+RuleFile (.rule.toml)
+  │  [[quality]] 定义
+  ▼
+RuleExecutor::execute_qualified(rule, conn, params)
+  ├── execute(rule, conn, params) → Value (原始结果)
+  └── evaluate_quality(rule, &data) → QualityReport
+        │  逐个检查 quality[].field vs quality[].rule
+        │  生成 QualityCheck { field, passed, rule, actual, severity, message }
+        ▼
+ExecutionResult { data: Value, quality: Option<QualityReport> }
+  │  insight_engine → result_service → result_commands
+  ▼
+serde_json::to_value(exec_result) → JSON → 前端
+```
+
+## 七、DuckDB 临时表生命周期（Phase 14）
+
+```
+register_temp_table("rs_xxx")
+  ├── ① 注册到 table_registry: HashMap<String, Instant>
+  ├── ② evict_oldest_tables()         # 计数淘汰: > 50 个 → 删最旧
+  └── ③ cleanup_expired_tables()      # TTL 淘汰: > 30 分钟 → DROP TABLE
+                                         TEMP_TABLE_TTL_SECS = 1800
+```
+
+## 八、RenderHint 图表自动选择管线（Phase 17）
+
+```
+RuleFile (.rule.toml)
+  │  [rule.render] 定义
+  │  component = "pie"   # 建议图表类型
+  │  display_order = 5
+  ▼
+RuleRegistry::parse() → RuleMeta { render: Some(RenderHint { component: "pie", .. }) }
+  │
+  ▼
+RuleExecutor::rule_to_json() → JSON { "render": { "component": "pie" } }
+  │  insight_engine → result_service → result_commands
+  ▼
+前端 ColumnInsightPanel.openVisualization()
+  ├─ applicableRules[0].render.component → chartType
+  └─ insightStore.pendingVisualizationRequest = { chartType: "pie", ... }
+      │
+      ▼
+DockviewLayout watcher → openVisualization(request)
+  │  params.chartType = detail.chartType
+  ▼
+DataVisualizationPanel
+  │  props.chartType → chartType ref 初始值
+  │  (仅在首次打开时生效，用户可切换)
+```
+
+### 支持图表类型
+
+| TOML component | 前端 chartType | 图表类型 |
+| :---: | :---: | --- |
+| `"bar"` | `'bar'` | 柱状图 |
+| `"line"` | `'line'` | 折线图 |
+| `"pie"` | `'pie'` | 饼图 |
+| `"scatter"` | `'scatter'` | 散点图 |
+
+### 规则示例
+
+```toml
+[rule]
+id = "monthly-distribution"
+name = "月度分布"
+type = "distribution"
+description = "按月聚合数据分布"
+
+[rule.render]
+component = "bar"
+display_order = 5
+```
+
+## 九、历史对比数据流（Phase 18 修复）
+
+```
+insightStore.loadVersionDetail(version_id)
+  │  invoke('get_insight_version_detail')
+  ▼
+diffData = ColumnInsightFull（历史快照）
+  │
+  ▼
+diffColumns computed: string[]  ← 变更字段名列表
+  │  比较 insightData.stats vs diffData.stats
+  │  如: ["total_count", "null_count", "null_rate"]
+  ▼
+diffSummary computed: Record<string, string>  ← 可读对比文本
+  │  如: { total_count: "1000 → 1500", null_count: "5 → 10 (+5)" }
+  ▼
+InsightHistoryTab.vue
+  │  v-for colName in diffColumns
+  │  <span>{{ diffSummary[colName] }}</span>
+  │  （所有 diff 条目均为 val-changed 样式）
+```
+
+## 十、相关文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [INSIGHT-DEV-PROGRESS.md](./INSIGHT-DEV-PROGRESS.md) | 开发进度跟踪、变更日志 |
+| [INSIGHT-API-REFERENCE.md](./INSIGHT-API-REFERENCE.md) | Tauri Commands + 前端 API + 数据类型参考 |
+| [INSIGHT-RULE-FORMAT.md](./INSIGHT-RULE-FORMAT.md) | 规则文件 TOML 格式规范 |
+| [INSIGHT-SYSTEM-PLAN.md](./INSIGHT-SYSTEM-PLAN.md) | 洞察系统总体规划 |
+| [QUERY-RESULT-OPTIMIZATION-PROGRESS.md](./QUERY-RESULT-OPTIMIZATION-PROGRESS.md) | 查询结果优化（交叉影响追踪） |

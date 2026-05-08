@@ -77,7 +77,8 @@
             :row-data="rowData"
             :default-col-def="defaultColDef"
             :pagination="pagination"
-            :page-size="pageSize"
+            :pagination-page-size="paginationPageSize"
+            :pagination-page-selector="paginationPageSelector"
             :is-dark="uiStore.isDark"
             :loading="tab.isLoading"
             :empty-text="t('workbench.executeSqlToSeeResults')"
@@ -86,9 +87,9 @@
             @row-clicked="onRowClicked"
             @selection-changed="onSelectionChanged"
             @cell-value-changed="onCellValueChanged"
-            @first-data-rendered="onFirstDataRendered"
             @row-data-updated="onRowDataUpdated"
             @sort-changed="onSortChanged"
+            @pagination-changed="onPaginationChanged"
             @keydown="handleKeyDown"
           />
           <div v-if="currentView === 'chart'" class="chart-fill">
@@ -252,6 +253,23 @@
           >
             <SkipForward :size="11" />
           </NButton>
+          <NInput
+            v-if="gridApi && gridApi.paginationGetTotalPages() > 1"
+            :value="goPageInput"
+            size="tiny"
+            class="go-page-input"
+            :placeholder="t('workbench.goPage')"
+            @update:value="goPageInput = $event"
+            @keyup.enter="goToPage"
+          />
+          <NButton
+            size="tiny"
+            quaternary
+            :title="paginationEnabled ? t('workbench.disablePagination') : t('workbench.enablePagination')"
+            @click="paginationEnabled = !paginationEnabled"
+          >
+            <Layers :size="11" :style="{ opacity: paginationEnabled ? 1 : 0.4 }" />
+          </NButton>
         </div>
       </div>
     </template>
@@ -302,8 +320,9 @@ import {
   List,
   GitCompare,
   BarChart3,
+  Layers,
 } from 'lucide-vue-next'
-import { createDiscreteApi, darkTheme, lightTheme, NButton, NDropdown, NModal } from 'naive-ui'
+import { createDiscreteApi, darkTheme, lightTheme, NButton, NDropdown, NInput, NModal } from 'naive-ui'
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -322,6 +341,7 @@ import ResultContextMenu from './result-panel/ResultContextMenu.vue'
 import ResultDiffViewer from './result-panel/ResultDiffViewer.vue'
 import SqlFilterInput from './result-panel/SqlFilterInput.vue'
 import { useFilterPresets } from '../../composables/useFilterPresets'
+import { useGridConfig } from '../../composables/useGridConfig'
 import {
   reExecuteWithFilter as apiExecuteWithFilter,
   executeDuckdbAnalysis as apiDuckdbAnalysis,
@@ -330,7 +350,6 @@ import {
   exportResultToFile as apiExportResult,
 } from '../../services/result-analysis'
 
-import type { GridApi } from '@ag-grid-community/core'
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])
 
@@ -362,11 +381,36 @@ const activeTab = computed(() => {
 const tab = computed(() => activeTab.value!)
 
 // ─── AG Grid ─────────────────────────────────────────────
-const gridApi = ref<GridApi | null>(null)
+const {
+  columnDefs,
+  defaultColDef,
+  pagination,
+  paginationEnabled,
+  paginationPageSelector,
+  paginationPageSize,
+  rowData,
+  gridApi,
+  onGridReady,
+  savePageSize,
+} = useGridConfig({ activeTab, editable: true })
 const showDiffModal = ref(false)
 const gridContainerRef = ref<HTMLElement | null>(null)
-const pageSize = ref(100)
 const selectedRows = ref<unknown[]>([])
+const goPageInput = ref('')
+
+function goToPage(): void {
+  if (!gridApi.value) return
+  const page = parseInt(goPageInput.value, 10)
+  const total = gridApi.value.paginationGetTotalPages()
+  if (isNaN(page) || page < 1 || page > total) return
+  gridApi.value.paginationGoToPage(page - 1)
+  goPageInput.value = ''
+}
+
+function onPaginationChanged(): void {
+  savePageSize()
+  goPageInput.value = ''
+}
 
 const contextMenu = ref({
   visible: false,
@@ -467,10 +511,6 @@ function lastPage() {
   gridApi.value?.paginationGoToLastPage()
 }
 
-function onFirstDataRendered(params: any) {
-  params.api?.sizeColumnsToFit()
-}
-
 const displayRowText = computed(() => {
   if (!activeTab.value) return ''
   if (
@@ -491,132 +531,15 @@ const exportMenuOptions = computed(() => [
   { key: 'xlsx', label: t('workbench.exportXlsx') },
 ])
 
-// ─── 列定义 - 智能分辨 ───────────────────────────────────
-const numericColPatterns = [
-  'id',
-  '_id',
-  'count',
-  'num',
-  'year',
-  'age',
-  'price',
-  'amount',
-  'total',
-  'qty',
-  'rate',
-]
-
-function isLikelyNumeric(colName: string): boolean {
-  const lower = colName.toLowerCase()
-  return numericColPatterns.some(p => lower.includes(p) || lower.endsWith(p))
-}
-
-function isLikelyDate(colName: string): boolean {
-  const lower = colName.toLowerCase()
-  return lower.includes('date') || lower.includes('time') || lower.endsWith('_at')
-}
-
-function isLikelyLongText(colName: string): boolean {
-  const lower = colName.toLowerCase()
-  return (
-    lower.includes('description') ||
-    lower.includes('content') ||
-    lower.includes('comment') ||
-    lower.includes('note') ||
-    lower.includes('text')
-  )
-}
-
-const columnDefs = computed(() => {
-  if (!activeTab.value || activeTab.value.columns.length === 0)
-    return [{ field: '__placeholder', headerName: '', hide: true }]
-  const cols = activeTab.value.columns.map(col => ({
-    field: col,
-    headerName: col,
-    headerTooltip: col,
-    sortable: true,
-    filter: true,
-    resizable: true,
-    minWidth: 80,
-    width: isLikelyNumeric(col) ? 110 : isLikelyDate(col) ? 140 : isLikelyLongText(col) ? 200 : 130,
-    flex: isLikelyLongText(col) ? 2 : isLikelyNumeric(col) ? 0 : 1,
-    cellClass: isLikelyNumeric(col) ? 'text-right' : undefined,
-    editable: true,
-    cellRenderer: (params: any) => {
-      const v = params.value
-      if (v === null || v === undefined) return '<span class="null-value">NULL</span>'
-      if (typeof v === 'object') {
-        try {
-          return JSON.stringify(v)
-        } catch {
-          return String(v)
-        }
-      }
-      const str = String(v)
-      if (str.length > 500) return str.substring(0, 200) + '...'
-      return str
-    },
-    comparator: (a: any, b: any) => {
-      if (a === null && b === null) return 0
-      if (a === null) return 1
-      if (b === null) return -1
-      if (typeof a === 'number' && typeof b === 'number') return a - b
-      return String(a).localeCompare(String(b))
-    },
-  }))
-  return [
-    {
-      field: '__rowNumber',
-      headerName: '#',
-      width: 55,
-      pinned: 'left',
-      sortable: false,
-      filter: false,
-      resizable: false,
-      valueGetter: (p: any) => {
-        const api = p.api
-        if (!api || !api.paginationGetCurrentPage) return p.node.rowIndex + 1
-        return api.paginationGetCurrentPage() * api.paginationGetPageSize() + p.node.rowIndex + 1
-      },
-      cellStyle: {
-        textAlign: 'center',
-        color: 'var(--text-tertiary)',
-        fontSize: '11px',
-        background: 'var(--bg-secondary)',
-      },
-    },
-    ...cols,
-  ]
-})
-
-const rowData = computed(() => {
-  const tab = activeTab.value
-  if (!tab) return []
-  return (tab.rows as unknown[][]).map((row: unknown[]) => {
-    if (Array.isArray(row)) {
-      const obj: Record<string, unknown> = {}
-      tab.columns.forEach((col, i) => {
-        obj[col] = row[i]
-      })
-      return obj
-    }
-    return row
+function buildObjectRows(columns: string[], rows: unknown[][]): Record<string, unknown>[] {
+  return rows.map(row => {
+    const obj: Record<string, unknown> = {}
+    columns.forEach((col, i) => {
+      obj[col.replace(/\./g, '_')] = row[i]
+    })
+    return obj
   })
-})
-
-const defaultColDef = {
-  editable: true,
-  sortable: true,
-  filter: true,
-  resizable: true,
-  suppressMenu: false,
-  filterParams: { maxNumConditions: 1 },
 }
-
-const pagination = computed(() => {
-  if (!activeTab.value) return true
-  return activeTab.value.rows.length < 50000
-})
 
 const pageInfoText = computed(() => {
   if (!gridApi.value || !gridApi.value.paginationGetCurrentPage) return ''
@@ -730,11 +653,6 @@ async function ensureDuckdbTempTable(tabId: string) {
   await resultStore.ensureDuckdbTable(tabId)
 }
 
-// ─── AG Grid 事件 ───────────────────────────────────────
-function onGridReady(params: any) {
-  gridApi.value = params.api
-  setTimeout(() => params.api.sizeColumnsToFit(), 200)
-}
 function onRowDataUpdated(params: any) {
   if (params.api?.getDisplayedRowCount() > 0) params.api.sizeColumnsToFit()
 }
@@ -841,6 +759,7 @@ async function executeSqlFilter(tab: ResultTab) {
     const result = await apiExecuteWithFilter(tab.connectionId, tab.originalSql, whereClause)
     tab.columns = result.columns
     tab.rows = result.rows
+    tab.objectRows = buildObjectRows(result.columns, result.rows)
     tab.originalRowCount = result.rows.length
     tab.displayedRowCount = result.rows.length
     tab.executionTime = result.elapsed_ms
@@ -848,7 +767,7 @@ async function executeSqlFilter(tab: ResultTab) {
   } catch (e: unknown) {
     message.error(String(e))
   } finally {
-    tab.isDuckdbLoading = false
+    tab.isSqlFilterLoading = false
   }
 }
 
@@ -867,6 +786,7 @@ async function executeDuckdbAnalysis(tab: ResultTab) {
     )
     tab.columns = result.columns
     tab.rows = result.rows
+    tab.objectRows = buildObjectRows(result.columns, result.rows)
     tab.displayedRowCount = result.rows.length
     tab.executionTime = result.elapsed_ms
     tab.isAnalysisActive = true
@@ -874,7 +794,7 @@ async function executeDuckdbAnalysis(tab: ResultTab) {
   } catch (e: unknown) {
     message.error(String(e))
   } finally {
-    tab.isSqlFilterLoading = false
+    tab.isDuckdbLoading = false
   }
 }
 function clearDuckdbAnalysis(tab: ResultTab) {
@@ -989,6 +909,7 @@ async function handleExport(format: string) {
   if (format === 'csv') {
     if (!gridApi.value) return
     gridApi.value.exportDataAsCsv({ fileName: `result_${Date.now()}.csv`, columnSeparator: ',' })
+    message.success('已导出 CSV')
     return
   }
   if (format === 'json') {
@@ -1002,14 +923,16 @@ async function handleExport(format: string) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    message.success('已导出 JSON')
     return
   }
   if (format === 'insert') {
     copyRowsAsInsert()
+    message.success('INSERT SQL 已复制到剪贴板')
     return
   }
 
-  // DuckDB COPY TO: parquet / xlsx
+  // DuckDB COPY TO: parquet / xlsx — with loading feedback
   const ext = format === 'parquet' ? 'parquet' : 'xlsx'
   const filterLabel = format === 'parquet' ? 'Parquet' : 'Excel'
   const filePath = await save({
@@ -1020,11 +943,13 @@ async function handleExport(format: string) {
   })
   if (!filePath) return
 
+  const loadingMsg = message.loading(`正在导出 ${filterLabel}...`, { duration: 0 })
   let tempTable = tab.duckdbTempTable
   if (!tempTable) {
     try {
       tempTable = await apiCreateTempTable(tab.columns, tab.rows)
     } catch (err: unknown) {
+      loadingMsg.destroy()
       const msg = err instanceof Error ? err.message : String(err)
       message.error(`创建临时表失败: ${msg}`)
       return
@@ -1037,8 +962,10 @@ async function handleExport(format: string) {
       file_path: filePath,
       format,
     })
+    loadingMsg.destroy()
     message.success(`已导出到 ${filePath}`)
   } catch (err: unknown) {
+    loadingMsg.destroy()
     const msg = err instanceof Error ? err.message : String(err)
     message.error(`导出失败: ${msg}`)
   }
@@ -1191,6 +1118,10 @@ function handleKeyDown(event: KeyboardEvent) {
     event.preventDefault()
     if (activeTab.value) handleRefresh(activeTab.value)
   }
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z') {
+    event.preventDefault()
+    if (activeTab.value && dirtyCells.value.size > 0) handleCancel(activeTab.value)
+  }
 }
 function handleGlobalKeyDown(event: KeyboardEvent) {
   if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
@@ -1317,7 +1248,7 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
 }
 .view-btn.active {
   background: var(--primary-color);
-  color: #fff;
+  color: var(--color-bg-primary);
 }
 
 /* 中间网格 */
@@ -1355,13 +1286,13 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
   line-height: 22px !important;
 }
 :deep(.null-value) {
-  color: #999;
+  color: var(--color-text-muted);
   font-style: italic;
   font-size: 10px;
 }
 :deep(.text-right) {
   text-align: right;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 :deep(.ag-pinned-left-cols-container) {
   border-right: 1px solid var(--border-color, #444);
@@ -1400,7 +1331,7 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
   flex-shrink: 0;
 }
 .record-nav-text {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-secondary, #999);
   min-width: 60px;
@@ -1445,7 +1376,7 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
   min-width: 24px;
 }
 .field-val {
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .viewer-text {
   width: 100%;
@@ -1453,7 +1384,7 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
   border: 1px solid var(--border-color, #333);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   padding: 4px;
   resize: none;
@@ -1501,30 +1432,35 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
   line-height: 16px;
 }
 .mode-badge.quick {
-  background: #2d6a4f33;
-  color: #52c41a;
+  background: rgba(0, 184, 148, 0.2);
+  color: var(--brand-success);
 }
 .mode-badge.sql {
-  background: #1a5a8a33;
+  background: rgba(26, 90, 138, 0.2);
   color: #1890ff;
 }
 .mode-badge.duckdb {
-  background: #613a8a33;
+  background: rgba(97, 58, 138, 0.2);
   color: #b37feb;
 }
 .separator {
   color: var(--border-color, #444);
 }
 .row-info {
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .exec-time {
   color: var(--primary-color);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 .page-indicator {
-  font-family: monospace;
+  font-family: var(--font-mono);
   margin: 0 2px;
+}
+
+.go-page-input {
+  width: 60px;
+  margin: 0 4px;
 }
 
 .analysis-notice {
@@ -1532,10 +1468,10 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
   align-items: center;
   height: 20px;
   padding: 0 6px;
-  background: #f5eec033;
-  border-bottom: 1px solid #d4c78e66;
+  background: rgba(253, 203, 110, 0.15);
+  border-bottom: 1px solid rgba(253, 203, 110, 0.3);
   font-size: 10px;
-  color: #b8a44c;
+  color: var(--brand-warning);
   flex-shrink: 0;
 }
 .empty-icon {

@@ -4,7 +4,6 @@ import { createApp } from 'vue'
 import { builtinExtensions } from '@/core/builtin-extensions'
 import { extensionHost } from '@/core/extension-host'
 import { panelRegistry } from '@/core/panel-registry'
-import ActivityBarPanel from '@/extensions/builtin/workbench/ui/components/ActivityBarPanel.vue'
 import PanelHeaderActions from '@/extensions/builtin/workbench/ui/components/PanelHeaderActions.vue'
 import i18n from '@/shared/plugins/i18n'
 import { useAppStore } from '@/stores/useAppStore'
@@ -68,9 +67,6 @@ async function main() {
 
   app.component('PanelHeaderActions', PanelHeaderActions)
   console.log('[Main] Registered panelHeaderActions component')
-
-  app.component('LeftActivityBar', ActivityBarPanel)
-  console.log('[Main] Registered leftActivityBar component')
 
   app.mount('#app')
 

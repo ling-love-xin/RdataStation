@@ -145,7 +145,8 @@
     "noOrphanTables": "All tables have references",
     "redundantColumns": "Redundant Columns",
     "noRedundantColumns": "No obvious redundant columns",
-    "schemaInsightReport": "Schema Insight Report"
+    "schemaInsightReport": "Schema Insight Report",
+    "noAffectedTables": "No affected tables"
   },
   "resultPanel": {
     "title": "Result Set",
@@ -263,7 +264,11 @@
     "distribution": "{column} Distribution",
     "topValues": "{column} Top Values",
     "monthlyDistribution": "{column} Monthly Distribution",
-    "booleanDistribution": "{column} Boolean Distribution"
+    "booleanDistribution": "{column} Boolean Distribution",
+    "insightHistory": "Insight History",
+    "comparing": "Comparing",
+    "diffResult": "Diff Result",
+    "noDiff": "No changes"
   },
   "settings": {
     "title": "Settings",
@@ -278,6 +283,9 @@
     "wordWrap": "Word Wrap",
     "minimap": "Minimap",
     "lineNumbers": "Line Numbers",
+    "executeSelected": "Execute Selected",
+    "copyAsValues": "Copy as VALUES",
+    "recentConnections": "Recent Connections",
     "fontFamily": "Font Family",
     "fontFamilyHint": "Monaco Editor monospace font",
     "appearance": "Appearance",
@@ -293,6 +301,8 @@
     "applyAll": "Apply All Settings",
     "resetDefault": "Reset to Default",
     "resetFactory": "Factory Reset",
+    "saveSuccess": "Settings saved",
+    "saveFailed": "Failed to save settings, please retry",
     "simplifiedChinese": "Simplified Chinese",
     "english": "English"
   },
@@ -349,7 +359,13 @@
     "saveSnippet": "Save to Favorites",
     "snippetSaved": "Saved to favorites",
     "paramBinding": "Parameter Binding",
-    "paramHint": "Provide values for the following placeholders:"
+    "paramHint": "Provide values for the following placeholders:",
+    "toggleMinimap": "Toggle Minimap",
+    "editorSettings": "Editor Settings",
+    "fontSize": "Font Size",
+    "tabSize": "Tab Size",
+    "wordWrap": "Word Wrap",
+    "lineNumbers": "Line Numbers"
   },
   "navigator": {
     "title": "Database Navigator",

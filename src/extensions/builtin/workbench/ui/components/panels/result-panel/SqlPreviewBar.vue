@@ -44,7 +44,7 @@ function handleCopy() {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-primary, #ccc);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 </style>

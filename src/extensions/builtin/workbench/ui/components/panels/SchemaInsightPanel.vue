@@ -154,14 +154,17 @@
                 >
               </div>
               <div class="mismatch-tables">
-                <button
-                  v-for="tbl in m.tables"
-                  :key="tbl.table_name"
-                  class="mismatch-table link-table"
-                  @click="openDrillTable(tbl.table_name)"
-                >
-                  {{ tbl.table_name }} <code>{{ tbl.data_type }}</code>
-                </button>
+                <template v-if="m.tables && m.tables.length > 0">
+                  <button
+                    v-for="tbl in m.tables"
+                    :key="tbl.table_name"
+                    class="mismatch-table link-table"
+                    @click="openDrillTable(tbl.table_name)"
+                  >
+                    {{ tbl.table_name }} <code>{{ tbl.data_type }}</code>
+                  </button>
+                </template>
+                <span v-else class="no-tables">{{ t('schemaInsight.noAffectedTables') }}</span>
               </div>
             </div>
           </div>

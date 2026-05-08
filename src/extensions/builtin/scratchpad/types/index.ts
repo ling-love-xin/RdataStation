@@ -4,10 +4,15 @@ export interface ScratchpadEntry {
   name: string
   path: string
   kind: ScratchpadEntryKind
+  children: ScratchpadEntry[] | null
   size: number
-  modified_at: string
-  extension: string
-  is_external_ref: boolean
+  modified_at: string | null
+}
+
+export interface SearchMatch {
+  file: string
+  line_number: number
+  line_content: string
 }
 
 export interface ExternalReference {
@@ -34,4 +39,16 @@ export interface ScratchpadResponse {
   external_references: ExternalReference[]
   scratchpad_path: string
   file_meta: Record<string, FileMeta>
+}
+
+export interface PromoteResult {
+  resource: AnalyticsResourceBrief
+  removed: boolean
+}
+
+export interface AnalyticsResourceBrief {
+  id: string
+  resource_type: string
+  name: string
+  scope: string
 }
