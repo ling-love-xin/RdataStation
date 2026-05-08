@@ -23,7 +23,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
   const executing = ref(false)
   const lastExecutionTime = ref<number | null>(null)
   const hasResults = ref(false)
-  let abortController: AbortController | null = null
+  let abortController: AbortController | undefined
   const currentResultData = ref<{
     columns: string[]
     rows: unknown[][]
@@ -136,7 +136,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
   }> {
     const result = await queryService.executeSql(sql, connId)
 
-    const qr = (result as Record<string, unknown>).result || result
+    const qr = ((result as unknown) as Record<string, unknown>).result || result
     const qrTyped = qr as Record<string, unknown>
 
     if (qrTyped.error) {
@@ -144,7 +144,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
         columns: [],
         rows: [],
         totalRows: 0,
-        elapsedMs: ((result as Record<string, unknown>).elapsed_ms as number) ?? 0,
+        elapsedMs: (((result as unknown) as Record<string, unknown>).elapsed_ms as number) ?? 0,
         affectedRows: 0,
         error: qrTyped.error as string,
       }
@@ -154,7 +154,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
       columns: (qrTyped.columns as string[]) ?? [],
       rows: (qrTyped.rows as unknown[][]) ?? [],
       totalRows: (qrTyped.total_rows as number) ?? (qrTyped.rows as unknown[][])?.length ?? 0,
-      elapsedMs: ((result as Record<string, unknown>).elapsed_ms as number) ?? 0,
+      elapsedMs: (((result as unknown) as Record<string, unknown>).elapsed_ms as number) ?? 0,
       affectedRows: (qrTyped.affected_rows as number) ?? 0,
       error: null,
     }
@@ -174,7 +174,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     }
 
     abortController = new AbortController()
-    executing.value = true
+      executing.value = true
 
     try {
       if (abortController.signal.aborted) return
@@ -194,10 +194,11 @@ export function useSqlExecution(options: SqlExecutionOptions) {
         message.success(`Done in ${result.elapsedMs}ms, ${result.affectedRows} rows affected`)
       }
     } catch (error) {
-      if (abortController?.signal.aborted) {
-        message.info('Query cancelled')
-        return
-      }
+        const ac = abortController
+    if (ac?.signal.aborted) {
+          message.info('Query cancelled')
+          return
+        }
       const elapsed = lastExecutionTime.value ?? 0
       lastExecutionTime.value = elapsed
       storeResult({
@@ -210,7 +211,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
       })
       message.error(error instanceof Error ? error.message : String(error))
     } finally {
-      abortController = null
+     const abortController: AbortController | null = null
       executing.value = false
     }
   }
@@ -287,12 +288,10 @@ export function useSqlExecution(options: SqlExecutionOptions) {
 
     lastExecutionTime.value = totalElapsed
     executing.value = false
-    abortController = null
+    abortController = undefined
 
     const total = successCount + errorCount
-    if (abortController?.signal.aborted) {
-      message.info(`Batch cancelled: ${successCount}/${total} completed`)
-    } else if (errorCount === 0) {
+    if (errorCount === 0) {
       message.success(`${total} statements executed in ${Math.round(totalElapsed)}ms`)
     } else {
       message.warning(`${successCount} ok, ${errorCount} failed — ${Math.round(totalElapsed)}ms`)

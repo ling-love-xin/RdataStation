@@ -117,6 +117,7 @@
 </template>
 
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import {
   RefreshCw,
   Loader2,
@@ -177,7 +178,7 @@ async function refreshStatus() {
   error.value = null
 
   try {
-    const result = await window.tauri.invoke<ConnectionPoolStatus>('get_connection_pool_status', {
+    const result = await invoke<ConnectionPoolStatus>('get_connection_pool_status', {
       connId: props.connId,
     })
     status.value = result

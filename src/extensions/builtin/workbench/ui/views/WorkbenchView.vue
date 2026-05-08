@@ -636,7 +636,7 @@ const handleKeydown = (e: KeyboardEvent) => {
       new CustomEvent('open-sql-editor', {
         detail: {
           connectionId: firstConn?.name || '',
-          databaseName: firstConn?.database || '',
+          databaseName: firstConn?.url || '',
           sql: '',
         },
       })

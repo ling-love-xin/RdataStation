@@ -49,9 +49,9 @@ export function useDialectSync(options: DialectSyncOptions) {
     const prevDialect = getHighlightDialect()
     if (prevDialect === dialect) return
 
-    unregisterCompletionProvider()
+    unregisterCompletionProvider(currentDialect.value || '')
     setHighlightDialect(dialect)
-    registerDatabaseCompletionProvider(dialect)
+    registerDatabaseCompletionProvider(dialect, dialect, undefined, dialect)
   }
 
   function startSync(): void {

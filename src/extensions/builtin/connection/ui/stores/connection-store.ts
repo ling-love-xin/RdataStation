@@ -1,7 +1,10 @@
+import { invoke } from '@tauri-apps/api/core'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+
 import type { Connection, RecentConnection, ConnectionType } from '@/shared/types'
+import type { SqlDialect } from '@/shared/types/sql'
 
 import { useRuntimeConnectionStore } from './runtime-connection-store'
 import * as connectionService from '../services/connection'
@@ -137,7 +140,7 @@ export const useConnectionStore = defineStore('connection', () => {
       const newConn: Connection = {
         connId: result.conn_id,
         name: result.name,
-        dbType: result.db_type,
+        dbType: result.db_type as SqlDialect,
         url: result.url,
         connectionType: (result.connection_type || 'global') as ConnectionType,
         projectId: result.project_id || null,
@@ -255,7 +258,7 @@ export const useConnectionStore = defineStore('connection', () => {
       const newConn: Connection = {
         connId: result.conn_id,
         name: result.name,
-        dbType: result.db_type,
+        dbType: result.db_type as SqlDialect,
         url: result.url,
         connectionType: (result.connection_type || 'global') as ConnectionType,
         projectId: result.project_id || null,
@@ -353,7 +356,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     loading.value = true
     try {
-      const result = await invoke<TransactionStatusResponse>('begin_transaction', {
+      const result = await invoke<{ success: boolean; message?: string }>('begin_transaction', {
         connId: targetConnId,
       })
       return result
@@ -371,7 +374,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     loading.value = true
     try {
-      const result = await invoke<TransactionStatusResponse>('commit_transaction', {
+      const result = await invoke<{ success: boolean; message?: string }>('commit_transaction', {
         connId: targetConnId,
       })
       return result
@@ -389,7 +392,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     loading.value = true
     try {
-      const result = await invoke<TransactionStatusResponse>('rollback_transaction', {
+      const result = await invoke<{ success: boolean; message?: string }>('rollback_transaction', {
         connId: targetConnId,
       })
       return result
@@ -405,7 +408,7 @@ export const useConnectionStore = defineStore('connection', () => {
     const targetConnId = connId || currentConnection.value?.connId
     if (!targetConnId) throw new Error('没有活动的连接')
 
-    const result = await invoke<TransactionStatusResponse>('get_transaction_status', {
+    const result = await invoke<{ success: boolean; message?: string }>('get_transaction_status', {
       connId: targetConnId,
     })
     return result

@@ -16,7 +16,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
   const runtimeConnectionStore = useRuntimeConnectionStore()
 
   const selectedConnection = ref(initialConnectionId || '')
-  const runtimeConnId = ref('')
+  const runtimeConnId = ref<string | null>(null)
 
   const connections = computed<Connection[]>(() => {
     return (connectionStore.connections as Connection[]) || []
@@ -26,7 +26,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
     return connections.value
       .filter(c => c.status === 'connected')
       .map(c => ({
-        label: `${c.name} → ${c.dbType}${c.meta?.database ? ` / ${c.meta.database}` : ''}`,
+        label: `${c.name} → ${c.dbType}${c.url ? ` / ${c.url}` : ''}`,
         value: c.connId,
       }))
   })
@@ -35,7 +35,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
     if (!selectedConnection.value) return ''
     const conn = connections.value.find(c => c.connId === selectedConnection.value)
     if (!conn) return ''
-    return `${conn.name} → ${conn.dbType}${conn.meta?.database ? ` / ${conn.meta.database}` : ''}`
+    return `${conn.name} → ${conn.dbType}${conn.url ? ` / ${conn.url}` : ''}`
   })
 
   const isDuckDbConnection = computed(() => {
@@ -50,7 +50,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
 
   const currentDatabase = computed<string>(() => {
     const conn = connections.value.find(c => c.connId === selectedConnection.value)
-    return conn?.meta?.database ?? ''
+    return conn?.url ?? ''
   })
 
   const currentConnectionName = computed<string>(() => {
@@ -61,20 +61,20 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
   async function ensureConnection(connId: string): Promise<boolean> {
     if (!connId) return false
 
-    const runtimeIds = runtimeConnectionStore.runtimeConnectionIds || []
-    if (runtimeIds.includes(connId)) {
+    const runtimeIds = runtimeConnectionStore.runtimeConnectionIds
+    if (runtimeIds.has(connId)) {
       runtimeConnId.value = connId
       return true
     }
 
-    const conn = connectionStore.getConnection(connId)
+    const conn = connectionStore.connections.find(c => c.connId === connId)
     if (!conn) {
       console.warn('[useConnectionBinding] Connection not found:', connId)
       return false
     }
 
     try {
-      const runtimeId = await runtimeConnectionStore.establishFromConnection(connId)
+      const runtimeId = await runtimeConnectionStore.establishFromConnection(conn)
       runtimeConnId.value = runtimeId
       return true
     } catch (error) {
@@ -91,21 +91,21 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
     const connId = selectedConnection.value
     if (!connId) return false
 
-    const runtimeIds = runtimeConnectionStore.runtimeConnectionIds || []
-    if (runtimeIds.includes(connId)) {
+    const runtimeIds = runtimeConnectionStore.runtimeConnectionIds
+    if (runtimeIds.has(connId)) {
       runtimeConnId.value = connId
       return true
     }
 
     for (let attempt = 0; attempt < 50; attempt++) {
-      const ids = runtimeConnectionStore.runtimeConnectionIds || []
-      if (ids.includes(connId)) {
+      const ids = runtimeConnectionStore.runtimeConnectionIds
+      if (ids.has(connId)) {
         runtimeConnId.value = connId
         return true
       }
 
       const conn = connectionStore.connections.find(c => c.connId === connId)
-      if (conn && ids.includes(conn.connId)) {
+      if (conn && ids.has(conn.connId)) {
         runtimeConnId.value = conn.connId
         return true
       }
@@ -123,9 +123,9 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
       }
     }
 
-    const fallbackIds = runtimeConnectionStore.runtimeConnectionIds || []
+    const fallbackIds = [...runtimeConnectionStore.runtimeConnectionIds.entries()]
     if (fallbackIds.length > 0) {
-      runtimeConnId.value = fallbackIds[0]
+      runtimeConnId.value = fallbackIds[0][1]
       return true
     }
 
@@ -133,9 +133,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
     if (firstConnected) {
       selectedConnection.value = firstConnected.connId
       try {
-        const runtimeId = await runtimeConnectionStore.establishFromConnection(
-          firstConnected.connId
-        )
+        const runtimeId = await runtimeConnectionStore.establishFromConnection(firstConnected)
         runtimeConnId.value = runtimeId
         return true
       } catch {

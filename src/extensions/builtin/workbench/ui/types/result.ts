@@ -20,6 +20,7 @@ export interface ResultTab {
   tableName: string
   connectionId: string
   duckdbTempTable: string
+  isLoading: boolean
   columns: string[]
   rows: unknown[][]
   objectRows: Record<string, unknown>[]

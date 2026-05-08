@@ -85,8 +85,8 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 import * as monaco from 'monaco-editor'
-import { darkTheme, lightTheme } from 'naive-ui'
-import { ref, computed, watch, onMounted, onBeforeUnmount, createDiscreteApi } from 'vue'
+import { darkTheme, lightTheme, createDiscreteApi } from 'naive-ui'
+import { ref, computed, watch, onMounted, onBeforeUnmount, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 
@@ -195,9 +195,11 @@ const showParamBinding = ref(false)
 const detectedParams = ref<string[]>([])
 const pendingParamSql = ref('')
 
+const binding = useConnectionBinding({
+  initialConnectionId: props.connectionId,
+})
 const {
   selectedConnection,
-  runtimeConnId,
   popselectOptions,
   connectionInfoText,
   isDuckDbConnection,
@@ -206,9 +208,8 @@ const {
   currentConnectionName,
   ensureConnection,
   onConnectionSelected,
-} = useConnectionBinding({
-  initialConnectionId: props.connectionId,
-})
+} = binding
+const runtimeConnId = binding.runtimeConnId as unknown as Ref<string>
 
 const editorContainerRef = ref<HTMLElement | undefined>()
 const editorAndResultContainer = ref<HTMLElement | undefined>()
@@ -361,9 +362,9 @@ async function handleParamConfirm(values: Record<string, string>): Promise<void>
   executing.value = true
   try {
     const result = await queryService.executeSql(boundSql, connId)
-    const qr = (result as Record<string, unknown>).result || result as Record<string, unknown>
+    const qr = ((result as unknown) as Record<string, unknown>).result || ((result as unknown) as Record<string, unknown>)
 
-    lastExecutionTime.value = (result as Record<string, unknown>).elapsed_ms as number ?? 0
+    lastExecutionTime.value = ((result as unknown) as Record<string, unknown>).elapsed_ms as number ?? 0
 
     if ((qr as Record<string, unknown>).error) {
       currentResultData.value = {
@@ -463,13 +464,14 @@ async function handleExplain(): Promise<void> {
       },
     })
 
+    const explainData = ((result as unknown) as Record<string, unknown>)
     const tab = resultStore.addTab(explainSql, connId)
     tab.title = t('sqlEditor.explain')
     resultStore.setTabResult(tab.id, {
-      columns: result.result.columns || [],
-      rows: result.result.rows || [],
-      rowCount: result.result.rowCount || 0,
-      elapsedMs: result.result.elapsedMs || 0,
+      columns: (explainData.result as Record<string, unknown>).columns as string[] || [],
+      rows: (explainData.result as Record<string, unknown>).rows as unknown[][] || [],
+      rowCount: ((explainData.result as Record<string, unknown>).rowCount as number) || 0,
+      elapsedMs: ((explainData.result as Record<string, unknown>).elapsedMs as number) || 0,
     })
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error))
@@ -647,7 +649,7 @@ onMounted(async () => {
   if (!isScratchpadMode.value) {
     const dbType = currentDatabaseType.value ?? undefined
     registerDatabaseCompletionProvider(
-      runtimeConnId.value,
+      runtimeConnId.value ?? '',
       currentDatabase.value,
       undefined,
       dbType,

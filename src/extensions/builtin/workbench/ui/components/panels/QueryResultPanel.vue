@@ -1023,11 +1023,7 @@ async function handleExport(format: string) {
   let tempTable = tab.duckdbTempTable
   if (!tempTable) {
     try {
-      tempTable = await apiCreateTempTable({
-        conn_id: tab.connectionId,
-        columns: tab.columns,
-        rows: tab.rows,
-      })
+      tempTable = await apiCreateTempTable(tab.columns, tab.rows)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       message.error(`创建临时表失败: ${msg}`)

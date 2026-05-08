@@ -106,7 +106,8 @@ const insightStore = useInsightStore()
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const profile = ref<TableProfile | null>(null)
-const tableName = ref(props.table ?? '')
+const tableName = ref('')
+const evalError = ref<string | undefined>(undefined)
 
 const columnDefs: DataTableColumn<TableColumnMeta>[] = [
   {
@@ -251,22 +252,25 @@ function scoreColor(score: number): string {
 }
 
 async function evaluateQuality(): Promise<void> {
-  if (!props.connId || !props.database || !props.schema || !props.table) return
+  const { connId, database, schema, table } = props
+  if (!connId || !database || !schema || !table) return
 
   await insightStore.loadTableQuality({
-    connId: props.connId,
-    database: props.database,
-    schema: props.schema,
-    table: props.table,
+    connId,
+    database,
+    schema,
+    table,
   })
 }
 
 function emitColumnClick(col: TableColumnMeta): void {
+  const { connId, database, schema, table } = props
+  if (!connId || !database || !schema || !table) return
   insightStore.loadColumnFromTable({
-    connId: props.connId,
-    database: props.database,
-    schema: props.schema,
-    table: props.table,
+    connId,
+    database,
+    schema,
+    table,
     column: col.column_name,
   })
 }

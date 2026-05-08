@@ -449,7 +449,7 @@ export function registerSqlFoldingProvider(): monaco.IDisposable {
             ranges.push({
               start: commentStart,
               end: i + 1,
-              kind: monaco.languages.FoldingRangeKind.Comment.value,
+              kind: 'comment' as unknown as monaco.languages.FoldingRangeKind,
             })
           }
           commentStart = null

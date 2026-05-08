@@ -792,7 +792,7 @@ function openVisualization(): void {
     DateTime: () => {
       const md = (d.stats.stats_detail as DateTimeStatsDetail).monthly_distribution
       return {
-        data: md.map(item => ({ month: item.month, count: item.count })),
+        data: (md as unknown as Array<Record<string, unknown>>).map(item => ({ month: item.month as string, count: item.count as number })),
         columns: ['month', 'count'],
         title: t('resultPanel.monthlyDistribution', { column: d.stats.column_name }),
       }

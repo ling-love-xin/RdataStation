@@ -2,7 +2,7 @@
   <div class="customize-layout">
     <div class="dialog-header">
       <h3>{{ t('workbench.layout') }}</h3>
-      <button class="close-btn" @click="emit('close')">
+      <button class="close-btn" @click="$emit('close')">
         <X :size="16" />
       </button>
     </div>
@@ -14,17 +14,17 @@
         <div class="section-content">
           <label class="checkbox-item">
             <input
-              v-model="layoutStore.leftEdgeGroupVisible"
+              v-model="layoutStore.primarySideBarVisible"
               type="checkbox"
-              @change="layoutStore.setLeftEdgeGroupVisible(layoutStore.leftEdgeGroupVisible)"
+              @change="layoutStore.togglePrimarySideBar()"
             />
             <span>{{ t('workbench.primarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
           </label>
           <label class="checkbox-item">
             <input
-              v-model="layoutStore.rightEdgeGroupVisible"
+              v-model="layoutStore.secondarySideBarVisible"
               type="checkbox"
-              @change="layoutStore.setRightEdgeGroupVisible(layoutStore.rightEdgeGroupVisible)"
+              @change="layoutStore.toggleSecondarySideBar()"
             />
             <span>{{ t('workbench.secondarySideBar') }} ({{ t('workbench.alwaysShow') }})</span>
           </label>
@@ -40,21 +40,21 @@
           <div class="size-input">
             <span>{{ t('workbench.primarySideBar') }}</span>
             <input
-              v-model.number="layoutStore.leftEdgeGroupSize"
+              v-model.number="primarySideBarWidth"
               type="number"
               min="100"
               max="500"
-              @change="layoutStore.setLeftEdgeGroupSize(layoutStore.leftEdgeGroupSize)"
+              @change="layoutStore.setPrimarySideBarWidth(primarySideBarWidth)"
             />
           </div>
           <div class="size-input">
             <span>{{ t('workbench.secondarySideBar') }}</span>
             <input
-              v-model.number="layoutStore.rightEdgeGroupSize"
+              v-model.number="secondarySideBarWidth"
               type="number"
               min="100"
               max="500"
-              @change="layoutStore.setRightEdgeGroupSize(layoutStore.rightEdgeGroupSize)"
+              @change="layoutStore.setSecondarySideBarWidth(secondarySideBarWidth)"
             />
           </div>
         </div>
@@ -66,10 +66,10 @@
       <div class="section">
         <div class="section-title">{{ t('workbench.panelManagement') }}</div>
         <div class="section-content">
-          <div v-if="panels.length === 0" class="empty-state">
+          <div v-if="allPanels.length === 0" class="empty-state">
             {{ t('workbench.noPanels') }}
           </div>
-          <div v-for="panel in panels" :key="panel.id" class="panel-item">
+          <div v-for="panel in allPanels" :key="panel.id" class="panel-item">
             <span class="panel-title">{{ panel.title }}</span>
             <div class="panel-actions">
               <button
@@ -125,53 +125,47 @@
 </template>
 
 <script setup lang="ts">
-import { ExternalLink, X } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { ExternalLink, X, RotateCcw } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { IDockviewPanel } from '@/core/dockview-types'
 
-import { useLayoutStore, type PanelLocation } from '../stores/layout-store'
+import { useLayoutStore } from '../stores/layout-store'
+
 
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
 
+const primarySideBarWidth = ref(280)
+const secondarySideBarWidth = ref(280)
+
 const allPanels = computed(() => layoutStore.getAllPanels())
 const floatingPanels = computed(() => layoutStore.getFloatingPanels())
 
-function getLocationName(panel: IDockviewPanel): string {
-  const location = layoutStore.getPanelConfig(panel.id)?.location || 'center'
-  const locationNames: Record<PanelLocation, string> = {
-    left: 'Left',
-    right: 'Right',
-    center: 'Center',
-    bottom: 'Bottom',
-    floating: 'Floating',
-  }
-  return locationNames[location] || 'Unknown'
+const floatingPanelIds = computed(() => new Set(floatingPanels.value.map(p => p.id)))
+
+function isFloating(panel: IDockviewPanel): boolean {
+  return floatingPanelIds.value.has(panel.id)
 }
 
-function getPanelLocation(panelId: string): PanelLocation {
-  return layoutStore.getPanelConfig(panelId)?.location || 'center'
-}
-
-function handleMovePanel(panelId: string, location: PanelLocation) {
-  layoutStore.movePanelToLocation(panelId, location)
-}
-
-function handleCreateFloating(panelId: string) {
-  layoutStore.createFloatingPanel(panelId)
-}
-
-function handleClosePanel(panelId: string) {
-  const panel = layoutStore.dockviewApi?.getPanel(panelId)
-  if (panel) {
-    panel.api.close()
+function dockPanel(panel: IDockviewPanel) {
+  const panelApi = layoutStore.dockviewApi?.getPanel(panel.id)
+  if (panelApi) {
+    layoutStore.dockviewApi?.addPanel({
+      id: panel.id,
+      component: panelApi.id,
+      title: panelApi.title ?? panel.id,
+      position: { referencePanel: panel.id }
+    })
   }
 }
 
-function handleCloseFloating(panelId: string) {
-  layoutStore.closeFloatingPanel(panelId)
+function closePanel(panel: IDockviewPanel) {
+  const panelApi = layoutStore.dockviewApi?.getPanel(panel.id)
+  if (panelApi) {
+    panelApi.api.close()
+  }
 }
 
 function handleReset() {

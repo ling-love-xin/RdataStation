@@ -8,6 +8,7 @@
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import { useProjectConnectionStore } from '@/extensions/builtin/connection/ui/stores/project-connection-store'
 import { useRuntimeConnectionStore } from '@/extensions/builtin/connection/ui/stores/runtime-connection-store'
+import { useInsightStore } from '@/extensions/builtin/workbench/ui/stores/insight-store'
 
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'

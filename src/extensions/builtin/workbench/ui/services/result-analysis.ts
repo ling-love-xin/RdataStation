@@ -250,7 +250,7 @@ export interface ExecuteRuleInput {
 }
 
 export async function executeInsightRule(input: ExecuteRuleInput): Promise<MultiRuleResult> {
-  return invoke<unknown>('execute_insight_rule', { input })
+  return invoke<MultiRuleResult>('execute_insight_rule', { input })
 }
 
 export async function listInsightRules(category?: string): Promise<RuleMeta[]> {

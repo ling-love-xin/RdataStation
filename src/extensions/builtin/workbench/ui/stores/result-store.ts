@@ -51,6 +51,7 @@ export const useResultStore = defineStore('result', () => {
       tableName: '',
       connectionId: connectionId || '',
       duckdbTempTable: '',
+      isLoading: false,
       columns: [],
       rows: [],
       objectRows: [],

@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { Diff, Swap } from 'lucide-vue-next'
+import { Diff } from 'lucide-vue-next'
 import { NSelect, NTag } from 'naive-ui'
 import { ref, computed, toRef } from 'vue'
 
@@ -169,7 +169,7 @@ const commonColumnOptions = computed<SelectOption[]>(() => {
   return tabA.value.columns.filter(c => bColSet.has(c)).map(c => ({ label: c, value: c }))
 })
 
-const diffResult = useResultDiff(toRef(tabA), toRef(tabB), toRef(keyColumns))
+const diffResult = useResultDiff(toRef(tabA), toRef(tabB), computed(() => keyColumns.value))
 
 const emptyMessage = computed(() => {
   if (!selectedTabAId.value || !selectedTabBId.value) return '选择两个结果集以对比差异'

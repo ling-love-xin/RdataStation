@@ -171,7 +171,7 @@ const updateChart = () => {
   const xData = props.data.map(row => row[xAxisColumn.value])
   const yData = props.data.map(row => {
     const val = row[yAxisColumn.value]
-    return typeof val === 'number' ? val : parseFloat(val) || 0
+    return typeof val === 'number' ? val : parseFloat(String(val)) || 0
   })
 
   let option: EChartsOption
@@ -180,7 +180,7 @@ const updateChart = () => {
     case 'bar':
       option = {
         tooltip: { trigger: 'axis' },
-        xAxis: { type: 'category', data: xData },
+        xAxis: { type: 'category', data: xData as string[] },
         yAxis: { type: 'value' },
         series: [
           {
@@ -201,7 +201,7 @@ const updateChart = () => {
     case 'line':
       option = {
         tooltip: { trigger: 'axis' },
-        xAxis: { type: 'category', data: xData },
+        xAxis: { type: 'category', data: xData as string[] },
         yAxis: { type: 'value' },
         series: [
           {
@@ -256,7 +256,7 @@ const updateChart = () => {
         series: [
           {
             type: 'scatter',
-            data: xData.map((x, i) => [typeof x === 'number' ? x : parseFloat(x) || 0, yData[i]]),
+            data: xData.map((x, i) => [typeof x === 'number' ? x : parseFloat(String(x)) || 0, yData[i]]),
             symbolSize: 10,
           },
         ],

@@ -59,17 +59,17 @@ function onReady(event: DockviewReadyEvent) {
   // Create center panels (SQL Editor)
   let centerPanelId: string | null = null
   centerPanels.forEach((panel, index) => {
-    const panelConfig: Record<string, unknown> = {
+    const panelConfig = {
       id: `panel_${panel.id}`,
       component: panel.id,
       title: panel.name,
-    }
+    } as const
 
     if (index === 0) {
-      api.addPanel(panelConfig)
+      ;(api as any).addPanel(panelConfig)
       centerPanelId = `panel_${panel.id}`
     } else if (centerPanelId) {
-      panelConfig.position = {
+      ;(panelConfig as Record<string, unknown>).position = {
         referencePanel: centerPanelId,
         direction: 'within',
       }
