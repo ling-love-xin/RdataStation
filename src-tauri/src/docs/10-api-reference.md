@@ -1,8 +1,8 @@
 # API 接口文档
 
-> 版本：v2.3
+> 版本：v2.4
 > 最后更新：2026-05-09
-> 状态：✅ ANSI SQL 标准 Catalog → Schema → Table 三层语义重构 | 新增 load_catalogs
+> 状态：✅ hasCatalogs 配置字段 — 文件型数据库跳过冗余层级
 
 ## 概述
 
@@ -561,6 +561,7 @@ Connection（连接）
 
 ```typescript
 interface NavigationConfig {
+  hasCatalogs: boolean                   // 📍 网络数据库=true，文件数据库=false
   hasSchemas: boolean                    // Schema 层级有无
   systemSchemas: string[]                // 系统 Schema（默认隐藏）
   folders: {
@@ -593,7 +594,8 @@ interface FolderConfig {
 
 | 配置项 | PostgreSQL | MySQL | SQLite | DuckDB |
 |--------|:---:|:---:|:---:|:---:|
-| hasSchemas | ✅ | ❌ | ❌ | ✅ |
+| hasCatalogs | ✅ | ✅ | ❌ | ❌ |
+| hasSchemas | ✅ | ❌ | ❌ | ❌ |
 | tables folder | ✅ | ✅ | ✅ | ✅ |
 | views folder | ✅ | ✅ | ✅ | ✅ |
 | functions folder | ✅ | ✅ | ❌ | ✅ |
@@ -614,6 +616,7 @@ interface FolderConfig {
 {
   "driver_id": "clickhouse",
   "navigation": {
+    "hasCatalogs": true,
     "hasSchemas": false,
     "systemSchemas": ["system"],
     "folders": {
@@ -1723,6 +1726,7 @@ export async function getTables(
   "metadata": { "category": "relational", ... },
   "fields": [ ... ],
   "navigation": {
+    "hasCatalogs": true,
     "hasSchemas": true,
     "folders": { "tables": {...}, "views": {...}, ... },
     "tableChildren": { "columns": true, "indexes": true, ... }

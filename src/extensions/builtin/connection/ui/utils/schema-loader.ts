@@ -50,6 +50,7 @@ export async function loadNavigationConfig(driverId: string): Promise<Navigation
 
 export function getDefaultNavigationConfig(): NavigationConfig {
   return {
+    hasCatalogs: true,
     hasSchemas: false,
     systemSchemas: [],
     folders: {

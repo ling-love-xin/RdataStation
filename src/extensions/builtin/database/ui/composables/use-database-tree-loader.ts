@@ -126,26 +126,29 @@ export function useDatabaseTreeLoader() {
   }
 
   /**
-   * 创建 Catalog 下的对象文件夹（MySQL/SQLite 无 Schema 时使用）
+   * 创建对象文件夹（Catalog/Schema 下通用，也支持直接挂 Connection 下）
    */
   function createCatalogObjectNodes(
     connectionId: string,
     dbName: string,
-    config: NavigationConfig
+    config: NavigationConfig,
+    parentKey?: string,
+    baseLevel?: number
   ): VirtualTreeNode[] {
-    const parentKey = NodeKeyEncoder.encode(['catalog', connectionId, dbName])
+    const key = parentKey || NodeKeyEncoder.encode(['catalog', connectionId, dbName])
+    const level = baseLevel ?? 2
     const nodes: VirtualTreeNode[] = []
 
     if (isFolderEnabled(config, 'tables')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['tables-folder', connectionId, dbName]),
-        level: 2,
+        level,
         isExpanded: false,
         isLeaf: false,
         label: config.folders.tables.label,
         type: 'tables-folder',
         data: { connectionId, dbName },
-        parentId: parentKey,
+        parentId: key,
         childCount: 0,
       })
     }
@@ -153,13 +156,13 @@ export function useDatabaseTreeLoader() {
     if (isFolderEnabled(config, 'views')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['views-folder', connectionId, dbName]),
-        level: 2,
+        level,
         isExpanded: false,
         isLeaf: false,
         label: config.folders.views.label,
         type: 'views-folder',
         data: { connectionId, dbName },
-        parentId: parentKey,
+        parentId: key,
         childCount: 0,
       })
     }
@@ -167,13 +170,13 @@ export function useDatabaseTreeLoader() {
     if (isFolderEnabled(config, 'functions')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['functions-folder', connectionId, dbName]),
-        level: 2,
+        level,
         isExpanded: false,
         isLeaf: false,
         label: config.folders.functions.label,
         type: 'functions-folder',
         data: { connectionId, dbName },
-        parentId: parentKey,
+        parentId: key,
         childCount: 0,
       })
     }
@@ -181,13 +184,13 @@ export function useDatabaseTreeLoader() {
     if (isFolderEnabled(config, 'procedures')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName]),
-        level: 2,
+        level,
         isExpanded: false,
         isLeaf: false,
         label: config.folders.procedures.label,
         type: 'procedures-folder',
         data: { connectionId, dbName },
-        parentId: parentKey,
+        parentId: key,
         childCount: 0,
       })
     }
@@ -195,13 +198,13 @@ export function useDatabaseTreeLoader() {
     if (isFolderEnabled(config, 'triggers')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['triggers-folder', connectionId, dbName]),
-        level: 2,
+        level,
         isExpanded: false,
         isLeaf: false,
         label: config.folders.triggers.label,
         type: 'triggers-folder',
         data: { connectionId, dbName },
-        parentId: parentKey,
+        parentId: key,
         childCount: 0,
       })
     }
@@ -315,16 +318,18 @@ export function useDatabaseTreeLoader() {
     connectionId: string,
     dbName: string,
     schemaName: string | undefined,
-    config: NavigationConfig
+    config: NavigationConfig,
+    parentLevel?: number
   ): VirtualTreeNode[] {
     const tables = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['tables-folder', connectionId, dbName])
+    const level = parentLevel !== undefined ? parentLevel + 1 : (schemaName ? 4 : 3)
 
     return tables.map(table => ({
       key: NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName || '', table.name]),
-      level: schemaName ? 4 : 3,
+      level,
       isExpanded: false,
       isLeaf: false,
       label: table.name,
@@ -341,16 +346,18 @@ export function useDatabaseTreeLoader() {
   function createViewNodes(
     connectionId: string,
     dbName: string,
-    schemaName: string | undefined
+    schemaName: string | undefined,
+    parentLevel?: number
   ): VirtualTreeNode[] {
     const views = navigatorStore.getSchemaViews(connectionId, dbName, schemaName || '')
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['views-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['views-folder', connectionId, dbName])
+    const level = parentLevel !== undefined ? parentLevel + 1 : (schemaName ? 4 : 3)
 
     return views.map(view => ({
       key: NodeKeyEncoder.encode(['view', connectionId, dbName, schemaName || '', view.name]),
-      level: schemaName ? 4 : 3,
+      level,
       isExpanded: false,
       isLeaf: false,
       label: view.name,
@@ -676,7 +683,7 @@ export function useDatabaseTreeLoader() {
     const config = await getNavConfig(dbType)
 
     try {
-      // Level 0: 连接节点 -> 数据库列表
+      // Level 0: 连接节点 -> Catalog 列表 或 直接对象文件夹
       if (nodeType === 'connection') {
         const scope = keyParts[1] as 'global' | 'project'
         const connId = keyParts[2]
@@ -685,14 +692,16 @@ export function useDatabaseTreeLoader() {
 
         if (hasRuntimeConn) {
           await navigatorStore.loadDatabases(connId)
-          return createCatalogNodes(connId, scope)
-        } else {
-          const cachedDatabases = navigatorStore.getDatabases(connId)
-          if (cachedDatabases.length > 0) {
-            return createCatalogNodes(connId, scope)
-          }
-          return []
         }
+
+        if (config.hasCatalogs) {
+          return createCatalogNodes(connId, scope)
+        }
+
+        const databases = navigatorStore.getDatabases(connId)
+        const defaultDbName = databases[0]?.name || 'main'
+        const connKey = NodeKeyEncoder.encode(['connection', scope, connId])
+        return createCatalogObjectNodes(connId, defaultDbName, config, connKey, 1)
       }
 
       // Level 1: Catalog 节点 → Schema 或对象文件夹
@@ -732,7 +741,8 @@ export function useDatabaseTreeLoader() {
           await navigatorStore.loadTables(connectionId, dbName, dbName)
         }
 
-        return createTableNodes(connectionId, dbName, schemaName, config)
+        return createTableNodes(connectionId, dbName, schemaName, config, node.level)
+
       }
 
       // Level 2/3: Views 文件夹 -> 视图列表
@@ -744,7 +754,7 @@ export function useDatabaseTreeLoader() {
           await navigatorStore.loadViews(connectionId, dbName, schemaName)
         }
 
-        return createViewNodes(connectionId, dbName, schemaName)
+        return createViewNodes(connectionId, dbName, schemaName, node.level)
       }
 
       // Level 2/3: Procedures 文件夹 -> 存储过程列表

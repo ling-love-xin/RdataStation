@@ -172,6 +172,7 @@
     }
   ],
   "navigation": {
+    "hasCatalogs": true,
     "hasSchemas": true,
     "systemSchemas": ["information_schema", "pg_catalog", "pg_toast"],
     "folders": {

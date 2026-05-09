@@ -72,6 +72,7 @@
     }
   ],
   "navigation": {
+    "hasCatalogs": false,
     "hasSchemas": false,
     "systemSchemas": [],
     "folders": {

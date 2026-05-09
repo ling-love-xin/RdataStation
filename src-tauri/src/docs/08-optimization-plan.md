@@ -1,8 +1,8 @@
 # 架构优化方案
 
-> 版本：v7.0
+> 版本：v8.0
 > 最后更新：2026-05-09
-> 状态：🟢 ANSI SQL 标准 Catalog → Schema → Table 三层语义重构完成
+> 状态：🟢 hasCatalogs 配置字段 — 文件型数据库直接跳过 Catalog/Schema 层级
 
 ## 一、问题诊断总结
 
@@ -777,7 +777,112 @@ RdataStation (更新后):
 
 ---
 
-## 二十二、验证记录（更新）
+## 二十三、R8：hasCatalogs — 消除文件型数据库冗余层级（2026-05-09）
+
+### 23.1 问题
+
+R7 虽然将命名统一为 `catalog`，但文件型数据库（SQLite/DuckDB）仍然在 Connection 下面显示一层无意义的 "main" Catalog：
+
+```
+SQLite:  my_db.sqlite → main → Tables → users    ← main 是噪音
+DuckDB:  my_db.duckdb → main → main → Tables     ← 两层 main，更糟
+```
+
+对标 DBeaver/DataGrip：文件型数据库的**连接本身就是数据库**，不应该再套层：
+
+```
+DBeaver SQLite:
+  my_db.sqlite
+    ├── Tables
+    │   └── users
+    └── Views
+
+DataGrip SQLite:
+  my_db (data source)
+    └── tables
+        └── users
+```
+
+### 23.2 解决：hasCatalogs 配置字段
+
+新增 `NavigationConfig.hasCatalogs: boolean`，控制是否在 Connection 和 Table 之间插入 Catalog 层级。
+
+**四种数据库配置**：
+
+| 数据库 | hasCatalogs | hasSchemas | 导航树结构 |
+|--------|:-----------:|:----------:|-----------|
+| PostgreSQL | ✅ true | ✅ true | Connection → Catalog → Schema → Table |
+| MySQL | ✅ true | ❌ false | Connection → Catalog → Table |
+| SQLite | ❌ false | ❌ false | Connection → Table |
+| DuckDB | ❌ false | ❌ false | Connection → Table |
+
+### 23.3 代码变更
+
+**类型定义**（[form-schema.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/types/form-schema.ts)）：
+```typescript
+export interface NavigationConfig {
+  hasCatalogs: boolean   // ← 新增
+  hasSchemas: boolean
+  ...
+}
+```
+
+**树加载器**（[use-database-tree-loader.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts)）：
+
+`createCatalogObjectNodes` 重构为通用函数，支持：
+- 可选的 `parentKey`（默认 `['catalog', connId, dbName]`，可覆盖为 `['connection', ...]`）
+- 可选的 `baseLevel`（默认 2，文件型数据库传 1）
+- 所有内部 `parentKey` 引用改为 `key`，`level: 2` 改为动态 `level`
+
+`loadChildren` 连接节点：
+```typescript
+if (config.hasCatalogs) {
+  return createCatalogNodes(connId, scope)   // 网络数据库：显示 Catalog
+}
+// 文件型数据库：直接显示 Tables/Views 等
+return createCatalogObjectNodes(connId, defaultDbName, config, connKey, 1)
+```
+
+`createTableNodes` / `createViewNodes` 新增 `parentLevel` 参数，层级不再硬编码。
+
+**JSON 配置**：全部 4 个文件新增 `"hasCatalogs"` 字段。
+
+### 23.4 最终导航树结构
+
+```
+网络数据库（PostgreSQL）:
+  my_server                              ← connection (level 0)
+  └── mydb                               ← catalog (level 1)
+      └── public                         ← schema (level 2)
+          ├── Tables                     ← folder (level 3)
+          │   └── users                  ← table (level 4)
+
+网络数据库（MySQL）:
+  my_server                              ← connection (level 0)
+  └── mydb                               ← catalog (level 1)
+      ├── Tables                         ← folder (level 2)
+      │   └── users                      ← table (level 3)
+
+文件数据库（SQLite/DuckDB）:
+  my_db_file                             ← connection (level 0)
+  ├── Tables                             ← folder (level 1)
+  │   └── users                          ← table (level 2)
+  └── Views                              ← folder (level 1)
+```
+
+| 指标 | 状态 |
+|:---|:---:|
+| SQLite 不再显示 "main" Catalog | ✅ |
+| DuckDB 不再显示两层 "main" | ✅ |
+| `hasCatalogs` 配置字段 | ✅ |
+| 4 个 JSON 配置全部更新 | ✅ |
+| `createCatalogObjectNodes` 通用化 | ✅ |
+| 层级动态计算 | ✅ |
+| 对标 DBeaver/DataGrip | ✅ |
+
+---
+
+## 二十四、验证记录（更新）
 
 | 验证步骤 | 结果 | 备注 |
 |---------|------|------|

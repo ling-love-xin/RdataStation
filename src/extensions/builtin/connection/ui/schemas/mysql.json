@@ -222,6 +222,7 @@
     }
   ],
   "navigation": {
+    "hasCatalogs": true,
     "hasSchemas": false,
     "systemSchemas": ["information_schema", "mysql", "performance_schema", "sys"],
     "folders": {

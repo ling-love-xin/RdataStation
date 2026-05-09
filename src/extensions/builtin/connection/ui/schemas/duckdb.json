@@ -71,8 +71,9 @@
     }
   ],
   "navigation": {
-    "hasSchemas": true,
-    "systemSchemas": ["information_schema", "pg_catalog"],
+    "hasCatalogs": false,
+    "hasSchemas": false,
+    "systemSchemas": [],
     "folders": {
       "tables":       { "enabled": true, "label": "Tables",      "icon": "table",    "childTypes": ["table"] },
       "views":        { "enabled": true, "label": "Views",       "icon": "eye",      "childTypes": ["view"] },

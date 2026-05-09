@@ -45,6 +45,7 @@ export interface NavigationFolderConfig {
 }
 
 export interface NavigationConfig {
+  hasCatalogs: boolean
   hasSchemas: boolean
   systemSchemas: string[]
   folders: {
