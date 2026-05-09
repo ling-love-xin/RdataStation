@@ -141,6 +141,60 @@ export interface MockPersistAssetResult {
   columnCount: number
 }
 
+// ==================== 持久化层类型 ====================
+
+export interface MockGenerationTask {
+  id: string
+  tableName: string
+  tableAlias: string | null
+  rowCount: number
+  seed: number | null
+  locale: string
+  sceneId: string | null
+  saveFormat: string | null
+  status: string
+  errorMessage: string | null
+  generatedRows: number | null
+  generationTimeMs: number | null
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface MockGenerationColumn {
+  id: string
+  taskId: string
+  columnName: string
+  columnType: string
+  generator: string
+  generatorParams: string | null
+  nullRatio: number
+  isUnique: boolean
+  isPrimaryKey: boolean
+  isForeignKey: boolean
+  refTable: string | null
+  refColumn: string | null
+  comment: string | null
+  confidence: string | null
+  sortOrder: number
+}
+
+export interface MockColumnInput {
+  id: string
+  columnName: string
+  columnType: string
+  generator: string
+  generatorParams: string | null
+  nullRatio: number
+  isUnique: boolean
+  isPrimaryKey: boolean
+  isForeignKey: boolean
+  refTable: string | null
+  refColumn: string | null
+  comment: string | null
+  confidence: string | null
+  sortOrder: number
+}
+
 // ==================== 前端 → 后端外部标签枚举格式转换 ====================
 
 /**
@@ -350,5 +404,49 @@ export const mockApi = {
 
   reGenerate(historyId: string) {
     return tauriInvoke<MockGenerateResult>('mock_re_generate', { historyId })
+  },
+
+  // ==================== 持久化 API ====================
+
+  saveTask(projectPath: string, task: MockGenerationTask, columns: MockColumnInput[]) {
+    return tauriInvoke<string>('save_mock_generation_task', {
+      projectPath,
+      task,
+      columns: columns.map(c => ({
+        id: c.id,
+        taskId: task.id,
+        columnName: c.columnName,
+        columnType: c.columnType,
+        generator: c.generator,
+        generatorParams: c.generatorParams ?? null,
+        nullRatio: c.nullRatio ?? 0,
+        isUnique: c.isUnique ?? false,
+        isPrimaryKey: c.isPrimaryKey ?? false,
+        isForeignKey: c.isForeignKey ?? false,
+        refTable: c.refTable ?? null,
+        refColumn: c.refColumn ?? null,
+        comment: c.comment ?? null,
+        confidence: c.confidence ?? null,
+        sortOrder: c.sortOrder,
+      })),
+    })
+  },
+
+  getHistoryV2(projectPath: string, limit = 20) {
+    return tauriInvoke<MockGenerationTask[]>('get_mock_generation_history', {
+      projectPath,
+      limit,
+    })
+  },
+
+  getDetail(projectPath: string, taskId: string) {
+    return tauriInvoke<{
+      task: MockGenerationTask
+      columns: MockGenerationColumn[]
+    }>('get_mock_generation_detail', { projectPath, taskId })
+  },
+
+  deleteTask(projectPath: string, taskId: string) {
+    return tauriInvoke<void>('delete_mock_generation_task', { projectPath, taskId })
   },
 }

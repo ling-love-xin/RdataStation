@@ -184,12 +184,12 @@
       "triggers":     { "enabled": true, "label": "Triggers",    "icon": "zap",      "childTypes": [] }
     },
     "tableChildren": {
-      "columns": true,
-      "indexes": true,
-      "constraints": true,
-      "triggers": true,
-      "foreignKeys": true,
-      "references": true
-    }
+        "columns": true,
+        "indexes": false,
+        "constraints": false,
+        "triggers": true,
+        "foreignKeys": false,
+        "references": false
+      }
   }
 }

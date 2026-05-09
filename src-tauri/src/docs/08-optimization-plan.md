@@ -1,8 +1,8 @@
 # 架构优化方案
 
-> 版本：v8.0
+> 版本：v9.0
 > 最后更新：2026-05-09
-> 状态：🟢 hasCatalogs 配置字段 — 文件型数据库直接跳过 Catalog/Schema 层级
+> 状态：🟢 四数据库全链路审计通过 — 端到端可工作 | indexes/constraints P2 待实现
 
 ## 一、问题诊断总结
 
@@ -882,7 +882,103 @@ return createCatalogObjectNodes(connId, defaultDbName, config, connKey, 1)
 
 ---
 
-## 二十四、验证记录（更新）
+## 二十五、R9：四数据库全链路审计 + 修复（2026-05-09）
+
+### 25.1 审计方法
+
+对 PostgreSQL、MySQL、SQLite、DuckDB 四个数据库，追踪从连接展开到导航树叶子节点的完整调用链：
+
+```
+用户展开连接 → loadChildren → Tauri IPC → metadata_commands → Database trait → 驱动 SQL → 返回数据 → 树节点渲染
+```
+
+### 25.2 审计结果
+
+#### PostgreSQL（hasCatalogs=true, hasSchemas=true）
+
+| 步骤 | 展开节点 | 后端命令 | Trait方法 | SQL | 状态 |
+|------|---------|---------|-----------|-----|:--:|
+| 1 | Connection | load_databases/catalogs | list_databases() | pg_catalog.pg_database | ✅ |
+| 2 | Catalog(mydb) | load_schemas | list_schemas() | information_schema.schemata | ✅ |
+| 3 | Schema(public) | — | — | 纯前端文件夹创建 | ✅ |
+| 4 | Tables 文件夹 | load_tables + load_views | list_tables() | information_schema.tables | ✅ |
+| 5 | Table(users) | load_columns | list_columns() | information_schema.columns | ✅ |
+| 6 | Columns 文件夹 | — | — | 读取已加载的 columns | ✅ |
+| 7 | Indexes 文件夹 | — | — | table.indexes 未填充 → **空** | ❌→🔧 |
+| 8 | Constraints 文件夹 | — | — | table.constraints 未填充 → **空** | ❌→🔧 |
+
+#### MySQL（hasCatalogs=true, hasSchemas=false）
+
+| 步骤 | 展开节点 | 后端命令 | Trait方法 | SQL | 状态 |
+|------|---------|---------|-----------|-----|:--:|
+| 1 | Connection | load_databases/catalogs | list_databases() | SHOW DATABASES | ✅ |
+| 2 | Catalog(mydb) | — | — | 纯前端文件夹创建（无Schema） | ✅ |
+| 3 | Tables 文件夹 | load_tables + load_views | list_tables() | information_schema.tables | ✅ |
+| 4 | Table(users) | load_columns | list_columns() | information_schema.columns | ✅ |
+| 5 | Columns 文件夹 | — | — | 读取已加载的 columns | ✅ |
+| 6 | Indexes 文件夹 | — | — | table.indexes 未填充 → **空** | ❌→🔧 |
+
+#### SQLite（hasCatalogs=false, hasSchemas=false）
+
+| 步骤 | 展开节点 | 后端命令 | Trait方法 | SQL | 状态 |
+|------|---------|---------|-----------|-----|:--:|
+| 1 | Connection | load_databases | list_databases() | 返回 ["main"] | ✅ |
+| 2 | Tables 文件夹 | load_tables | list_tables() | sqlite_master | ✅ |
+| 3 | Table(users) | load_columns | list_columns() | PRAGMA table_info | ✅ |
+| 4 | Columns 文件夹 | — | — | 读取已加载的 columns | ✅ |
+
+> SQLite indexes/constraints 已在配置中禁用，不显示文件夹。
+
+#### DuckDB（hasCatalogs=false, hasSchemas=false）
+
+| 步骤 | 展开节点 | 后端命令 | Trait方法 | SQL | 状态 |
+|------|---------|---------|-----------|-----|:--:|
+| 1 | Connection | load_databases | list_databases() | 返回 ["main"] | ✅ |
+| 2 | Tables 文件夹 | load_tables | list_tables() | information_schema.tables | ✅ |
+| 3 | Table(users) | load_columns | list_columns() | information_schema.columns | ✅ |
+| 4 | Columns 文件夹 | — | — | 读取已加载的 columns | ✅ |
+
+> DuckDB indexes/constraints 已在配置中禁用。
+
+### 25.3 发现的问题
+
+**🔴 P0：indexes/constraints 空文件夹**
+- PostgreSQL 和 MySQL 的 JSON 配置中 `tableChildren.indexes/constraints` 设为 `true`
+- 但后端没有 `load_indexes` / `load_constraints` 命令
+- 树加载器 `createIndexNodes` / `createConstraintNodes` 从 `table.indexes` / `table.constraints` 读取，数据永远为空
+- 用户点击展开看到空文件夹
+
+**🟡 P1：database-api.ts 死代码**
+- `loadIndexes` → 未注册后端命令，未被调用
+- `loadConstraints` → 未注册后端命令，未被调用
+- `disconnectDatabase` → 未注册后端命令
+- `refreshMetadata` → 未注册后端命令
+- `IIndexMeta` / `IConstraintMeta` → 仅被死函数引用
+
+### 25.4 修复措施
+
+| 修复 | 文件 | 操作 |
+|------|------|------|
+| 禁用 indexes/constraints | postgres.json, mysql.json | `indexes: true→false`, `constraints: true→false` |
+| 禁用未实现字段 | postgres.json | `foreignKeys: true→false`, `references: true→false` |
+| 清理死代码 | database-api.ts | 删除 `loadIndexes`, `loadConstraints`, `disconnectDatabase`, `refreshMetadata`, `IIndexMeta`, `IConstraintMeta` |
+| 保留 deprecated | database-api.ts | `loadDatabases()` 保留为 deprecated 兼容别名 |
+| 新增 `isPrimaryKey` | database-api.ts | `IColumnMeta` 新增 `isPrimaryKey?: boolean`（后端 load_columns 已返回） |
+
+### 25.5 当前状态
+
+| 数据库 | 创建连接 | 展开树 | 看表 | 看列 | 看索引 | 看约束 | 存储过程 | 函数 |
+|--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| PostgreSQL | ✅ | ✅ | ✅ | ✅ | 🔲 | 🔲 | ✅ | ✅ |
+| MySQL | ✅ | ✅ | ✅ | ✅ | 🔲 | 🔲 | ✅ | ✅ |
+| SQLite | ✅ | ✅ | ✅ | ✅ | N/A | N/A | N/A | N/A |
+| DuckDB | ✅ | ✅ | ✅ | ✅ | N/A | N/A | N/A | N/A |
+
+> ✅ 可工作 | 🔲 P2 待实现 | N/A 数据库不支持/配置禁用
+
+---
+
+## 二十六、验证记录（更新）
 
 | 验证步骤 | 结果 | 备注 |
 |---------|------|------|

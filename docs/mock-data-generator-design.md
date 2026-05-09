@@ -1738,6 +1738,20 @@ fake = { version = "5", features = [
 | 10.7 导入顺序规范 | 🟡 中 | 修复所有 `import/order` ESLint 错误 | ✅ |
 | 10.8 全量 lint 通过 | 🔴 高 | Mock 文件 0 errors 0 warnings | ✅ |
 
+### Phase 11：持久化层 ✅ 🎉（2026-05-09）
+
+| 任务 | 优先级 | 产出 | 状态 |
+|------|--------|------|------|
+| 11.1 迁移 SQL | 🔴 高 | `migrations/project_meta/009_mock_generation.sql`（4 表 + 3 索引） | ✅ |
+| 11.2 Rust 结构体 + Store | 🔴 高 | `core/mock/persistence.rs`（4 struct + `MockGenerationStore` 7 方法） | ✅ |
+| 11.3 Tauri 命令 | 🔴 高 | `commands/mock_persistence_commands.rs`（7 个命令：save/history/detail/delete/template*3） | ✅ |
+| 11.4 模块注册 | 🔴 高 | `mod.rs` + `lib.rs` + 命令注册 | ✅ |
+| 11.5 前端 API 层 | 🟡 中 | `mock-api.ts` 新增 4 个持久化 API 方法 + 3 个类型定义 | ✅ |
+| 11.6 前端 Store 集成 | 🟡 中 | `useMockStore.ts` 新增 `saveTask`/`loadHistoryV2`/`loadDetail`/`deletePersistenceTask` + `generateAndSave` | ✅ |
+| 11.7 编译验证 | 🔴 高 | `cargo check` 0 errors + `pnpm lint` 0 errors | ✅ |
+
+> 📐 详细设计文档：[mock-persistence-layer.md](./mock-persistence-layer.md)
+
 #### 9.3.3 面板注册
 
 | 文件 | 变更 |
@@ -2277,3 +2291,11 @@ src-tauri/src/
 
 **待增强（均为 🟢 低优，无需立即处理）**：
 1. `Either` 组合生成器（长期规划）
+
+---
+
+### 11.11 相关子文档
+
+| 文档 | 说明 |
+|------|------|
+| [Mock 持久化层设计·开发·接口文档](./mock-persistence-layer.md) | 🔗 项目级 SQLite 持久化方案：4 表设计 + Store 模式 + 7 个 Tauri 命令 + 前端集成 |

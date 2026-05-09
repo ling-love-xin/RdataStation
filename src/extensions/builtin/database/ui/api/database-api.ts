@@ -39,27 +39,7 @@ export interface IColumnMeta {
   dataType: string
   isNullable: boolean
   defaultValue?: string
-}
-
-export interface IIndexMeta {
-  name: string
-  columns: string[]
-  isUnique: boolean
-  isPrimary: boolean
-}
-
-export interface IConstraintMeta {
-  name: string
-  type: 'PRIMARY KEY' | 'FOREIGN KEY' | 'UNIQUE' | 'CHECK'
-  columns: string[]
-}
-
-/**
- * 加载数据库列表
- * @deprecated 请使用 loadCatalogs()，符合 ANSI SQL 标准 Catalog → Schema 层级命名
- */
-export async function loadDatabases(connectionId: string): Promise<IDatabaseMeta[]> {
-  return await invoke<IDatabaseMeta[]>('load_databases', { connectionId })
+  isPrimaryKey?: boolean
 }
 
 /**
@@ -67,6 +47,13 @@ export async function loadDatabases(connectionId: string): Promise<IDatabaseMeta
  */
 export async function loadCatalogs(connectionId: string): Promise<IDatabaseMeta[]> {
   return await invoke<IDatabaseMeta[]>('load_catalogs', { connectionId })
+}
+
+/**
+ * @deprecated 请使用 loadCatalogs()
+ */
+export async function loadDatabases(connectionId: string): Promise<IDatabaseMeta[]> {
+  return await invoke<IDatabaseMeta[]>('load_databases', { connectionId })
 }
 
 /**
@@ -145,45 +132,6 @@ export async function loadFunctions(
   })
 }
 
-/**
- * 加载索引信息
- */
-export async function loadIndexes(
-  connectionId: string,
-  dbName: string,
-  schemaName: string,
-  tableName: string
-): Promise<IIndexMeta[]> {
-  return await invoke<IIndexMeta[]>('load_indexes', { connectionId, dbName, schemaName, tableName })
-}
-
-/**
- * 加载约束信息
- */
-export async function loadConstraints(
-  connectionId: string,
-  dbName: string,
-  schemaName: string,
-  tableName: string
-): Promise<IConstraintMeta[]> {
-  return await invoke<IConstraintMeta[]>('load_constraints', {
-    connectionId,
-    dbName,
-    schemaName,
-    tableName,
-  })
-}
-
-/**
- * 断开数据库连接
- */
-export async function disconnectDatabase(connectionId: string): Promise<void> {
-  return await invoke<void>('disconnect_database', { connectionId })
-}
-
-/**
- * 刷新数据库元数据
- */
-export async function refreshMetadata(connectionId: string): Promise<void> {
-  return await invoke<void>('refresh_metadata', { connectionId })
-}
+// 索引/约束 API 待后端实现
+// - load_indexes: Tauri command
+// - load_constraints: Tauri command

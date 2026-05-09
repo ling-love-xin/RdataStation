@@ -8,6 +8,8 @@ import {
   type ColumnDef,
   type GeneratorType,
   type MockExportFormat,
+  type MockGenerationTask,
+  type MockColumnInput,
 } from '@/shared/api/mock-api'
 
 export interface MockHistorySummary {
@@ -38,6 +40,8 @@ export const useMockStore = defineStore('mock', () => {
   const generateLoading = ref(false)
   const lastResult = ref<MockGenerateResult | null>(null)
   const lastHistories = ref<MockHistorySummary[]>([])
+  const persistenceHistory = ref<MockGenerationTask[]>([])
+  const persistenceLoading = ref(false)
 
   const mockConfig = computed((): MockConfig => ({
     tableName: tableName.value,
@@ -89,6 +93,18 @@ export const useMockStore = defineStore('mock', () => {
     } finally {
       generateLoading.value = false
     }
+  }
+
+  async function generateAndSave(projectPath: string) {
+    const result = await generate()
+    if (result) {
+      try {
+        await saveTask(projectPath)
+      } catch {
+        // 持久化失败不影响生成流程
+      }
+    }
+    return result
   }
 
   async function preview(tableName: string, limit = 50) {
@@ -158,6 +174,93 @@ export const useMockStore = defineStore('mock', () => {
     return await mockApi.reGenerate(historyId)
   }
 
+  function buildTaskInput(): MockGenerationTask {
+    const now = new Date().toISOString()
+    return {
+      id: crypto.randomUUID(),
+      tableName: tableName.value,
+      tableAlias: generatedTableName.value || null,
+      rowCount: rowCount.value,
+      seed: seed.value ?? null,
+      locale: locale.value,
+      sceneId: null,
+      saveFormat: 'table',
+      status: 'success',
+      errorMessage: null,
+      generatedRows: rowCount.value,
+      generationTimeMs: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+  }
+
+  function buildColumnInputs(): MockColumnInput[] {
+    return columns.value.map((col, idx) => ({
+      id: crypto.randomUUID(),
+      columnName: col.name,
+      columnType: col.dataType,
+      generator: buildGeneratorString(col.generator),
+      generatorParams: col.generator.params
+        ? JSON.stringify(col.generator.params)
+        : null,
+      nullRatio: col.nullableRatio,
+      isUnique: col.unique ?? false,
+      isPrimaryKey: col.name === 'id',
+      isForeignKey: false,
+      refTable: null,
+      refColumn: null,
+      comment: null,
+      confidence: 'manual',
+      sortOrder: idx,
+    }))
+  }
+
+  function buildGeneratorString(generator: { type: string; params?: Record<string, unknown> }): string {
+    const localeSuffix = locale.value ? `(${locale.value})` : ''
+    return `${generator.type}${localeSuffix}`
+  }
+
+  async function saveTask(projectPath: string) {
+    const task = buildTaskInput()
+    const cols = buildColumnInputs()
+    return await mockApi.saveTask(projectPath, task, cols)
+  }
+
+  async function loadHistoryV2(projectPath: string, limit = 20) {
+    persistenceLoading.value = true
+    try {
+      persistenceHistory.value = await mockApi.getHistoryV2(projectPath, limit)
+    } finally {
+      persistenceLoading.value = false
+    }
+  }
+
+  async function loadDetail(projectPath: string, taskId: string) {
+    const detail = await mockApi.getDetail(projectPath, taskId)
+    tableName.value = detail.task.tableName
+    rowCount.value = detail.task.rowCount
+    seed.value = detail.task.seed ?? null
+    locale.value = detail.task.locale
+    columns.value = detail.columns.map<ColumnDef>((col: Record<string, unknown>) => ({
+      name: col.columnName as string,
+      dataType: col.columnType as ColumnDef['dataType'],
+      generator: {
+        type: (col.generator as string).replace(/\\(.*\\)$/, '') as GeneratorType,
+        params: col.generatorParams
+          ? JSON.parse(col.generatorParams as string)
+          : undefined,
+      },
+      nullableRatio: col.nullRatio as number,
+      unique: col.isUnique as boolean,
+    }))
+    return detail
+  }
+
+  async function deletePersistenceTask(projectPath: string, taskId: string) {
+    await mockApi.deleteTask(projectPath, taskId)
+    persistenceHistory.value = persistenceHistory.value.filter(t => t.id !== taskId)
+  }
+
   function reset() {
     generatedTableName.value = ''
     previewData.value = []
@@ -180,12 +283,15 @@ export const useMockStore = defineStore('mock', () => {
     generateLoading,
     lastResult,
     lastHistories,
+    persistenceHistory,
+    persistenceLoading,
     mockConfig,
     addColumn,
     removeColumn,
     updateColumn,
     setColumnType,
     generate,
+    generateAndSave,
     preview,
     doExport,
     saveToScratchpad,
@@ -194,6 +300,12 @@ export const useMockStore = defineStore('mock', () => {
     loadHistory,
     clearHistory,
     reGenerate,
+    saveTask,
+    buildTaskInput,
+    buildColumnInputs,
+    loadHistoryV2,
+    loadDetail,
+    deletePersistenceTask,
     reset,
   }
 })

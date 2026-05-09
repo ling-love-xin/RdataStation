@@ -298,6 +298,15 @@ pub fn run() {
             mock_get_history,
             mock_clear_history,
             mock_re_generate,
+
+            // 模拟数据生成 Mock 持久化
+            save_mock_generation_task,
+            get_mock_generation_history,
+            get_mock_generation_detail,
+            delete_mock_generation_task,
+            save_mock_template,
+            get_mock_templates,
+            get_mock_template_detail,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

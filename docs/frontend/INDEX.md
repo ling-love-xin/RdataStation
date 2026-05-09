@@ -39,7 +39,8 @@ docs/frontend/
 ├── ANALYTICS_RESOURCE_MANAGER_DESIGN.md # 前端设计方案（v1.0 设计阶段）
 │
 └── Mock 数据生成器
-    └── ../../mock-data-generator-design.md  # 🎲 完整设计文档（v3.0，生产就绪）
+    ├── ../../mock-data-generator-design.md  # 🎲 完整设计文档（v3.0，生产就绪）
+    └── ../../mock-persistence-layer.md      # 🎲 持久化层设计·开发·接口（v1.0）
 ```
 
 ---
@@ -185,7 +186,7 @@ docs/frontend/
 | 性能优化                | [组件规范](./COMPONENTS.md)                          | 性能优化               |
 | 代码审查                | [组件规范](./COMPONENTS.md)                          | 代码审查清单           |
 | 了解分析资源管理器      | [分析资源架构](./ANALYTICS_RESOURCE_ARCHITECTURE.md) | 全部                   |
-| 了解 Mock 数据生成器    | [设计文档](../../mock-data-generator-design.md)      | 106 种生成器 + 全链路   |
+| 了解 Mock 数据生成器    | [设计文档](../../mock-data-generator-design.md) + [持久化层](../../mock-persistence-layer.md) | 106 种生成器 + 全链路 + 项目级持久化 |
 | 查看分析资源 API        | [API 参考](./ANALYTICS_RESOURCE_API_REFERENCE.md)    | 完整命令索引           |
 | 集成分析资源功能        | [集成指南](./ANALYTICS_RESOURCE_INTEGRATION.md)      | Store API / 场景示例   |
 | 查看开发进度            | [开发进度](./ANALYTICS_RESOURCE_PROGRESS.md)         | Phase 1-4              |

@@ -13,7 +13,7 @@
 | 了解项目架构        | [架构总览](./architecture.md)                            | 四层微内核、四层数据库架构   |
 | 开始后端开发        | [后端文档](./backend/README.md)                          | Rust Core + Tauri            |
 | 开始前端开发        | [前端文档](./frontend/INDEX.md)                          | Vue 3 + TypeScript           |
-| 了解 Mock 数据生成器 | [设计文档](./mock-data-generator-design.md)              | 106 种生成器 + 6 场景模板    |
+| 了解 Mock 数据生成器 | [设计文档](./mock-data-generator-design.md) + [持久化层](./mock-persistence-layer.md) | 106 种生成器 + 6 场景模板 + 项目级持久化 |
 | 了解 SQL 编辑器优化 | [优化计划](./frontend/SQL-EDITOR-OPTIMIZATION-PLAN.md)   | 架构优化 4 Phase             |
 | 了解结果集模块优化  | [优化计划](./frontend/QUERY-RESULT-OPTIMIZATION-PLAN.md) | 8 组 39 项优化 (⏳ 设计阶段) |
 | 了解数据库导航      | [导航器文档](./navigator/README.md)                      | IVM 增量视图设计             |
@@ -34,6 +34,7 @@ docs/
 ├── database-navigator.md        # 数据库导航栏
 ├── navigator-frontend-backend-alignment.md  # 前后端对齐
 ├── mock-data-generator-design.md # 🎲 Mock 数据生成器（v3.0，生产就绪）
+mock-persistence-layer.md     # 🎲 Mock 持久化层（v1.0，设计阶段）
 │
 ├── backend/                    # ⚙️ 后端文档
 │   ├── README.md               # 后端文档索引

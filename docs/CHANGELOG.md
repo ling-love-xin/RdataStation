@@ -64,11 +64,37 @@
 - 第四轮修复（2026-05-09）：5 个审计发现已修复（#24-#28）：模板 4→6、nullable_ratio 修复、进度回调、临时表清理、Boolean 参数
 - 最终状态：**生产就绪 ✅** — 0 unwrap()、0 any 类型、pnpm lint 0 errors、cargo check 0 errors
 
+#### 🔧 Mock 数据生成器持久化层（Phase 11）
+
+> 📐 设计文档：[mock-persistence-layer.md](./mock-persistence-layer.md)
+
+**Rust 后端（3 文件）：**
+
+- **迁移 SQL** `migrations/project_meta/009_mock_generation.sql` — 4 张 `mock_` 前缀表（mock_generation_tasks/columns/user_templates/template_columns）+ 3 索引，`CREATE TABLE IF NOT EXISTS` 幂等安全
+- **Store 层** `core/mock/persistence.rs` (~340行) — 4 个 Rust struct（`MockGenerationTask`/`MockGenerationColumn`/`MockUserTemplate`/`MockTemplateColumn`，`#[serde(rename_all = "camelCase")]`）+ `MockGenerationStore`（7 个 CRUD 方法，`rusqlite` 参数化查询，`CoreError::storage()` 统一错误）
+- **Tauri 命令** `commands/mock_persistence_commands.rs` (~80行) — 7 个命令（`save_mock_generation_task`/`get_mock_generation_history`/`get_mock_generation_detail`/`delete_mock_generation_task` + 3 个模板预留命令），`ProjectSqlitePool::new()` 动态打开项目 DB
+
+**前端实现（2 文件）：**
+
+- **`mock-api.ts`** — 新增 3 个 TypeScript 接口类型（`MockGenerationTask`/`MockGenerationColumn`/`MockColumnInput`）+ 4 个 API 方法（`saveTask`/`getHistoryV2`/`getDetail`/`deleteTask`）
+- **`useMockStore.ts`** — 新增 `persistenceHistory`/`persistenceLoading` 状态 + `saveTask`/`loadHistoryV2`/`loadDetail`/`deletePersistenceTask`/`generateAndSave`/`buildTaskInput`/`buildColumnInputs` 方法，生成成功后自动持久化（降级不阻塞）
+
+**编译验证：**
+
+- `cargo check`：0 errors，0 mock 相关 warnings
+- `pnpm lint`：0 errors，0 mock 相关 warnings
+
 **技术依赖：**
 
 ```toml
 fake = { version = "5", features = ["derive", "chrono", "uuid", "http", "ferroid", "ulid", "semver", "random_color", "geo", "url", "serde_json", "bigdecimal", "rust_decimal", "time"] }
 ```
+
+**文档更新（2026-05-09）：**
+
+- **mock-persistence-layer.md v1.0** — Mock 持久化层一体化文档（设计 §1 + 开发 §2 + 接口 §3），含架构定位、4 表设计、Rust 结构体、Store 模式、7 个 Tauri 命令规格、前端集成方案、数据流图
+- **README.md v2.5** — 新增持久化层导航条目
+- **frontend/INDEX.md v2.4** — 新增持久化层索引
 
 #### 📝 文档
 

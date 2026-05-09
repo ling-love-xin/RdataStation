@@ -2,6 +2,7 @@ pub mod engine;
 pub mod error;
 pub mod history;
 pub mod models;
+pub mod persistence;
 pub mod schema_map;
 pub mod templates;
 
@@ -13,5 +14,9 @@ pub use models::{
     ImportSchemaInput, Locale, MockConfig, MockExportInput, MockGenerateResult, MockHistoryRecord,
     ScenarioTemplate, TemplateTable, MockSaveToScratchpadInput, MockPersistAssetInput,
     MockPersistAssetResult,
+};
+pub use persistence::{
+    MockGenerationColumn, MockGenerationDetail, MockGenerationStore, MockGenerationTask,
+    MockTemplateColumn, MockUserTemplate,
 };
 pub use schema_map::ColumnMapper;
