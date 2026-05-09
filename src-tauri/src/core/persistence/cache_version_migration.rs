@@ -17,7 +17,7 @@ use crate::core::error::{CoreError, CommonError, StorageError};
 /// 当前缓存版本
 ///
 /// 每次缓存结构变化时递增此版本号
-pub const CURRENT_CACHE_VERSION: u32 = 7;
+pub const CURRENT_CACHE_VERSION: u32 = 8;
 
 /// 缓存版本信息
 #[derive(Debug, Clone)]
@@ -356,6 +356,58 @@ impl MigrationStrategy for V6ToV7Migration {
     }
 }
 
+/// 版本 7 到版本 8 的迁移策略（添加 columns.is_primary 列）
+pub struct V7ToV8Migration;
+
+impl MigrationStrategy for V7ToV8Migration {
+    fn target_version(&self) -> u32 {
+        8
+    }
+
+    fn migrate(&self, conn: &Connection) -> Result<(), CoreError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| CoreError::common(CommonError::General(
+                format!("获取系统时间失败: {}", e)
+            )))?
+            .as_secs() as i64;
+
+        conn.execute(
+            "ALTER TABLE columns ADD COLUMN is_primary INTEGER DEFAULT 0",
+            [],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "add_is_primary_column".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        conn.execute(
+            "UPDATE cache_version SET version = ?1, upgraded_at = ?2, updated_at = ?3 WHERE id = 1",
+            rusqlite::params![CURRENT_CACHE_VERSION, now, now],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "update_cache_version".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        conn.execute(
+            "INSERT INTO cache_migration_history (from_version, to_version, migrated_at, reason, success)
+             VALUES (?1, ?2, ?3, ?4, 1)",
+            rusqlite::params![7, CURRENT_CACHE_VERSION, now, "添加 columns.is_primary 字段，支持主键标记独立于 is_identity"],
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "record_migration_history".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(())
+    }
+
+    fn reason(&self) -> &'static str {
+        "添加 columns.is_primary 字段，支持主键标记独立于 is_identity"
+    }
+}
+
 /// 缓存版本迁移管理器
 pub struct CacheVersionManager {
     /// 注册的迁移策略
@@ -376,6 +428,7 @@ impl CacheVersionManager {
         manager.register_strategy(Box::new(V4ToV5Migration));
         manager.register_strategy(Box::new(V5ToV6Migration));
         manager.register_strategy(Box::new(V6ToV7Migration));
+        manager.register_strategy(Box::new(V7ToV8Migration));
         
         manager
     }

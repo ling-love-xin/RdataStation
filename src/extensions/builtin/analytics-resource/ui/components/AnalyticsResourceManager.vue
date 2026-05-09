@@ -183,7 +183,6 @@ const activeTagId = ref<string | null>(null)
 const showResourceDetail = ref(false)
 const detailResource = ref<AnalyticsResource>()
 
-const resources = computed(() => store.resources)
 const folders = computed(() => store.folders)
 const selectedResources = computed(() => store.selectedResources)
 const selectedFolderId = computed(() => store.selectedFolderId)

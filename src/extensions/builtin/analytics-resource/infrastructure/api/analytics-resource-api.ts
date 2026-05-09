@@ -99,6 +99,10 @@ export async function createAnalyticsTag(input: CreateTagRequest): Promise<Analy
   return await invoke('create_analytics_tag', { input })
 }
 
+export async function getAnalyticsTag(id: string): Promise<AnalyticsTag> {
+  return await invoke('get_analytics_tag', { id })
+}
+
 export async function listAnalyticsTags(input: ListTagsInput): Promise<AnalyticsTag[]> {
   return await invoke('list_analytics_tags', { input })
 }

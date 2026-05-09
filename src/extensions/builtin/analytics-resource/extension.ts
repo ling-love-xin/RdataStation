@@ -3,8 +3,9 @@ import AnalyticsResourceManager from './ui/components/AnalyticsResourceManager.v
 import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
 interface AnalyticsResourceExtensionAPI extends ExtensionAPI {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  analyticsResource: {}
+  analyticsResource: {
+    readonly version: string
+  }
 }
 
 const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
@@ -22,7 +23,7 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
   const disposables: Disposable[] = [panelDisposable]
 
   return {
-    version: '1.0.0',
+    version: '1.4.0',
     project: context.project,
     commands: context.commands,
     window: context.window,
@@ -34,7 +35,7 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
     utils: context.utils,
 
     analyticsResource: {
-      // 扩展特定的 API
+      get version() { return '1.4.0' },
     },
 
     dispose: () => {

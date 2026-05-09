@@ -1,7 +1,7 @@
 # RdataStation 变更日志
 
-> 版本：v2.8.0
-> 最后更新：2026-05-08
+> 版本：v2.9.0
+> 最后更新：2026-05-09
 
 ## 目录
 
@@ -12,6 +12,72 @@
 ---
 
 ## 项目变更日志
+
+### [v2.9.0] - 2026-05-09
+
+#### ✨ Mock 数据生成器 — 全模块完成（10 Phase）
+
+> 📐 设计文档：[mock-data-generator-design.md](./mock-data-generator-design.md)
+
+**Rust 后端（`core/mock/`）：**
+
+- **数据模型** `models.rs` — 106 种 GeneratorConfig 枚举变体（覆盖 fake v5.1.0 全部生成器）、13 种 ColumnDataType、13 种 Locale（ZH_CN/EN/JA_JP/ZH_TW/FR_FR/DE_DE/IT_IT/PT_BR/PT_PT/NL_NL/AR_SA/TR_TR/FA_IR）
+- **核心引擎** `engine.rs` (~1100行) — 基于 `fake::Dummy` trait 的批量数据生成、DuckDB 临时表 `temp_mock_` 自动建表+批量 INSERT（10000行/批）、5 种导出模式（CSV/Parquet/XLSX/Table/SQL INSERT）、Regex 模式匹配生成器（`\d`/`\w`/`[a-z]`/`{n,m}`）、Template 占位符生成器（`{{name}}`/`{{email}}`/`{{uuid}}`/`{{int:N-M}}` 等 10 种）
+- **智能映射** `schema_map.rs` — ~80 条列名→生成器推断规则，三级置信度（🟢精确/🟡模糊/⚪类型兜底）
+- **场景模板** `templates.rs` — 6 个内置场景模板（ecommerce/social_media/finance/company/iot_device/content_cms）+ 用户自定义模板支持
+- **生成历史** `history.rs` — DuckDB `_system.mock_history` 表（自动建表、保存、查询、清理、LRU 200条上限）
+
+**Tauri Command 接口（13 个）：**
+
+| 命令 | 用途 |
+|------|------|
+| `mock_generate` | 生成 Mock 数据 |
+| `mock_preview` | 刷新预览 |
+| `mock_export` | 导出为指定格式 |
+| `mock_map_column` | 智能映射单个列名 |
+| `mock_map_columns_batch` | 批量智能映射 |
+| `mock_list_templates` | 获取场景模板列表 |
+| `mock_import_schema` | 从 MetadataCache 导入表结构 |
+| `mock_apply_template` | 应用场景模板 |
+| `mock_save_to_scratchpad` | 一键保存到草稿箱 |
+| `mock_persist_as_asset` | 保存 Table 到分析资源管理器 |
+| `mock_get_history` | 获取生成历史 |
+| `mock_clear_history` | 清除生成历史 |
+| `mock_re_generate` | 基于历史记录重新生成 |
+
+**前端实现（Vue 3 + TS）：**
+
+- **Store** `useMockStore.ts` — Pinia 状态管理（19 个方法 + 11 个状态字段）
+- **主面板** `MockPanel.vue` (~800行) — dockview 右侧面板，支持 39 种常用生成器选择（8组分类）、列 CRUD、生成/导出/预览/历史全功能
+- **高级配置** `MockAdvancedDrawer.vue` (349行) — 28 种有参生成器参数模式、5 种字段类型、NDrawer 右侧滑出
+- **模板选择** `MockTemplateSelectDialog.vue` — 2×N 网格卡片弹窗
+- **导入结构** `MockImportSchemaDialog.vue` — 连接→数据库→Schema→表选择弹窗（含映射反馈）
+- **API 层** `mock-api.ts` — 15 个 OVERRIDE_VARIANT 命名覆盖 + 双向格式转换（`toBackendConfig`/`parseBackendColumns`）
+
+**审计与修复（4 轮，23 个修复记录 + 1 次功能完整性审计）：**
+
+- 🔴 严重 5 个：前后端 JSON 格式不兼容（外部标签枚举↔扁平格式）、读取/写入双向转换管线、OVERRIDE_VARIANT 补全至 15 个、generatorOptions 从 66→132 个子项
+- 🟡 中等 8 个：MockAdvancedDrawer 实现、Regex/Template 参数生效、JobTitle/Country/LicencePlate 映射修正、ColumnDataType 参数暴露、6 个模板 ForeignKey 化、手动列映射按钮
+- 🟢 低 3 个：死代码删除、导入映射反馈、Login 状态清理
+- ⏸️ 暂缓 2 个：MockFieldTable.vue、MockGeneratorToolbar.vue
+- 第三次功能完整性审计（2026-05-09）：6 个发现（1🟡 + 5🟢），综合评级 ⭐⭐⭐⭐⭐ 生产就绪
+- 第四轮修复（2026-05-09）：5 个审计发现已修复（#24-#28）：模板 4→6、nullable_ratio 修复、进度回调、临时表清理、Boolean 参数
+- 最终状态：**生产就绪 ✅** — 0 unwrap()、0 any 类型、pnpm lint 0 errors、cargo check 0 errors
+
+**技术依赖：**
+
+```toml
+fake = { version = "5", features = ["derive", "chrono", "uuid", "http", "ferroid", "ulid", "semver", "random_color", "geo", "url", "serde_json", "bigdecimal", "rust_decimal", "time"] }
+```
+
+#### 📝 文档
+
+- **mock-data-generator-design.md v3.0** — 完整设计文档（§1-§11：架构设计、数据模型、13 个 Tauri Command 接口、前端组件设计、智能映射机制、场景模板、10 Phase 开发计划、技术依赖、前后端打通分析、23 条修复记录、最终审计报告）
+- **README.md v2.5** — 新增 Mock 数据生成器导航条目
+- **CHANGELOG.md** — v2.9.0 条目
+- **frontend/INDEX.md v2.4** — 新增 Mock 数据生成器索引
+
+---
 
 ### [v2.8.0] - 2026-05-08
 

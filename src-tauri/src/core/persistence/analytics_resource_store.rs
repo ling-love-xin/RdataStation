@@ -1157,9 +1157,7 @@ impl AnalyticsResourceStore {
     }
 
     fn parse_datetime_sqlite(s: String) -> Result<DateTime<Utc>, rusqlite::Error> {
-        DateTime::parse_from_rfc3339(&s)
-            .map(|dt| dt.with_timezone(&Utc))
-            .map_err(|e| rusqlite::Error::InvalidParameterName(format!("Invalid datetime: {}", e)))
+        Self::parse_datetime(s).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
     }
 
     // ==================== 版本历史 ====================

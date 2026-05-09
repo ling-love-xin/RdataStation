@@ -3,7 +3,7 @@
   "driverName": "DuckDB",
   "version": "1.1",
   "metadata": {
-    "category": "file",
+    "category": "file-based",
     "description": "DuckDB 分析型数据库",
     "features": ["列式存储", "向量化执行", "并行查询", "SQL 兼容"],
     "defaultPort": null,
@@ -69,5 +69,25 @@
         }
       ]
     }
-  ]
+  ],
+  "navigation": {
+    "hasSchemas": true,
+    "systemSchemas": ["information_schema", "pg_catalog"],
+    "folders": {
+      "tables":       { "enabled": true, "label": "Tables",      "icon": "table",    "childTypes": ["table"] },
+      "views":        { "enabled": true, "label": "Views",       "icon": "eye",      "childTypes": ["view"] },
+      "functions":    { "enabled": true, "label": "Functions",   "icon": "function", "childTypes": ["function"] },
+      "procedures":   { "enabled": false, "label": "Procedures", "icon": "terminal", "childTypes": [] },
+      "sequences":    { "enabled": true, "label": "Sequences",   "icon": "hash",     "childTypes": [] },
+      "triggers":     { "enabled": false, "label": "Triggers",   "icon": "zap",      "childTypes": [] }
+    },
+    "tableChildren": {
+      "columns": true,
+      "indexes": false,
+      "constraints": false,
+      "triggers": false,
+      "foreignKeys": false,
+      "references": false
+    }
+  }
 }

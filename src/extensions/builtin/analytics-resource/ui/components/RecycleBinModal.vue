@@ -54,7 +54,7 @@ import { useAnalyticsResourceStore } from '../stores/analytics-resource-store'
 
 import type { AnalyticsRecycleItem } from '../../types'
 
-const emit = defineEmits<{
+defineEmits<{
   close: []
 }>()
 

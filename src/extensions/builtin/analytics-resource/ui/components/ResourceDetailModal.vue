@@ -389,33 +389,33 @@ code.detail-value {
 }
 
 .type-badge.connection {
-  background: rgba(22, 93, 255, 0.1);
-  color: var(--primary-color);
+  background: var(--resource-type-connection-soft);
+  color: var(--resource-type-connection);
 }
 
 .type-badge.table {
-  background: rgba(0, 180, 42, 0.1);
-  color: #00b42a;
+  background: var(--resource-type-table-soft);
+  color: var(--resource-type-table);
 }
 
 .type-badge.file {
-  background: rgba(255, 125, 0, 0.1);
-  color: #ff7d00;
+  background: var(--resource-type-file-soft);
+  color: var(--resource-type-file);
 }
 
 .scope-badge.global {
-  background: rgba(114, 46, 209, 0.1);
-  color: #722ed1;
+  background: var(--resource-scope-global-soft);
+  color: var(--resource-scope-global);
 }
 
 .scope-badge.project {
-  background: rgba(22, 93, 255, 0.1);
-  color: var(--primary-color);
+  background: var(--resource-scope-project-soft);
+  color: var(--resource-scope-project);
 }
 
 .scope-badge.session {
-  background: rgba(20, 201, 201, 0.1);
-  color: #14c9c9;
+  background: var(--resource-scope-session-soft);
+  color: var(--resource-scope-session);
 }
 
 .tag-list-inline {

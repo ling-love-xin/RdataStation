@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 
-use crate::core::driver::traits::{Database, Transaction, DataSourceMeta, SchemaObject};
+use crate::core::driver::traits::{Database, Transaction, DataSourceMeta, SchemaObject, ColumnDetail};
 use crate::core::error::{CoreError, CommonError};
 use crate::core::models::QueryResult;
 
@@ -13,6 +13,7 @@ impl WasmDriver {
     pub fn new(_url: &str) -> Result<Self, CoreError> {
         Ok(Self {
             meta: DataSourceMeta {
+                server_version: None,
                 supports_transaction: false,
                 supports_streaming: false,
                 supports_arrow: true,
@@ -54,7 +55,7 @@ impl Database for WasmDriver {
         Ok(vec![])
     }
 
-    async fn list_columns(&self, _db: &str, _schema: Option<&str>, _table: &str) -> Result<Vec<SchemaObject>, CoreError> {
+    async fn list_columns(&self, _db: &str, _schema: Option<&str>, _table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
         Ok(vec![])
     }
 

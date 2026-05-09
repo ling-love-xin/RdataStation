@@ -6,13 +6,16 @@ use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{QueryResult, Value};
 
 /// Schema 对象类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SchemaObjectKind {
     Database,
     Schema,
     Table,
     View,
     Column,
+    Index,
+    PrimaryKey,
+    ForeignKey,
 }
 
 /// Schema 对象（对象树模型）
@@ -23,13 +26,65 @@ pub struct SchemaObject {
     pub name: String,
     pub kind: SchemaObjectKind,
     pub children: Option<Vec<SchemaObject>>,
+    pub comment: Option<String>,
+}
+
+/// 列详情（完整元数据）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnDetail {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub is_primary_key: bool,
+    pub is_foreign_key: bool,
+    pub default_value: Option<String>,
+    pub comment: Option<String>,
+}
+
+/// 对象树节点（轻量级，用于快速树渲染）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeInfo {
+    pub name: String,
+    pub kind: SchemaObjectKind,
+    pub icon: Option<String>,
+    pub comment: Option<String>,
+}
+
+/// 对象详情（完整元数据，按需加载）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeDetail {
+    pub node: NodeInfo,
+    pub columns: Vec<ColumnDetail>,
+    pub index_count: Option<usize>,
+    pub row_count_estimate: Option<u64>,
+}
+
+/// 元数据浏览器 trait
+///
+/// 提供统一的对象树导航能力，适用于所有数据库类型（关系型、NoSQL、图等）。
+/// 与 Database trait 分离，支持按需实现。
+#[async_trait::async_trait]
+pub trait MetadataBrowser: Send + Sync {
+    /// 获取顶层节点（数据库/Catalog）
+    async fn get_databases(&self) -> Result<Vec<NodeInfo>, CoreError>;
+
+    /// 获取 Schema 列表
+    async fn get_schemas(&self, db: &str) -> Result<Vec<NodeInfo>, CoreError>;
+
+    /// 获取表/视图/集合列表
+    async fn get_tables(&self, db: &str, schema: &str) -> Result<Vec<NodeInfo>, CoreError>;
+
+    /// 获取表/视图详情（含列信息）
+    async fn get_table_detail(&self, db: &str, schema: &str, table: &str) -> Result<NodeDetail, CoreError>;
 }
 
 /// 数据源能力描述
 ///
 /// 描述数据库支持的特性，用于运行时能力检测
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataSourceMeta {
+    /// 数据库服务器版本
+    pub server_version: Option<String>,
     /// 是否支持事务
     pub supports_transaction: bool,
     /// 是否支持流式查询（大数据集分批返回）
@@ -48,6 +103,7 @@ impl DataSourceMeta {
     /// MySQL 元数据
     pub fn mysql() -> Self {
         Self {
+            server_version: None,
             supports_transaction: true,
             supports_streaming: true,
             supports_arrow: false,
@@ -60,6 +116,7 @@ impl DataSourceMeta {
     /// PostgreSQL 元数据
     pub fn postgres() -> Self {
         Self {
+            server_version: None,
             supports_transaction: true,
             supports_streaming: true,
             supports_arrow: false,
@@ -72,6 +129,7 @@ impl DataSourceMeta {
     /// SQLite 元数据
     pub fn sqlite() -> Self {
         Self {
+            server_version: None,
             supports_transaction: true,
             supports_streaming: false,
             supports_arrow: false,
@@ -84,6 +142,7 @@ impl DataSourceMeta {
     /// DuckDB 元数据
     pub fn duckdb() -> Self {
         Self {
+            server_version: None,
             supports_transaction: true,
             supports_streaming: true,
             supports_arrow: true,
@@ -162,7 +221,7 @@ pub trait Database: Send + Sync {
         _db: &str,
         _schema: Option<&str>,
         _table: &str,
-    ) -> Result<Vec<SchemaObject>, CoreError> {
+    ) -> Result<Vec<ColumnDetail>, CoreError> {
         Ok(vec![])
     }
 

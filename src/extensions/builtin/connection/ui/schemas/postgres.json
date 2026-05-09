@@ -3,7 +3,7 @@
   "driverName": "PostgreSQL",
   "version": "16.0",
   "metadata": {
-    "category": "network",
+    "category": "relational",
     "description": "PostgreSQL 强大的开源关系型数据库",
     "features": ["事务", "视图", "存储过程", "触发器", "JSON 支持", "全文搜索"],
     "defaultPort": 5432,
@@ -170,5 +170,25 @@
         }
       ]
     }
-  ]
+  ],
+  "navigation": {
+    "hasSchemas": true,
+    "systemSchemas": ["information_schema", "pg_catalog", "pg_toast"],
+    "folders": {
+      "tables":       { "enabled": true, "label": "Tables",      "icon": "table",    "childTypes": ["table"] },
+      "views":        { "enabled": true, "label": "Views",       "icon": "eye",      "childTypes": ["view"] },
+      "functions":    { "enabled": true, "label": "Functions",   "icon": "function", "childTypes": ["function"] },
+      "procedures":   { "enabled": true, "label": "Procedures",  "icon": "terminal", "childTypes": ["procedure"] },
+      "sequences":    { "enabled": true, "label": "Sequences",   "icon": "hash",     "childTypes": [] },
+      "triggers":     { "enabled": true, "label": "Triggers",    "icon": "zap",      "childTypes": [] }
+    },
+    "tableChildren": {
+      "columns": true,
+      "indexes": true,
+      "constraints": true,
+      "triggers": true,
+      "foreignKeys": true,
+      "references": true
+    }
+  }
 }

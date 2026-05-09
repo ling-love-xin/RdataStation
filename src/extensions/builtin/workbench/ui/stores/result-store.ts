@@ -256,9 +256,17 @@ export const useResultStore = defineStore('result', () => {
     if (!tab) return
 
     if (format === 'csv') {
-      const header = tab.columns.join(',')
+      const escapeCsv = (v: unknown): string => {
+        if (v === null || v === undefined) return ''
+        const s = String(v)
+        if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+          return `"${s.replace(/"/g, '""')}"`
+        }
+        return s
+      }
+      const header = tab.columns.map(c => escapeCsv(c)).join(',')
       const body = tab.rows.map(r =>
-        r.map(v => (v === null ? '' : `"${String(v).replace(/"/g, '""')}"`)).join(',')
+        r.map(v => escapeCsv(v)).join(',')
       )
       const csv = [header, ...body].join('\n')
       await navigator.clipboard.writeText(csv)
@@ -382,7 +390,8 @@ export const useResultStore = defineStore('result', () => {
         return true
       }
       return false
-    } catch {
+    } catch (err) {
+      console.warn('[result-store] saveCellUpdate failed:', err)
       return false
     }
   }

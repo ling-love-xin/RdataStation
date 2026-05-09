@@ -173,25 +173,37 @@ const contextMenuItems = computed<ContextMenuItem[]>(() => [
     id: 'open',
     label: t('analyticsResource.open'),
     icon: '📖',
-    action: () => emit('open', props.items.find(i => i.id === selectedIds.value[0])!),
+    action: () => {
+      const item = props.items.find(i => i.id === selectedIds.value[0])
+      if (item) emit('open', item)
+    },
   },
   {
     id: 'edit',
     label: t('analyticsResource.edit'),
     icon: '✏️',
-    action: () => emit('edit', props.items.find(i => i.id === selectedIds.value[0])!),
+    action: () => {
+      const item = props.items.find(i => i.id === selectedIds.value[0])
+      if (item) emit('edit', item)
+    },
   },
   {
     id: 'copy',
     label: t('analyticsResource.copy'),
     icon: '📋',
-    action: () => emit('copy', props.items.find(i => i.id === selectedIds.value[0])!),
+    action: () => {
+      const item = props.items.find(i => i.id === selectedIds.value[0])
+      if (item) emit('copy', item)
+    },
   },
   {
     id: 'versions',
     label: t('analyticsResource.viewVersions'),
     icon: '📜',
-    action: () => emit('view-versions', props.items.find(i => i.id === selectedIds.value[0])!),
+    action: () => {
+      const item = props.items.find(i => i.id === selectedIds.value[0])
+      if (item) emit('view-versions', item)
+    },
   },
   { id: 'separator', label: '---', disabled: true },
   {

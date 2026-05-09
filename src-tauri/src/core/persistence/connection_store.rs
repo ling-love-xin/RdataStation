@@ -8,6 +8,13 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn system_time_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 /// 最大保存的连接数量
 const MAX_CONNECTIONS: usize = 20;
 
@@ -24,6 +31,8 @@ pub struct ConnectionInfo {
     pub db_type: String,
     /// 连接 URL
     pub url: String,
+    /// 数据库服务器版本
+    pub server_version: Option<String>,
     /// 最后使用时间（Unix 时间戳，秒）
     pub last_used: u64,
     /// 创建时间（Unix 时间戳，秒）
@@ -44,16 +53,14 @@ impl ConnectionInfo {
     ///
     /// 返回新的 ConnectionInfo 实例
     pub fn new(id: String, name: String, db_type: String, url: String) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = system_time_secs();
 
         Self {
             id,
             name,
             db_type,
             url,
+            server_version: None,
             last_used: now,
             created_at: now,
         }
@@ -61,27 +68,18 @@ impl ConnectionInfo {
 
     /// 更新最后使用时间
     pub fn touch(&mut self) {
-        self.last_used = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        self.last_used = system_time_secs();
     }
 
     /// 获取连接的年龄（从创建到现在的时间，秒）
     pub fn age_secs(&self) -> u64 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = system_time_secs();
         now.saturating_sub(self.created_at)
     }
 
     /// 获取距离上次使用的时间（秒）
     pub fn idle_secs(&self) -> u64 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = system_time_secs();
         now.saturating_sub(self.last_used)
     }
 }
@@ -441,6 +439,7 @@ impl ConnectionStore {
         if let Some(v) = extract_string(json, "url") {
             url = v;
         }
+        let server_version = extract_string(json, "server_version");
         if let Some(v) = extract_u64(json, "last_used") {
             last_used = v;
         }
@@ -461,6 +460,7 @@ impl ConnectionStore {
             name,
             db_type,
             url,
+            server_version,
             last_used,
             created_at,
         })
@@ -479,6 +479,9 @@ impl ConnectionStore {
             result.push_str(&format!("    \"name\": \"{}\",\n", Self::escape_json(&conn.name)));
             result.push_str(&format!("    \"db_type\": \"{}\",\n", Self::escape_json(&conn.db_type)));
             result.push_str(&format!("    \"url\": \"{}\",\n", Self::escape_json(&conn.url)));
+            if let Some(ref sv) = conn.server_version {
+                result.push_str(&format!("    \"server_version\": \"{}\",\n", Self::escape_json(sv)));
+            }
             result.push_str(&format!("    \"last_used\": {},\n", conn.last_used));
             result.push_str(&format!("    \"created_at\": {}", conn.created_at));
             result.push('\n');

@@ -1,6 +1,6 @@
 # 分析资源模块 — 后端 Schema 设计文档
 
-> 版本：v1.3
+> 版本：v1.4
 > 最后更新：2026-05-08
 > 状态：✅ P0/P1/P2 优化完成
 
@@ -273,16 +273,42 @@ DELETE FROM analytics_resource_tags WHERE resource_id = ?;
 
 ---
 
-## 八、文件清单
+## 九、v1.4 变更记录
+
+### Command 层变更
+
+| 变更      | 说明                    |
+| --------- | ----------------------- |
+| ✅ 新命令 | `get_analytics_tag`     |
+
+### Rust Store 变更
+
+| 变更          | 说明                                              |
+| ------------- | ------------------------------------------------- |
+| ✅ 错误处理   | `parse_datetime_sqlite` 返回 CoreError 替代 raw Error |
+| ✅ 日志增强   | `unwrap_or(1/20)` 替换为 `unwrap_or_else` + trace 日志 |
+
+### 前端变更
+
+| 变更             | 说明                                                     |
+| ---------------- | -------------------------------------------------------- |
+| ✅ version 修复   | extension.ts 版本号从 1.0.0 → 1.4.0，修复 API 接口定义   |
+| ✅ 新命令支持     | `get_analytics_tag` 前端 API + Store 方法                 |
+| ✅ CSS 语义变量   | tokens.css 新增 15 个资源类型/范围语义色变量               |
+| ✅ 代码质量       | 清理未使用变量（4 个组件）、修复非空断言（2 个组件）       |
+
+---
+
+## 十、文件清单
 
 ```
 src-tauri/
 ├── migrations/project_meta/
-│   └── 007_analytics_resources.sql          # Schema 定义（v1.1 更新）
+│   └── 007_analytics_resources.sql          # Schema 定义（v1.4 更新）
 ├── src/
 │   ├── core/persistence/
-│   │   └── analytics_resource_store.rs       # Store 实现（v1.1 更新）
+│   │   └── analytics_resource_store.rs       # Store 实现（v1.4 更新）
 │   ├── commands/
-│   │   └── analytics_resource_commands.rs    # Tauri 命令（v1.1 新增）
-│   └── lib.rs                                 # 命令注册（v1.1 更新）
+│   │   └── analytics_resource_commands.rs    # Tauri 命令（v1.4 更新）
+│   └── lib.rs                                 # 命令注册（v1.4 更新）
 ```

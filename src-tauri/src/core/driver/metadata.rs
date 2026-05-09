@@ -11,6 +11,14 @@ pub enum DriverType {
     Jdbc,
     /// ODBC驱动
     Odbc,
+    /// ADBC驱动（Apache Arrow Database Connectivity）
+    Adbc,
+    /// HTTP API 驱动
+    Http,
+    /// Python 生态驱动
+    Python,
+    /// JavaScript/Node 驱动
+    Js,
 }
 
 /// 驱动图标

@@ -19,6 +19,7 @@ export interface ExecutionResult {
   } | null
   error: string | null
   timestamp: number
+  title?: string
 }
 
 export const useSqlExecutionStore = defineStore('sqlExecution', () => {
@@ -83,6 +84,11 @@ export const useSqlExecutionStore = defineStore('sqlExecution', () => {
     newTabRequests.value = new Map(newTabRequests.value)
   }
 
+  function requestNewTabWithTitle(panelId: string, result: ExecutionResult, title: string) {
+    newTabRequests.value.set(panelId, { ...result, title })
+    newTabRequests.value = new Map(newTabRequests.value)
+  }
+
   /**
    * 获取并消费最新的新标签请求
    */
@@ -133,6 +139,7 @@ export const useSqlExecutionStore = defineStore('sqlExecution', () => {
     clearResult,
     clearAllResults,
     requestNewTab,
+    requestNewTabWithTitle,
     consumeNewTabRequest,
     requestRefresh,
     openSettings,

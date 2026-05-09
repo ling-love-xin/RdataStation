@@ -2,17 +2,21 @@ use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use tokio::fs;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::Mutex;
+use tokio::time::{timeout, Duration};
 
 use crate::core::error::{CoreError, StorageError};
 use crate::core::scratchpad::models::{
         AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry,
-        ScratchpadEntryKind, ScratchpadResponse, SearchMatch,
+        ScratchpadEntryKind, ScratchpadResponse, SearchMatch, SearchResult,
 };
 
 const MAX_DEPTH: u32 = 4;
 const CONFIG_FILE: &str = ".scratchpad.json";
 const TRASH_DIR: &str = ".trash";
+const MAX_SEARCH_RESULTS: usize = 500;
+const SEARCH_PER_FILE_TIMEOUT_SECS: u64 = 30;
 
 #[derive(Clone)]
 pub struct ScratchpadStore {
@@ -271,7 +275,15 @@ impl ScratchpadStore {
             })?;
         }
 
-        let file_name = target_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let file_name = target_path
+                    .file_name()
+                    .ok_or_else(|| CoreError::storage(StorageError::io(
+                        target_path.display().to_string(),
+                        "delete_entry",
+                        "invalid file path: no file name",
+                    )))?
+                    .to_string_lossy()
+                    .to_string();
         let trash_target = unique_path(trash_dir.join(&file_name));
 
         fs::rename(&target_path, &trash_target).await.map_err(|e| {
@@ -324,7 +336,15 @@ impl ScratchpadStore {
         })?.is_dir();
 
         Ok(ScratchpadEntry {
-            name: target_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            name: target_path
+                .file_name()
+                .ok_or_else(|| CoreError::storage(StorageError::io(
+                    target_path.display().to_string(),
+                    "restore_from_trash",
+                    "invalid path: no file name",
+                )))?
+                .to_string_lossy()
+                .to_string(),
             path: target_path,
             kind: if is_dir { ScratchpadEntryKind::Folder } else { ScratchpadEntryKind::File },
             size: 0,
@@ -362,7 +382,13 @@ impl ScratchpadStore {
             )));
         }
 
-        let parent = old_path.parent().unwrap_or(&self.scratchpad_dir);
+        let parent = old_path
+            .parent()
+            .ok_or_else(|| CoreError::storage(StorageError::io(
+                old_path.display().to_string(),
+                "rename",
+                "invalid path: no parent directory",
+            )))?;
         let new_path = parent.join(new_name);
 
         if new_path.exists() {
@@ -453,12 +479,11 @@ impl ScratchpadStore {
     pub async fn save_file(&self, relative_path: &str, content: &str) -> Result<(), CoreError> {
         let file_path = self.resolve_path(relative_path)?;
 
-        let tmp_path = file_path.with_extension(
-            format!(
-                "{}.tmp",
-                file_path.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default()
-            ),
-        );
+        let tmp_ext = file_path
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_else(|| String::from("tmp"));
+        let tmp_path = file_path.with_extension(format!("{}.tmp", tmp_ext));
 
         fs::write(&tmp_path, content).await.map_err(|e| {
             CoreError::storage(StorageError::io(
@@ -492,7 +517,11 @@ impl ScratchpadStore {
         let file_name = source
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "imported_file".to_string());
+            .ok_or_else(|| CoreError::storage(StorageError::io(
+                source.display().to_string(),
+                "import",
+                "invalid source path: no file name",
+            )))?;
 
         let dest = self.scratchpad_dir.join(&file_name);
         let dest = unique_path(dest);
@@ -519,8 +548,13 @@ impl ScratchpadStore {
         Ok(ScratchpadEntry {
             name: dest
                 .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default(),
+                .ok_or_else(|| CoreError::storage(StorageError::io(
+                    dest.display().to_string(),
+                    "import",
+                    "invalid dest path: no file name",
+                )))?
+                .to_string_lossy()
+                .to_string(),
             path: dest,
             kind: ScratchpadEntryKind::File,
             size,
@@ -593,41 +627,67 @@ impl ScratchpadStore {
         self.save_config(&config).await
     }
 
-    pub async fn search_file_content(&self, query: &str) -> Result<Vec<SearchMatch>, CoreError> {
+    pub async fn search_file_content(&self, query: &str, case_sensitive: bool) -> Result<SearchResult, CoreError> {
         let entries = self.list_local_entries(MAX_DEPTH).await?;
-        let mut results = Vec::new();
+        let mut matches = Vec::new();
+        let mut total_scanned = 0usize;
+        let mut truncated = false;
         let query_lower = query.to_lowercase();
+        let query_owned = query.to_string();
 
         for entry in &entries {
             if entry.kind == ScratchpadEntryKind::Folder {
                 continue;
             }
-            let content = fs::read_to_string(&entry.path).await.map_err(|e| {
-                CoreError::storage(StorageError::io(
-                    entry.path.display().to_string(),
-                    "read",
-                    e.to_string(),
-                ))
-            })?;
+            if truncated {
+                break;
+            }
 
-            let rel_path = entry
-                .path
-                .strip_prefix(&self.scratchpad_dir)
-                .unwrap_or(&entry.path)
-                .to_string_lossy()
-                .to_string();
+            let rel_path = match entry.path.strip_prefix(&self.scratchpad_dir) {
+                Ok(p) => p.to_string_lossy().to_string(),
+                Err(_) => entry.path.to_string_lossy().to_string(),
+            };
 
-            for (idx, line) in content.lines().enumerate() {
-                if line.to_lowercase().contains(&query_lower) {
-                    results.push(SearchMatch {
-                        file: rel_path.clone(),
-                        line_number: idx + 1,
-                        line_content: line.to_string(),
-                    });
+            let remaining = MAX_SEARCH_RESULTS.saturating_sub(matches.len());
+            if remaining == 0 {
+                truncated = true;
+                break;
+            }
+
+            let future = search_single_file(
+                entry.path.clone(),
+                query_owned.clone(),
+                case_sensitive,
+                query_lower.clone(),
+                rel_path.clone(),
+                remaining,
+            );
+
+            match timeout(Duration::from_secs(SEARCH_PER_FILE_TIMEOUT_SECS), future).await {
+                Ok(Ok(mut file_matches)) => {
+                    total_scanned += 1;
+                    matches.append(&mut file_matches);
+                }
+                Ok(Err(_)) => {
+                    total_scanned += 1;
+                }
+                Err(_) => {
+                    total_scanned += 1;
                 }
             }
+
+            if matches.len() >= MAX_SEARCH_RESULTS {
+                truncated = true;
+            }
         }
-        Ok(results)
+
+        Ok(SearchResult {
+            matches,
+            total_files_scanned: total_scanned,
+            total_files_skipped: 0,
+            skipped_files: vec![],
+            truncated,
+        })
     }
 
     fn resolve_path(&self, relative_path: &str) -> Result<PathBuf, CoreError> {
@@ -688,7 +748,10 @@ impl ScratchpadStore {
 
             Ok(canonical_target)
         } else {
-            let parent = target.parent().unwrap_or(&self.scratchpad_dir);
+            let parent = match target.parent() {
+                Some(p) => p,
+                None => &self.scratchpad_dir,
+            };
             if parent.starts_with(&self.scratchpad_dir) {
                 Ok(target)
             } else {
@@ -718,7 +781,7 @@ impl ScratchpadStore {
                 .path
                 .extension()
                 .map(|e| e.to_string_lossy().to_string())
-                .unwrap_or_default()
+                .unwrap_or(String::new())
                 .to_lowercase();
 
             if !analyzable_extensions.contains(ext.as_str()) {
@@ -762,6 +825,46 @@ impl ScratchpadStore {
     }
 }
 
+async fn search_single_file(
+    path: PathBuf,
+    query: String,
+    case_sensitive: bool,
+    query_lower: String,
+    rel_path: String,
+    max_results: usize,
+) -> Result<Vec<SearchMatch>, CoreError> {
+    let file = fs::File::open(&path).await.map_err(|e| {
+        CoreError::storage(StorageError::io(
+            path.display().to_string(),
+            "search_open",
+            e.to_string(),
+        ))
+    })?;
+    let reader = BufReader::new(file);
+    let mut lines = reader.lines();
+    let mut matches = Vec::new();
+    let mut line_number = 0usize;
+    while let Ok(Some(line)) = lines.next_line().await {
+        if matches.len() >= max_results {
+            break;
+        }
+        line_number += 1;
+        let found = if case_sensitive {
+            line.contains(&query)
+        } else {
+            line.to_lowercase().contains(&query_lower)
+        };
+        if found {
+            matches.push(SearchMatch {
+                file: rel_path.clone(),
+                line_number,
+                line_content: line,
+            });
+        }
+    }
+    Ok(matches)
+}
+
 fn duckdb_query_hint(ext: &str, name: &str) -> String {
     match ext {
         "csv" => format!("SELECT * FROM read_csv_auto('{}');", name),
@@ -780,11 +883,14 @@ fn unique_path(path: PathBuf) -> PathBuf {
         return path;
     }
 
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = match path.parent() {
+        Some(p) => p.to_path_buf(),
+        None => PathBuf::from("."),
+    };
     let stem = path
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "file".to_string());
+        .unwrap_or_else(|| String::from("file"));
     let ext = path
         .extension()
         .map(|e| format!(".{}", e.to_string_lossy()))

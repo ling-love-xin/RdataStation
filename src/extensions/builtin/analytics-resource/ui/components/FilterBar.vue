@@ -102,13 +102,6 @@ const emit = defineEmits<{
   batchDelete: []
 }>()
 
-const scopes = [
-  { value: null, label: t('analyticsResource.all') },
-  { value: 'global', label: '🌍 ' + t('analyticsResource.global') },
-  { value: 'project', label: '📂 ' + t('analyticsResource.project') },
-  { value: 'session', label: '📌 ' + t('analyticsResource.session') },
-]
-
 const types = [
   { value: null, label: t('analyticsResource.all') },
   { value: 'connection', label: '🔌 ' + t('analyticsResource.connection') },

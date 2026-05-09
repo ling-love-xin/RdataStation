@@ -156,32 +156,10 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
       return
     }
 
-    let url = ''
-    const isFileDb = driver === 'sqlite' || driver === 'duckdb'
-
-    if (isFileDb) {
-      const filePath = data.database
-      if (!filePath) {
-        message.error(t('workbench.selectDbFile'))
-        return
-      }
-      url = `${driver}://${filePath}`
-    } else {
-      const host = data.host
-      if (!host) {
-        message.error(t('workbench.enterHost'))
-        return
-      }
-      const port = data.port || (driver === 'postgres' ? 5432 : 3306)
-      const database = data.database || ''
-      const username = data.username || ''
-      const password = data.password || ''
-      const auth = username
-        ? password
-          ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@`
-          : `${encodeURIComponent(username)}@`
-        : ''
-      url = `${driver}://${auth}${host}:${port}/${encodeURIComponent(database)}`
+    const url = data.url
+    if (!url) {
+      message.error('连接 URL 不能为空')
+      return
     }
 
     await connectionStore.connect(driver, url, data.name)
@@ -627,7 +605,7 @@ const ensureMultiTabResultPanel = () => {
 const handleOpenSqlEditor = (event: CustomEvent) => {
   if (!dockviewApi) return
 
-  const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language } =
+  const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language, initialLine } =
     event.detail || {}
 
   if (scratchpadRelativePath) {
@@ -679,6 +657,7 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
         scratchpadRelativePath: scratchpadRelativePath || '',
         scratchpadFileName: scratchpadFileName || '',
         language: language || 'sql',
+        initialLine: initialLine || 0,
       },
     })
     console.log(`[Workbench] 创建 SQL 编辑器面板: ${panelId}`)

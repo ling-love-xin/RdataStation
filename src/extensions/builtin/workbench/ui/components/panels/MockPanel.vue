@@ -3,10 +3,14 @@
     <div class="panel-header">
       <h3 class="panel-title">Mock 数据生成器</h3>
       <div class="header-actions">
-        <NButton size="small" quaternary @click="loadHistory">
-          <template #icon>
-            <Clock :size="14" />
-          </template>
+        <NButton size="small" quaternary title="场景模板" @click="showTemplateDialog = true">
+          <template #icon><LayoutTemplate :size="14" /></template>
+        </NButton>
+        <NButton size="small" quaternary title="导入数据库结构" @click="showImportDialog = true">
+          <template #icon><Database :size="14" /></template>
+        </NButton>
+        <NButton size="small" quaternary title="生成历史" @click="loadHistory">
+          <template #icon><Clock :size="14" /></template>
         </NButton>
       </div>
     </div>
@@ -18,7 +22,7 @@
             <label class="config-label">表名</label>
             <NInput v-model:value="store.tableName" size="small" placeholder="table_name" />
           </div>
-          <div class="config-item">
+          <div class="config-item" style="width: 100px">
             <label class="config-label">行数</label>
             <NInputNumber v-model:value="store.rowCount" size="small" :min="1" :max="1000000" />
           </div>
@@ -37,8 +41,14 @@
               v-model:value="store.locale"
               size="small"
               :options="localeOptions"
-              style="width: 120px"
+              style="width: 140px"
             />
+          </div>
+          <div class="config-item" style="justify-content: flex-end">
+            <NButton size="small" quaternary style="margin-top: 14px" @click="onReset">
+              <template #icon><RotateCcw :size="14" /></template>
+              重置
+            </NButton>
           </div>
         </div>
       </div>
@@ -47,9 +57,7 @@
         <div class="section-header">
           <span class="section-title">列配置</span>
           <NButton size="small" quaternary @click="store.addColumn()">
-            <template #icon>
-              <Plus :size="14" />
-            </template>
+            <template #icon><Plus :size="14" /></template>
             添加列
           </NButton>
         </div>
@@ -57,31 +65,110 @@
         <div class="columns-list">
           <div
             v-for="(col, idx) in store.columns"
-            :key="idx"
+            :key="`col-${idx}`"
             class="column-row"
           >
             <NInput
               :value="col.name"
               size="small"
               placeholder="列名"
-              style="flex: 0 0 130px"
+              class="col-name"
               @update:value="(v: string) => store.updateColumn(idx, { name: v })"
             />
             <NSelect
               :value="col.dataType"
               size="small"
               :options="dataTypeOptions"
-              style="width: 110px"
-              @update:value="(v: ColumnDataType) => store.updateColumn(idx, { dataType: v })"
+              class="col-type"
+              @update:value="(v) => store.updateColumn(idx, { dataType: v })"
             />
+            <NInputNumber
+              v-if="col.dataType === 'varchar'"
+              :value="col.varcharLength ?? 255"
+              size="small"
+              :min="1"
+              :max="65535"
+              class="col-dt-param"
+              placeholder="长度"
+              @update:value="(v: number | null) => store.updateColumn(idx, { varcharLength: v ?? undefined })"
+            />
+            <template v-if="col.dataType === 'decimal'">
+              <NInputNumber
+                :value="col.decimalPrecision ?? 18"
+                size="small"
+                :min="1"
+                :max="38"
+                class="col-dt-param-sm"
+                placeholder="精度"
+                @update:value="(v: number | null) => store.updateColumn(idx, { decimalPrecision: v ?? undefined })"
+              />
+              <NInputNumber
+                :value="col.decimalScale ?? 2"
+                size="small"
+                :min="0"
+                :max="38"
+                class="col-dt-param-sm"
+                placeholder="标度"
+                @update:value="(v: number | null) => store.updateColumn(idx, { decimalScale: v ?? undefined })"
+              />
+            </template>
             <NSelect
               :value="col.generator.type"
               size="small"
               :options="generatorOptions"
               filterable
-              style="flex: 1; min-width: 140px"
-              @update:value="(v: GeneratorType) => store.setColumnType(idx, v)"
+              class="col-gen"
+              @update:value="(v) => store.setColumnType(idx, v)"
             />
+            <NInputNumber
+              :value="col.nullableRatio"
+              size="small"
+              :min="0"
+              :max="1"
+              :step="0.1"
+              class="col-null"
+              placeholder="NULL"
+              @update:value="(v: number | null) => store.updateColumn(idx, { nullableRatio: v ?? 0 })"
+            />
+            <NTag
+              v-if="col.unique"
+              type="info"
+              size="small"
+              :bordered="false"
+              closable
+              @close="store.updateColumn(idx, { unique: false })"
+            >
+              UNIQUE
+            </NTag>
+            <NButton
+              v-else
+              size="small"
+              quaternary
+              class="col-fx"
+              title="设为唯一"
+              @click="store.updateColumn(idx, { unique: true })"
+            >
+              <template #icon><Fingerprint :size="13" /></template>
+            </NButton>
+            <NButton
+              size="small"
+              quaternary
+              class="col-fx"
+              title="高级配置"
+              @click="openAdvanced(idx)"
+            >
+              <template #icon><Settings :size="13" /></template>
+            </NButton>
+            <NButton
+              size="small"
+              quaternary
+              class="col-fx"
+              title="智能映射生成器"
+              :loading="mappingIdx === idx"
+              @click="onAutoMapColumn(idx)"
+            >
+              <template #icon><Sparkles :size="13" /></template>
+            </NButton>
             <NButton
               size="small"
               quaternary
@@ -89,9 +176,7 @@
               :disabled="store.columns.length <= 1"
               @click="store.removeColumn(idx)"
             >
-              <template #icon>
-                <Trash2 :size="14" />
-              </template>
+              <template #icon><Trash2 :size="14" /></template>
             </NButton>
           </div>
         </div>
@@ -104,30 +189,50 @@
           :disabled="!store.tableName || store.columns.length === 0"
           @click="onGenerate"
         >
-          <template #icon>
-            <Play :size="16" />
-          </template>
+          <template #icon><Sparkles :size="16" /></template>
           生成 {{ store.rowCount }} 行
         </NButton>
-
         <span v-if="store.lastResult" class="generate-info">
-          已生成 {{ store.lastResult.rowCount }} 行，
-          耗时 {{ store.lastResult.elapsedMs }}ms
+          已生成 {{ store.lastResult.rowCount }} 行，耗时 {{ store.lastResult.elapsedMs }}ms
         </span>
       </div>
 
       <div v-if="store.previewData.length > 0" class="preview-section">
         <div class="section-header">
-          <span class="section-title">预览 (前 {{ store.previewData.length }} 行)</span>
+          <span class="section-title">
+            预览 (前 {{ store.previewData.length }} 行)
+          </span>
           <div class="preview-actions">
-            <NDropdown trigger="click" :options="exportDropdownOptions" @select="onExportAction">
+            <NButton size="small" quaternary @click="onExportFile('csv')">
+              <template #icon><FileDown :size="14" /></template>
+              CSV
+            </NButton>
+            <NButton size="small" quaternary @click="onExportFile('xlsx')">
+              <template #icon><FileSpreadsheet :size="14" /></template>
+              XLSX
+            </NButton>
+            <NButton size="small" quaternary @click="onExportFile('parquet')">
+              <template #icon><FileArchive :size="14" /></template>
+              Parquet
+            </NButton>
+            <NButton size="small" quaternary @click="onExportFile('sql')">
+              <template #icon><FileCode :size="14" /></template>
+              SQL
+            </NButton>
+            <NDropdown trigger="click" :options="scratchpadOptions" @select="onSaveToScratchpad">
               <NButton size="small" quaternary>
-                <template #icon>
-                  <Download :size="14" />
-                </template>
-                导出/保存
+                <template #icon><Save :size="14" /></template>
+                草稿
               </NButton>
             </NDropdown>
+            <NButton size="small" quaternary @click="onPersistAsset">
+              <template #icon><HardDrive :size="14" /></template>
+              持久化
+            </NButton>
+            <NButton size="small" quaternary :loading="store.previewLoading" @click="onRefreshPreview">
+              <template #icon><RotateCw :size="14" /></template>
+              加载更多
+            </NButton>
           </div>
         </div>
 
@@ -148,13 +253,10 @@
         <div class="section-header">
           <span class="section-title">生成历史</span>
           <NButton size="small" quaternary @click="store.clearHistory()">
-            <template #icon>
-              <Trash2 :size="14" />
-            </template>
+            <template #icon><Trash2 :size="14" /></template>
             清空
           </NButton>
         </div>
-
         <div class="history-list">
           <div
             v-for="item in store.lastHistories"
@@ -174,35 +276,90 @@
         </div>
       </div>
     </div>
+
+    <MockTemplateSelectDialog
+      :show="showTemplateDialog"
+      @update:show="showTemplateDialog = $event"
+      @apply="onTemplateApply"
+    />
+    <MockImportSchemaDialog
+      :show="showImportDialog"
+      @update:show="showImportDialog = $event"
+      @apply="onImportApply"
+    />
+    <MockAdvancedDrawer
+      v-if="advancedDrawerIndex >= 0"
+      :show="advancedDrawerVisible"
+      :generator-type="store.columns[advancedDrawerIndex]?.generator.type ?? 'words'"
+      :current-params="(store.columns[advancedDrawerIndex]?.generator.params ?? {}) as Record<string, unknown>"
+      :column-name="store.columns[advancedDrawerIndex]?.name ?? ''"
+      :column-index="advancedDrawerIndex"
+      @update:show="advancedDrawerVisible = $event"
+      @save="onAdvancedSave"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { save } from '@tauri-apps/plugin-dialog'
 import {
-  Clock, Plus, Trash2, Play, Download,
+  Clock, Plus, Trash2, Sparkles, FileDown, FileCode,
+  FileSpreadsheet, HardDrive, LayoutTemplate, Database,
+  Save, RotateCcw, Fingerprint, FileArchive, RotateCw, Settings,
 } from 'lucide-vue-next'
 import {
-  NButton, NInput, NInputNumber, NSelect, NDataTable, NDropdown,
+  NButton, NInput, NInputNumber, NSelect, NDataTable, NDropdown, NTag,
   createDiscreteApi,
 } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 
-import type {
-  GeneratorType, ColumnDataType, MockExportFormat,
-} from '@/shared/api/mock-api'
+import type { ColumnDef, MockExportFormat, ScenarioTemplate } from '@/shared/api/mock-api'
 import { useMockStore } from '@/stores/useMockStore'
+
+import MockAdvancedDrawer from './MockAdvancedDrawer.vue'
+import MockImportSchemaDialog from './MockImportSchemaDialog.vue'
+import MockTemplateSelectDialog from './MockTemplateSelectDialog.vue'
 
 const store = useMockStore()
 const { message } = createDiscreteApi(['message'])
 
 const seedInput = ref(store.seed !== null ? String(store.seed) : '')
+const showTemplateDialog = ref(false)
+const showImportDialog = ref(false)
+
+const advancedDrawerIndex = ref(-1)
+const advancedDrawerVisible = ref(false)
+const mappingIdx = ref(-1)
+
+function openAdvanced(idx: number) {
+  advancedDrawerIndex.value = idx
+  advancedDrawerVisible.value = true
+}
+
+function onAdvancedSave(idx: number, params: Record<string, unknown>) {
+  store.updateColumn(idx, { generator: { ...store.columns[idx].generator, params } })
+}
+
+async function onAutoMapColumn(idx: number) {
+  mappingIdx.value = idx
+  await store.autoMapColumn(idx)
+  mappingIdx.value = -1
+}
 
 const localeOptions = [
-  { label: '🇨🇳 中文 (ZH_CN)', value: 'ZH_CN' },
-  { label: '🇺🇸 English (EN)', value: 'EN' },
-  { label: '🇯🇵 日本語 (JA_JP)', value: 'JA_JP' },
-  { label: '🇫🇷 Français (FR_FR)', value: 'FR_FR' },
-  { label: '🇩🇪 Deutsch (DE_DE)', value: 'DE_DE' },
+  { label: '🇨🇳 中文', value: 'ZH_CN' },
+  { label: '🇹🇼 繁体中文', value: 'ZH_TW' },
+  { label: '🇺🇸 English', value: 'EN' },
+  { label: '🇯🇵 日本語', value: 'JA_JP' },
+  { label: '🇫🇷 Français', value: 'FR_FR' },
+  { label: '🇩🇪 Deutsch', value: 'DE_DE' },
+  { label: '🇮🇹 Italiano', value: 'IT_IT' },
+  { label: '🇧🇷 Português (BR)', value: 'PT_BR' },
+  { label: '🇵🇹 Português (PT)', value: 'PT_PT' },
+  { label: '🇳🇱 Nederlands', value: 'NL_NL' },
+  { label: '🇸🇦 العربية', value: 'AR_SA' },
+  { label: '🇹🇷 Türkçe', value: 'TR_TR' },
+  { label: '🇮🇷 فارسی', value: 'FA_IR' },
 ]
 
 const dataTypeOptions = [
@@ -221,63 +378,168 @@ const dataTypeOptions = [
 ]
 
 const generatorOptions = [
-  { label: '自动递增', value: 'auto_increment', type: 'number' },
-  { label: '随机整数', value: 'random_int', type: 'number' },
-  { label: '随机浮点数', value: 'random_float', type: 'number' },
-  { label: '布尔值', value: 'boolean', type: 'general' },
-  { label: '用户名', value: 'username', type: 'person' },
-  { label: '邮箱', value: 'email', type: 'person' },
-  { label: '安全邮箱', value: 'safe_email', type: 'person' },
-  { label: '姓名', value: 'name', type: 'person' },
-  { label: '名', value: 'first_name', type: 'person' },
-  { label: '姓', value: 'last_name', type: 'person' },
-  { label: '手机号', value: 'phone_number', type: 'person' },
-  { label: '密码', value: 'password', type: 'person' },
-  { label: '句子', value: 'sentence', type: 'text' },
-  { label: '段落', value: 'paragraph', type: 'text' },
-  { label: '单词', value: 'words', type: 'text' },
-  { label: '国家', value: 'country', type: 'address' },
-  { label: '城市', value: 'city', type: 'address' },
-  { label: '街道名', value: 'street_name', type: 'address' },
-  { label: '邮编', value: 'zip_code', type: 'address' },
-  { label: '日期时间', value: 'datetime', type: 'datetime' },
-  { label: '日期', value: 'date', type: 'datetime' },
-  { label: '时间', value: 'time', type: 'datetime' },
-  { label: '公司名', value: 'company_name', type: 'business' },
-  { label: '职位', value: 'job_title', type: 'business' },
-  { label: '行业', value: 'industry', type: 'business' },
-  { label: 'UUID v4', value: 'uuid_v4', type: 'special' },
-  { label: 'URL', value: 'url', type: 'special' },
-  { label: 'IP 地址', value: 'ip_address', type: 'special' },
-  { label: 'MAC 地址', value: 'mac_address', type: 'special' },
-  { label: '十六进制颜色', value: 'hex_color', type: 'special' },
-  { label: '用户代理', value: 'user_agent', type: 'special' },
-  { label: '币种代码', value: 'currency_code', type: 'business' },
-  { label: '信用卡号', value: 'credit_card_number', type: 'business' },
-  { label: 'ISBN', value: 'isbn', type: 'special' },
-  { label: '文件名', value: 'file_name', type: 'special' },
-  { label: '文件扩展名', value: 'file_extension', type: 'special' },
-  { label: 'Markdown', value: 'md_blockquote_multi', type: 'text' },
-  { label: '经纬度', value: 'latitude', type: 'address' },
-  { label: '图片URL', value: 'image_url', type: 'special' },
-  { label: 'IPv4', value: 'ipv4', type: 'special' },
-  { label: 'IPv6', value: 'ipv6', type: 'special' },
-  { label: 'SemVer', value: 'semver', type: 'special' },
-  { label: '常量', value: 'constant', type: 'general' },
+  { type: 'group', label: '数字', key: 'g_numeric', children: [
+    { label: '自动递增', value: 'auto_increment' },
+    { label: '随机整数', value: 'random_int' },
+    { label: '随机浮点数', value: 'random_float' },
+    { label: '随机小数', value: 'random_decimal' },
+    { label: '数字格式', value: 'number_with_format' },
+    { label: '单个数字', value: 'digit' },
+  ]},
+  { type: 'group', label: '人物信息', key: 'g_person', children: [
+    { label: '姓名', value: 'name' },
+    { label: '名', value: 'first_name' },
+    { label: '姓', value: 'last_name' },
+    { label: '姓名(带称谓)', value: 'name_with_title' },
+    { label: '头衔', value: 'title' },
+    { label: '姓名后缀', value: 'suffix' },
+    { label: '邮箱', value: 'email' },
+    { label: '安全邮箱', value: 'safe_email' },
+    { label: '免费邮箱', value: 'free_email' },
+    { label: '邮箱服务商', value: 'free_email_provider' },
+    { label: '邮箱域名', value: 'domain_suffix' },
+    { label: '用户名', value: 'username' },
+    { label: '密码', value: 'password' },
+    { label: '手机号', value: 'phone_number' },
+    { label: '手机号(纯数字)', value: 'cell_number' },
+  ]},
+  { type: 'group', label: '地址', key: 'g_address', children: [
+    { label: '国家', value: 'country' },
+    { label: '国家名', value: 'country_name' },
+    { label: '国家代码', value: 'country_code' },
+    { label: '城市', value: 'city' },
+    { label: '城市前缀', value: 'city_prefix' },
+    { label: '城市后缀', value: 'city_suffix' },
+    { label: '州/省', value: 'state_name' },
+    { label: '州缩写', value: 'state_abbr' },
+    { label: '街道名', value: 'street_name' },
+    { label: '街道后缀', value: 'street_suffix' },
+    { label: '邮编', value: 'zip_code' },
+    { label: '邮编(通用)', value: 'post_code' },
+    { label: '楼号', value: 'building_number' },
+    { label: '二级地址', value: 'secondary_address' },
+    { label: '二级地址类型', value: 'secondary_address_type' },
+    { label: '经度', value: 'latitude' },
+    { label: '纬度', value: 'longitude' },
+    { label: 'GeoHash', value: 'geohash' },
+    { label: '时区', value: 'timezone' },
+  ]},
+  { type: 'group', label: '日期时间', key: 'g_datetime', children: [
+    { label: '日期', value: 'date' },
+    { label: '时间', value: 'time' },
+    { label: '日期时间', value: 'datetime' },
+    { label: '过去时间', value: 'datetime_before' },
+    { label: '将来时间', value: 'datetime_after' },
+    { label: '时间区间', value: 'datetime_between' },
+    { label: '持续时间', value: 'duration' },
+  ]},
+  { type: 'group', label: '商业', key: 'g_business', children: [
+    { label: '公司名', value: 'company_name' },
+    { label: '公司后缀', value: 'company_suffix' },
+    { label: '职位', value: 'job_title' },
+    { label: '行业', value: 'industry' },
+    { label: '专业', value: 'profession' },
+    { label: '职级', value: 'seniority' },
+    { label: '领域', value: 'field' },
+    { label: '岗位', value: 'position' },
+    { label: '热词', value: 'buzzword' },
+    { label: '热词(中)', value: 'buzzword_middle' },
+    { label: '热词(尾)', value: 'buzzword_tail' },
+    { label: '口号', value: 'catch_phrase' },
+    { label: '币种代码', value: 'currency_code' },
+    { label: '币种名', value: 'currency_name' },
+    { label: '币种符号', value: 'currency_symbol' },
+    { label: '信用卡号', value: 'credit_card_number' },
+    { label: 'BIC', value: 'bic' },
+    { label: 'ISIN', value: 'isin' },
+  ]},
+  { type: 'group', label: '文本', key: 'g_text', children: [
+    { label: '句子', value: 'sentence' },
+    { label: '多句', value: 'sentences' },
+    { label: '段落', value: 'paragraph' },
+    { label: '多段落', value: 'paragraphs' },
+    { label: '单词组', value: 'words' },
+    { label: '单个单词', value: 'word' },
+    { label: '正则', value: 'regex' },
+    { label: '模板', value: 'template' },
+    { label: 'Markdown 斜体', value: 'md_italic' },
+    { label: 'Markdown 粗体', value: 'md_bold' },
+    { label: 'Markdown 链接', value: 'md_link' },
+    { label: 'Markdown 列表项', value: 'md_bullet' },
+    { label: 'Markdown 列表', value: 'md_list' },
+    { label: 'Markdown 引用(单)', value: 'md_blockquote_single' },
+    { label: 'Markdown 引用(多)', value: 'md_blockquote_multi' },
+    { label: 'Markdown 代码', value: 'md_code' },
+    { label: 'Lorem 短语', value: 'bs' },
+    { label: 'Lorem 动词', value: 'bs_verb' },
+    { label: 'Lorem 形容词', value: 'bs_adj' },
+    { label: 'Lorem 名词', value: 'bs_noun' },
+  ]},
+  { type: 'group', label: '网络 & 技术', key: 'g_tech', children: [
+    { label: 'UUID v1', value: 'uuid_v1' },
+    { label: 'UUID v3', value: 'uuid_v3' },
+    { label: 'UUID v4', value: 'uuid_v4' },
+    { label: 'UUID v5', value: 'uuid_v5' },
+    { label: 'ULID', value: 'ferroid_ulid' },
+    { label: 'Twitter ID', value: 'ferroid_twitter_id' },
+    { label: 'Instagram ID', value: 'ferroid_instagram_id' },
+    { label: 'Mastodon ID', value: 'ferroid_mastodon_id' },
+    { label: 'Discord ID', value: 'ferroid_discord_id' },
+    { label: 'URL', value: 'url' },
+    { label: 'IP 地址', value: 'ip_address' },
+    { label: 'IPv4', value: 'ipv4' },
+    { label: 'IPv6', value: 'ipv6' },
+    { label: 'IP 通用', value: 'ip' },
+    { label: 'MAC 地址', value: 'mac_address' },
+    { label: '用户代理', value: 'user_agent' },
+    { label: 'MIME 类型', value: 'mime_type' },
+    { label: 'SemVer', value: 'semver' },
+    { label: 'SemVer(稳定)', value: 'semver_stable' },
+    { label: 'SemVer(不稳定)', value: 'semver_unstable' },
+    { label: '文件路径', value: 'file_path' },
+    { label: '目录路径', value: 'dir_path' },
+    { label: '图片 URL', value: 'image_url' },
+    { label: '图片(种子)', value: 'image_url_with_seed' },
+    { label: '图片(灰度)', value: 'image_url_grayscale' },
+    { label: '图片(模糊)', value: 'image_url_blur' },
+    { label: '图片(自定义)', value: 'image_url_custom' },
+    { label: 'Hex 颜色', value: 'hex_color' },
+    { label: 'RGB 颜色', value: 'rgb_color' },
+    { label: 'RGBA 颜色', value: 'rgba_color' },
+    { label: 'HSL 颜色', value: 'hsl_color' },
+    { label: 'HSLA 颜色', value: 'hsla_color' },
+    { label: '颜色通用', value: 'color' },
+  ]},
+  { type: 'group', label: '标记', key: 'g_misc', children: [
+    { label: '文件名', value: 'file_name' },
+    { label: '文件扩展名', value: 'file_extension' },
+    { label: '常量', value: 'constant' },
+    { label: '布尔值', value: 'boolean' },
+    { label: 'ISBN', value: 'isbn' },
+    { label: 'ISBN-10', value: 'isbn10' },
+    { label: 'ISBN-13', value: 'isbn13' },
+    { label: 'RFC 状态码', value: 'rfc_status' },
+    { label: 'HTTP 状态码', value: 'valid_status' },
+    { label: '车牌号', value: 'licence_plate' },
+    { label: '医保号', value: 'health_insurance' },
+    { label: '外键约束', value: 'foreign_key' },
+    { label: '序列循环', value: 'sequence' },
+    { label: '加权随机', value: 'weighted' },
+  ]},
 ]
 
-const exportDropdownOptions = [
-  { label: '📄 导出 CSV', key: 'Csv' },
-  { label: '📊 导出 Parquet', key: 'Parquet' },
-  { label: '📈 导出 XLSX', key: 'Xlsx' },
-  { label: '📝 导出 SQL INSERT', key: 'SqlInsert' },
-  { label: '---', key: '_divider', type: 'divider' },
-  { label: '💾 保存到草稿箱 (CSV)', key: 'scratchpad_Csv' },
-  { label: '💾 保存到草稿箱 (Parquet)', key: 'scratchpad_Parquet' },
-  { label: '💾 保存到草稿箱 (XLSX)', key: 'scratchpad_Xlsx' },
-  { label: '💾 保存到草稿箱 (SQL)', key: 'scratchpad_SqlInsert' },
-  { label: '---', key: '_divider2', type: 'divider' },
-  { label: '🗄️ 持久化为分析资产', key: 'persist' },
+const formatExtMap: Record<string, { ext: string; label: string }> = {
+  csv: { ext: 'csv', label: 'CSV' },
+  xlsx: { ext: 'xlsx', label: 'Excel' },
+  parquet: { ext: 'parquet', label: 'Parquet' },
+  sql: { ext: 'sql', label: 'SQL' },
+}
+
+const scratchpadOptions = [
+  { label: 'CSV → 草稿箱', key: 'Csv' },
+  { label: 'XLSX → 草稿箱', key: 'Xlsx' },
+  { label: 'Parquet → 草稿箱', key: 'Parquet' },
+  { label: 'SQL INSERT → 草稿箱', key: 'SqlInsert' },
 ]
 
 const previewTableColumns = computed(() => {
@@ -285,15 +547,15 @@ const previewTableColumns = computed(() => {
     return store.generatedColumns.map(name => ({
       title: name,
       key: name,
-      width: 160,
+      minWidth: 120,
       ellipsis: { tooltip: true },
     }))
   }
   if (store.previewData.length > 0 && store.previewData[0]) {
     return store.previewData[0].map((_, i) => ({
-      title: store.columns[i]?.name ?? `列${i + 1}`,
+      title: store.columns[i]?.name ?? `col_${i + 1}`,
       key: `col_${i}`,
-      width: 160,
+      minWidth: 120,
       ellipsis: { tooltip: true },
     }))
   }
@@ -321,40 +583,71 @@ const previewTableData = computed(() => {
 
 function onSeedChange(value: string) {
   seedInput.value = value
-  if (value === '' || value === null) {
-    store.seed = null
-  } else {
-    const parsed = parseInt(value, 10)
-    store.seed = isNaN(parsed) ? null : parsed
-  }
+  const v = value.trim()
+  store.seed = v === '' ? null : isNaN(parseInt(v, 10)) ? null : parseInt(v, 10)
+}
+
+function onReset() {
+  store.reset()
+  seedInput.value = ''
 }
 
 async function onGenerate() {
   try {
     await store.generate()
-    message.success(`成功生成 ${store.lastResult?.rowCount ?? 0} 行数据`)
+    message.success(`成功生成 ${store.lastResult?.rowCount ?? 0} 行`)
   } catch (e) {
     message.error(`生成失败: ${String(e)}`)
   }
 }
 
-async function onExportAction(key: string) {
+async function onExportFile(format: string) {
   try {
-    if ((key as string).startsWith('scratchpad_')) {
-      const format = (key as string).replace('scratchpad_', '') as MockExportFormat
-      const path = await store.saveToScratchpad(format)
-      message.success(`已保存到草稿箱: ${path}`)
-    } else if (key === 'persist') {
-      const result = await store.persistAsAsset(store.tableName)
-      if (result) {
-        message.success(`已持久化为分析资产: ${result.tableName}`)
-      }
-    } else {
-      const path = await store.doExport(key as MockExportFormat)
-      message.success(`已导出: ${path}`)
-    }
+    const fmt = formatExtMap[format]
+    if (!fmt) return
+    const filePath = await save({
+      defaultPath: `${store.tableName}_${Date.now()}.${fmt.ext}`,
+      filters: [{ name: `${fmt.label} 文件`, extensions: [fmt.ext] }],
+    })
+    if (!filePath) return
+    const backendFormat = format === 'sql'
+      ? 'SqlInsert'
+      : format.charAt(0).toUpperCase() + format.slice(1)
+    await store.doExport(backendFormat as MockExportFormat, filePath)
+    message.success(`已导出到: ${filePath}`)
   } catch (e) {
-    message.error(`操作失败: ${String(e)}`)
+    message.error(`导出失败: ${String(e)}`)
+  }
+}
+
+async function onSaveToScratchpad(formatKey: string) {
+  try {
+    const path = await store.saveToScratchpad(formatKey as MockExportFormat)
+    message.success(`已保存到草稿箱: ${path}`)
+  } catch (e) {
+    message.error(`保存失败: ${String(e)}`)
+  }
+}
+
+async function onPersistAsset() {
+  try {
+    const result = await store.persistAsAsset(store.tableName)
+    if (result) message.success(`已持久化为分析资产: ${result.tableName}`)
+  } catch (e) {
+    message.error(`持久化失败: ${String(e)}`)
+  }
+}
+
+async function onRefreshPreview() {
+  if (!store.generatedTableName) {
+    message.warning('请先生成数据')
+    return
+  }
+  try {
+    await store.preview(store.generatedTableName, 200)
+    message.success(`已加载 ${store.previewData.length} 行`)
+  } catch (e) {
+    message.error(`刷新预览失败: ${String(e)}`)
   }
 }
 
@@ -370,6 +663,23 @@ async function onReGenerate(historyId: string) {
   }
 }
 
+function onTemplateApply(_templateId: string, _template: ScenarioTemplate) {
+  const firstTable = _template.tables[0]
+  if (firstTable?.columns && firstTable.columns.length > 0) {
+    store.columns = firstTable.columns.map(c => ({ ...c }))
+    store.tableName = firstTable.name
+    store.rowCount = firstTable.rowCount
+    message.success(`已应用模板: ${_template.name}`)
+  } else {
+    message.warning('模板没有表定义')
+  }
+}
+
+function onImportApply(columns: ColumnDef[]) {
+  store.columns = columns.map(c => ({ ...c }))
+  message.success(`已导入 ${columns.length} 列`)
+}
+
 function formatTimeStr(timestamp: string): string {
   try {
     const d = new Date(timestamp)
@@ -381,11 +691,8 @@ function formatTimeStr(timestamp: string): string {
 }
 
 async function loadHistory() {
-  try {
-    await store.loadHistory(20)
-  } catch {
-    message.error('加载历史失败')
-  }
+  try { await store.loadHistory(20) }
+  catch { message.error('加载历史失败') }
 }
 
 onMounted(() => {
@@ -398,48 +705,46 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg-primary, #1e1f22);
+  background: var(--color-bg-primary);
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border, #4a5458);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  min-height: 40px;
 }
 
 .panel-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary, #e5e7eb);
+  color: var(--color-text-primary);
 }
 
-.header-actions {
-  display: flex;
-  gap: 4px;
-}
+.header-actions { display: flex; gap: 2px; }
 
 .panel-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 12px 16px;
-  gap: 12px;
+  padding: 10px 14px;
+  gap: 10px;
 }
 
 .config-section {
-  padding: 12px;
-  background: var(--color-bg-secondary, #2b2d30);
-  border-radius: var(--border-radius-md, 6px);
-  border: 1px solid var(--color-border-subtle, #3c3f41);
+  padding: 10px 12px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-subtle);
 }
 
 .config-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-end;
   flex-wrap: wrap;
 }
@@ -447,72 +752,88 @@ onMounted(() => {
 .config-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .config-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  color: var(--color-text-secondary, #9ca3af);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
 }
 
 .columns-section {
-  border: 1px solid var(--color-border-subtle, #3c3f41);
-  border-radius: var(--border-radius-md, 6px);
-  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--color-bg-secondary, #2b2d30);
-  border-bottom: 1px solid var(--color-border-subtle, #3c3f41);
+  padding: 7px 10px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--color-text-secondary, #9ca3af);
+  color: var(--color-text-muted);
   text-transform: uppercase;
 }
 
 .columns-list {
-  padding: 8px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 220px;
 }
 
 .column-row {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
+
+.col-name { flex: 0 0 110px; }
+.col-type { width: 100px; flex-shrink: 0; }
+.col-dt-param { width: 64px; flex-shrink: 0; }
+.col-dt-param-sm { width: 52px; flex-shrink: 0; }
+.col-gen { flex: 1; min-width: 120px; }
+.col-null { width: 72px; flex-shrink: 0; }
+.col-fx { flex-shrink: 0; }
 
 .generate-section {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 10px;
+  padding: 6px 0;
 }
 
 .generate-info {
   font-size: 12px;
-  color: var(--color-text-secondary, #9ca3af);
+  color: var(--color-text-secondary);
 }
 
 .preview-section {
-  border: 1px solid var(--color-border-subtle, #3c3f41);
-  border-radius: var(--border-radius-md, 6px);
-  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
 .preview-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  flex-wrap: wrap;
 }
 
 .preview-table-wrap {
@@ -521,14 +842,15 @@ onMounted(() => {
 }
 
 .history-section {
-  border: 1px solid var(--color-border-subtle, #3c3f41);
-  border-radius: var(--border-radius-md, 6px);
-  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  display: flex;
+  flex-direction: column;
 }
 
 .history-list {
   padding: 4px 8px;
-  max-height: 160px;
+  max-height: 140px;
   overflow-y: auto;
 }
 
@@ -536,39 +858,23 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 4px;
+  padding: 5px 4px;
   cursor: pointer;
   border-radius: 4px;
   transition: background 0.15s;
 }
 
-.history-item:hover {
-  background: var(--color-hover, #454545);
-}
+.history-item:hover { background: var(--color-hover); }
 
 .history-item-left {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   font-size: 12px;
 }
 
-.history-table {
-  color: var(--color-text-primary, #e5e7eb);
-  font-weight: 500;
-}
-
-.history-rows {
-  color: var(--color-text-secondary, #9ca3af);
-}
-
-.history-status {
-  color: var(--brand-success, #00b894);
-  font-size: 11px;
-}
-
-.history-item-right {
-  font-size: 11px;
-  color: var(--color-text-muted, #6b7280);
-}
+.history-table { color: var(--color-text-primary); font-weight: 500; }
+.history-rows { color: var(--color-text-secondary); }
+.history-status { color: var(--brand-success); font-size: 11px; }
+.history-item-right { font-size: 11px; color: var(--color-text-muted); }
 </style>

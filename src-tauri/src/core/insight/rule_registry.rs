@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -39,6 +39,8 @@ impl RuleRegistry {
             )))
         })?;
 
+        let mut seen_ids = HashSet::new();
+
         for entry in entries {
             let entry = entry.map_err(|e| {
                 CoreError::common(CommonError::General(format!("Dir entry error: {}", e)))
@@ -52,6 +54,14 @@ impl RuleRegistry {
                     Ok(rule) => {
                         let category = rule.meta.category.clone();
                         let id = rule.meta.id.clone();
+
+                        if !seen_ids.insert(id.clone()) {
+                            tracing::warn!(
+                                "Duplicate rule ID '{}' in file '{}': rule will be overwritten by later file",
+                                id,
+                                path.display()
+                            );
+                        }
 
                         self.by_category
                             .entry(category)
@@ -72,6 +82,7 @@ impl RuleRegistry {
 
     pub fn load_from_embedded_dir(&mut self, dir: &Dir) -> Result<usize, CoreError> {
         let mut count = 0;
+        let mut seen_ids = HashSet::new();
         for entry in dir.entries() {
             match entry {
                 include_dir::DirEntry::Dir(subdir) => {
@@ -84,6 +95,15 @@ impl RuleRegistry {
                                 Ok(rule) => {
                                     let category = rule.meta.category.clone();
                                     let id = rule.meta.id.clone();
+
+                                    if !seen_ids.insert(id.clone()) {
+                                        tracing::warn!(
+                                            "Duplicate rule ID '{}' in embedded file '{}': rule will be overwritten",
+                                            id,
+                                            file.path().display()
+                                        );
+                                    }
+
                                     self.by_category
                                         .entry(category)
                                         .or_default()

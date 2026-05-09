@@ -14,15 +14,15 @@
     </div>
 
     <!-- 主内容区 -->
-    <template v-if="hasActiveTab && activeTab">
+    <template v-if="activeTab">
       <!-- SQL 预览 + 模式切换条 -->
       <div class="toolbar-strip">
         <FilterModeSwitcher v-model="tab.filterMode" class="mode-switcher-inline" />
         <FilterPresetSelector
           :filter-mode="tab.filterMode"
           :current-expression="getCurrentExpression(tab)"
-          @select="(e: any) => applyPreset(tab, e)"
-          @save="(name: string, expr: string, mode: any) => saveFilterPreset(tab, name, expr, mode)"
+          @select="(e: PresetSelectEvent) => applyPreset(tab, e)"
+          @save="(name: string, expr: string, mode: FilterMode) => saveFilterPreset(tab, name, expr, mode)"
         />
         <div class="strip-right">
           <QuickFilterInput
@@ -323,14 +323,17 @@ import {
   Layers,
 } from 'lucide-vue-next'
 import { createDiscreteApi, darkTheme, lightTheme, NButton, NDropdown, NInput, NModal } from 'naive-ui'
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+
 
 import { useInsightStore } from '@/extensions/builtin/workbench/ui/stores/insight-store'
 import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
-import type { ResultTab, ViewMode } from '@/extensions/builtin/workbench/ui/types/result'
+import type { ResultTab, ViewMode, FilterMode } from '@/extensions/builtin/workbench/ui/types/result'
 import { useUiStore } from '@/shared/stores/ui'
+
+
 
 import DataVisualizationPanel from './DataVisualizationPanel.vue'
 import DuckDBAnalysisInput from './result-panel/DuckDBAnalysisInput.vue'
@@ -349,6 +352,14 @@ import {
   saveCellUpdate as apiSaveCellUpdate,
   exportResultToFile as apiExportResult,
 } from '../../services/result-analysis'
+
+interface PresetSelectEvent {
+  id: string
+  name: string
+  filterMode: FilterMode
+  expression: string
+}
+import type { IRowNode, RowDataUpdatedEvent, RowClickedEvent, CellContextMenuEvent } from '@ag-grid-community/core'
 
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])
@@ -369,18 +380,18 @@ watch(
 // ─── 多标签状态（从 store 读取）──────────────────────────
 const tabs = computed(() => resultStore.tabs)
 const activeTabId = computed(() => resultStore.activeTabId)
-const hasActiveTab = computed(
-  () => activeTabId.value !== null && tabs.value.some(t => t.id === activeTabId.value)
-)
-const activeTab = computed(() => {
-  const id = resultStore.activeTabId
-  if (!id) return undefined
-  return resultStore.tabs.find(t => t.id === id)
-})
+const activeTab = computed<ResultTab | null>(() => {
+    const id = resultStore.activeTabId
+    if (!id) return null
+    return resultStore.tabs.find(t => t.id === id) ?? null
+  })
+  const tab = computed<ResultTab>(() => {
+    const t = activeTab.value
+    if (!t) throw new Error('tab accessed when no active tab')
+    return t
+  })
 
-const tab = computed(() => activeTab.value!)
-
-// ─── AG Grid ─────────────────────────────────────────────
+  // ─── AG Grid ─────────────────────────────────────────────
 const {
   columnDefs,
   defaultColDef,
@@ -392,7 +403,7 @@ const {
   gridApi,
   onGridReady,
   savePageSize,
-} = useGridConfig({ activeTab, editable: true })
+} = useGridConfig({ activeTab: activeTab as ComputedRef<ResultTab | null>, editable: true })
 const showDiffModal = ref(false)
 const gridContainerRef = ref<HTMLElement | null>(null)
 const selectedRows = ref<unknown[]>([])
@@ -445,7 +456,7 @@ function getCurrentExpression(tab: ResultTab): string {
   }
 }
 
-function applyPreset(tab: ResultTab, event: any): void {
+function applyPreset(tab: ResultTab, event: PresetSelectEvent): void {
   tab.filterMode = event.filterMode
   switch (tab.filterMode) {
     case 'quick':
@@ -459,7 +470,7 @@ function applyPreset(tab: ResultTab, event: any): void {
   }
 }
 
-function saveFilterPreset(tab: ResultTab, name: string, expr: string, mode: any): void {
+function saveFilterPreset(tab: ResultTab, name: string, expr: string, mode: FilterMode): void {
   addPreset(name, mode, expr)
   message.success('预设已保存')
 }
@@ -596,7 +607,7 @@ const handleResultUpdate = () => {
       elapsedMs,
     })
   } else {
-    const tab = resultStore.addTab(panelId, '')
+    const tab = resultStore.addTab('', '')
     resultStore.setTabResult(tab.id, {
       columns,
       rows,
@@ -616,7 +627,10 @@ const handleResultNew = () => {
   const elapsedMs = qr.executionTime || 0
   const panelId = latest.panelId || ''
 
-  const tab = resultStore.addTab('', panelId)
+  const tab = resultStore.addTab('', '')
+  if (latest.title) {
+    tab.title = latest.title
+  }
   resultStore.setTabResult(tab.id, {
     columns,
     rows,
@@ -653,7 +667,7 @@ async function ensureDuckdbTempTable(tabId: string) {
   await resultStore.ensureDuckdbTable(tabId)
 }
 
-function onRowDataUpdated(params: any) {
+function onRowDataUpdated(params: RowDataUpdatedEvent) {
   if (params.api?.getDisplayedRowCount() > 0) params.api.sizeColumnsToFit()
 }
 function onSelectionChanged() {
@@ -662,7 +676,7 @@ function onSelectionChanged() {
 }
 
 /** 双击或单击行 → 切换到记录模式查看单行详情 */
-function onRowClicked(event: any) {
+function onRowClicked(event: RowClickedEvent) {
   selectedRecordIndex.value = event?.rowIndex ?? 0
   currentView.value = 'record'
 }
@@ -673,26 +687,19 @@ function onCellValueChanged(event: any) {
   if (!activeTab.value) return
   const { rowIndex, colDef, oldValue, newValue } = event
   const key = dirtyKey(rowIndex, colDef.field)
-  const current = dirtyCells.value
-  if (!current.has(key)) {
-    const newMap = new Map(current)
-    newMap.set(key, { rowIndex, colId: colDef.field, oldValue, newValue })
-    dirtyCells.value = newMap
+  if (!dirtyCells.value.has(key)) {
+    dirtyCells.value.set(key, { rowIndex, colId: colDef.field, oldValue, newValue })
   } else {
-    const existing = current.get(key)!
+    const existing = dirtyCells.value.get(key)!
     if (existing.oldValue === newValue) {
-      const newMap = new Map(current)
-      newMap.delete(key)
-      dirtyCells.value = newMap
+      dirtyCells.value.delete(key)
     } else {
-      const newMap = new Map(current)
-      newMap.set(key, { ...existing, newValue })
-      dirtyCells.value = newMap
+      dirtyCells.value.set(key, { ...existing, newValue })
     }
   }
 }
 
-function onCellContextMenu(params: any) {
+function onCellContextMenu(params: CellContextMenuEvent) {
   closeContextMenu()
   setTimeout(() => {
     const e = window.event as MouseEvent
@@ -702,7 +709,7 @@ function onCellContextMenu(params: any) {
       y: e.clientY,
       type: 'cell',
       value: params.value,
-      column: params.colDef.field,
+      column: params.colDef.field ?? '',
       sortDir: '',
     }
   }, 10)
@@ -731,7 +738,7 @@ function handleGridContextMenu(event: MouseEvent) {
   }
 }
 function closeContextMenu() {
-  contextMenu.value = { ...contextMenu.value, visible: false }
+  contextMenu.value.visible = false
 }
 
 // ─── 模式1: 即时过滤 ───────────────────────────────────
@@ -817,17 +824,17 @@ function quickDuckdbAction(tab: ResultTab, type: string) {
 // ─── 桥接模式 ──────────────────────────────────────────
 async function handleBridgeFilter(tab: ResultTab) {
   if (!gridApi.value) return
-  const visibleRows: any[] = []
-  gridApi.value.forEachNodeAfterFilter((node: any) => visibleRows.push(node.data))
+  const visibleRows: unknown[] = []
+  gridApi.value.forEachNodeAfterFilter((node: IRowNode) => visibleRows.push(node.data))
   if (visibleRows.length === 0) return
   tab.isDuckdbLoading = true
   try {
-    const rowsData: unknown[][] = visibleRows.map(row => tab.columns.map(col => row[col] ?? null))
+    const rowsData: unknown[][] = (visibleRows as Record<string, unknown>[]).map(row => tab.columns.map(col => row[col] ?? null))
     const tableName = await apiCreateTempTable(tab.columns, rowsData)
     tab.duckdbTempTable = tableName
     tab.duckdbSql = `SELECT * FROM ${tableName} LIMIT 100`
     message.success(`${t('resultPanel.rows')}: ${visibleRows.length} → DuckDB`)
-  } catch (e: any) {
+  } catch (e: unknown) {
     message.error(String(e))
   } finally {
     tab.isDuckdbLoading = false
@@ -842,13 +849,9 @@ function handleRefresh(tab: ResultTab) {
   sqlExecutionStore.requestRefresh(tab.id)
 }
 async function handleSave(tab: ResultTab) {
-  const cells = dirtyCells.value
-  if (cells.size === 0) return
+  if (dirtyCells.value.size === 0) return
 
-  let successCount = 0
-  let failCount = 0
-
-  for (const [, cell] of cells) {
+  const updates = Array.from(dirtyCells.value.values()).map(async cell => {
     try {
       const result = await apiSaveCellUpdate({
         conn_id: tab.connectionId,
@@ -860,14 +863,17 @@ async function handleSave(tab: ResultTab) {
       if (result.success) {
         const row = tab.objectRows[cell.rowIndex] as Record<string, unknown>
         row[cell.colId.replace(/\./g, '_')] = cell.newValue
-        successCount++
-      } else {
-        failCount++
+        return { status: 'fulfilled' as const }
       }
-    } catch {
-      failCount++
+      return { status: 'rejected' as const, reason: 'update returned success=false' }
+    } catch (err) {
+      return { status: 'rejected' as const, reason: String(err) }
     }
-  }
+  })
+
+  const results = await Promise.allSettled(updates)
+  const successCount = results.filter(r => r.status === 'fulfilled' && r.value.status === 'fulfilled').length
+  const failCount = results.length - successCount
 
   dirtyCells.value = new Map()
   if (failCount > 0) {
@@ -974,8 +980,9 @@ async function handleExport(format: string) {
 function copyRowsAsInsert() {
   if (!activeTab.value) return
   const cols = activeTab.value.columns
+  const tableName = activeTab.value.tableName || 'result'
   const rows = gridApi.value?.getSelectedRows() || rowData.value
-  const inserts = rows.map((row: any) => {
+  const inserts = rows.map((row: Record<string, unknown>) => {
     const vals = cols
       .map(c => {
         const v = row[c]
@@ -984,7 +991,7 @@ function copyRowsAsInsert() {
         return `'${String(v).replace(/'/g, "''")}'`
       })
       .join(', ')
-    return `INSERT INTO result (${cols.join(', ')}) VALUES (${vals});`
+    return `INSERT INTO ${tableName} (${cols.join(', ')}) VALUES (${vals});`
   })
   navigator.clipboard.writeText(inserts.join('\n'))
 }
@@ -1006,7 +1013,7 @@ function handleContextAction(payload: Record<string, any>) {
         const selected = gridApi.value.getSelectedRows()
         const rows = selected.length > 0 ? selected : rowData.value
         const text = rows
-          .map((r: any) => tab.columns.map(c => String(r[c] ?? '')).join('\t'))
+          .map((r: Record<string, unknown>) => tab.columns.map(c => String(r[c] ?? '')).join('\t'))
           .join('\n')
         navigator.clipboard.writeText(tab.columns.join('\t') + '\n' + text)
       }
@@ -1067,7 +1074,7 @@ function handleContextAction(payload: Record<string, any>) {
       break
     case 'sendSortToDuckdb':
       tab.filterMode = 'duckdb'
-      tab.duckdbSql = `SELECT * FROM result_temp ORDER BY ${col} ${payload.sortDir === 'desc' ? 'DESC' : 'ASC'} LIMIT 1000`
+      tab.duckdbSql = `SELECT * FROM ${tab.duckdbTempTable || 'result_temp'} ORDER BY ${col} ${payload.sortDir === 'desc' ? 'DESC' : 'ASC'} LIMIT 1000`
       break
     case 'hideColumn':
       if (gridApi.value) gridApi.value.setColumnsVisible([col], false)
@@ -1090,7 +1097,7 @@ function handleContextAction(payload: Record<string, any>) {
     case 'columnSummary':
       if (tab.duckdbTempTable) {
         tab.filterMode = 'duckdb'
-        tab.duckdbSql = `SELECT COUNT(*) as count, AVG("${col}") as avg, MIN("${col}") as min, MAX("${col}") as max, SUM("${col}") as sum FROM result_temp`
+        tab.duckdbSql = `SELECT COUNT(*) as count, AVG("${col}") as avg, MIN("${col}") as min, MAX("${col}") as max, SUM("${col}") as sum FROM ${tab.duckdbTempTable}`
       }
       break
   }

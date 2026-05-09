@@ -1,7 +1,7 @@
 # 分析资源管理器 — 开发进度文档
 
-> 版本：v1.3
-> 最后更新：2026-05-08
+> 版本：v1.4
+> 最后更新：2026-05-09
 > 作者：RdataStation 团队
 
 ---
@@ -230,6 +230,19 @@
 | SearchBar 历史下拉            | ✅   | 聚焦时展示，可点选/清除       |
 | 自动记录                      | ✅   | Enter 搜索时自动保存          |
 
+### 4.13 审计修复与代码质量（🆕 v1.4）
+
+| 任务                           | 状态 | 说明                                      |
+| ------------------------------ | ---- | ----------------------------------------- |
+| W1: parse_datetime_sqlite 修复 | ✅   | 返回 CoreError 替代 rusqlite::Error       |
+| W2: trace 日志增强             | ✅   | unwrap_or 替换为 unwrap_or_else + trace   |
+| W8-W11: 清理未使用变量         | ✅   | AnalyticsResourceManager / ContextMenu / FilterBar / RecycleBinModal |
+| W12-W13: 非空断言修复          | ✅   | FolderList event.dataTransfer / ResourceList find 结果 |
+| S1: get_analytics_tag 命令     | ✅   | Rust 命令 + lib.rs 注册 + 前端 API + Store |
+| W3+W14: extension.ts 修复      | ✅   | 版本号 1.0.0→1.4.0、API 接口定义          |
+| W4-W7: CSS 语义变量化          | ✅   | tokens.css 新增 15 个变量、ResourceDetailModal / TagManager 替换硬编码 |
+| 文档升级                       | ✅   | 7 份文档全部升级至 v1.4                    |
+
 ### 4.10 清理工作
 
 | 任务                             | 状态 | 说明                             |
@@ -280,12 +293,12 @@
 | -------- | -------- | ------------ | ---------- | ----- |
 | 资源     | 8        | 8            | 8          | 2     |
 | 文件夹   | 5        | 5            | 5          | 2     |
-| 标签     | 4        | 4            | 4          | 2     |
+| 标签     | 5        | 5            | 5          | 2     |
 | 回收站   | 3        | 3            | 3          | 1     |
 | 版本历史 | 1        | 1            | 2          | 1     |
 | 双向查询 | 2        | 2            | 2          | —     |
 | 初始化   | 1        | 1            | 1          | —     |
-| **合计** | **24**   | **24**       | **25**     | **7** |
+| **合计** | **25**   | **25**       | **26**     | **7** |
 
 ---
 
@@ -301,6 +314,7 @@
 
 | 版本 | 日期       | 变更内容                                                                                                                              |
 | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.4 | 2026-05-09 | 审计修复：W8-W13 清理未使用变量/非空断言、W2 trace 日志、S1 新增 get_analytics_tag 命令、W3+W14 extension.ts 版本号修复、W4-W7 CSS 语义变量化 |
 | v1.3 | 2026-05-08 | 资源详情面板（ResourceDetailModal）、标签徽章展示（resourceTagMap + loadResourceTags）、搜索历史（useSearchHistory + SearchBar 下拉） |
 | v1.2 | 2026-05-08 | 标签管理 UI（TagManager + CreateTagModal）、版本历史 UI（VersionHistoryModal + 右键菜单 + Ctrl+Shift+V）、Store 方法补齐（3 个）      |
 | v1.1 | 2026-05-07 | P0/P1 深度优化：参数化查询、事务支持、Schema 增强、版本历史、标签双向查询、设置面板联动、快捷键全部实现                               |

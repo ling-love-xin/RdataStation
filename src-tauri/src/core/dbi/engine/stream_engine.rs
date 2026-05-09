@@ -42,7 +42,9 @@ impl StreamEngine {
         }
 
         if results.len() == 1 {
-            return Ok(results.into_iter().next().unwrap());
+            return Ok(results.into_iter().next().ok_or_else(|| {
+                CoreError::common(CommonError::General("Expected exactly one result".to_string()))
+            })?);
         }
 
         let first = &results[0];

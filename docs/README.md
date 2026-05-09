@@ -1,8 +1,8 @@
 # RdataStation 文档中心
 
-> 版本：v2.4
-> 最后更新：2026-05-08
-> 状态：✅ SQL 编辑器架构优化全部完成（含方言高亮优化）
+> 版本：v2.5
+> 最后更新：2026-05-09
+> 状态：✅ Mock 数据生成器模块生产就绪（全 10 Phase 完成）
 
 ---
 
@@ -13,6 +13,7 @@
 | 了解项目架构        | [架构总览](./architecture.md)                            | 四层微内核、四层数据库架构   |
 | 开始后端开发        | [后端文档](./backend/README.md)                          | Rust Core + Tauri            |
 | 开始前端开发        | [前端文档](./frontend/INDEX.md)                          | Vue 3 + TypeScript           |
+| 了解 Mock 数据生成器 | [设计文档](./mock-data-generator-design.md)              | 106 种生成器 + 6 场景模板    |
 | 了解 SQL 编辑器优化 | [优化计划](./frontend/SQL-EDITOR-OPTIMIZATION-PLAN.md)   | 架构优化 4 Phase             |
 | 了解结果集模块优化  | [优化计划](./frontend/QUERY-RESULT-OPTIMIZATION-PLAN.md) | 8 组 39 项优化 (⏳ 设计阶段) |
 | 了解数据库导航      | [导航器文档](./navigator/README.md)                      | IVM 增量视图设计             |
@@ -32,6 +33,7 @@ docs/
 ├── connection-modal.md          # 连接模态框设计
 ├── database-navigator.md        # 数据库导航栏
 ├── navigator-frontend-backend-alignment.md  # 前后端对齐
+├── mock-data-generator-design.md # 🎲 Mock 数据生成器（v3.0，生产就绪）
 │
 ├── backend/                    # ⚙️ 后端文档
 │   ├── README.md               # 后端文档索引
@@ -133,6 +135,7 @@ docs/
 
 | 版本 | 日期       | 说明                                           |
 | ---- | ---------- | ---------------------------------------------- |
+| v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase）        |
 | v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成（方言高亮增量更新） |
 | v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）          |
 | v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定                     |

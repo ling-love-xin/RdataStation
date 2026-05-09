@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 use crate::core::scratchpad::ScratchpadStore;
@@ -20,11 +21,10 @@ impl ScratchpadState {
 
     pub fn init(&self, project_path: PathBuf) {
         let store = ScratchpadStore::new(project_path);
-        tokio::task::block_in_place(|| {
-            futures::executor::block_on(async {
-                let mut guard = self.store.lock().await;
-                *guard = Some(store);
-            });
+        let handle = Handle::current();
+        handle.block_on(async {
+            let mut guard = self.store.lock().await;
+            *guard = Some(store);
         });
     }
 
@@ -34,6 +34,12 @@ impl ScratchpadState {
 
     pub fn set_watching(&self, active: bool) {
         self.watcher_active.store(active, Ordering::Relaxed);
+    }
+}
+
+impl Drop for ScratchpadState {
+    fn drop(&mut self) {
+        self.set_watching(false);
     }
 }
 

@@ -213,6 +213,30 @@ impl SchemaAnalyzer {
         Ok(columns)
     }
 
+    fn find_compound_fk_target(
+    base_prefix: &str,
+    table_set: &std::collections::HashSet<&str>,
+) -> Option<(String, String)> {
+    let parts: Vec<&str> = base_prefix.split('_').collect();
+
+    for i in 0..parts.len() {
+        let candidate_prefix = parts[i..].join("_");
+        let plural = format!("{}s", candidate_prefix);
+
+        let target = if table_set.contains(plural.as_str()) {
+            plural
+        } else if table_set.contains(candidate_prefix.as_str()) {
+            candidate_prefix
+        } else {
+            continue;
+        };
+
+        return Some((target.clone(), target));
+    }
+
+    None
+}
+
     fn infer_foreign_keys(
         columns: &[TableColumnInfo],
         tables: &[String],
@@ -232,26 +256,19 @@ impl SchemaAnalyzer {
                 continue;
             }
 
-            for (suffix, _target_col) in fk_patterns {
+            for (suffix, target_col) in fk_patterns {
                 if let Some(prefix_end) = col.column_name.strip_suffix(&suffix[1..suffix.len()-1]) {
-                    let prefix = if prefix_end.ends_with('_') {
+                    let base_prefix = if prefix_end.ends_with('_') {
                         &prefix_end[..prefix_end.len()-1]
                     } else {
                         prefix_end
                     };
 
-                    let target_name = if prefix.ends_with('s') {
-                        prefix.to_string()
-                    } else {
-                        let plural = format!("{}s", prefix);
-                        if table_set.contains(plural.as_str()) {
-                            plural
-                        } else {
-                            format!("{}s", prefix)
-                        }
-                    };
+                    if let Some((_prefix, matched_table)) =
+                        Self::find_compound_fk_target(base_prefix, &table_set)
+                    {
+                        let target_column = *target_col;
 
-                    if table_set.contains(target_name.as_str()) {
                         let confidence = if col.column_key == "MUL" {
                             "high"
                         } else if col.column_name.ends_with("_id") {
@@ -263,10 +280,10 @@ impl SchemaAnalyzer {
                         candidates.push(ForeignKeyCandidate {
                             source_table: col.table_name.clone(),
                             source_column: col.column_name.clone(),
-                            target_table: target_name.clone(),
-                            target_column: "id".into(),
+                            target_table: matched_table.clone(),
+                            target_column: target_column.to_string(),
                             confidence: confidence.into(),
-                            naming_pattern: format!("{} → {}s", col.column_name, prefix),
+                            naming_pattern: format!("{} → {}", col.column_name, matched_table),
                         });
                     }
                     break;
@@ -564,6 +581,41 @@ mod tests {
         let tables: Vec<String> = vec!["t".into()];
         let fks = SchemaAnalyzer::infer_foreign_keys(&cols, &tables);
         assert_eq!(fks.len(), 0);
+    }
+
+    #[test]
+    fn test_infer_fk_compound_name() {
+        let cols = vec![
+            make_col("line_items", "id", "int", "PRI"),
+            make_col("shipments", "order_line_item_id", "int", "MUL"),
+        ];
+        let tables: Vec<String> = vec![
+            "shipments".into(),
+            "line_items".into(),
+        ];
+        let fks = SchemaAnalyzer::infer_foreign_keys(&cols, &tables);
+        assert_eq!(fks.len(), 1);
+        assert_eq!(fks[0].source_table, "shipments");
+        assert_eq!(fks[0].source_column, "order_line_item_id");
+        assert_eq!(fks[0].target_table, "line_items");
+        assert_eq!(fks[0].confidence, "high");
+    }
+
+    #[test]
+    fn test_infer_fk_compound_name_full_match_preferred() {
+        let cols = vec![
+            make_col("order_line_items", "id", "int", "PRI"),
+            make_col("shipments", "order_line_item_id", "int", "MUL"),
+            make_col("line_items", "id", "int", "PRI"),
+        ];
+        let tables: Vec<String> = vec![
+            "order_line_items".into(),
+            "shipments".into(),
+            "line_items".into(),
+        ];
+        let fks = SchemaAnalyzer::infer_foreign_keys(&cols, &tables);
+        assert_eq!(fks.len(), 1);
+        assert_eq!(fks[0].target_table, "order_line_items");
     }
 
     #[test]

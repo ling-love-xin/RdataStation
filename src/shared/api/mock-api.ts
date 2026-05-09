@@ -67,6 +67,9 @@ export interface ColumnDef {
   generator: GeneratorConfig
   nullableRatio: number
   unique: boolean
+  varcharLength?: number
+  decimalPrecision?: number
+  decimalScale?: number
 }
 
 export type Locale =
@@ -107,13 +110,19 @@ export interface MockExportInput {
   tableName?: string
 }
 
+export interface TemplateTableRemote {
+  name: string
+  rowCount: number
+  columns: ColumnDef[]
+}
+
 export interface ScenarioTemplate {
   id: string
   name: string
   description: string
   category: string
   locale: string
-  tables: unknown[]
+  tables: TemplateTableRemote[]
 }
 
 export interface MockHistoryRecord {
@@ -132,11 +141,152 @@ export interface MockPersistAssetResult {
   columnCount: number
 }
 
+// ==================== 前端 → 后端外部标签枚举格式转换 ====================
+
+/**
+ * 后端使用 serde 外部标签枚举（externally tagged enum）：
+ *   ColumnDataType::Integer → { "integer": {} }
+ *   GeneratorConfig::RandomInt { min: 1, max: 100 } → { "randomInt": { "min": 1, "max": 100 } }
+ *
+ * 前端内部使用扁平格式方便 UI 操作：
+ *   dataType: 'integer'
+ *   generator: { type: 'random_int', params: { min: 1, max: 100 } }
+ *
+ * 以下函数在 API 边界做转换，后端不动一行。
+ */
+
+/** snake_case → camelCase（仅处理下划线边界，不含下划线的单词不做转换） */
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z0-9])/g, (_m: string, c: string) => c.toUpperCase())
+}
+
+/** 生成器命名覆盖：前端 snake_case 与后端 serde camelCase 不一致的 15 个变体 */
+const OVERRIDE_VARIANT: Record<string, string> = {
+  md_italic: 'markdownItalicWord',
+  md_bold: 'markdownBoldWord',
+  md_link: 'markdownLink',
+  md_bullet: 'markdownBulletPoints',
+  md_list: 'markdownListItems',
+  md_blockquote_single: 'markdownBlockQuoteSingle',
+  md_blockquote_multi: 'markdownBlockQuoteMulti',
+  md_code: 'markdownCode',
+  rfc_status: 'rfcStatusCode',
+  valid_status: 'validStatusCode',
+  datetime_before: 'dateTimeBefore',
+  datetime_after: 'dateTimeAfter',
+  datetime_between: 'dateTimeBetween',
+  timezone: 'timeZone',
+  health_insurance: 'healthInsuranceCode',
+}
+
+function backendVariantName(type: GeneratorType): string {
+  return OVERRIDE_VARIANT[type] ?? snakeToCamel(type)
+}
+
+/** ColumnDataType 命名覆盖（不含下划线，snakeToCamel 不出力） */
+const DT_VARIANT_MAP: Record<string, string> = {
+  bigint: 'bigInt',
+  datetime: 'dateTime',
+}
+
+function toBackendDataType(dt: ColumnDataType, col?: ColumnDef): Record<string, unknown> {
+  const camel = DT_VARIANT_MAP[dt] ?? snakeToCamel(dt)
+  if (dt === 'decimal') return { [camel]: { precision: col?.decimalPrecision ?? 18, scale: col?.decimalScale ?? 2 } }
+  if (dt === 'varchar') return { [camel]: { length: col?.varcharLength ?? 255 } }
+  return { [camel]: {} }
+}
+
+function toBackendGenerator(g: GeneratorConfig): Record<string, unknown> {
+  return { [backendVariantName(g.type)]: g.params ?? {} }
+}
+
+function toBackendColumn(c: ColumnDef): Record<string, unknown> {
+  return {
+    name: c.name,
+    dataType: toBackendDataType(c.dataType, c),
+    generator: toBackendGenerator(c.generator),
+    nullableRatio: c.nullableRatio,
+    unique: c.unique,
+  }
+}
+
+function toBackendConfig(config: MockConfig): Record<string, unknown> {
+  return {
+    tableName: config.tableName,
+    rowCount: config.rowCount,
+    seed: config.seed,
+    locale: config.locale,
+    columns: config.columns.map(toBackendColumn),
+  }
+}
+
+// ==================== 后端 → 前端扁平格式转换（读取方向） ====================
+
+/** camelCase → snake_case */
+function camelToSnake(s: string): string {
+  return s.replace(/([A-Z])/g, '_$1').toLowerCase()
+}
+
+/** 生成器反向映射：后端变体名 → 前端 GeneratorType */
+const VARIANT_TO_TYPE: Record<string, string> = {}
+for (const [t, v] of Object.entries(OVERRIDE_VARIANT)) {
+  VARIANT_TO_TYPE[v] = t
+}
+/** ColumnDataType 反向映射 */
+const DT_VARIANT_TO_FRONTEND: Record<string, string> = {
+  bigInt: 'bigint',
+  dateTime: 'datetime',
+}
+
+function parseBackendGenerator(raw: Record<string, unknown>): GeneratorConfig {
+  const keys = Object.keys(raw)
+  if (keys.length === 0) return { type: 'constant' as GeneratorType, params: {} }
+  const variantKey = keys[0]
+  const type = (VARIANT_TO_TYPE[variantKey] ?? camelToSnake(variantKey)) as GeneratorType
+  return { type, params: (raw[variantKey] as Record<string, unknown>) ?? {} }
+}
+
+function parseBackendDataType(raw: Record<string, unknown>): {
+  dataType: ColumnDataType
+  varcharLength?: number
+  decimalPrecision?: number
+  decimalScale?: number
+} {
+  const keys = Object.keys(raw)
+  const variantKey = keys[0] ?? ''
+  const dt = (DT_VARIANT_TO_FRONTEND[variantKey] ?? camelToSnake(variantKey)) as ColumnDataType
+  const body = (raw[variantKey] ?? {}) as Record<string, unknown>
+  return {
+    dataType: dt,
+    varcharLength: dt === 'varchar' ? (body.length as number | undefined) : undefined,
+    decimalPrecision: dt === 'decimal' ? (body.precision as number | undefined) : undefined,
+    decimalScale: dt === 'decimal' ? (body.scale as number | undefined) : undefined,
+  }
+}
+
+function parseBackendColumn(raw: Record<string, unknown>): ColumnDef {
+  const dtParsed = parseBackendDataType((raw.dataType ?? {}) as Record<string, unknown>)
+  return {
+    name: (raw.name ?? '') as string,
+    dataType: dtParsed.dataType,
+    generator: parseBackendGenerator((raw.generator ?? {}) as Record<string, unknown>),
+    nullableRatio: (raw.nullableRatio ?? 0) as number,
+    unique: (raw.unique ?? false) as boolean,
+    varcharLength: dtParsed.varcharLength,
+    decimalPrecision: dtParsed.decimalPrecision,
+    decimalScale: dtParsed.decimalScale,
+  }
+}
+
+function parseBackendColumns(raw: Record<string, unknown>[]): ColumnDef[] {
+  return raw.map(parseBackendColumn)
+}
+
 // ==================== Mock 相关 API ====================
 
 export const mockApi = {
   generate(config: MockConfig) {
-    return tauriInvoke<MockGenerateResult>('mock_generate', { config })
+    return tauriInvoke<MockGenerateResult>('mock_generate', { config: toBackendConfig(config) })
   },
 
   preview(tableName: string, limit: number) {
@@ -159,11 +309,18 @@ export const mockApi = {
     return tauriInvoke<ScenarioTemplate[]>('mock_list_templates')
   },
 
-  applyTemplate(templateId: string) {
-    return tauriInvoke<ScenarioTemplate>('mock_apply_template', { templateId })
+  async applyTemplate(templateId: string) {
+    const raw = await tauriInvoke<Record<string, unknown>>('mock_apply_template', { templateId })
+    const tables = ((raw.tables ?? []) as Record<string, unknown>[]).map(
+      (t: Record<string, unknown>) => ({
+        ...t,
+        columns: parseBackendColumns((t.columns ?? []) as Record<string, unknown>[]),
+      })
+    )
+    return { ...raw, tables } as unknown as ScenarioTemplate
   },
 
-  importSchema(input: {
+  async importSchema(input: {
     connId: string
     database: string
     schema?: string
@@ -171,7 +328,8 @@ export const mockApi = {
     connectionType?: string
     projectPath?: string
   }) {
-    return tauriInvoke<ColumnDef[]>('mock_import_schema', { input })
+    const raw = await tauriInvoke<Record<string, unknown>[]>('mock_import_schema', { input })
+    return parseBackendColumns(raw)
   },
 
   saveToScratchpad(input: { tempTableName: string; format: MockExportFormat }) {

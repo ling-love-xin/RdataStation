@@ -38,6 +38,7 @@ pub struct DataSourceMetaResponse {
     pub supports_federated: bool,
     pub supports_concurrent_write: bool,
     pub is_in_memory: bool,
+    pub server_version: Option<String>,
 }
 
 impl From<DataSourceMeta> for DataSourceMetaResponse {
@@ -49,6 +50,7 @@ impl From<DataSourceMeta> for DataSourceMetaResponse {
             supports_federated: meta.supports_federated,
             supports_concurrent_write: meta.supports_concurrent_write,
             is_in_memory: meta.is_in_memory,
+            server_version: meta.server_version,
         }
     }
 }
@@ -106,6 +108,7 @@ pub struct ConnectionInfoResponse {
     pub status: String,
     pub is_active: bool,
     pub created_at_ms: u64,
+    pub server_version: Option<String>,
 }
 
 /// 获取所有连接
@@ -131,6 +134,7 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, String> {
                 status: "connected".to_string(),
                 is_active,
                 created_at_ms: info.created_at.elapsed().as_millis() as u64,
+                server_version: info.server_version,
             }
         })
         .collect())
@@ -191,6 +195,7 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, S
             status: "connected".to_string(),
             is_active: true,
             created_at_ms: info.created_at.elapsed().as_millis() as u64,
+            server_version: info.server_version,
         }))
 }
 
@@ -320,6 +325,7 @@ pub async fn detect_global_connections_in_project(
                 status: "connected".to_string(),
                 is_active,
                 created_at_ms: info.created_at.elapsed().as_millis() as u64,
+                server_version: info.server_version,
             }
         })
         .collect())
@@ -355,13 +361,10 @@ pub async fn test_connection(db_type: String, url: String) -> Result<TestConnect
     if let Some(info) = existing_conn {
         tracing::info!("测试连接：发现已有正式连接（ID={}），直接返回成功", info.id);
         
-        let server_version = match db_type.as_str() {
-            "mysql" => "MySQL 8.0.32".to_string(),
-            "postgres" => "PostgreSQL 15.2".to_string(),
-            "sqlite" => "SQLite 3.40.0".to_string(),
-            "duckdb" => "DuckDB 0.9.2".to_string(),
-            _ => format!("{} (未知版本)", db_type),
-        };
+        let server_version = manager.get_connection(&info.id).await
+            .map(|db| db.meta().server_version)
+            .flatten()
+            .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
         let response_time_ms = start.elapsed().as_millis() as u64;
 
@@ -386,13 +389,8 @@ pub async fn test_connection(db_type: String, url: String) -> Result<TestConnect
         }
     };
 
-    let server_version = match db_type.as_str() {
-        "mysql" => "MySQL 8.0.32".to_string(),
-        "postgres" => "PostgreSQL 15.2".to_string(),
-        "sqlite" => "SQLite 3.40.0".to_string(),
-        "duckdb" => "DuckDB 0.9.2".to_string(),
-        _ => format!("{} (未知版本)", db_type),
-    };
+    let server_version = db.meta().server_version
+        .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
     let response_time_ms = start.elapsed().as_millis() as u64;
 
@@ -556,6 +554,7 @@ pub struct GlobalConnectionInfoResponse {
     pub is_active: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub server_version: Option<String>,
 }
 
 /// 连接池状态响应
@@ -633,6 +632,7 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
             is_active: conn.is_active,
             created_at: conn.created_at,
             updated_at: conn.updated_at,
+            server_version: conn.server_version,
         }
     }).collect())
 }

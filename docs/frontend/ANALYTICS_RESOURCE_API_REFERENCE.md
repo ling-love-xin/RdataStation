@@ -1,8 +1,8 @@
 # 分析资源管理器 — API 接口参考
 
-> 版本：v1.3
-> 最后更新：2026-05-08
-> 状态：✅ 24 个 Tauri Command 全部可用
+> 版本：v1.4
+> 最后更新：2026-05-09
+> 状态：✅ 25 个 Tauri Command 全部可用
 
 ---
 
@@ -458,6 +458,15 @@ const folder = await createAnalyticsFolder({
 | **参数**         | `resourceId: string`, `tagId: string`               |
 | **返回**         | `void`                                              |
 
+### 4.5 get_analytics_tag
+
+| 属性             | 值                          |
+| ---------------- | --------------------------- |
+| **Rust Command** | `get_analytics_tag`         |
+| **TS 函数**      | `getAnalyticsTag(id)`       |
+| **参数**         | `id: string`                |
+| **返回**         | `AnalyticsTag`              |
+
 ---
 
 ## 六、回收站 API（3 个命令）
@@ -617,12 +626,13 @@ try {
 | 16  | `list_analytics_tags`                     | `listAnalyticsTags(input)`                | 标签     | ✅   |
 | 17  | `add_analytics_tag_to_resource`           | `addAnalyticsTagToResource(...)`          | 标签     | ✅   |
 | 18  | `remove_analytics_tag_from_resource`      | `removeAnalyticsTagFromResource(...)`     | 标签     | ✅   |
-| 19  | `get_analytics_recycle_bin`               | `getAnalyticsRecycleBin()`                | 回收站   | ✅   |
-| 20  | `restore_analytics_resource_from_recycle` | `restoreAnalyticsResourceFromRecycle(id)` | 回收站   | ✅   |
-| 21  | `permanent_delete_analytics_resource`     | `permanentDeleteAnalyticsResource(id)`    | 回收站   | ✅   |
-| 22  | `get_resource_versions`                   | `getResourceVersions(resourceId)`         | 版本     | 🆕   |
-| 23  | `get_tags_for_resource`                   | `getTagsForResource(resourceId)`          | 双向查询 | 🆕   |
-| 24  | `get_resources_by_tag`                    | `getResourcesByTag(tagId)`                | 双向查询 | 🆕   |
+| 19  | `get_analytics_tag`                       | `getAnalyticsTag(id)`                     | 标签     | 🆕   |
+| 20  | `get_analytics_recycle_bin`               | `getAnalyticsRecycleBin()`                | 回收站   | ✅   |
+| 21  | `restore_analytics_resource_from_recycle` | `restoreAnalyticsResourceFromRecycle(id)` | 回收站   | ✅   |
+| 22  | `permanent_delete_analytics_resource`     | `permanentDeleteAnalyticsResource(id)`    | 回收站   | ✅   |
+| 23  | `get_resource_versions`                   | `getResourceVersions(resourceId)`         | 版本     | 🆕   |
+| 24  | `get_tags_for_resource`                   | `getTagsForResource(resourceId)`          | 双向查询 | 🆕   |
+| 25  | `get_resources_by_tag`                    | `getResourcesByTag(tagId)`                | 双向查询 | 🆕   |
 
 ---
 

@@ -605,9 +605,9 @@ impl MetadataCacheOps {
 
         self.conn.execute(
             "INSERT OR REPLACE INTO columns
-             (table_id, column_name, ordinal_position, data_type, is_nullable, is_identity, column_default, column_comment, introspect_level, is_loaded, last_sync, last_accessed)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 3, 1, ?9, ?9)",
-            rusqlite::params![table_id, column_name, ordinal_position, data_type, is_nullable as i32, is_primary as i32, column_default, comment, now],
+             (table_id, column_name, ordinal_position, data_type, is_nullable, is_identity, is_primary, column_default, column_comment, introspect_level, is_loaded, last_sync, last_accessed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 3, 1, ?10, ?10)",
+            rusqlite::params![table_id, column_name, ordinal_position, data_type, is_nullable as i32, is_primary as i32, is_primary as i32, column_default, comment, now],
         ).map_err(|e| CoreError::storage(
             StorageError::Persistence {
                 store: "sqlite".to_string(),
@@ -640,9 +640,9 @@ impl MetadataCacheOps {
 
         self.conn.execute(
             "INSERT OR REPLACE INTO columns
-             (table_id, column_name, data_type, is_nullable, is_identity, introspect_level, is_loaded, last_sync, last_accessed)
-             VALUES (?1, ?2, ?3, ?4, ?5, 3, 1, ?6, ?6)",
-            rusqlite::params![table_id, column_name, data_type, is_nullable as i32, is_primary as i32, last_sync],
+             (table_id, column_name, data_type, is_nullable, is_identity, is_primary, introspect_level, is_loaded, last_sync, last_accessed)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 3, 1, ?7, ?7)",
+            rusqlite::params![table_id, column_name, data_type, is_nullable as i32, is_primary as i32, is_primary as i32, last_sync],
         ).map_err(|e| CoreError::storage(
             StorageError::Persistence {
                 store: "sqlite".to_string(),
@@ -656,10 +656,32 @@ impl MetadataCacheOps {
 
     /// 获取列列表（规范化）
     pub fn list_columns_normalized(&self, table_id: i64) -> Result<Vec<ColumnDetailInfo>, CoreError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, column_name, ordinal_position, data_type, is_nullable, is_identity, column_default, column_comment
-             FROM columns WHERE table_id = ?1 ORDER BY ordinal_position"
-        ).map_err(|e| CoreError::storage(
+        let has_fk_table: bool = self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='foreign_key_columns'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0) > 0;
+
+        let sql = if has_fk_table {
+            "SELECT c.id, c.column_name, c.ordinal_position, c.data_type, c.is_nullable, c.is_identity, \
+             COALESCE(c.is_primary, 0) AS is_primary_key, \
+             CASE WHEN fkc.column_name IS NOT NULL THEN 1 ELSE 0 END AS is_foreign_key, \
+             c.column_default, c.column_comment \
+             FROM columns c \
+             LEFT JOIN foreign_key_columns fkc ON c.table_id = fkc.table_id AND c.column_name = fkc.column_name \
+             WHERE c.table_id = ?1 ORDER BY c.ordinal_position"
+        } else {
+            "SELECT c.id, c.column_name, c.ordinal_position, c.data_type, c.is_nullable, c.is_identity, \
+             COALESCE(c.is_primary, 0) AS is_primary_key, \
+             0 AS is_foreign_key, \
+             c.column_default, c.column_comment \
+             FROM columns c \
+             WHERE c.table_id = ?1 ORDER BY c.ordinal_position"
+        };
+
+        let mut stmt = self.conn.prepare(sql).map_err(|e| CoreError::storage(
             StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "list_columns_normalized".to_string(),
@@ -1227,6 +1249,187 @@ impl MetadataCacheOps {
         ))?;
 
         Ok(())
+    }
+
+    /// 保存 MetadataBrowser::get_table_detail() 的结果到缓存
+    /// 使用规范化的 tables + columns 表写入
+    pub fn save_node_detail(
+        &mut self,
+        database_name: &str,
+        schema_name: &str,
+        detail: &crate::core::driver::NodeDetail,
+    ) -> Result<i64, CoreError> {
+        let table_name = &detail.node.name;
+        let table_type = match detail.node.kind {
+            crate::core::driver::SchemaObjectKind::View => "VIEW",
+            _ => "TABLE",
+        };
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .as_secs() as i64;
+
+        let schema_id = match self.get_schema_id(database_name, schema_name)? {
+            Some(id) => id,
+            None => self.save_schema(database_name, schema_name, None, None)?,
+        };
+
+        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_node_detail_tx".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        let table_id: i64 = tx.query_row(
+            "INSERT INTO tables (schema_id, table_name, table_type, table_comment, row_count_estimate, \
+             introspect_level, is_loaded, last_sync, last_accessed)
+             VALUES (?1, ?2, ?3, ?4, ?5, 3, 1, ?6, ?6)
+             ON CONFLICT(schema_id, table_name) DO UPDATE SET
+             table_type = excluded.table_type,
+             table_comment = excluded.table_comment,
+             row_count_estimate = excluded.row_count_estimate,
+             last_sync = excluded.last_sync
+             RETURNING id",
+            rusqlite::params![
+                schema_id, table_name, table_type,
+                detail.node.comment,
+                detail.row_count_estimate,
+                now,
+            ],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_node_detail_table".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        for (idx, col) in detail.columns.iter().enumerate() {
+            tx.execute(
+                "INSERT OR REPLACE INTO columns \
+                 (table_id, column_name, ordinal_position, data_type, is_nullable, is_primary, \
+                  column_default, column_comment, introspect_level, is_loaded, last_sync, last_accessed) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 3, 1, ?9, ?9)",
+                rusqlite::params![
+                    table_id,
+                    col.name,
+                    (idx + 1) as i32,
+                    col.data_type,
+                    col.nullable as i32,
+                    col.is_primary_key as i32,
+                    col.default_value,
+                    col.comment,
+                    now,
+                ],
+            ).map_err(|e| CoreError::storage(
+                StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "save_node_detail_column".to_string(),
+                    reason: e.to_string(),
+                }
+            ))?;
+        }
+
+        tx.commit().map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_node_detail_commit".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        Ok(table_id)
+    }
+
+    /// 从缓存加载表详情（MetadataBrowser::get_table_detail() 格式）
+    pub fn load_node_detail(
+        &self,
+        database_name: &str,
+        schema_name: &str,
+        table_name: &str,
+    ) -> Result<Option<crate::core::driver::NodeDetail>, CoreError> {
+        let table_row = self.conn.query_row(
+            "SELECT t.id, t.table_type, t.table_comment, t.row_count_estimate \
+             FROM tables t \
+             JOIN schemata s ON t.schema_id = s.id \
+             WHERE s.catalog_name = ?1 AND s.schema_name = ?2 AND t.table_name = ?3",
+            rusqlite::params![database_name, schema_name, table_name],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                ))
+            },
+        );
+
+        let (table_id, table_type, table_comment, row_count_estimate) = match table_row {
+            Ok(r) => r,
+            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+            Err(e) => return Err(CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_node_detail_table".to_string(),
+                reason: e.to_string(),
+            })),
+        };
+
+        let kind = if table_type == "VIEW" {
+            crate::core::driver::SchemaObjectKind::View
+        } else {
+            crate::core::driver::SchemaObjectKind::Table
+        };
+
+        let mut stmt = self.conn.prepare(
+            "SELECT column_name, data_type, is_nullable, COALESCE(is_primary, 0) AS is_primary_key,
+             0 AS is_foreign_key, column_default, column_comment \
+             FROM columns WHERE table_id = ?1 ORDER BY ordinal_position"
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_node_detail_columns".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let columns: Vec<crate::core::driver::ColumnDetail> = stmt.query_map(
+            rusqlite::params![table_id],
+            |row| {
+                Ok(crate::core::driver::ColumnDetail {
+                    name: row.get(0)?,
+                    data_type: row.get(1)?,
+                    nullable: row.get::<_, i32>(2)? != 0,
+                    is_primary_key: row.get::<_, i32>(3)? != 0,
+                    is_foreign_key: row.get::<_, i32>(4)? != 0,
+                    default_value: row.get(5)?,
+                    comment: row.get(6)?,
+                })
+            },
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_node_detail_map".to_string(),
+            reason: e.to_string(),
+        }))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_node_detail_collect".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(Some(crate::core::driver::NodeDetail {
+            node: crate::core::driver::NodeInfo {
+                name: table_name.to_string(),
+                kind,
+                icon: Some(if table_type == "VIEW" { "view".to_string() } else { "table".to_string() }),
+                comment: table_comment,
+            },
+            columns,
+            index_count: None,
+            row_count_estimate: row_count_estimate.map(|n| n as u64),
+        }))
     }
 
     /// 检查缓存是否有效（默认 24 小时）
@@ -3459,6 +3662,8 @@ pub struct ColumnDetailInfo {
     pub data_type: String,
     pub is_nullable: bool,
     pub is_identity: bool,
+    pub is_primary_key: bool,
+    pub is_foreign_key: bool,
     pub column_default: Option<String>,
     pub column_comment: Option<String>,
 }
@@ -3472,8 +3677,10 @@ impl ColumnDetailInfo {
             data_type: row.get(3)?,
             is_nullable: row.get::<_, i32>(4)? != 0,
             is_identity: row.get::<_, i32>(5)? != 0,
-            column_default: row.get(6)?,
-            column_comment: row.get(7)?,
+            is_primary_key: row.get::<_, i32>(6)? != 0,
+            is_foreign_key: row.get::<_, i32>(7)? != 0,
+            column_default: row.get(8)?,
+            column_comment: row.get(9)?,
         })
     }
 }

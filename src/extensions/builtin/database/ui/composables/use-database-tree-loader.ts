@@ -7,6 +7,8 @@
 
 import { useRuntimeConnectionStore } from '@/extensions/builtin/connection/ui/stores/runtime-connection-store'
 import type { ProjectConnection } from '@/extensions/builtin/connection/ui/types/connection'
+import type { NavigationConfig, NavigationFolderConfig } from '@/extensions/builtin/connection/ui/types/form-schema'
+import { loadNavigationConfig, getDefaultNavigationConfig } from '@/extensions/builtin/connection/ui/utils/schema-loader'
 
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
@@ -26,102 +28,27 @@ interface GlobalConnection {
   updated_at: string
 }
 
-/**
- * DBeaver 风格的树结构配置
- */
-interface ITreeStructureConfig {
-  /** 是否使用 Schema 层级 */
-  hasSchemas: boolean
-  /** 是否显示 Tables 文件夹 */
-  hasTablesFolder: boolean
-  /** 是否显示 Views 文件夹 */
-  hasViewsFolder: boolean
-  /** 是否显示 Functions 文件夹 */
-  hasFunctionsFolder: boolean
-  /** 是否显示 Procedures 文件夹 */
-  hasProceduresFolder: boolean
-  /** 是否显示 Sequences 文件夹 */
-  hasSequencesFolder: boolean
-  /** 是否显示 Triggers 文件夹 */
-  hasTriggersFolder: boolean
-  /** 表下是否显示 Columns 文件夹 */
-  tableHasColumnsFolder: boolean
-  /** 表下是否显示 Indexes 文件夹 */
-  tableHasIndexesFolder: boolean
-  /** 表下是否显示 Constraints 文件夹 */
-  tableHasConstraintsFolder: boolean
-  /** 系统 Schema 列表（默认隐藏） */
-  systemSchemas: string[]
+const navConfigCache = new Map<string, NavigationConfig>()
+
+async function getNavConfig(dbType: string): Promise<NavigationConfig> {
+  const key = dbType.toLowerCase()
+  if (navConfigCache.has(key)) {
+    return navConfigCache.get(key)!
+  }
+  const config = await loadNavigationConfig(key)
+  const resolved = config || getDefaultNavigationConfig()
+  navConfigCache.set(key, resolved)
+  return resolved
 }
 
-/**
- * 各数据库类型的 DBeaver 树结构配置
- */
-const DB_TYPE_TREE_CONFIGS: Record<string, ITreeStructureConfig> = {
-  mysql: {
-    hasSchemas: false,
-    hasTablesFolder: true,
-    hasViewsFolder: true,
-    hasFunctionsFolder: true,
-    hasProceduresFolder: true,
-    hasSequencesFolder: false,
-    hasTriggersFolder: true,
-    tableHasColumnsFolder: true,
-    tableHasIndexesFolder: true,
-    tableHasConstraintsFolder: true,
-    systemSchemas: ['information_schema', 'performance_schema', 'mysql', 'sys'],
-  },
-  postgres: {
-    hasSchemas: true,
-    hasTablesFolder: true,
-    hasViewsFolder: true,
-    hasFunctionsFolder: true,
-    hasProceduresFolder: true,
-    hasSequencesFolder: true,
-    hasTriggersFolder: true,
-    tableHasColumnsFolder: true,
-    tableHasIndexesFolder: true,
-    tableHasConstraintsFolder: true,
-    systemSchemas: ['information_schema', 'pg_catalog', 'pg_toast'],
-  },
-  sqlite: {
-    hasSchemas: false,
-    hasTablesFolder: true,
-    hasViewsFolder: true,
-    hasFunctionsFolder: false,
-    hasProceduresFolder: false,
-    hasSequencesFolder: false,
-    hasTriggersFolder: true,
-    tableHasColumnsFolder: true,
-    tableHasIndexesFolder: true,
-    tableHasConstraintsFolder: false,
-    systemSchemas: ['sqlite_schema'],
-  },
-  duckdb: {
-    hasSchemas: true,
-    hasTablesFolder: true,
-    hasViewsFolder: true,
-    hasFunctionsFolder: true,
-    hasProceduresFolder: false,
-    hasSequencesFolder: false,
-    hasTriggersFolder: false,
-    tableHasColumnsFolder: true,
-    tableHasIndexesFolder: true,
-    tableHasConstraintsFolder: true,
-    systemSchemas: ['information_schema', 'pg_catalog'],
-  },
+function isFolderEnabled(config: NavigationConfig, folderKey: string): boolean {
+  const folder = config.folders[folderKey as keyof typeof config.folders] as NavigationFolderConfig | undefined
+  return folder?.enabled ?? false
 }
 
 export function useDatabaseTreeLoader() {
   const navigatorStore = useDatabaseNavigatorStore()
   const runtimeConnectionStore = useRuntimeConnectionStore()
-
-  /**
-   * 获取数据库类型配置
-   */
-  function getDbTypeConfig(dbType: string): ITreeStructureConfig {
-    return DB_TYPE_TREE_CONFIGS[dbType.toLowerCase()] || DB_TYPE_TREE_CONFIGS.postgres
-  }
 
   /**
    * 创建连接节点
@@ -178,7 +105,7 @@ export function useDatabaseTreeLoader() {
   function createSchemaNodes(
     connectionId: string,
     dbName: string,
-    config: ITreeStructureConfig
+    config: NavigationConfig
   ): VirtualTreeNode[] {
     const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
     const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
@@ -204,18 +131,18 @@ export function useDatabaseTreeLoader() {
   function createDatabaseObjectNodes(
     connectionId: string,
     dbName: string,
-    config: ITreeStructureConfig
+    config: NavigationConfig
   ): VirtualTreeNode[] {
     const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
     const nodes: VirtualTreeNode[] = []
 
-    if (config.hasTablesFolder) {
+    if (isFolderEnabled(config, 'tables')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['tables-folder', connectionId, dbName]),
         level: 2,
         isExpanded: false,
         isLeaf: false,
-        label: 'Tables',
+        label: config.folders.tables.label,
         type: 'tables-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
@@ -223,13 +150,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasViewsFolder) {
+    if (isFolderEnabled(config, 'views')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['views-folder', connectionId, dbName]),
         level: 2,
         isExpanded: false,
         isLeaf: false,
-        label: 'Views',
+        label: config.folders.views.label,
         type: 'views-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
@@ -237,13 +164,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasFunctionsFolder) {
+    if (isFolderEnabled(config, 'functions')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['functions-folder', connectionId, dbName]),
         level: 2,
         isExpanded: false,
         isLeaf: false,
-        label: 'Functions',
+        label: config.folders.functions.label,
         type: 'functions-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
@@ -251,13 +178,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasProceduresFolder) {
+    if (isFolderEnabled(config, 'procedures')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName]),
         level: 2,
         isExpanded: false,
         isLeaf: false,
-        label: 'Procedures',
+        label: config.folders.procedures.label,
         type: 'procedures-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
@@ -265,13 +192,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasTriggersFolder) {
+    if (isFolderEnabled(config, 'triggers')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['triggers-folder', connectionId, dbName]),
         level: 2,
         isExpanded: false,
         isLeaf: false,
-        label: 'Triggers',
+        label: config.folders.triggers.label,
         type: 'triggers-folder',
         data: { connectionId, dbName },
         parentId: parentKey,
@@ -289,18 +216,18 @@ export function useDatabaseTreeLoader() {
     connectionId: string,
     dbName: string,
     schemaName: string,
-    config: ITreeStructureConfig
+    config: NavigationConfig
   ): VirtualTreeNode[] {
     const parentKey = NodeKeyEncoder.encode(['schema', connectionId, dbName, schemaName])
     const nodes: VirtualTreeNode[] = []
 
-    if (config.hasTablesFolder) {
+    if (isFolderEnabled(config, 'tables')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName]),
         level: 3,
         isExpanded: false,
         isLeaf: false,
-        label: 'Tables',
+        label: config.folders.tables.label,
         type: 'tables-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
@@ -308,13 +235,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasViewsFolder) {
+    if (isFolderEnabled(config, 'views')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['views-folder', connectionId, dbName, schemaName]),
         level: 3,
         isExpanded: false,
         isLeaf: false,
-        label: 'Views',
+        label: config.folders.views.label,
         type: 'views-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
@@ -322,13 +249,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasFunctionsFolder) {
+    if (isFolderEnabled(config, 'functions')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['functions-folder', connectionId, dbName, schemaName]),
         level: 3,
         isExpanded: false,
         isLeaf: false,
-        label: 'Functions',
+        label: config.folders.functions.label,
         type: 'functions-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
@@ -336,13 +263,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasProceduresFolder) {
+    if (isFolderEnabled(config, 'procedures')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['procedures-folder', connectionId, dbName, schemaName]),
         level: 3,
         isExpanded: false,
         isLeaf: false,
-        label: 'Procedures',
+        label: config.folders.procedures.label,
         type: 'procedures-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
@@ -350,13 +277,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasSequencesFolder) {
+    if (isFolderEnabled(config, 'sequences')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['sequences-folder', connectionId, dbName, schemaName]),
         level: 3,
         isExpanded: false,
         isLeaf: false,
-        label: 'Sequences',
+        label: config.folders.sequences.label,
         type: 'sequences-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
@@ -364,13 +291,13 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.hasTriggersFolder) {
+    if (isFolderEnabled(config, 'triggers')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['triggers-folder', connectionId, dbName, schemaName]),
         level: 3,
         isExpanded: false,
         isLeaf: false,
-        label: 'Triggers',
+        label: config.folders.triggers.label,
         type: 'triggers-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
@@ -388,7 +315,7 @@ export function useDatabaseTreeLoader() {
     connectionId: string,
     dbName: string,
     schemaName: string | undefined,
-    config: ITreeStructureConfig
+    config: NavigationConfig
   ): VirtualTreeNode[] {
     const tables = navigatorStore.getSchemaTables(connectionId, dbName, schemaName || '')
     const parentKey = schemaName
@@ -404,7 +331,7 @@ export function useDatabaseTreeLoader() {
       type: 'table',
       data: { connectionId, dbName, schemaName, tableName: table.name },
       parentId: parentKey,
-      childCount: config.tableHasColumnsFolder ? (table.columns?.length || 0) + 3 : 0,
+      childCount: config.tableChildren.columns ? (table.columns?.length || 0) + 3 : 0,
     }))
   }
 
@@ -504,7 +431,7 @@ export function useDatabaseTreeLoader() {
     dbName: string,
     schemaName: string | undefined,
     tableName: string,
-    config: ITreeStructureConfig
+    config: NavigationConfig
   ): VirtualTreeNode[] {
     const table = navigatorStore
       .getSchemaTables(connectionId, dbName, schemaName || '')
@@ -522,7 +449,7 @@ export function useDatabaseTreeLoader() {
     const level = schemaName ? 5 : 4
     const nodes: VirtualTreeNode[] = []
 
-    if (config.tableHasColumnsFolder && table.columns) {
+    if (config.tableChildren.columns && table.columns) {
       nodes.push({
         key: NodeKeyEncoder.encode([
           'columns-folder',
@@ -542,7 +469,7 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.tableHasIndexesFolder && table.indexes && table.indexes.length > 0) {
+    if (config.tableChildren.indexes && table.indexes && table.indexes.length > 0) {
       nodes.push({
         key: NodeKeyEncoder.encode([
           'indexes-folder',
@@ -562,7 +489,7 @@ export function useDatabaseTreeLoader() {
       })
     }
 
-    if (config.tableHasConstraintsFolder && table.constraints && table.constraints.length > 0) {
+    if (config.tableChildren.constraints && table.constraints && table.constraints.length > 0) {
       nodes.push({
         key: NodeKeyEncoder.encode([
           'constraints-folder',
@@ -746,7 +673,7 @@ export function useDatabaseTreeLoader() {
     const nodeType = keyParts[0]
     const connectionId = keyParts[1]
     const dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
-    const config = getDbTypeConfig(dbType)
+    const config = await getNavConfig(dbType)
 
     try {
       // Level 0: 连接节点 -> 数据库列表

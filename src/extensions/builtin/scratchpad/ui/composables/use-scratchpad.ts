@@ -29,7 +29,7 @@ import type {
   ExternalReference,
   AnalyzableFile,
   PromoteResult,
-  SearchMatch,
+  SearchResult,
 } from '../../types'
 
 export function useScratchpad() {
@@ -264,12 +264,12 @@ export function useScratchpad() {
     }
   }
 
-  async function searchContent(query: string): Promise<SearchMatch[]> {
+  async function searchContent(query: string, caseSensitive = false): Promise<SearchResult | null> {
     try {
-      return await searchFileContent(query)
+      return await searchFileContent(query, caseSensitive)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
-      return []
+      return null
     }
   }
 

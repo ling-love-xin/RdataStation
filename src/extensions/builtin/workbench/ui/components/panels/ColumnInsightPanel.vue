@@ -6,7 +6,7 @@
     </div>
 
     <div v-if="insightStore.isLoading" class="insight-loading">
-      <div class="skeleton skeleton-title" :style="{ width: skeletonWidth() }"></div>
+      <div class="skeleton skeleton-title" :style="{ width: skeletonWidth() + '%' }"></div>
       <div class="skeleton skeleton-row" :style="{ width: skeletonWidth() + 15 + '%' }"></div>
       <div class="skeleton skeleton-row" :style="{ width: skeletonWidth() - 20 + '%' }"></div>
       <div class="skeleton skeleton-row" :style="{ width: skeletonWidth() + '%' }"></div>
@@ -22,7 +22,7 @@
       <NTabs v-model:value="activeTab" type="segment" size="small" animated>
         <NTabPane name="column" :tab="t('resultPanel.columnInsight')">
           <div class="panel-header">
-            <span class="panel-title mono">{{ insightStore.column }}</span>
+            <span class="panel-title mono">{{ insightStore.currentColumn }}</span>
             <div class="panel-actions">
               <NButton size="tiny" quaternary :loading="insightStore.isLoading" @click="retry()">
                 <template #icon><RefreshCw :size="13" /></template>
@@ -60,11 +60,20 @@
             <NTag v-for="r in applicableRules" :key="r.id" size="tiny" :bordered="false">
               {{ r.name }}
             </NTag>
+            <NButton
+              size="tiny"
+              quaternary
+              :loading="insightStore.isReloadingRules"
+              title="热加载规则"
+              @click="reloadRules()"
+            >
+              <template #icon><RefreshCw :size="12" /></template>
+            </NButton>
           </div>
         </NTabPane>
 
         <NTabPane name="multi" :tab="t('resultPanel.multiColumn')">
-          <MultiColumnView :columns="availableColumns" />
+          <MultiColumnView :temp-table="insightStore.currentTempTable ?? ''" :all-columns="availableColumns" />
         </NTabPane>
 
         <NTabPane name="history" :tab="t('resultPanel.history')">
@@ -80,6 +89,8 @@ import { Database, RefreshCw, Download } from 'lucide-vue-next'
 import { NTabs, NTabPane, NButton, NTag } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import { useProjectStore } from '@/core/project/stores/project'
 
 import InsightHistoryTab from './insight/InsightHistoryTab.vue'
 import InsightStatsSection from './insight/InsightStatsSection.vue'
@@ -97,11 +108,12 @@ import type {
 const { t } = useI18n()
 
 const insightStore = useInsightStore()
+const projectStore = useProjectStore()
 const activeTab = ref('column')
 
 const availableColumns = computed(() => {
   if (!insightStore.insightData) return []
-  return [insightStore.column ?? 'unknown']
+  return [insightStore.currentColumn ?? 'unknown']
 })
 
 const statsKind = computed(() => {
@@ -149,7 +161,7 @@ const applicableRules = computed(() => {
   })
 })
 
-const storageSize = computed(() => insightStore.historyVersions.length * 2)
+const storageSize = computed(() => insightStore.history.length * 2)
 const storageSizeStr = computed(() => `${storageSize.value} KB`)
 
 function openVisualization() {
@@ -230,7 +242,7 @@ function openVisualization() {
   const renderHint = applicableRules.value.find((r) => r.render?.component)?.render
 
   insightStore.pendingVisualizationRequest = {
-    title: `${insightStore.column} ${t('resultPanel.insightChart')}`,
+    title: `${insightStore.currentColumn} ${t('resultPanel.insightChart')}`,
     columns: result.columns,
     data: result.rows,
     chartType: renderHint?.component ?? undefined,
@@ -238,18 +250,25 @@ function openVisualization() {
 }
 
 function filterByValue(val: string) {
-  if (!insightStore.tempTable || !insightStore.column) return
-  insightStore.filterByValue(val)
+  if (!insightStore.currentTempTable || !insightStore.currentColumn) return
+  insightStore.loadColumnInsight(insightStore.currentTempTable, val)
 }
 
-function retry() {
-  if (insightStore.tempTable && insightStore.column) {
-    insightStore.loadColumnInsight(insightStore.tempTable, insightStore.column)
+function reloadRules() {
+  const projectPath = projectStore.projectPath
+  if (projectPath) {
+    insightStore.reloadRules(projectPath)
   }
 }
 
-function skeletonWidth(): string {
-  return (50 + Math.random() * 30).toFixed(0) + '%'
+function retry() {
+  if (insightStore.currentTempTable && insightStore.currentColumn) {
+    insightStore.loadColumnInsight(insightStore.currentTempTable, insightStore.currentColumn)
+  }
+}
+
+function skeletonWidth(): number {
+  return 50 + Math.random() * 30
 }
 
 function handleCleanup() {
@@ -265,7 +284,7 @@ function exportJSON() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${insightStore.column ?? 'column'}_insight.json`
+  a.download = `${insightStore.currentColumn ?? 'column'}_insight.json`
   a.click()
   URL.revokeObjectURL(url)
 }

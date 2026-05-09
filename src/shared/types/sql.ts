@@ -25,6 +25,7 @@ export interface SqlEditorParams {
   scratchpadRelativePath?: string
   scratchpadFileName?: string
   language?: string
+  initialLine?: number
 }
 
 export interface ExecuteSqlResponse {

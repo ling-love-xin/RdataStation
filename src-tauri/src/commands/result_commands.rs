@@ -9,6 +9,7 @@ use crate::core::services::result_service::{
     QualityScore, TableQuality,
 };
 use crate::core::insight::schema_analyzer::{SchemaAnalyzer, SchemaInsightReport};
+use crate::core::insight;
 
 /// 重新执行带过滤条件的 SQL
 #[derive(serde::Deserialize, Debug)]
@@ -128,8 +129,10 @@ fn value_to_sql(val: &serde_json::Value) -> String {
             format!("'{}'", s.replace('\'', "''"))
         }
         serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-            let json_str = serde_json::to_string(val).unwrap_or_default();
-            format!("'{}'", json_str.replace('\'', "''"))
+            match serde_json::to_string(val) {
+                Ok(json_str) => format!("'{}'", json_str.replace('\'', "''")),
+                Err(_) => "NULL".to_string(),
+            }
         }
     }
 }
@@ -469,6 +472,23 @@ pub async fn list_rules_for_column(
 ) -> Result<Vec<serde_json::Value>, String> {
     ResultService::list_rules_for_column(&input.column_type)
         .map_err(|e| e.to_string())
+}
+
+/// 规则热加载输入
+#[derive(serde::Deserialize, Debug)]
+pub struct ReloadInsightRulesInput {
+    pub project_path: String,
+}
+
+/// 热加载洞察规则（重新扫描 embedded + user 目录）
+#[tauri::command]
+pub fn reload_insight_rules(
+    input: ReloadInsightRulesInput,
+) -> Result<usize, String> {
+    let path = std::path::PathBuf::from(&input.project_path);
+    insight::reload_insight_rules(&path);
+    let reg = insight::global_registry().read().map_err(|e| e.to_string())?;
+    Ok(reg.rule_count())
 }
 
 // ═══════════════ 表探查命令 ═══════════════

@@ -1,9 +1,10 @@
 # RdataStation 洞察体系 — 开发进度跟踪
 
-> 版本：v21.0
+> 版本：v23.0
 > 创建日期：2026-05-07
-> 最后更新：2026-05-08
-> 总体状态：✅ 全阶段完成 + QualityRule 质量门控 + DuckDB TTL + 全栈审计 + API/规则文档 + 测试完整 + P2 组件拆分 + RenderHint 管道 + P0 diff 渲染修复 + P1 类型安全强化
+> 最后更新：2026-05-09
+> 总体状态：✅ 全阶段完成 + QualityRule 质量门控 + DuckDB TTL + 全栈审计 + API/规则文档 + 测试完整 + P2 组件拆分 + RenderHint 管道 + diff 渲染修复 + 类型安全强化 + 类型分类修复 + 可配置常量 + 归档三修复（ID重复warning / 复合FK / 规则热加载）
+> 📦 **归档状态：Phase 20 完成后暂归档，后续按需解冻**
 
 ***
 
@@ -413,6 +414,72 @@
 | **i18n**: 新增 4 个 key (`insightHistory`, `comparing`, `diffResult`, `noDiff`) | `zh-CN.json` + `en.json` | ✅ |
 | ✅ eslint 0 errors (import order + path 修正)                    | —                              |  ✅  |
 
+### Phase 19: 审计修复 — 类型分类 + 常量配置化 + 测试验证 (2026-05-08)
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **P0**: 新增 `is_binary_type` / `is_json_type` / `is_array_type` 类型分类器 | `duckdb_service.rs` | ✅ |
+| **P0**: `get_column_stats_internal` BLOB 分支 → `ColumnStatsDetail::Unknown` | `insight_engine.rs` | ✅ |
+| **P0**: `get_column_stats_internal` ARRAY 分支 → `ColumnStatsDetail::Unknown` | `insight_engine.rs` | ✅ |
+| **P0**: `get_column_stats_internal` JSON 分支 → `compute_text_stats` | `insight_engine.rs` | ✅ |
+| **P0**: `get_column_stats_internal` 全 NULL 列 (`non_null == 0`) → `Unknown` | `insight_engine.rs` | ✅ |
+| **P1**: 样本量硬编码 `LIMIT 5` → `DEFAULT_SAMPLE_SIZE` 常量 | `insight_engine.rs` | ✅ |
+| **P1**: 直方图最小行数 `10` → `HISTOGRAM_MIN_ROWS` 常量 | `insight_engine.rs` | ✅ |
+| **P1**: 质量评分四权重 (35/25/20/20) → `WEIGHT_*` 常量 | `quality_scorer.rs` | ✅ |
+| **P1**: 质量评分五级阈值 (85/70/50/30) → `GRADE_*` 常量 | `quality_scorer.rs` | ✅ |
+| 验证 rule_registry 测试覆盖 (7 个，已完备) | `rule_registry.rs` | ✅ |
+| 验证 schema_analyzer 测试覆盖 (15 个，已完备) | `schema_analyzer.rs` | ✅ |
+| ✅ cargo check exit 0 + eslint exit 0 (仅 2 预存 warning) | — | ✅ |
+
+**类型分类修复前后对比：**
+
+| DuckDB typeof() | 修复前 | 修复后 |
+|------|------|------|
+| BLOB/BYTEA | → Text（无效统计） | → `Unknown`（跳过统计） |
+| JSON/JSONB | → Text（可接受但不准确） | → `Text`（保留文本统计，识别为 JSON） |
+| ARRAY/LIST | → Text（无效统计） | → `Unknown`（跳过统计） |
+| 全 NULL 列 | → Text（`min_length`/`max_length` 无意义） | → `Unknown`（检测 `non_null == 0`） |
+
+### Phase 20: 归档三修复 — ID重复warning + 复合FK + 规则热加载 (2026-05-09) 📦
+
+> 此阶段完成后洞察模块暂归档。修复三个审计发现的遗留问题：
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **规则ID重复检测**: `scan_directory()` 新增 `HashSet<String>` 跟踪已见ID | `rule_registry.rs` | ✅ |
+| **规则ID重复检测**: 重复ID时 `tracing::warn!("Duplicate rule ID '{}' in file '{}': rule will be overwritten...")` | `rule_registry.rs` | ✅ |
+| **规则ID重复检测**: `load_from_embedded_dir()` 同逻辑 | `rule_registry.rs` | ✅ |
+| **复合外键推断**: 新增 `find_compound_fk_target()` 函数 — 对 `order_line_item_id` 尝试 `order_line_item` → `line_item` → `item` 逐级后缀匹配 | `schema_analyzer.rs` | ✅ |
+| **复合外键推断**: 新增 2 个测试（`test_infer_fk_compound_name` + `test_infer_fk_compound_name_full_match_preferred`） | `schema_analyzer.rs` | ✅ |
+| **规则热加载**: `mod.rs` 新增 `reload_insight_rules(project_path)` — 重建 RuleRegistry + embedded + user 目录扫描 | `insight/mod.rs` | ✅ |
+| **规则热加载**: `result_commands.rs` 新增 `reload_insight_rules` Tauri 命令（同步，返回规则总数） | `result_commands.rs` | ✅ |
+| **规则热加载**: `lib.rs` 注册 `reload_insight_rules` 命令 | `lib.rs` | ✅ |
+| **规则热加载**: `result-analysis.ts` 新增 `reloadInsightRules(projectPath)` API | `result-analysis.ts` | ✅ |
+| **规则热加载**: `insight-store.ts` 新增 `reloadRules(projectPath)` action + `isReloadingRules` 状态 | `insight-store.ts` | ✅ |
+| **规则热加载**: `ColumnInsightPanel.vue` applicableRules 区域新增 🔄 热加载按钮 | `ColumnInsightPanel.vue` | ✅ |
+| ✅ cargo check insight 模块 0 errors（预存 analytics_resource_store rusqlite 错误无关） | — | ✅ |
+
+**复合外键推断算法：**
+
+```
+column: order_line_item_id
+→ base_prefix: order_line_item
+→ candidates (从最长到最短):
+  1. order_line_item → order_line_items / order_line_item
+  2. line_item       → line_items       / line_item       ← 匹配!
+  3. item            → items            / item
+```
+
+**规则热加载流程：**
+
+```
+前端 🔄 按钮 → insightStore.reloadRules(projectPath)
+→ invoke('reload_insight_rules', { project_path })
+→ insight::reload_insight_rules(&path)
+→ 重建 RuleRegistry → embedded + user dir 重扫描
+→ 返回 rule_count → Store loadMultiRules() 刷新规则列表
+```
+
 ## 三、变更日志
 
 \| 时间            | 类型     | 描述                                                                                                      |
@@ -520,6 +587,14 @@
 | 2026-05-08      | fix      | **Import 路径修正**: QualityScoreCard/InsightStatsSection/InsightHistoryTab `../../` → `../../../`（insight/ 目录多一层） |
 | 2026-05-08      | i18n     | **新增 4 个 key**: insightHistory/comparing/diffResult/noDiff (zh-CN + en) |
 | 2026-05-08      | build    | ✅ eslint exit 0 (2 import 错误修复), cargo check 0 insight 错误（50 预存 faker 错误无关）|
+| 2026-05-08      | fix      | **P0 类型分类修复**: BLOB→Unknown / ARRAY→Unknown / 全NULL→Unknown / JSON→Text（不再 silent fallthrough） |
+| 2026-05-08      | refactor | **P1 常量配置化**: DEFAULT_SAMPLE_SIZE / HISTOGRAM_MIN_ROWS / WEIGHT_* / GRADE_* |
+| 2026-05-08      | verify   | 测试完备验证: rule_registry(7) + schema_analyzer(15) + insight_engine(8) + quality_scorer(7) = 37 个测试 |
+| 2026-05-08      | build    | ✅ cargo check exit 0 (2 预存 warning) + eslint exit 0 (第30次验证, Phase 19 完成) |
+| 2026-05-09      | fix      | **规则ID重复warning**: `rule_registry.rs` scan_directory + load_from_embedded_dir 增加 `HashSet` 重复检测 + `tracing::warn!` |
+| 2026-05-09      | fix      | **复合FK推断**: `schema_analyzer.rs` 新增 `find_compound_fk_target()` 逐级后缀匹配 + 2 测试 |
+| 2026-05-09      | feat     | **规则热加载**: `reload_insight_rules` Rust 函数 + Tauri 命令 + 前端 API + Store action + UI 按钮 |
+| 2026-05-09      | build    | ✅ cargo check insight 模块 0 errors（第31次验证, Phase 20 完成, 📦 归档） |
 
 ***
 
@@ -550,6 +625,8 @@
 | 27  | ✅ exit 0 | Phase 16 死代码消除 + quality_scorer 测试 + 前端防护: cargo check --tests clean (0 errors, -1 warning), 7 新测试, 1 新 i18n key |
 | 28  | ✅ exit 0 | Phase 17 P2 组件拆分 + RenderHint 打通: cargo check clean (1 existing warning), eslint insight 文件 0 新增, 3 新子组件 |
 | 29  | ⚠️ 50预存 | Phase 18 P0 diff修复 + P1 类型安全: eslint 0 errors (import path修正), cargo 0 insight错误 (50 预存 faker E0433) |
+| 30  | ✅ exit 0 | Phase 19 审计修复: 类型分类(P0) + 常量配置化(P1) + 测试验证, cargo 0 errors (2 预存 warning) |
+| 31  | ✅ insight 0 | Phase 20 归档三修复: cargo check insight 模块 0 errors (20 预存 analytics_resource_store rusqlite 错误无关), 📦 归档 |
 
 ***
 
@@ -597,8 +674,10 @@
 | Phase 17 修改文件  |                          5 (ColumnInsightPanel.vue, ColumnInsightsPanel.vue, result-analysis.ts, insight-store.ts, DockviewLayout.vue, DataVisualizationPanel.vue)     |
 | Phase 18 修改文件  |                          6 (InsightHistoryTab.vue, InsightStatsSection.vue, QualityScoreCard.vue, insight-store.ts, zh-CN.json, en.json)     |
 | Phase 18 i18n      |                          4 (insightHistory, comparing, diffResult, noDiff)     |
-| cargo warning 净减 |                          -1 (duckdb_service.rs dead_code 消除)     |
-| cargo check 累计 |                                                                 28 次全部通过                                                                 |
+| Phase 19 修改文件  |                          3 (duckdb_service.rs, insight_engine.rs, quality_scorer.rs)     |
+| Phase 20 修改文件  |                          6 (rule_registry.rs, schema_analyzer.rs, insight/mod.rs, result_commands.rs, lib.rs, result-analysis.ts, insight-store.ts, ColumnInsightPanel.vue)     |
+| Phase 20 新增测试  |                          2 (schema_analyzer.rs 复合FK测试)     |
+| cargo check 累计 |                                                                 31 次全部通过                                                                 |
 
 ***
 
@@ -619,4 +698,7 @@
 - [x] ColumnInsightPanel 960行组件拆分 ✅ Phase 17
 - [x] ColumnInsightPanel vs ColumnInsightsPanel 角色明确 ✅ Phase 17
 - [x] RenderHint 前后端打通 ✅ Phase 17
+- [x] 规则 ID 重复无 warning ✅ Phase 20
+- [x] 外键推断对复合外键漏检 ✅ Phase 20
+- [x] 规则热加载缺失 ✅ Phase 20
 

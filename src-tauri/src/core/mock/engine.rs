@@ -25,6 +25,16 @@ impl MockEngine {
     // ==================== 数据生成 ====================
 
     pub async fn generate(config: MockConfig) -> MockResult<MockGenerateResult> {
+        Self::generate_with_progress(config, |_, _| {}).await
+    }
+
+    pub async fn generate_with_progress<F>(
+        config: MockConfig,
+        on_progress: F,
+    ) -> MockResult<MockGenerateResult>
+    where
+        F: Fn(usize, usize) + Send + 'static,
+    {
         if config.row_count == 0 {
             return Err(MockError::InvalidRowCount(0));
         }
@@ -48,6 +58,7 @@ impl MockEngine {
         })?;
 
         let ddl = Self::build_create_table_ddl(&table_name, &config.columns);
+        conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{}\"", table_name))?;
         conn.execute_batch(&ddl)?;
 
         let total_batches = (config.row_count + BATCH_SIZE - 1) / BATCH_SIZE;
@@ -130,6 +141,7 @@ impl MockEngine {
                 value_lines.join(", ")
             );
             conn.execute_batch(&insert_sql)?;
+            on_progress(batch_idx + 1, total_batches);
         }
 
         DuckDBManager::global().register_temp_table(&table_name);
@@ -353,8 +365,11 @@ impl MockEngine {
                 use fake::faker::lorem::en::Word;
                 Word().fake_with_rng::<String, _>(rng)
             }
-            GeneratorConfig::Regex { .. } | GeneratorConfig::Template { .. } => {
-                Faker.fake_with_rng::<String, _>(rng)
+            GeneratorConfig::Regex { pattern } => {
+                generate_from_regex(pattern, rng)
+            }
+            GeneratorConfig::Template { template } => {
+                generate_from_template(template, rng)
             }
 
             // ========== 个人信息 ==========
@@ -421,8 +436,8 @@ impl MockEngine {
 
             // ========== 地址类 ==========
             GeneratorConfig::Country => {
-                use fake::faker::address::en::CountryName;
-                CountryName().fake_with_rng::<String, _>(rng)
+                use fake::faker::address::en::CountryCode;
+                CountryCode().fake_with_rng::<String, _>(rng)
             }
             GeneratorConfig::CountryCode => {
                 use fake::faker::address::en::CountryCode;
@@ -574,8 +589,14 @@ impl MockEngine {
                 CompanySuffix().fake_with_rng::<String, _>(rng)
             }
             GeneratorConfig::JobTitle => {
-                use fake::faker::company::zh_cn::Bs;
-                Bs().fake_with_rng::<String, _>(rng)
+                let titles = vec![
+                    "高级工程师", "产品经理", "技术总监", "项目经理",
+                    "架构师", "数据分析师", "运营经理", "市场总监",
+                    "财务经理", "人力资源总监", "后端工程师", "前端工程师",
+                    "测试工程师", "运维工程师", "设计师", "实习生",
+                ];
+                let idx = (0..titles.len()).fake_with_rng::<usize, _>(rng);
+                titles[idx].to_string()
             }
             GeneratorConfig::Profession => {
                 use fake::faker::company::en::Profession;
@@ -672,11 +693,20 @@ impl MockEngine {
 
             // ========== 网络/技术 ==========
             GeneratorConfig::Url => {
-                format!(
-                    "https://www.{}.{}",
-                    Faker.fake_with_rng::<String, _>(rng).to_lowercase().replace(' ', ""),
-                    ["com", "org", "net", "io", "dev"][(0usize..5).fake_with_rng::<usize, _>(rng)]
-                )
+                let tlds = ["com", "org", "net", "io", "dev", "app"];
+                let tld = tlds[(0..tlds.len()).fake_with_rng::<usize, _>(rng)];
+                let host: String = (0..(5..12).fake_with_rng::<usize, _>(rng))
+                    .map(|_| ((97..123).fake_with_rng::<u8, _>(rng)) as char)
+                    .collect();
+                let path: String = (0..(0..3).fake_with_rng::<usize, _>(rng))
+                    .map(|_| {
+                        let seg: String = (0..(3..8).fake_with_rng::<usize, _>(rng))
+                            .map(|_| ((97..123).fake_with_rng::<u8, _>(rng)) as char)
+                            .collect();
+                        format!("/{}", seg)
+                    })
+                    .collect();
+                format!("https://{}.{}{}", host, tld, path)
             }
             GeneratorConfig::UserAgent => {
                 use fake::faker::internet::en::UserAgent;
@@ -843,10 +873,21 @@ impl MockEngine {
 
             // ========== 汽车/行政 ==========
             GeneratorConfig::LicencePlate => {
-                fake::faker::automotive::fr_fr::LicencePlate().fake_with_rng::<String, _>(rng)
+                let letters: String = (0..3)
+                    .map(|_| ((65..91).fake_with_rng::<u8, _>(rng)) as char)
+                    .collect();
+                let digits: String = (0..4)
+                    .map(|_| ((48..58).fake_with_rng::<u8, _>(rng)) as char)
+                    .collect();
+                format!("{}-{}", letters, digits)
             }
             GeneratorConfig::HealthInsuranceCode => {
-                fake::faker::administrative::fr_fr::HealthInsuranceCode().fake_with_rng::<String, _>(rng)
+                format!(
+                    "{}{}{}",
+                    (0..100).fake_with_rng::<u32, _>(rng),
+                    (0..100).fake_with_rng::<u32, _>(rng),
+                    (0..10000).fake_with_rng::<u32, _>(rng),
+                )
             }
 
             // ========== Markdown（需要 Range<usize> 参数，返回 Vec<String> 或 String）==========
@@ -973,10 +1014,9 @@ fn parse_data_type(data_type: &str) -> crate::core::mock::models::ColumnDataType
 
 fn parse_date(s: &str) -> chrono::NaiveDate {
     chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
-        .unwrap_or_else(|_| {
-            chrono::NaiveDate::from_ymd_opt(2020, 1, 1)
-                .unwrap_or(chrono::NaiveDate::default())
-        })
+        .ok()
+        .unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(2020, 1, 1)
+            .unwrap_or_default())
 }
 
 fn datetime_between(min: &str, max: &str, rng: &mut StdRng) -> String {
@@ -1034,6 +1074,213 @@ fn value_to_sql_literal(val: &duckdb::types::Value) -> String {
     }
 }
 
+/// 从正则表达式生成随机字符串（支持常见模式）
+fn generate_from_regex(pattern: &str, rng: &mut StdRng) -> String {
+    let mut result = String::new();
+    let chars: Vec<char> = pattern.chars().collect();
+    let mut i = 0;
+    let len = chars.len();
+    while i < len {
+        match chars[i] {
+            '\\' if i + 1 < len => {
+                i += 1;
+                match chars[i] {
+                    'd' => result.push((b'0' + (0..10).fake_with_rng::<u8, _>(rng)) as char),
+                    'w' => {
+                        let pool = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+                        let idx = (0..pool.len()).fake_with_rng::<usize, _>(rng);
+                        result.push(pool[idx] as char);
+                    }
+                    's' => result.push(' '),
+                    'n' => result.push('\n'),
+                    't' => result.push('\t'),
+                    c => result.push(c),
+                }
+            }
+            '[' => {
+                let mut class_chars = Vec::new();
+                i += 1;
+                let mut negated = false;
+                if i < len && chars[i] == '^' {
+                    negated = true;
+                    i += 1;
+                }
+                while i < len && chars[i] != ']' {
+                    if i + 2 < len && chars[i + 1] == '-' {
+                        let start = chars[i] as u32;
+                        let end = chars[i + 2] as u32;
+                        if end >= start {
+                            for c in (start..=end).take(256) {
+                                class_chars.push(char::from_u32(c).unwrap_or(' '));
+                            }
+                        }
+                        i += 3;
+                    } else {
+                        class_chars.push(chars[i]);
+                        i += 1;
+                    }
+                }
+                if i < len { i += 1; }
+                if negated {
+                    let full: Vec<char> =
+                        (32..127).filter_map(char::from_u32).collect();
+                    class_chars = full.into_iter().filter(|c| !class_chars.contains(c)).collect();
+                }
+                if !class_chars.is_empty() {
+                    let idx = (0..class_chars.len()).fake_with_rng::<usize, _>(rng);
+                    result.push(class_chars[idx]);
+                }
+            }
+            '{' => {
+                i += 1;
+                let mut num_str = String::new();
+                while i < len && chars[i] != '}' && chars[i] != ',' {
+                    num_str.push(chars[i]);
+                    i += 1;
+                }
+                let min: usize = num_str.parse().unwrap_or(1);
+                let mut max = min;
+                if i < len && chars[i] == ',' {
+                    i += 1;
+                    num_str.clear();
+                    while i < len && chars[i] != '}' {
+                        num_str.push(chars[i]);
+                        i += 1;
+                    }
+                    max = num_str.parse().unwrap_or(min);
+                }
+                if i < len { i += 1; }
+                // 应用量词到前一个字符
+                let count = if max > min {
+                    (min..=max).fake_with_rng::<usize, _>(rng)
+                } else {
+                    min
+                };
+                if let Some(last) = result.pop() {
+                    for _ in 0..count { result.push(last); }
+                }
+            }
+            '+' | '*' | '?' | '.' => {
+                // 简化处理：跳过这些量词
+            }
+            '(' | ')' | '^' | '$' => {
+                // 锚点和分组符，跳过
+            }
+            c => result.push(c),
+        }
+        i += 1;
+    }
+    if result.is_empty() {
+        Faker.fake_with_rng::<String, _>(rng)
+    } else {
+        result
+    }
+}
+
+/// 模板字符串替换：{{name}} → 生成值
+fn generate_from_template(template: &str, rng: &mut StdRng) -> String {
+    let mut result = template.to_string();
+
+    let replacements: &[(&str, fn(&mut StdRng) -> String)] = &[
+        ("name", |r| {
+            use fake::faker::name::zh_cn::Name;
+            Name().fake_with_rng::<String, _>(r)
+        }),
+        ("first_name", |r| {
+            use fake::faker::name::zh_cn::FirstName;
+            FirstName().fake_with_rng::<String, _>(r)
+        }),
+        ("last_name", |r| {
+            use fake::faker::name::zh_cn::LastName;
+            LastName().fake_with_rng::<String, _>(r)
+        }),
+        ("email", |r| {
+            use fake::faker::internet::en::SafeEmail;
+            SafeEmail().fake_with_rng::<String, _>(r)
+        }),
+        ("uuid", |r| {
+            fake::uuid::UUIDv4.fake_with_rng::<String, _>(r)
+        }),
+        ("word", |r| {
+            use fake::faker::lorem::en::Word;
+            Word().fake_with_rng::<String, _>(r)
+        }),
+        ("sentence", |r| {
+            use fake::faker::lorem::en::Sentence;
+            Sentence(3..8).fake_with_rng::<String, _>(r)
+        }),
+        ("phone", |r| {
+            use fake::faker::phone_number::zh_cn::PhoneNumber;
+            PhoneNumber().fake_with_rng::<String, _>(r)
+        }),
+        ("date", |r| {
+            use fake::faker::chrono::en::Date;
+            Date().fake_with_rng::<chrono::NaiveDate, _>(r).format("%Y-%m-%d").to_string()
+        }),
+        ("datetime", |r| {
+            fake::faker::chrono::en::DateTime().fake_with_rng::<chrono::DateTime<chrono::Utc>, _>(r).format("%Y-%m-%d %H:%M:%S").to_string()
+        }),
+    ];
+
+    for (key, gen_fn) in replacements {
+        let placeholder = format!("{{{{{}}}}}", key);
+        if result.contains(&placeholder) {
+            let value = gen_fn(rng);
+            result = result.replace(&placeholder, &value);
+        }
+    }
+
+    // 处理 {{int:MIN-MAX}} 格式（手动解析，避免额外依赖）
+    let mut int_result = String::new();
+    let template_bytes = result.as_bytes();
+    let mut pos = 0;
+    let prefix = b"{{int:";
+    while pos < template_bytes.len() {
+        if pos + prefix.len() <= template_bytes.len()
+            && &template_bytes[pos..pos + prefix.len()] == prefix
+        {
+            let start_idx = pos + prefix.len();
+            let mut end_pos = start_idx;
+            while end_pos < template_bytes.len()
+                && template_bytes[end_pos] != b'-'
+                && template_bytes[end_pos] != b'}'
+            {
+                end_pos += 1;
+            }
+            let min_str = std::str::from_utf8(&template_bytes[start_idx..end_pos]).unwrap_or("0");
+            if end_pos < template_bytes.len() && template_bytes[end_pos] == b'-' {
+                end_pos += 1;
+                let val_start = end_pos;
+                while end_pos < template_bytes.len() && template_bytes[end_pos] != b'}' {
+                    end_pos += 1;
+                }
+                let max_str =
+                    std::str::from_utf8(&template_bytes[val_start..end_pos]).unwrap_or("100");
+                if end_pos < template_bytes.len() && template_bytes[end_pos] == b'}' {
+                    end_pos += 1;
+                }
+                let min: i64 = min_str.parse().unwrap_or(0);
+                let max: i64 = max_str.parse().unwrap_or(100);
+                let val: i64 = if max >= min {
+                    (min..=max).fake_with_rng::<i64, _>(rng)
+                } else {
+                    min
+                };
+                int_result.push_str(&val.to_string());
+            } else {
+                int_result.push_str(&result[pos..end_pos]);
+            }
+            pos = end_pos;
+        } else {
+            int_result.push(result.as_bytes()[pos] as char);
+            pos += 1;
+        }
+    }
+    result = int_result;
+
+    result
+}
+
 impl MockEngine {
     pub fn import_schema(input: &ImportSchemaInput) -> MockResult<Vec<ColumnDef>> {
     use crate::core::persistence::metadata_cache::{ConnectionType, MetadataCacheManager, MetadataCacheOps};
@@ -1067,7 +1314,7 @@ impl MockEngine {
                         name: col.name,
                         data_type,
                         generator: inferred.generator,
-                        nullable_ratio: if col.is_nullable { 0.0 } else { 0.0 },
+                        nullable_ratio: if col.is_nullable { 0.1 } else { 0.0 },
                         unique: col.is_unique,
                     });
                 }

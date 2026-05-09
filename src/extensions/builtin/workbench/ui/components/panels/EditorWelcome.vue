@@ -28,7 +28,7 @@
           >
             <Database :size="14" class="recent-icon" />
             <span class="recent-name">{{ conn.name || conn.connId }}</span>
-            <span class="recent-type">{{ conn.databaseType.toUpperCase() }}</span>
+            <span class="recent-type">{{ conn.dbType.toUpperCase() }}</span>
           </div>
         </div>
       </div>

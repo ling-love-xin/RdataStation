@@ -1,9 +1,9 @@
 # RdataStation 洞察体系 — 技术架构文档
 
-> 版本：v16.0
+> 版本：v18.0
 > 创建日期：2026-05-07
-> 最后更新：2026-05-08
-> 状态：✅ 完整架构（DuckDB 实例统一 + 端到端联动 + 动画 + 质量评分 + 表聚合 + Schema 洞察 + QualityRule 质量门控 + DuckDB TTL + API 参考 + RenderHint 图表自动选择 + 组件类型安全强化）
+> 最后更新：2026-05-09
+> 状态：✅ 完整架构（DuckDB 实例统一 + 端到端联动 + 动画 + 质量评分 + 表聚合 + Schema 洞察 + QualityRule 质量门控 + DuckDB TTL + API 参考 + RenderHint 图表自动选择 + 组件类型安全强化 + 动态类型分类 + 可配置常量 + Phase 20 归档修复：ID重复/复合FK/热加载）
 
 ---
 

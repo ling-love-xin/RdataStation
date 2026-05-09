@@ -94,29 +94,34 @@ const emit = defineEmits<{
 const searchQuery = ref('')
 
 // 数据库分类
+const CATEGORY_LABELS: Record<string, string> = {
+  relational: '关系型数据库',
+  'file-based': '文件数据库',
+  nosql: 'NoSQL',
+  analytics: '分析型数据库',
+  cloud: '云数据库',
+}
+
+function getDefaultCategory(_id: string): string {
+  return 'other'
+}
+
 const categories = computed<DatabaseCategory[]>(() => {
   const allDrivers = props.drivers
+  const grouped = new Map<string, DriverDescriptor[]>()
 
-  return [
-    {
-      key: 'relational',
-      label: '关系型数据库',
-      expanded: true,
-      databases: allDrivers.filter(d => ['mysql', 'postgres', 'mariadb'].includes(d.id)),
-    },
-    {
-      key: 'file-based',
-      label: '文件数据库',
-      expanded: true,
-      databases: allDrivers.filter(d => ['sqlite', 'duckdb'].includes(d.id)),
-    },
-    {
-      key: 'nosql',
-      label: 'NoSQL',
-      expanded: false,
-      databases: allDrivers.filter(d => ['mongodb', 'redis'].includes(d.id)),
-    },
-  ].filter(cat => cat.databases.length > 0)
+  for (const d of allDrivers) {
+    const cat = d.category || getDefaultCategory(d.id)
+    if (!grouped.has(cat)) grouped.set(cat, [])
+    grouped.get(cat)!.push(d)
+  }
+
+  return Array.from(grouped.entries()).map(([key, databases]) => ({
+    key,
+    label: CATEGORY_LABELS[key] || key,
+    expanded: key !== 'nosql',
+    databases,
+  }))
 })
 
 // 最近使用的驱动

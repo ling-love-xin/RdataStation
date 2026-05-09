@@ -36,6 +36,7 @@ export interface DriverDescriptor {
   name: string
   icon: string
   features: string[]
+  category?: string
   defaultPort?: number
   default_port?: number
   description?: string

@@ -5,12 +5,22 @@ use crate::core::mock::{
     MockHistoryRecord,
 };
 use tauri::Manager;
+use tauri::Emitter;
 
 #[tauri::command]
-pub async fn mock_generate(config: MockConfig) -> Result<MockGenerateResult, String> {
-    MockEngine::generate(config)
-        .await
-        .map_err(|e| e.to_string())
+pub async fn mock_generate(
+    config: MockConfig,
+    app: tauri::AppHandle,
+) -> Result<MockGenerateResult, String> {
+    let app_clone = app.clone();
+    MockEngine::generate_with_progress(config, move |current, total| {
+        let _ = app_clone.emit("mock:generate-progress", serde_json::json!({
+            "current": current,
+            "total": total
+        }));
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

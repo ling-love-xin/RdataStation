@@ -106,7 +106,16 @@ pub fn run() {
             // 导航器状态命令
             save_navigator_state,
             load_navigator_state,
-            
+
+            // 元数据浏览命令（MetadataBrowser trait）
+            load_databases,
+            load_schemas,
+            load_tables,
+            load_views,
+            load_columns,
+            load_procedures,
+            load_functions,
+
             // 项目命令
             create_project,
             get_project_config,
@@ -205,6 +214,7 @@ pub fn run() {
             execute_insight_rule,
             list_insight_rules,
             list_rules_for_column,
+            reload_insight_rules,
             get_table_profile,
             get_column_quality,
             batch_evaluate_columns,
@@ -239,6 +249,7 @@ pub fn run() {
             remove_analytics_resource_from_folder,
             create_analytics_tag,
             list_analytics_tags,
+            get_analytics_tag,
             add_analytics_tag_to_resource,
             remove_analytics_tag_from_resource,
             get_analytics_recycle_bin,

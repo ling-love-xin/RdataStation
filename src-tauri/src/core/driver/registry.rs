@@ -32,6 +32,8 @@ pub struct ConnectionConfig {
     pub password: Option<String>,
     /// 文件路径（SQLite/DuckDB 等文件型数据库）
     pub file_path: Option<String>,
+    /// 连接方式覆盖（避免重新构建 URL）
+    pub url_override: Option<String>,
     /// 连接方式（SSL/SSH/Proxy）
     #[serde(default)]
     pub connection_method: ConnectionMethod,
@@ -51,6 +53,7 @@ impl ConnectionConfig {
             username: None,
             password: None,
             file_path: None,
+            url_override: None,
             connection_method: ConnectionMethod::Direct,
             options: HashMap::new(),
         }
@@ -110,10 +113,20 @@ impl ConnectionConfig {
         self
     }
 
+    /// 设置预构建的 URL（绕过 to_url 自动构建）
+    pub fn with_url_override(mut self, url: impl Into<String>) -> Self {
+        self.url_override = Some(url.into());
+        self
+    }
+
     /// 转换为数据库连接 URL
     ///
-    /// 根据驱动类型生成对应的连接字符串
+    /// 如果设置了 url_override，直接返回；
+    /// 否则根据驱动类型生成对应的连接字符串
     pub fn to_url(&self) -> Result<String, String> {
+        if let Some(ref url) = self.url_override {
+            return Ok(url.clone());
+        }
         match self.driver.as_str() {
             "mysql" => self.build_mysql_url(),
             "postgres" => self.build_postgres_url(),
@@ -301,6 +314,34 @@ pub enum DriverFieldType {
     Select { options: Vec<(String, String)> },
 }
 
+/// 驱动种类：区分驱动实现方式
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DriverKind {
+    Native,
+    Jdbc,
+    Odbc,
+    Wasm,
+    Adbc,
+    Http,
+    Python,
+    Js,
+}
+
+impl DriverKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DriverKind::Native => "native",
+            DriverKind::Jdbc => "jdbc",
+            DriverKind::Odbc => "odbc",
+            DriverKind::Wasm => "wasm",
+            DriverKind::Adbc => "adbc",
+            DriverKind::Http => "http",
+            DriverKind::Python => "python",
+            DriverKind::Js => "js",
+        }
+    }
+}
+
 /// 驱动描述符（类似 DBeaver 的驱动定义）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DriverDescriptor {
@@ -310,6 +351,12 @@ pub struct DriverDescriptor {
     pub name: String,
     /// 驱动描述
     pub description: String,
+    /// 驱动种类（原生/JDBC/ODBC/WASM/...）
+    pub driver_kind: DriverKind,
+    /// 目标数据库类型（非 Native 驱动标记连接的数据库类型，如 JDBC 驱动可为 "mysql"）
+    pub target_database: Option<String>,
+    /// 驱动分类（relational / file-based / nosql / analytics / cloud）
+    pub category: String,
     /// 默认端口
     pub default_port: Option<u16>,
     /// 是否需要数据库名
@@ -324,6 +371,9 @@ pub struct DriverDescriptor {
     pub supports_http_proxy: bool,
     /// 是否支持 SOCKS 代理
     pub supports_socks_proxy: bool,
+    /// URL 模板（用于 to_url 扩展，支持新驱动类型）
+    /// 例如: "postgres://{username}:{password}@{host}:{port}/{database}"
+    pub url_template: Option<String>,
     /// 表单字段定义
     pub fields: Vec<DriverField>,
     /// 额外选项
@@ -331,12 +381,14 @@ pub struct DriverDescriptor {
 }
 
 impl DriverDescriptor {
-    /// 创建新的驱动描述符
+    /// 创建新的驱动描述符（默认为 Native 驱动）
     pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
             description: String::new(),
+            driver_kind: DriverKind::Native,
+            target_database: None,
             default_port: None,
             require_database: false,
             require_file: false,
@@ -344,8 +396,37 @@ impl DriverDescriptor {
             supports_ssh_tunnel: false,
             supports_http_proxy: false,
             supports_socks_proxy: false,
+            url_template: None,
             fields: Vec::new(),
             extra_options: Vec::new(),
+            category: String::new(),
+        }
+    }
+
+    pub fn with_category(mut self, category: impl Into<String>) -> Self {
+        self.category = category.into();
+        self
+    }
+
+    /// 创建外部驱动描述符（JDBC/ODBC/WASM 等非 Native 驱动）
+    pub fn new_external(id: impl Into<String>, name: impl Into<String>, kind: DriverKind, target_db: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: String::new(),
+            driver_kind: kind,
+            target_database: Some(target_db.into()),
+            default_port: None,
+            require_database: false,
+            require_file: false,
+            supports_ssl: false,
+            supports_ssh_tunnel: false,
+            supports_http_proxy: false,
+            supports_socks_proxy: false,
+            url_template: None,
+            fields: Vec::new(),
+            extra_options: Vec::new(),
+            category: String::new(),
         }
     }
 
@@ -397,7 +478,19 @@ impl DriverDescriptor {
         self
     }
 
-    /// 添加字段
+    /// 设置 URL 模板（用于新驱动类型的 URL 构建）
+    pub fn with_url_template(mut self, template: impl Into<String>) -> Self {
+        self.url_template = Some(template.into());
+        self
+    }
+
+    /// 设置目标数据库类型（Native 驱动等同于 id，外部驱动可指向不同数据库）
+    pub fn with_target_database(mut self, target: impl Into<String>) -> Self {
+        self.target_database = Some(target.into());
+        self
+    }
+
+    /// 添加表单字段添加字段
     pub fn with_field(mut self, field: DriverField) -> Self {
         self.fields.push(field);
         self
@@ -414,12 +507,15 @@ impl DriverDescriptor {
 pub fn mysql_driver() -> DriverDescriptor {
     DriverDescriptor::new("mysql", "MySQL")
         .with_description("MySQL 关系型数据库")
+        .with_category("relational")
+        .with_target_database("mysql")
         .with_default_port(3306)
         .requires_database()
         .with_ssl_support()
         .with_ssh_tunnel_support()
         .with_http_proxy_support()
         .with_socks_proxy_support()
+        .with_url_template("mysql://{username}:{password}@{host}:{port}/{database}")
         .with_field(DriverField {
             key: "host".to_string(),
             label: "主机".to_string(),
@@ -480,12 +576,15 @@ pub fn mysql_driver() -> DriverDescriptor {
 pub fn postgres_driver() -> DriverDescriptor {
     DriverDescriptor::new("postgres", "PostgreSQL")
         .with_description("PostgreSQL 关系型数据库")
+        .with_category("relational")
+        .with_target_database("postgres")
         .with_default_port(5432)
         .requires_database()
         .with_ssl_support()
         .with_ssh_tunnel_support()
         .with_http_proxy_support()
         .with_socks_proxy_support()
+        .with_url_template("postgres://{username}:{password}@{host}:{port}/{database}")
         .with_field(DriverField {
             key: "host".to_string(),
             label: "主机".to_string(),
@@ -547,7 +646,10 @@ pub fn postgres_driver() -> DriverDescriptor {
 pub fn sqlite_driver() -> DriverDescriptor {
     DriverDescriptor::new("sqlite", "SQLite")
         .with_description("SQLite 嵌入式数据库")
+        .with_category("file-based")
+        .with_target_database("sqlite")
         .requires_file()
+        .with_url_template("sqlite://{file_path}")
         .with_field(DriverField {
             key: "file_path".to_string(),
             label: "数据库文件".to_string(),
@@ -574,7 +676,10 @@ pub fn sqlite_driver() -> DriverDescriptor {
 pub fn duckdb_driver() -> DriverDescriptor {
     DriverDescriptor::new("duckdb", "DuckDB")
         .with_description("DuckDB 分析型数据库")
+        .with_category("file-based")
+        .with_target_database("duckdb")
         .requires_file()
+        .with_url_template("duckdb://{file_path}")
         .with_field(DriverField {
             key: "file_path".to_string(),
             label: "数据库文件".to_string(),

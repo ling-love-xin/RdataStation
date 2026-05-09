@@ -39,6 +39,7 @@ pub struct GlobalConnectionInfo {
     pub is_active: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub server_version: Option<String>,
 }
 
 /// 全局 SQLite 连接池
@@ -531,6 +532,7 @@ impl GlobalDatabaseManager {
         username: Option<&str>,
         password: Option<&str>,
         tags: Option<&str>,
+        server_version: Option<&str>,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         
@@ -546,8 +548,8 @@ impl GlobalDatabaseManager {
         
         conn.execute(
             "INSERT OR REPLACE INTO global_connections 
-             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 1, CURRENT_TIMESTAMP)",
+             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, is_active, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 1, CURRENT_TIMESTAMP)",
             [
                 conn_id,
                 name,
@@ -561,6 +563,7 @@ impl GlobalDatabaseManager {
                 tags_json,
                 "0",  // use_duckdb_fed 默认关闭
                 "",  // metadata_path 默认空
+                server_version.unwrap_or(""),
             ],
         ).map_err(|e| CoreError::storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -583,7 +586,7 @@ impl GlobalDatabaseManager {
         
         let connections: Vec<GlobalConnectionInfo> = {
             let mut stmt = conn.prepare(
-                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at 
+                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version 
                  FROM global_connections 
                  WHERE is_active = 1 
                  ORDER BY updated_at DESC"
@@ -599,6 +602,7 @@ impl GlobalDatabaseManager {
                 let metadata_path: Option<String> = row.get(11).ok();
                 let created_at: String = row.get(13).unwrap_or_default();
                 let updated_at: String = row.get(14).unwrap_or_default();
+                let server_version: Option<String> = row.get(15).ok();
                 
                 Ok(GlobalConnectionInfo {
                     id: row.get(0)?,
@@ -616,6 +620,7 @@ impl GlobalDatabaseManager {
                     is_active: row.get(12).unwrap_or(true),
                     created_at,
                     updated_at,
+                    server_version,
                 })
             })
             .map_err(|e| CoreError::storage(StorageError::Persistence { 

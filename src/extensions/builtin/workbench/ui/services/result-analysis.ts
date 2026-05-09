@@ -263,6 +263,12 @@ export async function listInsightRules(category?: string): Promise<RuleMeta[]> {
   return invoke<RuleMeta[]>('list_insight_rules', { category: category ?? null })
 }
 
+export async function reloadInsightRules(projectPath: string): Promise<number> {
+  return invoke<number>('reload_insight_rules', {
+    input: { project_path: projectPath },
+  })
+}
+
 export async function listRulesForColumn(columnType: string): Promise<RuleMeta[]> {
   return invoke<RuleMeta[]>('list_rules_for_column', {
     input: { column_type: columnType },

@@ -1,8 +1,8 @@
 # RdataStation 前端文档
 
-> 版本：v2.3
-> 更新日期：2026-05-08
-> 状态：✅ SQL 编辑器架构优化全部完成（含方言高亮优化）
+> 版本：v2.4
+> 更新日期：2026-05-09
+> 状态：✅ Mock 数据生成器模块生产就绪
 
 ---
 
@@ -36,7 +36,10 @@ docs/frontend/
 ├── ANALYTICS_RESOURCE_API_REFERENCE.md # API 接口参考
 ├── ANALYTICS_RESOURCE_INTEGRATION.md   # 前端集成指南
 ├── ANALYTICS_RESOURCE_SETTINGS.md      # 设置功能文档
-└── ANALYTICS_RESOURCE_MANAGER_DESIGN.md # 前端设计方案（v1.0 设计阶段）
+├── ANALYTICS_RESOURCE_MANAGER_DESIGN.md # 前端设计方案（v1.0 设计阶段）
+│
+└── Mock 数据生成器
+    └── ../../mock-data-generator-design.md  # 🎲 完整设计文档（v3.0，生产就绪）
 ```
 
 ---
@@ -182,6 +185,7 @@ docs/frontend/
 | 性能优化                | [组件规范](./COMPONENTS.md)                          | 性能优化               |
 | 代码审查                | [组件规范](./COMPONENTS.md)                          | 代码审查清单           |
 | 了解分析资源管理器      | [分析资源架构](./ANALYTICS_RESOURCE_ARCHITECTURE.md) | 全部                   |
+| 了解 Mock 数据生成器    | [设计文档](../../mock-data-generator-design.md)      | 106 种生成器 + 全链路   |
 | 查看分析资源 API        | [API 参考](./ANALYTICS_RESOURCE_API_REFERENCE.md)    | 完整命令索引           |
 | 集成分析资源功能        | [集成指南](./ANALYTICS_RESOURCE_INTEGRATION.md)      | Store API / 场景示例   |
 | 查看开发进度            | [开发进度](./ANALYTICS_RESOURCE_PROGRESS.md)         | Phase 1-4              |
@@ -197,6 +201,7 @@ docs/frontend/
 
 | 版本 | 日期       | 说明                                           |
 | ---- | ---------- | ---------------------------------------------- |
+| v2.4 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase）        |
 | v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（方言高亮增量更新） |
 | v2.2 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）          |
 | v2.1 | 2026-05-08 | SQL 编辑器架构优化计划制定                     |

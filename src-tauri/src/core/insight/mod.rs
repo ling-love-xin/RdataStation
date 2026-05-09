@@ -46,3 +46,31 @@ pub fn load_user_rules(project_path: &std::path::Path) {
         Err(e) => tracing::warn!("Failed to acquire registry write lock: {}", e),
     }
 }
+
+pub fn reload_insight_rules(project_path: &std::path::Path) {
+    match global_registry().write() {
+        Ok(mut reg) => {
+            *reg = RuleRegistry::new();
+            if let Err(e) = reg.load_from_embedded_dir(&BUILTIN_RULES_DIR) {
+                tracing::warn!("Failed to reload built-in insight rules: {}", e);
+            }
+            let user_dir = get_project_rules_dir(project_path);
+            if user_dir.exists() {
+                match reg.load_from_dir(&user_dir) {
+                    Ok(count) => tracing::info!(
+                        "Reloaded {} user insight rules from {}",
+                        count,
+                        user_dir.display()
+                    ),
+                    Err(e) => tracing::warn!(
+                        "Failed to reload user insight rules from {}: {}",
+                        user_dir.display(),
+                        e
+                    ),
+                }
+            }
+            tracing::info!("Insight rules hot-reloaded successfully");
+        }
+        Err(e) => tracing::warn!("Failed to acquire registry write lock for hot-reload: {}", e),
+    }
+}

@@ -142,6 +142,9 @@ impl From<SchemaObject> for SchemaObjectResponse {
                 SchemaObjectKind::Table => "table".to_string(),
                 SchemaObjectKind::View => "view".to_string(),
                 SchemaObjectKind::Column => "column".to_string(),
+                SchemaObjectKind::Index => "index".to_string(),
+                SchemaObjectKind::PrimaryKey => "primary_key".to_string(),
+                SchemaObjectKind::ForeignKey => "foreign_key".to_string(),
             },
             children: obj.children.map(|c| c.into_iter().map(|child| child.into()).collect()),
         }

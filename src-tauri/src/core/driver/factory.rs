@@ -6,50 +6,6 @@ use crate::core::connection::{ConnectionConfig, ConnectionMethod, ConnectionFact
 use crate::core::error::{CoreError, ConnectionError};
 use crate::core::driver::native::{mysql::MySqlDatabase, postgres::PostgresDatabase, sqlite::SqliteDatabase, duckdb::DuckDbDatabase};
 
-/// 驱动工厂管理器
-///
-/// 负责管理所有驱动工厂，提供统一的驱动创建接口
-pub struct DriverFactoryManager {
-    factories: std::collections::HashMap<String, Arc<dyn DriverFactory>>,
-}
-
-impl DriverFactoryManager {
-    /// 创建新的驱动工厂管理器
-    pub fn new() -> Self {
-        Self {
-            factories: std::collections::HashMap::new(),
-        }
-    }
-
-    /// 注册驱动工厂
-    pub fn register_factory(&mut self, driver_id: &str, factory: Arc<dyn DriverFactory>) {
-        self.factories.insert(driver_id.to_string(), factory);
-    }
-
-    /// 获取驱动工厂
-    pub fn get_factory(&self, driver_id: &str) -> Option<Arc<dyn DriverFactory>> {
-        self.factories.get(driver_id).cloned()
-    }
-
-    /// 创建数据库连接
-    pub async fn create_connection(&self, config: DriverConnectionConfig) -> Result<DynDatabase, CoreError> {
-        let driver_id = &config.driver;
-        let factory = self.get_factory(driver_id)
-            .ok_or_else(|| CoreError::connection(ConnectionError::DriverNotFound {
-                driver: driver_id.clone(),
-            }))?;
-        
-        factory.create(config).await
-    }
-
-    /// 获取所有注册的驱动
-    pub fn get_all_drivers(&self) -> Vec<DriverDescriptor> {
-        self.factories.values()
-            .map(|factory| factory.descriptor())
-            .collect()
-    }
-}
-
 /// MySQL 驱动工厂
 ///
 /// 实现 DriverFactory trait，用于创建 MySQL 数据库连接
@@ -220,17 +176,3 @@ impl DriverFactory for DuckDbDriverFactory {
         })
     }
 }
-
-/// 全局驱动工厂管理器实例
-use once_cell::sync::Lazy;
-pub static DRIVER_FACTORY_MANAGER: Lazy<DriverFactoryManager> = Lazy::new(|| {
-    let mut manager = DriverFactoryManager::new();
-    
-    // 注册内置驱动工厂
-    manager.register_factory("mysql", Arc::new(MySqlDriverFactory));
-    manager.register_factory("postgres", Arc::new(PostgresDriverFactory));
-    manager.register_factory("sqlite", Arc::new(SqliteDriverFactory));
-    manager.register_factory("duckdb", Arc::new(DuckDbDriverFactory));
-    
-    manager
-});

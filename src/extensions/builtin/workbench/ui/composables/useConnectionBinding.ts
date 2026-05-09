@@ -16,7 +16,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
   const runtimeConnectionStore = useRuntimeConnectionStore()
 
   const selectedConnection = ref(initialConnectionId || '')
-  const runtimeConnId = ref<string | null>(null)
+  const runtimeConnId = ref<string>('')
 
   const connections = computed<Connection[]>(() => {
     return (connectionStore.connections as Connection[]) || []
@@ -75,7 +75,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
 
     try {
       const runtimeId = await runtimeConnectionStore.establishFromConnection(conn)
-      runtimeConnId.value = runtimeId
+      runtimeConnId.value = runtimeId ?? ''
       return true
     } catch (error) {
       console.warn('[useConnectionBinding] Failed to establish runtime connection:', error)
@@ -134,7 +134,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
       selectedConnection.value = firstConnected.connId
       try {
         const runtimeId = await runtimeConnectionStore.establishFromConnection(firstConnected)
-        runtimeConnId.value = runtimeId
+        runtimeConnId.value = runtimeId ?? ''
         return true
       } catch {
         return false

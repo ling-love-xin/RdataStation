@@ -271,6 +271,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const notImplemented = (): void => {}
+
 const { t } = useI18n()
 const uiStore = useUiStore()
 const projectStore = useProjectStore()
@@ -299,42 +301,42 @@ const availableTools = ref([
     name: t('workbench.settings'),
     icon: markRaw(Settings),
     enabled: false,
-    action: () => console.log('open settings'),
+    action: notImplemented,
   },
   {
     id: 'history',
     name: t('workbench.history'),
     icon: markRaw(History),
     enabled: false,
-    action: () => console.log('open history'),
+    action: notImplemented,
   },
   {
     id: 'docs',
     name: t('workbench.docs'),
     icon: markRaw(BookOpen),
     enabled: false,
-    action: () => console.log('open docs'),
+    action: notImplemented,
   },
   {
     id: 'shortcuts',
     name: t('workbench.shortcuts'),
     icon: markRaw(Keyboard),
     enabled: false,
-    action: () => console.log('open shortcuts'),
+    action: notImplemented,
   },
   {
     id: 'terminal',
     name: t('workbench.terminal'),
     icon: markRaw(Terminal),
     enabled: false,
-    action: () => console.log('open terminal'),
+    action: notImplemented,
   },
   {
     id: 'quick',
     name: t('workbench.quickActions'),
     icon: markRaw(Zap),
     enabled: false,
-    action: () => console.log('quick actions'),
+    action: notImplemented,
   },
 ])
 

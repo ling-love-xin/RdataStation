@@ -3,9 +3,11 @@
     <div
       :class="['node-row', { selected: isSelected }]"
       :style="{ paddingLeft: `${depth * 16 + 8}px` }"
+      :draggable="entry.kind === 'file' && !isRenaming"
       @click="handleClick"
       @dblclick="handleDoubleClick"
       @contextmenu.prevent="handleContextMenu"
+      @dragstart="handleDragStart"
     >
       <span v-if="entry.kind === 'folder'" class="folder-toggle" @click.stop="handleToggleExpand">
         <NIcon size="14">
@@ -36,17 +38,19 @@
       <span v-if="entry.kind === 'file' && entry.size > 0" class="node-size">{{
         formatSize(entry.size)
       }}</span>
+      <span v-if="modifiedTime" class="node-time">{{ modifiedTime }}</span>
       <span v-if="entry.kind === 'folder'" class="node-arrow" />
     </div>
 
     <div v-if="entry.kind === 'folder' && expanded" class="node-children">
       <ScratchpadTreeNode
-        v-for="child in children"
+        v-for="child in childEntries"
         :key="child.path"
         :entry="child"
         :depth="depth + 1"
         :expanded-keys="expandedKeys"
         :selected-key="selectedKey"
+        :selected-keys="selectedKeys"
         :renaming-key="renamingKey"
         @select="forwardSelect"
         @open="forwardOpen"
@@ -55,6 +59,7 @@
         @start-rename="forwardStartRename"
         @finish-rename="forwardFinishRename"
         @cancel-rename="forwardCancelRename"
+        @drag-start="forwardDragStart"
       />
     </div>
   </div>
@@ -84,30 +89,35 @@ interface Props {
   depth: number
   expandedKeys: Set<string>
   selectedKey: string | null
+  selectedKeys?: Set<string>
   renamingKey: string | null
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  select: [entry: ScratchpadEntry]
+  select: [entry: ScratchpadEntry, event?: MouseEvent]
   open: [entry: ScratchpadEntry]
   contextmenu: [event: MouseEvent, entry: ScratchpadEntry]
   'toggle-expand': [entry: ScratchpadEntry]
   'start-rename': [entry: ScratchpadEntry]
   'finish-rename': [entry: ScratchpadEntry, newName: string]
   'cancel-rename': []
+  'drag-start': [event: DragEvent, entry: ScratchpadEntry]
 }>()
 
 const expanded = computed(() => props.expandedKeys.has(props.entry.path))
-const isSelected = computed(() => props.selectedKey === props.entry.path)
+const isSelected = computed(() => {
+  if (props.selectedKeys) return props.selectedKeys.has(props.entry.path)
+  return props.selectedKey === props.entry.path
+})
 const isRenaming = computed(() => props.renamingKey === props.entry.path)
 
 const renameValue = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const renamingSaving = ref(false)
 
-const children = computed(() => props.entry.children || [])
+const childEntries = computed(() => props.entry.children || [])
 
 const extensionIconMap: Record<string, typeof File> = {
   '.sql': Database,
@@ -116,11 +126,31 @@ const extensionIconMap: Record<string, typeof File> = {
   '.json': Braces,
   '.txt': FileText,
   '.md': BookOpen,
+  '.duckdb': Database,
+  '.parquet': Table2,
 }
 
 const fileIcon = computed(() => {
-  const ext = props.entry.extension.toLowerCase()
+  const name = props.entry.name
+  const ext = name.includes('.') ? '.' + name.split('.').pop()?.toLowerCase() : ''
   return extensionIconMap[ext] || File
+})
+
+const modifiedTime = computed(() => {
+  const ts = props.entry.modified_at
+  if (!ts) return ''
+  const date = new Date(ts)
+  if (isNaN(date.getTime())) return ''
+  const now = Date.now()
+  const diff = now - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return ''
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d`
+  return ''
 })
 
 watch(isRenaming, async val => {
@@ -132,8 +162,8 @@ watch(isRenaming, async val => {
   }
 })
 
-function handleClick(): void {
-  emit('select', props.entry)
+function handleClick(event: MouseEvent): void {
+  emit('select', props.entry, event)
 }
 
 function handleDoubleClick(): void {
@@ -142,6 +172,11 @@ function handleDoubleClick(): void {
 
 function handleContextMenu(event: MouseEvent): void {
   emit('contextmenu', event, props.entry)
+}
+
+function handleDragStart(event: DragEvent): void {
+  if (props.entry.kind !== 'file') return
+  emit('drag-start', event, props.entry)
 }
 
 function handleToggleExpand(): void {
@@ -189,6 +224,10 @@ function forwardFinishRename(entry: ScratchpadEntry, newName: string): void {
 
 function forwardCancelRename(): void {
   emit('cancel-rename')
+}
+
+function forwardDragStart(event: DragEvent, entry: ScratchpadEntry): void {
+  emit('drag-start', event, entry)
 }
 
 function formatSize(bytes: number): string {
@@ -295,6 +334,18 @@ function formatSize(bytes: number): string {
 }
 
 .node-row.selected .node-size {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.node-time {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+.node-row.selected .node-time {
   color: rgba(255, 255, 255, 0.7);
 }
 

@@ -6,13 +6,15 @@ use arrow::array::{ArrayRef, StringArray, Int64Array, Float64Array, BooleanArray
 use arrow::datatypes::{Field, Schema, DataType};
 use arrow::record_batch::RecordBatch;
 
-use crate::core::driver::{Database, Transaction, DataSourceMeta};
+use crate::core::driver::{Database, Transaction, DataSourceMeta, ColumnDetail};
+use crate::core::driver::traits::MetadataBrowser;
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{QueryResult, Value, ArrowBatch};
 
 /// SQLite 数据库连接
 pub struct SqliteDatabase {
     conn: Arc<Mutex<Connection>>,
+    server_version: Option<String>,
 }
 
 impl SqliteDatabase {
@@ -40,16 +42,28 @@ impl SqliteDatabase {
                 operation: "connect".to_string(),
                 source: e.to_string(),
             }))?;
+        let server_version = conn
+            .query_row("SELECT sqlite_version()", [], |row| row.get::<_, String>(0))
+            .ok();
         Ok(Self { 
-            conn: Arc::new(Mutex::new(conn)) 
+            conn: Arc::new(Mutex::new(conn)),
+            server_version,
         })
     }
 
     pub fn from_connection(conn: Connection) -> Self {
         Self { 
-            conn: Arc::new(Mutex::new(conn)) 
+            conn: Arc::new(Mutex::new(conn)),
+            server_version: None,
         }
     }
+}
+
+fn is_read_only_sql(sql: &str) -> bool {
+    let sql_upper = sql.trim_start().to_uppercase();
+    sql_upper.starts_with("SELECT")
+        || sql_upper.starts_with("PRAGMA")
+        || sql_upper.starts_with("EXPLAIN")
 }
 
 #[async_trait::async_trait]
@@ -111,8 +125,7 @@ impl Database for SqliteDatabase {
             row_data.push(values);
         }
 
-        let sql_upper = sql.trim_start().to_uppercase();
-        let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("PRAGMA");
+        let is_read_only = is_read_only_sql(sql);
         let row_count = row_data.len();
 
         let batch = if row_count > 0 {
@@ -121,7 +134,7 @@ impl Database for SqliteDatabase {
             return Ok(QueryResult {
                 columns,
                 batches: vec![],
-                affected_rows: if is_read_only { Some(0) } else { None },
+                affected_rows: if is_read_only { None } else { Some(0) },
                 is_read_only: Some(is_read_only),
             });
         };
@@ -129,7 +142,7 @@ impl Database for SqliteDatabase {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { Some(row_count) } else { None },
+            affected_rows: if is_read_only { None } else { Some(row_count) },
             is_read_only: Some(is_read_only),
         })
     }
@@ -172,8 +185,7 @@ impl Database for SqliteDatabase {
                     row_data.push(values);
                 }
 
-                let sql_upper = sql_owned.trim_start().to_uppercase();
-                let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("PRAGMA");
+                let is_read_only = is_read_only_sql(&sql_owned);
                 let row_count = row_data.len();
 
                 let batch = if row_count > 0 {
@@ -182,7 +194,7 @@ impl Database for SqliteDatabase {
                     return Ok(QueryResult {
                         columns,
                         batches: vec![],
-                        affected_rows: if is_read_only { Some(0) } else { None },
+                        affected_rows: if is_read_only { None } else { Some(0) },
                         is_read_only: Some(is_read_only),
                     });
                 };
@@ -190,7 +202,7 @@ impl Database for SqliteDatabase {
                 Ok(QueryResult {
                     columns,
                     batches: vec![batch],
-                    affected_rows: if is_read_only { Some(row_count) } else { None },
+                    affected_rows: if is_read_only { None } else { Some(row_count) },
                     is_read_only: Some(is_read_only),
                 })
             }) => {
@@ -227,59 +239,31 @@ impl Database for SqliteDatabase {
     }
 
     fn meta(&self) -> DataSourceMeta {
-        DataSourceMeta::sqlite()
+        DataSourceMeta {
+            server_version: self.server_version.clone(),
+            ..DataSourceMeta::sqlite()
+        }
+    }
+
+    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+        Ok(vec!["main".to_string()])
     }
 
     async fn list_tables(&self, _db: &str, _schema: Option<&str>) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
-        let sql = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
-        let result = self.query(sql).await?;
-        let tables: Vec<crate::core::driver::SchemaObject> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
-                            Some(crate::core::driver::SchemaObject {
-                                name: arr.value(row_idx).to_string(),
-                                kind: crate::core::driver::SchemaObjectKind::Table,
-                                children: None,
-                            })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .filter(|obj| !obj.name.is_empty())
-            .collect();
-        Ok(tables)
+        let nodes = self.get_tables("main", "main").await?;
+        Ok(nodes.into_iter().map(|n| {
+            crate::core::driver::SchemaObject {
+                name: n.name,
+                kind: n.kind,
+                children: None,
+                comment: n.comment,
+            }
+        }).collect())
     }
 
-    async fn list_columns(&self, _db: &str, _schema: Option<&str>, table: &str) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
-        let sql = format!("PRAGMA table_info({})", table);
-        let result = self.query(&sql).await?;
-        let columns: Vec<crate::core::driver::SchemaObject> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(1).as_any().downcast_ref::<StringArray>() {
-                            Some(crate::core::driver::SchemaObject {
-                                name: arr.value(row_idx).to_string(),
-                                kind: crate::core::driver::SchemaObjectKind::Column,
-                                children: None,
-                            })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .filter(|obj| !obj.name.is_empty())
-            .collect();
-        Ok(columns)
+    async fn list_columns(&self, _db: &str, _schema: Option<&str>, table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
+        let detail = self.get_table_detail("main", "main", table).await?;
+        Ok(detail.columns)
     }
 }
 
@@ -338,7 +322,7 @@ impl Transaction for SqliteTransaction {
             return Ok(QueryResult {
                 columns,
                 batches: vec![],
-                affected_rows: if is_read_only { Some(0) } else { None },
+                affected_rows: if is_read_only { None } else { Some(0) },
                 is_read_only: Some(is_read_only),
             });
         };
@@ -346,7 +330,7 @@ impl Transaction for SqliteTransaction {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { Some(row_count) } else { None },
+            affected_rows: if is_read_only { None } else { Some(row_count) },
             is_read_only: Some(is_read_only),
         })
     }
@@ -379,7 +363,9 @@ impl Transaction for SqliteTransaction {
                 source: e.to_string(),
             }))?;
 
-            let _ = conn.execute("ROLLBACK", []);
+            if let Err(e) = conn.execute("ROLLBACK", []) {
+                eprintln!("SQLite transaction rollback error: {}", e);
+            }
             self.committed = true;
         }
         Ok(())
@@ -410,9 +396,6 @@ fn sqlite_rows_to_arrow(
             if let Some(value) = row.get(col_idx) {
                 match value {
                     rusqlite::types::Value::Null => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Utf8);
-                        }
                         string_values.push(None);
                         int_values.push(None);
                         float_values.push(None);
@@ -508,4 +491,100 @@ fn sqlite_rows_to_arrow(
             operation: "arrow_conversion".to_string(),
             source: e.to_string(),
         }))
+}
+
+#[async_trait::async_trait]
+impl crate::core::driver::MetadataBrowser for SqliteDatabase {
+    async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        Ok(vec![crate::core::driver::NodeInfo {
+            name: "main".to_string(),
+            kind: crate::core::driver::SchemaObjectKind::Database,
+            icon: Some("database".to_string()),
+            comment: None,
+        }])
+    }
+
+    async fn get_schemas(&self, _db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        Ok(vec![crate::core::driver::NodeInfo {
+            name: "main".to_string(),
+            kind: crate::core::driver::SchemaObjectKind::Schema,
+            icon: Some("schema".to_string()),
+            comment: None,
+        }])
+    }
+
+    async fn get_tables(&self, _db: &str, _schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        let result = self.query("SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name").await?;
+        let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
+            .filter_map(|row_idx| {
+                result.batches.iter().find_map(|batch| {
+                    if row_idx < batch.num_rows() {
+                        if let (Some(name_arr), Some(type_arr)) = (
+                            batch.column(0).as_any().downcast_ref::<StringArray>(),
+                            batch.column(1).as_any().downcast_ref::<StringArray>(),
+                        ) {
+                            let table_type = type_arr.value(row_idx);
+                            let kind = if table_type == "view" {
+                                crate::core::driver::SchemaObjectKind::View
+                            } else {
+                                crate::core::driver::SchemaObjectKind::Table
+                            };
+                            Some(crate::core::driver::NodeInfo {
+                                name: name_arr.value(row_idx).to_string(),
+                                kind,
+                                icon: Some(if table_type == "view" { "view".to_string() } else { "table".to_string() }),
+                                comment: None,
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+        Ok(nodes)
+    }
+
+    async fn get_table_detail(&self, _db: &str, _schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+        let sql = format!("PRAGMA table_info(\"{}\")", table);
+        let result = self.query(&sql).await?;
+        let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
+            .filter_map(|row_idx| {
+                result.batches.iter().find_map(|batch| {
+                    if row_idx < batch.num_rows() {
+                        let col_name = batch.column(1).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        let data_type = batch.column(2).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        let nullable = batch.column(3).as_any().downcast_ref::<StringArray>()?.value(row_idx) == "0";
+                        let default = batch.column(4).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        let pk = batch.column(5).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        Some(crate::core::driver::ColumnDetail {
+                            name: col_name.to_string(),
+                            data_type: data_type.to_string(),
+                            nullable,
+                            is_primary_key: pk == "1",
+                            is_foreign_key: false,
+                            default_value: if default.is_empty() { None } else { Some(default.to_string()) },
+                            comment: None,
+                        })
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+
+        Ok(crate::core::driver::NodeDetail {
+            node: crate::core::driver::NodeInfo {
+                name: table.to_string(),
+                kind: crate::core::driver::SchemaObjectKind::Table,
+                icon: Some("table".to_string()),
+                comment: None,
+            },
+            columns,
+            index_count: None,
+            row_count_estimate: None,
+        })
+    }
 }

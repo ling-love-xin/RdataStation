@@ -73,7 +73,7 @@ export const useMockStore = defineStore('mock', () => {
   function setColumnType(index: number, type: GeneratorType) {
     const col = columns.value[index]
     if (col) {
-      col.generator = { type, params: undefined }
+      col.generator = { type, params: {} }
     }
   }
 
@@ -119,6 +119,16 @@ export const useMockStore = defineStore('mock', () => {
     })
   }
 
+  async function autoMapColumn(idx: number) {
+    const col = columns.value[idx]
+    if (!col) return
+    const mapped = await mockApi.mapColumn(col.name, col.dataType)
+    columns.value[idx] = {
+      ...col,
+      generator: { ...mapped.generator },
+    }
+  }
+
   async function persistAsAsset(name: string) {
     if (!generatedTableName.value) return null
     return await mockApi.persistAsAsset({
@@ -153,6 +163,8 @@ export const useMockStore = defineStore('mock', () => {
     previewData.value = []
     generatedColumns.value = []
     lastResult.value = null
+    generateLoading.value = false
+    previewLoading.value = false
   }
 
   return {
@@ -178,6 +190,7 @@ export const useMockStore = defineStore('mock', () => {
     doExport,
     saveToScratchpad,
     persistAsAsset,
+    autoMapColumn,
     loadHistory,
     clearHistory,
     reGenerate,

@@ -30,6 +30,8 @@
             flex: hasResults ? `${splitRatio}` : '1 1 auto',
             minHeight: hasResults ? `${splitRatio * 100}%` : 'auto',
           }"
+          @dragover.prevent="handleEditorDragOver"
+          @drop.prevent="handleEditorDrop"
         >
           <div ref="editorContainer" class="monaco-container" />
           <EditorWelcome :visible="showWelcome" @connect="handleWelcomeConnect" />
@@ -141,7 +143,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as monaco from 'monaco-editor'
 import { createDiscreteApi, darkTheme, lightTheme, NPopover, NSlider, NInputNumber, NSwitch, NInput } from 'naive-ui'
-import { ref, computed, watch, onMounted, onBeforeUnmount, type Ref } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 
@@ -159,7 +161,6 @@ import { useConnectionBinding } from '@/extensions/builtin/workbench/ui/composab
 import { useDialectSync } from '@/extensions/builtin/workbench/ui/composables/useDialectSync'
 import { useMonacoEditor } from '@/extensions/builtin/workbench/ui/composables/useMonacoEditor'
 import { useSqlExecution } from '@/extensions/builtin/workbench/ui/composables/useSqlExecution'
-import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
 import { useUiStore } from '@/shared/stores/ui'
 import { rdataDark, rdataLight } from '@/shared/styles/monaco-theme'
@@ -235,6 +236,13 @@ const scratchpadRelativePath = computed(() => {
 })
 
 const isScratchpadMode = computed(() => !!scratchpadRelativePath.value)
+
+const initialLine = computed(() => {
+  const raw = props.params
+  if (!raw) return 0
+  const nested = raw.params as Record<string, unknown> | undefined
+  return Number((nested?.initialLine as number) || (raw.initialLine as number) || 0)
+})
 
 const editorLanguage = computed(() => {
   const raw = props.params
@@ -339,9 +347,10 @@ function applyLineNumbers(enabled: boolean): void {
   persistEditorSettings()
 }
 
-function applyTabSize(size: number): void {
-  editorTabSize.value = size
-  setTabSize(size)
+function applyTabSize(size: number | null): void {
+  const s = size ?? 2
+  editorTabSize.value = s
+  setTabSize(s)
   persistEditorSettings()
 }
 
@@ -365,7 +374,7 @@ const {
   ensureConnection,
   onConnectionSelected,
 } = binding
-const runtimeConnId = binding.runtimeConnId as unknown as Ref<string>
+const runtimeConnId = binding.runtimeConnId
 
 const editorContainerRef = ref<HTMLElement | undefined>()
 const editorAndResultContainer = ref<HTMLElement | undefined>()
@@ -432,6 +441,8 @@ const {
   storeResult,
   checkForParams,
   buildBoundSql,
+  executeExplain,
+  cleanup: cleanupExecution,
 } = useSqlExecution({
   panelId: panelId.value,
   getEditorValue: () => getValue(),
@@ -581,36 +592,8 @@ async function handleExplain(): Promise<void> {
     message.warning(t('sqlEditor.noConnection'))
     return
   }
-
-  const sql = getSelectedText() || getValue()
-  if (!sql.trim()) return
-
   await ensureConnection(connId)
-
-  const explainSql = `EXPLAIN ${sql}`
-  const resultStore = useResultStore()
-
-  try {
-    const result = await invoke('execute_sql', {
-      input: {
-        conn_id: runtimeConnId.value,
-        sql: explainSql,
-        timeout_ms: null,
-      },
-    })
-
-    const explainData = ((result as unknown) as Record<string, unknown>)
-    const tab = resultStore.addTab(explainSql, connId)
-    tab.title = t('sqlEditor.explain')
-    resultStore.setTabResult(tab.id, {
-      columns: (explainData.result as Record<string, unknown>).columns as string[] || [],
-      rows: (explainData.result as Record<string, unknown>).rows as unknown[][] || [],
-      rowCount: ((explainData.result as Record<string, unknown>).rowCount as number) || 0,
-      elapsedMs: ((explainData.result as Record<string, unknown>).elapsedMs as number) || 0,
-    })
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : String(error))
-  }
+  await executeExplain(t('sqlEditor.explain'), connId)
 }
 
 async function handleSaveSnippet(): Promise<void> {
@@ -713,14 +696,33 @@ function markDirty() {
   }
 }
 
+function handleEditorDragOver(event: DragEvent): void {
+  if (event.dataTransfer?.types.includes('application/x-scratchpad-file')) {
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+async function handleEditorDrop(event: DragEvent): Promise<void> {
+  const relativePath = event.dataTransfer?.getData('application/x-scratchpad-file')
+  if (!relativePath) return
+  try {
+    const content = await invoke<string>('read_scratchpad_file', { relativePath })
+    if (content) {
+      insertText(content)
+    }
+  } catch (e) {
+    console.error('[SqlEditorPanel] Scratchpad drop error:', e)
+  }
+}
+
 let foldingDisposable: monaco.IDisposable | null = null
 let contextActionDisposables: monaco.IDisposable[] = []
 let historyReExecuteHandler: ((e: Event) => void) | null = null
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleAutoSave(): void {
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer)
+    autoSaveTimer = setTimeout(() => {
     if (isDirty.value) {
       handleScratchpadSave()
     }
@@ -845,10 +847,20 @@ onMounted(async () => {
   }
   window.addEventListener('sql-history-re-execute', handleHistoryReExecute)
   historyReExecuteHandler = handleHistoryReExecute
+
+  if (initialLine.value > 0) {
+    await nextTick()
+    const ed = editor.value
+    if (ed) {
+      ed.revealLineInCenter(initialLine.value)
+      ed.setPosition({ lineNumber: initialLine.value, column: 1 })
+    }
+  }
 })
 
 onBeforeUnmount(() => {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  cleanupExecution()
   window.removeEventListener('insert-snippet', handleInsertSnippet as (e: Event) => void)
   if (!isScratchpadMode.value) {
     stopSync()

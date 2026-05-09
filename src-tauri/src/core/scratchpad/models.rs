@@ -27,6 +27,15 @@ pub struct SearchMatch {
     pub line_content: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SearchResult {
+    pub matches: Vec<SearchMatch>,
+    pub total_files_scanned: usize,
+    pub total_files_skipped: usize,
+    pub skipped_files: Vec<String>,
+    pub truncated: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalReference {
     pub alias: String,

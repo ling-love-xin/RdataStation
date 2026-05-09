@@ -13,6 +13,7 @@ import {
   getInsightStorageStats,
   executeInsightRule,
   listInsightRules,
+  reloadInsightRules,
   cleanupInsightSnapshots,
   getInsightVersionDetail,
   profileColumnFromTable,
@@ -287,6 +288,24 @@ export const useInsightStore = defineStore('insight', () => {
     }
   }
 
+  const isReloadingRules = ref(false)
+
+  async function reloadRules(projectPath: string): Promise<void> {
+    if (isReloadingRules.value) return
+
+    isReloadingRules.value = true
+    try {
+      const count = await reloadInsightRules(projectPath)
+      console.info(`[insightStore] Hot-reloaded ${count} insight rules`)
+      await loadMultiRules()
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`[insightStore] reloadRules failed: ${msg}`)
+    } finally {
+      isReloadingRules.value = false
+    }
+  }
+
   async function executeMultiRule(ruleId: string, params: Record<string, string>): Promise<void> {
     if (!currentTempTable.value || isMultiExecuting.value) return
 
@@ -549,6 +568,8 @@ export const useInsightStore = defineStore('insight', () => {
     clearMultiResult,
     loadMultiRules,
     executeMultiRule,
+    isReloadingRules,
+    reloadRules,
 
     isCleaning,
     cleanupResult,

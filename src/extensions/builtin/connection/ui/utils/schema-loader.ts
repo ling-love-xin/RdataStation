@@ -1,4 +1,4 @@
-import type { DriverFormSchema } from '../types/form-schema'
+import type { DriverFormSchema, NavigationConfig } from '../types/form-schema'
 
 export { generateDefaultFormData, validateFormData } from '../types/form-schema'
 
@@ -40,4 +40,33 @@ export async function loadAllSchemas(): Promise<DriverFormSchema[]> {
 
 export function clearSchemaCache(): void {
   schemaCache.clear()
+}
+
+export async function loadNavigationConfig(driverId: string): Promise<NavigationConfig | null> {
+  const schema = await loadDriverSchema(driverId)
+  if (!schema?.navigation) return null
+  return schema.navigation
+}
+
+export function getDefaultNavigationConfig(): NavigationConfig {
+  return {
+    hasSchemas: false,
+    systemSchemas: [],
+    folders: {
+      tables: { enabled: true, label: 'Tables', icon: 'table', childTypes: ['table'] },
+      views: { enabled: true, label: 'Views', icon: 'eye', childTypes: ['view'] },
+      functions: { enabled: false, label: 'Functions', icon: 'function', childTypes: [] },
+      procedures: { enabled: false, label: 'Procedures', icon: 'terminal', childTypes: [] },
+      sequences: { enabled: false, label: 'Sequences', icon: 'hash', childTypes: [] },
+      triggers: { enabled: false, label: 'Triggers', icon: 'zap', childTypes: [] },
+    },
+    tableChildren: {
+      columns: true,
+      indexes: false,
+      constraints: false,
+      triggers: false,
+      foreignKeys: false,
+      references: false,
+    },
+  }
 }

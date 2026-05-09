@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 use crate::core::services::connection_manager::{ConnectionInfo, ConnectionManager, ConnectionType};
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
+use crate::core::driver::registry::ConnectionConfig;
+use crate::core::datasource::router::DataSourceRouter;
 use crate::core::error::{CoreError, ConnectionError};
 use crate::core::persistence::connection_store;
 use crate::core::persistence::MetadataCacheManager;
@@ -149,6 +151,7 @@ impl ConnectionService {
         // 创建新连接
         tracing::info!("Creating new connection with ID: {}", conn_id);
         let db = self.create_database(db_type, url).await?;
+        let server_version = db.meta().server_version.clone();
 
         // 创建连接信息
         let info = ConnectionInfo {
@@ -156,6 +159,7 @@ impl ConnectionService {
             name: connection_name.clone(),
             db_type: db_type.to_string(),
             url: url.to_string(),
+            server_version: server_version.clone(),
             connection_type,
             project_id: project_path.clone(),
             created_at: std::time::Instant::now(),
@@ -176,7 +180,7 @@ impl ConnectionService {
             
             // 默认添加 "global" 标签
             let tags = Some("[\"global\"]");
-            if let Err(e) = self.save_global_connection_to_db(&conn_id, &connection_name, db_type, url, username.as_deref(), password.as_deref(), tags).await {
+            if let Err(e) = self.save_global_connection_to_db(&conn_id, &connection_name, db_type, url, username.as_deref(), password.as_deref(), tags, server_version.as_deref()).await {
                 tracing::warn!("保存全局连接信息到 SQLite 失败: {}", e);
             }
         }
@@ -204,6 +208,7 @@ impl ConnectionService {
         username: Option<&str>,
         password: Option<&str>,
         tags: Option<&str>,
+        server_version: Option<&str>,
     ) -> Result<(), CoreError> {
         use crate::core::migration::global_init;
         
@@ -214,7 +219,7 @@ impl ConnectionService {
             )))?;
         
         // 保存连接信息
-        global_db.save_global_connection(conn_id, name, db_type, url, username, password, tags).await
+        global_db.save_global_connection(conn_id, name, db_type, url, username, password, tags, server_version).await
     }
 
     /// 从 URL 中提取用户名和密码
@@ -252,29 +257,12 @@ impl ConnectionService {
     }
 
     /// 根据数据库类型创建对应的数据库实例
+    /// 通过 DataSourceRouter 路由到 DriverRegistry 动态创建
     async fn create_database(&self, db_type: &str, url: &str) -> Result<DynDatabase, CoreError> {
-        match db_type {
-            "mysql" => {
-                let db = crate::core::driver::native::mysql::MySqlDatabase::new(url).await?;
-                Ok(Arc::new(db))
-            }
-            "postgres" => {
-                let db = crate::core::driver::native::postgres::PostgresDatabase::new(url).await?;
-                Ok(Arc::new(db))
-            }
-            "sqlite" => {
-                let db = crate::core::driver::native::sqlite::SqliteDatabase::new(url)?;
-                Ok(Arc::new(db))
-            }
-            "duckdb" => {
-                let db = crate::core::driver::native::duckdb::DuckDbDatabase::new(url)?;
-                Ok(Arc::new(db))
-            }
-            _ => Err(CoreError::connection(ConnectionError::InvalidConfig {
-                conn_id: url.to_string(),
-                reason: format!("Unsupported database type: {}", db_type),
-            })),
-        }
+        let config = ConnectionConfig::new(db_type)
+            .with_url_override(url);
+
+        DataSourceRouter::route(config).await
     }
 
     /// 初始化连接级元数据库（根据连接类型选择路径）
@@ -478,6 +466,7 @@ impl ConnectionService {
             name: old_info.name.clone(),
             db_type: old_info.db_type.clone(),
             url: old_info.url.clone(),
+            server_version: old_info.server_version.clone(),
             connection_type: ConnectionType::Project,
             project_id: Some(project_id.to_string()),
             created_at: old_info.created_at,
@@ -551,6 +540,7 @@ impl ConnectionService {
             name: old_info.name.clone(),
             db_type: old_info.db_type.clone(),
             url: old_info.url.clone(),
+            server_version: old_info.server_version.clone(),
             connection_type: ConnectionType::Global,
             project_id: None,
             created_at: old_info.created_at,

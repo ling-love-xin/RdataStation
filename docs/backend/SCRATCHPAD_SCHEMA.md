@@ -1,8 +1,8 @@
 # 草稿箱模块 — 全栈数据模型与接口文档
 
-> 版本：v2.2
+> 版本：v2.10
 > 最后更新：2026-05-09
-> 状态：✅ v2.2 — 排序/搜索行上下文/SearchMatch 结构体
+> 状态：✅ v2.10 — 类型清理（移除 ScratchpadEntry.children）+ i18n 补全
 
 ---
 
@@ -143,7 +143,6 @@ export interface ScratchpadEntry {
   name: string
   path: string
   kind: ScratchpadEntryKind
-  children: ScratchpadEntry[] | null
   size: number
   modified_at: string | null
 }
@@ -185,6 +184,20 @@ export interface PromoteResult {
 
 > **Rust↔TS 映射**：`serde(rename_all = "snake_case")` 保证 JSON key 一致；`PathBuf` 序列化为 `String`；`DateTime<Utc>` 序列化为 ISO 8601 字符串。
 
+```typescript
+export interface SqlEditorParams {
+  connectionId?: string
+  databaseName?: string
+  initialSql?: string
+  panelId?: string
+  schema?: string
+  scratchpadRelativePath?: string
+  scratchpadFileName?: string
+  language?: string
+  initialLine?: number // v2.3: 搜索跳转到指定行
+}
+```
+
 ---
 
 ## 四、API 接口全表
@@ -207,7 +220,7 @@ export interface PromoteResult {
 | 12  | `check_scratchpad_file_size`    | `checkFileSize(relativePath)`                  | 工具     |  ✅  |
 | 13  | `get_analyzable_files`          | `getAnalyzableFiles()`                           | 分析     |  ✅  |
 | 14  | `update_scratchpad_file_meta`   | `updateFileMeta(relativePath, connectionId?)`   | 元数据   |  ✅  |
-| 15 | `search_scratchpad_content` | `searchFileContent(query)` | 搜索 | ✅ (→ `SearchMatch[]`) |
+| 15 | `search_scratchpad_content` | `searchFileContent(query, caseSensitive)` | 搜索 | ✅ (→ `SearchMatch[]`) |
 | 16  | `list_scratchpad_trash`         | `listTrash()`                                    | 回收站   |  ✅  |
 | 17  | `restore_scratchpad_from_trash` | `restoreFromTrash(trashName)`                   | 回收站   |  ✅  |
 | 18  | `empty_scratchpad_trash`        | `emptyTrash()`                                  | 回收站   |  ✅  |
@@ -349,6 +362,12 @@ export function useScratchpad() {
 | ✅ 重命名 feedback      | `ScratchpadTreeNode.vue`     | `renamingSaving` loading spinner + input `:disabled`                        |
 | ✅ 提升事件联动         | `commands.rs`                | `app.emit("analytics-resource-changed")` 通知分析资源面板刷新                 |
 | ✅ Entry 精简 + SearchMatch (v2.2) | `models.rs`, `store.rs`, `types/index.ts`, `ScratchpadPanel.vue` | 移除 `extension`/`is_external_ref`，`modified_at` 改 ISO 8601；新增 `SearchMatch` 结构体（file+line_number+line_content）；搜索返回行级上下文 |
+| ✅ 交互增强 (v2.3) | `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue`, `SqlEditorPanel.vue`, `WorkbenchView.vue`, `sql.ts` | 新建文件夹入口/搜索点击跳转（`initialLine` → Monaco `revealLineInCenter`）/修改时间相对显示（分钟/小时/天）/Toast 反馈（`createDiscreteApi`）/extension 修复 |
+| ✅ 搜索增强 + Bug (v2.4) | `store.rs`, `commands.rs`, `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue` | `case_sensitive` 参数大小写搜索/折叠展开全部/搜索文本高亮（`v-html` + `<mark>`）/`.duckdb` 图标/`isAnalyzableFile` extension 修复 |
+| ✅ 最近打开 + 空状态 (v2.5) | `ScratchpadPanel.vue` | `recentFiles` 内存列表（最大 5）+ `addRecentFile` 去重推到首位 + `recentFileEntries` computed 查找 + 可折叠区域；`empty-state` 图标标题引导按钮 |
+| ✅ 多选批量操作 (v2.6) | `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue` | `selectedKeys` Set 多选 + `lastSelectPath` 范围选择 + Ctrl/Shift 点击处理 + 批量删除 confirm toast + `clipboardEntry` 复制粘贴 + Ctrl+A 全选 + `openFileInEditor` extension Bug 修复 |
+| ✅ 搜索安全加固 (v2.8) | `models.rs`, `store.rs`, `commands.rs`, `types/index.ts`, `scratchpad-api.ts`, `use-scratchpad.ts`, `ScratchpadPanel.vue`, `zh-CN.json`, `en.json` | `SearchResult` 结构体（matches/total_scanned/total_skipped/skipped_files/truncated）；`MAX_SEARCH_FILE_SIZE = 10MB` 大文件跳过；`MAX_SEARCH_RESULTS = 500` 结果截断；frontend notice bar 黄色警告 + search-no-results 空态；3 新 i18n key + EN 同步 |
+| ✅ 流式搜索 (v2.9) | `store.rs` | `read_to_string` → `BufReader::lines()` 逐行流式读取；`search_single_file` 独立 async；`tokio::time::timeout` 30s 超时；移除 MAX_SEARCH_FILE_SIZE；1GB 文件搜索内存从 1GB 降至 ~8KB |
 
 </parameter>
 </｜DSML｜inv

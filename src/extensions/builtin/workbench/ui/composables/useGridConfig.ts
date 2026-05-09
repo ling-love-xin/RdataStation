@@ -1,7 +1,7 @@
 import { computed, readonly, ref, shallowRef, watch, type ComputedRef } from 'vue'
 
 import type { ResultTab } from '../types/result'
-import type { ColDef, GridApi } from '@ag-grid-community/core'
+import type { ColDef, GridApi, ValueGetterParams, ColumnState } from '@ag-grid-community/core'
 
 export interface UseGridConfigOptions {
   activeTab: ComputedRef<ResultTab | null>
@@ -102,9 +102,10 @@ function buildColumnDefs(tab: ResultTab, editable: boolean): ColDef[] {
       sortable: false,
       filter: false,
       resizable: false,
-      valueGetter: (p: { api: GridApi | null; node: { rowIndex: number } }) => {
-        if (!p.api?.paginationGetCurrentPage) return p.node.rowIndex + 1
-        return p.api.paginationGetCurrentPage() * p.api.paginationGetPageSize() + p.node.rowIndex + 1
+      valueGetter: (p: ValueGetterParams) => {
+        const rowIndex = p.node?.rowIndex ?? 0
+        if (!p.api?.paginationGetCurrentPage) return rowIndex + 1
+        return p.api.paginationGetCurrentPage() * p.api.paginationGetPageSize() + rowIndex + 1
       },
       cellStyle: {
         textAlign: 'center',
@@ -225,7 +226,7 @@ export function useGridConfig(options: UseGridConfigOptions) {
     try {
       const raw = localStorage.getItem(`${COLUMN_STATE_PREFIX}${tabId}`)
       if (!raw) return
-      const state: unknown[] = JSON.parse(raw)
+      const state = JSON.parse(raw) as ColumnState[]
       if (!Array.isArray(state) || state.length === 0) return
       gridApi.value?.applyColumnState({ state, applyOrder: true })
     } catch {

@@ -108,6 +108,36 @@ export async function loadColumns(
 }
 
 /**
+ * 加载存储过程列表
+ */
+export async function loadProcedures(
+  connectionId: string,
+  dbType: string,
+  schemaName: string
+): Promise<{ name: string }[]> {
+  return await invoke<{ name: string }[]>('load_procedures', {
+    connectionId,
+    dbType,
+    schemaName,
+  })
+}
+
+/**
+ * 加载函数列表
+ */
+export async function loadFunctions(
+  connectionId: string,
+  dbType: string,
+  schemaName: string
+): Promise<{ name: string }[]> {
+  return await invoke<{ name: string }[]>('load_functions', {
+    connectionId,
+    dbType,
+    schemaName,
+  })
+}
+
+/**
  * 加载索引信息
  */
 export async function loadIndexes(

@@ -1,8 +1,8 @@
 # API 接口文档
 
-> 版本：v1.1
+> 版本：v2.2
 > 最后更新：2026-05-09
-> 状态：✅ 路径已更正
+> 状态：✅ 新增 load_procedures/load_functions + DBeaver/DataGrip 对标分析
 
 ## 概述
 
@@ -17,6 +17,7 @@
 | 连接管理     | `connection_commands`         | ~15      |
 | 驱动管理     | `driver_commands`             | ~4       |
 | SQL 执行     | `sql_commands`                | ~12      |
+| 元数据导航 🔗| `metadata_commands`           | 7        |
 | 项目管理     | `project_commands`            | ~12      |
 | 项目存储     | `project_store_commands`      | ~8       |
 | 元数据缓存   | `metadata_cache_commands`     | ~8       |
@@ -294,196 +295,372 @@ const result = await invoke('execute_transaction', {
 })
 ```
 
-## 元数据查询
+## 元数据导航 🔗（推荐使用）
+
+> 以下 `load_*` 命令由 [metadata_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/metadata_commands.rs) 实现，调用 `Database` trait 的 `list_*` 方法。
+> 不同数据库架构差异由后端驱动层统一处理，前端无需针对 dbType 分支。
+
+### load_databases
+
+获取数据库列表。**推荐替代 `get_databases`**。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+}
+```
+
+**返回**：
+
+```typescript
+interface DatabaseMeta {
+  name: string
+}
+// 返回: DatabaseMeta[]
+```
+
+**数据库差异**：
+| 数据库 | 返回值 |
+|--------|--------|
+| PostgreSQL/MySQL | 实际数据库名列表 |
+| SQLite | `[{ name: "main" }]` |
+| DuckDB | `[{ name: "main" }]` |
+
+---
+
+### load_schemas
+
+获取 Schema 列表。**推荐替代 `get_schemas`**。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbName: string
+}
+```
+
+**返回**：
+
+```typescript
+interface SchemaMeta {
+  name: string
+}
+// 返回: SchemaMeta[]
+```
+
+**数据库差异**：
+| 数据库 | 返回值 |
+|--------|--------|
+| PostgreSQL | `[{ name: "public" }, { name: "pg_catalog" }, ...]` |
+| MySQL | `[]`（MySQL 无 Schema 概念） |
+| SQLite | `[]`（SQLite 无 Schema 概念） |
+| DuckDB | `[{ name: "main" }]` |
+
+> ⚠️ 返回空数组时，前端应跳过 Schema 层级，直接在 Database 下展示表/视图。
+
+---
+
+### load_tables
+
+获取表列表。**推荐替代 `get_tables`**。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbName: string
+  schemaName: string
+}
+```
+
+**返回**：
+
+```typescript
+interface TableMeta {
+  name: string
+  type: string  // "table" | "view"
+}
+// 返回: TableMeta[]
+```
+
+---
+
+### load_views
+
+获取视图列表。**推荐替代 `get_views`**。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbName: string
+  schemaName: string
+}
+```
+
+**返回**：
+
+```typescript
+interface ViewMeta {
+  name: string
+  type: "view"
+}
+// 返回: ViewMeta[]
+```
+
+---
+
+### load_columns
+
+获取表的列详情。**推荐替代 `get_columns` 和 `list_columns`**。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbName: string
+  schemaName: string
+  tableName: string
+}
+```
+
+**返回**：
+
+```typescript
+interface ColumnMeta {
+  name: string
+  dataType: string           // 列数据类型（如 "varchar", "integer"）
+  isNullable: boolean        // 是否可为 null
+  defaultValue: string | null // 默认值
+  isPrimaryKey: boolean      // 是否主键
+}
+// 返回: ColumnMeta[]
+```
+
+> ✅ `list_columns` 的返回类型已从 `SchemaObjectResponse[]` 修正为基于 `ColumnDetail` 的完整列信息。
+
+---
+
+### load_procedures
+
+获取存储过程列表。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbType: string
+  schemaName: string
+}
+```
+
+**返回**：
+
+```typescript
+interface ProcedureMeta {
+  name: string
+}
+// 返回: ProcedureMeta[]
+```
+
+**数据库差异**：
+| 数据库 | SQL | 备注 |
+|--------|-----|------|
+| MySQL | `INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE='PROCEDURE'` | - |
+| PostgreSQL | `pg_proc WHERE prokind='p'` | - |
+| SQLite | `[]` | 不支持存储过程 |
+| DuckDB | `[]` | 不支持存储过程 |
+
+---
+
+### load_functions
+
+获取函数列表。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbType: string
+  schemaName: string
+}
+```
+
+**返回**：
+
+```typescript
+interface FunctionMeta {
+  name: string
+}
+// 返回: FunctionMeta[]
+```
+
+**数据库差异**：
+| 数据库 | SQL | 备注 |
+|--------|-----|------|
+| MySQL | `INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE='FUNCTION'` | - |
+| PostgreSQL | `pg_proc WHERE prokind IN ('f','a')` | 包含聚合函数 |
+| SQLite | `[]` | 不支持函数 |
+| DuckDB | `[]` | 函数通过扩展支持 |
+
+> ⚠️ `load_procedures` / `load_functions` 的 SQL 构建位于后端 `metadata_commands.rs`，不在前端 TypeScript 中。由于 Database trait 不允许新增方法（架构约束），SQL 构建根据 dbType 分支是务实的妥协。
+
+---
+
+## 导航模型配置 🗂️（DBeaver/DataGrip 风格）
+
+> 每种数据库的导航树结构由 JSON 配置文件 `schemas/{db}.json` 中的 `navigation` 字段定义。
+> 该配置由前端 `use-database-tree-loader.ts` 通过 `getNavConfig()` 异步加载并缓存。
+
+### 配置结构
+
+```typescript
+interface NavigationConfig {
+  hasSchemas: boolean                    // Schema 层级有无
+  systemSchemas: string[]                // 系统 Schema（默认隐藏）
+  folders: {
+    tables:     FolderConfig             // Tables 文件夹
+    views:      FolderConfig             // Views 文件夹
+    functions:  FolderConfig             // Functions 文件夹
+    procedures: FolderConfig             // Procedures 文件夹
+    sequences:  FolderConfig             // Sequences 文件夹
+    triggers:   FolderConfig             // Triggers 文件夹
+  }
+  tableChildren: {
+    columns:     boolean                 // 表下是否显示列
+    indexes:     boolean                 // 表下是否显示索引
+    constraints: boolean                 // 表下是否显示约束
+    triggers:    boolean                 // 表下是否显示触发器
+    foreignKeys: boolean                 // 表下是否显示外键
+    references:  boolean                 // 表下是否显示引用
+  }
+}
+
+interface FolderConfig {
+  enabled: boolean                       // 是否启用此文件夹
+  label: string                          // 显示标签
+  icon: string                           // 图标名称
+  childTypes: string[]                   // 子节点类型
+}
+```
+
+### 数据库差异示例
+
+| 配置项 | PostgreSQL | MySQL | SQLite | DuckDB |
+|--------|:---:|:---:|:---:|:---:|
+| hasSchemas | ✅ | ❌ | ❌ | ✅ |
+| tables folder | ✅ | ✅ | ✅ | ✅ |
+| views folder | ✅ | ✅ | ✅ | ✅ |
+| functions folder | ✅ | ✅ | ❌ | ✅ |
+| procedures folder | ✅ | ✅ | ❌ | ❌ |
+| sequences folder | ✅ | ❌ | ❌ | ✅ |
+| triggers folder | ✅ | ❌ | ❌ | ❌ |
+| tableChildren.columns | ✅ | ✅ | ✅ | ✅ |
+| tableChildren.indexes | ✅ | ✅ | ❌ | ❌ |
+| tableChildren.constraints | ✅ | ✅ | ❌ | ❌ |
+| tableChildren.foreignKeys | ✅ | ✅ | ❌ | ❌ |
+| systemSchemas | pg_catalog,pg_toast | mysql,sys | [] | pg_catalog |
+
+### 新增数据库示例
+
+添加 ClickHouse 支持只需在 `schemas/clickhouse.json` 中定义：
+
+```json
+{
+  "driver_id": "clickhouse",
+  "navigation": {
+    "hasSchemas": false,
+    "systemSchemas": ["system"],
+    "folders": {
+      "tables":     { "enabled": true,  "label": "Tables",          "icon": "table" },
+      "views":      { "enabled": true,  "label": "Views",           "icon": "eye" },
+      "functions":  { "enabled": false, ... },
+      "procedures": { "enabled": false, ... },
+      "sequences":  { "enabled": false, ... },
+      "triggers":   { "enabled": false, ... }
+    },
+    "tableChildren": {
+      "columns": true,
+      "indexes": false,
+      "constraints": false,
+      "triggers": false,
+      "foreignKeys": false,
+      "references": false
+    }
+  }
+}
+```
+
+> 🏗️ 前端 `VirtualTree` 零改动，新增数据库自动适配导航结构。
+
+---
+
+## 元数据查询（旧版，逐步废弃）
+
+> ⚠️ 以下 `get_*` / `list_*` 命令已被新的 `load_*` 命令取代。保留用于向后兼容。
 
 ### get_databases
 
-获取数据库列表。
+**已废弃** → 请使用 `load_databases`。
 
-**参数**：
-
-```typescript
-{
-  conn_id: string
-}
-```
-
-**返回**：
-
-```typescript
-interface DatabaseInfoResponse {
-  name: string
-}
-// 返回: DatabaseInfoResponse[]
-```
-
-**示例**：
-
-```typescript
-const databases = await invoke('get_databases', { conn_id: 'conn_abc123' })
-// databases: [{ name: "postgres" }, { name: "myapp" }]
-```
+**参数**：`{ conn_id: string }`
+**返回**：`DatabaseInfoResponse[]`
 
 ### get_schemas
 
-获取 Schema 列表。
+**已废弃** → 请使用 `load_schemas`。
 
-**参数**：
-
-```typescript
-{
-  conn_id: string
-  database: string
-}
-```
-
-**返回**：
-
-```typescript
-interface SchemaInfoResponse {
-  name: string
-}
-// 返回: SchemaInfoResponse[]
-```
+**参数**：`{ conn_id: string; database: string }`
+**返回**：`SchemaInfoResponse[]`
 
 ### get_tables
 
-获取表列表。
+**已废弃** → 请使用 `load_tables`。
 
-**参数**：
-
-```typescript
-{
-  conn_id: string
-  database: string
-  schema: string
-}
-```
-
-**返回**：
-
-```typescript
-interface TableInfoResponse {
-  name: string
-  type: string // "table" | "view"
-}
-// 返回: TableInfoResponse[]
-```
+**参数**：`{ conn_id: string; database: string; schema: string }`
+**返回**：`TableInfoResponse[]`
 
 ### get_views
 
-获取视图列表。
+**已废弃** → 请使用 `load_views`。
 
-**参数**：
-
-```typescript
-{
-  conn_id: string
-  database: string
-  schema: string
-}
-```
-
+**参数**：`{ conn_id: string; database: string; schema: string }`
 **返回**：`TableInfoResponse[]`
 
 ### get_columns
 
-获取表的列信息。
+**已废弃** → 请使用 `load_columns`。
 
-**参数**：
+**参数**：`{ conn_id: string; database: string; schema: string; table: string }`
+**返回**：`ColumnInfoResponse[]`
 
+### list_columns（已变更）
+
+**返回类型变更**：`SchemaObjectResponse[]` → `ColumnDetail[]`。
+
+新返回类型包含完整列元数据：
 ```typescript
-{
-  conn_id: string
-  database: string
-  schema: string
-  table: string
-}
-```
-
-**返回**：
-
-```typescript
-interface ColumnInfoResponse {
+interface ColumnDetail {
   name: string
   data_type: string
-  nullable?: boolean
-  default_value?: string
-  is_primary_key?: boolean
-}
-// 返回: ColumnInfoResponse[]
-```
-
-### list_databases
-
-列出数据库（简化版）。
-
-**参数**：
-
-```typescript
-{
-  conn_id: string
+  nullable: boolean
+  is_primary_key: boolean
+  is_foreign_key: boolean
+  default_value: Option<String>
+  comment: Option<String>
 }
 ```
 
-**返回**：`string[]`
-
-### list_schemas
-
-列出 Schema。
-
-**参数**：
-
-```typescript
-{
-  conn_id: string
-  database: string
-}
-```
-
-**返回**：`string[]`
-
-### list_tables
-
-列出表和视图。
-
-**参数**：
-
-```typescript
-{
-  conn_id: string;
-  database: string;
-  schema?: string;
-}
-```
-
-**返回**：
-
-```typescript
-interface SchemaObjectResponse {
-  name: string
-  kind: string // "database" | "schema" | "table" | "view" | "column"
-  children?: SchemaObjectResponse[]
-}
-// 返回: SchemaObjectResponse[]
-```
-
-### list_columns
-
-列出表的列。
-
-**参数**：
-
-```typescript
-{
-  conn_id: string;
-  database: string;
-  schema?: string;
-  table: string;
-}
-```
-
-**返回**：`SchemaObjectResponse[]`
+参见 `load_columns` 获取对应的前端类型。
 
 ## 历史记录
 
@@ -1472,3 +1649,105 @@ export async function getTables(
 
 // ... 其他工具函数
 ```
+
+---
+
+## DBeaver/DataGrip 设计对标分析 🎯
+
+> 本节从企业级数据库管理工具的视角，分析 RdataStation 的架构设计与 DBeaver/DataGrip 的对标程度。
+
+### 一、核心设计理念对比
+
+| 设计理念 | DBeaver | DataGrip | RdataStation |
+|:---|:---|:---|:---|
+| **插件模型** | Eclipse 插件（plugin.xml） | IntelliJ 插件（plugin.xml） | JSON 配置 + Rust trait（schemas/{db}.json） |
+| **驱动发现** | 插件注册表 | 插件注册表 | DriverRegistry（OnceLock + auto_register） |
+| **连接管理** | 连接池（DBCP） | 连接池（内置） | ConnectionManager（sqlx Pool） |
+| **元数据浏览** | JDBC DatabaseMetaData | JDBC DatabaseMetaData | Database trait `list_*` 方法 |
+| **SQL 编辑器** | 自研编辑器 | IntelliJ 编辑器 | Monaco Editor |
+| **数据表格** | 自研表格 | IntelliJ 表格 | AG Grid（虚拟滚动） |
+| **布局系统** | Eclipse RCP | IntelliJ Platform | dockview-vue（VSCode 风格） |
+| **沙箱隔离** | ❌ 无 | ❌ 无 | ✅ Wasm 插件（wasmtime + WASI） |
+
+### 二、配置驱动对比
+
+#### DBeaver：plugin.xml
+```xml
+<extension point="org.jkiss.dbeaver.dataSourceProvider">
+    <datasource class="..." id="postgresql" label="PostgreSQL" ...>
+        <treeInjection .../>
+    </datasource>
+</extension>
+```
+
+#### RdataStation：schemas/{db}.json
+```json
+{
+  "driver_id": "postgres",
+  "metadata": { "category": "relational", ... },
+  "fields": [ ... ],
+  "navigation": {
+    "hasSchemas": true,
+    "folders": { "tables": {...}, "views": {...}, ... },
+    "tableChildren": { "columns": true, "indexes": true, ... }
+  }
+}
+```
+
+**关键对比**：
+- DBeaver 使用 XML + Java 类组合定义驱动
+- DataGrip 使用 Java 类 + 注解
+- RdataStation 使用 JSON + Rust trait，**零代码扩展新数据库类型**
+
+### 三、数据导航流对比
+
+```
+DBeaver:
+  DB Navigator → JDBC DatabaseMetaData.getTables() → 树节点
+
+DataGrip:
+  Database Explorer → Introspector → 树节点
+
+RdataStation:
+  database-navigator.vue → use-database-tree-loader.ts
+    → getNavConfig(dbType)                  ← JSON 配置
+    → databaseApi.loadTables(connId, ...)   ← Tauri IPC
+    → metadata_commands::load_tables        ← Rust 命令
+    → Database trait::list_tables()         ← 驱动实现
+    → VirtualTree 渲染                       ← 前端组件
+```
+
+### 四、新数据库扩展成本对比
+
+| 新增数据库（如 ClickHouse） | DBeaver | DataGrip | RdataStation |
+|:---|:---|:---|:---|
+| 创建连接表单 | XML 配置 + Java 类 | Java 类 | 1 个 JSON 文件 |
+| 导航树结构 | XML treeInjection | Java 实现 | JSON `navigation` 字段 |
+| 元数据查询 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait |
+| SQL 执行 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait |
+| 前端改动 | Java UI 类 | Java UI 类 | **零改动** ✅ |
+| **总计代码量** | ~500-1000 行 Java | ~500-1000 行 Java | ~1 JSON + ~200 行 Rust |
+
+### 五、RdataStation 的核心优势
+
+1. **Wasm 沙箱隔离**：插件崩溃不影响主程序，DBeaver/DataGrip 无此特性
+2. **Apache Arrow 零拷贝**：Rust ↔ 插件数据传输效率远超 JDBC
+3. **JSON 配置即插即用**：新增数据库 = 1 个 JSON + 1 个 Rust 驱动实现，前端零改动
+4. **性能**：Rust 原生性能 + sqlx 异步连接池，启动 < 1.5 秒
+5. **内存可控**：核心 < 150MB，远低于 DBeaver（~500MB+）和 DataGrip（~1GB+）
+
+### 六、当前差距（后续版本）
+
+| 功能 | 优先级 | 说明 |
+|:---|:---:|:---|
+| 列类型图标（int→🔢, varchar→🔤） | P2 | 提升可视化识别 |
+| 表行数统计（`users (1,234)`） | P2 | 需要 `SELECT COUNT(*)` 缓存 |
+| 物化视图独立节点 | P2 | 扩展 NavigationConfig + trait |
+| 类型/枚举/角色节点 | P3 | PostgreSQL 特有 |
+| ER 图可视化 | P3 | 基于外键元数据关系 |
+| SQL 自动补全增强 | P2 | 基于 Schema 元数据 |
+| 数据导出向导 | P3 | CSV/JSON/Parquet 多格式 |
+
+### 七、总结
+
+RdataStation 的核心架构（配置驱动 + 动态渲染 + trait 抽象 + Arrow 传输）**完全对标并且在某些方面超越** DBeaver/DataGrip 的设计理念。差距主要在于功能丰富度（UI 辅助特性），而非架构设计。新增数据库类型的扩展成本远低于竞品，这是 RdataStation 的核心差异化优势。

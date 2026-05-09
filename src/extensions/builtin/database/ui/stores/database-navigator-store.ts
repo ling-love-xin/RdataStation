@@ -6,6 +6,7 @@ import {
   executeSql as executeSqlService,
 } from '@/extensions/builtin/connection/ui/services/connection'
 
+import * as databaseApi from '../api/database-api'
 import {
   clearMetadataCache,
   getColumnsFromCache,
@@ -16,15 +17,8 @@ import {
   generateStableCacheId,
 } from '../services/metadata-cache-service'
 
+
 import type { TableInput, ColumnInput } from '../services/metadata-cache-service'
-
-function escapeSql(value: string): string {
-  return value.replace(/'/g, "''")
-}
-
-function quoteIdentifier(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`
-}
 
 export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => {
   const connectionDatabases = ref<Map<string, DatabaseNode[]>>(new Map())
@@ -188,44 +182,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
     console.log(`loadDatabasesFromDb: connectionId=${connectionId}, dbType=${dbType}`)
 
-    let sql: string
-    let databases: { name: string }[]
+    const dbMetas = await databaseApi.loadDatabases(connectionId)
 
-    if (dbType === 'sqlite') {
-      // SQLite 只有一个 main 数据库
-      console.log('SQLite: 创建 main 数据库')
-      databases = [{ name: 'main' }]
-    } else if (dbType === 'duckdb') {
-      // DuckDB 使用 information_schema
-      sql = `
-        SELECT DISTINCT catalog_name as name
-        FROM information_schema.schemata
-        ORDER BY name
-      `
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-      databases = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string,
-      }))
-      if (databases.length === 0) {
-        databases = [{ name: 'memory' }]
-      }
-    } else {
-      // MySQL/PostgreSQL 使用 information_schema.tables
-      sql = `
-        SELECT DISTINCT table_catalog as name
-        FROM information_schema.tables
-        WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
-        ORDER BY name
-      `
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-      databases = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string,
-      }))
-      if (databases.length === 0) {
-        databases = [{ name: 'default' }]
-      }
+    let databases: { name: string }[] = dbMetas.map(d => ({ name: d.name }))
+
+    if (databases.length === 0) {
+      databases = [{ name: 'default' }]
     }
 
     const newDatabases = databases.map((db: { name: string }) => ({
@@ -233,7 +195,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       schemas: [],
     }))
 
-    // 创建新的 Map 来触发 Vue 响应式更新
     const currentMap = connectionDatabases.value
     const newMap = new Map(currentMap)
     newMap.set(connectionId, newDatabases)
@@ -279,7 +240,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       if (databases) {
         const db = databases.find((d: { name: string }) => d.name === dbName)
         if (db) {
-          db.schemas = [{ name: 'public', tables: [], views: [] }]
+          db.schemas = [{ name: dbName, tables: [], views: [] }]
         }
       }
     } finally {
@@ -316,47 +277,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     console.log(
       `loadSchemasFromDb: connectionId=${connectionId}, dbName=${dbName}, dbType=${dbType}`
     )
-    const safeDbName = escapeSql(dbName)
 
-    let sql: string
-    let schemas: { name: string }[]
+    const schemaMetas = await databaseApi.loadSchemas(connectionId, dbName)
 
-    if (dbType === 'sqlite') {
-      // SQLite 只有一个 main schema
-      console.log('SQLite: 创建 main schema')
-      schemas = [{ name: 'main' }]
-    } else if (dbType === 'duckdb') {
-      sql = `
-        SELECT DISTINCT schema_name as name
-        FROM information_schema.schemata
-        WHERE catalog_name = '${safeDbName}'
-        AND schema_name NOT IN ('information_schema', 'pg_catalog')
-        ORDER BY name
-      `
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-      schemas = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string,
-      }))
-      if (schemas.length === 0) {
-        schemas = [{ name: 'main' }]
-      }
-    } else {
-      sql = `
-        SELECT DISTINCT table_schema as name
-        FROM information_schema.tables
-        WHERE table_catalog = '${safeDbName}'
-        AND table_schema NOT IN ('information_schema', 'pg_catalog')
-        ORDER BY name
-      `
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-      schemas = rows.map((row: Record<string, unknown>) => ({
-        name: row.name as string,
-      }))
-      if (schemas.length === 0) {
-        schemas = [{ name: 'public' }]
-      }
+    let schemas: { name: string }[] = schemaMetas.map(s => ({ name: s.name }))
+
+    if (schemas.length === 0) {
+      schemas = [{ name: dbName }]
     }
 
     updateDatabaseSchemas(
@@ -443,93 +370,53 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadTablesFromDb(connectionId: string, dbName: string, schemaName: string) {
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
-    const safeDbName = escapeSql(dbName)
-    const safeSchemaName = escapeSql(schemaName)
 
-    let sql: string
+    try {
+      const [tableMetas, viewMetas] = await Promise.all([
+        databaseApi.loadTables(connectionId, dbName, schemaName),
+        databaseApi.loadViews(connectionId, dbName, schemaName),
+      ])
 
-    if (dbType === 'sqlite') {
-      // SQLite 使用 sqlite_master 表
-      sql = `
-        SELECT name, type
-        FROM sqlite_master
-        WHERE type IN ('table', 'view')
-        AND name NOT LIKE 'sqlite_%'
-        ORDER BY name
-      `
-    } else if (dbType === 'duckdb') {
-      sql = `
-        SELECT table_name as name, table_type as type
-        FROM information_schema.tables
-        WHERE table_catalog = '${safeDbName}'
-        AND table_schema = '${safeSchemaName}'
-        ORDER BY table_name
-      `
-    } else {
-      sql = `
-        SELECT table_name as name, 'table' as type
-        FROM information_schema.tables
-        WHERE table_catalog = '${safeDbName}'
-        AND table_schema = '${safeSchemaName}'
-        ORDER BY table_name
-      `
-    }
+      const allTables = tableMetas.map(t => ({ name: t.name, type: t.type || 'table' }))
+      const allViews = viewMetas.map(v => ({ name: v.name, type: 'view' }))
 
-    const result = await executeSqlService(connectionId, sql)
-    console.log(`loadTablesFromDb 结果 (${dbType}):`, JSON.stringify(result, null, 2))
-    const rows = result?.result?.rows || []
-    // rows 来自 Tauri IPC，格式为 unknown[][]（数组的数组，按列顺序）
-    // SELECT table_name as name, 'table' as type → [0]=name, [1]=type
-    // SELECT name, type (sqlite)               → [0]=name, [1]=type
-    console.log(`解析后的 rows (${dbType}):`, rows)
-    const tables = rows.map((row: any) => ({
-      name:
-        typeof row === 'object' && !Array.isArray(row)
-          ? ((row as Record<string, unknown>).name as string)
-          : String(row[0] ?? ''),
-      type:
-        typeof row === 'object' && !Array.isArray(row)
-          ? ((row as Record<string, unknown>).type as string) || 'table'
-          : String(row[1] ?? 'table'),
-    }))
-    console.log(`解析后的 tables (${dbType}):`, tables)
+      const merged = [...allTables, ...allViews]
 
-    updateSchemaTables(
-      connectionId,
-      dbName,
-      schemaName,
-      tables.map((t: { name: string; type: string }) => ({
+      updateSchemaTables(
+        connectionId,
+        dbName,
+        schemaName,
+        merged.map(t => ({ name: t.name, type: t.type, columns: [] }))
+      )
+
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
+
+      const tableInputs: TableInput[] = merged.map(t => ({
+        id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
         name: t.name,
-        type: t.type || 'table',
-        columns: [],
+        comment: null,
       }))
-    )
 
-    const connType = connectionTypes.value.get(connectionId) || 'global'
-    const projectPath = connectionProjectPaths.value.get(connectionId)
-
-    const tableInputs: TableInput[] = tables.map((t: { name: string; type: string }) => ({
-      id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
-      name: t.name,
-      comment: null,
-    }))
-
-    if (tableInputs.length > 0) {
-      try {
-        await saveTablesBatchToCache(
-          connectionId,
-          connType,
-          dbName,
-          schemaName,
-          tableInputs,
-          projectPath
-        )
-      } catch (err) {
-        console.warn('保存表缓存失败（非致命）:', err)
+      if (tableInputs.length > 0) {
+        try {
+          await saveTablesBatchToCache(
+            connectionId,
+            connType,
+            dbName,
+            schemaName,
+            tableInputs,
+            projectPath
+          )
+        } catch (err) {
+          console.warn('保存表缓存失败（非致命）:', err)
+        }
       }
-    }
 
-    setLastSyncTime(connectionId, dbName, schemaName)
+      setLastSyncTime(connectionId, dbName, schemaName)
+    } catch (err) {
+      console.error(`loadTablesFromDb 失败:`, err)
+    }
   }
 
   function updateSchemaTables(
@@ -583,58 +470,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     error.value = null
 
     try {
-      const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
-      const safeDbName = escapeSql(dbName)
-      const safeSchemaName = escapeSql(schemaName)
-
-      let sql: string
-      let views: { name: string }[]
-
-      if (dbType === 'sqlite') {
-        // SQLite 的视图已经在 loadTablesFromDb 中通过 sqlite_master 获取了
-        views = []
-      } else if (dbType === 'duckdb') {
-        sql = `
-          SELECT table_name as name
-          FROM information_schema.views
-          WHERE table_catalog = '${safeDbName}'
-          AND table_schema = '${safeSchemaName}'
-          ORDER BY table_name
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        views = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      } else {
-        sql = `
-          SELECT table_name as name
-          FROM information_schema.views
-          WHERE table_catalog = '${safeDbName}'
-          AND table_schema = '${safeSchemaName}'
-          ORDER BY table_name
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        views = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      }
-
-      const databases = connectionDatabases.value.get(connectionId)
-      if (databases) {
-        const db = databases.find((d: { name: string }) => d.name === dbName)
-        if (db) {
-          const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
-          if (schema) {
-            schema.views = views.map((view: { name: string }) => ({
-              name: view.name,
-              type: 'view',
-              columns: [],
-            }))
-          }
-        }
-      }
+      await loadTables(connectionId, dbName, schemaName)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载视图列表失败'
       console.error('加载视图列表失败:', e)
@@ -652,53 +488,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
     try {
       const dbType = connectionDbTypes.value.get(connectionId)
-      const safeDbName = escapeSql(dbName)
-      const safeSchemaName = escapeSql(schemaName)
-      let procedures: Array<{ name: string }> = []
+      if (!dbType) return
 
-      if (dbType === 'mysql') {
-        const sql = `
-          SELECT ROUTINE_NAME as name
-          FROM INFORMATION_SCHEMA.ROUTINES
-          WHERE ROUTINE_TYPE = 'PROCEDURE'
-          AND ROUTINE_SCHEMA = '${safeSchemaName}'
-          ORDER BY ROUTINE_NAME
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        procedures = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      } else if (dbType === 'postgres') {
-        const sql = `
-          SELECT proname as name
-          FROM pg_proc
-          JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
-          WHERE pg_namespace.nspname = '${safeSchemaName}'
-          AND pg_proc.prokind = 'p'
-          ORDER BY proname
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        procedures = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      } else if (dbType === 'sqlite') {
-        procedures = []
-      } else {
-        const sql = `
-          SELECT ROUTINE_NAME as name
-          FROM INFORMATION_SCHEMA.ROUTINES
-          WHERE ROUTINE_TYPE = 'PROCEDURE'
-          AND ROUTINE_SCHEMA = '${safeSchemaName}'
-          ORDER BY ROUTINE_NAME
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        procedures = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      }
+      const procedureMetas = await databaseApi.loadProcedures(connectionId, dbType, schemaName)
+      const procedures = procedureMetas.map((p: { name: string }) => ({ name: p.name }))
 
       const databases = connectionDatabases.value.get(connectionId)
       if (databases) {
@@ -706,9 +499,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         if (db) {
           const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
-            schema.procedures = procedures.map((p: { name: string }) => ({
-              name: p.name,
-            }))
+            schema.procedures = procedures
           }
         }
       }
@@ -729,53 +520,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
     try {
       const dbType = connectionDbTypes.value.get(connectionId)
-      const safeDbName = escapeSql(dbName)
-      const safeSchemaName = escapeSql(schemaName)
-      let functions: Array<{ name: string }> = []
+      if (!dbType) return
 
-      if (dbType === 'mysql') {
-        const sql = `
-          SELECT ROUTINE_NAME as name
-          FROM INFORMATION_SCHEMA.ROUTINES
-          WHERE ROUTINE_TYPE = 'FUNCTION'
-          AND ROUTINE_SCHEMA = '${safeSchemaName}'
-          ORDER BY ROUTINE_NAME
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        functions = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      } else if (dbType === 'postgres') {
-        const sql = `
-          SELECT proname as name
-          FROM pg_proc
-          JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
-          WHERE pg_namespace.nspname = '${safeSchemaName}'
-          AND pg_proc.prokind IN ('f', 'a')
-          ORDER BY proname
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        functions = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      } else if (dbType === 'sqlite') {
-        functions = []
-      } else {
-        const sql = `
-          SELECT ROUTINE_NAME as name
-          FROM INFORMATION_SCHEMA.ROUTINES
-          WHERE ROUTINE_TYPE = 'FUNCTION'
-          AND ROUTINE_SCHEMA = '${safeSchemaName}'
-          ORDER BY ROUTINE_NAME
-        `
-        const result = await executeSqlService(connectionId, sql)
-        const rows = result?.result?.rows || []
-        functions = rows.map((row: Record<string, unknown>) => ({
-          name: row.name as string,
-        }))
-      }
+      const functionMetas = await databaseApi.loadFunctions(connectionId, dbType, schemaName)
+      const functions = functionMetas.map((f: { name: string }) => ({ name: f.name }))
 
       const databases = connectionDatabases.value.get(connectionId)
       if (databases) {
@@ -783,9 +531,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         if (db) {
           const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
-            schema.functions = functions.map((f: { name: string }) => ({
-              name: f.name,
-            }))
+            schema.functions = functions
           }
         }
       }
@@ -864,109 +610,15 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     schemaName: string,
     tableName: string
   ) {
-    const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
-    const safeDbName = escapeSql(dbName)
-    const safeSchemaName = escapeSql(schemaName)
-    const safeTableName = escapeSql(tableName)
+    const columnMetas = await databaseApi.loadColumns(connectionId, dbName, schemaName, tableName)
 
-    let sql: string
-    let columns: {
-      name: string
-      data_type: string
-      nullable: boolean
-      default_value: string | undefined
-      is_primary_key: boolean
-    }[]
-
-    if (dbType === 'sqlite') {
-      // SQLite 使用 PRAGMA table_info
-      sql = `PRAGMA table_info(${safeTableName})`
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-
-      // SQLite PRAGMA table_info 返回的 pk 字段表示是否为主键
-      // Tauri IPC: rows 为 unknown[][], 列顺序: [cid, name, type, notnull, dflt_value, pk]
-      const tableRows = rows
-      columns = tableRows.map((row: any) => {
-        const r = Array.isArray(row) ? row : [row]
-        return {
-          name: String(r[1] ?? ''),
-          data_type: String(r[2] ?? ''),
-          nullable: !Number(r[3] ?? 0),
-          default_value: r[4] != null ? String(r[4]) : undefined,
-          is_primary_key: Number(r[5] ?? 0) === 1,
-        }
-      })
-    } else if (dbType === 'duckdb') {
-      sql = `
-        SELECT 
-          column_name as name,
-          data_type,
-          is_nullable = 'YES' as nullable,
-          column_default as default_value,
-          column_name IN (
-            SELECT column_name
-            FROM information_schema.key_column_usage
-            WHERE table_catalog = '${safeDbName}'
-            AND table_schema = '${safeSchemaName}'
-            AND table_name = '${safeTableName}'
-          ) as is_primary_key
-        FROM information_schema.columns
-        WHERE table_catalog = '${safeDbName}'
-        AND table_schema = '${safeSchemaName}'
-        AND table_name = '${safeTableName}'
-        ORDER BY ordinal_position
-      `
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-      // Tauri IPC: rows 为 unknown[][], 列顺序: [name, data_type, nullable, default_value, is_primary_key]
-      columns = rows.map((row: any) => {
-        const r = Array.isArray(row) ? row : [row]
-        return {
-          name: String(r[0] ?? ''),
-          data_type: String(r[1] ?? ''),
-          nullable: r[2] === true || String(r[2]).toLowerCase() === 'yes',
-          default_value: r[3] != null ? String(r[3]) : undefined,
-          is_primary_key: r[4] === true || String(r[4]).toLowerCase() === 'true',
-        }
-      })
-    } else {
-      // MySQL/PostgreSQL
-      sql = `
-        SELECT 
-          column_name as name,
-          data_type,
-          is_nullable = 'YES' as nullable,
-          column_default as default_value,
-          column_name IN (
-            SELECT column_name
-            FROM information_schema.key_column_usage
-            WHERE table_catalog = '${safeDbName}'
-            AND table_schema = '${safeSchemaName}'
-            AND table_name = '${safeTableName}'
-            AND constraint_name LIKE '%_pkey'
-          ) as is_primary_key
-        FROM information_schema.columns
-        WHERE table_catalog = '${safeDbName}'
-        AND table_schema = '${safeSchemaName}'
-        AND table_name = '${safeTableName}'
-        ORDER BY ordinal_position
-      `
-      const result = await executeSqlService(connectionId, sql)
-      const rows = result?.result?.rows || []
-      // Tauri IPC: rows 为 unknown[][], 列顺序: [name, data_type, nullable, default_value, is_primary_key]
-      columns = rows.map((row: any) => {
-        const r = Array.isArray(row) ? row : [row]
-        return {
-          name: String(r[0] ?? ''),
-          data_type: String(r[1] ?? ''),
-          nullable: r[2] === true || String(r[2]).toLowerCase() === 'yes' || String(r[2]) === '1',
-          default_value: r[3] != null ? String(r[3]) : undefined,
-          is_primary_key:
-            r[4] === true || String(r[4]).toLowerCase() === 'true' || String(r[4]) === '1',
-        }
-      })
-    }
+    const columns = columnMetas.map(col => ({
+      name: col.name,
+      data_type: col.dataType,
+      nullable: col.isNullable,
+      default_value: col.defaultValue || undefined,
+      is_primary_key: col.isPrimaryKey || false,
+    }))
 
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
@@ -1237,7 +889,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
   }
 
-  async function executeSql(connectionId: string, _dbName: string, sql: string): Promise<any> {
+  async function executeSql(connectionId: string, _dbName: string, sql: string): Promise<unknown> {
     return await executeSqlService(connectionId, sql)
   }
 

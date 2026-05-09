@@ -4,12 +4,19 @@ use crate::core::error::{CommonError, CoreError};
 use crate::core::insight;
 use crate::core::insight::RuleExecutor;
 use crate::core::services::duckdb_service::{
-    duckdb_value_to_json, is_datetime_type, is_numeric_type, DuckDbService,
+    duckdb_value_to_json, is_array_type, is_binary_type, is_datetime_type, is_json_type,
+    is_numeric_type, DuckDbService,
 };
 use crate::core::services::result_service::{
     ColumnInsightFull, ColumnStats, ColumnStatsDetail, DateTimeStats, DistributionBin,
     NumericStats, TextFrequency, TextStats,
 };
+
+/// Default number of sample rows pulled from a column for display
+pub(crate) const DEFAULT_SAMPLE_SIZE: usize = 5;
+
+/// Minimum rows required to generate a histogram
+pub(crate) const HISTOGRAM_MIN_ROWS: i64 = 10;
 
 pub(crate) fn get_or_create_duckdb() -> Result<
     std::sync::Arc<std::sync::Mutex<duckdb::Connection>>,
@@ -90,12 +97,20 @@ fn get_column_stats_internal(
 
     let dt_lower = data_type.to_lowercase();
 
-    let stats_detail = if is_numeric_type(&dt_lower) {
+    let stats_detail = if non_null == 0 {
+        ColumnStatsDetail::Unknown
+    } else if is_numeric_type(&dt_lower) {
         compute_numeric_stats(conn, temp_table, column_name)?
     } else if is_datetime_type(&dt_lower) {
         compute_datetime_stats(conn, temp_table, column_name)?
-    } else if dt_lower == "boolean" {
+    } else if dt_lower == "boolean" || dt_lower == "bool" {
         compute_boolean_stats(conn, temp_table, column_name)?
+    } else if is_binary_type(&dt_lower) {
+        ColumnStatsDetail::Unknown
+    } else if is_array_type(&dt_lower) {
+        ColumnStatsDetail::Unknown
+    } else if is_json_type(&dt_lower) {
+        compute_text_stats(conn, temp_table, column_name)?
     } else {
         compute_text_stats(conn, temp_table, column_name)?
     };
@@ -379,8 +394,8 @@ fn get_column_sample_internal(
     column_name: &str,
 ) -> Result<Vec<serde_json::Value>, CoreError> {
     let sql = format!(
-        "SELECT \"{}\" FROM \"{}\" LIMIT 5",
-        column_name, temp_table
+        "SELECT \"{}\" FROM \"{}\" LIMIT {}",
+        column_name, temp_table, DEFAULT_SAMPLE_SIZE
     );
     let mut stmt = conn.prepare(&sql).map_err(|e| {
         CoreError::common(CommonError::General(format!(
@@ -418,7 +433,7 @@ fn get_column_histogram_internal(
         .query_row(&count_sql, [], |row| row.get(0))
         .unwrap_or(0);
 
-    if count < 10 {
+    if count < HISTOGRAM_MIN_ROWS {
         return Ok(vec![]);
     }
 

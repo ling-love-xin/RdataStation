@@ -9,7 +9,7 @@ use crate::commands::analytics_resource_commands::AnalyticsResourceState;
 use crate::core::persistence::{AnalyticsResource, CreateResourceRequest};
 use crate::core::scratchpad::{
     AnalyzableFile, ExternalReference, ScratchpadEntry, ScratchpadResponse, ScratchpadState, ScratchpadStore,
-    SearchMatch,
+    SearchResult,
 };
 
 async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, String> {
@@ -187,11 +187,12 @@ pub async fn update_scratchpad_file_meta(
 #[tauri::command]
 pub async fn search_scratchpad_content(
     query: String,
+    case_sensitive: bool,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<Vec<SearchMatch>, String> {
+) -> Result<SearchResult, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
-        .search_file_content(&query)
+        .search_file_content(&query, case_sensitive)
         .await
         .map_err(|e| e.to_string())
 }
@@ -298,14 +299,16 @@ pub async fn promote_scratchpad_to_resource(
     let file_name = std::path::Path::new(&relative_path)
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or(&relative_path)
-        .to_string();
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| relative_path.clone());
 
-    let ext = std::path::Path::new(&relative_path)
+    let ext = match std::path::Path::new(&relative_path)
         .extension()
         .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    {
+        Some(s) => s.to_lowercase(),
+        None => String::new(),
+    };
 
     let resource_type = extension_to_resource_type(&ext).to_string();
 

@@ -24,6 +24,16 @@
         <NButton
           size="small"
           :disabled="isLoading"
+          @click="handleCreateFolder"
+        >
+          <template #icon>
+            <NIcon size="16"><FolderPlus /></NIcon>
+          </template>
+          {{ t('scratchpad.newFolder') }}
+        </NButton>
+        <NButton
+          size="small"
+          :disabled="isLoading"
           @click="handleImportFile"
         >
           <template #icon>
@@ -93,6 +103,16 @@
           <NIcon size="16"><Search /></NIcon>
         </template>
       </NButton>
+      <NButton
+        v-if="contentSearchMode"
+        size="small"
+        :type="caseSensitive ? 'primary' : 'default'"
+        quaternary
+        :title="t('scratchpad.caseSensitive')"
+        @click="caseSensitive = !caseSensitive"
+      >
+        Aa
+      </NButton>
     </div>
 
     <div v-if="contentSearchMode && contentAllMatches.length > 0" class="search-results">
@@ -100,12 +120,19 @@
         {{ t('scratchpad.searchFileResults') }}
         <span class="search-results-count">{{ t('scratchpad.matchesCount', { count: contentAllMatches.length }) }}</span>
       </div>
+      <div v-if="searchNotice" class="search-notice">
+        <NIcon size="14"><Info /></NIcon>
+        <span>{{ searchNotice }}</span>
+      </div>
       <div
         v-for="[file, matches] in contentResults"
         :key="file"
         class="search-result-file"
       >
-        <div class="search-result-file-name">
+        <div
+          class="search-result-file-name"
+          @click="handleFileClick(file)"
+        >
           <NIcon size="14"><FileText /></NIcon>
           <span>{{ file }}</span>
           <span class="search-result-match-count">{{ matches.length }}</span>
@@ -114,9 +141,10 @@
           v-for="match in matches.slice(0, 5)"
           :key="`${match.file}:${match.line_number}`"
           class="search-result-line"
+          @click="handleLineClick(match.file, match.line_number)"
         >
           <span class="search-result-line-number">{{ match.line_number }}</span>
-          <span class="search-result-line-content">{{ match.line_content }}</span>
+          <span class="search-result-line-content" v-html="highlightMatch(match.line_content, searchQuery)" />
         </div>
         <div v-if="matches.length > 5" class="search-result-more">
           ...还有 {{ matches.length - 5 }} 处匹配未显示
@@ -134,6 +162,10 @@
     </div>
 
     <div v-else-if="!contentSearchMode || contentAllMatches.length === 0" class="tree-container">
+      <div v-if="contentSearchMode && searchQuery.trim()" class="search-no-results">
+        <NIcon size="14"><Info /></NIcon>
+        <span>{{ searchNotice || t('scratchpad.noResults') }}</span>
+      </div>
       <div v-if="externalReferences.length > 0" class="tree-group">
         <div class="group-header" @click="toggleGroup('external')">
           <NIcon size="14">
@@ -173,10 +205,56 @@
           <NIcon size="14"><Folder /></NIcon>
           <span class="group-title">{{ t('scratchpad.localDrafts') }}</span>
           <span class="group-count">{{ filteredLocalEntries.length }}</span>
+          <span class="group-actions">
+            <NButton size="tiny" quaternary @click.stop="handleExpandAll">
+              {{ t('scratchpad.expandAll') }}
+            </NButton>
+            <NButton size="tiny" quaternary @click.stop="handleCollapseAll">
+              {{ t('scratchpad.collapseAll') }}
+            </NButton>
+          </span>
         </div>
         <div v-show="groupExpanded.local" class="group-content">
-          <div v-if="filteredLocalEntries.length === 0" class="empty-hint">
-            {{ contentSearchMode && searchQuery ? t('scratchpad.noMatchResults') : t('scratchpad.noDrafts') }}
+          <div v-if="recentFileEntries.length > 0 && !contentSearchMode" class="recent-section">
+            <div class="recent-header" @click="showRecent = !showRecent">
+              <NIcon size="14">
+                <component :is="showRecent ? ChevronDown : ChevronRight" />
+              </NIcon>
+              <span class="recent-title">{{ t('scratchpad.recentFiles') }}</span>
+              <span class="recent-count">{{ recentFileEntries.length }}</span>
+            </div>
+            <div v-show="showRecent" class="recent-list">
+              <div
+                v-for="entry in recentFileEntries"
+                :key="entry.path"
+                class="recent-entry"
+                @click="handleOpen(entry)"
+              >
+                <NIcon size="14"><FileText /></NIcon>
+                <span class="recent-name">{{ entry.name }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="filteredLocalEntries.length === 0" class="empty-state">
+            <div class="empty-icon-wrapper">
+              <NIcon size="32"><FolderOpen /></NIcon>
+            </div>
+            <span class="empty-title">{{ t('scratchpad.emptyScratchpad') }}</span>
+            <span class="empty-hint">{{ t('scratchpad.emptyScratchpadHint') }}</span>
+            <div class="empty-actions">
+              <NButton size="small" type="primary" @click="handleCreateFile">
+                <template #icon>
+                  <NIcon size="14"><FilePlus /></NIcon>
+                </template>
+                {{ t('scratchpad.newFile') }}
+              </NButton>
+              <NButton size="small" @click="handleImportFile">
+                <template #icon>
+                  <NIcon size="14"><Upload /></NIcon>
+                </template>
+                {{ t('scratchpad.import') }}
+              </NButton>
+            </div>
           </div>
           <ScratchpadTreeNode
             v-for="entry in filteredLocalEntries"
@@ -185,6 +263,7 @@
             :depth="0"
             :expanded-keys="expandedKeys"
             :selected-key="selectedKey"
+            :selected-keys="selectedKeys"
             :renaming-key="renamingKey"
             @select="handleSelect"
             @open="handleOpen"
@@ -193,6 +272,7 @@
             @start-rename="startRename"
             @finish-rename="finishRename"
             @cancel-rename="cancelRename"
+            @drag-start="handleTreeNodeDragStart"
           />
         </div>
       </div>
@@ -231,7 +311,7 @@
               size="tiny"
               quaternary
               type="primary"
-              @click.stop="restoreTrashEntry(item.name)"
+              @click.stop="handleRestore(item.name)"
             >
               {{ t('scratchpad.restoreFromTrash') }}
             </NButton>
@@ -242,6 +322,31 @@
 
     <NModal v-model:show="showCreateModal" :title="t('scratchpad.newDraft')">
       <div class="modal-body">
+        <div class="template-picker">
+          <span class="template-label">{{ t('scratchpad.templateType') }}</span>
+          <div class="template-options">
+            <NButton
+              size="tiny"
+              :type="selectedTemplate === 'sql' ? 'primary' : 'default'"
+              @click="selectTemplate('sql')"
+            >SQL</NButton>
+            <NButton
+              size="tiny"
+              :type="selectedTemplate === 'json' ? 'primary' : 'default'"
+              @click="selectTemplate('json')"
+            >JSON</NButton>
+            <NButton
+              size="tiny"
+              :type="selectedTemplate === 'md' ? 'primary' : 'default'"
+              @click="selectTemplate('md')"
+            >Markdown</NButton>
+            <NButton
+              size="tiny"
+              :type="selectedTemplate === 'py' ? 'primary' : 'default'"
+              @click="selectTemplate('py')"
+            >Python</NButton>
+          </div>
+        </div>
         <NInput
           ref="createInputRef"
           v-model:value="newFileName"
@@ -255,6 +360,27 @@
             type="primary"
             :disabled="!newFileName.trim()"
             @click="confirmCreate"
+            >{{ t('common.confirm') }}</NButton
+          >
+        </div>
+      </div>
+    </NModal>
+
+    <NModal v-model:show="showFolderModal" :title="t('scratchpad.newFolderTitle')">
+      <div class="modal-body">
+        <NInput
+          ref="folderInputRef"
+          v-model:value="newFolderName"
+          :placeholder="t('scratchpad.folderNamePlaceholder')"
+          @keyup.enter="confirmCreateFolder"
+        />
+        <div class="modal-actions">
+          <NButton size="small" @click="showFolderModal = false">{{ t('common.cancel') }}</NButton>
+          <NButton
+            size="small"
+            type="primary"
+            :disabled="!newFolderName.trim()"
+            @click="confirmCreateFolder"
             >{{ t('common.confirm') }}</NButton
           >
         </div>
@@ -323,6 +449,18 @@
         <span v-if="item.shortcut" class="menu-shortcut">{{ item.shortcut }}</span>
       </div>
     </div>
+
+    <div v-if="undoState.visible" class="undo-bar">
+      <span class="undo-text">{{ t('scratchpad.undoDeleteHint', { name: undoState.name }) }}</span>
+      <NButton size="tiny" type="primary" quaternary @click="handleUndoDelete">
+        {{ t('scratchpad.undo') }}
+      </NButton>
+      <NButton size="tiny" quaternary @click="dismissUndo">
+        <template #icon>
+          <NIcon size="12"><X /></NIcon>
+        </template>
+      </NButton>
+    </div>
   </div>
 </template>
 
@@ -330,6 +468,7 @@
 import { listen } from '@tauri-apps/api/event'
 import {
   FilePlus,
+  FolderPlus,
   Folder,
   FolderOpen,
   RefreshCw,
@@ -349,17 +488,19 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Info,
 } from 'lucide-vue-next'
-import { NButton, NIcon, NInput, NSpin, NModal } from 'naive-ui'
+import { NButton, NIcon, NInput, NSpin, NModal, createDiscreteApi } from 'naive-ui'
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ScratchpadTreeNode from './ScratchpadTreeNode.vue'
 import { useScratchpad } from '../composables/use-scratchpad'
 
-import type { ScratchpadEntry, ExternalReference, SearchMatch } from '../../types'
+import type { ScratchpadEntry, ExternalReference, SearchMatch, SearchResult } from '../../types'
 
 const { t } = useI18n()
+const { message } = createDiscreteApi(['message'])
 
 const {
   response,
@@ -374,6 +515,7 @@ const {
   deleteEntry,
   renameEntry,
   loadFileContent,
+  saveFile,
   importFile,
   addReference,
   removeReference,
@@ -394,21 +536,26 @@ const {
 const fileMeta = computed(() => response.value?.file_meta ?? {})
 
 const contentSearchMode = ref(false)
-const contentResults = ref<Map<string, SearchMatch[]>>(new Map())
-const contentAllMatches = ref<SearchMatch[]>([])
+const searchResult = ref<SearchResult | null>(null)
 const showTrash = ref(false)
 const promoteTarget = ref<ScratchpadEntry | null>(null)
 const showPromoteConfirm = ref(false)
 const sortBy = ref<'name' | 'size' | 'modified'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
+const caseSensitive = ref(false)
+const showRecent = ref(true)
+const recentFiles = ref<string[]>([])
+const MAX_RECENT = 5
+const showFolderModal = ref(false)
+const newFolderName = ref('')
+const folderInputRef = ref<InstanceType<typeof NInput> | null>(null)
 let contentSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 function toggleSearchMode(): void {
   contentSearchMode.value = !contentSearchMode.value
   if (contentSearchMode.value) {
     searchQuery.value = ''
-    contentResults.value = new Map()
-    contentAllMatches.value = []
+    searchResult.value = null
   }
 }
 
@@ -426,26 +573,78 @@ function sortIcon(field: 'name' | 'size' | 'modified'): typeof ArrowUpDown {
   return sortOrder.value === 'asc' ? ArrowUp : ArrowDown
 }
 
+const contentResults = computed(() => {
+  const sr = searchResult.value
+  if (!sr) return new Map<string, SearchMatch[]>()
+  const grouped = new Map<string, SearchMatch[]>()
+  for (const m of sr.matches) {
+    const list = grouped.get(m.file) || []
+    list.push(m)
+    grouped.set(m.file, list)
+  }
+  return grouped
+})
+
+const contentAllMatches = computed(() => searchResult.value?.matches ?? [])
+
+const searchNotice = computed(() => {
+  const sr = searchResult.value
+  if (!sr) return null
+  const parts: string[] = []
+  if (sr.truncated) {
+    parts.push(t('scratchpad.searchTruncated', { max: 500 }))
+  }
+  if (sr.total_files_skipped > 0) {
+    parts.push(t('scratchpad.searchSkippedFiles', {
+      count: sr.total_files_skipped,
+      size: '10MB'
+    }))
+  }
+  if (parts.length === 0 && sr.matches.length === 0) {
+    return t('scratchpad.noResults')
+  }
+  if (parts.length === 0) return null
+  return parts.join('；')
+})
+
 watch(searchQuery, async (val) => {
   if (!contentSearchMode.value) return
   if (contentSearchTimer) clearTimeout(contentSearchTimer)
   if (!val.trim()) {
-    contentResults.value = new Map()
-    contentAllMatches.value = []
+    searchResult.value = null
     return
   }
   contentSearchTimer = setTimeout(async () => {
-    const matches = await searchContent(val.trim())
-    contentAllMatches.value = matches
-    const grouped = new Map<string, SearchMatch[]>()
-    for (const m of matches) {
-      const list = grouped.get(m.file) || []
-      list.push(m)
-      grouped.set(m.file, list)
-    }
-    contentResults.value = grouped
+    const result = await searchContent(val.trim(), caseSensitive.value)
+    searchResult.value = result
   }, 300)
 })
+
+watch(caseSensitive, async () => {
+  const q = searchQuery.value.trim()
+  if (!contentSearchMode.value || !q) return
+  const result = await searchContent(q, caseSensitive.value)
+  searchResult.value = result
+})
+
+const recentFileEntries = computed(() => {
+  if (recentFiles.value.length === 0) return []
+  const scratchpadBase = scratchpadPath.value || ''
+  return recentFiles.value
+    .map(rp => localEntries.value.find(e => {
+      const relPath = scratchpadBase
+        ? e.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+        : e.path
+      return relPath === rp
+    }))
+    .filter((e): e is ScratchpadEntry => !!e)
+})
+
+function addRecentFile(relativePath: string): void {
+  const list = recentFiles.value.filter(p => p !== relativePath)
+  list.unshift(relativePath)
+  recentFiles.value = list.slice(0, MAX_RECENT)
+}
 
 const filteredLocalEntries = computed(() => {
   let entries = localEntries.value
@@ -475,15 +674,75 @@ const filteredLocalEntries = computed(() => {
   })
 })
 
+const multiSelected = computed(() => selectedKeys.value.size)
+
 const expandedKeys = ref<Set<string>>(new Set())
 const selectedKey = ref<string | null>(null)
+const selectedKeys = ref<Set<string>>(new Set())
+const lastSelectPath = ref<string | null>(null)
+const clipboardEntry = ref<ScratchpadEntry | null>(null)
 const renamingKey = ref<string | null>(null)
+
+const undoState = reactive<{
+  visible: boolean
+  name: string
+  relativePath: string
+  timer: ReturnType<typeof setTimeout> | null
+}>({
+  visible: false,
+  name: '',
+  relativePath: '',
+  timer: null,
+})
+
+const UNDO_TIMEOUT = 5000
+
+function showUndo(name: string, relativePath: string): void {
+  if (undoState.timer) clearTimeout(undoState.timer)
+  undoState.visible = true
+  undoState.name = name
+  undoState.relativePath = relativePath
+  undoState.timer = setTimeout(() => {
+    dismissUndo()
+  }, UNDO_TIMEOUT)
+}
+
+function dismissUndo(): void {
+  undoState.visible = false
+  if (undoState.timer) {
+    clearTimeout(undoState.timer)
+    undoState.timer = null
+  }
+}
+
+async function handleUndoDelete(): Promise<void> {
+  const name = undoState.relativePath
+  dismissUndo()
+  const ok = await restoreTrashEntry(name)
+  if (ok) message.success(t('scratchpad.restoredSuccess', { name }))
+}
 
 const groupExpanded = reactive({ external: true, local: true })
 
 const showCreateModal = ref(false)
 const newFileName = ref('')
+const selectedTemplate = ref('')
 const createInputRef = ref<InstanceType<typeof NInput> | null>(null)
+
+const TEMPLATE_CONTENTS: Record<string, string> = {
+  sql: '-- 新建查询\n\n',
+  json: '{\n  \n}\n',
+  md: '# \n\n',
+  py: '# -*- coding: utf-8 -*-\n\n',
+}
+
+function selectTemplate(type: string): void {
+  selectedTemplate.value = type
+  const extMap: Record<string, string> = { sql: '.sql', json: '.json', md: '.md', py: '.py' }
+  const name = newFileName.value.trim()
+  const baseName = name ? name.replace(/\.[^.]+$/, '') : 'untitled'
+  newFileName.value = baseName + extMap[type]
+}
 
 const showRefModal = ref(false)
 const newRefAlias = ref('')
@@ -559,11 +818,51 @@ function toggleTrash(): void {
 async function handleEmptyTrash(): Promise<void> {
   const confirmed = window.confirm(t('scratchpad.emptyTrashConfirm'))
   if (!confirmed) return
-  await emptyTrashBin()
+  const ok = await emptyTrashBin()
+  if (ok) message.success(t('scratchpad.trashEmptied'))
 }
 
-function handleSelect(entry: ScratchpadEntry): void {
+function handleSelect(entry: ScratchpadEntry, event?: MouseEvent): void {
+  const ctrl = event?.ctrlKey || event?.metaKey
+  const shift = event?.shiftKey
+
+  if (ctrl) {
+    const next = new Set(selectedKeys.value)
+    if (next.has(entry.path)) {
+      next.delete(entry.path)
+    } else {
+      next.add(entry.path)
+    }
+    selectedKeys.value = next
+    selectedKey.value = entry.path
+    lastSelectPath.value = entry.path
+    return
+  }
+
+  if (shift && lastSelectPath.value) {
+    const flatEntries = flattenEntries(filteredLocalEntries.value)
+    const startIdx = flatEntries.findIndex(e => e.path === lastSelectPath.value)
+    const endIdx = flatEntries.findIndex(e => e.path === entry.path)
+    if (startIdx !== -1 && endIdx !== -1) {
+      const from = Math.min(startIdx, endIdx)
+      const to = Math.max(startIdx, endIdx)
+      const next = new Set<string>()
+      for (let i = from; i <= to; i++) {
+        next.add(flatEntries[i].path)
+      }
+      selectedKeys.value = next
+      selectedKey.value = entry.path
+    }
+    return
+  }
+
   selectedKey.value = entry.path
+  selectedKeys.value = new Set<string>()
+  lastSelectPath.value = entry.path
+}
+
+function flattenEntries(entries: ScratchpadEntry[]): ScratchpadEntry[] {
+  return entries
 }
 
 function handleToggleExpand(entry: ScratchpadEntry): void {
@@ -576,6 +875,34 @@ function handleToggleExpand(entry: ScratchpadEntry): void {
   expandedKeys.value = next
 }
 
+const dragEntry = ref<ScratchpadEntry | null>(null)
+
+function handleTreeNodeDragStart(event: DragEvent, entry: ScratchpadEntry): void {
+  dragEntry.value = entry
+  const scratchpadBase = scratchpadPath.value || ''
+  const relativePath = scratchpadBase
+    ? entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+    : entry.path
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('application/x-scratchpad-file', relativePath)
+    event.dataTransfer.setData('text/plain', relativePath)
+    event.dataTransfer.effectAllowed = 'copy'
+  }
+}
+
+function collectFolderPaths(entries: ScratchpadEntry[]): string[] {
+  return entries.filter(e => e.kind === 'folder').map(e => e.path)
+}
+
+function handleExpandAll(): void {
+  const allFolders = collectFolderPaths(filteredLocalEntries.value)
+  expandedKeys.value = new Set(allFolders)
+}
+
+function handleCollapseAll(): void {
+  expandedKeys.value = new Set()
+}
+
 function handleOpen(entry: ScratchpadEntry): void {
   closeContextMenu()
   if (entry.kind === 'folder') {
@@ -586,7 +913,7 @@ function handleOpen(entry: ScratchpadEntry): void {
 }
 
 async function openFileInEditor(entry: ScratchpadEntry): Promise<void> {
-  const ext = entry.extension.toLowerCase()
+  const ext = entry.name.includes('.') ? '.' + entry.name.split('.').pop()?.toLowerCase() : ''
   const langMap: Record<string, string> = {
     '.sql': 'sql',
     '.py': 'python',
@@ -612,7 +939,7 @@ async function openFileInEditor(entry: ScratchpadEntry): Promise<void> {
   window.dispatchEvent(
     new CustomEvent('open-sql-editor', {
       detail: {
-        connectionId: lastConnectionId,
+        connectionId: lastConnectionId || '',
         databaseName: '',
         sql: content,
         scratchpadRelativePath: relativePath,
@@ -621,10 +948,85 @@ async function openFileInEditor(entry: ScratchpadEntry): Promise<void> {
       },
     })
   )
+  addRecentFile(relativePath)
+}
+
+async function openFileAtLine(relativePath: string, line: number): Promise<void> {
+  const entry = localEntries.value.find(e => {
+    const scratchpadBase = scratchpadPath.value || ''
+    const relPath = scratchpadBase
+      ? e.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+      : e.path
+    return relPath === relativePath
+  })
+  if (!entry) return
+
+  const ext = entry.name.includes('.')
+    ? '.' + entry.name.split('.').pop()?.toLowerCase()
+    : ''
+  const langMap: Record<string, string> = {
+    '.sql': 'sql',
+    '.py': 'python',
+    '.json': 'json',
+    '.txt': 'plaintext',
+    '.md': 'markdown',
+  }
+  const language = langMap[ext] || 'plaintext'
+
+  const content = await loadFileContent(relativePath)
+  if (content === null) return
+
+  const metaForFile = fileMeta.value[relativePath]
+  const lastConnectionId = metaForFile?.last_connection_id || ''
+
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId: lastConnectionId || '',
+        databaseName: '',
+        sql: content,
+        scratchpadRelativePath: relativePath,
+        scratchpadFileName: entry.name,
+        language,
+        initialLine: line,
+      },
+    })
+  )
+  addRecentFile(relativePath)
+}
+
+async function handleFileClick(file: string): Promise<void> {
+  openFileAtLine(file, 0)
+}
+
+function handleLineClick(file: string, line: number): void {
+  openFileAtLine(file, line)
+}
+
+function highlightMatch(line: string, query: string): string {
+  if (!query) return escapeHtml(line)
+  const q = query.trim()
+  if (!q) return escapeHtml(line)
+  const idx = line.toLowerCase().indexOf(q.toLowerCase())
+  if (idx === -1) return escapeHtml(line)
+  const before = escapeHtml(line.slice(0, idx))
+  const match = escapeHtml(line.slice(idx, idx + q.length))
+  const after = escapeHtml(line.slice(idx + q.length))
+  return `${before}<mark class="search-hl">${match}</mark>${after}`
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 async function handleCreateFile(): Promise<void> {
   newFileName.value = ''
+  selectedTemplate.value = ''
   showCreateModal.value = true
   await nextTick()
   createInputRef.value?.focus()
@@ -633,8 +1035,32 @@ async function handleCreateFile(): Promise<void> {
 async function confirmCreate(): Promise<void> {
   const name = newFileName.value.trim()
   if (!name) return
+  const template = selectedTemplate.value
   showCreateModal.value = false
-  await createEntry(name, false)
+  const entry = await createEntry(name, false)
+  if (entry) {
+    if (template && TEMPLATE_CONTENTS[template]) {
+      const scratchpadBase = scratchpadPath.value || ''
+      const relPath = entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+      await saveFile(relPath, TEMPLATE_CONTENTS[template])
+    }
+    if (!error.value) message.success(t('scratchpad.createdSuccess', { name }))
+  }
+}
+
+async function handleCreateFolder(): Promise<void> {
+  newFolderName.value = ''
+  showFolderModal.value = true
+  await nextTick()
+  folderInputRef.value?.focus()
+}
+
+async function confirmCreateFolder(): Promise<void> {
+  const name = newFolderName.value.trim()
+  if (!name) return
+  showFolderModal.value = false
+  const entry = await createEntry(name, true)
+  if (entry && !error.value) message.success(t('scratchpad.createdSuccess', { name }))
 }
 
 async function handleImportFile(): Promise<void> {
@@ -649,11 +1075,17 @@ async function handleImportFile(): Promise<void> {
       filters: [{ name: t('scratchpad.allFiles'), extensions: ['*'] }],
     })
     if (selected && typeof selected === 'string') {
-      await importFile(selected)
+      const result = await importFile(selected)
+      if (result) message.success(t('scratchpad.importedSuccess', { name: result.name }))
     }
   } catch (e) {
     console.error('[Scratchpad] Import dialog error:', e)
   }
+}
+
+async function handleRestore(name: string): Promise<void> {
+  const ok = await restoreTrashEntry(name)
+  if (ok) message.success(t('scratchpad.restoredSuccess', { name }))
 }
 
 const isDragOver = ref(false)
@@ -681,7 +1113,8 @@ async function handleDrop(event: DragEvent): Promise<void> {
   for (let i = 0; i < files.length; i++) {
     const filePath = (files[i] as unknown as { path?: string }).path
     if (filePath) {
-      await importFile(filePath)
+      const result = await importFile(filePath)
+      if (result) message.success(t('scratchpad.importedSuccess', { name: result.name }))
     }
   }
 }
@@ -725,10 +1158,11 @@ function closeContextMenu(): void {
   contextMenu.target = null
 }
 
-const ANALYZABLE_EXTENSIONS = ['.csv', '.parquet', '.json', '.xlsx']
+const ANALYZABLE_EXTENSIONS = ['.csv', '.parquet', '.json', '.xlsx', '.duckdb']
 
 function isAnalyzableFile(entry: ScratchpadEntry): boolean {
-  return ANALYZABLE_EXTENSIONS.includes(entry.extension.toLowerCase())
+  const ext = entry.name.includes('.') ? '.' + entry.name.split('.').pop()?.toLowerCase() : ''
+  return ANALYZABLE_EXTENSIONS.includes(ext)
 }
 
 async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
@@ -756,39 +1190,56 @@ async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
 function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
   event.preventDefault()
   event.stopPropagation()
-  selectedKey.value = entry.path
+
+  if (!selectedKeys.value.has(entry.path)) {
+    selectedKey.value = entry.path
+    selectedKeys.value = new Set<string>([entry.path])
+    lastSelectPath.value = entry.path
+  } else {
+    selectedKey.value = entry.path
+  }
+
+  const multi = multiSelected.value > 1
   const pos = clampToViewport(event.clientX, event.clientY, 180, 240)
   contextMenu.x = pos.x
   contextMenu.y = pos.y
   contextMenu.isRefTarget = false
   contextMenu.target = entry
-  contextMenu.items = [
-    { key: 'open', label: t('scratchpad.open'), icon: FileText },
-    ...(isAnalyzableFile(entry)
-      ? [
-          {
-            key: 'analyze-duckdb',
-            label: t('scratchpad.analyzeWithDuckDB'),
-            icon: BarChart3,
-          },
-        ]
-      : []),
-    ...(entry.kind === 'folder'
-      ? [
-          {
-            key: 'toggle-folder',
-            label: expandedKeys.value.has(entry.path)
-              ? t('scratchpad.collapse')
-              : t('scratchpad.expand'),
-            icon: ChevronRight,
-          },
-        ]
-      : []),
-    { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
-    { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
-    { key: 'promote', label: t('scratchpad.promoteToResource'), icon: GitBranch },
-    { key: 'delete', label: t('scratchpad.delete'), icon: Trash2, danger: true, shortcut: 'Del' },
-  ]
+  contextMenu.items = multi
+    ? [
+        { key: 'batch-delete', label: t('scratchpad.batchDelete', { n: multiSelected.value }), icon: Trash2, danger: true },
+      ]
+    : [
+        { key: 'open', label: t('scratchpad.open'), icon: FileText },
+        ...(isAnalyzableFile(entry)
+          ? [
+              {
+                key: 'analyze-duckdb',
+                label: t('scratchpad.analyzeWithDuckDB'),
+                icon: BarChart3,
+              },
+            ]
+          : []),
+        ...(entry.kind === 'folder'
+          ? [
+              {
+                key: 'toggle-folder',
+                label: expandedKeys.value.has(entry.path)
+                  ? t('scratchpad.collapse')
+                  : t('scratchpad.expand'),
+                icon: ChevronRight,
+              },
+            ]
+          : []),
+        { key: 'copy-file', label: t('scratchpad.copyFile'), icon: Copy },
+        { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
+        { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
+        { key: 'promote', label: t('scratchpad.promoteToResource'), icon: GitBranch },
+        { key: 'delete', label: t('scratchpad.delete'), icon: Trash2, danger: true, shortcut: 'Del' },
+      ]
+  if (clipboardEntry.value) {
+    contextMenu.items.push({ key: 'paste-file', label: t('scratchpad.pasteFile'), icon: FilePlus })
+  }
   contextMenu.visible = true
 }
 
@@ -849,14 +1300,49 @@ async function handleMenuAction(key: string): Promise<void> {
       break
     case 'copy-path':
       await navigator.clipboard.writeText(entry.path)
+      message.success(t('scratchpad.pathCopied'))
       break
     case 'delete':
       await deleteEntry(entry.path)
+      showUndo(entry.name, entry.name)
       break
     case 'promote':
       promoteTarget.value = entry
       showPromoteConfirm.value = true
       break
+    case 'copy-file':
+      clipboardEntry.value = entry
+      break
+    case 'paste-file':
+      await handlePaste()
+      break
+    case 'batch-delete': {
+      const paths = [...selectedKeys.value]
+      const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
+      if (!confirmed) break
+      for (const p of paths) {
+        await deleteEntry(p)
+      }
+      message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
+      selectedKeys.value = new Set<string>()
+      break
+    }
+  }
+}
+
+async function handlePaste(): Promise<void> {
+  const src = clipboardEntry.value
+  if (!src) return
+  const content = await loadFileContent(src.path.replace(scratchpadPath.value || '', '').replace(/^\//, ''))
+  if (content === null) return
+  const baseName = src.name.replace(/\.([^.]+)$/, '')
+  const ext = src.name.includes('.') ? '.' + src.name.split('.').pop() : ''
+  const copyName = `${baseName}_copy${ext}`
+  const entry = await createEntry(copyName, false)
+  if (entry) {
+    const relPath = entry.path.replace(scratchpadPath.value || '', '').replace(/^\//, '')
+    await saveFile(relPath, content)
+    message.success(t('scratchpad.pasteCopied', { name: copyName }))
   }
 }
 
@@ -864,9 +1350,13 @@ async function handlePromoteConfirm(removeAfter: boolean): Promise<void> {
   showPromoteConfirm.value = false
   const entry = promoteTarget.value
   if (!entry) return
-  const path = entry.path
-  await promoteToResource(path, removeAfter)
+  const scratchpadBase = scratchpadPath.value || ''
+  const relativePath = scratchpadBase
+    ? entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+    : entry.path
+  const result = await promoteToResource(relativePath, removeAfter)
   promoteTarget.value = null
+  if (result) message.success(t('scratchpad.promotedSuccess', { name: entry.name }))
 }
 
 function startRename(entry: ScratchpadEntry): void {
@@ -876,7 +1366,8 @@ function startRename(entry: ScratchpadEntry): void {
 async function finishRename(entry: ScratchpadEntry, newName: string): Promise<void> {
   renamingKey.value = null
   if (newName && newName !== entry.name) {
-    await renameEntry(entry.path, newName)
+    const result = await renameEntry(entry.path, newName)
+    if (result) message.success(t('scratchpad.renamedSuccess', { name: newName }))
   }
 }
 
@@ -884,10 +1375,19 @@ function cancelRename(): void {
   renamingKey.value = null
 }
 
-function handleKeydown(event: KeyboardEvent): void {
+async function handleKeydown(event: KeyboardEvent): Promise<void> {
   if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
     event.preventDefault()
     handleCreateFile()
+    return
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+    event.preventDefault()
+    const all = new Set<string>()
+    for (const e of filteredLocalEntries.value) {
+      all.add(e.path)
+    }
+    selectedKeys.value = all
     return
   }
   if (!selectedKey.value) {
@@ -928,8 +1428,22 @@ function handleKeydown(event: KeyboardEvent): void {
     if (entry) startRename(entry)
   } else if (event.key === 'Delete') {
     event.preventDefault()
-    const entry = localEntries.value.find(e => e.path === selectedKey.value)
-    if (entry) deleteEntry(entry.path)
+    if (multiSelected.value > 1) {
+      const paths = [...selectedKeys.value]
+      const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
+      if (!confirmed) return
+      for (const p of paths) {
+        await deleteEntry(p)
+      }
+      message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
+      selectedKeys.value = new Set<string>()
+    } else {
+      const entry = localEntries.value.find(e => e.path === selectedKey.value)
+      if (entry) {
+        await deleteEntry(entry.path)
+        showUndo(entry.name, entry.name)
+      }
+    }
   }
 }
 
@@ -1080,6 +1594,19 @@ onUnmounted(() => {
 .group-count {
   font-size: 11px;
   color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.group-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.group-actions .n-button {
+  font-size: 11px;
+  padding: 0 6px;
 }
 
 .ref-row {
@@ -1130,10 +1657,99 @@ onUnmounted(() => {
 }
 
 .empty-hint {
-  padding: 12px 24px;
   font-size: 12px;
   color: var(--color-text-muted);
+  padding: 16px;
   text-align: center;
+}
+
+.recent-section {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.recent-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.recent-header:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.recent-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.recent-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.recent-list {
+  padding-bottom: 4px;
+}
+
+.recent-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 12px 0 28px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  transition: background-color 0.1s;
+}
+
+.recent-entry:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.recent-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 8px;
+}
+
+.empty-icon-wrapper {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 0;
+  text-align: center;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .modal-body {
@@ -1142,6 +1758,23 @@ onUnmounted(() => {
   gap: 12px;
   padding: 16px;
   min-width: 360px;
+}
+
+.template-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.template-options {
+  display: flex;
+  gap: 4px;
 }
 
 .modal-input {
@@ -1222,6 +1855,27 @@ onUnmounted(() => {
   color: var(--color-text-muted);
 }
 
+.search-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--color-warning-text, #b45309);
+  background: var(--color-warning-bg, rgba(234, 179, 8, 0.1));
+  border-radius: 4px;
+}
+
+.search-no-results {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
 .search-result-file {
   margin: 2px 0;
 }
@@ -1280,5 +1934,47 @@ onUnmounted(() => {
   font-size: 11px;
   color: var(--color-text-muted);
   font-style: italic;
+}
+
+:deep(.search-hl) {
+  background-color: var(--color-warning-bg, rgba(234, 179, 8, 0.3));
+  color: var(--color-warning-text, #b45309);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.undo-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-bg-elevated);
+  border-top: 1px solid var(--color-border);
+  font-size: 13px;
+  z-index: 10;
+  animation: undo-bar-in 0.2s ease-out;
+}
+
+@keyframes undo-bar-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.undo-text {
+  flex: 1;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

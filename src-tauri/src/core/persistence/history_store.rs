@@ -6,7 +6,21 @@
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
+
+fn system_time_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn system_time_nanos() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+}
 
 /// 最大保存的历史记录数量
 const MAX_HISTORY_RECORDS: usize = 500;
@@ -54,10 +68,7 @@ impl HistoryRecord {
     ///
     /// 返回新的 HistoryRecord 实例
     pub fn new(sql: String, db_type: String, connection_id: String) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
+        let now = system_time_millis();
 
         Self {
             id: Self::generate_id(),
@@ -78,10 +89,7 @@ impl HistoryRecord {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
+        let timestamp = system_time_nanos();
 
         let mut hasher = DefaultHasher::new();
         timestamp.hash(&mut hasher);

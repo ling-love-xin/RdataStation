@@ -6,7 +6,7 @@ import type {
   ExternalReference,
   AnalyzableFile,
   PromoteResult,
-  SearchMatch,
+  SearchResult,
 } from '../../types'
 
 export async function listScratchpadFiles(): Promise<ScratchpadResponse> {
@@ -96,8 +96,8 @@ export async function updateFileMeta(
   })
 }
 
-export async function searchFileContent(query: string): Promise<SearchMatch[]> {
-  return invoke<SearchMatch[]>('search_scratchpad_content', { query })
+export async function searchFileContent(query: string, caseSensitive = false): Promise<SearchResult> {
+  return invoke<SearchResult>('search_scratchpad_content', { query, caseSensitive })
 }
 
 export async function listTrash(): Promise<ScratchpadEntry[]> {

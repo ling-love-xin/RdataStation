@@ -434,6 +434,15 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     return bindParams(sql, values)
   }
 
+  function cleanup(): void {
+    if (parseTimer) {
+      clearTimeout(parseTimer)
+      parseTimer = null
+    }
+  }
+
+  const executeExplain = executeSql
+
   return {
     executing,
     lastExecutionTime,
@@ -454,5 +463,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     storeResult,
     checkForParams,
     buildBoundSql,
+    executeExplain,
+    cleanup,
   }
 }

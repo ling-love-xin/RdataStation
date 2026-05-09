@@ -3,6 +3,16 @@ use crate::core::services::result_service::{
     TableQuality,
 };
 
+pub(crate) const WEIGHT_COMPLETENESS: f64 = 0.35;
+pub(crate) const WEIGHT_UNIQUENESS: f64 = 0.25;
+pub(crate) const WEIGHT_TYPE_CONSISTENCY: f64 = 0.20;
+pub(crate) const WEIGHT_DISTRIBUTION: f64 = 0.20;
+
+pub(crate) const GRADE_EXCELLENT: f64 = 85.0;
+pub(crate) const GRADE_GOOD: f64 = 70.0;
+pub(crate) const GRADE_FAIR: f64 = 50.0;
+pub(crate) const GRADE_POOR: f64 = 30.0;
+
 pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore {
     let null_rate = stats.stats.null_rate;
     let total = stats.stats.total_count as f64;
@@ -111,48 +121,48 @@ pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore 
         QualityDimension {
             name: "完整性".into(),
             score: completeness,
-            weight: 0.35,
+            weight: WEIGHT_COMPLETENESS,
             detail: format!("空值率 {:.1}%", null_rate * 100.0),
         },
         QualityDimension {
             name: "唯一性".into(),
             score: uniqueness,
-            weight: 0.25,
+            weight: WEIGHT_UNIQUENESS,
             detail: format!("去重 {}/{}", unique_display, stats.stats.total_count),
         },
         QualityDimension {
             name: "类型一致".into(),
             score: type_consistency,
-            weight: 0.20,
+            weight: WEIGHT_TYPE_CONSISTENCY,
             detail: detail_variant_name(&stats.stats.stats_detail).into(),
         },
         QualityDimension {
             name: "分布均匀".into(),
             score: distribution,
-            weight: 0.20,
+            weight: WEIGHT_DISTRIBUTION,
             detail: "直方图分布评估".into(),
         },
     ];
 
     let overall: f64 = dimensions.iter().map(|d| d.score * d.weight).sum();
 
-    let level = if overall >= 85.0 {
+    let level = if overall >= GRADE_EXCELLENT {
         "优秀"
-    } else if overall >= 70.0 {
+    } else if overall >= GRADE_GOOD {
         "良好"
-    } else if overall >= 50.0 {
+    } else if overall >= GRADE_FAIR {
         "一般"
-    } else if overall >= 30.0 {
+    } else if overall >= GRADE_POOR {
         "较差"
     } else {
         "差"
     };
 
-    let summary = if overall >= 85.0 {
+    let summary = if overall >= GRADE_EXCELLENT {
         format!("数据质量优秀 ({:.0}分)，可直接用于分析", overall)
-    } else if overall >= 70.0 {
+    } else if overall >= GRADE_GOOD {
         format!("数据质量良好 ({:.0}分)，建议关注空值", overall)
-    } else if overall >= 50.0 {
+    } else if overall >= GRADE_FAIR {
         format!("数据质量一般 ({:.0}分)，存在明显质量问题", overall)
     } else {
         format!("数据质量较差 ({:.0}分)，建议清洗后使用", overall)

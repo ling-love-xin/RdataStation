@@ -14,9 +14,13 @@ pub mod smart_pool;
 mod tests;
 
 // 重新导出核心类型
-pub use traits::{Database, Transaction, DbPool, DataSourceMeta, SchemaObject, SchemaObjectKind, DynDatabase, PoolStatus};
-pub use registry::{DriverRegistry, ConnectionConfig as DriverConnectionConfig, DriverDescriptor, DriverFactory};
-pub use factory::{DriverFactoryManager, DRIVER_FACTORY_MANAGER, MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory, DuckDbDriverFactory};
+pub use traits::{
+    Database, Transaction, DbPool, DataSourceMeta, SchemaObject, SchemaObjectKind,
+    DynDatabase, PoolStatus,
+    ColumnDetail, NodeInfo, NodeDetail, MetadataBrowser,
+};
+pub use registry::{DriverRegistry, ConnectionConfig as DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind};
+pub use factory::{MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory, DuckDbDriverFactory};
 pub use manager::{DriverManager, DRIVER_MANAGER, get_driver_manager, init_driver_manager, DriverStatus, DriverInfo};
 pub use metadata::{DriverMetadata, DriverType, DriverIcon, DriverFormField};
 pub use loader::{DriverLoader, BuiltinDriverDiscovery, WasmDriverDiscovery, JdbcDriverDiscovery};

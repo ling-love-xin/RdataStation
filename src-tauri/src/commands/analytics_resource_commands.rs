@@ -222,8 +222,14 @@ pub async fn list_analytics_resources_paginated(
         "分析资源存储未初始化".to_string()
     })?;
 
-    let page = input.pagination.as_ref().and_then(|p| p.page).unwrap_or(1);
-    let page_size = input.pagination.as_ref().and_then(|p| p.page_size).unwrap_or(20);
+    let page = input.pagination.as_ref().and_then(|p| p.page).unwrap_or_else(|| {
+        tracing::trace!("No page specified, defaulting to page 1");
+        1
+    });
+    let page_size = input.pagination.as_ref().and_then(|p| p.page_size).unwrap_or_else(|| {
+        tracing::trace!("No page_size specified, defaulting to 20");
+        20
+    });
     let sort_by = input.sort.as_ref().and_then(|s| s.sort_by.clone());
     let sort_order = input.sort.as_ref().and_then(|s| s.sort_order.clone());
 
@@ -455,6 +461,24 @@ pub async fn remove_analytics_tag_from_resource(
     store.remove_tag_from_resource(&input.resource_id, &input.tag_id).await.map_err(|e| e.to_string())?;
     
     Ok(())
+}
+
+/// 获取单个标签详情
+#[tauri::command]
+pub async fn get_analytics_tag(
+    id: String,
+    analytics_state: State<'_, AnalyticsResourceState>,
+) -> Result<AnalyticsTag, String> {
+    tracing::debug!(tag_id = %id, "Getting analytics tag");
+
+    let analytics_guard = analytics_state.store.lock().await;
+    let store = analytics_guard.as_ref().ok_or_else(|| {
+        "分析资源存储未初始化".to_string()
+    })?;
+
+    let tag = store.get_tag_by_id(&id).await.map_err(|e| e.to_string())?;
+
+    Ok(tag)
 }
 
 // ==================== Recycle Bin Commands ====================

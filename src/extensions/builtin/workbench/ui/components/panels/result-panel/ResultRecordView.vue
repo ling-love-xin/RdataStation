@@ -92,9 +92,9 @@ function formatValue(value: unknown): string {
   font-style: italic;
 }
 .is-number {
-  font-family: var(--font-mono);
+  font-family: monospace;
 }
 .is-bool {
-  font-family: var(--font-mono);
+  font-family: monospace;
 }
 </style>

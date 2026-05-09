@@ -1,16 +1,18 @@
 use sqlx::{Postgres, Pool, Row, Column};
-use arrow::array::{ArrayRef, StringArray, Int64Array, Float64Array, BooleanArray, BinaryArray};
+use arrow::array::{ArrayRef, StringArray, Int64Array, Int32Array, Float64Array, Float32Array, BooleanArray, BinaryArray};
 use arrow::datatypes::{Field, Schema, DataType};
 use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
 
-use crate::core::driver::{Database, Transaction, DataSourceMeta};
+use crate::core::driver::{Database, Transaction, DataSourceMeta, SchemaObject, SchemaObjectKind, ColumnDetail};
+use crate::core::driver::traits::MetadataBrowser;
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{QueryResult, ArrowBatch};
 
 /// PostgreSQL 数据库连接
 pub struct PostgresDatabase {
     pool: Pool<Postgres>,
+    server_version: Option<String>,
 }
 
 impl PostgresDatabase {
@@ -22,20 +24,45 @@ impl PostgresDatabase {
                 operation: "connect".to_string(),
                 source: e.to_string(),
             }))?;
-        Ok(Self { pool })
+        let server_version = sqlx::query_scalar::<_, String>("SELECT version()")
+            .fetch_one(&pool)
+            .await
+            .ok();
+        Ok(Self { pool, server_version })
     }
 
     pub fn from_pool(pool: Pool<Postgres>) -> Self {
-        Self { pool }
+        Self { pool, server_version: None }
     }
+
+    pub fn from_pool_with_version(pool: Pool<Postgres>, server_version: Option<String>) -> Self {
+        Self { pool, server_version }
+    }
+}
+
+fn is_read_only_sql(sql: &str) -> bool {
+    let sql_upper = sql.trim_start().to_uppercase();
+    sql_upper.starts_with("SELECT")
+        || sql_upper.starts_with("SHOW")
+        || sql_upper.starts_with("DESCRIBE")
+        || sql_upper.starts_with("EXPLAIN")
+        || sql_upper.starts_with("SET")
+}
+
+fn build_query_result(columns: &[String], rows: &[sqlx::postgres::PgRow], is_read_only: bool) -> Result<QueryResult, CoreError> {
+    let batch = postgres_rows_to_arrow(columns, rows)?;
+    Ok(QueryResult {
+        columns: columns.to_vec(),
+        batches: vec![batch],
+        affected_rows: if is_read_only { None } else { Some(rows.len()) },
+        is_read_only: Some(is_read_only),
+    })
 }
 
 #[async_trait::async_trait]
 impl Database for PostgresDatabase {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        let sql_upper = sql.trim_start().to_uppercase();
-        let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("SHOW") || sql_upper.starts_with("DESCRIBE");
-
+        let read_only = is_read_only_sql(sql);
         let rows = sqlx::query(sql)
             .fetch_all(&self.pool)
             .await
@@ -45,8 +72,8 @@ impl Database for PostgresDatabase {
             return Ok(QueryResult {
                 columns: vec![],
                 batches: vec![],
-                affected_rows: None,
-                is_read_only: Some(is_read_only),
+                affected_rows: if read_only { None } else { Some(0) },
+                is_read_only: Some(read_only),
             });
         }
 
@@ -55,14 +82,45 @@ impl Database for PostgresDatabase {
             .map(|c| c.name().to_string())
             .collect();
 
-        let batch = postgres_rows_to_arrow(&columns, &rows)?;
+        build_query_result(&columns, &rows, read_only)
+    }
 
-        Ok(QueryResult {
-            columns,
-            batches: vec![batch],
-            affected_rows: if is_read_only { Some(rows.len()) } else { None },
-            is_read_only: Some(is_read_only),
-        })
+    async fn query_with_params(&self, sql: &str, params: Vec<crate::core::models::Value>) -> Result<QueryResult, CoreError> {
+        let read_only = is_read_only_sql(sql);
+
+        let mut query_builder = sqlx::query(sql);
+
+        for param in &params {
+            query_builder = match param {
+                crate::core::models::Value::Null => query_builder.bind(None::<String>),
+                crate::core::models::Value::Bool(v) => query_builder.bind(*v),
+                crate::core::models::Value::Int(v) => query_builder.bind(*v),
+                crate::core::models::Value::Float(v) => query_builder.bind(*v),
+                crate::core::models::Value::Text(v) => query_builder.bind(v),
+                crate::core::models::Value::Bytes(v) => query_builder.bind(v.clone()),
+            };
+        }
+
+        let rows = query_builder
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
+
+        if rows.is_empty() {
+            return Ok(QueryResult {
+                columns: vec![],
+                batches: vec![],
+                affected_rows: if read_only { None } else { Some(0) },
+                is_read_only: Some(read_only),
+            });
+        }
+
+        let columns: Vec<String> = rows[0].columns()
+            .iter()
+            .map(|c| c.name().to_string())
+            .collect();
+
+        build_query_result(&columns, &rows, read_only)
     }
 
     async fn query_with_cancel(
@@ -76,8 +134,7 @@ impl Database for PostgresDatabase {
 
         tokio::select! {
             result = async move {
-                let sql_upper = sql_owned.trim_start().to_uppercase();
-                let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("SHOW") || sql_upper.starts_with("DESCRIBE");
+                let read_only = is_read_only_sql(&sql_owned);
 
                 let rows = sqlx::query(&sql_owned)
                     .fetch_all(&pool)
@@ -88,8 +145,8 @@ impl Database for PostgresDatabase {
                     return Ok(QueryResult {
                         columns: vec![],
                         batches: vec![],
-                        affected_rows: None,
-                        is_read_only: Some(is_read_only),
+                        affected_rows: if read_only { None } else { Some(0) },
+                        is_read_only: Some(read_only),
                     });
                 }
 
@@ -98,14 +155,7 @@ impl Database for PostgresDatabase {
                     .map(|c| c.name().to_string())
                     .collect();
 
-                let batch = postgres_rows_to_arrow(&columns, &rows)?;
-
-                Ok(QueryResult {
-                    columns,
-                    batches: vec![batch],
-                    affected_rows: if is_read_only { Some(rows.len()) } else { None },
-                    is_read_only: Some(is_read_only),
-                })
+                build_query_result(&columns, &rows, read_only)
             } => result,
             _ = cancel_token.cancelled() => {
                 Err(CoreError::database(DatabaseError::Query {
@@ -129,104 +179,41 @@ impl Database for PostgresDatabase {
     }
 
     fn meta(&self) -> DataSourceMeta {
-        DataSourceMeta::postgres()
+        DataSourceMeta {
+            server_version: self.server_version.clone(),
+            ..DataSourceMeta::postgres()
+        }
     }
 
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
-        let result = self.query("SELECT datname FROM pg_database WHERE datistemplate = false").await?;
-        let databases: Vec<String> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
-                            Some(arr.value(row_idx).to_string())
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .filter(|db| !db.is_empty())
-            .collect();
-        Ok(databases)
+        self.get_databases().await.map(|nodes| {
+            nodes.into_iter().map(|n| n.name).collect()
+        })
     }
 
-    async fn list_schemas(&self, _db: &str) -> Result<Vec<String>, CoreError> {
-        let sql = "SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema')";
-        let result = self.query(sql).await?;
-        let schemas: Vec<String> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
-                            Some(arr.value(row_idx).to_string())
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .filter(|schema| !schema.is_empty())
-            .collect();
-        Ok(schemas)
+    async fn list_schemas(&self, db: &str) -> Result<Vec<String>, CoreError> {
+        self.get_schemas(db).await.map(|nodes| {
+            nodes.into_iter().map(|n| n.name).collect()
+        })
     }
 
-    async fn list_tables(&self, _db: &str, schema: Option<&str>) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
+    async fn list_tables(&self, db: &str, schema: Option<&str>) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
-        let sql = format!("SELECT table_name FROM information_schema.tables WHERE table_schema = '{}'", schema_name);
-        let result = self.query(&sql).await?;
-        let tables: Vec<crate::core::driver::SchemaObject> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
-                            Some(crate::core::driver::SchemaObject {
-                                name: arr.value(row_idx).to_string(),
-                                kind: crate::core::driver::SchemaObjectKind::Table,
-                                children: None,
-                            })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .filter(|obj| !obj.name.is_empty())
-            .collect();
-        Ok(tables)
+        let nodes = self.get_tables(db, schema_name).await?;
+        Ok(nodes.into_iter().map(|n| {
+            crate::core::driver::SchemaObject {
+                name: n.name,
+                kind: n.kind,
+                children: None,
+                comment: n.comment,
+            }
+        }).collect())
     }
 
-    async fn list_columns(&self, _db: &str, schema: Option<&str>, table: &str) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
+    async fn list_columns(&self, _db: &str, schema: Option<&str>, table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
         let schema_name = schema.unwrap_or("public");
-        let sql = format!("SELECT column_name FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'", schema_name, table);
-        let result = self.query(&sql).await?;
-        let columns: Vec<crate::core::driver::SchemaObject> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
-                            Some(crate::core::driver::SchemaObject {
-                                name: arr.value(row_idx).to_string(),
-                                kind: crate::core::driver::SchemaObjectKind::Column,
-                                children: None,
-                            })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .filter(|obj| !obj.name.is_empty())
-            .collect();
-        Ok(columns)
+        let detail = self.get_table_detail(_db, schema_name, table).await?;
+        Ok(detail.columns)
     }
 }
 
@@ -245,8 +232,7 @@ impl PostgresTransaction {
 impl Transaction for PostgresTransaction {
     async fn query(&mut self, sql: &str) -> Result<QueryResult, CoreError> {
         if let Some(ref mut tx) = self.tx {
-            let sql_upper = sql.trim_start().to_uppercase();
-            let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("SHOW") || sql_upper.starts_with("DESCRIBE");
+            let read_only = is_read_only_sql(sql);
 
             let rows = sqlx::query(sql)
                 .fetch_all(&mut **tx)
@@ -257,8 +243,8 @@ impl Transaction for PostgresTransaction {
                 return Ok(QueryResult {
                     columns: vec![],
                     batches: vec![],
-                    affected_rows: None,
-                    is_read_only: Some(is_read_only),
+                    affected_rows: if read_only { None } else { Some(0) },
+                    is_read_only: Some(read_only),
                 });
             }
 
@@ -267,14 +253,7 @@ impl Transaction for PostgresTransaction {
                 .map(|c| c.name().to_string())
                 .collect();
 
-            let batch = postgres_rows_to_arrow(&columns, &rows)?;
-
-            Ok(QueryResult {
-                columns,
-                batches: vec![batch],
-                affected_rows: if is_read_only { Some(rows.len()) } else { None },
-                is_read_only: Some(is_read_only),
-            })
+            build_query_result(&columns, &rows, read_only)
         } else {
             Err(CoreError::database(DatabaseError::Driver {
                 db_type: "postgres".to_string(),
@@ -297,13 +276,14 @@ impl Transaction for PostgresTransaction {
 
     async fn rollback(&mut self) -> Result<(), CoreError> {
         if let Some(tx) = self.tx.take() {
-            let _ = tx.rollback().await;
+            if let Err(e) = tx.rollback().await {
+                eprintln!("PostgreSQL transaction rollback error: {}", e);
+            }
         }
         Ok(())
     }
 }
 
-/// 将 PostgreSQL 行转换为 Arrow 批处理
 fn postgres_rows_to_arrow(
     columns: &[String],
     rows: &[sqlx::postgres::PgRow],
@@ -315,8 +295,10 @@ fn postgres_rows_to_arrow(
 
     for col_idx in 0..num_cols {
         let mut string_values: Vec<Option<String>> = Vec::with_capacity(num_rows);
-        let mut int_values: Vec<Option<i64>> = Vec::with_capacity(num_rows);
-        let mut float_values: Vec<Option<f64>> = Vec::with_capacity(num_rows);
+        let mut int64_values: Vec<Option<i64>> = Vec::with_capacity(num_rows);
+        let mut int32_values: Vec<Option<i32>> = Vec::with_capacity(num_rows);
+        let mut float64_values: Vec<Option<f64>> = Vec::with_capacity(num_rows);
+        let mut float32_values: Vec<Option<f32>> = Vec::with_capacity(num_rows);
         let mut bool_values: Vec<Option<bool>> = Vec::with_capacity(num_rows);
         let mut binary_values: Vec<Option<Vec<u8>>> = Vec::with_capacity(num_rows);
 
@@ -324,57 +306,78 @@ fn postgres_rows_to_arrow(
 
         for row in rows {
             use sqlx::Row;
-            
-            if let Ok(v) = row.try_get::<Option<bool>, _>(col_idx) {
-                if detected_type.is_none() {
-                    detected_type = Some(DataType::Boolean);
+
+            if let Ok(Some(_)) = row.try_get::<Option<bool>, _>(col_idx) {
+                detected_type = Some(DataType::Boolean);
+                break;
+            }
+            if let Ok(Some(_)) = row.try_get::<Option<i32>, _>(col_idx) {
+                detected_type = Some(DataType::Int32);
+                break;
+            }
+            if let Ok(Some(_)) = row.try_get::<Option<i64>, _>(col_idx) {
+                detected_type = Some(DataType::Int64);
+                break;
+            }
+            if let Ok(Some(_)) = row.try_get::<Option<f32>, _>(col_idx) {
+                detected_type = Some(DataType::Float32);
+                break;
+            }
+            if let Ok(Some(_)) = row.try_get::<Option<f64>, _>(col_idx) {
+                detected_type = Some(DataType::Float64);
+                break;
+            }
+            if let Ok(Some(_)) = row.try_get::<Option<Vec<u8>>, _>(col_idx) {
+                detected_type = Some(DataType::Binary);
+                break;
+            }
+            if let Ok(Some(_)) = row.try_get::<Option<String>, _>(col_idx) {
+                detected_type = Some(DataType::Utf8);
+                break;
+            }
+        }
+
+        let effective_type = detected_type.clone().unwrap_or(DataType::Utf8);
+
+        for row in rows {
+            use sqlx::Row;
+
+            match effective_type {
+                DataType::Boolean => {
+                    bool_values.push(row.try_get::<Option<bool>, _>(col_idx).ok().flatten());
                 }
-                bool_values.push(v);
-            } else if let Ok(v) = row.try_get::<Option<i64>, _>(col_idx) {
-                if detected_type.is_none() {
-                    detected_type = Some(DataType::Int64);
+                DataType::Int32 => {
+                    int32_values.push(row.try_get::<Option<i32>, _>(col_idx).ok().flatten());
                 }
-                int_values.push(v);
-            } else if let Ok(v) = row.try_get::<Option<f64>, _>(col_idx) {
-                if detected_type.is_none() {
-                    detected_type = Some(DataType::Float64);
+                DataType::Int64 => {
+                    int64_values.push(row.try_get::<Option<i64>, _>(col_idx).ok().flatten());
                 }
-                float_values.push(v);
-            } else if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(col_idx) {
-                if detected_type.is_none() {
-                    detected_type = Some(DataType::Binary);
+                DataType::Float32 => {
+                    float32_values.push(row.try_get::<Option<f32>, _>(col_idx).ok().flatten());
                 }
-                binary_values.push(v);
-            } else if let Ok(v) = row.try_get::<Option<String>, _>(col_idx) {
-                if detected_type.is_none() {
-                    detected_type = Some(DataType::Utf8);
+                DataType::Float64 => {
+                    float64_values.push(row.try_get::<Option<f64>, _>(col_idx).ok().flatten());
                 }
-                string_values.push(v);
-            } else {
-                if detected_type.is_none() {
-                    detected_type = Some(DataType::Utf8);
+                DataType::Binary => {
+                    binary_values.push(row.try_get::<Option<Vec<u8>>, _>(col_idx).ok().flatten());
                 }
-                string_values.push(None);
+                _ => {
+                    string_values.push(row.try_get::<Option<String>, _>(col_idx).ok().flatten());
+                }
             }
         }
 
         let array: ArrayRef = match detected_type.unwrap_or(DataType::Utf8) {
-            DataType::Boolean => {
-                Arc::new(BooleanArray::from(bool_values))
-            }
-            DataType::Int64 => {
-                Arc::new(Int64Array::from(int_values))
-            }
-            DataType::Float64 => {
-                Arc::new(Float64Array::from(float_values))
-            }
+            DataType::Boolean => Arc::new(BooleanArray::from(bool_values)),
+            DataType::Int32 => Arc::new(Int32Array::from(int32_values)),
+            DataType::Int64 => Arc::new(Int64Array::from(int64_values)),
+            DataType::Float32 => Arc::new(Float32Array::from(float32_values)),
+            DataType::Float64 => Arc::new(Float64Array::from(float64_values)),
             DataType::Binary => {
                 let refs: Vec<Option<&[u8]>> = binary_values.iter().map(|opt| opt.as_ref().map(|v| v.as_slice())).collect();
                 Arc::new(BinaryArray::from(refs))
             }
-            _ => {
-                Arc::new(StringArray::from(string_values))
-            }
+            _ => Arc::new(StringArray::from(string_values)),
         };
 
         arrays.push(array);
@@ -396,4 +399,139 @@ fn postgres_rows_to_arrow(
             operation: "arrow_conversion".to_string(),
             source: e.to_string(),
         }))
+}
+
+#[async_trait::async_trait]
+impl crate::core::driver::MetadataBrowser for PostgresDatabase {
+    async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        let result = self.query("SELECT datname FROM pg_catalog.pg_database WHERE datistemplate = false ORDER BY datname").await?;
+        Ok(rows_to_node_info(&result, crate::core::driver::SchemaObjectKind::Database, "database"))
+    }
+
+    async fn get_schemas(&self, db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        let sql = format!(
+            "SELECT schema_name FROM information_schema.schemata \
+             WHERE catalog_name = '{}' AND schema_name NOT IN ('pg_catalog', 'information_schema') \
+             ORDER BY schema_name",
+            db.replace('\'', "''")
+        );
+        let result = self.query(&sql).await?;
+        Ok(rows_to_node_info(&result, crate::core::driver::SchemaObjectKind::Schema, "schema"))
+    }
+
+    async fn get_tables(&self, db: &str, schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        let sql = format!(
+            "SELECT table_name, table_type FROM information_schema.tables \
+             WHERE table_catalog = '{}' AND table_schema = '{}' ORDER BY table_name",
+            db.replace('\'', "''"), schema.replace('\'', "''")
+        );
+        let result = self.query(&sql).await?;
+        let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
+        for row_idx in 0..result.total_rows() {
+            if let Some(batch) = result.batches.first() {
+                if row_idx < batch.num_rows() {
+                    if let (Some(name_arr), Some(type_arr)) = (
+                        batch.column(0).as_any().downcast_ref::<StringArray>(),
+                        batch.column(1).as_any().downcast_ref::<StringArray>(),
+                    ) {
+                        let table_type = type_arr.value(row_idx);
+                        let kind = if table_type == "VIEW" {
+                            crate::core::driver::SchemaObjectKind::View
+                        } else {
+                            crate::core::driver::SchemaObjectKind::Table
+                        };
+                        nodes.push(crate::core::driver::NodeInfo {
+                            name: name_arr.value(row_idx).to_string(),
+                            kind,
+                            icon: Some(if table_type == "VIEW" { "view".to_string() } else { "table".to_string() }),
+                            comment: None,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(nodes)
+    }
+
+    async fn get_table_detail(&self, db: &str, schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+        let safe_schema = schema.replace('\'', "''");
+        let safe_table = table.replace('\'', "''");
+        let safe_db = db.replace('\'', "''");
+        let sql = format!(
+            "SELECT column_name, data_type, is_nullable, \
+             CASE WHEN column_name IN (SELECT kcu.column_name FROM information_schema.table_constraints tc \
+             JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name \
+             WHERE tc.table_schema = '{}' AND tc.table_name = '{}' AND tc.constraint_type = 'PRIMARY KEY') \
+             THEN 'PRI' ELSE '' END AS column_key, \
+             column_default, \
+             COALESCE(col_description((SELECT oid FROM pg_class WHERE relname = '{}'), ordinal_position), '') AS column_comment \
+             FROM information_schema.columns \
+             WHERE table_catalog = '{}' AND table_schema = '{}' AND table_name = '{}' \
+             ORDER BY ordinal_position",
+            safe_schema, safe_table, safe_table, safe_db, safe_schema, safe_table
+        );
+        let result = self.query(&sql).await?;
+        let mut columns: Vec<crate::core::driver::ColumnDetail> = Vec::new();
+        for row_idx in 0..result.total_rows() {
+            if let Some(batch) = result.batches.first() {
+                if row_idx < batch.num_rows() {
+                    let col_name = batch.column(0).as_any().downcast_ref::<StringArray>()
+                        .map(|a| a.value(row_idx)).unwrap_or("");
+                    let data_type = batch.column(1).as_any().downcast_ref::<StringArray>()
+                        .map(|a| a.value(row_idx)).unwrap_or("");
+                    let nullable = batch.column(2).as_any().downcast_ref::<StringArray>()
+                        .map(|a| a.value(row_idx) == "YES").unwrap_or(false);
+                    let pk = batch.column(3).as_any().downcast_ref::<StringArray>()
+                        .map(|a| a.value(row_idx)).unwrap_or("");
+                    let default = batch.column(4).as_any().downcast_ref::<StringArray>()
+                        .map(|a| a.value(row_idx)).unwrap_or("");
+                    let comment = batch.column(5).as_any().downcast_ref::<StringArray>()
+                        .map(|a| a.value(row_idx)).unwrap_or("");
+                    columns.push(crate::core::driver::ColumnDetail {
+                        name: col_name.to_string(),
+                        data_type: data_type.to_string(),
+                        nullable,
+                        is_primary_key: pk == "PRI",
+                        is_foreign_key: false,
+                        default_value: if default.is_empty() { None } else { Some(default.to_string()) },
+                        comment: if comment.is_empty() { None } else { Some(comment.to_string()) },
+                    });
+                }
+            }
+        }
+
+        Ok(crate::core::driver::NodeDetail {
+            node: crate::core::driver::NodeInfo {
+                name: table.to_string(),
+                kind: crate::core::driver::SchemaObjectKind::Table,
+                icon: Some("table".to_string()),
+                comment: None,
+            },
+            columns,
+            index_count: None,
+            row_count_estimate: None,
+        })
+    }
+}
+
+fn rows_to_node_info(result: &QueryResult, kind: crate::core::driver::SchemaObjectKind, icon: &str) -> Vec<crate::core::driver::NodeInfo> {
+    let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
+    for row_idx in 0..result.total_rows() {
+        if let Some(batch) = result.batches.first() {
+            if row_idx < batch.num_rows() {
+                if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
+                    let name = arr.value(row_idx);
+                    if !name.is_empty() {
+                        nodes.push(crate::core::driver::NodeInfo {
+                            name: name.to_string(),
+                            kind: kind.clone(),
+                            icon: Some(icon.to_string()),
+                            comment: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    nodes
 }

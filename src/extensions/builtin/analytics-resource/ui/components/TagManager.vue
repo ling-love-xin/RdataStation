@@ -11,10 +11,10 @@
         v-for="tag in tags"
         :key="tag.id"
         :class="['tag-chip', { active: activeTagId === tag.id }]"
-        :style="activeTagId === tag.id ? { background: tag.color || '#165DFF', borderColor: tag.color || '#165DFF' } : {}"
+        :style="activeTagId === tag.id ? { background: tag.color || 'var(--resource-tag-default)', borderColor: tag.color || 'var(--resource-tag-default)' } : {}"
         @click="handleSelectTag(tag.id)"
       >
-        <span class="tag-dot" :style="{ background: tag.color || '#165DFF' }" />
+        <span class="tag-dot" :style="{ background: tag.color || 'var(--resource-tag-default)' }" />
         {{ tag.name }}
       </button>
     </div>

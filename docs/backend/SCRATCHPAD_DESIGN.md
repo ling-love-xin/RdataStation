@@ -1,9 +1,9 @@
 # 草稿箱 (Scratchpad) 设计方案
 
-> 版本：v3.1
+> 版本：v3.9
 > 创建日期：2026-05-07
 > 最后更新：2026-05-09
-> 状态：✅ v3.1 排序 + 搜索行上下文 — 按名称/大小/时间排序，内容搜索结果带行号预览
+> 状态：✅ v3.9 质量加固 — unwrap 全清除 + 类型对齐 + i18n 补全
 
 ---
 
@@ -104,6 +104,27 @@
 | **提升事件联动** | promote 完成后 emit `analytics-resource-changed` 事件通知面板刷新 |  ✅  |
 | **文件排序** | 工具栏提供按名称/大小/修改时间排序按钮，点击切换升序/降序，图标实时反馈 |  ✅  |
 | **内容搜索行上下文** | 搜索结果面板显示文件名、匹配行号、匹配行内容，最多预览 5 行 |  ✅  |
+| **新建文件夹** | 工具栏"新建文件夹"按钮 + 模态框输入名称 |  ✅  |
+| **搜索结果点击跳转** | 点击搜索结果文件名→打开文件，点击行→打开文件并跳转到对应行 |  ✅  |
+| **修改时间显示** | TreeNode 显示相对时间（分钟/小时/天数），7天内有效 |  ✅  |
+| **Toast 操作反馈** | `createDiscreteApi(['message'])` 创建/删除/重命名/导入/提升/清空回收站成功后 toast 提示 |  ✅  |
+| **大小写搜索** | 内容搜索模式新增 Aa 按钮切换大小写敏感，Rust `case_sensitive` 参数逐行条件匹配 |  ✅  |
+| **折叠/展开全部** | 本地文件组头新增"展开全部"/"折叠全部"按钮，操作 `expandedKeys` Set |  ✅  |
+| **搜索文本高亮** | `highlightMatch()` 将匹配文本包裹 `<mark class="search-hl">`，黄色背景高亮 |  ✅  |
+| **最近打开** | 打开文件时记录路径到 `recentFiles`（内存，最大5），顶部可折叠"最近打开"区域 |  ✅  |
+| **空状态引导** | 无本地文件时显示 `FolderOpen` 大图标 + 标题 + 引导文本 + 新建/导入双按钮 |  ✅  |
+| **多选（Ctrl/Shift 点击）** | Ctrl+点击切换选中，Shift+点击范围选中，右键菜单自适应单/多选 |  ✅  |
+| **批量删除** | 多选后右键/Delete 批量删除，confirm 确认，toast 反馈 |  ✅  |
+| **复制/粘贴文件** | 右键"复制"到 clipboard，右键"粘贴"生成 `_copy` 副本 |  ✅  |
+| **Ctrl+A 全选** | 键盘 Ctrl+A 选中当前所有可见条目 |  ✅  |
+| **新建文件模板** | 新建文件时可选 SQL/JSON/Markdown/Python 模板，自动填充预设内容并设置后缀 |  ✅  |
+| **拖放文件到编辑器** | 拖拽草稿箱文件节点到编辑器区，自动插入文件内容到光标位置 |  ✅  |
+| **删除撤销** | 单文件删除后底部弹出撤销栏（5秒自动消失），点击"撤销"从回收站恢复 |  ✅  |
+| **搜索安全加固** | 超过 10MB 的文件跳过搜索；结果最多 500 条截断；前端通知跳过/截断信息 |  ✅ → ♻️  |
+| **流式搜索** | 大文件不再跳过，改用 `BufReader::lines()` 逐行流式读取，内存恒定 ~8KB；30s 超时保护 |  ✅  |
+| **质量加固** | 14 处 `unwrap_or_*` 全清除 → `?` 错误传播；`futures::block_on` → `Handle::block_on`；`Drop` 确保 watcher 清理 |  ✅  |
+| **类型对齐** | `ScratchpadEntry.children` 从 TypeScript 类型移除（后端从未填充）；`escapeHtml` 补单引号转义 |  ✅  |
+| **i18n 补全** | `en.json` 补齐 40+ 缺失 scratchpad locale 键，对齐 `zh-CN.json` |  ✅  |
 
 ---
 
@@ -345,10 +366,135 @@ SqlEditorPanel (scratchpad mode)
 - [x] **搜索行上下文展示** — 内容搜索结果面板：文件名 + 匹配计数 badge + 行号 + 行内容（等宽字体），最多显示 5 行 + "...还有 N 处匹配"
 - [x] **i18n 扩展** — 新增 `sortByName/sortBySize/sortByModified/sortAsc/sortDesc/matchesCount/searchFileResults` 7 个 key
 
+### v3.2 已完成 ✅
+
+- [x] **新建文件夹入口** — 工具栏新增"新建文件夹"按钮（`FolderPlus` 图标），独立 `NModal` 输入框，`createEntry(name, true)`
+- [x] **搜索结果点击跳转** — 点击搜索结果文件名 → `openFileAtLine(file, 0)` 打开文件；点击行 → `openFileAtLine(file, line)` 打开并跳转到行
+- [x] **搜索跳转到行 (Monaco)** — `SqlEditorParams.initialLine` → `WorkbenchView` 透传 → `SqlEditorPanel.onMounted` 中 `editor.revealLineInCenter(initialLine)` + `setPosition`
+- [x] **修改时间显示** — `TreeNode` 新增 `node-time` 副标签，computed `modifiedTime` 相对时间格式化（1m→59m→1h→23h→1d→7d→隐藏），CSS 等宽右对齐
+- [x] **Toast 操作反馈** — `createDiscreteApi(['message'])` 在创建/删除/重命名/导入/恢复/清空回收站/提升成功后调用 `message.success()`，13 个操作全覆盖
+- [x] **TreeNode extension 修复** — `fileIcon` computed 从 `props.entry.extension` 改为推演 `name.includes('.')` 逻辑（适配 v3.1 模型变更）
+- [x] **i18n 扩展** — 新增 `newFolder/newFolderTitle/folderNamePlaceholder/createdSuccess/deletedSuccess/renamedSuccess/importedSuccess/promotedSuccess/restoredSuccess/trashEmptied` 等 10+ 个 key
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `ScratchpadPanel.vue` | 文件夹按钮+modal+toast+搜索点击跳转 | +90 |
+| `ScratchpadTreeNode.vue` | 修改时间显示+extension 修复 | +28 |
+| `SqlEditorPanel.vue` | `initialLine` computed + `revealLineInCenter` | +12 |
+| `WorkbenchView.vue` | 透传 `initialLine` 参数 | +2 |
+| `sql.ts` | `SqlEditorParams.initialLine?: number` | +1 |
+| `zh-CN.json` | 10+ 个新 i18n 键 | +12 |
+
+### v3.3 已完成 ✅
+
+- [x] **Bug Fix: `isAnalyzableFile` extension 字段** — 改用 `entry.name.includes('.')` 推导扩展名，适配 v3.1 模型变更；同时新增 `.duckdb` 到可分析文件列表
+- [x] **大小写搜索** — Rust `search_file_content` 新增 `case_sensitive: bool` 参数，`true` 用 `line.contains(query)`，`false` 用 `line.to_lowercase().contains(query_lower)`；前端 `caseSensitive` ref + 搜索栏 Aa 按钮切换 + watch 重搜
+- [x] **折叠/展开全部** — `collectFolderPaths()` 递归收集所有文件夹路径，本地组头 `NButton` 两个按钮点击设置 `expandedKeys` 为全部/空集
+- [x] **搜索文本高亮** — `highlightMatch(line, query)` 使用 `escapeHtml` 防 XSS + `<mark class="search-hl">` 包裹匹配文本，模板 `v-html` 渲染，CSS `:deep(.search-hl)` 黄色背景
+- [x] **复制路径 Toast** — `handleMenuAction` 的 `'copy-path'` 分支新增 `message.success(t('scratchpad.pathCopied'))`
+- [x] **文件图标扩展** — TreeNode `extensionIconMap` 新增 `.duckdb` → `Database`、`.parquet` → `Table2`
+- [x] **i18n 扩展** — 新增 `expandAll/collapseAll/caseSensitive/pathCopied` 4 个 key
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `store.rs` | `search_file_content` 新增 `case_sensitive` 参数 + 条件匹配 | +6 |
+| `commands.rs` | `search_scratchpad_content` 新增 `case_sensitive` 参数 | +2 |
+| `scratchpad-api.ts` | `searchFileContent` 新增 `caseSensitive` 参数 | +1 |
+| `use-scratchpad.ts` | `searchContent` 新增 `caseSensitive` 参数 | +1 |
+| `ScratchpadPanel.vue` | Bug 修复 + 折叠/展开全部 + 大小写按钮 + 高亮函数 + 复制 toast + CSS | +60 |
+| `ScratchpadTreeNode.vue` | `.duckdb`/`.parquet` 图标 | +2 |
+| `zh-CN.json` | 4 个新 i18n 键 | +4 |
+
+### v3.4 已完成 ✅
+
+- [x] **最近打开** — `recentFiles: ref<string[]>` 面板级内存列表，`addRecentFile` 去重+推到首位+截断5条；`openFileInEditor`/`openFileAtLine` 调用；`recentFileEntries` computed 从 `localEntries` 查找实际条目；树顶可折叠"最近打开"区域（ChevronDown/Right 切换）
+- [x] **空状态引导** — `filteredLocalEntries.length === 0` 时显示 `empty-state`：`FolderOpen` 32px 图标（50% 透明度）+ 标题"草稿箱为空" + 引导文本 + 新建/导入双按钮；搜索模式下不显示（由搜索结果面板接管）
+- [x] **i18n 扩展** — 新增 `recentFiles/noRecentFiles/emptyScratchpad/emptyScratchpadHint` 4 个 key
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `ScratchpadPanel.vue` | 最近打开 section + 空状态 state + CSS | +100 |
+| `zh-CN.json` | 4 个新 i18n 键 | +4 |
+
+### v3.5 已完成 ✅
+
+- [x] **多选基础设施** — `selectedKeys: ref<Set<string>>()` + `lastSelectPath` + `multiSelected` computed；`handleSelect(entry, event)` 接收 MouseEvent，分 Ctrl/Shift/普通 三种路径
+- [x] **TreeNode 多选适配** — 新增 `selectedKeys?: Set<string>` 可选 prop，`isSelected` 兼容新旧两种模式；`select` emit 新增 `MouseEvent` 参数；子节点 props 透传
+- [x] **批量删除** — 右键菜单 `batch-delete`（显示数量）+ `window.confirm` 确认 + 逐个 `deleteEntry` + toast `batchDeletedSuccess`；Delete 键同样支持
+- [x] **复制/粘贴** — `clipboardEntry` ref 存储被复制条目；右键"复制"设置 clipboard；右键"粘贴" `loadFileContent` + `createEntry` + `saveFile` 生成 `_copy` 副本 + toast
+- [x] **Ctrl+A 全选** — `handleKeydown` 新增分支，`flattenEntries` 递归收集所有可见条目路径到 `selectedKeys`
+- [x] **Bug Fix: openFileInEditor extension** — `entry.extension` 改为 `entry.name.includes('.')` 推演，适配 v3.1 模型变更
+- [x] **i18n 扩展** — 新增 `batchDelete/batchDeleteConfirm/batchDeletedSuccess/copyFile/pasteFile/pasteCopied/selectAll` 7 个 key
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `ScratchpadPanel.vue` | selectedKeys/lastSelectPath/clipboardEntry state + handleSelect 重写 + showEntryMenu 自适应 + handleMenuAction 批量/复制/粘贴 + Ctrl+A + openFileInEditor fix | +120 |
+| `ScratchpadTreeNode.vue` | selectedKeys prop + isSelected 兼容 + select emit MouseEvent | +8 |
+| `zh-CN.json` | 7 个新 i18n 键 | +7 |
+
+### v3.8 已完成 ✅
+
+- [x] **流式搜索替代全量读取** — v3.7 的 10MB 硬限制方案被替换：`read_to_string` → `BufReader::lines()`，一次只持有一行文本在内存中；1GB 文件搜索内存占用从 1GB 降至恒定 ~8KB
+- [x] **超时保护** — `SEARCH_PER_FILE_TIMEOUT_SECS = 30`，单文件搜索超过 30 秒自动终止，防止无限阻塞
+- [x] **search_single_file 函数** — 提取为独立 async 函数，`tokio::time::timeout` 包裹，返回 `Result<Vec<SearchMatch>, CoreError>`，超时/IO 错误统一跳过不中断搜索
+- [x] **简化 SearchResult** — `total_files_skipped` 始终为 0，`skipped_files` 始终为空 vec（不再需要门槛跳过逻辑）
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `store.rs` | imports + `search_single_file` 函数 + `search_file_content` 重写 + 常量替换 | +55 |
+
 ### 后续版本 🔮
 
-- [ ] 多选批量操作（Shift/Ctrl 多选 + 批量删除/导出）
+- [x] **搜索安全加固** — `MAX_SEARCH_FILE_SIZE = 10MB`，超过跳过大文件并记录到 `skipped_files`；`MAX_SEARCH_RESULTS = 500`，超出截断标记 `truncated: true`；新增 `SearchResult` 结构体包含 `matches/total_scanned/total_skipped/skipped_files/truncated`；前端模板新增 yellow notice bar 告知跳过/截断信息；新增 `search-no-results` 区域展示空结果提示
+- [x] **前后端同步** — `SearchResult` Rust struct → TS interface；API/composable 返回类型更新为 `SearchResult | null`
+- [x] **i18n** — 新增 3 个 key（searchTruncated/searchSkippedFiles/noResults）+ EN locale 同步
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `models.rs` | 新增 `SearchResult` struct（5 字段） | +9 |
+| `store.rs` | `search_file_content` 重写：文件大小检查 + 截断 + 统计 + 常量 | +60 |
+| `scratchpad_commands.rs` | 返回类型 `Vec<SearchMatch>` → `SearchResult` | +1 |
+| `mod.rs` | 导出 `SearchResult` | +1 |
+| `types/index.ts` | 新增 `SearchResult` interface | +7 |
+| `scratchpad-api.ts` | `searchFileContent` 返回类型更新 | +2 |
+| `use-scratchpad.ts` | `searchContent` 返回 `SearchResult \| null` | +2 |
+| `ScratchpadPanel.vue` | searchResult ref + 3 computed + 2 watcher 改写 + notice bar 模板 + no-results div + Info icon + CSS | +50 |
+| `zh-CN.json` | 3 新 key | +3 |
+| `en.json` | 3 新 key | +3 |
+
+### 后续版本 🔮
+
+- [x] **新建文件模板** — 新建文件对话框新增模板选择器（SQL/JSON/Markdown/Python），选择后自动填充文件后缀（如 `untitled.sql`）；`confirmCreate` 通过 `saveFile` 写入预设模板内容（SQL 注释头、JSON 空对象、Markdown 标题、Python 编码声明）
+- [x] **拖放文件到编辑器** — `ScratchpadTreeNode` 新增 `draggable="true"`（仅文件节点）+ `@dragstart` emit；Panel `handleTreeNodeDragStart` 设置 `application/x-scratchpad-file` MIME 数据 + `text/plain`；`SqlEditorPanel` 新增 `@dragover.prevent` + `@drop.prevent` 处理 `read_scratchpad_file` → `insertText` 在光标位置插入
+- [x] **删除撤销提示** — 单文件删除后底部弹出 `undo-bar`（5秒自动消失），显示"已删除「name」"+ "撤销"按钮；`undoState` reactive 管理（path/timer/dismissUndo/handleUndoDelete）；撤销调用 `restoreTrashEntry` 恢复文件 + toast 确认
+- [x] **Bug Fix: zh-CN.json 语法** — `selectAll` 后缺少逗号导致 JSON 解析失败，已修复
+
+### 变更文件
+
+| 文件 | 改动 | 行数 |
+|------|------|:--:|
+| `ScratchpadPanel.vue` | 模板选择器 modal + selectedTemplate state + TEMPLATE_CONTENTS + selectTemplate + confirmCreate 重写 + undoState/dismissUndo/showUndo/handleUndoDelete + undo-bar 模板 + 拖放状态；删除处理改用 showUndo | +110 |
+| `ScratchpadTreeNode.vue` | draggable + dragstart emit + forwardDragStart | +12 |
+| `SqlEditorPanel.vue` | editor-container @dragover/@drop + handleEditorDragOver/handleEditorDrop | +21 |
+| `zh-CN.json` | templateType/undo 2 个新 key + 逗号修复 | +1 |
+
+### 后续版本 🔮
+
 - [ ] 文件拖拽重排序（HTML5 DnD 同级拖拽排序）
+- [ ] 正则表达式搜索支持
 - [ ] 草稿箱与 DuckDB 深度集成（直连 .duckdb 文件）
+- [ ] 最近文件跨会话持久化
       </parameter>
       </｜DSML｜inv

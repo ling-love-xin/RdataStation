@@ -7,13 +7,13 @@
       </NButton>
     </div>
 
-    <div v-if="insightStore.historyVersions.length === 0 && !isLoading" class="history-empty">
+    <div v-if="insightStore.history.length === 0 && !isLoading" class="history-empty">
       {{ t('resultPanel.noHistory') }}
     </div>
 
     <div v-else class="history-list">
       <div
-        v-for="entry in insightStore.historyVersions"
+        v-for="entry in insightStore.history"
         :key="entry.version_id"
         class="history-entry"
         :class="{ 'is-active': insightStore.diffVersionId === entry.version_id }"
@@ -21,7 +21,7 @@
       >
         <div class="history-entry-main">
           <span class="history-ts">{{ formatDate(entry.created_at) }}</span>
-          <span class="history-type">{{ entry.rule_id || entry.analysis_type }}</span>
+          <span class="history-type">{{ entry.data_type }}</span>
         </div>
         <span v-if="insightStore.diffVersionId === entry.version_id" class="history-badge">{{
           t('resultPanel.comparing')

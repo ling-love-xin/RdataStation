@@ -4,15 +4,23 @@ export interface ScratchpadEntry {
   name: string
   path: string
   kind: ScratchpadEntryKind
-  children: ScratchpadEntry[] | null
   size: number
   modified_at: string | null
+  children?: ScratchpadEntry[]
 }
 
 export interface SearchMatch {
   file: string
   line_number: number
   line_content: string
+}
+
+export interface SearchResult {
+  matches: SearchMatch[]
+  total_files_scanned: number
+  total_files_skipped: number
+  skipped_files: string[]
+  truncated: boolean
 }
 
 export interface ExternalReference {

@@ -8,6 +8,8 @@ pub mod driver_commands;
 pub mod memory_commands;
 pub mod metadata_cache_commands;
 pub mod navigator_commands;
+pub mod metadata_commands;
+pub use metadata_commands::*;
 pub mod performance_commands;
 pub mod port_commands;
 pub mod project_commands;

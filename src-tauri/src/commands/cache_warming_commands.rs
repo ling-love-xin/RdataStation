@@ -496,7 +496,7 @@ pub async fn get_warming_progress(
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
 ) -> Result<WarmingProgressResponse, String> {
     if let Some(task) = state.warming_task_manager.get_task(&connection_id) {
-        let progress = task.progress.lock().unwrap();
+        let progress = task.progress.lock().map_err(|e| format!("Failed to lock warming progress: {}", e))?;
         Ok(WarmingProgressResponse {
             connection_id: connection_id.clone(),
             is_warming: progress.is_warming,

@@ -29,7 +29,7 @@ export interface ContextMenuItem {
   action?: () => void
 }
 
-const props = defineProps<{
+defineProps<{
   items: ContextMenuItem[]
 }>()
 

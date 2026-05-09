@@ -125,13 +125,13 @@ defineProps<{
   x: number
   y: number
   type: 'cell' | 'header'
-  value?: any
+  value?: unknown
   column?: string
   sortDir?: string
 }>()
 
 const emit = defineEmits<{
-  action: [payload: Record<string, any>]
+  action: [payload: Record<string, unknown>]
   close: []
 }>()
 

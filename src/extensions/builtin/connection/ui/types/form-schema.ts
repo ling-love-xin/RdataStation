@@ -37,6 +37,34 @@ export interface FormSectionConfig {
   enableField?: string
 }
 
+export interface NavigationFolderConfig {
+  enabled: boolean
+  label: string
+  icon: string
+  childTypes?: string[]
+}
+
+export interface NavigationConfig {
+  hasSchemas: boolean
+  systemSchemas: string[]
+  folders: {
+    tables: NavigationFolderConfig
+    views: NavigationFolderConfig
+    functions: NavigationFolderConfig
+    procedures: NavigationFolderConfig
+    sequences: NavigationFolderConfig
+    triggers: NavigationFolderConfig
+  }
+  tableChildren: {
+    columns: boolean
+    indexes: boolean
+    constraints: boolean
+    triggers: boolean
+    foreignKeys: boolean
+    references: boolean
+  }
+}
+
 export interface DriverFormSchema {
   driverId: string
   driverName: string
@@ -51,6 +79,7 @@ export interface DriverFormSchema {
     supportsSsl?: boolean
     supportsSshTunnel?: boolean
   }
+  navigation?: NavigationConfig
 }
 
 export function parseDriverSchema(schema: DriverFormSchema): DriverDescriptor {
@@ -60,11 +89,13 @@ export function parseDriverSchema(schema: DriverFormSchema): DriverDescriptor {
     icon: schema.driverId,
     version: schema.version,
     features: schema.metadata?.features || [],
+    category: schema.metadata?.category,
     defaultPort: schema.metadata?.defaultPort,
     description: schema.metadata?.description,
     requireFile: schema.metadata?.requireFile,
     supportsSsl: schema.metadata?.supportsSsl,
     supportsSshTunnel: schema.metadata?.supportsSshTunnel,
+    navigation: schema.navigation,
     extraOptions: extractExtraOptions(schema.sections),
   }
 }

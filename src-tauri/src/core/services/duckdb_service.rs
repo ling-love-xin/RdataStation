@@ -103,19 +103,19 @@ impl DuckDbService {
         let col_names: Vec<String> = (0..col_count)
             .map(|i| {
                 stmt.column_name(i)
-                    .unwrap_or(&format!("c{}", i))
-                    .to_string()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|_| format!("c{}", i))
             })
             .collect();
 
         let rows_result = stmt
             .query_map([], |row| {
-                Ok((0..col_count)
+                (0..col_count)
                     .map(|i| {
-                        let v: duckdb::types::Value = row.get_unwrap(i);
-                        duckdb_value_to_json(&v)
+                        let v: duckdb::types::Value = row.get(i)?;
+                        Ok(duckdb_value_to_json(&v))
                     })
-                    .collect())
+                    .collect::<Result<Vec<serde_json::Value>, duckdb::Error>>()
             })
             .map_err(|e| {
                 CoreError::common(CommonError::General(format!(
@@ -127,7 +127,10 @@ impl DuckDbService {
         let mut rows = Vec::new();
         for r in rows_result {
             rows.push(r.map_err(|e| {
-                CoreError::common(CommonError::General(format!("DuckDB row error: {}", e)))
+                CoreError::common(CommonError::General(format!(
+                    "DuckDB row error: {}",
+                    e
+                )))
             })?);
         }
 
@@ -283,7 +286,12 @@ impl DuckDbService {
 
         let arc =
             DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = arc.lock().unwrap_or_else(|e| e.into_inner());
+        let conn = arc.lock().map_err(|e| {
+            crate::core::error::CoreError::common(CommonError::General(format!(
+                "DuckDB lock error during export: {}",
+                e
+            )))
+        })?;
 
         let escaped_path = file_path.replace('\'', "''");
         let sql = format!(
@@ -314,6 +322,18 @@ pub(crate) fn is_datetime_type(dt_lower: &str) -> bool {
             | "timestamp with time zone"
             | "timestamptz"
     )
+}
+
+pub(crate) fn is_binary_type(dt_lower: &str) -> bool {
+    matches!(dt_lower, "blob" | "bytea" | "binary" | "varbinary")
+}
+
+pub(crate) fn is_json_type(dt_lower: &str) -> bool {
+    matches!(dt_lower, "json" | "jsonb")
+}
+
+pub(crate) fn is_array_type(dt_lower: &str) -> bool {
+    dt_lower.starts_with('[') || dt_lower.ends_with(']') || dt_lower.contains("list") || dt_lower.contains("array")
 }
 
 pub(crate) fn detect_extremes(_min: f64, _max: f64, _stddev: f64) -> Vec<crate::core::services::result_service::ExtremeValue> {

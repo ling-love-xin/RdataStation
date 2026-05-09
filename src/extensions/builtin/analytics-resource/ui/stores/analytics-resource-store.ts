@@ -585,6 +585,9 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     // Version History
     getResourceVersions,
 
+    // Tag
+    getAnalyticsTag,
+
     // Tag Bidirectional
     getTagsForResource,
     getResourcesByTag,
@@ -624,6 +627,16 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       return await analyticsApi.getResourceVersions(resourceId)
     } catch (error) {
       console.error('Failed to get resource versions:', error)
+      throw error
+    }
+  }
+
+  // Tag
+  async function getAnalyticsTag(id: string) {
+    try {
+      return await analyticsApi.getAnalyticsTag(id)
+    } catch (error) {
+      console.error('Failed to get analytics tag:', error)
       throw error
     }
   }

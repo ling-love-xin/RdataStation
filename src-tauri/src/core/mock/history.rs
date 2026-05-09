@@ -51,8 +51,6 @@ impl MockHistoryStore {
         let id = format!("mock_{}", fast_nano_id());
         let config_json = serde_json::to_string(config).unwrap_or_else(|_| "{}".to_string());
 
-        let seed_str = config.seed.map(|s| s.to_string()).unwrap_or_else(|| "null".to_string());
-
         let record = MockHistoryRecord {
             id: id.clone(),
             table_name: config.table_name.clone(),
@@ -65,13 +63,14 @@ impl MockHistoryStore {
 
         conn.execute(
             &format!(
-                "INSERT INTO \"{}\" (id, table_name, row_count, seed, config_json, generated_at, status) VALUES (?, ?, ?, {}, ?, ?, ?)",
-                HISTORY_TABLE, seed_str
+                "INSERT INTO \"{}\" (id, table_name, row_count, seed, config_json, generated_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                HISTORY_TABLE
             ),
             duckdb::params![
                 id,
                 config.table_name,
                 config.row_count as i64,
+                config.seed.map(|s| s as i64),
                 config_json,
                 now,
                 record.status,

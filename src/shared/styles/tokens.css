@@ -6,6 +6,21 @@
   --brand-danger: #d63031;
   --brand-warning: #fdcb6e;
 
+  --resource-type-connection: #165DFF;
+  --resource-type-connection-soft: rgba(22, 93, 255, 0.1);
+  --resource-type-table: #00b42a;
+  --resource-type-table-soft: rgba(0, 180, 42, 0.1);
+  --resource-type-file: #ff7d00;
+  --resource-type-file-soft: rgba(255, 125, 0, 0.1);
+  --resource-scope-global: #722ed1;
+  --resource-scope-global-soft: rgba(114, 46, 209, 0.1);
+  --resource-scope-project: #165DFF;
+  --resource-scope-project-soft: rgba(22, 93, 255, 0.1);
+  --resource-scope-session: #14c9c9;
+  --resource-scope-session-soft: rgba(20, 201, 201, 0.1);
+  --resource-tag-default: #165DFF;
+  --resource-folder-default: #6366f1;
+
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 12px;

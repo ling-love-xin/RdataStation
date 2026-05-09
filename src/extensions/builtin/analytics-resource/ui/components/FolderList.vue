@@ -61,7 +61,9 @@ function selectFolder(id: string | null) {
 }
 
 function handleDragOver(folderId: string | null, event: DragEvent) {
-  event.dataTransfer!.dropEffect = 'move'
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
   dragOverFolder.value = folderId
 }
 
