@@ -4,7 +4,7 @@
 
 export type VirtualTreeNodeType =
   | 'connection'
-  | 'database'
+  | 'catalog'
   | 'schema'
   | 'tables-folder'
   | 'views-folder'

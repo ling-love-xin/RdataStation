@@ -185,7 +185,7 @@ export function getMockDatabases(connectionId: string): NavigatorNode[] {
 
   return conn.databases.map((dbName, index) => ({
     id: `db-${connectionId}-${dbName}`,
-    type: 'database',
+    type: 'catalog',
     name: dbName,
     state: 'idle',
     expanded: false,

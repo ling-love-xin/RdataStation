@@ -56,9 +56,17 @@ export interface IConstraintMeta {
 
 /**
  * 加载数据库列表
+ * @deprecated 请使用 loadCatalogs()，符合 ANSI SQL 标准 Catalog → Schema 层级命名
  */
 export async function loadDatabases(connectionId: string): Promise<IDatabaseMeta[]> {
   return await invoke<IDatabaseMeta[]>('load_databases', { connectionId })
+}
+
+/**
+ * 加载 Catalog 列表（ANSI SQL 标准三层结构：Catalog → Schema → Table）
+ */
+export async function loadCatalogs(connectionId: string): Promise<IDatabaseMeta[]> {
+  return await invoke<IDatabaseMeta[]>('load_catalogs', { connectionId })
 }
 
 /**

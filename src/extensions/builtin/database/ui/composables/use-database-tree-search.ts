@@ -143,7 +143,7 @@ export function useDatabaseTreeSearch() {
 
     const dbNode = nodes.find(n => {
       const parts = NodeKeyEncoder.decode(n.key)
-      return parts[0] === 'database' && parts[1] === connectionId && parts[2] === dbName
+      return parts[0] === 'catalog' && parts[1] === connectionId && parts[2] === dbName
     })
     if (dbNode) path.push(dbNode)
 

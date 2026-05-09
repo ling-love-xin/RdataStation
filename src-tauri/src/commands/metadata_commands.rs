@@ -53,6 +53,25 @@ pub async fn load_databases(conn_id: String) -> Result<Vec<DatabaseMeta>, String
     Ok(names.into_iter().map(|name| DatabaseMeta { name }).collect())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CatalogMeta {
+    pub name: String,
+}
+
+/// ANSI SQL 标准：Catalog（目录）是顶层容器，包含多个 Schema
+/// 内部委托给 Database trait 的 list_databases() 方法
+#[tauri::command]
+pub async fn load_catalogs(conn_id: String) -> Result<Vec<CatalogMeta>, String> {
+    let manager = get_connection_manager().clone();
+    let db = manager.get_connection(&conn_id).await
+        .ok_or_else(|| format!("Connection not found: {}", conn_id))?;
+
+    let databases = db.list_databases().await
+        .map_err(|e| e.to_string())?;
+
+    Ok(databases.into_iter().map(|name| CatalogMeta { name }).collect())
+}
+
 #[tauri::command]
 pub async fn load_schemas(conn_id: String, db_name: String) -> Result<Vec<SchemaMeta>, String> {
     let manager = get_connection_manager().clone();

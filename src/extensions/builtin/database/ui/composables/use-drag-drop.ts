@@ -141,7 +141,7 @@ export function useDragDrop() {
       return `SELECT * FROM ${dbName}.${schemaName}.${viewName}`
     } else if (nodeType === 'column') {
       return `${tableName}.${columnName}`
-    } else if (nodeType === 'database') {
+    } else if (nodeType === 'catalog') {
       return `USE ${dbName}`
     } else if (nodeType === 'schema') {
       return `SET search_path TO ${schemaName}`

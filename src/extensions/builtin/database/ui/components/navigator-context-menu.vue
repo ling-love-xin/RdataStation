@@ -80,7 +80,7 @@ const menuItems = computed((): MenuItem[] => {
         action: () => emit('collapseAll'),
       }
     )
-  } else if (props.nodeType === 'database') {
+  } else if (props.nodeType === 'catalog') {
     items.push(
       {
         key: 'refresh',

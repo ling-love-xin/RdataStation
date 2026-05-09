@@ -48,7 +48,7 @@ export const mockNavigatorNodes: NavigatorNode[] = [
   {
     id: 'db_1',
     name: 'test_db',
-    type: 'database',
+    type: 'catalog',
     children: [
       {
         id: 'schema_1',

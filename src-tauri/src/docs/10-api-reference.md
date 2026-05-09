@@ -1,8 +1,8 @@
 # API 接口文档
 
-> 版本：v2.2
+> 版本：v2.3
 > 最后更新：2026-05-09
-> 状态：✅ 新增 load_procedures/load_functions + DBeaver/DataGrip 对标分析
+> 状态：✅ ANSI SQL 标准 Catalog → Schema → Table 三层语义重构 | 新增 load_catalogs
 
 ## 概述
 
@@ -17,7 +17,7 @@
 | 连接管理     | `connection_commands`         | ~15      |
 | 驱动管理     | `driver_commands`             | ~4       |
 | SQL 执行     | `sql_commands`                | ~12      |
-| 元数据导航 🔗| `metadata_commands`           | 7        |
+| 元数据导航 🔗| `metadata_commands`           | 8        |
 | 项目管理     | `project_commands`            | ~12      |
 | 项目存储     | `project_store_commands`      | ~8       |
 | 元数据缓存   | `metadata_cache_commands`     | ~8       |
@@ -300,9 +300,32 @@ const result = await invoke('execute_transaction', {
 > 以下 `load_*` 命令由 [metadata_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/metadata_commands.rs) 实现，调用 `Database` trait 的 `list_*` 方法。
 > 不同数据库架构差异由后端驱动层统一处理，前端无需针对 dbType 分支。
 
+### load_catalogs
+
+加载 Catalog 列表。**ANSI SQL 标准：Catalog 是顶层容器，包含多个 Schema。**
+
+> ✅ `load_catalogs` 是推荐的语义化命名。内部委托 `Database trait::list_databases()`。
+
+**参数**：
+
+```typescript
+{
+  connectionId: string
+}
+```
+
+**返回**：
+
+```typescript
+interface CatalogMeta {
+  name: string
+}
+// 返回: CatalogMeta[]
+```
+
 ### load_databases
 
-获取数据库列表。**推荐替代 `get_databases`**。
+加载数据库列表。**@deprecated** — 请使用 `load_catalogs()`，符合 ANSI SQL Catalog → Schema → Table 层级命名。
 
 **参数**：
 
@@ -515,6 +538,19 @@ interface FunctionMeta {
 > ⚠️ `load_procedures` / `load_functions` 的 SQL 构建位于后端 `metadata_commands.rs`，不在前端 TypeScript 中。由于 Database trait 不允许新增方法（架构约束），SQL 构建根据 dbType 分支是务实的妥协。
 
 ---
+
+### 数据导航层
+
+```
+Connection（连接）
+  └── Catalog（目录）                    ← load_catalogs / load_databases
+      ├── [Schema（模式）]               ← load_schemas（hasSchemas: true）
+      │   ├── Tables（表）               ← load_tables
+      │   ├── Views（视图）              ← load_views
+      │   ├── Functions（函数）          ← load_functions
+      │   └── Procedures（存储过程）     ← load_procedures
+      └── [对象文件夹]                   ← hasSchemas: false 时直接显示
+```
 
 ## 导航模型配置 🗂️（DBeaver/DataGrip 风格）
 

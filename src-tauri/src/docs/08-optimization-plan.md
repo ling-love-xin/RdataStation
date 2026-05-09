@@ -1,8 +1,8 @@
 # 架构优化方案
 
-> 版本：v6.0
+> 版本：v7.0
 > 最后更新：2026-05-09
-> 状态：🟢 前端硬编码 SQL 全部消除 — 对标 DBeaver/DataGrip 插件模型完成
+> 状态：🟢 ANSI SQL 标准 Catalog → Schema → Table 三层语义重构完成
 
 ## 一、问题诊断总结
 
@@ -680,7 +680,104 @@ Store 重构：
 
 ---
 
-## 二十、验证记录（更新）
+## 二十一、R7：ANSI SQL 三层语义重构 — Catalog → Schema → Table（2026-05-09）
+
+### 21.1 问题
+
+导航树使用 `database` 作为顶层容器节点类型，但 ANSI SQL 标准的三层结构是：
+
+```
+Catalog（目录）→ Schema（模式）→ Table（表）
+```
+
+当前命名混淆了 Database 和 Catalog 的概念：
+
+| 数据库类型 | 正确概念 | 当前错误命名 |
+|-----------|---------|-------------|
+| PostgreSQL | Connection → Catalog(database) → Schema(public) → Table | Database ✓（名不对） |
+| MySQL | Connection → Catalog(database) → Table | Database ✓（名不对） |
+| SQLite | Connection → Catalog(main) → Table | Database ✓（名不对） |
+| DuckDB | Connection → Catalog(main) → Schema(main) → Table | Database ✓（名不对） |
+
+### 21.2 解决：Catalog 语义统一
+
+**原则**：不修改 `Database` trait（架构约束），保持底层 `list_databases()` 不变。在 Tauri Command 层和前端层统一使用 Catalog 语义。
+
+**后端**：
+
+| 新增 | 说明 |
+|------|------|
+| `CatalogMeta` 结构体 | 与 `DatabaseMeta` 相同的 `{ name: String }` |
+| `load_catalogs` 命令 | 内部委托 `list_databases()`，返回 `Vec<CatalogMeta>` |
+
+`load_databases` 保留为兼容别名（内部仍可用）。
+
+**前端** — 10个文件中的 `'database'` → `'catalog'`：
+
+| 文件 | 改动 |
+|------|------|
+| [virtual-tree.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/types/virtual-tree.ts) | `VirtualTreeNodeType` 联合类型 `'database'` → `'catalog'` |
+| [use-database-tree-loader.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts) | 函数名 `createDatabaseNodes` → `createCatalogNodes`，`createDatabaseObjectNodes` → `createCatalogObjectNodes`，JavaScript 键 `'database'` → `'catalog'`，nodeType 检查，删除过期 `getDbTypeConfig` |
+| [use-database-tree-search.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/composables/use-database-tree-search.ts) | `parts[0] === 'database'` → `'catalog'` |
+| [use-drag-drop.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/composables/use-drag-drop.ts) | `nodeType === 'database'` → `'catalog'` |
+| [navigator-context-menu.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/components/navigator-context-menu.vue) | `nodeType === 'database'` → `'catalog'` |
+| [database-navigator-store.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/stores/database-navigator-store.ts) | SearchResult `type: 'database'` → `'catalog'` |
+| [database-api.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/database/ui/api/database-api.ts) | 新增 `loadCatalogs()`，标记 `loadDatabases()` 为 `@deprecated` |
+| mock-navigator-data.ts ×2 | `type: 'database'` → `'catalog'` |
+| mock-database-navigator.ts ×2 | `type: 'database'` → `'catalog'` |
+
+**未改动**（表单字段名，非树节点类型）：
+- [ConnectionForm.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/ConnectionForm.vue) `getFieldName(field) === 'database'` — 连接参数字段名
+- [GeneralTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/GeneralTab.vue) `fieldKey === 'database'` — 连接参数字段名
+
+### 21.3 导航树正确层级（更新后）
+
+```
+Connection（连接）
+└── Catalog（目录）
+    ├── [Schema（模式）]          ← hasSchemas: true 时出现
+    │   ├── Tables（表文件夹）
+    │   │   └── users（表）
+    │   │       ├── Columns（列文件夹）
+    │   │       └── Indexes（索引文件夹）
+    │   ├── Views（视图文件夹）
+    │   ├── Functions（函数文件夹）
+    │   └── Procedures（存储过程文件夹）
+    └── [对象文件夹]              ← hasSchemas: false 时直接在 Catalog 下
+```
+
+| 数据库 | hasSchemas | 实际层级 |
+|--------|:----------:|---------|
+| PostgreSQL | ✅ | Connection → Catalog(mydb) → Schema(public) → Table |
+| MySQL | ❌ | Connection → Catalog(mydb) → Table |
+| SQLite | ❌ | Connection → Catalog(main) → Table |
+| DuckDB | ✅ | Connection → Catalog(main) → Schema(main) → Table |
+
+### 21.4 与 DBeaver/DataGrip 对标
+
+```
+DBeaver:
+  Connection → Catalogs → [catalog_name] → Schemas → [schema_name] → Tables
+
+DataGrip:
+  Data Source → [catalog_name] → schemas → tables
+
+RdataStation (更新后):
+  Connection → Catalog → [Schema] → Table  ← ✅ 完全一致
+```
+
+| 指标 | 状态 |
+|:---|:---:|
+| 三层语义（Catalog → Schema → Table） | ✅ |
+| nodeType `'catalog'` 替代 `'database'` | ✅ |
+| 新增 `load_catalogs` Tauri 命令 | ✅ |
+| 前端 `loadCatalogs()` API | ✅ |
+| 10 个文件统一更新 | ✅ |
+| 表单字段名不受影响 | ✅ |
+
+---
+
+## 二十二、验证记录（更新）
 
 | 验证步骤 | 结果 | 备注 |
 |---------|------|------|

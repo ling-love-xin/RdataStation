@@ -766,7 +766,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         if (db.name.toLowerCase().includes(lowerQuery)) {
           results.push({
             connectionId,
-            type: 'database',
+            type: 'catalog',
             name: db.name,
             path: db.name,
             matchType: 'name',
@@ -1016,7 +1016,7 @@ interface SelectedObject {
 
 interface SearchResult {
   connectionId: string
-  type: 'database' | 'schema' | 'table' | 'view' | 'column'
+  type: 'catalog' | 'schema' | 'table' | 'view' | 'column'
   name: string
   path: string
   matchType: 'name' | 'type'

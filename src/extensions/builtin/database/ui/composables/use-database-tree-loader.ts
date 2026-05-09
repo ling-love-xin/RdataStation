@@ -77,9 +77,9 @@ export function useDatabaseTreeLoader() {
   }
 
   /**
-   * 创建数据库节点
+   * 创建 Catalog 节点（ANSI SQL 标准：Catalog → Schema → Table）
    */
-  function createDatabaseNodes(
+  function createCatalogNodes(
     connectionId: string,
     scope: 'global' | 'project'
   ): VirtualTreeNode[] {
@@ -87,12 +87,12 @@ export function useDatabaseTreeLoader() {
     const parentKey = NodeKeyEncoder.encode(['connection', scope, connectionId])
 
     return databases.map(db => ({
-      key: NodeKeyEncoder.encode(['database', connectionId, db.name]),
+      key: NodeKeyEncoder.encode(['catalog', connectionId, db.name]),
       level: 1,
       isExpanded: false,
       isLeaf: false,
       label: db.name,
-      type: 'database',
+      type: 'catalog',
       data: { connectionId, dbName: db.name },
       parentId: parentKey,
       childCount: db.schemas?.length || 0,
@@ -108,7 +108,7 @@ export function useDatabaseTreeLoader() {
     config: NavigationConfig
   ): VirtualTreeNode[] {
     const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
-    const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
+    const parentKey = NodeKeyEncoder.encode(['catalog', connectionId, dbName])
 
     return schemas
       .filter(schema => !config.systemSchemas.includes(schema.name))
@@ -126,14 +126,14 @@ export function useDatabaseTreeLoader() {
   }
 
   /**
-   * 创建数据库下的对象文件夹（MySQL/SQLite 无 Schema 时使用）
+   * 创建 Catalog 下的对象文件夹（MySQL/SQLite 无 Schema 时使用）
    */
-  function createDatabaseObjectNodes(
+  function createCatalogObjectNodes(
     connectionId: string,
     dbName: string,
     config: NavigationConfig
   ): VirtualTreeNode[] {
-    const parentKey = NodeKeyEncoder.encode(['database', connectionId, dbName])
+    const parentKey = NodeKeyEncoder.encode(['catalog', connectionId, dbName])
     const nodes: VirtualTreeNode[] = []
 
     if (isFolderEnabled(config, 'tables')) {
@@ -685,25 +685,25 @@ export function useDatabaseTreeLoader() {
 
         if (hasRuntimeConn) {
           await navigatorStore.loadDatabases(connId)
-          return createDatabaseNodes(connId, scope)
+          return createCatalogNodes(connId, scope)
         } else {
           const cachedDatabases = navigatorStore.getDatabases(connId)
           if (cachedDatabases.length > 0) {
-            return createDatabaseNodes(connId, scope)
+            return createCatalogNodes(connId, scope)
           }
           return []
         }
       }
 
-      // Level 1: 数据库节点 -> Schema 或对象文件夹
-      if (nodeType === 'database') {
+      // Level 1: Catalog 节点 → Schema 或对象文件夹
+      if (nodeType === 'catalog') {
         const dbName = keyParts[2]
 
         if (config.hasSchemas) {
           await navigatorStore.loadSchemas(connectionId, dbName)
           return createSchemaNodes(connectionId, dbName, config)
         } else {
-          return createDatabaseObjectNodes(connectionId, dbName, config)
+          return createCatalogObjectNodes(connectionId, dbName, config)
         }
       }
 
@@ -842,9 +842,9 @@ export function useDatabaseTreeLoader() {
 
   return {
     createConnectionNode,
-    createDatabaseNodes,
+    createCatalogNodes,
     createSchemaNodes,
-    createDatabaseObjectNodes,
+    createCatalogObjectNodes,
     createSchemaObjectNodes,
     createTableNodes,
     createViewNodes,
@@ -854,6 +854,5 @@ export function useDatabaseTreeLoader() {
     createConstraintNodes,
     loadChildren,
     createRootNodes,
-    getDbTypeConfig,
   }
 }

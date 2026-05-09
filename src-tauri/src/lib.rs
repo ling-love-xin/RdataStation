@@ -109,6 +109,7 @@ pub fn run() {
 
             // 元数据浏览命令（MetadataBrowser trait）
             load_databases,
+            load_catalogs,
             load_schemas,
             load_tables,
             load_views,
