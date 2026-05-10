@@ -293,7 +293,7 @@ export const useProjectStore = defineStore('project', () => {
    */
   async function deleteProject(projectId: string): Promise<void> {
     try {
-      await invoke('delete_project', { projectId })
+      await ProjectService.deleteProject(projectId)
 
       if (currentProject.value?.id === projectId) {
         currentProject.value = null
@@ -351,12 +351,10 @@ export const useProjectStore = defineStore('project', () => {
     description?: string
   ): Promise<void> {
     try {
-      await invoke('update_project', {
-        input: {
-          id: projectId,
-          name,
-          description: description || null,
-        },
+      await ProjectService.updateProject({
+        id: projectId,
+        name,
+        description: description || undefined,
       })
 
       // 如果更新的是当前项目，更新本地状态
@@ -382,10 +380,11 @@ export const useProjectStore = defineStore('project', () => {
   async function closeProject(): Promise<void> {
     try {
       await invoke('close_project_store')
+      currentProject.value = null
     } catch (e) {
       console.error('关闭项目存储失败:', e)
+      throw e
     }
-    currentProject.value = null
   }
 
   /**

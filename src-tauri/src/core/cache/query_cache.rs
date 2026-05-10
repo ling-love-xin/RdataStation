@@ -81,7 +81,7 @@ impl QueryCache {
     pub fn new(config: Option<QueryCacheConfig>) -> Self {
         let config = config.unwrap_or_default();
         let max_entries = std::num::NonZero::new(config.max_entries)
-            .unwrap_or_else(|| std::num::NonZero::new(1000).expect("1000 is non-zero"));
+            .unwrap_or(std::num::NonZero::<usize>::MIN);
         Self {
             cache: RwLock::new(lru::LruCache::new(max_entries)),
             config,
@@ -200,7 +200,7 @@ impl QueryCache {
 
         // 创建临时缓存，保留非目标连接的缓存
         let max_entries = std::num::NonZero::new(self.config.max_entries)
-            .unwrap_or_else(|| std::num::NonZero::new(1000).expect("1000 is non-zero"));
+            .unwrap_or(std::num::NonZero::<usize>::MIN);
         let mut new_cache = lru::LruCache::new(max_entries);
 
         for (key, entry) in cache.iter() {
@@ -238,7 +238,7 @@ impl QueryCache {
 
         // 创建临时缓存，保留未过期的缓存
         let max_entries = std::num::NonZero::new(self.config.max_entries)
-            .unwrap_or_else(|| std::num::NonZero::new(1000).expect("1000 is non-zero"));
+            .unwrap_or(std::num::NonZero::<usize>::MIN);
         let mut new_cache = lru::LruCache::new(max_entries);
 
         for (key, entry) in cache.iter() {

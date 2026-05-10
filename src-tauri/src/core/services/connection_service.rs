@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::core::datasource::router::DataSourceRouter;
+use crate::core::driver::router::DataSourceRouter;
 use crate::core::driver::registry::ConnectionConfig;
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};

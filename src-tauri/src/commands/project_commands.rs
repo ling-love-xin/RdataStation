@@ -1085,3 +1085,142 @@ pub async fn delete_project_disk(project_id: String) -> Result<(), CoreError> {
     tracing::info!(project_id = %project_id, "Project physically deleted");
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::project::models::ProjectInfo;
+    use crate::core::project::ProjectPath;
+    use crate::core::project::ProjectStatus;
+    use chrono::Utc;
+
+    fn sample_project_info() -> ProjectInfo {
+        ProjectInfo {
+            id: "test-id".to_string(),
+            name: "Test Project".to_string(),
+            description: Some("A test project".to_string()),
+            path: ProjectPath::Local {
+                path: std::path::PathBuf::from("/tmp/test-project"),
+            },
+            status: ProjectStatus::Active,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            last_opened_at: Some(Utc::now()),
+            created_by: Some("test-user".to_string()),
+            version_count: 3,
+        }
+    }
+
+    #[test]
+    fn test_project_info_response_from_active() {
+        let info = sample_project_info();
+        let response: ProjectInfoResponse = info.into();
+
+        assert_eq!(response.id, "test-id");
+        assert_eq!(response.name, "Test Project");
+        assert_eq!(response.description, Some("A test project".to_string()));
+        assert_eq!(response.status, "active");
+        assert_eq!(response.version, "3");
+        assert_eq!(response.last_opened_at.is_some(), true);
+
+        match response.path {
+            ProjectPathResponse::Local { path } => assert!(path.contains("test-project")),
+            _ => panic!("Expected Local path"),
+        }
+    }
+
+    #[test]
+    fn test_project_info_response_from_archived() {
+        let mut info = sample_project_info();
+        info.status = ProjectStatus::Archived;
+
+        let response: ProjectInfoResponse = info.into();
+        assert_eq!(response.status, "archived");
+    }
+
+    #[test]
+    fn test_project_info_response_from_syncing() {
+        let mut info = sample_project_info();
+        info.status = ProjectStatus::Syncing;
+
+        let response: ProjectInfoResponse = info.into();
+        assert_eq!(response.status, "syncing");
+    }
+
+    #[test]
+    fn test_project_info_response_from_offline() {
+        let mut info = sample_project_info();
+        info.status = ProjectStatus::Offline;
+
+        let response: ProjectInfoResponse = info.into();
+        assert_eq!(response.status, "offline");
+    }
+
+    #[test]
+    fn test_project_info_response_no_description() {
+        let mut info = sample_project_info();
+        info.description = None;
+
+        let response: ProjectInfoResponse = info.into();
+        assert_eq!(response.description, None);
+    }
+
+    #[test]
+    fn test_project_info_response_remote_path() {
+        let mut info = sample_project_info();
+        info.path = ProjectPath::Remote {
+            url: "https://ducklake.example.com".to_string(),
+            project_id: "dl-proj-1".to_string(),
+        };
+
+        let response: ProjectInfoResponse = info.into();
+        match response.path {
+            ProjectPathResponse::Remote { url, project_id } => {
+                assert_eq!(url, "https://ducklake.example.com");
+                assert_eq!(project_id, "dl-proj-1");
+            }
+            _ => panic!("Expected Remote path"),
+        }
+    }
+
+    #[test]
+    fn test_project_error_formatting() {
+        let err = ProjectError::NotFound("p1".to_string());
+        let err_str: String = err.into();
+        assert!(err_str.contains("p1"));
+
+        let err = ProjectError::PathConflict("/conflict".to_string());
+        let err_str: String = err.into();
+        assert!(err_str.contains("/conflict"));
+
+        let err = ProjectError::OperationFailed("disk full".to_string());
+        let err_str: String = err.into();
+        assert!(err_str.contains("disk full"));
+    }
+
+    #[test]
+    fn test_create_project_input_fields() {
+        let input = CreateProjectInput {
+            name: "New Project".to_string(),
+            path: "/tmp/new-project".to_string(),
+            description: Some("desc".to_string()),
+        };
+
+        assert_eq!(input.name, "New Project");
+        assert_eq!(input.path, "/tmp/new-project");
+        assert_eq!(input.description, Some("desc".to_string()));
+    }
+
+    #[test]
+    fn test_update_project_input_fields() {
+        let input = UpdateProjectInput {
+            id: "p1".to_string(),
+            name: "Renamed".to_string(),
+            description: Some("New desc".to_string()),
+        };
+
+        assert_eq!(input.id, "p1");
+        assert_eq!(input.name, "Renamed");
+        assert_eq!(input.description, Some("New desc".to_string()));
+    }
+}

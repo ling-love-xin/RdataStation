@@ -27,7 +27,7 @@ RdataStation 使用 **Trait-based + Registry** 的驱动架构，支持多种数
                         │
 ┌───────────────────────▼──────────────────────────────┐
 │              DataSourceRouter                         │
-│           (core/datasource/router.rs)                 │
+│           (core/driver/router.rs)                 │
 │  - route(config) → DriverRegistry::get(id)           │
 │  - list_registered_drivers()                         │
 └───────────────────────┬──────────────────────────────┘
@@ -283,11 +283,11 @@ impl AutoDriverRegistrar {
 | 注册方式                         | 存储位置                     | 文件             |
 | -------------------------------- | ---------------------------- | ---------------- |
 | `DriverRegistry::register()`     | `OnceLock<RwLock<HashMap>>`  | registry.rs      |
-| `DRIVER_FACTORY_MANAGER` (Lazy)  | `DriverFactoryManager`       | factory.rs       |
+| ~~`DRIVER_FACTORY_MANAGER` (Lazy)~~  | ~~已移除~~               | ~~factory.rs~~       |
 
 **影响**：`connection_service.rs:create_database()` 硬编码匹配，绕过了两套注册机制。
 
-**改进方向**：统一到 `DriverRegistry`，移除 `DRIVER_FACTORY_MANAGER`，`create_database()` 通过 `DataSourceRouter::route()` 或 `DriverRegistry::get()` 动态创建。
+**改进方向**：✅ 已完成。`DRIVER_FACTORY_MANAGER` 已移除，统一到 `DriverRegistry`。
 
 ## 连接配置
 
@@ -387,7 +387,7 @@ pub struct DriverDescriptor {
 
 ## 数据源路由层
 
-**路径**: [router.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/datasource/router.rs)
+**路径**: [router.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/router.rs)
 
 ```rust
 pub struct DataSourceRouter;
@@ -468,7 +468,7 @@ core/driver/
 
 | 编号 | 问题                             | 影响                   | 改进方向                           |
 | ---- | -------------------------------- | ---------------------- | ---------------------------------- |
-| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册 | 维护两套注册表         | 移除，统一到 DriverRegistry        |
+| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册（✅ 已移除） | 维护两套注册表 | 已移除，统一到 DriverRegistry |
 | P0-2 | `create_database()` 硬编码匹配   | 新增数据库需改多处代码 | 通过 DriverRegistry 动态创建       |
 | P0-3 | `to_url()` 硬编码匹配            | 同上                   | 由 DriverFactory/Descriptor 提供   |
 | P0-4 | `SchemaObject` 缺少列详情        | 无法展示列注释/类型    | 引入 NodeDetail 结构体             |
@@ -477,7 +477,7 @@ core/driver/
 
 ### Phase 1: 架构归一化
 
-- 移除 `DRIVER_FACTORY_MANAGER`，统一到 `DriverRegistry`
+- ✅ 已移除 `DRIVER_FACTORY_MANAGER`，统一到 `DriverRegistry`
 - `create_database()` 改为通过 `DataSourceRouter::route()` 创建
 - `to_url()` 改为通过 `DriverDescriptor` 的 `url_template` 构建
 

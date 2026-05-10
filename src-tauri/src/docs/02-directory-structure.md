@@ -21,22 +21,12 @@ src-tauri/src/
 │   ├── models.rs                       # 核心数据模型（QueryResult / Row / Value）
 │   ├── port_negotiation.rs             # 端口协商
 │   │
-│   ├── connection/                     # 连接管理
-│   │   ├── mod.rs
-│   │   ├── config.rs                   # ConnectionConfig / ConnectionMethod
-│   │   ├── connector.rs                # Connector trait
-│   │   ├── factory.rs                  # ConnectionFactory
-│   │   └── stream.rs                   # ConnectionStream
-│   │
-│   ├── datasource/                     # 数据源路由层
-│   │   ├── mod.rs
-│   │   └── router.rs                   # DataSourceRouter（路由到 DriverRegistry）
-│   │
-│   ├── driver/                         # 驱动层
+│   ├── driver/                         # 驱动层（驱动核心 + 连接管理 + 数据源路由）
 │   │   ├── mod.rs                      # 模块导出 + re-export
 │   │   ├── traits.rs                   # Database / Transaction / DbPool / SchemaObject
 │   │   ├── registry.rs                 # DriverRegistry + ConnectionConfig + DriverFactory
-│   │   ├── factory.rs                  # DriverFactoryManager + 4 工厂实现（⚠️ 重复注册）
+│   │   ├── factory.rs                  # DriverFactoryManager + 4 工厂实现
+│   │   ├── router.rs                   # DataSourceRouter（原 datasource/router.rs 迁移至此）
 │   │   ├── auto_register.rs            # AutoDriverRegistrar（启动注册 4 驱动）
 │   │   ├── manager.rs                  # DriverManager（全局驱动状态）
 │   │   ├── metadata.rs                 # DriverMetadata / DriverType / DriverIcon
@@ -45,11 +35,19 @@ src-tauri/src/
 │   │   ├── smart_pool.rs               # SmartPool 智能连接池
 │   │   ├── driver_config.rs            # 驱动配置
 │   │   │
+│   │   ├── connection/                 # 连接管理（原 core/connection/ 迁移至此）
+│   │   │   ├── mod.rs
+│   │   │   ├── config.rs               # ConnectionConfig / ConnectionMethod
+│   │   │   ├── connector.rs            # Connector trait + 实现（Direct/SSL/SSH/Proxy）
+│   │   │   ├── factory.rs              # ConnectionFactory
+│   │   │   └── stream.rs               # ConnectionStream
+│   │   │
 │   │   ├── native/                     # 原生驱动实现
 │   │   │   ├── mod.rs
 │   │   │   ├── mysql.rs                # MySqlDatabase（sqlx）
 │   │   │   ├── mysql_pool.rs           # MySQL 连接池
 │   │   │   ├── postgres.rs             # PostgresDatabase（sqlx）
+│   │   │   ├── postgres_pool.rs        # PostgreSQL 连接池
 │   │   │   ├── sqlite.rs               # SqliteDatabase（rusqlite）
 │   │   │   ├── sqlite_pool.rs          # SQLite 连接池
 │   │   │   ├── duckdb.rs               # DuckDbDatabase（duckdb-rs）
@@ -285,7 +283,7 @@ use crate::core::driver::DriverRegistry;
 1. 在 `driver/native/` 创建 `{db}.rs` + `{db}_pool.rs`
 2. 实现 `Database` + `DbPool` trait
 3. 在 `driver/native/mod.rs` 导出
-4. 在 `driver/factory.rs` 创建工厂 + 注册到 `DRIVER_FACTORY_MANAGER`
+4. 在 `driver/factory.rs` 创建工厂 + 注册到 `DriverRegistry`（✅ 已统一，不再使用 DRIVER_FACTORY_MANAGER）
 5. 在 `driver/auto_register.rs` 注册到 `DriverRegistry`
 6. (Phase 1 后统一到 DriverRegistry)
 
@@ -294,4 +292,4 @@ use crate::core::driver::DriverRegistry;
 1. 在 `commands/` 创建 `{name}_commands.rs`
 2. 在 `commands/mod.rs` 导出
 3. 在 `lib.rs` 的 `invoke_handler` 中注册
-4. Command 只能调用 Service 层，禁止直接访问 datasource
+4. Command 只能调用 Service 层，禁止直接访问 driver 内部实现

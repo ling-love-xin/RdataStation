@@ -39,7 +39,7 @@ RdataStation 后端架构设计目标：
 │                Domain Layer (Core)                    │
 │  core/driver/traits.rs  - Database / Transaction / DbPool │
 │  core/driver/registry.rs - DriverRegistry + DriverFactory │
-│  core/datasource/router.rs - DataSourceRouter         │
+│  core/driver/router.rs - DataSourceRouter             │
 │  core/models.rs - QueryResult / Row / Value           │
 │  core/error.rs  - CoreError 统一错误                   │
 ├──────────────────────────────────────────────────────┤
@@ -97,7 +97,7 @@ pub struct ErrorResponse {
 
 当前实现：4 种内置驱动（MySQL/sqlx, PostgreSQL/sqlx, SQLite/rusqlite, DuckDB/duckdb-rs）
 
-#### 2.2 Datasource 模块 (`datasource/`)
+#### 2.2 驱动路由（原 Datasource 模块，已合并至 driver/router.rs）
 
 数据源路由层，详见 [05-驱动架构](./05-driver-architecture.md#数据源路由层)：
 
@@ -233,7 +233,7 @@ ConnectionManager
 
 | 编号 | 问题                             | 影响                   |
 | ---- | -------------------------------- | ---------------------- |
-| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册 | 维护两套注册表         |
+| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册（✅ 已移除） | 维护两套注册表 |
 | P0-2 | `create_database()` 硬编码匹配   | 新增数据库需改多处代码 |
 | P0-3 | `to_url()` 硬编码匹配            | 同上                   |
 | P0-4 | `SchemaObject` 缺少列详情        | 无法展示列注释/类型    |
@@ -244,7 +244,7 @@ ConnectionManager
 
 | 阶段 | 目标                   | 内容                                  |
 | ---- | ---------------------- | ------------------------------------- |
-| 1    | 架构归一化             | 消除 DRIVER_FACTORY_MANAGER，统一创建  |
+| 1    | 架构归一化（✅ 已完成） | 消除 DRIVER_FACTORY_MANAGER，统一创建  |
 | 2    | Database trait 增强    | 引入 MetadataBrowser trait            |
 | 3    | DriverDescriptor 增强  | 增加 driver_kind / url_template       |
 | 4    | Command 层清理         | 合并重复命令，统一走 DataSourceRouter  |

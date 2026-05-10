@@ -5,10 +5,8 @@
 use async_trait::async_trait;
 use tokio::net::TcpStream;
 
-use crate::core::connection::config::{
-    ConnectionConfig, ConnectionMethod, ProxyConfig, SshConfig, SslConfig,
-};
-use crate::core::connection::stream::ConnectionStream;
+use super::config::{ConnectionConfig, ConnectionMethod, ProxyConfig, SshConfig, SslConfig};
+use super::stream::ConnectionStream;
 use crate::core::error::{ConnectionError, CoreError};
 
 /// 连接器 trait
@@ -17,14 +15,6 @@ use crate::core::error::{ConnectionError, CoreError};
 #[async_trait]
 pub trait Connector: Send + Sync {
     /// 建立连接
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - 连接配置
-    ///
-    /// # Returns
-    ///
-    /// 返回连接流或错误
     async fn connect(&self, config: &ConnectionConfig) -> Result<ConnectionStream, CoreError>;
 
     /// 检查是否支持此连接方式
@@ -35,19 +25,13 @@ pub trait Connector: Send + Sync {
 }
 
 /// 连接句柄
-///
-/// 表示一个已建立的连接
 pub struct Connection {
-    /// 连接流
     pub stream: ConnectionStream,
-    /// 连接配置
     pub config: ConnectionConfig,
-    /// 连接建立时间
     pub established_at: std::time::Instant,
 }
 
 impl Connection {
-    /// 创建新的连接
     pub fn new(stream: ConnectionStream, config: ConnectionConfig) -> Self {
         Self {
             stream,
@@ -56,12 +40,10 @@ impl Connection {
         }
     }
 
-    /// 获取连接持续时间
     pub fn duration(&self) -> std::time::Duration {
         self.established_at.elapsed()
     }
 
-    /// 检查连接是否加密
     pub fn is_encrypted(&self) -> bool {
         self.stream.is_encrypted()
     }
@@ -106,7 +88,6 @@ impl Connector for SslConnector {
             }));
         };
 
-        // 首先建立 TCP 连接
         let addr = format!("{}:{}", config.host, config.port);
         let tcp_stream = TcpStream::connect(&addr).await.map_err(|e| {
             CoreError::connection(ConnectionError::Network {
@@ -115,7 +96,6 @@ impl Connector for SslConnector {
             })
         })?;
 
-        // 建立 TLS 连接
         let tls_stream = establish_tls(tcp_stream, &config.host, ssl_config).await?;
 
         Ok(ConnectionStream::tls(tls_stream))
@@ -130,7 +110,6 @@ impl Connector for SslConnector {
     }
 }
 
-/// 建立 TLS 连接
 async fn establish_tls(
     stream: TcpStream,
     domain: &str,
@@ -173,7 +152,6 @@ impl Connector for SshTunnelConnector {
             }));
         };
 
-        // 建立 SSH 隧道并返回本地端口转发流
         let stream = establish_ssh_tunnel(config, ssh_config).await?;
         Ok(ConnectionStream::ssh_tunnel(stream))
     }
@@ -187,15 +165,10 @@ impl Connector for SshTunnelConnector {
     }
 }
 
-/// 建立 SSH 隧道
 async fn establish_ssh_tunnel(
     _config: &ConnectionConfig,
     ssh_config: &SshConfig,
 ) -> Result<TcpStream, CoreError> {
-    // 注意：这是一个简化实现
-    // 实际实现需要使用 russh 库建立 SSH 连接并创建本地端口转发
-
-    // 1. 连接到 SSH 服务器
     let ssh_addr = format!("{}:{}", ssh_config.host, ssh_config.port);
     let _ssh_stream = TcpStream::connect(&ssh_addr).await.map_err(|e| {
         CoreError::connection(ConnectionError::Network {
@@ -204,11 +177,6 @@ async fn establish_ssh_tunnel(
         })
     })?;
 
-    // 2. 进行 SSH 认证（根据 auth 类型）
-    // 密码认证 / 密钥认证 / agent 认证 — 后续版本实现
-
-    // 3. 创建本地端口转发
-    // 绑定到本地端口
     let local_bind = if ssh_config.local_port == 0 {
         "127.0.0.1:0".to_string()
     } else {
@@ -231,7 +199,6 @@ async fn establish_ssh_tunnel(
         })
     })?;
 
-    // 4. 连接到本地端口（这将通过 SSH 隧道转发到远程）
     let local_stream = TcpStream::connect(local_addr).await.map_err(|e| {
         CoreError::connection(ConnectionError::Network {
             conn_id: local_addr.to_string(),
@@ -268,12 +235,10 @@ impl Connector for HttpProxyConnector {
     }
 }
 
-/// 建立 HTTP 代理连接
 async fn establish_http_proxy(
     config: &ConnectionConfig,
     proxy_config: &ProxyConfig,
 ) -> Result<TcpStream, CoreError> {
-    // 连接到代理服务器
     let proxy_addr = format!("{}:{}", proxy_config.host, proxy_config.port);
     let mut stream = TcpStream::connect(&proxy_addr).await.map_err(|e| {
         CoreError::connection(ConnectionError::Network {
@@ -282,7 +247,6 @@ async fn establish_http_proxy(
         })
     })?;
 
-    // 发送 HTTP CONNECT 请求
     let target = format!("{}:{}", config.host, config.port);
     let auth_header = if let Some(auth) = &proxy_config.auth {
         let credentials = base64::encode(format!("{}:{}", auth.username, auth.password));
@@ -305,7 +269,6 @@ async fn establish_http_proxy(
             })
         })?;
 
-    // 读取代理服务器响应
     let mut buffer = vec![0u8; 1024];
     let n = tokio::io::AsyncReadExt::read(&mut stream, &mut buffer)
         .await
@@ -353,14 +316,12 @@ impl Connector for SocksProxyConnector {
     }
 }
 
-/// 建立 SOCKS 代理连接
 async fn establish_socks_proxy(
     config: &ConnectionConfig,
     proxy_config: &ProxyConfig,
 ) -> Result<TcpStream, CoreError> {
     use tokio_socks::tcp::Socks5Stream;
 
-    // 使用 &str 而不是 String，因为 ToProxyAddrs 实现了 for &str
     let proxy_addr = format!("{}:{}", proxy_config.host, proxy_config.port);
     let target_addr = format!("{}:{}", config.host, config.port);
 
@@ -394,7 +355,6 @@ async fn establish_socks_proxy(
     Ok(stream)
 }
 
-// 添加 base64 编码支持
 mod base64 {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 

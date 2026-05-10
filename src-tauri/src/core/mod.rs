@@ -17,10 +17,9 @@
 //! ## 允许依赖：
 //! - `models` → 无（基础层）
 //! - `error`, `macros` → 无（基础层）
-//! - `driver` → `error`, `macros`, `models`
-//! - `connection` → `error`, `models`
-//! - `datasource` → `driver`, `connection`, `error`, `models`
-//! - `persistence` → `error`, `models`
+//! - `driver` → `error`, `macros`, `models`（含 connection 子模块）
+//! - `datasource` → 已合并到 `driver`（router 迁移至 driver/router.rs）
+//! - `connection` → 已迁移至 `driver/connection/`
 //! - `project` → `error`, `models`, `persistence`
 //! - `services` → `driver`, `persistence`, `connection`, `error`, `models`, `project`, `cache`
 //! - `cache` → `error`, `models`
@@ -32,15 +31,16 @@
 //! - `datasource` → `api`
 
 pub mod api_version;
+pub mod arrow;
 pub mod cache;
-pub mod connection;
 pub mod crypto;
-pub mod datasource;
 pub mod dbi;
 pub mod driver;
 pub mod duckdb;
+pub mod error;
 pub mod insight;
 pub mod logging;
+pub mod macros;
 pub mod migration;
 pub mod mock;
 pub mod models;
@@ -50,15 +50,8 @@ pub mod port_negotiation;
 pub mod project;
 pub mod scratchpad;
 pub mod services;
-pub mod utils;
-
-// 错误处理宏模块
-#[macro_use]
-pub mod macros;
-
-pub mod arrow;
-pub mod error;
 pub mod stream;
+pub mod utils;
 
 // 重新导出常用错误类型
 pub use error::{
@@ -93,13 +86,15 @@ pub use driver::{
 // 重新导出驱动注册表函数
 pub use driver::registry::{get_all_drivers, get_driver};
 
-// 重新导出数据源路由层
-pub use datasource::router::DataSourceRouter;
+// 重新导出数据源路由层（已迁移至 driver/router.rs）
+pub use driver::router::DataSourceRouter;
 
-// 重新导出连接层
-pub use connection::{
-    config::TlsVersion, Connection, ConnectionConfig, ConnectionFactory, ConnectionMethod,
-    ConnectionStream, Connector, ProxyConfig, SshConfig, SslConfig,
+// 重新导出连接层（已迁移至 driver/connection/）
+pub use driver::connection::{
+    config::{ConnectionConfig, ConnectionMethod, ProxyConfig, SshConfig, SslConfig, TlsVersion},
+    connector::{Connection, Connector},
+    factory::ConnectionFactory,
+    stream::ConnectionStream,
 };
 
 // 重新导出模型层

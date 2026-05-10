@@ -151,7 +151,7 @@ git commit -m "feat: 添加新功能"
 
 ### 1. 添加新数据库驱动
 
-> ⚠️ **路径注意**：具体驱动实现位于 `core/driver/native/`，而非 `core/datasource/`。`datasource/` 只做路由。
+> ⚠️ **路径注意**：具体驱动实现位于 `core/driver/native/`，路由层在 `core/driver/router.rs`（已从 `datasource/` 迁移）。
 
 #### 步骤 1: 创建驱动文件
 
@@ -209,7 +209,7 @@ impl AutoDriverRegistrar {
 }
 ```
 
-> ⚠️ **Phase 1 目标**：移除 `DRIVER_FACTORY_MANAGER` 双重注册，统一到 `DriverRegistry`。
+> ✅ **Phase 1 已完成**：`DRIVER_FACTORY_MANAGER` 已移除，驱动注册统一到 `DriverRegistry`。
 
 ```rust
 // lib.rs
@@ -286,7 +286,9 @@ pub use my_commands::*;
 ])
 ```
 
-> ⚠️ **命令约束**：Command 只能调用 Service 层（ConnectionService / SqlService），禁止直接访问 datasource 或 driver/native。### 3. 添加新服务
+> ⚠️ **命令约束**：Command 只能调用 Service 层（ConnectionService / SqlService），禁止直接访问 driver/native。
+
+### 3. 添加新服务
 
 #### 步骤 1: 创建服务文件
 

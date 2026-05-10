@@ -438,3 +438,67 @@ export interface Project {
 - [x] 单文件 < 300 行
 - [x] Rust 禁止 unwrap/expect
 - [x] Rust 使用 CoreError 统一错误处理
+
+---
+
+## 11. 开发者指南：如何新增项目管理 Tauri Command
+
+### 11.1 新增命令步骤
+
+**Step 1: Rust — 在 `project_commands.rs` 中添加函数**
+
+```rust
+/// 命令描述
+#[tauri::command]
+pub async fn your_new_command(param: String) -> Result<ReturnType, CoreError> {
+    tracing::info!(param = %param, "Executing your_new_command");
+
+    let global_db = crate::core::migration::get_global_db_manager()
+        .ok_or_else(|| CoreError::from(
+            ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+        ))?;
+
+    // 业务逻辑 ...
+    
+    Ok(response)
+}
+```
+
+**Step 2: Rust — 在 `lib.rs` 中注册**
+
+```rust
+.invoke_handler(tauri::generate_handler![
+    // ... 现有命令 ...
+    your_new_command,
+])
+```
+
+**Step 3: TypeScript — 在 `ProjectService` 中添加方法**
+
+```typescript
+static async yourNewMethod(param: string): Promise<ReturnType> {
+    return invoke<ReturnType>('your_new_command', { param })
+}
+```
+
+**Step 4: TypeScript — 在 `project.ts` Store 中添加 action**
+
+```typescript
+async function yourNewAction(param: string): Promise<void> {
+    try {
+        await ProjectService.yourNewMethod(param)
+        await loadRecentProjects(true)
+    } catch (e) {
+        error.value = e instanceof Error ? e.message : '操作失败'
+        throw e
+    }
+}
+```
+
+### 11.2 注意事项
+
+- 使用 `CoreError` 而非 `String` 作为错误类型
+- 写操作后需调用 `get_recent_projects_cache().invalidate().await`
+- 前端调用统一通过 `ProjectService`，不要直接 `invoke()`
+- 每个公开方法添加 JSDoc / Rust doc comment
+- 在 `zh-CN.json` / `en.json` 中添加对应的 i18n 翻译键

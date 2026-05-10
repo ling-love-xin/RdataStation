@@ -121,6 +121,22 @@ export class ProjectService {
   }
 
   /**
+   * 删除项目（从全局数据库中移除，不删物理文件）
+   * @param projectId 项目 ID
+   */
+  static async deleteProject(projectId: string): Promise<void> {
+    return invoke<void>('delete_project', { projectId })
+  }
+
+  /**
+   * 更新项目信息（名称、描述）
+   * @param input 项目 ID + 名称（必须）+ 描述（可选）
+   */
+  static async updateProject(input: { id: string; name: string; description?: string }): Promise<void> {
+    return invoke<void>('update_project', { input })
+  }
+
+  /**
    * 删除项目（从数据库 + 物理删除磁盘目录）
    * @param projectId 项目 ID
    */

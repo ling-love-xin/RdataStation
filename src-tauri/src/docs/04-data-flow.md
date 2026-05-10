@@ -245,8 +245,8 @@ CoreError
 
 | 约束                 | 说明                                            |
 | -------------------- | ----------------------------------------------- |
-| ❌ 禁止跨层调用      | Command 不能直接调用 datasource                 |
+| ❌ 禁止跨层调用      | Command 不能直接调用 driver/native              |
 | ❌ 禁止 unwrap       | 所有生产代码使用 `?` 操作符                      |
 | ✅ QueryResult 格式  | 必须包含 `columns: Vec<String>` 和 `rows: Vec<Vec<Value>>` |
-| ✅ services 层       | 只调用 connection_manager / driver，不碰 datasource |
+| ✅ services 层       | 只调用 connection_manager / driver，不碰 driver/native |
 | ✅ Arrow IPC         | 插件通信使用 Arrow RecordBatch                   |

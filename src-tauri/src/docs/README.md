@@ -106,7 +106,7 @@ WAL + 并发             列存储 + 向量化
 
 | 编号 | 问题                             | 文件                                    |
 | ---- | -------------------------------- | --------------------------------------- |
-| P0-1 | DRIVER_FACTORY_MANAGER 重复注册  | [factory.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/factory.rs) |
+| P0-1 | DRIVER_FACTORY_MANAGER 重复注册（✅ 已移除） | [factory.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/factory.rs) |
 | P0-2 | create_database() 硬编码匹配     | [connection_service.rs#L256](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/connection_service.rs#L256) |
 | P0-3 | to_url() 硬编码匹配              | [registry.rs#L117](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry.rs#L117) |
 | P0-4 | SchemaObject 缺少列详情          | [traits.rs#L22](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/traits.rs#L22) |

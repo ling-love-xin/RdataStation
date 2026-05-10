@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::core::connection::{ConnectionConfig, ConnectionFactory, ConnectionMethod};
+use super::connection::{ConnectionConfig, ConnectionFactory};
+use super::connection::config::ConnectionMethod;
 use crate::core::driver::native::{
     duckdb::DuckDbDatabase, mysql::MySqlDatabase, postgres::PostgresDatabase,
     sqlite::SqliteDatabase,

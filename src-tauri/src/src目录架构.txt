@@ -1,0 +1,256 @@
+卷 data 的文件夹 PATH 列表
+卷序列号为 2830-3638
+E:\MYAPPS\TAUIRAPPS\RDATASTATION\RDATA-STATION\SRC-TAURI\SRC
+│  lib.rs
+│  main.rs
+│  src目录架构.txt
+│  
+├─adapters
+│  │  mod.rs
+│  │  
+│  ├─tauri
+│  │      event.rs
+│  │      mod.rs
+│  │      state.rs
+│  │      stream.rs
+│  │      
+│  └─wasm
+│      │  api.rs
+│      │  extism.rs
+│      │  mod.rs
+│      │  plugin_manager.rs
+│      │  
+│      └─api
+├─api
+│      dto.rs
+│      mod.rs
+│      
+├─commands
+│      analytics_resource_commands.rs
+│      cache_warming_commands.rs
+│      connection_commands.rs
+│      driver_commands.rs
+│      logging_commands.rs
+│      memory_commands.rs
+│      metadata_cache_commands.rs
+│      metadata_commands.rs
+│      mock_commands.rs
+│      mock_persistence_commands.rs
+│      mod.rs
+│      navigator_commands.rs
+│      performance_commands.rs
+│      port_commands.rs
+│      project_commands.rs
+│      project_store_commands.rs
+│      result_commands.rs
+│      scratchpad_commands.rs
+│      sql_commands.rs
+│      sql_parser_commands.rs
+│      sql_template_commands.rs
+│      system_commands.rs
+│      
+├─core
+│  │  api_version.rs
+│  │  arrow.rs
+│  │  crypto.rs
+│  │  duckdb.rs
+│  │  error.rs
+│  │  macros.rs
+│  │  mod.rs
+│  │  models.rs
+│  │  port_negotiation.rs
+│  │  stream.rs
+│  │  
+│  ├─api
+│  ├─cache
+│  │      cache_manager.rs
+│  │      lru_cache.rs
+│  │      memory_guard.rs
+│  │      metadata_cache.rs
+│  │      mod.rs
+│  │      query_cache.rs
+│  │      
+│  ├─dbi
+│  │  │  context.rs
+│  │  │  dbi.rs
+│  │  │  mod.rs
+│  │  │  performance.rs
+│  │  │  README.md
+│  │  │  session.rs
+│  │  │  
+│  │  └─engine
+│  │          driver_engine.rs
+│  │          duckdb_engine.rs
+│  │          mod.rs
+│  │          stream_engine.rs
+│  │          
+│  ├─driver
+│  │  │  auto_register.rs
+│  │  │  driver_config.rs
+│  │  │  factory.rs
+│  │  │  loader.rs
+│  │  │  manager.rs
+│  │  │  metadata.rs
+│  │  │  mod.rs
+│  │  │  registry.rs
+│  │  │  router.rs
+│  │  │  smart_pool.rs
+│  │  │  traits.rs
+│  │  │  utils.rs
+│  │  │  
+│  │  ├─connection
+│  │  │      config.rs
+│  │  │      connector.rs
+│  │  │      factory.rs
+│  │  │      mod.rs
+│  │  │      stream.rs
+│  │  │      
+│  │  ├─duckdb
+│  │  ├─jdbc
+│  │  │      connection.rs
+│  │  │      driver.rs
+│  │  │      executor.rs
+│  │  │      jvm_manager.rs
+│  │  │      mod.rs
+│  │  │      
+│  │  ├─mysql
+│  │  ├─native
+│  │  │      duckdb.rs
+│  │  │      duckdb_pool.rs
+│  │  │      mod.rs
+│  │  │      mysql.rs
+│  │  │      mysql_pool.rs
+│  │  │      postgres.rs
+│  │  │      postgres_pool.rs
+│  │  │      sqlite.rs
+│  │  │      sqlite_pool.rs
+│  │  │      
+│  │  ├─postgres
+│  │  ├─sqlite
+│  │  ├─tests
+│  │  │      mod.rs
+│  │  │      registry_tests.rs
+│  │  │      
+│  │  └─wasm
+│  │          adapter.rs
+│  │          driver.rs
+│  │          mod.rs
+│  │          pool.rs
+│  │          
+│  ├─insight
+│  │      mod.rs
+│  │      rule_executor.rs
+│  │      rule_registry.rs
+│  │      rule_types.rs
+│  │      schema_analyzer.rs
+│  │      
+│  ├─logging
+│  │      config.rs
+│  │      mod.rs
+│  │      record.rs
+│  │      redact.rs
+│  │      subscriber.rs
+│  │      
+│  ├─migration
+│  │      executor.rs
+│  │      global_init.rs
+│  │      manager.rs
+│  │      mod.rs
+│  │      schema.rs
+│  │      
+│  ├─mock
+│  │      engine.rs
+│  │      error.rs
+│  │      generators.rs
+│  │      history.rs
+│  │      mod.rs
+│  │      models.rs
+│  │      persistence.rs
+│  │      schema_map.rs
+│  │      templates.rs
+│  │      
+│  ├─performance
+│  │      mod.rs
+│  │      monitor.rs
+│  │      
+│  ├─persistence
+│  │  │  cache_version_migration.rs
+│  │  │  connection_store.rs
+│  │  │  global_db.rs
+│  │  │  history_store.rs
+│  │  │  insight_meta_store.rs
+│  │  │  insight_store.rs
+│  │  │  log_store.rs
+│  │  │  metadata_cache.rs
+│  │  │  mod.rs
+│  │  │  project_connection_store.rs
+│  │  │  project_db.rs
+│  │  │  project_store.rs
+│  │  │  sql_template_store.rs
+│  │  │  workbench_context_store.rs
+│  │  │  
+│  │  └─analytics_resource_store
+│  │          folder.rs
+│  │          helpers.rs
+│  │          mod.rs
+│  │          models.rs
+│  │          recycle.rs
+│  │          resource.rs
+│  │          tag.rs
+│  │          tests.rs
+│  │          version.rs
+│  │          
+│  ├─project
+│  │      mod.rs
+│  │      models.rs
+│  │      store.rs
+│  │      
+│  ├─scratchpad
+│  │      mod.rs
+│  │      models.rs
+│  │      state.rs
+│  │      store.rs
+│  │      
+│  ├─services
+│  │  │  connection_manager.rs
+│  │  │  connection_service.rs
+│  │  │  duckdb_service.rs
+│  │  │  execution_service.rs
+│  │  │  insight_engine.rs
+│  │  │  mod.rs
+│  │  │  persistence_service.rs
+│  │  │  quality_scorer.rs
+│  │  │  result_service.rs
+│  │  │  sql_parser_service.rs
+│  │  │  sql_service.rs
+│  │  │  table_profile_service.rs
+│  │  │  
+│  │  └─tests
+│  │          connection_manager_tests.rs
+│  │          mod.rs
+│  │          
+│  └─utils
+│          hash.rs
+│          mod.rs
+│          string.rs
+│          time.rs
+│          
+├─docs
+│      01-architecture-overview.md
+│      02-directory-structure.md
+│      03-module-dependencies.md
+│      04-data-flow.md
+│      05-driver-architecture.md
+│      06-storage-architecture.md
+│      07-upgrade-strategy.md
+│      08-optimization-plan.md
+│      09-development-guide.md
+│      10-api-reference.md
+│      11-plugin-system.md
+│      README.md
+│      
+├─plugins
+│  ├─builtin
+│  ├─registry
+│  └─sdk
+└─utils

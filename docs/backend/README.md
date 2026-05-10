@@ -13,6 +13,7 @@
 | 文档                                                                           | 说明                                            |
 | ------------------------------------------------------------------------------ | ----------------------------------------------- |
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                                           | 后端架构设计（目录结构、核心模块、DuckDB 功能） |
+| [FILE-RESPONSIBILITY.md](./FILE-RESPONSIBILITY.md)                             | 📋 后端文件职责 + 全方面审计报告（架构/设计/代码/接口/文档/前后端对齐/连通性） |
 | [implementation.md](./implementation.md)                                       | 后端实现说明（内存防护、错误处理、持久化服务）  |
 | [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md)             | 项目模块架构设计（连接分类、元数据缓存）        |
 | [PROJECT_MODULE_OPTIMIZATION.md](./PROJECT_MODULE_OPTIMIZATION.md)             | 项目模块优化                                    |

@@ -31,15 +31,13 @@
 │                 │                  │
 │  ┌──────────────▼──────────────┐  │
 │  │  services                   │  │
-│  └────┬────┘ ┌────┬────┘ ┌───┬┘  │
-│       │      │      │      │     │
-│  ┌───▼───┐ ┌▼────┐ ┌▼────▼───┐  │
-│  │driver │ │conn │ │persistence│ │
-│  └───┬───┘ └┬────┘ └───┬────┘  │
-│      │      │          │       │
-│  ┌───▼──────▼──┐ ┌────▼────┐  │
-│  │ datasource  │ │ project │  │
-│  └─────────────┘ └─────────┘  │
+│  └────┬───┘ ┌───┬────┘ ┌───┬──┘  │
+│       │     │     │     │        │
+│  ┌───▼──┐ ┌▼────┐ ┌───▼─────┐  │
+│  │driver│ │persistence│ │project│  │
+│  │+conn │ │          │ │       │  │
+│  │+route│ │          │ │       │  │
+│  └──────┘ └─────────┘ └───────┘  │
 └──────────────┬──────────────────────┘
                │ 依赖
 ┌──────────────▼──────────────────────┐
@@ -56,16 +54,17 @@
 | ------------- | ------------------------------------------------------------------- | --------------------------------- |
 | `models`      | 无（基础层）                                                        | 所有其他模块                      |
 | `error`       | 无（基础层）                                                        | 所有其他模块                      |
-| `driver/traits` | `error`, `models`                                                 | `connection`, `datasource`, `services` |
-| `driver/registry` | `error`, `models`, `driver/traits`, `connection`               | `services`, `adapters`            |
+| `driver/traits` | `error`, `models`                                                 | `services`, `adapters`            |
+| `driver/registry` | `error`, `models`, `driver/traits`, `driver/connection`       | `services`, `adapters`            |
 | `driver/native` | `driver/traits`, `driver/registry`, `error`, `models`            | `services`, `adapters`            |
-| `connection`  | `error`, `models`                                                   | `driver`, `datasource`            |
-| `datasource`  | `driver`, `connection`, `error`, `models`                           | `api`, `services`                 |
-| `persistence` | `error`, `models`                                                   | `driver`, `datasource`            |
-| `project`     | `error`, `models`, `persistence`                                    | `driver`, `datasource`            |
-| `services`    | `driver`, `persistence`, `connection`, `error`, `models`, `project` | `api`, `adapters`                 |
+| `driver/router` | `driver/registry`, `error`, `models`                              | `api`, `adapters`                 |
+| `driver/connection` | `error`, `models`                                             | `driver/native`, `services`       |
+| `persistence` | `error`, `models`                                                   | `driver/native`, `services`       |
+| `project`     | `error`, `models`, `persistence`                                    | `driver/native`, `services`       |
+| `services`    | `driver`, `persistence`, `error`, `models`, `project`              | `api`, `adapters`                 |
+| `dbi`         | `driver`, `error`, `models`, `stream`                               | `api`, `adapters`                 |
 
-> ⚠️ 注意：`driver/traits.rs` 是宪法文件，禁止修改已有 trait 签名。`datasource/` 只做路由，不存放具体驱动实现。具体实现在 `driver/native/`。
+> ⚠️ 注意：`driver/traits.rs` 是宪法文件，禁止修改已有 trait 签名。`driver/router.rs` 做数据源路由（原 `datasource/`），不存放具体驱动实现。具体实现在 `driver/native/`。`connection/` 已迁移至 `driver/connection/`（配置/连接器/工厂/流）。
 
 ### 层间依赖
 
@@ -95,7 +94,7 @@ pub struct QueryResult {
 
 ### 2. Driver 层
 
-**规则**：只依赖基础层，不依赖 connection/datasource
+**规则**：只依赖基础层（error/models），不依赖 driver/native
 
 ```rust
 // ✅ 正确：driver 只依赖基础层
@@ -109,16 +108,16 @@ pub trait Database: Send + Sync {
 }
 
 // ❌ 错误：driver 不能依赖 connection
-// use crate::core::connection::ConnectionConfig; // 禁止！
+// use crate::core::driver::connection::ConnectionConfig; // 禁止！
 ```
 
-### 3. Connection 层
+### 3. Connection 层（已内聚到 driver/connection/）
 
-**规则**：不依赖 driver/datasource，通过 trait 解耦
+**规则**：不依赖 driver/native，通过 trait 解耦
 
 ```rust
 // ✅ 正确：connection 只依赖基础层
-// core/connection/config.rs
+// core/driver/connection/config.rs
 use crate::core::error::CoreError;
 
 pub struct ConnectionConfig {
@@ -130,13 +129,13 @@ pub struct ConnectionConfig {
 // use crate::core::driver::Database; // 禁止！
 ```
 
-### 4. Datasource 层
+### 4. 驱动路由层（原 Datasource 层，已合并到 driver/）
 
-**规则**：依赖 driver，只做路由，不存放具体驱动实现
+**规则**：依赖 driver::registry，只做路由，不存放具体驱动实现
 
 ```rust
-// ✅ 正确：datasource 只依赖 driver
-// core/datasource/router.rs
+// ✅ 正确：router 只依赖 registry
+// core/driver/router.rs
 use crate::core::driver::{DriverRegistry, DriverFactory};
 use crate::core::error::CoreError;
 
@@ -149,11 +148,11 @@ impl DataSourceRouter {
     }
 }
 
-// ❌ 错误：datasource 不能直接实例化驱动
+// ❌ 错误：router 不能直接实例化驱动
 // use crate::core::driver::native::mysql::MySqlDatabase; // 禁止！
 ```
 
-> ⚠️ 具体驱动实现位于 `driver/native/{mysql,postgres,sqlite,duckdb}.rs`，不在 `datasource/` 中。
+> ⚠️ 具体驱动实现位于 `driver/native/{mysql,postgres,sqlite,duckdb}.rs`。路由层在 `driver/router.rs`（原 `datasource/router.rs`）。
 
 ### 5. Services 层
 
@@ -163,7 +162,7 @@ impl DataSourceRouter {
 // ✅ 正确：services 依赖 core 内部模块
 // core/services/connection_service.rs
 use crate::core::driver::{Database, DriverRegistry};
-use crate::core::connection::{ConnectionConfig, ConnectionFactory};
+use crate::core::driver::connection::{ConnectionConfig, ConnectionFactory};
 use crate::core::persistence::ConnectionStore;
 use crate::core::error::CoreError;
 use crate::core::models::QueryResult;
@@ -243,7 +242,7 @@ use crate::core::models::SharedType;
 ```rust
 // ❌ 错误：直接依赖
 // service.rs
-use crate::datasource::MySqlDriver;
+use crate::core::driver::native::mysql::MySqlDriver;
 
 // ✅ 正确：通过 trait 解耦
 // service.rs
@@ -371,7 +370,7 @@ impl EventPublisher for TauriAdapter {
 ```rust
 // ❌ 错误
 // core/driver/traits.rs
-use crate::core::datasource::mysql::MySqlDriver;
+use crate::core::driver::native::mysql::MySqlDriver;
 
 // ✅ 正确：trait 不依赖具体实现
 // core/driver/traits.rs
@@ -379,7 +378,7 @@ pub trait Database: Send + Sync {
     // 方法定义
 }
 
-// core/datasource/mysql.rs
+// core/driver/native/mysql.rs
 use crate::core::driver::Database;
 impl Database for MySqlDriver { }
 ```

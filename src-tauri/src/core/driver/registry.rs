@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, RwLock};
 
-use crate::core::connection::ConnectionMethod;
+use super::connection::config::ConnectionMethod;
 
 /// 连接配置（统一模型）
 ///

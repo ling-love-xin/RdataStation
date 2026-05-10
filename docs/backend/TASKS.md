@@ -66,8 +66,8 @@
 
 | 任务         | 状态    | 说明                                           |
 | ------------ | ------- | ---------------------------------------------- |
-| 连接配置     | ✅ 完成 | `connection/config.rs` 支持多种连接方式        |
-| 连接工厂     | ✅ 完成 | `connection/factory.rs` 创建底层连接           |
+| 连接配置     | ✅ 完成 | `driver/connection/config.rs` 支持多种连接方式        |
+| 连接工厂     | ✅ 完成 | `driver/connection/factory.rs` 创建底层连接           |
 | 连接管理器   | ✅ 完成 | `services/connection_manager.rs` 生命周期管理  |
 | 连接存储     | ✅ 完成 | `persistence/connection_store.rs` 最近连接记录 |
 | 项目连接存储 | ✅ 完成 | `persistence/project_connection_store.rs`      |

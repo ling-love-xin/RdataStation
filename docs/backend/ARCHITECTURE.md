@@ -39,13 +39,14 @@ Rust Core（微内核）→ Tauri Host → Wasm Plugin → UI
 │  ├── DuckDBEngine (本地加速/联邦查询)                     │
 │  └── StreamEngine (流式处理/合并)                        │
 ├─────────────────────────────────────────────────────────┤
-│  数据库驱动层                                            │
+│  Driver 层（驱动核心 + 连接管理）                         │
 │  ├── Database trait (统一接口)                           │
-│  ├── MySQL / PostgreSQL / SQLite / DuckDB               │
+│  ├── Native: MySQL / PostgreSQL / SQLite / DuckDB       │
+│  ├── Connection (连接配置/连接器/工厂/流)               │
+│  ├── DataSourceRouter (数据源路由)                       │
 │  └── SmartPool (智能连接池)                              │
 ├─────────────────────────────────────────────────────────┤
 │  基础设施层                                              │
-│  ├── Connection (连接管理)                               │
 │  ├── Persistence (持久化)                                │
 │  ├── Cache (缓存)                                        │
 │  └── Project (项目管理)                                  │
@@ -76,34 +77,36 @@ src-tauri/src/core/
 │       ├── duckdb_engine.rs  # 本地分析/加速/联邦查询引擎
 │       └── stream_engine.rs  # 流拼接、合并、后处理
 │
-├── driver/                 # 🔥 驱动核心：native + JDBC + wasm 统一管理
-│   ├── mod.rs
+├── driver/                 # 驱动核心：native + JDBC + wasm + connection
+│   ├── mod.rs              # 模块入口 + 公共 re-export
 │   ├── traits.rs           # Database / Transaction / Stream trait
 │   ├── registry.rs         # 驱动注册表
-│   ├── factory.rs          # 驱动工厂
+│   ├── factory.rs          # 驱动工厂（MySQL/PG/SQLite/DuckDB）
+│   ├── router.rs           # 数据源路由（原 datasource/router.rs 迁移至此）
+│   ├── manager.rs          # DriverManager 全局生命周期管理
+│   ├── loader.rs           # 驱动发现与加载
 │   ├── metadata.rs         # 驱动元数据
+│   ├── driver_config.rs    # 驱动配置
 │   ├── smart_pool.rs       # 智能连接池包装器
+│   ├── auto_register.rs    # 自动注册入口
 │   ├── utils.rs            # 驱动工具函数
+│   ├── connection/         # 连接管理（原 core/connection/ 迁移至此）
+│   │   ├── mod.rs
+│   │   ├── config.rs       # 连接配置 + ConnectionMethod 枚举
+│   │   ├── connector.rs    # 连接器（Direct/SSL/SSH/Proxy）
+│   │   ├── factory.rs      # 连接工厂
+│   │   └── stream.rs       # 连接流
 │   ├── native/             # 原生驱动实现
 │   │   ├── mysql.rs        # MySQL (sqlx)
 │   │   ├── mysql_pool.rs
 │   │   ├── postgres.rs     # PostgreSQL (sqlx)
+│   │   ├── postgres_pool.rs
 │   │   ├── sqlite.rs       # SQLite (rusqlite)
+│   │   ├── sqlite_pool.rs
 │   │   ├── duckdb.rs       # DuckDB (duckdb-rs)
 │   │   └── duckdb_pool.rs
 │   ├── jdbc/               # JDBC 驱动（预留）
 │   └── wasm/               # Wasm 驱动（预留）
-│
-├── connection/             # 连接管理：配置、池、生命周期
-│   ├── mod.rs
-│   ├── config.rs           # 连接配置
-│   ├── connector.rs        # 连接器
-│   ├── factory.rs          # 连接工厂
-│   └── stream.rs           # 连接流
-│
-├── datasource/             # 数据源管理：注册/路由
-│   ├── mod.rs
-│   └── router.rs           # 数据源路由
 │
 ├── services/               # 业务服务：SQL执行、连接管理
 │   ├── mod.rs
@@ -599,18 +602,15 @@ CoreError (核心错误容器)
 - models → 无（基础层）
 - error, macros → 无（基础层）
 - driver → error, macros, models
-- connection → error, models
-- datasource → driver, connection, error, models
+- driver/connection → error, models（已内聚到 driver 下）
 - persistence → error, models
 - project → error, models, persistence
-- services → driver, persistence, connection, error, models, project, cache
+- services → driver, persistence, error, models, project, cache
 - cache → error, models
 - dbi → driver, error, models, stream
 
 ❌ 禁止依赖：
 - 任何 core 内部模块 → api
-- driver → connection（应通过 trait 解耦）
-- datasource → api
 ```
 
 ### 9.2 架构红线

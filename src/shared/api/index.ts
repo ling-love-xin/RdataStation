@@ -271,22 +271,69 @@ export const federatedApi = {
 
 // ==================== 项目相关 API ====================
 
-export interface ProjectResponse {
+/** 与 workbench/ui/services/project.ts 中 ProjectInfo 保持一致的共享类型 */
+export interface ProjectInfo {
   id: string
   name: string
-  path: string
+  description?: string
+  path: {
+    type: 'Local' | 'Remote'
+    path?: string
+    url?: string
+    project_id?: string
+  }
+  status: string
+  created_at: string
+  updated_at: string
+  last_opened_at?: string
+  version: string
 }
 
+export interface CreateProjectInput {
+  name: string
+  path: string
+  description?: string
+}
+
+export interface UpdateProjectInput {
+  id: string
+  name?: string
+  description?: string
+}
+
+/** @deprecated 使用 ProjectInfo 替代 */
+export type ProjectResponse = ProjectInfo
+
 export const projectApi = {
-  createProject(name: string, path: string) {
-    return tauriInvoke<ProjectResponse>('create_project', { name, path })
+  createProject(input: CreateProjectInput) {
+    return tauriInvoke<ProjectInfo>('create_and_save_project', { input })
   },
 
-  openProject(path: string) {
-    return tauriInvoke<ProjectResponse>('open_project', { path })
+  openProjectByPath(path: string) {
+    return tauriInvoke<ProjectInfo>('open_project_by_path', { path })
   },
 
-  getRecentProjects() {
-    return tauriInvoke<ProjectResponse[]>('get_recent_projects')
+  openProjectById(id: string) {
+    return tauriInvoke<ProjectInfo>('open_project_by_id', { id })
+  },
+
+  getRecentProjects(limit: number = 10) {
+    return tauriInvoke<ProjectInfo[]>('get_recent_projects', { limit })
+  },
+
+  removeFromRecent(projectId: string) {
+    return tauriInvoke<ProjectInfo>('remove_from_recent', { projectId })
+  },
+
+  deleteProject(projectId: string) {
+    return tauriInvoke<void>('delete_project', { projectId })
+  },
+
+  deleteProjectDisk(projectId: string) {
+    return tauriInvoke<void>('delete_project_disk', { projectId })
+  },
+
+  updateProject(input: UpdateProjectInput) {
+    return tauriInvoke<void>('update_project', { input })
   },
 }

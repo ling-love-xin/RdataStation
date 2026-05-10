@@ -654,6 +654,10 @@ impl ProjectStore {
         }
 
         // 从项目 SQLite 加载持久化连接列表（数据模型已定义，待实现 SQL 读取）
+        tracing::debug!(
+            project_id = %self.info.id,
+            "connections table schema ready, SQL read not yet implemented"
+        );
         let connections = Vec::new();
         self.connections = Some(connections.clone());
         Ok(connections)
@@ -666,6 +670,10 @@ impl ProjectStore {
         }
 
         // 从项目 SQLite 加载持久化查询列表（数据模型已定义，待实现 SQL 读取）
+        tracing::debug!(
+            project_id = %self.info.id,
+            "queries table schema ready, SQL read not yet implemented"
+        );
         let queries = Vec::new();
         self.queries = Some(queries.clone());
         Ok(queries)
