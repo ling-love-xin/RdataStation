@@ -246,11 +246,11 @@ function formatSize(bytes: number): string {
 .node-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   height: 32px;
-  padding-right: 8px;
+  padding-right: var(--spacing-sm);
   cursor: pointer;
-  border-radius: var(--border-radius-sm, 4px);
+  border-radius: var(--border-radius-sm);
   transition: background-color 0.1s;
 }
 
@@ -260,7 +260,7 @@ function formatSize(bytes: number): string {
 
 .node-row.selected {
   background-color: var(--brand-accent);
-  color: var(--color-bg-primary);
+  color: var(--color-selected-text);
 }
 
 .folder-toggle,
@@ -283,7 +283,7 @@ function formatSize(bytes: number): string {
 
 .node-name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -292,10 +292,10 @@ function formatSize(bytes: number): string {
 .rename-input {
   flex: 1;
   height: 24px;
-  padding: 0 6px;
-  font-size: 13px;
+  padding: 0 var(--spacing-xs);
+  font-size: var(--font-size-md);
   border: 1px solid var(--brand-accent);
-  border-radius: var(--border-radius-sm, 4px);
+  border-radius: var(--border-radius-sm);
   outline: none;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -310,7 +310,7 @@ function formatSize(bytes: number): string {
   display: flex;
   align-items: center;
   flex: 1;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .rename-spinner {
@@ -328,17 +328,17 @@ function formatSize(bytes: number): string {
 }
 
 .node-size {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
 .node-row.selected .node-size {
-  color: rgba(255, 255, 255, 0.7);
+  opacity: 0.7;
 }
 
 .node-time {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   flex-shrink: 0;
   min-width: 28px;
@@ -346,7 +346,7 @@ function formatSize(bytes: number): string {
 }
 
 .node-row.selected .node-time {
-  color: rgba(255, 255, 255, 0.7);
+  opacity: 0.7;
 }
 
 .node-arrow {

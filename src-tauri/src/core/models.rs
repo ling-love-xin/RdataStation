@@ -7,10 +7,10 @@
 //!
 //! 注意：这些模型会被 api 层重新导出，供前端使用
 
-use std::fmt;
-use serde::{Serialize, Deserialize};
-use arrow::record_batch::RecordBatch;
 use arrow::array::*;
+use arrow::record_batch::RecordBatch;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Arrow 批处理类型
 pub type ArrowBatch = RecordBatch;
@@ -56,6 +56,32 @@ impl QueryResult {
     /// 检查是否为空
     pub fn is_empty(&self) -> bool {
         self.batches.is_empty() || self.total_rows() == 0
+    }
+
+    /// 截断结果到指定行数（原地操作）
+    /// 返回实际截断的行数（0 表示未截断）
+    pub fn truncate(&mut self, max_rows: usize) -> usize {
+        let total = self.total_rows();
+        if total <= max_rows {
+            return 0;
+        }
+        let mut remaining = max_rows;
+        self.batches.retain_mut(|batch| {
+            if remaining == 0 {
+                return false;
+            }
+            let batch_rows = batch.num_rows();
+            if batch_rows <= remaining {
+                remaining -= batch_rows;
+                true
+            } else {
+                let truncated_batch = batch.slice(0, remaining);
+                *batch = truncated_batch;
+                remaining = 0;
+                true
+            }
+        });
+        total - max_rows
     }
 
     /// 将 Arrow batches 转换为行数据（Vec<Vec<Value>>）
@@ -126,7 +152,7 @@ impl<'de> Deserialize<'de> for QueryResult {
             affected_rows: Option<usize>,
             is_read_only: Option<bool>,
         }
-        
+
         let helper = QueryResultHelper::deserialize(deserializer)?;
         Ok(Self {
             columns: helper.columns,

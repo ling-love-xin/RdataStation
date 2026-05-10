@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <div class="folders-section">
     <div class="folders-header">
       <span class="folders-title">文件夹</span>
@@ -101,7 +101,7 @@ function handleDrop(folderId: string | null, event: DragEvent) {
 }
 
 .folders-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -111,13 +111,13 @@ function handleDrop(folderId: string | null, event: DragEvent) {
 .btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   padding: 4px 8px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -129,11 +129,11 @@ function handleDrop(folderId: string | null, event: DragEvent) {
 
 .btn-sm {
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .icon {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
 }
 
 .folders-list {
@@ -145,7 +145,7 @@ function handleDrop(folderId: string | null, event: DragEvent) {
 .folder-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   padding: 6px 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -170,11 +170,11 @@ function handleDrop(folderId: string | null, event: DragEvent) {
 }
 
 .folder-icon {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
 }
 
 .folder-name {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
 }
 

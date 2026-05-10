@@ -18,11 +18,11 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use crate::core::error::CoreError;
+use crate::core::migration::{MigrationManager, MigrationType};
 use crate::core::persistence;
 use crate::core::project::models::{
     ConnectionRef, Project, ProjectConfig, ProjectInfo, ProjectPath, QueryRef,
 };
-use crate::core::migration::{MigrationManager, MigrationType};
 
 /// 项目元数据目录名称
 const RS_META_DIR_NAME: &str = ".RSmeta";
@@ -74,9 +74,8 @@ impl ProjectStore {
         ];
 
         for dir in &dirs {
-            fs::create_dir_all(dir).map_err(|e| {
-                persistence::io_to_core_error(e, path, "create directory")
-            })?;
+            fs::create_dir_all(dir)
+                .map_err(|e| persistence::io_to_core_error(e, path, "create directory"))?;
         }
 
         // 创建项目
@@ -92,16 +91,16 @@ impl ProjectStore {
 
         // 保存初始配置（settings.json）
         store.save_config()?;
-        
+
         // 执行项目级迁移（创建 project.db 和表结构）
         let migration_manager = MigrationManager::new();
-        
+
         let project_db_path = meta_dir.join(PROJECT_DB_NAME);
         migration_manager.migrate(&project_db_path, MigrationType::ProjectMeta)?;
-        
+
         let analytics_db_path = meta_dir.join(ANALYTICS_DB_NAME);
         migration_manager.migrate(&analytics_db_path, MigrationType::ProjectAnalysis)?;
-        
+
         // 保存项目信息（project.json + 同步到 project.db）
         store.save_info()?;
 
@@ -137,9 +136,8 @@ impl ProjectStore {
         // 加载项目信息（优先从 project.json 加载）
         let info_path = meta_dir.join(PROJECT_JSON_NAME);
         let info: ProjectInfo = if info_path.exists() {
-            let content = fs::read_to_string(&info_path).map_err(|e| {
-                persistence::io_to_core_error(e, &info_path, "read")
-            })?;
+            let content = fs::read_to_string(&info_path)
+                .map_err(|e| persistence::io_to_core_error(e, &info_path, "read"))?;
             serde_json::from_str(&content).map_err(|e| {
                 persistence::deserialize_to_core_error("json", &content, &e.to_string())
             })?
@@ -169,18 +167,17 @@ impl ProjectStore {
     }
 
     /// 迁移旧目录结构到新结构
-    /// 
+    ///
     /// 旧结构：.rdata-station/{meta,analytics,config,queries,extensions}
     /// 新结构：.RSmeta/{project.db, project.json, analytics.duckdb, project_metadata/}
     fn migrate_old_structure(project_path: &Path) -> Result<(), CoreError> {
         let old_meta_dir = project_path.join(".rdata-station");
         let new_meta_dir = project_path.join(RS_META_DIR_NAME);
-        
+
         // 创建新目录
-        fs::create_dir_all(&new_meta_dir).map_err(|e| {
-            persistence::io_to_core_error(e, &new_meta_dir, "create new directory")
-        })?;
-        
+        fs::create_dir_all(&new_meta_dir)
+            .map_err(|e| persistence::io_to_core_error(e, &new_meta_dir, "create new directory"))?;
+
         // 迁移 project.json
         let old_config_path = old_meta_dir.join("config").join("project.json");
         let new_config_path = new_meta_dir.join(PROJECT_JSON_NAME);
@@ -189,7 +186,7 @@ impl ProjectStore {
                 persistence::io_to_core_error(e, &old_config_path, "copy project.json")
             })?;
         }
-        
+
         // 迁移 analytics.duckdb
         let old_analytics_path = old_meta_dir.join("analytics").join("data.duckdb");
         let new_analytics_path = new_meta_dir.join(ANALYTICS_DB_NAME);
@@ -198,7 +195,7 @@ impl ProjectStore {
                 persistence::io_to_core_error(e, &old_analytics_path, "copy analytics.duckdb")
             })?;
         }
-        
+
         // 迁移 project.sqlite 到 project.db
         let old_project_db = old_meta_dir.join("meta").join("project.sqlite");
         let new_project_db = new_meta_dir.join(PROJECT_DB_NAME);
@@ -207,7 +204,7 @@ impl ProjectStore {
                 persistence::io_to_core_error(e, &old_project_db, "copy project.sqlite")
             })?;
         }
-        
+
         // 迁移 connections.db 到 project.db（合并）
         let old_connections_db = old_meta_dir.join("meta").join("connections.db");
         if old_connections_db.exists() {
@@ -216,82 +213,118 @@ impl ProjectStore {
                 Self::merge_connections_db(&old_connections_db, &new_project_db)?;
             }
         }
-        
+
         // 创建 project_metadata 目录
         let metadata_dir = new_meta_dir.join(PROJECT_METADATA_DIR_NAME);
         fs::create_dir_all(&metadata_dir).map_err(|e| {
             persistence::io_to_core_error(e, &metadata_dir, "create metadata directory")
         })?;
-        
+
         tracing::info!("Migrated project from old structure to new .RSmeta structure");
-        
+
         Ok(())
     }
-    
+
     /// 合并 connections.db 到 project.db
     fn merge_connections_db(old_db: &Path, new_db: &Path) -> Result<(), CoreError> {
         let old_conn = rusqlite::Connection::open(old_db).map_err(|e| {
             persistence::persistence_to_core_error("old_connections", "open", &e.to_string())
         })?;
-        
+
         let new_conn = rusqlite::Connection::open(new_db).map_err(|e| {
             persistence::persistence_to_core_error("new_project_db", "open", &e.to_string())
         })?;
-        
+
         // 从旧数据库读取所有连接
-        let mut stmt = old_conn.prepare(
-            "SELECT id, name, db_type, host, port, database, username, password, 
+        let mut stmt = old_conn
+            .prepare(
+                "SELECT id, name, db_type, host, port, database, username, password, 
                     properties, tags, is_active, created_at, updated_at 
-             FROM connections"
-        ).map_err(|e| {
-            persistence::persistence_to_core_error("read_connections", "prepare", &e.to_string())
-        })?;
-        
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, i64>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, Option<String>>(6)?,
-                row.get::<_, Option<String>>(7)?,
-                row.get::<_, Option<String>>(8)?,
-                row.get::<_, Option<String>>(9)?,
-                row.get::<_, bool>(10)?,
-                row.get::<_, String>(11)?,
-                row.get::<_, String>(12)?,
-            ))
-        }).map_err(|e| {
-            persistence::persistence_to_core_error("read_connections", "query", &e.to_string())
-        })?;
-        
+             FROM connections",
+            )
+            .map_err(|e| {
+                persistence::persistence_to_core_error(
+                    "read_connections",
+                    "prepare",
+                    &e.to_string(),
+                )
+            })?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, Option<String>>(9)?,
+                    row.get::<_, bool>(10)?,
+                    row.get::<_, String>(11)?,
+                    row.get::<_, String>(12)?,
+                ))
+            })
+            .map_err(|e| {
+                persistence::persistence_to_core_error("read_connections", "query", &e.to_string())
+            })?;
+
         // 插入到新数据库
         for row in rows {
-            let (id, name, db_type, host, port, database, username, password, 
-                 properties, tags, is_active, created_at, updated_at) = row.map_err(|e| {
+            let (
+                id,
+                name,
+                db_type,
+                host,
+                port,
+                database,
+                username,
+                password,
+                properties,
+                tags,
+                is_active,
+                created_at,
+                updated_at,
+            ) = row.map_err(|e| {
                 persistence::persistence_to_core_error("read_connections", "map", &e.to_string())
             })?;
-            
+
             let is_active_str = if is_active { "1" } else { "0" };
-            
-            new_conn.execute(
-                "INSERT OR IGNORE INTO connections 
+
+            new_conn
+                .execute(
+                    "INSERT OR IGNORE INTO connections 
                  (id, name, db_type, host, port, database, username, password, 
                   properties, tags, is_active, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-                [
-                    &id, &name, &db_type, &host, &port.to_string(), &database,
-                    &username.unwrap_or_default(), &password.unwrap_or_default(),
-                    &properties.unwrap_or_default(), &tags.unwrap_or_default(),
-                    is_active_str, &created_at, &updated_at,
-                ],
-            ).map_err(|e| {
-                persistence::persistence_to_core_error("insert_connection", "execute", &e.to_string())
-            })?;
+                    [
+                        &id,
+                        &name,
+                        &db_type,
+                        &host,
+                        &port.to_string(),
+                        &database,
+                        &username.unwrap_or_default(),
+                        &password.unwrap_or_default(),
+                        &properties.unwrap_or_default(),
+                        &tags.unwrap_or_default(),
+                        is_active_str,
+                        &created_at,
+                        &updated_at,
+                    ],
+                )
+                .map_err(|e| {
+                    persistence::persistence_to_core_error(
+                        "insert_connection",
+                        "execute",
+                        &e.to_string(),
+                    )
+                })?;
         }
-        
+
         Ok(())
     }
 
@@ -311,17 +344,16 @@ impl ProjectStore {
             return Ok(config.clone());
         }
 
-        let config_path = self
-            .info
-            .path
-            .local_path()
-            .map(|p| p.join(RS_META_DIR_NAME).join("config").join("settings.json"));
+        let config_path = self.info.path.local_path().map(|p| {
+            p.join(RS_META_DIR_NAME)
+                .join("config")
+                .join("settings.json")
+        });
 
         let config = if let Some(path) = config_path {
             if path.exists() {
-                let content = fs::read_to_string(&path).map_err(|e| {
-                    persistence::io_to_core_error(e, &path, "read")
-                })?;
+                let content = fs::read_to_string(&path)
+                    .map_err(|e| persistence::io_to_core_error(e, &path, "read"))?;
                 serde_json::from_str(&content).map_err(|e| {
                     persistence::deserialize_to_core_error("json", &content, &e.to_string())
                 })?
@@ -338,33 +370,28 @@ impl ProjectStore {
 
     /// 保存配置
     pub fn save_config(&self) -> Result<(), CoreError> {
-        let config = self
-            .config
-            .as_ref()
-            .ok_or_else(|| persistence::persistence_to_core_error(
-                "config",
-                "save",
-                "Config not loaded",
-            ))?;
+        let config = self.config.as_ref().ok_or_else(|| {
+            persistence::persistence_to_core_error("config", "save", "Config not loaded")
+        })?;
 
         let config_path = self
             .info
             .path
             .local_path()
-            .map(|p| p.join(RS_META_DIR_NAME).join("config").join("settings.json"))
-            .ok_or_else(|| persistence::persistence_to_core_error(
-                "config",
-                "save",
-                "Invalid project path",
-            ))?;
+            .map(|p| {
+                p.join(RS_META_DIR_NAME)
+                    .join("config")
+                    .join("settings.json")
+            })
+            .ok_or_else(|| {
+                persistence::persistence_to_core_error("config", "save", "Invalid project path")
+            })?;
 
-        let content = serde_json::to_string_pretty(config).map_err(|e| {
-            persistence::serialize_to_core_error("json", &e.to_string())
-        })?;
+        let content = serde_json::to_string_pretty(config)
+            .map_err(|e| persistence::serialize_to_core_error("json", &e.to_string()))?;
 
-        fs::write(&config_path, content).map_err(|e| {
-            persistence::io_to_core_error(e, &config_path, "write")
-        })?;
+        fs::write(&config_path, content)
+            .map_err(|e| persistence::io_to_core_error(e, &config_path, "write"))?;
 
         Ok(())
     }
@@ -376,19 +403,15 @@ impl ProjectStore {
             .path
             .local_path()
             .map(|p| p.join(RS_META_DIR_NAME).join(PROJECT_JSON_NAME))
-            .ok_or_else(|| persistence::persistence_to_core_error(
-                "project",
-                "save",
-                "Invalid project path",
-            ))?;
+            .ok_or_else(|| {
+                persistence::persistence_to_core_error("project", "save", "Invalid project path")
+            })?;
 
-        let content = serde_json::to_string_pretty(&self.info).map_err(|e| {
-            persistence::serialize_to_core_error("json", &e.to_string())
-        })?;
+        let content = serde_json::to_string_pretty(&self.info)
+            .map_err(|e| persistence::serialize_to_core_error("json", &e.to_string()))?;
 
-        fs::write(&info_path, content).map_err(|e| {
-            persistence::io_to_core_error(e, &info_path, "write")
-        })?;
+        fs::write(&info_path, content)
+            .map_err(|e| persistence::io_to_core_error(e, &info_path, "write"))?;
 
         // 同步到 project.db 的 project_info 表
         self.sync_project_info_to_db()?;
@@ -397,7 +420,7 @@ impl ProjectStore {
     }
 
     /// 同步项目信息到 project.db
-    /// 
+    ///
     /// 保持 project.json 和 project_info 表数据一致
     fn sync_project_info_to_db(&self) -> Result<(), CoreError> {
         let meta_dir = self
@@ -405,25 +428,19 @@ impl ProjectStore {
             .path
             .local_path()
             .map(|p| p.join(RS_META_DIR_NAME))
-            .ok_or_else(|| persistence::persistence_to_core_error(
-                "project",
-                "sync",
-                "Invalid project path",
-            ))?;
+            .ok_or_else(|| {
+                persistence::persistence_to_core_error("project", "sync", "Invalid project path")
+            })?;
 
         let db_path = meta_dir.join(PROJECT_DB_NAME);
-        
+
         if !db_path.exists() {
             // project.db 尚未创建，跳过
             return Ok(());
         }
 
         let conn = rusqlite::Connection::open(&db_path).map_err(|e| {
-            persistence::persistence_to_core_error(
-                "project.db",
-                "open",
-                &e.to_string(),
-            )
+            persistence::persistence_to_core_error("project.db", "open", &e.to_string())
         })?;
 
         conn.execute(
@@ -437,61 +454,51 @@ impl ProjectStore {
                 &self.info.created_at.timestamp().to_string(),
                 &self.info.updated_at.timestamp().to_string(),
             ],
-        ).map_err(|e| {
-            persistence::persistence_to_core_error(
-                "project",
-                "sync",
-                &e.to_string(),
-            )
-        })?;
+        )
+        .map_err(|e| persistence::persistence_to_core_error("project", "sync", &e.to_string()))?;
 
         Ok(())
     }
 
     /// 从 project.db 加载项目信息
-    fn load_project_info_from_db(db_path: &Path, project_path: &Path) -> Result<ProjectInfo, CoreError> {
+    fn load_project_info_from_db(
+        db_path: &Path,
+        project_path: &Path,
+    ) -> Result<ProjectInfo, CoreError> {
         let conn = rusqlite::Connection::open(db_path).map_err(|e| {
-            persistence::persistence_to_core_error(
-                "project.db",
-                "open",
-                &e.to_string(),
-            )
+            persistence::persistence_to_core_error("project.db", "open", &e.to_string())
         })?;
 
-        let mut stmt = conn.prepare("SELECT id, name, description, created_at, updated_at FROM project LIMIT 1").map_err(|e| {
-            persistence::persistence_to_core_error(
-                "project",
-                "query",
-                &e.to_string(),
-            )
-        })?;
+        let mut stmt = conn
+            .prepare("SELECT id, name, description, created_at, updated_at FROM project LIMIT 1")
+            .map_err(|e| {
+                persistence::persistence_to_core_error("project", "query", &e.to_string())
+            })?;
 
-        let info = stmt.query_row([], |row| {
-            let id: String = row.get(0)?;
-            let name: String = row.get(1)?;
-            let description: Option<String> = row.get(2)?;
-            let created_at: i64 = row.get(3)?;
-            let updated_at: i64 = row.get(4)?;
+        let info = stmt
+            .query_row([], |row| {
+                let id: String = row.get(0)?;
+                let name: String = row.get(1)?;
+                let description: Option<String> = row.get(2)?;
+                let created_at: i64 = row.get(3)?;
+                let updated_at: i64 = row.get(4)?;
 
-            Ok(ProjectInfo {
-                id,
-                name,
-                description,
-                path: ProjectPath::local(project_path),
-                status: crate::core::project::models::ProjectStatus::Active,
-                created_at: chrono::DateTime::from_timestamp(created_at, 0).unwrap_or_default(),
-                updated_at: chrono::DateTime::from_timestamp(updated_at, 0).unwrap_or_default(),
-                last_opened_at: None,
-                created_by: None,
-                version_count: 0,
+                Ok(ProjectInfo {
+                    id,
+                    name,
+                    description,
+                    path: ProjectPath::local(project_path),
+                    status: crate::core::project::models::ProjectStatus::Active,
+                    created_at: chrono::DateTime::from_timestamp(created_at, 0).unwrap_or_default(),
+                    updated_at: chrono::DateTime::from_timestamp(updated_at, 0).unwrap_or_default(),
+                    last_opened_at: None,
+                    created_by: None,
+                    version_count: 0,
+                })
             })
-        }).map_err(|e| {
-            persistence::persistence_to_core_error(
-                "project",
-                "load",
-                &e.to_string(),
-            )
-        })?;
+            .map_err(|e| {
+                persistence::persistence_to_core_error("project", "load", &e.to_string())
+            })?;
 
         Ok(info)
     }
@@ -511,11 +518,13 @@ impl ProjectStore {
             .path
             .local_path()
             .map(|p| p.join(RS_META_DIR_NAME))
-            .ok_or_else(|| persistence::persistence_to_core_error(
-                "project",
-                "meta_dir",
-                "Invalid project path",
-            ))
+            .ok_or_else(|| {
+                persistence::persistence_to_core_error(
+                    "project",
+                    "meta_dir",
+                    "Invalid project path",
+                )
+            })
     }
 
     /// 获取项目数据库路径
@@ -529,28 +538,27 @@ impl ProjectStore {
     }
 
     /// 获取指定连接的元数据数据库路径
-    pub fn connection_metadata_path(&self, connection_id: &str) -> Result<std::path::PathBuf, CoreError> {
-        self.project_metadata_dir().map(|p| p.join(format!("{}.db", connection_id)))
+    pub fn connection_metadata_path(
+        &self,
+        connection_id: &str,
+    ) -> Result<std::path::PathBuf, CoreError> {
+        self.project_metadata_dir()
+            .map(|p| p.join(format!("{}.db", connection_id)))
     }
 
     /// 创建连接元数据数据库
     pub fn create_connection_metadata(&self, connection_id: &str) -> Result<(), CoreError> {
         let db_path = self.connection_metadata_path(connection_id)?;
-        
+
         // 确保父目录存在
         if let Some(parent) = db_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                persistence::io_to_core_error(e, parent, "create directory")
-            })?;
+            fs::create_dir_all(parent)
+                .map_err(|e| persistence::io_to_core_error(e, parent, "create directory"))?;
         }
 
         // 创建连接元数据表
         let conn = rusqlite::Connection::open(&db_path).map_err(|e| {
-            persistence::persistence_to_core_error(
-                "connection_metadata",
-                "open",
-                &e.to_string(),
-            )
+            persistence::persistence_to_core_error("connection_metadata", "open", &e.to_string())
         })?;
 
         // 创建表结构
@@ -600,7 +608,8 @@ impl ProjectStore {
                 comment TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );",
-        ).map_err(|e| {
+        )
+        .map_err(|e| {
             persistence::persistence_to_core_error(
                 "connection_metadata",
                 "init_tables",
@@ -614,7 +623,7 @@ impl ProjectStore {
     /// 删除连接元数据数据库
     pub fn delete_connection_metadata(&self, connection_id: &str) -> Result<(), CoreError> {
         let db_path = self.connection_metadata_path(connection_id)?;
-        
+
         if db_path.exists() {
             fs::remove_file(&db_path).map_err(|e| {
                 persistence::io_to_core_error(e, &db_path, "delete connection metadata")
@@ -762,7 +771,10 @@ mod tests {
         assert_eq!(store.info().name, "Test Project");
         assert!(project_path.join(RS_META_DIR_NAME).exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("meta").exists());
-        assert!(project_path.join(RS_META_DIR_NAME).join("analytics").exists());
+        assert!(project_path
+            .join(RS_META_DIR_NAME)
+            .join("analytics")
+            .exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("config").exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("queries").exists());
     }
@@ -785,7 +797,9 @@ mod tests {
 
         // 创建项目
         let project_path = test_temp_dir("manager").join("managed-project");
-        let project = manager.create_project("Managed Project", &project_path).unwrap();
+        let project = manager
+            .create_project("Managed Project", &project_path)
+            .unwrap();
 
         // 验证当前项目
         assert!(manager.current_project().is_some());

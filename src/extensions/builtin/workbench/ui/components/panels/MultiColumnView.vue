@@ -245,23 +245,23 @@ watch(
 .multi-column-view {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .selector-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .selector-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   min-width: 48px;
   flex-shrink: 0;
@@ -287,10 +287,10 @@ watch(
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 20px 0;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl) 0;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .empty-icon {
@@ -301,7 +301,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .kv-row {
@@ -317,12 +317,12 @@ watch(
 }
 
 .kv-key {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
 .kv-value {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-family: var(--font-mono);
   color: var(--text-primary);
   font-weight: 500;

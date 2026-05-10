@@ -20,23 +20,34 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
     order: 4,
   })
 
-  const initStore = async (projectPath: string) => {
+  let storeInitialized = false
+
+  const initStore = async (projectPath: string): Promise<void> => {
+    if (!projectPath) {
+      console.warn('[Scratchpad] No project path, skipping store init')
+      return
+    }
     try {
       await invoke('init_scratchpad_store', { projectPath })
+      storeInitialized = true
       console.log('[Scratchpad] Store initialized for:', projectPath)
     } catch (e) {
       console.error('[Scratchpad] Store init failed:', e)
     }
   }
 
-  initStore(context.project.path)
+  initStore(context.project.path).then(() => {
+    console.log('[Scratchpad] Initial activation init complete')
+  })
 
-  const handleProjectSwitch = (event: Event) => {
+  const handleProjectSwitch = (event: Event): void => {
     const detail = (event as CustomEvent).detail as { project?: { path?: string } } | undefined
     const newPath = detail?.project?.path
     if (newPath) {
       console.log('[Scratchpad] Project switched to:', newPath)
-      initStore(newPath)
+      initStore(newPath).then(() => {
+        console.log('[Scratchpad] Store re-initialized for project switch')
+      })
     }
   }
 
@@ -62,7 +73,7 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
     utils: context.utils,
 
     scratchpad: {
-      // 扩展特定的 API 预留
+      isInitialized: () => storeInitialized,
     },
 
     dispose: () => {

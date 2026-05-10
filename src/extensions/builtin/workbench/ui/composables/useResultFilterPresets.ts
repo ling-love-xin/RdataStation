@@ -30,7 +30,7 @@ function saveAll(presets: FilterPreset[]): void {
   }
 }
 
-export function useFilterPresets() {
+export function useResultFilterPresets() {
   const presets = ref<FilterPreset[]>(loadAll())
 
   watch(

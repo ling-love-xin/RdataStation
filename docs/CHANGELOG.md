@@ -1,6 +1,6 @@
 # RdataStation 变更日志
 
-> 版本：v2.9.0
+> 版本：v2.10.0
 > 最后更新：2026-05-09
 
 ## 目录
@@ -12,6 +12,36 @@
 ---
 
 ## 项目变更日志
+
+### [v2.10.0] - 2026-05-09
+
+#### 💄 Mock 高级配置面板重构 + 5 个自建生成器
+
+> 📐 设计文档：[mock-data-generator-design.md §11.13](./mock-data-generator-design.md)
+
+**Rust 后端：**
+- `GeneratorConfig` 新增 5 个变体：`Normal`(Box-Muller)、`LogNormal`、`RandomWalk`(Wiener)、`SequentialDate`、`SequentialDateWithGaps`
+- `engine.rs` 实现全部生成逻辑，零额外依赖
+
+**前端：**
+- **`MockAdvancedDrawer.vue`** — 完全重建：6 筛选标签 + 生成器列表 + 动态参数 + 时序关联 + 其他选项 + 来源显示
+- **`MockPanel.vue`** — `@save`→`@apply` 升级，抽屉内可修改字段名/类型/空值/唯一
+- **`mock-api.ts`** — `GeneratorType` 新增 5 个类型值
+
+#### 🔧 Mock 自审修复（2026-05-10）
+
+> 📐 设计文档：[mock-data-generator-design.md §11.14](./mock-data-generator-design.md)
+
+- **H1** `MockPanel.vue` NSelect 补全 5 个新生成器（normal/log_normal/random_walk/sequential_date/sequential_date_with_gaps），覆盖 137/137
+- **H2** `MockAdvancedDrawer.vue` GENERATOR_LIST 从 55 条扩展到 137 条，补全 PARAM_SCHEMA（sequence/weighted）、MODULES（finance/tech/media）
+
+#### 🔧 Mock 第 6 轮审计修复（2026-05-10）
+
+> 📐 设计文档：[mock-data-generator-design.md §11.15](./mock-data-generator-design.md) | 审计评分：89.7/A
+
+- **🔴 I1** `mock_preview` IPC 合约修复：返回 `QueryResult(RecordBatch)` 替代 `Vec<Vec<Value>>`，引擎层新增 `duckdb_rows_to_arrow` 转换，前端适配 `{columns, rows}` 格式
+- **🟡 C1-C6** 全部 Clippy 警告清零：`div_ceil` / `unwrap_or_default` ×2 / `TemplateGenFn` type alias / 分支合并 / `.clamp()`，删除死代码 `value_to_json()`
+- **🟡 G1** 生成进度前端接入：`useMockStore` 监听 `mock:generate-progress` 事件，`MockPanel.vue` 显示批次进度百分比
 
 ### [v2.9.0] - 2026-05-09
 
@@ -62,6 +92,7 @@
 - ⏸️ 暂缓 2 个：MockFieldTable.vue、MockGeneratorToolbar.vue
 - 第三次功能完整性审计（2026-05-09）：6 个发现（1🟡 + 5🟢），综合评级 ⭐⭐⭐⭐⭐ 生产就绪
 - 第四轮修复（2026-05-09）：5 个审计发现已修复（#24-#28）：模板 4→6、nullable_ratio 修复、进度回调、临时表清理、Boolean 参数
+- 第五轮修复（2026-05-09）：前后端集成 6 个缺口修复（#29-#34）：历史面板切换 SQLite、onGenerate 自动持久化、3 个模板持久化 API 补全、SQLite 历史恢复/逐条删除、projectPath 注入
 - 最终状态：**生产就绪 ✅** — 0 unwrap()、0 any 类型、pnpm lint 0 errors、cargo check 0 errors
 
 #### 🔧 Mock 数据生成器持久化层（Phase 11）
@@ -77,6 +108,7 @@
 **前端实现（2 文件）：**
 
 - **`mock-api.ts`** — 新增 3 个 TypeScript 接口类型（`MockGenerationTask`/`MockGenerationColumn`/`MockColumnInput`）+ 4 个 API 方法（`saveTask`/`getHistoryV2`/`getDetail`/`deleteTask`）
+- **⚠ 第五轮补充（2026-05-09）**：`mock-api.ts` 新增 `MockUserTemplate`/`MockTemplateColumn` 类型 + 3 个模板持久化 API（`saveTemplate`/`getTemplates`/`getTemplateDetail`）；`MockPanel.vue` 全面切换 SQLite 持久化历史
 - **`useMockStore.ts`** — 新增 `persistenceHistory`/`persistenceLoading` 状态 + `saveTask`/`loadHistoryV2`/`loadDetail`/`deletePersistenceTask`/`generateAndSave`/`buildTaskInput`/`buildColumnInputs` 方法，生成成功后自动持久化（降级不阻塞）
 
 **编译验证：**

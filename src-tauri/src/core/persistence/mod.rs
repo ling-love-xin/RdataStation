@@ -7,33 +7,39 @@
 //!
 //! 所有 IO 错误都在此模块转换为 CoreError，确保上下文不丢失。
 
+pub mod analytics_resource_store;
 pub mod cache_version_migration;
 pub mod connection_store;
 pub mod global_db;
 pub mod history_store;
+pub mod insight_meta_store;
+pub mod insight_store;
+pub mod log_store;
 pub mod metadata_cache;
 pub mod project_connection_store;
 pub mod project_db;
 pub mod project_store;
 pub mod sql_template_store;
 pub mod workbench_context_store;
-pub mod analytics_resource_store;
-pub mod insight_store;
-pub mod insight_meta_store;
 
+pub use analytics_resource_store::{
+    AnalyticsFolder, AnalyticsRecycleItem, AnalyticsResource, AnalyticsResourceStore, AnalyticsTag,
+    CreateFolderRequest, CreateResourceRequest, CreateTagRequest, ListResourcesOutput,
+    ResourceVersion,
+};
 pub use cache_version_migration::{CacheVersionManager, CURRENT_CACHE_VERSION};
 pub use global_db::{GlobalDatabaseManager, GlobalDuckdbConnection, GlobalSqlitePool};
+pub use insight_meta_store::InsightMetaStore;
+pub use insight_store::{
+    InsightColumnStore, InsightSchemaReportStore, InsightStorage, InsightStorageStats,
+    InsightTableReportStore, InsightVersionEntry,
+};
 pub use metadata_cache::{ConnectionType, MetadataCacheManager, MetadataCacheOps};
 pub use project_db::{ProjectDatabaseManager, ProjectDuckdbConnection, ProjectSqlitePool};
 pub use sql_template_store::{SqlTemplate, SqlTemplateStore};
-pub use workbench_context_store::{WorkbenchContextStore, WorkbenchLayout, EditorContext};
-pub use analytics_resource_store::{
-    AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
-    CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
-    ResourceVersion,
-};
-pub use insight_store::{InsightStorage, InsightColumnStore, InsightTableReportStore, InsightSchemaReportStore, InsightVersionEntry, InsightStorageStats};
-pub use insight_meta_store::InsightMetaStore;
+pub use workbench_context_store::{EditorContext, WorkbenchContextStore, WorkbenchLayout};
+
+pub use log_store::LogStore;
 
 use crate::core::error::{CoreError, StorageError};
 use std::path::Path;
@@ -101,14 +107,20 @@ mod tests {
     #[test]
     fn test_serialize_to_core_error() {
         let err = serialize_to_core_error("JSON", "invalid type");
-        assert!(matches!(err, CoreError::Storage(StorageError::Serialization { .. })));
+        assert!(matches!(
+            err,
+            CoreError::Storage(StorageError::Serialization { .. })
+        ));
         assert_eq!(err.code(), "STORE_SERIALIZE");
     }
 
     #[test]
     fn test_deserialize_to_core_error() {
         let err = deserialize_to_core_error("JSON", "{invalid}", "unexpected token");
-        assert!(matches!(err, CoreError::Storage(StorageError::Deserialization { .. })));
+        assert!(matches!(
+            err,
+            CoreError::Storage(StorageError::Deserialization { .. })
+        ));
         assert_eq!(err.code(), "STORE_DESERIALIZE");
     }
 }

@@ -1,17 +1,16 @@
 /**
  * 连接元数据缓存管理模块
- * 
+ *
  * 每个数据库连接都有独立的 SQLite 文件用于缓存元数据。
  * 元数据缓存的存储位置跟随连接信息：
  * - 全局连接：存储到 system/global_metadata/ 目录
  * - 项目连接：存储到 project/meta/connection_metadata/ 目录
- * 
+ *
  * 设计理由：
  * - 大型数据库（如 Oracle）可能有 10 万+ 张表，元数据记录可达数百万条
  * - 独立文件避免单文件过大，提高查询性能
  * - 跟随连接信息，简化项目迁移
  */
-
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -19,7 +18,7 @@ use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use rusqlite::{Connection, OptionalExtension};
 use std::io::{Read, Write};
 
-use crate::core::error::{CoreError, CommonError, StorageError};
+use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::migration::{MigrationManager, MigrationType};
 
 /// 连接类型枚举
@@ -32,7 +31,7 @@ pub enum ConnectionType {
 }
 
 /// 元数据缓存管理器
-/// 
+///
 /// 为每个数据库连接管理独立的元数据缓存 SQLite 文件
 pub struct MetadataCacheManager {
     /// 缓存数据库路径
@@ -45,7 +44,7 @@ pub struct MetadataCacheManager {
 
 impl MetadataCacheManager {
     /// 创建元数据缓存管理器
-    /// 
+    ///
     /// # 参数
     /// * `conn_id` - 连接 ID
     /// * `connection_type` - 连接类型（全局/项目）
@@ -65,7 +64,7 @@ impl MetadataCacheManager {
     }
 
     /// 构建元数据缓存数据库路径
-    /// 
+    ///
     /// 元数据文件跟随连接信息：
     /// - 全局连接：{data_dir}/RdataStation/system/global_metadata/conn_{id}.sqlite
     /// - 项目连接：{project_path}/meta/connection_metadata/conn_{id}.sqlite
@@ -82,41 +81,47 @@ impl MetadataCacheManager {
             }
             ConnectionType::Project => {
                 // 项目连接：存储到项目元数据目录下的连接元数据子目录
-                let project_path = project_path.ok_or_else(|| CoreError::common(
-                    CommonError::General("Project path is required for project connection".to_string())
-                ))?;
+                let project_path = project_path.ok_or_else(|| {
+                    CoreError::common(CommonError::General(
+                        "Project path is required for project connection".to_string(),
+                    ))
+                })?;
                 PathBuf::from(project_path).join("meta/connection_metadata")
             }
         };
 
         // 确保目录存在
-        std::fs::create_dir_all(&dir).map_err(|e| CoreError::common(
-            CommonError::General(format!("Failed to create metadata directory {:?}: {}", dir, e))
-        ))?;
+        std::fs::create_dir_all(&dir).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to create metadata directory {:?}: {}",
+                dir, e
+            )))
+        })?;
 
         Ok(dir.join(format!("conn_{}.sqlite", conn_id)))
     }
 
     /// 打开元数据缓存数据库
-    /// 
+    ///
     /// 如果数据库不存在，将自动创建并执行迁移
     pub fn open(&self) -> Result<Connection, CoreError> {
-        let conn = Connection::open(&self.db_path).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let conn = Connection::open(&self.db_path).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "open_metadata".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 启用 WAL 模式（PRAGMA journal_mode=WAL 会返回结果，使用 query_row）
-        conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(())).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "set_wal_mode".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(()))
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "set_wal_mode".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 设置 Memory-Mapped I/O（256MB，对于大型数据库效果显著）
         // 使用 execute 设置 PRAGMA，忽略可能的返回值
@@ -130,31 +135,31 @@ impl MetadataCacheManager {
         });
 
         // 设置缓存大小（-1000 表示 1000KB）
-        conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_cache_size".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 启用外键约束
-        conn.execute("PRAGMA foreign_keys=ON", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA foreign_keys=ON", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_foreign_keys".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 设置同步模式为 NORMAL（在 WAL 模式下，NORMAL 提供良好的性能/安全性平衡）
-        conn.execute("PRAGMA synchronous=NORMAL", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA synchronous=NORMAL", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_synchronous".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 执行迁移
         MigrationManager::new().migrate(&self.db_path, MigrationType::ConnectionMetadata)?;
@@ -178,13 +183,16 @@ impl MetadataCacheManager {
     }
 
     /// 删除元数据缓存文件
-    /// 
+    ///
     /// 当连接被删除时调用
     pub fn delete(&self) -> Result<(), CoreError> {
         if self.db_path.exists() {
-            std::fs::remove_file(&self.db_path).map_err(|e| CoreError::common(
-                CommonError::General(format!("Failed to delete metadata cache {:?}: {}", self.db_path, e))
-            ))?;
+            std::fs::remove_file(&self.db_path).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to delete metadata cache {:?}: {}",
+                    self.db_path, e
+                )))
+            })?;
         }
         Ok(())
     }
@@ -196,15 +204,18 @@ impl MetadataCacheManager {
 
     /// 获取元数据缓存文件大小（字节）
     pub fn size(&self) -> Result<u64, CoreError> {
-        let metadata = std::fs::metadata(&self.db_path).map_err(|e| CoreError::common(
-            CommonError::General(format!("Failed to get metadata cache size: {}", e))
-        ))?;
+        let metadata = std::fs::metadata(&self.db_path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to get metadata cache size: {}",
+                e
+            )))
+        })?;
         Ok(metadata.len())
     }
 }
 
 /// 元数据缓存操作封装
-/// 
+///
 /// 提供常用的元数据缓存读写操作
 #[allow(dead_code)]
 pub struct MetadataCacheOps {
@@ -217,7 +228,7 @@ pub struct MetadataCacheOps {
 impl MetadataCacheOps {
     /// 创建新的元数据缓存操作实例
     pub fn new(conn: Connection) -> Self {
-        Self { 
+        Self {
             conn,
             compression_threshold: 1024, // 1KB 阈值
         }
@@ -225,7 +236,7 @@ impl MetadataCacheOps {
 
     /// 创建带压缩配置的元数据缓存操作实例
     pub fn with_compression(conn: Connection, compression_threshold: usize) -> Self {
-        Self { 
+        Self {
             conn,
             compression_threshold,
         }
@@ -239,18 +250,24 @@ impl MetadataCacheOps {
     /// 压缩数据
     fn compress_data(&self, data: &str) -> Result<Vec<u8>, CoreError> {
         if data.len() < self.compression_threshold {
-            return Ok(data.as_bytes().to_vec())
+            return Ok(data.as_bytes().to_vec());
         }
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(data.as_bytes()).map_err(|e| CoreError::common(
-            CommonError::General(format!("Failed to compress data: {}", e))
-        ))?;
-        
-        let compressed = encoder.finish().map_err(|e| CoreError::common(
-            CommonError::General(format!("Failed to finish compression: {}", e))
-        ))?;
-        
+        encoder.write_all(data.as_bytes()).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to compress data: {}",
+                e
+            )))
+        })?;
+
+        let compressed = encoder.finish().map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to finish compression: {}",
+                e
+            )))
+        })?;
+
         Ok(compressed)
     }
 
@@ -258,10 +275,13 @@ impl MetadataCacheOps {
     fn decompress_data(&self, data: &[u8]) -> Result<String, CoreError> {
         let mut decoder = GzDecoder::new(data);
         let mut decompressed = String::new();
-        decoder.read_to_string(&mut decompressed).map_err(|e| CoreError::common(
-            CommonError::General(format!("Failed to decompress data: {}", e))
-        ))?;
-        
+        decoder.read_to_string(&mut decompressed).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to decompress data: {}",
+                e
+            )))
+        })?;
+
         Ok(decompressed)
     }
 
@@ -271,23 +291,29 @@ impl MetadataCacheOps {
     }
 
     /// 获取表列表
-    pub fn list_tables(&self, database_name: &str, schema_name: Option<&str>) -> Result<Vec<TableInfo>, CoreError> {
+    pub fn list_tables(
+        &self,
+        database_name: &str,
+        schema_name: Option<&str>,
+    ) -> Result<Vec<TableInfo>, CoreError> {
         let schema_filter = schema_name.unwrap_or("%");
-        let mut stmt = self.conn.prepare(
-            "SELECT id, schema_name, table_name, comment, last_sync FROM metadata 
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, schema_name, table_name, comment, last_sync FROM metadata 
              WHERE obj_type = 'table' AND database_name = ?1 AND schema_name LIKE ?2
-             ORDER BY table_name"
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "list_tables".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+             ORDER BY table_name",
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "list_tables".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        let tables = stmt.query_map(
-            rusqlite::params![database_name, schema_filter],
-            |row| {
+        let tables = stmt
+            .query_map(rusqlite::params![database_name, schema_filter], |row| {
                 Ok(TableInfo {
                     id: row.get(0)?,
                     schema_name: row.get(1)?,
@@ -295,31 +321,36 @@ impl MetadataCacheOps {
                     comment: row.get(3).ok(),
                     last_sync: row.get(4)?,
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "query_tables".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_tables".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for table in tables {
-            result.push(table.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(table.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_table".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 获取列列表
-    pub fn list_columns(&self, database_name: &str, schema_name: &str, table_name: &str) -> Result<Vec<ColumnInfo>, CoreError> {
+    pub fn list_columns(
+        &self,
+        database_name: &str,
+        schema_name: &str,
+        table_name: &str,
+    ) -> Result<Vec<ColumnInfo>, CoreError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, data_type, is_nullable, is_primary, is_unique, comment, last_sync
              FROM metadata
@@ -333,37 +364,39 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let columns = stmt.query_map(
-            rusqlite::params![database_name, schema_name, table_name],
-            |row| {
-                Ok(ColumnInfo {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    data_type: row.get(2)?,
-                    is_nullable: row.get::<_, i32>(3)? != 0,
-                    is_primary: row.get::<_, i32>(4)? != 0,
-                    is_unique: row.get::<_, i32>(5)? != 0,
-                    comment: row.get(6).ok(),
-                    last_sync: row.get(7)?,
+        let columns = stmt
+            .query_map(
+                rusqlite::params![database_name, schema_name, table_name],
+                |row| {
+                    Ok(ColumnInfo {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        data_type: row.get(2)?,
+                        is_nullable: row.get::<_, i32>(3)? != 0,
+                        is_primary: row.get::<_, i32>(4)? != 0,
+                        is_unique: row.get::<_, i32>(5)? != 0,
+                        comment: row.get(6).ok(),
+                        last_sync: row.get(7)?,
+                    })
+                },
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_columns".to_string(),
+                    reason: e.to_string(),
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "query_columns".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })?;
 
         let mut result = Vec::new();
         for column in columns {
-            result.push(column.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(column.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_column".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
@@ -381,7 +414,9 @@ impl MetadataCacheOps {
     ) -> Result<i64, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -407,52 +442,61 @@ impl MetadataCacheOps {
             None => "SELECT id, catalog_name, schema_name, owner, comment, last_sync FROM schemata ORDER BY schema_name",
         };
 
-        let mut stmt = self.conn.prepare(query).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let mut stmt = self.conn.prepare(query).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "list_schemas".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let schemas = match catalog_name {
             Some(cat) => stmt.query_map(rusqlite::params![cat], SchemaInfo::from_row),
             None => stmt.query_map([], SchemaInfo::from_row),
-        }.map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        }
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "query_schemas".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let mut result = Vec::new();
         for schema in schemas {
-            result.push(schema.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(schema.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_schema".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 获取 Schema ID
-    pub fn get_schema_id(&self, catalog_name: &str, schema_name: &str) -> Result<Option<i64>, CoreError> {
-        let id: Option<i64> = self.conn.query_row(
-            "SELECT id FROM schemata WHERE catalog_name = ?1 AND schema_name = ?2",
-            rusqlite::params![catalog_name, schema_name],
-            |row| row.get(0)
-        ).optional().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_schema_id".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+    pub fn get_schema_id(
+        &self,
+        catalog_name: &str,
+        schema_name: &str,
+    ) -> Result<Option<i64>, CoreError> {
+        let id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM schemata WHERE catalog_name = ?1 AND schema_name = ?2",
+                rusqlite::params![catalog_name, schema_name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_schema_id".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(id)
     }
@@ -471,7 +515,9 @@ impl MetadataCacheOps {
     ) -> Result<i64, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -523,7 +569,11 @@ impl MetadataCacheOps {
     }
 
     /// 获取表列表（规范化）
-    pub fn list_tables_normalized(&self, schema_id: i64, table_type: Option<&str>) -> Result<Vec<TableDetailInfo>, CoreError> {
+    pub fn list_tables_normalized(
+        &self,
+        schema_id: i64,
+        table_type: Option<&str>,
+    ) -> Result<Vec<TableDetailInfo>, CoreError> {
         let query = match table_type {
             Some(_t) => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, t.last_sync, s.schema_name
                         FROM tables t INNER JOIN schemata s ON t.schema_id = s.id
@@ -533,34 +583,35 @@ impl MetadataCacheOps {
                      WHERE t.schema_id = ?1 ORDER BY t.table_name",
         };
 
-        let mut stmt = self.conn.prepare(query).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let mut stmt = self.conn.prepare(query).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "list_tables_normalized".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let tables = match table_type {
             Some(t) => stmt.query_map(rusqlite::params![schema_id, t], TableDetailInfo::from_row),
             None => stmt.query_map(rusqlite::params![schema_id], TableDetailInfo::from_row),
-        }.map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        }
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "query_tables_normalized".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let mut result = Vec::new();
         for table in tables {
-            result.push(table.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(table.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_table_normalized".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
@@ -568,17 +619,21 @@ impl MetadataCacheOps {
 
     /// 获取表 ID
     pub fn get_table_id(&self, schema_id: i64, table_name: &str) -> Result<Option<i64>, CoreError> {
-        let id: Option<i64> = self.conn.query_row(
-            "SELECT id FROM tables WHERE schema_id = ?1 AND table_name = ?2",
-            rusqlite::params![schema_id, table_name],
-            |row| row.get(0)
-        ).optional().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_table_id".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM tables WHERE schema_id = ?1 AND table_name = ?2",
+                rusqlite::params![schema_id, table_name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_table_id".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(id)
     }
@@ -600,7 +655,9 @@ impl MetadataCacheOps {
     ) -> Result<i64, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -633,10 +690,14 @@ impl MetadataCacheOps {
         _is_unique: bool,
         last_sync: i64,
     ) -> Result<(), CoreError> {
-        let schema_id = self.get_schema_id(database_name, schema_name)?
-            .ok_or_else(|| CoreError::common(CommonError::General("Schema not found".to_string())))?;
-        let table_id = self.get_table_id(schema_id, table_name)?
-            .ok_or_else(|| CoreError::common(CommonError::General("Table not found".to_string())))?;
+        let schema_id = self
+            .get_schema_id(database_name, schema_name)?
+            .ok_or_else(|| {
+                CoreError::common(CommonError::General("Schema not found".to_string()))
+            })?;
+        let table_id = self.get_table_id(schema_id, table_name)?.ok_or_else(|| {
+            CoreError::common(CommonError::General("Table not found".to_string()))
+        })?;
 
         self.conn.execute(
             "INSERT OR REPLACE INTO columns
@@ -655,7 +716,10 @@ impl MetadataCacheOps {
     }
 
     /// 获取列列表（规范化）
-    pub fn list_columns_normalized(&self, table_id: i64) -> Result<Vec<ColumnDetailInfo>, CoreError> {
+    pub fn list_columns_normalized(
+        &self,
+        table_id: i64,
+    ) -> Result<Vec<ColumnDetailInfo>, CoreError> {
         let has_fk_table: bool = self.conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='foreign_key_columns'",
@@ -681,32 +745,33 @@ impl MetadataCacheOps {
              WHERE c.table_id = ?1 ORDER BY c.ordinal_position"
         };
 
-        let mut stmt = self.conn.prepare(sql).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let mut stmt = self.conn.prepare(sql).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "list_columns_normalized".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
-        let columns = stmt.query_map(rusqlite::params![table_id], ColumnDetailInfo::from_row)
-            .map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+        let columns = stmt
+            .query_map(rusqlite::params![table_id], ColumnDetailInfo::from_row)
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "query_columns_normalized".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
 
         let mut result = Vec::new();
         for column in columns {
-            result.push(column.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(column.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_column_normalized".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
@@ -726,7 +791,9 @@ impl MetadataCacheOps {
     ) -> Result<i64, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -753,62 +820,69 @@ impl MetadataCacheOps {
         ordinal_position: i32,
         sort_order: Option<&str>,
     ) -> Result<(), CoreError> {
-        self.conn.execute(
-            "INSERT OR REPLACE INTO index_columns
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO index_columns
              (index_id, column_name, ordinal_position, sort_order)
              VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![index_id, column_name, ordinal_position, sort_order],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "save_index_column".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![index_id, column_name, ordinal_position, sort_order],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "save_index_column".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
 
     /// 获取索引列表
     pub fn list_indexes(&self, table_id: i64) -> Result<Vec<IndexDetailInfo>, CoreError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, index_name, index_type, is_unique, is_primary, index_comment
-             FROM indexes WHERE table_id = ?1 ORDER BY index_name"
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "list_indexes".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, index_name, index_type, is_unique, is_primary, index_comment
+             FROM indexes WHERE table_id = ?1 ORDER BY index_name",
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "list_indexes".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        let indexes = stmt.query_map(rusqlite::params![table_id], |row| {
-            Ok(IndexDetailInfo {
-                id: row.get(0)?,
-                index_name: row.get(1)?,
-                index_type: row.get(2)?,
-                is_unique: row.get::<_, i32>(3)? != 0,
-                is_primary: row.get::<_, i32>(4)? != 0,
-                index_comment: row.get(5)?,
-                columns: Vec::new(),
+        let indexes = stmt
+            .query_map(rusqlite::params![table_id], |row| {
+                Ok(IndexDetailInfo {
+                    id: row.get(0)?,
+                    index_name: row.get(1)?,
+                    index_type: row.get(2)?,
+                    is_unique: row.get::<_, i32>(3)? != 0,
+                    is_primary: row.get::<_, i32>(4)? != 0,
+                    index_comment: row.get(5)?,
+                    columns: Vec::new(),
+                })
             })
-        }).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "query_indexes".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_indexes".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for index in indexes {
-            let mut idx = index.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            let mut idx = index.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_index".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
 
             idx.columns = self.list_index_columns(idx.id)?;
             result.push(idx);
@@ -819,35 +893,39 @@ impl MetadataCacheOps {
 
     /// 获取索引列列表
     pub fn list_index_columns(&self, index_id: i64) -> Result<Vec<IndexColumnInfo>, CoreError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, column_name, ordinal_position, sort_order, is_included_column
-             FROM index_columns WHERE index_id = ?1 ORDER BY ordinal_position"
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "list_index_columns".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, column_name, ordinal_position, sort_order, is_included_column
+             FROM index_columns WHERE index_id = ?1 ORDER BY ordinal_position",
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "list_index_columns".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        let columns = stmt.query_map(rusqlite::params![index_id], IndexColumnInfo::from_row)
-            .map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+        let columns = stmt
+            .query_map(rusqlite::params![index_id], IndexColumnInfo::from_row)
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "query_index_columns".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
 
         let mut result = Vec::new();
         for col in columns {
-            result.push(col.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(col.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_index_column".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
@@ -865,7 +943,9 @@ impl MetadataCacheOps {
     ) -> Result<(), CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -898,24 +978,25 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let views = stmt.query_map(rusqlite::params![schema_id], ViewDetailInfo::from_row)
-            .map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+        let views = stmt
+            .query_map(rusqlite::params![schema_id], ViewDetailInfo::from_row)
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "query_views".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
 
         let mut result = Vec::new();
         for view in views {
-            result.push(view.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(view.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_view".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
@@ -937,7 +1018,9 @@ impl MetadataCacheOps {
     ) -> Result<i64, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -983,90 +1066,98 @@ impl MetadataCacheOps {
     }
 
     /// 获取 Routine 列表
-    pub fn list_routines(&self, schema_id: i64, routine_type: Option<&str>) -> Result<Vec<RoutineDetailInfo>, CoreError> {
+    pub fn list_routines(
+        &self,
+        schema_id: i64,
+        routine_type: Option<&str>,
+    ) -> Result<Vec<RoutineDetailInfo>, CoreError> {
         let mut result = Vec::new();
 
         if let Some(rt) = routine_type {
             let query = "SELECT id, routine_name, routine_type, data_type, routine_definition, external_language, is_deterministic, routine_comment
                          FROM routines WHERE schema_id = ?1 AND routine_type = ?2 ORDER BY routine_name";
-            let mut stmt = self.conn.prepare(query).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            let mut stmt = self.conn.prepare(query).map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "list_routines".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
-
-            let routines = stmt.query_map(rusqlite::params![schema_id, rt], |row| {
-                Ok(RoutineDetailInfo {
-                    id: row.get(0)?,
-                    routine_name: row.get(1)?,
-                    routine_type: row.get(2)?,
-                    data_type: row.get(3)?,
-                    routine_definition: row.get(4)?,
-                    external_language: row.get(5)?,
-                    is_deterministic: row.get::<_, Option<i32>>(6)?.map(|v| v != 0),
-                    routine_comment: row.get(7)?,
-                    parameters: Vec::new(),
                 })
-            }).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "query_routines".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?;
+            })?;
+
+            let routines = stmt
+                .query_map(rusqlite::params![schema_id, rt], |row| {
+                    Ok(RoutineDetailInfo {
+                        id: row.get(0)?,
+                        routine_name: row.get(1)?,
+                        routine_type: row.get(2)?,
+                        data_type: row.get(3)?,
+                        routine_definition: row.get(4)?,
+                        external_language: row.get(5)?,
+                        is_deterministic: row.get::<_, Option<i32>>(6)?.map(|v| v != 0),
+                        routine_comment: row.get(7)?,
+                        parameters: Vec::new(),
+                    })
+                })
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "query_routines".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
             for routine in routines {
-                let mut r = routine.map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
+                let mut r = routine.map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
                         store: "sqlite".to_string(),
                         operation: "fetch_routine".to_string(),
                         reason: e.to_string(),
-                    }
-                ))?;
+                    })
+                })?;
                 r.parameters = self.list_routine_parameters(r.id)?;
                 result.push(r);
             }
         } else {
             let query = "SELECT id, routine_name, routine_type, data_type, routine_definition, external_language, is_deterministic, routine_comment
                          FROM routines WHERE schema_id = ?1 ORDER BY routine_name";
-            let mut stmt = self.conn.prepare(query).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            let mut stmt = self.conn.prepare(query).map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "list_routines".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
-
-            let routines = stmt.query_map(rusqlite::params![schema_id], |row| {
-                Ok(RoutineDetailInfo {
-                    id: row.get(0)?,
-                    routine_name: row.get(1)?,
-                    routine_type: row.get(2)?,
-                    data_type: row.get(3)?,
-                    routine_definition: row.get(4)?,
-                    external_language: row.get(5)?,
-                    is_deterministic: row.get::<_, Option<i32>>(6)?.map(|v| v != 0),
-                    routine_comment: row.get(7)?,
-                    parameters: Vec::new(),
                 })
-            }).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "query_routines".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?;
+            })?;
+
+            let routines = stmt
+                .query_map(rusqlite::params![schema_id], |row| {
+                    Ok(RoutineDetailInfo {
+                        id: row.get(0)?,
+                        routine_name: row.get(1)?,
+                        routine_type: row.get(2)?,
+                        data_type: row.get(3)?,
+                        routine_definition: row.get(4)?,
+                        external_language: row.get(5)?,
+                        is_deterministic: row.get::<_, Option<i32>>(6)?.map(|v| v != 0),
+                        routine_comment: row.get(7)?,
+                        parameters: Vec::new(),
+                    })
+                })
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "query_routines".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
             for routine in routines {
-                let mut r = routine.map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
+                let mut r = routine.map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
                         store: "sqlite".to_string(),
                         operation: "fetch_routine".to_string(),
                         reason: e.to_string(),
-                    }
-                ))?;
+                    })
+                })?;
                 r.parameters = self.list_routine_parameters(r.id)?;
                 result.push(r);
             }
@@ -1076,7 +1167,10 @@ impl MetadataCacheOps {
     }
 
     /// 获取 Routine 参数列表
-    pub fn list_routine_parameters(&self, routine_id: i64) -> Result<Vec<RoutineParameterInfo>, CoreError> {
+    pub fn list_routine_parameters(
+        &self,
+        routine_id: i64,
+    ) -> Result<Vec<RoutineParameterInfo>, CoreError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, parameter_name, ordinal_position, parameter_mode, data_type, parameter_default
              FROM routine_parameters WHERE routine_id = ?1 ORDER BY ordinal_position"
@@ -1088,48 +1182,74 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let params = stmt.query_map(rusqlite::params![routine_id], RoutineParameterInfo::from_row)
-            .map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+        let params = stmt
+            .query_map(
+                rusqlite::params![routine_id],
+                RoutineParameterInfo::from_row,
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "query_routine_parameters".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
 
         let mut result = Vec::new();
         for param in params {
-            result.push(param.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(param.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_routine_parameter".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 记录同步日志
-    pub fn log_sync(&self, id: &str, start_at: i64, end_at: i64, success: bool, message: Option<&str>, objects_fetched: i64) -> Result<(), CoreError> {
-        self.conn.execute(
-            "INSERT INTO sync_log (id, start_at, end_at, success, message, objects_fetched)
+    pub fn log_sync(
+        &self,
+        id: &str,
+        start_at: i64,
+        end_at: i64,
+        success: bool,
+        message: Option<&str>,
+        objects_fetched: i64,
+    ) -> Result<(), CoreError> {
+        self.conn
+            .execute(
+                "INSERT INTO sync_log (id, start_at, end_at, success, message, objects_fetched)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params![id, start_at, end_at, success as i32, message.unwrap_or(""), objects_fetched],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "log_sync".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![
+                    id,
+                    start_at,
+                    end_at,
+                    success as i32,
+                    message.unwrap_or(""),
+                    objects_fetched
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "log_sync".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
 
     /// 清除指定连接的元数据
-    pub fn clear_metadata(&self, database_name: &str, schema_name: &str, table_name: Option<&str>) -> Result<usize, CoreError> {
+    pub fn clear_metadata(
+        &self,
+        database_name: &str,
+        schema_name: &str,
+        table_name: Option<&str>,
+    ) -> Result<usize, CoreError> {
         let affected = match table_name {
             Some(t) => {
                 self.conn.execute(
@@ -1165,17 +1285,19 @@ impl MetadataCacheOps {
         &mut self,
         tables: Vec<(String, String, String, String, Option<String>)>,
     ) -> Result<(), CoreError> {
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         for (id, database_name, schema_name, table_name, comment) in tables {
@@ -1183,23 +1305,31 @@ impl MetadataCacheOps {
                 "INSERT OR REPLACE INTO metadata 
                  (id, obj_type, database_name, schema_name, table_name, name, comment, last_sync)
                  VALUES (?1, 'table', ?2, ?3, ?4, ?4, ?5, ?6)",
-                rusqlite::params![id, database_name, schema_name, table_name, comment, current_time],
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+                rusqlite::params![
+                    id,
+                    database_name,
+                    schema_name,
+                    table_name,
+                    comment,
+                    current_time
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "save_table_batch".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -1207,22 +1337,45 @@ impl MetadataCacheOps {
     /// 批量保存列元数据
     pub fn save_columns_batch(
         &mut self,
-        columns: Vec<(String, String, String, String, String, String, bool, bool, bool)>,
+        columns: Vec<(
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            bool,
+            bool,
+            bool,
+        )>,
     ) -> Result<(), CoreError> {
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        for (id, database_name, schema_name, table_name, column_name, data_type, is_nullable, is_primary, is_unique) in columns {
+        for (
+            id,
+            database_name,
+            schema_name,
+            table_name,
+            column_name,
+            data_type,
+            is_nullable,
+            is_primary,
+            is_unique,
+        ) in columns
+        {
             tx.execute(
                 "INSERT OR REPLACE INTO metadata 
                  (id, obj_type, database_name, schema_name, table_name, name, data_type, is_nullable, is_primary, is_unique, last_sync)
@@ -1240,13 +1393,13 @@ impl MetadataCacheOps {
             ))?;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -1267,7 +1420,9 @@ impl MetadataCacheOps {
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let schema_id = match self.get_schema_id(database_name, schema_name)? {
@@ -1275,13 +1430,13 @@ impl MetadataCacheOps {
             None => self.save_schema(database_name, schema_name, None, None)?,
         };
 
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "save_node_detail_tx".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let table_id: i64 = tx.query_row(
             "INSERT INTO tables (schema_id, table_name, table_type, table_comment, row_count_estimate, \
@@ -1334,13 +1489,13 @@ impl MetadataCacheOps {
             ))?;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "save_node_detail_commit".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(table_id)
     }
@@ -1371,11 +1526,13 @@ impl MetadataCacheOps {
         let (table_id, table_type, table_comment, row_count_estimate) = match table_row {
             Ok(r) => r,
             Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
-            Err(e) => return Err(CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "load_node_detail_table".to_string(),
-                reason: e.to_string(),
-            })),
+            Err(e) => {
+                return Err(CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "load_node_detail_table".to_string(),
+                    reason: e.to_string(),
+                }))
+            }
         };
 
         let kind = if table_type == "VIEW" {
@@ -1394,9 +1551,8 @@ impl MetadataCacheOps {
             reason: e.to_string(),
         }))?;
 
-        let columns: Vec<crate::core::driver::ColumnDetail> = stmt.query_map(
-            rusqlite::params![table_id],
-            |row| {
+        let columns: Vec<crate::core::driver::ColumnDetail> = stmt
+            .query_map(rusqlite::params![table_id], |row| {
                 Ok(crate::core::driver::ColumnDetail {
                     name: row.get(0)?,
                     data_type: row.get(1)?,
@@ -1406,24 +1562,32 @@ impl MetadataCacheOps {
                     default_value: row.get(5)?,
                     comment: row.get(6)?,
                 })
-            },
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "load_node_detail_map".to_string(),
-            reason: e.to_string(),
-        }))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "load_node_detail_collect".to_string(),
-            reason: e.to_string(),
-        }))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "load_node_detail_map".to_string(),
+                    reason: e.to_string(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "load_node_detail_collect".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(Some(crate::core::driver::NodeDetail {
             node: crate::core::driver::NodeInfo {
                 name: table_name.to_string(),
                 kind,
-                icon: Some(if table_type == "VIEW" { "view".to_string() } else { "table".to_string() }),
+                icon: Some(if table_type == "VIEW" {
+                    "view".to_string()
+                } else {
+                    "table".to_string()
+                }),
                 comment: table_comment,
             },
             columns,
@@ -1433,30 +1597,42 @@ impl MetadataCacheOps {
     }
 
     /// 检查缓存是否有效（默认 24 小时）
-    /// 
+    ///
     /// # 参数
     /// * `database_name` - 数据库名称
     /// * `schema_name` - 模式名称
     /// * `max_age_seconds` - 最大缓存时间（秒），默认 86400 秒（24 小时）
-    pub fn is_cache_valid(&self, database_name: &str, schema_name: &str, max_age_seconds: Option<i64>) -> Result<bool, CoreError> {
+    pub fn is_cache_valid(
+        &self,
+        database_name: &str,
+        schema_name: &str,
+        max_age_seconds: Option<i64>,
+    ) -> Result<bool, CoreError> {
         let max_age = max_age_seconds.unwrap_or(86400);
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        let last_sync: Option<i64> = self.conn.query_row(
-            "SELECT MAX(last_sync) FROM metadata 
+        let last_sync: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT MAX(last_sync) FROM metadata 
              WHERE database_name = ?1 AND schema_name = ?2",
-            rusqlite::params![database_name, schema_name],
-            |row| row.get(0)
-        ).optional().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "check_cache_validity".to_string(),
-                reason: e.to_string(),
-            }
-        ))?.flatten();
+                rusqlite::params![database_name, schema_name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "check_cache_validity".to_string(),
+                    reason: e.to_string(),
+                })
+            })?
+            .flatten();
 
         match last_sync {
             Some(last_sync_time) => Ok((current_time - last_sync_time) < max_age),
@@ -1465,58 +1641,77 @@ impl MetadataCacheOps {
     }
 
     /// 获取最后同步时间
-    /// 
+    ///
     /// # 参数
     /// * `database_name` - 数据库名称
     /// * `schema_name` - 模式名称
-    pub fn get_last_sync_time(&self, database_name: &str, schema_name: &str) -> Result<Option<i64>, CoreError> {
-        let last_sync: Option<i64> = self.conn.query_row(
-            "SELECT MAX(last_sync) FROM metadata 
+    pub fn get_last_sync_time(
+        &self,
+        database_name: &str,
+        schema_name: &str,
+    ) -> Result<Option<i64>, CoreError> {
+        let last_sync: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT MAX(last_sync) FROM metadata 
              WHERE database_name = ?1 AND schema_name = ?2",
-            rusqlite::params![database_name, schema_name],
-            |row| row.get(0)
-        ).optional().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_last_sync_time".to_string(),
-                reason: e.to_string(),
-            }
-        ))?.flatten();
+                rusqlite::params![database_name, schema_name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_last_sync_time".to_string(),
+                    reason: e.to_string(),
+                })
+            })?
+            .flatten();
 
         Ok(last_sync)
     }
 
     /// 获取缓存统计信息
-    /// 
+    ///
     /// # 参数
     /// * `database_name` - 数据库名称
     /// * `schema_name` - 模式名称
-    pub fn get_cache_stats(&self, database_name: &str, schema_name: &str) -> Result<CacheStats, CoreError> {
-        let table_count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM metadata 
+    pub fn get_cache_stats(
+        &self,
+        database_name: &str,
+        schema_name: &str,
+    ) -> Result<CacheStats, CoreError> {
+        let table_count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM metadata 
              WHERE obj_type = 'table' AND database_name = ?1 AND schema_name = ?2",
-            rusqlite::params![database_name, schema_name],
-            |row| row.get(0)
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "count_tables".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![database_name, schema_name],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "count_tables".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        let column_count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM metadata 
+        let column_count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM metadata 
              WHERE obj_type = 'column' AND database_name = ?1 AND schema_name = ?2",
-            rusqlite::params![database_name, schema_name],
-            |row| row.get(0)
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "count_columns".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![database_name, schema_name],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "count_columns".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let last_sync = self.get_last_sync_time(database_name, schema_name)?;
 
@@ -1531,13 +1726,13 @@ impl MetadataCacheOps {
     ///
     /// 将规范化表的数据同步到 FTS5 虚拟表，支持增量更新
     pub fn sync_fts_index(&mut self, sync_type: Option<&str>) -> Result<(), CoreError> {
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 清理旧的 FTS 数据
         let _ = match sync_type {
@@ -1546,7 +1741,9 @@ impl MetadataCacheOps {
                 "table" => tx.execute("DELETE FROM metadata_fts WHERE search_type = 'table'", []),
                 "column" => tx.execute("DELETE FROM metadata_fts WHERE search_type = 'column'", []),
                 "view" => tx.execute("DELETE FROM metadata_fts WHERE search_type = 'view'", []),
-                "routine" => tx.execute("DELETE FROM metadata_fts WHERE search_type = 'routine'", []),
+                "routine" => {
+                    tx.execute("DELETE FROM metadata_fts WHERE search_type = 'routine'", [])
+                }
                 _ => tx.execute("DELETE FROM metadata_fts", []),
             },
             None => tx.execute("DELETE FROM metadata_fts", []),
@@ -1645,13 +1842,13 @@ impl MetadataCacheOps {
             ))?;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -1661,81 +1858,93 @@ impl MetadataCacheOps {
     /// # 参数
     /// * `query` - 搜索关键词
     /// * `search_type` - 搜索类型（可选）：schema, table, column, view, routine
-    pub fn search_fts(&self, query: &str, search_type: Option<&str>) -> Result<Vec<FtsSearchResult>, CoreError> {
+    pub fn search_fts(
+        &self,
+        query: &str,
+        search_type: Option<&str>,
+    ) -> Result<Vec<FtsSearchResult>, CoreError> {
         let search_pattern = format!("{}*", query);
 
         let sql = match search_type {
-            Some(_t) => "SELECT search_type, schema_name, object_name, parent_name,
+            Some(_t) => {
+                "SELECT search_type, schema_name, object_name, parent_name,
                                snippet(metadata_fts, 4, '<mark>', '</mark>', '...', 32) as snippet
                         FROM metadata_fts WHERE search_content MATCH ?1 AND search_type = ?2
-                        ORDER BY rank LIMIT 50",
-            None => "SELECT search_type, schema_name, object_name, parent_name,
+                        ORDER BY rank LIMIT 50"
+            }
+            None => {
+                "SELECT search_type, schema_name, object_name, parent_name,
                             snippet(metadata_fts, 4, '<mark>', '</mark>', '...', 32) as snippet
                      FROM metadata_fts WHERE search_content MATCH ?1
-                     ORDER BY rank LIMIT 50",
+                     ORDER BY rank LIMIT 50"
+            }
         };
 
-        let mut stmt = self.conn.prepare(sql).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let mut stmt = self.conn.prepare(sql).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "search_fts".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let mut result = Vec::new();
 
         if let Some(t) = search_type {
-            let rows = stmt.query_map(rusqlite::params![search_pattern, t], |row| {
-                Ok(FtsSearchResult {
-                    search_type: row.get(0)?,
-                    schema_name: row.get(1)?,
-                    object_name: row.get(2)?,
-                    parent_name: row.get(3)?,
-                    snippet: row.get(4)?,
+            let rows = stmt
+                .query_map(rusqlite::params![search_pattern, t], |row| {
+                    Ok(FtsSearchResult {
+                        search_type: row.get(0)?,
+                        schema_name: row.get(1)?,
+                        object_name: row.get(2)?,
+                        parent_name: row.get(3)?,
+                        snippet: row.get(4)?,
+                    })
                 })
-            }).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "search_fts".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?;
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "search_fts".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
             for r in rows {
-                result.push(r.map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
+                result.push(r.map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
                         store: "sqlite".to_string(),
                         operation: "fetch_fts_result".to_string(),
                         reason: e.to_string(),
-                    }
-                ))?);
+                    })
+                })?);
             }
         } else {
-            let rows = stmt.query_map(rusqlite::params![search_pattern], |row| {
-                Ok(FtsSearchResult {
-                    search_type: row.get(0)?,
-                    schema_name: row.get(1)?,
-                    object_name: row.get(2)?,
-                    parent_name: row.get(3)?,
-                    snippet: row.get(4)?,
+            let rows = stmt
+                .query_map(rusqlite::params![search_pattern], |row| {
+                    Ok(FtsSearchResult {
+                        search_type: row.get(0)?,
+                        schema_name: row.get(1)?,
+                        object_name: row.get(2)?,
+                        parent_name: row.get(3)?,
+                        snippet: row.get(4)?,
+                    })
                 })
-            }).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "search_fts".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?;
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "search_fts".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
             for r in rows {
-                result.push(r.map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
+                result.push(r.map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
                         store: "sqlite".to_string(),
                         operation: "fetch_fts_result".to_string(),
                         reason: e.to_string(),
-                    }
-                ))?);
+                    })
+                })?);
             }
         }
 
@@ -1745,93 +1954,105 @@ impl MetadataCacheOps {
     /// 删除 Schema 及关联数据（级联）
     pub fn delete_schema(&mut self, schema_id: i64) -> Result<usize, CoreError> {
         // 先获取 schema 信息用于 FTS 清理
-        let schema_name: String = self.conn.query_row(
-            "SELECT schema_name FROM schemata WHERE id = ?1",
-            rusqlite::params![schema_id],
-            |row| row.get(0)
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_schema_name".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let schema_name: String = self
+            .conn
+            .query_row(
+                "SELECT schema_name FROM schemata WHERE id = ?1",
+                rusqlite::params![schema_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_schema_name".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 删除 tables（会通过触发器级联删除 columns 和 indexes）
-        let table_count = tx.execute(
-            "DELETE FROM tables WHERE schema_id = ?1",
-            rusqlite::params![schema_id],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_tables".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let table_count = tx
+            .execute(
+                "DELETE FROM tables WHERE schema_id = ?1",
+                rusqlite::params![schema_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_tables".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 删除 views
-        let view_count = tx.execute(
-            "DELETE FROM views WHERE schema_id = ?1",
-            rusqlite::params![schema_id],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_views".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let view_count = tx
+            .execute(
+                "DELETE FROM views WHERE schema_id = ?1",
+                rusqlite::params![schema_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_views".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 删除 routines
-        let routine_count = tx.execute(
-            "DELETE FROM routines WHERE schema_id = ?1",
-            rusqlite::params![schema_id],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_routines".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let routine_count = tx
+            .execute(
+                "DELETE FROM routines WHERE schema_id = ?1",
+                rusqlite::params![schema_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_routines".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 删除 schema 本身
-        let schema_deleted = tx.execute(
-            "DELETE FROM schemata WHERE id = ?1",
-            rusqlite::params![schema_id],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_schema".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let schema_deleted = tx
+            .execute(
+                "DELETE FROM schemata WHERE id = ?1",
+                rusqlite::params![schema_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_schema".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 清理 FTS 索引
         tx.execute(
             "DELETE FROM metadata_fts WHERE schema_name = ?1",
             rusqlite::params![schema_name],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "delete_fts".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(schema_deleted + table_count + view_count + routine_count)
     }
@@ -1859,26 +2080,36 @@ impl MetadataCacheOps {
     ) -> Result<(), CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        self.conn.execute(
-            "INSERT OR REPLACE INTO metadata_index
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO metadata_index
              (connection_id, schema_id, object_type, object_name, parent_name, path,
               introspect_level, is_loaded, last_sync)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
                      CASE WHEN ?7 >= 3 THEN 1 ELSE 0 END, ?8)",
-            rusqlite::params![
-                connection_id, schema_id, object_type, object_name,
-                parent_name, path, introspect_level, now
-            ],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "save_index_entry".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![
+                    connection_id,
+                    schema_id,
+                    object_type,
+                    object_name,
+                    parent_name,
+                    path,
+                    introspect_level,
+                    now
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "save_index_entry".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
@@ -1888,17 +2119,19 @@ impl MetadataCacheOps {
         &mut self,
         entries: Vec<IndexEntryInput>,
     ) -> Result<usize, CoreError> {
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let mut count = 0;
@@ -1910,27 +2143,35 @@ impl MetadataCacheOps {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
                          CASE WHEN ?7 >= 3 THEN 1 ELSE 0 END, ?8, ?9, ?10)",
                 rusqlite::params![
-                    entry.connection_id, entry.schema_id, entry.object_type,
-                    entry.object_name, entry.parent_name, entry.path,
-                    entry.introspect_level, now, entry.row_count_estimate, entry.sort_weight
+                    entry.connection_id,
+                    entry.schema_id,
+                    entry.object_type,
+                    entry.object_name,
+                    entry.parent_name,
+                    entry.path,
+                    entry.introspect_level,
+                    now,
+                    entry.row_count_estimate,
+                    entry.sort_weight
                 ],
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "save_index_batch".to_string(),
                     reason: e.to_string(),
-                }
-            ))?;
+                })
+            })?;
             count += 1;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(count)
     }
@@ -1954,35 +2195,45 @@ impl MetadataCacheOps {
         let offset = (page - 1) * page_size;
 
         let count_sql = match schema_id {
-            Some(_) => "SELECT COUNT(*) FROM metadata_index
-                       WHERE connection_id = ?1 AND object_type = ?2 AND schema_id = ?3",
-            None => "SELECT COUNT(*) FROM metadata_index
-                     WHERE connection_id = ?1 AND object_type = ?2",
+            Some(_) => {
+                "SELECT COUNT(*) FROM metadata_index
+                       WHERE connection_id = ?1 AND object_type = ?2 AND schema_id = ?3"
+            }
+            None => {
+                "SELECT COUNT(*) FROM metadata_index
+                     WHERE connection_id = ?1 AND object_type = ?2"
+            }
         };
 
         let total: i64 = match schema_id {
-            Some(sid) => self.conn.query_row(
-                count_sql,
-                rusqlite::params![connection_id, object_type, sid],
-                |row| row.get(0),
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "count_index_entries".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
-            None => self.conn.query_row(
-                count_sql,
-                rusqlite::params![connection_id, object_type],
-                |row| row.get(0),
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "count_index_entries".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
+            Some(sid) => self
+                .conn
+                .query_row(
+                    count_sql,
+                    rusqlite::params![connection_id, object_type, sid],
+                    |row| row.get(0),
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "count_index_entries".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
+            None => self
+                .conn
+                .query_row(
+                    count_sql,
+                    rusqlite::params![connection_id, object_type],
+                    |row| row.get(0),
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "count_index_entries".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
         };
 
         let query_sql = match schema_id {
@@ -2000,46 +2251,50 @@ impl MetadataCacheOps {
                      LIMIT ?3 OFFSET ?4",
         };
 
-        let mut stmt = self.conn.prepare(query_sql).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let mut stmt = self.conn.prepare(query_sql).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "get_index_entries".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let entries = match schema_id {
-            Some(sid) => stmt.query_map(
-                rusqlite::params![connection_id, object_type, sid, page_size, offset],
-                IndexEntry::from_row,
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "query_index_entries".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
-            None => stmt.query_map(
-                rusqlite::params![connection_id, object_type, page_size, offset],
-                IndexEntry::from_row,
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "query_index_entries".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
+            Some(sid) => stmt
+                .query_map(
+                    rusqlite::params![connection_id, object_type, sid, page_size, offset],
+                    IndexEntry::from_row,
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "query_index_entries".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
+            None => stmt
+                .query_map(
+                    rusqlite::params![connection_id, object_type, page_size, offset],
+                    IndexEntry::from_row,
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "query_index_entries".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
         };
 
         let mut result = Vec::new();
         for entry in entries {
-            result.push(entry.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(entry.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_index_entry".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(PaginatedIndexResult {
@@ -2061,51 +2316,61 @@ impl MetadataCacheOps {
     ) -> Result<(), CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        let current_status: Option<String> = self.conn.query_row(
-            "SELECT status FROM connection_sync_status WHERE connection_id = ?1",
-            rusqlite::params![connection_id],
-            |row| row.get(0),
-        ).optional().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_sync_status".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let current_status: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT status FROM connection_sync_status WHERE connection_id = ?1",
+                rusqlite::params![connection_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_sync_status".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         match current_status {
             Some(_) => {
-                self.conn.execute(
-                    "UPDATE connection_sync_status
+                self.conn
+                    .execute(
+                        "UPDATE connection_sync_status
                      SET status = ?1, progress = ?2, current_object = ?3,
                          started_at = COALESCE(started_at, ?4),
                          completed_at = CASE WHEN ?1 = 'completed' THEN ?4 ELSE NULL END
                      WHERE connection_id = ?5",
-                    rusqlite::params![status, progress, current_object, now, connection_id],
-                ).map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
-                        store: "sqlite".to_string(),
-                        operation: "update_sync_status".to_string(),
-                        reason: e.to_string(),
-                    }
-                ))?;
+                        rusqlite::params![status, progress, current_object, now, connection_id],
+                    )
+                    .map_err(|e| {
+                        CoreError::storage(StorageError::Persistence {
+                            store: "sqlite".to_string(),
+                            operation: "update_sync_status".to_string(),
+                            reason: e.to_string(),
+                        })
+                    })?;
             }
             None => {
-                self.conn.execute(
-                    "INSERT INTO connection_sync_status
+                self.conn
+                    .execute(
+                        "INSERT INTO connection_sync_status
                      (connection_id, status, progress, current_object, started_at)
                      VALUES (?1, ?2, ?3, ?4, ?5)",
-                    rusqlite::params![connection_id, status, progress, current_object, now],
-                ).map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
-                        store: "sqlite".to_string(),
-                        operation: "insert_sync_status".to_string(),
-                        reason: e.to_string(),
-                    }
-                ))?;
+                        rusqlite::params![connection_id, status, progress, current_object, now],
+                    )
+                    .map_err(|e| {
+                        CoreError::storage(StorageError::Persistence {
+                            store: "sqlite".to_string(),
+                            operation: "insert_sync_status".to_string(),
+                            reason: e.to_string(),
+                        })
+                    })?;
             }
         }
 
@@ -2113,91 +2378,111 @@ impl MetadataCacheOps {
     }
 
     /// 获取同步状态
-    pub fn get_sync_status(&self, connection_id: &str) -> Result<Option<SyncStatusInfo>, CoreError> {
-        let status: Option<SyncStatusInfo> = self.conn.query_row(
-            "SELECT connection_id, status, progress, total_objects, synced_objects,
+    pub fn get_sync_status(
+        &self,
+        connection_id: &str,
+    ) -> Result<Option<SyncStatusInfo>, CoreError> {
+        let status: Option<SyncStatusInfo> = self
+            .conn
+            .query_row(
+                "SELECT connection_id, status, progress, total_objects, synced_objects,
                     current_object, started_at, completed_at, last_error
              FROM connection_sync_status WHERE connection_id = ?1",
-            rusqlite::params![connection_id],
-            |row| {
-                Ok(SyncStatusInfo {
-                    connection_id: row.get(0)?,
-                    status: row.get(1)?,
-                    progress: row.get(2)?,
-                    total_objects: row.get(3)?,
-                    synced_objects: row.get(4)?,
-                    current_object: row.get(5)?,
-                    started_at: row.get(6)?,
-                    completed_at: row.get(7)?,
-                    last_error: row.get(8)?,
+                rusqlite::params![connection_id],
+                |row| {
+                    Ok(SyncStatusInfo {
+                        connection_id: row.get(0)?,
+                        status: row.get(1)?,
+                        progress: row.get(2)?,
+                        total_objects: row.get(3)?,
+                        synced_objects: row.get(4)?,
+                        current_object: row.get(5)?,
+                        started_at: row.get(6)?,
+                        completed_at: row.get(7)?,
+                        last_error: row.get(8)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_sync_status".to_string(),
+                    reason: e.to_string(),
                 })
-            },
-        ).optional().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_sync_status".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })?;
 
         Ok(status)
     }
 
     /// 检查连接是否正在同步
     pub fn is_syncing(&self, connection_id: &str) -> Result<bool, CoreError> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM connection_sync_status
+        let count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM connection_sync_status
              WHERE connection_id = ?1 AND status IN ('indexing', 'syncing')",
-            rusqlite::params![connection_id],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "check_syncing".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "check_syncing".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(count > 0)
     }
 
     /// 取消同步
     pub fn cancel_sync(&self, connection_id: &str) -> Result<(), CoreError> {
-        self.conn.execute(
-            "UPDATE connection_sync_status SET status = 'cancelled', completed_at = ?1
+        self.conn
+            .execute(
+                "UPDATE connection_sync_status SET status = 'cancelled', completed_at = ?1
              WHERE connection_id = ?2 AND status IN ('indexing', 'syncing')",
-            rusqlite::params![
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
-                    .as_secs() as i64,
-                connection_id
-            ],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "cancel_sync".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map_err(|e| CoreError::common(CommonError::General(format!(
+                            "获取系统时间失败: {}",
+                            e
+                        ))))?
+                        .as_secs() as i64,
+                    connection_id
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "cancel_sync".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        self.conn.execute(
-            "UPDATE sync_tasks SET status = 'cancelled', completed_at = ?1
+        self.conn
+            .execute(
+                "UPDATE sync_tasks SET status = 'cancelled', completed_at = ?1
              WHERE connection_id = ?2 AND status IN ('pending', 'running')",
-            rusqlite::params![
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
-                    .as_secs() as i64,
-                connection_id
-            ],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "cancel_sync_tasks".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map_err(|e| CoreError::common(CommonError::General(format!(
+                            "获取系统时间失败: {}",
+                            e
+                        ))))?
+                        .as_secs() as i64,
+                    connection_id
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "cancel_sync_tasks".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
@@ -2215,7 +2500,9 @@ impl MetadataCacheOps {
     ) -> Result<i64, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         self.conn.execute(
@@ -2238,17 +2525,19 @@ impl MetadataCacheOps {
         &mut self,
         tasks: Vec<SyncTaskInput>,
     ) -> Result<usize, CoreError> {
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let mut count = 0;
@@ -2267,13 +2556,13 @@ impl MetadataCacheOps {
             count += 1;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(count)
     }
@@ -2317,20 +2606,25 @@ impl MetadataCacheOps {
     pub fn claim_sync_task(&self, task_id: i64) -> Result<bool, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        let affected = self.conn.execute(
-            "UPDATE sync_tasks SET status = 'running', started_at = ?1
+        let affected = self
+            .conn
+            .execute(
+                "UPDATE sync_tasks SET status = 'running', started_at = ?1
              WHERE id = ?2 AND status = 'pending'",
-            rusqlite::params![now, task_id],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "claim_sync_task".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![now, task_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "claim_sync_task".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(affected > 0)
     }
@@ -2344,39 +2638,46 @@ impl MetadataCacheOps {
     ) -> Result<(), CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let status = if success { "completed" } else { "failed" };
 
-        self.conn.execute(
-            "UPDATE sync_tasks SET status = ?1, completed_at = ?2, error_message = ?3
+        self.conn
+            .execute(
+                "UPDATE sync_tasks SET status = ?1, completed_at = ?2, error_message = ?3
              WHERE id = ?4",
-            rusqlite::params![status, now, error_message, task_id],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "complete_sync_task".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+                rusqlite::params![status, now, error_message, task_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "complete_sync_task".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
 
     /// 获取待处理任务数量
     pub fn get_pending_task_count(&self, connection_id: &str) -> Result<i64, CoreError> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM sync_tasks WHERE connection_id = ?1 AND status = 'pending'",
-            rusqlite::params![connection_id],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_pending_task_count".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM sync_tasks WHERE connection_id = ?1 AND status = 'pending'",
+                rusqlite::params![connection_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_pending_task_count".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(count)
     }
@@ -2393,11 +2694,7 @@ impl MetadataCacheOps {
     /// - N <= 1000 (当前) / N <= 3000 (非当前) → Level 3 (完整加载)
     /// - N <= 3000 (当前) / N <= 10000 (非当前) → Level 2 (概要)
     /// - 否则 → Level 1 (仅索引)
-    pub fn calculate_introspect_level(
-        &self,
-        object_count: i64,
-        is_current_schema: bool,
-    ) -> i32 {
+    pub fn calculate_introspect_level(&self, object_count: i64, is_current_schema: bool) -> i32 {
         if is_current_schema {
             if object_count <= 1000 {
                 3 // Level 3: 完整加载
@@ -2516,70 +2813,76 @@ impl MetadataCacheOps {
         };
 
         let total: i64 = match schema_id {
-            Some(sid) => self.conn.query_row(
-                count_sql,
-                rusqlite::params![connection_id, sid],
-                |row| row.get(0),
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "count_tables_chunk".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
-            None => self.conn.query_row(
-                count_sql,
-                rusqlite::params![connection_id],
-                |row| row.get(0),
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "count_tables_chunk".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
+            Some(sid) => self
+                .conn
+                .query_row(count_sql, rusqlite::params![connection_id, sid], |row| {
+                    row.get(0)
+                })
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "count_tables_chunk".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
+            None => self
+                .conn
+                .query_row(count_sql, rusqlite::params![connection_id], |row| {
+                    row.get(0)
+                })
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "count_tables_chunk".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
         };
 
-        let mut stmt = self.conn.prepare(query_sql).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let mut stmt = self.conn.prepare(query_sql).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "get_tables_chunk".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let entries = match schema_id {
-            Some(sid) => stmt.query_map(
-                rusqlite::params![connection_id, sid, limit, offset],
-                IndexEntry::from_row,
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "query_tables_chunk".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
-            None => stmt.query_map(
-                rusqlite::params![connection_id, limit, offset],
-                IndexEntry::from_row,
-            ).map_err(|e| CoreError::storage(
-                StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "query_tables_chunk".to_string(),
-                    reason: e.to_string(),
-                }
-            ))?,
+            Some(sid) => stmt
+                .query_map(
+                    rusqlite::params![connection_id, sid, limit, offset],
+                    IndexEntry::from_row,
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "query_tables_chunk".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
+            None => stmt
+                .query_map(
+                    rusqlite::params![connection_id, limit, offset],
+                    IndexEntry::from_row,
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "query_tables_chunk".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?,
         };
 
         let mut result = Vec::new();
         for entry in entries {
-            result.push(entry.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(entry.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "fetch_table_chunk".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(ChunkResult {
@@ -2604,13 +2907,13 @@ impl MetadataCacheOps {
         batch_size: usize,
     ) -> Result<usize, CoreError> {
         let mut total_saved = 0;
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         for chunk in entries.chunks(batch_size) {
             for entry in chunk {
@@ -2630,24 +2933,25 @@ impl MetadataCacheOps {
                         entry.last_sync,
                         entry.sort_weight.unwrap_or(0),
                     ],
-                ).map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
                         store: "sqlite".to_string(),
                         operation: "save_index_entry".to_string(),
                         reason: e.to_string(),
-                    }
-                ))?;
+                    })
+                })?;
                 total_saved += 1;
             }
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(total_saved)
     }
@@ -2673,7 +2977,9 @@ impl MetadataCacheOps {
     ) -> Result<IndexBuildResult, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let schema_count = schemas.len();
@@ -2743,18 +3049,14 @@ impl MetadataCacheOps {
 
         let saved_count = self.save_index_entries_internal(all_entries, 500)?;
 
-        self.update_sync_status(
-            connection_id,
-            "completed",
-            100,
-            None,
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "update_sync_status".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        self.update_sync_status(connection_id, "completed", 100, None)
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "update_sync_status".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(IndexBuildResult {
             schema_count,
@@ -2772,16 +3074,18 @@ impl MetadataCacheOps {
     ) -> Result<usize, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let mut count = 0;
         for (task_type, object_name, parent_name) in tasks {
@@ -2799,13 +3103,13 @@ impl MetadataCacheOps {
             count += 1;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(count)
     }
@@ -2975,7 +3279,7 @@ pub struct ChangeDetectionResult {
 pub struct SyncOperation {
     pub id: Option<i64>,
     pub connection_id: String,
-    pub operation_type: String,  // create/update/delete/no_change
+    pub operation_type: String, // create/update/delete/no_change
     pub object_type: String,
     pub object_name: String,
     pub parent_name: Option<String>,
@@ -2993,7 +3297,7 @@ pub struct SyncOperation {
 pub struct SyncSnapshot {
     pub id: Option<i64>,
     pub connection_id: String,
-    pub snapshot_type: String,  // schema/table/column/index/view/routine/full
+    pub snapshot_type: String, // schema/table/column/index/view/routine/full
     pub object_type: String,
     pub object_name: String,
     pub parent_name: Option<String>,
@@ -3013,7 +3317,7 @@ impl MetadataCacheOps {
         parent: Option<&str>,
         extra_data: Option<&str>,
     ) -> String {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
 
         let mut hasher = Sha256::new();
         hasher.update(object_type.as_bytes());
@@ -3045,28 +3349,31 @@ impl MetadataCacheOps {
     ) -> Result<usize, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
-        let tx = self.conn.transaction().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 清除该连接的旧快照
         tx.execute(
             "DELETE FROM sync_snapshot WHERE connection_id = ?1 AND snapshot_type = ?2",
             rusqlite::params![connection_id, snapshot_type],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "clear_old_snapshot".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         let mut count = 0;
         for snapshot in snapshots {
@@ -3093,13 +3400,13 @@ impl MetadataCacheOps {
             count += 1;
         }
 
-        tx.commit().map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "commit_transaction".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(count)
     }
@@ -3123,9 +3430,8 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let snapshots = stmt.query_map(
-            rusqlite::params![connection_id, snapshot_type],
-            |row| {
+        let snapshots = stmt
+            .query_map(rusqlite::params![connection_id, snapshot_type], |row| {
                 Ok(SyncSnapshot {
                     id: row.get(0)?,
                     connection_id: row.get(1)?,
@@ -3136,31 +3442,35 @@ impl MetadataCacheOps {
                     object_hash: row.get(6)?,
                     snapshot_at: row.get(7)?,
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_snapshot".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_snapshot".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for snapshot in snapshots {
-            result.push(snapshot.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(snapshot.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "parse_snapshot".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 检查是否已有快照
-    pub fn has_snapshot(&self, connection_id: &str, snapshot_type: &str) -> Result<bool, CoreError> {
+    pub fn has_snapshot(
+        &self,
+        connection_id: &str,
+        snapshot_type: &str,
+    ) -> Result<bool, CoreError> {
         let count: i32 = self.conn.query_row(
             "SELECT COUNT(*) FROM sync_snapshot WHERE connection_id = ?1 AND snapshot_type = ?2",
             rusqlite::params![connection_id, snapshot_type],
@@ -3181,10 +3491,15 @@ impl MetadataCacheOps {
     // =======================================================================
 
     /// 检测 Schema 变更
-    pub fn detect_schema_changes(&self, connection_id: &str) -> Result<Vec<SyncOperation>, CoreError> {
+    pub fn detect_schema_changes(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<SyncOperation>, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let mut stmt = self.conn.prepare(
@@ -3199,9 +3514,8 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let operations = stmt.query_map(
-            rusqlite::params![connection_id],
-            |row| {
+        let operations = stmt
+            .query_map(rusqlite::params![connection_id], |row| {
                 Ok(SyncOperation {
                     id: None,
                     connection_id: connection_id.to_string(),
@@ -3217,34 +3531,39 @@ impl MetadataCacheOps {
                     priority: 5,
                     error_message: None,
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "detect_schema_changes".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "detect_schema_changes".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for op in operations {
-            result.push(op.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(op.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "parse_change_operation".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 检测 Table 变更
-    pub fn detect_table_changes(&self, connection_id: &str) -> Result<Vec<SyncOperation>, CoreError> {
+    pub fn detect_table_changes(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<SyncOperation>, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let mut stmt = self.conn.prepare(
@@ -3259,9 +3578,8 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let operations = stmt.query_map(
-            rusqlite::params![connection_id],
-            |row| {
+        let operations = stmt
+            .query_map(rusqlite::params![connection_id], |row| {
                 Ok(SyncOperation {
                     id: None,
                     connection_id: connection_id.to_string(),
@@ -3277,34 +3595,39 @@ impl MetadataCacheOps {
                     priority: 5,
                     error_message: None,
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "detect_table_changes".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "detect_table_changes".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for op in operations {
-            result.push(op.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(op.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "parse_change_operation".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 检测 Column 变更
-    pub fn detect_column_changes(&self, connection_id: &str) -> Result<Vec<SyncOperation>, CoreError> {
+    pub fn detect_column_changes(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<SyncOperation>, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let mut stmt = self.conn.prepare(
@@ -3319,9 +3642,8 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let operations = stmt.query_map(
-            rusqlite::params![connection_id],
-            |row| {
+        let operations = stmt
+            .query_map(rusqlite::params![connection_id], |row| {
                 Ok(SyncOperation {
                     id: None,
                     connection_id: connection_id.to_string(),
@@ -3337,34 +3659,39 @@ impl MetadataCacheOps {
                     priority: 5,
                     error_message: None,
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "detect_column_changes".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "detect_column_changes".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for op in operations {
-            result.push(op.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(op.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "parse_change_operation".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 检测所有变更
-    pub fn detect_all_changes(&self, connection_id: &str) -> Result<ChangeDetectionResult, CoreError> {
+    pub fn detect_all_changes(
+        &self,
+        connection_id: &str,
+    ) -> Result<ChangeDetectionResult, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let schema_changes = self.detect_schema_changes(connection_id)?;
@@ -3405,7 +3732,10 @@ impl MetadataCacheOps {
     // =======================================================================
 
     /// 保存变更操作
-    pub fn save_sync_operations(&mut self, operations: Vec<SyncOperation>) -> Result<usize, CoreError> {
+    pub fn save_sync_operations(
+        &mut self,
+        operations: Vec<SyncOperation>,
+    ) -> Result<usize, CoreError> {
         let mut count = 0;
         for op in operations {
             self.conn.execute(
@@ -3438,7 +3768,11 @@ impl MetadataCacheOps {
     }
 
     /// 获取待处理的变更操作
-    pub fn get_pending_operations(&self, connection_id: &str, limit: u32) -> Result<Vec<SyncOperation>, CoreError> {
+    pub fn get_pending_operations(
+        &self,
+        connection_id: &str,
+        limit: u32,
+    ) -> Result<Vec<SyncOperation>, CoreError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, connection_id, operation_type, object_type, object_name, parent_name, old_hash, new_hash, detected_at, processed_at, status, priority, error_message
              FROM sync_operations
@@ -3453,9 +3787,8 @@ impl MetadataCacheOps {
             }
         ))?;
 
-        let operations = stmt.query_map(
-            rusqlite::params![connection_id, limit],
-            |row| {
+        let operations = stmt
+            .query_map(rusqlite::params![connection_id, limit], |row| {
                 Ok(SyncOperation {
                     id: row.get(0)?,
                     connection_id: row.get(1)?,
@@ -3471,34 +3804,41 @@ impl MetadataCacheOps {
                     priority: row.get(11)?,
                     error_message: row.get(12)?,
                 })
-            }
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_pending_operations".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_pending_operations".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         let mut result = Vec::new();
         for op in operations {
-            result.push(op.map_err(|e| CoreError::storage(
-                StorageError::Persistence {
+            result.push(op.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
                     store: "sqlite".to_string(),
                     operation: "parse_operation".to_string(),
                     reason: e.to_string(),
-                }
-            ))?);
+                })
+            })?);
         }
 
         Ok(result)
     }
 
     /// 标记操作为已处理
-    pub fn mark_operation_processed(&mut self, operation_id: i64, success: bool, error_msg: Option<&str>) -> Result<(), CoreError> {
+    pub fn mark_operation_processed(
+        &mut self,
+        operation_id: i64,
+        success: bool,
+        error_msg: Option<&str>,
+    ) -> Result<(), CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let status = if success { "completed" } else { "failed" };
@@ -3518,24 +3858,33 @@ impl MetadataCacheOps {
     }
 
     /// 清除旧的同步操作
-    pub fn clear_old_operations(&mut self, connection_id: &str, days: u32) -> Result<usize, CoreError> {
+    pub fn clear_old_operations(
+        &mut self,
+        connection_id: &str,
+        days: u32,
+    ) -> Result<usize, CoreError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
             .as_secs() as i64;
 
         let cutoff = now - (days as i64) * 86400;
 
-        let count = self.conn.execute(
-            "DELETE FROM sync_operations WHERE connection_id = ?1 AND detected_at < ?2",
-            rusqlite::params![connection_id, cutoff],
-        ).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "clear_old_operations".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        let count = self
+            .conn
+            .execute(
+                "DELETE FROM sync_operations WHERE connection_id = ?1 AND detected_at < ?2",
+                rusqlite::params![connection_id, cutoff],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "clear_old_operations".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(count)
     }
@@ -3797,7 +4146,10 @@ mod tests {
         let conn_id = "test_mysql_001";
 
         let manager = MetadataCacheManager::new(conn_id, ConnectionType::Global, None).unwrap();
-        assert!(manager.db_path().to_string_lossy().contains("metadata/global"));
+        assert!(manager
+            .db_path()
+            .to_string_lossy()
+            .contains("metadata/global"));
         assert!(manager.db_path().to_string_lossy().contains(conn_id));
     }
 
@@ -3806,8 +4158,13 @@ mod tests {
         let project_path = test_temp_dir("project").to_str().unwrap().to_string();
         let conn_id = "test_pg_001";
 
-        let manager = MetadataCacheManager::new(conn_id, ConnectionType::Project, Some(&project_path)).unwrap();
-        assert!(manager.db_path().to_string_lossy().contains("meta/connection_metadata"));
+        let manager =
+            MetadataCacheManager::new(conn_id, ConnectionType::Project, Some(&project_path))
+                .unwrap();
+        assert!(manager
+            .db_path()
+            .to_string_lossy()
+            .contains("meta/connection_metadata"));
         assert!(manager.db_path().to_string_lossy().contains(conn_id));
     }
 

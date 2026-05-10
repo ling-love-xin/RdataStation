@@ -76,7 +76,10 @@ pub(crate) async fn get_column_insight_history(
     column_name: &str,
     insight_store: &crate::core::persistence::InsightStorage,
 ) -> Result<Vec<crate::core::persistence::InsightVersionEntry>, CoreError> {
-    insight_store.columns.get_history(column_name, Some(10)).await
+    insight_store
+        .columns
+        .get_history(column_name, Some(10))
+        .await
 }
 
 pub(crate) async fn cleanup_old_insight_snapshots(
@@ -134,35 +137,36 @@ pub(crate) async fn profile_column_from_table(
     let result = service
         .execute(Some(conn_id.clone()), &sample_sql, opts)
         .await?;
-    let json = serde_json::to_value(&result.result).map_err(|e| {
-        CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
-    })?;
+    let json = serde_json::to_value(&result.result)
+        .map_err(|e| CoreError::common(CommonError::General(format!("Serialize error: {}", e))))?;
 
-    let (columns, rows) =
-        match json["batches"].as_array().and_then(|batches| batches.first()) {
-            Some(batch) => {
-                let cols: Vec<String> = batch["columns"]
-                    .as_array()
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|c| c.as_str().map(String::from))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+    let (columns, rows) = match json["batches"]
+        .as_array()
+        .and_then(|batches| batches.first())
+    {
+        Some(batch) => {
+            let cols: Vec<String> = batch["columns"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|c| c.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
 
-                let rows_data: Vec<Vec<serde_json::Value>> = batch["rows"]
-                    .as_array()
-                    .map(|arr| {
-                        arr.iter()
-                            .map(|row| row.as_array().cloned().unwrap_or_default())
-                            .collect()
-                    })
-                    .unwrap_or_default();
+            let rows_data: Vec<Vec<serde_json::Value>> = batch["rows"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .map(|row| row.as_array().cloned().unwrap_or_default())
+                        .collect()
+                })
+                .unwrap_or_default();
 
-                (cols, rows_data)
-            }
-            None => (vec![], vec![]),
-        };
+            (cols, rows_data)
+        }
+        None => (vec![], vec![]),
+    };
 
     if columns.is_empty() {
         return Err(CoreError::common(CommonError::General(
@@ -206,35 +210,33 @@ pub(crate) async fn batch_evaluate_columns(
     };
 
     let result = service.execute(Some(conn_id), &sample_sql, opts).await?;
-    let json = serde_json::to_value(&result.result).map_err(|e| {
-        CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
-    })?;
+    let json = serde_json::to_value(&result.result)
+        .map_err(|e| CoreError::common(CommonError::General(format!("Serialize error: {}", e))))?;
 
-    let (col_names, rows_data) =
-        match json["batches"].as_array().and_then(|b| b.first()) {
-            Some(batch) => {
-                let cols: Vec<String> = batch["columns"]
-                    .as_array()
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|c| c.as_str().map(String::from))
-                            .collect()
-                    })
-                    .unwrap_or_default();
+    let (col_names, rows_data) = match json["batches"].as_array().and_then(|b| b.first()) {
+        Some(batch) => {
+            let cols: Vec<String> = batch["columns"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|c| c.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
 
-                let rows: Vec<Vec<serde_json::Value>> = batch["rows"]
-                    .as_array()
-                    .map(|arr| {
-                        arr.iter()
-                            .map(|row| row.as_array().cloned().unwrap_or_default())
-                            .collect()
-                    })
-                    .unwrap_or_default();
+            let rows: Vec<Vec<serde_json::Value>> = batch["rows"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .map(|row| row.as_array().cloned().unwrap_or_default())
+                        .collect()
+                })
+                .unwrap_or_default();
 
-                (cols, rows)
-            }
-            None => (vec![], vec![]),
-        };
+            (cols, rows)
+        }
+        None => (vec![], vec![]),
+    };
 
     if col_names.is_empty() {
         return Ok(crate::core::services::result_service::TableQuality {
@@ -261,7 +263,5 @@ pub(crate) async fn batch_evaluate_columns(
         }
     }
 
-    Ok(crate::core::services::quality_scorer::compute_table_quality(
-        table, &stats_list,
-    ))
+    Ok(crate::core::services::quality_scorer::compute_table_quality(table, &stats_list))
 }

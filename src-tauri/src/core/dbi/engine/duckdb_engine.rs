@@ -1,23 +1,22 @@
 /**
  * DuckDB 本地加速/联邦查询引擎
- * 
+ *
  * 负责：
  * - 外部数据库 ATTACH/DETACH 管理
  * - 联邦查询执行
  * - 结果集管理（会话级/持久化）
  * - 文件数据源加载（CSV/Excel/Parquet）
  */
-
 use std::sync::{Arc, Mutex};
 
 use crate::core::dbi::context::QueryContext;
 use crate::core::dbi::engine::ExecutionEngine;
-use crate::core::error::CoreError;
 use crate::core::error::CommonError;
+use crate::core::error::CoreError;
 use crate::core::error::DatabaseError;
 use crate::core::models::QueryResult;
 use crate::core::DuckDBManager;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 /// 外部数据库连接信息
 #[derive(Debug, Clone)]
@@ -51,15 +50,19 @@ impl ExternalConnection {
 
     /// 解密连接字符串
     pub fn decrypt_connection_string(&self) -> Result<String, CoreError> {
-        let decoded = BASE64.decode(&self.connection_string)
-            .map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to decrypt connection string: {}", e),
-            )))?;
-        
-        String::from_utf8(decoded)
-            .map_err(|e| CoreError::common(CommonError::General(
-                format!("Invalid UTF-8 in decrypted connection string: {}", e),
+        let decoded = BASE64.decode(&self.connection_string).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to decrypt connection string: {}",
+                e
             )))
+        })?;
+
+        String::from_utf8(decoded).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Invalid UTF-8 in decrypted connection string: {}",
+                e
+            )))
+        })
     }
 }
 
@@ -170,7 +173,10 @@ const EXTENSION_MANIFEST: &[ExtensionInfo] = &[
 ];
 
 fn mutex_lock_err(e: std::sync::PoisonError<impl std::fmt::Debug>) -> CoreError {
-    CoreError::common(CommonError::General(format!("DuckDB mutex poison: {:?}", e)))
+    CoreError::common(CommonError::General(format!(
+        "DuckDB mutex poison: {:?}",
+        e
+    )))
 }
 
 impl DuckDBEngine {
@@ -237,30 +243,28 @@ impl DuckDBEngine {
         connection_string: &str,
     ) -> Result<(), CoreError> {
         let mut connections = self.external_connections.lock().map_err(mutex_lock_err)?;
-        
+
         if connections.iter().any(|c| c.name == name) {
-            return Err(CoreError::common(CommonError::General(
-                format!("External database '{}' already registered", name),
-            )));
+            return Err(CoreError::common(CommonError::General(format!(
+                "External database '{}' already registered",
+                name
+            ))));
         }
 
-        let external_conn = ExternalConnection::new_encrypted(
-            name,
-            driver,
-            connection_string,
-            true,
-        );
+        let external_conn =
+            ExternalConnection::new_encrypted(name, driver, connection_string, true);
 
         let conn_arc = self.get_conn_arc()?;
         let conn = conn_arc.lock().map_err(mutex_lock_err)?;
         let decrypted = external_conn.decrypt_connection_string()?;
         let sql = format!("ATTACH '{}' AS {} (READ_ONLY)", decrypted, name);
-        conn.execute(&sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "attach".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         drop(conn);
 
         connections.push(external_conn);
@@ -275,12 +279,13 @@ impl DuckDBEngine {
         let conn_arc = self.get_conn_arc()?;
         let conn = conn_arc.lock().map_err(mutex_lock_err)?;
         let sql = format!("DETACH {}", name);
-        conn.execute(&sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "detach".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -293,11 +298,12 @@ impl DuckDBEngine {
         storage: ResultSetStorage,
     ) -> Result<(), CoreError> {
         let mut sets = self.result_sets.lock().map_err(mutex_lock_err)?;
-        
+
         if sets.iter().any(|s| s.name == name) {
-            return Err(CoreError::common(CommonError::General(
-                format!("Result set '{}' already exists", name),
-            )));
+            return Err(CoreError::common(CommonError::General(format!(
+                "Result set '{}' already exists",
+                name
+            ))));
         }
 
         let conn_arc = self.get_conn_arc()?;
@@ -311,12 +317,13 @@ impl DuckDBEngine {
             }
         };
 
-        conn.execute(&create_sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&create_sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "create_result_set".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         drop(conn);
 
         sets.push(ResultSetInfo {
@@ -337,19 +344,21 @@ impl DuckDBEngine {
         let conn_arc = self.get_conn_arc()?;
         let conn = conn_arc.lock().map_err(mutex_lock_err)?;
         let sql = format!("DROP TABLE IF EXISTS {}", name);
-        conn.execute(&sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "drop_result_set".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(())
     }
 
     /// 获取所有结果集
     pub async fn list_result_sets(&self) -> Vec<ResultSetInfo> {
-        self.result_sets.lock()
+        self.result_sets
+            .lock()
             .map(|guard| guard.clone())
             .unwrap_or_default()
     }
@@ -360,23 +369,34 @@ impl DuckDBEngine {
         let conn = conn_arc.lock().map_err(mutex_lock_err)?;
 
         let sql = if path.ends_with(".csv") {
-            format!("CREATE TEMP TABLE IF NOT EXISTS {} AS SELECT * FROM read_csv_auto('{}')", table_name, path)
+            format!(
+                "CREATE TEMP TABLE IF NOT EXISTS {} AS SELECT * FROM read_csv_auto('{}')",
+                table_name, path
+            )
         } else if path.ends_with(".parquet") {
-            format!("CREATE TEMP TABLE IF NOT EXISTS {} AS SELECT * FROM read_parquet('{}')", table_name, path)
+            format!(
+                "CREATE TEMP TABLE IF NOT EXISTS {} AS SELECT * FROM read_parquet('{}')",
+                table_name, path
+            )
         } else if path.ends_with(".xlsx") || path.ends_with(".xls") {
-            format!("CREATE TEMP TABLE IF NOT EXISTS {} AS SELECT * FROM read_excel_auto('{}')", table_name, path)
+            format!(
+                "CREATE TEMP TABLE IF NOT EXISTS {} AS SELECT * FROM read_excel_auto('{}')",
+                table_name, path
+            )
         } else {
-            return Err(CoreError::common(CommonError::NotSupported(
-                format!("Unsupported file type: {}", path),
-            )));
+            return Err(CoreError::common(CommonError::NotSupported(format!(
+                "Unsupported file type: {}",
+                path
+            ))));
         };
 
-        conn.execute(&sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "load_file".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -386,29 +406,37 @@ impl DuckDBEngine {
         let conn_arc = self.get_conn_arc()?;
         let conn = conn_arc.lock().map_err(mutex_lock_err)?;
 
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt.column_names()
+        let columns: Vec<String> = stmt
+            .column_names()
             .iter()
             .map(|name| name.to_string())
             .collect();
 
-        let mut rows = stmt.query([])
+        let mut rows = stmt
+            .query([])
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
         while let Ok(Some(row)) = rows.next() {
-            let values: Vec<duckdb::types::Value> = columns.iter().enumerate()
+            let values: Vec<duckdb::types::Value> = columns
+                .iter()
+                .enumerate()
                 .map(|(i, _)| {
-                    row.get::<usize, duckdb::types::Value>(i).unwrap_or(duckdb::types::Value::Null)
+                    row.get::<usize, duckdb::types::Value>(i)
+                        .unwrap_or(duckdb::types::Value::Null)
                 })
                 .collect();
             row_data.push(values);
         }
 
         let sql_upper = sql.trim_start().to_uppercase();
-        let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("SHOW") || sql_upper.starts_with("DESCRIBE");
+        let is_read_only = sql_upper.starts_with("SELECT")
+            || sql_upper.starts_with("SHOW")
+            || sql_upper.starts_with("DESCRIBE");
         let row_count = row_data.len();
 
         let batch = if row_count > 0 {
@@ -434,7 +462,8 @@ impl DuckDBEngine {
             )));
         }
 
-        let involved_sources: Vec<&str> = connections.iter()
+        let involved_sources: Vec<&str> = connections
+            .iter()
             .filter(|c| sql.contains(&c.name))
             .map(|c| c.name.as_str())
             .collect();
@@ -452,7 +481,8 @@ impl DuckDBEngine {
 
     /// 获取所有已注册的外部数据库
     pub async fn list_external_connections(&self) -> Vec<ExternalConnection> {
-        self.external_connections.lock()
+        self.external_connections
+            .lock()
             .map(|guard| guard.clone())
             .unwrap_or_default()
     }
@@ -472,14 +502,19 @@ impl DuckDBEngine {
 
         let escaped = ext_dir.replace('\'', "''");
         conn.execute_batch(&format!("SET extension_directory = '{}'", escaped))
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "duckdb".to_string(),
-                operation: "set_extension_dir".to_string(),
-                source: e.to_string(),
-            }))?;
+            .map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "duckdb".to_string(),
+                    operation: "set_extension_dir".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
 
         // 仅加载 P0 扩展（P1 扩展通过 load_extension_by_name 按需加载）
-        for ext in EXTENSION_MANIFEST.iter().filter(|e| matches!(e.priority, ExtensionPriority::P0)) {
+        for ext in EXTENSION_MANIFEST
+            .iter()
+            .filter(|e| matches!(e.priority, ExtensionPriority::P0))
+        {
             let load_sql = format!("LOAD '{}'", ext.file);
             match conn.execute_batch(&load_sql) {
                 Ok(()) => {
@@ -488,7 +523,10 @@ impl DuckDBEngine {
                 Err(e) => {
                     tracing::warn!(
                         "DuckDB 扩展加载失败: {} ({}), 文件: {}, 错误: {}",
-                        ext.display, ext.name, ext.file, e
+                        ext.display,
+                        ext.name,
+                        ext.file,
+                        e
                     );
                 }
             }
@@ -506,10 +544,7 @@ impl DuckDBEngine {
             .iter()
             .find(|e| e.name == ext_name)
             .ok_or_else(|| {
-                CoreError::common(CommonError::General(format!(
-                    "未知扩展: {}",
-                    ext_name
-                )))
+                CoreError::common(CommonError::General(format!("未知扩展: {}", ext_name)))
             })?;
 
         let load_sql = format!("LOAD '{}'", ext.file);
@@ -531,20 +566,22 @@ impl DuckDBEngine {
         let conn = conn_arc.lock().map_err(mutex_lock_err)?;
 
         let install_sql = format!("INSTALL {}", extension_name);
-        conn.execute(&install_sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&install_sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "install_extension".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         let load_sql = format!("LOAD {}", extension_name);
-        conn.execute(&load_sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&load_sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "load_extension".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -586,7 +623,7 @@ impl DuckDBEngine {
 
         for ext in extensions {
             if let Err(e) = self.install_extension(ext).await {
-                eprintln!("Warning: Failed to install extension {}: {}", ext, e);
+                tracing::warn!("Warning: Failed to install extension {}: {}", ext, e);
             }
         }
 
@@ -601,25 +638,25 @@ fn duckdb_value_to_value(row: &duckdb::Row, index: usize) -> crate::core::models
             return crate::core::models::Value::Int(v);
         }
     }
-    
+
     if let Ok(value) = row.get::<_, Option<f64>>(index) {
         if let Some(v) = value {
             return crate::core::models::Value::Float(v);
         }
     }
-    
+
     if let Ok(value) = row.get::<_, Option<String>>(index) {
         if let Some(v) = value {
             return crate::core::models::Value::Text(v);
         }
     }
-    
+
     if let Ok(value) = row.get::<_, Option<Vec<u8>>>(index) {
         if let Some(v) = value {
             return crate::core::models::Value::Bytes(v);
         }
     }
-    
+
     crate::core::models::Value::Null
 }
 
@@ -635,7 +672,7 @@ impl ExecutionEngine for DuckDBEngine {
 
     fn supports(&self, sql: &str) -> bool {
         let sql_upper = sql.trim_start().to_uppercase();
-        
+
         // DuckDB 加速模式不支持写操作
         if sql_upper.starts_with("INSERT")
             || sql_upper.starts_with("UPDATE")

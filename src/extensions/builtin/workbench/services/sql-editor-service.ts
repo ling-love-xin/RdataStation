@@ -9,7 +9,38 @@ import * as monaco from 'monaco-editor'
 
 import type { SqlDialect } from '@/shared/types/sql'
 
-// 缓存的表结构信息
+interface SqlExecutionResult {
+  result?: {
+    columns?: string[]
+    rows?: unknown[][]
+    total_rows?: number
+    affected_rows?: number
+  }
+  elapsed_ms?: number
+  truncated?: boolean
+}
+
+interface ValidateSqlResult {
+  valid: boolean
+  errors?: string[]
+}
+
+interface FormatSqlResult {
+  success: boolean
+  formatted_sql?: string
+}
+
+interface TranspileSqlResult {
+  success: boolean
+  transpiled_sql?: string
+}
+
+interface ParseSqlResult {
+  success: boolean
+  statements_count: number
+  error?: string
+}
+
 interface TableSchema {
   name: string
   columns: string[]
@@ -21,11 +52,10 @@ interface DatabaseSchema {
   functions: string[]
 }
 
-// 缓存项（带 TTL）
 interface SchemaCacheItem {
   data: DatabaseSchema
   timestamp: number
-  ttl: number // 毫秒
+  ttl: number
 }
 
 // 缓存
@@ -70,13 +100,13 @@ export async function getDatabaseSchema(
         : `SELECT table_name FROM information_schema.tables WHERE table_catalog = '${database.replace(/'/g, "''")}' ORDER BY table_name LIMIT 20`
     }
 
-    const tablesResult: any = await invoke('execute_sql', {
+    const tablesResult = await invoke<SqlExecutionResult>('execute_sql', {
       input: { conn_id: connectionId, sql: tablesSql, timeout_ms: 5000 },
     })
 
-    const tableRows: string[][] = tablesResult?.result?.rows || []
+    const tableRows: unknown[][] = tablesResult?.result?.rows || []
     const tableNames = tableRows
-      .map((r: any) => String(Array.isArray(r) ? r[0] : (r.name ?? r.table_name ?? '')))
+      .map((r: unknown[]) => String(Array.isArray(r) ? r[0] : ''))
       .filter(Boolean)
 
     // 获取每个表的列信息
@@ -92,16 +122,14 @@ export async function getDatabaseSchema(
             : `SELECT column_name FROM information_schema.columns WHERE table_catalog = '${database.replace(/'/g, "''")}' AND table_name = '${tableName.replace(/'/g, "''")}' ORDER BY ordinal_position`
         }
 
-        const colsResult: any = await invoke('execute_sql', {
+        const colsResult = await invoke<SqlExecutionResult>('execute_sql', {
           input: { conn_id: connectionId, sql: colsSql, timeout_ms: 5000 },
         })
 
-        const colRows: string[][] = colsResult?.result?.rows || []
-        // SQLite PRAGMA table_info: [cid, name, type, notnull, dflt_value, pk]
-        // information_schema.columns: [column_name]
+        const colRows: unknown[][] = colsResult?.result?.rows || []
         const colNames = colRows
-          .map((r: any) =>
-            String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : (r.name ?? r.column_name ?? ''))
+          .map((r: unknown[]) =>
+            String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : '')
           )
           .filter(Boolean)
 
@@ -109,8 +137,8 @@ export async function getDatabaseSchema(
           name: tableName,
           columns: colNames,
         })
-      } catch (e) {
-        console.warn(`Failed to get columns for ${tableName}:`, e)
+      } catch {
+        // column fetch failed for this table, skip it
       }
     }
 
@@ -127,9 +155,8 @@ export async function getDatabaseSchema(
       ttl: CACHE_TTL,
     })
     return dbSchema
-  } catch (error) {
-    console.error('Failed to get database schema:', error)
-    return null
+  } catch {
+    return { tables: [] }
   }
 }
 
@@ -244,7 +271,7 @@ export async function validateSql(
   const markers: monaco.editor.IMarkerData[] = []
 
   try {
-    const result = await invoke<any>('validate_sql', {
+    const result = await invoke<ValidateSqlResult>('validate_sql', {
       input: {
         sql,
         dialect: dialect || 'generic',
@@ -263,8 +290,7 @@ export async function validateSql(
         })
       })
     }
-  } catch (error) {
-    console.error('SQL validation failed:', error)
+  } catch {
     // 降级到基础检查
     const basicMarkers = basicValidateSql(sql)
     markers.push(...basicMarkers)
@@ -319,7 +345,7 @@ function basicValidateSql(sql: string): monaco.editor.IMarkerData[] {
  */
 export async function formatSql(sql: string, dialect?: SqlDialect): Promise<string> {
   try {
-    const result = await invoke<any>('format_sql', {
+    const result = await invoke<FormatSqlResult>('format_sql', {
       input: {
         sql,
         dialect: dialect || 'generic',
@@ -332,9 +358,9 @@ export async function formatSql(sql: string, dialect?: SqlDialect): Promise<stri
       // 静默返回原始 SQL，不打印警告
       return sql
     }
-  } catch (error) {
+  } catch {
     // 静默返回原始 SQL
-    return sql
+      return sql
   }
 }
 
@@ -347,7 +373,7 @@ export async function transpileSql(
   targetDialect: SqlDialect
 ): Promise<string> {
   try {
-    const result = await invoke<any>('transpile_sql', {
+    const result = await invoke<TranspileSqlResult>('transpile_sql', {
       input: {
         sql,
         source_dialect: sourceDialect,
@@ -357,12 +383,9 @@ export async function transpileSql(
 
     if (result.success) {
       return result.transpiled_sql
-    } else {
-      console.warn('SQL transpilation failed:', result.error)
-      return sql
     }
-  } catch (error) {
-    console.error('Failed to transpile SQL:', error)
+    return sql
+  } catch {
     return sql
   }
 }
@@ -375,7 +398,7 @@ export async function parseSql(
   dialect?: SqlDialect
 ): Promise<{ success: boolean; statementsCount: number; error?: string }> {
   try {
-    const result = await invoke<any>('parse_sql', {
+    const result = await invoke<ParseSqlResult>('parse_sql', {
       sql,
       dialect: dialect || 'generic',
     })
@@ -386,7 +409,6 @@ export async function parseSql(
       error: result.error,
     }
   } catch (error) {
-    console.error('Failed to parse SQL:', error)
     return {
       success: false,
       statementsCount: 0,
@@ -449,7 +471,7 @@ export function registerSqlFoldingProvider(): monaco.IDisposable {
             ranges.push({
               start: commentStart,
               end: i + 1,
-              kind: 'comment' as unknown as monaco.languages.FoldingRangeKind,
+              kind: monaco.languages.FoldingRangeKind.Comment,
             })
           }
           commentStart = null

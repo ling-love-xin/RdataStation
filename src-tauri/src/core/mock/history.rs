@@ -19,9 +19,9 @@ impl MockHistoryStore {
 
     fn ensure_table() -> MockResult<()> {
         let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = duckdb
+            .lock()
+            .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
 
         conn.execute_batch(&format!(
             "CREATE TABLE IF NOT EXISTS \"{}\" (
@@ -43,11 +43,13 @@ impl MockHistoryStore {
         Self::ensure_table()?;
 
         let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = duckdb
+            .lock()
+            .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
 
-        let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+        let now = chrono::Utc::now()
+            .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+            .to_string();
         let id = format!("mock_{}", fast_nano_id());
         let config_json = serde_json::to_string(config).unwrap_or_else(|_| "{}".to_string());
 
@@ -101,14 +103,14 @@ impl MockHistoryStore {
         Self::ensure_table()?;
 
         let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = duckdb
+            .lock()
+            .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
 
         let sql = format!(
             "SELECT id, table_name, row_count, seed, config_json, generated_at, status FROM \"{}\" ORDER BY generated_at DESC LIMIT {}",
             HISTORY_TABLE,
-            limit.max(1).min(500)
+            limit.clamp(1, 500)
         );
 
         let mut stmt = conn.prepare(&sql)?;
@@ -135,9 +137,9 @@ impl MockHistoryStore {
         Self::ensure_table()?;
 
         let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = duckdb
+            .lock()
+            .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
 
         let sql = format!(
             "SELECT id, table_name, row_count, seed, config_json, generated_at, status FROM \"{}\" WHERE id = ?",
@@ -167,9 +169,9 @@ impl MockHistoryStore {
         Self::ensure_table()?;
 
         let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = duckdb
+            .lock()
+            .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
 
         let count: i64 = conn.query_row(
             &format!("SELECT COUNT(*) FROM \"{}\"", HISTORY_TABLE),

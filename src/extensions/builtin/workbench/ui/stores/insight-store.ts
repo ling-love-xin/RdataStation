@@ -41,8 +41,6 @@ export const useInsightStore = defineStore('insight', () => {
   const insightData = ref<ColumnInsightFull | null>(null)
   const isLoading = ref(false)
   const isSaving = ref(false)
-  const isOpen = ref(true)
-
   const autoOpenVisualization = ref(false)
 
   const error = ref<string | null>(null)
@@ -193,7 +191,6 @@ export const useInsightStore = defineStore('insight', () => {
     if (isLoading.value) return
     if (!tempTable || !column) return
 
-    isOpen.value = true
     isLoading.value = true
     error.value = null
     savedVersionId.value = null
@@ -264,12 +261,9 @@ export const useInsightStore = defineStore('insight', () => {
     isSaving.value = false
     savedVersionId.value = null
     multiResult.value = null
-    isOpen.value = false
   }
 
-  function closeInsight(): void {
-    isOpen.value = false
-  }
+
 
   function clearMultiResult() {
     multiResult.value = null
@@ -295,8 +289,7 @@ export const useInsightStore = defineStore('insight', () => {
 
     isReloadingRules.value = true
     try {
-      const count = await reloadInsightRules(projectPath)
-      console.info(`[insightStore] Hot-reloaded ${count} insight rules`)
+      await reloadInsightRules(projectPath)
       await loadMultiRules()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -543,7 +536,6 @@ export const useInsightStore = defineStore('insight', () => {
     insightData,
     isLoading,
     isSaving,
-    isOpen,
     autoOpenVisualization,
     error,
     history,
@@ -607,7 +599,6 @@ export const useInsightStore = defineStore('insight', () => {
     tableProfileReloadKey,
     triggerTableProfileReload,
 
-    closeInsight,
     loadColumnInsight,
     saveCurrentInsight,
     loadHistory,

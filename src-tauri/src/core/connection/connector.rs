@@ -74,14 +74,12 @@ pub struct DirectConnector;
 impl Connector for DirectConnector {
     async fn connect(&self, config: &ConnectionConfig) -> Result<ConnectionStream, CoreError> {
         let addr = format!("{}:{}", config.host, config.port);
-        let stream = TcpStream::connect(&addr)
-            .await
-            .map_err(|e| {
-                CoreError::connection(ConnectionError::Network {
-                    conn_id: addr.clone(),
-                    reason: e.to_string(),
-                })
-            })?;
+        let stream = TcpStream::connect(&addr).await.map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: addr.clone(),
+                reason: e.to_string(),
+            })
+        })?;
 
         Ok(ConnectionStream::tcp(stream))
     }
@@ -110,14 +108,12 @@ impl Connector for SslConnector {
 
         // 首先建立 TCP 连接
         let addr = format!("{}:{}", config.host, config.port);
-        let tcp_stream = TcpStream::connect(&addr)
-            .await
-            .map_err(|e| {
-                CoreError::connection(ConnectionError::Network {
-                    conn_id: addr.clone(),
-                    reason: e.to_string(),
-                })
-            })?;
+        let tcp_stream = TcpStream::connect(&addr).await.map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: addr.clone(),
+                reason: e.to_string(),
+            })
+        })?;
 
         // 建立 TLS 连接
         let tls_stream = establish_tls(tcp_stream, &config.host, ssl_config).await?;
@@ -154,15 +150,12 @@ async fn establish_tls(
         })?;
 
     let tokio_connector = TokioTlsConnector::from(connector);
-    let tls_stream = tokio_connector
-        .connect(domain, stream)
-        .await
-        .map_err(|e| {
-            CoreError::connection(ConnectionError::Tls {
-                conn_id: domain.to_string(),
-                reason: e.to_string(),
-            })
-        })?;
+    let tls_stream = tokio_connector.connect(domain, stream).await.map_err(|e| {
+        CoreError::connection(ConnectionError::Tls {
+            conn_id: domain.to_string(),
+            reason: e.to_string(),
+        })
+    })?;
 
     Ok(tls_stream)
 }
@@ -204,14 +197,12 @@ async fn establish_ssh_tunnel(
 
     // 1. 连接到 SSH 服务器
     let ssh_addr = format!("{}:{}", ssh_config.host, ssh_config.port);
-    let _ssh_stream = TcpStream::connect(&ssh_addr)
-        .await
-        .map_err(|e| {
-            CoreError::connection(ConnectionError::Network {
-                conn_id: ssh_addr.clone(),
-                reason: format!("Failed to connect to SSH server: {}", e),
-            })
-        })?;
+    let _ssh_stream = TcpStream::connect(&ssh_addr).await.map_err(|e| {
+        CoreError::connection(ConnectionError::Network {
+            conn_id: ssh_addr.clone(),
+            reason: format!("Failed to connect to SSH server: {}", e),
+        })
+    })?;
 
     // 2. 进行 SSH 认证（根据 auth 类型）
     // TODO: 实现 SSH 认证逻辑
@@ -241,14 +232,12 @@ async fn establish_ssh_tunnel(
     })?;
 
     // 4. 连接到本地端口（这将通过 SSH 隧道转发到远程）
-    let local_stream = TcpStream::connect(local_addr)
-        .await
-        .map_err(|e| {
-            CoreError::connection(ConnectionError::Network {
-                conn_id: local_addr.to_string(),
-                reason: format!("Failed to connect to local port: {}", e),
-            })
-        })?;
+    let local_stream = TcpStream::connect(local_addr).await.map_err(|e| {
+        CoreError::connection(ConnectionError::Network {
+            conn_id: local_addr.to_string(),
+            reason: format!("Failed to connect to local port: {}", e),
+        })
+    })?;
 
     Ok(local_stream)
 }
@@ -286,14 +275,12 @@ async fn establish_http_proxy(
 ) -> Result<TcpStream, CoreError> {
     // 连接到代理服务器
     let proxy_addr = format!("{}:{}", proxy_config.host, proxy_config.port);
-    let mut stream = TcpStream::connect(&proxy_addr)
-        .await
-        .map_err(|e| {
-            CoreError::connection(ConnectionError::Network {
-                conn_id: proxy_addr.clone(),
-                reason: format!("Failed to connect to HTTP proxy: {}", e),
-            })
-        })?;
+    let mut stream = TcpStream::connect(&proxy_addr).await.map_err(|e| {
+        CoreError::connection(ConnectionError::Network {
+            conn_id: proxy_addr.clone(),
+            reason: format!("Failed to connect to HTTP proxy: {}", e),
+        })
+    })?;
 
     // 发送 HTTP CONNECT 请求
     let target = format!("{}:{}", config.host, config.port);
@@ -409,8 +396,8 @@ async fn establish_socks_proxy(
 
 // 添加 base64 编码支持
 mod base64 {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
-    
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
     pub fn encode(input: impl AsRef<[u8]>) -> String {
         STANDARD.encode(input.as_ref())
     }

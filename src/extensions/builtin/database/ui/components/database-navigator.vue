@@ -368,7 +368,6 @@ const toggleFilter = () => {
 }
 
 const toggleView = () => {
-  console.log('切换视图')
 }
 
 const handleNewConnection = () => {
@@ -377,7 +376,6 @@ const handleNewConnection = () => {
 
 const handleDisconnect = async () => {
   if (currentConnection.value) {
-    console.log('断开连接:', currentConnection.value.name)
     await navigatorStore.disconnectConnection(currentConnection.value.id)
     currentConnection.value = null
     stopTransactionTimer()
@@ -426,7 +424,6 @@ const handleBeginTransaction = async () => {
       transactionDuration.value += 1000
     }, 1000)
 
-    console.log('事务已开始')
   } catch (error) {
     console.error('开始事务失败:', error)
     showErrorMessage(
@@ -442,7 +439,6 @@ const handleCommitTransaction = async () => {
   try {
     await connectionStore.commitTransaction(currentConnection.value.id)
     stopTransactionTimer()
-    console.log('事务已提交')
   } catch (error) {
     console.error('提交事务失败:', error)
     showErrorMessage(
@@ -458,7 +454,6 @@ const handleRollbackTransaction = async () => {
   try {
     await connectionStore.rollbackTransaction(currentConnection.value.id)
     stopTransactionTimer()
-    console.log('事务已回滚')
   } catch (error) {
     console.error('回滚事务失败:', error)
     showErrorMessage(
@@ -656,27 +651,22 @@ function cleanupDragDropListeners() {
 
 function handleOpenCreateTable(event: Event) {
   const detail = (event as CustomEvent).detail
-  console.log('打开创建表对话框:', detail)
 }
 
 function handleOpenCreateView(event: Event) {
   const detail = (event as CustomEvent).detail
-  console.log('打开创建视图对话框:', detail)
 }
 
 function handleOpenCreateFunction(event: Event) {
   const detail = (event as CustomEvent).detail
-  console.log('打开创建函数对话框:', detail)
 }
 
 function handleOpenCreateProcedure(event: Event) {
   const detail = (event as CustomEvent).detail
-  console.log('打开创建存储过程对话框:', detail)
 }
 
 function handleOpenSqlEditor(event: Event) {
   const detail = (event as CustomEvent).detail
-  console.log('打开 SQL 编辑器:', detail)
 }
 
 function handleOpenTableData(event: Event) {
@@ -695,7 +685,6 @@ function handleOpenTableDdl(event: Event) {
 
 function handleOpenConnectionEditor(event: Event) {
   const detail = (event as CustomEvent).detail
-  console.log('打开连接编辑器:', detail)
 }
 
 // 键盘快捷键 - 必须在所有函数定义之后初始化
@@ -719,31 +708,24 @@ const handleContextMenuRefresh = async () => {
 }
 
 const handleContextMenuCopyName = () => {
-  console.log('复制名称')
 }
 
 const handleContextMenuOpenTable = () => {
-  console.log('打开表')
 }
 
 const handleContextMenuOpenView = () => {
-  console.log('打开视图')
 }
 
 const handleExpandAll = () => {
-  console.log('展开全部')
 }
 
 const handleCollapseAll = () => {
-  console.log('折叠全部')
 }
 
 const handleContextMenuRefreshSchema = async () => {
-  console.log('刷新 Schema')
 }
 
 const handleContextMenuRefreshDatabase = async () => {
-  console.log('刷新数据库')
 }
 
 async function loadGlobalConnections() {

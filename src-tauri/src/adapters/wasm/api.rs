@@ -1,5 +1,4 @@
 /// WASM 插件 API 模块
-
 use serde::{Deserialize, Serialize};
 
 /// WASM 插件 API 请求

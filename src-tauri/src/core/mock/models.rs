@@ -1,3 +1,4 @@
+use crate::core::models::QueryResult;
 use serde::{Deserialize, Serialize};
 
 // ==================== 核心配置 ====================
@@ -39,14 +40,9 @@ pub enum ColumnDataType {
     BigInt,
     Float,
     Double,
-    Decimal {
-        precision: u8,
-        scale: u8,
-    },
+    Decimal { precision: u8, scale: u8 },
     Boolean,
-    Varchar {
-        length: Option<usize>,
-    },
+    Varchar { length: Option<usize> },
     Text,
     Date,
     DateTime,
@@ -110,6 +106,19 @@ pub enum GeneratorConfig {
     Digit,
     NumberWithFormat {
         fmt: String,
+    },
+    Normal {
+        mean: f64,
+        std_dev: f64,
+    },
+    LogNormal {
+        median: f64,
+        dispersion: f64,
+    },
+    RandomWalk {
+        start: f64,
+        step: f64,
+        volatility: f64,
     },
     Boolean {
         ratio: u8,
@@ -224,6 +233,15 @@ pub enum GeneratorConfig {
     },
     Time,
     Duration,
+    SequentialDate {
+        start: String,
+        step_seconds: i64,
+    },
+    SequentialDateWithGaps {
+        start: String,
+        step_seconds: i64,
+        miss_probability: f64,
+    },
 
     // 商业类
     CompanyName,
@@ -355,13 +373,13 @@ pub enum Locale {
 
 // ==================== 生成结果 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MockGenerateResult {
     pub table_name: String,
     pub temp_table_name: String,
     pub row_count: usize,
-    pub preview: Vec<Vec<serde_json::Value>>,
+    pub preview: QueryResult,
     pub columns: Vec<String>,
     pub elapsed_ms: u64,
 }

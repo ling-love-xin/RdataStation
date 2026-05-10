@@ -1,7 +1,7 @@
-use crate::core::error::CoreError;
 use crate::core::error::CommonError;
+use crate::core::error::CoreError;
 use crate::core::get_connection_manager;
-use crate::core::services::sql_service::{SqlService, SqlExecuteOptions};
+use crate::core::services::sql_service::{SqlExecuteOptions, SqlService};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,7 +82,8 @@ impl SchemaAnalyzer {
         let service = SqlService::new(manager);
 
         let all_columns = Self::fetch_all_columns(&service, Some(conn_id.clone()), schema).await?;
-        let all_tables = Self::fetch_all_tables(&service, Some(conn_id.clone()), database, schema).await?;
+        let all_tables =
+            Self::fetch_all_tables(&service, Some(conn_id.clone()), database, schema).await?;
 
         let table_count = all_tables.len();
         let total_columns = all_columns.len();
@@ -137,9 +138,9 @@ impl SchemaAnalyzer {
         };
 
         let result = service.execute(conn_id, &sql, opts).await?;
-        let json = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
-            CommonError::General(format!("Serialize error: {}", e))
-        ))?;
+        let json = serde_json::to_value(&result.result).map_err(|e| {
+            CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
+        })?;
 
         let tables = Self::get_batch_rows(&json)
             .map(|rows| {
@@ -180,69 +181,79 @@ impl SchemaAnalyzer {
         };
 
         let result = service.execute(conn_id, &sql, opts).await?;
-        let json = serde_json::to_value(&result.result).map_err(|e| CoreError::common(
-            CommonError::General(format!("Serialize error: {}", e))
-        ))?;
+        let json = serde_json::to_value(&result.result).map_err(|e| {
+            CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
+        })?;
 
         let (col_names, rows) = Self::parse_batch_schema(&json);
-        let col_idx = |name: &str| -> Option<usize> {
-            col_names.iter().position(|c| c == name)
-        };
+        let col_idx = |name: &str| -> Option<usize> { col_names.iter().position(|c| c == name) };
 
-        let columns: Vec<TableColumnInfo> = rows.iter().filter_map(|row| {
-            let table = row.get(col_idx("table_name")?)?.as_str()?.to_string();
-            let column = row.get(col_idx("column_name")?)?.as_str()?.to_string();
-            let dtype = row.get(col_idx("data_type")?)?.as_str()?.to_string();
-            let nullable = row.get(col_idx("is_nullable")?)
-                .and_then(|v| v.as_str()).unwrap_or("YES").to_string();
-            let key = row.get(col_idx("column_key")?)
-                .and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let ord = row.get(col_idx("ordinal_position")?)
-                .and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let columns: Vec<TableColumnInfo> = rows
+            .iter()
+            .filter_map(|row| {
+                let table = row.get(col_idx("table_name")?)?.as_str()?.to_string();
+                let column = row.get(col_idx("column_name")?)?.as_str()?.to_string();
+                let dtype = row.get(col_idx("data_type")?)?.as_str()?.to_string();
+                let nullable = row
+                    .get(col_idx("is_nullable")?)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("YES")
+                    .to_string();
+                let key = row
+                    .get(col_idx("column_key")?)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let ord = row
+                    .get(col_idx("ordinal_position")?)
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0) as i32;
 
-            Some(TableColumnInfo {
-                table_name: table,
-                column_name: column,
-                data_type: dtype,
-                is_nullable: nullable,
-                column_key: key,
-                ordinal_position: ord,
+                Some(TableColumnInfo {
+                    table_name: table,
+                    column_name: column,
+                    data_type: dtype,
+                    is_nullable: nullable,
+                    column_key: key,
+                    ordinal_position: ord,
+                })
             })
-        }).collect();
+            .collect();
 
         Ok(columns)
     }
 
     fn find_compound_fk_target(
-    base_prefix: &str,
-    table_set: &std::collections::HashSet<&str>,
-) -> Option<(String, String)> {
-    let parts: Vec<&str> = base_prefix.split('_').collect();
+        base_prefix: &str,
+        table_set: &std::collections::HashSet<&str>,
+    ) -> Option<(String, String)> {
+        let parts: Vec<&str> = base_prefix.split('_').collect();
 
-    for i in 0..parts.len() {
-        let candidate_prefix = parts[i..].join("_");
-        let plural = format!("{}s", candidate_prefix);
+        for i in 0..parts.len() {
+            let candidate_prefix = parts[i..].join("_");
+            let plural = format!("{}s", candidate_prefix);
 
-        let target = if table_set.contains(plural.as_str()) {
-            plural
-        } else if table_set.contains(candidate_prefix.as_str()) {
-            candidate_prefix
-        } else {
-            continue;
-        };
+            let target = if table_set.contains(plural.as_str()) {
+                plural
+            } else if table_set.contains(candidate_prefix.as_str()) {
+                candidate_prefix
+            } else {
+                continue;
+            };
 
-        return Some((target.clone(), target));
+            return Some((target.clone(), target));
+        }
+
+        None
     }
-
-    None
-}
 
     fn infer_foreign_keys(
         columns: &[TableColumnInfo],
         tables: &[String],
     ) -> Vec<ForeignKeyCandidate> {
         let mut candidates = Vec::new();
-        let table_set: std::collections::HashSet<&str> = tables.iter().map(|t| t.as_str()).collect();
+        let table_set: std::collections::HashSet<&str> =
+            tables.iter().map(|t| t.as_str()).collect();
 
         let fk_patterns: &[(&str, &str)] = &[
             ("_id$", "id"),
@@ -257,9 +268,10 @@ impl SchemaAnalyzer {
             }
 
             for (suffix, target_col) in fk_patterns {
-                if let Some(prefix_end) = col.column_name.strip_suffix(&suffix[1..suffix.len()-1]) {
+                if let Some(prefix_end) = col.column_name.strip_suffix(&suffix[1..suffix.len() - 1])
+                {
                     let base_prefix = if prefix_end.ends_with('_') {
-                        &prefix_end[..prefix_end.len()-1]
+                        &prefix_end[..prefix_end.len() - 1]
                     } else {
                         prefix_end
                     };
@@ -321,7 +333,8 @@ impl SchemaAnalyzer {
             let has_diff = entries.iter().any(|(_, dt)| dt.to_lowercase() != base_type);
 
             if has_diff {
-                let type_map: HashMap<&str, &str> = entries.iter().map(|(t, dt)| (*t, *dt)).collect();
+                let type_map: HashMap<&str, &str> =
+                    entries.iter().map(|(t, dt)| (*t, *dt)).collect();
                 let unique_types: std::collections::HashSet<_> = type_map.values().collect();
 
                 let severity = if unique_types.len() >= 3 {
@@ -334,10 +347,13 @@ impl SchemaAnalyzer {
 
                 mismatches.push(TypeMismatch {
                     column_name: col_name.to_string(),
-                    tables: type_map.iter().map(|(t, dt)| TypeMismatchEntry {
-                        table_name: t.to_string(),
-                        data_type: dt.to_string(),
-                    }).collect(),
+                    tables: type_map
+                        .iter()
+                        .map(|(t, dt)| TypeMismatchEntry {
+                            table_name: t.to_string(),
+                            data_type: dt.to_string(),
+                        })
+                        .collect(),
                     severity: severity.into(),
                 });
             }
@@ -352,10 +368,7 @@ impl SchemaAnalyzer {
         mismatches
     }
 
-    fn detect_orphan_tables(
-        tables: &[String],
-        columns: &[TableColumnInfo],
-    ) -> Vec<OrphanTable> {
+    fn detect_orphan_tables(tables: &[String], columns: &[TableColumnInfo]) -> Vec<OrphanTable> {
         use std::collections::HashSet;
 
         let table_set: HashSet<&str> = tables.iter().map(|t| t.as_str()).collect();
@@ -365,7 +378,7 @@ impl SchemaAnalyzer {
             for suffix in &["_id", "_key", "_ref", "_uuid"] {
                 if let Some(prefix) = col.column_name.strip_suffix(suffix) {
                     let target_singular = if prefix.ends_with('_') {
-                        &prefix[..prefix.len()-1]
+                        &prefix[..prefix.len() - 1]
                     } else {
                         prefix
                     };
@@ -378,12 +391,11 @@ impl SchemaAnalyzer {
             }
         }
 
-        let mut orphans: Vec<OrphanTable> = tables.iter()
+        let mut orphans: Vec<OrphanTable> = tables
+            .iter()
             .filter(|t| !refs_from.contains(t.as_str()))
             .map(|t| {
-                let col_count = columns.iter()
-                    .filter(|c| c.table_name == *t)
-                    .count();
+                let col_count = columns.iter().filter(|c| c.table_name == *t).count();
                 OrphanTable {
                     table_name: t.to_string(),
                     column_count: col_count,
@@ -405,24 +417,38 @@ impl SchemaAnalyzer {
 
         let mut by_name: HashMap<&str, Vec<&str>> = HashMap::new();
         for col in columns {
-            by_name.entry(col.column_name.as_str()).or_default().push(col.table_name.as_str());
+            by_name
+                .entry(col.column_name.as_str())
+                .or_default()
+                .push(col.table_name.as_str());
         }
 
-        let mut redundant: Vec<RedundantColumn> = by_name.iter()
+        let mut redundant: Vec<RedundantColumn> = by_name
+            .iter()
             .filter(|(_, tables)| tables.len() >= 3)
             .filter(|(name, _)| {
                 let n = **name;
-                n == "created_at" || n == "updated_at" || n == "deleted_at"
-                    || n == "created_by" || n == "updated_by"
-                    || n == "status" || n == "is_active" || n == "is_deleted"
-                    || n.ends_with("_at") || n.ends_with("_by")
+                n == "created_at"
+                    || n == "updated_at"
+                    || n == "deleted_at"
+                    || n == "created_by"
+                    || n == "updated_by"
+                    || n == "status"
+                    || n == "is_active"
+                    || n == "is_deleted"
+                    || n.ends_with("_at")
+                    || n.ends_with("_by")
             })
             .map(|(name, tables)| RedundantColumn {
                 column_name: (*name).to_string(),
                 table_count: tables.len(),
                 tables: tables.iter().map(|t| t.to_string()).collect(),
                 suggestion: if tables.len() >= 5 {
-                    format!("\"{}\" 出现在 {} 张表中，考虑使用审计表统一管理", name, tables.len())
+                    format!(
+                        "\"{}\" 出现在 {} 张表中，考虑使用审计表统一管理",
+                        name,
+                        tables.len()
+                    )
                 } else {
                     format!("\"{}\" 出现在 {} 张表中，可考虑规范化", name, tables.len())
                 },
@@ -446,18 +472,27 @@ impl SchemaAnalyzer {
 
         let mut score = 80.0f64;
 
-        let high_conf_fks = fk_candidates.iter().filter(|f| f.confidence == "high").count();
+        let high_conf_fks = fk_candidates
+            .iter()
+            .filter(|f| f.confidence == "high")
+            .count();
         if table_count > 1 && high_conf_fks == 0 {
             score -= 15.0;
         } else if high_conf_fks > 0 {
             score += (high_conf_fks as f64).min(15.0);
         }
 
-        let critical_mismatches = type_mismatches.iter().filter(|m| m.severity == "critical").count();
+        let critical_mismatches = type_mismatches
+            .iter()
+            .filter(|m| m.severity == "critical")
+            .count();
         if critical_mismatches > 0 {
             score -= critical_mismatches as f64 * 5.0;
         }
-        let warning_mismatches = type_mismatches.iter().filter(|m| m.severity == "warning").count();
+        let warning_mismatches = type_mismatches
+            .iter()
+            .filter(|m| m.severity == "warning")
+            .count();
         score -= warning_mismatches as f64 * 2.0;
 
         let orphan_ratio = if table_count > 0 {
@@ -491,7 +526,10 @@ impl SchemaAnalyzer {
 
         let fk_count = fk_candidates.len();
         if fk_count > 0 {
-            parts.push(format!("{} 个外键候选 (高置信 {})", fk_count, high_conf_fks));
+            parts.push(format!(
+                "{} 个外键候选 (高置信 {})",
+                fk_count, high_conf_fks
+            ));
         } else if table_count > 1 {
             parts.push("未检测到外键关系".into());
         }
@@ -506,7 +544,9 @@ impl SchemaAnalyzer {
 
         let summary = format!(
             "Schema健康评分 {:.0} ({})。{}",
-            score, level, parts.join("；")
+            score,
+            level,
+            parts.join("；")
         );
 
         (score, level.into(), summary)
@@ -524,7 +564,11 @@ impl SchemaAnalyzer {
             Some(batch) => {
                 let cols: Vec<String> = batch["columns"]
                     .as_array()
-                    .map(|arr| arr.iter().filter_map(|c| c.as_str().map(String::from)).collect())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|c| c.as_str().map(String::from))
+                            .collect()
+                    })
                     .unwrap_or_default();
 
                 let rows: Vec<Vec<serde_json::Value>> = batch["rows"]
@@ -589,10 +633,7 @@ mod tests {
             make_col("line_items", "id", "int", "PRI"),
             make_col("shipments", "order_line_item_id", "int", "MUL"),
         ];
-        let tables: Vec<String> = vec![
-            "shipments".into(),
-            "line_items".into(),
-        ];
+        let tables: Vec<String> = vec!["shipments".into(), "line_items".into()];
         let fks = SchemaAnalyzer::infer_foreign_keys(&cols, &tables);
         assert_eq!(fks.len(), 1);
         assert_eq!(fks[0].source_table, "shipments");
@@ -701,8 +742,16 @@ mod tests {
     fn test_compute_health_with_critical_mismatches() {
         let fks: Vec<ForeignKeyCandidate> = vec![];
         let mismatches = vec![
-            TypeMismatch { column_name: "x".into(), tables: vec![], severity: "critical".into() },
-            TypeMismatch { column_name: "y".into(), tables: vec![], severity: "critical".into() },
+            TypeMismatch {
+                column_name: "x".into(),
+                tables: vec![],
+                severity: "critical".into(),
+            },
+            TypeMismatch {
+                column_name: "y".into(),
+                tables: vec![],
+                severity: "critical".into(),
+            },
         ];
         let orphans: Vec<OrphanTable> = vec![];
         let (score, _, _) = SchemaAnalyzer::compute_health(3, 10, &fks, &mismatches, &orphans);
@@ -714,12 +763,28 @@ mod tests {
         let fks: Vec<ForeignKeyCandidate> = vec![];
         let mismatches: Vec<TypeMismatch> = vec![];
         let orphans = vec![
-            OrphanTable { table_name: "a".into(), column_count: 3, reason: "x".into() },
-            OrphanTable { table_name: "b".into(), column_count: 3, reason: "x".into() },
-            OrphanTable { table_name: "c".into(), column_count: 3, reason: "x".into() },
+            OrphanTable {
+                table_name: "a".into(),
+                column_count: 3,
+                reason: "x".into(),
+            },
+            OrphanTable {
+                table_name: "b".into(),
+                column_count: 3,
+                reason: "x".into(),
+            },
+            OrphanTable {
+                table_name: "c".into(),
+                column_count: 3,
+                reason: "x".into(),
+            },
         ];
         let (score, _, _) = SchemaAnalyzer::compute_health(4, 12, &fks, &mismatches, &orphans);
-        assert!(score < 70.0, "Expected score < 70 with many orphans, got {}", score);
+        assert!(
+            score < 70.0,
+            "Expected score < 70 with many orphans, got {}",
+            score
+        );
     }
 
     #[test]

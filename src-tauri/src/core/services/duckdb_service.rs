@@ -6,8 +6,7 @@ use crate::core::DuckDBManager;
 pub(crate) struct DuckDbService;
 
 impl DuckDbService {
-    pub fn get_or_create_duckdb(
-    ) -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
+    pub fn get_or_create_duckdb() -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
         DuckDBManager::global().get_or_create_in_memory()
     }
 
@@ -27,8 +26,7 @@ impl DuckDbService {
         columns: &[String],
         rows: &[Vec<serde_json::Value>],
     ) -> Result<String, CoreError> {
-        let table_name =
-            format!("rs_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
+        let table_name = format!("rs_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
         let col_defs: Vec<String> = columns
             .iter()
             .enumerate()
@@ -55,8 +53,7 @@ impl DuckDbService {
         })?;
 
         if !rows.is_empty() {
-            let placeholders: Vec<String> =
-                (0..columns.len()).map(|_| "?".to_string()).collect();
+            let placeholders: Vec<String> = (0..columns.len()).map(|_| "?".to_string()).collect();
             let insert_sql = format!(
                 "INSERT INTO \"{}\" VALUES ({})",
                 table_name,
@@ -77,10 +74,7 @@ impl DuckDbService {
                     .map(|p| p as &dyn duckdb::types::ToSql)
                     .collect();
                 stmt.execute(&params_refs[..]).map_err(|e| {
-                    CoreError::common(CommonError::General(format!(
-                        "Insert row failed: {}",
-                        e
-                    )))
+                    CoreError::common(CommonError::General(format!("Insert row failed: {}", e)))
                 })?;
             }
         }
@@ -118,19 +112,13 @@ impl DuckDbService {
                     .collect::<Result<Vec<serde_json::Value>, duckdb::Error>>()
             })
             .map_err(|e| {
-                CoreError::common(CommonError::General(format!(
-                    "DuckDB query failed: {}",
-                    e
-                )))
+                CoreError::common(CommonError::General(format!("DuckDB query failed: {}", e)))
             })?;
 
         let mut rows = Vec::new();
         for r in rows_result {
             rows.push(r.map_err(|e| {
-                CoreError::common(CommonError::General(format!(
-                    "DuckDB row error: {}",
-                    e
-                )))
+                CoreError::common(CommonError::General(format!("DuckDB row error: {}", e)))
             })?);
         }
 
@@ -284,8 +272,7 @@ impl DuckDbService {
         use crate::core::duckdb::DuckDBManager;
         use crate::core::error::CommonError;
 
-        let arc =
-            DuckDBManager::global().get_or_create_in_memory()?;
+        let arc = DuckDBManager::global().get_or_create_in_memory()?;
         let conn = arc.lock().map_err(|e| {
             crate::core::error::CoreError::common(CommonError::General(format!(
                 "DuckDB lock error during export: {}",
@@ -315,12 +302,7 @@ impl DuckDbService {
 pub(crate) fn is_datetime_type(dt_lower: &str) -> bool {
     matches!(
         dt_lower,
-        "date"
-            | "timestamp"
-            | "datetime"
-            | "time"
-            | "timestamp with time zone"
-            | "timestamptz"
+        "date" | "timestamp" | "datetime" | "time" | "timestamp with time zone" | "timestamptz"
     )
 }
 
@@ -333,10 +315,17 @@ pub(crate) fn is_json_type(dt_lower: &str) -> bool {
 }
 
 pub(crate) fn is_array_type(dt_lower: &str) -> bool {
-    dt_lower.starts_with('[') || dt_lower.ends_with(']') || dt_lower.contains("list") || dt_lower.contains("array")
+    dt_lower.starts_with('[')
+        || dt_lower.ends_with(']')
+        || dt_lower.contains("list")
+        || dt_lower.contains("array")
 }
 
-pub(crate) fn detect_extremes(_min: f64, _max: f64, _stddev: f64) -> Vec<crate::core::services::result_service::ExtremeValue> {
+pub(crate) fn detect_extremes(
+    _min: f64,
+    _max: f64,
+    _stddev: f64,
+) -> Vec<crate::core::services::result_service::ExtremeValue> {
     let mut results = Vec::new();
     if _stddev > 0.0 && _max > 0.0 {
         let range = _max - _min;

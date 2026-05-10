@@ -19,6 +19,7 @@ export type ColumnDataType =
 
 export type GeneratorType =
   | 'auto_increment' | 'random_int' | 'random_float' | 'random_decimal'
+  | 'normal' | 'log_normal' | 'random_walk'
   | 'digit' | 'number_with_format' | 'boolean'
   | 'constant' | 'words' | 'word' | 'sentence' | 'sentences'
   | 'paragraph' | 'paragraphs' | 'regex' | 'template'
@@ -35,7 +36,8 @@ export type GeneratorType =
   | 'latitude' | 'longitude' | 'geohash' | 'timezone'
   | 'ip_address' | 'ipv4' | 'ipv6' | 'ip' | 'mac_address'
   | 'datetime' | 'datetime_before' | 'datetime_after'
-  | 'datetime_between' | 'date' | 'time' | 'duration'
+  | 'datetime_between' | 'sequential_date' | 'sequential_date_with_gaps'
+  | 'date' | 'time' | 'duration'
   | 'company_name' | 'company_suffix' | 'job_title'
   | 'profession' | 'industry' | 'seniority' | 'field'
   | 'position' | 'buzzword' | 'buzzword_middle' | 'buzzword_tail'
@@ -89,7 +91,7 @@ export interface MockGenerateResult {
   tableName: string
   tempTableName: string
   rowCount: number
-  preview: Array<Array<unknown>>
+  preview: { columns: string[]; rows: unknown[][] }
   columns: string[]
   elapsedMs: number
 }
@@ -180,6 +182,35 @@ export interface MockGenerationColumn {
 
 export interface MockColumnInput {
   id: string
+  columnName: string
+  columnType: string
+  generator: string
+  generatorParams: string | null
+  nullRatio: number
+  isUnique: boolean
+  isPrimaryKey: boolean
+  isForeignKey: boolean
+  refTable: string | null
+  refColumn: string | null
+  comment: string | null
+  confidence: string | null
+  sortOrder: number
+}
+
+export interface MockUserTemplate {
+  id: string
+  name: string
+  description: string | null
+  rowCount: number
+  seed: number | null
+  locale: string
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export interface MockTemplateColumn {
+  id: string
+  templateId: string
   columnName: string
   columnType: string
   generator: string
@@ -344,7 +375,7 @@ export const mockApi = {
   },
 
   preview(tableName: string, limit: number) {
-    return tauriInvoke<Array<Array<unknown>>>('mock_preview', { tableName, limit })
+    return tauriInvoke<{ columns: string[]; rows: unknown[][] }>('mock_preview', { tableName, limit })
   },
 
   exportData(input: MockExportInput) {
@@ -448,5 +479,42 @@ export const mockApi = {
 
   deleteTask(projectPath: string, taskId: string) {
     return tauriInvoke<void>('delete_mock_generation_task', { projectPath, taskId })
+  },
+
+  // ==================== 模板持久化 API ====================
+
+  saveTemplate(projectPath: string, template: MockUserTemplate, columns: MockTemplateColumn[]) {
+    return tauriInvoke<string>('save_mock_template', {
+      projectPath,
+      template,
+      columns: columns.map(c => ({
+        id: c.id,
+        templateId: template.id,
+        columnName: c.columnName,
+        columnType: c.columnType,
+        generator: c.generator,
+        generatorParams: c.generatorParams ?? null,
+        nullRatio: c.nullRatio ?? 0,
+        isUnique: c.isUnique ?? false,
+        isPrimaryKey: c.isPrimaryKey ?? false,
+        isForeignKey: c.isForeignKey ?? false,
+        refTable: c.refTable ?? null,
+        refColumn: c.refColumn ?? null,
+        comment: c.comment ?? null,
+        confidence: c.confidence ?? null,
+        sortOrder: c.sortOrder,
+      })),
+    })
+  },
+
+  getTemplates(projectPath: string) {
+    return tauriInvoke<MockUserTemplate[]>('get_mock_templates', { projectPath })
+  },
+
+  getTemplateDetail(projectPath: string, templateId: string) {
+    return tauriInvoke<[MockUserTemplate, MockTemplateColumn[]]>(
+      'get_mock_template_detail',
+      { projectPath, templateId }
+    )
   },
 }

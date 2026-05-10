@@ -14,7 +14,7 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::core::error::{CoreError, CommonError, StorageError};
+use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::persistence::project_db::ProjectDuckdbConnection;
 
 use super::super::services::result_service::ColumnInsightFull;
@@ -42,21 +42,27 @@ impl InsightColumnStore {
 
         let existing_count = self.count_versions(&column_name).await?;
         if existing_count >= MAX_VERSIONS_PER_COLUMN {
-            self.evict_oldest_version(&column_name, existing_count - MAX_VERSIONS_PER_COLUMN + 1).await?;
+            self.evict_oldest_version(&column_name, existing_count - MAX_VERSIONS_PER_COLUMN + 1)
+                .await?;
         }
 
         let snapshot_id = Uuid::new_v4().to_string();
         let version_id = Uuid::new_v4().to_string();
-        let stats_json = serde_json::to_string(insight).map_err(|e| CoreError::common(
-            CommonError::General(format!("Serialize insight failed: {}", e))
-        ))?;
+        let stats_json = serde_json::to_string(insight).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Serialize insight failed: {}",
+                e
+            )))
+        })?;
         let checksum = sha256_hex(&stats_json);
 
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
         conn.execute(
             "INSERT INTO insight_column_snapshots (snapshot_id, column_name, data_type, stats_json, version_id, parent_version_id, checksum, created_at)
@@ -85,9 +91,11 @@ impl InsightColumnStore {
     ) -> Result<Option<ColumnInsightFull>, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
         let result: Option<String> = conn.query_row(
             "SELECT stats_json FROM insight_column_snapshots WHERE column_name = ? ORDER BY created_at DESC LIMIT 1",
@@ -97,9 +105,12 @@ impl InsightColumnStore {
 
         match result {
             Some(json) => {
-                let insight: ColumnInsightFull = serde_json::from_str(&json).map_err(|e| CoreError::common(
-                    CommonError::General(format!("Deserialize insight failed: {}", e))
-                ))?;
+                let insight: ColumnInsightFull = serde_json::from_str(&json).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Deserialize insight failed: {}",
+                        e
+                    )))
+                })?;
                 Ok(Some(insight))
             }
             None => Ok(None),
@@ -113,9 +124,11 @@ impl InsightColumnStore {
     ) -> Result<Vec<InsightVersionEntry>, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
         let limit_val = limit.unwrap_or(20) as i64;
         let mut stmt = conn.prepare(
@@ -127,9 +140,8 @@ impl InsightColumnStore {
             reason: e.to_string(),
         }))?;
 
-        let entries: Vec<InsightVersionEntry> = stmt.query_map(
-            duckdb::params![column_name, limit_val],
-            |row| {
+        let entries: Vec<InsightVersionEntry> = stmt
+            .query_map(duckdb::params![column_name, limit_val], |row| {
                 Ok(InsightVersionEntry {
                     snapshot_id: row.get(0)?,
                     column_name: row.get(1)?,
@@ -140,12 +152,16 @@ impl InsightColumnStore {
                     checksum: row.get(6)?,
                     created_at: row.get::<_, String>(7)?,
                 })
-            }
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "query_insight_history".to_string(),
-            reason: e.to_string(),
-        }))?.filter_map(|r| r.ok()).collect();
+            })
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "duckdb".to_string(),
+                    operation: "query_insight_history".to_string(),
+                    reason: e.to_string(),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(entries)
     }
@@ -156,21 +172,29 @@ impl InsightColumnStore {
     ) -> Result<Option<ColumnInsightFull>, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
-        let result: Option<String> = conn.query_row(
-            "SELECT stats_json FROM insight_column_snapshots WHERE version_id = ?",
-            duckdb::params![version_id],
-            |row| row.get(0),
-        ).ok().flatten();
+        let result: Option<String> = conn
+            .query_row(
+                "SELECT stats_json FROM insight_column_snapshots WHERE version_id = ?",
+                duckdb::params![version_id],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
 
         match result {
             Some(json) => {
-                let insight: ColumnInsightFull = serde_json::from_str(&json).map_err(|e| CoreError::common(
-                    CommonError::General(format!("Deserialize insight failed: {}", e))
-                ))?;
+                let insight: ColumnInsightFull = serde_json::from_str(&json).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Deserialize insight failed: {}",
+                        e
+                    )))
+                })?;
                 Ok(Some(insight))
             }
             None => Ok(None),
@@ -180,18 +204,23 @@ impl InsightColumnStore {
     pub async fn delete_snapshot(&self, snapshot_id: &str) -> Result<(), CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
         conn.execute(
             "DELETE FROM insight_column_snapshots WHERE snapshot_id = ?",
             duckdb::params![snapshot_id],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "delete_insight_snapshot".to_string(),
-            reason: e.to_string(),
-        }))?;
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "duckdb".to_string(),
+                operation: "delete_insight_snapshot".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
 
         Ok(())
     }
@@ -202,32 +231,42 @@ impl InsightColumnStore {
     pub async fn count_versions(&self, column_name: &str) -> Result<usize, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM insight_column_snapshots WHERE column_name = ?",
-            duckdb::params![column_name],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "count_versions".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM insight_column_snapshots WHERE column_name = ?",
+                duckdb::params![column_name],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "duckdb".to_string(),
+                    operation: "count_versions".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(count as usize)
     }
 
     /// 淘汰指定列最旧的 N 个版本（版本链保持不变）
     async fn evict_oldest_version(&self, column_name: &str, count: usize) -> Result<(), CoreError> {
-        if count == 0 { return Ok(()); }
+        if count == 0 {
+            return Ok(());
+        }
 
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
         conn.execute(
             "DELETE FROM insight_column_snapshots WHERE snapshot_id IN (
@@ -235,11 +274,14 @@ impl InsightColumnStore {
                 WHERE column_name = ? ORDER BY created_at ASC LIMIT ?
             )",
             duckdb::params![column_name, count as i64],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "evict_oldest_version".to_string(),
-            reason: e.to_string(),
-        }))?;
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "duckdb".to_string(),
+                operation: "evict_oldest_version".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
 
         Ok(())
     }
@@ -250,19 +292,25 @@ impl InsightColumnStore {
     pub async fn cleanup_older_than(&self, days: i64) -> Result<i64, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
-        let deleted = conn.execute(
-            "DELETE FROM insight_column_snapshots
+        let deleted = conn
+            .execute(
+                "DELETE FROM insight_column_snapshots
              WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL ? DAY)",
-            duckdb::params![days],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "cleanup_older_than".to_string(),
-            reason: e.to_string(),
-        }))?;
+                duckdb::params![days],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "duckdb".to_string(),
+                    operation: "cleanup_older_than".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(deleted as i64)
     }
@@ -271,22 +319,33 @@ impl InsightColumnStore {
     pub async fn get_storage_stats(&self) -> Result<InsightStorageStats, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
-        let conn = guard.as_mut().ok_or_else(|| CoreError::common(
-            CommonError::General("DuckDB connection is closed".to_string())
-        ))?;
+        let conn = guard.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            ))
+        })?;
 
-        let total_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM insight_column_snapshots", [], |row| row.get(0)
-        ).unwrap_or(0);
+        let total_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM insight_column_snapshots", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(0);
 
-        let unique_columns: i64 = conn.query_row(
-            "SELECT COUNT(DISTINCT column_name) FROM insight_column_snapshots", [], |row| row.get(0)
-        ).unwrap_or(0);
+        let unique_columns: i64 = conn
+            .query_row(
+                "SELECT COUNT(DISTINCT column_name) FROM insight_column_snapshots",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
-        let total_size_approx: f64 = conn.query_row(
-            "SELECT COALESCE(SUM(LENGTH(stats_json)), 0)::DOUBLE FROM insight_column_snapshots",
-            [], |row| row.get(0)
-        ).unwrap_or(0.0);
+        let total_size_approx: f64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(LENGTH(stats_json)), 0)::DOUBLE FROM insight_column_snapshots",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0.0);
 
         Ok(InsightStorageStats {
             total_snapshots: total_count as usize,
@@ -313,9 +372,12 @@ pub struct InsightVersionEntry {
 
 impl InsightVersionEntry {
     pub fn parse_insight(&self) -> Result<ColumnInsightFull, CoreError> {
-        serde_json::from_str(&self.stats_json).map_err(|e| CoreError::common(
-            CommonError::General(format!("Parse insight from version entry failed: {}", e))
-        ))
+        serde_json::from_str(&self.stats_json).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Parse insight from version entry failed: {}",
+                e
+            )))
+        })
     }
 }
 
@@ -348,9 +410,7 @@ impl InsightTableReportStore {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
         let conn = guard.as_mut().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "DuckDB connection is closed".into(),
-            ))
+            CoreError::common(CommonError::General("DuckDB connection is closed".into()))
         })?;
         conn.execute(
             "CREATE TABLE IF NOT EXISTS insight_table_reports \
@@ -377,16 +437,11 @@ impl InsightTableReportStore {
         Ok(())
     }
 
-    pub async fn load_table_quality(
-        &self,
-        table_name: &str,
-    ) -> Result<Option<String>, CoreError> {
+    pub async fn load_table_quality(&self, table_name: &str) -> Result<Option<String>, CoreError> {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
         let conn = guard.as_mut().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "DuckDB connection is closed".into(),
-            ))
+            CoreError::common(CommonError::General("DuckDB connection is closed".into()))
         })?;
         let result: Option<String> = conn
             .query_row(
@@ -419,9 +474,7 @@ impl InsightSchemaReportStore {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
         let conn = guard.as_mut().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "DuckDB connection is closed".into(),
-            ))
+            CoreError::common(CommonError::General("DuckDB connection is closed".into()))
         })?;
         conn.execute(
             "CREATE TABLE IF NOT EXISTS insight_schema_reports \
@@ -455,9 +508,7 @@ impl InsightSchemaReportStore {
         let duckdb_conn = self.duckdb.acquire().await?;
         let mut guard = duckdb_conn.lock().await;
         let conn = guard.as_mut().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "DuckDB connection is closed".into(),
-            ))
+            CoreError::common(CommonError::General("DuckDB connection is closed".into()))
         })?;
         let result: Option<String> = conn
             .query_row(
@@ -492,7 +543,7 @@ impl InsightStorage {
 // ==================== 工具函数 ====================
 
 fn sha256_hex(input: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     format!("{:x}", hasher.finalize())

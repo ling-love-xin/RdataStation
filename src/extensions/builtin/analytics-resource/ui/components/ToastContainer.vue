@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <Teleport to="body">
     <div class="toast-container">
       <TransitionGroup name="toast">
@@ -92,7 +92,7 @@ function toggleDetail(id: number) {
 }
 
 .toast-icon {
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -103,7 +103,7 @@ function toggleDetail(id: number) {
 }
 
 .toast-message {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   line-height: 1.4;
 }
@@ -113,7 +113,7 @@ function toggleDetail(id: number) {
   padding: 8px;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
   max-height: 150px;
@@ -125,7 +125,7 @@ function toggleDetail(id: number) {
 .toast-toggle {
   background: none;
   border: none;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   cursor: pointer;
   padding: 2px;
@@ -140,7 +140,7 @@ function toggleDetail(id: number) {
 .toast-close {
   background: none;
   border: none;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   color: var(--text-tertiary);
   cursor: pointer;
   padding: 2px 4px;

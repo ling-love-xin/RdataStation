@@ -44,6 +44,15 @@ import type {
   Language,
   DefaultEngine,
   EditorSettings,
+  ConnectionPoolSettings,
+  HistorySettings,
+  MonitoringSettings,
+  PerformanceSettings,
+  AppearanceSettings,
+  ResultSettings,
+  TitleBarSettings,
+  StatusBarSettings,
+  CommandPaletteSettings,
   GlobalConfig,
   ProjectConfig,
   SerializedDockviewLayout,
@@ -202,6 +211,62 @@ export const useAppStore = defineStore('appConfig', () => {
   const effectiveSidebarState = computed<SerializedSidebarState | undefined>(
     () => projectConfig.value.sidebarState
   )
+
+  const effectiveConnectionPool = computed<ConnectionPoolSettings>(
+    () => globalConfig.value.connectionPool
+  )
+
+  const effectiveHistorySettings = computed<HistorySettings>(
+    () => globalConfig.value.historySettings
+  )
+
+  const effectiveMonitoringSettings = computed<MonitoringSettings>(
+    () => globalConfig.value.monitoringSettings
+  )
+
+  const effectivePerformanceSettings = computed<PerformanceSettings>(
+    () => globalConfig.value.performanceSettings
+  )
+
+  const effectiveAppearanceSettings = computed<AppearanceSettings>(
+    () => globalConfig.value.appearanceSettings
+  )
+
+  const effectiveResultSettings = computed<ResultSettings>(() => {
+    const base = globalConfig.value.resultSettings
+    const projectOverride = projectConfig.value.resultSettings
+    if (projectOverride) {
+      return { ...base, ...projectOverride }
+    }
+    return base
+  })
+
+  const effectiveTitleBarSettings = computed<TitleBarSettings>(() => {
+    const base = structuredClone(DEFAULT_GLOBAL_CONFIG.titleBarSettings)
+    Object.assign(base, globalConfig.value.titleBarSettings)
+    if (projectConfig.value.titleBarSettings) {
+      Object.assign(base, projectConfig.value.titleBarSettings)
+    }
+    return base
+  })
+
+  const effectiveStatusBarSettings = computed<StatusBarSettings>(() => {
+    const base = structuredClone(DEFAULT_GLOBAL_CONFIG.statusBarSettings)
+    Object.assign(base, globalConfig.value.statusBarSettings)
+    if (projectConfig.value.statusBarSettings) {
+      Object.assign(base, projectConfig.value.statusBarSettings)
+    }
+    return base
+  })
+
+  const effectiveCommandPaletteSettings = computed<CommandPaletteSettings>(() => {
+    const base = structuredClone(DEFAULT_GLOBAL_CONFIG.commandPaletteSettings)
+    Object.assign(base, globalConfig.value.commandPaletteSettings)
+    if (projectConfig.value.commandPaletteSettings) {
+      Object.assign(base, projectConfig.value.commandPaletteSettings)
+    }
+    return base
+  })
 
   function getConfig<T>(key: ConfigKey): T {
     return getConfigInternal(key) as T
@@ -446,6 +511,60 @@ export const useAppStore = defineStore('appConfig', () => {
     return saveConfig(CONFIG_KEYS.SIDEBAR_STATE, state, 'project')
   }
 
+  async function setConnectionPool(
+    settings: ConnectionPoolSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.CONNECTION_POOL, settings, 'global')
+  }
+
+  async function setHistorySettings(
+    settings: HistorySettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.HISTORY_SETTINGS, settings, 'global')
+  }
+
+  async function setMonitoringSettings(
+    settings: MonitoringSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.MONITORING_SETTINGS, settings, 'global')
+  }
+
+  async function setPerformanceSettings(
+    settings: PerformanceSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.PERFORMANCE_SETTINGS, settings, 'global')
+  }
+
+  async function setAppearanceSettings(
+    settings: AppearanceSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.APPEARANCE_SETTINGS, settings, 'global')
+  }
+
+  async function setResultSettings(
+    settings: ResultSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.RESULT_SETTINGS, settings, 'global')
+  }
+
+  async function setTitleBarSettings(
+    settings: TitleBarSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.TITLE_BAR_SETTINGS, settings, 'global')
+  }
+
+  async function setStatusBarSettings(
+    settings: StatusBarSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.STATUS_BAR_SETTINGS, settings, 'global')
+  }
+
+  async function setCommandPaletteSettings(
+    settings: CommandPaletteSettings
+  ): Promise<SaveResult> {
+    return saveConfig(CONFIG_KEYS.COMMAND_PALETTE_SETTINGS, settings, 'global')
+  }
+
   async function initialize(): Promise<void> {
     if (initialized.value) {
       return
@@ -481,6 +600,9 @@ export const useAppStore = defineStore('appConfig', () => {
         await store.save()
       }
 
+      // 迁移旧版 localStorage 工具栏配置
+      await migrateToolbarSettings()
+
       registerBeforeUnloadHandler()
 
       initialized.value = true
@@ -490,6 +612,26 @@ export const useAppStore = defineStore('appConfig', () => {
       console.error('[useAppStore] Failed to initialize global store:', e)
       initError.value = message
       initialized.value = true
+    }
+  }
+
+  async function migrateToolbarSettings(): Promise<void> {
+    try {
+      const stored = localStorage.getItem('toolbar-tools')
+      if (!stored) return
+
+      const tools = JSON.parse(stored) as Array<{ id: string; enabled?: boolean }>
+      const enabledIds = tools.filter(t => t.enabled).map(t => t.id)
+
+      const current = structuredClone(globalConfig.value.titleBarSettings)
+      if (enabledIds.length > 0) {
+        current.toolbarTools = enabledIds
+        await saveConfig(CONFIG_KEYS.TITLE_BAR_SETTINGS, current, 'global')
+        localStorage.removeItem('toolbar-tools')
+        console.log('[useAppStore] Migrated toolbar settings from localStorage:', enabledIds)
+      }
+    } catch {
+      // ignore migration errors
     }
   }
 
@@ -725,6 +867,15 @@ export const useAppStore = defineStore('appConfig', () => {
     recentProjects,
     effectiveDockviewLayout,
     effectiveSidebarState,
+    effectiveConnectionPool,
+    effectiveHistorySettings,
+    effectiveMonitoringSettings,
+    effectivePerformanceSettings,
+    effectiveAppearanceSettings,
+    effectiveResultSettings,
+    effectiveTitleBarSettings,
+    effectiveStatusBarSettings,
+    effectiveCommandPaletteSettings,
 
     getConfig,
     saveConfig,
@@ -740,6 +891,15 @@ export const useAppStore = defineStore('appConfig', () => {
     removeRecentProject,
     saveDockviewLayout,
     saveSidebarState,
+    setConnectionPool,
+    setHistorySettings,
+    setMonitoringSettings,
+    setPerformanceSettings,
+    setAppearanceSettings,
+    setResultSettings,
+    setTitleBarSettings,
+    setStatusBarSettings,
+    setCommandPaletteSettings,
 
     initialize,
     reloadConfig,

@@ -1,3 +1,4 @@
+import { listen } from '@tauri-apps/api/event'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
@@ -39,6 +40,8 @@ export const useMockStore = defineStore('mock', () => {
   const previewLoading = ref(false)
   const generateLoading = ref(false)
   const lastResult = ref<MockGenerateResult | null>(null)
+  const generateProgress = ref(0)
+  const generateProgressTotal = ref(0)
   const lastHistories = ref<MockHistorySummary[]>([])
   const persistenceHistory = ref<MockGenerationTask[]>([])
   const persistenceLoading = ref(false)
@@ -83,11 +86,18 @@ export const useMockStore = defineStore('mock', () => {
 
   async function generate() {
     generateLoading.value = true
+    generateProgress.value = 0
+    generateProgressTotal.value = 0
     try {
+      const unlisten = await listen<{ current: number; total: number }>('mock:generate-progress', (event) => {
+        generateProgress.value = event.payload.current
+        generateProgressTotal.value = event.payload.total
+      })
       const result = await mockApi.generate(mockConfig.value)
+      unlisten()
       lastResult.value = result
       generatedTableName.value = result.tempTableName
-      previewData.value = result.preview
+      previewData.value = result.preview.rows
       generatedColumns.value = result.columns
       return result
     } finally {
@@ -111,7 +121,8 @@ export const useMockStore = defineStore('mock', () => {
     previewLoading.value = true
     try {
       const data = await mockApi.preview(tableName, limit)
-      previewData.value = data
+      previewData.value = data.rows
+      generatedColumns.value = data.columns
       return data
     } finally {
       previewLoading.value = false
@@ -281,6 +292,8 @@ export const useMockStore = defineStore('mock', () => {
     generatedColumns,
     previewLoading,
     generateLoading,
+    generateProgress,
+    generateProgressTotal,
     lastResult,
     lastHistories,
     persistenceHistory,

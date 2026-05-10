@@ -151,7 +151,7 @@ mod tests {
     fn test_core_err_macro() {
         let err = core_err!("test error");
         assert!(matches!(err, CoreError::Common(CommonError::General(_))));
-        
+
         let err = core_err!("formatted {} error", "test");
         assert!(matches!(err, CoreError::Common(CommonError::General(_))));
     }
@@ -159,19 +159,28 @@ mod tests {
     #[test]
     fn test_invalid_arg_macro() {
         let err = invalid_arg!("host", "cannot be empty");
-        assert!(matches!(err, CoreError::Common(CommonError::InvalidArgument { .. })));
+        assert!(matches!(
+            err,
+            CoreError::Common(CommonError::InvalidArgument { .. })
+        ));
     }
 
     #[test]
     fn test_not_supported_macro() {
         let err = not_supported!("feature");
-        assert!(matches!(err, CoreError::Common(CommonError::NotSupported(_))));
+        assert!(matches!(
+            err,
+            CoreError::Common(CommonError::NotSupported(_))
+        ));
     }
 
     #[test]
     fn test_timeout_macro() {
         let err = timeout!("operation", 5000);
-        assert!(matches!(err, CoreError::Common(CommonError::Timeout { .. })));
+        assert!(matches!(
+            err,
+            CoreError::Common(CommonError::Timeout { .. })
+        ));
     }
 
     #[test]

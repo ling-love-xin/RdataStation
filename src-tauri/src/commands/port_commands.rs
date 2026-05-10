@@ -2,7 +2,7 @@
 //!
 //! 处理端口分配、检查、释放等操作
 
-use crate::core::{PortNegotiator, PortRange, DEFAULT_PORT_RANGE, COMMON_DB_PORTS};
+use crate::core::{PortNegotiator, PortRange, COMMON_DB_PORTS, DEFAULT_PORT_RANGE};
 
 // ==================== Port Negotiation Commands ====================
 
@@ -41,7 +41,8 @@ pub async fn negotiate_port(input: NegotiatePortInput) -> Result<NegotiatePortRe
 
     let negotiator = PortNegotiator::with_range(range);
 
-    let port = negotiator.negotiate(input.preferred_port)
+    let port = negotiator
+        .negotiate(input.preferred_port)
         .map_err(|e| e.to_string())?;
 
     Ok(NegotiatePortResponse {
@@ -55,8 +56,9 @@ pub async fn negotiate_port(input: NegotiatePortInput) -> Result<NegotiatePortRe
 #[tauri::command]
 pub async fn negotiate_local_port(preferred: Option<u16>) -> Result<u16, String> {
     let negotiator = PortNegotiator::new();
-    
-    negotiator.negotiate_local_port(preferred)
+
+    negotiator
+        .negotiate_local_port(preferred)
         .map_err(|e| e.to_string())
 }
 
@@ -64,8 +66,9 @@ pub async fn negotiate_local_port(preferred: Option<u16>) -> Result<u16, String>
 #[tauri::command]
 pub async fn is_port_available(port: u16) -> Result<bool, String> {
     let negotiator = PortNegotiator::new();
-    
-    negotiator.is_port_available(port)
+
+    negotiator
+        .is_port_available(port)
         .map_err(|e| e.to_string())
 }
 
@@ -73,17 +76,17 @@ pub async fn is_port_available(port: u16) -> Result<bool, String> {
 #[tauri::command]
 pub async fn release_port(port: u16) -> Result<(), String> {
     let negotiator = PortNegotiator::new();
-    
-    negotiator.release_port(port)
-        .map_err(|e| e.to_string())
+
+    negotiator.release_port(port).map_err(|e| e.to_string())
 }
 
 /// 批量协商端口
 #[tauri::command]
 pub async fn negotiate_multiple_ports(count: usize) -> Result<Vec<u16>, String> {
     let negotiator = PortNegotiator::new();
-    
-    negotiator.negotiate_multiple(count)
+
+    negotiator
+        .negotiate_multiple(count)
         .map_err(|e| e.to_string())
 }
 
@@ -91,8 +94,9 @@ pub async fn negotiate_multiple_ports(count: usize) -> Result<Vec<u16>, String> 
 #[tauri::command]
 pub async fn negotiate_port_range(start: u16, count: usize) -> Result<Vec<u16>, String> {
     let negotiator = PortNegotiator::new();
-    
-    negotiator.negotiate_range(start, count)
+
+    negotiator
+        .negotiate_range(start, count)
         .map_err(|e| e.to_string())
 }
 

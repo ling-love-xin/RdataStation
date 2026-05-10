@@ -13,7 +13,7 @@ const NUMERIC_HEURISTICS = [
   'price', 'amount', 'total', 'qty', 'rate',
 ]
 
-function isLikelyNumeric(colName: string): boolean {
+export function isLikelyNumeric(colName: string): boolean {
   const lower = colName.toLowerCase()
   return NUMERIC_HEURISTICS.some(p => lower.includes(p) || lower.endsWith(p))
 }

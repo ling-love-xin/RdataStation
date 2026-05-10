@@ -36,33 +36,51 @@ impl ProjectConnectionStore {
     pub fn new(db_manager: std::sync::Arc<ProjectDatabaseManager>) -> Self {
         Self { db_manager }
     }
-    
+
     pub async fn create_connection(&self, conn: &ProjectConnection) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
-            "INSERT INTO connections (
+
+        sqlite
+            .inner()?
+            .execute(
+                "INSERT INTO connections (
                 id, name, driver, host, port, database, schema_name, username, password_encrypted,
                 options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
-            rusqlite::params![
-                conn.id, conn.name, conn.driver, conn.host, conn.port, conn.database,
-                conn.schema_name, conn.username, conn.password_encrypted, conn.options, conn.tags,
-                conn.use_duckdb_fed, conn.metadata_path, conn.is_active, conn.created_at, conn.updated_at
-            ],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "insert_connection".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
+                rusqlite::params![
+                    conn.id,
+                    conn.name,
+                    conn.driver,
+                    conn.host,
+                    conn.port,
+                    conn.database,
+                    conn.schema_name,
+                    conn.username,
+                    conn.password_encrypted,
+                    conn.options,
+                    conn.tags,
+                    conn.use_duckdb_fed,
+                    conn.metadata_path,
+                    conn.is_active,
+                    conn.created_at,
+                    conn.updated_at
+                ],
+            )
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "insert_connection".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         Ok(())
     }
-    
+
     pub async fn update_connection(&self, conn: &ProjectConnection) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "UPDATE connections SET
                 name = ?2, driver = ?3, host = ?4, port = ?5, database = ?6,
                 schema_name = ?7, username = ?8, password_encrypted = ?9, options = ?10,
@@ -78,29 +96,31 @@ impl ProjectConnectionStore {
             operation: "update_connection".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         Ok(())
     }
-    
+
     pub async fn delete_connection(&self, id: &str) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
-            "DELETE FROM connections WHERE id = ?1",
-            [id],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "delete_connection".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
+
+        sqlite
+            .inner()?
+            .execute("DELETE FROM connections WHERE id = ?1", [id])
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_connection".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         Ok(())
     }
-    
+
     pub async fn get_connection(&self, id: &str) -> Result<Option<ProjectConnection>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let mut stmt = sqlite.inner().prepare(
+
+        let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
                     options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
              FROM connections WHERE id = ?1"
@@ -109,7 +129,7 @@ impl ProjectConnectionStore {
             operation: "prepare_get_connection".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         let result = stmt.query_row([id], |row| {
             Ok(ProjectConnection {
                 id: row.get(0)?,
@@ -130,22 +150,22 @@ impl ProjectConnectionStore {
                 updated_at: row.get(15)?,
             })
         });
-        
+
         match result {
             Ok(conn) => Ok(Some(conn)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "get_connection".to_string(), 
-                reason: e.to_string() 
+            Err(e) => Err(CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "get_connection".to_string(),
+                reason: e.to_string(),
             })),
         }
     }
-    
+
     pub async fn get_all_connections(&self) -> Result<Vec<ProjectConnection>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let mut stmt = sqlite.inner().prepare(
+
+        let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
                     options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
              FROM connections ORDER BY updated_at DESC"
@@ -154,43 +174,52 @@ impl ProjectConnectionStore {
             operation: "prepare_get_all_connections".to_string(), 
             reason: e.to_string() 
         }))?;
-        
-        let connections = stmt.query_map([], |row| {
-            Ok(ProjectConnection {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                driver: row.get(2)?,
-                host: row.get(3)?,
-                port: row.get(4)?,
-                database: row.get(5)?,
-                schema_name: row.get(6)?,
-                username: row.get(7)?,
-                password_encrypted: row.get(8)?,
-                options: row.get(9)?,
-                tags: row.get(10)?,
-                use_duckdb_fed: row.get(11)?,
-                metadata_path: row.get(12)?,
-                is_active: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+
+        let connections = stmt
+            .query_map([], |row| {
+                Ok(ProjectConnection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    driver: row.get(2)?,
+                    host: row.get(3)?,
+                    port: row.get(4)?,
+                    database: row.get(5)?,
+                    schema_name: row.get(6)?,
+                    username: row.get(7)?,
+                    password_encrypted: row.get(8)?,
+                    options: row.get(9)?,
+                    tags: row.get(10)?,
+                    use_duckdb_fed: row.get(11)?,
+                    metadata_path: row.get(12)?,
+                    is_active: row.get(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                })
             })
-        }).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "query_connections".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
-        connections.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "collect_connections".to_string(), 
-            reason: e.to_string() 
-        }))
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_connections".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        connections.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "collect_connections".to_string(),
+                reason: e.to_string(),
+            })
+        })
     }
-    
-    pub async fn get_connections_by_type(&self, driver: &str) -> Result<Vec<ProjectConnection>, CoreError> {
+
+    pub async fn get_connections_by_type(
+        &self,
+        driver: &str,
+    ) -> Result<Vec<ProjectConnection>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let mut stmt = sqlite.inner().prepare(
+
+        let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
                     options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
              FROM connections WHERE driver = ?1 ORDER BY updated_at DESC"
@@ -199,43 +228,53 @@ impl ProjectConnectionStore {
             operation: "prepare_get_connections_by_type".to_string(), 
             reason: e.to_string() 
         }))?;
-        
-        let connections = stmt.query_map([driver], |row| {
-            Ok(ProjectConnection {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                driver: row.get(2)?,
-                host: row.get(3)?,
-                port: row.get(4)?,
-                database: row.get(5)?,
-                schema_name: row.get(6)?,
-                username: row.get(7)?,
-                password_encrypted: row.get(8)?,
-                options: row.get(9)?,
-                tags: row.get(10)?,
-                use_duckdb_fed: row.get(11)?,
-                metadata_path: row.get(12)?,
-                is_active: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+
+        let connections = stmt
+            .query_map([driver], |row| {
+                Ok(ProjectConnection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    driver: row.get(2)?,
+                    host: row.get(3)?,
+                    port: row.get(4)?,
+                    database: row.get(5)?,
+                    schema_name: row.get(6)?,
+                    username: row.get(7)?,
+                    password_encrypted: row.get(8)?,
+                    options: row.get(9)?,
+                    tags: row.get(10)?,
+                    use_duckdb_fed: row.get(11)?,
+                    metadata_path: row.get(12)?,
+                    is_active: row.get(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                })
             })
-        }).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "query_connections_by_type".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
-        connections.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "collect_connections_by_type".to_string(), 
-            reason: e.to_string() 
-        }))
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_connections_by_type".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        connections.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "collect_connections_by_type".to_string(),
+                reason: e.to_string(),
+            })
+        })
     }
-    
-    pub async fn update_connection_status(&self, id: &str, is_active: bool) -> Result<(), CoreError> {
+
+    pub async fn update_connection_status(
+        &self,
+        id: &str,
+        is_active: bool,
+    ) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "UPDATE connections SET is_active = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
             rusqlite::params![is_active, id],
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
@@ -243,16 +282,19 @@ impl ProjectConnectionStore {
             operation: "update_connection_status".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         Ok(())
     }
-    
-    pub async fn search_connections(&self, query: &str) -> Result<Vec<ProjectConnection>, CoreError> {
+
+    pub async fn search_connections(
+        &self,
+        query: &str,
+    ) -> Result<Vec<ProjectConnection>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
+
         let search_pattern = format!("%{}%", query);
-        
-        let mut stmt = sqlite.inner().prepare(
+
+        let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
                     options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
              FROM connections 
@@ -263,36 +305,42 @@ impl ProjectConnectionStore {
             operation: "prepare_search_connections".to_string(), 
             reason: e.to_string() 
         }))?;
-        
-        let connections = stmt.query_map([&search_pattern], |row| {
-            Ok(ProjectConnection {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                driver: row.get(2)?,
-                host: row.get(3)?,
-                port: row.get(4)?,
-                database: row.get(5)?,
-                schema_name: row.get(6)?,
-                username: row.get(7)?,
-                password_encrypted: row.get(8)?,
-                options: row.get(9)?,
-                tags: row.get(10)?,
-                use_duckdb_fed: row.get(11)?,
-                metadata_path: row.get(12)?,
-                is_active: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+
+        let connections = stmt
+            .query_map([&search_pattern], |row| {
+                Ok(ProjectConnection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    driver: row.get(2)?,
+                    host: row.get(3)?,
+                    port: row.get(4)?,
+                    database: row.get(5)?,
+                    schema_name: row.get(6)?,
+                    username: row.get(7)?,
+                    password_encrypted: row.get(8)?,
+                    options: row.get(9)?,
+                    tags: row.get(10)?,
+                    use_duckdb_fed: row.get(11)?,
+                    metadata_path: row.get(12)?,
+                    is_active: row.get(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                })
             })
-        }).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "query_search_connections".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
-        connections.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "collect_search_connections".to_string(), 
-            reason: e.to_string() 
-        }))
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_search_connections".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        connections.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "collect_search_connections".to_string(),
+                reason: e.to_string(),
+            })
+        })
     }
 }

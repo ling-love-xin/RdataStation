@@ -76,9 +76,14 @@ export interface DriverFormSchema {
     description: string
     features: string[]
     defaultPort?: number
+    driverKind?: string
+    urlTemplate?: string
     requireFile?: boolean
+    requireDatabase?: boolean
     supportsSsl?: boolean
     supportsSshTunnel?: boolean
+    supportsHttpProxy?: boolean
+    supportsSocksProxy?: boolean
   }
   navigation?: NavigationConfig
 }
@@ -93,9 +98,14 @@ export function parseDriverSchema(schema: DriverFormSchema): DriverDescriptor {
     category: schema.metadata?.category,
     defaultPort: schema.metadata?.defaultPort,
     description: schema.metadata?.description,
+    driverKind: schema.metadata?.driverKind,
+    urlTemplate: schema.metadata?.urlTemplate,
     requireFile: schema.metadata?.requireFile,
+    requireDatabase: schema.metadata?.requireDatabase,
     supportsSsl: schema.metadata?.supportsSsl,
     supportsSshTunnel: schema.metadata?.supportsSshTunnel,
+    supportsHttpProxy: schema.metadata?.supportsHttpProxy,
+    supportsSocksProxy: schema.metadata?.supportsSocksProxy,
     navigation: schema.navigation,
     extraOptions: extractExtraOptions(schema.sections),
   }

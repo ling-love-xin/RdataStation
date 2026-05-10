@@ -7,9 +7,14 @@
     "description": "SQLite 轻量级文件数据库",
     "features": ["事务", "触发器", "视图", "全文搜索"],
     "defaultPort": null,
+    "driverKind": "native",
+    "urlTemplate": "sqlite://{file_path}",
     "requireFile": true,
+    "requireDatabase": false,
     "supportsSsl": false,
-    "supportsSshTunnel": false
+    "supportsSshTunnel": false,
+    "supportsHttpProxy": false,
+    "supportsSocksProxy": false
   },
   "sections": [
     {

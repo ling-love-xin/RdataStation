@@ -53,7 +53,6 @@ import { NButton, NInput, NModal, NSelect } from 'naive-ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useFilterPresets } from '../../../composables/useFilterPresets'
 
 import type { FilterMode } from '../../../types/result'
 import type { SelectOption } from 'naive-ui'
@@ -77,7 +76,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { presets, getPresetsByMode, removePreset } = useFilterPresets()
+const { presets, getPresetsByMode, removePreset } = useResultFilterPresets()
 
 const selectedPresetId = ref<string | null>(null)
 const showSaveModal = ref(false)

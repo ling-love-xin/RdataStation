@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿﻿﻿﻿<template>
   <div class="filter-bar">
     <div class="filter-row">
       <div class="filter-group compact">
@@ -102,7 +102,7 @@ const emit = defineEmits<{
   batchDelete: []
 }>()
 
-const types = [
+const _types = [
   { value: null, label: t('analyticsResource.all') },
   { value: 'connection', label: '🔌 ' + t('analyticsResource.connection') },
   { value: 'table', label: '📊 ' + t('analyticsResource.table') },
@@ -164,11 +164,11 @@ function clearSelection() {
 }
 
 .filter-group.compact {
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .filter-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -179,7 +179,7 @@ function clearSelection() {
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   height: 26px;
   min-width: 80px;
@@ -206,7 +206,7 @@ function clearSelection() {
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -221,7 +221,7 @@ function clearSelection() {
   align-items: center;
   gap: var(--size-sm);
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
@@ -231,7 +231,7 @@ function clearSelection() {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   transition: all 0.15s;
   height: 24px;
@@ -251,7 +251,7 @@ function clearSelection() {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.15s;
 }

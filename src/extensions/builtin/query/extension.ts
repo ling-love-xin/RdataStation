@@ -50,7 +50,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     const result: QueryResult = {
       columns: response.result.columns.map(c => c.name),
       rows: response.result.rows,
-      rowCount: response.result.row_count,
+      rowCount: response.result.total_rows,
       executionTime: response.elapsed_ms,
       affectedRows: response.affected_rows,
     }

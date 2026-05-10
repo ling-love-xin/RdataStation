@@ -152,9 +152,8 @@ import {
   formatSql,
   validateSql,
   registerDatabaseCompletionProvider,
- registerSqlFoldingProvider,
+  registerSqlFoldingProvider,
   setErrorMarker,
-  clearErrorMarkers,
 } from '@/extensions/builtin/workbench/services/sql-editor-service'
 import { addCustomSnippet } from '@/extensions/builtin/workbench/services/sql-snippets'
 import { useConnectionBinding } from '@/extensions/builtin/workbench/ui/composables/useConnectionBinding'
@@ -441,7 +440,6 @@ const {
   storeResult,
   checkForParams,
   buildBoundSql,
-  executeExplain,
   cleanup: cleanupExecution,
 } = useSqlExecution({
   panelId: panelId.value,
@@ -593,7 +591,12 @@ async function handleExplain(): Promise<void> {
     return
   }
   await ensureConnection(connId)
-  await executeExplain(t('sqlEditor.explain'), connId)
+  const sql = getSelectedText() || getValue()
+  if (!sql.trim()) {
+    message.warning('No SQL to explain')
+    return
+  }
+  await executeSql(`EXPLAIN ${sql}`, connId)
 }
 
 async function handleSaveSnippet(): Promise<void> {
@@ -710,8 +713,8 @@ async function handleEditorDrop(event: DragEvent): Promise<void> {
     if (content) {
       insertText(content)
     }
-  } catch (e) {
-    console.error('[SqlEditorPanel] Scratchpad drop error:', e)
+  } catch {
+    // Drop handling failed silently
   }
 }
 

@@ -5,165 +5,23 @@
       <h2>{{ $t('settings.title') }}</h2>
     </div>
 
+    <div class="settings-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        :class="['tab-btn', { active: activeTab === tab.id }]"
+        @click="activeTab = tab.id"
+      >
+        <AppIcon :name="tab.icon" :size="14" />
+        {{ tab.label }}
+      </button>
+    </div>
+
     <div class="settings-content">
-      <div class="settings-section">
-        <h3>
-          <AppIcon name="Palette" :size="16" />
-          {{ $t('settings.appearance') }}
-        </h3>
+      <AppearanceSettings v-if="activeTab === 'appearance'" ref="appearanceRef" />
+      <InterfaceSettings v-if="activeTab === 'interface'" ref="interfaceRef" />
 
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.theme') }}</span>
-            <span v-if="hasProjectThemeOverride" class="label-hint"
-              >({{ $t('settings.projectOverride') }})</span
-            >
-          </div>
-          <div class="theme-selector">
-            <button
-              v-for="opt in themeOptions"
-              :key="opt.value"
-              :class="['theme-btn', { active: localTheme === opt.value }]"
-              @click="localTheme = opt.value"
-            >
-              <AppIcon :name="opt.icon" :size="16" />
-              {{ opt.label }}
-            </button>
-          </div>
-          <button v-if="hasProjectThemeOverride" class="reset-btn" @click="resetProjectTheme">
-            <AppIcon name="RotateCcw" :size="14" />
-            {{ $t('settings.resetToGlobal') }}
-          </button>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.language') }}</span>
-            <span class="label-hint">{{ $t('settings.restartHint') }}</span>
-          </div>
-          <div class="theme-selector">
-            <button
-              v-for="opt in languageOptions"
-              :key="opt.value"
-              :class="['theme-btn', { active: localLanguage === opt.value }]"
-              @click="localLanguage = opt.value"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h3>
-          <AppIcon name="FileCode" :size="16" />
-          {{ $t('settings.editor') }}
-        </h3>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.fontSize') }}</span>
-            <span class="label-value">{{ localEditorSettings.fontSize }}px</span>
-          </div>
-          <input
-            v-model.number="localEditorSettings.fontSize"
-            type="range"
-            min="10"
-            max="24"
-            step="1"
-            class="slider"
-          />
-          <div class="slider-labels">
-            <span>10px</span>
-            <span>24px</span>
-          </div>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.tabSize') }}</span>
-            <span class="label-value">{{ localEditorSettings.tabSize }}</span>
-          </div>
-          <div class="theme-selector">
-            <button
-              v-for="size in [2, 4, 8]"
-              :key="size"
-              :class="['theme-btn', { active: localEditorSettings.tabSize === size }]"
-              @click="localEditorSettings.tabSize = size"
-            >
-              {{ size }}
-            </button>
-          </div>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.wordWrap') }}</span>
-          </div>
-          <label class="switch">
-            <input v-model="localEditorSettings.wordWrap" type="checkbox" />
-            <span class="slider-switch"></span>
-          </label>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.lineNumbers') }}</span>
-          </div>
-          <label class="switch">
-            <input v-model="localEditorSettings.lineNumbers" type="checkbox" />
-            <span class="slider-switch"></span>
-          </label>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.minimap') }}</span>
-          </div>
-          <label class="switch">
-            <input v-model="localEditorSettings.minimap" type="checkbox" />
-            <span class="slider-switch"></span>
-          </label>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.fontFamily') }}</span>
-            <span class="label-hint">{{ $t('settings.fontFamilyHint') }}</span>
-          </div>
-          <input
-            v-model="localEditorSettings.fontFamily"
-            type="text"
-            class="text-input"
-            spellcheck="false"
-          />
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h3>
-          <AppIcon name="Database" :size="16" />
-          {{ $t('settings.defaultEngine') }}
-        </h3>
-
-        <div class="setting-item">
-          <div class="setting-label">
-            <span class="label-text">{{ $t('settings.engine') }}</span>
-            <span class="label-hint">{{ $t('settings.engineHint') }}</span>
-          </div>
-          <div class="theme-selector">
-            <button
-              v-for="opt in engineOptions"
-              :key="opt.value"
-              :class="['theme-btn', { active: localDefaultEngine === opt.value }]"
-              @click="localDefaultEngine = opt.value"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
+      <!-- 操作按钮 -->
       <div class="settings-section">
         <h3>
           <AppIcon name="RefreshCw" :size="16" />
@@ -191,83 +49,54 @@
 
 <script setup lang="ts">
 import { useMessage } from 'naive-ui'
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import AppIcon from '@/shared/components/common/AppIcon.vue'
-import { CONFIG_KEYS, DEFAULT_GLOBAL_CONFIG, DEFAULT_EDITOR_SETTINGS } from '@/stores/config'
-import type { Theme, Language, EditorSettings, DefaultEngine } from '@/stores/config'
+import { CONFIG_KEYS } from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
+
+import AppearanceSettings from './AppearanceSettings.vue'
+import InterfaceSettings from './InterfaceSettings.vue'
 
 const appStore = useAppStore()
 const { t } = useI18n()
 const message = useMessage()
 
-const themeOptions = [
-  { value: 'dark' as Theme, label: t('settings.dark'), icon: 'Moon' as const },
-  { value: 'light' as Theme, label: t('settings.light'), icon: 'Sun' as const },
-  { value: 'system' as Theme, label: t('settings.system'), icon: 'Monitor' as const },
+const activeTab = ref('appearance')
+const appearanceRef = ref<InstanceType<typeof AppearanceSettings> | null>(null)
+const interfaceRef = ref<InstanceType<typeof InterfaceSettings> | null>(null)
+
+const tabs = [
+  { id: 'appearance', label: t('settings.appearanceTab'), icon: 'Palette' as const },
+  { id: 'interface', label: t('settings.interfaceTab'), icon: 'LayoutTemplate' as const },
 ]
-
-const languageOptions = [
-  { value: 'zh-CN' as Language, label: t('settings.simplifiedChinese') },
-  { value: 'en' as Language, label: t('settings.english') },
-]
-
-const engineOptions = [
-  { value: 'native' as DefaultEngine, label: t('settings.nativeEngine') },
-  { value: 'duckdb' as DefaultEngine, label: t('settings.duckdbEngine') },
-]
-
-const localTheme = ref<Theme>(appStore.effectiveTheme)
-const localLanguage = ref<Language>(appStore.effectiveLanguage)
-const localEditorSettings = reactive<EditorSettings>({ ...appStore.effectiveEditorSettings })
-const localDefaultEngine = ref<DefaultEngine>(appStore.effectiveDefaultEngine)
-
-const hasProjectThemeOverride = computed(() => appStore.hasProjectOverride(CONFIG_KEYS.THEME))
-
-function resetProjectTheme() {
-  appStore.resetProjectOverride(CONFIG_KEYS.THEME)
-  localTheme.value = appStore.effectiveTheme
-}
-
-watch(
-  () => appStore.effectiveTheme,
-  val => {
-    localTheme.value = val
-  }
-)
-watch(
-  () => appStore.effectiveLanguage,
-  val => {
-    localLanguage.value = val
-  }
-)
-watch(
-  () => appStore.effectiveEditorSettings,
-  val => {
-    Object.assign(localEditorSettings, val)
-  },
-  { deep: true }
-)
-watch(
-  () => appStore.effectiveDefaultEngine,
-  val => {
-    localDefaultEngine.value = val
-  }
-)
 
 async function applyAllSettings() {
-  const results = await appStore.saveBatch([
-    { key: CONFIG_KEYS.THEME, value: localTheme.value, scope: 'global' as const },
-    { key: CONFIG_KEYS.LANGUAGE, value: localLanguage.value, scope: 'global' as const },
-    {
-      key: CONFIG_KEYS.EDITOR_SETTINGS,
-      value: { ...localEditorSettings },
-      scope: 'global' as const,
-    },
-    { key: CONFIG_KEYS.DEFAULT_ENGINE, value: localDefaultEngine.value, scope: 'global' as const },
-  ])
+  const batch: Array<{ key: string; value: unknown; scope: 'global' | 'project' }> = []
+
+  if (appearanceRef.value) {
+    batch.push(
+      { key: CONFIG_KEYS.THEME, value: appearanceRef.value.localTheme, scope: 'global' as const },
+      { key: CONFIG_KEYS.LANGUAGE, value: appearanceRef.value.localLanguage, scope: 'global' as const },
+      {
+        key: CONFIG_KEYS.EDITOR_SETTINGS,
+        value: { ...appearanceRef.value.localEditorSettings },
+        scope: 'global' as const,
+      },
+      { key: CONFIG_KEYS.DEFAULT_ENGINE, value: appearanceRef.value.localDefaultEngine, scope: 'global' as const }
+    )
+  }
+
+  if (interfaceRef.value) {
+    batch.push(
+      { key: CONFIG_KEYS.TITLE_BAR_SETTINGS, value: { ...interfaceRef.value.localTitleBarSettings }, scope: 'global' as const },
+      { key: CONFIG_KEYS.STATUS_BAR_SETTINGS, value: { ...interfaceRef.value.localStatusBarSettings }, scope: 'global' as const },
+      { key: CONFIG_KEYS.COMMAND_PALETTE_SETTINGS, value: { ...interfaceRef.value.localCommandPaletteSettings }, scope: 'global' as const }
+    )
+  }
+
+  const results = await appStore.saveBatch(batch)
 
   const failures = results.filter(r => !r.success)
   if (failures.length > 0) {
@@ -281,10 +110,8 @@ async function applyAllSettings() {
 }
 
 function resetToDefault() {
-  localTheme.value = DEFAULT_GLOBAL_CONFIG.theme
-  localLanguage.value = DEFAULT_GLOBAL_CONFIG.language
-  Object.assign(localEditorSettings, DEFAULT_EDITOR_SETTINGS)
-  localDefaultEngine.value = DEFAULT_GLOBAL_CONFIG.defaultEngine
+  appearanceRef.value?.resetToDefault()
+  interfaceRef.value?.resetToDefault()
   applyAllSettings()
 }
 
@@ -292,10 +119,8 @@ async function resetToFactory() {
   const results = await appStore.resetToFactory()
   const failures = results.filter(r => !r.success)
   if (failures.length === 0) {
-    localTheme.value = appStore.effectiveTheme
-    localLanguage.value = appStore.effectiveLanguage
-    Object.assign(localEditorSettings, appStore.effectiveEditorSettings)
-    localDefaultEngine.value = appStore.effectiveDefaultEngine
+    appearanceRef.value?.resetToFactory()
+    interfaceRef.value?.resetToFactory()
     console.log('[SettingsPanel] Settings reset to factory')
   } else {
     console.error('[SettingsPanel] resetToFactory failed:', failures)
@@ -335,6 +160,39 @@ onMounted(() => {
   color: var(--brand-accent);
 }
 
+.settings-tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.tab-btn.active {
+  background: var(--brand-accent);
+  border-color: var(--brand-accent);
+  color: var(--color-bg-primary);
+}
+
 .settings-content {
   flex: 1;
   overflow-y: auto;
@@ -359,155 +217,6 @@ onMounted(() => {
   font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text-secondary);
-}
-
-.setting-item {
-  margin-bottom: 18px;
-}
-
-.setting-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-sm);
-}
-
-.label-text {
-  font-size: var(--font-size-md);
-  color: var(--color-text-primary);
-}
-
-.label-hint {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin-left: var(--spacing-sm);
-}
-
-.label-value {
-  font-size: var(--font-size-sm);
-  color: var(--brand-accent);
-  font-weight: 500;
-}
-
-.theme-selector {
-  display: flex;
-  gap: var(--spacing-sm);
-  flex-wrap: wrap;
-}
-
-.theme-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: var(--spacing-sm) 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.theme-btn:hover {
-  background: var(--color-hover);
-}
-
-.theme-btn.active {
-  background: var(--brand-accent);
-  border-color: var(--brand-accent);
-  color: var(--color-bg-primary);
-}
-
-.reset-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: var(--spacing-sm);
-  padding: 4px 10px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--border-radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.reset-btn:hover {
-  border-color: var(--brand-accent);
-  color: var(--brand-accent);
-}
-
-.slider {
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-bg-secondary);
-  outline: none;
-  -webkit-appearance: none;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--brand-accent);
-  cursor: pointer;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider-switch {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--color-bg-secondary);
-  transition: 0.3s;
-  border-radius: 20px;
-}
-
-.slider-switch:before {
-  position: absolute;
-  content: '';
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: var(--color-bg-primary);
-  transition: 0.3s;
-  border-radius: 50%;
-}
-
-.switch input:checked + .slider-switch {
-  background-color: var(--brand-accent);
-}
-
-.switch input:checked + .slider-switch:before {
-  transform: translateX(16px);
 }
 
 .action-buttons {
@@ -542,5 +251,15 @@ onMounted(() => {
 
 .action-btn.primary:hover {
   background: var(--brand-accent-hover);
+}
+
+.action-btn.danger {
+  border-color: var(--brand-danger);
+  color: var(--brand-danger);
+}
+
+.action-btn.danger:hover {
+  background: var(--brand-danger);
+  color: var(--color-bg-primary);
 }
 </style>

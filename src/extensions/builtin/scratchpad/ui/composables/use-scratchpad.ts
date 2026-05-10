@@ -36,6 +36,7 @@ export function useScratchpad() {
   const response = ref<ScratchpadResponse | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const notInitialized = ref(false)
   const searchQuery = ref('')
   const trashEntries = ref<ScratchpadEntry[]>([])
   const analyzableFiles = ref<AnalyzableFile[]>([])
@@ -77,11 +78,18 @@ export function useScratchpad() {
   async function loadFiles(): Promise<void> {
     isLoading.value = true
     error.value = null
+    notInitialized.value = false
     try {
       response.value = await listScratchpadFiles()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
-      response.value = null
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('未初始化') || msg.includes('not initialized')) {
+        notInitialized.value = true
+        response.value = null
+      } else {
+        error.value = msg
+        response.value = null
+      }
     } finally {
       isLoading.value = false
     }
@@ -274,6 +282,9 @@ export function useScratchpad() {
   }
 
   async function startWatching(): Promise<void> {
+    if (notInitialized.value) {
+      return
+    }
     try {
       await watchScratchpad()
     } catch (e) {
@@ -309,6 +320,7 @@ export function useScratchpad() {
     response,
     isLoading,
     error,
+    notInitialized,
     searchQuery,
     localEntries,
     externalReferences,

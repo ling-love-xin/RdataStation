@@ -3,16 +3,24 @@ use crate::core::services::result_service::{
     TableQuality,
 };
 
+/// Dimension weights for quality scoring (must sum to 1.0).
 pub(crate) const WEIGHT_COMPLETENESS: f64 = 0.35;
 pub(crate) const WEIGHT_UNIQUENESS: f64 = 0.25;
 pub(crate) const WEIGHT_TYPE_CONSISTENCY: f64 = 0.20;
 pub(crate) const WEIGHT_DISTRIBUTION: f64 = 0.20;
 
+/// Quality grade thresholds (overall_score >= threshold → level).
 pub(crate) const GRADE_EXCELLENT: f64 = 85.0;
 pub(crate) const GRADE_GOOD: f64 = 70.0;
 pub(crate) const GRADE_FAIR: f64 = 50.0;
 pub(crate) const GRADE_POOR: f64 = 30.0;
 
+/// Computes a quality score for a single column based on four dimensions:
+/// completeness (null-rate), uniqueness (distinct-ratio), type consistency,
+/// and value distribution (histogram uniformity).
+///
+/// Returns a [QualityScore] with overall score (0–100), grade level, and
+/// per-dimension breakdown with detail strings.
 pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore {
     let null_rate = stats.stats.null_rate;
     let total = stats.stats.total_count as f64;
@@ -62,10 +70,7 @@ pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore 
             }
         }
         ColumnStatsDetail::DateTime(_) => {
-            let has_range = stats
-                .histogram
-                .as_ref()
-                .map_or(false, |h| h.len() > 1);
+            let has_range = stats.histogram.as_ref().map_or(false, |h| h.len() > 1);
             if has_range {
                 85.0
             } else {
@@ -93,8 +98,7 @@ pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore 
             let sum: f64 = values.iter().sum();
             if sum > 0.0 {
                 let avg = sum / bins;
-                let variance: f64 =
-                    values.iter().map(|v| (v - avg).powi(2)).sum::<f64>() / bins;
+                let variance: f64 = values.iter().map(|v| (v - avg).powi(2)).sum::<f64>() / bins;
                 let cv = variance.sqrt() / avg.max(1.0);
                 if cv < 0.3 {
                     90.0
@@ -177,6 +181,9 @@ pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore 
     }
 }
 
+/// Computes aggregate quality for a table by scoring each column and
+/// producing a weighted average. Columns are sorted worst→best for
+/// quick identification of data problems. Unscoreable columns are skipped.
 pub(crate) fn compute_table_quality(
     table_name: &str,
     stats_list: &[ColumnInsightFull],
@@ -220,10 +227,7 @@ pub(crate) fn compute_table_quality(
         "差"
     };
 
-    let problem_columns = entries
-        .iter()
-        .filter(|e| e.quality_score < 50.0)
-        .count();
+    let problem_columns = entries.iter().filter(|e| e.quality_score < 50.0).count();
     let summary = if scored_count == 0 {
         "无数据".into()
     } else if overall >= 85.0 {
@@ -255,8 +259,8 @@ pub(crate) fn compute_table_quality(
 mod tests {
     use super::*;
     use crate::core::services::result_service::{
-        BooleanStats, ColumnInsightFull, ColumnStats, ColumnStatsDetail,
-        DistributionBin, NumericStats, TextStats,
+        BooleanStats, ColumnInsightFull, ColumnStats, ColumnStatsDetail, DistributionBin,
+        NumericStats, TextStats,
     };
 
     fn make_insight(null_rate: f64, unique_ratio: f64) -> ColumnInsightFull {
@@ -285,8 +289,16 @@ mod tests {
             },
             sample: vec![],
             histogram: Some(vec![
-                DistributionBin { label: "a".into(), count: 50, ratio: 0.5 },
-                DistributionBin { label: "b".into(), count: 50, ratio: 0.5 },
+                DistributionBin {
+                    label: "a".into(),
+                    count: 50,
+                    ratio: 0.5,
+                },
+                DistributionBin {
+                    label: "b".into(),
+                    count: 50,
+                    ratio: 0.5,
+                },
             ]),
         }
     }

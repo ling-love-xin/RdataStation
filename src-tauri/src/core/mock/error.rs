@@ -49,3 +49,35 @@ impl From<std::sync::PoisonError<std::sync::MutexGuard<'_, duckdb::Connection>>>
         MockError::Generation(format!("DuckDB lock error: {}", e))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mock_error_display() {
+        assert_eq!(
+            MockError::InvalidRowCount(0).to_string(),
+            "无效的行数: 0"
+        );
+        assert_eq!(
+            MockError::TemplateNotFound("t1".to_string()).to_string(),
+            "模板未找到: t1"
+        );
+        assert_eq!(
+            MockError::Export {
+                format: "csv".to_string(),
+                reason: "write error".to_string()
+            }
+            .to_string(),
+            "导出失败: format=csv, reason=write error"
+        );
+    }
+
+    #[test]
+    fn test_mock_error_to_core_error() {
+        let mock_err = MockError::Config("bad config".to_string());
+        let core_err: CoreError = mock_err.into();
+        assert!(core_err.to_string().contains("bad config"));
+    }
+}

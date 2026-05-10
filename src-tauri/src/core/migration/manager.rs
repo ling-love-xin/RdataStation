@@ -1,20 +1,19 @@
+use include_dir::{include_dir, Dir};
+use rusqlite::Connection;
 /**
  * 迁移管理器模块
- * 
+ *
  * 核心迁移调度器，负责：
  * - 加载嵌入的 SQL 迁移文件
  * - 对比当前版本，找出待执行的迁移
  * - 按顺序执行迁移
  * - 支持多种迁移类型（global/project_meta/project_analysis/connection_metadata）
  */
-
 use std::path::Path;
-use include_dir::{include_dir, Dir};
-use rusqlite::Connection;
 
-use crate::core::error::{CoreError, CommonError};
-use crate::core::migration::schema::SchemaTracker;
+use crate::core::error::{CommonError, CoreError};
 use crate::core::migration::executor::{Migration, MigrationExecutor};
+use crate::core::migration::schema::SchemaTracker;
 
 /// 编译时嵌入 migrations 目录
 pub const MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/migrations");
@@ -54,18 +53,28 @@ impl MigrationManager {
     }
 
     /// 执行指定类型的迁移
-    pub fn migrate(&self, db_path: &Path, migration_type: MigrationType) -> Result<Vec<Migration>, CoreError> {
+    pub fn migrate(
+        &self,
+        db_path: &Path,
+        migration_type: MigrationType,
+    ) -> Result<Vec<Migration>, CoreError> {
         // 确保父目录存在
         if let Some(parent) = db_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to create directory {:?}: {}", parent, e),
-            )))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to create directory {:?}: {}",
+                    parent, e
+                )))
+            })?;
         }
 
         // 连接数据库
-        let conn = Connection::open(db_path).map_err(|e| CoreError::common(CommonError::General(
-            format!("Failed to open database {:?}: {}", db_path, e),
-        )))?;
+        let conn = Connection::open(db_path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to open database {:?}: {}",
+                db_path, e
+            )))
+        })?;
 
         // 确保版本追踪表存在
         SchemaTracker::ensure_table(&conn)?;
@@ -101,17 +110,21 @@ impl MigrationManager {
         migration_type: MigrationType,
         current_version: u32,
     ) -> Result<Vec<Migration>, CoreError> {
-        let dir = MIGRATIONS_DIR.get_dir(migration_type.dir_name())
-            .ok_or_else(|| CoreError::common(CommonError::General(
-                format!("Migration directory '{}' not found", migration_type.dir_name()),
-            )))?;
+        let dir = MIGRATIONS_DIR
+            .get_dir(migration_type.dir_name())
+            .ok_or_else(|| {
+                CoreError::common(CommonError::General(format!(
+                    "Migration directory '{}' not found",
+                    migration_type.dir_name()
+                )))
+            })?;
 
         let mut migrations: Vec<Migration> = dir
             .files()
             .filter_map(|f| {
                 let path = f.path();
                 let filename = path.file_name()?.to_str()?;
-                
+
                 // 只处理 .sql 文件
                 if !filename.ends_with(".sql") {
                     return None;
@@ -148,11 +161,18 @@ impl MigrationManager {
     }
 
     /// 获取指定类型的所有迁移（包括已应用的）
-    pub fn get_all_migrations(&self, migration_type: MigrationType) -> Result<Vec<Migration>, CoreError> {
-        let dir = MIGRATIONS_DIR.get_dir(migration_type.dir_name())
-            .ok_or_else(|| CoreError::common(CommonError::General(
-                format!("Migration directory '{}' not found", migration_type.dir_name()),
-            )))?;
+    pub fn get_all_migrations(
+        &self,
+        migration_type: MigrationType,
+    ) -> Result<Vec<Migration>, CoreError> {
+        let dir = MIGRATIONS_DIR
+            .get_dir(migration_type.dir_name())
+            .ok_or_else(|| {
+                CoreError::common(CommonError::General(format!(
+                    "Migration directory '{}' not found",
+                    migration_type.dir_name()
+                )))
+            })?;
 
         let migrations: Vec<Migration> = dir
             .files()
@@ -172,18 +192,27 @@ impl MigrationManager {
 
     /// 获取数据库当前版本
     pub fn get_current_version(&self, db_path: &Path) -> Result<u32, CoreError> {
-        let conn = Connection::open(db_path).map_err(|e| CoreError::common(CommonError::General(
-            format!("Failed to open database {:?}: {}", db_path, e),
-        )))?;
+        let conn = Connection::open(db_path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to open database {:?}: {}",
+                db_path, e
+            )))
+        })?;
         SchemaTracker::ensure_table(&conn)?;
         SchemaTracker::get_current_version(&conn)
     }
 
     /// 获取已应用的版本列表
-    pub fn get_applied_versions(&self, db_path: &Path) -> Result<Vec<crate::core::migration::SchemaVersion>, CoreError> {
-        let conn = Connection::open(db_path).map_err(|e| CoreError::common(CommonError::General(
-            format!("Failed to open database {:?}: {}", db_path, e),
-        )))?;
+    pub fn get_applied_versions(
+        &self,
+        db_path: &Path,
+    ) -> Result<Vec<crate::core::migration::SchemaVersion>, CoreError> {
+        let conn = Connection::open(db_path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to open database {:?}: {}",
+                db_path, e
+            )))
+        })?;
         SchemaTracker::ensure_table(&conn)?;
         SchemaTracker::get_applied_versions(&conn)
     }

@@ -26,36 +26,41 @@ pub struct LoadNavigatorStateResponse {
 pub async fn save_navigator_state(input: SaveNavigatorStateInput) -> Result<(), String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
+
     let expanded_keys_json = serde_json::to_string(&input.expanded_keys)
         .map_err(|e| format!("序列化展开键失败: {}", e))?;
-    
+
     let selected_keys_json = serde_json::to_string(&input.selected_keys)
         .map_err(|e| format!("序列化选中键失败: {}", e))?;
-    
+
     let filter_config_json = match input.filter_config {
-        Some(config) => serde_json::to_string(&config)
-            .map_err(|e| format!("序列化过滤器配置失败: {}", e))?,
+        Some(config) => {
+            serde_json::to_string(&config).map_err(|e| format!("序列化过滤器配置失败: {}", e))?
+        }
         None => "{}".to_string(),
     };
-    
-    global_db.save_navigator_state(
-        &input.connection_id,
-        &expanded_keys_json,
-        &selected_keys_json,
-        &filter_config_json,
-    )
-    .await
-    .map_err(|e| format!("保存导航器状态失败: {}", e))
+
+    global_db
+        .save_navigator_state(
+            &input.connection_id,
+            &expanded_keys_json,
+            &selected_keys_json,
+            &filter_config_json,
+        )
+        .await
+        .map_err(|e| format!("保存导航器状态失败: {}", e))
 }
 
 /// 加载导航器状态
 #[tauri::command]
-pub async fn load_navigator_state(connection_id: String) -> Result<LoadNavigatorStateResponse, String> {
+pub async fn load_navigator_state(
+    connection_id: String,
+) -> Result<LoadNavigatorStateResponse, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    match global_db.load_navigator_state(&connection_id)
+
+    match global_db
+        .load_navigator_state(&connection_id)
         .await
         .map_err(|e| format!("加载导航器状态失败: {}", e))?
     {
@@ -63,14 +68,14 @@ pub async fn load_navigator_state(connection_id: String) -> Result<LoadNavigator
             let expanded_keys: Vec<String> = serde_json::from_str(&expanded_keys_json)
                 .map_err(|e| format!("反序列化展开键失败: {}", e))
                 .unwrap_or_default();
-            
+
             let selected_keys: Vec<String> = serde_json::from_str(&selected_keys_json)
                 .map_err(|e| format!("反序列化选中键失败: {}", e))
                 .unwrap_or_default();
-            
-            let filter_config: Option<serde_json::Value> = serde_json::from_str(&filter_config_json)
-                .ok();
-            
+
+            let filter_config: Option<serde_json::Value> =
+                serde_json::from_str(&filter_config_json).ok();
+
             Ok(LoadNavigatorStateResponse {
                 expanded_keys,
                 selected_keys,

@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿﻿﻿﻿<template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal large">
       <div class="modal-header">
@@ -115,7 +115,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,7 +148,7 @@ onMounted(async () => {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -156,7 +156,7 @@ onMounted(async () => {
 .close-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: var(--font-size-xxl);
   cursor: pointer;
   color: var(--text-tertiary);
   transition: color 0.15s;
@@ -182,7 +182,7 @@ onMounted(async () => {
 }
 
 .empty-icon {
-  font-size: 48px;
+  font-size: var(--font-size-display);
   margin-bottom: var(--size-lg);
   opacity: 0.5;
 }
@@ -204,7 +204,7 @@ onMounted(async () => {
 }
 
 .resource-icon {
-  font-size: 20px;
+  font-size: var(--font-size-title);
 }
 
 .resource-info {
@@ -213,14 +213,14 @@ onMounted(async () => {
 }
 
 .resource-name {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .resource-meta {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 
@@ -241,7 +241,7 @@ onMounted(async () => {
   padding: 6px 16px;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: all 0.2s;
   height: var(--height-btn);
@@ -249,7 +249,7 @@ onMounted(async () => {
 
 .btn.btn-sm {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   height: 28px;
 }
 
@@ -278,6 +278,6 @@ onMounted(async () => {
 }
 
 .btn.btn-danger:hover {
-  background: #d32f2f;
+  background: var(--brand-danger);
 }
 </style>

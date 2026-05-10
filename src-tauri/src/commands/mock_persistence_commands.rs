@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::adapters::tauri::state::AppState;
 use crate::core::mock::persistence::{
@@ -10,16 +9,18 @@ use crate::core::persistence::project_db::ProjectSqlitePool;
 
 async fn open_store(project_path: &str) -> Result<MockGenerationStore, String> {
     let db_path = format!("{}/.RSMETA/project.db", project_path);
-    let pool = ProjectSqlitePool::new(
-        std::path::PathBuf::from(&db_path),
-        1,
-    )
-    .await
-    .map_err(|e| format!("Failed to open project database: {}", e))?;
+    let pool = ProjectSqlitePool::new(std::path::PathBuf::from(&db_path), 1)
+        .await
+        .map_err(|e| format!("Failed to open project database: {}", e))?;
 
     Ok(MockGenerationStore::new(Arc::new(pool)))
 }
 
+/// 保存生成任务到项目数据库
+///
+/// 将当前生成配置（MockGenerationTask）和列定义（MockGenerationColumn）
+/// 持久化到项目 SQLite 数据库（`.RSMETA/project.db`），
+/// 用于后续重复生成或审计追溯。
 #[tauri::command]
 pub async fn save_mock_generation_task(
     _state: tauri::State<'_, AppState>,
@@ -35,6 +36,10 @@ pub async fn save_mock_generation_task(
     Ok(task.id.clone())
 }
 
+/// 查询生成历史记录列表
+///
+/// 从项目 SQLite 数据库读取最近 N 条生成任务记录，
+/// 按创建时间倒序排列。`limit` 可选，默认 20。
 #[tauri::command]
 pub async fn get_mock_generation_history(
     _state: tauri::State<'_, AppState>,
@@ -48,6 +53,10 @@ pub async fn get_mock_generation_history(
         .map_err(|e| format!("Failed to query history: {}", e))
 }
 
+/// 查询生成任务详情（含列定义）
+///
+/// 按任务 ID 读取完整生成配置，包含表结构、
+/// 生成器配置和每列的 nullable_ratio / unique 设置。
 #[tauri::command]
 pub async fn get_mock_generation_detail(
     _state: tauri::State<'_, AppState>,
@@ -61,6 +70,9 @@ pub async fn get_mock_generation_detail(
         .map_err(|e| format!("Failed to query detail: {}", e))
 }
 
+/// 删除生成任务记录
+///
+/// 从项目 SQLite 数据库删除指定任务及其关联列定义（CASCADE）。
 #[tauri::command]
 pub async fn delete_mock_generation_task(
     _state: tauri::State<'_, AppState>,
@@ -74,6 +86,10 @@ pub async fn delete_mock_generation_task(
         .map_err(|e| format!("Failed to delete task: {}", e))
 }
 
+/// 保存用户自定义模板
+///
+/// 将用户创建的模板（MockUserTemplate）和列定义（MockTemplateColumn）
+/// 持久化到项目 SQLite 数据库，支持跨会话复用。
 #[tauri::command]
 pub async fn save_mock_template(
     _state: tauri::State<'_, AppState>,
@@ -89,6 +105,10 @@ pub async fn save_mock_template(
     Ok(template.id.clone())
 }
 
+/// 查询用户自定义模板列表
+///
+/// 从项目 SQLite 数据库读取所有用户保存的模板元信息，
+/// 按更新时间倒序排列。
 #[tauri::command]
 pub async fn get_mock_templates(
     _state: tauri::State<'_, AppState>,
@@ -101,6 +121,9 @@ pub async fn get_mock_templates(
         .map_err(|e| format!("Failed to query templates: {}", e))
 }
 
+/// 查询模板详情（含列定义）
+///
+/// 按模板 ID 读取完整模板定义，返回模板元信息和列配置元组。
 #[tauri::command]
 pub async fn get_mock_template_detail(
     _state: tauri::State<'_, AppState>,

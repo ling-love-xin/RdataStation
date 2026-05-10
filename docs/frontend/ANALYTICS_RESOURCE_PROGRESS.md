@@ -1,7 +1,7 @@
 # 分析资源管理器 — 开发进度文档
 
-> 版本：v1.4
-> 最后更新：2026-05-09
+> 版本：v1.6
+> 最后更新：2026-05-11
 > 作者：RdataStation 团队
 
 ---
@@ -13,7 +13,7 @@
 | Phase 1: 基础建设 | ✅ 已完成 | 100%   | 2026-04-20 | 2026-04-25 |
 | Phase 2: 核心功能 | ✅ 已完成 | 100%   | 2026-04-25 | 2026-05-01 |
 | Phase 3: 深度优化 | ✅ 已完成 | 100%   | 2026-05-02 | 2026-05-08 |
-| Phase 4: 高级特性 | 🔲 计划中 | 0%     | —          | —          |
+| Phase 4: 高级特性 | 🟡 进行中 | 20%   | —          | —          |
 
 ---
 
@@ -190,7 +190,8 @@
 | `CreateTagModal.vue` 创建标签 | ✅   | 名称/颜色/作用域                           |
 | 标签点击筛选资源              | ✅   | `getResourcesByTag` 按标签过滤             |
 | 标签栏集成到主页面            | ✅   | FilterBar 下方                             |
-| Store 方法封装                | ✅   | `getTagsForResource` / `getResourcesByTag` |
+| Store 方法封装                | ✅   | `getTagsForResource` / `getResourcesByTag` / `getAnalyticsTag` |
+| 标签详情查询                  | ✅   | `get_analytics_tag` 按 ID 获取单个标签（v1.4）                 |
 
 ### 4.9 版本历史 UI（v1.2）
 
@@ -253,37 +254,73 @@
 | `OrderDetailModal` 类型修复      | ✅   | 添加 settled 状态                |
 | `OrderListItem` 状态逻辑修复     | ✅   | 金额判断替代状态字符串           |
 
+### 4.11 架构加固与测试覆盖（🆕 v1.5）
+
+| 任务                         | 状态 | 说明                                                |
+| ---------------------------- | ---- | --------------------------------------------------- |
+| Store 拆分（usePagination）  | ✅   | 分页逻辑提取至 composable，复用 store 分解          |
+| Store 拆分（useSelection）   | ✅   | 选择逻辑提取至 composable，移除未使用参数           |
+| Store 拆分（useSettings）    | ✅   | 设置加载/保存/重置/清缓存提取至 composable          |
+| 虚拟滚动 composable          | ✅   | ResourceList 内联逻辑提取至 use-virtual-scroll.ts   |
+| Rust 集成测试                | ✅   | 17 用例：CRUD/分页/版本/标签/文件夹/回收站          |
+| vitest 前端单元测试          | ✅   | 18 用例：分页(7)/排序(3)/选择(5)/设置(3)            |
+| 文档升级                     | ✅   | 6 份文档全部升级至 v1.5，版本历史新增 v1.5 记录     |
+
+### 4.12 已知限制
+
+| 项目                   | 说明                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| event-bus.spec.ts      | 预存问题：`useEventBus is not a function`                |
+| search-index.spec.ts   | 预存问题：SearchIndex 匹配逻辑变更导致 5/11 失败         |
+
 ---
 
-## 五、Phase 4: 高级特性（🔲 计划中）
+## 五、Phase 4: 高级特性（🟡 进行中 25%）
+
+> 本期完成：P0 错误处理强化（String→CoreError + tracing日志）、并发测试、naive-ui 集成、use-search 测试
+> 已就绪基础设施：拖拽事件（HTML5 Drag & Drop）、虚拟滚动（useVirtualScroll）、composable 架构、tags 双向查询、Pinia store 组件接入
+
+#### 5.0 本轮已完成（v1.6）
+
+| 任务                                   | 状态 | 说明                                          |
+| -------------------------------------- | ---- | --------------------------------------------- |
+| Tauri Command 错误类型 String→CoreError | ✅   | 18 个命令全链路 Result<T, CoreError>          |
+| JSON 解析失败 tracing::warn 日志       | ✅   | 7 处 unwrap_or(Value::Null) → unwrap_or_else  |
+| 并发创建同名资源测试                    | ✅   | t012: tokio::join! 3 并发 create              |
+| AnalyticsResourceManager 接入 Pinia store | ✅ | 局部 ref → useAnalyticsResourceStore()       |
+| naive-ui 组件集成                      | ✅   | NButton + NTag 替换原生元素                   |
+| use-search 单元测试                    | ✅   | 9 用例：debounce/query/clear/async/pending    |
+| Arrow IPC 策略文档化                   | ✅   | 架构文档：配置 CRUD vs 数据查询 分场景说明    |
 
 ### 5.1 待实现
 
-| 功能                                   | 优先级 | 预估工时 | 依赖                     |
-| -------------------------------------- | ------ | -------- | ------------------------ |
-| 文件导入（CSV/Parquet/Excel → DuckDB） | 🔴 P0  | 3d       | DuckDB 引擎集成          |
-| 从连接提取表到分析区                   | 🔴 P0  | 2d       | connection_manager       |
-| SQL 查询结果自动转为资源               | 🔴 P0  | 2d       | query 模块集成           |
-| 详情面板（右侧滑出）                   | 🟡 P1  | 2d       | dockview 面板 API        |
-| 资源拖拽到 SQL 编辑器                  | 🟡 P1  | 2d       | dockview 拖拽 API        |
-| 文件夹拖拽排序                         | 🟡 P1  | 1.5d     | 拖拽库                   |
-| 资源批量导入                           | 🟡 P1  | 1d       | 文件选择器               |
-| 依赖关系图                             | 🟡 P1  | 2d       | `resource_references` 表 |
-| 删除前依赖检查                         | 🟡 P1  | 1d       | 依赖图                   |
-| 操作审计日志                           | 🟢 P2  | 1d       | `audit_log` 表           |
-| 资源模板                               | 🟢 P2  | 1.5d     | —                        |
-| 智能推荐（最近/常用）                  | 🟢 P2  | 1d       | —                        |
-| 批量提升为全局                         | 🟢 P2  | 1d       | —                        |
-| 会话临时表自动清理                     | 🟢 P2  | 0.5d     | —                        |
+| 功能                                   | 优先级 | 预估工时 | 占比 | 依赖                     |
+| -------------------------------------- | ------ | -------- | ---- | ------------------------ |
+| 文件导入（CSV/Parquet/Excel → DuckDB） | 🔴 P0  | 3d       | 14%  | DuckDB 引擎集成          |
+| 从连接提取表到分析区                   | 🔴 P0  | 2d       | 9%   | connection_manager       |
+| SQL 查询结果自动转为资源               | 🔴 P0  | 2d       | 9%   | query 模块集成           |
+| 详情面板（右侧滑出）                   | 🟡 P1  | 2d       | 9%   | dockview 面板 API        |
+| 资源拖拽到 SQL 编辑器                  | 🟡 P1  | 2d       | 9%   | dockview 拖拽 API        |
+| 文件夹拖拽排序                         | 🟡 P1  | 1.5d     | 7%   | 拖拽库                   |
+| 资源批量导入                           | 🟡 P1  | 1d       | 5%   | 文件选择器               |
+| 依赖关系图                             | 🟡 P1  | 2d       | 9%   | `resource_references` 表 |
+| 删除前依赖检查                         | 🟡 P1  | 1d       | 5%   | 依赖图                   |
+| 操作审计日志                           | 🟢 P2  | 1d       | 5%   | `audit_log` 表           |
+| 资源模板                               | 🟢 P2  | 1.5d     | 7%   | —                        |
+| 智能推荐（最近/常用）                  | 🟢 P2  | 1d       | 5%   | —                        |
+| 批量提升为全局                         | 🟢 P2  | 1d       | 5%   | —                        |
+| 会话临时表自动清理                     | 🟢 P2  | 0.5d     | 2%   | —                        |
+| **合计**                               | —       | **21.5d** | **100%** | —                     |
 
 ### 5.2 技术债
 
-| 项目                | 优先级 | 说明                                  |
-| ------------------- | ------ | ------------------------------------- |
-| Rust Store 拆分     | 🟡 P1  | ~1100 行单文件，考虑按职责拆分        |
-| 前端虚拟滚动组件化  | 🟡 P1  | 从 ResourceList 抽离为独立 composable |
-| 单元测试覆盖        | 🟡 P1  | Rust 和 TS 测试                       |
-| WS 消息常量类型对齐 | 🟢 P2  | INT code vs string type 不一致        |
+| 项目                          | 优先级 | 说明                                     |
+| ----------------------------- | ------ | ---------------------------------------- |
+| Rust Store 拆分               | 🟡 P1  | ~1700 行单文件，考虑按职责拆分           |
+| ~~子组件 naive-ui 集成~~      | ✅     | v1.7: CreateResourceModal NModal/NForm/NInput/NSelect/NInputNumber |
+| OnceCell 单例重构             | 🟡 P1  | Arc<Mutex<Option<Store>>> → OnceCell    |
+| 故障注入测试                  | 🟡 P1  | DB 故障模拟集成测试                       |
+| WS 消息常量类型对齐           | 🟢 P2  | INT code vs string type 不一致           |
 
 ---
 
@@ -291,14 +328,17 @@
 
 | 模块     | 前端 API | Rust Command | Store 方法 | DB 表 |
 | -------- | -------- | ------------ | ---------- | ----- |
-| 资源     | 8        | 8            | 8          | 2     |
+| 资源     | 8        | 8            | 7          | 2     |
 | 文件夹   | 5        | 5            | 5          | 2     |
-| 标签     | 5        | 5            | 5          | 2     |
+| 标签     | 5        | 5            | 6          | 2     |
 | 回收站   | 3        | 3            | 3          | 1     |
-| 版本历史 | 1        | 1            | 2          | 1     |
+| 版本历史 | 1        | 1            | 1          | 1     |
 | 双向查询 | 2        | 2            | 2          | —     |
 | 初始化   | 1        | 1            | 1          | —     |
-| **合计** | **25**   | **25**       | **26**     | **7** |
+| 前端本地 | —        | —            | 16         | —     |
+| **合计** | **25**   | **25**       | **41**     | **7**  |
+
+> Store 方法总计 41 个：25 个与后端 API 一一对应 + 16 个纯前端方法（分页控制/选择管理/设置持久化/标签缓存/文件夹缓存）
 
 ---
 
@@ -314,6 +354,9 @@
 
 | 版本 | 日期       | 变更内容                                                                                                                              |
 | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.7 | 2026-05-12 | P0 增强：get_resource_by_id JSON 解析失败传播 CoreError（rusqlite::Error::FromSqlConversionFailure）、CreateResourceModal 升级 naive-ui（NModal/NForm/NFormItem/NInput/NInputNumber/NSelect/NButton/NCard/NSpace）、移除 console.log→store.selectResource、Phase 4 子任务细化百分比（14 项/合计 21.5d）、技术债追踪「子组件集成」完成 +「OnceCell 重构」新增 |
+| v1.6 | 2026-05-11 | P0 修复：7处 `unwrap_or(Value::Null)` 添加 tracing::warn 日志、18个 Tauri Command 错误类型 `String`→`CoreError`、新增并发创建测试（t012）、AnalyticsResourceManager 接入 Pinia store + naive-ui NButton/NTag、新增 use-search 单测（10 用例）、文档升级 v1.6  |
+| v1.5 | 2026-05-10 | 全方位自审计修复：文档不一致修正（22→25 命令、24→25 API）、Store 拆分为 3 个领域 composable（-13%）、虚拟滚动 composable 提取、Rust 集成测试（17 用例）+ vitest 前端单元测试（18 用例）、PROGRESS.md 表格修正（26→41 方法）、Phase 4 更新至进行中 15% |
 | v1.4 | 2026-05-09 | 审计修复：W8-W13 清理未使用变量/非空断言、W2 trace 日志、S1 新增 get_analytics_tag 命令、W3+W14 extension.ts 版本号修复、W4-W7 CSS 语义变量化 |
 | v1.3 | 2026-05-08 | 资源详情面板（ResourceDetailModal）、标签徽章展示（resourceTagMap + loadResourceTags）、搜索历史（useSearchHistory + SearchBar 下拉） |
 | v1.2 | 2026-05-08 | 标签管理 UI（TagManager + CreateTagModal）、版本历史 UI（VersionHistoryModal + 右键菜单 + Ctrl+Shift+V）、Store 方法补齐（3 个）      |

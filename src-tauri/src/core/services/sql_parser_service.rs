@@ -94,7 +94,7 @@ pub struct ValidateResponse {
 /// 解析 SQL
 pub fn parse_sql(sql: &str, dialect: Option<SqlDialect>) -> ParseResult {
     let dialect = dialect.unwrap_or(SqlDialect::Generic).to_dialect();
-    
+
     match parse(sql, dialect) {
         Ok(_statement) => ParseResult {
             success: true,
@@ -112,7 +112,7 @@ pub fn parse_sql(sql: &str, dialect: Option<SqlDialect>) -> ParseResult {
 /// 格式化 SQL
 pub fn format_sql(sql: &str, dialect: Option<SqlDialect>) -> FormatResponse {
     let dialect = dialect.unwrap_or(SqlDialect::Generic).to_dialect();
-    
+
     match parse(sql, dialect) {
         Ok(statement) => {
             // 使用 Debug 格式输出
@@ -142,7 +142,7 @@ pub fn transpile_sql(
 ) -> TranspileResponse {
     let source = source_dialect.to_dialect();
     let target = target_dialect.to_dialect();
-    
+
     match transpile(sql, source, target) {
         Ok(result) => TranspileResponse {
             transpiled_sql: result,
@@ -160,7 +160,7 @@ pub fn transpile_sql(
 /// 验证 SQL
 pub fn validate_sql(sql: &str, dialect: Option<SqlDialect>) -> ValidateResponse {
     let dialect = dialect.unwrap_or(SqlDialect::Generic).to_dialect();
-    
+
     match parse(sql, dialect) {
         Ok(_) => ValidateResponse {
             valid: true,
@@ -179,8 +179,7 @@ pub fn validate_sql(sql: &str, dialect: Option<SqlDialect>) -> ValidateResponse 
 pub fn split_sql(sql: &str, _dialect: Option<SqlDialect>) -> Vec<String> {
     // sqlglot-rust 的 parse 返回单个 Statement，不支持多语句分割
     // 使用简单的分号分割作为主要方案
-    sql
-        .split(';')
+    sql.split(';')
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect()

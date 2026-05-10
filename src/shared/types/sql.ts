@@ -27,16 +27,3 @@ export interface SqlEditorParams {
   language?: string
   initialLine?: number
 }
-
-export interface ExecuteSqlResponse {
-  result: {
-    columns: string[]
-    rows: unknown[][]
-    total_rows?: number
-    affected_rows?: number
-    is_read_only?: boolean
-  } | null
-  elapsed_ms?: number
-  affected_rows?: number
-  error?: string
-}

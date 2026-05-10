@@ -53,14 +53,12 @@ impl ProjectPath {
 
     /// 获取项目元数据目录路径（本地项目）
     pub fn meta_dir(&self) -> Option<PathBuf> {
-        self.local_path()
-            .map(|p| p.join(".RSmeta"))
+        self.local_path().map(|p| p.join(".RSmeta"))
     }
 
     /// 获取 SQLite 元数据数据库路径
     pub fn sqlite_path(&self) -> Option<PathBuf> {
-        self.meta_dir()
-            .map(|p| p.join("meta").join("project.db"))
+        self.meta_dir().map(|p| p.join("meta").join("project.db"))
     }
 
     /// 获取 DuckDB 分析数据库路径
@@ -71,20 +69,20 @@ impl ProjectPath {
 
     /// 获取配置目录路径
     pub fn config_dir(&self) -> Option<PathBuf> {
-        self.meta_dir()
-            .map(|p| p.join("config"))
+        self.meta_dir().map(|p| p.join("config"))
     }
 
     /// 获取 SQL 文件目录路径
     pub fn queries_dir(&self) -> Option<PathBuf> {
-        self.meta_dir()
-            .map(|p| p.join("queries"))
+        self.meta_dir().map(|p| p.join("queries"))
     }
 }
 
 impl Default for ProjectPath {
     fn default() -> Self {
-        ProjectPath::Local { path: PathBuf::new() }
+        ProjectPath::Local {
+            path: PathBuf::new(),
+        }
     }
 }
 

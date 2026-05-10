@@ -4,7 +4,9 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::core::driver::registry::{ConnectionConfig, DriverDescriptor, get_all_drivers, get_driver};
+    use crate::core::driver::registry::{
+        get_all_drivers, get_driver, ConnectionConfig, DriverDescriptor,
+    };
 
     #[test]
     fn test_connection_config_new() {
@@ -32,7 +34,10 @@ mod tests {
         assert_eq!(config.database, Some("testdb".to_string()));
         assert_eq!(config.username, Some("root".to_string()));
         assert_eq!(config.password, Some("secret".to_string()));
-        assert_eq!(config.options.get("ssl_mode"), Some(&"PREFERRED".to_string()));
+        assert_eq!(
+            config.options.get("ssl_mode"),
+            Some(&"PREFERRED".to_string())
+        );
     }
 
     #[test]
@@ -80,8 +85,7 @@ mod tests {
 
     #[test]
     fn test_sqlite_url_building() {
-        let config = ConnectionConfig::new("sqlite")
-            .with_file_path("/path/to/db.sqlite");
+        let config = ConnectionConfig::new("sqlite").with_file_path("/path/to/db.sqlite");
 
         let url = config.to_url().unwrap();
         assert_eq!(url, "sqlite:///path/to/db.sqlite");
@@ -89,8 +93,7 @@ mod tests {
 
     #[test]
     fn test_duckdb_url_building() {
-        let config = ConnectionConfig::new("duckdb")
-            .with_file_path("/path/to/db.duckdb");
+        let config = ConnectionConfig::new("duckdb").with_file_path("/path/to/db.duckdb");
 
         let url = config.to_url().unwrap();
         assert_eq!(url, "duckdb:///path/to/db.duckdb");

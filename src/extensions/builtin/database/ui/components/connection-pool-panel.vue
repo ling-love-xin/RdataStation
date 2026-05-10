@@ -190,15 +190,12 @@ async function refreshStatus() {
 }
 
 function increasePoolSize() {
-  console.log('增加连接数')
 }
 
 function decreasePoolSize() {
-  console.log('减少连接数')
 }
 
 function clearIdleConnections() {
-  console.log('清理空闲连接')
 }
 
 let refreshInterval: ReturnType<typeof setInterval> | null = null

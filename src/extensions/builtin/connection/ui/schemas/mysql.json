@@ -7,9 +7,14 @@
     "description": "MySQL 关系型数据库",
     "features": ["事务", "存储过程", "触发器", "视图"],
     "defaultPort": 3306,
+    "driverKind": "native",
+    "urlTemplate": "mysql://{username}:{password}@{host}:{port}/{database}",
     "requireFile": false,
+    "requireDatabase": true,
     "supportsSsl": true,
-    "supportsSshTunnel": true
+    "supportsSshTunnel": true,
+    "supportsHttpProxy": true,
+    "supportsSocksProxy": true
   },
   "sections": [
     {

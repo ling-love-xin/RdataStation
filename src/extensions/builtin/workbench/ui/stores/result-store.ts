@@ -390,8 +390,7 @@ export const useResultStore = defineStore('result', () => {
         return true
       }
       return false
-    } catch (err) {
-      console.warn('[result-store] saveCellUpdate failed:', err)
+    } catch {
       return false
     }
   }

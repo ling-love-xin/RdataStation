@@ -259,11 +259,11 @@ const localError = ref<string | null>(null)
 
 const healthColor = computed(() => {
   const s = insightStore.schemaInsight?.health_score ?? 0
-  if (s >= 85) return '#1a7a1a'
-  if (s >= 70) return '#1a6db5'
-  if (s >= 50) return '#b57a1a'
-  if (s >= 30) return '#b54a1a'
-  return '#b51a1a'
+  if (s >= 85) return 'var(--health-excellent)'
+  if (s >= 70) return 'var(--health-good)'
+  if (s >= 50) return 'var(--health-fair)'
+  if (s >= 30) return 'var(--health-poor)'
+  return 'var(--health-critical)'
 })
 
 function openDrillTable(tableName: string): void {
@@ -310,35 +310,35 @@ function exportMarkdown(): void {
   const lines: string[] = [
     `# ${t('schemaInsight.schemaInsightReport')}：${r.schema_name}`,
     '',
-    `| 指标 | 值 |`,
+    `| ${t('schemaInsight.mdMetric')} | ${t('schemaInsight.mdValue')} |`,
     `|:--|:--|`,
-    `| 表数 | ${r.table_count} |`,
-    `| 列总数 | ${r.total_columns} |`,
-    `| 健康评分 | ${Math.round(r.health_score)} / 100 (${r.health_level}) |`,
+    `| ${t('schemaInsight.mdTableCount')} | ${r.table_count} |`,
+    `| ${t('schemaInsight.mdColumnTotal')} | ${r.total_columns} |`,
+    `| ${t('schemaInsight.mdHealthScore')} | ${Math.round(r.health_score)} / 100 (${r.health_level}) |`,
     '',
     `> ${r.summary}`,
     '',
-    '## 外键候选',
+    `## ${t('schemaInsight.fkCandidates')}`,
     ...r.fk_candidates.map(
       fk =>
         `- ${fk.source_table}.\`${fk.source_column}\` → ${fk.target_table}.\`${fk.target_column}\` (${fk.confidence}, ${fk.naming_pattern})`
     ),
-    r.fk_candidates.length === 0 ? '- *未检测到*' : '',
+    r.fk_candidates.length === 0 ? `- *${t('schemaInsight.mdNotDetected')}*` : '',
     '',
-    '## 类型不一致',
+    `## ${t('schemaInsight.typeMismatches')}`,
     ...r.type_mismatches.map(
       m =>
         `- **${m.column_name}** (${m.severity}): ${m.tables.map(t => `${t.table_name}=${t.data_type}`).join(', ')}`
     ),
-    r.type_mismatches.length === 0 ? '- *类型一致*' : '',
+    r.type_mismatches.length === 0 ? `- *${t('schemaInsight.mdTypeConsistent')}*` : '',
     '',
-    '## 孤立表',
-    ...r.orphan_tables.map(o => `- ${o.table_name} (${o.column_count} 列): ${o.reason}`),
-    r.orphan_tables.length === 0 ? '- *无*' : '',
+    `## ${t('schemaInsight.orphanTables')}`,
+    ...r.orphan_tables.map(o => `- ${o.table_name} (${o.column_count} ${t('resultPanel.rows')}): ${o.reason}`),
+    r.orphan_tables.length === 0 ? `- *${t('schemaInsight.mdNone')}*` : '',
     '',
-    '## 冗余列',
-    ...r.redundant_columns.map(c => `- ${c.column_name} (${c.table_count} 表): ${c.suggestion}`),
-    r.redundant_columns.length === 0 ? '- *无*' : '',
+    `## ${t('schemaInsight.redundantColumns')}`,
+    ...r.redundant_columns.map(c => `- ${c.column_name} (${c.table_count} ${t('resultPanel.rows')}): ${c.suggestion}`),
+    r.redundant_columns.length === 0 ? `- *${t('schemaInsight.mdNone')}*` : '',
   ]
   const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
   const url = URL.createObjectURL(blob)
@@ -363,13 +363,13 @@ onMounted(() => {
   flex-direction: column;
 }
 .loading-section {
-  padding: 12px;
+  padding: var(--spacing-md);
 }
 .error-section {
-  padding: 12px;
+  padding: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
   align-items: flex-start;
 }
 
@@ -382,7 +382,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
@@ -395,13 +395,13 @@ onMounted(() => {
   color: var(--primary-color);
 }
 .title {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 .meta-info {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  margin-left: 4px;
+  margin-left: var(--spacing-xs);
 }
 .header-actions {
   display: flex;
@@ -410,7 +410,7 @@ onMounted(() => {
 }
 
 .health-bar {
-  padding: 8px 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-tertiary);
   flex-shrink: 0;
@@ -419,38 +419,38 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs);
 }
 .score-num {
-  font-size: 24px;
+  font-size: var(--font-size-huge);
   font-weight: 700;
   line-height: 1;
 }
 .score-level {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 .health-desc {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   line-height: 1.4;
 }
 
 .empty-note {
-  font-size: 11px;
+  font-size: var(--font-size-xss);
   color: var(--text-tertiary);
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .fk-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 .fk-row {
-  padding: 6px 8px;
+  padding: 6px var(--spacing-sm);
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: var(--border-radius-sm);
 }
 .fk-tables {
   display: flex;
@@ -460,7 +460,7 @@ onMounted(() => {
 }
 .fk-arrow {
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-xss);
 }
 .fk-detail {
   display: flex;
@@ -469,11 +469,11 @@ onMounted(() => {
   margin-bottom: 2px;
 }
 .fk-col {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 .fk-pattern {
-  font-size: 9px;
+  font-size: var(--font-size-xxs);
   color: var(--text-tertiary);
 }
 
@@ -483,7 +483,7 @@ onMounted(() => {
   gap: 6px;
 }
 .mismatch-row {
-  padding: 4px 0;
+  padding: var(--spacing-xs) 0;
 }
 .mismatch-header {
   display: flex;
@@ -492,20 +492,20 @@ onMounted(() => {
   margin-bottom: 2px;
 }
 .mismatch-col {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 .mismatch-tables {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 .mismatch-table {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 .mismatch-table code {
-  font-size: 9px;
+  font-size: var(--font-size-xxs);
   background: var(--bg-hover);
   padding: 1px 3px;
   border-radius: 2px;
@@ -514,7 +514,7 @@ onMounted(() => {
 .orphan-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 .orphan-row {
   display: flex;
@@ -522,11 +522,11 @@ onMounted(() => {
   gap: 6px;
 }
 .orphan-col-count {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 .orphan-reason {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 
@@ -536,14 +536,14 @@ onMounted(() => {
   gap: 6px;
 }
 .redundant-row {
-  padding: 4px 0;
+  padding: var(--spacing-xs) 0;
 }
 .redundant-col {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 .redundant-suggest {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   margin-top: 2px;
 }

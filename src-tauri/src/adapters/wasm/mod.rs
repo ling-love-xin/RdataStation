@@ -1,12 +1,12 @@
 //! WASM Adapter 模块
-//! 
+//!
 //! 负责 WASM 插件系统的适配，支持：
 //! - 插件加载与管理
 //! - 插件与 Core 的通信
 //! - 数据分析插件支持
-//! 
+//!
 //! # 架构设计
-//! 
+//!
 //! ```
 //! WASM Plugin (Rust/C/Go compiled to WASM)
 //!     │
@@ -19,9 +19,9 @@
 //!     ▼
 //! Core Services (core/services/)
 //! ```
-//! 
+//!
 //! # 插件类型
-//! 
+//!
 //! 1. **分析插件**: 数据可视化、统计分析
 //! 2. **驱动插件**: 自定义数据库驱动
 //! 3. **工具插件**: SQL 格式化、代码生成
@@ -29,13 +29,15 @@
 use crate::core::CoreError;
 
 // 导出子模块
+pub mod api;
 pub mod extism;
 pub mod plugin_manager;
-pub mod api;
 
 // 重新导出核心类型
 pub use self::extism::ExtismPluginManager;
-pub use self::plugin_manager::{AdvancedPluginManager, PluginSandbox, PluginSandboxConfig, ResourceLimits, ResourceUsage};
+pub use self::plugin_manager::{
+    AdvancedPluginManager, PluginSandbox, PluginSandboxConfig, ResourceLimits, ResourceUsage,
+};
 
 /// WASM 适配错误
 #[derive(Debug)]
@@ -109,13 +111,13 @@ pub struct PluginMetadata {
 pub trait PluginManager {
     /// 加载插件
     fn load_plugin(&mut self, path: &str) -> Result<PluginMetadata, WasmAdapterError>;
-    
+
     /// 卸载插件
     fn unload_plugin(&mut self, id: &str) -> Result<(), WasmAdapterError>;
-    
+
     /// 获取已加载插件列表
     fn list_plugins(&self) -> Vec<PluginMetadata>;
-    
+
     /// 调用插件函数
     fn call_plugin(&self, id: &str, func: &str, args: &[u8]) -> Result<Vec<u8>, WasmAdapterError>;
 }

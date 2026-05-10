@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 
-use crate::core::driver::traits::{Database, Transaction, DataSourceMeta, SchemaObject, ColumnDetail};
-use crate::core::error::{CoreError, CommonError};
+use crate::core::driver::traits::{
+    ColumnDetail, DataSourceMeta, Database, SchemaObject, Transaction,
+};
+use crate::core::error::{CommonError, CoreError};
 use crate::core::models::QueryResult;
 
 pub struct JdbcDriver {
@@ -28,7 +30,9 @@ impl JdbcDriver {
 #[async_trait]
 impl Database for JdbcDriver {
     async fn query(&self, _sql: &str) -> Result<QueryResult, CoreError> {
-        Err(CoreError::common(CommonError::NotSupported("JDBC driver query not implemented yet".to_string())))
+        Err(CoreError::common(CommonError::NotSupported(
+            "JDBC driver query not implemented yet".to_string(),
+        )))
     }
 
     async fn query_with_cancel(
@@ -36,7 +40,9 @@ impl Database for JdbcDriver {
         _sql: &str,
         _cancel_token: CancellationToken,
     ) -> Result<QueryResult, CoreError> {
-        Err(CoreError::common(CommonError::NotSupported("JDBC driver query_with_cancel not implemented yet".to_string())))
+        Err(CoreError::common(CommonError::NotSupported(
+            "JDBC driver query_with_cancel not implemented yet".to_string(),
+        )))
     }
 
     fn meta(&self) -> DataSourceMeta {
@@ -51,15 +57,26 @@ impl Database for JdbcDriver {
         Ok(vec![])
     }
 
-    async fn list_tables(&self, _db: &str, _schema: Option<&str>) -> Result<Vec<SchemaObject>, CoreError> {
+    async fn list_tables(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
         Ok(vec![])
     }
 
-    async fn list_columns(&self, _db: &str, _schema: Option<&str>, _table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
+    async fn list_columns(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+        _table: &str,
+    ) -> Result<Vec<ColumnDetail>, CoreError> {
         Ok(vec![])
     }
 
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError> {
-        Err(CoreError::common(CommonError::NotSupported("JDBC driver transactions not implemented yet".to_string())))
+        Err(CoreError::common(CommonError::NotSupported(
+            "JDBC driver transactions not implemented yet".to_string(),
+        )))
     }
 }

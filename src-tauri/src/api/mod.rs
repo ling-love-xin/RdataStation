@@ -12,12 +12,15 @@ pub mod dto;
 
 // 重新导出 DTO 类型
 pub use dto::{
-    // 错误相关
-    ErrorResponse,
     // 响应包装
     ApiResponse,
+    // 错误相关
+    ErrorResponse,
     // 分页相关
-    PageRequest, PageResponse,
+    PageRequest,
+    PageResponse,
     // 数据模型（从 core 重新导出）
-    QueryResult, Row, Value,
+    QueryResult,
+    Row,
+    Value,
 };

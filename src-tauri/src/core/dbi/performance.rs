@@ -1,12 +1,11 @@
 /**
  * 性能统计模块
- * 
+ *
  * 收集和记录查询执行的性能数据，用于：
  * - 执行模式推荐优化
  * - 性能瓶颈分析
  * - 查询优化建议
  */
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -170,9 +169,18 @@ impl PerformanceCollector {
         let p95_idx = (total_queries as f64 * 0.95) as usize;
         let p99_idx = (total_queries as f64 * 0.99) as usize;
 
-        let p50_elapsed_ms = elapsed_times.get(p50_idx.min(elapsed_times.len() - 1)).copied().unwrap_or(0.0);
-        let p95_elapsed_ms = elapsed_times.get(p95_idx.min(elapsed_times.len() - 1)).copied().unwrap_or(0.0);
-        let p99_elapsed_ms = elapsed_times.get(p99_idx.min(elapsed_times.len() - 1)).copied().unwrap_or(0.0);
+        let p50_elapsed_ms = elapsed_times
+            .get(p50_idx.min(elapsed_times.len() - 1))
+            .copied()
+            .unwrap_or(0.0);
+        let p95_elapsed_ms = elapsed_times
+            .get(p95_idx.min(elapsed_times.len() - 1))
+            .copied()
+            .unwrap_or(0.0);
+        let p99_elapsed_ms = elapsed_times
+            .get(p99_idx.min(elapsed_times.len() - 1))
+            .copied()
+            .unwrap_or(0.0);
 
         PerformanceStats {
             total_queries,
@@ -194,31 +202,35 @@ impl PerformanceCollector {
         let mode_stats = self.mode_stats.read().await;
         let records = self.records.read().await;
 
-        mode_stats.iter().map(|(mode, times)| {
-            let query_count = times.len() as u64;
-            let avg_elapsed_ms = if query_count > 0 {
-                times.iter().sum::<f64>() / query_count as f64
-            } else {
-                0.0
-            };
+        mode_stats
+            .iter()
+            .map(|(mode, times)| {
+                let query_count = times.len() as u64;
+                let avg_elapsed_ms = if query_count > 0 {
+                    times.iter().sum::<f64>() / query_count as f64
+                } else {
+                    0.0
+                };
 
-            let success_count = records.iter()
-                .filter(|r| &r.execution_mode == mode && r.success)
-                .count() as u64;
+                let success_count = records
+                    .iter()
+                    .filter(|r| &r.execution_mode == mode && r.success)
+                    .count() as u64;
 
-            let success_rate = if query_count > 0 {
-                success_count as f64 / query_count as f64
-            } else {
-                0.0
-            };
+                let success_rate = if query_count > 0 {
+                    success_count as f64 / query_count as f64
+                } else {
+                    0.0
+                };
 
-            ModePerformanceStats {
-                mode: mode.clone(),
-                query_count,
-                avg_elapsed_ms,
-                success_rate,
-            }
-        }).collect()
+                ModePerformanceStats {
+                    mode: mode.clone(),
+                    query_count,
+                    avg_elapsed_ms,
+                    success_rate,
+                }
+            })
+            .collect()
     }
 
     /// 获取最近 N 条查询记录
@@ -229,11 +241,12 @@ impl PerformanceCollector {
     }
 
     /// 获取推荐执行模式的建议
-    /// 
+    ///
     /// 基于历史性能数据，分析哪种执行模式更适合特定类型的查询
     pub async fn get_mode_recommendation(&self) -> HashMap<String, ModePerformanceStats> {
         let mode_stats = self.get_mode_stats().await;
-        mode_stats.into_iter()
+        mode_stats
+            .into_iter()
             .map(|s| (s.mode.clone(), s))
             .collect()
     }

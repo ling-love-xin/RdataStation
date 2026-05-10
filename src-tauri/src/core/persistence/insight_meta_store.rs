@@ -54,7 +54,7 @@ impl InsightMetaStore {
         let id = Uuid::new_v4().to_string();
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner().execute(
+        conn.inner()?.execute(
             "INSERT INTO insight_snapshots (id, entity_type, entity_name, entity_source, snapshot_id, row_count, elapsed_ms, version_id, parent_version_id, checksum)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             rusqlite::params![
@@ -86,7 +86,7 @@ impl InsightMetaStore {
     ) -> Result<Option<InsightSnapshotMeta>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let result = conn.inner().query_row(
+        let result = conn.inner()?.query_row(
             "SELECT id, entity_type, entity_name, entity_source, snapshot_id, row_count, elapsed_ms, version_id, parent_version_id, checksum, created_at
              FROM insight_snapshots WHERE entity_type = ?1 AND entity_name = ?2 ORDER BY created_at DESC LIMIT 1",
             rusqlite::params![entity_type, entity_name],
@@ -128,7 +128,7 @@ impl InsightMetaStore {
         let conn = self.sqlite_pool.acquire().await?;
         let limit_val = limit.unwrap_or(20) as i64;
 
-        let mut stmt = conn.inner().prepare(
+        let mut stmt = conn.inner()?.prepare(
             "SELECT id, entity_type, entity_name, entity_source, snapshot_id, row_count, elapsed_ms, version_id, parent_version_id, checksum, created_at
              FROM insight_snapshots WHERE entity_type = ?1 AND entity_name = ?2 ORDER BY created_at DESC LIMIT ?3"
         ).map_err(|e| CoreError::storage(StorageError::Persistence {
@@ -137,28 +137,34 @@ impl InsightMetaStore {
             reason: e.to_string(),
         }))?;
 
-        let entries: Vec<InsightSnapshotMeta> = stmt.query_map(
-            rusqlite::params![entity_type, entity_name, limit_val],
-            |row| {
-                Ok(InsightSnapshotMeta {
-                    id: row.get(0)?,
-                    entity_type: row.get(1)?,
-                    entity_name: row.get(2)?,
-                    entity_source: row.get(3)?,
-                    snapshot_id: row.get(4)?,
-                    row_count: row.get(5)?,
-                    elapsed_ms: row.get(6)?,
-                    version_id: row.get(7)?,
-                    parent_version_id: row.get(8)?,
-                    checksum: row.get(9)?,
-                    created_at: row.get(10)?,
+        let entries: Vec<InsightSnapshotMeta> = stmt
+            .query_map(
+                rusqlite::params![entity_type, entity_name, limit_val],
+                |row| {
+                    Ok(InsightSnapshotMeta {
+                        id: row.get(0)?,
+                        entity_type: row.get(1)?,
+                        entity_name: row.get(2)?,
+                        entity_source: row.get(3)?,
+                        snapshot_id: row.get(4)?,
+                        row_count: row.get(5)?,
+                        elapsed_ms: row.get(6)?,
+                        version_id: row.get(7)?,
+                        parent_version_id: row.get(8)?,
+                        checksum: row.get(9)?,
+                        created_at: row.get(10)?,
+                    })
+                },
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_history_meta".to_string(),
+                    reason: e.to_string(),
                 })
-            },
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "query_history_meta".to_string(),
-            reason: e.to_string(),
-        }))?.filter_map(|r| r.ok()).collect();
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(entries)
     }
@@ -170,7 +176,7 @@ impl InsightMetaStore {
     ) -> Result<Option<InsightSnapshotMeta>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let result = conn.inner().query_row(
+        let result = conn.inner()?.query_row(
             "SELECT id, entity_type, entity_name, entity_source, snapshot_id, row_count, elapsed_ms, version_id, parent_version_id, checksum, created_at
              FROM insight_snapshots WHERE version_id = ?1",
             rusqlite::params![version_id],
@@ -206,34 +212,40 @@ impl InsightMetaStore {
     pub async fn delete_meta(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner().execute(
-            "DELETE FROM insight_snapshots WHERE id = ?1",
-            rusqlite::params![id],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "delete_insight_meta".to_string(),
-            reason: e.to_string(),
-        }))?;
+        conn.inner()?
+            .execute(
+                "DELETE FROM insight_snapshots WHERE id = ?1",
+                rusqlite::params![id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_insight_meta".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
 
     /// 统计指定类型洞察的总数
-    pub async fn count_by_type(
-        &self,
-        entity_type: &str,
-    ) -> Result<i64, CoreError> {
+    pub async fn count_by_type(&self, entity_type: &str) -> Result<i64, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let count: i64 = conn.inner().query_row(
-            "SELECT COUNT(*) FROM insight_snapshots WHERE entity_type = ?1",
-            rusqlite::params![entity_type],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "count_insight_meta".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let count: i64 = conn
+            .inner()?
+            .query_row(
+                "SELECT COUNT(*) FROM insight_snapshots WHERE entity_type = ?1",
+                rusqlite::params![entity_type],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "count_insight_meta".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(count)
     }
@@ -242,26 +254,28 @@ impl InsightMetaStore {
     pub async fn delete_meta_by_snapshot_id(&self, snapshot_id: &str) -> Result<usize, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let deleted = conn.inner().execute(
-            "DELETE FROM insight_snapshots WHERE snapshot_id = ?1",
-            rusqlite::params![snapshot_id],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "delete_meta_by_snapshot_id".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let deleted = conn
+            .inner()?
+            .execute(
+                "DELETE FROM insight_snapshots WHERE snapshot_id = ?1",
+                rusqlite::params![snapshot_id],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "delete_meta_by_snapshot_id".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(deleted)
     }
 
     /// 统计某列的版本总数
-    pub async fn count_versions_for_column(
-        &self,
-        column_name: &str,
-    ) -> Result<usize, CoreError> {
+    pub async fn count_versions_for_column(&self, column_name: &str) -> Result<usize, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let count: i64 = conn.inner().query_row(
+        let count: i64 = conn.inner()?.query_row(
             "SELECT COUNT(*) FROM insight_snapshots WHERE entity_type = 'column' AND entity_name = ?1",
             rusqlite::params![column_name],
             |row| row.get(0),
@@ -280,15 +294,20 @@ impl InsightMetaStore {
     pub async fn cleanup_older_than(&self, days: i64) -> Result<usize, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let deleted = conn.inner().execute(
-            "DELETE FROM insight_snapshots
+        let deleted = conn
+            .inner()?
+            .execute(
+                "DELETE FROM insight_snapshots
              WHERE created_at < datetime('now', ?1 || ' days')",
-            rusqlite::params![format!("-{}", days)],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "cleanup_older_than".to_string(),
-            reason: e.to_string(),
-        }))?;
+                rusqlite::params![format!("-{}", days)],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "cleanup_older_than".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(deleted)
     }

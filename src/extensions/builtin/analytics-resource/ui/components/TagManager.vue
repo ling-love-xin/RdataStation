@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <div class="tag-manager">
     <div class="tag-list">
       <button
@@ -11,14 +11,25 @@
         v-for="tag in tags"
         :key="tag.id"
         :class="['tag-chip', { active: activeTagId === tag.id }]"
-        :style="activeTagId === tag.id ? { background: tag.color || 'var(--resource-tag-default)', borderColor: tag.color || 'var(--resource-tag-default)' } : {}"
+        :style="
+          activeTagId === tag.id
+            ? {
+                background: tag.color || 'var(--resource-tag-default)',
+                borderColor: tag.color || 'var(--resource-tag-default)',
+              }
+            : {}
+        "
         @click="handleSelectTag(tag.id)"
       >
         <span class="tag-dot" :style="{ background: tag.color || 'var(--resource-tag-default)' }" />
         {{ tag.name }}
       </button>
     </div>
-    <button class="add-tag-btn" :title="t('analyticsResource.createTag')" @click="$emit('create-tag')">
+    <button
+      class="add-tag-btn"
+      :title="t('analyticsResource.createTag')"
+      @click="$emit('create-tag')"
+    >
       + {{ t('analyticsResource.newTag') }}
     </button>
   </div>
@@ -31,7 +42,7 @@ import type { AnalyticsTag } from '../../types'
 
 const { t } = useI18n()
 
-const props = defineProps<{
+defineProps<{
   tags: AnalyticsTag[]
   activeTagId: string | null
 }>()
@@ -58,7 +69,7 @@ function handleSelectTag(tagId: string | null) {
 
 .tag-list {
   display: flex;
-  gap: 6px;
+  gap: var(--spacing-sm);
   flex: 1;
   overflow-x: auto;
   padding-bottom: 2px;
@@ -70,10 +81,10 @@ function handleSelectTag(tagId: string | null) {
   gap: 5px;
   padding: 4px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--border-radius-pill);
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -101,13 +112,13 @@ function handleSelectTag(tagId: string | null) {
 .add-tag-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   padding: 4px 10px;
   border: 1px dashed var(--border-color);
-  border-radius: 16px;
+  border-radius: var(--border-radius-pill);
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;

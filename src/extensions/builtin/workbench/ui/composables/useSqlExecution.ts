@@ -5,6 +5,9 @@ import * as queryService from '@/extensions/builtin/query/ui/services/query'
 import { parseSql, splitSql, rewriteDuckDBSQL, generateAttachName, detectParams, bindParams } from '@/extensions/builtin/workbench/services/sql-editor-service'
 import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
+import { useTransaction } from './useTransaction'
+
+const DEFAULT_QUERY_TIMEOUT_MS = 30_000
 
 interface SqlExecutionOptions {
   panelId: string
@@ -33,7 +36,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     error: string | null
   } | null>(null)
 
-  const inTransaction = ref(false)
+  const { inTransaction, beginTransaction, commitTransaction, rollbackTransaction } = useTransaction(runtimeConnId)
 
   const statementCount = ref(0)
   let parseTimer: ReturnType<typeof setTimeout> | null = null
@@ -55,44 +58,6 @@ export function useSqlExecution(options: SqlExecutionOptions) {
         statementCount.value = 0
       }
     }, 500)
-  }
-
-  async function beginTransaction(): Promise<void> {
-    const connId = runtimeConnId.value
-    if (!connId) {
-      message.warning('No active connection')
-      return
-    }
-    try {
-      const status = await queryService.beginTransaction(connId)
-      inTransaction.value = status.isInTransaction
-    } catch {
-      message.error('Failed to begin transaction')
-    }
-  }
-
-  async function commitTransaction(): Promise<void> {
-    const connId = runtimeConnId.value
-    if (!connId) return
-    try {
-      await queryService.commitTransaction(connId)
-      inTransaction.value = false
-      message.success('Transaction committed')
-    } catch {
-      message.error('Failed to commit transaction')
-    }
-  }
-
-  async function rollbackTransaction(): Promise<void> {
-    const connId = runtimeConnId.value
-    if (!connId) return
-    try {
-      await queryService.rollbackTransaction(connId)
-      inTransaction.value = false
-      message.success('Transaction rolled back')
-    } catch {
-      message.error('Failed to rollback transaction')
-    }
   }
 
   function storeResult(data: {
@@ -121,6 +86,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     store.executionResults.set(panelId, executionResult)
     store.executionResults = new Map(store.executionResults)
     store.setActiveEditorPanelId(panelId)
+    store.incrementResultVersion()
   }
 
   async function executeSql(
@@ -132,30 +98,19 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     totalRows: number
     elapsedMs: number
     affectedRows: number
+    truncated: boolean
     error: string | null
   }> {
-    const result = await queryService.executeSql(sql, connId)
-
-    const qr = ((result as unknown) as Record<string, unknown>).result || result
-    const qrTyped = qr as Record<string, unknown>
-
-    if (qrTyped.error) {
-      return {
-        columns: [],
-        rows: [],
-        totalRows: 0,
-        elapsedMs: (((result as unknown) as Record<string, unknown>).elapsed_ms as number) ?? 0,
-        affectedRows: 0,
-        error: qrTyped.error as string,
-      }
-    }
+    const result = await queryService.executeSql(sql, connId, DEFAULT_QUERY_TIMEOUT_MS)
+    const data = result.result ?? result
 
     return {
-      columns: (qrTyped.columns as string[]) ?? [],
-      rows: (qrTyped.rows as unknown[][]) ?? [],
-      totalRows: (qrTyped.total_rows as number) ?? (qrTyped.rows as unknown[][])?.length ?? 0,
-      elapsedMs: (((result as unknown) as Record<string, unknown>).elapsed_ms as number) ?? 0,
-      affectedRows: (qrTyped.affected_rows as number) ?? 0,
+      columns: data.columns ?? [],
+      rows: data.rows ?? [],
+      totalRows: data.total_rows ?? data.rows?.length ?? 0,
+      elapsedMs: result.elapsed_ms ?? 0,
+      affectedRows: data.affected_rows ?? 0,
+      truncated: result.truncated ?? false,
       error: null,
     }
   }
@@ -189,16 +144,20 @@ export function useSqlExecution(options: SqlExecutionOptions) {
       if (result.error) {
         message.error(result.error)
       } else if (result.totalRows > 0) {
-        message.success(`${result.totalRows} rows returned in ${result.elapsedMs}ms`)
+        if (result.truncated) {
+          message.warning(`${result.totalRows} rows returned (truncated from larger result set) in ${result.elapsedMs}ms`)
+        } else {
+          message.success(`${result.totalRows} rows returned in ${result.elapsedMs}ms`)
+        }
       } else {
         message.success(`Done in ${result.elapsedMs}ms, ${result.affectedRows} rows affected`)
       }
     } catch (error) {
-        const ac = abortController
-    if (ac?.signal.aborted) {
-          message.info('Query cancelled')
-          return
-        }
+      const ac = abortController
+      if (ac?.signal.aborted) {
+        message.info('Query cancelled')
+        return
+      }
       const elapsed = lastExecutionTime.value ?? 0
       lastExecutionTime.value = elapsed
       storeResult({
@@ -211,7 +170,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
       })
       message.error(error instanceof Error ? error.message : String(error))
     } finally {
-     const abortController: AbortController | null = null
+      abortController = undefined
       executing.value = false
     }
   }
@@ -244,6 +203,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     let totalElapsed = 0
     let successCount = 0
     let errorCount = 0
+    let firstError = ''
 
     for (let i = 0; i < meaningfulStatements.length; i++) {
       if (abortController.signal.aborted) break
@@ -274,6 +234,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
         const elapsed = performance.now() - startTime
         totalElapsed += elapsed
         errorCount++
+        if (!firstError) firstError = String(error)
 
         const tab = resultStore.addTab(stmt, connId)
         tab.title = `语句 #${i + 1} (错误)`
@@ -294,7 +255,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     if (errorCount === 0) {
       message.success(`${total} statements executed in ${Math.round(totalElapsed)}ms`)
     } else {
-      message.warning(`${successCount} ok, ${errorCount} failed — ${Math.round(totalElapsed)}ms`)
+      message.warning(`${successCount} ok, ${errorCount} failed — ${Math.round(totalElapsed)}ms${firstError ? ` (${firstError})` : ''}`)
     }
   }
 
@@ -440,8 +401,6 @@ export function useSqlExecution(options: SqlExecutionOptions) {
       parseTimer = null
     }
   }
-
-  const executeExplain = executeSql
 
   return {
     executing,

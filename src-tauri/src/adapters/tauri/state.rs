@@ -1,12 +1,11 @@
 /// Tauri 状态管理模块
-
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 
 use tokio_util::sync::CancellationToken;
 
-use crate::core::ConnectionManager;
 use crate::core::dbi::engine::duckdb_engine::DuckDBEngine;
+use crate::core::ConnectionManager;
 
 /// 预热进度状态
 #[derive(Debug, Clone)]
@@ -54,7 +53,10 @@ impl WarmingTaskManager {
                 current_table: None,
             }),
         });
-        self.tasks.write().unwrap().insert(connection_id.to_string(), Arc::clone(&task));
+        self.tasks
+            .write()
+            .unwrap()
+            .insert(connection_id.to_string(), Arc::clone(&task));
         task
     }
 

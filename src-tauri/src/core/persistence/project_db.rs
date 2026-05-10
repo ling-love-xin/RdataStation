@@ -1,13 +1,12 @@
 /**
  * 项目级数据库管理模块
- * 
+ *
  * 管理项目的事务性数据（SQLite）和分析性数据（DuckDB）
- * 
+ *
  * 架构设计：
  * - SQLite: 使用连接池 + WAL 模式，支持并发访问
  * - DuckDB: 使用单例长连接，支持分析查询
  */
-
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -15,11 +14,11 @@ use duckdb::Connection as DuckConnection;
 use rusqlite::Connection as SqliteConnection;
 use tokio::sync::Mutex;
 
-use crate::core::error::{CoreError, CommonError, StorageError};
+use crate::core::error::{CommonError, CoreError, DatabaseError, StorageError};
 use crate::core::migration::{MigrationManager, MigrationType};
 
 /// 项目 SQLite 连接池
-/// 
+///
 /// 使用 WAL 模式和共享缓存，支持并发读写
 pub struct ProjectSqlitePool {
     /// 连接池（使用 Mutex 保护）
@@ -31,7 +30,7 @@ pub struct ProjectSqlitePool {
 }
 
 /// SQLite 连接池连接包装器（RAII 模式）
-/// 
+///
 /// 在 drop 时自动归还连接到连接池
 pub struct SqlitePoolConnection {
     /// 内部连接
@@ -41,14 +40,24 @@ pub struct SqlitePoolConnection {
 }
 
 impl SqlitePoolConnection {
-    /// 获取内部连接的不可变引用
-    pub fn inner(&self) -> &SqliteConnection {
-        self.conn.as_ref().expect("Connection already taken")
+    pub fn inner(&self) -> Result<&SqliteConnection, CoreError> {
+        self.conn.as_ref().ok_or_else(|| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "pool_acquire".to_string(),
+                source: "Connection already taken".to_string(),
+            })
+        })
     }
 
-    /// 获取内部连接的可变引用
-    pub fn inner_mut(&mut self) -> &mut SqliteConnection {
-        self.conn.as_mut().expect("Connection already taken")
+    pub fn inner_mut(&mut self) -> Result<&mut SqliteConnection, CoreError> {
+        self.conn.as_mut().ok_or_else(|| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "pool_acquire".to_string(),
+                source: "Connection already taken".to_string(),
+            })
+        })
     }
 }
 
@@ -71,18 +80,16 @@ impl Drop for SqlitePoolConnection {
 
 impl ProjectSqlitePool {
     /// 创建新的 SQLite 连接池
-    /// 
+    ///
     /// # 参数
     /// * `db_path` - 数据库文件路径
     /// * `pool_size` - 连接池大小
     pub async fn new(db_path: PathBuf, pool_size: usize) -> Result<Self, CoreError> {
         // 确保父目录存在
         if let Some(parent) = db_path.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| io_error(
-                "create_dir",
-                &parent.to_string_lossy(),
-                &e.to_string(),
-            ))?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| io_error("create_dir", &parent.to_string_lossy(), &e.to_string()))?;
         }
 
         let mut pool = Vec::with_capacity(pool_size);
@@ -100,64 +107,66 @@ impl ProjectSqlitePool {
 
     /// 打开单个 SQLite 连接（配置 WAL 模式和共享缓存）
     fn open_connection(path: &PathBuf) -> Result<SqliteConnection, CoreError> {
-        let conn = SqliteConnection::open(path).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let conn = SqliteConnection::open(path).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "open".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 启用 WAL 模式（Write-Ahead Logging），支持并发读写
-        conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(())).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "set_wal_mode".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(()))
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "set_wal_mode".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 设置 WAL 自动 checkpoint 阈值（1000 页）
-        conn.query_row("PRAGMA wal_autocheckpoint=1000", [], |_| Ok(())).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "set_wal_autocheckpoint".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        conn.query_row("PRAGMA wal_autocheckpoint=1000", [], |_| Ok(()))
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "set_wal_autocheckpoint".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 设置缓存大小（-2000 表示 2000 页，约 8MB）
-        conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_cache_size".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 启用外键约束
-        conn.execute("PRAGMA foreign_keys=ON", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA foreign_keys=ON", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "enable_foreign_keys".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 设置同步模式为 NORMAL（平衡性能和安全性）
-        conn.execute("PRAGMA synchronous=NORMAL", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA synchronous=NORMAL", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_synchronous".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(conn)
     }
 
     /// 获取连接（从连接池）
-    /// 
+    ///
     /// 返回 SqlitePoolConnection 包装器，在 drop 时自动归还连接
     /// 如果连接池已满，将等待直到有连接可用
     pub async fn acquire(&self) -> Result<SqlitePoolConnection, CoreError> {
@@ -188,14 +197,14 @@ impl ProjectSqlitePool {
         // 步骤 1：等待所有连接被归还（最多等待 3 秒）
         let timeout = tokio::time::Duration::from_secs(3);
         let start = tokio::time::Instant::now();
-        
+
         loop {
             let pool = self.pool.lock().await;
             if pool.len() >= self.pool_size {
                 break;
             }
             drop(pool);
-            
+
             if start.elapsed() > timeout {
                 tracing::warn!(
                     db_path = %self.db_path.display(),
@@ -203,32 +212,32 @@ impl ProjectSqlitePool {
                 );
                 break;
             }
-            
+
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         }
-        
+
         // 步骤 2：获取所有连接并执行 WAL checkpoint
         let mut all_conns = {
             let mut pool = self.pool.lock().await;
             pool.drain(..).collect::<Vec<_>>()
         };
-        
+
         // 步骤 3：对每个连接执行 checkpoint
         for conn in &mut all_conns {
             // 将 WAL 数据合并回主数据库并截断 WAL 文件
             let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
         }
-        
+
         // 步骤 4：显式 drop 所有连接（关闭文件句柄）
         drop(all_conns);
-        
+
         // 步骤 5：等待操作系统释放文件句柄
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        
+
         // 步骤 6：删除 WAL 和 SHM 文件（如果存在）
         let wal_path = format!("{}-wal", self.db_path.display());
         let shm_path = format!("{}-shm", self.db_path.display());
-        
+
         if std::path::Path::new(&wal_path).exists() {
             if let Err(e) = std::fs::remove_file(&wal_path) {
                 tracing::warn!(path = %wal_path, error = %e, "Failed to remove WAL file");
@@ -239,13 +248,13 @@ impl ProjectSqlitePool {
                 tracing::warn!(path = %shm_path, error = %e, "Failed to remove SHM file");
             }
         }
-        
+
         tracing::info!(db_path = %self.db_path.display(), "SQLite pool closed and files cleaned");
     }
 }
 
 /// 项目 DuckDB 连接
-/// 
+///
 /// DuckDB 使用单例长连接，项目打开时创建，项目关闭时销毁
 pub struct ProjectDuckdbConnection {
     /// DuckDB 连接
@@ -256,35 +265,33 @@ pub struct ProjectDuckdbConnection {
 
 impl ProjectDuckdbConnection {
     /// 创建新的 DuckDB 连接
-    /// 
+    ///
     /// # 参数
     /// * `db_path` - 数据库文件路径
     pub async fn new(db_path: PathBuf) -> Result<Self, CoreError> {
         // 确保父目录存在
         if let Some(parent) = db_path.parent() {
             if parent.as_os_str() != "" {
-                tokio::fs::create_dir_all(parent).await.map_err(|e| io_error(
-                    "create_dir",
-                    &parent.to_string_lossy(),
-                    &e.to_string(),
-                ))?;
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    io_error("create_dir", &parent.to_string_lossy(), &e.to_string())
+                })?;
             }
         }
 
         let conn = tokio::task::spawn_blocking({
             let path = db_path.clone();
             move || {
-                DuckConnection::open(&path).map_err(|e| CoreError::storage(
-                    StorageError::Persistence {
+                DuckConnection::open(&path).map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
                         store: "duckdb".to_string(),
                         operation: "open".to_string(),
                         reason: e.to_string(),
-                    }
-                ))
+                    })
+                })
             }
-        }).await.map_err(|e| CoreError::common(
-            CommonError::General(format!("Task panicked: {}", e))
-        ))??;
+        })
+        .await
+        .map_err(|e| CoreError::common(CommonError::General(format!("Task panicked: {}", e))))??;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(Some(conn))),
@@ -295,9 +302,9 @@ impl ProjectDuckdbConnection {
     /// 获取 DuckDB 连接
     pub async fn acquire(&self) -> Result<Arc<Mutex<Option<DuckConnection>>>, CoreError> {
         if self.conn.lock().await.is_none() {
-            return Err(CoreError::common(
-                CommonError::General("DuckDB connection is closed".to_string())
-            ));
+            return Err(CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            )));
         }
         Ok(self.conn.clone())
     }
@@ -314,17 +321,17 @@ impl ProjectDuckdbConnection {
             let mut conn = self.conn.lock().await;
             conn.take()
         };
-        
+
         // 步骤 2：显式 drop 连接（关闭文件句柄）
         drop(conn);
-        
+
         // 步骤 3：等待操作系统释放文件句柄
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        
+
         // 步骤 4：删除 DuckDB 的 WAL 文件（如果存在）
         let wal_path = format!("{}-wal", self.db_path.display());
         let shm_path = format!("{}-shm", self.db_path.display());
-        
+
         if std::path::Path::new(&wal_path).exists() {
             if let Err(e) = std::fs::remove_file(&wal_path) {
                 tracing::warn!(path = %wal_path, error = %e, "Failed to remove DuckDB WAL file");
@@ -335,22 +342,23 @@ impl ProjectDuckdbConnection {
                 tracing::warn!(path = %shm_path, error = %e, "Failed to remove DuckDB SHM file");
             }
         }
-        
+
         tracing::info!(db_path = %self.db_path.display(), "DuckDB connection closed and files cleaned");
-        
+
         Ok(())
     }
 }
 
 /// IO错误辅助函数
 fn io_error(operation: &str, path: &str, reason: &str) -> CoreError {
-    CoreError::Common(CommonError::General(
-        format!("IO error in {} for {}: {}", operation, path, reason)
-    ))
+    CoreError::Common(CommonError::General(format!(
+        "IO error in {} for {}: {}",
+        operation, path, reason
+    )))
 }
 
 /// 项目数据库管理器
-/// 
+///
 /// 统一管理项目的 SQLite 和 DuckDB 连接
 pub struct ProjectDatabaseManager {
     /// 项目路径
@@ -363,7 +371,7 @@ pub struct ProjectDatabaseManager {
 
 impl ProjectDatabaseManager {
     /// 创建或打开项目数据库
-    /// 
+    ///
     /// # 参数
     /// * `project_path` - 项目根目录路径
     /// * `sqlite_pool_size` - SQLite 连接池大小
@@ -371,94 +379,109 @@ impl ProjectDatabaseManager {
         let rsmeta_path = project_path.join(".RSMETA");
         let config_path = rsmeta_path.join("config");
         let project_metadata_path = rsmeta_path.join("project_metadata");
-        
-        tokio::fs::create_dir_all(&rsmeta_path).await
+
+        tokio::fs::create_dir_all(&rsmeta_path)
+            .await
             .map_err(|e| io_error("create_dir", &rsmeta_path.to_string_lossy(), &e.to_string()))?;
-        tokio::fs::create_dir_all(&config_path).await
+        tokio::fs::create_dir_all(&config_path)
+            .await
             .map_err(|e| io_error("create_dir", &config_path.to_string_lossy(), &e.to_string()))?;
-        tokio::fs::create_dir_all(&project_metadata_path).await
-            .map_err(|e| io_error("create_dir", &project_metadata_path.to_string_lossy(), &e.to_string()))?;
-        
+        tokio::fs::create_dir_all(&project_metadata_path)
+            .await
+            .map_err(|e| {
+                io_error(
+                    "create_dir",
+                    &project_metadata_path.to_string_lossy(),
+                    &e.to_string(),
+                )
+            })?;
+
         let sqlite_db_path = rsmeta_path.join("project.db");
         let sqlite_pool = ProjectSqlitePool::new(sqlite_db_path, sqlite_pool_size).await?;
-        
+
         let duckdb_path = rsmeta_path.join("analytics.duckdb");
         let duckdb_conn = ProjectDuckdbConnection::new(duckdb_path).await?;
-        
+
         let manager = Self {
             project_path: project_path.clone(),
             sqlite_pool: Arc::new(sqlite_pool),
             duckdb_conn: Arc::new(duckdb_conn),
         };
-        
+
         // 使用迁移系统初始化数据库表结构
         manager.init_sqlite_tables().await?;
         manager.init_duckdb_tables().await?;
-        
+
         Ok(manager)
     }
-    
+
     /// 初始化 SQLite 表结构（使用迁移系统）
     async fn init_sqlite_tables(&self) -> Result<(), CoreError> {
         let _sqlite = self.sqlite_pool.acquire().await?;
         let db_path = self.sqlite_pool.path().clone();
-        
+
         // 执行项目元数据迁移
         let migration_manager = MigrationManager::new();
-        migration_manager.migrate(&db_path, MigrationType::ProjectMeta)
-            .map_err(|e| CoreError::Storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "migrate_project_meta".to_string(),
-                reason: e.to_string(),
-            }))?;
-        
+        migration_manager
+            .migrate(&db_path, MigrationType::ProjectMeta)
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "migrate_project_meta".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         tracing::info!(db_path = %db_path.display(), "Project SQLite tables initialized via migrations");
-        
+
         // sqlite 在 drop 时自动归还到连接池
         Ok(())
     }
-    
+
     /// 初始化 DuckDB 表结构（使用迁移系统）
     async fn init_duckdb_tables(&self) -> Result<(), CoreError> {
         let duckdb_path = self.duckdb_conn.path().clone();
-        
+
         // 执行项目分析迁移
         let migration_manager = MigrationManager::new();
-        migration_manager.migrate(&duckdb_path, MigrationType::ProjectAnalysis)
-            .map_err(|e| CoreError::Storage(StorageError::Persistence {
-                store: "duckdb".to_string(),
-                operation: "migrate_project_analysis".to_string(),
-                reason: e.to_string(),
-            }))?;
-        
+        migration_manager
+            .migrate(&duckdb_path, MigrationType::ProjectAnalysis)
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "duckdb".to_string(),
+                    operation: "migrate_project_analysis".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         tracing::info!(db_path = %duckdb_path.display(), "Project DuckDB tables initialized via migrations");
-        
+
         Ok(())
     }
-    
+
     /// 获取 SQLite 连接池
     pub fn sqlite_pool(&self) -> Arc<ProjectSqlitePool> {
         self.sqlite_pool.clone()
     }
-    
+
     /// 获取 DuckDB 连接
     pub fn duckdb_conn(&self) -> Arc<ProjectDuckdbConnection> {
         self.duckdb_conn.clone()
     }
-    
+
     /// 获取项目路径
     pub fn project_path(&self) -> &PathBuf {
         &self.project_path
     }
-    
+
     /// 关闭数据库连接
     pub async fn close(&self) -> Result<(), CoreError> {
         // 关闭 SQLite 连接池，释放所有文件句柄
         self.sqlite_pool.close().await;
-        
+
         // 关闭 DuckDB 连接
         self.duckdb_conn.close().await?;
-        
+
         Ok(())
     }
 }
@@ -467,17 +490,17 @@ impl ProjectDatabaseManager {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    
+
     fn test_temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("rdata_test_project_db_{}", name));
         let _ = std::fs::create_dir_all(&dir);
         dir
     }
-    
+
     #[tokio::test]
     async fn test_project_db_creation() {
         let project_path = test_temp_dir("creation");
-        
+
         let manager = ProjectDatabaseManager::open(&project_path, 3).await;
         assert!(manager.is_ok());
     }

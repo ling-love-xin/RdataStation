@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿﻿﻿﻿<template>
   <div
     ref="containerRef"
     class="resource-list"
@@ -97,10 +97,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ContextMenu, { type ContextMenuItem } from './ContextMenu.vue'
+import { useVirtualScroll as useVirtualScrollComposable } from '../composables/use-virtual-scroll'
 
 import type { AnalyticsResource, AnalyticsResourceDisplaySettings, AnalyticsTag } from '../../types'
 
@@ -146,27 +147,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const containerRef = ref<HTMLDivElement | null>(null)
+const selectedIds = computed(() => props.selectedIds)
+
+const { totalHeight, offsetY, visibleItems, containerRef, handleScroll } =
+  useVirtualScrollComposable<AnalyticsResource>({
+    itemHeight: props.itemHeight,
+    items: computed(() => props.items),
+  })
+
 const contextMenuRef = ref<InstanceType<typeof ContextMenu> | null>(null)
-
-const containerHeight = ref(0)
-const scrollTop = ref(0)
-
-const totalHeight = computed(() => props.items.length * props.itemHeight)
-
-const visibleRange = computed(() => {
-  const start = Math.floor(scrollTop.value / props.itemHeight)
-  const visibleCount = Math.ceil(containerHeight.value / props.itemHeight) + 2
-  const startIndex = Math.max(0, start - 1)
-  const endIndex = Math.min(props.items.length, startIndex + visibleCount + 2)
-  return { startIndex, endIndex }
-})
-
-const offsetY = computed(() => visibleRange.value.startIndex * props.itemHeight)
-
-const visibleItems = computed(() => {
-  return props.items.slice(visibleRange.value.startIndex, visibleRange.value.endIndex)
-})
 
 const contextMenuItems = computed<ContextMenuItem[]>(() => [
   {
@@ -214,8 +203,6 @@ const contextMenuItems = computed<ContextMenuItem[]>(() => [
     action: () => emit('delete', selectedIds.value[0]),
   },
 ])
-
-const selectedIds = computed(() => props.selectedIds)
 
 function isSelected(id: string) {
   return selectedIds.value.includes(id)
@@ -285,7 +272,7 @@ function handleContextMenu(event: MouseEvent) {
   contextMenuRef.value?.open(event)
 }
 
-function handleContextMenuSelect(item: ContextMenuItem) {
+function handleContextMenuSelect(_item: ContextMenuItem) {
   // ContextMenu handles the action
 }
 
@@ -296,7 +283,9 @@ function handleDragStart(item: AnalyticsResource, event: DragEvent) {
       : [item]
 
   event.dataTransfer?.setData('application/json', JSON.stringify(draggedResources))
-  event.dataTransfer!.effectAllowed = 'move'
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+  }
 
   if (event.target instanceof HTMLElement) {
     event.target.style.opacity = '0.5'
@@ -311,34 +300,6 @@ function handleDragEnd(event: DragEvent) {
   }
   emit('dragend')
 }
-
-function handleScroll() {
-  if (containerRef.value) {
-    scrollTop.value = containerRef.value.scrollTop
-  }
-}
-
-function updateContainerHeight() {
-  if (containerRef.value) {
-    containerHeight.value = containerRef.value.clientHeight
-  }
-}
-
-onMounted(() => {
-  updateContainerHeight()
-  window.addEventListener('resize', updateContainerHeight)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', updateContainerHeight)
-})
-
-watch(
-  () => props.items,
-  () => {
-    updateContainerHeight()
-  }
-)
 </script>
 
 <style scoped>
@@ -385,7 +346,7 @@ watch(
 }
 
 .resource-icon {
-  font-size: 20px;
+  font-size: var(--font-size-title);
   flex-shrink: 0;
 }
 
@@ -395,7 +356,7 @@ watch(
 }
 
 .resource-name {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 2px;
@@ -405,14 +366,14 @@ watch(
 }
 
 .resource-meta {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 
 .scope-tag {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -435,14 +396,14 @@ watch(
 .tag-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--spacing-xs);
   margin-top: 4px;
 }
 
 .tag-badge {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: var(--border-radius-xl);
   border: 1px solid;
   font-weight: 500;
   white-space: nowrap;
@@ -462,7 +423,7 @@ watch(
 }
 
 .empty-icon {
-  font-size: 48px;
+  font-size: var(--font-size-display);
   margin-bottom: var(--size-lg);
   opacity: 0.5;
 }

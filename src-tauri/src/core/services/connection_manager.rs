@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
-use crate::core::driver::DriverRegistry;
+use crate::core::cache::CacheManager;
 use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
 use crate::core::driver::traits::Database;
-use crate::core::error::{CoreError, ConnectionError};
-use crate::core::cache::CacheManager;
+use crate::core::driver::DriverRegistry;
+use crate::core::error::{ConnectionError, CoreError};
 
 /// 连接 ID 类型
 pub type ConnId = String;
@@ -123,19 +123,20 @@ impl ConnectionManager {
         config: DriverConnectionConfig,
     ) -> Result<(ConnId, DynDatabase), CoreError> {
         let driver_id = &config.driver;
-        
+
         // 从 DriverRegistry 获取驱动工厂
-        let factory = DriverRegistry::get(driver_id)
-            .ok_or_else(|| CoreError::connection(ConnectionError::DriverNotFound {
+        let factory = DriverRegistry::get(driver_id).ok_or_else(|| {
+            CoreError::connection(ConnectionError::DriverNotFound {
                 driver: driver_id.clone(),
-            }))?;
-        
+            })
+        })?;
+
         // 使用工厂创建数据库连接
         let db = factory.create(config.clone()).await?;
-        
+
         // 生成连接 ID
         let conn_id = create_connection_id_from_config(&config);
-        
+
         // 创建连接信息
         let info = ConnectionInfo {
             id: conn_id.clone(),
@@ -147,10 +148,11 @@ impl ConnectionManager {
             project_id: None,
             created_at: std::time::Instant::now(),
         };
-        
+
         // 添加到连接管理器
-        self.add_connection(conn_id.clone(), db.clone(), info).await?;
-        
+        self.add_connection(conn_id.clone(), db.clone(), info)
+            .await?;
+
         Ok((conn_id, db))
     }
 
@@ -208,7 +210,9 @@ impl ConnectionManager {
     pub async fn get_active_connection(&self) -> Option<(ConnId, DynDatabase)> {
         let active_conn_id = self.active_conn_id.read().await;
         if let Some(conn_id) = active_conn_id.as_ref() {
-            self.get_connection(conn_id).await.map(|db| (conn_id.clone(), db))
+            self.get_connection(conn_id)
+                .await
+                .map(|db| (conn_id.clone(), db))
         } else {
             None
         }
@@ -257,7 +261,7 @@ impl ConnectionManager {
     pub async fn switch_connection(&self, conn_id: &ConnId) -> Result<(), CoreError> {
         if !self.has_connection(conn_id).await {
             return Err(crate::core::error::CoreError::connection(
-                crate::core::error::ConnectionError::NotFound(conn_id.clone())
+                crate::core::error::ConnectionError::NotFound(conn_id.clone()),
             ));
         }
         self.set_active_connection(conn_id.clone()).await;
@@ -281,7 +285,7 @@ impl ConnectionManager {
         if active_conn.as_ref() == Some(conn_id) {
             *active_conn = None;
         }
-        
+
         // 清理与该连接相关的所有缓存
         let cache_manager = CacheManager::instance();
         let conn_id_str = conn_id.to_string();
@@ -320,14 +324,18 @@ impl ConnectionManager {
     /// # Returns
     ///
     /// 如果连接存在并更新成功返回 Ok(())，否则返回 CoreError
-    pub async fn update_connection_info(&self, conn_id: &ConnId, info: ConnectionInfo) -> Result<(), CoreError> {
+    pub async fn update_connection_info(
+        &self,
+        conn_id: &ConnId,
+        info: ConnectionInfo,
+    ) -> Result<(), CoreError> {
         let mut conn_info = self.connection_info.write().await;
         if conn_info.contains_key(conn_id) {
             conn_info.insert(conn_id.clone(), info);
             Ok(())
         } else {
             Err(crate::core::error::CoreError::connection(
-                crate::core::error::ConnectionError::NotFound(conn_id.clone())
+                crate::core::error::ConnectionError::NotFound(conn_id.clone()),
             ))
         }
     }
@@ -377,7 +385,10 @@ impl ConnectionManager {
     /// 为指定连接创建取消令牌
     ///
     /// 取消旧令牌并创建新令牌，用于后续查询取消
-    pub async fn create_cancel_token(&self, conn_id: &ConnId) -> tokio_util::sync::CancellationToken {
+    pub async fn create_cancel_token(
+        &self,
+        conn_id: &ConnId,
+    ) -> tokio_util::sync::CancellationToken {
         let token = tokio_util::sync::CancellationToken::new();
         let mut tokens = self.cancel_tokens.write().await;
         tokens.insert(conn_id.clone(), token.clone());

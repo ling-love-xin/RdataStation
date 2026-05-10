@@ -147,7 +147,7 @@
           <span class="search-result-line-content" v-html="highlightMatch(match.line_content, searchQuery)" />
         </div>
         <div v-if="matches.length > 5" class="search-result-more">
-          ...还有 {{ matches.length - 5 }} 处匹配未显示
+          {{ t('scratchpad.searchResultMore', { n: matches.length - 5 }) }}
         </div>
       </div>
     </div>
@@ -156,9 +156,17 @@
       <NSpin size="small" />
     </div>
 
+    <div v-else-if="notInitialized" class="empty-state">
+      <div class="empty-icon-wrapper">
+        <FolderOpen :size="32" />
+      </div>
+      <div class="empty-title">{{ t('scratchpad.noProjectTitle') }}</div>
+      <div class="empty-hint">{{ t('scratchpad.noProjectHint') }}</div>
+    </div>
+
     <div v-else-if="error" class="error-state">
       <span class="error-text">{{ error }}</span>
-      <NButton size="tiny" @click="loadFiles">{{ t('navigator.retry') }}</NButton>
+      <NButton size="tiny" @click="loadFiles">{{ t('scratchpad.retry') }}</NButton>
     </div>
 
     <div v-else-if="!contentSearchMode || contentAllMatches.length === 0" class="tree-container">
@@ -422,8 +430,8 @@
       v-model:show="showPromoteConfirm"
       :title="t('scratchpad.promoteToResource')"
       preset="dialog"
-      positive-text="提升并保留草稿"
-      negative-text="提升并删除草稿"
+      :positive-text="t('scratchpad.promoteKeepDraft')"
+      :negative-text="t('scratchpad.promoteDeleteDraft')"
       type="info"
       @positive-click="handlePromoteConfirm(false)"
       @negative-click="handlePromoteConfirm(true)"
@@ -783,20 +791,7 @@ if (typeof window !== 'undefined' && (window as any).__TAURI__) {
     })
 }
 
-onMounted(async () => {
-  await loadFiles()
-  document.addEventListener('click', closeContextMenu)
 
-  window.addEventListener('project-switched', loadFiles)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('project-switched', loadFiles)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', closeContextMenu)
-})
 
 function handleGlobalClick(): void {
   if (renamingKey.value) {
@@ -1170,7 +1165,6 @@ async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
   const match = analyzableFiles.value.find(f => f.relative_path === entry.path)
   if (!match) return
 
-  const scratchpadBase = scratchpadPath.value || ''
   const content = match.duckdb_query_hint
 
   window.dispatchEvent(
@@ -1457,7 +1451,10 @@ function scrollToSelected(): void {
 let unlisten: (() => void) | null = null
 
 onMounted(async () => {
+  await loadFiles()
+  document.addEventListener('click', closeContextMenu)
   document.addEventListener('keydown', handleKeydown)
+  window.addEventListener('project-switched', loadFiles)
   await startWatching()
   try {
     const unlistenFn = await listen('scratchpad-changed', () => {
@@ -1470,7 +1467,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('click', closeContextMenu)
   document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('project-switched', loadFiles)
   if (unlisten) {
     unlisten()
     unlisten = null
@@ -1499,7 +1498,7 @@ onUnmounted(() => {
   background: var(--brand-accent-soft);
   border: 2px dashed var(--brand-accent);
   color: var(--brand-accent);
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   z-index: 100;
   pointer-events: none;
@@ -1509,35 +1508,35 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 8px 8px 4px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
   flex-shrink: 0;
 }
 
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
 }
 
 .toolbar-group-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .toolbar-sep {
   width: 1px;
   height: 18px;
   background: var(--color-border-subtle);
-  margin: 0 4px;
+  margin: 0 var(--spacing-xs);
 }
 
 .search-bar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px 8px;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-sm);
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
@@ -1549,7 +1548,7 @@ onUnmounted(() => {
 .tree-container {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .loading-state,
@@ -1558,12 +1557,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .error-text {
   color: var(--brand-danger);
-  font-size: 13px;
+  font-size: var(--font-size-md);
 }
 
 .tree-group {
@@ -1573,11 +1572,11 @@ onUnmounted(() => {
 .group-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   height: 32px;
-  padding: 0 8px;
+  padding: 0 var(--spacing-sm);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
   transition: background-color 0.1s;
@@ -1592,7 +1591,7 @@ onUnmounted(() => {
 }
 
 .group-count {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
@@ -1601,21 +1600,21 @@ onUnmounted(() => {
   display: flex;
   gap: 2px;
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .group-actions .n-button {
-  font-size: 11px;
-  padding: 0 6px;
+  font-size: var(--font-size-xs);
+  padding: 0 var(--spacing-sm);
 }
 
 .ref-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   height: 32px;
-  padding: 0 8px 0 24px;
-  font-size: 13px;
+  padding: 0 var(--spacing-sm) 0 24px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: background-color 0.1s;
 }
@@ -1630,7 +1629,7 @@ onUnmounted(() => {
 }
 
 .ref-path {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1644,11 +1643,11 @@ onUnmounted(() => {
 }
 
 .ref-badge {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--brand-danger);
   background: var(--brand-accent-soft);
-  padding: 1px 6px;
-  border-radius: var(--border-radius-sm, 4px);
+  padding: 1px var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
   flex-shrink: 0;
 }
 
@@ -1657,9 +1656,9 @@ onUnmounted(() => {
 }
 
 .empty-hint {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  padding: 16px;
+  padding: var(--spacing-lg);
   text-align: center;
 }
 
@@ -1670,9 +1669,9 @@ onUnmounted(() => {
 .recent-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   height: 28px;
-  padding: 0 12px;
+  padding: 0 var(--spacing-md);
   cursor: pointer;
   user-select: none;
 }
@@ -1682,28 +1681,28 @@ onUnmounted(() => {
 }
 
 .recent-title {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 
 .recent-count {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
 .recent-list {
-  padding-bottom: 4px;
+  padding-bottom: var(--spacing-xs);
 }
 
 .recent-entry {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   height: 28px;
-  padding: 0 12px 0 28px;
+  padding: 0 var(--spacing-md) 0 28px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--color-text-primary);
   transition: background-color 0.1s;
 }
@@ -1716,6 +1715,7 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--font-size-md);
 }
 
 .empty-state {
@@ -1723,24 +1723,24 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 16px;
-  gap: 8px;
+  padding: 32px var(--spacing-lg);
+  gap: var(--spacing-sm);
 }
 
 .empty-icon-wrapper {
   color: var(--color-text-muted);
   opacity: 0.5;
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs);
 }
 
 .empty-title {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
 
 .empty-hint {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   padding: 0;
   text-align: center;
@@ -1748,33 +1748,33 @@ onUnmounted(() => {
 
 .empty-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
 }
 
 .modal-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
   min-width: 360px;
 }
 
 .template-picker {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .template-label {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .template-options {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .modal-input {
@@ -1784,7 +1784,7 @@ onUnmounted(() => {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .scratchpad-context-menu {
@@ -1792,19 +1792,19 @@ onUnmounted(() => {
   z-index: 1000;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md, 6px);
+  border-radius: var(--border-radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   min-width: 180px;
-  padding: 4px 0;
+  padding: var(--spacing-xs) 0;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: background-color 0.1s;
   color: var(--color-text-primary);
@@ -1824,7 +1824,7 @@ onUnmounted(() => {
 
 .menu-shortcut {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
@@ -1835,22 +1835,22 @@ onUnmounted(() => {
 .search-results {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .search-results-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px 8px;
-  font-size: 12px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .search-results-count {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 400;
   color: var(--color-text-muted);
 }
@@ -1858,21 +1858,21 @@ onUnmounted(() => {
 .search-notice {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  margin: 4px 0;
-  font-size: 12px;
-  color: var(--color-warning-text, #b45309);
-  background: var(--color-warning-bg, rgba(234, 179, 8, 0.1));
-  border-radius: 4px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin: var(--spacing-xs) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  border-radius: var(--border-radius-sm);
 }
 
 .search-no-results {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-md);
   color: var(--color-text-muted);
 }
 
@@ -1883,10 +1883,10 @@ onUnmounted(() => {
 .search-result-file-name {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--color-text-primary);
   cursor: pointer;
@@ -1898,21 +1898,21 @@ onUnmounted(() => {
 }
 
 .search-result-match-count {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: var(--color-bg-tertiary);
-  padding: 1px 6px;
-  border-radius: var(--border-radius-sm, 4px);
+  padding: 1px var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
 }
 
 .search-result-line {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--spacing-sm);
   height: 24px;
-  padding: 0 12px 0 32px;
-  font-size: 12px;
-  font-family: var(--font-mono, 'Consolas', 'Courier New', monospace);
+  padding: 0 var(--spacing-md) 0 32px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
 }
 
 .search-result-line-number {
@@ -1930,15 +1930,15 @@ onUnmounted(() => {
 }
 
 .search-result-more {
-  padding: 2px 12px 4px 32px;
-  font-size: 11px;
+  padding: 2px var(--spacing-md) var(--spacing-xs) 32px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-style: italic;
 }
 
 :deep(.search-hl) {
-  background-color: var(--color-warning-bg, rgba(234, 179, 8, 0.3));
-  color: var(--color-warning-text, #b45309);
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
   border-radius: 2px;
   padding: 0 1px;
 }
@@ -1950,11 +1950,11 @@ onUnmounted(() => {
   right: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-bg-elevated);
   border-top: 1px solid var(--color-border);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   z-index: 10;
   animation: undo-bar-in 0.2s ease-out;
 }

@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use tokio::sync::RwLock;
 
-use crate::core::models::QueryResult;
 use crate::core::error::CoreError;
+use crate::core::models::QueryResult;
 
 /// 查询缓存配置
 #[derive(Debug, Clone)]
@@ -98,11 +98,7 @@ impl QueryCache {
     }
 
     /// 获取缓存的查询结果
-    pub async fn get(
-        &self,
-        connection_id: &str,
-        sql: &str,
-    ) -> Option<QueryResult> {
+    pub async fn get(&self, connection_id: &str, sql: &str) -> Option<QueryResult> {
         let key = Self::generate_key(connection_id, sql);
         let mut cache = self.cache.write().await;
 
@@ -166,11 +162,7 @@ impl QueryCache {
     }
 
     /// 移除指定的缓存条目
-    pub async fn remove(
-        &self,
-        connection_id: &str,
-        sql: &str,
-    ) -> Result<bool, CoreError> {
+    pub async fn remove(&self, connection_id: &str, sql: &str) -> Result<bool, CoreError> {
         let key = Self::generate_key(connection_id, sql);
         let mut cache = self.cache.write().await;
 
@@ -202,10 +194,7 @@ impl QueryCache {
     }
 
     /// 清空特定连接的所有缓存
-    pub async fn clear_by_connection(
-        &self,
-        _connection_id: &str,
-    ) -> Result<usize, CoreError> {
+    pub async fn clear_by_connection(&self, _connection_id: &str) -> Result<usize, CoreError> {
         let mut cache = self.cache.write().await;
         let original_len = cache.len();
 
@@ -213,7 +202,7 @@ impl QueryCache {
         let max_entries = std::num::NonZero::new(self.config.max_entries)
             .unwrap_or_else(|| std::num::NonZero::new(1000).expect("1000 is non-zero"));
         let mut new_cache = lru::LruCache::new(max_entries);
-        
+
         for (key, entry) in cache.iter() {
             new_cache.put(*key, (*entry).clone());
         }
@@ -251,7 +240,7 @@ impl QueryCache {
         let max_entries = std::num::NonZero::new(self.config.max_entries)
             .unwrap_or_else(|| std::num::NonZero::new(1000).expect("1000 is non-zero"));
         let mut new_cache = lru::LruCache::new(max_entries);
-        
+
         for (key, entry) in cache.iter() {
             if !entry.is_expired() {
                 new_cache.put(*key, (*entry).clone());
@@ -344,11 +333,8 @@ mod tests {
     fn make_id_only_batch() -> (Vec<String>, RecordBatch) {
         let columns = vec!["id".to_string()];
         let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
-        let batch = RecordBatch::try_new(
-            schema,
-            vec![Arc::new(Int32Array::from(vec![1]))],
-        )
-        .unwrap();
+        let batch =
+            RecordBatch::try_new(schema, vec![Arc::new(Int32Array::from(vec![1]))]).unwrap();
         (columns, batch)
     }
 

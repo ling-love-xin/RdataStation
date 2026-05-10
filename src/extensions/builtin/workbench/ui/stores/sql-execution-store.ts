@@ -24,6 +24,7 @@ export interface ExecutionResult {
 
 export const useSqlExecutionStore = defineStore('sqlExecution', () => {
   const executionResults = ref<Map<string, ExecutionResult>>(new Map())
+  const resultVersion = ref(0)
   const activeEditorPanelId = ref<string | null>(null)
   const newTabRequests = ref<Map<string, ExecutionResult>>(new Map())
   const refreshRequests = ref<Map<string, number>>(new Map())
@@ -122,9 +123,14 @@ export const useSqlExecutionStore = defineStore('sqlExecution', () => {
     settingsPanelOpen.value = false
   }
 
+  function incrementResultVersion() {
+    resultVersion.value++
+  }
+
   return {
     // State
     executionResults,
+    resultVersion,
     activeEditorPanelId,
     newTabRequests,
     refreshRequests,
@@ -144,5 +150,6 @@ export const useSqlExecutionStore = defineStore('sqlExecution', () => {
     requestRefresh,
     openSettings,
     closeSettings,
+    incrementResultVersion,
   }
 })

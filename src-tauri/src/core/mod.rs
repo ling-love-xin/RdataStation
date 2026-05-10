@@ -31,50 +31,63 @@
 //! - `driver` → `connection`（应通过 trait 解耦）
 //! - `datasource` → `api`
 
+pub mod api_version;
+pub mod cache;
 pub mod connection;
+pub mod crypto;
 pub mod datasource;
 pub mod dbi;
 pub mod driver;
-pub mod models;
-pub mod persistence;
-pub mod performance;
-pub mod port_negotiation;
-pub mod project;
-pub mod services;
-pub mod cache;
-pub mod utils;
-pub mod migration;
 pub mod duckdb;
 pub mod insight;
-pub mod scratchpad;
+pub mod logging;
+pub mod migration;
 pub mod mock;
+pub mod models;
+pub mod performance;
+pub mod persistence;
+pub mod port_negotiation;
+pub mod project;
+pub mod scratchpad;
+pub mod services;
+pub mod utils;
 
 // 错误处理宏模块
 #[macro_use]
 pub mod macros;
 
-pub mod error;
 pub mod arrow;
+pub mod error;
 pub mod stream;
 
 // 重新导出常用错误类型
 pub use error::{
-    CommonError, ConnectionError, CoreError, CoreResult, DatabaseError, ErrorCategory,
-    StorageError, TransactionState, common_err, conn_err, invalid_arg, not_supported, query_err,
-    storage_err, timeout,
+    common_err, conn_err, invalid_arg, not_supported, query_err, storage_err, timeout, CommonError,
+    ConnectionError, CoreError, CoreResult, DatabaseError, ErrorCategory, StorageError,
+    TransactionState,
 };
 
 // 重新导出 Service 层（供 Adapters 使用）
-pub use services::{ConnectionService, SqlService, ConnectionManager, ConnectionInfo, get_connection_manager};
+pub use services::{
+    get_connection_manager, ConnectionInfo, ConnectionManager, ConnectionService, SqlService,
+};
 
 // 重新导出驱动层
 pub use driver::{
-    Database, Transaction, DbPool, PoolStatus, DynDatabase,
-    DataSourceMeta, SchemaObject, SchemaObjectKind,
-    DriverConnectionConfig, DriverDescriptor,
-    DriverFactory, DriverRegistry,
     // 驱动配置和自动注册
     AutoDriverRegistrar,
+    DataSourceMeta,
+    Database,
+    DbPool,
+    DriverConnectionConfig,
+    DriverDescriptor,
+    DriverFactory,
+    DriverRegistry,
+    DynDatabase,
+    PoolStatus,
+    SchemaObject,
+    SchemaObjectKind,
+    Transaction,
 };
 
 // 重新导出驱动注册表函数
@@ -85,9 +98,8 @@ pub use datasource::router::DataSourceRouter;
 
 // 重新导出连接层
 pub use connection::{
-    ConnectionConfig, ConnectionMethod, SshConfig, ProxyConfig, SslConfig,
-    config::TlsVersion,
-    Connection, Connector, ConnectionFactory, ConnectionStream,
+    config::TlsVersion, Connection, ConnectionConfig, ConnectionFactory, ConnectionMethod,
+    ConnectionStream, Connector, ProxyConfig, SshConfig, SslConfig,
 };
 
 // 重新导出模型层
@@ -95,45 +107,42 @@ pub use models::{QueryResult, Row, Value};
 
 // 重新导出项目层
 pub use project::{
-    Project, ProjectConfig, ProjectInfo, ProjectPath, ProjectStatus,
-    Version, Versioned, VersionInfo,
-    ConnectionRef, QueryRef,
-    ProjectStore, ProjectManager,
+    ConnectionRef, Project, ProjectConfig, ProjectInfo, ProjectManager, ProjectPath, ProjectStatus,
+    ProjectStore, QueryRef, Version, VersionInfo, Versioned,
 };
 
 // 重新导出端口协商层
 pub use port_negotiation::{
-    PortNegotiator, AdvancedPortNegotiator, PortRange, PortNegotiationResult,
-    DEFAULT_PORT_RANGE, COMMON_DB_PORTS,
+    AdvancedPortNegotiator, PortNegotiationResult, PortNegotiator, PortRange, COMMON_DB_PORTS,
+    DEFAULT_PORT_RANGE,
 };
 
 // 重新导出缓存层
 pub use cache::{
-    CacheManager, CacheConfig, CacheLevel, CacheManagerStats,
-    MetadataCache, MetadataCacheConfig, MetadataCacheKey, MetadataCacheValue,
-    LruCache, CacheStats, CachePolicy, CacheEntry,
+    CacheConfig, CacheEntry, CacheLevel, CacheManager, CacheManagerStats, CachePolicy, CacheStats,
+    LruCache, MetadataCache, MetadataCacheConfig, MetadataCacheKey, MetadataCacheValue,
 };
 
 // 重新导出 Arrow 相关
-pub use arrow::{
-    ArrowBatch, ArrowBatchStream, ArrowHandler,
-};
+pub use arrow::{ArrowBatch, ArrowBatchStream, ArrowHandler};
 
 // 重新导出流相关
-pub use stream::{
-    Stream, ArrowBatchStream as CoreArrowBatchStream, StreamQueryResult,
-};
+pub use stream::{ArrowBatchStream as CoreArrowBatchStream, Stream, StreamQueryResult};
 
 // 重新导出工具模块
-pub use utils::{
-    hash, time, string,
-};
+pub use utils::{hash, string, time};
 
 // 重新导出 DuckDB 管理模块
 pub use duckdb::DuckDBManager;
 
 // 重新导出草稿箱模块
 pub use scratchpad::{
-    ScratchpadEntry, ScratchpadEntryKind, ScratchpadConfig,
-    ExternalReference, ScratchpadResponse, ScratchpadStore,
+    ExternalReference, ScratchpadConfig, ScratchpadEntry, ScratchpadEntryKind, ScratchpadResponse,
+    ScratchpadStore,
+};
+
+// 重新导出日志模块
+pub use logging::{
+    config::LogConfig,
+    record::{LogLevel, LogLevelCounts, LogPage, LogQuery, LogRecord, LogStats, TargetStat},
 };

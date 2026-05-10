@@ -9,6 +9,10 @@ import type {
   SearchResult,
 } from '../../types'
 
+export async function initScratchpadStore(projectPath: string): Promise<void> {
+  return invoke('init_scratchpad_store', { projectPath })
+}
+
 export async function listScratchpadFiles(): Promise<ScratchpadResponse> {
   return invoke<ScratchpadResponse>('list_scratchpad_files')
 }
@@ -104,8 +108,8 @@ export async function listTrash(): Promise<ScratchpadEntry[]> {
   return invoke<ScratchpadEntry[]>('list_scratchpad_trash')
 }
 
-export async function restoreFromTrash(trashName: string): Promise<void> {
-  return invoke<void>('restore_scratchpad_from_trash', { trashName })
+export async function restoreFromTrash(trashName: string): Promise<ScratchpadEntry> {
+  return invoke<ScratchpadEntry>('restore_scratchpad_from_trash', { trashName })
 }
 
 export async function emptyTrash(): Promise<void> {

@@ -12,6 +12,14 @@ const MAX_TEMP_TABLES: usize = 50;
 const TEMP_TABLE_TTL_SECS: u64 = 1800;
 const TEMP_TABLE_PREFIX: &str = "rs_";
 
+/// DuckDBManager manages a pool of in-memory DuckDB connections for parallel
+/// query execution. It handles temporary table registration and cleanup,
+/// and provides a persistent database connection option.
+///
+/// # Bottleneck
+/// DuckDB's single-writer limitation means that true concurrent writes
+/// are not possible; this pool only distributes read operations across
+/// multiple connections to reduce contention.
 pub struct DuckDBManager {
     in_memory_pool: RwLock<Option<Vec<Arc<Mutex<duckdb::Connection>>>>>,
     preferred_pool_size: AtomicUsize,
@@ -47,7 +55,11 @@ impl DuckDBManager {
             }
         }
 
-        let size = self.preferred_pool_size.load(Ordering::Relaxed).max(MIN_POOL_SIZE).min(MAX_POOL_SIZE);
+        let size = self
+            .preferred_pool_size
+            .load(Ordering::Relaxed)
+            .max(MIN_POOL_SIZE)
+            .min(MAX_POOL_SIZE);
         let mut pool = Vec::with_capacity(size);
         for _ in 0..size {
             let conn = duckdb::Connection::open_in_memory().map_err(|e| {
@@ -70,9 +82,7 @@ impl DuckDBManager {
             CoreError::common(CommonError::General(format!("DuckDB lock error: {}", e)))
         })?;
         let pool = pool_guard.as_ref().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "DuckDB 连接池初始化失败".to_string(),
-            ))
+            CoreError::common(CommonError::General("DuckDB 连接池初始化失败".to_string()))
         })?;
         let idx = self.next_conn.fetch_add(1, Ordering::Relaxed) % pool.len();
         Ok(pool[idx].clone())
@@ -107,8 +117,7 @@ impl DuckDBManager {
                     if let Some(pool) = pool_guard.as_ref() {
                         if let Some(conn) = pool.first() {
                             if let Ok(guard) = conn.lock() {
-                                let drop_sql =
-                                    format!("DROP TABLE IF EXISTS \"{}\"", oldest_name);
+                                let drop_sql = format!("DROP TABLE IF EXISTS \"{}\"", oldest_name);
                                 let _ = guard.execute_batch(&drop_sql);
                             }
                         }
@@ -175,10 +184,7 @@ impl DuckDBManager {
     }
 
     pub fn temp_table_count(&self) -> usize {
-        self.table_registry
-            .lock()
-            .map(|r| r.len())
-            .unwrap_or(0)
+        self.table_registry.lock().map(|r| r.len()).unwrap_or(0)
     }
 
     pub fn validate_analysis_sql(sql: &str) -> Result<(), CoreError> {
@@ -199,9 +205,10 @@ impl DuckDBManager {
             if !trimmed.contains(&format!("DROP TABLE IF EXISTS \"{}", prefix_upper))
                 && !trimmed.contains(&format!("DROP TABLE \"{}", prefix_upper))
             {
-                return Err(CoreError::common(CommonError::General(
-                    format!("DROP 操作仅允许删除临时表 ({}前缀)", TEMP_TABLE_PREFIX),
-                )));
+                return Err(CoreError::common(CommonError::General(format!(
+                    "DROP 操作仅允许删除临时表 ({}前缀)",
+                    TEMP_TABLE_PREFIX
+                ))));
             }
         }
 
@@ -210,9 +217,10 @@ impl DuckDBManager {
             if !trimmed.contains(&format!("CREATE TABLE \"{}", prefix_upper))
                 && !trimmed.contains(&format!("CREATE TABLE {}", prefix_upper))
             {
-                return Err(CoreError::common(CommonError::General(
-                    format!("CREATE TABLE 仅允许创建临时表 ({}前缀)", TEMP_TABLE_PREFIX),
-                )));
+                return Err(CoreError::common(CommonError::General(format!(
+                    "CREATE TABLE 仅允许创建临时表 ({}前缀)",
+                    TEMP_TABLE_PREFIX
+                ))));
             }
         }
 
@@ -221,10 +229,7 @@ impl DuckDBManager {
 
     pub fn ensure_connection() -> Result<duckdb::Connection, CoreError> {
         duckdb::Connection::open_in_memory().map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "连接 DuckDB 失败: {}",
-                e
-            )))
+            CoreError::common(CommonError::General(format!("连接 DuckDB 失败: {}", e)))
         })
     }
 
@@ -285,10 +290,7 @@ impl DuckDBManager {
         Ok(guard.as_ref().map(|(_, conn)| conn.clone()))
     }
 
-    pub fn set_persistent(
-        &self,
-        path: &str,
-    ) -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
+    pub fn set_persistent(&self, path: &str) -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
         let mut guard = self.persistent.lock().map_err(|e| {
             CoreError::common(CommonError::General(format!("DuckDB lock error: {}", e)))
         })?;
@@ -302,8 +304,7 @@ impl DuckDBManager {
         let conn = duckdb::Connection::open(path).map_err(|e| {
             CoreError::common(CommonError::General(format!(
                 "Failed to open persistent DuckDB at {}: {}",
-                path,
-                e
+                path, e
             )))
         })?;
         let conn = Arc::new(Mutex::new(conn));
@@ -377,13 +378,10 @@ mod tests {
 
     #[test]
     fn test_validate_analysis_sql_blocks_drop_non_rs() {
+        assert!(DuckDBManager::validate_analysis_sql("DROP TABLE users").is_err());
         assert!(
-            DuckDBManager::validate_analysis_sql("DROP TABLE users").is_err()
+            DuckDBManager::validate_analysis_sql("DROP TABLE IF EXISTS \"rs_temp_123\"").is_ok()
         );
-        assert!(DuckDBManager::validate_analysis_sql(
-            "DROP TABLE IF EXISTS \"rs_temp_123\""
-        )
-        .is_ok());
     }
 
     #[test]

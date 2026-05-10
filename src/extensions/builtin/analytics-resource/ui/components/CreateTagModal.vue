@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
@@ -68,8 +68,14 @@ const tagColor = ref('#165DFF')
 const tagScope = ref('project')
 
 const presetColors = [
-  '#165DFF', '#00B42A', '#FF7D00', '#F53F3F',
-  '#722ED1', '#14C9C9', '#F77234', '#3491FA',
+  '#165DFF',
+  '#00B42A',
+  '#FF7D00',
+  '#F53F3F',
+  '#722ED1',
+  '#14C9C9',
+  '#F77234',
+  '#3491FA',
 ]
 
 function handleCreate() {
@@ -86,7 +92,7 @@ function handleCreate() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,7 +120,7 @@ function handleCreate() {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -122,7 +128,7 @@ function handleCreate() {
 .close-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: var(--font-size-xxl);
   cursor: pointer;
   color: var(--text-tertiary);
   transition: color 0.15s;
@@ -142,7 +148,7 @@ function handleCreate() {
 
 .form-label {
   display: block;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: var(--size-sm);
@@ -155,7 +161,7 @@ function handleCreate() {
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   outline: none;
   transition: border-color 0.2s;
   box-sizing: border-box;
@@ -195,7 +201,9 @@ function handleCreate() {
 
 .color-swatch.active {
   border-color: var(--text-primary);
-  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px currentColor;
+  box-shadow:
+    0 0 0 2px var(--bg-primary),
+    0 0 0 4px currentColor;
 }
 
 .modal-footer {
@@ -210,7 +218,7 @@ function handleCreate() {
   padding: 6px 16px;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: all 0.2s;
   height: var(--height-btn);

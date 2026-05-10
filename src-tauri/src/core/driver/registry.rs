@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::core::connection::ConnectionMethod;
 
@@ -166,7 +166,10 @@ impl ConnectionConfig {
 
     /// 构建 PostgreSQL URL
     fn build_postgres_url(&self) -> Result<String, String> {
-        let host = self.host.as_ref().ok_or("Host is required for PostgreSQL")?;
+        let host = self
+            .host
+            .as_ref()
+            .ok_or("Host is required for PostgreSQL")?;
         let port = self.port.unwrap_or(5432);
         let username = self.username.as_deref().unwrap_or("postgres");
         let password = self.password.as_deref().unwrap_or("");
@@ -409,7 +412,12 @@ impl DriverDescriptor {
     }
 
     /// 创建外部驱动描述符（JDBC/ODBC/WASM 等非 Native 驱动）
-    pub fn new_external(id: impl Into<String>, name: impl Into<String>, kind: DriverKind, target_db: impl Into<String>) -> Self {
+    pub fn new_external(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        kind: DriverKind,
+        target_db: impl Into<String>,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -662,11 +670,7 @@ pub fn sqlite_driver() -> DriverDescriptor {
             DriverOption::new("mode", "rwc")
                 .with_label("打开模式")
                 .with_type(DriverOptionType::Select {
-                    options: vec![
-                        "ro".to_string(),
-                        "rw".to_string(),
-                        "rwc".to_string(),
-                    ],
+                    options: vec!["ro".to_string(), "rw".to_string(), "rwc".to_string()],
                 })
                 .with_description("数据库文件打开模式：只读/读写/读写创建"),
         )
@@ -710,8 +714,8 @@ pub fn get_driver(id: &str) -> Option<DriverDescriptor> {
 // 真正的 Driver Registry（可扩展、可注册）
 // =============================================================================
 
-use crate::core::error::CoreError;
 use crate::core::driver::traits::Database;
+use crate::core::error::CoreError;
 
 /// 动态数据库类型
 pub type DynDatabase = Arc<dyn Database + Send + Sync>;
@@ -752,7 +756,10 @@ pub trait DriverFactory: Send + Sync {
     /// # Returns
     ///
     /// 返回动态数据库实例的 Future
-    fn create(&self, config: ConnectionConfig) -> Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>;
+    fn create(
+        &self,
+        config: ConnectionConfig,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>;
 }
 
 use std::pin::Pin;
@@ -815,9 +822,7 @@ impl DriverRegistry {
     pub fn get(id: &str) -> Option<Arc<dyn DriverFactory>> {
         DRIVER_REGISTRY
             .get()
-            .and_then(|registry| {
-                registry.read().ok().and_then(|reg| reg.get(id).cloned())
-            })
+            .and_then(|registry| registry.read().ok().and_then(|reg| reg.get(id).cloned()))
     }
 
     /// 获取所有已注册驱动的描述符
@@ -869,7 +874,11 @@ impl DriverRegistry {
         DRIVER_REGISTRY
             .get()
             .map(|registry| {
-                registry.read().ok().map(|reg| reg.contains_key(id)).unwrap_or(false)
+                registry
+                    .read()
+                    .ok()
+                    .map(|reg| reg.contains_key(id))
+                    .unwrap_or(false)
             })
             .unwrap_or(false)
     }
@@ -887,7 +896,10 @@ impl DriverRegistry {
         DRIVER_REGISTRY
             .get()
             .and_then(|registry| {
-                registry.write().ok().map(|mut reg| reg.remove(id).is_some())
+                registry
+                    .write()
+                    .ok()
+                    .map(|mut reg| reg.remove(id).is_some())
             })
             .unwrap_or(false)
     }

@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <div class="pagination">
     <div class="pagination-info">
       <span>{{ t('analyticsResource.totalItems', { total }) }}</span>
@@ -117,7 +117,7 @@ const visiblePages = computed<(number | string)[]>(() => {
   display: flex;
   align-items: center;
   gap: var(--size-md);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
@@ -127,14 +127,14 @@ const visiblePages = computed<(number | string)[]>(() => {
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .pagination-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .page-btn {
@@ -147,7 +147,7 @@ const visiblePages = computed<(number | string)[]>(() => {
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.15s;
 }

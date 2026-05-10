@@ -67,11 +67,11 @@ impl PerformanceMonitor {
     /// 记录请求开始
     pub async fn record_request_start(&self) -> u64 {
         let request_id = self.request_counter.fetch_add(1, Ordering::SeqCst);
-        
+
         let mut metrics = self.metrics.write().await;
         metrics.total_requests += 1;
         metrics.active_requests += 1;
-        
+
         request_id
     }
 
@@ -79,23 +79,23 @@ impl PerformanceMonitor {
     pub async fn record_request_end(&self, _request_id: u64, duration_ms: f64, success: bool) {
         let mut metrics = self.metrics.write().await;
         metrics.active_requests -= 1;
-        
+
         if success {
             metrics.successful_requests += 1;
         } else {
             metrics.failed_requests += 1;
         }
-        
+
         metrics.total_response_time_ms += duration_ms;
-        
+
         if duration_ms > metrics.max_response_time_ms {
             metrics.max_response_time_ms = duration_ms;
         }
-        
+
         if metrics.min_response_time_ms == 0.0 || duration_ms < metrics.min_response_time_ms {
             metrics.min_response_time_ms = duration_ms;
         }
-        
+
         metrics.update_avg_response_time();
     }
 
@@ -175,13 +175,13 @@ impl PerformanceTimer {
 impl Drop for PerformanceTimer {
     fn drop(&mut self) {
         let _duration_ms = self.start_time.elapsed().as_secs_f64() * 1000.0;
-        
+
         // 在 Drop 中不能使用 async，所以使用阻塞方式
         // 这里简化处理，实际应该使用更复杂的异步处理
         let _monitor = self.monitor;
         let _request_id = self.request_id;
         let _success = self.success;
-        
+
         // 使用 tokio::task::block_in_place 或简化处理
         // 这里直接同步更新，避免异步问题
         // 注意：这是一个简化实现，实际应该使用更好的方式
@@ -227,11 +227,11 @@ mod tests {
     #[tokio::test]
     async fn test_performance_monitor() {
         let monitor = PerformanceMonitor::new();
-        
+
         let request_id = monitor.record_request_start().await;
         tokio::time::sleep(Duration::from_millis(10)).await;
         monitor.record_request_end(request_id, 10.5, true).await;
-        
+
         let metrics = monitor.get_metrics().await;
         assert_eq!(metrics.total_requests, 1);
         assert_eq!(metrics.successful_requests, 1);

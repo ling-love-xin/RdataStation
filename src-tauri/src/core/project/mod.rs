@@ -25,8 +25,7 @@ pub mod models;
 pub mod store;
 
 pub use models::{
-    Project, ProjectConfig, ProjectInfo, ProjectPath, ProjectStatus,
-    Version, Versioned, VersionInfo,
-    ConnectionRef, QueryRef,
+    ConnectionRef, Project, ProjectConfig, ProjectInfo, ProjectPath, ProjectStatus, QueryRef,
+    Version, VersionInfo, Versioned,
 };
-pub use store::{ProjectStore, ProjectManager};
+pub use store::{ProjectManager, ProjectStore};

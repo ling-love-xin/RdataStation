@@ -98,7 +98,7 @@ export interface QueryColumn {
 export interface QueryResult {
   columns: QueryColumn[]
   rows: unknown[]
-  row_count: number
+  total_rows: number
   affected_rows?: number
   is_read_only?: boolean
 }
@@ -113,6 +113,8 @@ export interface ExecuteSqlResponse {
   result: QueryResult
   elapsed_ms: number
   affected_rows?: number
+  truncated: boolean
+  error?: string
 }
 
 export interface SqlHistoryResponse {

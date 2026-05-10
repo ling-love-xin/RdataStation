@@ -51,6 +51,7 @@ export interface ExecuteSqlResponse {
   total_rows?: number
   elapsed_ms?: number
   affected_rows?: number
+  truncated?: boolean
   result?: {
     columns: string[]
     rows: unknown[][]

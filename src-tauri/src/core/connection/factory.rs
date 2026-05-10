@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use crate::core::connection::config::{ConnectionConfig, ConnectionMethod};
 use crate::core::connection::connector::{
-    Connection, Connector, DirectConnector, HttpProxyConnector, SshTunnelConnector,
-    SocksProxyConnector, SslConnector,
+    Connection, Connector, DirectConnector, HttpProxyConnector, SocksProxyConnector,
+    SshTunnelConnector, SslConnector,
 };
 use crate::core::connection::stream::ConnectionStream;
 use crate::core::error::CoreError;
@@ -71,10 +71,13 @@ impl ConnectionFactory {
     /// # Returns
     ///
     /// 返回连接实例或错误
-    pub async fn create_connection(&self, config: ConnectionConfig) -> Result<Connection, CoreError> {
+    pub async fn create_connection(
+        &self,
+        config: ConnectionConfig,
+    ) -> Result<Connection, CoreError> {
         let connector = self.find_connector(&config.method)?;
         let stream = connector.connect(&config).await?;
-        
+
         Ok(Connection::new(stream, config))
     }
 
@@ -87,7 +90,10 @@ impl ConnectionFactory {
     /// # Returns
     ///
     /// 返回连接流或错误
-    pub async fn create_stream(&self, config: &ConnectionConfig) -> Result<ConnectionStream, CoreError> {
+    pub async fn create_stream(
+        &self,
+        config: &ConnectionConfig,
+    ) -> Result<ConnectionStream, CoreError> {
         let connector = self.find_connector(&config.method)?;
         connector.connect(config).await
     }
@@ -179,7 +185,7 @@ mod tests {
         // 在生产环境中应该使用 mock 或测试容器
         let factory = ConnectionFactory::new();
         let config = ConnectionConfig::direct("127.0.0.1", 3306);
-        
+
         // 如果本地没有 MySQL，这个测试会失败
         // 在生产环境中应该跳过或 mock
         let result = factory.create_stream(&config).await;

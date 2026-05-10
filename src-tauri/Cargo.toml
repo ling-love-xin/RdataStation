@@ -61,12 +61,15 @@ lru = "0.12.3"
 futures = "0.3.30"
 sha2 = "0.10"
 hex = "0.4"
+aes-gcm = "0.10"
 
 # ===== Arrow 格式支持 =====
 arrow = "58.1.0"
 
 # ===== 日志追踪 =====
 tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "time", "local-time"] }
+tracing-appender = "0.2.3"
 
 # ===== 连接层 (SSL / SSH / Proxy) =====
 native-tls = "0.2.13"

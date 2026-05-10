@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use sqlx::postgres::PgPool;
 
-use crate::core::driver::traits::{DbPool, Database, PoolStatus};
 use crate::core::driver::native::postgres::PostgresDatabase;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::driver::traits::{Database, DbPool, PoolStatus};
+use crate::core::error::{ConnectionError, CoreError};
 
 pub struct PostgresPoolWrapper {
     pool: PgPool,
@@ -14,12 +14,12 @@ pub struct PostgresPoolWrapper {
 
 impl PostgresPoolWrapper {
     pub async fn new(url: &str) -> Result<Self, CoreError> {
-        let pool = PgPool::connect(url)
-            .await
-            .map_err(|e| CoreError::connection(ConnectionError::Refused {
+        let pool = PgPool::connect(url).await.map_err(|e| {
+            CoreError::connection(ConnectionError::Refused {
                 conn_id: "postgres".to_string(),
                 reason: e.to_string(),
-            }))?;
+            })
+        })?;
 
         let server_version = sqlx::query_scalar::<_, String>("SELECT version()")
             .fetch_one(&pool)
@@ -49,7 +49,10 @@ impl DbPool for PostgresPoolWrapper {
             return Err(CoreError::connection(ConnectionError::PoolClosed));
         }
 
-        let db = PostgresDatabase::from_pool_with_version(self.pool.clone(), self.server_version.clone());
+        let db = PostgresDatabase::from_pool_with_version(
+            self.pool.clone(),
+            self.server_version.clone(),
+        );
         Ok(Box::new(db))
     }
 
@@ -73,6 +76,8 @@ impl DbPool for PostgresPoolWrapper {
             idle,
             active,
             waiting: 0,
+            max_connections: 10,
+            min_connections: 2,
         }
     }
 }

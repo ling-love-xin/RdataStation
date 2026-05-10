@@ -116,8 +116,8 @@ export function useResultDiff(
       } else if (rowInA) {
         rowDiff.push({ status: 'removed', rowA: rowInA, rowB: null, key })
         removed++
-      } else {
-        rowDiff.push({ status: 'added', rowA: null, rowB: rowInB!, key })
+      } else if (rowInB) {
+        rowDiff.push({ status: 'added', rowA: null, rowB: rowInB, key })
         added++
       }
     }

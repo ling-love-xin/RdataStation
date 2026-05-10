@@ -14,9 +14,9 @@ use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 
-use crate::core::error::{CoreError, ConnectionError};
-use crate::core::driver::traits::{DbPool, Database, PoolStatus};
 use crate::core::cache::MemoryPressure;
+use crate::core::driver::traits::{Database, DbPool, PoolStatus};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// 智能连接池配置
 #[derive(Debug, Clone)]
@@ -200,7 +200,7 @@ impl SmartPoolWrapper {
 impl DbPool for SmartPoolWrapper {
     async fn acquire(&self) -> Result<Box<dyn Database + Send + Sync>, CoreError> {
         let start = Instant::now();
-        
+
         // 检查池是否已关闭
         if self.closed.load(std::sync::atomic::Ordering::SeqCst) {
             return Err(CoreError::connection(ConnectionError::PoolClosed));
@@ -208,17 +208,17 @@ impl DbPool for SmartPoolWrapper {
 
         // 从底层池获取连接
         let db = self.inner_pool.acquire().await?;
-        
+
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
-        
+
         // 记录获取统计
         self.smart_pool.record_acquire(latency_ms).await;
-        
+
         // 检查是否需要扩容
         if self.smart_pool.should_scale_up().await {
             self.smart_pool.scale_up().await;
         }
-        
+
         Ok(db)
     }
 
@@ -242,6 +242,8 @@ impl DbPool for SmartPoolWrapper {
             idle: inner_status.idle,
             active: inner_status.active,
             waiting: inner_status.waiting,
+            max_connections: inner_status.max_connections,
+            min_connections: inner_status.min_connections,
         }
     }
 }
@@ -297,7 +299,7 @@ impl SmartPool {
     async fn record_acquire_latency(&self, latency_ms: f64) {
         let mut latencies = self.acquire_latencies.write().await;
         latencies.push(latency_ms);
-        
+
         // 保持最近 100 次采样
         let len = latencies.len();
         if len > 100 {
@@ -347,17 +349,15 @@ impl SmartPool {
         }
 
         // 检查是否有过多空闲连接
-        let idle_count = inner.connections.values()
-            .filter(|m| !m.in_use)
-            .count() as u32;
+        let idle_count = inner.connections.values().filter(|m| !m.in_use).count() as u32;
 
         idle_count > current_size / 2
     }
-    
+
     /// 检查是否因内存压力需要缩容
     async fn should_scale_down_for_memory(&self) -> bool {
         let pressure = MemoryPressure::detect();
-        
+
         match pressure {
             MemoryPressure::Critical => {
                 // 高内存压力，强制缩容到最小
@@ -372,54 +372,52 @@ impl SmartPool {
                 if current_size <= inner.config.min_connections {
                     return false;
                 }
-                
-                let idle_count = inner.connections.values()
-                    .filter(|m| !m.in_use)
-                    .count() as u32;
-                
+
+                let idle_count = inner.connections.values().filter(|m| !m.in_use).count() as u32;
+
                 idle_count > current_size / 3
             }
             MemoryPressure::Normal => false,
         }
     }
-    
+
     /// 内存压力感知缩容
     pub async fn memory_pressure_scale_down(&self) -> Result<u32, CoreError> {
         let pressure = MemoryPressure::detect();
         let mut inner = self.inner.lock().await;
-        
+
         let current_size = inner.connections.len() as u32;
         let target_size = match pressure {
             MemoryPressure::Critical => inner.config.min_connections,
-            MemoryPressure::Moderate => {
-                (current_size / 2).max(inner.config.min_connections)
-            }
+            MemoryPressure::Moderate => (current_size / 2).max(inner.config.min_connections),
             MemoryPressure::Normal => current_size,
         };
-        
+
         if target_size >= current_size {
             return Ok(0);
         }
-        
+
         let to_remove = current_size - target_size;
-        
+
         // 收集空闲连接
-        let mut idle_connections: Vec<_> = inner.connections.iter()
+        let mut idle_connections: Vec<_> = inner
+            .connections
+            .iter()
             .filter(|(_, m)| !m.in_use)
             .map(|(k, m)| (k.clone(), m.last_used))
             .collect();
-        
+
         idle_connections.sort_by_key(|(_, last_used)| *last_used);
-        
+
         // 移除最久未使用的空闲连接
         let removed_count = (to_remove as usize).min(idle_connections.len()) as u32;
         for (key, _) in idle_connections.into_iter().take(removed_count as usize) {
             inner.connections.remove(&key);
             inner.stats.connections_destroyed += 1;
         }
-        
+
         inner.stats.scale_down_count += 1;
-        
+
         info!(
             pool_name = %self.name,
             pressure_level = format!("{:?}", pressure),
@@ -427,7 +425,7 @@ impl SmartPool {
             new_size = current_size - removed_count,
             "Memory pressure scale down"
         );
-        
+
         Ok(removed_count)
     }
 
@@ -466,11 +464,13 @@ impl SmartPool {
         inner.stats.scale_down_count += 1;
 
         // 移除最久未使用的空闲连接
-        let mut idle_connections: Vec<_> = inner.connections.iter()
+        let mut idle_connections: Vec<_> = inner
+            .connections
+            .iter()
             .filter(|(_, m)| !m.in_use)
             .map(|(k, m)| (k.clone(), m.last_used))
             .collect();
-        
+
         idle_connections.sort_by_key(|(_, last_used)| *last_used);
 
         let to_remove = (current_size - new_size) as usize;
@@ -488,7 +488,9 @@ impl SmartPool {
         let max_lifetime = inner.config.max_lifetime;
         let idle_timeout = inner.config.idle_timeout;
 
-        let expired_keys: Vec<_> = inner.connections.iter()
+        let expired_keys: Vec<_> = inner
+            .connections
+            .iter()
             .filter(|(_, m)| m.is_expired(max_lifetime) || m.is_idle_expired(idle_timeout))
             .map(|(k, _)| k.clone())
             .collect();
@@ -667,7 +669,7 @@ mod tests {
     async fn test_smart_pool_creation() {
         let pool = SmartPool::with_defaults("test_pool");
         assert!(!pool.is_closed().await);
-        
+
         let stats = pool.stats().await;
         assert_eq!(stats.current_size, 0);
     }

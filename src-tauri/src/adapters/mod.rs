@@ -22,7 +22,7 @@ pub mod wasm;
 // 未来扩展：
 // #[cfg(feature = "cli")]
 // pub mod cli;
-// 
+//
 // #[cfg(feature = "http")]
 // pub mod http;
 
@@ -32,10 +32,10 @@ pub mod wasm;
 pub trait Adapter {
     /// 适配器名称
     fn name(&self) -> &str;
-    
+
     /// 初始化适配器
     fn init(&mut self) -> Result<(), AdapterError>;
-    
+
     /// 关闭适配器
     fn shutdown(&mut self) -> Result<(), AdapterError>;
 }

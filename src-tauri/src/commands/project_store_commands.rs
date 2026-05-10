@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
+use crate::commands::project_commands::ProjectState;
 use crate::core::persistence::project_connection_store::ProjectConnection;
 use crate::core::persistence::project_db::ProjectDatabaseManager;
-use crate::commands::project_commands::ProjectState;
 
 // ==================== Project Connection Commands ====================
 
@@ -71,16 +71,19 @@ pub struct CreateProjectConnectionInput {
 }
 
 /// 获取 ProjectDatabaseManager 的辅助函数
-async fn get_db_manager(project_path: &str, state: tauri::State<'_, ProjectState>) -> Result<Arc<ProjectDatabaseManager>, String> {
+async fn get_db_manager(
+    project_path: &str,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<Arc<ProjectDatabaseManager>, String> {
     let guard = state.store.lock().await;
-    let store = guard.as_ref().ok_or_else(|| {
-        "项目存储未初始化，请先调用 init_project_store".to_string()
-    })?;
-    
+    let store = guard
+        .as_ref()
+        .ok_or_else(|| "项目存储未初始化，请先调用 init_project_store".to_string())?;
+
     if store.db_manager.project_path().to_string_lossy() != project_path {
         return Err("项目路径不匹配".to_string());
     }
-    
+
     Ok(store.db_manager.clone())
 }
 
@@ -91,10 +94,10 @@ pub async fn create_project_connection(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<ProjectConnectionResponse, String> {
     let db_manager = get_db_manager(&input.project_path, state).await?;
-    
+
     let now = chrono::Utc::now().to_rfc3339();
     let id = format!("project-{}-{}", input.driver, uuid::Uuid::new_v4());
-    
+
     let conn = ProjectConnection {
         id: id.clone(),
         name: input.name,
@@ -113,10 +116,14 @@ pub async fn create_project_connection(
         created_at: now.clone(),
         updated_at: now,
     };
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    connection_store.create_connection(&conn).await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    connection_store
+        .create_connection(&conn)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(conn.into())
 }
 
@@ -127,10 +134,14 @@ pub async fn get_project_connections(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<Vec<ProjectConnectionResponse>, String> {
     let db_manager = get_db_manager(&project_path, state).await?;
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    let connections = connection_store.get_all_connections().await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    let connections = connection_store
+        .get_all_connections()
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(connections.into_iter().map(|c| c.into()).collect())
 }
 
@@ -142,10 +153,14 @@ pub async fn get_project_connection(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<Option<ProjectConnectionResponse>, String> {
     let db_manager = get_db_manager(&project_path, state).await?;
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    let conn = connection_store.get_connection(&connection_id).await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    let conn = connection_store
+        .get_connection(&connection_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(conn.map(|c| c.into()))
 }
 
@@ -157,7 +172,7 @@ pub async fn update_project_connection(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<(), String> {
     let db_manager = get_db_manager(&project_path, state).await?;
-    
+
     let conn = ProjectConnection {
         id: connection.id,
         name: connection.name,
@@ -176,10 +191,14 @@ pub async fn update_project_connection(
         created_at: connection.created_at,
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    connection_store.update_connection(&conn).await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    connection_store
+        .update_connection(&conn)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -191,10 +210,14 @@ pub async fn delete_project_connection(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<(), String> {
     let db_manager = get_db_manager(&project_path, state).await?;
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    connection_store.delete_connection(&connection_id).await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    connection_store
+        .delete_connection(&connection_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -207,10 +230,14 @@ pub async fn update_project_connection_status(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<(), String> {
     let db_manager = get_db_manager(&project_path, state).await?;
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    connection_store.update_connection_status(&connection_id, is_active).await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    connection_store
+        .update_connection_status(&connection_id, is_active)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -222,9 +249,13 @@ pub async fn search_project_connections(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<Vec<ProjectConnectionResponse>, String> {
     let db_manager = get_db_manager(&project_path, state).await?;
-    
-    let connection_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
-    let connections = connection_store.search_connections(&query).await.map_err(|e| e.to_string())?;
-    
+
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
+    let connections = connection_store
+        .search_connections(&query)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok(connections.into_iter().map(|c| c.into()).collect())
 }

@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿﻿﻿﻿<template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal settings-modal">
       <div class="modal-header">
@@ -288,7 +288,7 @@ function clearCache() {
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -308,7 +308,7 @@ function clearCache() {
 }
 
 .settings-section h4 {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: var(--size-md);
@@ -327,17 +327,17 @@ function clearCache() {
 .setting-label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .setting-label span:first-child {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .setting-description {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 
@@ -364,7 +364,7 @@ function clearCache() {
   bottom: 0;
   background-color: var(--border-color);
   transition: 0.3s;
-  border-radius: 26px;
+  border-radius: var(--border-radius-pill);
 }
 
 .toggle-switch .slider:before {
@@ -404,7 +404,7 @@ function clearCache() {
 }
 
 .shortcut-action {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
 }
 
@@ -414,7 +414,7 @@ function clearCache() {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 </style>

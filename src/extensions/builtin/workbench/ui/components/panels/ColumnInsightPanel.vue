@@ -64,7 +64,7 @@
               size="tiny"
               quaternary
               :loading="insightStore.isReloadingRules"
-              title="热加载规则"
+              :title="t('resultPanel.reloadRules')"
               @click="reloadRules()"
             >
               <template #icon><RefreshCw :size="12" /></template>
@@ -99,7 +99,6 @@ import MultiColumnView from './MultiColumnView.vue'
 import { useInsightStore } from '../../stores/insight-store'
 
 import type {
-  NumericStatsDetail,
   BooleanStatsDetail,
   TextStatsDetail,
   DateTimeStatsDetail,
@@ -168,19 +167,6 @@ function openVisualization() {
   if (!insightStore.insightData) return
   const data = insightStore.insightData
   const kind = statsKind.value
-
-  const extractSingleValue = (col: string): number[] => {
-    if (kind === 'Numeric') {
-      const nd = data.stats.stats_detail as NumericStatsDetail
-      const m: Record<string, number> = {
-        min: nd.min, max: nd.max, avg: nd.avg, median: nd.median,
-        p25: nd.p25, p75: nd.p75, sum: nd.sum,
-        stddev: nd.stddev ?? 0, skewness: nd.skewness ?? 0,
-      }
-      return m[col] != null ? [m[col]] : []
-    }
-    return []
-  }
 
   const extractors: Record<string, () => { columns: string[]; rows: Record<string, unknown>[] }> = {
     bar: () => {
@@ -272,7 +258,12 @@ function skeletonWidth(): number {
 }
 
 function handleCleanup() {
-  insightStore.closeInsight()
+  const projectPath = projectStore.projectPath
+  const col = insightStore.currentColumn
+  const tt = insightStore.currentTempTable
+  if (projectPath && col && tt) {
+    insightStore.cleanupInsightSnapshots(projectPath, col, tt)
+  }
 }
 
 function exportJSON() {
@@ -298,22 +289,22 @@ watch(() => insightStore.insightData, () => {
 
 <style scoped>
 .col-insight-root { height: 100%; display: flex; flex-direction: column; overflow: auto; }
-.insight-empty, .insight-error { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; gap: 12px; color: var(--text-tertiary, #666); font-size: 13px; text-align: center; }
-.insight-loading { display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; }
-.skeleton { height: 14px; background: var(--bg-elevated, #2a2a2a); border-radius: 4px; opacity: 0.6; animation: skel-pulse 1.5s ease-in-out infinite; }
+.insight-empty, .insight-error { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--spacing-xl) var(--spacing-xl); gap: var(--spacing-sm); color: var(--text-tertiary); font-size: var(--font-size-md); text-align: center; }
+.insight-loading { display: flex; flex-direction: column; gap: var(--spacing-sm); padding: var(--spacing-lg) var(--spacing-md); }
+.skeleton { height: 14px; background: var(--bg-elevated); border-radius: var(--border-radius-sm); opacity: 0.6; animation: skel-pulse 1.5s ease-in-out infinite; }
 .skeleton-title { height: 18px; }
 .skeleton-block { height: 40px; }
 @keyframes skel-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
-.panel-title { font-size: 12px; font-weight: 500; }
+.panel-title { font-size: var(--font-size-sm); font-weight: 500; }
 .panel-actions { display: flex; gap: 2px; }
 
-.panel-footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--border-color, #333); }
-.storage-info { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-.storage-key { color: var(--text-tertiary, #666); }
+.panel-footer { margin-top: var(--spacing-sm); padding-top: 6px; border-top: 1px solid var(--border-color); }
+.storage-info { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xss); }
+.storage-key { color: var(--text-tertiary); }
 .storage-val { font-family: var(--font-mono); }
 
-.rules-footer { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.rules-tag-label { font-size: 11px; color: var(--text-tertiary, #666); }
+.rules-footer { margin-top: var(--spacing-sm); display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.rules-tag-label { font-size: var(--font-size-xss); color: var(--text-tertiary); }
 </style>

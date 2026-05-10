@@ -8,8 +8,8 @@ use tokio::time::{timeout, Duration};
 
 use crate::core::error::{CoreError, StorageError};
 use crate::core::scratchpad::models::{
-        AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry,
-        ScratchpadEntryKind, ScratchpadResponse, SearchMatch, SearchResult,
+    AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry, ScratchpadEntryKind,
+    ScratchpadResponse, SearchMatch, SearchResult,
 };
 
 const MAX_DEPTH: u32 = 4;
@@ -276,14 +276,16 @@ impl ScratchpadStore {
         }
 
         let file_name = target_path
-                    .file_name()
-                    .ok_or_else(|| CoreError::storage(StorageError::io(
-                        target_path.display().to_string(),
-                        "delete_entry",
-                        "invalid file path: no file name",
-                    )))?
-                    .to_string_lossy()
-                    .to_string();
+            .file_name()
+            .ok_or_else(|| {
+                CoreError::storage(StorageError::io(
+                    target_path.display().to_string(),
+                    "delete_entry",
+                    "invalid file path: no file name",
+                ))
+            })?
+            .to_string_lossy()
+            .to_string();
         let trash_target = unique_path(trash_dir.join(&file_name));
 
         fs::rename(&target_path, &trash_target).await.map_err(|e| {
@@ -327,26 +329,35 @@ impl ScratchpadStore {
             ))
         })?;
 
-        let is_dir = fs::metadata(&target_path).await.map_err(|e| {
-            CoreError::storage(StorageError::io(
-                target_path.display().to_string(),
-                "metadata",
-                e.to_string(),
-            ))
-        })?.is_dir();
+        let is_dir = fs::metadata(&target_path)
+            .await
+            .map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    target_path.display().to_string(),
+                    "metadata",
+                    e.to_string(),
+                ))
+            })?
+            .is_dir();
 
         Ok(ScratchpadEntry {
             name: target_path
                 .file_name()
-                .ok_or_else(|| CoreError::storage(StorageError::io(
-                    target_path.display().to_string(),
-                    "restore_from_trash",
-                    "invalid path: no file name",
-                )))?
+                .ok_or_else(|| {
+                    CoreError::storage(StorageError::io(
+                        target_path.display().to_string(),
+                        "restore_from_trash",
+                        "invalid path: no file name",
+                    ))
+                })?
                 .to_string_lossy()
                 .to_string(),
             path: target_path,
-            kind: if is_dir { ScratchpadEntryKind::Folder } else { ScratchpadEntryKind::File },
+            kind: if is_dir {
+                ScratchpadEntryKind::Folder
+            } else {
+                ScratchpadEntryKind::File
+            },
             size: 0,
             modified_at: Some(Utc::now().to_rfc3339()),
         })
@@ -382,13 +393,13 @@ impl ScratchpadStore {
             )));
         }
 
-        let parent = old_path
-            .parent()
-            .ok_or_else(|| CoreError::storage(StorageError::io(
+        let parent = old_path.parent().ok_or_else(|| {
+            CoreError::storage(StorageError::io(
                 old_path.display().to_string(),
                 "rename",
                 "invalid path: no parent directory",
-            )))?;
+            ))
+        })?;
         let new_path = parent.join(new_name);
 
         if new_path.exists() {
@@ -517,11 +528,13 @@ impl ScratchpadStore {
         let file_name = source
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
-            .ok_or_else(|| CoreError::storage(StorageError::io(
-                source.display().to_string(),
-                "import",
-                "invalid source path: no file name",
-            )))?;
+            .ok_or_else(|| {
+                CoreError::storage(StorageError::io(
+                    source.display().to_string(),
+                    "import",
+                    "invalid source path: no file name",
+                ))
+            })?;
 
         let dest = self.scratchpad_dir.join(&file_name);
         let dest = unique_path(dest);
@@ -548,11 +561,13 @@ impl ScratchpadStore {
         Ok(ScratchpadEntry {
             name: dest
                 .file_name()
-                .ok_or_else(|| CoreError::storage(StorageError::io(
-                    dest.display().to_string(),
-                    "import",
-                    "invalid dest path: no file name",
-                )))?
+                .ok_or_else(|| {
+                    CoreError::storage(StorageError::io(
+                        dest.display().to_string(),
+                        "import",
+                        "invalid dest path: no file name",
+                    ))
+                })?
                 .to_string_lossy()
                 .to_string(),
             path: dest,
@@ -627,7 +642,11 @@ impl ScratchpadStore {
         self.save_config(&config).await
     }
 
-    pub async fn search_file_content(&self, query: &str, case_sensitive: bool) -> Result<SearchResult, CoreError> {
+    pub async fn search_file_content(
+        &self,
+        query: &str,
+        case_sensitive: bool,
+    ) -> Result<SearchResult, CoreError> {
         let entries = self.list_local_entries(MAX_DEPTH).await?;
         let mut matches = Vec::new();
         let mut total_scanned = 0usize;
@@ -694,11 +713,16 @@ impl ScratchpadStore {
         self.resolve_path_impl(relative_path, true)
     }
 
+    #[allow(dead_code)]
     fn resolve_path_maybe_missing(&self, relative_path: &str) -> Result<PathBuf, CoreError> {
         self.resolve_path_impl(relative_path, false)
     }
 
-    fn resolve_path_impl(&self, relative_path: &str, must_exist: bool) -> Result<PathBuf, CoreError> {
+    fn resolve_path_impl(
+        &self,
+        relative_path: &str,
+        must_exist: bool,
+    ) -> Result<PathBuf, CoreError> {
         let clean = relative_path
             .trim_start_matches('/')
             .trim_start_matches('\\');
@@ -767,9 +791,7 @@ impl ScratchpadStore {
     pub async fn get_analyzable_files(&self) -> Result<Vec<AnalyzableFile>, CoreError> {
         let response = self.get_full_response().await?;
         let analyzable_extensions: std::collections::HashSet<&str> = [
-            "csv", "tsv", "parquet", "json", "ndjson",
-            "xlsx", "xls",
-            "sqlite", "db", "duckdb",
+            "csv", "tsv", "parquet", "json", "ndjson", "xlsx", "xls", "sqlite", "db", "duckdb",
         ]
         .iter()
         .cloned()

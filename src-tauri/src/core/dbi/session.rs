@@ -1,12 +1,11 @@
 /**
  * 会话管理模块
- * 
+ *
  * 管理数据库会话的生命周期，包括：
  * - 会话创建和销毁
  * - 事务管理
  * - 上下文传递
  */
-
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -95,22 +94,33 @@ impl Session {
     }
 
     /// 注册结果集
-    pub async fn register_result_set(&self, name: String, sql: Option<String>, mode: SessionMode) -> Result<(), CoreError> {
+    pub async fn register_result_set(
+        &self,
+        name: String,
+        sql: Option<String>,
+        mode: SessionMode,
+    ) -> Result<(), CoreError> {
         let mut sets = self.result_sets.lock().await;
-        
+
         if sets.len() >= self.config.max_result_sets {
-            return Err(CoreError::common(crate::core::error::CommonError::NotSupported(
-                format!("Result set limit reached: {} sets", self.config.max_result_sets),
-            )));
+            return Err(CoreError::common(
+                crate::core::error::CommonError::NotSupported(format!(
+                    "Result set limit reached: {} sets",
+                    self.config.max_result_sets
+                )),
+            ));
         }
 
-        sets.insert(name.clone(), ResultSetMeta {
-            name,
-            sql,
-            mode,
-            created_at: chrono::Utc::now(),
-            source_connection: self.current_connection_id().clone(),
-        });
+        sets.insert(
+            name.clone(),
+            ResultSetMeta {
+                name,
+                sql,
+                mode,
+                created_at: chrono::Utc::now(),
+                source_connection: self.current_connection_id().clone(),
+            },
+        );
 
         Ok(())
     }

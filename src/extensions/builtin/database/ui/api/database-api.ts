@@ -107,12 +107,12 @@ export async function loadColumns(
  */
 export async function loadProcedures(
   connectionId: string,
-  dbType: string,
+  dbName: string,
   schemaName: string
 ): Promise<{ name: string }[]> {
   return await invoke<{ name: string }[]>('load_procedures', {
     connectionId,
-    dbType,
+    dbName,
     schemaName,
   })
 }
@@ -122,16 +122,80 @@ export async function loadProcedures(
  */
 export async function loadFunctions(
   connectionId: string,
-  dbType: string,
+  dbName: string,
   schemaName: string
 ): Promise<{ name: string }[]> {
   return await invoke<{ name: string }[]>('load_functions', {
     connectionId,
-    dbType,
+    dbName,
     schemaName,
+  })
+}
+
+/**
+ * 加载过程/函数的 DDL 源码 (DBeaver-style Source Tab)
+ * R15 新增 — get_routine_source() trait 方法 + L1 缓存
+ */
+export interface RoutineSourceMeta {
+  name: string
+  routineKind: string
+  sourceCode: string | null
+}
+
+export async function loadRoutineSource(
+  connectionId: string,
+  dbName: string,
+  schemaName: string,
+  routineName: string,
+  routineKind: string
+): Promise<RoutineSourceMeta> {
+  return await invoke<RoutineSourceMeta>('load_routine_source', {
+    connId: connectionId,
+    dbName,
+    schemaName,
+    routineName,
+    routineKind,
   })
 }
 
 // 索引/约束 API 待后端实现
 // - load_indexes: Tauri command
 // - load_constraints: Tauri command
+
+/**
+ * API 版本信息
+ */
+export interface ApiVersionResponse {
+  version: string
+  major: number
+  minor: number
+  patch: number
+  codename: string
+}
+
+export async function getApiVersion(): Promise<ApiVersionResponse> {
+  return await invoke<ApiVersionResponse>('get_api_version')
+}
+
+/**
+ * 连接健康检查（ping）
+ */
+export async function pingConnection(connId?: string): Promise<boolean> {
+  return await invoke<boolean>('ping_connection', { connId })
+}
+
+/**
+ * SQL 审计日志记录
+ */
+export interface SqlAuditRecord {
+  id: string
+  sql: string
+  connId: string | null
+  dbType: string | null
+  executedAt: string
+  durationMs: number | null
+  success: boolean | null
+  errorMessage: string | null
+  rowsAffected: number | null
+  rowsReturned: number | null
+}

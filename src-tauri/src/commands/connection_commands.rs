@@ -2,9 +2,9 @@
 //!
 //! 处理数据库连接的创建、管理、关闭等操作
 
-use crate::core::{get_connection_manager, DataSourceMeta};
-use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::driver::DriverConnectionConfig;
+use crate::core::services::{ConnectionService, ConnectionType};
+use crate::core::{get_connection_manager, DataSourceMeta};
 
 // ==================== Connection Commands ====================
 
@@ -80,17 +80,25 @@ pub async fn connect_database(
     }
 
     let (conn_id, db) = service
-        .connect_with_type(None, &input.db_type, &input.url, input.name.clone(), connection_type, input.project_id.clone())
+        .connect_with_type(
+            None,
+            &input.db_type,
+            &input.url,
+            input.name.clone(),
+            connection_type,
+            input.project_id.clone(),
+        )
         .await
         .map_err(|e| e.to_string())?;
 
     let meta = db.meta();
+    let safe_url = ConnectionService::mask_password_in_url(&input.url);
 
     Ok(ConnectDatabaseResponse {
         conn_id,
-        name: input.name.unwrap_or_else(|| input.url.clone()),
+        name: input.name.unwrap_or_else(|| safe_url.clone()),
         db_type: input.db_type,
-        url: input.url,
+        url: safe_url,
         status: "connected".to_string(),
         meta: meta.into(),
     })
@@ -170,7 +178,10 @@ pub async fn close_all_connections() -> Result<(), String> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
-    service.close_all_connections().await.map_err(|e| e.to_string())
+    service
+        .close_all_connections()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 获取当前活动连接
@@ -244,7 +255,7 @@ pub async fn remove_recent_connection(name: String) -> Result<(), String> {
 #[derive(serde::Deserialize, Debug)]
 pub struct ConvertConnectionInput {
     pub conn_id: String,
-    pub target_type: String, // "global" 或 "project"
+    pub target_type: String,        // "global" 或 "project"
     pub project_id: Option<String>, // 转为项目连接时需要
 }
 
@@ -267,19 +278,18 @@ pub async fn convert_connection_type(
 
     let new_info = match input.target_type.as_str() {
         "project" => {
-            let project_id = input.project_id
-                .ok_or_else(|| "project_id is required when converting to project connection".to_string())?;
+            let project_id = input.project_id.ok_or_else(|| {
+                "project_id is required when converting to project connection".to_string()
+            })?;
             service
                 .convert_to_project_connection(&input.conn_id, &project_id)
                 .await
                 .map_err(|e| e.to_string())?
         }
-        "global" => {
-            service
-                .convert_to_global_connection(&input.conn_id)
-                .await
-                .map_err(|e| e.to_string())?
-        }
+        "global" => service
+            .convert_to_global_connection(&input.conn_id)
+            .await
+            .map_err(|e| e.to_string())?,
         other => return Err(format!("Invalid target type: {}", other)),
     };
 
@@ -342,9 +352,12 @@ pub struct TestConnectionResponse {
 
 /// 测试数据库连接
 #[tauri::command]
-pub async fn test_connection(db_type: String, url: String) -> Result<TestConnectionResponse, String> {
+pub async fn test_connection(
+    db_type: String,
+    url: String,
+) -> Result<TestConnectionResponse, String> {
     use std::time::Instant;
-    
+
     if url.is_empty() {
         return Err("Database URL cannot be empty".into());
     }
@@ -356,12 +369,14 @@ pub async fn test_connection(db_type: String, url: String) -> Result<TestConnect
     // 检查是否已有相同 URL 的正式连接
     let all_connections = service.list_connections().await;
     let existing_conn = all_connections.iter().find(|info| info.url == url);
-    
+
     // 如果已有正式连接，直接返回成功信息，不创建新连接
     if let Some(info) = existing_conn {
         tracing::info!("测试连接：发现已有正式连接（ID={}），直接返回成功", info.id);
-        
-        let server_version = manager.get_connection(&info.id).await
+
+        let server_version = manager
+            .get_connection(&info.id)
+            .await
             .map(|db| db.meta().server_version)
             .flatten()
             .unwrap_or_else(|| format!("{} (未知版本)", db_type));
@@ -389,7 +404,9 @@ pub async fn test_connection(db_type: String, url: String) -> Result<TestConnect
         }
     };
 
-    let server_version = db.meta().server_version
+    let server_version = db
+        .meta()
+        .server_version
         .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
     let response_time_ms = start.elapsed().as_millis() as u64;
@@ -398,7 +415,7 @@ pub async fn test_connection(db_type: String, url: String) -> Result<TestConnect
     // 1. 先释放 db 的 Arc 引用
     drop(db);
     tracing::info!("测试连接：已释放数据库连接引用（ID={}）", conn_id);
-    
+
     // 2. 从连接管理器中关闭并移除连接
     if let Err(e) = service.close_connection(&conn_id).await {
         tracing::error!("测试连接：关闭临时连接失败（ID={}）：{}", conn_id, e);
@@ -410,7 +427,7 @@ pub async fn test_connection(db_type: String, url: String) -> Result<TestConnect
             response_time_ms,
         });
     }
-    
+
     tracing::info!("测试连接：临时连接已彻底关闭并清理（ID={}）", conn_id);
 
     Ok(TestConnectionResponse {
@@ -445,7 +462,10 @@ pub async fn create_database_file(
 
     // 验证数据库类型
     if input.db_type != "sqlite" && input.db_type != "duckdb" {
-        return Err(format!("不支持的数据库类型: {}. 仅支持 sqlite 和 duckdb", input.db_type));
+        return Err(format!(
+            "不支持的数据库类型: {}. 仅支持 sqlite 和 duckdb",
+            input.db_type
+        ));
     }
 
     let path = Path::new(&input.file_path);
@@ -458,8 +478,7 @@ pub async fn create_database_file(
     // 确保父目录存在
     if let Some(parent) = path.parent() {
         if !parent.exists() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("创建目录失败: {}", e))?;
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
         }
     }
 
@@ -467,8 +486,7 @@ pub async fn create_database_file(
     match input.db_type.as_str() {
         "sqlite" => {
             // SQLite: 创建空文件，实际连接时会自动初始化
-            std::fs::File::create(path)
-                .map_err(|e| format!("创建 SQLite 文件失败: {}", e))?;
+            std::fs::File::create(path).map_err(|e| format!("创建 SQLite 文件失败: {}", e))?;
         }
         "duckdb" => {
             // DuckDB: 需要初始化数据库文件
@@ -490,7 +508,10 @@ pub async fn create_database_file(
                 .await
                 .map_err(|e| format!("关闭初始化连接失败: {}", e))?;
 
-            tracing::info!("创建 DuckDB 文件：初始化完成并关闭连接（{}）", input.file_path);
+            tracing::info!(
+                "创建 DuckDB 文件：初始化完成并关闭连接（{}）",
+                input.file_path
+            );
         }
         _ => unreachable!(),
     }
@@ -511,7 +532,11 @@ pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<()
     let service = ConnectionService::new(manager);
 
     // 创建临时测试连接
-    tracing::info!("测试连接配置：创建临时连接（driver={}, url={}）", config.driver, url);
+    tracing::info!(
+        "测试连接配置：创建临时连接（driver={}, url={}）",
+        config.driver,
+        url
+    );
     let (conn_id, db) = service
         .connect(None, &config.driver, &url, Some("test".to_string()))
         .await
@@ -524,16 +549,13 @@ pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<()
     // 1. 释放 db 的 Arc 引用
     drop(db);
     tracing::info!("测试连接配置：已释放数据库连接引用（ID={}）", conn_id);
-    
+
     // 2. 从连接管理器中关闭并移除连接
-    service
-        .close_connection(&conn_id)
-        .await
-        .map_err(|e| {
-            tracing::error!("测试连接配置：关闭临时连接失败（ID={}）：{}", conn_id, e);
-            format!("关闭测试连接失败: {}", e)
-        })?;
-    
+    service.close_connection(&conn_id).await.map_err(|e| {
+        tracing::error!("测试连接配置：关闭临时连接失败（ID={}）：{}", conn_id, e);
+        format!("关闭测试连接失败: {}", e)
+    })?;
+
     tracing::info!("测试连接配置：临时连接已彻底关闭并清理（ID={}）", conn_id);
 
     Ok(())
@@ -573,66 +595,90 @@ pub struct ConnectionPoolStatusResponse {
 
 /// 获取连接池状态
 #[tauri::command]
-pub async fn get_connection_pool_status(conn_id: String) -> Result<ConnectionPoolStatusResponse, String> {
+pub async fn get_connection_pool_status(
+    conn_id: String,
+) -> Result<ConnectionPoolStatusResponse, String> {
     let manager = get_connection_manager().clone();
-    
-    // 获取连接信息
-    let _connection_info = manager.get_connection_info(&conn_id).await
+
+    let _connection_info = manager
+        .get_connection_info(&conn_id)
+        .await
         .ok_or_else(|| format!("Connection not found: {}", conn_id))?;
-    
-    // 返回连接池状态（简化实现）
-    Ok(ConnectionPoolStatusResponse {
-        conn_id: conn_id.clone(),
-        active_connections: 0,  // 实际应从连接池获取
-        idle_connections: 0,    // 实际应从连接池获取
-        max_connections: 10,    // 默认值，实际应从配置获取
-        min_connections: 2,     // 默认值，实际应从配置获取
-        connection_timeout_ms: 30000,  // 30秒
-        idle_timeout_ms: 300000,       // 5分钟
-        total_connections: 0,   // 实际应从连接池获取
-        wait_queue_size: 0,     // 实际应从连接池获取
-    })
+
+    let pool_status = match manager.get_connection(&conn_id).await {
+        Some(db) => db.pool_status().await,
+        None => None,
+    };
+
+    match pool_status {
+        Some(ps) => Ok(ConnectionPoolStatusResponse {
+            conn_id: conn_id.clone(),
+            active_connections: ps.active,
+            idle_connections: ps.idle,
+            max_connections: ps.max_connections,
+            min_connections: ps.min_connections,
+            connection_timeout_ms: 30000,
+            idle_timeout_ms: 300000,
+            total_connections: ps.size,
+            wait_queue_size: ps.waiting,
+        }),
+        None => Ok(ConnectionPoolStatusResponse {
+            conn_id: conn_id.clone(),
+            active_connections: 1,
+            idle_connections: 0,
+            max_connections: 1,
+            min_connections: 1,
+            connection_timeout_ms: 30000,
+            idle_timeout_ms: 300000,
+            total_connections: 1,
+            wait_queue_size: 0,
+        }),
+    }
 }
 
 /// 获取所有全局连接
 #[tauri::command]
 pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse>, String> {
     use crate::core::migration::global_init;
-    
-    // 获取全局数据库管理器
+
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    // 获取全局连接列表
-    let connections = global_db.get_global_connections().await
+
+    let connections = global_db
+        .get_global_connections()
+        .await
         .map_err(|e| format!("获取全局连接失败: {}", e))?;
-    
-    // 转换为响应格式
-    Ok(connections.into_iter().map(|conn| {
-        // 解析 tags JSON 数组
-        let tags: Vec<String> = serde_json::from_str(&conn.tags).unwrap_or_else(|_| {
-            // 如果解析失败，尝试直接使用原始字符串
-            if conn.tags.is_empty() {
-                vec![]
-            } else {
-                vec![conn.tags.clone()]
+
+    Ok(connections
+        .into_iter()
+        .map(|conn| {
+            let tags: Vec<String> = serde_json::from_str(&conn.tags).unwrap_or_else(|_| {
+                if conn.tags.is_empty() {
+                    vec![]
+                } else {
+                    vec![conn.tags.clone()]
+                }
+            });
+
+            let password = conn
+                .password
+                .and_then(|p| crate::core::crypto::decrypt_password(&p).ok().or(Some(p)));
+
+            GlobalConnectionInfoResponse {
+                id: conn.id,
+                name: conn.name,
+                driver: conn.driver,
+                host: conn.host,
+                port: conn.port,
+                database: conn.database,
+                username: conn.username,
+                password,
+                tags,
+                is_active: conn.is_active,
+                created_at: conn.created_at,
+                updated_at: conn.updated_at,
+                server_version: conn.server_version,
             }
-        });
-        
-        GlobalConnectionInfoResponse {
-            id: conn.id,
-            name: conn.name,
-            driver: conn.driver,
-            host: conn.host,
-            port: conn.port,
-            database: conn.database,
-            username: conn.username,
-            password: conn.password,
-            tags,
-            is_active: conn.is_active,
-            created_at: conn.created_at,
-            updated_at: conn.updated_at,
-            server_version: conn.server_version,
-        }
-    }).collect())
+        })
+        .collect())
 }

@@ -1,12 +1,13 @@
 /**
  * 元数据缓存相关命令
- * 
+ *
  * 处理数据库元数据缓存的读取、刷新、清除等操作
  */
-
 use serde::{Deserialize, Serialize};
 
-use crate::core::persistence::metadata_cache::{MetadataCacheManager, MetadataCacheOps, ConnectionType};
+use crate::core::persistence::metadata_cache::{
+    ConnectionType, MetadataCacheManager, MetadataCacheOps,
+};
 
 /// 缓存状态响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +81,8 @@ pub async fn get_metadata_cache_status(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(CacheStatusResponse {
@@ -94,14 +96,17 @@ pub async fn get_metadata_cache_status(
     let ops = MetadataCacheOps::new(conn);
 
     let schema = schema_name.as_deref().unwrap_or("public");
-    let is_valid = ops.is_cache_valid(&database_name, schema, None)
+    let is_valid = ops
+        .is_cache_valid(&database_name, schema, None)
         .map_err(|e| e.to_string())?;
-    
-    let last_sync = ops.get_last_sync_time(&database_name, schema)
+
+    let last_sync = ops
+        .get_last_sync_time(&database_name, schema)
         .map_err(|e| e.to_string())?;
 
     let stats = if is_valid {
-        let cache_stats = ops.get_cache_stats(&database_name, schema)
+        let cache_stats = ops
+            .get_cache_stats(&database_name, schema)
             .map_err(|e| e.to_string())?;
         Some(CacheStatsResponse {
             table_count: cache_stats.table_count,
@@ -121,9 +126,7 @@ pub async fn get_metadata_cache_status(
 
 /// 刷新元数据缓存
 #[tauri::command]
-pub async fn refresh_metadata_cache(
-    input: RefreshCacheInput,
-) -> Result<(), String> {
+pub async fn refresh_metadata_cache(input: RefreshCacheInput) -> Result<(), String> {
     let cache_manager = MetadataCacheManager::new(
         &input.connection_id,
         if input.connection_type == "global" {
@@ -132,13 +135,14 @@ pub async fn refresh_metadata_cache(
             ConnectionType::Project
         },
         input.project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let ops = MetadataCacheOps::new(conn);
 
     let schema = input.schema_name.as_deref().unwrap_or("public");
-    
+
     // 清除旧缓存
     ops.clear_metadata(&input.database_name, schema, None)
         .map_err(|e| e.to_string())?;
@@ -150,9 +154,7 @@ pub async fn refresh_metadata_cache(
 
 /// 清除元数据缓存
 #[tauri::command]
-pub async fn clear_metadata_cache(
-    input: ClearCacheInput,
-) -> Result<usize, String> {
+pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, String> {
     let cache_manager = MetadataCacheManager::new(
         &input.connection_id,
         if input.connection_type == "global" {
@@ -161,7 +163,8 @@ pub async fn clear_metadata_cache(
             ConnectionType::Project
         },
         input.project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(0);
@@ -171,8 +174,9 @@ pub async fn clear_metadata_cache(
     let ops = MetadataCacheOps::new(conn);
 
     let schema = input.schema_name.as_deref().unwrap_or("public");
-    
-    let affected = ops.clear_metadata(&input.database_name, schema, None)
+
+    let affected = ops
+        .clear_metadata(&input.database_name, schema, None)
         .map_err(|e| e.to_string())?;
 
     Ok(affected)
@@ -198,7 +202,8 @@ pub async fn save_table_metadata_to_cache(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let ops = MetadataCacheOps::new(conn);
@@ -215,7 +220,8 @@ pub async fn save_table_metadata_to_cache(
         &table_name,
         comment.as_deref(),
         current_time,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -238,14 +244,23 @@ pub async fn save_tables_batch_to_cache(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let mut ops = MetadataCacheOps::new(conn);
 
     let batch: Vec<(String, String, String, String, Option<String>)> = tables
         .into_iter()
-        .map(|t| (t.id, database_name.clone(), schema_name.clone(), t.name, t.comment))
+        .map(|t| {
+            (
+                t.id,
+                database_name.clone(),
+                schema_name.clone(),
+                t.name,
+                t.comment,
+            )
+        })
         .collect();
 
     let count = batch.len();
@@ -273,24 +288,37 @@ pub async fn save_columns_batch_to_cache(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let mut ops = MetadataCacheOps::new(conn);
 
-    let batch: Vec<(String, String, String, String, String, String, bool, bool, bool)> = columns
+    let batch: Vec<(
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        bool,
+        bool,
+        bool,
+    )> = columns
         .into_iter()
-        .map(|c| (
-            c.id,
-            database_name.clone(),
-            schema_name.clone(),
-            table_name.clone(),
-            c.name,
-            c.data_type,
-            c.is_nullable,
-            c.is_primary,
-            c.is_unique,
-        ))
+        .map(|c| {
+            (
+                c.id,
+                database_name.clone(),
+                schema_name.clone(),
+                table_name.clone(),
+                c.name,
+                c.data_type,
+                c.is_nullable,
+                c.is_primary,
+                c.is_unique,
+            )
+        })
         .collect();
 
     let count = batch.len();
@@ -323,7 +351,8 @@ pub async fn save_column_metadata_to_cache(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let ops = MetadataCacheOps::new(conn);
@@ -344,7 +373,8 @@ pub async fn save_column_metadata_to_cache(
         is_primary,
         is_unique,
         current_time,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -366,7 +396,8 @@ pub async fn get_tables_from_cache(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(vec![]);
@@ -376,19 +407,23 @@ pub async fn get_tables_from_cache(
     let ops = MetadataCacheOps::new(conn);
 
     let schema = schema_name.as_deref().unwrap_or("public");
-    
-    let tables = ops.list_tables(&database_name, Some(schema))
+
+    let tables = ops
+        .list_tables(&database_name, Some(schema))
         .map_err(|e| e.to_string())?;
 
-    let result: Vec<serde_json::Value> = tables.iter().map(|t| {
-        serde_json::json!({
-            "id": t.id,
-            "name": t.name,
-            "schema_name": t.schema_name,
-            "comment": t.comment,
-            "last_sync": t.last_sync,
+    let result: Vec<serde_json::Value> = tables
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "id": t.id,
+                "name": t.name,
+                "schema_name": t.schema_name,
+                "comment": t.comment,
+                "last_sync": t.last_sync,
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(result)
 }
@@ -411,7 +446,8 @@ pub async fn get_columns_from_cache(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(vec![]);
@@ -420,21 +456,25 @@ pub async fn get_columns_from_cache(
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let ops = MetadataCacheOps::new(conn);
 
-    let columns = ops.list_columns(&database_name, &schema_name, &table_name)
+    let columns = ops
+        .list_columns(&database_name, &schema_name, &table_name)
         .map_err(|e| e.to_string())?;
 
-    let result: Vec<serde_json::Value> = columns.iter().map(|c| {
-        serde_json::json!({
-            "id": c.id,
-            "name": c.name,
-            "data_type": c.data_type,
-            "is_nullable": c.is_nullable,
-            "is_primary": c.is_primary,
-            "is_unique": c.is_unique,
-            "comment": c.comment,
-            "last_sync": c.last_sync,
+    let result: Vec<serde_json::Value> = columns
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "id": c.id,
+                "name": c.name,
+                "data_type": c.data_type,
+                "is_nullable": c.is_nullable,
+                "is_primary": c.is_primary,
+                "is_unique": c.is_unique,
+                "comment": c.comment,
+                "last_sync": c.last_sync,
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(result)
 }

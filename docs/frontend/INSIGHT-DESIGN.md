@@ -1,9 +1,9 @@
 # RdataStation 洞察模块 — 完整设计文档
 
-> 版本：v1.2
+> 版本：v1.3
 > 创建日期：2026-05-08
 > 最后更新：2026-05-09
-> 状态：✅ 设计完成（Phase 20 归档修复已同步：ID重复检测 + 复合FK + 规则热加载）
+> 状态：✅ 设计完成（Phase 22 审计修复已同步：render字段 + 死类型清理 + MultiRuleResult收紧 + isOpen清理 + handleCleanup修复 + 文档一致化）
 > 定位：洞察模块的权威设计规范，涵盖架构、协议、前端、后端、规则系统、扩展点、性能策略和演进路线
 
 ---
@@ -184,9 +184,28 @@ enum ValueType {
     I64Null, // 可空整数
 }
 
-/// 图表渲染提示
+/// 图表/组件渲染提示
+///
+/// 有效 component 值（当前 18 条内置规则中共使用 12 种）：
+///
+/// | 值                     | 所属规则               | 说明               |
+/// |------------------------|------------------------|--------------------|
+/// | `NumericStatsTable`    | numeric-stats, numeric-basic | 数值统计表格  |
+/// | `TextFrequencyBar`     | text-frequency         | 文本频率柱状图     |
+/// | `TextLengthStats`      | text-length            | 文本长度统计表格   |
+/// | `DateTimeRangeTable`   | datetime-range         | 日期范围统计表格   |
+/// | `DateTimeMonthlyChart` | datetime-monthly       | 日期按月分布图     |
+/// | `BooleanStatsInfo`     | boolean-ratio          | 布尔值比例信息卡   |
+/// | `HistogramChart`       | histogram              | 数值分布直方图     |
+/// | `NullRateBarChart`     | null-check             | 空值率柱状图       |
+/// | `CorrelationMatrix`    | correlation            | 多列相关性矩阵     |
+/// | `ScatterPlot`          | scatter-sample         | 多列散点采样图     |
+/// | `GroupedStatsTable`    | grouped-stats          | 分组聚合统计表格   |
+/// | `CrossTabHeatmap`      | cross-tab              | 交叉表热力图       |
+///
+/// table/ 和 quality/ 规则不使用 RenderHint（由对应的固定面板渲染）。
 struct RenderHint {
-    component: Option<String>,    // 建议图表类型: bar/line/pie/scatter
+    component: Option<String>,    // 建议渲染类型，值域见上表
     display_order: Option<u32>,   // 显示优先级
 }
 
@@ -1198,7 +1217,7 @@ Tauri Command 失败
 |------|:--:|------|
 | BLOB 类型显式处理 | P0 | 修复 fallthrough 到 Text 的 bug |
 | 全 NULL 列类型检测增强 | P0 | 边缘情况鲁棒性 |
-| JSON 列基础统计 MVP | P1 | 高频需求，NUmber 1 backlog item |
+| JSON 列基础统计 MVP | P1 | 高频需求，Number 1 backlog item |
 | Array 列元素分布统计 | P2 | PostgreSQL 用户常用 |
 
 ### v2.2 — 分析能力增强
@@ -1207,7 +1226,7 @@ Tauri Command 失败
 |------|:--:|
 | 异常检测: IQR + Z-Score | P1 |
 | 时序分析: 趋势 + 周期检测 | P1 |
-| 规则热加载 (文件监听) | P1 |
+| ✅ 规则热加载 (文件监听) | ✅ Phase 20 已完成 |
 | 洞察结果缓存 (checksum 驱动) | P1 |
 | 质量评分权重可配置 | P2 |
 | 规则数量扩充 18→30+ | P2 |

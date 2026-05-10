@@ -3,13 +3,13 @@
 //! 提供结果的二次分析：SQL 过滤、DuckDB 分析、列洞察、持久化存储
 
 use crate::commands::project_commands::ProjectState;
-use crate::core::persistence::{InsightStorage, InsightMetaStore};
-use crate::core::services::result_service::{
-    ResultService, ResultSet, ColumnStats, ColumnInsightFull, TableProfile,
-    QualityScore, TableQuality,
-};
-use crate::core::insight::schema_analyzer::{SchemaAnalyzer, SchemaInsightReport};
 use crate::core::insight;
+use crate::core::insight::schema_analyzer::{SchemaAnalyzer, SchemaInsightReport};
+use crate::core::persistence::{InsightMetaStore, InsightStorage};
+use crate::core::services::result_service::{
+    ColumnInsightFull, ColumnStats, QualityScore, ResultService, ResultSet, TableProfile,
+    TableQuality,
+};
 
 /// 重新执行带过滤条件的 SQL
 #[derive(serde::Deserialize, Debug)]
@@ -21,9 +21,7 @@ pub struct ReExecuteFilterInput {
 }
 
 #[tauri::command]
-pub async fn re_execute_with_filter(
-    input: ReExecuteFilterInput,
-) -> Result<ResultSet, String> {
+pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<ResultSet, String> {
     let where_clause = input.where_clause.unwrap_or_default();
     let order_clause = input.order_clause.unwrap_or_default();
 
@@ -56,84 +54,22 @@ pub struct CellUpdateInput {
 }
 
 #[tauri::command]
-pub async fn save_cell_update(
-    input: CellUpdateInput,
-) -> Result<CellUpdateResult, String> {
-    use crate::core::get_connection_manager;
-    use crate::core::services::sql_service::SqlExecuteOptions;
-    use crate::core::services::SqlService;
-
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let set_clause = format!(
-        "`{}` = {}",
-        input.column_name,
-        value_to_sql(&input.new_value)
-    );
-
-    let where_parts: Vec<String> = input
-        .row_identity
-        .iter()
-        .filter(|(k, _)| *k != &input.column_name)
-        .map(|(col, val)| format!("`{}` = {}", col, value_to_sql(val)))
-        .collect();
-
-    if where_parts.is_empty() {
-        return Err("无法构建 WHERE 条件：行标识数据为空".to_string());
-    }
-
-    let sql = format!(
-        "UPDATE `{}` SET {} WHERE {}",
-        input.table_name,
-        set_clause,
-        where_parts.join(" AND ")
-    );
-
-    let opts = SqlExecuteOptions {
-        record_history: false,
-        use_transaction: true,
-        timeout_ms: Some(10000),
-        use_cache: false,
-    };
-
-    match service.execute(Some(input.conn_id), &sql, opts).await {
-        Ok(result) => {
-            let affected = result.result.affected_rows.unwrap_or(0) as usize;
-            Ok(CellUpdateResult {
-                success: true,
-                affected_rows: affected,
-                message: format!("更新成功，影响 {} 行", affected),
-            })
-        }
+pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult, String> {
+    match ResultService::save_cell_update(
+        input.conn_id,
+        &input.table_name,
+        &input.column_name,
+        &input.new_value,
+        &input.row_identity,
+    )
+    .await
+    {
+        Ok((affected, message)) => Ok(CellUpdateResult {
+            success: true,
+            affected_rows: affected,
+            message,
+        }),
         Err(e) => Err(format!("更新失败: {}", e)),
-    }
-}
-
-fn value_to_sql(val: &serde_json::Value) -> String {
-    match val {
-        serde_json::Value::Null => "NULL".to_string(),
-        serde_json::Value::Bool(b) => {
-            if *b { "TRUE".to_string() } else { "FALSE".to_string() }
-        }
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                i.to_string()
-            } else if let Some(f) = n.as_f64() {
-                f.to_string()
-            } else {
-                format!("'{}'", n)
-            }
-        }
-        serde_json::Value::String(s) => {
-            format!("'{}'", s.replace('\'', "''"))
-        }
-        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
-            match serde_json::to_string(val) {
-                Ok(json_str) => format!("'{}'", json_str.replace('\'', "''")),
-                Err(_) => "NULL".to_string(),
-            }
-        }
     }
 }
 
@@ -147,9 +83,7 @@ pub struct SchemaInsightInput {
 
 /// Schema 级洞察分析（外键推断、类型一致性、孤立表检测）
 #[tauri::command]
-pub async fn get_schema_insight(
-    input: SchemaInsightInput,
-) -> Result<SchemaInsightReport, String> {
+pub async fn get_schema_insight(input: SchemaInsightInput) -> Result<SchemaInsightReport, String> {
     SchemaAnalyzer::analyze(input.conn_id, &input.database, &input.schema)
         .await
         .map_err(|e| e.to_string())
@@ -164,9 +98,7 @@ pub struct ColumnQualityInput {
 
 /// 计算列数据质量评分 (0-100)
 #[tauri::command]
-pub async fn get_column_quality(
-    input: ColumnQualityInput,
-) -> Result<QualityScore, String> {
+pub async fn get_column_quality(input: ColumnQualityInput) -> Result<QualityScore, String> {
     let stats = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
         .map_err(|e| e.to_string())?;
     Ok(ResultService::compute_column_quality(&stats))
@@ -182,9 +114,7 @@ pub struct BatchEvaluateInput {
 }
 
 #[tauri::command]
-pub async fn batch_evaluate_columns(
-    input: BatchEvaluateInput,
-) -> Result<TableQuality, String> {
+pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQuality, String> {
     ResultService::batch_evaluate_columns(
         input.conn_id,
         &input.database,
@@ -254,16 +184,9 @@ pub struct DuckDbAnalysisInput {
 }
 
 #[tauri::command]
-pub async fn execute_duckdb_analysis(
-    input: DuckDbAnalysisInput,
-) -> Result<ResultSet, String> {
-    ResultService::execute_duckdb_analysis(
-        &input.temp_table,
-        &input.sql,
-        input.columns,
-        input.rows,
-    )
-    .map_err(|e| e.to_string())
+pub async fn execute_duckdb_analysis(input: DuckDbAnalysisInput) -> Result<ResultSet, String> {
+    ResultService::execute_duckdb_analysis(&input.temp_table, &input.sql, input.columns, input.rows)
+        .map_err(|e| e.to_string())
 }
 
 /// 列洞察输入
@@ -275,9 +198,7 @@ pub struct ColumnInsightInput {
 
 /// 获取列统计信息（旧版兼容，返回 ColumnStats）
 #[tauri::command]
-pub async fn get_column_insights(
-    input: ColumnInsightInput,
-) -> Result<ColumnStats, String> {
+pub async fn get_column_insights(input: ColumnInsightInput) -> Result<ColumnStats, String> {
     ResultService::get_column_insights(&input.temp_table, &input.column_name)
         .map_err(|e| e.to_string())
 }
@@ -300,11 +221,8 @@ pub struct CreateTempTableInput {
 
 /// 从已有数据创建 DuckDB 临时表，返回表名
 #[tauri::command]
-pub async fn create_duckdb_temp_table(
-    input: CreateTempTableInput,
-) -> Result<String, String> {
-    ResultService::create_duckdb_temp_table(&input.columns, &input.rows)
-        .map_err(|e| e.to_string())
+pub async fn create_duckdb_temp_table(input: CreateTempTableInput) -> Result<String, String> {
+    ResultService::create_duckdb_temp_table(&input.columns, &input.rows).map_err(|e| e.to_string())
 }
 
 // ═══════════════════ 持久化命令 ═══════════════════
@@ -350,7 +268,9 @@ pub async fn save_column_insight_snapshot(
         Some(elapsed),
         &insight_store,
         &meta_store,
-    ).await.map_err(|e| e.to_string())?;
+    )
+    .await
+    .map_err(|e| e.to_string())?;
 
     Ok(version_id)
 }
@@ -397,11 +317,10 @@ pub async fn cleanup_insight_snapshots(
     let insight_store = InsightStorage::new(db.duckdb_conn());
     let meta_store = InsightMetaStore::new(db.sqlite_pool());
 
-    let (duckdb_deleted, sqlite_deleted) = ResultService::cleanup_old_insight_snapshots(
-        input.days,
-        &insight_store,
-        &meta_store,
-    ).await.map_err(|e| e.to_string())?;
+    let (duckdb_deleted, sqlite_deleted) =
+        ResultService::cleanup_old_insight_snapshots(input.days, &insight_store, &meta_store)
+            .await
+            .map_err(|e| e.to_string())?;
 
     Ok(CleanupResult {
         duckdb_deleted,
@@ -441,11 +360,8 @@ pub struct ExecuteRuleInput {
 }
 
 #[tauri::command]
-pub async fn execute_insight_rule(
-    input: ExecuteRuleInput,
-) -> Result<serde_json::Value, String> {
-    let duckdb = ResultService::get_or_create_duckdb()
-        .map_err(|e| e.to_string())?;
+pub async fn execute_insight_rule(input: ExecuteRuleInput) -> Result<serde_json::Value, String> {
+    let duckdb = ResultService::get_or_create_duckdb().map_err(|e| e.to_string())?;
     let conn = duckdb.lock().map_err(|e| e.to_string())?;
 
     let exec_result = ResultService::execute_insight_rule(&input.rule_id, &conn, &input.params)
@@ -457,8 +373,7 @@ pub async fn execute_insight_rule(
 pub async fn list_insight_rules(
     category: Option<String>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    ResultService::list_insight_rules(category.as_deref())
-        .map_err(|e| e.to_string())
+    ResultService::list_insight_rules(category.as_deref()).map_err(|e| e.to_string())
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -470,8 +385,7 @@ pub struct RulesForColumnInput {
 pub async fn list_rules_for_column(
     input: RulesForColumnInput,
 ) -> Result<Vec<serde_json::Value>, String> {
-    ResultService::list_rules_for_column(&input.column_type)
-        .map_err(|e| e.to_string())
+    ResultService::list_rules_for_column(&input.column_type).map_err(|e| e.to_string())
 }
 
 /// 规则热加载输入
@@ -482,12 +396,12 @@ pub struct ReloadInsightRulesInput {
 
 /// 热加载洞察规则（重新扫描 embedded + user 目录）
 #[tauri::command]
-pub fn reload_insight_rules(
-    input: ReloadInsightRulesInput,
-) -> Result<usize, String> {
+pub fn reload_insight_rules(input: ReloadInsightRulesInput) -> Result<usize, String> {
     let path = std::path::PathBuf::from(&input.project_path);
     insight::reload_insight_rules(&path);
-    let reg = insight::global_registry().read().map_err(|e| e.to_string())?;
+    let reg = insight::global_registry()
+        .read()
+        .map_err(|e| e.to_string())?;
     Ok(reg.rule_count())
 }
 
@@ -503,9 +417,7 @@ pub struct TableProfileInput {
 }
 
 #[tauri::command]
-pub async fn get_table_profile(
-    input: TableProfileInput,
-) -> Result<TableProfile, String> {
+pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile, String> {
     ResultService::get_table_profile(
         input.conn_id,
         input.db_type,
@@ -516,8 +428,6 @@ pub async fn get_table_profile(
     .await
     .map_err(|e| e.to_string())
 }
-
-// ═══════════════ DuckDB 连接池配置命令 ═══════════════
 
 // ═══════════════ 数据导出命令 ═══════════════
 
@@ -530,72 +440,6 @@ pub struct ExportInput {
 
 #[tauri::command]
 pub fn export_result_to_file(input: ExportInput) -> Result<String, String> {
-    use crate::core::services::duckdb_service::{DuckDbService, ExportFormat};
-
-    let format = match input.format.as_str() {
-        "csv" => ExportFormat::Csv,
-        "parquet" => ExportFormat::Parquet,
-        "xlsx" => ExportFormat::Xlsx,
-        other => return Err(format!("不支持的导出格式: {}", other)),
-    };
-
-    DuckDbService::export_temp_table(&input.temp_table, &input.file_path, format)
+    ResultService::export_result(&input.temp_table, &input.file_path, &input.format)
         .map_err(|e| e.to_string())
-}
-
-// ═══════════════ DuckDB 连接池配置命令 ═══════════════
-
-#[derive(serde::Deserialize, Debug)]
-pub struct SetPoolSizeInput {
-    pub size: usize,
-    pub restart: bool,
-}
-
-#[derive(serde::Serialize)]
-pub struct PoolSizeInfo {
-    pub current: usize,
-    pub preferred: usize,
-    pub min: usize,
-    pub max: usize,
-}
-
-#[tauri::command]
-pub fn get_duckdb_pool_info() -> PoolSizeInfo {
-    let mgr = crate::core::duckdb::DuckDBManager::global();
-    PoolSizeInfo {
-        current: mgr.pool_size(),
-        preferred: mgr.preferred_pool_size(),
-        min: 1,
-        max: 32,
-    }
-}
-
-#[tauri::command]
-pub fn set_duckdb_pool_size(input: SetPoolSizeInput) -> Result<PoolSizeInfo, String> {
-    let mgr = crate::core::duckdb::DuckDBManager::global();
-    let clamped = mgr.set_pool_size(input.size);
-
-    if input.restart {
-        mgr.restart_pool().map_err(|e| e.to_string())?;
-    }
-
-    Ok(PoolSizeInfo {
-        current: mgr.pool_size(),
-        preferred: clamped,
-        min: 1,
-        max: 32,
-    })
-}
-
-#[tauri::command]
-pub fn restart_duckdb_pool() -> Result<PoolSizeInfo, String> {
-    let mgr = crate::core::duckdb::DuckDBManager::global();
-    let size = mgr.restart_pool().map_err(|e| e.to_string())?;
-
-    Ok(PoolSizeInfo {
-        current: size,
-        preferred: mgr.preferred_pool_size(),
-        min: 1,
-        max: 32,
-    })
 }

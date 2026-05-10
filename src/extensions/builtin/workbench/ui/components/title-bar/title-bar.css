@@ -1,0 +1,325 @@
+/* Title Bar Shared Styles */
+/* 所有颜色使用 CSS 变量，禁止硬编码 */
+
+/* ===== 标题栏基础 ===== */
+.title-bar {
+  height: 36px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  flex-shrink: 0;
+  user-select: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.title-bar-left,
+.title-bar-center,
+.title-bar-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.title-bar-left {
+  gap: var(--spacing-xs);
+  padding-left: var(--spacing-xs);
+}
+
+.title-bar-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.title-bar-right {
+  gap: var(--spacing-xs);
+  padding-right: var(--spacing-xs);
+}
+
+/* ===== 图标按钮 ===== */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s;
+}
+
+.icon-btn:hover,
+.icon-btn.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ===== 下拉面板 ===== */
+.dropdown-panel {
+  position: absolute;
+  top: calc(100% + var(--spacing-xs));
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-xs) 0;
+  z-index: 1000;
+  box-shadow: var(--dropdown-shadow);
+  min-width: 200px;
+}
+
+.dropdown-section {
+  padding: var(--spacing-xs) 0;
+}
+
+.dropdown-label {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--spacing-xs);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background: var(--primary-light);
+  color: var(--text-primary);
+}
+
+.dropdown-item.active {
+  background: var(--primary-light);
+  color: var(--text-primary);
+}
+
+.dropdown-item .shortcut {
+  margin-left: auto;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: var(--spacing-xs) 0;
+}
+
+/* ===== 菜单栏 ===== */
+.menu-bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: var(--spacing-xs);
+  overflow: hidden;
+}
+
+.menu-item {
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  border-radius: var(--border-radius-sm);
+  white-space: nowrap;
+}
+
+.menu-item:hover,
+.menu-item.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ===== 项目选择器 ===== */
+.project-selector {
+  position: relative;
+  margin-left: var(--spacing-sm);
+}
+
+.project-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 28px;
+}
+
+.project-btn:hover {
+  background: var(--bg-hover);
+}
+
+.project-icon {
+  color: var(--primary-color);
+}
+
+.project-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-chevron {
+  transition: transform 0.2s;
+}
+
+.project-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ===== 命令中心 ===== */
+.command-center {
+  display: flex;
+  align-items: center;
+}
+
+.command-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 5px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 200px;
+  max-width: 300px;
+  justify-content: space-between;
+}
+
+.command-btn:hover {
+  background: var(--bg-hover);
+}
+
+.command-text {
+  flex: 1;
+  text-align: left;
+}
+
+.command-btn .shortcut {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-sm);
+  font-family: var(--font-mono);
+}
+
+/* ===== 布局控制 ===== */
+.layout-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--spacing-xs);
+  border-right: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
+}
+
+/* ===== 窗口控制 ===== */
+.window-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.window-btn {
+  width: 40px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.window-btn:hover {
+  background: var(--bg-hover);
+}
+
+.window-btn.close:hover {
+  background: var(--danger-color);
+  color: var(--bg-primary);
+}
+
+/* ===== 自定义工具栏 ===== */
+.toolbar-section {
+  position: relative;
+}
+
+.toolbar-options {
+  padding: var(--spacing-xs) 0;
+}
+
+.toolbar-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--text-secondary);
+  transition: background 0.15s;
+}
+
+.toolbar-option:hover {
+  background: var(--primary-light);
+  color: var(--text-primary);
+}
+
+.toolbar-option input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary-color);
+}
+
+/* ===== 过渡动画 ===== */
+.menu-slide-enter-active,
+.menu-slide-leave-active {
+  transition: all 0.2s ease;
+}
+
+.menu-slide-enter-from,
+.menu-slide-leave-to {
+  opacity: 0;
+  width: 0;
+  transform: translateX(-10px);
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}

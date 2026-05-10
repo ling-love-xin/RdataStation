@@ -1,15 +1,14 @@
 /**
  * 原生驱动执行引擎
- * 
+ *
  * 负责将查询下发到具体的数据库驱动执行
  */
-
 use std::sync::Arc;
 
 use crate::core::dbi::context::QueryContext;
 use crate::core::dbi::engine::ExecutionEngine;
-use crate::core::error::CoreError;
 use crate::core::error::ConnectionError;
+use crate::core::error::CoreError;
 use crate::core::models::QueryResult;
 use crate::core::services::get_connection_manager;
 
@@ -28,14 +27,17 @@ impl DriverEngine {
     }
 
     /// 使用指定的连接管理器创建引擎
-    pub fn with_connection_manager(connection_manager: Arc<crate::core::services::ConnectionManager>) -> Self {
-        Self {
-            connection_manager,
-        }
+    pub fn with_connection_manager(
+        connection_manager: Arc<crate::core::services::ConnectionManager>,
+    ) -> Self {
+        Self { connection_manager }
     }
 
     /// 获取数据库连接
-    async fn get_database(&self, connection_id: &Option<String>) -> Result<Arc<dyn crate::core::driver::traits::Database + Send + Sync>, CoreError> {
+    async fn get_database(
+        &self,
+        connection_id: &Option<String>,
+    ) -> Result<Arc<dyn crate::core::driver::traits::Database + Send + Sync>, CoreError> {
         match connection_id {
             Some(id) => self
                 .connection_manager

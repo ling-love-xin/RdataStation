@@ -9,7 +9,7 @@ export interface AnalyticsResource {
   resource_type: ResourceType
   name: string
   alias?: string
-  config: Record<string, any>
+  config: Record<string, unknown>
   scope: ResourceScope
   row_count?: number
   column_count?: number
@@ -69,7 +69,7 @@ export interface CreateResourceRequest {
   resource_type: ResourceType
   name: string
   alias?: string
-  config: Record<string, any>
+  config: Record<string, unknown>
   scope: ResourceScope
   row_count?: number
   column_count?: number

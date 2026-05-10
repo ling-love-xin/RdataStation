@@ -74,11 +74,15 @@ export interface DriverDescriptor {
   defaultPort?: number
   default_port?: number
   description?: string
+  driverKind?: string
+  urlTemplate?: string
   fields?: DriverField[]
   extraOptions?: DriverOption[]
   extra_options?: DriverOption[]
   requireFile?: boolean
   require_file?: boolean
+  requireDatabase?: boolean
+  require_database?: boolean
   supportsSsl?: boolean
   supportsSshTunnel?: boolean
   supports_ssh_tunnel?: boolean

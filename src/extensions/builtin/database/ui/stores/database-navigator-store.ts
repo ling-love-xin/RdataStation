@@ -106,9 +106,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const connType = connectionTypes.value.get(connectionId) || 'global'
       const projectPath = connectionProjectPaths.value.get(connectionId)
       const dbType = connectionDbTypes.value.get(connectionId)
-      console.log(
-        `loadDatabases: connectionId=${connectionId}, connType=${connType}, dbType=${dbType}`
-      )
 
       const cacheStatus = await getMetadataCacheStatus(
         connectionId,
@@ -130,10 +127,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       }
 
       await loadDatabasesFromDb(connectionId)
-      console.log(
-        `loadDatabases 完成，当前 databases:`,
-        connectionDatabases.value.get(connectionId)
-      )
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载数据库列表失败'
       console.error('加载数据库列表失败:', e)
@@ -180,7 +173,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadDatabasesFromDb(connectionId: string) {
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
-    console.log(`loadDatabasesFromDb: connectionId=${connectionId}, dbType=${dbType}`)
 
     const dbMetas = await databaseApi.loadDatabases(connectionId)
 
@@ -202,7 +194,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
     setLastSyncTime(connectionId)
 
-    console.log(`loadDatabasesFromDb 完成，databases:`, newDatabases)
   }
 
   async function loadSchemas(connectionId: string, dbName: string) {
@@ -274,9 +265,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadSchemasFromDb(connectionId: string, dbName: string) {
     const dbType = connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
-    console.log(
-      `loadSchemasFromDb: connectionId=${connectionId}, dbName=${dbName}, dbType=${dbType}`
-    )
 
     const schemaMetas = await databaseApi.loadSchemas(connectionId, dbName)
 
@@ -316,9 +304,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadTables(connectionId: string, dbName: string, schemaName: string) {
     const key = `${connectionId}:${dbName}:${schemaName}`
-    console.log(
-      `loadTables 被调用: connectionId=${connectionId}, dbName=${dbName}, schemaName=${schemaName}`
-    )
     if (loadingTables.value.has(key)) return
 
     loadingTables.value.add(key)
@@ -425,25 +410,17 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     schemaName: string,
     tables: TableNode[]
   ) {
-    console.log(
-      `updateSchemaTables: connectionId=${connectionId}, dbName=${dbName}, schemaName=${schemaName}, tables=${tables.length}`
-    )
     const databases = connectionDatabases.value.get(connectionId)
-    console.log(`databases:`, databases)
     if (databases) {
       const db = databases.find((d: { name: string }) => d.name === dbName)
-      console.log(`db:`, db)
       if (db) {
         // 无 Schema 的数据库（MySQL 等）：表直接存储在 DatabaseNode.tables 上
         if (db.schemas.length === 0) {
           db.tables = tables
-          console.log(`db.tables 已更新 (no-schema mode):`, db.tables)
         } else {
           const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
-          console.log(`schema:`, schema)
           if (schema) {
             schema.tables = tables
-            console.log(`schema.tables 已更新:`, schema.tables)
           } else {
             console.warn(`未找到 schema: ${schemaName}，回退到 db.tables`)
             db.tables = tables

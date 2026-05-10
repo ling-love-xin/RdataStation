@@ -309,11 +309,11 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 10px;
+  gap: var(--spacing-sm);
   color: var(--text-secondary);
 }
 .loading-text {
-  font-size: 11px;
+  font-size: var(--font-size-xss);
 }
 
 .profile-error {
@@ -322,16 +322,16 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 8px;
+  gap: var(--spacing-sm);
   color: var(--danger-color);
-  padding: 24px 16px;
+  padding: var(--spacing-2xl) var(--spacing-lg);
   text-align: center;
 }
 .error-icon {
   opacity: 0.7;
 }
 .error-text {
-  font-size: 11px;
+  font-size: var(--font-size-xss);
   word-break: break-all;
 }
 
@@ -343,7 +343,7 @@ onMounted(() => {
 
 .profile-header {
   flex-shrink: 0;
-  padding: 8px 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
 }
@@ -357,12 +357,12 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .profile-title {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
 }
 .profile-schema {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   display: block;
   margin-top: 2px;
@@ -376,7 +376,7 @@ onMounted(() => {
 
 .quality-summary-bar {
   flex-shrink: 0;
-  padding: 6px 12px;
+  padding: 6px var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-tertiary);
 }
@@ -386,26 +386,26 @@ onMounted(() => {
   gap: 6px;
 }
 .quality-score-big {
-  font-size: 22px;
+  font-size: var(--font-size-huge);
   font-weight: 700;
   line-height: 1;
 }
 .quality-level-big {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 .quality-desc {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   flex: 1;
 }
 
 .eval-error {
   flex-shrink: 0;
-  padding: 4px 12px;
-  font-size: 10px;
-  color: #b51a1a;
-  background: #fff0f0;
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-xs);
+  color: var(--brand-danger);
+  background: var(--brand-danger-bg);
 }
 
 .profile-body {

@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <Teleport to="body">
     <div v-if="visible" class="context-menu" :style="{ left: `${x}px`, top: `${y}px` }" @click.stop>
       <div
@@ -96,7 +96,7 @@ defineExpose({ open, close })
   padding: 6px 12px;
   cursor: pointer;
   transition: background 0.15s;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
 }
 
@@ -118,18 +118,18 @@ defineExpose({ open, close })
 }
 
 .item-icon {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   width: 20px;
   text-align: center;
 }
 
 .item-label {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--font-size-md);
 }
 
 .item-shortcut {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
 

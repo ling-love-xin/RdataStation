@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::core::driver::{DriverFactory, DriverDescriptor, DynDatabase};
 use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// 驱动状态
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,14 +51,17 @@ impl DriverManager {
     /// 注册驱动工厂
     pub async fn register_driver(&self, driver_id: &str, factory: Arc<dyn DriverFactory>) {
         let descriptor = factory.descriptor();
-        
+
         let mut drivers = self.drivers.write().await;
-        drivers.insert(driver_id.to_string(), DriverInfo {
-            descriptor: descriptor.clone(),
-            status: DriverStatus::Unloaded,
-            loaded_at: None,
-        });
-        
+        drivers.insert(
+            driver_id.to_string(),
+            DriverInfo {
+                descriptor: descriptor.clone(),
+                status: DriverStatus::Unloaded,
+                loaded_at: None,
+            },
+        );
+
         let mut factories = self.factories.write().await;
         factories.insert(driver_id.to_string(), factory);
     }
@@ -66,43 +69,43 @@ impl DriverManager {
     /// 加载驱动
     pub async fn load_driver(&self, driver_id: &str) -> Result<(), CoreError> {
         let mut drivers = self.drivers.write().await;
-        
+
         if let Some(info) = drivers.get_mut(driver_id) {
             if info.status == DriverStatus::Loaded {
                 return Ok(());
             }
-            
+
             info.status = DriverStatus::Loading;
         } else {
             return Err(CoreError::connection(ConnectionError::DriverNotFound {
                 driver: driver_id.to_string(),
             }));
         }
-        
+
         // 这里可以添加驱动加载的逻辑
         // 例如：加载WASM插件、初始化JVM等
-        
+
         let mut drivers = self.drivers.write().await;
         if let Some(info) = drivers.get_mut(driver_id) {
             info.status = DriverStatus::Loaded;
             info.loaded_at = Some(std::time::Instant::now());
         }
-        
+
         Ok(())
     }
 
     /// 卸载驱动
     pub async fn unload_driver(&self, driver_id: &str) -> Result<(), CoreError> {
         let mut drivers = self.drivers.write().await;
-        
+
         if let Some(info) = drivers.get_mut(driver_id) {
             if info.status == DriverStatus::Unloaded {
                 return Ok(());
             }
-            
+
             // 这里可以添加驱动卸载的逻辑
             // 例如：卸载WASM插件、关闭JVM等
-            
+
             info.status = DriverStatus::Unloaded;
             info.loaded_at = None;
         } else {
@@ -110,7 +113,7 @@ impl DriverManager {
                 driver: driver_id.to_string(),
             }));
         }
-        
+
         Ok(())
     }
 
@@ -127,18 +130,22 @@ impl DriverManager {
     }
 
     /// 创建数据库连接
-    pub async fn create_connection(&self, config: DriverConnectionConfig) -> Result<DynDatabase, CoreError> {
+    pub async fn create_connection(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> Result<DynDatabase, CoreError> {
         let driver_id = &config.driver;
-        
+
         // 确保驱动已加载
         self.load_driver(driver_id).await?;
-        
+
         let factories = self.factories.read().await;
-        let factory = factories.get(driver_id)
-            .ok_or_else(|| CoreError::connection(ConnectionError::DriverNotFound {
+        let factory = factories.get(driver_id).ok_or_else(|| {
+            CoreError::connection(ConnectionError::DriverNotFound {
                 driver: driver_id.clone(),
-            }))?;
-        
+            })
+        })?;
+
         factory.create(config).await
     }
 }
@@ -159,18 +166,38 @@ pub fn get_driver_manager() -> Option<&'static DriverManager> {
 /// 必须在应用启动时调用此函数，且只能调用一次。
 pub async fn init_driver_manager() -> Result<(), CoreError> {
     let manager = DriverManager::new();
-    
+
     // 注册内置驱动
-    manager.register_driver("mysql", Arc::new(crate::core::driver::factory::MySqlDriverFactory)).await;
-    manager.register_driver("postgres", Arc::new(crate::core::driver::factory::PostgresDriverFactory)).await;
-    manager.register_driver("sqlite", Arc::new(crate::core::driver::factory::SqliteDriverFactory)).await;
-    manager.register_driver("duckdb", Arc::new(crate::core::driver::factory::DuckDbDriverFactory)).await;
-    
+    manager
+        .register_driver(
+            "mysql",
+            Arc::new(crate::core::driver::factory::MySqlDriverFactory),
+        )
+        .await;
+    manager
+        .register_driver(
+            "postgres",
+            Arc::new(crate::core::driver::factory::PostgresDriverFactory),
+        )
+        .await;
+    manager
+        .register_driver(
+            "sqlite",
+            Arc::new(crate::core::driver::factory::SqliteDriverFactory),
+        )
+        .await;
+    manager
+        .register_driver(
+            "duckdb",
+            Arc::new(crate::core::driver::factory::DuckDbDriverFactory),
+        )
+        .await;
+
     DRIVER_MANAGER.set(manager).map_err(|_| {
         CoreError::common(crate::core::error::CommonError::General(
             "Driver manager already initialized".to_string(),
         ))
     })?;
-    
+
     Ok(())
 }

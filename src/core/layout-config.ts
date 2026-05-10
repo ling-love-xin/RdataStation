@@ -179,6 +179,15 @@ export const defaultLayoutConfig: LayoutConfig = {
           order: 3,
           defaultVisible: false,
         },
+        {
+          id: 'log-viewer',
+          name: '日志',
+          component: () =>
+            import('@/extensions/builtin/workbench/ui/components/panels/LogViewerPanel.vue'),
+          location: 'bottom',
+          order: 1,
+          defaultVisible: false,
+        },
       ],
     },
     compact: {
@@ -204,6 +213,15 @@ export const defaultLayoutConfig: LayoutConfig = {
           order: 1,
           defaultVisible: true,
           closable: false,
+        },
+        {
+          id: 'log-viewer',
+          name: '日志',
+          component: () =>
+            import('@/extensions/builtin/workbench/ui/components/panels/LogViewerPanel.vue'),
+          location: 'bottom',
+          order: 1,
+          defaultVisible: false,
         },
       ],
     },
@@ -256,6 +274,15 @@ export const defaultLayoutConfig: LayoutConfig = {
             import('@/extensions/builtin/workbench/ui/components/panels/OutputPanel.vue'),
           location: 'right',
           order: 2,
+          defaultVisible: false,
+        },
+        {
+          id: 'log-viewer',
+          name: '日志',
+          component: () =>
+            import('@/extensions/builtin/workbench/ui/components/panels/LogViewerPanel.vue'),
+          location: 'bottom',
+          order: 1,
           defaultVisible: false,
         },
       ],

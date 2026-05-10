@@ -65,10 +65,7 @@ impl ColumnMapper {
         vec![
             ColumnMappingRule {
                 patterns: &["id", "_id", "_key"],
-                generator: || GeneratorConfig::AutoIncrement {
-                    start: 1,
-                    step: 1,
-                },
+                generator: || GeneratorConfig::AutoIncrement { start: 1, step: 1 },
                 confidence: "high",
                 sample_value: "1, 2, 3...",
             },
@@ -152,10 +149,7 @@ impl ColumnMapper {
             },
             ColumnMappingRule {
                 patterns: &["password", "pwd", "pass", "secret"],
-                generator: || GeneratorConfig::Password {
-                    min: 8,
-                    max: 20,
-                },
+                generator: || GeneratorConfig::Password { min: 8, max: 20 },
                 confidence: "high",
                 sample_value: "********",
             },
@@ -322,7 +316,14 @@ impl ColumnMapper {
                 sample_value: ".pdf",
             },
             ColumnMappingRule {
-                patterns: &["image_url", "img_url", "pic_url", "avatar_url", "photo_url", "thumbnail_url"],
+                patterns: &[
+                    "image_url",
+                    "img_url",
+                    "pic_url",
+                    "avatar_url",
+                    "photo_url",
+                    "thumbnail_url",
+                ],
                 generator: || GeneratorConfig::ImageUrl {
                     width: 400,
                     height: 300,
@@ -478,20 +479,14 @@ impl ColumnMapper {
             },
             ColumnMappingRule {
                 patterns: &["age"],
-                generator: || GeneratorConfig::RandomInt {
-                    min: 18,
-                    max: 80,
-                },
+                generator: || GeneratorConfig::RandomInt { min: 18, max: 80 },
                 confidence: "high",
                 sample_value: "35",
             },
             ColumnMappingRule {
                 patterns: &["gender", "sex"],
                 generator: || GeneratorConfig::ForeignKey {
-                    values: vec![
-                        "男".to_string(),
-                        "女".to_string(),
-                    ],
+                    values: vec!["男".to_string(), "女".to_string()],
                 },
                 confidence: "high",
                 sample_value: "男",
@@ -539,10 +534,7 @@ impl ColumnMapper {
             },
             ColumnMappingRule {
                 patterns: &["type", "category", "kind"],
-                generator: || GeneratorConfig::Words {
-                    min: 1,
-                    max: 2,
-                },
+                generator: || GeneratorConfig::Words { min: 1, max: 2 },
                 confidence: "medium",
                 sample_value: "annual",
             },
@@ -554,10 +546,7 @@ impl ColumnMapper {
             },
             ColumnMappingRule {
                 patterns: &["note", "remark", "memo", "comment"],
-                generator: || GeneratorConfig::Words {
-                    min: 3,
-                    max: 8,
-                },
+                generator: || GeneratorConfig::Words { min: 3, max: 8 },
                 confidence: "medium",
                 sample_value: "这是一条备注信息",
             },
@@ -605,10 +594,7 @@ impl ColumnMapper {
             },
             ColumnMappingRule {
                 patterns: &["info", "data"],
-                generator: || GeneratorConfig::Words {
-                    min: 3,
-                    max: 5,
-                },
+                generator: || GeneratorConfig::Words { min: 3, max: 5 },
                 confidence: "low",
                 sample_value: "随机文本",
             },
@@ -673,15 +659,139 @@ impl ColumnMapper {
                 confidence: "low",
                 sample_value: "550e8400-...",
             },
-            _ => ColumnMappingRule {
+            ColumnDataType::Varchar { .. } | ColumnDataType::Text => ColumnMappingRule {
                 patterns: &[],
-                generator: || GeneratorConfig::Words {
-                    min: 1,
-                    max: 3,
-                },
+                generator: || GeneratorConfig::Sentence { min: 1, max: 1 },
                 confidence: "low",
-                sample_value: "随机文本",
+                sample_value: "自然语言句子",
+            },
+            ColumnDataType::Blob => ColumnMappingRule {
+                patterns: &[],
+                generator: || GeneratorConfig::HexColor,
+                confidence: "low",
+                sample_value: "#1A2B3C",
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_infer_exact_match_id() {
+        let resp = ColumnMapper::infer("user_id", &ColumnDataType::BigInt);
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::AutoIncrement { .. }));
+    }
+
+    #[test]
+    fn test_infer_exact_match_email() {
+        let resp = ColumnMapper::infer("email", &ColumnDataType::Varchar { length: None });
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::SafeEmail));
+    }
+
+    #[test]
+    fn test_infer_suffix_match_name() {
+        let resp = ColumnMapper::infer("customer_name", &ColumnDataType::Varchar { length: None });
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::Name));
+    }
+
+    #[test]
+    fn test_infer_prefix_match_is_active() {
+        let resp = ColumnMapper::infer("is_deleted", &ColumnDataType::Boolean);
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::Boolean { .. }));
+    }
+
+    #[test]
+    fn test_infer_fuzzy_match_description() {
+        let resp =
+            ColumnMapper::infer("product_desc", &ColumnDataType::Varchar { length: None });
+        assert_eq!(resp.confidence, "medium");
+        assert!(matches!(resp.generator, GeneratorConfig::Paragraph { .. }));
+    }
+
+    #[test]
+    fn test_infer_fallback_integer() {
+        let resp = ColumnMapper::infer("xyz_field", &ColumnDataType::Integer);
+        assert_eq!(resp.confidence, "low");
+        assert!(matches!(resp.generator, GeneratorConfig::RandomInt { .. }));
+    }
+
+    #[test]
+    fn test_infer_fallback_float() {
+        let resp = ColumnMapper::infer("unknown", &ColumnDataType::Float);
+        assert_eq!(resp.confidence, "low");
+        assert!(matches!(resp.generator, GeneratorConfig::RandomFloat { .. }));
+    }
+
+    #[test]
+    fn test_infer_fallback_boolean() {
+        let resp = ColumnMapper::infer("flag_field", &ColumnDataType::Boolean);
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::Boolean { .. }));
+    }
+
+    #[test]
+    fn test_infer_fallback_uuid() {
+        let resp = ColumnMapper::infer("random_key", &ColumnDataType::Uuid);
+        assert_eq!(resp.confidence, "low");
+        assert!(matches!(resp.generator, GeneratorConfig::UuidV4));
+    }
+
+    #[test]
+    fn test_infer_fallback_date() {
+        let resp = ColumnMapper::infer("some_date", &ColumnDataType::Date);
+        assert_eq!(resp.confidence, "low");
+        assert!(matches!(resp.generator, GeneratorConfig::Date { .. }));
+    }
+
+    #[test]
+    fn test_infer_fallback_datetime() {
+        let resp = ColumnMapper::infer("some_time", &ColumnDataType::DateTime);
+        assert_eq!(resp.confidence, "low");
+        assert!(matches!(resp.generator, GeneratorConfig::DateTime { .. }));
+    }
+
+    #[test]
+    fn test_infer_amount_field() {
+        let resp = ColumnMapper::infer("total_amount", &ColumnDataType::Decimal {
+            precision: 12,
+            scale: 2,
+        });
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::RandomDecimal { .. }));
+    }
+
+    #[test]
+    fn test_infer_count_field() {
+        let resp = ColumnMapper::infer("item_count", &ColumnDataType::Integer);
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::RandomInt { .. }));
+    }
+
+    #[test]
+    fn test_infer_created_at() {
+        let resp = ColumnMapper::infer("created_at", &ColumnDataType::DateTime);
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::DateTime { .. }));
+    }
+
+    #[test]
+    fn test_infer_updated_at() {
+        let resp = ColumnMapper::infer("update_time", &ColumnDataType::Timestamp);
+        assert_eq!(resp.confidence, "high");
+        assert!(matches!(resp.generator, GeneratorConfig::DateTime { .. }));
+    }
+
+    #[test]
+    fn test_infer_timestamp_with_no_match() {
+        let resp = ColumnMapper::infer("ts", &ColumnDataType::Timestamp);
+        assert_eq!(resp.confidence, "low");
+        assert!(matches!(resp.generator, GeneratorConfig::DateTime { .. }));
     }
 }

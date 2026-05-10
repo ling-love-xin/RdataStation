@@ -1,14 +1,13 @@
 /**
  * 全局系统数据库管理模块
- * 
+ *
  * 管理全局系统级的 SQLite 和 DuckDB 数据库连接池。
  * 这两个数据库在应用启动时创建，应用关闭时销毁，全程保持连接。
- * 
+ *
  * 架构设计：
  * - SQLite: 使用连接池 + WAL 模式 + 共享缓存，支持并发访问
  * - DuckDB: 使用单例长连接，支持分析查询和联邦查询
  */
-
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -16,7 +15,7 @@ use duckdb::Connection as DuckConnection;
 use rusqlite::{Connection as SqliteConnection, OptionalExtension};
 use tokio::sync::{Mutex, Semaphore};
 
-use crate::core::error::{CoreError, CommonError, StorageError};
+use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::migration::{MigrationManager, MigrationType};
 use crate::core::persistence::sql_template_store::SqlTemplateStore;
 use crate::core::persistence::workbench_context_store::WorkbenchContextStore;
@@ -43,7 +42,7 @@ pub struct GlobalConnectionInfo {
 }
 
 /// 全局 SQLite 连接池
-/// 
+///
 /// 使用 WAL 模式和共享缓存，支持并发读写
 pub struct GlobalSqlitePool {
     /// 连接池
@@ -56,16 +55,19 @@ pub struct GlobalSqlitePool {
 
 impl GlobalSqlitePool {
     /// 创建新的 SQLite 连接池
-    /// 
+    ///
     /// # 参数
     /// * `db_path` - 数据库文件路径
     /// * `pool_size` - 连接池大小
     pub async fn new(db_path: PathBuf, pool_size: usize) -> Result<Self, CoreError> {
         // 确保父目录存在
         if let Some(parent) = db_path.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| CoreError::common(
-                CommonError::General(format!("Failed to create directory {:?}: {}", parent, e))
-            ))?;
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to create directory {:?}: {}",
+                    parent, e
+                )))
+            })?;
         }
 
         let mut pool = Vec::with_capacity(pool_size);
@@ -83,77 +85,83 @@ impl GlobalSqlitePool {
 
     /// 打开单个 SQLite 连接（配置 WAL 模式和共享缓存）
     fn open_connection(path: &PathBuf) -> Result<SqliteConnection, CoreError> {
-        let conn = SqliteConnection::open(path).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        let conn = SqliteConnection::open(path).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "open".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 启用 WAL 模式（Write-Ahead Logging），支持并发读写
         // PRAGMA journal_mode=WAL 会返回结果，所以使用 query_row
-        conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(())).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "set_wal_mode".to_string(),
-                reason: e.to_string(),
-            }
-        ))?;
+        conn.query_row("PRAGMA journal_mode=WAL", [], |_| Ok(()))
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "set_wal_mode".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         // 设置缓存大小（-2000 表示 2000 页，约 8MB）
-        conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA cache_size=-2000", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_cache_size".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 启用外键约束
-        conn.execute("PRAGMA foreign_keys=ON", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA foreign_keys=ON", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "enable_foreign_keys".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         // 设置同步模式为 NORMAL（平衡性能和安全性）
-        conn.execute("PRAGMA synchronous=NORMAL", []).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        conn.execute("PRAGMA synchronous=NORMAL", []).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
                 operation: "set_synchronous".to_string(),
                 reason: e.to_string(),
-            }
-        ))?;
+            })
+        })?;
 
         Ok(conn)
     }
 
     /// 获取连接（从连接池）
-    /// 
+    ///
     /// 如果连接池已满，将等待直到有连接可用
     pub async fn acquire(&self) -> Result<SqliteConnection, CoreError> {
         // 获取信号量许可
-        let _permit = self.semaphore.acquire().await.map_err(|_| CoreError::common(
-            CommonError::General("Semaphore closed".to_string())
-        ))?;
+        let _permit =
+            self.semaphore.acquire().await.map_err(|_| {
+                CoreError::common(CommonError::General("Semaphore closed".to_string()))
+            })?;
 
         // 从连接池获取连接
         let mut pool = self.pool.lock().await;
-        pool.pop().ok_or_else(|| CoreError::common(
-            CommonError::General("Connection pool exhausted".to_string())
-        ))
+        pool.pop().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "Connection pool exhausted".to_string(),
+            ))
+        })
     }
 
     /// 同步获取连接（用于同步上下文）
     pub fn acquire_sync(&self) -> Result<SqliteConnection, CoreError> {
         let rt = tokio::runtime::Handle::current();
         let mut pool = rt.block_on(self.pool.lock());
-        pool.pop().ok_or_else(|| CoreError::common(
-            CommonError::General("Connection pool exhausted".to_string())
-        ))
+        pool.pop().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "Connection pool exhausted".to_string(),
+            ))
+        })
     }
 
     /// 释放连接（归还到连接池）
@@ -179,7 +187,7 @@ impl GlobalSqlitePool {
 }
 
 /// 全局 DuckDB 连接
-/// 
+///
 /// DuckDB 使用单例长连接，应用启动时创建，应用关闭时销毁
 pub struct GlobalDuckdbConnection {
     /// DuckDB 连接
@@ -190,16 +198,19 @@ pub struct GlobalDuckdbConnection {
 
 impl GlobalDuckdbConnection {
     /// 创建新的 DuckDB 连接
-    /// 
+    ///
     /// # 参数
     /// * `db_path` - 数据库文件路径，如果为 ":memory:" 则使用内存数据库
     pub async fn new(db_path: PathBuf) -> Result<Self, CoreError> {
         // 确保父目录存在
         if let Some(parent) = db_path.parent() {
             if parent.as_os_str() != "" {
-                tokio::fs::create_dir_all(parent).await.map_err(|e| CoreError::common(
-                    CommonError::General(format!("Failed to create directory {:?}: {}", parent, e))
-                ))?;
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to create directory {:?}: {}",
+                        parent, e
+                    )))
+                })?;
             }
         }
 
@@ -214,9 +225,9 @@ impl GlobalDuckdbConnection {
     /// 获取 DuckDB 连接
     pub async fn acquire(&self) -> Result<Arc<Mutex<Option<DuckConnection>>>, CoreError> {
         if self.conn.lock().await.is_none() {
-            return Err(CoreError::common(
-                CommonError::General("DuckDB connection is closed".to_string())
-            ));
+            return Err(CoreError::common(CommonError::General(
+                "DuckDB connection is closed".to_string(),
+            )));
         }
         Ok(self.conn.clone())
     }
@@ -239,9 +250,12 @@ impl GlobalDuckdbConnection {
         match Self::try_open_duckdb(db_path) {
             Ok(conn) => Ok(conn),
             Err(e) => {
-                tracing::warn!("Failed to open DuckDB at {}: {}, attempting to recreate...", 
-                    db_path.display(), e);
-                
+                tracing::warn!(
+                    "Failed to open DuckDB at {}: {}, attempting to recreate...",
+                    db_path.display(),
+                    e
+                );
+
                 // 尝试删除损坏的文件
                 if db_path.exists() {
                     if let Err(remove_err) = std::fs::remove_file(db_path) {
@@ -250,7 +264,7 @@ impl GlobalDuckdbConnection {
                     }
                     tracing::info!("Removed corrupted DuckDB file: {}", db_path.display());
                 }
-                
+
                 // 第二次尝试打开（会创建新文件）
                 Self::try_open_duckdb(db_path).map_err(|_| e)
             }
@@ -259,18 +273,18 @@ impl GlobalDuckdbConnection {
 
     /// 尝试打开 DuckDB 连接（同步）
     fn try_open_duckdb(db_path: &PathBuf) -> Result<DuckConnection, CoreError> {
-        DuckConnection::open(db_path).map_err(|e| CoreError::storage(
-            StorageError::Persistence {
+        DuckConnection::open(db_path).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
                 store: "duckdb".to_string(),
                 operation: "open".to_string(),
                 reason: e.to_string(),
-            }
-        ))
+            })
+        })
     }
 }
 
 /// 全局系统数据库管理器
-/// 
+///
 /// 统一管理全局 SQLite 和 DuckDB 连接
 pub struct GlobalDatabaseManager {
     /// SQLite 连接池
@@ -281,7 +295,7 @@ pub struct GlobalDatabaseManager {
 
 impl GlobalDatabaseManager {
     /// 创建全局系统数据库管理器
-    /// 
+    ///
     /// # 参数
     /// * `sqlite_path` - SQLite 数据库路径
     /// * `duckdb_path` - DuckDB 数据库路径
@@ -292,15 +306,19 @@ impl GlobalDatabaseManager {
         sqlite_pool_size: usize,
     ) -> Result<Self, CoreError> {
         // 确保全局元数据目录存在
-        let system_dir = sqlite_path.parent()
-            .ok_or_else(|| CoreError::common(CommonError::General(
-                "SQLite path has no parent directory".to_string()
-            )))?;
+        let system_dir = sqlite_path.parent().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "SQLite path has no parent directory".to_string(),
+            ))
+        })?;
         let global_metadata_path = system_dir.join("global_metadata");
-        std::fs::create_dir_all(&global_metadata_path).map_err(|e| CoreError::common(
-            CommonError::General(format!("Failed to create global metadata directory: {}", e))
-        ))?;
-        
+        std::fs::create_dir_all(&global_metadata_path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to create global metadata directory: {}",
+                e
+            )))
+        })?;
+
         let sqlite_pool = GlobalSqlitePool::new(sqlite_path.clone(), sqlite_pool_size).await?;
         let duckdb_conn = GlobalDuckdbConnection::new(duckdb_path.clone()).await?;
 
@@ -308,64 +326,73 @@ impl GlobalDatabaseManager {
             sqlite_pool: Arc::new(sqlite_pool),
             duckdb_conn: Arc::new(duckdb_conn),
         };
-        
+
         // 使用迁移系统初始化数据库表结构
         manager.init_sqlite_tables().await?;
         manager.init_duckdb_tables().await?;
-        
+
         Ok(manager)
     }
-    
+
     /// 初始化 SQLite 表结构（使用迁移系统）
     async fn init_sqlite_tables(&self) -> Result<(), CoreError> {
         let sqlite_path = self.sqlite_pool.path().clone();
-        
+
         // 执行全局迁移
         let migration_manager = MigrationManager::new();
-        migration_manager.migrate(&sqlite_path, MigrationType::Global)
-            .map_err(|e| CoreError::Storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "migrate_global".to_string(),
-                reason: e.to_string(),
-            }))?;
-        
+        migration_manager
+            .migrate(&sqlite_path, MigrationType::Global)
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "migrate_global".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         // 修复旧数据库缺失的字段（向后兼容）
         Self::repair_global_tables(&self.sqlite_pool).await?;
-        
+
         tracing::info!(db_path = %sqlite_path.display(), "Global SQLite tables initialized via migrations");
-        
+
         Ok(())
     }
-    
+
     /// 修复旧数据库缺失的字段
-    /// 
+    ///
     /// 当旧数据库已有版本记录但表结构不完整时，补充缺失字段
     async fn repair_global_tables(pool: &Arc<GlobalSqlitePool>) -> Result<(), CoreError> {
         let conn = pool.acquire().await?;
-        
+
         // 检查并添加缺失的字段
         let columns_to_add = [
             ("global_connections", "schema_name", "TEXT"),
             ("global_connections", "use_duckdb_fed", "BOOLEAN DEFAULT 0"),
             ("global_connections", "metadata_path", "TEXT"),
         ];
-        
+
         for (table, column, column_type) in columns_to_add {
             let sql = format!("PRAGMA table_info({})", table);
-            let existing_columns: Result<Vec<String>, _> = conn.prepare(&sql)
+            let existing_columns: Result<Vec<String>, _> = conn
+                .prepare(&sql)
                 .map(|mut stmt| {
                     stmt.query_map([], |row| row.get::<_, String>(1))
                         .map(|rows| rows.filter_map(|r| r.ok()).collect())
                 })
-                .map_err(|e| CoreError::Storage(StorageError::Persistence {
-                    store: "sqlite".to_string(),
-                    operation: "check_column".to_string(),
-                    reason: e.to_string(),
-                }))?;
-            
+                .map_err(|e| {
+                    CoreError::Storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "check_column".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
+
             if let Ok(cols) = existing_columns {
                 if !cols.iter().any(|c| c == column) {
-                    let alter_sql = format!("ALTER TABLE {} ADD COLUMN {} {}", table, column, column_type);
+                    let alter_sql = format!(
+                        "ALTER TABLE {} ADD COLUMN {} {}",
+                        table, column, column_type
+                    );
                     if let Err(e) = conn.execute(&alter_sql, []) {
                         tracing::warn!("Failed to add column {}.{}: {}", table, column, e);
                     } else {
@@ -374,25 +401,28 @@ impl GlobalDatabaseManager {
                 }
             }
         }
-        
+
         pool.release(conn).await;
         Ok(())
     }
-    
+
     /// 初始化 DuckDB 表结构（直接使用 DuckDB 连接）
     async fn init_duckdb_tables(&self) -> Result<(), CoreError> {
         let duckdb_path = self.duckdb_conn.path().clone();
-        
+
         // 确保父目录存在
         if let Some(parent) = duckdb_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to create directory {:?}: {}", parent, e),
-            )))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to create directory {:?}: {}",
+                    parent, e
+                )))
+            })?;
         }
-        
+
         // 使用 DuckDB 连接执行迁移
         let conn = Self::open_duckdb_for_migration(&duckdb_path)?;
-        
+
         // 确保迁移版本表存在
         conn.execute(
             "CREATE TABLE IF NOT EXISTS schema_version (
@@ -401,27 +431,34 @@ impl GlobalDatabaseManager {
                 applied_at  INTEGER NOT NULL
             )",
             [],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "create_schema_version".to_string(),
-            reason: e.to_string(),
-        }))?;
-        
+        )
+        .map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "duckdb".to_string(),
+                operation: "create_schema_version".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
         // 获取当前版本
-        let current_version: u32 = conn.query_row(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_version",
-            [],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
-            store: "duckdb".to_string(),
-            operation: "get_current_version".to_string(),
-            reason: e.to_string(),
-        }))?;
-        
+        let current_version: u32 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "duckdb".to_string(),
+                    operation: "get_current_version".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         // 加载并执行迁移
         use include_dir::include_dir;
         const MIGRATIONS_DIR: include_dir::Dir = include_dir!("$CARGO_MANIFEST_DIR/migrations");
-        
+
         if let Some(dir) = MIGRATIONS_DIR.get_dir("project_analysis") {
             let mut migrations: Vec<_> = dir
                 .files()
@@ -444,45 +481,57 @@ impl GlobalDatabaseManager {
                     Some((version, name, sql))
                 })
                 .collect();
-            
+
             migrations.sort_by_key(|m| m.0);
-            
+
             for (version, name, sql) in migrations {
-                conn.execute_batch(&sql).map_err(|e| CoreError::Storage(StorageError::Persistence {
-                    store: "duckdb".to_string(),
-                    operation: format!("migrate_{}", name),
-                    reason: e.to_string(),
-                }))?;
-                
+                conn.execute_batch(&sql).map_err(|e| {
+                    CoreError::Storage(StorageError::Persistence {
+                        store: "duckdb".to_string(),
+                        operation: format!("migrate_{}", name),
+                        reason: e.to_string(),
+                    })
+                })?;
+
                 let now = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_secs() as i64)
                     .unwrap_or(0);
-                
+
                 conn.execute(
                     "INSERT INTO schema_version (version, name, applied_at) VALUES (?1, ?2, ?3)",
-                    [&version as &dyn duckdb::ToSql, &name as &dyn duckdb::ToSql, &now as &dyn duckdb::ToSql],
-                ).map_err(|e| CoreError::Storage(StorageError::Persistence {
-                    store: "duckdb".to_string(),
-                    operation: "record_version".to_string(),
-                    reason: e.to_string(),
-                }))?;
-                
+                    [
+                        &version as &dyn duckdb::ToSql,
+                        &name as &dyn duckdb::ToSql,
+                        &now as &dyn duckdb::ToSql,
+                    ],
+                )
+                .map_err(|e| {
+                    CoreError::Storage(StorageError::Persistence {
+                        store: "duckdb".to_string(),
+                        operation: "record_version".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
+
                 tracing::info!("Applied DuckDB migration {} (version {})", name, version);
             }
         }
-        
+
         tracing::info!(db_path = %duckdb_path.display(), "Global DuckDB tables initialized via migrations");
-        
+
         Ok(())
     }
-    
+
     /// 为迁移打开 DuckDB 连接（带损坏文件修复）
     fn open_duckdb_for_migration(db_path: &PathBuf) -> Result<DuckConnection, CoreError> {
         match DuckConnection::open(db_path) {
             Ok(conn) => Ok(conn),
             Err(e) => {
-                tracing::warn!("Failed to open DuckDB for migration: {}, attempting to recreate...", e);
+                tracing::warn!(
+                    "Failed to open DuckDB for migration: {}, attempting to recreate...",
+                    e
+                );
                 if db_path.exists() {
                     if let Err(remove_err) = std::fs::remove_file(db_path) {
                         tracing::error!("Failed to remove corrupted DuckDB file: {}", remove_err);
@@ -494,11 +543,13 @@ impl GlobalDatabaseManager {
                     }
                     tracing::info!("Removed corrupted DuckDB file: {}", db_path.display());
                 }
-                DuckConnection::open(db_path).map_err(|e| CoreError::Storage(StorageError::Persistence {
-                    store: "duckdb".to_string(),
-                    operation: "open".to_string(),
-                    reason: e.to_string(),
-                }))
+                DuckConnection::open(db_path).map_err(|e| {
+                    CoreError::Storage(StorageError::Persistence {
+                        store: "duckdb".to_string(),
+                        operation: "open".to_string(),
+                        reason: e.to_string(),
+                    })
+                })
             }
         }
     }
@@ -514,7 +565,7 @@ impl GlobalDatabaseManager {
     }
 
     /// 保存全局连接信息到 SQLite
-    /// 
+    ///
     /// # 参数
     /// * `conn_id` - 连接 ID
     /// * `name` - 连接名称
@@ -535,17 +586,18 @@ impl GlobalDatabaseManager {
         server_version: Option<&str>,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         // 解析 URL 提取 host, port, database, username, password
-        let (host, port, database, url_username, url_password) = Self::parse_connection_url(db_type, url);
-        
+        let (host, port, database, url_username, url_password) =
+            Self::parse_connection_url(db_type, url);
+
         // 优先使用传入的 username/password，如果为空则使用 URL 中解析的
         let final_username = username.or(url_username.as_deref()).unwrap_or("");
         let final_password = password.or(url_password.as_deref()).unwrap_or("");
-        
+
         // 默认标签：如果没有提供标签，添加 "global" 标签
         let tags_json = tags.unwrap_or("[\"global\"]");
-        
+
         conn.execute(
             "INSERT OR REPLACE INTO global_connections 
              (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, is_active, updated_at)
@@ -570,20 +622,20 @@ impl GlobalDatabaseManager {
             operation: "save_global_connection".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         tracing::info!("全局连接信息已保存: {} ({})", name, conn_id);
         Ok(())
     }
 
     /// 获取所有全局连接
-    /// 
+    ///
     /// # 返回
     /// 返回全局连接列表，每个连接包含 tags, username, password 字段
     pub async fn get_global_connections(&self) -> Result<Vec<GlobalConnectionInfo>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let connections: Vec<GlobalConnectionInfo> = {
             let mut stmt = conn.prepare(
                 "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version 
@@ -595,40 +647,43 @@ impl GlobalDatabaseManager {
                 operation: "get_global_connections".to_string(), 
                 reason: e.to_string() 
             }))?;
-            
-            let rows = stmt.query_map([], |row| {
-                let tags: String = row.get(9).unwrap_or_default();
-                let use_duckdb_fed: bool = row.get(10).unwrap_or(false);
-                let metadata_path: Option<String> = row.get(11).ok();
-                let created_at: String = row.get(13).unwrap_or_default();
-                let updated_at: String = row.get(14).unwrap_or_default();
-                let server_version: Option<String> = row.get(15).ok();
-                
-                Ok(GlobalConnectionInfo {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    driver: row.get(2)?,
-                    host: row.get(3).ok(),
-                    port: row.get(4).ok(),
-                    database: row.get(5).ok(),
-                    schema_name: row.get(6).ok(),
-                    username: row.get(7).ok(),
-                    password: row.get(8).ok(),
-                    tags,
-                    use_duckdb_fed,
-                    metadata_path,
-                    is_active: row.get(12).unwrap_or(true),
-                    created_at,
-                    updated_at,
-                    server_version,
+
+            let rows = stmt
+                .query_map([], |row| {
+                    let tags: String = row.get(9).unwrap_or_default();
+                    let use_duckdb_fed: bool = row.get(10).unwrap_or(false);
+                    let metadata_path: Option<String> = row.get(11).ok();
+                    let created_at: String = row.get(13).unwrap_or_default();
+                    let updated_at: String = row.get(14).unwrap_or_default();
+                    let server_version: Option<String> = row.get(15).ok();
+
+                    Ok(GlobalConnectionInfo {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        driver: row.get(2)?,
+                        host: row.get(3).ok(),
+                        port: row.get(4).ok(),
+                        database: row.get(5).ok(),
+                        schema_name: row.get(6).ok(),
+                        username: row.get(7).ok(),
+                        password: row.get(8).ok(),
+                        tags,
+                        use_duckdb_fed,
+                        metadata_path,
+                        is_active: row.get(12).unwrap_or(true),
+                        created_at,
+                        updated_at,
+                        server_version,
+                    })
                 })
-            })
-            .map_err(|e| CoreError::storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "get_global_connections_query".to_string(), 
-                reason: e.to_string() 
-            }))?;
-            
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "get_global_connections_query".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
+
             let mut result = Vec::new();
             for row in rows {
                 if let Ok(info) = row {
@@ -637,14 +692,23 @@ impl GlobalDatabaseManager {
             }
             result
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(connections)
     }
 
     /// 解析连接 URL，提取 host, port, database, username, password
-    fn parse_connection_url(db_type: &str, url: &str) -> (Option<String>, Option<i32>, Option<String>, Option<String>, Option<String>) {
+    fn parse_connection_url(
+        db_type: &str,
+        url: &str,
+    ) -> (
+        Option<String>,
+        Option<i32>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    ) {
         // 移除协议前缀
         let prefix = format!("{}://", db_type);
         let clean_url = if url.starts_with(&prefix) {
@@ -691,7 +755,7 @@ impl GlobalDatabaseManager {
 
         let database = parts.last().map(|s| s.to_string());
         let host_port = parts[0];
-        
+
         let host_port_parts: Vec<&str> = host_port.split(':').collect();
         let host = host_port_parts.first().map(|s| s.to_string());
         let port = if host_port_parts.len() > 1 {
@@ -709,7 +773,7 @@ impl GlobalDatabaseManager {
     }
 
     /// 保存导航器状态
-    /// 
+    ///
     /// # 参数
     /// * `connection_id` - 连接 ID
     /// * `expanded_keys` - 展开的节点键（JSON 数组）
@@ -723,9 +787,9 @@ impl GlobalDatabaseManager {
         filter_config: &str,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let id = format!("nav_{}", connection_id);
-        
+
         conn.execute(
             "INSERT OR REPLACE INTO navigator_states 
              (id, connection_id, expanded_keys, selected_keys, filter_config, updated_at)
@@ -737,19 +801,22 @@ impl GlobalDatabaseManager {
                 selected_keys,
                 filter_config,
             ],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "save_navigator_state".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
+        )
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_navigator_state".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 加载导航器状态
-    /// 
+    ///
     /// # 参数
     /// * `connection_id` - 连接 ID
     pub async fn load_navigator_state(
@@ -757,33 +824,41 @@ impl GlobalDatabaseManager {
         connection_id: &str,
     ) -> Result<Option<(String, String, String)>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let result = {
-            let mut stmt = conn.prepare(
-                "SELECT expanded_keys, selected_keys, filter_config 
+            let mut stmt = conn
+                .prepare(
+                    "SELECT expanded_keys, selected_keys, filter_config 
                  FROM navigator_states 
-                 WHERE connection_id = ?1"
-            ).map_err(|e| CoreError::storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "load_navigator_state".to_string(), 
-                reason: e.to_string() 
-            }))?;
-            
+                 WHERE connection_id = ?1",
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "load_navigator_state".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
+
             stmt.query_row([&connection_id], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                 ))
-            }).optional().map_err(|e| CoreError::storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "load_navigator_state_query".to_string(), 
-                reason: e.to_string() 
-            }))?
+            })
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "load_navigator_state_query".to_string(),
+                    reason: e.to_string(),
+                })
+            })?
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(result)
     }
 
@@ -791,62 +866,62 @@ impl GlobalDatabaseManager {
 
     /// 项目相关 SQL 常量
     #[allow(dead_code)]
-    const PROJECT_SELECT_COLUMNS: &'static str = 
+    const PROJECT_SELECT_COLUMNS: &'static str =
         "id, name, description, path, status, created_at, updated_at, last_opened_at";
-    
-    const PROJECT_CHECK_ID_EXISTS: &'static str = 
-        "SELECT COUNT(*) FROM project_info WHERE id = ?1";
-    
-    const PROJECT_CHECK_PATH_EXISTS: &'static str = 
+
+    const PROJECT_CHECK_ID_EXISTS: &'static str = "SELECT COUNT(*) FROM project_info WHERE id = ?1";
+
+    const PROJECT_CHECK_PATH_EXISTS: &'static str =
         "SELECT COUNT(*) FROM project_info WHERE path = ?1";
-    
+
     const PROJECT_UPDATE_BY_ID: &'static str = 
         "UPDATE project_info SET name = ?2, description = ?3, path = ?4, status = ?5, updated_at = CURRENT_TIMESTAMP, last_opened_at = ?6 WHERE id = ?1";
-    
+
     const PROJECT_UPDATE_BY_PATH: &'static str = 
         "UPDATE project_info SET id = ?1, name = ?2, description = ?3, status = ?5, updated_at = CURRENT_TIMESTAMP, last_opened_at = ?6 WHERE path = ?4";
-    
+
     const PROJECT_INSERT: &'static str = 
         "INSERT INTO project_info (id, name, description, path, status, updated_at, last_opened_at) VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP, ?6)";
-    
-    const PROJECT_DELETE: &'static str = 
-        "DELETE FROM project_info WHERE id = ?1";
-    
+
+    const PROJECT_DELETE: &'static str = "DELETE FROM project_info WHERE id = ?1";
+
     const PROJECT_UPDATE_INFO: &'static str = 
         "UPDATE project_info SET name = ?2, description = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?1";
-    
+
     const PROJECT_INSERT_OR_REPLACE: &'static str = 
         "INSERT OR REPLACE INTO project_info (id, name, description, path, status, updated_at, last_opened_at) VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP, ?6)";
-    
+
     const PROJECT_SELECT_ALL: &'static str = 
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info ORDER BY last_opened_at DESC";
-    
-    const PROJECT_UPDATE_LAST_OPENED: &'static str = 
+
+    const PROJECT_UPDATE_LAST_OPENED: &'static str =
         "UPDATE project_info SET last_opened_at = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2";
-    
-    const PROJECT_OPEN_UPDATE: &'static str = 
+
+    const PROJECT_OPEN_UPDATE: &'static str =
         "UPDATE project_info SET last_opened_at = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2";
-    
+
     const PROJECT_OPEN_QUERY: &'static str = 
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE id = ?1";
-    
+
     const PROJECT_OPEN_BY_PATH_UPDATE: &'static str = 
         "UPDATE project_info SET last_opened_at = ?1, updated_at = CURRENT_TIMESTAMP WHERE path = ?2";
-    
+
     const PROJECT_OPEN_BY_PATH_QUERY: &'static str = 
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE path = ?1";
-    
+
     const PROJECT_GET_RECENT: &'static str = 
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE last_opened_at IS NOT NULL AND last_opened_at != '' ORDER BY last_opened_at DESC LIMIT ?1";
-    
+
     const PROJECT_GET_BY_ID: &'static str = 
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE id = ?1";
-    
+
     const PROJECT_GET_BY_PATH: &'static str = 
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE path = ?1";
 
     /// 辅助函数：将数据库行转换为 ProjectInfoRecord
-    fn row_to_project_record(row: &rusqlite::Row<'_>) -> Result<ProjectInfoRecord, rusqlite::Error> {
+    fn row_to_project_record(
+        row: &rusqlite::Row<'_>,
+    ) -> Result<ProjectInfoRecord, rusqlite::Error> {
         Ok(ProjectInfoRecord {
             id: row.get(0)?,
             name: row.get(1)?,
@@ -869,12 +944,12 @@ impl GlobalDatabaseManager {
     }
 
     /// 智能保存项目信息（处理路径冲突）
-    /// 
+    ///
     /// 逻辑：
     /// 1. 如果项目ID已存在，更新路径和其他信息
     /// 2. 如果路径已存在但ID不同，更新该记录的ID
     /// 3. 如果都不存在，插入新记录
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
     /// * `name` - 项目名称
@@ -892,63 +967,66 @@ impl GlobalDatabaseManager {
         last_opened_at: Option<&str>,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
-        let id_exists = conn.query_row(
-            Self::PROJECT_CHECK_ID_EXISTS,
-            [id],
-            |row| row.get::<_, i64>(0),
-        ).map_err(|e| Self::sqlite_persistence_error("check_project_id", e.to_string()))? > 0;
-        
-        let path_exists = conn.query_row(
-            Self::PROJECT_CHECK_PATH_EXISTS,
-            [path],
-            |row| row.get::<_, i64>(0),
-        ).map_err(|e| Self::sqlite_persistence_error("check_project_path", e.to_string()))? > 0;
-        
+
+        let id_exists = conn
+            .query_row(Self::PROJECT_CHECK_ID_EXISTS, [id], |row| {
+                row.get::<_, i64>(0)
+            })
+            .map_err(|e| Self::sqlite_persistence_error("check_project_id", e.to_string()))?
+            > 0;
+
+        let path_exists = conn
+            .query_row(Self::PROJECT_CHECK_PATH_EXISTS, [path], |row| {
+                row.get::<_, i64>(0)
+            })
+            .map_err(|e| Self::sqlite_persistence_error("check_project_path", e.to_string()))?
+            > 0;
+
         let desc = description.unwrap_or("");
         let last_opened = last_opened_at.unwrap_or("");
-        
+
         if id_exists {
             conn.execute(
                 Self::PROJECT_UPDATE_BY_ID,
                 [id, name, desc, path, status, last_opened],
-            ).map_err(|e| Self::sqlite_persistence_error("update_project_by_id", e.to_string()))?;
+            )
+            .map_err(|e| Self::sqlite_persistence_error("update_project_by_id", e.to_string()))?;
         } else if path_exists {
             conn.execute(
                 Self::PROJECT_UPDATE_BY_PATH,
                 [id, name, desc, path, status, last_opened],
-            ).map_err(|e| Self::sqlite_persistence_error("update_project_by_path", e.to_string()))?;
+            )
+            .map_err(|e| Self::sqlite_persistence_error("update_project_by_path", e.to_string()))?;
         } else {
             conn.execute(
                 Self::PROJECT_INSERT,
                 [id, name, desc, path, status, last_opened],
-            ).map_err(|e| Self::sqlite_persistence_error("insert_project", e.to_string()))?;
+            )
+            .map_err(|e| Self::sqlite_persistence_error("insert_project", e.to_string()))?;
         }
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 删除项目信息
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
     pub async fn delete_project(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
-        conn.execute(
-            Self::PROJECT_DELETE,
-            [id],
-        ).map_err(|e| Self::sqlite_persistence_error("delete_project", e.to_string()))?;
-        
+
+        conn.execute(Self::PROJECT_DELETE, [id])
+            .map_err(|e| Self::sqlite_persistence_error("delete_project", e.to_string()))?;
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 更新项目信息（名称、描述）
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
     /// * `name` - 新项目名称
@@ -960,19 +1038,20 @@ impl GlobalDatabaseManager {
         description: Option<&str>,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         conn.execute(
             Self::PROJECT_UPDATE_INFO,
             [id, name, description.unwrap_or("")],
-        ).map_err(|e| Self::sqlite_persistence_error("update_project_info", e.to_string()))?;
-        
+        )
+        .map_err(|e| Self::sqlite_persistence_error("update_project_info", e.to_string()))?;
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 保存项目信息（简单插入或替换）
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
     /// * `name` - 项目名称
@@ -990,7 +1069,7 @@ impl GlobalDatabaseManager {
         last_opened_at: Option<&str>,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         conn.execute(
             Self::PROJECT_INSERT_OR_REPLACE,
             [
@@ -1001,29 +1080,30 @@ impl GlobalDatabaseManager {
                 status,
                 last_opened_at.unwrap_or(""),
             ],
-        ).map_err(|e| Self::sqlite_persistence_error("save_project_info", e.to_string()))?;
-        
+        )
+        .map_err(|e| Self::sqlite_persistence_error("save_project_info", e.to_string()))?;
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 获取所有项目信息
-    /// 
+    ///
     /// # 返回
     /// 返回项目信息列表
     pub async fn get_all_projects(&self) -> Result<Vec<ProjectInfoRecord>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let projects = {
-            let mut stmt = conn.prepare(
-                Self::PROJECT_SELECT_ALL
-            ).map_err(|e| Self::sqlite_persistence_error("get_all_projects", e.to_string()))?;
-            
-            let rows = stmt.query_map([], |row| {
-                Self::row_to_project_record(row)
-            }).map_err(|e| Self::sqlite_persistence_error("query_all_projects", e.to_string()))?;
-            
+            let mut stmt = conn
+                .prepare(Self::PROJECT_SELECT_ALL)
+                .map_err(|e| Self::sqlite_persistence_error("get_all_projects", e.to_string()))?;
+
+            let rows = stmt
+                .query_map([], |row| Self::row_to_project_record(row))
+                .map_err(|e| Self::sqlite_persistence_error("query_all_projects", e.to_string()))?;
+
             let mut result = Vec::new();
             for row in rows {
                 if let Ok(record) = row {
@@ -1032,14 +1112,14 @@ impl GlobalDatabaseManager {
             }
             result
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(projects)
     }
 
     /// 更新项目最后打开时间
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
     /// * `last_opened_at` - 最后打开时间
@@ -1049,129 +1129,139 @@ impl GlobalDatabaseManager {
         last_opened_at: &str,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
-        conn.execute(
-            Self::PROJECT_UPDATE_LAST_OPENED,
-            [last_opened_at, id],
-        ).map_err(|e| Self::sqlite_persistence_error("update_project_last_opened", e.to_string()))?;
-        
+
+        conn.execute(Self::PROJECT_UPDATE_LAST_OPENED, [last_opened_at, id])
+            .map_err(|e| {
+                Self::sqlite_persistence_error("update_project_last_opened", e.to_string())
+            })?;
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 删除项目信息
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
     pub async fn delete_project_info(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
-        conn.execute(
-            Self::PROJECT_DELETE,
-            [id],
-        ).map_err(|e| Self::sqlite_persistence_error("delete_project_info", e.to_string()))?;
-        
+
+        conn.execute(Self::PROJECT_DELETE, [id])
+            .map_err(|e| Self::sqlite_persistence_error("delete_project_info", e.to_string()))?;
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(())
     }
 
     /// 打开项目（更新最后打开时间并返回项目信息）
-    /// 
+    ///
     /// 使用单次数据库操作完成查询和更新
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
-    /// 
+    ///
     /// # 返回
     /// 返回更新后的项目信息（如果存在）
     pub async fn open_project(&self, id: &str) -> Result<Option<ProjectInfoRecord>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let now = chrono::Utc::now().to_rfc3339();
-        
-        let updated = conn.execute(
-            Self::PROJECT_OPEN_UPDATE,
-            [&now, id],
-        ).map_err(|e| Self::sqlite_persistence_error("open_project_update", e.to_string()))?;
-        
+
+        let updated = conn
+            .execute(Self::PROJECT_OPEN_UPDATE, [&now, id])
+            .map_err(|e| Self::sqlite_persistence_error("open_project_update", e.to_string()))?;
+
         if updated == 0 {
             self.sqlite_pool.release(conn).await;
             return Ok(None);
         }
-        
+
         let project = {
-            let mut stmt = conn.prepare(
-                Self::PROJECT_OPEN_QUERY
-            ).map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?;
-            
-            stmt.query_row([id], |row| {
-                Self::row_to_project_record(row)
-            }).optional().map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?
+            let mut stmt = conn
+                .prepare(Self::PROJECT_OPEN_QUERY)
+                .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?;
+
+            stmt.query_row([id], |row| Self::row_to_project_record(row))
+                .optional()
+                .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(project)
     }
 
     /// 根据路径打开项目（更新最后打开时间并返回项目信息）
-    /// 
+    ///
     /// # 参数
     /// * `path` - 项目路径
-    /// 
+    ///
     /// # 返回
     /// 返回更新后的项目信息（如果存在）
-    pub async fn open_project_by_path(&self, path: &str) -> Result<Option<ProjectInfoRecord>, CoreError> {
+    pub async fn open_project_by_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<ProjectInfoRecord>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let now = chrono::Utc::now().to_rfc3339();
-        
-        let updated = conn.execute(
-            Self::PROJECT_OPEN_BY_PATH_UPDATE,
-            [&now, path],
-        ).map_err(|e| Self::sqlite_persistence_error("open_project_by_path_update", e.to_string()))?;
-        
+
+        let updated = conn
+            .execute(Self::PROJECT_OPEN_BY_PATH_UPDATE, [&now, path])
+            .map_err(|e| {
+                Self::sqlite_persistence_error("open_project_by_path_update", e.to_string())
+            })?;
+
         if updated == 0 {
             self.sqlite_pool.release(conn).await;
             return Ok(None);
         }
-        
+
         let project = {
-            let mut stmt = conn.prepare(
-                Self::PROJECT_OPEN_BY_PATH_QUERY
-            ).map_err(|e| Self::sqlite_persistence_error("open_project_by_path_query", e.to_string()))?;
-            
-            stmt.query_row([path], |row| {
-                Self::row_to_project_record(row)
-            }).optional().map_err(|e| Self::sqlite_persistence_error("open_project_by_path_query", e.to_string()))?
+            let mut stmt = conn
+                .prepare(Self::PROJECT_OPEN_BY_PATH_QUERY)
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("open_project_by_path_query", e.to_string())
+                })?;
+
+            stmt.query_row([path], |row| Self::row_to_project_record(row))
+                .optional()
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("open_project_by_path_query", e.to_string())
+                })?
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(project)
     }
 
     /// 获取最近打开的项目（按 last_opened_at 降序）
-    /// 
+    ///
     /// # 参数
     /// * `limit` - 返回数量限制
-    /// 
+    ///
     /// # 返回
     /// 返回最近项目列表
-    pub async fn get_recent_projects(&self, limit: usize) -> Result<Vec<ProjectInfoRecord>, CoreError> {
+    pub async fn get_recent_projects(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<ProjectInfoRecord>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let projects = {
-            let mut stmt = conn.prepare(
-                Self::PROJECT_GET_RECENT
-            ).map_err(|e| Self::sqlite_persistence_error("get_recent_projects", e.to_string()))?;
-            
-            let rows = stmt.query_map([limit as i64], |row| {
-                Self::row_to_project_record(row)
-            }).map_err(|e| Self::sqlite_persistence_error("query_recent_projects", e.to_string()))?;
-            
+            let mut stmt = conn.prepare(Self::PROJECT_GET_RECENT).map_err(|e| {
+                Self::sqlite_persistence_error("get_recent_projects", e.to_string())
+            })?;
+
+            let rows = stmt
+                .query_map([limit as i64], |row| Self::row_to_project_record(row))
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("query_recent_projects", e.to_string())
+                })?;
+
             let mut result = Vec::new();
             for row in rows {
                 if let Ok(record) = row {
@@ -1180,59 +1270,67 @@ impl GlobalDatabaseManager {
             }
             result
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(projects)
     }
 
     /// 根据 ID 获取项目信息（不更新最后打开时间）
-    /// 
+    ///
     /// # 参数
     /// * `id` - 项目 ID
-    /// 
+    ///
     /// # 返回
     /// 返回项目信息（如果存在）
-    pub async fn get_project_by_id(&self, id: &str) -> Result<Option<ProjectInfoRecord>, CoreError> {
+    pub async fn get_project_by_id(
+        &self,
+        id: &str,
+    ) -> Result<Option<ProjectInfoRecord>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let project = {
-            let mut stmt = conn.prepare(
-                Self::PROJECT_GET_BY_ID
-            ).map_err(|e| Self::sqlite_persistence_error("get_project_by_id", e.to_string()))?;
-            
-            stmt.query_row([id], |row| {
-                Self::row_to_project_record(row)
-            }).optional().map_err(|e| Self::sqlite_persistence_error("query_project_by_id", e.to_string()))?
+            let mut stmt = conn
+                .prepare(Self::PROJECT_GET_BY_ID)
+                .map_err(|e| Self::sqlite_persistence_error("get_project_by_id", e.to_string()))?;
+
+            stmt.query_row([id], |row| Self::row_to_project_record(row))
+                .optional()
+                .map_err(|e| Self::sqlite_persistence_error("query_project_by_id", e.to_string()))?
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(project)
     }
 
     /// 根据路径获取项目信息
-    /// 
+    ///
     /// # 参数
     /// * `path` - 项目路径
-    /// 
+    ///
     /// # 返回
     /// 返回项目信息（如果存在）
-    pub async fn get_project_by_path(&self, path: &str) -> Result<Option<ProjectInfoRecord>, CoreError> {
+    pub async fn get_project_by_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<ProjectInfoRecord>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        
+
         let project = {
-            let mut stmt = conn.prepare(
-                Self::PROJECT_GET_BY_PATH
-            ).map_err(|e| Self::sqlite_persistence_error("get_project_by_path", e.to_string()))?;
-            
-            stmt.query_row([path], |row| {
-                Self::row_to_project_record(row)
-            }).optional().map_err(|e| Self::sqlite_persistence_error("query_project_by_path", e.to_string()))?
+            let mut stmt = conn.prepare(Self::PROJECT_GET_BY_PATH).map_err(|e| {
+                Self::sqlite_persistence_error("get_project_by_path", e.to_string())
+            })?;
+
+            stmt.query_row([path], |row| Self::row_to_project_record(row))
+                .optional()
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("query_project_by_path", e.to_string())
+                })?
         };
-        
+
         self.sqlite_pool.release(conn).await;
-        
+
         Ok(project)
     }
 
@@ -1308,7 +1406,9 @@ mod tests {
         let sqlite_path = base.join("system.db");
         let duckdb_path = base.join("analytics.duckdb");
 
-        let manager = GlobalDatabaseManager::new(sqlite_path, duckdb_path, 3).await.unwrap();
+        let manager = GlobalDatabaseManager::new(sqlite_path, duckdb_path, 3)
+            .await
+            .unwrap();
         assert!(manager.sqlite_pool().acquire().await.is_ok());
         assert!(manager.duckdb_conn().acquire().await.is_ok());
 

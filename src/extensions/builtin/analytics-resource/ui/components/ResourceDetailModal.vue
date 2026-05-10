@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal large">
       <div class="modal-header">
@@ -8,10 +8,18 @@
           <span v-if="resource.alias" class="alias-hint">({{ resource.name }})</span>
         </div>
         <div class="header-right">
-          <button class="icon-btn" :title="t('analyticsResource.edit')" @click="$emit('edit', resource)">
+          <button
+            class="icon-btn"
+            :title="t('analyticsResource.edit')"
+            @click="$emit('edit', resource)"
+          >
             ✏️
           </button>
-          <button class="icon-btn" :title="t('analyticsResource.copy')" @click="$emit('copy', resource)">
+          <button
+            class="icon-btn"
+            :title="t('analyticsResource.copy')"
+            @click="$emit('copy', resource)"
+          >
             📋
           </button>
           <button class="close-btn" @click="$emit('close')">✕</button>
@@ -234,7 +242,7 @@ watch(
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -273,17 +281,17 @@ watch(
 
 .header-left h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .type-icon {
-  font-size: 20px;
+  font-size: var(--font-size-title);
 }
 
 .alias-hint {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-tertiary);
 }
 
@@ -297,7 +305,7 @@ watch(
   background: none;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   cursor: pointer;
   color: var(--text-secondary);
   padding: 4px 8px;
@@ -312,7 +320,7 @@ watch(
 .close-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: var(--font-size-xxl);
   cursor: pointer;
   color: var(--text-tertiary);
   transition: color 0.15s;
@@ -345,7 +353,7 @@ watch(
 
 .section-title {
   margin: 0 0 var(--size-md);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -361,20 +369,20 @@ watch(
 
 .detail-label {
   min-width: 80px;
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
 
 .detail-value {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   word-break: break-all;
 }
 
 code.detail-value {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -382,9 +390,9 @@ code.detail-value {
 
 .type-badge,
 .scope-badge {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--border-radius-xl);
   font-weight: 500;
 }
 
@@ -421,13 +429,13 @@ code.detail-value {
 .tag-list-inline {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--spacing-sm);
 }
 
 .tag-badge {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: var(--border-radius-xl);
   border: 1px solid;
   font-weight: 500;
 }
@@ -435,13 +443,13 @@ code.detail-value {
 .folder-list-inline {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--spacing-sm);
 }
 
 .folder-badge {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: var(--border-radius-xl);
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
@@ -451,7 +459,7 @@ code.detail-value {
 .json-block {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: var(--bg-tertiary);
   padding: var(--size-md);
@@ -474,7 +482,7 @@ code.detail-value {
   padding: 6px 16px;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: all 0.2s;
   height: var(--height-btn);

@@ -45,6 +45,7 @@ import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/co
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
+import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
 import { useAppStore } from '@/stores/useAppStore'
@@ -703,6 +704,90 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 }
 
+// 标题栏菜单/工具栏/命令面板事件处理
+const handleWorkbenchNewQuery = () => {
+  const conns = connectionStore.connections
+  const firstConn = conns.length > 0 ? conns[0] : null
+  handleOpenSqlEditor(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId: firstConn?.name || '',
+        databaseName: '',
+        sql: '',
+      },
+    })
+  )
+}
+
+const handleWorkbenchNewConnection = () => {
+  showConnectionModal.value = true
+}
+
+const handleWorkbenchSave = () => {
+  window.dispatchEvent(new CustomEvent('sql-editor-save'))
+}
+
+const handleWorkbenchExecuteSql = () => {
+  window.dispatchEvent(new CustomEvent('sql-editor-execute'))
+}
+
+const handleWorkbenchOpenSettings = () => {
+  // 打开设置面板 - 通过 dockview 添加设置面板
+  if (!dockviewApi) return
+  const panelId = 'panel_settings'
+  const existing = dockviewApi.getPanel(panelId)
+  if (existing) {
+    existing.focus()
+    return
+  }
+  dockviewApi.addPanel({
+    id: panelId,
+    component: 'settings',
+    title: t('workbench.settings'),
+    position: { direction: 'center' },
+  })
+}
+
+const handleWorkbenchOpenDocs = () => {
+  // 打开文档链接
+  window.open('https://docs.rdatastation.dev', '_blank')
+}
+
+const handleWorkbenchKeyboardShortcuts = () => {
+  message.info(t('workbench.keyboardShortcuts') + ' - ' + t('workbench.comingSoon'))
+}
+
+const handleWorkbenchOpenTerminal = () => {
+  message.info(t('workbench.terminal') + ' - ' + t('workbench.comingSoon'))
+}
+
+const handleWorkbenchOpenHistory = () => {
+  if (!dockviewApi) return
+  const panelId = 'panel_sqlHistory'
+  const existing = dockviewApi.getPanel(panelId)
+  if (existing) {
+    existing.focus()
+    return
+  }
+  dockviewApi.addPanel({
+    id: panelId,
+    component: 'sqlHistory',
+    title: t('workbench.sqlHistory'),
+    position: { direction: 'right' },
+  })
+}
+
+const handleWorkbenchToggleSidebar = () => {
+  layoutStore.toggleLeftEdgeGroup()
+}
+
+const handleWorkbenchTogglePanel = () => {
+  layoutStore.toggleBottomPanelMode()
+}
+
+// 标题栏事件监听器清理函数数组
+const cleanupListeners: (() => void)[] = []
+
 onMounted(() => {
   layoutStore.loadLayoutConfig()
 
@@ -717,6 +802,19 @@ onMounted(() => {
   )
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
   window.addEventListener('keydown', handleKeydown)
+
+  // 标题栏事件监听 - 使用常量枚举 + listenWorkbenchEvent
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.NewQuery, handleWorkbenchNewQuery))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.NewConnection, handleWorkbenchNewConnection))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.Save, handleWorkbenchSave))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ExecuteSql, handleWorkbenchExecuteSql))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenSettings, handleWorkbenchOpenSettings))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenDocs, handleWorkbenchOpenDocs))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.KeyboardShortcuts, handleWorkbenchKeyboardShortcuts))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenTerminal, handleWorkbenchOpenTerminal))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenHistory, handleWorkbenchOpenHistory))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ToggleSidebar, handleWorkbenchToggleSidebar))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.TogglePanel, handleWorkbenchTogglePanel))
 })
 
 onUnmounted(() => {
@@ -733,6 +831,10 @@ onUnmounted(() => {
   )
   window.removeEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
   window.removeEventListener('keydown', handleKeydown)
+
+  // 清理标题栏事件监听
+  cleanupListeners.forEach(cleanup => cleanup())
+  cleanupListeners.length = 0
 })
 </script>
 

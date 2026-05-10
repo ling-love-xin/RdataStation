@@ -11,7 +11,9 @@ use tokio::sync::{Mutex, RwLock};
 use crate::core::persistence::project_store::{
     ProjectStore, SqlHistoryRecord, StoredConnection, WorkbenchState,
 };
-use crate::core::project::{ProjectInfo, ProjectPath, ProjectStore as CoreProjectStore, ProjectConfig};
+use crate::core::project::{
+    ProjectConfig, ProjectInfo, ProjectPath, ProjectStore as CoreProjectStore,
+};
 
 /// 项目存储状态
 pub struct ProjectState {
@@ -74,22 +76,22 @@ fn get_recent_projects_cache() -> &'static RecentProjectsCache {
 pub enum ProjectError {
     #[error("项目不存在: {0}")]
     NotFound(String),
-    
+
     #[error("项目路径无效: {0}")]
     InvalidPath(String),
-    
+
     #[error("项目结构不完整: {0}")]
     InvalidStructure(String),
-    
+
     #[error("路径冲突: {0}")]
     PathConflict(String),
-    
+
     #[error("数据库错误: {0}")]
     Database(String),
-    
+
     #[error("IO 错误: {0}")]
     Io(String),
-    
+
     #[error("操作失败: {0}")]
     OperationFailed(String),
 }
@@ -147,7 +149,9 @@ impl From<ProjectInfo> for ProjectInfoResponse {
                 ProjectPath::Local { path } => ProjectPathResponse::Local {
                     path: path.display().to_string(),
                 },
-                ProjectPath::Remote { url, project_id } => ProjectPathResponse::Remote { url, project_id },
+                ProjectPath::Remote { url, project_id } => {
+                    ProjectPathResponse::Remote { url, project_id }
+                }
             },
             status: match info.status {
                 crate::core::project::ProjectStatus::Active => "active".to_string(),
@@ -213,7 +217,7 @@ pub struct CreateProjectResponse {
 #[tauri::command]
 pub async fn create_project(input: CreateProjectInput) -> Result<CreateProjectResponse, String> {
     let path = PathBuf::from(&input.path);
-    
+
     // 检查目录是否已存在
     if path.exists() {
         // 如果目录已存在，尝试加载现有项目
@@ -230,8 +234,7 @@ pub async fn create_project(input: CreateProjectInput) -> Result<CreateProjectRe
         }
     }
 
-    let store = CoreProjectStore::create(&input.name, &path)
-        .map_err(|e| e.to_string())?;
+    let store = CoreProjectStore::create(&input.name, &path).map_err(|e| e.to_string())?;
 
     Ok(CreateProjectResponse {
         project: store.info().clone().into(),
@@ -242,9 +245,8 @@ pub async fn create_project(input: CreateProjectInput) -> Result<CreateProjectRe
 #[tauri::command]
 pub async fn get_project_config(path: String) -> Result<ProjectConfig, String> {
     let path = PathBuf::from(path);
-    
-    let mut store = CoreProjectStore::load(&path)
-        .map_err(|e| e.to_string())?;
+
+    let mut store = CoreProjectStore::load(&path).map_err(|e| e.to_string())?;
 
     store.load_config().map_err(|e| e.to_string())
 }
@@ -263,26 +265,26 @@ pub async fn update_project_config(input: UpdateProjectConfigInput) -> Result<()
         path = %input.path,
         "Updating project configuration"
     );
-    
+
     let path = PathBuf::from(&input.path);
-    
+
     // 加载项目
     let _store = CoreProjectStore::load(&path)
         .map_err(|e| ProjectError::OperationFailed(format!("加载项目失败: {}", e)).to_string())?;
-    
+
     // 更新 project.json 文件
     let project_json_path = path.join(".RSmeta").join("project.json");
     let config_json = serde_json::to_string_pretty(&input.config)
         .map_err(|e| ProjectError::OperationFailed(format!("序列化配置失败: {}", e)).to_string())?;
-    
+
     std::fs::write(&project_json_path, config_json)
         .map_err(|e| ProjectError::Io(format!("写入配置文件失败: {}", e)).to_string())?;
-    
+
     // 使缓存失效
     get_recent_projects_cache().invalidate().await;
-    
+
     tracing::info!(path = %input.path, "Project configuration updated successfully");
-    
+
     Ok(())
 }
 
@@ -290,7 +292,7 @@ pub async fn update_project_config(input: UpdateProjectConfigInput) -> Result<()
 #[tauri::command]
 pub async fn get_recent_projects(limit: Option<usize>) -> Result<Vec<ProjectInfoResponse>, String> {
     let limit = limit.unwrap_or(10);
-    
+
     // 尝试从缓存获取
     if let Some(cached) = get_recent_projects_cache().get().await {
         // 如果缓存中的数据量足够，直接返回
@@ -298,21 +300,22 @@ pub async fn get_recent_projects(limit: Option<usize>) -> Result<Vec<ProjectInfo
             return Ok(cached.into_iter().take(limit).collect());
         }
     }
-    
+
     // 缓存未命中或数据不足，从数据库查询
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     let projects = global_db
         .get_recent_projects(limit)
         .await
         .map_err(|e| ProjectError::Database(format!("获取最近项目失败: {}", e)).to_string())?;
-    
+
     let response: Vec<ProjectInfoResponse> = projects.into_iter().map(|p| p.into()).collect();
-    
+
     // 更新缓存
     get_recent_projects_cache().set(response.clone()).await;
-    
+
     Ok(response)
 }
 
@@ -321,24 +324,25 @@ pub async fn get_recent_projects(limit: Option<usize>) -> Result<Vec<ProjectInfo
 pub async fn open_project_by_id(id: String) -> Result<ProjectInfoResponse, String> {
     tracing::info!(project_id = %id, "Opening project by ID");
     let start = std::time::Instant::now();
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     // 使用单次数据库操作完成更新和查询
     let project = global_db
         .open_project(&id)
         .await
         .map_err(|e| ProjectError::Database(format!("打开项目失败: {}", e)).to_string())?
         .ok_or_else(|| ProjectError::NotFound(id.clone()).to_string())?;
-    
+
     let duration = start.elapsed();
     tracing::info!(
         project_id = %id,
         duration_ms = duration.as_millis(),
         "Project opened successfully"
     );
-    
+
     Ok(project.into())
 }
 
@@ -347,16 +351,17 @@ pub async fn open_project_by_id(id: String) -> Result<ProjectInfoResponse, Strin
 pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, String> {
     tracing::info!(path = %path, "Opening project by path");
     let start = std::time::Instant::now();
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     // 尝试使用单次操作打开项目
     let project = global_db
         .open_project_by_path(&path)
         .await
         .map_err(|e| ProjectError::Database(format!("打开项目失败: {}", e)).to_string())?;
-    
+
     match project {
         Some(p) => {
             let duration = start.elapsed();
@@ -372,40 +377,47 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, S
         None => {
             // 项目不存在，尝试从路径加载并创建
             tracing::info!(path = %path, "Project not found in database, loading from filesystem");
-            
+
             let path_buf = std::path::PathBuf::from(&path);
-            
+
             // 验证路径是否存在
             if !path_buf.exists() {
-                return Err(ProjectError::InvalidPath(format!("项目路径不存在: {}", path)).to_string());
+                return Err(
+                    ProjectError::InvalidPath(format!("项目路径不存在: {}", path)).to_string(),
+                );
             }
-            
+
             // 验证项目结构完整性
             let meta_dir = path_buf.join(".RSmeta");
             if !meta_dir.exists() {
                 // 尝试迁移旧结构
                 let old_meta_dir = path_buf.join(".rdata-station");
                 if !old_meta_dir.exists() {
-                    return Err(ProjectError::InvalidStructure(format!("项目结构不完整，缺少 .RSmeta 目录: {}", path)).to_string());
+                    return Err(ProjectError::InvalidStructure(format!(
+                        "项目结构不完整，缺少 .RSmeta 目录: {}",
+                        path
+                    ))
+                    .to_string());
                 }
             }
-            
-            let store = crate::core::project::ProjectStore::load(&path_buf)
-                .map_err(|e| ProjectError::OperationFailed(format!("加载项目失败: {}", e)).to_string())?;
-            
+
+            let store = crate::core::project::ProjectStore::load(&path_buf).map_err(|e| {
+                ProjectError::OperationFailed(format!("加载项目失败: {}", e)).to_string()
+            })?;
+
             let info = store.info();
             let now = chrono::Utc::now().to_rfc3339();
-            
+
             // 使用用户选择的实际路径（而非 project.json 中的路径）
             let actual_path = path.clone();
-            
+
             tracing::info!(
                 project_id = %info.id,
                 original_path = ?info.path,
                 actual_path = %actual_path,
                 "Loading project from filesystem with actual path"
             );
-            
+
             // 保存到全局数据库（使用智能保存处理路径冲突）
             global_db
                 .save_project_info_smart(
@@ -417,8 +429,10 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, S
                     Some(&now),
                 )
                 .await
-                .map_err(|e| ProjectError::Database(format!("保存项目信息失败: {}", e)).to_string())?;
-            
+                .map_err(|e| {
+                    ProjectError::Database(format!("保存项目信息失败: {}", e)).to_string()
+                })?;
+
             let duration = start.elapsed();
             tracing::info!(
                 path = %path,
@@ -426,7 +440,7 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, S
                 duration_ms = duration.as_millis(),
                 "Project loaded from filesystem and saved to database"
             );
-            
+
             crate::core::insight::load_user_rules(&path_buf);
             Ok(build_project_response(&info, actual_path))
         }
@@ -440,9 +454,9 @@ pub async fn create_and_save_project(
 ) -> Result<ProjectInfoResponse, String> {
     tracing::info!(name = %input.name, path = %input.path, "Creating new project");
     let start = std::time::Instant::now();
-    
+
     let path = std::path::PathBuf::from(&input.path);
-    
+
     // 如果路径已存在，检查是否是有效项目
     if path.exists() {
         // 尝试加载现有项目
@@ -451,11 +465,13 @@ pub async fn create_and_save_project(
                 // 是有效项目，返回现有项目信息
                 let info = store.info();
                 let now = chrono::Utc::now().to_rfc3339();
-                
+
                 // 更新全局数据库中的最后打开时间
-                let global_db = crate::core::migration::get_global_db_manager()
-                    .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-                
+                let global_db =
+                    crate::core::migration::get_global_db_manager().ok_or_else(|| {
+                        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+                    })?;
+
                 global_db
                     .save_project_info(
                         &info.id,
@@ -466,8 +482,10 @@ pub async fn create_and_save_project(
                         Some(&now),
                     )
                     .await
-                    .map_err(|e| ProjectError::Database(format!("保存项目信息失败: {}", e)).to_string())?;
-                
+                    .map_err(|e| {
+                        ProjectError::Database(format!("保存项目信息失败: {}", e)).to_string()
+                    })?;
+
                 let duration = start.elapsed();
                 tracing::info!(
                     name = %input.name,
@@ -475,36 +493,42 @@ pub async fn create_and_save_project(
                     duration_ms = duration.as_millis(),
                     "Project already exists, returning existing project"
                 );
-                
+
                 return Ok(build_project_response(&info, input.path));
             }
             Err(_) => {
                 // 路径存在但不是有效项目，检查目录是否为空
-                let is_empty = path.read_dir()
+                let is_empty = path
+                    .read_dir()
                     .map(|mut entries| entries.next().is_none())
                     .unwrap_or(false);
-                
+
                 if !is_empty {
                     // 目录非空，报错
-                    return Err(ProjectError::PathConflict(format!("路径已存在且非空，请选择空目录: {}", input.path)).to_string());
+                    return Err(ProjectError::PathConflict(format!(
+                        "路径已存在且非空，请选择空目录: {}",
+                        input.path
+                    ))
+                    .to_string());
                 }
                 // 目录为空，继续创建新项目
                 tracing::info!(path = %input.path, "Path exists but empty, creating new project");
             }
         }
     }
-    
+
     // 创建新项目
     let store = crate::core::project::ProjectStore::create(&input.name, &path)
         .map_err(|e| ProjectError::OperationFailed(format!("创建项目失败: {}", e)).to_string())?;
-    
+
     let info = store.info();
     let now = chrono::Utc::now().to_rfc3339();
-    
+
     // 保存到全局数据库
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     global_db
         .save_project_info(
             &info.id,
@@ -516,7 +540,7 @@ pub async fn create_and_save_project(
         )
         .await
         .map_err(|e| ProjectError::Database(format!("保存项目信息失败: {}", e)).to_string())?;
-    
+
     let duration = start.elapsed();
     tracing::info!(
         name = %input.name,
@@ -524,7 +548,7 @@ pub async fn create_and_save_project(
         duration_ms = duration.as_millis(),
         "Project created successfully"
     );
-    
+
     Ok(build_project_response(&info, input.path))
 }
 
@@ -532,19 +556,22 @@ pub async fn create_and_save_project(
 #[tauri::command]
 pub async fn add_recent_project(project_id: String) -> Result<(), String> {
     tracing::debug!(project_id = %project_id, "Adding project to recent list");
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     let now = chrono::Utc::now().to_rfc3339();
     global_db
         .update_project_last_opened(&project_id, &now)
         .await
-        .map_err(|e| ProjectError::Database(format!("更新项目最后打开时间失败: {}", e)).to_string())?;
-    
+        .map_err(|e| {
+            ProjectError::Database(format!("更新项目最后打开时间失败: {}", e)).to_string()
+        })?;
+
     // 使缓存失效
     get_recent_projects_cache().invalidate().await;
-    
+
     Ok(())
 }
 
@@ -552,19 +579,20 @@ pub async fn add_recent_project(project_id: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn validate_project(project_id: String) -> Result<bool, String> {
     tracing::debug!(project_id = %project_id, "Validating project");
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     // 获取项目信息
     let project = global_db
         .get_project_by_id(&project_id)
         .await
         .map_err(|e| ProjectError::Database(format!("获取项目信息失败: {}", e)).to_string())?
         .ok_or_else(|| ProjectError::NotFound(project_id.clone()).to_string())?;
-    
+
     let path_buf = std::path::PathBuf::from(&project.path);
-    
+
     // 检查路径是否存在
     if !path_buf.exists() {
         tracing::warn!(
@@ -574,7 +602,7 @@ pub async fn validate_project(project_id: String) -> Result<bool, String> {
         );
         return Ok(false);
     }
-    
+
     // 检查项目结构
     let meta_dir = path_buf.join(".RSmeta");
     if !meta_dir.exists() {
@@ -588,7 +616,7 @@ pub async fn validate_project(project_id: String) -> Result<bool, String> {
             return Ok(false);
         }
     }
-    
+
     tracing::debug!(project_id = %project_id, "Project validation passed");
     Ok(true)
 }
@@ -597,20 +625,21 @@ pub async fn validate_project(project_id: String) -> Result<bool, String> {
 #[tauri::command]
 pub async fn delete_project(project_id: String) -> Result<(), String> {
     tracing::info!(project_id = %project_id, "Deleting project from global database");
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     global_db
         .delete_project(&project_id)
         .await
         .map_err(|e| ProjectError::Database(format!("删除项目失败: {}", e)).to_string())?;
-    
+
     // 使缓存失效
     get_recent_projects_cache().invalidate().await;
-    
+
     tracing::info!(project_id = %project_id, "Project deleted successfully");
-    
+
     Ok(())
 }
 
@@ -625,20 +654,21 @@ pub struct UpdateProjectInput {
 #[tauri::command]
 pub async fn update_project(input: UpdateProjectInput) -> Result<(), String> {
     tracing::info!(project_id = %input.id, name = %input.name, "Updating project info");
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     global_db
         .update_project_info(&input.id, &input.name, input.description.as_deref())
         .await
         .map_err(|e| ProjectError::Database(format!("更新项目信息失败: {}", e)).to_string())?;
-    
+
     // 使缓存失效
     get_recent_projects_cache().invalidate().await;
-    
+
     tracing::info!(project_id = %input.id, "Project updated successfully");
-    
+
     Ok(())
 }
 
@@ -651,10 +681,10 @@ pub async fn init_project_store(
     state: State<'_, ProjectState>,
 ) -> Result<(), String> {
     let new_path = PathBuf::from(&project_path);
-    
+
     // 获取锁并保持到初始化完成，防止并发调用
     let mut guard = state.store.lock().await;
-    
+
     // 检查是否已经初始化了相同路径
     if let Some(store) = guard.as_ref() {
         let current_path = store.db_manager.project_path();
@@ -663,7 +693,7 @@ pub async fn init_project_store(
             return Ok(());
         }
     }
-    
+
     // 关闭旧存储
     if let Some(store) = guard.take() {
         let _old_path = store.db_manager.project_path().clone();
@@ -671,23 +701,23 @@ pub async fn init_project_store(
         if let Err(e) = store.db_manager.close().await {
             tracing::warn!(error = %e, "Failed to close project store");
         }
-        
+
         drop(store);
     }
-    
+
     // 等待文件句柄释放
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-    
+
     // 创建新存储（锁仍然持有，防止并发调用）
     let store = ProjectStore::new(&new_path).await.map_err(|e| {
         tracing::error!(error = %e, path = %project_path, "Failed to initialize project store");
         e.to_string()
     })?;
-    
+
     *guard = Some(store);
-    
+
     tracing::info!(path = %project_path, "Project store initialized successfully");
-    
+
     Ok(())
 }
 
@@ -697,7 +727,7 @@ pub async fn close_project_store(state: State<'_, ProjectState>) -> Result<(), S
     let mut guard = state.store.lock().await;
     if let Some(store) = guard.take() {
         let _project_path = store.db_manager.project_path().clone();
-        
+
         if let Err(e) = store.db_manager.close().await {
             tracing::warn!(error = %e, "Failed to close project store");
         }
@@ -713,11 +743,13 @@ pub async fn save_project_store_connection(
 ) -> Result<(), String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.save_connection(&connection).await.map_err(|e| {
-        ProjectError::Database(format!("保存连接失败: {}", e)).to_string()
-    })
+    store
+        .save_connection(&connection)
+        .await
+        .map_err(|e| ProjectError::Database(format!("保存连接失败: {}", e)).to_string())
 }
 
 /// 获取项目存储中的所有连接
@@ -727,11 +759,13 @@ pub async fn get_project_store_connections(
 ) -> Result<Vec<StoredConnection>, String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.get_connections().await.map_err(|e| {
-        ProjectError::Database(format!("获取连接列表失败: {}", e)).to_string()
-    })
+    store
+        .get_connections()
+        .await
+        .map_err(|e| ProjectError::Database(format!("获取连接列表失败: {}", e)).to_string())
 }
 
 /// 获取项目存储中的单个连接
@@ -742,11 +776,13 @@ pub async fn get_project_store_connection(
 ) -> Result<Option<StoredConnection>, String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.get_connection(&id).await.map_err(|e| {
-        ProjectError::Database(format!("获取连接失败: {}", e)).to_string()
-    })
+    store
+        .get_connection(&id)
+        .await
+        .map_err(|e| ProjectError::Database(format!("获取连接失败: {}", e)).to_string())
 }
 
 /// 删除项目存储中的连接
@@ -757,11 +793,13 @@ pub async fn delete_project_store_connection(
 ) -> Result<(), String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.delete_connection(&id).await.map_err(|e| {
-        ProjectError::Database(format!("删除连接失败: {}", e)).to_string()
-    })
+    store
+        .delete_connection(&id)
+        .await
+        .map_err(|e| ProjectError::Database(format!("删除连接失败: {}", e)).to_string())
 }
 
 /// 保存 SQL 历史到项目存储
@@ -772,11 +810,13 @@ pub async fn save_project_store_sql_history(
 ) -> Result<(), String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.save_sql_history(&record).await.map_err(|e| {
-        ProjectError::Database(format!("保存 SQL 历史失败: {}", e)).to_string()
-    })
+    store
+        .save_sql_history(&record)
+        .await
+        .map_err(|e| ProjectError::Database(format!("保存 SQL 历史失败: {}", e)).to_string())
 }
 
 /// 获取项目存储中的 SQL 历史
@@ -788,11 +828,13 @@ pub async fn get_project_store_sql_history(
 ) -> Result<Vec<SqlHistoryRecord>, String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.get_sql_history(connection_id.as_deref(), limit).await.map_err(|e| {
-        ProjectError::Database(format!("获取 SQL 历史失败: {}", e)).to_string()
-    })
+    store
+        .get_sql_history(connection_id.as_deref(), limit)
+        .await
+        .map_err(|e| ProjectError::Database(format!("获取 SQL 历史失败: {}", e)).to_string())
 }
 
 /// 保存工作台状态到项目存储
@@ -803,11 +845,13 @@ pub async fn save_project_store_workbench_state(
 ) -> Result<(), String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.save_workbench_state(&state_data).await.map_err(|e| {
-        ProjectError::Database(format!("保存工作台状态失败: {}", e)).to_string()
-    })
+    store
+        .save_workbench_state(&state_data)
+        .await
+        .map_err(|e| ProjectError::Database(format!("保存工作台状态失败: {}", e)).to_string())
 }
 
 /// 获取项目存储中的工作台状态
@@ -817,11 +861,13 @@ pub async fn get_project_store_workbench_state(
 ) -> Result<Option<WorkbenchState>, String> {
     let guard = state.store.lock().await;
     let store = guard.as_ref().ok_or_else(|| {
-        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string()).to_string()
+        ProjectError::OperationFailed("项目存储未初始化，请先调用 init_project_store".to_string())
+            .to_string()
     })?;
-    store.get_workbench_state().await.map_err(|e| {
-        ProjectError::Database(format!("获取工作台状态失败: {}", e)).to_string()
-    })
+    store
+        .get_workbench_state()
+        .await
+        .map_err(|e| ProjectError::Database(format!("获取工作台状态失败: {}", e)).to_string())
 }
 
 // ==================== 系统级项目管理命令 ====================
@@ -829,14 +875,15 @@ pub async fn get_project_store_workbench_state(
 /// 获取所有项目信息（系统级）
 #[tauri::command]
 pub async fn get_all_projects() -> Result<Vec<ProjectInfoResponse>, String> {
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     let projects = global_db
         .get_all_projects()
         .await
         .map_err(|e| ProjectError::Database(format!("获取所有项目失败: {}", e)).to_string())?;
-    
+
     Ok(projects.into_iter().map(|p| p.into()).collect())
 }
 
@@ -854,33 +901,38 @@ pub async fn rename_project(input: RenameProjectInput) -> Result<(), String> {
         new_name = %input.new_name,
         "Renaming project"
     );
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     // 验证项目存在
     let project = global_db
         .get_project_by_id(&input.project_id)
         .await
         .map_err(|e| ProjectError::Database(format!("获取项目信息失败: {}", e)).to_string())?
         .ok_or_else(|| ProjectError::NotFound(input.project_id.clone()).to_string())?;
-    
+
     // 更新名称
     global_db
-        .update_project_info(&input.project_id, &input.new_name, project.description.as_deref())
+        .update_project_info(
+            &input.project_id,
+            &input.new_name,
+            project.description.as_deref(),
+        )
         .await
         .map_err(|e| ProjectError::Database(format!("重命名项目失败: {}", e)).to_string())?;
-    
+
     // 使缓存失效
     get_recent_projects_cache().invalidate().await;
-    
+
     tracing::info!(
         project_id = %input.project_id,
         old_name = %project.name,
         new_name = %input.new_name,
         "Project renamed successfully"
     );
-    
+
     Ok(())
 }
 
@@ -898,51 +950,53 @@ pub struct ProjectValidationResult {
 #[tauri::command]
 pub async fn validate_project_full(project_id: String) -> Result<ProjectValidationResult, String> {
     tracing::debug!(project_id = %project_id, "Validating project completeness");
-    
-    let global_db = crate::core::migration::get_global_db_manager()
-        .ok_or_else(|| ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())?;
-    
+
+    let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
+        ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string()
+    })?;
+
     let project = global_db
         .get_project_by_id(&project_id)
         .await
         .map_err(|e| ProjectError::Database(format!("获取项目信息失败: {}", e)).to_string())?
         .ok_or_else(|| ProjectError::NotFound(project_id.clone()).to_string())?;
-    
+
     let path_buf = std::path::PathBuf::from(&project.path);
     let mut errors = Vec::new();
-    
+
     // 1. 检查路径存在性
     let path_exists = path_buf.exists();
     if !path_exists {
         errors.push(format!("项目路径不存在: {}", project.path));
     }
-    
+
     // 2. 检查 .RSmeta 目录
     let meta_dir = path_buf.join(".RSmeta");
     let meta_dir_exists = meta_dir.exists();
     if !meta_dir_exists {
         errors.push("缺少 .RSmeta 目录".to_string());
     }
-    
+
     // 3. 检查 project.json 文件
     let project_json = path_buf.join(".RSmeta").join("project.json");
-    let project_json_valid = project_json.exists() && std::fs::read_to_string(&project_json)
-        .ok()
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-        .is_some();
+    let project_json_valid = project_json.exists()
+        && std::fs::read_to_string(&project_json)
+            .ok()
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .is_some();
     if !project_json_valid {
         errors.push("project.json 文件无效或不存在".to_string());
     }
-    
+
     let is_valid = errors.is_empty();
-    
+
     tracing::debug!(
         project_id = %project_id,
         is_valid = is_valid,
         errors_count = errors.len(),
         "Project validation completed"
     );
-    
+
     Ok(ProjectValidationResult {
         is_valid,
         path_exists,

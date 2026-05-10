@@ -1,16 +1,15 @@
 /**
  * 查询上下文模块
- * 
+ *
  * 传递查询执行所需的上下文信息，包括：
  * - 连接信息
  * - 执行配置
  * - 权限控制
  */
-
 use crate::core::dbi::engine::ExecutionMode;
 
 /// 查询上下文
-/// 
+///
 /// 包含执行查询所需的所有上下文信息
 #[derive(Debug, Clone)]
 pub struct QueryContext {
@@ -63,7 +62,7 @@ impl QueryContext {
 }
 
 /// 执行上下文
-/// 
+///
 /// 包含执行过程中的运行时信息
 #[derive(Debug, Clone)]
 pub struct ExecutionContext {

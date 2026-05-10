@@ -1,12 +1,11 @@
 /**
  * 执行引擎模块
- * 
+ *
  * 包含多种执行引擎：
  * - DriverEngine: 原生数据库驱动执行
  * - DuckDBEngine: DuckDB 本地加速/联邦查询
  * - StreamEngine: 流式处理、合并、后处理
  */
-
 pub mod driver_engine;
 pub mod duckdb_engine;
 pub mod stream_engine;
@@ -53,7 +52,7 @@ impl SqlFeatures {
     /// 分析 SQL 特征
     pub fn analyze(sql: &str) -> Self {
         let sql_upper = sql.trim_start().to_uppercase();
-        
+
         let is_read_only = !(sql_upper.starts_with("INSERT")
             || sql_upper.starts_with("UPDATE")
             || sql_upper.starts_with("DELETE")
@@ -97,15 +96,33 @@ impl SqlFeatures {
         let has_distinct = sql_upper.contains("DISTINCT");
 
         let mut complexity_score = 0;
-        if has_aggregation { complexity_score += 1; }
-        if has_join { complexity_score += 2; }
-        if has_subquery { complexity_score += 2; }
-        if has_window_function { complexity_score += 3; }
-        if has_cte { complexity_score += 1; }
-        if has_order_by { complexity_score += 1; }
-        if has_group_by { complexity_score += 1; }
-        if has_having { complexity_score += 1; }
-        if has_union { complexity_score += 2; }
+        if has_aggregation {
+            complexity_score += 1;
+        }
+        if has_join {
+            complexity_score += 2;
+        }
+        if has_subquery {
+            complexity_score += 2;
+        }
+        if has_window_function {
+            complexity_score += 3;
+        }
+        if has_cte {
+            complexity_score += 1;
+        }
+        if has_order_by {
+            complexity_score += 1;
+        }
+        if has_group_by {
+            complexity_score += 1;
+        }
+        if has_having {
+            complexity_score += 1;
+        }
+        if has_union {
+            complexity_score += 2;
+        }
 
         Self {
             is_read_only,
@@ -160,7 +177,7 @@ pub trait ExecutionEngine: Send + Sync {
 }
 
 /// 查询路由器
-/// 
+///
 /// 根据查询上下文选择合适的执行引擎
 pub struct QueryRouter {
     /// 原生驱动引擎
@@ -190,7 +207,11 @@ impl QueryRouter {
     }
 
     /// 执行查询
-    pub async fn execute(&self, sql: &str, context: &QueryContext) -> Result<QueryResult, CoreError> {
+    pub async fn execute(
+        &self,
+        sql: &str,
+        context: &QueryContext,
+    ) -> Result<QueryResult, CoreError> {
         let start_time = std::time::Instant::now();
         let features = SqlFeatures::analyze(sql);
         let mode_name = match context.mode {
@@ -201,15 +222,9 @@ impl QueryRouter {
         };
 
         let result = match context.mode {
-            ExecutionMode::Native => {
-                self.driver_engine.execute(sql, context).await
-            }
-            ExecutionMode::DuckDB => {
-                self.duckdb_engine.execute(sql, context).await
-            }
-            ExecutionMode::Stream => {
-                self.stream_engine.execute(sql, context).await
-            }
+            ExecutionMode::Native => self.driver_engine.execute(sql, context).await,
+            ExecutionMode::DuckDB => self.duckdb_engine.execute(sql, context).await,
+            ExecutionMode::Stream => self.stream_engine.execute(sql, context).await,
             ExecutionMode::UserChoice => {
                 // 智能推荐执行模式
                 let recommended = self.recommend_mode(sql);
@@ -221,21 +236,17 @@ impl QueryRouter {
         };
 
         let elapsed_ms = start_time.elapsed().as_secs_f64() * 1000.0;
-        let row_count = result.as_ref().map_or(0, |r| {
-            r.batches.iter().map(|b| b.num_rows()).sum()
-        });
+        let row_count = result
+            .as_ref()
+            .map_or(0, |r| r.batches.iter().map(|b| b.num_rows()).sum());
         let success = result.is_ok();
         let error = result.as_ref().err().map(|e| e.to_string());
 
-        self.performance_collector.record_query(
-            sql,
-            features,
-            mode_name,
-            elapsed_ms,
-            row_count,
-            success,
-            error,
-        ).await;
+        self.performance_collector
+            .record_query(
+                sql, features, mode_name, elapsed_ms, row_count, success, error,
+            )
+            .await;
 
         result
     }

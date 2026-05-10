@@ -2,17 +2,19 @@
 //!
 //! 提供多级缓存机制，用于元数据、查询结果等数据的缓存
 
-pub mod metadata_cache;
-pub mod lru_cache;
 pub mod cache_manager;
-pub mod query_cache;
+pub mod lru_cache;
 pub mod memory_guard;
+pub mod metadata_cache;
+pub mod query_cache;
 
-pub use metadata_cache::{MetadataCache, MetadataCacheConfig, MetadataCacheKey, MetadataCacheValue};
-pub use lru_cache::{LruCache, MemoryPressure, MemoryEstimate};
-pub use cache_manager::{CacheManager, CacheConfig, CacheLevel, CacheManagerStats};
-pub use query_cache::{QueryCache, QueryCacheConfig, QueryCacheStats, get_query_cache};
-pub use memory_guard::{MemoryGuard, MemoryGuardConfig, get_memory_guard, init_memory_guard};
+pub use cache_manager::{CacheConfig, CacheLevel, CacheManager, CacheManagerStats};
+pub use lru_cache::{LruCache, MemoryEstimate, MemoryPressure};
+pub use memory_guard::{get_memory_guard, init_memory_guard, MemoryGuard, MemoryGuardConfig};
+pub use metadata_cache::{
+    MetadataCache, MetadataCacheConfig, MetadataCacheKey, MetadataCacheValue,
+};
+pub use query_cache::{get_query_cache, QueryCache, QueryCacheConfig, QueryCacheStats};
 
 use std::hash::Hash;
 use std::time::{Duration, Instant};
@@ -41,12 +43,12 @@ impl<V> CacheEntry<V> {
             access_count: 0,
         }
     }
-    
+
     /// 检查是否过期
     pub fn is_expired(&self) -> bool {
         self.expires_at.map_or(false, |exp| Instant::now() > exp)
     }
-    
+
     /// 记录访问
     pub fn record_access(&mut self) {
         self.access_count += 1;
@@ -78,7 +80,7 @@ impl CacheStats {
             self.hits as f64 / total as f64
         }
     }
-    
+
     /// 获取总访问次数
     pub fn total_accesses(&self) -> u64 {
         self.hits + self.misses

@@ -1,9 +1,9 @@
 # 草稿箱 (Scratchpad) 设计方案
 
-> 版本：v3.9
+> 版本：v3.11
 > 创建日期：2026-05-07
-> 最后更新：2026-05-09
-> 状态：✅ v3.9 质量加固 — unwrap 全清除 + 类型对齐 + i18n 补全
+> 最后更新：2026-05-10
+> 状态：✅ v3.11 — i18n 收尾 (promote modal国际化) + 生命周期合并 + 文档对齐
 
 ---
 
@@ -123,8 +123,9 @@
 | **搜索安全加固** | 超过 10MB 的文件跳过搜索；结果最多 500 条截断；前端通知跳过/截断信息 |  ✅ → ♻️  |
 | **流式搜索** | 大文件不再跳过，改用 `BufReader::lines()` 逐行流式读取，内存恒定 ~8KB；30s 超时保护 |  ✅  |
 | **质量加固** | 14 处 `unwrap_or_*` 全清除 → `?` 错误传播；`futures::block_on` → `Handle::block_on`；`Drop` 确保 watcher 清理 |  ✅  |
-| **类型对齐** | `ScratchpadEntry.children` 从 TypeScript 类型移除（后端从未填充）；`escapeHtml` 补单引号转义 |  ✅  |
-| **i18n 补全** | `en.json` 补齐 40+ 缺失 scratchpad locale 键，对齐 `zh-CN.json` |  ✅  |
+| **初始化 fallback** | `ScratchpadState` 存储 `last_project_path`，`get_store()` 未初始化时自动 fallback 重建 |  ✅  |
+| **主题打通** | 全组件 CSS 变量化：`font-size`/`spacing`/`color` 统一使用 `var(--font-size-*)`/`var(--spacing-*)`/`var(--color-*)` |  ✅  |
+| **一致性治理** | 移除幽灵 `children` 字段、修复 `restoreFromTrash` 返回值、补齐 locale 时间键与 retry、`init` 走 API 封装、文档数字修正 |  ✅  |
 
 ---
 
@@ -162,8 +163,8 @@
 ├────────────────┼────────────────────────────┤
 │            Backend (Rust)                    │
 │  ┌─────────────┴───────────────┐            │
-│  │   scratchpad_commands.rs    │            │
-│  │   (23 个 #[tauri::command])  │            │
+│  |   scratchpad_commands.rs    |            │
+│  |   (21 个 #[tauri::command])   |            │
 │  └─────────────┬───────────────┘            │
 │  ┌─────────────┴───────────────┐            │
 │  │     core/scratchpad/         │            │

@@ -109,7 +109,7 @@ async function loadData() {
     })
 
     if (result.columns && result.rows) {
-      columns.value = result.columns.map((col: any) => ({
+      columns.value = result.columns.map((col: { name: string; dataType: string }) => ({
         key: col.name,
         title: col.name,
         dataType: col.dataType,
@@ -151,7 +151,6 @@ function handleFilter(condition: string) {
 }
 
 function handleExport() {
-  console.log('导出数据')
 }
 
 function handleCopy() {

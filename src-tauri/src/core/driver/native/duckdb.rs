@@ -1,15 +1,15 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use duckdb::Connection;
-use arrow::array::{ArrayRef, StringArray, Int64Array, Float64Array, BooleanArray, BinaryArray};
-use arrow::datatypes::{Field, Schema, DataType};
+use arrow::array::{ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+use duckdb::Connection;
 
-use crate::core::driver::{Database, Transaction, DataSourceMeta, ColumnDetail};
 use crate::core::driver::traits::MetadataBrowser;
+use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
-use crate::core::models::{QueryResult, ArrowBatch};
+use crate::core::models::{ArrowBatch, QueryResult};
 
 /// DuckDB 数据库连接
 pub struct DuckDbDatabase {
@@ -24,35 +24,38 @@ impl DuckDbDatabase {
         } else {
             url
         };
-        
+
         // 确保父目录存在
         if let Some(parent) = std::path::Path::new(path).parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|e| CoreError::database(DatabaseError::Driver {
-                    db_type: "duckdb".to_string(),
-                    operation: "create_directory".to_string(),
-                    source: e.to_string(),
-                }))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    CoreError::database(DatabaseError::Driver {
+                        db_type: "duckdb".to_string(),
+                        operation: "create_directory".to_string(),
+                        source: e.to_string(),
+                    })
+                })?;
             }
         }
-        
-        let conn = Connection::open(path)
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+
+        let conn = Connection::open(path).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "connect".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         let server_version = conn
             .query_row("PRAGMA version", [], |row| row.get::<_, String>(0))
             .ok();
-        Ok(Self { 
+        Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             server_version,
         })
     }
 
     pub fn from_connection(conn: Connection) -> Self {
-        Self { 
+        Self {
             conn: Arc::new(Mutex::new(conn)),
             server_version: None,
         }
@@ -71,30 +74,44 @@ fn is_read_only_sql(sql: &str) -> bool {
 #[async_trait::async_trait]
 impl Database for DuckDbDatabase {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "duckdb".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt.column_names()
+        let columns: Vec<String> = stmt
+            .column_names()
             .iter()
             .map(|name| name.to_string())
             .collect();
 
-        let mut rows = stmt.query([])
+        let mut rows = stmt
+            .query([])
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-        while let Ok(Some(row)) = rows.next() {
-            let values: Vec<duckdb::types::Value> = columns.iter().enumerate()
-                .map(|(i, _)| {
-                    row.get::<usize, duckdb::types::Value>(i).unwrap_or(duckdb::types::Value::Null)
-                })
-                .collect();
+        while let Some(row) = rows
+            .next()
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?
+        {
+            let mut values: Vec<duckdb::types::Value> = Vec::with_capacity(columns.len());
+            for (i, _) in columns.iter().enumerate() {
+                let v = row.get::<usize, duckdb::types::Value>(i).map_err(|e| {
+                    CoreError::database(DatabaseError::Driver {
+                        db_type: "duckdb".to_string(),
+                        operation: "row_parsing".to_string(),
+                        source: e.to_string(),
+                    })
+                })?;
+                values.push(v);
+            }
             row_data.push(values);
         }
 
@@ -150,11 +167,16 @@ impl Database for DuckDbDatabase {
 
                 let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
                 while let Ok(Some(row)) = rows.next() {
-                    let values: Vec<duckdb::types::Value> = columns.iter().enumerate()
-                        .map(|(i, _)| {
-                            row.get::<usize, duckdb::types::Value>(i).unwrap_or(duckdb::types::Value::Null)
-                        })
-                        .collect();
+                    let mut values: Vec<duckdb::types::Value> = Vec::with_capacity(columns.len());
+                    for (i, _) in columns.iter().enumerate() {
+                        let v = row.get::<usize, duckdb::types::Value>(i)
+                            .map_err(|e| CoreError::database(DatabaseError::Driver {
+                                db_type: "duckdb".to_string(),
+                                operation: "row_parsing".to_string(),
+                                source: e.to_string(),
+                            }))?;
+                        values.push(v);
+                    }
                     row_data.push(values);
                 }
 
@@ -195,18 +217,21 @@ impl Database for DuckDbDatabase {
     }
 
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "duckdb".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        conn.execute("BEGIN TRANSACTION", [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute("BEGIN TRANSACTION", []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "begin_transaction".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(Box::new(DuckDbTransaction::new(Arc::clone(&self.conn))))
     }
@@ -218,23 +243,46 @@ impl Database for DuckDbDatabase {
         }
     }
 
+    async fn ping(&self) -> Result<(), CoreError> {
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
+        conn.execute("SELECT 1", [])
+            .map_err(|e| CoreError::database(DatabaseError::query("SELECT 1", e.to_string())))?;
+        Ok(())
+    }
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         Ok(vec!["main".to_string()])
     }
 
-    async fn list_tables(&self, _db: &str, _schema: Option<&str>) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
+    async fn list_tables(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
         let nodes = self.get_tables("main", "main").await?;
-        Ok(nodes.into_iter().map(|n| {
-            crate::core::driver::SchemaObject {
+        Ok(nodes
+            .into_iter()
+            .map(|n| crate::core::driver::SchemaObject {
                 name: n.name,
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
-            }
-        }).collect())
+            })
+            .collect())
     }
 
-    async fn list_columns(&self, _db: &str, _schema: Option<&str>, table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
+    async fn list_columns(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<ColumnDetail>, CoreError> {
         let detail = self.get_table_detail("main", "main", table).await?;
         Ok(detail.columns)
     }
@@ -243,21 +291,27 @@ impl Database for DuckDbDatabase {
         &self,
         name: &str,
         driver: &str,
-        connection_string: &str
+        connection_string: &str,
     ) -> Result<(), CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "duckdb".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        let sql = format!("ATTACH '{}' AS {} (TYPE '{}')", connection_string, name, driver);
-        conn.execute(&sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        let sql = format!(
+            "ATTACH '{}' AS {} (TYPE '{}')",
+            connection_string, name, driver
+        );
+        conn.execute(&sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "register_external_database".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -267,24 +321,27 @@ impl Database for DuckDbDatabase {
         external_db_name: &str,
         schema_name: &str,
         table_name: &str,
-        external_table_name: &str
+        external_table_name: &str,
     ) -> Result<(), CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "duckdb".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
         let sql = format!(
             "CREATE EXTERNAL TABLE {}.{} AS SELECT * FROM {}.{}",
             schema_name, table_name, external_db_name, external_table_name
         );
-        conn.execute(&sql, [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute(&sql, []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
                 operation: "create_external_table".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(())
     }
@@ -308,35 +365,48 @@ impl DuckDbTransaction {
 #[async_trait::async_trait]
 impl Transaction for DuckDbTransaction {
     async fn query(&mut self, sql: &str) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "duckdb".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt.column_names()
+        let columns: Vec<String> = stmt
+            .column_names()
             .iter()
             .map(|name| name.to_string())
             .collect();
 
-        let mut rows = stmt.query([])
+        let mut rows = stmt
+            .query([])
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
         while let Ok(Some(row)) = rows.next() {
-            let values: Vec<duckdb::types::Value> = columns.iter().enumerate()
-                .map(|(i, _)| {
-                    row.get::<usize, duckdb::types::Value>(i).unwrap_or(duckdb::types::Value::Null)
-                })
-                .collect();
+            let mut values: Vec<duckdb::types::Value> = Vec::with_capacity(columns.len());
+            for (i, _) in columns.iter().enumerate() {
+                let v = row.get::<usize, duckdb::types::Value>(i).map_err(|e| {
+                    CoreError::database(DatabaseError::Driver {
+                        db_type: "duckdb".to_string(),
+                        operation: "row_parsing".to_string(),
+                        source: e.to_string(),
+                    })
+                })?;
+                values.push(v);
+            }
             row_data.push(values);
         }
 
         let sql_upper = sql.trim_start().to_uppercase();
-        let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("SHOW") || sql_upper.starts_with("DESCRIBE");
+        let is_read_only = sql_upper.starts_with("SELECT")
+            || sql_upper.starts_with("SHOW")
+            || sql_upper.starts_with("DESCRIBE");
         let row_count = row_data.len();
 
         let batch = if row_count > 0 {
@@ -360,18 +430,21 @@ impl Transaction for DuckDbTransaction {
 
     async fn commit(&mut self) -> Result<(), CoreError> {
         if !self.committed {
-            let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "duckdb".to_string(),
-                operation: "lock".to_string(),
-                source: e.to_string(),
-            }))?;
+            let conn = self.conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "duckdb".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
 
-            conn.execute("COMMIT", [])
-                .map_err(|e| CoreError::database(DatabaseError::Driver {
+            conn.execute("COMMIT", []).map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
                     db_type: "duckdb".to_string(),
                     operation: "commit".to_string(),
                     source: e.to_string(),
-                }))?;
+                })
+            })?;
 
             self.committed = true;
         }
@@ -380,14 +453,16 @@ impl Transaction for DuckDbTransaction {
 
     async fn rollback(&mut self) -> Result<(), CoreError> {
         if !self.committed {
-            let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "duckdb".to_string(),
-                operation: "lock".to_string(),
-                source: e.to_string(),
-            }))?;
+            let conn = self.conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "duckdb".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
 
             if let Err(e) = conn.execute("ROLLBACK", []) {
-                eprintln!("DuckDB transaction rollback error: {}", e);
+                tracing::warn!("DuckDB transaction rollback error: {}", e);
             }
             self.committed = true;
         }
@@ -521,29 +596,30 @@ pub fn duckdb_rows_to_arrow(
             }
         }
 
-        let array: ArrayRef = match detected_type.unwrap_or(DataType::Utf8) {
-            DataType::Boolean => {
-                Arc::new(BooleanArray::from(bool_values))
-            }
-            DataType::Int64 => {
-                Arc::new(Int64Array::from(int_values))
-            }
-            DataType::Float64 => {
-                Arc::new(Float64Array::from(float_values))
-            }
+        let effective_type = match detected_type {
+            Some(t) => t,
+            None => DataType::Utf8,
+        };
+
+        let array: ArrayRef = match effective_type {
+            DataType::Boolean => Arc::new(BooleanArray::from(bool_values)),
+            DataType::Int64 => Arc::new(Int64Array::from(int_values)),
+            DataType::Float64 => Arc::new(Float64Array::from(float_values)),
             DataType::Binary => {
-                let refs: Vec<Option<&[u8]>> = binary_values.iter().map(|opt| opt.as_ref().map(|v| v.as_slice())).collect();
+                let refs: Vec<Option<&[u8]>> = binary_values
+                    .iter()
+                    .map(|opt| opt.as_ref().map(|v| v.as_slice()))
+                    .collect();
                 Arc::new(BinaryArray::from(refs))
             }
-            _ => {
-                Arc::new(StringArray::from(string_values))
-            }
+            _ => Arc::new(StringArray::from(string_values)),
         };
 
         arrays.push(array);
     }
 
-    let fields: Vec<Field> = columns.iter()
+    let fields: Vec<Field> = columns
+        .iter()
         .enumerate()
         .map(|(i, name)| {
             let data_type = arrays[i].data_type().clone();
@@ -553,12 +629,13 @@ pub fn duckdb_rows_to_arrow(
 
     let schema = Arc::new(Schema::new(fields));
 
-    RecordBatch::try_new(schema, arrays)
-        .map_err(|e| CoreError::database(DatabaseError::Driver {
+    RecordBatch::try_new(schema, arrays).map_err(|e| {
+        CoreError::database(DatabaseError::Driver {
             db_type: "duckdb".to_string(),
             operation: "arrow_conversion".to_string(),
             source: e.to_string(),
-        }))
+        })
+    })
 }
 
 #[async_trait::async_trait]
@@ -572,7 +649,10 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
         }])
     }
 
-    async fn get_schemas(&self, _db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_schemas(
+        &self,
+        _db: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         Ok(vec![crate::core::driver::NodeInfo {
             name: "main".to_string(),
             kind: crate::core::driver::SchemaObjectKind::Schema,
@@ -581,7 +661,11 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
         }])
     }
 
-    async fn get_tables(&self, _db: &str, _schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_tables(
+        &self,
+        _db: &str,
+        _schema: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let result = self.query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'main' ORDER BY table_name").await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
@@ -600,7 +684,11 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
                             Some(crate::core::driver::NodeInfo {
                                 name: name_arr.value(row_idx).to_string(),
                                 kind,
-                                icon: Some(if table_type == "VIEW" { "view".to_string() } else { "table".to_string() }),
+                                icon: Some(if table_type == "VIEW" {
+                                    "view".to_string()
+                                } else {
+                                    "table".to_string()
+                                }),
                                 comment: None,
                             })
                         } else {
@@ -615,24 +703,51 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
         Ok(nodes)
     }
 
-    async fn get_table_detail(&self, _db: &str, _schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let sql = format!("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'main' AND table_name = '{}' ORDER BY ordinal_position", table);
+    async fn get_table_detail(
+        &self,
+        _db: &str,
+        _schema: &str,
+        table: &str,
+    ) -> Result<crate::core::driver::NodeDetail, CoreError> {
+        let safe_table = table.replace('\'', "''");
+        let sql = format!("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'main' AND table_name = '{}' ORDER BY ordinal_position", safe_table);
         let result = self.query(&sql).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
                     if row_idx < batch.num_rows() {
-                        let col_name = batch.column(0).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let data_type = batch.column(1).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let nullable = batch.column(2).as_any().downcast_ref::<StringArray>()?.value(row_idx) == "YES";
-                        let default = batch.column(3).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        let col_name = batch
+                            .column(0)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let data_type = batch
+                            .column(1)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let nullable = batch
+                            .column(2)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx)
+                            == "YES";
+                        let default = batch
+                            .column(3)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
                         Some(crate::core::driver::ColumnDetail {
                             name: col_name.to_string(),
                             data_type: data_type.to_string(),
                             nullable,
                             is_primary_key: false,
                             is_foreign_key: false,
-                            default_value: if default.is_empty() { None } else { Some(default.to_string()) },
+                            default_value: if default.is_empty() {
+                                None
+                            } else {
+                                Some(default.to_string())
+                            },
                             comment: None,
                         })
                     } else {

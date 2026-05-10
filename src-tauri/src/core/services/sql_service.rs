@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use crate::core::services::connection_manager::ConnectionManager;
+use crate::core::cache::get_query_cache;
 use crate::core::driver::traits::DynDatabase;
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::QueryResult;
 use crate::core::persistence::history_store;
-use crate::core::cache::get_query_cache;
+use crate::core::services::connection_manager::ConnectionManager;
 
 /// 事务状态结果
 #[derive(Debug)]
@@ -34,9 +34,15 @@ pub struct SqlExecuteResult {
     pub result: QueryResult,
     /// 执行耗时（毫秒）
     pub elapsed_ms: u64,
-    /// 影响的行数（如果有）
-    pub affected_rows: Option<usize>,
+    /// 结果是否被截断（超出最大行数限制）
+    pub truncated: bool,
 }
+
+/// 单次查询最大返回行数
+pub const MAX_QUERY_ROWS: usize = 10_000;
+
+/// 默认连接键名（无显式连接 ID 时的回退值）
+const DEFAULT_CONN_KEY: &str = "active";
 
 /// SQL 执行选项
 #[derive(Debug, Default)]
@@ -89,22 +95,14 @@ impl SqlService {
 
         // 检查缓存（仅当启用缓存且不是事务操作时）
         if options.use_cache && !options.use_transaction {
-            let connection_id = conn_id.as_deref().unwrap_or("active");
+            let connection_id = conn_id.as_deref().unwrap_or(DEFAULT_CONN_KEY);
             if let Some(cached_result) = query_cache.get(connection_id, sql).await {
-                // 缓存命中，直接返回
                 let elapsed_ms = start_time.elapsed().as_millis() as u64;
-                
-                // 计算影响行数
-                let affected_rows = if cached_result.total_rows() == 1 && cached_result.columns.len() == 1 {
-                    None
-                } else {
-                    Some(cached_result.total_rows())
-                };
-                
+
                 return Ok(SqlExecuteResult {
                     result: cached_result,
                     elapsed_ms,
-                    affected_rows,
+                    truncated: false,
                 });
             }
         }
@@ -113,18 +111,29 @@ impl SqlService {
         let db = self.get_database(conn_id.clone()).await?;
 
         // 创建取消令牌（支持前端 cancel_query）
-        let conn_key = conn_id.clone().unwrap_or_else(|| "active".to_string());
+        let conn_key = conn_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
         let cancel_token = self.manager.create_cancel_token(&conn_key).await;
 
         // 执行查询（支持取消和超时）
         let result = if let Some(timeout_ms) = options.timeout_ms {
-            let token = cancel_token.clone();
-            tokio::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(timeout_ms)).await;
-                token.cancel();
-            });
-
-            db.query_with_cancel(sql, cancel_token.clone()).await?
+            match tokio::time::timeout(
+                tokio::time::Duration::from_millis(timeout_ms),
+                db.query_with_cancel(sql, cancel_token.clone()),
+            )
+            .await
+            {
+                Ok(inner_result) => inner_result?,
+                Err(_elapsed) => {
+                    cancel_token.cancel();
+                    return Err(CoreError::database(DatabaseError::Query {
+                        sql: sql.to_string(),
+                        reason: format!("Query timed out after {}ms", timeout_ms),
+                        position: None,
+                    }));
+                }
+            }
         } else {
             db.query_with_cancel(sql, cancel_token.clone()).await?
         };
@@ -132,16 +141,19 @@ impl SqlService {
         // 清理取消令牌
         self.manager.remove_cancel_token(&conn_key).await;
 
+        // 应用行数限制，防止内存溢出
+        let mut result = result;
+        let truncated = result.truncate(MAX_QUERY_ROWS) > 0;
+
         // 将结果存入缓存（仅当启用缓存且不是事务操作时）
         if options.use_cache && !options.use_transaction {
-            let connection_id = conn_id.as_deref().unwrap_or("active");
-            let _ = query_cache.set(connection_id, sql, result.clone(), None).await;
+            let connection_id = conn_id.as_deref().unwrap_or(DEFAULT_CONN_KEY);
+            let _ = query_cache
+                .set(connection_id, sql, result.clone(), None)
+                .await;
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as u64;
-
-        // 使用 QueryResult 中的 affected_rows（驱动层已正确计算）
-        let affected_rows = result.affected_rows;
 
         // 记录到历史
         if options.record_history {
@@ -154,7 +166,7 @@ impl SqlService {
         Ok(SqlExecuteResult {
             result,
             elapsed_ms,
-            affected_rows,
+            truncated,
         })
     }
 
@@ -196,7 +208,7 @@ impl SqlService {
                     results.push(SqlExecuteResult {
                         result,
                         elapsed_ms,
-                        affected_rows: None,
+                        truncated: false,
                     });
                 }
                 Err(e) => {
@@ -210,11 +222,13 @@ impl SqlService {
         if failed {
             // 执行失败，回滚事务
             let _ = tx.rollback().await;
-            return Err(error.unwrap_or_else(|| CoreError::database(DatabaseError::Query {
-                sql: "unknown".to_string(),
-                reason: "Transaction failed with unknown error".to_string(),
-                position: None,
-            })));
+            return Err(error.unwrap_or_else(|| {
+                CoreError::database(DatabaseError::Query {
+                    sql: "unknown".to_string(),
+                    reason: "Transaction failed with unknown error".to_string(),
+                    position: None,
+                })
+            }));
         }
 
         // 提交事务
@@ -246,27 +260,31 @@ impl SqlService {
     /// 获取数据库连接
     async fn get_database(&self, conn_id: Option<String>) -> Result<DynDatabase, CoreError> {
         match conn_id {
-            Some(id) => self
-                .manager
-                .get_connection(&id)
-                .await
-                .ok_or_else(|| CoreError::connection(crate::core::error::ConnectionError::NotFound(id))),
+            Some(id) => self.manager.get_connection(&id).await.ok_or_else(|| {
+                CoreError::connection(crate::core::error::ConnectionError::NotFound(id))
+            }),
             None => self
                 .manager
                 .get_active_connection()
                 .await
                 .map(|(_, db)| db)
-                .ok_or_else(|| CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection)),
+                .ok_or_else(|| {
+                    CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection)
+                }),
         }
     }
 
     /// 获取 SQL 执行历史
-    pub fn get_sql_history(&self, limit: usize) -> Result<Vec<history_store::SqlHistoryRecord>, CoreError> {
-        history_store::get_sql_history(limit)
-            .map_err(|e| CoreError::storage(crate::core::error::StorageError::read(
+    pub fn get_sql_history(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<history_store::SqlHistoryRecord>, CoreError> {
+        history_store::get_sql_history(limit).map_err(|e| {
+            CoreError::storage(crate::core::error::StorageError::read(
                 "sql_history",
                 e.to_string(),
-            )))
+            ))
+        })
     }
 
     /// 搜索 SQL 历史
@@ -275,29 +293,32 @@ impl SqlService {
         keyword: &str,
         limit: usize,
     ) -> Result<Vec<history_store::SqlHistoryRecord>, CoreError> {
-        history_store::search_sql_history(keyword, limit)
-            .map_err(|e| CoreError::storage(crate::core::error::StorageError::read(
+        history_store::search_sql_history(keyword, limit).map_err(|e| {
+            CoreError::storage(crate::core::error::StorageError::read(
                 "sql_history",
                 e.to_string(),
-            )))
+            ))
+        })
     }
 
     /// 清空 SQL 历史
     pub fn clear_sql_history(&self) -> Result<(), CoreError> {
-        history_store::clear_sql_history()
-            .map_err(|e| CoreError::storage(crate::core::error::StorageError::write(
+        history_store::clear_sql_history().map_err(|e| {
+            CoreError::storage(crate::core::error::StorageError::write(
                 "sql_history",
                 e.to_string(),
-            )))
+            ))
+        })
     }
 
     /// 删除单条 SQL 历史
     pub fn remove_sql_history(&self, id: &str) -> Result<(), CoreError> {
-        history_store::remove_sql_history(id)
-            .map_err(|e| CoreError::storage(crate::core::error::StorageError::write(
+        history_store::remove_sql_history(id).map_err(|e| {
+            CoreError::storage(crate::core::error::StorageError::write(
                 "sql_history",
                 e.to_string(),
-            )))
+            ))
+        })
     }
 
     /// 注册外部数据库连接
@@ -306,7 +327,7 @@ impl SqlService {
         conn_id: Option<String>,
         name: &str,
         driver: &str,
-        connection_string: &str
+        connection_string: &str,
     ) -> Result<(), CoreError> {
         // 获取数据库连接
         let db = self.get_database(conn_id).await?;
@@ -321,7 +342,8 @@ impl SqlService {
         }
 
         // 注册外部数据库
-        db.register_external_database(name, driver, connection_string).await
+        db.register_external_database(name, driver, connection_string)
+            .await
     }
 
     /// 创建外部表
@@ -331,7 +353,7 @@ impl SqlService {
         external_db_name: &str,
         schema_name: &str,
         table_name: &str,
-        external_table_name: &str
+        external_table_name: &str,
     ) -> Result<(), CoreError> {
         // 获取数据库连接
         let db = self.get_database(conn_id).await?;
@@ -346,18 +368,22 @@ impl SqlService {
         }
 
         // 创建外部表
-        db.create_external_table(external_db_name, schema_name, table_name, external_table_name).await
+        db.create_external_table(
+            external_db_name,
+            schema_name,
+            table_name,
+            external_table_name,
+        )
+        .await
     }
 
     /// 开始事务
-    pub async fn begin_transaction(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+    pub async fn begin_transaction(
+        &self,
+        conn_id: Option<String>,
+    ) -> Result<TransactionStatusResult, CoreError> {
         let db = self.get_database(conn_id.clone()).await?;
-        
-        // 获取连接 ID
-        let conn_id_str = match conn_id {
-            Some(id) => id,
-            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
-        };
+        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
 
         // 执行 BEGIN TRANSACTION
         db.query("BEGIN TRANSACTION").await?;
@@ -366,23 +392,23 @@ impl SqlService {
         Ok(TransactionStatusResult {
             conn_id: conn_id_str,
             is_in_transaction: true,
-            transaction_start_time_ms: Some(std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64),
+            transaction_start_time_ms: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64,
+            ),
             transaction_duration_ms: Some(0),
         })
     }
 
     /// 提交事务
-    pub async fn commit_transaction(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+    pub async fn commit_transaction(
+        &self,
+        conn_id: Option<String>,
+    ) -> Result<TransactionStatusResult, CoreError> {
         let db = self.get_database(conn_id.clone()).await?;
-        
-        // 获取连接 ID
-        let conn_id_str = match conn_id {
-            Some(id) => id,
-            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
-        };
+        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
 
         // 执行 COMMIT
         db.query("COMMIT").await?;
@@ -397,14 +423,12 @@ impl SqlService {
     }
 
     /// 回滚事务
-    pub async fn rollback_transaction(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
+    pub async fn rollback_transaction(
+        &self,
+        conn_id: Option<String>,
+    ) -> Result<TransactionStatusResult, CoreError> {
         let db = self.get_database(conn_id.clone()).await?;
-        
-        // 获取连接 ID
-        let conn_id_str = match conn_id {
-            Some(id) => id,
-            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
-        };
+        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
 
         // 执行 ROLLBACK
         db.query("ROLLBACK").await?;
@@ -419,22 +443,16 @@ impl SqlService {
     }
 
     /// 获取事务状态
-    pub async fn get_transaction_status(&self, conn_id: Option<String>) -> Result<TransactionStatusResult, CoreError> {
-        // 获取连接 ID
-        let conn_id_str = match &conn_id {
-            Some(id) => id.clone(),
-            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
-        };
-
-        // 检查连接是否存在
-        if conn_id_str.is_empty() {
-            return Err(CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection));
-        }
+    pub async fn get_transaction_status(
+        &self,
+        conn_id: Option<String>,
+    ) -> Result<TransactionStatusResult, CoreError> {
+        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
 
         // 检查事务状态（简化实现，实际应从 session 获取）
         Ok(TransactionStatusResult {
             conn_id: conn_id_str,
-            is_in_transaction: false,  // 实际应从 session 查询
+            is_in_transaction: false, // 实际应从 session 查询
             transaction_start_time_ms: None,
             transaction_duration_ms: None,
         })
@@ -442,14 +460,34 @@ impl SqlService {
 
     /// 取消指定连接正在执行的查询
     pub async fn cancel_query(&self, conn_id: Option<String>) -> Result<bool, CoreError> {
-        let conn_id_str = match &conn_id {
-            Some(id) => id.clone(),
-            None => self.manager.get_active_conn_id().await.unwrap_or_default(),
-        };
+        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
         if conn_id_str.is_empty() {
-            return Err(CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection));
+            return Err(CoreError::connection(
+                crate::core::error::ConnectionError::NoActiveConnection,
+            ));
         }
         Ok(self.manager.cancel_query(&conn_id_str).await)
+    }
+}
+
+pub(crate) fn value_to_sql(val: &serde_json::Value) -> String {
+    match val {
+        serde_json::Value::Null => "NULL".to_string(),
+        serde_json::Value::Bool(b) => {
+            if *b {
+                "TRUE".to_string()
+            } else {
+                "FALSE".to_string()
+            }
+        }
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
+        serde_json::Value::Array(arr) => {
+            format!("'{}'", serde_json::to_string(arr).unwrap_or_default())
+        }
+        serde_json::Value::Object(obj) => {
+            format!("'{}'", serde_json::to_string(obj).unwrap_or_default())
+        }
     }
 }
 
@@ -457,21 +495,188 @@ impl SqlService {
 mod tests {
     use super::*;
 
+    fn new_service() -> SqlService {
+        SqlService::new(Arc::new(ConnectionManager::new()))
+    }
+
     #[tokio::test]
     async fn test_execute_empty_sql() {
-        let manager = Arc::new(ConnectionManager::new());
-        let service = SqlService::new(manager);
-
+        let service = new_service();
         let result = service.execute(None, "", Default::default()).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
-    async fn test_execute_no_active_connection() {
-        let manager = Arc::new(ConnectionManager::new());
-        let service = SqlService::new(manager);
+    async fn test_execute_whitespace_sql() {
+        let service = new_service();
+        let result = service.execute(None, "   \n\t  ", Default::default()).await;
+        assert!(result.is_err());
+    }
 
+    #[tokio::test]
+    async fn test_execute_no_active_connection() {
+        let service = new_service();
         let result = service.execute(None, "SELECT 1", Default::default()).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_specific_connection_not_found() {
+        let service = new_service();
+        let result = service
+            .execute(Some("nonexistent".into()), "SELECT 1", Default::default())
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_record_history_option() {
+        let service = new_service();
+        let options = SqlExecuteOptions {
+            record_history: true,
+            ..Default::default()
+        };
+        let result = service.execute(None, "SELECT 1", options).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_in_transaction_empty() {
+        let service = new_service();
+        let result = service.execute_in_transaction(None, vec![]).await;
+        assert!(result.is_ok());
+        let results = match result {
+            Ok(r) => r,
+            Err(_) => {
+                assert!(false, "expected Ok");
+                return;
+            }
+        };
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_execute_in_transaction_no_connection() {
+        let service = new_service();
+        let result = service
+            .execute_in_transaction(None, vec!["SELECT 1".into()])
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_query_no_connection() {
+        let service = new_service();
+        let result = service.query(None, "SELECT 1").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_sql_history() {
+        let service = new_service();
+        let result = service.get_sql_history(10);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_search_sql_history() {
+        let service = new_service();
+        let result = service.search_sql_history("test", 10);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_clear_sql_history() {
+        let service = new_service();
+        let result = service.clear_sql_history();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_remove_sql_history_nonexistent() {
+        let service = new_service();
+        let result = service.remove_sql_history("nonexistent");
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_begin_transaction_no_connection() {
+        let service = new_service();
+        let result = service.begin_transaction(None).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_commit_transaction_no_connection() {
+        let service = new_service();
+        let result = service.commit_transaction(None).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_rollback_transaction_no_connection() {
+        let service = new_service();
+        let result = service.rollback_transaction(None).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_transaction_status_no_connection() {
+        let service = new_service();
+        let result = service.get_transaction_status(None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_cancel_query_no_connection() {
+        let service = new_service();
+        let result = service.cancel_query(None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_cancel_query_specific_not_found() {
+        let service = new_service();
+        let result = service.cancel_query(Some("nonexistent".into())).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_register_external_database_no_connection() {
+        let service = new_service();
+        let result = service
+            .register_external_database(None, "ext", "mysql", "mysql://localhost")
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_external_table_no_connection() {
+        let service = new_service();
+        let result = service
+            .create_external_table(None, "ext", "public", "users", "ext_users")
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sql_execute_options_default() {
+        let options = SqlExecuteOptions::default();
+        assert!(!options.record_history);
+        assert!(!options.use_transaction);
+        assert!(options.timeout_ms.is_none());
+        assert!(!options.use_cache);
+    }
+
+    #[test]
+    fn test_sql_execute_result_construction() {
+        let result = SqlExecuteResult {
+            result: QueryResult::empty(),
+            elapsed_ms: 42,
+            truncated: false,
+        };
+        assert_eq!(result.elapsed_ms, 42);
+        assert!(!result.truncated);
+        assert!(result.result.is_empty());
     }
 }

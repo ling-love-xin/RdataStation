@@ -118,7 +118,7 @@ impl ConnectionStream {
     }
 
     /// 尝试获取本地地址
-    /// 
+    ///
     /// 注意：对于 TLS 连接，此方法可能不可用
     pub fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
         match self {
@@ -138,7 +138,7 @@ impl ConnectionStream {
     }
 
     /// 尝试获取远程地址
-    /// 
+    ///
     /// 注意：对于 TLS 连接，此方法可能不可用
     pub fn peer_addr(&self) -> std::io::Result<std::net::SocketAddr> {
         match self {

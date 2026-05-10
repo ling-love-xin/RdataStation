@@ -3,7 +3,6 @@
  *
  * 提供项目级数据的 CRUD 操作
  */
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -74,16 +73,16 @@ impl ProjectStore {
     /// 创建项目存储实例
     pub async fn new(project_path: &PathBuf) -> Result<Self, CoreError> {
         let db_manager = Arc::new(ProjectDatabaseManager::open(project_path, 3).await?);
-        
+
         Ok(Self { db_manager })
     }
-    
+
     // ==================== 连接管理 ====================
-    
+
     /// 保存连接
     pub async fn save_connection(&self, conn: &StoredConnection) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
+
         let host = conn.host.clone().unwrap_or_default();
         let port = conn.port.map(|p| p.to_string()).unwrap_or_default();
         let database = conn.database.clone().unwrap_or_default();
@@ -95,8 +94,8 @@ impl ProjectStore {
         let use_duckdb_fed = conn.use_duckdb_fed.to_string();
         let metadata_path = conn.metadata_path.clone().unwrap_or_default();
         let is_active = conn.is_active.to_string();
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "INSERT OR REPLACE INTO connections 
              (id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
@@ -123,17 +122,17 @@ impl ProjectStore {
             operation: "save_connection".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         Ok(())
     }
-    
+
     /// 获取所有连接
     pub async fn get_connections(&self) -> Result<Vec<StoredConnection>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let mut stmt = sqlite.inner().prepare(
+
+        let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at 
              FROM connections WHERE is_active = 1 ORDER BY created_at DESC"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
@@ -141,45 +140,51 @@ impl ProjectStore {
             operation: "get_connections".to_string(), 
             reason: e.to_string() 
         }))?;
-        
-        let connections = stmt.query_map([], |row| {
-            Ok(StoredConnection {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                driver: row.get(2)?,
-                host: row.get(3).ok(),
-                port: row.get::<_, i32>(4).ok(),
-                database: row.get(5).ok(),
-                schema_name: row.get(6).ok(),
-                username: row.get(7).ok(),
-                password_encrypted: row.get(8).ok(),
-                options: row.get(9).ok(),
-                tags: row.get(10).ok(),
-                use_duckdb_fed: row.get::<_, bool>(11)?,
-                metadata_path: row.get(12).ok(),
-                is_active: row.get::<_, bool>(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+
+        let connections = stmt
+            .query_map([], |row| {
+                Ok(StoredConnection {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    driver: row.get(2)?,
+                    host: row.get(3).ok(),
+                    port: row.get::<_, i32>(4).ok(),
+                    database: row.get(5).ok(),
+                    schema_name: row.get(6).ok(),
+                    username: row.get(7).ok(),
+                    password_encrypted: row.get(8).ok(),
+                    options: row.get(9).ok(),
+                    tags: row.get(10).ok(),
+                    use_duckdb_fed: row.get::<_, bool>(11)?,
+                    metadata_path: row.get(12).ok(),
+                    is_active: row.get::<_, bool>(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                })
             })
-        }).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "query_connections".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
-        connections.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "collect_connections".to_string(), 
-            reason: e.to_string() 
-        }))
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_connections".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        connections.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "collect_connections".to_string(),
+                reason: e.to_string(),
+            })
+        })
         // sqlite 在 drop 时自动归还到连接池
     }
-    
+
     /// 获取单个连接
     pub async fn get_connection(&self, id: &str) -> Result<Option<StoredConnection>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let mut stmt = sqlite.inner().prepare(
+
+        let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at 
              FROM connections WHERE id = ?1 AND is_active = 1"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
@@ -187,7 +192,7 @@ impl ProjectStore {
             operation: "prepare_get_connection".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         let result = stmt.query_row([id], |row| {
             Ok(StoredConnection {
                 id: row.get(0)?,
@@ -208,25 +213,25 @@ impl ProjectStore {
                 updated_at: row.get(15)?,
             })
         });
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         match result {
             Ok(conn) => Ok(Some(conn)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "get_connection".to_string(), 
-                reason: e.to_string() 
+            Err(e) => Err(CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "get_connection".to_string(),
+                reason: e.to_string(),
             })),
         }
     }
-    
+
     /// 删除连接（软删除）
     pub async fn delete_connection(&self, id: &str) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "UPDATE connections SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
             [id],
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
@@ -234,19 +239,19 @@ impl ProjectStore {
             operation: "delete_connection".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         Ok(())
     }
-    
+
     // ==================== SQL 历史 ====================
-    
+
     /// 保存 SQL 历史
     pub async fn save_sql_history(&self, record: &SqlHistoryRecord) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "INSERT INTO sql_history 
              (id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -265,12 +270,12 @@ impl ProjectStore {
             operation: "save_sql_history".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         Ok(())
     }
-    
+
     /// 获取 SQL 历史
     pub async fn get_sql_history(
         &self,
@@ -278,7 +283,7 @@ impl ProjectStore {
         limit: Option<usize>,
     ) -> Result<Vec<SqlHistoryRecord>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
+
         let query = if let Some(conn_id) = connection_id {
             format!(
                 "SELECT id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at 
@@ -293,47 +298,54 @@ impl ProjectStore {
                 limit.unwrap_or(100)
             )
         };
-        
-        let mut stmt = sqlite.inner().prepare(&query)
-            .map_err(|e| CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "prepare_sql_history".to_string(), 
-                reason: e.to_string() 
-            }))?;
-        
-        let records = stmt.query_map([], |row| {
-            Ok(SqlHistoryRecord {
-                id: row.get(0)?,
-                connection_id: row.get(1).ok().filter(|s: &String| !s.is_empty()),
-                sql_text: row.get(2)?,
-                execution_time_ms: row.get::<_, i32>(3).ok(),
-                rows_affected: row.get::<_, i32>(4).ok(),
-                error_message: row.get(5).ok().filter(|s: &String| !s.is_empty()),
-                is_favorite: row.get::<_, bool>(6)?,
-                created_at: row.get(7)?,
+
+        let mut stmt = sqlite.inner()?.prepare(&query).map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "prepare_sql_history".to_string(),
+                reason: e.to_string(),
             })
-        }).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "query_sql_history".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
+        })?;
+
+        let records = stmt
+            .query_map([], |row| {
+                Ok(SqlHistoryRecord {
+                    id: row.get(0)?,
+                    connection_id: row.get(1).ok().filter(|s: &String| !s.is_empty()),
+                    sql_text: row.get(2)?,
+                    execution_time_ms: row.get::<_, i32>(3).ok(),
+                    rows_affected: row.get::<_, i32>(4).ok(),
+                    error_message: row.get(5).ok().filter(|s: &String| !s.is_empty()),
+                    is_favorite: row.get::<_, bool>(6)?,
+                    created_at: row.get(7)?,
+                })
+            })
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_sql_history".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         // sqlite 在 drop 时自动归还到连接池
-        
-        records.collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "collect_sql_history".to_string(), 
-            reason: e.to_string() 
-        }))
+
+        records.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "collect_sql_history".to_string(),
+                reason: e.to_string(),
+            })
+        })
     }
-    
+
     // ==================== 设置管理 ====================
-    
+
     /// 保存设置
     pub async fn save_setting(&self, key: &str, value: &str) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "INSERT OR REPLACE INTO project_settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
             [key, value],
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
@@ -341,76 +353,86 @@ impl ProjectStore {
             operation: "save_setting".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         Ok(())
     }
-    
+
     /// 获取设置
     pub async fn get_setting(&self, key: &str) -> Result<Option<String>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let result: Result<String, _> = sqlite.inner().query_row(
+
+        let result: Result<String, _> = sqlite.inner()?.query_row(
             "SELECT value FROM project_settings WHERE key = ?1",
             [key],
             |row| row.get(0),
         );
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         match result {
             Ok(value) => Ok(Some(value)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "get_setting".to_string(), 
-                reason: e.to_string() 
+            Err(e) => Err(CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "get_setting".to_string(),
+                reason: e.to_string(),
             })),
         }
     }
-    
+
     /// 获取所有设置
     pub async fn get_all_settings(&self) -> Result<HashMap<String, String>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let mut stmt = sqlite.inner().prepare("SELECT key, value FROM project_settings")
-            .map_err(|e| CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "prepare_settings".to_string(), 
-                reason: e.to_string() 
-            }))?;
-        
-        let settings = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        }).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "query_settings".to_string(), 
-            reason: e.to_string() 
-        }))?;
-        
+
+        let mut stmt = sqlite
+            .inner()?
+            .prepare("SELECT key, value FROM project_settings")
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "prepare_settings".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        let settings = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_settings".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         let mut result = HashMap::new();
         for setting in settings {
-            let (key, value) = setting.map_err(|e| CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "collect_settings".to_string(), 
-                reason: e.to_string() 
-            }))?;
+            let (key, value) = setting.map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "collect_settings".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
             result.insert(key, value);
         }
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         Ok(result)
     }
-    
+
     // ==================== 工作台状态 ====================
-    
+
     /// 保存工作台状态
     pub async fn save_workbench_state(&self, state: &WorkbenchState) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        sqlite.inner().execute(
+
+        sqlite.inner()?.execute(
             "INSERT OR REPLACE INTO workbench_state (id, layout, open_panels, active_panel_id, updated_at) 
              VALUES ('default', ?1, ?2, ?3, CURRENT_TIMESTAMP)",
             [
@@ -423,17 +445,17 @@ impl ProjectStore {
             operation: "save_workbench_state".to_string(), 
             reason: e.to_string() 
         }))?;
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         Ok(())
     }
-    
+
     /// 获取工作台状态
     pub async fn get_workbench_state(&self) -> Result<Option<WorkbenchState>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
-        
-        let result = sqlite.inner().query_row(
+
+        let result = sqlite.inner()?.query_row(
             "SELECT layout, open_panels, active_panel_id FROM workbench_state WHERE id = 'default'",
             [],
             |row| {
@@ -444,16 +466,16 @@ impl ProjectStore {
                 })
             },
         );
-        
+
         // sqlite 在 drop 时自动归还到连接池
-        
+
         match result {
             Ok(state) => Ok(Some(state)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(CoreError::Storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "get_workbench_state".to_string(), 
-                reason: e.to_string() 
+            Err(e) => Err(CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "get_workbench_state".to_string(),
+                reason: e.to_string(),
             })),
         }
     }

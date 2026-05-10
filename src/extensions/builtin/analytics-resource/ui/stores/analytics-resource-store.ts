@@ -4,6 +4,9 @@ import { ref, computed } from 'vue'
 import * as analyticsApi from '../../infrastructure/api/analytics-resource-api'
 import { DEFAULT_SETTINGS } from '../../types'
 import { useCache, createCacheKey } from '../composables/use-cache'
+import { usePagination } from '../composables/use-pagination'
+import { useSelection } from '../composables/use-selection'
+import { useStoreSettings } from '../composables/use-settings'
 
 import type {
   AnalyticsResource,
@@ -34,6 +37,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   const resourceTagMap = ref<Map<string, AnalyticsTag[]>>(new Map())
   const loading = ref(false)
   const initialized = ref(false)
+  const error = ref<string | null>(null)
 
   const resourceCache = useCache<AnalyticsResource[]>({ maxSize: 20, ttl: 30000 })
   const folderCache = useCache<AnalyticsFolder[]>({ maxSize: 10, ttl: 60000 })
@@ -53,26 +57,28 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
 
   // Settings
   const settings = ref<AnalyticsResourceSettings>({ ...DEFAULT_SETTINGS })
-
-  function applySettingsToState() {
-    const s = settings.value
-    pageSize.value = s.general.defaultPageSize
-    sortBy.value = s.general.defaultSortField
-    sortOrder.value = s.general.defaultSortOrder || 'desc'
-    resourceCache.updateConfig({
-      enabled: s.cache.enabled,
-      ttl: s.cache.ttlSeconds * 1000,
-      maxSize: s.cache.maxSize,
-    })
-    folderCache.updateConfig({
-      enabled: s.cache.enabled,
-      ttl: s.cache.ttlSeconds * 1000,
-      maxSize: s.cache.maxSize,
-    })
-  }
   const selectedFolderId = ref<string | null>(null)
   const selectedScope = ref<string | null>(null)
   const selectedType = ref<string | null>(null)
+
+  const { applySettingsToState, loadSettings, saveSettings, resetSettings, clearCache } =
+    useStoreSettings(settings, resourceCache, folderCache, pageSize, sortBy, sortOrder)
+
+  const { setSort, toggleSortOrder, setPage, setPageSize, nextPage, prevPage } = usePagination(
+    page,
+    pageSize,
+    total,
+    totalPages,
+    sortBy,
+    sortOrder
+  )
+
+  const { selectResource, clearSelection, selectScope, selectType, selectFolder } = useSelection(
+    selectedResources,
+    selectedScope,
+    selectedType,
+    selectedFolderId
+  )
 
   // Computed
   const filteredResources = computed(() => {
@@ -105,9 +111,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       await analyticsApi.initAnalyticsResourceStore()
       await Promise.all([loadResources(), loadFolders(), loadTags()])
       initialized.value = true
-    } catch (error) {
-      console.error('Failed to init analytics resource store:', error)
-      throw error
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      error.value = msg
+      console.error('Failed to init analytics resource store:', err)
+      throw err
     } finally {
       loading.value = false
     }
@@ -115,6 +123,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
 
   // Actions - Resources
   async function loadResources(input?: ListResourcesInput) {
+    error.value = null
     try {
       const cacheKey = createCacheKey(
         'resources',
@@ -130,13 +139,16 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       const data = await analyticsApi.listAnalyticsResources(input || {})
       resources.value = data
       resourceCache.set(cacheKey, data)
-    } catch (error) {
-      console.error('Failed to load resources:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to load resources:', err)
+      throw err
     }
   }
 
   async function loadResourcesPaginated(input?: ListResourcesInput) {
+    error.value = null
     try {
       loading.value = true
       const cacheKey = createCacheKey(
@@ -173,9 +185,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       page.value = result.page
       pageSize.value = result.pageSize
       resourceCache.set(cacheKey, result.items)
-    } catch (error) {
-      console.error('Failed to load resources:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to load resources paginated:', err)
+      throw err
     } finally {
       loading.value = false
     }
@@ -193,9 +207,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       total.value += 1
       invalidateResourceCache()
       return resource
-    } catch (error) {
-      console.error('Failed to create resource:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to create resource:', err)
+      throw err
     } finally {
       loading.value = false
     }
@@ -211,9 +227,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       }
       invalidateResourceCache()
       return resource
-    } catch (error) {
-      console.error('Failed to update resource:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to update resource:', err)
+      throw err
     } finally {
       loading.value = false
     }
@@ -265,51 +283,15 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     }
   }
 
-  // Sorting
-  function setSort(field: SortField | null, order?: SortOrder) {
-    sortBy.value = field
-    if (order) {
-      sortOrder.value = order
-    } else if (sortBy.value === field) {
-      sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-    }
-  }
-
-  function toggleSortOrder() {
-    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  }
-
-  // Pagination
-  function setPage(newPage: number) {
-    if (newPage >= 1 && newPage <= totalPages.value) {
-      page.value = newPage
-    }
-  }
-
-  function setPageSize(size: number) {
-    pageSize.value = size
-    page.value = 1
-  }
-
-  function nextPage() {
-    if (page.value < totalPages.value) {
-      page.value += 1
-    }
-  }
-
-  function prevPage() {
-    if (page.value > 1) {
-      page.value -= 1
-    }
-  }
-
   // Actions - Folders
   async function loadFolders(input?: ListFoldersInput) {
     try {
       folders.value = await analyticsApi.listAnalyticsFolders(input || {})
-    } catch (error) {
-      console.error('Failed to load folders:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to load folders:', err)
+      throw err
     }
   }
 
@@ -395,9 +377,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   async function loadTags(input?: ListTagsInput) {
     try {
       tags.value = await analyticsApi.listAnalyticsTags(input || {})
-    } catch (error) {
-      console.error('Failed to load tags:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to load tags:', err)
+      throw err
     }
   }
 
@@ -437,9 +421,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
   async function loadRecycleBin() {
     try {
       recycleBin.value = await analyticsApi.getAnalyticsRecycleBin()
-    } catch (error) {
-      console.error('Failed to load recycle bin:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to load recycle bin:', err)
+      throw err
     }
   }
 
@@ -471,34 +457,8 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     }
   }
 
-  // Selection
-  function selectResource(id: string, multiple = false) {
-    if (multiple) {
-      const index = selectedResources.value.indexOf(id)
-      if (index !== -1) {
-        selectedResources.value.splice(index, 1)
-      } else {
-        selectedResources.value.push(id)
-      }
-    } else {
-      selectedResources.value = [id]
-    }
-  }
-
-  function clearSelection() {
-    selectedResources.value = []
-  }
-
-  function selectScope(scope: string | null) {
-    selectedScope.value = scope
-  }
-
-  function selectType(type: string | null) {
-    selectedType.value = type
-  }
-
-  function selectFolder(folderId: string | null) {
-    selectedFolderId.value = folderId
+  function clearError() {
+    error.value = null
   }
 
   return {
@@ -509,6 +469,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     recycleBin,
     loading,
     initialized,
+    error,
     selectedResources,
     selectedFolderId,
     selectedScope,
@@ -571,6 +532,7 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     // Selection
     selectResource,
     clearSelection,
+    clearError,
     selectScope,
     selectType,
     selectFolder,
@@ -591,34 +553,6 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
     // Tag Bidirectional
     getTagsForResource,
     getResourcesByTag,
-  };
-
-  function loadSettings() {
-    const stored = localStorage.getItem('analytics_resource_settings')
-    if (stored) {
-      try {
-        settings.value = JSON.parse(stored)
-      } catch {
-        settings.value = { ...DEFAULT_SETTINGS }
-      }
-    }
-  }
-
-  function saveSettings(newSettings: AnalyticsResourceSettings) {
-    settings.value = newSettings
-    localStorage.setItem('analytics_resource_settings', JSON.stringify(newSettings))
-    applySettingsToState()
-  }
-
-  function resetSettings() {
-    settings.value = { ...DEFAULT_SETTINGS }
-    localStorage.setItem('analytics_resource_settings', JSON.stringify(settings.value))
-    applySettingsToState()
-  }
-
-  function clearCache() {
-    resourceCache.clear()
-    folderCache.clear()
   }
 
   // Version History

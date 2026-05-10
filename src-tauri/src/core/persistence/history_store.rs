@@ -6,7 +6,7 @@
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn system_time_millis() -> u64 {
     SystemTime::now()
@@ -33,25 +33,15 @@ const DEFAULT_LIMIT: usize = 100;
 /// 存储单条 SQL 执行记录的元数据
 #[derive(Debug, Clone)]
 pub struct HistoryRecord {
-    /// 记录唯一标识（UUID）
     pub id: String,
-    /// 执行的 SQL 语句
     pub sql: String,
-    /// 数据库类型
     pub db_type: String,
-    /// 连接 ID
     pub connection_id: String,
-    /// 执行时间戳（Unix 时间戳，毫秒）
     pub timestamp: u64,
-    /// 执行耗时（毫秒）
     pub duration_ms: u64,
-    /// 是否执行成功
     pub success: bool,
-    /// 错误信息（如果执行失败）
     pub error_message: Option<String>,
-    /// 影响的行数（如果适用）
     pub rows_affected: Option<u64>,
-    /// 返回的行数（如果适用）
     pub rows_returned: Option<u64>,
 }
 
@@ -390,7 +380,11 @@ impl HistoryStore {
     /// # Returns
     ///
     /// 返回匹配筛选条件的历史记录列表
-    pub fn filter_records(&self, filter: &HistoryFilter, limit: Option<usize>) -> Vec<&HistoryRecord> {
+    pub fn filter_records(
+        &self,
+        filter: &HistoryFilter,
+        limit: Option<usize>,
+    ) -> Vec<&HistoryRecord> {
         let limit = limit.unwrap_or(DEFAULT_LIMIT);
         self.records
             .iter()
@@ -409,7 +403,11 @@ impl HistoryStore {
     /// # Returns
     ///
     /// 返回匹配类型的历史记录列表
-    pub fn get_records_by_db_type(&self, db_type: &str, limit: Option<usize>) -> Vec<&HistoryRecord> {
+    pub fn get_records_by_db_type(
+        &self,
+        db_type: &str,
+        limit: Option<usize>,
+    ) -> Vec<&HistoryRecord> {
         let filter = HistoryFilter::new().with_db_type(db_type.to_string());
         self.filter_records(&filter, limit)
     }
@@ -424,7 +422,11 @@ impl HistoryStore {
     /// # Returns
     ///
     /// 返回匹配连接的历史记录列表
-    pub fn get_records_by_connection(&self, connection_id: &str, limit: Option<usize>) -> Vec<&HistoryRecord> {
+    pub fn get_records_by_connection(
+        &self,
+        connection_id: &str,
+        limit: Option<usize>,
+    ) -> Vec<&HistoryRecord> {
         let filter = HistoryFilter::new().with_connection_id(connection_id.to_string());
         self.filter_records(&filter, limit)
     }
@@ -622,7 +624,9 @@ impl HistoryStore {
                 let start = pos + pattern.len();
                 let rest = &json[start..];
                 let rest = rest.trim_start();
-                let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+                let end = rest
+                    .find(|c: char| !c.is_ascii_digit())
+                    .unwrap_or(rest.len());
                 return rest[..end].parse().ok();
             }
             None
@@ -678,16 +682,31 @@ impl HistoryStore {
         let mut result = String::from("[\n");
         for (i, record) in records.iter().enumerate() {
             result.push_str("  {\n");
-            result.push_str(&format!("    \"id\": \"{}\",\n", Self::escape_json(&record.id)));
-            result.push_str(&format!("    \"sql\": \"{}\",\n", Self::escape_json(&record.sql)));
-            result.push_str(&format!("    \"db_type\": \"{}\",\n", Self::escape_json(&record.db_type)));
-            result.push_str(&format!("    \"connection_id\": \"{}\",\n", Self::escape_json(&record.connection_id)));
+            result.push_str(&format!(
+                "    \"id\": \"{}\",\n",
+                Self::escape_json(&record.id)
+            ));
+            result.push_str(&format!(
+                "    \"sql\": \"{}\",\n",
+                Self::escape_json(&record.sql)
+            ));
+            result.push_str(&format!(
+                "    \"db_type\": \"{}\",\n",
+                Self::escape_json(&record.db_type)
+            ));
+            result.push_str(&format!(
+                "    \"connection_id\": \"{}\",\n",
+                Self::escape_json(&record.connection_id)
+            ));
             result.push_str(&format!("    \"timestamp\": {},\n", record.timestamp));
             result.push_str(&format!("    \"duration_ms\": {},\n", record.duration_ms));
             result.push_str(&format!("    \"success\": {},\n", record.success));
 
             if let Some(ref err) = record.error_message {
-                result.push_str(&format!("    \"error_message\": \"{}\",\n", Self::escape_json(err)));
+                result.push_str(&format!(
+                    "    \"error_message\": \"{}\",\n",
+                    Self::escape_json(err)
+                ));
             }
 
             if let Some(rows) = record.rows_affected {
@@ -732,8 +751,8 @@ impl HistoryStore {
 
 // ==================== 全局便捷函数 ====================
 
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
 /// 全局历史存储实例
 static GLOBAL_HISTORY_STORE: Lazy<Mutex<HistoryStore>> = Lazy::new(|| {
@@ -749,10 +768,10 @@ fn get_default_history_path() -> PathBuf {
     let app_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("RdataStation");
-    
+
     // 确保目录存在
     let _ = std::fs::create_dir_all(&app_dir);
-    
+
     app_dir.join("sql_history.json")
 }
 
@@ -762,33 +781,38 @@ pub struct SqlHistoryRecord {
     pub id: String,
     pub sql: String,
     pub conn_id: Option<String>,
+    pub db_type: Option<String>,
     pub executed_at: chrono::DateTime<chrono::Utc>,
+    pub duration_ms: Option<u64>,
+    pub success: Option<bool>,
+    pub error_message: Option<String>,
+    pub rows_affected: Option<u64>,
+    pub rows_returned: Option<u64>,
 }
 
 /// 保存 SQL 历史
 pub fn save_sql_history(sql: &str, conn_id: Option<&str>) -> Result<(), std::io::Error> {
-    let mut store = GLOBAL_HISTORY_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+    let mut store = GLOBAL_HISTORY_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
     // 使用默认的数据库类型和连接 ID
     let db_type = "unknown".to_string();
     let connection_id = conn_id.unwrap_or("unknown").to_string();
-    
+
     let mut record = HistoryRecord::new(sql.to_string(), db_type, connection_id);
     record.mark_success(0); // 标记为成功，耗时未知
-    
+
     store.add_record(record);
     store.save()
 }
 
 /// 获取 SQL 历史列表
 pub fn get_sql_history(limit: usize) -> Result<Vec<SqlHistoryRecord>, std::io::Error> {
-    let mut store = GLOBAL_HISTORY_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+    let mut store = GLOBAL_HISTORY_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
-    // 重新加载以获取最新数据
     store.load()?;
 
     let records: Vec<SqlHistoryRecord> = store
@@ -802,8 +826,18 @@ pub fn get_sql_history(limit: usize) -> Result<Vec<SqlHistoryRecord>, std::io::E
             } else {
                 Some(r.connection_id.clone())
             },
+            db_type: if r.db_type == "unknown" {
+                None
+            } else {
+                Some(r.db_type.clone())
+            },
             executed_at: chrono::DateTime::from_timestamp((r.timestamp / 1000) as i64, 0)
                 .unwrap_or_else(|| chrono::Utc::now()),
+            duration_ms: Some(r.duration_ms),
+            success: Some(r.success),
+            error_message: r.error_message.clone(),
+            rows_affected: r.rows_affected,
+            rows_returned: r.rows_returned,
         })
         .collect();
 
@@ -811,12 +845,14 @@ pub fn get_sql_history(limit: usize) -> Result<Vec<SqlHistoryRecord>, std::io::E
 }
 
 /// 搜索 SQL 历史
-pub fn search_sql_history(keyword: &str, limit: usize) -> Result<Vec<SqlHistoryRecord>, std::io::Error> {
-    let mut store = GLOBAL_HISTORY_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+pub fn search_sql_history(
+    keyword: &str,
+    limit: usize,
+) -> Result<Vec<SqlHistoryRecord>, std::io::Error> {
+    let mut store = GLOBAL_HISTORY_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
-    // 重新加载以获取最新数据
     store.load()?;
 
     let results = store.search(keyword, Some(limit));
@@ -831,8 +867,18 @@ pub fn search_sql_history(keyword: &str, limit: usize) -> Result<Vec<SqlHistoryR
             } else {
                 Some(r.connection_id.clone())
             },
+            db_type: if r.db_type == "unknown" {
+                None
+            } else {
+                Some(r.db_type.clone())
+            },
             executed_at: chrono::DateTime::from_timestamp((r.timestamp / 1000) as i64, 0)
                 .unwrap_or_else(|| chrono::Utc::now()),
+            duration_ms: Some(r.duration_ms),
+            success: Some(r.success),
+            error_message: r.error_message.clone(),
+            rows_affected: r.rows_affected,
+            rows_returned: r.rows_returned,
         })
         .collect();
 
@@ -841,9 +887,9 @@ pub fn search_sql_history(keyword: &str, limit: usize) -> Result<Vec<SqlHistoryR
 
 /// 清空 SQL 历史
 pub fn clear_sql_history() -> Result<(), std::io::Error> {
-    let mut store = GLOBAL_HISTORY_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+    let mut store = GLOBAL_HISTORY_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
     store.clear();
     store.save()
@@ -851,9 +897,9 @@ pub fn clear_sql_history() -> Result<(), std::io::Error> {
 
 /// 删除单条 SQL 历史
 pub fn remove_sql_history(id: &str) -> Result<(), std::io::Error> {
-    let mut store = GLOBAL_HISTORY_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+    let mut store = GLOBAL_HISTORY_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
     store.remove_record(id);
     store.save()

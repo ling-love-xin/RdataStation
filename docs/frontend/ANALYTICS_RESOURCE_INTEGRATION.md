@@ -1,8 +1,8 @@
 # 分析资源管理器 — 前端集成指南
 
-> 版本：v1.4
-> 最后更新：2026-05-08
-> 状态：✅ 24 个前端 API，完整 Store 接口
+> 版本：v1.5
+> 最后更新：2026-05-10
+> 状态：✅ 25 个前端 API，完整 Store 接口
 
 ---
 
@@ -346,6 +346,14 @@ await analyticsApi.deleteAnalyticsResource('ar_xxx')
 | `createTag`             | `(input: CreateTagRequest) => Promise<AnalyticsTag>`   | 创建标签       |
 | `addTagToResource`      | `(resourceId: string, tagId: string) => Promise<void>` | 资源添加标签   |
 | `removeTagFromResource` | `(resourceId: string, tagId: string) => Promise<void>` | 从资源移除标签 |
+| `getAnalyticsTag`       | `(id: string) => Promise<AnalyticsTag>`                | 获取单个标签详情 🆕 |
+
+#### 标签缓存（前端本地）
+
+| 方法                | 签名                                          | 说明                           |
+| ------------------- | --------------------------------------------- | ------------------------------ |
+| `loadResourceTags`  | `(resourceIds: string[]) => Promise<void>`    | 批量加载资源标签到本地缓存 🆕  |
+| `getResourceTags`   | `(resourceId: string) => AnalyticsTag[]`      | 从本地缓存同步获取资源标签 🆕  |
 
 #### 版本与双向查询
 

@@ -5,9 +5,7 @@ use serde_json::{json, Value};
 
 use crate::core::error::{CommonError, CoreError};
 
-use super::rule_types::{
-    ExecutionResult, OutputField, QualityCheck, QualityReport, RuleFile,
-};
+use super::rule_types::{ExecutionResult, OutputField, QualityCheck, QualityReport, RuleFile};
 
 pub struct RuleExecutor;
 
@@ -223,11 +221,7 @@ impl RuleExecutor {
         Ok(val)
     }
 
-    fn execute_single(
-        rule: &RuleFile,
-        conn: &Connection,
-        sql: &str,
-    ) -> Result<Value, CoreError> {
+    fn execute_single(rule: &RuleFile, conn: &Connection, sql: &str) -> Result<Value, CoreError> {
         let mut stmt = conn.prepare(sql).map_err(|e| {
             CoreError::common(CommonError::General(format!(
                 "Rule '{}' prepare failed: {}",
@@ -276,11 +270,7 @@ impl RuleExecutor {
         }
     }
 
-    fn execute_list(
-        rule: &RuleFile,
-        conn: &Connection,
-        sql: &str,
-    ) -> Result<Value, CoreError> {
+    fn execute_list(rule: &RuleFile, conn: &Connection, sql: &str) -> Result<Value, CoreError> {
         let mut stmt = conn.prepare(sql).map_err(|e| {
             CoreError::common(CommonError::General(format!(
                 "Rule '{}' prepare failed: {}",
@@ -409,7 +399,8 @@ mod tests {
     #[test]
     fn test_build_col_map_extracts_column_names() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE test (id INTEGER, name TEXT, value REAL)").unwrap();
+        conn.execute_batch("CREATE TABLE test (id INTEGER, name TEXT, value REAL)")
+            .unwrap();
         let stmt = conn.prepare("SELECT id, name, value FROM test").unwrap();
         let map = RuleExecutor::build_col_map(&stmt);
         assert_eq!(map.len(), 3);
@@ -526,9 +517,8 @@ mod tests {
     #[test]
     fn test_execute_single_with_valid_rule() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);"
-        ).unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);")
+            .unwrap();
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -563,9 +553,8 @@ mod tests {
     #[test]
     fn test_execute_list_with_valid_rule() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1), (2), (3);"
-        ).unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1), (2), (3);")
+            .unwrap();
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -635,9 +624,8 @@ mod tests {
     #[test]
     fn test_execute_qualified_with_quality_rules_passing() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);"
-        ).unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);")
+            .unwrap();
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -683,9 +671,8 @@ mod tests {
     #[test]
     fn test_execute_qualified_with_quality_rules_failing_min() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (-5);"
-        ).unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (-5);")
+            .unwrap();
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -729,7 +716,8 @@ mod tests {
     #[test]
     fn test_execute_qualified_no_quality_rules() {
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1)").unwrap();
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1)")
+            .unwrap();
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {

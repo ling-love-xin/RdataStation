@@ -1,10 +1,9 @@
 # RdataStation 洞察体系 — 开发进度跟踪
 
-> 版本：v23.0
+> 版本：v26.0
 > 创建日期：2026-05-07
-> 最后更新：2026-05-09
-> 总体状态：✅ 全阶段完成 + QualityRule 质量门控 + DuckDB TTL + 全栈审计 + API/规则文档 + 测试完整 + P2 组件拆分 + RenderHint 管道 + diff 渲染修复 + 类型安全强化 + 类型分类修复 + 可配置常量 + 归档三修复（ID重复warning / 复合FK / 规则热加载）
-> 📦 **归档状态：Phase 20 完成后暂归档，后续按需解冻**
+> 最后更新：2026-05-10
+> 总体状态：✅ 全阶段完成 + QualityRule 质量门控 + DuckDB TTL + 全栈审计 + API/规则文档 + 测试完整 + P2 组件拆分 + RenderHint 管道 + diff 渲染修复 + 类型安全强化 + 类型分类修复 + 可配置常量 + 归档三修复 + 全局主题样式统一 + 审计修复 + 文档一致化 + 深度审计修复 (Semaphore/DuckDB/API docs/常量)
 
 ***
 
@@ -480,6 +479,62 @@ column: order_line_item_id
 → 返回 rule_count → Store loadMultiRules() 刷新规则列表
 ```
 
+### Phase 21: 全局主题样式统一 (2026-05-09)
+
+> 打通洞察模块前端样式与全局 `tokens.css`，消除所有硬编码颜色/字体/间距/圆角。
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **tokens.css 补充**: `--brand-info`/`--brand-info-soft`/`--brand-blue`/`--brand-danger-soft`/`--brand-danger-bg` | `tokens.css` | ✅ |
+| **tokens.css 补充**: `--spacing-xl: 20px`/`--spacing-2xl: 24px` | `tokens.css` | ✅ |
+| **tokens.css 补充**: `--border-radius-lg: 8px` | `tokens.css` | ✅ |
+| **tokens.css 补充**: `--font-size-xxs: 9px`/`--font-size-xss: 11px`/`--font-size-xxl: 20px`/`--font-size-huge: 24px` | `tokens.css` | ✅ |
+| **移除去 fallback**: 全局替换 `var(--x, #fallback)` → `var(--x)` 共 ~45 处 | 全部 9 .vue | ✅ |
+| **硬编码颜色→token**: `#b51a1a`/`#fff0f0`→`--brand-danger`/`--brand-danger-bg` | `TableProfileView.vue` | ✅ |
+| **硬编码颜色→token**: `#00cec9`→`--brand-info`, `rgba(0,206,201,0.15)`→`--brand-info-soft` | `QualityScoreCard.vue` | ✅ |
+| **硬编码颜色→token**: `#74b9ff`→`--brand-blue`, `rgba(0,123,255,0.08)`→`rgba(116,185,255,0.08)` | `InsightStatsSection.vue` | ✅ |
+| **font-size→token**: 全部 9/10/11/12/13/14/16/20/22/24px → `--font-size-xxs/xs/xss/sm/md/lg/xl/xxl/huge` | 全部 9 .vue | ✅ |
+| **spacing→token**: 全部 4/8/12/16/20/24px → `--spacing-xs/sm/md/lg/xl/2xl` | 全部 9 .vue | ✅ |
+| **border-radius→token**: 全部 4/6px → `--border-radius-sm/md` | 全部 9 .vue | ✅ |
+| ✅ eslint 0 errors (443 预存 warning 无关) | — | ✅ |
+
+**修改统计：**
+
+| 指标 | 数值 |
+|------|------|
+| 修改文件 | 10 (1 tokens.css + 9 .vue) |
+| 消除硬编码颜色 | 4 处 HEX/RGB → CSS 变量 |
+| 消除 fallback 冗余 | ~45 处 `var(--x, #fallback)` → `var(--x)` |
+| font-size → token | ~55 处 |
+| spacing → token | ~30 处 |
+| border-radius → token | ~10 处 |
+
+### Phase 22: 全栈审计修复 (2026-05-09)
+
+> 修复 Phase 21 全栈审计发现的 5 个不一致问题。
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **render 字段补充**: `list_insight_rules()` JSON 增加 `"render": r.render` | `insight_engine.rs` | ✅ |
+| **render 字段补充**: `list_rules_for_column()` JSON 增加 `"result_type": ...` + `"render": ...` | `insight_engine.rs` | ✅ |
+| **死类型清理**: `result.ts` 删除 6 个旧类型 (ColumnInsight/ColumnStats/HistogramBucket/QualityScore/TableProfile/TableColumnMeta) — 共 65 行 | `result.ts` | ✅ |
+| **MultiRuleResult 收紧**: `Record<string, unknown>` → 结构化 `{ data, quality }` | `result.ts` | ✅ |
+| **isOpen 清理**: insight-store 移除 `isOpen` 死状态 + `closeInsight()` 死函数 | `insight-store.ts` | ✅ |
+| **handleCleanup 修复**: ColumnInsightPanel 清理按钮从调用 `closeInsight()` (误) 改为 `cleanupInsightSnapshots()` (正) | `ColumnInsightPanel.vue` | ✅ |
+| ✅ cargo check exit 0 (3 预存 warning) + eslint 4 insight 文件 0 errors | — | ✅ |
+
+#### Phase 22.1: 文档一致化 (2026-05-09)
+
+| 任务                                                              | 文件                          | 状态 |
+| ----------------------------------------------------------------- | ----------------------------- | :--: |
+| **ARCHITECTURE.md 规则数修正**: 13→18条 + 补充 table/quality 目录 | `INSIGHT-ARCHITECTURE.md` | ✅ |
+| **ARCHITECTURE.md Commands 补全**: 8→15个命令 (补充7个缺失命令) | `INSIGHT-ARCHITECTURE.md` | ✅ |
+| **ARCHITECTURE.md 文件清单更新**: 新增 insight_engine/quality_scorer/duckdb_service + DataVisualizationPanel/ColumnInsightsPanel + tokens.css/result.ts | `INSIGHT-ARCHITECTURE.md` | ✅ |
+| **ARCHITECTURE.md 版本更新**: v18.0→v19.0 + Phase 21/22 状态同步 | `INSIGHT-ARCHITECTURE.md` | ✅ |
+| **DESIGN.md 版本更新**: v1.2→v1.3 + 状态行从 Phase 19→Phase 22 | `INSIGHT-DESIGN.md` | ✅ |
+| **DESIGN.md v2.1路线图修正**: 规则热加载标记 ✅ Phase 20 已完成 | `INSIGHT-DESIGN.md` | ✅ |
+| ✅ cargo check exit 0 (3 预存 warning, 仅文档变更) + eslint 0 errors | — | ✅ |
+
 ## 三、变更日志
 
 \| 时间            | 类型     | 描述                                                                                                      |
@@ -594,7 +649,16 @@ column: order_line_item_id
 | 2026-05-09      | fix      | **规则ID重复warning**: `rule_registry.rs` scan_directory + load_from_embedded_dir 增加 `HashSet` 重复检测 + `tracing::warn!` |
 | 2026-05-09      | fix      | **复合FK推断**: `schema_analyzer.rs` 新增 `find_compound_fk_target()` 逐级后缀匹配 + 2 测试 |
 | 2026-05-09      | feat     | **规则热加载**: `reload_insight_rules` Rust 函数 + Tauri 命令 + 前端 API + Store action + UI 按钮 |
-| 2026-05-09      | build    | ✅ cargo check insight 模块 0 errors（第31次验证, Phase 20 完成, 📦 归档） |
+| 2026-05-09      | build    | ✅ cargo check insight 模块 0 errors（第31次验证, Phase 20 完成） |
+| 2026-05-09      | refactor | **全局主题样式统一**: tokens.css 补充 10 个 token + 9 个 .vue 消除所有硬编码 (Phase 21) |
+| 2026-05-09      | build    | ✅ eslint 0 errors (第32次验证, Phase 21 完成) |
+| 2026-05-09      | fix      | **审计修复 P0**: list_insight_rules + list_rules_for_column 补充 `render` 字段 |
+| 2026-05-09      | refactor | **审计修复 P0**: result.ts 删除 6 个死类型 (65行) + `MultiRuleResult` 收紧 |
+| 2026-05-09      | refactor | **审计修复 P2**: insight-store 移除 `isOpen` 死状态 + `closeInsight()` + handleCleanup 修正 |
+| 2026-05-09      | build    | ✅ cargo check exit 0 + eslint 4 insight 文件 0 errors (第33次验证, Phase 22 完成) |
+| 2026-05-09      | docs     | **文档一致化**: ARCHITECTURE.md 规则数13→18 + Commands 8→15 + v18→v19 |
+| 2026-05-09      | docs     | **文档一致化**: DESIGN.md v1.2→v1.3 + v2.1路线图热加载标记已完成 |
+| 2026-05-09      | build    | ✅ cargo check exit 0 + eslint 0 errors (第34次验证, Phase 22.1 完成) |
 
 ***
 
@@ -626,7 +690,10 @@ column: order_line_item_id
 | 28  | ✅ exit 0 | Phase 17 P2 组件拆分 + RenderHint 打通: cargo check clean (1 existing warning), eslint insight 文件 0 新增, 3 新子组件 |
 | 29  | ⚠️ 50预存 | Phase 18 P0 diff修复 + P1 类型安全: eslint 0 errors (import path修正), cargo 0 insight错误 (50 预存 faker E0433) |
 | 30  | ✅ exit 0 | Phase 19 审计修复: 类型分类(P0) + 常量配置化(P1) + 测试验证, cargo 0 errors (2 预存 warning) |
-| 31  | ✅ insight 0 | Phase 20 归档三修复: cargo check insight 模块 0 errors (20 预存 analytics_resource_store rusqlite 错误无关), 📦 归档 |
+| 31  | ✅ insight 0 | Phase 20 归档三修复: cargo check insight 模块 0 errors |
+| 32  | ✅ eslint 0 | Phase 21 全局主题统一: eslint 0 errors (443 预存 warning) |
+| 33  | ✅ exit 0 | Phase 22 审计修复 (type/constant/dead code/dedup + i18n 双语化): cargo check 0 errors, eslint 0 errors (394 预存 warning) |
+| 34  | ✅ exit 0 | Phase 23 深度审计修复 (Semaphore/DuckDB docs/API docs/BUILTIN_RULE_COUNT/deny_unknown_fields): cargo check 0 errors (16 预存 warning), eslint 0 errors (394 预存 warning) |
 
 ***
 
@@ -677,7 +744,9 @@ column: order_line_item_id
 | Phase 19 修改文件  |                          3 (duckdb_service.rs, insight_engine.rs, quality_scorer.rs)     |
 | Phase 20 修改文件  |                          6 (rule_registry.rs, schema_analyzer.rs, insight/mod.rs, result_commands.rs, lib.rs, result-analysis.ts, insight-store.ts, ColumnInsightPanel.vue)     |
 | Phase 20 新增测试  |                          2 (schema_analyzer.rs 复合FK测试)     |
+| Phase 21 修改文件  |                         10 (1 tokens.css + 9 .vue)     |
 | cargo check 累计 |                                                                 31 次全部通过                                                                 |
+| eslint 累计 |                                                                    5 次全部通过                                                                  |
 
 ***
 

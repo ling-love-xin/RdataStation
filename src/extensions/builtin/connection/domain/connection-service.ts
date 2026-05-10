@@ -87,7 +87,7 @@ export interface ConnectionConfig {
   filePath?: string
   ssl?: boolean
   ssh?: boolean
-  options?: Record<string, any>
+  options?: Record<string, unknown>
 }
 
 /**
@@ -109,7 +109,7 @@ export interface DriverOption {
   key: string
   label: string
   type: 'text' | 'number' | 'boolean' | 'select'
-  defaultValue?: any
+  defaultValue?: unknown
   description?: string
 }
 

@@ -1,8 +1,8 @@
 # API 接口文档
 
-> 版本：v2.4
-> 最后更新：2026-05-09
-> 状态：✅ hasCatalogs 配置字段 — 文件型数据库跳过冗余层级
+> 版本：v3.6
+> 最后更新：2026-05-10
+> 状态：✅ R20 — 五审审计 | 综合 7.8 | MySQL 集成测试 | 旧数据迁移
 
 ## 概述
 
@@ -17,7 +17,7 @@
 | 连接管理     | `connection_commands`         | ~15      |
 | 驱动管理     | `driver_commands`             | ~4       |
 | SQL 执行     | `sql_commands`                | ~12      |
-| 元数据导航 🔗| `metadata_commands`           | 8        |
+| 元数据导航 🔗| `metadata_commands`           | 9        |
 | 项目管理     | `project_commands`            | ~12      |
 | 项目存储     | `project_store_commands`      | ~8       |
 | 元数据缓存   | `metadata_cache_commands`     | ~8       |
@@ -300,6 +300,36 @@ const result = await invoke('execute_transaction', {
 > 以下 `load_*` 命令由 [metadata_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/metadata_commands.rs) 实现，调用 `Database` trait 的 `list_*` 方法。
 > 不同数据库架构差异由后端驱动层统一处理，前端无需针对 dbType 分支。
 
+**缓存层（R14 更新）**：
+
+所有 8 个 `load_*` 命令采用 **Cache-Aside（旁路缓存）** 策略：
+```
+请求 → check L1 MetadataCache (LRU, TTL 300s)
+  ├── 命中 → 返回（0ms）
+  └── 未命中 → 查询数据库 → write L1 → 返回
+```
+
+**共享键设计**：
+- `load_catalogs` 和 `load_databases` **共享** `Databases` 缓存键
+- `load_tables` 和 `load_views` **共享** `Tables` 缓存键
+
+**全覆盖状态（R15）**：
+
+| 命令 | 缓存键 | Trait 方法 | 状态 |
+|:---|:---|:---|:---:|
+| `load_catalogs` | Databases | `list_databases()` | ✅ R13 |
+| `load_databases` | Databases（共享） | `list_databases()` | ✅ R13 |
+| `load_schemas` | Schemas | `list_schemas()` | ✅ R13 |
+| `load_tables` | Tables | `list_tables()` | ✅ R13 |
+| `load_views` | Tables（共享） | `list_tables() + filter` | ✅ R13 |
+| `load_columns` | Columns | `list_columns()` | ✅ R14 |
+| `load_procedures` | Procedures | `list_procedures()` | ✅ R14 |
+| `load_functions` | Functions | `list_functions()` | ✅ R14 |
+| `load_routine_source` | RoutineSource | `get_routine_source()` | ✅ R15 |
+
+- 断开连接时自动清除缓存（`ConnectionManager::remove_connection()` → `CacheManager::invalidate_connection()`）
+- 手动刷新 F5 前请调用 `invalidate_metadata_cache`（见下方）
+
 ### load_catalogs
 
 加载 Catalog 列表。**ANSI SQL 标准：Catalog 是顶层容器，包含多个 Schema。**
@@ -473,14 +503,14 @@ interface ColumnMeta {
 
 ### load_procedures
 
-获取存储过程列表。
+获取存储过程列表。**R14 接入 `Database` trait `list_procedures()`，支持 L1 缓存。**
 
 **参数**：
 
 ```typescript
 {
   connId: string
-  dbType: string
+  dbName: string
   schemaName: string
 }
 ```
@@ -495,25 +525,27 @@ interface ProcedureMeta {
 ```
 
 **数据库差异**：
-| 数据库 | SQL | 备注 |
-|--------|-----|------|
-| MySQL | `INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE='PROCEDURE'` | - |
-| PostgreSQL | `pg_proc WHERE prokind='p'` | - |
-| SQLite | `[]` | 不支持存储过程 |
-| DuckDB | `[]` | 不支持存储过程 |
+| 数据库 | Trait 方法 | SQL | 备注 |
+|--------|-----------|-----|------|
+| MySQL | `list_procedures()` | `INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE='PROCEDURE'` | - |
+| PostgreSQL | `list_procedures()` | `pg_proc WHERE prokind='p'` | - |
+| SQLite | `list_procedures()` → 默认空实现 | `[]` | 不支持存储过程 |
+| DuckDB | `list_procedures()` → 默认空实现 | `[]` | 不支持存储过程 |
+
+> ✅ R14：`load_procedures` 已从原始 SQL 构建重构为 `Database` trait 方法调用。参数 `dbType` → `dbName`，与 `load_tables`/`load_columns` 语义对齐。
 
 ---
 
 ### load_functions
 
-获取函数列表。
+获取函数列表。**R14 接入 `Database` trait `list_functions()`，支持 L1 缓存。**
 
 **参数**：
 
 ```typescript
 {
   connId: string
-  dbType: string
+  dbName: string
   schemaName: string
 }
 ```
@@ -528,14 +560,182 @@ interface FunctionMeta {
 ```
 
 **数据库差异**：
-| 数据库 | SQL | 备注 |
-|--------|-----|------|
-| MySQL | `INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE='FUNCTION'` | - |
-| PostgreSQL | `pg_proc WHERE prokind IN ('f','a')` | 包含聚合函数 |
-| SQLite | `[]` | 不支持函数 |
-| DuckDB | `[]` | 函数通过扩展支持 |
+| 数据库 | Trait 方法 | SQL | 备注 |
+|--------|-----------|-----|------|
+| MySQL | `list_functions()` | `INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE='FUNCTION'` | - |
+| PostgreSQL | `list_functions()` | `pg_proc WHERE prokind IN ('f','a')` | 包含聚合函数 |
+| SQLite | `list_functions()` → 默认空实现 | `[]` | 不支持函数 |
+| DuckDB | `list_functions()` → 默认空实现 | `[]` | 函数通过扩展支持 |
 
-> ⚠️ `load_procedures` / `load_functions` 的 SQL 构建位于后端 `metadata_commands.rs`，不在前端 TypeScript 中。由于 Database trait 不允许新增方法（架构约束），SQL 构建根据 dbType 分支是务实的妥协。
+> ✅ R14：`load_functions` 已从原始 SQL 构建重构为 `Database` trait 方法调用。参数 `dbType` → `dbName`，与 `load_tables`/`load_columns` 语义对齐。
+
+---
+
+### load_routine_source
+
+**🆕 R15 新增** — 获取过程/函数的 DDL 源码（DBeavor Source Tab 方案）。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  dbName: string
+  schemaName: string
+  routineName: string
+  routineKind: string  // "procedure" | "function"
+}
+```
+
+**返回**：
+
+```typescript
+interface RoutineSourceMeta {
+  name: string
+  routineKind: string          // "procedure" 或 "function"
+  sourceCode: string | null    // null = 该数据库不支持此 routine
+}
+```
+
+**数据库差异**：
+| 数据库 | Trait 方法 | SQL | 返回 |
+|--------|-----------|-----|------|
+| PostgreSQL | `get_routine_source()` | `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname=? AND prokind=?` | 完整 CREATE OR REPLACE 语句 |
+| MySQL | `get_routine_source()` | `SHOW CREATE PROCEDURE/FUNCTION`  | 完整 CREATE 语句（含 DEFINER） |
+| SQLite | `get_routine_source()` → 默认 | — | `null` |
+| DuckDB | `get_routine_source()` → 默认 | — | `null` |
+
+**缓存**：L1 MetadataCache，键 `RoutineSource`，TTL 300s（routine 定义变更频率低）。
+
+**前端集成**：
+- 双击导航树中的 procedure/function → `loadRoutineSource()` → Monaco Editor 只读 Tab
+- 悬停 → 提取 DDL 第一行作为签名（前端正则解析）
+- 右键 → "Copy DDL"
+
+**插件扩展**：新数据库只需实现 `get_routine_source()` trait 方法 → 返回 `Option<String>` → 前端自动生效。
+
+---
+
+## SQL 执行命令
+
+### execute_sql
+
+执行 SQL 查询语句，返回 Arrow RecordBatch 格式的结果集。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  sql: string
+  dbName?: string    // 可选：指定数据库（MySQL/PostgreSQL）
+}
+```
+
+**返回**：`QueryResult` — 包含 `batches: RecordBatch[]` 和 `row_count: number`
+
+**数据库差异**：
+| 数据库 | 事务 | 批量 | 备注 |
+|--------|------|------|------|
+| MySQL | ✅ | ✅ | sqlx 驱动 |
+| PostgreSQL | ✅ | ✅ | sqlx 驱动 |
+| SQLite | ✅ | ✅ | rusqlite 驱动 |
+| DuckDB | ✅ | ✅ | duckdb-rs 驱动 |
+
+---
+
+### execute_batch
+
+执行多条 SQL 语句（以 `;` 分隔），无返回结果集。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  sql: string        // 支持多句 SQL，以 ; 分隔
+  dbName?: string
+}
+```
+
+**返回**：`{ rowCount: number }`
+
+**适用场景**：执行 DDL（CREATE TABLE、ALTER TABLE）或批量 DML（INSERT/UPDATE/DELETE）。
+
+---
+
+### get_result_preview
+
+获取查询结果的预览数据（前 N 行）。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  queryId: string    // 由 execute_sql 返回的查询 ID
+  limit: number       // 预览行数，默认 100
+}
+```
+
+**返回**：`QueryResult`
+
+---
+
+### cancel_query
+
+取消正在执行的长时间查询。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+  queryId: string
+}
+```
+
+**返回**：`void`
+
+> ⚠️ 注意：SQL 查询不经过 MetadataCache（只缓存元数据）。查询结果通过 QueryCache 独立缓存（`query_cache.rs`）。
+
+---
+
+## 导航数据层
+
+### invalidate_metadata_cache 🆕
+
+清除指定连接的 L1 元数据缓存，用于手动刷新（F5）。
+
+> R13 新增。断开连接时自动调用，无需手动处理。
+
+**参数**：
+
+```typescript
+{
+  connId: string
+}
+```
+
+**返回**：
+
+```typescript
+void  // 异步返回 null
+```
+
+**调用时机**：
+```
+用户按 F5 → invalidate_metadata_cache(connId) → load_catalogs(connId) → load_schemas(connId, db) → ...
+```
+
+**缓存失效策略**：
+
+| 触发条件 | 方式 | 说明 |
+|:---|:---|:---|
+| 用户断开连接 | `ConnectionManager::remove_connection()` 自动调用 | ✅ 已实现 |
+| 用户手动 F5 | 前端调用 `invalidate_metadata_cache` | ✅ 已实现 |
+| TTL 到期（300s） | LRU 自动淘汰 | ✅ 已实现 |
+| DDL 执行后 | 前端调用 `invalidate` + 重新加载 | 需前端集成 |
 
 ---
 
@@ -607,6 +807,84 @@ interface FolderConfig {
 | tableChildren.constraints | ✅ | ✅ | ❌ | ❌ |
 | tableChildren.foreignKeys | ✅ | ✅ | ❌ | ❌ |
 | systemSchemas | pg_catalog,pg_toast | mysql,sys | [] | pg_catalog |
+
+---
+
+## 系统命令（R18 新增）
+
+### `get_api_version`
+
+获取 API 版本信息。
+
+**参数**：无
+
+**返回**：
+
+```json
+{
+  "version": "1.0.0",
+  "major": 1,
+  "minor": 0,
+  "patch": 0,
+  "codename": "Foundation"
+}
+```
+
+### `ping_connection`
+
+连接健康检查，执行 `SELECT 1` 验证连接存活。
+
+**参数**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|:---:|------|
+| `conn_id` | `str` | ❌ | 连接 ID，不传则使用当前活动连接 |
+
+**返回**：`bool`（true=连接存活，失败返回 CoreError）
+
+---
+
+## 审计日志（R18 增强）
+
+### `get_sql_history` / `search_sql_history`
+
+R18 增强后，历史记录响应包含完整审计字段：
+
+```json
+{
+  "id": "abc123",
+  "sql": "SELECT * FROM users",
+  "conn_id": "conn-uuid",
+  "db_type": "postgres",
+  "executed_at": "2026-05-10T08:30:00Z",
+  "duration_ms": 42,
+  "success": true,
+  "error_message": null,
+  "rows_affected": null,
+  "rows_returned": 1500
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `db_type` | `Option<String>` | 数据库类型（R18 新增） |
+| `duration_ms` | `Option<u64>` | 执行耗时毫秒（R18 新增） |
+| `success` | `Option<bool>` | 是否成功（R18 新增） |
+| `error_message` | `Option<String>` | 错误信息（R18 新增） |
+| `rows_affected` | `Option<u64>` | 影响行数（R18 新增） |
+| `rows_returned` | `Option<u64>` | 返回行数（R18 新增） |
+
+---
+
+## 安全（R18 新增）
+
+### 密码加密
+
+连接密码使用 AES-256-GCM 加密存储，密钥由机器标识派生（主机名+用户名+主目录+SHA-256）。
+
+- 模块：[`core/crypto.rs`](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/crypto.rs)
+- 加密格式：`base64(nonce[12B] + ciphertext)`
+- 兼容性：解密失败时回退到明文（兼容 R17 及之前存储的数据）
 
 ### 新增数据库示例
 
@@ -815,9 +1093,25 @@ interface DriverDescriptor {
   description: string
   version: string
   icon?: string
-  default_port: number
+  driver_kind: string          // "native" | "jdbc" | "odbc" | "wasm" | "adbc" | "http" | "python" | "js"
+  default_port: number | null
+  category: string             // "relational" | "file-based" | "nosql" | "analytics" | "cloud"
+  require_database: boolean
+  require_file: boolean
+  supports_ssl: boolean
+  supports_ssh_tunnel: boolean
+  supports_http_proxy: boolean
+  supports_socks_proxy: boolean
+  url_template?: string        // "postgres://{username}:{password}@{host}:{port}/{database}"
   connection_fields: DriverField[]
-  features: DriverFeatures
+  features: string[]
+  navigation?: {
+    hasCatalogs: boolean
+    hasSchemas: boolean
+    systemSchemas: string[]
+    folders: Record<string, { enabled: boolean; label: string; icon: string; childTypes: string[] }>
+    tableChildren: Record<string, boolean>
+  }
 }
 
 interface DriverField {
@@ -1218,6 +1512,20 @@ interface ProjectConfig {
   config: Partial<ProjectConfig>
 }
 ```
+
+---
+
+## 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v3.6 | 2026-05-10 | R20: MySQL 集成测试、旧数据迁移。新增 P0 明文 URL 响应问题标记 |
+| v3.5 | 2026-05-10 | R19: URL 密码脱敏、前端 API 完整（getApiVersion/pingConnection/SqlAuditRecord） |
+| v3.4 | 2026-05-10 | R18: metadata_commands → CoreError、API 版本化、AES-256-GCM 加密 |
+| v3.3 | 2026-05-10 | R17: 二次审计修复、编译警告清零 |
+| v3.2 | 2026-05-10 | R16: SQL 注入防护、安全加固 |
+| v3.1 | 2026-05-10 | R15: RoutineSource DDL 查看 |
+| v3.0 | 2026-05-10 | R14: 字段/函数/存储过程 L1 缓存全覆盖 |
 
 **返回**：`void`
 
@@ -1759,14 +2067,19 @@ RdataStation:
 
 ### 四、新数据库扩展成本对比
 
-| 新增数据库（如 ClickHouse） | DBeaver | DataGrip | RdataStation |
-|:---|:---|:---|:---|
-| 创建连接表单 | XML 配置 + Java 类 | Java 类 | 1 个 JSON 文件 |
-| 导航树结构 | XML treeInjection | Java 实现 | JSON `navigation` 字段 |
-| 元数据查询 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait |
-| SQL 执行 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait |
-| 前端改动 | Java UI 类 | Java UI 类 | **零改动** ✅ |
-| **总计代码量** | ~500-1000 行 Java | ~500-1000 行 Java | ~1 JSON + ~200 行 Rust |
+> 更新于 R10（v10.0 / v2.5）：URL 模板引擎消除了后端硬编码 match。
+
+| 新增数据库（如 ClickHouse） | DBeaver | DataGrip | RdataStation（R9） | RdataStation（R10） |
+|:---|:---|:---|:---|:---|
+| 创建连接表单 | XML 配置 + Java 类 | Java 类 | 1 个 JSON 文件 | 1 个 JSON 文件 |
+| 导航树结构 | XML treeInjection | Java 实现 | JSON `navigation` 字段 | JSON `navigation` 字段 |
+| URL 构建 | `<urlTemplate>` | Java 硬编码 | 3 处 Rust 硬编码 | JSON `urlTemplate` ✅ |
+| 驱动种类声明 | `<driverType>` | Java 类 | Rust `DriverKind` 枚举 | JSON `driverKind` ✅ |
+| 元数据查询 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait | Rust `impl Database` trait |
+| SQL 执行 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait | Rust `impl Database` trait |
+| 前端改动 | Java UI 类 | Java UI 类 | **零改动** ✅ | **零改动** ✅ |
+| 后端核心改动 | — | — | 3 处代码 | **零改动** ✅ |
+| **总计代码量** | ~500-1000 行 Java | ~500-1000 行 Java | ~1 JSON + ~250 行 Rust | ~1 JSON + ~200 行 Rust |
 
 ### 五、RdataStation 的核心优势
 
@@ -1776,18 +2089,36 @@ RdataStation:
 4. **性能**：Rust 原生性能 + sqlx 异步连接池，启动 < 1.5 秒
 5. **内存可控**：核心 < 150MB，远低于 DBeaver（~500MB+）和 DataGrip（~1GB+）
 
-### 六、当前差距（后续版本）
+### 六、当前差距（经架构适配性重新评估）
 
-| 功能 | 优先级 | 说明 |
-|:---|:---:|:---|
-| 列类型图标（int→🔢, varchar→🔤） | P2 | 提升可视化识别 |
-| 表行数统计（`users (1,234)`） | P2 | 需要 `SELECT COUNT(*)` 缓存 |
-| 物化视图独立节点 | P2 | 扩展 NavigationConfig + trait |
-| 类型/枚举/角色节点 | P3 | PostgreSQL 特有 |
-| ER 图可视化 | P3 | 基于外键元数据关系 |
-| SQL 自动补全增强 | P2 | 基于 Schema 元数据 |
-| 数据导出向导 | P3 | CSV/JSON/Parquet 多格式 |
+> 详见 [08-optimization-plan.md §29 — 架构适配性分析](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/docs/08-optimization-plan.md)
+
+#### 核心发现：基础设施完备，缓存已集成（R13 ✅）
+
+```
+MetadataCache (L1 内存 LRU + TTL) ← ✅ 已实现
+MetadataCacheManager (L3 磁盘 SQLite) ← ✅ 已实现
+SmartPool (动态缩放 + 健康检查) ← ✅ 已实现
+metadata_commands.rs 读取缓存？ ← ✅ R13 已集成
+```
+
+| 优先级 | 差距项 | 说明 | 工作量 |
+|:---:|:---|:---|:---:|
+| ~~🔴 P0~~ | ~~metadata_commands 启用缓存~~ | ✅ **已完成**（R13） | — |
+| 🟡 P1 | Schema 选择器 | 后端 3 行 + 前端 2 天 | 2天 |
+| 🟡 P1 | 自省截断（大 Schema > 1000 表） | Trait 不改，`list_tables` 加截断逻辑 | 1天 |
+| 🟡 P1 | 元数据分离连接 | 大 Schema 场景 | 2天 |
+| 🟡 P1 | 启动延迟连接 | 多连接恢复 | 2天 |
+| 🟢 P2 | 连接类型 (Dev/Test/Prod) | ConnectionInfo 加字段 | 1天 |
+| 🟢 P2 | Bootstrap Queries | ConnectionConfig 加字段 | 0.5天 |
+| 🟢 P2 | 增量刷新 | 仅 PostgreSQL 有效 | 3天 |
+| 🟢 P2 | 智能刷新 | 成本/收益不对等 | 3天 |
+| P3 | Session Manager | Trait 扩展 | 5天 |
+| P3 | 后台任务系统 | Tauri events | 3天 |
+| ❌ P4 | 离线迷你目录 | **不适合桌面工具场景** | — |
 
 ### 七、总结
 
-RdataStation 的核心架构（配置驱动 + 动态渲染 + trait 抽象 + Arrow 传输）**完全对标并且在某些方面超越** DBeaver/DataGrip 的设计理念。差距主要在于功能丰富度（UI 辅助特性），而非架构设计。新增数据库类型的扩展成本远低于竞品，这是 RdataStation 的核心差异化优势。
+RdataStation 的核心架构（配置驱动 + 动态渲染 + trait 抽象 + Arrow 传输 + URL 模板引擎）**完全对标并且在扩展性方面超越** DBeaver/DataGrip 的插件模型。新增数据库 = 1 个 JSON + 1 个 DriverFactory，无需修改前端组件和后端核心代码，这是 RdataStation 的核心差异化优势。
+
+**最新对标发现**（2026-05-09）：DBeaver 的 "Separate Connections"（元数据分离连接）和 DataGrip 的 "Introspection Levels"（三级自省）是两个**最值得立即借鉴**的架构决策。前者解决大 Schema 场景下 metadata queries 阻塞用户查询的根本性问题，后者将首次加载大数据库的时间从数十秒优化到秒级。具体分析和实施路线见 [08-optimization-plan.md §28](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/docs/08-optimization-plan.md)。

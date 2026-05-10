@@ -1,7 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Number of built-in TOML rule files shipped with the application
+/// (counted in `src-tauri/insight-rules/`). Update when rules are added
+/// or removed so that docs and tests stay synchronised.
+pub const BUILTIN_RULE_COUNT: usize = 18;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuleMeta {
     pub id: String,
     pub name: String,
@@ -20,6 +26,7 @@ fn default_version() -> String {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuleFile {
     pub meta: RuleMeta,
     pub query: RuleQuery,
@@ -32,6 +39,7 @@ pub struct RuleFile {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuleQuery {
     pub template: String,
     #[serde(default)]
@@ -40,6 +48,7 @@ pub struct RuleQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OutputField {
     pub sql_name: String,
     pub json_name: String,
@@ -47,6 +56,7 @@ pub struct OutputField {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct QualityRule {
     pub field: String,
     #[serde(default)]
@@ -60,6 +70,7 @@ pub struct QualityRule {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RenderHint {
     #[serde(default)]
     pub component: Option<String>,

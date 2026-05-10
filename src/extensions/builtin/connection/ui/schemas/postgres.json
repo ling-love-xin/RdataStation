@@ -7,9 +7,14 @@
     "description": "PostgreSQL 强大的开源关系型数据库",
     "features": ["事务", "视图", "存储过程", "触发器", "JSON 支持", "全文搜索"],
     "defaultPort": 5432,
+    "driverKind": "native",
+    "urlTemplate": "postgres://{username}:{password}@{host}:{port}/{database}",
     "requireFile": false,
+    "requireDatabase": true,
     "supportsSsl": true,
-    "supportsSshTunnel": true
+    "supportsSshTunnel": true,
+    "supportsHttpProxy": true,
+    "supportsSocksProxy": true
   },
   "sections": [
     {

@@ -197,15 +197,20 @@ impl PortNegotiator {
         let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
         let listener = TcpListener::bind(addr).map_err(|e| {
             CoreError::Common(CommonError::General(format!(
-                "Failed to bind to port {}: {}", port, e
+                "Failed to bind to port {}: {}",
+                port, e
             )))
         })?;
 
-        let actual_port = listener.local_addr().map_err(|e| {
-            CoreError::Common(CommonError::General(format!(
-                "Failed to get local address: {}", e
-            )))
-        })?.port();
+        let actual_port = listener
+            .local_addr()
+            .map_err(|e| {
+                CoreError::Common(CommonError::General(format!(
+                    "Failed to get local address: {}",
+                    e
+                )))
+            })?
+            .port();
 
         // 立即释放监听器
         drop(listener);
@@ -217,13 +222,14 @@ impl PortNegotiator {
     fn allocate_port(&self, port: u16) -> CoreResult<()> {
         let mut allocated = self.allocated_ports.lock().map_err(|_| {
             CoreError::Common(CommonError::General(
-                "Failed to lock allocated ports".to_string()
+                "Failed to lock allocated ports".to_string(),
             ))
         })?;
 
         if allocated.contains(&port) {
             return Err(CoreError::Common(CommonError::General(format!(
-                "Port {} is already allocated", port
+                "Port {} is already allocated",
+                port
             ))));
         }
 
@@ -235,7 +241,7 @@ impl PortNegotiator {
     pub fn release_port(&self, port: u16) -> CoreResult<()> {
         let mut allocated = self.allocated_ports.lock().map_err(|_| {
             CoreError::Common(CommonError::General(
-                "Failed to lock allocated ports".to_string()
+                "Failed to lock allocated ports".to_string(),
             ))
         })?;
 
@@ -247,7 +253,7 @@ impl PortNegotiator {
     pub fn get_allocated_ports(&self) -> CoreResult<Vec<u16>> {
         let allocated = self.allocated_ports.lock().map_err(|_| {
             CoreError::Common(CommonError::General(
-                "Failed to lock allocated ports".to_string()
+                "Failed to lock allocated ports".to_string(),
             ))
         })?;
 
@@ -302,7 +308,7 @@ impl PortNegotiator {
     pub fn clear(&self) -> CoreResult<()> {
         let mut allocated = self.allocated_ports.lock().map_err(|_| {
             CoreError::Common(CommonError::General(
-                "Failed to lock allocated ports".to_string()
+                "Failed to lock allocated ports".to_string(),
             ))
         })?;
 
@@ -387,7 +393,7 @@ impl AdvancedPortNegotiator {
         }
 
         Err(CoreError::Common(CommonError::General(
-            "Port negotiation failed after max retries".to_string()
+            "Port negotiation failed after max retries".to_string(),
         )))
     }
 

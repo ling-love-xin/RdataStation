@@ -1,9 +1,9 @@
 # RdataStation 洞察体系 — 技术架构文档
 
-> 版本：v18.0
+> 版本：v19.0
 > 创建日期：2026-05-07
 > 最后更新：2026-05-09
-> 状态：✅ 完整架构（DuckDB 实例统一 + 端到端联动 + 动画 + 质量评分 + 表聚合 + Schema 洞察 + QualityRule 质量门控 + DuckDB TTL + API 参考 + RenderHint 图表自动选择 + 组件类型安全强化 + 动态类型分类 + 可配置常量 + Phase 20 归档修复：ID重复/复合FK/热加载）
+> 状态：✅ 完整架构（DuckDB 实例统一 + 端到端联动 + 动画 + 质量评分 + 表聚合 + Schema 洞察 + QualityRule 质量门控 + DuckDB TTL + API 参考 + RenderHint 图表自动选择 + 组件类型安全强化 + 动态类型分类 + 可配置常量 + Phase 20 归档修复 + Phase 21 全局主题 + Phase 22 全栈审计修复）
 
 ---
 
@@ -72,25 +72,34 @@ pub fn global_registry() -> &'static RwLock<RuleRegistry> { ... }
 pub fn load_user_rules(project_path: &Path) { ... }  // 项目打开时调用
 ```
 
-### 内置规则 (13 条)
+### 内置规则 (18 条)
 
-| 目录      | ID                                                                                                                                | 类型 |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| `column/` | null-check, numeric-stats, numeric-basic, text-frequency, text-length, datetime-range, datetime-monthly, boolean-ratio, histogram | 单列 |
-| `multi/`  | correlation, grouped-stats, cross-tab, scatter-sample                                                                             | 多列 |
+| 目录       | ID                                                                                                                                | 类型     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `column/`  | null-check, numeric-stats, numeric-basic, text-frequency, text-length, datetime-range, datetime-monthly, boolean-ratio, histogram | 单列     |
+| `multi/`   | correlation, grouped-stats, cross-tab, scatter-sample                                                                             | 多列     |
+| `table/`   | table-row-count, table-column-overview, table-null-overview, table-quality-overview                                                | 表级     |
+| `quality/` | column-quality-score                                                                                                              | 质量门控 |
 
 ### Tauri Commands
 
 | 命令                        | 输入                                          | 输出                                |
 | --------------------------- | --------------------------------------------- | ----------------------------------- |
+| `get_column_insight_full`   | `{ connId, tempTable, columnName }`           | `ColumnInsightFull` (完整列洞察)     |
+| `get_column_insights`       | `{ connId, tempTable, columnName }`           | `ColumnStats` (轻量统计)            |
 | `execute_insight_rule`      | `{ rule_id, params, temp_table }`             | `Value` (动态JSON)                  |
 | `list_insight_rules`        | `category?`                                   | `RuleMeta[]`                        |
 | `list_rules_for_column`     | `{ column_type }`                             | `RuleMeta[]`                        |
+| `reload_insight_rules`      | `{}`                                           | `bool`                              |
 | `get_table_profile`         | `{ connId, dbType, database, schema, table }` | `TableProfile` (表探查)             |
 | `profile_column_from_table` | `{ connId, database, schema, table, column }` | `ColumnInsightFull` (表列探查)      |
-| `get_column_quality`        | `{ column_name, temp_table }`                 | `QualityScore` (质量评分)           |
+| `evaluate_quality_rule`     | `{ rule_id, temp_table }`                     | `QualityReport` (质量门控)          |
 | `batch_evaluate_columns`    | `{ conn_id, database, schema, table }`        | `TableQuality` (表级质量)           |
 | `get_schema_insight`        | `{ conn_id, database, schema }`               | `SchemaInsightReport` (Schema 洞察) |
+| `save_insight_snapshot`     | `{ connId, table, column, data }`             | `String` (version_id)               |
+| `list_insight_versions`     | `{ connId, table, column }`                   | `VersionInfo[]`                     |
+| `get_insight_version_detail`| `{ version_id }`                              | `ColumnInsightFull` (历史版本)       |
+| `cleanup_old_snapshots`     | `{ connId, table, column }`                   | `u32` (清理数量)                    |
 
 ---
 
@@ -158,7 +167,7 @@ TableProfileView.vue (dockview 'tableProfile')
 
 ## 五、文件清单
 
-### 新增 (25)
+### 新增 (28)
 
 ```
 src-tauri/insight-rules/column/ (9)
@@ -171,32 +180,44 @@ src-tauri/src/core/insight/rule_registry.rs
 src-tauri/src/core/insight/rule_executor.rs
 src-tauri/src/core/insight/rule_types.rs
 src-tauri/src/core/insight/schema_analyzer.rs ← Schema 洞察
+src-tauri/src/core/services/insight_engine.rs ← 洞察引擎 (Phase 6)
+src-tauri/src/core/services/quality_scorer.rs ← 质量评分器 (Phase 10)
+src-tauri/src/core/services/duckdb_service.rs ← DuckDB 服务 (Phase 14)
 src/.../components/panels/MultiColumnView.vue
 src/.../components/panels/TableProfileView.vue
 src/.../components/panels/SchemaInsightPanel.vue ← Schema 洞察
+src/.../components/panels/DataVisualizationPanel.vue ← 数据可视化
+src/.../components/panels/ColumnInsightsPanel.vue ← 快速统计
 src/.../components/panels/insight/QualityScoreCard.vue ← Phase 17 提取
 src/.../components/panels/insight/InsightStatsSection.vue ← Phase 17 提取
 src/.../components/panels/insight/InsightHistoryTab.vue ← Phase 17 提取
+src/.../stores/insight-store.ts ← Pinia Store
+src/.../services/result-analysis.ts ← 前端 API 层
+src/.../composables/use-context-menu-actions.ts ← 快速探查菜单
 ```
 
-### 修改 (18 → 多轮迭代)
+### 修改 (23 → 多轮迭代)
 
 ```
 src-tauri/Cargo.toml (添加 toml)
 src-tauri/src/core/mod.rs (添加 insight + duckdb + re-export)
 src-tauri/src/core/services/result_service.rs (compute_* + 规则API + TableProfile + profile_column_from_table + DuckDBManager委托)
-src-tauri/src/commands/result_commands.rs (5个 insight 命令 + TableProfile + 版本详情 + 表列探查)
+src-tauri/src/commands/result_commands.rs (15个 insight 命令 + TableProfile + 版本详情 + 表列探查 + reload)
 src-tauri/src/commands/project_commands.rs (load_user_rules)
-src-tauri/src/lib.rs (注册 insight 命令)
+src-tauri/src/lib.rs (注册 23 个 insight 命令)
 src-tauri/src/core/persistence/mod.rs (ResourceVersion 导出修复)
 src-tauri/src/core/dbi/engine/duckdb_engine.rs (DuckDB 实例统一: tokio Mutex → std Mutex)
 src/.../components/panels/ColumnInsightPanel.vue (NTabs + MultiColumnView + P0打通 + 骨架屏 + 历史/对比/导出 + 过渡动画 + table-column-click)
+src/.../components/panels/ColumnInsightsPanel.vue (快速统计 + 主题统一)
+src/.../components/panels/DataVisualizationPanel.vue (ECharts 图表 + RenderHint 自动选择 + 主题统一)
 src/.../components/panels/QueryResultPanel.vue (allColumns in event)
-src/.../services/result-analysis.ts (RuleMeta + TableProfile + API 全部)
-src/.../stores/insight-store.ts (多列 state + P0打通 + 版本对比 + 表列探查)
-src/.../components/panels/MultiColumnView.vue (P0打通: 改用 Store)
-src/.../components/DockviewLayout.vue (注册 tableProfile + 动态创建面板)
+src/.../services/result-analysis.ts (RuleMeta + TableProfile + API 全部 + reloadInsightRules)
+src/.../stores/insight-store.ts (多列 state + P0打通 + 版本对比 + 表列探查 + isOpen移除)
+src/.../components/panels/MultiColumnView.vue (P0打通: 改用 Store + 主题统一)
+src/.../components/DockviewLayout.vue (注册 tableProfile + dataVisualization + 动态创建面板)
 src/.../composables/use-context-menu-actions.ts (快速探查菜单 + getDbTypeForConnection)
+src/shared/styles/tokens.css (新增品牌色/字体/间距/圆角令牌 Phase 21)
+src/.../types/result.ts (MultiRuleResult收紧 + 死类型清理 Phase 22)
 ```
 
 ---

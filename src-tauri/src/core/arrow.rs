@@ -5,7 +5,8 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 pub type ArrowBatch = RecordBatch;
 
 /// Arrow 批处理流
-pub type ArrowBatchStream = tokio::sync::mpsc::Receiver<Result<ArrowBatch, crate::core::error::CoreError>>;
+pub type ArrowBatchStream =
+    tokio::sync::mpsc::Receiver<Result<ArrowBatch, crate::core::error::CoreError>>;
 
 /// Arrow 数据格式的统一处理
 ///
@@ -16,30 +17,30 @@ impl ArrowHandler {
     /// 将 Arrow 批处理转换为 JSON
     pub fn batch_to_json(batch: &ArrowBatch) -> serde_json::Value {
         let mut rows = Vec::new();
-        
+
         for row_idx in 0..batch.num_rows() {
             let mut row = serde_json::Map::new();
-            
+
             for (col_idx, field) in batch.schema().fields().iter().enumerate() {
                 let array = batch.column(col_idx);
                 let value = Self::array_value_to_json(array, row_idx);
                 row.insert(field.name().to_string(), value);
             }
-            
+
             rows.push(serde_json::Value::Object(row));
         }
-        
+
         serde_json::Value::Array(rows)
     }
-    
+
     /// 将数组值转换为 JSON
     fn array_value_to_json(array: &ArrayRef, index: usize) -> serde_json::Value {
         if array.is_null(index) {
             return serde_json::Value::Null;
         }
-        
+
         use arrow::datatypes::DataType;
-        
+
         match array.data_type() {
             DataType::Boolean => {
                 if let Some(arr) = array.as_any().downcast_ref::<arrow::array::BooleanArray>() {
@@ -132,7 +133,10 @@ impl ArrowHandler {
                 }
             }
             DataType::LargeUtf8 => {
-                if let Some(arr) = array.as_any().downcast_ref::<arrow::array::LargeStringArray>() {
+                if let Some(arr) = array
+                    .as_any()
+                    .downcast_ref::<arrow::array::LargeStringArray>()
+                {
                     serde_json::Value::String(arr.value(index).to_string())
                 } else {
                     serde_json::Value::Null
@@ -147,7 +151,10 @@ impl ArrowHandler {
                 }
             }
             DataType::LargeBinary => {
-                if let Some(arr) = array.as_any().downcast_ref::<arrow::array::LargeBinaryArray>() {
+                if let Some(arr) = array
+                    .as_any()
+                    .downcast_ref::<arrow::array::LargeBinaryArray>()
+                {
                     let bytes = arr.value(index);
                     serde_json::Value::String(STANDARD.encode(bytes))
                 } else {

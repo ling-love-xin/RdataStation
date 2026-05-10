@@ -1,13 +1,40 @@
-use sqlx::{MySql, Pool, Row, Column};
-use arrow::array::{ArrayRef, StringArray, Int64Array, Float64Array, BooleanArray, BinaryArray};
-use arrow::datatypes::{Field, Schema, DataType};
+use sqlx::{Column, MySql, Pool, Row};
+
+fn names_to_schema_objects(
+    result: &QueryResult,
+    kind: crate::core::driver::SchemaObjectKind,
+) -> Vec<crate::core::driver::SchemaObject> {
+    use arrow::array::StringArray;
+    let mut objects: Vec<crate::core::driver::SchemaObject> = Vec::new();
+    for row_idx in 0..result.total_rows() {
+        if let Some(batch) = result.batches.first() {
+            if row_idx < batch.num_rows() {
+                if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
+                    let name = arr.value(row_idx);
+                    if !name.is_empty() {
+                        objects.push(crate::core::driver::SchemaObject {
+                            name: name.to_string(),
+                            kind: kind.clone(),
+                            children: None,
+                            comment: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    objects
+}
+use arrow::array::{ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
 
-use crate::core::driver::{Database, Transaction, DataSourceMeta, ColumnDetail};
 use crate::core::driver::traits::MetadataBrowser;
-use crate::core::error::{CoreError, DatabaseError};
-use crate::core::models::{QueryResult, ArrowBatch};
+use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, PoolStatus, Transaction};
+use crate::core::driver::{SchemaObject, SchemaObjectKind};
+use crate::core::error::{ConnectionError, CoreError, DatabaseError};
+use crate::core::models::{ArrowBatch, QueryResult};
 
 /// MySQL 数据库连接
 pub struct MySqlDatabase {
@@ -17,22 +44,28 @@ pub struct MySqlDatabase {
 
 impl MySqlDatabase {
     pub async fn new(url: &str) -> Result<Self, CoreError> {
-        let pool = Pool::connect(url)
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        let pool = Pool::connect(url).await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "mysql".to_string(),
                 operation: "connect".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         let server_version = sqlx::query_scalar::<_, String>("SELECT VERSION()")
             .fetch_one(&pool)
             .await
             .ok();
-        Ok(Self { pool, server_version })
+        Ok(Self {
+            pool,
+            server_version,
+        })
     }
 
     pub fn from_pool(pool: Pool<MySql>) -> Self {
-        Self { pool, server_version: None }
+        Self {
+            pool,
+            server_version: None,
+        }
     }
 }
 
@@ -56,7 +89,11 @@ impl Database for MySqlDatabase {
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let columns: Vec<String> = if let Some(first) = rows.first() {
-            first.columns().iter().map(|c| c.name().to_string()).collect()
+            first
+                .columns()
+                .iter()
+                .map(|c| c.name().to_string())
+                .collect()
         } else {
             vec![]
         };
@@ -64,11 +101,15 @@ impl Database for MySqlDatabase {
         build_query_result(&columns, &rows, is_read_only)
     }
 
-    async fn query_with_params(&self, sql: &str, params: Vec<crate::core::models::Value>) -> Result<QueryResult, CoreError> {
+    async fn query_with_params(
+        &self,
+        sql: &str,
+        params: Vec<crate::core::models::Value>,
+    ) -> Result<QueryResult, CoreError> {
         let is_read_only = is_read_only_sql(sql);
 
         let mut query_builder = sqlx::query(sql);
-        
+
         for param in &params {
             query_builder = match param {
                 crate::core::models::Value::Null => query_builder.bind(None::<String>),
@@ -86,7 +127,11 @@ impl Database for MySqlDatabase {
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let columns: Vec<String> = if let Some(first) = rows.first() {
-            first.columns().iter().map(|c| c.name().to_string()).collect()
+            first
+                .columns()
+                .iter()
+                .map(|c| c.name().to_string())
+                .collect()
         } else {
             vec![]
         };
@@ -131,13 +176,13 @@ impl Database for MySqlDatabase {
     }
 
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError> {
-        let tx = self.pool.begin()
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        let tx = self.pool.begin().await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "mysql".to_string(),
                 operation: "begin_transaction".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         Ok(Box::new(MySqlTransaction::new(tx)))
     }
 
@@ -148,27 +193,129 @@ impl Database for MySqlDatabase {
         }
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
-        self.get_databases().await.map(|nodes| {
-            nodes.into_iter().map(|n| n.name).collect()
+    async fn ping(&self) -> Result<(), CoreError> {
+        sqlx::query("SELECT 1")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| {
+                CoreError::connection(ConnectionError::Other {
+                    conn_id: "mysql".to_string(),
+                    reason: format!("Ping failed: {}", e),
+                })
+            })?;
+        Ok(())
+    }
+
+    async fn pool_status(&self) -> Option<PoolStatus> {
+        let size = self.pool.size() as usize;
+        let idle = self.pool.num_idle();
+        Some(PoolStatus {
+            size,
+            idle,
+            active: size.saturating_sub(idle),
+            waiting: 0,
+            max_connections: 10,
+            min_connections: 2,
         })
     }
 
-    async fn list_tables(&self, db: &str, _schema: Option<&str>) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
+    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+        self.get_databases()
+            .await
+            .map(|nodes| nodes.into_iter().map(|n| n.name).collect())
+    }
+
+    async fn list_tables(
+        &self,
+        db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
         let nodes = self.get_tables(db, db).await?;
-        Ok(nodes.into_iter().map(|n| {
-            crate::core::driver::SchemaObject {
+        Ok(nodes
+            .into_iter()
+            .map(|n| crate::core::driver::SchemaObject {
                 name: n.name,
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
-            }
-        }).collect())
+            })
+            .collect())
     }
 
-    async fn list_columns(&self, db: &str, _schema: Option<&str>, table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
+    async fn list_columns(
+        &self,
+        db: &str,
+        _schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<ColumnDetail>, CoreError> {
         let detail = self.get_table_detail(db, db, table).await?;
         Ok(detail.columns)
+    }
+
+    async fn list_procedures(
+        &self,
+        db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let sql = format!(
+            "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
+             WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'PROCEDURE' \
+             ORDER BY ROUTINE_NAME",
+            db.replace('\'', "''")
+        );
+        let result = self.query(&sql).await?;
+        Ok(names_to_schema_objects(
+            &result,
+            SchemaObjectKind::Procedure,
+        ))
+    }
+
+    async fn list_functions(
+        &self,
+        db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let sql = format!(
+            "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
+             WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'FUNCTION' \
+             ORDER BY ROUTINE_NAME",
+            db.replace('\'', "''")
+        );
+        let result = self.query(&sql).await?;
+        Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
+    }
+
+    async fn get_routine_source(
+        &self,
+        db: &str,
+        _schema: Option<&str>,
+        name: &str,
+        kind: SchemaObjectKind,
+    ) -> Result<Option<String>, CoreError> {
+        let stmt_type = match kind {
+            SchemaObjectKind::Procedure => "PROCEDURE",
+            SchemaObjectKind::Function => "FUNCTION",
+            _ => return Ok(None),
+        };
+        let sql = format!(
+            "SHOW CREATE {} `{}`.`{}`",
+            stmt_type,
+            db.replace('\'', "''"),
+            name.replace('\'', "''"),
+        );
+        let result = self.query(&sql).await?;
+        if let Some(batch) = result.batches.first() {
+            if batch.num_rows() > 0 {
+                if let Some(col) = batch
+                    .column(1)
+                    .as_any()
+                    .downcast_ref::<arrow::array::StringArray>()
+                {
+                    return Ok(Some(col.value(0).to_string()));
+                }
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -188,7 +335,9 @@ impl Transaction for MySqlTransaction {
     async fn query(&mut self, sql: &str) -> Result<QueryResult, CoreError> {
         if let Some(ref mut tx) = self.tx {
             let sql_upper = sql.trim_start().to_uppercase();
-            let is_read_only = sql_upper.starts_with("SELECT") || sql_upper.starts_with("SHOW") || sql_upper.starts_with("DESCRIBE");
+            let is_read_only = sql_upper.starts_with("SELECT")
+                || sql_upper.starts_with("SHOW")
+                || sql_upper.starts_with("DESCRIBE");
 
             let rows = sqlx::query(sql)
                 .fetch_all(&mut **tx)
@@ -204,7 +353,8 @@ impl Transaction for MySqlTransaction {
                 });
             }
 
-            let columns: Vec<String> = rows[0].columns()
+            let columns: Vec<String> = rows[0]
+                .columns()
                 .iter()
                 .map(|c| c.name().to_string())
                 .collect();
@@ -228,11 +378,13 @@ impl Transaction for MySqlTransaction {
 
     async fn commit(&mut self) -> Result<(), CoreError> {
         if let Some(tx) = self.tx.take() {
-            tx.commit().await.map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "mysql".to_string(),
-                operation: "commit".to_string(),
-                source: e.to_string(),
-            }))?;
+            tx.commit().await.map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "mysql".to_string(),
+                    operation: "commit".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
         }
         Ok(())
     }
@@ -240,7 +392,7 @@ impl Transaction for MySqlTransaction {
     async fn rollback(&mut self) -> Result<(), CoreError> {
         if let Some(tx) = self.tx.take() {
             if let Err(e) = tx.rollback().await {
-                eprintln!("MySQL transaction rollback error: {}", e);
+                tracing::warn!("MySQL transaction rollback error: {}", e);
             }
         }
         Ok(())
@@ -313,7 +465,10 @@ fn mysql_rows_to_arrow(
             }
         }
 
-        let effective_type = detected_type.clone().unwrap_or(DataType::Utf8);
+        let effective_type = match detected_type {
+            Some(t) => t,
+            None => DataType::Utf8,
+        };
 
         for row in rows {
             use sqlx::Row;
@@ -338,28 +493,24 @@ fn mysql_rows_to_arrow(
         }
 
         let array: ArrayRef = match effective_type {
-            DataType::Boolean => {
-                Arc::new(BooleanArray::from(bool_values))
-            }
-            DataType::Int64 => {
-                Arc::new(Int64Array::from(int_values))
-            }
-            DataType::Float64 => {
-                Arc::new(Float64Array::from(float_values))
-            }
+            DataType::Boolean => Arc::new(BooleanArray::from(bool_values)),
+            DataType::Int64 => Arc::new(Int64Array::from(int_values)),
+            DataType::Float64 => Arc::new(Float64Array::from(float_values)),
             DataType::Binary => {
-                let refs: Vec<Option<&[u8]>> = binary_values.iter().map(|opt| opt.as_ref().map(|v| v.as_slice())).collect();
+                let refs: Vec<Option<&[u8]>> = binary_values
+                    .iter()
+                    .map(|opt| opt.as_ref().map(|v| v.as_slice()))
+                    .collect();
                 Arc::new(BinaryArray::from(refs))
             }
-            _ => {
-                Arc::new(StringArray::from(string_values))
-            }
+            _ => Arc::new(StringArray::from(string_values)),
         };
 
         arrays.push(array);
     }
 
-    let fields: Vec<Field> = columns.iter()
+    let fields: Vec<Field> = columns
+        .iter()
         .enumerate()
         .map(|(i, name)| {
             let data_type = arrays[i].data_type().clone();
@@ -369,18 +520,21 @@ fn mysql_rows_to_arrow(
 
     let schema = Arc::new(Schema::new(fields));
 
-    RecordBatch::try_new(schema, arrays)
-        .map_err(|e| CoreError::database(DatabaseError::Driver {
+    RecordBatch::try_new(schema, arrays).map_err(|e| {
+        CoreError::database(DatabaseError::Driver {
             db_type: "mysql".to_string(),
             operation: "arrow_conversion".to_string(),
             source: e.to_string(),
-        }))
+        })
+    })
 }
 
 #[async_trait::async_trait]
 impl crate::core::driver::MetadataBrowser for MySqlDatabase {
     async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let result = self.query("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name").await?;
+        let result = self
+            .query("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
+            .await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
@@ -404,12 +558,19 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
         Ok(nodes)
     }
 
-    async fn get_schemas(&self, _db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_schemas(
+        &self,
+        _db: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         self.get_databases().await
     }
 
-    async fn get_tables(&self, db: &str, _schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", db);
+    async fn get_tables(
+        &self,
+        db: &str,
+        _schema: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", db.replace('\'', "''"));
         let result = self.query(&sql).await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
@@ -428,7 +589,11 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
                             Some(crate::core::driver::NodeInfo {
                                 name: name_arr.value(row_idx).to_string(),
                                 kind,
-                                icon: Some(if table_type == "VIEW" { "view".to_string() } else { "table".to_string() }),
+                                icon: Some(if table_type == "VIEW" {
+                                    "view".to_string()
+                                } else {
+                                    "table".to_string()
+                                }),
                                 comment: None,
                             })
                         } else {
@@ -443,7 +608,12 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
         Ok(nodes)
     }
 
-    async fn get_table_detail(&self, db: &str, _schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+    async fn get_table_detail(
+        &self,
+        db: &str,
+        _schema: &str,
+        table: &str,
+    ) -> Result<crate::core::driver::NodeDetail, CoreError> {
         let sql = format!(
             "SELECT column_name, data_type, is_nullable, column_key, column_default, column_comment \
              FROM information_schema.columns \
@@ -456,20 +626,53 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
                     if row_idx < batch.num_rows() {
-                        let col_name = batch.column(0).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let data_type = batch.column(1).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let nullable = batch.column(2).as_any().downcast_ref::<StringArray>()?.value(row_idx) == "YES";
-                        let pk = batch.column(3).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let default = batch.column(4).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let comment = batch.column(5).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        let col_name = batch
+                            .column(0)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let data_type = batch
+                            .column(1)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let nullable = batch
+                            .column(2)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx)
+                            == "YES";
+                        let pk = batch
+                            .column(3)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let default = batch
+                            .column(4)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let comment = batch
+                            .column(5)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
                         Some(crate::core::driver::ColumnDetail {
                             name: col_name.to_string(),
                             data_type: data_type.to_string(),
                             nullable,
                             is_primary_key: pk == "PRI",
                             is_foreign_key: pk == "MUL",
-                            default_value: if default.is_empty() { None } else { Some(default.to_string()) },
-                            comment: if comment.is_empty() { None } else { Some(comment.to_string()) },
+                            default_value: if default.is_empty() {
+                                None
+                            } else {
+                                Some(default.to_string())
+                            },
+                            comment: if comment.is_empty() {
+                                None
+                            } else {
+                                Some(comment.to_string())
+                            },
                         })
                     } else {
                         None

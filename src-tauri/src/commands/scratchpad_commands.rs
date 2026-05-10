@@ -8,8 +8,8 @@ use tauri::{Emitter, State};
 use crate::commands::analytics_resource_commands::AnalyticsResourceState;
 use crate::core::persistence::{AnalyticsResource, CreateResourceRequest};
 use crate::core::scratchpad::{
-    AnalyzableFile, ExternalReference, ScratchpadEntry, ScratchpadResponse, ScratchpadState, ScratchpadStore,
-    SearchResult,
+    AnalyzableFile, ExternalReference, ScratchpadEntry, ScratchpadResponse, ScratchpadState,
+    ScratchpadStore, SearchResult,
 };
 
 async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, String> {
@@ -34,7 +34,10 @@ pub async fn list_scratchpad_files(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<ScratchpadResponse, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.get_full_response().await.map_err(|e| e.to_string())
+    scratchpad
+        .get_full_response()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -44,7 +47,10 @@ pub async fn create_scratchpad_entry(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<ScratchpadEntry, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.create_entry(&name, is_folder).await.map_err(|e| e.to_string())
+    scratchpad
+        .create_entry(&name, is_folder)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -53,7 +59,10 @@ pub async fn delete_scratchpad_entry(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<(), String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.delete_entry(&relative_path).await.map_err(|e| e.to_string())
+    scratchpad
+        .delete_entry(&relative_path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -63,7 +72,10 @@ pub async fn rename_scratchpad_entry(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<ScratchpadEntry, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.rename_entry(&relative_path, &new_name).await.map_err(|e| e.to_string())
+    scratchpad
+        .rename_entry(&relative_path, &new_name)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -72,7 +84,10 @@ pub async fn read_scratchpad_file(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<String, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.read_file(&relative_path).await.map_err(|e| e.to_string())
+    scratchpad
+        .read_file(&relative_path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -82,7 +97,10 @@ pub async fn save_scratchpad_file(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<(), String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.save_file(&relative_path, &content).await.map_err(|e| e.to_string())
+    scratchpad
+        .save_file(&relative_path, &content)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -92,7 +110,10 @@ pub async fn import_external_file(
 ) -> Result<ScratchpadEntry, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
     let source = PathBuf::from(&source_path);
-    scratchpad.import_external_file(&source).await.map_err(|e| e.to_string())
+    scratchpad
+        .import_external_file(&source)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -103,7 +124,10 @@ pub async fn add_external_reference(
 ) -> Result<ExternalReference, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
     let ref_path = PathBuf::from(&path);
-    scratchpad.add_external_reference(alias, ref_path).await.map_err(|e| e.to_string())
+    scratchpad
+        .add_external_reference(alias, ref_path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -112,7 +136,10 @@ pub async fn remove_external_reference(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<(), String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.remove_external_reference(&alias).await.map_err(|e| e.to_string())
+    scratchpad
+        .remove_external_reference(&alias)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -122,7 +149,10 @@ pub async fn open_scratchpad_in_explorer(
 ) -> Result<(), String> {
     let scratchpad = get_store(&scratchpad_state).await?;
     let target = PathBuf::from(&path);
-    scratchpad.open_in_system_explorer(&target).await.map_err(|e| e.to_string())
+    scratchpad
+        .open_in_system_explorer(&target)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -131,7 +161,10 @@ pub async fn check_scratchpad_file_size(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<u64, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.check_file_size(&relative_path).await.map_err(|e| e.to_string())
+    scratchpad
+        .check_file_size(&relative_path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ==================== Analysis Commands ====================
@@ -141,7 +174,10 @@ pub async fn get_analyzable_files(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<Vec<AnalyzableFile>, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.get_analyzable_files().await.map_err(|e| e.to_string())
+    scratchpad
+        .get_analyzable_files()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ==================== Trash Commands ====================
@@ -160,7 +196,10 @@ pub async fn restore_scratchpad_from_trash(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<ScratchpadEntry, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.restore_from_trash(&trash_name).await.map_err(|e| e.to_string())
+    scratchpad
+        .restore_from_trash(&trash_name)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -214,12 +253,13 @@ pub async fn watch_scratchpad(
     scratchpad.ensure_dir().await.map_err(|e| e.to_string())?;
 
     let (tx, rx) = std::sync::mpsc::channel();
-    let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-        if res.is_ok() {
-            let _ = tx.send(());
-        }
-    })
-    .map_err(|e| e.to_string())?;
+    let mut watcher =
+        notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
+            if res.is_ok() {
+                let _ = tx.send(());
+            }
+        })
+        .map_err(|e| e.to_string())?;
 
     watcher
         .watch(&watch_dir, notify::RecursiveMode::Recursive)
@@ -293,8 +333,14 @@ pub async fn promote_scratchpad_to_resource(
 ) -> Result<PromoteResult, String> {
     let scratchpad = get_store(&scratchpad_state).await?;
 
-    let file_content = scratchpad.read_file(&relative_path).await.map_err(|e| e.to_string())?;
-    let file_size = scratchpad.check_file_size(&relative_path).await.map_err(|e| e.to_string())?;
+    let file_content = scratchpad
+        .read_file(&relative_path)
+        .await
+        .map_err(|e| e.to_string())?;
+    let file_size = scratchpad
+        .check_file_size(&relative_path)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let file_name = std::path::Path::new(&relative_path)
         .file_name()
@@ -313,8 +359,14 @@ pub async fn promote_scratchpad_to_resource(
     let resource_type = extension_to_resource_type(&ext).to_string();
 
     let mut config = serde_json::Map::new();
-    config.insert("source".to_string(), Value::String("scratchpad".to_string()));
-    config.insert("scratchpad_relative_path".to_string(), Value::String(relative_path.clone()));
+    config.insert(
+        "source".to_string(),
+        Value::String("scratchpad".to_string()),
+    );
+    config.insert(
+        "scratchpad_relative_path".to_string(),
+        Value::String(relative_path.clone()),
+    );
 
     if resource_type == "sql_script" {
         config.insert("sql".to_string(), Value::String(file_content.clone()));
@@ -330,26 +382,33 @@ pub async fn promote_scratchpad_to_resource(
         column_count: None,
         file_size: Some(file_size as i64),
         parent_resource_id: None,
-        source_query: if ext == "sql" { Some(file_content) } else { None },
+        source_query: if ext == "sql" {
+            Some(file_content)
+        } else {
+            None
+        },
     };
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let ar_store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
+    let ar_store = analytics_state
+        .store
+        .get()
+        .ok_or_else(|| "分析资源存储未初始化".to_string())?;
 
-    let resource = ar_store.create_resource(req).await.map_err(|e| e.to_string())?;
+    let resource = ar_store
+        .create_resource(req)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let _ = app.emit("analytics-resource-changed", ());
 
     let mut removed = false;
     if remove_after {
-        scratchpad.delete_entry(&relative_path).await.map_err(|e| e.to_string())?;
+        scratchpad
+            .delete_entry(&relative_path)
+            .await
+            .map_err(|e| e.to_string())?;
         removed = true;
     }
 
-    Ok(PromoteResult {
-        resource,
-        removed,
-    })
+    Ok(PromoteResult { resource, removed })
 }

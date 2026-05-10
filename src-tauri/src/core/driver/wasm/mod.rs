@@ -23,10 +23,10 @@
 //! - 第三方闭源驱动
 //! - 热插拔驱动
 
-pub mod driver;
 pub mod adapter;
+pub mod driver;
 pub mod pool;
 
-pub use driver::WasmDriver;
 pub use adapter::WasmAdapter;
+pub use driver::WasmDriver;
 pub use pool::WasmPool;

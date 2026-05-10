@@ -195,6 +195,9 @@
         <span v-if="store.lastResult" class="generate-info">
           已生成 {{ store.lastResult.rowCount }} 行，耗时 {{ store.lastResult.elapsedMs }}ms
         </span>
+        <span v-if="store.generateLoading && store.generateProgressTotal > 0" class="generate-info progress-info">
+          {{ store.generateProgress }} / {{ store.generateProgressTotal }} 批次 ({{ Math.round(store.generateProgress / store.generateProgressTotal * 100) }}%)
+        </span>
       </div>
 
       <div v-if="store.previewData.length > 0" class="preview-section">
@@ -249,20 +252,16 @@
         </div>
       </div>
 
-      <div v-if="store.lastHistories.length > 0" class="history-section">
+      <div v-if="store.persistenceHistory.length > 0" class="history-section">
         <div class="section-header">
           <span class="section-title">生成历史</span>
-          <NButton size="small" quaternary @click="store.clearHistory()">
-            <template #icon><Trash2 :size="14" /></template>
-            清空
-          </NButton>
         </div>
         <div class="history-list">
           <div
-            v-for="item in store.lastHistories"
+            v-for="item in store.persistenceHistory"
             :key="item.id"
             class="history-item"
-            @click="onReGenerate(item.id)"
+            @click="onReGenerateV2(item.id)"
           >
             <div class="history-item-left">
               <span class="history-table">{{ item.tableName }}</span>
@@ -270,7 +269,10 @@
               <span class="history-status">{{ item.status }}</span>
             </div>
             <div class="history-item-right">
-              <span class="history-time">{{ formatTimeStr(item.generatedAt) }}</span>
+              <span class="history-time">{{ formatTimeStr(item.createdAt ?? '') }}</span>
+              <NButton size="tiny" quaternary class="history-del" @click.stop="onDeleteHistory(item.id)">
+                <template #icon><Trash2 :size="12" /></template>
+              </NButton>
             </div>
           </div>
         </div>
@@ -294,8 +296,12 @@
       :current-params="(store.columns[advancedDrawerIndex]?.generator.params ?? {}) as Record<string, unknown>"
       :column-name="store.columns[advancedDrawerIndex]?.name ?? ''"
       :column-index="advancedDrawerIndex"
+      :column-data-type="store.columns[advancedDrawerIndex]?.dataType ?? 'varchar'"
+      :column-nullable-ratio="store.columns[advancedDrawerIndex]?.nullableRatio ?? 0"
+      :column-unique="store.columns[advancedDrawerIndex]?.unique ?? false"
+      :all-columns="allColumnsForDrawer"
       @update:show="advancedDrawerVisible = $event"
-      @save="onAdvancedSave"
+      @apply="onAdvancedApply"
     />
   </div>
 </template>
@@ -313,7 +319,8 @@ import {
 } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 
-import type { ColumnDef, MockExportFormat, ScenarioTemplate } from '@/shared/api/mock-api'
+import { useProjectStore } from '@/core/project'
+import type { ColumnDef, MockExportFormat, ScenarioTemplate, GeneratorType, ColumnDataType } from '@/shared/api/mock-api'
 import { useMockStore } from '@/stores/useMockStore'
 
 import MockAdvancedDrawer from './MockAdvancedDrawer.vue'
@@ -321,6 +328,7 @@ import MockImportSchemaDialog from './MockImportSchemaDialog.vue'
 import MockTemplateSelectDialog from './MockTemplateSelectDialog.vue'
 
 const store = useMockStore()
+const projectStore = useProjectStore()
 const { message } = createDiscreteApi(['message'])
 
 const seedInput = ref(store.seed !== null ? String(store.seed) : '')
@@ -336,9 +344,27 @@ function openAdvanced(idx: number) {
   advancedDrawerVisible.value = true
 }
 
-function onAdvancedSave(idx: number, params: Record<string, unknown>) {
-  store.updateColumn(idx, { generator: { ...store.columns[idx].generator, params } })
+function onAdvancedApply(
+  idx: number,
+  type: string,
+  params: Record<string, unknown>,
+  fieldName: string,
+  dataType: string,
+  nullableRatio: number,
+  unique: boolean,
+) {
+  store.updateColumn(idx, {
+    name: fieldName,
+    dataType: dataType as ColumnDataType,
+    generator: { type: type as GeneratorType, params },
+    nullableRatio,
+    unique,
+  })
 }
+
+const allColumnsForDrawer = computed(() =>
+  store.columns.map(c => ({ name: c.name, dataType: c.dataType }))
+)
 
 async function onAutoMapColumn(idx: number) {
   mappingIdx.value = idx
@@ -383,6 +409,9 @@ const generatorOptions = [
     { label: '随机整数', value: 'random_int' },
     { label: '随机浮点数', value: 'random_float' },
     { label: '随机小数', value: 'random_decimal' },
+    { label: '正态分布', value: 'normal' },
+    { label: '对数正态', value: 'log_normal' },
+    { label: '随机游走', value: 'random_walk' },
     { label: '数字格式', value: 'number_with_format' },
     { label: '单个数字', value: 'digit' },
   ]},
@@ -431,6 +460,8 @@ const generatorOptions = [
     { label: '过去时间', value: 'datetime_before' },
     { label: '将来时间', value: 'datetime_after' },
     { label: '时间区间', value: 'datetime_between' },
+    { label: '递增序列', value: 'sequential_date' },
+    { label: '含缺失间隔', value: 'sequential_date_with_gaps' },
     { label: '持续时间', value: 'duration' },
   ]},
   { type: 'group', label: '商业', key: 'g_business', children: [
@@ -594,7 +625,12 @@ function onReset() {
 
 async function onGenerate() {
   try {
-    await store.generate()
+    const projectPath = projectStore.projectPath
+    if (projectPath) {
+      await store.generateAndSave(projectPath)
+    } else {
+      await store.generate()
+    }
     message.success(`成功生成 ${store.lastResult?.rowCount ?? 0} 行`)
   } catch (e) {
     message.error(`生成失败: ${String(e)}`)
@@ -651,15 +687,32 @@ async function onRefreshPreview() {
   }
 }
 
-async function onReGenerate(historyId: string) {
+async function onReGenerateV2(historyId: string) {
+  const projectPath = projectStore.projectPath
+  if (!projectPath) {
+    message.warning('请先打开项目')
+    return
+  }
   try {
-    const result = await store.reGenerate(historyId)
-    store.generatedTableName = result.tempTableName
-    store.previewData = result.preview
-    store.generatedColumns = result.columns
-    message.success(`已重新生成 ${result.rowCount} 行`)
+    const detail = await store.loadDetail(projectPath, historyId)
+    if (detail.columns.length === 0) {
+      message.warning('该历史记录无字段配置')
+      return
+    }
+    message.success(`已从历史恢复 ${detail.task.tableName}（${detail.columns.length} 列），请点击生成按钮`)
   } catch (e) {
-    message.error(`重新生成失败: ${String(e)}`)
+    message.error(`加载历史详情失败: ${String(e)}`)
+  }
+}
+
+async function onDeleteHistory(historyId: string) {
+  const projectPath = projectStore.projectPath
+  if (!projectPath) return
+  try {
+    await store.deletePersistenceTask(projectPath, historyId)
+    message.success('已删除历史记录')
+  } catch (e) {
+    message.error(`删除失败: ${String(e)}`)
   }
 }
 
@@ -691,8 +744,10 @@ function formatTimeStr(timestamp: string): string {
 }
 
 async function loadHistory() {
-  try { await store.loadHistory(20) }
-  catch { message.error('加载历史失败') }
+  const projectPath = projectStore.projectPath
+  if (!projectPath) return
+  try { await store.loadHistoryV2(projectPath, 20) }
+  catch { /* history load is non-critical */ }
 }
 
 onMounted(() => {

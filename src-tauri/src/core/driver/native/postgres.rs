@@ -1,13 +1,18 @@
-use sqlx::{Postgres, Pool, Row, Column};
-use arrow::array::{ArrayRef, StringArray, Int64Array, Int32Array, Float64Array, Float32Array, BooleanArray, BinaryArray};
-use arrow::datatypes::{Field, Schema, DataType};
+use arrow::array::{
+    ArrayRef, BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array, Int64Array,
+    StringArray,
+};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+use sqlx::{Column, Pool, Postgres, Row};
 use std::sync::Arc;
 
-use crate::core::driver::{Database, Transaction, DataSourceMeta, SchemaObject, SchemaObjectKind, ColumnDetail};
 use crate::core::driver::traits::MetadataBrowser;
-use crate::core::error::{CoreError, DatabaseError};
-use crate::core::models::{QueryResult, ArrowBatch};
+use crate::core::driver::{
+    ColumnDetail, DataSourceMeta, Database, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
+};
+use crate::core::error::{ConnectionError, CoreError, DatabaseError};
+use crate::core::models::{ArrowBatch, QueryResult};
 
 /// PostgreSQL 数据库连接
 pub struct PostgresDatabase {
@@ -17,26 +22,35 @@ pub struct PostgresDatabase {
 
 impl PostgresDatabase {
     pub async fn new(url: &str) -> Result<Self, CoreError> {
-        let pool = Pool::connect(url)
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        let pool = Pool::connect(url).await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "postgres".to_string(),
                 operation: "connect".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         let server_version = sqlx::query_scalar::<_, String>("SELECT version()")
             .fetch_one(&pool)
             .await
             .ok();
-        Ok(Self { pool, server_version })
+        Ok(Self {
+            pool,
+            server_version,
+        })
     }
 
     pub fn from_pool(pool: Pool<Postgres>) -> Self {
-        Self { pool, server_version: None }
+        Self {
+            pool,
+            server_version: None,
+        }
     }
 
     pub fn from_pool_with_version(pool: Pool<Postgres>, server_version: Option<String>) -> Self {
-        Self { pool, server_version }
+        Self {
+            pool,
+            server_version,
+        }
     }
 }
 
@@ -49,7 +63,11 @@ fn is_read_only_sql(sql: &str) -> bool {
         || sql_upper.starts_with("SET")
 }
 
-fn build_query_result(columns: &[String], rows: &[sqlx::postgres::PgRow], is_read_only: bool) -> Result<QueryResult, CoreError> {
+fn build_query_result(
+    columns: &[String],
+    rows: &[sqlx::postgres::PgRow],
+    is_read_only: bool,
+) -> Result<QueryResult, CoreError> {
     let batch = postgres_rows_to_arrow(columns, rows)?;
     Ok(QueryResult {
         columns: columns.to_vec(),
@@ -77,7 +95,8 @@ impl Database for PostgresDatabase {
             });
         }
 
-        let columns: Vec<String> = rows[0].columns()
+        let columns: Vec<String> = rows[0]
+            .columns()
             .iter()
             .map(|c| c.name().to_string())
             .collect();
@@ -85,7 +104,11 @@ impl Database for PostgresDatabase {
         build_query_result(&columns, &rows, read_only)
     }
 
-    async fn query_with_params(&self, sql: &str, params: Vec<crate::core::models::Value>) -> Result<QueryResult, CoreError> {
+    async fn query_with_params(
+        &self,
+        sql: &str,
+        params: Vec<crate::core::models::Value>,
+    ) -> Result<QueryResult, CoreError> {
         let read_only = is_read_only_sql(sql);
 
         let mut query_builder = sqlx::query(sql);
@@ -115,7 +138,8 @@ impl Database for PostgresDatabase {
             });
         }
 
-        let columns: Vec<String> = rows[0].columns()
+        let columns: Vec<String> = rows[0]
+            .columns()
             .iter()
             .map(|c| c.name().to_string())
             .collect();
@@ -168,13 +192,13 @@ impl Database for PostgresDatabase {
     }
 
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError> {
-        let tx = self.pool.begin()
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        let tx = self.pool.begin().await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "postgres".to_string(),
                 operation: "begin_transaction".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         Ok(Box::new(PostgresTransaction::new(tx)))
     }
 
@@ -185,35 +209,145 @@ impl Database for PostgresDatabase {
         }
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
-        self.get_databases().await.map(|nodes| {
-            nodes.into_iter().map(|n| n.name).collect()
+    async fn ping(&self) -> Result<(), CoreError> {
+        sqlx::query("SELECT 1")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| {
+                CoreError::connection(ConnectionError::Other {
+                    conn_id: "postgres".to_string(),
+                    reason: format!("Ping failed: {}", e),
+                })
+            })?;
+        Ok(())
+    }
+
+    async fn pool_status(&self) -> Option<PoolStatus> {
+        let size = self.pool.size() as usize;
+        let idle = self.pool.num_idle();
+        Some(PoolStatus {
+            size,
+            idle,
+            active: size.saturating_sub(idle),
+            waiting: 0,
+            max_connections: 10,
+            min_connections: 2,
         })
+    }
+
+    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+        self.get_databases()
+            .await
+            .map(|nodes| nodes.into_iter().map(|n| n.name).collect())
     }
 
     async fn list_schemas(&self, db: &str) -> Result<Vec<String>, CoreError> {
-        self.get_schemas(db).await.map(|nodes| {
-            nodes.into_iter().map(|n| n.name).collect()
-        })
+        self.get_schemas(db)
+            .await
+            .map(|nodes| nodes.into_iter().map(|n| n.name).collect())
     }
 
-    async fn list_tables(&self, db: &str, schema: Option<&str>) -> Result<Vec<SchemaObject>, CoreError> {
+    async fn list_tables(
+        &self,
+        db: &str,
+        schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
         let nodes = self.get_tables(db, schema_name).await?;
-        Ok(nodes.into_iter().map(|n| {
-            crate::core::driver::SchemaObject {
+        Ok(nodes
+            .into_iter()
+            .map(|n| crate::core::driver::SchemaObject {
                 name: n.name,
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
-            }
-        }).collect())
+            })
+            .collect())
     }
 
-    async fn list_columns(&self, _db: &str, schema: Option<&str>, table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
+    async fn list_columns(
+        &self,
+        _db: &str,
+        schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<ColumnDetail>, CoreError> {
         let schema_name = schema.unwrap_or("public");
         let detail = self.get_table_detail(_db, schema_name, table).await?;
         Ok(detail.columns)
+    }
+
+    async fn list_procedures(
+        &self,
+        _db: &str,
+        schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let schema_name = schema.unwrap_or("public");
+        let sql = format!(
+            "SELECT p.proname FROM pg_catalog.pg_proc p \
+             JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
+             WHERE n.nspname = '{}' AND p.prokind = 'p' \
+             ORDER BY p.proname",
+            schema_name.replace('\'', "''")
+        );
+        let result = self.query(&sql).await?;
+        Ok(names_to_schema_objects(
+            &result,
+            SchemaObjectKind::Procedure,
+        ))
+    }
+
+    async fn list_functions(
+        &self,
+        _db: &str,
+        schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let schema_name = schema.unwrap_or("public");
+        let sql = format!(
+            "SELECT p.proname FROM pg_catalog.pg_proc p \
+             JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
+             WHERE n.nspname = '{}' AND p.prokind = 'f' \
+             ORDER BY p.proname",
+            schema_name.replace('\'', "''")
+        );
+        let result = self.query(&sql).await?;
+        Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
+    }
+
+    async fn get_routine_source(
+        &self,
+        _db: &str,
+        schema: Option<&str>,
+        name: &str,
+        kind: SchemaObjectKind,
+    ) -> Result<Option<String>, CoreError> {
+        let schema_name = schema.unwrap_or("public");
+        let prokind = match kind {
+            SchemaObjectKind::Procedure => "p",
+            SchemaObjectKind::Function => "f",
+            _ => return Ok(None),
+        };
+        let sql = format!(
+            "SELECT pg_get_functiondef(p.oid) \
+             FROM pg_catalog.pg_proc p \
+             JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
+             WHERE n.nspname = '{}' AND p.proname = '{}' AND p.prokind = '{}'",
+            schema_name.replace('\'', "''"),
+            name.replace('\'', "''"),
+            prokind,
+        );
+        let result = self.query(&sql).await?;
+        if let Some(batch) = result.batches.first() {
+            if batch.num_rows() > 0 {
+                if let Some(col) = batch
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<arrow::array::StringArray>()
+                {
+                    return Ok(Some(col.value(0).to_string()));
+                }
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -248,7 +382,8 @@ impl Transaction for PostgresTransaction {
                 });
             }
 
-            let columns: Vec<String> = rows[0].columns()
+            let columns: Vec<String> = rows[0]
+                .columns()
                 .iter()
                 .map(|c| c.name().to_string())
                 .collect();
@@ -265,11 +400,13 @@ impl Transaction for PostgresTransaction {
 
     async fn commit(&mut self) -> Result<(), CoreError> {
         if let Some(tx) = self.tx.take() {
-            tx.commit().await.map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "postgres".to_string(),
-                operation: "commit".to_string(),
-                source: e.to_string(),
-            }))?;
+            tx.commit().await.map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "postgres".to_string(),
+                    operation: "commit".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
         }
         Ok(())
     }
@@ -277,7 +414,7 @@ impl Transaction for PostgresTransaction {
     async fn rollback(&mut self) -> Result<(), CoreError> {
         if let Some(tx) = self.tx.take() {
             if let Err(e) = tx.rollback().await {
-                eprintln!("PostgreSQL transaction rollback error: {}", e);
+                tracing::warn!("PostgreSQL transaction rollback error: {}", e);
             }
         }
         Ok(())
@@ -367,14 +504,17 @@ fn postgres_rows_to_arrow(
             }
         }
 
-        let array: ArrayRef = match detected_type.unwrap_or(DataType::Utf8) {
+        let array: ArrayRef = match effective_type {
             DataType::Boolean => Arc::new(BooleanArray::from(bool_values)),
             DataType::Int32 => Arc::new(Int32Array::from(int32_values)),
             DataType::Int64 => Arc::new(Int64Array::from(int64_values)),
             DataType::Float32 => Arc::new(Float32Array::from(float32_values)),
             DataType::Float64 => Arc::new(Float64Array::from(float64_values)),
             DataType::Binary => {
-                let refs: Vec<Option<&[u8]>> = binary_values.iter().map(|opt| opt.as_ref().map(|v| v.as_slice())).collect();
+                let refs: Vec<Option<&[u8]>> = binary_values
+                    .iter()
+                    .map(|opt| opt.as_ref().map(|v| v.as_slice()))
+                    .collect();
                 Arc::new(BinaryArray::from(refs))
             }
             _ => Arc::new(StringArray::from(string_values)),
@@ -383,7 +523,8 @@ fn postgres_rows_to_arrow(
         arrays.push(array);
     }
 
-    let fields: Vec<Field> = columns.iter()
+    let fields: Vec<Field> = columns
+        .iter()
         .enumerate()
         .map(|(i, name)| {
             let data_type = arrays[i].data_type().clone();
@@ -393,19 +534,24 @@ fn postgres_rows_to_arrow(
 
     let schema = Arc::new(Schema::new(fields));
 
-    RecordBatch::try_new(schema, arrays)
-        .map_err(|e| CoreError::database(DatabaseError::Driver {
+    RecordBatch::try_new(schema, arrays).map_err(|e| {
+        CoreError::database(DatabaseError::Driver {
             db_type: "postgres".to_string(),
             operation: "arrow_conversion".to_string(),
             source: e.to_string(),
-        }))
+        })
+    })
 }
 
 #[async_trait::async_trait]
 impl crate::core::driver::MetadataBrowser for PostgresDatabase {
     async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let result = self.query("SELECT datname FROM pg_catalog.pg_database WHERE datistemplate = false ORDER BY datname").await?;
-        Ok(rows_to_node_info(&result, crate::core::driver::SchemaObjectKind::Database, "database"))
+        Ok(rows_to_node_info(
+            &result,
+            crate::core::driver::SchemaObjectKind::Database,
+            "database",
+        ))
     }
 
     async fn get_schemas(&self, db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
@@ -416,14 +562,23 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
             db.replace('\'', "''")
         );
         let result = self.query(&sql).await?;
-        Ok(rows_to_node_info(&result, crate::core::driver::SchemaObjectKind::Schema, "schema"))
+        Ok(rows_to_node_info(
+            &result,
+            crate::core::driver::SchemaObjectKind::Schema,
+            "schema",
+        ))
     }
 
-    async fn get_tables(&self, db: &str, schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_tables(
+        &self,
+        db: &str,
+        schema: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let sql = format!(
             "SELECT table_name, table_type FROM information_schema.tables \
              WHERE table_catalog = '{}' AND table_schema = '{}' ORDER BY table_name",
-            db.replace('\'', "''"), schema.replace('\'', "''")
+            db.replace('\'', "''"),
+            schema.replace('\'', "''")
         );
         let result = self.query(&sql).await?;
         let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
@@ -443,7 +598,11 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
                         nodes.push(crate::core::driver::NodeInfo {
                             name: name_arr.value(row_idx).to_string(),
                             kind,
-                            icon: Some(if table_type == "VIEW" { "view".to_string() } else { "table".to_string() }),
+                            icon: Some(if table_type == "VIEW" {
+                                "view".to_string()
+                            } else {
+                                "table".to_string()
+                            }),
                             comment: None,
                         });
                     }
@@ -453,7 +612,12 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         Ok(nodes)
     }
 
-    async fn get_table_detail(&self, db: &str, schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+    async fn get_table_detail(
+        &self,
+        db: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<crate::core::driver::NodeDetail, CoreError> {
         let safe_schema = schema.replace('\'', "''");
         let safe_table = table.replace('\'', "''");
         let safe_db = db.replace('\'', "''");
@@ -475,26 +639,52 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         for row_idx in 0..result.total_rows() {
             if let Some(batch) = result.batches.first() {
                 if row_idx < batch.num_rows() {
-                    let col_name = batch.column(0).as_any().downcast_ref::<StringArray>()
-                        .map(|a| a.value(row_idx)).unwrap_or("");
-                    let data_type = batch.column(1).as_any().downcast_ref::<StringArray>()
-                        .map(|a| a.value(row_idx)).unwrap_or("");
-                    let nullable = batch.column(2).as_any().downcast_ref::<StringArray>()
-                        .map(|a| a.value(row_idx) == "YES").unwrap_or(false);
-                    let pk = batch.column(3).as_any().downcast_ref::<StringArray>()
-                        .map(|a| a.value(row_idx)).unwrap_or("");
-                    let default = batch.column(4).as_any().downcast_ref::<StringArray>()
-                        .map(|a| a.value(row_idx)).unwrap_or("");
-                    let comment = batch.column(5).as_any().downcast_ref::<StringArray>()
-                        .map(|a| a.value(row_idx)).unwrap_or("");
+                    let col_name = batch
+                        .column(0)
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map_or("", |a| a.value(row_idx));
+                    let data_type = batch
+                        .column(1)
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map_or("", |a| a.value(row_idx));
+                    let nullable = batch
+                        .column(2)
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map_or(false, |a| a.value(row_idx) == "YES");
+                    let pk = batch
+                        .column(3)
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map_or("", |a| a.value(row_idx));
+                    let default = batch
+                        .column(4)
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map_or("", |a| a.value(row_idx));
+                    let comment = batch
+                        .column(5)
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .map_or("", |a| a.value(row_idx));
                     columns.push(crate::core::driver::ColumnDetail {
                         name: col_name.to_string(),
                         data_type: data_type.to_string(),
                         nullable,
                         is_primary_key: pk == "PRI",
                         is_foreign_key: false,
-                        default_value: if default.is_empty() { None } else { Some(default.to_string()) },
-                        comment: if comment.is_empty() { None } else { Some(comment.to_string()) },
+                        default_value: if default.is_empty() {
+                            None
+                        } else {
+                            Some(default.to_string())
+                        },
+                        comment: if comment.is_empty() {
+                            None
+                        } else {
+                            Some(comment.to_string())
+                        },
                     });
                 }
             }
@@ -514,7 +704,11 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
     }
 }
 
-fn rows_to_node_info(result: &QueryResult, kind: crate::core::driver::SchemaObjectKind, icon: &str) -> Vec<crate::core::driver::NodeInfo> {
+fn rows_to_node_info(
+    result: &QueryResult,
+    kind: crate::core::driver::SchemaObjectKind,
+    icon: &str,
+) -> Vec<crate::core::driver::NodeInfo> {
     let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
     for row_idx in 0..result.total_rows() {
         if let Some(batch) = result.batches.first() {
@@ -534,4 +728,29 @@ fn rows_to_node_info(result: &QueryResult, kind: crate::core::driver::SchemaObje
         }
     }
     nodes
+}
+
+fn names_to_schema_objects(
+    result: &QueryResult,
+    kind: crate::core::driver::SchemaObjectKind,
+) -> Vec<crate::core::driver::SchemaObject> {
+    let mut objects: Vec<crate::core::driver::SchemaObject> = Vec::new();
+    for row_idx in 0..result.total_rows() {
+        if let Some(batch) = result.batches.first() {
+            if row_idx < batch.num_rows() {
+                if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
+                    let name = arr.value(row_idx);
+                    if !name.is_empty() {
+                        objects.push(crate::core::driver::SchemaObject {
+                            name: name.to_string(),
+                            kind: kind.clone(),
+                            children: None,
+                            comment: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    objects
 }

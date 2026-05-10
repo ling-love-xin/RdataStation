@@ -26,7 +26,7 @@ pub mod connector;
 pub mod factory;
 pub mod stream;
 
-pub use config::{ConnectionConfig, ConnectionMethod, SshConfig, ProxyConfig, SslConfig};
+pub use config::{ConnectionConfig, ConnectionMethod, ProxyConfig, SshConfig, SslConfig};
 pub use connector::{Connection, Connector};
 pub use factory::ConnectionFactory;
 pub use stream::{ConnectionStream, StreamWrapper};

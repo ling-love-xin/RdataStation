@@ -35,7 +35,9 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
     utils: context.utils,
 
     analyticsResource: {
-      get version() { return '1.4.0' },
+      get version() {
+        return '1.4.0'
+      },
     },
 
     dispose: () => {

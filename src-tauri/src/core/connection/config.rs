@@ -98,9 +98,7 @@ fn default_ssh_port() -> u16 {
 #[serde(tag = "auth_type", rename_all = "snake_case")]
 pub enum SshAuth {
     /// 密码认证
-    Password {
-        password: String,
-    },
+    Password { password: String },
     /// 私钥认证
     PrivateKey {
         /// 私钥路径
@@ -185,11 +183,7 @@ impl ConnectionConfig {
     }
 
     /// 创建 SSH 隧道连接配置
-    pub fn ssh(
-        remote_host: impl Into<String>,
-        remote_port: u16,
-        ssh_config: SshConfig,
-    ) -> Self {
+    pub fn ssh(remote_host: impl Into<String>, remote_port: u16, ssh_config: SshConfig) -> Self {
         Self {
             host: remote_host.into(),
             port: remote_port,
@@ -199,11 +193,7 @@ impl ConnectionConfig {
     }
 
     /// 创建 HTTP 代理连接配置
-    pub fn http_proxy(
-        host: impl Into<String>,
-        port: u16,
-        proxy_config: ProxyConfig,
-    ) -> Self {
+    pub fn http_proxy(host: impl Into<String>, port: u16, proxy_config: ProxyConfig) -> Self {
         Self {
             host: host.into(),
             port,
@@ -213,11 +203,7 @@ impl ConnectionConfig {
     }
 
     /// 创建 SOCKS 代理连接配置
-    pub fn socks_proxy(
-        host: impl Into<String>,
-        port: u16,
-        proxy_config: ProxyConfig,
-    ) -> Self {
+    pub fn socks_proxy(host: impl Into<String>, port: u16, proxy_config: ProxyConfig) -> Self {
         Self {
             host: host.into(),
             port,

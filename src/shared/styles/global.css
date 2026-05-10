@@ -36,6 +36,9 @@ body.theme-dark {
   --color-border-subtle: #3c3f41;
   --color-hover: #454545;
   --color-selection: rgba(225, 112, 85, 0.25);
+  --color-selected-text: #1e1f22;
+  --color-warning-text: #fbbf24;
+  --color-warning-bg: rgba(251, 191, 36, 0.12);
 }
 
 body.theme-light {
@@ -50,6 +53,9 @@ body.theme-light {
   --color-border-subtle: #e5e7eb;
   --color-hover: #e5e7e9;
   --color-selection: rgba(225, 112, 85, 0.15);
+  --color-selected-text: #ffffff;
+  --color-warning-text: #92400e;
+  --color-warning-bg: rgba(251, 191, 36, 0.15);
 }
 
 ::-webkit-scrollbar {

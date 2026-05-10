@@ -305,36 +305,36 @@ function formatCellValue(val: unknown): string {
 </script>
 
 <style scoped>
-.stat-grid { display: flex; flex-direction: column; gap: 4px; }
+.stat-grid { display: flex; flex-direction: column; gap: var(--spacing-xs); }
 .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
-.stat-label { color: var(--text-secondary, #888); font-size: 11px; }
-.stat-value { font-size: 12px; font-weight: 500; }
-.stat-value.mono { font-family: var(--font-mono); font-size: 11px; }
-.stat-value.small { font-size: 10px; }
-.stat-sub { font-size: 10px; color: var(--text-tertiary, #666); margin-left: 4px; }
+.stat-label { color: var(--text-secondary); font-size: var(--font-size-xss); }
+.stat-value { font-size: var(--font-size-sm); font-weight: 500; }
+.stat-value.mono { font-family: var(--font-mono); font-size: var(--font-size-xss); }
+.stat-value.small { font-size: var(--font-size-xs); }
+.stat-sub { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-left: var(--spacing-xs); }
 .text-warning { color: var(--brand-warning); }
 
-.histogram, .freq-list, .bool-dist { display: flex; flex-direction: column; gap: 4px; }
+.histogram, .freq-list, .bool-dist { display: flex; flex-direction: column; gap: var(--spacing-xs); }
 .histo-row, .freq-item { display: flex; align-items: center; gap: 6px; }
-.histo-label, .freq-label { width: 60px; font-size: 10px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary, #666); }
-.histo-bar-wrap, .freq-bar-wrap { flex: 1; height: 8px; background: var(--bg-secondary, #333); border-radius: 4px; overflow: hidden; }
-.histo-bar, .freq-bar { height: 100%; background: var(--primary-color, #0078d4); border-radius: 4px; transition: width 0.4s ease; }
+.histo-label, .freq-label { width: 60px; font-size: var(--font-size-xs); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); }
+.histo-bar-wrap, .freq-bar-wrap { flex: 1; height: var(--spacing-sm); background: var(--bg-secondary); border-radius: var(--border-radius-sm); overflow: hidden; }
+.histo-bar, .freq-bar { height: 100%; background: var(--primary-color); border-radius: var(--border-radius-sm); transition: width 0.4s ease; }
 .histo-bar-bool { background: var(--brand-success); }
 .freq-bar-datetime { background: var(--brand-accent); }
 .freq-clickable { cursor: pointer; background: none; border: none; padding: 2px 0; color: inherit; font: inherit; width: 100%; text-align: left; }
-.freq-clickable:hover { background: var(--bg-hover, rgba(255,255,255,0.05)); border-radius: 4px; }
-.histo-ratio, .freq-ratio { font-size: 10px; color: var(--text-secondary, #aaa); width: 40px; text-align: right; }
+.freq-clickable:hover { background: var(--bg-hover); border-radius: var(--border-radius-sm); }
+.histo-ratio, .freq-ratio { font-size: var(--font-size-xs); color: var(--text-secondary); width: 40px; text-align: right; }
 
-.viz-action { margin-top: 8px; display: flex; justify-content: flex-end; }
+.viz-action { margin-top: var(--spacing-sm); display: flex; justify-content: flex-end; }
 
-.quality-list { display: flex; flex-direction: column; gap: 4px; }
-.quality-item { font-size: 11px; padding: 4px 6px; border-radius: 4px; }
+.quality-list { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.quality-item { font-size: var(--font-size-xss); padding: var(--spacing-xs) 6px; border-radius: var(--border-radius-sm); }
 .quality-ok { background: rgba(0, 184, 148, 0.08); color: var(--brand-success); }
 .quality-warn { background: rgba(253, 203, 110, 0.08); color: var(--brand-warning); }
-.quality-info { background: rgba(0, 123, 255, 0.08); color: #74b9ff; }
+.quality-info { background: rgba(116, 185, 255, 0.08); color: var(--brand-blue); }
 
 .sample-list { display: flex; flex-direction: column; gap: 2px; }
-.sample-item { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
-.sample-idx { font-size: 10px; color: var(--text-tertiary, #666); width: 16px; text-align: right; }
-.sample-val { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.sample-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 2px var(--spacing-xs); }
+.sample-idx { font-size: var(--font-size-xs); color: var(--text-tertiary); width: 16px; text-align: right; }
+.sample-val { font-size: var(--font-size-xss); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 </style>

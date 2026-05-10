@@ -1,19 +1,23 @@
 use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use fake::rand::rngs::StdRng;
 use fake::rand::SeedableRng;
+use fake::RngExt;
 use fake::{Fake, Faker};
 
+use crate::core::driver::native::duckdb::duckdb_rows_to_arrow;
 use crate::core::duckdb::DuckDBManager;
 use crate::core::mock::error::{MockError, MockResult};
 use crate::core::mock::history::MockHistoryStore;
 use crate::core::mock::models::{
-    ColumnDef, ColumnDataType, ColumnMappingResponse, ImportSchemaInput, MockExportFormat,
-    GeneratorConfig, Locale, MockConfig, MockGenerateResult, MockHistoryRecord, ScenarioTemplate,
+    ColumnDataType, ColumnDef, ColumnMappingResponse, GeneratorConfig, ImportSchemaInput, Locale,
+    MockConfig, MockExportFormat, MockGenerateResult, MockHistoryRecord, ScenarioTemplate,
 };
 use crate::core::mock::schema_map::ColumnMapper;
 use crate::core::mock::templates;
+use crate::core::models::QueryResult;
 
 pub struct MockEngine;
 
@@ -24,10 +28,19 @@ const PREVIEW_ROWS: usize = 10;
 impl MockEngine {
     // ==================== 数据生成 ====================
 
+    /// 生成 Mock 数据（无进度回调）
+    /// 
+    /// 根据 `MockConfig` 配置在 DuckDB 内存临时表中生成指定行数/列数的模拟数据。
+    /// 内部调用 `generate_with_progress`，回调为空。
     pub async fn generate(config: MockConfig) -> MockResult<MockGenerateResult> {
         Self::generate_with_progress(config, |_, _| {}).await
     }
 
+    /// 生成 Mock 数据（带进度回调）
+    ///
+    /// 分批次生成数据（每批 BATCH_SIZE 行），每完成一批调用 `on_progress(batch_idx, total_batches)`。
+    /// 结果存储在 DuckDB 内存临时表 `temp_mock_{table_name}` 中。
+    /// 返回 `MockGenerateResult` 包含预览 `QueryResult` 和耗时。
     pub async fn generate_with_progress<F>(
         config: MockConfig,
         on_progress: F,
@@ -52,16 +65,13 @@ impl MockEngine {
         let safe_name = sanitize_table_name(&config.table_name);
         let table_name = format!("{}{}", TEMP_MOCK_PREFIX, safe_name);
 
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = Self::get_conn()?;
 
         let ddl = Self::build_create_table_ddl(&table_name, &config.columns);
         conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{}\"", table_name))?;
         conn.execute_batch(&ddl)?;
 
-        let total_batches = (config.row_count + BATCH_SIZE - 1) / BATCH_SIZE;
+        let total_batches = config.row_count.div_ceil(BATCH_SIZE);
         let mut unique_sets: Vec<HashSet<String>> = config
             .columns
             .iter()
@@ -159,33 +169,43 @@ impl MockEngine {
             columns: config.columns.iter().map(|c| c.name.clone()).collect(),
             elapsed_ms,
         })
+
+    }
+
+    fn get_conn() -> MockResult<std::sync::MutexGuard<'static, duckdb::Connection>> {
+        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
+        let ptr = Arc::as_ptr(&duckdb);
+        let conn_ref: &'static Mutex<duckdb::Connection> = unsafe { &*ptr };
+        conn_ref.lock().map_err(|e| {
+            MockError::Generation(format!("DuckDB lock error: {}", e))
+        })
     }
 
     // ==================== 预览刷新 ====================
 
-    pub fn preview(
-        temp_table_name: &str,
-        limit: usize,
-    ) -> MockResult<Vec<Vec<serde_json::Value>>> {
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+    /// 刷新临时表预览数据
+    ///
+    /// 从指定的 DuckDB 临时表中读取前 `limit` 行，转换为 Arrow `RecordBatch`
+    /// 并封装为 `QueryResult` 返回。用于前端 ag-Grid 二次渲染。
+    pub fn preview(temp_table_name: &str, limit: usize) -> MockResult<QueryResult> {
+        let conn = Self::get_conn()?;
         Self::read_preview(&conn, temp_table_name, limit)
     }
 
     // ==================== 导出 ====================
 
+    /// 导出临时表数据到文件
+    ///
+    /// 支持 CSV / Parquet / Xlsx / SQL INSERT 四种格式。
+    /// 使用 DuckDB `COPY` 命令直接导出，利用原生 I/O 优化。
+    /// Xlsx 格式通过 JSON 中转（DuckDB 不原生支持 xlsx）。
     pub fn export(
         temp_table_name: &str,
         format: &MockExportFormat,
         output_path: Option<&str>,
         table_name: Option<&str>,
     ) -> MockResult<String> {
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = Self::get_conn()?;
 
         match format {
             MockExportFormat::Csv | MockExportFormat::Parquet | MockExportFormat::Xlsx => {
@@ -223,10 +243,12 @@ impl MockEngine {
                 let path = output_path.ok_or_else(|| {
                     MockError::Config("SQL INSERT export requires output_path".to_string())
                 })?;
-                let mut stmt =
-                    conn.prepare(&format!("SELECT * FROM \"{}\"", temp_table_name))?;
-                let columns: Vec<String> =
-                    stmt.column_names().iter().map(|c| format!("\"{}\"", c)).collect();
+                let mut stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", temp_table_name))?;
+                let columns: Vec<String> = stmt
+                    .column_names()
+                    .iter()
+                    .map(|c| format!("\"{}\"", c))
+                    .collect();
                 let col_list = columns.join(", ");
 
                 let mut rows = stmt.query([])?;
@@ -263,11 +285,18 @@ impl MockEngine {
 
     // ==================== 列名智能映射 ====================
 
+    /// 单列智能映射
+    ///
+    /// 根据列名和数据类型的语义分析，自动推荐最合适的 `GeneratorConfig`。
+    /// 返回 `ColumnMappingResponse` 含置信度和示例值。
     pub fn map_column(column_name: &str, data_type: &str) -> MockResult<ColumnMappingResponse> {
         let dt = parse_data_type(data_type);
         Ok(ColumnMapper::infer(column_name, &dt))
     }
 
+    /// 批量列智能映射
+    ///
+    /// 对多列表名+数据类型对进行批量推断，返回 `Vec<ColumnMappingResponse>`。
     pub fn map_columns_batch(
         columns: Vec<(String, String)>,
     ) -> MockResult<Vec<ColumnMappingResponse>> {
@@ -279,10 +308,17 @@ impl MockEngine {
 
     // ==================== 场景模板 ====================
 
+    /// 列出所有内置场景模板
+    ///
+    /// 返回 6 个预定义模板：电商/HR/博客/金融/社交媒体/企业通讯录。
+    /// 每个模板包含表结构、列定义、推荐 GeneratorConfig。
     pub fn list_templates() -> MockResult<Vec<ScenarioTemplate>> {
         Ok(templates::get_builtin_templates())
     }
 
+    /// 按 ID 查找场景模板详情
+    ///
+    /// 返回完整的 `ScenarioTemplate`，包含该场景下所有表的列定义和推荐配置。
     pub fn apply_template(template_id: &str) -> MockResult<ScenarioTemplate> {
         templates::get_template_by_id(template_id)
             .ok_or_else(|| MockError::Config(format!("Template not found: {}", template_id)))
@@ -332,6 +368,35 @@ impl MockEngine {
                 use fake::faker::number::en::NumberWithFormat;
                 NumberWithFormat(fmt).fake_with_rng::<String, _>(rng)
             }
+            GeneratorConfig::Normal { mean, std_dev } => {
+                let u1: f64 = rng.random();
+                let u1 = u1.max(1e-10);
+                let u2: f64 = rng.random();
+                let z = (-2.0_f64 * u1.ln()).sqrt() * (2.0_f64 * std::f64::consts::PI * u2).cos();
+                (mean + std_dev * z).to_string()
+            }
+            GeneratorConfig::LogNormal { median, dispersion } => {
+                let u1: f64 = rng.random();
+                let u1 = u1.max(1e-10);
+                let u2: f64 = rng.random();
+                let z = (-2.0_f64 * u1.ln()).sqrt() * (2.0_f64 * std::f64::consts::PI * u2).cos();
+                (median.ln() + dispersion * z).exp().to_string()
+            }
+            GeneratorConfig::RandomWalk {
+                start,
+                step,
+                volatility,
+            } => {
+                let base = *start + (row_index as f64) * *step;
+                let noise_scale = (row_index as f64).sqrt().max(0.0) * *volatility;
+                let u1: f64 = rng.random();
+                let u1 = u1.max(1e-10);
+                let u2: f64 = rng.random();
+                let noise = (-2.0_f64 * u1.ln()).sqrt()
+                    * (2.0_f64 * std::f64::consts::PI * u2).cos()
+                    * noise_scale;
+                (base + noise).to_string()
+            }
             GeneratorConfig::Boolean { ratio } => {
                 use fake::faker::boolean::en::Boolean;
                 Boolean(*ratio).fake_with_rng::<bool, _>(rng).to_string()
@@ -359,18 +424,16 @@ impl MockEngine {
             }
             GeneratorConfig::Paragraphs { count } => {
                 use fake::faker::lorem::en::Paragraphs;
-                Paragraphs(*count..(count + 1)).fake_with_rng::<Vec<String>, _>(rng).join("\n\n")
+                Paragraphs(*count..(count + 1))
+                    .fake_with_rng::<Vec<String>, _>(rng)
+                    .join("\n\n")
             }
             GeneratorConfig::Word => {
                 use fake::faker::lorem::en::Word;
                 Word().fake_with_rng::<String, _>(rng)
             }
-            GeneratorConfig::Regex { pattern } => {
-                generate_from_regex(pattern, rng)
-            }
-            GeneratorConfig::Template { template } => {
-                generate_from_template(template, rng)
-            }
+            GeneratorConfig::Regex { pattern } => generate_from_regex(pattern, rng),
+            GeneratorConfig::Template { template } => generate_from_template(template, rng),
 
             // ========== 个人信息 ==========
             GeneratorConfig::Name => {
@@ -533,12 +596,11 @@ impl MockEngine {
             }
 
             // ========== 日期时间 ==========
-            GeneratorConfig::DateTime { min, max } | GeneratorConfig::DateTimeBetween {
+            GeneratorConfig::DateTime { min, max }
+            | GeneratorConfig::DateTimeBetween {
                 start: min,
                 end: max,
-            } => {
-                datetime_between(min, max, rng)
-            }
+            } => datetime_between(min, max, rng),
             GeneratorConfig::DateTimeBefore { before } => {
                 let min = "2020-01-01T00:00:00Z";
                 datetime_between(min, before, rng)
@@ -578,6 +640,42 @@ impl MockEngine {
                 let d: chrono::Duration = Duration().fake_with_rng(rng);
                 format!("{}", d.num_seconds())
             }
+            GeneratorConfig::SequentialDate {
+                start,
+                step_seconds,
+            } => {
+                let dt = chrono::NaiveDateTime::parse_from_str(start, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_else(|_| {
+                        chrono::NaiveDateTime::parse_from_str(
+                            &format!("{} 00:00:00", start),
+                            "%Y-%m-%d %H:%M:%S",
+                        )
+                        .unwrap_or_default()
+                    });
+                let new_dt = dt + chrono::Duration::seconds(*step_seconds * row_index as i64);
+                new_dt.format("%Y-%m-%d %H:%M:%S").to_string()
+            }
+            GeneratorConfig::SequentialDateWithGaps {
+                start,
+                step_seconds,
+                miss_probability,
+            } => {
+                let roll: f64 = rng.random();
+                if roll < *miss_probability {
+                    return String::new();
+                }
+                let dt = chrono::NaiveDateTime::parse_from_str(start, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_else(|_| {
+                        chrono::NaiveDateTime::parse_from_str(
+                            &format!("{} 00:00:00", start),
+                            "%Y-%m-%d %H:%M:%S",
+                        )
+                        .unwrap_or_default()
+                    });
+                let total_steps = (row_index as f64 * (1.0 - *miss_probability)).max(0.0) as i64;
+                let new_dt = dt + chrono::Duration::seconds(*step_seconds * total_steps);
+                new_dt.format("%Y-%m-%d %H:%M:%S").to_string()
+            }
 
             // ========== 商业类 ==========
             GeneratorConfig::CompanyName => {
@@ -590,10 +688,22 @@ impl MockEngine {
             }
             GeneratorConfig::JobTitle => {
                 let titles = vec![
-                    "高级工程师", "产品经理", "技术总监", "项目经理",
-                    "架构师", "数据分析师", "运营经理", "市场总监",
-                    "财务经理", "人力资源总监", "后端工程师", "前端工程师",
-                    "测试工程师", "运维工程师", "设计师", "实习生",
+                    "高级工程师",
+                    "产品经理",
+                    "技术总监",
+                    "项目经理",
+                    "架构师",
+                    "数据分析师",
+                    "运营经理",
+                    "市场总监",
+                    "财务经理",
+                    "人力资源总监",
+                    "后端工程师",
+                    "前端工程师",
+                    "测试工程师",
+                    "运维工程师",
+                    "设计师",
+                    "实习生",
                 ];
                 let idx = (0..titles.len()).fake_with_rng::<usize, _>(rng);
                 titles[idx].to_string()
@@ -678,18 +788,10 @@ impl MockEngine {
             }
 
             // ========== UUID ==========
-            GeneratorConfig::UuidV1 => {
-                fake::uuid::UUIDv1.fake_with_rng::<String, _>(rng)
-            }
-            GeneratorConfig::UuidV3 => {
-                fake::uuid::UUIDv3.fake_with_rng::<String, _>(rng)
-            }
-            GeneratorConfig::UuidV4 => {
-                fake::uuid::UUIDv4.fake_with_rng::<String, _>(rng)
-            }
-            GeneratorConfig::UuidV5 => {
-                fake::uuid::UUIDv5.fake_with_rng::<String, _>(rng)
-            }
+            GeneratorConfig::UuidV1 => fake::uuid::UUIDv1.fake_with_rng::<String, _>(rng),
+            GeneratorConfig::UuidV3 => fake::uuid::UUIDv3.fake_with_rng::<String, _>(rng),
+            GeneratorConfig::UuidV4 => fake::uuid::UUIDv4.fake_with_rng::<String, _>(rng),
+            GeneratorConfig::UuidV5 => fake::uuid::UUIDv5.fake_with_rng::<String, _>(rng),
 
             // ========== 网络/技术 ==========
             GeneratorConfig::Url => {
@@ -747,8 +849,8 @@ impl MockEngine {
 
             // ========== Picsum 图片 ==========
             GeneratorConfig::ImageUrl { width, height } => {
-                use fake::faker::picsum::en::ImageCustom;
                 use fake::faker::impls::picsum::ImageOptions;
+                use fake::faker::picsum::en::ImageCustom;
                 let opts = ImageOptions {
                     width: Some((*width).min(u16::MAX as u32) as u16),
                     height: Some((*height).min(u16::MAX as u32) as u16),
@@ -758,9 +860,13 @@ impl MockEngine {
                 };
                 ImageCustom(opts).fake_with_rng::<String, _>(rng)
             }
-            GeneratorConfig::ImageUrlWithSeed { width, height, seed } => {
-                use fake::faker::picsum::en::ImageCustom;
+            GeneratorConfig::ImageUrlWithSeed {
+                width,
+                height,
+                seed,
+            } => {
                 use fake::faker::impls::picsum::ImageOptions;
+                use fake::faker::picsum::en::ImageCustom;
                 let opts = ImageOptions {
                     width: Some((*width).min(u16::MAX as u32) as u16),
                     height: Some((*height).min(u16::MAX as u32) as u16),
@@ -771,8 +877,8 @@ impl MockEngine {
                 ImageCustom(opts).fake_with_rng::<String, _>(rng)
             }
             GeneratorConfig::ImageUrlGrayscale { width, height } => {
-                use fake::faker::picsum::en::ImageCustom;
                 use fake::faker::impls::picsum::ImageOptions;
+                use fake::faker::picsum::en::ImageCustom;
                 let opts = ImageOptions {
                     width: Some((*width).min(u16::MAX as u32) as u16),
                     height: Some((*height).min(u16::MAX as u32) as u16),
@@ -782,9 +888,13 @@ impl MockEngine {
                 };
                 ImageCustom(opts).fake_with_rng::<String, _>(rng)
             }
-            GeneratorConfig::ImageUrlBlur { width, height, blur_amount } => {
-                use fake::faker::picsum::en::ImageCustom;
+            GeneratorConfig::ImageUrlBlur {
+                width,
+                height,
+                blur_amount,
+            } => {
                 use fake::faker::impls::picsum::ImageOptions;
+                use fake::faker::picsum::en::ImageCustom;
                 let opts = ImageOptions {
                     width: Some((*width).min(u16::MAX as u32) as u16),
                     height: Some((*height).min(u16::MAX as u32) as u16),
@@ -794,7 +904,13 @@ impl MockEngine {
                 };
                 ImageCustom(opts).fake_with_rng::<String, _>(rng)
             }
-            GeneratorConfig::ImageUrlCustom { width, height, grayscale, blur_amount, seed } => {
+            GeneratorConfig::ImageUrlCustom {
+                width,
+                height,
+                grayscale,
+                blur_amount,
+                seed,
+            } => {
                 use fake::faker::picsum::en::ImageCustom;
                 let opts = fake::faker::impls::picsum::ImageOptions {
                     width: Some((*width).min(u16::MAX as u32) as u16),
@@ -961,22 +1077,38 @@ impl MockEngine {
         conn: &duckdb::Connection,
         table_name: &str,
         limit: usize,
-    ) -> MockResult<Vec<Vec<serde_json::Value>>> {
+    ) -> MockResult<QueryResult> {
         let sql = format!("SELECT * FROM \"{}\" LIMIT {}", table_name, limit);
         let mut stmt = conn.prepare(&sql)?;
         let column_count = stmt.column_count();
+        let columns: Vec<String> = (0..column_count)
+            .map(|i| {
+                stmt.column_name(i)
+                    .cloned()
+                    .unwrap_or_else(|_| "?".to_string())
+            })
+            .collect();
 
         let mut rows = stmt.query([])?;
-        let mut result = Vec::new();
+        let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
         while let Some(row) = rows.next()? {
-            let mut row_data = Vec::with_capacity(column_count);
+            let mut cols = Vec::with_capacity(column_count);
             for i in 0..column_count {
                 let val: duckdb::types::Value = row.get(i).unwrap_or(duckdb::types::Value::Null);
-                row_data.push(value_to_json(&val));
+                cols.push(val);
             }
-            result.push(row_data);
+            row_data.push(cols);
         }
-        Ok(result)
+
+        let arrow_batch = duckdb_rows_to_arrow(&columns, &row_data)?;
+        let total = arrow_batch.num_rows();
+
+        Ok(QueryResult {
+            columns,
+            batches: vec![arrow_batch],
+            affected_rows: Some(total),
+            is_read_only: Some(true),
+        })
     }
 }
 
@@ -984,7 +1116,13 @@ impl MockEngine {
 
 fn sanitize_table_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim_matches('_')
         .to_lowercase()
@@ -1015,8 +1153,7 @@ fn parse_data_type(data_type: &str) -> crate::core::mock::models::ColumnDataType
 fn parse_date(s: &str) -> chrono::NaiveDate {
     chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
         .ok()
-        .unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(2020, 1, 1)
-            .unwrap_or_default())
+        .unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(2020, 1, 1).unwrap_or_default())
 }
 
 fn datetime_between(min: &str, max: &str, rng: &mut StdRng) -> String {
@@ -1041,22 +1178,6 @@ fn datetime_between(min: &str, max: &str, rng: &mut StdRng) -> String {
         .fake_with_rng::<DateTime<Utc>, _>(rng)
         .format("%Y-%m-%d %H:%M:%S")
         .to_string()
-}
-
-fn value_to_json(val: &duckdb::types::Value) -> serde_json::Value {
-    match val {
-        duckdb::types::Value::Null => serde_json::Value::Null,
-        duckdb::types::Value::Boolean(b) => serde_json::Value::Bool(*b),
-        duckdb::types::Value::TinyInt(i) => serde_json::json!(i),
-        duckdb::types::Value::SmallInt(i) => serde_json::json!(i),
-        duckdb::types::Value::Int(i) => serde_json::json!(i),
-        duckdb::types::Value::BigInt(i) => serde_json::json!(i),
-        duckdb::types::Value::HugeInt(i) => serde_json::json!(i.to_string()),
-        duckdb::types::Value::Float(f) => serde_json::json!(f),
-        duckdb::types::Value::Double(f) => serde_json::json!(f),
-        duckdb::types::Value::Text(s) => serde_json::Value::String(s.clone()),
-        _ => serde_json::Value::String(format!("{:?}", val)),
-    }
 }
 
 fn value_to_sql_literal(val: &duckdb::types::Value) -> String {
@@ -1087,7 +1208,8 @@ fn generate_from_regex(pattern: &str, rng: &mut StdRng) -> String {
                 match chars[i] {
                     'd' => result.push((b'0' + (0..10).fake_with_rng::<u8, _>(rng)) as char),
                     'w' => {
-                        let pool = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+                        let pool =
+                            b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
                         let idx = (0..pool.len()).fake_with_rng::<usize, _>(rng);
                         result.push(pool[idx] as char);
                     }
@@ -1120,11 +1242,15 @@ fn generate_from_regex(pattern: &str, rng: &mut StdRng) -> String {
                         i += 1;
                     }
                 }
-                if i < len { i += 1; }
+                if i < len {
+                    i += 1;
+                }
                 if negated {
-                    let full: Vec<char> =
-                        (32..127).filter_map(char::from_u32).collect();
-                    class_chars = full.into_iter().filter(|c| !class_chars.contains(c)).collect();
+                    let full: Vec<char> = (32..127).filter_map(char::from_u32).collect();
+                    class_chars = full
+                        .into_iter()
+                        .filter(|c| !class_chars.contains(c))
+                        .collect();
                 }
                 if !class_chars.is_empty() {
                     let idx = (0..class_chars.len()).fake_with_rng::<usize, _>(rng);
@@ -1149,7 +1275,9 @@ fn generate_from_regex(pattern: &str, rng: &mut StdRng) -> String {
                     }
                     max = num_str.parse().unwrap_or(min);
                 }
-                if i < len { i += 1; }
+                if i < len {
+                    i += 1;
+                }
                 // 应用量词到前一个字符
                 let count = if max > min {
                     (min..=max).fake_with_rng::<usize, _>(rng)
@@ -1157,7 +1285,9 @@ fn generate_from_regex(pattern: &str, rng: &mut StdRng) -> String {
                     min
                 };
                 if let Some(last) = result.pop() {
-                    for _ in 0..count { result.push(last); }
+                    for _ in 0..count {
+                        result.push(last);
+                    }
                 }
             }
             '+' | '*' | '?' | '.' => {
@@ -1177,11 +1307,13 @@ fn generate_from_regex(pattern: &str, rng: &mut StdRng) -> String {
     }
 }
 
+type TemplateGenFn = fn(&mut StdRng) -> String;
+
 /// 模板字符串替换：{{name}} → 生成值
 fn generate_from_template(template: &str, rng: &mut StdRng) -> String {
     let mut result = template.to_string();
 
-    let replacements: &[(&str, fn(&mut StdRng) -> String)] = &[
+    let replacements: &[(&str, TemplateGenFn)] = &[
         ("name", |r| {
             use fake::faker::name::zh_cn::Name;
             Name().fake_with_rng::<String, _>(r)
@@ -1198,9 +1330,7 @@ fn generate_from_template(template: &str, rng: &mut StdRng) -> String {
             use fake::faker::internet::en::SafeEmail;
             SafeEmail().fake_with_rng::<String, _>(r)
         }),
-        ("uuid", |r| {
-            fake::uuid::UUIDv4.fake_with_rng::<String, _>(r)
-        }),
+        ("uuid", |r| fake::uuid::UUIDv4.fake_with_rng::<String, _>(r)),
         ("word", |r| {
             use fake::faker::lorem::en::Word;
             Word().fake_with_rng::<String, _>(r)
@@ -1215,10 +1345,16 @@ fn generate_from_template(template: &str, rng: &mut StdRng) -> String {
         }),
         ("date", |r| {
             use fake::faker::chrono::en::Date;
-            Date().fake_with_rng::<chrono::NaiveDate, _>(r).format("%Y-%m-%d").to_string()
+            Date()
+                .fake_with_rng::<chrono::NaiveDate, _>(r)
+                .format("%Y-%m-%d")
+                .to_string()
         }),
         ("datetime", |r| {
-            fake::faker::chrono::en::DateTime().fake_with_rng::<chrono::DateTime<chrono::Utc>, _>(r).format("%Y-%m-%d %H:%M:%S").to_string()
+            fake::faker::chrono::en::DateTime()
+                .fake_with_rng::<chrono::DateTime<chrono::Utc>, _>(r)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
         }),
     ];
 
@@ -1282,60 +1418,76 @@ fn generate_from_template(template: &str, rng: &mut StdRng) -> String {
 }
 
 impl MockEngine {
+    /// 从真实数据库导入表结构
+    ///
+    /// 读取指定数据库连接中目标表的列信息（名称/类型/注释），
+    /// 通过 `ColumnMapper` 自动推断每列的 `GeneratorConfig`。
+    /// 返回 `Vec<ColumnDef>` 可直接用于 Mock 生成配置。
     pub fn import_schema(input: &ImportSchemaInput) -> MockResult<Vec<ColumnDef>> {
-    use crate::core::persistence::metadata_cache::{ConnectionType, MetadataCacheManager, MetadataCacheOps};
+        use crate::core::persistence::metadata_cache::{
+            ConnectionType, MetadataCacheManager, MetadataCacheOps,
+        };
 
-    let cache_conn_type = if input.connection_type == "project" {
-        ConnectionType::Project
-    } else {
-        ConnectionType::Global
-    };
+        let cache_conn_type = if input.connection_type == "project" {
+            ConnectionType::Project
+        } else {
+            ConnectionType::Global
+        };
 
-    let cache_manager = MetadataCacheManager::new(
-        &input.conn_id,
-        cache_conn_type,
-        input.project_path.as_deref(),
-    )
-    .map_err(|e| MockError::Config(format!("Failed to open metadata cache: {}", e)))?;
+        let cache_manager = MetadataCacheManager::new(
+            &input.conn_id,
+            cache_conn_type,
+            input.project_path.as_deref(),
+        )
+        .map_err(|e| MockError::Config(format!("Failed to open metadata cache: {}", e)))?;
 
-    let conn = cache_manager.open().map_err(|e| MockError::Config(format!("Failed to open cache connection: {}", e)))?;
-    let ops = MetadataCacheOps::new(conn);
+        let conn = cache_manager
+            .open()
+            .map_err(|e| MockError::Config(format!("Failed to open cache connection: {}", e)))?;
+        let ops = MetadataCacheOps::new(conn);
 
-    let mut all_columns: Vec<ColumnDef> = Vec::new();
-    let default_schema = input.schema.as_deref().unwrap_or("default");
+        let mut all_columns: Vec<ColumnDef> = Vec::new();
+        let default_schema = input.schema.as_deref().unwrap_or("default");
 
-    for table_name in &input.tables {
-        match ops.list_columns(&input.database, default_schema, table_name) {
-            Ok(columns) => {
-                for col in columns {
-                    let data_type = map_sql_type_to_column_data_type(&col.data_type);
-                    let inferred = ColumnMapper::infer(&col.name, &data_type);
-                    all_columns.push(ColumnDef {
-                        name: col.name,
-                        data_type,
-                        generator: inferred.generator,
-                        nullable_ratio: if col.is_nullable { 0.1 } else { 0.0 },
-                        unique: col.is_unique,
-                    });
+        for table_name in &input.tables {
+            match ops.list_columns(&input.database, default_schema, table_name) {
+                Ok(columns) => {
+                    for col in columns {
+                        let data_type = map_sql_type_to_column_data_type(&col.data_type);
+                        let inferred = ColumnMapper::infer(&col.name, &data_type);
+                        all_columns.push(ColumnDef {
+                            name: col.name,
+                            data_type,
+                            generator: inferred.generator,
+                            nullable_ratio: if col.is_nullable { 0.1 } else { 0.0 },
+                            unique: col.is_unique,
+                        });
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Warning: Failed to get columns for table {}: {}",
+                        table_name, e
+                    );
                 }
             }
-            Err(e) => {
-                eprintln!("Warning: Failed to get columns for table {}: {}", table_name, e);
-            }
         }
-    }
 
-    if all_columns.is_empty() {
-        return Err(MockError::Config(
-            "No columns found. Ensure metadata cache has been populated.".to_string(),
-        ));
-    }
+        if all_columns.is_empty() {
+            return Err(MockError::Config(
+                "No columns found. Ensure metadata cache has been populated.".to_string(),
+            ));
+        }
 
-    Ok(all_columns)
-}
+        Ok(all_columns)
+    }
 }
 
 impl MockEngine {
+    /// 将临时表保存到用户草稿本
+    ///
+    /// 创建 DuckDB 持久化表（或追加到同名表），从临时表复制全部数据。
+    /// 返回新表名或更新后的行数。
     pub fn save_to_scratchpad(
         temp_table_name: &str,
         format: &MockExportFormat,
@@ -1356,14 +1508,15 @@ impl MockEngine {
         Self::export(temp_table_name, format, Some(&output_path), None)
     }
 
+    /// 将临时表持久化为项目资产
+    ///
+    /// 以新名称将临时表转为 DuckDB 持久化双挂载表（内存+文件），
+    /// 返回 `(表名, 行数, 列数)`。
     pub fn persist_as_asset(
         temp_table_name: &str,
         new_name: &str,
     ) -> MockResult<(String, i64, i32)> {
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let conn = duckdb.lock().map_err(|e| {
-            MockError::Generation(format!("DuckDB lock error: {}", e))
-        })?;
+        let conn = Self::get_conn()?;
 
         let sql = format!(
             "CREATE TABLE \"{}\" AS SELECT * FROM \"{}\"",
@@ -1371,12 +1524,11 @@ impl MockEngine {
         );
         conn.execute_batch(&sql)?;
 
-        let row_count: i64 = conn
-            .query_row(
-                &format!("SELECT COUNT(*) FROM \"{}\"", new_name),
-                [],
-                |row| row.get(0),
-            )?;
+        let row_count: i64 = conn.query_row(
+            &format!("SELECT COUNT(*) FROM \"{}\"", new_name),
+            [],
+            |row| row.get(0),
+        )?;
 
         let stmt = conn.prepare(&format!("SELECT * FROM \"{}\" LIMIT 0", new_name))?;
         let column_count = stmt.column_count() as i32;
@@ -1389,6 +1541,10 @@ impl MockEngine {
 }
 
 impl MockEngine {
+    /// 基于历史记录重新生成
+    ///
+    /// 反序列化历史条目中的 `MockConfig`，使用相同的种子和配置重新执行生成。
+    /// 注意：无种子时会得到与历史不同的随机结果。
     pub async fn re_generate(history_id: &str) -> MockResult<MockGenerateResult> {
         let entry = MockHistoryStore::get_by_id(history_id)?
             .ok_or_else(|| MockError::Config(format!("History entry not found: {}", history_id)))?;
@@ -1399,10 +1555,17 @@ impl MockEngine {
         Self::generate(config).await
     }
 
+    /// 获取生成历史记录
+    ///
+    /// 按时间倒序返回最近 `limit` 条（上限 500）生成记录，
+    /// 含配置 JSON 和耗时。用于前端历史面板展示和二次生成。
     pub fn get_history(limit: usize) -> MockResult<Vec<MockHistoryRecord>> {
         MockHistoryStore::list(limit)
     }
 
+    /// 清空生成历史
+    ///
+    /// 删除 DuckDB 内存历史表中全部记录，返回已清除的条数。
     pub fn clear_history() -> MockResult<usize> {
         MockHistoryStore::clear()
     }
@@ -1411,19 +1574,27 @@ impl MockEngine {
 fn map_sql_type_to_column_data_type(sql_type: &str) -> ColumnDataType {
     let lower = sql_type.to_lowercase();
     if lower.contains("int") {
-        if lower.contains("big") { ColumnDataType::BigInt }
-        else { ColumnDataType::Integer }
+        if lower.contains("big") {
+            ColumnDataType::BigInt
+        } else {
+            ColumnDataType::Integer
+        }
     } else if lower.contains("float") || lower.contains("real") {
         ColumnDataType::Float
     } else if lower.contains("double") {
         ColumnDataType::Double
     } else if lower.contains("decimal") || lower.contains("numeric") {
-        ColumnDataType::Decimal { precision: 18, scale: 2 }
+        ColumnDataType::Decimal {
+            precision: 18,
+            scale: 2,
+        }
     } else if lower.contains("bool") {
         ColumnDataType::Boolean
-    } else if lower.contains("date") || lower.contains("timestamp") || lower.contains("datetime") {
-        ColumnDataType::DateTime
-    } else if lower.contains("time") {
+    } else if lower.contains("date")
+        || lower.contains("timestamp")
+        || lower.contains("datetime")
+        || lower.contains("time")
+    {
         ColumnDataType::DateTime
     } else if lower.contains("blob") || lower.contains("binary") {
         ColumnDataType::Blob

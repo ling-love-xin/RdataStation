@@ -5,9 +5,6 @@
 pub mod monitor;
 
 pub use monitor::{
-    PerformanceMonitor,
-    PerformanceMetrics,
+    get_performance_monitor, PerformanceMetrics, PerformanceMetricsResponse, PerformanceMonitor,
     PerformanceTimer,
-    PerformanceMetricsResponse,
-    get_performance_monitor,
 };

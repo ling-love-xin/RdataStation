@@ -137,16 +137,22 @@ impl ErrorResponse {
 
     /// 创建验证错误响应
     pub fn validation_error(field: impl Into<String>, message: impl Into<String>) -> Self {
-        Self::new("VALIDATION_ERROR", format!("{}: {}", field.into(), message.into()))
-            .with_category("Validation")
+        Self::new(
+            "VALIDATION_ERROR",
+            format!("{}: {}", field.into(), message.into()),
+        )
+        .with_category("Validation")
     }
 
     /// 创建超时错误响应
     pub fn timeout_error(operation: impl Into<String>) -> Self {
-        Self::new("TIMEOUT", format!("Operation '{}' timed out", operation.into()))
-            .with_category("Timeout")
-            .with_retryable(true)
-            .with_suggestion("请稍后重试或增加超时时间")
+        Self::new(
+            "TIMEOUT",
+            format!("Operation '{}' timed out", operation.into()),
+        )
+        .with_category("Timeout")
+        .with_retryable(true)
+        .with_suggestion("请稍后重试或增加超时时间")
     }
 
     /// 创建内部错误响应
@@ -205,9 +211,7 @@ impl<T> ApiResponse<T> {
 
     /// 从 CoreError 创建错误响应
     pub fn from_error(err: CoreError) -> Self {
-        ApiResponse::Error {
-            error: err.into(),
-        }
+        ApiResponse::Error { error: err.into() }
     }
 
     /// 检查是否成功

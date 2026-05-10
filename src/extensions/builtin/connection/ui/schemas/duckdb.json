@@ -7,9 +7,14 @@
     "description": "DuckDB 分析型数据库",
     "features": ["列式存储", "向量化执行", "并行查询", "SQL 兼容"],
     "defaultPort": null,
+    "driverKind": "native",
+    "urlTemplate": "duckdb://{file_path}",
     "requireFile": true,
+    "requireDatabase": false,
     "supportsSsl": false,
-    "supportsSshTunnel": false
+    "supportsSshTunnel": false,
+    "supportsHttpProxy": false,
+    "supportsSocksProxy": false
   },
   "sections": [
     {

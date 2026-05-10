@@ -2,8 +2,8 @@
 //!
 //! 处理 SQL 模板的创建、查询、删除等操作
 
-use crate::core::persistence::SqlTemplate;
 use crate::core::migration::global_init;
+use crate::core::persistence::SqlTemplate;
 
 /// SQL 模板响应
 #[derive(serde::Serialize, Debug)]
@@ -50,10 +50,12 @@ pub struct CreateSqlTemplateInput {
 
 /// 创建 SQL 模板
 #[tauri::command]
-pub async fn create_sql_template(input: CreateSqlTemplateInput) -> Result<SqlTemplateResponse, String> {
+pub async fn create_sql_template(
+    input: CreateSqlTemplateInput,
+) -> Result<SqlTemplateResponse, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
+
     let template = SqlTemplate::new(
         input.name,
         input.content,
@@ -62,13 +64,15 @@ pub async fn create_sql_template(input: CreateSqlTemplateInput) -> Result<SqlTem
         input.description,
         input.tags,
     );
-    
-    let store = global_db.get_sql_template_store()
+
+    let store = global_db
+        .get_sql_template_store()
         .map_err(|e| format!("获取模板存储失败: {}", e))?;
-    
-    store.save(&template)
+
+    store
+        .save(&template)
         .map_err(|e| format!("保存模板失败: {}", e))?;
-    
+
     Ok(template.into())
 }
 
@@ -77,43 +81,53 @@ pub async fn create_sql_template(input: CreateSqlTemplateInput) -> Result<SqlTem
 pub async fn get_all_sql_templates() -> Result<Vec<SqlTemplateResponse>, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    let store = global_db.get_sql_template_store()
+
+    let store = global_db
+        .get_sql_template_store()
         .map_err(|e| format!("获取模板存储失败: {}", e))?;
-    
-    let templates = store.get_all()
+
+    let templates = store
+        .get_all()
         .map_err(|e| format!("获取模板列表失败: {}", e))?;
-    
+
     Ok(templates.into_iter().map(|t| t.into()).collect())
 }
 
 /// 根据分类获取 SQL 模板
 #[tauri::command]
-pub async fn get_sql_templates_by_category(category: String) -> Result<Vec<SqlTemplateResponse>, String> {
+pub async fn get_sql_templates_by_category(
+    category: String,
+) -> Result<Vec<SqlTemplateResponse>, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    let store = global_db.get_sql_template_store()
+
+    let store = global_db
+        .get_sql_template_store()
         .map_err(|e| format!("获取模板存储失败: {}", e))?;
-    
-    let templates = store.get_by_category(&category)
+
+    let templates = store
+        .get_by_category(&category)
         .map_err(|e| format!("获取模板列表失败: {}", e))?;
-    
+
     Ok(templates.into_iter().map(|t| t.into()).collect())
 }
 
 /// 根据数据库类型获取 SQL 模板
 #[tauri::command]
-pub async fn get_sql_templates_by_db_type(db_type: String) -> Result<Vec<SqlTemplateResponse>, String> {
+pub async fn get_sql_templates_by_db_type(
+    db_type: String,
+) -> Result<Vec<SqlTemplateResponse>, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    let store = global_db.get_sql_template_store()
+
+    let store = global_db
+        .get_sql_template_store()
         .map_err(|e| format!("获取模板存储失败: {}", e))?;
-    
-    let templates = store.get_by_db_type(&db_type)
+
+    let templates = store
+        .get_by_db_type(&db_type)
         .map_err(|e| format!("获取模板列表失败: {}", e))?;
-    
+
     Ok(templates.into_iter().map(|t| t.into()).collect())
 }
 
@@ -122,11 +136,13 @@ pub async fn get_sql_templates_by_db_type(db_type: String) -> Result<Vec<SqlTemp
 pub async fn delete_sql_template(template_id: String) -> Result<bool, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    let store = global_db.get_sql_template_store()
+
+    let store = global_db
+        .get_sql_template_store()
         .map_err(|e| format!("获取模板存储失败: {}", e))?;
-    
-    store.delete(&template_id)
+
+    store
+        .delete(&template_id)
         .map_err(|e| format!("删除模板失败: {}", e))
 }
 
@@ -135,10 +151,12 @@ pub async fn delete_sql_template(template_id: String) -> Result<bool, String> {
 pub async fn get_sql_template_categories() -> Result<Vec<String>, String> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
-    
-    let store = global_db.get_sql_template_store()
+
+    let store = global_db
+        .get_sql_template_store()
         .map_err(|e| format!("获取模板存储失败: {}", e))?;
-    
-    store.get_categories()
+
+    store
+        .get_categories()
         .map_err(|e| format!("获取分类列表失败: {}", e))
 }

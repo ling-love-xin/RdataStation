@@ -3,10 +3,10 @@
     <!-- 顶部标签栏 -->
     <div v-if="tabs.length > 0" class="result-tabs">
       <div
-        v-for="tab in tabs"
-        :key="tab.id"
-        :class="['result-tab', { active: tab.id === activeTabId }]"
-        @click="switchTab(tab.id)"
+        v-for="t in tabs"
+        :key="t.id"
+        :class="['result-tab', { active: t.id === activeTabId }]"
+        @click="switchTab(t.id)"
       >
         <span class="tab-title">{{ tab.title }}</span>
         <span class="tab-close" @click.stop="closeTab(tab.id)">&times;</span>
@@ -304,7 +304,6 @@ import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-mod
 import { ModuleRegistry } from '@ag-grid-community/core'
 import '@ag-grid-community/styles/ag-grid.css'
 import '@ag-grid-community/styles/ag-theme-alpine.css'
-import { save } from '@tauri-apps/plugin-dialog'
 import {
   Database,
   RotateCw,
@@ -343,14 +342,12 @@ import QuickFilterInput from './result-panel/QuickFilterInput.vue'
 import ResultContextMenu from './result-panel/ResultContextMenu.vue'
 import ResultDiffViewer from './result-panel/ResultDiffViewer.vue'
 import SqlFilterInput from './result-panel/SqlFilterInput.vue'
-import { useFilterPresets } from '../../composables/useFilterPresets'
-import { useGridConfig } from '../../composables/useGridConfig'
+import { useGridConfig, isLikelyNumeric } from '../../composables/useGridConfig'
+import { useResultExport } from '../../composables/useResultExport'
+import { useResultFilterPresets } from '../../composables/useResultFilterPresets'
+import { useResultFilters } from '../../composables/useResultFilters'
 import {
-  reExecuteWithFilter as apiExecuteWithFilter,
-  executeDuckdbAnalysis as apiDuckdbAnalysis,
-  createDuckdbTempTable as apiCreateTempTable,
   saveCellUpdate as apiSaveCellUpdate,
-  exportResultToFile as apiExportResult,
 } from '../../services/result-analysis'
 
 interface PresetSelectEvent {
@@ -359,7 +356,7 @@ interface PresetSelectEvent {
   filterMode: FilterMode
   expression: string
 }
-import type { IRowNode, RowDataUpdatedEvent, RowClickedEvent, CellContextMenuEvent } from '@ag-grid-community/core'
+import type { RowDataUpdatedEvent, RowClickedEvent, CellContextMenuEvent, CellValueChangedEvent } from '@ag-grid-community/core'
 
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])
@@ -385,6 +382,7 @@ const activeTab = computed<ResultTab | null>(() => {
     if (!id) return null
     return resultStore.tabs.find(t => t.id === id) ?? null
   })
+    // 设计说明：模板第 17 行有 v-if="activeTab" 防护，此处的 throw 是安全网
   const tab = computed<ResultTab>(() => {
     const t = activeTab.value
     if (!t) throw new Error('tab accessed when no active tab')
@@ -408,6 +406,30 @@ const showDiffModal = ref(false)
 const gridContainerRef = ref<HTMLElement | null>(null)
 const selectedRows = ref<unknown[]>([])
 const goPageInput = ref('')
+
+  // ─── 过滤操作（委托到 useResultFilters）────────────────
+  const {
+    applyQuickFilter,
+    clearQuickFilter,
+    executeSqlFilter,
+    executeDuckdbAnalysis,
+    clearDuckdbAnalysis,
+    quickDuckdbAction,
+    handleBridgeFilter,
+    modeLabel: filterModeLabel,
+  } = useResultFilters(gridApi, message, t)
+
+  // ─── 导出操作（委托到 useResultExport）─────────────────
+  const { handleExport: doExport, copyRowsAsInsert } = useResultExport(
+    activeTab as ComputedRef<ResultTab | null>,
+    gridApi,
+    rowData,
+    message,
+  )
+
+  function modeLabel(tab: ResultTab): string {
+    return filterModeLabel[tab.filterMode] ?? tab.filterMode
+  }
 
 function goToPage(): void {
   if (!gridApi.value) return
@@ -446,7 +468,7 @@ function dirtyKey(rowIndex: number, colId: string): string {
 }
 
 // ─── 过滤预设 ───────────────────────────────────────
-const { addPreset } = useFilterPresets()
+const { addPreset } = useResultFilterPresets()
 
 function getCurrentExpression(tab: ResultTab): string {
   switch (tab.filterMode) {
@@ -542,33 +564,14 @@ const exportMenuOptions = computed(() => [
   { key: 'xlsx', label: t('workbench.exportXlsx') },
 ])
 
-function buildObjectRows(columns: string[], rows: unknown[][]): Record<string, unknown>[] {
-  return rows.map(row => {
-    const obj: Record<string, unknown> = {}
-    columns.forEach((col, i) => {
-      obj[col.replace(/\./g, '_')] = row[i]
-    })
-    return obj
+  const pageInfoText = computed(() => {
+    if (!gridApi.value || !gridApi.value.paginationGetCurrentPage) return ''
+    const total = gridApi.value.paginationGetTotalPages()
+    const current = gridApi.value.paginationGetCurrentPage() + 1
+    return `${current}/${total} ${t('resultPanel.page')}`
   })
-}
 
-const pageInfoText = computed(() => {
-  if (!gridApi.value || !gridApi.value.paginationGetCurrentPage) return ''
-  const total = gridApi.value.paginationGetTotalPages()
-  const current = gridApi.value.paginationGetCurrentPage() + 1
-  return `${current}/${total} ${t('resultPanel.page')}`
-})
-
-function modeLabel(tab: ResultTab): string {
-  const map = {
-    quick: t('resultPanel.instantFilter'),
-    sql: t('resultPanel.sqlFilter'),
-    duckdb: t('resultPanel.duckdbAnalysis'),
-  }
-  return map[tab.filterMode]
-}
-
-// ─── 标签管理（委托到 store）───────────────────────────
+  // ─── 标签管理（委托到 store）───────────────────────────
 function tabHasDirty(tab: ResultTab | null): boolean {
   return tab ? tab.dirtyRows.size > 0 : false
 }
@@ -640,7 +643,7 @@ const handleResultNew = () => {
 }
 
 watch(
-  () => sqlExecutionStore.executionResults.size,
+  () => sqlExecutionStore.resultVersion,
   () => {
     handleResultUpdate()
   }
@@ -683,7 +686,7 @@ function onRowClicked(event: RowClickedEvent) {
 function onSortChanged() {
   /* optional */
 }
-function onCellValueChanged(event: any) {
+function onCellValueChanged(event: CellValueChangedEvent) {
   if (!activeTab.value) return
   const { rowIndex, colDef, oldValue, newValue } = event
   const key = dirtyKey(rowIndex, colDef.field)
@@ -741,105 +744,13 @@ function closeContextMenu() {
   contextMenu.value.visible = false
 }
 
-// ─── 模式1: 即时过滤 ───────────────────────────────────
-function applyQuickFilter(tab: ResultTab, expr: string) {
-  if (!gridApi.value) return
-  ;(gridApi.value as unknown as { setQuickFilter: (v: string) => void }).setQuickFilter(expr)
-  tab.filteredRowCount = gridApi.value.getDisplayedRowCount()
-  tab.displayedRowCount = tab.filteredRowCount
-}
-function clearQuickFilter(tab: ResultTab) {
-  tab.quickFilterExpression = ''
-  if (gridApi.value) {
-    ;(gridApi.value as unknown as { setQuickFilter: (v: string) => void }).setQuickFilter('')
-    tab.filteredRowCount = tab.originalRowCount
-    tab.displayedRowCount = tab.originalRowCount
-  }
-}
+// ─── 模式1: 即时过滤（委托到 useResultFilters）─────────
 
-// ─── 模式2: SQL 过滤 ───────────────────────────────────
-async function executeSqlFilter(tab: ResultTab) {
-  const whereClause = tab.sqlFilterExpression.trim()
-  if (!whereClause) return
-  tab.isSqlFilterLoading = true
-  try {
-    const result = await apiExecuteWithFilter(tab.connectionId, tab.originalSql, whereClause)
-    tab.columns = result.columns
-    tab.rows = result.rows
-    tab.objectRows = buildObjectRows(result.columns, result.rows)
-    tab.originalRowCount = result.rows.length
-    tab.displayedRowCount = result.rows.length
-    tab.executionTime = result.elapsed_ms
-    if (result.temp_table) tab.duckdbTempTable = result.temp_table
-  } catch (e: unknown) {
-    message.error(String(e))
-  } finally {
-    tab.isSqlFilterLoading = false
-  }
-}
+// ─── 模式2: SQL 过滤（委托到 useResultFilters）─────────
 
-// ─── 模式3: DuckDB 分析 ─────────────────────────────────
-async function executeDuckdbAnalysis(tab: ResultTab) {
-  const sql = tab.duckdbSql.trim()
-  if (!sql) return
-  tab.isDuckdbLoading = true
-  try {
-    const hasTempTable = !!tab.duckdbTempTable
-    const result = await apiDuckdbAnalysis(
-      tab.duckdbTempTable,
-      sql,
-      hasTempTable ? undefined : tab.columns,
-      hasTempTable ? undefined : (tab.rows as unknown[][])
-    )
-    tab.columns = result.columns
-    tab.rows = result.rows
-    tab.objectRows = buildObjectRows(result.columns, result.rows)
-    tab.displayedRowCount = result.rows.length
-    tab.executionTime = result.elapsed_ms
-    tab.isAnalysisActive = true
-    tab.timestamp = new Date().toLocaleString()
-  } catch (e: unknown) {
-    message.error(String(e))
-  } finally {
-    tab.isDuckdbLoading = false
-  }
-}
-function clearDuckdbAnalysis(tab: ResultTab) {
-  tab.isAnalysisActive = false
-  tab.filterMode = 'quick'
-  tab.quickFilterExpression = ''
-  tab.sqlFilterExpression = ''
-  tab.duckdbSql = ''
-}
-function quickDuckdbAction(tab: ResultTab, type: string) {
-  const table = tab.duckdbTempTable || 'result_temp'
-  if (type === 'count') tab.duckdbSql = `SELECT COUNT(*) FROM ${table}`
-  else if (type === 'distinct') tab.duckdbSql = `SELECT DISTINCT * FROM ${table} LIMIT 100`
-  else if (type === 'group') {
-    const firstCol = tab.columns[0] || 'col1'
-    tab.duckdbSql = `SELECT ${firstCol}, COUNT(*) FROM ${table} GROUP BY ${firstCol} ORDER BY 2 DESC`
-  }
-}
+// ─── 模式3: DuckDB 分析（委托到 useResultFilters）─────
 
-// ─── 桥接模式 ──────────────────────────────────────────
-async function handleBridgeFilter(tab: ResultTab) {
-  if (!gridApi.value) return
-  const visibleRows: unknown[] = []
-  gridApi.value.forEachNodeAfterFilter((node: IRowNode) => visibleRows.push(node.data))
-  if (visibleRows.length === 0) return
-  tab.isDuckdbLoading = true
-  try {
-    const rowsData: unknown[][] = (visibleRows as Record<string, unknown>[]).map(row => tab.columns.map(col => row[col] ?? null))
-    const tableName = await apiCreateTempTable(tab.columns, rowsData)
-    tab.duckdbTempTable = tableName
-    tab.duckdbSql = `SELECT * FROM ${tableName} LIMIT 100`
-    message.success(`${t('resultPanel.rows')}: ${visibleRows.length} → DuckDB`)
-  } catch (e: unknown) {
-    message.error(String(e))
-  } finally {
-    tab.isDuckdbLoading = false
-  }
-}
+// ─── 桥接模式（委托到 useResultFilters）────────────────
 
 // ─── 操作 ───────────────────────────────────────────────
 function handleCopySql() {
@@ -909,91 +820,7 @@ async function handleCancel(tab: ResultTab) {
   message.info(t('resultPanel.changesReverted'))
 }
 async function handleExport(format: string) {
-  const tab = activeTab.value
-  if (!tab) return
-
-  if (format === 'csv') {
-    if (!gridApi.value) return
-    gridApi.value.exportDataAsCsv({ fileName: `result_${Date.now()}.csv`, columnSeparator: ',' })
-    message.success('已导出 CSV')
-    return
-  }
-  if (format === 'json') {
-    const data = JSON.stringify(rowData.value, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `result_${Date.now()}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    message.success('已导出 JSON')
-    return
-  }
-  if (format === 'insert') {
-    copyRowsAsInsert()
-    message.success('INSERT SQL 已复制到剪贴板')
-    return
-  }
-
-  // DuckDB COPY TO: parquet / xlsx — with loading feedback
-  const ext = format === 'parquet' ? 'parquet' : 'xlsx'
-  const filterLabel = format === 'parquet' ? 'Parquet' : 'Excel'
-  const filePath = await save({
-    defaultPath: `result_${Date.now()}.${ext}`,
-    filters: [
-      { name: `${filterLabel} 文件`, extensions: [ext] },
-    ],
-  })
-  if (!filePath) return
-
-  const loadingMsg = message.loading(`正在导出 ${filterLabel}...`, { duration: 0 })
-  let tempTable = tab.duckdbTempTable
-  if (!tempTable) {
-    try {
-      tempTable = await apiCreateTempTable(tab.columns, tab.rows)
-    } catch (err: unknown) {
-      loadingMsg.destroy()
-      const msg = err instanceof Error ? err.message : String(err)
-      message.error(`创建临时表失败: ${msg}`)
-      return
-    }
-  }
-
-  try {
-    await apiExportResult({
-      temp_table: tempTable,
-      file_path: filePath,
-      format,
-    })
-    loadingMsg.destroy()
-    message.success(`已导出到 ${filePath}`)
-  } catch (err: unknown) {
-    loadingMsg.destroy()
-    const msg = err instanceof Error ? err.message : String(err)
-    message.error(`导出失败: ${msg}`)
-  }
-}
-
-function copyRowsAsInsert() {
-  if (!activeTab.value) return
-  const cols = activeTab.value.columns
-  const tableName = activeTab.value.tableName || 'result'
-  const rows = gridApi.value?.getSelectedRows() || rowData.value
-  const inserts = rows.map((row: Record<string, unknown>) => {
-    const vals = cols
-      .map(c => {
-        const v = row[c]
-        if (v === null || v === undefined) return 'NULL'
-        if (typeof v === 'number') return String(v)
-        return `'${String(v).replace(/'/g, "''")}'`
-      })
-      .join(', ')
-    return `INSERT INTO ${tableName} (${cols.join(', ')}) VALUES (${vals});`
-  })
-  navigator.clipboard.writeText(inserts.join('\n'))
+  await doExport(format)
 }
 
 // ─── 右键菜单操作 ───────────────────────────────────────
@@ -1097,7 +924,11 @@ function handleContextAction(payload: Record<string, any>) {
     case 'columnSummary':
       if (tab.duckdbTempTable) {
         tab.filterMode = 'duckdb'
-        tab.duckdbSql = `SELECT COUNT(*) as count, AVG("${col}") as avg, MIN("${col}") as min, MAX("${col}") as max, SUM("${col}") as sum FROM ${tab.duckdbTempTable}`
+        if (isLikelyNumeric(col)) {
+          tab.duckdbSql = `SELECT COUNT(*) as count, AVG("${col}") as avg, MIN("${col}") as min, MAX("${col}") as max, SUM("${col}") as sum FROM ${tab.duckdbTempTable}`
+        } else {
+          tab.duckdbSql = `SELECT COUNT(*) as count, MIN("${col}") as min, MAX("${col}") as max FROM ${tab.duckdbTempTable}`
+        }
       }
       break
   }

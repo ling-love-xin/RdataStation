@@ -8,57 +8,89 @@
 
 #![allow(dependency_on_unit_never_type_fallback)]
 
-pub mod api;
-pub mod core;
 pub mod adapters;
+pub mod api;
 pub mod commands;
+pub mod core;
 
 // 重新导出常用类型
 pub use api::{ErrorResponse, QueryResult, Row, Value};
 
 // 统一从 commands 模块导入所有 Tauri 命令
-// 注意：不再从 adapters/tauri/command.rs 导入命令，避免命令名称冲突
 use commands::*;
 
 // 项目状态管理
 use commands::project_commands::ProjectState;
 // 分析资源状态管理
-use commands::analytics_resource_commands::AnalyticsResourceState;
 use crate::core::scratchpad::ScratchpadState;
+use commands::analytics_resource_commands::AnalyticsResourceState;
 
-/// 注册所有数据库驱动
-///
-/// 使用自动注册机制，支持：
-/// 1. 内置驱动自动注册
-/// 2. 配置文件驱动注册
-/// 3. 自动扫描驱动注册
+use crate::core::logging::record::LogLevel;
+use crate::core::persistence::log_store::LogStore;
+use std::sync::Arc;
+
 fn register_drivers() {
     use core::driver::auto_register::AutoDriverRegistrar;
-    
-    // 自动注册所有驱动（内置 + 配置 + 扫描）
     AutoDriverRegistrar::auto_register();
+}
+
+/// 获取日志目录路径
+fn get_log_dir() -> std::path::PathBuf {
+    let base = dirs::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("RdataStation")
+        .join("logs");
+    let _ = std::fs::create_dir_all(&base);
+    base
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 注册数据库驱动
+    let log_dir = get_log_dir();
+
+    // 阶段1: 初始化 tracing subscriber（stderr + 文件 + DB channel）
+    // DatabaseLogLayer 开始捕获日志到 channel，consumer 稍后启动
+    let log_rx = match core::logging::subscriber::init_tracing_with_db(&log_dir, LogLevel::Info, 7)
+    {
+        Ok(rx) => rx,
+        Err(e) => {
+            eprintln!("FATAL: Failed to initialize tracing subscriber: {}", e);
+            std::process::exit(1);
+        }
+    };
+
     register_drivers();
 
-    // 初始化全局驱动管理器 + 全局系统数据库（异步初始化，在同步上下文中使用 block_on）
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-    
-    // 初始化全局系统数据库（SQLite 连接池 + DuckDB 长连接）
+
     if let Err(e) = rt.block_on(core::migration::initialize_global_system()) {
         tracing::error!("Global system database initialization failed: {}", e);
         eprintln!("ERROR: Global system database initialization failed: {}", e);
-        // 不阻塞启动，但记录详细错误
     }
-    
-    // 初始化全局驱动管理器
+
     if let Err(e) = rt.block_on(core::driver::init_driver_manager()) {
         tracing::error!("Driver manager initialization failed: {}", e);
         eprintln!("ERROR: Driver manager initialization failed: {}", e);
     }
+
+    // 阶段2: 数据库就绪后，创建 LogStore 并启动日志消费任务
+    let _log_store = {
+        let db_manager = core::migration::get_global_db_manager();
+        match db_manager {
+            Some(manager) => {
+                let store = Arc::new(LogStore::new(manager.sqlite_pool()));
+                core::logging::set_log_store(store.clone());
+                let _consumer =
+                    core::logging::subscriber::spawn_log_consumer(log_rx, store.clone());
+                tracing::info!("Log store initialized with database persistence");
+                Some(store)
+            }
+            None => {
+                tracing::warn!("Global database manager not available, log persistence disabled");
+                None
+            }
+        }
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -83,7 +115,6 @@ pub fn run() {
             convert_connection_type,
             detect_global_connections_in_project,
             get_global_connections,
-            
             // SQL 命令
             execute_sql,
             execute_transaction,
@@ -95,19 +126,16 @@ pub fn run() {
             search_sql_history,
             clear_sql_history,
             remove_sql_history,
-            
             // 驱动命令
             get_drivers,
             get_driver_info,
             create_connection,
             create_connection_with_config,
             update_connection,
-            
             // 导航器状态命令
             save_navigator_state,
             load_navigator_state,
-
-            // 元数据浏览命令（MetadataBrowser trait）
+            // 元数据浏览命令
             load_databases,
             load_catalogs,
             load_schemas,
@@ -116,7 +144,8 @@ pub fn run() {
             load_columns,
             load_procedures,
             load_functions,
-
+            load_routine_source,
+            invalidate_metadata_cache,
             // 项目命令
             create_project,
             get_project_config,
@@ -132,7 +161,6 @@ pub fn run() {
             update_project,
             rename_project,
             get_all_projects,
-            
             // 端口协商命令
             negotiate_port,
             negotiate_local_port,
@@ -142,7 +170,6 @@ pub fn run() {
             negotiate_port_range,
             get_common_db_ports,
             get_port_range_info,
-            
             // 项目连接命令
             create_project_connection,
             get_project_connections,
@@ -151,7 +178,6 @@ pub fn run() {
             update_project_connection_status,
             delete_project_connection,
             search_project_connections,
-            
             // 项目存储命令
             init_project_store,
             close_project_store,
@@ -163,11 +189,9 @@ pub fn run() {
             get_project_store_sql_history,
             save_project_store_workbench_state,
             get_project_store_workbench_state,
-            
             // 联邦查询命令
             register_external_database,
             create_external_table,
-            
             // 元数据缓存命令
             metadata_cache_commands::get_metadata_cache_status,
             metadata_cache_commands::refresh_metadata_cache,
@@ -178,7 +202,6 @@ pub fn run() {
             metadata_cache_commands::save_columns_batch_to_cache,
             metadata_cache_commands::get_tables_from_cache,
             metadata_cache_commands::get_columns_from_cache,
-            
             // 缓存预热命令
             cache_warming_commands::start_cache_warming,
             cache_warming_commands::cancel_cache_warming,
@@ -189,7 +212,6 @@ pub fn run() {
             cache_warming_commands::get_introspect_level_suggestion,
             cache_warming_commands::get_schema_object_counts,
             cache_warming_commands::build_cache_index,
-
             // SQL 解析与转译命令
             parse_sql,
             format_sql,
@@ -198,7 +220,7 @@ pub fn run() {
             split_sql,
             cancel_sql_query,
             execute_duckdb_accelerated,
-            
+            ping_connection,
             // 结果集分析命令
             re_execute_with_filter,
             profile_column_from_table,
@@ -220,20 +242,8 @@ pub fn run() {
             get_column_quality,
             batch_evaluate_columns,
             get_schema_insight,
-            
-            // DuckDB 连接池配置命令
-            get_duckdb_pool_info,
-            set_duckdb_pool_size,
-            restart_duckdb_pool,
-            
             // 数据导出命令
             export_result_to_file,
-            
-            // 项目管理命令（已合并到 project_commands）
-            // 旧的 project_management_commands 模块已删除
-            // save_project_info_to_system, get_all_projects, update_project_last_opened, delete_project_info
-            // 现在使用: save_project_info_to_system, get_all_projects, add_recent_project, delete_project
-            
             // 分析资源管理命令
             create_analytics_resource,
             update_analytics_resource,
@@ -260,7 +270,6 @@ pub fn run() {
             get_resource_versions,
             get_tags_for_resource,
             get_resources_by_tag,
-
             // 草稿箱命令
             list_scratchpad_files,
             create_scratchpad_entry,
@@ -283,7 +292,6 @@ pub fn run() {
             watch_scratchpad,
             unwatch_scratchpad,
             promote_scratchpad_to_resource,
-
             // 模拟数据生成 Mock
             mock_generate,
             mock_preview,
@@ -298,7 +306,6 @@ pub fn run() {
             mock_get_history,
             mock_clear_history,
             mock_re_generate,
-
             // 模拟数据生成 Mock 持久化
             save_mock_generation_task,
             get_mock_generation_history,
@@ -307,6 +314,16 @@ pub fn run() {
             save_mock_template,
             get_mock_templates,
             get_mock_template_detail,
+            // 日志命令
+            get_logs,
+            search_logs,
+            get_log_stats,
+            clear_logs,
+            get_log_session_id,
+            export_logs,
+            set_log_level,
+            // 系统信息命令
+            get_api_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

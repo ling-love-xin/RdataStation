@@ -3,10 +3,16 @@
 //! 处理 SQL 查询、事务执行、历史记录等操作
 
 use crate::core::get_connection_manager;
-use crate::core::services::{SqlService, sql_service::{SqlExecuteOptions, SqlExecuteResult}};
+use crate::core::error::CoreError;
+use crate::core::services::{SqlService, sql_service::{SqlExecuteOptions, SqlExecuteResult, TransactionStatusResult}};
+use crate::core::persistence::history_store::SqlHistoryRecord;
 use crate::core::dbi::engine::duckdb_engine::DuckDBEngine;
 use crate::adapters::tauri::state::AppState;
 use crate::api::dto::QueryResult;
+
+fn new_sql_service() -> SqlService {
+    SqlService::new(get_connection_manager().clone())
+}
 
 // ==================== SQL Query Commands ====================
 
@@ -24,23 +30,31 @@ pub struct ExecuteSqlResponse {
     pub result: QueryResult,
     pub elapsed_ms: u64,
     pub affected_rows: Option<usize>,
+    pub truncated: bool,
 }
 
 impl From<SqlExecuteResult> for ExecuteSqlResponse {
     fn from(result: SqlExecuteResult) -> Self {
+        let affected_rows = result.result.affected_rows;
         Self {
             result: result.result,
             elapsed_ms: result.elapsed_ms,
-            affected_rows: result.affected_rows,
+            affected_rows,
+            truncated: result.truncated,
         }
     }
 }
 
 /// 执行 SQL 查询
 #[tauri::command]
-pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, String> {
+pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, CoreError> {
     if input.sql.trim().is_empty() {
-        return Err("SQL statement cannot be empty".into());
+        return Err(CoreError::common(
+            crate::core::error::CommonError::InvalidArgument {
+                param: "sql".to_string(),
+                reason: "SQL statement cannot be empty".to_string(),
+            },
+        ));
     }
 
     let manager = get_connection_manager().clone();
@@ -53,10 +67,7 @@ pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, S
         use_cache: true,
     };
 
-    let result = service
-        .execute(input.conn_id, &input.sql, options)
-        .await
-        .map_err(|e| e.to_string())?;
+    let result = service.execute(input.conn_id, &input.sql, options).await?;
 
     Ok(result.into())
 }
@@ -76,18 +87,21 @@ pub struct ExecuteTransactionResponse {
 #[tauri::command]
 pub async fn execute_transaction(
     input: ExecuteTransactionInput,
-) -> Result<ExecuteTransactionResponse, String> {
+) -> Result<ExecuteTransactionResponse, CoreError> {
     if input.sqls.is_empty() {
-        return Err("SQL statements cannot be empty".into());
+        return Err(CoreError::common(
+            crate::core::error::CommonError::InvalidArgument {
+                param: "sqls".to_string(),
+                reason: "SQL statements list cannot be empty".to_string(),
+            },
+        ));
     }
 
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
+    let service = new_sql_service();
 
     let results = service
         .execute_in_transaction(input.conn_id, input.sqls)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
 
     Ok(ExecuteTransactionResponse {
         results: results.into_iter().map(|r| r.into()).collect(),
@@ -105,107 +119,117 @@ pub struct TransactionStatusResponse {
     pub transaction_duration_ms: Option<u64>,
 }
 
+impl From<TransactionStatusResult> for TransactionStatusResponse {
+    fn from(result: TransactionStatusResult) -> Self {
+        Self {
+            conn_id: result.conn_id,
+            is_in_transaction: result.is_in_transaction,
+            transaction_start_time_ms: result.transaction_start_time_ms,
+            transaction_duration_ms: result.transaction_duration_ms,
+        }
+    }
+}
+
 /// 开始事务
 #[tauri::command]
-pub async fn begin_transaction(conn_id: Option<String>) -> Result<TransactionStatusResponse, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let result = service.begin_transaction(conn_id).await.map_err(|e| e.to_string())?;
-
-    Ok(TransactionStatusResponse {
-        conn_id: result.conn_id,
-        is_in_transaction: result.is_in_transaction,
-        transaction_start_time_ms: result.transaction_start_time_ms,
-        transaction_duration_ms: result.transaction_duration_ms,
-    })
+pub async fn begin_transaction(
+    conn_id: Option<String>,
+) -> Result<TransactionStatusResponse, CoreError> {
+    let service = new_sql_service();
+    service.begin_transaction(conn_id).await.map(Into::into)
 }
 
 /// 提交事务
 #[tauri::command]
-pub async fn commit_transaction(conn_id: Option<String>) -> Result<TransactionStatusResponse, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let result = service.commit_transaction(conn_id).await.map_err(|e| e.to_string())?;
-
-    Ok(TransactionStatusResponse {
-        conn_id: result.conn_id,
-        is_in_transaction: result.is_in_transaction,
-        transaction_start_time_ms: result.transaction_start_time_ms,
-        transaction_duration_ms: result.transaction_duration_ms,
-    })
+pub async fn commit_transaction(
+    conn_id: Option<String>,
+) -> Result<TransactionStatusResponse, CoreError> {
+    let service = new_sql_service();
+    service.commit_transaction(conn_id).await.map(Into::into)
 }
 
 /// 回滚事务
 #[tauri::command]
-pub async fn rollback_transaction(conn_id: Option<String>) -> Result<TransactionStatusResponse, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let result = service.rollback_transaction(conn_id).await.map_err(|e| e.to_string())?;
-
-    Ok(TransactionStatusResponse {
-        conn_id: result.conn_id,
-        is_in_transaction: result.is_in_transaction,
-        transaction_start_time_ms: result.transaction_start_time_ms,
-        transaction_duration_ms: result.transaction_duration_ms,
-    })
+pub async fn rollback_transaction(
+    conn_id: Option<String>,
+) -> Result<TransactionStatusResponse, CoreError> {
+    let service = new_sql_service();
+    service.rollback_transaction(conn_id).await.map(Into::into)
 }
 
 /// 取消正在执行的 SQL 查询
 #[tauri::command]
-pub async fn cancel_sql_query(conn_id: Option<String>) -> Result<bool, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
+pub async fn cancel_sql_query(conn_id: Option<String>) -> Result<bool, CoreError> {
+    new_sql_service().cancel_query(conn_id).await
+}
 
-    service.cancel_query(conn_id).await.map_err(|e| e.to_string())
+/// 连接健康检查（ping）
+#[tauri::command]
+pub async fn ping_connection(conn_id: Option<String>) -> Result<bool, CoreError> {
+    let manager = get_connection_manager().clone();
+    let conn_id = match conn_id {
+        Some(id) => id,
+        None => manager.get_active_conn_id().await.ok_or_else(|| {
+            CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection)
+        })?,
+    };
+
+    let db = manager.get_connection(&conn_id).await.ok_or_else(|| {
+        CoreError::connection(crate::core::error::ConnectionError::NotFound(
+            conn_id.clone(),
+        ))
+    })?;
+
+    db.ping().await.map(|()| true)
 }
 
 /// 获取事务状态
 #[tauri::command]
-pub async fn get_transaction_status(conn_id: Option<String>) -> Result<TransactionStatusResponse, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let result = service.get_transaction_status(conn_id).await.map_err(|e| e.to_string())?;
-
-    Ok(TransactionStatusResponse {
-        conn_id: result.conn_id,
-        is_in_transaction: result.is_in_transaction,
-        transaction_start_time_ms: result.transaction_start_time_ms,
-        transaction_duration_ms: result.transaction_duration_ms,
-    })
+pub async fn get_transaction_status(
+    conn_id: Option<String>,
+) -> Result<TransactionStatusResponse, CoreError> {
+    let service = new_sql_service();
+    service.get_transaction_status(conn_id).await.map(Into::into)
 }
 
-/// SQL 历史记录响应
+/// SQL 历史记录响应（含审计信息）
 #[derive(serde::Serialize, Debug)]
 pub struct SqlHistoryResponse {
     pub id: String,
     pub sql: String,
     pub conn_id: Option<String>,
+    pub db_type: Option<String>,
     pub executed_at: String,
+    pub duration_ms: Option<u64>,
+    pub success: Option<bool>,
+    pub error_message: Option<String>,
+    pub rows_affected: Option<u64>,
+    pub rows_returned: Option<u64>,
 }
 
-/// 获取 SQL 执行历史
-#[tauri::command]
-pub async fn get_sql_history(limit: Option<usize>) -> Result<Vec<SqlHistoryResponse>, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let history = service
-        .get_sql_history(limit.unwrap_or(100))
-        .map_err(|e| e.to_string())?;
-
-    Ok(history
-        .into_iter()
-        .map(|h| SqlHistoryResponse {
+impl From<SqlHistoryRecord> for SqlHistoryResponse {
+    fn from(h: SqlHistoryRecord) -> Self {
+        Self {
             id: h.id,
             sql: h.sql,
             conn_id: h.conn_id,
+            db_type: h.db_type,
             executed_at: h.executed_at.to_rfc3339(),
-        })
-        .collect())
+            duration_ms: h.duration_ms,
+            success: h.success,
+            error_message: h.error_message,
+            rows_affected: h.rows_affected,
+            rows_returned: h.rows_returned,
+        }
+    }
+}
+
+/// 获取 SQL 执行历史（含审计日志）
+#[tauri::command]
+pub async fn get_sql_history(limit: Option<usize>) -> Result<Vec<SqlHistoryResponse>, CoreError> {
+    let service = new_sql_service();
+    let history = service.get_sql_history(limit.unwrap_or(100))?;
+    Ok(history.into_iter().map(Into::into).collect())
 }
 
 /// 搜索 SQL 历史
@@ -213,41 +237,22 @@ pub async fn get_sql_history(limit: Option<usize>) -> Result<Vec<SqlHistoryRespo
 pub async fn search_sql_history(
     keyword: String,
     limit: Option<usize>,
-) -> Result<Vec<SqlHistoryResponse>, String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    let history = service
-        .search_sql_history(&keyword, limit.unwrap_or(100))
-        .map_err(|e| e.to_string())?;
-
-    Ok(history
-        .into_iter()
-        .map(|h| SqlHistoryResponse {
-            id: h.id,
-            sql: h.sql,
-            conn_id: h.conn_id,
-            executed_at: h.executed_at.to_rfc3339(),
-        })
-        .collect())
+) -> Result<Vec<SqlHistoryResponse>, CoreError> {
+    let service = new_sql_service();
+    let history = service.search_sql_history(&keyword, limit.unwrap_or(100))?;
+    Ok(history.into_iter().map(Into::into).collect())
 }
 
 /// 清空 SQL 历史
 #[tauri::command]
-pub async fn clear_sql_history() -> Result<(), String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    service.clear_sql_history().map_err(|e| e.to_string())
+pub async fn clear_sql_history() -> Result<(), CoreError> {
+    new_sql_service().clear_sql_history()
 }
 
 /// 删除单条 SQL 历史
 #[tauri::command]
-pub async fn remove_sql_history(id: String) -> Result<(), String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    service.remove_sql_history(&id).map_err(|e| e.to_string())
+pub async fn remove_sql_history(id: String) -> Result<(), CoreError> {
+    new_sql_service().remove_sql_history(&id)
 }
 
 // ==================== Federated Query Commands ====================
@@ -264,19 +269,16 @@ pub struct RegisterExternalDatabaseInput {
 /// 注册外部数据库连接
 #[tauri::command]
 pub async fn register_external_database(
-    input: RegisterExternalDatabaseInput
-) -> Result<(), String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    service.register_external_database(
-        input.conn_id,
-        &input.name,
-        &input.driver,
-        &input.connection_string
-    )
-    .await
-    .map_err(|e| e.to_string())
+    input: RegisterExternalDatabaseInput,
+) -> Result<(), CoreError> {
+    new_sql_service()
+        .register_external_database(
+            input.conn_id,
+            &input.name,
+            &input.driver,
+            &input.connection_string,
+        )
+        .await
 }
 
 /// DuckDB 加速执行输入
@@ -307,34 +309,37 @@ pub struct DuckDBAcceleratedResponse {
 pub async fn execute_duckdb_accelerated(
     state: tauri::State<'_, AppState>,
     input: DuckDBAcceleratedInput,
-) -> Result<DuckDBAcceleratedResponse, String> {
-    use crate::core::dbi::engine::{ExecutionEngine, ExecutionMode};
+) -> Result<DuckDBAcceleratedResponse, CoreError> {
     use crate::core::dbi::context::QueryContext;
+    use crate::core::dbi::engine::{ExecutionEngine, ExecutionMode};
+    use crate::core::error::CommonError;
 
     let manager = get_connection_manager().clone();
     let conn_info = manager
         .get_connection_info(&input.conn_id)
         .await
-        .ok_or_else(|| format!("Connection not found: {}", input.conn_id))?;
+        .ok_or_else(|| {
+            CoreError::common(CommonError::General(format!(
+                "Connection not found: {}",
+                input.conn_id
+            )))
+        })?;
 
     let attach_type = match conn_info.db_type.as_str() {
         "mysql" => "mysql",
         "postgresql" | "postgres" => "postgres",
         "sqlite" => "sqlite",
         other => {
-            return Err(format!(
+            return Err(CoreError::common(CommonError::General(format!(
                 "Unsupported database type for DuckDB acceleration: {}",
                 other
-            ))
+            ))))
         }
     };
 
     let sanitized = conn_info
         .name
-        .replace(
-            |c: char| !c.is_alphanumeric() && c != '_',
-            "_",
-        );
+        .replace(|c: char| !c.is_alphanumeric() && c != '_', "_");
     let attach_name = format!("ext_{}", sanitized);
     let attach_sql = format!(
         "ATTACH '{}' AS {} (TYPE {})",
@@ -343,26 +348,32 @@ pub async fn execute_duckdb_accelerated(
 
     let engine = state.duckdb_engine.lock().await;
 
-    // Step 1: Init extensions + ATTACH source database
     {
-        let conn = engine.conn().map_err(|e| e.to_string())?;
+        let conn = engine
+            .conn()
+            .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
         if let Some(ref data_dir) = input.data_dir {
-            DuckDBEngine::init_extensions(&conn, data_dir).map_err(|e| e.to_string())?;
+            DuckDBEngine::init_extensions(&conn, data_dir)
+                .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
         }
-        conn.execute_batch(&attach_sql)
-            .map_err(|e| format!("Failed to ATTACH source database: {}", e))?;
+        conn.execute_batch(&attach_sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to ATTACH source database: {}",
+                e
+            )))
+        })?;
     }
 
-    // Step 2: Execute user SQL via DuckDB engine
     let ctx = QueryContext::new(Some(input.conn_id.clone()), ExecutionMode::DuckDB);
     let result = engine
         .execute(&input.sql, &ctx)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
 
-    // Step 3: DETACH (best-effort, don't fail on error)
     {
-        let conn = engine.conn().map_err(|e| e.to_string())?;
+        let conn = engine
+            .conn()
+            .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
         let _ = conn.execute_batch(&format!("DETACH IF EXISTS {}", attach_name));
     }
 
@@ -378,7 +389,9 @@ pub async fn execute_duckdb_accelerated(
         })
         .unwrap_or_default();
 
-    let rows: Vec<Vec<serde_json::Value>> = result.batches.iter()
+    let rows: Vec<Vec<serde_json::Value>> = result
+        .batches
+        .iter()
         .flat_map(|batch| {
             let mut batch_rows = Vec::new();
             for row_idx in 0..batch.num_rows() {
@@ -396,7 +409,11 @@ pub async fn execute_duckdb_accelerated(
 
     Ok(DuckDBAcceleratedResponse {
         success: true,
-        columns: if columns.is_empty() { None } else { Some(columns) },
+        columns: if columns.is_empty() {
+            None
+        } else {
+            Some(columns)
+        },
         rows: if rows.is_empty() { None } else { Some(rows) },
         elapsed_ms: 0,
         error: None,
@@ -413,26 +430,55 @@ fn format_arrow_value(col: &dyn arrow::array::Array, row_idx: usize) -> serde_js
 
     macro_rules! as_array {
         ($col:expr, $ty:ty) => {
-            $col.as_any().downcast_ref::<$ty>().map(|a| a.value(row_idx))
+            $col.as_any()
+                .downcast_ref::<$ty>()
+                .map(|a| a.value(row_idx))
         };
     }
 
-    if let Some(v) = as_array!(col, Int8Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, Int16Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, Int32Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, Int64Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, UInt8Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, UInt16Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, UInt32Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, UInt64Array) { return Value::Number(serde_json::Number::from(v)); }
-    if let Some(v) = as_array!(col, Float32Array) { return serde_json::Number::from_f64(v as f64).map(Value::Number).unwrap_or(Value::Null); }
-    if let Some(v) = as_array!(col, Float64Array) { return serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null); }
+    if let Some(v) = as_array!(col, Int8Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, Int16Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, Int32Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, Int64Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, UInt8Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, UInt16Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, UInt32Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, UInt64Array) {
+        return Value::Number(serde_json::Number::from(v));
+    }
+    if let Some(v) = as_array!(col, Float32Array) {
+        return serde_json::Number::from_f64(v as f64)
+            .map(Value::Number)
+            .unwrap_or(Value::Null);
+    }
+    if let Some(v) = as_array!(col, Float64Array) {
+        return serde_json::Number::from_f64(v)
+            .map(Value::Number)
+            .unwrap_or(Value::Null);
+    }
 
     if let Some(arr) = col.as_any().downcast_ref::<StringArray>() {
         return Value::String(arr.value(row_idx).to_string());
     }
 
-    Value::String(format!("{}", arrow::util::display::array_value_to_string(col, row_idx).unwrap_or_default()))
+    Value::String(format!(
+        "{}",
+        arrow::util::display::array_value_to_string(col, row_idx).unwrap_or_default()
+    ))
 }
 
 /// 创建外部表请求参数
@@ -447,19 +493,14 @@ pub struct CreateExternalTableInput {
 
 /// 创建外部表
 #[tauri::command]
-pub async fn create_external_table(
-    input: CreateExternalTableInput
-) -> Result<(), String> {
-    let manager = get_connection_manager().clone();
-    let service = SqlService::new(manager);
-
-    service.create_external_table(
-        input.conn_id,
-        &input.external_db_name,
-        &input.schema_name,
-        &input.table_name,
-        &input.external_table_name
-    )
-    .await
-    .map_err(|e| e.to_string())
+pub async fn create_external_table(input: CreateExternalTableInput) -> Result<(), CoreError> {
+    new_sql_service()
+        .create_external_table(
+            input.conn_id,
+            &input.external_db_name,
+            &input.schema_name,
+            &input.table_name,
+            &input.external_table_name,
+        )
+        .await
 }

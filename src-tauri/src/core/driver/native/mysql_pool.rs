@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use sqlx::mysql::MySqlPool;
 
-use crate::core::driver::traits::{DbPool, Database, PoolStatus};
 use crate::core::driver::native::mysql::MySqlDatabase;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::driver::traits::{Database, DbPool, PoolStatus};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// MySQL 连接池
 pub struct MySqlPoolWrapper {
@@ -19,13 +19,13 @@ pub struct MySqlPoolWrapper {
 impl MySqlPoolWrapper {
     /// 从 URL 创建连接池
     pub async fn new(url: &str) -> Result<Self, CoreError> {
-        let pool = MySqlPool::connect(url)
-            .await
-            .map_err(|e| CoreError::connection(ConnectionError::Refused {
+        let pool = MySqlPool::connect(url).await.map_err(|e| {
+            CoreError::connection(ConnectionError::Refused {
                 conn_id: "mysql".to_string(),
                 reason: e.to_string(),
-            }))?;
-        
+            })
+        })?;
+
         Ok(Self {
             pool,
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -66,12 +66,14 @@ impl DbPool for MySqlPoolWrapper {
         let size = self.pool.size() as usize;
         let idle = self.pool.num_idle() as usize;
         let active = size - idle;
-        
+
         PoolStatus {
             size,
             idle,
             active,
             waiting: 0, // sqlx 不直接暴露等待数
+            max_connections: 10,
+            min_connections: 2,
         }
     }
 }

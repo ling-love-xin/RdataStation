@@ -18,11 +18,10 @@ pub(crate) async fn get_table_profile(
     let columns =
         fetch_table_columns(&service, conn_id_opt.clone(), database, schema, table).await?;
 
-    let row_count =
-        match fetch_row_count(&service, conn_id_opt, database, schema, table).await {
-            Ok(count) => Some(count),
-            Err(_) => None,
-        };
+    let row_count = match fetch_row_count(&service, conn_id_opt, database, schema, table).await {
+        Ok(count) => Some(count),
+        Err(_) => None,
+    };
 
     Ok(TableProfile {
         table_name: table.to_string(),
@@ -56,23 +55,22 @@ async fn fetch_table_columns(
     };
 
     let result = service.execute(conn_id, &sql, opts).await?;
-    let json = serde_json::to_value(&result.result).map_err(|e| {
-        CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
-    })?;
+    let json = serde_json::to_value(&result.result)
+        .map_err(|e| CoreError::common(CommonError::General(format!("Serialize error: {}", e))))?;
 
-    let rows = json["batches"]
-        .as_array()
-        .and_then(|batches| {
-            batches.first()?.get("columns").and_then(|c| c.as_array()).and_then(
-                |columns_arr| {
-                    batches
-                        .first()?
-                        .get("rows")
-                        .and_then(|r| r.as_array())
-                        .map(|rows_arr| (columns_arr.clone(), rows_arr.clone()))
-                },
-            )
-        });
+    let rows = json["batches"].as_array().and_then(|batches| {
+        batches
+            .first()?
+            .get("columns")
+            .and_then(|c| c.as_array())
+            .and_then(|columns_arr| {
+                batches
+                    .first()?
+                    .get("rows")
+                    .and_then(|r| r.as_array())
+                    .map(|rows_arr| (columns_arr.clone(), rows_arr.clone()))
+            })
+    });
 
     let columns: Vec<TableColumnMeta> = match rows {
         Some((col_names, row_data)) => {
@@ -135,9 +133,8 @@ async fn fetch_row_count(
     };
 
     let result = service.execute(conn_id, &sql, opts).await?;
-    let json = serde_json::to_value(&result.result).map_err(|e| {
-        CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
-    })?;
+    let json = serde_json::to_value(&result.result)
+        .map_err(|e| CoreError::common(CommonError::General(format!("Serialize error: {}", e))))?;
 
     let count = json["batches"]
         .as_array()

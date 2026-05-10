@@ -37,9 +37,8 @@ pub(crate) async fn re_execute_with_filter(
         .await?;
     let elapsed = start.elapsed().as_millis() as u64;
 
-    let json_value = serde_json::to_value(&result.result).map_err(|e| {
-        CoreError::common(CommonError::General(format!("Serialize error: {}", e)))
-    })?;
+    let json_value = serde_json::to_value(&result.result)
+        .map_err(|e| CoreError::common(CommonError::General(format!("Serialize error: {}", e))))?;
 
     let columns = json_value["columns"]
         .as_array()
@@ -51,8 +50,7 @@ pub(crate) async fn re_execute_with_filter(
         .unwrap_or_default();
 
     let rows = extract_rows_from_serialized(&json_value);
-    let temp_table =
-        duckdb_service::DuckDbService::create_duckdb_temp_table(&columns, &rows)?;
+    let temp_table = duckdb_service::DuckDbService::create_duckdb_temp_table(&columns, &rows)?;
 
     Ok(ResultSet {
         row_count: rows.len(),
@@ -77,9 +75,7 @@ pub(crate) fn execute_duckdb_analysis(
 
     let actual_table = if temp_table.is_empty() {
         if let (Some(cols), Some(rws)) = (columns, rows) {
-            duckdb_service::DuckDbService::create_temp_table_internal(
-                &mut conn, &cols, &rws,
-            )?
+            duckdb_service::DuckDbService::create_temp_table_internal(&mut conn, &cols, &rws)?
         } else {
             return Err(CoreError::common(CommonError::General(
                 "No temp table or data provided".to_string(),

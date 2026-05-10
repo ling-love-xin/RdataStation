@@ -21,9 +21,9 @@
 //! driver/native/mysql.rs (具体实现)
 //! ```
 
-use crate::core::driver::{DriverRegistry, DynDatabase};
 use crate::core::driver::registry::ConnectionConfig;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::driver::{DriverRegistry, DynDatabase};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// 数据源路由器
 ///
@@ -44,10 +44,11 @@ impl DataSourceRouter {
         let driver_id = &config.driver;
 
         // 从注册表获取驱动工厂
-        let factory = DriverRegistry::get(driver_id)
-            .ok_or_else(|| CoreError::connection(ConnectionError::DriverNotFound {
+        let factory = DriverRegistry::get(driver_id).ok_or_else(|| {
+            CoreError::connection(ConnectionError::DriverNotFound {
                 driver: driver_id.clone(),
-            }))?;
+            })
+        })?;
 
         // 使用工厂创建连接
         factory.create(config).await

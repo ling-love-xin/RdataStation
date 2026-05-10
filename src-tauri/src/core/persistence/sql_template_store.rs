@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::core::error::{CoreError, CommonError, StorageError};
+use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::persistence::global_db::GlobalSqlitePool;
 
 /// SQL 模板
@@ -50,7 +50,7 @@ impl SqlTemplate {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
-        
+
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name,
@@ -67,7 +67,7 @@ impl SqlTemplate {
 }
 
 /// SQL 模板存储服务
-/// 
+///
 /// 持有连接池引用，每次操作时从池中获取连接，操作完成后归还
 pub struct SqlTemplateStore {
     pool: Arc<GlobalSqlitePool>,
@@ -88,7 +88,10 @@ impl SqlTemplateStore {
     }
 
     /// 获取连接（操作完成后会自动归还）
-    fn with_connection<T, F: FnOnce(&Connection) -> Result<T, CoreError>>(&self, f: F) -> Result<T, CoreError> {
+    fn with_connection<T, F: FnOnce(&Connection) -> Result<T, CoreError>>(
+        &self,
+        f: F,
+    ) -> Result<T, CoreError> {
         let conn = self.pool.acquire_sync()?;
         let result = f(&conn);
         self.pool.release_sync(conn);
@@ -98,8 +101,9 @@ impl SqlTemplateStore {
     /// 初始化模板表
     fn init_table(&mut self) -> Result<(), CoreError> {
         let conn = self.pool.acquire_sync()?;
-        let result = conn.execute(
-            "CREATE TABLE IF NOT EXISTS sql_templates (
+        let result = conn
+            .execute(
+                "CREATE TABLE IF NOT EXISTS sql_templates (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 content TEXT NOT NULL,
@@ -111,12 +115,15 @@ impl SqlTemplateStore {
                 created_at_ms INTEGER NOT NULL,
                 updated_at_ms INTEGER NOT NULL
             )",
-            [],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "init_sql_templates_table".to_string(),
-            reason: e.to_string(),
-        }));
+                [],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "init_sql_templates_table".to_string(),
+                    reason: e.to_string(),
+                })
+            });
         self.pool.release_sync(conn);
         result?;
         Ok(())
@@ -399,30 +406,40 @@ impl SqlTemplateStore {
     /// 删除模板（仅用户自定义模板）
     pub fn delete(&self, id: &str) -> Result<bool, CoreError> {
         self.with_connection(|conn| {
-            let is_builtin = conn.query_row(
-                "SELECT is_builtin FROM sql_templates WHERE id = ?1",
-                params![id],
-                |row| row.get::<_, i32>(0),
-            ).optional().map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "check_builtin_template".to_string(),
-                reason: e.to_string(),
-            }))?.unwrap_or(1);
+            let is_builtin = conn
+                .query_row(
+                    "SELECT is_builtin FROM sql_templates WHERE id = ?1",
+                    params![id],
+                    |row| row.get::<_, i32>(0),
+                )
+                .optional()
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "check_builtin_template".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?
+                .unwrap_or(1);
 
             if is_builtin != 0 {
                 return Err(CoreError::common(CommonError::NotSupported(
-                    "Cannot delete builtin template".to_string()
+                    "Cannot delete builtin template".to_string(),
                 )));
             }
 
-            let rows = conn.execute(
-                "DELETE FROM sql_templates WHERE id = ?1 AND is_builtin = 0",
-                params![id],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_sql_template".to_string(),
-                reason: e.to_string(),
-            }))?;
+            let rows = conn
+                .execute(
+                    "DELETE FROM sql_templates WHERE id = ?1 AND is_builtin = 0",
+                    params![id],
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "delete_sql_template".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
             Ok(rows > 0)
         })
@@ -431,21 +448,27 @@ impl SqlTemplateStore {
     /// 获取所有分类
     pub fn get_categories(&self) -> Result<Vec<String>, CoreError> {
         self.with_connection(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT DISTINCT category FROM sql_templates ORDER BY category"
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "prepare_get_categories".to_string(),
-                reason: e.to_string(),
-            }))?;
+            let mut stmt = conn
+                .prepare("SELECT DISTINCT category FROM sql_templates ORDER BY category")
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "prepare_get_categories".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
-            let categories = stmt.query_map([], |row| {
-                row.get::<_, String>(0)
-            }).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "get_categories".to_string(),
-                reason: e.to_string(),
-            }))?.filter_map(|r| r.ok()).collect();
+            let categories = stmt
+                .query_map([], |row| row.get::<_, String>(0))
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "get_categories".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
 
             Ok(categories)
         })

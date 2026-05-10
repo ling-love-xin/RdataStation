@@ -32,25 +32,25 @@ impl DriverLoader {
     /// 加载所有驱动
     pub async fn load_all_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
         let mut drivers = Vec::new();
-        
+
         // 加载内置驱动
         let builtin_drivers = self.load_builtin_drivers().await?;
         drivers.extend(builtin_drivers);
-        
+
         // 加载WASM插件驱动
         if let Some(wasm_discovery) = &self.wasm_discovery {
             if let Ok(wasm_drivers) = wasm_discovery.load_drivers().await {
                 drivers.extend(wasm_drivers);
             }
         }
-        
+
         // 加载JDBC驱动
         if let Some(jdbc_discovery) = &self.jdbc_discovery {
             if let Ok(jdbc_drivers) = jdbc_discovery.load_drivers().await {
                 drivers.extend(jdbc_drivers);
             }
         }
-        
+
         Ok(drivers)
     }
 
@@ -85,19 +85,21 @@ impl BuiltinDriverDiscovery {
     /// 加载内置驱动
     pub async fn load_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
         let mut drivers: Vec<Arc<dyn DriverFactory>> = Vec::new();
-        
+
         // 加载MySQL驱动
         drivers.push(Arc::new(crate::core::driver::factory::MySqlDriverFactory));
-        
+
         // 加载PostgreSQL驱动
-        drivers.push(Arc::new(crate::core::driver::factory::PostgresDriverFactory));
-        
+        drivers.push(Arc::new(
+            crate::core::driver::factory::PostgresDriverFactory,
+        ));
+
         // 加载SQLite驱动
         drivers.push(Arc::new(crate::core::driver::factory::SqliteDriverFactory));
-        
+
         // 加载DuckDB驱动
         drivers.push(Arc::new(crate::core::driver::factory::DuckDbDriverFactory));
-        
+
         Ok(drivers)
     }
 }
@@ -122,7 +124,7 @@ impl WasmDriverDiscovery {
     /// 加载WASM插件驱动
     pub async fn load_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
         let drivers = Vec::new();
-        
+
         // 扫描WASM插件目录
         for dir in &self.plugin_dirs {
             let path = Path::new(dir);
@@ -131,7 +133,7 @@ impl WasmDriverDiscovery {
                 // 例如：查找.wasm文件并加载
             }
         }
-        
+
         Ok(drivers)
     }
 }
@@ -156,7 +158,7 @@ impl JdbcDriverDiscovery {
     /// 加载JDBC驱动
     pub async fn load_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
         let drivers = Vec::new();
-        
+
         // 扫描JDBC驱动目录
         for dir in &self.driver_dirs {
             let path = Path::new(dir);
@@ -165,7 +167,7 @@ impl JdbcDriverDiscovery {
                 // 例如：查找.jar文件并加载
             }
         }
-        
+
         Ok(drivers)
     }
 }

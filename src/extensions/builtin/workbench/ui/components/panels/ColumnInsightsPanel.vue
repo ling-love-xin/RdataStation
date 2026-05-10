@@ -152,10 +152,10 @@ function formatNum(n: number): string {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 12px;
+  padding: var(--spacing-md);
   overflow-y: auto;
   background: var(--bg-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-primary);
 }
 .loading-state,
@@ -165,50 +165,50 @@ function formatNum(n: number): string {
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 8px;
-  color: var(--text-tertiary, #888);
+  gap: var(--spacing-sm);
+  color: var(--text-tertiary);
 }
 .insight-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
 }
 .col-name {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
 }
 .col-type {
-  font-size: 11px;
-  color: var(--text-tertiary, #888);
-  background: var(--bg-secondary, #333);
+  font-size: var(--font-size-xss);
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--border-radius-sm);
 }
 .insight-section {
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-md);
 }
 .section-title {
-  font-size: 11px;
+  font-size: var(--font-size-xss);
   font-weight: 600;
-  color: var(--text-secondary, #aaa);
+  color: var(--text-secondary);
   margin-bottom: 6px;
   text-transform: uppercase;
 }
 .section-subtitle {
-  font-size: 11px;
+  font-size: var(--font-size-xss);
   font-weight: 600;
-  color: var(--text-secondary, #aaa);
-  margin: 8px 0 4px;
+  color: var(--text-secondary);
+  margin: var(--spacing-sm) 0 var(--spacing-xs);
 }
 .insight-row {
   display: flex;
   justify-content: space-between;
   padding: 3px 0;
-  border-bottom: 1px solid var(--border-color, #333);
+  border-bottom: 1px solid var(--border-color);
 }
 .label {
-  color: var(--text-secondary, #888);
+  color: var(--text-secondary);
 }
 .value {
   font-family: var(--font-mono);
@@ -217,8 +217,8 @@ function formatNum(n: number): string {
 .freq-row {
   display: flex;
   justify-content: space-between;
-  padding: 2px 4px;
-  font-size: 11px;
+  padding: 2px var(--spacing-xs);
+  font-size: var(--font-size-xss);
 }
 .freq-value {
   overflow: hidden;
@@ -228,7 +228,7 @@ function formatNum(n: number): string {
 }
 .freq-count {
   font-family: var(--font-mono);
-  color: var(--primary-color, #0078d4);
-  margin-left: 8px;
+  color: var(--primary-color);
+  margin-left: var(--spacing-sm);
 }
 </style>

@@ -4,7 +4,9 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::core::services::connection_manager::{ConnectionManager, ConnectionInfo, create_connection_id, get_connection_manager};
+    use crate::core::services::connection_manager::{
+        create_connection_id, get_connection_manager, ConnectionInfo, ConnectionManager,
+    };
     use std::sync::Arc;
 
     fn create_test_connection_info(id: &str) -> ConnectionInfo {
@@ -16,6 +18,7 @@ mod tests {
             connection_type: crate::core::services::connection_manager::ConnectionType::Global,
             project_id: None,
             created_at: std::time::Instant::now(),
+            server_version: None,
         }
     }
 
@@ -73,7 +76,9 @@ mod tests {
     async fn test_set_active_connection_not_exists() {
         let manager = ConnectionManager::new();
         // 设置不存在的连接为活动连接应该返回 false
-        let result = manager.set_active_connection("non-existent".to_string()).await;
+        let result = manager
+            .set_active_connection("non-existent".to_string())
+            .await;
         assert!(!result);
     }
 
@@ -122,9 +127,6 @@ mod tests {
         let manager2 = get_connection_manager();
 
         // 应该返回同一个实例
-        assert!(std::ptr::eq(
-            Arc::as_ptr(manager1),
-            Arc::as_ptr(manager2)
-        ));
+        assert!(std::ptr::eq(Arc::as_ptr(manager1), Arc::as_ptr(manager2)));
     }
 }

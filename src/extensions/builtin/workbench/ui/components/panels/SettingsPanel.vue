@@ -337,7 +337,13 @@ import {
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { Theme } from '@/stores/config'
+import type {
+  Theme,
+  ConnectionPoolSettings,
+  HistorySettings,
+  MonitoringSettings,
+  PerformanceSettings,
+} from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 
 const { t } = useI18n()
@@ -371,39 +377,12 @@ const shortcuts = reactive([
 ])
 
 const settings = reactive({
-  connectionPool: {
-    maxConnections: 10,
-    minIdleConnections: 2,
-    connectionTimeout: 30,
-    idleTimeout: 300,
-    autoReconnect: true,
-    healthCheck: true,
-    healthCheckInterval: 60,
-  },
-  history: {
-    maxHistoryItems: 100,
-    retentionDays: 30,
-    enableHistory: true,
-    includeSQL: true,
-    enableUndo: true,
-  },
-  monitoring: {
-    enableMonitoring: true,
-    updateInterval: 5,
-    enableAlerts: true,
-    alertOnDisconnect: true,
-    alertOnSlowQuery: true,
-    slowQueryThreshold: 1000,
-  },
-  performance: {
-    virtualScrollBuffer: 5,
-    maxCacheSize: 100,
-    cacheExpireMinutes: 60,
-    enableLazyLoad: true,
-    enablePreload: true,
-  },
+  connectionPool: { ...appStore.effectiveConnectionPool } as ConnectionPoolSettings,
+  history: { ...appStore.effectiveHistorySettings } as HistorySettings,
+  monitoring: { ...appStore.effectiveMonitoringSettings } as MonitoringSettings,
+  performance: { ...appStore.effectivePerformanceSettings } as PerformanceSettings,
   appearance: {
-    theme: 'system',
+    theme: appStore.effectiveTheme as string,
     fontSize: 13,
     compactMode: false,
   },
@@ -454,30 +433,23 @@ function resetSettings() {
   })
 }
 
-function saveSettings() {
+async function saveSettings() {
   const newTheme = settings.appearance.theme as Theme
   appStore.setTheme(newTheme)
 
-  const { appearance, ...restSettings } = settings
-  localStorage.setItem('rdata-station-settings', JSON.stringify(restSettings))
-  console.log('[WorkbenchSettings] settings saved')
+  await appStore.setConnectionPool(
+    structuredClone(settings.connectionPool) as ConnectionPoolSettings
+  )
+  await appStore.setHistorySettings(
+    structuredClone(settings.history) as HistorySettings
+  )
+  await appStore.setMonitoringSettings(
+    structuredClone(settings.monitoring) as MonitoringSettings
+  )
+  await appStore.setPerformanceSettings(
+    structuredClone(settings.performance) as PerformanceSettings
+  )
 }
-
-function loadSettings() {
-  settings.appearance.theme = appStore.effectiveTheme
-
-  const saved = localStorage.getItem('rdata-station-settings')
-  if (saved) {
-    try {
-      const savedSettings = JSON.parse(saved)
-      Object.assign(settings, savedSettings)
-    } catch {
-      console.error('[WorkbenchSettings] failed to load settings')
-    }
-  }
-}
-
-loadSettings()
 </script>
 
 <style scoped>

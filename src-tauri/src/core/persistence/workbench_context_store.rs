@@ -33,7 +33,7 @@ impl std::fmt::Display for PanelType {
 
 impl std::str::FromStr for PanelType {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "navigator" => Ok(PanelType::Navigator),
@@ -84,7 +84,7 @@ pub struct EditorContext {
 }
 
 /// 工作台上下文存储服务
-/// 
+///
 /// 持有连接池引用，每次操作时从池中获取连接，操作完成后归还
 pub struct WorkbenchContextStore {
     pool: Arc<GlobalSqlitePool>,
@@ -99,7 +99,10 @@ impl WorkbenchContextStore {
     }
 
     /// 获取连接（操作完成后会自动归还）
-    fn with_connection<T, F: FnOnce(&Connection) -> Result<T, CoreError>>(&self, f: F) -> Result<T, CoreError> {
+    fn with_connection<T, F: FnOnce(&Connection) -> Result<T, CoreError>>(
+        &self,
+        f: F,
+    ) -> Result<T, CoreError> {
         let conn = self.pool.acquire_sync()?;
         let result = f(&conn);
         self.pool.release_sync(conn);
@@ -120,11 +123,14 @@ impl WorkbenchContextStore {
                     updated_at_ms INTEGER NOT NULL
                 )",
                 [],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "init_workbench_layouts_table".to_string(),
-                reason: e.to_string(),
-            }))?;
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "init_workbench_layouts_table".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS editor_contexts (
@@ -137,11 +143,14 @@ impl WorkbenchContextStore {
                     updated_at_ms INTEGER NOT NULL
                 )",
                 [],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "init_editor_contexts_table".to_string(),
-                reason: e.to_string(),
-            }))?;
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "init_editor_contexts_table".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
             Ok(())
         })
@@ -266,23 +275,31 @@ impl WorkbenchContextStore {
     /// 删除连接相关的所有上下文
     pub fn delete_connection_contexts(&self, connection_id: &str) -> Result<usize, CoreError> {
         self.with_connection(|conn| {
-            let layout_deleted = conn.execute(
-                "DELETE FROM workbench_layouts WHERE connection_id = ?1",
-                params![connection_id],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_workbench_layout".to_string(),
-                reason: e.to_string(),
-            }))?;
+            let layout_deleted = conn
+                .execute(
+                    "DELETE FROM workbench_layouts WHERE connection_id = ?1",
+                    params![connection_id],
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "delete_workbench_layout".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
-            let editor_deleted = conn.execute(
-                "DELETE FROM editor_contexts WHERE connection_id = ?1",
-                params![connection_id],
-            ).map_err(|e| CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "delete_editor_context".to_string(),
-                reason: e.to_string(),
-            }))?;
+            let editor_deleted = conn
+                .execute(
+                    "DELETE FROM editor_contexts WHERE connection_id = ?1",
+                    params![connection_id],
+                )
+                .map_err(|e| {
+                    CoreError::storage(StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "delete_editor_context".to_string(),
+                        reason: e.to_string(),
+                    })
+                })?;
 
             Ok(layout_deleted + editor_deleted)
         })

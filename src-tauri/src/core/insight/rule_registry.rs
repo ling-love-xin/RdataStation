@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::error::{CommonError, CoreError};
 use include_dir::Dir;
 use tracing;
-use crate::core::error::{CommonError, CoreError};
 
 use super::rule_types::RuleFile;
 

@@ -57,72 +57,6 @@ export interface ResultData {
   rows: unknown[][]
 }
 
-export interface ColumnInsight {
-  columnName: string
-  dataType: string
-  stats: ColumnStats
-  histogram?: HistogramBucket[]
-  sample: unknown[]
-  quality: QualityScore
-}
-
-export interface ColumnStats {
-  count: number
-  nullCount: number
-  distinctCount: number
-  min?: number
-  max?: number
-  mean?: number
-  median?: number
-  stddev?: number
-  skewness?: number
-  kurtosis?: number
-  minLength?: number
-  maxLength?: number
-  avgLength?: number
-  mostFrequent?: Array<{ value: string; count: number }>
-  minDate?: string
-  maxDate?: string
-  nullRatio: number
-  distinctRatio: number
-  emptyStringCount?: number
-  zeroCount?: number
-}
-
-export interface HistogramBucket {
-  min: number
-  max: number
-  count: number
-  label: string
-}
-
-export interface QualityScore {
-  overall: number
-  grade: 'excellent' | 'good' | 'fair' | 'poor'
-  dimensions: {
-    completeness: number
-    uniqueness: number
-    typeConsistency: number
-    distribution: number
-  }
-  summary: string
-}
-
-export interface TableProfile {
-  tableName: string
-  rowCount: number
-  columns: TableColumnMeta[]
-}
-
-export interface TableColumnMeta {
-  name: string
-  dataType: string
-  nullable: boolean
-  isPrimaryKey: boolean
-  defaultValue: string | null
-  comment: string
-}
-
 export type MenuActionCategory = 'edit' | 'filter' | 'sort' | 'view' | 'export' | 'meta'
 
 export interface MenuContext {
@@ -165,4 +99,13 @@ export interface CellUpdateResult {
   message: string
 }
 
-export type MultiRuleResult = Record<string, unknown>
+export interface MultiRuleResult {
+  data: unknown
+  quality?: {
+    checks: Array<{
+      rule: string
+      passed: boolean
+      message?: string
+    }>
+  } | null
+}

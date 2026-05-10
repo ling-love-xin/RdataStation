@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿﻿﻿﻿<template>
   <div class="search-bar">
     <div class="search-input-wrapper">
       <span class="search-icon">🔍</span>
@@ -154,7 +154,7 @@ defineExpose({ focus })
 .search-icon {
   position: absolute;
   left: 12px;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   color: var(--text-tertiary);
   pointer-events: none;
 }
@@ -165,7 +165,7 @@ defineExpose({ focus })
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   transition: all 0.2s;
   height: var(--height-input);
@@ -227,7 +227,7 @@ defineExpose({ focus })
 }
 
 .history-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -236,7 +236,7 @@ defineExpose({ focus })
 .history-clear-btn {
   background: none;
   border: none;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   cursor: pointer;
   padding: 2px 6px;
@@ -262,12 +262,12 @@ defineExpose({ focus })
 }
 
 .history-icon {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   opacity: 0.5;
 }
 
 .history-text {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
 }
 </style>

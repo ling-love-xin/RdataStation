@@ -2,28 +2,37 @@
 //!
 //! 处理分析资源（连接、表、文件）的增删改查、文件夹、标签等操作
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tauri::State;
-use tokio::sync::Mutex;
 
+use crate::commands::project_commands::ProjectState;
+use crate::core::error::{CommonError, CoreError};
 use crate::core::persistence::{
-    AnalyticsResourceStore, AnalyticsResource, AnalyticsFolder, AnalyticsTag, AnalyticsRecycleItem,
-    CreateResourceRequest, CreateFolderRequest, CreateTagRequest, ListResourcesOutput,
+    AnalyticsFolder, AnalyticsRecycleItem, AnalyticsResource, AnalyticsResourceStore, AnalyticsTag,
+    CreateFolderRequest, CreateResourceRequest, CreateTagRequest, ListResourcesOutput,
     ResourceVersion,
 };
-use crate::commands::project_commands::ProjectState;
 
-/// 分析资源状态
+const STORE_UNINITIALIZED: &str = "分析资源存储未初始化";
+
+/// 分析资源状态（OnceLock 单例，无锁读取）
 pub struct AnalyticsResourceState {
-    pub store: Arc<Mutex<Option<AnalyticsResourceStore>>>,
+    pub store: Arc<OnceLock<AnalyticsResourceStore>>,
 }
 
 impl AnalyticsResourceState {
     pub fn new() -> Self {
         Self {
-            store: Arc::new(Mutex::new(None)),
+            store: Arc::new(OnceLock::new()),
         }
     }
+}
+
+fn get_store(state: &AnalyticsResourceState) -> Result<&AnalyticsResourceStore, CoreError> {
+    state
+        .store
+        .get()
+        .ok_or_else(|| CoreError::common(CommonError::General(STORE_UNINITIALIZED.into())))
 }
 
 // ==================== Resource Commands ====================
@@ -34,18 +43,13 @@ pub async fn create_analytics_resource(
     input: CreateResourceRequest,
     analytics_state: State<'_, AnalyticsResourceState>,
     _project_state: State<'_, ProjectState>,
-) -> Result<AnalyticsResource, String> {
+) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(resource_type = %input.resource_type, name = %input.name, "Creating analytics resource");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let resource = store.create_resource(input).await.map_err(|e| e.to_string())?;
-    
+
+    let resource = get_store(&analytics_state)?.create_resource(input).await?;
+
     tracing::info!(resource_id = %resource.id, "Analytics resource created successfully");
-    
+
     Ok(resource)
 }
 
@@ -55,18 +59,13 @@ pub async fn update_analytics_resource(
     id: String,
     input: CreateResourceRequest,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsResource, String> {
+) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(resource_id = %id, "Updating analytics resource");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let resource = store.update_resource(&id, input).await.map_err(|e| e.to_string())?;
-    
+
+    let resource = get_store(&analytics_state)?.update_resource(&id, input).await?;
+
     tracing::info!(resource_id = %resource.id, "Analytics resource updated successfully");
-    
+
     Ok(resource)
 }
 
@@ -75,16 +74,11 @@ pub async fn update_analytics_resource(
 pub async fn get_analytics_resource(
     id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsResource, String> {
+) -> Result<AnalyticsResource, CoreError> {
     tracing::debug!(resource_id = %id, "Getting analytics resource");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let resource = store.get_resource_by_id(&id).await.map_err(|e| e.to_string())?;
-    
+
+    let resource = get_store(&analytics_state)?.get_resource_by_id(&id).await?;
+
     Ok(resource)
 }
 
@@ -100,25 +94,22 @@ pub struct ListAnalyticsResourcesInput {
 pub async fn list_analytics_resources(
     input: ListAnalyticsResourcesInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<AnalyticsResource>, String> {
+) -> Result<Vec<AnalyticsResource>, CoreError> {
     tracing::debug!(
         scope = ?input.scope,
         resource_type = ?input.resource_type,
         folder_id = ?input.folder_id,
         "Listing analytics resources"
     );
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let resources = store.list_resources(
-        input.scope.as_deref(),
-        input.resource_type.as_deref(),
-        input.folder_id.as_deref(),
-    ).await.map_err(|e| e.to_string())?;
-    
+
+    let resources = get_store(&analytics_state)?
+        .list_resources(
+            input.scope.as_deref(),
+            input.resource_type.as_deref(),
+            input.folder_id.as_deref(),
+        )
+        .await?;
+
     Ok(resources)
 }
 
@@ -127,15 +118,10 @@ pub async fn list_analytics_resources(
 pub async fn delete_analytics_resource(
     id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(resource_id = %id, "Deleting analytics resource");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    store.delete_resource(&id).await.map_err(|e| e.to_string())?;
+    get_store(&analytics_state)?.delete_resource(&id).await?;
 
     tracing::info!(resource_id = %id, "Analytics resource deleted successfully");
 
@@ -147,15 +133,10 @@ pub async fn delete_analytics_resource(
 pub async fn batch_delete_analytics_resources(
     ids: Vec<String>,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(count = ids.len(), "Batch deleting analytics resources");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    store.batch_delete_resources(&ids).await.map_err(|e| e.to_string())?;
+    get_store(&analytics_state)?.batch_delete_resources(&ids).await?;
 
     tracing::info!(count = ids.len(), "Batch delete completed successfully");
 
@@ -168,15 +149,10 @@ pub async fn clone_analytics_resource(
     id: String,
     new_name: Option<String>,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsResource, String> {
+) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(resource_id = %id, "Cloning analytics resource");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    let cloned = store.clone_resource(&id, new_name.as_deref()).await.map_err(|e| e.to_string())?;
+    let cloned = get_store(&analytics_state)?.clone_resource(&id, new_name.as_deref()).await?;
 
     tracing::info!(new_resource_id = %cloned.id, "Analytics resource cloned successfully");
 
@@ -210,39 +186,44 @@ pub struct SortInput {
 pub async fn list_analytics_resources_paginated(
     input: ListResourcesInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<ListResourcesOutput, String> {
+) -> Result<ListResourcesOutput, CoreError> {
     tracing::debug!(
         scope = ?input.scope,
         resource_type = ?input.resource_type,
         "Listing analytics resources paginated"
     );
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    let page = input.pagination.as_ref().and_then(|p| p.page).unwrap_or_else(|| {
-        tracing::trace!("No page specified, defaulting to page 1");
-        1
-    });
-    let page_size = input.pagination.as_ref().and_then(|p| p.page_size).unwrap_or_else(|| {
-        tracing::trace!("No page_size specified, defaulting to 20");
-        20
-    });
+    let page = input
+        .pagination
+        .as_ref()
+        .and_then(|p| p.page)
+        .unwrap_or_else(|| {
+            tracing::trace!("No page specified, defaulting to page 1");
+            1
+        });
+    let page_size = input
+        .pagination
+        .as_ref()
+        .and_then(|p| p.page_size)
+        .unwrap_or_else(|| {
+            tracing::trace!("No page_size specified, defaulting to 20");
+            20
+        });
     let sort_by = input.sort.as_ref().and_then(|s| s.sort_by.clone());
     let sort_order = input.sort.as_ref().and_then(|s| s.sort_order.clone());
 
-    let result = store.list_resources_paginated(
-        input.scope.as_deref(),
-        input.resource_type.as_deref(),
-        input.folder_id.as_deref(),
-        input.search.as_deref(),
-        page,
-        page_size,
-        sort_by.as_deref(),
-        sort_order.as_deref(),
-    ).await.map_err(|e| e.to_string())?;
+    let result = get_store(&analytics_state)?
+        .list_resources_paginated(
+            input.scope.as_deref(),
+            input.resource_type.as_deref(),
+            input.folder_id.as_deref(),
+            input.search.as_deref(),
+            page,
+            page_size,
+            sort_by.as_deref(),
+            sort_order.as_deref(),
+        )
+        .await?;
 
     Ok(result)
 }
@@ -254,18 +235,13 @@ pub async fn list_analytics_resources_paginated(
 pub async fn create_analytics_folder(
     input: CreateFolderRequest,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsFolder, String> {
+) -> Result<AnalyticsFolder, CoreError> {
     tracing::info!(name = %input.name, scope = %input.scope, "Creating analytics folder");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let folder = store.create_folder(input).await.map_err(|e| e.to_string())?;
-    
+
+    let folder = get_store(&analytics_state)?.create_folder(input).await?;
+
     tracing::info!(folder_id = %folder.id, "Analytics folder created successfully");
-    
+
     Ok(folder)
 }
 
@@ -274,16 +250,11 @@ pub async fn create_analytics_folder(
 pub async fn get_analytics_folder(
     id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsFolder, String> {
+) -> Result<AnalyticsFolder, CoreError> {
     tracing::debug!(folder_id = %id, "Getting analytics folder");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let folder = store.get_folder_by_id(&id).await.map_err(|e| e.to_string())?;
-    
+
+    let folder = get_store(&analytics_state)?.get_folder_by_id(&id).await?;
+
     Ok(folder)
 }
 
@@ -298,23 +269,17 @@ pub struct ListAnalyticsFoldersInput {
 pub async fn list_analytics_folders(
     input: ListAnalyticsFoldersInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<AnalyticsFolder>, String> {
+) -> Result<Vec<AnalyticsFolder>, CoreError> {
     tracing::debug!(
         scope = ?input.scope,
         parent_folder_id = ?input.parent_folder_id,
         "Listing analytics folders"
     );
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let folders = store.list_folders(
-        input.scope.as_deref(),
-        input.parent_folder_id.as_deref(),
-    ).await.map_err(|e| e.to_string())?;
-    
+
+    let folders = get_store(&analytics_state)?
+        .list_folders(input.scope.as_deref(), input.parent_folder_id.as_deref())
+        .await?;
+
     Ok(folders)
 }
 
@@ -329,20 +294,17 @@ pub struct AddResourceToFolderInput {
 pub async fn add_analytics_resource_to_folder(
     input: AddResourceToFolderInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(
         resource_id = %input.resource_id,
         folder_id = %input.folder_id,
         "Adding resource to folder"
     );
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    store.add_resource_to_folder(&input.resource_id, &input.folder_id).await.map_err(|e| e.to_string())?;
-    
+
+    get_store(&analytics_state)?
+        .add_resource_to_folder(&input.resource_id, &input.folder_id)
+        .await?;
+
     Ok(())
 }
 
@@ -351,20 +313,17 @@ pub async fn add_analytics_resource_to_folder(
 pub async fn remove_analytics_resource_from_folder(
     input: AddResourceToFolderInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(
         resource_id = %input.resource_id,
         folder_id = %input.folder_id,
         "Removing resource from folder"
     );
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    store.remove_resource_from_folder(&input.resource_id, &input.folder_id).await.map_err(|e| e.to_string())?;
-    
+
+    get_store(&analytics_state)?
+        .remove_resource_from_folder(&input.resource_id, &input.folder_id)
+        .await?;
+
     Ok(())
 }
 
@@ -375,18 +334,13 @@ pub async fn remove_analytics_resource_from_folder(
 pub async fn create_analytics_tag(
     input: CreateTagRequest,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsTag, String> {
+) -> Result<AnalyticsTag, CoreError> {
     tracing::info!(name = %input.name, scope = %input.scope, "Creating analytics tag");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let tag = store.create_tag(input).await.map_err(|e| e.to_string())?;
-    
+
+    let tag = get_store(&analytics_state)?.create_tag(input).await?;
+
     tracing::info!(tag_id = %tag.id, "Analytics tag created successfully");
-    
+
     Ok(tag)
 }
 
@@ -400,16 +354,11 @@ pub struct ListAnalyticsTagsInput {
 pub async fn list_analytics_tags(
     input: ListAnalyticsTagsInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<AnalyticsTag>, String> {
+) -> Result<Vec<AnalyticsTag>, CoreError> {
     tracing::debug!(scope = ?input.scope, "Listing analytics tags");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let tags = store.list_tags(input.scope.as_deref()).await.map_err(|e| e.to_string())?;
-    
+
+    let tags = get_store(&analytics_state)?.list_tags(input.scope.as_deref()).await?;
+
     Ok(tags)
 }
 
@@ -424,20 +373,17 @@ pub struct AddTagToResourceInput {
 pub async fn add_analytics_tag_to_resource(
     input: AddTagToResourceInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(
         resource_id = %input.resource_id,
         tag_id = %input.tag_id,
         "Adding tag to resource"
     );
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    store.add_tag_to_resource(&input.resource_id, &input.tag_id).await.map_err(|e| e.to_string())?;
-    
+
+    get_store(&analytics_state)?
+        .add_tag_to_resource(&input.resource_id, &input.tag_id)
+        .await?;
+
     Ok(())
 }
 
@@ -446,20 +392,17 @@ pub async fn add_analytics_tag_to_resource(
 pub async fn remove_analytics_tag_from_resource(
     input: AddTagToResourceInput,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(
         resource_id = %input.resource_id,
         tag_id = %input.tag_id,
         "Removing tag from resource"
     );
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    store.remove_tag_from_resource(&input.resource_id, &input.tag_id).await.map_err(|e| e.to_string())?;
-    
+
+    get_store(&analytics_state)?
+        .remove_tag_from_resource(&input.resource_id, &input.tag_id)
+        .await?;
+
     Ok(())
 }
 
@@ -468,15 +411,10 @@ pub async fn remove_analytics_tag_from_resource(
 pub async fn get_analytics_tag(
     id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsTag, String> {
+) -> Result<AnalyticsTag, CoreError> {
     tracing::debug!(tag_id = %id, "Getting analytics tag");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    let tag = store.get_tag_by_id(&id).await.map_err(|e| e.to_string())?;
+    let tag = get_store(&analytics_state)?.get_tag_by_id(&id).await?;
 
     Ok(tag)
 }
@@ -487,16 +425,11 @@ pub async fn get_analytics_tag(
 #[tauri::command]
 pub async fn get_analytics_recycle_bin(
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<AnalyticsRecycleItem>, String> {
+) -> Result<Vec<AnalyticsRecycleItem>, CoreError> {
     tracing::debug!("Getting analytics recycle bin");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    let items = store.get_recycle_items().await.map_err(|e| e.to_string())?;
-    
+
+    let items = get_store(&analytics_state)?.get_recycle_items().await?;
+
     Ok(items)
 }
 
@@ -505,20 +438,13 @@ pub async fn get_analytics_recycle_bin(
 pub async fn restore_analytics_resource_from_recycle(
     recycle_id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<AnalyticsResource, String> {
+) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(recycle_id = %recycle_id, "Restoring analytics resource from recycle bin");
-    
-    let store = {
-        let analytics_guard = analytics_state.store.lock().await;
-        analytics_guard.as_ref().ok_or_else(|| {
-            "分析资源存储未初始化".to_string()
-        })?.clone()
-    };
-    
-    let resource = store.restore_from_recycle(&recycle_id).await.map_err(|e| e.to_string())?;
-    
+
+    let resource = get_store(&analytics_state)?.restore_from_recycle(&recycle_id).await?;
+
     tracing::info!(resource_id = %resource.id, "Analytics resource restored successfully");
-    
+
     Ok(resource)
 }
 
@@ -527,18 +453,13 @@ pub async fn restore_analytics_resource_from_recycle(
 pub async fn permanent_delete_analytics_resource(
     recycle_id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!(recycle_id = %recycle_id, "Permanent deleting analytics resource");
-    
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-    
-    store.permanent_delete(&recycle_id).await.map_err(|e| e.to_string())?;
-    
+
+    get_store(&analytics_state)?.permanent_delete(&recycle_id).await?;
+
     tracing::info!(recycle_id = %recycle_id, "Analytics resource permanently deleted");
-    
+
     Ok(())
 }
 
@@ -549,15 +470,10 @@ pub async fn permanent_delete_analytics_resource(
 pub async fn get_resource_versions(
     resource_id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<ResourceVersion>, String> {
+) -> Result<Vec<ResourceVersion>, CoreError> {
     tracing::debug!(resource_id = %resource_id, "Getting resource versions");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    let versions = store.get_resource_versions(&resource_id).await.map_err(|e| e.to_string())?;
+    let versions = get_store(&analytics_state)?.get_resource_versions(&resource_id).await?;
 
     Ok(versions)
 }
@@ -569,15 +485,10 @@ pub async fn get_resource_versions(
 pub async fn get_tags_for_resource(
     resource_id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<AnalyticsTag>, String> {
+) -> Result<Vec<AnalyticsTag>, CoreError> {
     tracing::debug!(resource_id = %resource_id, "Getting tags for resource");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    let tags = store.get_tags_for_resource(&resource_id).await.map_err(|e| e.to_string())?;
+    let tags = get_store(&analytics_state)?.get_tags_for_resource(&resource_id).await?;
 
     Ok(tags)
 }
@@ -587,15 +498,10 @@ pub async fn get_tags_for_resource(
 pub async fn get_resources_by_tag(
     tag_id: String,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<Vec<AnalyticsResource>, String> {
+) -> Result<Vec<AnalyticsResource>, CoreError> {
     tracing::debug!(tag_id = %tag_id, "Getting resources by tag");
 
-    let analytics_guard = analytics_state.store.lock().await;
-    let store = analytics_guard.as_ref().ok_or_else(|| {
-        "分析资源存储未初始化".to_string()
-    })?;
-
-    let resources = store.get_resources_by_tag(&tag_id).await.map_err(|e| e.to_string())?;
+    let resources = get_store(&analytics_state)?.get_resources_by_tag(&tag_id).await?;
 
     Ok(resources)
 }
@@ -607,26 +513,26 @@ pub async fn get_resources_by_tag(
 pub async fn init_analytics_resource_store(
     analytics_state: State<'_, AnalyticsResourceState>,
     project_state: State<'_, ProjectState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     tracing::info!("Initializing analytics resource store");
-    
+
     let project_guard = project_state.store.lock().await;
-    let project_store = project_guard.as_ref().ok_or_else(|| {
-        "项目存储未初始化".to_string()
-    })?;
-    
-    let mut analytics_guard = analytics_state.store.lock().await;
-    
-    // 检查是否已初始化
-    if analytics_guard.as_ref().is_some() {
+    let project_store = project_guard
+        .as_ref()
+        .ok_or_else(|| CoreError::common(CommonError::General("项目存储未初始化".into())))?;
+
+    if analytics_state.store.get().is_some() {
         tracing::info!("Analytics resource store already initialized");
         return Ok(());
     }
-    
+
     let store = AnalyticsResourceStore::new(project_store.db_manager.sqlite_pool());
-    *analytics_guard = Some(store);
-    
+    analytics_state
+        .store
+        .set(store)
+        .map_err(|_| CoreError::common(CommonError::General("分析资源存储重复初始化".into())))?;
+
     tracing::info!("Analytics resource store initialized successfully");
-    
+
     Ok(())
 }

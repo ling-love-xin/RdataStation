@@ -421,7 +421,9 @@ impl ConnectionStore {
                 let start = pos + pattern.len();
                 let rest = &json[start..];
                 let rest = rest.trim_start();
-                let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+                let end = rest
+                    .find(|c: char| !c.is_ascii_digit())
+                    .unwrap_or(rest.len());
                 return rest[..end].parse().ok();
             }
             None
@@ -475,12 +477,27 @@ impl ConnectionStore {
         let mut result = String::from("[\n");
         for (i, conn) in connections.iter().enumerate() {
             result.push_str("  {\n");
-            result.push_str(&format!("    \"id\": \"{}\",\n", Self::escape_json(&conn.id)));
-            result.push_str(&format!("    \"name\": \"{}\",\n", Self::escape_json(&conn.name)));
-            result.push_str(&format!("    \"db_type\": \"{}\",\n", Self::escape_json(&conn.db_type)));
-            result.push_str(&format!("    \"url\": \"{}\",\n", Self::escape_json(&conn.url)));
+            result.push_str(&format!(
+                "    \"id\": \"{}\",\n",
+                Self::escape_json(&conn.id)
+            ));
+            result.push_str(&format!(
+                "    \"name\": \"{}\",\n",
+                Self::escape_json(&conn.name)
+            ));
+            result.push_str(&format!(
+                "    \"db_type\": \"{}\",\n",
+                Self::escape_json(&conn.db_type)
+            ));
+            result.push_str(&format!(
+                "    \"url\": \"{}\",\n",
+                Self::escape_json(&conn.url)
+            ));
             if let Some(ref sv) = conn.server_version {
-                result.push_str(&format!("    \"server_version\": \"{}\",\n", Self::escape_json(sv)));
+                result.push_str(&format!(
+                    "    \"server_version\": \"{}\",\n",
+                    Self::escape_json(sv)
+                ));
             }
             result.push_str(&format!("    \"last_used\": {},\n", conn.last_used));
             result.push_str(&format!("    \"created_at\": {}", conn.created_at));
@@ -512,8 +529,8 @@ impl ConnectionStore {
 
 // ==================== 全局便捷函数 ====================
 
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
 /// 全局连接存储实例
 static GLOBAL_STORE: Lazy<Mutex<ConnectionStore>> = Lazy::new(|| {
@@ -529,10 +546,10 @@ fn get_default_store_path() -> PathBuf {
     let app_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("RdataStation");
-    
+
     // 确保目录存在
     let _ = std::fs::create_dir_all(&app_dir);
-    
+
     app_dir.join("recent_connections.json")
 }
 
@@ -546,30 +563,66 @@ pub struct ConnectionRecord {
 }
 
 /// 保存最近连接
-pub fn save_recent_connection(
-    name: &str,
-    db_type: &str,
-    url: &str,
-) -> Result<(), std::io::Error> {
-    let mut store = GLOBAL_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+pub fn save_recent_connection(name: &str, db_type: &str, url: &str) -> Result<(), std::io::Error> {
+    let mut store = GLOBAL_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
     let id = format!("{}-{}", db_type, url);
     let conn = ConnectionInfo::new(id, name.to_string(), db_type.to_string(), url.to_string());
-    
+
     store.add_connection(conn);
     store.save()
 }
 
-/// 获取最近连接列表
-pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error> {
-    let mut store = GLOBAL_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+fn mask_password_in_url(url: &str) -> String {
+    if let Some(scheme_end) = url.find("://") {
+        let prefix = &url[..scheme_end + 3];
+        let rest = &url[scheme_end + 3..];
+        if let Some(at_pos) = rest.find('@') {
+            let auth = &rest[..at_pos];
+            let host_part = &rest[at_pos..];
+            if let Some(colon_pos) = auth.find(':') {
+                let username = &auth[..colon_pos];
+                return format!("{}{}:******{}", prefix, username, host_part);
+            }
+            return format!("{}******{}", prefix, host_part);
+        }
+    }
+    url.to_string()
+}
 
-    // 重新加载以获取最新数据
+fn url_has_plaintext_password(url: &str) -> bool {
+    if let Some(scheme_end) = url.find("://") {
+        let rest = &url[scheme_end + 3..];
+        if let Some(at_pos) = rest.find('@') {
+            let auth = &rest[..at_pos];
+            return auth.contains(':') && !auth.contains("******");
+        }
+    }
+    false
+}
+
+/// 获取最近连接列表（含旧数据迁移：明文密码 URL → 脱敏 URL）
+pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error> {
+    let mut store = GLOBAL_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+
     store.load()?;
+
+    let mut migrated = false;
+
+    for conn_info in store.connections.iter_mut() {
+        if url_has_plaintext_password(&conn_info.url) {
+            conn_info.url = mask_password_in_url(&conn_info.url);
+            migrated = true;
+        }
+    }
+
+    if migrated {
+        let _ = store.save();
+    }
 
     let records: Vec<ConnectionRecord> = store
         .get_connections()
@@ -588,16 +641,17 @@ pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error>
 
 /// 删除最近连接记录
 pub fn remove_recent_connection(name: &str) -> Result<(), std::io::Error> {
-    let mut store = GLOBAL_STORE.lock().map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store")
-    })?;
+    let mut store = GLOBAL_STORE
+        .lock()
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
 
     // 找到匹配的连接 ID
-    let conn_id_to_remove: Option<String> = store.get_connections()
+    let conn_id_to_remove: Option<String> = store
+        .get_connections()
         .iter()
         .find(|conn| conn.name == name)
         .map(|conn| conn.id.clone());
-    
+
     // 如果有匹配的连接，删除它
     if let Some(id) = conn_id_to_remove {
         store.remove_connection(&id);

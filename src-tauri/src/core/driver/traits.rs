@@ -16,6 +16,8 @@ pub enum SchemaObjectKind {
     Index,
     PrimaryKey,
     ForeignKey,
+    Procedure,
+    Function,
 }
 
 /// Schema 对象（对象树模型）
@@ -75,7 +77,12 @@ pub trait MetadataBrowser: Send + Sync {
     async fn get_tables(&self, db: &str, schema: &str) -> Result<Vec<NodeInfo>, CoreError>;
 
     /// 获取表/视图详情（含列信息）
-    async fn get_table_detail(&self, db: &str, schema: &str, table: &str) -> Result<NodeDetail, CoreError>;
+    async fn get_table_detail(
+        &self,
+        db: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<NodeDetail, CoreError>;
 }
 
 /// 数据源能力描述
@@ -175,7 +182,11 @@ pub trait Database: Send + Sync {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
 
     /// 执行参数化查询（防止 SQL 注入）
-    async fn query_with_params(&self, sql: &str, _params: Vec<Value>) -> Result<QueryResult, CoreError> {
+    async fn query_with_params(
+        &self,
+        sql: &str,
+        _params: Vec<Value>,
+    ) -> Result<QueryResult, CoreError> {
         // 默认实现：回退到普通查询
         // 子类应覆盖此方法以支持真正的参数化查询
         self.query(sql).await
@@ -193,6 +204,21 @@ pub trait Database: Send + Sync {
 
     /// 获取数据源元数据
     fn meta(&self) -> DataSourceMeta;
+
+    /// 连接健康检查（ping）
+    ///
+    /// 执行轻量级查询验证连接是否存活。
+    /// 默认返回 Ok(())，驱动可覆盖实现真正的 ping。
+    async fn ping(&self) -> Result<(), CoreError> {
+        Ok(())
+    }
+
+    /// 获取连接池状态（仅池化数据库支持）
+    ///
+    /// 返回连接池的运行时指标。非池化数据库（如 SQLite/DuckDB 单连接）返回 None。
+    async fn pool_status(&self) -> Option<PoolStatus> {
+        None
+    }
 
     /* ===== 对象树能力（Schema 浏览） ===== */
 
@@ -225,6 +251,38 @@ pub trait Database: Send + Sync {
         Ok(vec![])
     }
 
+    /// 列举存储过程
+    async fn list_procedures(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 列举函数
+    async fn list_functions(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 获取过程/函数的 DDL 源码
+    ///
+    /// 返回完整的 CREATE PROCEDURE/FUNCTION 语句。
+    /// 不支持或不存在的 routine 返回 None。
+    async fn get_routine_source(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+        _name: &str,
+        _kind: SchemaObjectKind, // Procedure 或 Function
+    ) -> Result<Option<String>, CoreError> {
+        Ok(None) // 默认：不支持
+    }
+
     /* ===== 联邦查询能力 ===== */
 
     /// 注册外部数据库连接
@@ -232,7 +290,7 @@ pub trait Database: Send + Sync {
         &self,
         _name: &str,
         _driver: &str,
-        _connection_string: &str
+        _connection_string: &str,
     ) -> Result<(), CoreError> {
         Err(CoreError::database(DatabaseError::Driver {
             db_type: "generic".to_string(),
@@ -247,7 +305,7 @@ pub trait Database: Send + Sync {
         _external_db_name: &str,
         _schema_name: &str,
         _table_name: &str,
-        _external_table_name: &str
+        _external_table_name: &str,
     ) -> Result<(), CoreError> {
         Err(CoreError::database(DatabaseError::Driver {
             db_type: "generic".to_string(),
@@ -297,6 +355,10 @@ pub struct PoolStatus {
     pub active: usize,
     /// 等待获取连接的请求数
     pub waiting: usize,
+    /// 最大连接数
+    pub max_connections: usize,
+    /// 最小连接数
+    pub min_connections: usize,
 }
 
 impl PoolStatus {
@@ -307,6 +369,8 @@ impl PoolStatus {
             idle: 0,
             active: 0,
             waiting: 0,
+            max_connections: 10,
+            min_connections: 2,
         }
     }
 }

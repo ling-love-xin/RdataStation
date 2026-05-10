@@ -1,5 +1,5 @@
 use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// 构建数据库连接URL
 pub fn build_connection_url(config: &DriverConnectionConfig) -> Result<String, CoreError> {
@@ -17,64 +17,87 @@ pub fn build_connection_url(config: &DriverConnectionConfig) -> Result<String, C
 
 /// 构建MySQL连接URL
 fn build_mysql_url(config: &DriverConnectionConfig) -> Result<String, CoreError> {
-    let host = config.host.as_deref().ok_or_else(|| CoreError::connection(ConnectionError::InvalidConfig {
-        conn_id: config.name.clone().unwrap_or_else(|| "mysql".to_string()),
-        reason: "Host is required".to_string(),
-    }))?;
-    
+    let host = config.host.as_deref().ok_or_else(|| {
+        CoreError::connection(ConnectionError::InvalidConfig {
+            conn_id: config.name.clone().unwrap_or_else(|| "mysql".to_string()),
+            reason: "Host is required".to_string(),
+        })
+    })?;
+
     let port = config.port.unwrap_or(3306);
     let username = config.username.as_deref().unwrap_or("root");
     let password = config.password.as_deref().unwrap_or("");
     let database = config.database.as_deref().unwrap_or("");
-    
-    Ok(format!("mysql://{}:{}@{}:{}/{}", username, password, host, port, database))
+
+    Ok(format!(
+        "mysql://{}:{}@{}:{}/{}",
+        username, password, host, port, database
+    ))
 }
 
 /// 构建PostgreSQL连接URL
 fn build_postgres_url(config: &DriverConnectionConfig) -> Result<String, CoreError> {
-    let host = config.host.as_deref().ok_or_else(|| CoreError::connection(ConnectionError::InvalidConfig {
-        conn_id: config.name.clone().unwrap_or_else(|| "postgres".to_string()),
-        reason: "Host is required".to_string(),
-    }))?;
-    
+    let host = config.host.as_deref().ok_or_else(|| {
+        CoreError::connection(ConnectionError::InvalidConfig {
+            conn_id: config
+                .name
+                .clone()
+                .unwrap_or_else(|| "postgres".to_string()),
+            reason: "Host is required".to_string(),
+        })
+    })?;
+
     let port = config.port.unwrap_or(5432);
     let username = config.username.as_deref().unwrap_or("postgres");
     let password = config.password.as_deref().unwrap_or("");
     let database = config.database.as_deref().unwrap_or("postgres");
-    
-    Ok(format!("postgres://{}:{}@{}:{}/{}", username, password, host, port, database))
+
+    Ok(format!(
+        "postgres://{}:{}@{}:{}/{}",
+        username, password, host, port, database
+    ))
 }
 
 /// 构建SQLite连接URL
 fn build_sqlite_url(config: &DriverConnectionConfig) -> Result<String, CoreError> {
-    let database = config.database.as_deref().ok_or_else(|| CoreError::connection(ConnectionError::InvalidConfig {
-        conn_id: config.name.clone().unwrap_or_else(|| "sqlite".to_string()),
-        reason: "Database path is required".to_string(),
-    }))?;
-    
+    let database = config.database.as_deref().ok_or_else(|| {
+        CoreError::connection(ConnectionError::InvalidConfig {
+            conn_id: config.name.clone().unwrap_or_else(|| "sqlite".to_string()),
+            reason: "Database path is required".to_string(),
+        })
+    })?;
+
     Ok(format!("sqlite://{}", database))
 }
 
 /// 构建DuckDB连接URL
 fn build_duckdb_url(config: &DriverConnectionConfig) -> Result<String, CoreError> {
     let database = config.database.as_deref().unwrap_or(":memory:");
-    
+
     Ok(format!("duckdb://{}", database))
 }
 
 /// 构建ClickHouse连接URL
 fn build_clickhouse_url(config: &DriverConnectionConfig) -> Result<String, CoreError> {
-    let host = config.host.as_deref().ok_or_else(|| CoreError::connection(ConnectionError::InvalidConfig {
-        conn_id: config.name.clone().unwrap_or_else(|| "clickhouse".to_string()),
-        reason: "Host is required".to_string(),
-    }))?;
-    
+    let host = config.host.as_deref().ok_or_else(|| {
+        CoreError::connection(ConnectionError::InvalidConfig {
+            conn_id: config
+                .name
+                .clone()
+                .unwrap_or_else(|| "clickhouse".to_string()),
+            reason: "Host is required".to_string(),
+        })
+    })?;
+
     let port = config.port.unwrap_or(9000);
     let username = config.username.as_deref().unwrap_or("default");
     let password = config.password.as_deref().unwrap_or("");
     let database = config.database.as_deref().unwrap_or("default");
-    
-    Ok(format!("clickhouse://{}:{}@{}:{}/{}", username, password, host, port, database))
+
+    Ok(format!(
+        "clickhouse://{}:{}@{}:{}/{}",
+        username, password, host, port, database
+    ))
 }
 
 /// 验证驱动配置
@@ -113,7 +136,7 @@ pub fn validate_driver_config(config: &DriverConnectionConfig) -> Result<(), Cor
             }));
         }
     }
-    
+
     Ok(())
 }
 

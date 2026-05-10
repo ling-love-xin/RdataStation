@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
-use crate::core::driver::{DriverFactory, DriverDescriptor, DynDatabase};
+use crate::core::connection::{ConnectionConfig, ConnectionFactory, ConnectionMethod};
+use crate::core::driver::native::{
+    duckdb::DuckDbDatabase, mysql::MySqlDatabase, postgres::PostgresDatabase,
+    sqlite::SqliteDatabase,
+};
 use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
-use crate::core::connection::{ConnectionConfig, ConnectionMethod, ConnectionFactory};
-use crate::core::error::{CoreError, ConnectionError};
-use crate::core::driver::native::{mysql::MySqlDatabase, postgres::PostgresDatabase, sqlite::SqliteDatabase, duckdb::DuckDbDatabase};
+use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// MySQL 驱动工厂
 ///
@@ -17,13 +20,19 @@ impl DriverFactory for MySqlDriverFactory {
         crate::core::driver::registry::mysql_driver()
     }
 
-    fn create(&self, config: DriverConnectionConfig) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>> {
+    fn create(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
         Box::pin(async move {
-            let url = config.to_url().map_err(|e| CoreError::connection(ConnectionError::InvalidConfig {
-                conn_id: config.name.clone().unwrap_or_else(|| "mysql".to_string()),
-                reason: e,
-            }))?;
-            
+            let url = config.to_url().map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: config.name.clone().unwrap_or_else(|| "mysql".to_string()),
+                    reason: e,
+                })
+            })?;
+
             let db = MySqlDatabase::new(&url).await?;
             let db: DynDatabase = Arc::new(db);
             Ok(db)
@@ -42,36 +51,50 @@ impl DriverFactory for PostgresDriverFactory {
         crate::core::driver::registry::postgres_driver()
     }
 
-    fn create(&self, config: DriverConnectionConfig) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>> {
+    fn create(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
         Box::pin(async move {
             // 根据连接方式决定如何建立连接
             let url = match &config.connection_method {
                 ConnectionMethod::Direct | ConnectionMethod::Ssl(_) => {
                     // 直接连接或 SSL 连接：使用标准 URL
-                    config.to_url().map_err(|e| CoreError::connection(ConnectionError::InvalidConfig {
-                        conn_id: config.name.clone().unwrap_or_else(|| "postgres".to_string()),
-                        reason: e,
-                    }))?
+                    config.to_url().map_err(|e| {
+                        CoreError::connection(ConnectionError::InvalidConfig {
+                            conn_id: config
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| "postgres".to_string()),
+                            reason: e,
+                        })
+                    })?
                 }
                 ConnectionMethod::Ssh(ssh_config) => {
                     // SSH 隧道连接：建立隧道后连接到本地端口
                     let conn_config = ConnectionConfig::ssh(
-                        config.host.clone().unwrap_or_else(|| "localhost".to_string()),
+                        config
+                            .host
+                            .clone()
+                            .unwrap_or_else(|| "localhost".to_string()),
                         config.port.unwrap_or(5432),
-                        ssh_config.clone()
+                        ssh_config.clone(),
                     );
-                    
+
                     let factory = ConnectionFactory::new();
                     let connection = factory.create_connection(conn_config).await?;
-                    
+
                     // 获取本地端口并构建 URL
-                    let local_addr = connection.stream.local_addr()
-                        .map_err(|e| CoreError::connection(ConnectionError::Network {
+                    let local_addr = connection.stream.local_addr().map_err(|e| {
+                        CoreError::connection(ConnectionError::Network {
                             conn_id: "postgres_ssh_tunnel".to_string(),
                             reason: format!("Failed to get local address: {}", e),
-                        }))?;
-                    
-                    format!("postgres://{}:{}@{}:{}/{}",
+                        })
+                    })?;
+
+                    format!(
+                        "postgres://{}:{}@{}:{}/{}",
                         config.username.as_deref().unwrap_or("postgres"),
                         config.password.as_deref().unwrap_or(""),
                         local_addr.ip(),
@@ -79,34 +102,46 @@ impl DriverFactory for PostgresDriverFactory {
                         config.database.as_deref().unwrap_or("postgres")
                     )
                 }
-                ConnectionMethod::HttpProxy(_proxy_config) | ConnectionMethod::SocksProxy(_proxy_config) => {
+                ConnectionMethod::HttpProxy(_proxy_config)
+                | ConnectionMethod::SocksProxy(_proxy_config) => {
                     // 代理连接：通过代理建立连接
                     let conn_config = ConnectionConfig {
-                        host: config.host.clone().unwrap_or_else(|| "localhost".to_string()),
+                        host: config
+                            .host
+                            .clone()
+                            .unwrap_or_else(|| "localhost".to_string()),
                         port: config.port.unwrap_or(5432),
                         method: config.connection_method.clone(),
                         options: std::collections::HashMap::new(),
                     };
-                    
+
                     let factory = ConnectionFactory::new();
                     let _connection = factory.create_connection(conn_config).await?;
-                    
+
                     // 对于代理连接，sqlx 需要特殊处理
                     // 这里简化处理，实际实现需要更复杂的逻辑
-                    config.to_url().map_err(|e| CoreError::connection(ConnectionError::InvalidConfig {
-                        conn_id: config.name.clone().unwrap_or_else(|| "postgres".to_string()),
-                        reason: e,
-                    }))?
+                    config.to_url().map_err(|e| {
+                        CoreError::connection(ConnectionError::InvalidConfig {
+                            conn_id: config
+                                .name
+                                .clone()
+                                .unwrap_or_else(|| "postgres".to_string()),
+                            reason: e,
+                        })
+                    })?
                 }
             };
-            
+
             // 创建 PostgreSQL 连接池
-            let pool = sqlx::postgres::PgPool::connect(&url)
-                .await
-                .map_err(|e| CoreError::connection(ConnectionError::Refused {
-                    conn_id: config.name.clone().unwrap_or_else(|| "postgres".to_string()),
+            let pool = sqlx::postgres::PgPool::connect(&url).await.map_err(|e| {
+                CoreError::connection(ConnectionError::Refused {
+                    conn_id: config
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| "postgres".to_string()),
                     reason: e.to_string(),
-                }))?;
+                })
+            })?;
             let db: DynDatabase = Arc::new(PostgresDatabase::from_pool(pool));
             Ok(db)
         })
@@ -123,23 +158,28 @@ impl DriverFactory for SqliteDriverFactory {
         crate::core::driver::registry::sqlite_driver()
     }
 
-    fn create(&self, config: DriverConnectionConfig) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>> {
+    fn create(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
         Box::pin(async move {
             // SQLite 使用文件路径作为连接字符串
-            let path = config.database
-                .as_deref()
-                .ok_or_else(|| CoreError::connection(ConnectionError::InvalidConfig {
+            let path = config.database.as_deref().ok_or_else(|| {
+                CoreError::connection(ConnectionError::InvalidConfig {
                     conn_id: config.name.clone().unwrap_or_else(|| "sqlite".to_string()),
                     reason: "Database path is required for SQLite".to_string(),
-                }))?;
-            
+                })
+            })?;
+
             // 创建 SQLite 数据库连接
-            let db = SqliteDatabase::new(path)
-                .map_err(|e| CoreError::connection(ConnectionError::InvalidConfig {
+            let db = SqliteDatabase::new(path).map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
                     conn_id: config.name.clone().unwrap_or_else(|| "sqlite".to_string()),
                     reason: e.to_string(),
-                }))?;
-            
+                })
+            })?;
+
             let db: DynDatabase = Arc::new(db);
             Ok(db)
         })
@@ -156,21 +196,24 @@ impl DriverFactory for DuckDbDriverFactory {
         crate::core::driver::registry::duckdb_driver()
     }
 
-    fn create(&self, config: DriverConnectionConfig) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>> {
+    fn create(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
         Box::pin(async move {
             // DuckDB 使用文件路径作为连接字符串
             // 如果未指定路径，使用内存数据库
-            let path = config.database
-                .as_deref()
-                .unwrap_or(":memory:");
-            
+            let path = config.database.as_deref().unwrap_or(":memory:");
+
             // 创建 DuckDB 数据库连接
-            let db = DuckDbDatabase::new(path)
-                .map_err(|e| CoreError::connection(ConnectionError::InvalidConfig {
+            let db = DuckDbDatabase::new(path).map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
                     conn_id: config.name.clone().unwrap_or_else(|| "duckdb".to_string()),
                     reason: e.to_string(),
-                }))?;
-            
+                })
+            })?;
+
             let db: DynDatabase = Arc::new(db);
             Ok(db)
         })

@@ -1,129 +1,138 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>{{
-          isEdit ? t('analyticsResource.editResource') : t('analyticsResource.createResource')
-        }}</h3>
-        <button class="close-btn" @click="$emit('close')">✕</button>
-      </div>
+  <NModal
+    :show="show"
+    :on-update:show="(val: boolean) => !val && emit('close')"
+  >
+    <NCard
+      :title="isEdit ? t('analyticsResource.editResource') : t('analyticsResource.createResource')"
+      closable
+      style="width: 520px"
+      @close="emit('close')"
+    >
+      <NForm label-placement="left" label-width="auto">
+        <NFormItem :label="t('analyticsResource.resourceType')" required>
+          <NSelect
+            v-model:value="form.resource_type"
+            :options="resourceTypeOptions"
+            :disabled="isEdit"
+          />
+        </NFormItem>
 
-      <div class="modal-body">
-        <div class="form-group">
-          <label>{{ t('analyticsResource.resourceType') }} *</label>
-          <select v-model="form.resource_type" class="form-input" :disabled="isEdit">
-            <option value="connection">🔌 {{ t('analyticsResource.connection') }}</option>
-            <option value="table">📊 {{ t('analyticsResource.table') }}</option>
-            <option value="file">📄 {{ t('analyticsResource.file') }}</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>{{ t('analyticsResource.resourceName') }} *</label>
-          <input
-            v-model="form.name"
-            type="text"
-            class="form-input"
+        <NFormItem :label="t('analyticsResource.resourceName')" required>
+          <NInput
+            v-model:value="form.name"
             :placeholder="t('analyticsResource.resourceName')"
           />
-        </div>
+        </NFormItem>
 
-        <div class="form-group">
-          <label>{{ t('analyticsResource.alias') }}</label>
-          <input
-            v-model="form.alias"
-            type="text"
-            class="form-input"
+        <NFormItem :label="t('analyticsResource.alias')">
+          <NInput
+            v-model:value="form.alias"
             :placeholder="t('analyticsResource.aliasPlaceholder')"
           />
-        </div>
+        </NFormItem>
 
-        <div class="form-group">
-          <label>{{ t('analyticsResource.scope') }} *</label>
-          <select v-model="form.scope" class="form-input">
-            <option value="global">🌍 {{ t('analyticsResource.global') }}</option>
-            <option value="project">📂 {{ t('analyticsResource.project') }}</option>
-            <option value="session">📌 {{ t('analyticsResource.session') }}</option>
-          </select>
-        </div>
+        <NFormItem :label="t('analyticsResource.scope')" required>
+          <NSelect
+            v-model:value="form.scope"
+            :options="scopeOptions"
+          />
+        </NFormItem>
 
-        <div v-if="form.resource_type === 'table'" class="form-group">
-          <label>{{ t('analyticsResource.rowCountLabel') }}</label>
-          <input
-            v-model.number="form.row_count"
-            type="number"
-            class="form-input"
+        <NFormItem
+          v-if="form.resource_type === 'table'"
+          :label="t('analyticsResource.rowCountLabel')"
+        >
+          <NInputNumber
+            v-model:value="form.row_count"
             :placeholder="t('analyticsResource.rowCountLabel')"
+            :min="0"
           />
-        </div>
+        </NFormItem>
 
-        <div v-if="form.resource_type === 'table'" class="form-group">
-          <label>{{ t('analyticsResource.columnCount') }}</label>
-          <input
-            v-model.number="form.column_count"
-            type="number"
-            class="form-input"
+        <NFormItem
+          v-if="form.resource_type === 'table'"
+          :label="t('analyticsResource.columnCount')"
+        >
+          <NInputNumber
+            v-model:value="form.column_count"
             :placeholder="t('analyticsResource.columnCount')"
+            :min="0"
           />
-        </div>
+        </NFormItem>
 
-        <div v-if="form.resource_type === 'file'" class="form-group">
-          <label>{{ t('analyticsResource.fileSizeLabel') }}</label>
-          <input
-            v-model.number="form.file_size"
-            type="number"
-            class="form-input"
+        <NFormItem
+          v-if="form.resource_type === 'file'"
+          :label="t('analyticsResource.fileSizeLabel')"
+        >
+          <NInputNumber
+            v-model:value="form.file_size"
             :placeholder="t('analyticsResource.fileSizeLabel')"
+            :min="0"
           />
-        </div>
+        </NFormItem>
 
-        <div class="form-group">
-          <label>{{ t('analyticsResource.sourceQuery') }}</label>
-          <textarea
-            v-model="form.source_query"
-            class="form-input form-textarea"
+        <NFormItem :label="t('analyticsResource.sourceQuery')">
+          <NInput
+            v-model:value="form.source_query"
+            type="textarea"
             placeholder="SELECT * FROM table_name"
-            rows="3"
-          ></textarea>
-        </div>
+            :rows="3"
+          />
+        </NFormItem>
 
-        <div class="form-group">
-          <label>{{ t('analyticsResource.configJson') }}</label>
-          <textarea
-            v-model="configJson"
-            class="form-input form-textarea"
+        <NFormItem :label="t('analyticsResource.configJson')">
+          <NInput
+            v-model:value="configJson"
+            type="textarea"
             :placeholder="t('analyticsResource.configJsonPlaceholder')"
-            rows="4"
-          ></textarea>
-        </div>
-      </div>
+            :rows="4"
+          />
+        </NFormItem>
+      </NForm>
 
-      <div class="modal-footer">
-        <button class="btn btn-secondary" @click="$emit('close')">
-          {{ t('analyticsResource.cancel') }}
-        </button>
-        <button class="btn btn-primary" :disabled="!isValid" @click="handleSubmit">
-          {{ isEdit ? t('analyticsResource.save') : t('analyticsResource.create') }}
-        </button>
-      </div>
-    </div>
-  </div>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="emit('close')">
+            {{ t('analyticsResource.cancel') }}
+          </NButton>
+          <NButton type="primary" :disabled="!isValid" @click="handleSubmit">
+            {{ isEdit ? t('analyticsResource.save') : t('analyticsResource.create') }}
+          </NButton>
+        </NSpace>
+      </template>
+    </NCard>
+  </NModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import {
+  NButton,
+  NCard,
+  NForm,
+  NFormItem,
+  NInput,
+  NInputNumber,
+  NModal,
+  NSelect,
+  NSpace,
+  useMessage,
+} from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
 import type {
-  CreateResourceRequest,
-  ResourceType,
-  ResourceScope,
   AnalyticsResource,
+  CreateResourceRequest,
+  ResourceScope,
+  ResourceType,
 } from '../../types'
 
 const { t } = useI18n()
+const message = useMessage()
 
 const props = defineProps<{
+  show: boolean
   editResource?: AnalyticsResource
 }>()
 
@@ -134,6 +143,18 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.editResource)
+
+const resourceTypeOptions = computed(() => [
+  { label: `🔌 ${t('analyticsResource.connection')}`, value: 'connection' },
+  { label: `📊 ${t('analyticsResource.table')}`, value: 'table' },
+  { label: `📄 ${t('analyticsResource.file')}`, value: 'file' },
+])
+
+const scopeOptions = computed(() => [
+  { label: `🌍 ${t('analyticsResource.global')}`, value: 'global' },
+  { label: `📂 ${t('analyticsResource.project')}`, value: 'project' },
+  { label: `📌 ${t('analyticsResource.session')}`, value: 'session' },
+])
 
 const form = ref({
   resource_type: 'connection' as ResourceType,
@@ -149,9 +170,7 @@ const form = ref({
 
 const configJson = ref('{}')
 
-const isValid = computed(() => {
-  return form.value.name.trim() !== ''
-})
+const isValid = computed(() => form.value.name.trim() !== '')
 
 function handleSubmit() {
   try {
@@ -175,8 +194,8 @@ function handleSubmit() {
     } else {
       emit('create', input)
     }
-  } catch (e) {
-    alert(t('analyticsResource.jsonFormatError'))
+  } catch {
+    message.error(t('analyticsResource.jsonFormatError'))
   }
 }
 
@@ -198,139 +217,3 @@ onMounted(() => {
   }
 })
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: var(--bg-primary);
-  border-radius: var(--radius-xl);
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-lg);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--size-lg) var(--size-xl);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: var(--text-tertiary);
-  transition: color 0.15s;
-}
-
-.close-btn:hover {
-  color: var(--text-primary);
-}
-
-.modal-body {
-  padding: var(--size-xl);
-  overflow-y: auto;
-}
-
-.form-group {
-  margin-bottom: var(--size-lg);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.form-input {
-  width: 100%;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 13px;
-  box-sizing: border-box;
-  height: var(--height-input);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-.form-textarea {
-  resize: vertical;
-  font-family: var(--font-mono);
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--size-md);
-  padding: var(--size-lg) var(--size-xl);
-  border-top: 1px solid var(--border-color);
-}
-
-.btn {
-  padding: 6px 16px;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  height: var(--height-btn);
-}
-
-.btn.btn-secondary {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.btn.btn-secondary:hover {
-  border-color: var(--text-secondary);
-}
-
-.btn.btn-primary {
-  background: var(--primary-color);
-  color: white;
-}
-
-.btn.btn-primary:hover {
-  background: var(--primary-dark);
-}
-
-.btn.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>

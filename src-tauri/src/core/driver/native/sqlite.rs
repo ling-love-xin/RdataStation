@@ -1,15 +1,15 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use rusqlite::Connection;
-use arrow::array::{ArrayRef, StringArray, Int64Array, Float64Array, BooleanArray, BinaryArray};
-use arrow::datatypes::{Field, Schema, DataType};
+use arrow::array::{ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray};
+use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+use rusqlite::Connection;
 
-use crate::core::driver::{Database, Transaction, DataSourceMeta, ColumnDetail};
 use crate::core::driver::traits::MetadataBrowser;
+use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
-use crate::core::models::{QueryResult, Value, ArrowBatch};
+use crate::core::models::{ArrowBatch, QueryResult, Value};
 
 /// SQLite 数据库连接
 pub struct SqliteDatabase {
@@ -24,35 +24,38 @@ impl SqliteDatabase {
         } else {
             url
         };
-        
+
         // 确保父目录存在
         if let Some(parent) = std::path::Path::new(path).parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|e| CoreError::database(DatabaseError::Driver {
-                    db_type: "sqlite".to_string(),
-                    operation: "create_directory".to_string(),
-                    source: e.to_string(),
-                }))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    CoreError::database(DatabaseError::Driver {
+                        db_type: "sqlite".to_string(),
+                        operation: "create_directory".to_string(),
+                        source: e.to_string(),
+                    })
+                })?;
             }
         }
-        
-        let conn = Connection::open(path)
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+
+        let conn = Connection::open(path).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "sqlite".to_string(),
                 operation: "connect".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         let server_version = conn
             .query_row("SELECT sqlite_version()", [], |row| row.get::<_, String>(0))
             .ok();
-        Ok(Self { 
+        Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             server_version,
         })
     }
 
     pub fn from_connection(conn: Connection) -> Self {
-        Self { 
+        Self {
             conn: Arc::new(Mutex::new(conn)),
             server_version: None,
         }
@@ -72,22 +75,31 @@ impl Database for SqliteDatabase {
         self.query_with_params(sql, vec![]).await
     }
 
-    async fn query_with_params(&self, sql: &str, params: Vec<Value>) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "sqlite".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+    async fn query_with_params(
+        &self,
+        sql: &str,
+        params: Vec<Value>,
+    ) -> Result<QueryResult, CoreError> {
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt.column_names()
+        let columns: Vec<String> = stmt
+            .column_names()
             .iter()
             .map(|name| name.to_string())
             .collect();
 
-        let params_slice: Vec<rusqlite::types::Value> = params.iter()
+        let params_slice: Vec<rusqlite::types::Value> = params
+            .iter()
             .map(|v| match v {
                 Value::Null => rusqlite::types::Value::Null,
                 Value::Bool(b) => rusqlite::types::Value::Integer(*b as i64),
@@ -103,10 +115,22 @@ impl Database for SqliteDatabase {
             1 => stmt.query([&params_slice[0]]),
             2 => stmt.query([&params_slice[0], &params_slice[1]]),
             3 => stmt.query([&params_slice[0], &params_slice[1], &params_slice[2]]),
-            4 => stmt.query([&params_slice[0], &params_slice[1], &params_slice[2], &params_slice[3]]),
-            5 => stmt.query([&params_slice[0], &params_slice[1], &params_slice[2], &params_slice[3], &params_slice[4]]),
+            4 => stmt.query([
+                &params_slice[0],
+                &params_slice[1],
+                &params_slice[2],
+                &params_slice[3],
+            ]),
+            5 => stmt.query([
+                &params_slice[0],
+                &params_slice[1],
+                &params_slice[2],
+                &params_slice[3],
+                &params_slice[4],
+            ]),
             _ => {
-                let params_refs: Vec<&dyn rusqlite::ToSql> = params_slice.iter()
+                let params_refs: Vec<&dyn rusqlite::ToSql> = params_slice
+                    .iter()
                     .take(16)
                     .map(|v| v as &dyn rusqlite::ToSql)
                     .collect();
@@ -117,9 +141,12 @@ impl Database for SqliteDatabase {
 
         let mut row_data: Vec<Vec<rusqlite::types::Value>> = Vec::new();
         while let Ok(Some(row)) = rows.next() {
-            let values: Vec<rusqlite::types::Value> = columns.iter().enumerate()
+            let values: Vec<rusqlite::types::Value> = columns
+                .iter()
+                .enumerate()
                 .map(|(i, _)| {
-                    row.get::<usize, rusqlite::types::Value>(i).unwrap_or(rusqlite::types::Value::Null)
+                    row.get::<usize, rusqlite::types::Value>(i)
+                        .unwrap_or(rusqlite::types::Value::Null)
                 })
                 .collect();
             row_data.push(values);
@@ -222,18 +249,21 @@ impl Database for SqliteDatabase {
     }
 
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "sqlite".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        conn.execute("BEGIN TRANSACTION", [])
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        conn.execute("BEGIN TRANSACTION", []).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "sqlite".to_string(),
                 operation: "begin_transaction".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         Ok(Box::new(SqliteTransaction::new(Arc::clone(&self.conn))))
     }
@@ -245,23 +275,46 @@ impl Database for SqliteDatabase {
         }
     }
 
+    async fn ping(&self) -> Result<(), CoreError> {
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
+        conn.query_row("SELECT 1", [], |_| Ok(()))
+            .map_err(|e| CoreError::database(DatabaseError::query("SELECT 1", e.to_string())))?;
+        Ok(())
+    }
+
     async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
         Ok(vec!["main".to_string()])
     }
 
-    async fn list_tables(&self, _db: &str, _schema: Option<&str>) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
+    async fn list_tables(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
         let nodes = self.get_tables("main", "main").await?;
-        Ok(nodes.into_iter().map(|n| {
-            crate::core::driver::SchemaObject {
+        Ok(nodes
+            .into_iter()
+            .map(|n| crate::core::driver::SchemaObject {
                 name: n.name,
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
-            }
-        }).collect())
+            })
+            .collect())
     }
 
-    async fn list_columns(&self, _db: &str, _schema: Option<&str>, table: &str) -> Result<Vec<ColumnDetail>, CoreError> {
+    async fn list_columns(
+        &self,
+        _db: &str,
+        _schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<ColumnDetail>, CoreError> {
         let detail = self.get_table_detail("main", "main", table).await?;
         Ok(detail.columns)
     }
@@ -285,30 +338,41 @@ impl SqliteTransaction {
 #[async_trait::async_trait]
 impl Transaction for SqliteTransaction {
     async fn query(&mut self, sql: &str) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-            db_type: "sqlite".to_string(),
-            operation: "lock".to_string(),
-            source: e.to_string(),
-        }))?;
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
 
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt.column_names()
+        let columns: Vec<String> = stmt
+            .column_names()
             .iter()
             .map(|name| name.to_string())
             .collect();
 
-        let mut rows = stmt.query([])
+        let mut rows = stmt
+            .query([])
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let mut row_data: Vec<Vec<rusqlite::types::Value>> = Vec::new();
         while let Ok(Some(row)) = rows.next() {
-            let values: Vec<rusqlite::types::Value> = columns.iter().enumerate()
-                .map(|(i, _)| {
-                    row.get::<usize, rusqlite::types::Value>(i).unwrap_or(rusqlite::types::Value::Null)
-                })
-                .collect();
+            let mut values: Vec<rusqlite::types::Value> = Vec::with_capacity(columns.len());
+            for (i, _) in columns.iter().enumerate() {
+                let v = row.get::<usize, rusqlite::types::Value>(i).map_err(|e| {
+                    CoreError::database(DatabaseError::Driver {
+                        db_type: "sqlite".to_string(),
+                        operation: "row_parsing".to_string(),
+                        source: e.to_string(),
+                    })
+                })?;
+                values.push(v);
+            }
             row_data.push(values);
         }
 
@@ -337,18 +401,21 @@ impl Transaction for SqliteTransaction {
 
     async fn commit(&mut self) -> Result<(), CoreError> {
         if !self.committed {
-            let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "sqlite".to_string(),
-                operation: "lock".to_string(),
-                source: e.to_string(),
-            }))?;
+            let conn = self.conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "sqlite".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
 
-            conn.execute("COMMIT", [])
-                .map_err(|e| CoreError::database(DatabaseError::Driver {
+            conn.execute("COMMIT", []).map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
                     db_type: "sqlite".to_string(),
                     operation: "commit".to_string(),
                     source: e.to_string(),
-                }))?;
+                })
+            })?;
 
             self.committed = true;
         }
@@ -357,14 +424,16 @@ impl Transaction for SqliteTransaction {
 
     async fn rollback(&mut self) -> Result<(), CoreError> {
         if !self.committed {
-            let conn = self.conn.lock().map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "sqlite".to_string(),
-                operation: "lock".to_string(),
-                source: e.to_string(),
-            }))?;
+            let conn = self.conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "sqlite".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
 
             if let Err(e) = conn.execute("ROLLBACK", []) {
-                eprintln!("SQLite transaction rollback error: {}", e);
+                tracing::warn!("SQLite transaction rollback error: {}", e);
             }
             self.committed = true;
         }
@@ -454,28 +523,24 @@ fn sqlite_rows_to_arrow(
         }
 
         let array: ArrayRef = match detected_type.unwrap_or(DataType::Utf8) {
-            DataType::Boolean => {
-                Arc::new(BooleanArray::from(bool_values))
-            }
-            DataType::Int64 => {
-                Arc::new(Int64Array::from(int_values))
-            }
-            DataType::Float64 => {
-                Arc::new(Float64Array::from(float_values))
-            }
+            DataType::Boolean => Arc::new(BooleanArray::from(bool_values)),
+            DataType::Int64 => Arc::new(Int64Array::from(int_values)),
+            DataType::Float64 => Arc::new(Float64Array::from(float_values)),
             DataType::Binary => {
-                let refs: Vec<Option<&[u8]>> = binary_values.iter().map(|opt| opt.as_ref().map(|v| v.as_slice())).collect();
+                let refs: Vec<Option<&[u8]>> = binary_values
+                    .iter()
+                    .map(|opt| opt.as_ref().map(|v| v.as_slice()))
+                    .collect();
                 Arc::new(BinaryArray::from(refs))
             }
-            _ => {
-                Arc::new(StringArray::from(string_values))
-            }
+            _ => Arc::new(StringArray::from(string_values)),
         };
 
         arrays.push(array);
     }
 
-    let fields: Vec<Field> = columns.iter()
+    let fields: Vec<Field> = columns
+        .iter()
         .enumerate()
         .map(|(i, name)| {
             let data_type = arrays[i].data_type().clone();
@@ -485,12 +550,13 @@ fn sqlite_rows_to_arrow(
 
     let schema = Arc::new(Schema::new(fields));
 
-    RecordBatch::try_new(schema, arrays)
-        .map_err(|e| CoreError::database(DatabaseError::Driver {
+    RecordBatch::try_new(schema, arrays).map_err(|e| {
+        CoreError::database(DatabaseError::Driver {
             db_type: "sqlite".to_string(),
             operation: "arrow_conversion".to_string(),
             source: e.to_string(),
-        }))
+        })
+    })
 }
 
 #[async_trait::async_trait]
@@ -504,7 +570,10 @@ impl crate::core::driver::MetadataBrowser for SqliteDatabase {
         }])
     }
 
-    async fn get_schemas(&self, _db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_schemas(
+        &self,
+        _db: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         Ok(vec![crate::core::driver::NodeInfo {
             name: "main".to_string(),
             kind: crate::core::driver::SchemaObjectKind::Schema,
@@ -513,7 +582,11 @@ impl crate::core::driver::MetadataBrowser for SqliteDatabase {
         }])
     }
 
-    async fn get_tables(&self, _db: &str, _schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_tables(
+        &self,
+        _db: &str,
+        _schema: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let result = self.query("SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name").await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
@@ -532,7 +605,11 @@ impl crate::core::driver::MetadataBrowser for SqliteDatabase {
                             Some(crate::core::driver::NodeInfo {
                                 name: name_arr.value(row_idx).to_string(),
                                 kind,
-                                icon: Some(if table_type == "view" { "view".to_string() } else { "table".to_string() }),
+                                icon: Some(if table_type == "view" {
+                                    "view".to_string()
+                                } else {
+                                    "table".to_string()
+                                }),
                                 comment: None,
                             })
                         } else {
@@ -547,25 +624,55 @@ impl crate::core::driver::MetadataBrowser for SqliteDatabase {
         Ok(nodes)
     }
 
-    async fn get_table_detail(&self, _db: &str, _schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+    async fn get_table_detail(
+        &self,
+        _db: &str,
+        _schema: &str,
+        table: &str,
+    ) -> Result<crate::core::driver::NodeDetail, CoreError> {
         let sql = format!("PRAGMA table_info(\"{}\")", table);
         let result = self.query(&sql).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
                     if row_idx < batch.num_rows() {
-                        let col_name = batch.column(1).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let data_type = batch.column(2).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let nullable = batch.column(3).as_any().downcast_ref::<StringArray>()?.value(row_idx) == "0";
-                        let default = batch.column(4).as_any().downcast_ref::<StringArray>()?.value(row_idx);
-                        let pk = batch.column(5).as_any().downcast_ref::<StringArray>()?.value(row_idx);
+                        let col_name = batch
+                            .column(1)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let data_type = batch
+                            .column(2)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let nullable = batch
+                            .column(3)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx)
+                            == "0";
+                        let default = batch
+                            .column(4)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
+                        let pk = batch
+                            .column(5)
+                            .as_any()
+                            .downcast_ref::<StringArray>()?
+                            .value(row_idx);
                         Some(crate::core::driver::ColumnDetail {
                             name: col_name.to_string(),
                             data_type: data_type.to_string(),
                             nullable,
                             is_primary_key: pk == "1",
                             is_foreign_key: false,
-                            default_value: if default.is_empty() { None } else { Some(default.to_string()) },
+                            default_value: if default.is_empty() {
+                                None
+                            } else {
+                                Some(default.to_string())
+                            },
                             comment: None,
                         })
                     } else {

@@ -8,20 +8,23 @@
 
 pub mod connection_manager;
 pub mod connection_service;
-pub mod sql_service;
-pub mod sql_parser_service;
-pub mod result_service;
 pub mod duckdb_service;
-pub mod insight_engine;
 pub mod execution_service;
-pub mod table_profile_service;
-pub mod quality_scorer;
+pub mod insight_engine;
 pub mod persistence_service;
+pub mod quality_scorer;
+pub mod result_service;
+pub mod sql_parser_service;
+pub mod sql_service;
+pub mod table_profile_service;
 
 #[cfg(test)]
 mod tests;
 
-pub use connection_manager::{ConnectionManager, ConnectionInfo, ConnectionType, get_connection_manager, ConnectionConfig, ConnId};
+pub use connection_manager::{
+    get_connection_manager, ConnId, ConnectionConfig, ConnectionInfo, ConnectionManager,
+    ConnectionType,
+};
 pub use connection_service::ConnectionService;
+pub use result_service::{ColumnStats, ResultService, ResultSet};
 pub use sql_service::SqlService;
-pub use result_service::{ResultService, ResultSet, ColumnStats};

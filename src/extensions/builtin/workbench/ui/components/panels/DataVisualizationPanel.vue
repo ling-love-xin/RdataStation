@@ -309,8 +309,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
-  padding: 0 16px;
+  height: 36px;
+  padding: 0 var(--spacing-lg);
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
@@ -323,8 +323,8 @@ onUnmounted(() => {
 .viz-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-lg);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -337,13 +337,13 @@ onUnmounted(() => {
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .chart-container {
   flex: 1;
   position: relative;
-  padding: 16px;
+  padding: var(--spacing-lg);
 }
 
 .chart-wrapper {
@@ -359,7 +359,7 @@ onUnmounted(() => {
 }
 
 .data-summary {
-  padding: 12px 16px;
+  padding: var(--spacing-md) var(--spacing-lg);
   background-color: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
 }

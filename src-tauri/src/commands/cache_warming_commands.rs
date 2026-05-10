@@ -1,15 +1,18 @@
 /**
  * 缓存预热相关命令
- * 
+ *
  * 处理缓存预热的启动、取消、进度查询等操作
  */
-
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
-use crate::core::persistence::metadata_cache::{MetadataCacheManager, MetadataCacheOps, ConnectionType, IndexEntryInput};
-use crate::core::persistence::cache_version_migration::{CacheVersionManager, CURRENT_CACHE_VERSION};
+use crate::core::persistence::cache_version_migration::{
+    CacheVersionManager, CURRENT_CACHE_VERSION,
+};
+use crate::core::persistence::metadata_cache::{
+    ConnectionType, IndexEntryInput, MetadataCacheManager, MetadataCacheOps,
+};
 use crate::core::services::ConnId;
 use futures::FutureExt;
 
@@ -67,7 +70,7 @@ pub async fn build_cache_index(
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<IndexBuildResponse, String> {
-    use crate::core::persistence::metadata_cache::{SyncSnapshot, ChangeDetectionResult};
+    use crate::core::persistence::metadata_cache::{ChangeDetectionResult, SyncSnapshot};
     use tokio::sync::broadcast;
     use tokio::task::JoinSet;
     use tokio_util::sync::CancellationToken;
@@ -85,27 +88,39 @@ pub async fn build_cache_index(
         &input.connection_id,
         cache_connection_type,
         input.project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let cache_conn = cache_manager.open().map_err(|e| e.to_string())?;
     let mut cache_ops = MetadataCacheOps::new(cache_conn);
 
     let version_manager = CacheVersionManager::new();
-    if version_manager.needs_upgrade(cache_ops.get_connection()).map_err(|e| e.to_string())? {
-        version_manager.migrate(cache_ops.get_connection()).map_err(|e| e.to_string())?;
+    if version_manager
+        .needs_upgrade(cache_ops.get_connection())
+        .map_err(|e| e.to_string())?
+    {
+        version_manager
+            .migrate(cache_ops.get_connection())
+            .map_err(|e| e.to_string())?;
     }
 
-    cache_ops.update_sync_status(
-        &input.connection_id,
-        "indexing",
-        0,
-        None,
-    ).map_err(|e| e.to_string())?;
+    cache_ops
+        .update_sync_status(&input.connection_id, "indexing", 0, None)
+        .map_err(|e| e.to_string())?;
 
     let source_conn_id: ConnId = input.source_connection_id.clone();
-    let db = match state.connection_manager.get_connection(&source_conn_id).await {
+    let db = match state
+        .connection_manager
+        .get_connection(&source_conn_id)
+        .await
+    {
         Some(conn) => conn,
-        None => return Err(format!("Source connection not found: {}", input.source_connection_id)),
+        None => {
+            return Err(format!(
+                "Source connection not found: {}",
+                input.source_connection_id
+            ))
+        }
     };
 
     let db_name = input.database.clone();
@@ -125,22 +140,33 @@ pub async fn build_cache_index(
         .as_secs() as i64;
 
     let send_progress = |step: &str, current: usize, total: usize, msg: &str| {
-        let progress = if total > 0 { (current as f64 / total as f64 * 100.0) as u32 } else { 0 };
-        let _ = app.emit("cache_warming_progress", serde_json::json!({
-            "connection_id": conn_id,
-            "step": step,
-            "current": current,
-            "total": total,
-            "progress": progress,
-            "message": msg,
-        }));
+        let progress = if total > 0 {
+            (current as f64 / total as f64 * 100.0) as u32
+        } else {
+            0
+        };
+        let _ = app.emit(
+            "cache_warming_progress",
+            serde_json::json!({
+                "connection_id": conn_id,
+                "step": step,
+                "current": current,
+                "total": total,
+                "progress": progress,
+                "message": msg,
+            }),
+        );
     };
 
     // V7: 增量模式 - 检测变化
     let mut change_result: Option<ChangeDetectionResult> = None;
     if use_incremental && cache_ops.has_snapshot(&conn_id, "full").unwrap_or(false) {
         send_progress("detecting_changes", 0, 1, "正在检测元数据变化...");
-        change_result = Some(cache_ops.incremental_sync(&conn_id).map_err(|e| e.to_string())?);
+        change_result = Some(
+            cache_ops
+                .incremental_sync(&conn_id)
+                .map_err(|e| e.to_string())?,
+        );
     }
 
     // V7: 如果是增量模式且已有快照，我们可以更智能地处理
@@ -149,7 +175,8 @@ pub async fn build_cache_index(
     send_progress("fetching_schemas", 0, total_schemas, "开始并行获取 schemas");
 
     // 并行获取每个 Schema 的 Tables 和 Columns（JoinSet）
-    let (tx_schema, mut rx_schema) = broadcast::channel::<(String, Vec<String>, Vec<(String, String, Vec<String>)>, i64)>(100);
+    let (tx_schema, mut rx_schema) =
+        broadcast::channel::<(String, Vec<String>, Vec<(String, String, Vec<String>)>, i64)>(100);
 
     let db_name_for_schemas = db_name.clone();
     let mut schema_join_set = JoinSet::new();
@@ -165,7 +192,10 @@ pub async fn build_cache_index(
                 return None;
             }
 
-            let tables = match db_clone.list_tables(&db_name_clone, Some(&schema_name)).await {
+            let tables = match db_clone
+                .list_tables(&db_name_clone, Some(&schema_name))
+                .await
+            {
                 Ok(t) => t,
                 Err(_) => return None,
             };
@@ -186,9 +216,13 @@ pub async fn build_cache_index(
                         return None;
                     }
 
-                    match db_for_cols.list_columns(&db_name_for_cols, Some(&schema_for_cols), &table.name).await {
+                    match db_for_cols
+                        .list_columns(&db_name_for_cols, Some(&schema_for_cols), &table.name)
+                        .await
+                    {
                         Ok(columns) => {
-                            let column_names: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
+                            let column_names: Vec<String> =
+                                columns.iter().map(|c| c.name.clone()).collect();
                             Some((schema_for_cols, table.name.clone(), column_names))
                         }
                         Err(_) => None,
@@ -206,7 +240,10 @@ pub async fn build_cache_index(
                 }
             }
 
-            if tx_clone.send((schema_name, table_names, columns_data, schema_idx as i64)).is_err() {
+            if tx_clone
+                .send((schema_name, table_names, columns_data, schema_idx as i64))
+                .is_err()
+            {
                 return None;
             }
 
@@ -232,10 +269,16 @@ pub async fn build_cache_index(
             }
 
             completed_schemas += 1;
-            send_progress("fetching_tables", completed_schemas, total_schemas, &format!("获取 schema {} 的 tables", schema_name));
+            send_progress(
+                "fetching_tables",
+                completed_schemas,
+                total_schemas,
+                &format!("获取 schema {} 的 tables", schema_name),
+            );
 
             // V7: 添加 schema 快照
-            let schema_hash = MetadataCacheOps::calculate_object_hash("schema", &schema_name, None, None);
+            let schema_hash =
+                MetadataCacheOps::calculate_object_hash("schema", &schema_name, None, None);
             all_snapshots.push(SyncSnapshot {
                 id: None,
                 connection_id: conn_id.clone(),
@@ -271,7 +314,12 @@ pub async fn build_cache_index(
                 let path = format!("{}/{}", schema_name, table_name);
 
                 // V7: 添加 table 快照
-                let table_hash = MetadataCacheOps::calculate_object_hash("table", table_name, Some(&schema_name), None);
+                let table_hash = MetadataCacheOps::calculate_object_hash(
+                    "table",
+                    table_name,
+                    Some(&schema_name),
+                    None,
+                );
                 all_snapshots.push(SyncSnapshot {
                     id: None,
                     connection_id: conn_id.clone(),
@@ -298,11 +346,17 @@ pub async fn build_cache_index(
 
                 if batch_entries.len() >= batch_size {
                     total_entries += batch_entries.len();
-                    if let Err(e) = cache_ops.save_index_entries_internal(batch_entries, batch_size) {
+                    if let Err(e) = cache_ops.save_index_entries_internal(batch_entries, batch_size)
+                    {
                         tracing::error!("Failed to save index entries: {}", e);
                     }
                     batch_entries = Vec::with_capacity(batch_size);
-                    send_progress("writing_index", total_entries, total_tables + total_schemas, "写入索引中...");
+                    send_progress(
+                        "writing_index",
+                        total_entries,
+                        total_tables + total_schemas,
+                        "写入索引中...",
+                    );
                 }
             }
 
@@ -313,7 +367,12 @@ pub async fn build_cache_index(
                     let path = format!("{}/{}/{}", schema_name, table_name, col_name);
 
                     // V7: 添加 column 快照
-                    let col_hash = MetadataCacheOps::calculate_object_hash("column", col_name, Some(&table_name), None);
+                    let col_hash = MetadataCacheOps::calculate_object_hash(
+                        "column",
+                        col_name,
+                        Some(&table_name),
+                        None,
+                    );
                     all_snapshots.push(SyncSnapshot {
                         id: None,
                         connection_id: conn_id.clone(),
@@ -340,11 +399,18 @@ pub async fn build_cache_index(
 
                     if batch_entries.len() >= batch_size {
                         total_entries += batch_entries.len();
-                        if let Err(e) = cache_ops.save_index_entries_internal(batch_entries, batch_size) {
+                        if let Err(e) =
+                            cache_ops.save_index_entries_internal(batch_entries, batch_size)
+                        {
                             tracing::error!("Failed to save index entries: {}", e);
                         }
                         batch_entries = Vec::with_capacity(batch_size);
-                        send_progress("writing_index", total_entries, total_tables + total_schemas + total_columns, "写入索引中...");
+                        send_progress(
+                            "writing_index",
+                            total_entries,
+                            total_tables + total_schemas + total_columns,
+                            "写入索引中...",
+                        );
                     }
                 }
             }
@@ -380,15 +446,21 @@ pub async fn build_cache_index(
     }
 
     if cancel_token.is_cancelled() {
-        cache_ops.update_sync_status(&input.connection_id, "cancelled", 0, None).ok();
+        cache_ops
+            .update_sync_status(&input.connection_id, "cancelled", 0, None)
+            .ok();
         return Err("索引构建被取消".to_string());
     }
 
     // V7: 保存快照（用于下次增量同步）
     send_progress("saving_snapshot", 0, 1, "保存元数据快照...");
-    cache_ops.save_snapshot(&conn_id, "full", all_snapshots).map_err(|e| e.to_string())?;
+    cache_ops
+        .save_snapshot(&conn_id, "full", all_snapshots)
+        .map_err(|e| e.to_string())?;
 
-    cache_ops.update_sync_status(&input.connection_id, "completed", 100, None).ok();
+    cache_ops
+        .update_sync_status(&input.connection_id, "completed", 100, None)
+        .ok();
     send_progress("completed", 1, 1, "索引构建完成");
 
     // V7: 返回响应
@@ -399,11 +471,19 @@ pub async fn build_cache_index(
         column_count: total_columns,
         total_entries,
         message: if use_incremental {
-            format!("索引构建完成（增量模式）：{} schemas, {} tables, {} columns",
-                schema_ids.len(), total_tables, total_columns)
+            format!(
+                "索引构建完成（增量模式）：{} schemas, {} tables, {} columns",
+                schema_ids.len(),
+                total_tables,
+                total_columns
+            )
         } else {
-            format!("索引构建完成（全量模式）：{} schemas, {} tables, {} columns",
-                schema_ids.len(), total_tables, total_columns)
+            format!(
+                "索引构建完成（全量模式）：{} schemas, {} tables, {} columns",
+                schema_ids.len(),
+                total_tables,
+                total_columns
+            )
         },
         incremental: Some(use_incremental),
         create_count: change_result.as_ref().map(|r| r.create_count),
@@ -414,9 +494,7 @@ pub async fn build_cache_index(
 
 /// 启动缓存预热
 #[tauri::command]
-pub async fn start_cache_warming(
-    input: WarmCacheInput,
-) -> Result<WarmingProgressResponse, String> {
+pub async fn start_cache_warming(input: WarmCacheInput) -> Result<WarmingProgressResponse, String> {
     let connection_type = if input.connection_type == "global" {
         ConnectionType::Global
     } else {
@@ -427,14 +505,20 @@ pub async fn start_cache_warming(
         &input.connection_id,
         connection_type,
         input.project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let mut ops = MetadataCacheOps::new(conn);
 
     let version_manager = CacheVersionManager::new();
-    if version_manager.needs_upgrade(ops.get_connection()).map_err(|e| e.to_string())? {
-        let records = version_manager.migrate(ops.get_connection()).map_err(|e| e.to_string())?;
+    if version_manager
+        .needs_upgrade(ops.get_connection())
+        .map_err(|e| e.to_string())?
+    {
+        let records = version_manager
+            .migrate(ops.get_connection())
+            .map_err(|e| e.to_string())?;
 
         if !records.is_empty() {
             tracing::info!(
@@ -448,12 +532,8 @@ pub async fn start_cache_warming(
 
     let total_steps = input.databases.len();
 
-    ops.update_sync_status(
-        &input.connection_id,
-        "indexing",
-        0,
-        None,
-    ).map_err(|e| e.to_string())?;
+    ops.update_sync_status(&input.connection_id, "indexing", 0, None)
+        .map_err(|e| e.to_string())?;
 
     let progress = WarmingProgressResponse {
         connection_id: input.connection_id.clone(),
@@ -477,7 +557,7 @@ pub async fn cancel_cache_warming(
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
 ) -> Result<(), String> {
     let success = state.warming_task_manager.cancel_task(&input.connection_id);
-    
+
     if success {
         tracing::info!(
             connection_id = %input.connection_id,
@@ -496,7 +576,10 @@ pub async fn get_warming_progress(
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
 ) -> Result<WarmingProgressResponse, String> {
     if let Some(task) = state.warming_task_manager.get_task(&connection_id) {
-        let progress = task.progress.lock().map_err(|e| format!("Failed to lock warming progress: {}", e))?;
+        let progress = task
+            .progress
+            .lock()
+            .map_err(|e| format!("Failed to lock warming progress: {}", e))?;
         Ok(WarmingProgressResponse {
             connection_id: connection_id.clone(),
             is_warming: progress.is_warming,
@@ -538,7 +621,8 @@ pub async fn check_cache_version(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(0);
@@ -546,8 +630,10 @@ pub async fn check_cache_version(
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let version_manager = CacheVersionManager::new();
-    
-    version_manager.get_current_version(&conn).map_err(|e| e.to_string())
+
+    version_manager
+        .get_current_version(&conn)
+        .map_err(|e| e.to_string())
 }
 
 /// 执行缓存版本迁移
@@ -565,12 +651,15 @@ pub async fn execute_cache_migration(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let version_manager = CacheVersionManager::new();
 
-    let from_version = version_manager.get_current_version(&conn).map_err(|e| e.to_string())?;
+    let from_version = version_manager
+        .get_current_version(&conn)
+        .map_err(|e| e.to_string())?;
 
     if from_version >= CURRENT_CACHE_VERSION {
         return Ok(MigrationResponse {
@@ -625,7 +714,8 @@ pub async fn get_cache_migration_history(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(vec![]);
@@ -634,18 +724,23 @@ pub async fn get_cache_migration_history(
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let version_manager = CacheVersionManager::new();
 
-    let history = version_manager.get_migration_history(&conn).map_err(|e| e.to_string())?;
+    let history = version_manager
+        .get_migration_history(&conn)
+        .map_err(|e| e.to_string())?;
 
-    let result: Vec<serde_json::Value> = history.iter().map(|record| {
-        serde_json::json!({
-            "from_version": record.from_version,
-            "to_version": record.to_version,
-            "migrated_at": record.migrated_at,
-            "reason": record.reason,
-            "duration_ms": record.duration_ms,
-            "success": record.success,
+    let result: Vec<serde_json::Value> = history
+        .iter()
+        .map(|record| {
+            serde_json::json!({
+                "from_version": record.from_version,
+                "to_version": record.to_version,
+                "migrated_at": record.migrated_at,
+                "reason": record.reason,
+                "duration_ms": record.duration_ms,
+                "success": record.success,
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(result)
 }
@@ -667,7 +762,8 @@ pub async fn get_introspect_level_suggestion(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(1); // Default to Level 1 for new connections
@@ -676,7 +772,8 @@ pub async fn get_introspect_level_suggestion(
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let ops = MetadataCacheOps::new(conn);
 
-    let counts = ops.get_schema_object_counts(&connection_id, schema_id)
+    let counts = ops
+        .get_schema_object_counts(&connection_id, schema_id)
         .map_err(|e| e.to_string())?;
 
     let level = ops.calculate_introspect_level(counts.total as i64, is_current_schema);
@@ -700,7 +797,8 @@ pub async fn get_schema_object_counts(
             ConnectionType::Project
         },
         project_path.as_deref(),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     if !cache_manager.exists() {
         return Ok(SchemaObjectCountsResponse {
@@ -715,7 +813,8 @@ pub async fn get_schema_object_counts(
     let conn = cache_manager.open().map_err(|e| e.to_string())?;
     let ops = MetadataCacheOps::new(conn);
 
-    let counts = ops.get_schema_object_counts(&connection_id, schema_id)
+    let counts = ops
+        .get_schema_object_counts(&connection_id, schema_id)
         .map_err(|e| e.to_string())?;
 
     Ok(SchemaObjectCountsResponse {
@@ -758,7 +857,7 @@ pub struct IndexBuildResponse {
     pub column_count: usize,
     pub total_entries: usize,
     pub message: String,
-    pub incremental: Option<bool>, // V7: 是否使用增量模式
+    pub incremental: Option<bool>,   // V7: 是否使用增量模式
     pub create_count: Option<usize>, // V7: 新增对象数
     pub update_count: Option<usize>, // V7: 更新对象数
     pub delete_count: Option<usize>, // V7: 删除对象数

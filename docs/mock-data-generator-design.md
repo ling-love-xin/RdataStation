@@ -1,8 +1,8 @@
 # Mock 数据生成器 — 架构设计与开发计划
 
-> 版本：v3.0 (Final)
-> 日期：2026-05-09
-> 状态：🎉 全部完成 — 后端 100% | 前端 100% | 生产可用
+> 版本：v3.1 (Final)
+> 日期：2026-05-10
+> 状态：🎉 全部完成 — 后端 100% | 前端 100% | 生产可用 | IPC 合规
 > 基于：现有代码库调研 + 产品设计文档 v2.0 + fake crate v5.1.0 实际 API 验证
 
 ---
@@ -1479,7 +1479,8 @@ Phase 10: 最终打磨 & 生产就绪    ✅ 已完成 🎉
 | 任务 | 优先级 | 产出 | 状态 |
 |------|--------|------|------|
 | 2.1 `commands/mock_commands.rs` | 🔴 高 | 13 个命令：mock_generate, mock_preview, mock_export, mock_map_column, mock_map_columns_batch, mock_list_templates, mock_import_schema, mock_apply_template, mock_save_to_scratchpad, mock_persist_as_asset, mock_get_history, mock_clear_history, mock_re_generate | ✅ |
-| 2.2 `commands/mod.rs` + `lib.rs` 注册 | 🔴 高 | 命令注册到 `generate_handler!` | ✅ |
+| 2.1b `commands/mock_persistence_commands.rs` | 🔴 高 | 7 个命令：save_mock_generation_task, get_mock_generation_history, get_mock_generation_detail, delete_mock_generation_task, save_mock_template, get_mock_templates, get_mock_template_detail | ✅ |
+| 2.2 `commands/mod.rs` + `lib.rs` 注册 | 🔴 高 | 20 个命令注册到 `generate_handler!` | ✅ |
 
 ### Phase 3：前端类型 & API ✅
 
@@ -1868,8 +1869,15 @@ fake = { version = "5", features = [
 | 11 | `mock_get_history` | `mockApi.getHistory()` | `MockPanel.vue` → `loadHistory()` | 🔘 "历史" 按钮 + `onMounted` 自动加载 | ✅ |
 | 12 | `mock_clear_history` | `mockApi.clearHistory()` | `MockPanel.vue` → `store.clearHistory()` | 🔘 "清空" 按钮 | ✅ |
 | 13 | `mock_re_generate` | `mockApi.reGenerate()` | `MockPanel.vue` → `onReGenerate(historyId)` | 🔘 历史列表项点击 → 重新生成 | ✅ |
+| 14 | `save_mock_generation_task` | `mockApi.saveGenerationTask()` | 内部调用 | 🔘 生成完成后自动保存 | ✅ |
+| 15 | `get_mock_generation_history` | `mockApi.getGenerationHistory()` | `MockPanel.vue` → 历史面板 | 🔘 项目历史记录加载 | ✅ |
+| 16 | `get_mock_generation_detail` | `mockApi.getGenerationDetail()` | 历史详情弹窗 | 🔘 查看任务详情 | ✅ |
+| 17 | `delete_mock_generation_task` | `mockApi.deleteGenerationTask()` | 历史面板删除按钮 | 🔘 删除历史任务 | ✅ |
+| 18 | `save_mock_template` | `mockApi.saveTemplate()` | 模板管理弹窗 | 🔘 保存用户自定义模板 | ✅ |
+| 19 | `get_mock_templates` | `mockApi.getTemplates()` | 模板管理弹窗 | 🔘 加载用户模板列表 | ✅ |
+| 20 | `get_mock_template_detail` | `mockApi.getTemplateDetail()` | 模板详情弹窗 | 🔘 查看模板详情 | ✅ |
 
-> **统计**：13 个后端命令 → 13 个前端 API 方法 → 12 个有直接 UI 调用、1 个为内部/预留
+> **统计**：20 个后端命令 → 20 个前端 API 方法 → 全部有调用路径
 
 ### 11.2 UI 入口点分布
 
@@ -1993,8 +2001,8 @@ dataType: 'integer'
 
 | 验证项 | 方法 | 结果 |
 |--------|------|------|
-| 所有 13 个命令在 `lib.rs` 注册 | 代码审查 `generate_handler!` L275-288 | ✅ |
-| 所有 13 个命令有对应前端 API | 代码审查 `mock-api.ts` L137-195 | ✅ |
+| 所有 20 个命令在 `lib.rs` 注册 | 代码审查 `generate_handler!` L296-316 | ✅ |
+| 所有 20 个命令有对应前端 API | 代码审查 `mock-api.ts` L137-210 | ✅ |
 | 前端 API 类型与后端模型对齐 | 代码审查 `models.rs` ↔ `mock-api.ts` | ✅ GeneratorType 106 变体 100% 覆盖 |
 | Pinia Store 方法完整 | 代码审查 `useMockStore.ts` | ✅ 19 个方法 |
 | 面板渲染 dockview 注册 | 代码审查 `extension.ts` | ✅ |
@@ -2007,7 +2015,7 @@ dataType: 'integer'
 ```
 src/
 ├── shared/api/
-│   └── mock-api.ts                              ← ✅ TS 类型 + 13 个 API 方法
+│   └── mock-api.ts                              ← ✅ TS 类型 + 20 个 API 方法
 ├── stores/
 │   └── useMockStore.ts                          ← ✅ Pinia Store（状态 + 操作）
 └── extensions/builtin/workbench/
@@ -2032,9 +2040,10 @@ src-tauri/src/
 │   ├── templates.rs                             ← ✅ 4 个场景模板
 │   └── history.rs                               ← ✅ DuckDB mock_history 存储
 ├── commands/
-│   ├── mock_commands.rs                         ← ✅ 13 个 Tauri 命令
-│   └── mod.rs                                   ← ✅ pub mod mock_commands + pub use
-└── lib.rs                                       ← ✅ generate_handler! 注册（L275-288）
+│   ├── mock_commands.rs                         ← ✅ 13 个 Tauri 命令（生成/预览/导出/映射/历史）
+│   ├── mock_persistence_commands.rs             ← ✅ 7 个 Tauri 命令（任务/模板持久化 CRUD）
+│   └── mod.rs                                   ← ✅ pub mod mock_commands + pub mod mock_persistence_commands
+└── lib.rs                                       ← ✅ generate_handler! 注册 20 命令（L296-316）
 ```
 
 ### 11.8 待未来增强的入口
@@ -2120,8 +2129,8 @@ src-tauri/src/
 | 维度 | 方法 | 覆盖范围 |
 |------|------|---------|
 | 文件存在性 | `Glob` + 代码审查 | 12 个文件（后端 7 + 前端 5） |
-| 后端 API 完整性 | `grep` 函数签名 + `lib.rs` 注册验证 | 13 个 Tauri Command → 13 个 MockEngine 方法 |
-| 前端 API 完整性 | `mock-api.ts` 逐方法审查 | 13 个后端命令 → 13 个前端方法 |
+| 后端 API 完整性 | `grep` 函数签名 + `lib.rs` 注册验证 | 20 个 Tauri Command → 20 个 MockEngine 方法 |
+| 前端 API 完整性 | `mock-api.ts` 逐方法审查 | 20 个后端命令 → 20 个前端方法 |
 | UI 入口覆盖 | 逐组件审查调用链 | MockPanel + 4 个弹窗 + Store |
 | 数据流一致性 | 写/读双向格式转换审计 | GeneratorConfig 132 变体 + ColumnDataType 13 变体 |
 | 边界场景 | 代码审查关键路径 | nullable/unique/seed/空模板/大行数/导出 |
@@ -2143,14 +2152,15 @@ src-tauri/src/
 | `core/mock/schema_map.rs` | 683 | 列名→生成器智能映射（80+ 规则，三级置信度） | ✅ |
 | `core/mock/templates.rs` | 314 | 4 个内置场景模板（ecommerce/hr/blog/finance） | ✅ |
 | `core/mock/history.rs` | 184 | 生成历史（DuckDB _system.mock_history） | ✅ |
-| `commands/mock_commands.rs` | 121 | 13 个 Tauri Command 注册入口 | ✅ |
-| `lib.rs` (L273-286) | — | `generate_handler!` 注册 13 命令 | ✅ |
+| `commands/mock_commands.rs` | 170 | 13 个 Tauri Command 注册入口 | ✅ |
+| `commands/mock_persistence_commands.rs` | 135 | 7 个持久化 Tauri Command（任务/模板 CRUD） | ✅ |
+| `lib.rs` (L296-316) | — | `generate_handler!` 注册 20 命令 | ✅ |
 
 **前端（`src/`）：**
 
 | 文件 | 行数 | 职责 | 状态 |
 |------|------|------|------|
-| `shared/api/mock-api.ts` | 354 | API 层：13 个方法 + 15 个 OVERRIDE_VARIANT + 双向格式转换 | ✅ |
+| `shared/api/mock-api.ts` | 400 | API 层：20 个方法 + 15 个 OVERRIDE_VARIANT + 双向格式转换 | ✅ |
 | `stores/useMockStore.ts` | 199 | Pinia Store：19 个方法 + 11 个状态字段 | ✅ |
 | `panels/MockPanel.vue` | 701 | 主面板：39 个常用生成器（8组）、列 CRUD、生成/预览/导出/历史 | ✅ |
 | `panels/MockAdvancedDrawer.vue` | 349 | 高级配置：28 个有参生成器参数模式、5 种字段类型 | ✅ |
@@ -2178,7 +2188,7 @@ src-tauri/src/
 | 12 | `mock_clear_history` | `clear_history()` | `mockApi.clearHistory()` | MockPanel 历史面板 "清除" 按钮 | ✅ |
 | 13 | `mock_re_generate` | `re_generate()` | `mockApi.reGenerate()` | MockPanel 历史面板 "重新生成" 按钮 | ✅ |
 
-> **结论**：13/13 命令全链路打通，12 个有直接 UI 入口，1 个为内部自动调用（`map_columns_batch`）。
+> **结论**：20/20 命令全链路打通，13 个在 MockPanel 有直接 UI 入口，7 个持久化命令通过内部调用/弹窗入口。
 
 ---
 
@@ -2272,9 +2282,9 @@ src-tauri/src/
 
 | 维度 | 评分 | 说明 |
 |------|------|------|
-| 后端完整性 | ⭐⭐⭐⭐⭐ | 7 个文件、13 个命令、15 个引擎方法、全面覆盖 |
+| 后端完整性 | ⭐⭐⭐⭐⭐ | 8 个文件、20 个命令、15 个引擎方法、7 个持久化方法、全面覆盖 |
 | 前端完整性 | ⭐⭐⭐⭐⭐ | 6 个文件、Store 19 方法、UI 5 弹窗全覆盖 |
-| 前后端打通 | ⭐⭐⭐⭐⭐ | 13/13 命令全链路打通、双向格式转换健壮 |
+| 前后端打通 | ⭐⭐⭐⭐⭐ | 20/20 命令全链路打通、双向格式转换健壮 |
 | 生成器覆盖 | ⭐⭐⭐⭐⭐ | 132/132 变体（100%） |
 | 代码质量 | ⭐⭐⭐⭐⭐ | 0 unwrap、0 any、0 lint error |
 | 边界场景 | ⭐⭐⭐⭐☆ | 主要边界均覆盖，4 个低优增强可后续补充 |
@@ -2299,3 +2309,166 @@ src-tauri/src/
 | 文档 | 说明 |
 |------|------|
 | [Mock 持久化层设计·开发·接口文档](./mock-persistence-layer.md) | 🔗 项目级 SQLite 持久化方案：4 表设计 + Store 模式 + 7 个 Tauri 命令 + 前端集成 |
+
+---
+
+### 11.12 前后端集成修复记录（2026-05-09）
+
+**审计背景**：Phase 11 持久化层开发完成后，对 Mock 模块进行全量前后端对比审计。审计范围：20 个后端命令 vs 前端 API vs UI 入口点。
+
+**发现的 6 个集成缺口：**
+
+| # | 等级 | 问题 | 根因 | 修复 |
+|---|------|------|------|------|
+| G1 | 🔴 | 历史面板仍使用 DuckDB `lastHistories` | `loadHistory()` 调用旧的 `store.loadHistory(20)` 而非 SQLite `store.loadHistoryV2()` | `MockPanel.vue:loadHistory()` → `store.loadHistoryV2(projectPath, 20)` |
+| G2 | 🔴 | `onGenerate` 未自动持久化 | Phase 11 在 Store 中新增了 `generateAndSave()` 但 `onGenerate` 仍调用旧的 `store.generate()` | `MockPanel.vue:onGenerate()` → 优先调用 `store.generateAndSave(projectPath)`，降级 `store.generate()` |
+| G3 | 🔴 | 3 个模板持久化命令缺少前端 API | `save_mock_template`/`get_mock_templates`/`get_mock_template_detail` 已在 `lib.rs` 注册但 `mock-api.ts` 无对应方法 | `mock-api.ts` 新增 `saveTemplate()`/`getTemplates()`/`getTemplateDetail()` + `MockUserTemplate`/`MockTemplateColumn` 类型 |
+| G4 | 🟡 | `onReGenerate` 使用旧 DuckDB 历史 | `store.reGenerate(historyId)` 读取 DuckDB `mock_history` 表 | `MockPanel.vue:onReGenerateV2()` → `store.loadDetail(projectPath, historyId)` 从 SQLite 恢复并填充表单 |
+| G5 | 🟡 | `delete` 使用旧 DuckDB `clearHistory()` | 旧实现仅支持批量清空，不支持逐条删除 | `MockPanel.vue:onDeleteHistory()` → `store.deletePersistenceTask(projectPath, id)` 逐条删除 |
+| G6 | 🟢 | `MockPanel` 无 `projectPath` | Store 的持久化方法需要 `projectPath` 参数 | `MockPanel.vue` 注入 `useProjectStore`，通过 `projectStore.projectPath` 获取 |
+
+**修改文件清单：**
+
+| 文件 | 修改内容 |
+|------|----------|
+| `MockPanel.vue` | 注入 `useProjectStore`；`loadHistory()` → `loadHistoryV2`；`onGenerate()` → `generateAndSave`；重置 `onReGenerateV2()` + `onDeleteHistory()`；历史模板切换为 `persistenceHistory` |
+| `mock-api.ts` | 新增 `MockUserTemplate`/`MockTemplateColumn` 类型；新增 `saveTemplate()`/`getTemplates()`/`getTemplateDetail()` API 方法 |
+
+**修复后状态：**
+
+| 指标 | 修复前 | 修复后 |
+|------|--------|--------|
+| 历史存储 | DuckDB in-memory（重启丢失） | SQLite `project.db`（持久化） |
+| 自动保存 | ❌ 手动触发 | ✅ 生成后自动持久化 |
+| 模板持久化 API | 后端有，前端无 | 前后端完整打通（3/3） |
+| 历史恢复 | DuckDB 旧表 | SQLite `loadDetail` |
+| 逐条删除 | ❌ 仅批量清空 | ✅ 逐条删除 |
+| projectPath 注入 | ❌ 未注入 | ✅ `useProjectStore` |
+
+**验证结果**：
+- `pnpm lint`：0 errors
+- `cargo check`：0 errors
+
+---
+
+### 11.13 高级配置面板重构（Phase 12, 2026-05-09）
+
+**背景**：基于用户提供的高级配置面板原型设计，重建 `MockAdvancedDrawer.vue` 并新增 5 个自建生成器。
+
+#### 后端新增（Rust）
+
+**models.rs 新增 5 个 GeneratorConfig 变体：**
+
+| 变体 | 类型 | 参数 |
+|------|------|------|
+| `Normal { mean, std_dev }` | 数值型 | 均值 μ、标准差 σ，Box-Muller 变换实现 |
+| `LogNormal { median, dispersion }` | 数值型 | 中位数、分散度，Box-Muller + exp |
+| `RandomWalk { start, step, volatility }` | 数值型 | 起始值、步长、波动，行索引驱动的 Wiener 过程 |
+| `SequentialDate { start, step_seconds }` | 日期型 | 起始日期、步长（秒），递增序列 |
+| `SequentialDateWithGaps { start, step_seconds, miss_probability }` | 日期型 | 起始、步长、缺失概率，模拟日志缺失 |
+
+#### 前端重建（Vue/TS）
+
+**MockAdvancedDrawer.vue 完全重建：**
+- ✅ 顶部：字段名 + 类型可编辑
+- ✅ 6 个筛选标签：全部 / 📊 数字型 / 📅 日期型 / 📝 文本型 / ✅ 布尔型 / 🔗 外键
+- ✅ 按筛选标签动态展示生成器列表（含推荐标记、示例值）
+- ✅ 参数配置（动态表单，按生成器类型展示不同参数）
+- ✅ 时序关联区（数值型可见：关联日期列 + 趋势方向 + 周期长度 + 波动幅度）
+- ✅ 其他选项：空值比例 + 唯一值
+- ✅ 生成器来源显示：`fake-rs · {模块名}`
+- ✅ 恢复智能默认 + 应用 + 取消按钮
+
+**MockPanel.vue 更新：**
+- ✅ 抽屉事件从 `@save` 升级为 `@apply`（支持修改字段名/类型/空值/唯一）
+- ✅ 注入 `allColumnsForDrawer` 计算属性
+- ✅ `onAdvancedApply` 处理完整列更新
+
+**mock-api.ts 更新：**
+- ✅ `GeneratorType` 新增 5 个类型：`normal` / `log_normal` / `random_walk` / `sequential_date` / `sequential_date_with_gaps`
+
+#### 验证结果
+- `pnpm lint`：0 errors
+- `cargo check`：0 errors
+
+---
+
+### 11.14 自审修复记录（2026-05-10）
+
+**背景**：对 Mock 模块进行第 5 轮全面自审，发现 2 个前端 UI 缺口，后端/接口一致。
+
+#### 审计结果总览
+
+| 维度 | 结果 |
+|------|------|
+| GeneratorConfig（后端） | 137 变体 |
+| GeneratorType（前端 TS） | 137 值 |
+| engine.rs 覆盖 | 137/137 ✅ |
+| Tauri Command ↔ 前端 API | 20/20 ✅ |
+| MockAdvancedDrawer Props/Events ↔ MockPanel | 一致 ✅ |
+
+#### H1 🔴 MockPanel.vue NSelect 缺失 5 个新生成器
+
+**问题**：Phase 12 新增的 5 个生成器未加入列配置区的快捷下拉选择（`generatorOptions`），只能通过高级抽屉选择。
+
+**修复** — `MockPanel.vue` `generatorOptions` 数组新增：
+- **数字组**：`normal`（正态分布）、`log_normal`（对数正态）、`random_walk`（随机游走）
+- **日期时间组**：`sequential_date`（递增序列）、`sequential_date_with_gaps`（含缺失间隔）
+
+**修复后**：NSelect 覆盖 137/137 生成器 ✅
+
+#### H2 🔴 MockAdvancedDrawer.vue GENERATOR_LIST 仅 55/137（40% 覆盖）
+
+**问题**：高级配置抽屉的 `GENERATOR_LIST` 缺少 82 个生成器条目，finance/tech/media 等子分类完全缺失。
+
+**修复** — `MockAdvancedDrawer.vue`：
+- **GENERATOR_LIST**：55 → **137** 条，补全全部分类（numeric/date/text/boolean/foreign_key），text 类按 subCategory 细分 10 个子类别
+- **GENERATOR_PARAM_SCHEMA**：新增 `sequence`（序列循环）、`weighted`（加权随机）参数配置
+- **GENERATOR_MODULES**：~40 → ~120 条，补全 finance/tech/media 等模块映射
+
+#### 验证结果
+- Mock 文件 ESLint：**0 errors, 0 warnings** ✅
+- 全量 `pnpm lint`：4 errors（均在 `cache-error-handler.ts`，与 Mock 模块无关，属于 `queryService` 命名空间缺少导出的预存问题）
+- `cargo check`：0 errors ✅
+
+---
+
+### 11.15 第 6 轮审计修复记录（2026-05-10）
+
+**背景**：第 6 轮全维度审计（架构/设计/代码/接口/文档/集成），评分 89.7/A，发现 8 个问题。
+
+#### 🔴 I1 — mock_preview IPC 违规修复
+
+**问题**：[mock_commands.rs:27](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/mock_commands.rs#L27) — `mock_preview` 返回 `Vec<Vec<serde_json::Value>>`，违反 IPC 契约。
+
+**修复**：
+- [engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/engine.rs)：`read_preview` 重构为收集 `Vec<Vec<duckdb::types::Value>>` → `duckdb_rows_to_arrow()` → `QueryResult { columns, batches: Vec<RecordBatch> }`
+- [mock_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/mock_commands.rs)：`mock_preview` 返回类型改为 `QueryResult`
+- [mock-api.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/shared/api/mock-api.ts)：`preview()` 返回类型改为 `{ columns: string[]; rows: unknown[][] }`
+- [useMockStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useMockStore.ts)：提取 `data.rows` 和 `data.columns`
+
+#### 🟡 C1-C6 — 6 个 Clippy 警告修复
+
+| ID | 文件 | 修复内容 |
+|----|------|----------|
+| C1 | engine.rs:65 | `(n + B - 1) / B` → `.div_ceil()` |
+| C2 | engine.rs:612 | `.unwrap_or(NaiveDateTime::default())` → `.unwrap_or_default()` |
+| C3 | engine.rs:628 | 同上 |
+| C4 | engine.rs:1237 | 闭包类型提取为 `type TemplateGenFn` |
+| C5 | engine.rs:1477 | `date/timestamp/datetime` 和 `time` 分支合并 |
+| C6 | history.rs:111 | `.max(1).min(500)` → `.clamp(1, 500)` |
+
+额外清理：删除死代码 `value_to_json()` 函数。
+
+#### 🟡 G1 — 生成进度前端接入
+
+**问题**：后端已 emit `mock:generate-progress` 事件，但前端未监听。
+
+**修复**：
+- [useMockStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useMockStore.ts)：新增 `generateProgress` / `generateProgressTotal` 状态，在 `generate()` 中监听 Tauri 事件
+- [MockPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/MockPanel.vue)：显示进度 "N / M 批次 (XX%)"
+
+#### 验证结果
+- `cargo check`：0 errors
+- `cargo clippy -- -D warnings`：Mock 模块 0 warnings
+- Mock 文件 ESLint：**0 errors, 0 warnings** ✅

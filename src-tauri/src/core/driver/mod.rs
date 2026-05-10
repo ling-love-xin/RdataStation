@@ -1,32 +1,39 @@
-pub mod traits;
-pub mod registry;
 pub mod factory;
+pub mod jdbc;
+pub mod loader;
 pub mod manager;
 pub mod metadata;
-pub mod loader;
-pub mod utils;
 pub mod native;
-pub mod jdbc;
-pub mod wasm;
+pub mod registry;
 pub mod smart_pool;
+pub mod traits;
+pub mod utils;
+pub mod wasm;
 
 #[cfg(test)]
 mod tests;
 
 // 重新导出核心类型
-pub use traits::{
-    Database, Transaction, DbPool, DataSourceMeta, SchemaObject, SchemaObjectKind,
-    DynDatabase, PoolStatus,
-    ColumnDetail, NodeInfo, NodeDetail, MetadataBrowser,
+pub use factory::{
+    DuckDbDriverFactory, MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory,
 };
-pub use registry::{DriverRegistry, ConnectionConfig as DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind};
-pub use factory::{MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory, DuckDbDriverFactory};
-pub use manager::{DriverManager, DRIVER_MANAGER, get_driver_manager, init_driver_manager, DriverStatus, DriverInfo};
-pub use metadata::{DriverMetadata, DriverType, DriverIcon, DriverFormField};
-pub use loader::{DriverLoader, BuiltinDriverDiscovery, WasmDriverDiscovery, JdbcDriverDiscovery};
-pub use utils::{build_connection_url, validate_driver_config, parse_driver_id};
-pub use smart_pool::{SmartPool, SmartPoolConfig, SmartPoolBuilder, PoolStats};
+pub use loader::{BuiltinDriverDiscovery, DriverLoader, JdbcDriverDiscovery, WasmDriverDiscovery};
+pub use manager::{
+    get_driver_manager, init_driver_manager, DriverInfo, DriverManager, DriverStatus,
+    DRIVER_MANAGER,
+};
+pub use metadata::{DriverFormField, DriverIcon, DriverMetadata, DriverType};
+pub use registry::{
+    ConnectionConfig as DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind,
+    DriverRegistry,
+};
+pub use smart_pool::{PoolStats, SmartPool, SmartPoolBuilder, SmartPoolConfig};
+pub use traits::{
+    ColumnDetail, DataSourceMeta, Database, DbPool, DynDatabase, MetadataBrowser, NodeDetail,
+    NodeInfo, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
+};
+pub use utils::{build_connection_url, parse_driver_id, validate_driver_config};
 
 // 重新导出自动注册模块
 pub mod auto_register;
-pub use auto_register::{AutoDriverRegistrar};
+pub use auto_register::AutoDriverRegistrar;

@@ -1,8 +1,8 @@
 # 草稿箱模块 — 全栈数据模型与接口文档
 
-> 版本：v2.10
-> 最后更新：2026-05-09
-> 状态：✅ v2.10 — 类型清理（移除 ScratchpadEntry.children）+ i18n 补全
+> 版本：v3.11
+> 最后更新：2026-05-10
+> 状态：✅ v3.11 — i18n 收尾 (promote modal国际化) + 生命周期合并 + 文档对齐
 
 ---
 
@@ -36,11 +36,11 @@ project/
 src-tauri/src/
 ├── core/scratchpad/
 │   ├── mod.rs          # re-export（~10 行）
-│   ├── models.rs       # DTO：Entry / AnalyzableFile / Reference / Response（~49 行）
-│   ├── state.rs        # Arc<Mutex<Option<Store>>> 全局缓存 + AtomicBool watcher（~48 行）
-│   └── store.rs        # 文件系统操作（~749 行）
+│   ├── models.rs       # DTO：Entry / AnalyzableFile / Reference / Response（~74 行）
+│   ├── state.rs        # Arc<Mutex<Option<Store>>> 全局缓存 + AtomicBool watcher（~72 行）
+│   └── store.rs        # 文件系统操作（~910 行）
 ├── commands/
-│   └── scratchpad_commands.rs  # 23 个 Tauri Command（~370 行）
+│   └── scratchpad_commands.rs  # 21 个 Tauri Command（~347 行）
 └── lib.rs              # 状态注册 + generate_handler! 注册
 ```
 
@@ -54,7 +54,7 @@ src/extensions/builtin/scratchpad/
 │   └── index.ts                        # TypeScript 类型定义
 ├── infrastructure/
 │   └── api/
-│       └── scratchpad-api.ts           # 20 个 Tauri invoke 封装函数
+│       └── scratchpad-api.ts           # 22 个 Tauri invoke 封装函数
 └── ui/
     ├── composables/
     │   └── use-scratchpad.ts           # 业务逻辑 hook（33 个导出项）

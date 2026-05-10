@@ -203,10 +203,7 @@ impl ResultService {
         rows: Option<Vec<Vec<serde_json::Value>>>,
     ) -> Result<ResultSet, CoreError> {
         crate::core::services::execution_service::execute_duckdb_analysis(
-            temp_table,
-            sql,
-            columns,
-            rows,
+            temp_table, sql, columns, rows,
         )
     }
 
@@ -228,20 +225,14 @@ impl ResultService {
         temp_table: &str,
         column_name: &str,
     ) -> Result<ColumnInsightFull, CoreError> {
-        crate::core::services::insight_engine::get_column_insight_full(
-            temp_table,
-            column_name,
-        )
+        crate::core::services::insight_engine::get_column_insight_full(temp_table, column_name)
     }
 
     pub fn get_column_insights(
         temp_table: &str,
         column_name: &str,
     ) -> Result<ColumnStats, CoreError> {
-        crate::core::services::insight_engine::get_column_insights(
-            temp_table,
-            column_name,
-        )
+        crate::core::services::insight_engine::get_column_insights(temp_table, column_name)
     }
 
     pub fn execute_insight_rule(
@@ -249,20 +240,14 @@ impl ResultService {
         conn: &duckdb::Connection,
         params: &std::collections::HashMap<String, String>,
     ) -> Result<crate::core::insight::ExecutionResult, CoreError> {
-        crate::core::services::insight_engine::execute_insight_rule(
-            rule_id, conn, params,
-        )
+        crate::core::services::insight_engine::execute_insight_rule(rule_id, conn, params)
     }
 
-    pub fn list_insight_rules(
-        category: Option<&str>,
-    ) -> Result<Vec<serde_json::Value>, CoreError> {
+    pub fn list_insight_rules(category: Option<&str>) -> Result<Vec<serde_json::Value>, CoreError> {
         crate::core::services::insight_engine::list_insight_rules(category)
     }
 
-    pub fn list_rules_for_column(
-        column_type: &str,
-    ) -> Result<Vec<serde_json::Value>, CoreError> {
+    pub fn list_rules_for_column(column_type: &str) -> Result<Vec<serde_json::Value>, CoreError> {
         crate::core::services::insight_engine::list_rules_for_column(column_type)
     }
 
@@ -274,10 +259,7 @@ impl ResultService {
         table_name: &str,
         stats_list: &[ColumnInsightFull],
     ) -> TableQuality {
-        crate::core::services::quality_scorer::compute_table_quality(
-            table_name,
-            stats_list,
-        )
+        crate::core::services::quality_scorer::compute_table_quality(table_name, stats_list)
     }
 
     pub async fn save_column_insight_snapshot(
@@ -342,13 +324,81 @@ impl ResultService {
         .await
     }
 
+    pub async fn save_cell_update(
+        conn_id: String,
+        table_name: &str,
+        column_name: &str,
+        new_value: &serde_json::Value,
+        row_identity: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<(usize, String), CoreError> {
+        use crate::core::services::connection_manager;
+        use crate::core::services::sql_service::{value_to_sql, SqlExecuteOptions, SqlService};
+
+        let set_clause = format!("`{}` = {}", column_name, value_to_sql(new_value));
+
+        let where_parts: Vec<String> = row_identity
+            .iter()
+            .filter(|(k, _)| *k != column_name)
+            .map(|(col, val)| format!("`{}` = {}", col, value_to_sql(val)))
+            .collect();
+
+        if where_parts.is_empty() {
+            return Err(CoreError::common(crate::core::error::CommonError::General(
+                "无法构建 WHERE 条件：行标识数据为空".to_string(),
+            )));
+        }
+
+        let sql = format!(
+            "UPDATE `{}` SET {} WHERE {}",
+            table_name,
+            set_clause,
+            where_parts.join(" AND ")
+        );
+
+        let manager = connection_manager::get_connection_manager();
+        let service = SqlService::new(manager.clone());
+        let opts = SqlExecuteOptions {
+            record_history: false,
+            use_transaction: true,
+            timeout_ms: Some(10000),
+            use_cache: false,
+        };
+
+        let result = service.execute(Some(conn_id), &sql, opts).await?;
+        let affected = match result.result.affected_rows {
+            Some(n) => n,
+            None => {
+                tracing::warn!("数据库未返回 affected_rows，UPDATE 影响行数未知");
+                0
+            }
+        };
+        Ok((affected, format!("成功更新 {} 行", affected)))
+    }
+
+    pub fn export_result(
+        temp_table: &str,
+        file_path: &str,
+        format: &str,
+    ) -> Result<String, CoreError> {
+        use crate::core::services::duckdb_service::{DuckDbService, ExportFormat};
+
+        let fmt = match format {
+            "csv" => ExportFormat::Csv,
+            "parquet" => ExportFormat::Parquet,
+            "xlsx" => ExportFormat::Xlsx,
+            other => {
+                return Err(CoreError::common(crate::core::error::CommonError::General(
+                    format!("不支持的导出格式: {}", other),
+                )))
+            }
+        };
+        DuckDbService::export_temp_table(temp_table, file_path, fmt)
+    }
+
     pub async fn get_insight_storage_stats(
         insight_store: &crate::core::persistence::InsightStorage,
     ) -> Result<crate::core::persistence::InsightStorageStats, CoreError> {
-        crate::core::services::persistence_service::get_insight_storage_stats(
-            insight_store,
-        )
-        .await
+        crate::core::services::persistence_service::get_insight_storage_stats(insight_store).await
     }
 
     pub async fn get_insight_version_detail(
@@ -370,7 +420,11 @@ impl ResultService {
         column_name: &str,
     ) -> Result<ColumnInsightFull, CoreError> {
         crate::core::services::persistence_service::profile_column_from_table(
-            conn_id, database, schema, table, column_name,
+            conn_id,
+            database,
+            schema,
+            table,
+            column_name,
         )
         .await
     }

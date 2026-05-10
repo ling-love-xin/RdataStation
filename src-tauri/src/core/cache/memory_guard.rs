@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use super::{MemoryPressure, CacheManager};
+use super::{CacheManager, MemoryPressure};
 
 /// 内存防护配置
 #[derive(Debug, Clone)]
@@ -112,14 +112,13 @@ impl MemoryGuard {
                 // 正常状态，仅检查缓存大小
                 let cache = self.cache_manager.read().await;
                 let cache_stats = cache.stats();
-                
+
                 if cache_stats.metadata.entry_count > self.config.max_cache_entries {
                     warn!(
                         "Cache size {} exceeds limit {}, triggering eviction",
-                        cache_stats.metadata.entry_count,
-                        self.config.max_cache_entries
+                        cache_stats.metadata.entry_count, self.config.max_cache_entries
                     );
-                    
+
                     drop(cache);
                     evicted = self.evict_cache_entries(0.2).await?;
                 }
@@ -139,14 +138,14 @@ impl MemoryGuard {
         }
 
         stats.total_evictions += evicted as u64;
-        
+
         Ok(evicted)
     }
 
     /// 淘汰指定比例的缓存条目
     async fn evict_cache_entries(&self, ratio: f64) -> Result<usize, String> {
         let cache = self.cache_manager.write().await;
-        
+
         // 清理过期条目
         let expired_cleaned = cache.cleanup_expired();
         debug!("Cleaned {} expired cache entries", expired_cleaned);
@@ -181,11 +180,11 @@ impl MemoryGuard {
     /// 启动定期内存检查任务
     pub fn start_periodic_check(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         let interval = self.config.check_interval;
-        
+
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(interval).await;
-                
+
                 match self.check_and_evict().await {
                     Ok(evicted) => {
                         if evicted > 0 {
@@ -216,9 +215,7 @@ pub fn init_memory_guard(
     config: MemoryGuardConfig,
     cache_manager: Arc<RwLock<CacheManager>>,
 ) -> &'static Arc<MemoryGuard> {
-    MEMORY_GUARD.get_or_init(|| {
-        Arc::new(MemoryGuard::new(config, cache_manager))
-    })
+    MEMORY_GUARD.get_or_init(|| Arc::new(MemoryGuard::new(config, cache_manager)))
 }
 
 #[cfg(test)]

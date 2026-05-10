@@ -24,11 +24,11 @@
 //! - DB2
 //! - 其他 JDBC 兼容数据库
 
+pub mod connection;
 pub mod driver;
 pub mod executor;
 pub mod jvm_manager;
-pub mod connection;
 
+pub use connection::JdbcConnection;
 pub use driver::JdbcDriver;
 pub use jvm_manager::JvmManager;
-pub use connection::JdbcConnection;

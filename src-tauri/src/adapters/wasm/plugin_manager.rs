@@ -1,7 +1,9 @@
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use super::{PluginManager, PluginMetadata, WasmAdapterError, WasmRuntimeConfig, ExtismPluginManager};
+use super::{
+    ExtismPluginManager, PluginManager, PluginMetadata, WasmAdapterError, WasmRuntimeConfig,
+};
 
 /// 插件沙箱配置
 #[derive(Debug, Clone)]
@@ -82,58 +84,69 @@ impl PluginSandbox {
     /// 创建新的插件沙箱
     pub fn new(config: Option<PluginSandboxConfig>) -> Self {
         let config = config.unwrap_or_default();
-        
+
         Self {
             config,
             resource_usage: Arc::new(Mutex::new(ResourceUsage::default())),
         }
     }
-    
+
     /// 检查权限
     pub fn check_permission(&self, permission: &str) -> bool {
         self.config.permissions.contains(&permission.to_string())
     }
-    
+
     /// 监控资源使用
     pub fn monitor_resources(&self) -> Result<ResourceUsage, WasmAdapterError> {
-        let usage = self.resource_usage.lock()
-            .map_err(|e| WasmAdapterError::RuntimeError(format!("Failed to lock resource usage: {}", e)))?;
-        
+        let usage = self.resource_usage.lock().map_err(|e| {
+            WasmAdapterError::RuntimeError(format!("Failed to lock resource usage: {}", e))
+        })?;
+
         Ok(usage.clone())
     }
-    
+
     /// 更新资源使用
     pub fn update_resource_usage(&self, usage: ResourceUsage) -> Result<(), WasmAdapterError> {
-        let mut current_usage = self.resource_usage.lock()
-            .map_err(|e| WasmAdapterError::RuntimeError(format!("Failed to lock resource usage: {}", e)))?;
-        
+        let mut current_usage = self.resource_usage.lock().map_err(|e| {
+            WasmAdapterError::RuntimeError(format!("Failed to lock resource usage: {}", e))
+        })?;
+
         *current_usage = usage;
         Ok(())
     }
-    
+
     /// 检查资源限制
     pub fn check_resource_limits(&self) -> Result<(), WasmAdapterError> {
-        let usage = self.resource_usage.lock()
-            .map_err(|e| WasmAdapterError::RuntimeError(format!("Failed to lock resource usage: {}", e)))?;
-        
+        let usage = self.resource_usage.lock().map_err(|e| {
+            WasmAdapterError::RuntimeError(format!("Failed to lock resource usage: {}", e))
+        })?;
+
         let limits = &self.config.resource_limits;
-        
+
         if usage.memory_used_mb > limits.max_memory_mb {
-            return Err(WasmAdapterError::RuntimeError("Memory limit exceeded".to_string()));
+            return Err(WasmAdapterError::RuntimeError(
+                "Memory limit exceeded".to_string(),
+            ));
         }
-        
+
         if usage.cpu_time_used_ms > limits.max_cpu_time_ms {
-            return Err(WasmAdapterError::RuntimeError("CPU time limit exceeded".to_string()));
+            return Err(WasmAdapterError::RuntimeError(
+                "CPU time limit exceeded".to_string(),
+            ));
         }
-        
+
         if usage.fs_used_mb > limits.max_fs_size_mb {
-            return Err(WasmAdapterError::RuntimeError("File system size limit exceeded".to_string()));
+            return Err(WasmAdapterError::RuntimeError(
+                "File system size limit exceeded".to_string(),
+            ));
         }
-        
+
         if usage.network_requests_made > limits.max_network_requests {
-            return Err(WasmAdapterError::RuntimeError("Network requests limit exceeded".to_string()));
+            return Err(WasmAdapterError::RuntimeError(
+                "Network requests limit exceeded".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }
@@ -150,73 +163,82 @@ impl AdvancedPluginManager {
     /// 创建新的高级插件管理器
     pub fn new(_config: Option<WasmRuntimeConfig>) -> Self {
         let inner = ExtismPluginManager::new();
-        
+
         Self {
             inner: Arc::new(Mutex::new(inner)),
             sandboxes: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-    
+
     /// 加载插件并配置沙箱
     pub fn load_plugin_with_sandbox(
         &mut self,
         path: &str,
-        sandbox_config: Option<PluginSandboxConfig>
+        sandbox_config: Option<PluginSandboxConfig>,
     ) -> Result<PluginMetadata, WasmAdapterError> {
         // 读取 wasm 文件
-        let wasm_bytes = std::fs::read(path)
-            .map_err(|e| WasmAdapterError::LoadError(format!("Failed to read plugin file {}: {}", path, e)))?;
-        
+        let wasm_bytes = std::fs::read(path).map_err(|e| {
+            WasmAdapterError::LoadError(format!("Failed to read plugin file {}: {}", path, e))
+        })?;
+
         // 生成插件 ID
         let id = std::path::Path::new(path)
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
-        
+
         // 加载插件
         let metadata = {
-            let mut inner = self.inner.lock()
-                .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string()))?;
-            inner.load_plugin(&id, &wasm_bytes)
+            let mut inner = self.inner.lock().map_err(|_| {
+                WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string())
+            })?;
+            inner
+                .load_plugin(&id, &wasm_bytes)
                 .map_err(|e| WasmAdapterError::LoadError(e.to_string()))?
         };
-        
+
         // 创建沙箱
         let sandbox = PluginSandbox::new(sandbox_config);
-        
+
         // 存储沙箱
-        let mut sandboxes = self.sandboxes.lock()
-            .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string()))?;
-        
+        let mut sandboxes = self.sandboxes.lock().map_err(|_| {
+            WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string())
+        })?;
+
         sandboxes.insert(metadata.id.clone(), sandbox);
-        
+
         Ok(metadata)
     }
-    
+
     /// 获取插件沙箱
     pub fn get_sandbox(&self, plugin_id: &str) -> Result<Option<PluginSandbox>, WasmAdapterError> {
-        let sandboxes = self.sandboxes.lock()
-            .map_err(|e| WasmAdapterError::RuntimeError(format!("Failed to lock sandboxes map: {}", e)))?;
-        
+        let sandboxes = self.sandboxes.lock().map_err(|e| {
+            WasmAdapterError::RuntimeError(format!("Failed to lock sandboxes map: {}", e))
+        })?;
+
         Ok(sandboxes.get(plugin_id).cloned())
     }
-    
+
     /// 更新插件沙箱配置
     pub fn update_sandbox_config(
         &mut self,
         plugin_id: &str,
-        config: PluginSandboxConfig
+        config: PluginSandboxConfig,
     ) -> Result<(), WasmAdapterError> {
-        let mut sandboxes = self.sandboxes.lock()
-            .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string()))?;
-        
+        let mut sandboxes = self.sandboxes.lock().map_err(|_| {
+            WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string())
+        })?;
+
         if let Some(sandbox) = sandboxes.get_mut(plugin_id) {
             // 更新沙箱配置
             *sandbox = PluginSandbox::new(Some(config));
             Ok(())
         } else {
-            Err(WasmAdapterError::RuntimeError(format!("Plugin {} not found", plugin_id)))
+            Err(WasmAdapterError::RuntimeError(format!(
+                "Plugin {} not found",
+                plugin_id
+            )))
         }
     }
 }
@@ -226,26 +248,29 @@ impl PluginManager for AdvancedPluginManager {
     fn load_plugin(&mut self, path: &str) -> Result<PluginMetadata, WasmAdapterError> {
         self.load_plugin_with_sandbox(path, None)
     }
-    
+
     /// 卸载插件
     fn unload_plugin(&mut self, id: &str) -> Result<(), WasmAdapterError> {
         // 卸载插件
         {
-            let mut inner = self.inner.lock()
-                .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string()))?;
-            inner.unload_plugin(id)
+            let mut inner = self.inner.lock().map_err(|_| {
+                WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string())
+            })?;
+            inner
+                .unload_plugin(id)
                 .map_err(|e| WasmAdapterError::RuntimeError(e.to_string()))?;
         }
-        
+
         // 移除沙箱
-        let mut sandboxes = self.sandboxes.lock()
-            .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string()))?;
-        
+        let mut sandboxes = self.sandboxes.lock().map_err(|_| {
+            WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string())
+        })?;
+
         sandboxes.remove(id);
-        
+
         Ok(())
     }
-    
+
     /// 获取已加载插件列表
     fn list_plugins(&self) -> Vec<PluginMetadata> {
         match self.inner.lock() {
@@ -256,26 +281,29 @@ impl PluginManager for AdvancedPluginManager {
             }
         }
     }
-    
+
     /// 调用插件函数（带沙箱检查）
     fn call_plugin(&self, id: &str, func: &str, args: &[u8]) -> Result<Vec<u8>, WasmAdapterError> {
         // 检查沙箱
-        let sandboxes = self.sandboxes.lock()
-            .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string()))?;
-        
+        let sandboxes = self.sandboxes.lock().map_err(|_| {
+            WasmAdapterError::RuntimeError("Failed to lock sandboxes map".to_string())
+        })?;
+
         if let Some(sandbox) = sandboxes.get(id) {
             // 检查资源限制
             sandbox.check_resource_limits()?;
         }
-        
+
         // 调用插件函数
         let result = {
-            let mut inner = self.inner.lock()
-                .map_err(|_| WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string()))?;
-            inner.call_plugin(id, func, args)
+            let mut inner = self.inner.lock().map_err(|_| {
+                WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string())
+            })?;
+            inner
+                .call_plugin(id, func, args)
                 .map_err(|e| WasmAdapterError::RuntimeError(e.to_string()))?
         };
-        
+
         // 更新资源使用
         if let Some(sandbox) = sandboxes.get(id) {
             // TODO: 实际测量资源使用
@@ -283,7 +311,7 @@ impl PluginManager for AdvancedPluginManager {
             usage.cpu_time_used_ms += 1; // 示例：增加 CPU 时间
             sandbox.update_resource_usage(usage)?;
         }
-        
+
         Ok(result)
     }
 }

@@ -1,13 +1,15 @@
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use crate::core::services::connection_manager::{ConnectionInfo, ConnectionManager, ConnectionType};
-use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
-use crate::core::driver::registry::ConnectionConfig;
 use crate::core::datasource::router::DataSourceRouter;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::driver::registry::ConnectionConfig;
+use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
+use crate::core::error::{ConnectionError, CoreError};
 use crate::core::persistence::connection_store;
 use crate::core::persistence::MetadataCacheManager;
+use crate::core::services::connection_manager::{
+    ConnectionInfo, ConnectionManager, ConnectionType,
+};
 
 /// 连接服务
 ///
@@ -47,7 +49,8 @@ impl ConnectionService {
         url: &str,
         name: Option<String>,
     ) -> Result<(String, DynDatabase), CoreError> {
-        self.connect_with_type(conn_id, db_type, url, name, ConnectionType::Global, None).await
+        self.connect_with_type(conn_id, db_type, url, name, ConnectionType::Global, None)
+            .await
     }
 
     /// 创建或获取数据库连接（指定连接类型）
@@ -86,13 +89,13 @@ impl ConnectionService {
         let conn_id = conn_id.unwrap_or_else(|| {
             use std::collections::hash_map::DefaultHasher;
             use std::hash::{Hash, Hasher};
-            
+
             // 连接类型前缀
             let type_prefix = match connection_type {
                 ConnectionType::Global => "global",
                 ConnectionType::Project => "project",
             };
-            
+
             // 对于文件数据库，使用路径的哈希值避免非法字符
             if url.starts_with("sqlite://") || url.starts_with("duckdb://") {
                 let path = if url.starts_with("sqlite://") {
@@ -130,17 +133,24 @@ impl ConnectionService {
             let all_connections = self.manager.get_all_connection_info().await;
             for conn_info in all_connections {
                 if conn_info.url == url {
-                    tracing::info!("Connection with URL {} already exists (ID: {})", url, conn_info.id);
-                    
+                    tracing::info!(
+                        "Connection with URL {} already exists (ID: {})",
+                        url,
+                        conn_info.id
+                    );
+
                     // 尝试获取已有连接
                     if let Some(db) = self.manager.get_connection(&conn_info.id).await {
                         tracing::info!("复用已有连接: {}", conn_info.id);
                         return Ok((conn_info.id, db));
                     }
-                    
+
                     // 如果连接管理器中没有该连接（可能已被关闭），但连接信息仍存在
                     // 需要先移除旧的连接信息，然后创建新连接
-                    tracing::info!("旧连接 {} 已不存在于连接管理器中，准备移除旧信息并创建新连接", conn_info.id);
+                    tracing::info!(
+                        "旧连接 {} 已不存在于连接管理器中，准备移除旧信息并创建新连接",
+                        conn_info.id
+                    );
                     self.manager.remove_connection(&conn_info.id).await;
                     // 继续创建新连接
                     break;
@@ -152,13 +162,14 @@ impl ConnectionService {
         tracing::info!("Creating new connection with ID: {}", conn_id);
         let db = self.create_database(db_type, url).await?;
         let server_version = db.meta().server_version.clone();
+        let safe_url = Self::mask_password_in_url(url);
 
         // 创建连接信息
         let info = ConnectionInfo {
             id: conn_id.clone(),
             name: connection_name.clone(),
             db_type: db_type.to_string(),
-            url: url.to_string(),
+            url: safe_url.clone(),
             server_version: server_version.clone(),
             connection_type,
             project_id: project_path.clone(),
@@ -171,28 +182,42 @@ impl ConnectionService {
             .await?;
 
         // 初始化连接级元数据库（根据连接类型选择路径）
-        self.initialize_connection_metadata(&conn_id, db_type, url, connection_type, project_path.as_deref()).await?;
+        self.initialize_connection_metadata(
+            &conn_id,
+            db_type,
+            url,
+            connection_type,
+            project_path.as_deref(),
+        )
+        .await?;
 
         // 对于全局连接，保存到全局 SQLite 数据库
         if connection_type == ConnectionType::Global {
             // 从 URL 中解析 username 和 password
             let (username, password) = Self::extract_credentials_from_url(url);
-            
+
             // 默认添加 "global" 标签
             let tags = Some("[\"global\"]");
-            if let Err(e) = self.save_global_connection_to_db(&conn_id, &connection_name, db_type, url, username.as_deref(), password.as_deref(), tags, server_version.as_deref()).await {
+            if let Err(e) = self
+                .save_global_connection_to_db(
+                    &conn_id,
+                    &connection_name,
+                    db_type,
+                    &safe_url,
+                    username.as_deref(),
+                    password.as_deref(),
+                    tags,
+                    server_version.as_deref(),
+                )
+                .await
+            {
                 tracing::warn!("保存全局连接信息到 SQLite 失败: {}", e);
             }
         }
 
         // 保存到最近连接记录
-        if let Err(e) = connection_store::save_recent_connection(
-            &connection_name,
-            db_type,
-            url,
-        ) {
-            // 记录错误但不影响主流程
-            eprintln!("Failed to save connection history: {}", e);
+        if let Err(e) = connection_store::save_recent_connection(&connection_name, db_type, &safe_url) {
+            tracing::warn!("Failed to save connection history: {}", e);
         }
 
         Ok((conn_id, db))
@@ -211,19 +236,36 @@ impl ConnectionService {
         server_version: Option<&str>,
     ) -> Result<(), CoreError> {
         use crate::core::migration::global_init;
-        
-        // 获取全局数据库管理器
-        let global_db = global_init::get_global_db_manager()
-            .ok_or_else(|| CoreError::common(crate::core::error::CommonError::General(
-                "Global database manager not initialized".to_string()
-            )))?;
-        
-        // 保存连接信息
-        global_db.save_global_connection(conn_id, name, db_type, url, username, password, tags, server_version).await
+
+        let global_db = global_init::get_global_db_manager().ok_or_else(|| {
+            CoreError::common(crate::core::error::CommonError::General(
+                "Global database manager not initialized".to_string(),
+            ))
+        })?;
+
+        let encrypted_password = match password {
+            Some(p) if !p.is_empty() => {
+                Some(crate::core::crypto::encrypt_password(p).unwrap_or_else(|_| p.to_string()))
+            }
+            _ => password.map(|p| p.to_string()),
+        };
+
+        global_db
+            .save_global_connection(
+                conn_id,
+                name,
+                db_type,
+                url,
+                username,
+                encrypted_password.as_deref(),
+                tags,
+                server_version,
+            )
+            .await
     }
 
     /// 从 URL 中提取用户名和密码
-    /// 
+    ///
     /// 支持的 URL 格式：
     /// - mysql://user:pass@host:port/database
     /// - postgresql://user:pass@host:port/database
@@ -240,7 +282,7 @@ impl ConnectionService {
         // 查找 @ 符号
         if let Some(at_pos) = clean_url.find('@') {
             let auth_part = &clean_url[..at_pos];
-            
+
             // 解析 user:pass
             if let Some(colon_pos) = auth_part.find(':') {
                 let username = auth_part[..colon_pos].to_string();
@@ -256,17 +298,46 @@ impl ConnectionService {
         }
     }
 
+    /// 脱敏 URL 中的密码，替换为 ***
+    pub(crate) fn mask_password_in_url(url: &str) -> String {
+        if let Some(scheme_end) = url.find("://") {
+            let prefix = &url[..scheme_end + 3];
+            let rest = &url[scheme_end + 3..];
+            if let Some(at_pos) = rest.find('@') {
+                let auth = &rest[..at_pos];
+                let host_part = &rest[at_pos..];
+                if let Some(colon_pos) = auth.find(':') {
+                    let username = &auth[..colon_pos];
+                    return format!("{}{}:******{}", prefix, username, host_part);
+                }
+                return format!("{}{}******{}", prefix, auth, host_part);
+            }
+        }
+        url.to_string()
+    }
+
+    /// 检查 URL 是否含明文密码（需要迁移）
+    fn url_has_plaintext_password(url: &str) -> bool {
+        if let Some(scheme_end) = url.find("://") {
+            let rest = &url[scheme_end + 3..];
+            if let Some(at_pos) = rest.find('@') {
+                let auth = &rest[..at_pos];
+                return auth.contains(':') && !auth.contains("******");
+            }
+        }
+        false
+    }
+
     /// 根据数据库类型创建对应的数据库实例
     /// 通过 DataSourceRouter 路由到 DriverRegistry 动态创建
     async fn create_database(&self, db_type: &str, url: &str) -> Result<DynDatabase, CoreError> {
-        let config = ConnectionConfig::new(db_type)
-            .with_url_override(url);
+        let config = ConnectionConfig::new(db_type).with_url_override(url);
 
         DataSourceRouter::route(config).await
     }
 
     /// 初始化连接级元数据库（根据连接类型选择路径）
-    /// 
+    ///
     /// 元数据缓存跟随连接信息：
     /// - 全局连接：system/global_metadata/conn_{id}.sqlite
     /// - 项目连接：project/meta/connection_metadata/conn_{id}.sqlite
@@ -290,7 +361,11 @@ impl ConnectionService {
         // 打开元数据缓存数据库（自动执行迁移）
         let _conn = cache_manager.open()?;
 
-        tracing::debug!("Connection metadata initialized ({:?}): {:?}", connection_type, cache_manager.db_path());
+        tracing::debug!(
+            "Connection metadata initialized ({:?}): {:?}",
+            connection_type,
+            cache_manager.db_path()
+        );
         Ok(())
     }
 
@@ -318,10 +393,10 @@ impl ConnectionService {
     pub async fn close_connection(&self, conn_id: &str) -> Result<(), CoreError> {
         // 获取连接信息以清理元数据缓存
         let conn_info = self.manager.get_connection_info(&conn_id.to_string()).await;
-        
+
         // 从连接管理器中移除连接
         self.manager.remove_connection(&conn_id.to_string()).await;
-        
+
         // 清理元数据缓存文件
         if let Some(info) = conn_info {
             let cache_manager = MetadataCacheManager::new(
@@ -332,12 +407,16 @@ impl ConnectionService {
                 },
                 info.project_id.as_deref(),
             )?;
-            
+
             if let Err(e) = cache_manager.delete() {
-                tracing::warn!("Failed to delete metadata cache for connection {}: {}", conn_id, e);
+                tracing::warn!(
+                    "Failed to delete metadata cache for connection {}: {}",
+                    conn_id,
+                    e
+                );
             }
         }
-        
+
         Ok(())
     }
 
@@ -362,25 +441,32 @@ impl ConnectionService {
 
     /// 检查连接是否存在
     pub async fn has_connection(&self, conn_id: &str) -> bool {
-        self.manager.get_connection(&conn_id.to_string()).await.is_some()
+        self.manager
+            .get_connection(&conn_id.to_string())
+            .await
+            .is_some()
     }
 
     /// 获取最近使用的连接列表
-    pub fn get_recent_connections(&self) -> Result<Vec<connection_store::ConnectionRecord>, CoreError> {
-        connection_store::get_recent_connections()
-            .map_err(|e| CoreError::storage(crate::core::error::StorageError::read(
+    pub fn get_recent_connections(
+        &self,
+    ) -> Result<Vec<connection_store::ConnectionRecord>, CoreError> {
+        connection_store::get_recent_connections().map_err(|e| {
+            CoreError::storage(crate::core::error::StorageError::read(
                 "recent_connections",
                 e.to_string(),
-            )))
+            ))
+        })
     }
 
     /// 删除最近连接记录
     pub fn remove_recent_connection(&self, name: &str) -> Result<(), CoreError> {
-        connection_store::remove_recent_connection(name)
-            .map_err(|e| CoreError::storage(crate::core::error::StorageError::write(
+        connection_store::remove_recent_connection(name).map_err(|e| {
+            CoreError::storage(crate::core::error::StorageError::write(
                 "recent_connections",
                 e.to_string(),
-            )))
+            ))
+        })
     }
 
     /// 获取连接信息
@@ -398,10 +484,14 @@ impl ConnectionService {
         sql: &str,
     ) -> Result<crate::api::dto::QueryResult, CoreError> {
         let db = if let Some(id) = conn_id {
-            self.manager.get_connection(&id).await
+            self.manager
+                .get_connection(&id)
+                .await
                 .ok_or_else(|| CoreError::connection(ConnectionError::NotFound(id.clone())))?
         } else {
-            self.manager.get_active_connection().await
+            self.manager
+                .get_active_connection()
+                .await
                 .map(|(_, db)| db)
                 .ok_or_else(|| CoreError::connection(ConnectionError::NoActiveConnection))?
         };
@@ -428,18 +518,20 @@ impl ConnectionService {
         use crate::core::error::CommonError;
 
         let conn_id_string = conn_id.to_string();
-        
+
         // 获取原连接信息
-        let old_info = self.manager
+        let old_info = self
+            .manager
             .get_connection_info(&conn_id_string)
             .await
             .ok_or_else(|| CoreError::connection(ConnectionError::NotFound(conn_id.to_string())))?;
 
         // 验证原连接是全局连接
         if old_info.connection_type != ConnectionType::Global {
-            return Err(CoreError::common(CommonError::General(
-                format!("Connection {} is not a global connection", conn_id),
-            )));
+            return Err(CoreError::common(CommonError::General(format!(
+                "Connection {} is not a global connection",
+                conn_id
+            ))));
         }
 
         // 复制元数据文件到项目目录
@@ -448,16 +540,26 @@ impl ConnectionService {
 
         if old_meta_path.exists() {
             if let Some(parent) = new_meta_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| CoreError::common(CommonError::General(
-                    format!("Failed to create project metadata directory: {}", e),
-                )))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to create project metadata directory: {}",
+                        e
+                    )))
+                })?;
             }
 
-            std::fs::copy(&old_meta_path, &new_meta_path).map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to copy metadata file: {}", e),
-            )))?;
+            std::fs::copy(&old_meta_path, &new_meta_path).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to copy metadata file: {}",
+                    e
+                )))
+            })?;
 
-            tracing::info!("Copied metadata from {:?} to {:?}", old_meta_path, new_meta_path);
+            tracing::info!(
+                "Copied metadata from {:?} to {:?}",
+                old_meta_path,
+                new_meta_path
+            );
         }
 
         // 更新连接信息
@@ -473,7 +575,9 @@ impl ConnectionService {
         };
 
         // 更新连接管理器中的信息
-        self.manager.update_connection_info(&conn_id_string, new_info.clone()).await?;
+        self.manager
+            .update_connection_info(&conn_id_string, new_info.clone())
+            .await?;
 
         tracing::info!("Connection {} converted from global to project", conn_id);
         Ok(new_info)
@@ -495,18 +599,20 @@ impl ConnectionService {
         use crate::core::error::CommonError;
 
         let conn_id_string = conn_id.to_string();
-        
+
         // 获取原连接信息
-        let old_info = self.manager
+        let old_info = self
+            .manager
             .get_connection_info(&conn_id_string)
             .await
             .ok_or_else(|| CoreError::connection(ConnectionError::NotFound(conn_id.to_string())))?;
 
         // 验证原连接是项目连接
         if old_info.connection_type != ConnectionType::Project {
-            return Err(CoreError::common(CommonError::General(
-                format!("Connection {} is not a project connection", conn_id),
-            )));
+            return Err(CoreError::common(CommonError::General(format!(
+                "Connection {} is not a project connection",
+                conn_id
+            ))));
         }
 
         // 移动元数据文件到全局目录
@@ -519,19 +625,29 @@ impl ConnectionService {
 
         if old_meta_path.exists() {
             if let Some(parent) = new_meta_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| CoreError::common(CommonError::General(
-                    format!("Failed to create global metadata directory: {}", e),
-                )))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to create global metadata directory: {}",
+                        e
+                    )))
+                })?;
             }
 
-            std::fs::copy(&old_meta_path, &new_meta_path).map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to copy metadata file: {}", e),
-            )))?;
+            std::fs::copy(&old_meta_path, &new_meta_path).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to copy metadata file: {}",
+                    e
+                )))
+            })?;
 
             // 删除原项目元数据文件
             let _ = std::fs::remove_file(&old_meta_path);
 
-            tracing::info!("Moved metadata from {:?} to {:?}", old_meta_path, new_meta_path);
+            tracing::info!(
+                "Moved metadata from {:?} to {:?}",
+                old_meta_path,
+                new_meta_path
+            );
         }
 
         // 更新连接信息
@@ -547,7 +663,9 @@ impl ConnectionService {
         };
 
         // 更新连接管理器中的信息
-        self.manager.update_connection_info(&conn_id_string, new_info.clone()).await?;
+        self.manager
+            .update_connection_info(&conn_id_string, new_info.clone())
+            .await?;
 
         tracing::info!("Connection {} converted from project to global", conn_id);
         Ok(new_info)
@@ -560,9 +678,9 @@ impl ConnectionService {
             crate::core::persistence::ConnectionType::Global,
             None,
         );
-        cache_manager.map(|m| m.db_path().clone()).unwrap_or_else(|_| {
-            PathBuf::from(".").join(format!("conn_global_{}.sqlite", conn_id))
-        })
+        cache_manager
+            .map(|m| m.db_path().clone())
+            .unwrap_or_else(|_| PathBuf::from(".").join(format!("conn_global_{}.sqlite", conn_id)))
     }
 
     /// 获取项目连接的元数据路径
@@ -572,12 +690,14 @@ impl ConnectionService {
             crate::core::persistence::ConnectionType::Project,
             Some(project_id),
         );
-        cache_manager.map(|m| m.db_path().clone()).unwrap_or_else(|_| {
-            PathBuf::from(project_id)
-                .join(".RSmeta")
-                .join("metadata")
-                .join(format!("conn_project_{}.sqlite", conn_id))
-        })
+        cache_manager
+            .map(|m| m.db_path().clone())
+            .unwrap_or_else(|_| {
+                PathBuf::from(project_id)
+                    .join(".RSmeta")
+                    .join("metadata")
+                    .join(format!("conn_project_{}.sqlite", conn_id))
+            })
     }
 
     /// 检测项目中是否存在全局连接
@@ -624,7 +744,9 @@ mod tests {
         let manager = Arc::new(ConnectionManager::new());
         let service = ConnectionService::new(manager);
 
-        let result = service.connect(None, "invalid", "mysql://localhost", None).await;
+        let result = service
+            .connect(None, "invalid", "mysql://localhost", None)
+            .await;
         assert!(result.is_err());
     }
 }

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-import type { SqlHistory, QueryTab } from '@/shared/types'
+import type { QueryTab } from '@/shared/types'
 
 import * as queryService from '../services/query'
 
@@ -30,8 +30,6 @@ export const useQueryStore = defineStore('query', () => {
     },
   ])
   const activeTabId = ref('1')
-  const sqlHistory = ref<SqlHistory[]>([])
-  const historyLoading = ref(false)
 
   // ==================== Getters ====================
   const activeTab = computed(
@@ -195,78 +193,6 @@ export const useQueryStore = defineStore('query', () => {
   }
 
   /**
-   * 加载 SQL 历史记录
-   */
-  async function loadSqlHistory(limit?: number) {
-    historyLoading.value = true
-    try {
-      const result = await queryService.getSqlHistory(limit)
-      sqlHistory.value = result.map(r => ({
-        id: r.id,
-        sql: r.sql,
-        connId: r.conn_id,
-        executedAt: r.executed_at,
-        executionTime: r.execution_time,
-        rowCount: r.row_count,
-        success: r.success,
-        error: r.error,
-      }))
-    } catch (e) {
-      console.error('加载SQL历史失败:', e)
-    } finally {
-      historyLoading.value = false
-    }
-  }
-
-  /**
-   * 搜索 SQL 历史记录
-   */
-  async function searchSqlHistory(keyword: string, limit?: number) {
-    historyLoading.value = true
-    try {
-      const result = await queryService.searchSqlHistory(keyword, limit)
-      sqlHistory.value = result.map(r => ({
-        id: r.id,
-        sql: r.sql,
-        connId: r.conn_id,
-        executedAt: r.executed_at,
-        executionTime: r.execution_time,
-        rowCount: r.row_count,
-        success: r.success,
-        error: r.error,
-      }))
-    } catch (e) {
-      console.error('搜索SQL历史失败:', e)
-    } finally {
-      historyLoading.value = false
-    }
-  }
-
-  /**
-   * 清空 SQL 历史记录
-   */
-  async function clearSqlHistory() {
-    try {
-      await queryService.clearSqlHistory()
-      sqlHistory.value = []
-    } catch (e) {
-      console.error('清空SQL历史失败:', e)
-    }
-  }
-
-  /**
-   * 删除指定 SQL 历史记录
-   */
-  async function removeSqlHistory(id: string) {
-    try {
-      await queryService.removeSqlHistory(id)
-      sqlHistory.value = sqlHistory.value.filter(h => h.id !== id)
-    } catch (e) {
-      console.error('删除SQL历史失败:', e)
-    }
-  }
-
-  /**
    * 清除标签页错误
    */
   function clearTabError(tabId?: string) {
@@ -280,8 +206,6 @@ export const useQueryStore = defineStore('query', () => {
     // State
     tabs,
     activeTabId,
-    sqlHistory,
-    historyLoading,
     // Getters
     activeTab,
     tabCount,
@@ -294,10 +218,6 @@ export const useQueryStore = defineStore('query', () => {
     renameTab,
     executeSql,
     executeTransaction,
-    loadSqlHistory,
-    searchSqlHistory,
-    clearSqlHistory,
-    removeSqlHistory,
     clearTabError,
   }
 })

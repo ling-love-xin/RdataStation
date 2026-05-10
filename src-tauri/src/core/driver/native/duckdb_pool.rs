@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use crate::core::driver::traits::{DbPool, Database, PoolStatus};
 use crate::core::driver::native::duckdb::DuckDbDatabase;
-use crate::core::error::{CoreError, ConnectionError};
+use crate::core::driver::traits::{Database, DbPool, PoolStatus};
+use crate::core::error::{ConnectionError, CoreError};
 
 /// DuckDB 连接池
 ///
@@ -21,7 +21,7 @@ impl DuckDbPoolWrapper {
     pub fn new(path: &str) -> Result<Self, CoreError> {
         // 验证路径是否有效
         let _db = DuckDbDatabase::new(path)?;
-        
+
         Ok(Self {
             path: path.to_string(),
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -55,6 +55,8 @@ impl DbPool for DuckDbPoolWrapper {
             idle: if self.is_closed() { 0 } else { 1 },
             active: 0,
             waiting: 0,
+            max_connections: 1,
+            min_connections: 1,
         }
     }
 }

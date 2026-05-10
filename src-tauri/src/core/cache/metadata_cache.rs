@@ -4,8 +4,9 @@
 
 use std::time::Duration;
 
-use crate::core::{SchemaObject, DataSourceMeta};
-use super::{LruCache, CacheStats, CachePolicy, MemoryEstimate};
+use super::{CachePolicy, CacheStats, LruCache, MemoryEstimate};
+use crate::core::driver::ColumnDetail;
+use crate::core::{DataSourceMeta, SchemaObject};
 
 /// 元数据缓存键
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -15,44 +16,84 @@ pub enum MetadataCacheKey {
     /// Schema 列表
     Schemas { conn_id: String, database: String },
     /// 表列表
-    Tables { conn_id: String, database: String, schema: Option<String> },
+    Tables {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+    },
     /// 列列表
-    Columns { conn_id: String, database: String, schema: Option<String>, table: String },
+    Columns {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+        table: String,
+    },
     /// 视图列表
-    Views { conn_id: String, database: String, schema: Option<String> },
+    Views {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+    },
+    /// 存储过程列表
+    Procedures {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+    },
+    /// 函数列表
+    Functions {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+    },
     /// 索引列表
-    Indexes { conn_id: String, database: String, schema: Option<String>, table: String },
+    Indexes {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+        table: String,
+    },
     /// 数据源元数据
     DataSourceMeta { conn_id: String },
+    /// 过程/函数 DDL 源码
+    RoutineSource {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+        name: String,
+        kind: String,
+    },
 }
 
 impl MetadataCacheKey {
     /// 创建数据库列表缓存键
     pub fn databases(conn_id: impl Into<String>) -> Self {
-        Self::Databases { conn_id: conn_id.into() }
+        Self::Databases {
+            conn_id: conn_id.into(),
+        }
     }
-    
+
     /// 创建 Schema 列表缓存键
     pub fn schemas(conn_id: impl Into<String>, database: impl Into<String>) -> Self {
-        Self::Schemas { 
-            conn_id: conn_id.into(), 
-            database: database.into() 
+        Self::Schemas {
+            conn_id: conn_id.into(),
+            database: database.into(),
         }
     }
-    
+
     /// 创建表列表缓存键
     pub fn tables(
-        conn_id: impl Into<String>, 
-        database: impl Into<String>, 
-        schema: Option<String>
+        conn_id: impl Into<String>,
+        database: impl Into<String>,
+        schema: Option<String>,
     ) -> Self {
-        Self::Tables { 
-            conn_id: conn_id.into(), 
-            database: database.into(), 
-            schema 
+        Self::Tables {
+            conn_id: conn_id.into(),
+            database: database.into(),
+            schema,
         }
     }
-    
+
     /// 创建列列表缓存键
     pub fn columns(
         conn_id: impl Into<String>,
@@ -67,7 +108,50 @@ impl MetadataCacheKey {
             table: table.into(),
         }
     }
-    
+
+    /// 创建存储过程列表键
+    pub fn procedures(
+        conn_id: impl Into<String>,
+        database: impl Into<String>,
+        schema: Option<String>,
+    ) -> Self {
+        Self::Procedures {
+            conn_id: conn_id.into(),
+            database: database.into(),
+            schema,
+        }
+    }
+
+    /// 创建函数列表键
+    pub fn functions(
+        conn_id: impl Into<String>,
+        database: impl Into<String>,
+        schema: Option<String>,
+    ) -> Self {
+        Self::Functions {
+            conn_id: conn_id.into(),
+            database: database.into(),
+            schema,
+        }
+    }
+
+    /// 创建过程/函数源码键
+    pub fn routine_source(
+        conn_id: impl Into<String>,
+        database: impl Into<String>,
+        schema: Option<String>,
+        name: impl Into<String>,
+        kind: impl Into<String>,
+    ) -> Self {
+        Self::RoutineSource {
+            conn_id: conn_id.into(),
+            database: database.into(),
+            schema,
+            name: name.into(),
+            kind: kind.into(),
+        }
+    }
+
     /// 获取连接 ID
     pub fn conn_id(&self) -> &str {
         match self {
@@ -77,7 +161,10 @@ impl MetadataCacheKey {
             Self::Columns { conn_id, .. } => conn_id,
             Self::Views { conn_id, .. } => conn_id,
             Self::Indexes { conn_id, .. } => conn_id,
+            Self::Procedures { conn_id, .. } => conn_id,
+            Self::Functions { conn_id, .. } => conn_id,
             Self::DataSourceMeta { conn_id } => conn_id,
+            Self::RoutineSource { conn_id, .. } => conn_id,
         }
     }
 }
@@ -89,8 +176,12 @@ pub enum MetadataCacheValue {
     StringList(Vec<String>),
     /// Schema 对象列表（表、列等）
     SchemaObjects(Vec<SchemaObject>),
+    /// 列详细信息列表
+    ColumnDetails(Vec<ColumnDetail>),
     /// 数据源元数据
     DataSourceMeta(DataSourceMeta),
+    /// 过程/函数 DDL 源码
+    RoutineSource(String),
 }
 
 impl MemoryEstimate for MetadataCacheValue {
@@ -99,10 +190,10 @@ impl MemoryEstimate for MetadataCacheValue {
             MetadataCacheValue::StringList(list) => {
                 list.iter().map(|s| s.len() + 32).sum::<usize>()
             }
-            MetadataCacheValue::SchemaObjects(objects) => {
-                objects.len() * 200
-            }
+            MetadataCacheValue::SchemaObjects(objects) => objects.len() * 200,
+            MetadataCacheValue::ColumnDetails(columns) => columns.len() * 250,
             MetadataCacheValue::DataSourceMeta(_) => 200,
+            MetadataCacheValue::RoutineSource(s) => s.len() + 32,
         }
     }
 }
@@ -123,7 +214,7 @@ impl MetadataCache {
             default_ttl: Duration::from_secs(300), // 默认 5 分钟
         }
     }
-    
+
     /// 创建带 TTL 的缓存
     pub fn with_ttl(capacity: usize, ttl: Duration) -> Self {
         Self {
@@ -131,9 +222,9 @@ impl MetadataCache {
             default_ttl: ttl,
         }
     }
-    
+
     // ==================== 获取方法 ====================
-    
+
     /// 获取数据库列表
     pub fn get_databases(&mut self, conn_id: &str) -> Option<Vec<String>> {
         let key = MetadataCacheKey::databases(conn_id);
@@ -142,7 +233,7 @@ impl MetadataCache {
             _ => None,
         })
     }
-    
+
     /// 获取 Schema 列表
     pub fn get_schemas(&mut self, conn_id: &str, database: &str) -> Option<Vec<String>> {
         let key = MetadataCacheKey::schemas(conn_id, database);
@@ -151,13 +242,13 @@ impl MetadataCache {
             _ => None,
         })
     }
-    
+
     /// 获取表列表
     pub fn get_tables(
-        &mut self, 
-        conn_id: &str, 
-        database: &str, 
-        schema: Option<&str>
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
     ) -> Option<Vec<SchemaObject>> {
         let key = MetadataCacheKey::tables(conn_id, database, schema.map(|s| s.to_string()));
         self.cache.get(&key).and_then(|v| match v {
@@ -165,7 +256,7 @@ impl MetadataCache {
             _ => None,
         })
     }
-    
+
     /// 获取列列表
     pub fn get_columns(
         &mut self,
@@ -174,43 +265,107 @@ impl MetadataCache {
         schema: Option<&str>,
         table: &str,
     ) -> Option<Vec<SchemaObject>> {
-        let key = MetadataCacheKey::columns(
-            conn_id, 
-            database, 
-            schema.map(|s| s.to_string()), 
-            table
-        );
+        let key =
+            MetadataCacheKey::columns(conn_id, database, schema.map(|s| s.to_string()), table);
         self.cache.get(&key).and_then(|v| match v {
             MetadataCacheValue::SchemaObjects(list) => Some(list),
             _ => None,
         })
     }
-    
+
+    /// 获取列详细信息（ColumnDetail）
+    pub fn get_columns_detail(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        table: &str,
+    ) -> Option<Vec<ColumnDetail>> {
+        let key =
+            MetadataCacheKey::columns(conn_id, database, schema.map(|s| s.to_string()), table);
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::ColumnDetails(list) => Some(list),
+            _ => None,
+        })
+    }
+
+    /// 获取存储过程列表
+    pub fn get_procedures(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+    ) -> Option<Vec<SchemaObject>> {
+        let key = MetadataCacheKey::procedures(conn_id, database, schema.map(|s| s.to_string()));
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::SchemaObjects(list) => Some(list),
+            _ => None,
+        })
+    }
+
+    /// 获取函数列表
+    pub fn get_functions(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+    ) -> Option<Vec<SchemaObject>> {
+        let key = MetadataCacheKey::functions(conn_id, database, schema.map(|s| s.to_string()));
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::SchemaObjects(list) => Some(list),
+            _ => None,
+        })
+    }
+
     /// 获取数据源元数据
     pub fn get_data_source_meta(&mut self, conn_id: &str) -> Option<DataSourceMeta> {
-        let key = MetadataCacheKey::DataSourceMeta { conn_id: conn_id.to_string() };
+        let key = MetadataCacheKey::DataSourceMeta {
+            conn_id: conn_id.to_string(),
+        };
         self.cache.get(&key).and_then(|v| match v {
             MetadataCacheValue::DataSourceMeta(meta) => Some(meta),
             _ => None,
         })
     }
-    
+
+    /// 获取过程/函数 DDL 源码
+    pub fn get_routine_source(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        name: &str,
+        kind: &str,
+    ) -> Option<String> {
+        let key = MetadataCacheKey::routine_source(
+            conn_id,
+            database,
+            schema.map(|s| s.to_string()),
+            name,
+            kind,
+        );
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::RoutineSource(s) => Some(s),
+            _ => None,
+        })
+    }
+
     // ==================== 设置方法 ====================
-    
+
     /// 设置数据库列表
     pub fn set_databases(&mut self, conn_id: &str, databases: Vec<String>) {
         let key = MetadataCacheKey::databases(conn_id);
         let value = MetadataCacheValue::StringList(databases);
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
-    
+
     /// 设置 Schema 列表
     pub fn set_schemas(&mut self, conn_id: &str, database: &str, schemas: Vec<String>) {
         let key = MetadataCacheKey::schemas(conn_id, database);
         let value = MetadataCacheValue::StringList(schemas);
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
-    
+
     /// 设置表列表
     pub fn set_tables(
         &mut self,
@@ -223,7 +378,7 @@ impl MetadataCache {
         let value = MetadataCacheValue::SchemaObjects(tables);
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
-    
+
     /// 设置列列表
     pub fn set_columns(
         &mut self,
@@ -233,79 +388,140 @@ impl MetadataCache {
         table: &str,
         columns: Vec<SchemaObject>,
     ) {
-        let key = MetadataCacheKey::columns(
-            conn_id,
-            database,
-            schema.map(|s| s.to_string()),
-            table,
-        );
+        let key =
+            MetadataCacheKey::columns(conn_id, database, schema.map(|s| s.to_string()), table);
         let value = MetadataCacheValue::SchemaObjects(columns);
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
-    
+
+    /// 设置列详细信息（ColumnDetail）
+    pub fn set_columns_detail(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        table: &str,
+        columns: Vec<ColumnDetail>,
+    ) {
+        let key =
+            MetadataCacheKey::columns(conn_id, database, schema.map(|s| s.to_string()), table);
+        let value = MetadataCacheValue::ColumnDetails(columns);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
+    /// 设置存储过程列表
+    pub fn set_procedures(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        procedures: Vec<SchemaObject>,
+    ) {
+        let key = MetadataCacheKey::procedures(conn_id, database, schema.map(|s| s.to_string()));
+        let value = MetadataCacheValue::SchemaObjects(procedures);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
+    /// 设置函数列表
+    pub fn set_functions(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        functions: Vec<SchemaObject>,
+    ) {
+        let key = MetadataCacheKey::functions(conn_id, database, schema.map(|s| s.to_string()));
+        let value = MetadataCacheValue::SchemaObjects(functions);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
     /// 设置数据源元数据
     pub fn set_data_source_meta(&mut self, conn_id: &str, meta: DataSourceMeta) {
-        let key = MetadataCacheKey::DataSourceMeta { conn_id: conn_id.to_string() };
+        let key = MetadataCacheKey::DataSourceMeta {
+            conn_id: conn_id.to_string(),
+        };
         let value = MetadataCacheValue::DataSourceMeta(meta);
         // 数据源元数据缓存时间更长
         let ttl = self.default_ttl * 2;
         self.cache.put_with_ttl(key, value, Some(ttl));
     }
-    
+
+    /// 设置过程/函数 DDL 源码
+    pub fn set_routine_source(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        name: &str,
+        kind: &str,
+        source: String,
+    ) {
+        let key = MetadataCacheKey::routine_source(
+            conn_id,
+            database,
+            schema.map(|s| s.to_string()),
+            name,
+            kind,
+        );
+        let value = MetadataCacheValue::RoutineSource(source);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
     // ==================== 管理方法 ====================
-    
+
     /// 清除指定连接的所有缓存
     pub fn invalidate_connection(&mut self, conn_id: &str) {
         // 收集需要移除的键
-        let keys_to_remove: Vec<_> = self.cache
+        let keys_to_remove: Vec<_> = self
+            .cache
             .keys()
             .into_iter()
             .filter(|k| k.conn_id() == conn_id)
             .collect();
-        
+
         for key in keys_to_remove {
             self.cache.remove(&key);
         }
     }
-    
+
     /// 清除所有缓存
     pub fn clear(&mut self) {
         self.cache.clear();
     }
-    
+
     /// 获取统计信息
     pub fn stats(&self) -> &CacheStats {
         self.cache.stats()
     }
-    
+
     /// 清理过期条目
     pub fn cleanup_expired(&mut self) -> usize {
         self.cache.cleanup_expired()
     }
-    
+
     /// 获取当前大小
     pub fn len(&self) -> usize {
         self.cache.len()
     }
-    
+
     /// 检查是否为空
     pub fn is_empty(&self) -> bool {
         self.cache.is_empty()
     }
-    
+
     /// 强制淘汰指定比例的缓存
-    /// 
+    ///
     /// # 参数
     /// * `ratio` - 淘汰比例 (0.0 - 1.0)
     pub fn force_evict(&mut self, ratio: f64) -> usize {
         self.cache.force_evict(ratio)
     }
-    
+
     /// 内存压力感知淘汰
     pub fn memory_pressure_eviction(&mut self) -> usize {
         self.cache.memory_pressure_eviction()
     }
-    
+
     /// 估算内存使用量（字节）
     pub fn estimated_memory_usage(&self) -> usize {
         // 粗略估算：每个 SchemaObject 约 200 字节，每个 String 约 50 字节
@@ -318,7 +534,10 @@ impl MetadataCache {
                 MetadataCacheKey::Columns { .. } => total += 1000,
                 MetadataCacheKey::Views { .. } => total += 500,
                 MetadataCacheKey::Indexes { .. } => total += 300,
+                MetadataCacheKey::Procedures { .. } => total += 300,
+                MetadataCacheKey::Functions { .. } => total += 300,
                 MetadataCacheKey::DataSourceMeta { .. } => total += 200,
+                MetadataCacheKey::RoutineSource { .. } => total += 200,
             }
         }
         total
@@ -348,11 +567,11 @@ impl Default for MetadataCacheConfig {
     fn default() -> Self {
         Self {
             capacity: 1000,
-            default_ttl: Duration::from_secs(300),      // 5 分钟
-            databases_ttl: Duration::from_secs(600),    // 10 分钟
-            schemas_ttl: Duration::from_secs(300),      // 5 分钟
-            tables_ttl: Duration::from_secs(120),       // 2 分钟
-            columns_ttl: Duration::from_secs(600),      // 10 分钟（列信息变化较少）
+            default_ttl: Duration::from_secs(300),   // 5 分钟
+            databases_ttl: Duration::from_secs(600), // 10 分钟
+            schemas_ttl: Duration::from_secs(300),   // 5 分钟
+            tables_ttl: Duration::from_secs(120),    // 2 分钟
+            columns_ttl: Duration::from_secs(600),   // 10 分钟（列信息变化较少）
             enabled: true,
         }
     }

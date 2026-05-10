@@ -40,6 +40,85 @@ interface EditorSettings {
   fontFamily: string
 }
 
+/** 连接池设置 */
+interface ConnectionPoolSettings {
+  maxConnections: number
+  minIdleConnections: number
+  connectionTimeout: number
+  idleTimeout: number
+  autoReconnect: boolean
+  healthCheck: boolean
+  healthCheckInterval: number
+}
+
+/** 历史记录设置 */
+interface HistorySettings {
+  maxHistoryItems: number
+  retentionDays: number
+  enableHistory: boolean
+  includeSQL: boolean
+  enableUndo: boolean
+}
+
+/** 监控设置 */
+interface MonitoringSettings {
+  enableMonitoring: boolean
+  updateInterval: number
+  enableAlerts: boolean
+  alertOnDisconnect: boolean
+  alertOnSlowQuery: boolean
+  slowQueryThreshold: number
+}
+
+/** 性能设置 */
+interface PerformanceSettings {
+  virtualScrollBuffer: number
+  maxCacheSize: number
+  cacheExpireMinutes: number
+  enableLazyLoad: boolean
+  enablePreload: boolean
+}
+
+/** 外观设置 */
+interface AppearanceSettings {
+  uiFontSize: number
+  compactMode: boolean
+}
+
+/** 结果面板设置 */
+interface ResultSettings {
+  pageSize: number
+  defaultViewMode: 'grid' | 'text' | 'chart'
+  nullDisplay: string
+  dateFormat: string
+}
+
+/** 标题栏设置 */
+interface TitleBarSettings {
+  menuStyle: 'full' | 'compact' | 'hidden'
+  toolbarTools: string[]
+  showProjectSelector: boolean
+  showCommandCenter: boolean
+  recentProjectCount: number
+}
+
+/** 状态栏设置 */
+interface StatusBarSettings {
+  visible: boolean
+  showConnectionStatus: boolean
+  showExecutionTime: boolean
+  showRowCount: boolean
+  showDuckDBIndicator: boolean
+  showEncoding: boolean
+  showVersion: boolean
+}
+
+/** 命令面板设置 */
+interface CommandPaletteSettings {
+  maxRecentCommands: number
+  includeDisabledCommands: boolean
+}
+
 /** dockview-vue 序列化面板状态 */
 interface SerializedPanelState {
   id: string
@@ -90,6 +169,15 @@ interface GlobalConfig {
   editorSettings: EditorSettings
   defaultEngine: DefaultEngine
   recentProjects: string[]
+  connectionPool: ConnectionPoolSettings
+  historySettings: HistorySettings
+  monitoringSettings: MonitoringSettings
+  performanceSettings: PerformanceSettings
+  appearanceSettings: AppearanceSettings
+  resultSettings: ResultSettings
+  titleBarSettings: TitleBarSettings
+  statusBarSettings: StatusBarSettings
+  commandPaletteSettings: CommandPaletteSettings
 }
 
 /** 项目配置对象（存储在 project-{id}-settings.json，所有字段可选） */
@@ -99,6 +187,10 @@ interface ProjectConfig {
   defaultEngine?: DefaultEngine
   dockviewLayout?: SerializedDockviewLayout
   sidebarState?: SerializedSidebarState
+  resultSettings?: Partial<ResultSettings>
+  titleBarSettings?: Partial<TitleBarSettings>
+  statusBarSettings?: Partial<StatusBarSettings>
+  commandPaletteSettings?: Partial<CommandPaletteSettings>
 }
 
 // ============================================
@@ -149,6 +241,76 @@ const SidebarStateSchema = z.object({
 })
 
 const RecentProjectsSchema = z.array(z.string()).max(10)
+
+const ConnectionPoolSettingsSchema = z.object({
+  maxConnections: z.number().min(1).max(100),
+  minIdleConnections: z.number().min(0).max(50),
+  connectionTimeout: z.number().min(1).max(300),
+  idleTimeout: z.number().min(10).max(3600),
+  autoReconnect: z.boolean(),
+  healthCheck: z.boolean(),
+  healthCheckInterval: z.number().min(10).max(300),
+})
+
+const HistorySettingsSchema = z.object({
+  maxHistoryItems: z.number().min(10).max(1000),
+  retentionDays: z.number().min(1).max(365),
+  enableHistory: z.boolean(),
+  includeSQL: z.boolean(),
+  enableUndo: z.boolean(),
+})
+
+const MonitoringSettingsSchema = z.object({
+  enableMonitoring: z.boolean(),
+  updateInterval: z.number().min(1).max(60),
+  enableAlerts: z.boolean(),
+  alertOnDisconnect: z.boolean(),
+  alertOnSlowQuery: z.boolean(),
+  slowQueryThreshold: z.number().min(100).max(30000),
+})
+
+const PerformanceSettingsSchema = z.object({
+  virtualScrollBuffer: z.number().min(1).max(20),
+  maxCacheSize: z.number().min(10).max(500),
+  cacheExpireMinutes: z.number().min(5).max(1440),
+  enableLazyLoad: z.boolean(),
+  enablePreload: z.boolean(),
+})
+
+const AppearanceSettingsSchema = z.object({
+  uiFontSize: z.number().min(10).max(24),
+  compactMode: z.boolean(),
+})
+
+const ResultSettingsSchema = z.object({
+  pageSize: z.number().min(10).max(10000),
+  defaultViewMode: z.enum(['grid', 'text', 'chart']),
+  nullDisplay: z.string().max(20),
+  dateFormat: z.string().max(32),
+})
+
+const TitleBarSettingsSchema = z.object({
+  menuStyle: z.enum(['full', 'compact', 'hidden']),
+  toolbarTools: z.array(z.string()),
+  showProjectSelector: z.boolean(),
+  showCommandCenter: z.boolean(),
+  recentProjectCount: z.number().min(1).max(10),
+})
+
+const StatusBarSettingsSchema = z.object({
+  visible: z.boolean(),
+  showConnectionStatus: z.boolean(),
+  showExecutionTime: z.boolean(),
+  showRowCount: z.boolean(),
+  showDuckDBIndicator: z.boolean(),
+  showEncoding: z.boolean(),
+  showVersion: z.boolean(),
+})
+
+const CommandPaletteSettingsSchema = z.object({
+  maxRecentCommands: z.number().min(1).max(20),
+  includeDisabledCommands: z.boolean(),
+})
 
 // ============================================
 // 配置注册表 —— 单一事实来源
@@ -255,6 +417,157 @@ const CONFIG_REGISTRY = {
       projectOnly: true,
     } satisfies ConfigOverrideRule,
   },
+  connectionPool: {
+    key: 'connectionPool' as const,
+    default: {
+      maxConnections: 10,
+      minIdleConnections: 2,
+      connectionTimeout: 30,
+      idleTimeout: 300,
+      autoReconnect: true,
+      healthCheck: true,
+      healthCheckInterval: 60,
+    } satisfies ConnectionPoolSettings,
+    writeType: {} as ConnectionPoolSettings,
+    valueSchema: ConnectionPoolSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: false,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  historySettings: {
+    key: 'historySettings' as const,
+    default: {
+      maxHistoryItems: 100,
+      retentionDays: 30,
+      enableHistory: true,
+      includeSQL: true,
+      enableUndo: true,
+    } satisfies HistorySettings,
+    writeType: {} as HistorySettings,
+    valueSchema: HistorySettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: false,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  monitoringSettings: {
+    key: 'monitoringSettings' as const,
+    default: {
+      enableMonitoring: true,
+      updateInterval: 5,
+      enableAlerts: true,
+      alertOnDisconnect: true,
+      alertOnSlowQuery: true,
+      slowQueryThreshold: 1000,
+    } satisfies MonitoringSettings,
+    writeType: {} as MonitoringSettings,
+    valueSchema: MonitoringSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: false,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  performanceSettings: {
+    key: 'performanceSettings' as const,
+    default: {
+      virtualScrollBuffer: 5,
+      maxCacheSize: 100,
+      cacheExpireMinutes: 60,
+      enableLazyLoad: true,
+      enablePreload: true,
+    } satisfies PerformanceSettings,
+    writeType: {} as PerformanceSettings,
+    valueSchema: PerformanceSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: false,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  appearanceSettings: {
+    key: 'appearanceSettings' as const,
+    default: {
+      uiFontSize: 13,
+      compactMode: false,
+    } satisfies AppearanceSettings,
+    writeType: {} as AppearanceSettings,
+    valueSchema: AppearanceSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: false,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  resultSettings: {
+    key: 'resultSettings' as const,
+    default: {
+      pageSize: 200,
+      defaultViewMode: 'grid' as const,
+      nullDisplay: 'NULL',
+      dateFormat: 'YYYY-MM-DD HH:mm:ss',
+    } satisfies ResultSettings,
+    writeType: {} as ResultSettings,
+    valueSchema: ResultSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: true,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  titleBarSettings: {
+    key: 'titleBarSettings' as const,
+    default: {
+      menuStyle: 'full' as const,
+      toolbarTools: [],
+      showProjectSelector: true,
+      showCommandCenter: true,
+      recentProjectCount: 5,
+    } satisfies TitleBarSettings,
+    writeType: {} as TitleBarSettings,
+    valueSchema: TitleBarSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: true,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  statusBarSettings: {
+    key: 'statusBarSettings' as const,
+    default: {
+      visible: true,
+      showConnectionStatus: true,
+      showExecutionTime: true,
+      showRowCount: true,
+      showDuckDBIndicator: true,
+      showEncoding: true,
+      showVersion: true,
+    } satisfies StatusBarSettings,
+    writeType: {} as StatusBarSettings,
+    valueSchema: StatusBarSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: true,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
+  commandPaletteSettings: {
+    key: 'commandPaletteSettings' as const,
+    default: {
+      maxRecentCommands: 5,
+      includeDisabledCommands: false,
+    } satisfies CommandPaletteSettings,
+    writeType: {} as CommandPaletteSettings,
+    valueSchema: CommandPaletteSettingsSchema,
+    rule: {
+      globalDefault: true,
+      projectOverridable: false,
+      projectOnly: false,
+    } satisfies ConfigOverrideRule,
+  },
 }
 
 /** 联合类型：所有合法配置键（从注册表自动派生） */
@@ -282,6 +595,15 @@ const CONFIG_KEYS = {
   RECENT_PROJECTS: CONFIG_REGISTRY.recentProjects.key,
   DOCKVIEW_LAYOUT: CONFIG_REGISTRY.dockviewLayout.key,
   SIDEBAR_STATE: CONFIG_REGISTRY.sidebarState.key,
+  CONNECTION_POOL: CONFIG_REGISTRY.connectionPool.key,
+  HISTORY_SETTINGS: CONFIG_REGISTRY.historySettings.key,
+  MONITORING_SETTINGS: CONFIG_REGISTRY.monitoringSettings.key,
+  PERFORMANCE_SETTINGS: CONFIG_REGISTRY.performanceSettings.key,
+  APPEARANCE_SETTINGS: CONFIG_REGISTRY.appearanceSettings.key,
+  RESULT_SETTINGS: CONFIG_REGISTRY.resultSettings.key,
+  TITLE_BAR_SETTINGS: CONFIG_REGISTRY.titleBarSettings.key,
+  STATUS_BAR_SETTINGS: CONFIG_REGISTRY.statusBarSettings.key,
+  COMMAND_PALETTE_SETTINGS: CONFIG_REGISTRY.commandPaletteSettings.key,
 }
 
 /** 可覆盖性规则查找表：key → ConfigOverrideRule */
@@ -297,6 +619,15 @@ const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   editorSettings: { ...CONFIG_REGISTRY.editorSettings.default },
   defaultEngine: CONFIG_REGISTRY.defaultEngine.default,
   recentProjects: [...CONFIG_REGISTRY.recentProjects.default],
+  connectionPool: { ...CONFIG_REGISTRY.connectionPool.default },
+  historySettings: { ...CONFIG_REGISTRY.historySettings.default },
+  monitoringSettings: { ...CONFIG_REGISTRY.monitoringSettings.default },
+  performanceSettings: { ...CONFIG_REGISTRY.performanceSettings.default },
+  appearanceSettings: { ...CONFIG_REGISTRY.appearanceSettings.default },
+  resultSettings: { ...CONFIG_REGISTRY.resultSettings.default },
+  titleBarSettings: { ...CONFIG_REGISTRY.titleBarSettings.default },
+  statusBarSettings: { ...CONFIG_REGISTRY.statusBarSettings.default },
+  commandPaletteSettings: { ...CONFIG_REGISTRY.commandPaletteSettings.default },
 }
 
 /** 编辑器默认设置独立副本 */
@@ -327,6 +658,15 @@ const GlobalConfigSchema = z.object({
   editorSettings: EditorSettingsSchema,
   defaultEngine: DefaultEngineSchema,
   recentProjects: RecentProjectsSchema,
+  connectionPool: ConnectionPoolSettingsSchema,
+  historySettings: HistorySettingsSchema,
+  monitoringSettings: MonitoringSettingsSchema,
+  performanceSettings: PerformanceSettingsSchema,
+  appearanceSettings: AppearanceSettingsSchema,
+  resultSettings: ResultSettingsSchema,
+  titleBarSettings: TitleBarSettingsSchema,
+  statusBarSettings: StatusBarSettingsSchema,
+  commandPaletteSettings: CommandPaletteSettingsSchema,
 })
 
 const ProjectConfigSchema = z.object({
@@ -335,6 +675,10 @@ const ProjectConfigSchema = z.object({
   defaultEngine: DefaultEngineSchema.optional(),
   dockviewLayout: DockviewLayoutSchema.optional(),
   sidebarState: SidebarStateSchema.optional(),
+  resultSettings: ResultSettingsSchema.partial().optional(),
+  titleBarSettings: TitleBarSettingsSchema.partial().optional(),
+  statusBarSettings: StatusBarSettingsSchema.partial().optional(),
+  commandPaletteSettings: CommandPaletteSettingsSchema.partial().optional(),
 })
 
 // ============================================
@@ -413,6 +757,15 @@ export {
   SIDEBAR_WIDTH_MAX,
   VALUE_SCHEMAS,
   EditorSettingsSchema,
+  ConnectionPoolSettingsSchema,
+  HistorySettingsSchema,
+  MonitoringSettingsSchema,
+  PerformanceSettingsSchema,
+  AppearanceSettingsSchema,
+  ResultSettingsSchema,
+  TitleBarSettingsSchema,
+  StatusBarSettingsSchema,
+  CommandPaletteSettingsSchema,
   GlobalConfigSchema,
   ProjectConfigSchema,
   migrateConfig,
@@ -425,6 +778,15 @@ export type {
   Language,
   DefaultEngine,
   EditorSettings,
+  ConnectionPoolSettings,
+  HistorySettings,
+  MonitoringSettings,
+  PerformanceSettings,
+  AppearanceSettings,
+  ResultSettings,
+  TitleBarSettings,
+  StatusBarSettings,
+  CommandPaletteSettings,
   GlobalConfig,
   ProjectConfig,
   SerializedDockviewLayout,

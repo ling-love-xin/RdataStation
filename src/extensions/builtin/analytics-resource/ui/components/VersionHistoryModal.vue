@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿<template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal large">
       <div class="modal-header">
@@ -99,7 +99,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,7 +132,7 @@ onMounted(async () => {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -140,7 +140,7 @@ onMounted(async () => {
 .close-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: var(--font-size-xxl);
   cursor: pointer;
   color: var(--text-tertiary);
   transition: color 0.15s;
@@ -167,7 +167,7 @@ onMounted(async () => {
 }
 
 .empty-icon {
-  font-size: 48px;
+  font-size: var(--font-size-display);
   margin-bottom: var(--size-lg);
   opacity: 0.5;
 }
@@ -196,20 +196,20 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   min-width: 60px;
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .current-label {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--primary-color);
   background: var(--primary-light, rgba(22, 93, 255, 0.1));
   padding: 2px 6px;
-  border-radius: 8px;
+  border-radius: var(--border-radius-lg);
 }
 
 .version-info {
@@ -218,7 +218,7 @@ onMounted(async () => {
 }
 
 .version-meta {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
   margin-bottom: var(--size-sm);
 }
@@ -226,7 +226,7 @@ onMounted(async () => {
 .version-snapshot pre {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: var(--bg-tertiary);
   padding: var(--size-md);
@@ -249,7 +249,7 @@ onMounted(async () => {
   padding: 6px 16px;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition: all 0.2s;
   height: var(--height-btn);
