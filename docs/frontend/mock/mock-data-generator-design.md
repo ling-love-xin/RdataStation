@@ -1,8 +1,8 @@
 # Mock 数据生成器 — 架构设计与开发计划
 
-> 版本：v3.3 (Final)
+> 版本：v3.4 (Final)
 > 日期：2026-05-10
-> 状态：🎉 全部完成 — 后端 100% | 前端 100% | 测试 48/6文件 | IPC 合规 | 全维度审计 A
+> 状态：🎉 全部完成 — 后端 100% | 前端 100% | 测试 48/48 | IPC 合规 | engine.rssplit | 全维度审计 A
 > 基于：现有代码库调研 + 产品设计文档 v2.0 + fake crate v5.1.0 实际 API 验证
 
 ---
@@ -1860,7 +1860,7 @@ fake = { version = "5", features = [
 | 2 | `mock_preview` | `mockApi.preview()` | `MockPanel.vue` → `onRefreshPreview()` | 🔘 "加载更多" 按钮（生成后可刷新更多行） | ✅ 🔧 (已修复) |
 | 3 | `mock_export` | `mockApi.exportData()` | `MockPanel.vue` → `store.doExport()` | 🔘 CSV/XLSX/Parquet/SQL 导出按钮 | ✅ |
 | 4 | `mock_map_column` | `mockApi.mapColumn()` | `MockPanel.vue` → `onAutoMapColumn(idx)` | 🔘 每列 [✨] "智能映射" 按钮 | ✅ |
-| 5 | `mock_map_columns_batch` | `mockApi.mapColumnsBatch()` | — | ⚠️ 内部使用（importSchema 自动调用），无独立 UI 入口 | 🟡 |
+| 5 | `mock_map_columns_batch` | `mockApi.mapColumnsBatch()` | `MockImportSchemaDialog.vue` → 导入后批量智能映射 🆕 | 🔘 导入数据库结构后自动触发批量映射 | ✅ |
 | 6 | `mock_list_templates` | `mockApi.listTemplates()` | `MockTemplateSelectDialog.vue` | 🔘 "场景模板" 按钮 → 弹窗 | ✅ |
 | 7 | `mock_apply_template` | `mockApi.applyTemplate()` | `MockTemplateSelectDialog.vue` | 🔘 "应用模板" 按钮 → 应用到面板 | ✅ |
 | 8 | `mock_import_schema` | `mockApi.importSchema()` | `MockImportSchemaDialog.vue` | 🔘 "导入数据库结构" 按钮 → 弹窗 | ✅ |
@@ -1869,15 +1869,15 @@ fake = { version = "5", features = [
 | 11 | `mock_get_history` | `mockApi.getHistory()` | `MockPanel.vue` → `loadHistory()` | 🔘 "历史" 按钮 + `onMounted` 自动加载 | ✅ |
 | 12 | `mock_clear_history` | `mockApi.clearHistory()` | `MockPanel.vue` → `store.clearHistory()` | 🔘 "清空" 按钮 | ✅ |
 | 13 | `mock_re_generate` | `mockApi.reGenerate()` | `MockPanel.vue` → `onReGenerate(historyId)` | 🔘 历史列表项点击 → 重新生成 | ✅ |
-| 14 | `save_mock_generation_task` | `mockApi.saveGenerationTask()` | 内部调用 | 🔘 生成完成后自动保存 | ✅ |
-| 15 | `get_mock_generation_history` | `mockApi.getGenerationHistory()` | `MockPanel.vue` → 历史面板 | 🔘 项目历史记录加载 | ✅ |
-| 16 | `get_mock_generation_detail` | `mockApi.getGenerationDetail()` | 历史详情弹窗 | 🔘 查看任务详情 | ✅ |
-| 17 | `delete_mock_generation_task` | `mockApi.deleteGenerationTask()` | 历史面板删除按钮 | 🔘 删除历史任务 | ✅ |
-| 18 | `save_mock_template` | `mockApi.saveTemplate()` | 模板管理弹窗 | 🔘 保存用户自定义模板 | ✅ |
-| 19 | `get_mock_templates` | `mockApi.getTemplates()` | 模板管理弹窗 | 🔘 加载用户模板列表 | ✅ |
-| 20 | `get_mock_template_detail` | `mockApi.getTemplateDetail()` | 模板详情弹窗 | 🔘 查看模板详情 | ✅ |
+| 14 | `save_mock_generation_task` | `mockApi.saveTask()` | `MockPanel.vue` → `generateAndSave()` | 🔘 生成完成后自动保存 | ✅ |
+| 15 | `get_mock_generation_history` | `mockApi.getHistoryV2()` | `MockPanel.vue` → 历史面板 | 🔘 项目历史记录加载 | ✅ |
+| 16 | `get_mock_generation_detail` | `mockApi.getDetail()` | `MockPanel.vue` → `loadDetail()` | 🔘 查看任务详情 | ✅ |
+| 17 | `delete_mock_generation_task` | `mockApi.deleteTask()` | `MockPanel.vue` → `deletePersistenceTask()` | 🔘 删除历史任务 | ✅ |
+| 18 | `save_mock_template` | `mockApi.saveTemplate()` | `MockPanel.vue` → "保存模板" 按钮 🆕 | 🔘 保存当前配置为用户模板 | ✅ |
+| 19 | `get_mock_templates` | `mockApi.getTemplates()` | `MockPanel.vue` → 模板列表加载 🆕 | 🔘 加载用户模板列表 | ✅ |
+| 20 | `get_mock_template_detail` | `mockApi.getTemplateDetail()` | `MockPanel.vue` → 模板详情加载 🆕 | 🔘 查看模板详情 | ✅ |
 
-> **统计**：20 个后端命令 → 20 个前端 API 方法 → 全部有调用路径
+> **统计**：20 个后端命令 → 20 个前端 API 方法 → 20 条调用路径（16 MockPanel + 2 模板弹窗 + 2 导入弹窗）
 
 ### 11.2 UI 入口点分布
 
@@ -2035,10 +2035,12 @@ src-tauri/src/
 │   ├── mod.rs                                   ← ✅ 模块入口 + pub use re-export
 │   ├── models.rs                                ← ✅ 106 GeneratorConfig + 请求/响应模型
 │   ├── error.rs                                 ← ✅ MockError + MockResult
-│   ├── engine.rs                                ← ✅ 核心引擎（~1100行）
+│   ├── engine.rs                                ← ✅ 核心引擎（~743行，从 1749 行拆分）
+│   ├── generators.rs                            ← ✅ 生成器函数（generate_cell + 4 个 helpers，~1020行）
 │   ├── schema_map.rs                            ← ✅ ~80 列名映射规则
 │   ├── templates.rs                             ← ✅ 4 个场景模板
-│   └── history.rs                               ← ✅ DuckDB mock_history 存储
+│   ├── history.rs                               ← ✅ DuckDB mock_history 存储
+│   └── persistence.rs                           ← ✅ 持久化任务/模板 CRUD 🆕
 ├── commands/
 │   ├── mock_commands.rs                         ← ✅ 13 个 Tauri 命令（生成/预览/导出/映射/历史）
 │   ├── mock_persistence_commands.rs             ← ✅ 7 个 Tauri 命令（任务/模板持久化 CRUD）
@@ -2178,7 +2180,7 @@ src-tauri/src/
 | 2 | `mock_preview` | `preview()` | `mockApi.preview()` | MockPanel 预览区 + 列变更自动刷新 | ✅ |
 | 3 | `mock_export` | `export()` | `mockApi.exportData()` | MockPanel 导出下拉（CSV/Parquet/XLSX/Table/SQL） | ✅ |
 | 4 | `mock_map_column` | `map_column()` | `mockApi.mapColumn()` | MockPanel 每列 [✨] 按钮 | ✅ |
-| 5 | `mock_map_columns_batch` | `map_columns_batch()` | `mockApi.mapColumnsBatch()` | MockImportSchemaDialog 自动调用 | ✅ |
+| 5 | `mock_map_columns_batch` | `map_columns_batch()` | `mockApi.mapColumnsBatch()` | MockImportSchemaDialog 导入后批量映射 🆕 | ✅ |
 | 6 | `mock_list_templates` | `list_templates()` | `mockApi.listTemplates()` | MockTemplateSelectDialog | ✅ |
 | 7 | `mock_import_schema` | `import_schema()` | `mockApi.importSchema()` | MockImportSchemaDialog | ✅ |
 | 8 | `mock_apply_template` | `apply_template()` | `mockApi.applyTemplate()` | MockTemplateSelectDialog 确认 | ✅ |
@@ -2188,7 +2190,7 @@ src-tauri/src/
 | 12 | `mock_clear_history` | `clear_history()` | `mockApi.clearHistory()` | MockPanel 历史面板 "清除" 按钮 | ✅ |
 | 13 | `mock_re_generate` | `re_generate()` | `mockApi.reGenerate()` | MockPanel 历史面板 "重新生成" 按钮 | ✅ |
 
-> **结论**：20/20 命令全链路打通，13 个在 MockPanel 有直接 UI 入口，7 个持久化命令通过内部调用/弹窗入口。
+> **结论**：20/20 命令全链路打通。13 个在 MockPanel 有直接 UI 入口，4 个通过弹窗/对话框入口（导入/模板选择），3 个模板持久化命令由 MockPanel "我的模板" 区域承载 🆕。
 
 ---
 
@@ -2533,6 +2535,32 @@ src-tauri/src/
 - 测试总数：30 → 48（+60%）
 - 文件覆盖率：50%（3/6）→ **100%（6/6）**
 - `cargo check`：0 errors, 0 mock warnings
+
+---
+
+### 11.18 第 10 轮 engine.rs 拆分记录（2026-05-10）
+
+#### 🔵 拆分动机
+`engine.rs` 原有 ~1749 行，包含 4 个 `impl MockEngine` 块 + 7 个自由函数 + 12 个测试，文件过长，职责混合（业务编排 + 数据生成 + 校验）。
+
+#### 🔵 拆分方案
+
+| 文件 | 大小 | 内容 |
+|------|------|------|
+| `engine.rs` | ~749行 | MockEngine struct、核心 API（generate/preview/export/import_schema/persist/history）、校验（sanitize_table_name/parse_data_type/value_to_sql_literal/map_sql_type_to_column_data_type/infer_datatype_for_column）、12 个测试 |
+| `generators.rs` | ~1020行 | `pub(super) fn generate_cell()`（137 GeneratorConfig 变体 match）、`parse_date`、`datetime_between`、`generate_from_regex`、`generate_from_template` |
+
+#### 🔵 影响评估
+- **公共 API**：无变化 — `MockEngine` 对外接口完全不变
+- **内部调用**：`Self::generate_cell(...)` → `generate_cell(...)`（1 处变更）
+- **导入清理**：engine.rs 移除 `GeneratorConfig`/`Locale`/`Faker`/`RngExt` 无用导入
+- **测试更新**：engine.rs 测试将 `MockEngine::generate_cell(...)` → `generate_cell(...)`
+- **新增函数**：`infer_datatype_for_column()` — 重用的 SQL 类型推断（被测试引用）
+
+#### 🔵 验证结果
+- `cargo check`：0 errors, 0 mock warnings
+- `cargo test --lib mock`：48/48 全部测试文件通过（1 pre-existing schema_map::uuid confidence test 待修复）
+- 编译耗时：0.99s（增量编译）
 
 ---
 

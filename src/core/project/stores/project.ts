@@ -11,6 +11,14 @@ import { ref, computed } from 'vue'
 
 import { ProjectService } from '@/extensions/builtin/workbench/ui/services/project'
 
+const DEBUG_PROJECT_STORE = false
+
+function debugLog(...args: unknown[]): void {
+  if (DEBUG_PROJECT_STORE) {
+    console.log(...args)
+  }
+}
+
 export interface Project {
   id: string
   name: string
@@ -49,9 +57,9 @@ export const useProjectStore = defineStore('project', () => {
     // 如果设置了项目，初始化项目存储
     if (project?.path) {
       try {
-        console.log('初始化项目存储:', project.path)
+        debugLog('初始化项目存储:', project.path)
         await invoke('init_project_store', { projectPath: project.path })
-        console.log('项目存储初始化成功:', project.path)
+        debugLog('项目存储初始化成功:', project.path)
       } catch (e) {
         console.error('项目存储初始化失败:', e)
       }
@@ -187,7 +195,7 @@ export const useProjectStore = defineStore('project', () => {
     loading.value = true
     error.value = null
 
-    console.log('[ProjectStore] 开始创建项目:', { name, path, description })
+    debugLog('[ProjectStore] 开始创建项目:', { name, path, description })
 
     try {
       const result = await ProjectService.createAndSaveProject({
@@ -196,7 +204,7 @@ export const useProjectStore = defineStore('project', () => {
         description,
       })
 
-      console.log('[ProjectStore] 后端返回结果:', result)
+      debugLog('[ProjectStore] 后端返回结果:', result)
 
       const project: Project = {
         id: result.id,
@@ -207,7 +215,7 @@ export const useProjectStore = defineStore('project', () => {
         updatedAt: result.updated_at,
       }
 
-      console.log('[ProjectStore] 项目对象:', project)
+      debugLog('[ProjectStore] 项目对象:', project)
 
       // 乐观更新
       currentProject.value = project
@@ -225,7 +233,7 @@ export const useProjectStore = defineStore('project', () => {
         })
       )
 
-      console.log('[ProjectStore] 项目创建成功')
+      debugLog('[ProjectStore] 项目创建成功')
 
       return project
     } catch (e) {
@@ -287,12 +295,46 @@ export const useProjectStore = defineStore('project', () => {
     try {
       await invoke('delete_project', { projectId })
 
-      // 如果删除的是当前项目，清空当前项目
       if (currentProject.value?.id === projectId) {
         currentProject.value = null
       }
 
-      // 强制刷新最近项目列表
+      await loadRecentProjects(true)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '删除项目失败'
+      throw e
+    }
+  }
+
+  /**
+   * 从最近列表中移除项目（不删除物理文件）
+   */
+  async function removeFromRecent(projectId: string): Promise<void> {
+    try {
+      await ProjectService.removeFromRecent(projectId)
+
+      if (currentProject.value?.id === projectId) {
+        currentProject.value = null
+      }
+
+      await loadRecentProjects(true)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '移除项目失败'
+      throw e
+    }
+  }
+
+  /**
+   * 物理删除项目（数据库 + 磁盘）
+   */
+  async function deleteProjectDisk(projectId: string): Promise<void> {
+    try {
+      await ProjectService.deleteProjectDisk(projectId)
+
+      if (currentProject.value?.id === projectId) {
+        currentProject.value = null
+      }
+
       await loadRecentProjects(true)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '删除项目失败'
@@ -372,6 +414,8 @@ export const useProjectStore = defineStore('project', () => {
     createProject,
     switchProject,
     deleteProject,
+    removeFromRecent,
+    deleteProjectDisk,
     updateProjectInfo,
     closeProject,
     clearError,

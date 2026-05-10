@@ -1,8 +1,8 @@
-use rdata_station_lib::core::driver::{Database, MetadataBrowser};
 use rdata_station_lib::core::driver::native::duckdb::DuckDbDatabase;
 use rdata_station_lib::core::driver::native::mysql::MySqlDatabase;
 use rdata_station_lib::core::driver::native::postgres::PostgresDatabase;
 use rdata_station_lib::core::driver::native::sqlite::SqliteDatabase;
+use rdata_station_lib::core::driver::{Database, MetadataBrowser};
 use std::fs;
 
 const SQLITE_PATH: &str = r"E:\Documents\new.db";
@@ -30,7 +30,10 @@ async fn test_sqlite_list_tables() {
         .list_tables("main", None)
         .await
         .expect("failed to list tables");
-    eprintln!("SQLite tables: {:?}", tables.iter().map(|t| &t.name).collect::<Vec<_>>());
+    eprintln!(
+        "SQLite tables: {:?}",
+        tables.iter().map(|t| &t.name).collect::<Vec<_>>()
+    );
 }
 
 #[tokio::test]
@@ -45,7 +48,10 @@ async fn test_sqlite_list_columns() {
         eprintln!(
             "SQLite table [{}] columns: {:?}",
             table.name,
-            columns.iter().map(|c| format!("{} ({})", c.name, c.data_type)).collect::<Vec<_>>()
+            columns
+                .iter()
+                .map(|c| format!("{} ({})", c.name, c.data_type))
+                .collect::<Vec<_>>()
         );
     }
 }
@@ -53,23 +59,36 @@ async fn test_sqlite_list_columns() {
 #[tokio::test]
 async fn test_sqlite_execute_query() {
     let db = SqliteDatabase::new(SQLITE_PATH).expect("failed to open SQLite");
-    let result = db.query("SELECT 1 AS test_col").await.expect("query failed");
+    let result = db
+        .query("SELECT 1 AS test_col")
+        .await
+        .expect("query failed");
     assert!(!result.batches.is_empty(), "expected at least one batch");
-    eprintln!("SQLite SELECT 1 returned {} batch(es)", result.batches.len());
+    eprintln!(
+        "SQLite SELECT 1 returned {} batch(es)",
+        result.batches.len()
+    );
 }
 
 #[tokio::test]
 async fn test_postgres_connect_and_ping() {
-    let pool = sqlx::PgPool::connect(PG_URL).await.expect("failed to connect to PG");
+    let pool = sqlx::PgPool::connect(PG_URL)
+        .await
+        .expect("failed to connect to PG");
     let db = PostgresDatabase::from_pool(pool);
     db.ping().await.expect("PostgreSQL ping failed");
 }
 
 #[tokio::test]
 async fn test_postgres_list_schemas() {
-    let pool = sqlx::PgPool::connect(PG_URL).await.expect("failed to connect to PG");
+    let pool = sqlx::PgPool::connect(PG_URL)
+        .await
+        .expect("failed to connect to PG");
     let db = PostgresDatabase::from_pool(pool);
-    let schemas = db.list_schemas("postgres").await.expect("failed to list schemas");
+    let schemas = db
+        .list_schemas("postgres")
+        .await
+        .expect("failed to list schemas");
     eprintln!(
         "PostgreSQL schemas: {:?}",
         schemas.iter().collect::<Vec<_>>()
@@ -78,7 +97,9 @@ async fn test_postgres_list_schemas() {
 
 #[tokio::test]
 async fn test_postgres_list_tables() {
-    let pool = sqlx::PgPool::connect(PG_URL).await.expect("failed to connect to PG");
+    let pool = sqlx::PgPool::connect(PG_URL)
+        .await
+        .expect("failed to connect to PG");
     let db = PostgresDatabase::from_pool(pool);
     let tables = db
         .list_tables("postgres", Some("public"))
@@ -92,16 +113,26 @@ async fn test_postgres_list_tables() {
 
 #[tokio::test]
 async fn test_postgres_execute_query() {
-    let pool = sqlx::PgPool::connect(PG_URL).await.expect("failed to connect to PG");
+    let pool = sqlx::PgPool::connect(PG_URL)
+        .await
+        .expect("failed to connect to PG");
     let db = PostgresDatabase::from_pool(pool);
-    let result = db.query("SELECT 1::int AS test_col").await.expect("query failed");
+    let result = db
+        .query("SELECT 1::int AS test_col")
+        .await
+        .expect("query failed");
     assert!(!result.batches.is_empty());
-    eprintln!("PostgreSQL SELECT 1 returned {} batch(es)", result.batches.len());
+    eprintln!(
+        "PostgreSQL SELECT 1 returned {} batch(es)",
+        result.batches.len()
+    );
 }
 
 #[tokio::test]
 async fn test_postgres_list_functions() {
-    let pool = sqlx::PgPool::connect(PG_URL).await.expect("failed to connect to PG");
+    let pool = sqlx::PgPool::connect(PG_URL)
+        .await
+        .expect("failed to connect to PG");
     let db = PostgresDatabase::from_pool(pool);
     let funcs = db
         .list_functions("postgres", Some("public"))
@@ -124,7 +155,10 @@ async fn test_duckdb_connect_and_ping() {
 async fn test_duckdb_list_tables() {
     let path = duckdb_temp_path();
     let db = DuckDbDatabase::new(&path).expect("failed to open DuckDB");
-    let tables = db.list_tables("main", Some("main")).await.expect("failed to list tables");
+    let tables = db
+        .list_tables("main", Some("main"))
+        .await
+        .expect("failed to list tables");
     eprintln!(
         "DuckDB tables: {:?}",
         tables.iter().map(|t| &t.name).collect::<Vec<_>>()
@@ -135,16 +169,25 @@ async fn test_duckdb_list_tables() {
 async fn test_duckdb_execute_query() {
     let path = duckdb_temp_path();
     let db = DuckDbDatabase::new(&path).expect("failed to open DuckDB");
-    let result = db.query("SELECT 1 AS test_col").await.expect("query failed");
+    let result = db
+        .query("SELECT 1 AS test_col")
+        .await
+        .expect("query failed");
     assert!(!result.batches.is_empty());
-    eprintln!("DuckDB SELECT 1 returned {} batch(es)", result.batches.len());
+    eprintln!(
+        "DuckDB SELECT 1 returned {} batch(es)",
+        result.batches.len()
+    );
 }
 
 #[tokio::test]
 async fn test_duckdb_get_table_detail() {
     let path = duckdb_temp_path();
     let db = DuckDbDatabase::new(&path).expect("failed to open DuckDB");
-    let tables = db.list_tables("main", Some("main")).await.expect("list_tables");
+    let tables = db
+        .list_tables("main", Some("main"))
+        .await
+        .expect("list_tables");
     if let Some(table) = tables.first() {
         let detail = db
             .get_table_detail("main", "main", &table.name)
@@ -152,20 +195,26 @@ async fn test_duckdb_get_table_detail() {
             .expect("failed to get table detail");
         eprintln!(
             "DuckDB table [{}] index_count={:?}, columns={}",
-            table.name, detail.index_count, detail.columns.len()
+            table.name,
+            detail.index_count,
+            detail.columns.len()
         );
     }
 }
 
 #[tokio::test]
 async fn test_mysql_connect_and_ping() {
-    let db = MySqlDatabase::new(MYSQL_URL).await.expect("failed to connect to MySQL");
+    let db = MySqlDatabase::new(MYSQL_URL)
+        .await
+        .expect("failed to connect to MySQL");
     db.ping().await.expect("MySQL ping failed");
 }
 
 #[tokio::test]
 async fn test_mysql_list_databases() {
-    let db = MySqlDatabase::new(MYSQL_URL).await.expect("failed to connect to MySQL");
+    let db = MySqlDatabase::new(MYSQL_URL)
+        .await
+        .expect("failed to connect to MySQL");
     let databases = db.list_databases().await.expect("failed to list databases");
     eprintln!(
         "MySQL databases: {:?}",
@@ -175,7 +224,9 @@ async fn test_mysql_list_databases() {
 
 #[tokio::test]
 async fn test_mysql_list_tables() {
-    let db = MySqlDatabase::new(MYSQL_URL).await.expect("failed to connect to MySQL");
+    let db = MySqlDatabase::new(MYSQL_URL)
+        .await
+        .expect("failed to connect to MySQL");
     let databases = db.list_databases().await.expect("list_databases");
     if let Some(database) = databases.first() {
         let tables = db
@@ -192,15 +243,22 @@ async fn test_mysql_list_tables() {
 
 #[tokio::test]
 async fn test_mysql_execute_query() {
-    let db = MySqlDatabase::new(MYSQL_URL).await.expect("failed to connect to MySQL");
-    let result = db.query("SELECT 1 AS test_col").await.expect("query failed");
+    let db = MySqlDatabase::new(MYSQL_URL)
+        .await
+        .expect("failed to connect to MySQL");
+    let result = db
+        .query("SELECT 1 AS test_col")
+        .await
+        .expect("query failed");
     assert!(!result.batches.is_empty());
     eprintln!("MySQL SELECT 1 returned {} batch(es)", result.batches.len());
 }
 
 #[tokio::test]
 async fn test_mysql_list_functions() {
-    let db = MySqlDatabase::new(MYSQL_URL).await.expect("failed to connect to MySQL");
+    let db = MySqlDatabase::new(MYSQL_URL)
+        .await
+        .expect("failed to connect to MySQL");
     let funcs = db
         .list_functions("mysql", None)
         .await

@@ -3,7 +3,6 @@ use crate::core::error::{CoreError, StorageError};
 use chrono::Utc;
 
 impl AnalyticsResourceStore {
-
     pub async fn create_folder(
         &self,
         req: CreateFolderRequest,

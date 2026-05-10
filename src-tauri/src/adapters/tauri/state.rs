@@ -53,38 +53,82 @@ impl WarmingTaskManager {
                 current_table: None,
             }),
         });
-        self.tasks
-            .write()
-            .unwrap()
-            .insert(connection_id.to_string(), Arc::clone(&task));
+        match self.tasks.write() {
+            Ok(mut map) => {
+                map.insert(connection_id.to_string(), Arc::clone(&task));
+            }
+            Err(e) => {
+                tracing::error!("Failed to acquire write lock for warming tasks: {}", e);
+            }
+        }
         task
     }
 
     /// 获取预热任务
     pub fn get_task(&self, connection_id: &str) -> Option<Arc<WarmingTask>> {
-        self.tasks.read().unwrap().get(connection_id).cloned()
+        self.tasks
+            .read()
+            .map_err(|e| tracing::error!("Failed to acquire read lock for warming tasks: {}", e))
+            .ok()
+            .and_then(|map| map.get(connection_id).cloned())
     }
 
     /// 取消预热任务
     pub fn cancel_task(&self, connection_id: &str) -> bool {
-        if let Some(task) = self.tasks.write().unwrap().remove(connection_id) {
-            task.cancel_token.cancel();
-            true
-        } else {
-            false
+        match self.tasks.write() {
+            Ok(mut map) => {
+                if let Some(task) = map.remove(connection_id) {
+                    task.cancel_token.cancel();
+                    true
+                } else {
+                    false
+                }
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to acquire write lock for cancel warming task: {}",
+                    e
+                );
+                false
+            }
         }
     }
 
     /// 更新预热进度
     pub fn update_progress(&self, connection_id: &str, progress: WarmingProgressState) {
-        if let Some(task) = self.tasks.read().unwrap().get(connection_id) {
-            *task.progress.lock().unwrap() = progress;
+        let task = match self.tasks.read() {
+            Ok(map) => map.get(connection_id).cloned(),
+            Err(e) => {
+                tracing::error!(
+                    "Failed to acquire read lock for update warming progress: {}",
+                    e
+                );
+                return;
+            }
+        };
+        if let Some(task) = task {
+            match task.progress.lock() {
+                Ok(mut p) => *p = progress,
+                Err(e) => {
+                    tracing::error!("Failed to lock warming progress mutex: {}", e);
+                }
+            }
         }
     }
 
     /// 完成预热任务
     pub fn complete_task(&self, connection_id: &str) {
-        self.tasks.write().unwrap().remove(connection_id);
+        match self.tasks.write() {
+            Ok(mut map) => {
+                map.remove(connection_id);
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to acquire write lock for complete warming task: {}",
+                    e
+                );
+            }
+        }
     }
 }
 

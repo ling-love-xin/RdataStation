@@ -4,7 +4,6 @@ use chrono::Utc;
 use serde_json::Value;
 
 impl AnalyticsResourceStore {
-
     pub async fn delete_resource(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.get_conn().await?;
         let now = Utc::now();
@@ -247,7 +246,6 @@ impl AnalyticsResourceStore {
             }
         }
     }
-
 
     pub async fn get_recycle_items(&self) -> Result<Vec<AnalyticsRecycleItem>, CoreError> {
         let conn = self.get_conn().await?;

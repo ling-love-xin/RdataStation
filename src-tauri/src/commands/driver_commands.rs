@@ -6,6 +6,7 @@ use crate::commands::connection_commands::DataSourceMetaResponse;
 use crate::core::get_connection_manager;
 use crate::core::services::ConnectionService;
 use crate::core::{get_all_drivers, get_driver, DriverConnectionConfig, DriverDescriptor};
+use crate::core::error::CoreError;
 
 /// 创建连接响应
 #[derive(serde::Serialize, Debug)]
@@ -21,13 +22,13 @@ pub struct CreateConnectionResponse {
 
 /// 获取所有支持的驱动列表
 #[tauri::command]
-pub async fn get_drivers() -> Result<Vec<DriverDescriptor>, String> {
+pub async fn get_drivers() -> Result<Vec<DriverDescriptor>, CoreError> {
     Ok(get_all_drivers())
 }
 
 /// 获取指定驱动的描述符
 #[tauri::command]
-pub async fn get_driver_info(driver_id: String) -> Result<Option<DriverDescriptor>, String> {
+pub async fn get_driver_info(driver_id: String) -> Result<Option<DriverDescriptor>, CoreError> {
     Ok(get_driver(&driver_id))
 }
 
@@ -40,8 +41,8 @@ pub struct CreateConnectionInput {
 #[tauri::command]
 pub async fn create_connection(
     input: CreateConnectionInput,
-) -> Result<CreateConnectionResponse, String> {
-    let url = input.config.to_url().map_err(|e| e.to_string())?;
+) -> Result<CreateConnectionResponse, CoreError> {
+    let url = input.config.to_url().map_err(|e| CoreError::from(e.to_string()))?;
 
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -55,7 +56,7 @@ pub async fn create_connection(
     let (conn_id, db) = service
         .connect(None, &input.config.driver, &url, Some(name.clone()))
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let meta = db.meta();
 
@@ -77,8 +78,8 @@ pub struct CreateConnectionWithConfigInput {
 #[tauri::command]
 pub async fn create_connection_with_config(
     input: CreateConnectionWithConfigInput,
-) -> Result<CreateConnectionResponse, String> {
-    let url = input.config.to_url().map_err(|e| e.to_string())?;
+) -> Result<CreateConnectionResponse, CoreError> {
+    let url = input.config.to_url().map_err(|e| CoreError::from(e.to_string()))?;
 
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -92,7 +93,7 @@ pub async fn create_connection_with_config(
     let (conn_id, db) = service
         .connect(None, &input.config.driver, &url, Some(name.clone()))
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let meta = db.meta();
 
@@ -113,7 +114,7 @@ pub struct UpdateConnectionInput {
 }
 
 #[tauri::command]
-pub async fn update_connection(input: UpdateConnectionInput) -> Result<(), String> {
+pub async fn update_connection(input: UpdateConnectionInput) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager.clone());
 
@@ -121,10 +122,10 @@ pub async fn update_connection(input: UpdateConnectionInput) -> Result<(), Strin
         service
             .close_connection(&input.id)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| CoreError::from(e.to_string()))?;
     }
 
-    let url = input.config.to_url().map_err(|e| e.to_string())?;
+    let url = input.config.to_url().map_err(|e| CoreError::from(e.to_string()))?;
     let name = input
         .config
         .name
@@ -134,7 +135,7 @@ pub async fn update_connection(input: UpdateConnectionInput) -> Result<(), Strin
     service
         .connect(Some(input.id), &input.config.driver, &url, Some(name))
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     Ok(())
 }

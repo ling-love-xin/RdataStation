@@ -7,8 +7,8 @@ use crate::core::error::{CommonError, CoreError};
 use crate::core::insight;
 use crate::core::insight::RuleExecutor;
 use crate::core::services::duckdb_service::{
-    duckdb_value_to_json, is_array_type, is_binary_type, is_datetime_type, is_json_type,
-    is_numeric_type, DuckDbService,
+    duckdb_value_to_json, is_array_type, is_binary_type, is_datetime_type, is_numeric_type,
+    DuckDbService,
 };
 use crate::core::services::result_service::{
     ColumnInsightFull, ColumnStats, ColumnStatsDetail, DateTimeStats, DistributionBin,
@@ -148,12 +148,8 @@ fn get_column_stats_internal(
         compute_datetime_stats(conn, temp_table, column_name)?
     } else if dt_lower == "boolean" || dt_lower == "bool" {
         compute_boolean_stats(conn, temp_table, column_name)?
-    } else if is_binary_type(&dt_lower) {
+    } else if is_binary_type(&dt_lower) || is_array_type(&dt_lower) {
         ColumnStatsDetail::Unknown
-    } else if is_array_type(&dt_lower) {
-        ColumnStatsDetail::Unknown
-    } else if is_json_type(&dt_lower) {
-        compute_text_stats(conn, temp_table, column_name)?
     } else {
         compute_text_stats(conn, temp_table, column_name)?
     };

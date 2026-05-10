@@ -7,10 +7,10 @@
 //!
 //! 注意：这些模型会被 api 层重新导出，供前端使用
 
-use std::fmt;
-use serde::{Serialize, Deserialize};
-use arrow::record_batch::RecordBatch;
 use arrow::array::*;
+use arrow::record_batch::RecordBatch;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Arrow 批处理类型
 pub type ArrowBatch = RecordBatch;
@@ -152,7 +152,7 @@ impl<'de> Deserialize<'de> for QueryResult {
             affected_rows: Option<usize>,
             is_read_only: Option<bool>,
         }
-        
+
         let helper = QueryResultHelper::deserialize(deserializer)?;
         Ok(Self {
             columns: helper.columns,

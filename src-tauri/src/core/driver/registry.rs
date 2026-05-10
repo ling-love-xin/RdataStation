@@ -123,7 +123,7 @@ impl ConnectionConfig {
     ///
     /// 如果设置了 url_override，直接返回；
     /// 否则根据驱动类型生成对应的连接字符串
-    pub fn to_url(&self) -> Result<String, String> {
+    pub fn to_url(&self) -> Result<String, CoreError> {
         if let Some(ref url) = self.url_override {
             return Ok(url.clone());
         }
@@ -132,12 +132,16 @@ impl ConnectionConfig {
             "postgres" => self.build_postgres_url(),
             "sqlite" => self.build_sqlite_url(),
             "duckdb" => self.build_duckdb_url(),
-            _ => Err(format!("Unsupported driver: {}", self.driver)),
+            _ => Err(CoreError::common(
+                crate::core::error::CommonError::Internal(format!(
+                    "Unsupported driver: {}",
+                    self.driver
+                )),
+            )),
         }
     }
 
-    /// 构建 MySQL URL
-    fn build_mysql_url(&self) -> Result<String, String> {
+    fn build_mysql_url(&self) -> Result<String, CoreError> {
         let host = self.host.as_ref().ok_or("Host is required for MySQL")?;
         let port = self.port.unwrap_or(3306);
         let username = self.username.as_deref().unwrap_or("root");
@@ -165,7 +169,7 @@ impl ConnectionConfig {
     }
 
     /// 构建 PostgreSQL URL
-    fn build_postgres_url(&self) -> Result<String, String> {
+    fn build_postgres_url(&self) -> Result<String, CoreError> {
         let host = self
             .host
             .as_ref()
@@ -195,7 +199,7 @@ impl ConnectionConfig {
     }
 
     /// 构建 SQLite URL
-    fn build_sqlite_url(&self) -> Result<String, String> {
+    fn build_sqlite_url(&self) -> Result<String, CoreError> {
         let path = self
             .file_path
             .as_ref()
@@ -204,7 +208,7 @@ impl ConnectionConfig {
     }
 
     /// 构建 DuckDB URL
-    fn build_duckdb_url(&self) -> Result<String, String> {
+    fn build_duckdb_url(&self) -> Result<String, CoreError> {
         let path = self
             .file_path
             .as_ref()

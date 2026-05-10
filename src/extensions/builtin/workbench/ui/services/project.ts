@@ -23,13 +23,57 @@ export interface CreateProjectInput {
   description?: string
 }
 
+interface RetryConfig {
+  maxRetries?: number
+  baseDelayMs?: number
+  timeoutMs?: number
+}
+
+const DEFAULT_RETRY: RetryConfig = {
+  maxRetries: 2,
+  baseDelayMs: 300,
+  timeoutMs: 15000,
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  config: RetryConfig = {}
+): Promise<T> {
+  const { maxRetries = 2, baseDelayMs = 300, timeoutMs = 15000 } = {
+    ...DEFAULT_RETRY,
+    ...config,
+  }
+
+  let lastError: unknown
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await Promise.race([
+        fn(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+        ),
+      ])
+      return result
+    } catch (error) {
+      lastError = error
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError
+}
+
 export class ProjectService {
   /**
    * 获取最近项目列表
    * @param limit 返回数量限制，默认 10
    */
   static async getRecentProjects(limit: number = 10): Promise<ProjectInfo[]> {
-    return invoke<ProjectInfo[]>('get_recent_projects', { limit })
+    return withRetry(() => invoke<ProjectInfo[]>('get_recent_projects', { limit }))
   }
 
   /**
@@ -37,7 +81,7 @@ export class ProjectService {
    * @param id 项目 ID
    */
   static async openProjectById(id: string): Promise<ProjectInfo> {
-    return invoke<ProjectInfo>('open_project_by_id', { id })
+    return withRetry(() => invoke<ProjectInfo>('open_project_by_id', { id }))
   }
 
   /**
@@ -45,7 +89,7 @@ export class ProjectService {
    * @param path 项目路径
    */
   static async openProjectByPath(path: string): Promise<ProjectInfo> {
-    return invoke<ProjectInfo>('open_project_by_path', { path })
+    return withRetry(() => invoke<ProjectInfo>('open_project_by_path', { path }))
   }
 
   /**
@@ -53,10 +97,10 @@ export class ProjectService {
    * @param input 项目创建参数
    */
   static async createAndSaveProject(input: CreateProjectInput): Promise<ProjectInfo> {
-    console.log('ProjectService.createAndSaveProject 调用:', input)
-    const result = await invoke<ProjectInfo>('create_and_save_project', { input })
-    console.log('ProjectService.createAndSaveProject 返回:', result)
-    return result
+    return withRetry(
+      () => invoke<ProjectInfo>('create_and_save_project', { input }),
+      { maxRetries: 1 }
+    )
   }
 
   /**
@@ -65,5 +109,22 @@ export class ProjectService {
    */
   static async addRecentProject(projectId: string): Promise<void> {
     return invoke<void>('add_recent_project', { projectId })
+  }
+
+  /**
+   * 从最近列表中移除项目（不删除物理文件）
+   * @param projectId 项目 ID
+   * @returns 被移除的项目信息，用于 UI 回滚
+   */
+  static async removeFromRecent(projectId: string): Promise<ProjectInfo> {
+    return invoke<ProjectInfo>('remove_from_recent', { projectId })
+  }
+
+  /**
+   * 删除项目（从数据库 + 物理删除磁盘目录）
+   * @param projectId 项目 ID
+   */
+  static async deleteProjectDisk(projectId: string): Promise<void> {
+    return invoke<void>('delete_project_disk', { projectId })
   }
 }

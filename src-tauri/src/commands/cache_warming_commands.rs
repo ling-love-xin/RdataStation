@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
+use crate::core::error::CoreError;
 use crate::core::persistence::cache_version_migration::{
     CacheVersionManager, CURRENT_CACHE_VERSION,
 };
@@ -69,7 +70,8 @@ pub async fn build_cache_index(
     input: BuildCacheIndexInput,
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<IndexBuildResponse, String> {
+) -> Result<IndexBuildResponse, CoreError> {
+    use crate::core::error::CoreError;
     use crate::core::persistence::metadata_cache::{ChangeDetectionResult, SyncSnapshot};
     use tokio::sync::broadcast;
     use tokio::task::JoinSet;
@@ -89,24 +91,26 @@ pub async fn build_cache_index(
         cache_connection_type,
         input.project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let cache_conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let cache_conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let mut cache_ops = MetadataCacheOps::new(cache_conn);
 
     let version_manager = CacheVersionManager::new();
     if version_manager
         .needs_upgrade(cache_ops.get_connection())
-        .map_err(|e| e.to_string())?
+        .map_err(|e| CoreError::from(e.to_string()))?
     {
         version_manager
             .migrate(cache_ops.get_connection())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| CoreError::from(e.to_string()))?;
     }
 
     cache_ops
         .update_sync_status(&input.connection_id, "indexing", 0, None)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let source_conn_id: ConnId = input.source_connection_id.clone();
     let db = match state
@@ -119,7 +123,8 @@ pub async fn build_cache_index(
             return Err(format!(
                 "Source connection not found: {}",
                 input.source_connection_id
-            ))
+            )
+            .into())
         }
     };
 
@@ -130,7 +135,7 @@ pub async fn build_cache_index(
 
     let schemas = match db.list_schemas(&db_name).await {
         Ok(s) => s,
-        Err(e) => return Err(format!("Failed to list schemas: {}", e)),
+        Err(e) => return Err(format!("Failed to list schemas: {}", e).into()),
     };
 
     let total_schemas = schemas.len();
@@ -165,7 +170,7 @@ pub async fn build_cache_index(
         change_result = Some(
             cache_ops
                 .incremental_sync(&conn_id)
-                .map_err(|e| e.to_string())?,
+                .map_err(|e| CoreError::from(e.to_string()))?,
         );
     }
 
@@ -449,14 +454,14 @@ pub async fn build_cache_index(
         cache_ops
             .update_sync_status(&input.connection_id, "cancelled", 0, None)
             .ok();
-        return Err("索引构建被取消".to_string());
+        return Err("索引构建被取消".to_string().into());
     }
 
     // V7: 保存快照（用于下次增量同步）
     send_progress("saving_snapshot", 0, 1, "保存元数据快照...");
     cache_ops
         .save_snapshot(&conn_id, "full", all_snapshots)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     cache_ops
         .update_sync_status(&input.connection_id, "completed", 100, None)
@@ -494,7 +499,9 @@ pub async fn build_cache_index(
 
 /// 启动缓存预热
 #[tauri::command]
-pub async fn start_cache_warming(input: WarmCacheInput) -> Result<WarmingProgressResponse, String> {
+pub async fn start_cache_warming(
+    input: WarmCacheInput,
+) -> Result<WarmingProgressResponse, CoreError> {
     let connection_type = if input.connection_type == "global" {
         ConnectionType::Global
     } else {
@@ -506,19 +513,21 @@ pub async fn start_cache_warming(input: WarmCacheInput) -> Result<WarmingProgres
         connection_type,
         input.project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let mut ops = MetadataCacheOps::new(conn);
 
     let version_manager = CacheVersionManager::new();
     if version_manager
         .needs_upgrade(ops.get_connection())
-        .map_err(|e| e.to_string())?
+        .map_err(|e| CoreError::from(e.to_string()))?
     {
         let records = version_manager
             .migrate(ops.get_connection())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| CoreError::from(e.to_string()))?;
 
         if !records.is_empty() {
             tracing::info!(
@@ -533,7 +542,7 @@ pub async fn start_cache_warming(input: WarmCacheInput) -> Result<WarmingProgres
     let total_steps = input.databases.len();
 
     ops.update_sync_status(&input.connection_id, "indexing", 0, None)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let progress = WarmingProgressResponse {
         connection_id: input.connection_id.clone(),
@@ -555,7 +564,7 @@ pub async fn start_cache_warming(input: WarmCacheInput) -> Result<WarmingProgres
 pub async fn cancel_cache_warming(
     input: CancelWarmingInput,
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let success = state.warming_task_manager.cancel_task(&input.connection_id);
 
     if success {
@@ -565,7 +574,7 @@ pub async fn cancel_cache_warming(
         );
         Ok(())
     } else {
-        Err(format!("未找到连接 {} 的预热任务", input.connection_id))
+        Err(format!("未找到连接 {} 的预热任务", input.connection_id).into())
     }
 }
 
@@ -574,7 +583,7 @@ pub async fn cancel_cache_warming(
 pub async fn get_warming_progress(
     connection_id: String,
     state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
-) -> Result<WarmingProgressResponse, String> {
+) -> Result<WarmingProgressResponse, CoreError> {
     if let Some(task) = state.warming_task_manager.get_task(&connection_id) {
         let progress = task
             .progress
@@ -612,7 +621,7 @@ pub async fn check_cache_version(
     connection_id: String,
     connection_type: String,
     project_path: Option<String>,
-) -> Result<u32, String> {
+) -> Result<u32, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -622,18 +631,20 @@ pub async fn check_cache_version(
         },
         project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
     if !cache_manager.exists() {
         return Ok(0);
     }
 
-    let conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let version_manager = CacheVersionManager::new();
 
     version_manager
         .get_current_version(&conn)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 执行缓存版本迁移
@@ -642,7 +653,7 @@ pub async fn execute_cache_migration(
     connection_id: String,
     connection_type: String,
     project_path: Option<String>,
-) -> Result<MigrationResponse, String> {
+) -> Result<MigrationResponse, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -652,14 +663,16 @@ pub async fn execute_cache_migration(
         },
         project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let version_manager = CacheVersionManager::new();
 
     let from_version = version_manager
         .get_current_version(&conn)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     if from_version >= CURRENT_CACHE_VERSION {
         return Ok(MigrationResponse {
@@ -672,7 +685,9 @@ pub async fn execute_cache_migration(
     }
 
     let start_time = std::time::Instant::now();
-    let records = version_manager.migrate(&conn).map_err(|e| e.to_string())?;
+    let records = version_manager
+        .migrate(&conn)
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let duration = start_time.elapsed();
 
     if records.is_empty() {
@@ -705,7 +720,7 @@ pub async fn get_cache_migration_history(
     connection_id: String,
     connection_type: String,
     project_path: Option<String>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<serde_json::Value>, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -715,18 +730,20 @@ pub async fn get_cache_migration_history(
         },
         project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
     if !cache_manager.exists() {
         return Ok(vec![]);
     }
 
-    let conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let version_manager = CacheVersionManager::new();
 
     let history = version_manager
         .get_migration_history(&conn)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let result: Vec<serde_json::Value> = history
         .iter()
@@ -753,7 +770,7 @@ pub async fn get_introspect_level_suggestion(
     project_path: Option<String>,
     schema_id: i64,
     is_current_schema: bool,
-) -> Result<i32, String> {
+) -> Result<i32, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -763,18 +780,20 @@ pub async fn get_introspect_level_suggestion(
         },
         project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
     if !cache_manager.exists() {
         return Ok(1); // Default to Level 1 for new connections
     }
 
-    let conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let counts = ops
         .get_schema_object_counts(&connection_id, schema_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let level = ops.calculate_introspect_level(counts.total as i64, is_current_schema);
 
@@ -788,7 +807,7 @@ pub async fn get_schema_object_counts(
     connection_type: String,
     project_path: Option<String>,
     schema_id: i64,
-) -> Result<SchemaObjectCountsResponse, String> {
+) -> Result<SchemaObjectCountsResponse, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -798,7 +817,7 @@ pub async fn get_schema_object_counts(
         },
         project_path.as_deref(),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| CoreError::from(e.to_string()))?;
 
     if !cache_manager.exists() {
         return Ok(SchemaObjectCountsResponse {
@@ -810,12 +829,14 @@ pub async fn get_schema_object_counts(
         });
     }
 
-    let conn = cache_manager.open().map_err(|e| e.to_string())?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let counts = ops
         .get_schema_object_counts(&connection_id, schema_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     Ok(SchemaObjectCountsResponse {
         table_count: counts.table_count,

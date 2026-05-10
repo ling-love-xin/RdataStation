@@ -1,14 +1,14 @@
 # API 接口文档
 
-> 版本：v3.9
+> 版本：v4.0
 > 最后更新：2026-05-10
-> 状态：✅ R23 — 八审审计 | 综合 8.6 | 4/4 核心 CoreError | TODO 清零
+> 状态：✅ R25 — 九审审计 | 全量 ~175 命令 | 核心模块+外围基础设施 CoreError 迁移
 
 ## 概述
 
 本文档描述 RdataStation 后端提供的所有 Tauri 命令（API 接口）。
 
-> ⚠️ 所有命令入口在 `commands/` 目录（非 `adapters/tauri/command.rs`）。实际注册的命令以 [lib.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/lib.rs) 中的 `invoke_handler` 为准（共 70+ 命令）。
+> ⚠️ 所有命令入口在 `commands/` 目录（非 `adapters/tauri/command.rs`）。实际注册的命令以 [lib.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/lib.rs) 中的 `invoke_handler` 为准（共 ~175 命令）。
 
 ## 命令分类
 

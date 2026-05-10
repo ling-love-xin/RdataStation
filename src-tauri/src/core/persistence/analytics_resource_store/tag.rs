@@ -4,7 +4,6 @@ use chrono::Utc;
 use serde_json::Value;
 
 impl AnalyticsResourceStore {
-
     pub async fn create_tag(&self, req: CreateTagRequest) -> Result<AnalyticsTag, CoreError> {
         let conn = self.get_conn().await?;
         let id = format!("at_{}", uuid::Uuid::new_v4().simple());

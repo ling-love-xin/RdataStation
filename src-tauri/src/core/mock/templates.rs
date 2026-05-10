@@ -1301,11 +1301,26 @@ mod tests {
     fn test_all_template_columns_have_valid_types() {
         for template in get_builtin_templates() {
             for table in &template.tables {
-                assert!(!table.columns.is_empty(), "{}::{} has no columns", template.id, table.name);
+                assert!(
+                    !table.columns.is_empty(),
+                    "{}::{} has no columns",
+                    template.id,
+                    table.name
+                );
                 for col in &table.columns {
-                    assert!(!col.name.is_empty(), "{}.{} column has empty name", table.name, col.name);
-                    assert!(col.nullable_ratio >= 0.0 && col.nullable_ratio <= 1.0,
-                        "{}.{} nullable_ratio out of range: {}", table.name, col.name, col.nullable_ratio);
+                    assert!(
+                        !col.name.is_empty(),
+                        "{}.{} column has empty name",
+                        table.name,
+                        col.name
+                    );
+                    assert!(
+                        col.nullable_ratio >= 0.0 && col.nullable_ratio <= 1.0,
+                        "{}.{} nullable_ratio out of range: {}",
+                        table.name,
+                        col.name,
+                        col.nullable_ratio
+                    );
                 }
             }
         }

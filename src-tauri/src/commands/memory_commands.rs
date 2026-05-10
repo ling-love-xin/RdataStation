@@ -3,6 +3,7 @@
 //! 处理内存监控、缓存清理、内存统计等操作
 
 use crate::core::cache::{get_memory_guard, CacheManager};
+use crate::core::error::CoreError;
 
 /// 内存统计响应
 #[derive(serde::Serialize, Debug)]
@@ -19,7 +20,7 @@ pub struct MemoryStatsResponse {
 
 /// 获取内存统计信息
 #[tauri::command]
-pub async fn get_memory_stats() -> Result<MemoryStatsResponse, String> {
+pub async fn get_memory_stats() -> Result<MemoryStatsResponse, CoreError> {
     let guard = get_memory_guard().ok_or_else(|| "Memory guard not initialized".to_string())?;
 
     let stats = guard.get_stats().await;
@@ -33,14 +34,14 @@ pub async fn get_memory_stats() -> Result<MemoryStatsResponse, String> {
     let cache_hit_rate = {
         let manager = cache_manager
             .lock()
-            .map_err(|e| format!("Failed to lock cache: {}", e))?;
+            .map_err(|e| CoreError::from(format!("Failed to lock cache: {}", e)))?;
         manager.stats().metadata.hit_rate()
     };
 
     let cache_size = {
         let manager = cache_manager
             .lock()
-            .map_err(|e| format!("Failed to lock cache: {}", e))?;
+            .map_err(|e| CoreError::from(format!("Failed to lock cache: {}", e)))?;
         manager.stats().metadata.entry_count
     };
 
@@ -58,11 +59,11 @@ pub async fn get_memory_stats() -> Result<MemoryStatsResponse, String> {
 
 /// 清理过期缓存
 #[tauri::command]
-pub async fn cleanup_expired_cache() -> Result<usize, String> {
+pub async fn cleanup_expired_cache() -> Result<usize, CoreError> {
     let cache_manager = CacheManager::instance();
     let manager = cache_manager
         .lock()
-        .map_err(|e| format!("Failed to lock cache: {}", e))?;
+        .map_err(|e| CoreError::from(format!("Failed to lock cache: {}", e)))?;
 
     let cleaned = manager.cleanup_expired();
     Ok(cleaned)
@@ -70,7 +71,7 @@ pub async fn cleanup_expired_cache() -> Result<usize, String> {
 
 /// 强制淘汰缓存
 #[tauri::command]
-pub async fn force_evict_cache(_ratio: f64) -> Result<usize, String> {
+pub async fn force_evict_cache(_ratio: f64) -> Result<usize, CoreError> {
     let guard = get_memory_guard().ok_or_else(|| "Memory guard not initialized".to_string())?;
 
     let evicted = guard.check_and_evict().await?;
@@ -79,11 +80,11 @@ pub async fn force_evict_cache(_ratio: f64) -> Result<usize, String> {
 
 /// 清除指定连接的所有缓存
 #[tauri::command]
-pub async fn clear_connection_cache(conn_id: String) -> Result<(), String> {
+pub async fn clear_connection_cache(conn_id: String) -> Result<(), CoreError> {
     let cache_manager = CacheManager::instance();
     let manager = cache_manager
         .lock()
-        .map_err(|e| format!("Failed to lock cache: {}", e))?;
+        .map_err(|e| CoreError::from(format!("Failed to lock cache: {}", e)))?;
 
     manager.invalidate_connection(&conn_id);
     Ok(())
@@ -91,11 +92,11 @@ pub async fn clear_connection_cache(conn_id: String) -> Result<(), String> {
 
 /// 清除所有缓存
 #[tauri::command]
-pub async fn clear_all_cache() -> Result<(), String> {
+pub async fn clear_all_cache() -> Result<(), CoreError> {
     let cache_manager = CacheManager::instance();
     let manager = cache_manager
         .lock()
-        .map_err(|e| format!("Failed to lock cache: {}", e))?;
+        .map_err(|e| CoreError::from(format!("Failed to lock cache: {}", e)))?;
 
     manager.clear_all();
     Ok(())

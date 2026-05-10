@@ -1,21 +1,22 @@
 /**
  * 流式执行引擎
- * 
+ *
  * 负责：
  * - 流式查询结果拼接
  * - 多结果集合并
  * - 后处理（过滤、排序、聚合）
  */
-
 use crate::core::dbi::context::QueryContext;
 use crate::core::dbi::engine::ExecutionEngine;
-use crate::core::error::CoreError;
 use crate::core::error::CommonError;
-use crate::core::models::{QueryResult, Value, ArrowBatch};
-use arrow::array::{StringArray, Int64Array, Float64Array};
-use arrow::compute::{concat_batches, SortColumn, SortOptions, lexsort_to_indices, take_record_batch};
-use arrow::compute::kernels::filter::filter_record_batch;
+use crate::core::error::CoreError;
+use crate::core::models::{ArrowBatch, QueryResult, Value};
 use arrow::array::BooleanArray as ArrowBooleanArray;
+use arrow::array::{Float64Array, Int64Array, StringArray};
+use arrow::compute::kernels::filter::filter_record_batch;
+use arrow::compute::{
+    concat_batches, lexsort_to_indices, take_record_batch, SortColumn, SortOptions,
+};
 use std::sync::Arc;
 
 /// 流式执行引擎
@@ -28,10 +29,10 @@ impl StreamEngine {
     }
 
     /// 合并多个查询结果
-    /// 
+    ///
     /// # 参数
     /// - `results`: 查询结果列表
-    /// 
+    ///
     /// # 返回
     /// 合并后的查询结果
     pub fn merge_results(&self, results: Vec<QueryResult>) -> Result<QueryResult, CoreError> {
@@ -43,7 +44,9 @@ impl StreamEngine {
 
         if results.len() == 1 {
             return Ok(results.into_iter().next().ok_or_else(|| {
-                CoreError::common(CommonError::General("Expected exactly one result".to_string()))
+                CoreError::common(CommonError::General(
+                    "Expected exactly one result".to_string(),
+                ))
             })?);
         }
 
@@ -76,9 +79,12 @@ impl StreamEngine {
 
         let final_batches = if merged_batches.len() > 1 {
             let schema = merged_batches[0].schema();
-            vec![concat_batches(&schema, &merged_batches).map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to merge batches: {}", e),
-            )))?]
+            vec![concat_batches(&schema, &merged_batches).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to merge batches: {}",
+                    e
+                )))
+            })?]
         } else {
             merged_batches
         };
@@ -92,12 +98,12 @@ impl StreamEngine {
     }
 
     /// 对查询结果进行过滤
-    /// 
+    ///
     /// # 参数
     /// - `result`: 查询结果
     /// - `column_index`: 过滤列索引
     /// - `filter_value`: 过滤值
-    /// 
+    ///
     /// # 返回
     /// 过滤后的查询结果
     pub fn filter_result(
@@ -107,9 +113,10 @@ impl StreamEngine {
         filter_value: &Value,
     ) -> Result<QueryResult, CoreError> {
         if column_index >= result.columns.len() {
-            return Err(CoreError::common(CommonError::General(
-                format!("Column index {} out of range", column_index),
-            )));
+            return Err(CoreError::common(CommonError::General(format!(
+                "Column index {} out of range",
+                column_index
+            ))));
         }
 
         let mut filtered_batches = Vec::new();
@@ -120,7 +127,7 @@ impl StreamEngine {
                 Value::Int(v) => {
                     if let Some(arr) = column.as_any().downcast_ref::<Int64Array>() {
                         Arc::new(ArrowBooleanArray::from_iter(
-                            arr.iter().map(|opt| opt.map(|val| val == *v))
+                            arr.iter().map(|opt| opt.map(|val| val == *v)),
                         ))
                     } else {
                         Arc::new(ArrowBooleanArray::from(vec![false; batch.num_rows()]))
@@ -129,7 +136,7 @@ impl StreamEngine {
                 Value::Float(v) => {
                     if let Some(arr) = column.as_any().downcast_ref::<Float64Array>() {
                         Arc::new(ArrowBooleanArray::from_iter(
-                            arr.iter().map(|opt| opt.map(|val| val == *v))
+                            arr.iter().map(|opt| opt.map(|val| val == *v)),
                         ))
                     } else {
                         Arc::new(ArrowBooleanArray::from(vec![false; batch.num_rows()]))
@@ -138,7 +145,7 @@ impl StreamEngine {
                 Value::Text(v) => {
                     if let Some(arr) = column.as_any().downcast_ref::<StringArray>() {
                         Arc::new(ArrowBooleanArray::from_iter(
-                            arr.iter().map(|opt| opt.map(|val| val == v))
+                            arr.iter().map(|opt| opt.map(|val| val == v)),
                         ))
                     } else {
                         Arc::new(ArrowBooleanArray::from(vec![false; batch.num_rows()]))
@@ -147,10 +154,12 @@ impl StreamEngine {
                 _ => Arc::new(ArrowBooleanArray::from(vec![false; batch.num_rows()])),
             };
 
-            let filtered = filter_record_batch(&batch, &filter_array)
-                .map_err(|e| CoreError::common(CommonError::General(
-                    format!("Failed to filter batch: {}", e),
-                )))?;
+            let filtered = filter_record_batch(&batch, &filter_array).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to filter batch: {}",
+                    e
+                )))
+            })?;
             filtered_batches.push(filtered);
         }
 
@@ -163,12 +172,12 @@ impl StreamEngine {
     }
 
     /// 对查询结果进行排序
-    /// 
+    ///
     /// # 参数
     /// - `result`: 查询结果
     /// - `column_index`: 排序列索引
     /// - `ascending`: 是否升序
-    /// 
+    ///
     /// # 返回
     /// 排序后的查询结果
     pub fn sort_result(
@@ -178,9 +187,10 @@ impl StreamEngine {
         ascending: bool,
     ) -> Result<QueryResult, CoreError> {
         if column_index >= result.columns.len() {
-            return Err(CoreError::common(CommonError::General(
-                format!("Column index {} out of range", column_index),
-            )));
+            return Err(CoreError::common(CommonError::General(format!(
+                "Column index {} out of range",
+                column_index
+            ))));
         }
 
         if result.batches.is_empty() {
@@ -188,9 +198,12 @@ impl StreamEngine {
         }
 
         let schema = result.batches[0].schema();
-        let merged = concat_batches(&schema, &result.batches).map_err(|e| CoreError::common(CommonError::General(
-            format!("Failed to merge batches for sorting: {}", e),
-        )))?;
+        let merged = concat_batches(&schema, &result.batches).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "Failed to merge batches for sorting: {}",
+                e
+            )))
+        })?;
 
         let sort_column = merged.column(column_index);
         let sort_columns = vec![SortColumn {
@@ -201,15 +214,13 @@ impl StreamEngine {
             }),
         }];
 
-        let sort_indices = lexsort_to_indices(&sort_columns, None)
-            .map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to sort: {}", e),
-            )))?;
+        let sort_indices = lexsort_to_indices(&sort_columns, None).map_err(|e| {
+            CoreError::common(CommonError::General(format!("Failed to sort: {}", e)))
+        })?;
 
-        let sorted = take_record_batch(&merged, &sort_indices)
-            .map_err(|e| CoreError::common(CommonError::General(
-                format!("Failed to apply sort: {}", e),
-            )))?;
+        let sorted = take_record_batch(&merged, &sort_indices).map_err(|e| {
+            CoreError::common(CommonError::General(format!("Failed to apply sort: {}", e)))
+        })?;
 
         Ok(QueryResult {
             columns: result.columns,
@@ -220,11 +231,11 @@ impl StreamEngine {
     }
 
     /// 对查询结果进行限制
-    /// 
+    ///
     /// # 参数
     /// - `result`: 查询结果
     /// - `limit`: 限制行数
-    /// 
+    ///
     /// # 返回
     /// 限制后的查询结果
     pub fn limit_result(&self, result: QueryResult, limit: usize) -> QueryResult {
@@ -284,7 +295,7 @@ impl ExecutionEngine for StreamEngine {
     async fn execute(&self, sql: &str, _context: &QueryContext) -> Result<QueryResult, CoreError> {
         // 流式引擎通过解析特殊注释指令来执行操作
         // 例如: SELECT * FROM table -- stream:limit:100 -- stream:sort:0:asc
-        
+
         // 解析流式指令
         let mut limit: Option<usize> = None;
         let mut sort_column: Option<(usize, bool)> = None;

@@ -3,10 +3,10 @@
 //! 提供结果的二次分析：SQL 过滤、DuckDB 分析、列洞察、持久化存储
 
 use crate::commands::project_commands::ProjectState;
+use crate::core::error::{CommonError, CoreError};
 use crate::core::insight;
 use crate::core::insight::schema_analyzer::{SchemaAnalyzer, SchemaInsightReport};
 use crate::core::persistence::{InsightMetaStore, InsightStorage};
-use crate::core::error::{CommonError, CoreError};
 use crate::core::services::result_service::{
     ColumnInsightFull, ColumnStats, QualityScore, ResultService, ResultSet, TableProfile,
     TableQuality,
@@ -33,7 +33,6 @@ pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<Resul
         &order_clause,
     )
     .await
-    
 }
 
 // ═══════════════ 单元格编辑持久化 ═══════════════
@@ -84,10 +83,10 @@ pub struct SchemaInsightInput {
 
 /// Schema 级洞察分析（外键推断、类型一致性、孤立表检测）
 #[tauri::command]
-pub async fn get_schema_insight(input: SchemaInsightInput) -> Result<SchemaInsightReport, CoreError> {
-    SchemaAnalyzer::analyze(input.conn_id, &input.database, &input.schema)
-        .await
-        
+pub async fn get_schema_insight(
+    input: SchemaInsightInput,
+) -> Result<SchemaInsightReport, CoreError> {
+    SchemaAnalyzer::analyze(input.conn_id, &input.database, &input.schema).await
 }
 
 /// 列质量评分输入
@@ -100,8 +99,7 @@ pub struct ColumnQualityInput {
 /// 计算列数据质量评分 (0-100)
 #[tauri::command]
 pub async fn get_column_quality(input: ColumnQualityInput) -> Result<QualityScore, CoreError> {
-    let stats = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
-        ?;
+    let stats = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)?;
     Ok(ResultService::compute_column_quality(&stats))
 }
 
@@ -123,7 +121,6 @@ pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQu
         &input.table,
     )
     .await
-    
 }
 
 // ═══════════════ 从表直接探查列命令 ═══════════════
@@ -149,7 +146,6 @@ pub async fn profile_column_from_table(
         &input.column_name,
     )
     .await
-    
 }
 
 // ═══════════════ 版本详情命令 ═══════════════
@@ -170,9 +166,7 @@ pub async fn get_insight_version_detail(
 
     let insight_store = InsightStorage::new(db.duckdb_conn());
 
-    ResultService::get_insight_version_detail(&input.version_id, &insight_store)
-        .await
-        
+    ResultService::get_insight_version_detail(&input.version_id, &insight_store).await
 }
 
 /// DuckDB 分析输入
@@ -187,7 +181,6 @@ pub struct DuckDbAnalysisInput {
 #[tauri::command]
 pub async fn execute_duckdb_analysis(input: DuckDbAnalysisInput) -> Result<ResultSet, CoreError> {
     ResultService::execute_duckdb_analysis(&input.temp_table, &input.sql, input.columns, input.rows)
-        
 }
 
 /// 列洞察输入
@@ -201,7 +194,6 @@ pub struct ColumnInsightInput {
 #[tauri::command]
 pub async fn get_column_insights(input: ColumnInsightInput) -> Result<ColumnStats, CoreError> {
     ResultService::get_column_insights(&input.temp_table, &input.column_name)
-        
 }
 
 /// 获取列全量洞察（统计 + 样本 + 直方图）
@@ -210,7 +202,6 @@ pub async fn get_column_insight_full(
     input: ColumnInsightInput,
 ) -> Result<ColumnInsightFull, CoreError> {
     ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
-        
 }
 
 /// 创建 DuckDB 临时表输入
@@ -252,8 +243,7 @@ pub async fn save_column_insight_snapshot(
     let insight_store = InsightStorage::new(db.duckdb_conn());
     let meta_store = InsightMetaStore::new(db.sqlite_pool());
 
-    let insight = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
-        ?;
+    let insight = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)?;
 
     let row_count = insight.stats.total_count as i64;
     let start = std::time::Instant::now();
@@ -270,8 +260,7 @@ pub async fn save_column_insight_snapshot(
         &insight_store,
         &meta_store,
     )
-    .await
-    ?;
+    .await?;
 
     Ok(version_id)
 }
@@ -294,9 +283,7 @@ pub async fn get_column_insight_history(
 
     let insight_store = InsightStorage::new(db.duckdb_conn());
 
-    ResultService::get_column_insight_history(&input.column_name, &insight_store)
-        .await
-        
+    ResultService::get_column_insight_history(&input.column_name, &insight_store).await
 }
 
 /// 清理洞察快照输入
@@ -320,8 +307,7 @@ pub async fn cleanup_insight_snapshots(
 
     let (duckdb_deleted, sqlite_deleted) =
         ResultService::cleanup_old_insight_snapshots(input.days, &insight_store, &meta_store)
-            .await
-            ?;
+            .await?;
 
     Ok(CleanupResult {
         duckdb_deleted,
@@ -346,9 +332,7 @@ pub async fn get_insight_storage_stats(
 
     let insight_store = InsightStorage::new(db.duckdb_conn());
 
-    ResultService::get_insight_storage_stats(&insight_store)
-        .await
-        
+    ResultService::get_insight_storage_stats(&insight_store).await
 }
 
 // ═══════════════ 规则引擎公开命令 ═══════════════
@@ -363,10 +347,11 @@ pub struct ExecuteRuleInput {
 #[tauri::command]
 pub async fn execute_insight_rule(input: ExecuteRuleInput) -> Result<serde_json::Value, CoreError> {
     let duckdb = ResultService::get_or_create_duckdb()?;
-    let conn = duckdb.lock().map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+    let conn = duckdb
+        .lock()
+        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
 
-    let exec_result = ResultService::execute_insight_rule(&input.rule_id, &conn, &input.params)
-        ?;
+    let exec_result = ResultService::execute_insight_rule(&input.rule_id, &conn, &input.params)?;
     serde_json::to_value(exec_result)
         .map_err(|e| CoreError::common(CommonError::General(e.to_string())))
 }
@@ -428,7 +413,6 @@ pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile,
         &input.table,
     )
     .await
-    
 }
 
 // ═══════════════ 数据导出命令 ═══════════════
@@ -443,5 +427,4 @@ pub struct ExportInput {
 #[tauri::command]
 pub fn export_result_to_file(input: ExportInput) -> Result<String, CoreError> {
     ResultService::export_result(&input.temp_table, &input.file_path, &input.format)
-        
 }

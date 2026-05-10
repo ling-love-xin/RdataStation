@@ -1,11 +1,7 @@
-//! SQL 模板相关命令
-//!
-//! 处理 SQL 模板的创建、查询、删除等操作
-
+use crate::core::error::CoreError;
 use crate::core::migration::global_init;
 use crate::core::persistence::SqlTemplate;
 
-/// SQL 模板响应
 #[derive(serde::Serialize, Debug)]
 pub struct SqlTemplateResponse {
     pub id: String,
@@ -37,7 +33,6 @@ impl From<SqlTemplate> for SqlTemplateResponse {
     }
 }
 
-/// 创建 SQL 模板请求参数
 #[derive(serde::Deserialize, Debug)]
 pub struct CreateSqlTemplateInput {
     pub name: String,
@@ -48,13 +43,12 @@ pub struct CreateSqlTemplateInput {
     pub tags: Option<String>,
 }
 
-/// 创建 SQL 模板
 #[tauri::command]
 pub async fn create_sql_template(
     input: CreateSqlTemplateInput,
-) -> Result<SqlTemplateResponse, String> {
+) -> Result<SqlTemplateResponse, CoreError> {
     let global_db = global_init::get_global_db_manager()
-        .ok_or_else(|| "Global database manager not initialized".to_string())?;
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
 
     let template = SqlTemplate::new(
         input.name,
@@ -67,96 +61,91 @@ pub async fn create_sql_template(
 
     let store = global_db
         .get_sql_template_store()
-        .map_err(|e| format!("获取模板存储失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板存储失败: {}", e)))?;
 
     store
         .save(&template)
-        .map_err(|e| format!("保存模板失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("保存模板失败: {}", e)))?;
 
     Ok(template.into())
 }
 
-/// 获取所有 SQL 模板
 #[tauri::command]
-pub async fn get_all_sql_templates() -> Result<Vec<SqlTemplateResponse>, String> {
+pub async fn get_all_sql_templates() -> Result<Vec<SqlTemplateResponse>, CoreError> {
     let global_db = global_init::get_global_db_manager()
-        .ok_or_else(|| "Global database manager not initialized".to_string())?;
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
 
     let store = global_db
         .get_sql_template_store()
-        .map_err(|e| format!("获取模板存储失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板存储失败: {}", e)))?;
 
     let templates = store
         .get_all()
-        .map_err(|e| format!("获取模板列表失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板列表失败: {}", e)))?;
 
     Ok(templates.into_iter().map(|t| t.into()).collect())
 }
 
-/// 根据分类获取 SQL 模板
 #[tauri::command]
 pub async fn get_sql_templates_by_category(
     category: String,
-) -> Result<Vec<SqlTemplateResponse>, String> {
+) -> Result<Vec<SqlTemplateResponse>, CoreError> {
     let global_db = global_init::get_global_db_manager()
-        .ok_or_else(|| "Global database manager not initialized".to_string())?;
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
 
     let store = global_db
         .get_sql_template_store()
-        .map_err(|e| format!("获取模板存储失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板存储失败: {}", e)))?;
 
     let templates = store
         .get_by_category(&category)
-        .map_err(|e| format!("获取模板列表失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板列表失败: {}", e)))?;
 
     Ok(templates.into_iter().map(|t| t.into()).collect())
 }
 
-/// 根据数据库类型获取 SQL 模板
 #[tauri::command]
 pub async fn get_sql_templates_by_db_type(
     db_type: String,
-) -> Result<Vec<SqlTemplateResponse>, String> {
+) -> Result<Vec<SqlTemplateResponse>, CoreError> {
     let global_db = global_init::get_global_db_manager()
-        .ok_or_else(|| "Global database manager not initialized".to_string())?;
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
 
     let store = global_db
         .get_sql_template_store()
-        .map_err(|e| format!("获取模板存储失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板存储失败: {}", e)))?;
 
     let templates = store
         .get_by_db_type(&db_type)
-        .map_err(|e| format!("获取模板列表失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板列表失败: {}", e)))?;
 
     Ok(templates.into_iter().map(|t| t.into()).collect())
 }
 
-/// 删除 SQL 模板
 #[tauri::command]
-pub async fn delete_sql_template(template_id: String) -> Result<bool, String> {
+pub async fn delete_sql_template(template_id: String) -> Result<bool, CoreError> {
     let global_db = global_init::get_global_db_manager()
-        .ok_or_else(|| "Global database manager not initialized".to_string())?;
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
 
     let store = global_db
         .get_sql_template_store()
-        .map_err(|e| format!("获取模板存储失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板存储失败: {}", e)))?;
 
     store
         .delete(&template_id)
-        .map_err(|e| format!("删除模板失败: {}", e))
+        .map_err(|e| CoreError::from(format!("删除模板失败: {}", e)))
 }
 
-/// 获取所有 SQL 模板分类
 #[tauri::command]
-pub async fn get_sql_template_categories() -> Result<Vec<String>, String> {
+pub async fn get_sql_template_categories() -> Result<Vec<String>, CoreError> {
     let global_db = global_init::get_global_db_manager()
-        .ok_or_else(|| "Global database manager not initialized".to_string())?;
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
 
     let store = global_db
         .get_sql_template_store()
-        .map_err(|e| format!("获取模板存储失败: {}", e))?;
+        .map_err(|e| CoreError::from(format!("获取模板存储失败: {}", e)))?;
 
     store
         .get_categories()
-        .map_err(|e| format!("获取分类列表失败: {}", e))
+        .map_err(|e| CoreError::from(format!("获取分类列表失败: {}", e)))
 }

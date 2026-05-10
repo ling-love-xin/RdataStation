@@ -29,7 +29,7 @@ impl DriverFactory for MySqlDriverFactory {
             let url = config.to_url().map_err(|e| {
                 CoreError::connection(ConnectionError::InvalidConfig {
                     conn_id: config.name.clone().unwrap_or_else(|| "mysql".to_string()),
-                    reason: e,
+                    reason: e.to_string(),
                 })
             })?;
 
@@ -67,7 +67,7 @@ impl DriverFactory for PostgresDriverFactory {
                                 .name
                                 .clone()
                                 .unwrap_or_else(|| "postgres".to_string()),
-                            reason: e,
+                            reason: e.to_string(),
                         })
                     })?
                 }
@@ -126,7 +126,7 @@ impl DriverFactory for PostgresDriverFactory {
                                 .name
                                 .clone()
                                 .unwrap_or_else(|| "postgres".to_string()),
-                            reason: e,
+                            reason: e.to_string(),
                         })
                     })?
                 }

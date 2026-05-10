@@ -2,13 +2,16 @@
 //!
 //! 处理 SQL 查询、事务执行、历史记录等操作
 
-use crate::core::get_connection_manager;
-use crate::core::error::CoreError;
-use crate::core::services::{SqlService, sql_service::{SqlExecuteOptions, SqlExecuteResult, TransactionStatusResult}};
-use crate::core::persistence::history_store::SqlHistoryRecord;
-use crate::core::dbi::engine::duckdb_engine::DuckDBEngine;
 use crate::adapters::tauri::state::AppState;
 use crate::api::dto::QueryResult;
+use crate::core::dbi::engine::duckdb_engine::DuckDBEngine;
+use crate::core::error::CoreError;
+use crate::core::get_connection_manager;
+use crate::core::persistence::history_store::SqlHistoryRecord;
+use crate::core::services::{
+    sql_service::{SqlExecuteOptions, SqlExecuteResult, TransactionStatusResult},
+    SqlService,
+};
 
 fn new_sql_service() -> SqlService {
     SqlService::new(get_connection_manager().clone())
@@ -189,7 +192,10 @@ pub async fn get_transaction_status(
     conn_id: Option<String>,
 ) -> Result<TransactionStatusResponse, CoreError> {
     let service = new_sql_service();
-    service.get_transaction_status(conn_id).await.map(Into::into)
+    service
+        .get_transaction_status(conn_id)
+        .await
+        .map(Into::into)
 }
 
 /// SQL 历史记录响应（含审计信息）

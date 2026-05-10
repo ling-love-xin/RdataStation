@@ -4,6 +4,7 @@
 
 use crate::core::logging::get_log_store;
 use crate::core::logging::record::{LogLevel, LogPage, LogQuery, LogRecord, LogStats};
+use crate::core::error::CoreError;
 
 /// 分页查询日志
 #[tauri::command]
@@ -15,7 +16,7 @@ pub async fn get_logs(
     keyword: Option<String>,
     start: Option<String>,
     end: Option<String>,
-) -> Result<LogPage, String> {
+) -> Result<LogPage, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
     let query = LogQuery {
@@ -28,7 +29,7 @@ pub async fn get_logs(
         end,
     };
 
-    store.query_logs(&query).await.map_err(|e| e.to_string())
+    store.query_logs(&query).await.map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 搜索日志（关键字搜索）
@@ -37,7 +38,7 @@ pub async fn search_logs(
     keyword: String,
     level: Option<String>,
     target: Option<String>,
-) -> Result<LogPage, String> {
+) -> Result<LogPage, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
     let query = LogQuery {
@@ -47,26 +48,26 @@ pub async fn search_logs(
         ..Default::default()
     };
 
-    store.query_logs(&query).await.map_err(|e| e.to_string())
+    store.query_logs(&query).await.map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 获取日志统计
 #[tauri::command]
-pub async fn get_log_stats() -> Result<LogStats, String> {
+pub async fn get_log_stats() -> Result<LogStats, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
-    store.get_stats().await.map_err(|e| e.to_string())
+    store.get_stats().await.map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 清理旧日志
 #[tauri::command]
-pub async fn clear_logs(before: Option<String>) -> Result<usize, String> {
+pub async fn clear_logs(before: Option<String>) -> Result<usize, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
     store
         .cleanup(before.as_deref())
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 获取当前日志会话 ID
@@ -82,7 +83,7 @@ pub async fn export_logs(
     start: Option<String>,
     end: Option<String>,
     max_results: Option<usize>,
-) -> Result<Vec<LogRecord>, String> {
+) -> Result<Vec<LogRecord>, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
     let limit = max_results.unwrap_or(10000).min(50000);
@@ -96,7 +97,7 @@ pub async fn export_logs(
         ..Default::default()
     };
 
-    let page = store.query_logs(&query).await.map_err(|e| e.to_string())?;
+    let page = store.query_logs(&query).await.map_err(|e| CoreError::from(e.to_string()))?;
     Ok(page.records)
 }
 
@@ -106,7 +107,7 @@ pub async fn export_logs(
 /// 立即影响所有后续日志输出的级别过滤。
 /// 支持格式："info"、"debug"、"warn,my_crate=trace"等 EnvFilter 语法。
 #[tauri::command]
-pub fn set_log_level(level: String) -> Result<(), String> {
+pub fn set_log_level(level: String) -> Result<(), CoreError> {
     use crate::core::logging::subscriber;
-    subscriber::reload_log_level(&level)
+    subscriber::reload_log_level(&level).map_err(|e| CoreError::from(e.to_string()))
 }

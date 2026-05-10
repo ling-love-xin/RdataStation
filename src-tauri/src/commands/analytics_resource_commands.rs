@@ -71,7 +71,9 @@ pub async fn update_analytics_resource(
 ) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(resource_id = %id, "Updating analytics resource");
 
-    let resource = get_store(&analytics_state)?.update_resource(&id, input).await?;
+    let resource = get_store(&analytics_state)?
+        .update_resource(&id, input)
+        .await?;
 
     tracing::info!(resource_id = %resource.id, "Analytics resource updated successfully");
 
@@ -145,7 +147,9 @@ pub async fn batch_delete_analytics_resources(
 ) -> Result<(), CoreError> {
     tracing::info!(count = ids.len(), "Batch deleting analytics resources");
 
-    get_store(&analytics_state)?.batch_delete_resources(&ids).await?;
+    get_store(&analytics_state)?
+        .batch_delete_resources(&ids)
+        .await?;
 
     tracing::info!(count = ids.len(), "Batch delete completed successfully");
 
@@ -161,7 +165,9 @@ pub async fn clone_analytics_resource(
 ) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(resource_id = %id, "Cloning analytics resource");
 
-    let cloned = get_store(&analytics_state)?.clone_resource(&id, new_name.as_deref()).await?;
+    let cloned = get_store(&analytics_state)?
+        .clone_resource(&id, new_name.as_deref())
+        .await?;
 
     tracing::info!(new_resource_id = %cloned.id, "Analytics resource cloned successfully");
 
@@ -366,7 +372,9 @@ pub async fn list_analytics_tags(
 ) -> Result<Vec<AnalyticsTag>, CoreError> {
     tracing::debug!(scope = ?input.scope, "Listing analytics tags");
 
-    let tags = get_store(&analytics_state)?.list_tags(input.scope.as_deref()).await?;
+    let tags = get_store(&analytics_state)?
+        .list_tags(input.scope.as_deref())
+        .await?;
 
     Ok(tags)
 }
@@ -450,7 +458,9 @@ pub async fn restore_analytics_resource_from_recycle(
 ) -> Result<AnalyticsResource, CoreError> {
     tracing::info!(recycle_id = %recycle_id, "Restoring analytics resource from recycle bin");
 
-    let resource = get_store(&analytics_state)?.restore_from_recycle(&recycle_id).await?;
+    let resource = get_store(&analytics_state)?
+        .restore_from_recycle(&recycle_id)
+        .await?;
 
     tracing::info!(resource_id = %resource.id, "Analytics resource restored successfully");
 
@@ -465,7 +475,9 @@ pub async fn permanent_delete_analytics_resource(
 ) -> Result<(), CoreError> {
     tracing::info!(recycle_id = %recycle_id, "Permanent deleting analytics resource");
 
-    get_store(&analytics_state)?.permanent_delete(&recycle_id).await?;
+    get_store(&analytics_state)?
+        .permanent_delete(&recycle_id)
+        .await?;
 
     tracing::info!(recycle_id = %recycle_id, "Analytics resource permanently deleted");
 
@@ -482,7 +494,9 @@ pub async fn get_resource_versions(
 ) -> Result<Vec<ResourceVersion>, CoreError> {
     tracing::debug!(resource_id = %resource_id, "Getting resource versions");
 
-    let versions = get_store(&analytics_state)?.get_resource_versions(&resource_id).await?;
+    let versions = get_store(&analytics_state)?
+        .get_resource_versions(&resource_id)
+        .await?;
 
     Ok(versions)
 }
@@ -497,7 +511,9 @@ pub async fn get_tags_for_resource(
 ) -> Result<Vec<AnalyticsTag>, CoreError> {
     tracing::debug!(resource_id = %resource_id, "Getting tags for resource");
 
-    let tags = get_store(&analytics_state)?.get_tags_for_resource(&resource_id).await?;
+    let tags = get_store(&analytics_state)?
+        .get_tags_for_resource(&resource_id)
+        .await?;
 
     Ok(tags)
 }
@@ -510,7 +526,9 @@ pub async fn get_resources_by_tag(
 ) -> Result<Vec<AnalyticsResource>, CoreError> {
     tracing::debug!(tag_id = %tag_id, "Getting resources by tag");
 
-    let resources = get_store(&analytics_state)?.get_resources_by_tag(&tag_id).await?;
+    let resources = get_store(&analytics_state)?
+        .get_resources_by_tag(&tag_id)
+        .await?;
 
     Ok(resources)
 }

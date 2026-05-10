@@ -4,7 +4,6 @@ use chrono::Utc;
 use serde_json::Value;
 
 impl AnalyticsResourceStore {
-
     pub async fn create_resource(
         &self,
         req: CreateResourceRequest,
@@ -111,43 +110,47 @@ impl AnalyticsResourceStore {
             reason: e.to_string(),
         }))?;
 
-        let resource = stmt.query_row(rusqlite::params![id], |row| {
-            let config_str: String = row.get(4)?;
-            let config: Value = serde_json::from_str(&config_str).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    4,
-                    rusqlite::types::Type::Text,
-                    Box::new(std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        format!("config JSON parse failed: {}", e),
-                    )),
-                )
-            })?;
+        let resource = stmt
+            .query_row(rusqlite::params![id], |row| {
+                let config_str: String = row.get(4)?;
+                let config: Value = serde_json::from_str(&config_str).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        4,
+                        rusqlite::types::Type::Text,
+                        Box::new(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("config JSON parse failed: {}", e),
+                        )),
+                    )
+                })?;
 
-            Ok(AnalyticsResource {
-                id: row.get(0)?,
-                resource_type: row.get(1)?,
-                name: row.get(2)?,
-                alias: row.get(3)?,
-                config,
-                scope: row.get(5)?,
-                row_count: row.get(6)?,
-                column_count: row.get(7)?,
-                file_size: row.get(8)?,
-                version: row.get(9)?,
-                parent_version_id: row.get(10)?,
-                parent_resource_id: row.get(11)?,
-                source_query: row.get(12)?,
-                created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
-                updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
-                created_by: row.get(15)?,
-                deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
+                Ok(AnalyticsResource {
+                    id: row.get(0)?,
+                    resource_type: row.get(1)?,
+                    name: row.get(2)?,
+                    alias: row.get(3)?,
+                    config,
+                    scope: row.get(5)?,
+                    row_count: row.get(6)?,
+                    column_count: row.get(7)?,
+                    file_size: row.get(8)?,
+                    version: row.get(9)?,
+                    parent_version_id: row.get(10)?,
+                    parent_resource_id: row.get(11)?,
+                    source_query: row.get(12)?,
+                    created_at: Self::parse_datetime_sqlite(row.get(13)?)?,
+                    updated_at: Self::parse_datetime_sqlite(row.get(14)?)?,
+                    created_by: row.get(15)?,
+                    deleted_at: row.get(16).ok().and_then(|s| Self::parse_datetime(s).ok()),
+                })
             })
-        }).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "analytics_resources".to_string(),
-            operation: "select".to_string(),
-            reason: e.to_string(),
-        }))?;
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "analytics_resources".to_string(),
+                    operation: "select".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(resource)
     }
@@ -243,7 +246,6 @@ impl AnalyticsResourceStore {
             })
         })
     }
-
 
     pub async fn clone_resource(
         &self,

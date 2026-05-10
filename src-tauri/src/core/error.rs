@@ -19,8 +19,8 @@
 //! 3. **显式转换**: 不实现 blanket From，避免上下文丢失
 //! 4. **向前兼容**: 新增错误域不会破坏现有代码
 
-use std::fmt;
 use serde::Serialize;
+use std::fmt;
 
 /// 核心错误容器
 ///
@@ -30,23 +30,27 @@ use serde::Serialize;
 pub enum CoreError {
     /// 通用错误域
     Common(CommonError),
-    
+
     /// 连接错误域
     Connection(ConnectionError),
-    
+
     /// 数据库错误域
     Database(DatabaseError),
-    
+
     /// 存储错误域
     Storage(StorageError),
-    
+
     /// 缓存错误域
     Cache(CacheError),
-    
+
     /// 插件错误域（预留，支持 Wasm 插件扩展）
-    /// 
+    ///
     /// 插件可以定义自己的错误类型，通过此变体传递
-    Plugin { domain: String, code: String, message: String },
+    Plugin {
+        domain: String,
+        code: String,
+        message: String,
+    },
 }
 
 // ==================== 通用错误域 ====================
@@ -58,16 +62,16 @@ pub enum CoreError {
 pub enum CommonError {
     /// 通用错误 - 兜底类型
     General(String),
-    
+
     /// 无效参数
     InvalidArgument { param: String, reason: String },
-    
+
     /// 不支持的操作
     NotSupported(String),
-    
+
     /// 超时错误
     Timeout { operation: String, duration_ms: u64 },
-    
+
     /// 内部错误
     Internal(String),
 }
@@ -76,18 +80,18 @@ impl CommonError {
     pub fn general(msg: impl Into<String>) -> Self {
         CommonError::General(msg.into())
     }
-    
+
     pub fn invalid_argument(param: impl Into<String>, reason: impl Into<String>) -> Self {
         CommonError::InvalidArgument {
             param: param.into(),
             reason: reason.into(),
         }
     }
-    
+
     pub fn not_supported(feature: impl Into<String>) -> Self {
         CommonError::NotSupported(feature.into())
     }
-    
+
     pub fn timeout(operation: impl Into<String>, duration_ms: u64) -> Self {
         CommonError::Timeout {
             operation: operation.into(),
@@ -119,7 +123,11 @@ pub enum ConnectionError {
     HostNotFound { conn_id: String, host: String },
 
     /// 端口不可达
-    PortUnreachable { conn_id: String, host: String, port: u16 },
+    PortUnreachable {
+        conn_id: String,
+        host: String,
+        port: u16,
+    },
 
     /// SSL/TLS 错误
     Tls { conn_id: String, reason: String },
@@ -162,21 +170,21 @@ impl ConnectionError {
             reason: reason.into(),
         }
     }
-    
+
     pub fn timeout(conn_id: impl Into<String>, duration_ms: u64) -> Self {
         ConnectionError::Timeout {
             conn_id: conn_id.into(),
             duration_ms,
         }
     }
-    
+
     pub fn auth_failed(conn_id: impl Into<String>, username: impl Into<String>) -> Self {
         ConnectionError::AuthenticationFailed {
             conn_id: conn_id.into(),
             username: username.into(),
         }
     }
-    
+
     pub fn not_found(conn_id: impl Into<String>) -> Self {
         ConnectionError::NotFound(conn_id.into())
     }
@@ -222,7 +230,11 @@ pub enum DatabaseError {
     DriverNotFound { db_type: String },
 
     /// 驱动版本不兼容
-    DriverVersionMismatch { driver: String, expected: String, found: String },
+    DriverVersionMismatch {
+        driver: String,
+        expected: String,
+        found: String,
+    },
 
     /// 约束冲突
     ConstraintViolation {
@@ -232,15 +244,10 @@ pub enum DatabaseError {
     },
 
     /// 表不存在
-    TableNotFound {
-        table: String,
-    },
+    TableNotFound { table: String },
 
     /// 列不存在
-    ColumnNotFound {
-        column: String,
-        table: String,
-    },
+    ColumnNotFound { column: String, table: String },
 }
 
 impl DatabaseError {
@@ -251,7 +258,7 @@ impl DatabaseError {
             position: None,
         }
     }
-    
+
     pub fn with_position(mut self, pos: usize) -> Self {
         if let DatabaseError::Query { position, .. } = &mut self {
             *position = Some(pos);
@@ -283,20 +290,17 @@ pub enum StorageError {
         operation: String,
         reason: String,
     },
-    
+
     /// 序列化错误
-    Serialization {
-        format: String,
-        reason: String,
-    },
-    
+    Serialization { format: String, reason: String },
+
     /// 反序列化错误
     Deserialization {
         format: String,
         data: String,
         reason: String,
     },
-    
+
     /// IO 错误（包含完整上下文）
     Io {
         path: String,
@@ -313,76 +317,66 @@ pub enum StorageError {
 #[derive(Debug, Clone, Serialize)]
 pub enum CacheError {
     /// 缓存未命中
-    Miss {
-        key: String,
-    },
-    
+    Miss { key: String },
+
     /// 缓存已满
-    Full {
-        capacity: usize,
-    },
-    
+    Full { capacity: usize },
+
     /// 缓存键无效
-    InvalidKey {
-        key: String,
-        reason: String,
-    },
-    
+    InvalidKey { key: String, reason: String },
+
     /// 缓存值无效
-    InvalidValue {
-        reason: String,
-    },
-    
+    InvalidValue { reason: String },
+
     /// 缓存操作超时
-    Timeout {
-        operation: String,
-        duration_ms: u64,
-    },
-    
+    Timeout { operation: String, duration_ms: u64 },
+
     /// 缓存内部错误
-    Internal {
-        reason: String,
-    },
-    
+    Internal { reason: String },
+
     /// 缓存序列化错误
-    Serialization {
-        reason: String,
-    },
+    Serialization { reason: String },
 }
 
 impl CacheError {
     pub fn miss(key: impl Into<String>) -> Self {
         CacheError::Miss { key: key.into() }
     }
-    
+
     pub fn full(capacity: usize) -> Self {
         CacheError::Full { capacity }
     }
-    
+
     pub fn invalid_key(key: impl Into<String>, reason: impl Into<String>) -> Self {
         CacheError::InvalidKey {
             key: key.into(),
             reason: reason.into(),
         }
     }
-    
+
     pub fn invalid_value(reason: impl Into<String>) -> Self {
-        CacheError::InvalidValue { reason: reason.into() }
+        CacheError::InvalidValue {
+            reason: reason.into(),
+        }
     }
-    
+
     pub fn timeout(operation: impl Into<String>, duration_ms: u64) -> Self {
         CacheError::Timeout {
             operation: operation.into(),
             duration_ms,
         }
     }
-    
+
     pub fn internal(reason: impl Into<String>) -> Self {
-        CacheError::Internal { reason: reason.into() }
+        CacheError::Internal {
+            reason: reason.into(),
+        }
     }
-    
+
     pub fn serialization(reason: impl Into<String>) -> Self {
-        CacheError::Serialization { reason: reason.into() }
+        CacheError::Serialization {
+            reason: reason.into(),
+        }
     }
 }
 
@@ -401,8 +395,15 @@ impl fmt::Display for CacheError {
             CacheError::InvalidValue { reason } => {
                 write!(f, "Invalid cache value: {}", reason)
             }
-            CacheError::Timeout { operation, duration_ms } => {
-                write!(f, "Cache operation '{}' timed out after {}ms", operation, duration_ms)
+            CacheError::Timeout {
+                operation,
+                duration_ms,
+            } => {
+                write!(
+                    f,
+                    "Cache operation '{}' timed out after {}ms",
+                    operation, duration_ms
+                )
             }
             CacheError::Internal { reason } => {
                 write!(f, "Cache internal error: {}", reason)
@@ -415,7 +416,11 @@ impl fmt::Display for CacheError {
 }
 
 impl StorageError {
-    pub fn io(path: impl Into<String>, operation: impl Into<String>, reason: impl Into<String>) -> Self {
+    pub fn io(
+        path: impl Into<String>,
+        operation: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
         StorageError::Io {
             path: path.into(),
             operation: operation.into(),
@@ -423,7 +428,11 @@ impl StorageError {
         }
     }
 
-    pub fn persistence(store: impl Into<String>, operation: impl Into<String>, reason: impl Into<String>) -> Self {
+    pub fn persistence(
+        store: impl Into<String>,
+        operation: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
         StorageError::Persistence {
             store: store.into(),
             operation: operation.into(),
@@ -455,27 +464,27 @@ impl CoreError {
     pub fn common(err: CommonError) -> Self {
         CoreError::Common(err)
     }
-    
+
     /// 创建连接错误
     pub fn connection(err: ConnectionError) -> Self {
         CoreError::Connection(err)
     }
-    
+
     /// 创建数据库错误
     pub fn database(err: DatabaseError) -> Self {
         CoreError::Database(err)
     }
-    
+
     /// 创建存储错误
     pub fn storage(err: StorageError) -> Self {
         CoreError::Storage(err)
     }
-    
+
     /// 创建缓存错误
     pub fn cache(err: CacheError) -> Self {
         CoreError::Cache(err)
     }
-    
+
     /// 获取错误代码
     pub fn code(&self) -> &'static str {
         match self {
@@ -534,7 +543,7 @@ impl CoreError {
             CoreError::Plugin { .. } => "PLUGIN_ERROR",
         }
     }
-    
+
     /// 获取错误分类
     pub fn category(&self) -> ErrorCategory {
         match self {
@@ -546,14 +555,15 @@ impl CoreError {
             CoreError::Plugin { .. } => ErrorCategory::Plugin,
         }
     }
-    
+
     /// 是否可重试
     pub fn is_retryable(&self) -> bool {
-        matches!(self,
+        matches!(
+            self,
             CoreError::Common(CommonError::Timeout { .. })
-            | CoreError::Connection(ConnectionError::Timeout { .. })
-            | CoreError::Connection(ConnectionError::Network { .. })
-            | CoreError::Connection(ConnectionError::PoolError { .. })
+                | CoreError::Connection(ConnectionError::Timeout { .. })
+                | CoreError::Connection(ConnectionError::Network { .. })
+                | CoreError::Connection(ConnectionError::PoolError { .. })
         )
     }
 }
@@ -578,7 +588,11 @@ impl fmt::Display for CoreError {
             CoreError::Database(e) => write!(f, "[{}] {}", self.code(), e),
             CoreError::Storage(e) => write!(f, "[{}] {}", self.code(), e),
             CoreError::Cache(e) => write!(f, "[{}] {}", self.code(), e),
-            CoreError::Plugin { domain, code, message } => {
+            CoreError::Plugin {
+                domain,
+                code,
+                message,
+            } => {
                 write!(f, "[PLUGIN_ERROR] {}::{}: {}", domain, code, message)
             }
         }
@@ -595,8 +609,15 @@ impl fmt::Display for CommonError {
             CommonError::NotSupported(feature) => {
                 write!(f, "Feature not supported: {}", feature)
             }
-            CommonError::Timeout { operation, duration_ms } => {
-                write!(f, "Operation '{}' timed out after {}ms", operation, duration_ms)
+            CommonError::Timeout {
+                operation,
+                duration_ms,
+            } => {
+                write!(
+                    f,
+                    "Operation '{}' timed out after {}ms",
+                    operation, duration_ms
+                )
             }
             CommonError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
@@ -609,11 +630,22 @@ impl fmt::Display for ConnectionError {
             ConnectionError::Refused { conn_id, reason } => {
                 write!(f, "Connection '{}' refused: {}", conn_id, reason)
             }
-            ConnectionError::Timeout { conn_id, duration_ms } => {
-                write!(f, "Connection '{}' timeout after {}ms", conn_id, duration_ms)
+            ConnectionError::Timeout {
+                conn_id,
+                duration_ms,
+            } => {
+                write!(
+                    f,
+                    "Connection '{}' timeout after {}ms",
+                    conn_id, duration_ms
+                )
             }
             ConnectionError::AuthenticationFailed { conn_id, username } => {
-                write!(f, "Connection '{}' authentication failed for user '{}'", conn_id, username)
+                write!(
+                    f,
+                    "Connection '{}' authentication failed for user '{}'",
+                    conn_id, username
+                )
             }
             ConnectionError::Network { conn_id, reason } => {
                 write!(f, "Connection '{}' network error: {}", conn_id, reason)
@@ -621,8 +653,16 @@ impl fmt::Display for ConnectionError {
             ConnectionError::HostNotFound { conn_id, host } => {
                 write!(f, "Connection '{}' host '{}' not found", conn_id, host)
             }
-            ConnectionError::PortUnreachable { conn_id, host, port } => {
-                write!(f, "Connection '{}' port {} on '{}' unreachable", conn_id, port, host)
+            ConnectionError::PortUnreachable {
+                conn_id,
+                host,
+                port,
+            } => {
+                write!(
+                    f,
+                    "Connection '{}' port {} on '{}' unreachable",
+                    conn_id, port, host
+                )
             }
             ConnectionError::Tls { conn_id, reason } => {
                 write!(f, "Connection '{}' TLS error: {}", conn_id, reason)
@@ -664,34 +704,83 @@ impl fmt::Display for ConnectionError {
 impl fmt::Display for DatabaseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DatabaseError::Query { sql, reason, position } => {
+            DatabaseError::Query {
+                sql,
+                reason,
+                position,
+            } => {
                 if let Some(pos) = position {
-                    write!(f, "Query failed at position {}: {} (SQL: {})", pos, reason, sql)
+                    write!(
+                        f,
+                        "Query failed at position {}: {} (SQL: {})",
+                        pos, reason, sql
+                    )
                 } else {
                     write!(f, "Query failed: {} (SQL: {})", reason, sql)
                 }
             }
-            DatabaseError::Syntax { sql, message, line, column } => {
+            DatabaseError::Syntax {
+                sql,
+                message,
+                line,
+                column,
+            } => {
                 if let (Some(l), Some(c)) = (line, column) {
-                    write!(f, "Syntax error at line {}, column {}: {} (SQL: {})", l, c, message, sql)
+                    write!(
+                        f,
+                        "Syntax error at line {}, column {}: {} (SQL: {})",
+                        l, c, message, sql
+                    )
                 } else {
                     write!(f, "Syntax error: {} (SQL: {})", message, sql)
                 }
             }
-            DatabaseError::Transaction { operation, state, reason } => {
-                write!(f, "Transaction '{}' failed in state {:?}: {}", operation, state, reason)
+            DatabaseError::Transaction {
+                operation,
+                state,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Transaction '{}' failed in state {:?}: {}",
+                    operation, state, reason
+                )
             }
-            DatabaseError::Driver { db_type, operation, source } => {
-                write!(f, "Database '{}' operation '{}' failed: {}", db_type, operation, source)
+            DatabaseError::Driver {
+                db_type,
+                operation,
+                source,
+            } => {
+                write!(
+                    f,
+                    "Database '{}' operation '{}' failed: {}",
+                    db_type, operation, source
+                )
             }
             DatabaseError::DriverNotFound { db_type } => {
                 write!(f, "Driver for database type '{}' not found", db_type)
             }
-            DatabaseError::DriverVersionMismatch { driver, expected, found } => {
-                write!(f, "Driver '{}' version mismatch: expected {}, found {}", driver, expected, found)
+            DatabaseError::DriverVersionMismatch {
+                driver,
+                expected,
+                found,
+            } => {
+                write!(
+                    f,
+                    "Driver '{}' version mismatch: expected {}, found {}",
+                    driver, expected, found
+                )
             }
-            DatabaseError::ConstraintViolation { constraint, table, reason } => {
-                write!(f, "Constraint '{}' violation on table '{}': {}", constraint, table, reason)
+            DatabaseError::ConstraintViolation {
+                constraint,
+                table,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Constraint '{}' violation on table '{}': {}",
+                    constraint, table, reason
+                )
             }
             DatabaseError::TableNotFound { table } => {
                 write!(f, "Table '{}' not found", table)
@@ -706,17 +795,41 @@ impl fmt::Display for DatabaseError {
 impl fmt::Display for StorageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StorageError::Persistence { store, operation, reason } => {
-                write!(f, "Persistence store '{}' operation '{}' failed: {}", store, operation, reason)
+            StorageError::Persistence {
+                store,
+                operation,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Persistence store '{}' operation '{}' failed: {}",
+                    store, operation, reason
+                )
             }
             StorageError::Serialization { format, reason } => {
                 write!(f, "Serialization to '{}' failed: {}", format, reason)
             }
-            StorageError::Deserialization { format, data, reason } => {
-                write!(f, "Deserialization from '{}' failed: {} (data: {})", format, reason, data)
+            StorageError::Deserialization {
+                format,
+                data,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Deserialization from '{}' failed: {} (data: {})",
+                    format, reason, data
+                )
             }
-            StorageError::Io { path, operation, reason } => {
-                write!(f, "IO operation '{}' on '{}' failed: {}", operation, path, reason)
+            StorageError::Io {
+                path,
+                operation,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "IO operation '{}' on '{}' failed: {}",
+                    operation, path, reason
+                )
             }
         }
     }
@@ -784,7 +897,11 @@ pub fn query_err(sql: impl Into<String>, reason: impl Into<String>) -> CoreError
 }
 
 /// 创建存储错误
-pub fn storage_err(store: impl Into<String>, operation: impl Into<String>, reason: impl Into<String>) -> CoreError {
+pub fn storage_err(
+    store: impl Into<String>,
+    operation: impl Into<String>,
+    reason: impl Into<String>,
+) -> CoreError {
     CoreError::storage(StorageError::persistence(store, operation, reason))
 }
 
@@ -797,7 +914,7 @@ mod tests {
         let common = CoreError::common(CommonError::general("test"));
         let conn = CoreError::connection(ConnectionError::not_found("conn1"));
         let db = CoreError::database(DatabaseError::query("SELECT", "syntax error"));
-        
+
         assert_eq!(common.category(), ErrorCategory::Common);
         assert_eq!(conn.category(), ErrorCategory::Connection);
         assert_eq!(db.category(), ErrorCategory::Database);
@@ -807,7 +924,7 @@ mod tests {
     fn test_error_code() {
         let err = CoreError::common(CommonError::general("test"));
         assert_eq!(err.code(), "COMMON_GENERAL");
-        
+
         let err = CoreError::connection(ConnectionError::timeout("conn1", 5000));
         assert_eq!(err.code(), "CONN_TIMEOUT");
     }
@@ -816,7 +933,7 @@ mod tests {
     fn test_retryable() {
         let err = timeout("query", 5000);
         assert!(err.is_retryable());
-        
+
         let err = CoreError::connection(ConnectionError::not_found("conn1"));
         assert!(!err.is_retryable());
     }

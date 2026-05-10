@@ -142,7 +142,7 @@ impl ConnectionManager {
             id: conn_id.clone(),
             name: config.name.clone().unwrap_or_else(|| driver_id.clone()),
             db_type: driver_id.clone(),
-            url: config.to_url().unwrap_or_default(),
+            url: config.to_url().unwrap_or_else(|_| String::new()),
             server_version: None,
             connection_type: ConnectionType::Global,
             project_id: None,

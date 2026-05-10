@@ -56,10 +56,7 @@ mod tests {
 
     #[test]
     fn test_mock_error_display() {
-        assert_eq!(
-            MockError::InvalidRowCount(0).to_string(),
-            "无效的行数: 0"
-        );
+        assert_eq!(MockError::InvalidRowCount(0).to_string(), "无效的行数: 0");
         assert_eq!(
             MockError::TemplateNotFound("t1".to_string()).to_string(),
             "模板未找到: t1"

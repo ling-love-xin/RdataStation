@@ -7,14 +7,13 @@
         :compact="titleBarSettings.menuStyle === 'compact'"
         @menu-action="handleMenuAction"
       />
-      <ProjectSelector
+      <ProjectSwitcherPanel
         v-if="titleBarSettings.showProjectSelector"
-        :current-project="currentProject"
         :current-project-id="projectStore.currentProject?.id"
-        :recent-projects="recentProjectsLimited"
-        @switch-project="handleSwitchProject"
         @new-project="showNewProjectModal = true"
         @open-project="handleOpenProject"
+        @edit-project="handleEditProject"
+        @delete-project="handleDeleteProjectBtn"
       />
     </div>
 
@@ -70,6 +69,20 @@
     @cancel="showNewProjectModal = false"
   />
 
+  <EditProjectModal
+    :visible="showEditProjectModal"
+    :project="editProjectTarget"
+    @confirm="handleProjectInfoUpdated"
+    @cancel="showEditProjectModal = false"
+  />
+
+  <DeleteProjectConfirmModal
+    :visible="showDeleteProjectModal"
+    :project="deleteProjectTarget"
+    @confirm="handleProjectDeleted"
+    @cancel="showDeleteProjectModal = false"
+  />
+
   <CommandPalette
     :visible="showCommandPalette"
     @close="showCommandPalette = false"
@@ -88,9 +101,13 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
+import type { Project } from '@/core/project/stores/project'
 import { useUiStore } from '@/shared/stores/ui'
 import { useAppStore } from '@/stores/useAppStore'
 
+import DeleteProjectConfirmModal from './DeleteProjectConfirmModal.vue'
+import EditProjectModal from './EditProjectModal.vue'
+import ProjectSwitcherPanel from './ProjectSwitcherPanel.vue'
 import { useTitleBar } from '../composables/useTitleBar'
 import { createMenuActionMap, createMenuConfig, createToolbarConfig } from '../config/title-bar-config'
 import { useCommandStore } from '../stores/command-store'
@@ -98,7 +115,6 @@ import CommandCenter from './title-bar/CommandCenter.vue'
 import CommandPalette from './title-bar/CommandPalette.vue'
 import MenuBar from './title-bar/MenuBar.vue'
 import NewProjectModal from './title-bar/NewProjectModal.vue'
-import ProjectSelector from './title-bar/ProjectSelector.vue'
 import ToolbarActions from './title-bar/ToolbarActions.vue'
 import WindowControls from './title-bar/WindowControls.vue'
 
@@ -129,16 +145,12 @@ const titleBar = useTitleBar()
 // 从配置系统读取标题栏设置
 const titleBarSettings = computed(() => appStore.effectiveTitleBarSettings)
 
-const currentProject = titleBar.currentProject
-const recentProjects = titleBar.recentProjects
 const showNewProjectModal = ref(false)
 const showCommandPalette = ref(false)
-
-// 根据配置限制最近项目数量
-const recentProjectsLimited = computed(() => {
-  const count = titleBarSettings.value.recentProjectCount
-  return recentProjects.value.slice(0, count)
-})
+const showEditProjectModal = ref(false)
+const editProjectTarget = ref<Project | null>(null)
+const showDeleteProjectModal = ref(false)
+const deleteProjectTarget = ref<Project | null>(null)
 
 // 命令注册
 const commandStore = useCommandStore()
@@ -218,12 +230,24 @@ function handleMenuAction(item: MenuItem) {
   }
 }
 
-async function handleSwitchProject(project: { id: string; name: string; path: string }) {
-  try {
-    await titleBar.switchProject(project)
-  } catch {
-    message.error(t('workbench.switchProjectFailed'))
-  }
+function handleEditProject(project: Project) {
+  editProjectTarget.value = project
+  showEditProjectModal.value = true
+}
+
+function handleDeleteProjectBtn(project: Project) {
+  deleteProjectTarget.value = project
+  showDeleteProjectModal.value = true
+}
+
+function handleProjectInfoUpdated() {
+  showEditProjectModal.value = false
+  editProjectTarget.value = null
+}
+
+function handleProjectDeleted() {
+  showDeleteProjectModal.value = false
+  deleteProjectTarget.value = null
 }
 
 async function handleOpenProject() {

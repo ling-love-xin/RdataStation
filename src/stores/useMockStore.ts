@@ -11,6 +11,8 @@ import {
   type MockExportFormat,
   type MockGenerationTask,
   type MockColumnInput,
+  type MockUserTemplate,
+  type MockTemplateColumn,
 } from '@/shared/api/mock-api'
 
 export interface MockHistorySummary {
@@ -45,6 +47,8 @@ export const useMockStore = defineStore('mock', () => {
   const lastHistories = ref<MockHistorySummary[]>([])
   const persistenceHistory = ref<MockGenerationTask[]>([])
   const persistenceLoading = ref(false)
+  const userTemplates = ref<MockUserTemplate[]>([])
+  const templatesLoading = ref(false)
 
   const mockConfig = computed((): MockConfig => ({
     tableName: tableName.value,
@@ -252,17 +256,17 @@ export const useMockStore = defineStore('mock', () => {
     rowCount.value = detail.task.rowCount
     seed.value = detail.task.seed ?? null
     locale.value = detail.task.locale
-    columns.value = detail.columns.map<ColumnDef>((col: Record<string, unknown>) => ({
-      name: col.columnName as string,
+    columns.value = detail.columns.map<ColumnDef>((col) => ({
+      name: col.columnName,
       dataType: col.columnType as ColumnDef['dataType'],
       generator: {
-        type: (col.generator as string).replace(/\\(.*\\)$/, '') as GeneratorType,
+        type: col.generator.replace(/\\(.*\\)$/, '') as GeneratorType,
         params: col.generatorParams
-          ? JSON.parse(col.generatorParams as string)
+          ? JSON.parse(col.generatorParams)
           : undefined,
       },
-      nullableRatio: col.nullRatio as number,
-      unique: col.isUnique as boolean,
+      nullableRatio: col.nullRatio,
+      unique: col.isUnique ?? false,
     }))
     return detail
   }
@@ -270,6 +274,76 @@ export const useMockStore = defineStore('mock', () => {
   async function deletePersistenceTask(projectPath: string, taskId: string) {
     await mockApi.deleteTask(projectPath, taskId)
     persistenceHistory.value = persistenceHistory.value.filter(t => t.id !== taskId)
+  }
+
+  async function saveCurrentAsTemplate(projectPath: string, name: string, description?: string) {
+    const now = new Date().toISOString()
+    const templateId = crypto.randomUUID()
+    const template: MockUserTemplate = {
+      id: templateId,
+      name,
+      description: description ?? null,
+      rowCount: rowCount.value,
+      seed: seed.value ?? null,
+      locale: locale.value,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const templateColumns: MockTemplateColumn[] = columns.value.map((col, idx) => ({
+      id: crypto.randomUUID(),
+      templateId,
+      columnName: col.name,
+      columnType: col.dataType,
+      generator: col.generator.type,
+      generatorParams: col.generator.params ? JSON.stringify(col.generator.params) : null,
+      nullRatio: col.nullableRatio,
+      isUnique: col.unique ?? false,
+      isPrimaryKey: col.name === 'id',
+      isForeignKey: false,
+      refTable: null,
+      refColumn: null,
+      comment: null,
+      confidence: 'manual',
+      sortOrder: idx,
+    }))
+    const result = await mockApi.saveTemplate(projectPath, template, templateColumns)
+    await loadUserTemplates(projectPath)
+    return result
+  }
+
+  async function loadUserTemplates(projectPath: string) {
+    templatesLoading.value = true
+    try {
+      userTemplates.value = await mockApi.getTemplates(projectPath)
+    } finally {
+      templatesLoading.value = false
+    }
+  }
+
+  async function deleteUserTemplate(projectPath: string, templateId: string) {
+    await mockApi.deleteTask(projectPath, templateId)
+    userTemplates.value = userTemplates.value.filter(t => t.id !== templateId)
+  }
+
+  async function applyUserTemplate(projectPath: string, templateId: string) {
+    const [tpl, cols] = await mockApi.getTemplateDetail(projectPath, templateId)
+    tableName.value = 'mock_data'
+    rowCount.value = tpl.rowCount
+    seed.value = tpl.seed ?? null
+    locale.value = tpl.locale || 'ZH_CN'
+    columns.value = cols.map((col, idx) => ({
+      name: col.columnName || `column_${idx + 1}`,
+      dataType: (col.columnType as ColumnDef['dataType']) || 'varchar',
+      generator: {
+        type: (col.generator || 'words') as GeneratorType,
+        params: col.generatorParams
+          ? JSON.parse(col.generatorParams)
+          : undefined,
+      },
+      nullableRatio: col.nullRatio ?? 0,
+      unique: col.isUnique ?? false,
+    }))
+    return tpl
   }
 
   function reset() {
@@ -298,6 +372,8 @@ export const useMockStore = defineStore('mock', () => {
     lastHistories,
     persistenceHistory,
     persistenceLoading,
+    userTemplates,
+    templatesLoading,
     mockConfig,
     addColumn,
     removeColumn,
@@ -319,6 +395,10 @@ export const useMockStore = defineStore('mock', () => {
     loadHistoryV2,
     loadDetail,
     deletePersistenceTask,
+    saveCurrentAsTemplate,
+    loadUserTemplates,
+    deleteUserTemplate,
+    applyUserTemplate,
     reset,
   }
 })

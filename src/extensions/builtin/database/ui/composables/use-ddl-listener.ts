@@ -40,6 +40,10 @@ export interface DDLEvent {
   type: DDLType
   /** 连接 ID */
   connectionId: string
+  /** 连接类型 */
+  connectionType?: 'global' | 'project'
+  /** 项目路径 */
+  projectPath?: string
   /** 数据库名 */
   databaseName: string
   /** Schema 名 */
@@ -293,6 +297,8 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
         event: {
           type: event.type,
           connectionId: event.connectionId,
+          connectionType: event.connectionType || 'global',
+          projectPath: event.projectPath,
           databaseName: event.databaseName,
           schemaName: event.schemaName,
           tableName: event.tableName,
@@ -301,7 +307,7 @@ export function useDDLListener(config?: Partial<DDLListenerConfig>) {
         },
       })
     } catch (error) {
-      console.warn('通知后端 DDL 事件失败（后端可能未实现）:', error)
+      console.warn('通知后端 DDL 事件失败:', error)
     }
   }
 

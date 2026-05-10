@@ -305,7 +305,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         layout: layout.value,
       }
 
-      await invoke('save_workbench_state', {
+      await invoke('save_project_store_workbench_state', {
         stateData: state,
       })
     } catch (e) {

@@ -138,8 +138,29 @@ async function onImport() {
       tables,
     })
 
-    importedColumns.value = columns
-    message.success(`成功导入 ${columns.length} 列`)
+    if (columns.length > 0) {
+      const batchInput: Array<[string, string]> = columns.map(c => [c.name, c.dataType])
+      const mappingResults = await mockApi.mapColumnsBatch(batchInput)
+      const mappingMap = new Map(mappingResults.map(m => [m.columnName, m]))
+      let mappedCount = 0
+      const merged = columns.map(c => {
+        const mapping = mappingMap.get(c.name)
+        if (mapping && mapping.confidence !== 'low') {
+          mappedCount++
+          return { ...c, generator: mapping.generator }
+        }
+        return c
+      })
+      importedColumns.value = merged
+      let msg = `成功导入 ${columns.length} 列，${mappedCount} 已智能映射`
+      if (mappedCount < columns.length) {
+        msg += `，${columns.length - mappedCount} 列需要手动配置`
+      }
+      message.success(msg)
+    } else {
+      importedColumns.value = columns
+      message.success('导入完成')
+    }
   } catch (e) {
     message.error(`导入失败: ${String(e)}`)
   } finally {

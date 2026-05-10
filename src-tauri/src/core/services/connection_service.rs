@@ -216,7 +216,9 @@ impl ConnectionService {
         }
 
         // 保存到最近连接记录
-        if let Err(e) = connection_store::save_recent_connection(&connection_name, db_type, &safe_url) {
+        if let Err(e) =
+            connection_store::save_recent_connection(&connection_name, db_type, &safe_url)
+        {
             tracing::warn!("Failed to save connection history: {}", e);
         }
 

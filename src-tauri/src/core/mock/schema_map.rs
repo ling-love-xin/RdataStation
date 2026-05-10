@@ -683,7 +683,10 @@ mod tests {
     fn test_infer_exact_match_id() {
         let resp = ColumnMapper::infer("user_id", &ColumnDataType::BigInt);
         assert_eq!(resp.confidence, "high");
-        assert!(matches!(resp.generator, GeneratorConfig::AutoIncrement { .. }));
+        assert!(matches!(
+            resp.generator,
+            GeneratorConfig::AutoIncrement { .. }
+        ));
     }
 
     #[test]
@@ -709,8 +712,7 @@ mod tests {
 
     #[test]
     fn test_infer_fuzzy_match_description() {
-        let resp =
-            ColumnMapper::infer("product_desc", &ColumnDataType::Varchar { length: None });
+        let resp = ColumnMapper::infer("product_desc", &ColumnDataType::Varchar { length: None });
         assert_eq!(resp.confidence, "medium");
         assert!(matches!(resp.generator, GeneratorConfig::Paragraph { .. }));
     }
@@ -726,7 +728,10 @@ mod tests {
     fn test_infer_fallback_float() {
         let resp = ColumnMapper::infer("unknown", &ColumnDataType::Float);
         assert_eq!(resp.confidence, "low");
-        assert!(matches!(resp.generator, GeneratorConfig::RandomFloat { .. }));
+        assert!(matches!(
+            resp.generator,
+            GeneratorConfig::RandomFloat { .. }
+        ));
     }
 
     #[test]
@@ -759,12 +764,18 @@ mod tests {
 
     #[test]
     fn test_infer_amount_field() {
-        let resp = ColumnMapper::infer("total_amount", &ColumnDataType::Decimal {
-            precision: 12,
-            scale: 2,
-        });
+        let resp = ColumnMapper::infer(
+            "total_amount",
+            &ColumnDataType::Decimal {
+                precision: 12,
+                scale: 2,
+            },
+        );
         assert_eq!(resp.confidence, "high");
-        assert!(matches!(resp.generator, GeneratorConfig::RandomDecimal { .. }));
+        assert!(matches!(
+            resp.generator,
+            GeneratorConfig::RandomDecimal { .. }
+        ));
     }
 
     #[test]

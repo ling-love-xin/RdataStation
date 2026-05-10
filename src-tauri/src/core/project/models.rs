@@ -218,7 +218,10 @@ fn calculate_checksum<T: Serialize>(data: &T) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
-    let json = serde_json::to_string(data).unwrap_or_default();
+    let json = serde_json::to_string(data).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "Failed to serialize data for checksum calculation");
+        String::new()
+    });
     let mut hasher = DefaultHasher::new();
     json.hash(&mut hasher);
     format!("{:016x}", hasher.finish())

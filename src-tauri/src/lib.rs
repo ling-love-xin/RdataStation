@@ -161,6 +161,8 @@ pub fn run() {
             update_project,
             rename_project,
             get_all_projects,
+            remove_from_recent,
+            delete_project_disk,
             // 端口协商命令
             negotiate_port,
             negotiate_local_port,
@@ -202,6 +204,8 @@ pub fn run() {
             metadata_cache_commands::save_columns_batch_to_cache,
             metadata_cache_commands::get_tables_from_cache,
             metadata_cache_commands::get_columns_from_cache,
+            metadata_cache_commands::cancel_sync,
+            metadata_cache_commands::notify_ddl_event,
             // 缓存预热命令
             cache_warming_commands::start_cache_warming,
             cache_warming_commands::cancel_cache_warming,

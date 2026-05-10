@@ -89,8 +89,7 @@ pub async fn connect_database(
             connection_type,
             input.project_id.clone(),
         )
-        .await
-        ?;
+        .await?;
 
     let meta = db.meta();
     let safe_url = ConnectionService::mask_password_in_url(&input.url);
@@ -155,9 +154,7 @@ pub async fn switch_connection(conn_id: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
-    service
-        .switch_connection(&conn_id)
-        .await
+    service.switch_connection(&conn_id).await
 }
 
 /// 关闭指定连接
@@ -166,9 +163,7 @@ pub async fn close_connection(conn_id: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
-    service
-        .close_connection(&conn_id)
-        .await
+    service.close_connection(&conn_id).await
 }
 
 /// 关闭所有连接
@@ -177,9 +172,7 @@ pub async fn close_all_connections() -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
-    service
-        .close_all_connections()
-        .await
+    service.close_all_connections().await
 }
 
 /// 获取当前活动连接
@@ -223,9 +216,7 @@ pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, C
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
-    let connections = service
-        .get_recent_connections()
-        ?;
+    let connections = service.get_recent_connections()?;
 
     Ok(connections
         .into_iter()
@@ -314,8 +305,7 @@ pub async fn detect_global_connections_in_project(
 
     let connections = service
         .detect_global_connections_in_project(&project_id)
-        .await
-        ?;
+        .await?;
 
     let active_id = service.get_active_conn_id().await;
 
@@ -463,7 +453,8 @@ pub async fn create_database_file(
         return Err(format!(
             "不支持的数据库类型: {}. 仅支持 sqlite 和 duckdb",
             input.db_type
-        ).into());
+        )
+        .into());
     }
 
     let path = Path::new(&input.file_path);

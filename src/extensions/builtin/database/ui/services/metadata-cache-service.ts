@@ -400,9 +400,15 @@ export async function getSyncStatus(connectionId: string): Promise<SyncStatusInf
 /**
  * 取消同步
  */
-export async function cancelSync(connectionId: string): Promise<void> {
+export async function cancelSync(
+  connectionId: string,
+  connectionType: 'global' | 'project',
+  projectPath?: string
+): Promise<void> {
   return invoke('cancel_sync', {
     connectionId,
+    connectionType,
+    projectPath,
   })
 }
 

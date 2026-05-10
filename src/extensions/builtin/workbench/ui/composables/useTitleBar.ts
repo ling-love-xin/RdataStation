@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
+import type { Project } from '@/core/project/stores/project'
 import { useUiStore } from '@/shared/stores/ui'
 
 import type { ToolbarTool } from '../components/title-bar/ToolbarActions.vue'
@@ -11,13 +12,19 @@ export function useTitleBar() {
   const uiStore = useUiStore()
   const projectStore = useProjectStore()
 
-  // 当前项目名称
-  const currentProject = computed(
+  /** Full project object (reactive) */
+  const currentProject = computed<Project | null>(() => projectStore.currentProject)
+
+  /** Display name for title bar */
+  const currentProjectName = computed(
     () => projectStore.currentProject?.name || t('workbench.defaultProject')
   )
 
-  // 最近项目列表
+  /** Recent project list */
   const recentProjects = computed(() => projectStore.recentProjects)
+
+  /** Loading state for project operations */
+  const isOperationLoading = computed(() => projectStore.loading)
 
   // 加载最近项目
   async function loadRecentProjects() {
@@ -37,6 +44,26 @@ export function useTitleBar() {
   // 打开项目
   async function openProject(path: string) {
     await projectStore.openProject(path)
+  }
+
+  // 重命名项目
+  async function renameProject(projectId: string, newName: string) {
+    await projectStore.updateProjectInfo(projectId, newName)
+  }
+
+  // 更新项目信息
+  async function updateProjectInfo(projectId: string, name: string, description?: string) {
+    await projectStore.updateProjectInfo(projectId, name, description)
+  }
+
+  // 从最近列表移除
+  async function removeFromRecent(projectId: string) {
+    await projectStore.removeFromRecent(projectId)
+  }
+
+  // 物理删除项目
+  async function deleteProjectDisk(projectId: string) {
+    await projectStore.deleteProjectDisk(projectId)
   }
 
   // 主题切换
@@ -74,13 +101,19 @@ export function useTitleBar() {
   return {
     // State
     currentProject,
+    currentProjectName,
     recentProjects,
+    isOperationLoading,
 
     // Actions
     loadRecentProjects,
     switchProject,
     createProject,
     openProject,
+    renameProject,
+    updateProjectInfo,
+    removeFromRecent,
+    deleteProjectDisk,
     toggleTheme,
     saveToolbarConfig,
     loadToolbarConfig,

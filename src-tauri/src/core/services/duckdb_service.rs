@@ -310,6 +310,7 @@ pub(crate) fn is_binary_type(dt_lower: &str) -> bool {
     matches!(dt_lower, "blob" | "bytea" | "binary" | "varbinary")
 }
 
+#[allow(dead_code)]
 pub(crate) fn is_json_type(dt_lower: &str) -> bool {
     matches!(dt_lower, "json" | "jsonb")
 }

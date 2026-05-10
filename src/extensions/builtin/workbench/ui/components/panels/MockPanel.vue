@@ -12,6 +12,9 @@
         <NButton size="small" quaternary title="生成历史" @click="loadHistory">
           <template #icon><Clock :size="14" /></template>
         </NButton>
+        <NButton size="small" quaternary title="保存模板" @click="showSaveTemplateModal = true">
+          <template #icon><Save :size="14" /></template>
+        </NButton>
       </div>
     </div>
 
@@ -279,6 +282,55 @@
       </div>
     </div>
 
+    <div v-if="store.userTemplates.length > 0" class="history-section">
+      <div class="section-header">
+        <span class="section-title">我的模板</span>
+        <NButton size="small" quaternary :loading="store.templatesLoading" @click="onRefreshTemplates">
+          <template #icon><RotateCw :size="14" /></template>
+        </NButton>
+      </div>
+      <div class="history-list">
+        <div
+          v-for="tpl in store.userTemplates"
+          :key="tpl.id"
+          class="history-item"
+          @click="onApplyUserTemplate(tpl.id)"
+        >
+          <div class="history-item-left">
+            <span class="history-table">{{ tpl.name }}</span>
+            <span class="history-rows">{{ tpl.rowCount }} 行</span>
+            <span class="history-status">{{ tpl.locale }}</span>
+          </div>
+          <div class="history-item-right">
+            <span class="history-time">{{ tpl.createdAt ? formatTimeStr(tpl.createdAt) : '-' }}</span>
+            <NButton size="tiny" quaternary class="history-del" @click.stop="onDeleteUserTemplate(tpl.id)">
+              <template #icon><Trash2 :size="12" /></template>
+            </NButton>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <NModal v-model:show="showSaveTemplateModal" preset="card" title="保存为模板" style="width: 380px">
+      <div class="save-template-form">
+        <div class="form-group">
+          <label class="form-label">模板名称</label>
+          <NInput v-model:value="saveTemplateName" size="small" placeholder="例如: 电商用户表" />
+        </div>
+        <div class="dialog-footer">
+          <NButton size="small" @click="showSaveTemplateModal = false">取消</NButton>
+          <NButton
+            type="primary"
+            size="small"
+            :disabled="!saveTemplateName.trim()"
+            :loading="saveTemplateLoading"
+            @click="onSaveTemplate"
+          >
+            保存
+          </NButton>
+        </div>
+      </div>
+    </NModal>
     <MockTemplateSelectDialog
       :show="showTemplateDialog"
       @update:show="showTemplateDialog = $event"
@@ -314,7 +366,7 @@ import {
   Save, RotateCcw, Fingerprint, FileArchive, RotateCw, Settings,
 } from 'lucide-vue-next'
 import {
-  NButton, NInput, NInputNumber, NSelect, NDataTable, NDropdown, NTag,
+  NButton, NInput, NInputNumber, NSelect, NDataTable, NDropdown, NTag, NModal,
   createDiscreteApi,
 } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
@@ -334,6 +386,9 @@ const { message } = createDiscreteApi(['message'])
 const seedInput = ref(store.seed !== null ? String(store.seed) : '')
 const showTemplateDialog = ref(false)
 const showImportDialog = ref(false)
+const showSaveTemplateModal = ref(false)
+const saveTemplateName = ref('')
+const saveTemplateLoading = ref(false)
 
 const advancedDrawerIndex = ref(-1)
 const advancedDrawerVisible = ref(false)
@@ -750,8 +805,54 @@ async function loadHistory() {
   catch { /* history load is non-critical */ }
 }
 
+async function onSaveTemplate() {
+  const projectPath = projectStore.projectPath
+  if (!projectPath) return
+  saveTemplateLoading.value = true
+  try {
+    await store.saveCurrentAsTemplate(projectPath, saveTemplateName.value.trim())
+    showSaveTemplateModal.value = false
+    saveTemplateName.value = ''
+    message.success('模板已保存')
+  } catch (e) {
+    message.error(`保存模板失败: ${String(e)}`)
+  } finally {
+    saveTemplateLoading.value = false
+  }
+}
+
+async function onRefreshTemplates() {
+  const projectPath = projectStore.projectPath
+  if (!projectPath) return
+  try { await store.loadUserTemplates(projectPath) }
+  catch { /* template load is non-critical */ }
+}
+
+async function onApplyUserTemplate(templateId: string) {
+  const projectPath = projectStore.projectPath
+  if (!projectPath) return
+  try {
+    await store.applyUserTemplate(projectPath, templateId)
+    message.success('模板已应用')
+  } catch (e) {
+    message.error(`应用模板失败: ${String(e)}`)
+  }
+}
+
+async function onDeleteUserTemplate(templateId: string) {
+  const projectPath = projectStore.projectPath
+  if (!projectPath) return
+  try {
+    await store.deleteUserTemplate(projectPath, templateId)
+    message.success('模板已删除')
+  } catch (e) {
+    message.error(`删除模板失败: ${String(e)}`)
+  }
+}
+
 onMounted(() => {
   loadHistory()
+  onRefreshTemplates()
 })
 </script>
 
@@ -932,4 +1033,24 @@ onMounted(() => {
 .history-rows { color: var(--color-text-secondary); }
 .history-status { color: var(--brand-success); font-size: 11px; }
 .history-item-right { font-size: 11px; color: var(--color-text-muted); }
+.save-template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 </style>

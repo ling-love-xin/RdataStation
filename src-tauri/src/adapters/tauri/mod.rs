@@ -1,10 +1,10 @@
 //! Tauri Adapter 模块
-//! 
+//!
 //! 负责将 Tauri 前端的请求适配到 Core 业务层。
 //! 这是多适配器架构中的一个实现，未来还会有 CLI、HTTP、WASM 等适配器。
-//! 
+//!
 //! # 架构设计
-//! 
+//!
 //! ```
 //! Frontend (Vue3)
 //!     │
@@ -19,12 +19,12 @@
 //! ```
 
 // 导出子模块
-pub mod stream;
 pub mod event;
 pub mod state;
+pub mod stream;
 
 // 重新导出核心类型
-pub use self::stream::{QueryResultChunk, QueryResultStream, StreamAdapter, stream_utils};
+pub use self::stream::{stream_utils, QueryResultChunk, QueryResultStream, StreamAdapter};
 
 use crate::core::CoreError;
 
@@ -77,5 +77,7 @@ pub trait IntoDto<T> {
 
 /// DTO 转换 trait (反向)
 pub trait FromDto<T> {
-    fn from_dto(dto: T) -> Result<Self, TauriAdapterError> where Self: Sized;
+    fn from_dto(dto: T) -> Result<Self, TauriAdapterError>
+    where
+        Self: Sized;
 }

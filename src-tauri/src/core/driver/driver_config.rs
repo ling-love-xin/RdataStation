@@ -4,6 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::core::error::CoreError;
+
 /// 驱动配置（用于配置文件）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DriverConfig {
@@ -88,14 +90,11 @@ fn default_true() -> bool {
 
 impl DriverRegistryConfig {
     /// 加载配置文件（当前使用默认配置，后续集成 toml/serde 反序列化）
-    pub fn from_file(_path: &str) -> Result<Self, String> {
-        // 暂时返回默认配置
+    pub fn from_file(_path: &str) -> Result<Self, CoreError> {
         Ok(Self::default_config())
     }
     
-    /// 保存配置文件（当前为空操作，后续集成 toml/serde 序列化）
-    pub fn to_file(&self, _path: &str) -> Result<(), String> {
-        // 暂时返回成功
+    pub fn to_file(&self, _path: &str) -> Result<(), CoreError> {
         Ok(())
     }
     
