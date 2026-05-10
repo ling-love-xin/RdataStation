@@ -316,7 +316,8 @@ impl ConnectionService {
         url.to_string()
     }
 
-    /// 检查 URL 是否含明文密码（需要迁移）
+    /// 检查 URL 是否含明文密码，用于旧数据迁移检测
+    #[allow(dead_code)]
     fn url_has_plaintext_password(url: &str) -> bool {
         if let Some(scheme_end) = url.find("://") {
             let rest = &url[scheme_end + 3..];

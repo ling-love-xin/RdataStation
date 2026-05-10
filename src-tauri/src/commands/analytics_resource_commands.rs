@@ -35,6 +35,15 @@ fn get_store(state: &AnalyticsResourceState) -> Result<&AnalyticsResourceStore, 
         .ok_or_else(|| CoreError::common(CommonError::General(STORE_UNINITIALIZED.into())))
 }
 
+/// IPC 版本号（SemVer），用于运行时前后端兼容性检测
+pub const ANALYTICS_RESOURCE_API_VERSION: &str = "1.7.0";
+
+/// 获取分析资源模块 API 版本号
+#[tauri::command]
+pub fn get_analytics_resource_api_version() -> String {
+    ANALYTICS_RESOURCE_API_VERSION.to_string()
+}
+
 // ==================== Resource Commands ====================
 
 /// 创建资源

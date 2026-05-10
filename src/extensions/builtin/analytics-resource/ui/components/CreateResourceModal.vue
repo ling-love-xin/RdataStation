@@ -87,7 +87,14 @@
             type="textarea"
             :placeholder="t('analyticsResource.configJsonPlaceholder')"
             :rows="4"
+            @update:value="jsonError = null"
           />
+          <div
+            v-if="jsonError"
+            style="color: var(--brand-danger, #d63031); font-size: 12px; margin-top: 4px;"
+          >
+            {{ jsonError }}
+          </div>
         </NFormItem>
       </NForm>
 
@@ -117,7 +124,6 @@ import {
   NModal,
   NSelect,
   NSpace,
-  useMessage,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
@@ -169,6 +175,7 @@ const form = ref({
 })
 
 const configJson = ref('{}')
+const jsonError = ref<string | null>(null)
 
 const isValid = computed(() => form.value.name.trim() !== '')
 
@@ -195,7 +202,16 @@ function handleSubmit() {
       emit('create', input)
     }
   } catch {
-    message.error(t('analyticsResource.jsonFormatError'))
+    jsonError.value = t('analyticsResource.jsonFormatError')
+    return
+  }
+
+  jsonError.value = null
+
+  if (isEdit.value && props.editResource) {
+    emit('update', props.editResource.id, input)
+  } else {
+    emit('create', input)
   }
 }
 

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿<template>
+﻿﻿﻿﻿﻿﻿<template>
   <div class="pagination">
     <div class="pagination-info">
       <span>{{ t('analyticsResource.totalItems', { total }) }}</span>

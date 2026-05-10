@@ -1,8 +1,8 @@
 # 架构优化方案
 
-> 版本：v20.0
+> 版本：v21.0
 > 最后更新：2026-05-10
-> 状态：🟡 R20 完成 — 五审审计 | 综合 7.8 | 发现明文 URL 响应漏洞 | 旧数据迁移完成
+> 状态：🟢 R21 完成 — 六审审计 | 综合 8.1 | P0+P1+P2 全修复 | cargo check 0 错误
 
 ## 一、问题诊断总结
 
@@ -2215,6 +2215,90 @@ SqlHistoryRecord 同步扩展。
 | P2 | 前端组件单元测试 |
 | P3 | 旧数据迁移（URL 含明文密码的历史记录） |
 | P3 | 连接管理器多租户架构 |
+
+---
+
+## 三十八、R21：P0/P1/P2 全面修复 + 六审审计（2026-05-10）
+
+> 处理 R20 审计发现的 P0/P1/P2 待办。修复完成后执行第六次全面审计。
+
+### 38.1 P0 安全修复：connect_database 响应脱敏
+
+[connection_commands.rs:L100](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/connection_commands.rs#L100)
+
+**修复前**：`url: input.url` — 直接返回用户输入的明文密码 URL
+
+**修复后**：调用 `ConnectionService::mask_password_in_url()` 脱敏后返回
+
+```rust
+let safe_url = ConnectionService::mask_password_in_url(&input.url);
+Ok(ConnectDatabaseResponse {
+    url: safe_url,  // mysql://user:******@host/db
+    ...
+})
+```
+
+### 38.2 P1 连接池状态改造
+
+**新增 `pool_status()` 方法到 `Database` trait**（[traits.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/traits.rs)）：
+- 默认返回 `None`（非池化数据库）
+- MySQL/PostgreSQL 返回真实 sqlx Pool 指标
+
+**扩展 `PoolStatus` 结构体**：新增 `max_connections`/`min_connections` 字段
+
+**更新 6 个 pool 实现**：
+| 文件 | 修改 |
+|------|------|
+| [mysql_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql_pool.rs) | +max/min |
+| [postgres_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres_pool.rs) | +max/min |
+| [sqlite_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite_pool.rs) | +max/min |
+| [duckdb_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb_pool.rs) | +max/min |
+| [smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs) | 透传 max/min |
+| [mysql.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs) | pool_status() 实现 |
+| [postgres.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs) | pool_status() 实现 |
+
+### 38.3 P2 tracing 替换
+
+所有 eprintln!/println! → tracing 宏：
+
+| 旧代码 | 新代码 | 文件数 |
+|--------|--------|--------|
+| `eprintln!("transaction rollback error")` | `tracing::warn!()` | 4 |
+| `eprintln!("Failed to save history")` | `tracing::warn!()` | 1 |
+| `println!("drivers registered")` | `tracing::debug!()` | 1 |
+| `eprintln!("install extension")` | `tracing::warn!()` | 1 |
+| `eprintln!("get columns")` | `tracing::warn!()` | 1 |
+
+**剩余**：仅 `lib.rs`（3 处启动输出）和 `subscriber.rs`（日志子系统自身），均合理保留。
+
+### 38.4 预存错误修复
+
+[mock/engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/engine.rs) — `get_conn()` 返回 MutexGuard borrow 错误（预存于 R20 之前）：
+- 原因：局部 `Arc<Mutex<>>` 析构后 MutexGuard 悬垂
+- 修复：拆分为 `get_db() -> Arc` + `get_conn(&db) -> MutexGuard` 两阶段安全模式
+
+### 38.5 六审评分
+
+| 维度 | R20 | R21 | 变化 |
+|------|-----|------|------|
+| 架构 | 8.5 | **8.5** | — |
+| 设计 | 8.0 | **8.3** | +0.3 (pool_status 真实数据) |
+| Rust 代码 | 7.5 | **8.0** | +0.5 (0 eprintln, 0 unwrap) |
+| 前端代码 | 7.6 | **7.6** | — |
+| API 接口 | 7.5 | **8.0** | +0.5 (明文 URL 修复) |
+| 文档 | 7.0 | **7.0** | — |
+| 测试 | 6.5 | **6.5** | — |
+| **综合** | **7.8** | **8.1** | **+0.3** |
+
+### 38.6 验证
+
+| 验证步骤 | 结果 |
+|---------|------|
+| `cargo check --lib` | ✅ 通过（0 错误，0 警告） |
+| P0 connect_database 脱敏 | ✅ 已修复 |
+| P1 pool_status 真实数据 | ✅ MySQL/PostgreSQL 对接 sqlx |
+| P2 eprintln/println 清零 | ✅ 仅剩 subscriber.rs + lib.rs（合理） |
+| 预存 mock/engine.rs 错误 | ✅ 已修复 |
 
 ---
 

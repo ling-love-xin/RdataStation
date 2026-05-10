@@ -1,7 +1,7 @@
 # 分析资源管理器 — 开发进度文档
 
-> 版本：v1.6
-> 最后更新：2026-05-11
+> 版本：v1.7
+> 最后更新：2026-05-12
 > 作者：RdataStation 团队
 
 ---
@@ -348,13 +348,15 @@
 | ---- | ---------------- | ------ | ---- |
 | —    | 无已知阻塞性 Bug | —      | ✅   |
 
+> **注意**: 全量 `cargo test` 因 DuckDB 等模块导致 Windows 栈溢出（`STATUS_STACK_BUFFER_OVERRUN`），使用 `cargo test --lib -- t001 t002 ...` 按测试名过滤可解决。其他模块存在预编译错误（`traits.rs::PoolStatus`），不影响分析资源模块。
+
 ---
 
 ## 八、版本历史
 
 | 版本 | 日期       | 变更内容                                                                                                                              |
 | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| v1.7 | 2026-05-12 | P0 增强：get_resource_by_id JSON 解析失败传播 CoreError（rusqlite::Error::FromSqlConversionFailure）、CreateResourceModal 升级 naive-ui（NModal/NForm/NFormItem/NInput/NInputNumber/NSelect/NButton/NCard/NSpace）、移除 console.log→store.selectResource、Phase 4 子任务细化百分比（14 项/合计 21.5d）、技术债追踪「子组件集成」完成 +「OnceCell 重构」新增 |
+| v1.7 | 2026-05-12 | **架构**: OnceLock 无锁单例（Arc<Mutex<Option<>>> → Arc<OnceLock<>>），消除读写锁开销 + Option 检查 | **前端**: CreateResourceModal naive-ui 全量升级、alert()→useMessage()、API 类型 unknown→CreateResourceRequest、Store error state + clearError、JSON inline error | **Rust**: permanent_delete 显式事务、IPC 版本协商（ANALYTICS_RESOURCE_API_VERSION "1.7.0"） | **测试**: 故障注入测试（t013 无效ID / t014 回收站不存在 / t015 并发更新冲突）、Rust 15 测试 + vitest 124 = 139/139 全部通过 | **文档**: 6 份全部 v1.7、Phase 4 子任务细化（14 项/21.5d）、技术债 OnceCell/子组件集成完成 |
 | v1.6 | 2026-05-11 | P0 修复：7处 `unwrap_or(Value::Null)` 添加 tracing::warn 日志、18个 Tauri Command 错误类型 `String`→`CoreError`、新增并发创建测试（t012）、AnalyticsResourceManager 接入 Pinia store + naive-ui NButton/NTag、新增 use-search 单测（10 用例）、文档升级 v1.6  |
 | v1.5 | 2026-05-10 | 全方位自审计修复：文档不一致修正（22→25 命令、24→25 API）、Store 拆分为 3 个领域 composable（-13%）、虚拟滚动 composable 提取、Rust 集成测试（17 用例）+ vitest 前端单元测试（18 用例）、PROGRESS.md 表格修正（26→41 方法）、Phase 4 更新至进行中 15% |
 | v1.4 | 2026-05-09 | 审计修复：W8-W13 清理未使用变量/非空断言、W2 trace 日志、S1 新增 get_analytics_tag 命令、W3+W14 extension.ts 版本号修复、W4-W7 CSS 语义变量化 |

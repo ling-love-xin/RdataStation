@@ -65,7 +65,8 @@ impl MockEngine {
         let safe_name = sanitize_table_name(&config.table_name);
         let table_name = format!("{}{}", TEMP_MOCK_PREFIX, safe_name);
 
-        let conn = Self::get_conn()?;
+        let db = Self::get_db()?;
+        let conn = Self::get_conn(&db)?;
 
         let ddl = Self::build_create_table_ddl(&table_name, &config.columns);
         conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{}\"", table_name))?;
@@ -172,11 +173,14 @@ impl MockEngine {
 
     }
 
-    fn get_conn() -> MockResult<std::sync::MutexGuard<'static, duckdb::Connection>> {
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
-        let ptr = Arc::as_ptr(&duckdb);
-        let conn_ref: &'static Mutex<duckdb::Connection> = unsafe { &*ptr };
-        conn_ref.lock().map_err(|e| {
+    fn get_db() -> MockResult<Arc<Mutex<duckdb::Connection>>> {
+        DuckDBManager::global()
+            .get_or_create_in_memory()
+            .map_err(|e| MockError::Generation(format!("DuckDB error: {}", e)))
+    }
+
+    fn get_conn(db: &Arc<Mutex<duckdb::Connection>>) -> MockResult<std::sync::MutexGuard<'_, duckdb::Connection>> {
+        db.lock().map_err(|e| {
             MockError::Generation(format!("DuckDB lock error: {}", e))
         })
     }
@@ -188,7 +192,8 @@ impl MockEngine {
     /// 从指定的 DuckDB 临时表中读取前 `limit` 行，转换为 Arrow `RecordBatch`
     /// 并封装为 `QueryResult` 返回。用于前端 ag-Grid 二次渲染。
     pub fn preview(temp_table_name: &str, limit: usize) -> MockResult<QueryResult> {
-        let conn = Self::get_conn()?;
+        let db = Self::get_db()?;
+        let conn = Self::get_conn(&db)?;
         Self::read_preview(&conn, temp_table_name, limit)
     }
 
@@ -205,7 +210,8 @@ impl MockEngine {
         output_path: Option<&str>,
         table_name: Option<&str>,
     ) -> MockResult<String> {
-        let conn = Self::get_conn()?;
+        let db = Self::get_db()?;
+        let conn = Self::get_conn(&db)?;
 
         match format {
             MockExportFormat::Csv | MockExportFormat::Parquet | MockExportFormat::Xlsx => {
@@ -1516,7 +1522,8 @@ impl MockEngine {
         temp_table_name: &str,
         new_name: &str,
     ) -> MockResult<(String, i64, i32)> {
-        let conn = Self::get_conn()?;
+        let db = Self::get_db()?;
+        let conn = Self::get_conn(&db)?;
 
         let sql = format!(
             "CREATE TABLE \"{}\" AS SELECT * FROM \"{}\"",

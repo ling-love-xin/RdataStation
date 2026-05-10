@@ -2022,6 +2022,129 @@ mod tests {
         drop(store);
         cleanup(dir);
     }
+
+    #[tokio::test]
+    async fn t013_invalid_resource_id() {
+        let (store, dir) = create_test_store().await;
+
+        let result = store.get_resource_by_id("nonexistent-id").await;
+        assert!(result.is_err(), "non-existent ID should return error");
+
+        let result = store
+            .update_resource(
+                "nonexistent-id",
+                CreateResourceRequest {
+                    resource_type: "table".to_string(),
+                    name: "ghost".to_string(),
+                    config: serde_json::json!({}),
+                    scope: "project".to_string(),
+                    alias: None,
+                    source_query: None,
+                    column_count: None,
+                    file_size: None,
+                    row_count: None,
+                    parent_resource_id: None,
+                },
+            )
+            .await;
+        assert!(result.is_err(), "update non-existent should fail");
+
+        let result = store.delete_resource("nonexistent-id").await;
+        assert!(result.is_err(), "delete non-existent should fail");
+
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[tokio::test]
+    async fn t014_restore_nonexistent_recycle() {
+        let (store, dir) = create_test_store().await;
+
+        let result = store.restore_from_recycle("nonexistent-recycle-id").await;
+        assert!(
+            result.is_err(),
+            "restore from non-existent recycle should fail"
+        );
+
+        drop(store);
+        cleanup(dir);
+    }
+
+    #[tokio::test]
+    async fn t015_concurrent_update_same_resource() {
+        let (store, dir) = create_test_store().await;
+
+        let created = store
+            .create_resource(CreateResourceRequest {
+                resource_type: "table".to_string(),
+                name: "concurrent_target".to_string(),
+                config: serde_json::json!({"v": 0}),
+                scope: "project".to_string(),
+                alias: None,
+                source_query: None,
+                column_count: None,
+                file_size: None,
+                row_count: None,
+                parent_resource_id: None,
+            })
+            .await
+            .expect("create");
+
+        let store = std::sync::Arc::new(store);
+        let s1 = store.clone();
+        let s2 = store.clone();
+        let id1 = created.id.clone();
+        let id2 = created.id.clone();
+
+        let (r1, r2) = tokio::join!(
+            s1.update_resource(
+                &id1,
+                CreateResourceRequest {
+                    resource_type: "table".to_string(),
+                    name: "update_a".to_string(),
+                    config: serde_json::json!({"v": 1}),
+                    scope: "project".to_string(),
+                    alias: None,
+                    source_query: None,
+                    column_count: None,
+                    file_size: None,
+                    row_count: None,
+                    parent_resource_id: None,
+                },
+            ),
+            s2.update_resource(
+                &id2,
+                CreateResourceRequest {
+                    resource_type: "table".to_string(),
+                    name: "update_b".to_string(),
+                    config: serde_json::json!({"v": 2}),
+                    scope: "project".to_string(),
+                    alias: None,
+                    source_query: None,
+                    column_count: None,
+                    file_size: None,
+                    row_count: None,
+                    parent_resource_id: None,
+                },
+            ),
+        );
+
+        assert!(r1.is_ok(), "concurrent update A failed: {:?}", r1.err());
+        assert!(r2.is_ok(), "concurrent update B failed: {:?}", r2.err());
+
+        let versions = store
+            .get_resource_versions(&created.id)
+            .await
+            .expect("versions");
+        assert_eq!(
+            versions.len(),
+            3,
+            "should have 3 versions (original + 2 updates)"
+        );
+
+        drop(store);
+        drop(dir);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

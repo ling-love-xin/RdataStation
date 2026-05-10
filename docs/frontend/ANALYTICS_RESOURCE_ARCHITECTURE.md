@@ -1,7 +1,7 @@
 # 分析资源管理器 — 架构设计文档
 
-> 版本：v1.6
-> 最后更新：2026-05-11
+> 版本：v1.7
+> 最后更新：2026-05-12
 > 作者：RdataStation 团队
 
 ---
@@ -68,8 +68,8 @@
 ├─────────────────────────────┼────────────────────────────────────┤
 │                     Backend (Rust)                               │
 │  ┌──────────────────────────▼──────────────────────────────────┐ │
-│  │   analytics_resource_commands.rs (18 个 Tauri Command)      │ │
-│  │   + AnalyticsResourceState (Arc<Mutex<Store>> 缓存)         │ │
+│  │   analytics_resource_commands.rs (26 个 Tauri Command)      │ │
+│  │   + AnalyticsResourceState (Arc<OnceLock<Store>>)            │ │
 │  └──────────────────────────┬──────────────────────────────────┘ │
 │  ┌──────────────────────────▼──────────────────────────────────┐ │
 │  │   analytics_resource_store.rs (数据持久化)                   │ │
@@ -267,7 +267,7 @@ create ──→ view ──→ edit ──→ delete (软删除)
 | 文件                                                  | 行数  | 职责                          |
 | ----------------------------------------------------- | ----- | ----------------------------- |
 | `core/persistence/analytics_resource_store.rs`        | ~1100 | 7 表 CRUD + 事务 + 参数化查询 |
-| `commands/analytics_resource_commands.rs`             | ~380  | 24 个 Tauri Command + State   |
+| `commands/analytics_resource_commands.rs`             | ~400  | 26 个 Tauri Command + State   |
 | `migrations/project_meta/007_analytics_resources.sql` | ~150  | DDL + 索引 + 触发器 + CHECK   |
 | `lib.rs`                                              | ~250  | 命令注册 + State 管理         |
 

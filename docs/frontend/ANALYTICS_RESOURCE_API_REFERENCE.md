@@ -1,8 +1,8 @@
 # 分析资源管理器 — API 接口参考
 
-> 版本：v1.5
-> 最后更新：2026-05-10
-> 状态：✅ 25 个 Tauri Command 全部可用
+> 版本：v1.7
+> 最后更新：2026-05-12
+> 状态：✅ 26 个 Tauri Command（25 resource + 1 IPC version）+ 25 个前端 API 方法
 
 ---
 

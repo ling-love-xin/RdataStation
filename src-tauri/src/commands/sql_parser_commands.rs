@@ -4,15 +4,12 @@
 
 use crate::core::error::CoreError;
 use crate::core::services::sql_parser_service::{
-    self, FormatRequest, SqlDialect, TranspileRequest, ValidateRequest,
+    self, SqlDialect, FormatRequest, TranspileRequest, ValidateRequest
 };
 
 /// 解析 SQL
 #[tauri::command]
-pub fn parse_sql(
-    sql: String,
-    dialect: Option<SqlDialect>,
-) -> Result<sql_parser_service::ParseResult, CoreError> {
+pub fn parse_sql(sql: String, dialect: Option<SqlDialect>) -> Result<sql_parser_service::ParseResult, CoreError> {
     Ok(sql_parser_service::parse_sql(&sql, dialect))
 }
 
@@ -24,9 +21,7 @@ pub fn format_sql(input: FormatRequest) -> Result<sql_parser_service::FormatResp
 
 /// 转译 SQL
 #[tauri::command]
-pub fn transpile_sql(
-    input: TranspileRequest,
-) -> Result<sql_parser_service::TranspileResponse, CoreError> {
+pub fn transpile_sql(input: TranspileRequest) -> Result<sql_parser_service::TranspileResponse, CoreError> {
     Ok(sql_parser_service::transpile_sql(
         &input.sql,
         input.source_dialect,
@@ -36,17 +31,12 @@ pub fn transpile_sql(
 
 /// 验证 SQL
 #[tauri::command]
-pub fn validate_sql(
-    input: ValidateRequest,
-) -> Result<sql_parser_service::ValidateResponse, CoreError> {
+pub fn validate_sql(input: ValidateRequest) -> Result<sql_parser_service::ValidateResponse, CoreError> {
     Ok(sql_parser_service::validate_sql(&input.sql, input.dialect))
 }
 
 /// 分割 SQL 语句
 #[tauri::command]
-pub fn split_sql(
-    sql: String,
-    dialect: Option<sql_parser_service::SqlDialect>,
-) -> Result<Vec<String>, CoreError> {
+pub fn split_sql(sql: String, dialect: Option<sql_parser_service::SqlDialect>) -> Result<Vec<String>, CoreError> {
     Ok(sql_parser_service::split_sql(&sql, dialect))
 }
