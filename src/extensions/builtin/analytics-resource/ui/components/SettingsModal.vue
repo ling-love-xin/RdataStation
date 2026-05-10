@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<template>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal settings-modal">
       <div class="modal-header">

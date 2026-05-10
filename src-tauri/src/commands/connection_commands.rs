@@ -3,6 +3,7 @@
 //! 处理数据库连接的创建、管理、关闭等操作
 
 use crate::core::driver::DriverConnectionConfig;
+use crate::core::error::CoreError;
 use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::{get_connection_manager, DataSourceMeta};
 
@@ -59,7 +60,7 @@ impl From<DataSourceMeta> for DataSourceMetaResponse {
 #[tauri::command]
 pub async fn connect_database(
     input: ConnectDatabaseInput,
-) -> Result<ConnectDatabaseResponse, String> {
+) -> Result<ConnectDatabaseResponse, CoreError> {
     if input.url.is_empty() {
         return Err("Database URL cannot be empty".into());
     }
@@ -71,7 +72,7 @@ pub async fn connect_database(
     let connection_type = match input.connection_type.as_deref() {
         Some("global") | None => ConnectionType::Global,
         Some("project") => ConnectionType::Project,
-        Some(other) => return Err(format!("Invalid connection type: {}", other)),
+        Some(other) => return Err(format!("Invalid connection type: {}", other).into()),
     };
 
     // 项目连接必须有 project_id
@@ -89,7 +90,7 @@ pub async fn connect_database(
             input.project_id.clone(),
         )
         .await
-        .map_err(|e| e.to_string())?;
+        ?;
 
     let meta = db.meta();
     let safe_url = ConnectionService::mask_password_in_url(&input.url);
@@ -121,7 +122,7 @@ pub struct ConnectionInfoResponse {
 
 /// 获取所有连接
 #[tauri::command]
-pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, String> {
+pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
@@ -150,43 +151,40 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, String> {
 
 /// 切换活动连接
 #[tauri::command]
-pub async fn switch_connection(conn_id: String) -> Result<(), String> {
+pub async fn switch_connection(conn_id: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
     service
         .switch_connection(&conn_id)
         .await
-        .map_err(|e| e.to_string())
 }
 
 /// 关闭指定连接
 #[tauri::command]
-pub async fn close_connection(conn_id: String) -> Result<(), String> {
+pub async fn close_connection(conn_id: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
     service
         .close_connection(&conn_id)
         .await
-        .map_err(|e| e.to_string())
 }
 
 /// 关闭所有连接
 #[tauri::command]
-pub async fn close_all_connections() -> Result<(), String> {
+pub async fn close_all_connections() -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
     service
         .close_all_connections()
         .await
-        .map_err(|e| e.to_string())
 }
 
 /// 获取当前活动连接
 #[tauri::command]
-pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, String> {
+pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
@@ -221,13 +219,13 @@ pub struct RecentConnectionResponse {
 
 /// 获取最近连接列表
 #[tauri::command]
-pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, String> {
+pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
     let connections = service
         .get_recent_connections()
-        .map_err(|e| e.to_string())?;
+        ?;
 
     Ok(connections
         .into_iter()
@@ -242,13 +240,13 @@ pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, S
 
 /// 删除最近连接记录
 #[tauri::command]
-pub async fn remove_recent_connection(name: String) -> Result<(), String> {
+pub async fn remove_recent_connection(name: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
     service
         .remove_recent_connection(&name)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 连接类型转换请求参数
@@ -272,7 +270,7 @@ pub struct ConvertConnectionResponse {
 #[tauri::command]
 pub async fn convert_connection_type(
     input: ConvertConnectionInput,
-) -> Result<ConvertConnectionResponse, String> {
+) -> Result<ConvertConnectionResponse, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
@@ -290,7 +288,7 @@ pub async fn convert_connection_type(
             .convert_to_global_connection(&input.conn_id)
             .await
             .map_err(|e| e.to_string())?,
-        other => return Err(format!("Invalid target type: {}", other)),
+        other => return Err(format!("Invalid target type: {}", other).into()),
     };
 
     let message = format!(
@@ -310,14 +308,14 @@ pub async fn convert_connection_type(
 #[tauri::command]
 pub async fn detect_global_connections_in_project(
     project_id: String,
-) -> Result<Vec<ConnectionInfoResponse>, String> {
+) -> Result<Vec<ConnectionInfoResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
 
     let connections = service
         .detect_global_connections_in_project(&project_id)
         .await
-        .map_err(|e| e.to_string())?;
+        ?;
 
     let active_id = service.get_active_conn_id().await;
 
@@ -355,7 +353,7 @@ pub struct TestConnectionResponse {
 pub async fn test_connection(
     db_type: String,
     url: String,
-) -> Result<TestConnectionResponse, String> {
+) -> Result<TestConnectionResponse, CoreError> {
     use std::time::Instant;
 
     if url.is_empty() {
@@ -400,7 +398,7 @@ pub async fn test_connection(
         Ok(result) => result,
         Err(e) => {
             tracing::error!("测试连接失败：{}", e);
-            return Err(format!("连接失败: {}", e));
+            return Err(format!("连接失败: {}", e).into());
         }
     };
 
@@ -457,7 +455,7 @@ pub struct CreateDatabaseFileResponse {
 #[tauri::command]
 pub async fn create_database_file(
     input: CreateDatabaseFileInput,
-) -> Result<CreateDatabaseFileResponse, String> {
+) -> Result<CreateDatabaseFileResponse, CoreError> {
     use std::path::Path;
 
     // 验证数据库类型
@@ -465,14 +463,14 @@ pub async fn create_database_file(
         return Err(format!(
             "不支持的数据库类型: {}. 仅支持 sqlite 和 duckdb",
             input.db_type
-        ));
+        ).into());
     }
 
     let path = Path::new(&input.file_path);
 
     // 检查文件是否已存在
     if path.exists() {
-        return Err("文件已存在".to_string());
+        return Err("文件已存在".to_string().into());
     }
 
     // 确保父目录存在
@@ -525,8 +523,8 @@ pub async fn create_database_file(
 
 /// 测试连接配置（不保存）
 #[tauri::command]
-pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<(), String> {
-    let url = config.to_url().map_err(|e| e.to_string())?;
+pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<(), CoreError> {
+    let url = config.to_url()?;
 
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -597,7 +595,7 @@ pub struct ConnectionPoolStatusResponse {
 #[tauri::command]
 pub async fn get_connection_pool_status(
     conn_id: String,
-) -> Result<ConnectionPoolStatusResponse, String> {
+) -> Result<ConnectionPoolStatusResponse, CoreError> {
     let manager = get_connection_manager().clone();
 
     let _connection_info = manager
@@ -638,7 +636,7 @@ pub async fn get_connection_pool_status(
 
 /// 获取所有全局连接
 #[tauri::command]
-pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse>, String> {
+pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse>, CoreError> {
     use crate::core::migration::global_init;
 
     let global_db = global_init::get_global_db_manager()

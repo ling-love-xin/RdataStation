@@ -91,7 +91,7 @@
           />
           <div
             v-if="jsonError"
-            style="color: var(--brand-danger, #d63031); font-size: 12px; margin-top: 4px;"
+            style="color: var(--brand-danger, #d63031); font-size: var(--font-size-sm, 12px); margin-top: var(--spacing-xs, 4px);"
           >
             {{ jsonError }}
           </div>
@@ -113,7 +113,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
 import {
   NButton,
   NCard,
@@ -125,6 +124,7 @@ import {
   NSelect,
   NSpace,
 } from 'naive-ui'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type {
@@ -135,7 +135,6 @@ import type {
 } from '../../types'
 
 const { t } = useI18n()
-const message = useMessage()
 
 const props = defineProps<{
   show: boolean

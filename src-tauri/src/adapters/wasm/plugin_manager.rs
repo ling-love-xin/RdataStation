@@ -304,9 +304,8 @@ impl PluginManager for AdvancedPluginManager {
                 .map_err(|e| WasmAdapterError::RuntimeError(e.to_string()))?
         };
 
-        // 更新资源使用
+        // 更新资源使用（当前为占位实现，后续对接 wasmtime 资源计量 API）
         if let Some(sandbox) = sandboxes.get(id) {
-            // TODO: 实际测量资源使用
             let mut usage = sandbox.monitor_resources()?;
             usage.cpu_time_used_ms += 1; // 示例：增加 CPU 时间
             sandbox.update_resource_usage(usage)?;

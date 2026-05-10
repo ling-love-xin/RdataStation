@@ -1,30 +1,47 @@
 # RdataStation 后端文档索引
 
-> 版本：v1.4
-> 最后更新：2026-05-09
-> 状态：✅ 持续更新
+> 版本：v2.0
+> 最后更新：2026-05-10
+> 状态：✅ 文档结构重整完成
 
 ---
 
 ## 文档列表
 
-| 文档                                                                           | 说明                                                      |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| [ARCHITECTURE.md](./ARCHITECTURE.md)                                           | 后端架构设计，包含目录结构、核心模块、DuckDB 功能、技术栈 |
-| [TASKS.md](./TASKS.md)                                                         | 开发任务清单，包含已完成/进行中/待完成任务                |
-| [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md)             | 项目模块架构设计，包括连接分类、元数据缓存                |
-| [SCHEMA_CHANGELOG.md](./SCHEMA_CHANGELOG.md)                                   | Schema 变更日志                                           |
-| [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md)                                   | 数据库迁移系统                                            |
-| [ANALYTICS_RESOURCE_SCHEMA.md](./ANALYTICS_RESOURCE_SCHEMA.md)                 | 分析资源模块后端 Schema 设计                              |
-| [ANALYTICS_RESOURCE_MANAGER_DESIGN.md](./ANALYTICS_RESOURCE_MANAGER_DESIGN.md) | 分析资源后端设计方案（v1.0 设计阶段）                     |
+### 架构与设计
 
-### 洞察系统
+| 文档                                                                           | 说明                                            |
+| ------------------------------------------------------------------------------ | ----------------------------------------------- |
+| [ARCHITECTURE.md](./ARCHITECTURE.md)                                           | 后端架构设计（目录结构、核心模块、DuckDB 功能） |
+| [implementation.md](./implementation.md)                                       | 后端实现说明（内存防护、错误处理、持久化服务）  |
+| [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md)             | 项目模块架构设计（连接分类、元数据缓存）        |
+| [PROJECT_MODULE_OPTIMIZATION.md](./PROJECT_MODULE_OPTIMIZATION.md)             | 项目模块优化                                    |
+| [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md)                                   | 数据库迁移系统                                  |
+| [LOGGING_MODULE.md](./LOGGING_MODULE.md)                                       | 日志模块设计                                    |
 
-| 文档                                                           | 说明                         |
-| -------------------------------------------------------------- | ---------------------------- |
-| [INSIGHT-SYSTEM-PLAN.md](../frontend/INSIGHT-SYSTEM-PLAN.md)   | 洞察体系实施总体规划（v5.0） |
-| [INSIGHT-ARCHITECTURE.md](../frontend/INSIGHT-ARCHITECTURE.md) | 洞察技术架构文档（v6.0）     |
-| [INSIGHT-DEV-PROGRESS.md](../frontend/INSIGHT-DEV-PROGRESS.md) | 洞察开发进度跟踪（v5.0）     |
+### Schema 与缓存
+
+| 文档                                                                   | 说明                      |
+| ---------------------------------------------------------------------- | ------------------------- |
+| [SCHEMA_CHANGELOG.md](./SCHEMA_CHANGELOG.md)                           | Schema 变更日志           |
+| [METADATA-CACHE-TEST-REPORT.md](./METADATA-CACHE-TEST-REPORT.md)       | 元数据缓存测试报告         |
+| [ANALYTICS_RESOURCE_SCHEMA.md](./ANALYTICS_RESOURCE_SCHEMA.md)         | 分析资源模块后端 Schema    |
+| [ANALYTICS_RESOURCE_MANAGER_DESIGN.md](./ANALYTICS_RESOURCE_MANAGER_DESIGN.md) | 分析资源后端设计方案 |
+
+### 草稿本 (Scratchpad)
+
+| 文档                                                       | 说明        |
+| ---------------------------------------------------------- | ----------- |
+| [SCRATCHPAD_DESIGN.md](./SCRATCHPAD_DESIGN.md)             | 草稿本设计  |
+| [SCRATCHPAD_PROGRESS.md](./SCRATCHPAD_PROGRESS.md)         | 草稿本进度  |
+| [SCRATCHPAD_SCHEMA.md](./SCRATCHPAD_SCHEMA.md)             | 草稿本 Schema |
+
+### 任务
+
+| 文档                                                             | 说明             |
+| ---------------------------------------------------------------- | ---------------- |
+| [TASKS.md](./TASKS.md)                                           | 开发任务清单     |
+| [TODO_CONNECTION_CLASSIFICATION.md](./TODO_CONNECTION_CLASSIFICATION.md) | 连接分类待办     |
 
 ---
 
@@ -47,8 +64,18 @@
 
 ---
 
-## 相关文档
+## 相关资源
 
-- [项目级架构](../architecture.md) - 前端架构、状态管理、持久化策略
-- [导航栏架构](../navigator/01-ARCHITECTURE.md) - IVM 导航栏设计
-- [前端架构](../frontend/ARCHITECTURE.md) - 前端技术栈和架构
+| 资源              | 路径                                |
+| ----------------- | ----------------------------------- |
+| 项目级架构        | `../architecture/overview.md`       |
+| Rust 后端源码文档 | `../../src-tauri/src/docs/`         |
+| 前端架构          | `../frontend/ARCHITECTURE.md`       |
+| 导航栏架构        | `../navigator/01-ARCHITECTURE.md`   |
+
+---
+
+## 维护
+
+- **文档维护者**：RdataStation 后端团队
+- **更新频率**：随架构变更同步更新

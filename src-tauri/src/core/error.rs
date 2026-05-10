@@ -558,6 +558,18 @@ impl CoreError {
     }
 }
 
+impl From<String> for CoreError {
+    fn from(s: String) -> Self {
+        CoreError::Common(CommonError::General(s))
+    }
+}
+
+impl From<&str> for CoreError {
+    fn from(s: &str) -> Self {
+        CoreError::Common(CommonError::General(s.to_string()))
+    }
+}
+
 impl fmt::Display for CoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

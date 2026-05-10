@@ -193,3 +193,52 @@ fn fast_nano_id() -> String {
         .as_nanos();
     format!("{:x}", ts)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fast_nano_id_is_hex() {
+        let id = fast_nano_id();
+        assert!(!id.is_empty());
+        assert!(id.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_fast_nano_id_unique() {
+        let id1 = fast_nano_id();
+        std::thread::sleep(std::time::Duration::from_micros(10));
+        let id2 = fast_nano_id();
+        assert_ne!(id1, id2);
+    }
+
+    #[test]
+    fn test_history_record_construction() {
+        let record = MockHistoryRecord {
+            id: "mock_abc123".to_string(),
+            table_name: "users".to_string(),
+            row_count: 1000,
+            seed: Some(42),
+            config_json: r#"{"table_name":"users"}"#.to_string(),
+            generated_at: "2026-05-10T10:00:00.000Z".to_string(),
+            status: "completed (1500ms)".to_string(),
+        };
+        assert_eq!(record.id, "mock_abc123");
+        assert_eq!(record.table_name, "users");
+        assert_eq!(record.row_count, 1000);
+        assert_eq!(record.seed, Some(42));
+    }
+
+    #[test]
+    fn test_clamp_enforces_bounds() {
+        assert_eq!(0usize.clamp(1, 500), 1);
+        assert_eq!(1000usize.clamp(1, 500), 500);
+        assert_eq!(100usize.clamp(1, 500), 100);
+    }
+
+    #[test]
+    fn test_max_history_rows_constant() {
+        assert_eq!(MAX_HISTORY_ROWS, 200);
+    }
+}

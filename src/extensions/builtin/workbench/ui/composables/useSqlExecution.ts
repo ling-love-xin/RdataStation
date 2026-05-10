@@ -5,6 +5,7 @@ import * as queryService from '@/extensions/builtin/query/ui/services/query'
 import { parseSql, splitSql, rewriteDuckDBSQL, generateAttachName, detectParams, bindParams } from '@/extensions/builtin/workbench/services/sql-editor-service'
 import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
+
 import { useTransaction } from './useTransaction'
 
 const DEFAULT_QUERY_TIMEOUT_MS = 30_000

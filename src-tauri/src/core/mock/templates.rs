@@ -1249,3 +1249,74 @@ pub fn get_builtin_templates() -> Vec<ScenarioTemplate> {
 pub fn get_template_by_id(id: &str) -> Option<ScenarioTemplate> {
     get_builtin_templates().into_iter().find(|t| t.id == id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_all_templates_exist() {
+        let templates = get_builtin_templates();
+        assert_eq!(templates.len(), 6);
+        let ids: Vec<&str> = templates.iter().map(|t| t.id.as_str()).collect();
+        assert!(ids.contains(&"builtin:ecommerce"));
+        assert!(ids.contains(&"builtin:hr"));
+        assert!(ids.contains(&"builtin:blog"));
+        assert!(ids.contains(&"builtin:finance"));
+        assert!(ids.contains(&"builtin:social_media"));
+        assert!(ids.contains(&"builtin:company"));
+    }
+
+    #[test]
+    fn test_get_template_by_id_found() {
+        let t = get_template_by_id("builtin:ecommerce").unwrap();
+        assert_eq!(t.name, "电商系统");
+        assert!(!t.tables.is_empty());
+    }
+
+    #[test]
+    fn test_get_template_by_id_not_found() {
+        assert!(get_template_by_id("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_ecommerce_template_has_four_tables() {
+        let t = get_template_by_id("builtin:ecommerce").unwrap();
+        assert_eq!(t.tables.len(), 4);
+        let table_names: Vec<&str> = t.tables.iter().map(|tb| tb.name.as_str()).collect();
+        assert!(table_names.contains(&"users"));
+        assert!(table_names.contains(&"products"));
+        assert!(table_names.contains(&"orders"));
+        assert!(table_names.contains(&"order_items"));
+    }
+
+    #[test]
+    fn test_hr_template_has_tables() {
+        let t = get_template_by_id("builtin:hr").unwrap();
+        assert!(!t.tables.is_empty());
+        assert_eq!(t.locale, "zh_cn");
+    }
+
+    #[test]
+    fn test_all_template_columns_have_valid_types() {
+        for template in get_builtin_templates() {
+            for table in &template.tables {
+                assert!(!table.columns.is_empty(), "{}::{} has no columns", template.id, table.name);
+                for col in &table.columns {
+                    assert!(!col.name.is_empty(), "{}.{} column has empty name", table.name, col.name);
+                    assert!(col.nullable_ratio >= 0.0 && col.nullable_ratio <= 1.0,
+                        "{}.{} nullable_ratio out of range: {}", table.name, col.name, col.nullable_ratio);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_ecommerce_users_has_username_email() {
+        let t = get_template_by_id("builtin:ecommerce").unwrap();
+        let users = t.tables.iter().find(|tb| tb.name == "users").unwrap();
+        let names: Vec<&str> = users.columns.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"username"));
+        assert!(names.contains(&"email"));
+    }
+}

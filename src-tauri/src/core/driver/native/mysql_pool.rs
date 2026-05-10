@@ -48,7 +48,11 @@ impl DbPool for MySqlPoolWrapper {
             return Err(CoreError::connection(ConnectionError::PoolClosed));
         }
 
-        let db = MySqlDatabase::from_pool(self.pool.clone());
+        let db = MySqlDatabase::from_pool_with_config(
+            self.pool.clone(),
+            10, // sqlx default max_connections
+            0,  // sqlx default min_connections
+        );
         Ok(Box::new(db))
     }
 

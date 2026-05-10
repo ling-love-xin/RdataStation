@@ -87,11 +87,19 @@ export interface MockConfig {
   columns: ColumnDef[]
 }
 
+export interface QueryResultPreview {
+  columns: string[]
+  rows: unknown[][]
+  affected_rows: number
+  is_read_only: boolean
+  total_rows: number
+}
+
 export interface MockGenerateResult {
   tableName: string
   tempTableName: string
   rowCount: number
-  preview: { columns: string[]; rows: unknown[][] }
+  preview: QueryResultPreview
   columns: string[]
   elapsedMs: number
 }
@@ -375,7 +383,7 @@ export const mockApi = {
   },
 
   preview(tableName: string, limit: number) {
-    return tauriInvoke<{ columns: string[]; rows: unknown[][] }>('mock_preview', { tableName, limit })
+    return tauriInvoke<QueryResultPreview>('mock_preview', { tableName, limit })
   },
 
   exportData(input: MockExportInput) {

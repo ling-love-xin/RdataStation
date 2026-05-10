@@ -18,6 +18,8 @@ use crate::core::models::{ArrowBatch, QueryResult};
 pub struct PostgresDatabase {
     pool: Pool<Postgres>,
     server_version: Option<String>,
+    max_connections: usize,
+    min_connections: usize,
 }
 
 impl PostgresDatabase {
@@ -36,6 +38,8 @@ impl PostgresDatabase {
         Ok(Self {
             pool,
             server_version,
+            max_connections: 10,
+            min_connections: 0,
         })
     }
 
@@ -43,6 +47,8 @@ impl PostgresDatabase {
         Self {
             pool,
             server_version: None,
+            max_connections: 10,
+            min_connections: 0,
         }
     }
 
@@ -50,6 +56,22 @@ impl PostgresDatabase {
         Self {
             pool,
             server_version,
+            max_connections: 10,
+            min_connections: 0,
+        }
+    }
+
+    pub fn from_pool_with_config(
+        pool: Pool<Postgres>,
+        server_version: Option<String>,
+        max_connections: usize,
+        min_connections: usize,
+    ) -> Self {
+        Self {
+            pool,
+            server_version,
+            max_connections,
+            min_connections,
         }
     }
 }
@@ -230,8 +252,8 @@ impl Database for PostgresDatabase {
             idle,
             active: size.saturating_sub(idle),
             waiting: 0,
-            max_connections: 10,
-            min_connections: 2,
+            max_connections: self.max_connections,
+            min_connections: self.min_connections,
         })
     }
 

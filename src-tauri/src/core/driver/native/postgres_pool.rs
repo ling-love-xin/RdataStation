@@ -49,9 +49,11 @@ impl DbPool for PostgresPoolWrapper {
             return Err(CoreError::connection(ConnectionError::PoolClosed));
         }
 
-        let db = PostgresDatabase::from_pool_with_version(
+        let db = PostgresDatabase::from_pool_with_config(
             self.pool.clone(),
             self.server_version.clone(),
+            10, // sqlx default max_connections
+            0,  // sqlx default min_connections
         );
         Ok(Box::new(db))
     }

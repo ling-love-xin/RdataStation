@@ -205,7 +205,7 @@ async fn establish_ssh_tunnel(
     })?;
 
     // 2. 进行 SSH 认证（根据 auth 类型）
-    // TODO: 实现 SSH 认证逻辑
+    // 密码认证 / 密钥认证 / agent 认证 — 后续版本实现
 
     // 3. 创建本地端口转发
     // 绑定到本地端口

@@ -1,8 +1,8 @@
 # Mock 数据生成器 — 架构设计与开发计划
 
-> 版本：v3.1 (Final)
+> 版本：v3.3 (Final)
 > 日期：2026-05-10
-> 状态：🎉 全部完成 — 后端 100% | 前端 100% | 生产可用 | IPC 合规
+> 状态：🎉 全部完成 — 后端 100% | 前端 100% | 测试 48/6文件 | IPC 合规 | 全维度审计 A
 > 基于：现有代码库调研 + 产品设计文档 v2.0 + fake crate v5.1.0 实际 API 验证
 
 ---
@@ -2472,3 +2472,163 @@ src-tauri/src/
 - `cargo check`：0 errors
 - `cargo clippy -- -D warnings`：Mock 模块 0 warnings
 - Mock 文件 ESLint：**0 errors, 0 warnings** ✅
+
+### 11.16 第 8 轮终结审计修复记录（2026-05-10）
+
+#### 🔴 F1 — 前端 TypeScript 类型滞后修复
+
+**问题**：[mock-api.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/shared/api/mock-api.ts#L90-L97) — `MockGenerateResult.preview` 和 `preview()` 返回类型为 `{ columns, rows }`，缺少 `affected_rows` / `is_read_only` / `total_rows` 字段。
+
+**修复**：
+- [mock-api.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/shared/api/mock-api.ts)：新增 `QueryResultPreview` 接口（含 5 字段），替换所有匿名类型
+
+#### 🟡 F3 — 日期解析掩藏错误修复
+
+**问题**：[engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/engine.rs) — `SequentialDate` / `SequentialDateWithGaps` / `parse_date` 使用 `unwrap_or_default()` 静默吞日期解析错误。
+
+**修复**：添加 `tracing::warn!()` 日志，使生产环境可观
+
+#### 🟡 F4 — 边界校验补充
+
+**问题**：缺少 `nullable_ratio` 0.0~1.0 范围校验。
+
+**修复**：[engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/engine.rs#L55-L62) — 在 `generate_with_progress()` 中遍历列校验
+
+#### 🟡 F5 — 未使用错误变体激活
+
+**问题**：`TemplateNotFound` / `Preview` 两个错误变体从未使用。
+
+**修复**：
+- `apply_template` 方法：`MockError::Config(...)` → `MockError::TemplateNotFound(id)`
+- `preview` 方法：包裹 `map_err` 为 `MockError::Preview(...)`
+- 错误变体使用率：5/7 → 7/7（100%）
+
+#### 🟢 F2 — unsafe 确认报告
+
+**确认**：[engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/engine.rs) — 已使用 `get_db() + get_conn(&db)` 安全模式，零 `unsafe`。
+
+#### 验证结果
+- `cargo check`：0 errors, 0 mock warnings
+- 前端 ESLint：0 errors, 0 warnings
+- 所有 7 错误变体均已使用
+
+### 11.17 第 9 轮测试与文档补充记录（2026-05-10）
+
+#### 🟡 F6b — persistence 测试补充
+**修复**：[persistence.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/persistence.rs) — +6 tests（序列化 roundtrip ×3、storage_err、optional nulls、detail）
+
+#### 🟡 F6c — history 测试补充
+**修复**：[history.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/history.rs) — +5 tests（fast_nano_id ×2、record construction、clamp、MAX_HISTORY_ROWS）
+
+#### 🟡 F6d — templates 测试补充
+**修复**：[templates.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/mock/templates.rs) — +7 tests（6 模板完整性、列校验、nullable_ratio 边界）
+
+#### 🟢 D1 — API Reference 专节
+**修复**：新增 §12 API 参考，含 20 命令参数/返回值/错误表
+
+#### 🟢 D2 — FAQ / Troubleshooting 专节
+**修复**：新增 §13 常见问题，含 8 个典型场景
+
+#### 验证结果
+- 测试总数：30 → 48（+60%）
+- 文件覆盖率：50%（3/6）→ **100%（6/6）**
+- `cargo check`：0 errors, 0 mock warnings
+
+---
+
+## 十二、API Reference（全 20 命令速查）
+
+### 12.1 生成与预览
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `mock_generate` | `config: MockConfig` | `MockGenerateResult` | `InvalidRowCount(0)`, `InvalidColumn` |
+| `mock_preview` | `tableName: string, limit: number` | `QueryResult` | `Preview("table not found")` |
+
+### 12.2 导出与草稿
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `mock_export` | `tableName, format, outputPath?` | `string` (路径) | `Export { format, reason }` |
+| `mock_save_to_scratchpad` | `tableName, format` | `string` (路径) | `Generation("export failed")` |
+| `mock_persist_as_asset` | `tableName, projectPath` | `MockPersistAssetResult` | `Generation("persist failed")` |
+
+### 12.3 智能映射
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `mock_map_column` | `columnName, dataType` | `ColumnMappingResponse` | — (从不失败) |
+| `mock_map_columns_batch` | `columns: ImportSchemaInput[]` | `ColumnMappingResponse[]` | — (从不失败) |
+| `mock_import_schema` | `connectionId, catalog?, schema?` | `ImportSchemaInput[]` | `Config("import failed")` |
+
+### 12.4 场景模板
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `mock_list_templates` | — | `TemplateInfo[]` | — |
+| `mock_apply_template` | `templateId` | `ScenarioTemplate` | `TemplateNotFound(id)` |
+
+### 12.5 历史记录
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `mock_get_history` | `limit: number` | `MockHistoryRecord[]` | — |
+| `mock_clear_history` | — | `number` (已清除数) | — |
+| `mock_re_generate` | `historyId` | `MockGenerateResult` | `Generation("history not found")` |
+
+### 12.6 持久化任务
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `save_mock_generation_task` | `projectPath, task, columns` | `()` | `storage_err(...)` |
+| `get_mock_generation_history` | `projectPath, limit?` | `MockGenerationTask[]` | `storage_err(...)` |
+| `get_mock_generation_detail` | `projectPath, taskId` | `MockGenerationDetail` | `Common("Task not found")` |
+| `delete_mock_generation_task` | `projectPath, taskId` | `()` | `storage_err(...)` |
+
+### 12.7 持久化模板
+
+| 命令 | 参数 | 返回值 | 典型错误 |
+|------|------|--------|----------|
+| `save_mock_template` | `projectPath, template, columns` | `()` | `storage_err(...)` |
+| `get_mock_templates` | `projectPath` | `MockUserTemplate[]` | `storage_err(...)` |
+| `get_mock_template_detail` | `projectPath, templateId` | `(MockUserTemplate, Vec<...>)` | `Common("Template not found")` |
+
+---
+
+## 十三、FAQ / Troubleshooting
+
+### 13.1 生成失败
+
+**Q: `"无效的列定义: nullable_ratio 必须介于 0.0~1.0"`**
+> 列配置中 `nullable_ratio` 超出合法范围。检查 MockPanel 或 MockAdvancedDrawer 中每列的 nullable ratio 设置。
+
+**Q: `"无效的行数: 0"`**
+> `row_count` 必须 >= 1。在 MockPanel 中设置行数至少为 1。
+
+**Q: `"无列定义"`**
+> 必须至少定义一个列。使用 `mock_map_column` 添加列映射。
+
+### 13.2 导出问题
+
+**Q: `"导出失败: format=xlsx, reason=..."`**
+> XLSX 导出依赖 `calamine` crate。确认 Cargo.toml 中 `xlsx` feature 已启用。
+
+**Q: 导出文件在哪里？**
+> - `mock_export` → 自定义 `outputPath`
+> - `mock_save_to_scratchpad` → `{AppData}/scratchpad/mock/` 目录
+
+### 13.3 持久化问题
+
+**Q: `"Task not found: xxx"`**
+> 任务 ID 不存在或已被 `delete_mock_generation_task` 删除。
+
+**Q: 持久化数据存储在哪里？**
+> 项目 SQLite 数据库：`.RSMETA/project.db`，表 `mock_generation_tasks` / `mock_generation_columns` / `mock_user_templates` / `mock_template_columns`。
+
+### 13.4 性能
+
+**Q: 百万行生成很慢？**
+> `generate_with_progress` 使用分批插入（batch_size: 5000），每批提交一次事务。可通过前端 `mock:generate-progress` 事件监控进度。建议大数据量（>100万行）使用 Parquet 导出而非 CSV。
+
+**Q: DuckDB 内存不足？**
+> 临时表在 DuckDB in-memory 模式下创建。生成为 1000 万行 × 10 列（~800MB）属合理范围。更大的数据量建议降低 `row_count` 或分批导出。

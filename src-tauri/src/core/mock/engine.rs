@@ -54,6 +54,14 @@ impl MockEngine {
         if config.columns.is_empty() {
             return Err(MockError::InvalidColumn("无列定义".to_string()));
         }
+        for col in &config.columns {
+            if col.nullable_ratio < 0.0 || col.nullable_ratio > 1.0 {
+                return Err(MockError::InvalidColumn(format!(
+                    "列 '{}' 的 nullable_ratio 必须介于 0.0~1.0，当前: {}",
+                    col.name, col.nullable_ratio
+                )));
+            }
+        }
 
         let start = Instant::now();
 
@@ -195,6 +203,7 @@ impl MockEngine {
         let db = Self::get_db()?;
         let conn = Self::get_conn(&db)?;
         Self::read_preview(&conn, temp_table_name, limit)
+            .map_err(|e| MockError::Preview(e.to_string()))
     }
 
     // ==================== 导出 ====================
@@ -327,7 +336,7 @@ impl MockEngine {
     /// 返回完整的 `ScenarioTemplate`，包含该场景下所有表的列定义和推荐配置。
     pub fn apply_template(template_id: &str) -> MockResult<ScenarioTemplate> {
         templates::get_template_by_id(template_id)
-            .ok_or_else(|| MockError::Config(format!("Template not found: {}", template_id)))
+            .ok_or_else(|| MockError::TemplateNotFound(template_id.to_string()))
     }
 
     // ==================== 私有方法 ====================
@@ -656,6 +665,12 @@ impl MockEngine {
                             &format!("{} 00:00:00", start),
                             "%Y-%m-%d %H:%M:%S",
                         )
+                        .inspect_err(|e| {
+                            tracing::warn!(
+                                "SequentialDate: invalid start date '{}', falling back to epoch: {}",
+                                start, e
+                            )
+                        })
                         .unwrap_or_default()
                     });
                 let new_dt = dt + chrono::Duration::seconds(*step_seconds * row_index as i64);
@@ -676,6 +691,12 @@ impl MockEngine {
                             &format!("{} 00:00:00", start),
                             "%Y-%m-%d %H:%M:%S",
                         )
+                        .inspect_err(|e| {
+                            tracing::warn!(
+                                "SequentialDateWithGaps: invalid start date '{}', falling back to epoch: {}",
+                                start, e
+                            )
+                        })
                         .unwrap_or_default()
                     });
                 let total_steps = (row_index as f64 * (1.0 - *miss_probability)).max(0.0) as i64;
@@ -1159,7 +1180,10 @@ fn parse_data_type(data_type: &str) -> crate::core::mock::models::ColumnDataType
 fn parse_date(s: &str) -> chrono::NaiveDate {
     chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
         .ok()
-        .unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(2020, 1, 1).unwrap_or_default())
+        .unwrap_or_else(|| {
+            tracing::warn!("Mock: invalid date '{}', falling back to 2020-01-01", s);
+            chrono::NaiveDate::from_ymd_opt(2020, 1, 1).unwrap_or_default()
+        })
 }
 
 fn datetime_between(min: &str, max: &str, rng: &mut StdRng) -> String {
@@ -1609,5 +1633,117 @@ fn map_sql_type_to_column_data_type(sql_type: &str) -> ColumnDataType {
         ColumnDataType::Text
     } else {
         ColumnDataType::Varchar { length: None }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitize_table_name_alphanumeric() {
+        assert_eq!(sanitize_table_name("hello_world"), "hello_world");
+    }
+
+    #[test]
+    fn test_sanitize_table_name_with_spaces() {
+        assert_eq!(sanitize_table_name("my table"), "my_table");
+    }
+
+    #[test]
+    fn test_sanitize_table_name_special_chars() {
+        assert_eq!(sanitize_table_name("user-data@2024"), "user_data_2024");
+    }
+
+    #[test]
+    fn test_build_create_table_ddl_single_column() {
+        let cols = vec![ColumnDef {
+            name: "id".to_string(),
+            data_type: ColumnDataType::Integer,
+            generator: GeneratorConfig::AutoIncrement { start: 1, step: 1 },
+            nullable_ratio: 0.0,
+            unique: true,
+        }];
+        let ddl = MockEngine::build_create_table_ddl("users", &cols);
+        assert_eq!(ddl, "CREATE TABLE \"users\" (\"id\" INTEGER)");
+    }
+
+    #[test]
+    fn test_build_create_table_ddl_multi_column() {
+        let cols = vec![
+            ColumnDef {
+                name: "id".to_string(),
+                data_type: ColumnDataType::Integer,
+                generator: GeneratorConfig::AutoIncrement { start: 1, step: 1 },
+                nullable_ratio: 0.0,
+                unique: true,
+            },
+            ColumnDef {
+                name: "name".to_string(),
+                data_type: ColumnDataType::Varchar { length: Some(100) },
+                generator: GeneratorConfig::Name,
+                nullable_ratio: 0.0,
+                unique: false,
+            },
+        ];
+        let ddl = MockEngine::build_create_table_ddl("users", &cols);
+        assert_eq!(
+            ddl,
+            "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" VARCHAR(100))"
+        );
+    }
+
+    #[test]
+    fn test_generate_cell_auto_increment() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let gen = GeneratorConfig::AutoIncrement { start: 100, step: 5 };
+        let val = MockEngine::generate_cell(&gen, &mut rng, 3, &Locale::ZhCn);
+        assert_eq!(val, "115");
+    }
+
+    #[test]
+    fn test_generate_cell_random_int_range() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let gen = GeneratorConfig::RandomInt { min: 10, max: 20 };
+        let val: i64 = MockEngine::generate_cell(&gen, &mut rng, 0, &Locale::ZhCn)
+            .parse()
+            .unwrap();
+        assert!(val >= 10 && val <= 20);
+    }
+
+    #[test]
+    fn test_generate_cell_constant() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let gen = GeneratorConfig::Constant {
+            value: "hello".to_string(),
+        };
+        let val = MockEngine::generate_cell(&gen, &mut rng, 0, &Locale::ZhCn);
+        assert_eq!(val, "hello");
+    }
+
+    #[test]
+    fn test_generate_cell_boolean() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let gen = GeneratorConfig::Boolean { ratio: 100 };
+        let val = MockEngine::generate_cell(&gen, &mut rng, 0, &Locale::ZhCn);
+        assert_eq!(val, "true");
+    }
+
+    #[test]
+    fn test_infer_datatype_for_column_int() {
+        let dt = infer_datatype_for_column("int");
+        assert!(matches!(dt, ColumnDataType::Integer));
+    }
+
+    #[test]
+    fn test_infer_datatype_for_column_varchar_size() {
+        let dt = infer_datatype_for_column("varchar(255)");
+        assert!(matches!(dt, ColumnDataType::Varchar { .. }));
+    }
+
+    #[test]
+    fn test_infer_datatype_for_column_decimal() {
+        let dt = infer_datatype_for_column("decimal(10,2)");
+        assert!(matches!(dt, ColumnDataType::Decimal { .. }));
     }
 }

@@ -1,24 +1,29 @@
 # RdataStation 文档中心
 
-> 版本：v2.5
-> 最后更新：2026-05-09
-> 状态：✅ Mock 数据生成器模块生产就绪（全 10 Phase 完成）
+> 版本：v3.0
+> 最后更新：2026-05-10
+> 状态：✅ 文档结构重整完成
 
 ---
 
 ## 快速导航
 
-| 我想...             | 查看文档                                                 | 说明                         |
-| ------------------- | -------------------------------------------------------- | ---------------------------- |
-| 了解项目架构        | [架构总览](./architecture.md)                            | 四层微内核、四层数据库架构   |
-| 开始后端开发        | [后端文档](./backend/README.md)                          | Rust Core + Tauri            |
-| 开始前端开发        | [前端文档](./frontend/INDEX.md)                          | Vue 3 + TypeScript           |
-| 了解 Mock 数据生成器 | [设计文档](./mock-data-generator-design.md) + [持久化层](./mock-persistence-layer.md) | 106 种生成器 + 6 场景模板 + 项目级持久化 |
-| 了解 SQL 编辑器优化 | [优化计划](./frontend/SQL-EDITOR-OPTIMIZATION-PLAN.md)   | 架构优化 4 Phase             |
-| 了解结果集模块优化  | [优化计划](./frontend/QUERY-RESULT-OPTIMIZATION-PLAN.md) | 8 组 39 项优化 (⏳ 设计阶段) |
-| 了解数据库导航      | [导航器文档](./navigator/README.md)                      | IVM 增量视图设计             |
-| 查看竞品对比        | [竞品对比](./COMPARISON.md)                              | vs DBeaver/DataGrip          |
-| 查看任务进度        | [任务清单](./backend/TASKS.md)                           | 开发任务追踪                 |
+| 我想...               | 查看文档                                                   | 说明                           |
+| --------------------- | ---------------------------------------------------------- | ------------------------------ |
+| 了解项目架构          | [架构总览](./architecture/overview.md)                     | 四层微内核、四层数据库架构     |
+| 开始后端开发          | [后端文档](./backend/README.md)                            | Rust Core + Tauri              |
+| 开始前端开发          | [前端文档](./frontend/INDEX.md)                            | Vue 3 + TypeScript             |
+| 了解 SQL 编辑器       | [SQL 编辑器](./frontend/sql-editor/README.md)              | 编辑器设计与优化               |
+| 了解结果集模块        | [结果集文档](./frontend/query-result/README.md)            | 数据展示、过滤、导出           |
+| 了解洞察系统          | [洞察文档](./frontend/insight/README.md)                   | 数据洞察与分析                 |
+| 了解分析资源管理器    | [分析资源](./frontend/analytics-resource/README.md)        | 统一资源管理                   |
+| 了解 Mock 数据生成器  | [Mock 设计](./frontend/mock/mock-data-generator-design.md) | 106 种生成器 + 6 场景模板      |
+| 了解数据库导航        | [导航器文档](./navigator/README.md)                        | IVM 增量视图设计               |
+| 了解标题栏设计        | [标题栏文档](./frontend/title-bar/README.md)               | 标题栏/状态栏重构              |
+| 了解连接管理          | [连接模态框](./frontend/connection/connection-modal.md)    | 新建数据库连接页面             |
+| 查看竞品对比          | [竞品对比](./COMPARISON.md)                                | vs DBeaver / DataGrip          |
+| 查看变更日志          | [变更日志](./CHANGELOG.md)                                 | 版本变更记录                   |
+| 查看任务进度          | [任务清单](./backend/TASKS.md)                             | 开发任务追踪                   |
 
 ---
 
@@ -26,49 +31,111 @@
 
 ```
 docs/
-├── README.md                    # 📍 文档中心（本文档）
-├── COMPARISON.md               # 竞品对比分析（vs DBeaver/DataGrip）
-├── architecture.md              # 项目级架构总览
-├── backend-implementation.md    # 后端实现说明
-├── connection-modal.md          # 连接模态框设计
-├── database-navigator.md        # 数据库导航栏
-├── navigator-frontend-backend-alignment.md  # 前后端对齐
-├── mock-data-generator-design.md # 🎲 Mock 数据生成器（v3.0，生产就绪）
-mock-persistence-layer.md     # 🎲 Mock 持久化层（v1.0，设计阶段）
+├── README.md                           # 📍 文档中心（本文档）
+├── CHANGELOG.md                        # 变更日志
+├── COMPARISON.md                       # 竞品对比分析
 │
-├── backend/                    # ⚙️ 后端文档
-│   ├── README.md               # 后端文档索引
-│   ├── ARCHITECTURE.md         # 后端架构设计
-│   ├── PROJECT_MODULE_ARCHITECTURE.md
-│   ├── PROJECT_MODULE_OPTIMIZATION.md
-│   ├── MIGRATION_SYSTEM.md     # 迁移系统
-│   ├── SCHEMA_CHANGELOG.md     # 数据库变更
-│   ├── TASKS.md               # 任务清单
+├── architecture/
+│   └── overview.md                     # 项目级架构总览
+│
+├── backend/                            # ⚙️ 后端文档
+│   ├── README.md                       # 后端文档索引
+│   ├── ARCHITECTURE.md                 # 后端架构设计
+│   ├── implementation.md               # 后端实现说明
+│   ├── PROJECT_MODULE_ARCHITECTURE.md  # 项目模块架构
+│   ├── PROJECT_MODULE_OPTIMIZATION.md  # 项目模块优化
+│   ├── MIGRATION_SYSTEM.md             # 数据库迁移系统
+│   ├── SCHEMA_CHANGELOG.md             # Schema 变更日志
+│   ├── TASKS.md                        # 任务清单
+│   ├── LOGGING_MODULE.md               # 日志模块设计
+│   ├── METADATA-CACHE-TEST-REPORT.md   # 元数据缓存测试报告
+│   ├── ANALYTICS_RESOURCE_SCHEMA.md    # 分析资源 Schema
+│   ├── ANALYTICS_RESOURCE_MANAGER_DESIGN.md  # 分析资源后端设计
+│   ├── SCRATCHPAD_DESIGN.md            # 草稿本设计
+│   ├── SCRATCHPAD_PROGRESS.md          # 草稿本进度
+│   ├── SCRATCHPAD_SCHEMA.md            # 草稿本 Schema
 │   └── TODO_CONNECTION_CLASSIFICATION.md
 │
-├── frontend/                   # 🌐 前端文档
-│   ├── INDEX.md               # 前端文档索引（推荐先读）
-│   ├── ARCHITECTURE.md        # 前端架构（插件化、DDD）
-│   ├── COMPONENTS.md          # 组件规范
-│   ├── DEVELOPMENT-GUIDE.md   # 开发指南
-│   ├── SQL-EDITOR.md         # SQL 编辑器完整文档
-│   ├── SQL-EDITOR-OPTIMIZATION-PLAN.md  # SQL 编辑器架构优化计划
-│   ├── QUERY-RESULT.md                 # 结果面板 V3.1 (⏳ 重构中)
-│   ├── QUERY-RESULT-DESIGN.md          # 结果面板需求文档
-│   ├── QUERY-RESULT-OPTIMIZATION-PLAN.md    # 结果集模块架构优化计划 (⏳ 设计阶段)
-│   ├── QUERY-RESULT-OPTIMIZATION-PROGRESS.md # 结果集优化进度追踪
-│   ├── QUERY-RESULT-API-V2.md              # 结果集 V2 接口契约
-│   ├── QUERY-RESULT-ARCHITECTURE-V2.md     # 结果集 V2 架构设计
-│   └── PLUGIN-ARCHITECTURE-REFACTOR.md
+├── frontend/                           # 🌐 前端文档
+│   ├── INDEX.md                        # 前端文档索引
+│   ├── ARCHITECTURE.md                 # 前端架构
+│   ├── COMPONENTS.md                   # 组件规范
+│   ├── DEVELOPMENT-GUIDE.md            # 开发指南
+│   ├── CONFIG-SYSTEM.md                # 配置系统设计
+│   ├── CONFIG-API.md                   # 配置 API 参考
+│   ├── CONFIG-PROGRESS.md              # 配置开发进度
+│   ├── API-INTERFACE.md                # 前端 API 接口
+│   ├── DESIGN-SYSTEM-IMPLEMENTATION.md # 设计系统实现
+│   ├── LAYOUT.md                       # 布局设计
+│   ├── SCRATCHPAD.md                   # 草稿本前端
+│   ├── PLUGIN-ARCHITECTURE-REFACTOR.md # 插件架构重构
+│   │
+│   ├── sql-editor/                     # 📝 SQL 编辑器
+│   │   ├── README.md                   # 编辑器文档索引
+│   │   ├── design.md                   # 编辑器设计
+│   │   └── optimization-plan.md        # 架构优化计划
+│   │
+│   ├── query-result/                   # 📊 结果集
+│   │   ├── README.md                   # 结果集文档索引
+│   │   ├── design.md                   # 需求设计
+│   │   ├── architecture-v2.md          # V2 架构
+│   │   ├── api-v2.md                   # V2 接口契约
+│   │   ├── optimization-plan.md        # 优化计划
+│   │   ├── optimization-progress.md    # 优化进度
+│   │   └── audit/                      # 审查报告
+│   │       ├── v3.md
+│   │       ├── v4.md
+│   │       ├── v4.1.md ~ v4.6.md
+│   │
+│   ├── insight/                        # 🔍 洞察系统
+│   │   ├── README.md                   # 洞察文档索引
+│   │   ├── system-plan.md              # 实施总体规划
+│   │   ├── design.md                   # 设计方案
+│   │   ├── prototype.md                # 原型设计
+│   │   ├── rule-format.md              # 规则格式
+│   │   ├── api-reference.md            # API 参考
+│   │   └── dev-progress.md             # 开发进度
+│   │
+│   ├── analytics-resource/             # 📂 分析资源管理器
+│   │   ├── README.md                   # 分析资源索引
+│   │   ├── implementation.md           # 实现文档
+│   │   ├── progress.md                 # 开发进度
+│   │   ├── api-reference.md            # API 参考
+│   │   ├── integration.md              # 前端集成指南
+│   │   ├── settings.md                 # 设置功能
+│   │   └── manager-design.md           # 前端设计方案
+│   │
+│   ├── title-bar/                      # 🪟 标题栏
+│   │   ├── README.md                   # 标题栏文档索引
+│   │   ├── progress.md                 # 开发进度
+│   │   ├── audit-report.md             # 审查报告
+│   │   ├── settings-integration.md     # 设置集成
+│   │   ├── settings-implementation.md  # 设置实现
+│   │   ├── statusbar-audit.md          # 状态栏审查
+│   │   ├── statusbar-audit-2026-05-10.md
+│   │   └── statusbar-settings-audit-2026-05-10.md
+│   │
+│   ├── mock/                           # 🎲 Mock 数据生成器
+│   │   ├── mock-data-generator-design.md  # 完整设计文档
+│   │   └── mock-persistence-layer.md      # 持久化层设计
+│   │
+│   └── connection/                     # 🔌 连接管理
+│       └── connection-modal.md         # 新建连接页面
 │
-└── navigator/                   # 🧭 导航器文档
-    ├── README.md               # 导航器索引 + 已知问题
-    ├── 01-ARCHITECTURE.md     # IVM 架构设计
-    ├── 02-DATAFLOW.md         # 数据流设计
-    ├── 03-INTERFACES.md       # 接口规范
-    ├── 04-IMPLEMENTATION.md   # 实施步骤
-    ├── 05-OPTIMIZATION.md     # 优化策略
-    └── 06-CACHE-OPTIMIZATION.md  # 缓存优化
+├── navigator/                          # 🧭 导航器文档
+│   ├── README.md                       # 导航器索引 + 已知问题
+│   ├── 01-ARCHITECTURE.md              # IVM 架构设计
+│   ├── 02-DATAFLOW.md                  # 数据流设计
+│   ├── 03-INTERFACES.md                # 接口规范
+│   ├── 04-IMPLEMENTATION.md            # 实施步骤
+│   ├── 05-OPTIMIZATION.md              # 优化策略
+│   ├── 06-CACHE-OPTIMIZATION.md        # 缓存优化
+│   ├── database-navigator.md           # 数据库导航模块
+│   ├── database-navigator-optimizations.md  # 导航栏优化
+│   └── frontend-backend-alignment.md   # 前后端对齐
+│
+└── SQL/                                # SQL 脚本
+    └── 元数据.sql
 ```
 
 ---
@@ -94,7 +161,7 @@ mock-persistence-layer.md     # 🎲 Mock 持久化层（v1.0，设计阶段）
 | Vue           | 3.5.x  | 响应式框架 |
 | TypeScript    | 5.8.x  | 类型安全   |
 | Vite          | 6.x    | 构建工具   |
-| dockview-vue  | 5.2.x  | IDE 布局   |
+| dockview-vue  | 6.0.x  | IDE 布局   |
 | naive-ui      | latest | 组件库     |
 | AG Grid       | 33.x   | 表格引擎   |
 | Monaco Editor | 0.52.x | SQL 编辑器 |
@@ -134,15 +201,16 @@ mock-persistence-layer.md     # 🎲 Mock 持久化层（v1.0，设计阶段）
 
 ## 文档版本
 
-| 版本 | 日期       | 说明                                           |
-| ---- | ---------- | ---------------------------------------------- |
-| v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase）        |
-| v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成（方言高亮增量更新） |
-| v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）          |
-| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定                     |
-| v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档                   |
-| v2.0 | 2026-05-03 | 创建文档中心，优化索引结构                     |
-| v1.0 | 2026-04-23 | 初始文档架构                                   |
+| 版本 | 日期       | 说明                                    |
+| ---- | ---------- | --------------------------------------- |
+| v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录    |
+| v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase） |
+| v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成              |
+| v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）   |
+| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定              |
+| v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档            |
+| v2.0 | 2026-05-03 | 创建文档中心，优化索引结构              |
+| v1.0 | 2026-04-23 | 初始文档架构                            |
 
 ---
 

@@ -245,9 +245,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       selectedResources.value = selectedResources.value.filter(rid => rid !== id)
       total.value -= 1
       invalidateResourceCache()
-    } catch (error) {
-      console.error('Failed to delete resource:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to delete resource:', err)
+      throw err
     } finally {
       loading.value = false
     }
@@ -260,9 +262,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       resources.value = resources.value.filter(r => !ids.includes(r.id))
       selectedResources.value = selectedResources.value.filter(id => !ids.includes(id))
       total.value -= ids.length
-    } catch (error) {
-      console.error('Failed to batch delete resources:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to batch delete resources:', err)
+      throw err
     } finally {
       loading.value = false
     }
@@ -275,9 +279,11 @@ export const useAnalyticsResourceStore = defineStore('analytics-resource', () =>
       resources.value.unshift(cloned)
       total.value += 1
       return cloned
-    } catch (error) {
-      console.error('Failed to clone resource:', error)
-      throw error
+    } catch (err) {
+      const eMsg = err instanceof Error ? err.message : String(err)
+      error.value = eMsg
+      console.error('Failed to clone resource:', err)
+      throw err
     } finally {
       loading.value = false
     }

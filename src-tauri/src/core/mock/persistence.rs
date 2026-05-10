@@ -476,3 +476,155 @@ impl MockGenerationStore {
         Ok((template, columns))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_serialization_roundtrip() {
+        let task = MockGenerationTask {
+            id: "t1".to_string(),
+            table_name: "orders".to_string(),
+            table_alias: Some("订单表".to_string()),
+            row_count: 1000,
+            seed: Some(42),
+            locale: "zh_cn".to_string(),
+            scene_id: Some("ecommerce".to_string()),
+            save_format: Some("csv".to_string()),
+            status: "completed".to_string(),
+            error_message: None,
+            generated_rows: Some(1000),
+            generation_time_ms: Some(1500),
+            created_at: Some("2026-05-10T10:00:00Z".to_string()),
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&task).unwrap();
+        let parsed: MockGenerationTask = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.id, "t1");
+        assert_eq!(parsed.table_name, "orders");
+        assert_eq!(parsed.row_count, 1000);
+        assert_eq!(parsed.seed, Some(42));
+    }
+
+    #[test]
+    fn test_column_serialization_roundtrip() {
+        let col = MockGenerationColumn {
+            id: "c1".to_string(),
+            task_id: "t1".to_string(),
+            column_name: "email".to_string(),
+            column_type: "Varchar".to_string(),
+            generator: "SafeEmail".to_string(),
+            generator_params: None,
+            null_ratio: 0.1,
+            is_unique: true,
+            is_primary_key: false,
+            is_foreign_key: false,
+            ref_table: None,
+            ref_column: None,
+            comment: None,
+            confidence: Some("high".to_string()),
+            sort_order: 1,
+        };
+        let json = serde_json::to_string(&col).unwrap();
+        let parsed: MockGenerationColumn = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.column_name, "email");
+        assert_eq!(parsed.null_ratio, 0.1);
+        assert!(parsed.is_unique);
+        assert_eq!(parsed.sort_order, 1);
+    }
+
+    #[test]
+    fn test_template_serialization_roundtrip() {
+        let tmpl = MockUserTemplate {
+            id: "tm1".to_string(),
+            name: "我的电商模板".to_string(),
+            description: Some("自定义电商数据模板".to_string()),
+            row_count: 5000,
+            seed: Some(99),
+            locale: "zh_cn".to_string(),
+            created_at: Some("2026-05-10T10:00:00Z".to_string()),
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&tmpl).unwrap();
+        let parsed: MockUserTemplate = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.id, "tm1");
+        assert_eq!(parsed.name, "我的电商模板");
+        assert_eq!(parsed.row_count, 5000);
+    }
+
+    #[test]
+    fn test_storage_err_format() {
+        let err = storage_err("mock_tasks", "insert", "DB locked".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("mock_tasks"));
+        assert!(msg.contains("insert"));
+    }
+
+    #[test]
+    fn test_task_all_optional_fields_null() {
+        let task = MockGenerationTask {
+            id: "min".to_string(),
+            table_name: "min".to_string(),
+            table_alias: None,
+            row_count: 1,
+            seed: None,
+            locale: "en_us".to_string(),
+            scene_id: None,
+            save_format: None,
+            status: "pending".to_string(),
+            error_message: None,
+            generated_rows: None,
+            generation_time_ms: None,
+            created_at: None,
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&task).unwrap();
+        let parsed: MockGenerationTask = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.table_alias, None);
+        assert_eq!(parsed.seed, None);
+        assert_eq!(parsed.error_message, None);
+    }
+
+    #[test]
+    fn test_detail_contains_task_and_columns() {
+        let detail = MockGenerationDetail {
+            task: MockGenerationTask {
+                id: "d1".to_string(),
+                table_name: "test".to_string(),
+                table_alias: None,
+                row_count: 10,
+                seed: None,
+                locale: "en_us".to_string(),
+                scene_id: None,
+                save_format: None,
+                status: "done".to_string(),
+                error_message: None,
+                generated_rows: None,
+                generation_time_ms: None,
+                created_at: None,
+                updated_at: None,
+            },
+            columns: vec![MockGenerationColumn {
+                id: "c1".to_string(),
+                task_id: "d1".to_string(),
+                column_name: "col".to_string(),
+                column_type: "Integer".to_string(),
+                generator: "AutoIncrement".to_string(),
+                generator_params: None,
+                null_ratio: 0.0,
+                is_unique: false,
+                is_primary_key: false,
+                is_foreign_key: false,
+                ref_table: None,
+                ref_column: None,
+                comment: None,
+                confidence: None,
+                sort_order: 0,
+            }],
+        };
+        assert_eq!(detail.task.id, "d1");
+        assert_eq!(detail.columns.len(), 1);
+        assert_eq!(detail.columns[0].column_name, "col");
+    }
+}

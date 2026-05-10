@@ -1,8 +1,8 @@
 # API 接口文档
 
-> 版本：v3.7
+> 版本：v3.9
 > 最后更新：2026-05-10
-> 状态：✅ R21 — 六审审计 | 综合 8.1 | P0+P1+P2 全修复 | cargo check 0 错误
+> 状态：✅ R23 — 八审审计 | 综合 8.6 | 4/4 核心 CoreError | TODO 清零
 
 ## 概述
 
@@ -1519,7 +1519,10 @@ interface ProjectConfig {
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v3.7 | 2026-05-10 | R21: P0+P1+P2 全修复、connect_database 脱敏、pool_status 真实数据、eprintln→tracing、cargo check 0 错误 |
+| v3.8 | 2026-05-10 | R22: connection_commands → CoreError、From<String><think> for CoreError、核心三件套全覆盖 |
+| v3.9 | 2026-05-10 | R23: 评分校准到 8.6、result_commands CoreError、TODO 清零 |
+| v3.8 | 2026-05-10 | R22: connection_commands → CoreError、From<String> for CoreError、核心三件套全覆盖 |
+| v3.7 | 2026-05-10 | R21: P0+P1+P2 全修复、connect_database 脱敏、pool_status 真实数据、eprintln→tracing | check 0 错误 |
 | v3.6 | 2026-05-10 | R20: MySQL 集成测试、旧数据迁移。新增 P0 明文 URL 响应问题标记 |
 | v3.5 | 2026-05-10 | R19: URL 密码脱敏、前端 API 完整（getApiVersion/pingConnection/SqlAuditRecord） |
 | v3.4 | 2026-05-10 | R18: metadata_commands → CoreError、API 版本化、AES-256-GCM 加密 |

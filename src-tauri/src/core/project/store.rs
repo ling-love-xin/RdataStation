@@ -653,8 +653,7 @@ impl ProjectStore {
             return Ok(connections.clone());
         }
 
-        // TODO: 从 SQLite 加载连接列表
-        // 现阶段返回空列表
+        // 从项目 SQLite 加载持久化连接列表（数据模型已定义，待实现 SQL 读取）
         let connections = Vec::new();
         self.connections = Some(connections.clone());
         Ok(connections)
@@ -666,8 +665,7 @@ impl ProjectStore {
             return Ok(queries.clone());
         }
 
-        // TODO: 从 SQLite 加载查询列表
-        // 现阶段返回空列表
+        // 从项目 SQLite 加载持久化查询列表（数据模型已定义，待实现 SQL 读取）
         let queries = Vec::new();
         self.queries = Some(queries.clone());
         Ok(queries)

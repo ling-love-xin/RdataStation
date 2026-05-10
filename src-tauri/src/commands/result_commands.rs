@@ -6,6 +6,7 @@ use crate::commands::project_commands::ProjectState;
 use crate::core::insight;
 use crate::core::insight::schema_analyzer::{SchemaAnalyzer, SchemaInsightReport};
 use crate::core::persistence::{InsightMetaStore, InsightStorage};
+use crate::core::error::{CommonError, CoreError};
 use crate::core::services::result_service::{
     ColumnInsightFull, ColumnStats, QualityScore, ResultService, ResultSet, TableProfile,
     TableQuality,
@@ -21,7 +22,7 @@ pub struct ReExecuteFilterInput {
 }
 
 #[tauri::command]
-pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<ResultSet, String> {
+pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<ResultSet, CoreError> {
     let where_clause = input.where_clause.unwrap_or_default();
     let order_clause = input.order_clause.unwrap_or_default();
 
@@ -32,7 +33,7 @@ pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<Resul
         &order_clause,
     )
     .await
-    .map_err(|e| e.to_string())
+    
 }
 
 // ═══════════════ 单元格编辑持久化 ═══════════════
@@ -54,7 +55,7 @@ pub struct CellUpdateInput {
 }
 
 #[tauri::command]
-pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult, String> {
+pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult, CoreError> {
     match ResultService::save_cell_update(
         input.conn_id,
         &input.table_name,
@@ -69,7 +70,7 @@ pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult
             affected_rows: affected,
             message,
         }),
-        Err(e) => Err(format!("更新失败: {}", e)),
+        Err(e) => Err(format!("更新失败: {}", e).into()),
     }
 }
 
@@ -83,10 +84,10 @@ pub struct SchemaInsightInput {
 
 /// Schema 级洞察分析（外键推断、类型一致性、孤立表检测）
 #[tauri::command]
-pub async fn get_schema_insight(input: SchemaInsightInput) -> Result<SchemaInsightReport, String> {
+pub async fn get_schema_insight(input: SchemaInsightInput) -> Result<SchemaInsightReport, CoreError> {
     SchemaAnalyzer::analyze(input.conn_id, &input.database, &input.schema)
         .await
-        .map_err(|e| e.to_string())
+        
 }
 
 /// 列质量评分输入
@@ -98,9 +99,9 @@ pub struct ColumnQualityInput {
 
 /// 计算列数据质量评分 (0-100)
 #[tauri::command]
-pub async fn get_column_quality(input: ColumnQualityInput) -> Result<QualityScore, String> {
+pub async fn get_column_quality(input: ColumnQualityInput) -> Result<QualityScore, CoreError> {
     let stats = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
-        .map_err(|e| e.to_string())?;
+        ?;
     Ok(ResultService::compute_column_quality(&stats))
 }
 
@@ -114,7 +115,7 @@ pub struct BatchEvaluateInput {
 }
 
 #[tauri::command]
-pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQuality, String> {
+pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQuality, CoreError> {
     ResultService::batch_evaluate_columns(
         input.conn_id,
         &input.database,
@@ -122,7 +123,7 @@ pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQu
         &input.table,
     )
     .await
-    .map_err(|e| e.to_string())
+    
 }
 
 // ═══════════════ 从表直接探查列命令 ═══════════════
@@ -139,7 +140,7 @@ pub struct ProfileColumnFromTableInput {
 #[tauri::command]
 pub async fn profile_column_from_table(
     input: ProfileColumnFromTableInput,
-) -> Result<ColumnInsightFull, String> {
+) -> Result<ColumnInsightFull, CoreError> {
     ResultService::profile_column_from_table(
         input.conn_id,
         &input.database,
@@ -148,7 +149,7 @@ pub async fn profile_column_from_table(
         &input.column_name,
     )
     .await
-    .map_err(|e| e.to_string())
+    
 }
 
 // ═══════════════ 版本详情命令 ═══════════════
@@ -162,7 +163,7 @@ pub struct InsightVersionDetailInput {
 pub async fn get_insight_version_detail(
     input: InsightVersionDetailInput,
     state: tauri::State<'_, ProjectState>,
-) -> Result<Option<crate::core::services::result_service::ColumnInsightFull>, String> {
+) -> Result<Option<crate::core::services::result_service::ColumnInsightFull>, CoreError> {
     let store_guard = state.store.lock().await;
     let store = store_guard.as_ref().ok_or("No project store available")?;
     let db = &store.db_manager;
@@ -171,7 +172,7 @@ pub async fn get_insight_version_detail(
 
     ResultService::get_insight_version_detail(&input.version_id, &insight_store)
         .await
-        .map_err(|e| e.to_string())
+        
 }
 
 /// DuckDB 分析输入
@@ -184,9 +185,9 @@ pub struct DuckDbAnalysisInput {
 }
 
 #[tauri::command]
-pub async fn execute_duckdb_analysis(input: DuckDbAnalysisInput) -> Result<ResultSet, String> {
+pub async fn execute_duckdb_analysis(input: DuckDbAnalysisInput) -> Result<ResultSet, CoreError> {
     ResultService::execute_duckdb_analysis(&input.temp_table, &input.sql, input.columns, input.rows)
-        .map_err(|e| e.to_string())
+        
 }
 
 /// 列洞察输入
@@ -198,18 +199,18 @@ pub struct ColumnInsightInput {
 
 /// 获取列统计信息（旧版兼容，返回 ColumnStats）
 #[tauri::command]
-pub async fn get_column_insights(input: ColumnInsightInput) -> Result<ColumnStats, String> {
+pub async fn get_column_insights(input: ColumnInsightInput) -> Result<ColumnStats, CoreError> {
     ResultService::get_column_insights(&input.temp_table, &input.column_name)
-        .map_err(|e| e.to_string())
+        
 }
 
 /// 获取列全量洞察（统计 + 样本 + 直方图）
 #[tauri::command]
 pub async fn get_column_insight_full(
     input: ColumnInsightInput,
-) -> Result<ColumnInsightFull, String> {
+) -> Result<ColumnInsightFull, CoreError> {
     ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
-        .map_err(|e| e.to_string())
+        
 }
 
 /// 创建 DuckDB 临时表输入
@@ -221,8 +222,8 @@ pub struct CreateTempTableInput {
 
 /// 从已有数据创建 DuckDB 临时表，返回表名
 #[tauri::command]
-pub async fn create_duckdb_temp_table(input: CreateTempTableInput) -> Result<String, String> {
-    ResultService::create_duckdb_temp_table(&input.columns, &input.rows).map_err(|e| e.to_string())
+pub async fn create_duckdb_temp_table(input: CreateTempTableInput) -> Result<String, CoreError> {
+    ResultService::create_duckdb_temp_table(&input.columns, &input.rows)
 }
 
 // ═══════════════════ 持久化命令 ═══════════════════
@@ -243,7 +244,7 @@ pub struct SaveInsightSnapshotInput {
 pub async fn save_column_insight_snapshot(
     input: SaveInsightSnapshotInput,
     state: tauri::State<'_, ProjectState>,
-) -> Result<String, String> {
+) -> Result<String, CoreError> {
     let store_guard = state.store.lock().await;
     let store = store_guard.as_ref().ok_or("No project store available")?;
     let db = &store.db_manager;
@@ -252,7 +253,7 @@ pub async fn save_column_insight_snapshot(
     let meta_store = InsightMetaStore::new(db.sqlite_pool());
 
     let insight = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)
-        .map_err(|e| e.to_string())?;
+        ?;
 
     let row_count = insight.stats.total_count as i64;
     let start = std::time::Instant::now();
@@ -270,7 +271,7 @@ pub async fn save_column_insight_snapshot(
         &meta_store,
     )
     .await
-    .map_err(|e| e.to_string())?;
+    ?;
 
     Ok(version_id)
 }
@@ -286,7 +287,7 @@ pub struct InsightHistoryInput {
 pub async fn get_column_insight_history(
     input: InsightHistoryInput,
     state: tauri::State<'_, ProjectState>,
-) -> Result<Vec<crate::core::persistence::InsightVersionEntry>, String> {
+) -> Result<Vec<crate::core::persistence::InsightVersionEntry>, CoreError> {
     let store_guard = state.store.lock().await;
     let store = store_guard.as_ref().ok_or("No project store available")?;
     let db = &store.db_manager;
@@ -295,7 +296,7 @@ pub async fn get_column_insight_history(
 
     ResultService::get_column_insight_history(&input.column_name, &insight_store)
         .await
-        .map_err(|e| e.to_string())
+        
 }
 
 /// 清理洞察快照输入
@@ -309,7 +310,7 @@ pub struct CleanupInsightInput {
 pub async fn cleanup_insight_snapshots(
     input: CleanupInsightInput,
     state: tauri::State<'_, ProjectState>,
-) -> Result<CleanupResult, String> {
+) -> Result<CleanupResult, CoreError> {
     let store_guard = state.store.lock().await;
     let store = store_guard.as_ref().ok_or("No project store available")?;
     let db = &store.db_manager;
@@ -320,7 +321,7 @@ pub async fn cleanup_insight_snapshots(
     let (duckdb_deleted, sqlite_deleted) =
         ResultService::cleanup_old_insight_snapshots(input.days, &insight_store, &meta_store)
             .await
-            .map_err(|e| e.to_string())?;
+            ?;
 
     Ok(CleanupResult {
         duckdb_deleted,
@@ -338,7 +339,7 @@ pub struct CleanupResult {
 #[tauri::command]
 pub async fn get_insight_storage_stats(
     state: tauri::State<'_, ProjectState>,
-) -> Result<crate::core::persistence::InsightStorageStats, String> {
+) -> Result<crate::core::persistence::InsightStorageStats, CoreError> {
     let store_guard = state.store.lock().await;
     let store = store_guard.as_ref().ok_or("No project store available")?;
     let db = &store.db_manager;
@@ -347,7 +348,7 @@ pub async fn get_insight_storage_stats(
 
     ResultService::get_insight_storage_stats(&insight_store)
         .await
-        .map_err(|e| e.to_string())
+        
 }
 
 // ═══════════════ 规则引擎公开命令 ═══════════════
@@ -360,20 +361,21 @@ pub struct ExecuteRuleInput {
 }
 
 #[tauri::command]
-pub async fn execute_insight_rule(input: ExecuteRuleInput) -> Result<serde_json::Value, String> {
-    let duckdb = ResultService::get_or_create_duckdb().map_err(|e| e.to_string())?;
-    let conn = duckdb.lock().map_err(|e| e.to_string())?;
+pub async fn execute_insight_rule(input: ExecuteRuleInput) -> Result<serde_json::Value, CoreError> {
+    let duckdb = ResultService::get_or_create_duckdb()?;
+    let conn = duckdb.lock().map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
 
     let exec_result = ResultService::execute_insight_rule(&input.rule_id, &conn, &input.params)
-        .map_err(|e| e.to_string())?;
-    serde_json::to_value(exec_result).map_err(|e| e.to_string())
+        ?;
+    serde_json::to_value(exec_result)
+        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))
 }
 
 #[tauri::command]
 pub async fn list_insight_rules(
     category: Option<String>,
-) -> Result<Vec<serde_json::Value>, String> {
-    ResultService::list_insight_rules(category.as_deref()).map_err(|e| e.to_string())
+) -> Result<Vec<serde_json::Value>, CoreError> {
+    ResultService::list_insight_rules(category.as_deref())
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -384,8 +386,8 @@ pub struct RulesForColumnInput {
 #[tauri::command]
 pub async fn list_rules_for_column(
     input: RulesForColumnInput,
-) -> Result<Vec<serde_json::Value>, String> {
-    ResultService::list_rules_for_column(&input.column_type).map_err(|e| e.to_string())
+) -> Result<Vec<serde_json::Value>, CoreError> {
+    ResultService::list_rules_for_column(&input.column_type)
 }
 
 /// 规则热加载输入
@@ -396,12 +398,12 @@ pub struct ReloadInsightRulesInput {
 
 /// 热加载洞察规则（重新扫描 embedded + user 目录）
 #[tauri::command]
-pub fn reload_insight_rules(input: ReloadInsightRulesInput) -> Result<usize, String> {
+pub fn reload_insight_rules(input: ReloadInsightRulesInput) -> Result<usize, CoreError> {
     let path = std::path::PathBuf::from(&input.project_path);
     insight::reload_insight_rules(&path);
     let reg = insight::global_registry()
         .read()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
     Ok(reg.rule_count())
 }
 
@@ -417,7 +419,7 @@ pub struct TableProfileInput {
 }
 
 #[tauri::command]
-pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile, String> {
+pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile, CoreError> {
     ResultService::get_table_profile(
         input.conn_id,
         input.db_type,
@@ -426,7 +428,7 @@ pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile,
         &input.table,
     )
     .await
-    .map_err(|e| e.to_string())
+    
 }
 
 // ═══════════════ 数据导出命令 ═══════════════
@@ -439,7 +441,7 @@ pub struct ExportInput {
 }
 
 #[tauri::command]
-pub fn export_result_to_file(input: ExportInput) -> Result<String, String> {
+pub fn export_result_to_file(input: ExportInput) -> Result<String, CoreError> {
     ResultService::export_result(&input.temp_table, &input.file_path, &input.format)
-        .map_err(|e| e.to_string())
+        
 }
