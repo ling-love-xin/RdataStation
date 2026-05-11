@@ -23,7 +23,6 @@ pub enum ConnectionMethod {
     SocksProxy(ProxyConfig),
 }
 
-
 /// SSL/TLS 配置
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SslConfig {
@@ -52,7 +51,6 @@ pub enum TlsVersion {
     Tls1_2,
     Tls1_3,
 }
-
 
 fn default_tls_version() -> TlsVersion {
     TlsVersion::Tls1_2

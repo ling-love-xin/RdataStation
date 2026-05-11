@@ -42,7 +42,6 @@ pub mod insight;
 pub mod logging;
 pub mod macros;
 pub mod migration;
-pub mod mock;
 pub mod models;
 pub mod performance;
 pub mod persistence;

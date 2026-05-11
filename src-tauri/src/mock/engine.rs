@@ -9,14 +9,14 @@ use fake::Fake;
 use super::generators::generate_cell;
 use crate::core::driver::native::duckdb::duckdb_rows_to_arrow;
 use crate::core::duckdb::DuckDBManager;
-use crate::core::mock::error::{MockError, MockResult};
-use crate::core::mock::history::MockHistoryStore;
-use crate::core::mock::models::{
+use crate::mock::error::{MockError, MockResult};
+use crate::mock::history::MockHistoryStore;
+use crate::mock::models::{
     ColumnDataType, ColumnDef, ColumnMappingResponse, ImportSchemaInput, MockConfig,
     MockExportFormat, MockGenerateResult, MockHistoryRecord, ScenarioTemplate,
 };
-use crate::core::mock::schema_map::ColumnMapper;
-use crate::core::mock::templates;
+use crate::mock::schema_map::ColumnMapper;
+use crate::mock::templates;
 use crate::core::models::QueryResult;
 use crate::core::sql::{ColumnDefInfo, SqlEngine};
 
@@ -115,7 +115,13 @@ impl MockEngine {
                 let safe: String = c
                     .name
                     .chars()
-                    .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                    .map(|ch| {
+                        if ch.is_alphanumeric() || ch == '_' {
+                            ch
+                        } else {
+                            '_'
+                        }
+                    })
                     .collect::<String>()
                     .trim_matches('_')
                     .to_string();
@@ -379,8 +385,6 @@ impl MockEngine {
         let sql = SqlEngine::build_select_all(table_name, Some(limit as i64));
         let mut stmt = conn.prepare(&sql)?;
 
-        let column_count;
-        let columns: Vec<String>;
         let row_data: Vec<Vec<duckdb::types::Value>>;
         {
             let mut rows = stmt.query([])?;
@@ -398,19 +402,15 @@ impl MockEngine {
             row_data = data;
         }
 
-        column_count = if let Some(first) = row_data.first() {
+        let column_count = if let Some(first) = row_data.first() {
             first.len()
         } else {
             stmt.column_count()
         };
 
-        columns = if column_count > 0 {
+        let columns: Vec<String> = if column_count > 0 {
             (0..column_count)
-                .map(|i| {
-                    stmt.column_name(i)
-                        .map_or("unknown", |v| v)
-                        .to_string()
-                })
+                .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
                 .collect()
         } else {
             Vec::new()
@@ -433,39 +433,48 @@ impl MockEngine {
 fn sanitize_table_name(name: &str) -> String {
     let safe = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim_matches('_')
         .to_lowercase();
     if safe.is_empty() {
-        format!("auto_table_{}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos())
+        format!(
+            "auto_table_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        )
     } else {
         safe
     }
 }
 
-fn parse_data_type(data_type: &str) -> crate::core::mock::models::ColumnDataType {
+fn parse_data_type(data_type: &str) -> crate::mock::models::ColumnDataType {
     match data_type.to_lowercase().as_str() {
-        "integer" | "int" => crate::core::mock::models::ColumnDataType::Integer,
-        "bigint" => crate::core::mock::models::ColumnDataType::BigInt,
-        "float" => crate::core::mock::models::ColumnDataType::Float,
-        "double" => crate::core::mock::models::ColumnDataType::Double,
-        "decimal" => crate::core::mock::models::ColumnDataType::Decimal {
+        "integer" | "int" => crate::mock::models::ColumnDataType::Integer,
+        "bigint" => crate::mock::models::ColumnDataType::BigInt,
+        "float" => crate::mock::models::ColumnDataType::Float,
+        "double" => crate::mock::models::ColumnDataType::Double,
+        "decimal" => crate::mock::models::ColumnDataType::Decimal {
             precision: 18,
             scale: 2,
         },
-        "boolean" | "bool" => crate::core::mock::models::ColumnDataType::Boolean,
-        "varchar" => crate::core::mock::models::ColumnDataType::Varchar { length: None },
-        "text" => crate::core::mock::models::ColumnDataType::Text,
-        "date" => crate::core::mock::models::ColumnDataType::Date,
-        "datetime" => crate::core::mock::models::ColumnDataType::DateTime,
-        "timestamp" => crate::core::mock::models::ColumnDataType::Timestamp,
-        "uuid" => crate::core::mock::models::ColumnDataType::Uuid,
-        "blob" => crate::core::mock::models::ColumnDataType::Blob,
-        _ => crate::core::mock::models::ColumnDataType::Varchar { length: None },
+        "boolean" | "bool" => crate::mock::models::ColumnDataType::Boolean,
+        "varchar" => crate::mock::models::ColumnDataType::Varchar { length: None },
+        "text" => crate::mock::models::ColumnDataType::Text,
+        "date" => crate::mock::models::ColumnDataType::Date,
+        "datetime" => crate::mock::models::ColumnDataType::DateTime,
+        "timestamp" => crate::mock::models::ColumnDataType::Timestamp,
+        "uuid" => crate::mock::models::ColumnDataType::Uuid,
+        "blob" => crate::mock::models::ColumnDataType::Blob,
+        _ => crate::mock::models::ColumnDataType::Varchar { length: None },
     }
 }
 
@@ -596,11 +605,7 @@ impl MockEngine {
         conn.execute_batch(&create_sql)?;
 
         let count_sql = SqlEngine::build_select(&safe_name, &["COUNT(*)"], None);
-        let row_count: i64 = conn.query_row(
-            &count_sql,
-            [],
-            |row| row.get(0),
-        )?;
+        let row_count: i64 = conn.query_row(&count_sql, [], |row| row.get(0))?;
 
         let column_count: i32;
         {
@@ -749,9 +754,9 @@ fn infer_datatype_for_column(sql_type: &str) -> ColumnDataType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::mock::generators::generate_cell;
-    use crate::core::mock::models::GeneratorConfig;
-    use crate::core::mock::models::Locale;
+    use crate::mock::generators::generate_cell;
+    use crate::mock::models::GeneratorConfig;
+    use crate::mock::models::Locale;
 
     #[test]
     fn test_sanitize_table_name_alphanumeric() {

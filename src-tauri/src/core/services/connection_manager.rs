@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
+
+use tracing::{info, warn};
 
 use crate::core::cache::CacheManager;
 use crate::core::driver::registry::DriverConnectionConfig;
-use crate::core::driver::traits::Database;
+use crate::core::driver::traits::DynDatabase;
 use crate::core::driver::DriverRegistry;
 use crate::core::error::{ConnectionError, CoreError};
 
@@ -47,9 +50,6 @@ pub struct ConnectionConfig {
     pub connection_type: Option<ConnectionType>,
 }
 
-/// 动态数据库类型
-type DynDatabase = Arc<dyn Database + Send + Sync>;
-
 /// 连接信息
 #[derive(Debug, Clone)]
 pub struct ConnectionInfo {
@@ -70,15 +70,27 @@ pub struct ConnectionInfo {
 /// - 连接的复用
 /// - 活动连接的切换
 /// - 连接的关闭和清理
+/// - 空闲连接回收（idle timeout）
+///
+/// # 空闲回收策略
+///
+/// 默认空闲超时 30 分钟。超过此时间未被访问的连接将被自动关闭。
+/// 可通过 `set_idle_timeout()` 调整。
 pub struct ConnectionManager {
     /// 存储所有数据库连接
     connections: tokio::sync::RwLock<HashMap<ConnId, DynDatabase>>,
     /// 连接信息映射
     connection_info: tokio::sync::RwLock<HashMap<ConnId, ConnectionInfo>>,
+    /// 连接配置缓存（用于断线重连）
+    connection_configs: tokio::sync::RwLock<HashMap<ConnId, DriverConnectionConfig>>,
+    /// 连接最后访问时间（用于空闲回收）
+    last_access: tokio::sync::RwLock<HashMap<ConnId, Instant>>,
     /// 当前活动连接 ID
     active_conn_id: tokio::sync::RwLock<Option<ConnId>>,
     /// 取消令牌映射（每个连接一个正在执行的查询令牌）
     cancel_tokens: tokio::sync::RwLock<HashMap<ConnId, tokio_util::sync::CancellationToken>>,
+    /// 空闲超时时间（默认 30 分钟）
+    idle_timeout: tokio::sync::RwLock<Duration>,
 }
 
 impl ConnectionManager {
@@ -87,8 +99,11 @@ impl ConnectionManager {
         Self {
             connections: tokio::sync::RwLock::new(HashMap::new()),
             connection_info: tokio::sync::RwLock::new(HashMap::new()),
+            connection_configs: tokio::sync::RwLock::new(HashMap::new()),
+            last_access: tokio::sync::RwLock::new(HashMap::new()),
             active_conn_id: tokio::sync::RwLock::new(None),
             cancel_tokens: tokio::sync::RwLock::new(HashMap::new()),
+            idle_timeout: tokio::sync::RwLock::new(Duration::from_secs(30 * 60)),
         }
     }
 
@@ -150,7 +165,7 @@ impl ConnectionManager {
         };
 
         // 添加到连接管理器
-        self.add_connection(conn_id.clone(), db.clone(), info)
+        self.add_connection(conn_id.clone(), db.clone(), info, config)
             .await?;
 
         Ok((conn_id, db))
@@ -172,12 +187,17 @@ impl ConnectionManager {
         conn_id: ConnId,
         db: DynDatabase,
         info: ConnectionInfo,
+        config: DriverConnectionConfig,
     ) -> Result<(), CoreError> {
         let mut connections = self.connections.write().await;
         let mut conn_info = self.connection_info.write().await;
+        let mut conn_configs = self.connection_configs.write().await;
+        let mut access = self.last_access.write().await;
 
         connections.insert(conn_id.clone(), db);
         conn_info.insert(conn_id.clone(), info);
+        conn_configs.insert(conn_id.clone(), config);
+        access.insert(conn_id.clone(), Instant::now());
 
         // 如果没有活动连接，将此连接设为活动连接
         let mut active_conn = self.active_conn_id.write().await;
@@ -188,7 +208,15 @@ impl ConnectionManager {
         Ok(())
     }
 
+    /// 记录连接访问时间（重置空闲计时器）
+    async fn touch_connection(&self, conn_id: &ConnId) {
+        let mut access = self.last_access.write().await;
+        access.insert(conn_id.clone(), Instant::now());
+    }
+
     /// 获取指定连接
+    ///
+    /// 同时更新最后访问时间，用于空闲回收判断。
     ///
     /// # Arguments
     ///
@@ -199,7 +227,12 @@ impl ConnectionManager {
     /// 如果连接存在返回 Some(DynDatabase)，否则返回 None
     pub async fn get_connection(&self, conn_id: &ConnId) -> Option<DynDatabase> {
         let connections = self.connections.read().await;
-        connections.get(conn_id).cloned()
+        let db = connections.get(conn_id).cloned();
+        if db.is_some() {
+            drop(connections);
+            self.touch_connection(conn_id).await;
+        }
+        db
     }
 
     /// 获取当前活动连接
@@ -276,9 +309,13 @@ impl ConnectionManager {
     pub async fn remove_connection(&self, conn_id: &ConnId) {
         let mut connections = self.connections.write().await;
         let mut conn_info = self.connection_info.write().await;
+        let mut conn_configs = self.connection_configs.write().await;
+        let mut access = self.last_access.write().await;
 
         connections.remove(conn_id);
         conn_info.remove(conn_id);
+        conn_configs.remove(conn_id);
+        access.remove(conn_id);
 
         // 如果移除的是活动连接，清空活动连接
         let mut active_conn = self.active_conn_id.write().await;
@@ -356,9 +393,13 @@ impl ConnectionManager {
     pub async fn close_all_connections(&self) {
         let mut connections = self.connections.write().await;
         let mut conn_info = self.connection_info.write().await;
+        let mut conn_configs = self.connection_configs.write().await;
+        let mut access = self.last_access.write().await;
 
         connections.clear();
         conn_info.clear();
+        conn_configs.clear();
+        access.clear();
 
         let mut active_conn = self.active_conn_id.write().await;
         *active_conn = None;
@@ -408,6 +449,197 @@ impl ConnectionManager {
         }
     }
 
+    /// 获取连接配置（用于重连）"
+    pub async fn get_connection_config(&self, conn_id: &ConnId) -> Option<DriverConnectionConfig> {
+        let configs = self.connection_configs.read().await;
+        configs.get(conn_id).cloned()
+    }
+
+    /// 断线重连（exponential backoff）
+    ///
+    /// 尝试使用原始配置重新建立数据库连接。
+    /// 重试策略：100ms → 200ms → 400ms（最多 3 次）
+    ///
+    /// # Arguments
+    ///
+    /// * `conn_id` - 要重连的连接 ID
+    ///
+    /// # Returns
+    ///
+    /// 成功返回新的数据库连接实例，失败返回 CoreError
+    pub async fn reconnect_connection(&self, conn_id: &ConnId) -> Result<DynDatabase, CoreError> {
+        let config = self
+            .get_connection_config(conn_id)
+            .await
+            .ok_or_else(|| CoreError::connection(ConnectionError::NotFound(conn_id.clone())))?;
+
+        let driver_id = config.driver.clone();
+        let factory = DriverRegistry::get(&driver_id).ok_or_else(|| {
+            CoreError::connection(ConnectionError::DriverNotFound {
+                driver: driver_id.clone(),
+            })
+        })?;
+
+        let base_backoff_ms: u64 = 100;
+        let max_retries: u32 = 3;
+
+        for attempt in 0..=max_retries {
+            match factory.create(config.clone()).await {
+                Ok(db) => {
+                    let mut connections = self.connections.write().await;
+                    connections.insert(conn_id.clone(), db.clone());
+                    info!(
+                        conn_id = %conn_id,
+                        driver = %driver_id,
+                        attempt = attempt + 1,
+                        "Connection re-established"
+                    );
+                    return Ok(db);
+                }
+                Err(e) if attempt < max_retries => {
+                    let delay_ms = base_backoff_ms * 2u64.pow(attempt);
+                    warn!(
+                        conn_id = %conn_id,
+                        driver = %driver_id,
+                        attempt = attempt + 1,
+                        delay_ms = delay_ms,
+                        error = %e,
+                        "Reconnect attempt failed, retrying"
+                    );
+                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                }
+                Err(e) => {
+                    warn!(
+                        conn_id = %conn_id,
+                        driver = %driver_id,
+                        total_attempts = attempt + 1,
+                        error = %e,
+                        "All reconnect attempts exhausted"
+                    );
+                    return Err(e);
+                }
+            }
+        }
+
+        Err(CoreError::connection(ConnectionError::Other {
+            conn_id: conn_id.clone(),
+            reason: "Reconnect exhausted all retries".to_string(),
+        }))
+    }
+
+    /// 检查连接健康状态并尝试重连
+    ///
+    /// 先 ping 检查连接，若失败则尝试重连。
+    ///
+    /// # Returns
+    ///
+    /// 返回健康的数据库连接（可能是重连后的新连接）
+    pub async fn get_or_reconnect(&self, conn_id: &ConnId) -> Result<DynDatabase, CoreError> {
+        if let Some(db) = self.get_connection(conn_id).await {
+            match db.ping().await {
+                Ok(()) => {
+                    self.touch_connection(conn_id).await;
+                    return Ok(db);
+                }
+                Err(e) => {
+                    warn!(
+                        conn_id = %conn_id,
+                        error = %e,
+                        "Connection ping failed, attempting reconnect"
+                    );
+                }
+            }
+        }
+
+        self.reconnect_connection(conn_id).await
+    }
+
+    /// 设置空闲超时时间
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - 新的空闲超时时间
+    pub async fn set_idle_timeout(&self, timeout: Duration) {
+        let mut current = self.idle_timeout.write().await;
+        *current = timeout;
+    }
+
+    /// 获取当前空闲超时时间
+    pub async fn get_idle_timeout(&self) -> Duration {
+        let timeout = self.idle_timeout.read().await;
+        *timeout
+    }
+
+    /// 回收空闲连接
+    ///
+    /// 遍历所有连接，关闭超过 `idle_timeout` 未访问的连接。
+    /// 返回被回收的连接 ID 列表。
+    ///
+    /// # Returns
+    ///
+    /// 被关闭的连接 ID 列表
+    pub async fn reclaim_idle_connections(&self) -> Vec<ConnId> {
+        let idle_timeout = self.get_idle_timeout().await;
+        let now = Instant::now();
+
+        let access = self.last_access.read().await;
+        let idle_ids: Vec<ConnId> = access
+            .iter()
+            .filter(|(_, last)| now.duration_since(**last) > idle_timeout)
+            .map(|(id, _)| id.clone())
+            .collect();
+        drop(access);
+
+        for conn_id in &idle_ids {
+            info!(conn_id = %conn_id, "Reclaiming idle connection");
+            self.remove_connection(conn_id).await;
+        }
+
+        idle_ids
+    }
+
+    /// 启动后台空闲回收任务
+    ///
+    /// 每隔 `check_interval` 检查并回收空闲连接。
+    /// 返回一个用于停止任务的 handle。
+    ///
+    /// # Arguments
+    ///
+    /// * `check_interval` - 检查间隔（推荐 5 分钟）
+    ///
+    /// # Returns
+    ///
+    /// 返回一个 `CancellationToken`，调用 `cancel()` 可停止后台任务
+    pub fn start_idle_reclaimer(
+        self: Arc<Self>,
+        check_interval: Duration,
+    ) -> tokio_util::sync::CancellationToken {
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let cancel_clone = cancel.clone();
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(check_interval) => {
+                        let reclaimed = self.reclaim_idle_connections().await;
+                        if !reclaimed.is_empty() {
+                            info!(
+                                count = reclaimed.len(),
+                                ids = ?reclaimed,
+                                "Background reclaimer closed idle connections"
+                            );
+                        }
+                    }
+                    _ = cancel_clone.cancelled() => {
+                        info!("Idle connection reclaimer stopped");
+                        break;
+                    }
+                }
+            }
+        });
+
+        cancel
+    }
     /// 移除指定连接的取消令牌（查询完成后清理）
     pub async fn remove_cancel_token(&self, conn_id: &ConnId) {
         let mut tokens = self.cancel_tokens.write().await;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::adapters::tauri::state::AppState;
 use crate::core::error::CoreError;
-use crate::core::mock::persistence::{
+use crate::mock::persistence::{
     MockGenerationColumn, MockGenerationDetail, MockGenerationStore, MockGenerationTask,
     MockTemplateColumn, MockUserTemplate,
 };

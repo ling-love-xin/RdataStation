@@ -1,7 +1,7 @@
 # RdataStation 变更日志
 
-> 版本：v2.10.0
-> 最后更新：2026-05-09
+> 版本：v2.10.1
+> 最后更新：2026-05-11
 
 ## 目录
 
@@ -12,6 +12,22 @@
 ---
 
 ## 项目变更日志
+
+### [v2.10.1] - 2026-05-11
+
+#### 🧪 四库连接验证 + 联调测试方案
+
+> 📐 测试方案：[project-integration-test-plan.md](./project-integration-test-plan.md)
+> 📄 测试文件：[four_db_connection_tests.rs](../src-tauri/tests/four_db_connection_tests.rs)
+
+- ✨ feat(test): 新增四库连接集成测试 — MySQL/PG/SQLite/DuckDB 全覆盖
+  - `test_mysql_ping` / `test_mysql_list_databases` / `test_mysql_execute_select` / `test_mysql_insert_and_select`
+  - `test_pg_ping` / `test_pg_list_schemas` / `test_pg_list_tables` / `test_pg_execute_select` / `test_pg_insert_and_select`
+  - `test_sqlite_ping` / `test_sqlite_list_tables` / `test_sqlite_execute_select` / `test_sqlite_insert_and_select`
+  - `test_duckdb_ping` / `test_duckdb_list_tables` / `test_duckdb_execute_select` / `test_duckdb_insert_and_select` / `test_duckdb_meta`
+- 📝 docs(test): 编制项目模块联调测试方案 — 覆盖 37 Core 模块 + 18 Command + 11 前端模块
+- 🐛 fix(test): 修复 `driver_integration.rs` MySQL `list_databases()` 返回类型匹配
+- 🔧 chore(docs): 体系化更新项目文档 — 版本号校准、错误域补全、目录结构同步
 
 ### [v2.10.0] - 2026-05-09
 

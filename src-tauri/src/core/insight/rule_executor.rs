@@ -57,7 +57,8 @@ impl RuleExecutor {
                 .query
                 .parameters
                 .iter()
-                .filter(|p| !params.contains_key(*p)).cloned()
+                .filter(|p| !params.contains_key(*p))
+                .cloned()
                 .collect();
             if !missing.is_empty() {
                 return Err(CoreError::common(CommonError::General(format!(
@@ -228,6 +229,17 @@ impl RuleExecutor {
             )))
         })?;
 
+        // DuckDB requires query execution before column_name() is available.
+        // Pre-execute to enable column metadata access.
+        {
+            let _ = stmt.query([]).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Rule '{}' query failed: {}",
+                    rule.meta.id, e
+                )))
+            })?;
+        }
+
         let col_map = Self::build_col_map(&stmt);
 
         for field in &rule.output {
@@ -276,6 +288,16 @@ impl RuleExecutor {
                 rule.meta.id, e
             )))
         })?;
+
+        // DuckDB requires query execution before column_name() is available.
+        {
+            let _ = stmt.query([]).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Rule '{}' query failed: {}",
+                    rule.meta.id, e
+                )))
+            })?;
+        }
 
         let col_map = Self::build_col_map(&stmt);
 
@@ -400,7 +422,11 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("CREATE TABLE test (id INTEGER, name TEXT, value REAL)")
             .unwrap();
-        let stmt = conn.prepare("SELECT id, name, value FROM test").unwrap();
+        let mut stmt = conn.prepare("SELECT id, name, value FROM test").unwrap();
+        // DuckDB requires query execution before column_name() is available
+        {
+            let _ = stmt.query([]).unwrap();
+        }
         let map = RuleExecutor::build_col_map(&stmt);
         assert_eq!(map.len(), 3);
         assert_eq!(map.get("id"), Some(&0));

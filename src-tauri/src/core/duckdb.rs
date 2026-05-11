@@ -258,19 +258,13 @@ impl DuckDBManager {
                 );
                 if path_buf.exists() {
                     if let Err(remove_err) = std::fs::remove_file(&path_buf) {
-                        tracing::error!(
-                            "Failed to remove corrupted DuckDB file: {}",
-                            remove_err
-                        );
+                        tracing::error!("Failed to remove corrupted DuckDB file: {}", remove_err);
                         return Err(CoreError::common(CommonError::General(format!(
                             "Failed to open persistent DuckDB at {}: {}",
                             path, e
                         ))));
                     }
-                    tracing::info!(
-                        "Removed corrupted DuckDB file: {}",
-                        path_buf.display()
-                    );
+                    tracing::info!("Removed corrupted DuckDB file: {}", path_buf.display());
                 }
                 duckdb::Connection::open(&path_buf).map_err(|_| {
                     CoreError::common(CommonError::General(format!(

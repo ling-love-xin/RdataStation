@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use super::connection::{ConnectionConfig, ConnectionFactory};
 use super::connection::config::ConnectionMethod;
+use super::connection::{ConnectionConfig, ConnectionFactory};
+use super::registry::DriverConnectionConfig;
 use crate::core::driver::native::{
     duckdb::DuckDbDatabase, mysql::MySqlDatabase, postgres::PostgresDatabase,
     sqlite::SqliteDatabase,
 };
-use super::registry::DriverConnectionConfig;
 use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
 

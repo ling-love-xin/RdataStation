@@ -2,8 +2,8 @@
 //!
 //! 处理端口分配、检查、释放等操作
 
-use crate::core::{PortNegotiator, PortRange, COMMON_DB_PORTS, DEFAULT_PORT_RANGE};
 use crate::core::error::CoreError;
+use crate::core::{PortNegotiator, PortRange, COMMON_DB_PORTS, DEFAULT_PORT_RANGE};
 
 // ==================== Port Negotiation Commands ====================
 
@@ -78,7 +78,9 @@ pub async fn is_port_available(port: u16) -> Result<bool, CoreError> {
 pub async fn release_port(port: u16) -> Result<(), CoreError> {
     let negotiator = PortNegotiator::new();
 
-    negotiator.release_port(port).map_err(|e| CoreError::from(e.to_string()))
+    negotiator
+        .release_port(port)
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 批量协商端口

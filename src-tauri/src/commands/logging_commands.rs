@@ -2,9 +2,9 @@
 //!
 //! 提供前端可调用的日志查询和管理 Tauri 命令。
 
+use crate::core::error::CoreError;
 use crate::core::logging::get_log_store;
 use crate::core::logging::record::{LogLevel, LogPage, LogQuery, LogRecord, LogStats};
-use crate::core::error::CoreError;
 
 /// 分页查询日志
 #[tauri::command]
@@ -29,7 +29,10 @@ pub async fn get_logs(
         end,
     };
 
-    store.query_logs(&query).await.map_err(|e| CoreError::from(e.to_string()))
+    store
+        .query_logs(&query)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 搜索日志（关键字搜索）
@@ -48,7 +51,10 @@ pub async fn search_logs(
         ..Default::default()
     };
 
-    store.query_logs(&query).await.map_err(|e| CoreError::from(e.to_string()))
+    store
+        .query_logs(&query)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 获取日志统计
@@ -56,7 +62,10 @@ pub async fn search_logs(
 pub async fn get_log_stats() -> Result<LogStats, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
-    store.get_stats().await.map_err(|e| CoreError::from(e.to_string()))
+    store
+        .get_stats()
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 清理旧日志
@@ -97,7 +106,10 @@ pub async fn export_logs(
         ..Default::default()
     };
 
-    let page = store.query_logs(&query).await.map_err(|e| CoreError::from(e.to_string()))?;
+    let page = store
+        .query_logs(&query)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))?;
     Ok(page.records)
 }
 

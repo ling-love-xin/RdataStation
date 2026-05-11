@@ -130,12 +130,7 @@ impl SqlEngine {
     }
 
     /// 生成 CREATE INDEX DDL
-    pub fn build_create_index(
-        name: &str,
-        table: &str,
-        columns: &[String],
-        unique: bool,
-    ) -> String {
+    pub fn build_create_index(name: &str, table: &str, columns: &[String], unique: bool) -> String {
         builder::build_create_index(name, table, columns, unique)
     }
 
@@ -150,11 +145,7 @@ impl SqlEngine {
     ///
     /// 将 SQL 从源方言转换为目标方言。
     /// 转换失败时返回错误信息。
-    pub fn transpile(
-        sql: &str,
-        source: SqlDialect,
-        target: SqlDialect,
-    ) -> Result<String, String> {
+    pub fn transpile(sql: &str, source: SqlDialect, target: SqlDialect) -> Result<String, String> {
         transpiler::transpile(sql, source, target)
     }
 

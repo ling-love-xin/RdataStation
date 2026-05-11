@@ -108,18 +108,52 @@ src-tauri/src/core/
 │   ├── jdbc/               # JDBC 驱动（预留）
 │   └── wasm/               # Wasm 驱动（预留）
 │
-├── services/               # 业务服务：SQL执行、连接管理
+├── services/               # 业务服务：SQL执行、连接管理、洞察分析
 │   ├── mod.rs
 │   ├── connection_manager.rs
 │   ├── connection_service.rs
-│   └── sql_service.rs
+│   ├── sql_service.rs
+│   ├── execution_service.rs
+│   ├── result_service.rs
+│   ├── duckdb_service.rs
+│   ├── persistence_service.rs
+│   ├── insight_engine.rs
+│   ├── sql_parser_service.rs
+│   ├── quality_scorer.rs
+│   └── table_profile_service.rs
 │
-├── persistence/            # 持久化：SQLite 项目库、历史记录
+├── sql/                     # SQL 处理引擎（sqlglot-rust 唯一接入点）
+│   ├── mod.rs
+│   ├── engine.rs
+│   ├── parser.rs
+│   ├── builder.rs
+│   ├── formatter.rs
+│   └── transpiler.rs
+│
+├── persistence/             # 持久化：SQLite 项目库、历史记录、缓存
 │   ├── mod.rs
 │   ├── connection_store.rs
 │   ├── history_store.rs
-│   ├── project_db.rs       # 项目级数据库（SQLite + DuckDB）
-│   └── project_store.rs
+│   ├── project_db.rs
+│   ├── project_store.rs
+│   ├── project_connection_store.rs
+│   ├── global_db.rs
+│   ├── insight_store.rs
+│   ├── insight_meta_store.rs
+│   ├── log_store.rs
+│   ├── metadata_cache.rs
+│   ├── cache_version_migration.rs
+│   ├── workbench_context_store.rs
+│   ├── sql_template_store.rs
+│   └── analytics_resource_store/     # 分析资源子系统
+│       ├── mod.rs
+│       ├── resource.rs
+│       ├── tag.rs
+│       ├── folder.rs
+│       ├── version.rs
+│       ├── recycle.rs
+│       ├── models.rs
+│       └── helpers.rs
 │
 ├── project/                # 项目管理：项目、配置、存储
 │   ├── mod.rs
@@ -131,7 +165,55 @@ src-tauri/src/core/
 │   ├── lru_cache.rs
 │   ├── query_cache.rs
 │   ├── metadata_cache.rs
-│   └── cache_manager.rs
+│   ├── cache_manager.rs
+│   └── memory_guard.rs
+│
+├── insight/                # 数据洞察引擎
+│   ├── mod.rs
+│   ├── rule_registry.rs
+│   ├── rule_executor.rs
+│   ├── rule_types.rs
+│   └── schema_analyzer.rs
+│
+├── mock/                   # 模拟数据生成器
+│   ├── mod.rs
+│   ├── engine.rs
+│   ├── templates.rs
+│   ├── generators.rs
+│   ├── history.rs
+│   ├── persistence.rs
+│   ├── schema_map.rs
+│   ├── models.rs
+│   └── error.rs
+│
+├── scratchpad/             # 草稿管理
+│   ├── mod.rs
+│   ├── store.rs
+│   ├── models.rs
+│   └── state.rs
+│
+├── migration/              # Schema 迁移系统
+│   ├── mod.rs
+│   ├── manager.rs
+│   ├── executor.rs
+│   ├── global_init.rs
+│   └── schema.rs
+│
+├── logging/                # 日志系统
+│   ├── mod.rs
+│   ├── config.rs
+│   ├── record.rs
+│   ├── redact.rs
+│   └── subscriber.rs
+│
+├── performance/            # 性能监控
+│   ├── mod.rs
+│   └── monitor.rs
+│
+├── duckdb.rs               # DuckDB 辅助功能
+├── crypto.rs               # 加密与密钥管理
+├── api_version.rs          # API 版本控制
+├── port_negotiation.rs     # 端口协商
 │
 └── utils/                  # core 内部工具
     ├── mod.rs
@@ -489,7 +571,7 @@ pub trait Database: Send + Sync {
 | MySQL      | sqlx      | 异步、编译期检查、连接池     | 0.8  |
 | PostgreSQL | sqlx      | 异步、编译期检查、连接池     | 0.8  |
 | SQLite     | rusqlite  | 官方 Rust 驱动，bundled 特性 | 0.32 |
-| DuckDB     | duckdb-rs | 官方 Rust 驱动，分析型数据库 | 1.1  |
+| DuckDB     | duckdb-rs | 官方 Rust 驱动，分析型数据库 | 1.10502 |
 
 ### 6.3 智能连接池
 
@@ -582,7 +664,8 @@ CoreError (核心错误容器)
 ├── Connection (连接错误域)
 ├── Database (数据库错误域)
 ├── Storage (存储错误域)
-└── Plugin (插件错误域 - 预留扩展)
+├── Cache (缓存错误域)
+└── Plugin (插件错误域)
 ```
 
 ### 8.2 错误处理规范
@@ -633,12 +716,12 @@ CoreError (核心错误容器)
 | Tauri        | 2.10.3 | 桌面框架              |
 | SQLx         | 0.8.3  | MySQL/PostgreSQL 驱动 |
 | Rusqlite     | 0.32.1 | SQLite 驱动           |
-| DuckDB-RS    | 1.1.1  | DuckDB 驱动           |
-| Arrow        | 53.0.0 | 数据传输格式          |
-| Wasmtime     | 43.0.0 | Wasm 运行时           |
+| DuckDB-RS    | 1.10502.0 | DuckDB 驱动           |
+| Arrow        | 58.1.0 | Apache Arrow 零拷贝传输 |
 | Serde        | 1.0    | 序列化                |
 | thiserror    | 1.0    | 错误处理              |
 | anyhow       | 1.0    | 错误处理              |
+| sqlglot-rust | 0.9.24 | SQL 解析/格式化（仅通过 SqlEngine） |
 
 ---
 

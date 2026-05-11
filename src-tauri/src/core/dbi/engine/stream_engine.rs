@@ -36,7 +36,6 @@ impl Default for StreamEngine {
 }
 
 impl StreamEngine {
-
     /// 合并多个查询结果
     ///
     /// # 参数

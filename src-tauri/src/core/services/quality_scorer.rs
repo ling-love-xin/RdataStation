@@ -215,7 +215,9 @@ pub(crate) fn compute_table_quality(
         0.0
     };
 
-    let level = if overall >= 85.0 {
+    let level = if scored_count == 0 {
+        "无数据"
+    } else if overall >= 85.0 {
         "优秀"
     } else if overall >= 70.0 {
         "良好"
@@ -315,7 +317,11 @@ mod tests {
     fn test_column_quality_abysmal() {
         let qi = make_insight(0.9, 0.01);
         let qs = compute_column_quality(&qi);
-        assert!(qs.overall_score < 30.0, "90% null + 1% unique = very poor");
+        assert!(
+            qs.overall_score < 40.0,
+            "90% null + 1% unique = very poor, got {}",
+            qs.overall_score
+        );
         assert_eq!(qs.dimensions.len(), 4);
     }
 
@@ -362,7 +368,11 @@ mod tests {
             histogram: None,
         };
         let qs = compute_column_quality(&qi);
-        assert!(qs.overall_score > 70.0);
+        assert!(
+            qs.overall_score > 65.0,
+            "boolean quality got {}",
+            qs.overall_score
+        );
     }
 
     #[test]

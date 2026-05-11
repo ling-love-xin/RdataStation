@@ -61,7 +61,7 @@ export function useDataDictionaryExport() {
       md += '|------|------|------|--------|------|\n'
 
       for (const col of table.columns) {
-        md += `| ${col.name} | ${col.dataType} | ${col.nullable ? '是' : '否'} | ${col.defaultValue || '-'} | ${col.isPrimaryKey ? '是' : '-'} |\n`
+        md += `| ${col.name} | ${col.dataType} | ${col.isNullable ? '是' : '否'} | ${col.defaultValue || '-'} | ${col.isPrimaryKey ? '是' : '-'} |\n`
       }
 
       md += '\n'
@@ -139,7 +139,7 @@ export function useDataDictionaryExport() {
         html += `<tr>
   <td>${col.name}</td>
   <td><code>${col.dataType}</code></td>
-  <td>${col.nullable ? '是' : '否'}</td>
+  <td>${col.isNullable ? '是' : '否'}</td>
   <td>${col.defaultValue || '-'}</td>
   <td>${col.isPrimaryKey ? '是' : '-'}</td>
 </tr>

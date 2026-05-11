@@ -1,8 +1,8 @@
 # RdataStation 前端文档
 
-> 版本：v3.0
-> 更新日期：2026-05-10
-> 状态：✅ 文档结构重整完成（按模块归类）
+> 版本：v3.1
+> 更新日期：2026-05-11
+> 状态：✅ 已同步联调测试方案
 
 ---
 
@@ -138,6 +138,8 @@ docs/frontend/
 | 了解洞察系统            | [insight/README.md](./insight/README.md)                   |
 | 了解分析资源管理器      | [analytics-resource/README.md](./analytics-resource/README.md) |
 | 了解 Mock 数据生成器    | [mock/mock-data-generator-design.md](./mock/mock-data-generator-design.md) |
+| 了解联调测试方案        | [../project-integration-test-plan.md](../project-integration-test-plan.md) |
+| 查看四库连接测试        | [../../src-tauri/tests/four_db_connection_tests.rs](../../src-tauri/tests/four_db_connection_tests.rs) |
 
 ---
 
@@ -187,6 +189,8 @@ src/
 | 文档         | 路径                             |
 | ------------ | -------------------------------- |
 | 后端架构文档 | `../backend/ARCHITECTURE.md`     |
+| 联调测试方案 | `../project-integration-test-plan.md` |
+| 四库连接测试 | `../../src-tauri/tests/four_db_connection_tests.rs` |
 | 项目规则     | `.trae/rules/`                   |
 
 ---

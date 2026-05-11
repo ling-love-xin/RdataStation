@@ -6,6 +6,8 @@ use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::QueryResult;
 use crate::core::persistence::history_store;
 use crate::core::services::connection_manager::ConnectionManager;
+use crate::core::sql::SqlEngine;
+use crate::core::sql::{SqlDialect, SqlStatementType};
 
 /// 事务状态结果
 #[derive(Debug)]
@@ -90,11 +92,23 @@ impl SqlService {
             )));
         }
 
+        // SQL 语句分类（智能路由）
+        let (stmt_type, _normalized) = SqlEngine::parse_and_route(sql, SqlDialect::Ansi);
+        let (_is_ddl, _is_dml, is_dql) = {
+            let is_ddl = matches!(stmt_type, SqlStatementType::Ddl);
+            let is_dml = matches!(
+                stmt_type,
+                SqlStatementType::Insert | SqlStatementType::Update | SqlStatementType::Delete
+            );
+            let is_dql = matches!(stmt_type, SqlStatementType::Select);
+            (is_ddl, is_dml, is_dql)
+        };
+
         // 获取查询缓存
         let query_cache = get_query_cache();
 
-        // 检查缓存（仅当启用缓存且不是事务操作时）
-        if options.use_cache && !options.use_transaction {
+        // 检查缓存（仅当启用缓存、非事务操作、非 DDL/DML 时）
+        if options.use_cache && !options.use_transaction && is_dql {
             let connection_id = conn_id.as_deref().unwrap_or(DEFAULT_CONN_KEY);
             if let Some(cached_result) = query_cache.get(connection_id, sql).await {
                 let elapsed_ms = start_time.elapsed().as_millis() as u64;
@@ -145,8 +159,8 @@ impl SqlService {
         let mut result = result;
         let truncated = result.truncate(MAX_QUERY_ROWS) > 0;
 
-        // 将结果存入缓存（仅当启用缓存且不是事务操作时）
-        if options.use_cache && !options.use_transaction {
+        // 将结果存入缓存（仅当启用缓存、非事务操作、且为 SELECT 查询时）
+        if options.use_cache && !options.use_transaction && is_dql {
             let connection_id = conn_id.as_deref().unwrap_or(DEFAULT_CONN_KEY);
             let _ = query_cache
                 .set(connection_id, sql, result.clone(), None)
@@ -157,7 +171,12 @@ impl SqlService {
 
         // 记录到历史
         if options.record_history {
-            tracing::info!(sql = %sql, elapsed_ms, "SQL executed");
+            tracing::info!(
+                sql = %sql,
+                elapsed_ms,
+                stmt_type = ?stmt_type,
+                "SQL executed"
+            );
             if let Err(e) = history_store::save_sql_history(sql, conn_id.as_deref()) {
                 tracing::error!(error = %e, "Failed to save SQL history");
             }
@@ -257,20 +276,24 @@ impl SqlService {
         Ok(result.result)
     }
 
-    /// 获取数据库连接
+    /// 获取数据库连接（含自动重连）
+    ///
+    /// 先从连接管理器获取连接，若连接不存在或 ping 失败则尝试重连。
     async fn get_database(&self, conn_id: Option<String>) -> Result<DynDatabase, CoreError> {
         match conn_id {
-            Some(id) => self.manager.get_connection(&id).await.ok_or_else(|| {
-                CoreError::connection(crate::core::error::ConnectionError::NotFound(id))
-            }),
-            None => self
-                .manager
-                .get_active_connection()
-                .await
-                .map(|(_, db)| db)
-                .ok_or_else(|| {
-                    CoreError::connection(crate::core::error::ConnectionError::NoActiveConnection)
-                }),
+            Some(ref id) => self.manager.get_or_reconnect(id).await,
+            None => {
+                let conn_id = self
+                    .manager
+                    .get_active_connection_id()
+                    .await
+                    .ok_or_else(|| {
+                        CoreError::connection(
+                            crate::core::error::ConnectionError::NoActiveConnection,
+                        )
+                    })?;
+                self.manager.get_or_reconnect(&conn_id).await
+            }
         }
     }
 

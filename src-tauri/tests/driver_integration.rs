@@ -218,7 +218,7 @@ async fn test_mysql_list_databases() {
     let databases = db.list_databases().await.expect("failed to list databases");
     eprintln!(
         "MySQL databases: {:?}",
-        databases.iter().map(|d| &d.name).collect::<Vec<_>>()
+        databases
     );
 }
 
@@ -230,12 +230,12 @@ async fn test_mysql_list_tables() {
     let databases = db.list_databases().await.expect("list_databases");
     if let Some(database) = databases.first() {
         let tables = db
-            .list_tables(&database.name, None)
+            .list_tables(database, None)
             .await
             .expect("failed to list tables");
         eprintln!(
             "MySQL [{}] tables: {:?}",
-            database.name,
+            database,
             tables.iter().map(|t| &t.name).collect::<Vec<_>>()
         );
     }

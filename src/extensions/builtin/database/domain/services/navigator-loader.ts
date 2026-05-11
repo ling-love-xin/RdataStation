@@ -6,6 +6,7 @@
  */
 
 import { getAdapter } from '@/adapters'
+import type { DatabaseMetaAdapter } from '@/adapters'
 import type { NavigatorNode, QueryContext } from '@/shared/types/databaseMeta'
 
 import * as mockService from './mock-database-navigator'
@@ -68,7 +69,7 @@ export async function loadNodeChildren(
 function loadConnectionChildren(
   node: NavigatorNode,
   dbType: string,
-  adapter: any
+  adapter: DatabaseMetaAdapter
 ): NavigatorNode[] {
   console.log(`[NavigatorLoader] 加载连接子节点, dbType: ${dbType}`)
 

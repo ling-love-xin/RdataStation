@@ -18,7 +18,9 @@ pub(crate) async fn get_table_profile(
     let columns =
         fetch_table_columns(&service, conn_id_opt.clone(), database, schema, table).await?;
 
-    let row_count = fetch_row_count(&service, conn_id_opt, database, schema, table).await.ok();
+    let row_count = fetch_row_count(&service, conn_id_opt, database, schema, table)
+        .await
+        .ok();
 
     Ok(TableProfile {
         table_name: table.to_string(),

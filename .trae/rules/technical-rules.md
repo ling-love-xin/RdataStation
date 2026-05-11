@@ -13,11 +13,10 @@ UI 基座强制使用 dockview-vue。
 Rust Edition: 2021
 Tokio: 1.44.1
 Tauri: 2.10.3
-Wasmtime: 43.0.0
 SQLx: 0.8.3
 Rusqlite: 0.32.1
 DuckDB-RS: 1.10502.0
-Arrow: 53.0.0
+Arrow: 58.1.0
 sqlglot-rust: 0.9.24 (唯一接入点: core/sql)
 
 ## 前端 (Frontend - Vue/TS)
@@ -26,7 +25,7 @@ Package Manager: pnpm
 Framework: Vue 3.5.13
 Language: TypeScript 5.8.3
 Build Tool: Vite 6.x
-UI Layout Engine: dockview-vue 5.2.0
+UI Layout Engine: dockview-vue 6.0.1
 Component Library: naive-ui (核心依赖)
 Icon Library: lucide-vue-next
 Table Engine: AG Grid 33.0.0

@@ -308,10 +308,21 @@ export interface ViewInfo {
   comment?: string
 }
 
+/**
+ * 列元数据（共享规范 — 前后端均可使用的标准列信息模型）
+ *
+ * @remarks
+ * 本接口是 **内部存储 / 缓存 / Mock 生成** 的规范化类型。
+ * IPC 传输版本见 `navigator.ts::ColumnInfo`，字段名对应后端 serde 重命名。
+ *
+ * 命名约定：
+ * - `dataType` / `isNullable` — 统一驼峰 + is 前缀，匹配后端 ColumnMeta 序列化
+ * - `columnSize` / `decimalDigits` — 仅 JDBC 驱动可用，原生驱动可能为空
+ */
 export interface ColumnInfo {
   name: string
-  type: string
-  nullable: boolean
+  dataType: string
+  isNullable: boolean
   defaultValue?: string
   isPrimaryKey?: boolean
   isForeignKey?: boolean

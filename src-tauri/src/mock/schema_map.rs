@@ -1,4 +1,4 @@
-use crate::core::mock::models::{ColumnDataType, ColumnMappingResponse, GeneratorConfig};
+use crate::mock::models::{ColumnDataType, ColumnMappingResponse, GeneratorConfig};
 
 #[derive(Debug, Clone)]
 pub struct ColumnMappingRule {
@@ -743,7 +743,7 @@ mod tests {
 
     #[test]
     fn test_infer_fallback_uuid() {
-        let resp = ColumnMapper::infer("random_key", &ColumnDataType::Uuid);
+        let resp = ColumnMapper::infer("some_uuid_column", &ColumnDataType::Uuid);
         assert_eq!(resp.confidence, "low");
         assert!(matches!(resp.generator, GeneratorConfig::UuidV4));
     }

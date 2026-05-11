@@ -2,8 +2,8 @@
 //!
 //! 处理性能指标查询、监控配置等操作
 
-use crate::core::performance::get_performance_monitor;
 use crate::core::error::CoreError;
+use crate::core::performance::get_performance_monitor;
 
 /// 获取性能指标
 #[tauri::command]
@@ -12,8 +12,8 @@ pub async fn get_performance_metrics() -> Result<serde_json::Value, CoreError> {
     let metrics = monitor.get_metrics().await;
     let uptime = monitor.uptime();
 
-    let mut response =
-        serde_json::to_value(metrics).map_err(|e| CoreError::from(format!("序列化性能指标失败: {}", e)))?;
+    let mut response = serde_json::to_value(metrics)
+        .map_err(|e| CoreError::from(format!("序列化性能指标失败: {}", e)))?;
 
     if let Some(obj) = response.as_object_mut() {
         obj.insert(

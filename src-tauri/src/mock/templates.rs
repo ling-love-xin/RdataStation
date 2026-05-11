@@ -1,4 +1,4 @@
-use crate::core::mock::models::{
+use crate::mock::models::{
     ColumnDataType, ColumnDef, GeneratorConfig, ScenarioTemplate, TemplateTable,
 };
 

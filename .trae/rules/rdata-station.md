@@ -60,12 +60,6 @@ sqlx
 
 提供异步数据库连接与编译期查询检查，提升代码健壮性
 
-wasmtime
-
-18.0（最新稳定版，升级策略：✅ 允许 minor，❌ 禁止 major）
-
-Wasm 运行时核心，支撑插件沙箱隔离与热加载
-
 Serde
 
 1.0（最新稳定版，升级策略：✅ 允许 minor，❌ 禁止 major）
@@ -168,7 +162,7 @@ SQL 编辑核心，支持语法高亮、代码提示，提升开发体验
 
 dockview-vue
 
-5.2（最新稳定版）
+6.0（最新稳定版）
 
 允许 minor / patch 升级
 
@@ -177,8 +171,6 @@ dockview-vue
 4. Wasm & 插件
 
 - 标准：WASI 0.2（最新稳定版，允许 minor 版本升级）
-
-- 运行时：wasmtime 18.0（与Rust核心层一致，升级策略同步）
 
 - 传输格式：Apache Arrow（零拷贝，最新稳定版，允许 minor 升级），确保Rust与插件数据交互高效
 
@@ -236,7 +228,7 @@ mod.rs
 
 re-export trait，简化抽象层接口导入，统一对外暴露
 
-3. datasource（实现层）
+3. driver/native/（数据库实现层）
 
 文件
 

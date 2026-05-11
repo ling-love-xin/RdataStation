@@ -1,5 +1,5 @@
 use crate::core::error::{common_err, CoreError};
-use crate::core::mock::{
+use crate::mock::{
     ColumnDef, ColumnMappingResponse, ImportSchemaInput, MockConfig, MockEngine, MockExportInput,
     MockGenerateResult, MockHistoryRecord, MockPersistAssetInput, MockPersistAssetResult,
     MockSaveToScratchpadInput, ScenarioTemplate,

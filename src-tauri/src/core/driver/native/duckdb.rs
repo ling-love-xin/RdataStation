@@ -1,3 +1,13 @@
+//! DuckDB 数据库驱动实现
+//!
+//! 使用 `duckdb-rs`（官方 Rust 绑定）实现 `Database` trait。
+//! DuckDB 是嵌入式分析型数据库，专为 OLAP 场景优化。
+//!
+//! ## 关键约束
+//! - DuckDB 不支持 schema 层级 — list_schemas 返回空 vec
+//! - Statement 必须先执行 `query([])` 才能访问 column metadata
+//! - 多进程同时打开同一 .duckdb 文件可能导致锁冲突
+
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -72,6 +82,10 @@ fn is_read_only_sql(sql: &str) -> bool {
 }
 
 #[async_trait::async_trait]
+/// Database trait 实现：DuckDB
+///
+/// 核心查询通过 `duckdb::Connection::prepare()` 执行，
+/// 然后将结果集转换为 Arrow `RecordBatch`。
 impl Database for DuckDbDatabase {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
         let conn = self.conn.lock().map_err(|e| {
@@ -87,7 +101,7 @@ impl Database for DuckDbDatabase {
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let row_data: Vec<Vec<duckdb::types::Value>>;
-        let column_count: usize;
+
         {
             let mut rows = stmt
                 .query([])
@@ -110,7 +124,7 @@ impl Database for DuckDbDatabase {
             row_data = data;
         }
 
-        column_count = if let Some(first) = row_data.first() {
+        let column_count: usize = if let Some(first) = row_data.first() {
             first.len()
         } else {
             stmt.column_count()
@@ -167,7 +181,7 @@ impl Database for DuckDbDatabase {
                     .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
 
                 let row_data: Vec<Vec<duckdb::types::Value>>;
-                let column_count: usize;
+
                 {
                     let mut rows = stmt.query([]).map_err(|e| {
                         CoreError::database(DatabaseError::query(&sql_owned, e.to_string()))
@@ -187,7 +201,7 @@ impl Database for DuckDbDatabase {
                     row_data = data;
                 }
 
-                column_count = if let Some(first) = row_data.first() {
+                let column_count: usize = if let Some(first) = row_data.first() {
                     first.len()
                 } else {
                     stmt.column_count()
@@ -399,7 +413,7 @@ impl Transaction for DuckDbTransaction {
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let row_data: Vec<Vec<duckdb::types::Value>>;
-        let column_count: usize;
+
         {
             let mut rows = stmt
                 .query([])
@@ -419,7 +433,7 @@ impl Transaction for DuckDbTransaction {
             row_data = data;
         }
 
-        column_count = if let Some(first) = row_data.first() {
+        let column_count: usize = if let Some(first) = row_data.first() {
             first.len()
         } else {
             stmt.column_count()

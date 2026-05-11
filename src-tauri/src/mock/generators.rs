@@ -2,7 +2,7 @@ use fake::rand::rngs::StdRng;
 use fake::RngExt;
 use fake::{Fake, Faker};
 
-use crate::core::mock::models::{GeneratorConfig, Locale};
+use crate::mock::models::{GeneratorConfig, Locale};
 
 pub(super) fn generate_cell(
     generator: &GeneratorConfig,

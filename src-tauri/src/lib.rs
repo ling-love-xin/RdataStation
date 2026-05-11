@@ -12,6 +12,7 @@ pub mod adapters;
 pub mod api;
 pub mod commands;
 pub mod core;
+pub mod mock;
 
 // 重新导出常用类型
 pub use api::{ErrorResponse, QueryResult, Row, Value};

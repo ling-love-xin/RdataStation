@@ -3,10 +3,10 @@
 //! 处理数据库驱动的查询、连接配置等操作
 
 use crate::commands::connection_commands::DataSourceMetaResponse;
+use crate::core::error::CoreError;
 use crate::core::get_connection_manager;
 use crate::core::services::ConnectionService;
 use crate::core::{get_all_drivers, get_driver, DriverConnectionConfig, DriverDescriptor};
-use crate::core::error::CoreError;
 
 /// 创建连接响应
 #[derive(serde::Serialize, Debug)]
@@ -42,7 +42,10 @@ pub struct CreateConnectionInput {
 pub async fn create_connection(
     input: CreateConnectionInput,
 ) -> Result<CreateConnectionResponse, CoreError> {
-    let url = input.config.to_url().map_err(|e| CoreError::from(e.to_string()))?;
+    let url = input
+        .config
+        .to_url()
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -79,7 +82,10 @@ pub struct CreateConnectionWithConfigInput {
 pub async fn create_connection_with_config(
     input: CreateConnectionWithConfigInput,
 ) -> Result<CreateConnectionResponse, CoreError> {
-    let url = input.config.to_url().map_err(|e| CoreError::from(e.to_string()))?;
+    let url = input
+        .config
+        .to_url()
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -125,7 +131,10 @@ pub async fn update_connection(input: UpdateConnectionInput) -> Result<(), CoreE
             .map_err(|e| CoreError::from(e.to_string()))?;
     }
 
-    let url = input.config.to_url().map_err(|e| CoreError::from(e.to_string()))?;
+    let url = input
+        .config
+        .to_url()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let name = input
         .config
         .name

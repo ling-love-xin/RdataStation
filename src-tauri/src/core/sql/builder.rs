@@ -1,6 +1,6 @@
 use sqlglot_rust::ast::{
-    ColumnDef as SqlglotColumnDef, CreateTableStatement, DataType, DropTableStatement,
-    Expr, InsertSource, InsertStatement, QuoteStyle, Statement, TableRef,
+    ColumnDef as SqlglotColumnDef, CreateTableStatement, DataType, DropTableStatement, Expr,
+    InsertSource, InsertStatement, QuoteStyle, Statement, TableRef,
 };
 use sqlglot_rust::builder::{select, select_all};
 use sqlglot_rust::{generate, Dialect};
@@ -57,11 +57,11 @@ fn parse_data_type(dt: &str) -> DataType {
         "UUID" => DataType::Varchar(None),
         "BLOB" | "BYTEA" => DataType::Binary(None),
         other => {
-            if other.starts_with("VARCHAR(") {
-                let len = extract_param(&other["VARCHAR(".len()..]);
+            if let Some(inner) = other.strip_prefix("VARCHAR(") {
+                let len = extract_param(inner);
                 DataType::Varchar(len)
-            } else if other.starts_with("DECIMAL(") {
-                let (precision, scale) = extract_two_params(&other["DECIMAL(".len()..]);
+            } else if let Some(inner) = other.strip_prefix("DECIMAL(") {
+                let (precision, scale) = extract_two_params(inner);
                 DataType::Decimal { precision, scale }
             } else {
                 DataType::Varchar(None)
@@ -82,11 +82,7 @@ fn extract_two_params(s: &str) -> (Option<u32>, Option<u32>) {
     (precision, scale)
 }
 
-pub fn build_create_table(
-    table: &str,
-    columns: &[ColumnDefInfo],
-    if_not_exists: bool,
-) -> String {
+pub fn build_create_table(table: &str, columns: &[ColumnDefInfo], if_not_exists: bool) -> String {
     let col_defs: Vec<SqlglotColumnDef> = columns
         .iter()
         .map(|c| SqlglotColumnDef {
@@ -188,28 +184,19 @@ pub fn build_alter_table(table: &str, operations: &[AlterOperation]) -> String {
     for op in operations {
         match op {
             AlterOperation::AddColumn(col) => {
-                parts.push(format!(
-                    "ADD COLUMN \"{}\" {}",
-                    col.name, col.data_type
-                ));
+                parts.push(format!("ADD COLUMN \"{}\" {}", col.name, col.data_type));
             }
             AlterOperation::DropColumn(name) => {
                 parts.push(format!("DROP COLUMN \"{}\"", name));
             }
-            AlterOperation::RenameColumn {
-                old_name,
-                new_name,
-            } => {
+            AlterOperation::RenameColumn { old_name, new_name } => {
                 parts.push(format!(
                     "RENAME COLUMN \"{}\" TO \"{}\"",
                     old_name, new_name
                 ));
             }
             AlterOperation::ModifyColumn(col) => {
-                parts.push(format!(
-                    "MODIFY COLUMN \"{}\" {}",
-                    col.name, col.data_type
-                ));
+                parts.push(format!("MODIFY COLUMN \"{}\" {}", col.name, col.data_type));
             }
         }
     }
@@ -217,12 +204,7 @@ pub fn build_alter_table(table: &str, operations: &[AlterOperation]) -> String {
     format!("ALTER TABLE \"{}\" {}", table, parts.join(", "))
 }
 
-pub fn build_create_index(
-    name: &str,
-    table: &str,
-    columns: &[String],
-    unique: bool,
-) -> String {
+pub fn build_create_index(name: &str, table: &str, columns: &[String], unique: bool) -> String {
     let unique_str = if unique { "UNIQUE " } else { "" };
     let cols = columns
         .iter()

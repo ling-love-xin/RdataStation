@@ -38,13 +38,9 @@ impl DuckDbService {
             }
         };
 
-        let sanitized =
-            conn_name.replace(|c: char| !c.is_alphanumeric() && c != '_', "_");
+        let sanitized = conn_name.replace(|c: char| !c.is_alphanumeric() && c != '_', "_");
         let attach_name = format!("ext_{}", sanitized);
-        let attach_sql = format!(
-            "ATTACH '{}' AS {} (TYPE {})",
-            url, attach_name, attach_type
-        );
+        let attach_sql = format!("ATTACH '{}' AS {} (TYPE {})", url, attach_name, attach_type);
 
         {
             let conn = engine

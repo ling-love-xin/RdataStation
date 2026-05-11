@@ -187,7 +187,10 @@ pub async fn list_scratchpad_trash(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<Vec<ScratchpadEntry>, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.list_trash().await.map_err(|e| CoreError::from(e.to_string()))
+    scratchpad
+        .list_trash()
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -207,7 +210,10 @@ pub async fn empty_scratchpad_trash(
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.empty_trash().await.map_err(|e| CoreError::from(e.to_string()))
+    scratchpad
+        .empty_trash()
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -250,7 +256,10 @@ pub async fn watch_scratchpad(
     let scratchpad = get_store(&scratchpad_state).await?;
     let watch_dir = scratchpad.scratchpad_dir().to_path_buf();
 
-    scratchpad.ensure_dir().await.map_err(|e| CoreError::from(e.to_string()))?;
+    scratchpad
+        .ensure_dir()
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher =

@@ -2,8 +2,8 @@ use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use crate::core::duckdb::DuckDBManager;
-use crate::core::mock::error::{MockError, MockResult};
-use crate::core::mock::models::{MockConfig, MockHistoryRecord};
+use crate::mock::error::{MockError, MockResult};
+use crate::mock::models::{MockConfig, MockHistoryRecord};
 
 const HISTORY_TABLE: &str = "_system.mock_history";
 const MAX_HISTORY_ROWS: usize = 200;

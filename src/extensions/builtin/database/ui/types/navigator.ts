@@ -103,9 +103,11 @@ export interface ViewInfo {
 export interface ColumnInfo {
   name: string
   dataType: string
-  nullable?: boolean
-  defaultValue?: string
-  isPrimaryKey?: boolean
+  isNullable: boolean
+  defaultValue?: string | null
+  isPrimaryKey: boolean
+  isForeignKey: boolean
+  comment?: string | null
 }
 
 export interface ConnectionInfo {

@@ -198,7 +198,6 @@ impl Default for DuckDBEngine {
 }
 
 impl DuckDBEngine {
-
     /// 获取 DuckDB 连接
     pub fn conn(&self) -> Result<duckdb::Connection, CoreError> {
         crate::core::DuckDBManager::ensure_connection()

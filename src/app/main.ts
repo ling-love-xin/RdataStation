@@ -1,6 +1,6 @@
+import { invoke } from '@tauri-apps/api/core'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
 
 import { builtinExtensions } from '@/core/builtin-extensions'
 import { extensionHost } from '@/core/extension-host'

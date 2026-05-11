@@ -439,7 +439,11 @@ fn format_arrow_value(col: &dyn arrow::array::Array, row_idx: usize) -> serde_js
         return Value::String(arr.value(row_idx).to_string());
     }
 
-    Value::String(arrow::util::display::array_value_to_string(col, row_idx).unwrap_or_default().to_string())
+    Value::String(
+        arrow::util::display::array_value_to_string(col, row_idx)
+            .unwrap_or_default()
+            .to_string(),
+    )
 }
 
 /// 创建外部表请求参数

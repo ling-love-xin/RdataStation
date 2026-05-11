@@ -5,10 +5,10 @@
  */
 use serde::{Deserialize, Serialize};
 
+use crate::core::error::CoreError;
 use crate::core::persistence::metadata_cache::{
     ConnectionType, MetadataCacheManager, MetadataCacheOps,
 };
-use crate::core::error::CoreError;
 
 /// 缓存状态响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,7 +93,9 @@ pub async fn get_metadata_cache_status(
         });
     }
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let schema = schema_name.as_deref().unwrap_or("public");
@@ -139,7 +141,9 @@ pub async fn refresh_metadata_cache(input: RefreshCacheInput) -> Result<(), Core
     )
     .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let schema = input.schema_name.as_deref().unwrap_or("public");
@@ -171,7 +175,9 @@ pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, CoreE
         return Ok(0);
     }
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let schema = input.schema_name.as_deref().unwrap_or("public");
@@ -207,7 +213,9 @@ pub async fn save_table_metadata_to_cache(
     )
     .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let current_time = std::time::SystemTime::now()
@@ -249,7 +257,9 @@ pub async fn save_tables_batch_to_cache(
     )
     .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let mut ops = MetadataCacheOps::new(conn);
 
     #[allow(clippy::type_complexity)]
@@ -267,7 +277,8 @@ pub async fn save_tables_batch_to_cache(
         .collect();
 
     let count = batch.len();
-    ops.save_tables_batch(batch).map_err(|e| CoreError::from(e.to_string()))?;
+    ops.save_tables_batch(batch)
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     Ok(count)
 }
@@ -294,7 +305,9 @@ pub async fn save_columns_batch_to_cache(
     )
     .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let mut ops = MetadataCacheOps::new(conn);
 
     #[allow(clippy::type_complexity)]
@@ -326,7 +339,8 @@ pub async fn save_columns_batch_to_cache(
         .collect();
 
     let count = batch.len();
-    ops.save_columns_batch(batch).map_err(|e| CoreError::from(e.to_string()))?;
+    ops.save_columns_batch(batch)
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     Ok(count)
 }
@@ -359,7 +373,9 @@ pub async fn save_column_metadata_to_cache(
     )
     .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let current_time = std::time::SystemTime::now()
@@ -408,7 +424,9 @@ pub async fn get_tables_from_cache(
         return Ok(vec![]);
     }
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let schema = schema_name.as_deref().unwrap_or("public");
@@ -458,7 +476,9 @@ pub async fn get_columns_from_cache(
         return Ok(vec![]);
     }
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let columns = ops
@@ -521,7 +541,9 @@ pub async fn cancel_sync(
         return Ok(());
     }
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     ops.cancel_sync(&connection_id)
@@ -550,7 +572,9 @@ pub async fn notify_ddl_event(event: DDLEventInput) -> Result<(), CoreError> {
         return Ok(());
     }
 
-    let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
+    let conn = cache_manager
+        .open()
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let ops = MetadataCacheOps::new(conn);
 
     let schema = event.schema_name.as_deref().unwrap_or("public");
@@ -560,8 +584,8 @@ pub async fn notify_ddl_event(event: DDLEventInput) -> Result<(), CoreError> {
             ops.clear_metadata(&event.database_name, schema, None)
                 .map_err(|e| CoreError::from(e.to_string()))?;
         }
-        "CREATE_TABLE" | "DROP_TABLE" | "ALTER_TABLE" | "TRUNCATE_TABLE"
-        | "CREATE_VIEW" | "DROP_VIEW" | "CREATE_INDEX" | "DROP_INDEX" => {
+        "CREATE_TABLE" | "DROP_TABLE" | "ALTER_TABLE" | "TRUNCATE_TABLE" | "CREATE_VIEW"
+        | "DROP_VIEW" | "CREATE_INDEX" | "DROP_INDEX" => {
             if let Some(ref table) = event.table_name {
                 ops.clear_metadata(&event.database_name, schema, Some(table))
                     .map_err(|e| CoreError::from(e.to_string()))?;

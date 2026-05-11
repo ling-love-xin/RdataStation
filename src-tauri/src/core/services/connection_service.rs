@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::core::driver::router::DataSourceRouter;
 use crate::core::driver::registry::DriverConnectionConfig;
+use crate::core::driver::router::DataSourceRouter;
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
 use crate::core::persistence::connection_store;
@@ -170,9 +170,14 @@ impl ConnectionService {
             created_at: std::time::Instant::now(),
         };
 
+        // 转换为 DriverConnectionConfig（用于重连）
+        let driver_config = crate::core::driver::registry::DriverConnectionConfig::new(db_type)
+            .with_url_override(url)
+            .with_name(&connection_name);
+
         // 添加到连接管理器
         self.manager
-            .add_connection(conn_id.clone(), Arc::clone(&db), info)
+            .add_connection(conn_id.clone(), Arc::clone(&db), info, driver_config)
             .await?;
 
         // 初始化连接级元数据库（根据连接类型选择路径）

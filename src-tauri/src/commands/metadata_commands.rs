@@ -78,6 +78,10 @@ pub struct ColumnMeta {
     pub default_value: Option<String>,
     #[serde(rename = "isPrimaryKey")]
     pub is_primary_key: bool,
+    #[serde(rename = "isForeignKey")]
+    pub is_foreign_key: bool,
+    #[serde(rename = "comment")]
+    pub comment: Option<String>,
 }
 
 #[tauri::command]
@@ -252,6 +256,8 @@ pub async fn load_columns(
                 is_nullable: col.nullable,
                 default_value: col.default_value,
                 is_primary_key: col.is_primary_key,
+                is_foreign_key: col.is_foreign_key,
+                comment: col.comment,
             })
             .collect());
     }
@@ -284,6 +290,8 @@ pub async fn load_columns(
             is_nullable: col.nullable,
             default_value: col.default_value,
             is_primary_key: col.is_primary_key,
+            is_foreign_key: col.is_foreign_key,
+            comment: col.comment,
         })
         .collect())
 }

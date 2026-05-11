@@ -34,7 +34,7 @@ RdataStation 前端采用 **插件化架构（Extension-based）**，基于 VSCo
 | Vue             | 3.5.13 | 响应式框架   |
 | TypeScript      | 5.8.3  | 类型安全     |
 | Vite            | 6.x    | 构建工具     |
-| dockview-vue    | 5.2.0  | IDE 布局引擎 |
+| dockview-vue    | 6.0.1  | IDE 布局引擎 |
 | naive-ui        | 最新   | 组件库       |
 | lucide-vue-next | 最新   | 图标库       |
 | AG Grid         | 33.0.0 | 表格引擎     |

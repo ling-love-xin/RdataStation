@@ -326,11 +326,28 @@ const openPanelIds = ref<string[]>([])
     }
 
     // ============================================
-    // 注意：在 dockview 6.0 中，移动和创建浮动窗口的方法可能已变化！
-    // 这里暂时保留占位符，具体实现需要根据实际 API 调整！
+    // dockview 6.0: 通过 panel.api.moveTo() 将面板移动到目标位置的 group
     // ============================================
 
-    console.log('[LayoutStore] TODO: movePanelToLocation implementation for dockview 6.0')
+    const api = dockviewApi.value
+    const targetGroup = api.groups.find(g => {
+      const groupPanelIds = g.panels.map(p => p.id)
+      return groupPanelIds.some(id => {
+        const cfg = panelConfigs.value.get(id)
+        return cfg?.location === location
+      })
+    })
+
+    if (targetGroup) {
+      panel.api.moveTo({ group: targetGroup })
+      panelConfigs.value.set(panelId, {
+        ...(currentConfig || { id: panelId, title: panel.id, icon: null, isVisible: true, order: 0 }),
+        location,
+      })
+      console.log('[LayoutStore] Panel moved to location:', location)
+    } else {
+      console.warn('[LayoutStore] No target group found for location:', location)
+    }
   }
 
   /**
@@ -376,10 +393,18 @@ const openPanelIds = ref<string[]>([])
     }
 
     // ============================================
-    // 注意：在 dockview 6.0 中，创建浮动窗口的方法可能已变化！
+    // dockview 6.0: 通过 DockviewApi.addFloatingGroup() 创建浮动面板
     // ============================================
 
-    console.log('[LayoutStore] TODO: createFloatingPanel implementation for dockview 6.0')
+    dockviewApi.value.addFloatingGroup(existingPanel, {
+      x: coordinates?.x,
+      y: coordinates?.y,
+      height: coordinates?.height,
+      width: coordinates?.width,
+    })
+
+    floatingPanels.value.push(existingPanel)
+    console.log('[LayoutStore] Panel floated:', panelId)
   }
 
   /**

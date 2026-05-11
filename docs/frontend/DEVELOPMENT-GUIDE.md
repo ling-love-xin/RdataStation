@@ -1,5 +1,7 @@
 # 前端开发指南
 
+> 版本：v1.1
+> 最后更新：2026-05-11
 > 本文档面向 RdataStation 前端开发者，提供快速上手指南。
 
 ---
@@ -257,4 +259,6 @@ context.events.on('connection:changed', handler)
 
 - [架构文档](./ARCHITECTURE.md)
 - [组件规范](./COMPONENTS.md)
-- [插件开发指南](./PLUGIN-DEVELOPMENT.md)
+- [插件架构文档](./PLUGIN-ARCHITECTURE-REFACTOR.md)
+- [配置系统](./CONFIG-SYSTEM.md)
+- [联调测试方案](../project-integration-test-plan.md)

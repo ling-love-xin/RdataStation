@@ -24,8 +24,7 @@ pub use manager::{
 };
 pub use metadata::{DriverFormField, DriverIcon, DriverMetadata, DriverType};
 pub use registry::{
-    DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind,
-    DriverRegistry,
+    DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind, DriverRegistry,
 };
 pub use router::DataSourceRouter;
 pub use smart_pool::{PoolStats, SmartPool, SmartPoolBuilder, SmartPoolConfig};

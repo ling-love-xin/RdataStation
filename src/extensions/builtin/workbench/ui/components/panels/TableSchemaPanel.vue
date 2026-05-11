@@ -19,13 +19,7 @@ import { NTabs, NTabPane, NDataTable, NEmpty } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
 import type { DataTableColumns } from 'naive-ui'
-
-interface ColumnInfo {
-  name: string
-  type: string
-  nullable: boolean
-  defaultValue?: string
-}
+import type { ColumnInfo } from '@/shared/types/databaseMeta'
 
 interface Props {
   columns?: ColumnInfo[]

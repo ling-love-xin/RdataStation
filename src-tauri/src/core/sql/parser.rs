@@ -32,9 +32,7 @@ pub fn parse_and_route(sql: &str, dialect: SqlDialect) -> (SqlStatementType, Str
 
 pub fn validate(sql: &str, dialect: SqlDialect) -> Result<(), String> {
     let inner = to_inner_dialect(dialect);
-    parse(sql, inner)
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    parse(sql, inner).map(|_| ()).map_err(|e| e.to_string())
 }
 
 fn classify_statement(stmt: &sqlglot_rust::ast::Statement) -> SqlStatementType {

@@ -6,6 +6,7 @@
  */
 
 import { getAdapter } from '@/adapters'
+import type { DatabaseMetaAdapter } from '@/adapters'
 import type { NavigatorNode, QueryContext } from '@/shared/types/databaseMeta'
 
 import * as mockService from './mock-database-navigator'
@@ -68,7 +69,7 @@ export async function loadNodeChildren(
 function loadConnectionChildren(
   node: NavigatorNode,
   dbType: string,
-  adapter: any
+  adapter: DatabaseMetaAdapter
 ): NavigatorNode[] {
   console.log(`[NavigatorLoader] 加载连接子节点, dbType: ${dbType}`)
 
@@ -108,7 +109,7 @@ async function simulateQuery(query: string, nodeType: string, dbType: string): P
 /**
  * 模拟表数据
  */
-function simulateTables(dbType: string): any[] {
+function simulateTables(dbType: string): Array<{ name: string; ddl?: string; engine?: string; rowCount?: number }> {
   if (dbType === 'sqlite') {
     return [
       { name: 'users', ddl: 'CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)' },
@@ -130,7 +131,7 @@ function simulateTables(dbType: string): any[] {
 /**
  * 模拟视图数据
  */
-function simulateViews(dbType: string): any[] {
+function simulateViews(dbType: string): Array<{ name: string; ddl?: string; definer?: string; isUpdatable?: string }> {
   if (dbType === 'sqlite') {
     return [
       {
@@ -145,7 +146,7 @@ function simulateViews(dbType: string): any[] {
 /**
  * 模拟索引数据
  */
-function simulateIndexes(dbType: string): any[] {
+function simulateIndexes(dbType: string): Array<{ name: string; tableName?: string; ddl?: string; isUnique: number; type?: string; columns?: string }> {
   if (dbType === 'sqlite') {
     return [
       {
@@ -171,7 +172,7 @@ function simulateIndexes(dbType: string): any[] {
 /**
  * 模拟触发器数据
  */
-function simulateTriggers(dbType: string): any[] {
+function simulateTriggers(dbType: string): Array<{ name: string; tableName?: string; ddl?: string }> {
   if (dbType === 'sqlite') {
     return [
       {
@@ -187,7 +188,7 @@ function simulateTriggers(dbType: string): any[] {
 /**
  * 模拟列数据
  */
-function simulateColumns(dbType: string): any[] {
+function simulateColumns(dbType: string): Array<{ cid?: number; name: string; type?: string; dataType?: string; notnull?: number; nullable?: string; dflt_value?: string | null; pk?: number; isPrimaryKey?: number; isAutoIncrement?: number }> {
   if (dbType === 'sqlite') {
     return [
       { cid: 0, name: 'id', type: 'INTEGER', notnull: 0, dflt_value: null, pk: 1 },

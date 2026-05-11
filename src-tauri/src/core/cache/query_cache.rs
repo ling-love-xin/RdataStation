@@ -80,8 +80,8 @@ impl QueryCache {
     /// 创建新的查询缓存
     pub fn new(config: Option<QueryCacheConfig>) -> Self {
         let config = config.unwrap_or_default();
-        let max_entries = std::num::NonZero::new(config.max_entries)
-            .unwrap_or(std::num::NonZero::<usize>::MIN);
+        let max_entries =
+            std::num::NonZero::new(config.max_entries).unwrap_or(std::num::NonZero::<usize>::MIN);
         Self {
             cache: RwLock::new(lru::LruCache::new(max_entries)),
             config,

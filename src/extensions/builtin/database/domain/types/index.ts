@@ -2,7 +2,7 @@
  * 数据库导航器类型定义
  */
 
-import type { NavigatorNode, NodeProperties } from '@/shared/types/databaseMeta'
+import type { NavigatorNode, NodeProperties, ColumnInfo as SharedColumnInfo } from '@/shared/types/databaseMeta'
 
 /** 数据库连接信息 */
 export interface DatabaseConnection {
@@ -23,13 +23,22 @@ export interface TableStructure {
   triggers: TriggerInfo[]
 }
 
-/** 列信息 */
-export interface ColumnInfo {
-  name: string
+/**
+ * 领域层列信息（DDL / 结构建模用途）
+ *
+ * 与 shared ColumnInfo 的区别：
+ * - `default` 替代 `defaultValue`（更符合 DDL 语境）
+ * - `type` 替代 `dataType`（DDL 内部使用短名）
+ * - 仅包含 DDL 相关字段
+ *
+ * @see {@link SharedColumnInfo} IPC / 完整元数据版本
+ */
+export type ColumnInfo = Pick<
+  SharedColumnInfo,
+  'name' | 'isNullable' | 'comment'
+> & {
   type: string
-  nullable: boolean
   default?: string | null
-  comment?: string
 }
 
 /** 索引信息 */

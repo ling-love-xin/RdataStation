@@ -1,3 +1,13 @@
+//! SQLite 数据库驱动实现
+//!
+//! 使用 `rusqlite`（官方 Rust 绑定）实现 `Database` trait。
+//! SQLite 是嵌入式文件数据库，连接以 `Mutex<Connection>` 管理。
+//!
+//! ## 关键约束
+//! - SQLite 不支持 schema 层级 — list_schemas 返回空 vec
+//! - 查询结果通过 `RecordBatch` (Arrow) 返回，实现零拷贝传输
+//! - 写操作使用 `query_row` 标记为只读检查（`is_read_only_sql`）
+
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -70,6 +80,10 @@ fn is_read_only_sql(sql: &str) -> bool {
 }
 
 #[async_trait::async_trait]
+/// Database trait 实现：SQLite
+///
+/// 核心查询方法使用 `rusqlite::Connection::prepare()` 逐行读取，
+/// 然后转换为 Arrow `RecordBatch` 返回。
 impl Database for SqliteDatabase {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
         self.query_with_params(sql, vec![]).await
@@ -720,9 +734,11 @@ mod tests {
     async fn test_crud_roundtrip() {
         let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
 
-        db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name TEXT, value REAL)")
-            .await
-            .expect("CREATE TABLE failed");
+        db.query(
+            "CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name TEXT, value REAL)",
+        )
+        .await
+        .expect("CREATE TABLE failed");
 
         db.query("INSERT INTO _rd_test (id, name, value) VALUES (1, 'hello', 3.14)")
             .await

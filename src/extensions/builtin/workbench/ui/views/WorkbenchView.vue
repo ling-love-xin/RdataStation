@@ -67,11 +67,8 @@ let sqlEditorCounter = 0
 
 const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMenuItem[] => {
   const panelId = params.panel.id
-  const maximized = !!params.group.api.isMaximized?.()
+  const maximized = params.group.api.isMaximized()
   const isPinned = layoutStore.isPanelPinned(panelId)
-
-  const groupApi = params.group.api as any
-  const panelApi = params.panel.api as any
 
   const menuItems: ContextMenuItem[] = [
     {
@@ -97,24 +94,34 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
     {
       label: 'Add to new group',
       action: () => {
-        const tabGroup = groupApi.createTabGroup?.({
+        const tabGroup = params.api.createTabGroup({
+          groupId: params.group.id,
           label: 'New Group',
           color: 'blue',
         })
-        if (tabGroup) {
-          panelApi.moveToTabGroup?.(tabGroup)
-        }
+        params.api.addPanelToTabGroup({
+          groupId: params.group.id,
+          tabGroupId: tabGroup.id,
+          panelId: params.panel.id,
+        })
       },
     },
     {
       label: 'Move to next group',
       action: () => {
-        const groups = groupApi.getTabGroups?.() || []
-        const currentGroup = groupApi.getTabGroupForPanel?.(params.panel)
+        const groups = params.api.getTabGroups({ groupId: params.group.id })
+        const currentGroup = params.api.getTabGroupForPanel({
+          groupId: params.group.id,
+          panelId: params.panel.id,
+        })
         if (currentGroup && groups.length > 1) {
           const currentIndex = groups.indexOf(currentGroup)
           const nextIndex = (currentIndex + 1) % groups.length
-          panelApi.moveToTabGroup?.(groups[nextIndex])
+          params.api.addPanelToTabGroup({
+            groupId: params.group.id,
+            tabGroupId: groups[nextIndex].id,
+            panelId: params.panel.id,
+          })
         }
       },
     },

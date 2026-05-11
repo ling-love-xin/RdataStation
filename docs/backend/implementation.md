@@ -1,8 +1,8 @@
 # RdataStation 后端实现文档
 
-> 版本：v1.0
-> 最后更新：2026-05-03
-> 状态：✅ 持续更新
+> 版本：v1.1
+> 最后更新：2026-05-11
+> 状态：✅ 已同步最新模块
 
 ---
 
@@ -551,8 +551,12 @@ JSON Response   Retryable?
 | SqlTemplateStore      | ⏳ 单元测试 |
 | WorkbenchContextStore | ⏳ 单元测试 |
 | PerformanceMonitor    | ✅ 单元测试 |
+| 四库连接集成          | ✅ 集成测试 |
+| DriverRegistry        | ✅ 集成测试 |
+| ConnectionManager     | ✅ 集成测试 |
+| PersistenceHelpers    | ✅ 单元测试 |
 
 ---
 
-_文档版本: 1.0_
-_最后更新: 2026-04-25_
+_文档版本: 1.1_
+_最后更新: 2026-05-11_

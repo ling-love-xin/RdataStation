@@ -558,16 +558,16 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
                     if row_idx < batch.num_rows() {
-                        if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
-                            Some(crate::core::driver::NodeInfo {
+                        batch
+                            .column(0)
+                            .as_any()
+                            .downcast_ref::<StringArray>()
+                            .map(|arr| crate::core::driver::NodeInfo {
                                 name: arr.value(row_idx).to_string(),
                                 kind: crate::core::driver::SchemaObjectKind::Database,
                                 icon: Some("database".to_string()),
                                 comment: None,
                             })
-                        } else {
-                            None
-                        }
                     } else {
                         None
                     }
@@ -729,18 +729,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_select_one() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("Failed to connect");
+        let db = MySqlDatabase::new(MYSQL_URL)
+            .await
+            .expect("Failed to connect");
         let result = db.query("SELECT 1 AS val").await.expect("Query failed");
         assert_eq!(result.columns, vec!["val"]);
     }
 
     #[tokio::test]
     async fn test_crud_roundtrip() {
-        let setup_db = MySqlDatabase::new(MYSQL_URL).await.expect("Failed to connect");
-        setup_db.query("CREATE DATABASE IF NOT EXISTS _rd_test_db").await.expect("CREATE DATABASE failed");
+        let setup_db = MySqlDatabase::new(MYSQL_URL)
+            .await
+            .expect("Failed to connect");
+        setup_db
+            .query("CREATE DATABASE IF NOT EXISTS _rd_test_db")
+            .await
+            .expect("CREATE DATABASE failed");
 
         let db_url = format!("{}_rd_test_db", MYSQL_URL);
-        let db = MySqlDatabase::new(&db_url).await.expect("Failed to connect to test db");
+        let db = MySqlDatabase::new(&db_url)
+            .await
+            .expect("Failed to connect to test db");
 
         db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INT PRIMARY KEY, name VARCHAR(100), value DOUBLE)")
             .await
@@ -759,33 +768,44 @@ mod tests {
         db.query("DROP TABLE IF EXISTS _rd_test")
             .await
             .expect("DROP TABLE failed");
-        setup_db.query("DROP DATABASE IF EXISTS _rd_test_db").await.expect("DROP DATABASE failed");
+        setup_db
+            .query("DROP DATABASE IF EXISTS _rd_test_db")
+            .await
+            .expect("DROP DATABASE failed");
     }
 
     #[tokio::test]
     async fn test_error_handling() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("Failed to connect");
+        let db = MySqlDatabase::new(MYSQL_URL)
+            .await
+            .expect("Failed to connect");
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
         assert!(result.is_err(), "Expected error for non-existent table");
     }
 
     #[tokio::test]
     async fn test_list_tables() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("Failed to connect");
+        let db = MySqlDatabase::new(MYSQL_URL)
+            .await
+            .expect("Failed to connect");
         let tables = db.list_tables("mysql", None).await;
         assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
     }
 
     #[tokio::test]
     async fn test_meta() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("Failed to connect");
+        let db = MySqlDatabase::new(MYSQL_URL)
+            .await
+            .expect("Failed to connect");
         let meta = db.meta();
         assert!(meta.supports_transaction);
     }
 
     #[tokio::test]
     async fn test_is_read_only_flag() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("Failed to connect");
+        let db = MySqlDatabase::new(MYSQL_URL)
+            .await
+            .expect("Failed to connect");
         let result = db.query("SELECT 1").await.expect("Query failed");
         assert_eq!(result.is_read_only, Some(true));
     }

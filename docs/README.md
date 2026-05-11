@@ -1,8 +1,8 @@
 # RdataStation 文档中心
 
-> 版本：v3.0
-> 最后更新：2026-05-10
-> 状态：✅ 文档结构重整完成
+> 版本：v3.1
+> 最后更新：2026-05-11
+> 状态：✅ 文档结构重整完成，版本号已校准
 
 ---
 
@@ -10,7 +10,7 @@
 
 | 我想...               | 查看文档                                                   | 说明                           |
 | --------------------- | ---------------------------------------------------------- | ------------------------------ |
-| 了解项目架构          | [架构总览](./architecture/overview.md)                     | 四层微内核、四层数据库架构     |
+| 了解项目架构          | [后端架构](./backend/ARCHITECTURE.md)                      | 四层微内核、六域错误、驱动架构 |
 | 开始后端开发          | [后端文档](./backend/README.md)                            | Rust Core + Tauri              |
 | 开始前端开发          | [前端文档](./frontend/INDEX.md)                            | Vue 3 + TypeScript             |
 | 了解 SQL 编辑器       | [SQL 编辑器](./frontend/sql-editor/README.md)              | 编辑器设计与优化               |
@@ -24,6 +24,8 @@
 | 查看竞品对比          | [竞品对比](./COMPARISON.md)                                | vs DBeaver / DataGrip          |
 | 查看变更日志          | [变更日志](./CHANGELOG.md)                                 | 版本变更记录                   |
 | 查看任务进度          | [任务清单](./backend/TASKS.md)                             | 开发任务追踪                   |
+| 查看联调测试方案      | [联调测试方案](./project-integration-test-plan.md)        | 四库连接验证 + 全模块测试策略  |
+| 查看四库连接测试      | [四库连接测试](../src-tauri/tests/four_db_connection_tests.rs) | MySQL/PG/SQLite/DuckDB 集成 |
 
 ---
 
@@ -35,8 +37,7 @@ docs/
 ├── CHANGELOG.md                        # 变更日志
 ├── COMPARISON.md                       # 竞品对比分析
 │
-├── architecture/
-│   └── overview.md                     # 项目级架构总览
+├── project-integration-test-plan.md    # 项目模块联调测试方案
 │
 ├── backend/                            # ⚙️ 后端文档
 │   ├── README.md                       # 后端文档索引
@@ -151,8 +152,7 @@ docs/
 | Tauri        | 2.10.x | 桌面框架         |
 | sqlx         | 0.8.x  | MySQL/PostgreSQL |
 | rusqlite     | 0.32.x | SQLite           |
-| duckdb-rs    | 1.1.x  | DuckDB           |
-| wasmtime     | 43.x   | WASM 运行时      |
+| duckdb-rs    | 1.10502.x | DuckDB           |
 
 ### 前端 (Vue 3 + TS)
 
@@ -203,6 +203,7 @@ docs/
 
 | 版本 | 日期       | 说明                                    |
 | ---- | ---------- | --------------------------------------- |
+| v3.1 | 2026-05-11 | 版本号校准、新增联调测试方案、四库连接测试 |
 | v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录    |
 | v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase） |
 | v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成              |

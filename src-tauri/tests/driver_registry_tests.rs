@@ -111,7 +111,10 @@ fn test_sqlite_url_missing_file_path() {
     let config = DriverConnectionConfig::new("sqlite");
     let result = config.to_url();
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("File path is required"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("File path is required"));
 }
 
 #[test]
@@ -119,5 +122,8 @@ fn test_unsupported_driver() {
     let config = DriverConnectionConfig::new("oracle");
     let result = config.to_url();
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Unsupported driver"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Unsupported driver"));
 }

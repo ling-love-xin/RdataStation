@@ -2,8 +2,8 @@
 //!
 //! 处理导航器展开/选中状态、过滤器配置等持久化操作
 
-use crate::core::migration::global_init;
 use crate::core::error::CoreError;
+use crate::core::migration::global_init;
 
 /// 保存导航器状态请求参数
 #[derive(serde::Deserialize, Debug)]
@@ -35,9 +35,8 @@ pub async fn save_navigator_state(input: SaveNavigatorStateInput) -> Result<(), 
         .map_err(|e| CoreError::from(format!("序列化选中键失败: {}", e)))?;
 
     let filter_config_json = match input.filter_config {
-        Some(config) => {
-            serde_json::to_string(&config).map_err(|e| CoreError::from(format!("序列化过滤器配置失败: {}", e)))?
-        }
+        Some(config) => serde_json::to_string(&config)
+            .map_err(|e| CoreError::from(format!("序列化过滤器配置失败: {}", e)))?,
         None => "{}".to_string(),
     };
 
