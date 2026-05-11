@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::core::driver::utils::escape_sql_string;
 use crate::core::error::{CoreError, StorageError};
 use crate::core::persistence::project_db::ProjectDatabaseManager;
 
@@ -288,7 +289,7 @@ impl ProjectStore {
             format!(
                 "SELECT id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at 
                  FROM sql_history WHERE connection_id = '{}' ORDER BY created_at DESC LIMIT {}",
-                conn_id,
+                escape_sql_string(conn_id),
                 limit.unwrap_or(100)
             )
         } else {

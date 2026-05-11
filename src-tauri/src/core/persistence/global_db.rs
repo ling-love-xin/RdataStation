@@ -15,6 +15,7 @@ use duckdb::Connection as DuckConnection;
 use rusqlite::{Connection as SqliteConnection, OptionalExtension};
 use tokio::sync::{Mutex, Semaphore};
 
+use crate::core::driver::utils::quote_identifier;
 use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::migration::{MigrationManager, MigrationType};
 use crate::core::persistence::sql_template_store::SqlTemplateStore;
@@ -323,7 +324,7 @@ impl GlobalDatabaseManager {
         ];
 
         for (table, column, column_type) in columns_to_add {
-            let sql = format!("PRAGMA table_info({})", table);
+            let sql = format!("PRAGMA table_info({})", quote_identifier(table, '"'));
             let existing_columns: Result<Vec<String>, _> = conn
                 .prepare(&sql)
                 .map(|mut stmt| {

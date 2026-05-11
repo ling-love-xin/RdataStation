@@ -301,8 +301,8 @@ const postgresNodeTypes: NodeTypeConfig[] = [
 
 // PostgreSQL 元数据配置
 export const PostgresMetaConfig: DatabaseMetaConfig = {
-  dbType: 'postgresql',
-  id: 'postgresql',
+  dbType: 'postgres',
+  id: 'postgres',
   name: 'PostgreSQL',
   version: '14.0+',
 

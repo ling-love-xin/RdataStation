@@ -1,5 +1,7 @@
 use sqlx::{Column, MySql, Pool, Row};
 
+use crate::core::driver::utils::escape_sql_string;
+
 fn names_to_schema_objects(
     result: &QueryResult,
     kind: crate::core::driver::SchemaObjectKind,
@@ -37,6 +39,13 @@ use crate::core::error::{ConnectionError, CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult};
 
 /// MySQL 数据库连接
+///
+/// 封装 `sqlx::Pool<MySql>` 连接池，通过 `Database` trait 提供统一的查询/执行接口。
+/// 元数据浏览通过 `MetadataBrowser` trait 实现，查询 `information_schema`。
+///
+/// # 字段
+/// * `pool` - sqlx MySQL 连接池，管理连接复用和生命周期
+/// * `server_version` - MySQL 服务器版本号，首次连接时获取并缓存
 pub struct MySqlDatabase {
     pool: Pool<MySql>,
     server_version: Option<String>,
@@ -338,7 +347,10 @@ impl Database for MySqlDatabase {
     }
 }
 
-/// MySQL 事务
+/// MySQL 事务句柄
+///
+/// 封装 `sqlx::Transaction`，支持 begin/commit/rollback。
+/// Drop 时若未提交且未回滚则自动回滚，避免悬挂事务。
 pub struct MySqlTransaction {
     tx: Option<sqlx::Transaction<'static, MySql>>,
 }
@@ -589,7 +601,7 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
         db: &str,
         _schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", db.replace('\'', "''"));
+        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", escape_sql_string(db));
         let result = self.query(&sql).await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
@@ -638,7 +650,7 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
              FROM information_schema.columns \
              WHERE table_schema = '{}' AND table_name = '{}' \
              ORDER BY ordinal_position",
-            db, table
+            escape_sql_string(db), escape_sql_string(table)
         );
         let result = self.query(&sql).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())

@@ -7,6 +7,9 @@
 
 import { invoke } from '@tauri-apps/api/core'
 
+import type { SchemaObject } from '@/shared/types'
+import type { DatabaseType } from '@/shared/types/sql'
+
 /**
  * 统一调用 Tauri 命令
  */
@@ -34,9 +37,15 @@ export interface DataSourceMeta {
 }
 
 export interface ConnectDatabaseInput {
-  db_type: string
+  db_type: DatabaseType
   url: string
   name?: string
+  hosts?: Array<{
+    host: string
+    port?: number
+    priority?: number
+    role?: 'primary' | 'replica'
+  }>
   connection_type?: string
   project_id?: string
 }
@@ -44,7 +53,7 @@ export interface ConnectDatabaseInput {
 export interface ConnectDatabaseResponse {
   conn_id: string
   name: string
-  db_type: string
+  db_type: DatabaseType
   url: string
   connection_type: string
   project_id: string | null
@@ -55,7 +64,7 @@ export interface ConnectDatabaseResponse {
 export interface ConnectionInfoResponse {
   id: string
   name: string
-  db_type: string
+  db_type: DatabaseType
   url: string
   connection_type: string
   project_id: string | null
@@ -90,13 +99,14 @@ export const connectionApi = {
 
 // ==================== SQL 执行类型定义 ====================
 
+/** @deprecated QueryResult.columns 已改为 string[]，此类型保留向后兼容 */
 export interface QueryColumn {
   name: string
   data_type: string
 }
 
 export interface QueryResult {
-  columns: QueryColumn[]
+  columns: string[]
   rows: unknown[]
   total_rows: number
   affected_rows?: number
@@ -216,7 +226,7 @@ export const navigatorApi = {
   },
 
   listTables(connId: string, database: string, schema?: string) {
-    return tauriInvoke<Array<{ name: string; kind: string; children?: unknown[] }>>('list_tables', {
+    return tauriInvoke<SchemaObject[]>('list_tables', {
       conn_id: connId,
       database,
       schema,
@@ -224,8 +234,7 @@ export const navigatorApi = {
   },
 
   listColumns(connId: string, database: string, schema: string | null, table: string) {
-    return tauriInvoke<Array<{ name: string; kind: string; children?: unknown[] }>>(
-      'list_columns',
+    return tauriInvoke<SchemaObject[]>('list_columns',
       { conn_id: connId, database, schema, table }
     )
   },

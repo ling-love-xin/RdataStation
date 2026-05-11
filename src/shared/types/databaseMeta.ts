@@ -2,13 +2,52 @@
  * 数据库元数据类型定义
  */
 
+import type { DatabaseType } from './sql'
+
+// ============================================================================
+// Schema 对象树模型（与 Rust driver::traits::SchemaObject 对齐）
+// ============================================================================
+
+/**
+ * Schema 对象类别
+ *
+ * 对应 Rust `SchemaObjectKind` 枚举。
+ */
+export type SchemaObjectKind =
+  | 'Database'
+  | 'Schema'
+  | 'Table'
+  | 'View'
+  | 'Column'
+  | 'Index'
+  | 'PrimaryKey'
+  | 'ForeignKey'
+  | 'Procedure'
+  | 'Function'
+
+/**
+ * Schema 对象（对象树模型）
+ *
+ * 前端友好的统一结构，支持懒加载：
+ * - `children` 为 `undefined` 表示**未加载**（不要误判为空）
+ * - `children` 为 `[]` 表示已加载但无子节点
+ *
+ * 对应 Rust `driver::traits::SchemaObject`。
+ */
+export interface SchemaObject {
+  name: string
+  kind: SchemaObjectKind
+  children?: SchemaObject[]
+  comment?: string | null
+}
+
 // ============================================================================
 // 数据库元数据配置
 // ============================================================================
 
 export interface DatabaseMetaConfig {
   // 数据库类型
-  dbType: string
+  dbType: DatabaseType
 
   // 显示名称
   displayName?: string
@@ -138,12 +177,19 @@ export interface NavigatorNode {
   schema?: string
   parentId?: string | null
   children?: NavigatorNode[]
+  /** 节点加载状态，优先使用 `state` 字段 */
   isLoading?: boolean
+  /** @deprecated 使用 `isLoading` 替代 */
   loading?: boolean
+  /** 节点展开状态 */
   isExpanded?: boolean
+  /** @deprecated 使用 `isExpanded` 替代 */
   expanded?: boolean
+  /** 节点生命周期状态 */
   state?: 'idle' | 'loading' | 'error' | 'loaded' | 'empty'
+  /** @deprecated 使用 `metadata` 替代 */
   meta?: Record<string, unknown>
+  /** 节点附加元数据 */
   metadata?: Record<string, unknown>
   properties?: NodeProperties
 }
@@ -371,12 +417,19 @@ export interface ForeignKeyInfo {
 export interface ConnectionConfig {
   id?: string
   name: string
-  driver: string
+  driver: DatabaseType
   host: string
   port?: number
   database?: string
   username?: string
   password?: string
+  /** 多主机配置（故障转移），存在时优先于 host/port */
+  hosts?: Array<{
+    host: string
+    port?: number
+    priority?: number
+    role?: 'primary' | 'replica'
+  }>
   properties?: Record<string, unknown>
 }
 

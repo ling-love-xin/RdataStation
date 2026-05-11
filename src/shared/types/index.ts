@@ -17,12 +17,26 @@ import type { DatabaseType } from './sql'
 /** 连接类型枚举 */
 export type ConnectionType = 'global' | 'project'
 
+/**
+ * 多主机配置（故障转移 / 读写分离）
+ *
+ * 若提供 `hosts` 数组，则优先使用；否则回退到 `url` 字段。
+ * `priority` 越小越优先（故障转移按优先级顺序尝试）。
+ */
+export interface HostConfig {
+  host: string
+  port?: number
+  priority?: number
+  role?: 'primary' | 'replica'
+}
+
 /** 连接配置 */
 export interface ConnectionConfig {
   id?: string
   name: string
-  dbType: string
+  dbType: DatabaseType
   url: string
+  hosts?: HostConfig[]
   connectionType?: ConnectionType
   projectId?: string
 }
@@ -31,7 +45,7 @@ export interface ConnectionConfig {
 export interface ConnectionInfoResponse {
   id: string
   name: string
-  dbType: string
+  dbType: DatabaseType
   url: string
   connectionType: ConnectionType
   projectId: string | null
@@ -83,7 +97,7 @@ export interface ConnectionMeta {
 export interface RecentConnection {
   id: string
   name: string
-  dbType: string
+  dbType: DatabaseType
   url: string
   connectionType: ConnectionType
   connectedAt: string

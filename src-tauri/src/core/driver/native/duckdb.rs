@@ -16,12 +16,20 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use duckdb::Connection;
 
+use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult};
 
 /// DuckDB 数据库连接
+///
+/// 封装 `duckdb::Connection`，以 `Arc<Mutex<Connection>>` 管理线程安全访问。
+/// DuckDB 是嵌入式分析型数据库，专为 OLAP 场景优化，支持外部数据库注册。
+///
+/// # 字段
+/// * `conn` - 由 Arc + Mutex 保护的 duckdb-rs 连接
+/// * `server_version` - DuckDB 版本号
 pub struct DuckDbDatabase {
     conn: Arc<Mutex<Connection>>,
     server_version: Option<String>,
@@ -382,7 +390,10 @@ impl Database for DuckDbDatabase {
     }
 }
 
-/// DuckDB 事务
+/// DuckDB 事务句柄
+///
+/// 通过 `Arc<Mutex<Connection>>` 共享连接，支持 begin/commit/rollback。
+/// `committed` 标记用于 Drop 时判断是否需要自动回滚。
 pub struct DuckDbTransaction {
     conn: Arc<Mutex<Connection>>,
     committed: bool,
@@ -753,7 +764,7 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
         _schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let safe_table = table.replace('\'', "''");
+        let safe_table = escape_sql_string(table);
         let sql = format!("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'main' AND table_name = '{}' ORDER BY ordinal_position", safe_table);
         let result = self.query(&sql).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())

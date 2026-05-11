@@ -16,12 +16,20 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use rusqlite::Connection;
 
+use crate::core::driver::utils::quote_identifier;
 use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult, Value};
 
 /// SQLite 数据库连接
+///
+/// 封装 `rusqlite::Connection`，以 `Arc<Mutex<Connection>>` 管理线程安全访问。
+/// SQLite 是嵌入式文件数据库，不支持 schema 层级和网络连接。
+///
+/// # 字段
+/// * `conn` - 由 Arc + Mutex 保护的 rusqlite 连接
+/// * `server_version` - SQLite 版本号
 pub struct SqliteDatabase {
     conn: Arc<Mutex<Connection>>,
     server_version: Option<String>,
@@ -334,7 +342,10 @@ impl Database for SqliteDatabase {
     }
 }
 
-/// SQLite 事务
+/// SQLite 事务句柄
+///
+/// 通过 `Arc<Mutex<Connection>>` 共享连接，支持 begin/commit/rollback。
+/// `committed` 标记用于 Drop 时判断是否需要自动回滚。
 pub struct SqliteTransaction {
     conn: Arc<Mutex<Connection>>,
     committed: bool,
@@ -644,7 +655,7 @@ impl crate::core::driver::MetadataBrowser for SqliteDatabase {
         _schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let sql = format!("PRAGMA table_info(\"{}\")", table);
+        let sql = format!("PRAGMA table_info({})", quote_identifier(table, '"'));
         let result = self.query(&sql).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
             .filter_map(|row_idx| {

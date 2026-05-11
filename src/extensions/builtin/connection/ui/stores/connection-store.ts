@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 
-import type { Connection, RecentConnection, ConnectionType } from '@/shared/types'
+import type { DatabaseType, Connection, RecentConnection, ConnectionType } from '@/shared/types'
 import type { SqlDialect } from '@/shared/types/sql'
 
 import { useRuntimeConnectionStore } from './runtime-connection-store'
@@ -305,7 +305,7 @@ export const useConnectionStore = defineStore('connection', () => {
       recentConnections.value = result.map(r => ({
         id: r.id,
         name: r.name,
-        dbType: r.db_type,
+        dbType: r.db_type as DatabaseType,
         url: r.url,
         connectionType: (r.connection_type || 'global') as ConnectionType,
         connectedAt: r.connected_at,

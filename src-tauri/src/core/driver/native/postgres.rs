@@ -7,6 +7,7 @@ use arrow::record_batch::RecordBatch;
 use sqlx::{Column, Pool, Postgres, Row};
 use std::sync::Arc;
 
+use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{
     ColumnDetail, DataSourceMeta, Database, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
@@ -15,6 +16,14 @@ use crate::core::error::{ConnectionError, CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult};
 
 /// PostgreSQL 数据库连接
+///
+/// 封装 `sqlx::Pool<Postgres>` 连接池，通过 `Database` trait 提供统一的查询/执行接口。
+/// 支持 schema 层级浏览，通过 `MetadataBrowser` trait 查询 `information_schema` 和 `pg_catalog`。
+///
+/// # 字段
+/// * `pool` - sqlx PostgreSQL 连接池
+/// * `server_version` - PostgreSQL 服务器版本号，首次连接时获取并缓存
+/// * `max_connections` / `min_connections` - 连接池上下限配置
 pub struct PostgresDatabase {
     pool: Pool<Postgres>,
     server_version: Option<String>,
@@ -373,7 +382,10 @@ impl Database for PostgresDatabase {
     }
 }
 
-/// PostgreSQL 事务
+/// PostgreSQL 事务句柄
+///
+/// 封装 `sqlx::Transaction`，支持 begin/commit/rollback。
+/// Drop 时若未提交且未回滚则自动回滚，避免悬挂事务。
 pub struct PostgresTransaction {
     tx: Option<sqlx::Transaction<'static, Postgres>>,
 }
@@ -581,7 +593,7 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
             "SELECT schema_name FROM information_schema.schemata \
              WHERE catalog_name = '{}' AND schema_name NOT IN ('pg_catalog', 'information_schema') \
              ORDER BY schema_name",
-            db.replace('\'', "''")
+            escape_sql_string(db)
         );
         let result = self.query(&sql).await?;
         Ok(rows_to_node_info(
@@ -599,8 +611,8 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         let sql = format!(
             "SELECT table_name, table_type FROM information_schema.tables \
              WHERE table_catalog = '{}' AND table_schema = '{}' ORDER BY table_name",
-            db.replace('\'', "''"),
-            schema.replace('\'', "''")
+            escape_sql_string(db),
+            escape_sql_string(schema)
         );
         let result = self.query(&sql).await?;
         let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
@@ -640,9 +652,9 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let safe_schema = schema.replace('\'', "''");
-        let safe_table = table.replace('\'', "''");
-        let safe_db = db.replace('\'', "''");
+        let safe_schema = escape_sql_string(schema);
+        let safe_table = escape_sql_string(table);
+        let safe_db = escape_sql_string(db);
         let sql = format!(
             "SELECT column_name, data_type, is_nullable, \
              CASE WHEN column_name IN (SELECT kcu.column_name FROM information_schema.table_constraints tc \

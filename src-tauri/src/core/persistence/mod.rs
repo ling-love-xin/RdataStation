@@ -5,6 +5,13 @@
 //! - SQL 执行历史记录
 //! - 项目级数据（SQLite + DuckDB）
 //!
+//! ## SQL 安全性保障
+//! 本模块所有 SQL 查询遵循以下安全模式：
+//! - 系统内部查询（migration/schema）: 使用 PRAGMA / 参数化 DDL，无用户输入
+//! - 运行时查询（log_store/history_store）: 参数通过 rusqlite `?N` 占位符绑定，禁止拼接
+//! - 标识符拼接（global_db repair）：使用 `quote_identifier()` 安全包裹
+//! - 全文搜索（metadata_cache）：FTS5 MATCH 模式通过参数绑定传递
+//!
 //! 所有 IO 错误都在此模块转换为 CoreError，确保上下文不丢失。
 
 pub mod analytics_resource_store;
