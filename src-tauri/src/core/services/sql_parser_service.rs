@@ -1,10 +1,11 @@
 //! SQL 解析与转译服务
 //!
-//! 基于 sqlglot-rust 提供 SQL 解析、验证、格式化和跨方言转译功能
+//! 基于 core/sql 模块提供 SQL 解析、验证、格式化和跨方言转译功能。
+//! 本模块不直接依赖 sqlglot-rust，所有 SQL 处理通过 SqlEngine 间接调用。
 
-use sqlglot_rust::{parse, transpile, Dialect};
+use crate::core::sql::SqlEngine;
 
-/// SQL 方言枚举
+/// SQL 方言枚举（前端兼容）
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SqlDialect {
@@ -21,18 +22,18 @@ pub enum SqlDialect {
 }
 
 impl SqlDialect {
-    pub fn to_dialect(&self) -> Dialect {
+    fn to_engine_dialect(&self) -> crate::core::sql::SqlDialect {
         match self {
-            SqlDialect::Generic => Dialect::Ansi,
-            SqlDialect::Mysql => Dialect::Mysql,
-            SqlDialect::Postgres => Dialect::Postgres,
-            SqlDialect::Sqlite => Dialect::Sqlite,
-            SqlDialect::Duckdb => Dialect::DuckDb,
-            SqlDialect::MsSQL => Dialect::Tsql,
-            SqlDialect::Oracle => Dialect::Oracle,
-            SqlDialect::Snowflake => Dialect::Snowflake,
-            SqlDialect::BigQuery => Dialect::BigQuery,
-            SqlDialect::Redshift => Dialect::Redshift,
+            SqlDialect::Generic => crate::core::sql::SqlDialect::Ansi,
+            SqlDialect::Mysql => crate::core::sql::SqlDialect::Mysql,
+            SqlDialect::Postgres => crate::core::sql::SqlDialect::Postgres,
+            SqlDialect::Sqlite => crate::core::sql::SqlDialect::Sqlite,
+            SqlDialect::Duckdb => crate::core::sql::SqlDialect::Duckdb,
+            SqlDialect::MsSQL => crate::core::sql::SqlDialect::MsSQL,
+            SqlDialect::Oracle => crate::core::sql::SqlDialect::Oracle,
+            SqlDialect::Snowflake => crate::core::sql::SqlDialect::Snowflake,
+            SqlDialect::BigQuery => crate::core::sql::SqlDialect::BigQuery,
+            SqlDialect::Redshift => crate::core::sql::SqlDialect::Redshift,
         }
     }
 }
@@ -93,17 +94,17 @@ pub struct ValidateResponse {
 
 /// 解析 SQL
 pub fn parse_sql(sql: &str, dialect: Option<SqlDialect>) -> ParseResult {
-    let dialect = dialect.unwrap_or(SqlDialect::Generic).to_dialect();
+    let engine_dialect = dialect.unwrap_or(SqlDialect::Generic).to_engine_dialect();
 
-    match parse(sql, dialect) {
-        Ok(_statement) => ParseResult {
+    match SqlEngine::validate(sql, engine_dialect) {
+        Ok(()) => ParseResult {
             success: true,
             error: None,
             statements_count: 1,
         },
         Err(e) => ParseResult {
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e),
             statements_count: 0,
         },
     }
@@ -111,26 +112,13 @@ pub fn parse_sql(sql: &str, dialect: Option<SqlDialect>) -> ParseResult {
 
 /// 格式化 SQL
 pub fn format_sql(sql: &str, dialect: Option<SqlDialect>) -> FormatResponse {
-    let dialect = dialect.unwrap_or(SqlDialect::Generic).to_dialect();
+    let engine_dialect = dialect.unwrap_or(SqlDialect::Generic).to_engine_dialect();
+    let formatted = SqlEngine::format(sql, engine_dialect);
 
-    match parse(sql, dialect) {
-        Ok(statement) => {
-            // 使用 Debug 格式输出
-            FormatResponse {
-                formatted_sql: format!("{:?}", statement),
-                success: true,
-                error: None,
-            }
-        }
-        Err(_e) => {
-            // 解析失败时返回原始 SQL，不报错（优雅降级）
-            // 某些数据库特有语法（如 {} 占位符、变量等）不被 sqlglot-rust 支持
-            FormatResponse {
-                formatted_sql: sql.to_string(),
-                success: true,
-                error: None,
-            }
-        }
+    FormatResponse {
+        formatted_sql: formatted,
+        success: true,
+        error: None,
     }
 }
 
@@ -140,10 +128,10 @@ pub fn transpile_sql(
     source_dialect: SqlDialect,
     target_dialect: SqlDialect,
 ) -> TranspileResponse {
-    let source = source_dialect.to_dialect();
-    let target = target_dialect.to_dialect();
+    let source = source_dialect.to_engine_dialect();
+    let target = target_dialect.to_engine_dialect();
 
-    match transpile(sql, source, target) {
+    match SqlEngine::transpile(sql, source, target) {
         Ok(result) => TranspileResponse {
             transpiled_sql: result,
             success: true,
@@ -152,24 +140,24 @@ pub fn transpile_sql(
         Err(e) => TranspileResponse {
             transpiled_sql: sql.to_string(),
             success: false,
-            error: Some(e.to_string()),
+            error: Some(e),
         },
     }
 }
 
 /// 验证 SQL
 pub fn validate_sql(sql: &str, dialect: Option<SqlDialect>) -> ValidateResponse {
-    let dialect = dialect.unwrap_or(SqlDialect::Generic).to_dialect();
+    let engine_dialect = dialect.unwrap_or(SqlDialect::Generic).to_engine_dialect();
 
-    match parse(sql, dialect) {
-        Ok(_) => ValidateResponse {
+    match SqlEngine::validate(sql, engine_dialect) {
+        Ok(()) => ValidateResponse {
             valid: true,
             errors: vec![],
             warnings: vec![],
         },
         Err(e) => ValidateResponse {
             valid: false,
-            errors: vec![e.to_string()],
+            errors: vec![e],
             warnings: vec![],
         },
     }

@@ -50,6 +50,7 @@ pub mod port_negotiation;
 pub mod project;
 pub mod scratchpad;
 pub mod services;
+pub mod sql;
 pub mod stream;
 pub mod utils;
 

@@ -18,18 +18,20 @@ use crate::core::mock::models::{
 use crate::core::mock::schema_map::ColumnMapper;
 use crate::core::mock::templates;
 use crate::core::models::QueryResult;
+use crate::core::sql::{ColumnDefInfo, SqlEngine};
 
 /// Mock 数据引擎 —— 在 DuckDB 内存表中生成模拟数据集
 ///
 /// # SQL 安全性
 ///
-/// 本模块使用 `format!()` 构建 DDL/DML SQL 语句。所有动态标识符
-/// （表名、列名）在拼接前均经过 `sanitize_table_name` / 列名清理处理：
-/// - 仅保留 `[a-zA-Z0-9_]` 字符
-/// - 以双引号包裹（`"identifier"`）
-/// - 字符串值通过 `'` → `''` 转义
+/// 本模块通过 [SqlEngine](crate::core::sql::SqlEngine) 构造所有 DDL/DML SQL 语句，
+/// 彻底消除 `format!()` 字符串拼接：
+/// - **DDL**（CREATE TABLE / DROP TABLE）：通过 `SqlEngine::build_create_table` /
+///   `SqlEngine::build_drop_table` 生成
+/// - **DML**（INSERT）：通过 `SqlEngine::build_insert` 生成，值由 SqlEngine 负责转义
+/// - **DQL**（SELECT）：通过 `SqlEngine::build_select_all` / `SqlEngine::build_select` 生成
 ///
-/// 因此对外部输入是安全的。
+/// 仅 DuckDB 专有的 `COPY` 命令保留 `format!()` 拼接（非标准 SQL）。
 pub struct MockEngine;
 
 const TEMP_MOCK_PREFIX: &str = "temp_mock_";
@@ -87,8 +89,10 @@ impl MockEngine {
         let db = Self::get_db()?;
         let conn = Self::get_conn(&db)?;
 
+        let drop_sql = SqlEngine::build_drop_table(&table_name, true);
+        conn.execute_batch(&drop_sql)?;
+
         let ddl = Self::build_create_table_ddl(&table_name, &config.columns);
-        conn.execute_batch(&format!("DROP TABLE IF EXISTS \"{}\"", table_name))?;
         conn.execute_batch(&ddl)?;
 
         let total_batches = config.row_count.div_ceil(BATCH_SIZE);
@@ -104,7 +108,7 @@ impl MockEngine {
             })
             .collect();
 
-        let quoted_cols: Vec<String> = config
+        let safe_col_names: Vec<String> = config
             .columns
             .iter()
             .map(|c| {
@@ -121,20 +125,19 @@ impl MockEngine {
                         c.name
                     )));
                 }
-                Ok(format!("\"{}\"", safe))
+                Ok(safe)
             })
             .collect::<MockResult<Vec<_>>>()?;
-        let col_list = quoted_cols.join(", ");
 
         for batch_idx in 0..total_batches {
             let start_row = batch_idx * BATCH_SIZE;
             let count = std::cmp::min(BATCH_SIZE, config.row_count - start_row);
 
-            let mut value_lines: Vec<String> = Vec::with_capacity(count);
+            let mut all_values: Vec<Vec<String>> = Vec::with_capacity(count);
 
             for row_idx in 0..count {
                 let global_row = start_row + row_idx;
-                let mut values = Vec::with_capacity(config.columns.len());
+                let mut row_vals = Vec::with_capacity(config.columns.len());
 
                 for (col_idx, col) in config.columns.iter().enumerate() {
                     let mut attempts = 0;
@@ -155,32 +158,22 @@ impl MockEngine {
                             )));
                         }
                     };
-                    values.push(value);
+
+                    let nullable_ratio = config.columns[col_idx].nullable_ratio;
+                    if nullable_ratio > 0.0 {
+                        let rand_val: f64 = (0.0..1.0).fake_with_rng(&mut rng);
+                        if rand_val < nullable_ratio {
+                            row_vals.push("NULL".to_string());
+                            continue;
+                        }
+                    }
+                    row_vals.push(value);
                 }
 
-                let escaped: Vec<String> = values
-                    .iter()
-                    .enumerate()
-                    .map(|(ci, v)| {
-                        let nullable_ratio = config.columns[ci].nullable_ratio;
-                        if nullable_ratio > 0.0 {
-                            let rand_val: f64 = (0.0..1.0).fake_with_rng(&mut rng);
-                            if rand_val < nullable_ratio {
-                                return "NULL".to_string();
-                            }
-                        }
-                        format!("'{}'", v.replace('\'', "''"))
-                    })
-                    .collect();
-                value_lines.push(format!("({})", escaped.join(", ")));
+                all_values.push(row_vals);
             }
 
-            let insert_sql = format!(
-                "INSERT INTO \"{}\" ({}) VALUES {}",
-                table_name,
-                col_list,
-                value_lines.join(", ")
-            );
+            let insert_sql = SqlEngine::build_insert(&table_name, &safe_col_names, &all_values);
             conn.execute_batch(&insert_sql)?;
             on_progress(batch_idx + 1, total_batches);
         }
@@ -267,12 +260,12 @@ impl MockEngine {
             MockExportFormat::Table => {
                 let name = table_name.unwrap_or(temp_table_name);
                 let new_name = name.trim_start_matches(TEMP_MOCK_PREFIX);
-                let sql = format!(
-                    "CREATE TABLE \"{}\" AS SELECT * FROM \"{}\"",
-                    new_name, temp_table_name
+                let create_sql = SqlEngine::build_create_table_as_select(
+                    new_name,
+                    &SqlEngine::build_select_all(temp_table_name, None),
                 );
-                conn.execute_batch(&sql)?;
-                let drop_sql = format!("DROP TABLE IF EXISTS \"{}\"", temp_table_name);
+                conn.execute_batch(&create_sql)?;
+                let drop_sql = SqlEngine::build_drop_table(temp_table_name, true);
                 conn.execute_batch(&drop_sql)?;
                 Ok(format!("Persisted as table: {}", new_name))
             }
@@ -280,7 +273,8 @@ impl MockEngine {
                 let path = output_path.ok_or_else(|| {
                     MockError::Config("SQL INSERT export requires output_path".to_string())
                 })?;
-                let mut stmt = conn.prepare(&format!("SELECT * FROM \"{}\"", temp_table_name))?;
+                let select_sql = SqlEngine::build_select_all(temp_table_name, None);
+                let mut stmt = conn.prepare(&select_sql)?;
                 let columns: Vec<String> = stmt
                     .column_names()
                     .iter()
@@ -364,20 +358,17 @@ impl MockEngine {
     // ==================== 私有方法 ====================
 
     fn build_create_table_ddl(table_name: &str, columns: &[ColumnDef]) -> String {
-        let col_defs: Vec<String> = columns
+        let col_infos: Vec<ColumnDefInfo> = columns
             .iter()
-            .map(|c| {
-                let safe_name = c.name
-                    .chars()
-                    .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
-                    .collect::<String>()
-                    .trim_matches('_')
-                    .to_string();
-                let name = if safe_name.is_empty() { "col_unknown" } else { &safe_name };
-                format!("\"{}\" {}", name, c.data_type.to_duckdb_type())
+            .map(|c| ColumnDefInfo {
+                name: c.name.clone(),
+                data_type: c.data_type.to_duckdb_type(),
+                unique: c.unique,
+                nullable: c.nullable_ratio > 0.0,
             })
             .collect();
-        format!("CREATE TABLE \"{}\" ({})", table_name, col_defs.join(", "))
+
+        SqlEngine::build_create_table(table_name, &col_infos, false)
     }
 
     fn read_preview(
@@ -385,7 +376,7 @@ impl MockEngine {
         table_name: &str,
         limit: usize,
     ) -> MockResult<QueryResult> {
-        let sql = format!("SELECT * FROM \"{}\" LIMIT {}", table_name, limit);
+        let sql = SqlEngine::build_select_all(table_name, Some(limit as i64));
         let mut stmt = conn.prepare(&sql)?;
 
         let column_count;
@@ -598,29 +589,28 @@ impl MockEngine {
 
         let safe_name = sanitize_table_name(new_name);
 
-        let sql = format!(
-            "CREATE TABLE \"{}\" AS SELECT * FROM \"{}\"",
-            safe_name, temp_table_name
+        let create_sql = SqlEngine::build_create_table_as_select(
+            &safe_name,
+            &SqlEngine::build_select_all(temp_table_name, None),
         );
-        conn.execute_batch(&sql)?;
+        conn.execute_batch(&create_sql)?;
 
+        let count_sql = SqlEngine::build_select(&safe_name, &["COUNT(*)"], None);
         let row_count: i64 = conn.query_row(
-            &format!("SELECT COUNT(*) FROM \"{}\"", safe_name),
+            &count_sql,
             [],
             |row| row.get(0),
         )?;
 
         let column_count: i32;
         {
-            let mut stmt_desc = conn.prepare(&format!(
-                "SELECT * FROM \"{}\" LIMIT 0",
-                safe_name
-            ))?;
+            let desc_sql = SqlEngine::build_select_all(&safe_name, Some(0));
+            let mut stmt_desc = conn.prepare(&desc_sql)?;
             let _rows = stmt_desc.query([])?;
             column_count = stmt_desc.column_count() as i32;
         }
 
-        let drop_sql = format!("DROP TABLE IF EXISTS \"{}\"", temp_table_name);
+        let drop_sql = SqlEngine::build_drop_table(temp_table_name, true);
         conn.execute_batch(&drop_sql)?;
 
         Ok((safe_name, row_count, column_count))
@@ -788,7 +778,7 @@ mod tests {
             unique: true,
         }];
         let ddl = MockEngine::build_create_table_ddl("users", &cols);
-        assert_eq!(ddl, "CREATE TABLE \"users\" (\"id\" INTEGER)");
+        assert_eq!(ddl, "CREATE TABLE \"users\" (id INT UNIQUE NOT NULL)");
     }
 
     #[test]
@@ -812,7 +802,7 @@ mod tests {
         let ddl = MockEngine::build_create_table_ddl("users", &cols);
         assert_eq!(
             ddl,
-            "CREATE TABLE \"users\" (\"id\" INTEGER, \"name\" VARCHAR(100))"
+            "CREATE TABLE \"users\" (id INT UNIQUE NOT NULL, name VARCHAR(100) NOT NULL)"
         );
     }
 
