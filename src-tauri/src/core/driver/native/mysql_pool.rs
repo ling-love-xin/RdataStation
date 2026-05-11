@@ -14,6 +14,8 @@ use crate::core::error::{ConnectionError, CoreError};
 pub struct MySqlPoolWrapper {
     pool: MySqlPool,
     closed: Arc<std::sync::atomic::AtomicBool>,
+    max_connections: usize,
+    min_connections: usize,
 }
 
 impl MySqlPoolWrapper {
@@ -29,6 +31,35 @@ impl MySqlPoolWrapper {
         Ok(Self {
             pool,
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            max_connections: 10,
+            min_connections: 0,
+        })
+    }
+
+    /// 从 URL 创建连接池（可配置连接数）
+    pub async fn new_with_options(
+        url: &str,
+        max_connections: usize,
+        min_connections: usize,
+    ) -> Result<Self, CoreError> {
+        use sqlx::mysql::MySqlPoolOptions;
+        let pool = MySqlPoolOptions::new()
+            .max_connections(max_connections as u32)
+            .min_connections(min_connections as u32)
+            .connect(url)
+            .await
+            .map_err(|e| {
+                CoreError::connection(ConnectionError::Refused {
+                    conn_id: "mysql".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        Ok(Self {
+            pool,
+            closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            max_connections,
+            min_connections,
         })
     }
 
@@ -37,6 +68,8 @@ impl MySqlPoolWrapper {
         Self {
             pool,
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            max_connections: 10,
+            min_connections: 0,
         }
     }
 }
@@ -50,8 +83,8 @@ impl DbPool for MySqlPoolWrapper {
 
         let db = MySqlDatabase::from_pool_with_config(
             self.pool.clone(),
-            10, // sqlx default max_connections
-            0,  // sqlx default min_connections
+            self.max_connections,
+            self.min_connections,
         );
         Ok(Box::new(db))
     }
@@ -69,15 +102,15 @@ impl DbPool for MySqlPoolWrapper {
     fn status(&self) -> PoolStatus {
         let size = self.pool.size() as usize;
         let idle = self.pool.num_idle();
-        let active = size - idle;
+        let active = size.saturating_sub(idle);
 
         PoolStatus {
             size,
             idle,
             active,
-            waiting: 0, // sqlx 不直接暴露等待数
-            max_connections: 10,
-            min_connections: 2,
+            waiting: 0,
+            max_connections: self.max_connections,
+            min_connections: self.min_connections,
         }
     }
 }

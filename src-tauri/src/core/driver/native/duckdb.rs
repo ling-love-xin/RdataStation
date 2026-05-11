@@ -20,7 +20,7 @@ use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
-use crate::core::models::{ArrowBatch, QueryResult};
+use crate::core::models::{ArrowBatch, QueryResult, Value};
 
 /// DuckDB 数据库连接
 ///
@@ -148,6 +148,111 @@ impl Database for DuckDbDatabase {
 
         let is_read_only = is_read_only_sql(sql);
         let row_count = row_data.len();
+
+        let batch = if row_count > 0 {
+            duckdb_rows_to_arrow(&columns, &row_data)?
+        } else {
+            return Ok(QueryResult {
+                columns,
+                batches: vec![],
+                affected_rows: if is_read_only { None } else { Some(0) },
+                is_read_only: Some(is_read_only),
+            });
+        };
+
+        Ok(QueryResult {
+            columns,
+            batches: vec![batch],
+            affected_rows: if is_read_only { None } else { Some(row_count) },
+            is_read_only: Some(is_read_only),
+        })
+    }
+
+    async fn query_with_params(
+        &self,
+        sql: &str,
+        params: Vec<Value>,
+    ) -> Result<QueryResult, CoreError> {
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
+
+        let mut stmt = conn
+            .prepare(sql)
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
+
+        let column_count = stmt.column_count();
+        let columns: Vec<String> = if column_count > 0 {
+            (0..column_count)
+                .map(|i| {
+                    stmt.column_name(i)
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|_| format!("column_{}", i))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let duckdb_params: Vec<duckdb::types::Value> = params
+            .iter()
+            .map(|v| match v {
+                Value::Null => duckdb::types::Value::Null,
+                Value::Bool(b) => duckdb::types::Value::Boolean(*b),
+                Value::Int(i) => duckdb::types::Value::BigInt(*i),
+                Value::Float(f) => duckdb::types::Value::Double(*f),
+                Value::Text(s) => duckdb::types::Value::Text(s.clone()),
+                Value::Bytes(b) => duckdb::types::Value::Blob(b.clone()),
+            })
+            .collect();
+
+        let params_slice: Vec<&dyn duckdb::ToSql> = duckdb_params
+            .iter()
+            .map(|v| v as &dyn duckdb::ToSql)
+            .collect();
+
+        let row_data: Vec<Vec<duckdb::types::Value>>;
+        {
+            let mut rows = stmt
+                .query(params_slice.as_slice())
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
+
+            let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+            while let Some(row) = rows
+                .next()
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?
+            {
+                let mut values: Vec<duckdb::types::Value> = Vec::new();
+                let col_count = if column_count > 0 {
+                    column_count
+                } else {
+                    row.as_ref().column_count()
+                };
+                for i in 0..col_count {
+                    match row.get::<usize, duckdb::types::Value>(i) {
+                        Ok(v) => values.push(v),
+                        Err(_) => values.push(duckdb::types::Value::Null),
+                    }
+                }
+                data.push(values);
+            }
+            row_data = data;
+        }
+
+        let is_read_only = is_read_only_sql(sql);
+        let row_count = row_data.len();
+
+        let columns = if columns.is_empty() && column_count > 0 {
+            (0..column_count)
+                .map(|i| format!("column_{}", i))
+                .collect()
+        } else {
+            columns
+        };
 
         let batch = if row_count > 0 {
             duckdb_rows_to_arrow(&columns, &row_data)?

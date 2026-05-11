@@ -10,6 +10,8 @@ pub struct PostgresPoolWrapper {
     pool: PgPool,
     closed: Arc<std::sync::atomic::AtomicBool>,
     server_version: Option<String>,
+    max_connections: usize,
+    min_connections: usize,
 }
 
 impl PostgresPoolWrapper {
@@ -30,6 +32,41 @@ impl PostgresPoolWrapper {
             pool,
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             server_version,
+            max_connections: 10,
+            min_connections: 0,
+        })
+    }
+
+    /// 从 URL 创建连接池（可配置连接数）
+    pub async fn new_with_options(
+        url: &str,
+        max_connections: usize,
+        min_connections: usize,
+    ) -> Result<Self, CoreError> {
+        use sqlx::postgres::PgPoolOptions;
+        let pool = PgPoolOptions::new()
+            .max_connections(max_connections as u32)
+            .min_connections(min_connections as u32)
+            .connect(url)
+            .await
+            .map_err(|e| {
+                CoreError::connection(ConnectionError::Refused {
+                    conn_id: "postgres".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        let server_version = sqlx::query_scalar::<_, String>("SELECT version()")
+            .fetch_one(&pool)
+            .await
+            .ok();
+
+        Ok(Self {
+            pool,
+            closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            server_version,
+            max_connections,
+            min_connections,
         })
     }
 
@@ -38,6 +75,8 @@ impl PostgresPoolWrapper {
             pool,
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             server_version,
+            max_connections: 10,
+            min_connections: 0,
         }
     }
 }
@@ -52,8 +91,8 @@ impl DbPool for PostgresPoolWrapper {
         let db = PostgresDatabase::from_pool_with_config(
             self.pool.clone(),
             self.server_version.clone(),
-            10, // sqlx default max_connections
-            0,  // sqlx default min_connections
+            self.max_connections,
+            self.min_connections,
         );
         Ok(Box::new(db))
     }
@@ -71,15 +110,15 @@ impl DbPool for PostgresPoolWrapper {
     fn status(&self) -> PoolStatus {
         let size = self.pool.size() as usize;
         let idle = self.pool.num_idle();
-        let active = size - idle;
+        let active = size.saturating_sub(idle);
 
         PoolStatus {
             size,
             idle,
             active,
             waiting: 0,
-            max_connections: 10,
-            min_connections: 2,
+            max_connections: self.max_connections,
+            min_connections: self.min_connections,
         }
     }
 }

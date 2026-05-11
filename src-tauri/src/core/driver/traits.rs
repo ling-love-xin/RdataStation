@@ -188,12 +188,19 @@ pub trait Database: Send + Sync {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
 
     /// 执行参数化查询（防止 SQL 注入）
+    ///
+    /// 所有原生驱动均已实现真正的 prepared statement：
+    /// - MySQL: sqlx::query(sql).bind(param)
+    /// - PostgreSQL: sqlx::query(sql).bind(param) ($1/$2 占位符)
+    /// - SQLite: conn.prepare(sql).query(params)
+    /// - DuckDB: conn.prepare(sql).query(params)
+    ///
+    /// 默认实现回退到普通查询，仅用于 stub/WASM/JDBC 驱动
     async fn query_with_params(
         &self,
         sql: &str,
         _params: Vec<Value>,
     ) -> Result<QueryResult, CoreError> {
-        // 默认实现：回退到普通查询
         // 子类应覆盖此方法以支持真正的参数化查询
         self.query(sql).await
     }

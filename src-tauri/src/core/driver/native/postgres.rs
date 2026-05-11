@@ -8,12 +8,11 @@ use sqlx::{Column, Pool, Postgres, Row};
 use std::sync::Arc;
 
 use crate::core::driver::traits::MetadataBrowser;
-use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::{
     ColumnDetail, DataSourceMeta, Database, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
 };
 use crate::core::error::{ConnectionError, CoreError, DatabaseError};
-use crate::core::models::{ArrowBatch, QueryResult};
+use crate::core::models::{ArrowBatch, QueryResult, Value};
 
 /// PostgreSQL 数据库连接
 ///
@@ -313,14 +312,11 @@ impl Database for PostgresDatabase {
         schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
-        let sql = format!(
-            "SELECT p.proname FROM pg_catalog.pg_proc p \
-             JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
-             WHERE n.nspname = '{}' AND p.prokind = 'p' \
-             ORDER BY p.proname",
-            schema_name.replace('\'', "''")
-        );
-        let result = self.query(&sql).await?;
+        let sql = "SELECT p.proname FROM pg_catalog.pg_proc p \
+                   JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
+                   WHERE n.nspname = $1 AND p.prokind = 'p' \
+                   ORDER BY p.proname";
+        let result = self.query_with_params(sql, vec![Value::Text(schema_name.to_string())]).await?;
         Ok(names_to_schema_objects(
             &result,
             SchemaObjectKind::Procedure,
@@ -333,14 +329,11 @@ impl Database for PostgresDatabase {
         schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
-        let sql = format!(
-            "SELECT p.proname FROM pg_catalog.pg_proc p \
-             JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
-             WHERE n.nspname = '{}' AND p.prokind = 'f' \
-             ORDER BY p.proname",
-            schema_name.replace('\'', "''")
-        );
-        let result = self.query(&sql).await?;
+        let sql = "SELECT p.proname FROM pg_catalog.pg_proc p \
+                   JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
+                   WHERE n.nspname = $1 AND p.prokind = 'f' \
+                   ORDER BY p.proname";
+        let result = self.query_with_params(sql, vec![Value::Text(schema_name.to_string())]).await?;
         Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
     }
 
@@ -357,16 +350,16 @@ impl Database for PostgresDatabase {
             SchemaObjectKind::Function => "f",
             _ => return Ok(None),
         };
-        let sql = format!(
-            "SELECT pg_get_functiondef(p.oid) \
+        let sql = "\
+            SELECT pg_get_functiondef(p.oid) \
              FROM pg_catalog.pg_proc p \
              JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
-             WHERE n.nspname = '{}' AND p.proname = '{}' AND p.prokind = '{}'",
-            schema_name.replace('\'', "''"),
-            name.replace('\'', "''"),
-            prokind,
-        );
-        let result = self.query(&sql).await?;
+             WHERE n.nspname = $1 AND p.proname = $2 AND p.prokind = $3";
+        let result = self.query_with_params(sql, vec![
+            Value::Text(schema_name.to_string()),
+            Value::Text(name.to_string()),
+            Value::Text(prokind.to_string()),
+        ]).await?;
         if let Some(batch) = result.batches.first() {
             if batch.num_rows() > 0 {
                 if let Some(col) = batch
@@ -589,13 +582,10 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
     }
 
     async fn get_schemas(&self, catalog: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let sql = format!(
-            "SELECT schema_name FROM information_schema.schemata \
-             WHERE catalog_name = '{}' AND schema_name NOT IN ('pg_catalog', 'information_schema') \
-             ORDER BY schema_name",
-            escape_sql_string(catalog)
-        );
-        let result = self.query(&sql).await?;
+        let sql = "SELECT schema_name FROM information_schema.schemata \
+                   WHERE catalog_name = $1 AND schema_name NOT IN ('pg_catalog', 'information_schema') \
+                   ORDER BY schema_name";
+        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
         Ok(rows_to_node_info(
             &result,
             crate::core::driver::SchemaObjectKind::Schema,
@@ -608,13 +598,12 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         catalog: &str,
         schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let sql = format!(
-            "SELECT table_name, table_type FROM information_schema.tables \
-             WHERE table_catalog = '{}' AND table_schema = '{}' ORDER BY table_name",
-            escape_sql_string(catalog),
-            escape_sql_string(schema)
-        );
-        let result = self.query(&sql).await?;
+        let sql = "SELECT table_name, table_type FROM information_schema.tables \
+                   WHERE table_catalog = $1 AND table_schema = $2 ORDER BY table_name";
+        let result = self.query_with_params(sql, vec![
+            Value::Text(catalog.to_string()),
+            Value::Text(schema.to_string()),
+        ]).await?;
         let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
         for row_idx in 0..result.total_rows() {
             if let Some(batch) = result.batches.first() {
@@ -652,23 +641,22 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let safe_schema = escape_sql_string(schema);
-        let safe_table = escape_sql_string(table);
-        let safe_catalog = escape_sql_string(catalog);
-        let sql = format!(
-            "SELECT column_name, data_type, is_nullable, \
+        let sql = "\
+            SELECT column_name, data_type, is_nullable, \
              CASE WHEN column_name IN (SELECT kcu.column_name FROM information_schema.table_constraints tc \
              JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name \
-             WHERE tc.table_schema = '{}' AND tc.table_name = '{}' AND tc.constraint_type = 'PRIMARY KEY') \
+             WHERE tc.table_schema = $2 AND tc.table_name = $3 AND tc.constraint_type = 'PRIMARY KEY') \
              THEN 'PRI' ELSE '' END AS column_key, \
              column_default, \
-             COALESCE(col_description((SELECT oid FROM pg_class WHERE relname = '{}'), ordinal_position), '') AS column_comment \
+             COALESCE(col_description((SELECT oid FROM pg_class WHERE relname = $3), ordinal_position), '') AS column_comment \
              FROM information_schema.columns \
-             WHERE table_catalog = '{}' AND table_schema = '{}' AND table_name = '{}' \
-             ORDER BY ordinal_position",
-            safe_schema, safe_table, safe_table, safe_catalog, safe_schema, safe_table
-        );
-        let result = self.query(&sql).await?;
+             WHERE table_catalog = $1 AND table_schema = $2 AND table_name = $3 \
+             ORDER BY ordinal_position";
+        let result = self.query_with_params(sql, vec![
+            Value::Text(catalog.to_string()),
+            Value::Text(schema.to_string()),
+            Value::Text(table.to_string()),
+        ]).await?;
         let mut columns: Vec<crate::core::driver::ColumnDetail> = Vec::new();
         for row_idx in 0..result.total_rows() {
             if let Some(batch) = result.batches.first() {

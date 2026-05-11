@@ -1,7 +1,5 @@
 use sqlx::{Column, MySql, Pool, Row};
 
-use crate::core::driver::utils::escape_sql_string;
-
 fn names_to_schema_objects(
     result: &QueryResult,
     kind: crate::core::driver::SchemaObjectKind,
@@ -36,7 +34,7 @@ use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, PoolStatus, Transaction};
 use crate::core::driver::{SchemaObject, SchemaObjectKind};
 use crate::core::error::{ConnectionError, CoreError, DatabaseError};
-use crate::core::models::{ArrowBatch, QueryResult};
+use crate::core::models::{ArrowBatch, QueryResult, Value};
 
 /// MySQL 数据库连接
 ///
@@ -285,13 +283,11 @@ impl Database for MySqlDatabase {
         catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
-        let sql = format!(
-            "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
-             WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'PROCEDURE' \
-             ORDER BY ROUTINE_NAME",
-            catalog.replace('\'', "''")
-        );
-        let result = self.query(&sql).await?;
+        let sql = "\
+            SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
+             WHERE ROUTINE_SCHEMA = ? AND ROUTINE_TYPE = 'PROCEDURE' \
+             ORDER BY ROUTINE_NAME";
+        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
         Ok(names_to_schema_objects(
             &result,
             SchemaObjectKind::Procedure,
@@ -303,13 +299,11 @@ impl Database for MySqlDatabase {
         catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
-        let sql = format!(
-            "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
-             WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'FUNCTION' \
-             ORDER BY ROUTINE_NAME",
-            catalog.replace('\'', "''")
-        );
-        let result = self.query(&sql).await?;
+        let sql = "\
+            SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
+             WHERE ROUTINE_SCHEMA = ? AND ROUTINE_TYPE = 'FUNCTION' \
+             ORDER BY ROUTINE_NAME";
+        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
         Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
     }
 
@@ -325,11 +319,13 @@ impl Database for MySqlDatabase {
             SchemaObjectKind::Function => "FUNCTION",
             _ => return Ok(None),
         };
+        let esc_catalog = catalog.replace('`', "``");
+        let esc_name = name.replace('`', "``");
         let sql = format!(
             "SHOW CREATE {} `{}`.`{}`",
             stmt_type,
-            catalog.replace('\'', "''"),
-            name.replace('\'', "''"),
+            esc_catalog,
+            esc_name,
         );
         let result = self.query(&sql).await?;
         if let Some(batch) = result.batches.first() {
@@ -601,8 +597,8 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
         catalog: &str,
         _schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", escape_sql_string(catalog));
-        let result = self.query(&sql).await?;
+        let sql = "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name";
+        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
@@ -645,14 +641,15 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
         _schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let sql = format!(
-            "SELECT column_name, data_type, is_nullable, column_key, column_default, column_comment \
+        let sql = "\
+            SELECT column_name, data_type, is_nullable, column_key, column_default, column_comment \
              FROM information_schema.columns \
-             WHERE table_schema = '{}' AND table_name = '{}' \
-             ORDER BY ordinal_position",
-            escape_sql_string(catalog), escape_sql_string(table)
-        );
-        let result = self.query(&sql).await?;
+             WHERE table_schema = ? AND table_name = ? \
+             ORDER BY ordinal_position";
+        let result = self.query_with_params(sql, vec![
+            Value::Text(catalog.to_string()),
+            Value::Text(table.to_string()),
+        ]).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
