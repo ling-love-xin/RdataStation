@@ -11,8 +11,8 @@ use crate::core::{DataSourceMeta, SchemaObject};
 /// 元数据缓存键
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum MetadataCacheKey {
-    /// 数据库列表
-    Databases { conn_id: String },
+    /// Catalog 列表
+    Catalogs { conn_id: String },
     /// Schema 列表
     Schemas { conn_id: String, database: String },
     /// 表列表
@@ -66,9 +66,9 @@ pub enum MetadataCacheKey {
 }
 
 impl MetadataCacheKey {
-    /// 创建数据库列表缓存键
-    pub fn databases(conn_id: impl Into<String>) -> Self {
-        Self::Databases {
+    /// 创建 Catalog 列表缓存键
+    pub fn catalogs(conn_id: impl Into<String>) -> Self {
+        Self::Catalogs {
             conn_id: conn_id.into(),
         }
     }
@@ -155,7 +155,7 @@ impl MetadataCacheKey {
     /// 获取连接 ID
     pub fn conn_id(&self) -> &str {
         match self {
-            Self::Databases { conn_id } => conn_id,
+            Self::Catalogs { conn_id } => conn_id,
             Self::Schemas { conn_id, .. } => conn_id,
             Self::Tables { conn_id, .. } => conn_id,
             Self::Columns { conn_id, .. } => conn_id,
@@ -225,9 +225,9 @@ impl MetadataCache {
 
     // ==================== 获取方法 ====================
 
-    /// 获取数据库列表
-    pub fn get_databases(&mut self, conn_id: &str) -> Option<Vec<String>> {
-        let key = MetadataCacheKey::databases(conn_id);
+    /// 获取 Catalog 列表
+    pub fn get_catalogs(&mut self, conn_id: &str) -> Option<Vec<String>> {
+        let key = MetadataCacheKey::catalogs(conn_id);
         self.cache.get(&key).and_then(|v| match v {
             MetadataCacheValue::StringList(list) => Some(list),
             _ => None,
@@ -352,10 +352,10 @@ impl MetadataCache {
 
     // ==================== 设置方法 ====================
 
-    /// 设置数据库列表
-    pub fn set_databases(&mut self, conn_id: &str, databases: Vec<String>) {
-        let key = MetadataCacheKey::databases(conn_id);
-        let value = MetadataCacheValue::StringList(databases);
+    /// 设置 Catalog 列表
+    pub fn set_catalogs(&mut self, conn_id: &str, catalogs: Vec<String>) {
+        let key = MetadataCacheKey::catalogs(conn_id);
+        let value = MetadataCacheValue::StringList(catalogs);
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
 
@@ -528,7 +528,7 @@ impl MetadataCache {
         let mut total = 0;
         for key in self.cache.keys() {
             match key {
-                MetadataCacheKey::Databases { .. } => total += 100,
+                MetadataCacheKey::Catalogs { .. } => total += 100,
                 MetadataCacheKey::Schemas { .. } => total += 150,
                 MetadataCacheKey::Tables { .. } => total += 500,
                 MetadataCacheKey::Columns { .. } => total += 1000,

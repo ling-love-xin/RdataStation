@@ -22,11 +22,11 @@ async fn test_mysql_ping() {
 }
 
 #[tokio::test]
-async fn test_mysql_list_databases() {
+async fn test_mysql_list_catalogs() {
     let db = MySqlDatabase::new(MYSQL_URL).await.unwrap();
-    let dbs = db.list_databases().await.expect("[MySQL] 列举数据库失败");
-    eprintln!("[MySQL] 数据库列表 ({}) -> {:?}", dbs.len(), dbs);
-    assert!(!dbs.is_empty(), "[MySQL] 数据库列表为空");
+    let dbs = db.list_catalogs().await.expect("[MySQL] 列举 Catalog 失败");
+    eprintln!("[MySQL] Catalog 列表 ({}) -> {:?}", dbs.len(), dbs);
+    assert!(!dbs.is_empty(), "[MySQL] Catalog 列表为空");
 }
 
 #[tokio::test]

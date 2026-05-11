@@ -247,18 +247,18 @@ impl Database for MySqlDatabase {
         })
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
-        self.get_databases()
+    async fn list_catalogs(&self) -> Result<Vec<String>, CoreError> {
+        self.get_catalogs()
             .await
             .map(|nodes| nodes.into_iter().map(|n| n.name).collect())
     }
 
     async fn list_tables(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
-        let nodes = self.get_tables(db, db).await?;
+        let nodes = self.get_tables(catalog, catalog).await?;
         Ok(nodes
             .into_iter()
             .map(|n| crate::core::driver::SchemaObject {
@@ -272,24 +272,24 @@ impl Database for MySqlDatabase {
 
     async fn list_columns(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: Option<&str>,
         table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {
-        let detail = self.get_table_detail(db, db, table).await?;
+        let detail = self.get_table_detail(catalog, catalog, table).await?;
         Ok(detail.columns)
     }
 
     async fn list_procedures(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let sql = format!(
             "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
              WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'PROCEDURE' \
              ORDER BY ROUTINE_NAME",
-            db.replace('\'', "''")
+            catalog.replace('\'', "''")
         );
         let result = self.query(&sql).await?;
         Ok(names_to_schema_objects(
@@ -300,14 +300,14 @@ impl Database for MySqlDatabase {
 
     async fn list_functions(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let sql = format!(
             "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
              WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'FUNCTION' \
              ORDER BY ROUTINE_NAME",
-            db.replace('\'', "''")
+            catalog.replace('\'', "''")
         );
         let result = self.query(&sql).await?;
         Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
@@ -315,7 +315,7 @@ impl Database for MySqlDatabase {
 
     async fn get_routine_source(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: Option<&str>,
         name: &str,
         kind: SchemaObjectKind,
@@ -328,7 +328,7 @@ impl Database for MySqlDatabase {
         let sql = format!(
             "SHOW CREATE {} `{}`.`{}`",
             stmt_type,
-            db.replace('\'', "''"),
+            catalog.replace('\'', "''"),
             name.replace('\'', "''"),
         );
         let result = self.query(&sql).await?;
@@ -562,7 +562,7 @@ fn mysql_rows_to_arrow(
 
 #[async_trait::async_trait]
 impl crate::core::driver::MetadataBrowser for MySqlDatabase {
-    async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_catalogs(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let result = self
             .query("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name")
             .await?;
@@ -576,7 +576,7 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
                             .downcast_ref::<StringArray>()
                             .map(|arr| crate::core::driver::NodeInfo {
                                 name: arr.value(row_idx).to_string(),
-                                kind: crate::core::driver::SchemaObjectKind::Database,
+                                kind: crate::core::driver::SchemaObjectKind::Catalog,
                                 icon: Some("database".to_string()),
                                 comment: None,
                             })
@@ -591,17 +591,17 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
 
     async fn get_schemas(
         &self,
-        _db: &str,
+        _catalog: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        self.get_databases().await
+        self.get_catalogs().await
     }
 
     async fn get_tables(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", escape_sql_string(db));
+        let sql = format!("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '{}' ORDER BY table_name", escape_sql_string(catalog));
         let result = self.query(&sql).await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
@@ -641,7 +641,7 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
 
     async fn get_table_detail(
         &self,
-        db: &str,
+        catalog: &str,
         _schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
@@ -650,7 +650,7 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
              FROM information_schema.columns \
              WHERE table_schema = '{}' AND table_name = '{}' \
              ORDER BY ordinal_position",
-            escape_sql_string(db), escape_sql_string(table)
+            escape_sql_string(catalog), escape_sql_string(table)
         );
         let result = self.query(&sql).await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())

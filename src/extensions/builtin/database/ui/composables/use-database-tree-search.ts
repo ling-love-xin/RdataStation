@@ -61,12 +61,12 @@ export function useDatabaseTreeSearch() {
     const allConnections = [...globalConnections, ...projectConnections]
 
     for (const conn of allConnections) {
-      const databases = navigatorStore.getDatabases(conn.id)
+      const catalogs = navigatorStore.getCatalogs(conn.id)
 
-      for (const db of databases) {
-        if (!db.schemas) continue
+      for (const cat of catalogs) {
+        if (!cat.schemas) continue
 
-        for (const schema of db.schemas) {
+        for (const schema of cat.schemas) {
           if (
             !filterConfig.showSystemSchemas &&
             (schema.name === 'information_schema' || schema.name === 'pg_catalog')
@@ -80,16 +80,16 @@ export function useDatabaseTreeSearch() {
                 const tableKey = NodeKeyEncoder.encode([
                   'table',
                   conn.id,
-                  db.name,
+                  cat.name,
                   schema.name,
                   table.name,
                 ])
                 results.push({
                   nodeKey: tableKey,
                   tableName: table.name,
-                  path: `${conn.name} / ${db.name} / ${schema.name} / ${table.name}`,
+                  path: `${conn.name} / ${cat.name} / ${schema.name} / ${table.name}`,
                   connectionId: conn.id,
-                  dbName: db.name,
+                  dbName: cat.name,
                   schemaName: schema.name,
                 })
               }
@@ -102,16 +102,16 @@ export function useDatabaseTreeSearch() {
                 const viewKey = NodeKeyEncoder.encode([
                   'view',
                   conn.id,
-                  db.name,
+                  cat.name,
                   schema.name,
                   view.name,
                 ])
                 results.push({
                   nodeKey: viewKey,
                   tableName: view.name,
-                  path: `${conn.name} / ${db.name} / ${schema.name} / ${view.name} (视图)`,
+                  path: `${conn.name} / ${cat.name} / ${schema.name} / ${view.name} (视图)`,
                   connectionId: conn.id,
-                  dbName: db.name,
+                  dbName: cat.name,
                   schemaName: schema.name,
                 })
               }

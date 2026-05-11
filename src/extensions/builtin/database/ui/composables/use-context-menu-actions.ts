@@ -644,7 +644,7 @@ export function useContextMenuActions() {
     switch (node.type) {
       case 'connection':
         return getConnectionMenu(node)
-      case 'database':
+      case 'catalog':
         return getDatabaseMenu(node)
       case 'schema':
         return getSchemaMenu(node)
@@ -678,7 +678,7 @@ export function useContextMenuActions() {
   async function testConnection(connectionId: string): Promise<void> {
     try {
       const startTime = Date.now()
-      await navigatorStore.loadDatabases(connectionId)
+      await navigatorStore.loadCatalogs(connectionId)
       const latency = Date.now() - startTime
       console.log(`连接测试成功，延迟: ${latency}ms`)
     } catch (error) {
@@ -772,7 +772,7 @@ export function useContextMenuActions() {
   }
 
   async function refreshDatabase(connectionId: string, dbName: string): Promise<void> {
-    await navigatorStore.loadDatabases(connectionId)
+    await navigatorStore.loadCatalogs(connectionId)
   }
 
   async function refreshSchema(

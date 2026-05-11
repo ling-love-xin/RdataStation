@@ -135,14 +135,14 @@ export interface ContextMenuNodeData {
   nodeKey: string
   keyParts: string[]
   connectionId: string
-  dbName: string
+  catalogName: string
   schemaName: string
   tableName: string
 }
 
 export const NODE_TYPE_MAP: Record<string, string> = {
   conn: 'connection',
-  db: 'database',
+  db: 'catalog',
   schema: 'schema',
   table: 'table',
   view: 'view',
@@ -157,7 +157,7 @@ export const NODE_TYPE_MAP: Record<string, string> = {
 
 export const NODE_TYPE_ICONS: Record<string, string> = {
   connection: 'Database',
-  database: 'Database',
+  catalog: 'Database',
   schema: 'Folder',
   table: 'Table',
   view: 'FileText',

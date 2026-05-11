@@ -386,7 +386,7 @@ pub async fn load_databases(
     project_path: Option<String>,
 ) -> Result<Vec<DatabaseMeta>, CoreError> {
     let t0 = Instant::now();
-    let cached = check_l1_cache(|mc| mc.get_databases(&conn_id))?;
+    let cached = check_l1_cache(|mc| mc.get_catalogs(&conn_id))?;
     if let Some(names) = cached {
         L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
         L1_HIT_TIME_US.fetch_add(t0.elapsed().as_micros() as u64, Ordering::Relaxed);
@@ -404,7 +404,7 @@ pub async fn load_databases(
         L2_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
         L2_HIT_TIME_US.fetch_add(t1.elapsed().as_micros() as u64, Ordering::Relaxed);
         let names: Vec<String> = databases.iter().map(|d| d.name.clone()).collect();
-        let _ = write_l1_cache(|mc| mc.set_databases(&conn_id, names));
+        let _ = write_l1_cache(|mc| mc.set_catalogs(&conn_id, names));
         return Ok(databases);
     }
     L2_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
@@ -416,11 +416,11 @@ pub async fn load_databases(
         .ok_or_else(|| CoreError::connection(ConnectionError::not_found(&conn_id)))?;
 
     let t2 = Instant::now();
-    let names = db.list_databases().await?;
+    let names = db.list_catalogs().await?;
     DB_QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
     DB_QUERY_TIME_US.fetch_add(t2.elapsed().as_micros() as u64, Ordering::Relaxed);
 
-    let _ = write_l1_cache(|mc| mc.set_databases(&conn_id, names.clone()));
+    let _ = write_l1_cache(|mc| mc.set_catalogs(&conn_id, names.clone()));
 
     Ok(names
         .into_iter()
@@ -434,7 +434,7 @@ pub struct CatalogMeta {
 }
 
 /// ANSI SQL 标准：Catalog（目录）是顶层容器，包含多个 Schema
-/// 内部委托给 Database trait 的 list_databases() 方法
+/// 内部委托给 Database trait 的 list_catalogs() 方法
 /// 与 load_databases 共享同一 L1 缓存键
 #[tauri::command]
 pub async fn load_catalogs(
@@ -442,7 +442,7 @@ pub async fn load_catalogs(
     connection_type: Option<String>,
     project_path: Option<String>,
 ) -> Result<Vec<CatalogMeta>, CoreError> {
-    let cached = check_l1_cache(|mc| mc.get_databases(&conn_id))?;
+    let cached = check_l1_cache(|mc| mc.get_catalogs(&conn_id))?;
     if let Some(databases) = cached {
         return Ok(databases
             .into_iter()
@@ -454,7 +454,7 @@ pub async fn load_catalogs(
     let pp = project_path.as_deref();
     if let Ok(Some(databases)) = try_l2_databases(&conn_id, ct, pp) {
         let names: Vec<String> = databases.iter().map(|d| d.name.clone()).collect();
-        let _ = write_l1_cache(|mc| mc.set_databases(&conn_id, names));
+        let _ = write_l1_cache(|mc| mc.set_catalogs(&conn_id, names));
         return Ok(databases
             .into_iter()
             .map(|d| CatalogMeta { name: d.name })
@@ -467,9 +467,9 @@ pub async fn load_catalogs(
         .await
         .ok_or_else(|| CoreError::connection(ConnectionError::not_found(&conn_id)))?;
 
-    let names = db.list_databases().await?;
+    let names = db.list_catalogs().await?;
 
-    let _ = write_l1_cache(|mc| mc.set_databases(&conn_id, names.clone()));
+    let _ = write_l1_cache(|mc| mc.set_catalogs(&conn_id, names.clone()));
 
     Ok(names.into_iter().map(|name| CatalogMeta { name }).collect())
 }

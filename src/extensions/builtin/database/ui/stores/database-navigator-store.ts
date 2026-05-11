@@ -22,9 +22,9 @@ import {
 import type { TableInput, ColumnInput } from '../services/metadata-cache-service'
 
 export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => {
-  const connectionDatabases = ref<Map<string, DatabaseNode[]>>(new Map())
+  const connectionCatalogs = ref<Map<string, CatalogNode[]>>(new Map())
   const selectedObject = ref<SelectedObject | null>(null)
-  const loadingDatabases = ref<Set<string>>(new Set())
+  const loadingCatalogs = ref<Set<string>>(new Set())
   const loadingSchemas = ref<Set<string>>(new Set())
   const loadingTables = ref<Set<string>>(new Set())
   const loadingColumns = ref<Set<string>>(new Set())
@@ -37,24 +37,24 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   const lastSyncTimes = ref<Map<string, number>>(new Map())
   const syncModes = ref<Map<string, 'full' | 'incremental'>>(new Map())
 
-  function getDatabases(connectionId: string): DatabaseNode[] {
-    return connectionDatabases.value.get(connectionId) || []
+  function getCatalogs(connectionId: string): CatalogNode[] {
+    return connectionCatalogs.value.get(connectionId) || []
   }
 
-  function getLastSyncTime(connectionId: string, dbName?: string, schemaName?: string): number {
-    const key = dbName
+  function getLastSyncTime(connectionId: string, catalogName?: string, schemaName?: string): number {
+    const key = catalogName
       ? schemaName
-        ? `${connectionId}:${dbName}:${schemaName}`
-        : `${connectionId}:${dbName}`
+        ? `${connectionId}:${catalogName}:${schemaName}`
+        : `${connectionId}:${catalogName}`
       : connectionId
     return lastSyncTimes.value.get(key) || 0
   }
 
-  function setLastSyncTime(connectionId: string, dbName?: string, schemaName?: string) {
-    const key = dbName
+  function setLastSyncTime(connectionId: string, catalogName?: string, schemaName?: string) {
+    const key = catalogName
       ? schemaName
-        ? `${connectionId}:${dbName}:${schemaName}`
-        : `${connectionId}:${dbName}`
+        ? `${connectionId}:${catalogName}:${schemaName}`
+        : `${connectionId}:${catalogName}`
       : connectionId
     lastSyncTimes.value.set(key, Date.now())
   }
@@ -67,21 +67,21 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return syncModes.value.get(connectionId) || 'incremental'
   }
 
-  const isLoadingDatabases = computed(() => {
+  const isLoadingCatalogs = computed(() => {
     return (connectionId: string): boolean => {
-      return loadingDatabases.value.has(connectionId)
+      return loadingCatalogs.value.has(connectionId)
     }
   })
 
   const isLoadingSchemas = computed(() => {
-    return (connectionId: string, dbName: string): boolean => {
-      return loadingSchemas.value.has(`${connectionId}:${dbName}`)
+    return (connectionId: string, catalogName: string): boolean => {
+      return loadingSchemas.value.has(`${connectionId}:${catalogName}`)
     }
   })
 
   const isLoadingTables = computed(() => {
-    return (connectionId: string, dbName: string, schemaName: string): boolean => {
-      return loadingTables.value.has(`${connectionId}:${dbName}:${schemaName}`)
+    return (connectionId: string, catalogName: string, schemaName: string): boolean => {
+      return loadingTables.value.has(`${connectionId}:${catalogName}:${schemaName}`)
     }
   })
 
@@ -98,10 +98,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadDatabases(connectionId: string) {
-    if (loadingDatabases.value.has(connectionId)) return
+  async function loadCatalogs(connectionId: string) {
+    if (loadingCatalogs.value.has(connectionId)) return
 
-    loadingDatabases.value.add(connectionId)
+    loadingCatalogs.value.add(connectionId)
     error.value = null
 
     try {
@@ -118,34 +118,34 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       ).catch(() => ({ is_valid: false, last_sync: null, stats: null }))
 
       if (cacheStatus.is_valid && cacheStatus.stats && cacheStatus.stats.table_count > 0) {
-        const databases = await loadDatabasesFromCache(connectionId, connType, projectPath)
-        if (databases.length > 0) {
-          const currentMap = connectionDatabases.value
+        const catalogs = await loadCatalogsFromCache(connectionId, connType, projectPath)
+        if (catalogs.length > 0) {
+          const currentMap = connectionCatalogs.value
           const newMap = new Map(currentMap)
-          newMap.set(connectionId, databases)
-          connectionDatabases.value = newMap
+          newMap.set(connectionId, catalogs)
+          connectionCatalogs.value = newMap
           return
         }
       }
 
-      await loadDatabasesFromDb(connectionId)
+      await loadCatalogsFromDb(connectionId)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : '加载数据库列表失败'
-      console.error('加载数据库列表失败:', e)
-      const currentMap = connectionDatabases.value
+      error.value = e instanceof Error ? e.message : '加载 Catalog 列表失败'
+      console.error('加载 Catalog 列表失败:', e)
+      const currentMap = connectionCatalogs.value
       const newMap = new Map(currentMap)
       newMap.set(connectionId, [{ name: 'default', schemas: [] }])
-      connectionDatabases.value = newMap
+      connectionCatalogs.value = newMap
     } finally {
-      loadingDatabases.value.delete(connectionId)
+      loadingCatalogs.value.delete(connectionId)
     }
   }
 
-  async function loadDatabasesFromCache(
+  async function loadCatalogsFromCache(
     connectionId: string,
     connType: 'global' | 'project',
     projectPath?: string
-  ): Promise<DatabaseNode[]> {
+  ): Promise<CatalogNode[]> {
     const tables = await getTablesFromCache(
       connectionId,
       connType,
@@ -158,12 +158,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     tables.forEach(table => {
       const parts = table.name.split('.')
       if (parts.length >= 2) {
-        const dbName = parts[0]
+        const catalogName = parts[0]
         const schemaName = parts[1]
-        if (!dbMap.has(dbName)) {
-          dbMap.set(dbName, new Set())
+        if (!dbMap.has(catalogName)) {
+          dbMap.set(catalogName, new Set())
         }
-        dbMap.get(dbName)!.add(schemaName)
+        dbMap.get(catalogName)!.add(schemaName)
       }
     })
 
@@ -173,34 +173,34 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }))
   }
 
-  async function loadDatabasesFromDb(connectionId: string) {
+  async function loadCatalogsFromDb(connectionId: string) {
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
-    const dbMetas = await databaseApi.loadDatabases(connectionId, connType, projectPath)
+    const catalogMetas = await databaseApi.loadCatalogs(connectionId, connType, projectPath)
 
-    let databases: { name: string }[] = dbMetas.map(d => ({ name: d.name }))
+    let catalogs: { name: string }[] = catalogMetas.map(d => ({ name: d.name }))
 
-    if (databases.length === 0) {
-      databases = [{ name: 'default' }]
+    if (catalogs.length === 0) {
+      catalogs = [{ name: 'default' }]
     }
 
-    const newDatabases = databases.map((db: { name: string }) => ({
-      name: db.name,
+    const newCatalogs = catalogs.map((cat: { name: string }) => ({
+      name: cat.name,
       schemas: [],
     }))
 
-    const currentMap = connectionDatabases.value
+    const currentMap = connectionCatalogs.value
     const newMap = new Map(currentMap)
-    newMap.set(connectionId, newDatabases)
-    connectionDatabases.value = newMap
+    newMap.set(connectionId, newCatalogs)
+    connectionCatalogs.value = newMap
 
     setLastSyncTime(connectionId)
 
   }
 
-  async function loadSchemas(connectionId: string, dbName: string) {
-    const key = `${connectionId}:${dbName}`
+  async function loadSchemas(connectionId: string, catalogName: string) {
+    const key = `${connectionId}:${catalogName}`
     if (loadingSchemas.value.has(key)) return
 
     loadingSchemas.value.add(key)
@@ -213,28 +213,28 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const cacheStatus = await getMetadataCacheStatus(
         connectionId,
         connType,
-        dbName,
+        catalogName,
         undefined,
         projectPath
       ).catch(() => ({ is_valid: false, last_sync: null, stats: null }))
 
       if (cacheStatus.is_valid) {
-        const schemas = await loadSchemasFromCache(connectionId, connType, dbName, projectPath)
+        const schemas = await loadSchemasFromCache(connectionId, connType, catalogName, projectPath)
         if (schemas.length > 0) {
-          updateDatabaseSchemas(connectionId, dbName, schemas)
+          updateCatalogSchemas(connectionId, catalogName, schemas)
           return
         }
       }
 
-      await loadSchemasFromDb(connectionId, dbName)
+      await loadSchemasFromDb(connectionId, catalogName)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载 Schema 列表失败'
       console.error('加载 Schema 列表失败:', e)
-      const databases = connectionDatabases.value.get(connectionId)
-      if (databases) {
-        const db = databases.find((d: { name: string }) => d.name === dbName)
-        if (db) {
-          db.schemas = [{ name: dbName, tables: [], views: [] }]
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (catalogs) {
+        const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+        if (cat) {
+          cat.schemas = [{ name: catalogName, tables: [], views: [] }]
         }
       }
     } finally {
@@ -245,13 +245,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   async function loadSchemasFromCache(
     connectionId: string,
     connType: 'global' | 'project',
-    dbName: string,
+    catalogName: string,
     projectPath?: string
   ): Promise<SchemaNode[]> {
     const tables = await getTablesFromCache(
       connectionId,
       connType,
-      dbName,
+      catalogName,
       undefined,
       projectPath
     ).catch(() => [])
@@ -266,21 +266,21 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return Array.from(schemaSet).map(name => ({ name, tables: [], views: [] }))
   }
 
-  async function loadSchemasFromDb(connectionId: string, dbName: string) {
+  async function loadSchemasFromDb(connectionId: string, catalogName: string) {
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
-    const schemaMetas = await databaseApi.loadSchemas(connectionId, dbName, connType, projectPath)
+    const schemaMetas = await databaseApi.loadSchemas(connectionId, catalogName, connType, projectPath)
 
     let schemas: { name: string }[] = schemaMetas.map(s => ({ name: s.name }))
 
     if (schemas.length === 0) {
-      schemas = [{ name: dbName }]
+      schemas = [{ name: catalogName }]
     }
 
-    updateDatabaseSchemas(
+    updateCatalogSchemas(
       connectionId,
-      dbName,
+      catalogName,
       schemas.map((s: { name: string }) => ({
         name: s.name,
         tables: [],
@@ -288,26 +288,25 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       }))
     )
 
-    setLastSyncTime(connectionId, dbName)
+    setLastSyncTime(connectionId, catalogName)
   }
 
-  function updateDatabaseSchemas(connectionId: string, dbName: string, schemas: SchemaNode[]) {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (databases) {
-      const db = databases.find((d: { name: string }) => d.name === dbName)
-      if (db) {
-        db.schemas = schemas
-        // 触发响应式更新
-        const currentMap = connectionDatabases.value
+  function updateCatalogSchemas(connectionId: string, catalogName: string, schemas: SchemaNode[]) {
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (catalogs) {
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (cat) {
+        cat.schemas = schemas
+        const currentMap = connectionCatalogs.value
         const newMap = new Map(currentMap)
-        newMap.set(connectionId, [...databases])
-        connectionDatabases.value = newMap
+        newMap.set(connectionId, [...catalogs])
+        connectionCatalogs.value = newMap
       }
     }
   }
 
-  async function loadTables(connectionId: string, dbName: string, schemaName: string) {
-    const key = `${connectionId}:${dbName}:${schemaName}`
+  async function loadTables(connectionId: string, catalogName: string, schemaName: string) {
+    const key = `${connectionId}:${catalogName}:${schemaName}`
     if (loadingTables.value.has(key)) return
 
     loadingTables.value.add(key)
@@ -320,7 +319,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const cacheStatus = await getMetadataCacheStatus(
         connectionId,
         connType,
-        dbName,
+        catalogName,
         schemaName,
         projectPath
       ).catch(() => ({ is_valid: false, last_sync: null, stats: null }))
@@ -329,14 +328,14 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const tables = await getTablesFromCache(
           connectionId,
           connType,
-          dbName,
+          catalogName,
           schemaName,
           projectPath
         )
         if (tables.length > 0) {
           updateSchemaTables(
             connectionId,
-            dbName,
+            catalogName,
             schemaName,
             tables.map(t => ({
               name: t.name,
@@ -348,7 +347,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         }
       }
 
-      await loadTablesFromDb(connectionId, dbName, schemaName)
+      await loadTablesFromDb(connectionId, catalogName, schemaName)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载表列表失败'
       console.error('加载表列表失败:', e)
@@ -357,14 +356,14 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadTablesFromDb(connectionId: string, dbName: string, schemaName: string) {
+  async function loadTablesFromDb(connectionId: string, catalogName: string, schemaName: string) {
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
     try {
       const [tableMetas, viewMetas] = await Promise.all([
-        databaseApi.loadTables(connectionId, dbName, schemaName, connType, projectPath),
-        databaseApi.loadViews(connectionId, dbName, schemaName, connType, projectPath),
+        databaseApi.loadTables(connectionId, catalogName, schemaName, connType, projectPath),
+        databaseApi.loadViews(connectionId, catalogName, schemaName, connType, projectPath),
       ])
 
       const allTables = tableMetas.map(t => ({ name: t.name, type: t.type || 'table' }))
@@ -374,13 +373,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
       updateSchemaTables(
         connectionId,
-        dbName,
+        catalogName,
         schemaName,
         merged.map(t => ({ name: t.name, type: t.type, columns: [] }))
       )
 
       const tableInputs: TableInput[] = merged.map(t => ({
-        id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
+        id: generateStableCacheId(connectionId, catalogName, schemaName, t.name),
         name: t.name,
         comment: undefined,
       }))
@@ -390,7 +389,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           await saveTablesBatchToCache(
             connectionId,
             connType,
-            dbName,
+            catalogName,
             schemaName,
             tableInputs,
             projectPath
@@ -400,7 +399,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         }
       }
 
-      setLastSyncTime(connectionId, dbName, schemaName)
+      setLastSyncTime(connectionId, catalogName, schemaName)
     } catch (err) {
       console.error(`loadTablesFromDb 失败:`, err)
     }
@@ -408,48 +407,47 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   function updateSchemaTables(
     connectionId: string,
-    dbName: string,
+    catalogName: string,
     schemaName: string,
     tables: TableNode[]
   ) {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (databases) {
-      const db = databases.find((d: { name: string }) => d.name === dbName)
-      if (db) {
-        // 无 Schema 的数据库（MySQL 等）：表直接存储在 DatabaseNode.tables 上
-        if (db.schemas.length === 0) {
-          db.tables = tables
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (catalogs) {
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (cat) {
+        // 无 Schema 的数据库（MySQL 等）：表直接存储在 CatalogNode.tables 上
+        if (cat.schemas.length === 0) {
+          cat.tables = tables
         } else {
-          const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
+          const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
             schema.tables = tables
           } else {
-            console.warn(`未找到 schema: ${schemaName}，回退到 db.tables`)
-            db.tables = tables
+            console.warn(`未找到 schema: ${schemaName}，回退到 catalog.tables`)
+            cat.tables = tables
           }
         }
-        // 触发响应式更新
-        const currentMap = connectionDatabases.value
+        const currentMap = connectionCatalogs.value
         const newMap = new Map(currentMap)
-        newMap.set(connectionId, [...databases])
-        connectionDatabases.value = newMap
+        newMap.set(connectionId, [...catalogs])
+        connectionCatalogs.value = newMap
       } else {
-        console.warn(`未找到 database: ${dbName}`)
+        console.warn(`未找到 catalog: ${catalogName}`)
       }
     } else {
       console.warn(`未找到 connection: ${connectionId}`)
     }
   }
 
-  async function loadViews(connectionId: string, dbName: string, schemaName: string) {
-    const key = `${connectionId}:${dbName}:${schemaName}:views`
+  async function loadViews(connectionId: string, catalogName: string, schemaName: string) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:views`
     if (loadingTables.value.has(key)) return
 
     loadingTables.value.add(key)
     error.value = null
 
     try {
-      await loadTables(connectionId, dbName, schemaName)
+      await loadTables(connectionId, catalogName, schemaName)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载视图列表失败'
       console.error('加载视图列表失败:', e)
@@ -458,8 +456,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadProcedures(connectionId: string, dbName: string, schemaName: string) {
-    const key = `${connectionId}:${dbName}:${schemaName}:procedures`
+  async function loadProcedures(connectionId: string, catalogName: string, schemaName: string) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:procedures`
     if (loadingTables.value.has(key)) return
 
     loadingTables.value.add(key)
@@ -472,11 +470,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const procedureMetas = await databaseApi.loadProcedures(connectionId, dbType, schemaName)
       const procedures = procedureMetas.map((p: { name: string }) => ({ name: p.name }))
 
-      const databases = connectionDatabases.value.get(connectionId)
-      if (databases) {
-        const db = databases.find((d: { name: string }) => d.name === dbName)
-        if (db) {
-          const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (catalogs) {
+        const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+        if (cat) {
+          const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
             schema.procedures = procedures
           }
@@ -490,8 +488,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadFunctions(connectionId: string, dbName: string, schemaName: string) {
-    const key = `${connectionId}:${dbName}:${schemaName}:functions`
+  async function loadFunctions(connectionId: string, catalogName: string, schemaName: string) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:functions`
     if (loadingTables.value.has(key)) return
 
     loadingTables.value.add(key)
@@ -504,11 +502,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const functionMetas = await databaseApi.loadFunctions(connectionId, dbType, schemaName)
       const functions = functionMetas.map((f: { name: string }) => ({ name: f.name }))
 
-      const databases = connectionDatabases.value.get(connectionId)
-      if (databases) {
-        const db = databases.find((d: { name: string }) => d.name === dbName)
-        if (db) {
-          const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (catalogs) {
+        const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+        if (cat) {
+          const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
             schema.functions = functions
           }
@@ -524,11 +522,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadColumns(
     connectionId: string,
-    dbName: string,
+    catalogName: string,
     schemaName: string,
     tableName: string
   ) {
-    const key = `${connectionId}:${dbName}:${schemaName}:${tableName}`
+    const key = `${connectionId}:${catalogName}:${schemaName}:${tableName}`
     if (loadingColumns.value.has(key)) return
 
     loadingColumns.value.add(key)
@@ -541,7 +539,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const cacheStatus = await getMetadataCacheStatus(
         connectionId,
         connType,
-        dbName,
+        catalogName,
         schemaName,
         projectPath
       ).catch(() => ({ is_valid: false, last_sync: null, stats: null }))
@@ -550,7 +548,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         const columns = await getColumnsFromCache(
           connectionId,
           connType,
-          dbName,
+          catalogName,
           schemaName,
           tableName,
           projectPath
@@ -559,7 +557,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         if (columns.length > 0) {
           updateTableColumns(
             connectionId,
-            dbName,
+            catalogName,
             schemaName,
             tableName,
             columns.map(c => ({
@@ -574,7 +572,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         }
       }
 
-      await loadColumnsFromDb(connectionId, dbName, schemaName, tableName)
+      await loadColumnsFromDb(connectionId, catalogName, schemaName, tableName)
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载列信息失败'
       console.error('加载列信息失败:', e)
@@ -585,7 +583,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   async function loadColumnsFromDb(
     connectionId: string,
-    dbName: string,
+    catalogName: string,
     schemaName: string,
     tableName: string
   ) {
@@ -593,7 +591,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
     const columnMetas = await databaseApi.loadColumns(
-      connectionId, dbName, schemaName, tableName, connType, projectPath
+      connectionId, catalogName, schemaName, tableName, connType, projectPath
     )
 
     const columns = columnMetas.map(col => ({
@@ -612,7 +610,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         default_value: string | undefined
         is_primary_key: boolean
       }) => ({
-        id: generateStableCacheId(connectionId, dbName, schemaName, tableName, col.name),
+        id: generateStableCacheId(connectionId, catalogName, schemaName, tableName, col.name),
         name: col.name,
         data_type: col.data_type,
         is_nullable: col.nullable,
@@ -626,7 +624,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         await saveColumnsBatchToCache(
           connectionId,
           connType,
-          dbName,
+          catalogName,
           schemaName,
           tableName,
           columnInputs,
@@ -639,7 +637,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
     updateTableColumns(
       connectionId,
-      dbName,
+      catalogName,
       schemaName,
       tableName,
       columns.map(
@@ -662,16 +660,16 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   function updateTableColumns(
     connectionId: string,
-    dbName: string,
+    catalogName: string,
     schemaName: string,
     tableName: string,
     columns: ColumnNode[]
   ) {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (databases) {
-      const db = databases.find((d: { name: string }) => d.name === dbName)
-      if (db) {
-        const schema = db.schemas.find((s: { name: string }) => s.name === schemaName)
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (catalogs) {
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (cat) {
+        const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
         if (schema) {
           const table = schema.tables.find((t: { name: string }) => t.name === tableName)
           if (table) {
@@ -687,28 +685,28 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function refreshMetadata(connectionId: string, dbName?: string, schemaName?: string) {
+  async function refreshMetadata(connectionId: string, catalogName?: string, schemaName?: string) {
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
     await clearMetadataCache(
       connectionId,
       connType,
-      dbName || 'all',
+      catalogName || 'all',
       schemaName,
       projectPath
     ).catch(() => {})
 
     clearCache(connectionId)
 
-    if (dbName) {
-      await loadDatabases(connectionId)
-      await loadSchemas(connectionId, dbName)
+    if (catalogName) {
+      await loadCatalogs(connectionId)
+      await loadSchemas(connectionId, catalogName)
       if (schemaName) {
-        await loadTables(connectionId, dbName, schemaName)
+        await loadTables(connectionId, catalogName, schemaName)
       }
     } else {
-      await loadDatabases(connectionId)
+      await loadCatalogs(connectionId)
       startCacheWarming(connectionId)
     }
   }
@@ -719,9 +717,9 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
 
   function clearCache(connectionId?: string) {
     if (connectionId) {
-      connectionDatabases.value.delete(connectionId)
+      connectionCatalogs.value.delete(connectionId)
     } else {
-      connectionDatabases.value.clear()
+      connectionCatalogs.value.clear()
     }
   }
 
@@ -757,25 +755,25 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const results: SearchResult[] = []
     const lowerQuery = query.toLowerCase()
 
-    connectionDatabases.value.forEach((databases, connectionId) => {
-      databases.forEach(db => {
-        if (db.name.toLowerCase().includes(lowerQuery)) {
+    connectionCatalogs.value.forEach((catalogs, connectionId) => {
+      catalogs.forEach(cat => {
+        if (cat.name.toLowerCase().includes(lowerQuery)) {
           results.push({
             connectionId,
             type: 'catalog',
-            name: db.name,
-            path: db.name,
+            name: cat.name,
+            path: cat.name,
             matchType: 'name',
           })
         }
 
-        db.schemas.forEach(schema => {
+        cat.schemas.forEach(schema => {
           if (schema.name.toLowerCase().includes(lowerQuery)) {
             results.push({
               connectionId,
               type: 'schema',
               name: schema.name,
-              path: `${db.name}.${schema.name}`,
+              path: `${cat.name}.${schema.name}`,
               matchType: 'name',
             })
           }
@@ -786,7 +784,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                 connectionId,
                 type: 'table',
                 name: table.name,
-                path: `${db.name}.${schema.name}.${table.name}`,
+                path: `${cat.name}.${schema.name}.${table.name}`,
                 matchType: 'name',
               })
             }
@@ -797,7 +795,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   connectionId,
                   type: 'column',
                   name: `${table.name}.${col.name}`,
-                  path: `${db.name}.${schema.name}.${table.name}.${col.name}`,
+                  path: `${cat.name}.${schema.name}.${table.name}.${col.name}`,
                   matchType: 'name',
                   parentTable: table.name,
                 })
@@ -807,7 +805,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   connectionId,
                   type: 'column',
                   name: `${table.name}.${col.name}`,
-                  path: `${db.name}.${schema.name}.${table.name}.${col.name}`,
+                  path: `${cat.name}.${schema.name}.${table.name}.${col.name}`,
                   matchType: 'type',
                   parentTable: table.name,
                 })
@@ -821,7 +819,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                 connectionId,
                 type: 'view',
                 name: view.name,
-                path: `${db.name}.${schema.name}.${view.name}`,
+                path: `${cat.name}.${schema.name}.${view.name}`,
                 matchType: 'name',
               })
             }
@@ -832,7 +830,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   connectionId,
                   type: 'column',
                   name: `${view.name}.${col.name}`,
-                  path: `${db.name}.${schema.name}.${view.name}.${col.name}`,
+                  path: `${cat.name}.${schema.name}.${view.name}.${col.name}`,
                   matchType: 'name',
                   parentTable: view.name,
                 })
@@ -851,32 +849,31 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     clearCache(connectionId)
   }
 
-  function getDatabaseSchemas(connectionId: string, dbName: string): SchemaNode[] {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (!databases) return []
-    const db = databases.find(d => d.name === dbName)
-    if (!db) return []
-    return db.schemas || []
+  function getCatalogSchemas(connectionId: string, catalogName: string): SchemaNode[] {
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (!catalogs) return []
+    const cat = catalogs.find(c => c.name === catalogName)
+    if (!cat) return []
+    return cat.schemas || []
   }
 
-  function getSchemaTables(connectionId: string, dbName: string, schemaName: string): TableNode[] {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (!databases) return []
-    const db = databases.find(d => d.name === dbName)
-    if (!db) return []
-    // 无 Schema 的数据库：返回 db.tables
-    if (db.schemas.length === 0) return db.tables || []
-    const schema = db.schemas.find(s => s.name === schemaName)
-    if (!schema) return db.tables || []
+  function getSchemaTables(connectionId: string, catalogName: string, schemaName: string): TableNode[] {
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (!catalogs) return []
+    const cat = catalogs.find(c => c.name === catalogName)
+    if (!cat) return []
+    if (cat.schemas.length === 0) return cat.tables || []
+    const schema = cat.schemas.find(s => s.name === schemaName)
+    if (!schema) return cat.tables || []
     return schema.tables || []
   }
 
-  function getSchemaViews(connectionId: string, dbName: string, schemaName: string): ViewNode[] {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (!databases) return []
-    const db = databases.find(d => d.name === dbName)
-    if (!db) return []
-    const schema = db.schemas.find(s => s.name === schemaName)
+  function getSchemaViews(connectionId: string, catalogName: string, schemaName: string): ViewNode[] {
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (!catalogs) return []
+    const cat = catalogs.find(c => c.name === catalogName)
+    if (!cat) return []
+    const schema = cat.schemas.find(s => s.name === schemaName)
     if (!schema) return []
     return schema.views || []
   }
@@ -885,7 +882,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
   }
 
-  async function executeSql(connectionId: string, _dbName: string, sql: string): Promise<unknown> {
+  async function executeSql(connectionId: string, _catalogName: string, sql: string): Promise<unknown> {
     return await executeSqlService(connectionId, sql)
   }
 
@@ -894,27 +891,27 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   }
 
   async function startCacheWarming(connectionId: string): Promise<void> {
-    const databases = connectionDatabases.value.get(connectionId)
-    if (!databases || databases.length === 0) return
+    const catalogs = connectionCatalogs.value.get(connectionId)
+    if (!catalogs || catalogs.length === 0) return
 
     const t0 = performance.now()
 
-    const targetDbs = databases.filter(db => db.name !== 'default')
-    if (targetDbs.length === 0) return
+    const targetCatalogs = catalogs.filter(cat => cat.name !== 'default')
+    if (targetCatalogs.length === 0) return
 
-    // Phase 1: 并行加载所有数据库的 Schema
+    // Phase 1: 并行加载所有 Catalog 的 Schema
     const schemaResults = await Promise.allSettled(
-      targetDbs.map(db => loadSchemas(connectionId, db.name))
+      targetCatalogs.map(cat => loadSchemas(connectionId, cat.name))
     )
 
     // Phase 2: 收集所有 Schema，并行加载表
     const tablePromises: Promise<void>[] = []
-    for (const db of targetDbs) {
-      const schemas = getDatabaseSchemas(connectionId, db.name)
+    for (const cat of targetCatalogs) {
+      const schemas = getCatalogSchemas(connectionId, cat.name)
       for (const schema of schemas) {
         if (schema.name === 'default') continue
         tablePromises.push(
-          loadTables(connectionId, db.name, schema.name).catch(() => {})
+          loadTables(connectionId, cat.name, schema.name).catch(() => {})
         )
       }
     }
@@ -925,13 +922,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const colLevel = introspectionLevels.value.get(connectionId) || 'level3'
     if (colLevel !== 'level1') {
       const columnPromises: Promise<void>[] = []
-      for (const db of targetDbs) {
-        const schemas = getDatabaseSchemas(connectionId, db.name)
+      for (const cat of targetCatalogs) {
+        const schemas = getCatalogSchemas(connectionId, cat.name)
         for (const schema of schemas) {
-          const tables = getSchemaTables(connectionId, db.name, schema.name)
+          const tables = getSchemaTables(connectionId, cat.name, schema.name)
           for (const table of tables.slice(0, 10)) {
             columnPromises.push(
-              loadColumns(connectionId, db.name, schema.name, table.name).catch(() => {})
+              loadColumns(connectionId, cat.name, schema.name, table.name).catch(() => {})
             )
           }
         }
@@ -948,7 +945,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const elapsed = (performance.now() - t0).toFixed(0)
     console.log(
       `[CacheWarming] 连接 ${connectionId} 缓存预热完成 ` +
-      `(耗时 ${elapsed}ms, DB=${targetDbs.length}, schema结果=${schemaResults.length}, ` +
+      `(耗时 ${elapsed}ms, Catalog=${targetCatalogs.length}, schema结果=${schemaResults.length}, ` +
       `table任务=${tablePromises.length}, column任务=${colTaskCount})`
     )
   }
@@ -965,14 +962,14 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   }
 
   return {
-    connectionDatabases,
+    connectionCatalogs,
     selectedObject,
     error,
-    getDatabases,
-    getDatabaseSchemas,
+    getCatalogs,
+    getCatalogSchemas,
     getSchemaTables,
     getSchemaViews,
-    isLoadingDatabases,
+    isLoadingCatalogs,
     isLoadingSchemas,
     isLoadingTables,
     setConnectionInfo,
@@ -981,7 +978,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     getProjectPath,
     setIntrospectionLevel,
     getIntrospectionLevel,
-    loadDatabases,
+    loadCatalogs,
     loadSchemas,
     loadTables,
     loadViews,
@@ -1005,7 +1002,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   }
 })
 
-interface DatabaseNode {
+interface CatalogNode {
   name: string
   schemas: SchemaNode[]
   /** 无 Schema 的数据库（如 MySQL）直接在此存储表 */
@@ -1065,8 +1062,8 @@ interface ColumnNode {
 
 interface SelectedObject {
   name: string
-  kind: 'database' | 'schema' | 'table' | 'view' | 'column'
-  database?: string
+  kind: 'catalog' | 'schema' | 'table' | 'view' | 'column'
+  catalog?: string
   schema?: string
   table?: string
   connectionId: string

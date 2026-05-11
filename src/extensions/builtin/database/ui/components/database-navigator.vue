@@ -239,17 +239,17 @@ const {
 const statusText = computed(() => {
   const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
   const totalConnections = allConnections.length
-  let totalDatabases = 0
+  let totalCatalogs = 0
   let totalTables = 0
   let totalViews = 0
 
   allConnections.forEach(conn => {
-    const databases = navigatorStore.getDatabases(conn.id)
-    totalDatabases += databases.length
+    const catalogs = navigatorStore.getCatalogs(conn.id)
+    totalCatalogs += catalogs.length
 
-    databases.forEach(db => {
-      if (!db.schemas) return
-      db.schemas.forEach(schema => {
+    catalogs.forEach(cat => {
+      if (!cat.schemas) return
+      cat.schemas.forEach(schema => {
         totalTables += schema.tables?.length || 0
         totalViews += schema.views?.length || 0
       })
@@ -258,7 +258,7 @@ const statusText = computed(() => {
 
   return t('navigator.statusSummary', {
     connections: totalConnections,
-    databases: totalDatabases,
+    catalogs: totalCatalogs,
     tables: totalTables,
     views: totalViews,
   })
@@ -287,18 +287,18 @@ function initializeRootNodes() {
   setRootNodes(rootNodes)
 
   for (const conn of globalConns) {
-    const databases = navigatorStore.getDatabases(conn.id)
-    if (databases.length > 0) {
-      const dbNames = databases.map(db => db.name)
-      cacheWarming.warmConnection(conn.id, 'global', dbNames).catch(() => {})
+    const catalogs = navigatorStore.getCatalogs(conn.id)
+    if (catalogs.length > 0) {
+      const catalogNames = catalogs.map(cat => cat.name)
+      cacheWarming.warmConnection(conn.id, 'global', catalogNames).catch(() => {})
     }
   }
   for (const conn of projectConns) {
-    const databases = navigatorStore.getDatabases(conn.id)
-    if (databases.length > 0) {
-      const dbNames = databases.map(db => db.name)
+    const catalogs = navigatorStore.getCatalogs(conn.id)
+    if (catalogs.length > 0) {
+      const catalogNames = catalogs.map(cat => cat.name)
       const projectPath = navigatorStore.getProjectPath(conn.id)
-      cacheWarming.warmConnection(conn.id, 'project', dbNames, projectPath).catch(() => {})
+      cacheWarming.warmConnection(conn.id, 'project', catalogNames, projectPath).catch(() => {})
     }
   }
 }
@@ -392,7 +392,7 @@ const handleRefresh = async () => {
 
     for (const conn of allConnections) {
       navigatorStore.clearCache(conn.id)
-      await navigatorStore.loadDatabases(conn.id)
+      await navigatorStore.loadCatalogs(conn.id)
     }
 
     initializeRootNodes()
@@ -702,7 +702,7 @@ const handleContextMenuRefresh = async () => {
   if (contextMenuCurrentNode.value?.data?.connectionId) {
     const connId = contextMenuCurrentNode.value.data.connectionId as string
     clearConnection(connId)
-    await navigatorStore.loadDatabases(connId)
+    await navigatorStore.loadCatalogs(connId)
     initializeRootNodes()
   }
 }

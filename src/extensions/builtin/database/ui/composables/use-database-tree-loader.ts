@@ -57,7 +57,7 @@ export function useDatabaseTreeLoader() {
     conn: ProjectConnection | GlobalConnection,
     scope: 'global' | 'project'
   ): VirtualTreeNode {
-    const databases = navigatorStore.getDatabases(conn.id)
+    const catalogs = navigatorStore.getCatalogs(conn.id)
     const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(conn.id)
     const key = NodeKeyEncoder.encode(['connection', scope, conn.id])
 
@@ -70,7 +70,7 @@ export function useDatabaseTreeLoader() {
       type: 'connection',
       data: { connectionId: conn.id, driver: conn.driver, scope },
       parentId: null,
-      childCount: databases.length,
+      childCount: catalogs.length,
       connectionTags: [scope === 'global' ? '全局' : '项目'],
       connectionStatus: hasRuntimeConn ? 'connected' : 'disconnected',
     }
@@ -83,19 +83,19 @@ export function useDatabaseTreeLoader() {
     connectionId: string,
     scope: 'global' | 'project'
   ): VirtualTreeNode[] {
-    const databases = navigatorStore.getDatabases(connectionId)
+    const catalogs = navigatorStore.getCatalogs(connectionId)
     const parentKey = NodeKeyEncoder.encode(['connection', scope, connectionId])
 
-    return databases.map(db => ({
-      key: NodeKeyEncoder.encode(['catalog', connectionId, db.name]),
+    return catalogs.map(cat => ({
+      key: NodeKeyEncoder.encode(['catalog', connectionId, cat.name]),
       level: 1,
       isExpanded: false,
       isLeaf: false,
-      label: db.name,
+      label: cat.name,
       type: 'catalog',
-      data: { connectionId, dbName: db.name },
+      data: { connectionId, catalogName: cat.name },
       parentId: parentKey,
-      childCount: db.schemas?.length || 0,
+      childCount: cat.schemas?.length || 0,
     }))
   }
 
@@ -107,7 +107,7 @@ export function useDatabaseTreeLoader() {
     dbName: string,
     config: NavigationConfig
   ): VirtualTreeNode[] {
-    const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+    const schemas = navigatorStore.getCatalogSchemas(connectionId, dbName)
     const parentKey = NodeKeyEncoder.encode(['catalog', connectionId, dbName])
 
     return schemas
@@ -377,7 +377,7 @@ export function useDatabaseTreeLoader() {
     schemaName: string | undefined
   ): VirtualTreeNode[] {
     const schema = navigatorStore
-      .getDatabaseSchemas(connectionId, dbName)
+      .getCatalogSchemas(connectionId, dbName)
       .find(s => s.name === (schemaName || ''))
 
     if (!schema || !schema.procedures) return []
@@ -408,7 +408,7 @@ export function useDatabaseTreeLoader() {
     schemaName: string | undefined
   ): VirtualTreeNode[] {
     const schema = navigatorStore
-      .getDatabaseSchemas(connectionId, dbName)
+      .getCatalogSchemas(connectionId, dbName)
       .find(s => s.name === (schemaName || ''))
 
     if (!schema || !schema.functions) return []
@@ -691,17 +691,17 @@ export function useDatabaseTreeLoader() {
         const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(connId)
 
         if (hasRuntimeConn) {
-          await navigatorStore.loadDatabases(connId)
+          await navigatorStore.loadCatalogs(connId)
         }
 
         if (config.hasCatalogs) {
           return createCatalogNodes(connId, scope)
         }
 
-        const databases = navigatorStore.getDatabases(connId)
-        const defaultDbName = databases[0]?.name || 'main'
+        const catalogs = navigatorStore.getCatalogs(connId)
+        const defaultCatalogName = catalogs[0]?.name || 'main'
         const connKey = NodeKeyEncoder.encode(['connection', scope, connId])
-        return createCatalogObjectNodes(connId, defaultDbName, config, connKey, 1)
+        return createCatalogObjectNodes(connId, defaultCatalogName, config, connKey, 1)
       }
 
       // Level 1: Catalog 节点 → Schema 或对象文件夹

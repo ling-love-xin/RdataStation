@@ -8,10 +8,10 @@
 import { invoke } from '@tauri-apps/api/core'
 
 /**
- * 数据库元数据 — 树形导航根节点
+ * Catalog 元数据 — 树形导航根节点
  */
-export interface IDatabaseMeta {
-  /** 数据库名称 */
+export interface ICatalogMeta {
+  /** Catalog 名称 */
   name: string
   /** Schema 列表 */
   schemas?: ISchemaMeta[]
@@ -97,29 +97,14 @@ export interface IColumnMeta {
  * @param connectionId - 连接标识符
  * @param connectionType - 连接类型（global / project），影响 L2 磁盘缓存路径
  * @param projectPath - 项目路径（project 连接需要）
- * @returns 数据库元数据树形数组
+ * @returns Catalog 元数据数组
  */
 export async function loadCatalogs(
   connectionId: string,
   connectionType?: string,
   projectPath?: string
-): Promise<IDatabaseMeta[]> {
-  return await invoke<IDatabaseMeta[]>('load_catalogs', {
-    connId: connectionId,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
-}
-
-/**
- * @deprecated 请使用 loadCatalogs()
- */
-export async function loadDatabases(
-  connectionId: string,
-  connectionType?: string,
-  projectPath?: string
-): Promise<IDatabaseMeta[]> {
-  return await invoke<IDatabaseMeta[]>('load_databases', {
+): Promise<ICatalogMeta[]> {
+  return await invoke<ICatalogMeta[]>('load_catalogs', {
     connId: connectionId,
     connectionType: connectionType ?? null,
     projectPath: projectPath ?? null,
@@ -130,20 +115,20 @@ export async function loadDatabases(
  * 加载 Schema 列表
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param connectionType - 连接类型（global / project）
  * @param projectPath - 项目路径（project 连接需要）
  * @returns Schema 元数据数组
  */
 export async function loadSchemas(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   connectionType?: string,
   projectPath?: string
 ): Promise<ISchemaMeta[]> {
   return await invoke<ISchemaMeta[]>('load_schemas', {
     connId: connectionId,
-    dbName,
+    dbName: catalogName,
     connectionType: connectionType ?? null,
     projectPath: projectPath ?? null,
   })
@@ -153,7 +138,7 @@ export async function loadSchemas(
  * 加载表列表
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
  * @param connectionType - 连接类型（global / project）
  * @param projectPath - 项目路径（project 连接需要）
@@ -161,14 +146,14 @@ export async function loadSchemas(
  */
 export async function loadTables(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   schemaName: string,
   connectionType?: string,
   projectPath?: string
 ): Promise<ITableMeta[]> {
   return await invoke<ITableMeta[]>('load_tables', {
     connId: connectionId,
-    dbName,
+    dbName: catalogName,
     schemaName,
     connectionType: connectionType ?? null,
     projectPath: projectPath ?? null,
@@ -179,7 +164,7 @@ export async function loadTables(
  * 加载视图列表
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
  * @param connectionType - 连接类型（global / project）
  * @param projectPath - 项目路径（project 连接需要）
@@ -187,14 +172,14 @@ export async function loadTables(
  */
 export async function loadViews(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   schemaName: string,
   connectionType?: string,
   projectPath?: string
 ): Promise<IViewMeta[]> {
   return await invoke<IViewMeta[]>('load_views', {
     connId: connectionId,
-    dbName,
+    dbName: catalogName,
     schemaName,
     connectionType: connectionType ?? null,
     projectPath: projectPath ?? null,
@@ -205,7 +190,7 @@ export async function loadViews(
  * 加载列信息
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
  * @param tableName - 表名或视图名
  * @param connectionType - 连接类型（global / project）
@@ -214,7 +199,7 @@ export async function loadViews(
  */
 export async function loadColumns(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   schemaName: string,
   tableName: string,
   connectionType?: string,
@@ -222,7 +207,7 @@ export async function loadColumns(
 ): Promise<IColumnMeta[]> {
   return await invoke<IColumnMeta[]>('load_columns', {
     connId: connectionId,
-    dbName,
+    dbName: catalogName,
     schemaName,
     tableName,
     connectionType: connectionType ?? null,
@@ -234,18 +219,18 @@ export async function loadColumns(
  * 加载存储过程列表
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
  * @returns 存储过程名数组
  */
 export async function loadProcedures(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   schemaName: string
 ): Promise<{ name: string }[]> {
   return await invoke<{ name: string }[]>('load_procedures', {
     connectionId,
-    dbName,
+    dbName: catalogName,
     schemaName,
   })
 }
@@ -254,18 +239,18 @@ export async function loadProcedures(
  * 加载函数列表
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
  * @returns 函数名数组
  */
 export async function loadFunctions(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   schemaName: string
 ): Promise<{ name: string }[]> {
   return await invoke<{ name: string }[]>('load_functions', {
     connectionId,
-    dbName,
+    dbName: catalogName,
     schemaName,
   })
 }
@@ -275,7 +260,7 @@ export async function loadFunctions(
  * R15 新增 — get_routine_source() trait 方法 + L1 缓存
  *
  * @param connectionId - 连接标识符
- * @param dbName - 数据库（Catalog）名称
+ * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
  * @param routineName - 例程名（过程或函数名）
  * @param routineKind - 例程类型（PROCEDURE / FUNCTION）
@@ -289,14 +274,14 @@ export interface RoutineSourceMeta {
 
 export async function loadRoutineSource(
   connectionId: string,
-  dbName: string,
+  catalogName: string,
   schemaName: string,
   routineName: string,
   routineKind: string
 ): Promise<RoutineSourceMeta> {
   return await invoke<RoutineSourceMeta>('load_routine_source', {
     connId: connectionId,
-    dbName,
+    dbName: catalogName,
     schemaName,
     routineName,
     routineKind,

@@ -299,13 +299,13 @@ impl Database for DuckDbDatabase {
         Ok(())
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+    async fn list_catalogs(&self) -> Result<Vec<String>, CoreError> {
         Ok(vec!["main".to_string()])
     }
 
     async fn list_tables(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
         let nodes = self.get_tables("main", "main").await?;
@@ -322,7 +322,7 @@ impl Database for DuckDbDatabase {
 
     async fn list_columns(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
         table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {
@@ -695,10 +695,10 @@ pub fn duckdb_rows_to_arrow(
 
 #[async_trait::async_trait]
 impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
-    async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_catalogs(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         Ok(vec![crate::core::driver::NodeInfo {
             name: "main".to_string(),
-            kind: crate::core::driver::SchemaObjectKind::Database,
+            kind: crate::core::driver::SchemaObjectKind::Catalog,
             icon: Some("database".to_string()),
             comment: None,
         }])
@@ -706,7 +706,7 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
 
     async fn get_schemas(
         &self,
-        _db: &str,
+        _catalog: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         Ok(vec![crate::core::driver::NodeInfo {
             name: "main".to_string(),
@@ -718,7 +718,7 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
 
     async fn get_tables(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let result = self.query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'main' ORDER BY table_name").await?;
@@ -760,7 +760,7 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
 
     async fn get_table_detail(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {

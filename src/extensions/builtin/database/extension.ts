@@ -13,21 +13,21 @@ import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from
 
 interface DatabaseExtensionAPI extends ExtensionAPI {
   databaseBrowser: {
-    getDatabases(connectionId: string): Promise<NavigatorNodeResponse[]>
-    getSchemas(connectionId: string, database: string): Promise<NavigatorNodeResponse[]>
+    getCatalogs(connectionId: string): Promise<NavigatorNodeResponse[]>
+    getSchemas(connectionId: string, catalog: string): Promise<NavigatorNodeResponse[]>
     getTables(
       connectionId: string,
-      database: string,
+      catalog: string,
       schema: string
     ): Promise<NavigatorNodeResponse[]>
     getViews(
       connectionId: string,
-      database: string,
+      catalog: string,
       schema: string
     ): Promise<NavigatorNodeResponse[]>
     getColumns(
       connectionId: string,
-      database: string,
+      catalog: string,
       schema: string,
       table: string
     ): Promise<NavigatorNodeResponse[]>
@@ -38,40 +38,40 @@ interface DatabaseExtensionAPI extends ExtensionAPI {
 const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
   console.log('[Database] Activating for project:', context.project.name)
 
-  const getDatabases = async (connectionId: string): Promise<NavigatorNodeResponse[]> => {
-    return navigatorApi.getDatabases(connectionId)
+  const getCatalogs = async (connectionId: string): Promise<NavigatorNodeResponse[]> => {
+    return navigatorApi.getCatalogs(connectionId)
   }
 
   const getSchemas = async (
     connectionId: string,
-    database: string
+    catalog: string
   ): Promise<NavigatorNodeResponse[]> => {
-    return navigatorApi.getSchemas(connectionId, database)
+    return navigatorApi.getSchemas(connectionId, catalog)
   }
 
   const getTables = async (
     connectionId: string,
-    database: string,
+    catalog: string,
     schema: string
   ): Promise<NavigatorNodeResponse[]> => {
-    return navigatorApi.getTables(connectionId, database, schema)
+    return navigatorApi.getTables(connectionId, catalog, schema)
   }
 
   const getViews = async (
     connectionId: string,
-    database: string,
+    catalog: string,
     schema: string
   ): Promise<NavigatorNodeResponse[]> => {
-    return navigatorApi.getViews(connectionId, database, schema)
+    return navigatorApi.getViews(connectionId, catalog, schema)
   }
 
   const getColumns = async (
     connectionId: string,
-    database: string,
+    catalog: string,
     schema: string,
     table: string
   ): Promise<NavigatorNodeResponse[]> => {
-    return navigatorApi.getColumns(connectionId, database, schema, table)
+    return navigatorApi.getColumns(connectionId, catalog, schema, table)
   }
 
   const refresh = async (connectionId: string): Promise<void> => {
@@ -89,8 +89,8 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
 
   const disposables: Disposable[] = [
     panelDisposable,
-    context.commands.registerCommand('database.getDatabases', (...args: unknown[]) =>
-      getDatabases(args[0] as string)
+    context.commands.registerCommand('database.getCatalogs', (...args: unknown[]) =>
+      getCatalogs(args[0] as string)
     ),
     context.commands.registerCommand('database.getSchemas', (...args: unknown[]) =>
       getSchemas(args[0] as string, args[1] as string)
@@ -122,7 +122,7 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
     utils: context.utils,
 
     databaseBrowser: {
-      getDatabases,
+      getCatalogs,
       getSchemas,
       getTables,
       getViews,

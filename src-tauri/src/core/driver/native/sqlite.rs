@@ -304,13 +304,13 @@ impl Database for SqliteDatabase {
         Ok(())
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+    async fn list_catalogs(&self) -> Result<Vec<String>, CoreError> {
         Ok(vec!["main".to_string()])
     }
 
     async fn list_tables(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
         let conn = self.conn.lock().map_err(|e| {
@@ -368,7 +368,7 @@ impl Database for SqliteDatabase {
 
     async fn list_columns(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
         table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {

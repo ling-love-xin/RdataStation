@@ -49,17 +49,17 @@ impl Database for JdbcDriver {
         self.meta.clone()
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+    async fn list_catalogs(&self) -> Result<Vec<String>, CoreError> {
         Ok(vec![])
     }
 
-    async fn list_schemas(&self, _db: &str) -> Result<Vec<String>, CoreError> {
+    async fn list_schemas(&self, _catalog: &str) -> Result<Vec<String>, CoreError> {
         Ok(vec![])
     }
 
     async fn list_tables(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         Ok(vec![])
@@ -67,7 +67,7 @@ impl Database for JdbcDriver {
 
     async fn list_columns(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
         _table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {

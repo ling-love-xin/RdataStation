@@ -93,7 +93,7 @@ export function useConnectionHandler() {
 
     for (const conn of allConnections) {
       clearConnection(conn.id)
-      await navigatorStore.loadDatabases(conn.id)
+      await navigatorStore.loadCatalogs(conn.id)
     }
 
     initializeRootNodes()

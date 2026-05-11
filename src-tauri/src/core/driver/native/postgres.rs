@@ -266,25 +266,25 @@ impl Database for PostgresDatabase {
         })
     }
 
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
-        self.get_databases()
+    async fn list_catalogs(&self) -> Result<Vec<String>, CoreError> {
+        self.get_catalogs()
             .await
             .map(|nodes| nodes.into_iter().map(|n| n.name).collect())
     }
 
-    async fn list_schemas(&self, db: &str) -> Result<Vec<String>, CoreError> {
-        self.get_schemas(db)
+    async fn list_schemas(&self, catalog: &str) -> Result<Vec<String>, CoreError> {
+        self.get_schemas(catalog)
             .await
             .map(|nodes| nodes.into_iter().map(|n| n.name).collect())
     }
 
     async fn list_tables(
         &self,
-        db: &str,
+        catalog: &str,
         schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
-        let nodes = self.get_tables(db, schema_name).await?;
+        let nodes = self.get_tables(catalog, schema_name).await?;
         Ok(nodes
             .into_iter()
             .map(|n| crate::core::driver::SchemaObject {
@@ -298,18 +298,18 @@ impl Database for PostgresDatabase {
 
     async fn list_columns(
         &self,
-        _db: &str,
+        _catalog: &str,
         schema: Option<&str>,
         table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {
         let schema_name = schema.unwrap_or("public");
-        let detail = self.get_table_detail(_db, schema_name, table).await?;
+        let detail = self.get_table_detail(_catalog, schema_name, table).await?;
         Ok(detail.columns)
     }
 
     async fn list_procedures(
         &self,
-        _db: &str,
+        _catalog: &str,
         schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
@@ -329,7 +329,7 @@ impl Database for PostgresDatabase {
 
     async fn list_functions(
         &self,
-        _db: &str,
+        _catalog: &str,
         schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let schema_name = schema.unwrap_or("public");
@@ -346,7 +346,7 @@ impl Database for PostgresDatabase {
 
     async fn get_routine_source(
         &self,
-        _db: &str,
+        _catalog: &str,
         schema: Option<&str>,
         name: &str,
         kind: SchemaObjectKind,
@@ -579,21 +579,21 @@ fn postgres_rows_to_arrow(
 
 #[async_trait::async_trait]
 impl crate::core::driver::MetadataBrowser for PostgresDatabase {
-    async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_catalogs(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let result = self.query("SELECT datname FROM pg_catalog.pg_database WHERE datistemplate = false ORDER BY datname").await?;
         Ok(rows_to_node_info(
             &result,
-            crate::core::driver::SchemaObjectKind::Database,
+            crate::core::driver::SchemaObjectKind::Catalog,
             "database",
         ))
     }
 
-    async fn get_schemas(&self, db: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_schemas(&self, catalog: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let sql = format!(
             "SELECT schema_name FROM information_schema.schemata \
              WHERE catalog_name = '{}' AND schema_name NOT IN ('pg_catalog', 'information_schema') \
              ORDER BY schema_name",
-            escape_sql_string(db)
+            escape_sql_string(catalog)
         );
         let result = self.query(&sql).await?;
         Ok(rows_to_node_info(
@@ -605,13 +605,13 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
 
     async fn get_tables(
         &self,
-        db: &str,
+        catalog: &str,
         schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let sql = format!(
             "SELECT table_name, table_type FROM information_schema.tables \
              WHERE table_catalog = '{}' AND table_schema = '{}' ORDER BY table_name",
-            escape_sql_string(db),
+            escape_sql_string(catalog),
             escape_sql_string(schema)
         );
         let result = self.query(&sql).await?;
@@ -648,13 +648,13 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
 
     async fn get_table_detail(
         &self,
-        db: &str,
+        catalog: &str,
         schema: &str,
         table: &str,
     ) -> Result<crate::core::driver::NodeDetail, CoreError> {
         let safe_schema = escape_sql_string(schema);
         let safe_table = escape_sql_string(table);
-        let safe_db = escape_sql_string(db);
+        let safe_catalog = escape_sql_string(catalog);
         let sql = format!(
             "SELECT column_name, data_type, is_nullable, \
              CASE WHEN column_name IN (SELECT kcu.column_name FROM information_schema.table_constraints tc \
@@ -666,7 +666,7 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
              FROM information_schema.columns \
              WHERE table_catalog = '{}' AND table_schema = '{}' AND table_name = '{}' \
              ORDER BY ordinal_position",
-            safe_schema, safe_table, safe_table, safe_db, safe_schema, safe_table
+            safe_schema, safe_table, safe_table, safe_catalog, safe_schema, safe_table
         );
         let result = self.query(&sql).await?;
         let mut columns: Vec<crate::core::driver::ColumnDetail> = Vec::new();

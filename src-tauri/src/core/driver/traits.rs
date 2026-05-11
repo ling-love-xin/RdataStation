@@ -8,7 +8,7 @@ use crate::core::models::{QueryResult, Value};
 /// Schema 对象类型
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SchemaObjectKind {
-    Database,
+    Catalog,
     Schema,
     Table,
     View,
@@ -65,21 +65,27 @@ pub struct NodeDetail {
 ///
 /// 提供统一的对象树导航能力，适用于所有数据库类型（关系型、NoSQL、图等）。
 /// 与 Database trait 分离，支持按需实现。
+///
+/// ## 树层级（SQL 标准）
+/// Server（连接本身）→ Catalog → Schema → Table/View/Procedure/Function
 #[async_trait::async_trait]
 pub trait MetadataBrowser: Send + Sync {
-    /// 获取顶层节点（数据库/Catalog）
-    async fn get_databases(&self) -> Result<Vec<NodeInfo>, CoreError>;
+    /// 获取 Catalog 列表（SQL 标准顶层容器）
+    ///
+    /// PostgreSQL 返回真实 Catalog（数据库级别），MySQL 返回 Schema 列表
+    /// （MySQL 的 database = schema），SQLite/DuckDB 返回固定值。
+    async fn get_catalogs(&self) -> Result<Vec<NodeInfo>, CoreError>;
 
     /// 获取 Schema 列表
-    async fn get_schemas(&self, db: &str) -> Result<Vec<NodeInfo>, CoreError>;
+    async fn get_schemas(&self, catalog: &str) -> Result<Vec<NodeInfo>, CoreError>;
 
     /// 获取表/视图/集合列表
-    async fn get_tables(&self, db: &str, schema: &str) -> Result<Vec<NodeInfo>, CoreError>;
+    async fn get_tables(&self, catalog: &str, schema: &str) -> Result<Vec<NodeInfo>, CoreError>;
 
     /// 获取表/视图详情（含列信息）
     async fn get_table_detail(
         &self,
-        db: &str,
+        catalog: &str,
         schema: &str,
         table: &str,
     ) -> Result<NodeDetail, CoreError>;
@@ -222,20 +228,20 @@ pub trait Database: Send + Sync {
 
     /* ===== 对象树能力（Schema 浏览） ===== */
 
-    /// 列举数据库 / catalog
-    async fn list_databases(&self) -> Result<Vec<String>, CoreError> {
+    /// 列举 Catalog（SQL 标准顶层容器）
+    async fn list_catalogs(&self) -> Result<Vec<String>, CoreError> {
         Ok(vec![])
     }
 
     /// 列举 schema（SQLite 可返回空）
-    async fn list_schemas(&self, _db: &str) -> Result<Vec<String>, CoreError> {
+    async fn list_schemas(&self, _catalog: &str) -> Result<Vec<String>, CoreError> {
         Ok(vec![])
     }
 
     /// 列举表 / 视图
     async fn list_tables(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         Ok(vec![])
@@ -244,7 +250,7 @@ pub trait Database: Send + Sync {
     /// 列举列
     async fn list_columns(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
         _table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {
@@ -254,7 +260,7 @@ pub trait Database: Send + Sync {
     /// 列举存储过程
     async fn list_procedures(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         Ok(vec![])
@@ -263,7 +269,7 @@ pub trait Database: Send + Sync {
     /// 列举函数
     async fn list_functions(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         Ok(vec![])
@@ -275,7 +281,7 @@ pub trait Database: Send + Sync {
     /// 不支持或不存在的 routine 返回 None。
     async fn get_routine_source(
         &self,
-        _db: &str,
+        _catalog: &str,
         _schema: Option<&str>,
         _name: &str,
         _kind: SchemaObjectKind, // Procedure 或 Function

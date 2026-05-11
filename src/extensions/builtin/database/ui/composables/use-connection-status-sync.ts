@@ -116,13 +116,13 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
     try {
       const connType = navigatorStore.getConnectionType(connectionId) || 'global'
       const projectPath = navigatorStore.getProjectPath(connectionId)
-      const databases = navigatorStore.getDatabases(connectionId)
+      const catalogs = navigatorStore.getCatalogs(connectionId)
 
-      if (databases.length > 0) {
+      if (catalogs.length > 0) {
         await warmConnection(
           connectionId,
           connType as 'global' | 'project',
-          databases.map((d: { name: string }) => d.name),
+          catalogs.map((d: { name: string }) => d.name),
           projectPath
         )
 

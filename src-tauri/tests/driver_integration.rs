@@ -211,12 +211,12 @@ async fn test_mysql_connect_and_ping() {
 }
 
 #[tokio::test]
-async fn test_mysql_list_databases() {
+async fn test_mysql_list_catalogs() {
     let db = MySqlDatabase::new(MYSQL_URL)
         .await
         .expect("failed to connect to MySQL");
-    let databases = db.list_databases().await.expect("failed to list databases");
-    eprintln!("MySQL databases: {:?}", databases);
+    let catalogs = db.list_catalogs().await.expect("failed to list catalogs");
+    eprintln!("MySQL catalogs: {:?}", catalogs);
 }
 
 #[tokio::test]
@@ -224,15 +224,15 @@ async fn test_mysql_list_tables() {
     let db = MySqlDatabase::new(MYSQL_URL)
         .await
         .expect("failed to connect to MySQL");
-    let databases = db.list_databases().await.expect("list_databases");
-    if let Some(database) = databases.first() {
+    let catalogs = db.list_catalogs().await.expect("list_catalogs");
+    if let Some(catalog) = catalogs.first() {
         let tables = db
-            .list_tables(database, None)
+            .list_tables(catalog, None)
             .await
             .expect("failed to list tables");
         eprintln!(
             "MySQL [{}] tables: {:?}",
-            database,
+            catalog,
             tables.iter().map(|t| &t.name).collect::<Vec<_>>()
         );
     }

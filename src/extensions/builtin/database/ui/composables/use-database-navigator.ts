@@ -41,24 +41,24 @@ export function useDatabaseNavigator() {
 
   const statusText = computed(() => {
     const totalConnections = allConnections.value.length
-    let totalDatabases = 0
+    let totalCatalogs = 0
     let totalTables = 0
     let totalViews = 0
 
     allConnections.value.forEach(conn => {
-      const databases = navigatorStore.getDatabases(conn.id)
-      totalDatabases += databases.length
+      const catalogs = navigatorStore.getCatalogs(conn.id)
+      totalCatalogs += catalogs.length
 
-      databases.forEach(db => {
-        if (!db.schemas) return
-        db.schemas.forEach(schema => {
+      catalogs.forEach(cat => {
+        if (!cat.schemas) return
+        cat.schemas.forEach(schema => {
           totalTables += schema.tables?.length || 0
           totalViews += schema.views?.length || 0
         })
       })
     })
 
-    return `连接数: ${totalConnections} | 数据库: ${totalDatabases} | 表: ${totalTables} | 视图: ${totalViews}`
+    return `连接数: ${totalConnections} | Catalog: ${totalCatalogs} | 表: ${totalTables} | 视图: ${totalViews}`
   })
 
   async function loadGlobalConnections() {
@@ -68,7 +68,7 @@ export function useDatabaseNavigator() {
 
       for (const conn of connections) {
         navigatorStore.setConnectionInfo(conn.id, 'global', undefined, conn.driver)
-        await navigatorStore.loadDatabases(conn.id)
+        await navigatorStore.loadCatalogs(conn.id)
         navigatorStore.startCacheWarming(conn.id)
       }
     } catch (error) {
@@ -88,7 +88,7 @@ export function useDatabaseNavigator() {
 
     for (const conn of projectConnectionStore.connections) {
       navigatorStore.setConnectionInfo(conn.id, 'project', projectPath, conn.driver)
-      await navigatorStore.loadDatabases(conn.id)
+      await navigatorStore.loadCatalogs(conn.id)
       navigatorStore.startCacheWarming(conn.id)
     }
   }

@@ -180,62 +180,62 @@ export interface NavigatorNodeResponse {
 // ==================== 导航器相关 API ====================
 
 export const navigatorApi = {
-  getDatabases(connId: string) {
-    return tauriInvoke<NavigatorNodeResponse[]>('get_databases', { conn_id: connId })
+  getCatalogs(connId: string) {
+    return tauriInvoke<NavigatorNodeResponse[]>('get_catalogs', { conn_id: connId })
   },
 
-  getSchemas(connId: string, database: string) {
+  getSchemas(connId: string, catalog: string) {
     return tauriInvoke<NavigatorNodeResponse[]>('get_schemas', {
       conn_id: connId,
-      database,
+      database: catalog,
     })
   },
 
-  getTables(connId: string, database: string, schema: string) {
+  getTables(connId: string, catalog: string, schema: string) {
     return tauriInvoke<NavigatorNodeResponse[]>('get_tables', {
       conn_id: connId,
-      database,
+      database: catalog,
       schema,
     })
   },
 
-  getViews(connId: string, database: string, schema: string) {
+  getViews(connId: string, catalog: string, schema: string) {
     return tauriInvoke<NavigatorNodeResponse[]>('get_views', {
       conn_id: connId,
-      database,
+      database: catalog,
       schema,
     })
   },
 
-  getColumns(connId: string, database: string, schema: string, table: string) {
+  getColumns(connId: string, catalog: string, schema: string, table: string) {
     return tauriInvoke<NavigatorNodeResponse[]>('get_columns', {
       conn_id: connId,
-      database,
+      database: catalog,
       schema,
       table,
     })
   },
 
   // 旧版兼容 API
-  listDatabases(connId: string) {
-    return tauriInvoke<string[]>('list_databases', { conn_id: connId })
+  listCatalogs(connId: string) {
+    return tauriInvoke<string[]>('list_catalogs', { conn_id: connId })
   },
 
-  listSchemas(connId: string, database: string) {
-    return tauriInvoke<string[]>('list_schemas', { conn_id: connId, database })
+  listSchemas(connId: string, catalog: string) {
+    return tauriInvoke<string[]>('list_schemas', { conn_id: connId, database: catalog })
   },
 
-  listTables(connId: string, database: string, schema?: string) {
+  listTables(connId: string, catalog: string, schema?: string) {
     return tauriInvoke<SchemaObject[]>('list_tables', {
       conn_id: connId,
-      database,
+      database: catalog,
       schema,
     })
   },
 
-  listColumns(connId: string, database: string, schema: string | null, table: string) {
+  listColumns(connId: string, catalog: string, schema: string | null, table: string) {
     return tauriInvoke<SchemaObject[]>('list_columns',
-      { conn_id: connId, database, schema, table }
+      { conn_id: connId, database: catalog, schema, table }
     )
   },
 }

@@ -7,7 +7,7 @@ export interface NavigatorNode {
   name: string
   type:
     | 'connection'
-    | 'database'
+    | 'catalog'
     | 'schema'
     | 'table'
     | 'view'

@@ -73,7 +73,7 @@ export function useIncrementalRefresh() {
         case 'connection':
           result = await refreshConnection(keyParts, opts)
           break
-        case 'database':
+        case 'catalog':
           result = await refreshDatabase(keyParts, opts)
           break
         case 'schema':
@@ -120,13 +120,13 @@ export function useIncrementalRefresh() {
     const affectedKeys: string[] = []
 
     try {
-      await navigatorStore.loadDatabases(connectionId)
+      await navigatorStore.loadCatalogs(connectionId)
       affectedKeys.push(keyParts.join(':'))
 
       if (options.recursive) {
-        const databases = navigatorStore.getDatabases(connectionId)
-        for (const db of databases) {
-          affectedKeys.push(`database:${connectionId}:${db.name}`)
+        const catalogs = navigatorStore.getCatalogs(connectionId)
+        for (const cat of catalogs) {
+          affectedKeys.push(`catalog:${connectionId}:${cat.name}`)
         }
       }
 
@@ -157,7 +157,7 @@ export function useIncrementalRefresh() {
       affectedKeys.push(keyParts.join(':'))
 
       if (options.recursive) {
-        const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+        const schemas = navigatorStore.getCatalogSchemas(connectionId, dbName)
         for (const schema of schemas) {
           affectedKeys.push(`schema:${connectionId}:${dbName}:${schema.name}`)
         }
@@ -378,12 +378,12 @@ export function useIncrementalRefresh() {
 
     switch (nodeType) {
       case 'connection': {
-        const databases = navigatorStore.getDatabases(connectionId)
-        return JSON.stringify(databases.map(db => db.name))
+        const catalogs = navigatorStore.getCatalogs(connectionId)
+        return JSON.stringify(catalogs.map(cat => cat.name))
       }
-      case 'database': {
+      case 'catalog': {
         const dbName = keyParts[2]
-        const schemas = navigatorStore.getDatabaseSchemas(connectionId, dbName)
+        const schemas = navigatorStore.getCatalogSchemas(connectionId, dbName)
         return JSON.stringify(schemas.map(s => s.name))
       }
       case 'schema': {

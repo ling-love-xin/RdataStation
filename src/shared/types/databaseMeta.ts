@@ -14,7 +14,7 @@ import type { DatabaseType } from './sql'
  * 对应 Rust `SchemaObjectKind` 枚举。
  */
 export type SchemaObjectKind =
-  | 'Database'
+  | 'Catalog'
   | 'Schema'
   | 'Table'
   | 'View'
@@ -164,7 +164,7 @@ export interface NavigatorNode {
   name: string
   type:
     | 'connection'
-    | 'database'
+    | 'catalog'
     | 'schema'
     | 'table'
     | 'view'
