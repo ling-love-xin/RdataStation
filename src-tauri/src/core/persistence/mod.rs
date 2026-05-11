@@ -23,6 +23,7 @@ pub mod insight_meta_store;
 pub mod insight_store;
 pub mod log_store;
 pub mod metadata_cache;
+pub mod metadata_cache_pool;
 pub mod project_connection_store;
 pub mod project_db;
 pub mod project_store;
@@ -42,6 +43,7 @@ pub use insight_store::{
     InsightTableReportStore, InsightVersionEntry,
 };
 pub use metadata_cache::{ConnectionType, MetadataCacheManager, MetadataCacheOps};
+pub use metadata_cache_pool::{MetadataCachePool, PooledMetadataConnection};
 pub use project_db::{ProjectDatabaseManager, ProjectDuckdbConnection, ProjectSqlitePool};
 pub use sql_template_store::{SqlTemplate, SqlTemplateStore};
 pub use workbench_context_store::{EditorContext, WorkbenchContextStore, WorkbenchLayout};

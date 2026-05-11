@@ -68,87 +68,64 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 连接池架构选型分析
+## 连接池双层架构
 
-### 为什么选择 sqlx Pool
+RdataStation 采用 **SmartPool + StandardPool** 双层连接池架构，将系统内置库与用户数据源完全隔离。
 
-RdataStation 使用 Rust 异步生态中事实标准的 **sqlx::Pool** 作为连接池底座，它是编译期安全、零成本抽象的 async 连接池。
+### 架构全景
 
 ```
-sqlx::Pool<MySql> / sqlx::Pool<Postgres>
-  ├── compile-time checked queries (SQL 编译期校验)
-  ├── async/await native (Tokio runtime)
-  ├── connection reuse (内置连接复用)
-  ├── health check (idle timeout + max lifetime)
-  └── prepared statement cache
+SmartPool（守护系统内置库）                 StandardPool（用户数据源）
+├── 应用级 SQLite（global.db）              ├── 用户连接的 MySQL
+├── 项目级 SQLite（project.db）             ├── 用户连接的 PostgreSQL
+├── 连接元数据 SQLite（conn_{id}.sqlite）   ├── 用户连接的 SQLite（外部 .db）
+├── 应用级 DuckDB（analytics.duckdb）       └── 用户连接的 DuckDB（外部 .duckdb）
+└── 项目级 DuckDB（analytics.duckdb）
 ```
 
-**核心代码位置**: [smart_pool.rs:L21-L64](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs#L21-L64)
+| 维度 | SmartPool | StandardPool |
+|------|-----------|-------------|
+| 管理对象 | 系统内置库（RdataStation 自身依赖） | 用户数据源（用户外部数据库） |
+| 生命周期 | 应用/项目级别（启动→关闭） | 连接级别（连接→断开） |
+| 配置方式 | 应用开发者硬编码 | 用户在连接页面手动设置 |
+| 失败处理 | 系统级故障（需要立即告警） | 用户级故障（提示并允许重试） |
+| 动态扩缩容 | ✅ 延迟感知 + 内存压力感知 | ❌ 固定大小（用户配置） |
+| 代码位置 | [smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs) | [standard_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/standard_pool.rs) |
 
-`SmartPoolConfig` 默认值:
+### 设计原则：生命周期决定池策略
 
-| 参数 | 值 | 说明 |
-|------|:--:|------|
-| `min_connections` | 2 | 最小保持连接数 |
-| `max_connections` | 20 | 最大连接数上限 |
-| `initial_connections` | 2 | 预热连接数 |
-| `acquire_timeout` | 30s | 获取连接超时 |
-| `idle_timeout` | 600s | 空闲连接回收时限 |
-| `max_lifetime` | 1800s | 连接最大生命周期 |
-| `health_check_interval` | 60s | 健康检查间隔 |
-| `enable_dynamic_scaling` | true | 动态扩缩容 |
-| `scaling_threshold_ms` | 100 | 扩容延迟阈值 |
-| `scale_up_step` | 2 | 每次扩容 +2 连接 |
-| `scale_down_step` | 1 | 每次缩容 -1 连接 |
+SmartPool 管理的系统库生命周期跟随应用/项目，**应用启动时即创建，应用关闭时销毁**：
+- [GlobalSqlitePool](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/global_db.rs#L48-L188) — 管理 `global.db`，`Semaphore` 并发控制 + WAL 模式
+- [ProjectSqlitePool](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs#L23-L254) — 管理 `project.db`，RAII `SqlitePoolConnection` 自动归还
+- [MetadataCachePool](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/metadata_cache_pool.rs) — 管理连接元数据 SQLite，Semaphore + 预建连接池
+
+StandardPool 管理的用户库生命周期跟随用户连接，**连接建立时创建池，连接断开时销毁**：
+- [SqlitePoolWrapper](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite_pool.rs) — 外部的 `.db` 文件，预建连接复用
+- [DuckDbPoolWrapper](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb_pool.rs) — 外部的 `.duckdb` 文件，单连接模式
+- MySQL/PG 使用 sqlx::Pool（sqlx 内置连接池）
+
+### SQLite / DuckDB 的双重身份
+
+| 数据库 | 角色 A：内置系统库 | 角色 B：用户连接的数据源 |
+|--------|-------------------|-------------------------|
+| SQLite | 应用级 `global.db`、项目级 `project.db`、连接元数据 `conn_{id}.sqlite` | 用户通过驱动连接的外部 `.db` 文件 |
+| DuckDB | 应用级 `analytics.duckdb`、项目级 `analytics.duckdb` | 用户通过驱动连接的外部 `.duckdb` 文件 |
+
+> 角色 A 由 SmartPool 管理，角色 B 由 StandardPool 管理，两者代码路径完全独立，
+> 不在同一个 `DbPool` trait 体系下共享生命周期。
+
+### StandardPool 用户可配置参数
+
+| 参数 | 默认值 | SQLite 推荐 | DuckDB 推荐 | 网络数据库推荐 |
+|------|:------:|:-----------:|:-----------:|:-------------:|
+| `min_connections` | 2 | 1 | 1 | 2 |
+| `max_connections` | 20 | 5 | 1 | 20 |
+| `idle_timeout_secs` | 600 | 300 | 1800 | 600 |
+| `max_lifetime_secs` | 1800 | 3600 | 7200 | 1800 |
+| `acquire_timeout_secs` | 30 | 10 | 30 | 30 |
+| `health_check_enabled` | true | true | true | true |
 
 ### sqlx Pool vs 竞品连接池
-
-| 维度 | RdataStation sqlx Pool | DBeaver 26 DBCP2 | DataGrip 2026 HikariCP |
-|------|:----------------------|:-----------------|:-----------------------|
-| **语言/运行时** | Rust async (Tokio) | Java (JDBC, blocking) | Java (JDBC, blocking) |
-| **线程模型** | async 绿色线程，无阻塞 | 线程池 + 同步 wait | 线程池 + 同步 wait |
-| **SQL 校验** | 编译期（SQL 语法树验证） | 运行时（发送到 DB） | 运行时（发送到 DB） |
-| **连接复用** | sqlx 内置 | DBCP2 连接池 | HikariCP 连接池 |
-| **健康检查** | idle_timeout + max_lifetime | validationQuery | connectionTestQuery |
-| **动态扩缩容** | ✅ SmartPool 自适应 | ❌ 固定大小 | ❌ 固定大小 |
-| **内存压力感知** | ✅ `MemoryPressure` 感知 | ❌ | ❌ |
-| **启动开销** | 零开销（原生编译） | JVM 类加载 ~2-5s | JVM 类加载 ~2-5s |
-| **内存占用** | <10MB (连接池) | ~50-100MB (JVM+) | ~50-100MB (JVM+) |
-| **连接预热** | ✅ `initial_connections` | ✅ `initialSize` | ✅ `minimumIdle` |
-| **Statement 缓存** | sqlx `prepare` 缓存 | ✅ `poolPreparedStatements` | ✅ `prepStmtCacheSize` |
-
-### 架构级差异：async vs blocking
-
-```
-RdataStation (async):
-  ┌─────────────────────────────────┐
-  │  Tokio Runtime (1-N worker)     │
-  │  ├── sqlx::Pool::acquire()      │ → 不阻塞线程，yield 给其他 task
-  │  │   └── 等待可用连接           │
-  │  ├── db.list_databases()        │
-  │  └── 释放连接回池               │
-  └─────────────────────────────────┘
-  ＞ 优势: 一个线程可管理数百连接，无上下文切换开销
-
-DBeaver/DataGrip (blocking):
-  ┌─────────────────────────────────┐
-  │  Thread Pool (20-50 threads)     │
-  │  ├── Connection conn = pool     │ → 阻塞线程直到获取连接
-  │  │   .getConnection(); // BLOCK │
-  │  ├── conn.getMetaData()         │
-  │  └── conn.close() // return     │
-  └─────────────────────────────────┘
-  ＞ 代价: 1连接 = 1线程，50连接需要50个OS线程
-```
-
-### SmartPool 自适应扩缩容
-
-[smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs) 提供了竞品连接池不具备的智能特性：
-
-1. **延迟感知扩容**: 当 `avg_acquire_ms > scaling_threshold_ms(100ms)` 时自动扩容
-2. **内存压力缩容**: 配合 [cache/MemoryPressure](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/cache) 系统，在内存紧张时自动释放空闲连接
-3. **连接预热**: 启动时预创建 `initial_connections` 个连接
-4. **优雅关闭**: 等待活跃查询完成后关闭，避免中断用户操作
 
 ## 核心优化特性
 

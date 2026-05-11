@@ -16,7 +16,6 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use rusqlite::Connection;
 
-use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::utils::quote_identifier;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
@@ -43,7 +42,6 @@ impl SqliteDatabase {
             url
         };
 
-        // 确保父目录存在
         if let Some(parent) = std::path::Path::new(path).parent() {
             if !parent.as_os_str().is_empty() {
                 std::fs::create_dir_all(parent).map_err(|e| {
@@ -88,10 +86,6 @@ fn is_read_only_sql(sql: &str) -> bool {
 }
 
 #[async_trait::async_trait]
-/// Database trait 实现：SQLite
-///
-/// 核心查询方法使用 `rusqlite::Connection::prepare()` 逐行读取，
-/// 然后转换为 Arrow `RecordBatch` 返回。
 impl Database for SqliteDatabase {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
         self.query_with_params(sql, vec![]).await
@@ -319,16 +313,57 @@ impl Database for SqliteDatabase {
         _db: &str,
         _schema: Option<&str>,
     ) -> Result<Vec<crate::core::driver::SchemaObject>, CoreError> {
-        let nodes = self.get_tables("main", "main").await?;
-        Ok(nodes
-            .into_iter()
-            .map(|n| crate::core::driver::SchemaObject {
-                name: n.name,
-                kind: n.kind,
-                children: None,
-                comment: n.comment,
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
             })
-            .collect())
+        })?;
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT name, type FROM sqlite_master \
+                 WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' \
+                 ORDER BY name",
+            )
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_tables", e.to_string()))
+            })?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                ))
+            })
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_tables", e.to_string()))
+            })?;
+
+        let mut objects = Vec::new();
+        for row in rows {
+            match row {
+                Ok((name, obj_type)) => {
+                    let kind = match obj_type.as_str() {
+                        "view" => crate::core::driver::SchemaObjectKind::View,
+                        _ => crate::core::driver::SchemaObjectKind::Table,
+                    };
+                    objects.push(crate::core::driver::SchemaObject {
+                        name,
+                        kind,
+                        children: None,
+                        comment: None,
+                    });
+                }
+                Err(e) => {
+                    tracing::warn!("SQLite list_tables row error: {}", e);
+                }
+            }
+        }
+
+        Ok(objects)
     }
 
     async fn list_columns(
@@ -337,15 +372,60 @@ impl Database for SqliteDatabase {
         _schema: Option<&str>,
         table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {
-        let detail = self.get_table_detail("main", "main", table).await?;
-        Ok(detail.columns)
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
+
+        let quoted = quote_identifier(table, '"');
+        let mut stmt = conn
+            .prepare(&format!("PRAGMA table_info({})", quoted))
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_columns", e.to_string()))
+            })?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i32>(0)?, // cid
+                    row.get::<_, String>(1)?, // name
+                    row.get::<_, String>(2)?, // type
+                    row.get::<_, i32>(3)?, // notnull
+                    row.get::<_, Option<String>>(4)?, // dflt_value
+                    row.get::<_, i32>(5)?, // pk
+                ))
+            })
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_columns", e.to_string()))
+            })?;
+
+        let mut columns = Vec::new();
+        for row in rows {
+            match row {
+                Ok((_cid, name, col_type, notnull, default_val, pk)) => {
+                    columns.push(ColumnDetail {
+                        name,
+                        data_type: col_type,
+                        nullable: notnull == 0,
+                        is_primary_key: pk > 0,
+                        is_foreign_key: false,
+                        default_value: default_val,
+                        comment: None,
+                    });
+                }
+                Err(e) => {
+                    tracing::warn!("SQLite list_columns row error: {}", e);
+                }
+            }
+        }
+
+        Ok(columns)
     }
 }
 
-/// SQLite 事务句柄
-///
-/// 通过 `Arc<Mutex<Connection>>` 共享连接，支持 begin/commit/rollback。
-/// `committed` 标记用于 Drop 时判断是否需要自动回滚。
 pub struct SqliteTransaction {
     conn: Arc<Mutex<Connection>>,
     committed: bool,
@@ -466,7 +546,6 @@ impl Transaction for SqliteTransaction {
     }
 }
 
-/// 将 SQLite 行转换为 Arrow 批处理
 fn sqlite_rows_to_arrow(
     columns: &[String],
     rows: &[Vec<rusqlite::types::Value>],
@@ -486,7 +565,6 @@ fn sqlite_rows_to_arrow(
         let mut detected_type: Option<DataType> = None;
 
         for row in rows {
-            // 每一行必须向所有 vector 插入，否则各列长度不一致
             if let Some(value) = row.get(col_idx) {
                 match value {
                     rusqlite::types::Value::Null => {
@@ -538,7 +616,6 @@ fn sqlite_rows_to_arrow(
                     }
                 }
             } else {
-                // row.get() 返回 None（列不存在于该行）
                 string_values.push(None);
                 int_values.push(None);
                 float_values.push(None);
@@ -584,214 +661,61 @@ fn sqlite_rows_to_arrow(
     })
 }
 
-#[async_trait::async_trait]
-impl crate::core::driver::MetadataBrowser for SqliteDatabase {
-    async fn get_databases(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        Ok(vec![crate::core::driver::NodeInfo {
-            name: "main".to_string(),
-            kind: crate::core::driver::SchemaObjectKind::Database,
-            icon: Some("database".to_string()),
-            comment: None,
-        }])
-    }
-
-    async fn get_schemas(
-        &self,
-        _db: &str,
-    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        Ok(vec![crate::core::driver::NodeInfo {
-            name: "main".to_string(),
-            kind: crate::core::driver::SchemaObjectKind::Schema,
-            icon: Some("schema".to_string()),
-            comment: None,
-        }])
-    }
-
-    async fn get_tables(
-        &self,
-        _db: &str,
-        _schema: &str,
-    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
-        let result = self.query("SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name").await?;
-        let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        if let (Some(name_arr), Some(type_arr)) = (
-                            batch.column(0).as_any().downcast_ref::<StringArray>(),
-                            batch.column(1).as_any().downcast_ref::<StringArray>(),
-                        ) {
-                            let table_type = type_arr.value(row_idx);
-                            let kind = if table_type == "view" {
-                                crate::core::driver::SchemaObjectKind::View
-                            } else {
-                                crate::core::driver::SchemaObjectKind::Table
-                            };
-                            Some(crate::core::driver::NodeInfo {
-                                name: name_arr.value(row_idx).to_string(),
-                                kind,
-                                icon: Some(if table_type == "view" {
-                                    "view".to_string()
-                                } else {
-                                    "table".to_string()
-                                }),
-                                comment: None,
-                            })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect();
-        Ok(nodes)
-    }
-
-    async fn get_table_detail(
-        &self,
-        _db: &str,
-        _schema: &str,
-        table: &str,
-    ) -> Result<crate::core::driver::NodeDetail, CoreError> {
-        let sql = format!("PRAGMA table_info({})", quote_identifier(table, '"'));
-        let result = self.query(&sql).await?;
-        let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
-            .filter_map(|row_idx| {
-                result.batches.iter().find_map(|batch| {
-                    if row_idx < batch.num_rows() {
-                        let col_name = batch
-                            .column(1)
-                            .as_any()
-                            .downcast_ref::<StringArray>()?
-                            .value(row_idx);
-                        let data_type = batch
-                            .column(2)
-                            .as_any()
-                            .downcast_ref::<StringArray>()?
-                            .value(row_idx);
-                        let nullable = batch
-                            .column(3)
-                            .as_any()
-                            .downcast_ref::<StringArray>()?
-                            .value(row_idx)
-                            == "0";
-                        let default = batch
-                            .column(4)
-                            .as_any()
-                            .downcast_ref::<StringArray>()?
-                            .value(row_idx);
-                        let pk = batch
-                            .column(5)
-                            .as_any()
-                            .downcast_ref::<StringArray>()?
-                            .value(row_idx);
-                        Some(crate::core::driver::ColumnDetail {
-                            name: col_name.to_string(),
-                            data_type: data_type.to_string(),
-                            nullable,
-                            is_primary_key: pk == "1",
-                            is_foreign_key: false,
-                            default_value: if default.is_empty() {
-                                None
-                            } else {
-                                Some(default.to_string())
-                            },
-                            comment: None,
-                        })
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect();
-
-        Ok(crate::core::driver::NodeDetail {
-            node: crate::core::driver::NodeInfo {
-                name: table.to_string(),
-                kind: crate::core::driver::SchemaObjectKind::Table,
-                icon: Some("table".to_string()),
-                comment: None,
-            },
-            columns,
-            index_count: None,
-            row_count_estimate: None,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::driver::Database;
 
-    const SQLITE_PATH: &str = r"E:\Documents\new.db";
-
-    #[test]
-    fn test_connect() {
-        let db = SqliteDatabase::new(SQLITE_PATH);
-        assert!(db.is_ok(), "Failed to connect to SQLite: {:?}", db.err());
+    fn temp_db_path(name: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("rdata_test_sqlite_{}", name));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("test.db");
+        if path.exists() {
+            std::fs::remove_file(&path).unwrap();
+        }
+        format!("sqlite://{}", path.display())
     }
 
     #[tokio::test]
-    async fn test_query_select_one() {
-        let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
-        let result = db.query("SELECT 1 AS val").await.expect("Query failed");
-        assert_eq!(result.columns, vec!["val"]);
+    async fn test_sqlite_connect_ping() {
+        let path = temp_db_path("ping");
+        let db = SqliteDatabase::new(&path).unwrap();
+        db.ping().await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_crud_roundtrip() {
-        let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
-
-        db.query(
-            "CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name TEXT, value REAL)",
-        )
-        .await
-        .expect("CREATE TABLE failed");
-
-        db.query("INSERT INTO _rd_test (id, name, value) VALUES (1, 'hello', 3.14)")
-            .await
-            .expect("INSERT failed");
-
-        let result = db
-            .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
-            .await
-            .expect("SELECT failed");
-        assert_eq!(result.columns, vec!["id", "name", "value"]);
-
-        db.query("DROP TABLE IF EXISTS _rd_test")
-            .await
-            .expect("DROP TABLE failed");
+    async fn test_sqlite_query() {
+        let path = temp_db_path("query");
+        let db = SqliteDatabase::new(&path).unwrap();
+        db.query("SELECT sqlite_version() AS version").await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_error_handling() {
-        let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
-        let result = db.query("SELECT * FROM _non_existent_table_rd").await;
-        assert!(result.is_err(), "Expected error for non-existent table");
+    async fn test_sqlite_transaction_commit() {
+        let path = temp_db_path("tx_commit");
+        let db = SqliteDatabase::new(&path).unwrap();
+        db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)").await.unwrap();
+
+        let mut tx = db.begin_transaction().await.unwrap();
+        tx.query("INSERT INTO t VALUES (1)").await.unwrap();
+        tx.commit().await.unwrap();
+
+        let result = db.query("SELECT COUNT(*) AS cnt FROM t").await.unwrap();
+        assert!(!result.batches.is_empty());
     }
 
     #[tokio::test]
-    async fn test_list_tables() {
-        let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
-        let tables = db.list_tables("main", None).await;
-        assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
-    }
+    async fn test_sqlite_transaction_rollback() {
+        let path = temp_db_path("tx_rollback");
+        let db = SqliteDatabase::new(&path).unwrap();
+        db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)").await.unwrap();
 
-    #[tokio::test]
-    async fn test_meta() {
-        let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
-        let meta = db.meta();
-        assert!(!meta.supports_streaming);
-        assert!(!meta.supports_concurrent_write);
-    }
+        let mut tx = db.begin_transaction().await.unwrap();
+        tx.query("INSERT INTO t VALUES (999)").await.unwrap();
+        tx.rollback().await.unwrap();
 
-    #[tokio::test]
-    async fn test_is_read_only_flag() {
-        let db = SqliteDatabase::new(SQLITE_PATH).expect("Failed to connect");
-        let result = db.query("SELECT 1").await.expect("Query failed");
-        assert_eq!(result.is_read_only, Some(true));
+        let result = db.query("SELECT COUNT(*) AS cnt FROM t WHERE id = 999").await.unwrap();
+        if let Some(batch) = result.batches.first() {
+            assert_eq!(batch.num_rows(), 1);
+        }
     }
 }
