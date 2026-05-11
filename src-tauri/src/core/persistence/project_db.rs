@@ -7,7 +7,7 @@
  * - SQLite: 使用连接池 + WAL 模式，支持并发访问
  * - DuckDB: 使用单例长连接，支持分析查询
  */
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use duckdb::Connection as DuckConnection;
@@ -375,7 +375,7 @@ impl ProjectDatabaseManager {
     /// # 参数
     /// * `project_path` - 项目根目录路径
     /// * `sqlite_pool_size` - SQLite 连接池大小
-    pub async fn open(project_path: &PathBuf, sqlite_pool_size: usize) -> Result<Self, CoreError> {
+    pub async fn open(project_path: &Path, sqlite_pool_size: usize) -> Result<Self, CoreError> {
         let rsmeta_path = project_path.join(".RSMETA");
         let config_path = rsmeta_path.join("config");
         let project_metadata_path = rsmeta_path.join("project_metadata");
@@ -403,7 +403,7 @@ impl ProjectDatabaseManager {
         let duckdb_conn = ProjectDuckdbConnection::new(duckdb_path).await?;
 
         let manager = Self {
-            project_path: project_path.clone(),
+            project_path: project_path.to_path_buf(),
             sqlite_pool: Arc::new(sqlite_pool),
             duckdb_conn: Arc::new(duckdb_conn),
         };

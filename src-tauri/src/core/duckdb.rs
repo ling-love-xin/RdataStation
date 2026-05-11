@@ -58,16 +58,10 @@ impl DuckDBManager {
         let size = self
             .preferred_pool_size
             .load(Ordering::Relaxed)
-            .max(MIN_POOL_SIZE)
-            .min(MAX_POOL_SIZE);
+            .clamp(MIN_POOL_SIZE, MAX_POOL_SIZE);
         let mut pool = Vec::with_capacity(size);
         for _ in 0..size {
-            let conn = duckdb::Connection::open_in_memory().map_err(|e| {
-                CoreError::common(CommonError::General(format!(
-                    "Failed to create in-memory DuckDB connection: {}",
-                    e
-                )))
-            })?;
+            let conn = Self::open_in_memory_conn()?;
             pool.push(Arc::new(Mutex::new(conn)));
         }
 
@@ -228,9 +222,64 @@ impl DuckDBManager {
     }
 
     pub fn ensure_connection() -> Result<duckdb::Connection, CoreError> {
+        Self::open_in_memory_conn()
+    }
+
+    fn open_in_memory_conn() -> Result<duckdb::Connection, CoreError> {
         duckdb::Connection::open_in_memory().map_err(|e| {
-            CoreError::common(CommonError::General(format!("连接 DuckDB 失败: {}", e)))
+            CoreError::common(CommonError::General(format!(
+                "Failed to create in-memory DuckDB connection: {}",
+                e
+            )))
         })
+    }
+
+    pub fn open_file_with_retry(path: &str) -> Result<duckdb::Connection, CoreError> {
+        let path_buf = std::path::PathBuf::from(path);
+
+        if let Some(parent) = path_buf.parent() {
+            if parent.as_os_str() != "" {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to create directory {:?}: {}",
+                        parent, e
+                    )))
+                })?;
+            }
+        }
+
+        match duckdb::Connection::open(&path_buf) {
+            Ok(conn) => Ok(conn),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to open DuckDB at {}: {}, attempting to recreate...",
+                    path_buf.display(),
+                    e
+                );
+                if path_buf.exists() {
+                    if let Err(remove_err) = std::fs::remove_file(&path_buf) {
+                        tracing::error!(
+                            "Failed to remove corrupted DuckDB file: {}",
+                            remove_err
+                        );
+                        return Err(CoreError::common(CommonError::General(format!(
+                            "Failed to open persistent DuckDB at {}: {}",
+                            path, e
+                        ))));
+                    }
+                    tracing::info!(
+                        "Removed corrupted DuckDB file: {}",
+                        path_buf.display()
+                    );
+                }
+                duckdb::Connection::open(&path_buf).map_err(|_| {
+                    CoreError::common(CommonError::General(format!(
+                        "Failed to open persistent DuckDB at {}: {}",
+                        path, e
+                    )))
+                })
+            }
+        }
     }
 
     pub fn pool_size(&self) -> usize {
@@ -242,7 +291,7 @@ impl DuckDBManager {
     }
 
     pub fn set_pool_size(&self, size: usize) -> usize {
-        let clamped = size.max(MIN_POOL_SIZE).min(MAX_POOL_SIZE);
+        let clamped = size.clamp(MIN_POOL_SIZE, MAX_POOL_SIZE);
         self.preferred_pool_size.store(clamped, Ordering::Relaxed);
         clamped
     }
@@ -255,12 +304,7 @@ impl DuckDBManager {
         let size = self.preferred_pool_size.load(Ordering::Relaxed);
         let mut pool = Vec::with_capacity(size);
         for _ in 0..size {
-            let conn = duckdb::Connection::open_in_memory().map_err(|e| {
-                CoreError::common(CommonError::General(format!(
-                    "Failed to create in-memory DuckDB connection: {}",
-                    e
-                )))
-            })?;
+            let conn = Self::open_in_memory_conn()?;
             pool.push(Arc::new(Mutex::new(conn)));
         }
 
@@ -301,12 +345,7 @@ impl DuckDBManager {
             }
         }
 
-        let conn = duckdb::Connection::open(path).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "Failed to open persistent DuckDB at {}: {}",
-                path, e
-            )))
-        })?;
+        let conn = Self::open_file_with_retry(path)?;
         let conn = Arc::new(Mutex::new(conn));
         *guard = Some((path.to_string(), conn.clone()));
         Ok(conn)

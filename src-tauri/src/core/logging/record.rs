@@ -30,7 +30,7 @@ impl LogLevel {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_level(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "TRACE" => Some(LogLevel::Trace),
             "DEBUG" => Some(LogLevel::Debug),
@@ -145,19 +145,19 @@ mod tests {
 
     #[test]
     fn test_log_level_from_str_all_variants() {
-        assert_eq!(LogLevel::from_str("TRACE"), Some(LogLevel::Trace));
-        assert_eq!(LogLevel::from_str("trace"), Some(LogLevel::Trace));
-        assert_eq!(LogLevel::from_str("Debug"), Some(LogLevel::Debug));
-        assert_eq!(LogLevel::from_str("INFO"), Some(LogLevel::Info));
-        assert_eq!(LogLevel::from_str("Warn"), Some(LogLevel::Warn));
-        assert_eq!(LogLevel::from_str("ERROR"), Some(LogLevel::Error));
+        assert_eq!(LogLevel::parse_level("TRACE"), Some(LogLevel::Trace));
+        assert_eq!(LogLevel::parse_level("trace"), Some(LogLevel::Trace));
+        assert_eq!(LogLevel::parse_level("Debug"), Some(LogLevel::Debug));
+        assert_eq!(LogLevel::parse_level("INFO"), Some(LogLevel::Info));
+        assert_eq!(LogLevel::parse_level("Warn"), Some(LogLevel::Warn));
+        assert_eq!(LogLevel::parse_level("ERROR"), Some(LogLevel::Error));
     }
 
     #[test]
     fn test_log_level_from_str_invalid() {
-        assert_eq!(LogLevel::from_str("CRITICAL"), None);
-        assert_eq!(LogLevel::from_str(""), None);
-        assert_eq!(LogLevel::from_str("INVALID"), None);
+        assert_eq!(LogLevel::parse_level("CRITICAL"), None);
+        assert_eq!(LogLevel::parse_level(""), None);
+        assert_eq!(LogLevel::parse_level("INVALID"), None);
     }
 
     #[test]
@@ -170,7 +170,7 @@ mod tests {
             LogLevel::Error,
         ] {
             let s = original.as_str();
-            let parsed = LogLevel::from_str(s).unwrap();
+            let parsed = LogLevel::parse_level(s).unwrap();
             assert_eq!(*original, parsed);
         }
     }

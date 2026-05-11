@@ -641,6 +641,7 @@ impl MetadataCacheOps {
     // ==================== Column 操作（规范化） ====================
 
     /// 保存列元数据
+    #[allow(clippy::too_many_arguments)]
     pub fn save_column(
         &self,
         table_id: i64,
@@ -677,6 +678,7 @@ impl MetadataCacheOps {
     }
 
     /// 保存列元数据（兼容旧接口）
+    #[allow(clippy::too_many_arguments)]
     pub fn save_column_metadata(
         &self,
         _id: &str,
@@ -1005,6 +1007,7 @@ impl MetadataCacheOps {
     // ==================== Routine 操作 ====================
 
     /// 保存 Routine 元数据
+    #[allow(clippy::too_many_arguments)]
     pub fn save_routine(
         &self,
         schema_id: i64,
@@ -1335,6 +1338,7 @@ impl MetadataCacheOps {
     }
 
     /// 批量保存列元数据
+    #[allow(clippy::type_complexity)]
     pub fn save_columns_batch(
         &mut self,
         columns: Vec<(
@@ -2068,6 +2072,7 @@ impl MetadataCacheOps {
     /// * `parent_name` - 父对象名称（如表名对于列）
     /// * `path` - 层级路径
     /// * `introspect_level` - 自省级别（1=索引, 2=概要, 3=详情）
+    #[allow(clippy::too_many_arguments)]
     pub fn save_index_entry(
         &self,
         connection_id: &str,

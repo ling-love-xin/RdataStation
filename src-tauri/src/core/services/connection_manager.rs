@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use crate::core::cache::CacheManager;
-use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
+use crate::core::driver::registry::DriverConnectionConfig;
 use crate::core::driver::traits::Database;
 use crate::core::driver::DriverRegistry;
 use crate::core::error::{ConnectionError, CoreError};
@@ -29,7 +29,7 @@ impl std::fmt::Display for ConnectionType {
 }
 
 impl ConnectionType {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_type(s: &str) -> Option<Self> {
         match s {
             "global" => Some(ConnectionType::Global),
             "project" => Some(ConnectionType::Project),

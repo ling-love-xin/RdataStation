@@ -1,4 +1,4 @@
-use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
+use super::registry::DriverConnectionConfig;
 use crate::core::error::{ConnectionError, CoreError};
 
 /// 构建数据库连接URL

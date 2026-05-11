@@ -39,6 +39,7 @@ impl InsightMetaStore {
     }
 
     /// 保存洞察快照元数据
+    #[allow(clippy::too_many_arguments)]
     pub async fn save_meta(
         &self,
         entity_type: &str,

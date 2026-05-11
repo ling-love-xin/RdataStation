@@ -27,7 +27,7 @@ pub use manager::{
 };
 pub use metadata::{DriverFormField, DriverIcon, DriverMetadata, DriverType};
 pub use registry::{
-    ConnectionConfig as DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind,
+    DriverConnectionConfig, DriverDescriptor, DriverFactory, DriverKind,
     DriverRegistry,
 };
 pub use router::DataSourceRouter;

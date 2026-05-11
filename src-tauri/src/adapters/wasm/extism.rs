@@ -10,6 +10,12 @@ pub struct ExtismPluginManager {
     metadata: HashMap<String, PluginMetadata>,
 }
 
+impl Default for ExtismPluginManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExtismPluginManager {
     pub fn new() -> Self {
         Self {

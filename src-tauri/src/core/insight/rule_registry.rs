@@ -13,6 +13,12 @@ pub struct RuleRegistry {
     by_category: HashMap<String, Vec<String>>,
 }
 
+impl Default for RuleRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RuleRegistry {
     pub fn new() -> Self {
         Self {

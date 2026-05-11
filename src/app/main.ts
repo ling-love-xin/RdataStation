@@ -1,5 +1,6 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 
 import { builtinExtensions } from '@/core/builtin-extensions'
 import { extensionHost } from '@/core/extension-host'
@@ -37,6 +38,20 @@ async function main() {
   const appStore = useAppStore()
   await appStore.initialize()
   appStore.applyTheme()
+
+  try {
+    const apiVersion = await invoke<string>('get_api_version')
+    const expectedVersion = '1.0.0'
+    if (apiVersion !== expectedVersion) {
+      console.warn(
+        `[Main] API version mismatch: frontend expects ${expectedVersion}, backend returns ${apiVersion}`,
+      )
+    } else {
+      console.log(`[Main] API version check passed: ${apiVersion}`)
+    }
+  } catch {
+    console.warn('[Main] Failed to check API version, continuing...')
+  }
 
   try {
     await extensionHost.activateExtensions(builtinExtensions, {

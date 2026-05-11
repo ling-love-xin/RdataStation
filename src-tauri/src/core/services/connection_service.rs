@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::core::driver::router::DataSourceRouter;
-use crate::core::driver::registry::ConnectionConfig;
+use crate::core::driver::registry::DriverConnectionConfig;
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
 use crate::core::persistence::connection_store;
@@ -124,7 +124,7 @@ impl ConnectionService {
 
         // 检查是否已有连接（基于 conn_id）
         if let Some(db) = self.manager.get_connection(&conn_id).await {
-            tracing::info!("Connection {} already exists, reusing it", conn_id);
+            tracing::info!(conn_id = %conn_id, "Connection already exists, reusing it");
             return Ok((conn_id, db));
         }
 
@@ -133,15 +133,9 @@ impl ConnectionService {
             let all_connections = self.manager.get_all_connection_info().await;
             for conn_info in all_connections {
                 if conn_info.url == url {
-                    tracing::info!(
-                        "Connection with URL {} already exists (ID: {})",
-                        url,
-                        conn_info.id
-                    );
-
-                    // 尝试获取已有连接
+                    tracing::info!(url = %url, conn_id = %conn_info.id, "Connection with URL already exists");
                     if let Some(db) = self.manager.get_connection(&conn_info.id).await {
-                        tracing::info!("复用已有连接: {}", conn_info.id);
+                        tracing::info!(conn_id = %conn_info.id, "Reusing existing connection");
                         return Ok((conn_info.id, db));
                     }
 
@@ -226,6 +220,7 @@ impl ConnectionService {
     }
 
     /// 保存全局连接信息到全局 SQLite 数据库
+    #[allow(clippy::too_many_arguments)]
     async fn save_global_connection_to_db(
         &self,
         conn_id: &str,
@@ -334,7 +329,7 @@ impl ConnectionService {
     /// 根据数据库类型创建对应的数据库实例
     /// 通过 DataSourceRouter 路由到 DriverRegistry 动态创建
     async fn create_database(&self, db_type: &str, url: &str) -> Result<DynDatabase, CoreError> {
-        let config = ConnectionConfig::new(db_type).with_url_override(url);
+        let config = DriverConnectionConfig::new(db_type).with_url_override(url);
 
         DataSourceRouter::route(config).await
     }
@@ -500,7 +495,7 @@ impl ConnectionService {
         };
 
         let result = db.query(sql).await?;
-        Ok(result.into())
+        Ok(result)
     }
 
     /// 转换连接类型：全局 → 项目

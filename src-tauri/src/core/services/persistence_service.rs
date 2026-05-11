@@ -9,6 +9,7 @@ fn sha256_hex(input: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn save_column_insight_snapshot(
     insight: &ColumnInsightFull,
     conn_id: Option<&str>,

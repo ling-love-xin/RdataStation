@@ -292,7 +292,7 @@ impl PageRequest {
 
     /// 计算总页数
     pub fn total_pages(&self, total_items: u64) -> u32 {
-        ((total_items + self.page_size as u64 - 1) / self.page_size as u64) as u32
+        total_items.div_ceil(self.page_size as u64) as u32
     }
 }
 

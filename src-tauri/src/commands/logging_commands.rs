@@ -22,7 +22,7 @@ pub async fn get_logs(
     let query = LogQuery {
         page,
         page_size,
-        level: level.and_then(|l| LogLevel::from_str(&l)),
+        level: level.and_then(|l| LogLevel::parse_level(&l)),
         target,
         keyword,
         start,
@@ -43,7 +43,7 @@ pub async fn search_logs(
 
     let query = LogQuery {
         keyword: Some(keyword),
-        level: level.and_then(|l| LogLevel::from_str(&l)),
+        level: level.and_then(|l| LogLevel::parse_level(&l)),
         target,
         ..Default::default()
     };
@@ -91,7 +91,7 @@ pub async fn export_logs(
     let query = LogQuery {
         page: Some(1),
         page_size: Some(limit),
-        level: level.and_then(|l| LogLevel::from_str(&l)),
+        level: level.and_then(|l| LogLevel::parse_level(&l)),
         start,
         end,
         ..Default::default()

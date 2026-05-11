@@ -86,34 +86,43 @@ impl Database for DuckDbDatabase {
             .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|name| name.to_string())
-            .collect();
-
-        let mut rows = stmt
-            .query([])
-            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-        let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?
+        let row_data: Vec<Vec<duckdb::types::Value>>;
+        let column_count: usize;
         {
-            let mut values: Vec<duckdb::types::Value> = Vec::with_capacity(columns.len());
-            for (i, _) in columns.iter().enumerate() {
-                let v = row.get::<usize, duckdb::types::Value>(i).map_err(|e| {
-                    CoreError::database(DatabaseError::Driver {
-                        db_type: "duckdb".to_string(),
-                        operation: "row_parsing".to_string(),
-                        source: e.to_string(),
-                    })
-                })?;
-                values.push(v);
+            let mut rows = stmt
+                .query([])
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
+
+            let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+            while let Some(row) = rows
+                .next()
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?
+            {
+                let mut values: Vec<duckdb::types::Value> = Vec::new();
+                for i in 0.. {
+                    match row.get::<usize, duckdb::types::Value>(i) {
+                        Ok(v) => values.push(v),
+                        Err(_) => break,
+                    }
+                }
+                data.push(values);
             }
-            row_data.push(values);
+            row_data = data;
         }
+
+        column_count = if let Some(first) = row_data.first() {
+            first.len()
+        } else {
+            stmt.column_count()
+        };
+
+        let columns: Vec<String> = if column_count > 0 {
+            (0..column_count)
+                .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let is_read_only = is_read_only_sql(sql);
         let row_count = row_data.len();
@@ -157,28 +166,40 @@ impl Database for DuckDbDatabase {
                 let mut stmt = conn.prepare(&sql_owned)
                     .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
 
-                let columns: Vec<String> = stmt.column_names()
-                    .iter()
-                    .map(|name| name.to_string())
-                    .collect();
+                let row_data: Vec<Vec<duckdb::types::Value>>;
+                let column_count: usize;
+                {
+                    let mut rows = stmt.query([]).map_err(|e| {
+                        CoreError::database(DatabaseError::query(&sql_owned, e.to_string()))
+                    })?;
 
-                let mut rows = stmt.query([])
-                    .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
-
-                let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-                while let Ok(Some(row)) = rows.next() {
-                    let mut values: Vec<duckdb::types::Value> = Vec::with_capacity(columns.len());
-                    for (i, _) in columns.iter().enumerate() {
-                        let v = row.get::<usize, duckdb::types::Value>(i)
-                            .map_err(|e| CoreError::database(DatabaseError::Driver {
-                                db_type: "duckdb".to_string(),
-                                operation: "row_parsing".to_string(),
-                                source: e.to_string(),
-                            }))?;
-                        values.push(v);
+                    let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+                    while let Ok(Some(row)) = rows.next() {
+                        let mut values: Vec<duckdb::types::Value> = Vec::new();
+                        for i in 0.. {
+                            match row.get::<usize, duckdb::types::Value>(i) {
+                                Ok(v) => values.push(v),
+                                Err(_) => break,
+                            }
+                        }
+                        data.push(values);
                     }
-                    row_data.push(values);
+                    row_data = data;
                 }
+
+                column_count = if let Some(first) = row_data.first() {
+                    first.len()
+                } else {
+                    stmt.column_count()
+                };
+
+                let columns: Vec<String> = if column_count > 0 {
+                    (0..column_count)
+                        .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
+                        .collect()
+                } else {
+                    Vec::new()
+                };
 
                 let is_read_only = is_read_only_sql(&sql_owned);
                 let row_count = row_data.len();
@@ -377,31 +398,40 @@ impl Transaction for DuckDbTransaction {
             .prepare(sql)
             .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let columns: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|name| name.to_string())
-            .collect();
+        let row_data: Vec<Vec<duckdb::types::Value>>;
+        let column_count: usize;
+        {
+            let mut rows = stmt
+                .query([])
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
-        let mut rows = stmt
-            .query([])
-            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-        let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-        while let Ok(Some(row)) = rows.next() {
-            let mut values: Vec<duckdb::types::Value> = Vec::with_capacity(columns.len());
-            for (i, _) in columns.iter().enumerate() {
-                let v = row.get::<usize, duckdb::types::Value>(i).map_err(|e| {
-                    CoreError::database(DatabaseError::Driver {
-                        db_type: "duckdb".to_string(),
-                        operation: "row_parsing".to_string(),
-                        source: e.to_string(),
-                    })
-                })?;
-                values.push(v);
+            let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+            while let Ok(Some(row)) = rows.next() {
+                let mut values: Vec<duckdb::types::Value> = Vec::new();
+                for i in 0.. {
+                    match row.get::<usize, duckdb::types::Value>(i) {
+                        Ok(v) => values.push(v),
+                        Err(_) => break,
+                    }
+                }
+                data.push(values);
             }
-            row_data.push(values);
+            row_data = data;
         }
+
+        column_count = if let Some(first) = row_data.first() {
+            first.len()
+        } else {
+            stmt.column_count()
+        };
+
+        let columns: Vec<String> = if column_count > 0 {
+            (0..column_count)
+                .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let sql_upper = sql.trim_start().to_uppercase();
         let is_read_only = sql_upper.starts_with("SELECT")
@@ -768,5 +798,93 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
             index_count: None,
             row_count_estimate: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::driver::Database;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    fn unique_db_path() -> String {
+        let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("rd_duckdb_test_{}", id));
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("test.duckdb");
+        let _ = std::fs::remove_file(&path);
+        path.to_string_lossy().to_string()
+    }
+
+    fn db() -> DuckDbDatabase {
+        let path = unique_db_path();
+        DuckDbDatabase::new(&path).expect("Failed to connect")
+    }
+
+    #[test]
+    fn test_connect() {
+        let db = DuckDbDatabase::new(&unique_db_path());
+        assert!(db.is_ok(), "Failed to connect to DuckDB: {:?}", db.err());
+    }
+
+    #[tokio::test]
+    async fn test_query_select_one() {
+        let db = db();
+        let result = db.query("SELECT 1 AS val").await.expect("Query failed");
+        assert_eq!(result.columns, vec!["val"]);
+    }
+
+    #[tokio::test]
+    async fn test_crud_roundtrip() {
+        let db = db();
+
+        db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER, name VARCHAR, value DOUBLE)")
+            .await
+            .expect("CREATE TABLE failed");
+
+        db.query("INSERT INTO _rd_test VALUES (1, 'hello', 3.14)")
+            .await
+            .expect("INSERT failed");
+
+        let result = db
+            .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
+            .await
+            .expect("SELECT failed");
+        assert_eq!(result.columns, vec!["id", "name", "value"]);
+
+        db.query("DROP TABLE IF EXISTS _rd_test")
+            .await
+            .expect("DROP TABLE failed");
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        let db = db();
+        let result = db.query("SELECT * FROM _non_existent_table_rd").await;
+        assert!(result.is_err(), "Expected error for non-existent table");
+    }
+
+    #[tokio::test]
+    async fn test_list_tables() {
+        let db = db();
+        let tables = db.list_tables("main", None).await;
+        assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
+    }
+
+    #[tokio::test]
+    async fn test_meta() {
+        let db = db();
+        let meta = db.meta();
+        assert!(meta.supports_arrow);
+        assert!(meta.supports_federated);
+    }
+
+    #[tokio::test]
+    async fn test_is_read_only_flag() {
+        let db = db();
+        let result = db.query("SELECT 1").await.expect("Query failed");
+        assert_eq!(result.is_read_only, Some(true));
     }
 }

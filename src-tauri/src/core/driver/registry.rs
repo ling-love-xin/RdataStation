@@ -15,7 +15,7 @@ use super::connection::config::ConnectionMethod;
 ///
 /// 一个结构支持所有数据库类型，前端根据 driver 字段动态渲染表单
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConnectionConfig {
+pub struct DriverConnectionConfig {
     /// 驱动类型: "mysql" | "postgres" | "sqlite" | "duckdb"
     pub driver: String,
     /// 连接名称（显示用）
@@ -41,7 +41,7 @@ pub struct ConnectionConfig {
     pub options: HashMap<String, String>,
 }
 
-impl ConnectionConfig {
+impl DriverConnectionConfig {
     /// 创建新的连接配置
     pub fn new(driver: impl Into<String>) -> Self {
         Self {
@@ -738,7 +738,7 @@ pub type DynDatabase = Arc<dyn Database + Send + Sync>;
 ///         mysql_driver()
 ///     }
 ///
-///     fn create(&self, config: ConnectionConfig) -> Pin<Box<dyn Future<Output = Result<DynDatabase, CoreError>> + Send>> {
+///     fn create(&self, config: DriverConnectionConfig) -> Pin<Box<dyn Future<Output = Result<DynDatabase, CoreError>> + Send>> {
 ///         Box::pin(async move {
 ///             let url = config.to_url()?;
 ///             let db = MySqlDatabase::new(&url).await?;
@@ -762,7 +762,7 @@ pub trait DriverFactory: Send + Sync {
     /// 返回动态数据库实例的 Future
     fn create(
         &self,
-        config: ConnectionConfig,
+        config: DriverConnectionConfig,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>;
 }
 

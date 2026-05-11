@@ -299,6 +299,7 @@ impl AnalyticsResourceStore {
         self.get_resource_by_id(&cloned_id).await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn list_resources_paginated(
         &self,
         scope: Option<&str>,

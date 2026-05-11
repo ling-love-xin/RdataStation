@@ -7,6 +7,7 @@ use super::{
 
 /// 插件沙箱配置
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct PluginSandboxConfig {
     /// 权限列表
     pub permissions: Vec<String>,
@@ -38,14 +39,6 @@ impl Default for ResourceLimits {
     }
 }
 
-impl Default for PluginSandboxConfig {
-    fn default() -> Self {
-        Self {
-            permissions: Vec::new(),
-            resource_limits: ResourceLimits::default(),
-        }
-    }
-}
 
 /// 插件沙箱实现
 #[derive(Clone)]
@@ -58,6 +51,7 @@ pub struct PluginSandbox {
 
 /// 资源使用情况
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ResourceUsage {
     /// 当前内存使用 (MB)
     pub memory_used_mb: usize,
@@ -69,16 +63,6 @@ pub struct ResourceUsage {
     pub network_requests_made: u32,
 }
 
-impl Default for ResourceUsage {
-    fn default() -> Self {
-        Self {
-            memory_used_mb: 0,
-            cpu_time_used_ms: 0,
-            fs_used_mb: 0,
-            network_requests_made: 0,
-        }
-    }
-}
 
 impl PluginSandbox {
     /// 创建新的插件沙箱

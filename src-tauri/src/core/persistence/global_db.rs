@@ -188,7 +188,8 @@ impl GlobalSqlitePool {
 
 /// 全局 DuckDB 连接
 ///
-/// DuckDB 使用单例长连接，应用启动时创建，应用关闭时销毁
+/// DuckDB 使用单例长连接，应用启动时创建，应用关闭时销毁。
+/// 连接创建委托给 DuckDBManager 统一管理。
 pub struct GlobalDuckdbConnection {
     /// DuckDB 连接
     conn: Arc<Mutex<Option<DuckConnection>>>,
@@ -202,19 +203,9 @@ impl GlobalDuckdbConnection {
     /// # 参数
     /// * `db_path` - 数据库文件路径，如果为 ":memory:" 则使用内存数据库
     pub async fn new(db_path: PathBuf) -> Result<Self, CoreError> {
-        // 确保父目录存在
-        if let Some(parent) = db_path.parent() {
-            if parent.as_os_str() != "" {
-                tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                    CoreError::common(CommonError::General(format!(
-                        "Failed to create directory {:?}: {}",
-                        parent, e
-                    )))
-                })?;
-            }
-        }
-
-        let conn = Self::open_duckdb_with_retry(&db_path).await?;
+        let conn = crate::core::DuckDBManager::open_file_with_retry(
+            &db_path.to_string_lossy(),
+        )?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(Some(conn))),
@@ -242,44 +233,6 @@ impl GlobalDuckdbConnection {
         let mut conn = self.conn.lock().await;
         *conn = None;
         Ok(())
-    }
-
-    /// 打开 DuckDB 连接，失败时尝试删除并重建文件
-    async fn open_duckdb_with_retry(db_path: &PathBuf) -> Result<DuckConnection, CoreError> {
-        // 第一次尝试打开
-        match Self::try_open_duckdb(db_path) {
-            Ok(conn) => Ok(conn),
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to open DuckDB at {}: {}, attempting to recreate...",
-                    db_path.display(),
-                    e
-                );
-
-                // 尝试删除损坏的文件
-                if db_path.exists() {
-                    if let Err(remove_err) = std::fs::remove_file(db_path) {
-                        tracing::error!("Failed to remove corrupted DuckDB file: {}", remove_err);
-                        return Err(e);
-                    }
-                    tracing::info!("Removed corrupted DuckDB file: {}", db_path.display());
-                }
-
-                // 第二次尝试打开（会创建新文件）
-                Self::try_open_duckdb(db_path).map_err(|_| e)
-            }
-        }
-    }
-
-    /// 尝试打开 DuckDB 连接（同步）
-    fn try_open_duckdb(db_path: &PathBuf) -> Result<DuckConnection, CoreError> {
-        DuckConnection::open(db_path).map_err(|e| {
-            CoreError::storage(StorageError::Persistence {
-                store: "duckdb".to_string(),
-                operation: "open".to_string(),
-                reason: e.to_string(),
-            })
-        })
     }
 }
 
@@ -574,6 +527,7 @@ impl GlobalDatabaseManager {
     /// * `username` - 用户名（可选）
     /// * `password` - 密码（可选，明文存储，后续可加密）
     /// * `tags` - 标签（JSON 数组字符串）
+    #[allow(clippy::too_many_arguments)]
     pub async fn save_global_connection(
         &self,
         conn_id: &str,
@@ -685,10 +639,8 @@ impl GlobalDatabaseManager {
                 })?;
 
             let mut result = Vec::new();
-            for row in rows {
-                if let Ok(info) = row {
-                    result.push(info);
-                }
+            for info in rows.flatten() {
+                result.push(info);
             }
             result
         };
@@ -699,6 +651,7 @@ impl GlobalDatabaseManager {
     }
 
     /// 解析连接 URL，提取 host, port, database, username, password
+    #[allow(clippy::type_complexity)]
     fn parse_connection_url(
         db_type: &str,
         url: &str,
@@ -1101,14 +1054,12 @@ impl GlobalDatabaseManager {
                 .map_err(|e| Self::sqlite_persistence_error("get_all_projects", e.to_string()))?;
 
             let rows = stmt
-                .query_map([], |row| Self::row_to_project_record(row))
+                .query_map([], Self::row_to_project_record)
                 .map_err(|e| Self::sqlite_persistence_error("query_all_projects", e.to_string()))?;
 
             let mut result = Vec::new();
-            for row in rows {
-                if let Ok(record) = row {
-                    result.push(record);
-                }
+            for record in rows.flatten() {
+                result.push(record);
             }
             result
         };
@@ -1183,7 +1134,7 @@ impl GlobalDatabaseManager {
                 .prepare(Self::PROJECT_OPEN_QUERY)
                 .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?;
 
-            stmt.query_row([id], |row| Self::row_to_project_record(row))
+            stmt.query_row([id], Self::row_to_project_record)
                 .optional()
                 .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?
         };
@@ -1226,7 +1177,7 @@ impl GlobalDatabaseManager {
                     Self::sqlite_persistence_error("open_project_by_path_query", e.to_string())
                 })?;
 
-            stmt.query_row([path], |row| Self::row_to_project_record(row))
+            stmt.query_row([path], Self::row_to_project_record)
                 .optional()
                 .map_err(|e| {
                     Self::sqlite_persistence_error("open_project_by_path_query", e.to_string())
@@ -1257,16 +1208,14 @@ impl GlobalDatabaseManager {
             })?;
 
             let rows = stmt
-                .query_map([limit as i64], |row| Self::row_to_project_record(row))
+                .query_map([limit as i64], Self::row_to_project_record)
                 .map_err(|e| {
                     Self::sqlite_persistence_error("query_recent_projects", e.to_string())
                 })?;
 
             let mut result = Vec::new();
-            for row in rows {
-                if let Ok(record) = row {
-                    result.push(record);
-                }
+            for record in rows.flatten() {
+                result.push(record);
             }
             result
         };
@@ -1294,7 +1243,7 @@ impl GlobalDatabaseManager {
                 .prepare(Self::PROJECT_GET_BY_ID)
                 .map_err(|e| Self::sqlite_persistence_error("get_project_by_id", e.to_string()))?;
 
-            stmt.query_row([id], |row| Self::row_to_project_record(row))
+            stmt.query_row([id], Self::row_to_project_record)
                 .optional()
                 .map_err(|e| Self::sqlite_persistence_error("query_project_by_id", e.to_string()))?
         };
@@ -1322,7 +1271,7 @@ impl GlobalDatabaseManager {
                 Self::sqlite_persistence_error("get_project_by_path", e.to_string())
             })?;
 
-            stmt.query_row([path], |row| Self::row_to_project_record(row))
+            stmt.query_row([path], Self::row_to_project_record)
                 .optional()
                 .map_err(|e| {
                     Self::sqlite_persistence_error("query_project_by_path", e.to_string())

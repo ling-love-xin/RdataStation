@@ -262,6 +262,7 @@ impl ResultService {
         crate::core::services::quality_scorer::compute_table_quality(table_name, stats_list)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn save_column_insight_snapshot(
         insight: &ColumnInsightFull,
         conn_id: Option<&str>,

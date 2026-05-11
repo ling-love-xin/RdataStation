@@ -596,6 +596,7 @@ impl HistoryStore {
                 let start = pos + pattern.len();
                 let rest = &json[start..];
                 let rest = rest.trim_start();
+                #[allow(clippy::manual_strip)]
                 if rest.starts_with('"') {
                     let mut end = 1;
                     let mut escape = false;
@@ -794,7 +795,7 @@ pub struct SqlHistoryRecord {
 pub fn save_sql_history(sql: &str, conn_id: Option<&str>) -> Result<(), std::io::Error> {
     let mut store = GLOBAL_HISTORY_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     // 使用默认的数据库类型和连接 ID
     let db_type = "unknown".to_string();
@@ -811,7 +812,7 @@ pub fn save_sql_history(sql: &str, conn_id: Option<&str>) -> Result<(), std::io:
 pub fn get_sql_history(limit: usize) -> Result<Vec<SqlHistoryRecord>, std::io::Error> {
     let mut store = GLOBAL_HISTORY_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     store.load()?;
 
@@ -832,7 +833,7 @@ pub fn get_sql_history(limit: usize) -> Result<Vec<SqlHistoryRecord>, std::io::E
                 Some(r.db_type.clone())
             },
             executed_at: chrono::DateTime::from_timestamp((r.timestamp / 1000) as i64, 0)
-                .unwrap_or_else(|| chrono::Utc::now()),
+                .unwrap_or_else(chrono::Utc::now),
             duration_ms: Some(r.duration_ms),
             success: Some(r.success),
             error_message: r.error_message.clone(),
@@ -851,7 +852,7 @@ pub fn search_sql_history(
 ) -> Result<Vec<SqlHistoryRecord>, std::io::Error> {
     let mut store = GLOBAL_HISTORY_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     store.load()?;
 
@@ -873,7 +874,7 @@ pub fn search_sql_history(
                 Some(r.db_type.clone())
             },
             executed_at: chrono::DateTime::from_timestamp((r.timestamp / 1000) as i64, 0)
-                .unwrap_or_else(|| chrono::Utc::now()),
+                .unwrap_or_else(chrono::Utc::now),
             duration_ms: Some(r.duration_ms),
             success: Some(r.success),
             error_message: r.error_message.clone(),
@@ -889,7 +890,7 @@ pub fn search_sql_history(
 pub fn clear_sql_history() -> Result<(), std::io::Error> {
     let mut store = GLOBAL_HISTORY_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     store.clear();
     store.save()
@@ -899,7 +900,7 @@ pub fn clear_sql_history() -> Result<(), std::io::Error> {
 pub fn remove_sql_history(id: &str) -> Result<(), std::io::Error> {
     let mut store = GLOBAL_HISTORY_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     store.remove_record(id);
     store.save()

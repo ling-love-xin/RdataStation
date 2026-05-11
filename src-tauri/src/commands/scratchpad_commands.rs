@@ -6,25 +6,25 @@ use serde_json::Value;
 use tauri::{Emitter, State};
 
 use crate::commands::analytics_resource_commands::AnalyticsResourceState;
+use crate::core::error::CoreError;
 use crate::core::persistence::{AnalyticsResource, CreateResourceRequest};
 use crate::core::scratchpad::{
     AnalyzableFile, ExternalReference, ScratchpadEntry, ScratchpadResponse, ScratchpadState,
     ScratchpadStore, SearchResult,
 };
 
-async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, String> {
+async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, CoreError> {
     let guard = state.store.lock().await;
     guard
         .clone()
-        .ok_or_else(|| "草稿板存储未初始化，请先打开项目".to_string())
-        .map_err(|e| e.to_string())
+        .ok_or_else(|| CoreError::from("草稿板存储未初始化，请先打开项目"))
 }
 
 #[tauri::command]
 pub async fn init_scratchpad_store(
     project_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     scratchpad_state.init(PathBuf::from(project_path));
     Ok(())
 }
@@ -32,12 +32,12 @@ pub async fn init_scratchpad_store(
 #[tauri::command]
 pub async fn list_scratchpad_files(
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<ScratchpadResponse, String> {
+) -> Result<ScratchpadResponse, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .get_full_response()
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -45,24 +45,24 @@ pub async fn create_scratchpad_entry(
     name: String,
     is_folder: bool,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<ScratchpadEntry, String> {
+) -> Result<ScratchpadEntry, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .create_entry(&name, is_folder)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn delete_scratchpad_entry(
     relative_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .delete_entry(&relative_path)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -70,24 +70,24 @@ pub async fn rename_scratchpad_entry(
     relative_path: String,
     new_name: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<ScratchpadEntry, String> {
+) -> Result<ScratchpadEntry, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .rename_entry(&relative_path, &new_name)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn read_scratchpad_file(
     relative_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<String, String> {
+) -> Result<String, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .read_file(&relative_path)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -95,25 +95,25 @@ pub async fn save_scratchpad_file(
     relative_path: String,
     content: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .save_file(&relative_path, &content)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn import_external_file(
     source_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<ScratchpadEntry, String> {
+) -> Result<ScratchpadEntry, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     let source = PathBuf::from(&source_path);
     scratchpad
         .import_external_file(&source)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -121,50 +121,50 @@ pub async fn add_external_reference(
     alias: String,
     path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<ExternalReference, String> {
+) -> Result<ExternalReference, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     let ref_path = PathBuf::from(&path);
     scratchpad
         .add_external_reference(alias, ref_path)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn remove_external_reference(
     alias: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .remove_external_reference(&alias)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn open_scratchpad_in_explorer(
     path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     let target = PathBuf::from(&path);
     scratchpad
         .open_in_system_explorer(&target)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn check_scratchpad_file_size(
     relative_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<u64, String> {
+) -> Result<u64, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .check_file_size(&relative_path)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 // ==================== Analysis Commands ====================
@@ -172,12 +172,12 @@ pub async fn check_scratchpad_file_size(
 #[tauri::command]
 pub async fn get_analyzable_files(
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<Vec<AnalyzableFile>, String> {
+) -> Result<Vec<AnalyzableFile>, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .get_analyzable_files()
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 // ==================== Trash Commands ====================
@@ -185,29 +185,29 @@ pub async fn get_analyzable_files(
 #[tauri::command]
 pub async fn list_scratchpad_trash(
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<Vec<ScratchpadEntry>, String> {
+) -> Result<Vec<ScratchpadEntry>, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.list_trash().await.map_err(|e| e.to_string())
+    scratchpad.list_trash().await.map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn restore_scratchpad_from_trash(
     trash_name: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<ScratchpadEntry, String> {
+) -> Result<ScratchpadEntry, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .restore_from_trash(&trash_name)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn empty_scratchpad_trash(
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
-    scratchpad.empty_trash().await.map_err(|e| e.to_string())
+    scratchpad.empty_trash().await.map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -215,12 +215,12 @@ pub async fn update_scratchpad_file_meta(
     relative_path: String,
     connection_id: Option<String>,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .update_file_meta(&relative_path, connection_id)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -228,12 +228,12 @@ pub async fn search_scratchpad_content(
     query: String,
     case_sensitive: bool,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<SearchResult, String> {
+) -> Result<SearchResult, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .search_file_content(&query, case_sensitive)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 // ==================== File Watcher Commands ====================
@@ -242,7 +242,7 @@ pub async fn search_scratchpad_content(
 pub async fn watch_scratchpad(
     app: tauri::AppHandle,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     if scratchpad_state.is_watching() {
         return Ok(());
     }
@@ -250,7 +250,7 @@ pub async fn watch_scratchpad(
     let scratchpad = get_store(&scratchpad_state).await?;
     let watch_dir = scratchpad.scratchpad_dir().to_path_buf();
 
-    scratchpad.ensure_dir().await.map_err(|e| e.to_string())?;
+    scratchpad.ensure_dir().await.map_err(|e| CoreError::from(e.to_string()))?;
 
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher =
@@ -259,11 +259,11 @@ pub async fn watch_scratchpad(
                 let _ = tx.send(());
             }
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     watcher
         .watch(&watch_dir, notify::RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     scratchpad_state.set_watching(true);
 
@@ -297,7 +297,7 @@ pub async fn watch_scratchpad(
 #[tauri::command]
 pub async fn unwatch_scratchpad(
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     scratchpad_state.set_watching(false);
     Ok(())
 }
@@ -330,17 +330,17 @@ pub async fn promote_scratchpad_to_resource(
     remove_after: bool,
     scratchpad_state: State<'_, ScratchpadState>,
     analytics_state: State<'_, AnalyticsResourceState>,
-) -> Result<PromoteResult, String> {
+) -> Result<PromoteResult, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
 
     let file_content = scratchpad
         .read_file(&relative_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
     let file_size = scratchpad
         .check_file_size(&relative_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let file_name = std::path::Path::new(&relative_path)
         .file_name()
@@ -392,12 +392,12 @@ pub async fn promote_scratchpad_to_resource(
     let ar_store = analytics_state
         .store
         .get()
-        .ok_or_else(|| "分析资源存储未初始化".to_string())?;
+        .ok_or_else(|| CoreError::from("分析资源存储未初始化"))?;
 
     let resource = ar_store
         .create_resource(req)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| CoreError::from(e.to_string()))?;
 
     let _ = app.emit("analytics-resource-changed", ());
 
@@ -406,7 +406,7 @@ pub async fn promote_scratchpad_to_resource(
         scratchpad
             .delete_entry(&relative_path)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| CoreError::from(e.to_string()))?;
         removed = true;
     }
 

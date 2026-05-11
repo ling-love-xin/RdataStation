@@ -218,6 +218,12 @@ impl CacheManager {
     }
 }
 
+impl Default for CacheManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 缓存管理器统计信息
 #[derive(Debug, Clone, Default)]
 pub struct CacheManagerStats {

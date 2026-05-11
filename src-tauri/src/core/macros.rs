@@ -145,7 +145,7 @@ macro_rules! timeout {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::error::{CommonError, ConnectionError, CoreError};
+    use crate::core::error::{CommonError, CoreError};
 
     #[test]
     fn test_core_err_macro() {

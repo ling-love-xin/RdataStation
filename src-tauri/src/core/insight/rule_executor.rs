@@ -57,8 +57,7 @@ impl RuleExecutor {
                 .query
                 .parameters
                 .iter()
-                .filter(|p| !params.contains_key(*p))
-                .map(|p| p.clone())
+                .filter(|p| !params.contains_key(*p)).cloned()
                 .collect();
             if !missing.is_empty() {
                 return Err(CoreError::common(CommonError::General(format!(

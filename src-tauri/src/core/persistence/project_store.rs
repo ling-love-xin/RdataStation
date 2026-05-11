@@ -4,7 +4,7 @@
  * 提供项目级数据的 CRUD 操作
  */
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -71,7 +71,7 @@ pub struct ProjectStore {
 
 impl ProjectStore {
     /// 创建项目存储实例
-    pub async fn new(project_path: &PathBuf) -> Result<Self, CoreError> {
+    pub async fn new(project_path: &Path) -> Result<Self, CoreError> {
         let db_manager = Arc::new(ProjectDatabaseManager::open(project_path, 3).await?);
 
         Ok(Self { db_manager })

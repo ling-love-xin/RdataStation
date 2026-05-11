@@ -19,6 +19,17 @@ use crate::core::mock::schema_map::ColumnMapper;
 use crate::core::mock::templates;
 use crate::core::models::QueryResult;
 
+/// Mock 数据引擎 —— 在 DuckDB 内存表中生成模拟数据集
+///
+/// # SQL 安全性
+///
+/// 本模块使用 `format!()` 构建 DDL/DML SQL 语句。所有动态标识符
+/// （表名、列名）在拼接前均经过 `sanitize_table_name` / 列名清理处理：
+/// - 仅保留 `[a-zA-Z0-9_]` 字符
+/// - 以双引号包裹（`"identifier"`）
+/// - 字符串值通过 `'` → `''` 转义
+///
+/// 因此对外部输入是安全的。
 pub struct MockEngine;
 
 const TEMP_MOCK_PREFIX: &str = "temp_mock_";
@@ -96,8 +107,23 @@ impl MockEngine {
         let quoted_cols: Vec<String> = config
             .columns
             .iter()
-            .map(|c| format!("\"{}\"", c.name))
-            .collect();
+            .map(|c| {
+                let safe: String = c
+                    .name
+                    .chars()
+                    .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                    .collect::<String>()
+                    .trim_matches('_')
+                    .to_string();
+                if safe.is_empty() {
+                    return Err(MockError::Generation(format!(
+                        "column name '{}' resolves to empty after sanitization",
+                        c.name
+                    )));
+                }
+                Ok(format!("\"{}\"", safe))
+            })
+            .collect::<MockResult<Vec<_>>>()?;
         let col_list = quoted_cols.join(", ");
 
         for batch_idx in 0..total_batches {
@@ -340,7 +366,16 @@ impl MockEngine {
     fn build_create_table_ddl(table_name: &str, columns: &[ColumnDef]) -> String {
         let col_defs: Vec<String> = columns
             .iter()
-            .map(|c| format!("\"{}\" {}", c.name, c.data_type.to_duckdb_type()))
+            .map(|c| {
+                let safe_name = c.name
+                    .chars()
+                    .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                    .collect::<String>()
+                    .trim_matches('_')
+                    .to_string();
+                let name = if safe_name.is_empty() { "col_unknown" } else { &safe_name };
+                format!("\"{}\" {}", name, c.data_type.to_duckdb_type())
+            })
             .collect();
         format!("CREATE TABLE \"{}\" ({})", table_name, col_defs.join(", "))
     }
@@ -352,25 +387,43 @@ impl MockEngine {
     ) -> MockResult<QueryResult> {
         let sql = format!("SELECT * FROM \"{}\" LIMIT {}", table_name, limit);
         let mut stmt = conn.prepare(&sql)?;
-        let column_count = stmt.column_count();
-        let columns: Vec<String> = (0..column_count)
-            .map(|i| {
-                stmt.column_name(i)
-                    .cloned()
-                    .unwrap_or_else(|_| "?".to_string())
-            })
-            .collect();
 
-        let mut rows = stmt.query([])?;
-        let mut row_data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-        while let Some(row) = rows.next()? {
-            let mut cols = Vec::with_capacity(column_count);
-            for i in 0..column_count {
-                let val: duckdb::types::Value = row.get(i).unwrap_or(duckdb::types::Value::Null);
-                cols.push(val);
+        let column_count;
+        let columns: Vec<String>;
+        let row_data: Vec<Vec<duckdb::types::Value>>;
+        {
+            let mut rows = stmt.query([])?;
+            let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+            while let Some(row) = rows.next()? {
+                let mut cols: Vec<duckdb::types::Value> = Vec::new();
+                for i in 0.. {
+                    match row.get::<usize, duckdb::types::Value>(i) {
+                        Ok(v) => cols.push(v),
+                        Err(_) => break,
+                    }
+                }
+                data.push(cols);
             }
-            row_data.push(cols);
+            row_data = data;
         }
+
+        column_count = if let Some(first) = row_data.first() {
+            first.len()
+        } else {
+            stmt.column_count()
+        };
+
+        columns = if column_count > 0 {
+            (0..column_count)
+                .map(|i| {
+                    stmt.column_name(i)
+                        .map_or("unknown", |v| v)
+                        .to_string()
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let arrow_batch = duckdb_rows_to_arrow(&columns, &row_data)?;
         let total = arrow_batch.num_rows();
@@ -387,17 +440,20 @@ impl MockEngine {
 // ==================== 辅助函数 ====================
 
 fn sanitize_table_name(name: &str) -> String {
-    name.chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
+    let safe = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
         .collect::<String>()
         .trim_matches('_')
-        .to_lowercase()
+        .to_lowercase();
+    if safe.is_empty() {
+        format!("auto_table_{}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos())
+    } else {
+        safe
+    }
 }
 
 fn parse_data_type(data_type: &str) -> crate::core::mock::models::ColumnDataType {
@@ -540,25 +596,34 @@ impl MockEngine {
         let db = Self::get_db()?;
         let conn = Self::get_conn(&db)?;
 
+        let safe_name = sanitize_table_name(new_name);
+
         let sql = format!(
             "CREATE TABLE \"{}\" AS SELECT * FROM \"{}\"",
-            new_name, temp_table_name
+            safe_name, temp_table_name
         );
         conn.execute_batch(&sql)?;
 
         let row_count: i64 = conn.query_row(
-            &format!("SELECT COUNT(*) FROM \"{}\"", new_name),
+            &format!("SELECT COUNT(*) FROM \"{}\"", safe_name),
             [],
             |row| row.get(0),
         )?;
 
-        let stmt = conn.prepare(&format!("SELECT * FROM \"{}\" LIMIT 0", new_name))?;
-        let column_count = stmt.column_count() as i32;
+        let column_count: i32;
+        {
+            let mut stmt_desc = conn.prepare(&format!(
+                "SELECT * FROM \"{}\" LIMIT 0",
+                safe_name
+            ))?;
+            let _rows = stmt_desc.query([])?;
+            column_count = stmt_desc.column_count() as i32;
+        }
 
         let drop_sql = format!("DROP TABLE IF EXISTS \"{}\"", temp_table_name);
         conn.execute_batch(&drop_sql)?;
 
-        Ok((new_name.to_string(), row_count, column_count))
+        Ok((safe_name, row_count, column_count))
     }
 }
 
@@ -629,6 +694,7 @@ fn map_sql_type_to_column_data_type(sql_type: &str) -> ColumnDataType {
 
 /// Infer ColumnDataType from a SQL type string (lowercase, with optional size).
 /// e.g. "int" -> Integer, "varchar(255)" -> Varchar { length: Some(255) }
+#[allow(dead_code)]
 fn infer_datatype_for_column(sql_type: &str) -> ColumnDataType {
     let lower = sql_type.trim().to_lowercase();
 

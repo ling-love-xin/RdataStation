@@ -6,7 +6,7 @@ use crate::core::driver::native::{
     duckdb::DuckDbDatabase, mysql::MySqlDatabase, postgres::PostgresDatabase,
     sqlite::SqliteDatabase,
 };
-use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
+use super::registry::DriverConnectionConfig;
 use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
 

@@ -368,17 +368,15 @@ impl AdvancedPortNegotiator {
         &self,
         preferred_port: Option<u16>,
     ) -> CoreResult<PortNegotiationResult> {
-        let mut attempts = 0;
-
-        for retry in 0..=self.max_retries {
-            attempts += 1;
+        for (attempt_count, retry) in (0..=self.max_retries).enumerate() {
+            let _ = retry;
 
             match self.base.negotiate(preferred_port) {
                 Ok(port) => {
                     return Ok(PortNegotiationResult {
                         port,
                         is_preferred: preferred_port == Some(port),
-                        attempts,
+                        attempts: attempt_count as u32 + 1,
                     });
                 }
                 Err(e) => {

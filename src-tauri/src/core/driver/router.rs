@@ -21,7 +21,7 @@
 //! native/mysql.rs (具体实现)
 //! ```
 
-use super::registry::ConnectionConfig;
+use super::registry::DriverConnectionConfig;
 use super::{DriverRegistry, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
 
@@ -32,7 +32,7 @@ pub struct DataSourceRouter;
 
 impl DataSourceRouter {
     /// 根据驱动配置创建数据库连接
-    pub async fn route(config: ConnectionConfig) -> Result<DynDatabase, CoreError> {
+    pub async fn route(config: DriverConnectionConfig) -> Result<DynDatabase, CoreError> {
         let driver_id = &config.driver;
 
         let factory = DriverRegistry::get(driver_id).ok_or_else(|| {

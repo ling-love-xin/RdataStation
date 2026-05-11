@@ -609,7 +609,7 @@ impl CacheVersionManager {
                     let record = CacheMigrationRecord {
                         from_version: current_version,
                         to_version: target,
-                        migrated_at: end_time as i64 / 1000,
+                        migrated_at: end_time / 1000,
                         reason: Some(strategy.reason().to_string()),
                         duration_ms: Some(duration),
                         success: true,
@@ -638,7 +638,7 @@ impl CacheVersionManager {
                     let record = CacheMigrationRecord {
                         from_version: current_version,
                         to_version: target,
-                        migrated_at: end_time as i64 / 1000,
+                        migrated_at: end_time / 1000,
                         reason: Some(strategy.reason().to_string()),
                         duration_ms: None,
                         success: false,

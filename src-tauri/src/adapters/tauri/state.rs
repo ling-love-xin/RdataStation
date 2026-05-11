@@ -31,6 +31,12 @@ pub struct WarmingTaskManager {
     tasks: RwLock<HashMap<String, Arc<WarmingTask>>>,
 }
 
+impl Default for WarmingTaskManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WarmingTaskManager {
     pub fn new() -> Self {
         Self {

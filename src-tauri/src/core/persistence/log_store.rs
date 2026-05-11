@@ -106,7 +106,7 @@ impl LogStore {
 
         // 懒清理：每 CLEANUP_CHECK_INTERVAL 次写入检查一次
         let count = self.flush_count.fetch_add(1, Ordering::Relaxed) + 1;
-        if count % CLEANUP_CHECK_INTERVAL == 0 {
+        if count.is_multiple_of(CLEANUP_CHECK_INTERVAL) {
             self.cleanup_old_records().await?;
         }
 
@@ -118,7 +118,7 @@ impl LogStore {
         let conn = self.pool.acquire().await?;
 
         let page = query.page.unwrap_or(1).max(1);
-        let page_size = query.page_size.unwrap_or(50).min(500).max(1);
+        let page_size = query.page_size.unwrap_or(50).clamp(1, 500);
         let offset = (page - 1) * page_size;
 
         let (where_clause, params) = self.build_where_clause(query);
@@ -165,7 +165,7 @@ impl LogStore {
                         timestamp: row.get(1)?,
                         level: {
                             let level_str = row.get::<_, String>(2)?;
-                            LogLevel::from_str(&level_str).unwrap_or_else(|| {
+                            LogLevel::parse_level(&level_str).unwrap_or_else(|| {
                                 tracing::warn!(
                                     "Invalid log level '{}' in database record id={}, defaulting to INFO",
                                     level_str,
@@ -185,10 +185,8 @@ impl LogStore {
                 .map_err(|e| Self::sqlite_err("query_logs_rows", e.to_string()))?;
 
             let mut result = Vec::with_capacity(page_size);
-            for row in rows {
-                if let Ok(record) = row {
-                    result.push(record);
-                }
+            for record in rows.flatten() {
+                result.push(record);
             }
             result
         };
@@ -200,7 +198,7 @@ impl LogStore {
             total,
             page,
             page_size,
-            total_pages: (total + page_size - 1) / page_size,
+            total_pages: total.div_ceil(page_size),
         })
     }
 
@@ -273,16 +271,14 @@ impl LogStore {
                     })
                     .map_err(|e| Self::sqlite_err("stats_level_rows", e.to_string()))?;
 
-                for row in rows {
-                    if let Ok((level, count)) = row {
-                        match level.as_str() {
-                            "TRACE" => counts.trace = count,
-                            "DEBUG" => counts.debug = count,
-                            "INFO" => counts.info = count,
-                            "WARN" => counts.warn = count,
-                            "ERROR" => counts.error = count,
-                            _ => {}
-                        }
+                for (level, count) in rows.flatten() {
+                    match level.as_str() {
+                        "TRACE" => counts.trace = count,
+                        "DEBUG" => counts.debug = count,
+                        "INFO" => counts.info = count,
+                        "WARN" => counts.warn = count,
+                        "ERROR" => counts.error = count,
+                        _ => {}
                     }
                 }
                 counts
@@ -305,10 +301,8 @@ impl LogStore {
                     .map_err(|e| Self::sqlite_err("stats_target_rows", e.to_string()))?;
 
                 let mut result = Vec::new();
-                for row in rows {
-                    if let Ok(stat) = row {
-                        result.push(stat);
-                    }
+                for stat in rows.flatten() {
+                    result.push(stat);
                 }
                 result
             };

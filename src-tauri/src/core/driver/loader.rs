@@ -84,23 +84,20 @@ pub struct BuiltinDriverDiscovery;
 impl BuiltinDriverDiscovery {
     /// 加载内置驱动
     pub async fn load_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
-        let mut drivers: Vec<Arc<dyn DriverFactory>> = Vec::new();
-
-        // 加载MySQL驱动
-        drivers.push(Arc::new(crate::core::driver::factory::MySqlDriverFactory));
-
-        // 加载PostgreSQL驱动
-        drivers.push(Arc::new(
-            crate::core::driver::factory::PostgresDriverFactory,
-        ));
-
-        // 加载SQLite驱动
-        drivers.push(Arc::new(crate::core::driver::factory::SqliteDriverFactory));
-
-        // 加载DuckDB驱动
-        drivers.push(Arc::new(crate::core::driver::factory::DuckDbDriverFactory));
+        let drivers: Vec<Arc<dyn DriverFactory>> = vec![
+            Arc::new(crate::core::driver::factory::MySqlDriverFactory),
+            Arc::new(crate::core::driver::factory::PostgresDriverFactory),
+            Arc::new(crate::core::driver::factory::SqliteDriverFactory),
+            Arc::new(crate::core::driver::factory::DuckDbDriverFactory),
+        ];
 
         Ok(drivers)
+    }
+}
+
+impl Default for DriverLoader {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -138,6 +135,12 @@ impl WasmDriverDiscovery {
     }
 }
 
+impl Default for WasmDriverDiscovery {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// JDBC驱动发现器
 pub struct JdbcDriverDiscovery {
     /// JDBC驱动目录
@@ -169,5 +172,11 @@ impl JdbcDriverDiscovery {
         }
 
         Ok(drivers)
+    }
+}
+
+impl Default for JdbcDriverDiscovery {
+    fn default() -> Self {
+        Self::new()
     }
 }

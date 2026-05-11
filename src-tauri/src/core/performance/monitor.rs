@@ -141,7 +141,7 @@ static PERFORMANCE_MONITOR: OnceLock<PerformanceMonitor> = OnceLock::new();
 
 /// 获取全局性能监控实例
 pub fn get_performance_monitor() -> &'static PerformanceMonitor {
-    PERFORMANCE_MONITOR.get_or_init(|| PerformanceMonitor::new())
+    PERFORMANCE_MONITOR.get_or_init(PerformanceMonitor::new)
 }
 
 /// 性能监控计时器

@@ -94,6 +94,7 @@ impl PerformanceCollector {
     }
 
     /// 记录一次查询
+    #[allow(clippy::too_many_arguments)]
     pub async fn record_query(
         &self,
         sql: &str,

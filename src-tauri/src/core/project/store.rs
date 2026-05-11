@@ -803,7 +803,7 @@ mod tests {
 
         // 创建项目
         let project_path = test_temp_dir("manager").join("managed-project");
-        let project = manager
+        let _project = manager
             .create_project("Managed Project", &project_path)
             .unwrap();
 

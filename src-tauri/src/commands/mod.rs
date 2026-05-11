@@ -1,6 +1,11 @@
 //! 命令模块
 //!
-//! 包含所有 Tauri 命令的实现，统一从 adapters/tauri/command.rs 迁移至此
+//! 包含所有 Tauri 命令的实现。
+//!
+//! ═══════════ 架构边界 ═══════════
+//! ❌ 禁止 import core::dbi::*（commands 只能访问 services）
+//! ✅ 允许 import core::services::*（业务逻辑入口）
+//! ✅ 允许 import core::error / core::models（基础类型）
 
 pub mod cache_warming_commands;
 pub mod connection_commands;

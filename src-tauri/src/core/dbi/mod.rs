@@ -1,13 +1,23 @@
-pub mod context;
 /**
- * DBI (Database Interface) - 统一数据访问入口
+ * DBI (Database Interface) — 统一数据访问引擎层
  *
- * 作为 RdataStation 的核心数据访问层，DBI 负责：
- * - 统一查询/执行接口
- * - 会话和事务管理
- * - 查询上下文传递
- * - 多引擎路由（原生驱动 / DuckDB 加速 / 流处理）
+ * ═══════════ 架构边界 ═══════════
+ * DBI 层定位：执行引擎抽象层，位于 services 之下、driver 之上。
+ *
+ *    commands ──► services ──► dbi ──► driver ──► native
+ *                  (业务逻辑)   (引擎)   (trait)    (实现)
+ *
+ * ❌ 禁止：commands 直接 import dbi（commands 只访问 services）
+ * ✅ 允许：services 内部调用 dbi 引擎（如 DuckDbService → DuckDBEngine）
+ *
+ * 职责：
+ * - 多引擎路由（DriverEngine / DuckDBEngine / StreamEngine）
+ * - 会话与事务管理
+ * - 查询上下文传递（ExecutionContext / QueryContext）
+ * - 性能统计收集
  */
+pub mod context;
+#[allow(clippy::module_inception)]
 pub mod dbi;
 pub mod engine;
 pub mod performance;

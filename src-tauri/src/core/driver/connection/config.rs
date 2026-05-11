@@ -8,8 +8,10 @@ use std::collections::HashMap;
 /// 连接方式枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ConnectionMethod {
     /// 直接连接（无加密/无代理）
+    #[default]
     Direct,
     /// SSL/TLS 加密连接
     Ssl(SslConfig),
@@ -21,11 +23,6 @@ pub enum ConnectionMethod {
     SocksProxy(ProxyConfig),
 }
 
-impl Default for ConnectionMethod {
-    fn default() -> Self {
-        ConnectionMethod::Direct
-    }
-}
 
 /// SSL/TLS 配置
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -47,18 +44,15 @@ pub struct SslConfig {
 /// TLS 版本
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum TlsVersion {
     Tls1_0,
     Tls1_1,
+    #[default]
     Tls1_2,
     Tls1_3,
 }
 
-impl Default for TlsVersion {
-    fn default() -> Self {
-        TlsVersion::Tls1_2
-    }
-}
 
 fn default_tls_version() -> TlsVersion {
     TlsVersion::Tls1_2

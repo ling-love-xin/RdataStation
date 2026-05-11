@@ -21,6 +21,12 @@ pub struct ProjectState {
     pub store: Arc<Mutex<Option<ProjectStore>>>,
 }
 
+impl Default for ProjectState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProjectState {
     pub fn new() -> Self {
         Self {
@@ -443,7 +449,7 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, C
             );
 
             crate::core::insight::load_user_rules(&path_buf);
-            Ok(build_project_response(&info, actual_path))
+            Ok(build_project_response(info, actual_path))
         }
     }
 }
@@ -495,7 +501,7 @@ pub async fn create_and_save_project(
                     "Project already exists, returning existing project"
                 );
 
-                return Ok(build_project_response(&info, input.path));
+                return Ok(build_project_response(info, input.path));
             }
             Err(_) => {
                 // 路径存在但不是有效项目，检查目录是否为空
@@ -550,7 +556,7 @@ pub async fn create_and_save_project(
         "Project created successfully"
     );
 
-    Ok(build_project_response(&info, input.path))
+    Ok(build_project_response(info, input.path))
 }
 
 /// 添加到最近项目（更新最后打开时间）

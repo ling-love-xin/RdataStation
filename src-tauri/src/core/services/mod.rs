@@ -1,10 +1,21 @@
-//! Service 层
+//! Service 层 — 业务逻辑编排
 //!
-//! 负责业务逻辑处理，将 Command 层与核心逻辑解耦。
-//! 这是大型 Rust 项目的常见架构模式：
-//! - Command 层只负责参数解析和调用 Service
-//! - Service 层负责业务逻辑
-//! - 便于单元测试和代码复用
+//! ═══════════ 架构边界 ═══════════
+//! Services 层定位：业务逻辑层，位于 commands 之下、dbi/driver 之上。
+//!
+//!    commands ──► services ──► dbi ──► driver ──► native
+//!                  (本层)       (引擎)   (trait)    (实现)
+//!
+//! ✅ commands 层只能调用 services，不能跨层访问 dbi
+//! ✅ services 内部可以调用 dbi 引擎（DuckDbService → DuckDBEngine）
+//! ✅ services 通过 ConnectionManager 间接访问 driver
+//!
+//! 职责分层：
+//! - ConnectionService / ConnectionManager → 连接生命周期
+//! - SqlService → SQL 执行 + 历史 + 缓存
+//! - DuckDbService → DuckDB 加速/联邦查询
+//! - ResultService → 结果集管理
+//! - insight_engine / quality_scorer / table_profile_service → 数据质量分析
 
 pub mod connection_manager;
 pub mod connection_service;

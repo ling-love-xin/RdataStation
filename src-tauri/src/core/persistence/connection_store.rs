@@ -566,7 +566,7 @@ pub struct ConnectionRecord {
 pub fn save_recent_connection(name: &str, db_type: &str, url: &str) -> Result<(), std::io::Error> {
     let mut store = GLOBAL_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     let id = format!("{}-{}", db_type, url);
     let conn = ConnectionInfo::new(id, name.to_string(), db_type.to_string(), url.to_string());
@@ -607,7 +607,7 @@ fn url_has_plaintext_password(url: &str) -> bool {
 pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error> {
     let mut store = GLOBAL_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     store.load()?;
 
@@ -632,7 +632,7 @@ pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error>
             db_type: c.db_type.clone(),
             url: c.url.clone(),
             last_used_at: chrono::DateTime::from_timestamp(c.last_used as i64, 0)
-                .unwrap_or_else(|| chrono::Utc::now()),
+                .unwrap_or_else(chrono::Utc::now),
         })
         .collect();
 
@@ -643,7 +643,7 @@ pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error>
 pub fn remove_recent_connection(name: &str) -> Result<(), std::io::Error> {
     let mut store = GLOBAL_STORE
         .lock()
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock store"))?;
+        .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     // 找到匹配的连接 ID
     let conn_id_to_remove: Option<String> = store

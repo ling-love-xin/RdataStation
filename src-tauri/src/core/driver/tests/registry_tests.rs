@@ -5,12 +5,12 @@
 #[cfg(test)]
 mod tests {
     use crate::core::driver::registry::{
-        get_all_drivers, get_driver, ConnectionConfig, DriverDescriptor,
+        get_all_drivers, get_driver, DriverConnectionConfig, DriverDescriptor,
     };
 
     #[test]
     fn test_connection_config_new() {
-        let config = ConnectionConfig::new("mysql");
+        let config = DriverConnectionConfig::new("mysql");
         assert_eq!(config.driver, "mysql");
         assert!(config.name.is_none());
         assert!(config.host.is_none());
@@ -19,7 +19,7 @@ mod tests {
 
     #[test]
     fn test_connection_config_builder() {
-        let config = ConnectionConfig::new("mysql")
+        let config = DriverConnectionConfig::new("mysql")
             .with_name("test-connection")
             .with_host("localhost")
             .with_port(3306)
@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_mysql_url_building() {
-        let config = ConnectionConfig::new("mysql")
+        let config = DriverConnectionConfig::new("mysql")
             .with_host("localhost")
             .with_port(3306)
             .with_database("testdb")
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn test_mysql_url_with_options() {
-        let config = ConnectionConfig::new("mysql")
+        let config = DriverConnectionConfig::new("mysql")
             .with_host("localhost")
             .with_port(3306)
             .with_database("testdb")
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_postgres_url_building() {
-        let config = ConnectionConfig::new("postgres")
+        let config = DriverConnectionConfig::new("postgres")
             .with_host("localhost")
             .with_port(5432)
             .with_database("testdb")
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_sqlite_url_building() {
-        let config = ConnectionConfig::new("sqlite").with_file_path("/path/to/db.sqlite");
+        let config = DriverConnectionConfig::new("sqlite").with_file_path("/path/to/db.sqlite");
 
         let url = config.to_url().unwrap();
         assert_eq!(url, "sqlite:///path/to/db.sqlite");
@@ -93,7 +93,7 @@ mod tests {
 
     #[test]
     fn test_duckdb_url_building() {
-        let config = ConnectionConfig::new("duckdb").with_file_path("/path/to/db.duckdb");
+        let config = DriverConnectionConfig::new("duckdb").with_file_path("/path/to/db.duckdb");
 
         let url = config.to_url().unwrap();
         assert_eq!(url, "duckdb:///path/to/db.duckdb");
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_mysql_url_missing_host() {
-        let config = ConnectionConfig::new("mysql");
+        let config = DriverConnectionConfig::new("mysql");
         let result = config.to_url();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Host is required"));
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_sqlite_url_missing_file_path() {
-        let config = ConnectionConfig::new("sqlite");
+        let config = DriverConnectionConfig::new("sqlite");
         let result = config.to_url();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("File path is required"));
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_unsupported_driver() {
-        let config = ConnectionConfig::new("oracle");
+        let config = DriverConnectionConfig::new("oracle");
         let result = config.to_url();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unsupported driver"));

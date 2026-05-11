@@ -68,7 +68,7 @@ impl DbPool for MySqlPoolWrapper {
 
     fn status(&self) -> PoolStatus {
         let size = self.pool.size() as usize;
-        let idle = self.pool.num_idle() as usize;
+        let idle = self.pool.num_idle();
         let active = size - idle;
 
         PoolStatus {

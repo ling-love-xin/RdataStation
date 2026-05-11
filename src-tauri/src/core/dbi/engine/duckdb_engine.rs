@@ -189,6 +189,15 @@ impl DuckDBEngine {
             persistent_db_path: None,
         }
     }
+}
+
+impl Default for DuckDBEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DuckDBEngine {
 
     /// 获取 DuckDB 连接
     pub fn conn(&self) -> Result<duckdb::Connection, CoreError> {
@@ -455,26 +464,26 @@ impl DuckDBEngine {
 
     /// 执行联邦查询（跨多个数据源）
     pub async fn execute_federated_query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        let connections = self.external_connections.lock().map_err(mutex_lock_err)?;
-        if connections.is_empty() {
-            return Err(CoreError::common(CommonError::General(
-                "No external databases registered for federated query".to_string(),
-            )));
+        {
+            let connections = self.external_connections.lock().map_err(mutex_lock_err)?;
+            if connections.is_empty() {
+                return Err(CoreError::common(CommonError::General(
+                    "No external databases registered for federated query".to_string(),
+                )));
+            }
+
+            let involved_sources: Vec<&str> = connections
+                .iter()
+                .filter(|c| sql.contains(&c.name))
+                .map(|c| c.name.as_str())
+                .collect();
+
+            if involved_sources.is_empty() {
+                return Err(CoreError::common(CommonError::General(
+                    "Query does not reference any registered external databases".to_string(),
+                )));
+            }
         }
-
-        let involved_sources: Vec<&str> = connections
-            .iter()
-            .filter(|c| sql.contains(&c.name))
-            .map(|c| c.name.as_str())
-            .collect();
-
-        if involved_sources.is_empty() {
-            return Err(CoreError::common(CommonError::General(
-                "Query does not reference any registered external databases".to_string(),
-            )));
-        }
-
-        drop(connections);
 
         self.execute_query(sql).await
     }
@@ -633,28 +642,20 @@ impl DuckDBEngine {
 
 #[allow(dead_code)]
 fn duckdb_value_to_value(row: &duckdb::Row, index: usize) -> crate::core::models::Value {
-    if let Ok(value) = row.get::<_, Option<i64>>(index) {
-        if let Some(v) = value {
-            return crate::core::models::Value::Int(v);
-        }
+    if let Ok(Some(v)) = row.get::<_, Option<i64>>(index) {
+        return crate::core::models::Value::Int(v);
     }
 
-    if let Ok(value) = row.get::<_, Option<f64>>(index) {
-        if let Some(v) = value {
-            return crate::core::models::Value::Float(v);
-        }
+    if let Ok(Some(v)) = row.get::<_, Option<f64>>(index) {
+        return crate::core::models::Value::Float(v);
     }
 
-    if let Ok(value) = row.get::<_, Option<String>>(index) {
-        if let Some(v) = value {
-            return crate::core::models::Value::Text(v);
-        }
+    if let Ok(Some(v)) = row.get::<_, Option<String>>(index) {
+        return crate::core::models::Value::Text(v);
     }
 
-    if let Ok(value) = row.get::<_, Option<Vec<u8>>>(index) {
-        if let Some(v) = value {
-            return crate::core::models::Value::Bytes(v);
-        }
+    if let Ok(Some(v)) = row.get::<_, Option<Vec<u8>>>(index) {
+        return crate::core::models::Value::Bytes(v);
     }
 
     crate::core::models::Value::Null

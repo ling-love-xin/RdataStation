@@ -46,7 +46,7 @@ impl<V> CacheEntry<V> {
 
     /// 检查是否过期
     pub fn is_expired(&self) -> bool {
-        self.expires_at.map_or(false, |exp| Instant::now() > exp)
+        self.expires_at.is_some_and(|exp| Instant::now() > exp)
     }
 
     /// 记录访问

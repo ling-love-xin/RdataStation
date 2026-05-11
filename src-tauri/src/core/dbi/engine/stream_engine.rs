@@ -27,6 +27,15 @@ impl StreamEngine {
     pub fn new() -> Self {
         Self
     }
+}
+
+impl Default for StreamEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StreamEngine {
 
     /// 合并多个查询结果
     ///
@@ -43,11 +52,11 @@ impl StreamEngine {
         }
 
         if results.len() == 1 {
-            return Ok(results.into_iter().next().ok_or_else(|| {
+            return results.into_iter().next().ok_or_else(|| {
                 CoreError::common(CommonError::General(
                     "Expected exactly one result".to_string(),
                 ))
-            })?);
+            });
         }
 
         let first = &results[0];
@@ -310,15 +319,15 @@ impl ExecutionEngine for StreamEngine {
                             limit = Some(l);
                         }
                     }
-                } else if directive.starts_with("sort:") {
-                    let parts: Vec<&str> = directive[5..].split(':').collect();
+                } else if let Some(stripped) = directive.strip_prefix("sort:") {
+                    let parts: Vec<&str> = stripped.split(':').collect();
                     if parts.len() >= 2 {
                         if let (Ok(col), asc) = (parts[0].parse::<usize>(), parts[1] == "asc") {
                             sort_column = Some((col, asc));
                         }
                     }
-                } else if directive.starts_with("filter:") {
-                    let parts: Vec<&str> = directive[7..].split(':').collect();
+                } else if let Some(stripped) = directive.strip_prefix("filter:") {
+                    let parts: Vec<&str> = stripped.split(':').collect();
                     if parts.len() >= 2 {
                         if let Ok(col) = parts[0].parse::<usize>() {
                             let value = if let Ok(i) = parts[1].parse::<i64>() {

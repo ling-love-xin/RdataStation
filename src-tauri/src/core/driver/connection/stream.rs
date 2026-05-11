@@ -17,7 +17,7 @@ pub enum ConnectionStream {
     /// 普通 TCP 连接
     Tcp(tokio::net::TcpStream),
     /// TLS 加密连接
-    Tls(tokio_native_tls::TlsStream<tokio::net::TcpStream>),
+    Tls(Box<tokio_native_tls::TlsStream<tokio::net::TcpStream>>),
     /// SSH 隧道连接（本地端口转发）
     SshTunnel(tokio::net::TcpStream),
     /// HTTP 代理连接
@@ -109,7 +109,7 @@ impl ConnectionStream {
 
     /// 创建 TLS 连接流
     pub fn tls(stream: tokio_native_tls::TlsStream<tokio::net::TcpStream>) -> Self {
-        ConnectionStream::Tls(stream)
+        ConnectionStream::Tls(Box::new(stream))
     }
 
     /// 创建 SSH 隧道连接流
@@ -126,8 +126,7 @@ impl ConnectionStream {
             ConnectionStream::Tls(_) => {
                 // TLS 流的地址获取比较复杂，暂时返回一个默认值
                 // 实际使用时可以通过其他方式获取
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Err(std::io::Error::other(
                     "TLS stream local address not available",
                 ))
             }
@@ -145,8 +144,7 @@ impl ConnectionStream {
             ConnectionStream::Tcp(s) => s.peer_addr(),
             ConnectionStream::Tls(_) => {
                 // TLS 流的地址获取比较复杂，暂时返回一个默认值
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Err(std::io::Error::other(
                     "TLS stream peer address not available",
                 ))
             }

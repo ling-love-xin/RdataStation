@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::core::driver::registry::ConnectionConfig as DriverConnectionConfig;
+use super::registry::DriverConnectionConfig;
 use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
 
@@ -147,6 +147,12 @@ impl DriverManager {
         })?;
 
         factory.create(config).await
+    }
+}
+
+impl Default for DriverManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -25,6 +25,15 @@ impl DriverEngine {
             connection_manager: get_connection_manager().clone(),
         }
     }
+}
+
+impl Default for DriverEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DriverEngine {
 
     /// 使用指定的连接管理器创建引擎
     pub fn with_connection_manager(

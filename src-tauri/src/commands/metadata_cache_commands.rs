@@ -185,6 +185,7 @@ pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, CoreE
 
 /// 保存表元数据到缓存
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn save_table_metadata_to_cache(
     connection_id: String,
     connection_type: String,
@@ -251,6 +252,7 @@ pub async fn save_tables_batch_to_cache(
     let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
     let mut ops = MetadataCacheOps::new(conn);
 
+    #[allow(clippy::type_complexity)]
     let batch: Vec<(String, String, String, String, Option<String>)> = tables
         .into_iter()
         .map(|t| {
@@ -295,6 +297,7 @@ pub async fn save_columns_batch_to_cache(
     let conn = cache_manager.open().map_err(|e| CoreError::from(e.to_string()))?;
     let mut ops = MetadataCacheOps::new(conn);
 
+    #[allow(clippy::type_complexity)]
     let batch: Vec<(
         String,
         String,
@@ -330,6 +333,7 @@ pub async fn save_columns_batch_to_cache(
 
 /// 保存列元数据到缓存
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn save_column_metadata_to_cache(
     connection_id: String,
     connection_type: String,

@@ -105,7 +105,7 @@ pub async fn create_connection(config: ConnectionConfig) -> Result<Connection, C
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::config::ConnectionConfig;
+    use crate::core::driver::connection::config::ConnectionConfig;
 
     #[test]
     fn test_connection_factory_new() {

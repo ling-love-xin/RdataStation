@@ -365,8 +365,7 @@ pub async fn test_connection(
         let server_version = manager
             .get_connection(&info.id)
             .await
-            .map(|db| db.meta().server_version)
-            .flatten()
+            .and_then(|db| db.meta().server_version)
             .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
         let response_time_ms = start.elapsed().as_millis() as u64;

@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
 use crate::adapters::tauri::state::AppState;
+use crate::core::error::CoreError;
 use crate::core::mock::persistence::{
     MockGenerationColumn, MockGenerationDetail, MockGenerationStore, MockGenerationTask,
     MockTemplateColumn, MockUserTemplate,
 };
 use crate::core::persistence::project_db::ProjectSqlitePool;
 
-async fn open_store(project_path: &str) -> Result<MockGenerationStore, String> {
+async fn open_store(project_path: &str) -> Result<MockGenerationStore, CoreError> {
     let db_path = format!("{}/.RSMETA/project.db", project_path);
     let pool = ProjectSqlitePool::new(std::path::PathBuf::from(&db_path), 1)
         .await
-        .map_err(|e| format!("Failed to open project database: {}", e))?;
+        .map_err(|e| CoreError::from(format!("Failed to open project database: {}", e)))?;
 
     Ok(MockGenerationStore::new(Arc::new(pool)))
 }
@@ -27,12 +28,12 @@ pub async fn save_mock_generation_task(
     project_path: String,
     task: MockGenerationTask,
     columns: Vec<MockGenerationColumn>,
-) -> Result<String, String> {
+) -> Result<String, CoreError> {
     let store = open_store(&project_path).await?;
     store
         .save_task(&task, &columns)
         .await
-        .map_err(|e| format!("Failed to save task: {}", e))?;
+        .map_err(|e| CoreError::from(format!("Failed to save task: {}", e)))?;
     Ok(task.id.clone())
 }
 
@@ -45,12 +46,12 @@ pub async fn get_mock_generation_history(
     _state: tauri::State<'_, AppState>,
     project_path: String,
     limit: Option<u32>,
-) -> Result<Vec<MockGenerationTask>, String> {
+) -> Result<Vec<MockGenerationTask>, CoreError> {
     let store = open_store(&project_path).await?;
     store
         .get_history(limit.unwrap_or(20))
         .await
-        .map_err(|e| format!("Failed to query history: {}", e))
+        .map_err(|e| CoreError::from(format!("Failed to query history: {}", e)))
 }
 
 /// 查询生成任务详情（含列定义）
@@ -62,12 +63,12 @@ pub async fn get_mock_generation_detail(
     _state: tauri::State<'_, AppState>,
     project_path: String,
     task_id: String,
-) -> Result<MockGenerationDetail, String> {
+) -> Result<MockGenerationDetail, CoreError> {
     let store = open_store(&project_path).await?;
     store
         .get_detail(&task_id)
         .await
-        .map_err(|e| format!("Failed to query detail: {}", e))
+        .map_err(|e| CoreError::from(format!("Failed to query detail: {}", e)))
 }
 
 /// 删除生成任务记录
@@ -78,12 +79,12 @@ pub async fn delete_mock_generation_task(
     _state: tauri::State<'_, AppState>,
     project_path: String,
     task_id: String,
-) -> Result<(), String> {
+) -> Result<(), CoreError> {
     let store = open_store(&project_path).await?;
     store
         .delete_task(&task_id)
         .await
-        .map_err(|e| format!("Failed to delete task: {}", e))
+        .map_err(|e| CoreError::from(format!("Failed to delete task: {}", e)))
 }
 
 /// 保存用户自定义模板
@@ -96,12 +97,12 @@ pub async fn save_mock_template(
     project_path: String,
     template: MockUserTemplate,
     columns: Vec<MockTemplateColumn>,
-) -> Result<String, String> {
+) -> Result<String, CoreError> {
     let store = open_store(&project_path).await?;
     store
         .save_template(&template, &columns)
         .await
-        .map_err(|e| format!("Failed to save template: {}", e))?;
+        .map_err(|e| CoreError::from(format!("Failed to save template: {}", e)))?;
     Ok(template.id.clone())
 }
 
@@ -113,12 +114,12 @@ pub async fn save_mock_template(
 pub async fn get_mock_templates(
     _state: tauri::State<'_, AppState>,
     project_path: String,
-) -> Result<Vec<MockUserTemplate>, String> {
+) -> Result<Vec<MockUserTemplate>, CoreError> {
     let store = open_store(&project_path).await?;
     store
         .get_templates()
         .await
-        .map_err(|e| format!("Failed to query templates: {}", e))
+        .map_err(|e| CoreError::from(format!("Failed to query templates: {}", e)))
 }
 
 /// 查询模板详情（含列定义）
@@ -129,10 +130,10 @@ pub async fn get_mock_template_detail(
     _state: tauri::State<'_, AppState>,
     project_path: String,
     template_id: String,
-) -> Result<(MockUserTemplate, Vec<MockTemplateColumn>), String> {
+) -> Result<(MockUserTemplate, Vec<MockTemplateColumn>), CoreError> {
     let store = open_store(&project_path).await?;
     store
         .get_template_detail(&template_id)
         .await
-        .map_err(|e| format!("Failed to query template detail: {}", e))
+        .map_err(|e| CoreError::from(format!("Failed to query template detail: {}", e)))
 }

@@ -20,6 +20,12 @@ pub struct AnalyticsResourceState {
     pub store: Arc<OnceLock<AnalyticsResourceStore>>,
 }
 
+impl Default for AnalyticsResourceState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnalyticsResourceState {
     pub fn new() -> Self {
         Self {

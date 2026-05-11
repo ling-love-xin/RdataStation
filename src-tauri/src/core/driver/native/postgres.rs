@@ -776,3 +776,75 @@ fn names_to_schema_objects(
     }
     objects
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::driver::Database;
+
+    const PG_URL: &str = "postgresql://postgres:postgresql@localhost:5432/business_db";
+
+    #[tokio::test]
+    async fn test_connect() {
+        let db = PostgresDatabase::new(PG_URL).await;
+        assert!(db.is_ok(), "Failed to connect to PostgreSQL: {:?}", db.err());
+    }
+
+    #[tokio::test]
+    async fn test_query_select_one() {
+        let db = PostgresDatabase::new(PG_URL).await.expect("Failed to connect");
+        let result = db.query("SELECT 1 AS val").await.expect("Query failed");
+        assert_eq!(result.columns, vec!["val"]);
+    }
+
+    #[tokio::test]
+    async fn test_crud_roundtrip() {
+        let db = PostgresDatabase::new(PG_URL).await.expect("Failed to connect");
+
+        db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name VARCHAR(100), value DOUBLE PRECISION)")
+            .await
+            .expect("CREATE TABLE failed");
+
+        db.query("INSERT INTO _rd_test (id, name, value) VALUES (1, 'hello', 3.14)")
+            .await
+            .expect("INSERT failed");
+
+        let result = db
+            .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
+            .await
+            .expect("SELECT failed");
+        assert_eq!(result.columns, vec!["id", "name", "value"]);
+
+        db.query("DROP TABLE IF EXISTS _rd_test")
+            .await
+            .expect("DROP TABLE failed");
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        let db = PostgresDatabase::new(PG_URL).await.expect("Failed to connect");
+        let result = db.query("SELECT * FROM _non_existent_table_rd").await;
+        assert!(result.is_err(), "Expected error for non-existent table");
+    }
+
+    #[tokio::test]
+    async fn test_list_tables() {
+        let db = PostgresDatabase::new(PG_URL).await.expect("Failed to connect");
+        let tables = db.list_tables("public", Some("public")).await;
+        assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
+    }
+
+    #[tokio::test]
+    async fn test_meta() {
+        let db = PostgresDatabase::new(PG_URL).await.expect("Failed to connect");
+        let meta = db.meta();
+        assert!(meta.supports_transaction);
+    }
+
+    #[tokio::test]
+    async fn test_is_read_only_flag() {
+        let db = PostgresDatabase::new(PG_URL).await.expect("Failed to connect");
+        let result = db.query("SELECT 1").await.expect("Query failed");
+        assert_eq!(result.is_read_only, Some(true));
+    }
+}

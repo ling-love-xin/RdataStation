@@ -4,10 +4,10 @@
 
 use crate::adapters::tauri::state::AppState;
 use crate::api::dto::QueryResult;
-use crate::core::dbi::engine::duckdb_engine::DuckDBEngine;
 use crate::core::error::CoreError;
 use crate::core::get_connection_manager;
 use crate::core::persistence::history_store::SqlHistoryRecord;
+use crate::core::services::duckdb_service::DuckDbService;
 use crate::core::services::{
     sql_service::{SqlExecuteOptions, SqlExecuteResult, TransactionStatusResult},
     SqlService,
@@ -316,8 +316,6 @@ pub async fn execute_duckdb_accelerated(
     state: tauri::State<'_, AppState>,
     input: DuckDBAcceleratedInput,
 ) -> Result<DuckDBAcceleratedResponse, CoreError> {
-    use crate::core::dbi::context::QueryContext;
-    use crate::core::dbi::engine::{ExecutionEngine, ExecutionMode};
     use crate::core::error::CommonError;
 
     let manager = get_connection_manager().clone();
@@ -331,57 +329,17 @@ pub async fn execute_duckdb_accelerated(
             )))
         })?;
 
-    let attach_type = match conn_info.db_type.as_str() {
-        "mysql" => "mysql",
-        "postgresql" | "postgres" => "postgres",
-        "sqlite" => "sqlite",
-        other => {
-            return Err(CoreError::common(CommonError::General(format!(
-                "Unsupported database type for DuckDB acceleration: {}",
-                other
-            ))))
-        }
-    };
-
-    let sanitized = conn_info
-        .name
-        .replace(|c: char| !c.is_alphanumeric() && c != '_', "_");
-    let attach_name = format!("ext_{}", sanitized);
-    let attach_sql = format!(
-        "ATTACH '{}' AS {} (TYPE {})",
-        conn_info.url, attach_name, attach_type
-    );
-
     let engine = state.duckdb_engine.lock().await;
-
-    {
-        let conn = engine
-            .conn()
-            .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
-        if let Some(ref data_dir) = input.data_dir {
-            DuckDBEngine::init_extensions(&conn, data_dir)
-                .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
-        }
-        conn.execute_batch(&attach_sql).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "Failed to ATTACH source database: {}",
-                e
-            )))
-        })?;
-    }
-
-    let ctx = QueryContext::new(Some(input.conn_id.clone()), ExecutionMode::DuckDB);
-    let result = engine
-        .execute(&input.sql, &ctx)
-        .await
-        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
-
-    {
-        let conn = engine
-            .conn()
-            .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
-        let _ = conn.execute_batch(&format!("DETACH IF EXISTS {}", attach_name));
-    }
+    let result = DuckDbService::accelerate_query(
+        &conn_info.db_type,
+        &conn_info.url,
+        &conn_info.name,
+        &input.sql,
+        &engine,
+        input.data_dir.as_deref(),
+    )
+    .await?;
+    drop(engine);
 
     let columns: Vec<String> = result
         .batches
@@ -481,10 +439,7 @@ fn format_arrow_value(col: &dyn arrow::array::Array, row_idx: usize) -> serde_js
         return Value::String(arr.value(row_idx).to_string());
     }
 
-    Value::String(format!(
-        "{}",
-        arrow::util::display::array_value_to_string(col, row_idx).unwrap_or_default()
-    ))
+    Value::String(arrow::util::display::array_value_to_string(col, row_idx).unwrap_or_default().to_string())
 }
 
 /// 创建外部表请求参数

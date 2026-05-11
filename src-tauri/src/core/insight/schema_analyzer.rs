@@ -270,11 +270,7 @@ impl SchemaAnalyzer {
             for (suffix, target_col) in fk_patterns {
                 if let Some(prefix_end) = col.column_name.strip_suffix(&suffix[1..suffix.len() - 1])
                 {
-                    let base_prefix = if prefix_end.ends_with('_') {
-                        &prefix_end[..prefix_end.len() - 1]
-                    } else {
-                        prefix_end
-                    };
+                    let base_prefix = prefix_end.strip_suffix('_').unwrap_or(prefix_end);
 
                     if let Some((_prefix, matched_table)) =
                         Self::find_compound_fk_target(base_prefix, &table_set)
@@ -377,11 +373,7 @@ impl SchemaAnalyzer {
         for col in columns {
             for suffix in &["_id", "_key", "_ref", "_uuid"] {
                 if let Some(prefix) = col.column_name.strip_suffix(suffix) {
-                    let target_singular = if prefix.ends_with('_') {
-                        &prefix[..prefix.len() - 1]
-                    } else {
-                        prefix
-                    };
+                    let target_singular = prefix.strip_suffix('_').unwrap_or(prefix);
                     let plural = format!("{}s", target_singular);
                     if table_set.contains(plural.as_str()) {
                         refs_from.insert(col.table_name.as_str());

@@ -70,7 +70,7 @@ pub(crate) fn compute_column_quality(stats: &ColumnInsightFull) -> QualityScore 
             }
         }
         ColumnStatsDetail::DateTime(_) => {
-            let has_range = stats.histogram.as_ref().map_or(false, |h| h.len() > 1);
+            let has_range = stats.histogram.as_ref().is_some_and(|h| h.len() > 1);
             if has_range {
                 85.0
             } else {

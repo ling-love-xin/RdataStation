@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
+use crate::core::dbi::context::QueryContext;
+use crate::core::dbi::engine::duckdb_engine::DuckDBEngine;
+use crate::core::dbi::engine::{ExecutionEngine, ExecutionMode};
 use crate::core::error::{CommonError, CoreError};
+use crate::core::models::QueryResult;
 use crate::core::DuckDBManager;
 
 pub(crate) struct DuckDbService;
@@ -8,6 +12,70 @@ pub(crate) struct DuckDbService;
 impl DuckDbService {
     pub fn get_or_create_duckdb() -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
         DuckDBManager::global().get_or_create_in_memory()
+    }
+
+    /// 使用 DuckDB 加速引擎执行外部数据库查询
+    ///
+    /// 流程：ATTACH 外部数据库 → 执行 SQL → DETACH → 返回 QueryResult
+    /// 内部调用 dbi::engine::duckdb_engine::DuckDBEngine（DBI 层）
+    pub async fn accelerate_query(
+        db_type: &str,
+        url: &str,
+        conn_name: &str,
+        sql: &str,
+        engine: &DuckDBEngine,
+        data_dir: Option<&str>,
+    ) -> Result<QueryResult, CoreError> {
+        let attach_type = match db_type.to_lowercase().as_str() {
+            "mysql" => "mysql",
+            "postgresql" | "postgres" => "postgres",
+            "sqlite" => "sqlite",
+            other => {
+                return Err(CoreError::common(CommonError::General(format!(
+                    "Unsupported database type for DuckDB acceleration: {}",
+                    other
+                ))))
+            }
+        };
+
+        let sanitized =
+            conn_name.replace(|c: char| !c.is_alphanumeric() && c != '_', "_");
+        let attach_name = format!("ext_{}", sanitized);
+        let attach_sql = format!(
+            "ATTACH '{}' AS {} (TYPE {})",
+            url, attach_name, attach_type
+        );
+
+        {
+            let conn = engine
+                .conn()
+                .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+            if let Some(dir) = data_dir {
+                DuckDBEngine::init_extensions(&conn, dir)
+                    .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+            }
+            conn.execute_batch(&attach_sql).map_err(|e| {
+                CoreError::common(CommonError::General(format!(
+                    "Failed to ATTACH source database: {}",
+                    e
+                )))
+            })?;
+        }
+
+        let ctx = QueryContext::new(None, ExecutionMode::DuckDB);
+        let result = engine
+            .execute(sql, &ctx)
+            .await
+            .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+
+        {
+            let conn = engine
+                .conn()
+                .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+            let _ = conn.execute_batch(&format!("DETACH IF EXISTS {}", attach_name));
+        }
+
+        Ok(result)
     }
 
     pub fn create_duckdb_temp_table(
