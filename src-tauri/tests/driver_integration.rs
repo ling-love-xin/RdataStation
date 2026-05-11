@@ -216,10 +216,7 @@ async fn test_mysql_list_databases() {
         .await
         .expect("failed to connect to MySQL");
     let databases = db.list_databases().await.expect("failed to list databases");
-    eprintln!(
-        "MySQL databases: {:?}",
-        databases
-    );
+    eprintln!("MySQL databases: {:?}", databases);
 }
 
 #[tokio::test]

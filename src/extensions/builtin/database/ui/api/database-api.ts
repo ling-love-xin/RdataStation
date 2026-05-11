@@ -95,17 +95,35 @@ export interface IColumnMeta {
  * 加载 Catalog 列表（ANSI SQL 标准三层结构：Catalog → Schema → Table）
  *
  * @param connectionId - 连接标识符
+ * @param connectionType - 连接类型（global / project），影响 L2 磁盘缓存路径
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns 数据库元数据树形数组
  */
-export async function loadCatalogs(connectionId: string): Promise<IDatabaseMeta[]> {
-  return await invoke<IDatabaseMeta[]>('load_catalogs', { connectionId })
+export async function loadCatalogs(
+  connectionId: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<IDatabaseMeta[]> {
+  return await invoke<IDatabaseMeta[]>('load_catalogs', {
+    connId: connectionId,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
 }
 
 /**
  * @deprecated 请使用 loadCatalogs()
  */
-export async function loadDatabases(connectionId: string): Promise<IDatabaseMeta[]> {
-  return await invoke<IDatabaseMeta[]>('load_databases', { connectionId })
+export async function loadDatabases(
+  connectionId: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<IDatabaseMeta[]> {
+  return await invoke<IDatabaseMeta[]>('load_databases', {
+    connId: connectionId,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
 }
 
 /**
@@ -113,10 +131,22 @@ export async function loadDatabases(connectionId: string): Promise<IDatabaseMeta
  *
  * @param connectionId - 连接标识符
  * @param dbName - 数据库（Catalog）名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns Schema 元数据数组
  */
-export async function loadSchemas(connectionId: string, dbName: string): Promise<ISchemaMeta[]> {
-  return await invoke<ISchemaMeta[]>('load_schemas', { connectionId, dbName })
+export async function loadSchemas(
+  connectionId: string,
+  dbName: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<ISchemaMeta[]> {
+  return await invoke<ISchemaMeta[]>('load_schemas', {
+    connId: connectionId,
+    dbName,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
 }
 
 /**
@@ -125,14 +155,24 @@ export async function loadSchemas(connectionId: string, dbName: string): Promise
  * @param connectionId - 连接标识符
  * @param dbName - 数据库（Catalog）名称
  * @param schemaName - Schema 名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns 表元数据数组
  */
 export async function loadTables(
   connectionId: string,
   dbName: string,
-  schemaName: string
+  schemaName: string,
+  connectionType?: string,
+  projectPath?: string
 ): Promise<ITableMeta[]> {
-  return await invoke<ITableMeta[]>('load_tables', { connectionId, dbName, schemaName })
+  return await invoke<ITableMeta[]>('load_tables', {
+    connId: connectionId,
+    dbName,
+    schemaName,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
 }
 
 /**
@@ -141,14 +181,24 @@ export async function loadTables(
  * @param connectionId - 连接标识符
  * @param dbName - 数据库（Catalog）名称
  * @param schemaName - Schema 名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns 视图元数据数组
  */
 export async function loadViews(
   connectionId: string,
   dbName: string,
-  schemaName: string
+  schemaName: string,
+  connectionType?: string,
+  projectPath?: string
 ): Promise<IViewMeta[]> {
-  return await invoke<IViewMeta[]>('load_views', { connectionId, dbName, schemaName })
+  return await invoke<IViewMeta[]>('load_views', {
+    connId: connectionId,
+    dbName,
+    schemaName,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
 }
 
 /**
@@ -158,19 +208,25 @@ export async function loadViews(
  * @param dbName - 数据库（Catalog）名称
  * @param schemaName - Schema 名称
  * @param tableName - 表名或视图名
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns 列元数据数组
  */
 export async function loadColumns(
   connectionId: string,
   dbName: string,
   schemaName: string,
-  tableName: string
+  tableName: string,
+  connectionType?: string,
+  projectPath?: string
 ): Promise<IColumnMeta[]> {
   return await invoke<IColumnMeta[]>('load_columns', {
-    connectionId,
+    connId: connectionId,
     dbName,
     schemaName,
     tableName,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
   })
 }
 
@@ -287,4 +343,48 @@ export interface SqlAuditRecord {
   errorMessage: string | null
   rowsAffected: number | null
   rowsReturned: number | null
+}
+
+/**
+ * 内省级别
+ *
+ * Level 1: 仅名称
+ * Level 2: 名称 + 列元数据（不含源码）
+ * Level 3: 全部（含例程源码）
+ */
+export type IntrospectionLevel = 'level1' | 'level2' | 'level3'
+
+/**
+ * 设置连接的内省级别
+ */
+export async function setIntrospectionLevel(
+  connectionId: string,
+  level: IntrospectionLevel
+): Promise<void> {
+  await invoke('set_introspection_level', {
+    connId: connectionId,
+    level,
+  })
+}
+
+/**
+ * 获取连接的内省级别
+ */
+export async function getIntrospectionLevel(
+  connectionId: string
+): Promise<IntrospectionLevel> {
+  return await invoke<IntrospectionLevel>('get_introspection_level', {
+    connId: connectionId,
+  })
+}
+
+/**
+ * 重置连接的内省级别为默认 Level 3
+ */
+export async function removeIntrospectionLevel(
+  connectionId: string
+): Promise<void> {
+  await invoke('remove_introspection_level', {
+    connId: connectionId,
+  })
 }

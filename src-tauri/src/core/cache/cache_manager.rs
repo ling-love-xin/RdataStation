@@ -52,7 +52,7 @@ impl Default for CacheConfig {
             l2_capacity: 10000,
             l3_enabled: false, // 默认不启用 L3
             l3_path: "./cache".to_string(),
-            default_ttl: Duration::from_secs(300),
+            default_ttl: Duration::from_secs(600),
             query_cache_enabled: true,
             query_cache_max_entries: 1000,
             query_cache_default_ttl: Duration::from_secs(600),

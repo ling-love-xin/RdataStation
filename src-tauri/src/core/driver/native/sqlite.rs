@@ -16,8 +16,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use rusqlite::Connection;
 
-use crate::core::driver::utils::quote_identifier;
 use crate::core::driver::traits::MetadataBrowser;
+use crate::core::driver::utils::quote_identifier;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult, Value};

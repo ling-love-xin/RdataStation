@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use crate::adapters::tauri::state::AppState;
 use crate::core::error::CoreError;
+use crate::core::persistence::project_db::ProjectSqlitePool;
 use crate::mock::persistence::{
     MockGenerationColumn, MockGenerationDetail, MockGenerationStore, MockGenerationTask,
     MockTemplateColumn, MockUserTemplate,
 };
-use crate::core::persistence::project_db::ProjectSqlitePool;
 
 async fn open_store(project_path: &str) -> Result<MockGenerationStore, CoreError> {
     let db_path = format!("{}/.RSMETA/project.db", project_path);

@@ -9,6 +9,8 @@ use fake::Fake;
 use super::generators::generate_cell;
 use crate::core::driver::native::duckdb::duckdb_rows_to_arrow;
 use crate::core::duckdb::DuckDBManager;
+use crate::core::models::QueryResult;
+use crate::core::sql::{ColumnDefInfo, SqlEngine};
 use crate::mock::error::{MockError, MockResult};
 use crate::mock::history::MockHistoryStore;
 use crate::mock::models::{
@@ -17,8 +19,6 @@ use crate::mock::models::{
 };
 use crate::mock::schema_map::ColumnMapper;
 use crate::mock::templates;
-use crate::core::models::QueryResult;
-use crate::core::sql::{ColumnDefInfo, SqlEngine};
 
 /// Mock 数据引擎 —— 在 DuckDB 内存表中生成模拟数据集
 ///

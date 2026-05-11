@@ -1,10 +1,10 @@
 use crate::core::error::{common_err, CoreError};
+use crate::core::models::QueryResult;
 use crate::mock::{
     ColumnDef, ColumnMappingResponse, ImportSchemaInput, MockConfig, MockEngine, MockExportInput,
     MockGenerateResult, MockHistoryRecord, MockPersistAssetInput, MockPersistAssetResult,
     MockSaveToScratchpadInput, ScenarioTemplate,
 };
-use crate::core::models::QueryResult;
 use tauri::Emitter;
 use tauri::Manager;
 

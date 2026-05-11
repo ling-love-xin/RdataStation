@@ -147,6 +147,11 @@ pub fn run() {
             load_functions,
             load_routine_source,
             invalidate_metadata_cache,
+            get_cache_stats,
+            reset_cache_stats,
+            set_introspection_level,
+            get_introspection_level,
+            remove_introspection_level,
             // 项目命令
             create_project,
             get_project_config,

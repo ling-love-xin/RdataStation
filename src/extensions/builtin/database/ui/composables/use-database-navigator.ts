@@ -69,6 +69,7 @@ export function useDatabaseNavigator() {
       for (const conn of connections) {
         navigatorStore.setConnectionInfo(conn.id, 'global', undefined, conn.driver)
         await navigatorStore.loadDatabases(conn.id)
+        navigatorStore.startCacheWarming(conn.id)
       }
     } catch (error) {
       console.error('加载全局连接失败:', error)
@@ -88,6 +89,7 @@ export function useDatabaseNavigator() {
     for (const conn of projectConnectionStore.connections) {
       navigatorStore.setConnectionInfo(conn.id, 'project', projectPath, conn.driver)
       await navigatorStore.loadDatabases(conn.id)
+      navigatorStore.startCacheWarming(conn.id)
     }
   }
 

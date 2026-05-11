@@ -16,8 +16,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use duckdb::Connection;
 
-use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::traits::MetadataBrowser;
+use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult};

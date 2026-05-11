@@ -68,8 +68,7 @@ pub trait DriverFactory: Send + Sync {
 }
 
 /// 全局 Driver Registry 存储
-static DRIVER_REGISTRY: OnceLock<RwLock<HashMap<String, Arc<dyn DriverFactory>>>> =
-    OnceLock::new();
+static DRIVER_REGISTRY: OnceLock<RwLock<HashMap<String, Arc<dyn DriverFactory>>>> = OnceLock::new();
 
 /// Driver Registry
 ///

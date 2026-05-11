@@ -25,6 +25,7 @@
 pub mod auto_register;
 pub mod connection;
 pub mod factory;
+pub mod introspection;
 pub mod jdbc;
 pub mod loader;
 pub mod manager;
@@ -41,6 +42,7 @@ pub use auto_register::AutoDriverRegistrar;
 pub use factory::{
     DuckDbDriverFactory, MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory,
 };
+pub use introspection::{get_level, remove_level, set_level, IntrospectionLevel};
 pub use loader::{BuiltinDriverDiscovery, DriverLoader, JdbcDriverDiscovery, WasmDriverDiscovery};
 pub use manager::{
     get_driver_manager, init_driver_manager, DriverInfo, DriverManager, DriverStatus,

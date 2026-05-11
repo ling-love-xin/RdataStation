@@ -6,6 +6,7 @@ pub mod cache_manager;
 pub mod lru_cache;
 pub mod memory_guard;
 pub mod metadata_cache;
+pub mod minicatalogs;
 pub mod query_cache;
 
 pub use cache_manager::{CacheConfig, CacheLevel, CacheManager, CacheManagerStats};

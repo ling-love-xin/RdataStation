@@ -7,8 +7,8 @@ use arrow::record_batch::RecordBatch;
 use sqlx::{Column, Pool, Postgres, Row};
 use std::sync::Arc;
 
-use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::traits::MetadataBrowser;
+use crate::core::driver::utils::escape_sql_string;
 use crate::core::driver::{
     ColumnDetail, DataSourceMeta, Database, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
 };
