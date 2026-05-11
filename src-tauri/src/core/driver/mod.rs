@@ -13,9 +13,6 @@ pub mod traits;
 pub mod utils;
 pub mod wasm;
 
-#[cfg(test)]
-mod tests;
-
 pub use auto_register::AutoDriverRegistrar;
 pub use factory::{
     DuckDbDriverFactory, MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory,

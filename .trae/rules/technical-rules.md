@@ -18,6 +18,7 @@ SQLx: 0.8.3
 Rusqlite: 0.32.1
 DuckDB-RS: 1.10502.0
 Arrow: 53.0.0
+sqlglot-rust: 0.9.24 (唯一接入点: core/sql)
 
 ## 前端 (Frontend - Vue/TS)
 

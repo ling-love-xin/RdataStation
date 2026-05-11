@@ -29,9 +29,6 @@ pub mod sql_parser_service;
 pub mod sql_service;
 pub mod table_profile_service;
 
-#[cfg(test)]
-mod tests;
-
 pub use connection_manager::{
     get_connection_manager, ConnId, ConnectionConfig, ConnectionInfo, ConnectionManager,
     ConnectionType,

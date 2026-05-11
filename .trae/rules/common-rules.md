@@ -122,7 +122,77 @@ children: Some(vec!\[]), // 误判为空
 }
 ```
 
-# 七、检查清单（Checklist）
+# 七、SQL 处理封装规则（core/sql/）
+
+✅ 必须：集中引用
+
+```rust
+// ✅ 正确：业务模块通过 SqlEngine 调用
+use crate::core::sql::SqlEngine;
+let (stmt_type, normalized) = SqlEngine::parse_and_route(sql, SqlDialect::Ansi);
+
+// ❌ 错误：业务模块直接依赖 sqlglot-rust
+use sqlglot_rust::{parse, Dialect};
+```
+
+❌ 禁止：绕过封装
+
+```rust
+// ❌ 禁止在业务模块中直接使用
+sqlglot_rust::parse(sql, dialect)
+sqlglot_rust::transpile(sql, src, tgt)
+sqlglot_rust::builder::select_all()
+```
+
+✅ 必须：新增能力先定义再实现
+
+```rust
+// 1. 在 engine.rs 中定义方法签名
+impl SqlEngine {
+    pub fn new_capability(input: &str) -> String {
+        builder::new_capability(input)
+    }
+}
+
+// 2. 在对应子模块中实现具体逻辑
+// builder.rs / parser.rs / formatter.rs / transpiler.rs
+```
+
+# 八、测试代码组织铁律
+
+❌ 绝对禁止：mod.rs 中包含测试代码
+
+```markdown
+❌ mod.rs 中禁止 #[cfg(test)] 块
+❌ mod.rs 中禁止 fn test_ 测试函数
+❌ mod.rs 中禁止 mod tests { }
+✅ mod.rs 只做：声明子模块、重新导出、定义常量
+```
+
+✅ 必须：私有函数测试内嵌
+
+```rust
+// ✅ 在源文件底部
+// ========== 测试 ==========
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_internal_helper() { ... }
+}
+```
+
+✅ 必须：公共 API 复杂测试外移
+
+```markdown
+✅ 源码 > 500 行 → 测试外移到 src-tauri/tests/
+✅ 测试总量 > 100 行 → 外移
+✅ 需要复杂 Mock → 外移
+✅ 不满足以上条件 → 可内嵌在源文件中
+```
+
+# 九、检查清单（Checklist）
 
 在提交任何代码前，请自检以下问题：
 
@@ -131,8 +201,11 @@ children: Some(vec!\[]), // 误判为空
 - [ ] services 层是否只调用 connection / driver，不直接碰 datasource？
 - [ ] Rust 代码中是否存在 unwrap()？
 - [ ] Pool 是否只负责连接，不负责 SQL 执行？
+- [ ] 业务模块是否直接 use sqlglot_rust？（必须通过 SqlEngine）
+- [ ] mod.rs 是否包含测试代码？（绝对禁止）
+- [ ] 测试函数是否出现在业务代码中间？（必须放在独立的 mod tests 块）
 
-# 八、项目约束
+# 十、项目约束
 
 - 每次提交代码前，必须先自检以上问题，确保代码符合项目规范，并且汇报修改内容。
 - 本Skill适用于Trae CN AI编辑器，启用后AI将全程遵循上述规范，生成可直接编译、贴合项目需求的代码，无需重复说明项目规则。

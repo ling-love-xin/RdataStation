@@ -25,9 +25,6 @@ pub mod resource;
 pub mod tag;
 pub mod version;
 
-#[cfg(test)]
-mod tests;
-
 pub use models::*;
 
 /// 分析资源存储（SQLite 持久化层）
