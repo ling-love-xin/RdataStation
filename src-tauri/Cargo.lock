@@ -5305,6 +5305,7 @@ dependencies = [
  "notify",
  "once_cell",
  "opener",
+ "percent-encoding",
  "rand 0.8.5",
  "rusqlite",
  "russh",

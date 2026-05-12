@@ -546,7 +546,14 @@ impl GlobalDatabaseManager {
 
         // 优先使用传入的 username/password，如果为空则使用 URL 中解析的
         let final_username = username.or(url_username.as_deref()).unwrap_or("");
-        let final_password = password.or(url_password.as_deref()).unwrap_or("");
+        let final_password = match password.or(url_password.as_deref()) {
+            Some(p) if !p.is_empty() => crate::core::crypto::encrypt_password(p)
+                .map_err(|e| CoreError::common(CommonError::General(format!(
+                    "密码加密失败: {}",
+                    e
+                ))))?,
+            _ => String::new(),
+        };
 
         // 默认标签：如果没有提供标签，添加 "global" 标签
         let tags_json = tags.unwrap_or("[\"global\"]");
@@ -564,7 +571,7 @@ impl GlobalDatabaseManager {
                 database.as_deref().unwrap_or(""),
                 "",  // schema_name 默认空
                 final_username,
-                final_password,
+                &final_password,
                 tags_json,
                 "0",  // use_duckdb_fed 默认关闭
                 "",  // metadata_path 默认空

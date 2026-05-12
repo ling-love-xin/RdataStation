@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
 use duckdb::Connection;
 
@@ -54,7 +55,9 @@ impl DataSourceConfig {
 
     /// 创建 MySQL 数据源配置
     pub fn mysql(alias: &str, host: &str, port: u16, database: &str, user: &str, password: &str) -> Self {
-        let connection_string = format!("mysql://{}:{}@{}:{}/{}", user, password, host, port, database);
+        let encoded_user = utf8_percent_encode(user, NON_ALPHANUMERIC).to_string();
+        let encoded_pass = utf8_percent_encode(password, NON_ALPHANUMERIC).to_string();
+        let connection_string = format!("mysql://{}:{}@{}:{}/{}", encoded_user, encoded_pass, host, port, database);
         DataSourceConfig {
             source_type: DataSourceType::MySQL,
             connection_string,
@@ -65,7 +68,9 @@ impl DataSourceConfig {
 
     /// 创建 PostgreSQL 数据源配置
     pub fn postgres(alias: &str, host: &str, port: u16, database: &str, user: &str, password: &str) -> Self {
-        let connection_string = format!("postgresql://{}:{}@{}:{}/{}", user, password, host, port, database);
+        let encoded_user = utf8_percent_encode(user, NON_ALPHANUMERIC).to_string();
+        let encoded_pass = utf8_percent_encode(password, NON_ALPHANUMERIC).to_string();
+        let connection_string = format!("postgresql://{}:{}@{}:{}/{}", encoded_user, encoded_pass, host, port, database);
         DataSourceConfig {
             source_type: DataSourceType::PostgreSQL,
             connection_string,

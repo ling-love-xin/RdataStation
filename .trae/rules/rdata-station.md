@@ -130,7 +130,7 @@ Vue
 
 TypeScript
 
-5.6（最新稳定版）
+6.0（最新稳定版）
 
 允许 minor / patch 升级
 
