@@ -23,7 +23,7 @@ sqlglot-rust: 0.9.24 (唯一接入点: core/sql)
 
 Package Manager: pnpm
 Framework: Vue 3.5.34
-Language: TypeScript 5.6.3
+Language: TypeScript 6.0.3
 Build Tool: Vite 6.x
 UI Layout Engine: dockview-vue 6.1.1
 Component Library: naive-ui 2.44.1

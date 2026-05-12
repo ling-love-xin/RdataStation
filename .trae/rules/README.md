@@ -69,7 +69,7 @@
 | 技术          | 版本   | 约束            |
 | ------------- | ------ | --------------- |
 | Vue           | 3.5.x  | 允许 minor 升级 |
-| TypeScript    | 5.6.x  | 允许 minor 升级 |
+| TypeScript    | 6.0.x  | 允许 minor 升级 |
 | AG Grid       | 35.3.x | 允许 minor 升级 |
 | Monaco Editor | 0.55.x | 允许 minor 升级 |
 | Pinia         | 3.0.x  | 允许 minor 升级 |
