@@ -81,8 +81,9 @@ fn redact_key_value(s: &str, key: &str) -> String {
             }
             result.push_str("***");
         } else {
-            result.push(s.chars().nth(i).unwrap_or(' '));
-            i += 1;
+            let ch = s[i..].chars().next().unwrap_or(' ');
+            result.push(ch);
+            i += ch.len_utf8();
         }
     }
     result
