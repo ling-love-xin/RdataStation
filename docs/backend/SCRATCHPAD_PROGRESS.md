@@ -1,8 +1,8 @@
 # 草稿箱 (Scratchpad) 开发进度
 
-> 版本：v3.13
+> 版本：v3.15
 > 最后更新：2026-05-13
-> 状态：✅ v3.13 — 树结构/内联创建/搜索上下文/子目录创建 (VSCode差距消除)
+> 状态：✅ v3.15 — P0 操作闭环三件套：剪切移动/正则替换/Diff对比 (MVP 达成)
 
 ---
 
@@ -40,6 +40,8 @@
 | **阶段二十八：流式搜索 — BufReader 逐行读取 (v3.8)** | **✅** | **2026-05-09** |
 | **阶段二十九：质量加固 — unwrap清除/类型对齐/i18n补全 (v3.9)** | **✅** | **2026-05-09** |
 | **阶段四十：VSCode 差距消除 — 树结构/内联创建/搜索上下文/子目录创建 (v3.13)** | **✅** | **2026-05-13** |
+| **阶段四十一：P0 三件套 — 虚拟滚动/脏状态/懒加载 (v3.14)** | **✅** | **2026-05-13** |
+| **阶段四十二：P0 操作闭环三件套 — 剪切移动/正则替换/Diff对比 (v3.15)** | **✅** | **2026-05-13** |
 
 ---
 
@@ -52,8 +54,8 @@
 | `core/scratchpad/mod.rs`          | ~10  | 模块入口，re-export                                                      |
 | `core/scratchpad/models.rs`       | ~82  | DTO 数据模型（Entry / FileMeta / AnalyzableFile / Reference / Response / SearchMatch / ChangeEvent） |
 | `core/scratchpad/state.rs`        | ~72  | `Arc<Mutex<Option<Store>>>` 全局状态缓存 + `AtomicBool` watcher 状态     |
-| `core/scratchpad/store.rs`        | ~940 | 文件系统操作（扫描/创建/删除/搜索/导入/引用/回收站/树结构）                |
-| `commands/scratchpad_commands.rs` | ~370 | 22 个 Tauri Command                                           |
+| `core/scratchpad/store.rs`        | ~1180 | 文件系统操作（扫描/创建/删除/搜索/导入/引用/回收站/树结构/懒加载/移动/替换/diff） |
+| `commands/scratchpad_commands.rs` | ~420 | 26 个 Tauri Command                                           |
 
 ### 前端 (8 文件)
 
@@ -61,11 +63,11 @@
 | ------------------------------------------------- | ---- | ------------------------------------------------------ |
 | `scratchpad/package.json`                         | 7    | 扩展元数据                                             |
 | `scratchpad/extension.ts`                         | ~94  | 扩展注册（dockview 面板）                              |
-| `scratchpad/types/index.ts`                       | ~61  | TypeScript 类型定义（含 PromoteResult / AnalyticsResourceBrief / SearchMatch） |
-| `scratchpad/infrastructure/api/scratchpad-api.ts` | ~143 | Tauri invoke 封装（23 个 API）                                    |
-| `scratchpad/ui/composables/use-scratchpad.ts`     | ~430 | 业务逻辑 hook（35 个导出项）                                      |
-| `scratchpad/ui/components/ScratchpadPanel.vue`    | ~1550 | 主面板组件（工具栏排序/搜索双模式/回收站/右键菜单/提升确认/拖放导入/文件夹新建/Toast/搜索跳转/大小写/高亮/折叠展开/最近打开/空状态/多选批量/复制粘贴/模板选择/删除撤销/拖拽到编辑器/内联创建/搜索上下文） |
-| `scratchpad/ui/components/ScratchpadTreeNode.vue` | ~420 | 递归树节点组件（+重命名 spinner + disabled + entry.children 真正树结构 + 内联创建行）  |
+| `scratchpad/types/index.ts`                       | ~82  | TypeScript 类型定义（含 ReplaceResult / DiffLine / DiffResult） |
+| `scratchpad/infrastructure/api/scratchpad-api.ts` | ~178 | Tauri invoke 封装（27 个 API）                                    |
+| `scratchpad/ui/composables/use-scratchpad.ts`     | ~660 | 业务逻辑 hook（48 个导出项，含脏状态/懒加载/剪切/替换/diff/正则验证）                              |
+| `scratchpad/ui/components/ScratchpadPanel.vue`    | ~1950 | 主面板组件（工具栏排序/搜索双模式/回收站/右键菜单/提升确认/拖放导入/文件夹新建/Toast/搜索跳转/大小写/高亮/折叠展开/最近打开/空状态/多选批量/复制粘贴/模板选择/删除撤销/拖拽到编辑器/内联创建/搜索上下文/虚拟滚动/冲突检测/正则/替换/Diff/移动撤销） |
+| `scratchpad/ui/components/ScratchpadTreeNode.vue` | ~430 | 递归树节点组件（+重命名 spinner + disabled + entry.children 真正树结构 + 内联创建行 + 脏状态点）  |
 
 ---
 
@@ -917,3 +919,283 @@ v3.12 watcher 增强：
 | `types/index.ts` | +ScratchpadChangeEvent type | +4 |
 | `ScratchpadPanel.vue` | 事件监听器更新 + 状态保持 | +6/-2 |
 | `SCRATCHPAD_DESIGN.md` / `SCHEMA.md` | v3.11→v3.12 | +2/-2 |
+
+### v3.13 已完成 ✅
+
+### VSCode 差距消除 — 树结构/内联创建/搜索上下文/子目录创建 (阶段四十)
+
+消除此前审计发现的 5 项与 VSCode 文件管理的核心差距：
+
+| # | 改进项 | 问题 | 解决方案 | 状态 |
+|---|--------|------|----------|:--:|
+| 1 | **目录树结构** | 后端返回扁平 Vec，前端 children 永远为空 | `ScanDir` → `scan_dir_tree` 递归构建嵌套树；`ScratchpadEntry.children: Option<Vec<ScratchpadEntry>>` | ✅ |
+| 2 | **子目录创建** | `target_path = scratchpad_dir.join(name)` 硬编码根目录 | `create_entry()` 新增 `parent_path` 参数；前端传递选中文件夹上下文 | ✅ |
+| 3 | **搜索上下文行** | 仅返回匹配行，无前后文 | `search_single_file()` 采集 `before_context`/`after_context`；`SearchMatch` 新增两个 `Vec<String>` 字段 | ✅ |
+| 4 | **内联创建 (去模态框)** | 创建文件/文件夹走 NModal 弹窗 | TreeNode 新增 `inlineCreateParentPath`/`inlineCreateIsFolder` props；文件夹节点下渲染 `<input>` 行；Enter 提交/Escape 取消 | ✅ |
+| 5 | **增量树更新** | onChange 事件仅含 paths，全量 reload | `ScratchpadChangeEvent` → `changes: [{ path, kind }]`；前端 `applyFileChanges()` 按 create/delete/modify 分别处理树结构 | ✅ |
+
+#### 后端改动
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `models.rs` | `ScratchpadEntry.children` 新增；`SearchMatch.before_context`/`after_context` 新增；`ScratchpadChangeEntry` + `ScratchpadChangeEvent.changes` 重定义 | 树结构 + 搜索上下文 + 事件细化 |
+| `store.rs` | `scan_dir` → `scan_dir_tree`（嵌套树）；`flatten_entries_from_ref` 新增；`create_entry(name, parent_path, is_folder)` 签名变更；`search_file_content(query, case_sensitive, context_lines)` 签名变更；`search_single_file` 增加上下文采集逻辑；所有 `ScratchpadEntry` 构造器增加 `children` 字段 | 核心改造 |
+| `commands.rs` | `create_scratchpad_entry` + `parent_path` 参数；`search_scratchpad_content` + `context_lines` 参数；`watch_scratchpad` 事件格式更新为 `ScratchpadChangeEntry`；新增 `get_scratchpad_entry` 命令；`case_sensitive` → `Option<bool>` 向后兼容 | 命令层适配 |
+| `lib.rs` | 注册 `get_scratchpad_entry` | 命令注册 |
+
+#### 前端改动
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `types/index.ts` | `SearchMatch` + `before_context`/`after_context`；`ScratchpadChangeEntry` + `ScratchpadChangeEvent.changes` 重定义 | 类型对齐 |
+| `scratchpad-api.ts` | `createScratchpadEntry(name, isFolder, parentPath?)` 签名变更；`searchFileContent(query, caseSensitive, contextLines = 2)` 签名变更；新增 `getScratchpadEntry()` | API 层适配 |
+| `use-scratchpad.ts` | `createEntry(name, isFolder, parentPath?)` 签名变更；`filterTree`/`flattenVisibleEntries` 新增树操作；`applyFileChanges` 重写（`removeDeletedFromTree`/`collectAllPaths`/`insertEntriesIntoTree`/`patchEntriesInTree`）树级增量更新 | Composable 核心改造 |
+| `ScratchpadPanel.vue` | 移除 `NModal` create/file 模态框；`inlineCreateParentPath`/`inlineCreateIsFolder` refs；`startInlineCreate`/`cancelInlineCreate`/`confirmInlineCreate`/`findSelectedFolder`/`findEntryInTree` 新增；`flattenEntries`/`collectFolderPaths` 树版本重写；搜索结果显示 before/after context 行；TreeNode props 新增 `inlineCreateParentPath`/`inlineCreateIsFolder`/@create-inline | UI 核心改造 |
+| `ScratchpadTreeNode.vue` | Props 新增 `inlineCreateParentPath`/`inlineCreateIsFolder`；emit 新增 `create-inline`；模板新增 `inline-create-row` (带 input)；`isInlineCreateTarget`/`commitInlineCreate`/`cancelInlineCreate`/`forwardCreateInline` 新增；watch `isInlineCreateTarget` → auto focus；CSS `.inline-create-row` | 树节点改造 |
+
+#### 树结构数据流
+
+```
+scan_dir_tree(dir)
+  → 读取目录条目
+  → 文件夹: children = scan_dir_tree(subdir) 递归
+  → 文件: children = None
+  → 返回 Vec<ScratchpadEntry> 嵌套树
+
+前端渲染:
+  ScratchpadPanel
+  → v-for filteredLocalEntries (顶层)
+  → ScratchpadTreeNode
+    → childEntries = computed(() => entry.children || [])  ← 现在有真实数据
+    → v-for childEntries 递归渲染
+    → depth + 1 缩进生效
+```
+
+#### 增量更新树级 patch
+
+```
+notify watcher → ScratchpadChangeEvent { changes: [{ path, kind }] }
+  → applyFileChanges(event)
+    → delete: removeDeletedFromTree() 递归过滤
+    → create: getScratchpadEntry() 批量 fetch → insertEntriesIntoTree() 插入父节点
+    → modify: getScratchpadEntry() 批量 fetch → patchEntriesInTree() 替换
+    → 保持 expandedKeys + selectedKey
+```
+
+#### 验证结果
+
+| 检查项 | 结果 |
+|--------|:--:|
+| `cargo check` | ✅ 0 错误 |
+| `pnpm lint` | ✅ 0 新增错误（2 预存错误均为 WorkbenchView.vue） |
+| 向后兼容 | ✅ 所有 API `Option<T>` 化，旧调用不受影响 |
+
+### v3.14 已完成 ✅
+
+### P0 三件套 — 虚拟滚动 + 脏状态 + 懒加载 (阶段四十一)
+
+此前审计发现的 3 项最高优先级性能与体验差距：
+
+| # | 改进项 | 问题 | 解决方案 | 状态 |
+|---|--------|------|----------|:--:|
+| 1 | **虚拟滚动** | 超大文件列表（>200条）全量渲染 DOM 节点导致性能下降 | 仅渲染可视区 + overscan 8 行；`ROW_HEIGHT=28px`；`VIRTUAL_SCROLL_THRESHOLD=50` 阈值自动切换；`ResizeObserver` 动态容器高度；`flattenedTree` → `visibleTreeEntries` 按 scrollTop 切片 | ✅ |
+| 2 | **脏状态跟踪** | 编辑器修改后无法感知未保存文件，外部修改无冲突提示 | `use-scratchpad.ts` 新增 `dirtyFiles: Set<string>` + `markDirty()`/`markClean()`/`isDirty()`；`hasUnsavedChanges` computed；`ScratchpadTreeNode.vue` 在文件名前显示 `●` 脏状态点；文件监控 `modify` 事件检测到 `dirtyFiles` 中的文件时追加到 `externalConflicts` 列表；`NModal` 冲突对话框提供"重新加载"/"忽略"选项 | ✅ |
+| 3 | **懒加载** | 初始加载全量递归扫描整个目录树（最多 4 层），深层嵌套项目启动慢 | 后端 `get_full_response()` 改为 `depth=0` 仅加载顶层条目；新增 `list_directory_entries(parent_path)` 方法 + `list_scratchpad_directory` Tauri 命令；前端 `handleToggleExpand` 检测 `children === null` 时异步 `loadChildEntries(path)` 按需加载；`handleExpandAll` 批量加载所有已展开文件夹的子级；`hasChildrenLoaded()` 判断是否已加载 | ✅ |
+
+#### 后端改动
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `store.rs` | `get_full_response` `depth=0` 仅顶层；新增 `list_directory_entries(parent_path)` | 懒加载核心 |
+| `commands.rs` | 新增 `list_scratchpad_directory` 命令 | 按需加载 API |
+| `lib.rs` | 注册 `list_scratchpad_directory` | 命令注册 |
+
+#### 前端改动
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `scratchpad-api.ts` | 新增 `listScratchpadDirectory()` | API 封装 |
+| `use-scratchpad.ts` | 新增 `dirtyFiles`/`markDirty()`/`markClean()`/`isDirty()`/`hasUnsavedChanges`/`externalConflicts`/`dismissConflict()` 脏状态管理；新增 `loadChildEntries()`/`setEntryChildren()`/`hasChildrenLoaded()` 懒加载；`applyFileChanges` 中新增外部冲突检测 | 核心状态管理 |
+| `ScratchpadPanel.vue` | 虚拟滚动：`ROW_HEIGHT`/`OVERSCAN`/`VIRTUAL_SCROLL_THRESHOLD` 常量 + `visibleTreeEntries`/`virtualScrollPaddingTop`/`virtualScrollTotalHeight` computed + `handleTreeScroll`/`updateTreeContainerSize` + `ResizeObserver`；冲突对话框 NModal + `handleConflictReload`/`handleConflictIgnore`；`handleToggleExpand` 异步懒加载；`handleExpandAll` 批量加载；`showTrash` ref 修复 | UI 核心改造 |
+| `ScratchpadTreeNode.vue` | 新增 `dirtyFiles?: Set<string>` prop；`isNodeDirty` computed 显示 `●` 脏状态点；CSS `.dirty-dot` 样式 | 脏状态指示 |
+
+#### 虚拟滚动数据流
+
+```
+flattenedTree (全量平铺树)
+  ↓
+useVirtualScrollEnabled (flattenedTree.length > VIRTUAL_SCROLL_THRESHOLD)
+  ↓ true → visibleTreeEntries = flattenedTree.slice(from, to)
+  ↓ false → visibleTreeEntries = flattenedTree (全量渲染)
+  ↓
+virtual-scroll-viewport (height = totalHeight)
+  └─ virtual-scroll-spacer (paddingTop)
+       └─ ScratchpadTreeNode v-for visibleTreeEntries
+```
+
+#### 脏状态数据流
+
+```
+编辑器修改内容 → markDirty(relativePath)
+  → dirtyFiles.add(normalizedPath)
+  → TreeNode 检测 isNodeDirty → 显示 ● 脏点
+Ctrl+S 保存 → markClean(relativePath)
+  → dirtyFiles.delete(normalizedPath)
+  → ● 消失
+
+文件监控 modify 事件:
+  → applyFileChanges 检查 modify paths
+  → 若 path ∈ dirtyFiles → externalConflicts.push(path)
+  → watch(externalConflicts) → NModal 冲突对话框
+  → 用户选择: 重新加载(丢失未保存内容) / 忽略(保留编辑内容)
+```
+
+#### 懒加载数据流
+
+```
+初始加载: list_scratchpad_files → depth=0 仅顶层条目（children=null）
+用户展开文件夹:
+  → handleToggleExpand(entry)
+  → hasChildrenLoaded(entry)? 
+    → false: loadChildEntries(entry.path)
+      → invoke('list_scratchpad_directory', { parentPath })
+      → setEntryChildren(response.local_entries, parentPath, children)
+      → expandedKeys.add(entry.path)
+    → true: expandedKeys.toggle(entry.path)
+  → flattenedTree 更新 → 子条目渲染
+```
+
+#### 验证结果
+
+| 检查项 | 结果 |
+|--------|:--:|
+| `cargo check` | ✅ 0 错误 |
+| `pnpm lint` | ✅ scratchpad 0 错误（2 预存错误均为 WorkbenchView.vue） |
+| 向后兼容 | ✅ 懒加载对前端透明，展开行为不变 |
+
+---
+
+### v3.15 已完成 ✅
+
+### P0 操作闭环三件套 — 剪切移动 + 正则替换 + Diff 对比 (阶段四十二)
+
+此前审计发现的 3 项最高优先级操作闭环差距：
+
+| # | 改进项 | 问题 | 解决方案 | 状态 |
+|---|--------|------|----------|:--:| 
+| 1 | **剪切/移动** | 只能复制粘贴，无法移动文件整理目录结构 | `move_entry(from, to_parent)` 后端 + `move_scratchpad_entry` 命令 + 右键"剪切"设置 `clipboardMode='cut'` + 粘贴时走 move 路径 + 5秒撤销栏 + 同目录/重复检测 | ✅ |
+| 2 | **正则+替换** | 搜索不支持正则，搜索后无法替换 | `.*` 按钮切换正则模式 + `Regex` 前端验证 + `replace_in_file(pattern, replacement, is_regex)` 后端 + 替换栏预览 + 全部替换 + 替换历史追踪 + 外层 `regex` crate | ✅ |
+| 3 | **Diff 对比** | 外部冲突只能二选一（重载/忽略），无法查看差异 | `diff_with_content(path, content, left, right)` 后端调用 `similar` crate + `DiffResult` 行级对比 + `NModal` 800px 弹窗 + 绿色✅新增/红色❌删除 + 行号 + 接受右侧按钮 | ✅ |
+
+#### 后端改动
+
+| 文件 | 新增 | 说明 |
+|------|------|------|
+| `Cargo.toml` | `regex = "1.11"`, `similar = "2.6"` | 正则引擎 + 文本差异算法 |
+| `models.rs` | `ReplaceResult`, `DiffLineKind`, `DiffLine`, `DiffResult` | 4 个新数据模型 |
+| `mod.rs` | 导出 4 个新模型 | 模块重导出 |
+| `store.rs` | `move_entry(from, to_parent)` → `ScratchpadEntry`<br>`replace_in_file(path, pattern, replacement, is_regex)` → `ReplaceResult`<br>`diff_with_content(path, content, left_label, right_label)` → `DiffResult` | 3 个新方法 |
+| `commands.rs` | `move_scratchpad_entry`<br>`replace_scratchpad_content`<br>`diff_scratchpad_with_content` | 3 个新 Tauri 命令 |
+| `lib.rs` | 注册 3 个新命令 | 命令注册 |
+
+#### 前端改动
+
+| 文件 | 新增 | 说明 |
+|------|------|------|
+| `types/index.ts` | `ReplaceResult`, `DiffLineKind`, `DiffLine`, `DiffResult` | 4 个新 TS 类型 |
+| `scratchpad-api.ts` | `moveScratchpadEntry`, `replaceScratchpadContent`, `diffScratchpadWithContent` | 3 个新 API |
+| `use-scratchpad.ts` | `clipboardMode`, `moveEntry`, `replaceInFile`, `diffWithContent`, `replaceHistory`, `clearReplaceHistory`, `validateRegex` + 10 个新导出 | 状态管理 |
+| `ScratchpadPanel.vue` | 正则 .* 按钮, 替换栏(NInput+预览+NButton), Diff NModal 800px 弹窗, move-undo-bar, 冲突"查看差异"按钮 | ~310 行新增，完整 UI |
+| `zh-CN.json` | 17 个新翻译键 | 中文 i18n |
+| `en.json` | 17 个新翻译键 | 英文 i18n |
+
+#### 剪切/移动数据流
+
+```
+右键选择文件 → "剪切" → clipboardMode='cut', clipboardEntry=entry
+↓
+选中目标文件夹 → 右键 → "粘贴" → handlePaste()
+  ├─ clipboardMode === 'cut' → moveEntry(fromPath, toParent)
+  │   → backend: fs::rename + file_meta 迁移 + config 更新
+  │   → 成功: showMoveUndo(toParent, name) + toast
+  │   → 失败: toast error (同目录/不存在/重名)
+  └─ clipboardMode === 'copy' → 原有 copy+create 逻辑
+
+移动撤销: moveUndoBar (5秒) → handleMoveUndo → moveEntry(name, getParentPath(fromPath))
+```
+
+#### 正则替换数据流
+
+```
+全文搜索 (contentSearchMode) → 搜索结果展示
+  ↓
+.* 按钮 → isRegex=true → validateRegex(query) → 实时语法验证 (regexError)
+  ↓
+"替换" 按钮 → showReplaceBar 展开
+  ↓
+输入替换文本 → computeReplacePreview → 遍历搜索结果统计匹配数
+  ↓
+"全部替换" → handleReplaceAll → 遍历每个文件 → replaceInFile
+  → backend: Regex::new + replace_all / String::replace
+  → 原子写回文件 (save_file)
+  → 刷新搜索结果 + toast 统计 (X 个文件 Y 处)
+  → addReplaceHistory 记录历史
+```
+
+#### Diff 对比数据流
+
+```
+外部文件修改 → watch(modify event) → externalConflicts.push(path)
+  → NModal 冲突对话框:
+    [重新加载] [忽略] [查看差异]  ← 新增按钮
+         ↓
+    handleConflictDiff → loadFileContent(磁盘内容)
+    → diffWithContent(磁盘内容, 编辑器内容)
+      → backend: similar::TextDiff::from_lines
+      → 遍历 changes → DiffLine { kind, line_number, content }
+    → NModal 800px 弹窗:
+      ┌─ 左侧: 磁盘文件 ─┬─ 右侧: 编辑器内容 ─┐
+      ├─  44  hello world  │  44  hello world   │ (unchanged, 白底)
+      ├─     - old line    │  98  new line       │ (removed/added, 红/绿底)
+      └───────────────────┴────────────────────┘
+    [关闭(返回冲突)] [接受右侧(编辑器内容)]
+```
+
+#### 新增依赖
+
+| 依赖 | 版本 | 用途 |
+|------|------|------|
+| `regex` | 1.11 | Rust 正则表达式引擎（`Regex::new` + `replace_all`） |
+| `similar` | 2.6 | 文本差异算法（`TextDiff::from_lines` 行级 diff） |
+
+#### 验证结果
+
+| 检查项 | 结果 |
+|--------|:--:|
+| `cargo check` | ✅ 0 错误 |
+| `pnpm lint` | ✅ 0 错误（已修复，无预存错误） |
+
+---
+
+## MVP 范围与验收标准
+
+### MVP 定义
+
+草稿箱 MVP (v3.15) 包含以下完整操作闭环：
+
+| 模块 | 闭环 | 状态 |
+|------|------|:--:|
+| **文件 CRUD** | 创建 → 编辑 → 保存 → 删除 → 回收站恢复 → 清空 | ✅ |
+| **文件组织** | 剪切 → 粘贴移动 → 撤销 → 复制粘贴 | ✅ |
+| **搜索** | 名称过滤 → 全文搜索 → 大小写 → 正则 → 结果跳转 | ✅ |
+| **替换** | 搜索 → 替换预览 → 全部替换 → 搜索刷新 → 历史追踪 | ✅ |
+| **冲突** | 外部检测 → 冲突提示 → 查看差异 → 接受/忽略 | ✅ |
+| **导入** | 拖放/浏览 → 内容导入 → 外部引用 | ✅ |
+| **导航** | 树展开/折叠 → 键盘导航 → 内联创建 → 最近文件 | ✅ |
+| **性能** | 虚拟滚动 → 懒加载 → 流式搜索 → 文件监控 | ✅ |
+
+### 验收标准
+
+1. **剪切移动**：右键"剪切"→ 粘贴到目标文件夹 → 文件物理移动 → 5秒撤销栏可见
+2. **正则替换**：全文搜索 → 切换 .* 模式 → 输入正则 → 实时语法验证 → 展开替换 → 预览计数 → 全部替换 → 搜索结果刷新
+3. **Diff 对比**：外部修改文件 → 冲突对话框 → "查看差异"按钮 → 800px 弹窗 → 红/绿行标记 → "接受右侧"保存

@@ -9,8 +9,9 @@ use crate::commands::analytics_resource_commands::AnalyticsResourceState;
 use crate::core::error::CoreError;
 use crate::core::persistence::{AnalyticsResource, CreateResourceRequest};
 use crate::core::scratchpad::{
-    AnalyzableFile, ExternalReference, ScratchpadChangeEntry, ScratchpadChangeEvent,
-    ScratchpadEntry, ScratchpadResponse, ScratchpadState, ScratchpadStore, SearchResult,
+    AnalyzableFile, DiffResult, ExternalReference, ReplaceResult, ScratchpadChangeEntry,
+    ScratchpadChangeEvent, ScratchpadEntry, ScratchpadResponse, ScratchpadState, ScratchpadStore,
+    SearchResult,
 };
 
 async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, CoreError> {
@@ -35,6 +36,18 @@ pub async fn list_scratchpad_files(
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .get_full_response()
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn list_scratchpad_directory(
+    parent_path: String,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<Vec<ScratchpadEntry>, CoreError> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .list_directory_entries(&parent_path)
         .await
         .map_err(|e| CoreError::from(e.to_string()))
 }
@@ -386,6 +399,55 @@ pub async fn unwatch_scratchpad(
 ) -> Result<(), CoreError> {
     scratchpad_state.set_watching(false);
     Ok(())
+}
+
+// ==================== Move Command ====================
+
+#[tauri::command]
+pub async fn move_scratchpad_entry(
+    from_path: String,
+    to_parent_path: String,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<ScratchpadEntry, CoreError> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .move_entry(&from_path, &to_parent_path)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
+}
+
+// ==================== Replace Command ====================
+
+#[tauri::command]
+pub async fn replace_scratchpad_content(
+    path: String,
+    pattern: String,
+    replacement: String,
+    is_regex: bool,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<ReplaceResult, CoreError> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .replace_in_file(&path, &pattern, &replacement, is_regex)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
+}
+
+// ==================== Diff Command ====================
+
+#[tauri::command]
+pub async fn diff_scratchpad_with_content(
+    relative_path: String,
+    other_content: String,
+    left_label: String,
+    right_label: String,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<DiffResult, CoreError> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .diff_with_content(&relative_path, &other_content, &left_label, &right_label)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
 }
 
 // ==================== Promote Command ====================

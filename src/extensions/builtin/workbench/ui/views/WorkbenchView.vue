@@ -20,23 +20,9 @@
     <ConnectionModal v-model="showConnectionModal" @save="handleSaveConnection" />
 
     <!-- 自定义布局对话框 -->
-    <CustomizeLayoutDialog
-      v-model:show="layoutStore.showCustomizeLayoutDialog"
-      @update:menu-bar-visible="layoutStore.toggleMenuBar"
-      @update:status-bar-visible="layoutStore.toggleStatusBar"
-    />
+    <CustomizeLayoutDialog />
   </div>
 </template>
-
-<script lang="ts">
-import IconTab from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
-
-export default {
-  components: {
-    iconTab: IconTab,
-  },
-}
-</script>
 
 <script setup lang="ts">
 import {
@@ -56,12 +42,19 @@ import ConnectionModal from '@/extensions/builtin/connection/ui/components/Conne
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
+import IconTabComponent from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import { useDockviewKeyboard } from '@/extensions/builtin/workbench/ui/composables/useDockviewKeyboard'
 import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
 import { useAppStore } from '@/stores/useAppStore'
+
+defineOptions({
+  components: {
+    iconTab: IconTabComponent,
+  },
+})
 
 const { t } = useI18n()
 const uiStore = useUiStore()

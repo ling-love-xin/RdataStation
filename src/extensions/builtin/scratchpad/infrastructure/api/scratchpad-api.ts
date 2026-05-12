@@ -7,6 +7,8 @@ import type {
   AnalyzableFile,
   PromoteResult,
   SearchResult,
+  ReplaceResult,
+  DiffResult,
 } from '../../types'
 
 export async function initScratchpadStore(projectPath: string): Promise<void> {
@@ -153,5 +155,51 @@ export async function getScratchpadEntry(
 ): Promise<ScratchpadEntry | null> {
   return invoke<ScratchpadEntry | null>('get_scratchpad_entry', {
     relativePath,
+  })
+}
+
+export async function listScratchpadDirectory(
+  parentPath: string
+): Promise<ScratchpadEntry[]> {
+  return invoke<ScratchpadEntry[]>('list_scratchpad_directory', {
+    parentPath,
+  })
+}
+
+export async function moveScratchpadEntry(
+  fromPath: string,
+  toParentPath: string
+): Promise<ScratchpadEntry> {
+  return invoke<ScratchpadEntry>('move_scratchpad_entry', {
+    fromPath,
+    toParentPath,
+  })
+}
+
+export async function replaceScratchpadContent(
+  path: string,
+  pattern: string,
+  replacement: string,
+  isRegex: boolean
+): Promise<ReplaceResult> {
+  return invoke<ReplaceResult>('replace_scratchpad_content', {
+    path,
+    pattern,
+    replacement,
+    isRegex,
+  })
+}
+
+export async function diffScratchpadWithContent(
+  relativePath: string,
+  otherContent: string,
+  leftLabel: string,
+  rightLabel: string
+): Promise<DiffResult> {
+  return invoke<DiffResult>('diff_scratchpad_with_content', {
+    relativePath,
+    otherContent,
+    leftLabel,
+    rightLabel,
   })
 }

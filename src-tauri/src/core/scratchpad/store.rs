@@ -8,8 +8,9 @@ use tokio::time::{timeout, Duration};
 
 use crate::core::error::{CoreError, StorageError};
 use crate::core::scratchpad::models::{
-    AnalyzableFile, ExternalReference, ScratchpadConfig, ScratchpadEntry, ScratchpadEntryKind,
-    ScratchpadResponse, SearchMatch, SearchResult,
+    AnalyzableFile, DiffLine, DiffLineKind, DiffResult, ExternalReference, ReplaceResult,
+    ScratchpadConfig, ScratchpadEntry, ScratchpadEntryKind, ScratchpadResponse, SearchMatch,
+    SearchResult,
 };
 
 const MAX_DEPTH: u32 = 4;
@@ -221,7 +222,7 @@ impl ScratchpadStore {
 
     pub async fn get_full_response(&self) -> Result<ScratchpadResponse, CoreError> {
         let config = self.load_config().await?;
-        let local_entries = self.list_local_entries(MAX_DEPTH).await?;
+        let local_entries = self.list_local_entries(0).await?;
 
         Ok(ScratchpadResponse {
             local_entries,
@@ -229,6 +230,22 @@ impl ScratchpadStore {
             scratchpad_path: self.scratchpad_dir.clone(),
             file_meta: config.file_meta.clone(),
         })
+    }
+
+    pub async fn list_directory_entries(
+        &self,
+        parent_path: &str,
+    ) -> Result<Vec<ScratchpadEntry>, CoreError> {
+        self.ensure_dir().await?;
+        let parent = self.resolve_path(parent_path)?;
+        if !parent.is_dir() {
+            return Err(CoreError::storage(StorageError::io(
+                parent.display().to_string(),
+                "list_directory",
+                "path is not a directory".to_string(),
+            )));
+        }
+        self.scan_dir_tree(&parent, 0, 0).await
     }
 
     pub async fn create_entry(
@@ -532,8 +549,14 @@ impl ScratchpadStore {
 
         let name = file_path
             .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| relative_path.to_string());
+            .and_then(|n| Some(n.to_string_lossy().to_string()))
+            .ok_or_else(|| {
+                CoreError::storage(StorageError::io(
+                    file_path.display().to_string(),
+                    "metadata",
+                    "invalid file path: no file name component",
+                ))
+            })?;
 
         let modified_at = metadata
             .modified()
@@ -944,6 +967,202 @@ impl ScratchpadStore {
 
         Ok(())
     }
+
+    pub async fn move_entry(
+        &self,
+        from_relative_path: &str,
+        to_parent_path: &str,
+    ) -> Result<ScratchpadEntry, CoreError> {
+        let source_path = self.resolve_path(from_relative_path)?;
+        let dest_parent = if to_parent_path.is_empty() {
+            self.scratchpad_dir.clone()
+        } else {
+            let parent = self.resolve_path(to_parent_path)?;
+            if !parent.is_dir() {
+                return Err(CoreError::storage(StorageError::io(
+                    parent.display().to_string(),
+                    "move",
+                    "destination parent is not a directory".to_string(),
+                )));
+            }
+            parent
+        };
+
+        if !source_path.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                source_path.display().to_string(),
+                "move",
+                "source not found".to_string(),
+            )));
+        }
+
+        let source_name = source_path
+            .file_name()
+            .ok_or_else(|| CoreError::storage(StorageError::io(
+                source_path.display().to_string(),
+                "move",
+                "invalid source path: no file name",
+            )))?
+            .to_string_lossy()
+            .to_string();
+
+        let dest_path = dest_parent.join(&source_name);
+
+        if dest_path == source_path {
+            return Err(CoreError::storage(StorageError::io(
+                source_path.display().to_string(),
+                "move",
+                "source and destination are the same".to_string(),
+            )));
+        }
+
+        if dest_path.exists() {
+            return Err(CoreError::storage(StorageError::io(
+                dest_path.display().to_string(),
+                "move",
+                "destination already exists".to_string(),
+            )));
+        }
+
+        let is_dir = fs::metadata(&source_path)
+            .await
+            .map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    source_path.display().to_string(),
+                    "metadata",
+                    e.to_string(),
+                ))
+            })?
+            .is_dir();
+
+        fs::rename(&source_path, &dest_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                source_path.display().to_string(),
+                "move",
+                e.to_string(),
+            ))
+        })?;
+
+        if let Ok(mut config) = self.load_config().await {
+            if let Some(meta) = config.file_meta.remove(from_relative_path) {
+                if let Ok(new_relative) = dest_path.strip_prefix(&self.scratchpad_dir) {
+                    config
+                        .file_meta
+                        .insert(new_relative.to_string_lossy().to_string(), meta);
+                    let _ = self.save_config(&config).await;
+                }
+            }
+        }
+
+        Ok(ScratchpadEntry {
+            name: source_name,
+            path: dest_path,
+            kind: if is_dir {
+                ScratchpadEntryKind::Folder
+            } else {
+                ScratchpadEntryKind::File
+            },
+            size: 0,
+            modified_at: Some(Utc::now().to_rfc3339()),
+            children: if is_dir { Some(Vec::new()) } else { None },
+        })
+    }
+
+    pub async fn replace_in_file(
+        &self,
+        relative_path: &str,
+        pattern: &str,
+        replacement: &str,
+        is_regex: bool,
+    ) -> Result<ReplaceResult, CoreError> {
+        let file_path = self.resolve_path(relative_path)?;
+        let original = fs::read_to_string(&file_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                file_path.display().to_string(),
+                "read",
+                e.to_string(),
+            ))
+        })?;
+
+        let (replaced, new_content) = if is_regex {
+            let re = regex::Regex::new(pattern).map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    file_path.display().to_string(),
+                    "regex_compile",
+                    e.to_string(),
+                ))
+            })?;
+            let count = re.find_iter(&original).count();
+            let result = re.replace_all(&original, replacement).to_string();
+            (count, result)
+        } else {
+            let count = original.matches(pattern).count();
+            let result = original.replace(pattern, replacement);
+            (count, result)
+        };
+
+        if replaced > 0 {
+            self.save_file(relative_path, &new_content).await?;
+        }
+
+        Ok(ReplaceResult {
+            replaced,
+            file_path: relative_path.to_string(),
+        })
+    }
+
+    pub async fn diff_with_content(
+        &self,
+        relative_path: &str,
+        other_content: &str,
+        left_label: &str,
+        right_label: &str,
+    ) -> Result<DiffResult, CoreError> {
+        let file_path = self.resolve_path(relative_path)?;
+        let file_content = fs::read_to_string(&file_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                file_path.display().to_string(),
+                "read",
+                e.to_string(),
+            ))
+        })?;
+
+        let other_owned = other_content.to_string();
+        let diff = similar::TextDiff::from_lines(&file_content, &other_owned);
+        let mut lines = Vec::new();
+
+        for change in diff.iter_all_changes() {
+            let (kind, left_num, right_num) = match change.tag() {
+                similar::ChangeTag::Equal => (
+                    DiffLineKind::Unchanged,
+                    change.old_index().map(|i| i + 1),
+                    change.new_index().map(|i| i + 1),
+                ),
+                similar::ChangeTag::Delete => (
+                    DiffLineKind::Removed,
+                    change.old_index().map(|i| i + 1),
+                    None,
+                ),
+                similar::ChangeTag::Insert => (
+                    DiffLineKind::Added,
+                    None,
+                    change.new_index().map(|i| i + 1),
+                ),
+            };
+            lines.push(DiffLine {
+                line_number_left: left_num,
+                line_number_right: right_num,
+                kind,
+                content: change.to_string_lossy().to_string(),
+            });
+        }
+
+        Ok(DiffResult {
+            lines,
+            left_label: left_label.to_string(),
+            right_label: right_label.to_string(),
+        })
+    }
 }
 
 async fn search_single_file(
@@ -955,6 +1174,9 @@ async fn search_single_file(
     max_results: usize,
     context_lines: usize,
 ) -> Result<Vec<SearchMatch>, CoreError> {
+        // Read the entire file into memory so that we can extract context lines
+    // around matches. This trades off memory usage for complete context support.
+    // For typical scratchpad file sizes, this is acceptable.
     let file = fs::File::open(&path).await.map_err(|e| {
         CoreError::storage(StorageError::io(
             path.display().to_string(),

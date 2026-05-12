@@ -20,7 +20,10 @@
         <component :is="entry.kind === 'folder' ? (expanded ? FolderOpen : Folder) : fileIcon" />
       </NIcon>
 
-      <span v-if="renamingKey !== entry.path" class="node-name">{{ entry.name }}</span>
+      <span v-if="renamingKey !== entry.path" class="node-name">
+        <span v-if="isNodeDirty" class="dirty-dot">●</span>
+        {{ entry.name }}
+      </span>
       <div v-else class="rename-wrapper">
         <input
           ref="renameInputRef"
@@ -112,11 +115,13 @@ interface Props {
   renamingKey: string | null
   inlineCreateParentPath?: string | null
   inlineCreateIsFolder?: boolean
+  dirtyFiles?: Set<string>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   inlineCreateParentPath: null,
   inlineCreateIsFolder: false,
+  dirtyFiles: () => new Set<string>(),
 })
 
 const emit = defineEmits<{
@@ -143,6 +148,14 @@ const isInlineCreateTarget = computed(
     props.entry.kind === 'folder' &&
     props.inlineCreateParentPath === props.entry.path
 )
+
+const isNodeDirty = computed(() => {
+  if (!props.dirtyFiles || props.entry.kind !== 'file') return false
+  return [...props.dirtyFiles].some(
+    p => p.replace(/\\/g, '/').replace(/\/$/, '') === props.entry.path.replace(/\\/g, '/').replace(/\/$/, '')
+  )
+})
+
 const inlineCreateName = ref('')
 const inlineInputRef = ref<HTMLInputElement | null>(null)
 const inlineCreateIsFolder = computed(() => props.inlineCreateIsFolder)
@@ -348,6 +361,14 @@ function formatSize(bytes: number): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dirty-dot {
+  color: var(--brand-accent, #ff6b35);
+  margin-right: 4px;
+  font-size: 10px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .rename-input {

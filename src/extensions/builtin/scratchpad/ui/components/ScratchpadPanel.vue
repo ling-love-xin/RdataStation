@@ -169,12 +169,60 @@
         </template>
         {{ t('scratchpad.caseSensitive') }}
       </NTooltip>
+      <NTooltip v-if="contentSearchMode" trigger="hover">
+        <template #trigger>
+          <NButton
+            size="small"
+            :type="isRegex ? 'primary' : 'default'"
+            quaternary
+            @click="toggleRegex"
+          >
+            .*
+          </NButton>
+        </template>
+        {{ t('scratchpad.regex') }}
+      </NTooltip>
     </div>
 
     <div v-if="contentSearchMode && contentAllMatches.length > 0" class="search-results">
       <div class="search-results-header">
         {{ t('scratchpad.searchFileResults') }}
         <span class="search-results-count">{{ t('scratchpad.matchesCount', { count: contentAllMatches.length }) }}</span>
+        <span class="search-results-actions">
+          <NButton
+            size="tiny"
+            quaternary
+            :type="showReplaceBar ? 'primary' : 'default'"
+            @click="toggleReplaceBar"
+          >
+            {{ t('scratchpad.replace') }}
+          </NButton>
+        </span>
+      </div>
+      <div v-if="regexError" class="search-notice search-notice-error">
+        <NIcon size="14"><Info /></NIcon>
+        <span>{{ regexError }}</span>
+      </div>
+      <div v-if="showReplaceBar" class="replace-bar">
+        <NInput
+          v-model:value="replaceWith"
+          size="small"
+          :placeholder="t('scratchpad.replaceWithHint')"
+          class="replace-input"
+          @input="computeReplacePreview"
+        />
+        <span v-if="replacePreviewCount > 0" class="replace-preview">
+          {{ t('scratchpad.replacePreviewCount', { count: replacePreviewCount }) }}
+        </span>
+        <NButton
+          size="small"
+          type="primary"
+          :disabled="replaceInProgress || !replaceWith.trim() || !searchQuery.trim()"
+          :loading="replaceInProgress"
+          @click="handleReplaceAll"
+        >
+          {{ t('scratchpad.replaceAll') }}
+        </NButton>
       </div>
       <div v-if="searchNotice" class="search-notice">
         <NIcon size="14"><Info /></NIcon>
@@ -245,7 +293,7 @@
       <NButton size="tiny" @click="loadFiles">{{ t('scratchpad.retry') }}</NButton>
     </div>
 
-    <div v-else-if="!contentSearchMode || contentAllMatches.length === 0" class="tree-container">
+    <div v-else-if="!contentSearchMode || contentAllMatches.length === 0" ref="treeContainerRef" class="tree-container" @scroll="handleTreeScroll">
       <div v-if="contentSearchMode && searchQuery.trim()" class="search-no-results">
         <NIcon size="14"><Info /></NIcon>
         <span>{{ searchNotice || t('scratchpad.noResults') }}</span>
@@ -340,27 +388,59 @@
               </NButton>
             </div>
           </div>
-          <ScratchpadTreeNode
-            v-for="entry in filteredLocalEntries"
-            :key="entry.path"
-            :entry="entry"
-            :depth="0"
-            :expanded-keys="expandedKeys"
-            :selected-key="selectedKey"
-            :selected-keys="selectedKeys"
-            :renaming-key="renamingKey"
-            :inline-create-parent-path="inlineCreateParentPath"
-            :inline-create-is-folder="inlineCreateIsFolder"
-            @select="handleSelect"
-            @open="handleOpen"
-            @contextmenu="showEntryMenu"
-            @toggle-expand="handleToggleExpand"
-            @start-rename="startRename"
-            @finish-rename="finishRename"
-            @cancel-rename="cancelRename"
-            @drag-start="handleTreeNodeDragStart"
-            @create-inline="confirmInlineCreate"
-          />
+          <div
+            v-if="useVirtualScrollEnabled"
+            class="virtual-scroll-viewport"
+            :style="{ height: virtualScrollTotalHeight + 'px' }"
+          >
+            <div class="virtual-scroll-spacer" :style="{ height: virtualScrollPaddingTop + 'px' }" />
+            <ScratchpadTreeNode
+              v-for="item in visibleTreeEntries"
+              :key="item.entry.path"
+              :entry="item.entry"
+              :depth="item.depth"
+              :expanded-keys="expandedKeys"
+              :selected-key="selectedKey"
+              :selected-keys="selectedKeys"
+              :renaming-key="renamingKey"
+              :inline-create-parent-path="inlineCreateParentPath"
+              :inline-create-is-folder="inlineCreateIsFolder"
+              :dirty-files="dirtyFiles"
+              @select="handleSelect"
+              @open="handleOpen"
+              @contextmenu="showEntryMenu"
+              @toggle-expand="handleToggleExpand"
+              @start-rename="startRename"
+              @finish-rename="finishRename"
+              @cancel-rename="cancelRename"
+              @drag-start="handleTreeNodeDragStart"
+              @create-inline="confirmInlineCreate"
+            />
+          </div>
+          <template v-else>
+            <ScratchpadTreeNode
+              v-for="item in flattenedTree"
+              :key="item.entry.path"
+              :entry="item.entry"
+              :depth="item.depth"
+              :expanded-keys="expandedKeys"
+              :selected-key="selectedKey"
+              :selected-keys="selectedKeys"
+              :renaming-key="renamingKey"
+              :inline-create-parent-path="inlineCreateParentPath"
+              :inline-create-is-folder="inlineCreateIsFolder"
+              :dirty-files="dirtyFiles"
+              @select="handleSelect"
+              @open="handleOpen"
+              @contextmenu="showEntryMenu"
+              @toggle-expand="handleToggleExpand"
+              @start-rename="startRename"
+              @finish-rename="finishRename"
+              @cancel-rename="cancelRename"
+              @drag-start="handleTreeNodeDragStart"
+              @create-inline="confirmInlineCreate"
+            />
+          </template>
         </div>
       </div>
 
@@ -455,6 +535,76 @@
       </template>
     </NModal>
 
+    <NModal
+      v-model:show="showConflictDialog"
+      title="⚠️ 检测到外部修改"
+      preset="dialog"
+      type="warning"
+      positive-text="重新加载"
+      negative-text="忽略"
+      @positive-click="handleConflictReload"
+      @negative-click="handleConflictIgnore"
+    >
+      <template v-if="conflictFilePath">
+        <div class="conflict-message">
+          <p>文件 <strong>{{ conflictFilePath }}</strong> 被外部程序修改。</p>
+          <p>当前编辑器中有未保存的更改。重新加载将丢失未保存的内容。</p>
+        </div>
+        <div class="conflict-actions">
+          <NButton size="small" type="info" @click="handleConflictDiff">
+            {{ t('scratchpad.viewDiff') }}
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <NModal
+      v-model:show="showDiffDialog"
+      :title="t('scratchpad.diffView')"
+      preset="card"
+      style="width: 800px; max-width: 90vw;"
+      :mask-closable="false"
+    >
+      <template #header-extra>
+        <NButton size="small" @click="handleDiffClose">{{ t('common.back') }}</NButton>
+      </template>
+      <div v-if="diffResult" class="diff-container">
+        <div class="diff-labels">
+          <span class="diff-label-left">{{ diffLeftLabel }}</span>
+          <span class="diff-label-right">{{ diffRightLabel }}</span>
+        </div>
+        <div class="diff-lines">
+          <div
+            v-for="(line, idx) in diffResult.lines"
+            :key="idx"
+            :class="['diff-line', `diff-${line.kind}`]"
+          >
+            <span class="diff-line-num diff-num-left">{{ line.line_number_left || '' }}</span>
+            <span class="diff-line-num diff-num-right">{{ line.line_number_right || '' }}</span>
+            <span class="diff-line-content">{{ line.content }}</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <NButton size="small" @click="handleDiffClose">{{ t('common.close') }}</NButton>
+        <NButton size="small" type="info" @click="handleDiffAcceptRight">
+          {{ t('scratchpad.acceptRight') }}
+        </NButton>
+      </template>
+    </NModal>
+
+    <div v-if="moveUndoVisible" class="undo-bar move-undo-bar">
+      <span class="undo-text">{{ t('scratchpad.undoMoveHint', { name: moveUndoName }) }}</span>
+      <NButton size="tiny" type="primary" quaternary @click="handleMoveUndo">
+        {{ t('scratchpad.undo') }}
+      </NButton>
+      <NButton size="tiny" quaternary @click="dismissMoveUndo">
+        <template #icon>
+          <NIcon size="12"><X /></NIcon>
+        </template>
+      </NButton>
+    </div>
+
     <div
       v-if="contextMenu.visible"
       class="scratchpad-context-menu"
@@ -519,7 +669,7 @@ import { useI18n } from 'vue-i18n'
 import ScratchpadTreeNode from './ScratchpadTreeNode.vue'
 import { useScratchpad } from '../composables/use-scratchpad'
 
-import type { ScratchpadChangeEvent, ScratchpadEntry, ExternalReference, SearchMatch, SearchResult } from '../../types'
+import type { ScratchpadChangeEvent, ScratchpadEntry, ExternalReference, SearchMatch, SearchResult, DiffResult } from '../../types'
 
 const { t } = useI18n()
 const { message } = createDiscreteApi(['message'])
@@ -555,28 +705,75 @@ const {
   stopWatching,
   promoteToResource,
   applyFileChanges,
+  flattenVisibleEntries,
+  dirtyFiles,
+  markClean,
+  externalConflicts,
+  dismissConflict,
+  loadChildEntries,
+  hasChildrenLoaded,
+  clipboardMode,
+  moveEntry,
+  replaceInFile,
+  diffWithContent,
+  validateRegex,
+  setContentSnapshot,
+  getContentSnapshot,
+  normalizePathForCompare,
 } = useScratchpad()
 
 const fileMeta = computed(() => response.value?.file_meta ?? {})
 
 const contentSearchMode = ref(false)
 const searchResult = ref<SearchResult | null>(null)
-const showTrash = ref(false)
-const promoteTarget = ref<ScratchpadEntry | null>(null)
 const showPromoteConfirm = ref(false)
+const promoteTarget = ref<ScratchpadEntry | null>(null)
+const showConflictDialog = ref(false)
+const conflictFilePath = ref<string | null>(null)
+const showTrash = ref(false)
 const sortBy = ref<'name' | 'size' | 'modified'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
 const caseSensitive = ref(false)
+const isRegex = ref(false)
+const regexError = ref<string | null>(null)
 const showRecent = ref(true)
 const recentFiles = ref<string[]>([])
 const MAX_RECENT = 5
 let contentSearchTimer: ReturnType<typeof setTimeout> | null = null
+
+const showReplaceBar = ref(false)
+const replaceWith = ref('')
+const replacePreviewCount = ref(0)
+const replaceInProgress = ref(false)
+
+const showDiffDialog = ref(false)
+const diffResult = ref<DiffResult | null>(null)
+const diffLeftLabel = ref('')
+const diffRightLabel = ref('')
+const diffFilePath = ref('')
+
+const moveUndoVisible = ref(false)
+const moveUndoFromPath = ref('')
+const moveUndoToParent = ref('')
+const moveUndoName = ref('')
+let moveUndoTimer: ReturnType<typeof setTimeout> | null = null
+const MOVE_UNDO_TIMEOUT = 5000
 
 function toggleSearchMode(): void {
   contentSearchMode.value = !contentSearchMode.value
   if (contentSearchMode.value) {
     searchQuery.value = ''
     searchResult.value = null
+    showReplaceBar.value = false
+  }
+}
+
+function toggleRegex(): void {
+  isRegex.value = !isRegex.value
+  regexError.value = null
+  if (isRegex.value) {
+    const result = validateRegex(searchQuery.value)
+    regexError.value = result.error
   }
 }
 
@@ -667,6 +864,85 @@ function addRecentFile(relativePath: string): void {
   recentFiles.value = list.slice(0, MAX_RECENT)
 }
 
+watch(searchQuery, async (val) => {
+  if (isRegex.value) {
+    const result = validateRegex(val || '')
+    regexError.value = result.error
+  }
+})
+
+function toggleReplaceBar(): void {
+  showReplaceBar.value = !showReplaceBar.value
+  replacePreviewCount.value = 0
+}
+
+async function computeReplacePreview(): Promise<void> {
+  const q = searchQuery.value.trim()
+  const rw = replaceWith.value
+  if (!q || !rw) {
+    replacePreviewCount.value = 0
+    return
+  }
+  const files = contentResults.value
+  let totalReplacements = 0
+  for (const [file] of files) {
+    try {
+      const content = await loadFileContent(file)
+      if (content === null) continue
+      if (isRegex.value) {
+        try {
+          const re = new RegExp(q, caseSensitive.value ? 'g' : 'gi')
+          const matches = content.match(re)
+          if (matches) totalReplacements += matches.length
+        } catch {
+          continue
+        }
+      } else {
+        let count = 0
+        let idx = 0
+        const search = q
+        const searchLower = caseSensitive.value ? search : search.toLowerCase()
+        const contentLower = caseSensitive.value ? content : content.toLowerCase()
+        while ((idx = contentLower.indexOf(searchLower, idx)) !== -1) {
+          count++
+          idx += search.length
+        }
+        totalReplacements += count
+      }
+    } catch {
+      continue
+    }
+  }
+  replacePreviewCount.value = totalReplacements
+}
+
+async function handleReplaceAll(): Promise<void> {
+  const q = searchQuery.value.trim()
+  const rw = replaceWith.value
+  if (!q || !rw) return
+  replaceInProgress.value = true
+  const files = contentResults.value
+  let totalFiles = 0
+  let totalReplaced = 0
+  for (const [file] of files) {
+    const result = await replaceInFile(file, q, rw, isRegex.value)
+    if (result && result.replaced > 0) {
+      totalFiles++
+      totalReplaced += result.replaced
+    }
+  }
+  replaceInProgress.value = false
+  if (totalReplaced > 0) {
+    message.success(
+      t('scratchpad.replaceSuccess', { files: totalFiles, count: totalReplaced })
+    )
+    const result = await searchContent(q, caseSensitive.value)
+    searchResult.value = result
+  } else {
+    message.info(t('scratchpad.replaceNoMatches'))
+  }
+}
+
 const filteredLocalEntries = computed(() => {
   let entries = localEntries.value
   if (contentSearchMode.value) {
@@ -717,6 +993,61 @@ const undoState = reactive<{
 })
 
 const UNDO_TIMEOUT = 5000
+
+const ROW_HEIGHT = 28
+const OVERSCAN = 8
+const VIRTUAL_SCROLL_THRESHOLD = 50
+
+const treeContainerRef = ref<HTMLElement | null>(null)
+const treeScrollTop = ref(0)
+const treeContainerHeight = ref(0)
+
+const flattenedTree = computed(() =>
+  flattenVisibleEntries(filteredLocalEntries.value, expandedKeys.value)
+)
+
+const useVirtualScrollEnabled = computed(
+  () => flattenedTree.value.length > VIRTUAL_SCROLL_THRESHOLD
+)
+
+const visibleTreeEntries = computed(() => {
+  if (!useVirtualScrollEnabled.value) {
+    return flattenedTree.value
+  }
+  const total = flattenedTree.value.length
+  const start = Math.floor(treeScrollTop.value / ROW_HEIGHT)
+  const visibleCount = Math.ceil(treeContainerHeight.value / ROW_HEIGHT)
+  const from = Math.max(0, start - OVERSCAN)
+  const to = Math.min(total, start + visibleCount + OVERSCAN)
+  return flattenedTree.value.slice(from, to)
+})
+
+const virtualScrollPaddingTop = computed(() => {
+  if (!useVirtualScrollEnabled.value || flattenedTree.value.length === 0) return 0
+  const total = flattenedTree.value.length
+  const start = Math.floor(treeScrollTop.value / ROW_HEIGHT)
+  const visibleCount = Math.ceil(treeContainerHeight.value / ROW_HEIGHT)
+  const from = Math.max(0, start - OVERSCAN)
+  return from * ROW_HEIGHT
+})
+
+const virtualScrollTotalHeight = computed(() => {
+  if (!useVirtualScrollEnabled.value) return undefined
+  return flattenedTree.value.length * ROW_HEIGHT
+})
+
+function handleTreeScroll(): void {
+  const el = treeContainerRef.value
+  if (!el) return
+  treeScrollTop.value = el.scrollTop
+  treeContainerHeight.value = el.clientHeight
+}
+
+function updateTreeContainerSize(): void {
+  const el = treeContainerRef.value
+  if (!el) return
+  treeContainerHeight.value = el.clientHeight
+}
 
 function showUndo(name: string, relativePath: string): void {
   if (undoState.timer) clearTimeout(undoState.timer)
@@ -830,7 +1161,7 @@ function handleSelect(entry: ScratchpadEntry, event?: MouseEvent): void {
   }
 
   if (shift && lastSelectPath.value) {
-    const flatEntries = flattenEntries(filteredLocalEntries.value)
+    const flatEntries = flattenedTree.value.map(item => item.entry)
     const startIdx = flatEntries.findIndex(e => e.path === lastSelectPath.value)
     const endIdx = flatEntries.findIndex(e => e.path === entry.path)
     if (startIdx !== -1 && endIdx !== -1) {
@@ -851,24 +1182,18 @@ function handleSelect(entry: ScratchpadEntry, event?: MouseEvent): void {
   lastSelectPath.value = entry.path
 }
 
-function flattenEntries(entries: ScratchpadEntry[]): ScratchpadEntry[] {
-  const result: ScratchpadEntry[] = []
-  for (const e of entries) {
-    result.push(e)
-    if (e.children) {
-      result.push(...flattenEntries(e.children))
-    }
-  }
-  return result
-}
-
-function handleToggleExpand(entry: ScratchpadEntry): void {
+async function handleToggleExpand(entry: ScratchpadEntry): Promise<void> {
+  const normalizedPath = normalizePathForCompare(entry.path)
   const next = new Set(expandedKeys.value)
-  if (next.has(entry.path)) {
-    next.delete(entry.path)
-  } else {
-    next.add(entry.path)
+  if (next.has(normalizedPath)) {
+    next.delete(normalizedPath)
+    expandedKeys.value = next
+    return
   }
+  if (entry.kind === 'folder' && !hasChildrenLoaded(entry)) {
+    await loadChildEntries(entry.path)
+  }
+  next.add(normalizedPath)
   expandedKeys.value = next
 }
 
@@ -898,9 +1223,15 @@ function collectFolderPaths(entries: ScratchpadEntry[]): string[] {
   return result
 }
 
-function handleExpandAll(): void {
+async function handleExpandAll(): Promise<void> {
   const allFolders = collectFolderPaths(filteredLocalEntries.value)
   expandedKeys.value = new Set(allFolders)
+  for (const path of allFolders) {
+    const entry = findEntryInTree(localEntries.value, path)
+    if (entry && entry.kind === 'folder' && !hasChildrenLoaded(entry)) {
+      await loadChildEntries(path)
+    }
+  }
 }
 
 function handleCollapseAll(): void {
@@ -936,6 +1267,8 @@ async function openFileInEditor(entry: ScratchpadEntry): Promise<void> {
   if (content === null) {
     return
   }
+
+  setContentSnapshot(relativePath, content)
 
   const metaForFile = fileMeta.value[relativePath]
   const lastConnectionId = metaForFile?.last_connection_id || ''
@@ -979,6 +1312,8 @@ async function openFileAtLine(relativePath: string, line: number): Promise<void>
 
   const content = await loadFileContent(relativePath)
   if (content === null) return
+
+  setContentSnapshot(relativePath, content)
 
   const metaForFile = fileMeta.value[relativePath]
   const lastConnectionId = metaForFile?.last_connection_id || ''
@@ -1258,6 +1593,7 @@ function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
             ]
           : []),
         { key: 'copy-file', label: t('scratchpad.copyFile'), icon: Copy },
+        { key: 'cut-file', label: t('scratchpad.cutFile'), icon: Copy },
         { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
         { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
         { key: 'promote', label: t('scratchpad.promoteToResource'), icon: GitBranch },
@@ -1338,6 +1674,12 @@ async function handleMenuAction(key: string): Promise<void> {
       break
     case 'copy-file':
       clipboardEntry.value = entry
+      clipboardMode.value = 'copy'
+      break
+    case 'cut-file':
+      clipboardEntry.value = entry
+      clipboardMode.value = 'cut'
+      message.info(t('scratchpad.cutFileHint'))
       break
     case 'paste-file':
       await handlePaste()
@@ -1359,6 +1701,21 @@ async function handleMenuAction(key: string): Promise<void> {
 async function handlePaste(): Promise<void> {
   const src = clipboardEntry.value
   if (!src) return
+
+  if (clipboardMode.value === 'cut') {
+    const fromRelPath = src.path.replace(scratchpadPath.value || '', '').replace(/^\//, '').replace(/\\/g, '/')
+    const selectedFolder = findSelectedFolder()
+    const toParent = selectedFolder || ''
+    const entry = await moveEntry(fromRelPath, toParent)
+    if (entry) {
+      clipboardEntry.value = null
+      clipboardMode.value = 'copy'
+      showMoveUndo(fromRelPath, toParent, entry.name)
+      message.success(t('scratchpad.movedSuccess', { name: entry.name }))
+    }
+    return
+  }
+
   const content = await loadFileContent(src.path.replace(scratchpadPath.value || '', '').replace(/^\//, ''))
   if (content === null) return
   const baseName = src.name.replace(/\.([^.]+)$/, '')
@@ -1369,6 +1726,38 @@ async function handlePaste(): Promise<void> {
     const relPath = entry.path.replace(scratchpadPath.value || '', '').replace(/^\//, '')
     await saveFile(relPath, content)
     message.success(t('scratchpad.pasteCopied', { name: copyName }))
+  }
+}
+
+function showMoveUndo(fromPath: string, toParent: string, name: string): void {
+  dismissMoveUndo()
+  moveUndoVisible.value = true
+  moveUndoFromPath.value = fromPath
+  moveUndoToParent.value = toParent
+  moveUndoName.value = name
+  moveUndoTimer = setTimeout(() => {
+    dismissMoveUndo()
+  }, MOVE_UNDO_TIMEOUT)
+}
+
+function dismissMoveUndo(): void {
+  moveUndoVisible.value = false
+  if (moveUndoTimer) {
+    clearTimeout(moveUndoTimer)
+    moveUndoTimer = null
+  }
+}
+
+async function handleMoveUndo(): Promise<void> {
+  const fromPath = moveUndoFromPath.value
+  const toParent = moveUndoToParent.value
+  dismissMoveUndo()
+  const entry = await moveEntry(
+    `${toParent ? toParent + '/' : ''}${moveUndoName.value}`,
+    getParentPathOfEntry(fromPath) || ''
+  )
+  if (entry) {
+    message.success(t('scratchpad.undoMoveSuccess', { name: entry.name }))
   }
 }
 
@@ -1384,6 +1773,84 @@ async function handlePromoteConfirm(removeAfter: boolean): Promise<void> {
   promoteTarget.value = null
   if (result) message.success(t('scratchpad.promotedSuccess', { name: entry.name }))
 }
+
+function handleConflictReload(): void {
+  const path = conflictFilePath.value
+  showConflictDialog.value = false
+  conflictFilePath.value = null
+  if (path) {
+    markClean(path)
+    dismissConflict(path)
+    handleOpenByPath(path)
+  }
+}
+
+function handleConflictIgnore(): void {
+  const path = conflictFilePath.value
+  showConflictDialog.value = false
+  conflictFilePath.value = null
+  if (path) dismissConflict(path)
+}
+
+async function handleConflictDiff(): Promise<void> {
+  const path = conflictFilePath.value
+  if (!path) return
+  showConflictDialog.value = false
+  try {
+    const entry = findEntryInTree(localEntries.value, path)
+    if (!entry) return
+    const editorSnapshot = getContentSnapshot(path)
+    if (editorSnapshot === null) {
+      handleConflictReload()
+      return
+    }
+    const result = await diffWithContent(
+      path,
+      editorSnapshot,
+      t('scratchpad.diffCurrentFile'),
+      t('scratchpad.diffEditedContent')
+    )
+    if (result) {
+      diffResult.value = result
+      diffFilePath.value = path
+      diffLeftLabel.value = t('scratchpad.diffCurrentFile')
+      diffRightLabel.value = t('scratchpad.diffEditedContent')
+      showDiffDialog.value = true
+    }
+  } catch {
+    handleConflictReload()
+  }
+}
+
+async function handleDiffAcceptRight(): Promise<void> {
+  const path = diffFilePath.value
+  showDiffDialog.value = false
+  if (!path) return
+  markClean(path)
+  dismissConflict(path)
+  handleOpenByPath(path)
+}
+
+function handleDiffClose(): void {
+  showDiffDialog.value = false
+  if (diffFilePath.value) {
+    showConflictDialog.value = true
+  }
+}
+
+async function handleOpenByPath(path: string): Promise<void> {
+  const entry = findEntryInTree(localEntries.value, path)
+  if (entry && entry.kind === 'file') {
+    handleOpen(entry)
+  }
+}
+
+watch(externalConflicts, (newConflicts) => {
+  if (newConflicts.length > 0 && !showConflictDialog.value) {
+    conflictFilePath.value = newConflicts[0]
+    showConflictDialog.value = true
+  }
+})
 
 function startRename(entry: ScratchpadEntry): void {
   renamingKey.value = entry.path
@@ -1410,8 +1877,8 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
   if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
     event.preventDefault()
     const all = new Set<string>()
-    for (const e of filteredLocalEntries.value) {
-      all.add(e.path)
+    for (const item of flattenedTree.value) {
+      all.add(item.entry.path)
     }
     selectedKeys.value = all
     return
@@ -1419,7 +1886,7 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
   if (!selectedKey.value) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
-      const entries = filteredLocalEntries.value
+      const entries = flattenedTree.value.map(item => item.entry)
       if (entries.length > 0) {
         selectedKey.value = event.key === 'ArrowDown' ? entries[0].path : entries[entries.length - 1].path
         scrollToSelected()
@@ -1430,7 +1897,7 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
 
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault()
-    const entries = filteredLocalEntries.value
+    const entries = flattenedTree.value.map(item => item.entry)
     const idx = entries.findIndex(e => e.path === selectedKey.value)
     if (idx === -1) return
     const nextIdx = event.key === 'ArrowDown'
@@ -1481,9 +1948,16 @@ function scrollToSelected(): void {
 }
 
 let unlisten: (() => void) | null = null
+let resizeObserver: ResizeObserver | null = null
 
 onMounted(async () => {
   await loadFiles()
+  await nextTick()
+  updateTreeContainerSize()
+  resizeObserver = new ResizeObserver(() => updateTreeContainerSize())
+  if (treeContainerRef.value) {
+    resizeObserver.observe(treeContainerRef.value)
+  }
   document.addEventListener('click', closeContextMenu)
   document.addEventListener('keydown', handleKeydown)
   window.addEventListener('project-switched', loadFiles)
@@ -1507,6 +1981,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  resizeObserver?.disconnect()
   document.removeEventListener('click', closeContextMenu)
   document.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('project-switched', loadFiles)
@@ -1589,6 +2064,15 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-sm) 0;
+}
+
+.virtual-scroll-viewport {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-scroll-spacer {
+  width: 100%;
 }
 
 .loading-state,
@@ -2038,5 +2522,136 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.move-undo-bar {
+  background: var(--color-bg-info-soft);
+  border-top: 1px solid var(--color-border-info);
+}
+
+.conflict-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+  margin-top: var(--spacing-md);
+}
+
+.replace-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-secondary);
+}
+
+.replace-input {
+  flex: 1;
+}
+
+.replace-preview {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.search-notice-error {
+  color: var(--brand-danger);
+  background: var(--brand-accent-soft);
+}
+
+.search-results-actions {
+  margin-left: auto;
+}
+
+.diff-container {
+  max-height: 60vh;
+  overflow: auto;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.diff-labels {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.diff-label-left,
+.diff-label-right {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.diff-label-right {
+  border-right: none;
+}
+
+.diff-lines {
+  border: 1px solid var(--color-border-subtle);
+  border-top: none;
+}
+
+.diff-line {
+  display: flex;
+  min-height: 22px;
+}
+
+.diff-line-num {
+  width: 44px;
+  padding: 0 var(--spacing-xs);
+  text-align: right;
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border-right: 1px solid var(--color-border-subtle);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.diff-num-right {
+  border-right: none;
+}
+
+.diff-line-content {
+  flex: 1;
+  padding: 0 var(--spacing-sm);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-unchanged {
+  background: transparent;
+}
+
+.diff-added {
+  background: var(--color-bg-success-soft, rgba(34, 197, 94, 0.1));
+}
+
+.diff-added .diff-line-content::before {
+  content: '+ ';
+  color: var(--brand-success, #22c55e);
+  font-weight: bold;
+}
+
+.diff-removed {
+  background: var(--color-bg-danger-soft, rgba(239, 68, 68, 0.1));
+}
+
+.diff-removed .diff-line-content::before {
+  content: '- ';
+  color: var(--brand-danger, #ef4444);
+  font-weight: bold;
+}
+
+.diff-unchanged .diff-line-content::before {
+  content: '  ';
 }
 </style>

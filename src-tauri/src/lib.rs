@@ -289,6 +289,7 @@ pub fn run() {
             get_resources_by_tag,
             // 草稿箱命令
             list_scratchpad_files,
+            list_scratchpad_directory,
             create_scratchpad_entry,
             delete_scratchpad_entry,
             rename_scratchpad_entry,
@@ -310,6 +311,9 @@ pub fn run() {
             watch_scratchpad,
             unwatch_scratchpad,
             promote_scratchpad_to_resource,
+            move_scratchpad_entry,
+            replace_scratchpad_content,
+            diff_scratchpad_with_content,
             // 模拟数据生成 Mock
             mock_generate,
             mock_preview,

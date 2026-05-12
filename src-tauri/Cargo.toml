@@ -115,3 +115,14 @@ notify = "6"
 
 # ===== SQL 解析与转译 =====
 sqlglot-rust = "0.9.24"
+
+# ===== 正则表达式（搜索替换） =====
+regex = "1.11"
+
+# ===== 文本差异对比（Diff 视图） =====
+similar = "2.6"
+
+# 空 features 防止 Tauri dev 命令追加 --no-default-features
+# 该 flag 在 Windows 上会导致增量编译时 DLL 文件锁冲突
+[features]
+default = []

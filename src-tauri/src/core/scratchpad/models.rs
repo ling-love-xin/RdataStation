@@ -91,3 +91,32 @@ pub struct ScratchpadChangeEntry {
 pub struct ScratchpadChangeEvent {
     pub changes: Vec<ScratchpadChangeEntry>,
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReplaceResult {
+    pub replaced: usize,
+    pub file_path: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffLineKind {
+    Unchanged,
+    Added,
+    Removed,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DiffLine {
+    pub line_number_left: Option<usize>,
+    pub line_number_right: Option<usize>,
+    pub kind: DiffLineKind,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DiffResult {
+    pub lines: Vec<DiffLine>,
+    pub left_label: String,
+    pub right_label: String,
+}

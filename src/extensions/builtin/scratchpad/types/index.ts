@@ -71,3 +71,23 @@ export interface ScratchpadChangeEntry {
 export interface ScratchpadChangeEvent {
   changes: ScratchpadChangeEntry[]
 }
+
+export interface ReplaceResult {
+  replaced: number
+  file_path: string
+}
+
+export type DiffLineKind = 'unchanged' | 'added' | 'removed'
+
+export interface DiffLine {
+  line_number_left: number | null
+  line_number_right: number | null
+  kind: DiffLineKind
+  content: string
+}
+
+export interface DiffResult {
+  lines: DiffLine[]
+  left_label: string
+  right_label: string
+}

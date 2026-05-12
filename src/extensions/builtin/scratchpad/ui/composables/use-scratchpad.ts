@@ -22,6 +22,10 @@ import {
   unwatchScratchpad,
   promoteScratchpadToResource,
   getScratchpadEntry,
+  listScratchpadDirectory,
+  moveScratchpadEntry,
+  replaceScratchpadContent,
+  diffScratchpadWithContent,
 } from '../../infrastructure/api/scratchpad-api'
 
 import type {
@@ -33,6 +37,8 @@ import type {
   SearchResult,
   ScratchpadChangeEvent,
   ScratchpadChangeEntry,
+  ReplaceResult,
+  DiffResult,
 } from '../../types'
 
 export function useScratchpad() {
@@ -67,7 +73,7 @@ export function useScratchpad() {
     const result: { entry: ScratchpadEntry; depth: number }[] = []
     for (const entry of entries) {
       result.push({ entry, depth })
-      if (entry.kind === 'folder' && entry.children && expandedKeys.has(entry.path)) {
+      if (entry.kind === 'folder' && entry.children && expandedKeys.has(normalizePathForCompare(entry.path))) {
         result.push(...flattenVisibleEntries(entry.children, expandedKeys, depth + 1))
       }
     }
@@ -402,6 +408,15 @@ export function useScratchpad() {
       if (modifyMap.size > 0) {
         currentEntries = patchEntriesInTree(currentEntries, modifyMap)
       }
+      for (const m of modifies) {
+        const key = normalizePathForCompare(m.path)
+        if (dirtyFiles.value.has(key)) {
+          const current = [...externalConflicts.value]
+          if (!current.some(p => normalizePathForCompare(p) === key)) {
+            externalConflicts.value = [...current, m.path]
+          }
+        }
+      }
     }
 
     response.value = {
@@ -491,6 +506,147 @@ export function useScratchpad() {
     return p.replace(/\\/g, '/').replace(/\/$/, '')
   }
 
+  const dirtyFiles = ref<Set<string>>(new Set())
+  const externalConflicts = ref<string[]>([])
+
+  function markDirty(path: string): void {
+    const s = new Set(dirtyFiles.value)
+    s.add(normalizePathForCompare(path))
+    dirtyFiles.value = s
+  }
+
+  function markClean(path: string): void {
+    const s = new Set(dirtyFiles.value)
+    s.delete(normalizePathForCompare(path))
+    dirtyFiles.value = s
+  }
+
+  function isDirty(path: string): boolean {
+    return dirtyFiles.value.has(normalizePathForCompare(path))
+  }
+
+  const hasUnsavedChanges = computed(() => dirtyFiles.value.size > 0)
+
+  function dismissConflict(path: string): void {
+    externalConflicts.value = externalConflicts.value.filter(p => normalizePathForCompare(p) !== normalizePathForCompare(path))
+  }
+
+  async function loadChildEntries(parentPath: string): Promise<ScratchpadEntry[] | null> {
+    if (!response.value) return null
+    try {
+      const children = await listScratchpadDirectory(parentPath)
+      setEntryChildren(response.value.local_entries, parentPath, children)
+      return children
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
+    }
+  }
+
+  function setEntryChildren(entries: ScratchpadEntry[], parentPath: string, children: ScratchpadEntry[]): boolean {
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i]
+      if (normalizePathForCompare(e.path) === normalizePathForCompare(parentPath)) {
+        entries[i] = { ...e, children }
+        return true
+      }
+      if (e.children) {
+        if (setEntryChildren(e.children, parentPath, children)) return true
+      }
+    }
+    return false
+  }
+
+  function hasChildrenLoaded(entry: ScratchpadEntry): boolean {
+    return entry.kind !== 'folder' || entry.children !== null && entry.children !== undefined
+  }
+
+  const clipboardMode = ref<'copy' | 'cut'>('copy')
+
+  async function moveEntry(fromPath: string, toParentPath: string): Promise<ScratchpadEntry | null> {
+    try {
+      const entry = await moveScratchpadEntry(fromPath, toParentPath)
+      await loadFiles()
+      return entry
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
+    }
+  }
+
+  async function replaceInFile(
+    path: string,
+    pattern: string,
+    replacement: string,
+    isRegex: boolean
+  ): Promise<ReplaceResult | null> {
+    try {
+      const result = await replaceScratchpadContent(path, pattern, replacement, isRegex)
+      addReplaceHistory({ path, pattern, replacement, isRegex, timestamp: Date.now() })
+      return result
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
+    }
+  }
+
+  async function diffWithContent(
+    relativePath: string,
+    otherContent: string,
+    leftLabel: string,
+    rightLabel: string
+  ): Promise<DiffResult | null> {
+    try {
+      return await diffScratchpadWithContent(relativePath, otherContent, leftLabel, rightLabel)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      return null
+    }
+  }
+
+  const contentSnapshots = new Map<string, string>()
+
+  function setContentSnapshot(path: string, content: string): void {
+    contentSnapshots.set(normalizePathForCompare(path), content)
+  }
+
+  function getContentSnapshot(path: string): string | null {
+    return contentSnapshots.get(normalizePathForCompare(path)) ?? null
+  }
+
+  function clearContentSnapshot(path: string): void {
+    contentSnapshots.delete(normalizePathForCompare(path))
+  }
+
+  interface ReplaceHistoryEntry {
+    path: string
+    pattern: string
+    replacement: string
+    isRegex: boolean
+    timestamp: number
+  }
+
+  const replaceHistory = ref<ReplaceHistoryEntry[]>([])
+  const maxReplaceHistory = 20
+
+  function addReplaceHistory(entry: ReplaceHistoryEntry): void {
+    replaceHistory.value = [entry, ...replaceHistory.value].slice(0, maxReplaceHistory)
+  }
+
+  function clearReplaceHistory(): void {
+    replaceHistory.value = []
+  }
+
+  function validateRegex(pattern: string): { valid: boolean; error: string | null } {
+    if (!pattern) return { valid: true, error: null }
+    try {
+      new RegExp(pattern)
+      return { valid: true, error: null }
+    } catch (e) {
+      return { valid: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+
   return {
     response,
     isLoading,
@@ -531,5 +687,24 @@ export function useScratchpad() {
     applyFileChanges,
     normalizePathForCompare,
     flattenVisibleEntries,
+    dirtyFiles,
+    markDirty,
+    markClean,
+    isDirty,
+    hasUnsavedChanges,
+    externalConflicts,
+    dismissConflict,
+    loadChildEntries,
+    hasChildrenLoaded,
+    clipboardMode,
+    moveEntry,
+    replaceInFile,
+    diffWithContent,
+    replaceHistory,
+    clearReplaceHistory,
+    validateRegex,
+    setContentSnapshot,
+    getContentSnapshot,
+    clearContentSnapshot,
   }
 }
