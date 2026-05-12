@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -18,12 +19,9 @@ vi.mock('@/extensions/builtin/workbench/ui/services/project', () => ({
     updateProject: vi.fn(),
   },
 }))
-
-import { invoke } from '@tauri-apps/api/core'
-
 import { ProjectService } from '@/extensions/builtin/workbench/ui/services/project'
 
-import { useProjectStore } from './project'
+import { useProjectStore, type Project } from './project'
 
 const mockInvoke = invoke as ReturnType<typeof vi.fn>
 const mockService = ProjectService as unknown as Record<string, ReturnType<typeof vi.fn>>
@@ -168,7 +166,7 @@ describe('useProjectStore', () => {
     it('should optimistically update currentProject then sync', async () => {
       const store = useProjectStore()
       const project = mockProjectInfo({ id: 'p1', name: 'Switched' })
-      store.recentProjects = [project]
+      store.recentProjects = [project as unknown as Project]
       mockService.addRecentProject.mockResolvedValue(undefined)
       mockService.getRecentProjects.mockResolvedValue([project])
       mockInvoke.mockResolvedValue(undefined)
@@ -182,7 +180,7 @@ describe('useProjectStore', () => {
     it('should throw and keep previous project on sync failure', async () => {
       const store = useProjectStore()
       const project = mockProjectInfo({ id: 'p1', name: 'Switched' })
-      store.recentProjects = [project]
+      store.recentProjects = [project as unknown as Project]
       mockService.addRecentProject.mockRejectedValue(new Error('Network error'))
 
       await expect(store.switchProject('p1')).rejects.toThrow('Network error')

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<template>
+<template>
   <div class="filter-bar">
     <div class="filter-row">
       <div class="filter-group compact">

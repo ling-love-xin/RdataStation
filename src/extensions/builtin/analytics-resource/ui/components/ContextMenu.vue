@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿<template>
+<template>
   <Teleport to="body">
     <div v-if="visible" class="context-menu" :style="{ left: `${x}px`, top: `${y}px` }" @click.stop>
       <div

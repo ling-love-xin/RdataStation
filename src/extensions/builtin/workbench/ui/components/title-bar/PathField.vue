@@ -6,11 +6,12 @@
     </label>
     <div class="path-input-wrapper">
       <input
-        v-model="modelValue"
+        :value="modelValue"
         type="text"
         class="form-input"
         :placeholder="placeholder"
         readonly
+        @input="onInput"
       />
       <button class="btn-browse" @click="$emit('browse')">
         {{ t('workbench.browse') }}
@@ -34,12 +35,16 @@ withDefaults(defineProps<Props>(), {
   placeholder: '',
 })
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: string]
   browse: []
 }>()
 
 const { t } = useI18n()
+
+function onInput(event: Event) {
+  emit('update:modelValue', (event.target as HTMLInputElement).value)
+}
 </script>
 
 <style scoped>

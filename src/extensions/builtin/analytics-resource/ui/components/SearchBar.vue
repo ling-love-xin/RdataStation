@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<template>
+<template>
   <div class="search-bar">
     <div class="search-input-wrapper">
       <span class="search-icon">🔍</span>

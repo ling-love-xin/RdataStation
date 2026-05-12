@@ -6,18 +6,20 @@
     </label>
     <input
       v-if="type === 'input'"
-      v-model="modelValue"
+      :value="modelValue"
       type="text"
       class="form-input"
       :placeholder="placeholder"
+      @input="onInput"
       @keyup.enter="$emit('keyup-enter')"
     />
     <textarea
       v-else
-      v-model="modelValue"
+      :value="modelValue"
       class="form-input"
       :placeholder="placeholder"
       :rows="rows"
+      @input="onInput"
     />
   </div>
 </template>
@@ -39,10 +41,14 @@ withDefaults(defineProps<Props>(), {
   rows: 3,
 })
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: string]
   'keyup-enter': []
 }>()
+
+function onInput(event: Event) {
+  emit('update:modelValue', (event.target as HTMLInputElement).value)
+}
 </script>
 
 <style scoped>

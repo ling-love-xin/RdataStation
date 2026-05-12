@@ -7,7 +7,6 @@ import {
 } from '@/extensions/builtin/connection/ui/services/connection'
 
 import * as databaseApi from '../api/database-api'
-import type { IntrospectionLevel } from '../api/database-api'
 import {
   clearMetadataCache,
   getColumnsFromCache,
@@ -18,7 +17,7 @@ import {
   generateStableCacheId,
 } from '../services/metadata-cache-service'
 
-
+import type { IntrospectionLevel } from '../api/database-api'
 import type { TableInput, ColumnInput } from '../services/metadata-cache-service'
 
 export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => {

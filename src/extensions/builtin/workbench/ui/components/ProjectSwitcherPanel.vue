@@ -152,9 +152,9 @@ import {
   X,
 } from 'lucide-vue-next'
 import { NButton, NInput, useMessage } from 'naive-ui'
+import { storeToRefs } from 'pinia'
 import { nextTick, onBeforeUnmount, onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { storeToRefs } from 'pinia'
 
 import { useProjectStore } from '@/core/project/stores/project'
 import type { Project } from '@/core/project/stores/project'

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿<template>
+<template>
   <div class="tag-manager">
     <div class="tag-list">
       <button

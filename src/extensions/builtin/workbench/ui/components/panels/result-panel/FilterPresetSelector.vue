@@ -54,8 +54,8 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useResultFilterPresets } from '@/extensions/builtin/workbench/ui/composables/useResultFilterPresets'
-
 import type { FilterMode } from '@/extensions/builtin/workbench/ui/types/result'
+
 import type { SelectOption } from 'naive-ui'
 
 export interface PresetSelectEvent {
