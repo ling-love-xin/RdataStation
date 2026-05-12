@@ -772,15 +772,12 @@ mod tests {
     fn test_project_store_create() {
         let project_path = test_temp_dir("create").join("test-project");
 
-        let store = ProjectStore::create("Test Project", &project_path).unwrap();
+        let store = ProjectStore::create("Test Project", &project_path).expect("创建项目失败");
 
         assert_eq!(store.info().name, "Test Project");
         assert!(project_path.join(RS_META_DIR_NAME).exists());
-        assert!(project_path.join(RS_META_DIR_NAME).join("meta").exists());
-        assert!(project_path
-            .join(RS_META_DIR_NAME)
-            .join("analytics")
-            .exists());
+        assert!(project_path.join(RS_META_DIR_NAME).join(PROJECT_METADATA_DIR_NAME).exists());
+        assert!(project_path.join(RS_META_DIR_NAME).join(ANALYTICS_DB_NAME).exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("config").exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("queries").exists());
     }

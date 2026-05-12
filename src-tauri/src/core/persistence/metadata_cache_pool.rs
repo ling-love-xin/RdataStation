@@ -305,21 +305,21 @@ mod tests {
 
     fn test_temp_path(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("rdata_test_mcp_{}", name));
-        std::fs::create_dir_all(&dir).unwrap();
+        let _ = std::fs::create_dir_all(&dir);
         dir.join("test_cache.sqlite")
     }
 
     #[tokio::test]
     async fn test_pool_create_and_acquire() {
         let path = test_temp_path("acquire");
-        let pool = MetadataCachePool::create("test_conn", path, 3).await.unwrap();
+        let pool = Arc::new(MetadataCachePool::create("test_conn", path, 3).await.expect("创建池失败"));
 
         let stats = pool.stats().await;
         assert_eq!(stats.pool_size, 3);
         assert_eq!(stats.available, 3);
         assert_eq!(stats.in_use, 0);
 
-        let conn = pool.acquire().await.unwrap();
+        let conn = pool.acquire().await.expect("获取连接失败");
         let stats = pool.stats().await;
         assert_eq!(stats.available, 2);
         assert_eq!(stats.in_use, 1);
@@ -335,16 +335,16 @@ mod tests {
     #[tokio::test]
     async fn test_pool_registry_get_or_create() {
         let path = test_temp_path("registry");
-        let pool1 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await.unwrap();
-        let pool2 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await.unwrap();
+        let pool1 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await.expect("创建池1失败");
+        let pool2 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await.expect("创建池2失败");
         assert!(Arc::ptr_eq(&pool1, &pool2));
     }
 
     #[tokio::test]
     async fn test_pooled_connection_inner() {
         let path = test_temp_path("inner");
-        let pool = MetadataCachePool::create("inner_conn", path, 1).await.unwrap();
-        let conn = pool.acquire().await.unwrap();
+        let pool = Arc::new(MetadataCachePool::create("inner_conn", path, 1).await.expect("创建池失败"));
+        let conn = pool.acquire().await.expect("获取连接失败");
         assert!(conn.inner().is_ok());
     }
 }

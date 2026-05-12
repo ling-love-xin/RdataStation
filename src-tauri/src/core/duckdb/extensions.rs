@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use duckdb::Connection;
+
 use crate::core::error::{CommonError, CoreError};
 
 /// 扩展状态
@@ -94,6 +96,133 @@ impl ExtensionManager {
             extensions: Mutex::new(HashMap::new()),
             extension_dir: extension_dir.to_string(),
         }
+    }
+
+    /// 发现并查询当前 DuckDB 实例的扩展状态。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    ///
+    /// # 返回
+    /// - `Ok(Vec<ExtensionInfo>)`: 扩展信息列表
+    /// - `Err(CoreError)`: 查询失败
+    pub fn discover_extensions(&self, conn: &Connection) -> Result<Vec<ExtensionInfo>, CoreError> {
+        let sql = Self::generate_discover_sql();
+
+        let mut stmt = conn.prepare(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("查询扩展状态失败: {}", e)))
+        })?;
+
+        let mut rows = stmt.query([]).map_err(|e| {
+            CoreError::common(CommonError::General(format!("执行扩展查询失败: {}", e)))
+        })?;
+
+        let mut extensions = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| {
+            CoreError::common(CommonError::General(format!("获取扩展行失败: {}", e)))
+        })? {
+            let name: String = row.get(0).unwrap_or_default();
+            let installed: bool = row.get(2).unwrap_or(false);
+            let loaded: bool = row.get(3).unwrap_or(false);
+
+            let status = if loaded {
+                ExtensionStatus::Loaded
+            } else if installed {
+                ExtensionStatus::Installed
+            } else {
+                ExtensionStatus::NotInstalled
+            };
+
+            extensions.push(ExtensionInfo {
+                name,
+                status,
+                version: None,
+                signed: true,
+            });
+        }
+
+        Ok(extensions)
+    }
+
+    /// 安装扩展。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `name`: 扩展名称
+    ///
+    /// # 返回
+    /// - `Ok(())`: 安装成功
+    /// - `Err(CoreError)`: 安装失败
+    pub fn install_extension(&self, conn: &Connection, name: &str) -> Result<(), CoreError> {
+        Self::validate_extension_name(name)?;
+
+        let sql = Self::generate_install_sql(name);
+        tracing::info!("[ExtensionManager] 安装扩展 SQL: {}", sql);
+
+        conn.execute_batch(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("安装扩展失败: {}", e)))
+        })?;
+
+        // 更新缓存状态
+        self.register_extension(ExtensionInfo::new(name, ExtensionStatus::Installed, true));
+
+        tracing::info!("[ExtensionManager] 扩展已安装: {}", name);
+
+        Ok(())
+    }
+
+    /// 加载扩展。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `name`: 扩展名称
+    ///
+    /// # 返回
+    /// - `Ok(())`: 加载成功
+    /// - `Err(CoreError)`: 加载失败
+    pub fn load_extension(&self, conn: &Connection, name: &str) -> Result<(), CoreError> {
+        Self::validate_extension_name(name)?;
+
+        let sql = Self::generate_load_sql(name);
+        tracing::info!("[ExtensionManager] 加载扩展 SQL: {}", sql);
+
+        conn.execute_batch(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("加载扩展失败: {}", e)))
+        })?;
+
+        // 更新缓存状态
+        self.register_extension(ExtensionInfo::new(name, ExtensionStatus::Loaded, true));
+
+        tracing::info!("[ExtensionManager] 扩展已加载: {}", name);
+
+        Ok(())
+    }
+
+    /// 卸载扩展。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `name`: 扩展名称
+    ///
+    /// # 返回
+    /// - `Ok(())`: 卸载成功
+    /// - `Err(CoreError)`: 卸载失败
+    pub fn unload_extension(&self, conn: &Connection, name: &str) -> Result<(), CoreError> {
+        Self::validate_extension_name(name)?;
+
+        let sql = Self::generate_unload_sql(name);
+        tracing::info!("[ExtensionManager] 卸载扩展 SQL: {}", sql);
+
+        conn.execute_batch(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("卸载扩展失败: {}", e)))
+        })?;
+
+        // 更新缓存状态
+        self.update_status(name, ExtensionStatus::Installed);
+
+        tracing::info!("[ExtensionManager] 扩展已卸载: {}", name);
+
+        Ok(())
     }
 
     /// 生成查询扩展状态的 SQL 语句。
@@ -225,6 +354,66 @@ impl ExtensionManager {
     /// 按需扩展名称列表
     pub fn on_demand_extensions() -> Vec<&'static str> {
         vec!["spatial", "excel", "httpfs", "fts", "mysql", "postgres_scanner"]
+    }
+
+    /// 按需安装并加载扩展（自动安装加载）。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `name`: 扩展名称
+    ///
+    /// # 返回
+    /// - `Ok(())`: 安装并加载成功
+    /// - `Err(CoreError)`: 失败
+    pub fn ensure_installed_and_loaded(
+        &self,
+        conn: &Connection,
+        name: &str,
+    ) -> Result<(), CoreError> {
+        Self::validate_extension_name(name)?;
+
+        // 检查当前状态
+        let extensions = self.discover_extensions(conn)?;
+        let existing = extensions.iter().find(|e| e.name == name);
+
+        match existing {
+            Some(info) => match info.status {
+                ExtensionStatus::NotInstalled => {
+                    self.install_extension(conn, name)?;
+                    self.load_extension(conn, name)?;
+                }
+                ExtensionStatus::Installed => {
+                    self.load_extension(conn, name)?;
+                }
+                ExtensionStatus::Loaded => {
+                    tracing::info!("[ExtensionManager] 扩展已加载: {}", name);
+                }
+            },
+            None => {
+                tracing::warn!(
+                    "[ExtensionManager] 扩展 '{}' 不在列表中，尝试安装",
+                    name
+                );
+                self.install_extension(conn, name)?;
+                self.load_extension(conn, name)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 批量确保多个扩展已安装并加载。
+    pub fn ensure_batch_installed(
+        &self,
+        conn: &Connection,
+        names: &[&str],
+    ) -> Result<Vec<String>, CoreError> {
+        let mut success = Vec::new();
+        for &name in names {
+            self.ensure_installed_and_loaded(conn, name)?;
+            success.push(name.to_string());
+        }
+        Ok(success)
     }
 
     /// 生成设置扩展目录的 SQL 语句。

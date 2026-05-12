@@ -888,14 +888,15 @@ async fn search_single_file(
 }
 
 fn duckdb_query_hint(ext: &str, name: &str) -> String {
+    let escaped = name.replace('\'', "''");
     match ext {
-        "csv" => format!("SELECT * FROM read_csv_auto('{}');", name),
-        "tsv" => format!("SELECT * FROM read_csv_auto('{}', delim='\\t');", name),
-        "parquet" => format!("SELECT * FROM read_parquet('{}');", name),
-        "json" | "ndjson" => format!("SELECT * FROM read_json_auto('{}');", name),
-        "xlsx" | "xls" => format!("SELECT * FROM st_read('{}');", name),
-        "sqlite" | "db" => format!("ATTACH '{}' AS sqlite_db (TYPE sqlite);", name),
-        "duckdb" => format!("ATTACH '{}' AS duckdb_db;", name),
+        "csv" => format!("SELECT * FROM read_csv_auto('{}');", escaped),
+        "tsv" => format!("SELECT * FROM read_csv_auto('{}', delim='\\t');", escaped),
+        "parquet" => format!("SELECT * FROM read_parquet('{}');", escaped),
+        "json" | "ndjson" => format!("SELECT * FROM read_json_auto('{}');", escaped),
+        "xlsx" | "xls" => format!("SELECT * FROM st_read('{}');", escaped),
+        "sqlite" | "db" => format!("ATTACH '{}' AS sqlite_db (TYPE sqlite);", escaped),
+        "duckdb" => format!("ATTACH '{}' AS duckdb_db;", escaped),
         _ => format!("-- Unsupported type: {}", ext),
     }
 }

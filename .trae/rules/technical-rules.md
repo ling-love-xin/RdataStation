@@ -22,15 +22,15 @@ sqlglot-rust: 0.9.24 (唯一接入点: core/sql)
 ## 前端 (Frontend - Vue/TS)
 
 Package Manager: pnpm
-Framework: Vue 3.5.13
+Framework: Vue 3.5.34
 Language: TypeScript 5.8.3
 Build Tool: Vite 6.x
-UI Layout Engine: dockview-vue 6.0.1
-Component Library: naive-ui (核心依赖)
-Icon Library: lucide-vue-next
-Table Engine: AG Grid 33.0.0
-Editor: Monaco Editor 0.52.2
-State Management: Pinia 2.3.1
+UI Layout Engine: dockview-vue 6.1.1
+Component Library: naive-ui 2.44.1
+Icon Library: lucide-vue-next 0.460.0
+Table Engine: AG Grid 32.3.9
+Editor: Monaco Editor 0.55.1
+State Management: Pinia 3.0.4
 
 # 架构红线 (Architecture Rules)
 

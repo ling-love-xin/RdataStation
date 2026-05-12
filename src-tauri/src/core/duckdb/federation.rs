@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use duckdb::Connection;
+
 use crate::core::error::{CommonError, CoreError};
 
 /// 外部数据源类型
@@ -118,6 +120,7 @@ impl FederationManager {
     /// ATTACH 外部数据源。
     ///
     /// # 参数
+    /// - `conn`: DuckDB 连接
     /// - `sql`: ATTACH SQL 语句
     ///
     /// # 返回
@@ -126,9 +129,9 @@ impl FederationManager {
     ///
     /// # 示例
     /// ```rust,ignore
-    /// federation.attach_sql(&manager, "ATTACH '/path/to/global.duckdb' AS global")?;
+    /// federation.attach_sql(&conn, "ATTACH '/path/to/global.duckdb' AS global")?;
     /// ```
-    pub fn attach_sql(&self, sql: &str) -> Result<(), CoreError> {
+    pub fn attach_sql(&self, conn: &Connection, sql: &str) -> Result<(), CoreError> {
         // 解析 SQL 提取别名
         let alias = Self::parse_attach_alias(sql)?;
 
@@ -144,7 +147,11 @@ impl FederationManager {
             ))));
         }
 
-        // 此处只记录，实际 ATTACH 由 executor 执行
+        // 实际执行 ATTACH SQL
+        conn.execute_batch(sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("ATTACH 数据源失败: {}", e)))
+        })?;
+
         sources.insert(
             alias.clone(),
             DataSourceConfig::duckdb(&alias, ""),
@@ -154,15 +161,30 @@ impl FederationManager {
         Ok(())
     }
 
+    /// 生成并执行 ATTACH 语句。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `config`: 数据源配置
+    ///
+    /// # 返回
+    /// - `Ok(())`: 挂载成功
+    /// - `Err(CoreError)`: 挂载失败
+    pub fn attach_data_source(&self, conn: &Connection, config: &DataSourceConfig) -> Result<(), CoreError> {
+        let sql = Self::generate_attach_sql(config);
+        self.attach_sql(conn, &sql)
+    }
+
     /// DETACH 外部数据源。
     ///
     /// # 参数
+    /// - `conn`: DuckDB 连接
     /// - `alias`: 数据源别名
     ///
     /// # 返回
     /// - `Ok(())`: 卸载成功
     /// - `Err(CoreError)`: 卸载失败
-    pub fn detach(&self, alias: &str) -> Result<(), CoreError> {
+    pub fn detach(&self, conn: &Connection, alias: &str) -> Result<(), CoreError> {
         let mut sources = self
             .attached_sources
             .lock()
@@ -175,9 +197,31 @@ impl FederationManager {
             ))));
         }
 
+        // 实际执行 DETACH SQL
+        let detach_sql = format!("DETACH {}", alias);
+        conn.execute_batch(&detach_sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("DETACH 数据源失败: {}", e)))
+        })?;
+
         sources.remove(alias);
         tracing::info!("[FederationManager] DETACH 数据源: {}", alias);
         Ok(())
+    }
+
+    /// 生成 ATTACH SQL 语句。
+    fn generate_attach_sql(config: &DataSourceConfig) -> String {
+        match config.source_type {
+            DataSourceType::DuckDB => {
+                format!("ATTACH '{}' AS {}", config.connection_string, config.alias)
+            }
+            DataSourceType::SQLite => {
+                format!("ATTACH '{}' AS {}", config.connection_string, config.alias)
+            }
+            DataSourceType::MySQL | DataSourceType::PostgreSQL => {
+                // 网络数据源需要特殊语法，这里简化处理
+                format!("ATTACH '{}' AS {}", config.connection_string, config.alias)
+            }
+        }
     }
 
     /// 获取已挂载的数据源列表。
@@ -275,6 +319,27 @@ impl FederationManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use std::fs;
+
+    fn setup_test_db() -> (Connection, PathBuf) {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("时间获取失败")
+            .as_nanos();
+        let temp_dir = std::env::temp_dir();
+        let db_path = temp_dir.join(format!("test_federation_{}.duckdb", timestamp));
+
+        let _ = fs::remove_file(&db_path);
+
+        let conn = Connection::open(&db_path).expect("创建测试数据库");
+        (conn, db_path)
+    }
+
+    fn cleanup_test_db(path: &PathBuf) {
+        let _ = fs::remove_file(path);
+    }
 
     #[test]
     fn test_data_source_config_duckdb() {
@@ -301,48 +366,78 @@ mod tests {
 
     #[test]
     fn test_attach_and_detach() {
+        let (conn, db_path) = setup_test_db();
         let federation = FederationManager::new();
 
         assert!(federation.list_attached().is_empty());
 
-        // ATTACH
+        // ATTACH 另一个 DuckDB 文件
+        let temp_attach_db = std::env::temp_dir().join(format!("test_attach_source_{}.duckdb", std::process::id()));
+        let _ = fs::remove_file(&temp_attach_db);
+        let _source_conn = Connection::open(&temp_attach_db).expect("创建源数据库");
+        drop(_source_conn);
+
+        let sql = format!("ATTACH '{}' AS global", temp_attach_db.display());
         federation
-            .attach_sql("ATTACH '/path/to/global.duckdb' AS global")
+            .attach_sql(&conn, &sql)
             .expect("ATTACH 成功");
         assert_eq!(federation.list_attached().len(), 1);
         assert!(federation.is_attached("global"));
 
         // 重复 ATTACH 应失败
         assert!(federation
-            .attach_sql("ATTACH '/path/to/global.duckdb' AS global")
+            .attach_sql(&conn, &sql)
             .is_err());
 
         // DETACH
-        federation.detach("global").expect("DETACH 成功");
+        federation.detach(&conn, "global").expect("DETACH 成功");
         assert!(federation.list_attached().is_empty());
+
+        let _ = fs::remove_file(&temp_attach_db);
+        cleanup_test_db(&db_path);
     }
 
     #[test]
     fn test_detach_non_existent() {
+        let (conn, db_path) = setup_test_db();
         let federation = FederationManager::new();
-        assert!(federation.detach("non_existent").is_err());
+        assert!(federation.detach(&conn, "non_existent").is_err());
+        cleanup_test_db(&db_path);
     }
 
     #[test]
     fn test_detach_all() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("时间获取失败")
+            .as_nanos();
+
+        let (conn, db_path) = setup_test_db();
         let federation = FederationManager::new();
 
+        let temp_db1 = std::env::temp_dir().join(format!("test_attach_db1_{}.duckdb", timestamp));
+        let temp_db2 = std::env::temp_dir().join(format!("test_attach_db2_{}.duckdb", timestamp + 1));
+        let _ = fs::remove_file(&temp_db1);
+        let _ = fs::remove_file(&temp_db2);
+        let _ = Connection::open(&temp_db1);
+        let _ = Connection::open(&temp_db2);
+
         federation
-            .attach_sql("ATTACH '/path/to/db1.duckdb' AS db1")
+            .attach_sql(&conn, &format!("ATTACH '{}' AS db1", temp_db1.display()))
             .expect("ATTACH db1");
         federation
-            .attach_sql("ATTACH '/path/to/db2.duckdb' AS db2")
+            .attach_sql(&conn, &format!("ATTACH '{}' AS db2", temp_db2.display()))
             .expect("ATTACH db2");
 
         assert_eq!(federation.list_attached().len(), 2);
 
         federation.detach_all();
         assert!(federation.list_attached().is_empty());
+
+        let _ = fs::remove_file(&temp_db1);
+        let _ = fs::remove_file(&temp_db2);
+        cleanup_test_db(&db_path);
     }
 
     #[test]

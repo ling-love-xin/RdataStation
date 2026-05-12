@@ -1,4 +1,8 @@
 
+use duckdb::Connection;
+
+use crate::core::error::{CommonError, CoreError};
+
 /// 查询计划节点类型
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlanNodeType {
@@ -114,64 +118,42 @@ impl PlanNode {
 pub struct ExplainAnalyzer;
 
 impl ExplainAnalyzer {
-    /// 生成 EXPLAIN 查询的 SQL 语句。
+    /// 执行 EXPLAIN 查询并解析为结构化计划树。
     ///
     /// # 参数
+    /// - `conn`: DuckDB 连接
     /// - `query`: 要分析的查询 SQL
-    /// - `format`: EXPLAIN 输出格式（可选）
     ///
     /// # 返回
-    /// EXPLAIN SQL 语句
-    pub fn generate_explain_sql(query: &str, format: Option<&str>) -> String {
-        match format {
-            Some(fmt) => format!("EXPLAIN ({}) {}", fmt, query),
-            None => format!("EXPLAIN {}", query),
-        }
-    }
+    /// - `Ok(PlanNode)`: 根查询计划节点
+    /// - `Err(CoreError)`: 执行失败
+    pub fn analyze_query(conn: &Connection, query: &str) -> Result<PlanNode, CoreError> {
+        let sql = Self::generate_explain_sql(query, None);
+        tracing::info!("[ExplainAnalyzer] EXPLAIN SQL: {}", sql);
 
-    /// 解析 EXPLAIN 输出为结构化数据。
-    ///
-    /// # 参数
-    /// - `explain_output`: EXPLAIN 输出文本
-    ///
-    /// # 返回
-    /// 解析后的查询计划节点
-    ///
-    /// # 注意
-    /// 简化解析实现，实际应使用更复杂的解析逻辑
-    pub fn parse_explain_output(explain_output: &str) -> Vec<PlanNode> {
-        let mut nodes = Vec::new();
-        let lines: Vec<&str> = explain_output.lines().collect();
+        let mut stmt = conn.prepare(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("准备 EXPLAIN 查询失败: {}", e)))
+        })?;
 
-        for line in lines {
-            if let Some(node) = Self::parse_line(line) {
-                nodes.push(node);
+        let mut rows = stmt.query([]).map_err(|e| {
+            CoreError::common(CommonError::General(format!("执行 EXPLAIN 查询失败: {}", e)))
+        })?;
+
+        let mut output_lines = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| {
+            CoreError::common(CommonError::General(format!("获取 EXPLAIN 结果失败: {}", e)))
+        })? {
+            if let Ok(line) = row.get::<usize, String>(0) {
+                output_lines.push(line);
             }
         }
 
-        nodes
-    }
+        let full_output = output_lines.join("\n");
+        tracing::debug!("[ExplainAnalyzer] EXPLAIN 输出:\n{}", full_output);
 
-    /// 检查查询计划是否包含全表扫描。
-    ///
-    /// # 参数
-    /// - `plan`: 查询计划
-    ///
-    /// # 返回
-    /// true 表示包含全表扫描
-    pub fn has_full_table_scan(plan: &PlanNode) -> bool {
-        plan.contains_node_type(&PlanNodeType::SeqScan)
-    }
+        let tree = Self::parse_explain_tree(&full_output);
 
-    /// 检查查询计划是否包含嵌套循环连接。
-    ///
-    /// # 参数
-    /// - `plan`: 查询计划
-    ///
-    /// # 返回
-    /// true 表示包含嵌套循环连接
-    pub fn has_nested_loop_join(plan: &PlanNode) -> bool {
-        plan.contains_node_type(&PlanNodeType::NestedLoopJoin)
+        Ok(tree)
     }
 
     /// 获取查询计划的性能建议。
@@ -203,6 +185,134 @@ impl ExplainAnalyzer {
         }
 
         suggestions
+    }
+
+    /// 生成 EXPLAIN 查询的 SQL 语句。
+    ///
+    /// # 参数
+    /// - `query`: 要分析的查询 SQL
+    /// - `format`: EXPLAIN 输出格式（可选）
+    ///
+    /// # 返回
+    /// EXPLAIN SQL 语句
+    pub fn generate_explain_sql(query: &str, format: Option<&str>) -> String {
+        match format {
+            Some(fmt) => format!("EXPLAIN ({}) {}", fmt, query),
+            None => format!("EXPLAIN {}", query),
+        }
+    }
+
+    /// 解析 EXPLAIN 输出为结构化数据（扁平列表）。
+    ///
+    /// # 参数
+    /// - `explain_output`: EXPLAIN 输出文本
+    ///
+    /// # 返回
+    /// 解析后的查询计划节点列表
+    ///
+    /// # 注意
+    /// 简化解析实现，实际应使用更复杂的解析逻辑
+    #[deprecated(since = "2.0.0", note = "使用 parse_explain_tree 替代")]
+    pub fn parse_explain_output(explain_output: &str) -> Vec<PlanNode> {
+        let mut nodes = Vec::new();
+        let lines: Vec<&str> = explain_output.lines().collect();
+
+        for line in lines {
+            if let Some(node) = Self::parse_line(line) {
+                nodes.push(node);
+            }
+        }
+
+        nodes
+    }
+
+    /// 解析 EXPLAIN 输出为树形结构。
+    ///
+    /// # 参数
+    /// - `explain_output`: EXPLAIN 输出文本
+    ///
+    /// # 返回
+    /// 解析后的查询计划根节点
+    fn parse_explain_tree(explain_output: &str) -> PlanNode {
+        let lines: Vec<&str> = explain_output.lines().collect();
+        if lines.is_empty() {
+            return PlanNode::new(
+                PlanNodeType::Other("empty".to_string()),
+                "Empty EXPLAIN output".to_string(),
+                None,
+                None,
+            );
+        }
+
+        // 使用栈来构建树结构
+        let mut stack: Vec<(usize, PlanNode)> = Vec::new();
+
+        for line in &lines {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let indent = line.len() - line.trim_start().len();
+            let node = Self::parse_line(line).unwrap_or_else(|| {
+                PlanNode::new(
+                    PlanNodeType::Other(line.trim().to_string()),
+                    line.trim().to_string(),
+                    None,
+                    None,
+                )
+            });
+
+            // 弹出栈中比当前缩进深的节点
+            while let Some((stack_indent, _)) = stack.last() {
+                if *stack_indent >= indent {
+                    stack.pop();
+                } else {
+                    break;
+                }
+            }
+
+            // 将当前节点作为最后一个子节点
+            if let Some((_, parent)) = stack.last_mut() {
+                parent.children.push(node);
+            } else {
+                // 如果是根节点，直接入栈
+                stack.push((indent, node));
+            }
+        }
+
+        // 栈底元素为根节点（或其子节点）
+        if let Some((_, root)) = stack.into_iter().next() {
+            root
+        } else {
+            PlanNode::new(
+                PlanNodeType::Other("unknown".to_string()),
+                "Unknown EXPLAIN output".to_string(),
+                None,
+                None,
+            )
+        }
+    }
+
+    /// 检查查询计划是否包含全表扫描。
+    ///
+    /// # 参数
+    /// - `plan`: 查询计划
+    ///
+    /// # 返回
+    /// true 表示包含全表扫描
+    pub fn has_full_table_scan(plan: &PlanNode) -> bool {
+        plan.contains_node_type(&PlanNodeType::SeqScan)
+    }
+
+    /// 检查查询计划是否包含嵌套循环连接。
+    ///
+    /// # 参数
+    /// - `plan`: 查询计划
+    ///
+    /// # 返回
+    /// true 表示包含嵌套循环连接
+    pub fn has_nested_loop_join(plan: &PlanNode) -> bool {
+        plan.contains_node_type(&PlanNodeType::NestedLoopJoin)
     }
 
     /// 内部：解析单行 EXPLAIN 输出。

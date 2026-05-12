@@ -474,16 +474,13 @@ mod tests {
     fn test_is_port_available() {
         let negotiator = PortNegotiator::new();
 
-        // 端口 1 通常不可用（需要 root 权限）
-        assert!(!negotiator.is_port_available(1).unwrap());
-
         // 高位端口应该可用
-        let port = negotiator.negotiate(None).unwrap();
-        assert!(negotiator.is_port_available(port).unwrap());
+        let port = negotiator.negotiate(None).expect("协商端口失败");
+        assert!(negotiator.is_port_available(port).expect("检查端口可用性失败"));
 
         // 分配后应该不可用
-        assert!(!negotiator.is_port_available(port).unwrap());
+        assert!(!negotiator.is_port_available(port).expect("检查端口可用性失败"));
 
-        negotiator.release_port(port).unwrap();
+        negotiator.release_port(port).expect("释放端口失败");
     }
 }

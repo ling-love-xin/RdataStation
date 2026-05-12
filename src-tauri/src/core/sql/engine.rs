@@ -49,7 +49,7 @@ pub enum AlterOperation {
 }
 
 /// DDL 解析结果（预留）
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct DdlInfo {
     pub table_name: String,
     pub columns: Vec<ColumnDefInfo>,
@@ -154,14 +154,16 @@ impl SqlEngine {
     /// SQL 优化（预留）
     ///
     /// 对 SQL 进行等价改写优化，如谓词下推、子查询展开等。
-    pub fn optimize(_sql: &str, _dialect: SqlDialect) -> String {
-        unimplemented!("SQL optimizer not yet implemented")
+    pub fn optimize(sql: &str, _dialect: SqlDialect) -> String {
+        tracing::warn!("SQL optimizer not yet implemented, returning original SQL");
+        sql.to_string()
     }
 
     /// 解析 DDL 语句（预留）
     ///
     /// 从 CREATE TABLE / ALTER TABLE 语句中提取表名、列定义、约束信息。
     pub fn parse_ddl(_sql: &str, _dialect: SqlDialect) -> DdlInfo {
-        unimplemented!("DDL parser not yet implemented")
+        tracing::warn!("DDL parser not yet implemented, returning empty DdlInfo");
+        DdlInfo::default()
     }
 }

@@ -138,7 +138,7 @@ TypeScript
 
 Pinia
 
-2.2（最新稳定版）
+3.0（最新稳定版）
 
 允许 minor / patch 升级
 
@@ -146,7 +146,7 @@ Vue3 状态管理核心，轻量高效，替代Vuex
 
 ag-Grid
 
-32.0（最新稳定版）
+32.3（最新稳定版）
 
 允许 minor / patch 升级
 
@@ -154,7 +154,7 @@ ag-Grid
 
 Monaco Editor
 
-0.52（最新稳定版）
+0.55（最新稳定版）
 
 允许 minor / patch 升级
 
@@ -162,7 +162,7 @@ SQL 编辑核心，支持语法高亮、代码提示，提升开发体验
 
 dockview-vue
 
-6.0（最新稳定版）
+6.1（最新稳定版）
 
 允许 minor / patch 升级
 

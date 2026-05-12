@@ -355,12 +355,18 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn setup_test_db() -> (DuckDBManager, PathBuf) {
+    fn setup_test_db_unique(test_name: &str) -> (DuckDBManager, PathBuf) {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         let temp_dir = std::env::temp_dir();
-        let db_path = temp_dir.join(format!("test_duckdb_{}.duckdb", std::process::id()));
+        let db_path = temp_dir.join(format!("test_duckdb_{}_{}.duckdb", test_name, id));
 
-        // 清理可能存在的旧文件
-        let _ = fs::remove_file(&db_path);
+        // 确保文件被真正删除
+        if db_path.exists() {
+            let _ = fs::remove_file(&db_path);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
 
         let manager = DuckDBManager::open(&db_path).expect("创建测试数据库");
         (manager, db_path)
@@ -372,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_open_creates_database() {
-        let (manager, db_path) = setup_test_db();
+        let (manager, db_path) = setup_test_db_unique("open_creates");
 
         assert!(db_path.exists());
         assert_eq!(manager.db_path(), db_path.as_path());
@@ -382,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_write_conn_is_unique() {
-        let (manager, db_path) = setup_test_db();
+        let (manager, db_path) = setup_test_db_unique("write_conn");
 
         let conn1 = manager.write_conn();
         let conn2 = manager.write_conn();
@@ -395,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_read_conn_round_robin() {
-        let (manager, db_path) = setup_test_db();
+        let (manager, db_path) = setup_test_db_unique("read_conn");
 
         // 获取 2 * DEFAULT_READ_POOL_SIZE 次读取连接
         let mut conn_ptrs = Vec::new();
@@ -417,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_maintenance_conn_is_unique() {
-        let (manager, db_path) = setup_test_db();
+        let (manager, db_path) = setup_test_db_unique("maintenance_conn");
 
         let conn1 = manager.maintenance_conn();
         let conn2 = manager.maintenance_conn();

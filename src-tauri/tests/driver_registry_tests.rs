@@ -1,11 +1,17 @@
-//! DriverConnectionConfig 集成测试
+//! Driver 注册表 集成测试
 //!
-//! 测试连接配置构建器的公共 API
+//! 测试 DriverConnectionConfig 构建器 和 DriverDescriptor 的公共 API
 //!
 //! 本文件位于 src-tauri/tests/（集成测试），
 //! 遵循 RdataStation 测试代码组织铁律。
 
+use rdata_station_lib::core::driver::auto_register::AutoDriverRegistrar;
 use rdata_station_lib::core::driver::registry::DriverConnectionConfig;
+use rdata_station_lib::core::driver::registry::{descriptors, DriverDescriptor};
+
+fn ensure_registry_initialized() {
+    AutoDriverRegistrar::register_builtin_drivers();
+}
 
 #[test]
 fn test_connection_config_new() {
@@ -126,4 +132,86 @@ fn test_unsupported_driver() {
         .unwrap_err()
         .to_string()
         .contains("Unsupported driver"));
+}
+
+// ========== DriverDescriptor 测试 ==========
+
+#[test]
+fn test_get_all_drivers() {
+    ensure_registry_initialized();
+    let drivers = descriptors::get_all_drivers();
+    assert!(!drivers.is_empty());
+
+    let driver_ids: Vec<_> = drivers.iter().map(|d| d.id.as_str()).collect();
+    assert!(driver_ids.contains(&"mysql"));
+    assert!(driver_ids.contains(&"postgres"));
+    assert!(driver_ids.contains(&"sqlite"));
+    assert!(driver_ids.contains(&"duckdb"));
+}
+
+#[test]
+fn test_get_driver_mysql() {
+    ensure_registry_initialized();
+    let driver = descriptors::get_driver("mysql");
+    assert!(driver.is_some());
+
+    let driver = driver.unwrap();
+    assert_eq!(driver.id, "mysql");
+    assert_eq!(driver.default_port, Some(3306));
+    assert!(!driver.require_file);
+}
+
+#[test]
+fn test_get_driver_postgres() {
+    ensure_registry_initialized();
+    let driver = descriptors::get_driver("postgres");
+    assert!(driver.is_some());
+
+    let driver = driver.unwrap();
+    assert_eq!(driver.id, "postgres");
+    assert_eq!(driver.default_port, Some(5432));
+}
+
+#[test]
+fn test_get_driver_sqlite() {
+    ensure_registry_initialized();
+    let driver = descriptors::get_driver("sqlite");
+    assert!(driver.is_some());
+
+    let driver = driver.unwrap();
+    assert_eq!(driver.id, "sqlite");
+    assert!(driver.require_file);
+    assert!(!driver.require_database);
+}
+
+#[test]
+fn test_get_driver_not_found() {
+    ensure_registry_initialized();
+    let driver = descriptors::get_driver("oracle");
+    assert!(driver.is_none());
+}
+
+#[test]
+fn test_mysql_driver_fields() {
+    ensure_registry_initialized();
+    let driver = descriptors::get_driver("mysql").unwrap();
+
+    let field_keys: Vec<_> = driver.fields.iter().map(|f| f.key.as_str()).collect();
+    assert!(field_keys.contains(&"host"));
+    assert!(field_keys.contains(&"port"));
+    assert!(field_keys.contains(&"username"));
+    assert!(field_keys.contains(&"password"));
+}
+
+#[test]
+fn test_driver_descriptor_serialization() {
+    ensure_registry_initialized();
+    let driver = descriptors::get_driver("mysql").unwrap();
+
+    let json = serde_json::to_string(&driver).unwrap();
+    assert!(json.contains("mysql"));
+    assert!(json.contains("3306"));
+
+    let deserialized: DriverDescriptor = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.id, "mysql");
 }

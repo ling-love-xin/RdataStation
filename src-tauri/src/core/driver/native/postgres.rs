@@ -785,82 +785,89 @@ mod tests {
     const PG_URL: &str = "postgresql://postgres:postgresql@localhost:5432/business_db";
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_connect() {
         let db = PostgresDatabase::new(PG_URL).await;
         assert!(
             db.is_ok(),
-            "Failed to connect to PostgreSQL: {:?}",
+            "连接 PostgreSQL 失败: {:?}",
             db.err()
         );
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_query_select_one() {
         let db = PostgresDatabase::new(PG_URL)
             .await
-            .expect("Failed to connect");
-        let result = db.query("SELECT 1 AS val").await.expect("Query failed");
+            .expect("连接失败");
+        let result = db.query("SELECT 1 AS val").await.expect("查询失败");
         assert_eq!(result.columns, vec!["val"]);
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_crud_roundtrip() {
         let db = PostgresDatabase::new(PG_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
 
         db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name VARCHAR(100), value DOUBLE PRECISION)")
             .await
-            .expect("CREATE TABLE failed");
+            .expect("创建表失败");
 
         db.query("INSERT INTO _rd_test (id, name, value) VALUES (1, 'hello', 3.14)")
             .await
-            .expect("INSERT failed");
+            .expect("插入数据失败");
 
         let result = db
             .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
             .await
-            .expect("SELECT failed");
+            .expect("查询失败");
         assert_eq!(result.columns, vec!["id", "name", "value"]);
 
         db.query("DROP TABLE IF EXISTS _rd_test")
             .await
-            .expect("DROP TABLE failed");
+            .expect("删除表失败");
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_error_handling() {
         let db = PostgresDatabase::new(PG_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
-        assert!(result.is_err(), "Expected error for non-existent table");
+        assert!(result.is_err(), "应返回不存在的表错误");
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_list_tables() {
         let db = PostgresDatabase::new(PG_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
         let tables = db.list_tables("public", Some("public")).await;
-        assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
+        assert!(tables.is_ok(), "list_tables 失败: {:?}", tables.err());
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_meta() {
         let db = PostgresDatabase::new(PG_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
         let meta = db.meta();
         assert!(meta.supports_transaction);
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_is_read_only_flag() {
         let db = PostgresDatabase::new(PG_URL)
             .await
-            .expect("Failed to connect");
-        let result = db.query("SELECT 1").await.expect("Query failed");
+            .expect("连接失败");
+        let result = db.query("SELECT 1").await.expect("查询失败");
         assert_eq!(result.is_read_only, Some(true));
     }
 }

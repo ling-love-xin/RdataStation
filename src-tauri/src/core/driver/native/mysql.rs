@@ -731,21 +731,24 @@ mod tests {
     const MYSQL_URL: &str = "mysql://root:root@localhost:3306/";
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_connect() {
         let db = MySqlDatabase::new(MYSQL_URL).await;
         assert!(db.is_ok(), "Failed to connect to MySQL: {:?}", db.err());
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_query_select_one() {
         let db = MySqlDatabase::new(MYSQL_URL)
             .await
-            .expect("Failed to connect");
-        let result = db.query("SELECT 1 AS val").await.expect("Query failed");
+            .expect("连接失败");
+        let result = db.query("SELECT 1 AS val").await.expect("查询失败");
         assert_eq!(result.columns, vec!["val"]);
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_crud_roundtrip() {
         let setup_db = MySqlDatabase::new(MYSQL_URL)
             .await
@@ -784,33 +787,37 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_error_handling() {
         let db = MySqlDatabase::new(MYSQL_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
-        assert!(result.is_err(), "Expected error for non-existent table");
+        assert!(result.is_err(), "应返回不存在的表错误");
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_list_tables() {
         let db = MySqlDatabase::new(MYSQL_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
         let tables = db.list_tables("mysql", None).await;
-        assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
+        assert!(tables.is_ok(), "list_tables 失败: {:?}", tables.err());
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_meta() {
         let db = MySqlDatabase::new(MYSQL_URL)
             .await
-            .expect("Failed to connect");
+            .expect("连接失败");
         let meta = db.meta();
         assert!(meta.supports_transaction);
     }
 
     #[tokio::test]
+    #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_is_read_only_flag() {
         let db = MySqlDatabase::new(MYSQL_URL)
             .await

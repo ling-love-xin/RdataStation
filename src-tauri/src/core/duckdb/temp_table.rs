@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+use duckdb::Connection;
 
 /// 临时表来源枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -97,7 +98,7 @@ impl TempTableConfig {
 /// - 插件临时表 (tmp_p_): 无 TTL/上限，插件卸载清理
 pub struct TempTableManager {
     /// 临时表注册表: 表名 -> 创建时间
-    registry: RwLock<HashMap<String, Instant>>,
+    registry: Arc<RwLock<HashMap<String, Instant>>>,
     /// 全局 DuckDB 临时表上限
     global_max_tables: usize,
 }
@@ -109,9 +110,63 @@ impl TempTableManager {
     /// - `global_max_tables`: 全局 DuckDB 临时表上限（默认50）
     pub fn new(global_max_tables: usize) -> Self {
         TempTableManager {
-            registry: RwLock::new(HashMap::new()),
+            registry: Arc::new(RwLock::new(HashMap::new())),
             global_max_tables,
         }
+    }
+
+    /// 执行惰性清理：移除过期的临时表。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接（用于实际执行 DROP TABLE）
+    ///
+    /// # 返回
+    /// 清理的表名列表
+    ///
+    /// # 注意
+    /// 此方法应在调用方主动调用时执行清理，而不是使用后台线程
+    pub fn perform_lazy_cleanup(&self, conn: &Connection) -> Vec<String> {
+        let tables_to_drop = {
+            let mut reg = self.registry.write().unwrap_or_else(|e| e.into_inner());
+            let now = Instant::now();
+            let mut to_drop = Vec::new();
+
+            // 检查洞察中间表 TTL
+            let ttl = Duration::from_secs(1800); // 30分钟
+            for (name, time) in reg.iter() {
+                if name.starts_with("tmp_i_") && now.duration_since(*time) >= ttl {
+                    to_drop.push(name.clone());
+                }
+            }
+
+            // 从注册表中移除
+            for name in &to_drop {
+                reg.remove(name);
+            }
+
+            to_drop
+        };
+
+        // 实际执行 DROP TABLE
+        if !tables_to_drop.is_empty() {
+            tracing::info!(
+                "[TempTableManager] 清理 {} 个过期临时表",
+                tables_to_drop.len()
+            );
+
+            for table_name in &tables_to_drop {
+                let sql = format!("DROP TABLE IF EXISTS {}", table_name);
+                if let Err(e) = conn.execute(&sql, []) {
+                    tracing::warn!(
+                        "[TempTableManager] 清理临时表 {} 失败: {}",
+                        table_name,
+                        e
+                    );
+                }
+            }
+        }
+
+        tables_to_drop
     }
 
     /// 生成临时表名称。
@@ -345,7 +400,7 @@ mod tests {
         let name = manager.generate_name(TempTableSource::Query, "orders");
 
         assert!(name.starts_with("tmp_q_orders_"));
-        assert_eq!(name.len(), "tmp_q_orders_".len() + 4 + 14); // prefix + seq + timestamp
+        assert_eq!(name.len(), "tmp_q_orders_".len() + 14); // prefix + timestamp (YYYYMMDDHHMMSS)
     }
 
     #[test]

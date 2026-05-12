@@ -304,15 +304,21 @@ impl<'a> DuckDBExecutor<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::analysis_engine::manager::DuckDBManager;
+    use super::super::manager::DuckDBManager;
     use std::fs;
 
-    fn setup_test_executor() -> (DuckDBExecutor<'static>, std::path::PathBuf) {
+    fn setup_test_executor_unique(test_name: &str) -> (DuckDBExecutor<'static>, std::path::PathBuf) {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(100);
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         let temp_dir = std::env::temp_dir();
-        let db_path = temp_dir.join(format!("test_executor_{}.duckdb", std::process::id()));
+        let db_path = temp_dir.join(format!("test_executor_{}_{}.duckdb", test_name, id));
 
-        // 清理可能存在的旧文件
-        let _ = fs::remove_file(&db_path);
+        // 确保文件被真正删除
+        if db_path.exists() {
+            let _ = fs::remove_file(&db_path);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
 
         // 使用 Box::leak 创建 'static 生命周期引用用于测试
         let manager = Box::new(DuckDBManager::open(&db_path).expect("创建测试数据库"));

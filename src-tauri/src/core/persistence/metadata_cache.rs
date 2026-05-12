@@ -4154,7 +4154,7 @@ mod tests {
         assert!(manager
             .db_path()
             .to_string_lossy()
-            .contains("metadata/global"));
+            .contains("global_metadata"));
         assert!(manager.db_path().to_string_lossy().contains(conn_id));
     }
 
@@ -4177,8 +4177,8 @@ mod tests {
     fn test_metadata_cache_ops() {
         let db_path = test_temp_dir("ops").join("test_metadata.sqlite");
 
-        let conn = Connection::open(&db_path).unwrap();
-        conn.execute("PRAGMA journal_mode=WAL", []).unwrap();
+        let conn = Connection::open(&db_path).expect("打开测试数据库失败");
+        conn.execute("PRAGMA journal_mode=WAL", []).expect("设置 WAL 模式失败");
 
         let ops = MetadataCacheOps::new(conn);
 

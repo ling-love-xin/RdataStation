@@ -1,3 +1,5 @@
+use duckdb::Connection;
+
 use crate::core::error::{CommonError, CoreError};
 
 /// 全文搜索管理器
@@ -14,6 +16,146 @@ use crate::core::error::{CommonError, CoreError};
 pub struct FTSManager;
 
 impl FTSManager {
+    /// 创建 FTS 索引。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `index_name`: 索引名称
+    /// - `table_name`: 表名
+    /// - `columns`: 需要索引的列名列表
+    ///
+    /// # 返回
+    /// - `Ok(())`: 索引创建成功
+    /// - `Err(CoreError)`: 创建失败
+    pub fn create_index(
+        &self,
+        conn: &Connection,
+        index_name: &str,
+        table_name: &str,
+        columns: &[&str],
+    ) -> Result<(), CoreError> {
+        let sql = Self::generate_create_index_sql(index_name, table_name, columns);
+        tracing::info!("[FTSManager] 创建 FTS 索引 SQL: {}", sql);
+
+        conn.execute_batch(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("创建 FTS 索引失败: {}", e)))
+        })?;
+
+        tracing::info!(
+            "[FTSManager] FTS 索引创建完成: {} 在表 '{}' 上",
+            index_name,
+            table_name
+        );
+
+        Ok(())
+    }
+
+    /// 删除 FTS 索引。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `index_name`: 索引名称
+    ///
+    /// # 返回
+    /// - `Ok(())`: 索引删除成功
+    /// - `Err(CoreError)`: 删除失败
+    pub fn drop_index(&self, conn: &Connection, index_name: &str) -> Result<(), CoreError> {
+        let sql = Self::generate_drop_index_sql(index_name);
+        tracing::info!("[FTSManager] 删除 FTS 索引 SQL: {}", sql);
+
+        conn.execute_batch(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("删除 FTS 索引失败: {}", e)))
+        })?;
+
+        tracing::info!("[FTSManager] FTS 索引已删除: {}", index_name);
+
+        Ok(())
+    }
+
+    /// 重建 FTS 索引。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `index_name`: 索引名称
+    /// - `table_name`: 表名
+    /// - `columns`: 需要索引的列名列表
+    ///
+    /// # 返回
+    /// - `Ok(())`: 索引重建成功
+    /// - `Err(CoreError)`: 重建失败
+    pub fn rebuild_index(
+        &self,
+        conn: &Connection,
+        index_name: &str,
+        table_name: &str,
+        columns: &[&str],
+    ) -> Result<(), CoreError> {
+        let sql = Self::generate_rebuild_index_sql(index_name, table_name, columns);
+        tracing::info!("[FTSManager] 重建 FTS 索引 SQL: {}", sql);
+
+        conn.execute_batch(&sql).map_err(|e| {
+            CoreError::common(CommonError::General(format!("重建 FTS 索引失败: {}", e)))
+        })?;
+
+        tracing::info!(
+            "[FTSManager] FTS 索引已重建: {} 在表 '{}' 上",
+            index_name,
+            table_name
+        );
+
+        Ok(())
+    }
+
+    /// 执行全文搜索查询。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `table_name`: 表名
+    /// - `search_term`: 搜索词
+    /// - `columns`: 搜索的列名列表
+    ///
+    /// # 返回
+    /// - `Ok(u64)`: 匹配行数
+    /// - `Err(CoreError)`: 查询失败
+    pub fn search(
+        &self,
+        conn: &Connection,
+        table_name: &str,
+        search_term: &str,
+        columns: &[&str],
+    ) -> Result<u64, CoreError> {
+        Self::validate_search_term(search_term)?;
+
+        let sql = Self::generate_search_sql(table_name, search_term, columns);
+        tracing::info!("[FTSManager] FTS 搜索 SQL: {}", sql);
+
+        // 执行搜索并返回匹配行数
+        let count: Option<i64> = conn.query_row(&format!("SELECT COUNT(*) FROM ({})", sql), [], |row| row.get(0)).map_err(|e| {
+            CoreError::common(CommonError::General(format!("FTS 搜索失败: {}", e)))
+        })?;
+
+        Ok(count.unwrap_or(0) as u64)
+    }
+
+    /// 检查索引是否存在。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `index_name`: 索引名称
+    ///
+    /// # 返回
+    /// - `Ok(bool)`: 索引是否存在
+    /// - `Err(CoreError)`: 查询失败
+    pub fn index_exists(&self, conn: &Connection, index_name: &str) -> Result<bool, CoreError> {
+        let sql = Self::generate_check_index_sql(index_name);
+
+        let count: Option<i64> = conn.query_row(&sql, [], |row| row.get(0)).map_err(|e| {
+            CoreError::common(CommonError::General(format!("检查索引是否存在失败: {}", e)))
+        })?;
+
+        Ok(count.unwrap_or(0) > 0)
+    }
+
     /// 生成创建 FTS 索引的 SQL 语句。
     ///
     /// # 参数

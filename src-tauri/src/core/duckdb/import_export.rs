@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use duckdb::Connection;
+
 use crate::core::error::{CommonError, CoreError};
 
 /// 数据格式类型
@@ -86,6 +88,166 @@ impl Default for ExportConfig {
 pub struct ImportExportManager;
 
 impl ImportExportManager {
+    /// 执行 CSV 导入到目标表。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `file_path`: CSV 文件路径
+    /// - `config`: 导入配置
+    /// - `table_name`: 目标表名
+    ///
+    /// # 返回
+    /// - `Ok(u64)`: 导入行数
+    /// - `Err(CoreError)`: 导入失败
+    pub fn import_csv_to_table(
+        &self,
+        conn: &Connection,
+        file_path: &str,
+        config: &ImportConfig,
+        table_name: &str,
+    ) -> Result<u64, CoreError> {
+        let select_sql = Self::generate_import_csv_sql(file_path, config);
+        let create_sql = Self::generate_import_to_table_sql(&select_sql, table_name);
+
+        tracing::info!("[ImportExportManager] CSV 导入 SQL: {}", create_sql);
+
+        let rows = conn.execute(&create_sql, []).map_err(|e| {
+            CoreError::common(CommonError::General(format!("CSV 导入失败: {}", e)))
+        })?;
+
+        tracing::info!(
+            "[ImportExportManager] CSV 导入完成: {} 行到表 '{}'",
+            rows,
+            table_name
+        );
+
+        Ok(rows as u64)
+    }
+
+    /// 执行 Parquet 导入到目标表。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `file_path`: Parquet 文件路径
+    /// - `table_name`: 目标表名
+    ///
+    /// # 返回
+    /// - `Ok(u64)`: 导入行数
+    /// - `Err(CoreError)`: 导入失败
+    pub fn import_parquet_to_table(
+        &self,
+        conn: &Connection,
+        file_path: &str,
+        table_name: &str,
+    ) -> Result<u64, CoreError> {
+        let select_sql = Self::generate_import_parquet_sql(file_path);
+        let create_sql = Self::generate_import_to_table_sql(&select_sql, table_name);
+
+        tracing::info!("[ImportExportManager] Parquet 导入 SQL: {}", create_sql);
+
+        let rows = conn.execute(&create_sql, []).map_err(|e| {
+            CoreError::common(CommonError::General(format!("Parquet 导入失败: {}", e)))
+        })?;
+
+        tracing::info!(
+            "[ImportExportManager] Parquet 导入完成: {} 行到表 '{}'",
+            rows,
+            table_name
+        );
+
+        Ok(rows as u64)
+    }
+
+    /// 执行导出查询结果为 CSV 文件。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `query`: 要导出的查询 SQL
+    /// - `file_path`: 导出文件路径
+    /// - `config`: 导出配置
+    ///
+    /// # 返回
+    /// - `Ok(u64)`: 导出行数
+    /// - `Err(CoreError)`: 导出失败
+    pub fn export_to_csv(
+        &self,
+        conn: &Connection,
+        query: &str,
+        file_path: &str,
+        config: &ExportConfig,
+    ) -> Result<u64, CoreError> {
+        let sql = Self::generate_export_csv_sql(query, file_path, config);
+        tracing::info!("[ImportExportManager] CSV 导出 SQL: {}", sql);
+
+        let rows = conn.execute(&sql, []).map_err(|e| {
+            CoreError::common(CommonError::General(format!("CSV 导出失败: {}", e)))
+        })?;
+
+        tracing::info!("[ImportExportManager] CSV 导出完成: {} 行", rows);
+
+        Ok(rows as u64)
+    }
+
+    /// 执行导出查询结果为 Parquet 文件。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `query`: 要导出的查询 SQL
+    /// - `file_path`: 导出文件路径
+    /// - `config`: 导出配置
+    ///
+    /// # 返回
+    /// - `Ok(u64)`: 导出行数
+    /// - `Err(CoreError)`: 导出失败
+    pub fn export_to_parquet(
+        &self,
+        conn: &Connection,
+        query: &str,
+        file_path: &str,
+        config: &ExportConfig,
+    ) -> Result<u64, CoreError> {
+        let sql = Self::generate_export_parquet_sql(query, file_path, config);
+        tracing::info!("[ImportExportManager] Parquet 导出 SQL: {}", sql);
+
+        let rows = conn.execute(&sql, []).map_err(|e| {
+            CoreError::common(CommonError::General(format!("Parquet 导出失败: {}", e)))
+        })?;
+
+        tracing::info!("[ImportExportManager] Parquet 导出完成: {} 行", rows);
+
+        Ok(rows as u64)
+    }
+
+    /// 执行导出查询结果为 JSON 文件。
+    ///
+    /// # 参数
+    /// - `conn`: DuckDB 连接
+    /// - `query`: 要导出的查询 SQL
+    /// - `file_path`: 导出文件路径
+    /// - `config`: 导出配置
+    ///
+    /// # 返回
+    /// - `Ok(u64)`: 导出行数
+    /// - `Err(CoreError)`: 导出失败
+    pub fn export_to_json(
+        &self,
+        conn: &Connection,
+        query: &str,
+        file_path: &str,
+        config: &ExportConfig,
+    ) -> Result<u64, CoreError> {
+        let sql = Self::generate_export_json_sql(query, file_path, config);
+        tracing::info!("[ImportExportManager] JSON 导出 SQL: {}", sql);
+
+        let rows = conn.execute(&sql, []).map_err(|e| {
+            CoreError::common(CommonError::General(format!("JSON 导出失败: {}", e)))
+        })?;
+
+        tracing::info!("[ImportExportManager] JSON 导出完成: {} 行", rows);
+
+        Ok(rows as u64)
+    }
+
     /// 生成导入 CSV 的 SQL 语句。
     ///
     /// # 参数
@@ -117,7 +279,8 @@ impl ImportExportManager {
             format!(", {}", options.join(", "))
         };
 
-        format!("SELECT * FROM read_csv_auto('{}'{})", file_path, options_str)
+        let escaped_path = file_path.replace('\'', "''");
+        format!("SELECT * FROM read_csv_auto('{}'{})", escaped_path, options_str)
     }
 
     /// 生成导入 Parquet 的 SQL 语句。
@@ -128,7 +291,8 @@ impl ImportExportManager {
     /// # 返回
     /// SELECT 语句，用于读取 Parquet 数据
     pub fn generate_import_parquet_sql(file_path: &str) -> String {
-        format!("SELECT * FROM read_parquet('{}')", file_path)
+        let escaped_path = file_path.replace('\'', "''");
+        format!("SELECT * FROM read_parquet('{}')", escaped_path)
     }
 
     /// 生成导入 JSON 的 SQL 语句。
@@ -355,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_generate_import_to_table_sql() {
-        let sql = ImportExportManager::generate_import_to_table(
+        let sql = ImportExportManager::generate_import_to_table_sql(
             "SELECT * FROM read_csv_auto('data.csv')",
             "my_table",
         );

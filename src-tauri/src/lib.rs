@@ -62,7 +62,13 @@ pub fn run() {
 
     register_drivers();
 
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("FATAL: Failed to create Tokio runtime: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     if let Err(e) = rt.block_on(core::migration::initialize_global_system()) {
         tracing::error!("Global system database initialization failed: {}", e);
@@ -336,5 +342,9 @@ pub fn run() {
             get_api_version,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .map_err(|e| {
+            eprintln!("FATAL: Failed to run Tauri application: {}", e);
+            e
+        })
+        .ok();
 }
