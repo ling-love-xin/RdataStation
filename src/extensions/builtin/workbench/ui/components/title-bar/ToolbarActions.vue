@@ -13,7 +13,12 @@
 
     <!-- 自定义工具栏下拉 -->
     <div class="toolbar-section">
-      <button class="icon-btn more-btn" :title="t('workbench.customizeToolbar')" @click="toggleDropdown">
+      <button
+        class="icon-btn more-btn"
+        :class="{ active: showDropdown }"
+        :title="t('workbench.customizeToolbar')"
+        @click="toggleDropdown"
+      >
         <MoreHorizontal :size="16" />
       </button>
 
@@ -74,6 +79,22 @@ const enabledTools = computed(() => props.tools.filter(tool => tool.enabled))
 
 function toggleDropdown() {
   showDropdown.value = !showDropdown.value
+
+  if (showDropdown.value) {
+    setTimeout(() => document.addEventListener('click', handleClickOutside, true), 0)
+  }
+}
+
+function handleClickOutside(event: MouseEvent) {
+  const wrapper = document.querySelector('.toolbar-wrapper')
+  if (wrapper && !wrapper.contains(event.target as Node)) {
+    closeDropdown()
+  }
+}
+
+function closeDropdown() {
+  showDropdown.value = false
+  document.removeEventListener('click', handleClickOutside, true)
 }
 
 function handleToolAction(tool: ToolbarTool) {
@@ -87,7 +108,7 @@ function handleToggleTool(tool: ToolbarTool) {
 
 function handleResetToolbar() {
   emit('reset-toolbar')
-  showDropdown.value = false
+  closeDropdown()
 }
 </script>
 
@@ -106,7 +127,7 @@ function handleResetToolbar() {
 }
 
 .dropdown-header {
-  padding: 6px 12px;
+  padding: var(--spacing-xs) var(--spacing-md);
   font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--text-primary);

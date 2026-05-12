@@ -169,6 +169,12 @@ export const useAppStore = defineStore('appConfig', () => {
 
   let onConfigChanged: ConfigChangeHandler | null = null
 
+  const systemDark = ref(
+    typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : false,
+  )
+
   const effectiveTheme = computed<Theme>(() => {
     if (projectConfig.value.theme !== undefined) {
       return projectConfig.value.theme
@@ -179,7 +185,7 @@ export const useAppStore = defineStore('appConfig', () => {
   const isDark = computed(() => {
     const t = effectiveTheme.value
     if (t === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches
+      return systemDark.value
     }
     return t === 'dark'
   })
@@ -698,6 +704,7 @@ export const useAppStore = defineStore('appConfig', () => {
       await store.set('_schemaVersion', SCHEMA_VERSION)
       await store.save()
 
+      setupSystemThemeListener()
       applyTheme()
       return results
     } catch (e) {
@@ -839,6 +846,21 @@ export const useAppStore = defineStore('appConfig', () => {
 
   function clearInitError() {
     initError.value = null
+  }
+
+  let systemThemeListenerSetup = false
+
+  function setupSystemThemeListener() {
+    if (typeof window === 'undefined' || systemThemeListenerSetup) return
+    systemThemeListenerSetup = true
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => {
+      systemDark.value = mediaQuery.matches
+      if (effectiveTheme.value === 'system') {
+        applyTheme()
+      }
+    }
+    mediaQuery.addEventListener('change', handler)
   }
 
   function applyTheme() {

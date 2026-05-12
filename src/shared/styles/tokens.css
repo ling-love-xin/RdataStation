@@ -4,10 +4,12 @@
   --brand-accent-soft: rgba(225, 112, 85, 0.15);
   --brand-success: #00b894;
   --brand-danger: #d63031;
+  --brand-danger-soft: rgba(214, 48, 49, 0.1);
   --brand-warning: #fdcb6e;
 
   --primary-color: #165DFF;
   --primary-light: rgba(22, 93, 255, 0.1);
+  --primary-soft: rgba(22, 93, 255, 0.12);
   --primary-lighter: rgba(22, 93, 255, 0.05);
   --danger-color: var(--brand-danger);
 
@@ -37,6 +39,11 @@
   --text-secondary-hover: var(--color-text-primary);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
   --overlay-bg: rgba(0, 0, 0, 0.4);
+  --modal-overlay-bg: rgba(0, 0, 0, 0.55);
+  --modal-surface-bg: var(--color-bg-elevated, var(--color-bg-secondary));
+  --modal-border: var(--color-border);
+  --modal-header-divider: var(--color-border-subtle);
+  --modal-footer-bg: var(--color-bg-tertiary);
   --dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --focus-ring: 0 0 0 3px var(--primary-light);
 
@@ -44,6 +51,7 @@
   --bg-primary: var(--color-bg-primary);
   --bg-secondary: var(--color-bg-secondary);
   --bg-tertiary: var(--color-bg-tertiary);
+  --bg-hover: var(--color-hover);
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
   --text-tertiary: var(--color-text-muted);
@@ -57,6 +65,10 @@
   --radius-md: var(--border-radius-md);
   --radius-lg: var(--border-radius-lg);
   --radius-xl: var(--border-radius-xl);
+
+  /* 布局高度 */
+  --title-bar-height: 36px;
+  --status-bar-height: 22px;
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;

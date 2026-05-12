@@ -13,6 +13,8 @@ export interface SearchMatch {
   file: string
   line_number: number
   line_content: string
+  before_context: string[]
+  after_context: string[]
 }
 
 export interface SearchResult {
@@ -59,4 +61,13 @@ export interface AnalyticsResourceBrief {
   resource_type: string
   name: string
   scope: string
+}
+
+export interface ScratchpadChangeEntry {
+  path: string
+  kind: string
+}
+
+export interface ScratchpadChangeEvent {
+  changes: ScratchpadChangeEntry[]
 }

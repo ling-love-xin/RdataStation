@@ -10,78 +10,126 @@
   >
     <div class="toolbar">
       <div class="toolbar-group">
-        <NButton
-          size="small"
-          type="primary"
-          :disabled="isLoading"
-          @click="handleCreateFile"
-        >
-          <template #icon>
-            <NIcon size="16"><FilePlus /></NIcon>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              type="primary"
+              :disabled="isLoading"
+              @click="handleCreateFile"
+            >
+              <template #icon>
+                <NIcon size="16"><FilePlus /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.newFile') }}
-        </NButton>
-        <NButton
-          size="small"
-          :disabled="isLoading"
-          @click="handleCreateFolder"
-        >
-          <template #icon>
-            <NIcon size="16"><FolderPlus /></NIcon>
+        </NTooltip>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              :disabled="isLoading"
+              @click="handleCreateFolder"
+            >
+              <template #icon>
+                <NIcon size="16"><FolderPlus /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.newFolder') }}
-        </NButton>
-        <NButton
-          size="small"
-          :disabled="isLoading"
-          @click="handleImportFile"
-        >
-          <template #icon>
-            <NIcon size="16"><Upload /></NIcon>
+        </NTooltip>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              :disabled="isLoading"
+              @click="handleImportFile"
+            >
+              <template #icon>
+                <NIcon size="16"><Upload /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.import') }}
-        </NButton>
-        <NButton
-          size="small"
-          :disabled="isLoading"
-          @click="handleAddReference"
-        >
-          <template #icon>
-            <NIcon size="16"><FolderSymlink /></NIcon>
+        </NTooltip>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              :disabled="isLoading"
+              @click="handleAddReference"
+            >
+              <template #icon>
+                <NIcon size="16"><FolderSymlink /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.reference') }}
-        </NButton>
+        </NTooltip>
       </div>
       <div class="toolbar-group-right">
-        <NButton size="small" quaternary @click="toggleSort('name')">
-          <template #icon>
-            <NIcon size="14"><component :is="sortIcon('name')" /></NIcon>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              :type="sortBy === 'name' ? 'primary' : 'default'"
+              quaternary
+              @click="toggleSort('name')"
+            >
+              <template #icon>
+                <NIcon size="14"><component :is="sortIcon('name')" /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.sortByName') }}
-        </NButton>
-        <NButton size="small" quaternary @click="toggleSort('size')">
-          <template #icon>
-            <NIcon size="14"><component :is="sortIcon('size')" /></NIcon>
+        </NTooltip>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              :type="sortBy === 'size' ? 'primary' : 'default'"
+              quaternary
+              @click="toggleSort('size')"
+            >
+              <template #icon>
+                <NIcon size="14"><component :is="sortIcon('size')" /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.sortBySize') }}
-        </NButton>
-        <NButton size="small" quaternary @click="toggleSort('modified')">
-          <template #icon>
-            <NIcon size="14"><component :is="sortIcon('modified')" /></NIcon>
+        </NTooltip>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              :type="sortBy === 'modified' ? 'primary' : 'default'"
+              quaternary
+              @click="toggleSort('modified')"
+            >
+              <template #icon>
+                <NIcon size="14"><component :is="sortIcon('modified')" /></NIcon>
+              </template>
+            </NButton>
           </template>
           {{ t('scratchpad.sortByModified') }}
-        </NButton>
+        </NTooltip>
         <span class="toolbar-sep"></span>
-        <NButton
-          size="small"
-          quaternary
-          :disabled="isLoading"
-          @click="loadFiles"
-        >
-          <template #icon>
-            <NIcon size="16"><RefreshCw /></NIcon>
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton
+              size="small"
+              quaternary
+              :disabled="isLoading"
+              @click="loadFiles"
+            >
+              <template #icon>
+                <NIcon size="16"><RefreshCw /></NIcon>
+              </template>
+            </NButton>
           </template>
-        </NButton>
+          {{ t('scratchpad.refresh') }}
+        </NTooltip>
       </div>
     </div>
 
@@ -93,26 +141,34 @@
         clearable
         class="search-input"
       />
-      <NButton
-        size="small"
-        :type="contentSearchMode ? 'primary' : 'default'"
-        quaternary
-        @click="toggleSearchMode"
-      >
-        <template #icon>
-          <NIcon size="16"><Search /></NIcon>
+      <NTooltip trigger="hover">
+        <template #trigger>
+          <NButton
+            size="small"
+            :type="contentSearchMode ? 'primary' : 'default'"
+            quaternary
+            @click="toggleSearchMode"
+          >
+            <template #icon>
+              <NIcon size="16"><Search /></NIcon>
+            </template>
+          </NButton>
         </template>
-      </NButton>
-      <NButton
-        v-if="contentSearchMode"
-        size="small"
-        :type="caseSensitive ? 'primary' : 'default'"
-        quaternary
-        :title="t('scratchpad.caseSensitive')"
-        @click="caseSensitive = !caseSensitive"
-      >
-        Aa
-      </NButton>
+        {{ t('scratchpad.searchContent') }}
+      </NTooltip>
+      <NTooltip v-if="contentSearchMode" trigger="hover">
+        <template #trigger>
+          <NButton
+            size="small"
+            :type="caseSensitive ? 'primary' : 'default'"
+            quaternary
+            @click="caseSensitive = !caseSensitive"
+          >
+            Aa
+          </NButton>
+        </template>
+        {{ t('scratchpad.caseSensitive') }}
+      </NTooltip>
     </div>
 
     <div v-if="contentSearchMode && contentAllMatches.length > 0" class="search-results">
@@ -140,11 +196,31 @@
         <div
           v-for="match in matches.slice(0, 5)"
           :key="`${match.file}:${match.line_number}`"
-          class="search-result-line"
-          @click="handleLineClick(match.file, match.line_number)"
+          class="search-result-group"
         >
-          <span class="search-result-line-number">{{ match.line_number }}</span>
-          <span class="search-result-line-content" v-html="highlightMatch(match.line_content, searchQuery)" />
+          <div
+            v-for="ctxLine in match.before_context"
+            :key="`before-${ctxLine}`"
+            class="search-result-context"
+          >
+            <span class="search-result-line-number context-num" />
+            <span class="search-result-line-content context-line">{{ ctxLine }}</span>
+          </div>
+          <div
+            class="search-result-line"
+            @click="handleLineClick(match.file, match.line_number)"
+          >
+            <span class="search-result-line-number">{{ match.line_number }}</span>
+            <span class="search-result-line-content" v-html="highlightMatch(match.line_content, searchQuery)" />
+          </div>
+          <div
+            v-for="ctxLine in match.after_context"
+            :key="`after-${ctxLine}`"
+            class="search-result-context"
+          >
+            <span class="search-result-line-number context-num" />
+            <span class="search-result-line-content context-line">{{ ctxLine }}</span>
+          </div>
         </div>
         <div v-if="matches.length > 5" class="search-result-more">
           {{ t('scratchpad.searchResultMore', { n: matches.length - 5 }) }}
@@ -273,6 +349,8 @@
             :selected-key="selectedKey"
             :selected-keys="selectedKeys"
             :renaming-key="renamingKey"
+            :inline-create-parent-path="inlineCreateParentPath"
+            :inline-create-is-folder="inlineCreateIsFolder"
             @select="handleSelect"
             @open="handleOpen"
             @contextmenu="showEntryMenu"
@@ -281,6 +359,7 @@
             @finish-rename="finishRename"
             @cancel-rename="cancelRename"
             @drag-start="handleTreeNodeDragStart"
+            @create-inline="confirmInlineCreate"
           />
         </div>
       </div>
@@ -328,72 +407,7 @@
       </div>
     </div>
 
-    <NModal v-model:show="showCreateModal" :title="t('scratchpad.newDraft')">
-      <div class="modal-body">
-        <div class="template-picker">
-          <span class="template-label">{{ t('scratchpad.templateType') }}</span>
-          <div class="template-options">
-            <NButton
-              size="tiny"
-              :type="selectedTemplate === 'sql' ? 'primary' : 'default'"
-              @click="selectTemplate('sql')"
-            >SQL</NButton>
-            <NButton
-              size="tiny"
-              :type="selectedTemplate === 'json' ? 'primary' : 'default'"
-              @click="selectTemplate('json')"
-            >JSON</NButton>
-            <NButton
-              size="tiny"
-              :type="selectedTemplate === 'md' ? 'primary' : 'default'"
-              @click="selectTemplate('md')"
-            >Markdown</NButton>
-            <NButton
-              size="tiny"
-              :type="selectedTemplate === 'py' ? 'primary' : 'default'"
-              @click="selectTemplate('py')"
-            >Python</NButton>
-          </div>
-        </div>
-        <NInput
-          ref="createInputRef"
-          v-model:value="newFileName"
-          :placeholder="t('scratchpad.fileNamePlaceholder')"
-          @keyup.enter="confirmCreate"
-        />
-        <div class="modal-actions">
-          <NButton size="small" @click="showCreateModal = false">{{ t('common.cancel') }}</NButton>
-          <NButton
-            size="small"
-            type="primary"
-            :disabled="!newFileName.trim()"
-            @click="confirmCreate"
-            >{{ t('common.confirm') }}</NButton
-          >
-        </div>
-      </div>
-    </NModal>
-
-    <NModal v-model:show="showFolderModal" :title="t('scratchpad.newFolderTitle')">
-      <div class="modal-body">
-        <NInput
-          ref="folderInputRef"
-          v-model:value="newFolderName"
-          :placeholder="t('scratchpad.folderNamePlaceholder')"
-          @keyup.enter="confirmCreateFolder"
-        />
-        <div class="modal-actions">
-          <NButton size="small" @click="showFolderModal = false">{{ t('common.cancel') }}</NButton>
-          <NButton
-            size="small"
-            type="primary"
-            :disabled="!newFolderName.trim()"
-            @click="confirmCreateFolder"
-            >{{ t('common.confirm') }}</NButton
-          >
-        </div>
-      </div>
-    </NModal>
+    
 
     <NModal v-model:show="showRefModal" :title="t('scratchpad.addReference')">
       <div class="modal-body">
@@ -498,14 +512,14 @@ import {
   ArrowDown,
   Info,
 } from 'lucide-vue-next'
-import { NButton, NIcon, NInput, NSpin, NModal, createDiscreteApi } from 'naive-ui'
+import { NButton, NIcon, NInput, NSpin, NModal, NTooltip, createDiscreteApi } from 'naive-ui'
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ScratchpadTreeNode from './ScratchpadTreeNode.vue'
 import { useScratchpad } from '../composables/use-scratchpad'
 
-import type { ScratchpadEntry, ExternalReference, SearchMatch, SearchResult } from '../../types'
+import type { ScratchpadChangeEvent, ScratchpadEntry, ExternalReference, SearchMatch, SearchResult } from '../../types'
 
 const { t } = useI18n()
 const { message } = createDiscreteApi(['message'])
@@ -540,6 +554,7 @@ const {
   startWatching,
   stopWatching,
   promoteToResource,
+  applyFileChanges,
 } = useScratchpad()
 
 const fileMeta = computed(() => response.value?.file_meta ?? {})
@@ -555,9 +570,6 @@ const caseSensitive = ref(false)
 const showRecent = ref(true)
 const recentFiles = ref<string[]>([])
 const MAX_RECENT = 5
-const showFolderModal = ref(false)
-const newFolderName = ref('')
-const folderInputRef = ref<InstanceType<typeof NInput> | null>(null)
 let contentSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 function toggleSearchMode(): void {
@@ -733,29 +745,11 @@ async function handleUndoDelete(): Promise<void> {
 
 const groupExpanded = reactive({ external: true, local: true })
 
-const showCreateModal = ref(false)
-const newFileName = ref('')
-const selectedTemplate = ref('')
-const createInputRef = ref<InstanceType<typeof NInput> | null>(null)
-
-const TEMPLATE_CONTENTS: Record<string, string> = {
-  sql: '-- 新建查询\n\n',
-  json: '{\n  \n}\n',
-  md: '# \n\n',
-  py: '# -*- coding: utf-8 -*-\n\n',
-}
-
-function selectTemplate(type: string): void {
-  selectedTemplate.value = type
-  const extMap: Record<string, string> = { sql: '.sql', json: '.json', md: '.md', py: '.py' }
-  const name = newFileName.value.trim()
-  const baseName = name ? name.replace(/\.[^.]+$/, '') : 'untitled'
-  newFileName.value = baseName + extMap[type]
-}
-
 const showRefModal = ref(false)
 const newRefAlias = ref('')
 const newRefPath = ref('')
+const inlineCreateParentPath = ref<string | null>(null)
+const inlineCreateIsFolder = ref(false)
 
 interface ContextMenuItem {
   key: string
@@ -858,7 +852,14 @@ function handleSelect(entry: ScratchpadEntry, event?: MouseEvent): void {
 }
 
 function flattenEntries(entries: ScratchpadEntry[]): ScratchpadEntry[] {
-  return entries
+  const result: ScratchpadEntry[] = []
+  for (const e of entries) {
+    result.push(e)
+    if (e.children) {
+      result.push(...flattenEntries(e.children))
+    }
+  }
+  return result
 }
 
 function handleToggleExpand(entry: ScratchpadEntry): void {
@@ -887,7 +888,14 @@ function handleTreeNodeDragStart(event: DragEvent, entry: ScratchpadEntry): void
 }
 
 function collectFolderPaths(entries: ScratchpadEntry[]): string[] {
-  return entries.filter(e => e.kind === 'folder').map(e => e.path)
+  const result: string[] = []
+  for (const e of entries) {
+    if (e.kind === 'folder') result.push(e.path)
+    if (e.children) {
+      result.push(...collectFolderPaths(e.children))
+    }
+  }
+  return result
 }
 
 function handleExpandAll(): void {
@@ -1020,43 +1028,66 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-async function handleCreateFile(): Promise<void> {
-  newFileName.value = ''
-  selectedTemplate.value = ''
-  showCreateModal.value = true
-  await nextTick()
-  createInputRef.value?.focus()
+function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
+  inlineCreateParentPath.value = parentPath
+  inlineCreateIsFolder.value = isFolder
 }
 
-async function confirmCreate(): Promise<void> {
-  const name = newFileName.value.trim()
+function cancelInlineCreate(): void {
+  inlineCreateParentPath.value = null
+  inlineCreateIsFolder.value = false
+}
+
+async function confirmInlineCreate(name: string): Promise<void> {
+  const parentPath = inlineCreateParentPath.value
+  const isFolder = inlineCreateIsFolder.value
+  cancelInlineCreate()
   if (!name) return
-  const template = selectedTemplate.value
-  showCreateModal.value = false
-  const entry = await createEntry(name, false)
+  const entry = await createEntry(name, isFolder, parentPath || undefined)
   if (entry) {
-    if (template && TEMPLATE_CONTENTS[template]) {
-      const scratchpadBase = scratchpadPath.value || ''
-      const relPath = entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
-      await saveFile(relPath, TEMPLATE_CONTENTS[template])
+    if (parentPath) {
+      expandedKeys.value = new Set([...expandedKeys.value, parentPath])
     }
-    if (!error.value) message.success(t('scratchpad.createdSuccess', { name }))
+    message.success(t('scratchpad.createdSuccess', { name }))
   }
 }
 
-async function handleCreateFolder(): Promise<void> {
-  newFolderName.value = ''
-  showFolderModal.value = true
-  await nextTick()
-  folderInputRef.value?.focus()
+async function handleCreateFile(): Promise<void> {
+  const selectedFolder = findSelectedFolder()
+  startInlineCreate(selectedFolder, false)
 }
 
-async function confirmCreateFolder(): Promise<void> {
-  const name = newFolderName.value.trim()
-  if (!name) return
-  showFolderModal.value = false
-  const entry = await createEntry(name, true)
-  if (entry && !error.value) message.success(t('scratchpad.createdSuccess', { name }))
+async function handleCreateFolder(): Promise<void> {
+  const selectedFolder = findSelectedFolder()
+  startInlineCreate(selectedFolder, true)
+}
+
+function findSelectedFolder(): string | null {
+  const sel = selectedKey.value
+  if (!sel) return null
+  const entry = findEntryInTree(localEntries.value, sel)
+  if (entry && entry.kind === 'folder') return sel
+  if (entry) {
+    return getParentPathOfEntry(sel)
+  }
+  return null
+}
+
+function findEntryInTree(entries: ScratchpadEntry[], path: string): ScratchpadEntry | undefined {
+  for (const e of entries) {
+    if (e.path === path) return e
+    if (e.children) {
+      const found = findEntryInTree(e.children, path)
+      if (found) return found
+    }
+  }
+  return undefined
+}
+
+function getParentPathOfEntry(path: string): string | null {
+  const normalized = path.replace(/\\/g, '/')
+  const lastSlash = normalized.lastIndexOf('/')
+  return lastSlash > 0 ? normalized.substring(0, lastSlash) : null
 }
 
 async function handleImportFile(): Promise<void> {
@@ -1458,8 +1489,16 @@ onMounted(async () => {
   window.addEventListener('project-switched', loadFiles)
   await startWatching()
   try {
-    const unlistenFn = await listen('scratchpad-changed', () => {
-      loadFiles()
+    const unlistenFn = await listen<ScratchpadChangeEvent>('scratchpad-changed', (event) => {
+      if (!event.changes || event.changes.length === 0) {
+        return
+      }
+      const savedExpanded = new Set(expandedKeys.value)
+      const savedSelected = selectedKey.value
+      applyFileChanges(event).then(() => {
+        expandedKeys.value = savedExpanded
+        selectedKey.value = savedSelected
+      })
     })
     unlisten = unlistenFn
   } catch {
@@ -1523,7 +1562,7 @@ onUnmounted(() => {
 .toolbar-group-right {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: 2px;
 }
 
 .toolbar-sep {
@@ -1914,6 +1953,28 @@ onUnmounted(() => {
   padding: 0 var(--spacing-md) 0 32px;
   font-size: var(--font-size-sm);
   font-family: var(--font-mono);
+}
+
+.search-result-group {
+  margin-bottom: var(--spacing-xs);
+}
+
+.search-result-context {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  height: 20px;
+  padding: 0 var(--spacing-md) 0 32px;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  opacity: 0.55;
+}
+
+.search-result-context .context-line {
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .search-result-line-number {

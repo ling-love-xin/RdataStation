@@ -43,6 +43,22 @@
     </div>
 
     <div v-if="entry.kind === 'folder' && expanded" class="node-children">
+      <div v-if="isInlineCreateTarget" class="node-row inline-create-row" :style="{ paddingLeft: `${(depth + 1) * 16 + 8}px` }">
+        <span class="folder-toggle-spacer" />
+        <NIcon size="14" class="node-icon">
+          <component :is="inlineCreateIsFolder ? Folder : File" />
+        </NIcon>
+        <input
+          ref="inlineInputRef"
+          v-model="inlineCreateName"
+          class="rename-input"
+          :placeholder="inlineCreateIsFolder ? 'folder name' : 'file name'"
+          @keyup.enter="commitInlineCreate"
+          @keyup.escape="cancelInlineCreate"
+          @blur="commitInlineCreate"
+          @click.stop
+        />
+      </div>
       <ScratchpadTreeNode
         v-for="child in childEntries"
         :key="child.path"
@@ -52,6 +68,8 @@
         :selected-key="selectedKey"
         :selected-keys="selectedKeys"
         :renaming-key="renamingKey"
+        :inline-create-parent-path="inlineCreateParentPath"
+        :inline-create-is-folder="inlineCreateIsFolder"
         @select="forwardSelect"
         @open="forwardOpen"
         @contextmenu="forwardContextmenu"
@@ -60,6 +78,7 @@
         @finish-rename="forwardFinishRename"
         @cancel-rename="forwardCancelRename"
         @drag-start="forwardDragStart"
+        @create-inline="forwardCreateInline"
       />
     </div>
   </div>
@@ -91,9 +110,14 @@ interface Props {
   selectedKey: string | null
   selectedKeys?: Set<string>
   renamingKey: string | null
+  inlineCreateParentPath?: string | null
+  inlineCreateIsFolder?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  inlineCreateParentPath: null,
+  inlineCreateIsFolder: false,
+})
 
 const emit = defineEmits<{
   select: [entry: ScratchpadEntry, event?: MouseEvent]
@@ -104,6 +128,7 @@ const emit = defineEmits<{
   'finish-rename': [entry: ScratchpadEntry, newName: string]
   'cancel-rename': []
   'drag-start': [event: DragEvent, entry: ScratchpadEntry]
+  'create-inline': [name: string]
 }>()
 
 const expanded = computed(() => props.expandedKeys.has(props.entry.path))
@@ -112,6 +137,15 @@ const isSelected = computed(() => {
   return props.selectedKey === props.entry.path
 })
 const isRenaming = computed(() => props.renamingKey === props.entry.path)
+
+const isInlineCreateTarget = computed(
+  () =>
+    props.entry.kind === 'folder' &&
+    props.inlineCreateParentPath === props.entry.path
+)
+const inlineCreateName = ref('')
+const inlineInputRef = ref<HTMLInputElement | null>(null)
+const inlineCreateIsFolder = computed(() => props.inlineCreateIsFolder)
 
 const renameValue = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
@@ -159,6 +193,14 @@ watch(isRenaming, async val => {
     await nextTick()
     renameInputRef.value?.focus()
     renameInputRef.value?.select()
+  }
+})
+
+watch(isInlineCreateTarget, async val => {
+  if (val) {
+    inlineCreateName.value = ''
+    await nextTick()
+    inlineInputRef.value?.focus()
   }
 })
 
@@ -228,6 +270,25 @@ function forwardCancelRename(): void {
 
 function forwardDragStart(event: DragEvent, entry: ScratchpadEntry): void {
   emit('drag-start', event, entry)
+}
+
+function forwardCreateInline(name: string): void {
+  emit('create-inline', name)
+}
+
+function commitInlineCreate(): void {
+  const name = inlineCreateName.value.trim()
+  if (!name) {
+    cancelInlineCreate()
+    return
+  }
+  emit('create-inline', name)
+  inlineCreateName.value = ''
+}
+
+function cancelInlineCreate(): void {
+  inlineCreateName.value = ''
+  emit('create-inline', '')
 }
 
 function formatSize(bytes: number): string {
@@ -356,5 +417,13 @@ function formatSize(bytes: number): string {
 
 .node-children {
   /* 子节点容器 */
+}
+
+.inline-create-row {
+  background-color: var(--brand-accent-soft);
+}
+
+.inline-create-row .rename-input {
+  border-color: var(--brand-accent);
 }
 </style>

@@ -1,8 +1,8 @@
 # 草稿箱模块 — 全栈数据模型与接口文档
 
-> 版本：v3.11
+> 版本：v3.12
 > 最后更新：2026-05-10
-> 状态：✅ v3.11 — i18n 收尾 (promote modal国际化) + 生命周期合并 + 文档对齐
+> 状态：✅ v3.12 — 文件监控增强 (事件详情+原子保存检测+状态保持)
 
 ---
 
@@ -124,6 +124,16 @@ pub struct ScratchpadResponse {
 }
 ```
 
+#### ScratchpadChangeEvent
+
+```rust
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ScratchpadChangeEvent {
+    pub paths: Vec<String>,
+}
+```
+
 #### FileMeta
 
 ```rust
@@ -169,6 +179,10 @@ export interface ScratchpadResponse {
 export interface FileMeta {
   last_connection_id?: string
   last_executed_at?: string
+}
+
+export interface ScratchpadChangeEvent {
+  paths: string[]
 }
 
 export interface PromoteResult {

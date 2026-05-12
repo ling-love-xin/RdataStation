@@ -154,23 +154,22 @@ watch(searchQuery, () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--overlay-bg);
+  background: rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 15vh;
+  padding: 12vh var(--spacing-lg) 0;
   z-index: 2000;
 }
 
 .command-palette-container {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--border-radius-md);
-  width: 100%;
-  max-width: 600px;
+  width: min(calc(100vw - 80px), 680px);
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.03);
 }
 
 .command-palette-input-wrapper {
@@ -178,11 +177,11 @@ watch(searchQuery, () => {
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .search-icon {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -190,13 +189,13 @@ watch(searchQuery, () => {
   flex: 1;
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-lg);
   outline: none;
 }
 
 .command-palette-input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 
 .command-palette-results {
@@ -212,13 +211,13 @@ watch(searchQuery, () => {
   padding: var(--spacing-sm) var(--spacing-md);
   cursor: pointer;
   transition: background 0.1s;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .command-item:hover,
 .command-item.active {
-  background: var(--primary-light);
-  color: var(--text-primary);
+  background: var(--brand-accent-soft);
+  color: var(--color-text-primary);
 }
 
 .command-item-left {
@@ -239,14 +238,14 @@ watch(searchQuery, () => {
 
 .command-category {
   font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   text-transform: capitalize;
 }
 
 .command-shortcut {
   font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
   padding: 2px 6px;
   border-radius: var(--border-radius-sm);
   font-family: var(--font-mono);
@@ -255,7 +254,7 @@ watch(searchQuery, () => {
 .command-palette-empty {
   padding: var(--spacing-lg);
   text-align: center;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   font-size: var(--font-size-md);
 }
 

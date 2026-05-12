@@ -1,28 +1,20 @@
 <template>
-  <div class="window-controls">
-    <button
-      class="window-btn minimize"
-      :title="t('workbench.minimize')"
-      @click="$emit('minimize')"
-    >
-      <Minus :size="14" />
+  <div class="window-controls no-drag">
+    <button class="window-btn" :title="t('workbench.minimize')" @click="$emit('minimize')">
+      <Minus :size="16" />
     </button>
-    <button
-      class="window-btn maximize"
-      :title="t('workbench.maximize')"
-      @click="$emit('maximize')"
-    >
-      <Square v-if="!isMaximized" :size="12" />
-      <Copy v-else :size="12" />
+    <button class="window-btn" :title="t('workbench.maximize')" @click="$emit('maximize')">
+      <Maximize2 v-if="!isMaximized" :size="14" />
+      <Copy v-else :size="14" />
     </button>
     <button class="window-btn close" :title="t('workbench.close')" @click="$emit('close')">
-      <X :size="14" />
+      <X :size="16" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Copy, Minus, Square, X } from 'lucide-vue-next'
+import { Minus, Maximize2, Copy, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 interface Props {

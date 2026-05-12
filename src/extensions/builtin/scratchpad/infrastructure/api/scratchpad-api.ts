@@ -19,11 +19,13 @@ export async function listScratchpadFiles(): Promise<ScratchpadResponse> {
 
 export async function createScratchpadEntry(
   name: string,
-  isFolder: boolean
+  isFolder: boolean,
+  parentPath?: string
 ): Promise<ScratchpadEntry> {
   return invoke<ScratchpadEntry>('create_scratchpad_entry', {
     name,
     isFolder,
+    parentPath: parentPath ?? null,
   })
 }
 
@@ -100,8 +102,16 @@ export async function updateFileMeta(
   })
 }
 
-export async function searchFileContent(query: string, caseSensitive = false): Promise<SearchResult> {
-  return invoke<SearchResult>('search_scratchpad_content', { query, caseSensitive })
+export async function searchFileContent(
+  query: string,
+  caseSensitive = false,
+  contextLines = 2
+): Promise<SearchResult> {
+  return invoke<SearchResult>('search_scratchpad_content', {
+    query,
+    caseSensitive,
+    contextLines,
+  })
 }
 
 export async function listTrash(): Promise<ScratchpadEntry[]> {
@@ -135,5 +145,13 @@ export async function promoteScratchpadToResource(
   return invoke<PromoteResult>('promote_scratchpad_to_resource', {
     relativePath,
     removeAfter,
+  })
+}
+
+export async function getScratchpadEntry(
+  relativePath: string
+): Promise<ScratchpadEntry | null> {
+  return invoke<ScratchpadEntry | null>('get_scratchpad_entry', {
+    relativePath,
   })
 }

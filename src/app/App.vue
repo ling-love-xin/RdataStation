@@ -39,7 +39,7 @@ import {
   NMessageProvider,
   NDialogProvider,
 } from 'naive-ui'
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useAppStore } from '@/stores/useAppStore'
@@ -47,10 +47,7 @@ import { useAppStore } from '@/stores/useAppStore'
 const appStore = useAppStore()
 const { locale: i18nLocale } = useI18n()
 
-const systemThemeEpoch = ref(0)
-
 const naiveTheme = computed(() => {
-  void systemThemeEpoch.value
   return appStore.isDark ? darkTheme : lightTheme
 })
 
@@ -91,27 +88,8 @@ watch(
   { immediate: true }
 )
 
-let systemThemeListener: (() => void) | null = null
-
-function setupSystemThemeListener() {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  const handler = () => {
-    systemThemeEpoch.value++
-    if (appStore.effectiveTheme === 'system') {
-      appStore.applyTheme()
-    }
-  }
-  mediaQuery.addEventListener('change', handler)
-  systemThemeListener = () => mediaQuery.removeEventListener('change', handler)
-}
-
 onMounted(() => {
-  setupSystemThemeListener()
   appStore.applyTheme()
-})
-
-onUnmounted(() => {
-  systemThemeListener?.()
 })
 </script>
 

@@ -1,6 +1,6 @@
 <template>
   <div ref="panelRef" class="project-switcher">
-    <button class="trigger-btn" @click="togglePanel">
+    <button class="trigger-btn no-drag" @click="togglePanel">
       <Loader2 v-if="projectStore.loading" :size="12" class="trigger-loading spin" />
       <FolderOpen v-else :size="14" class="trigger-icon" />
       <span class="trigger-name">{{ displayName }}</span>
@@ -8,7 +8,7 @@
     </button>
 
     <Transition name="panel-dropdown">
-      <div v-if="showPanel" class="switcher-panel" :style="{ left: panelLeftOffset + 'px' }">
+      <div v-if="showPanel" class="switcher-panel" :style="panelPosition">
         <!-- 顶部操作栏 -->
         <div class="panel-actions">
           <NButton size="small" quaternary @click="handleNewProject">
@@ -197,13 +197,14 @@ function togglePanel() {
       adjustPanelPosition()
       document.addEventListener('click', handleClickOutside, true)
       document.addEventListener('keydown', handleKeyDown)
+      window.addEventListener('resize', handleResize)
     })
   } else {
     closePanel()
   }
 }
 
-const panelLeftOffset = ref(0)
+const panelPosition = ref({ left: '0px', top: '0px' })
 
 function adjustPanelPosition() {
   const trigger = panelRef.value?.querySelector('.trigger-btn') as HTMLElement
@@ -212,11 +213,21 @@ function adjustPanelPosition() {
   const triggerRect = trigger.getBoundingClientRect()
   const panelWidth = 420
   const padding = 8
+  const gap = 6
 
+  let left = triggerRect.left
   if (triggerRect.right + panelWidth > window.innerWidth - padding) {
-    panelLeftOffset.value = window.innerWidth - panelWidth - padding - triggerRect.left
-  } else {
-    panelLeftOffset.value = 0
+    left = window.innerWidth - panelWidth - padding
+  }
+  if (left < padding) {
+    left = padding
+  }
+
+  const top = triggerRect.bottom + gap
+
+  panelPosition.value = {
+    left: `${left}px`,
+    top: `${top}px`,
   }
 }
 
@@ -226,6 +237,13 @@ function closePanel() {
   renamingProjectId.value = null
   document.removeEventListener('click', handleClickOutside, true)
   document.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('resize', handleResize)
+}
+
+function handleResize() {
+  if (showPanel.value) {
+    adjustPanelPosition()
+  }
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -365,8 +383,6 @@ function handleOpenProject() {
   closePanel()
 }
 
-
-
 onMounted(() => {
   document.addEventListener('keydown', handleEscapeGlobal)
 })
@@ -375,6 +391,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside, true)
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('keydown', handleEscapeGlobal)
+  window.removeEventListener('resize', handleResize)
 })
 
 function handleEscapeGlobal(event: KeyboardEvent) {
@@ -395,10 +412,11 @@ function handleEscapeGlobal(event: KeyboardEvent) {
   align-items: center;
   gap: var(--spacing-xs);
   padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--color-bg-secondary) 94%, var(--color-text-primary) 6%);
+  border: none;
   border-radius: var(--border-radius-sm);
-  color: var(--text-secondary);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   cursor: pointer;
   transition: all 0.2s;
@@ -406,7 +424,12 @@ function handleEscapeGlobal(event: KeyboardEvent) {
 }
 
 .trigger-btn:hover {
-  background: var(--color-hover);
+  background: color-mix(in srgb, var(--color-bg-secondary) 90%, var(--color-text-primary) 10%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+}
+
+.trigger-btn:active {
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.15);
 }
 
 .trigger-icon {
@@ -445,9 +468,7 @@ function handleEscapeGlobal(event: KeyboardEvent) {
 }
 
 .switcher-panel {
-  position: absolute;
-  top: calc(100% + var(--spacing-xs));
-  left: 0;
+  position: fixed;
   width: 420px;
   max-height: 520px;
   background: var(--color-bg-primary);
@@ -679,7 +700,7 @@ function handleEscapeGlobal(event: KeyboardEvent) {
 }
 
 .menu-danger:hover {
-  background: rgba(214, 48, 49, 0.1);
+  background: var(--brand-danger-soft);
   color: var(--brand-danger);
 }
 

@@ -2,7 +2,7 @@
   <div ref="menuBarRef" class="menu-bar-wrapper">
     <!-- 汉堡菜单按钮 -->
     <button
-      class="icon-btn hamburger-btn"
+      class="icon-btn hamburger-btn no-drag"
       :class="{ active: showMenuBar }"
       :title="t('workbench.menu')"
       :aria-expanded="showMenuBar"

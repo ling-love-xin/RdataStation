@@ -37,11 +37,11 @@ export const useUiStore = defineStore('ui', () => {
     applyTheme()
   }
 
-  function toggleTheme() {
+  async function toggleTheme() {
     const appStore = useAppStore()
     const current = appStore.effectiveTheme
     const next: Theme = current === 'dark' ? 'light' : current === 'light' ? 'system' : 'dark'
-    theme.value = next
+    await appStore.setTheme(next)
     applyTheme()
   }
 

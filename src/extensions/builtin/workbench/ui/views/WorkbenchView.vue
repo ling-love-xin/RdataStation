@@ -7,7 +7,8 @@
       class="dockview"
       :popout-url="'/popout.html'"
       :floating-group-bounds="'boundedWithinViewport'"
-      :right-header-actions-component="'PanelHeaderActions'"
+      :right-header-actions-component="'panelHeaderActions'"
+      :default-tab-component="'iconTab'"
       :get-tab-context-menu-items="getTabContextMenuItems"
       @ready="onReady"
     />
@@ -20,11 +21,22 @@
 
     <!-- 自定义布局对话框 -->
     <CustomizeLayoutDialog
-      v-if="layoutStore.showCustomizeLayoutDialog"
-      @close="layoutStore.closeCustomizeLayoutDialog()"
+      v-model:show="layoutStore.showCustomizeLayoutDialog"
+      @update:menu-bar-visible="layoutStore.toggleMenuBar"
+      @update:status-bar-visible="layoutStore.toggleStatusBar"
     />
   </div>
 </template>
+
+<script lang="ts">
+import IconTab from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
+
+export default {
+  components: {
+    iconTab: IconTab,
+  },
+}
+</script>
 
 <script setup lang="ts">
 import {
@@ -45,6 +57,7 @@ import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/co
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
+import { useDockviewKeyboard } from '@/extensions/builtin/workbench/ui/composables/useDockviewKeyboard'
 import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
@@ -64,6 +77,8 @@ let activeSqlEditorPanelId: string | null = null
 
 let dockviewApi: DockviewVueApi | null = null
 let sqlEditorCounter = 0
+
+useDockviewKeyboard({ layoutStore })
 
 const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMenuItem[] => {
   const panelId = params.panel.id
@@ -223,21 +238,14 @@ const onReady = (event: DockviewReadyEvent) => {
     .filter(p => p.location === 'right')
     .sort((a, b) => (a.order || 0) - (b.order || 0))
 
-  // 分离数据库导航 + 草稿箱面板：放入 B 区独立 Normal Group
-  const dbNavPanel = leftPanelsAll.find(p => p.id === 'databaseNavigator')
-  const scratchpadPanel = leftPanelsAll.find(p => p.id === 'scratchpad')
-  // 其余左侧面板仍放回左侧 Edge Group（分析资源管理、插件管理等）
-  const leftEdgePanels = leftPanelsAll.filter(
-    p => p.id !== 'databaseNavigator' && p.id !== 'scratchpad'
-  )
-
   const containerEl = dockviewRef.value?.$el as HTMLElement | undefined
   const totalWidth = containerEl?.clientWidth || 1200
   const oneQuarter = Math.round(totalWidth * 0.25)
 
   // ============================================
-  // 第 1 步：左侧 Edge Group
-  // 收起态: 48px 窄条  展开态: 25%，使 A:B:C:D = 1:1:1:1
+  // 第 1 步：A 栏 — 左侧 Edge Group（面板直接作为 tab 列在标题区）
+  //   [草稿箱, 数据库导航, 分析资源, 插件]
+  //   初始展开，A:B:C = 1:2:1
   // ============================================
   api.addEdgeGroup('left', {
     id: 'left-edge',
@@ -246,69 +254,36 @@ const onReady = (event: DockviewReadyEvent) => {
     maximumSize: Math.round(totalWidth * 0.4),
   })
 
-  if (leftEdgePanels.length > 0) {
-    const firstLeftPanel = leftEdgePanels[0]
+  if (leftPanelsAll.length > 0) {
+    const firstLeftPanel = leftPanelsAll[0]
     const firstLeftPanelId = `panel_${firstLeftPanel.id}`
     api.addPanel({
       id: firstLeftPanelId,
       component: firstLeftPanel.id,
       title: firstLeftPanel.name,
       position: { referenceGroup: 'left-edge' },
+      renderer: 'onlyWhenVisible',
     })
-    layoutStore.updatePanelConfig(firstLeftPanelId, { location: 'left', isVisible: false, order: 0 })
+    layoutStore.updatePanelConfig(firstLeftPanelId, { location: 'left', isVisible: true, order: 0 })
 
-    for (let i = 1; i < leftEdgePanels.length; i++) {
-      const panel = leftEdgePanels[i]
+    for (let i = 1; i < leftPanelsAll.length; i++) {
+      const panel = leftPanelsAll[i]
       const panelId = `panel_${panel.id}`
       api.addPanel({
         id: panelId,
         component: panel.id,
         title: panel.name,
         position: { referencePanel: firstLeftPanelId, direction: 'within' },
+        renderer: 'onlyWhenVisible',
       })
-      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: false, order: i })
+      layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: i })
     }
   }
-  console.log(`[Workbench] Created left edge group with ${leftEdgePanels.length} panels`)
+  console.log(`[Workbench] Created left edge group with ${leftPanelsAll.length} panels`)
 
   // ============================================
-  // 第 2 步：B 区 — 数据库导航 + 草稿箱（同一 Normal Group，tab 切换）
-  // ============================================
-  if (dbNavPanel) {
-    api.addPanel({
-      id: `panel_${dbNavPanel.id}`,
-      component: dbNavPanel.id,
-      title: dbNavPanel.name,
-      position: { direction: 'left' },
-    })
-    console.log(`[Workbench] Created database navigator as normal group: panel_${dbNavPanel.id}`)
-    layoutStore.updatePanelConfig(`panel_${dbNavPanel.id}`, {
-      location: 'center',
-      isVisible: true,
-      order: 0,
-    })
-  }
-
-  if (scratchpadPanel) {
-    const scratchpadPanelId = `panel_${scratchpadPanel.id}`
-    api.addPanel({
-      id: scratchpadPanelId,
-      component: scratchpadPanel.id,
-      title: scratchpadPanel.name,
-      position: dbNavPanel
-        ? { referencePanel: `panel_${dbNavPanel.id}`, direction: 'within' }
-        : { direction: 'left' },
-    })
-    console.log(`[Workbench] Created scratchpad panel: ${scratchpadPanelId}`)
-    layoutStore.updatePanelConfig(scratchpadPanelId, {
-      location: 'center',
-      isVisible: true,
-      order: 1,
-    })
-  }
-
-  // ============================================
-  // 第 3 步：欢迎页（EmptyWorkbenchPanel，中心区域）
+  // 第 2 步：B 栏 — 中心 Normal Group（主工作区）
+  //   初始: Welcome Page，动态: SQL Editor / Query Result
   // ============================================
   const welcomePanel = centerPanels.find(p => p.id === 'emptyWorkbench')
   if (welcomePanel) {
@@ -327,31 +302,28 @@ const onReady = (event: DockviewReadyEvent) => {
   }
 
   // ============================================
-  // 第 4 步：右侧 Edge Group（默认展开）
+  // 第 3 步：C 栏 — 右侧 Edge Group（面板直接作为 tab 列在标题区）
+  //   [列洞察, Mock数据, SQL历史]
+  //   初始展开，A:B:C = 1:2:1
   // ============================================
   if (rightPanels.length > 0) {
     api.addEdgeGroup('right', {
       id: 'right-edge',
       initialSize: oneQuarter,
-      minimumSize: 200,
+      minimumSize: 48,
       maximumSize: Math.round(totalWidth * 0.4),
     })
 
     const firstRightPanel = rightPanels[0]
     const firstRightPanelId = `panel_${firstRightPanel.id}`
-
     api.addPanel({
       id: firstRightPanelId,
       component: firstRightPanel.id,
       title: firstRightPanel.name,
       position: { referenceGroup: 'right-edge' },
+      renderer: 'onlyWhenVisible',
     })
-    console.log(`[Workbench] Created right edge panel: ${firstRightPanelId}`)
-    layoutStore.updatePanelConfig(firstRightPanelId, {
-      location: 'right',
-      isVisible: true,
-      order: 0,
-    })
+    layoutStore.updatePanelConfig(firstRightPanelId, { location: 'right', isVisible: true, order: 0 })
 
     for (let i = 1; i < rightPanels.length; i++) {
       const panel = rightPanels[i]
@@ -361,11 +333,12 @@ const onReady = (event: DockviewReadyEvent) => {
         component: panel.id,
         title: panel.name,
         position: { referencePanel: firstRightPanelId, direction: 'within' },
+        renderer: 'onlyWhenVisible',
       })
-      console.log(`[Workbench] Added right edge panel: ${panelId}`)
       layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: i })
     }
   }
+  console.log(`[Workbench] Created right edge group with ${rightPanels.length} panels`)
 
   console.log(
     `[Workbench] Final layout - groups: ${api.groups.length}, panels: ${api.panels.length}`
@@ -380,7 +353,7 @@ const onReady = (event: DockviewReadyEvent) => {
 
   layoutStore.setBottomPanelMode('editor')
 
-  layoutStore.collapseLeftEdgeGroup()
+  // A 和 C 初始均展开，不调用 collapse
 
   // ============================================
   // 事件监听
@@ -788,6 +761,10 @@ const handleWorkbenchToggleSidebar = () => {
   layoutStore.toggleLeftEdgeGroup()
 }
 
+const handleWorkbenchOpenCustomizeLayout = () => {
+  layoutStore.openCustomizeLayoutDialog()
+}
+
 const handleWorkbenchTogglePanel = () => {
   layoutStore.toggleBottomPanelMode()
 }
@@ -822,6 +799,7 @@ onMounted(() => {
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenHistory, handleWorkbenchOpenHistory))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ToggleSidebar, handleWorkbenchToggleSidebar))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.TogglePanel, handleWorkbenchTogglePanel))
+  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenCustomizeLayout, handleWorkbenchOpenCustomizeLayout))
 })
 
 onUnmounted(() => {

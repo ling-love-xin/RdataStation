@@ -18,6 +18,8 @@ pub struct ScratchpadEntry {
     pub kind: ScratchpadEntryKind,
     pub size: u64,
     pub modified_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<ScratchpadEntry>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -25,6 +27,10 @@ pub struct SearchMatch {
     pub file: String,
     pub line_number: usize,
     pub line_content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub before_context: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub after_context: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -71,4 +77,17 @@ pub struct ScratchpadResponse {
     pub external_references: Vec<ExternalReference>,
     pub scratchpad_path: PathBuf,
     pub file_meta: HashMap<String, FileMeta>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ScratchpadChangeEntry {
+    pub path: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ScratchpadChangeEvent {
+    pub changes: Vec<ScratchpadChangeEntry>,
 }

@@ -24,6 +24,7 @@ export enum WorkbenchEvent {
   CommandPalette = 'workbench:command-palette',
   ToggleSidebar = 'workbench:toggle-sidebar',
   TogglePanel = 'workbench:toggle-panel',
+  OpenCustomizeLayout = 'workbench:open-customize-layout',
 
   // 连接操作
   ManageConnections = 'workbench:manage-connections',
@@ -47,7 +48,56 @@ export enum WorkbenchEvent {
   // 其他
   OpenHistory = 'workbench:open-history',
   OpenTerminal = 'workbench:open-terminal',
+  TitleBarDoubleClick = 'title-bar-double-click',
 }
+
+/**
+ * 菜单栏命令常量 — MenuBar 组件 emit 的 menu-action 值
+ * 替代硬编码字符串，提供类型安全
+ */
+export const MenuCommands = {
+  // 文件菜单
+  FILE_NEW_PROJECT: 'file.newProject',
+  FILE_NEW_CONNECTION: 'file.newConnection',
+  FILE_NEW_QUERY: 'file.newQuery',
+  FILE_SAVE: 'file.save',
+  FILE_SAVE_AS: 'file.saveAs',
+  FILE_CLOSE_EDITOR: 'file.closeEditor',
+  FILE_OPEN_PROJECT: 'file.openProject',
+  FILE_IMPORT: 'file.import',
+  FILE_EXPORT: 'file.export',
+
+  // 编辑菜单
+  EDIT_UNDO: 'edit.undo',
+  EDIT_REDO: 'edit.redo',
+  EDIT_CUT: 'edit.cut',
+  EDIT_COPY: 'edit.copy',
+  EDIT_PASTE: 'edit.paste',
+  EDIT_FIND: 'edit.find',
+  EDIT_REPLACE: 'edit.replace',
+
+  // 视图菜单
+  VIEW_COMMAND_PALETTE: 'view.commandPalette',
+  VIEW_TOGGLE_SIDEBAR: 'view.toggleSidebar',
+  VIEW_TOGGLE_PANEL: 'view.togglePanel',
+
+  // 运行菜单
+  RUN_EXECUTE: 'run.execute',
+  RUN_EXECUTE_SCRIPT: 'run.executeScript',
+  RUN_STOP: 'run.stop',
+
+  // 工具菜单
+  TOOLS_PLUGINS: 'tools.plugins',
+  TOOLS_SETTINGS: 'tools.settings',
+  TOOLS_SHORTCUTS: 'tools.shortcuts',
+
+  // 帮助菜单
+  HELP_DOCS: 'help.docs',
+  HELP_UPDATES: 'help.updates',
+  HELP_ABOUT: 'help.about',
+} as const
+
+export type MenuCommand = (typeof MenuCommands)[keyof typeof MenuCommands]
 
 /**
  * 派发 Workbench 全局事件

@@ -21,6 +21,7 @@ import {
   watchScratchpad,
   unwatchScratchpad,
   promoteScratchpadToResource,
+  getScratchpadEntry,
 } from '../../infrastructure/api/scratchpad-api'
 
 import type {
@@ -30,6 +31,8 @@ import type {
   AnalyzableFile,
   PromoteResult,
   SearchResult,
+  ScratchpadChangeEvent,
+  ScratchpadChangeEntry,
 } from '../../types'
 
 export function useScratchpad() {
@@ -46,8 +49,30 @@ export function useScratchpad() {
     const entries = response.value.local_entries
     if (!searchQuery.value) return entries
     const q = searchQuery.value.toLowerCase()
-    return entries.filter(e => e.name.toLowerCase().includes(q))
+    return filterTree(entries, e => e.name.toLowerCase().includes(q))
   })
+
+  function filterTree(entries: ScratchpadEntry[], pred: (e: ScratchpadEntry) => boolean): ScratchpadEntry[] {
+    const result: ScratchpadEntry[] = []
+    for (const entry of entries) {
+      const childMatch = entry.children ? filterTree(entry.children, pred) : []
+      if (pred(entry) || childMatch.length > 0) {
+        result.push({ ...entry, children: childMatch.length > 0 ? childMatch : entry.children })
+      }
+    }
+    return result
+  }
+
+  function flattenVisibleEntries(entries: ScratchpadEntry[], expandedKeys: Set<string>, depth = 0): { entry: ScratchpadEntry; depth: number }[] {
+    const result: { entry: ScratchpadEntry; depth: number }[] = []
+    for (const entry of entries) {
+      result.push({ entry, depth })
+      if (entry.kind === 'folder' && entry.children && expandedKeys.has(entry.path)) {
+        result.push(...flattenVisibleEntries(entry.children, expandedKeys, depth + 1))
+      }
+    }
+    return result
+  }
 
   const externalReferences = computed(() => {
     if (!response.value) return []
@@ -95,9 +120,9 @@ export function useScratchpad() {
     }
   }
 
-  async function createEntry(name: string, isFolder: boolean): Promise<ScratchpadEntry | null> {
+  async function createEntry(name: string, isFolder: boolean, parentPath?: string): Promise<ScratchpadEntry | null> {
     try {
-      const entry = await createScratchpadEntry(name, isFolder)
+      const entry = await createScratchpadEntry(name, isFolder, parentPath)
       await loadFiles()
       return entry
     } catch (e) {
@@ -316,6 +341,156 @@ export function useScratchpad() {
     }
   }
 
+  async function applyFileChanges(event: ScratchpadChangeEvent): Promise<void> {
+    if (!response.value) return
+
+    const changes = event.changes
+    const creates: ScratchpadChangeEntry[] = []
+    const modifies: ScratchpadChangeEntry[] = []
+    const deletes: string[] = []
+
+    for (const change of changes) {
+      switch (change.kind) {
+        case 'create':
+          creates.push(change)
+          break
+        case 'modify':
+          modifies.push(change)
+          break
+        case 'delete':
+          deletes.push(change.path)
+          break
+      }
+    }
+
+    let currentEntries = response.value.local_entries
+
+    if (deletes.length > 0) {
+      const deleteSet = new Set(deletes.map(p => normalizePathForCompare(p)))
+      currentEntries = removeDeletedFromTree(currentEntries, deleteSet)
+    }
+
+    if (creates.length > 0) {
+      const fetchResults = await Promise.allSettled(
+        creates.map(c => getScratchpadEntry(c.path))
+      )
+      const newEntries: ScratchpadEntry[] = []
+      for (const result of fetchResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          newEntries.push(result.value)
+        }
+      }
+      if (newEntries.length > 0) {
+        const existingPaths = collectAllPaths(currentEntries)
+        const filtered = newEntries.filter(
+          e => !existingPaths.has(normalizePathForCompare(e.path))
+        )
+        currentEntries = insertEntriesIntoTree(currentEntries, filtered)
+      }
+    }
+
+    if (modifies.length > 0) {
+      const fetchResults = await Promise.allSettled(
+        modifies.map(c => getScratchpadEntry(c.path))
+      )
+      const modifyMap = new Map<string, ScratchpadEntry>()
+      for (const result of fetchResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          modifyMap.set(normalizePathForCompare(result.value.path), result.value)
+        }
+      }
+      if (modifyMap.size > 0) {
+        currentEntries = patchEntriesInTree(currentEntries, modifyMap)
+      }
+    }
+
+    response.value = {
+      ...response.value,
+      local_entries: currentEntries,
+    }
+  }
+
+  function removeDeletedFromTree(entries: ScratchpadEntry[], deleteSet: Set<string>): ScratchpadEntry[] {
+    return entries
+      .filter(e => !deleteSet.has(normalizePathForCompare(e.path)))
+      .map(e => {
+        if (e.children) {
+          return { ...e, children: removeDeletedFromTree(e.children, deleteSet) }
+        }
+        return e
+      })
+  }
+
+  function collectAllPaths(entries: ScratchpadEntry[]): Set<string> {
+    const paths = new Set<string>()
+    for (const e of entries) {
+      paths.add(normalizePathForCompare(e.path))
+      if (e.children) {
+        for (const p of collectAllPaths(e.children)) {
+          paths.add(p)
+        }
+      }
+    }
+    return paths
+  }
+
+  function insertEntriesIntoTree(entries: ScratchpadEntry[], newEntries: ScratchpadEntry[]): ScratchpadEntry[] {
+    const result = [...entries]
+    for (const ne of newEntries) {
+      const parentPath = getParentPath(ne.path)
+      if (!parentPath) {
+        result.push(ne)
+        continue
+      }
+      const inserted = insertUnderParent(result, parentPath, ne)
+      if (!inserted) {
+        result.push(ne)
+      }
+    }
+    return result
+  }
+
+  function getParentPath(path: string): string | null {
+    const normalized = path.replace(/\\/g, '/')
+    const lastSlash = normalized.lastIndexOf('/')
+    return lastSlash > 0 ? normalized.substring(0, lastSlash) : null
+  }
+
+  function insertUnderParent(entries: ScratchpadEntry[], parentPath: string, child: ScratchpadEntry): boolean {
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i]
+      if (normalizePathForCompare(e.path) === parentPath) {
+        entries[i] = {
+          ...e,
+          children: e.children ? [...e.children, child] : [child],
+        }
+        return true
+      }
+      if (e.children) {
+        if (insertUnderParent(e.children, parentPath, child)) return true
+      }
+    }
+    return false
+  }
+
+  function patchEntriesInTree(entries: ScratchpadEntry[], modifyMap: Map<string, ScratchpadEntry>): ScratchpadEntry[] {
+    return entries.map(e => {
+      const key = normalizePathForCompare(e.path)
+      const updated = modifyMap.get(key)
+      if (updated) {
+        return { ...updated, children: e.children }
+      }
+      if (e.children) {
+        return { ...e, children: patchEntriesInTree(e.children, modifyMap) }
+      }
+      return e
+    })
+  }
+
+  function normalizePathForCompare(p: string): string {
+    return p.replace(/\\/g, '/').replace(/\/$/, '')
+  }
+
   return {
     response,
     isLoading,
@@ -353,5 +528,8 @@ export function useScratchpad() {
     startWatching,
     stopWatching,
     promoteToResource,
+    applyFileChanges,
+    normalizePathForCompare,
+    flattenVisibleEntries,
   }
 }

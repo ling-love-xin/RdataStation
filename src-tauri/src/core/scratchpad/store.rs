@@ -114,21 +114,17 @@ impl ScratchpadStore {
 
     pub async fn list_local_entries(&self, depth: u32) -> Result<Vec<ScratchpadEntry>, CoreError> {
         self.ensure_dir().await?;
-        let mut entries = Vec::new();
-        self.scan_dir(&self.scratchpad_dir, 0, depth, &mut entries)
-            .await?;
-        Ok(entries)
+        self.scan_dir_tree(&self.scratchpad_dir, 0, depth).await
     }
 
-    async fn scan_dir(
+    async fn scan_dir_tree(
         &self,
         dir: &Path,
         current_depth: u32,
         max_depth: u32,
-        entries: &mut Vec<ScratchpadEntry>,
-    ) -> Result<(), CoreError> {
+    ) -> Result<Vec<ScratchpadEntry>, CoreError> {
         if current_depth > max_depth {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let mut read_dir = fs::read_dir(dir).await.map_err(|e| {
@@ -138,6 +134,8 @@ impl ScratchpadStore {
                 e.to_string(),
             ))
         })?;
+
+        let mut entries = Vec::new();
 
         while let Ok(Some(entry)) = read_dir.next_entry().await {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -174,18 +172,27 @@ impl ScratchpadStore {
                 .flatten();
 
             if file_type.is_dir() {
+                let children = if current_depth < max_depth {
+                    Some(
+                        Box::pin(self.scan_dir_tree(
+                            &entry.path(),
+                            current_depth + 1,
+                            max_depth,
+                        ))
+                        .await?,
+                    )
+                } else {
+                    None
+                };
+
                 entries.push(ScratchpadEntry {
                     name: name.clone(),
                     path: entry.path(),
                     kind: ScratchpadEntryKind::Folder,
                     size: 0,
                     modified_at,
+                    children,
                 });
-
-                if current_depth < max_depth {
-                    Box::pin(self.scan_dir(&entry.path(), current_depth + 1, max_depth, entries))
-                        .await?;
-                }
             } else if file_type.is_file() {
                 entries.push(ScratchpadEntry {
                     name,
@@ -193,11 +200,23 @@ impl ScratchpadStore {
                     kind: ScratchpadEntryKind::File,
                     size: metadata.len(),
                     modified_at,
+                    children: None,
                 });
             }
         }
 
-        Ok(())
+        Ok(entries)
+    }
+
+    fn flatten_entries_from_ref(entries: &[ScratchpadEntry]) -> Vec<&ScratchpadEntry> {
+        let mut result = Vec::new();
+        for entry in entries {
+            result.push(entry);
+            if let Some(ref children) = entry.children {
+                result.extend(Self::flatten_entries_from_ref(children));
+            }
+        }
+        result
     }
 
     pub async fn get_full_response(&self) -> Result<ScratchpadResponse, CoreError> {
@@ -215,12 +234,28 @@ impl ScratchpadStore {
     pub async fn create_entry(
         &self,
         name: &str,
+        parent_path: Option<&str>,
         is_folder: bool,
     ) -> Result<ScratchpadEntry, CoreError> {
         self.ensure_dir().await?;
         self.validate_name(name)?;
 
-        let target_path = self.scratchpad_dir.join(name);
+        let base_dir = match parent_path {
+            Some(p) if !p.is_empty() => {
+                let parent = self.resolve_path(p)?;
+                if !parent.is_dir() {
+                    return Err(CoreError::storage(StorageError::io(
+                        parent.display().to_string(),
+                        "create",
+                        "parent path is not a directory".to_string(),
+                    )));
+                }
+                parent
+            }
+            _ => self.scratchpad_dir.clone(),
+        };
+
+        let target_path = base_dir.join(name);
 
         if target_path.exists() {
             return Err(CoreError::storage(StorageError::io(
@@ -258,6 +293,7 @@ impl ScratchpadStore {
             },
             size: 0,
             modified_at: Some(Utc::now().to_rfc3339()),
+            children: if is_folder { Some(Vec::new()) } else { None },
         })
     }
 
@@ -305,9 +341,7 @@ impl ScratchpadStore {
             return Ok(Vec::new());
         }
 
-        let mut entries = Vec::new();
-        self.scan_dir(&trash_dir, 0, 1, &mut entries).await?;
-        Ok(entries)
+        self.scan_dir_tree(&trash_dir, 0, 1).await
     }
 
     pub async fn restore_from_trash(&self, trash_name: &str) -> Result<ScratchpadEntry, CoreError> {
@@ -360,6 +394,7 @@ impl ScratchpadStore {
             },
             size: 0,
             modified_at: Some(Utc::now().to_rfc3339()),
+            children: if is_dir { Some(Vec::new()) } else { None },
         })
     }
 
@@ -450,6 +485,7 @@ impl ScratchpadStore {
             },
             size: 0,
             modified_at: Some(Utc::now().to_rfc3339()),
+            children: if is_dir { Some(Vec::new()) } else { None },
         })
     }
 
@@ -475,6 +511,65 @@ impl ScratchpadStore {
             ))
         })?;
         Ok(metadata.len())
+    }
+
+    pub async fn get_entry_metadata(
+        &self,
+        relative_path: &str,
+    ) -> Result<Option<ScratchpadEntry>, CoreError> {
+        let file_path = self.resolve_path_maybe_missing(relative_path)?;
+        if !file_path.exists() {
+            return Ok(None);
+        }
+
+        let metadata = fs::metadata(&file_path).await.map_err(|e| {
+            CoreError::storage(StorageError::io(
+                file_path.display().to_string(),
+                "metadata",
+                e.to_string(),
+            ))
+        })?;
+
+        let name = file_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| relative_path.to_string());
+
+        let modified_at = metadata
+            .modified()
+            .ok()
+            .and_then(|t| {
+                t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| {
+                    chrono::DateTime::from_timestamp(d.as_secs() as i64, d.subsec_nanos())
+                        .map(|dt| dt.to_rfc3339())
+                })
+            })
+            .flatten();
+
+        let kind = if metadata.is_dir() {
+            ScratchpadEntryKind::Folder
+        } else {
+            ScratchpadEntryKind::File
+        };
+
+        let size = if metadata.is_file() {
+            metadata.len()
+        } else {
+            0
+        };
+
+        Ok(Some(ScratchpadEntry {
+            name,
+            path: file_path,
+            kind: kind.clone(),
+            size,
+            modified_at,
+            children: if matches!(kind, ScratchpadEntryKind::Folder) {
+                Some(Vec::new())
+            } else {
+                None
+            },
+        }))
     }
 
     pub async fn open_in_system_explorer(&self, path_to_open: &Path) -> Result<(), CoreError> {
@@ -574,6 +669,7 @@ impl ScratchpadStore {
             kind: ScratchpadEntryKind::File,
             size,
             modified_at: Some(Utc::now().to_rfc3339()),
+            children: None,
         })
     }
 
@@ -646,15 +742,17 @@ impl ScratchpadStore {
         &self,
         query: &str,
         case_sensitive: bool,
+        context_lines: usize,
     ) -> Result<SearchResult, CoreError> {
         let entries = self.list_local_entries(MAX_DEPTH).await?;
+        let flat = Self::flatten_entries_from_ref(&entries);
         let mut matches = Vec::new();
         let mut total_scanned = 0usize;
         let mut truncated = false;
         let query_lower = query.to_lowercase();
         let query_owned = query.to_string();
 
-        for entry in &entries {
+        for entry in &flat {
             if entry.kind == ScratchpadEntryKind::Folder {
                 continue;
             }
@@ -680,6 +778,7 @@ impl ScratchpadStore {
                 query_lower.clone(),
                 rel_path.clone(),
                 remaining,
+                context_lines,
             );
 
             match timeout(Duration::from_secs(SEARCH_PER_FILE_TIMEOUT_SECS), future).await {
@@ -713,7 +812,6 @@ impl ScratchpadStore {
         self.resolve_path_impl(relative_path, true)
     }
 
-    #[allow(dead_code)]
     fn resolve_path_maybe_missing(&self, relative_path: &str) -> Result<PathBuf, CoreError> {
         self.resolve_path_impl(relative_path, false)
     }
@@ -790,6 +888,7 @@ impl ScratchpadStore {
 
     pub async fn get_analyzable_files(&self) -> Result<Vec<AnalyzableFile>, CoreError> {
         let response = self.get_full_response().await?;
+        let flat = Self::flatten_entries_from_ref(&response.local_entries);
         let analyzable_extensions: std::collections::HashSet<&str> = [
             "csv", "tsv", "parquet", "json", "ndjson", "xlsx", "xls", "sqlite", "db", "duckdb",
         ]
@@ -798,7 +897,7 @@ impl ScratchpadStore {
         .collect();
 
         let mut results = Vec::new();
-        for entry in &response.local_entries {
+        for entry in &flat {
             let ext = entry
                 .path
                 .extension()
@@ -854,6 +953,7 @@ async fn search_single_file(
     query_lower: String,
     rel_path: String,
     max_results: usize,
+    context_lines: usize,
 ) -> Result<Vec<SearchMatch>, CoreError> {
     let file = fs::File::open(&path).await.map_err(|e| {
         CoreError::storage(StorageError::io(
@@ -864,23 +964,41 @@ async fn search_single_file(
     })?;
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
-    let mut matches = Vec::new();
-    let mut line_number = 0usize;
+    let mut all_lines: Vec<String> = Vec::new();
     while let Ok(Some(line)) = lines.next_line().await {
+        all_lines.push(line);
+    }
+
+    let mut matches = Vec::new();
+    for (i, line) in all_lines.iter().enumerate() {
         if matches.len() >= max_results {
             break;
         }
-        line_number += 1;
+        let line_number = i + 1;
         let found = if case_sensitive {
             line.contains(&query)
         } else {
             line.to_lowercase().contains(&query_lower)
         };
         if found {
+            let before: Vec<String> = if context_lines > 0 {
+                let start = i.saturating_sub(context_lines);
+                all_lines[start..i].iter().cloned().collect()
+            } else {
+                Vec::new()
+            };
+            let after: Vec<String> = if context_lines > 0 {
+                let end = (i + 1 + context_lines).min(all_lines.len());
+                all_lines[i + 1..end].iter().cloned().collect()
+            } else {
+                Vec::new()
+            };
             matches.push(SearchMatch {
                 file: rel_path.clone(),
                 line_number,
-                line_content: line,
+                line_content: line.clone(),
+                before_context: before,
+                after_context: after,
             });
         }
     }

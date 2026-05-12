@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::adapters::tauri::state::AppState;
 use crate::core::error::CoreError;
 use crate::core::persistence::project_db::ProjectSqlitePool;
 use crate::mock::persistence::{
@@ -24,7 +23,6 @@ async fn open_store(project_path: &str) -> Result<MockGenerationStore, CoreError
 /// 用于后续重复生成或审计追溯。
 #[tauri::command]
 pub async fn save_mock_generation_task(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
     task: MockGenerationTask,
     columns: Vec<MockGenerationColumn>,
@@ -43,7 +41,6 @@ pub async fn save_mock_generation_task(
 /// 按创建时间倒序排列。`limit` 可选，默认 20。
 #[tauri::command]
 pub async fn get_mock_generation_history(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
     limit: Option<u32>,
 ) -> Result<Vec<MockGenerationTask>, CoreError> {
@@ -60,7 +57,6 @@ pub async fn get_mock_generation_history(
 /// 生成器配置和每列的 nullable_ratio / unique 设置。
 #[tauri::command]
 pub async fn get_mock_generation_detail(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
     task_id: String,
 ) -> Result<MockGenerationDetail, CoreError> {
@@ -76,7 +72,6 @@ pub async fn get_mock_generation_detail(
 /// 从项目 SQLite 数据库删除指定任务及其关联列定义（CASCADE）。
 #[tauri::command]
 pub async fn delete_mock_generation_task(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
     task_id: String,
 ) -> Result<(), CoreError> {
@@ -93,7 +88,6 @@ pub async fn delete_mock_generation_task(
 /// 持久化到项目 SQLite 数据库，支持跨会话复用。
 #[tauri::command]
 pub async fn save_mock_template(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
     template: MockUserTemplate,
     columns: Vec<MockTemplateColumn>,
@@ -112,7 +106,6 @@ pub async fn save_mock_template(
 /// 按更新时间倒序排列。
 #[tauri::command]
 pub async fn get_mock_templates(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
 ) -> Result<Vec<MockUserTemplate>, CoreError> {
     let store = open_store(&project_path).await?;
@@ -127,7 +120,6 @@ pub async fn get_mock_templates(
 /// 按模板 ID 读取完整模板定义，返回模板元信息和列配置元组。
 #[tauri::command]
 pub async fn get_mock_template_detail(
-    _state: tauri::State<'_, AppState>,
     project_path: String,
     template_id: String,
 ) -> Result<(MockUserTemplate, Vec<MockTemplateColumn>), CoreError> {

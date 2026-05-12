@@ -1,4 +1,4 @@
-import { Database, BarChart3, Puzzle, FileText, Sparkles } from 'lucide-vue-next'
+import { Database, BarChart3, Puzzle, FileText, Sparkles, StickyNote, Dices } from 'lucide-vue-next'
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
 
@@ -65,6 +65,7 @@ const MAX_SIDEBAR_WIDTH = 600
 // 活动栏项目
 // ============================================
 export const leftActivityItems: LeftActivityItem[] = [
+  { id: 'scratchpad', icon: StickyNote, title: '草稿箱' },
   { id: 'database', icon: Database, title: '数据库导航' },
   { id: 'analytics', icon: BarChart3, title: '分析资源管理' },
   { id: 'plugins', icon: Puzzle, title: '插件管理' },
@@ -72,18 +73,20 @@ export const leftActivityItems: LeftActivityItem[] = [
 
 export const rightActivityItems: RightActivityItem[] = [
   { id: 'column-insights', icon: Sparkles, title: '列洞察' },
+  { id: 'mock', icon: Dices, title: 'Mock 数据' },
   { id: 'sql-history', icon: FileText, title: 'SQL历史' },
 ]
 
 // ActivityBar 到面板映射
 export const ACTIVEBAR_TO_PANEL_ID: Record<string, string> = {
+  scratchpad: 'scratchpad',
   database: 'databaseNavigator',
   analytics: 'analytics-resource-manager',
-  scratchpad: 'scratchpad',
   plugins: 'plugins',
+  'column-insights': 'columnInsights',
+  mock: 'mockPanel',
   'sql-history': 'sqlHistory',
   output: 'outputPanel',
-  'column-insights': 'columnInsights',
 }
 
 // 面板注册表 ID 到 ActivityBar ID 的反向映射
@@ -115,7 +118,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   // 选中状态
   // ============================================
-  const selectedLeftItem = ref<string | null>('database')
+  const selectedLeftItem = ref<string | null>('scratchpad')
   const selectedRightItem = ref<string | null>('column-insights')
 
   // ============================================
@@ -139,7 +142,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   // Edge Group 折叠状态
   // ============================================
-  const leftEdgeGroupCollapsed = ref(true)
+  const leftEdgeGroupCollapsed = ref(false)
   const rightEdgeGroupCollapsed = ref(false)
 
   // ============================================
@@ -209,16 +212,22 @@ const openPanelIds = ref<string[]>([])
 
   function collapseLeftEdgeGroup() {
     leftEdgeGroupCollapsed.value = true
-    const groups = dockviewApi.value?.groups || []
-    const leftGroup = groups.find((g: any) => g.id === 'left-edge')
-    leftGroup?.api?.collapse?.()
+    dockviewApi.value?.getEdgeGroup?.('left')?.collapse()
   }
 
   function expandLeftEdgeGroup() {
     leftEdgeGroupCollapsed.value = false
-    const groups = dockviewApi.value?.groups || []
-    const leftGroup = groups.find((g: any) => g.id === 'left-edge')
-    leftGroup?.api?.expand?.()
+    dockviewApi.value?.getEdgeGroup?.('left')?.expand()
+  }
+
+  function collapseRightEdgeGroup() {
+    rightEdgeGroupCollapsed.value = true
+    dockviewApi.value?.getEdgeGroup?.('right')?.collapse()
+  }
+
+  function expandRightEdgeGroup() {
+    rightEdgeGroupCollapsed.value = false
+    dockviewApi.value?.getEdgeGroup?.('right')?.expand()
   }
 
   /**
@@ -821,6 +830,8 @@ const openPanelIds = ref<string[]>([])
     setLayoutData,
     collapseLeftEdgeGroup,
     expandLeftEdgeGroup,
+    collapseRightEdgeGroup,
+    expandRightEdgeGroup,
     toggleLeftEdgeGroup,
     openCustomizeLayoutDialog,
     closeCustomizeLayoutDialog,

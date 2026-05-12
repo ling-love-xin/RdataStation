@@ -46,7 +46,3 @@ function onInput(event: Event) {
   emit('update:modelValue', (event.target as HTMLInputElement).value)
 }
 </script>
-
-<style scoped>
-@import './modal.css';
-</style>

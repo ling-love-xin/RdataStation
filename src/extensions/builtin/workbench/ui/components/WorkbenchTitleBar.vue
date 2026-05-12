@@ -4,7 +4,6 @@
       <MenuBar
         v-if="titleBarSettings.menuStyle !== 'hidden'"
         :menus="menuConfig"
-        :compact="titleBarSettings.menuStyle === 'compact'"
         @menu-action="handleMenuAction"
       />
       <ProjectSwitcherPanel
@@ -17,7 +16,7 @@
       />
     </div>
 
-    <div class="title-bar-center">
+    <div class="title-bar-center" data-tauri-drag-region @dblclick="handleTitleBarDoubleClick">
       <CommandCenter
         v-if="titleBarSettings.showCommandCenter"
         @open="handleOpenCommandPalette"
@@ -34,11 +33,13 @@
 
       <button
         class="icon-btn theme-toggle-btn"
-        :title="uiStore.isDark ? t('workbench.switchToLight') : t('workbench.switchToDark')"
-        @click="uiStore.toggleTheme"
+        :title="themeToggleTooltip"
+        :aria-label="themeToggleTooltip"
+        @click="handleToggleTheme"
       >
-        <Sun v-if="uiStore.isDark" :size="14" />
-        <Moon v-else :size="14" />
+        <Sun v-if="appStore.effectiveTheme === 'light'" :size="14" />
+        <Moon v-else-if="appStore.effectiveTheme === 'dark'" :size="14" />
+        <Monitor v-else :size="14" />
       </button>
 
       <div class="layout-controls">
@@ -87,11 +88,19 @@
     :visible="showCommandPalette"
     @close="showCommandPalette = false"
   />
+
+  <InvalidProjectDialog
+    :visible="showInvalidProjectDialog"
+    :selected-path="invalidPath"
+    @browse="handleBrowseAgain"
+    @close="showInvalidProjectDialog = false"
+  />
 </template>
 
 <script setup lang="ts">
 import {
   LayoutTemplate,
+  Monitor,
   Moon,
   PanelTop,
   Sun,
@@ -110,9 +119,11 @@ import EditProjectModal from './EditProjectModal.vue'
 import ProjectSwitcherPanel from './ProjectSwitcherPanel.vue'
 import { useTitleBar } from '../composables/useTitleBar'
 import { createMenuActionMap, createMenuConfig, createToolbarConfig } from '../config/title-bar-config'
+import { WorkbenchEvent, dispatchWorkbenchEvent } from '../constants/workbench-events'
 import { useCommandStore } from '../stores/command-store'
 import CommandCenter from './title-bar/CommandCenter.vue'
 import CommandPalette from './title-bar/CommandPalette.vue'
+import InvalidProjectDialog from './title-bar/InvalidProjectDialog.vue'
 import MenuBar from './title-bar/MenuBar.vue'
 import NewProjectModal from './title-bar/NewProjectModal.vue'
 import ToolbarActions from './title-bar/ToolbarActions.vue'
@@ -145,12 +156,33 @@ const titleBar = useTitleBar()
 // 从配置系统读取标题栏设置
 const titleBarSettings = computed(() => appStore.effectiveTitleBarSettings)
 
+const themeToggleTooltip = computed(() => {
+  switch (appStore.effectiveTheme) {
+    case 'dark':
+      return t('workbench.themeDark')
+    case 'light':
+      return t('workbench.themeLight')
+    default:
+      return t('workbench.themeSystem')
+  }
+})
+
+async function handleToggleTheme() {
+  try {
+    await uiStore.toggleTheme()
+  } catch {
+    message.error(t('common.operationFailed'))
+  }
+}
+
 const showNewProjectModal = ref(false)
 const showCommandPalette = ref(false)
 const showEditProjectModal = ref(false)
 const editProjectTarget = ref<Project | null>(null)
 const showDeleteProjectModal = ref(false)
 const deleteProjectTarget = ref<Project | null>(null)
+const showInvalidProjectDialog = ref(false)
+const invalidPath = ref('')
 
 // 命令注册
 const commandStore = useCommandStore()
@@ -260,11 +292,20 @@ async function handleOpenProject() {
     })
 
     if (selected && typeof selected === 'string') {
-      await titleBar.openProject(selected)
+      const project = await titleBar.openProject(selected)
+      if (!project) {
+        invalidPath.value = selected
+        showInvalidProjectDialog.value = true
+      }
     }
   } catch {
     message.error(t('workbench.openProjectFailed'))
   }
+}
+
+async function handleBrowseAgain() {
+  showInvalidProjectDialog.value = false
+  await handleOpenProject()
 }
 
 async function handleCreateProject(name: string, path: string, description?: string) {
@@ -310,7 +351,11 @@ function handleResetToolbar() {
 }
 
 function handleCustomizeLayout() {
-  window.dispatchEvent(new CustomEvent('open-customize-layout-dialog'))
+  dispatchWorkbenchEvent(WorkbenchEvent.OpenCustomizeLayout)
+}
+
+function handleTitleBarDoubleClick() {
+  dispatchWorkbenchEvent(WorkbenchEvent.TitleBarDoubleClick)
 }
 
 // 全局键盘快捷键

@@ -9,8 +9,8 @@ use crate::commands::analytics_resource_commands::AnalyticsResourceState;
 use crate::core::error::CoreError;
 use crate::core::persistence::{AnalyticsResource, CreateResourceRequest};
 use crate::core::scratchpad::{
-    AnalyzableFile, ExternalReference, ScratchpadEntry, ScratchpadResponse, ScratchpadState,
-    ScratchpadStore, SearchResult,
+    AnalyzableFile, ExternalReference, ScratchpadChangeEntry, ScratchpadChangeEvent,
+    ScratchpadEntry, ScratchpadResponse, ScratchpadState, ScratchpadStore, SearchResult,
 };
 
 async fn get_store(state: &ScratchpadState) -> Result<ScratchpadStore, CoreError> {
@@ -25,8 +25,7 @@ pub async fn init_scratchpad_store(
     project_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<(), CoreError> {
-    scratchpad_state.init(PathBuf::from(project_path));
-    Ok(())
+    scratchpad_state.init(PathBuf::from(project_path))
 }
 
 #[tauri::command]
@@ -43,12 +42,14 @@ pub async fn list_scratchpad_files(
 #[tauri::command]
 pub async fn create_scratchpad_entry(
     name: String,
+    parent_path: Option<String>,
     is_folder: bool,
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<ScratchpadEntry, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
+    let parent = parent_path.as_deref();
     scratchpad
-        .create_entry(&name, is_folder)
+        .create_entry(&name, parent, is_folder)
         .await
         .map_err(|e| CoreError::from(e.to_string()))
 }
@@ -167,6 +168,18 @@ pub async fn check_scratchpad_file_size(
         .map_err(|e| CoreError::from(e.to_string()))
 }
 
+#[tauri::command]
+pub async fn get_scratchpad_entry(
+    relative_path: String,
+    scratchpad_state: State<'_, ScratchpadState>,
+) -> Result<Option<ScratchpadEntry>, CoreError> {
+    let scratchpad = get_store(&scratchpad_state).await?;
+    scratchpad
+        .get_entry_metadata(&relative_path)
+        .await
+        .map_err(|e| CoreError::from(e.to_string()))
+}
+
 // ==================== Analysis Commands ====================
 
 #[tauri::command]
@@ -232,12 +245,17 @@ pub async fn update_scratchpad_file_meta(
 #[tauri::command]
 pub async fn search_scratchpad_content(
     query: String,
-    case_sensitive: bool,
+    case_sensitive: Option<bool>,
+    context_lines: Option<usize>,
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<SearchResult, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
-        .search_file_content(&query, case_sensitive)
+        .search_file_content(
+            &query,
+            case_sensitive.unwrap_or(false),
+            context_lines.unwrap_or(0),
+        )
         .await
         .map_err(|e| CoreError::from(e.to_string()))
 }
@@ -261,11 +279,28 @@ pub async fn watch_scratchpad(
         .await
         .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let (tx, rx) = std::sync::mpsc::channel();
+    let watch_dir_clone = watch_dir.clone();
+    let (tx, rx) = std::sync::mpsc::channel::<(String, String)>();
     let mut watcher =
         notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-            if res.is_ok() {
-                let _ = tx.send(());
+            if let Ok(event) = res {
+                for path in &event.paths {
+                    if let Ok(relative) = path.strip_prefix(&watch_dir_clone) {
+                        let rel = relative.to_string_lossy().to_string();
+                        if rel.is_empty() {
+                            continue;
+                        }
+                        let kind = match event.kind {
+                            notify::EventKind::Create(_) => "create",
+                            notify::EventKind::Modify(_) => "modify",
+                            notify::EventKind::Remove(_) => "delete",
+                            _ => "unknown",
+                        };
+                        if kind != "unknown" {
+                            let _ = tx.send((rel, kind.to_string()));
+                        }
+                    }
+                }
             }
         })
         .map_err(|e| CoreError::from(e.to_string()))?;
@@ -280,22 +315,64 @@ pub async fn watch_scratchpad(
 
     tokio::task::spawn_blocking(move || {
         let _watcher = watcher;
-        let debounce_ms = std::time::Duration::from_millis(500);
-        let mut last_emit = std::time::Instant::now() - debounce_ms;
+        let debounce = std::time::Duration::from_millis(300);
+        let atomic_save_window = std::time::Duration::from_millis(500);
+        let mut pending_changes: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        let mut last_flush = std::time::Instant::now();
+        let mut recent_deletes: std::collections::HashMap<String, std::time::Instant> =
+            std::collections::HashMap::new();
+
         loop {
             if !watcher_flag.load(Ordering::Relaxed) {
                 break;
             }
             match rx.recv_timeout(std::time::Duration::from_millis(200)) {
-                Ok(()) => {
+                Ok((path, kind)) => {
+                    recent_deletes.retain(|_, t| t.elapsed() < atomic_save_window);
+
+                    if kind == "create" {
+                        if recent_deletes.remove(&path).is_some() {
+                            pending_changes.insert(path, "modify".to_string());
+                            continue;
+                        }
+                    } else if kind == "delete" {
+                        recent_deletes.insert(path.clone(), std::time::Instant::now());
+                    }
+
+                    pending_changes.insert(path, kind);
+
                     let now = std::time::Instant::now();
-                    if now.duration_since(last_emit) >= debounce_ms {
-                        let _ = app.emit("scratchpad-changed", ());
-                        last_emit = now;
+                    if !pending_changes.is_empty() && now.duration_since(last_flush) >= debounce {
+                        let changes: Vec<ScratchpadChangeEntry> = std::mem::take(
+                            &mut pending_changes,
+                        )
+                        .into_iter()
+                        .map(|(path, kind)| ScratchpadChangeEntry { path, kind })
+                        .collect();
+                        let payload = ScratchpadChangeEvent { changes };
+                        let _ = app.emit("scratchpad-changed", payload);
+                        last_flush = now;
                     }
                 }
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    if !pending_changes.is_empty() && last_flush.elapsed() >= debounce {
+                        let changes: Vec<ScratchpadChangeEntry> = std::mem::take(
+                            &mut pending_changes,
+                        )
+                        .into_iter()
+                        .map(|(path, kind)| ScratchpadChangeEntry { path, kind })
+                        .collect();
+                        let payload = ScratchpadChangeEvent { changes };
+                        let _ = app.emit("scratchpad-changed", payload);
+                        last_flush = std::time::Instant::now();
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    tracing::warn!("[Scratchpad] File watcher disconnected, stopping watch");
+                    watcher_flag.store(false, Ordering::Relaxed);
+                    break;
+                }
             }
         }
     });

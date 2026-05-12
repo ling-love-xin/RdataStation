@@ -45,7 +45,7 @@
       <!-- 右侧操作区 -->
       <div class="right-panel">
         <div class="action-cards">
-          <div class="action-card primary" @click="createNewProject">
+          <div class="action-card primary" @click="showNewProjectModal = true">
             <div class="action-icon">
               <FolderPlus :size="32" />
             </div>
@@ -56,7 +56,7 @@
             <ChevronRight :size="20" />
           </div>
 
-          <div class="action-card" @click="openExistingProject">
+          <div class="action-card" @click="handleOpenExistingProject">
             <div class="action-icon">
               <FolderOpen :size="32" />
             </div>
@@ -72,22 +72,19 @@
         <div class="recent-section">
           <div class="recent-header">
             <h3>{{ t('workbench.recentlyOpened') }}</h3>
-            <button v-if="recentProjects.length > 0" class="clear-btn" @click="clearRecentProjects">
-              {{ t('workbench.clearHistory') }}
-            </button>
           </div>
 
-          <div v-if="recentProjects.length === 0" class="recent-empty">
+          <div v-if="projectStore.recentProjects.length === 0" class="recent-empty">
             <FolderX :size="32" />
             <p>{{ t('workbench.noRecentProjects') }}</p>
           </div>
 
           <div v-else class="recent-list">
             <div
-              v-for="project in recentProjects"
+              v-for="project in projectStore.recentProjects"
               :key="project.id"
               class="recent-item"
-              @click="openProject(project)"
+              @click="handleOpenRecentProject(project.id)"
             >
               <div class="recent-icon">
                 <Database :size="18" />
@@ -96,83 +93,25 @@
                 <span class="recent-name">{{ project.name }}</span>
                 <span class="recent-path">{{ project.path }}</span>
               </div>
-              <span class="recent-time">{{ formatTime(project.lastOpened) }}</span>
+              <span class="recent-time">{{ formatTime(project.updatedAt) }}</span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 新建项目对话框 -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showNewProjectModal" class="modal-overlay" @click.self="closeModal">
-          <div class="modal-container">
-            <header class="modal-header">
-              <h2>{{ t('workbench.newProject') }}</h2>
-              <button class="btn-close" @click="closeModal">
-                <X :size="20" />
-              </button>
-            </header>
-            <div class="modal-body">
-              <div class="form-section">
-                <label class="form-label">
-                  {{ t('workbench.projectName') }}
-                  <span class="required">*</span>
-                </label>
-                <input
-                  v-model="newProjectName"
-                  type="text"
-                  class="form-input"
-                  :placeholder="t('workbench.projectName')"
-                  @keyup.enter="confirmCreateProject"
-                />
-              </div>
-              <div class="form-section">
-                <label class="form-label">
-                  {{ t('workbench.projectDescription') }}
-                </label>
-                <textarea
-                  v-model="newProjectDescription"
-                  class="form-input"
-                  :placeholder="t('workbench.projectDescription')"
-                  rows="3"
-                />
-              </div>
-              <div class="form-section">
-                <label class="form-label">
-                  {{ t('workbench.projectPath') }}
-                  <span class="required">*</span>
-                </label>
-                <div class="path-input-wrapper">
-                  <input
-                    v-model="newProjectPath"
-                    type="text"
-                    class="form-input"
-                    :placeholder="t('workbench.selectProjectPath')"
-                    readonly
-                  />
-                  <button class="btn-browse" @click="browseProjectPath">
-                    {{ t('workbench.browse') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-            <footer class="modal-footer">
-              <button class="btn-secondary" @click="closeModal">{{ t('common.cancel') }}</button>
-              <button
-                class="btn-primary"
-                :disabled="!canCreateProject || isCreating"
-                @click="confirmCreateProject"
-              >
-                <span v-if="isCreating">{{ t('workbench.creating') }}</span>
-                <span v-else>{{ t('workbench.create') }}</span>
-              </button>
-            </footer>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <NewProjectModal
+      :visible="showNewProjectModal"
+      @confirm="handleCreateProject"
+      @cancel="showNewProjectModal = false"
+    />
+
+    <InvalidProjectDialog
+      :visible="showInvalidProjectDialog"
+      :selected-path="invalidPath"
+      @browse="handleBrowseAgain"
+      @close="showInvalidProjectDialog = false"
+    />
   </div>
 </template>
 
@@ -186,55 +125,30 @@ import {
   Zap,
   Shield,
   Layers,
-  X,
 } from 'lucide-vue-next'
-import { ref, computed, onMounted } from 'vue'
+import { useMessage } from 'naive-ui'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { useProjectStore } from '@/core/project/stores/project'
+import InvalidProjectDialog from '@/extensions/builtin/workbench/ui/components/title-bar/InvalidProjectDialog.vue'
+import NewProjectModal from '@/extensions/builtin/workbench/ui/components/title-bar/NewProjectModal.vue'
 import { useUiStore } from '@/shared/stores/ui'
 import { useAppStore } from '@/stores/useAppStore'
 
-interface Project {
-  id: string
-  name: string
-  description?: string
-  path: string
-  lastOpened: number
-}
-
 const { t } = useI18n()
 const router = useRouter()
+const message = useMessage()
 const uiStore = useUiStore()
 const projectStore = useProjectStore()
 
-// 新建项目对话框状态
 const showNewProjectModal = ref(false)
-const newProjectName = ref('')
-const newProjectDescription = ref('')
-const newProjectPath = ref('')
-const isCreating = ref(false)
+const showInvalidProjectDialog = ref(false)
+const invalidPath = ref('')
 
-// 计算属性
-const canCreateProject = computed(() => {
-  return newProjectName.value.trim() && newProjectPath.value.trim()
-})
-
-// 从 ProjectStore 获取最近项目列表
-const recentProjects = computed(() => {
-  return projectStore.recentProjects.map(p => ({
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    path: p.path,
-    lastOpened: new Date(p.updatedAt).getTime(),
-  }))
-})
-
-// 格式化时间
-const formatTime = (timestamp: number): string => {
-  const date = new Date(timestamp)
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr)
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -255,16 +169,7 @@ const formatTime = (timestamp: number): string => {
   }
 }
 
-// 创建新项目
-const createNewProject = () => {
-  showNewProjectModal.value = true
-  newProjectName.value = ''
-  newProjectDescription.value = ''
-  newProjectPath.value = ''
-}
-
-// 打开已有项目
-const openExistingProject = async () => {
+async function handleOpenExistingProject() {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog')
     const selected = await open({
@@ -274,131 +179,58 @@ const openExistingProject = async () => {
     })
 
     if (selected && typeof selected === 'string') {
-      const projectName = selected.split(/[/\\]/).pop() || t('workbench.untitledProject')
-      const project: Project = {
-        id: Date.now().toString(),
-        name: projectName,
-        path: selected,
-        lastOpened: Date.now(),
+      const project = await projectStore.openProject(selected)
+      if (project) {
+        await enterWorkbench(project.id, project.path)
+      } else {
+        invalidPath.value = selected
+        showInvalidProjectDialog.value = true
       }
-
-      addToRecentProjects(project)
-      await enterWorkbench(project)
     }
   } catch (error) {
     console.error('打开项目失败:', error)
+    message.error(t('workbench.openProjectFailed'))
   }
 }
 
-// 打开项目
-const openProject = async (project: Project) => {
-  project.lastOpened = Date.now()
-  addToRecentProjects(project)
-  await enterWorkbench(project)
+async function handleBrowseAgain() {
+  showInvalidProjectDialog.value = false
+  await handleOpenExistingProject()
 }
 
-// 进入工作台
-const enterWorkbench = async (project: Project) => {
-  console.log('enterWorkbench 被调用:', project)
-
-  localStorage.setItem('currentProject', JSON.stringify(project))
-
-  const projectStore = useProjectStore()
-  await projectStore.setCurrentProject({
-    id: project.id,
-    name: project.name,
-    description: project.description,
-    path: project.path,
-    createdAt: new Date(project.lastOpened).toISOString(),
-    updatedAt: new Date().toISOString(),
-  })
-
-  const appStore = useAppStore()
-  await appStore.openProject(project.path)
-
-  console.log('准备跳转到工作台')
-  router.push('/workbench')
-}
-
-// 添加到最近项目
-const addToRecentProjects = (project: Project) => {
-  // 最近项目列表由 ProjectStore 管理，通过 loadRecentProjects 从后端加载
-  // 这里只需要刷新列表即可
-  projectStore.loadRecentProjects(true)
-}
-
-// 清除最近项目
-const clearRecentProjects = () => {
-  // 清除操作需要调用后端 API（暂未实现）
-  // 暂时只刷新列表
-  projectStore.loadRecentProjects(true)
-}
-
-// 关闭对话框
-const closeModal = () => {
-  showNewProjectModal.value = false
-}
-
-// 浏览项目路径
-const browseProjectPath = async () => {
+async function handleOpenRecentProject(projectId: string) {
   try {
-    const { open } = await import('@tauri-apps/plugin-dialog')
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: t('workbench.selectProjectPath'),
-    })
-
-    if (selected && typeof selected === 'string') {
-      newProjectPath.value = selected
+    await projectStore.switchProject(projectId)
+    const p = projectStore.currentProject
+    if (p) {
+      await enterWorkbench(p.id, p.path)
     }
   } catch (error) {
-    console.error('选择路径失败:', error)
+    console.error('切换项目失败:', error)
+    message.error(t('workbench.switchProjectFailed'))
   }
 }
 
-// 确认创建项目
-const confirmCreateProject = async () => {
-  if (!canCreateProject.value) {
-    return
-  }
-
-  isCreating.value = true
-
+async function handleCreateProject(name: string, path: string, description?: string) {
   try {
-    const projectStore = useProjectStore()
-    const result = await projectStore.createProject(
-      newProjectName.value.trim(),
-      newProjectPath.value.trim(),
-      newProjectDescription.value.trim() || undefined
-    )
-
-    console.log('createProject 返回结果:', result)
-
-    if (result) {
-      const project: Project = {
-        id: result.id,
-        name: result.name,
-        description: result.description,
-        path: result.path,
-        lastOpened: Date.now(),
-      }
-
-      console.log('准备进入工作台:', project)
-      addToRecentProjects(project)
-      closeModal()
-      await enterWorkbench(project)
-    } else {
-      console.error('创建项目失败：返回结果为 null')
+    const project = await projectStore.createProject(name, path, description)
+    if (project) {
+      showNewProjectModal.value = false
+      await enterWorkbench(project.id, project.path)
+      message.success(t('workbench.createProjectSuccess'))
     }
   } catch (error) {
     console.error('创建项目失败:', error)
-  } finally {
-    isCreating.value = false
+    message.error(t('workbench.createProjectFailed'))
   }
 }
 
-// 生命周期
+async function enterWorkbench(projectId: string, projectPath: string) {
+  const appStore = useAppStore()
+  await appStore.openProject(projectPath)
+  router.push('/workbench')
+}
+
 onMounted(async () => {
   await projectStore.loadRecentProjects()
 })
@@ -406,99 +238,112 @@ onMounted(async () => {
 
 <style scoped>
 .project-select-view {
-  width: 100vw;
-  height: 100vh;
-  background: var(--bg-primary, #f8fafc);
   display: flex;
-  font-family: var(--font-sans);
-}
-
-.project-select-view.dark {
-  background: var(--bg-primary, #0f172a);
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--spacing-xl);
+  background:
+    radial-gradient(ellipse at 20% 50%, var(--brand-accent-soft) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, var(--primary-soft) 0%, transparent 50%),
+    var(--color-bg-primary);
+  user-select: none;
 }
 
 .main-content {
-  flex: 1;
   display: flex;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 60px;
-  gap: 80px;
+  gap: 0;
+  max-width: 960px;
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
-/* 左侧介绍区 */
+/* 左侧品牌区 */
 .left-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-right: 40px;
-}
-
-.brand {
-  margin-bottom: 60px;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  background: var(--color-bg-secondary);
 }
 
 .logo {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  margin-bottom: 24px;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--border-radius-md);
+  background: linear-gradient(135deg, var(--brand-accent) 0%, var(--primary-color) 100%);
+  color: #fff;
+  margin-bottom: var(--spacing-md);
 }
 
 .brand-title {
-  font-size: 42px;
+  font-size: 28px;
   font-weight: 700;
-  color: var(--text-primary, #1e293b);
-  margin: 0 0 8px 0;
+  color: var(--color-text-primary);
+  margin: var(--spacing-sm) 0;
+  letter-spacing: -0.5px;
 }
 
 .brand-subtitle {
-  font-size: 18px;
-  color: var(--text-secondary, #64748b);
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
   margin: 0;
 }
 
 .features {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-sm);
 }
 
 .feature-item {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  transition: background 0.15s ease;
+}
+
+.feature-item:hover {
+  background: var(--color-hover);
 }
 
 .feature-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--bg-secondary, white);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-color, #667eea);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--border-radius-sm);
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
   flex-shrink: 0;
 }
 
 .feature-text h3 {
-  font-size: 16px;
+  font-size: var(--font-size-md);
   font-weight: 600;
-  color: var(--text-primary, #1e293b);
-  margin: 0 0 4px 0;
+  color: var(--color-text-primary);
+  margin: 0 0 2px;
 }
 
 .feature-text p {
-  font-size: 14px;
-  color: var(--text-secondary, #64748b);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
   margin: 0;
+  line-height: 1.5;
 }
 
 /* 右侧操作区 */
@@ -506,180 +351,167 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  max-width: 480px;
+  gap: var(--spacing-md);
+  min-width: 0;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-elevated);
 }
 
 .action-cards {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 40px;
+  gap: var(--spacing-md);
 }
 
 .action-card {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 24px;
-  background: var(--bg-secondary, white);
-  border: 2px solid var(--border-color, #e2e8f0);
-  border-radius: 16px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
   cursor: pointer;
-  transition: all 0.3s;
-  flex-direction: row;
+  transition: all 0.15s ease;
 }
 
 .action-card:hover {
-  border-color: var(--primary-color, #667eea);
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
+  border-color: var(--brand-accent);
+  background: var(--brand-accent-soft);
 }
 
 .action-card.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: transparent;
-  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    color-mix(in srgb, var(--primary-color) 80%, var(--brand-accent)) 100%
+  );
+  border: none;
+  color: #fff;
 }
 
 .action-card.primary:hover {
-  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 16px var(--brand-accent-soft);
 }
 
-.action-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: var(--bg-tertiary, #f1f5f9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary-color, #667eea);
-  flex-shrink: 0;
+.action-card.primary .action-content h2,
+.action-card.primary .action-content p {
+  color: #fff;
 }
 
 .action-card.primary .action-icon {
   background: rgba(255, 255, 255, 0.2);
-  color: white;
+  border-radius: var(--border-radius-sm);
+  color: #fff;
+}
+
+.action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--border-radius-sm);
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
+  flex-shrink: 0;
 }
 
 .action-content {
   flex: 1;
-  text-align: left;
+  min-width: 0;
 }
 
 .action-content h2 {
-  font-size: 18px;
+  font-size: var(--font-size-md);
   font-weight: 600;
-  margin: 0 0 4px 0;
-  color: var(--text-primary, #1e293b);
-  writing-mode: horizontal-tb;
-  text-orientation: mixed;
-  white-space: nowrap;
-}
-
-.action-card.primary .action-content h2 {
-  color: white;
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
 }
 
 .action-content p {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
   margin: 0;
-  color: var(--text-secondary, #64748b);
-  writing-mode: horizontal-tb;
-  text-orientation: mixed;
-  white-space: nowrap;
-}
-
-.action-card.primary .action-content p {
-  color: rgba(255, 255, 255, 0.8);
 }
 
 /* 最近项目 */
 .recent-section {
-  background: var(--bg-secondary, white);
-  border-radius: 16px;
-  padding: 24px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
 }
 
 .recent-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
 }
 
 .recent-header h3 {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--text-secondary, #64748b);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 0;
 }
 
-.clear-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary, #94a3b8);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.clear-btn:hover {
-  background: var(--bg-hover, #f1f5f9);
-  color: var(--text-secondary, #64748b);
-}
-
 .recent-empty {
-  text-align: center;
-  padding: 32px;
-  color: var(--text-tertiary, #94a3b8);
-}
-
-.recent-empty svg {
-  margin-bottom: 12px;
-  opacity: 0.5;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  color: var(--color-text-muted);
 }
 
 .recent-empty p {
+  font-size: var(--font-size-sm);
   margin: 0;
-  font-size: 14px;
 }
 
 .recent-list {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 
 .recent-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 10px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s ease;
 }
 
 .recent-item:hover {
-  background: var(--bg-hover, #f8fafc);
+  background: var(--color-hover);
 }
 
 .recent-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--bg-tertiary, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-color, #667eea);
+  color: var(--color-text-muted);
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--color-bg-tertiary);
 }
 
 .recent-info {
@@ -687,223 +519,51 @@ onMounted(async () => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 .recent-name {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--text-primary, #1e293b);
-  white-space: nowrap;
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recent-path {
-  font-size: 12px;
-  color: var(--text-tertiary, #94a3b8);
-  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  direction: rtl;
+  text-align: left;
 }
 
 .recent-time {
-  font-size: 12px;
-  color: var(--text-tertiary, #94a3b8);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
-/* 对话框 - 使用主题变量 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
+/* 响应式 */
+@media (max-width: 720px) {
+  .project-select-view {
+    padding: var(--spacing-md);
+  }
 
-.modal-container {
-  background: var(--bg-secondary, #ffffff);
-  border-radius: 16px;
-  width: 100%;
-  max-width: 480px;
-  overflow: hidden;
-  border: 1px solid var(--border-color, #e0e0e0);
-}
+  .main-content {
+    flex-direction: column;
+    gap: 0;
+  }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
-}
+  .left-panel {
+    padding: var(--spacing-lg);
+  }
 
-.modal-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary, #1e293b);
-  margin: 0;
-}
-
-.btn-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: var(--bg-tertiary, #f1f5f9);
-  color: var(--text-secondary, #64748b);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-close:hover {
-  background: var(--bg-hover, #e2e8f0);
-  color: var(--text-primary, #475569);
-}
-
-.modal-body {
-  padding: 24px;
-}
-
-.form-section {
-  margin-bottom: 20px;
-}
-
-.form-section:last-child {
-  margin-bottom: 0;
-}
-
-.form-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary, #374151);
-  margin-bottom: 8px;
-}
-
-.form-label .required {
-  color: var(--danger-color, #ef4444);
-  margin-left: 4px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
-  font-size: 14px;
-  color: var(--text-primary, #1e293b);
-  background: var(--bg-primary, #ffffff);
-  transition: all 0.2s;
-  resize: vertical;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--primary-color, #667eea);
-  box-shadow: 0 0 0 3px var(--primary-light, rgba(102, 126, 234, 0.1));
-}
-
-.form-input::placeholder {
-  color: var(--text-tertiary, #94a3b8);
-}
-
-.path-input-wrapper {
-  display: flex;
-  gap: 8px;
-}
-
-.path-input-wrapper .form-input {
-  flex: 1;
-}
-
-.btn-browse {
-  padding: 10px 16px;
-  border: 1px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
-  background: var(--bg-tertiary, #f1f5f9);
-  color: var(--text-secondary, #374151);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.btn-browse:hover {
-  background: var(--bg-hover, #e2e8f0);
-  border-color: var(--border-color, #9ca3af);
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--border-color, #e0e0e0);
-  background: var(--bg-tertiary, #f8fafc);
-}
-
-.btn-secondary {
-  padding: 10px 20px;
-  border: 1px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
-  background: var(--bg-secondary, #ffffff);
-  color: var(--text-secondary, #374151);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover {
-  background: var(--bg-hover, #f9fafb);
-  border-color: var(--border-color, #9ca3af);
-}
-
-.btn-primary {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  background: var(--primary-color, #667eea);
-  color: white;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--primary-dark, #5a67d8);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 过渡动画 */
-.modal-enter-active,
-.modal-leave-active {
-  transition: all 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .modal-container,
-.modal-leave-to .modal-container {
-  transform: scale(0.95);
+  .right-panel {
+    padding: var(--spacing-md);
+  }
 }
 </style>

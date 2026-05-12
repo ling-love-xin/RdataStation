@@ -43,7 +43,7 @@ export function useTitleBar() {
 
   // 打开项目
   async function openProject(path: string) {
-    await projectStore.openProject(path)
+    return await projectStore.openProject(path)
   }
 
   // 重命名项目

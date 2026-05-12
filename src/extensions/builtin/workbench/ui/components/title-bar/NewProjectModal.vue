@@ -87,6 +87,22 @@ function handleCancel() {
 }
 </script>
 
-<style scoped>
+<style>
+/*
+ * 非 scoped：modal 通过 Teleport 挂载到 body，
+ * scoped CSS 不会穿透到 Teleported 子节点。
+ */
 @import './modal.css';
+
+.modal-overlay {
+  backdrop-filter: blur(12px);
+}
+
+.modal-container {
+  background: var(--modal-surface-bg, var(--color-bg-elevated, #ffffff));
+}
+
+.modal-body {
+  background: var(--modal-surface-bg, var(--color-bg-elevated, #ffffff));
+}
 </style>

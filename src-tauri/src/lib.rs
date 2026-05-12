@@ -81,7 +81,8 @@ pub fn run() {
     }
 
     // 阶段2: 数据库就绪后，创建 LogStore 并启动日志消费任务
-    let _log_store = {
+    // 必须在 Tokio runtime 上下文中调用 spawn_log_consumer（内部使用 tokio::spawn）
+    let _log_store = rt.block_on(async {
         let db_manager = core::migration::get_global_db_manager();
         match db_manager {
             Some(manager) => {
@@ -97,7 +98,7 @@ pub fn run() {
                 None
             }
         }
-    };
+    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -298,6 +299,7 @@ pub fn run() {
             remove_external_reference,
             open_scratchpad_in_explorer,
             check_scratchpad_file_size,
+            get_scratchpad_entry,
             init_scratchpad_store,
             list_scratchpad_trash,
             restore_scratchpad_from_trash,

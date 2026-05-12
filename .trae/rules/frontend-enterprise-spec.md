@@ -86,83 +86,74 @@ src/
 ## 2.1 全局布局结构（VSCode 风格，基于 dockview Edge Group）
 
 ```
-                    收起态（默认）
-            B : C : D = 1 : 2 : 1
+                    三栏布局
+                A : B : C = 1 : 2 : 1
 
-┌──────────────────────────────────────────────────┐
-│ Menu Bar（36px，非 dockview）                      │
-├──┬──────────┬──────────────────────┬───────────┬┤
-│A*│ B        │ C                    │ D         ││
-│48│ Database │ Workbench            │ Right     ││
-│px│Navigator │ (Normal Group, ~50%) │ Edge Group││
-│  │+ 草稿箱  │                      │ (25%)     ││
-│  │(Normal)  │ • Welcome Page       │• 列洞察   ││
-│  │          │ • SQL Editor         │• SQL历史  ││
-│  │          │ • Query Result       │           ││
-├──┴──────────┴──────────────────────┴───────────┤│
-│ Status Bar（22px，含 ⚙ 设置入口）                 │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│ Menu Bar（36px，非 dockview）                          │
+├────┬──────────────────────────────┬─────────────────┬┤
+│ A  │ B                            │ C               ││
+│Left│ Workbench                    │ Right           ││
+│Edge│ (Normal Group)               │ Edge Group      ││
+│Grp │                              │                 ││
+│    │ • Welcome Page               │• 列洞察         ││
+│    │ • SQL Editor                 │• Mock 数据      ││
+│    │ • Query Result               │• SQL 历史       ││
+│    │                              │                 ││
+├────┴──────────────────────────────┴─────────────────┤│
+│ Status Bar（22px，含 ⚙ 设置入口）                     │
+└──────────────────────────────────────────────────────┘
 
-                    展开态
-         A : B : C : D = 1 : 1 : 1 : 1
-
-┌──────────────────────────────────────────────────┐
-│ Menu Bar（36px，非 dockview）                      │
-├────┬──────────┬──────────────┬─────────────────┬┤
-│ A  │ B        │ C            │ D               ││
-│Left│ Database │ Workbench    │ Right           ││
-│Edge│Navigator │ (Normal Grp) │ Edge Group      ││
-│Grp │+ 草稿箱  │              │                 ││
-│    │(Normal)  │              │                 ││
-│25% │ 25%      │ 25%          │ 25%             ││
-├────┴──────────┴──────────────┴─────────────────┤│
-│ Status Bar（22px，含 ⚙ 设置入口）                 │
-└──────────────────────────────────────────────────┘
-A* = 收起态下 Left Edge Group 仅 48px 窄条（含展开/收起按钮）
+A 栏 tab（标题区）：草稿箱 | 数据库导航 | 分析资源管理 | 插件
+C 栏 tab（标题区）：列洞察 | Mock 数据 | SQL 历史
+A / C 初始展开，A:B:C = 1:2:1；收起后仅 48px tab 条
 ```
 
 **核心原则：**
 
-- 收起态（默认）：`B : C : D = 1 : 2 : 1`，A 为 48px 窄条
-- 展开态：`A : B : C : D = 1 : 1 : 1 : 1`，四区等宽
-- 切换方式：点击左侧 Edge Group 的展开/收起按钮（dockview 内置控件）
+- **三栏布局** `A : B : C = 1 : 2 : 1`，A / C 初始展开
+- A 栏（Left Edge Group）：[草稿箱, 数据库导航, 分析资源管理, 插件] tab 列在标题区
+- B 栏（Center Normal Group）：Welcome Page / SQL Editor / Query Result 主工作区
+- C 栏（Right Edge Group）：[列洞察, Mock数据, SQL历史] tab 列在标题区
+- 收起态：A / C 收缩为 48px tab 条，点击 tab 切换面板
+- 切换方式：点击 Edge Group 的展开/收起按钮（dockview 内置控件）
 - **Edge Group 面板不显示关闭按钮（CSS 隐藏）**
-- **展开/收起使用 dockview 内置的 `group.api.collapse()` / `group.api.expand()`**
+- **展开/收起使用 `group.api.collapse()` / `group.api.expand()`**
 - **设置入口位于状态栏右侧齿轮图标**
 
 ## 2.2 布局区域职责
 
-| 区域               | 代号 | 技术                | 收起态宽度 | 展开态宽度 | 说明                                         |
-| ------------------ | ---- | ------------------- | ---------- | ---------- | -------------------------------------------- |
-| Menu Bar           | -    | 自定义              | 36px       | 36px       | 标题栏+菜单，非 dockview                     |
-| Left Edge Group    | A    | dockview Edge Group | 48px       | 25%        | analytics/plugins 面板，收起态仅 48px 窄条   |
-| B 区               | B    | dockview Normal Grp | 25%\*      | 25%        | 数据库导航 + 草稿箱（同一组，tab 切换）      |
-| Center Area        | C    | dockview Normal Grp | 50%\*      | 25%        | Welcome Page、SQL Editor、Result             |
-| Right Edge Group   | D    | dockview Edge Grp   | 25%\*      | 25%        | 列洞察、SQL 历史，始终展开                   |
-| Status Bar         | -    | 自定义              | 22px       | 22px       | 状态信息+⚙ 设置入口，非 dockview             |
-
-\* 收起态比例 B:C:D = 1:2:1 为 dockview 内扣除左侧 Edge Group 48px 后的剩余宽度比例
+| 区域             | 代号 | 技术                | 初始宽度 | 说明                                                 |
+| ---------------- | ---- | ------------------- | -------- | ---------------------------------------------------- |
+| Menu Bar         | -    | 自定义              | 36px     | 标题栏+菜单+Customize Layout 按钮，非 dockview      |
+| Left Edge Group  | A    | dockview Edge Grp   | 25%      | 草稿箱/数据库导航/分析资源/插件(tab)         |
+| Center Area      | B    | dockview Normal Grp | 50%      | Welcome Page / SQL Editor / Query Result      |
+| Right Edge Group | C    | dockview Edge Grp   | 25%      | 列洞察/Mock数据/SQL历史(tab)                  |
+| Status Bar       | -    | 自定义              | 22px     | 状态信息+⚙ 设置入口，非 dockview                     |
 
 ## 2.3 Workbench 工作台布局
 
-- **收起态（默认）** `B : C : D = 1 : 2 : 1`：A 仅占 48px 窄条
-- **展开态** `A : B : C : D = 1 : 1 : 1 : 1`：四区等宽，各 25%
-- **切换**：点击左侧 Edge Group 的展开/收起按钮（dockview 内置控件）
-- **A 区（左侧 Edge Group）**：analytics / plugins 面板，收起态仅 48px 窄条
-- **B 区**：数据库导航 + 草稿箱，同一 Normal Group，tab 切换
-- **C 区（Center Area）**：Welcome Page、SQL Editor（按需）、Query Result（按需）
-- **D 区（Right Edge Group）**：列洞察、SQL 历史（dockview tab 组），始终展开
+- **三栏** `A : B : C = 1 : 2 : 1`，A / C 初始展开
+- **收起态**：A / C 收缩为 48px tab 条，点击 tab 切换面板
+- **展开态**：A / C 与 B 各占 1:2:1 比例
+- **A 栏（左侧 Edge Group）**：草稿箱, 数据库导航, 分析资源管理, 插件（tab）
+- **B 栏（中心 Normal Group）**：Welcome Page、SQL Editor（按需）、Query Result（按需）
+- **C 栏（右侧 Edge Group）**：列洞察, Mock数据, SQL历史（tab）
 - **Edge Group 面板无关闭按钮，Normal Group 面板有关闭按钮**
 - **所有面板支持拖拽、浮动、弹出、重组、最大化**
+- **面板 tab 图标化**：使用 `iconTab` 自定义 tab 组件，根据面板组件 ID 自动匹配 lucide 图标
+- **Edge Group 面板渲染优化**：`renderer: 'onlyWhenVisible'`，收起后不再渲染 DOM
+- **快捷键**：`Ctrl+B` toggle 左侧栏，`Ctrl+Shift+B` toggle 右侧栏，`Esc` 退出最大化
 
 ## 2.4 dockview-vue 6.0 规则
 
-- 版本：**dockview-vue 6.0+**
-- 组件注册：通过 `getCurrentInstance().appContext.components` 全局注册
-- 面板创建：使用 `api.addPanel({ id, component, title, position, ... })`
-- 固定宽度面板：设置 `minimumWidth` = `maximumWidth` = 目标宽度
+- 版本：**dockview-vue 6.1.1**
+- 组件注册：通过 `app.component()` 全局注册，dockview 用 `appContext.components[name]` 精确匹配（大小写敏感）
+- 面板创建：使用 `api.addPanel({ id, component, title, position, renderer, ... })`
+- **Edge Group 操作**：使用 `api.getEdgeGroup('left'|'right')` 获取 group API，调用 `.collapse()` / `.expand()`
 - Edge Group 创建：`api.addEdgeGroup('left'|'right', { id, initialSize, minimumSize, maximumSize })`
-- Edge Group 收起/展开：使用 dockview 内置 `group.api.collapse()` / `group.api.expand()`
+- **自定义 Tab 组件**：`<DockviewVue default-tab-component="iconTab" />`
+- **面板渲染模式**：`renderer: 'onlyWhenVisible'` — 不可见面板不渲染 DOM；默认 `always`
 - 浮动面板：`api.addFloatingGroup(panel)` / `panel.api.moveTo({ position: 'center' })`
 - 面板内边距：**12px**
 - 间距：**8px**
@@ -170,7 +161,43 @@ A* = 收起态下 Left Edge Group 仅 48px 窄条（含展开/收起按钮）
 - 面板标题高度：**36px**
 - 支持：拖拽、折叠、关闭、最大化、分栏、标签组
 - **禁止过度嵌套、禁止面板混乱**
+
+### 2.4.1 快捷键清单
+
+| 快捷键 | 功能 | 实现位置 |
+|--------|------|---------|
+| `Ctrl+B` / `Cmd+B` | Toggle 左侧 Edge Group | `useDockviewKeyboard.ts` |
+| `Ctrl+Shift+B` / `Cmd+Shift+B` | Toggle 右侧 Edge Group | `useDockviewKeyboard.ts` |
+| `Esc` | 退出最大化（边栏/面板） | `useDockviewKeyboard.ts` |
+
+### 2.4.2 面板图标映射
+
+| 面板组件 ID | lucide 图标 | 说明 |
+|------------|------------|------|
+| `scratchpad` | `StickyNote` | 草稿箱 |
+| `databaseNavigator` | `Database` | 数据库导航 |
+| `analytics-resource-manager` | `BarChart3` | 分析资源管理 |
+| `plugins` | `Puzzle` | 插件管理 |
+| `sqlHistory` | `FileText` | SQL 历史 |
+| `mockPanel` | `Dices` | Mock 数据 |
+| `columnInsights` | `Sparkles` | 列洞察 |
+| `emptyWorkbench` | `Layout` | 欢迎页 |
+| 其他 | `Layout`（默认） | 新面板无匹配图标时使用 |
 - **布局数据持久化到 localStorage，启动时恢复**
+
+### 2.4.3 自定义布局对话框
+
+通过标题栏右侧 `LayoutTemplate` 按钮或状态栏 ⚙ 图标打开 `CustomizeLayoutDialog`：
+
+| 功能 | 说明 |
+|------|------|
+| **Edge Groups 面板** | 左右 Edge Group 显示/隐藏 toggle + 宽度滑块（200px~600px），实时生效 |
+| **Presets 面板** | 预设布局方案：default / compact / analysis，从 `layout-config.ts` 读取，Apply 即应用 |
+| **Chrome 面板** | Menu Bar / Status Bar 显示/隐藏 toggle |
+| **Reset Default** | 恢复默认：左右展开，宽度 300px，清除预设选择 |
+| **Done** | 关闭对话框，布局状态自动持久化到 localStorage |
+
+布局变更实时生效（滑条拖动即更新 `group.setSize()`，toggle 即时调用 `collapse/expand`），不影响当前打开的面板和工作内容。
 
 ## 2.5 交互统一
 
