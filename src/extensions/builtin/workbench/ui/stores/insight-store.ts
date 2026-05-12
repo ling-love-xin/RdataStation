@@ -566,6 +566,7 @@ export const useInsightStore = defineStore('insight', () => {
     isCleaning,
     cleanupResult,
     cleanupOldSnapshots,
+    cleanupInsightSnapshots,
 
     diffVersionId,
     diffData,

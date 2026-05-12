@@ -324,6 +324,8 @@ import { createDiscreteApi, darkTheme, lightTheme, NButton, NDropdown, NInput, N
 import { computed, ref, onMounted, onUnmounted, watch, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
+
 
 import { useInsightStore } from '@/extensions/builtin/workbench/ui/stores/insight-store'
 import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
@@ -507,8 +509,6 @@ interface SelectedCell {
 }
 const selectedCell = ref<SelectedCell | null>(null)
 
-const { t } = useI18n()
-
 const viewModes = [
   { key: 'grid' as ViewMode, icon: Database, label: t('workbench.gridView') },
   { key: 'text' as ViewMode, icon: AlignLeft, label: t('workbench.textView') },
@@ -687,10 +687,12 @@ function onSortChanged() {
 }
 function onCellValueChanged(event: CellValueChangedEvent) {
   if (!activeTab.value) return
-  const { rowIndex, colDef, oldValue, newValue } = event
-  const key = dirtyKey(rowIndex, colDef.field)
+  const { colDef, oldValue, newValue } = event
+  const rowIndex = event.rowIndex ?? 0
+  const colId = colDef.field ?? ''
+  const key = dirtyKey(rowIndex, colId)
   if (!dirtyCells.value.has(key)) {
-    dirtyCells.value.set(key, { rowIndex, colId: colDef.field, oldValue, newValue })
+    dirtyCells.value.set(key, { rowIndex, colId, oldValue, newValue })
   } else {
     const existing = dirtyCells.value.get(key)!
     if (existing.oldValue === newValue) {

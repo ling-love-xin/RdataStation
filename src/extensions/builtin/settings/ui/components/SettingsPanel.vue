@@ -96,7 +96,7 @@ async function applyAllSettings() {
     )
   }
 
-  const results = await appStore.saveBatch(batch)
+  const results = await appStore.saveBatch(batch as any)
 
   const failures = results.filter(r => !r.success)
   if (failures.length > 0) {

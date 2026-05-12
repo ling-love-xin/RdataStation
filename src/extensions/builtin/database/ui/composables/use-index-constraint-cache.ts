@@ -219,7 +219,7 @@ export function useIndexConstraintCache() {
         loadConstraints(connectionId, dbName, schemaName || '', tableName),
       ])
 
-      const indexMetas: IndexMeta[] = indexes.map(idx => ({
+      const indexMetas: IndexMeta[] = (indexes as any[]).map((idx: any) => ({
         id: `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:${idx.name}`,
         name: idx.name,
         tableName,
@@ -230,7 +230,7 @@ export function useIndexConstraintCache() {
         comment: ((idx as unknown as Record<string, unknown>).comment as string) || null,
       }))
 
-      const constraintMetas: ConstraintMeta[] = constraints.map(con => ({
+      const constraintMetas: ConstraintMeta[] = (constraints as any[]).map((con: any) => ({
         id: `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:${con.name}`,
         name: con.name,
         tableName,

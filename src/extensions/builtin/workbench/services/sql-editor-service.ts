@@ -156,7 +156,7 @@ export async function getDatabaseSchema(
     })
     return dbSchema
   } catch {
-    return { tables: [] }
+    return { tables: [], views: [], functions: [] }
   }
 }
 
@@ -353,7 +353,7 @@ export async function formatSql(sql: string, dialect?: SqlDialect): Promise<stri
     })
 
     if (result.success) {
-      return result.formatted_sql
+      return result.formatted_sql ?? ''
     } else {
       // 静默返回原始 SQL，不打印警告
       return sql
@@ -382,7 +382,7 @@ export async function transpileSql(
     })
 
     if (result.success) {
-      return result.transpiled_sql
+      return result.transpiled_sql ?? sql
     }
     return sql
   } catch {

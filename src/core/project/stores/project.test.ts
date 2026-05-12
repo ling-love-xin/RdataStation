@@ -26,7 +26,7 @@ import { ProjectService } from '@/extensions/builtin/workbench/ui/services/proje
 import { useProjectStore } from './project'
 
 const mockInvoke = invoke as ReturnType<typeof vi.fn>
-const mockService = ProjectService as Record<string, ReturnType<typeof vi.fn>>
+const mockService = ProjectService as unknown as Record<string, ReturnType<typeof vi.fn>>
 
 function mockProjectInfo(overrides: Record<string, unknown> = {}) {
   return {
@@ -38,6 +38,8 @@ function mockProjectInfo(overrides: Record<string, unknown> = {}) {
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-05-01T00:00:00Z',
     last_opened_at: '2026-05-10T00:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-05-01T00:00:00Z',
     version: '1.0',
     ...overrides,
   }

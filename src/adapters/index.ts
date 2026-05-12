@@ -6,6 +6,8 @@
 
 import type { DatabaseMetaAdapter } from '@/shared/types/databaseMeta'
 
+export type { DatabaseMetaAdapter }
+
 // 适配器注册表
 const adapters = new Map<string, DatabaseMetaAdapter>()
 

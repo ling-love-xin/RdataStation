@@ -6,6 +6,7 @@ export interface ScratchpadEntry {
   kind: ScratchpadEntryKind
   size: number
   modified_at: string | null
+  children?: ScratchpadEntry[]
 }
 
 export interface SearchMatch {

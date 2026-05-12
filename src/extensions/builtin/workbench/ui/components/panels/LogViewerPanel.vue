@@ -5,7 +5,7 @@
       <div class="log-toolbar-left">
         <NSelect
           v-model:value="selectedLevel"
-          :options="levelOptions"
+          :options="(levelOptions as any)"
           placeholder="全部级别"
           size="small"
           clearable
@@ -171,7 +171,7 @@ const pageSizeOptions = [
   { label: '200条/页', value: 200 },
 ]
 
-const levelOptions = [
+const levelOptions: Array<{ label: string; value: string | null; type?: 'group' | 'ignored' }> = [
   { label: '全部级别', value: null },
   { label: 'TRACE', value: 'TRACE' },
   { label: 'DEBUG', value: 'DEBUG' },
@@ -298,8 +298,8 @@ function onRowDoubleClicked(event: RowDoubleClickedEvent) {
 
 async function onExport() {
   try {
-    const level = selectedLevel.value as LogLevel | null
-    const records = await store.exportLogs(level)
+    const level = selectedLevel.value ?? undefined
+    const records = await store.exportLogs(level as LogLevel | undefined)
     if (!records || records.length === 0) {
       notification.warning({ title: '导出', content: '没有可导出的日志记录' })
       return

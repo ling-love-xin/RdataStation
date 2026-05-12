@@ -423,7 +423,6 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     storeResult,
     checkForParams,
     buildBoundSql,
-    executeExplain,
     cleanup,
   }
 }

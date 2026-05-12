@@ -154,6 +154,7 @@ import {
 import { NButton, NInput, useMessage } from 'naive-ui'
 import { nextTick, onBeforeUnmount, onMounted, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { storeToRefs } from 'pinia'
 
 import { useProjectStore } from '@/core/project/stores/project'
 import type { Project } from '@/core/project/stores/project'
@@ -177,6 +178,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const message = useMessage()
 const projectStore = useProjectStore()
+const { recentProjects } = storeToRefs(projectStore)
 
 const showPanel = ref(false)
 const panelRef = ref<HTMLElement | null>(null)

@@ -513,6 +513,7 @@ const { message } = createDiscreteApi(['message'])
 const {
   response,
   isLoading,
+  notInitialized,
   error,
   searchQuery,
   localEntries,

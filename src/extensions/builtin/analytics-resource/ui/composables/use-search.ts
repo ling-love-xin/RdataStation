@@ -14,7 +14,8 @@ export function useSearch(options: UseSearchOptions = {}) {
   const debouncedQuery = ref('')
   const isSearching = ref(false)
 
-  const debouncedSearch = useDebounceFn(async (query: string) => {
+  const debouncedSearch = useDebounceFn((...args: unknown[]) => {
+    const query = args[0] as string
     debouncedQuery.value = query
     isSearching.value = true
     try {

@@ -39,6 +39,7 @@ export interface ConnectionConfiguration {
   password?: string
   properties?: Record<string, unknown>
   options?: Record<string, unknown>
+  url?: string
   connectionMethod?: ConnectionMethodConfig
   connectionType?: 'global' | 'project'
   useDuckdbFed?: boolean

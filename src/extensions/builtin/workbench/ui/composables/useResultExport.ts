@@ -13,7 +13,7 @@ import type { GridApi } from 'ag-grid-community'
 export function useResultExport(
   activeTab: ComputedRef<ResultTab | null>,
   gridApi: Ref<GridApi | null>,
-  rowData: ComputedRef<unknown[][]>,
+  rowData: ComputedRef<Record<string, unknown>[]>,
   message: { success: (msg: string) => void; error: (msg: string) => void; loading: (msg: string, opts?: Record<string, unknown>) => { destroy: () => void }; info: (msg: string) => void },
 ) {
   function generateCsv(): string {

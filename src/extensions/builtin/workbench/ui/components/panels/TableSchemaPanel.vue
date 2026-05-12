@@ -37,7 +37,7 @@ const columnColumns: DataTableColumns<ColumnInfo> = [
   {
     title: t('workbench.nullable'),
     key: 'nullable',
-    render: row => (row.nullable ? t('workbench.yes') : t('workbench.no')),
+    render: row => (row.isNullable ? t('workbench.yes') : t('workbench.no')),
   },
   { title: t('workbench.defaultValue'), key: 'defaultValue' },
 ]

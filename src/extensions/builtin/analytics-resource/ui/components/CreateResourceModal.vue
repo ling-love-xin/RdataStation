@@ -195,6 +195,7 @@ function handleSubmit() {
       source_query: form.value.source_query || undefined,
     }
 
+    jsonError.value = null
     if (isEdit.value && props.editResource) {
       emit('update', props.editResource.id, input)
     } else {
@@ -202,15 +203,6 @@ function handleSubmit() {
     }
   } catch {
     jsonError.value = t('analyticsResource.jsonFormatError')
-    return
-  }
-
-  jsonError.value = null
-
-  if (isEdit.value && props.editResource) {
-    emit('update', props.editResource.id, input)
-  } else {
-    emit('create', input)
   }
 }
 

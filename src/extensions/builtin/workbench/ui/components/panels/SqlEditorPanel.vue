@@ -154,6 +154,7 @@ import {
   registerDatabaseCompletionProvider,
   registerSqlFoldingProvider,
   setErrorMarker,
+  clearErrorMarkers,
 } from '@/extensions/builtin/workbench/services/sql-editor-service'
 import { addCustomSnippet } from '@/extensions/builtin/workbench/services/sql-snippets'
 import { useConnectionBinding } from '@/extensions/builtin/workbench/ui/composables/useConnectionBinding'

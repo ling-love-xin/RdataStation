@@ -106,7 +106,7 @@ export function parseDriverSchema(schema: DriverFormSchema): DriverDescriptor {
     supportsSshTunnel: schema.metadata?.supportsSshTunnel,
     supportsHttpProxy: schema.metadata?.supportsHttpProxy,
     supportsSocksProxy: schema.metadata?.supportsSocksProxy,
-    navigation: schema.navigation,
+    navigation: schema.navigation as Record<string, unknown> | undefined,
     extraOptions: extractExtraOptions(schema.sections),
   }
 }
