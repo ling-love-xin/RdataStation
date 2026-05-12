@@ -28,7 +28,7 @@ Build Tool: Vite 6.x
 UI Layout Engine: dockview-vue 6.1.1
 Component Library: naive-ui 2.44.1
 Icon Library: lucide-vue-next 0.460.0
-Table Engine: AG Grid 32.3.9
+Table Engine: AG Grid 35.3.0
 Editor: Monaco Editor 0.55.1
 State Management: Pinia 3.0.4
 

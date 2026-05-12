@@ -1,7 +1,7 @@
 import { computed, readonly, ref, shallowRef, watch, type ComputedRef } from 'vue'
 
 import type { ResultTab } from '../types/result'
-import type { ColDef, GridApi, ValueGetterParams, ColumnState } from '@ag-grid-community/core'
+import type { ColDef, GridApi, ValueGetterParams, ColumnState } from 'ag-grid-community'
 
 export interface UseGridConfigOptions {
   activeTab: ComputedRef<ResultTab | null>

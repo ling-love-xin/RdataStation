@@ -5,7 +5,7 @@ import {
 } from '../services/result-analysis'
 
 import type { ResultTab } from '../types/result'
-import type { GridApi, IRowNode } from '@ag-grid-community/core'
+import type { GridApi, IRowNode } from 'ag-grid-community'
 import type { Ref } from 'vue'
 
 type FilterGridApi = GridApi & { setQuickFilter: (value: string) => void }

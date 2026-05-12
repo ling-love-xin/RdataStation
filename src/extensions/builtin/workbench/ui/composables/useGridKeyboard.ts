@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted, type ComputedRef } from 'vue'
 
 import type { ResultTab } from '../types/result'
-import type { GridApi } from '@ag-grid-community/core'
+import type { GridApi } from 'ag-grid-community'
 
 export interface KeyboardBinding {
   key: string

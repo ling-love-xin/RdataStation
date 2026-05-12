@@ -300,10 +300,9 @@
 </template>
 
 <script setup lang="ts">
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model'
-import { ModuleRegistry } from '@ag-grid-community/core'
-import '@ag-grid-community/styles/ag-grid.css'
-import '@ag-grid-community/styles/ag-theme-alpine.css'
+import { ClientSideRowModelModule, ModuleRegistry } from 'ag-grid-community'
+import 'ag-grid-community/styles/ag-grid.css'
+import 'ag-grid-community/styles/ag-theme-alpine.css'
 import {
   Database,
   RotateCw,
@@ -356,7 +355,7 @@ interface PresetSelectEvent {
   filterMode: FilterMode
   expression: string
 }
-import type { RowDataUpdatedEvent, RowClickedEvent, CellContextMenuEvent, CellValueChangedEvent } from '@ag-grid-community/core'
+import type { RowDataUpdatedEvent, RowClickedEvent, CellContextMenuEvent, CellValueChangedEvent } from 'ag-grid-community'
 
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])

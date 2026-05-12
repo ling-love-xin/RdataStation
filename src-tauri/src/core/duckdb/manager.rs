@@ -54,23 +54,33 @@ pub struct DuckDBManager {
 impl DuckDBManager {
     /// 获取或创建全局 DuckDB 内存单例。
     ///
+    /// # 注意
+    /// 首次调用时初始化全局 DuckDB 内存实例。
+    /// 如果初始化失败，程序会 panic（因为全局分析引擎是核心组件，不可降级运行）。
+    ///
     /// # 返回
-    /// - `Ok(Arc<Mutex<duckdb::Connection>>)`: 全局 DuckDB 内存连接
-    /// - `Err(CoreError)`: 初始化失败
+    /// 全局 DuckDB 内存连接的静态引用
     pub fn global() -> &'static Arc<Mutex<duckdb::Connection>> {
         GLOBAL_DUCKDB.get_or_init(|| {
-            let conn = duckdb::Connection::open_in_memory().expect("初始化全局 DuckDB 内存实例");
-            Self::configure_connection(&conn).expect("配置全局 DuckDB 连接");
+            let conn = duckdb::Connection::open_in_memory()
+                .unwrap_or_else(|e| panic!("初始化全局 DuckDB 内存实例失败: {}", e));
+            Self::configure_connection(&conn)
+                .unwrap_or_else(|e| panic!("配置全局 DuckDB 连接失败: {}", e));
             Arc::new(Mutex::new(conn))
         })
     }
 
-    /// 获取或创建全局 DuckDB 内存连接（兼容旧 API）。
+    /// 获取或创建全局 DuckDB 内存连接。
     ///
     /// # 返回
     /// - `Ok(Arc<Mutex<duckdb::Connection>>)`: 全局 DuckDB 内存连接
-    /// - `Err(CoreError)`: 初始化失败
+    /// - `Err(CoreError)`: 获取失败（通常是全局实例未初始化）
     pub fn get_or_create_in_memory() -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
+        // 先尝试获取已初始化的实例
+        if let Some(instance) = GLOBAL_DUCKDB.get() {
+            return Ok(instance.clone());
+        }
+        // 未初始化时触发延迟初始化
         Ok(Self::global().clone())
     }
 

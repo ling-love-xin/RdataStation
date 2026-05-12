@@ -7,7 +7,7 @@ import {
 } from '../services/result-analysis'
 
 import type { ResultTab } from '../types/result'
-import type { GridApi } from '@ag-grid-community/core'
+import type { GridApi } from 'ag-grid-community'
 
 
 export function useResultExport(

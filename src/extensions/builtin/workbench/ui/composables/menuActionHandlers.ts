@@ -1,6 +1,6 @@
 import type { ResultTab } from '@/extensions/builtin/workbench/ui/types/result'
 
-import type { GridApi } from '@ag-grid-community/core'
+import type { GridApi } from 'ag-grid-community'
 
 export interface MenuActionContext {
   tab: ResultTab

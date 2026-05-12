@@ -134,9 +134,8 @@
 </template>
 
 <script setup lang="ts">
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model'
-import { ModuleRegistry } from '@ag-grid-community/core'
-import { AgGridVue } from '@ag-grid-community/vue3'
+import { ClientSideRowModelModule, ModuleRegistry } from 'ag-grid-community'
+import { AgGridVue } from 'ag-grid-vue3'
 import { Search, RefreshCw, Trash2, Download } from 'lucide-vue-next'
 import { NSelect, NInput, NButton, NTag, NSpace, NModal, NPagination, useDialog, useNotification } from 'naive-ui'
 import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
@@ -145,7 +144,7 @@ import { useLogStore } from '@/extensions/builtin/workbench/ui/stores/log-store'
 import { useUiStore } from '@/shared/stores/ui'
 import type { LogLevel, LogRecord } from '@/shared/types/logging'
 
-import type { RowDoubleClickedEvent, ICellRendererParams } from '@ag-grid-community/core'
+import type { RowDoubleClickedEvent, ICellRendererParams } from 'ag-grid-community'
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])
 

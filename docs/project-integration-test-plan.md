@@ -99,6 +99,7 @@ RdataStation 采用**四层微内核沙箱架构**，模块层次如下：
 | M05 | `core::driver::native::postgres` | Core | PostgreSQL驱动实现 | M03, M10, M11 |
 | M06 | `core::driver::native::sqlite` | Core | SQLite驱动实现 | M03, M10, M11 |
 | M07 | `core::driver::native::duckdb` | Core | DuckDB驱动实现（分析引擎） | M03, M10, M11 |
+| M07a | `core::duckdb` | Core | DuckDB分析引擎（连接池/临时表/联邦/导入导出/FTS/EXPLAIN/扩展/性能监控/快照） | M07, M15, M17 |
 | M08 | `core::driver::jdbc` | Core | JDBC桥接驱动 | M03, M10 |
 | M09 | `core::driver::wasm` | Core | Wasm插件驱动 | M03, M10 |
 | M10 | `core::driver::connection` | Core | 连接配置/工厂/连接器/流式连接 | M03-M09 |
@@ -360,6 +361,7 @@ pnpm tauri build --debug                  # 调试构建
 | result_service | 结果分页/过滤/导出/截断 | `tests/result_service_tests.rs` |
 | persistence_service | CRUD操作/lazy加载/事务一致性 | `tests/persistence_service_tests.rs` |
 | duckdb_service | 联邦查询/外部表注册/分析查询 | `tests/duckdb_service_tests.rs` |
+| duckdb_analysis_engine | 连接池/临时表/联邦/导入导出/FTS/EXPLAIN/扩展/性能监控/快照 | `tests/duckdb_analysis_engine_tests.rs` |
 | insight_engine | 规则注册/执行/评分 | `tests/insight_engine_tests.rs` |
 | mock_engine | 模板解析/数据生成/历史记录 | `tests/mock_engine_tests.rs` |
 | migration_manager | schema迁移/版本管理/回滚 | `tests/migration_tests.rs` |

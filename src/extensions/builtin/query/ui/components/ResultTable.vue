@@ -18,9 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model'
-import { ModuleRegistry } from '@ag-grid-community/core'
-import { AgGridVue } from '@ag-grid-community/vue3'
+import { ClientSideRowModelModule, ModuleRegistry } from 'ag-grid-community'
+import { AgGridVue } from 'ag-grid-vue3'
 import { ref, computed, watch } from 'vue'
 
 import { useUiStore } from '@/shared/stores/ui'

@@ -44,13 +44,13 @@
 </template>
 
 <script setup lang="ts">
-import { AgGridVue } from '@ag-grid-community/vue3'
+import { AgGridVue } from 'ag-grid-vue3'
 import { Database } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 
 import type { ResultTab } from '@/extensions/builtin/workbench/ui/types/result'
 
-import type { ColDef, GridApi } from '@ag-grid-community/core'
+import type { ColDef, GridApi } from 'ag-grid-community'
 
 const props = withDefaults(
   defineProps<{
@@ -58,11 +58,11 @@ const props = withDefaults(
     columnDefs: ColDef[]
     defaultColDef: ColDef
     rowData: Record<string, unknown>[]
-    pagination: boolean | string
+    pagination: boolean
     pageSize: number
     paginationPageSelector?: number[]
     isDark: boolean
-    rowSelection?: string
+    rowSelection?: 'single' | 'multiple'
     loading?: boolean
     emptyText?: string
   }>(),
