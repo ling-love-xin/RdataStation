@@ -11,7 +11,7 @@ pub(crate) struct DuckDbService;
 
 impl DuckDbService {
     pub fn get_or_create_duckdb() -> Result<Arc<std::sync::Mutex<duckdb::Connection>>, CoreError> {
-        DuckDBManager::global().get_or_create_in_memory()
+        DuckDBManager::get_or_create_in_memory()
     }
 
     /// 使用 DuckDB 加速引擎执行外部数据库查询
@@ -143,7 +143,7 @@ impl DuckDbService {
             }
         }
 
-        DuckDBManager::global().register_temp_table(&table_name);
+        DuckDBManager::register_temp_table(&table_name);
         Ok(table_name)
     }
 
@@ -336,7 +336,7 @@ impl DuckDbService {
         use crate::core::duckdb::DuckDBManager;
         use crate::core::error::CommonError;
 
-        let arc = DuckDBManager::global().get_or_create_in_memory()?;
+        let arc = DuckDBManager::get_or_create_in_memory()?;
         let conn = arc.lock().map_err(|e| {
             crate::core::error::CoreError::common(CommonError::General(format!(
                 "DuckDB lock error during export: {}",

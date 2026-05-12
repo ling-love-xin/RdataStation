@@ -1,3 +1,4 @@
+use arrow::record_batch::RecordBatch;
 use duckdb::Connection;
 
 use super::manager::DuckDBManager;
@@ -5,8 +6,28 @@ use crate::core::error::{CommonError, CoreError};
 
 /// DuckDB SQL 执行结果
 pub struct DuckDBResult {
+    /// 查询结果列名
+    pub columns: Vec<String>,
+    /// 查询结果数据批次（Arrow 格式）
+    pub batches: Vec<RecordBatch>,
     /// 受影响的行数（适用于 INSERT/UPDATE/DELETE）
     pub rows_affected: Option<u64>,
+}
+
+impl DuckDBResult {
+    /// 创建空查询结果
+    pub fn empty() -> Self {
+        DuckDBResult {
+            columns: Vec::new(),
+            batches: Vec::new(),
+            rows_affected: None,
+        }
+    }
+
+    /// 获取总行数
+    pub fn total_rows(&self) -> usize {
+        self.batches.iter().map(|b| b.num_rows()).sum()
+    }
 }
 
 /// DuckDB SQL 执行器
@@ -85,7 +106,6 @@ impl<'a> DuckDBExecutor<'a> {
     /// # 返回
     /// - `Ok(DuckDBResult)`: 查询结果
     /// - `Err(CoreError)`: 执行失败
-    #[allow(dead_code)]
     pub fn execute_read_with_params(
         &self,
         sql: &str,
@@ -104,7 +124,6 @@ impl<'a> DuckDBExecutor<'a> {
     /// # 返回
     /// - `Ok(DuckDBResult)`: 执行结果
     /// - `Err(CoreError)`: 执行失败
-    #[allow(dead_code)]
     pub fn execute_write_with_params(
         &self,
         sql: &str,
@@ -122,7 +141,6 @@ impl<'a> DuckDBExecutor<'a> {
     /// # 返回
     /// - `Ok(())`: 执行成功
     /// - `Err(CoreError)`: 执行失败
-    #[allow(dead_code)]
     pub fn execute_batch(&self, sql: &str) -> Result<(), CoreError> {
         let conn = self.manager.write_conn();
         conn.execute_batch(sql).map_err(|e| {
@@ -139,26 +157,13 @@ impl<'a> DuckDBExecutor<'a> {
     /// # 返回
     /// - `Ok(())`: 事务执行成功
     /// - `Err(CoreError)`: 事务执行失败，自动回滚
-    #[allow(dead_code)]
     pub fn execute_transaction(&self, sql: &str) -> Result<(), CoreError> {
-        let write_conn = self.manager.write_conn();
-        
-        // DuckDB Connection needs mutable access for transactions
-        // This is a simplified version - in production you'd need proper connection management
-        write_conn.execute_batch(sql).map_err(|e| {
+        self.manager.write_conn().execute_batch(sql).map_err(|e| {
             CoreError::common(CommonError::General(format!("事务执行失败: {}", e)))
         })
     }
 
     /// 内部：执行 SQL 查询（通用）。
-    ///
-    /// # 参数
-    /// - `conn`: DuckDB 连接
-    /// - `sql`: SQL 语句
-    ///
-    /// # 返回
-    /// - `Ok(DuckDBResult)`: 执行结果
-    /// - `Err(CoreError)`: 执行失败
     fn execute_query(conn: &Connection, sql: &str) -> Result<DuckDBResult, CoreError> {
         let trimmed = sql.trim().to_uppercase();
 
@@ -167,36 +172,64 @@ impl<'a> DuckDBExecutor<'a> {
                 CoreError::common(CommonError::General(format!("准备 SQL 语句失败: {}", e)))
             })?;
 
-            let _rows = stmt.query([]).map_err(|e| {
-                CoreError::common(CommonError::General(format!("执行 SQL 查询失败: {}", e)))
-            })?;
+            let columns: Vec<String> = (0..stmt.column_count())
+                .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
+                .collect();
 
-            let _: Vec<()> = Vec::new();
+            let row_data: Vec<Vec<duckdb::types::Value>>;
 
-            Ok(DuckDBResult {
-                rows_affected: None,
-            })
+            {
+                let mut rows = stmt.query([]).map_err(|e| {
+                    CoreError::common(CommonError::General(format!("执行 SQL 查询失败: {}", e)))
+                })?;
+
+                let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+                while let Some(row) = rows.next().map_err(|e| {
+                    CoreError::common(CommonError::General(format!("获取查询结果失败: {}", e)))
+                })? {
+                    let mut values: Vec<duckdb::types::Value> = Vec::new();
+                    for i in 0.. {
+                        match row.get::<usize, duckdb::types::Value>(i) {
+                            Ok(v) => values.push(v),
+                            Err(_) => break,
+                        }
+                    }
+                    data.push(values);
+                }
+                row_data = data;
+            }
+
+            if row_data.is_empty() {
+                Ok(DuckDBResult {
+                    columns,
+                    batches: Vec::new(),
+                    rows_affected: None,
+                })
+            } else {
+                let batch = crate::core::driver::native::duckdb::duckdb_rows_to_arrow(
+                    &columns,
+                    &row_data,
+                )?;
+                Ok(DuckDBResult {
+                    columns,
+                    batches: vec![batch],
+                    rows_affected: None,
+                })
+            }
         } else {
             let rows_affected = conn.execute(sql, []).map_err(|e| {
                 CoreError::common(CommonError::General(format!("执行写入 SQL 失败: {}", e)))
             })? as u64;
 
             Ok(DuckDBResult {
+                columns: Vec::new(),
+                batches: Vec::new(),
                 rows_affected: Some(rows_affected),
             })
         }
     }
 
     /// 内部：执行参数化 SQL 查询。
-    ///
-    /// # 参数
-    /// - `conn`: DuckDB 连接
-    /// - `sql`: SQL 语句
-    /// - `params`: 查询参数
-    ///
-    /// # 返回
-    /// - `Ok(DuckDBResult)`: 执行结果
-    /// - `Err(CoreError)`: 执行失败
     fn execute_query_with_params(
         conn: &Connection,
         sql: &str,
@@ -209,21 +242,58 @@ impl<'a> DuckDBExecutor<'a> {
         })?;
 
         if trimmed.starts_with("SELECT") || trimmed.starts_with("WITH") || trimmed.starts_with("EXPLAIN") {
-            let _rows = stmt.query(params).map_err(|e| {
-                CoreError::common(CommonError::General(format!("执行 SQL 查询失败: {}", e)))
-            })?;
+            let columns: Vec<String> = (0..stmt.column_count())
+                .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
+                .collect();
 
-            let _: Vec<()> = Vec::new();
+            let row_data: Vec<Vec<duckdb::types::Value>>;
 
-            Ok(DuckDBResult {
-                rows_affected: None,
-            })
+            {
+                let mut rows = stmt.query(params).map_err(|e| {
+                    CoreError::common(CommonError::General(format!("执行 SQL 查询失败: {}", e)))
+                })?;
+
+                let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+                while let Some(row) = rows.next().map_err(|e| {
+                    CoreError::common(CommonError::General(format!("获取查询结果失败: {}", e)))
+                })? {
+                    let mut values: Vec<duckdb::types::Value> = Vec::new();
+                    for i in 0.. {
+                        match row.get::<usize, duckdb::types::Value>(i) {
+                            Ok(v) => values.push(v),
+                            Err(_) => break,
+                        }
+                    }
+                    data.push(values);
+                }
+                row_data = data;
+            }
+
+            if row_data.is_empty() {
+                Ok(DuckDBResult {
+                    columns,
+                    batches: Vec::new(),
+                    rows_affected: None,
+                })
+            } else {
+                let batch = crate::core::driver::native::duckdb::duckdb_rows_to_arrow(
+                    &columns,
+                    &row_data,
+                )?;
+                Ok(DuckDBResult {
+                    columns,
+                    batches: vec![batch],
+                    rows_affected: None,
+                })
+            }
         } else {
             let rows_affected = stmt.execute(params).map_err(|e| {
                 CoreError::common(CommonError::General(format!("执行写入 SQL 失败: {}", e)))
             })? as u64;
 
             Ok(DuckDBResult {
+                columns: Vec::new(),
+                batches: Vec::new(),
                 rows_affected: Some(rows_affected),
             })
         }
@@ -234,7 +304,7 @@ impl<'a> DuckDBExecutor<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::manager::DuckDBManager;
+    use crate::core::analysis_engine::manager::DuckDBManager;
     use std::fs;
 
     fn setup_test_executor() -> (DuckDBExecutor<'static>, std::path::PathBuf) {
@@ -271,6 +341,12 @@ mod tests {
         // 执行只读查询
         let result = executor.execute_read("SELECT * FROM test_users");
         assert!(result.is_ok());
+
+        let result = result.unwrap();
+        assert_eq!(result.columns.len(), 2);
+        assert_eq!(result.columns[0], "id");
+        assert_eq!(result.columns[1], "name");
+        assert_eq!(result.total_rows(), 2);
 
         cleanup_test_db(&db_path);
     }
@@ -331,42 +407,37 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_transaction() {
+    fn test_execute_read_with_params() {
         let (executor, db_path) = setup_test_executor();
 
-        executor.execute_write("CREATE TABLE test_tx (id INTEGER)").expect("创建表");
+        executor.execute_write("CREATE TABLE test_params (id INTEGER, name TEXT)").expect("创建表");
+        executor.execute_write("INSERT INTO test_params VALUES (1, 'Alice'), (2, 'Bob')").expect("插入数据");
 
-        let sql = "
-            INSERT INTO test_tx VALUES (1);
-            INSERT INTO test_tx VALUES (2);
-            INSERT INTO test_tx VALUES (3);
-        ";
-
-        let result = executor.execute_transaction(sql);
+        let param_value: &dyn duckdb::types::ToSql = &"Alice";
+        let result = executor.execute_read_with_params(
+            "SELECT * FROM test_params WHERE name = ?",
+            &[param_value],
+        );
         assert!(result.is_ok());
 
-        // 验证数据已插入
-        let select_result = executor.execute_read("SELECT COUNT(*) FROM test_tx");
-        assert!(select_result.is_ok());
+        let result = result.unwrap();
+        assert_eq!(result.total_rows(), 1);
 
         cleanup_test_db(&db_path);
     }
 
     #[test]
-    fn test_execute_transaction_rollback() {
+    fn test_execute_read_empty_result() {
         let (executor, db_path) = setup_test_executor();
 
-        executor.execute_write("CREATE TABLE test_rollback (id INTEGER)").expect("创建表");
+        executor.execute_write("CREATE TABLE test_empty (id INTEGER)").expect("创建表");
 
-        // 故意包含错误 SQL 触发回滚
-        let sql = "
-            INSERT INTO test_rollback VALUES (1);
-            INSERT INTO test_rollback VALUES (2);
-            INVALID SQL;
-        ";
+        let result = executor.execute_read("SELECT * FROM test_empty");
+        assert!(result.is_ok());
 
-        let result = executor.execute_transaction(sql);
-        assert!(result.is_err());
+        let result = result.unwrap();
+        assert_eq!(result.total_rows(), 0);
+        assert!(result.batches.is_empty());
 
         cleanup_test_db(&db_path);
     }

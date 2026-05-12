@@ -35,10 +35,7 @@ impl TempTableSource {
     /// # 返回
     /// true 表示用户可见，false 表示不可见
     pub fn is_user_visible(&self) -> bool {
-        match self {
-            TempTableSource::Insight => false,
-            _ => true,
-        }
+        !matches!(self, TempTableSource::Insight)
     }
 }
 

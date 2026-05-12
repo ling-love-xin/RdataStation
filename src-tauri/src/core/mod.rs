@@ -31,7 +31,6 @@
 //! - `datasource` → `api`
 
 pub mod api_version;
-pub mod analysis_engine;
 pub mod arrow;
 pub mod cache;
 pub mod crypto;
@@ -128,12 +127,9 @@ pub use stream::{ArrowBatchStream as CoreArrowBatchStream, Stream, StreamQueryRe
 // 重新导出工具模块
 pub use utils::{hash, string, time};
 
-// 重新导出 DuckDB 兼容管理模块（旧版）
-pub use duckdb::DuckDBManager;
-
-// 重新导出 DuckDB 分析引擎模块（新版）
-pub use analysis_engine::{
-    AnalysisDuckDBManager, DuckDBExecutor, DuckDBResult,
+// 重新导出 DuckDB 分析引擎模块
+pub use duckdb::{
+    DuckDBManager, DuckDBExecutor, DuckDBResult,
     TempTableManager, TempTableConfig, TempTableSource,
     FederationManager, DataSourceConfig, DataSourceType,
     ImportExportManager, DataFormat, ImportConfig, ExportConfig,

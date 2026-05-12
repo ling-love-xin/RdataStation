@@ -18,7 +18,7 @@ impl MockHistoryStore {
     }
 
     fn ensure_table() -> MockResult<()> {
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
+        let duckdb = DuckDBManager::get_or_create_in_memory()?;
         let conn = duckdb
             .lock()
             .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
@@ -42,7 +42,7 @@ impl MockHistoryStore {
     pub fn save(config: &MockConfig, elapsed_ms: u64) -> MockResult<MockHistoryRecord> {
         Self::ensure_table()?;
 
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
+        let duckdb = DuckDBManager::get_or_create_in_memory()?;
         let conn = duckdb
             .lock()
             .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
@@ -102,7 +102,7 @@ impl MockHistoryStore {
     pub fn list(limit: usize) -> MockResult<Vec<MockHistoryRecord>> {
         Self::ensure_table()?;
 
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
+        let duckdb = DuckDBManager::get_or_create_in_memory()?;
         let conn = duckdb
             .lock()
             .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
@@ -136,7 +136,7 @@ impl MockHistoryStore {
     pub fn get_by_id(id: &str) -> MockResult<Option<MockHistoryRecord>> {
         Self::ensure_table()?;
 
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
+        let duckdb = DuckDBManager::get_or_create_in_memory()?;
         let conn = duckdb
             .lock()
             .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;
@@ -168,7 +168,7 @@ impl MockHistoryStore {
     pub fn clear() -> MockResult<usize> {
         Self::ensure_table()?;
 
-        let duckdb = DuckDBManager::global().get_or_create_in_memory()?;
+        let duckdb = DuckDBManager::get_or_create_in_memory()?;
         let conn = duckdb
             .lock()
             .map_err(|e| MockError::Generation(format!("DuckDB lock error: {}", e)))?;

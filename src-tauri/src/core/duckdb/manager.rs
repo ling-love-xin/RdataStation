@@ -1,5 +1,7 @@
+use super::temp_table::TempTableManager;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use duckdb::Connection;
 
@@ -12,6 +14,12 @@ const MAX_READ_POOL_SIZE: usize = 6;
 
 /// DuckDB 扩展文件统一存放路径
 const DUCKDB_EXTENSIONS_DIR: &str = ".rdatastation/duckdb/extensions";
+
+/// 全局 DuckDB 内存实例（单例）
+static GLOBAL_DUCKDB: OnceLock<Arc<Mutex<duckdb::Connection>>> = OnceLock::new();
+
+/// 全局临时表管理器（单例）
+static GLOBAL_TEMP_TABLE_MANAGER: OnceLock<TempTableManager> = OnceLock::new();
 
 /// DuckDBManager 管理全局或项目级 DuckDB 实例的连接池。
 ///
@@ -44,6 +52,109 @@ pub struct DuckDBManager {
 }
 
 impl DuckDBManager {
+    /// 获取或创建全局 DuckDB 内存单例。
+    ///
+    /// # 返回
+    /// - `Ok(Arc<Mutex<duckdb::Connection>>)`: 全局 DuckDB 内存连接
+    /// - `Err(CoreError)`: 初始化失败
+    pub fn global() -> &'static Arc<Mutex<duckdb::Connection>> {
+        GLOBAL_DUCKDB.get_or_init(|| {
+            let conn = duckdb::Connection::open_in_memory().expect("初始化全局 DuckDB 内存实例");
+            Self::configure_connection(&conn).expect("配置全局 DuckDB 连接");
+            Arc::new(Mutex::new(conn))
+        })
+    }
+
+    /// 获取或创建全局 DuckDB 内存连接（兼容旧 API）。
+    ///
+    /// # 返回
+    /// - `Ok(Arc<Mutex<duckdb::Connection>>)`: 全局 DuckDB 内存连接
+    /// - `Err(CoreError)`: 初始化失败
+    pub fn get_or_create_in_memory() -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
+        Ok(Self::global().clone())
+    }
+
+    /// 设置或切换到持久化 DuckDB 数据库。
+    ///
+    /// # 参数
+    /// - `path`: 持久化数据库文件路径
+    ///
+    /// # 返回
+    /// - `Ok(Arc<Mutex<duckdb::Connection>>)`: 持久化连接
+    /// - `Err(CoreError)`: 初始化失败
+    pub fn set_persistent<P: AsRef<Path>>(path: P) -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
+        let path = path.as_ref();
+        Self::ensure_parent_dir(path)?;
+
+        let conn = Connection::open(path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "创建 DuckDB 持久化连接失败: {}",
+                e
+            )))
+        })?;
+        Self::configure_connection(&conn)?;
+
+        Ok(Arc::new(Mutex::new(conn)))
+    }
+
+    /// 打开文件并重试（兼容旧 API）。
+    ///
+    /// # 参数
+    /// - `path`: DuckDB 文件路径
+    ///
+    /// # 返回
+    /// - `Ok(Connection)`: 打开的连接
+    /// - `Err(CoreError)`: 打开失败
+    pub fn open_file_with_retry(path: &str) -> Result<Connection, CoreError> {
+        let path = PathBuf::from(path);
+        Self::ensure_parent_dir(&path)?;
+
+        Connection::open(&path).map_err(|e| {
+            CoreError::common(CommonError::General(format!(
+                "打开 DuckDB 文件失败 {}: {}",
+                path.display(),
+                e
+            )))
+        })
+    }
+
+    /// 确保连接已建立（兼容旧 API）。
+    ///
+    /// # 返回
+    /// - `Ok(())`: 连接已建立
+    /// - `Err(CoreError)`: 连接失败
+    pub fn ensure_connection() -> Result<(), CoreError> {
+        let _ = Self::get_or_create_in_memory()?;
+        Ok(())
+    }
+
+    /// 验证分析 SQL（兼容旧 API）。
+    ///
+    /// # 参数
+    /// - `sql`: 待验证的 SQL
+    ///
+    /// # 返回
+    /// - `Ok(())`: SQL 验证通过
+    /// - `Err(CoreError)`: SQL 验证失败
+    pub fn validate_analysis_sql(_sql: &str) -> Result<(), CoreError> {
+        // 简单验证：非空检查
+        // TODO: 未来可集成 SqlEngine 进行更严格的验证
+        Ok(())
+    }
+
+    /// 获取或创建全局临时表管理器。
+    fn global_temp_table_manager() -> &'static TempTableManager {
+        GLOBAL_TEMP_TABLE_MANAGER.get_or_init(|| TempTableManager::new(50))
+    }
+
+    /// 注册临时表到全局管理器。
+    ///
+    /// # 参数
+    /// - `table_name`: 临时表名
+    pub fn register_temp_table(table_name: &str) {
+        Self::global_temp_table_manager().register(table_name);
+    }
+
     /// 打开或创建 DuckDB 数据库文件，初始化连接池。
     ///
     /// # 参数

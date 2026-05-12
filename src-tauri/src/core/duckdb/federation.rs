@@ -101,6 +101,12 @@ pub struct FederationManager {
     attached_sources: Mutex<HashMap<String, DataSourceConfig>>,
 }
 
+impl Default for FederationManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FederationManager {
     /// 创建新的联邦查询管理器。
     pub fn new() -> Self {
@@ -224,7 +230,7 @@ impl FederationManager {
 
         // 提取 AS 后面的别名
         if let Some(as_pos) = upper.find(" AS ") {
-            let alias = sql[(as_pos + 4)..].trim().split_whitespace().next().unwrap_or("");
+            let alias = sql[(as_pos + 4)..].split_whitespace().next().unwrap_or("");
             if alias.is_empty() {
                 return Err(CoreError::common(CommonError::General(
                     "ATTACH 语句缺少别名".to_string(),

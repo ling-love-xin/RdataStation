@@ -184,7 +184,7 @@ impl MockEngine {
             on_progress(batch_idx + 1, total_batches);
         }
 
-        DuckDBManager::global().register_temp_table(&table_name);
+        DuckDBManager::register_temp_table(&table_name);
 
         let preview = Self::read_preview(&conn, &table_name, PREVIEW_ROWS)?;
         let elapsed_ms = start.elapsed().as_millis() as u64;
@@ -202,8 +202,7 @@ impl MockEngine {
     }
 
     fn get_db() -> MockResult<Arc<Mutex<duckdb::Connection>>> {
-        DuckDBManager::global()
-            .get_or_create_in_memory()
+        DuckDBManager::get_or_create_in_memory()
             .map_err(|e| MockError::Generation(format!("DuckDB error: {}", e)))
     }
 

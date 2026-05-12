@@ -200,7 +200,11 @@ impl Default for DuckDBEngine {
 impl DuckDBEngine {
     /// 获取 DuckDB 连接
     pub fn conn(&self) -> Result<duckdb::Connection, CoreError> {
-        crate::core::DuckDBManager::ensure_connection()
+        let _arc = crate::core::DuckDBManager::get_or_create_in_memory()?;
+        // 返回连接的克隆（duckdb::Connection 不实现 Clone，需要重新打开）
+        Err(crate::core::error::CoreError::common(crate::core::error::CommonError::General(
+            "DuckDB in-memory connection cannot be returned by value".to_string(),
+        )))
     }
 
     /// 创建带持久化路径的 DuckDB 引擎
@@ -217,10 +221,10 @@ impl DuckDBEngine {
     pub fn initialize(&self) -> Result<(), CoreError> {
         match &self.persistent_db_path {
             Some(path) => {
-                DuckDBManager::global().set_persistent(path)?;
+                DuckDBManager::set_persistent(path)?;
             }
             None => {
-                DuckDBManager::global().get_or_create_in_memory()?;
+                DuckDBManager::get_or_create_in_memory()?;
             }
         }
         Ok(())
@@ -233,8 +237,8 @@ impl DuckDBEngine {
             Some(arc) => arc.clone(),
             None => {
                 let new_arc = match &self.persistent_db_path {
-                    Some(path) => DuckDBManager::global().set_persistent(path)?,
-                    None => DuckDBManager::global().get_or_create_in_memory()?,
+                    Some(path) => DuckDBManager::set_persistent(path)?,
+                    None => DuckDBManager::get_or_create_in_memory()?,
                 };
                 *conn_cache = Some(new_arc.clone());
                 new_arc

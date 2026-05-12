@@ -85,6 +85,12 @@ pub struct PluginManager {
     connections: Mutex<HashMap<String, PluginConnection>>,
 }
 
+impl Default for PluginManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PluginManager {
     /// 创建新的插件管理器。
     pub fn new() -> Self {
