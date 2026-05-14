@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 use crate::core::error::CoreError;
@@ -20,20 +19,16 @@ impl ScratchpadState {
         }
     }
 
-    pub fn init(&self, project_path: PathBuf) -> Result<(), CoreError> {
+    pub async fn init(&self, project_path: PathBuf) -> Result<(), CoreError> {
         let store = ScratchpadStore::new(project_path);
-        let handle = Handle::current();
-        handle.block_on(async {
-            {
-                let mut guard = self.store.lock().await;
-                *guard = Some(store.clone());
-            }
-            // 尝试立即创建目录，失败不阻断——后续每个操作都会再次 ensure_dir
-            if let Err(e) = store.ensure_dir().await {
-                tracing::warn!("[Scratchpad] ensure_dir failed during init (will retry on first write): {}", e);
-            }
-            Ok::<(), CoreError>(())
-        })
+        {
+            let mut guard = self.store.lock().await;
+            *guard = Some(store.clone());
+        }
+        if let Err(e) = store.ensure_dir().await {
+            tracing::warn!("[Scratchpad] ensure_dir failed during init (will retry on first write): {}", e);
+        }
+        Ok(())
     }
 
     pub fn is_watching(&self) -> bool {

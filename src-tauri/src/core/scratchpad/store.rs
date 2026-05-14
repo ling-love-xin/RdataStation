@@ -53,6 +53,16 @@ impl ScratchpadStore {
                     ))
                 })?;
         }
+        let trash_dir = self.scratchpad_dir.join(TRASH_DIR);
+        if !trash_dir.exists() {
+            fs::create_dir_all(&trash_dir).await.map_err(|e| {
+                CoreError::storage(StorageError::io(
+                    trash_dir.display().to_string(),
+                    "create_trash_dir",
+                    e.to_string(),
+                ))
+            })?;
+        }
         Ok(())
     }
 

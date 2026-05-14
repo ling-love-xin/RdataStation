@@ -321,20 +321,19 @@ function formatSize(bytes: number): string {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  height: 32px;
+  height: 22px;
   padding-right: var(--spacing-sm);
   cursor: pointer;
-  border-radius: var(--border-radius-sm);
   transition: background-color 0.1s;
 }
 
 .node-row:hover {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-hover);
 }
 
 .node-row.selected {
-  background-color: var(--brand-accent);
-  color: var(--color-selected-text);
+  background-color: var(--color-selection);
+  color: var(--color-text-primary);
 }
 
 .folder-toggle,
@@ -361,11 +360,12 @@ function formatSize(bytes: number): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 22px;
 }
 
 .dirty-dot {
-  color: var(--brand-accent, #ff6b35);
-  margin-right: 4px;
+  color: var(--color-text-muted);
+  margin-right: 2px;
   font-size: 10px;
   line-height: 1;
   flex-shrink: 0;
@@ -373,11 +373,12 @@ function formatSize(bytes: number): string {
 
 .rename-input {
   flex: 1;
-  height: 24px;
-  padding: 0 var(--spacing-xs);
+  height: 18px;
+  padding: 0 3px;
   font-size: var(--font-size-md);
-  border: 1px solid var(--brand-accent);
-  border-radius: var(--border-radius-sm);
+  font-family: var(--font-family);
+  border: 1px solid var(--primary-color);
+  border-radius: 1px;
   outline: none;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -441,10 +442,10 @@ function formatSize(bytes: number): string {
 }
 
 .inline-create-row {
-  background-color: var(--brand-accent-soft);
+  background-color: transparent;
 }
 
 .inline-create-row .rename-input {
-  border-color: var(--brand-accent);
+  border-color: var(--primary-color);
 }
 </style>

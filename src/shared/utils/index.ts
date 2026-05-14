@@ -12,6 +12,7 @@
 export {
   AppError,
   ErrorCode,
+  extractErrorMessage,
   safeAsync,
   safeSync,
   toAppError,

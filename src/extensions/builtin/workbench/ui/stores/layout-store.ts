@@ -60,6 +60,25 @@ const DEFAULT_SECONDARY_SIDEBAR_WIDTH = 300
 const DEFAULT_PANEL_HEIGHT = 250
 const MIN_SIDEBAR_WIDTH = 200
 const MAX_SIDEBAR_WIDTH = 600
+const MAX_HISTORY = 50
+const TEMPLATES_STORAGE_KEY = 'rdata_station_layout_templates'
+
+// 布局快照，用于 undo/redo
+export interface LayoutSnapshot {
+  leftEdgeGroupCollapsed: boolean
+  rightEdgeGroupCollapsed: boolean
+  primarySideBarWidth: number
+  secondarySideBarWidth: number
+  menuBarVisible: boolean
+  statusBarVisible: boolean
+}
+
+// 用户自定义布局模板
+export interface LayoutTemplate {
+  name: string
+  snapshot: LayoutSnapshot
+  createdAt: number
+}
 
 // ============================================
 // 活动栏项目
@@ -151,6 +170,102 @@ export const useLayoutStore = defineStore('layout', () => {
   const showCustomizeLayoutDialog = ref(false)
 
   // ============================================
+  // Undo / Redo 历史栈
+  // ============================================
+  const historyStack = ref<LayoutSnapshot[]>([])
+  const historyIndex = ref(-1)
+
+  const canUndo = computed(() => historyIndex.value > 0)
+  const canRedo = computed(() => historyIndex.value < historyStack.value.length - 1)
+
+  function captureSnapshot(): LayoutSnapshot {
+    return {
+      leftEdgeGroupCollapsed: leftEdgeGroupCollapsed.value,
+      rightEdgeGroupCollapsed: rightEdgeGroupCollapsed.value,
+      primarySideBarWidth: primarySideBarWidth.value,
+      secondarySideBarWidth: secondarySideBarWidth.value,
+      menuBarVisible: menuBarVisible.value,
+      statusBarVisible: statusBarVisible.value,
+    }
+  }
+
+  function pushSnapshot() {
+    if (historyIndex.value < historyStack.value.length - 1) {
+      historyStack.value = historyStack.value.slice(0, historyIndex.value + 1)
+    }
+    historyStack.value.push(captureSnapshot())
+    if (historyStack.value.length > MAX_HISTORY) {
+      historyStack.value.shift()
+    } else {
+      historyIndex.value = historyStack.value.length - 1
+    }
+  }
+
+  function applySnapshot(snapshot: LayoutSnapshot) {
+    leftEdgeGroupCollapsed.value = snapshot.leftEdgeGroupCollapsed
+    rightEdgeGroupCollapsed.value = snapshot.rightEdgeGroupCollapsed
+    primarySideBarWidth.value = snapshot.primarySideBarWidth
+    secondarySideBarWidth.value = snapshot.secondarySideBarWidth
+    menuBarVisible.value = snapshot.menuBarVisible
+    statusBarVisible.value = snapshot.statusBarVisible
+    const api = dockviewApi.value
+    if (api) {
+      const leftGroup = api.getEdgeGroup?.('left')
+      const rightGroup = api.getEdgeGroup?.('right')
+      if (snapshot.leftEdgeGroupCollapsed) { leftGroup?.collapse() } else { leftGroup?.expand() }
+      if (snapshot.rightEdgeGroupCollapsed) { rightGroup?.collapse() } else { rightGroup?.expand() }
+      leftGroup?.setSize({ width: snapshot.primarySideBarWidth })
+      rightGroup?.setSize({ width: snapshot.secondarySideBarWidth })
+    }
+  }
+
+  function undo() {
+    if (!canUndo.value) return
+    historyIndex.value--
+    applySnapshot(historyStack.value[historyIndex.value])
+  }
+
+  function redo() {
+    if (!canRedo.value) return
+    historyIndex.value++
+    applySnapshot(historyStack.value[historyIndex.value])
+  }
+
+  // ============================================
+  // 用户自定义布局模板
+  // ============================================
+  const customTemplates = ref<LayoutTemplate[]>([])
+
+  function loadCustomTemplates() {
+    try {
+      const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY)
+      if (stored) { customTemplates.value = JSON.parse(stored) }
+    } catch { customTemplates.value = [] }
+  }
+
+  function saveCustomTemplate(name: string) {
+    const snapshot = captureSnapshot()
+    const template: LayoutTemplate = { name, snapshot, createdAt: Date.now() }
+    const existing = customTemplates.value.findIndex(t => t.name === name)
+    if (existing >= 0) {
+      customTemplates.value[existing] = template
+    } else {
+      customTemplates.value.push(template)
+    }
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(customTemplates.value))
+  }
+
+  function deleteCustomTemplate(name: string) {
+    customTemplates.value = customTemplates.value.filter(t => t.name !== name)
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(customTemplates.value))
+  }
+
+  function applyTemplate(template: LayoutTemplate) {
+    applySnapshot(template.snapshot)
+    pushSnapshot()
+  }
+
+  // ============================================
   // 面板位置配置
   // ============================================
   const panelConfigs = ref<Map<string, PanelConfig>>(new Map())
@@ -211,21 +326,25 @@ const openPanelIds = ref<string[]>([])
   }
 
   function collapseLeftEdgeGroup() {
+    pushSnapshot()
     leftEdgeGroupCollapsed.value = true
     dockviewApi.value?.getEdgeGroup?.('left')?.collapse()
   }
 
   function expandLeftEdgeGroup() {
+    pushSnapshot()
     leftEdgeGroupCollapsed.value = false
     dockviewApi.value?.getEdgeGroup?.('left')?.expand()
   }
 
   function collapseRightEdgeGroup() {
+    pushSnapshot()
     rightEdgeGroupCollapsed.value = true
     dockviewApi.value?.getEdgeGroup?.('right')?.collapse()
   }
 
   function expandRightEdgeGroup() {
+    pushSnapshot()
     rightEdgeGroupCollapsed.value = false
     dockviewApi.value?.getEdgeGroup?.('right')?.expand()
   }
@@ -472,6 +591,7 @@ const openPanelIds = ref<string[]>([])
   // 方法 - 可见性切换
   // ============================================
   function toggleMenuBar() {
+    pushSnapshot()
     menuBarVisible.value = !menuBarVisible.value
   }
 
@@ -507,6 +627,7 @@ const openPanelIds = ref<string[]>([])
   }
 
   function toggleStatusBar() {
+    pushSnapshot()
     statusBarVisible.value = !statusBarVisible.value
   }
 
@@ -884,5 +1005,20 @@ const openPanelIds = ref<string[]>([])
     loadLayoutConfig,
     setLeftPanelLayoutMode,
     setRightPanelLayoutMode,
+
+    // Undo / Redo
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    pushSnapshot,
+    captureSnapshot,
+
+    // 自定义布局模板
+    customTemplates,
+    loadCustomTemplates,
+    saveCustomTemplate,
+    deleteCustomTemplate,
+    applyTemplate,
   }
 })

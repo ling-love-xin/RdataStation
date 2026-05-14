@@ -1,5 +1,7 @@
 import { ref, computed } from 'vue'
 
+import { extractErrorMessage } from '@/shared/utils/error'
+
 import {
   listScratchpadFiles,
   createScratchpadEntry,
@@ -27,6 +29,7 @@ import {
   replaceScratchpadContent,
   diffScratchpadWithContent,
 } from '../../infrastructure/api/scratchpad-api'
+
 
 import type {
   ScratchpadResponse,
@@ -113,8 +116,16 @@ export function useScratchpad() {
     try {
       response.value = await listScratchpadFiles()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const msg = extractErrorMessage(e)
       if (msg.includes('未初始化') || msg.includes('not initialized')) {
+        await new Promise(resolve => setTimeout(resolve, 600))
+        try {
+          response.value = await listScratchpadFiles()
+          isLoading.value = false
+          return
+        } catch {
+          /* retry failed, fall through to notInitialized */
+        }
         notInitialized.value = true
         response.value = null
       } else {
@@ -132,7 +143,7 @@ export function useScratchpad() {
       await loadFiles()
       return entry
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -143,7 +154,7 @@ export function useScratchpad() {
       await loadFiles()
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -157,7 +168,7 @@ export function useScratchpad() {
       await loadFiles()
       return entry
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -166,7 +177,7 @@ export function useScratchpad() {
     try {
       return await readScratchpadFile(relativePath)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -176,7 +187,7 @@ export function useScratchpad() {
       await saveScratchpadFile(relativePath, content)
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -187,7 +198,7 @@ export function useScratchpad() {
       await loadFiles()
       return entry
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -198,7 +209,7 @@ export function useScratchpad() {
       await loadFiles()
       return ref
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -209,7 +220,7 @@ export function useScratchpad() {
       await loadFiles()
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -229,7 +240,7 @@ export function useScratchpad() {
       await openInExplorer(path)
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -238,7 +249,7 @@ export function useScratchpad() {
     try {
       return await checkFileSize(relativePath)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -255,7 +266,7 @@ export function useScratchpad() {
     try {
       trashEntries.value = await listTrash()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
     }
   }
 
@@ -266,7 +277,7 @@ export function useScratchpad() {
       await loadFiles()
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -277,7 +288,7 @@ export function useScratchpad() {
       trashEntries.value = []
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -286,7 +297,7 @@ export function useScratchpad() {
     try {
       analyzableFiles.value = await getAnalyzableFiles()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
     }
   }
 
@@ -298,7 +309,7 @@ export function useScratchpad() {
       await updateFileMeta(relativePath, connectionId)
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return false
     }
   }
@@ -307,7 +318,7 @@ export function useScratchpad() {
     try {
       return await searchFileContent(query, caseSensitive)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -319,7 +330,7 @@ export function useScratchpad() {
     try {
       await watchScratchpad()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
     }
   }
 
@@ -327,7 +338,7 @@ export function useScratchpad() {
     try {
       await unwatchScratchpad()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
     }
   }
 
@@ -342,7 +353,7 @@ export function useScratchpad() {
       }
       return result
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -538,7 +549,7 @@ export function useScratchpad() {
       setEntryChildren(response.value.local_entries, parentPath, children)
       return children
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -569,7 +580,7 @@ export function useScratchpad() {
       await loadFiles()
       return entry
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -585,7 +596,7 @@ export function useScratchpad() {
       addReplaceHistory({ path, pattern, replacement, isRegex, timestamp: Date.now() })
       return result
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -599,7 +610,7 @@ export function useScratchpad() {
     try {
       return await diffScratchpadWithContent(relativePath, otherContent, leftLabel, rightLabel)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = extractErrorMessage(e)
       return null
     }
   }
@@ -643,7 +654,7 @@ export function useScratchpad() {
       new RegExp(pattern)
       return { valid: true, error: null }
     } catch (e) {
-      return { valid: false, error: e instanceof Error ? e.message : String(e) }
+      return { valid: false, error: extractErrorMessage(e) }
     }
   }
 

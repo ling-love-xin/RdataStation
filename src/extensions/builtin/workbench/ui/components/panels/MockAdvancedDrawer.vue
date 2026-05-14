@@ -715,58 +715,58 @@ function onClose() {
 .drawer-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--spacing-xs);
 }
 
 .field-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
 }
 
 .field-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   width: 48px;
   flex-shrink: 0;
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-muted);
-  margin-top: 4px;
-  margin-bottom: 4px;
+  margin-top: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
 }
 
 .filter-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .generator-list {
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
 }
 
 .generator-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   cursor: pointer;
-  border-bottom: 1px solid var(--border-color-light);
-  font-size: 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
 }
 
 .generator-item:last-child {
@@ -774,23 +774,23 @@ function onClose() {
 }
 
 .generator-item:hover {
-  background: var(--hover-color);
+  background: var(--color-hover);
 }
 
 .generator-item.selected {
-  background: var(--brand-10p);
+  background: var(--brand-accent-soft);
   border-left: 2px solid var(--brand-accent);
 }
 
 .gen-info {
   display: flex;
-  gap: 6px;
+  gap: var(--spacing-xs);
   align-items: center;
 }
 
 .recommend-badge {
-  font-size: 10px;
-  color: #18a058;
+  font-size: var(--font-size-xs);
+  color: var(--brand-success);
   font-weight: 500;
 }
 
@@ -799,13 +799,13 @@ function onClose() {
 }
 
 .gen-type {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .gen-example {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   max-width: 180px;
   overflow: hidden;
@@ -815,16 +815,16 @@ function onClose() {
 }
 
 .empty-list {
-  padding: 20px;
+  padding: var(--spacing-xl) 0;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
 .params-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .param-field {
@@ -834,32 +834,32 @@ function onClose() {
 }
 
 .param-field-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-secondary);
 }
 
 .empty-params {
   text-align: center;
-  padding: 8px 0;
-  font-size: 13px;
+  padding: var(--spacing-sm) 0;
+  font-size: var(--font-size-md);
   color: var(--color-text-muted);
 }
 
 .timeseries-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--spacing-xs);
 }
 
 .ts-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .ts-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   width: 72px;
   flex-shrink: 0;
@@ -868,29 +868,29 @@ function onClose() {
 .other-options {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--spacing-xs);
 }
 
 .opt-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .opt-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
 .opt-pct {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--brand-accent);
   font-weight: 500;
 }
 
 .source-info {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   text-align: right;
 }
@@ -904,6 +904,6 @@ function onClose() {
 
 .footer-right {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 </style>

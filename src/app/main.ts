@@ -81,10 +81,10 @@ async function main() {
   }
   console.log(`[Main] Registered ${panels.length} panel components globally`)
 
-  app.component('panelHeaderActions', PanelHeaderActions)
+  app.component('PanelHeaderActions', PanelHeaderActions)
   console.log('[Main] Registered panelHeaderActions component')
 
-  app.component('iconTab', IconTab)
+  app.component('IconTab', IconTab)
   console.log('[Main] Registered iconTab component')
 
   app.mount('#app')

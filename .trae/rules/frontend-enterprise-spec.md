@@ -1922,5 +1922,5 @@ interface ColumnInput {
 | dockview-vue    | 5.2.0  | 布局引擎   |
 | naive-ui        | 最新   | 组件库     |
 | lucide-vue-next | 最新   | 图标库     |
-| AG Grid         | 33.0.0 | 表格引擎   |
+| AG Grid         | 33.0.0 | 表格引擎     |
 | Monaco Editor   | 0.52.2 | 代码编辑器 |

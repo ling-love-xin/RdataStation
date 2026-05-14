@@ -98,17 +98,17 @@ async function onApply() {
 .template-dialog {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--spacing-md);
 }
 
 .template-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--spacing-sm);
 }
 
 .template-card {
-  padding: 12px 14px;
+  padding: var(--spacing-md) var(--spacing-md);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--border-radius-md);
   cursor: pointer;
@@ -130,49 +130,49 @@ async function onApply() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: var(--spacing-xs);
 }
 
 .template-name {
-  font-size: 14px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .template-category {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--brand-accent);
   background: var(--brand-accent-soft);
-  padding: 1px 8px;
-  border-radius: 3px;
+  padding: 1px var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
 }
 
 .template-desc {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  margin: 0 0 8px 0;
+  margin: 0 0 var(--spacing-sm) 0;
   line-height: 1.4;
 }
 
 .template-meta {
   display: flex;
-  gap: 10px;
-  font-size: 11px;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
 .empty-state {
   text-align: center;
-  padding: 40px;
+  padding: var(--spacing-xl) 0;
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-md);
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 8px;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
   border-top: 1px solid var(--color-border-subtle);
 }
 </style>

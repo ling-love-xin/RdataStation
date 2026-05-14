@@ -1,6 +1,6 @@
 <template>
   <div
-    class="scratchpad-panel"
+class="scratchpad-panel"
     :class="{ 'dragover-active': isDragOver }"
     :data-drop-hint="t('scratchpad.dragToImport')"
     @click="handleGlobalClick"
@@ -8,366 +8,163 @@
     @dragleave="handleDragLeave"
     @drop.prevent="handleDrop"
   >
-    <div class="toolbar">
-      <div class="toolbar-group">
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              type="primary"
-              :disabled="isLoading"
-              @click="handleCreateFile"
-            >
-              <template #icon>
-                <NIcon size="16"><FilePlus /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.newFile') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              :disabled="isLoading"
-              @click="handleCreateFolder"
-            >
-              <template #icon>
-                <NIcon size="16"><FolderPlus /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.newFolder') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              :disabled="isLoading"
-              @click="handleImportFile"
-            >
-              <template #icon>
-                <NIcon size="16"><Upload /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.import') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              :disabled="isLoading"
-              @click="handleAddReference"
-            >
-              <template #icon>
-                <NIcon size="16"><FolderSymlink /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.reference') }}
-        </NTooltip>
-      </div>
-      <div class="toolbar-group-right">
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              :type="sortBy === 'name' ? 'primary' : 'default'"
-              quaternary
-              @click="toggleSort('name')"
-            >
-              <template #icon>
-                <NIcon size="14"><component :is="sortIcon('name')" /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.sortByName') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              :type="sortBy === 'size' ? 'primary' : 'default'"
-              quaternary
-              @click="toggleSort('size')"
-            >
-              <template #icon>
-                <NIcon size="14"><component :is="sortIcon('size')" /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.sortBySize') }}
-        </NTooltip>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              :type="sortBy === 'modified' ? 'primary' : 'default'"
-              quaternary
-              @click="toggleSort('modified')"
-            >
-              <template #icon>
-                <NIcon size="14"><component :is="sortIcon('modified')" /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.sortByModified') }}
-        </NTooltip>
-        <span class="toolbar-sep"></span>
-        <NTooltip trigger="hover">
-          <template #trigger>
-            <NButton
-              size="small"
-              quaternary
-              :disabled="isLoading"
-              @click="loadFiles"
-            >
-              <template #icon>
-                <NIcon size="16"><RefreshCw /></NIcon>
-              </template>
-            </NButton>
-          </template>
-          {{ t('scratchpad.refresh') }}
-        </NTooltip>
-      </div>
+    <div class="explorer-titlebar" @dblclick="handleCollapseAll">
+      <span class="explorer-titlebar-label">{{ t('scratchpad.title') }}</span>
+      <span class="explorer-titlebar-actions">
+        <button class="toolbar-btn" :disabled="isLoading" :title="t('scratchpad.import')" @click="handleImportFile">
+          <Upload :size="14" />
+        </button>
+        <button class="toolbar-btn" :disabled="isLoading" :title="t('scratchpad.reference')" @click="handleAddReference">
+          <FolderSymlink :size="14" />
+        </button>
+        <button class="toolbar-btn" :class="{ 'toolbar-btn-active': showExplorerFilter }" :title="t('scratchpad.search')" @click="toggleExplorerFilter">
+          <Search :size="14" />
+        </button>
+        <NDropdown trigger="click" :options="moreMenuOptions" @select="handleMoreMenuSelect">
+          <button class="toolbar-btn" :title="t('scratchpad.more')">
+            <MoreVertical :size="14" />
+          </button>
+        </NDropdown>
+      </span>
     </div>
 
-    <div class="search-bar">
-      <NInput
-        v-model:value="searchQuery"
-        size="small"
-        :placeholder="contentSearchMode ? t('scratchpad.searchContentHint') : t('scratchpad.searchNameHint')"
-        clearable
-        class="search-input"
-      />
-      <NTooltip trigger="hover">
-        <template #trigger>
-          <NButton
-            size="small"
-            :type="contentSearchMode ? 'primary' : 'default'"
-            quaternary
-            @click="toggleSearchMode"
-          >
-            <template #icon>
-              <NIcon size="16"><Search /></NIcon>
-            </template>
-          </NButton>
-        </template>
-        {{ t('scratchpad.searchContent') }}
-      </NTooltip>
-      <NTooltip v-if="contentSearchMode" trigger="hover">
-        <template #trigger>
-          <NButton
-            size="small"
-            :type="caseSensitive ? 'primary' : 'default'"
-            quaternary
-            @click="caseSensitive = !caseSensitive"
-          >
-            Aa
-          </NButton>
-        </template>
-        {{ t('scratchpad.caseSensitive') }}
-      </NTooltip>
-      <NTooltip v-if="contentSearchMode" trigger="hover">
-        <template #trigger>
-          <NButton
-            size="small"
-            :type="isRegex ? 'primary' : 'default'"
-            quaternary
-            @click="toggleRegex"
-          >
-            .*
-          </NButton>
-        </template>
-        {{ t('scratchpad.regex') }}
-      </NTooltip>
-    </div>
-
-    <div v-if="contentSearchMode && contentAllMatches.length > 0" class="search-results">
-      <div class="search-results-header">
-        {{ t('scratchpad.searchFileResults') }}
-        <span class="search-results-count">{{ t('scratchpad.matchesCount', { count: contentAllMatches.length }) }}</span>
-        <span class="search-results-actions">
-          <NButton
-            size="tiny"
-            quaternary
-            :type="showReplaceBar ? 'primary' : 'default'"
-            @click="toggleReplaceBar"
-          >
-            {{ t('scratchpad.replace') }}
-          </NButton>
-        </span>
-      </div>
-      <div v-if="regexError" class="search-notice search-notice-error">
-        <NIcon size="14"><Info /></NIcon>
-        <span>{{ regexError }}</span>
-      </div>
-      <div v-if="showReplaceBar" class="replace-bar">
-        <NInput
-          v-model:value="replaceWith"
-          size="small"
-          :placeholder="t('scratchpad.replaceWithHint')"
-          class="replace-input"
-          @input="computeReplacePreview"
-        />
-        <span v-if="replacePreviewCount > 0" class="replace-preview">
-          {{ t('scratchpad.replacePreviewCount', { count: replacePreviewCount }) }}
-        </span>
-        <NButton
-          size="small"
-          type="primary"
-          :disabled="replaceInProgress || !replaceWith.trim() || !searchQuery.trim()"
-          :loading="replaceInProgress"
-          @click="handleReplaceAll"
-        >
-          {{ t('scratchpad.replaceAll') }}
-        </NButton>
-      </div>
-      <div v-if="searchNotice" class="search-notice">
-        <NIcon size="14"><Info /></NIcon>
-        <span>{{ searchNotice }}</span>
-      </div>
-      <div
-        v-for="[file, matches] in contentResults"
-        :key="file"
-        class="search-result-file"
-      >
-        <div
-          class="search-result-file-name"
-          @click="handleFileClick(file)"
-        >
-          <NIcon size="14"><FileText /></NIcon>
-          <span>{{ file }}</span>
-          <span class="search-result-match-count">{{ matches.length }}</span>
-        </div>
-        <div
-          v-for="match in matches.slice(0, 5)"
-          :key="`${match.file}:${match.line_number}`"
-          class="search-result-group"
-        >
-          <div
-            v-for="ctxLine in match.before_context"
-            :key="`before-${ctxLine}`"
-            class="search-result-context"
-          >
-            <span class="search-result-line-number context-num" />
-            <span class="search-result-line-content context-line">{{ ctxLine }}</span>
-          </div>
-          <div
-            class="search-result-line"
-            @click="handleLineClick(match.file, match.line_number)"
-          >
-            <span class="search-result-line-number">{{ match.line_number }}</span>
-            <span class="search-result-line-content" v-html="highlightMatch(match.line_content, searchQuery)" />
-          </div>
-          <div
-            v-for="ctxLine in match.after_context"
-            :key="`after-${ctxLine}`"
-            class="search-result-context"
-          >
-            <span class="search-result-line-number context-num" />
-            <span class="search-result-line-content context-line">{{ ctxLine }}</span>
-          </div>
-        </div>
-        <div v-if="matches.length > 5" class="search-result-more">
-          {{ t('scratchpad.searchResultMore', { n: matches.length - 5 }) }}
-        </div>
-      </div>
-    </div>
-
-    <div v-if="isLoading" class="loading-state">
-      <NSpin size="small" />
-    </div>
-
-    <div v-else-if="notInitialized" class="empty-state">
-      <div class="empty-icon-wrapper">
-        <FolderOpen :size="32" />
-      </div>
-      <div class="empty-title">{{ t('scratchpad.noProjectTitle') }}</div>
-      <div class="empty-hint">{{ t('scratchpad.noProjectHint') }}</div>
-    </div>
-
-    <div v-else-if="error" class="error-state">
-      <span class="error-text">{{ error }}</span>
-      <NButton size="tiny" @click="loadFiles">{{ t('scratchpad.retry') }}</NButton>
-    </div>
-
-    <div v-else-if="!contentSearchMode || contentAllMatches.length === 0" ref="treeContainerRef" class="tree-container" @scroll="handleTreeScroll">
-      <div v-if="contentSearchMode && searchQuery.trim()" class="search-no-results">
-        <NIcon size="14"><Info /></NIcon>
-        <span>{{ searchNotice || t('scratchpad.noResults') }}</span>
-      </div>
-      <div v-if="externalReferences.length > 0" class="tree-group">
-        <div class="group-header" @click="toggleGroup('external')">
-          <NIcon size="14">
-            <component :is="groupExpanded.external ? ChevronDown : ChevronRight" />
-          </NIcon>
-          <NIcon size="14"><FolderSymlink /></NIcon>
-          <span class="group-title">{{ t('scratchpad.externalReferences') }}</span>
-          <span class="group-count">{{ externalReferences.length }}</span>
-        </div>
-        <div v-show="groupExpanded.external" class="group-content">
-          <div
-            v-for="ref in externalReferences"
-            :key="ref.alias"
-            class="ref-row"
-            @click="handleRefClick(ref)"
-            @contextmenu.prevent="showRefMenu($event, ref)"
-          >
-            <NIcon size="14">
-              <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(ref) }" />
-            </NIcon>
-            <span class="ref-name">{{ ref.alias }}</span>
-            <span
-              :class="['ref-path', { 'ref-path-invalid': isRefInvalid(ref) }]"
-              :title="ref.path"
-              >{{ ref.path }}</span
-            >
-            <span v-if="isRefInvalid(ref)" class="ref-badge">{{ t('scratchpad.invalid') }}</span>
-          </div>
-        </div>
+    <div class="scratchpad-explorer-body">
+      <div v-if="isLoading" class="loading-state">
+        <NSpin size="small" />
       </div>
 
-      <div class="tree-group">
-        <div class="group-header" @click="toggleGroup('local')">
-          <NIcon size="14">
-            <component :is="groupExpanded.local ? ChevronDown : ChevronRight" />
-          </NIcon>
-          <NIcon size="14"><Folder /></NIcon>
-          <span class="group-title">{{ t('scratchpad.localDrafts') }}</span>
-          <span class="group-count">{{ filteredLocalEntries.length }}</span>
-          <span class="group-actions">
-            <NButton size="tiny" quaternary @click.stop="handleExpandAll">
-              {{ t('scratchpad.expandAll') }}
-            </NButton>
-            <NButton size="tiny" quaternary @click.stop="handleCollapseAll">
-              {{ t('scratchpad.collapseAll') }}
-            </NButton>
-          </span>
+      <div v-else-if="notInitialized" class="empty-state">
+        <div class="empty-icon-wrapper">
+          <FolderOpen :size="32" />
         </div>
-        <div v-show="groupExpanded.local" class="group-content">
-          <div v-if="recentFileEntries.length > 0 && !contentSearchMode" class="recent-section">
-            <div class="recent-header" @click="showRecent = !showRecent">
-              <NIcon size="14">
-                <component :is="showRecent ? ChevronDown : ChevronRight" />
-              </NIcon>
-              <span class="recent-title">{{ t('scratchpad.recentFiles') }}</span>
-              <span class="recent-count">{{ recentFileEntries.length }}</span>
+        <div class="empty-title">{{ t('scratchpad.noProjectTitle') }}</div>
+        <div class="empty-hint">{{ t('scratchpad.noProjectHint') }}</div>
+      </div>
+
+      <div v-else-if="error" class="error-state">
+        <span class="error-text">{{ error }}</span>
+        <NButton size="tiny" @click="loadFiles">{{ t('scratchpad.retry') }}</NButton>
+      </div>
+
+      <div v-else-if="showExplorerFilter" class="search-panel">
+        <div class="search-panel-header">
+          <div class="search-input-wrapper">
+            <NInput v-model:value="searchQuery" size="small" :placeholder="t('scratchpad.search')" class="search-panel-input" />
+            <div class="search-toggle-buttons">
+              <button class="toggle-btn" :class="{ 'toggle-btn-active': caseSensitive }" :title="t('scratchpad.matchCase')" @click="caseSensitive = !caseSensitive">Aa</button>
+              <button class="toggle-btn" :class="{ 'toggle-btn-active': wholeWord }" :title="t('scratchpad.matchWholeWord')" @click="wholeWord = !wholeWord"><WholeWord :size="13" /></button>
+              <button class="toggle-btn" :class="{ 'toggle-btn-active': isRegex }" :title="t('scratchpad.useRegex')" @click="toggleRegex">.*</button>
             </div>
-            <div v-show="showRecent" class="recent-list">
-              <div
-                v-for="entry in recentFileEntries"
-                :key="entry.path"
-                class="recent-entry"
-                @click="handleOpen(entry)"
-              >
+          </div>
+          <button class="toolbar-btn" :title="t('scratchpad.closeSearch')" @click="toggleExplorerFilter"><X :size="14" /></button>
+        </div>
+
+        <div v-if="regexError" class="search-notice search-notice-error">
+          <NIcon size="14"><Info /></NIcon>
+          <span>{{ regexError }}</span>
+        </div>
+
+        <div class="search-filter-toggle" @click="showSearchFilters = !showSearchFilters">
+          <NIcon size="12"><component :is="showSearchFilters ? ChevronDown : ChevronRight" /></NIcon>
+          <span>{{ t('scratchpad.filesToInclude') }}</span>
+        </div>
+        <div v-show="showSearchFilters" class="search-filters">
+          <NInput v-model:value="searchInclude" size="small" :placeholder="t('scratchpad.includePattern')" class="search-filter-input" />
+          <NInput v-model:value="searchExclude" size="small" :placeholder="t('scratchpad.excludePattern')" class="search-filter-input" />
+        </div>
+
+        <div v-if="showReplaceBar" class="search-replace-bar">
+          <NInput v-model:value="replaceWith" size="small" :placeholder="t('scratchpad.replaceWith')" class="search-replace-input" />
+          <NButton size="small" :loading="replaceInProgress" @click="handleReplaceAll">{{ t('scratchpad.replaceAll') }}</NButton>
+        </div>
+
+        <div v-if="searchQuery.trim()" class="search-results">
+          <div v-if="searchResult && searchResult.matches.length > 0">
+            <div v-for="[file, matches] in searchResultsByFile" :key="file" class="search-result-group">
+              <div class="search-result-file-header" @click="toggleSearchFileExpand(file)">
+                <NIcon size="12"><component :is="expandedSearchFiles.has(file) ? ChevronDown : ChevronRight" /></NIcon>
                 <NIcon size="14"><FileText /></NIcon>
-                <span class="recent-name">{{ entry.name }}</span>
+                <span class="search-result-file-name">{{ file }}</span>
+                <span class="search-result-match-count">{{ matches.length }}</span>
+              </div>
+              <div v-show="expandedSearchFiles.has(file)" class="search-result-matches">
+                <div
+                  v-for="match in matches"
+                  :key="`${match.file}:${match.line_number}`"
+                  class="search-result-line"
+                  @click="handleSearchMatchClick(match)"
+                >
+                  <span class="search-result-line-number">{{ match.line_number }}</span>
+                  <span class="search-result-line-content" v-html="highlightSearchMatch(match)"></span>
+                </div>
               </div>
             </div>
           </div>
-          <div v-if="filteredLocalEntries.length === 0" class="empty-state">
+          <div v-else-if="searchQuery.trim()" class="search-no-results">
+            <span>{{ t('scratchpad.noResults') }}</span>
+          </div>
+          <div v-if="resultsSummaryText" class="search-results-footer">
+            {{ resultsSummaryText }}
+          </div>
+        </div>
+        <div v-else class="search-no-results">
+          <span>{{ t('scratchpad.typeToSearch') }}</span>
+        </div>
+      </div>
+
+      <div v-else ref="treeContainerRef" class="tree-container" @contextmenu.prevent="showBlankMenu($event)">
+        <div v-if="recentFileEntries.length > 0" class="pane-section">
+          <div class="pane-section-header" @click="showRecent = !showRecent" @contextmenu.stop>
+            <NIcon size="14">
+              <component :is="showRecent ? ChevronDown : ChevronRight" />
+            </NIcon>
+            <NIcon size="14"><History /></NIcon>
+            <span class="pane-section-title">{{ t('scratchpad.recentFiles') }}</span>
+            <span class="pane-section-actions">
+              <button class="toolbar-btn" :title="t('scratchpad.newFile')" @click.stop="handleCreateFile"><FilePlus :size="14" /></button>
+              <button class="toolbar-btn" :title="t('scratchpad.saveAll')" @click.stop="handleSaveAll"><FileText :size="14" /></button>
+              <button class="toolbar-btn" :title="t('scratchpad.closeRecent')" @click.stop="handleCloseRecent"><X :size="14" /></button>
+            </span>
+          </div>
+          <div v-show="showRecent" class="pane-section-body">
+            <div v-for="entry in recentFileEntries" :key="entry.path" class="recent-entry" @click="handleOpen(entry)">
+              <NIcon size="14"><FileText /></NIcon>
+              <span class="recent-name">{{ entry.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane-section pane-section-main" :style="getSectionFlexStyle('local')">
+          <div class="pane-section-header" @click="toggleGroup('local')" @contextmenu.stop>
+            <NIcon size="14">
+              <component :is="groupExpanded.local ? ChevronDown : ChevronRight" />
+            </NIcon>
+            <NIcon size="14"><Folder /></NIcon>
+            <span class="pane-section-title">{{ t('scratchpad.localDrafts') }}</span>
+            <span class="pane-section-actions">
+              <button class="toolbar-btn" :title="t('scratchpad.newFile')" @click.stop="handleCreateFile"><FilePlus :size="14" /></button>
+              <button class="toolbar-btn" :title="t('scratchpad.newFolder')" @click.stop="handleCreateFolder"><FolderPlus :size="14" /></button>
+              <button class="toolbar-btn" :title="t('scratchpad.import')" @click.stop="handleImportFile"><Upload :size="14" /></button>
+              <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="handleCollapseAll"><ChevronsUpDown :size="14" /></button>
+            </span>
+          </div>
+        <div v-show="groupExpanded.local" class="pane-section-body">
+          <div v-if="isInlineCreateActive && inlineCreateParentPath === null" class="inline-tree-entry">
+            <NIcon size="14" class="node-icon">
+              <component :is="inlineCreateIsFolder ? Folder : FileText" />
+            </NIcon>
+            <input
+              ref="rootInlineInputRef"
+              v-model="rootInlineCreateName"
+              class="rename-input"
+              :placeholder="inlineCreateIsFolder ? t('scratchpad.newFolder') : t('scratchpad.newFile')"
+              @keyup.enter="commitRootInlineCreate"
+              @keyup.escape="cancelRootInlineCreate"
+              @blur="commitRootInlineCreate"
+              @click.stop
+            />
+          </div>
+          <div v-if="filteredLocalEntries.length === 0 && inlineCreateParentPath !== null" class="empty-state">
             <div class="empty-icon-wrapper">
               <NIcon size="32"><FolderOpen /></NIcon>
             </div>
@@ -444,25 +241,70 @@
         </div>
       </div>
 
-      <div class="tree-group">
-        <div class="group-header" @click="toggleTrash">
+      <div
+        v-if="groupExpanded.local && groupExpanded.external"
+        class="section-resize-handle"
+        :class="{ 'section-resize-active': resizing === 'local' }"
+        @mousedown="startResize('local', $event)"
+      ></div>
+
+      <div class="pane-section" :style="getSectionFlexStyle('external')">
+        <div class="pane-section-header" @click="toggleGroup('external')" @contextmenu.stop>
+          <NIcon size="14">
+            <component :is="groupExpanded.external ? ChevronDown : ChevronRight" />
+          </NIcon>
+          <NIcon size="14"><FolderSymlink /></NIcon>
+          <span class="pane-section-title">{{ t('scratchpad.externalReferences') }}</span>
+          <span class="pane-section-actions">
+            <button class="toolbar-btn" :title="t('scratchpad.reference')" @click.stop="handleAddReference"><FolderSymlink :size="14" /></button>
+            <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="toggleGroup('external')"><ChevronsUpDown :size="14" /></button>
+          </span>
+        </div>
+        <div v-show="groupExpanded.external" class="pane-section-body">
+          <div v-if="externalReferences.length === 0" class="empty-hint">
+            {{ t('scratchpad.noReferences') }}
+          </div>
+          <div
+            v-for="ref in externalReferences"
+            :key="ref.alias"
+            class="ref-row"
+            @click="handleRefClick(ref)"
+            @contextmenu.prevent="showRefMenu($event, ref)"
+          >
+            <NIcon size="14">
+              <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(ref) }" />
+            </NIcon>
+            <span class="ref-name">{{ ref.alias }}</span>
+            <span
+              :class="['ref-path', { 'ref-path-invalid': isRefInvalid(ref) }]"
+              :title="ref.path"
+              >{{ ref.path }}</span
+            >
+            <span v-if="isRefInvalid(ref)" class="ref-badge">{{ t('scratchpad.invalid') }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="groupExpanded.external && showTrash"
+        class="section-resize-handle"
+        :class="{ 'section-resize-active': resizing === 'external' }"
+        @mousedown="startResize('external', $event)"
+      ></div>
+
+      <div class="pane-section" :style="getSectionFlexStyle('trash')">
+        <div class="pane-section-header" @click="toggleTrash" @contextmenu.stop>
           <NIcon size="14">
             <component :is="showTrash ? ChevronDown : ChevronRight" />
           </NIcon>
           <NIcon size="14"><Trash2 /></NIcon>
-          <span class="group-title">{{ t('scratchpad.trash') }}</span>
-          <span class="group-count">{{ trashEntries.length }}</span>
-          <NButton
-            v-if="showTrash && trashEntries.length > 0"
-            size="tiny"
-            type="error"
-            quaternary
-            @click.stop="handleEmptyTrash"
-          >
-            {{ t('scratchpad.emptyTrash') }}
-          </NButton>
+          <span class="pane-section-title">{{ t('scratchpad.trash') }}</span>
+          <span class="pane-section-actions">
+            <button v-if="trashEntries.length > 0" class="toolbar-btn" :title="t('scratchpad.emptyTrash')" @click.stop="handleEmptyTrash"><X :size="14" /></button>
+            <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="toggleTrash"><ChevronsUpDown :size="14" /></button>
+          </span>
         </div>
-        <div v-show="showTrash" class="group-content">
+        <div v-show="showTrash" class="pane-section-body">
           <div v-if="trashEntries.length === 0" class="empty-hint">
             {{ t('scratchpad.noTrashItems') }}
           </div>
@@ -487,7 +329,7 @@
       </div>
     </div>
 
-    
+    </div>
 
     <NModal v-model:show="showRefModal" :title="t('scratchpad.addReference')">
       <div class="modal-body">
@@ -643,11 +485,11 @@ import {
   FolderPlus,
   Folder,
   FolderOpen,
-  RefreshCw,
   Upload,
   Search,
   ChevronDown,
   ChevronRight,
+  ChevronsUpDown,
   FolderSymlink,
   FileText,
   Trash2,
@@ -661,8 +503,11 @@ import {
   ArrowUp,
   ArrowDown,
   Info,
+  History,
+  MoreVertical,
+  WholeWord,
 } from 'lucide-vue-next'
-import { NButton, NIcon, NInput, NSpin, NModal, NTooltip, createDiscreteApi } from 'naive-ui'
+import { NButton, NIcon, NInput, NSpin, NModal, NDropdown, createDiscreteApi } from 'naive-ui'
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -733,11 +578,21 @@ const conflictFilePath = ref<string | null>(null)
 const showTrash = ref(false)
 const sortBy = ref<'name' | 'size' | 'modified'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
+const showExplorerFilter = ref(false)
 const caseSensitive = ref(false)
 const isRegex = ref(false)
 const regexError = ref<string | null>(null)
+const wholeWord = ref(false)
+const expandedSearchFiles = ref<Set<string>>(new Set())
+const showSearchFilters = ref(false)
+const searchInclude = ref('')
+const searchExclude = ref('')
 const showRecent = ref(true)
 const recentFiles = ref<string[]>([])
+const sectionFlex = reactive<Record<string, number>>({ local: 60, external: 20, trash: 20 })
+const resizing = ref<string | null>(null)
+const resizeStartY = ref(0)
+const resizeStartFlex = ref<[number, number]>([0, 0])
 const MAX_RECENT = 5
 let contentSearchTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -759,13 +614,99 @@ const moveUndoName = ref('')
 let moveUndoTimer: ReturnType<typeof setTimeout> | null = null
 const MOVE_UNDO_TIMEOUT = 5000
 
-function toggleSearchMode(): void {
-  contentSearchMode.value = !contentSearchMode.value
-  if (contentSearchMode.value) {
+function toggleExplorerFilter(): void {
+  showExplorerFilter.value = !showExplorerFilter.value
+  if (showExplorerFilter.value) {
+    contentSearchMode.value = true
     searchQuery.value = ''
     searchResult.value = null
     showReplaceBar.value = false
+    expandedSearchFiles.value = new Set()
+    nextTick(() => {
+      const input = document.querySelector('.search-panel-input input') as HTMLInputElement | null
+      input?.focus()
+    })
+  } else {
+    searchQuery.value = ''
+    contentSearchMode.value = false
+    searchResult.value = null
+    showReplaceBar.value = false
   }
+}
+
+const moreMenuOptions = computed(() => [
+  { label: t('scratchpad.newFile'), key: 'newFile' },
+  { label: t('scratchpad.newFolder'), key: 'newFolder' },
+  { label: t('scratchpad.refresh'), key: 'refresh' },
+  { type: 'divider' as const, key: 'd1' },
+  { label: t('scratchpad.sortByName'), key: 'sortName' },
+  { label: t('scratchpad.sortBySize'), key: 'sortSize' },
+  { label: t('scratchpad.sortByModified'), key: 'sortModified' },
+  { type: 'divider' as const, key: 'd2' },
+  { label: t('scratchpad.expandAll'), key: 'expandAll' },
+  { label: t('scratchpad.collapseAll'), key: 'collapseAll' },
+])
+
+function handleMoreMenuSelect(key: string): void {
+  switch (key) {
+    case 'newFile': handleCreateFile(); break
+    case 'newFolder': handleCreateFolder(); break
+    case 'refresh': loadFiles(); break
+    case 'sortName': toggleSort('name'); break
+    case 'sortSize': toggleSort('size'); break
+    case 'sortModified': toggleSort('modified'); break
+    case 'expandAll': handleExpandAll(); break
+    case 'collapseAll': handleCollapseAll(); break
+  }
+}
+
+const searchResultsByFile = computed(() => {
+  const sr = searchResult.value
+  if (!sr || sr.matches.length === 0) return new Map<string, SearchMatch[]>()
+  const grouped = new Map<string, SearchMatch[]>()
+  for (const m of sr.matches) {
+    const list = grouped.get(m.file) || []
+    list.push(m)
+    grouped.set(m.file, list)
+  }
+  return grouped
+})
+
+const resultsSummaryText = computed(() => {
+  const sr = searchResult.value
+  if (!sr) return ''
+  const fileCount = searchResultsByFile.value.size
+  const matchCount = sr.matches.length
+  if (matchCount === 0) return t('scratchpad.noResults')
+  return t('scratchpad.searchSummary', { files: fileCount, count: matchCount })
+})
+
+function toggleSearchFileExpand(file: string): void {
+  const next = new Set(expandedSearchFiles.value)
+  if (next.has(file)) {
+    next.delete(file)
+  } else {
+    next.add(file)
+  }
+  expandedSearchFiles.value = next
+}
+
+function handleSearchMatchClick(match: SearchMatch): void {
+  openFileAtLine(match.file, match.line_number)
+}
+
+function highlightSearchMatch(match: SearchMatch): string {
+  const line = escapeHtml(match.line_content)
+  const q = searchQuery.value.trim()
+  if (!q || isRegex.value) return line
+  const lowerLine = caseSensitive.value ? line : line.toLowerCase()
+  const lowerQ = caseSensitive.value ? q : q.toLowerCase()
+  const idx = lowerLine.indexOf(lowerQ)
+  if (idx === -1) return line
+  const before = line.slice(0, idx)
+  const matched = line.slice(idx, idx + q.length)
+  const after = line.slice(idx + q.length)
+  return `${escapeHtml(before)}<mark class="search-hl">${escapeHtml(matched)}</mark>${escapeHtml(after)}`
 }
 
 function toggleRegex(): void {
@@ -836,6 +777,13 @@ watch(searchQuery, async (val) => {
     const result = await searchContent(val.trim(), caseSensitive.value)
     searchResult.value = result
   }, 300)
+})
+
+watch(searchResult, (sr) => {
+  if (sr && sr.matches.length > 0) {
+    const files = new Set(sr.matches.map(m => m.file))
+    expandedSearchFiles.value = new Set(files)
+  }
 })
 
 watch(caseSensitive, async () => {
@@ -1074,13 +1022,16 @@ async function handleUndoDelete(): Promise<void> {
   if (ok) message.success(t('scratchpad.restoredSuccess', { name }))
 }
 
-const groupExpanded = reactive({ external: true, local: true })
+const groupExpanded = reactive({ external: false, local: true })
 
 const showRefModal = ref(false)
 const newRefAlias = ref('')
 const newRefPath = ref('')
 const inlineCreateParentPath = ref<string | null>(null)
 const inlineCreateIsFolder = ref(false)
+const isInlineCreateActive = ref(false)
+const rootInlineInputRef = ref<HTMLInputElement | null>(null)
+const rootInlineCreateName = ref('')
 
 interface ContextMenuItem {
   key: string
@@ -1096,6 +1047,7 @@ const contextMenu = reactive<{
   y: number
   target: ScratchpadEntry | ExternalReference | null
   isRefTarget: boolean
+  isBlankTarget: boolean
   items: ContextMenuItem[]
 }>({
   visible: false,
@@ -1103,6 +1055,7 @@ const contextMenu = reactive<{
   y: 0,
   target: null,
   isRefTarget: false,
+  isBlankTarget: false,
   items: [],
 })
 
@@ -1136,11 +1089,66 @@ function toggleTrash(): void {
   }
 }
 
-async function handleEmptyTrash(): Promise<void> {
-  const confirmed = window.confirm(t('scratchpad.emptyTrashConfirm'))
-  if (!confirmed) return
-  const ok = await emptyTrashBin()
-  if (ok) message.success(t('scratchpad.trashEmptied'))
+const expandedSections = computed(() => {
+  const sections: string[] = []
+  if (groupExpanded.local) sections.push('local')
+  if (groupExpanded.external) sections.push('external')
+  if (showTrash.value) sections.push('trash')
+  return sections
+})
+
+function getSectionFlexStyle(section: string): Record<string, string> {
+  const expanded = expandedSections.value
+  if (!expanded.includes(section)) {
+    return { flex: '0 0 auto' }
+  }
+  if (expanded.length === 1) {
+    return { flex: '1 1 0', minHeight: '0' }
+  }
+  const flex = sectionFlex[section] || 1
+  return { flex: `${flex} 1 0`, minHeight: '40px' }
+}
+
+function startResize(section: string, event: MouseEvent): void {
+  event.preventDefault()
+  const expanded = expandedSections.value
+  const idx = expanded.indexOf(section)
+  if (idx < 0 || idx >= expanded.length - 1) return
+  const current = expanded[idx]
+  const next = expanded[idx + 1]
+  resizing.value = section
+  resizeStartY.value = event.clientY
+  resizeStartFlex.value = [sectionFlex[current] || 1, sectionFlex[next] || 1]
+  document.addEventListener('mousemove', handleResizeMove)
+  document.addEventListener('mouseup', handleResizeEnd)
+}
+
+function handleResizeMove(event: MouseEvent): void {
+  if (!resizing.value) return
+  const expanded = expandedSections.value
+  const idx = expanded.indexOf(resizing.value)
+  if (idx < 0 || idx >= expanded.length - 1) return
+  const current = expanded[idx]
+  const next = expanded[idx + 1]
+  const delta = event.clientY - resizeStartY.value
+  const total = resizeStartFlex.value[0] + resizeStartFlex.value[1]
+  if (total === 0) return
+  const container = document.querySelector('.tree-container')
+  const containerHeight = container ? container.clientHeight : 400
+  if (containerHeight === 0) return
+  const deltaRatio = (delta / containerHeight) * 100
+  let newFlex0 = resizeStartFlex.value[0] + deltaRatio
+  let newFlex1 = resizeStartFlex.value[1] - deltaRatio
+  newFlex0 = Math.max(10, Math.min(90, newFlex0))
+  newFlex1 = Math.max(10, Math.min(90, newFlex1))
+  sectionFlex[current] = newFlex0
+  sectionFlex[next] = newFlex1
+}
+
+function handleResizeEnd(): void {
+  resizing.value = null
+  document.removeEventListener('mousemove', handleResizeMove)
+  document.removeEventListener('mouseup', handleResizeEnd)
 }
 
 function handleSelect(entry: ScratchpadEntry, event?: MouseEvent): void {
@@ -1364,26 +1372,61 @@ function escapeHtml(str: string): string {
 }
 
 function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
+  groupExpanded.local = true
+  isInlineCreateActive.value = true
   inlineCreateParentPath.value = parentPath
   inlineCreateIsFolder.value = isFolder
+  rootInlineCreateName.value = ''
+  if (parentPath === null) {
+    nextTick(() => {
+      rootInlineInputRef.value?.focus()
+    })
+  } else {
+    expandedKeys.value = new Set([...expandedKeys.value, parentPath])
+    const entry = findEntryInTree(localEntries.value, parentPath)
+    if (entry && entry.kind === 'folder' && !hasChildrenLoaded(entry)) {
+      loadChildEntries(parentPath)
+    }
+  }
 }
 
 function cancelInlineCreate(): void {
+  isInlineCreateActive.value = false
   inlineCreateParentPath.value = null
   inlineCreateIsFolder.value = false
+  rootInlineCreateName.value = ''
+}
+
+function commitRootInlineCreate(): void {
+  const name = rootInlineCreateName.value.trim()
+  if (!name) {
+    cancelInlineCreate()
+    return
+  }
+  confirmInlineCreate(name)
+}
+
+function cancelRootInlineCreate(): void {
+  cancelInlineCreate()
 }
 
 async function confirmInlineCreate(name: string): Promise<void> {
   const parentPath = inlineCreateParentPath.value
   const isFolder = inlineCreateIsFolder.value
-  cancelInlineCreate()
-  if (!name) return
+  if (!name) {
+    cancelInlineCreate()
+    return
+  }
   const entry = await createEntry(name, isFolder, parentPath || undefined)
   if (entry) {
+    cancelInlineCreate()
     if (parentPath) {
       expandedKeys.value = new Set([...expandedKeys.value, parentPath])
     }
     message.success(t('scratchpad.createdSuccess', { name }))
+    if (!isFolder) {
+      openFileInEditor(entry)
+    }
   }
 }
 
@@ -1428,6 +1471,7 @@ function getParentPathOfEntry(path: string): string | null {
 async function handleImportFile(): Promise<void> {
   if (!openDialog) {
     console.warn('[Scratchpad] Dialog plugin not available')
+    message.warning(t('scratchpad.dialogNotAvailable'))
     return
   }
   try {
@@ -1485,6 +1529,24 @@ async function handleAddReference(): Promise<void> {
   newRefAlias.value = ''
   newRefPath.value = ''
   showRefModal.value = true
+}
+
+async function handleSaveAll(): Promise<void> {
+  message.info(t('scratchpad.saveAllHint'))
+}
+
+async function handleCloseRecent(): Promise<void> {
+  recentFiles.value = []
+  message.success(t('scratchpad.recentCleared'))
+}
+
+async function handleEmptyTrash(): Promise<void> {
+  try {
+    const ok = await emptyTrashBin()
+    if (ok) message.success(t('scratchpad.trashEmptied'))
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : String(e))
+  }
 }
 
 async function browseRefPath(): Promise<void> {
@@ -1548,6 +1610,22 @@ async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
   )
 }
 
+function showBlankMenu(event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  const pos = clampToViewport(event.clientX, event.clientY, 180, 100)
+  contextMenu.x = pos.x
+  contextMenu.y = pos.y
+  contextMenu.isRefTarget = false
+  contextMenu.isBlankTarget = true
+  contextMenu.target = null
+  contextMenu.items = [
+    { key: 'new-file', label: t('scratchpad.newFile'), icon: FilePlus },
+    { key: 'new-folder', label: t('scratchpad.newFolder'), icon: FolderPlus },
+  ]
+  contextMenu.visible = true
+}
+
 function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
   event.preventDefault()
   event.stopPropagation()
@@ -1565,12 +1643,15 @@ function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
   contextMenu.x = pos.x
   contextMenu.y = pos.y
   contextMenu.isRefTarget = false
+  contextMenu.isBlankTarget = false
   contextMenu.target = entry
   contextMenu.items = multi
     ? [
         { key: 'batch-delete', label: t('scratchpad.batchDelete', { n: multiSelected.value }), icon: Trash2, danger: true },
       ]
     : [
+        { key: 'new-file', label: t('scratchpad.newFile'), icon: FilePlus },
+        { key: 'new-folder', label: t('scratchpad.newFolder'), icon: FolderPlus },
         { key: 'open', label: t('scratchpad.open'), icon: FileText },
         ...(isAnalyzableFile(entry)
           ? [
@@ -1612,6 +1693,7 @@ function showRefMenu(event: MouseEvent, ref: ExternalReference): void {
   contextMenu.x = pos.x
   contextMenu.y = pos.y
   contextMenu.isRefTarget = true
+  contextMenu.isBlankTarget = false
   contextMenu.target = ref
   contextMenu.items = [
     { key: 'open-ref-location', label: t('scratchpad.openLocation'), icon: ExternalLink },
@@ -1635,18 +1717,49 @@ function clampToViewport(
 }
 
 async function handleMenuAction(key: string): Promise<void> {
+  const isRefTarget = contextMenu.isRefTarget
+  const isBlankTarget = contextMenu.isBlankTarget
+  const target = contextMenu.target
   closeContextMenu()
-  if (contextMenu.isRefTarget) {
-    const ref = contextMenu.target as ExternalReference
-    if (key === 'remove-ref') {
-      await removeReference(ref.alias)
-    } else if (key === 'open-ref-location') {
-      await openInExplorerAction(ref.path)
+
+  if (key === 'new-file') {
+    let parentPath: string | null = null
+    if (!isBlankTarget && !isRefTarget && target) {
+      const entry = target as ScratchpadEntry
+      parentPath = entry.kind === 'folder'
+        ? entry.path
+        : getParentPathOfEntry(entry.path)
+    }
+    startInlineCreate(parentPath, false)
+    return
+  }
+
+  if (key === 'new-folder') {
+    let parentPath: string | null = null
+    if (!isBlankTarget && !isRefTarget && target) {
+      const entry = target as ScratchpadEntry
+      parentPath = entry.kind === 'folder'
+        ? entry.path
+        : getParentPathOfEntry(entry.path)
+    }
+    startInlineCreate(parentPath, true)
+    return
+  }
+
+  if (isRefTarget) {
+    const ref = target as ExternalReference
+    if (ref) {
+      if (key === 'remove-ref') {
+        await removeReference(ref.alias)
+      } else if (key === 'open-ref-location') {
+        await openInExplorerAction(ref.path)
+      }
     }
     return
   }
 
-  const entry = contextMenu.target as ScratchpadEntry
+  const entry = target as ScratchpadEntry
+  if (!entry) return
   switch (key) {
     case 'open':
       openFileInEditor(entry)
@@ -1869,6 +1982,13 @@ function cancelRename(): void {
 }
 
 async function handleKeydown(event: KeyboardEvent): Promise<void> {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+    event.preventDefault()
+    if (!showExplorerFilter.value) {
+      toggleExplorerFilter()
+    }
+    return
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
     event.preventDefault()
     handleCreateFile()
@@ -1964,12 +2084,13 @@ onMounted(async () => {
   await startWatching()
   try {
     const unlistenFn = await listen<ScratchpadChangeEvent>('scratchpad-changed', (event) => {
-      if (!event.changes || event.changes.length === 0) {
+      const payload = event.payload
+      if (!payload.changes || payload.changes.length === 0) {
         return
       }
       const savedExpanded = new Set(expandedKeys.value)
       const savedSelected = selectedKey.value
-      applyFileChanges(event).then(() => {
+      applyFileChanges(payload).then(() => {
         expandedKeys.value = savedExpanded
         selectedKey.value = savedSelected
       })
@@ -1998,7 +2119,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg-primary);
+  background: var(--dv-background-color, #1e1f22);
   overflow: hidden;
   position: relative;
 }
@@ -2019,51 +2140,383 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.toolbar {
+.explorer-titlebar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+  height: 22px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-md);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.explorer-titlebar-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.explorer-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.scratchpad-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-xs);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle);
+  gap: 1px;
+  min-height: 28px;
   flex-shrink: 0;
 }
 
-.toolbar-group {
+.scratchpad-explorer-body {
+  flex: 1;
   display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--dv-background-color, #1e1f22);
 }
 
-.toolbar-group-right {
+.toolbar-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+  padding: 0;
+  outline: none;
 }
 
-.toolbar-sep {
+.toolbar-btn:focus-visible {
+  box-shadow: 0 0 0 1px var(--primary-color);
+  z-index: 1;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-btn-primary {
+  color: var(--color-text-primary);
+}
+
+.toolbar-btn-active {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+
+.toolbar-separator {
   width: 1px;
-  height: 18px;
+  height: 16px;
   background: var(--color-border-subtle);
   margin: 0 var(--spacing-xs);
 }
 
-.search-bar {
+.icon-spin {
+  animation: toolbar-spin 0.8s linear infinite;
+}
+
+@keyframes toolbar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.search-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+.search-panel-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
 
-.search-input {
+.search-input-wrapper {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.search-panel-input {
+  flex: 1;
+}
+
+.search-panel-input :deep(.n-input) {
+  --n-border: var(--color-border-subtle);
+  --n-border-hover: var(--primary-color);
+  --n-border-focus: var(--primary-color);
+  --n-color: var(--color-bg-tertiary);
+  --n-color-focus: var(--color-bg-primary);
+  --n-text-color: var(--color-text-primary);
+  --n-placeholder-color: var(--color-text-muted);
+}
+
+.search-toggle-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.toggle-btn {
+  height: 22px;
+  padding: 0 var(--spacing-xs);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.toggle-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text-secondary);
+}
+
+.toggle-btn-active {
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
+}
+
+.search-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.search-filter-toggle:hover {
+  color: var(--color-text-secondary);
+}
+
+.search-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-sm) var(--spacing-xs);
+}
+
+.search-filter-input {
+  width: 100%;
+}
+
+.search-filter-input :deep(.n-input) {
+  --n-border: var(--color-border-subtle);
+  --n-border-hover: var(--primary-color);
+  --n-border-focus: var(--primary-color);
+  --n-color: var(--color-bg-tertiary);
+  --n-color-focus: var(--color-bg-primary);
+  --n-text-color: var(--color-text-primary);
+  --n-placeholder-color: var(--color-text-muted);
+}
+
+.search-replace-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.search-replace-input {
+  flex: 1;
+}
+
+.search-replace-input :deep(.n-input) {
+  --n-border: var(--color-border-subtle);
+  --n-border-hover: var(--primary-color);
+  --n-border-focus: var(--primary-color);
+  --n-color: var(--color-bg-tertiary);
+  --n-color-focus: var(--color-bg-primary);
+  --n-text-color: var(--color-text-primary);
+  --n-placeholder-color: var(--color-text-muted);
+}
+
+.search-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xs) 0;
+}
+
+.search-result-group {
+  margin-bottom: 1px;
+}
+
+.search-result-file-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  height: 22px;
+  padding: 0 var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.search-result-file-header:hover {
+  background-color: var(--color-hover);
+}
+
+.search-result-file-name {
+  flex: 1;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-match-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  padding: 0 var(--spacing-xs);
+  border-radius: var(--border-radius-sm);
+}
+
+.search-result-matches {
+  padding: 0;
+}
+
+.search-result-line {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  height: 22px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-xl);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.search-result-line:hover {
+  background-color: var(--color-hover);
+}
+
+.search-result-line-number {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  min-width: 28px;
+  text-align: right;
+  font-family: var(--font-monospace);
+  flex-shrink: 0;
+}
+
+.search-result-line-content {
+  font-size: var(--font-size-md);
+  font-family: var(--font-monospace);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.search-results-footer {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.search-hl {
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
+  border-radius: 1px;
+}
+
+.search-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+.search-notice-error {
+  color: var(--brand-danger);
+  background: color-mix(in srgb, var(--brand-danger) 10%, transparent);
+}
+
+.search-no-results {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+.inline-tree-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  height: 22px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-lg);
+}
+
+.inline-tree-entry .rename-input {
+  flex: 1;
+  height: 18px;
+  padding: 0 3px;
+  font-size: var(--font-size-md);
+  font-family: var(--font-family);
+  border: 1px solid var(--primary-color);
+  border-radius: 1px;
+  outline: none;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
 .tree-container {
   flex: 1;
-  overflow-y: auto;
-  padding: var(--spacing-sm) 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .virtual-scroll-viewport {
@@ -2089,67 +2542,107 @@ onUnmounted(() => {
   font-size: var(--font-size-md);
 }
 
-.tree-group {
-  margin-bottom: 2px;
+.pane-section {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-subtle);
+  overflow: hidden;
 }
 
-.group-header {
+.pane-section:first-child {
+  border-top: none;
+}
+
+.pane-section-main {
+  min-height: 0;
+}
+
+.pane-section-main .pane-section-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.pane-section-header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  height: 32px;
-  padding: 0 var(--spacing-sm);
+  gap: var(--spacing-xs);
+  height: 26px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-sm);
   cursor: pointer;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text-secondary);
-  transition: background-color 0.1s;
+  transition: background-color 0.15s, color 0.15s;
+  user-select: none;
 }
 
-.group-header:hover {
-  background-color: var(--color-bg-tertiary);
+.pane-section-header:hover {
+  background-color: var(--color-hover);
 }
 
-.group-title {
+.pane-section-title {
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.group-count {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.group-actions {
+.pane-section-actions {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   margin-left: auto;
   font-size: var(--font-size-xs);
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
-.group-actions .n-button {
+.pane-section-header:hover .pane-section-actions {
+  opacity: 1;
+}
+
+.pane-section-actions .n-button {
   font-size: var(--font-size-xs);
-  padding: 0 var(--spacing-sm);
+  padding: 0 var(--spacing-xs);
+  height: 18px;
+}
+
+.pane-section-body {
+  padding: 0;
+}
+
+.section-resize-handle {
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.section-resize-handle:hover,
+.section-resize-active {
+  background: var(--primary-color);
 }
 
 .ref-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  height: 32px;
-  padding: 0 var(--spacing-sm) 0 24px;
+  gap: var(--spacing-xs);
+  height: 22px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-lg);
   font-size: var(--font-size-md);
   cursor: pointer;
-  transition: background-color 0.1s;
+  transition: background-color 0.15s;
 }
 
 .ref-row:hover {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-hover);
 }
 
 .ref-name {
   color: var(--color-text-primary);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .ref-path {
@@ -2167,10 +2660,10 @@ onUnmounted(() => {
 }
 
 .ref-badge {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-xxs);
   color: var(--brand-danger);
-  background: var(--brand-accent-soft);
-  padding: 1px var(--spacing-sm);
+  background: var(--brand-danger-soft);
+  padding: 0 var(--spacing-xs);
   border-radius: var(--border-radius-sm);
   flex-shrink: 0;
 }
@@ -2180,10 +2673,9 @@ onUnmounted(() => {
 }
 
 .empty-hint {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   color: var(--color-text-muted);
-  padding: var(--spacing-lg);
-  text-align: center;
+  padding: var(--spacing-sm) var(--spacing-lg);
 }
 
 .recent-section {
@@ -2193,20 +2685,20 @@ onUnmounted(() => {
 .recent-header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  height: 28px;
-  padding: 0 var(--spacing-md);
+  gap: var(--spacing-xs);
+  height: 22px;
+  padding: 0 var(--spacing-md) 0 var(--spacing-lg);
   cursor: pointer;
   user-select: none;
 }
 
 .recent-header:hover {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-hover);
 }
 
 .recent-title {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-size: var(--font-size-md);
+  font-weight: 400;
   color: var(--color-text-secondary);
 }
 
@@ -2222,17 +2714,17 @@ onUnmounted(() => {
 .recent-entry {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  height: 28px;
-  padding: 0 var(--spacing-md) 0 28px;
+  gap: var(--spacing-xs);
+  height: 22px;
+  padding: 0 var(--spacing-sm) 0 var(--spacing-xl);
   cursor: pointer;
   font-size: var(--font-size-md);
   color: var(--color-text-primary);
-  transition: background-color 0.1s;
+  transition: background-color 0.15s;
 }
 
 .recent-entry:hover {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-hover);
 }
 
 .recent-name {
@@ -2247,20 +2739,20 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px var(--spacing-lg);
+  padding: var(--spacing-xl) var(--spacing-lg);
   gap: var(--spacing-sm);
 }
 
 .empty-icon-wrapper {
   color: var(--color-text-muted);
-  opacity: 0.5;
+  opacity: 0.3;
   margin-bottom: var(--spacing-xs);
 }
 
 .empty-title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  color: var(--color-text-muted);
 }
 
 .empty-hint {
@@ -2326,16 +2818,16 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  height: 32px;
+  height: 24px;
   padding: 0 var(--spacing-md);
   font-size: var(--font-size-md);
   cursor: pointer;
-  transition: background-color 0.1s;
+  transition: background-color 0.15s;
   color: var(--color-text-primary);
 }
 
 .menu-item:hover {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-hover);
 }
 
 .menu-item-danger {
@@ -2354,139 +2846,6 @@ onUnmounted(() => {
 
 .menu-item-danger .menu-shortcut {
   opacity: 0.6;
-}
-
-.search-results {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--spacing-sm) 0;
-}
-
-.search-results-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.search-results-count {
-  font-size: var(--font-size-xs);
-  font-weight: 400;
-  color: var(--color-text-muted);
-}
-
-.search-notice {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  margin: var(--spacing-xs) 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
-  border-radius: var(--border-radius-sm);
-}
-
-.search-no-results {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  font-size: var(--font-size-md);
-  color: var(--color-text-muted);
-}
-
-.search-result-file {
-  margin: 2px 0;
-}
-
-.search-result-file-name {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  height: 32px;
-  padding: 0 var(--spacing-md);
-  font-size: var(--font-size-md);
-  font-weight: 500;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  transition: background-color 0.1s;
-}
-
-.search-result-file-name:hover {
-  background-color: var(--color-bg-tertiary);
-}
-
-.search-result-match-count {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  background: var(--color-bg-tertiary);
-  padding: 1px var(--spacing-sm);
-  border-radius: var(--border-radius-sm);
-}
-
-.search-result-line {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  height: 24px;
-  padding: 0 var(--spacing-md) 0 32px;
-  font-size: var(--font-size-sm);
-  font-family: var(--font-mono);
-}
-
-.search-result-group {
-  margin-bottom: var(--spacing-xs);
-}
-
-.search-result-context {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  height: 20px;
-  padding: 0 var(--spacing-md) 0 32px;
-  font-size: var(--font-size-xs);
-  font-family: var(--font-mono);
-  opacity: 0.55;
-}
-
-.search-result-context .context-line {
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.search-result-line-number {
-  color: var(--color-text-muted);
-  min-width: 32px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.search-result-line-content {
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.search-result-more {
-  padding: 2px var(--spacing-md) var(--spacing-xs) 32px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-:deep(.search-hl) {
-  background-color: var(--color-warning-bg);
-  color: var(--color-warning-text);
-  border-radius: 2px;
-  padding: 0 1px;
 }
 
 .undo-bar {
@@ -2553,15 +2912,6 @@ onUnmounted(() => {
   font-size: var(--font-size-md);
   color: var(--color-text-muted);
   white-space: nowrap;
-}
-
-.search-notice-error {
-  color: var(--brand-danger);
-  background: var(--brand-accent-soft);
-}
-
-.search-results-actions {
-  margin-left: auto;
 }
 
 .diff-container {

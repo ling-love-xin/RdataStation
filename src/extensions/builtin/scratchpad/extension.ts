@@ -27,13 +27,21 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
       console.warn('[Scratchpad] No project path, skipping store init')
       return
     }
-    try {
-      await invoke('init_scratchpad_store', { projectPath })
-      storeInitialized = true
-      console.log('[Scratchpad] Store initialized for:', projectPath)
-    } catch (e) {
-      console.error('[Scratchpad] Store init failed:', e)
+    const maxRetries = 3
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await invoke('init_scratchpad_store', { projectPath })
+        storeInitialized = true
+        console.log('[Scratchpad] Store initialized for:', projectPath)
+        return
+      } catch (e) {
+        console.error(`[Scratchpad] Store init attempt ${attempt} failed:`, e)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+        }
+      }
     }
+    console.error('[Scratchpad] All store init attempts failed')
   }
 
   initStore(context.project.path).then(() => {

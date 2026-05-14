@@ -26,7 +26,7 @@ pub async fn init_scratchpad_store(
     project_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
 ) -> Result<(), CoreError> {
-    scratchpad_state.init(PathBuf::from(project_path))
+    scratchpad_state.init(PathBuf::from(project_path)).await
 }
 
 #[tauri::command]

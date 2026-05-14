@@ -178,17 +178,17 @@ function onApply() {
 .import-dialog {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .form-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-secondary);
 }
@@ -203,25 +203,25 @@ function onApply() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 10px;
+  padding: var(--spacing-sm) var(--spacing-sm);
   background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border-subtle);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-secondary);
 }
 
 .column-preview {
-  padding: 4px 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   max-height: 200px;
   overflow-y: auto;
 }
 
 .imported-col-row {
   display: flex;
-  gap: 8px;
-  padding: 4px 0;
-  font-size: 12px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-size-sm);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -234,8 +234,8 @@ function onApply() {
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 8px;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
   border-top: 1px solid var(--color-border-subtle);
 }
 </style>

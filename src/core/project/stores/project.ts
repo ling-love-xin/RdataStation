@@ -54,14 +54,17 @@ export const useProjectStore = defineStore('project', () => {
   async function setCurrentProject(project: Project | null): Promise<void> {
     currentProject.value = project
 
-    // 如果设置了项目，初始化项目存储
     if (project?.path) {
       try {
         debugLog('初始化项目存储:', project.path)
         await invoke('init_project_store', { projectPath: project.path })
         debugLog('项目存储初始化成功:', project.path)
+
+        debugLog('初始化草稿箱存储:', project.path)
+        await invoke('init_scratchpad_store', { projectPath: project.path })
+        debugLog('草稿箱存储初始化成功:', project.path)
       } catch (e) {
-        console.error('项目存储初始化失败:', e)
+        console.error('存储初始化失败:', e)
       }
     }
   }

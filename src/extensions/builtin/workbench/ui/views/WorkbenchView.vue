@@ -7,8 +7,8 @@
       class="dockview"
       :popout-url="'/popout.html'"
       :floating-group-bounds="'boundedWithinViewport'"
-      :right-header-actions-component="'panelHeaderActions'"
-      :default-tab-component="'iconTab'"
+      :right-header-actions-component="'PanelHeaderActions'"
+      :default-tab-component="'IconTab'"
       :get-tab-context-menu-items="getTabContextMenuItems"
       @ready="onReady"
     />
@@ -52,7 +52,7 @@ import { useAppStore } from '@/stores/useAppStore'
 
 defineOptions({
   components: {
-    iconTab: IconTabComponent,
+    IconTab: IconTabComponent,
   },
 })
 
@@ -623,7 +623,7 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
       title: scratchpadFileName ? `📜 ${scratchpadFileName}` : `SQL ${sqlEditorCounter}`,
       position: existingSqlPanelId
         ? { referencePanel: existingSqlPanelId, direction: 'within' }
-        : { direction: 'center' },
+        : undefined,
       params: {
         connectionId: connectionId || '',
         databaseName: databaseName || '',

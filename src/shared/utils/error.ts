@@ -191,6 +191,71 @@ export async function safeAsync<T>(fn: () => Promise<T>): Promise<Result<T, AppE
 }
 
 /**
+ * 从任意错误类型中提取人类可读的消息字符串。
+ *
+ * 处理以下格式：
+ * - JavaScript Error 对象
+ * - 普通字符串
+ * - Tauri IPC 返回的 serde 序列化 CoreError（深层嵌套对象）
+ * - 带 `.message` 属性的对象
+ * - 其他对象（JSON.stringify 回退）
+ */
+export function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === 'string') {
+    return error
+  }
+
+  if (error && typeof error === 'object') {
+    const obj = error as Record<string, unknown>
+
+    if (typeof obj.message === 'string' && obj.message.length > 0) {
+      return obj.message
+    }
+
+    // Tauri 2: serde 序列化的 CoreError 是深层枚举对象
+    // { Common: { General: "msg" } }
+    // { Storage: { Io: { path: "...", operation: "...", reason: "..." } } }
+    const deep = extractDeepMessage(obj)
+    if (deep) {
+      return deep
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return '未知错误'
+    }
+  }
+
+  return String(error)
+}
+
+/**
+ * 递归遍历 serde 序列化的枚举对象，提取最内层的字符串消息。
+ */
+function extractDeepMessage(obj: Record<string, unknown>): string | null {
+  const keys = Object.keys(obj)
+  if (keys.length === 0) return null
+
+  for (const key of keys) {
+    const val = obj[key]
+    if (typeof val === 'string') {
+      return val
+    }
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const inner = extractDeepMessage(val as Record<string, unknown>)
+      if (inner) return inner
+    }
+  }
+
+  return null
+}
+
+/**
  * 将未知错误转换为 AppError
  */
 export function toAppError(error: unknown): AppError {
@@ -198,15 +263,17 @@ export function toAppError(error: unknown): AppError {
     return error
   }
 
+  const message = extractErrorMessage(error)
+
   if (error instanceof Error) {
-    return new AppError(ErrorCode.UNKNOWN_ERROR, error.message, { cause: error })
+    return new AppError(ErrorCode.UNKNOWN_ERROR, message, { cause: error })
   }
 
   if (typeof error === 'string') {
-    return new AppError(ErrorCode.UNKNOWN_ERROR, error)
+    return new AppError(ErrorCode.UNKNOWN_ERROR, message)
   }
 
-  return new AppError(ErrorCode.INTERNAL_ERROR, '内部错误')
+  return new AppError(ErrorCode.INTERNAL_ERROR, message || '内部错误')
 }
 
 /**
