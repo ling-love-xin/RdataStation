@@ -72,3 +72,31 @@
 [data-edge='true'] .close-button {
   display: none !important;
 }
+
+.dv-edge-group .dv-tab-content {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dv-edge-group .dv-tab svg,
+.dv-edge-group .action-item svg,
+.dv-edge-group .dv-action-container svg {
+  width: 22px;
+  height: 22px;
+}
+
+.dv-edge-group .dv-tab {
+  color: var(--dv-tab-active-color);
+  opacity: 0.85;
+}
+
+.dv-edge-group .dv-tab:hover {
+  opacity: 1;
+  color: var(--dv-tab-active-color);
+}
+
+.dv-edge-group .dv-tab.dv-tab-active {
+  color: var(--dv-tab-active-color);
+  opacity: 1;
+}

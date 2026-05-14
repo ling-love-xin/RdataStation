@@ -130,14 +130,6 @@ export const defaultLayoutConfig: LayoutConfig = {
           order: 3,
           defaultVisible: false,
         },
-        {
-          id: 'settings',
-          name: '设置',
-          component: () => import('@/extensions/builtin/settings/ui/components/SettingsPanel.vue'),
-          location: 'left',
-          order: 4,
-          defaultVisible: false,
-        },
 
         // 中央面板
         {

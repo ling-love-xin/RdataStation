@@ -1,10 +1,10 @@
-import { useMessage } from 'naive-ui'
+import { createDiscreteApi } from 'naive-ui'
 import { ref, type Ref } from 'vue'
 
 import * as queryService from '@/extensions/builtin/query/ui/services/query'
 
 export function useTransaction(runtimeConnId: Ref<string>) {
-  const message = useMessage()
+  const { message } = createDiscreteApi(['message'])
   const inTransaction = ref(false)
 
   async function beginTransaction(): Promise<void> {

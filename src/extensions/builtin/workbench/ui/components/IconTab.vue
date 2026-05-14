@@ -1,7 +1,11 @@
 <template>
-  <div class="icon-tab">
+  <div
+    class="icon-tab"
+    :class="{ 'icon-tab--edge': isEdgeGroup }"
+    :title="isEdgeGroup ? titleText : undefined"
+  >
     <component :is="iconComponent" :size="14" class="icon-tab-icon" />
-    <span class="icon-tab-title">{{ title }}</span>
+    <span v-if="!isEdgeGroup" class="icon-tab-title">{{ titleText }}</span>
   </div>
 </template>
 
@@ -11,22 +15,30 @@ import {
   BarChart3,
   Puzzle,
   FileText,
+  FileCode,
   Sparkles,
   StickyNote,
   Dices,
   Layout,
 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import type { Component } from 'vue'
 
+interface TabApi {
+  id: string
+  title?: string
+  onDidTitleChange?: (listener: (e: { title: string }) => void) => { dispose: () => void }
+}
+
 const props = defineProps<{
   params: {
-    api: { id: string; title?: string }
+    api: TabApi
     title?: string
     params?: Record<string, unknown>
     containerApi?: unknown
     groupApi?: unknown
+    tabLocation?: string
   }
 }>()
 
@@ -39,19 +51,46 @@ const PANEL_ICONS: Record<string, Component> = {
   mockPanel: Dices,
   columnInsights: Sparkles,
   emptyWorkbench: Layout,
+  sqlEditor: Database,
+  codeEditor: FileCode,
+  queryResult: BarChart3,
+  multiTabResult: BarChart3,
+  dynamicObjectProperties: FileText,
 }
 
 const componentId = computed(() => {
   const panelId = props.params.api?.id || ''
-  return panelId.replace(/^panel_/, '')
+  return panelId.replace(/^panel_/, '').replace(/_\d+$/, '')
 })
 
 const iconComponent = computed(() => {
   return PANEL_ICONS[componentId.value] || Layout
 })
 
-const title = computed(() => {
-  return props.params.title || props.params.api?.title || ''
+const isEdgeGroup = computed(() => {
+  const groupApi = props.params.groupApi as { id?: string } | undefined
+  const groupId = groupApi?.id || ''
+  return groupId === 'left-edge' || groupId === 'right-edge'
+})
+
+const titleText = ref('')
+
+let titleDisposable: { dispose: () => void } | null = null
+
+onMounted(() => {
+  const api = props.params.api
+  titleText.value = api?.title || ''
+
+  if (api?.onDidTitleChange) {
+    titleDisposable = api.onDidTitleChange((e: { title: string }) => {
+      titleText.value = e.title
+    })
+  }
+})
+
+onBeforeUnmount(() => {
+  titleDisposable?.dispose()
+  titleDisposable = null
 })
 </script>
 
@@ -75,5 +114,15 @@ const title = computed(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+  color: inherit;
+}
+
+.icon-tab--edge {
+  justify-content: center;
+  gap: 0;
+}
+
+.icon-tab--edge .icon-tab-icon {
+  opacity: 0.9;
 }
 </style>

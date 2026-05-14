@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="visible" class="modal-overlay" @click.self="handleCancel">
+      <div v-if="visible" ref="overlayRef" tabindex="-1" class="modal-overlay" @click.self="handleCancel" @keydown.escape="handleCancel">
         <div class="modal-container">
           <header class="modal-header">
             <h2>{{ t('workbench.newProject') }}</h2>
@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import { X } from 'lucide-vue-next'
+import { ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import FormField from './FormField.vue'
@@ -67,9 +68,20 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const overlayRef = ref<HTMLElement | null>(null)
 
 const { form, isSubmitting, canSubmit, browsePath, submit } = useNewProject(
   () => props.visible
+)
+
+watch(
+  () => props.visible,
+  async val => {
+    if (val) {
+      await nextTick()
+      overlayRef.value?.focus()
+    }
+  }
 )
 
 function handleBrowse() {

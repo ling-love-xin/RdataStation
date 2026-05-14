@@ -79,10 +79,17 @@ interface PerformanceSettings {
   enablePreload: boolean
 }
 
+/** 外观密度枚举 */
+type AppearanceDensity = 'compact' | 'comfortable' | 'spacious'
+
 /** 外观设置 */
 interface AppearanceSettings {
   uiFontSize: number
   compactMode: boolean
+  accentColor: string | null
+  fontFamily: string
+  borderRadius: number
+  density: AppearanceDensity
 }
 
 /** 结果面板设置 */
@@ -191,6 +198,7 @@ interface ProjectConfig {
   titleBarSettings?: Partial<TitleBarSettings>
   statusBarSettings?: Partial<StatusBarSettings>
   commandPaletteSettings?: Partial<CommandPaletteSettings>
+  appearanceSettings?: Partial<AppearanceSettings>
 }
 
 // ============================================
@@ -280,6 +288,10 @@ const PerformanceSettingsSchema = z.object({
 const AppearanceSettingsSchema = z.object({
   uiFontSize: z.number().min(10).max(24),
   compactMode: z.boolean(),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+  fontFamily: z.string().min(1),
+  borderRadius: z.number().min(4).max(12),
+  density: z.enum(['compact', 'comfortable', 'spacious']),
 })
 
 const ResultSettingsSchema = z.object({
@@ -493,12 +505,16 @@ const CONFIG_REGISTRY = {
     default: {
       uiFontSize: 13,
       compactMode: false,
+      accentColor: null,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      borderRadius: 6,
+      density: 'comfortable' as AppearanceDensity,
     } satisfies AppearanceSettings,
-    writeType: {} as AppearanceSettings,
+    writeType: {} as AppearanceSettings | Partial<AppearanceSettings>,
     valueSchema: AppearanceSettingsSchema,
     rule: {
       globalDefault: true,
-      projectOverridable: false,
+      projectOverridable: true,
       projectOnly: false,
     } satisfies ConfigOverrideRule,
   },
@@ -522,7 +538,7 @@ const CONFIG_REGISTRY = {
     key: 'titleBarSettings' as const,
     default: {
       menuStyle: 'full' as const,
-      toolbarTools: [],
+      toolbarTools: ['settings'],
       showProjectSelector: true,
       showCommandCenter: true,
       recentProjectCount: 5,
@@ -679,6 +695,7 @@ const ProjectConfigSchema = z.object({
   titleBarSettings: TitleBarSettingsSchema.partial().optional(),
   statusBarSettings: StatusBarSettingsSchema.partial().optional(),
   commandPaletteSettings: CommandPaletteSettingsSchema.partial().optional(),
+  appearanceSettings: AppearanceSettingsSchema.partial().optional(),
 })
 
 // ============================================
@@ -783,6 +800,7 @@ export type {
   MonitoringSettings,
   PerformanceSettings,
   AppearanceSettings,
+  AppearanceDensity,
   ResultSettings,
   TitleBarSettings,
   StatusBarSettings,

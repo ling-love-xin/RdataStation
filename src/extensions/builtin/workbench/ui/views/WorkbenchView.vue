@@ -13,9 +13,6 @@
       @ready="onReady"
     />
 
-    <!-- 底部状态栏 -->
-    <WorkbenchStatusBar />
-
     <!-- 新建连接对话框 -->
     <ConnectionModal v-model="showConnectionModal" @save="handleSaveConnection" />
 
@@ -29,7 +26,6 @@ import {
   DockviewVue,
   type DockviewReadyEvent,
   type DockviewApi as DockviewVueApi,
-  type IDockviewPanel,
   type GetTabContextMenuItemsParams,
   type ContextMenuItem,
 } from 'dockview-vue'
@@ -43,7 +39,6 @@ import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/co
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import IconTabComponent from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
-import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import { useDockviewKeyboard } from '@/extensions/builtin/workbench/ui/composables/useDockviewKeyboard'
 import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
@@ -70,6 +65,7 @@ let activeSqlEditorPanelId: string | null = null
 
 let dockviewApi: DockviewVueApi | null = null
 let sqlEditorCounter = 0
+const scratchpadPanelMap = new Map<string, string>()
 
 useDockviewKeyboard({ layoutStore })
 
@@ -183,10 +179,7 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
     window.dispatchEvent(new CustomEvent('navigator-refresh'))
 
     if (dockviewApi) {
-      const emptyPanel = dockviewApi.getPanel('panel_emptyWorkbench')
-      if (emptyPanel) {
-        emptyPanel.api.close()
-      }
+      const centerRef = findCenterGroupReference()
 
       sqlEditorCounter++
       const panelId = `panel_sqlEditor_${sqlEditorCounter}`
@@ -194,13 +187,18 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
         id: panelId,
         component: 'sqlEditor',
         title: `SQL ${sqlEditorCounter}`,
-        position: { direction: 'center' },
+        position: centerRef,
         params: {
           connectionId: data.name,
           databaseName: data.database || '',
           initialSql: '',
         },
       })
+
+      const emptyPanel = dockviewApi.getPanel('panel_emptyWorkbench')
+      if (emptyPanel) {
+        emptyPanel.api.close()
+      }
 
       ensureResultPanel()
     }
@@ -365,6 +363,12 @@ const onReady = (event: DockviewReadyEvent) => {
         restorePinnedPanel(panelId)
       }, 100)
     }
+    for (const [path, id] of scratchpadPanelMap) {
+      if (id === panelId) {
+        scratchpadPanelMap.delete(path)
+        break
+      }
+    }
   })
 
   window.addEventListener(
@@ -526,6 +530,31 @@ function findActiveSqlEditorPanelId(): string | null {
   return null
 }
 
+function findCenterGroupReference(): { referencePanel: string; direction?: 'within' } | undefined {
+  if (!dockviewApi) return undefined
+
+  const sqlPanelId = findActiveSqlEditorPanelId()
+  if (sqlPanelId) {
+    return { referencePanel: sqlPanelId, direction: 'within' }
+  }
+
+  const welcomePanel = dockviewApi.getPanel('panel_emptyWorkbench')
+  if (welcomePanel) {
+    return { referencePanel: 'panel_emptyWorkbench', direction: 'within' }
+  }
+
+  for (const group of dockviewApi.groups || []) {
+    if (group.id !== 'left-edge' && group.id !== 'right-edge') {
+      const firstPanel = group.model?.panels?.[0]
+      if (firstPanel) {
+        return { referencePanel: firstPanel.id, direction: 'within' }
+      }
+    }
+  }
+
+  return undefined
+}
+
 const ensureResultPanel = () => {
   if (!dockviewApi) return
   let hasResultPanel = false
@@ -582,61 +611,74 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
   const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language, initialLine } =
     event.detail || {}
 
+  const isSqlContext =
+    !!connectionId ||
+    !!databaseName ||
+    language === 'sql' ||
+    (scratchpadFileName && String(scratchpadFileName).endsWith('.sql'))
+
+  const editorComponent = isSqlContext ? 'sqlEditor' : 'codeEditor'
+
   if (scratchpadRelativePath) {
-    for (const group of dockviewApi.groups || []) {
-      for (const panelInfo of group.model?.panels || []) {
-        const panel = dockviewApi.getPanel(panelInfo.id)
-        const params = panel?.params?.params as Record<string, unknown> | undefined
-        if (
-          panel?.id?.startsWith('panel_sqlEditor_') &&
-          params?.scratchpadRelativePath === scratchpadRelativePath
-        ) {
-          panel.focus()
-          return
-        }
+    const existingPanelId = scratchpadPanelMap.get(scratchpadRelativePath)
+    if (existingPanelId) {
+      const existingPanel = dockviewApi.getPanel(existingPanelId)
+      if (existingPanel) {
+        existingPanel.focus()
+        return
       }
+      scratchpadPanelMap.delete(scratchpadRelativePath)
     }
   }
 
   sqlEditorCounter++
-  const panelId = `panel_sqlEditor_${sqlEditorCounter}`
+  const panelId = isSqlContext
+    ? `panel_sqlEditor_${sqlEditorCounter}`
+    : `panel_codeEditor_${sqlEditorCounter}`
 
-  let existingSqlPanel: IDockviewPanel | undefined
-  let existingSqlPanelId: string | null = null
-
-  for (const group of dockviewApi.groups || []) {
-    for (const panelInfo of group.model?.panels || []) {
-      const panel = dockviewApi.getPanel(panelInfo.id)
-      if (panel?.id?.startsWith('panel_sqlEditor_')) {
-        existingSqlPanel = panel
-        existingSqlPanelId = panel.id
-        break
-      }
-    }
-    if (existingSqlPanel) break
-  }
+  const panelTitle = scratchpadFileName
+    ? scratchpadFileName
+    : isSqlContext
+      ? `SQL ${sqlEditorCounter}`
+      : scratchpadRelativePath
+        ? scratchpadRelativePath.split('/').pop() || 'Untitled'
+        : 'Untitled'
 
   try {
+    const centerRef = findCenterGroupReference()
+
     dockviewApi.addPanel({
       id: panelId,
-      component: 'sqlEditor',
-      title: scratchpadFileName ? `📜 ${scratchpadFileName}` : `SQL ${sqlEditorCounter}`,
-      position: existingSqlPanelId
-        ? { referencePanel: existingSqlPanelId, direction: 'within' }
-        : undefined,
+      component: editorComponent,
+      title: panelTitle,
+      position: centerRef,
       params: {
         connectionId: connectionId || '',
         databaseName: databaseName || '',
         initialSql: sql || '',
+        initialValue: sql || '',
         scratchpadRelativePath: scratchpadRelativePath || '',
         scratchpadFileName: scratchpadFileName || '',
-        language: language || 'sql',
+        fileName: scratchpadFileName || '',
+        filePath: scratchpadRelativePath || '',
+        language: language || (isSqlContext ? 'sql' : 'plaintext'),
         initialLine: initialLine || 0,
+        panelId,
       },
     })
-    console.log(`[Workbench] 创建 SQL 编辑器面板: ${panelId}`)
+
+    const welcomePanel = dockviewApi.getPanel('panel_emptyWorkbench')
+    if (welcomePanel) {
+      welcomePanel.api.close()
+    }
+
+    if (scratchpadRelativePath) {
+      scratchpadPanelMap.set(scratchpadRelativePath, panelId)
+    }
+
+    console.log(`[Workbench] 创建${isSqlContext ? 'SQL' : '代码'}编辑器面板: ${panelId}`)
   } catch (error) {
-    console.error('[Workbench] 创建 SQL 编辑器面板失败:', error)
+    console.error('[Workbench] 创建编辑器面板失败:', error)
   }
 }
 
@@ -649,7 +691,7 @@ const handleOpenObjectProperties = (event: CustomEvent) => {
     id: panelId,
     component: 'dynamicObjectProperties',
     title: `${objectType}: ${objectName}`,
-    position: { direction: 'center' },
+    position: findCenterGroupReference(),
     params: {
       objectType,
       objectName,
@@ -702,23 +744,6 @@ const handleWorkbenchSave = () => {
 
 const handleWorkbenchExecuteSql = () => {
   window.dispatchEvent(new CustomEvent('sql-editor-execute'))
-}
-
-const handleWorkbenchOpenSettings = () => {
-  // 打开设置面板 - 通过 dockview 添加设置面板
-  if (!dockviewApi) return
-  const panelId = 'panel_settings'
-  const existing = dockviewApi.getPanel(panelId)
-  if (existing) {
-    existing.focus()
-    return
-  }
-  dockviewApi.addPanel({
-    id: panelId,
-    component: 'settings',
-    title: t('workbench.settings'),
-    position: { direction: 'center' },
-  })
 }
 
 const handleWorkbenchOpenDocs = () => {
@@ -785,7 +810,6 @@ onMounted(() => {
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.NewConnection, handleWorkbenchNewConnection))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.Save, handleWorkbenchSave))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ExecuteSql, handleWorkbenchExecuteSql))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenSettings, handleWorkbenchOpenSettings))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenDocs, handleWorkbenchOpenDocs))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.KeyboardShortcuts, handleWorkbenchKeyboardShortcuts))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenTerminal, handleWorkbenchOpenTerminal))

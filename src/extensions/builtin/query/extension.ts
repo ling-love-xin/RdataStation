@@ -8,6 +8,7 @@ import { sqlApi } from '@/shared/api'
 import type { ExecuteSqlResponse, SqlHistoryResponse } from '@/shared/api'
 import type { QueryResult } from '@/shared/types'
 
+import CodeEditorPanel from '../workbench/ui/components/panels/CodeEditorPanel.vue'
 import ColumnInsightsPanel from '../workbench/ui/components/panels/ColumnInsightsPanel.vue'
 import MultiTabResults from '../workbench/ui/components/panels/MultiTabResults.vue'
 import QueryResultPanel from '../workbench/ui/components/panels/QueryResultPanel.vue'
@@ -88,6 +89,15 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     order: 1,
   })
 
+  // 注册通用代码编辑器面板（非 SQL 文件场景）
+  const codeEditorDisposable = context.window.registerViewProvider('codeEditor', {
+    component: CodeEditorPanel,
+    title: '代码编辑器',
+    location: 'center',
+    icon: 'FileCode',
+    order: 2,
+  })
+
   // 注册查询结果面板（单语句结果）
   const resultPanelDisposable = context.window.registerViewProvider('queryResult', {
     component: QueryResultPanel,
@@ -117,6 +127,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
 
   const disposables: Disposable[] = [
     sqlEditorDisposable,
+    codeEditorDisposable,
     resultPanelDisposable,
     multiTabResultDisposable,
     columnInsightsDisposable,

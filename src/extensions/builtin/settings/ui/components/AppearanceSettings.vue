@@ -49,6 +49,94 @@
       </div>
     </div>
 
+    <!-- UI 外观定制 -->
+    <div class="settings-section">
+      <h3>
+        <AppIcon name="Paintbrush" :size="16" />
+        {{ $t('settings.uiAppearance') }}
+      </h3>
+
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="label-text">{{ $t('settings.accentColor') }}</span>
+          <span v-if="hasProjectAppearanceOverride" class="label-hint"
+            >({{ $t('settings.projectOverride') }})</span
+          >
+        </div>
+        <div class="color-picker-row">
+          <input
+            v-model="localAppearance.accentColor"
+            type="color"
+            class="color-input"
+          />
+          <input
+            v-model="localAppearance.accentColor"
+            type="text"
+            class="text-input color-text"
+            placeholder="#E17055"
+            maxlength="7"
+            spellcheck="false"
+          />
+          <button
+            v-if="localAppearance.accentColor"
+            class="reset-btn"
+            @click="localAppearance.accentColor = null"
+          >
+            <AppIcon name="RotateCcw" :size="12" />
+            {{ $t('settings.useDefault') }}
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="label-text">{{ $t('settings.uiFontFamily') }}</span>
+          <span class="label-hint">{{ $t('settings.fontFamilyHint') }}</span>
+        </div>
+        <input
+          v-model="localAppearance.fontFamily"
+          type="text"
+          class="text-input"
+          spellcheck="false"
+        />
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="label-text">{{ $t('settings.borderRadius') }}</span>
+          <span class="label-value">{{ localAppearance.borderRadius }}px</span>
+        </div>
+        <input
+          v-model.number="localAppearance.borderRadius"
+          type="range"
+          min="4"
+          max="12"
+          step="1"
+          class="slider"
+        />
+        <div class="slider-labels">
+          <span>4px</span>
+          <span>12px</span>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-label">
+          <span class="label-text">{{ $t('settings.density') }}</span>
+        </div>
+        <div class="theme-selector">
+          <button
+            v-for="opt in densityOptions"
+            :key="opt.value"
+            :class="['theme-btn', { active: localAppearance.density === opt.value }]"
+            @click="localAppearance.density = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 编辑器 -->
     <div class="settings-section">
       <h3>
@@ -169,7 +257,14 @@ import { useI18n } from 'vue-i18n'
 
 import AppIcon from '@/shared/components/common/AppIcon.vue'
 import { CONFIG_KEYS, DEFAULT_EDITOR_SETTINGS, DEFAULT_GLOBAL_CONFIG } from '@/stores/config'
-import type { DefaultEngine, EditorSettings, Language, Theme } from '@/stores/config'
+import type {
+  AppearanceDensity,
+  AppearanceSettings as AppearanceSettingsType,
+  DefaultEngine,
+  EditorSettings,
+  Language,
+  Theme,
+} from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 
 const appStore = useAppStore()
@@ -191,12 +286,24 @@ const engineOptions = [
   { value: 'duckdb' as DefaultEngine, label: t('settings.duckdbEngine') },
 ]
 
+const densityOptions = [
+  { value: 'compact' as AppearanceDensity, label: t('settings.compact') },
+  { value: 'comfortable' as AppearanceDensity, label: t('settings.comfortable') },
+  { value: 'spacious' as AppearanceDensity, label: t('settings.spacious') },
+]
+
 const localTheme = ref<Theme>(appStore.effectiveTheme)
 const localLanguage = ref<Language>(appStore.effectiveLanguage)
 const localEditorSettings = reactive<EditorSettings>({ ...appStore.effectiveEditorSettings })
 const localDefaultEngine = ref<DefaultEngine>(appStore.effectiveDefaultEngine)
+const localAppearance = reactive<AppearanceSettingsType>({
+  ...appStore.effectiveAppearanceSettings,
+})
 
 const hasProjectThemeOverride = computed(() => appStore.hasProjectOverride(CONFIG_KEYS.THEME))
+const hasProjectAppearanceOverride = computed(() =>
+  appStore.hasProjectOverride(CONFIG_KEYS.APPEARANCE_SETTINGS),
+)
 
 function resetProjectTheme() {
   appStore.resetProjectOverride(CONFIG_KEYS.THEME)
@@ -207,26 +314,33 @@ watch(
   () => appStore.effectiveTheme,
   val => {
     localTheme.value = val
-  }
+  },
 )
 watch(
   () => appStore.effectiveLanguage,
   val => {
     localLanguage.value = val
-  }
+  },
 )
 watch(
   () => appStore.effectiveEditorSettings,
   val => {
     Object.assign(localEditorSettings, val)
   },
-  { deep: true }
+  { deep: true },
 )
 watch(
   () => appStore.effectiveDefaultEngine,
   val => {
     localDefaultEngine.value = val
-  }
+  },
+)
+watch(
+  () => appStore.effectiveAppearanceSettings,
+  val => {
+    Object.assign(localAppearance, val)
+  },
+  { deep: true },
 )
 
 function resetToDefault() {
@@ -234,6 +348,7 @@ function resetToDefault() {
   localLanguage.value = DEFAULT_GLOBAL_CONFIG.language
   Object.assign(localEditorSettings, DEFAULT_EDITOR_SETTINGS)
   localDefaultEngine.value = DEFAULT_GLOBAL_CONFIG.defaultEngine
+  Object.assign(localAppearance, DEFAULT_GLOBAL_CONFIG.appearanceSettings)
 }
 
 function resetToFactory() {
@@ -241,6 +356,7 @@ function resetToFactory() {
   localLanguage.value = appStore.effectiveLanguage
   Object.assign(localEditorSettings, appStore.effectiveEditorSettings)
   localDefaultEngine.value = appStore.effectiveDefaultEngine
+  Object.assign(localAppearance, appStore.effectiveAppearanceSettings)
 }
 
 defineExpose({
@@ -248,199 +364,17 @@ defineExpose({
   localLanguage,
   localEditorSettings,
   localDefaultEngine,
+  localAppearance,
   resetToDefault,
   resetToFactory,
 })
 </script>
 
 <style scoped>
+@import '../styles/settings-shared.css';
+
 .appearance-settings {
   display: flex;
   flex-direction: column;
-}
-
-.settings-section {
-  margin-bottom: var(--spacing-lg);
-  padding-bottom: var(--spacing-lg);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.settings-section:last-child {
-  border-bottom: none;
-}
-
-.settings-section h3 {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin: 0 0 var(--spacing-md) 0;
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.setting-item {
-  margin-bottom: 18px;
-}
-
-.setting-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-sm);
-}
-
-.label-text {
-  font-size: var(--font-size-md);
-  color: var(--color-text-primary);
-}
-
-.label-hint {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin-left: var(--spacing-sm);
-}
-
-.label-value {
-  font-size: var(--font-size-sm);
-  color: var(--brand-accent);
-  font-weight: 500;
-}
-
-.theme-selector {
-  display: flex;
-  gap: var(--spacing-sm);
-  flex-wrap: wrap;
-}
-
-.theme-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: var(--spacing-sm) 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.theme-btn:hover {
-  background: var(--color-hover);
-}
-
-.theme-btn.active {
-  background: var(--brand-accent);
-  border-color: var(--brand-accent);
-  color: var(--color-bg-primary);
-}
-
-.reset-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: var(--spacing-sm);
-  padding: 4px 10px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--border-radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.reset-btn:hover {
-  border-color: var(--brand-accent);
-  color: var(--brand-accent);
-}
-
-.slider {
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-bg-secondary);
-  outline: none;
-  -webkit-appearance: none;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--brand-accent);
-  cursor: pointer;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider-switch {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--color-bg-secondary);
-  transition: 0.3s;
-  border-radius: 20px;
-}
-
-.slider-switch:before {
-  position: absolute;
-  content: '';
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: var(--color-bg-primary);
-  transition: 0.3s;
-  border-radius: 50%;
-}
-
-.switch input:checked + .slider-switch {
-  background-color: var(--brand-accent);
-}
-
-.switch input:checked + .slider-switch:before {
-  transform: translateX(16px);
-}
-
-.text-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-md);
-  box-sizing: border-box;
-}
-
-.text-input:focus {
-  outline: none;
-  border-color: var(--brand-accent);
 }
 </style>

@@ -1,28 +1,31 @@
 <template>
-  <div
-class="scratchpad-panel"
-    :class="{ 'dragover-active': isDragOver }"
-    :data-drop-hint="t('scratchpad.dragToImport')"
-    @click="handleGlobalClick"
-    @dragover.prevent="handleDragOver"
-    @dragleave="handleDragLeave"
-    @drop.prevent="handleDrop"
-  >
+  <div class="scratchpad-app-wrapper">
+    <NConfigProvider :theme="naiveTheme">
+      <NMessageProvider>
+        <div
+          class="scratchpad-panel"
+        :class="{ 'dragover-active': isDragOver }"
+        :data-drop-hint="t('scratchpad.dragToImport')"
+        @click="handleGlobalClick"
+        @dragover.prevent="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop.prevent="handleDrop"
+      >
     <div class="explorer-titlebar" @dblclick="handleCollapseAll">
-      <span class="explorer-titlebar-label">{{ t('scratchpad.title') }}</span>
+      <h2 class="explorer-titlebar-label">{{ t('scratchpad.title') }}</h2>
       <span class="explorer-titlebar-actions">
         <button class="toolbar-btn" :disabled="isLoading" :title="t('scratchpad.import')" @click="handleImportFile">
-          <Upload :size="14" />
+          <Upload :size="16" />
         </button>
         <button class="toolbar-btn" :disabled="isLoading" :title="t('scratchpad.reference')" @click="handleAddReference">
-          <FolderSymlink :size="14" />
+          <FolderSymlink :size="16" />
         </button>
         <button class="toolbar-btn" :class="{ 'toolbar-btn-active': showExplorerFilter }" :title="t('scratchpad.search')" @click="toggleExplorerFilter">
-          <Search :size="14" />
+          <Search :size="16" />
         </button>
-        <NDropdown trigger="click" :options="moreMenuOptions" @select="handleMoreMenuSelect">
+        <NDropdown trigger="click" placement="bottom-end" :to="false" :options="moreMenuOptions" @select="handleMoreMenuSelect">
           <button class="toolbar-btn" :title="t('scratchpad.more')">
-            <MoreVertical :size="14" />
+            <MoreVertical :size="16" />
           </button>
         </NDropdown>
       </span>
@@ -95,6 +98,7 @@ class="scratchpad-panel"
                   @click="handleSearchMatchClick(match)"
                 >
                   <span class="search-result-line-number">{{ match.line_number }}</span>
+                  <!-- eslint-disable-next-line vue/no-v-html -->
                   <span class="search-result-line-content" v-html="highlightSearchMatch(match)"></span>
                 </div>
               </div>
@@ -119,7 +123,7 @@ class="scratchpad-panel"
               <component :is="showRecent ? ChevronDown : ChevronRight" />
             </NIcon>
             <NIcon size="14"><History /></NIcon>
-            <span class="pane-section-title">{{ t('scratchpad.recentFiles') }}</span>
+            <h3 class="pane-section-title">{{ t('scratchpad.recentFiles') }}</h3>
             <span class="pane-section-actions">
               <button class="toolbar-btn" :title="t('scratchpad.newFile')" @click.stop="handleCreateFile"><FilePlus :size="14" /></button>
               <button class="toolbar-btn" :title="t('scratchpad.saveAll')" @click.stop="handleSaveAll"><FileText :size="14" /></button>
@@ -140,7 +144,7 @@ class="scratchpad-panel"
               <component :is="groupExpanded.local ? ChevronDown : ChevronRight" />
             </NIcon>
             <NIcon size="14"><Folder /></NIcon>
-            <span class="pane-section-title">{{ t('scratchpad.localDrafts') }}</span>
+            <h3 class="pane-section-title">{{ t('scratchpad.localDrafts') }}</h3>
             <span class="pane-section-actions">
               <button class="toolbar-btn" :title="t('scratchpad.newFile')" @click.stop="handleCreateFile"><FilePlus :size="14" /></button>
               <button class="toolbar-btn" :title="t('scratchpad.newFolder')" @click.stop="handleCreateFolder"><FolderPlus :size="14" /></button>
@@ -212,6 +216,7 @@ class="scratchpad-panel"
               @cancel-rename="cancelRename"
               @drag-start="handleTreeNodeDragStart"
               @create-inline="confirmInlineCreate"
+              @drop-file="handleNodeDrop"
             />
           </div>
           <template v-else>
@@ -236,6 +241,7 @@ class="scratchpad-panel"
               @cancel-rename="cancelRename"
               @drag-start="handleTreeNodeDragStart"
               @create-inline="confirmInlineCreate"
+              @drop-file="handleNodeDrop"
             />
           </template>
         </div>
@@ -254,7 +260,7 @@ class="scratchpad-panel"
             <component :is="groupExpanded.external ? ChevronDown : ChevronRight" />
           </NIcon>
           <NIcon size="14"><FolderSymlink /></NIcon>
-          <span class="pane-section-title">{{ t('scratchpad.externalReferences') }}</span>
+          <h3 class="pane-section-title">{{ t('scratchpad.externalReferences') }}</h3>
           <span class="pane-section-actions">
             <button class="toolbar-btn" :title="t('scratchpad.reference')" @click.stop="handleAddReference"><FolderSymlink :size="14" /></button>
             <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="toggleGroup('external')"><ChevronsUpDown :size="14" /></button>
@@ -265,11 +271,11 @@ class="scratchpad-panel"
             {{ t('scratchpad.noReferences') }}
           </div>
           <div
-            v-for="ref in externalReferences"
-            :key="ref.alias"
+            v-for="extRef in externalReferences"
+            :key="extRef.alias"
             class="ref-row"
-            @click="handleRefClick(ref)"
-            @contextmenu.prevent="showRefMenu($event, ref)"
+            @click="handleRefClick(extRef)"
+            @contextmenu.prevent="showRefMenu($event, extRef)"
           >
             <NIcon size="14">
               <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(ref) }" />
@@ -298,7 +304,7 @@ class="scratchpad-panel"
             <component :is="showTrash ? ChevronDown : ChevronRight" />
           </NIcon>
           <NIcon size="14"><Trash2 /></NIcon>
-          <span class="pane-section-title">{{ t('scratchpad.trash') }}</span>
+          <h3 class="pane-section-title">{{ t('scratchpad.trash') }}</h3>
           <span class="pane-section-actions">
             <button v-if="trashEntries.length > 0" class="toolbar-btn" :title="t('scratchpad.emptyTrash')" @click.stop="handleEmptyTrash"><X :size="14" /></button>
             <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="toggleTrash"><ChevronsUpDown :size="14" /></button>
@@ -331,24 +337,33 @@ class="scratchpad-panel"
 
     </div>
 
-    <NModal v-model:show="showRefModal" :title="t('scratchpad.addReference')">
+    <NModal v-model:show="showRefModal" :title="t('scratchpad.addReference')" preset="card" :mask-closable="false" :to="false" style="max-width: 520px" :segmented="{ content: 'soft', footer: 'soft' }">
       <div class="modal-body">
-        <NInput
-          v-model:value="newRefAlias"
-          :placeholder="t('scratchpad.aliasPlaceholder')"
-          class="modal-input"
-        />
-        <NInput
-          v-model:value="newRefPath"
-          :placeholder="t('scratchpad.pathPlaceholder')"
-          class="modal-input"
-        />
-        <NButton size="small" @click="browseRefPath">
-          <template #icon>
-            <NIcon><FolderOpen /></NIcon>
-          </template>
-          {{ t('scratchpad.browse') }}
-        </NButton>
+        <div class="modal-field">
+          <label class="modal-label">{{ t('scratchpad.aliasLabel') }}</label>
+          <NInput
+            v-model:value="newRefAlias"
+            :placeholder="t('scratchpad.aliasPlaceholder')"
+          />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">{{ t('scratchpad.pathLabel') }}</label>
+          <div class="modal-input-row">
+            <NInput
+              v-model:value="newRefPath"
+              :placeholder="t('scratchpad.pathPlaceholder')"
+              class="modal-input"
+            />
+            <NButton size="small" @click="browseRefPath">
+              <template #icon>
+                <NIcon><FolderOpen /></NIcon>
+              </template>
+              {{ t('scratchpad.browse') }}
+            </NButton>
+          </div>
+        </div>
+      </div>
+      <template #footer>
         <div class="modal-actions">
           <NButton size="small" @click="showRefModal = false">{{ t('common.cancel') }}</NButton>
           <NButton
@@ -359,13 +374,14 @@ class="scratchpad-panel"
             >{{ t('common.confirm') }}</NButton
           >
         </div>
-      </div>
+      </template>
     </NModal>
 
     <NModal
       v-model:show="showPromoteConfirm"
       :title="t('scratchpad.promoteToResource')"
       preset="dialog"
+      :to="false"
       :positive-text="t('scratchpad.promoteKeepDraft')"
       :negative-text="t('scratchpad.promoteDeleteDraft')"
       type="info"
@@ -379,18 +395,19 @@ class="scratchpad-panel"
 
     <NModal
       v-model:show="showConflictDialog"
-      title="⚠️ 检测到外部修改"
+      :title="t('scratchpad.conflictDetected')"
       preset="dialog"
+      :to="false"
       type="warning"
-      positive-text="重新加载"
-      negative-text="忽略"
+      :positive-text="t('scratchpad.reloadAction')"
+      :negative-text="t('scratchpad.ignoreAction')"
       @positive-click="handleConflictReload"
       @negative-click="handleConflictIgnore"
     >
       <template v-if="conflictFilePath">
         <div class="conflict-message">
-          <p>文件 <strong>{{ conflictFilePath }}</strong> 被外部程序修改。</p>
-          <p>当前编辑器中有未保存的更改。重新加载将丢失未保存的内容。</p>
+          <p>{{ t('scratchpad.conflictMessage1', { path: conflictFilePath }) }}</p>
+          <p>{{ t('scratchpad.conflictMessage2') }}</p>
         </div>
         <div class="conflict-actions">
           <NButton size="small" type="info" @click="handleConflictDiff">
@@ -404,7 +421,8 @@ class="scratchpad-panel"
       v-model:show="showDiffDialog"
       :title="t('scratchpad.diffView')"
       preset="card"
-      style="width: 800px; max-width: 90vw;"
+      :to="false"
+      class="diff-modal"
       :mask-closable="false"
     >
       <template #header-extra>
@@ -447,22 +465,29 @@ class="scratchpad-panel"
       </NButton>
     </div>
 
-    <div
-      v-if="contextMenu.visible"
-      class="scratchpad-context-menu"
-      :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-    >
+    <Transition name="context-menu-fade">
       <div
+        v-if="contextMenu.visible"
+        class="scratchpad-context-menu"
+        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+      >
+      <template
         v-for="item in contextMenu.items"
         :key="item.key"
-        :class="['menu-item', { 'menu-item-danger': item.danger }]"
-        @click="handleMenuAction(item.key)"
       >
-        <NIcon v-if="item.icon" size="14"><component :is="item.icon" /></NIcon>
-        <span>{{ item.label }}</span>
-        <span v-if="item.shortcut" class="menu-shortcut">{{ item.shortcut }}</span>
-      </div>
+        <div v-if="item.type === 'divider'" class="menu-divider" />
+        <div
+          v-else
+          :class="['menu-item', { 'menu-item-danger': item.danger, 'menu-item-disabled': item.disabled }]"
+          @click="!item.disabled && handleMenuAction(item.key)"
+        >
+          <NIcon v-if="item.icon" size="14"><component :is="item.icon" /></NIcon>
+          <span>{{ item.label }}</span>
+          <span v-if="item.shortcut" class="menu-shortcut">{{ item.shortcut }}</span>
+        </div>
+      </template>
     </div>
+    </Transition>
 
     <div v-if="undoState.visible" class="undo-bar">
       <span class="undo-text">{{ t('scratchpad.undoDeleteHint', { name: undoState.name }) }}</span>
@@ -476,10 +501,14 @@ class="scratchpad-panel"
       </NButton>
     </div>
   </div>
+      </NMessageProvider>
+    </NConfigProvider>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import {
   FilePlus,
   FolderPlus,
@@ -499,17 +528,18 @@ import {
   X,
   BarChart3,
   GitBranch,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   Info,
   History,
   MoreVertical,
   WholeWord,
+  Scissors,
+  ClipboardPaste,
 } from 'lucide-vue-next'
-import { NButton, NIcon, NInput, NSpin, NModal, NDropdown, createDiscreteApi } from 'naive-ui'
+import { NButton, NIcon, NInput, NSpin, NModal, NDropdown, createDiscreteApi, NConfigProvider, NMessageProvider, darkTheme, lightTheme } from 'naive-ui'
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import { useAppStore } from '@/stores/useAppStore'
 
 import ScratchpadTreeNode from './ScratchpadTreeNode.vue'
 import { useScratchpad } from '../composables/use-scratchpad'
@@ -517,6 +547,8 @@ import { useScratchpad } from '../composables/use-scratchpad'
 import type { ScratchpadChangeEvent, ScratchpadEntry, ExternalReference, SearchMatch, SearchResult, DiffResult } from '../../types'
 
 const { t } = useI18n()
+const appStore = useAppStore()
+const naiveTheme = computed(() => (appStore.isDark ? darkTheme : lightTheme))
 const { message } = createDiscreteApi(['message'])
 
 const {
@@ -598,7 +630,6 @@ let contentSearchTimer: ReturnType<typeof setTimeout> | null = null
 
 const showReplaceBar = ref(false)
 const replaceWith = ref('')
-const replacePreviewCount = ref(0)
 const replaceInProgress = ref(false)
 
 const showDiffDialog = ref(false)
@@ -727,11 +758,6 @@ function toggleSort(field: 'name' | 'size' | 'modified'): void {
   }
 }
 
-function sortIcon(field: 'name' | 'size' | 'modified'): typeof ArrowUpDown {
-  if (sortBy.value !== field) return ArrowUpDown
-  return sortOrder.value === 'asc' ? ArrowUp : ArrowDown
-}
-
 const contentResults = computed(() => {
   const sr = searchResult.value
   if (!sr) return new Map<string, SearchMatch[]>()
@@ -742,28 +768,6 @@ const contentResults = computed(() => {
     grouped.set(m.file, list)
   }
   return grouped
-})
-
-const contentAllMatches = computed(() => searchResult.value?.matches ?? [])
-
-const searchNotice = computed(() => {
-  const sr = searchResult.value
-  if (!sr) return null
-  const parts: string[] = []
-  if (sr.truncated) {
-    parts.push(t('scratchpad.searchTruncated', { max: 500 }))
-  }
-  if (sr.total_files_skipped > 0) {
-    parts.push(t('scratchpad.searchSkippedFiles', {
-      count: sr.total_files_skipped,
-      size: '10MB'
-    }))
-  }
-  if (parts.length === 0 && sr.matches.length === 0) {
-    return t('scratchpad.noResults')
-  }
-  if (parts.length === 0) return null
-  return parts.join('；')
 })
 
 watch(searchQuery, async (val) => {
@@ -819,51 +823,6 @@ watch(searchQuery, async (val) => {
   }
 })
 
-function toggleReplaceBar(): void {
-  showReplaceBar.value = !showReplaceBar.value
-  replacePreviewCount.value = 0
-}
-
-async function computeReplacePreview(): Promise<void> {
-  const q = searchQuery.value.trim()
-  const rw = replaceWith.value
-  if (!q || !rw) {
-    replacePreviewCount.value = 0
-    return
-  }
-  const files = contentResults.value
-  let totalReplacements = 0
-  for (const [file] of files) {
-    try {
-      const content = await loadFileContent(file)
-      if (content === null) continue
-      if (isRegex.value) {
-        try {
-          const re = new RegExp(q, caseSensitive.value ? 'g' : 'gi')
-          const matches = content.match(re)
-          if (matches) totalReplacements += matches.length
-        } catch {
-          continue
-        }
-      } else {
-        let count = 0
-        let idx = 0
-        const search = q
-        const searchLower = caseSensitive.value ? search : search.toLowerCase()
-        const contentLower = caseSensitive.value ? content : content.toLowerCase()
-        while ((idx = contentLower.indexOf(searchLower, idx)) !== -1) {
-          count++
-          idx += search.length
-        }
-        totalReplacements += count
-      }
-    } catch {
-      continue
-    }
-  }
-  replacePreviewCount.value = totalReplacements
-}
-
 async function handleReplaceAll(): Promise<void> {
   const q = searchQuery.value.trim()
   const rw = replaceWith.value
@@ -905,6 +864,10 @@ const filteredLocalEntries = computed(() => {
     })
   }
   return [...entries].sort((a, b) => {
+    /* folders first */
+    if (a.kind !== b.kind) {
+      return a.kind === 'folder' ? -1 : 1
+    }
     let cmp = 0
     if (sortBy.value === 'name') {
       cmp = a.name.localeCompare(b.name)
@@ -972,9 +935,7 @@ const visibleTreeEntries = computed(() => {
 
 const virtualScrollPaddingTop = computed(() => {
   if (!useVirtualScrollEnabled.value || flattenedTree.value.length === 0) return 0
-  const total = flattenedTree.value.length
   const start = Math.floor(treeScrollTop.value / ROW_HEIGHT)
-  const visibleCount = Math.ceil(treeContainerHeight.value / ROW_HEIGHT)
   const from = Math.max(0, start - OVERSCAN)
   return from * ROW_HEIGHT
 })
@@ -983,13 +944,6 @@ const virtualScrollTotalHeight = computed(() => {
   if (!useVirtualScrollEnabled.value) return undefined
   return flattenedTree.value.length * ROW_HEIGHT
 })
-
-function handleTreeScroll(): void {
-  const el = treeContainerRef.value
-  if (!el) return
-  treeScrollTop.value = el.scrollTop
-  treeContainerHeight.value = el.clientHeight
-}
 
 function updateTreeContainerSize(): void {
   const el = treeContainerRef.value
@@ -1032,13 +986,16 @@ const inlineCreateIsFolder = ref(false)
 const isInlineCreateActive = ref(false)
 const rootInlineInputRef = ref<HTMLInputElement | null>(null)
 const rootInlineCreateName = ref('')
+const rootInlineCreating = ref(false)
 
 interface ContextMenuItem {
   key: string
   label: string
   icon?: typeof FileText
   danger?: boolean
+  disabled?: boolean
   shortcut?: string
+  type?: 'divider'
 }
 
 const contextMenu = reactive<{
@@ -1058,19 +1015,6 @@ const contextMenu = reactive<{
   isBlankTarget: false,
   items: [],
 })
-
-let openDialog: typeof import('@tauri-apps/plugin-dialog').open | null = null
-if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-  import('@tauri-apps/plugin-dialog')
-    .then(m => {
-      openDialog = m.open
-    })
-    .catch(() => {
-      openDialog = null
-    })
-}
-
-
 
 function handleGlobalClick(): void {
   if (renamingKey.value) {
@@ -1220,6 +1164,17 @@ function handleTreeNodeDragStart(event: DragEvent, entry: ScratchpadEntry): void
   }
 }
 
+async function handleNodeDrop(fromRelPath: string, toAbsPath: string): Promise<void> {
+  const scratchpadBase = scratchpadPath.value || ''
+  const toParent = toAbsPath.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '').replace(/\\/g, '/')
+  if (!fromRelPath || !toParent) return
+  const entry = await moveEntry(fromRelPath, toParent)
+  if (entry) {
+    expandedKeys.value = new Set([...expandedKeys.value, toAbsPath])
+    message.success(t('scratchpad.movedSuccess', { name: entry.name }))
+  }
+}
+
 function collectFolderPaths(entries: ScratchpadEntry[]): string[] {
   const result: string[] = []
   for (const e of entries) {
@@ -1342,26 +1297,6 @@ async function openFileAtLine(relativePath: string, line: number): Promise<void>
   addRecentFile(relativePath)
 }
 
-async function handleFileClick(file: string): Promise<void> {
-  openFileAtLine(file, 0)
-}
-
-function handleLineClick(file: string, line: number): void {
-  openFileAtLine(file, line)
-}
-
-function highlightMatch(line: string, query: string): string {
-  if (!query) return escapeHtml(line)
-  const q = query.trim()
-  if (!q) return escapeHtml(line)
-  const idx = line.toLowerCase().indexOf(q.toLowerCase())
-  if (idx === -1) return escapeHtml(line)
-  const before = escapeHtml(line.slice(0, idx))
-  const match = escapeHtml(line.slice(idx, idx + q.length))
-  const after = escapeHtml(line.slice(idx + q.length))
-  return `${before}<mark class="search-hl">${match}</mark>${after}`
-}
-
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -1372,6 +1307,8 @@ function escapeHtml(str: string): string {
 }
 
 function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
+  showExplorerFilter.value = false
+  contentSearchMode.value = false
   groupExpanded.local = true
   isInlineCreateActive.value = true
   inlineCreateParentPath.value = parentPath
@@ -1395,18 +1332,23 @@ function cancelInlineCreate(): void {
   inlineCreateParentPath.value = null
   inlineCreateIsFolder.value = false
   rootInlineCreateName.value = ''
+  rootInlineCreating.value = false
 }
 
 function commitRootInlineCreate(): void {
+  if (rootInlineCreating.value) return
   const name = rootInlineCreateName.value.trim()
   if (!name) {
     cancelInlineCreate()
     return
   }
+  rootInlineCreating.value = true
+  rootInlineCreateName.value = ''
   confirmInlineCreate(name)
 }
 
 function cancelRootInlineCreate(): void {
+  rootInlineCreating.value = false
   cancelInlineCreate()
 }
 
@@ -1417,9 +1359,9 @@ async function confirmInlineCreate(name: string): Promise<void> {
     cancelInlineCreate()
     return
   }
+  cancelInlineCreate()
   const entry = await createEntry(name, isFolder, parentPath || undefined)
   if (entry) {
-    cancelInlineCreate()
     if (parentPath) {
       expandedKeys.value = new Set([...expandedKeys.value, parentPath])
     }
@@ -1469,11 +1411,6 @@ function getParentPathOfEntry(path: string): string | null {
 }
 
 async function handleImportFile(): Promise<void> {
-  if (!openDialog) {
-    console.warn('[Scratchpad] Dialog plugin not available')
-    message.warning(t('scratchpad.dialogNotAvailable'))
-    return
-  }
   try {
     const selected = await openDialog({
       multiple: false,
@@ -1486,6 +1423,7 @@ async function handleImportFile(): Promise<void> {
     }
   } catch (e) {
     console.error('[Scratchpad] Import dialog error:', e)
+    message.warning(t('scratchpad.dialogNotAvailable'))
   }
 }
 
@@ -1497,7 +1435,7 @@ async function handleRestore(name: string): Promise<void> {
 const isDragOver = ref(false)
 let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
 
-function handleDragOver(event: DragEvent): void {
+function handleDragOver(_event: DragEvent): void {
   if (dragLeaveTimer) {
     clearTimeout(dragLeaveTimer)
     dragLeaveTimer = null
@@ -1505,7 +1443,7 @@ function handleDragOver(event: DragEvent): void {
   isDragOver.value = true
 }
 
-function handleDragLeave(event: DragEvent): void {
+function handleDragLeave(_event: DragEvent): void {
   dragLeaveTimer = setTimeout(() => {
     isDragOver.value = false
   }, 100)
@@ -1550,7 +1488,6 @@ async function handleEmptyTrash(): Promise<void> {
 }
 
 async function browseRefPath(): Promise<void> {
-  if (!openDialog) return
   try {
     const selected = await openDialog({
       directory: true,
@@ -1562,6 +1499,7 @@ async function browseRefPath(): Promise<void> {
     }
   } catch (e) {
     console.error('[Scratchpad] Browse error:', e)
+    message.warning(t('scratchpad.dialogNotAvailable'))
   }
 }
 
@@ -1652,6 +1590,7 @@ function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
     : [
         { key: 'new-file', label: t('scratchpad.newFile'), icon: FilePlus },
         { key: 'new-folder', label: t('scratchpad.newFolder'), icon: FolderPlus },
+        { type: 'divider' as const, key: 'menu-d1', label: '' },
         { key: 'open', label: t('scratchpad.open'), icon: FileText },
         ...(isAnalyzableFile(entry)
           ? [
@@ -1673,16 +1612,19 @@ function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
               },
             ]
           : []),
+        { type: 'divider' as const, key: 'menu-d2', label: '' },
         { key: 'copy-file', label: t('scratchpad.copyFile'), icon: Copy },
-        { key: 'cut-file', label: t('scratchpad.cutFile'), icon: Copy },
+        { key: 'cut-file', label: t('scratchpad.cutFile'), icon: Scissors },
+        { key: 'paste-file', label: t('scratchpad.pasteFile'), icon: ClipboardPaste, disabled: !clipboardEntry.value },
+        { type: 'divider' as const, key: 'menu-d3', label: '' },
         { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
         { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
+        { key: 'copy-abs-path', label: t('scratchpad.copyAbsolutePath'), icon: Copy },
+        { type: 'divider' as const, key: 'menu-d4', label: '' },
         { key: 'promote', label: t('scratchpad.promoteToResource'), icon: GitBranch },
+        { type: 'divider' as const, key: 'menu-d5', label: '' },
         { key: 'delete', label: t('scratchpad.delete'), icon: Trash2, danger: true, shortcut: 'Del' },
       ]
-  if (clipboardEntry.value) {
-    contextMenu.items.push({ key: 'paste-file', label: t('scratchpad.pasteFile'), icon: FilePlus })
-  }
   contextMenu.visible = true
 }
 
@@ -1777,6 +1719,10 @@ async function handleMenuAction(key: string): Promise<void> {
       await navigator.clipboard.writeText(entry.path)
       message.success(t('scratchpad.pathCopied'))
       break
+    case 'copy-abs-path':
+      await navigator.clipboard.writeText(entry.path)
+      message.success(t('scratchpad.absolutePathCopied'))
+      break
     case 'delete':
       await deleteEntry(entry.path)
       showUndo(entry.name, entry.name)
@@ -1815,10 +1761,16 @@ async function handlePaste(): Promise<void> {
   const src = clipboardEntry.value
   if (!src) return
 
+  const ctxTarget = contextMenu.target as ScratchpadEntry | null
+  const targetFolderPath = ctxTarget?.kind === 'folder'
+    ? ctxTarget.path
+    : findSelectedFolder()
+
   if (clipboardMode.value === 'cut') {
     const fromRelPath = src.path.replace(scratchpadPath.value || '', '').replace(/^\//, '').replace(/\\/g, '/')
-    const selectedFolder = findSelectedFolder()
-    const toParent = selectedFolder || ''
+    const toParent = targetFolderPath
+      ? targetFolderPath.replace(scratchpadPath.value || '', '').replace(/^\//, '').replace(/\\/g, '/')
+      : ''
     const entry = await moveEntry(fromRelPath, toParent)
     if (entry) {
       clipboardEntry.value = null
@@ -1982,6 +1934,24 @@ function cancelRename(): void {
 }
 
 async function handleKeydown(event: KeyboardEvent): Promise<void> {
+  const el = document.activeElement
+  const tag = (el as HTMLElement)?.tagName || ''
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement)?.getAttribute('contenteditable') === 'true') {
+    return
+  }
+  if ((el as HTMLElement)?.closest('.monaco-editor')) {
+    return
+  }
+  if (event.key === 'Escape') {
+    if (contextMenu.visible) {
+      closeContextMenu()
+      return
+    }
+    if (showExplorerFilter.value) {
+      toggleExplorerFilter()
+      return
+    }
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
     event.preventDefault()
     if (!showExplorerFilter.value) {
@@ -2115,11 +2085,27 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.scratchpad-app-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.n-config-provider),
+:deep(.n-message-provider) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .scratchpad-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: var(--dv-background-color, #1e1f22);
+  flex: 1;
+  min-height: 0;
+  background: var(--dv-background-color, var(--color-bg-primary));
   overflow: hidden;
   position: relative;
 }
@@ -2144,25 +2130,26 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 22px;
+  height: var(--title-bar-height, 36px);
   padding: 0 var(--spacing-sm) 0 var(--spacing-md);
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .explorer-titlebar-label {
-  font-size: var(--font-size-xs);
+  margin: 0;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
   user-select: none;
 }
 
 .explorer-titlebar-actions {
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: var(--spacing-xs);
 }
 
 .scratchpad-toolbar {
@@ -2171,7 +2158,7 @@ onUnmounted(() => {
   padding: 0 var(--spacing-xs);
   background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border-subtle);
-  gap: 1px;
+  gap: var(--spacing-xs);
   min-height: 28px;
   flex-shrink: 0;
 }
@@ -2181,12 +2168,13 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--dv-background-color, #1e1f22);
+  min-height: 0;
+  background: var(--dv-background-color, var(--color-bg-primary));
 }
 
 .toolbar-btn {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border: none;
   border-radius: var(--border-radius-sm);
   background: transparent;
@@ -2282,12 +2270,22 @@ onUnmounted(() => {
   --n-color-focus: var(--color-bg-primary);
   --n-text-color: var(--color-text-primary);
   --n-placeholder-color: var(--color-text-muted);
+  --n-border-radius: var(--border-radius-sm);
+  --n-caret-color: var(--color-text-primary);
+}
+
+.search-panel-input :deep(.n-input .n-input__input-el),
+.search-panel-input :deep(.n-input__input-el),
+.search-panel-input :deep(.n-input__input),
+.search-panel-input :deep(.n-input input) {
+  background-color: transparent !important;
+  color: var(--color-text-primary) !important;
 }
 
 .search-toggle-buttons {
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: var(--spacing-xs);
 }
 
 .toggle-btn {
@@ -2351,6 +2349,16 @@ onUnmounted(() => {
   --n-color-focus: var(--color-bg-primary);
   --n-text-color: var(--color-text-primary);
   --n-placeholder-color: var(--color-text-muted);
+  --n-border-radius: var(--border-radius-sm);
+  --n-caret-color: var(--color-text-primary);
+}
+
+.search-filter-input :deep(.n-input .n-input__input-el),
+.search-filter-input :deep(.n-input__input-el),
+.search-filter-input :deep(.n-input__input),
+.search-filter-input :deep(.n-input input) {
+  background-color: transparent !important;
+  color: var(--color-text-primary) !important;
 }
 
 .search-replace-bar {
@@ -2373,6 +2381,16 @@ onUnmounted(() => {
   --n-color-focus: var(--color-bg-primary);
   --n-text-color: var(--color-text-primary);
   --n-placeholder-color: var(--color-text-muted);
+  --n-border-radius: var(--border-radius-sm);
+  --n-caret-color: var(--color-text-primary);
+}
+
+.search-replace-input :deep(.n-input .n-input__input-el),
+.search-replace-input :deep(.n-input__input-el),
+.search-replace-input :deep(.n-input__input),
+.search-replace-input :deep(.n-input input) {
+  background-color: transparent !important;
+  color: var(--color-text-primary) !important;
 }
 
 .search-results {
@@ -2464,7 +2482,7 @@ onUnmounted(() => {
 .search-hl {
   background: var(--brand-accent-soft);
   color: var(--brand-accent);
-  border-radius: 1px;
+  border-radius: var(--border-radius-sm);
 }
 
 .search-notice {
@@ -2501,11 +2519,11 @@ onUnmounted(() => {
 .inline-tree-entry .rename-input {
   flex: 1;
   height: 18px;
-  padding: 0 3px;
+  padding: 0 var(--spacing-xs);
   font-size: var(--font-size-md);
   font-family: var(--font-family);
   border: 1px solid var(--primary-color);
-  border-radius: 1px;
+  border-radius: var(--border-radius-sm);
   outline: none;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -2533,7 +2551,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--spacing-xl);
   gap: var(--spacing-sm);
 }
 
@@ -2545,6 +2563,7 @@ onUnmounted(() => {
 .pane-section {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-top: 1px solid var(--color-border-subtle);
   overflow: hidden;
 }
@@ -2570,8 +2589,10 @@ onUnmounted(() => {
   height: 26px;
   padding: 0 var(--spacing-sm) 0 var(--spacing-sm);
   cursor: pointer;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xs);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
   color: var(--color-text-secondary);
   transition: background-color 0.15s, color 0.15s;
   user-select: none;
@@ -2582,6 +2603,7 @@ onUnmounted(() => {
 }
 
 .pane-section-title {
+  margin: 0;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2590,7 +2612,7 @@ onUnmounted(() => {
 
 .pane-section-actions {
   display: flex;
-  gap: 1px;
+  gap: var(--spacing-xs);
   margin-left: auto;
   font-size: var(--font-size-xs);
   opacity: 0;
@@ -2604,7 +2626,7 @@ onUnmounted(() => {
 .pane-section-actions .n-button {
   font-size: var(--font-size-xs);
   padding: 0 var(--spacing-xs);
-  height: 18px;
+  height: 20px;
 }
 
 .pane-section-body {
@@ -2612,7 +2634,7 @@ onUnmounted(() => {
 }
 
 .section-resize-handle {
-  height: 4px;
+  height: var(--spacing-xs);
   cursor: row-resize;
   background: transparent;
   transition: background 0.15s;
@@ -2771,30 +2793,35 @@ onUnmounted(() => {
 .modal-body {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
   padding: var(--spacing-lg);
-  min-width: 360px;
 }
 
-.template-picker {
+.modal-field {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.template-label {
-  font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.template-options {
-  display: flex;
+  flex-direction: column;
   gap: var(--spacing-xs);
+}
+
+.modal-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  user-select: none;
 }
 
 .modal-input {
   width: 100%;
+}
+
+.modal-input-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.modal-input-row .modal-input {
+  flex: 1;
 }
 
 .modal-actions {
@@ -2803,15 +2830,129 @@ onUnmounted(() => {
   gap: var(--spacing-sm);
 }
 
+/* ===== NaiveUI 组件主题适配（dockview 面板可能丢失 NConfigProvider 上下文） ===== */
+
+:deep(.n-dropdown-menu) {
+  --n-color: var(--color-bg-elevated) !important;
+  --n-text-color: var(--color-text-primary) !important;
+  --n-option-color-hover: var(--color-hover) !important;
+  --n-option-text-color-hover: var(--color-text-primary) !important;
+  --n-option-text-color-active: var(--color-text-primary) !important;
+  --n-divider-color: var(--color-border-subtle) !important;
+  --n-border-radius: var(--border-radius-md) !important;
+  box-shadow: var(--shadow-dropdown) !important;
+}
+
+:deep(.n-dropdown-menu .n-dropdown-option) {
+  font-size: var(--font-size-md) !important;
+}
+
+/* NModal preset="card" 主题适配 */
+:deep(.n-modal .n-card) {
+  --n-color: var(--color-bg-elevated) !important;
+  --n-text-color: var(--color-text-primary) !important;
+  --n-title-text-color: var(--color-text-primary) !important;
+  --n-close-color: var(--color-text-muted) !important;
+  --n-close-color-hover: var(--color-text-primary) !important;
+  --n-border-color: var(--color-border-subtle) !important;
+  --n-title-font-weight: 600 !important;
+}
+
+:deep(.n-modal .n-card > .n-card__content) {
+  color: var(--color-text-primary) !important;
+}
+
+:deep(.n-modal .n-scrollbar-content) {
+  --n-color: var(--color-bg-elevated) !important;
+}
+
+/* NModal segmented 区域 */
+:deep(.n-modal .n-card > .n-card__footer) {
+  --n-color: var(--color-bg-secondary) !important;
+  border-top: 1px solid var(--color-border-subtle) !important;
+}
+
+:deep(.n-modal .n-card .n-card__content) {
+  background: var(--color-bg-elevated) !important;
+}
+
+/* NModal 内嵌的 NSelect/NAutoComplete 组件 */
+:deep(.n-modal .n-base-selection) {
+  --n-color: var(--color-bg-tertiary) !important;
+  --n-color-active: var(--color-bg-tertiary) !important;
+  --n-border: var(--color-border-subtle) !important;
+  --n-border-hover: var(--primary-color) !important;
+  --n-border-focus: var(--primary-color) !important;
+  --n-text-color: var(--color-text-primary) !important;
+  --n-placeholder-color: var(--color-text-muted) !important;
+}
+
+/* NModal 内嵌的 NButton */
+:deep(.n-modal .n-button) {
+  --n-text-color: var(--color-text-primary) !important;
+  --n-color: var(--color-bg-tertiary) !important;
+  --n-color-hover: var(--color-hover) !important;
+}
+
+:deep(.n-modal .n-button--primary-type) {
+  --n-text-color: #ffffff !important;
+  --n-color: var(--brand-accent) !important;
+  --n-color-hover: var(--brand-accent-hover) !important;
+}
+
+/* NScrollbar 主题适配 */
+:deep(.n-scrollbar > .n-scrollbar-rail > .n-scrollbar-rail__scrollbar) {
+  --n-color: var(--color-text-muted) !important;
+  --n-color-hover: var(--color-text-secondary) !important;
+}
+
+/* 通用 NButton 面板内适配 */
+:deep(.n-button:not(.n-button--primary-type):not(.n-button--error-type):not(.n-button--warning-type):not(.n-button--info-type):not(.n-button--success-type)) {
+  --n-text-color: var(--color-text-primary) !important;
+  --n-color-hover: var(--color-hover) !important;
+  --n-border: var(--color-border) !important;
+  --n-border-hover: var(--color-border) !important;
+}
+
+/* NCheckbox 适应 */
+:deep(.n-checkbox .n-checkbox__label) {
+  --n-text-color: var(--color-text-secondary) !important;
+}
+
+/* NEmpty 适应 */
+:deep(.n-empty .n-empty__description) {
+  --n-text-color: var(--color-text-muted) !important;
+}
+
+/* NSelect 下拉面板适配 */
+:deep(.n-base-select-menu) {
+  --n-color: var(--color-bg-elevated) !important;
+  --n-text-color: var(--color-text-primary) !important;
+  --n-option-color-hover: var(--color-hover) !important;
+  --n-option-text-color-hover: var(--color-text-primary) !important;
+  --n-divider-color: var(--color-border-subtle) !important;
+  box-shadow: var(--shadow-dropdown) !important;
+}
+
 .scratchpad-context-menu {
   position: fixed;
   z-index: 1000;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-dropdown);
   min-width: 180px;
   padding: var(--spacing-xs) 0;
+}
+
+.context-menu-fade-enter-active,
+.context-menu-fade-leave-active {
+  transition: opacity 0.12s ease;
+}
+
+.context-menu-fade-enter-from,
+.context-menu-fade-leave-to {
+  opacity: 0;
 }
 
 .menu-item {
@@ -2838,6 +2979,15 @@ onUnmounted(() => {
   background-color: var(--brand-accent-soft);
 }
 
+.menu-item-disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.menu-item-disabled:hover {
+  background-color: transparent;
+}
+
 .menu-shortcut {
   margin-left: auto;
   font-size: var(--font-size-xs);
@@ -2846,6 +2996,12 @@ onUnmounted(() => {
 
 .menu-item-danger .menu-shortcut {
   opacity: 0.6;
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: var(--spacing-xs) var(--spacing-sm);
 }
 
 .undo-bar {
@@ -2917,9 +3073,14 @@ onUnmounted(() => {
 .diff-container {
   max-height: 60vh;
   overflow: auto;
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 13px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-md);
   line-height: 1.5;
+}
+
+.diff-modal {
+  width: 800px;
+  max-width: 90vw;
 }
 
 .diff-labels {
@@ -2982,22 +3143,22 @@ onUnmounted(() => {
 }
 
 .diff-added {
-  background: var(--color-bg-success-soft, rgba(34, 197, 94, 0.1));
+  background: var(--color-bg-success-soft);
 }
 
 .diff-added .diff-line-content::before {
   content: '+ ';
-  color: var(--brand-success, #22c55e);
+  color: var(--brand-success);
   font-weight: bold;
 }
 
 .diff-removed {
-  background: var(--color-bg-danger-soft, rgba(239, 68, 68, 0.1));
+  background: var(--color-bg-danger-soft, var(--brand-danger-soft));
 }
 
 .diff-removed .diff-line-content::before {
   content: '- ';
-  color: var(--brand-danger, #ef4444);
+  color: var(--brand-danger);
   font-weight: bold;
 }
 

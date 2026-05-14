@@ -1,16 +1,16 @@
 :root {
   --brand-accent: #e17055;
   --brand-accent-hover: #d35400;
-  --brand-accent-soft: rgba(225, 112, 85, 0.15);
   --brand-success: #00b894;
   --brand-danger: #d63031;
   --brand-danger-soft: rgba(214, 48, 49, 0.1);
   --brand-warning: #fdcb6e;
 
-  --primary-color: #165DFF;
-  --primary-light: rgba(22, 93, 255, 0.1);
-  --primary-soft: rgba(22, 93, 255, 0.12);
-  --primary-lighter: rgba(22, 93, 255, 0.05);
+  --primary-color: var(--brand-accent);
+  --primary-color-hover: var(--brand-accent-hover);
+  --primary-light: rgba(225, 112, 85, 0.1);
+  --primary-soft: rgba(225, 112, 85, 0.12);
+  --primary-lighter: rgba(225, 112, 85, 0.05);
   --danger-color: var(--brand-danger);
 
   --resource-type-connection: #165DFF;
@@ -76,6 +76,9 @@
   --spacing-lg: 16px;
   --spacing-xl: 24px;
 
+  --setting-section-gap: var(--spacing-xl);
+  --setting-item-gap: var(--spacing-lg);
+
   --border-radius-sm: 4px;
   --border-radius-md: 6px;
   --border-radius-lg: 8px;
@@ -103,4 +106,12 @@
   --status-bar-connected-text: var(--brand-success);
   --status-bar-disconnected-bg: rgba(107, 114, 128, 0.15);
   --status-bar-disconnected-text: var(--text-muted);
+
+  /* 阴影变量 - 暗/亮双主题 */
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-inset-subtle: inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  --shadow-inset-hover: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-inset-active: inset 0 2px 3px rgba(0, 0, 0, 0.15);
+  --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
 }

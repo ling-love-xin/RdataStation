@@ -173,7 +173,7 @@
   background: color-mix(in srgb, var(--color-bg-secondary) 94%, var(--color-text-primary) 6%);
   border: none;
   border-radius: var(--border-radius-sm);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-inset), var(--shadow-inset-subtle);
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   cursor: pointer;
@@ -183,11 +183,11 @@
 
 .project-btn:hover {
   background: color-mix(in srgb, var(--color-bg-secondary) 90%, var(--color-text-primary) 10%);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-inset-hover), var(--shadow-inset-subtle);
 }
 
 .project-btn:active {
-  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-inset-active);
 }
 
 .project-icon {
@@ -223,7 +223,7 @@
   background: color-mix(in srgb, var(--color-bg-secondary) 94%, var(--color-text-primary) 6%);
   border: none;
   border-radius: var(--border-radius-sm);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-inset), var(--shadow-inset-subtle);
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   cursor: pointer;
@@ -236,7 +236,7 @@
 
 .command-btn:hover {
   background: color-mix(in srgb, var(--color-bg-secondary) 90%, var(--color-text-primary) 10%);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-inset-hover), var(--shadow-inset-subtle);
 }
 
 .command-text {

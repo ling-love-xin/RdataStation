@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="dialog">
-      <div v-if="visible" class="dialog-overlay" @click.self="handleClose">
+      <div v-if="visible" ref="overlayRef" tabindex="-1" class="dialog-overlay" @click.self="handleClose" @keydown.escape="handleClose">
         <div class="dialog-container" role="alertdialog" aria-labelledby="dialog-title">
           <header class="dialog-header">
             <div class="dialog-icon">
@@ -30,6 +30,7 @@
 
 <script setup lang="ts">
 import { AlertTriangle, FolderOpen } from 'lucide-vue-next'
+import { ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 interface Props {
@@ -37,7 +38,7 @@ interface Props {
   selectedPath: string
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   browse: []
@@ -45,6 +46,17 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const overlayRef = ref<HTMLElement | null>(null)
+
+watch(
+  () => props.visible,
+  async val => {
+    if (val) {
+      await nextTick()
+      overlayRef.value?.focus()
+    }
+  }
+)
 
 function handleBrowse() {
   emit('browse')

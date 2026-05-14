@@ -12,6 +12,7 @@ import databaseExtension from '@/extensions/builtin/database/extension'
 import mysqlDriverExtension from '@/extensions/builtin/mysql-driver/extension'
 import queryExtension from '@/extensions/builtin/query/extension'
 import scratchpadExtension from '@/extensions/builtin/scratchpad/extension'
+import settingsExtension from '@/extensions/builtin/settings/extension'
 import workbenchExtension from '@/extensions/builtin/workbench/extension'
 import type { ExtensionModule } from '@/extensions/core/types'
 
@@ -39,4 +40,5 @@ export const builtinExtensions: BuiltinExtension[] = [
   { id: 'analytics-resource', module: analyticsResourceExtension },
   { id: 'mysql-driver', module: mysqlDriverExtension },
   { id: 'scratchpad', module: scratchpadExtension },
+  { id: 'settings', module: settingsExtension },
 ]

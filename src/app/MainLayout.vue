@@ -9,16 +9,22 @@
     <div class="main-content">
       <router-view />
     </div>
+    <WorkbenchStatusBar />
+    <SettingsDialog :show="showSettingsDialog" @update:show="showSettingsDialog = $event" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
+import SettingsDialog from '@/extensions/builtin/settings/ui/components/SettingsDialog.vue'
+import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import WorkbenchTitleBar from '@/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue'
+import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 
 const isMaximized = ref(false)
+const showSettingsDialog = ref(false)
 
 const handleMinimize = async () => {
   const window = getCurrentWindow()
@@ -35,6 +41,20 @@ const handleClose = async () => {
   const window = getCurrentWindow()
   await window.close()
 }
+
+const handleOpenSettings = () => {
+  showSettingsDialog.value = true
+}
+
+let cleanupSettingsListener: (() => void) | null = null
+
+onMounted(() => {
+  cleanupSettingsListener = listenWorkbenchEvent(WorkbenchEvent.OpenSettings, handleOpenSettings)
+})
+
+onUnmounted(() => {
+  cleanupSettingsListener?.()
+})
 </script>
 
 <style scoped>

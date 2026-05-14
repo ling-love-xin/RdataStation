@@ -1,13 +1,16 @@
 <template>
   <div class="scratchpad-tree-node">
     <div
-      :class="['node-row', { selected: isSelected }]"
+      :class="['node-row', { selected: isSelected, 'drag-over': dragOver }]"
       :style="{ paddingLeft: `${depth * 16 + 8}px` }"
       :draggable="entry.kind === 'file' && !isRenaming"
       @click="handleClick"
       @dblclick="handleDoubleClick"
       @contextmenu.prevent="handleContextMenu"
       @dragstart="handleDragStart"
+      @dragover.prevent="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
     >
       <span v-if="entry.kind === 'folder'" class="folder-toggle" @click.stop="handleToggleExpand">
         <NIcon size="14">
@@ -16,7 +19,12 @@
       </span>
       <span v-else class="folder-toggle-spacer" />
 
-      <NIcon size="14" class="node-icon">
+      <NIcon
+        size="14"
+        class="node-icon"
+        :class="{ 'node-icon-folder': entry.kind === 'folder' }"
+        :style="entry.kind === 'folder' ? { color: folderIconColor } : undefined"
+      >
         <component :is="entry.kind === 'folder' ? (expanded ? FolderOpen : Folder) : fileIcon" />
       </NIcon>
 
@@ -48,14 +56,19 @@
     <div v-if="entry.kind === 'folder' && expanded" class="node-children">
       <div v-if="isInlineCreateTarget" class="node-row inline-create-row" :style="{ paddingLeft: `${(depth + 1) * 16 + 8}px` }">
         <span class="folder-toggle-spacer" />
-        <NIcon size="14" class="node-icon">
+        <NIcon
+          size="14"
+          class="node-icon"
+          :class="{ 'node-icon-folder': inlineCreateIsFolder }"
+          :style="inlineCreateIsFolder ? { color: folderIconColor } : undefined"
+        >
           <component :is="inlineCreateIsFolder ? Folder : File" />
         </NIcon>
         <input
           ref="inlineInputRef"
           v-model="inlineCreateName"
           class="rename-input"
-          :placeholder="inlineCreateIsFolder ? 'folder name' : 'file name'"
+          :placeholder="inlineCreateIsFolder ? t('scratchpad.newFolderNamePlaceholder') : t('scratchpad.newFileNamePlaceholder')"
           @keyup.enter="commitInlineCreate"
           @keyup.escape="cancelInlineCreate"
           @blur="commitInlineCreate"
@@ -103,6 +116,9 @@ import {
 } from 'lucide-vue-next'
 import { NIcon } from 'naive-ui'
 import { computed, ref, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+import { useUiStore } from '@/shared/stores/ui'
 
 import type { ScratchpadEntry } from '../../types'
 
@@ -124,6 +140,13 @@ const props = withDefaults(defineProps<Props>(), {
   dirtyFiles: () => new Set<string>(),
 })
 
+const { t } = useI18n()
+const uiStore = useUiStore()
+
+const folderIconColor = computed(() =>
+  uiStore.isDark ? '#e2a348' : '#b8730a'
+)
+
 const emit = defineEmits<{
   select: [entry: ScratchpadEntry, event?: MouseEvent]
   open: [entry: ScratchpadEntry]
@@ -133,6 +156,7 @@ const emit = defineEmits<{
   'finish-rename': [entry: ScratchpadEntry, newName: string]
   'cancel-rename': []
   'drag-start': [event: DragEvent, entry: ScratchpadEntry]
+  'drop-file': [fromPath: string, toPath: string]
   'create-inline': [name: string]
 }>()
 
@@ -159,12 +183,22 @@ const isNodeDirty = computed(() => {
 const inlineCreateName = ref('')
 const inlineInputRef = ref<HTMLInputElement | null>(null)
 const inlineCreateIsFolder = computed(() => props.inlineCreateIsFolder)
+const inlineCreating = ref(false)
+const dragOver = ref(false)
 
 const renameValue = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const renamingSaving = ref(false)
 
-const childEntries = computed(() => props.entry.children || [])
+const childEntries = computed(() => {
+  const children = props.entry.children || []
+  return [...children].sort((a, b) => {
+    if (a.kind !== b.kind) {
+      return a.kind === 'folder' ? -1 : 1
+    }
+    return a.name.localeCompare(b.name)
+  })
+})
 
 const extensionIconMap: Record<string, typeof File> = {
   '.sql': Database,
@@ -234,6 +268,27 @@ function handleDragStart(event: DragEvent): void {
   emit('drag-start', event, props.entry)
 }
 
+function handleDragOver(event: DragEvent): void {
+  if (props.entry.kind !== 'folder') return
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  dragOver.value = true
+}
+
+function handleDragLeave(): void {
+  dragOver.value = false
+}
+
+function handleDrop(event: DragEvent): void {
+  dragOver.value = false
+  if (props.entry.kind !== 'folder') return
+  const fromPath = event.dataTransfer?.getData('text/plain')
+  if (fromPath && fromPath !== props.entry.path) {
+    emit('drop-file', fromPath, props.entry.path)
+  }
+}
+
 function handleToggleExpand(): void {
   emit('select', props.entry)
   emit('toggle-expand', props.entry)
@@ -290,16 +345,19 @@ function forwardCreateInline(name: string): void {
 }
 
 function commitInlineCreate(): void {
+  if (inlineCreating.value) return
   const name = inlineCreateName.value.trim()
   if (!name) {
     cancelInlineCreate()
     return
   }
-  emit('create-inline', name)
+  inlineCreating.value = true
   inlineCreateName.value = ''
+  emit('create-inline', name)
 }
 
 function cancelInlineCreate(): void {
+  inlineCreating.value = false
   inlineCreateName.value = ''
   emit('create-inline', '')
 }
@@ -336,6 +394,12 @@ function formatSize(bytes: number): string {
   color: var(--color-text-primary);
 }
 
+.node-row.drag-over {
+  background-color: var(--primary-color-10, rgba(0, 127, 255, 0.12));
+  outline: 1px solid var(--primary-color, #007fff);
+  outline-offset: -1px;
+}
+
 .folder-toggle,
 .folder-toggle-spacer {
   width: 16px;
@@ -354,9 +418,14 @@ function formatSize(bytes: number): string {
   flex-shrink: 0;
 }
 
+.node-icon-folder {
+  /* folder icon gets a warm amber/gold color for clear visual distinction */
+}
+
 .node-name {
   flex: 1;
   font-size: var(--font-size-md);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -366,7 +435,7 @@ function formatSize(bytes: number): string {
 .dirty-dot {
   color: var(--color-text-muted);
   margin-right: 2px;
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   line-height: 1;
   flex-shrink: 0;
 }
@@ -374,11 +443,11 @@ function formatSize(bytes: number): string {
 .rename-input {
   flex: 1;
   height: 18px;
-  padding: 0 3px;
+  padding: 0 var(--spacing-xs);
   font-size: var(--font-size-md);
   font-family: var(--font-family);
   border: 1px solid var(--primary-color);
-  border-radius: 1px;
+  border-radius: var(--border-radius-sm);
   outline: none;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -410,31 +479,37 @@ function formatSize(bytes: number): string {
   to { transform: rotate(360deg); }
 }
 
-.node-size {
+.node-arrow {
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.node-size,
+.node-time {
+  display: none;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
-.node-row.selected .node-size {
-  opacity: 0.7;
+.node-row:hover .node-size,
+.node-row:hover .node-time {
+  display: block;
+}
+
+.node-size {
+  min-width: 36px;
+  text-align: right;
 }
 
 .node-time {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  flex-shrink: 0;
   min-width: 28px;
   text-align: right;
 }
 
+.node-row.selected .node-size,
 .node-row.selected .node-time {
   opacity: 0.7;
-}
-
-.node-arrow {
-  width: 12px;
-  flex-shrink: 0;
 }
 
 .node-children {

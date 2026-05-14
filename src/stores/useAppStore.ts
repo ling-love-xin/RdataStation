@@ -234,9 +234,14 @@ export const useAppStore = defineStore('appConfig', () => {
     () => globalConfig.value.performanceSettings
   )
 
-  const effectiveAppearanceSettings = computed<AppearanceSettings>(
-    () => globalConfig.value.appearanceSettings
-  )
+  const effectiveAppearanceSettings = computed<AppearanceSettings>(() => {
+    const base = structuredClone(DEFAULT_GLOBAL_CONFIG.appearanceSettings)
+    Object.assign(base, globalConfig.value.appearanceSettings)
+    if (projectConfig.value.appearanceSettings) {
+      Object.assign(base, projectConfig.value.appearanceSettings)
+    }
+    return base
+  })
 
   const effectiveResultSettings = computed<ResultSettings>(() => {
     const base = globalConfig.value.resultSettings
@@ -542,9 +547,25 @@ export const useAppStore = defineStore('appConfig', () => {
   }
 
   async function setAppearanceSettings(
-    settings: AppearanceSettings
+    settings: AppearanceSettings | Partial<AppearanceSettings>,
+    scope: ConfigScope = 'global'
   ): Promise<SaveResult> {
-    return saveConfig(CONFIG_KEYS.APPEARANCE_SETTINGS, settings, 'global')
+    if (scope === 'global') {
+      const current = structuredClone(globalConfig.value.appearanceSettings)
+      const merged = { ...current, ...settings }
+      return saveConfig(CONFIG_KEYS.APPEARANCE_SETTINGS, merged, scope)
+    }
+
+    const current = structuredClone(projectConfig.value.appearanceSettings ?? {})
+    const globalCurrent = structuredClone(globalConfig.value.appearanceSettings)
+    const candidate = { ...globalCurrent, ...current, ...settings }
+    const diff = computeDiff(candidate, globalCurrent)
+
+    return saveConfig(
+      CONFIG_KEYS.APPEARANCE_SETTINGS,
+      diff as AppearanceSettings | Partial<AppearanceSettings>,
+      scope
+    )
   }
 
   async function setResultSettings(

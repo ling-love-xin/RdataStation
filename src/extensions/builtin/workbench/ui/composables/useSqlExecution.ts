@@ -1,4 +1,4 @@
-import { useMessage } from 'naive-ui'
+import { createDiscreteApi } from 'naive-ui'
 import { ref, type Ref } from 'vue'
 
 import * as queryService from '@/extensions/builtin/query/ui/services/query'
@@ -22,7 +22,7 @@ interface SqlExecutionOptions {
 export function useSqlExecution(options: SqlExecutionOptions) {
   const { panelId, getEditorValue, getSelectedText, runtimeConnId, currentDatabaseType, currentConnectionName } = options
 
-  const message = useMessage()
+  const { message } = createDiscreteApi(['message'])
   const store = useSqlExecutionStore()
   const executing = ref(false)
   const lastExecutionTime = ref<number | null>(null)

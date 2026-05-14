@@ -54,12 +54,12 @@ import { useI18n } from 'vue-i18n'
 
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import CacheWarmingStatus from '@/extensions/builtin/database/ui/components/cache-warming-status.vue'
-import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useAppStore } from '@/stores/useAppStore'
+
+import { WorkbenchEvent, dispatchWorkbenchEvent } from '../constants/workbench-events'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const layoutStore = useLayoutStore()
 const connectionStore = useConnectionStore()
 
 interface Props {
@@ -89,7 +89,7 @@ const connectionLabel = computed(() => {
 })
 
 function handleOpenSettings() {
-  layoutStore.openCustomizeLayoutDialog()
+  dispatchWorkbenchEvent(WorkbenchEvent.OpenSettings)
 }
 </script>
 

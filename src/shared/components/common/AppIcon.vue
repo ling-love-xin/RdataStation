@@ -3,15 +3,66 @@
 </template>
 
 <script setup lang="ts">
+import {
+  BarChart3,
+  BookOpen,
+  Check,
+  Command,
+  Database,
+  FileCode,
+  History,
+  Keyboard,
+  LayoutTemplate,
+  Monitor,
+  Moon,
+  Paintbrush,
+  Palette,
+  PanelBottom,
+  PanelTop,
+  Puzzle,
+  RefreshCw,
+  RotateCcw,
+  Settings,
+  StickyNote,
+  Sun,
+  Terminal,
+  Trash2,
+  Wrench,
+  Zap,
+} from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { useAppStore } from '@/stores/useAppStore'
 
-import type { LucideIcon } from 'lucide-vue-next'
+import type { Component } from 'vue'
 
-// 使用动态导入避免 namespace 问题
-const iconModules = import.meta.glob('lucide-vue-next', { eager: true })
-const icons = iconModules['lucide-vue-next'] as Record<string, LucideIcon>
+const icons: Record<string, Component> = {
+  BarChart3,
+  BookOpen,
+  Check,
+  Command,
+  Database,
+  FileCode,
+  History,
+  Keyboard,
+  LayoutTemplate,
+  Monitor,
+  Moon,
+  Paintbrush,
+  Palette,
+  PanelBottom,
+  PanelTop,
+  Puzzle,
+  RefreshCw,
+  RotateCcw,
+  Settings,
+  StickyNote,
+  Sun,
+  Terminal,
+  Trash2,
+  Wrench,
+  Zap,
+}
 
 interface Props {
   name: string
@@ -28,8 +79,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const appStore = useAppStore()
 
-const iconComponent = computed<LucideIcon>(() => {
-  return icons[props.name] as LucideIcon
+const iconComponent = computed(() => {
+  return icons[props.name] || Database
 })
 
 const iconProps = computed(() => {

@@ -10,6 +10,7 @@ interface ScratchpadExtensionAPI extends ExtensionAPI {
 }
 
 const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
+  // eslint-disable-next-line no-console
   console.log('[Scratchpad] Activating for project:', context.project.name)
 
   const panelDisposable = context.window.registerViewProvider('scratchpad', {
@@ -32,6 +33,7 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
       try {
         await invoke('init_scratchpad_store', { projectPath })
         storeInitialized = true
+        // eslint-disable-next-line no-console
         console.log('[Scratchpad] Store initialized for:', projectPath)
         return
       } catch (e) {
@@ -45,6 +47,7 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
   }
 
   initStore(context.project.path).then(() => {
+    // eslint-disable-next-line no-console
     console.log('[Scratchpad] Initial activation init complete')
   })
 
@@ -52,8 +55,10 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
     const detail = (event as CustomEvent).detail as { project?: { path?: string } } | undefined
     const newPath = detail?.project?.path
     if (newPath) {
+      // eslint-disable-next-line no-console
       console.log('[Scratchpad] Project switched to:', newPath)
       initStore(newPath).then(() => {
+        // eslint-disable-next-line no-console
         console.log('[Scratchpad] Store re-initialized for project switch')
       })
     }
@@ -90,11 +95,18 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
   }
 }
 
-const deactivate = (): void => {
-  console.log('[Scratchpad] Deactivated')
-}
+const deactivate = async (): Promise<void> => {
+    // eslint-disable-next-line no-console
+    console.log('[Scratchpad] Deactivating')
 
-const extension: ExtensionModule = {
+    for (const d of disposables) {
+      d.dispose()
+    }
+    // eslint-disable-next-line no-console
+    console.log('[Scratchpad] Deactivated')
+  }
+
+  const extension: ExtensionModule = {
   activate: activate as (context: ExtensionContext) => ExtensionAPI,
   deactivate,
 }

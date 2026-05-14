@@ -45,7 +45,7 @@
       <!-- 右侧操作区 -->
       <div class="right-panel">
         <div class="action-cards">
-          <div class="action-card primary" @click="showNewProjectModal = true">
+          <div class="action-card primary" :class="{ disabled: isOpeningProject }" @click="!isOpeningProject && (showNewProjectModal = true)">
             <div class="action-icon">
               <FolderPlus :size="32" />
             </div>
@@ -56,9 +56,10 @@
             <ChevronRight :size="20" />
           </div>
 
-          <div class="action-card" @click="handleOpenExistingProject">
+          <div class="action-card" :class="{ disabled: isOpeningProject }" @click="!isOpeningProject && handleOpenExistingProject()">
             <div class="action-icon">
-              <FolderOpen :size="32" />
+              <Loader v-if="isOpeningProject" :size="32" class="spin" />
+              <FolderOpen v-else :size="32" />
             </div>
             <div class="action-content">
               <h2>{{ t('workbench.openProject') }}</h2>
@@ -84,7 +85,8 @@
               v-for="project in projectStore.recentProjects"
               :key="project.id"
               class="recent-item"
-              @click="handleOpenRecentProject(project.id)"
+              :class="{ disabled: isOpeningProject }"
+              @click="!isOpeningProject && handleOpenRecentProject(project.id)"
             >
               <div class="recent-icon">
                 <Database :size="18" />
@@ -125,6 +127,7 @@ import {
   Zap,
   Shield,
   Layers,
+  Loader,
 } from 'lucide-vue-next'
 import { useMessage } from 'naive-ui'
 import { ref, onMounted } from 'vue'
@@ -146,6 +149,7 @@ const projectStore = useProjectStore()
 const showNewProjectModal = ref(false)
 const showInvalidProjectDialog = ref(false)
 const invalidPath = ref('')
+const isOpeningProject = ref(false)
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -170,6 +174,8 @@ function formatTime(dateStr: string): string {
 }
 
 async function handleOpenExistingProject() {
+  if (isOpeningProject.value) return
+  isOpeningProject.value = true
   try {
     const { open } = await import('@tauri-apps/plugin-dialog')
     const selected = await open({
@@ -190,6 +196,8 @@ async function handleOpenExistingProject() {
   } catch (error) {
     console.error('打开项目失败:', error)
     message.error(t('workbench.openProjectFailed'))
+  } finally {
+    isOpeningProject.value = false
   }
 }
 
@@ -199,6 +207,8 @@ async function handleBrowseAgain() {
 }
 
 async function handleOpenRecentProject(projectId: string) {
+  if (isOpeningProject.value) return
+  isOpeningProject.value = true
   try {
     await projectStore.switchProject(projectId)
     const p = projectStore.currentProject
@@ -208,10 +218,13 @@ async function handleOpenRecentProject(projectId: string) {
   } catch (error) {
     console.error('切换项目失败:', error)
     message.error(t('workbench.switchProjectFailed'))
+  } finally {
+    isOpeningProject.value = false
   }
 }
 
 async function handleCreateProject(name: string, path: string, description?: string) {
+  isOpeningProject.value = true
   try {
     const project = await projectStore.createProject(name, path, description)
     if (project) {
@@ -222,6 +235,8 @@ async function handleCreateProject(name: string, path: string, description?: str
   } catch (error) {
     console.error('创建项目失败:', error)
     message.error(t('workbench.createProjectFailed'))
+  } finally {
+    isOpeningProject.value = false
   }
 }
 
@@ -380,6 +395,12 @@ onMounted(async () => {
   background: var(--brand-accent-soft);
 }
 
+.action-card.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 .action-card.primary {
   background: linear-gradient(
     135deg,
@@ -502,6 +523,12 @@ onMounted(async () => {
   background: var(--color-hover);
 }
 
+.recent-item.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 .recent-icon {
   display: flex;
   align-items: center;
@@ -565,5 +592,18 @@ onMounted(async () => {
   .right-panel {
     padding: var(--spacing-md);
   }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
 }
 </style>

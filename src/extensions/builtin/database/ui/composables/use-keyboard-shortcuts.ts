@@ -27,6 +27,10 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
       return
     }
 
+    if ((event.target as HTMLElement)?.closest?.('.monaco-editor')) {
+      return
+    }
+
     if (ctrl && !shift && event.key === 'n') {
       event.preventDefault()
       handlers.onNewConnection?.()
