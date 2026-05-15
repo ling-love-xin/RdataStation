@@ -25,7 +25,7 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
 
   const initStore = async (projectPath: string): Promise<void> => {
     if (!projectPath) {
-      console.warn('[Scratchpad] No project path, skipping store init')
+      console.debug('[Scratchpad] No project path, store init deferred')
       return
     }
     const maxRetries = 3

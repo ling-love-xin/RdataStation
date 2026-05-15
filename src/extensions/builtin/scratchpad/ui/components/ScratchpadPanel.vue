@@ -6,7 +6,6 @@
           class="scratchpad-panel"
         :class="{ 'dragover-active': isDragOver }"
         :data-drop-hint="t('scratchpad.dragToImport')"
-        @click="handleGlobalClick"
         @dragover.prevent="handleDragOver"
         @dragleave="handleDragLeave"
         @drop.prevent="handleDrop"
@@ -23,7 +22,7 @@
         <button class="toolbar-btn" :class="{ 'toolbar-btn-active': showExplorerFilter }" :title="t('scratchpad.search')" @click="toggleExplorerFilter">
           <Search :size="16" />
         </button>
-        <NDropdown trigger="click" placement="bottom-end" :to="false" :options="moreMenuOptions" @select="handleMoreMenuSelect">
+        <NDropdown trigger="click" placement="bottom-end" :options="moreMenuOptions" @select="handleMoreMenuSelect">
           <button class="toolbar-btn" :title="t('scratchpad.more')">
             <MoreVertical :size="16" />
           </button>
@@ -1137,12 +1136,6 @@ const rootInlineInputRef = ref<HTMLInputElement | null>(null)
 const rootInlineCreateName = ref('')
 const rootInlineCreating = ref(false)
 
-function handleGlobalClick(): void {
-  if (renamingKey.value) {
-    cancelRename()
-  }
-}
-
 function toggleGroup(group: 'external' | 'local'): void {
   groupExpanded[group] = !groupExpanded[group]
 }
@@ -1877,6 +1870,7 @@ onUnmounted(() => {
   background: var(--dv-background-color, var(--color-bg-primary));
   overflow: hidden;
   position: relative;
+  isolation: isolate;
 }
 
 .scratchpad-panel.dragover-active::after {
@@ -1903,6 +1897,8 @@ onUnmounted(() => {
   padding: 0 var(--spacing-sm) 0 var(--spacing-md);
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border-subtle);
+  position: relative;
+  z-index: 1;
 }
 
 .explorer-titlebar-label {
@@ -2365,6 +2361,8 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
   transition: background-color 0.15s, color 0.15s;
   user-select: none;
+  position: relative;
+  z-index: 1;
 }
 
 .pane-section-header:hover {

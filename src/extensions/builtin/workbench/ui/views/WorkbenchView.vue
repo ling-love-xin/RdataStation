@@ -526,8 +526,8 @@ function findActiveSqlEditorPanelId(): string | null {
   return null
 }
 
-function findCenterGroupReference(): { referencePanel: string; direction?: 'within' } | undefined {
-  if (!dockviewApi) return undefined
+function findCenterGroupReference(): { referencePanel?: string; direction?: 'within' | 'right' } {
+  if (!dockviewApi) return { direction: 'right' }
 
   const sqlPanelId = findActiveSqlEditorPanelId()
   if (sqlPanelId) {
@@ -548,7 +548,7 @@ function findCenterGroupReference(): { referencePanel: string; direction?: 'with
     }
   }
 
-  return undefined
+  return { direction: 'right' }
 }
 
 const ensureResultPanel = () => {
