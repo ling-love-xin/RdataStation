@@ -5,6 +5,7 @@
     :title="isEdgeGroup ? titleText : undefined"
   >
     <component :is="iconComponent" :size="14" class="icon-tab-icon" />
+    <span v-if="tabDirty && !isEdgeGroup" class="icon-tab-dirty" />
     <span v-if="!isEdgeGroup" class="icon-tab-title">{{ titleText }}</span>
   </div>
 </template>
@@ -22,6 +23,9 @@ import {
   Layout,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+
+import { panelRegistry } from '@/core/panel-registry'
+import { useTabDirtyState } from '@/extensions/builtin/workbench/ui/composables/useTabDirtyState'
 
 import type { Component } from 'vue'
 
@@ -68,12 +72,15 @@ const iconComponent = computed(() => {
 })
 
 const isEdgeGroup = computed(() => {
-  const groupApi = props.params.groupApi as { id?: string } | undefined
-  const groupId = groupApi?.id || ''
-  return groupId === 'left-edge' || groupId === 'right-edge'
+  const desc = panelRegistry.get(componentId.value)
+  return desc?.location === 'left' || desc?.location === 'right'
 })
 
 const titleText = ref('')
+
+const { isDirty } = useTabDirtyState()
+
+const tabDirty = computed(() => isDirty(props.params.api?.id || ''))
 
 let titleDisposable: { dispose: () => void } | null = null
 
@@ -115,6 +122,15 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   font-size: 12px;
   color: inherit;
+}
+
+.icon-tab-dirty {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 
 .icon-tab--edge {

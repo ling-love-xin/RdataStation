@@ -722,6 +722,7 @@ async function handleEditorDrop(event: DragEvent): Promise<void> {
 let foldingDisposable: monaco.IDisposable | null = null
 let contextActionDisposables: monaco.IDisposable[] = []
 let historyReExecuteHandler: ((e: Event) => void) | null = null
+let editorSaveHandler: (() => void) | null = null
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleAutoSave(): void {
@@ -852,6 +853,14 @@ onMounted(async () => {
   window.addEventListener('sql-history-re-execute', handleHistoryReExecute)
   historyReExecuteHandler = handleHistoryReExecute
 
+  const handleEditorSave = () => {
+    if (isScratchpadMode.value) {
+      handleScratchpadSave()
+    }
+  }
+  window.addEventListener('sql-editor-save', handleEditorSave)
+  editorSaveHandler = handleEditorSave
+
   if (initialLine.value > 0) {
     await nextTick()
     const ed = editor.value
@@ -879,6 +888,10 @@ onBeforeUnmount(() => {
   if (historyReExecuteHandler) {
     window.removeEventListener('sql-history-re-execute', historyReExecuteHandler)
     historyReExecuteHandler = null
+  }
+  if (editorSaveHandler) {
+    window.removeEventListener('sql-editor-save', editorSaveHandler)
+    editorSaveHandler = null
   }
   if (isScratchpadMode.value && isDirty.value && scratchpadRelativePath.value) {
     const content = getValue()

@@ -44,6 +44,7 @@ import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workb
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
 import { useAppStore } from '@/stores/useAppStore'
+import { useScratchpadEditorStore } from '@/stores/useScratchpadEditorStore'
 
 defineOptions({
   components: {
@@ -56,6 +57,7 @@ const uiStore = useUiStore()
 const layoutStore = useLayoutStore()
 const appStore = useAppStore()
 const connectionStore = useConnectionStore()
+const editorStore = useScratchpadEditorStore()
 const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
@@ -65,7 +67,6 @@ let activeSqlEditorPanelId: string | null = null
 
 let dockviewApi: DockviewVueApi | null = null
 let sqlEditorCounter = 0
-const scratchpadPanelMap = new Map<string, string>()
 
 useDockviewKeyboard({ layoutStore })
 
@@ -363,12 +364,7 @@ const onReady = (event: DockviewReadyEvent) => {
         restorePinnedPanel(panelId)
       }, 100)
     }
-    for (const [path, id] of scratchpadPanelMap) {
-      if (id === panelId) {
-        scratchpadPanelMap.delete(path)
-        break
-      }
-    }
+    editorStore.removeByPanelId(panelId)
   })
 
   window.addEventListener(
@@ -620,14 +616,13 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
   const editorComponent = isSqlContext ? 'sqlEditor' : 'codeEditor'
 
   if (scratchpadRelativePath) {
-    const existingPanelId = scratchpadPanelMap.get(scratchpadRelativePath)
+    const existingPanelId = editorStore.getPanelId(scratchpadRelativePath)
     if (existingPanelId) {
       const existingPanel = dockviewApi.getPanel(existingPanelId)
       if (existingPanel) {
         existingPanel.focus()
         return
       }
-      scratchpadPanelMap.delete(scratchpadRelativePath)
     }
   }
 
@@ -673,7 +668,7 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
     }
 
     if (scratchpadRelativePath) {
-      scratchpadPanelMap.set(scratchpadRelativePath, panelId)
+      editorStore.setOpen(scratchpadRelativePath, panelId, panelTitle as string)
     }
 
     console.log(`[Workbench] 创建${isSqlContext ? 'SQL' : '代码'}编辑器面板: ${panelId}`)

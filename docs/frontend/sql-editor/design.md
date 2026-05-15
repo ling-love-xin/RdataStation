@@ -1,15 +1,16 @@
-# SQL 编辑器模块完整设计
+# 编辑面板模块完整设计（原 SQL 编辑器模块）
 
-> 版本：v1.12
+> 版本：v1.13
 > 创建日期：2026-05-09
-> 最后更新：2026-05-10
+> 最后更新：2026-05-16
 > 状态：📐 设计文档
-> 关联：[SQL-EDITOR.md](./SQL-EDITOR.md) · [优化计划](./SQL-EDITOR-OPTIMIZATION-PLAN.md)
+> 关联：[README.md](./README.md) · [optimization-plan.md](./optimization-plan.md)
 
 ---
 
 ## 📖 目录
 
+- [0. 模块概念：从"SQL 编辑器"到"编辑面板"](#0-模块概念从sql-编辑器到编辑面板)
 - [1. 模块定位与目标](#1-模块定位与目标)
 - [2. 总体架构](#2-总体架构)
 - [3. 组件树与职责](#3-组件树与职责)
@@ -23,11 +24,71 @@
 
 ---
 
+## 0. 模块概念：从"SQL 编辑器"到"编辑面板"
+
+### 0.1 名称演进
+
+本模块早期命名为**"SQL 编辑器模块"**，因为最初只有 `SqlEditorPanel` 一个编辑器面板。随着功能扩展，模块内出现了第二种编辑器面板 `CodeEditorPanel`，二者共享 Monaco Editor 引擎和 dockview 生命周期，但服务不同场景。因此本模块的准确名称应为**"编辑面板模块（Editor Panel Module）"**。
+
+### 0.2 两种面板的关系
+
+```
+编辑面板模块 (Editor Panel Module)
+├── 共享基础设施
+│   ├── useMonacoEditor         ← 统一的 Monaco 实例管理
+│   ├── Monaco Editor 引擎      ← 语法高亮、补全、主题
+│   └── dockview-vue 生命周期   ← 面板注册、拖拽、Tab 管理
+│
+├── SqlEditorPanel              ← SQL 执行变体
+│   ├── EditorToolbar           ← 执行/格式化/方言转换工具栏
+│   ├── QueryResultPanel        ← 查询结果展示
+│   ├── useSqlExecution         ← SQL 执行逻辑
+│   ├── useConnectionBinding    ← 数据库连接绑定
+│   └── useDialectSync          ← 方言同步
+│
+└── CodeEditorPanel             ← 文件编辑变体
+    ├── EditorStatusbar         ← 状态栏（语言/编码/EOL/缩进）
+    ├── EditorSettingsPopup     ← 编辑器设置弹窗
+    ├── SaveStatusIndicator     ← 保存状态指示器
+    ├── useFileSave             ← 文件保存/自动保存/重试
+    └── useEditorSettings       ← 编辑器显示设置管理
+```
+
+### 0.3 使用场景对比
+
+| 维度 | SqlEditorPanel | CodeEditorPanel |
+|------|---------------|-----------------|
+| **定位** | 数据库 SQL 交互 | 通用代码/文件编辑 |
+| **核心能力** | SQL 执行、结果展示、方言处理 | 文件保存、多语言编辑、草稿箱联动 |
+| **工具栏** | 执行/取消/格式化/方言转换/收藏 | 无（通过状态栏操作） |
+| **状态栏** | 连接选择 + 事务指示 + 光标 | 语言/编码/EOL/缩进/保存状态 |
+| **注册入口** | [query/extension.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/extension.ts) (panel `sql_editor`) | [query/extension.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/extension.ts) (panel `code_editor`) |
+
+### 0.4 本次重构要点（2026-05-16）
+
+CodeEditorPanel 经历了一次解耦重构，从 ~1113 行单文件拆分为 5 个职责清晰的子模块：
+
+| 文件 | 行数 | 职责 |
+|------|:----:|------|
+| [CodeEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/CodeEditorPanel.vue) | 325 | 编排层：Monaco 生命周期 + 文件保存 + 子组件拼装 |
+| [CodeEditorStatusbar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/CodeEditorStatusbar.vue) | 479 | 状态栏：下拉菜单 + click-outside + 编码/语言/EOL 切换 |
+| [EditorSettingsPopup.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorSettingsPopup.vue) | 314 | 设置弹窗：16 项编辑器配置 UI |
+| [useEditorSettings.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useEditorSettings.ts) | 170 | 设置逻辑：状态管理 + 类型化 handlers |
+| [useFileSave.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useFileSave.ts) | ~130 | 文件保存：自动保存/手动保存/重试/状态管理 |
+| [SaveStatusIndicator.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SaveStatusIndicator.vue) | ~80 | 保存状态图标组件 |
+
+单元测试覆盖率：**51 测试用例**（33 useFileSave + 18 SaveStatusIndicator），全部通过。
+
+---
+
 ## 1. 模块定位与目标
 
 ### 1.1 定位
 
-SQL 编辑器模块是 RdataStation 的核心交互模块，对标 DBeaver / DataGrip 的 SQL 编辑器体验，提供完整的 SQL 编写、执行、结果分析闭环。
+编辑面板模块是 RdataStation 的核心交互模块，对标 DBeaver / DataGrip 的编辑器体验。模块包含两种编辑器面板，共享 Monaco Editor 引擎和 dockview 生命周期：
+
+- **SqlEditorPanel**：数据库 SQL 交互 — 编写、执行、结果分析闭环
+- **CodeEditorPanel**：通用代码/文件编辑 — 多语言支持、文件保存、草稿箱联动
 
 ### 1.2 设计目标
 
@@ -64,14 +125,15 @@ SQL 编辑器模块是 RdataStation 的核心交互模块，对标 DBeaver / Dat
 ┌──────────────────────────────────────────────────────────────────┐
 │                        UI Layer (Vue 3)                          │
 │  ┌───────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │ SqlEditorPanel│  │QueryResult   │  │ Settings Panels (x2) │  │
-│  │ (编排层 ~947L)│  │Panel         │  │ → 统一到 config.ts  │  │
+│  │ SqlEditorPanel│  │CodeEditor    │  │QueryResult           │  │
+│  │ (编排层 ~947L)│  │Panel(~325L)  │  │Panel                 │  │
 │  └───────┬───────┘  └──────┬───────┘  └──────────┬───────────┘  │
 │          │                 │                      │              │
 │  ┌───────┴─────────────────┴──────────────────────┴───────────┐  │
 │  │                    Composables Layer                        │  │
 │  │  useSqlExecution / useMonacoEditor / useConnectionBinding   │  │
 │  │  useDialectSync / useEditorPersistence / useResultTabs     │  │
+│  │  useFileSave / useEditorSettings                           │  │
 │  └──────────────────────────┬─────────────────────────────────┘  │
 ├─────────────────────────────┼────────────────────────────────────┤
 │                     Pinia Store Layer                             │
@@ -158,7 +220,8 @@ WorkbenchView.vue (dockview-vue 容器)
 │
 ├── WorkbenchTitleBar.vue ────────────── 工作台标题栏（Tab 标题 + 菜单）
 ├── NavigatorPanel.vue ───────────────── 数据库导航树
-├── SqlEditorPanel.vue ───────────────── 编排层 (核心)
+│
+├── SqlEditorPanel.vue ───────────────── 编排层 (SQL 执行变体)
 │   ├── EditorToolbar.vue ────────────── 工具栏
 │   │   ├── 执行组: Execute / Execute+ / DuckDB / EXPLAIN
 │   │   ├── 编辑组: Format / Validate / Transpile
@@ -174,16 +237,23 @@ WorkbenchView.vue (dockview-vue 容器)
 │   │   ├── DataVisualizationPanel.vue ─ 图表视图 (ECharts)
 │   │   ├── ColumnInsightPanel.vue ──── 列洞察
 │   │   └── (AG Grid) ───────────────── 数据表格
-│   └── EditorStatusbar.vue ──────────── 状态栏
+│   └── EditorStatusbar.vue ──────────── 状态栏 (SqlEditorPanel 的)
 │       ├── 光标位置 + 选中信息
 │       ├── 执行状态 + 耗时
 │       ├── 连接的 NPopselect
 │       └── 事务指示器 (TX)
 │
-├── SettingsPanel.vue ─────────────────── 工作台设置面板 (需重构)
-├── SqlHistoryPanel.vue ──────────────── SQL 执行历史
-├── SnippetPanel.vue ─────────────────── SQL 代码片段面板
-└── TableDataPanel.vue ───────────────── 表数据视图
+└── CodeEditorPanel.vue ──────────────── 编排层 (文件编辑变体, 325行)
+    ├── Monaco Editor ────────────────── 通用编辑区 (通过 useMonacoEditor)
+    ├── EditorWelcome ────────────────── 欢迎覆盖层 (无文件时)
+    └── CodeEditorStatusbar.vue ──────────── 状态栏 (CodeEditorPanel 的)
+        ├── SaveStatusIndicator ──────── 保存状态 ✓ ⟳ ● ✗
+        ├── 语言下拉选择器 ──────────── 20+ 编程语言
+        ├── 编码选择器 ──────────────── UTF-8 / GBK 等 8 种
+        ├── EOL 选择器 ──────────────── LF / CRLF
+        ├── 编辑模式 ────────────────── INS / OVR 切换
+        ├── 缩进选择器 ──────────────── Spaces/Tabs + 大小
+        └── EditorSettingsPopup ──────── 编辑器设置弹窗 (16 项)
 ```
 
 ### 3.2 组件职责矩阵
@@ -191,8 +261,12 @@ WorkbenchView.vue (dockview-vue 容器)
 | 组件 | 行数 | 职责 | 依赖 Composable |
 | ---- | ---- | ---- | --------------- |
 | **SqlEditorPanel** | ~947 | 编排所有子组件 + 协调 composables | useMonacoEditor, useSqlExecution, useConnectionBinding, useDialectSync, useEditorPersistence |
+| **CodeEditorPanel** | 325 | Monaco 生命周期 + 文件保存编排 + 子组件拼装 | useMonacoEditor, useFileSave, useEditorSettings |
 | **EditorToolbar** | ~200 | 工具栏按钮 + 分组折叠 + 位置切换 | (纯展示 + emit) |
-| **EditorStatusbar** | ~180 | 状态信息展示 + 连接选择器 + 事务指示 | (纯展示 + emit) |
+| **EditorStatusbar** (SqlEditor) | ~180 | 状态信息展示 + 连接选择器 + 事务指示 | (纯展示 + emit) |
+| **CodeEditorStatusbar** | 479 | 状态栏 + 下拉菜单 + 语言/编码/EOL 切换 + 设置弹窗挂载 | (自管理 click-outside + refs) |
+| **EditorSettingsPopup** | 314 | 16 项编辑器显示设置 UI（字号/字体/换行/Minimap 等） | (纯展示，props: settings + handlers) |
+| **SaveStatusIndicator** | ~80 | 保存状态图标：idle ✓ / saving ⟳ / saved ✓ / unsaved ● / error ✗ | (纯展示) |
 | **EditorWelcome** | ~80 | 空编辑器欢迎页 + 最近连接 | (纯展示 + emit) |
 | **QueryResultPanel** | >2000 | 结果展示 + 三模式过滤 + Inline Edit + 导出 | useResultTabs, useGridConfig, useGridKeyboard, useFilterModes, useFilterPresets, useResultExport |
 | **TranspileModal** | ~60 | 方言转换弹窗 | (纯展示 + emit) |
@@ -894,9 +968,13 @@ src/
 ├── extensions/builtin/workbench/
 │   ├── ui/
 │   │   ├── components/panels/
-│   │   │   ├── SqlEditorPanel.vue     # 编排层 (~947L)
+│   │   │   ├── SqlEditorPanel.vue     # 编排层 - SQL 执行变体 (~947L)
+│   │   │   ├── CodeEditorPanel.vue    # 编排层 - 文件编辑变体 (325L)
+│   │   │   ├── EditorStatusbar.vue    # 状态栏 (SqlEditorPanel 的)
+│   │   │   ├── CodeEditorStatusbar.vue    # 状态栏 (CodeEditorPanel 的, 479L)
+│   │   │   ├── EditorSettingsPopup.vue # 编辑器设置弹窗 (314L)
+│   │   │   ├── SaveStatusIndicator.vue # 保存状态图标 (~80L)
 │   │   │   ├── EditorToolbar.vue      # 工具栏
-│   │   │   ├── EditorStatusbar.vue    # 状态栏
 │   │   │   ├── EditorWelcome.vue      # 欢迎页
 │   │   │   ├── QueryResultPanel.vue   # 结果面板
 │   │   │   ├── MultiTabResults.vue    # 多 Tab 结果

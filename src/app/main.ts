@@ -41,14 +41,14 @@ async function main() {
   appStore.applyTheme()
 
   try {
-    const apiVersion = await invoke<string>('get_api_version')
+    const apiVersion = await invoke<{ version: string }>('get_api_version')
     const expectedVersion = '1.0.0'
-    if (apiVersion !== expectedVersion) {
+    if (apiVersion.version !== expectedVersion) {
       console.warn(
-        `[Main] API version mismatch: frontend expects ${expectedVersion}, backend returns ${apiVersion}`,
+        `[Main] API version mismatch: frontend expects ${expectedVersion}, backend returns ${apiVersion.version}`,
       )
     } else {
-      console.log(`[Main] API version check passed: ${apiVersion}`)
+      console.log(`[Main] API version check passed: ${apiVersion.version}`)
     }
   } catch {
     console.warn('[Main] Failed to check API version, continuing...')

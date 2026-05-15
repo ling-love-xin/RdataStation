@@ -278,15 +278,15 @@
             @contextmenu.prevent="showRefMenu($event, extRef)"
           >
             <NIcon size="14">
-              <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(ref) }" />
+              <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(extRef) }" />
             </NIcon>
-            <span class="ref-name">{{ ref.alias }}</span>
+            <span class="ref-name">{{ extRef.alias }}</span>
             <span
-              :class="['ref-path', { 'ref-path-invalid': isRefInvalid(ref) }]"
-              :title="ref.path"
-              >{{ ref.path }}</span
+              :class="['ref-path', { 'ref-path-invalid': isRefInvalid(extRef) }]"
+              :title="extRef.path"
+              >{{ extRef.path }}</span
             >
-            <span v-if="isRefInvalid(ref)" class="ref-badge">{{ t('scratchpad.invalid') }}</span>
+            <span v-if="isRefInvalid(extRef)" class="ref-badge">{{ t('scratchpad.invalid') }}</span>
           </div>
         </div>
       </div>
@@ -337,91 +337,105 @@
 
     </div>
 
-    <NModal v-model:show="showRefModal" :title="t('scratchpad.addReference')" preset="card" :mask-closable="false" :to="false" style="max-width: 520px" :segmented="{ content: 'soft', footer: 'soft' }">
-      <div class="modal-body">
-        <div class="modal-field">
-          <label class="modal-label">{{ t('scratchpad.aliasLabel') }}</label>
-          <NInput
-            v-model:value="newRefAlias"
-            :placeholder="t('scratchpad.aliasPlaceholder')"
-          />
-        </div>
-        <div class="modal-field">
-          <label class="modal-label">{{ t('scratchpad.pathLabel') }}</label>
-          <div class="modal-input-row">
-            <NInput
-              v-model:value="newRefPath"
-              :placeholder="t('scratchpad.pathPlaceholder')"
-              class="modal-input"
-            />
-            <NButton size="small" @click="browseRefPath">
-              <template #icon>
-                <NIcon><FolderOpen /></NIcon>
-              </template>
-              {{ t('scratchpad.browse') }}
-            </NButton>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <div class="modal-actions">
-          <NButton size="small" @click="showRefModal = false">{{ t('common.cancel') }}</NButton>
-          <NButton
-            size="small"
-            type="primary"
-            :disabled="!newRefAlias.trim() || !newRefPath.trim()"
-            @click="confirmAddReference"
-            >{{ t('common.confirm') }}</NButton
-          >
-        </div>
-      </template>
+    <NModal v-model:show="showRefModal" :mask-closable="false" style="max-width: 520px">
+      <NConfigProvider :theme="naiveTheme">
+        <NCard :title="t('scratchpad.addReference')" size="small" :content-style="{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }">
+            <div class="modal-field">
+              <label class="modal-label">{{ t('scratchpad.aliasLabel') }}</label>
+              <NInput
+                v-model:value="newRefAlias"
+                :placeholder="t('scratchpad.aliasPlaceholder')"
+              />
+            </div>
+            <div class="modal-field">
+              <label class="modal-label">{{ t('scratchpad.pathLabel') }}</label>
+              <div class="modal-input-row">
+                <NInput
+                  v-model:value="newRefPath"
+                  :placeholder="t('scratchpad.pathPlaceholder')"
+                  class="modal-input"
+                />
+                <NButton size="small" @click="browseRefPath">
+                  <template #icon>
+                    <NIcon><FolderOpen /></NIcon>
+                  </template>
+                  {{ t('scratchpad.browse') }}
+                </NButton>
+              </div>
+            </div>
+          <template #footer>
+            <div class="modal-actions">
+              <NButton size="small" @click="showRefModal = false">{{ t('common.cancel') }}</NButton>
+              <NButton
+                size="small"
+                type="primary"
+                :disabled="!newRefAlias.trim() || !newRefPath.trim()"
+                @click="confirmAddReference"
+                >{{ t('common.confirm') }}</NButton
+              >
+            </div>
+          </template>
+        </NCard>
+      </NConfigProvider>
     </NModal>
 
-    <NModal
-      v-model:show="showPromoteConfirm"
-      :title="t('scratchpad.promoteToResource')"
-      preset="dialog"
-      :to="false"
-      :positive-text="t('scratchpad.promoteKeepDraft')"
-      :negative-text="t('scratchpad.promoteDeleteDraft')"
-      type="info"
-      @positive-click="handlePromoteConfirm(false)"
-      @negative-click="handlePromoteConfirm(true)"
-    >
-      <template v-if="promoteTarget">
-        {{ t('scratchpad.promoteToResourceConfirm', { name: promoteTarget.name }) }}
-      </template>
+    <NModal v-model:show="showPromoteConfirm" :mask-closable="false" style="max-width: 460px">
+      <NConfigProvider :theme="naiveTheme">
+        <NCard size="small">
+          <template #header>
+            <div class="modal-header-row">
+              <NIcon size="20" color="var(--brand-accent)"><Info /></NIcon>
+              <span class="modal-header-title">{{ t('scratchpad.promoteToResource') }}</span>
+            </div>
+          </template>
+          <template v-if="promoteTarget">
+            {{ t('scratchpad.promoteToResourceConfirm', { name: promoteTarget.name }) }}
+          </template>
+          <template #footer>
+            <div class="modal-actions">
+              <NButton size="small" @click="showPromoteConfirm = false">{{ t('common.cancel') }}</NButton>
+              <NButton size="small" @click="handlePromoteConfirm(true)">{{ t('scratchpad.promoteDeleteDraft') }}</NButton>
+              <NButton size="small" type="primary" @click="handlePromoteConfirm(false)">{{ t('scratchpad.promoteKeepDraft') }}</NButton>
+            </div>
+          </template>
+        </NCard>
+      </NConfigProvider>
     </NModal>
 
-    <NModal
-      v-model:show="showConflictDialog"
-      :title="t('scratchpad.conflictDetected')"
-      preset="dialog"
-      :to="false"
-      type="warning"
-      :positive-text="t('scratchpad.reloadAction')"
-      :negative-text="t('scratchpad.ignoreAction')"
-      @positive-click="handleConflictReload"
-      @negative-click="handleConflictIgnore"
-    >
-      <template v-if="conflictFilePath">
-        <div class="conflict-message">
-          <p>{{ t('scratchpad.conflictMessage1', { path: conflictFilePath }) }}</p>
-          <p>{{ t('scratchpad.conflictMessage2') }}</p>
-        </div>
-        <div class="conflict-actions">
-          <NButton size="small" type="info" @click="handleConflictDiff">
-            {{ t('scratchpad.viewDiff') }}
-          </NButton>
-        </div>
-      </template>
+    <NModal v-model:show="showConflictDialog" :mask-closable="false" style="max-width: 480px">
+      <NConfigProvider :theme="naiveTheme">
+        <NCard size="small">
+          <template #header>
+            <div class="modal-header-row">
+              <NIcon size="20" color="var(--brand-warning)"><Info /></NIcon>
+              <span class="modal-header-title">{{ t('scratchpad.conflictDetected') }}</span>
+            </div>
+          </template>
+          <template v-if="conflictFilePath">
+            <div class="conflict-message">
+              <p>{{ t('scratchpad.conflictMessage1', { path: conflictFilePath }) }}</p>
+              <p>{{ t('scratchpad.conflictMessage2') }}</p>
+            </div>
+            <div class="conflict-actions">
+              <NButton size="small" type="info" @click="handleConflictDiff">
+                {{ t('scratchpad.viewDiff') }}
+              </NButton>
+            </div>
+          </template>
+          <template #footer>
+            <div class="modal-actions">
+              <NButton size="small" @click="handleConflictIgnore">{{ t('scratchpad.ignoreAction') }}</NButton>
+              <NButton size="small" type="primary" @click="handleConflictReload">{{ t('scratchpad.reloadAction') }}</NButton>
+            </div>
+          </template>
+        </NCard>
+      </NConfigProvider>
     </NModal>
 
     <NModal
       v-model:show="showDiffDialog"
       :title="t('scratchpad.diffView')"
       preset="card"
-      :to="false"
       class="diff-modal"
       :mask-closable="false"
     >
@@ -508,7 +522,6 @@
 
 <script setup lang="ts">
 import { listen } from '@tauri-apps/api/event'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import {
   FilePlus,
   FolderPlus,
@@ -522,29 +535,27 @@ import {
   FolderSymlink,
   FileText,
   Trash2,
-  Pencil,
-  Copy,
-  ExternalLink,
   X,
-  BarChart3,
-  GitBranch,
   Info,
   History,
   MoreVertical,
   WholeWord,
-  Scissors,
-  ClipboardPaste,
 } from 'lucide-vue-next'
-import { NButton, NIcon, NInput, NSpin, NModal, NDropdown, createDiscreteApi, NConfigProvider, NMessageProvider, darkTheme, lightTheme } from 'naive-ui'
+import { NButton, NIcon, NInput, NSpin, NModal, NCard, NDropdown, createDiscreteApi, NConfigProvider, NMessageProvider, darkTheme, lightTheme } from 'naive-ui'
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useAppStore } from '@/stores/useAppStore'
+import { useScratchpadEditorStore } from '@/stores/useScratchpadEditorStore'
 
 import ScratchpadTreeNode from './ScratchpadTreeNode.vue'
 import { useScratchpad } from '../composables/use-scratchpad'
+import { useContextMenu } from '../composables/useContextMenu'
+import { useFileActions } from '../composables/useFileActions'
+import { useKeyboard } from '../composables/useKeyboard'
 
 import type { ScratchpadChangeEvent, ScratchpadEntry, ExternalReference, SearchMatch, SearchResult, DiffResult } from '../../types'
+import type { ScratchpadApi } from '../composables/useFileActions'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -600,6 +611,8 @@ const {
 } = useScratchpad()
 
 const fileMeta = computed(() => response.value?.file_meta ?? {})
+
+const _editorStore = useScratchpadEditorStore()
 
 const contentSearchMode = ref(false)
 const searchResult = ref<SearchResult | null>(null)
@@ -945,6 +958,104 @@ const virtualScrollTotalHeight = computed(() => {
   return flattenedTree.value.length * ROW_HEIGHT
 })
 
+const contextMenuComposable = useContextMenu(
+  {
+    t,
+    selectedKeys,
+    expandedKeys,
+    clipboardEntry,
+    multiSelected,
+  },
+  {
+    onNewFile: (parentPath) => startInlineCreate(parentPath, false),
+    onNewFolder: (parentPath) => startInlineCreate(parentPath, true),
+    onOpen: (entry) => openFileInEditor(entry),
+    onAnalyzeDuckDB: (entry) => { handleAnalyzeDuckDB(entry) },
+    onToggleFolder: (entry) => { handleToggleExpand(entry) },
+    onRename: (entry) => startRename(entry),
+    onDelete: (entry) => {
+      deleteEntry(entry.path)
+      showUndo(entry.name, entry.name)
+    },
+    onBatchDelete: (paths) => {
+      const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
+      if (!confirmed) return
+      Promise.all(paths.map(p => deleteEntry(p)))
+      message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
+      selectedKeys.value = new Set<string>()
+    },
+    onCopyFile: (entry) => {
+      clipboardEntry.value = entry
+      clipboardMode.value = 'copy'
+    },
+    onCutFile: (entry) => {
+      clipboardEntry.value = entry
+      clipboardMode.value = 'cut'
+      message.info(t('scratchpad.cutFileHint'))
+    },
+    onPasteFile: handlePaste,
+    onPromote: (entry) => {
+      promoteTarget.value = entry
+      showPromoteConfirm.value = true
+    },
+    onCopyPath: async (path) => {
+      await navigator.clipboard.writeText(path)
+      message.success(t('scratchpad.pathCopied'))
+    },
+    onCopyAbsPath: async (path) => {
+      await navigator.clipboard.writeText(path)
+      message.success(t('scratchpad.absolutePathCopied'))
+    },
+    onRemoveRef: (alias) => { doRemoveReference(alias) },
+    onOpenRefLocation: async (path) => {
+      await openInExplorerAction(path)
+    },
+  }
+)
+const { contextMenu, showBlankMenu, showEntryMenu, showRefMenu, closeContextMenu, handleMenuAction } = contextMenuComposable
+
+const keyboardComposable = useKeyboard(
+  {
+    contextMenuVisible: computed(() => contextMenu.visible),
+    showExplorerFilter,
+    selectedKey,
+    selectedKeys,
+    multiSelected,
+    flattenedEntries: flattenedTree,
+  },
+  {
+    onCloseContextMenu: () => closeContextMenu(),
+    onToggleSearch: () => toggleExplorerFilter(),
+    onCreateFile: () => handleCreateFile(),
+    onSelectAll: () => {
+      const all = new Set<string>()
+      for (const item of flattenedTree.value) {
+        all.add(item.entry.path)
+      }
+      selectedKeys.value = all
+    },
+    onNavigateToEntry: (entry) => {
+      selectedKey.value = entry.path
+      scrollToSelected()
+    },
+    onOpenEntry: (entry) => handleOpen(entry),
+    onRenameEntry: (entry) => startRename(entry),
+    onDeleteEntry: (entry) => {
+      deleteEntry(entry.path)
+      showUndo(entry.name, entry.name)
+    },
+    onBatchDelete: (paths) => {
+      const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
+      if (!confirmed) return
+      Promise.all(paths.map(p => deleteEntry(p)))
+      message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
+      selectedKeys.value = new Set<string>()
+    },
+    onEscCloseSearch: () => toggleExplorerFilter(),
+  }
+)
+const { handleKeydown } = keyboardComposable
+
 function updateTreeContainerSize(): void {
   const el = treeContainerRef.value
   if (!el) return
@@ -972,8 +1083,7 @@ function dismissUndo(): void {
 async function handleUndoDelete(): Promise<void> {
   const name = undoState.relativePath
   dismissUndo()
-  const ok = await restoreTrashEntry(name)
-  if (ok) message.success(t('scratchpad.restoredSuccess', { name }))
+  await doUndoDelete(name)
 }
 
 const groupExpanded = reactive({ external: false, local: true })
@@ -981,40 +1091,51 @@ const groupExpanded = reactive({ external: false, local: true })
 const showRefModal = ref(false)
 const newRefAlias = ref('')
 const newRefPath = ref('')
+
+const scratchpadApi: ScratchpadApi = {
+  createEntry,
+  deleteEntry,
+  renameEntry,
+  importFile,
+  promoteToResource,
+  emptyTrashBin,
+  restoreTrashEntry,
+  addReference,
+  removeReference,
+  loadFileContent,
+  setContentSnapshot,
+  error,
+}
+
+const fileActionsComposable = useFileActions({
+  api: scratchpadApi,
+  store: _editorStore,
+  message: {
+    success: (msg: string) => message.success(msg),
+    error: (msg: string) => message.error(msg),
+    info: (msg: string) => message.info(msg),
+    warning: (msg: string) => message.warning(msg),
+  },
+  t,
+  expandedKeys,
+  scratchpadPath,
+  fileMeta,
+  newRefAlias,
+  newRefPath,
+  showRefModal,
+  showPromoteConfirm,
+  promoteTarget,
+  showConflictDialog,
+  conflictFilePath,
+})
+const { doImportFile, doEmptyTrash, doPromote, doUndoDelete, doRename, doAddReference, doRemoveReference, doBrowseRefPath } = fileActionsComposable
+
 const inlineCreateParentPath = ref<string | null>(null)
 const inlineCreateIsFolder = ref(false)
 const isInlineCreateActive = ref(false)
 const rootInlineInputRef = ref<HTMLInputElement | null>(null)
 const rootInlineCreateName = ref('')
 const rootInlineCreating = ref(false)
-
-interface ContextMenuItem {
-  key: string
-  label: string
-  icon?: typeof FileText
-  danger?: boolean
-  disabled?: boolean
-  shortcut?: string
-  type?: 'divider'
-}
-
-const contextMenu = reactive<{
-  visible: boolean
-  x: number
-  y: number
-  target: ScratchpadEntry | ExternalReference | null
-  isRefTarget: boolean
-  isBlankTarget: boolean
-  items: ContextMenuItem[]
-}>({
-  visible: false,
-  x: 0,
-  y: 0,
-  target: null,
-  isRefTarget: false,
-  isBlankTarget: false,
-  items: [],
-})
 
 function handleGlobalClick(): void {
   if (renamingKey.value) {
@@ -1226,9 +1347,15 @@ async function openFileInEditor(entry: ScratchpadEntry): Promise<void> {
     ? entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
     : entry.path
 
-  const content = await loadFileContent(relativePath)
+  let content: string | null = null
+  try {
+    content = await loadFileContent(relativePath)
+  } catch {
+    content = null
+  }
+
   if (content === null) {
-    return
+    content = ''
   }
 
   setContentSnapshot(relativePath, content)
@@ -1411,25 +1538,11 @@ function getParentPathOfEntry(path: string): string | null {
 }
 
 async function handleImportFile(): Promise<void> {
-  try {
-    const selected = await openDialog({
-      multiple: false,
-      title: t('scratchpad.selectFileToImport'),
-      filters: [{ name: t('scratchpad.allFiles'), extensions: ['*'] }],
-    })
-    if (selected && typeof selected === 'string') {
-      const result = await importFile(selected)
-      if (result) message.success(t('scratchpad.importedSuccess', { name: result.name }))
-    }
-  } catch (e) {
-    console.error('[Scratchpad] Import dialog error:', e)
-    message.warning(t('scratchpad.dialogNotAvailable'))
-  }
+  await doImportFile()
 }
 
 async function handleRestore(name: string): Promise<void> {
-  const ok = await restoreTrashEntry(name)
-  if (ok) message.success(t('scratchpad.restoredSuccess', { name }))
+  await doUndoDelete(name)
 }
 
 const isDragOver = ref(false)
@@ -1479,52 +1592,22 @@ async function handleCloseRecent(): Promise<void> {
 }
 
 async function handleEmptyTrash(): Promise<void> {
-  try {
-    const ok = await emptyTrashBin()
-    if (ok) message.success(t('scratchpad.trashEmptied'))
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : String(e))
-  }
+  await doEmptyTrash()
 }
 
 async function browseRefPath(): Promise<void> {
-  try {
-    const selected = await openDialog({
-      directory: true,
-      multiple: false,
-      title: t('scratchpad.selectRefDirectory'),
-    })
-    if (selected && typeof selected === 'string') {
-      newRefPath.value = selected
-    }
-  } catch (e) {
-    console.error('[Scratchpad] Browse error:', e)
-    message.warning(t('scratchpad.dialogNotAvailable'))
-  }
+  await doBrowseRefPath()
 }
 
 async function confirmAddReference(): Promise<void> {
   const alias = newRefAlias.value.trim()
   const path = newRefPath.value.trim()
   if (!alias || !path) return
-  showRefModal.value = false
-  await addReference(alias, path)
+  await doAddReference(alias, path)
 }
 
 function handleRefClick(ref: ExternalReference): void {
   selectedKey.value = ref.alias
-}
-
-function closeContextMenu(): void {
-  contextMenu.visible = false
-  contextMenu.target = null
-}
-
-const ANALYZABLE_EXTENSIONS = ['.csv', '.parquet', '.json', '.xlsx', '.duckdb']
-
-function isAnalyzableFile(entry: ScratchpadEntry): boolean {
-  const ext = entry.name.includes('.') ? '.' + entry.name.split('.').pop()?.toLowerCase() : ''
-  return ANALYZABLE_EXTENSIONS.includes(ext)
 }
 
 async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
@@ -1546,215 +1629,6 @@ async function handleAnalyzeDuckDB(entry: ScratchpadEntry): Promise<void> {
       },
     })
   )
-}
-
-function showBlankMenu(event: MouseEvent): void {
-  event.preventDefault()
-  event.stopPropagation()
-  const pos = clampToViewport(event.clientX, event.clientY, 180, 100)
-  contextMenu.x = pos.x
-  contextMenu.y = pos.y
-  contextMenu.isRefTarget = false
-  contextMenu.isBlankTarget = true
-  contextMenu.target = null
-  contextMenu.items = [
-    { key: 'new-file', label: t('scratchpad.newFile'), icon: FilePlus },
-    { key: 'new-folder', label: t('scratchpad.newFolder'), icon: FolderPlus },
-  ]
-  contextMenu.visible = true
-}
-
-function showEntryMenu(event: MouseEvent, entry: ScratchpadEntry): void {
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (!selectedKeys.value.has(entry.path)) {
-    selectedKey.value = entry.path
-    selectedKeys.value = new Set<string>([entry.path])
-    lastSelectPath.value = entry.path
-  } else {
-    selectedKey.value = entry.path
-  }
-
-  const multi = multiSelected.value > 1
-  const pos = clampToViewport(event.clientX, event.clientY, 180, 240)
-  contextMenu.x = pos.x
-  contextMenu.y = pos.y
-  contextMenu.isRefTarget = false
-  contextMenu.isBlankTarget = false
-  contextMenu.target = entry
-  contextMenu.items = multi
-    ? [
-        { key: 'batch-delete', label: t('scratchpad.batchDelete', { n: multiSelected.value }), icon: Trash2, danger: true },
-      ]
-    : [
-        { key: 'new-file', label: t('scratchpad.newFile'), icon: FilePlus },
-        { key: 'new-folder', label: t('scratchpad.newFolder'), icon: FolderPlus },
-        { type: 'divider' as const, key: 'menu-d1', label: '' },
-        { key: 'open', label: t('scratchpad.open'), icon: FileText },
-        ...(isAnalyzableFile(entry)
-          ? [
-              {
-                key: 'analyze-duckdb',
-                label: t('scratchpad.analyzeWithDuckDB'),
-                icon: BarChart3,
-              },
-            ]
-          : []),
-        ...(entry.kind === 'folder'
-          ? [
-              {
-                key: 'toggle-folder',
-                label: expandedKeys.value.has(entry.path)
-                  ? t('scratchpad.collapse')
-                  : t('scratchpad.expand'),
-                icon: ChevronRight,
-              },
-            ]
-          : []),
-        { type: 'divider' as const, key: 'menu-d2', label: '' },
-        { key: 'copy-file', label: t('scratchpad.copyFile'), icon: Copy },
-        { key: 'cut-file', label: t('scratchpad.cutFile'), icon: Scissors },
-        { key: 'paste-file', label: t('scratchpad.pasteFile'), icon: ClipboardPaste, disabled: !clipboardEntry.value },
-        { type: 'divider' as const, key: 'menu-d3', label: '' },
-        { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
-        { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
-        { key: 'copy-abs-path', label: t('scratchpad.copyAbsolutePath'), icon: Copy },
-        { type: 'divider' as const, key: 'menu-d4', label: '' },
-        { key: 'promote', label: t('scratchpad.promoteToResource'), icon: GitBranch },
-        { type: 'divider' as const, key: 'menu-d5', label: '' },
-        { key: 'delete', label: t('scratchpad.delete'), icon: Trash2, danger: true, shortcut: 'Del' },
-      ]
-  contextMenu.visible = true
-}
-
-function showRefMenu(event: MouseEvent, ref: ExternalReference): void {
-  event.preventDefault()
-  event.stopPropagation()
-  const pos = clampToViewport(event.clientX, event.clientY, 180, 100)
-  contextMenu.x = pos.x
-  contextMenu.y = pos.y
-  contextMenu.isRefTarget = true
-  contextMenu.isBlankTarget = false
-  contextMenu.target = ref
-  contextMenu.items = [
-    { key: 'open-ref-location', label: t('scratchpad.openLocation'), icon: ExternalLink },
-    { key: 'remove-ref', label: t('scratchpad.removeReference'), icon: X, danger: true },
-  ]
-  contextMenu.visible = true
-}
-
-function clampToViewport(
-  x: number,
-  y: number,
-  menuWidth: number,
-  menuHeight: number
-): { x: number; y: number } {
-  const w = window.innerWidth
-  const h = window.innerHeight
-  return {
-    x: Math.min(x, w - menuWidth),
-    y: Math.min(y, h - menuHeight),
-  }
-}
-
-async function handleMenuAction(key: string): Promise<void> {
-  const isRefTarget = contextMenu.isRefTarget
-  const isBlankTarget = contextMenu.isBlankTarget
-  const target = contextMenu.target
-  closeContextMenu()
-
-  if (key === 'new-file') {
-    let parentPath: string | null = null
-    if (!isBlankTarget && !isRefTarget && target) {
-      const entry = target as ScratchpadEntry
-      parentPath = entry.kind === 'folder'
-        ? entry.path
-        : getParentPathOfEntry(entry.path)
-    }
-    startInlineCreate(parentPath, false)
-    return
-  }
-
-  if (key === 'new-folder') {
-    let parentPath: string | null = null
-    if (!isBlankTarget && !isRefTarget && target) {
-      const entry = target as ScratchpadEntry
-      parentPath = entry.kind === 'folder'
-        ? entry.path
-        : getParentPathOfEntry(entry.path)
-    }
-    startInlineCreate(parentPath, true)
-    return
-  }
-
-  if (isRefTarget) {
-    const ref = target as ExternalReference
-    if (ref) {
-      if (key === 'remove-ref') {
-        await removeReference(ref.alias)
-      } else if (key === 'open-ref-location') {
-        await openInExplorerAction(ref.path)
-      }
-    }
-    return
-  }
-
-  const entry = target as ScratchpadEntry
-  if (!entry) return
-  switch (key) {
-    case 'open':
-      openFileInEditor(entry)
-      break
-    case 'analyze-duckdb':
-      handleAnalyzeDuckDB(entry)
-      break
-    case 'toggle-folder':
-      handleToggleExpand(entry)
-      break
-    case 'rename':
-      startRename(entry)
-      break
-    case 'copy-path':
-      await navigator.clipboard.writeText(entry.path)
-      message.success(t('scratchpad.pathCopied'))
-      break
-    case 'copy-abs-path':
-      await navigator.clipboard.writeText(entry.path)
-      message.success(t('scratchpad.absolutePathCopied'))
-      break
-    case 'delete':
-      await deleteEntry(entry.path)
-      showUndo(entry.name, entry.name)
-      break
-    case 'promote':
-      promoteTarget.value = entry
-      showPromoteConfirm.value = true
-      break
-    case 'copy-file':
-      clipboardEntry.value = entry
-      clipboardMode.value = 'copy'
-      break
-    case 'cut-file':
-      clipboardEntry.value = entry
-      clipboardMode.value = 'cut'
-      message.info(t('scratchpad.cutFileHint'))
-      break
-    case 'paste-file':
-      await handlePaste()
-      break
-    case 'batch-delete': {
-      const paths = [...selectedKeys.value]
-      const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
-      if (!confirmed) break
-      for (const p of paths) {
-        await deleteEntry(p)
-      }
-      message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
-      selectedKeys.value = new Set<string>()
-      break
-    }
-  }
 }
 
 async function handlePaste(): Promise<void> {
@@ -1830,13 +1704,8 @@ async function handlePromoteConfirm(removeAfter: boolean): Promise<void> {
   showPromoteConfirm.value = false
   const entry = promoteTarget.value
   if (!entry) return
-  const scratchpadBase = scratchpadPath.value || ''
-  const relativePath = scratchpadBase
-    ? entry.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
-    : entry.path
-  const result = await promoteToResource(relativePath, removeAfter)
+  await doPromote(entry, removeAfter)
   promoteTarget.value = null
-  if (result) message.success(t('scratchpad.promotedSuccess', { name: entry.name }))
 }
 
 function handleConflictReload(): void {
@@ -1924,110 +1793,12 @@ function startRename(entry: ScratchpadEntry): void {
 async function finishRename(entry: ScratchpadEntry, newName: string): Promise<void> {
   renamingKey.value = null
   if (newName && newName !== entry.name) {
-    const result = await renameEntry(entry.path, newName)
-    if (result) message.success(t('scratchpad.renamedSuccess', { name: newName }))
+    await doRename(entry.path, newName)
   }
 }
 
 function cancelRename(): void {
   renamingKey.value = null
-}
-
-async function handleKeydown(event: KeyboardEvent): Promise<void> {
-  const el = document.activeElement
-  const tag = (el as HTMLElement)?.tagName || ''
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement)?.getAttribute('contenteditable') === 'true') {
-    return
-  }
-  if ((el as HTMLElement)?.closest('.monaco-editor')) {
-    return
-  }
-  if (event.key === 'Escape') {
-    if (contextMenu.visible) {
-      closeContextMenu()
-      return
-    }
-    if (showExplorerFilter.value) {
-      toggleExplorerFilter()
-      return
-    }
-  }
-  if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-    event.preventDefault()
-    if (!showExplorerFilter.value) {
-      toggleExplorerFilter()
-    }
-    return
-  }
-  if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
-    event.preventDefault()
-    handleCreateFile()
-    return
-  }
-  if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
-    event.preventDefault()
-    const all = new Set<string>()
-    for (const item of flattenedTree.value) {
-      all.add(item.entry.path)
-    }
-    selectedKeys.value = all
-    return
-  }
-  if (!selectedKey.value) {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault()
-      const entries = flattenedTree.value.map(item => item.entry)
-      if (entries.length > 0) {
-        selectedKey.value = event.key === 'ArrowDown' ? entries[0].path : entries[entries.length - 1].path
-        scrollToSelected()
-      }
-    }
-    return
-  }
-
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault()
-    const entries = flattenedTree.value.map(item => item.entry)
-    const idx = entries.findIndex(e => e.path === selectedKey.value)
-    if (idx === -1) return
-    const nextIdx = event.key === 'ArrowDown'
-      ? Math.min(idx + 1, entries.length - 1)
-      : Math.max(idx - 1, 0)
-    selectedKey.value = entries[nextIdx].path
-    scrollToSelected()
-    return
-  }
-
-  if (event.key === 'Enter') {
-    event.preventDefault()
-    const entry = localEntries.value.find(e => e.path === selectedKey.value)
-    if (entry) handleOpen(entry)
-    return
-  }
-
-  if (event.key === 'F2') {
-    event.preventDefault()
-    const entry = localEntries.value.find(e => e.path === selectedKey.value)
-    if (entry) startRename(entry)
-  } else if (event.key === 'Delete') {
-    event.preventDefault()
-    if (multiSelected.value > 1) {
-      const paths = [...selectedKeys.value]
-      const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
-      if (!confirmed) return
-      for (const p of paths) {
-        await deleteEntry(p)
-      }
-      message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
-      selectedKeys.value = new Set<string>()
-    } else {
-      const entry = localEntries.value.find(e => e.path === selectedKey.value)
-      if (entry) {
-        await deleteEntry(entry.path)
-        showUndo(entry.name, entry.name)
-      }
-    }
-  }
 }
 
 function scrollToSelected(): void {
@@ -2089,7 +1860,6 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 :deep(.n-config-provider),
@@ -2097,7 +1867,6 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .scratchpad-panel {
@@ -2790,13 +2559,6 @@ onUnmounted(() => {
   margin-top: var(--spacing-sm);
 }
 
-.modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg);
-}
-
 .modal-field {
   display: flex;
   flex-direction: column;
@@ -2830,7 +2592,19 @@ onUnmounted(() => {
   gap: var(--spacing-sm);
 }
 
-/* ===== NaiveUI 组件主题适配（dockview 面板可能丢失 NConfigProvider 上下文） ===== */
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.modal-header-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* ===== NaiveUI 组件主题适配 ===== */
 
 :deep(.n-dropdown-menu) {
   --n-color: var(--color-bg-elevated) !important;

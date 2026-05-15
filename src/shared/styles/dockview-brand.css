@@ -74,9 +74,7 @@
 }
 
 .dv-edge-group .dv-tab-content {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  justify-content: center;
 }
 
 .dv-edge-group .dv-tab svg,

@@ -2,6 +2,8 @@
  * 连接类型定义
  */
 
+import type { DriverOption } from './driver'
+import type { ConnectionMethodConfig } from '../../domain/types'
 import type {
   Connection,
   RecentConnection,
@@ -11,7 +13,6 @@ import type {
   DriverField,
   ConnectionFormData,
 } from '../../types/connection'
-import type { DriverOption, ConnectionMethodConfig } from '../../types/index'
 
 export type {
   Connection,
