@@ -265,9 +265,7 @@ export const useResultStore = defineStore('result', () => {
         return s
       }
       const header = tab.columns.map(c => escapeCsv(c)).join(',')
-      const body = tab.rows.map(r =>
-        r.map(v => escapeCsv(v)).join(',')
-      )
+      const body = tab.rows.map(r => r.map(v => escapeCsv(v)).join(','))
       const csv = [header, ...body].join('\n')
       await navigator.clipboard.writeText(csv)
     } else if (format === 'json') {

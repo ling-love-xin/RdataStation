@@ -113,13 +113,16 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
   })
 
   // 注册动态对象属性面板（中心区域，动态创建）
-  const objectPropertiesDisposable = context.window.registerViewProvider('dynamicObjectProperties', {
-    component: DynamicObjectPropertiesPanel,
-    title: '对象属性',
-    location: 'center',
-    icon: 'Info',
-    order: 10,
-  })
+  const objectPropertiesDisposable = context.window.registerViewProvider(
+    'dynamicObjectProperties',
+    {
+      component: DynamicObjectPropertiesPanel,
+      title: '对象属性',
+      location: 'center',
+      icon: 'Info',
+      order: 10,
+    }
+  )
 
   const disposables: Disposable[] = [
     emptyPanelDisposable,

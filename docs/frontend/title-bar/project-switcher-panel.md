@@ -15,13 +15,13 @@
 
 ### 1.2 职责边界
 
-| 负责 | 不负责（留给欢迎页） |
-|---|---|
-| 最近项目快速切换 | 浏览所有项目 |
-| 重命名项目 | 搜索项目 |
-| 编辑项目名称/描述 | 项目分组 |
-| 从最近列表移除 | 项目排序 |
-| 物理删除项目 | 联邦项目管理 |
+| 负责              | 不负责（留给欢迎页） |
+| ----------------- | -------------------- |
+| 最近项目快速切换  | 浏览所有项目         |
+| 重命名项目        | 搜索项目             |
+| 编辑项目名称/描述 | 项目分组             |
+| 从最近列表移除    | 项目排序             |
+| 物理删除项目      | 联邦项目管理         |
 
 ### 1.3 用户故事
 
@@ -85,13 +85,13 @@ WorkbenchTitleBar.vue
 
 ### 2.3 状态管理
 
-| 状态 | 管理方式 | 说明 |
-|---|---|---|
-| 面板开/关 | `ref<boolean>` 在 ProjectSwitcherPanel 内部 | 不写入全局状态 |
-| 最近项目列表 | `useProjectStore.recentProjects` | Pinia 全局 |
-| 当前项目 | `useProjectStore.currentProject` | Pinia 全局 |
-| 编辑模态框 | `ref<boolean>` 在 ProjectSwitcherPanel 内部 | 按需显示 |
-| 删除确认框 | `ref<boolean>` 在 ProjectSwitcherPanel 内部 | 按需显示 |
+| 状态         | 管理方式                                    | 说明           |
+| ------------ | ------------------------------------------- | -------------- |
+| 面板开/关    | `ref<boolean>` 在 ProjectSwitcherPanel 内部 | 不写入全局状态 |
+| 最近项目列表 | `useProjectStore.recentProjects`            | Pinia 全局     |
+| 当前项目     | `useProjectStore.currentProject`            | Pinia 全局     |
+| 编辑模态框   | `ref<boolean>` 在 ProjectSwitcherPanel 内部 | 按需显示       |
+| 删除确认框   | `ref<boolean>` 在 ProjectSwitcherPanel 内部 | 按需显示       |
 
 ---
 
@@ -118,20 +118,20 @@ defineEmits<{
   'switch-project': [project: Project]
   'new-project': []
   'open-project': []
-  'close': []
+  close: []
 }>()
 ```
 
 **内部状态**:
 
-| 变量 | 类型 | 说明 |
-|---|---|---|
-| `showPanel` | `ref<boolean>` | 面板开/关 |
-| `showEditModal` | `ref<boolean>` | 编辑模态框 |
-| `showDeleteConfirm` | `ref<boolean>` | 删除确认框 |
-| `contextMenuProject` | `ref<Project \| null>` | 右键菜单目标项目 |
-| `contextMenuPosition` | `ref<{x:number,y:number}>` | 右键菜单位置 |
-| `renamingProjectId` | `ref<string \| null>` | 正在重命名的项目 ID |
+| 变量                  | 类型                       | 说明                |
+| --------------------- | -------------------------- | ------------------- |
+| `showPanel`           | `ref<boolean>`             | 面板开/关           |
+| `showEditModal`       | `ref<boolean>`             | 编辑模态框          |
+| `showDeleteConfirm`   | `ref<boolean>`             | 删除确认框          |
+| `contextMenuProject`  | `ref<Project \| null>`     | 右键菜单目标项目    |
+| `contextMenuPosition` | `ref<{x:number,y:number}>` | 右键菜单位置        |
+| `renamingProjectId`   | `ref<string \| null>`      | 正在重命名的项目 ID |
 
 **面板尺寸**: 宽度 420px，最大高度 520px（超出内部滚动）
 
@@ -185,13 +185,13 @@ defineEmits<{
 
 ### 4.1 已有命令（复用）
 
-| 命令 | 入参 | 返回值 | 说明 |
-|---|---|---|---|
-| `get_recent_projects` | `limit?: usize` | `Vec<ProjectInfoResponse>` | 获取最近项目 |
-| `open_project_by_id` | `id: String` | `ProjectInfoResponse` | 切换项目 |
-| `rename_project` | `input: RenameProjectInput` | `()` | 重命名 |
-| `update_project` | `input: UpdateProjectInput` | `()` | 更新名称+描述 |
-| `delete_project` | `project_id: String` | `()` | 从数据库删除 |
+| 命令                  | 入参                        | 返回值                     | 说明          |
+| --------------------- | --------------------------- | -------------------------- | ------------- |
+| `get_recent_projects` | `limit?: usize`             | `Vec<ProjectInfoResponse>` | 获取最近项目  |
+| `open_project_by_id`  | `id: String`                | `ProjectInfoResponse`      | 切换项目      |
+| `rename_project`      | `input: RenameProjectInput` | `()`                       | 重命名        |
+| `update_project`      | `input: UpdateProjectInput` | `()`                       | 更新名称+描述 |
+| `delete_project`      | `project_id: String`        | `()`                       | 从数据库删除  |
 
 ### 4.2 新增命令
 
@@ -326,18 +326,18 @@ export interface Project {
 
 ## 6. 样式约束
 
-| 规则 | 说明 |
-|---|---|
-| 所有颜色使用 CSS 变量 | `var(--color-bg-primary)`, `var(--color-text-primary)`, `var(--brand-accent)` 等 |
-| 间距使用 `--spacing-*` 系列 | `--spacing-xs(4px)`, `--spacing-sm(8px)`, `--spacing-md(12px)`, `--spacing-lg(16px)` |
-| 圆角使用 `--border-radius-*` 系列 | `--border-radius-sm(4px)`, `--border-radius-md(6px)` |
-| 字号使用 `--font-size-*` 系列 | `--font-size-sm(12px)`, `--font-size-md(13px)`, `--font-size-lg(14px)` |
-| 暗色/亮色双主题适配 | 所有变量在 `.theme-dark` / `.theme-light` 下均有定义 |
-| 组件高度 | 32px（按钮/输入框），36px（面板标题） |
-| 过渡动画 | 0.15s-0.2s ease |
-| 当前项目高亮 | `border: 1px solid var(--brand-accent)` |
-| 悬停效果 | `background: var(--color-hover)` |
-| 移除按钮悬停 | `color: var(--brand-danger)` |
+| 规则                              | 说明                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| 所有颜色使用 CSS 变量             | `var(--color-bg-primary)`, `var(--color-text-primary)`, `var(--brand-accent)` 等     |
+| 间距使用 `--spacing-*` 系列       | `--spacing-xs(4px)`, `--spacing-sm(8px)`, `--spacing-md(12px)`, `--spacing-lg(16px)` |
+| 圆角使用 `--border-radius-*` 系列 | `--border-radius-sm(4px)`, `--border-radius-md(6px)`                                 |
+| 字号使用 `--font-size-*` 系列     | `--font-size-sm(12px)`, `--font-size-md(13px)`, `--font-size-lg(14px)`               |
+| 暗色/亮色双主题适配               | 所有变量在 `.theme-dark` / `.theme-light` 下均有定义                                 |
+| 组件高度                          | 32px（按钮/输入框），36px（面板标题）                                                |
+| 过渡动画                          | 0.15s-0.2s ease                                                                      |
+| 当前项目高亮                      | `border: 1px solid var(--brand-accent)`                                              |
+| 悬停效果                          | `background: var(--color-hover)`                                                     |
+| 移除按钮悬停                      | `color: var(--brand-danger)`                                                         |
 
 ---
 
@@ -345,29 +345,29 @@ export interface Project {
 
 ### 新增翻译键
 
-| 键 | zh-CN | en |
-|---|---|---|
-| `workbench.switchProject` | 切换项目 | Switch Project |
-| `workbench.renameProject` | 重命名 | Rename |
-| `workbench.editProjectInfo` | 编辑项目信息 | Edit Project Info |
-| `workbench.removeFromRecent` | 从列表中移除 | Remove from List |
-| `workbench.deleteProjectTitle` | 删除项目 | Delete Project |
-| `workbench.confirmDeleteProject` | 确认删除项目 | Confirm Delete Project |
-| `workbench.deleteProjectWarning` | 此操作不可恢复！将永久删除项目目录及所有数据： | This action cannot be undone! Will permanently delete the project directory and all data: |
-| `workbench.deleteProjectInputHint` | 请输入项目名称以确认删除 | Please enter the project name to confirm deletion |
-| `workbench.confirmDelete` | 确认删除 | Confirm Delete |
-| `workbench.projectLocation` | 项目位置 | Project Location |
-| `workbench.projectCreatedAt` | 创建时间 | Created At |
-| `workbench.projectLastOpened` | 最后打开 | Last Opened |
-| `workbench.manageAllProjects` | 管理所有项目... | Manage All Projects... |
-| `workbench.comingSoon` | 即将推出 | Coming Soon |
-| `workbench.noRecentProjects` | 暂无最近项目 | No Recent Projects |
-| `workbench.noRecentProjectsHint` | 点击上方 [+ 新建项目] 创建你的第一个项目或 [打开已有项目] 导入现有项目 | Click [+ New Project] to create your first project or [Open Existing Project] to import one |
-| `workbench.openExistingProject` | 打开已有项目 | Open Existing Project |
-| `workbench.lastOpened` | 最后打开 | Last Opened |
-| `workbench.projectRemoved` | 已从列表中移除 | Removed from List |
-| `workbench.renameSuccess` | 重命名成功 | Renamed Successfully |
-| `workbench.updateSuccess` | 更新成功 | Updated Successfully |
+| 键                                 | zh-CN                                                                  | en                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `workbench.switchProject`          | 切换项目                                                               | Switch Project                                                                              |
+| `workbench.renameProject`          | 重命名                                                                 | Rename                                                                                      |
+| `workbench.editProjectInfo`        | 编辑项目信息                                                           | Edit Project Info                                                                           |
+| `workbench.removeFromRecent`       | 从列表中移除                                                           | Remove from List                                                                            |
+| `workbench.deleteProjectTitle`     | 删除项目                                                               | Delete Project                                                                              |
+| `workbench.confirmDeleteProject`   | 确认删除项目                                                           | Confirm Delete Project                                                                      |
+| `workbench.deleteProjectWarning`   | 此操作不可恢复！将永久删除项目目录及所有数据：                         | This action cannot be undone! Will permanently delete the project directory and all data:   |
+| `workbench.deleteProjectInputHint` | 请输入项目名称以确认删除                                               | Please enter the project name to confirm deletion                                           |
+| `workbench.confirmDelete`          | 确认删除                                                               | Confirm Delete                                                                              |
+| `workbench.projectLocation`        | 项目位置                                                               | Project Location                                                                            |
+| `workbench.projectCreatedAt`       | 创建时间                                                               | Created At                                                                                  |
+| `workbench.projectLastOpened`      | 最后打开                                                               | Last Opened                                                                                 |
+| `workbench.manageAllProjects`      | 管理所有项目...                                                        | Manage All Projects...                                                                      |
+| `workbench.comingSoon`             | 即将推出                                                               | Coming Soon                                                                                 |
+| `workbench.noRecentProjects`       | 暂无最近项目                                                           | No Recent Projects                                                                          |
+| `workbench.noRecentProjectsHint`   | 点击上方 [+ 新建项目] 创建你的第一个项目或 [打开已有项目] 导入现有项目 | Click [+ New Project] to create your first project or [Open Existing Project] to import one |
+| `workbench.openExistingProject`    | 打开已有项目                                                           | Open Existing Project                                                                       |
+| `workbench.lastOpened`             | 最后打开                                                               | Last Opened                                                                                 |
+| `workbench.projectRemoved`         | 已从列表中移除                                                         | Removed from List                                                                           |
+| `workbench.renameSuccess`          | 重命名成功                                                             | Renamed Successfully                                                                        |
+| `workbench.updateSuccess`          | 更新成功                                                               | Updated Successfully                                                                        |
 
 ---
 
@@ -375,33 +375,33 @@ export interface Project {
 
 ### 新增文件
 
-| 文件 | 说明 |
-|---|---|
-| `src/extensions/builtin/workbench/ui/components/ProjectSwitcherPanel.vue` | 项目切换下拉面板 |
-| `src/extensions/builtin/workbench/ui/components/EditProjectModal.vue` | 编辑项目信息模态框 |
-| `src/extensions/builtin/workbench/ui/components/DeleteProjectConfirmModal.vue` | 删除确认对话框 |
-| `src/extensions/builtin/workbench/ui/utils/format.ts` | 共享日期格式化工具 |
-| `docs/frontend/title-bar/project-switcher-panel.md` | 本文档 |
+| 文件                                                                           | 说明               |
+| ------------------------------------------------------------------------------ | ------------------ |
+| `src/extensions/builtin/workbench/ui/components/ProjectSwitcherPanel.vue`      | 项目切换下拉面板   |
+| `src/extensions/builtin/workbench/ui/components/EditProjectModal.vue`          | 编辑项目信息模态框 |
+| `src/extensions/builtin/workbench/ui/components/DeleteProjectConfirmModal.vue` | 删除确认对话框     |
+| `src/extensions/builtin/workbench/ui/utils/format.ts`                          | 共享日期格式化工具 |
+| `docs/frontend/title-bar/project-switcher-panel.md`                            | 本文档             |
 
 ### 修改文件
 
-| 文件 | 变更说明 |
-|---|---|
-| `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue` | 替换 ProjectSelector → ProjectSwitcherPanel |
-| `src/extensions/builtin/workbench/ui/services/project.ts` | 添加 removeFromRecent / deleteProjectDisk API；v1.2: 移除 console.log、添加重试/超时机制 |
-| `src/core/project/stores/project.ts` | 添加 removeFromRecent / deleteProjectDisk 方法；v1.2: console.log→debugLog |
-| `src/extensions/builtin/workbench/ui/composables/useTitleBar.ts` | 添加 rename / remove / update 方法 |
-| `src-tauri/src/commands/project_commands.rs` | 添加 remove_from_recent / delete_project_disk 命令；v1.2: remove_from_recent 返回 ProjectInfoResponse |
-| `src-tauri/src/lib.rs` | 注册新命令 |
-| `src/shared/locales/zh-CN.json` | 添加翻译键 |
-| `src/shared/locales/en.json` | 添加翻译键 |
+| 文件                                                                   | 变更说明                                                                                              |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue` | 替换 ProjectSelector → ProjectSwitcherPanel                                                           |
+| `src/extensions/builtin/workbench/ui/services/project.ts`              | 添加 removeFromRecent / deleteProjectDisk API；v1.2: 移除 console.log、添加重试/超时机制              |
+| `src/core/project/stores/project.ts`                                   | 添加 removeFromRecent / deleteProjectDisk 方法；v1.2: console.log→debugLog                            |
+| `src/extensions/builtin/workbench/ui/composables/useTitleBar.ts`       | 添加 rename / remove / update 方法                                                                    |
+| `src-tauri/src/commands/project_commands.rs`                           | 添加 remove_from_recent / delete_project_disk 命令；v1.2: remove_from_recent 返回 ProjectInfoResponse |
+| `src-tauri/src/lib.rs`                                                 | 注册新命令                                                                                            |
+| `src/shared/locales/zh-CN.json`                                        | 添加翻译键                                                                                            |
+| `src/shared/locales/en.json`                                           | 添加翻译键                                                                                            |
 
 ### 删除文件
 
-| 文件 | 说明 |
-|---|---|
-| ~~`src/extensions/builtin/workbench/ui/components/title-bar/ProjectSelector.vue`~~ | 被 ProjectSwitcherPanel.vue 替代 |
-| ~~`src/extensions/builtin/workbench/ui/components/title-bar/ProjectSelector.test.ts`~~ | 对应测试文件 |
+| 文件                                                                                   | 说明                             |
+| -------------------------------------------------------------------------------------- | -------------------------------- |
+| ~~`src/extensions/builtin/workbench/ui/components/title-bar/ProjectSelector.vue`~~     | 被 ProjectSwitcherPanel.vue 替代 |
+| ~~`src/extensions/builtin/workbench/ui/components/title-bar/ProjectSelector.test.ts`~~ | 对应测试文件                     |
 
 ---
 
@@ -459,7 +459,7 @@ pub async fn your_new_command(param: String) -> Result<ReturnType, CoreError> {
         ))?;
 
     // 业务逻辑 ...
-    
+
     Ok(response)
 }
 ```
@@ -485,13 +485,13 @@ static async yourNewMethod(param: string): Promise<ReturnType> {
 
 ```typescript
 async function yourNewAction(param: string): Promise<void> {
-    try {
-        await ProjectService.yourNewMethod(param)
-        await loadRecentProjects(true)
-    } catch (e) {
-        error.value = e instanceof Error ? e.message : '操作失败'
-        throw e
-    }
+  try {
+    await ProjectService.yourNewMethod(param)
+    await loadRecentProjects(true)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '操作失败'
+    throw e
+  }
 }
 ```
 

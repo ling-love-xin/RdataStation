@@ -36,8 +36,8 @@
         :options="popselectOptions"
         :value="selectedConnection"
         size="small"
-         :render-label="renderConnectionLabel"
-         trigger="click"
+        :render-label="renderConnectionLabel"
+        trigger="click"
         @update:value="$emit('connectionChange', $event)"
       >
         <NButton quaternary size="tiny" class="status-connection-btn">

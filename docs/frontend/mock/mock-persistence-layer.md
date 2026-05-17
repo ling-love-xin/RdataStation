@@ -62,6 +62,7 @@ Tauri IPC
 ```
 
 **设计原则**：
+
 - 🔒 **`mock_` 前缀隔离**：所有新表使用 `mock_` 前缀，不混入现有业务表
 - 📦 **项目级存储**：表建在项目 SQLite（`.RSMETA/project.db`），项目关闭时统一清理
 - 🔧 **增量增强**：不破坏现有 `history.rs`（DuckDB），新增项目级 SQLite 持久化
@@ -151,20 +152,20 @@ CREATE TABLE IF NOT EXISTS mock_generation_tasks (
 );
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | TEXT PK | UUID v4，全局唯一 |
-| `table_name` | TEXT | 用户命名，如 `"orders"` |
-| `table_alias` | TEXT | 实际生成的 DuckDB 临时表名，如 `"temp_mock_orders_202605081430"` |
-| `row_count` | INTEGER | 请求生成的行数 |
-| `seed` | INTEGER | 随机种子，NULL 表示完全随机 |
-| `locale` | TEXT | 区域设置，默认 `ZH_CN` |
-| `scene_id` | TEXT | 关联模板 ID：内置模板如 `"builtin:ecommerce"`，自定义模板如 `"user:abc123"` |
-| `save_format` | TEXT | 导出格式：`table`/`parquet`/`csv`/`xlsx`/`sql` |
-| `status` | TEXT | 执行状态：`success`/`failed`/`cancelled` |
-| `error_message` | TEXT | 失败时的错误详情 |
-| `generated_rows` | INTEGER | 实际生成行数（与 `row_count` 可能不同） |
-| `generation_time_ms` | INTEGER | 生成耗时，精度毫秒 |
+| 字段                 | 类型    | 说明                                                                        |
+| -------------------- | ------- | --------------------------------------------------------------------------- |
+| `id`                 | TEXT PK | UUID v4，全局唯一                                                           |
+| `table_name`         | TEXT    | 用户命名，如 `"orders"`                                                     |
+| `table_alias`        | TEXT    | 实际生成的 DuckDB 临时表名，如 `"temp_mock_orders_202605081430"`            |
+| `row_count`          | INTEGER | 请求生成的行数                                                              |
+| `seed`               | INTEGER | 随机种子，NULL 表示完全随机                                                 |
+| `locale`             | TEXT    | 区域设置，默认 `ZH_CN`                                                      |
+| `scene_id`           | TEXT    | 关联模板 ID：内置模板如 `"builtin:ecommerce"`，自定义模板如 `"user:abc123"` |
+| `save_format`        | TEXT    | 导出格式：`table`/`parquet`/`csv`/`xlsx`/`sql`                              |
+| `status`             | TEXT    | 执行状态：`success`/`failed`/`cancelled`                                    |
+| `error_message`      | TEXT    | 失败时的错误详情                                                            |
+| `generated_rows`     | INTEGER | 实际生成行数（与 `row_count` 可能不同）                                     |
+| `generation_time_ms` | INTEGER | 生成耗时，精度毫秒                                                          |
 
 #### 1.3.2 `mock_generation_columns` — 任务字段配置详情表
 
@@ -189,23 +190,23 @@ CREATE TABLE IF NOT EXISTS mock_generation_columns (
 );
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | TEXT PK | UUID v4 |
-| `task_id` | TEXT FK | 关联 `mock_generation_tasks.id`，级联删除 |
-| `column_name` | TEXT | 字段名，如 `"email"` |
-| `column_type` | TEXT | 数据类型，如 `"Varchar(100)"` |
-| `generator` | TEXT | 生成器名称，如 `"SafeEmail(ZH_CN)"`，包含 locale 信息 |
-| `generator_params` | TEXT | JSON 格式参数，如 `{"min":1,"max":100}` |
-| `null_ratio` | REAL | 空值比例，0.0 表示不允许 NULL |
-| `is_unique` | INTEGER | 0=不唯一, 1=唯一 |
-| `is_primary_key` | INTEGER | 0=否, 1=是 |
-| `is_foreign_key` | INTEGER | 0=否, 1=是 |
-| `ref_table` | TEXT | 外键引用的表名 |
-| `ref_column` | TEXT | 外键引用的列名 |
-| `comment` | TEXT | 字段注释/说明 |
-| `confidence` | TEXT | 智能映射置信度：`high`/`medium`/`low`/`manual` |
-| `sort_order` | INTEGER | 字段在表中的排列顺序 |
+| 字段               | 类型    | 说明                                                  |
+| ------------------ | ------- | ----------------------------------------------------- |
+| `id`               | TEXT PK | UUID v4                                               |
+| `task_id`          | TEXT FK | 关联 `mock_generation_tasks.id`，级联删除             |
+| `column_name`      | TEXT    | 字段名，如 `"email"`                                  |
+| `column_type`      | TEXT    | 数据类型，如 `"Varchar(100)"`                         |
+| `generator`        | TEXT    | 生成器名称，如 `"SafeEmail(ZH_CN)"`，包含 locale 信息 |
+| `generator_params` | TEXT    | JSON 格式参数，如 `{"min":1,"max":100}`               |
+| `null_ratio`       | REAL    | 空值比例，0.0 表示不允许 NULL                         |
+| `is_unique`        | INTEGER | 0=不唯一, 1=唯一                                      |
+| `is_primary_key`   | INTEGER | 0=否, 1=是                                            |
+| `is_foreign_key`   | INTEGER | 0=否, 1=是                                            |
+| `ref_table`        | TEXT    | 外键引用的表名                                        |
+| `ref_column`       | TEXT    | 外键引用的列名                                        |
+| `comment`          | TEXT    | 字段注释/说明                                         |
+| `confidence`       | TEXT    | 智能映射置信度：`high`/`medium`/`low`/`manual`        |
+| `sort_order`       | INTEGER | 字段在表中的排列顺序                                  |
 
 #### 1.3.3 `mock_user_templates` — 用户自定义模板主表
 
@@ -431,25 +432,25 @@ impl MockGenerationStore {
 
 ### 1.6 迁移策略
 
-| 项目 | 内容 |
-|------|------|
-| **迁移文件** | `migrations/project_meta/009_mock_generation.sql` |
-| **命名规范** | `NNN_description.sql`（NNN = 三位数字递增，当前 008→009） |
+| 项目         | 内容                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| **迁移文件** | `migrations/project_meta/009_mock_generation.sql`                                                                   |
+| **命名规范** | `NNN_description.sql`（NNN = 三位数字递增，当前 008→009）                                                           |
 | **执行时机** | `ProjectDatabaseManager::open()` → `init_sqlite_tables()` → `MigrationManager::migrate(MigrationType::ProjectMeta)` |
-| **幂等保证** | 全部使用 `CREATE TABLE IF NOT EXISTS` + `CREATE INDEX IF NOT EXISTS` |
-| **回滚策略** | 本项目不自动回滚；需要时可手动 `DROP TABLE IF EXISTS mock_*` |
+| **幂等保证** | 全部使用 `CREATE TABLE IF NOT EXISTS` + `CREATE INDEX IF NOT EXISTS`                                                |
+| **回滚策略** | 本项目不自动回滚；需要时可手动 `DROP TABLE IF EXISTS mock_*`                                                        |
 
 ### 1.7 与现有模块的关系
 
-| 现有模块 | 关系 | 操作 |
-|---------|------|------|
-| `core/mock/engine.rs` | **不修改** | 生成引擎无变化 |
-| `core/mock/models.rs` | **不修改** | `MockConfig` / `ColumnDef` / `GeneratorConfig` 保持不变 |
-| `core/mock/templates.rs` | **互补** | 内置模板（`builtin:*`）不变；新增用户自定义模板存储 |
-| `core/mock/history.rs` | **并行** | DuckDB `_system.mock_history` 保留不动；新增 SQLite 持久化 |
-| `commands/mock_commands.rs` | **不修改** | 现有 13 个生成命令不变 |
-| `core/persistence/project_db.rs` | **复用** | `ProjectSqlitePool` 直接注入 Store |
-| `adapters/tauri/state.rs` | **不修改** | `AppState` 不变 |
+| 现有模块                         | 关系       | 操作                                                       |
+| -------------------------------- | ---------- | ---------------------------------------------------------- |
+| `core/mock/engine.rs`            | **不修改** | 生成引擎无变化                                             |
+| `core/mock/models.rs`            | **不修改** | `MockConfig` / `ColumnDef` / `GeneratorConfig` 保持不变    |
+| `core/mock/templates.rs`         | **互补**   | 内置模板（`builtin:*`）不变；新增用户自定义模板存储        |
+| `core/mock/history.rs`           | **并行**   | DuckDB `_system.mock_history` 保留不动；新增 SQLite 持久化 |
+| `commands/mock_commands.rs`      | **不修改** | 现有 13 个生成命令不变                                     |
+| `core/persistence/project_db.rs` | **复用**   | `ProjectSqlitePool` 直接注入 Store                         |
+| `adapters/tauri/state.rs`        | **不修改** | `AppState` 不变                                            |
 
 ---
 
@@ -459,40 +460,40 @@ impl MockGenerationStore {
 
 #### 新增文件（3 个）
 
-| # | 文件路径 | 行数（估） | 职责 |
-|---|---------|----------|------|
-| 1 | `migrations/project_meta/009_mock_generation.sql` | ~50 | 4 张表 + 3 索引 DDL |
-| 2 | `core/mock/persistence.rs` | ~350 | 4 个 struct + `MockGenerationStore`（7 方法） |
-| 3 | `commands/mock_persistence_commands.rs` | ~120 | 5 个 Tauri 命令 |
+| #   | 文件路径                                          | 行数（估） | 职责                                          |
+| --- | ------------------------------------------------- | ---------- | --------------------------------------------- |
+| 1   | `migrations/project_meta/009_mock_generation.sql` | ~50        | 4 张表 + 3 索引 DDL                           |
+| 2   | `core/mock/persistence.rs`                        | ~350       | 4 个 struct + `MockGenerationStore`（7 方法） |
+| 3   | `commands/mock_persistence_commands.rs`           | ~120       | 5 个 Tauri 命令                               |
 
 #### 修改文件（3 个）
 
-| # | 文件路径 | 修改内容 | 行数 |
-|---|---------|---------|------|
-| 4 | `core/mock/mod.rs` | 新增 `pub mod persistence;` + re-export 4 struct | +4 |
-| 5 | `lib.rs` | `pub mod mock_persistence_commands;` + `generate_handler!` | +5 |
-| 6 | `core/persistence/mod.rs` | re-export `MockGenerationStore`（可选） | +1 |
+| #   | 文件路径                  | 修改内容                                                   | 行数 |
+| --- | ------------------------- | ---------------------------------------------------------- | ---- |
+| 4   | `core/mock/mod.rs`        | 新增 `pub mod persistence;` + re-export 4 struct           | +4   |
+| 5   | `lib.rs`                  | `pub mod mock_persistence_commands;` + `generate_handler!` | +5   |
+| 6   | `core/persistence/mod.rs` | re-export `MockGenerationStore`（可选）                    | +1   |
 
 #### 前端文件（不新增，修改现有 2 个）
 
-| # | 文件路径 | 修改内容 |
-|---|---------|---------|
-| 7 | `src/shared/api/mock-api.ts` | 新增 5 个持久化 API 方法 |
-| 8 | `src/stores/useMockStore.ts` | MockPanel 历史 Tab 调用持久化 API |
+| #   | 文件路径                     | 修改内容                          |
+| --- | ---------------------------- | --------------------------------- |
+| 7   | `src/shared/api/mock-api.ts` | 新增 5 个持久化 API 方法          |
+| 8   | `src/stores/useMockStore.ts` | MockPanel 历史 Tab 调用持久化 API |
 
 **合计**：新增 3 个 Rust 文件 + 修改 3 个 Rust 文件 + 修改 2 个 TS 文件 = **8 个文件**
 
 ### 2.2 开发阶段
 
-| Phase | 名称 | 任务 | 估时 |
-|-------|------|------|------|
-| P1 | SQL 建表 | 创建 `009_mock_generation.sql`，验证迁移系统能正常执行 | 0.5h |
-| P2 | Rust 结构体 + Store | 创建 `persistence.rs`：4 struct + `MockGenerationStore`（7 CRUD 方法） | 2h |
-| P3 | Tauri 命令 | 创建 `mock_persistence_commands.rs`：5 命令 + `lib.rs` 注册 | 1h |
-| P4 | 模块注册 + 编译验证 | `mod.rs` 更新 + `cargo check` + 手动测试 | 0.5h |
-| P5 | 前端 API 层 | `mock-api.ts` 新增方法 + `useMockStore.ts` 集成 | 1h |
-| P6 | 前端 UI 集成 | MockPanel 历史 Tab 接入持久化 API + 降级兼容 | 1h |
-| **合计** | — | — | **6h** |
+| Phase    | 名称                | 任务                                                                   | 估时   |
+| -------- | ------------------- | ---------------------------------------------------------------------- | ------ |
+| P1       | SQL 建表            | 创建 `009_mock_generation.sql`，验证迁移系统能正常执行                 | 0.5h   |
+| P2       | Rust 结构体 + Store | 创建 `persistence.rs`：4 struct + `MockGenerationStore`（7 CRUD 方法） | 2h     |
+| P3       | Tauri 命令          | 创建 `mock_persistence_commands.rs`：5 命令 + `lib.rs` 注册            | 1h     |
+| P4       | 模块注册 + 编译验证 | `mod.rs` 更新 + `cargo check` + 手动测试                               | 0.5h   |
+| P5       | 前端 API 层         | `mock-api.ts` 新增方法 + `useMockStore.ts` 集成                        | 1h     |
+| P6       | 前端 UI 集成        | MockPanel 历史 Tab 接入持久化 API + 降级兼容                           | 1h     |
+| **合计** | —                   | —                                                                      | **6h** |
 
 ### 2.3 开工清单
 
@@ -527,15 +528,15 @@ impl MockGenerationStore {
 
 ### 3.1 Tauri Command 接口总览
 
-| # | 命令名 | 方法 | 用途 | 优先级 |
-|---|--------|------|------|--------|
-| 1 | `save_mock_generation_task` | POST | 保存生成任务 + 字段配置 | 🔴 P0 |
-| 2 | `get_mock_generation_history` | GET | 获取生成历史列表 | 🔴 P0 |
-| 3 | `get_mock_generation_detail` | GET | 获取任务详情（字段配置） | 🔴 P0 |
-| 4 | `delete_mock_generation_task` | DELETE | 删除历史记录 | 🟡 P1 |
-| 5 | `save_mock_template` | POST | 保存用户自定义模板 | 🟢 P2（预留） |
-| 6 | `get_mock_templates` | GET | 获取用户模板列表 | 🟢 P2（预留） |
-| 7 | `get_mock_template_detail` | GET | 获取模板详情 | 🟢 P2（预留） |
+| #   | 命令名                        | 方法   | 用途                     | 优先级        |
+| --- | ----------------------------- | ------ | ------------------------ | ------------- |
+| 1   | `save_mock_generation_task`   | POST   | 保存生成任务 + 字段配置  | 🔴 P0         |
+| 2   | `get_mock_generation_history` | GET    | 获取生成历史列表         | 🔴 P0         |
+| 3   | `get_mock_generation_detail`  | GET    | 获取任务详情（字段配置） | 🔴 P0         |
+| 4   | `delete_mock_generation_task` | DELETE | 删除历史记录             | 🟡 P1         |
+| 5   | `save_mock_template`          | POST   | 保存用户自定义模板       | 🟢 P2（预留） |
+| 6   | `get_mock_templates`          | GET    | 获取用户模板列表         | 🟢 P2（预留） |
+| 7   | `get_mock_template_detail`    | GET    | 获取模板详情             | 🟢 P2（预留） |
 
 ### 3.2 命令详细规格
 
@@ -599,14 +600,15 @@ await invoke('save_mock_generation_task', {
 
 **响应**：
 
-| 场景 | 返回值 |
-|------|--------|
-| 成功 | `Ok(task.id)` — 返回任务 ID 字符串 |
-| 项目不存在 | `Err("Project database not found: {path}")` |
-| SQL 写入失败 | `Err("Failed to save task: {reason}")` |
-| 列配置写入失败 | `Err("Failed to save columns: {reason}")` |
+| 场景           | 返回值                                      |
+| -------------- | ------------------------------------------- |
+| 成功           | `Ok(task.id)` — 返回任务 ID 字符串          |
+| 项目不存在     | `Err("Project database not found: {path}")` |
+| SQL 写入失败   | `Err("Failed to save task: {reason}")`      |
+| 列配置写入失败 | `Err("Failed to save columns: {reason}")`   |
 
 **实现逻辑**：
+
 1. 打开项目 SQLite 连接（`project_path + "/.RSMETA/project.db"`）
 2. 开启事务（`BEGIN TRANSACTION`）
 3. 写入 `task` → `mock_generation_tasks`
@@ -643,13 +645,14 @@ const history = await invoke('get_mock_generation_history', {
 
 **响应**：
 
-| 场景 | 返回值 |
-|------|--------|
-| 成功 | `Ok(Vec<MockGenerationTask>)` — 按 `created_at DESC` 排序 |
-| 项目不存在 | `Ok([])` — 返回空数组（不报错） |
-| SQL 查询失败 | `Err("Failed to query history: {reason}")` |
+| 场景         | 返回值                                                    |
+| ------------ | --------------------------------------------------------- |
+| 成功         | `Ok(Vec<MockGenerationTask>)` — 按 `created_at DESC` 排序 |
+| 项目不存在   | `Ok([])` — 返回空数组（不报错）                           |
+| SQL 查询失败 | `Err("Failed to query history: {reason}")`                |
 
 **实现逻辑**：
+
 ```sql
 SELECT * FROM mock_generation_tasks
 ORDER BY created_at DESC
@@ -688,13 +691,14 @@ pub struct MockGenerationDetail {
 }
 ```
 
-| 场景 | 返回值 |
-|------|--------|
-| 成功 | `Ok(MockGenerationDetail)` — task + columns（按 `sort_order ASC`） |
-| 任务不存在 | `Err("Task not found: {task_id}")` |
-| SQL 查询失败 | `Err("Failed to query detail: {reason}")` |
+| 场景         | 返回值                                                             |
+| ------------ | ------------------------------------------------------------------ |
+| 成功         | `Ok(MockGenerationDetail)` — task + columns（按 `sort_order ASC`） |
+| 任务不存在   | `Err("Task not found: {task_id}")`                                 |
+| SQL 查询失败 | `Err("Failed to query detail: {reason}")`                          |
 
 **实现逻辑**：
+
 1. 根据 `task_id` 查询 `mock_generation_tasks`
 2. 查询关联的 `mock_generation_columns`，按 `sort_order ASC` 排序
 3. 组装 `MockGenerationDetail` 返回
@@ -722,13 +726,14 @@ pub async fn delete_mock_generation_task(
 
 **响应**：
 
-| 场景 | 返回值 |
-|------|--------|
-| 成功 | `Ok(())` |
-| 任务不存在 | `Ok(())` — 幂等，不报错 |
+| 场景         | 返回值                                   |
+| ------------ | ---------------------------------------- |
+| 成功         | `Ok(())`                                 |
+| 任务不存在   | `Ok(())` — 幂等，不报错                  |
 | SQL 删除失败 | `Err("Failed to delete task: {reason}")` |
 
 **实现逻辑**：
+
 ```sql
 DELETE FROM mock_generation_tasks WHERE id = ?
 -- mock_generation_columns 由 ON DELETE CASCADE 自动删除
@@ -814,10 +819,7 @@ async function saveTask(
 }
 
 /** 获取生成历史列表 */
-async function getHistory(
-  projectPath: string,
-  limit?: number
-): Promise<MockGenerationTask[]> {
+async function getHistory(projectPath: string, limit?: number): Promise<MockGenerationTask[]> {
   return invoke('get_mock_generation_history', {
     projectPath,
     limit: limit ?? 20,
@@ -836,10 +838,7 @@ async function getDetail(
 }
 
 /** 删除历史任务 */
-async function deleteTask(
-  projectPath: string,
-  taskId: string
-): Promise<void> {
+async function deleteTask(projectPath: string, taskId: string): Promise<void> {
   return invoke('delete_mock_generation_task', {
     projectPath,
     taskId,
@@ -982,25 +981,25 @@ async function onGenerateSuccess(result: MockGenerateResult) {
 
 ## 附录 A：依赖清单
 
-| 依赖 | 版本 | 用途 | 来源 |
-|------|------|------|------|
-| `uuid` | 1.x | 生成主键 UUID v4 | Cargo.toml（现有） |
-| `rusqlite` | 0.32.x | SQLite 操作 | Cargo.toml（现有，bundled） |
-| `serde` | 1.x | JSON 序列化 | Cargo.toml（现有） |
-| `serde_json` | 1.x | `generator_params` JSON 字符串 | Cargo.toml（现有） |
-| `tauri` | 2.10.x | Command + State 注入 | Cargo.toml（现有） |
+| 依赖         | 版本   | 用途                           | 来源                        |
+| ------------ | ------ | ------------------------------ | --------------------------- |
+| `uuid`       | 1.x    | 生成主键 UUID v4               | Cargo.toml（现有）          |
+| `rusqlite`   | 0.32.x | SQLite 操作                    | Cargo.toml（现有，bundled） |
+| `serde`      | 1.x    | JSON 序列化                    | Cargo.toml（现有）          |
+| `serde_json` | 1.x    | `generator_params` JSON 字符串 | Cargo.toml（现有）          |
+| `tauri`      | 2.10.x | Command + State 注入           | Cargo.toml（现有）          |
 
 ## 附录 B：与主设计文档的关联
 
-| 主文档章节 | 关联方式 |
-|-----------|---------|
+| 主文档章节                                                                    | 关联方式                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------- |
 | [§4 Tauri Command 接口](./mock-data-generator-design.md#4-tauri-command-接口) | 原 13 个命令不动；新增 5+ 持久化命令（本文 §3.2） |
-| [§5 前端组件设计](./mock-data-generator-design.md#5-前端组件设计) | MockPanel 历史 Tab 数据源切换（本文 §3.4） |
-| [§8 开发阶段计划](./mock-data-generator-design.md#8-分阶段开发计划) | Phase 11 持久化层（本文 §2.2） |
-| [§11 前后端打通分析](./mock-data-generator-design.md#11-前后端打通与入口分析) | 新增持久化命令的全链路覆盖 |
+| [§5 前端组件设计](./mock-data-generator-design.md#5-前端组件设计)             | MockPanel 历史 Tab 数据源切换（本文 §3.4）        |
+| [§8 开发阶段计划](./mock-data-generator-design.md#8-分阶段开发计划)           | Phase 11 持久化层（本文 §2.2）                    |
+| [§11 前后端打通分析](./mock-data-generator-design.md#11-前后端打通与入口分析) | 新增持久化命令的全链路覆盖                        |
 
 ## 附录 C：版本历史
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本 | 日期       | 说明                                               |
+| ---- | ---------- | -------------------------------------------------- |
 | v1.1 | 2026-05-09 | 开发完成：Phase 11 全部实现（7 命令 + 前后端集成） |

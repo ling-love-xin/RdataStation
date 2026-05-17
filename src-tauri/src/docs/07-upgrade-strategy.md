@@ -21,52 +21,52 @@ MAJOR.MINOR.PATCH
 
 ### 项目约束
 
-| 约束项               | 策略                         |
-| -------------------- | ---------------------------- |
-| **Rust Edition**     | ✅ 允许跨 Edition 升级       |
-| **主版本升级**       | ❌ 禁止（避免破坏兼容性）    |
-| **Minor 升级**       | ✅ 允许（功能增强）          |
-| **Patch 升级**       | ✅ 允许（安全/性能修复）     |
-| **API 兼容性**       | ✅ 必须保持 10 年向前兼容    |
+| 约束项           | 策略                      |
+| ---------------- | ------------------------- |
+| **Rust Edition** | ✅ 允许跨 Edition 升级    |
+| **主版本升级**   | ❌ 禁止（避免破坏兼容性） |
+| **Minor 升级**   | ✅ 允许（功能增强）       |
+| **Patch 升级**   | ✅ 允许（安全/性能修复）  |
+| **API 兼容性**   | ✅ 必须保持 10 年向前兼容 |
 
 ## 二、分层升级策略
 
 ### Rust Core 层
 
-| 依赖库        | 当前版本    | 升级策略                       |
-| ------------- | ----------- | ------------------------------ |
-| **Tokio**     | 1.44.x      | ✅ minor/patch，❌ major       |
-| **Tauri**     | 2.10.x      | ✅ patch only，❌ minor/major  |
-| **sqlx**      | 0.8.x       | ✅ patch only，❌ minor/major  |
-| **wasmtime**  | 43.0.x      | ✅ minor/patch，❌ major       |
-| **rusqlite**  | 0.32.x      | ✅ minor/patch，❌ major       |
-| **duckdb-rs** | 1.10502.x   | ✅ patch only，❌ minor/major  |
-| **Arrow**     | 53.0.x      | ✅ minor/patch，❌ major       |
-| **Serde**     | 1.0.x       | ✅ minor/patch                 |
-| **thiserror** | 1.0.x       | ✅ minor/patch                 |
-| **anyhow**    | 1.0.x       | ✅ minor/patch                 |
+| 依赖库        | 当前版本  | 升级策略                      |
+| ------------- | --------- | ----------------------------- |
+| **Tokio**     | 1.44.x    | ✅ minor/patch，❌ major      |
+| **Tauri**     | 2.10.x    | ✅ patch only，❌ minor/major |
+| **sqlx**      | 0.8.x     | ✅ patch only，❌ minor/major |
+| **wasmtime**  | 43.0.x    | ✅ minor/patch，❌ major      |
+| **rusqlite**  | 0.32.x    | ✅ minor/patch，❌ major      |
+| **duckdb-rs** | 1.10502.x | ✅ patch only，❌ minor/major |
+| **Arrow**     | 53.0.x    | ✅ minor/patch，❌ major      |
+| **Serde**     | 1.0.x     | ✅ minor/patch                |
+| **thiserror** | 1.0.x     | ✅ minor/patch                |
+| **anyhow**    | 1.0.x     | ✅ minor/patch                |
 
 ### 前端层
 
-| 依赖库           | 当前版本  | 升级策略                     |
-| ---------------- | --------- | ---------------------------- |
-| **Vue**          | 3.5.x     | ✅ minor/patch，❌ major     |
-| **TypeScript**   | 5.8.x     | ✅ minor/patch               |
-| **Vite**         | 6.x       | ✅ minor/patch，❌ major     |
-| **naive-ui**     | latest    | ✅ minor/patch               |
-| **AG Grid**      | 33.x      | ✅ minor/patch，❌ major     |
-| **Monaco Editor** | 0.52.x   | ✅ minor/patch               |
-| **Pinia**        | 2.3.x     | ✅ minor/patch               |
-| **dockview-vue** | 5.2.x     | ✅ minor/patch，❌ major     |
+| 依赖库            | 当前版本 | 升级策略                 |
+| ----------------- | -------- | ------------------------ |
+| **Vue**           | 3.5.x    | ✅ minor/patch，❌ major |
+| **TypeScript**    | 5.8.x    | ✅ minor/patch           |
+| **Vite**          | 6.x      | ✅ minor/patch，❌ major |
+| **naive-ui**      | latest   | ✅ minor/patch           |
+| **AG Grid**       | 33.x     | ✅ minor/patch，❌ major |
+| **Monaco Editor** | 0.52.x   | ✅ minor/patch           |
+| **Pinia**         | 2.3.x    | ✅ minor/patch           |
+| **dockview-vue**  | 5.2.x    | ✅ minor/patch，❌ major |
 
 ### Plugin / WASM 层
 
-| 依赖库           | 当前版本  | 升级策略                     |
-| ---------------- | --------- | ---------------------------- |
-| **WASI**         | 0.2.x     | ✅ minor                      |
-| **wasmtime**     | 43.0.x    | ✅ minor/patch，❌ major     |
-| **Arrow (WASM)** | 53.0.x    | ✅ minor/patch               |
-| **wasi-python**  | 0.12.x    | ✅ minor/patch               |
+| 依赖库           | 当前版本 | 升级策略                 |
+| ---------------- | -------- | ------------------------ |
+| **WASI**         | 0.2.x    | ✅ minor                 |
+| **wasmtime**     | 43.0.x   | ✅ minor/patch，❌ major |
+| **Arrow (WASM)** | 53.0.x   | ✅ minor/patch           |
+| **wasi-python**  | 0.12.x   | ✅ minor/patch           |
 
 ## 三、依赖升级命令规范
 
@@ -240,12 +240,12 @@ max_runtime = "2.0.0"      # 最高运行时版本（不含）
 
 ## 八、技术栈生命周期
 
-| 阶段         | 时间范围   | 策略                  |
-| ------------ | ---------- | --------------------- |
-| **MVP**      | 当前       | 4 种内置数据库稳定    |
-| **扩展期**   | MVP 后     | JDBC/ODBC/WASM 插件   |
-| **成熟期**   | 扩展后     | DuckLake 网络存储     |
-| **长期维护** | 10 年      | API 不变，安全更新    |
+| 阶段         | 时间范围 | 策略                |
+| ------------ | -------- | ------------------- |
+| **MVP**      | 当前     | 4 种内置数据库稳定  |
+| **扩展期**   | MVP 后   | JDBC/ODBC/WASM 插件 |
+| **成熟期**   | 扩展后   | DuckLake 网络存储   |
+| **长期维护** | 10 年    | API 不变，安全更新  |
 
 ## 九、升级前兼容性测试
 
@@ -268,11 +268,11 @@ pnpm run build
 
 ### 回归测试范围
 
-| 测试类型       | 范围                         |
-| -------------- | ---------------------------- |
-| 连接创建       | MySQL / PostgreSQL / SQLite / DuckDB 全量 |
-| SQL 执行       | 基本查询 / 参数化查询 / 事务 |
-| Schema 浏览    | 数据库 → Schema → 表 → 列    |
-| 历史记录       | SQL 历史 CRUD                |
-| 项目管理       | 创建 / 打开 / 关闭           |
-| 元数据缓存     | 预热 / 查询 / 失效           |
+| 测试类型    | 范围                                      |
+| ----------- | ----------------------------------------- |
+| 连接创建    | MySQL / PostgreSQL / SQLite / DuckDB 全量 |
+| SQL 执行    | 基本查询 / 参数化查询 / 事务              |
+| Schema 浏览 | 数据库 → Schema → 表 → 列                 |
+| 历史记录    | SQL 历史 CRUD                             |
+| 项目管理    | 创建 / 打开 / 关闭                        |
+| 元数据缓存  | 预热 / 查询 / 失效                        |

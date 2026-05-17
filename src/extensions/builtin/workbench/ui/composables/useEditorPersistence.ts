@@ -1,8 +1,22 @@
 const STORAGE_PREFIX = 'rdata:workbench:'
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const SESSION_ID = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+const SESSION_DRAFT_PREFIX = `${STORAGE_PREFIX}draft:${SESSION_ID}:`
 
-export function useEditorPersistence(panelId: string) {
-  const draftKey = `${STORAGE_PREFIX}draft:${panelId}`
+;(function cleanupStaleDrafts() {
+  const genericPrefix = `${STORAGE_PREFIX}draft:`
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(genericPrefix) && !key.startsWith(SESSION_DRAFT_PREFIX)) {
+      localStorage.removeItem(key)
+    }
+  }
+})()
+
+export function useEditorPersistence(panelId: string, filePath?: string) {
+  const draftKey = filePath
+    ? `${SESSION_DRAFT_PREFIX}${panelId}:${filePath}`
+    : `${SESSION_DRAFT_PREFIX}${panelId}`
 
   const draft = {
     save: (sql: string) => {
@@ -40,12 +54,14 @@ export function useEditorPersistence(panelId: string) {
 
 export function clearOrphanDrafts(activePanelIds: string[]) {
   const activeSet = new Set(activePanelIds)
-  const prefix = `${STORAGE_PREFIX}draft:`
 
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const key = localStorage.key(i)
-    if (key && key.startsWith(prefix)) {
-      const panelId = key.slice(prefix.length)
+    if (key && key.startsWith(SESSION_DRAFT_PREFIX)) {
+      const payload = key.slice(SESSION_DRAFT_PREFIX.length)
+      const firstColon = payload.indexOf(':')
+      const panelId = firstColon > 0 ? payload.slice(0, firstColon) : payload
+
       if (!activeSet.has(panelId)) {
         try {
           const raw = localStorage.getItem(key)

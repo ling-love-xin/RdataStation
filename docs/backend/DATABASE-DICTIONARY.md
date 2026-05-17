@@ -8,12 +8,12 @@
 
 RdataStation 使用分层 SQLite + DuckDB 存储架构，分为四个独立数据库文件：
 
-| 数据库          | 引擎    | 作用                               | 归属  |
-| --------------- | ------- | ---------------------------------- | ----- |
-| `global.db`     | SQLite  | 项目索引、全局连接、插件中心、设置 | 系统  |
-| `meta.db`       | SQLite  | 项目内：连接配置、SQL 历史、设置   | 项目  |
-| `<conn>.meta`   | SQLite  | 每个连接独立的元数据缓存           | 项目  |
-| `data.duckdb`   | DuckDB  | 分析数据、查询结果缓存             | 项目  |
+| 数据库        | 引擎   | 作用                               | 归属 |
+| ------------- | ------ | ---------------------------------- | ---- |
+| `global.db`   | SQLite | 项目索引、全局连接、插件中心、设置 | 系统 |
+| `meta.db`     | SQLite | 项目内：连接配置、SQL 历史、设置   | 项目 |
+| `<conn>.meta` | SQLite | 每个连接独立的元数据缓存           | 项目 |
+| `data.duckdb` | DuckDB | 分析数据、查询结果缓存             | 项目 |
 
 ---
 
@@ -91,17 +91,17 @@ CREATE TABLE app_logs (
 
 ### 1.5 其他系统表
 
-| 表名                | 用途               |
-| ------------------- | ------------------ |
-| `global_settings`   | key-value 全局配置 |
-| `navigator_states`  | 导航器展开/选中状态 |
-| `favorite_objects`  | 用户收藏对象       |
-| `plugins`           | 插件注册表         |
-| `global_drivers`    | 全局驱动模板       |
-| `credential_slots`  | 系统凭据存储       |
-| `global_saved_queries` | 全局收藏 SQL     |
-| `app_info`          | 应用版本/安装信息  |
-| `schema_version`    | 迁移版本记录       |
+| 表名                   | 用途                |
+| ---------------------- | ------------------- |
+| `global_settings`      | key-value 全局配置  |
+| `navigator_states`     | 导航器展开/选中状态 |
+| `favorite_objects`     | 用户收藏对象        |
+| `plugins`              | 插件注册表          |
+| `global_drivers`       | 全局驱动模板        |
+| `credential_slots`     | 系统凭据存储        |
+| `global_saved_queries` | 全局收藏 SQL        |
+| `app_info`             | 应用版本/安装信息   |
+| `schema_version`       | 迁移版本记录        |
 
 ---
 
@@ -166,11 +166,11 @@ CREATE TABLE query_history (
 
 ### 2.4 其他项目表
 
-| 表名                  | 用途               |
-| --------------------- | ------------------ |
-| `project_settings`    | key-value 项目配置 |
-| `workbench_state`     | 工作台布局/面板    |
-| `project_used_plugins`| 项目使用的插件     |
+| 表名                   | 用途               |
+| ---------------------- | ------------------ |
+| `project_settings`     | key-value 项目配置 |
+| `workbench_state`      | 工作台布局/面板    |
+| `project_used_plugins` | 项目使用的插件     |
 
 ---
 
@@ -259,11 +259,11 @@ CREATE TABLE analytics (
 ```typescript
 // 对应 shared/api/index.ts:QueryResult（snake_case IPC 契约）
 interface QueryResult {
-  columns: string[]           // 列名列表
-  rows: unknown[][]           // 行数据（二维数组）
-  affected_rows?: number | null  // DML 影响行数
-  is_read_only?: boolean | null  // 是否只读查询
-  total_rows: number          // 总行数
+  columns: string[] // 列名列表
+  rows: unknown[][] // 行数据（二维数组）
+  affected_rows?: number | null // DML 影响行数
+  is_read_only?: boolean | null // 是否只读查询
+  total_rows: number // 总行数
 }
 ```
 
@@ -277,13 +277,21 @@ interface QueryResult {
 ```typescript
 // 对应 shared/types/databaseMeta.ts:SchemaObject
 type SchemaObjectKind =
-  | 'Database' | 'Schema' | 'Table' | 'View' | 'Column'
-  | 'Index' | 'PrimaryKey' | 'ForeignKey' | 'Procedure' | 'Function'
+  | 'Database'
+  | 'Schema'
+  | 'Table'
+  | 'View'
+  | 'Column'
+  | 'Index'
+  | 'PrimaryKey'
+  | 'ForeignKey'
+  | 'Procedure'
+  | 'Function'
 
 interface SchemaObject {
   name: string
   kind: SchemaObjectKind
-  children?: SchemaObject[]     // undefined = 未加载，[] = 已加载无子项
+  children?: SchemaObject[] // undefined = 未加载，[] = 已加载无子项
   comment?: string | null
 }
 ```
@@ -291,6 +299,7 @@ interface SchemaObject {
 ### 5.3 命令参数规范
 
 多数 Tauri 命令参数使用 snake_case（与 Rust 字段名一致）：
+
 - `conn_id` — 连接 ID
 - `db_type` — 数据库类型
 - `timeout_ms` — 超时毫秒
@@ -329,6 +338,6 @@ Component (Vue SFC)
 
 ## 版本历史
 
-| 版本 | 日期       | 说明                    |
-| ---- | ---------- | ----------------------- |
+| 版本 | 日期       | 说明                                              |
+| ---- | ---------- | ------------------------------------------------- |
 | v1.0 | 2026-05-12 | 初稿：全局/项目/元数据/分析四库 schema + 数据契约 |

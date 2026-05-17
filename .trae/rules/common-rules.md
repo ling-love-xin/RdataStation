@@ -164,7 +164,7 @@ impl SqlEngine {
 
 ```markdown
 ❌ mod.rs 中禁止 #[cfg(test)] 块
-❌ mod.rs 中禁止 fn test_ 测试函数
+❌ mod.rs 中禁止 fn test\_ 测试函数
 ❌ mod.rs 中禁止 mod tests { }
 ✅ mod.rs 只做：声明子模块、重新导出、定义常量
 ```

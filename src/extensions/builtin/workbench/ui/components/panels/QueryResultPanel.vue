@@ -22,7 +22,10 @@
           :filter-mode="tab.filterMode"
           :current-expression="getCurrentExpression(tab)"
           @select="(e: PresetSelectEvent) => applyPreset(tab, e)"
-          @save="(name: string, expr: string, mode: FilterMode) => saveFilterPreset(tab, name, expr, mode)"
+          @save="
+            (name: string, expr: string, mode: FilterMode) =>
+              saveFilterPreset(tab, name, expr, mode)
+          "
         />
         <div class="strip-right">
           <QuickFilterInput
@@ -94,7 +97,7 @@
           />
           <div v-if="currentView === 'chart'" class="chart-fill">
             <DataVisualizationPanel
-              :data="(rowData as Record<string, unknown>[])"
+              :data="rowData as Record<string, unknown>[]"
               :columns="tab.columns"
             />
           </div>
@@ -106,11 +109,23 @@
           />
           <div v-if="currentView === 'record'" class="record-view">
             <div class="record-nav">
-              <NButton size="tiny" quaternary :disabled="selectedRecordIndex <= 0" @click="prevRecord">
+              <NButton
+                size="tiny"
+                quaternary
+                :disabled="selectedRecordIndex <= 0"
+                @click="prevRecord"
+              >
                 <ChevronLeft :size="14" />
               </NButton>
-              <span class="record-nav-text">{{ selectedRecordIndex + 1 }} / {{ rowData.length }}</span>
-              <NButton size="tiny" quaternary :disabled="selectedRecordIndex >= rowData.length - 1" @click="nextRecord">
+              <span class="record-nav-text"
+                >{{ selectedRecordIndex + 1 }} / {{ rowData.length }}</span
+              >
+              <NButton
+                size="tiny"
+                quaternary
+                :disabled="selectedRecordIndex >= rowData.length - 1"
+                @click="nextRecord"
+              >
                 <ChevronRight :size="14" />
               </NButton>
             </div>
@@ -191,12 +206,7 @@
           >
             <X :size="11" />
           </NButton>
-          <NButton
-            size="tiny"
-            quaternary
-            title="对比结果集"
-            @click="showDiffModal = true"
-          >
+          <NButton size="tiny" quaternary title="对比结果集" @click="showDiffModal = true">
             <GitCompare :size="14" />
           </NButton>
           <NDropdown
@@ -265,7 +275,9 @@
           <NButton
             size="tiny"
             quaternary
-            :title="paginationEnabled ? t('workbench.disablePagination') : t('workbench.enablePagination')"
+            :title="
+              paginationEnabled ? t('workbench.disablePagination') : t('workbench.enablePagination')
+            "
             @click="paginationEnabled = !paginationEnabled"
           >
             <Layers :size="11" :style="{ opacity: paginationEnabled ? 1 : 0.4 }" />
@@ -291,7 +303,7 @@
       preset="dialog"
       title="结果集对比"
       :show-icon="false"
-      style="width: 900px; max-height: 80vh;"
+      style="width: 900px; max-height: 80vh"
       :mask-closable="true"
     >
       <ResultDiffViewer />
@@ -320,20 +332,29 @@ import {
   BarChart3,
   Layers,
 } from 'lucide-vue-next'
-import { createDiscreteApi, darkTheme, lightTheme, NButton, NDropdown, NInput, NModal } from 'naive-ui'
+import {
+  createDiscreteApi,
+  darkTheme,
+  lightTheme,
+  NButton,
+  NDropdown,
+  NInput,
+  NModal,
+} from 'naive-ui'
 import { computed, ref, onMounted, onUnmounted, watch, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-
 import { useInsightStore } from '@/extensions/builtin/workbench/ui/stores/insight-store'
 import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
-import type { ResultTab, ViewMode, FilterMode } from '@/extensions/builtin/workbench/ui/types/result'
+import type {
+  ResultTab,
+  ViewMode,
+  FilterMode,
+} from '@/extensions/builtin/workbench/ui/types/result'
 import { useUiStore } from '@/shared/stores/ui'
-
-
 
 import DataVisualizationPanel from './DataVisualizationPanel.vue'
 import DuckDBAnalysisInput from './result-panel/DuckDBAnalysisInput.vue'
@@ -347,9 +368,7 @@ import { useGridConfig, isLikelyNumeric } from '../../composables/useGridConfig'
 import { useResultExport } from '../../composables/useResultExport'
 import { useResultFilterPresets } from '../../composables/useResultFilterPresets'
 import { useResultFilters } from '../../composables/useResultFilters'
-import {
-  saveCellUpdate as apiSaveCellUpdate,
-} from '../../services/result-analysis'
+import { saveCellUpdate as apiSaveCellUpdate } from '../../services/result-analysis'
 
 interface PresetSelectEvent {
   id: string
@@ -357,8 +376,12 @@ interface PresetSelectEvent {
   filterMode: FilterMode
   expression: string
 }
-import type { RowDataUpdatedEvent, RowClickedEvent, CellContextMenuEvent, CellValueChangedEvent } from 'ag-grid-community'
-
+import type {
+  RowDataUpdatedEvent,
+  RowClickedEvent,
+  CellContextMenuEvent,
+  CellValueChangedEvent,
+} from 'ag-grid-community'
 
 ModuleRegistry.registerModules([ClientSideRowModelModule])
 
@@ -379,18 +402,18 @@ watch(
 const tabs = computed(() => resultStore.tabs)
 const activeTabId = computed(() => resultStore.activeTabId)
 const activeTab = computed<ResultTab | null>(() => {
-    const id = resultStore.activeTabId
-    if (!id) return null
-    return resultStore.tabs.find(t => t.id === id) ?? null
-  })
-    // 设计说明：模板第 17 行有 v-if="activeTab" 防护，此处的 throw 是安全网
-  const tab = computed<ResultTab>(() => {
-    const t = activeTab.value
-    if (!t) throw new Error('tab accessed when no active tab')
-    return t
-  })
+  const id = resultStore.activeTabId
+  if (!id) return null
+  return resultStore.tabs.find(t => t.id === id) ?? null
+})
+// 设计说明：模板第 17 行有 v-if="activeTab" 防护，此处的 throw 是安全网
+const tab = computed<ResultTab>(() => {
+  const t = activeTab.value
+  if (!t) throw new Error('tab accessed when no active tab')
+  return t
+})
 
-  // ─── AG Grid ─────────────────────────────────────────────
+// ─── AG Grid ─────────────────────────────────────────────
 const {
   columnDefs,
   defaultColDef,
@@ -408,29 +431,29 @@ const gridContainerRef = ref<HTMLElement | null>(null)
 const selectedRows = ref<unknown[]>([])
 const goPageInput = ref('')
 
-  // ─── 过滤操作（委托到 useResultFilters）────────────────
-  const {
-    applyQuickFilter,
-    clearQuickFilter,
-    executeSqlFilter,
-    executeDuckdbAnalysis,
-    clearDuckdbAnalysis,
-    quickDuckdbAction,
-    handleBridgeFilter,
-    modeLabel: filterModeLabel,
-  } = useResultFilters(gridApi, message, t)
+// ─── 过滤操作（委托到 useResultFilters）────────────────
+const {
+  applyQuickFilter,
+  clearQuickFilter,
+  executeSqlFilter,
+  executeDuckdbAnalysis,
+  clearDuckdbAnalysis,
+  quickDuckdbAction,
+  handleBridgeFilter,
+  modeLabel: filterModeLabel,
+} = useResultFilters(gridApi, message, t)
 
-  // ─── 导出操作（委托到 useResultExport）─────────────────
-  const { handleExport: doExport, copyRowsAsInsert } = useResultExport(
-    activeTab as ComputedRef<ResultTab | null>,
-    gridApi,
-    rowData,
-    message,
-  )
+// ─── 导出操作（委托到 useResultExport）─────────────────
+const { handleExport: doExport, copyRowsAsInsert } = useResultExport(
+  activeTab as ComputedRef<ResultTab | null>,
+  gridApi,
+  rowData,
+  message
+)
 
-  function modeLabel(tab: ResultTab): string {
-    return filterModeLabel[tab.filterMode] ?? tab.filterMode
-  }
+function modeLabel(tab: ResultTab): string {
+  return filterModeLabel[tab.filterMode] ?? tab.filterMode
+}
 
 function goToPage(): void {
   if (!gridApi.value) return
@@ -473,9 +496,12 @@ const { addPreset } = useResultFilterPresets()
 
 function getCurrentExpression(tab: ResultTab): string {
   switch (tab.filterMode) {
-    case 'quick': return tab.quickFilterExpression
-    case 'sql': return tab.sqlFilterExpression ?? ''
-    default: return ''
+    case 'quick':
+      return tab.quickFilterExpression
+    case 'sql':
+      return tab.sqlFilterExpression ?? ''
+    default:
+      return ''
   }
 }
 
@@ -563,14 +589,14 @@ const exportMenuOptions = computed(() => [
   { key: 'xlsx', label: t('workbench.exportXlsx') },
 ])
 
-  const pageInfoText = computed(() => {
-    if (!gridApi.value || !gridApi.value.paginationGetCurrentPage) return ''
-    const total = gridApi.value.paginationGetTotalPages()
-    const current = gridApi.value.paginationGetCurrentPage() + 1
-    return `${current}/${total} ${t('resultPanel.page')}`
-  })
+const pageInfoText = computed(() => {
+  if (!gridApi.value || !gridApi.value.paginationGetCurrentPage) return ''
+  const total = gridApi.value.paginationGetTotalPages()
+  const current = gridApi.value.paginationGetCurrentPage() + 1
+  return `${current}/${total} ${t('resultPanel.page')}`
+})
 
-  // ─── 标签管理（委托到 store）───────────────────────────
+// ─── 标签管理（委托到 store）───────────────────────────
 function tabHasDirty(tab: ResultTab | null): boolean {
   return tab ? tab.dirtyRows.size > 0 : false
 }
@@ -784,7 +810,9 @@ async function handleSave(tab: ResultTab) {
   })
 
   const results = await Promise.allSettled(updates)
-  const successCount = results.filter(r => r.status === 'fulfilled' && r.value.status === 'fulfilled').length
+  const successCount = results.filter(
+    r => r.status === 'fulfilled' && r.value.status === 'fulfilled'
+  ).length
   const failCount = results.length - successCount
 
   dirtyCells.value = new Map()
@@ -795,7 +823,11 @@ async function handleSave(tab: ResultTab) {
   }
 }
 
-function buildRowIdentity(tab: ResultTab, rowIndex: number, excludeCol: string): Record<string, unknown> {
+function buildRowIdentity(
+  tab: ResultTab,
+  rowIndex: number,
+  excludeCol: string
+): Record<string, unknown> {
   const oldRow = tab.objectRows[rowIndex]
   if (!oldRow) return {}
   const identity: Record<string, unknown> = {}

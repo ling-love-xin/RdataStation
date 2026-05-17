@@ -24,26 +24,29 @@ describe('CommandPalette', () => {
       visibleRef.value = false
     })
 
-    const wrapper = mount({
-      components: { CommandPalette },
-      template: `
+    const wrapper = mount(
+      {
+        components: { CommandPalette },
+        template: `
         <div id="app">
           <CommandPalette :visible="visible" @close="onClose" />
         </div>
         <div id="teleport-target"></div>
       `,
-      setup() {
-        return {
-          visible: visibleRef,
-          onClose,
-        }
+        setup() {
+          return {
+            visible: visibleRef,
+            onClose,
+          }
+        },
       },
-    }, {
-      attachTo: document.body,
-      global: {
-        components: { Teleport },
-      },
-    })
+      {
+        attachTo: document.body,
+        global: {
+          components: { Teleport },
+        },
+      }
+    )
 
     return { wrapper, visibleRef, onClose }
   }

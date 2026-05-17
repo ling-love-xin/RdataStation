@@ -146,9 +146,7 @@ export interface CreateExternalTableParams {
   externalDbName: string
 }
 
-export async function createExternalTable(
-  params: CreateExternalTableParams
-): Promise<void> {
+export async function createExternalTable(params: CreateExternalTableParams): Promise<void> {
   return invoke('create_external_table', {
     connId: params.connId,
     schemaName: params.schemaName,

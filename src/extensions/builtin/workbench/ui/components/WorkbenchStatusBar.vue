@@ -32,7 +32,9 @@
 
     <div class="status-right">
       <!-- 编码格式 -->
-      <span v-if="statusBarSettings.showEncoding" class="status-item">{{ t('workbench.encoding') }}</span>
+      <span v-if="statusBarSettings.showEncoding" class="status-item">{{
+        t('workbench.encoding')
+      }}</span>
 
       <!-- 设置按钮 -->
       <span class="status-item clickable" :title="t('settings.title')" @click="handleOpenSettings">

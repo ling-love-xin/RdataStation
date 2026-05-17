@@ -82,11 +82,4 @@ function isValidHex(color: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(color)
 }
 
-export {
-  brandColors,
-  darkPalette,
-  lightPalette,
-  resourceColors,
-  healthColors,
-  isValidHex,
-}
+export { brandColors, darkPalette, lightPalette, resourceColors, healthColors, isValidHex }

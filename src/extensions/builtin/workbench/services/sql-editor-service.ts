@@ -128,9 +128,7 @@ export async function getDatabaseSchema(
 
         const colRows: unknown[][] = colsResult?.result?.rows || []
         const colNames = colRows
-          .map((r: unknown[]) =>
-            String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : '')
-          )
+          .map((r: unknown[]) => String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : ''))
           .filter(Boolean)
 
         tableSchemas.push({
@@ -360,7 +358,7 @@ export async function formatSql(sql: string, dialect?: SqlDialect): Promise<stri
     }
   } catch {
     // 静默返回原始 SQL
-      return sql
+    return sql
   }
 }
 
@@ -483,10 +481,17 @@ export function registerSqlFoldingProvider(): monaco.IDisposable {
         }
 
         // BEGIN transaction blocks
-        if (upperTrimmed === 'BEGIN' || upperTrimmed === 'BEGIN TRANSACTION' || upperTrimmed.startsWith('START TRANSACTION')) {
+        if (
+          upperTrimmed === 'BEGIN' ||
+          upperTrimmed === 'BEGIN TRANSACTION' ||
+          upperTrimmed.startsWith('START TRANSACTION')
+        ) {
           beginStack.push(i + 1)
         }
-        if ((upperTrimmed === 'END' || upperTrimmed === 'COMMIT' || upperTrimmed === 'ROLLBACK') && beginStack.length > 0) {
+        if (
+          (upperTrimmed === 'END' || upperTrimmed === 'COMMIT' || upperTrimmed === 'ROLLBACK') &&
+          beginStack.length > 0
+        ) {
           const start = beginStack.pop()!
           if (i + 1 > start) {
             ranges.push({ start, end: i + 1 })
@@ -516,7 +521,10 @@ export function registerSqlFoldingProvider(): monaco.IDisposable {
           bracketStack.push(i + 1)
         }
         if (trimmed === ')') {
-          if (bracketStack.length > 0 && lines[bracketStack[bracketStack.length - 1] - 1]?.trim() === '(') {
+          if (
+            bracketStack.length > 0 &&
+            lines[bracketStack[bracketStack.length - 1] - 1]?.trim() === '('
+          ) {
             const start = bracketStack.pop()!
             if (i + 1 > start) {
               ranges.push({ start, end: i + 1 })
@@ -550,16 +558,54 @@ export function rewriteDuckDBSQL(sql: string, attachName: string): string {
   if (!attachName) return sql
 
   const SQL_KEYWORDS = new Set([
-    'WHERE', 'SET', 'VALUES', 'SELECT', 'ON', 'AS', 'AND', 'OR',
-    'NOT', 'IN', 'IS', 'NULL', 'TRUE', 'FALSE', 'LIKE', 'BETWEEN',
-    'EXISTS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'GROUP', 'BY',
-    'ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT',
+    'WHERE',
+    'SET',
+    'VALUES',
+    'SELECT',
+    'ON',
+    'AS',
+    'AND',
+    'OR',
+    'NOT',
+    'IN',
+    'IS',
+    'NULL',
+    'TRUE',
+    'FALSE',
+    'LIKE',
+    'BETWEEN',
+    'EXISTS',
+    'CASE',
+    'WHEN',
+    'THEN',
+    'ELSE',
+    'END',
+    'GROUP',
+    'BY',
+    'ORDER',
+    'HAVING',
+    'LIMIT',
+    'OFFSET',
+    'UNION',
+    'ALL',
+    'DISTINCT',
   ])
 
   const tableKeywords = [
-    'FROM', 'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN',
-    'FULL JOIN', 'CROSS JOIN', 'NATURAL JOIN', 'LEFT OUTER JOIN',
-    'RIGHT OUTER JOIN', 'FULL OUTER JOIN', 'INSERT INTO', 'UPDATE', 'INTO',
+    'FROM',
+    'JOIN',
+    'INNER JOIN',
+    'LEFT JOIN',
+    'RIGHT JOIN',
+    'FULL JOIN',
+    'CROSS JOIN',
+    'NATURAL JOIN',
+    'LEFT OUTER JOIN',
+    'RIGHT OUTER JOIN',
+    'FULL OUTER JOIN',
+    'INSERT INTO',
+    'UPDATE',
+    'INTO',
   ]
 
   let result = sql
@@ -590,7 +636,7 @@ export function parseErrorPosition(errorMessage: string): ErrorPosition | null {
   const patterns: { regex: RegExp; extract: (m: RegExpExecArray) => ErrorPosition }[] = [
     {
       regex: /at line (\d+)(?:,| at) column (\d+)/i,
-      extract: (m) => ({
+      extract: m => ({
         line: parseInt(m[1], 10),
         column: parseInt(m[2], 10),
         message: errorMessage,
@@ -598,7 +644,7 @@ export function parseErrorPosition(errorMessage: string): ErrorPosition | null {
     },
     {
       regex: /line\s*(\d+).*?(?:column|col|char|position)\s*(\d+)/i,
-      extract: (m) => ({
+      extract: m => ({
         line: parseInt(m[1], 10),
         column: parseInt(m[2], 10),
         message: errorMessage,
@@ -606,7 +652,7 @@ export function parseErrorPosition(errorMessage: string): ErrorPosition | null {
     },
     {
       regex: /near\s+["'`](.+?)["'`]\s+at line\s+(\d+)/i,
-      extract: (m) => ({
+      extract: m => ({
         line: parseInt(m[2], 10),
         column: 1,
         message: errorMessage,
@@ -614,7 +660,7 @@ export function parseErrorPosition(errorMessage: string): ErrorPosition | null {
     },
     {
       regex: /at\s+position:\s*(\d+)/i,
-      extract: (m) => ({
+      extract: m => ({
         line: 0,
         column: parseInt(m[1], 10),
         message: errorMessage,

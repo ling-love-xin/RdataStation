@@ -100,8 +100,10 @@ const localResultSettings = reactive<ResultSettings>({ ...appStore.effectiveResu
 
 watch(
   () => appStore.effectiveResultSettings,
-  val => { Object.assign(localResultSettings, val) },
-  { deep: true },
+  val => {
+    Object.assign(localResultSettings, val)
+  },
+  { deep: true }
 )
 
 function resetToFactory() {

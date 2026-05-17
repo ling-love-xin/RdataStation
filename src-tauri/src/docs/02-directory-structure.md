@@ -143,17 +143,17 @@ src-tauri/src/
 
 ## 与旧版文档的关键差异
 
-| 路径                        | 旧版文档                    | 实际代码                    |
-| --------------------------- | --------------------------- | --------------------------- |
-| Tauri 命令入口              | `adapters/tauri/command.rs` | `commands/*.rs`             |
-| 驱动注册                    | 单 DriverRegistry           | **双重注册**（Registry + Manager） |
-| DBI 层                      | `core/dbi/`                 | 未独立存在，在 driver/ / services/ 中 |
-| 缓存层                      | `core/cache/`               | `core/persistence/metadata_cache.rs` |
-| metadata_cache / insight    | 未列出                      | ✅ 存在                      |
-| scratchpad / mock / sql/export | 未列出                   | ✅ 存在                      |
-| driver/native pool 文件     | 未列出                      | mysql_pool / sqlite_pool / duckdb_pool |
-| migration                   | 未列出                      | ✅ 存在（4 种迁移类型）     |
-| analytics_resource_store    | 未列出                      | ✅ 存在                      |
+| 路径                           | 旧版文档                    | 实际代码                               |
+| ------------------------------ | --------------------------- | -------------------------------------- |
+| Tauri 命令入口                 | `adapters/tauri/command.rs` | `commands/*.rs`                        |
+| 驱动注册                       | 单 DriverRegistry           | **双重注册**（Registry + Manager）     |
+| DBI 层                         | `core/dbi/`                 | 未独立存在，在 driver/ / services/ 中  |
+| 缓存层                         | `core/cache/`               | `core/persistence/metadata_cache.rs`   |
+| metadata_cache / insight       | 未列出                      | ✅ 存在                                |
+| scratchpad / mock / sql/export | 未列出                      | ✅ 存在                                |
+| driver/native pool 文件        | 未列出                      | mysql_pool / sqlite_pool / duckdb_pool |
+| migration                      | 未列出                      | ✅ 存在（4 种迁移类型）                |
+| analytics_resource_store       | 未列出                      | ✅ 存在                                |
 
 ## 详细说明
 
@@ -195,13 +195,13 @@ pub fn run() {
 
 关键文件：
 
-| 文件               | 行数 | 职责                            |
-| ------------------ | ---- | ------------------------------- |
+| 文件               | 行数 | 职责                                                  |
+| ------------------ | ---- | ----------------------------------------------------- |
 | `registry.rs`      | 798  | DriverRegistry + DriverFactory trait + 4 种驱动描述符 |
-| `factory.rs`       | 236  | DriverFactoryManager + 4 个工厂实现（⚠️ 重复注册） |
-| `traits.rs`        | 253  | Database / Transaction / DbPool trait |
-| `auto_register.rs` | 84   | 启动注册 4 个驱动               |
-| `smart_pool.rs`    | -    | SmartPool 智能连接池            |
+| `factory.rs`       | 236  | DriverFactoryManager + 4 个工厂实现（⚠️ 重复注册）    |
+| `traits.rs`        | 253  | Database / Transaction / DbPool trait                 |
+| `auto_register.rs` | 84   | 启动注册 4 个驱动                                     |
+| `smart_pool.rs`    | -    | SmartPool 智能连接池                                  |
 
 ### 3. core/persistence/ 目录
 
@@ -209,14 +209,14 @@ pub fn run() {
 
 重要文件：
 
-| 文件                          | 职责                                |
-| ----------------------------- | ----------------------------------- |
-| `global_db.rs`                | 全局 SQLite 连接池 + DuckDB 长连接  |
-| `project_db.rs`               | 项目 SQLite 连接池 + DuckDB 长连接  |
+| 文件                          | 职责                                     |
+| ----------------------------- | ---------------------------------------- |
+| `global_db.rs`                | 全局 SQLite 连接池 + DuckDB 长连接       |
+| `project_db.rs`               | 项目 SQLite 连接池 + DuckDB 长连接       |
 | `metadata_cache.rs`           | 连接级元数据缓存（每个连接独立 .sqlite） |
-| `cache_version_migration.rs`  | 缓存版本管理与自动迁移              |
-| `insight_store.rs`            | 洞察分析结果持久化                  |
-| `analytics_resource_store.rs` | 分析资源（图表/仪表盘）管理         |
+| `cache_version_migration.rs`  | 缓存版本管理与自动迁移                   |
+| `insight_store.rs`            | 洞察分析结果持久化                       |
+| `analytics_resource_store.rs` | 分析资源（图表/仪表盘）管理              |
 
 ### 4. core/migration/ 目录
 
@@ -233,23 +233,23 @@ MigrationType::ProjectDuckDB  → {project}/analytics/data.duckdb
 
 命令模块按功能组织，已从 `adapters/tauri/command.rs` 迁移。
 
-| 模块                          | 功能域       |
-| ----------------------------- | ------------ |
-| `connection_commands.rs`      | 连接 CRUD    |
-| `driver_commands.rs`          | 驱动发现     |
-| `sql_commands.rs`             | SQL 执行     |
-| `project_commands.rs`         | 项目管理     |
-| `project_store_commands.rs`   | 项目持久化   |
-| `metadata_cache_commands.rs`  | 元数据缓存   |
-| `cache_warming_commands.rs`   | 缓存预热     |
-| `analytics_resource_commands.rs` | 分析资源  |
-| `insight_commands.rs`         | 洞察分析     |
-| `federation_commands.rs`      | 联邦查询     |
-| `scratchpad_commands.rs`      | 草稿箱       |
-| `mock_commands.rs`            | 模拟数据     |
-| `sql_parse_commands.rs`       | SQL 解析     |
-| `export_commands.rs`          | 数据导出     |
-| `duckdb_pool_commands.rs`     | DuckDB 连接池 |
+| 模块                             | 功能域        |
+| -------------------------------- | ------------- |
+| `connection_commands.rs`         | 连接 CRUD     |
+| `driver_commands.rs`             | 驱动发现      |
+| `sql_commands.rs`                | SQL 执行      |
+| `project_commands.rs`            | 项目管理      |
+| `project_store_commands.rs`      | 项目持久化    |
+| `metadata_cache_commands.rs`     | 元数据缓存    |
+| `cache_warming_commands.rs`      | 缓存预热      |
+| `analytics_resource_commands.rs` | 分析资源      |
+| `insight_commands.rs`            | 洞察分析      |
+| `federation_commands.rs`         | 联邦查询      |
+| `scratchpad_commands.rs`         | 草稿箱        |
+| `mock_commands.rs`               | 模拟数据      |
+| `sql_parse_commands.rs`          | SQL 解析      |
+| `export_commands.rs`             | 数据导出      |
+| `duckdb_pool_commands.rs`        | DuckDB 连接池 |
 
 ## 命名规范
 

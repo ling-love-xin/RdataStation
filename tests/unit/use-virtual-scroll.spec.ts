@@ -20,7 +20,7 @@ function makeItems(count: number): TestItem[] {
 
 function mountVirtualScroll<T>(
   items: T[],
-  options: { itemHeight: number; overscan?: number },
+  options: { itemHeight: number; overscan?: number }
 ): { wrapper: ReturnType<typeof mount>; vr: VirtualScrollReturn<T> } {
   const itemsRef = ref(items) as ReturnType<typeof ref<T[]>>
   let vr: VirtualScrollReturn<T>
@@ -35,7 +35,7 @@ function mountVirtualScroll<T>(
         })
         return () => h('div', { ref: vr.containerRef })
       },
-    }),
+    })
   )
 
   return { wrapper, vr: vr! }

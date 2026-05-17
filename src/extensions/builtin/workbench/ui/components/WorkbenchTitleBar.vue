@@ -17,10 +17,7 @@
     </div>
 
     <div class="title-bar-center" data-tauri-drag-region @dblclick="handleTitleBarDoubleClick">
-      <CommandCenter
-        v-if="titleBarSettings.showCommandCenter"
-        @open="handleOpenCommandPalette"
-      />
+      <CommandCenter v-if="titleBarSettings.showCommandCenter" @open="handleOpenCommandPalette" />
     </div>
 
     <div class="title-bar-right">
@@ -84,10 +81,7 @@
     @cancel="showDeleteProjectModal = false"
   />
 
-  <CommandPalette
-    :visible="showCommandPalette"
-    @close="showCommandPalette = false"
-  />
+  <CommandPalette :visible="showCommandPalette" @close="showCommandPalette = false" />
 
   <InvalidProjectDialog
     :visible="showInvalidProjectDialog"
@@ -98,13 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  LayoutTemplate,
-  Monitor,
-  Moon,
-  PanelTop,
-  Sun,
-} from 'lucide-vue-next'
+import { LayoutTemplate, Monitor, Moon, PanelTop, Sun } from 'lucide-vue-next'
 import { useMessage } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -118,7 +106,11 @@ import DeleteProjectConfirmModal from './DeleteProjectConfirmModal.vue'
 import EditProjectModal from './EditProjectModal.vue'
 import ProjectSwitcherPanel from './ProjectSwitcherPanel.vue'
 import { useTitleBar } from '../composables/useTitleBar'
-import { createMenuActionMap, createMenuConfig, createToolbarConfig } from '../config/title-bar-config'
+import {
+  createMenuActionMap,
+  createMenuConfig,
+  createToolbarConfig,
+} from '../config/title-bar-config'
 import { WorkbenchEvent, dispatchWorkbenchEvent } from '../constants/workbench-events'
 import { useCommandStore } from '../stores/command-store'
 import CommandCenter from './title-bar/CommandCenter.vue'
@@ -256,8 +248,10 @@ const menuActionMap = createMenuActionMap(handleOpenProject, handleOpenCommandPa
 
 // 菜单动作处理
 function handleMenuAction(item: MenuItem) {
+  console.log('[TitleBar] handleMenuAction 被调用, item.id =', item.id)
   const action = menuActionMap[item.id]
   if (action) {
+    console.log('[TitleBar] 执行 menuActionMap[' + item.id + ']')
     action()
   }
 }
@@ -386,11 +380,11 @@ function handleGlobalKeyDown(event: KeyboardEvent) {
 onMounted(async () => {
   await titleBar.loadRecentProjects()
   registerCommands()
-  document.addEventListener('keydown', handleGlobalKeyDown)
+  document.addEventListener('keydown', handleGlobalKeyDown, true)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleGlobalKeyDown)
+  document.removeEventListener('keydown', handleGlobalKeyDown, true)
 })
 </script>
 

@@ -1,4 +1,10 @@
 /**
+ * @deprecated 由 editor-runtime-store.ts (统一编辑器运行状态管理) 取代。
+ * 新架构中执行状态和结果存储统一在 EditorManager + editorRuntimeStore 中管理。
+ * @see editor-runtime-store.ts
+ */
+
+/**
  * SQL 执行状态管理
  *
  * 使用 Pinia Store 管理 SQL 编辑器与结果面板之间的通信

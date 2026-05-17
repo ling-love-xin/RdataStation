@@ -22,14 +22,14 @@
 
 VSCode 插件系统的六个核心设计原则及 RdataStation 对应实现：
 
-| 原则 | VSCode 实现 | RdataStation 对应 |
-|------|-----------|-------------------|
-| **进程隔离** | Extension Host 独立 Node.js 进程，崩溃不影响主窗口 | Go Sidecar 独立进程 |
-| **沙箱安全** | 无（仅进程隔离），靠权限声明 | Extism WASM 字节码级沙箱 |
-| **延迟激活** | `activationEvents`（`onLanguage`、`onCommand` 等） | `[plugin.activation]` 同机制 |
-| **能力声明** | `package.json` 中 `contributes` 节点 | `plugin.toml` 中 `[plugin.contributions]` |
-| **双向 IPC** | JSON-RPC over stdin/stdout | Arrow IPC + Protobuf gRPC |
-| **UI 扩展** | Webview + TreeView + StatusBar API | 前端组件插槽 + 视图注册 |
+| 原则         | VSCode 实现                                        | RdataStation 对应                         |
+| ------------ | -------------------------------------------------- | ----------------------------------------- |
+| **进程隔离** | Extension Host 独立 Node.js 进程，崩溃不影响主窗口 | Go Sidecar 独立进程                       |
+| **沙箱安全** | 无（仅进程隔离），靠权限声明                       | Extism WASM 字节码级沙箱                  |
+| **延迟激活** | `activationEvents`（`onLanguage`、`onCommand` 等） | `[plugin.activation]` 同机制              |
+| **能力声明** | `package.json` 中 `contributes` 节点               | `plugin.toml` 中 `[plugin.contributions]` |
+| **双向 IPC** | JSON-RPC over stdin/stdout                         | Arrow IPC + Protobuf gRPC                 |
+| **UI 扩展**  | Webview + TreeView + StatusBar API                 | 前端组件插槽 + 视图注册                   |
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -96,15 +96,15 @@ VSCode 插件系统的六个核心设计原则及 RdataStation 对应实现：
 
 ### 双引擎职责划分
 
-| 维度 | 🐹 Go Sidecar（重量级引擎） | 🧩 Extism WASM（轻量级引擎） |
-|------|---------------------------|---------------------------|
-| **定位** | 长生命周期服务 + 系统级能力 | 安全沙箱 + 纯计算逻辑 |
-| **启动速度** | 慢（进程启动 ~100ms+） | 快（WASM 实例化 ~1ms） |
-| **内存模型** | 独立进程，500MB~2GB 可配 | 沙箱内，默认上限 512MB |
-| **系统权限** | 完整（网络、文件、子进程） | 受限（WASI 权限声明） |
-| **崩溃影响** | 仅自身进程重启 | 仅当前沙箱销毁 |
-| **热加载** | 需重启 Sidecar | 支持（卸载→加载新 WASM） |
-| **安全性** | 中等（进程级别隔离） | 高（字节码级别沙箱） |
+| 维度         | 🐹 Go Sidecar（重量级引擎） | 🧩 Extism WASM（轻量级引擎） |
+| ------------ | --------------------------- | ---------------------------- |
+| **定位**     | 长生命周期服务 + 系统级能力 | 安全沙箱 + 纯计算逻辑        |
+| **启动速度** | 慢（进程启动 ~100ms+）      | 快（WASM 实例化 ~1ms）       |
+| **内存模型** | 独立进程，500MB~2GB 可配    | 沙箱内，默认上限 512MB       |
+| **系统权限** | 完整（网络、文件、子进程）  | 受限（WASI 权限声明）        |
+| **崩溃影响** | 仅自身进程重启              | 仅当前沙箱销毁               |
+| **热加载**   | 需重启 Sidecar              | 支持（卸载→加载新 WASM）     |
+| **安全性**   | 中等（进程级别隔离）        | 高（字节码级别沙箱）         |
 
 #### Go Sidecar 适用场景
 
@@ -247,50 +247,50 @@ network_requests_limit = 100
 
 #### [plugin] — 基本信息
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `name` | string | ✅ | 插件唯一标识，格式 `rdatastation-plugin-{name}` |
-| `display_name` | string | ✅ | 用户可见的显示名称 |
-| `version` | string | ✅ | SemVer 版本号 |
-| `description` | string | ✅ | 简要描述 |
-| `author` | string | ✅ | 作者名或组织名 |
-| `icon` | string | ❌ | 图标路径（相对于插件根目录） |
-| `homepage` | string | ❌ | 插件主页 URL |
+| 字段           | 类型   | 必填 | 说明                                            |
+| -------------- | ------ | ---- | ----------------------------------------------- |
+| `name`         | string | ✅   | 插件唯一标识，格式 `rdatastation-plugin-{name}` |
+| `display_name` | string | ✅   | 用户可见的显示名称                              |
+| `version`      | string | ✅   | SemVer 版本号                                   |
+| `description`  | string | ✅   | 简要描述                                        |
+| `author`       | string | ✅   | 作者名或组织名                                  |
+| `icon`         | string | ❌   | 图标路径（相对于插件根目录）                    |
+| `homepage`     | string | ❌   | 插件主页 URL                                    |
 
 #### [plugin.runtime] — 运行时引擎
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `engine` | enum | ✅ | `"sidecar"` 或 `"wasm"` |
+| 字段             | 类型   | 必填 | 说明                           |
+| ---------------- | ------ | ---- | ------------------------------ |
+| `engine`         | enum   | ✅   | `"sidecar"` 或 `"wasm"`        |
 | `sidecar_binary` | string | 条件 | Sidecar 插件入口二进制相对路径 |
-| `wasm_entry` | string | 条件 | WASM 插件入口文件相对路径 |
+| `wasm_entry`     | string | 条件 | WASM 插件入口文件相对路径      |
 
 #### [plugin.activation] — 激活事件
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `on_connection_type` | string[] | 连接指定类型数据库时激活 |
-| `on_command` | string[] | 执行指定命令时激活 |
-| `on_view` | string[] | 指定 UI 视图可见时激活 |
-| `on_language` | string[] | 打开指定 SQL 方言时激活 |
-| `on_startup` | bool | 应用启动时激活（谨慎使用） |
+| 字段                 | 类型     | 说明                       |
+| -------------------- | -------- | -------------------------- |
+| `on_connection_type` | string[] | 连接指定类型数据库时激活   |
+| `on_command`         | string[] | 执行指定命令时激活         |
+| `on_view`            | string[] | 指定 UI 视图可见时激活     |
+| `on_language`        | string[] | 打开指定 SQL 方言时激活    |
+| `on_startup`         | bool     | 应用启动时激活（谨慎使用） |
 
 #### [plugin.contributions] — 贡献点
 
-| 贡献点 | 说明 |
-|--------|------|
-| `drivers` | 注册数据库驱动（连接协议、默认端口） |
-| `commands` | 注册命令（菜单项、快捷键） |
-| `views` | 注册侧边栏/面板视图 |
-| `export_formats` | 注册数据导出格式 |
-| `import_formats` | 注册数据导入格式 |
-| `connection_providers` | SSH Tunnel / VPN 等连接代理（预留） |
-| `schema_diff_strategies` | Schema Diff 算法策略（预留） |
-| `data_migration_strategies` | 数据迁移策略（全量/增量/CDC）（预留） |
-| `sql_dialects` | SQL 方言定义（PLSQL/T-SQL/PLpgSQL）（预留） |
-| `visualization_providers` | 图表渲染引擎（ECharts/D3/Plotly）（预留） |
-| `themes` | UI 主题（预留） |
-| `keybindings` | 快捷键绑定（预留） |
+| 贡献点                      | 说明                                        |
+| --------------------------- | ------------------------------------------- |
+| `drivers`                   | 注册数据库驱动（连接协议、默认端口）        |
+| `commands`                  | 注册命令（菜单项、快捷键）                  |
+| `views`                     | 注册侧边栏/面板视图                         |
+| `export_formats`            | 注册数据导出格式                            |
+| `import_formats`            | 注册数据导入格式                            |
+| `connection_providers`      | SSH Tunnel / VPN 等连接代理（预留）         |
+| `schema_diff_strategies`    | Schema Diff 算法策略（预留）                |
+| `data_migration_strategies` | 数据迁移策略（全量/增量/CDC）（预留）       |
+| `sql_dialects`              | SQL 方言定义（PLSQL/T-SQL/PLpgSQL）（预留） |
+| `visualization_providers`   | 图表渲染引擎（ECharts/D3/Plotly）（预留）   |
+| `themes`                    | UI 主题（预留）                             |
+| `keybindings`               | 快捷键绑定（预留）                          |
 
 #### When Clause 条件表达式
 
@@ -343,7 +343,7 @@ service PluginHost {
   // === 数据库操作 ===
   rpc ExecuteQuery(QueryRequest) returns (stream ArrowBatch);
   rpc ExecuteCommand(CommandRequest) returns (CommandResponse);
-  
+
   // === 元数据操作 ===
   rpc ListDatabases(ListRequest) returns (StringList);
   rpc ListSchemas(SchemaRequest) returns (StringList);
@@ -353,23 +353,23 @@ service PluginHost {
   rpc ListIndexes(IndexRequest) returns (IndexList);
   rpc GetTableDDL(DDLRequest) returns (DDLResponse);
   rpc GetRoutineSource(RoutineRequest) returns (RoutineResponse);
-  
+
   // === 连接管理 ===
   rpc GetActiveConnections(Empty) returns (ConnectionList);
   rpc GetConnectionInfo(ConnectionRequest) returns (ConnectionInfo);
-  
+
   // === UI 交互 ===
   rpc ShowMessage(MessageRequest) returns (MessageResponse);
   rpc ShowProgress(ProgressRequest) returns (stream ProgressUpdate);
   rpc OpenEditor(EditorRequest) returns (Empty);
-  
+
   // === 文件系统 ===
   rpc ReadFile(FileRequest) returns (FileData);
   rpc WriteFile(FileWriteRequest) returns (Empty);
-  
+
   // === 日志 ===
   rpc Log(LogEntry) returns (Empty);
-  
+
   // === 健康检查 ===
   rpc HealthCheck(Empty) returns (HealthStatus);
 }
@@ -399,14 +399,14 @@ message ForeignKeyDetail {
 
 ### 两种引擎的协议实现差异
 
-| 层级 | Go Sidecar | Extism WASM |
-|------|-----------|-------------|
-| **传输层** | Unix Domain Socket / Named Pipe | Extism Host Function 调用 |
-| **序列化** | Arrow IPC + Protobuf | Arrow IPC（共享内存）+ JSON（控制面） |
-| **流式数据** | gRPC bidirectional stream | 回调 + Ring Buffer |
-| **连接管理** | Sidecar 内部管理引用 | Host 管理，插件无连接所有权 |
-| **错误传播** | gRPC Status codes + CoreError | Host Function 返回值 |
-| **心跳/健康** | gRPC Health Check protocol | 由 Extism runtime 管理 |
+| 层级          | Go Sidecar                      | Extism WASM                           |
+| ------------- | ------------------------------- | ------------------------------------- |
+| **传输层**    | Unix Domain Socket / Named Pipe | Extism Host Function 调用             |
+| **序列化**    | Arrow IPC + Protobuf            | Arrow IPC（共享内存）+ JSON（控制面） |
+| **流式数据**  | gRPC bidirectional stream       | 回调 + Ring Buffer                    |
+| **连接管理**  | Sidecar 内部管理引用            | Host 管理，插件无连接所有权           |
+| **错误传播**  | gRPC Status codes + CoreError   | Host Function 返回值                  |
+| **心跳/健康** | gRPC Health Check protocol      | 由 Extism runtime 管理                |
 
 ### Arrow 数据传输策略
 
@@ -442,14 +442,14 @@ Rust Core ←→ WASM Plugin: Arrow IPC via shared WASM memory buffer
 
 ### 生命周期钩子
 
-| 钩子 | 触发时机 | Sidecar | WASM |
-|------|---------|:-------:|:----:|
-| `plugin.onCreate()` | 插件首次加载到注册中心（清单解析通过后） | ✅ | ✅ |
-| `plugin.onActivate(ctx)` | 满足任意激活事件，插件被唤醒 | ✅ | ✅ |
-| `plugin.onDeactivate()` | 所有激活条件消失，插件进入休眠 | ✅ | ✅ |
-| `plugin.onDestroy()` | 插件被用户卸载或应用退出 | ✅ | ✅ |
-| `plugin.onError(err)` | 插件执行出错（不影响其他插件） | ✅ | ✅ |
-| `plugin.healthCheck()` | 定期健康检查心跳 | ✅ | ❌ |
+| 钩子                     | 触发时机                                 | Sidecar | WASM |
+| ------------------------ | ---------------------------------------- | :-----: | :--: |
+| `plugin.onCreate()`      | 插件首次加载到注册中心（清单解析通过后） |   ✅    |  ✅  |
+| `plugin.onActivate(ctx)` | 满足任意激活事件，插件被唤醒             |   ✅    |  ✅  |
+| `plugin.onDeactivate()`  | 所有激活条件消失，插件进入休眠           |   ✅    |  ✅  |
+| `plugin.onDestroy()`     | 插件被用户卸载或应用退出                 |   ✅    |  ✅  |
+| `plugin.onError(err)`    | 插件执行出错（不影响其他插件）           |   ✅    |  ✅  |
+| `plugin.healthCheck()`   | 定期健康检查心跳                         |   ✅    |  ❌  |
 
 ### 激活上下文 (ActivationContext)
 
@@ -484,6 +484,7 @@ pub enum ActivationEvent {
 ### 推荐设计：子进程模型（非 Go Plugin）
 
 Go 原生 plugin（`.so`）机制存在以下致命问题：
+
 - Windows 支持极差（CGO 交叉编译困难）
 - 要求 Host 和 Plugin 使用完全相同的 Go 版本编译
 - 不支持热加载（plugin 加载后无法卸载）
@@ -583,11 +584,11 @@ func (d *OracleDriver) HandleCommand(cmd string, args []byte) ([]byte, error) {
 
 ### 分发方式
 
-| 阶段 | 方式 | 说明 |
-|------|------|------|
-| MVP | 本地目录加载 | 用户手动放置 `plugin.toml` + 二进制文件到 `plugins/` 目录 |
-| V1 | Git Release 下载 | 从 GitHub Releases 自动下载对应平台二进制 |
-| V2 | 插件市场 API | 集中式插件索引 + 版本管理 + 评分/评论 |
+| 阶段 | 方式             | 说明                                                      |
+| ---- | ---------------- | --------------------------------------------------------- |
+| MVP  | 本地目录加载     | 用户手动放置 `plugin.toml` + 二进制文件到 `plugins/` 目录 |
+| V1   | Git Release 下载 | 从 GitHub Releases 自动下载对应平台二进制                 |
+| V2   | 插件市场 API     | 集中式插件索引 + 版本管理 + 评分/评论                     |
 
 ---
 
@@ -595,15 +596,15 @@ func (d *OracleDriver) HandleCommand(cmd string, args []byte) ([]byte, error) {
 
 ### 现有资产复用
 
-| 现有组件 | 在插件系统中的角色 |
-|---------|-------------------|
-| `adapters/wasm/mod.rs` | WASM Runtime Manager 的接口基础 |
-| `adapters/wasm/extism.rs` | Extism 插件实例化引擎 |
-| `adapters/wasm/plugin_manager.rs` | 沙箱配置 + 资源限制（直接复用） |
-| `core/driver/traits.rs` | PluginHost API 的能力模型（需扩展 FK/Index/DDL） |
-| `core/models.rs` | QueryResult + ArrowBatch 作为核心数据载体 |
-| `core/error.rs` | CoreError 统一错误传播 |
-| `core/arrow.rs` | ArrowHandler 数据格式转换 |
+| 现有组件                          | 在插件系统中的角色                               |
+| --------------------------------- | ------------------------------------------------ |
+| `adapters/wasm/mod.rs`            | WASM Runtime Manager 的接口基础                  |
+| `adapters/wasm/extism.rs`         | Extism 插件实例化引擎                            |
+| `adapters/wasm/plugin_manager.rs` | 沙箱配置 + 资源限制（直接复用）                  |
+| `core/driver/traits.rs`           | PluginHost API 的能力模型（需扩展 FK/Index/DDL） |
+| `core/models.rs`                  | QueryResult + ArrowBatch 作为核心数据载体        |
+| `core/error.rs`                   | CoreError 统一错误传播                           |
+| `core/arrow.rs`                   | ArrowHandler 数据格式转换                        |
 
 ### 新增文件规划
 
@@ -658,16 +659,16 @@ async fn get_table_stats(&self, db: &str, schema: Option<&str>, table: &str)
 
 ## 实施路线图
 
-| 阶段 | 内容 | 优先级 | 预计工作量 |
-|------|------|--------|-----------|
-| **Phase 0** | Database Trait 扩展（FK/Index/DDL/Stats） | 🔴 基础依赖 | 2-3 天 |
-| **Phase 1** | `core/plugin/` 抽象层（manifest 解析、registry、context） | 🔴 基础依赖 | 3-5 天 |
-| **Phase 2** | WASM Host Functions 注册（让 WASM 插件能调 Database API） | 🔴 核心阻塞 | 3-5 天 |
-| **Phase 3** | Arrow IPC 通道（Rust↔WASM 零拷贝数据交换） | 🟡 性能关键 | 2-3 天 |
-| **Phase 4** | Go Sidecar Manager（进程启动/停止/健康检查） | 🟡 架构补全 | 3-5 天 |
-| **Phase 5** | gRPC + Arrow IPC Bridge（Rust↔Go Sidecar 通信） | 🟡 架构补全 | 3-5 天 |
-| **Phase 6** | 首个示例插件（CSV 导入导出 WASM 插件） | 🟢 验证闭环 | 1-2 天 |
-| **Phase 7** | 插件市场（GitHub Release 下载） | 🟢 体验完善 | 3-5 天 |
+| 阶段        | 内容                                                      | 优先级      | 预计工作量 |
+| ----------- | --------------------------------------------------------- | ----------- | ---------- |
+| **Phase 0** | Database Trait 扩展（FK/Index/DDL/Stats）                 | 🔴 基础依赖 | 2-3 天     |
+| **Phase 1** | `core/plugin/` 抽象层（manifest 解析、registry、context） | 🔴 基础依赖 | 3-5 天     |
+| **Phase 2** | WASM Host Functions 注册（让 WASM 插件能调 Database API） | 🔴 核心阻塞 | 3-5 天     |
+| **Phase 3** | Arrow IPC 通道（Rust↔WASM 零拷贝数据交换）                | 🟡 性能关键 | 2-3 天     |
+| **Phase 4** | Go Sidecar Manager（进程启动/停止/健康检查）              | 🟡 架构补全 | 3-5 天     |
+| **Phase 5** | gRPC + Arrow IPC Bridge（Rust↔Go Sidecar 通信）           | 🟡 架构补全 | 3-5 天     |
+| **Phase 6** | 首个示例插件（CSV 导入导出 WASM 插件）                    | 🟢 验证闭环 | 1-2 天     |
+| **Phase 7** | 插件市场（GitHub Release 下载）                           | 🟢 体验完善 | 3-5 天     |
 
 ---
 
@@ -683,18 +684,18 @@ async fn get_table_stats(&self, db: &str, schema: Option<&str>, table: &str)
 
 ### 🟡 风险与缓解
 
-| 风险 | 缓解措施 |
-|------|---------|
-| Go Sidecar 部署复杂度（用户需安装 Go 运行时？） | Sidecar 编译为独立 Go 二进制（静态链接），零运行时依赖 |
-| Rust↔Go IPC 性能 | Arrow 大块数据走共享内存，控制面走 Unix Socket |
-| 双引擎心智负担 | 统一 `plugin.toml` + Protobuf IDL，引擎差异对插件开发者透明 |
-| WASM WASI 标准不稳定 | 先用 Extism SDK（抽象了 WASI 细节），WASI 稳定后再切换 |
-| Windows Named Pipe 支持 | gRPC 在 Windows 上走 `localhost` TCP loopback，性能损耗可控 |
+| 风险                                            | 缓解措施                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------- |
+| Go Sidecar 部署复杂度（用户需安装 Go 运行时？） | Sidecar 编译为独立 Go 二进制（静态链接），零运行时依赖      |
+| Rust↔Go IPC 性能                                | Arrow 大块数据走共享内存，控制面走 Unix Socket              |
+| 双引擎心智负担                                  | 统一 `plugin.toml` + Protobuf IDL，引擎差异对插件开发者透明 |
+| WASM WASI 标准不稳定                            | 先用 Extism SDK（抽象了 WASI 细节），WASI 稳定后再切换      |
+| Windows Named Pipe 支持                         | gRPC 在 Windows 上走 `localhost` TCP loopback，性能损耗可控 |
 
 ---
 
 ## 版本历史
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
+| 版本 | 日期       | 变更                                                                                |
+| ---- | ---------- | ----------------------------------------------------------------------------------- |
 | v1.0 | 2026-05-10 | 初始版本，双引擎架构设计、plugin.toml 清单、Protobuf API 定义、生命周期、实施路线图 |

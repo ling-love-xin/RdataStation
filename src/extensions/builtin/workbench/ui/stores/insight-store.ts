@@ -263,8 +263,6 @@ export const useInsightStore = defineStore('insight', () => {
     multiResult.value = null
   }
 
-
-
   function clearMultiResult() {
     multiResult.value = null
     isMultiExecuting.value = false

@@ -71,17 +71,9 @@
       </h3>
 
       <div class="toolbar-tools-config">
-        <div
-          v-for="tool in availableToolbarTools"
-          :key="tool.id"
-          class="tool-toggle-item"
-        >
+        <div v-for="tool in availableToolbarTools" :key="tool.id" class="tool-toggle-item">
           <label class="tool-toggle-label">
-            <input
-              v-model="localTitleBarSettings.toolbarTools"
-              :value="tool.id"
-              type="checkbox"
-            />
+            <input v-model="localTitleBarSettings.toolbarTools" :value="tool.id" type="checkbox" />
             <AppIcon :name="tool.iconName" :size="16" />
             <span>{{ tool.name }}</span>
           </label>
@@ -234,8 +226,12 @@ const availableToolbarTools = [
 ]
 
 const localTitleBarSettings = reactive<TitleBarSettings>({ ...appStore.effectiveTitleBarSettings })
-const localStatusBarSettings = reactive<StatusBarSettings>({ ...appStore.effectiveStatusBarSettings })
-const localCommandPaletteSettings = reactive<CommandPaletteSettings>({ ...appStore.effectiveCommandPaletteSettings })
+const localStatusBarSettings = reactive<StatusBarSettings>({
+  ...appStore.effectiveStatusBarSettings,
+})
+const localCommandPaletteSettings = reactive<CommandPaletteSettings>({
+  ...appStore.effectiveCommandPaletteSettings,
+})
 
 watch(
   () => appStore.effectiveTitleBarSettings,
@@ -310,7 +306,7 @@ defineExpose({
   color: var(--color-text-primary);
 }
 
-.tool-toggle-label input[type="checkbox"] {
+.tool-toggle-label input[type='checkbox'] {
   margin: 0;
 }
 </style>

@@ -1,11 +1,4 @@
-import {
-  BookOpen,
-  History,
-  Keyboard,
-  Settings,
-  Terminal,
-  Zap,
-} from 'lucide-vue-next'
+import { BookOpen, History, Keyboard, Settings, Terminal, Zap } from 'lucide-vue-next'
 import { markRaw } from 'vue'
 
 import { WorkbenchEvent, dispatchWorkbenchEvent } from '../constants/workbench-events'

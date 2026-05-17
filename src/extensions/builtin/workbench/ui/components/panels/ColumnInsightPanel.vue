@@ -1,6 +1,9 @@
 <template>
   <div class="col-insight-root">
-    <div v-if="!insightStore.insightData && !insightStore.isLoading && !insightStore.error" class="insight-empty">
+    <div
+      v-if="!insightStore.insightData && !insightStore.isLoading && !insightStore.error"
+      class="insight-empty"
+    >
       <Database :size="28" stroke-width="1.5" />
       <p>{{ t('resultPanel.selectColumnInsight') }}</p>
     </div>
@@ -73,7 +76,10 @@
         </NTabPane>
 
         <NTabPane name="multi" :tab="t('resultPanel.multiColumn')">
-          <MultiColumnView :temp-table="insightStore.currentTempTable ?? ''" :all-columns="availableColumns" />
+          <MultiColumnView
+            :temp-table="insightStore.currentTempTable ?? ''"
+            :all-columns="availableColumns"
+          />
         </NTabPane>
 
         <NTabPane name="history" :tab="t('resultPanel.history')">
@@ -152,7 +158,7 @@ const hasDistribution = computed(() => {
 })
 
 const applicableRules = computed(() => {
-  return insightStore.multiColumnRules.filter((r) => {
+  return insightStore.multiColumnRules.filter(r => {
     if (r.applies_to && r.applies_to.length > 0) {
       return r.applies_to.includes(statsKind.value.toLowerCase())
     }
@@ -173,8 +179,10 @@ function openVisualization() {
       if (data.histogram) {
         return {
           columns: ['label', 'count', 'ratio'],
-          rows: data.histogram.map((b) => ({
-            label: b.label, count: b.count, ratio: b.ratio,
+          rows: data.histogram.map(b => ({
+            label: b.label,
+            count: b.count,
+            ratio: b.ratio,
           })),
         }
       }
@@ -192,8 +200,10 @@ function openVisualization() {
       if (td.top_values) {
         return {
           columns: ['value', 'count', 'ratio'],
-          rows: td.top_values.map((tv) => ({
-            value: tv.value, count: tv.count, ratio: tv.ratio,
+          rows: td.top_values.map(tv => ({
+            value: tv.value,
+            count: tv.count,
+            ratio: tv.ratio,
           })),
         }
       }
@@ -213,8 +223,10 @@ function openVisualization() {
       if (data.histogram) {
         return {
           columns: ['category', 'count', 'ratio'],
-          rows: data.histogram.map((b) => ({
-            category: b.label, count: b.count, ratio: b.ratio,
+          rows: data.histogram.map(b => ({
+            category: b.label,
+            count: b.count,
+            ratio: b.ratio,
           })),
         }
       }
@@ -225,7 +237,7 @@ function openVisualization() {
   const result = extractors.bar()
   if (result.columns.length === 0) return
 
-  const renderHint = applicableRules.value.find((r) => r.render?.component)?.render
+  const renderHint = applicableRules.value.find(r => r.render?.component)?.render
 
   insightStore.pendingVisualizationRequest = {
     title: `${insightStore.currentColumn} ${t('resultPanel.insightChart')}`,
@@ -268,10 +280,9 @@ function handleCleanup() {
 
 function exportJSON() {
   if (!insightStore.insightData) return
-  const blob = new Blob(
-    [JSON.stringify(insightStore.insightData, null, 2)],
-    { type: 'application/json' },
-  )
+  const blob = new Blob([JSON.stringify(insightStore.insightData, null, 2)], {
+    type: 'application/json',
+  })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -280,31 +291,106 @@ function exportJSON() {
   URL.revokeObjectURL(url)
 }
 
-watch(() => insightStore.insightData, () => {
-  if (insightStore.insightData && (activeTab.value === 'column' || !insightStore.insightData)) {
-    activeTab.value = 'column'
+watch(
+  () => insightStore.insightData,
+  () => {
+    if (insightStore.insightData && (activeTab.value === 'column' || !insightStore.insightData)) {
+      activeTab.value = 'column'
+    }
   }
-})
+)
 </script>
 
 <style scoped>
-.col-insight-root { height: 100%; display: flex; flex-direction: column; overflow: auto; }
-.insight-empty, .insight-error { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--spacing-xl) var(--spacing-xl); gap: var(--spacing-sm); color: var(--text-tertiary); font-size: var(--font-size-md); text-align: center; }
-.insight-loading { display: flex; flex-direction: column; gap: var(--spacing-sm); padding: var(--spacing-lg) var(--spacing-md); }
-.skeleton { height: 14px; background: var(--bg-elevated); border-radius: var(--border-radius-sm); opacity: 0.6; animation: skel-pulse 1.5s ease-in-out infinite; }
-.skeleton-title { height: 18px; }
-.skeleton-block { height: 40px; }
-@keyframes skel-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+.col-insight-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.insight-empty,
+.insight-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) var(--spacing-xl);
+  gap: var(--spacing-sm);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-md);
+  text-align: center;
+}
+.insight-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg) var(--spacing-md);
+}
+.skeleton {
+  height: 14px;
+  background: var(--bg-elevated);
+  border-radius: var(--border-radius-sm);
+  opacity: 0.6;
+  animation: skel-pulse 1.5s ease-in-out infinite;
+}
+.skeleton-title {
+  height: 18px;
+}
+.skeleton-block {
+  height: 40px;
+}
+@keyframes skel-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
 
-.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
-.panel-title { font-size: var(--font-size-sm); font-weight: 500; }
-.panel-actions { display: flex; gap: 2px; }
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+.panel-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+.panel-actions {
+  display: flex;
+  gap: 2px;
+}
 
-.panel-footer { margin-top: var(--spacing-sm); padding-top: 6px; border-top: 1px solid var(--border-color); }
-.storage-info { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xss); }
-.storage-key { color: var(--text-tertiary); }
-.storage-val { font-family: var(--font-mono); }
+.panel-footer {
+  margin-top: var(--spacing-sm);
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+.storage-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xss);
+}
+.storage-key {
+  color: var(--text-tertiary);
+}
+.storage-val {
+  font-family: var(--font-mono);
+}
 
-.rules-footer { margin-top: var(--spacing-sm); display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
-.rules-tag-label { font-size: var(--font-size-xss); color: var(--text-tertiary); }
+.rules-footer {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+.rules-tag-label {
+  font-size: var(--font-size-xss);
+  color: var(--text-tertiary);
+}
 </style>

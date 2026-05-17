@@ -1,7 +1,14 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="visible" ref="overlayRef" tabindex="-1" class="modal-overlay" @click.self="handleCancel" @keydown.escape="handleCancel">
+      <div
+        v-if="visible"
+        ref="overlayRef"
+        tabindex="-1"
+        class="modal-overlay"
+        @click.self="handleCancel"
+        @keydown.escape="handleCancel"
+      >
         <div class="modal-container">
           <header class="modal-header">
             <h2>{{ t('workbench.newProject') }}</h2>
@@ -36,7 +43,11 @@
             <button class="btn-secondary" @click="handleCancel">
               {{ t('common.cancel') }}
             </button>
-            <button class="btn-primary" :disabled="!canSubmit || isSubmitting" @click="handleConfirm">
+            <button
+              class="btn-primary"
+              :disabled="!canSubmit || isSubmitting"
+              @click="handleConfirm"
+            >
               <span v-if="isSubmitting">{{ t('workbench.creating') }}</span>
               <span v-else>{{ t('workbench.create') }}</span>
             </button>
@@ -70,9 +81,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const overlayRef = ref<HTMLElement | null>(null)
 
-const { form, isSubmitting, canSubmit, browsePath, submit } = useNewProject(
-  () => props.visible
-)
+const { form, isSubmitting, canSubmit, browsePath, submit } = useNewProject(() => props.visible)
 
 watch(
   () => props.visible,

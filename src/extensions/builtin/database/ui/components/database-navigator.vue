@@ -367,8 +367,7 @@ const toggleFilter = () => {
   showFilter.value = !showFilter.value
 }
 
-const toggleView = () => {
-}
+const toggleView = () => {}
 
 const handleNewConnection = () => {
   window.dispatchEvent(new CustomEvent('open-connection-modal'))
@@ -423,7 +422,6 @@ const handleBeginTransaction = async () => {
     transactionTimer = setInterval(() => {
       transactionDuration.value += 1000
     }, 1000)
-
   } catch (error) {
     console.error('开始事务失败:', error)
     showErrorMessage(
@@ -707,26 +705,19 @@ const handleContextMenuRefresh = async () => {
   }
 }
 
-const handleContextMenuCopyName = () => {
-}
+const handleContextMenuCopyName = () => {}
 
-const handleContextMenuOpenTable = () => {
-}
+const handleContextMenuOpenTable = () => {}
 
-const handleContextMenuOpenView = () => {
-}
+const handleContextMenuOpenView = () => {}
 
-const handleExpandAll = () => {
-}
+const handleExpandAll = () => {}
 
-const handleCollapseAll = () => {
-}
+const handleCollapseAll = () => {}
 
-const handleContextMenuRefreshSchema = async () => {
-}
+const handleContextMenuRefreshSchema = async () => {}
 
-const handleContextMenuRefreshDatabase = async () => {
-}
+const handleContextMenuRefreshDatabase = async () => {}
 
 async function loadGlobalConnections() {
   try {

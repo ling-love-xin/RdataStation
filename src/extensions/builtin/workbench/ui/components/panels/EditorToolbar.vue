@@ -108,7 +108,19 @@
 </template>
 
 <script setup lang="ts">
-import { Play, Plus, Zap, Sparkles, ArrowLeftRight, AlignLeft, ListChecks, FileSearch, Star, Map, Settings } from 'lucide-vue-next'
+import {
+  Play,
+  Plus,
+  Zap,
+  Sparkles,
+  ArrowLeftRight,
+  AlignLeft,
+  ListChecks,
+  FileSearch,
+  Star,
+  Map,
+  Settings,
+} from 'lucide-vue-next'
 import { NButton, NTooltip } from 'naive-ui'
 
 interface Props {

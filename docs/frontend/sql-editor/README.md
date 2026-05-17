@@ -732,14 +732,14 @@ sqlExecutionStore.requestNewTab(panelId, executionResult)
 
 #### 工具栏与状态栏优化
 
-| #   | 优化项           | 状态 | 说明                                |
-| --- | ---------------- | ---- | ----------------------------------- |
-| 1   | 工具栏图标化     | ✅   | 所有按钮使用 lucide-vue-next 图标   |
-| 2   | 工具栏位置切换   | ✅   | 支持顶部/左侧/右侧三种布局          |
-| 3   | 状态栏连接信息   | ✅   | 内嵌显示 `连接名 → 数据库 → schema` |
+| #   | 优化项           | 状态 | 说明                                                    |
+| --- | ---------------- | ---- | ------------------------------------------------------- |
+| 1   | 工具栏图标化     | ✅   | 所有按钮使用 lucide-vue-next 图标                       |
+| 2   | 工具栏位置切换   | ✅   | 支持顶部/左侧/右侧三种布局                              |
+| 3   | 状态栏连接信息   | ✅   | 内嵌显示 `连接名 → 数据库 → schema`                     |
 | 4   | DuckDB 加速按钮  | ✅   | DuckDB 连接时显示 ⚡ 按钮，点击调用 DuckDB 引擎加速查询 |
-| 5   | SQL 方言转换按钮 | ✅   | 支持 9 种方言互转                   |
-| 6   | 欢迎页优化       | ✅   | 空编辑器时显示快捷键和快速操作      |
+| 5   | SQL 方言转换按钮 | ✅   | 支持 9 种方言互转                                       |
+| 6   | 欢迎页优化       | ✅   | 空编辑器时显示快捷键和快速操作                          |
 
 #### 前端错误修复
 
@@ -900,38 +900,38 @@ status: hasRuntime(r.id) ? 'connected' : 'disconnected'
 
 > ✅ **全部完成**（2026-05-09）：六个 Phase 的架构优化已全部完成，详见 [SQL-EDITOR-OPTIMIZATION-PLAN.md](./SQL-EDITOR-OPTIMIZATION-PLAN.md)
 
-| Phase  | 内容                                 | 状态    |
-| ------ | ------------------------------------ | ------- |
-| **P1** | 类型统一 + 持久化统一                | ✅ 完成 |
-| **P2** | 组件拆分 + Composable 抽取           | ✅ 完成 |
-| **P3** | CustomEvent → Pinia Store 通信重构   | ✅ 完成 |
-| **P4** | Abort 取消机制 + 方言高亮增量        | ✅ 完成 |
-| **P5** | 死代码清理 + 质量完善                | ✅ 完成 |
+| Phase  | 内容                                     | 状态    |
+| ------ | ---------------------------------------- | ------- |
+| **P1** | 类型统一 + 持久化统一                    | ✅ 完成 |
+| **P2** | 组件拆分 + Composable 抽取               | ✅ 完成 |
+| **P3** | CustomEvent → Pinia Store 通信重构       | ✅ 完成 |
+| **P4** | Abort 取消机制 + 方言高亮增量            | ✅ 完成 |
+| **P5** | 死代码清理 + 质量完善                    | ✅ 完成 |
 | **P6** | 全局配置集成（设置持久化到 useAppStore） | ✅ 完成 |
 
 ### 优化成果
 
-| 指标                    | 优化前       | 优化后                            |
-| ----------------------- | ------------ | --------------------------------- |
-| SqlEditorPanel.vue 行数 | ~1600        | ~365 (**减少 77%**)               |
-| 文件数                  | 1 个大组件   | 4 组件 + 4 composables + 1 编排层 |
-| 全局 CustomEvent        | 7 个         | **0 个**                          |
-| 类型松散 (`as any`)     | 多处         | **归类到统一类型定义**            |
-| 方言高亮重建            | 每次完整重建 | **按方言缓存 + 基础规则复用**     |
-| Abort 取消支持          | ❌           | ✅                                |
-| 执行路径                | 双路径并行   | **统一 queryService**             |
-| 死代码                  | 多处残留     | **全部清理**                      |
-| 代码折叠                | 仅缩进       | **SQL 语义折叠**                   |
-| SQL 收藏管理            | ❌           | ✅ **Star 保存 + 片段面板管理**    |
-| 参数化查询 :param       | ❌           | ✅ **检测 → 弹窗 → 自动执行**      |
-| 表数据 Inline Edit      | ❌           | ✅ **双击编辑 + UPDATE 生成**       |
-| SQL 错误定位            | ❌ 仅消息提示 | ✅ **行列解析 → Monaco marker 跳转** |
-| Minimap / Settings      | ❌ 无        | ✅ **Map toggle + 实时设置面板**     |
-| Monaco 右键菜单         | ❌ 仅原生    | ✅ **Execute Selected / Copy as VALUES** |
-| Scratchpad 关闭保存     | ❌ 丢失修改  | ✅ **自动保存脏内容**                |
-| SQL 历史重执行          | ❌ 仅插入    | ✅ **双击直接执行**                  |
-| Welcome 快速连接        | ❌ 仅快捷键  | ✅ **点击最近连接一键连接**          |
-| 全局配置持久化           | ❌ 会话丢失  | ✅ **6 项设置跨会话保持**             |
+| 指标                    | 优化前        | 优化后                                   |
+| ----------------------- | ------------- | ---------------------------------------- |
+| SqlEditorPanel.vue 行数 | ~1600         | ~365 (**减少 77%**)                      |
+| 文件数                  | 1 个大组件    | 4 组件 + 4 composables + 1 编排层        |
+| 全局 CustomEvent        | 7 个          | **0 个**                                 |
+| 类型松散 (`as any`)     | 多处          | **归类到统一类型定义**                   |
+| 方言高亮重建            | 每次完整重建  | **按方言缓存 + 基础规则复用**            |
+| Abort 取消支持          | ❌            | ✅                                       |
+| 执行路径                | 双路径并行    | **统一 queryService**                    |
+| 死代码                  | 多处残留      | **全部清理**                             |
+| 代码折叠                | 仅缩进        | **SQL 语义折叠**                         |
+| SQL 收藏管理            | ❌            | ✅ **Star 保存 + 片段面板管理**          |
+| 参数化查询 :param       | ❌            | ✅ **检测 → 弹窗 → 自动执行**            |
+| 表数据 Inline Edit      | ❌            | ✅ **双击编辑 + UPDATE 生成**            |
+| SQL 错误定位            | ❌ 仅消息提示 | ✅ **行列解析 → Monaco marker 跳转**     |
+| Minimap / Settings      | ❌ 无         | ✅ **Map toggle + 实时设置面板**         |
+| Monaco 右键菜单         | ❌ 仅原生     | ✅ **Execute Selected / Copy as VALUES** |
+| Scratchpad 关闭保存     | ❌ 丢失修改   | ✅ **自动保存脏内容**                    |
+| SQL 历史重执行          | ❌ 仅插入     | ✅ **双击直接执行**                      |
+| Welcome 快速连接        | ❌ 仅快捷键   | ✅ **点击最近连接一键连接**              |
+| 全局配置持久化          | ❌ 会话丢失   | ✅ **6 项设置跨会话保持**                |
 
 ---
 
@@ -1010,22 +1010,22 @@ try {
 
 ### SQL 执行与事务（18 命令，全注册）
 
-| 命令                         | src-tauri                                                                                                             | 前端 query.ts            | 状态     |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------ | -------- |
-| `execute_sql`                | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L39)  | `executeSql()`           | ✅       |
-| `execute_transaction`        | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L74)  | `executeTransaction()`   | ✅       |
-| `begin_transaction`          | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L107) | `beginTransaction()`     | ✅       |
-| `commit_transaction`         | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L123) | `commitTransaction()`    | ✅       |
-| `rollback_transaction`       | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L139) | `rollbackTransaction()`  | ✅       |
-| `get_transaction_status`     | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L164) | `getTransactionStatus()` | ✅       |
-| `cancel_sql_query`           | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L154) | `cancelQuery()`          | ✅ 新增  |
+| 命令                         | src-tauri                                                                                                             | 前端 query.ts                | 状态     |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------- | -------- |
+| `execute_sql`                | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L39)  | `executeSql()`               | ✅       |
+| `execute_transaction`        | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L74)  | `executeTransaction()`       | ✅       |
+| `begin_transaction`          | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L107) | `beginTransaction()`         | ✅       |
+| `commit_transaction`         | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L123) | `commitTransaction()`        | ✅       |
+| `rollback_transaction`       | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L139) | `rollbackTransaction()`      | ✅       |
+| `get_transaction_status`     | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L164) | `getTransactionStatus()`     | ✅       |
+| `cancel_sql_query`           | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L154) | `cancelQuery()`              | ✅ 新增  |
 | `execute_duckdb_accelerated` | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L306) | `executeDuckDBAccelerated()` | ✅ 新增  |
-| `get_sql_history`            | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L189) | `getSqlHistory()`        | ✅       |
-| `search_sql_history`         | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L210) | `searchSqlHistory()`     | ✅       |
-| `clear_sql_history`          | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L234) | `clearSqlHistory()`      | ✅       |
-| `remove_sql_history`         | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L243) | `removeSqlHistory()`     | ✅       |
-| `register_external_database` | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L263) | (无前端入口)             | ⚠️ 缺 UI |
-| `create_external_table`      | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L291) | (无前端入口)             | ⚠️ 缺 UI |
+| `get_sql_history`            | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L189) | `getSqlHistory()`            | ✅       |
+| `search_sql_history`         | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L210) | `searchSqlHistory()`         | ✅       |
+| `clear_sql_history`          | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L234) | `clearSqlHistory()`          | ✅       |
+| `remove_sql_history`         | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L243) | `removeSqlHistory()`         | ✅       |
+| `register_external_database` | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L263) | (无前端入口)                 | ⚠️ 缺 UI |
+| `create_external_table`      | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L291) | (无前端入口)                 | ⚠️ 缺 UI |
 
 ### 新增功能入口
 
@@ -1073,16 +1073,16 @@ DuckDB 加速功能利用 DuckDB 内存引擎 + scanner 扩展，对 MySQL / Pos
 
 启动时在 APP 数据目录 `{app_data}/duckdb/extensions/` 自动创建扩展目录，并加载 P0 级别扩展：
 
-| 扩展                 | 优先级 | 用途                  |
-| -------------------- | ------ | --------------------- |
-| mysql_scanner        | P0     | MySQL 外部表扫描      |
-| postgres_scanner     | P0     | PostgreSQL 外部表扫描 |
-| sqlite_scanner       | P0     | SQLite 外部表扫描     |
-| json                 | P1     | JSON 文件读写         |
-| parquet              | P1     | Parquet 文件读写      |
-| excel                | P1     | Excel 文件读写        |
-| httpfs               | P1     | HTTP 文件系统         |
-| fts                  | P1     | 全文搜索              |
+| 扩展             | 优先级 | 用途                  |
+| ---------------- | ------ | --------------------- |
+| mysql_scanner    | P0     | MySQL 外部表扫描      |
+| postgres_scanner | P0     | PostgreSQL 外部表扫描 |
+| sqlite_scanner   | P0     | SQLite 外部表扫描     |
+| json             | P1     | JSON 文件读写         |
+| parquet          | P1     | Parquet 文件读写      |
+| excel            | P1     | Excel 文件读写        |
+| httpfs           | P1     | HTTP 文件系统         |
+| fts              | P1     | 全文搜索              |
 
 P1 扩展通过 `load_extension_by_name()` 按需加载。
 
@@ -1109,15 +1109,15 @@ P1 扩展通过 `load_extension_by_name()` 按需加载。
 
 ### 涉及文件
 
-| 层   | 文件                                                                                                                         | 职责                           |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Rust | [duckdb_engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/dbi/engine/duckdb_engine.rs)    | DuckDBEngine + 扩展管理        |
-| Rust | [state.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/adapters/tauri/state.rs)                      | AppState.duckdb_engine         |
-| Rust | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L306)         | execute_duckdb_accelerated 命令 |
-| Rust | [lib.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/lib.rs)                                        | 命令注册                       |
-| TS   | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts#L156)    | executeDuckDBAccelerated()     |
-| TS   | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts) | executeDuckDBAccelerated()     |
-| Vue  | [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L298) | handleDuckDbExecute() 入口     |
+| 层   | 文件                                                                                                                                                       | 职责                            |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Rust | [duckdb_engine.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/dbi/engine/duckdb_engine.rs)                                  | DuckDBEngine + 扩展管理         |
+| Rust | [state.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/adapters/tauri/state.rs)                                                   | AppState.duckdb_engine          |
+| Rust | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs#L306)                                      | execute_duckdb_accelerated 命令 |
+| Rust | [lib.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/lib.rs)                                                                      | 命令注册                        |
+| TS   | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts#L156)                                  | executeDuckDBAccelerated()      |
+| TS   | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts)            | executeDuckDBAccelerated()      |
+| Vue  | [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L298) | handleDuckDbExecute() 入口      |
 
 ### ATTACH 自动桥接（P0）
 
@@ -1139,12 +1139,12 @@ P1 扩展通过 `load_extension_by_name()` 按需加载。
 
 ### 图表类型
 
-| 类型     | 图标        | 说明             |
-| -------- | ----------- | ---------------- |
-| 柱状图   | `BarChart3`  | 分类数据对比     |
-| 折线图   | `LineChart`  | 趋势变化         |
-| 饼图     | `PieChart`   | 占比分析         |
-| 散点图   | `ScatterChart` | 相关性分析     |
+| 类型   | 图标           | 说明         |
+| ------ | -------------- | ------------ |
+| 柱状图 | `BarChart3`    | 分类数据对比 |
+| 折线图 | `LineChart`    | 趋势变化     |
+| 饼图   | `PieChart`     | 占比分析     |
+| 散点图 | `ScatterChart` | 相关性分析   |
 
 ### 交互流程
 
@@ -1156,11 +1156,11 @@ P1 扩展通过 `load_extension_by_name()` 按需加载。
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
+| 文件                                                                                                                                                                  | 职责             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | [DataVisualizationPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/DataVisualizationPanel.vue) | ECharts 渲染组件 |
-| [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) | 视图切换入口 |
-| [result.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/types/result.ts#L3) | `ViewMode` 类型 |
+| [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue)             | 视图切换入口     |
+| [result.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/types/result.ts#L3)                                            | `ViewMode` 类型  |
 
 ---
 
@@ -1185,11 +1185,11 @@ Monaco Editor 的 `CompletionItemProvider` 基于当前连接的 schema 信息�
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts#L140) | 补全服务注册 |
-| [useConnectionBinding.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useConnectionBinding.ts) | `currentDatabase` 提供 |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L458) | 补全注册调用点 |
+| 文件                                                                                                                                                       | 职责                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts#L140)       | 补全服务注册           |
+| [useConnectionBinding.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useConnectionBinding.ts)  | `currentDatabase` 提供 |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L458) | 补全注册调用点         |
 
 ---
 
@@ -1197,10 +1197,10 @@ Monaco Editor 的 `CompletionItemProvider` 基于当前连接的 schema 信息�
 
 工具栏的 `ListChecks` "批量执行所有语句" 按钮将编辑器中的 SQL 按 `;` 拆分后逐条执行，每条语句的结果自动创建独立标签页。
 
-| 场景 | 按钮 | 行为 |
-| ---- | ---- | ---- |
+| 场景     | 按钮               | 行为                               |
+| -------- | ------------------ | ---------------------------------- |
 | 单条语句 | 批量执行 / Execute | 等同于 Execute，显示一个结果标签页 |
-| 多条语句 | 批量执行 | 拆分 → 逐条执行 → N 个标签页 |
+| 多条语句 | 批量执行           | 拆分 → 逐条执行 → N 个标签页       |
 
 **错误处理：** 某条语句失败不影响后续语句执行，最终汇总显示成功/失败计数。
 
@@ -1210,13 +1210,14 @@ Monaco Editor 的 `CompletionItemProvider` 基于当前连接的 schema 信息�
 
 当使用 ⚡ DuckDB 加速时，系统自动将无前缀表名加上 ATTACH 名称：
 
-| 用户输入 | 自动重写为 |
-| -------- | ---------- |
-| `SELECT * FROM users` | `SELECT * FROM ext_MyConn.users` |
+| 用户输入                              | 自动重写为                                                  |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `SELECT * FROM users`                 | `SELECT * FROM ext_MyConn.users`                            |
 | `SELECT * FROM orders o JOIN users u` | `SELECT * FROM ext_MyConn.orders o JOIN ext_MyConn.users u` |
-| `INSERT INTO users VALUES (1)` | `INSERT INTO ext_MyConn.users VALUES (1)` |
+| `INSERT INTO users VALUES (1)`        | `INSERT INTO ext_MyConn.users VALUES (1)`                   |
 
 **安全规则：**
+
 - 已有 `.` 前缀的表名（如 `db.users`）不重写
 - SQL 关键字（WHERE/ON/SET/...）不误重写
 
@@ -1236,13 +1237,13 @@ SQL 编辑器支持基于语义的代码折叠，超越 Monaco 默认的缩进/�
 
 ### 折叠场景
 
-| 场景                   | 示例                            | 折叠范围              |
-| ---------------------- | ------------------------------- | --------------------- |
-| BEGIN...END 块         | `BEGIN ... END`                 | 从头到尾              |
-| 嵌套子查询             | `(SELECT ... FROM ...)`         | 括号内整段            |
-| CTE 定义               | `WITH cte AS ( ... )`           | AS 后括号内           |
-| 多行注释               | `/* ... */`                     | 注释范围              |
-| CREATE TABLE 定义      | `CREATE TABLE t ( ... )`        | 括号内列定义          |
+| 场景              | 示例                     | 折叠范围     |
+| ----------------- | ------------------------ | ------------ |
+| BEGIN...END 块    | `BEGIN ... END`          | 从头到尾     |
+| 嵌套子查询        | `(SELECT ... FROM ...)`  | 括号内整段   |
+| CTE 定义          | `WITH cte AS ( ... )`    | AS 后括号内  |
+| 多行注释          | `/* ... */`              | 注释范围     |
+| CREATE TABLE 定义 | `CREATE TABLE t ( ... )` | 括号内列定义 |
 
 ### 实现
 
@@ -1294,12 +1295,12 @@ SQL 编辑器支持命名参数占位符语法 `:param_name`，执行时自动�
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [ParamBindingModal.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/ParamBindingModal.vue) | 参数绑定弹窗（NInput 动态表单） |
-| [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts#L561) | detectParams() + bindParams() |
-| [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts) | checkForParams() + buildBoundSql() |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L310) | handleExecute() 拦截参数 |
+| 文件                                                                                                                                                        | 职责                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| [ParamBindingModal.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/ParamBindingModal.vue) | 参数绑定弹窗（NInput 动态表单）    |
+| [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts#L561)        | detectParams() + bindParams()      |
+| [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts)             | checkForParams() + buildBoundSql() |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L310)  | handleExecute() 拦截参数           |
 
 ---
 
@@ -1327,11 +1328,11 @@ SQL 编辑器支持命名参数占位符语法 `:param_name`，执行时自动�
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue#L754) | 编辑事件 + Save/Cancel |
-| [result-analysis.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/services/result-analysis.ts#L454) | saveCellUpdate 前端封装 |
-| [result_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/result_commands.rs#L58) | save_cell_update 后端命令 |
+| 文件                                                                                                                                                           | 职责                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue#L754) | 编辑事件 + Save/Cancel    |
+| [result-analysis.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/services/result-analysis.ts#L454)              | saveCellUpdate 前端封装   |
+| [result_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/result_commands.rs#L58)                                     | save_cell_update 后端命令 |
 
 ---
 
@@ -1343,12 +1344,12 @@ SQL 执行出错时，系统自动解析错误消息中的行列号，在 Monaco
 
 ### 支持的错误格式
 
-| 数据库 | 格式示例 | 解析 |
-| ------ | -------- | ---- |
-| MySQL/PostgreSQL | `ERROR at line 5, column 12` | ✅ |
-| 通用 SQL | `line 3 ... column 8` | ✅ |
-| SQLite | `near "xxx" at line 2` | ✅ |
-| DuckDB | `at position: 156` | ✅ 字符偏移自动换算行列 |
+| 数据库           | 格式示例                     | 解析                    |
+| ---------------- | ---------------------------- | ----------------------- |
+| MySQL/PostgreSQL | `ERROR at line 5, column 12` | ✅                      |
+| 通用 SQL         | `line 3 ... column 8`        | ✅                      |
+| SQLite           | `near "xxx" at line 2`       | ✅                      |
+| DuckDB           | `at position: 156`           | ✅ 字符偏移自动换算行列 |
 
 ### 行为
 
@@ -1361,10 +1362,10 @@ SQL 执行出错时，系统自动解析错误消息中的行列号，在 Monaco
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts#L560) | parseErrorPosition/setErrorMarker/clearErrorMarkers |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L740) | watch error → set/clear markers |
+| 文件                                                                                                                                                       | 职责                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts#L560)       | parseErrorPosition/setErrorMarker/clearErrorMarkers |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L740) | watch error → set/clear markers                     |
 
 ---
 
@@ -1382,22 +1383,22 @@ SQL 执行出错时，系统自动解析错误消息中的行列号，在 Monaco
 
 工具栏 Settings 齿轮按钮弹出设置面板，实时调整编辑器参数。
 
-| 设置项 | UI 控件 | 范围 | 初始值 |
-| ------ | ------- | ---- | ------ |
-| 字号 (Font Size) | NSlider | 10-28 | 14 |
-| 缩进 (Tab Size) | NInputNumber | 1-8 | 2 |
-| 自动换行 (Word Wrap) | NSwitch | on/off | ✅ on |
-| 行号 (Line Numbers) | NSwitch | on/off | ✅ on |
+| 设置项               | UI 控件      | 范围   | 初始值 |
+| -------------------- | ------------ | ------ | ------ |
+| 字号 (Font Size)     | NSlider      | 10-28  | 14     |
+| 缩进 (Tab Size)      | NInputNumber | 1-8    | 2      |
+| 自动换行 (Word Wrap) | NSwitch      | on/off | ✅ on  |
+| 行号 (Line Numbers)  | NSwitch      | on/off | ✅ on  |
 
 所有改动通过 `useMonacoEditor.updateOptions()` 实时生效。
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [useMonacoEditor.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useMonacoEditor.ts) | setFontSize/setWordWrap/setLineNumbers/setTabSize/setMinimap/setFontFamily |
-| [EditorToolbar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorToolbar.vue) | Map + Settings 按钮 |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | NPopover 面板 + toggle/minimap 函数 |
+| 文件                                                                                                                                                  | 职责                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [useMonacoEditor.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useMonacoEditor.ts)       | setFontSize/setWordWrap/setLineNumbers/setTabSize/setMinimap/setFontFamily |
+| [EditorToolbar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorToolbar.vue)   | Map + Settings 按钮                                                        |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | NPopover 面板 + toggle/minimap 函数                                        |
 
 ---
 
@@ -1413,10 +1414,10 @@ SQL 执行出错时，系统自动解析错误消息中的行列号，在 Monaco
 
 ```typescript
 // SqlEditorPanel.vue — 初始化时读取全局配置
-const editorFontSize = ref(appStore.effectiveEditorSettings.fontSize)     // 默认 14
-const editorTabSize = ref(appStore.effectiveEditorSettings.tabSize)       // 默认 2
-const editorWordWrap = ref(appStore.effectiveEditorSettings.wordWrap)     // 默认 true
-const showMinimap = ref(appStore.effectiveEditorSettings.minimap)         // 默认 true
+const editorFontSize = ref(appStore.effectiveEditorSettings.fontSize) // 默认 14
+const editorTabSize = ref(appStore.effectiveEditorSettings.tabSize) // 默认 2
+const editorWordWrap = ref(appStore.effectiveEditorSettings.wordWrap) // 默认 true
+const showMinimap = ref(appStore.effectiveEditorSettings.minimap) // 默认 true
 const editorLineNumbers = ref(appStore.effectiveEditorSettings.lineNumbers) // 默认 true
 const editorFontFamily = ref(appStore.effectiveEditorSettings.fontFamily) // 默认 'Cascadia Code', ...
 
@@ -1451,14 +1452,14 @@ function persistEditorSettings(): void {
 }
 ```
 
-| 操作 | 持久化时机 | 对应函数 |
-| ---- | ---------- | -------- |
-| 拖动字号 NSlider | `@update:value` | `applyFontSize()` |
-| 修改缩进 NInputNumber | `@update:value` | `applyTabSize()` |
-| 切换自动换行 NSwitch | `@update:value` | `applyWordWrap()` |
-| 切换行号 NSwitch | `@update:value` | `applyLineNumbers()` |
-| 切换 Minimap Map 按钮 | `@click` | `toggleMinimap()` |
-| 修改字体 NInput | `@update:value` | `applyFontFamily()` |
+| 操作                  | 持久化时机      | 对应函数             |
+| --------------------- | --------------- | -------------------- |
+| 拖动字号 NSlider      | `@update:value` | `applyFontSize()`    |
+| 修改缩进 NInputNumber | `@update:value` | `applyTabSize()`     |
+| 切换自动换行 NSwitch  | `@update:value` | `applyWordWrap()`    |
+| 切换行号 NSwitch      | `@update:value` | `applyLineNumbers()` |
+| 切换 Minimap Map 按钮 | `@click`        | `toggleMinimap()`    |
+| 修改字体 NInput       | `@update:value` | `applyFontFamily()`  |
 
 ### 存储结构
 
@@ -1485,23 +1486,23 @@ function persistEditorSettings(): void {
 
 编辑器设置的默认值定义在 [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) 的 `CONFIG_REGISTRY.editorSettings.default`：
 
-| 字段 | 默认值 |
-| ---- | ------ |
-| fontSize | 14 |
-| tabSize | 2 |
-| wordWrap | true |
-| minimap | true |
-| lineNumbers | true |
-| fontFamily | `'Cascadia Code', 'Fira Code', 'Consolas', monospace` |
+| 字段        | 默认值                                                |
+| ----------- | ----------------------------------------------------- |
+| fontSize    | 14                                                    |
+| tabSize     | 2                                                     |
+| wordWrap    | true                                                  |
+| minimap     | true                                                  |
+| lineNumbers | true                                                  |
+| fontFamily  | `'Cascadia Code', 'Fira Code', 'Consolas', monospace` |
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | EditorSettings 接口 + CONFIG_REGISTRY 默认值 |
-| [useAppStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useAppStore.ts) | effectiveEditorSettings 合并计算 + saveConfig API |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | 读写链路 + persistEditorSettings |
-| [useMonacoEditor.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useMonacoEditor.ts) | setFontFamily 等 6 个设置函数 |
+| 文件                                                                                                                                                  | 职责                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                                                              | EditorSettings 接口 + CONFIG_REGISTRY 默认值      |
+| [useAppStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useAppStore.ts)                                                    | effectiveEditorSettings 合并计算 + saveConfig API |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | 读写链路 + persistEditorSettings                  |
+| [useMonacoEditor.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useMonacoEditor.ts)       | setFontFamily 等 6 个设置函数                     |
 
 ---
 
@@ -1511,10 +1512,10 @@ function persistEditorSettings(): void {
 
 Monaco 编辑器内置右键菜单已扩展两个数据库工作台专属操作。
 
-| 菜单项 | 位置 | 功能 |
-| ------ | ---- | ---- |
-| **执行选中 SQL** | 顶部 navigation 分组 | 触发 `handleExecute()`，等效 Ctrl+Enter |
-| **复制为 VALUES** | 9_cutcopypaste 分组 | 选中内容包装为 `VALUES (...)` 并复制到剪贴板 |
+| 菜单项            | 位置                 | 功能                                         |
+| ----------------- | -------------------- | -------------------------------------------- |
+| **执行选中 SQL**  | 顶部 navigation 分组 | 触发 `handleExecute()`，等效 Ctrl+Enter      |
+| **复制为 VALUES** | 9_cutcopypaste 分组  | 选中内容包装为 `VALUES (...)` 并复制到剪贴板 |
 
 ### 实现
 
@@ -1562,10 +1563,10 @@ SQL 历史面板（SqlHistoryPanel）中双击任意历史条目，即刻在上�
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
+| 文件                                                                                                                                                    | 职责                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | [SqlHistoryPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlHistoryPanel.vue) | @dblclick → reExecuteHistory() |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | 监听 sql-history-re-execute |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue)   | 监听 sql-history-re-execute    |
 
 ---
 
@@ -1577,7 +1578,7 @@ SQL 历史面板（SqlHistoryPanel）中双击任意历史条目，即刻在上�
 
 ### 涉及文件
 
-| 文件 | 职责 |
-| ---- | ---- |
-| [EditorWelcome.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorWelcome.vue) | 连接列表渲染 + @connect emit |
-| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | handleWelcomeConnect() |
+| 文件                                                                                                                                                  | 职责                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| [EditorWelcome.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorWelcome.vue)   | 连接列表渲染 + @connect emit |
+| [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | handleWelcomeConnect()       |

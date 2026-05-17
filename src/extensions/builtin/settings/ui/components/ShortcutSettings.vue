@@ -16,18 +16,10 @@
     </div>
 
     <div class="shortcut-groups">
-      <div
-        v-for="group in filteredGroups"
-        :key="group.name"
-        class="settings-section"
-      >
+      <div v-for="group in filteredGroups" :key="group.name" class="settings-section">
         <h3>{{ group.name }}</h3>
         <div class="shortcut-list">
-          <div
-            v-for="item in group.items"
-            :key="item.key"
-            class="shortcut-row"
-          >
+          <div v-for="item in group.items" :key="item.key" class="shortcut-row">
             <div class="shortcut-desc">
               <span class="shortcut-label">{{ item.label }}</span>
             </div>
@@ -74,15 +66,27 @@ const shortcutGroups: ShortcutGroup[] = [
     name: t('settings.shortcutGroupGeneral'),
     items: [
       { key: 'settings', label: t('settings.shortcutOpenSettings'), keys: ['Ctrl', ','] },
-      { key: 'commandPalette', label: t('settings.shortcutCommandPalette'), keys: ['Ctrl', 'Shift', 'P'] },
-      { key: 'newConnection', label: t('settings.shortcutNewConnection'), keys: ['Ctrl', 'Shift', 'N'] },
+      {
+        key: 'commandPalette',
+        label: t('settings.shortcutCommandPalette'),
+        keys: ['Ctrl', 'Shift', 'P'],
+      },
+      {
+        key: 'newConnection',
+        label: t('settings.shortcutNewConnection'),
+        keys: ['Ctrl', 'Shift', 'N'],
+      },
     ],
   },
   {
     name: t('settings.shortcutGroupEditor'),
     items: [
       { key: 'execute', label: t('settings.shortcutExecute'), keys: ['Ctrl', 'Enter'] },
-      { key: 'executeAll', label: t('settings.shortcutExecuteAll'), keys: ['Ctrl', 'Shift', 'Enter'] },
+      {
+        key: 'executeAll',
+        label: t('settings.shortcutExecuteAll'),
+        keys: ['Ctrl', 'Shift', 'Enter'],
+      },
       { key: 'format', label: t('settings.shortcutFormat'), keys: ['Ctrl', 'Shift', 'F'] },
       { key: 'comment', label: t('settings.shortcutToggleComment'), keys: ['Ctrl', '/'] },
       { key: 'find', label: t('settings.shortcutFind'), keys: ['Ctrl', 'F'] },
@@ -107,9 +111,7 @@ const filteredGroups = computed(() => {
     .map(g => ({
       ...g,
       items: g.items.filter(
-        i =>
-          i.label.toLowerCase().includes(q) ||
-          i.keys.some(k => k.toLowerCase().includes(q)),
+        i => i.label.toLowerCase().includes(q) || i.keys.some(k => k.toLowerCase().includes(q))
       ),
     }))
     .filter(g => g.items.length > 0)

@@ -3,517 +3,700 @@
     <NConfigProvider :theme="naiveTheme">
       <NMessageProvider>
         <div
+          ref="scratchpadPanelRef"
           class="scratchpad-panel"
-        :class="{ 'dragover-active': isDragOver }"
-        :data-drop-hint="t('scratchpad.dragToImport')"
-        @dragover.prevent="handleDragOver"
-        @dragleave="handleDragLeave"
-        @drop.prevent="handleDrop"
-      >
-    <div class="explorer-titlebar" @dblclick="handleCollapseAll">
-      <h2 class="explorer-titlebar-label">{{ t('scratchpad.title') }}</h2>
-      <span class="explorer-titlebar-actions">
-        <button class="toolbar-btn" :disabled="isLoading" :title="t('scratchpad.import')" @click="handleImportFile">
-          <Upload :size="16" />
-        </button>
-        <button class="toolbar-btn" :disabled="isLoading" :title="t('scratchpad.reference')" @click="handleAddReference">
-          <FolderSymlink :size="16" />
-        </button>
-        <button class="toolbar-btn" :class="{ 'toolbar-btn-active': showExplorerFilter }" :title="t('scratchpad.search')" @click="toggleExplorerFilter">
-          <Search :size="16" />
-        </button>
-        <NDropdown trigger="click" placement="bottom-end" :options="moreMenuOptions" @select="handleMoreMenuSelect">
-          <button class="toolbar-btn" :title="t('scratchpad.more')">
-            <MoreVertical :size="16" />
-          </button>
-        </NDropdown>
-      </span>
-    </div>
-
-    <div class="scratchpad-explorer-body">
-      <div v-if="isLoading" class="loading-state">
-        <NSpin size="small" />
-      </div>
-
-      <div v-else-if="notInitialized" class="empty-state">
-        <div class="empty-icon-wrapper">
-          <FolderOpen :size="32" />
-        </div>
-        <div class="empty-title">{{ t('scratchpad.noProjectTitle') }}</div>
-        <div class="empty-hint">{{ t('scratchpad.noProjectHint') }}</div>
-      </div>
-
-      <div v-else-if="error" class="error-state">
-        <span class="error-text">{{ error }}</span>
-        <NButton size="tiny" @click="loadFiles">{{ t('scratchpad.retry') }}</NButton>
-      </div>
-
-      <div v-else-if="showExplorerFilter" class="search-panel">
-        <div class="search-panel-header">
-          <div class="search-input-wrapper">
-            <NInput v-model:value="searchQuery" size="small" :placeholder="t('scratchpad.search')" class="search-panel-input" />
-            <div class="search-toggle-buttons">
-              <button class="toggle-btn" :class="{ 'toggle-btn-active': caseSensitive }" :title="t('scratchpad.matchCase')" @click="caseSensitive = !caseSensitive">Aa</button>
-              <button class="toggle-btn" :class="{ 'toggle-btn-active': wholeWord }" :title="t('scratchpad.matchWholeWord')" @click="wholeWord = !wholeWord"><WholeWord :size="13" /></button>
-              <button class="toggle-btn" :class="{ 'toggle-btn-active': isRegex }" :title="t('scratchpad.useRegex')" @click="toggleRegex">.*</button>
-            </div>
+          :class="{ 'dragover-active': isDragOver }"
+          :data-drop-hint="t('scratchpad.dragToImport')"
+          @dragover.prevent="handleDragOver"
+          @dragleave="handleDragLeave"
+          @drop.prevent="handleDrop"
+        >
+          <div class="explorer-titlebar" @dblclick="handleCollapseAll">
+            <h2 class="explorer-titlebar-label">{{ t('scratchpad.title') }}</h2>
+            <span class="explorer-titlebar-actions">
+              <button
+                class="toolbar-btn"
+                :disabled="isLoading"
+                :title="t('scratchpad.import')"
+                @click="handleImportFile"
+              >
+                <Upload :size="16" />
+              </button>
+              <button
+                class="toolbar-btn"
+                :disabled="isLoading"
+                :title="t('scratchpad.reference')"
+                @click="handleAddReference"
+              >
+                <FolderSymlink :size="16" />
+              </button>
+              <button
+                class="toolbar-btn"
+                :class="{ 'toolbar-btn-active': showExplorerFilter }"
+                :title="t('scratchpad.search')"
+                @click="toggleExplorerFilter"
+              >
+                <Search :size="16" />
+              </button>
+              <NDropdown
+                trigger="click"
+                placement="bottom-end"
+                :options="moreMenuOptions"
+                @select="handleMoreMenuSelect"
+              >
+                <button class="toolbar-btn" :title="t('scratchpad.more')">
+                  <MoreVertical :size="16" />
+                </button>
+              </NDropdown>
+            </span>
           </div>
-          <button class="toolbar-btn" :title="t('scratchpad.closeSearch')" @click="toggleExplorerFilter"><X :size="14" /></button>
-        </div>
 
-        <div v-if="regexError" class="search-notice search-notice-error">
-          <NIcon size="14"><Info /></NIcon>
-          <span>{{ regexError }}</span>
-        </div>
+          <div class="scratchpad-explorer-body">
+            <div v-if="isLoading" class="loading-state">
+              <NSpin size="small" />
+            </div>
 
-        <div class="search-filter-toggle" @click="showSearchFilters = !showSearchFilters">
-          <NIcon size="12"><component :is="showSearchFilters ? ChevronDown : ChevronRight" /></NIcon>
-          <span>{{ t('scratchpad.filesToInclude') }}</span>
-        </div>
-        <div v-show="showSearchFilters" class="search-filters">
-          <NInput v-model:value="searchInclude" size="small" :placeholder="t('scratchpad.includePattern')" class="search-filter-input" />
-          <NInput v-model:value="searchExclude" size="small" :placeholder="t('scratchpad.excludePattern')" class="search-filter-input" />
-        </div>
-
-        <div v-if="showReplaceBar" class="search-replace-bar">
-          <NInput v-model:value="replaceWith" size="small" :placeholder="t('scratchpad.replaceWith')" class="search-replace-input" />
-          <NButton size="small" :loading="replaceInProgress" @click="handleReplaceAll">{{ t('scratchpad.replaceAll') }}</NButton>
-        </div>
-
-        <div v-if="searchQuery.trim()" class="search-results">
-          <div v-if="searchResult && searchResult.matches.length > 0">
-            <div v-for="[file, matches] in searchResultsByFile" :key="file" class="search-result-group">
-              <div class="search-result-file-header" @click="toggleSearchFileExpand(file)">
-                <NIcon size="12"><component :is="expandedSearchFiles.has(file) ? ChevronDown : ChevronRight" /></NIcon>
-                <NIcon size="14"><FileText /></NIcon>
-                <span class="search-result-file-name">{{ file }}</span>
-                <span class="search-result-match-count">{{ matches.length }}</span>
+            <div v-else-if="notInitialized" class="empty-state">
+              <div class="empty-icon-wrapper">
+                <FolderOpen :size="32" />
               </div>
-              <div v-show="expandedSearchFiles.has(file)" class="search-result-matches">
+              <div class="empty-title">{{ t('scratchpad.noProjectTitle') }}</div>
+              <div class="empty-hint">{{ t('scratchpad.noProjectHint') }}</div>
+            </div>
+
+            <div v-else-if="error" class="error-state">
+              <span class="error-text">{{ error }}</span>
+              <NButton size="tiny" @click="loadFiles">{{ t('scratchpad.retry') }}</NButton>
+            </div>
+
+            <div v-else-if="showExplorerFilter" class="search-panel">
+              <div class="search-panel-header">
+                <div class="search-input-wrapper">
+                  <NInput
+                    v-model:value="searchQuery"
+                    size="small"
+                    :placeholder="t('scratchpad.search')"
+                    class="search-panel-input"
+                  />
+                  <div class="search-toggle-buttons">
+                    <button
+                      class="toggle-btn"
+                      :class="{ 'toggle-btn-active': caseSensitive }"
+                      :title="t('scratchpad.matchCase')"
+                      @click="caseSensitive = !caseSensitive"
+                      >Aa</button
+                    >
+                    <button
+                      class="toggle-btn"
+                      :class="{ 'toggle-btn-active': wholeWord }"
+                      :title="t('scratchpad.matchWholeWord')"
+                      @click="wholeWord = !wholeWord"
+                      ><WholeWord :size="13"
+                    /></button>
+                    <button
+                      class="toggle-btn"
+                      :class="{ 'toggle-btn-active': isRegex }"
+                      :title="t('scratchpad.useRegex')"
+                      @click="toggleRegex"
+                      >.*</button
+                    >
+                  </div>
+                </div>
+                <button
+                  class="toolbar-btn"
+                  :title="t('scratchpad.closeSearch')"
+                  @click="toggleExplorerFilter"
+                  ><X :size="14"
+                /></button>
+              </div>
+
+              <div v-if="regexError" class="search-notice search-notice-error">
+                <NIcon size="14"><Info /></NIcon>
+                <span>{{ regexError }}</span>
+              </div>
+
+              <div class="search-filter-toggle" @click="showSearchFilters = !showSearchFilters">
+                <NIcon size="12"
+                  ><component :is="showSearchFilters ? ChevronDown : ChevronRight"
+                /></NIcon>
+                <span>{{ t('scratchpad.filesToInclude') }}</span>
+              </div>
+              <div v-show="showSearchFilters" class="search-filters">
+                <NInput
+                  v-model:value="searchInclude"
+                  size="small"
+                  :placeholder="t('scratchpad.includePattern')"
+                  class="search-filter-input"
+                />
+                <NInput
+                  v-model:value="searchExclude"
+                  size="small"
+                  :placeholder="t('scratchpad.excludePattern')"
+                  class="search-filter-input"
+                />
+              </div>
+
+              <div v-if="showReplaceBar" class="search-replace-bar">
+                <NInput
+                  v-model:value="replaceWith"
+                  size="small"
+                  :placeholder="t('scratchpad.replaceWith')"
+                  class="search-replace-input"
+                />
+                <NButton size="small" :loading="replaceInProgress" @click="handleReplaceAll">{{
+                  t('scratchpad.replaceAll')
+                }}</NButton>
+              </div>
+
+              <div v-if="searchQuery.trim()" class="search-results">
+                <div v-if="searchResult && searchResult.matches.length > 0">
+                  <div
+                    v-for="[file, matches] in searchResultsByFile"
+                    :key="file"
+                    class="search-result-group"
+                  >
+                    <div class="search-result-file-header" @click="toggleSearchFileExpand(file)">
+                      <NIcon size="12"
+                        ><component
+                          :is="expandedSearchFiles.has(file) ? ChevronDown : ChevronRight"
+                      /></NIcon>
+                      <NIcon size="14"><FileText /></NIcon>
+                      <span class="search-result-file-name">{{ file }}</span>
+                      <span class="search-result-match-count">{{ matches.length }}</span>
+                    </div>
+                    <div v-show="expandedSearchFiles.has(file)" class="search-result-matches">
+                      <div
+                        v-for="match in matches"
+                        :key="`${match.file}:${match.line_number}`"
+                        class="search-result-line"
+                        @click="handleSearchMatchClick(match)"
+                      >
+                        <span class="search-result-line-number">{{ match.line_number }}</span>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <span
+                          class="search-result-line-content"
+                          v-html="highlightSearchMatch(match)"
+                        ></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="searchQuery.trim()" class="search-no-results">
+                  <span>{{ t('scratchpad.noResults') }}</span>
+                </div>
+                <div v-if="resultsSummaryText" class="search-results-footer">
+                  {{ resultsSummaryText }}
+                </div>
+              </div>
+              <div v-else class="search-no-results">
+                <span>{{ t('scratchpad.typeToSearch') }}</span>
+              </div>
+            </div>
+
+            <div
+              v-else
+              ref="treeContainerRef"
+              class="tree-container"
+              @contextmenu.prevent="showBlankMenu($event)"
+            >
+              <div v-if="recentFileEntries.length > 0" class="pane-section">
                 <div
-                  v-for="match in matches"
-                  :key="`${match.file}:${match.line_number}`"
-                  class="search-result-line"
-                  @click="handleSearchMatchClick(match)"
+                  class="pane-section-header"
+                  @click="showRecent = !showRecent"
+                  @contextmenu.stop
                 >
-                  <span class="search-result-line-number">{{ match.line_number }}</span>
-                  <!-- eslint-disable-next-line vue/no-v-html -->
-                  <span class="search-result-line-content" v-html="highlightSearchMatch(match)"></span>
+                  <NIcon size="14">
+                    <component :is="showRecent ? ChevronDown : ChevronRight" />
+                  </NIcon>
+                  <NIcon size="14"><History /></NIcon>
+                  <h3 class="pane-section-title">{{ t('scratchpad.recentFiles') }}</h3>
+                  <span class="pane-section-actions">
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.newFile')"
+                      @click.stop="handleCreateFile"
+                      ><FilePlus :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.saveAll')"
+                      @click.stop="handleSaveAll"
+                      ><FileText :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.closeRecent')"
+                      @click.stop="handleCloseRecent"
+                      ><X :size="14"
+                    /></button>
+                  </span>
+                </div>
+                <div v-show="showRecent" class="pane-section-body">
+                  <div
+                    v-for="entry in recentFileEntries"
+                    :key="entry.path"
+                    class="recent-entry"
+                    @click="handleOpen(entry)"
+                  >
+                    <NIcon size="14"><FileText /></NIcon>
+                    <span class="recent-name">{{ entry.name }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pane-section pane-section-main" :style="getSectionFlexStyle('local')">
+                <div class="pane-section-header" @click="toggleGroup('local')" @contextmenu.stop>
+                  <NIcon size="14">
+                    <component :is="groupExpanded.local ? ChevronDown : ChevronRight" />
+                  </NIcon>
+                  <NIcon size="14"><Folder /></NIcon>
+                  <h3 class="pane-section-title">{{ t('scratchpad.localDrafts') }}</h3>
+                  <span class="pane-section-actions">
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.newFile')"
+                      @click.stop="handleCreateFile"
+                      ><FilePlus :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.newFolder')"
+                      @click.stop="handleCreateFolder"
+                      ><FolderPlus :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.import')"
+                      @click.stop="handleImportFile"
+                      ><Upload :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.collapseAll')"
+                      @click.stop="handleCollapseAll"
+                      ><ChevronsUpDown :size="14"
+                    /></button>
+                  </span>
+                </div>
+                <div v-show="groupExpanded.local" class="pane-section-body">
+                  <div
+                    v-if="isInlineCreateActive && inlineCreateParentPath === null"
+                    class="inline-tree-entry"
+                  >
+                    <NIcon size="14" class="node-icon">
+                      <component :is="inlineCreateIsFolder ? Folder : FileText" />
+                    </NIcon>
+                    <input
+                      ref="rootInlineInputRef"
+                      v-model="rootInlineCreateName"
+                      class="rename-input"
+                      :placeholder="
+                        inlineCreateIsFolder ? t('scratchpad.newFolder') : t('scratchpad.newFile')
+                      "
+                      @keyup.enter="commitRootInlineCreate"
+                      @keyup.escape="cancelRootInlineCreate"
+                      @click.stop
+                    />
+                  </div>
+                  <div
+                    v-if="filteredLocalEntries.length === 0 && inlineCreateParentPath !== null"
+                    class="empty-state"
+                  >
+                    <div class="empty-icon-wrapper">
+                      <NIcon size="32"><FolderOpen /></NIcon>
+                    </div>
+                    <span class="empty-title">{{ t('scratchpad.emptyScratchpad') }}</span>
+                    <span class="empty-hint">{{ t('scratchpad.emptyScratchpadHint') }}</span>
+                    <div class="empty-actions">
+                      <NButton size="small" type="primary" @click="handleCreateFile">
+                        <template #icon>
+                          <NIcon size="14"><FilePlus /></NIcon>
+                        </template>
+                        {{ t('scratchpad.newFile') }}
+                      </NButton>
+                      <NButton size="small" @click="handleImportFile">
+                        <template #icon>
+                          <NIcon size="14"><Upload /></NIcon>
+                        </template>
+                        {{ t('scratchpad.import') }}
+                      </NButton>
+                    </div>
+                  </div>
+                  <div
+                    v-if="useVirtualScrollEnabled"
+                    class="virtual-scroll-viewport"
+                    :style="{ height: virtualScrollTotalHeight + 'px' }"
+                  >
+                    <div
+                      class="virtual-scroll-spacer"
+                      :style="{ height: virtualScrollPaddingTop + 'px' }"
+                    />
+                    <ScratchpadTreeNode
+                      v-for="item in visibleTreeEntries"
+                      :key="item.entry.path"
+                      :entry="item.entry"
+                      :depth="item.depth"
+                      :expanded-keys="expandedKeys"
+                      :selected-key="selectedKey"
+                      :selected-keys="selectedKeys"
+                      :renaming-key="renamingKey"
+                      :inline-create-parent-path="inlineCreateParentPath"
+                      :inline-create-is-folder="inlineCreateIsFolder"
+                      :dirty-files="dirtyFiles"
+                      @select="handleSelect"
+                      @open="handleOpen"
+                      @contextmenu="showEntryMenu"
+                      @toggle-expand="handleToggleExpand"
+                      @start-rename="startRename"
+                      @finish-rename="finishRename"
+                      @cancel-rename="cancelRename"
+                      @drag-start="handleTreeNodeDragStart"
+                      @create-inline="confirmInlineCreate"
+                      @drop-file="handleNodeDrop"
+                    />
+                  </div>
+                  <template v-else>
+                    <ScratchpadTreeNode
+                      v-for="item in flattenedTree"
+                      :key="item.entry.path"
+                      :entry="item.entry"
+                      :depth="item.depth"
+                      :expanded-keys="expandedKeys"
+                      :selected-key="selectedKey"
+                      :selected-keys="selectedKeys"
+                      :renaming-key="renamingKey"
+                      :inline-create-parent-path="inlineCreateParentPath"
+                      :inline-create-is-folder="inlineCreateIsFolder"
+                      :dirty-files="dirtyFiles"
+                      @select="handleSelect"
+                      @open="handleOpen"
+                      @contextmenu="showEntryMenu"
+                      @toggle-expand="handleToggleExpand"
+                      @start-rename="startRename"
+                      @finish-rename="finishRename"
+                      @cancel-rename="cancelRename"
+                      @drag-start="handleTreeNodeDragStart"
+                      @create-inline="confirmInlineCreate"
+                      @drop-file="handleNodeDrop"
+                    />
+                  </template>
+                </div>
+              </div>
+
+              <div
+                v-if="groupExpanded.local && groupExpanded.external"
+                class="section-resize-handle"
+                :class="{ 'section-resize-active': resizing === 'local' }"
+                @mousedown="startResize('local', $event)"
+              ></div>
+
+              <div class="pane-section" :style="getSectionFlexStyle('external')">
+                <div class="pane-section-header" @click="toggleGroup('external')" @contextmenu.stop>
+                  <NIcon size="14">
+                    <component :is="groupExpanded.external ? ChevronDown : ChevronRight" />
+                  </NIcon>
+                  <NIcon size="14"><FolderSymlink /></NIcon>
+                  <h3 class="pane-section-title">{{ t('scratchpad.externalReferences') }}</h3>
+                  <span class="pane-section-actions">
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.reference')"
+                      @click.stop="handleAddReference"
+                      ><FolderSymlink :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.collapseAll')"
+                      @click.stop="toggleGroup('external')"
+                      ><ChevronsUpDown :size="14"
+                    /></button>
+                  </span>
+                </div>
+                <div v-show="groupExpanded.external" class="pane-section-body">
+                  <div v-if="externalReferences.length === 0" class="empty-hint">
+                    {{ t('scratchpad.noReferences') }}
+                  </div>
+                  <div
+                    v-for="extRef in externalReferences"
+                    :key="extRef.alias"
+                    class="ref-row"
+                    @click="handleRefClick(extRef)"
+                    @contextmenu.prevent="showRefMenu($event, extRef)"
+                  >
+                    <NIcon size="14">
+                      <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(extRef) }" />
+                    </NIcon>
+                    <span class="ref-name">{{ extRef.alias }}</span>
+                    <span
+                      :class="['ref-path', { 'ref-path-invalid': isRefInvalid(extRef) }]"
+                      :title="extRef.path"
+                      >{{ extRef.path }}</span
+                    >
+                    <span v-if="isRefInvalid(extRef)" class="ref-badge">{{
+                      t('scratchpad.invalid')
+                    }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="groupExpanded.external && showTrash"
+                class="section-resize-handle"
+                :class="{ 'section-resize-active': resizing === 'external' }"
+                @mousedown="startResize('external', $event)"
+              ></div>
+
+              <div class="pane-section" :style="getSectionFlexStyle('trash')">
+                <div class="pane-section-header" @click="toggleTrash" @contextmenu.stop>
+                  <NIcon size="14">
+                    <component :is="showTrash ? ChevronDown : ChevronRight" />
+                  </NIcon>
+                  <NIcon size="14"><Trash2 /></NIcon>
+                  <h3 class="pane-section-title">{{ t('scratchpad.trash') }}</h3>
+                  <span class="pane-section-actions">
+                    <button
+                      v-if="trashEntries.length > 0"
+                      class="toolbar-btn"
+                      :title="t('scratchpad.emptyTrash')"
+                      @click.stop="handleEmptyTrash"
+                      ><X :size="14"
+                    /></button>
+                    <button
+                      class="toolbar-btn"
+                      :title="t('scratchpad.collapseAll')"
+                      @click.stop="toggleTrash"
+                      ><ChevronsUpDown :size="14"
+                    /></button>
+                  </span>
+                </div>
+                <div v-show="showTrash" class="pane-section-body">
+                  <div v-if="trashEntries.length === 0" class="empty-hint">
+                    {{ t('scratchpad.noTrashItems') }}
+                  </div>
+                  <div v-for="item in trashEntries" :key="item.path" class="ref-row">
+                    <NIcon size="14"><FileText /></NIcon>
+                    <span class="ref-name">{{ item.name }}</span>
+                    <span class="ref-path" :title="item.path">{{ item.path }}</span>
+                    <NButton
+                      size="tiny"
+                      quaternary
+                      type="primary"
+                      @click.stop="handleRestore(item.name)"
+                    >
+                      {{ t('scratchpad.restoreFromTrash') }}
+                    </NButton>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          <div v-else-if="searchQuery.trim()" class="search-no-results">
-            <span>{{ t('scratchpad.noResults') }}</span>
-          </div>
-          <div v-if="resultsSummaryText" class="search-results-footer">
-            {{ resultsSummaryText }}
-          </div>
-        </div>
-        <div v-else class="search-no-results">
-          <span>{{ t('scratchpad.typeToSearch') }}</span>
-        </div>
-      </div>
 
-      <div v-else ref="treeContainerRef" class="tree-container" @contextmenu.prevent="showBlankMenu($event)">
-        <div v-if="recentFileEntries.length > 0" class="pane-section">
-          <div class="pane-section-header" @click="showRecent = !showRecent" @contextmenu.stop>
-            <NIcon size="14">
-              <component :is="showRecent ? ChevronDown : ChevronRight" />
-            </NIcon>
-            <NIcon size="14"><History /></NIcon>
-            <h3 class="pane-section-title">{{ t('scratchpad.recentFiles') }}</h3>
-            <span class="pane-section-actions">
-              <button class="toolbar-btn" :title="t('scratchpad.newFile')" @click.stop="handleCreateFile"><FilePlus :size="14" /></button>
-              <button class="toolbar-btn" :title="t('scratchpad.saveAll')" @click.stop="handleSaveAll"><FileText :size="14" /></button>
-              <button class="toolbar-btn" :title="t('scratchpad.closeRecent')" @click.stop="handleCloseRecent"><X :size="14" /></button>
-            </span>
-          </div>
-          <div v-show="showRecent" class="pane-section-body">
-            <div v-for="entry in recentFileEntries" :key="entry.path" class="recent-entry" @click="handleOpen(entry)">
-              <NIcon size="14"><FileText /></NIcon>
-              <span class="recent-name">{{ entry.name }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="pane-section pane-section-main" :style="getSectionFlexStyle('local')">
-          <div class="pane-section-header" @click="toggleGroup('local')" @contextmenu.stop>
-            <NIcon size="14">
-              <component :is="groupExpanded.local ? ChevronDown : ChevronRight" />
-            </NIcon>
-            <NIcon size="14"><Folder /></NIcon>
-            <h3 class="pane-section-title">{{ t('scratchpad.localDrafts') }}</h3>
-            <span class="pane-section-actions">
-              <button class="toolbar-btn" :title="t('scratchpad.newFile')" @click.stop="handleCreateFile"><FilePlus :size="14" /></button>
-              <button class="toolbar-btn" :title="t('scratchpad.newFolder')" @click.stop="handleCreateFolder"><FolderPlus :size="14" /></button>
-              <button class="toolbar-btn" :title="t('scratchpad.import')" @click.stop="handleImportFile"><Upload :size="14" /></button>
-              <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="handleCollapseAll"><ChevronsUpDown :size="14" /></button>
-            </span>
-          </div>
-        <div v-show="groupExpanded.local" class="pane-section-body">
-          <div v-if="isInlineCreateActive && inlineCreateParentPath === null" class="inline-tree-entry">
-            <NIcon size="14" class="node-icon">
-              <component :is="inlineCreateIsFolder ? Folder : FileText" />
-            </NIcon>
-            <input
-              ref="rootInlineInputRef"
-              v-model="rootInlineCreateName"
-              class="rename-input"
-              :placeholder="inlineCreateIsFolder ? t('scratchpad.newFolder') : t('scratchpad.newFile')"
-              @keyup.enter="commitRootInlineCreate"
-              @keyup.escape="cancelRootInlineCreate"
-              @blur="commitRootInlineCreate"
-              @click.stop
-            />
-          </div>
-          <div v-if="filteredLocalEntries.length === 0 && inlineCreateParentPath !== null" class="empty-state">
-            <div class="empty-icon-wrapper">
-              <NIcon size="32"><FolderOpen /></NIcon>
-            </div>
-            <span class="empty-title">{{ t('scratchpad.emptyScratchpad') }}</span>
-            <span class="empty-hint">{{ t('scratchpad.emptyScratchpadHint') }}</span>
-            <div class="empty-actions">
-              <NButton size="small" type="primary" @click="handleCreateFile">
-                <template #icon>
-                  <NIcon size="14"><FilePlus /></NIcon>
+          <NModal v-model:show="showRefModal" :mask-closable="false" style="max-width: 520px">
+            <NConfigProvider :theme="naiveTheme">
+              <NCard
+                :title="t('scratchpad.addReference')"
+                size="small"
+                :content-style="{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--spacing-md)',
+                }"
+              >
+                <div class="modal-field">
+                  <label class="modal-label">{{ t('scratchpad.aliasLabel') }}</label>
+                  <NInput
+                    v-model:value="newRefAlias"
+                    :placeholder="t('scratchpad.aliasPlaceholder')"
+                  />
+                </div>
+                <div class="modal-field">
+                  <label class="modal-label">{{ t('scratchpad.pathLabel') }}</label>
+                  <div class="modal-input-row">
+                    <NInput
+                      v-model:value="newRefPath"
+                      :placeholder="t('scratchpad.pathPlaceholder')"
+                      class="modal-input"
+                    />
+                    <NButton size="small" @click="browseRefPath">
+                      <template #icon>
+                        <NIcon><FolderOpen /></NIcon>
+                      </template>
+                      {{ t('scratchpad.browse') }}
+                    </NButton>
+                  </div>
+                </div>
+                <template #footer>
+                  <div class="modal-actions">
+                    <NButton size="small" @click="showRefModal = false">{{
+                      t('common.cancel')
+                    }}</NButton>
+                    <NButton
+                      size="small"
+                      type="primary"
+                      :disabled="!newRefAlias.trim() || !newRefPath.trim()"
+                      @click="confirmAddReference"
+                      >{{ t('common.confirm') }}</NButton
+                    >
+                  </div>
                 </template>
-                {{ t('scratchpad.newFile') }}
-              </NButton>
-              <NButton size="small" @click="handleImportFile">
-                <template #icon>
-                  <NIcon size="14"><Upload /></NIcon>
+              </NCard>
+            </NConfigProvider>
+          </NModal>
+
+          <NModal v-model:show="showPromoteConfirm" :mask-closable="false" style="max-width: 460px">
+            <NConfigProvider :theme="naiveTheme">
+              <NCard size="small">
+                <template #header>
+                  <div class="modal-header-row">
+                    <NIcon size="20" color="var(--brand-accent)"><Info /></NIcon>
+                    <span class="modal-header-title">{{ t('scratchpad.promoteToResource') }}</span>
+                  </div>
                 </template>
-                {{ t('scratchpad.import') }}
-              </NButton>
+                <template v-if="promoteTarget">
+                  {{ t('scratchpad.promoteToResourceConfirm', { name: promoteTarget.name }) }}
+                </template>
+                <template #footer>
+                  <div class="modal-actions">
+                    <NButton size="small" @click="showPromoteConfirm = false">{{
+                      t('common.cancel')
+                    }}</NButton>
+                    <NButton size="small" @click="handlePromoteConfirm(true)">{{
+                      t('scratchpad.promoteDeleteDraft')
+                    }}</NButton>
+                    <NButton size="small" type="primary" @click="handlePromoteConfirm(false)">{{
+                      t('scratchpad.promoteKeepDraft')
+                    }}</NButton>
+                  </div>
+                </template>
+              </NCard>
+            </NConfigProvider>
+          </NModal>
+
+          <NModal v-model:show="showConflictDialog" :mask-closable="false" style="max-width: 480px">
+            <NConfigProvider :theme="naiveTheme">
+              <NCard size="small">
+                <template #header>
+                  <div class="modal-header-row">
+                    <NIcon size="20" color="var(--brand-warning)"><Info /></NIcon>
+                    <span class="modal-header-title">{{ t('scratchpad.conflictDetected') }}</span>
+                  </div>
+                </template>
+                <template v-if="conflictFilePath">
+                  <div class="conflict-message">
+                    <p>{{ t('scratchpad.conflictMessage1', { path: conflictFilePath }) }}</p>
+                    <p>{{ t('scratchpad.conflictMessage2') }}</p>
+                  </div>
+                  <div class="conflict-actions">
+                    <NButton size="small" type="info" @click="handleConflictDiff">
+                      {{ t('scratchpad.viewDiff') }}
+                    </NButton>
+                  </div>
+                </template>
+                <template #footer>
+                  <div class="modal-actions">
+                    <NButton size="small" @click="handleConflictIgnore">{{
+                      t('scratchpad.ignoreAction')
+                    }}</NButton>
+                    <NButton size="small" type="primary" @click="handleConflictReload">{{
+                      t('scratchpad.reloadAction')
+                    }}</NButton>
+                  </div>
+                </template>
+              </NCard>
+            </NConfigProvider>
+          </NModal>
+
+          <NModal
+            v-model:show="showDiffDialog"
+            :title="t('scratchpad.diffView')"
+            preset="card"
+            class="diff-modal"
+            :mask-closable="false"
+          >
+            <template #header-extra>
+              <NButton size="small" @click="handleDiffClose">{{ t('common.back') }}</NButton>
+            </template>
+            <div v-if="diffResult" class="diff-container">
+              <div class="diff-labels">
+                <span class="diff-label-left">{{ diffLeftLabel }}</span>
+                <span class="diff-label-right">{{ diffRightLabel }}</span>
+              </div>
+              <div class="diff-lines">
+                <div
+                  v-for="(line, idx) in diffResult.lines"
+                  :key="idx"
+                  :class="['diff-line', `diff-${line.kind}`]"
+                >
+                  <span class="diff-line-num diff-num-left">{{ line.line_number_left || '' }}</span>
+                  <span class="diff-line-num diff-num-right">{{
+                    line.line_number_right || ''
+                  }}</span>
+                  <span class="diff-line-content">{{ line.content }}</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div
-            v-if="useVirtualScrollEnabled"
-            class="virtual-scroll-viewport"
-            :style="{ height: virtualScrollTotalHeight + 'px' }"
-          >
-            <div class="virtual-scroll-spacer" :style="{ height: virtualScrollPaddingTop + 'px' }" />
-            <ScratchpadTreeNode
-              v-for="item in visibleTreeEntries"
-              :key="item.entry.path"
-              :entry="item.entry"
-              :depth="item.depth"
-              :expanded-keys="expandedKeys"
-              :selected-key="selectedKey"
-              :selected-keys="selectedKeys"
-              :renaming-key="renamingKey"
-              :inline-create-parent-path="inlineCreateParentPath"
-              :inline-create-is-folder="inlineCreateIsFolder"
-              :dirty-files="dirtyFiles"
-              @select="handleSelect"
-              @open="handleOpen"
-              @contextmenu="showEntryMenu"
-              @toggle-expand="handleToggleExpand"
-              @start-rename="startRename"
-              @finish-rename="finishRename"
-              @cancel-rename="cancelRename"
-              @drag-start="handleTreeNodeDragStart"
-              @create-inline="confirmInlineCreate"
-              @drop-file="handleNodeDrop"
-            />
-          </div>
-          <template v-else>
-            <ScratchpadTreeNode
-              v-for="item in flattenedTree"
-              :key="item.entry.path"
-              :entry="item.entry"
-              :depth="item.depth"
-              :expanded-keys="expandedKeys"
-              :selected-key="selectedKey"
-              :selected-keys="selectedKeys"
-              :renaming-key="renamingKey"
-              :inline-create-parent-path="inlineCreateParentPath"
-              :inline-create-is-folder="inlineCreateIsFolder"
-              :dirty-files="dirtyFiles"
-              @select="handleSelect"
-              @open="handleOpen"
-              @contextmenu="showEntryMenu"
-              @toggle-expand="handleToggleExpand"
-              @start-rename="startRename"
-              @finish-rename="finishRename"
-              @cancel-rename="cancelRename"
-              @drag-start="handleTreeNodeDragStart"
-              @create-inline="confirmInlineCreate"
-              @drop-file="handleNodeDrop"
-            />
-          </template>
-        </div>
-      </div>
+            <template #footer>
+              <NButton size="small" @click="handleDiffClose">{{ t('common.close') }}</NButton>
+              <NButton size="small" type="info" @click="handleDiffAcceptRight">
+                {{ t('scratchpad.acceptRight') }}
+              </NButton>
+            </template>
+          </NModal>
 
-      <div
-        v-if="groupExpanded.local && groupExpanded.external"
-        class="section-resize-handle"
-        :class="{ 'section-resize-active': resizing === 'local' }"
-        @mousedown="startResize('local', $event)"
-      ></div>
-
-      <div class="pane-section" :style="getSectionFlexStyle('external')">
-        <div class="pane-section-header" @click="toggleGroup('external')" @contextmenu.stop>
-          <NIcon size="14">
-            <component :is="groupExpanded.external ? ChevronDown : ChevronRight" />
-          </NIcon>
-          <NIcon size="14"><FolderSymlink /></NIcon>
-          <h3 class="pane-section-title">{{ t('scratchpad.externalReferences') }}</h3>
-          <span class="pane-section-actions">
-            <button class="toolbar-btn" :title="t('scratchpad.reference')" @click.stop="handleAddReference"><FolderSymlink :size="14" /></button>
-            <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="toggleGroup('external')"><ChevronsUpDown :size="14" /></button>
-          </span>
-        </div>
-        <div v-show="groupExpanded.external" class="pane-section-body">
-          <div v-if="externalReferences.length === 0" class="empty-hint">
-            {{ t('scratchpad.noReferences') }}
+          <div v-if="moveUndoVisible" class="undo-bar move-undo-bar">
+            <span class="undo-text">{{
+              t('scratchpad.undoMoveHint', { name: moveUndoName })
+            }}</span>
+            <NButton size="tiny" type="primary" quaternary @click="handleMoveUndo">
+              {{ t('scratchpad.undo') }}
+            </NButton>
+            <NButton size="tiny" quaternary @click="dismissMoveUndo">
+              <template #icon>
+                <NIcon size="12"><X /></NIcon>
+              </template>
+            </NButton>
           </div>
-          <div
-            v-for="extRef in externalReferences"
-            :key="extRef.alias"
-            class="ref-row"
-            @click="handleRefClick(extRef)"
-            @contextmenu.prevent="showRefMenu($event, extRef)"
-          >
-            <NIcon size="14">
-              <FolderSymlink :class="{ 'ref-invalid': isRefInvalid(extRef) }" />
-            </NIcon>
-            <span class="ref-name">{{ extRef.alias }}</span>
-            <span
-              :class="['ref-path', { 'ref-path-invalid': isRefInvalid(extRef) }]"
-              :title="extRef.path"
-              >{{ extRef.path }}</span
-            >
-            <span v-if="isRefInvalid(extRef)" class="ref-badge">{{ t('scratchpad.invalid') }}</span>
-          </div>
-        </div>
-      </div>
 
-      <div
-        v-if="groupExpanded.external && showTrash"
-        class="section-resize-handle"
-        :class="{ 'section-resize-active': resizing === 'external' }"
-        @mousedown="startResize('external', $event)"
-      ></div>
+          <Teleport to="body">
+            <Transition name="context-menu-fade">
+              <div
+                v-if="contextMenu.visible"
+                class="scratchpad-context-menu"
+                :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+              >
+                <template v-for="item in contextMenu.items" :key="item.key">
+                  <div v-if="item.type === 'divider'" class="menu-divider" />
+                  <div
+                    v-else
+                    :class="[
+                      'menu-item',
+                      { 'menu-item-danger': item.danger, 'menu-item-disabled': item.disabled },
+                    ]"
+                    @click="!item.disabled && handleMenuAction(item.key)"
+                  >
+                    <NIcon v-if="item.icon" size="14"><component :is="item.icon" /></NIcon>
+                    <span>{{ item.label }}</span>
+                    <span v-if="item.shortcut" class="menu-shortcut">{{ item.shortcut }}</span>
+                  </div>
+                </template>
+              </div>
+            </Transition>
+          </Teleport>
 
-      <div class="pane-section" :style="getSectionFlexStyle('trash')">
-        <div class="pane-section-header" @click="toggleTrash" @contextmenu.stop>
-          <NIcon size="14">
-            <component :is="showTrash ? ChevronDown : ChevronRight" />
-          </NIcon>
-          <NIcon size="14"><Trash2 /></NIcon>
-          <h3 class="pane-section-title">{{ t('scratchpad.trash') }}</h3>
-          <span class="pane-section-actions">
-            <button v-if="trashEntries.length > 0" class="toolbar-btn" :title="t('scratchpad.emptyTrash')" @click.stop="handleEmptyTrash"><X :size="14" /></button>
-            <button class="toolbar-btn" :title="t('scratchpad.collapseAll')" @click.stop="toggleTrash"><ChevronsUpDown :size="14" /></button>
-          </span>
-        </div>
-        <div v-show="showTrash" class="pane-section-body">
-          <div v-if="trashEntries.length === 0" class="empty-hint">
-            {{ t('scratchpad.noTrashItems') }}
-          </div>
-          <div
-            v-for="item in trashEntries"
-            :key="item.path"
-            class="ref-row"
-          >
-            <NIcon size="14"><FileText /></NIcon>
-            <span class="ref-name">{{ item.name }}</span>
-            <span class="ref-path" :title="item.path">{{ item.path }}</span>
-            <NButton
-              size="tiny"
-              quaternary
-              type="primary"
-              @click.stop="handleRestore(item.name)"
-            >
-              {{ t('scratchpad.restoreFromTrash') }}
+          <div v-if="undoState.visible" class="undo-bar">
+            <span class="undo-text">{{
+              t('scratchpad.undoDeleteHint', { name: undoState.name })
+            }}</span>
+            <NButton size="tiny" type="primary" quaternary @click="handleUndoDelete">
+              {{ t('scratchpad.undo') }}
+            </NButton>
+            <NButton size="tiny" quaternary @click="dismissUndo">
+              <template #icon>
+                <NIcon size="12"><X /></NIcon>
+              </template>
             </NButton>
           </div>
         </div>
-      </div>
-    </div>
-
-    </div>
-
-    <NModal v-model:show="showRefModal" :mask-closable="false" style="max-width: 520px">
-      <NConfigProvider :theme="naiveTheme">
-        <NCard :title="t('scratchpad.addReference')" size="small" :content-style="{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }">
-            <div class="modal-field">
-              <label class="modal-label">{{ t('scratchpad.aliasLabel') }}</label>
-              <NInput
-                v-model:value="newRefAlias"
-                :placeholder="t('scratchpad.aliasPlaceholder')"
-              />
-            </div>
-            <div class="modal-field">
-              <label class="modal-label">{{ t('scratchpad.pathLabel') }}</label>
-              <div class="modal-input-row">
-                <NInput
-                  v-model:value="newRefPath"
-                  :placeholder="t('scratchpad.pathPlaceholder')"
-                  class="modal-input"
-                />
-                <NButton size="small" @click="browseRefPath">
-                  <template #icon>
-                    <NIcon><FolderOpen /></NIcon>
-                  </template>
-                  {{ t('scratchpad.browse') }}
-                </NButton>
-              </div>
-            </div>
-          <template #footer>
-            <div class="modal-actions">
-              <NButton size="small" @click="showRefModal = false">{{ t('common.cancel') }}</NButton>
-              <NButton
-                size="small"
-                type="primary"
-                :disabled="!newRefAlias.trim() || !newRefPath.trim()"
-                @click="confirmAddReference"
-                >{{ t('common.confirm') }}</NButton
-              >
-            </div>
-          </template>
-        </NCard>
-      </NConfigProvider>
-    </NModal>
-
-    <NModal v-model:show="showPromoteConfirm" :mask-closable="false" style="max-width: 460px">
-      <NConfigProvider :theme="naiveTheme">
-        <NCard size="small">
-          <template #header>
-            <div class="modal-header-row">
-              <NIcon size="20" color="var(--brand-accent)"><Info /></NIcon>
-              <span class="modal-header-title">{{ t('scratchpad.promoteToResource') }}</span>
-            </div>
-          </template>
-          <template v-if="promoteTarget">
-            {{ t('scratchpad.promoteToResourceConfirm', { name: promoteTarget.name }) }}
-          </template>
-          <template #footer>
-            <div class="modal-actions">
-              <NButton size="small" @click="showPromoteConfirm = false">{{ t('common.cancel') }}</NButton>
-              <NButton size="small" @click="handlePromoteConfirm(true)">{{ t('scratchpad.promoteDeleteDraft') }}</NButton>
-              <NButton size="small" type="primary" @click="handlePromoteConfirm(false)">{{ t('scratchpad.promoteKeepDraft') }}</NButton>
-            </div>
-          </template>
-        </NCard>
-      </NConfigProvider>
-    </NModal>
-
-    <NModal v-model:show="showConflictDialog" :mask-closable="false" style="max-width: 480px">
-      <NConfigProvider :theme="naiveTheme">
-        <NCard size="small">
-          <template #header>
-            <div class="modal-header-row">
-              <NIcon size="20" color="var(--brand-warning)"><Info /></NIcon>
-              <span class="modal-header-title">{{ t('scratchpad.conflictDetected') }}</span>
-            </div>
-          </template>
-          <template v-if="conflictFilePath">
-            <div class="conflict-message">
-              <p>{{ t('scratchpad.conflictMessage1', { path: conflictFilePath }) }}</p>
-              <p>{{ t('scratchpad.conflictMessage2') }}</p>
-            </div>
-            <div class="conflict-actions">
-              <NButton size="small" type="info" @click="handleConflictDiff">
-                {{ t('scratchpad.viewDiff') }}
-              </NButton>
-            </div>
-          </template>
-          <template #footer>
-            <div class="modal-actions">
-              <NButton size="small" @click="handleConflictIgnore">{{ t('scratchpad.ignoreAction') }}</NButton>
-              <NButton size="small" type="primary" @click="handleConflictReload">{{ t('scratchpad.reloadAction') }}</NButton>
-            </div>
-          </template>
-        </NCard>
-      </NConfigProvider>
-    </NModal>
-
-    <NModal
-      v-model:show="showDiffDialog"
-      :title="t('scratchpad.diffView')"
-      preset="card"
-      class="diff-modal"
-      :mask-closable="false"
-    >
-      <template #header-extra>
-        <NButton size="small" @click="handleDiffClose">{{ t('common.back') }}</NButton>
-      </template>
-      <div v-if="diffResult" class="diff-container">
-        <div class="diff-labels">
-          <span class="diff-label-left">{{ diffLeftLabel }}</span>
-          <span class="diff-label-right">{{ diffRightLabel }}</span>
-        </div>
-        <div class="diff-lines">
-          <div
-            v-for="(line, idx) in diffResult.lines"
-            :key="idx"
-            :class="['diff-line', `diff-${line.kind}`]"
-          >
-            <span class="diff-line-num diff-num-left">{{ line.line_number_left || '' }}</span>
-            <span class="diff-line-num diff-num-right">{{ line.line_number_right || '' }}</span>
-            <span class="diff-line-content">{{ line.content }}</span>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <NButton size="small" @click="handleDiffClose">{{ t('common.close') }}</NButton>
-        <NButton size="small" type="info" @click="handleDiffAcceptRight">
-          {{ t('scratchpad.acceptRight') }}
-        </NButton>
-      </template>
-    </NModal>
-
-    <div v-if="moveUndoVisible" class="undo-bar move-undo-bar">
-      <span class="undo-text">{{ t('scratchpad.undoMoveHint', { name: moveUndoName }) }}</span>
-      <NButton size="tiny" type="primary" quaternary @click="handleMoveUndo">
-        {{ t('scratchpad.undo') }}
-      </NButton>
-      <NButton size="tiny" quaternary @click="dismissMoveUndo">
-        <template #icon>
-          <NIcon size="12"><X /></NIcon>
-        </template>
-      </NButton>
-    </div>
-
-    <Transition name="context-menu-fade">
-      <div
-        v-if="contextMenu.visible"
-        class="scratchpad-context-menu"
-        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-      >
-      <template
-        v-for="item in contextMenu.items"
-        :key="item.key"
-      >
-        <div v-if="item.type === 'divider'" class="menu-divider" />
-        <div
-          v-else
-          :class="['menu-item', { 'menu-item-danger': item.danger, 'menu-item-disabled': item.disabled }]"
-          @click="!item.disabled && handleMenuAction(item.key)"
-        >
-          <NIcon v-if="item.icon" size="14"><component :is="item.icon" /></NIcon>
-          <span>{{ item.label }}</span>
-          <span v-if="item.shortcut" class="menu-shortcut">{{ item.shortcut }}</span>
-        </div>
-      </template>
-    </div>
-    </Transition>
-
-    <div v-if="undoState.visible" class="undo-bar">
-      <span class="undo-text">{{ t('scratchpad.undoDeleteHint', { name: undoState.name }) }}</span>
-      <NButton size="tiny" type="primary" quaternary @click="handleUndoDelete">
-        {{ t('scratchpad.undo') }}
-      </NButton>
-      <NButton size="tiny" quaternary @click="dismissUndo">
-        <template #icon>
-          <NIcon size="12"><X /></NIcon>
-        </template>
-      </NButton>
-    </div>
-  </div>
       </NMessageProvider>
     </NConfigProvider>
   </div>
@@ -540,7 +723,20 @@ import {
   MoreVertical,
   WholeWord,
 } from 'lucide-vue-next'
-import { NButton, NIcon, NInput, NSpin, NModal, NCard, NDropdown, createDiscreteApi, NConfigProvider, NMessageProvider, darkTheme, lightTheme } from 'naive-ui'
+import {
+  NButton,
+  NIcon,
+  NInput,
+  NSpin,
+  NModal,
+  NCard,
+  NDropdown,
+  createDiscreteApi,
+  NConfigProvider,
+  NMessageProvider,
+  darkTheme,
+  lightTheme,
+} from 'naive-ui'
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -553,7 +749,14 @@ import { useContextMenu } from '../composables/useContextMenu'
 import { useFileActions } from '../composables/useFileActions'
 import { useKeyboard } from '../composables/useKeyboard'
 
-import type { ScratchpadChangeEvent, ScratchpadEntry, ExternalReference, SearchMatch, SearchResult, DiffResult } from '../../types'
+import type {
+  ScratchpadChangeEvent,
+  ScratchpadEntry,
+  ExternalReference,
+  SearchMatch,
+  SearchResult,
+  DiffResult,
+} from '../../types'
 import type { ScratchpadApi } from '../composables/useFileActions'
 
 const { t } = useI18n()
@@ -692,14 +895,30 @@ const moreMenuOptions = computed(() => [
 
 function handleMoreMenuSelect(key: string): void {
   switch (key) {
-    case 'newFile': handleCreateFile(); break
-    case 'newFolder': handleCreateFolder(); break
-    case 'refresh': loadFiles(); break
-    case 'sortName': toggleSort('name'); break
-    case 'sortSize': toggleSort('size'); break
-    case 'sortModified': toggleSort('modified'); break
-    case 'expandAll': handleExpandAll(); break
-    case 'collapseAll': handleCollapseAll(); break
+    case 'newFile':
+      handleCreateFile()
+      break
+    case 'newFolder':
+      handleCreateFolder()
+      break
+    case 'refresh':
+      loadFiles()
+      break
+    case 'sortName':
+      toggleSort('name')
+      break
+    case 'sortSize':
+      toggleSort('size')
+      break
+    case 'sortModified':
+      toggleSort('modified')
+      break
+    case 'expandAll':
+      handleExpandAll()
+      break
+    case 'collapseAll':
+      handleCollapseAll()
+      break
   }
 }
 
@@ -782,7 +1001,7 @@ const contentResults = computed(() => {
   return grouped
 })
 
-watch(searchQuery, async (val) => {
+watch(searchQuery, async val => {
   if (!contentSearchMode.value) return
   if (contentSearchTimer) clearTimeout(contentSearchTimer)
   if (!val.trim()) {
@@ -795,7 +1014,7 @@ watch(searchQuery, async (val) => {
   }, 300)
 })
 
-watch(searchResult, (sr) => {
+watch(searchResult, sr => {
   if (sr && sr.matches.length > 0) {
     const files = new Set(sr.matches.map(m => m.file))
     expandedSearchFiles.value = new Set(files)
@@ -813,12 +1032,14 @@ const recentFileEntries = computed(() => {
   if (recentFiles.value.length === 0) return []
   const scratchpadBase = scratchpadPath.value || ''
   return recentFiles.value
-    .map(rp => localEntries.value.find(e => {
-      const relPath = scratchpadBase
-        ? e.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
-        : e.path
-      return relPath === rp
-    }))
+    .map(rp =>
+      localEntries.value.find(e => {
+        const relPath = scratchpadBase
+          ? e.path.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '')
+          : e.path
+        return relPath === rp
+      })
+    )
     .filter((e): e is ScratchpadEntry => !!e)
 })
 
@@ -828,7 +1049,7 @@ function addRecentFile(relativePath: string): void {
   recentFiles.value = list.slice(0, MAX_RECENT)
 }
 
-watch(searchQuery, async (val) => {
+watch(searchQuery, async val => {
   if (isRegex.value) {
     const result = validateRegex(val || '')
     regexError.value = result.error
@@ -852,9 +1073,7 @@ async function handleReplaceAll(): Promise<void> {
   }
   replaceInProgress.value = false
   if (totalReplaced > 0) {
-    message.success(
-      t('scratchpad.replaceSuccess', { files: totalFiles, count: totalReplaced })
-    )
+    message.success(t('scratchpad.replaceSuccess', { files: totalFiles, count: totalReplaced }))
     const result = await searchContent(q, caseSensitive.value)
     searchResult.value = result
   } else {
@@ -922,12 +1141,33 @@ const OVERSCAN = 8
 const VIRTUAL_SCROLL_THRESHOLD = 50
 
 const treeContainerRef = ref<HTMLElement | null>(null)
+const scratchpadPanelRef = ref<HTMLElement | null>(null)
 const treeScrollTop = ref(0)
 const treeContainerHeight = ref(0)
 
-const flattenedTree = computed(() =>
-  flattenVisibleEntries(filteredLocalEntries.value, expandedKeys.value)
-)
+const flattenedTree = computed(() => {
+   const tree = flattenVisibleEntries(filteredLocalEntries.value, expandedKeys.value)
+   const seen = new Map<string, number>()
+   for (const item of tree) {
+     const key = normalizePathForCompare(item.entry.path)
+     seen.set(key, (seen.get(key) || 0) + 1)
+   }
+   for (const [key, count] of seen) {
+     if (count > 1) {
+       console.warn('[flattenedTree] DUPLICATE across levels! path:', key, 'count:', count, 'entries:',
+         tree.filter(i => normalizePathForCompare(i.entry.path) === key).map(i => ({ name: i.entry.name, kind: i.entry.kind, depth: i.depth })))
+     }
+   }
+   const testDir = tree.filter(i => i.entry.path.includes('测试2026'))
+   if (testDir.length > 0) {
+     console.log('[flattenedTree] 测试2026 entries:', testDir.map(i => `${i.depth}:${i.entry.kind}:${i.entry.name}`))
+     const children = testDir.filter(i => i.entry.kind === 'file')
+     if (children.length > 0) {
+       console.log('[flattenedTree] 测试2026 files:', children.map(i => `${i.entry.name}@${i.entry.path}@depth${i.depth}`))
+     }
+   }
+   return tree
+ })
 
 const useVirtualScrollEnabled = computed(
   () => flattenedTree.value.length > VIRTUAL_SCROLL_THRESHOLD
@@ -966,52 +1206,65 @@ const contextMenuComposable = useContextMenu(
     multiSelected,
   },
   {
-    onNewFile: (parentPath) => startInlineCreate(parentPath, false),
-    onNewFolder: (parentPath) => startInlineCreate(parentPath, true),
-    onOpen: (entry) => openFileInEditor(entry),
-    onAnalyzeDuckDB: (entry) => { handleAnalyzeDuckDB(entry) },
-    onToggleFolder: (entry) => { handleToggleExpand(entry) },
-    onRename: (entry) => startRename(entry),
-    onDelete: (entry) => {
+    onNewFile: parentPath => startInlineCreate(parentPath, false),
+    onNewFolder: parentPath => startInlineCreate(parentPath, true),
+    onOpen: entry => openFileInEditor(entry),
+    onAnalyzeDuckDB: entry => {
+      handleAnalyzeDuckDB(entry)
+    },
+    onToggleFolder: entry => {
+      handleToggleExpand(entry)
+    },
+    onRename: entry => startRename(entry),
+    onDelete: entry => {
       deleteEntry(entry.path)
       showUndo(entry.name, entry.name)
     },
-    onBatchDelete: (paths) => {
+    onBatchDelete: paths => {
       const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
       if (!confirmed) return
       Promise.all(paths.map(p => deleteEntry(p)))
       message.success(t('scratchpad.batchDeletedSuccess', { n: paths.length }))
       selectedKeys.value = new Set<string>()
     },
-    onCopyFile: (entry) => {
+    onCopyFile: entry => {
       clipboardEntry.value = entry
       clipboardMode.value = 'copy'
     },
-    onCutFile: (entry) => {
+    onCutFile: entry => {
       clipboardEntry.value = entry
       clipboardMode.value = 'cut'
       message.info(t('scratchpad.cutFileHint'))
     },
     onPasteFile: handlePaste,
-    onPromote: (entry) => {
+    onPromote: entry => {
       promoteTarget.value = entry
       showPromoteConfirm.value = true
     },
-    onCopyPath: async (path) => {
+    onCopyPath: async path => {
       await navigator.clipboard.writeText(path)
       message.success(t('scratchpad.pathCopied'))
     },
-    onCopyAbsPath: async (path) => {
+    onCopyAbsPath: async path => {
       await navigator.clipboard.writeText(path)
       message.success(t('scratchpad.absolutePathCopied'))
     },
-    onRemoveRef: (alias) => { doRemoveReference(alias) },
-    onOpenRefLocation: async (path) => {
+    onRemoveRef: alias => {
+      doRemoveReference(alias)
+    },
+    onOpenRefLocation: async path => {
       await openInExplorerAction(path)
     },
   }
 )
-const { contextMenu, showBlankMenu, showEntryMenu, showRefMenu, closeContextMenu, handleMenuAction } = contextMenuComposable
+const {
+  contextMenu,
+  showBlankMenu,
+  showEntryMenu,
+  showRefMenu,
+  closeContextMenu,
+  handleMenuAction,
+} = contextMenuComposable
 
 const keyboardComposable = useKeyboard(
   {
@@ -1033,17 +1286,17 @@ const keyboardComposable = useKeyboard(
       }
       selectedKeys.value = all
     },
-    onNavigateToEntry: (entry) => {
+    onNavigateToEntry: entry => {
       selectedKey.value = entry.path
       scrollToSelected()
     },
-    onOpenEntry: (entry) => handleOpen(entry),
-    onRenameEntry: (entry) => startRename(entry),
-    onDeleteEntry: (entry) => {
+    onOpenEntry: entry => handleOpen(entry),
+    onRenameEntry: entry => startRename(entry),
+    onDeleteEntry: entry => {
       deleteEntry(entry.path)
       showUndo(entry.name, entry.name)
     },
-    onBatchDelete: (paths) => {
+    onBatchDelete: paths => {
       const confirmed = window.confirm(t('scratchpad.batchDeleteConfirm', { n: paths.length }))
       if (!confirmed) return
       Promise.all(paths.map(p => deleteEntry(p)))
@@ -1127,9 +1380,19 @@ const fileActionsComposable = useFileActions({
   showConflictDialog,
   conflictFilePath,
 })
-const { doImportFile, doEmptyTrash, doPromote, doUndoDelete, doRename, doAddReference, doRemoveReference, doBrowseRefPath } = fileActionsComposable
+const {
+  doImportFile,
+  doEmptyTrash,
+  doPromote,
+  doUndoDelete,
+  doRename,
+  doAddReference,
+  doRemoveReference,
+  doBrowseRefPath,
+} = fileActionsComposable
 
 const inlineCreateParentPath = ref<string | null>(null)
+const inlineCreateTargetDir = ref<string | null>(null)
 const inlineCreateIsFolder = ref(false)
 const isInlineCreateActive = ref(false)
 const rootInlineInputRef = ref<HTMLInputElement | null>(null)
@@ -1280,7 +1543,10 @@ function handleTreeNodeDragStart(event: DragEvent, entry: ScratchpadEntry): void
 
 async function handleNodeDrop(fromRelPath: string, toAbsPath: string): Promise<void> {
   const scratchpadBase = scratchpadPath.value || ''
-  const toParent = toAbsPath.replace(scratchpadBase.replace(/\\/g, '/'), '').replace(/^\//, '').replace(/\\/g, '/')
+  const toParent = toAbsPath
+    .replace(scratchpadBase.replace(/\\/g, '/'), '')
+    .replace(/^\//, '')
+    .replace(/\\/g, '/')
   if (!fromRelPath || !toParent) return
   const entry = await moveEntry(fromRelPath, toParent)
   if (entry) {
@@ -1381,9 +1647,7 @@ async function openFileAtLine(relativePath: string, line: number): Promise<void>
   })
   if (!entry) return
 
-  const ext = entry.name.includes('.')
-    ? '.' + entry.name.split('.').pop()?.toLowerCase()
-    : ''
+  const ext = entry.name.includes('.') ? '.' + entry.name.split('.').pop()?.toLowerCase() : ''
   const langMap: Record<string, string> = {
     '.sql': 'sql',
     '.py': 'python',
@@ -1426,38 +1690,94 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
+let rootInlineClickCleanup: (() => void) | null = null
+let rootInlineClickTimer: ReturnType<typeof setTimeout> | null = null
+
+function registerRootInlineClickOutside(): void {
+  cleanupRootInlineClickOutside()
+  const handler = (event: MouseEvent): void => {
+    const target = event.target as HTMLElement
+    if (target.closest('.inline-tree-entry')) {
+      document.addEventListener('click', handler, { once: true })
+      return
+    }
+    commitRootInlineCreate()
+  }
+  rootInlineClickTimer = setTimeout(() => {
+    rootInlineClickTimer = null
+    document.addEventListener('click', handler, { once: true })
+  }, 0)
+  rootInlineClickCleanup = () => {
+    if (rootInlineClickTimer !== null) {
+      clearTimeout(rootInlineClickTimer)
+      rootInlineClickTimer = null
+    }
+    document.removeEventListener('click', handler)
+  }
+}
+
+function cleanupRootInlineClickOutside(): void {
+  if (rootInlineClickCleanup) {
+    rootInlineClickCleanup()
+    rootInlineClickCleanup = null
+  }
+}
+
 function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
+  console.log('[Scratchpad] startInlineCreate, parentPath:', parentPath, 'isFolder:', isFolder)
   showExplorerFilter.value = false
   contentSearchMode.value = false
   groupExpanded.local = true
   isInlineCreateActive.value = true
-  inlineCreateParentPath.value = parentPath
   inlineCreateIsFolder.value = isFolder
   rootInlineCreateName.value = ''
-  if (parentPath === null) {
+
+  if (!parentPath) {
+    inlineCreateParentPath.value = null
+    inlineCreateTargetDir.value = null
     nextTick(() => {
+      rootInlineInputRef.value?.scrollIntoView({ block: 'nearest' })
       rootInlineInputRef.value?.focus()
+      registerRootInlineClickOutside()
     })
-  } else {
-    expandedKeys.value = new Set([...expandedKeys.value, parentPath])
-    const entry = findEntryInTree(localEntries.value, parentPath)
-    if (entry && entry.kind === 'folder' && !hasChildrenLoaded(entry)) {
+    return
+  }
+
+  const entry = findEntryInTree(localEntries.value, parentPath)
+  console.log('[Scratchpad] startInlineCreate: findEntryInTree found?', !!entry, 'kind:', entry?.kind)
+  if (entry && entry.kind === 'folder') {
+    inlineCreateParentPath.value = parentPath
+    inlineCreateTargetDir.value = parentPath
+    const normalized = normalizePathForCompare(parentPath)
+    expandedKeys.value = new Set([...expandedKeys.value, normalized])
+    if (!hasChildrenLoaded(entry)) {
       loadChildEntries(parentPath)
     }
+  } else {
+    inlineCreateParentPath.value = null
+    inlineCreateTargetDir.value = parentPath
+    nextTick(() => {
+      rootInlineInputRef.value?.scrollIntoView({ block: 'nearest' })
+      rootInlineInputRef.value?.focus()
+      registerRootInlineClickOutside()
+    })
   }
 }
 
 function cancelInlineCreate(): void {
   isInlineCreateActive.value = false
   inlineCreateParentPath.value = null
+  inlineCreateTargetDir.value = null
   inlineCreateIsFolder.value = false
   rootInlineCreateName.value = ''
   rootInlineCreating.value = false
+  cleanupRootInlineClickOutside()
 }
 
-function commitRootInlineCreate(): void {
+function commitRootInlineCreate(_event?: FocusEvent): void {
   if (rootInlineCreating.value) return
   const name = rootInlineCreateName.value.trim()
+  console.log('[Scratchpad] commitRootInlineCreate, name:', name)
   if (!name) {
     cancelInlineCreate()
     return
@@ -1473,8 +1793,9 @@ function cancelRootInlineCreate(): void {
 }
 
 async function confirmInlineCreate(name: string): Promise<void> {
-  const parentPath = inlineCreateParentPath.value
+  const parentPath = inlineCreateTargetDir.value || inlineCreateParentPath.value
   const isFolder = inlineCreateIsFolder.value
+  console.log('[Scratchpad] confirmInlineCreate, name:', name, 'isFolder:', isFolder, 'parentPath:', parentPath, 'inlineCreateTargetDir:', inlineCreateTargetDir.value, 'inlineCreateParentPath:', inlineCreateParentPath.value)
   if (!name) {
     cancelInlineCreate()
     return
@@ -1493,11 +1814,13 @@ async function confirmInlineCreate(name: string): Promise<void> {
 }
 
 async function handleCreateFile(): Promise<void> {
+  console.log('[Scratchpad] handleCreateFile 被点击')
   const selectedFolder = findSelectedFolder()
   startInlineCreate(selectedFolder, false)
 }
 
 async function handleCreateFolder(): Promise<void> {
+  console.log('[Scratchpad] handleCreateFolder 被点击')
   const selectedFolder = findSelectedFolder()
   startInlineCreate(selectedFolder, true)
 }
@@ -1629,14 +1952,18 @@ async function handlePaste(): Promise<void> {
   if (!src) return
 
   const ctxTarget = contextMenu.target as ScratchpadEntry | null
-  const targetFolderPath = ctxTarget?.kind === 'folder'
-    ? ctxTarget.path
-    : findSelectedFolder()
+  const targetFolderPath = ctxTarget?.kind === 'folder' ? ctxTarget.path : findSelectedFolder()
 
   if (clipboardMode.value === 'cut') {
-    const fromRelPath = src.path.replace(scratchpadPath.value || '', '').replace(/^\//, '').replace(/\\/g, '/')
+    const fromRelPath = src.path
+      .replace(scratchpadPath.value || '', '')
+      .replace(/^\//, '')
+      .replace(/\\/g, '/')
     const toParent = targetFolderPath
-      ? targetFolderPath.replace(scratchpadPath.value || '', '').replace(/^\//, '').replace(/\\/g, '/')
+      ? targetFolderPath
+          .replace(scratchpadPath.value || '', '')
+          .replace(/^\//, '')
+          .replace(/\\/g, '/')
       : ''
     const entry = await moveEntry(fromRelPath, toParent)
     if (entry) {
@@ -1648,7 +1975,9 @@ async function handlePaste(): Promise<void> {
     return
   }
 
-  const content = await loadFileContent(src.path.replace(scratchpadPath.value || '', '').replace(/^\//, ''))
+  const content = await loadFileContent(
+    src.path.replace(scratchpadPath.value || '', '').replace(/^\//, '')
+  )
   if (content === null) return
   const baseName = src.name.replace(/\.([^.]+)$/, '')
   const ext = src.name.includes('.') ? '.' + src.name.split('.').pop() : ''
@@ -1772,7 +2101,7 @@ async function handleOpenByPath(path: string): Promise<void> {
   }
 }
 
-watch(externalConflicts, (newConflicts) => {
+watch(externalConflicts, newConflicts => {
   if (newConflicts.length > 0 && !showConflictDialog.value) {
     conflictFilePath.value = newConflicts[0]
     showConflictDialog.value = true
@@ -1813,11 +2142,11 @@ onMounted(async () => {
     resizeObserver.observe(treeContainerRef.value)
   }
   document.addEventListener('click', closeContextMenu)
-  document.addEventListener('keydown', handleKeydown)
+  scratchpadPanelRef.value?.addEventListener('keydown', handleKeydown)
   window.addEventListener('project-switched', loadFiles)
   await startWatching()
   try {
-    const unlistenFn = await listen<ScratchpadChangeEvent>('scratchpad-changed', (event) => {
+    const unlistenFn = await listen<ScratchpadChangeEvent>('scratchpad-changed', event => {
       const payload = event.payload
       if (!payload.changes || payload.changes.length === 0) {
         return
@@ -1838,7 +2167,7 @@ onMounted(async () => {
 onUnmounted(() => {
   resizeObserver?.disconnect()
   document.removeEventListener('click', closeContextMenu)
-  document.removeEventListener('keydown', handleKeydown)
+  scratchpadPanelRef.value?.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('project-switched', loadFiles)
   if (unlisten) {
     unlisten()
@@ -1870,7 +2199,6 @@ onUnmounted(() => {
   background: var(--dv-background-color, var(--color-bg-primary));
   overflow: hidden;
   position: relative;
-  isolation: isolate;
 }
 
 .scratchpad-panel.dragover-active::after {
@@ -1932,7 +2260,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
   background: var(--dv-background-color, var(--color-bg-primary));
 }
@@ -2066,7 +2394,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .toggle-btn:hover {
@@ -2359,10 +2689,12 @@ onUnmounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.025em;
   color: var(--color-text-secondary);
-  transition: background-color 0.15s, color 0.15s;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
   user-select: none;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .pane-section-header:hover {
@@ -2382,8 +2714,13 @@ onUnmounted(() => {
   gap: var(--spacing-xs);
   margin-left: auto;
   font-size: var(--font-size-xs);
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity 0.15s;
+  pointer-events: auto;
+}
+
+.pane-section-actions .toolbar-btn {
+  pointer-events: auto;
 }
 
 .pane-section-header:hover .pane-section-actions {
@@ -2679,7 +3016,11 @@ onUnmounted(() => {
 }
 
 /* 通用 NButton 面板内适配 */
-:deep(.n-button:not(.n-button--primary-type):not(.n-button--error-type):not(.n-button--warning-type):not(.n-button--info-type):not(.n-button--success-type)) {
+:deep(
+  .n-button:not(.n-button--primary-type):not(.n-button--error-type):not(
+      .n-button--warning-type
+    ):not(.n-button--info-type):not(.n-button--success-type)
+) {
   --n-text-color: var(--color-text-primary) !important;
   --n-color-hover: var(--color-hover) !important;
   --n-border: var(--color-border) !important;
@@ -2708,7 +3049,7 @@ onUnmounted(() => {
 
 .scratchpad-context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: 99999;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-md);

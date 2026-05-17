@@ -1,3 +1,9 @@
+<!--
+  /**
+   * @deprecated 由 EditorPanel.vue (单 Editor + 多 Model 架构) 取代。
+   * @see EditorPanel.vue
+   */
+-->
 <template>
   <div :class="['sql-editor-panel', `toolbar-${toolbarPosition}`]">
     <EditorToolbar
@@ -142,7 +148,16 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 import * as monaco from 'monaco-editor'
-import { createDiscreteApi, darkTheme, lightTheme, NPopover, NSlider, NInputNumber, NSwitch, NInput } from 'naive-ui'
+import {
+  createDiscreteApi,
+  darkTheme,
+  lightTheme,
+  NPopover,
+  NSlider,
+  NInputNumber,
+  NSwitch,
+  NInput,
+} from 'naive-ui'
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
@@ -251,6 +266,19 @@ const editorLanguage = computed(() => {
   return (nested?.language as string) || (raw.language as string) || props.language
 })
 
+const paramsInitialValue = computed(() => {
+  const raw = props.params
+  if (!raw) return props.modelValue
+  const nested = raw.params as Record<string, unknown> | undefined
+  return (
+    (nested?.initialValue as string) ||
+    (raw.initialValue as string) ||
+    (nested?.initialSql as string) ||
+    (raw.initialSql as string) ||
+    props.modelValue
+  )
+})
+
 const isSqlLanguage = computed(() => editorLanguage.value === 'sql')
 
 const showTranspileMenu = ref(false)
@@ -273,7 +301,7 @@ const editorFontFamily = ref(editorSettings.fontFamily)
 
 watch(
   () => appStore.effectiveEditorSettings,
-  (settings) => {
+  settings => {
     if (editorFontSize.value !== settings.fontSize) {
       editorFontSize.value = settings.fontSize
       setFontSize(settings.fontSize)
@@ -314,9 +342,7 @@ function buildEditorSettingsPayload(): EditorSettings {
 }
 
 function persistEditorSettings(): void {
-  appStore
-    .saveConfig('editorSettings', buildEditorSettingsPayload(), 'global')
-    .catch(() => {})
+  appStore.saveConfig('editorSettings', buildEditorSettingsPayload(), 'global').catch(() => {})
 }
 
 function toggleMinimap(): void {
@@ -405,9 +431,10 @@ const {
 } = useMonacoEditor({
   containerRef: editorContainerRef,
   panelId: panelId.value,
-  initialValue: props.modelValue,
+  initialValue: paramsInitialValue.value,
   language: editorLanguage.value,
   theme: uiStore.isDark ? 'rdata-dark' : 'rdata-light',
+  scratchpadRelativePath: scratchpadRelativePath.value,
 })
 
 const { getCurrentDialect, startSync, stopSync } = useDialectSync({
@@ -726,8 +753,8 @@ let editorSaveHandler: (() => void) | null = null
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleAutoSave(): void {
-    if (autoSaveTimer) clearTimeout(autoSaveTimer)
-    autoSaveTimer = setTimeout(() => {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => {
     if (isDirty.value) {
       handleScratchpadSave()
     }
@@ -803,7 +830,7 @@ onMounted(async () => {
       runtimeConnId.value ?? '',
       currentDatabase.value,
       undefined,
-      dbType,
+      dbType
     )
     startSync()
   }
@@ -912,7 +939,7 @@ onBeforeUnmount(() => {
 
 watch(
   () => currentResultData.value?.error,
-  (errorMsg) => {
+  errorMsg => {
     const ed = editor.value
     if (!ed) return
     if (errorMsg) {

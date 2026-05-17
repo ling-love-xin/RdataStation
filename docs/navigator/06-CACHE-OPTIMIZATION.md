@@ -10,13 +10,13 @@
 
 ## 架构目标
 
-| 指标       | 目标    | 当前达成 | 说明                 |
-| ---------- | ------- | :------: | -------------------- |
-| 初始加载   | < 100ms | ✅ ~30ms | L2 预热后首次展开    |
-| 缓存命中率 | > 80%   | ✅ ~96%  | 1 小时会话 DB 回源率 |
-| 内存占用   | < 100MB | ✅ <50MB | LRU 淘汰策略         |
-| 预热耗时   | < 500ms | ✅ ~300ms| 3DB×5Schema 并行预热 |
-| 大Schema自适应 | 不退化 | ✅ Level1 | 1000+ 表自动降级 |
+| 指标           | 目标    | 当前达成  | 说明                 |
+| -------------- | ------- | :-------: | -------------------- |
+| 初始加载       | < 100ms | ✅ ~30ms  | L2 预热后首次展开    |
+| 缓存命中率     | > 80%   |  ✅ ~96%  | 1 小时会话 DB 回源率 |
+| 内存占用       | < 100MB | ✅ <50MB  | LRU 淘汰策略         |
+| 预热耗时       | < 500ms | ✅ ~300ms | 3DB×5Schema 并行预热 |
+| 大Schema自适应 | 不退化  | ✅ Level1 | 1000+ 表自动降级     |
 
 ## 完整缓存架构
 
@@ -83,47 +83,49 @@ SmartPool（守护系统内置库）                 StandardPool（用户数据
 └── 项目级 DuckDB（analytics.duckdb）
 ```
 
-| 维度 | SmartPool | StandardPool |
-|------|-----------|-------------|
-| 管理对象 | 系统内置库（RdataStation 自身依赖） | 用户数据源（用户外部数据库） |
-| 生命周期 | 应用/项目级别（启动→关闭） | 连接级别（连接→断开） |
-| 配置方式 | 应用开发者硬编码 | 用户在连接页面手动设置 |
-| 失败处理 | 系统级故障（需要立即告警） | 用户级故障（提示并允许重试） |
-| 动态扩缩容 | ✅ 延迟感知 + 内存压力感知 | ❌ 固定大小（用户配置） |
-| 代码位置 | [smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs) | [standard_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/standard_pool.rs) |
+| 维度       | SmartPool                                                                                                       | StandardPool                                                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 管理对象   | 系统内置库（RdataStation 自身依赖）                                                                             | 用户数据源（用户外部数据库）                                                                                          |
+| 生命周期   | 应用/项目级别（启动→关闭）                                                                                      | 连接级别（连接→断开）                                                                                                 |
+| 配置方式   | 应用开发者硬编码                                                                                                | 用户在连接页面手动设置                                                                                                |
+| 失败处理   | 系统级故障（需要立即告警）                                                                                      | 用户级故障（提示并允许重试）                                                                                          |
+| 动态扩缩容 | ✅ 延迟感知 + 内存压力感知                                                                                      | ❌ 固定大小（用户配置）                                                                                               |
+| 代码位置   | [smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs) | [standard_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/standard_pool.rs) |
 
 ### 设计原则：生命周期决定池策略
 
 SmartPool 管理的系统库生命周期跟随应用/项目，**应用启动时即创建，应用关闭时销毁**：
+
 - [GlobalSqlitePool](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/global_db.rs#L48-L188) — 管理 `global.db`，`Semaphore` 并发控制 + WAL 模式
 - [ProjectSqlitePool](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs#L23-L254) — 管理 `project.db`，RAII `SqlitePoolConnection` 自动归还
 - [MetadataCachePool](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/metadata_cache_pool.rs) — 管理连接元数据 SQLite，Semaphore + 预建连接池
 
 StandardPool 管理的用户库生命周期跟随用户连接，**连接建立时创建池，连接断开时销毁**：
+
 - [SqlitePoolWrapper](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite_pool.rs) — 外部的 `.db` 文件，预建连接复用
 - [DuckDbPoolWrapper](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb_pool.rs) — 外部的 `.duckdb` 文件，单连接模式
 - MySQL/PG 使用 sqlx::Pool（sqlx 内置连接池）
 
 ### SQLite / DuckDB 的双重身份
 
-| 数据库 | 角色 A：内置系统库 | 角色 B：用户连接的数据源 |
-|--------|-------------------|-------------------------|
-| SQLite | 应用级 `global.db`、项目级 `project.db`、连接元数据 `conn_{id}.sqlite` | 用户通过驱动连接的外部 `.db` 文件 |
-| DuckDB | 应用级 `analytics.duckdb`、项目级 `analytics.duckdb` | 用户通过驱动连接的外部 `.duckdb` 文件 |
+| 数据库 | 角色 A：内置系统库                                                     | 角色 B：用户连接的数据源              |
+| ------ | ---------------------------------------------------------------------- | ------------------------------------- |
+| SQLite | 应用级 `global.db`、项目级 `project.db`、连接元数据 `conn_{id}.sqlite` | 用户通过驱动连接的外部 `.db` 文件     |
+| DuckDB | 应用级 `analytics.duckdb`、项目级 `analytics.duckdb`                   | 用户通过驱动连接的外部 `.duckdb` 文件 |
 
 > 角色 A 由 SmartPool 管理，角色 B 由 StandardPool 管理，两者代码路径完全独立，
 > 不在同一个 `DbPool` trait 体系下共享生命周期。
 
 ### StandardPool 用户可配置参数
 
-| 参数 | 默认值 | SQLite 推荐 | DuckDB 推荐 | 网络数据库推荐 |
-|------|:------:|:-----------:|:-----------:|:-------------:|
-| `min_connections` | 2 | 1 | 1 | 2 |
-| `max_connections` | 20 | 5 | 1 | 20 |
-| `idle_timeout_secs` | 600 | 300 | 1800 | 600 |
-| `max_lifetime_secs` | 1800 | 3600 | 7200 | 1800 |
-| `acquire_timeout_secs` | 30 | 10 | 30 | 30 |
-| `health_check_enabled` | true | true | true | true |
+| 参数                   | 默认值 | SQLite 推荐 | DuckDB 推荐 | 网络数据库推荐 |
+| ---------------------- | :----: | :---------: | :---------: | :------------: |
+| `min_connections`      |   2    |      1      |      1      |       2        |
+| `max_connections`      |   20   |      5      |      1      |       20       |
+| `idle_timeout_secs`    |  600   |     300     |    1800     |      600       |
+| `max_lifetime_secs`    |  1800  |    3600     |    7200     |      1800      |
+| `acquire_timeout_secs` |   30   |     10      |     30      |       30       |
+| `health_check_enabled` |  true  |    true     |    true     |      true      |
 
 ### sqlx Pool vs 竞品连接池
 
@@ -989,13 +991,14 @@ Phase 3: 分批并行(20并发/批) [loadColumns(10表)]
 
 对标 DataGrip 2026.1 的 3 级自省系统:
 
-| 级别 | 加载内容 | 触发阈值 | 预热行为 |
-|------|---------|:------:|---------|
-| Level 1 | 仅名称 + 类型签名 | N > 3000 | 跳过列加载 |
-| Level 2 | 全部元数据，不含源码 | 1000 < N ≤ 3000 | 正常预热 |
-| Level 3 | 全部（含例程源码） | N ≤ 1000 | 正常预热（默认）|
+| 级别    | 加载内容             |    触发阈值     | 预热行为         |
+| ------- | -------------------- | :-------------: | ---------------- |
+| Level 1 | 仅名称 + 类型签名    |    N > 3000     | 跳过列加载       |
+| Level 2 | 全部元数据，不含源码 | 1000 < N ≤ 3000 | 正常预热         |
+| Level 3 | 全部（含例程源码）   |    N ≤ 1000     | 正常预热（默认） |
 
 API:
+
 - `setIntrospectionLevel(connId, 'level1'|'level2'|'level3')` — 设置
 - `getIntrospectionLevel(connId)` — 查询
 - `removeIntrospectionLevel(connId)` — 重置为 Level3
@@ -1005,13 +1008,13 @@ API:
 **实施日期**: 2026-05-12
 **代码位置**: [metadata_cache.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/cache/metadata_cache.rs) + [cache_manager.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/cache/cache_manager.rs)
 
-| 缓存类型 | 旧 TTL | 新 TTL | 变化 |
-|---------|:------:|:------:|:----:|
-| 默认值 | 5 min | 10 min | +100% |
+| 缓存类型  | 旧 TTL | 新 TTL | 变化  |
+| --------- | :----: | :----: | :---: |
+| 默认值    | 5 min  | 10 min | +100% |
 | databases | 10 min | 1 hour | +500% |
-| schemas | 5 min | 30 min | +500% |
-| tables | 2 min | 10 min | +400% |
-| columns | 10 min | 1 hour | +500% |
+| schemas   | 5 min  | 30 min | +500% |
+| tables    | 2 min  | 10 min | +400% |
+| columns   | 10 min | 1 hour | +500% |
 
 ### P3 🟡 锁优化
 
@@ -1033,11 +1036,13 @@ API:
 **代码位置**: [minicatalogs.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/cache/minicatalogs.rs)
 
 对标 DataGrip 2026.1 Minicatalogs 特性。已完成:
+
 - [x] `MinicatalogEntry` / `MinicatalogColumn` 数据结构
 - [x] `MinicatalogDbType` 枚举（MySQL/PG/SQLite 系统 Schema 列表）
 - [x] `MinicatalogRegistry` 懒加载注册表
 
 待完成:
+
 - [ ] JSON 定义文件 (`definitions/mysql_sys.json` 等)
 - [ ] `include_str!()` 编译期嵌入
 - [ ] L2 缓存集成（标记 `source: SystemBuiltin`）
@@ -1066,35 +1071,35 @@ API:
 
 ### vs DataGrip 2026.1
 
-| 特性 | DataGrip 2026.1 | RdataStation | 差距 |
-|------|:---:|:---:|:---:|
-| 自省级别 (3 级) | ✅ 自动阈值 | ✅ 手动+自动(P1) | 持平 |
-| 片段内省 (Fragment) | ✅ 按需加载单对象 | ❌ 未实现 | ⚠️ 需开发 |
-| 智能刷新 (DDL触发) | ✅ PostgreSQL | ❌ 未实现 | ⚠️ 需开发 |
-| Minicatalogs | ✅ 完整实现 | 🟡 设计骨架(P5) | ⚠️ 待完善 |
-| 离线系统目录 | ✅ 编译嵌入 | 🟡 设计阶段 | ⚠️ 待完善 |
-| 缓存监控 | ❌ | ✅ 原子计数器 | ✅ 领先 |
+| 特性                |  DataGrip 2026.1  |   RdataStation   |   差距    |
+| ------------------- | :---------------: | :--------------: | :-------: |
+| 自省级别 (3 级)     |    ✅ 自动阈值    | ✅ 手动+自动(P1) |   持平    |
+| 片段内省 (Fragment) | ✅ 按需加载单对象 |    ❌ 未实现     | ⚠️ 需开发 |
+| 智能刷新 (DDL触发)  |   ✅ PostgreSQL   |    ❌ 未实现     | ⚠️ 需开发 |
+| Minicatalogs        |    ✅ 完整实现    | 🟡 设计骨架(P5)  | ⚠️ 待完善 |
+| 离线系统目录        |    ✅ 编译嵌入    |   🟡 设计阶段    | ⚠️ 待完善 |
+| 缓存监控            |        ❌         |  ✅ 原子计数器   |  ✅ 领先  |
 
 ### vs DBeaver 26.0.4
 
-| 特性 | DBeaver 26.0.4 | RdataStation | 差距 |
-|------|:---:|:---:|:---:|
-| 惰性元数据加载 | ✅ "Read metadata lazy" | ❌ 未实现 | ⚠️ 需开发 |
-| 自动刷新禁用 | ✅ "Disable auto-refresh" | ❌ 未实现 | ⚠️ 需开发 |
-| 缓存预热自动化 | ❌ 手动 F5 | ✅ 自动并行(P0) | ✅ 领先 |
-| 自省级别 | ❌ | ✅ P1 | ✅ 领先 |
-| 动态扩缩容连接池 | ❌ 固定大小 | ✅ SmartPool | ✅ 领先 |
+| 特性             |      DBeaver 26.0.4       |  RdataStation   |   差距    |
+| ---------------- | :-----------------------: | :-------------: | :-------: |
+| 惰性元数据加载   |  ✅ "Read metadata lazy"  |    ❌ 未实现    | ⚠️ 需开发 |
+| 自动刷新禁用     | ✅ "Disable auto-refresh" |    ❌ 未实现    | ⚠️ 需开发 |
+| 缓存预热自动化   |        ❌ 手动 F5         | ✅ 自动并行(P0) |  ✅ 领先  |
+| 自省级别         |            ❌             |      ✅ P1      |  ✅ 领先  |
+| 动态扩缩容连接池 |        ❌ 固定大小        |  ✅ SmartPool   |  ✅ 领先  |
 
 ### 未实现项总览
 
-| 编号 | 功能 | 竞品对标 | 优先级 | 实施难度 |
-|------|------|---------|:------:|:------:|
-| GAP-1 | 片段内省 (Fragment Introspection) | DataGrip | 🟡 中 | 中 |
-| GAP-2 | 智能刷新 (Smart Refresh) | DataGrip | 🟡 中 | 高 |
-| GAP-3 | Minicatalogs JSON 定义 + 嵌入 | DataGrip | 🟢 低 | 低 |
-| GAP-4 | 惰性元数据加载 (Read metadata lazy) | DBeaver | 🟢 低 | 中 |
-| GAP-5 | 自动刷新开关 (Disable auto-refresh) | DBeaver | 🟢 低 | 低 |
-| GAP-6 | 并发预热连接池限流 | — | 🔴 高 | 低 |
+| 编号  | 功能                                | 竞品对标 | 优先级 | 实施难度 |
+| ----- | ----------------------------------- | -------- | :----: | :------: |
+| GAP-1 | 片段内省 (Fragment Introspection)   | DataGrip | 🟡 中  |    中    |
+| GAP-2 | 智能刷新 (Smart Refresh)            | DataGrip | 🟡 中  |    高    |
+| GAP-3 | Minicatalogs JSON 定义 + 嵌入       | DataGrip | 🟢 低  |    低    |
+| GAP-4 | 惰性元数据加载 (Read metadata lazy) | DBeaver  | 🟢 低  |    中    |
+| GAP-5 | 自动刷新开关 (Disable auto-refresh) | DBeaver  | 🟢 低  |    低    |
+| GAP-6 | 并发预热连接池限流                  | —        | 🔴 高  |    低    |
 
 ## 相关文档
 

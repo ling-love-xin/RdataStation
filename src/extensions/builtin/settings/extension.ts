@@ -1,5 +1,13 @@
-import { WorkbenchEvent, dispatchWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
-import type { Disposable, ExtensionContext, ExtensionAPI, ExtensionModule } from '@/extensions/core/types'
+import {
+  WorkbenchEvent,
+  dispatchWorkbenchEvent,
+} from '@/extensions/builtin/workbench/ui/constants/workbench-events'
+import type {
+  Disposable,
+  ExtensionContext,
+  ExtensionAPI,
+  ExtensionModule,
+} from '@/extensions/core/types'
 
 const activate = (context: ExtensionContext): ExtensionAPI => {
   console.log('[Settings] Activating for project:', context.project.name)
@@ -8,9 +16,7 @@ const activate = (context: ExtensionContext): ExtensionAPI => {
     dispatchWorkbenchEvent(WorkbenchEvent.OpenSettings)
   })
 
-  const disposables: Disposable[] = [
-    openSettingsDisposable,
-  ]
+  const disposables: Disposable[] = [openSettingsDisposable]
 
   return {
     version: '1.0.0',

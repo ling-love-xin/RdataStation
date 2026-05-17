@@ -22,13 +22,15 @@ describe('useFileSave', () => {
     vi.useRealTimers()
   })
 
-  function createComposable(options: {
-    filePath?: string
-    content?: string
-    autoSaveInterval?: number
-    maxRetries?: number
-    retryDelay?: number
-  } = {}) {
+  function createComposable(
+    options: {
+      filePath?: string
+      content?: string
+      autoSaveInterval?: number
+      maxRetries?: number
+      retryDelay?: number
+    } = {}
+  ) {
     const filePath = ref(options.filePath ?? '')
     let contentValue = options.content ?? 'test content'
     const getContent = () => contentValue
@@ -41,7 +43,14 @@ describe('useFileSave', () => {
       retryDelay: options.retryDelay ?? 2000,
     })
 
-    return { filePath, getContent: () => contentValue, setContent: (v: string) => { contentValue = v }, ...instance }
+    return {
+      filePath,
+      getContent: () => contentValue,
+      setContent: (v: string) => {
+        contentValue = v
+      },
+      ...instance,
+    }
   }
 
   describe('status transitions', () => {
@@ -68,7 +77,7 @@ describe('useFileSave', () => {
       filePath.value = 'test.sql'
 
       mockSaveScratchpadFile.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100))
+        () => new Promise(resolve => setTimeout(resolve, 100))
       )
 
       const savePromise = manualSave()
@@ -250,7 +259,9 @@ describe('useFileSave', () => {
     })
 
     it('should allow changing auto-save interval', async () => {
-      const { markDirty, filePath, setAutoSaveInterval } = createComposable({ autoSaveInterval: 30000 })
+      const { markDirty, filePath, setAutoSaveInterval } = createComposable({
+        autoSaveInterval: 30000,
+      })
       filePath.value = 'test.sql'
       await nextTick()
 
@@ -278,7 +289,10 @@ describe('useFileSave', () => {
 
     it('should increase retry delay with each attempt', async () => {
       mockSaveScratchpadFile.mockRejectedValue(new Error('Network error'))
-      const { manualSave, filePath, retryCount } = createComposable({ maxRetries: 2, retryDelay: 2000 })
+      const { manualSave, filePath, retryCount } = createComposable({
+        maxRetries: 2,
+        retryDelay: 2000,
+      })
       filePath.value = 'test.sql'
 
       manualSave()
@@ -293,7 +307,10 @@ describe('useFileSave', () => {
         .mockRejectedValueOnce(new Error('Fail 1'))
         .mockResolvedValueOnce(undefined)
 
-      const { manualSave, filePath, saveStatus } = createComposable({ maxRetries: 3, retryDelay: 2000 })
+      const { manualSave, filePath, saveStatus } = createComposable({
+        maxRetries: 3,
+        retryDelay: 2000,
+      })
       filePath.value = 'test.sql'
 
       manualSave()
@@ -319,7 +336,10 @@ describe('useFileSave', () => {
 
     it('should set error status after exhausting retries', async () => {
       mockSaveScratchpadFile.mockRejectedValue(new Error('Persistent error'))
-      const { manualSave, saveStatus, filePath } = createComposable({ maxRetries: 1, retryDelay: 2000 })
+      const { manualSave, saveStatus, filePath } = createComposable({
+        maxRetries: 1,
+        retryDelay: 2000,
+      })
       filePath.value = 'test.sql'
 
       manualSave()

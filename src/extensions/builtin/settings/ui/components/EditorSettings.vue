@@ -142,12 +142,16 @@ const localDefaultEngine = ref<DefaultEngine>(appStore.effectiveDefaultEngine)
 
 watch(
   () => appStore.effectiveEditorSettings,
-  val => { Object.assign(localEditorSettings, val) },
-  { deep: true },
+  val => {
+    Object.assign(localEditorSettings, val)
+  },
+  { deep: true }
 )
 watch(
   () => appStore.effectiveDefaultEngine,
-  val => { localDefaultEngine.value = val },
+  val => {
+    localDefaultEngine.value = val
+  }
 )
 
 function resetToFactory() {

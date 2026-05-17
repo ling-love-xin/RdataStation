@@ -6,6 +6,7 @@ import { builtinExtensions } from '@/core/builtin-extensions'
 import { extensionHost } from '@/core/extension-host'
 import { panelRegistry } from '@/core/panel-registry'
 import IconTab from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
+import MinimalEditorTab from '@/extensions/builtin/workbench/ui/components/MinimalEditorTab.vue'
 import PanelHeaderActions from '@/extensions/builtin/workbench/ui/components/PanelHeaderActions.vue'
 import i18n from '@/shared/plugins/i18n'
 import { useAppStore } from '@/stores/useAppStore'
@@ -45,7 +46,7 @@ async function main() {
     const expectedVersion = '1.0.0'
     if (apiVersion.version !== expectedVersion) {
       console.warn(
-        `[Main] API version mismatch: frontend expects ${expectedVersion}, backend returns ${apiVersion.version}`,
+        `[Main] API version mismatch: frontend expects ${expectedVersion}, backend returns ${apiVersion.version}`
       )
     } else {
       console.log(`[Main] API version check passed: ${apiVersion.version}`)
@@ -86,6 +87,9 @@ async function main() {
 
   app.component('IconTab', IconTab)
   console.log('[Main] Registered iconTab component')
+
+  app.component('MinimalEditorTab', MinimalEditorTab)
+  console.log('[Main] Registered minimalEditorTab component')
 
   app.mount('#app')
 

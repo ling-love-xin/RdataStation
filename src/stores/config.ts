@@ -288,7 +288,10 @@ const PerformanceSettingsSchema = z.object({
 const AppearanceSettingsSchema = z.object({
   uiFontSize: z.number().min(10).max(24),
   compactMode: z.boolean(),
-  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable(),
   fontFamily: z.string().min(1),
   borderRadius: z.number().min(4).max(12),
   density: z.enum(['compact', 'comfortable', 'spacious']),

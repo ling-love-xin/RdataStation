@@ -30,10 +30,34 @@ export const useMockStore = defineStore('mock', () => {
   const seed = ref<number | null>(null)
   const locale = ref<string>('ZH_CN')
   const columns = ref<ColumnDef[]>([
-    { name: 'id', dataType: 'integer', generator: { type: 'auto_increment' }, nullableRatio: 0, unique: true },
-    { name: 'username', dataType: 'varchar', generator: { type: 'username' }, nullableRatio: 0, unique: false },
-    { name: 'email', dataType: 'varchar', generator: { type: 'email' }, nullableRatio: 0.1, unique: false },
-    { name: 'created_at', dataType: 'datetime', generator: { type: 'datetime' }, nullableRatio: 0, unique: false },
+    {
+      name: 'id',
+      dataType: 'integer',
+      generator: { type: 'auto_increment' },
+      nullableRatio: 0,
+      unique: true,
+    },
+    {
+      name: 'username',
+      dataType: 'varchar',
+      generator: { type: 'username' },
+      nullableRatio: 0,
+      unique: false,
+    },
+    {
+      name: 'email',
+      dataType: 'varchar',
+      generator: { type: 'email' },
+      nullableRatio: 0.1,
+      unique: false,
+    },
+    {
+      name: 'created_at',
+      dataType: 'datetime',
+      generator: { type: 'datetime' },
+      nullableRatio: 0,
+      unique: false,
+    },
   ])
 
   const generatedTableName = ref('')
@@ -50,13 +74,15 @@ export const useMockStore = defineStore('mock', () => {
   const userTemplates = ref<MockUserTemplate[]>([])
   const templatesLoading = ref(false)
 
-  const mockConfig = computed((): MockConfig => ({
-    tableName: tableName.value,
-    rowCount: rowCount.value,
-    seed: seed.value ?? null,
-    locale: locale.value as MockConfig['locale'],
-    columns: columns.value,
-  }))
+  const mockConfig = computed(
+    (): MockConfig => ({
+      tableName: tableName.value,
+      rowCount: rowCount.value,
+      seed: seed.value ?? null,
+      locale: locale.value as MockConfig['locale'],
+      columns: columns.value,
+    })
+  )
 
   function addColumn() {
     const idx = columns.value.length + 1
@@ -93,10 +119,13 @@ export const useMockStore = defineStore('mock', () => {
     generateProgress.value = 0
     generateProgressTotal.value = 0
     try {
-      const unlisten = await listen<{ current: number; total: number }>('mock:generate-progress', (event) => {
-        generateProgress.value = event.payload.current
-        generateProgressTotal.value = event.payload.total
-      })
+      const unlisten = await listen<{ current: number; total: number }>(
+        'mock:generate-progress',
+        event => {
+          generateProgress.value = event.payload.current
+          generateProgressTotal.value = event.payload.total
+        }
+      )
       const result = await mockApi.generate(mockConfig.value)
       unlisten()
       lastResult.value = result
@@ -215,9 +244,7 @@ export const useMockStore = defineStore('mock', () => {
       columnName: col.name,
       columnType: col.dataType,
       generator: buildGeneratorString(col.generator),
-      generatorParams: col.generator.params
-        ? JSON.stringify(col.generator.params)
-        : null,
+      generatorParams: col.generator.params ? JSON.stringify(col.generator.params) : null,
       nullRatio: col.nullableRatio,
       isUnique: col.unique ?? false,
       isPrimaryKey: col.name === 'id',
@@ -230,7 +257,10 @@ export const useMockStore = defineStore('mock', () => {
     }))
   }
 
-  function buildGeneratorString(generator: { type: string; params?: Record<string, unknown> }): string {
+  function buildGeneratorString(generator: {
+    type: string
+    params?: Record<string, unknown>
+  }): string {
     const localeSuffix = locale.value ? `(${locale.value})` : ''
     return `${generator.type}${localeSuffix}`
   }
@@ -256,14 +286,12 @@ export const useMockStore = defineStore('mock', () => {
     rowCount.value = detail.task.rowCount
     seed.value = detail.task.seed ?? null
     locale.value = detail.task.locale
-    columns.value = detail.columns.map<ColumnDef>((col) => ({
+    columns.value = detail.columns.map<ColumnDef>(col => ({
       name: col.columnName,
       dataType: col.columnType as ColumnDef['dataType'],
       generator: {
         type: col.generator.replace(/\\(.*\\)$/, '') as GeneratorType,
-        params: col.generatorParams
-          ? JSON.parse(col.generatorParams)
-          : undefined,
+        params: col.generatorParams ? JSON.parse(col.generatorParams) : undefined,
       },
       nullableRatio: col.nullRatio,
       unique: col.isUnique ?? false,
@@ -336,9 +364,7 @@ export const useMockStore = defineStore('mock', () => {
       dataType: (col.columnType as ColumnDef['dataType']) || 'varchar',
       generator: {
         type: (col.generator || 'words') as GeneratorType,
-        params: col.generatorParams
-          ? JSON.parse(col.generatorParams)
-          : undefined,
+        params: col.generatorParams ? JSON.parse(col.generatorParams) : undefined,
       },
       nullableRatio: col.nullRatio ?? 0,
       unique: col.isUnique ?? false,

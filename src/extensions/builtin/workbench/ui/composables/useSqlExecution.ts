@@ -2,7 +2,14 @@ import { createDiscreteApi } from 'naive-ui'
 import { ref, type Ref } from 'vue'
 
 import * as queryService from '@/extensions/builtin/query/ui/services/query'
-import { parseSql, splitSql, rewriteDuckDBSQL, generateAttachName, detectParams, bindParams } from '@/extensions/builtin/workbench/services/sql-editor-service'
+import {
+  parseSql,
+  splitSql,
+  rewriteDuckDBSQL,
+  generateAttachName,
+  detectParams,
+  bindParams,
+} from '@/extensions/builtin/workbench/services/sql-editor-service'
 import { useResultStore } from '@/extensions/builtin/workbench/ui/stores/result-store'
 import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/sql-execution-store'
 
@@ -20,7 +27,14 @@ interface SqlExecutionOptions {
 }
 
 export function useSqlExecution(options: SqlExecutionOptions) {
-  const { panelId, getEditorValue, getSelectedText, runtimeConnId, currentDatabaseType, currentConnectionName } = options
+  const {
+    panelId,
+    getEditorValue,
+    getSelectedText,
+    runtimeConnId,
+    currentDatabaseType,
+    currentConnectionName,
+  } = options
 
   const { message } = createDiscreteApi(['message'])
   const store = useSqlExecutionStore()
@@ -37,7 +51,8 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     error: string | null
   } | null>(null)
 
-  const { inTransaction, beginTransaction, commitTransaction, rollbackTransaction } = useTransaction(runtimeConnId)
+  const { inTransaction, beginTransaction, commitTransaction, rollbackTransaction } =
+    useTransaction(runtimeConnId)
 
   const statementCount = ref(0)
   let parseTimer: ReturnType<typeof setTimeout> | null = null
@@ -130,7 +145,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     }
 
     abortController = new AbortController()
-      executing.value = true
+    executing.value = true
 
     try {
       if (abortController.signal.aborted) return
@@ -146,7 +161,9 @@ export function useSqlExecution(options: SqlExecutionOptions) {
         message.error(result.error)
       } else if (result.totalRows > 0) {
         if (result.truncated) {
-          message.warning(`${result.totalRows} rows returned (truncated from larger result set) in ${result.elapsedMs}ms`)
+          message.warning(
+            `${result.totalRows} rows returned (truncated from larger result set) in ${result.elapsedMs}ms`
+          )
         } else {
           message.success(`${result.totalRows} rows returned in ${result.elapsedMs}ms`)
         }
@@ -256,7 +273,9 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     if (errorCount === 0) {
       message.success(`${total} statements executed in ${Math.round(totalElapsed)}ms`)
     } else {
-      message.warning(`${successCount} ok, ${errorCount} failed — ${Math.round(totalElapsed)}ms${firstError ? ` (${firstError})` : ''}`)
+      message.warning(
+        `${successCount} ok, ${errorCount} failed — ${Math.round(totalElapsed)}ms${firstError ? ` (${firstError})` : ''}`
+      )
     }
   }
 

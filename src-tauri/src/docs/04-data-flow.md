@@ -44,12 +44,12 @@ Frontend (Vue3)
 
 ### 实际代码路径
 
-| 步骤         | 文件                                                              |
-| ------------ | ----------------------------------------------------------------- |
-| 命令入口     | [commands/sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs) |
-| 连接获取     | [services/connection_manager.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/connection_manager.rs) |
-| SQL 执行     | [sql_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/sql_service.rs) |
-| 驱动实现     | [driver/native/](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/) |
+| 步骤     | 文件                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 命令入口 | [commands/sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs)                  |
+| 连接获取 | [services/connection_manager.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/connection_manager.rs) |
+| SQL 执行 | [sql_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/sql_service.rs)                        |
+| 驱动实现 | [driver/native/](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/)                                 |
 
 ## 二、连接创建流程（实际）
 
@@ -123,7 +123,7 @@ Database trait 方法
     frontend → list_tables
         → MetadataCacheManager::get_tables(conn_id, db, schema)
         → 缓存未命中 → 执行实际 SQL → 写入缓存 → 返回
-    
+
 后续请求（缓存命中）:
     frontend → list_tables
         → MetadataCacheManager::get_tables(conn_id, db, schema)
@@ -243,10 +243,10 @@ CoreError
 
 ## 七、关键约束
 
-| 约束                 | 说明                                            |
-| -------------------- | ----------------------------------------------- |
-| ❌ 禁止跨层调用      | Command 不能直接调用 driver/native              |
-| ❌ 禁止 unwrap       | 所有生产代码使用 `?` 操作符                      |
-| ✅ QueryResult 格式  | 必须包含 `columns: Vec<String>` 和 `rows: Vec<Vec<Value>>` |
-| ✅ services 层       | 只调用 connection_manager / driver，不碰 driver/native |
-| ✅ Arrow IPC         | 插件通信使用 Arrow RecordBatch                   |
+| 约束                | 说明                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| ❌ 禁止跨层调用     | Command 不能直接调用 driver/native                         |
+| ❌ 禁止 unwrap      | 所有生产代码使用 `?` 操作符                                |
+| ✅ QueryResult 格式 | 必须包含 `columns: Vec<String>` 和 `rows: Vec<Vec<Value>>` |
+| ✅ services 层      | 只调用 connection_manager / driver，不碰 driver/native     |
+| ✅ Arrow IPC        | 插件通信使用 Arrow RecordBatch                             |

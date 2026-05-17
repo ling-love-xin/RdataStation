@@ -13,7 +13,7 @@
 | Phase 1: 基础建设 | ✅ 已完成 | 100%   | 2026-04-20 | 2026-04-25 |
 | Phase 2: 核心功能 | ✅ 已完成 | 100%   | 2026-04-25 | 2026-05-01 |
 | Phase 3: 深度优化 | ✅ 已完成 | 100%   | 2026-05-02 | 2026-05-08 |
-| Phase 4: 高级特性 | 🟡 进行中 | 20%   | —          | —          |
+| Phase 4: 高级特性 | 🟡 进行中 | 20%    | —          | —          |
 
 ---
 
@@ -184,12 +184,12 @@
 
 ### 4.8 标签管理 UI（🆕 v1.2）
 
-| 任务                          | 状态 | 说明                                       |
-| ----------------------------- | ---- | ------------------------------------------ |
-| `TagManager.vue` 标签栏组件   | ✅   | 水平标签栏（全部标签 + 新建入口）          |
-| `CreateTagModal.vue` 创建标签 | ✅   | 名称/颜色/作用域                           |
-| 标签点击筛选资源              | ✅   | `getResourcesByTag` 按标签过滤             |
-| 标签栏集成到主页面            | ✅   | FilterBar 下方                             |
+| 任务                          | 状态 | 说明                                                           |
+| ----------------------------- | ---- | -------------------------------------------------------------- |
+| `TagManager.vue` 标签栏组件   | ✅   | 水平标签栏（全部标签 + 新建入口）                              |
+| `CreateTagModal.vue` 创建标签 | ✅   | 名称/颜色/作用域                                               |
+| 标签点击筛选资源              | ✅   | `getResourcesByTag` 按标签过滤                                 |
+| 标签栏集成到主页面            | ✅   | FilterBar 下方                                                 |
 | Store 方法封装                | ✅   | `getTagsForResource` / `getResourcesByTag` / `getAnalyticsTag` |
 | 标签详情查询                  | ✅   | `get_analytics_tag` 按 ID 获取单个标签（v1.4）                 |
 
@@ -233,16 +233,16 @@
 
 ### 4.13 审计修复与代码质量（🆕 v1.4）
 
-| 任务                           | 状态 | 说明                                      |
-| ------------------------------ | ---- | ----------------------------------------- |
-| W1: parse_datetime_sqlite 修复 | ✅   | 返回 CoreError 替代 rusqlite::Error       |
-| W2: trace 日志增强             | ✅   | unwrap_or 替换为 unwrap_or_else + trace   |
-| W8-W11: 清理未使用变量         | ✅   | AnalyticsResourceManager / ContextMenu / FilterBar / RecycleBinModal |
-| W12-W13: 非空断言修复          | ✅   | FolderList event.dataTransfer / ResourceList find 结果 |
-| S1: get_analytics_tag 命令     | ✅   | Rust 命令 + lib.rs 注册 + 前端 API + Store |
-| W3+W14: extension.ts 修复      | ✅   | 版本号 1.0.0→1.4.0、API 接口定义          |
+| 任务                           | 状态 | 说明                                                                   |
+| ------------------------------ | ---- | ---------------------------------------------------------------------- |
+| W1: parse_datetime_sqlite 修复 | ✅   | 返回 CoreError 替代 rusqlite::Error                                    |
+| W2: trace 日志增强             | ✅   | unwrap_or 替换为 unwrap_or_else + trace                                |
+| W8-W11: 清理未使用变量         | ✅   | AnalyticsResourceManager / ContextMenu / FilterBar / RecycleBinModal   |
+| W12-W13: 非空断言修复          | ✅   | FolderList event.dataTransfer / ResourceList find 结果                 |
+| S1: get_analytics_tag 命令     | ✅   | Rust 命令 + lib.rs 注册 + 前端 API + Store                             |
+| W3+W14: extension.ts 修复      | ✅   | 版本号 1.0.0→1.4.0、API 接口定义                                       |
 | W4-W7: CSS 语义变量化          | ✅   | tokens.css 新增 15 个变量、ResourceDetailModal / TagManager 替换硬编码 |
-| 文档升级                       | ✅   | 7 份文档全部升级至 v1.4                    |
+| 文档升级                       | ✅   | 7 份文档全部升级至 v1.4                                                |
 
 ### 4.10 清理工作
 
@@ -256,22 +256,22 @@
 
 ### 4.11 架构加固与测试覆盖（🆕 v1.5）
 
-| 任务                         | 状态 | 说明                                                |
-| ---------------------------- | ---- | --------------------------------------------------- |
-| Store 拆分（usePagination）  | ✅   | 分页逻辑提取至 composable，复用 store 分解          |
-| Store 拆分（useSelection）   | ✅   | 选择逻辑提取至 composable，移除未使用参数           |
-| Store 拆分（useSettings）    | ✅   | 设置加载/保存/重置/清缓存提取至 composable          |
-| 虚拟滚动 composable          | ✅   | ResourceList 内联逻辑提取至 use-virtual-scroll.ts   |
-| Rust 集成测试                | ✅   | 17 用例：CRUD/分页/版本/标签/文件夹/回收站          |
-| vitest 前端单元测试          | ✅   | 18 用例：分页(7)/排序(3)/选择(5)/设置(3)            |
-| 文档升级                     | ✅   | 6 份文档全部升级至 v1.5，版本历史新增 v1.5 记录     |
+| 任务                        | 状态 | 说明                                              |
+| --------------------------- | ---- | ------------------------------------------------- |
+| Store 拆分（usePagination） | ✅   | 分页逻辑提取至 composable，复用 store 分解        |
+| Store 拆分（useSelection）  | ✅   | 选择逻辑提取至 composable，移除未使用参数         |
+| Store 拆分（useSettings）   | ✅   | 设置加载/保存/重置/清缓存提取至 composable        |
+| 虚拟滚动 composable         | ✅   | ResourceList 内联逻辑提取至 use-virtual-scroll.ts |
+| Rust 集成测试               | ✅   | 17 用例：CRUD/分页/版本/标签/文件夹/回收站        |
+| vitest 前端单元测试         | ✅   | 18 用例：分页(7)/排序(3)/选择(5)/设置(3)          |
+| 文档升级                    | ✅   | 6 份文档全部升级至 v1.5，版本历史新增 v1.5 记录   |
 
 ### 4.12 已知限制
 
-| 项目                   | 说明                                                     |
-| ---------------------- | -------------------------------------------------------- |
-| event-bus.spec.ts      | 预存问题：`useEventBus is not a function`                |
-| search-index.spec.ts   | 预存问题：SearchIndex 匹配逻辑变更导致 5/11 失败         |
+| 项目                 | 说明                                             |
+| -------------------- | ------------------------------------------------ |
+| event-bus.spec.ts    | 预存问题：`useEventBus is not a function`        |
+| search-index.spec.ts | 预存问题：SearchIndex 匹配逻辑变更导致 5/11 失败 |
 
 ---
 
@@ -282,45 +282,45 @@
 
 #### 5.0 本轮已完成（v1.6）
 
-| 任务                                   | 状态 | 说明                                          |
-| -------------------------------------- | ---- | --------------------------------------------- |
-| Tauri Command 错误类型 String→CoreError | ✅   | 18 个命令全链路 Result<T, CoreError>          |
-| JSON 解析失败 tracing::warn 日志       | ✅   | 7 处 unwrap_or(Value::Null) → unwrap_or_else  |
-| 并发创建同名资源测试                    | ✅   | t012: tokio::join! 3 并发 create              |
-| AnalyticsResourceManager 接入 Pinia store | ✅ | 局部 ref → useAnalyticsResourceStore()       |
-| naive-ui 组件集成                      | ✅   | NButton + NTag 替换原生元素                   |
-| use-search 单元测试                    | ✅   | 9 用例：debounce/query/clear/async/pending    |
-| Arrow IPC 策略文档化                   | ✅   | 架构文档：配置 CRUD vs 数据查询 分场景说明    |
+| 任务                                      | 状态 | 说明                                         |
+| ----------------------------------------- | ---- | -------------------------------------------- |
+| Tauri Command 错误类型 String→CoreError   | ✅   | 18 个命令全链路 Result<T, CoreError>         |
+| JSON 解析失败 tracing::warn 日志          | ✅   | 7 处 unwrap_or(Value::Null) → unwrap_or_else |
+| 并发创建同名资源测试                      | ✅   | t012: tokio::join! 3 并发 create             |
+| AnalyticsResourceManager 接入 Pinia store | ✅   | 局部 ref → useAnalyticsResourceStore()       |
+| naive-ui 组件集成                         | ✅   | NButton + NTag 替换原生元素                  |
+| use-search 单元测试                       | ✅   | 9 用例：debounce/query/clear/async/pending   |
+| Arrow IPC 策略文档化                      | ✅   | 架构文档：配置 CRUD vs 数据查询 分场景说明   |
 
 ### 5.1 待实现
 
-| 功能                                   | 优先级 | 预估工时 | 占比 | 依赖                     |
-| -------------------------------------- | ------ | -------- | ---- | ------------------------ |
-| 文件导入（CSV/Parquet/Excel → DuckDB） | 🔴 P0  | 3d       | 14%  | DuckDB 引擎集成          |
-| 从连接提取表到分析区                   | 🔴 P0  | 2d       | 9%   | connection_manager       |
-| SQL 查询结果自动转为资源               | 🔴 P0  | 2d       | 9%   | query 模块集成           |
-| 详情面板（右侧滑出）                   | 🟡 P1  | 2d       | 9%   | dockview 面板 API        |
-| 资源拖拽到 SQL 编辑器                  | 🟡 P1  | 2d       | 9%   | dockview 拖拽 API        |
-| 文件夹拖拽排序                         | 🟡 P1  | 1.5d     | 7%   | 拖拽库                   |
-| 资源批量导入                           | 🟡 P1  | 1d       | 5%   | 文件选择器               |
-| 依赖关系图                             | 🟡 P1  | 2d       | 9%   | `resource_references` 表 |
-| 删除前依赖检查                         | 🟡 P1  | 1d       | 5%   | 依赖图                   |
-| 操作审计日志                           | 🟢 P2  | 1d       | 5%   | `audit_log` 表           |
-| 资源模板                               | 🟢 P2  | 1.5d     | 7%   | —                        |
-| 智能推荐（最近/常用）                  | 🟢 P2  | 1d       | 5%   | —                        |
-| 批量提升为全局                         | 🟢 P2  | 1d       | 5%   | —                        |
-| 会话临时表自动清理                     | 🟢 P2  | 0.5d     | 2%   | —                        |
-| **合计**                               | —       | **21.5d** | **100%** | —                     |
+| 功能                                   | 优先级 | 预估工时  | 占比     | 依赖                     |
+| -------------------------------------- | ------ | --------- | -------- | ------------------------ |
+| 文件导入（CSV/Parquet/Excel → DuckDB） | 🔴 P0  | 3d        | 14%      | DuckDB 引擎集成          |
+| 从连接提取表到分析区                   | 🔴 P0  | 2d        | 9%       | connection_manager       |
+| SQL 查询结果自动转为资源               | 🔴 P0  | 2d        | 9%       | query 模块集成           |
+| 详情面板（右侧滑出）                   | 🟡 P1  | 2d        | 9%       | dockview 面板 API        |
+| 资源拖拽到 SQL 编辑器                  | 🟡 P1  | 2d        | 9%       | dockview 拖拽 API        |
+| 文件夹拖拽排序                         | 🟡 P1  | 1.5d      | 7%       | 拖拽库                   |
+| 资源批量导入                           | 🟡 P1  | 1d        | 5%       | 文件选择器               |
+| 依赖关系图                             | 🟡 P1  | 2d        | 9%       | `resource_references` 表 |
+| 删除前依赖检查                         | 🟡 P1  | 1d        | 5%       | 依赖图                   |
+| 操作审计日志                           | 🟢 P2  | 1d        | 5%       | `audit_log` 表           |
+| 资源模板                               | 🟢 P2  | 1.5d      | 7%       | —                        |
+| 智能推荐（最近/常用）                  | 🟢 P2  | 1d        | 5%       | —                        |
+| 批量提升为全局                         | 🟢 P2  | 1d        | 5%       | —                        |
+| 会话临时表自动清理                     | 🟢 P2  | 0.5d      | 2%       | —                        |
+| **合计**                               | —      | **21.5d** | **100%** | —                        |
 
 ### 5.2 技术债
 
-| 项目                          | 优先级 | 说明                                     |
-| ----------------------------- | ------ | ---------------------------------------- |
-| Rust Store 拆分               | ✅     | v1.7: 2157行单文件 → analytics_resource_store/ 9文件目录模块（mod/models/helpers/resource/recycle/folder/tag/version/tests） |
-| ~~子组件 naive-ui 集成~~      | ✅     | v1.7: CreateResourceModal NModal/NForm/NInput/NSelect/NInputNumber |
-| ~~OnceLock 单例重构~~         | ✅     | v1.7: Arc<Mutex<Option<Store>>> → Arc<OnceLock<Store>>，消除读写锁 |
-| ~~故障注入测试~~              | ✅     | v1.7: t013 无效ID / t014 回收站不存在 / t015 并发更新冲突 |
-| WS 消息常量类型对齐           | 🟢 P2  | INT code vs string type 不一致           |
+| 项目                     | 优先级 | 说明                                                                                                                         |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Rust Store 拆分          | ✅     | v1.7: 2157行单文件 → analytics_resource_store/ 9文件目录模块（mod/models/helpers/resource/recycle/folder/tag/version/tests） |
+| ~~子组件 naive-ui 集成~~ | ✅     | v1.7: CreateResourceModal NModal/NForm/NInput/NSelect/NInputNumber                                                           |
+| ~~OnceLock 单例重构~~    | ✅     | v1.7: Arc<Mutex<Option<Store>>> → Arc<OnceLock<Store>>，消除读写锁                                                           |
+| ~~故障注入测试~~         | ✅     | v1.7: t013 无效ID / t014 回收站不存在 / t015 并发更新冲突                                                                    |
+| WS 消息常量类型对齐      | 🟢 P2  | INT code vs string type 不一致                                                                                               |
 
 ---
 
@@ -336,7 +336,7 @@
 | 双向查询 | 2        | 2            | 2          | —     |
 | 初始化   | 1        | 1            | 1          | —     |
 | 前端本地 | —        | —            | 16         | —     |
-| **合计** | **25**   | **25**       | **41**     | **7**  |
+| **合计** | **25**   | **25**       | **41**     | **7** |
 
 > Store 方法总计 41 个：25 个与后端 API 一一对应 + 16 个纯前端方法（分页控制/选择管理/设置持久化/标签缓存/文件夹缓存）
 
@@ -354,17 +354,17 @@
 
 ## 八、版本历史
 
-| 版本 | 日期       | 变更内容                                                                                                                              |
-| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| v1.7 | 2026-05-12 | **架构**: OnceLock 无锁单例（Arc<Mutex<Option<>>> → Arc<OnceLock<>>）、**Store 拆分**：2157行单文件→9文件目录模块（mod/models/helpers/resource/recycle/folder/tag/version/tests），消除读写锁开销 + Option 检查 | **前端**: CreateResourceModal naive-ui 全量升级、alert()→useMessage()、API 类型 unknown→CreateResourceRequest、Store error state + clearError + 3个Action补全error、JSON inline error | **Rust**: permanent_delete 显式事务、IPC 版本协商（ANALYTICS_RESOURCE_API_VERSION "1.7.0"） | **测试**: 故障注入测试（t013 无效ID / t014 回收站不存在 / t015 并发更新冲突）、Rust 15 测试 + vitest 124 = 139/139 全部通过 | **文档**: 6 份全部 v1.7、Phase 4 子任务细化（14 项/21.5d）、技术债 Store拆分/OnceLock/故障注入全部完成 |
-| v1.6 | 2026-05-11 | P0 修复：7处 `unwrap_or(Value::Null)` 添加 tracing::warn 日志、18个 Tauri Command 错误类型 `String`→`CoreError`、新增并发创建测试（t012）、AnalyticsResourceManager 接入 Pinia store + naive-ui NButton/NTag、新增 use-search 单测（10 用例）、文档升级 v1.6  |
-| v1.5 | 2026-05-10 | 全方位自审计修复：文档不一致修正（22→25 命令、24→25 API）、Store 拆分为 3 个领域 composable（-13%）、虚拟滚动 composable 提取、Rust 集成测试（17 用例）+ vitest 前端单元测试（18 用例）、PROGRESS.md 表格修正（26→41 方法）、Phase 4 更新至进行中 15% |
-| v1.4 | 2026-05-09 | 审计修复：W8-W13 清理未使用变量/非空断言、W2 trace 日志、S1 新增 get_analytics_tag 命令、W3+W14 extension.ts 版本号修复、W4-W7 CSS 语义变量化 |
-| v1.3 | 2026-05-08 | 资源详情面板（ResourceDetailModal）、标签徽章展示（resourceTagMap + loadResourceTags）、搜索历史（useSearchHistory + SearchBar 下拉） |
-| v1.2 | 2026-05-08 | 标签管理 UI（TagManager + CreateTagModal）、版本历史 UI（VersionHistoryModal + 右键菜单 + Ctrl+Shift+V）、Store 方法补齐（3 个）      |
-| v1.1 | 2026-05-07 | P0/P1 深度优化：参数化查询、事务支持、Schema 增强、版本历史、标签双向查询、设置面板联动、快捷键全部实现                               |
-| v1.0 | 2026-05-01 | Phase 1+2 完成：基础 CRUD、文件夹管理、回收站、Context Menu、Toast 系统、LRU 缓存                                                     |
-| v0.1 | 2026-04-25 | Phase 1 完成：数据库 Schema、Rust Store 基础、前端框架搭建                                                                            |
+| 版本 | 日期       | 变更内容                                                                                                                                                                                                                                                     |
+| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| v1.7 | 2026-05-12 | **架构**: OnceLock 无锁单例（Arc<Mutex<Option<>>> → Arc<OnceLock<>>）、**Store 拆分**：2157行单文件→9文件目录模块（mod/models/helpers/resource/recycle/folder/tag/version/tests），消除读写锁开销 + Option 检查                                              | **前端**: CreateResourceModal naive-ui 全量升级、alert()→useMessage()、API 类型 unknown→CreateResourceRequest、Store error state + clearError + 3个Action补全error、JSON inline error | **Rust**: permanent_delete 显式事务、IPC 版本协商（ANALYTICS_RESOURCE_API_VERSION "1.7.0"） | **测试**: 故障注入测试（t013 无效ID / t014 回收站不存在 / t015 并发更新冲突）、Rust 15 测试 + vitest 124 = 139/139 全部通过 | **文档**: 6 份全部 v1.7、Phase 4 子任务细化（14 项/21.5d）、技术债 Store拆分/OnceLock/故障注入全部完成 |
+| v1.6 | 2026-05-11 | P0 修复：7处 `unwrap_or(Value::Null)` 添加 tracing::warn 日志、18个 Tauri Command 错误类型 `String`→`CoreError`、新增并发创建测试（t012）、AnalyticsResourceManager 接入 Pinia store + naive-ui NButton/NTag、新增 use-search 单测（10 用例）、文档升级 v1.6 |
+| v1.5 | 2026-05-10 | 全方位自审计修复：文档不一致修正（22→25 命令、24→25 API）、Store 拆分为 3 个领域 composable（-13%）、虚拟滚动 composable 提取、Rust 集成测试（17 用例）+ vitest 前端单元测试（18 用例）、PROGRESS.md 表格修正（26→41 方法）、Phase 4 更新至进行中 15%        |
+| v1.4 | 2026-05-09 | 审计修复：W8-W13 清理未使用变量/非空断言、W2 trace 日志、S1 新增 get_analytics_tag 命令、W3+W14 extension.ts 版本号修复、W4-W7 CSS 语义变量化                                                                                                                |
+| v1.3 | 2026-05-08 | 资源详情面板（ResourceDetailModal）、标签徽章展示（resourceTagMap + loadResourceTags）、搜索历史（useSearchHistory + SearchBar 下拉）                                                                                                                        |
+| v1.2 | 2026-05-08 | 标签管理 UI（TagManager + CreateTagModal）、版本历史 UI（VersionHistoryModal + 右键菜单 + Ctrl+Shift+V）、Store 方法补齐（3 个）                                                                                                                             |
+| v1.1 | 2026-05-07 | P0/P1 深度优化：参数化查询、事务支持、Schema 增强、版本历史、标签双向查询、设置面板联动、快捷键全部实现                                                                                                                                                      |
+| v1.0 | 2026-05-01 | Phase 1+2 完成：基础 CRUD、文件夹管理、回收站、Context Menu、Toast 系统、LRU 缓存                                                                                                                                                                            |
+| v0.1 | 2026-04-25 | Phase 1 完成：数据库 Schema、Rust Store 基础、前端框架搭建                                                                                                                                                                                                   |
 
 ---
 

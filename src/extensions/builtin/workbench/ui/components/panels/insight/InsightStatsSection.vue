@@ -12,13 +12,12 @@
         </div>
         <div class="stat-row">
           <span class="stat-label">{{ t('resultPanel.nullRateLabel') }}</span>
-          <span
-            class="stat-value"
-            :class="{ 'text-warning': insightData.stats.null_rate > 0.05 }"
-          >
+          <span class="stat-value" :class="{ 'text-warning': insightData.stats.null_rate > 0.05 }">
             {{ nullRateDisplay }}
             <span class="stat-sub"
-              >({{ t('resultPanel.nullRateDetail', { count: insightData.stats.null_count }) }})</span
+              >({{
+                t('resultPanel.nullRateDetail', { count: insightData.stats.null_count })
+              }})</span
             >
           </span>
         </div>
@@ -47,21 +46,14 @@
           <div class="stat-row">
             <span class="stat-label">{{ t('resultPanel.percentileLabel') }}</span>
             <span class="stat-value mono"
-              >{{ fmtNum(numericDetail!.p25) }} /
-              {{ fmtNum(numericDetail!.p75) }}</span
+              >{{ fmtNum(numericDetail!.p25) }} / {{ fmtNum(numericDetail!.p75) }}</span
             >
           </div>
-          <div
-            v-if="numericDetail!.stddev != null"
-            class="stat-row"
-          >
+          <div v-if="numericDetail!.stddev != null" class="stat-row">
             <span class="stat-label">{{ t('resultPanel.stddevLabel') }}</span>
             <span class="stat-value mono">{{ fmtNum(numericDetail!.stddev ?? 0) }}</span>
           </div>
-          <div
-            v-if="numericDetail!.skewness != null"
-            class="stat-row"
-          >
+          <div v-if="numericDetail!.skewness != null" class="stat-row">
             <span class="stat-label">{{ t('resultPanel.skewnessLabel') }}</span>
             <span class="stat-value mono"
               >{{ fmtNum(numericDetail!.skewness ?? 0) }}
@@ -74,8 +66,7 @@
           <div class="stat-row">
             <span class="stat-label">{{ t('resultPanel.lengthRangeLabel') }}</span>
             <span class="stat-value"
-              >{{ textDetail!.min_length }} ~
-              {{ textDetail!.max_length }}</span
+              >{{ textDetail!.min_length }} ~ {{ textDetail!.max_length }}</span
             >
           </div>
         </template>
@@ -91,7 +82,9 @@
           </div>
           <div class="stat-row">
             <span class="stat-label">{{ t('resultPanel.spanLabel') }}</span>
-            <span class="stat-value">{{ t('resultPanel.spanDays', { days: dateTimeDetail!.span_days }) }}</span>
+            <span class="stat-value">{{
+              t('resultPanel.spanDays', { days: dateTimeDetail!.span_days })
+            }}</span>
           </div>
         </template>
 
@@ -101,7 +94,11 @@
             <span class="stat-value"
               >{{ booleanDetail!.true_count.toLocaleString() }}
               <span class="stat-sub"
-                >({{ t('resultPanel.trueRatio', { ratio: (booleanDetail!.true_ratio * 100).toFixed(1) }) }})</span
+                >({{
+                  t('resultPanel.trueRatio', {
+                    ratio: (booleanDetail!.true_ratio * 100).toFixed(1),
+                  })
+                }})</span
               >
             </span>
           </div>
@@ -153,7 +150,10 @@
           >
             <span class="freq-label">{{ item.value }}</span>
             <div class="freq-bar-wrap">
-              <div class="freq-bar freq-bar-datetime" :style="{ width: (item.ratio * 100).toFixed(1) + '%' }"></div>
+              <div
+                class="freq-bar freq-bar-datetime"
+                :style="{ width: (item.ratio * 100).toFixed(1) + '%' }"
+              ></div>
             </div>
             <span class="freq-ratio">{{ (item.ratio * 100).toFixed(1) }}%</span>
           </button>
@@ -221,7 +221,12 @@
           v-if="statsKind === 'Boolean' && booleanDetail!.true_ratio > 0.95"
           class="quality-item quality-info"
         >
-          ℹ️ {{ t('resultPanel.highlyImbalanced', { ratio: (booleanDetail!.true_ratio * 100).toFixed(1) }) }}
+          ℹ️
+          {{
+            t('resultPanel.highlyImbalanced', {
+              ratio: (booleanDetail!.true_ratio * 100).toFixed(1),
+            })
+          }}
         </div>
       </div>
     </NCollapseItem>
@@ -269,16 +274,22 @@ const emit = defineEmits<{
 }>()
 
 const numericDetail = computed<NumericStatsDetail | null>(() =>
-  props.statsKind === 'Numeric' ? props.insightData.stats.stats_detail as NumericStatsDetail : null
+  props.statsKind === 'Numeric'
+    ? (props.insightData.stats.stats_detail as NumericStatsDetail)
+    : null
 )
 const textDetail = computed<TextStatsDetail | null>(() =>
-  props.statsKind === 'Text' ? props.insightData.stats.stats_detail as TextStatsDetail : null
+  props.statsKind === 'Text' ? (props.insightData.stats.stats_detail as TextStatsDetail) : null
 )
 const dateTimeDetail = computed<DateTimeStatsDetail | null>(() =>
-  props.statsKind === 'DateTime' ? props.insightData.stats.stats_detail as DateTimeStatsDetail : null
+  props.statsKind === 'DateTime'
+    ? (props.insightData.stats.stats_detail as DateTimeStatsDetail)
+    : null
 )
 const booleanDetail = computed<BooleanStatsDetail | null>(() =>
-  props.statsKind === 'Boolean' ? props.insightData.stats.stats_detail as BooleanStatsDetail : null
+  props.statsKind === 'Boolean'
+    ? (props.insightData.stats.stats_detail as BooleanStatsDetail)
+    : null
 )
 
 function fmtNum(n: number): string {
@@ -296,7 +307,11 @@ function skewDesc(s: number): string {
 function formatCellValue(val: unknown): string {
   if (val === null || val === undefined) return 'NULL'
   if (typeof val === 'object') {
-    try { return JSON.stringify(val) } catch { return String(val) }
+    try {
+      return JSON.stringify(val)
+    } catch {
+      return String(val)
+    }
   }
   const str = String(val)
   if (str.length > 200) return str.substring(0, 200) + '...'
@@ -305,36 +320,158 @@ function formatCellValue(val: unknown): string {
 </script>
 
 <style scoped>
-.stat-grid { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
-.stat-label { color: var(--text-secondary); font-size: var(--font-size-xss); }
-.stat-value { font-size: var(--font-size-sm); font-weight: 500; }
-.stat-value.mono { font-family: var(--font-mono); font-size: var(--font-size-xss); }
-.stat-value.small { font-size: var(--font-size-xs); }
-.stat-sub { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-left: var(--spacing-xs); }
-.text-warning { color: var(--brand-warning); }
+.stat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+}
+.stat-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xss);
+}
+.stat-value {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+.stat-value.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xss);
+}
+.stat-value.small {
+  font-size: var(--font-size-xs);
+}
+.stat-sub {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-left: var(--spacing-xs);
+}
+.text-warning {
+  color: var(--brand-warning);
+}
 
-.histogram, .freq-list, .bool-dist { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-.histo-row, .freq-item { display: flex; align-items: center; gap: 6px; }
-.histo-label, .freq-label { width: 60px; font-size: var(--font-size-xs); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary); }
-.histo-bar-wrap, .freq-bar-wrap { flex: 1; height: var(--spacing-sm); background: var(--bg-secondary); border-radius: var(--border-radius-sm); overflow: hidden; }
-.histo-bar, .freq-bar { height: 100%; background: var(--primary-color); border-radius: var(--border-radius-sm); transition: width 0.4s ease; }
-.histo-bar-bool { background: var(--brand-success); }
-.freq-bar-datetime { background: var(--brand-accent); }
-.freq-clickable { cursor: pointer; background: none; border: none; padding: 2px 0; color: inherit; font: inherit; width: 100%; text-align: left; }
-.freq-clickable:hover { background: var(--bg-hover); border-radius: var(--border-radius-sm); }
-.histo-ratio, .freq-ratio { font-size: var(--font-size-xs); color: var(--text-secondary); width: 40px; text-align: right; }
+.histogram,
+.freq-list,
+.bool-dist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.histo-row,
+.freq-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.histo-label,
+.freq-label {
+  width: 60px;
+  font-size: var(--font-size-xs);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+}
+.histo-bar-wrap,
+.freq-bar-wrap {
+  flex: 1;
+  height: var(--spacing-sm);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+}
+.histo-bar,
+.freq-bar {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: var(--border-radius-sm);
+  transition: width 0.4s ease;
+}
+.histo-bar-bool {
+  background: var(--brand-success);
+}
+.freq-bar-datetime {
+  background: var(--brand-accent);
+}
+.freq-clickable {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  text-align: left;
+}
+.freq-clickable:hover {
+  background: var(--bg-hover);
+  border-radius: var(--border-radius-sm);
+}
+.histo-ratio,
+.freq-ratio {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  width: 40px;
+  text-align: right;
+}
 
-.viz-action { margin-top: var(--spacing-sm); display: flex; justify-content: flex-end; }
+.viz-action {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  justify-content: flex-end;
+}
 
-.quality-list { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-.quality-item { font-size: var(--font-size-xss); padding: var(--spacing-xs) 6px; border-radius: var(--border-radius-sm); }
-.quality-ok { background: rgba(0, 184, 148, 0.08); color: var(--brand-success); }
-.quality-warn { background: rgba(253, 203, 110, 0.08); color: var(--brand-warning); }
-.quality-info { background: rgba(116, 185, 255, 0.08); color: var(--brand-blue); }
+.quality-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.quality-item {
+  font-size: var(--font-size-xss);
+  padding: var(--spacing-xs) 6px;
+  border-radius: var(--border-radius-sm);
+}
+.quality-ok {
+  background: rgba(0, 184, 148, 0.08);
+  color: var(--brand-success);
+}
+.quality-warn {
+  background: rgba(253, 203, 110, 0.08);
+  color: var(--brand-warning);
+}
+.quality-info {
+  background: rgba(116, 185, 255, 0.08);
+  color: var(--brand-blue);
+}
 
-.sample-list { display: flex; flex-direction: column; gap: 2px; }
-.sample-item { display: flex; align-items: center; gap: var(--spacing-sm); padding: 2px var(--spacing-xs); }
-.sample-idx { font-size: var(--font-size-xs); color: var(--text-tertiary); width: 16px; text-align: right; }
-.sample-val { font-size: var(--font-size-xss); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.sample-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sample-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 2px var(--spacing-xs);
+}
+.sample-idx {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  width: 16px;
+  text-align: right;
+}
+.sample-val {
+  font-size: var(--font-size-xss);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
 </style>

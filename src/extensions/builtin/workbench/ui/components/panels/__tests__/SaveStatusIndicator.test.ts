@@ -6,7 +6,11 @@ import SaveStatusIndicator from '../SaveStatusIndicator.vue'
 import type { SaveStatus } from '../../../composables/useFileSave'
 
 describe('SaveStatusIndicator', () => {
-  const mountComponent = (status: SaveStatus, lastSaveTime?: number | null, showLabel?: boolean) => {
+  const mountComponent = (
+    status: SaveStatus,
+    lastSaveTime?: number | null,
+    showLabel?: boolean
+  ) => {
     return mount(SaveStatusIndicator, {
       props: {
         status,

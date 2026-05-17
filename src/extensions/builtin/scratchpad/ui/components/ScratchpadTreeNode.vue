@@ -53,48 +53,32 @@
       <span v-if="entry.kind === 'folder'" class="node-arrow" />
     </div>
 
-    <div v-if="entry.kind === 'folder' && expanded" class="node-children">
-      <div v-if="isInlineCreateTarget" class="node-row inline-create-row" :style="{ paddingLeft: `${(depth + 1) * 16 + 8}px` }">
-        <span class="folder-toggle-spacer" />
-        <NIcon
-          size="14"
-          class="node-icon"
-          :class="{ 'node-icon-folder': inlineCreateIsFolder }"
-          :style="inlineCreateIsFolder ? { color: folderIconColor } : undefined"
-        >
-          <component :is="inlineCreateIsFolder ? Folder : File" />
-        </NIcon>
-        <input
-          ref="inlineInputRef"
-          v-model="inlineCreateName"
-          class="rename-input"
-          :placeholder="inlineCreateIsFolder ? t('scratchpad.newFolderNamePlaceholder') : t('scratchpad.newFileNamePlaceholder')"
-          @keyup.enter="commitInlineCreate"
-          @keyup.escape="cancelInlineCreate"
-          @blur="commitInlineCreate"
-          @click.stop
-        />
-      </div>
-      <ScratchpadTreeNode
-        v-for="child in childEntries"
-        :key="child.path"
-        :entry="child"
-        :depth="depth + 1"
-        :expanded-keys="expandedKeys"
-        :selected-key="selectedKey"
-        :selected-keys="selectedKeys"
-        :renaming-key="renamingKey"
-        :inline-create-parent-path="inlineCreateParentPath"
-        :inline-create-is-folder="inlineCreateIsFolder"
-        @select="forwardSelect"
-        @open="forwardOpen"
-        @contextmenu="forwardContextmenu"
-        @toggle-expand="forwardToggleExpand"
-        @start-rename="forwardStartRename"
-        @finish-rename="forwardFinishRename"
-        @cancel-rename="forwardCancelRename"
-        @drag-start="forwardDragStart"
-        @create-inline="forwardCreateInline"
+    <div
+      v-if="isInlineCreateTarget && expanded"
+      class="node-row inline-create-row"
+      :style="{ paddingLeft: `${(depth + 1) * 16 + 8}px` }"
+    >
+      <span class="folder-toggle-spacer" />
+      <NIcon
+        size="14"
+        class="node-icon"
+        :class="{ 'node-icon-folder': inlineCreateIsFolder }"
+        :style="inlineCreateIsFolder ? { color: folderIconColor } : undefined"
+      >
+        <component :is="inlineCreateIsFolder ? Folder : File" />
+      </NIcon>
+      <input
+        ref="inlineInputRef"
+        v-model="inlineCreateName"
+        class="rename-input"
+        :placeholder="
+          inlineCreateIsFolder
+            ? t('scratchpad.newFolderNamePlaceholder')
+            : t('scratchpad.newFileNamePlaceholder')
+        "
+        @keyup.enter="commitInlineCreate"
+        @keyup.escape="cancelInlineCreate"
+        @click.stop
       />
     </div>
   </div>
@@ -115,7 +99,7 @@ import {
   ChevronRight,
 } from 'lucide-vue-next'
 import { NIcon } from 'naive-ui'
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useUiStore } from '@/shared/stores/ui'
@@ -143,9 +127,7 @@ const props = withDefaults(defineProps<Props>(), {
 const { t } = useI18n()
 const uiStore = useUiStore()
 
-const folderIconColor = computed(() =>
-  uiStore.isDark ? '#e2a348' : '#b8730a'
-)
+const folderIconColor = computed(() => (uiStore.isDark ? '#e2a348' : '#b8730a'))
 
 const emit = defineEmits<{
   select: [entry: ScratchpadEntry, event?: MouseEvent]
@@ -160,23 +142,43 @@ const emit = defineEmits<{
   'create-inline': [name: string]
 }>()
 
-const expanded = computed(() => props.expandedKeys.has(props.entry.path))
-const isSelected = computed(() => {
-  if (props.selectedKeys) return props.selectedKeys.has(props.entry.path)
-  return props.selectedKey === props.entry.path
+function normPath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/$/, '')
+}
+
+const expanded = computed(() => {
+  const np = normPath(props.entry.path)
+  for (const key of props.expandedKeys) {
+    if (normPath(key) === np) return true
+  }
+  return false
 })
-const isRenaming = computed(() => props.renamingKey === props.entry.path)
+const isSelected = computed(() => {
+  const np = normPath(props.entry.path)
+  if (props.selectedKeys) {
+    for (const key of props.selectedKeys) {
+      if (normPath(key) === np) return true
+    }
+    return false
+  }
+  return props.selectedKey ? normPath(props.selectedKey) === np : false
+})
+const isRenaming = computed(() => (props.renamingKey ? normPath(props.renamingKey) === normPath(props.entry.path) : false))
 
 const isInlineCreateTarget = computed(
   () =>
     props.entry.kind === 'folder' &&
-    props.inlineCreateParentPath === props.entry.path
+    (props.inlineCreateParentPath
+      ? normPath(props.inlineCreateParentPath) === normPath(props.entry.path)
+      : false)
 )
 
 const isNodeDirty = computed(() => {
   if (!props.dirtyFiles || props.entry.kind !== 'file') return false
   return [...props.dirtyFiles].some(
-    p => p.replace(/\\/g, '/').replace(/\/$/, '') === props.entry.path.replace(/\\/g, '/').replace(/\/$/, '')
+    p =>
+      p.replace(/\\/g, '/').replace(/\/$/, '') ===
+      props.entry.path.replace(/\\/g, '/').replace(/\/$/, '')
   )
 })
 
@@ -189,16 +191,6 @@ const dragOver = ref(false)
 const renameValue = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const renamingSaving = ref(false)
-
-const childEntries = computed(() => {
-  const children = props.entry.children || []
-  return [...children].sort((a, b) => {
-    if (a.kind !== b.kind) {
-      return a.kind === 'folder' ? -1 : 1
-    }
-    return a.name.localeCompare(b.name)
-  })
-})
 
 const extensionIconMap: Record<string, typeof File> = {
   '.sql': Database,
@@ -243,12 +235,59 @@ watch(isRenaming, async val => {
   }
 })
 
+let inlineClickOutsideCleanup: (() => void) | null = null
+let inlineClickOutsideTimer: ReturnType<typeof setTimeout> | null = null
+
 watch(isInlineCreateTarget, async val => {
   if (val) {
+    console.log('[TreeNode] isInlineCreateTarget=true, entry:', props.entry.path)
     inlineCreateName.value = ''
     await nextTick()
+    console.log('[TreeNode] inlineInputRef:', inlineInputRef.value ? 'exists' : 'null')
     inlineInputRef.value?.focus()
+    inlineInputRef.value?.scrollIntoView({ block: 'nearest' })
+    registerInlineClickOutside()
+  } else {
+    cleanupInlineClickOutside()
   }
+}, { immediate: true })
+
+function registerInlineClickOutside(): void {
+  cleanupInlineClickOutside()
+  const handler = (event: MouseEvent): void => {
+    const target = event.target as HTMLElement
+    if (target.closest('.inline-create-row')) {
+      document.addEventListener('click', handler, { once: true })
+      return
+    }
+    commitInlineCreate()
+  }
+  inlineClickOutsideTimer = setTimeout(() => {
+    inlineClickOutsideTimer = null
+    document.addEventListener('click', handler, { once: true })
+  }, 0)
+  inlineClickOutsideCleanup = () => {
+    if (inlineClickOutsideTimer !== null) {
+      clearTimeout(inlineClickOutsideTimer)
+      inlineClickOutsideTimer = null
+    }
+    document.removeEventListener('click', handler)
+  }
+}
+
+function cleanupInlineClickOutside(): void {
+  if (inlineClickOutsideCleanup) {
+    inlineClickOutsideCleanup()
+    inlineClickOutsideCleanup = null
+  }
+}
+
+onUnmounted(() => {
+  if (inlineClickOutsideTimer !== null) {
+    clearTimeout(inlineClickOutsideTimer)
+    inlineClickOutsideTimer = null
+  }
+  cleanupInlineClickOutside()
 })
 
 function handleClick(event: MouseEvent): void {
@@ -308,45 +347,10 @@ function cancelRename(): void {
   emit('cancel-rename')
 }
 
-function forwardSelect(entry: ScratchpadEntry): void {
-  emit('select', entry)
-}
-
-function forwardOpen(entry: ScratchpadEntry): void {
-  emit('open', entry)
-}
-
-function forwardContextmenu(event: MouseEvent, entry: ScratchpadEntry): void {
-  emit('contextmenu', event, entry)
-}
-
-function forwardToggleExpand(entry: ScratchpadEntry): void {
-  emit('toggle-expand', entry)
-}
-
-function forwardStartRename(entry: ScratchpadEntry): void {
-  emit('start-rename', entry)
-}
-
-function forwardFinishRename(entry: ScratchpadEntry, newName: string): void {
-  emit('finish-rename', entry, newName)
-}
-
-function forwardCancelRename(): void {
-  emit('cancel-rename')
-}
-
-function forwardDragStart(event: DragEvent, entry: ScratchpadEntry): void {
-  emit('drag-start', event, entry)
-}
-
-function forwardCreateInline(name: string): void {
-  emit('create-inline', name)
-}
-
-function commitInlineCreate(): void {
+function commitInlineCreate(_event?: FocusEvent): void {
   if (inlineCreating.value) return
   const name = inlineCreateName.value.trim()
+  console.log('[TreeNode] commitInlineCreate, name:', name)
   if (!name) {
     cancelInlineCreate()
     return
@@ -359,6 +363,7 @@ function commitInlineCreate(): void {
 function cancelInlineCreate(): void {
   inlineCreating.value = false
   inlineCreateName.value = ''
+  cleanupInlineClickOutside()
   emit('create-inline', '')
 }
 
@@ -476,7 +481,9 @@ function formatSize(bytes: number): string {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .node-arrow {
@@ -510,10 +517,6 @@ function formatSize(bytes: number): string {
 .node-row.selected .node-size,
 .node-row.selected .node-time {
   opacity: 0.7;
-}
-
-.node-children {
-  /* 子节点容器 */
 }
 
 .inline-create-row {

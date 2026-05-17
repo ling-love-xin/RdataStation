@@ -35,11 +35,12 @@ const DEFAULT_RETRY: RetryConfig = {
   timeoutMs: 15000,
 }
 
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  config: RetryConfig = {}
-): Promise<T> {
-  const { maxRetries = 2, baseDelayMs = 300, timeoutMs = 15000 } = {
+async function withRetry<T>(fn: () => Promise<T>, config: RetryConfig = {}): Promise<T> {
+  const {
+    maxRetries = 2,
+    baseDelayMs = 300,
+    timeoutMs = 15000,
+  } = {
     ...DEFAULT_RETRY,
     ...config,
   }
@@ -97,10 +98,9 @@ export class ProjectService {
    * @param input 项目创建参数
    */
   static async createAndSaveProject(input: CreateProjectInput): Promise<ProjectInfo> {
-    return withRetry(
-      () => invoke<ProjectInfo>('create_and_save_project', { input }),
-      { maxRetries: 1 }
-    )
+    return withRetry(() => invoke<ProjectInfo>('create_and_save_project', { input }), {
+      maxRetries: 1,
+    })
   }
 
   /**
@@ -132,7 +132,11 @@ export class ProjectService {
    * 更新项目信息（名称、描述）
    * @param input 项目 ID + 名称（必须）+ 描述（可选）
    */
-  static async updateProject(input: { id: string; name: string; description?: string }): Promise<void> {
+  static async updateProject(input: {
+    id: string
+    name: string
+    description?: string
+  }): Promise<void> {
     return invoke<void>('update_project', { input })
   }
 

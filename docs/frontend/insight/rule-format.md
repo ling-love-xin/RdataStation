@@ -13,10 +13,10 @@
 
 ### 加载路径
 
-| 类型 | 路径 | 加载时机 |
-|------|------|---------|
+| 类型     | 路径                                             | 加载时机                     |
+| -------- | ------------------------------------------------ | ---------------------------- |
 | 内置规则 | `src-tauri/insight-rules/{category}/*.rule.toml` | 首次调用 `global_registry()` |
-| 用户规则 | `{project}/.RSMETA/insight-rules/*.rule.toml` | 项目打开时 |
+| 用户规则 | `{project}/.RSMETA/insight-rules/*.rule.toml`    | 项目打开时                   |
 
 ### 冲突策略
 
@@ -79,53 +79,53 @@ display_order = 1                   # 显示排序
 
 ### 3.1 `[meta]` — 元数据
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|:--:|------|
-| `id` | `string` | ✅ | 唯一标识符，snake_case，用于规则查询 |
-| `name` | `string` | ✅ | 人类可读名称 |
-| `description` | `string` | ✅ | 功能描述 |
-| `version` | `string` | ✅ | 语义版本号（`x.y`）|
-| `category` | `string` | ✅ | `column` / `multi` / `table` / `quality` |
-| `applies_to` | `string` | ✅ | `numeric` / `text` / `datetime` / `boolean` / `any` |
-| `builtin` | `boolean` | ✅ | 内置规则为 `true`，用户规则为 `false` |
+| 字段          | 类型      | 必填 | 说明                                                |
+| ------------- | --------- | :--: | --------------------------------------------------- |
+| `id`          | `string`  |  ✅  | 唯一标识符，snake_case，用于规则查询                |
+| `name`        | `string`  |  ✅  | 人类可读名称                                        |
+| `description` | `string`  |  ✅  | 功能描述                                            |
+| `version`     | `string`  |  ✅  | 语义版本号（`x.y`）                                 |
+| `category`    | `string`  |  ✅  | `column` / `multi` / `table` / `quality`            |
+| `applies_to`  | `string`  |  ✅  | `numeric` / `text` / `datetime` / `boolean` / `any` |
+| `builtin`     | `boolean` |  ✅  | 内置规则为 `true`，用户规则为 `false`               |
 
 ### 3.2 `[query]` — 查询定义
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|:--:|------|
-| `sql` | `string` | ✅ | DuckDB SQL 模板 |
-| `result_type` | `string` | ✅ | `single`（单行结果对象）或 `list`（多行结果数组）|
-| `parameters` | `string[]` | ✅ | 参数列表，前端和 SQL 模板共享 |
+| 字段          | 类型       | 必填 | 说明                                              |
+| ------------- | ---------- | :--: | ------------------------------------------------- |
+| `sql`         | `string`   |  ✅  | DuckDB SQL 模板                                   |
+| `result_type` | `string`   |  ✅  | `single`（单行结果对象）或 `list`（多行结果数组） |
+| `parameters`  | `string[]` |  ✅  | 参数列表，前端和 SQL 模板共享                     |
 
 ### 3.3 `[[output]]` — 输出字段映射（可多个）
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|:--:|------|
-| `sql_name` | `string` | ✅ | SQL `SELECT` 中的别名/列名 |
-| `json_name` | `string` | ✅ | 输出 JSON 对象的键名 |
-| `value_type` | `string` | ✅ | 值类型（见下表）|
+| 字段         | 类型     | 必填 | 说明                       |
+| ------------ | -------- | :--: | -------------------------- |
+| `sql_name`   | `string` |  ✅  | SQL `SELECT` 中的别名/列名 |
+| `json_name`  | `string` |  ✅  | 输出 JSON 对象的键名       |
+| `value_type` | `string` |  ✅  | 值类型（见下表）           |
 
 ### 3.4 值类型表
 
-| value_type | Rust 类型 | 说明 |
-|-----------|----------|------|
-| `f64` | `f64` | 浮点数（非空） |
-| `f64?` | `Option<f64>` | 浮点数（可空） |
-| `i64` | `i64` | 整数（非空） |
-| `i64?` | `Option<i64>` | 整数（可空） |
-| `String` / `string` | `String` | 字符串（非空） |
-| `String?` / `string?` | `Option<String>` | 字符串（可空） |
-| `bool` | `bool` | 布尔值（非空） |
-| `bool?` | `Option<bool>` | 布尔值（可空） |
-| `usize` | `i64 → usize` | 通过 i64 中转的 usize |
+| value_type            | Rust 类型        | 说明                  |
+| --------------------- | ---------------- | --------------------- |
+| `f64`                 | `f64`            | 浮点数（非空）        |
+| `f64?`                | `Option<f64>`    | 浮点数（可空）        |
+| `i64`                 | `i64`            | 整数（非空）          |
+| `i64?`                | `Option<i64>`    | 整数（可空）          |
+| `String` / `string`   | `String`         | 字符串（非空）        |
+| `String?` / `string?` | `Option<String>` | 字符串（可空）        |
+| `bool`                | `bool`           | 布尔值（非空）        |
+| `bool?`               | `Option<bool>`   | 布尔值（可空）        |
+| `usize`               | `i64 → usize`    | 通过 i64 中转的 usize |
 
 ### 3.5 `[[quality]]` — 质量门控（可选，可多个）
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|:--:|------|
-| `field` | `string` | ✅ | 检查的 `json_name` |
-| `rule` | `string` | ✅ | 约束表达式，如 `>= 0`, `<= 100`, `> 0.0` |
-| `severity` | `string` | ✅ | `error` / `warning` / `info` |
+| 字段       | 类型     | 必填 | 说明                                     |
+| ---------- | -------- | :--: | ---------------------------------------- |
+| `field`    | `string` |  ✅  | 检查的 `json_name`                       |
+| `rule`     | `string` |  ✅  | 约束表达式，如 `>= 0`, `<= 100`, `> 0.0` |
+| `severity` | `string` |  ✅  | `error` / `warning` / `info`             |
 
 执行规则后，`evaluate_quality()` 会逐个检查 `quality` 条目：
 
@@ -135,10 +135,10 @@ display_order = 1                   # 显示排序
 
 ### 3.6 `[render]` — 渲染提示（可选）
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `component` | `string?` | 推荐前端组件名，如 `bar-chart`, `pie-chart`, `table` |
-| `display_order` | `number?` | 在结果面板中的排序位置 |
+| 字段            | 类型      | 说明                                                 |
+| --------------- | --------- | ---------------------------------------------------- |
+| `component`     | `string?` | 推荐前端组件名，如 `bar-chart`, `pie-chart`, `table` |
+| `display_order` | `number?` | 在结果面板中的排序位置                               |
 
 > 注意：RenderHint 当前仅定义为类型，前端尚未消费。预留用于未来的自动可视化匹配。
 

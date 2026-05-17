@@ -9,6 +9,7 @@ export interface MonacoEditorOptions {
   initialValue?: string
   language?: string
   theme?: string
+  scratchpadRelativePath?: string
 }
 
 export function useMonacoEditor(options: MonacoEditorOptions) {
@@ -18,6 +19,7 @@ export function useMonacoEditor(options: MonacoEditorOptions) {
     initialValue = '',
     language = 'sql',
     theme = 'rdata-dark',
+    scratchpadRelativePath = '',
   } = options
 
   const editor = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -28,13 +30,14 @@ export function useMonacoEditor(options: MonacoEditorOptions) {
   const editorReady = ref(false)
   const monacoDisposables: monaco.IDisposable[] = []
 
-  const { draft } = useEditorPersistence(panelId)
+  const { draft } = useEditorPersistence(panelId, scratchpadRelativePath)
 
   function createEditor(): void {
     const el = containerRef.value
     if (!el) return
 
-    const restoredValue = draft.load() || initialValue
+    const hasExplicitContent = initialValue && initialValue.trim() !== ''
+    const restoredValue = hasExplicitContent ? initialValue : draft.load() || initialValue
     if (restoredValue) {
       showWelcome.value = false
     }

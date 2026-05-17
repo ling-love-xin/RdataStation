@@ -855,6 +855,7 @@ impl ScratchpadStore {
         must_exist: bool,
     ) -> Result<PathBuf, CoreError> {
         let clean = relative_path
+            .trim_start_matches("\\\\?\\")
             .trim_start_matches('/')
             .trim_start_matches('\\');
 

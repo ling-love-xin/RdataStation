@@ -19,16 +19,16 @@
 
 ### 模块文档
 
-| 文档                                                          | 说明                       |
-| ------------------------------------------------------------- | -------------------------- |
-| [database-navigator.md](./database-navigator.md)              | 数据库导航模块完整实现     |
-| [database-navigator-optimizations.md](./database-navigator-optimizations.md) | 导航栏优化更新 |
-| [frontend-backend-alignment.md](./frontend-backend-alignment.md) | 前后端对齐与职责划分     |
+| 文档                                                                         | 说明                   |
+| ---------------------------------------------------------------------------- | ---------------------- |
+| [database-navigator.md](./database-navigator.md)                             | 数据库导航模块完整实现 |
+| [database-navigator-optimizations.md](./database-navigator-optimizations.md) | 导航栏优化更新         |
+| [frontend-backend-alignment.md](./frontend-backend-alignment.md)             | 前后端对齐与职责划分   |
 
 ### 外部
 
-| 文档                          | 说明         |
-| ----------------------------- | ------------ |
+| 文档                              | 说明         |
+| --------------------------------- | ------------ |
 | [COMPARISON.md](../COMPARISON.md) | 竞品对比分析 |
 
 ---

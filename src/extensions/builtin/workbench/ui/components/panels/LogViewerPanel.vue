@@ -5,7 +5,7 @@
       <div class="log-toolbar-left">
         <NSelect
           v-model:value="selectedLevel"
-          :options="(levelOptions as any)"
+          :options="levelOptions as any"
           placeholder="全部级别"
           size="small"
           clearable
@@ -80,7 +80,11 @@
     <div class="log-pagination-bar">
       <div class="log-pagination-left">
         <span class="log-pagination-info">
-          {{ store.total > 0 ? `${(store.page - 1) * store.pageSize + 1}-${Math.min(store.page * store.pageSize, store.total)} / ${store.total}` : '暂无记录' }}
+          {{
+            store.total > 0
+              ? `${(store.page - 1) * store.pageSize + 1}-${Math.min(store.page * store.pageSize, store.total)} / ${store.total}`
+              : '暂无记录'
+          }}
         </span>
         <NSelect
           v-model:value="currentPageSize"
@@ -137,7 +141,17 @@
 import { ClientSideRowModelModule, ModuleRegistry } from 'ag-grid-community'
 import { AgGridVue } from 'ag-grid-vue3'
 import { Search, RefreshCw, Trash2, Download } from 'lucide-vue-next'
-import { NSelect, NInput, NButton, NTag, NSpace, NModal, NPagination, useDialog, useNotification } from 'naive-ui'
+import {
+  NSelect,
+  NInput,
+  NButton,
+  NTag,
+  NSpace,
+  NModal,
+  NPagination,
+  useDialog,
+  useNotification,
+} from 'naive-ui'
 import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
 
 import { useLogStore } from '@/extensions/builtin/workbench/ui/stores/log-store'
@@ -320,15 +334,19 @@ async function onExport() {
 
 watch(
   () => store.page,
-  (p) => { currentPage.value = p }
+  p => {
+    currentPage.value = p
+  }
 )
 watch(
   () => store.pageSize,
-  (s) => { currentPageSize.value = s }
+  s => {
+    currentPageSize.value = s
+  }
 )
 watch(
   () => store.error,
-  (err) => {
+  err => {
     if (err) {
       notification.error({ title: '日志操作失败', content: err, duration: 4000 })
     }
@@ -411,8 +429,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .log-detail {

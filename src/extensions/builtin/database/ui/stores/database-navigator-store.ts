@@ -40,7 +40,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return connectionCatalogs.value.get(connectionId) || []
   }
 
-  function getLastSyncTime(connectionId: string, catalogName?: string, schemaName?: string): number {
+  function getLastSyncTime(
+    connectionId: string,
+    catalogName?: string,
+    schemaName?: string
+  ): number {
     const key = catalogName
       ? schemaName
         ? `${connectionId}:${catalogName}:${schemaName}`
@@ -195,7 +199,6 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     connectionCatalogs.value = newMap
 
     setLastSyncTime(connectionId)
-
   }
 
   async function loadSchemas(connectionId: string, catalogName: string) {
@@ -269,7 +272,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
-    const schemaMetas = await databaseApi.loadSchemas(connectionId, catalogName, connType, projectPath)
+    const schemaMetas = await databaseApi.loadSchemas(
+      connectionId,
+      catalogName,
+      connType,
+      projectPath
+    )
 
     let schemas: { name: string }[] = schemaMetas.map(s => ({ name: s.name }))
 
@@ -590,7 +598,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
     const columnMetas = await databaseApi.loadColumns(
-      connectionId, catalogName, schemaName, tableName, connType, projectPath
+      connectionId,
+      catalogName,
+      schemaName,
+      tableName,
+      connType,
+      projectPath
     )
 
     const columns = columnMetas.map(col => ({
@@ -742,9 +755,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     introspectionLevels.value.set(connectionId, level)
   }
 
-  function getIntrospectionLevel(
-    connectionId: string
-  ): IntrospectionLevel {
+  function getIntrospectionLevel(connectionId: string): IntrospectionLevel {
     return introspectionLevels.value.get(connectionId) || 'level3'
   }
 
@@ -856,7 +867,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return cat.schemas || []
   }
 
-  function getSchemaTables(connectionId: string, catalogName: string, schemaName: string): TableNode[] {
+  function getSchemaTables(
+    connectionId: string,
+    catalogName: string,
+    schemaName: string
+  ): TableNode[] {
     const catalogs = connectionCatalogs.value.get(connectionId)
     if (!catalogs) return []
     const cat = catalogs.find(c => c.name === catalogName)
@@ -867,7 +882,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return schema.tables || []
   }
 
-  function getSchemaViews(connectionId: string, catalogName: string, schemaName: string): ViewNode[] {
+  function getSchemaViews(
+    connectionId: string,
+    catalogName: string,
+    schemaName: string
+  ): ViewNode[] {
     const catalogs = connectionCatalogs.value.get(connectionId)
     if (!catalogs) return []
     const cat = catalogs.find(c => c.name === catalogName)
@@ -881,7 +900,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
   }
 
-  async function executeSql(connectionId: string, _catalogName: string, sql: string): Promise<unknown> {
+  async function executeSql(
+    connectionId: string,
+    _catalogName: string,
+    sql: string
+  ): Promise<unknown> {
     return await executeSqlService(connectionId, sql)
   }
 
@@ -909,9 +932,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const schemas = getCatalogSchemas(connectionId, cat.name)
       for (const schema of schemas) {
         if (schema.name === 'default') continue
-        tablePromises.push(
-          loadTables(connectionId, cat.name, schema.name).catch(() => {})
-        )
+        tablePromises.push(loadTables(connectionId, cat.name, schema.name).catch(() => {}))
       }
     }
     await Promise.allSettled(tablePromises)
@@ -944,8 +965,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const elapsed = (performance.now() - t0).toFixed(0)
     console.log(
       `[CacheWarming] 连接 ${connectionId} 缓存预热完成 ` +
-      `(耗时 ${elapsed}ms, Catalog=${targetCatalogs.length}, schema结果=${schemaResults.length}, ` +
-      `table任务=${tablePromises.length}, column任务=${colTaskCount})`
+        `(耗时 ${elapsed}ms, Catalog=${targetCatalogs.length}, schema结果=${schemaResults.length}, ` +
+        `table任务=${tablePromises.length}, column任务=${colTaskCount})`
     )
   }
 

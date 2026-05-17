@@ -8,7 +8,8 @@
             ><kbd>Ctrl</kbd>+<kbd>Enter</kbd> {{ $t('sqlEditor.shortcutExecute') }}</span
           >
           <span class="shortcut-hint"
-            ><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> {{ $t('sqlEditor.shortcutFormat') }}</span
+            ><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>
+            {{ $t('sqlEditor.shortcutFormat') }}</span
           >
           <span class="shortcut-hint"
             ><kbd>Ctrl</kbd>+<kbd>/</kbd> {{ $t('sqlEditor.shortcutComment') }}</span
@@ -146,7 +147,9 @@ function handleConnect(connId: string): void {
   cursor: pointer;
   background: var(--bg-secondary, #2b2d30);
   border: 1px solid var(--border-color, #3e3e42);
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .recent-item:hover {

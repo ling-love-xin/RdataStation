@@ -22,18 +22,11 @@
         </div>
       </div>
 
-      <div v-if="templates.length === 0" class="empty-state">
-        暂无可用模板
-      </div>
+      <div v-if="templates.length === 0" class="empty-state"> 暂无可用模板 </div>
 
       <div class="dialog-footer">
         <NButton size="small" @click="visible = false">取消</NButton>
-        <NButton
-          type="primary"
-          size="small"
-          :disabled="!selectedId"
-          @click="onApply"
-        >
+        <NButton type="primary" size="small" :disabled="!selectedId" @click="onApply">
           应用模板
         </NButton>
       </div>
@@ -61,15 +54,18 @@ const visible = ref(props.show)
 const selectedId = ref<string | null>(null)
 const templates = ref<ScenarioTemplate[]>([])
 
-watch(() => props.show, (val) => {
-  visible.value = val
-  if (val) {
-    selectedId.value = null
-    loadTemplates()
+watch(
+  () => props.show,
+  val => {
+    visible.value = val
+    if (val) {
+      selectedId.value = null
+      loadTemplates()
+    }
   }
-})
+)
 
-watch(visible, (val) => {
+watch(visible, val => {
   emit('update:show', val)
 })
 

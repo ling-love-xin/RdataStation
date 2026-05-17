@@ -10,11 +10,11 @@
 
 日志模块是 RdataStation 的统一日志基础设施，基于 `tracing` 生态构建。它将所有应用运行时日志（`tracing::info!` / `tracing::error!` 等宏调用）截获并输出到三个目标：
 
-| 输出目标 | 说明 | 持久化 |
-|----------|------|--------|
-| stderr | 控制台实时输出，供开发者调试 | ❌ 不持久 |
-| 文件 | 按天滚动 `{data}/RdataStation/logs/app.YYYY-MM-DD` | ✅ 7天保留 |
-| SQLite | `global.db` → `app_logs` 表，支持前端查询 | ✅ 上限10万条 |
+| 输出目标 | 说明                                               | 持久化        |
+| -------- | -------------------------------------------------- | ------------- |
+| stderr   | 控制台实时输出，供开发者调试                       | ❌ 不持久     |
+| 文件     | 按天滚动 `{data}/RdataStation/logs/app.YYYY-MM-DD` | ✅ 7天保留    |
+| SQLite   | `global.db` → `app_logs` 表，支持前端查询          | ✅ 上限10万条 |
 
 ### 为什么需要日志持久化？
 
@@ -66,13 +66,13 @@
 
 ### 关键设计决策
 
-| 决策 | 理由 |
-|------|------|
-| 使用 `tracing` 而非 `log` | 项目已有 `tracing = "0.1.41"`，结构化，异步友好 |
-| 自定义 Layer 而非 MakeWriter | `Layer::on_event` 可直接访问元数据，无需解析文本 |
-| mpsc channel + 批量写入 | 避免每条日志同步写 DB，批量 100 条或 1s 间隔落盘 |
-| unbounded channel | 日志生产速度不可控，bound 可能导致丢日志或死锁 |
-| 两阶段启动（lib.rs） | tracing subscriber 必须最先初始化（阶段1），DB 就绪后再创建 LogStore + 启动 consumer（阶段2） |
+| 决策                         | 理由                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| 使用 `tracing` 而非 `log`    | 项目已有 `tracing = "0.1.41"`，结构化，异步友好                                               |
+| 自定义 Layer 而非 MakeWriter | `Layer::on_event` 可直接访问元数据，无需解析文本                                              |
+| mpsc channel + 批量写入      | 避免每条日志同步写 DB，批量 100 条或 1s 间隔落盘                                              |
+| unbounded channel            | 日志生产速度不可控，bound 可能导致丢日志或死锁                                                |
+| 两阶段启动（lib.rs）         | tracing subscriber 必须最先初始化（阶段1），DB 就绪后再创建 LogStore + 启动 consumer（阶段2） |
 
 ---
 
@@ -124,13 +124,13 @@ pub struct LogRecord {
 
 ```typescript
 interface LogQuery {
-  page?: number;        // default: 1
-  page_size?: number;   // default: 50, max: 500
-  level?: string;       // "ERROR" | "WARN" | ...
-  target?: string;      // LIKE '%sql_service%'
-  keyword?: string;     // LIKE '%timeout%' in message/target
-  start?: string;       // ISO 8601 start
-  end?: string;         // ISO 8601 end
+  page?: number // default: 1
+  page_size?: number // default: 50, max: 500
+  level?: string // "ERROR" | "WARN" | ...
+  target?: string // LIKE '%sql_service%'
+  keyword?: string // LIKE '%timeout%' in message/target
+  start?: string // ISO 8601 start
+  end?: string // ISO 8601 end
 }
 ```
 
@@ -138,11 +138,11 @@ interface LogQuery {
 
 ```typescript
 interface LogStats {
-  total: number;
-  by_level: { trace: number; debug: number; info: number; warn: number; error: number };
-  by_target: Array<{ target: string; count: number }>;
-  first_timestamp?: string;
-  last_timestamp?: string;
+  total: number
+  by_level: { trace: number; debug: number; info: number; warn: number; error: number }
+  by_target: Array<{ target: string; count: number }>
+  first_timestamp?: string
+  last_timestamp?: string
 }
 ```
 
@@ -206,36 +206,36 @@ impl LogStore {
 
 ### 5.2 Tauri Commands (前端调用)
 
-| 命令 | 参数 | 返回 | 说明 |
-|------|------|------|------|
-| `get_logs` | page?, page_size?, level?, target?, keyword?, start?, end? | `LogPage` | 分页查询 |
-| `search_logs` | keyword, level?, target? | `LogPage` | 关键字搜索 |
-| `get_log_stats` | - | `LogStats` | 统计信息 |
-| `clear_logs` | before? (ISO time) | `usize` | 清理旧日志 |
-| `get_log_session_id` | - | `String` | 当前会话 ID |
-| `export_logs` | level?, start?, end?, max_results? | `Vec<LogRecord>` | 导出（默认1万条，上限5万条） |
-| `set_log_level` | level (String) | `()` | 动态修改全局日志级别，通过 reload handle 实时生效 |
+| 命令                 | 参数                                                       | 返回             | 说明                                              |
+| -------------------- | ---------------------------------------------------------- | ---------------- | ------------------------------------------------- |
+| `get_logs`           | page?, page_size?, level?, target?, keyword?, start?, end? | `LogPage`        | 分页查询                                          |
+| `search_logs`        | keyword, level?, target?                                   | `LogPage`        | 关键字搜索                                        |
+| `get_log_stats`      | -                                                          | `LogStats`       | 统计信息                                          |
+| `clear_logs`         | before? (ISO time)                                         | `usize`          | 清理旧日志                                        |
+| `get_log_session_id` | -                                                          | `String`         | 当前会话 ID                                       |
+| `export_logs`        | level?, start?, end?, max_results?                         | `Vec<LogRecord>` | 导出（默认1万条，上限5万条）                      |
+| `set_log_level`      | level (String)                                             | `()`             | 动态修改全局日志级别，通过 reload handle 实时生效 |
 
 #### 调用示例 (TypeScript)
 
 ```typescript
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
 // 查询最近 20 条 ERROR 日志
 const result = await invoke<LogPage>('get_logs', {
   page: 1,
   page_size: 20,
   level: 'ERROR',
-});
+})
 
 // 搜索包含 "timeout" 的日志
 const searchResult = await invoke<LogPage>('search_logs', {
   keyword: 'timeout',
   target: 'connection',
-});
+})
 
 // 获取统计
-const stats = await invoke<LogStats>('get_log_stats');
+const stats = await invoke<LogStats>('get_log_stats')
 ```
 
 ### 5.3 LogConfig 配置
@@ -256,14 +256,14 @@ pub struct LogConfig {
 
 ## 六、性能考量
 
-| 维度 | 策略 | 预期指标 |
-|------|------|----------|
-| DB 写入 | `BEGIN TRANSACTION` / `COMMIT` 包裹批量 INSERT，100 条/批 | ~1-2ms/批（单次 fsync） |
-| 自动清理 | 双重策略：时间维度（7 天过期）+ 数量维度（超 10 万 × 1.2 裁剪），每 10 批懒检查 | < 5ms 偶发 |
-| 查询 | SQLite 索引 (timestamp, level, target, session_id) | < 3ms 常规查询 |
-| 文件 IO | `tracing-appender` 按天滚动 + 启动时清理过期文件 | 对应用吞吐无影响 |
-| 内存 | unbounded channel，最多积累数百条待写入 | < 1MB |
-| 动态调级 | `reload::Layer` + `Handle::modify`，`set_log_level` 命令 | < 1μs 即时生效 |
+| 维度     | 策略                                                                            | 预期指标                |
+| -------- | ------------------------------------------------------------------------------- | ----------------------- |
+| DB 写入  | `BEGIN TRANSACTION` / `COMMIT` 包裹批量 INSERT，100 条/批                       | ~1-2ms/批（单次 fsync） |
+| 自动清理 | 双重策略：时间维度（7 天过期）+ 数量维度（超 10 万 × 1.2 裁剪），每 10 批懒检查 | < 5ms 偶发              |
+| 查询     | SQLite 索引 (timestamp, level, target, session_id)                              | < 3ms 常规查询          |
+| 文件 IO  | `tracing-appender` 按天滚动 + 启动时清理过期文件                                | 对应用吞吐无影响        |
+| 内存     | unbounded channel，最多积累数百条待写入                                         | < 1MB                   |
+| 动态调级 | `reload::Layer` + `Handle::modify`，`set_log_level` 命令                        | < 1μs 即时生效          |
 
 ---
 
@@ -314,7 +314,7 @@ pub struct LogConfig {
   Day 1-7: 增长到 7,000 条，远低于 10 万上限
   Day 8:   策略1 触发，删除 Day1 的 1000 条
   稳态:    每天 ±1000 条进出，维持 ~7,000 条
-  
+
 突发场景（某天 50,000 条）：
   Day 3:   策略2 触发，150,000 > 120,000 → 裁剪到 100,000
   Day 8+:  策略1 逐步清理，回到稳态
@@ -324,14 +324,14 @@ pub struct LogConfig {
 
 ## 八、扩展点
 
-| 方向 | 说明 |
-|------|------|
-| 前端日志面板 | 使用 AG Grid + Naive UI 构建可视化日志浏览器，支持后端分页、自动刷新 |
-| 动态级别调整 | 通过 `set_log_level` 命令运行时修改 EnvFilter |
-| 敏感数据脱敏 | `redact.rs` 自动掩码连接字符串密码、key=value 密码等，可扩展脱敏规则 |
-| 远程日志 | 预留 DuckLake 远程持久化接口，支持多用户审计 |
-| 日志上报告警 | ERROR 级别日志可通过 channel 触发前端 toast 通知 |
-| 结构化查询 | `fields` JSON 字段支持按结构化 key-value 查询（如 `duration_ms > 1000`） |
+| 方向         | 说明                                                                     |
+| ------------ | ------------------------------------------------------------------------ |
+| 前端日志面板 | 使用 AG Grid + Naive UI 构建可视化日志浏览器，支持后端分页、自动刷新     |
+| 动态级别调整 | 通过 `set_log_level` 命令运行时修改 EnvFilter                            |
+| 敏感数据脱敏 | `redact.rs` 自动掩码连接字符串密码、key=value 密码等，可扩展脱敏规则     |
+| 远程日志     | 预留 DuckLake 远程持久化接口，支持多用户审计                             |
+| 日志上报告警 | ERROR 级别日志可通过 channel 触发前端 toast 通知                         |
+| 结构化查询   | `fields` JSON 字段支持按结构化 key-value 查询（如 `duration_ms > 1000`） |
 
 ---
 
@@ -360,8 +360,8 @@ cargo test --lib logging
 
 ## 十、变更记录
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本 | 日期       | 说明                                                                                                                                |
+| ---- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | v1.2 | 2026-05-10 | 改进：添加敏感数据脱敏(redact.rs)、日志面板后端分页+自动刷新、export_logs 支持 max_results 参数、修复静默降级和序列化错误、完善文档 |
-| v1.1 | 2026-05-10 | 优化：事务包裹批量写入(4x)、懒清理(90% COUNT减少)、reload handle 动态调级、文件保留清理、双重生命周期策略 |
-| v1.0 | 2026-05-10 | 初始版本，stderr + 文件滚动 + SQLite 持久化 |
+| v1.1 | 2026-05-10 | 优化：事务包裹批量写入(4x)、懒清理(90% COUNT减少)、reload handle 动态调级、文件保留清理、双重生命周期策略                           |
+| v1.0 | 2026-05-10 | 初始版本，stderr + 文件滚动 + SQLite 持久化                                                                                         |

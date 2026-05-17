@@ -43,9 +43,4 @@ const fontWeights = {
   bold: '700',
 } as const
 
-export {
-  fontFamilies,
-  fontSizes,
-  fontSizeMap,
-  fontWeights,
-}
+export { fontFamilies, fontSizes, fontSizeMap, fontWeights }

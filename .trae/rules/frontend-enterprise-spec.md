@@ -123,13 +123,13 @@ A / C 初始展开，A:B:C = 1:2:1；收起后仅 48px tab 条
 
 ## 2.2 布局区域职责
 
-| 区域             | 代号 | 技术                | 初始宽度 | 说明                                                 |
-| ---------------- | ---- | ------------------- | -------- | ---------------------------------------------------- |
-| Menu Bar         | -    | 自定义              | 36px     | 标题栏+菜单+Customize Layout 按钮，非 dockview      |
-| Left Edge Group  | A    | dockview Edge Grp   | 25%      | 草稿箱/数据库导航/分析资源/插件(tab)         |
-| Center Area      | B    | dockview Normal Grp | 50%      | Welcome Page / SQL Editor / Query Result      |
-| Right Edge Group | C    | dockview Edge Grp   | 25%      | 列洞察/Mock数据/SQL历史(tab)                  |
-| Status Bar       | -    | 自定义              | 22px     | 状态信息+⚙ 设置入口，非 dockview                     |
+| 区域             | 代号 | 技术                | 初始宽度 | 说明                                           |
+| ---------------- | ---- | ------------------- | -------- | ---------------------------------------------- |
+| Menu Bar         | -    | 自定义              | 36px     | 标题栏+菜单+Customize Layout 按钮，非 dockview |
+| Left Edge Group  | A    | dockview Edge Grp   | 25%      | 草稿箱/数据库导航/分析资源/插件(tab)           |
+| Center Area      | B    | dockview Normal Grp | 50%      | Welcome Page / SQL Editor / Query Result       |
+| Right Edge Group | C    | dockview Edge Grp   | 25%      | 列洞察/Mock数据/SQL历史(tab)                   |
+| Status Bar       | -    | 自定义              | 22px     | 状态信息+⚙ 设置入口，非 dockview               |
 
 ## 2.3 Workbench 工作台布局
 
@@ -164,38 +164,39 @@ A / C 初始展开，A:B:C = 1:2:1；收起后仅 48px tab 条
 
 ### 2.4.1 快捷键清单
 
-| 快捷键 | 功能 | 实现位置 |
-|--------|------|---------|
-| `Ctrl+B` / `Cmd+B` | Toggle 左侧 Edge Group | `useDockviewKeyboard.ts` |
-| `Ctrl+Shift+B` / `Cmd+Shift+B` | Toggle 右侧 Edge Group | `useDockviewKeyboard.ts` |
-| `Esc` | 退出最大化（边栏/面板） | `useDockviewKeyboard.ts` |
+| 快捷键                         | 功能                    | 实现位置                 |
+| ------------------------------ | ----------------------- | ------------------------ |
+| `Ctrl+B` / `Cmd+B`             | Toggle 左侧 Edge Group  | `useDockviewKeyboard.ts` |
+| `Ctrl+Shift+B` / `Cmd+Shift+B` | Toggle 右侧 Edge Group  | `useDockviewKeyboard.ts` |
+| `Esc`                          | 退出最大化（边栏/面板） | `useDockviewKeyboard.ts` |
 
 ### 2.4.2 面板图标映射
 
-| 面板组件 ID | lucide 图标 | 说明 |
-|------------|------------|------|
-| `scratchpad` | `StickyNote` | 草稿箱 |
-| `databaseNavigator` | `Database` | 数据库导航 |
-| `analytics-resource-manager` | `BarChart3` | 分析资源管理 |
-| `plugins` | `Puzzle` | 插件管理 |
-| `sqlHistory` | `FileText` | SQL 历史 |
-| `mockPanel` | `Dices` | Mock 数据 |
-| `columnInsights` | `Sparkles` | 列洞察 |
-| `emptyWorkbench` | `Layout` | 欢迎页 |
-| 其他 | `Layout`（默认） | 新面板无匹配图标时使用 |
+| 面板组件 ID                  | lucide 图标      | 说明                   |
+| ---------------------------- | ---------------- | ---------------------- |
+| `scratchpad`                 | `StickyNote`     | 草稿箱                 |
+| `databaseNavigator`          | `Database`       | 数据库导航             |
+| `analytics-resource-manager` | `BarChart3`      | 分析资源管理           |
+| `plugins`                    | `Puzzle`         | 插件管理               |
+| `sqlHistory`                 | `FileText`       | SQL 历史               |
+| `mockPanel`                  | `Dices`          | Mock 数据              |
+| `columnInsights`             | `Sparkles`       | 列洞察                 |
+| `emptyWorkbench`             | `Layout`         | 欢迎页                 |
+| 其他                         | `Layout`（默认） | 新面板无匹配图标时使用 |
+
 - **布局数据持久化到 localStorage，启动时恢复**
 
 ### 2.4.3 自定义布局对话框
 
 通过标题栏右侧 `LayoutTemplate` 按钮或状态栏 ⚙ 图标打开 `CustomizeLayoutDialog`：
 
-| 功能 | 说明 |
-|------|------|
-| **Edge Groups 面板** | 左右 Edge Group 显示/隐藏 toggle + 宽度滑块（200px~600px），实时生效 |
-| **Presets 面板** | 预设布局方案：default / compact / analysis，从 `layout-config.ts` 读取，Apply 即应用 |
-| **Chrome 面板** | Menu Bar / Status Bar 显示/隐藏 toggle |
-| **Reset Default** | 恢复默认：左右展开，宽度 300px，清除预设选择 |
-| **Done** | 关闭对话框，布局状态自动持久化到 localStorage |
+| 功能                 | 说明                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| **Edge Groups 面板** | 左右 Edge Group 显示/隐藏 toggle + 宽度滑块（200px~600px），实时生效                 |
+| **Presets 面板**     | 预设布局方案：default / compact / analysis，从 `layout-config.ts` 读取，Apply 即应用 |
+| **Chrome 面板**      | Menu Bar / Status Bar 显示/隐藏 toggle                                               |
+| **Reset Default**    | 恢复默认：左右展开，宽度 300px，清除预设选择                                         |
+| **Done**             | 关闭对话框，布局状态自动持久化到 localStorage                                        |
 
 布局变更实时生效（滑条拖动即更新 `group.setSize()`，toggle 即时调用 `collapse/expand`），不影响当前打开的面板和工作内容。
 
@@ -1922,5 +1923,5 @@ interface ColumnInput {
 | dockview-vue    | 5.2.0  | 布局引擎   |
 | naive-ui        | 最新   | 组件库     |
 | lucide-vue-next | 最新   | 图标库     |
-| AG Grid         | 33.0.0 | 表格引擎     |
+| AG Grid         | 33.0.0 | 表格引擎   |
 | Monaco Editor   | 0.52.2 | 代码编辑器 |

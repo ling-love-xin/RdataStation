@@ -150,8 +150,7 @@ function handleFilter(condition: string) {
   loadData()
 }
 
-function handleExport() {
-}
+function handleExport() {}
 
 function handleCopy() {
   const text = JSON.stringify(tableData.value, null, 2)

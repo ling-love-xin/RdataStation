@@ -50,19 +50,19 @@
 
 ### Core 层内部依赖（实际）
 
-| 模块          | 允许依赖                                                            | 禁止依赖                          |
-| ------------- | ------------------------------------------------------------------- | --------------------------------- |
-| `models`      | 无（基础层）                                                        | 所有其他模块                      |
-| `error`       | 无（基础层）                                                        | 所有其他模块                      |
-| `driver/traits` | `error`, `models`                                                 | `services`, `adapters`            |
-| `driver/registry` | `error`, `models`, `driver/traits`, `driver/connection`       | `services`, `adapters`            |
-| `driver/native` | `driver/traits`, `driver/registry`, `error`, `models`            | `services`, `adapters`            |
-| `driver/router` | `driver/registry`, `error`, `models`                              | `api`, `adapters`                 |
-| `driver/connection` | `error`, `models`                                             | `driver/native`, `services`       |
-| `persistence` | `error`, `models`                                                   | `driver/native`, `services`       |
-| `project`     | `error`, `models`, `persistence`                                    | `driver/native`, `services`       |
-| `services`    | `driver`, `persistence`, `error`, `models`, `project`              | `api`, `adapters`                 |
-| `dbi`         | `driver`, `error`, `models`, `stream`                               | `api`, `adapters`                 |
+| 模块                | 允许依赖                                                | 禁止依赖                    |
+| ------------------- | ------------------------------------------------------- | --------------------------- |
+| `models`            | 无（基础层）                                            | 所有其他模块                |
+| `error`             | 无（基础层）                                            | 所有其他模块                |
+| `driver/traits`     | `error`, `models`                                       | `services`, `adapters`      |
+| `driver/registry`   | `error`, `models`, `driver/traits`, `driver/connection` | `services`, `adapters`      |
+| `driver/native`     | `driver/traits`, `driver/registry`, `error`, `models`   | `services`, `adapters`      |
+| `driver/router`     | `driver/registry`, `error`, `models`                    | `api`, `adapters`           |
+| `driver/connection` | `error`, `models`                                       | `driver/native`, `services` |
+| `persistence`       | `error`, `models`                                       | `driver/native`, `services` |
+| `project`           | `error`, `models`, `persistence`                        | `driver/native`, `services` |
+| `services`          | `driver`, `persistence`, `error`, `models`, `project`   | `api`, `adapters`           |
+| `dbi`               | `driver`, `error`, `models`, `stream`                   | `api`, `adapters`           |
 
 > ⚠️ 注意：`driver/traits.rs` 是宪法文件，禁止修改已有 trait 签名。`driver/router.rs` 做数据源路由（原 `datasource/`），不存放具体驱动实现。具体实现在 `driver/native/`。`connection/` 已迁移至 `driver/connection/`（配置/连接器/工厂/流）。
 

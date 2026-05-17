@@ -172,7 +172,7 @@ const emit = defineEmits<{
   'open-project': []
   'edit-project': [project: Project]
   'delete-project': [project: Project]
-  'close': []
+  close: []
 }>()
 
 const { t } = useI18n()
@@ -188,7 +188,9 @@ const renamingProjectId = ref<string | null>(null)
 const renameValue = ref('')
 const renameOriginalValue = ref('')
 
-const displayName = computed(() => projectStore.currentProject?.name || t('workbench.defaultProject'))
+const displayName = computed(
+  () => projectStore.currentProject?.name || t('workbench.defaultProject')
+)
 
 function togglePanel() {
   showPanel.value = !showPanel.value
@@ -415,7 +417,9 @@ function handleEscapeGlobal(event: KeyboardEvent) {
   background: color-mix(in srgb, var(--color-bg-secondary) 94%, var(--color-text-primary) 6%);
   border: none;
   border-radius: var(--border-radius-sm);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   cursor: pointer;
@@ -425,7 +429,9 @@ function handleEscapeGlobal(event: KeyboardEvent) {
 
 .trigger-btn:hover {
   background: color-mix(in srgb, var(--color-bg-secondary) 90%, var(--color-text-primary) 10%);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
 }
 
 .trigger-btn:active {
@@ -447,8 +453,12 @@ function handleEscapeGlobal(event: KeyboardEvent) {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .trigger-name {
@@ -518,7 +528,9 @@ function handleEscapeGlobal(event: KeyboardEvent) {
   border: 1px solid transparent;
   border-radius: var(--border-radius-sm);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .project-card:hover {

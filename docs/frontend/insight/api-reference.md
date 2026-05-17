@@ -17,17 +17,17 @@
 
 获取单列的完整洞察数据（统计 + 采样 + 直方图）。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `tempTable` | `string` | DuckDB 临时表名（rs_ 前缀） |
-| `columnName` | `string` | 列名 |
+| 参数         | 类型     | 说明                         |
+| ------------ | -------- | ---------------------------- |
+| `tempTable`  | `string` | DuckDB 临时表名（rs\_ 前缀） |
+| `columnName` | `string` | 列名                         |
 
 **返回**: [ColumnInsightFull](#columninsightfull)
 
 ```typescript
 const insight = await tauri.invoke('get_column_insight_full', {
   tempTable: 'rs_abc123',
-  columnName: 'amount'
+  columnName: 'amount',
 })
 ```
 
@@ -35,10 +35,10 @@ const insight = await tauri.invoke('get_column_insight_full', {
 
 获取单列统计信息（不含采样和直方图）。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `tempTable` | `string` | DuckDB 临时表名 |
-| `columnName` | `string` | 列名 |
+| 参数         | 类型     | 说明            |
+| ------------ | -------- | --------------- |
+| `tempTable`  | `string` | DuckDB 临时表名 |
+| `columnName` | `string` | 列名            |
 
 **返回**: [ColumnStats](#columnstats)
 
@@ -50,11 +50,11 @@ const insight = await tauri.invoke('get_column_insight_full', {
 
 执行一条洞察规则。内部经过质量门控（QualityRule），返回 [ExecutionResult](#executionresult)。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `rule_id` | `string` | 规则 ID，如 `numeric-stats` |
-| `params` | `Record<string, string>` | 规则参数（如 `{table, col}`）|
-| `temp_table` | `string` | DuckDB 临时表名 |
+| 参数         | 类型                     | 说明                          |
+| ------------ | ------------------------ | ----------------------------- |
+| `rule_id`    | `string`                 | 规则 ID，如 `numeric-stats`   |
+| `params`     | `Record<string, string>` | 规则参数（如 `{table, col}`） |
+| `temp_table` | `string`                 | DuckDB 临时表名               |
 
 **返回**: [ExecutionResult](#executionresult)（序列化 JSON）
 
@@ -62,7 +62,7 @@ const insight = await tauri.invoke('get_column_insight_full', {
 const result = await tauri.invoke('execute_insight_rule', {
   ruleId: 'numeric-stats',
   params: { col: 'amount', table: 'rs_abc123' },
-  tempTable: 'rs_abc123'
+  tempTable: 'rs_abc123',
 })
 // result.data → 规则输出
 // result.quality → QualityReport | null
@@ -72,8 +72,8 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 列出所有可用规则。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数       | 类型      | 说明                                               |
+| ---------- | --------- | -------------------------------------------------- |
 | `category` | `string?` | 可选过滤：`column` / `multi` / `table` / `quality` |
 
 **返回**: `RuleMeta[]`
@@ -82,8 +82,8 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 列出适用于指定列类型的规则。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
+| 参数         | 类型     | 说明                                                |
+| ------------ | -------- | --------------------------------------------------- |
 | `columnType` | `string` | 列类型：`numeric` / `text` / `datetime` / `boolean` |
 
 **返回**: `RuleMeta[]`
@@ -96,13 +96,13 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 获取表的列元信息和行数。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `connId` | `string` | 连接 ID |
-| `dbType` | `string` | 数据库类型（mysql/postgres/sqlite/duckdb）|
-| `database` | `string` | 数据库名 |
-| `schema` | `string` | Schema 名 |
-| `table` | `string` | 表名 |
+| 参数       | 类型     | 说明                                       |
+| ---------- | -------- | ------------------------------------------ |
+| `connId`   | `string` | 连接 ID                                    |
+| `dbType`   | `string` | 数据库类型（mysql/postgres/sqlite/duckdb） |
+| `database` | `string` | 数据库名                                   |
+| `schema`   | `string` | Schema 名                                  |
+| `table`    | `string` | 表名                                       |
 
 **返回**: [TableProfile](#tableprofile)
 
@@ -110,13 +110,13 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 从源表取样 → DuckDB 临时表 → 洞察（端到端）。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `connId` | `string` | 连接 ID |
-| `database` | `string` | 数据库名 |
-| `schema` | `string` | Schema 名 |
-| `table` | `string` | 表名 |
-| `column` | `string` | 列名 |
+| 参数       | 类型     | 说明      |
+| ---------- | -------- | --------- |
+| `connId`   | `string` | 连接 ID   |
+| `database` | `string` | 数据库名  |
+| `schema`   | `string` | Schema 名 |
+| `table`    | `string` | 表名      |
+| `column`   | `string` | 列名      |
 
 **返回**: [ColumnInsightFull](#columninsightfull)
 
@@ -128,10 +128,10 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 获取单列质量评分。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `columnName` | `string` | 列名 |
-| `tempTable` | `string` | DuckDB 临时表名 |
+| 参数         | 类型     | 说明            |
+| ------------ | -------- | --------------- |
+| `columnName` | `string` | 列名            |
+| `tempTable`  | `string` | DuckDB 临时表名 |
 
 **返回**: [QualityScore](#qualityscore)
 
@@ -139,12 +139,12 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 批量评估表中所有列的质量。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `conn_id` | `string` | 连接 ID |
-| `database` | `string` | 数据库名 |
-| `schema` | `string` | Schema 名 |
-| `table` | `string` | 表名 |
+| 参数       | 类型     | 说明      |
+| ---------- | -------- | --------- |
+| `conn_id`  | `string` | 连接 ID   |
+| `database` | `string` | 数据库名  |
+| `schema`   | `string` | Schema 名 |
+| `table`    | `string` | 表名      |
 
 **返回**: [TableQuality](#tablequality)
 
@@ -156,11 +156,11 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 获取 Schema 级分析报告。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `conn_id` | `string` | 连接 ID |
-| `database` | `string` | 数据库名 |
-| `schema` | `string` | Schema 名 |
+| 参数       | 类型     | 说明      |
+| ---------- | -------- | --------- |
+| `conn_id`  | `string` | 连接 ID   |
+| `database` | `string` | 数据库名  |
+| `schema`   | `string` | Schema 名 |
 
 **返回**: [SchemaInsightReport](#schemainsightreport)
 
@@ -172,10 +172,10 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 将查询结果写入 DuckDB 内存临时表。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `columns` | `string[]` | 列名列表 |
-| `rows` | `Value[][]` | 数据行（JSON Value 二维数组）|
+| 参数      | 类型        | 说明                          |
+| --------- | ----------- | ----------------------------- |
+| `columns` | `string[]`  | 列名列表                      |
+| `rows`    | `Value[][]` | 数据行（JSON Value 二维数组） |
 
 **返回**: `string`（临时表名，如 `rs_a1b2c3d4`）
 
@@ -189,10 +189,10 @@ const result = await tauri.invoke('execute_insight_rule', {
 
 设置 DuckDB 连接池偏好大小（1-32）。
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `size` | `number` | 连接池大小 |
-| `restart` | `boolean?` | 是否立即重启池（清空临时表）|
+| 参数      | 类型       | 说明                         |
+| --------- | ---------- | ---------------------------- |
+| `size`    | `number`   | 连接池大小                   |
+| `restart` | `boolean?` | 是否立即重启池（清空临时表） |
 
 #### `restart_duckdb_pool`
 
@@ -237,43 +237,43 @@ createDuckDbTempTable(columns: string[], rows: unknown[][]): Promise<string>
 
 ### State
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `insightData` | `ColumnInsightFull \| null` | 当前列洞察数据 |
-| `isLoading` | `boolean` | 加载中标志 |
-| `error` | `string \| null` | 错误信息 |
-| `tempTable` | `string \| null` | 当前临时表名 |
-| `column` | `string \| null` | 当前列名 |
-| `isOpen` | `boolean` | 洞察面板是否打开 |
+| 字段          | 类型                        | 说明             |
+| ------------- | --------------------------- | ---------------- |
+| `insightData` | `ColumnInsightFull \| null` | 当前列洞察数据   |
+| `isLoading`   | `boolean`                   | 加载中标志       |
+| `error`       | `string \| null`            | 错误信息         |
+| `tempTable`   | `string \| null`            | 当前临时表名     |
+| `column`      | `string \| null`            | 当前列名         |
+| `isOpen`      | `boolean`                   | 洞察面板是否打开 |
 
 ### 质量评分 State
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
+| 字段           | 类型                   | 说明           |
+| -------------- | ---------------------- | -------------- |
 | `qualityScore` | `QualityScore \| null` | 当前列质量评分 |
 | `tableQuality` | `TableQuality \| null` | 当前表质量聚合 |
 
 ### Schema State
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `schemaInsight` | `SchemaInsightReport \| null` | Schema 分析报告 |
-| `isSchemaLoading` | `boolean` | Schema 加载中 |
+| 字段              | 类型                          | 说明            |
+| ----------------- | ----------------------------- | --------------- |
+| `schemaInsight`   | `SchemaInsightReport \| null` | Schema 分析报告 |
+| `isSchemaLoading` | `boolean`                     | Schema 加载中   |
 
 ### 多列分析 State
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `multiResult` | `MultiRuleResult \| null` | 多列分析结果 |
-| `multiColumnRules` | `RuleMeta[]` | 可用多列规则 |
+| 字段               | 类型                      | 说明         |
+| ------------------ | ------------------------- | ------------ |
+| `multiResult`      | `MultiRuleResult \| null` | 多列分析结果 |
+| `multiColumnRules` | `RuleMeta[]`              | 可用多列规则 |
 
 ### 历史对比 State
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `historyVersions` | `VersionEntry[]` | 历史版本列表 |
-| `diffVersionId` | `string \| null` | 当前对比版本 ID |
-| `diffData` | `Record<string, unknown> \| null` | 对比差异数据 |
+| 字段              | 类型                              | 说明            |
+| ----------------- | --------------------------------- | --------------- |
+| `historyVersions` | `VersionEntry[]`                  | 历史版本列表    |
+| `diffVersionId`   | `string \| null`                  | 当前对比版本 ID |
+| `diffData`        | `Record<string, unknown> \| null` | 对比差异数据    |
 
 ### Actions
 
@@ -301,7 +301,7 @@ filterByValue(value: string): Promise<void>
 ```typescript
 interface ColumnInsightFull {
   stats: ColumnStats
-  sample: Value[]         // 最多 5 条采样值
+  sample: Value[] // 最多 5 条采样值
   histogram: DistributionBin[] | null
 }
 ```
@@ -311,10 +311,10 @@ interface ColumnInsightFull {
 ```typescript
 interface ColumnStats {
   column_name: string
-  data_type: string        // DuckDB typeof() 结果
+  data_type: string // DuckDB typeof() 结果
   total_count: number
   null_count: number
-  null_rate: number        // 0.0 ~ 1.0
+  null_rate: number // 0.0 ~ 1.0
   unique_count: number | null
   stats_detail: ColumnStatsDetail
 }
@@ -391,16 +391,16 @@ interface BooleanStats {
 ```typescript
 interface QualityScore {
   column_name: string
-  overall_score: number    // 0 ~ 100
-  level: string             // 优秀/良好/一般/较差/差
+  overall_score: number // 0 ~ 100
+  level: string // 优秀/良好/一般/较差/差
   dimensions: QualityDimension[]
   summary: string
 }
 
 interface QualityDimension {
-  name: string              // 完整性/唯一性/类型一致/分布均匀
-  score: number             // 0 ~ 100
-  weight: number            // 权重（0.35/0.25/0.20/0.20）
+  name: string // 完整性/唯一性/类型一致/分布均匀
+  score: number // 0 ~ 100
+  weight: number // 权重（0.35/0.25/0.20/0.20）
   detail: string
 }
 ```
@@ -448,8 +448,8 @@ interface SchemaInsightReport {
 
 ```typescript
 interface ExecutionResult {
-  data: Record<string, unknown>       // 规则执行输出
-  quality: QualityReport | null       // 质量门控结果
+  data: Record<string, unknown> // 规则执行输出
+  quality: QualityReport | null // 质量门控结果
 }
 
 interface QualityReport {
@@ -460,9 +460,9 @@ interface QualityReport {
 interface QualityCheck {
   field: string
   passed: boolean
-  rule: string            // 如 ">= 0", "<= 100"
+  rule: string // 如 ">= 0", "<= 100"
   actual: number | null
-  severity: string        // "error" | "warning" | "info"
+  severity: string // "error" | "warning" | "info"
   message: string
 }
 ```
@@ -483,7 +483,7 @@ interface TableColumnMeta {
   column_name: string
   data_type: string
   is_nullable: string
-  column_key: string       // PRI / MUL / "" ...
+  column_key: string // PRI / MUL / "" ...
   ordinal_position: number
 }
 ```

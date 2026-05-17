@@ -12,6 +12,7 @@
 ### 1.1 原始问题
 
 `WorkbenchTitleBar.vue` 原为 1100+ 行的"上帝组件"，存在以下问题：
+
 - 违反单文件规范（超过 300 行限制）
 - 职责不单一（UI 渲染、业务逻辑、状态管理、模态框、样式混合）
 - 维护困难、测试困难
@@ -34,18 +35,18 @@
 
 ### 2.1 完成内容
 
-| 任务 | 状态 | 文件 |
-|------|------|------|
-| 创建目录结构 | ✅ | `src/extensions/builtin/workbench/ui/components/title-bar/` |
-| 提取共享样式 | ✅ | `title-bar.css` |
-| 创建 useTitleBar composable | ✅ | `useTitleBar.ts` (88 行) |
-| 拆分 MenuBar | ✅ | `MenuBar.vue` (190 行) |
-| 拆分 ProjectSelector | ✅ | `ProjectSelector.vue` |
-| 拆分 CommandCenter | ✅ | `CommandCenter.vue` |
-| 拆分 ToolbarActions | ✅ | `ToolbarActions.vue` |
-| 拆分 WindowControls | ✅ | `WindowControls.vue` |
-| 拆分 NewProjectModal | ✅ | `NewProjectModal.vue` |
-| 重构 WorkbenchTitleBar | ✅ | `WorkbenchTitleBar.vue` (~120 行) |
+| 任务                        | 状态 | 文件                                                        |
+| --------------------------- | ---- | ----------------------------------------------------------- |
+| 创建目录结构                | ✅   | `src/extensions/builtin/workbench/ui/components/title-bar/` |
+| 提取共享样式                | ✅   | `title-bar.css`                                             |
+| 创建 useTitleBar composable | ✅   | `useTitleBar.ts` (88 行)                                    |
+| 拆分 MenuBar                | ✅   | `MenuBar.vue` (190 行)                                      |
+| 拆分 ProjectSelector        | ✅   | `ProjectSelector.vue`                                       |
+| 拆分 CommandCenter          | ✅   | `CommandCenter.vue`                                         |
+| 拆分 ToolbarActions         | ✅   | `ToolbarActions.vue`                                        |
+| 拆分 WindowControls         | ✅   | `WindowControls.vue`                                        |
+| 拆分 NewProjectModal        | ✅   | `NewProjectModal.vue`                                       |
+| 重构 WorkbenchTitleBar      | ✅   | `WorkbenchTitleBar.vue` (~120 行)                           |
 
 ### 2.2 质量验证
 
@@ -58,15 +59,15 @@
 
 ### 3.1 完成内容
 
-| 任务 | 状态 | 说明 |
-|------|------|------|
-| 定义菜单数据结构 | ✅ | `MenuItem`, `MenuConfig` 接口 |
-| 实现菜单下拉面板 | ✅ | 固定定位，支持主题 |
-| 实现 7 个顶级菜单 | ✅ | 文件/编辑/视图/连接/运行/工具/帮助 |
-| 添加菜单项点击处理 | ✅ | 派发全局 CustomEvent |
-| 添加键盘导航 | ✅ | Alt+F/E/V/C/R/T/H |
-| 添加点击外部关闭 | ✅ | document click 监听 |
-| 添加 Esc 关闭 | ✅ | keydown 监听 |
+| 任务               | 状态 | 说明                               |
+| ------------------ | ---- | ---------------------------------- |
+| 定义菜单数据结构   | ✅   | `MenuItem`, `MenuConfig` 接口      |
+| 实现菜单下拉面板   | ✅   | 固定定位，支持主题                 |
+| 实现 7 个顶级菜单  | ✅   | 文件/编辑/视图/连接/运行/工具/帮助 |
+| 添加菜单项点击处理 | ✅   | 派发全局 CustomEvent               |
+| 添加键盘导航       | ✅   | Alt+F/E/V/C/R/T/H                  |
+| 添加点击外部关闭   | ✅   | document click 监听                |
+| 添加 Esc 关闭      | ✅   | keydown 监听                       |
 
 ### 3.2 菜单配置
 
@@ -88,15 +89,15 @@ const menuConfig = [
 
 ### 4.1 完成内容
 
-| 任务 | 状态 | 文件 |
-|------|------|------|
-| 创建命令注册表 store | ✅ | `command-store.ts` (98 行) |
-| 实现命令面板组件 | ✅ | `CommandPalette.vue` (139 行) |
-| 实现模糊搜索算法 | ✅ | 多关键词 + 前缀优先排序 |
-| 注册核心命令 | ✅ | 7 个核心命令 |
-| 添加快捷键绑定 | ✅ | Ctrl+Shift+P |
-| 键盘导航 | ✅ | ↑↓ Enter Esc |
-| 最近使用记录 | ✅ | 最多 5 条 |
+| 任务                 | 状态 | 文件                          |
+| -------------------- | ---- | ----------------------------- |
+| 创建命令注册表 store | ✅   | `command-store.ts` (98 行)    |
+| 实现命令面板组件     | ✅   | `CommandPalette.vue` (139 行) |
+| 实现模糊搜索算法     | ✅   | 多关键词 + 前缀优先排序       |
+| 注册核心命令         | ✅   | 7 个核心命令                  |
+| 添加快捷键绑定       | ✅   | Ctrl+Shift+P                  |
+| 键盘导航             | ✅   | ↑↓ Enter Esc                  |
+| 最近使用记录         | ✅   | 最多 5 条                     |
 
 ### 4.2 命令注册表
 
@@ -126,14 +127,14 @@ const coreCommands = [
 
 ### 5.1 完成内容
 
-| 工具 ID | 名称 | 功能 | 状态 |
-|---------|------|------|------|
-| settings | 设置 | 打开设置面板 | ✅ |
-| history | 历史记录 | 打开历史记录面板 | ✅ |
-| docs | 文档 | 打开文档 | ✅ |
-| shortcuts | 快捷键 | 打开快捷键参考 | ✅ |
-| terminal | 终端 | 打开终端面板 | ✅ |
-| quick | 快速操作 | 打开命令面板 | ✅ |
+| 工具 ID   | 名称     | 功能             | 状态 |
+| --------- | -------- | ---------------- | ---- |
+| settings  | 设置     | 打开设置面板     | ✅   |
+| history   | 历史记录 | 打开历史记录面板 | ✅   |
+| docs      | 文档     | 打开文档         | ✅   |
+| shortcuts | 快捷键   | 打开快捷键参考   | ✅   |
+| terminal  | 终端     | 打开终端面板     | ✅   |
+| quick     | 快速操作 | 打开命令面板     | ✅   |
 
 ### 5.2 配置持久化
 
@@ -148,33 +149,33 @@ const coreCommands = [
 
 ### 6.1 全局快捷键
 
-| 快捷键 | 功能 | 实现位置 |
-|--------|------|----------|
+| 快捷键         | 功能         | 实现位置          |
+| -------------- | ------------ | ----------------- |
 | `Ctrl+Shift+P` | 打开命令面板 | WorkbenchTitleBar |
-| `Ctrl+N` | 新建查询 | WorkbenchTitleBar |
-| `Ctrl+Shift+N` | 新建连接 | WorkbenchTitleBar |
+| `Ctrl+N`       | 新建查询     | WorkbenchTitleBar |
+| `Ctrl+Shift+N` | 新建连接     | WorkbenchTitleBar |
 
 ### 6.2 菜单快捷键
 
-| 快捷键 | 功能 | 实现位置 |
-|--------|------|----------|
-| `Alt+F` | 打开文件菜单 | MenuBar |
-| `Alt+E` | 打开编辑菜单 | MenuBar |
-| `Alt+V` | 打开视图菜单 | MenuBar |
-| `Alt+C` | 打开连接菜单 | MenuBar |
-| `Alt+R` | 打开运行菜单 | MenuBar |
-| `Alt+T` | 打开工具菜单 | MenuBar |
-| `Alt+H` | 打开帮助菜单 | MenuBar |
-| `Esc` | 关闭菜单 | MenuBar |
+| 快捷键  | 功能         | 实现位置 |
+| ------- | ------------ | -------- |
+| `Alt+F` | 打开文件菜单 | MenuBar  |
+| `Alt+E` | 打开编辑菜单 | MenuBar  |
+| `Alt+V` | 打开视图菜单 | MenuBar  |
+| `Alt+C` | 打开连接菜单 | MenuBar  |
+| `Alt+R` | 打开运行菜单 | MenuBar  |
+| `Alt+T` | 打开工具菜单 | MenuBar  |
+| `Alt+H` | 打开帮助菜单 | MenuBar  |
+| `Esc`   | 关闭菜单     | MenuBar  |
 
 ### 6.3 命令面板快捷键
 
-| 快捷键 | 功能 | 实现位置 |
-|--------|------|----------|
-| `↑` | 选择上一个命令 | CommandPalette |
-| `↓` | 选择下一个命令 | CommandPalette |
-| `Enter` | 执行选中命令 | CommandPalette |
-| `Esc` | 关闭面板 | CommandPalette |
+| 快捷键  | 功能           | 实现位置       |
+| ------- | -------------- | -------------- |
+| `↑`     | 选择上一个命令 | CommandPalette |
+| `↓`     | 选择下一个命令 | CommandPalette |
+| `Enter` | 执行选中命令   | CommandPalette |
+| `Esc`   | 关闭面板       | CommandPalette |
 
 ---
 
@@ -182,16 +183,16 @@ const coreCommands = [
 
 ### 7.1 Lint 状态
 
-| 指标 | 基线 | 之前 | 当前 | 变化 |
-|------|------|------|------|------|
-| Errors | 16 | 4 | **0** | -16 ✅ |
-| Warnings | 499 | ~418 | ~411 | -88 ✅ |
+| 指标     | 基线 | 之前 | 当前  | 变化   |
+| -------- | ---- | ---- | ----- | ------ |
+| Errors   | 16   | 4    | **0** | -16 ✅ |
+| Warnings | 499  | ~418 | ~411  | -88 ✅ |
 
 ### 7.2 Typecheck 状态
 
-| 指标 | 基线 | 当前 | 变化 |
-|------|------|------|------|
-| Errors | 29 | 29 | 0 ✅ |
+| 指标   | 基线 | 当前 | 变化 |
+| ------ | ---- | ---- | ---- |
+| Errors | 29   | 29   | 0 ✅ |
 
 ### 7.3 代码规范检查
 
@@ -209,29 +210,29 @@ const coreCommands = [
 
 ## 八、新增文件清单
 
-| 文件路径 | 行数 | 说明 |
-|----------|------|------|
-| `src/extensions/builtin/workbench/ui/stores/command-store.ts` | 98 | 命令注册表 Pinia store |
-| `src/extensions/builtin/workbench/ui/components/title-bar/CommandPalette.vue` | 139 | 命令面板组件 |
-| `docs/frontend/API-INTERFACE.md` | 317 | 前端接口文档 |
-| `docs/frontend/TITLE-BAR-PROGRESS.md` | - | 本文件 |
+| 文件路径                                                                      | 行数 | 说明                   |
+| ----------------------------------------------------------------------------- | ---- | ---------------------- |
+| `src/extensions/builtin/workbench/ui/stores/command-store.ts`                 | 98   | 命令注册表 Pinia store |
+| `src/extensions/builtin/workbench/ui/components/title-bar/CommandPalette.vue` | 139  | 命令面板组件           |
+| `docs/frontend/API-INTERFACE.md`                                              | 317  | 前端接口文档           |
+| `docs/frontend/TITLE-BAR-PROGRESS.md`                                         | -    | 本文件                 |
 
 ---
 
 ## 九、修改文件清单
 
-| 文件路径 | 修改内容 |
-|----------|----------|
-| `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue` | 导入 useCommandStore，注册命令，全局快捷键，工具栏赋能，清理 console |
-| `src/extensions/builtin/workbench/ui/components/title-bar/MenuBar.vue` | 键盘导航，点击外部关闭 |
-| `src/extensions/builtin/workbench/ui/components/title-bar/CommandPalette.vue` | 修复硬编码颜色为 CSS 变量 |
-| `src/extensions/builtin/workbench/ui/views/WorkbenchView.vue` | 添加标题栏事件监听处理（新建查询/连接/保存/执行SQL/设置/历史/文档/终端/侧边栏/面板切换） |
-| `src/shared/styles/tokens.css` | 新增 `--overlay-bg` 变量 |
-| `src/shared/locales/zh-CN.json` | 新增 `sqlHistory`、`comingSoon` 翻译键 |
-| `src/shared/locales/en.json` | 新增 `sqlHistory`、`comingSoon` 翻译键 |
-| `docs/frontend/TITLE-BAR-REFACTOR.md` | 更新为 v2.0，记录所有完成内容 |
-| `docs/frontend/API-INTERFACE.md` | 新增接口文档 |
-| `docs/frontend/TITLE-BAR-PROGRESS.md` | 本文件 |
+| 文件路径                                                                      | 修改内容                                                                                 |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue`        | 导入 useCommandStore，注册命令，全局快捷键，工具栏赋能，清理 console                     |
+| `src/extensions/builtin/workbench/ui/components/title-bar/MenuBar.vue`        | 键盘导航，点击外部关闭                                                                   |
+| `src/extensions/builtin/workbench/ui/components/title-bar/CommandPalette.vue` | 修复硬编码颜色为 CSS 变量                                                                |
+| `src/extensions/builtin/workbench/ui/views/WorkbenchView.vue`                 | 添加标题栏事件监听处理（新建查询/连接/保存/执行SQL/设置/历史/文档/终端/侧边栏/面板切换） |
+| `src/shared/styles/tokens.css`                                                | 新增 `--overlay-bg` 变量                                                                 |
+| `src/shared/locales/zh-CN.json`                                               | 新增 `sqlHistory`、`comingSoon` 翻译键                                                   |
+| `src/shared/locales/en.json`                                                  | 新增 `sqlHistory`、`comingSoon` 翻译键                                                   |
+| `docs/frontend/TITLE-BAR-REFACTOR.md`                                         | 更新为 v2.0，记录所有完成内容                                                            |
+| `docs/frontend/API-INTERFACE.md`                                              | 新增接口文档                                                                             |
+| `docs/frontend/TITLE-BAR-PROGRESS.md`                                         | 本文件                                                                                   |
 
 ---
 
@@ -283,6 +284,6 @@ const coreCommands = [
 
 ## 十二、版本历史
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本 | 日期       | 说明                             |
+| ---- | ---------- | -------------------------------- |
 | v1.0 | 2026-05-10 | 初始版本，记录标题栏重构完整进度 |

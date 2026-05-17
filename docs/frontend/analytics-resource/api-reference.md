@@ -460,12 +460,12 @@ const folder = await createAnalyticsFolder({
 
 ### 4.5 get_analytics_tag
 
-| 属性             | 值                          |
-| ---------------- | --------------------------- |
-| **Rust Command** | `get_analytics_tag`         |
-| **TS 函数**      | `getAnalyticsTag(id)`       |
-| **参数**         | `id: string`                |
-| **返回**         | `AnalyticsTag`              |
+| 属性             | 值                    |
+| ---------------- | --------------------- |
+| **Rust Command** | `get_analytics_tag`   |
+| **TS 函数**      | `getAnalyticsTag(id)` |
+| **参数**         | `id: string`          |
+| **返回**         | `AnalyticsTag`        |
 
 ---
 

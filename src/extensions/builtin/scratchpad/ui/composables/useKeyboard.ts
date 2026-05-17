@@ -98,9 +98,7 @@ export function useKeyboard(deps: KeyboardDeps, callbacks: KeyboardCallbacks) {
       const idx = entries.findIndex(e => e.path === selectedKey.value)
       if (idx === -1) return
       const nextIdx =
-        event.key === 'ArrowDown'
-          ? Math.min(idx + 1, entries.length - 1)
-          : Math.max(idx - 1, 0)
+        event.key === 'ArrowDown' ? Math.min(idx + 1, entries.length - 1) : Math.max(idx - 1, 0)
       callbacks.onNavigateToEntry(entries[nextIdx])
       return
     }

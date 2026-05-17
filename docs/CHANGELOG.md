@@ -36,10 +36,12 @@
 > 📐 设计文档：[mock-data-generator-design.md §11.13](./mock-data-generator-design.md)
 
 **Rust 后端：**
+
 - `GeneratorConfig` 新增 5 个变体：`Normal`(Box-Muller)、`LogNormal`、`RandomWalk`(Wiener)、`SequentialDate`、`SequentialDateWithGaps`
 - `engine.rs` 实现全部生成逻辑，零额外依赖
 
 **前端：**
+
 - **`MockAdvancedDrawer.vue`** — 完全重建：6 筛选标签 + 生成器列表 + 动态参数 + 时序关联 + 其他选项 + 来源显示
 - **`MockPanel.vue`** — `@save`→`@apply` 升级，抽屉内可修改字段名/类型/空值/唯一
 - **`mock-api.ts`** — `GeneratorType` 新增 5 个类型值
@@ -75,21 +77,21 @@
 
 **Tauri Command 接口（13 个）：**
 
-| 命令 | 用途 |
-|------|------|
-| `mock_generate` | 生成 Mock 数据 |
-| `mock_preview` | 刷新预览 |
-| `mock_export` | 导出为指定格式 |
-| `mock_map_column` | 智能映射单个列名 |
-| `mock_map_columns_batch` | 批量智能映射 |
-| `mock_list_templates` | 获取场景模板列表 |
-| `mock_import_schema` | 从 MetadataCache 导入表结构 |
-| `mock_apply_template` | 应用场景模板 |
-| `mock_save_to_scratchpad` | 一键保存到草稿箱 |
-| `mock_persist_as_asset` | 保存 Table 到分析资源管理器 |
-| `mock_get_history` | 获取生成历史 |
-| `mock_clear_history` | 清除生成历史 |
-| `mock_re_generate` | 基于历史记录重新生成 |
+| 命令                      | 用途                        |
+| ------------------------- | --------------------------- |
+| `mock_generate`           | 生成 Mock 数据              |
+| `mock_preview`            | 刷新预览                    |
+| `mock_export`             | 导出为指定格式              |
+| `mock_map_column`         | 智能映射单个列名            |
+| `mock_map_columns_batch`  | 批量智能映射                |
+| `mock_list_templates`     | 获取场景模板列表            |
+| `mock_import_schema`      | 从 MetadataCache 导入表结构 |
+| `mock_apply_template`     | 应用场景模板                |
+| `mock_save_to_scratchpad` | 一键保存到草稿箱            |
+| `mock_persist_as_asset`   | 保存 Table 到分析资源管理器 |
+| `mock_get_history`        | 获取生成历史                |
+| `mock_clear_history`      | 清除生成历史                |
+| `mock_re_generate`        | 基于历史记录重新生成        |
 
 **前端实现（Vue 3 + TS）：**
 
@@ -158,14 +160,17 @@ fake = { version = "5", features = ["derive", "chrono", "uuid", "http", "ferroid
 #### ✨ Phase 2.1 面板恢复：项目重新打开时还原面板
 
 **面板 ID 追踪与恢复：**
+
 - `WorkbenchView.onDidLayoutChange()` → 提取当前所有打开的面板 ID (`api.panels.map(p => p.id)`) → 存入 `layoutStore.openPanelIds` → 持久化到 `appStore.saveSidebarState({ openPanelIds })`
 - `WorkbenchView.restoreSavedPanels()` → 项目重新打开时，对比已保存面板 ID 与默认布局面板 ID → 从 `panelRegistry` 查找组件 → `api.addPanel()` 还原缺失的面板
 
 **类型扩展：**
+
 - `SerializedSidebarState.openPanelIds: string[]` — 新增字段，追踪上次会话打开的面板列表
 - `SidebarStateSchema` zod 校验新增 `z.array(z.string()).default([])`
 
 **恢复策略：**
+
 - 默认布局始终创建（保证基础面板可用）
 - 额外面板按 session 快照恢复
 - 面板 ID 格式 `panel_<componentName>_<N>` → 提取组件名匹配 `panelRegistry`
@@ -183,11 +188,13 @@ fake = { version = "5", features = ["derive", "chrono", "uuid", "http", "ferroid
 #### ✨ Phase 3/4 打通：编辑器设置实时生效 + 保存反馈
 
 **Monaco Editor 设置实时同步：**
+
 - `SqlEditorPanel.vue` 增加 `watch(appStore.effectiveEditorSettings)` — 设置面板修改 fontSize/wordWrap/lineNumbers/tabSize/minimap 后，所有已打开的 SQL 编辑器立即应用，无需刷新页面
 - 编辑器初始状态改为从 `appStore.effectiveEditorSettings` 读取（消除硬编码默认值）
 - 所有打开的编辑器面板独立响应设置变更
 
 **SaveResult toast 反馈：**
+
 - `SettingsPanel.applyAllSettings()` 调用 `message.success()` / `message.error()` 显示保存结果
 - i18n 新增 `settings.saveSuccess` / `settings.saveFailed` 双语键
 - 替换原来的静默 console.error
@@ -209,19 +216,23 @@ fake = { version = "5", features = ["derive", "chrono", "uuid", "http", "ferroid
 #### ✨ Phase 2 打通：布局持久化全线贯通
 
 **项目生命周期：**
+
 - `ProjectSelectView.enterWorkbench()` → 打开项目时调用 `appStore.openProject(path)` 初始化 project-settings.json 存储
 - `WorkbenchView.onUnmounted()` → 离开工作台时调用 `appStore.closeProject()` 清理
 
 **侧边栏状态持久化（config 系统）：**
+
 - `layout-store.saveLayoutConfig()` → 双写：localStorage（兼容）+ `appStore.saveSidebarState()`（config 系统）
 - `layout-store.loadLayoutConfig()` → 优先从 `appStore.effectiveSidebarState` 恢复，回退 localStorage
 - `layout-store.setLayoutData()` → 同步调用 `appStore.saveDockviewLayout()` 持久化 dockview 面板布局
 
 **Dockview 布局自动保存：**
+
 - `WorkbenchView.onReady()` → 注册 `api.onDidLayoutChange()` 监听，布局变化时自动序列化并保存到 project-settings.json
 - `WorkbenchView.onMounted()` → 调用 `layoutStore.loadLayoutConfig()` 恢复侧边栏状态
 
 **类型扩展：**
+
 - `SerializedSidebarState` 从 3 字段扩展到 14 字段，覆盖完整的工作台布局状态（活动栏、侧边栏、面板可见性、选中项、尺寸、底部面板模式）
 - `SidebarStateSchema` zod 校验同步扩展，所有字段带 `.default()`
 - `CONFIG_REGISTRY.sidebarState.default` 同步更新

@@ -56,26 +56,26 @@
 
 ### 0.3 使用场景对比
 
-| 维度 | SqlEditorPanel | CodeEditorPanel |
-|------|---------------|-----------------|
-| **定位** | 数据库 SQL 交互 | 通用代码/文件编辑 |
-| **核心能力** | SQL 执行、结果展示、方言处理 | 文件保存、多语言编辑、草稿箱联动 |
-| **工具栏** | 执行/取消/格式化/方言转换/收藏 | 无（通过状态栏操作） |
-| **状态栏** | 连接选择 + 事务指示 + 光标 | 语言/编码/EOL/缩进/保存状态 |
+| 维度         | SqlEditorPanel                                                                                                                              | CodeEditorPanel                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **定位**     | 数据库 SQL 交互                                                                                                                             | 通用代码/文件编辑                                                                                                                            |
+| **核心能力** | SQL 执行、结果展示、方言处理                                                                                                                | 文件保存、多语言编辑、草稿箱联动                                                                                                             |
+| **工具栏**   | 执行/取消/格式化/方言转换/收藏                                                                                                              | 无（通过状态栏操作）                                                                                                                         |
+| **状态栏**   | 连接选择 + 事务指示 + 光标                                                                                                                  | 语言/编码/EOL/缩进/保存状态                                                                                                                  |
 | **注册入口** | [query/extension.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/extension.ts) (panel `sql_editor`) | [query/extension.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/extension.ts) (panel `code_editor`) |
 
 ### 0.4 本次重构要点（2026-05-16）
 
 CodeEditorPanel 经历了一次解耦重构，从 ~1113 行单文件拆分为 5 个职责清晰的子模块：
 
-| 文件 | 行数 | 职责 |
-|------|:----:|------|
-| [CodeEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/CodeEditorPanel.vue) | 325 | 编排层：Monaco 生命周期 + 文件保存 + 子组件拼装 |
-| [CodeEditorStatusbar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/CodeEditorStatusbar.vue) | 479 | 状态栏：下拉菜单 + click-outside + 编码/语言/EOL 切换 |
-| [EditorSettingsPopup.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorSettingsPopup.vue) | 314 | 设置弹窗：16 项编辑器配置 UI |
-| [useEditorSettings.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useEditorSettings.ts) | 170 | 设置逻辑：状态管理 + 类型化 handlers |
-| [useFileSave.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useFileSave.ts) | ~130 | 文件保存：自动保存/手动保存/重试/状态管理 |
-| [SaveStatusIndicator.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SaveStatusIndicator.vue) | ~80 | 保存状态图标组件 |
+| 文件                                                                                                                                                            | 行数 | 职责                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--: | ----------------------------------------------------- |
+| [CodeEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/CodeEditorPanel.vue)         | 325  | 编排层：Monaco 生命周期 + 文件保存 + 子组件拼装       |
+| [CodeEditorStatusbar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/CodeEditorStatusbar.vue) | 479  | 状态栏：下拉菜单 + click-outside + 编码/语言/EOL 切换 |
+| [EditorSettingsPopup.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/EditorSettingsPopup.vue) | 314  | 设置弹窗：16 项编辑器配置 UI                          |
+| [useEditorSettings.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useEditorSettings.ts)             | 170  | 设置逻辑：状态管理 + 类型化 handlers                  |
+| [useFileSave.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useFileSave.ts)                         | ~130 | 文件保存：自动保存/手动保存/重试/状态管理             |
+| [SaveStatusIndicator.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SaveStatusIndicator.vue) | ~80  | 保存状态图标组件                                      |
 
 单元测试覆盖率：**51 测试用例**（33 useFileSave + 18 SaveStatusIndicator），全部通过。
 
@@ -108,12 +108,12 @@ CodeEditorPanel 经历了一次解耦重构，从 ~1113 行单文件拆分为 5 
 
 ### 1.3 数据库支持矩阵
 
-| 数据库 | 语法高亮 | 代码补全 | 执行 | 方言转换 | DuckDB 加速 | EXPLAIN |
-| ------ | -------- | -------- | ---- | -------- | ----------- | ------- |
-| MySQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SQLite | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| DuckDB | ✅ | ✅ | ✅ | ✅ | N/A | ✅ |
+| 数据库     | 语法高亮 | 代码补全 | 执行 | 方言转换 | DuckDB 加速 | EXPLAIN |
+| ---------- | -------- | -------- | ---- | -------- | ----------- | ------- |
+| MySQL      | ✅       | ✅       | ✅   | ✅       | ✅          | ✅      |
+| PostgreSQL | ✅       | ✅       | ✅   | ✅       | ✅          | ✅      |
+| SQLite     | ✅       | ✅       | ✅   | ✅       | ✅          | ✅      |
+| DuckDB     | ✅       | ✅       | ✅   | ✅       | N/A         | ✅      |
 
 ---
 
@@ -160,13 +160,13 @@ CodeEditorPanel 经历了一次解耦重构，从 ~1113 行单文件拆分为 5 
 
 ### 2.2 关键设计决策
 
-| 决策 | 理由 |
-| ---- | ---- |
-| 1:n 编辑器↔结果面板（非 n:n） | 每个编辑器独立持有结果区域，避免多编辑器的结果混乱（DBeaver 风格） |
-| Pinia Store 通信（非 CustomEvent） | 显式数据流、DevTools 可调试、无内存泄漏风险 |
-| composable 封装（非 Mixin） | 类型安全、按需导入、可独立测试 |
-| tauri-plugin-store 持久化 | 跨会话 JSON 文件持久化，未来可迁移至 Rust SQLite |
-| 三层配置优先级 | global-settings.json → project-settings.json → 系统硬编码 |
+| 决策                               | 理由                                                               |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| 1:n 编辑器↔结果面板（非 n:n）      | 每个编辑器独立持有结果区域，避免多编辑器的结果混乱（DBeaver 风格） |
+| Pinia Store 通信（非 CustomEvent） | 显式数据流、DevTools 可调试、无内存泄漏风险                        |
+| composable 封装（非 Mixin）        | 类型安全、按需导入、可独立测试                                     |
+| tauri-plugin-store 持久化          | 跨会话 JSON 文件持久化，未来可迁移至 Rust SQLite                   |
+| 三层配置优先级                     | global-settings.json → project-settings.json → 系统硬编码          |
 
 ### 2.3 Rust 后端分层
 
@@ -198,14 +198,14 @@ src-tauri/src/
 
 ### 2.4 测试覆盖状态（v1.12）
 
-| 层级 | 测试数 | 覆盖范围 |
-|------|--------|----------|
-| Rust 单元测试 | **22** | 空SQL、空白SQL、无连接、指定连接不存在、历史操作、事务 begin/commit/rollback、取消查询、外部数据库注册、结构体构造、Options 默认值 |
-| Rust 集成测试 | 0 | ⚠️ 需要真实数据库连接（计划使用 SQLite 内存数据库） |
-| 前端单元测试 | **7** | `bindParams` 参数替换、多参数、引号转义、重复名称、空参数、部分匹配安全、正则特殊字符 |
-| 前端 Composable 测试 | 0 | ⚠️ 需 mock `tauri.invoke`，覆盖 `useSqlExecution.executeQuery/executeBatch/cancelQuery` |
-| 前端组件测试 | 0 | ⚠️ 需 `@vue/test-utils`，覆盖 `SqlEditorPanel.vue` 渲染与交互 |
-| 前端 Store 测试 | 0 | ⚠️ 需测试 `result-store.ts` 的 tab 管理、过滤、导出逻辑 |
+| 层级                 | 测试数 | 覆盖范围                                                                                                                           |
+| -------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Rust 单元测试        | **22** | 空SQL、空白SQL、无连接、指定连接不存在、历史操作、事务 begin/commit/rollback、取消查询、外部数据库注册、结构体构造、Options 默认值 |
+| Rust 集成测试        | 0      | ⚠️ 需要真实数据库连接（计划使用 SQLite 内存数据库）                                                                                |
+| 前端单元测试         | **7**  | `bindParams` 参数替换、多参数、引号转义、重复名称、空参数、部分匹配安全、正则特殊字符                                              |
+| 前端 Composable 测试 | 0      | ⚠️ 需 mock `tauri.invoke`，覆盖 `useSqlExecution.executeQuery/executeBatch/cancelQuery`                                            |
+| 前端组件测试         | 0      | ⚠️ 需 `@vue/test-utils`，覆盖 `SqlEditorPanel.vue` 渲染与交互                                                                      |
+| 前端 Store 测试      | 0      | ⚠️ 需测试 `result-store.ts` 的 tab 管理、过滤、导出逻辑                                                                            |
 
 > 📋 **测试技术栈**：vitest + happy-dom（前端），`#[tokio::test]`（Rust）。基础设施已就绪。
 
@@ -258,22 +258,22 @@ WorkbenchView.vue (dockview-vue 容器)
 
 ### 3.2 组件职责矩阵
 
-| 组件 | 行数 | 职责 | 依赖 Composable |
-| ---- | ---- | ---- | --------------- |
-| **SqlEditorPanel** | ~947 | 编排所有子组件 + 协调 composables | useMonacoEditor, useSqlExecution, useConnectionBinding, useDialectSync, useEditorPersistence |
-| **CodeEditorPanel** | 325 | Monaco 生命周期 + 文件保存编排 + 子组件拼装 | useMonacoEditor, useFileSave, useEditorSettings |
-| **EditorToolbar** | ~200 | 工具栏按钮 + 分组折叠 + 位置切换 | (纯展示 + emit) |
-| **EditorStatusbar** (SqlEditor) | ~180 | 状态信息展示 + 连接选择器 + 事务指示 | (纯展示 + emit) |
-| **CodeEditorStatusbar** | 479 | 状态栏 + 下拉菜单 + 语言/编码/EOL 切换 + 设置弹窗挂载 | (自管理 click-outside + refs) |
-| **EditorSettingsPopup** | 314 | 16 项编辑器显示设置 UI（字号/字体/换行/Minimap 等） | (纯展示，props: settings + handlers) |
-| **SaveStatusIndicator** | ~80 | 保存状态图标：idle ✓ / saving ⟳ / saved ✓ / unsaved ● / error ✗ | (纯展示) |
-| **EditorWelcome** | ~80 | 空编辑器欢迎页 + 最近连接 | (纯展示 + emit) |
-| **QueryResultPanel** | >2000 | 结果展示 + 三模式过滤 + Inline Edit + 导出 | useResultTabs, useGridConfig, useGridKeyboard, useFilterModes, useFilterPresets, useResultExport |
-| **TranspileModal** | ~60 | 方言转换弹窗 | (纯展示 + emit) |
-| **ParamBindingModal** | ~100 | 参数绑定表单 | (纯展示 + emit) |
-| **SqlHistoryPanel** | ~300 | 历史列表 + 搜索 + 收藏 + 双击重执行 | (事件驱动) |
-| **SnippetPanel** | ~200 | 代码片段列表 + 搜索 + 插入/删除 | (事件驱动) |
-| **SettingsPanel** | ~500 | 工作台全局设置 (需重构) | 无 (当前用 localStorage) |
+| 组件                            | 行数  | 职责                                                            | 依赖 Composable                                                                                  |
+| ------------------------------- | ----- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **SqlEditorPanel**              | ~947  | 编排所有子组件 + 协调 composables                               | useMonacoEditor, useSqlExecution, useConnectionBinding, useDialectSync, useEditorPersistence     |
+| **CodeEditorPanel**             | 325   | Monaco 生命周期 + 文件保存编排 + 子组件拼装                     | useMonacoEditor, useFileSave, useEditorSettings                                                  |
+| **EditorToolbar**               | ~200  | 工具栏按钮 + 分组折叠 + 位置切换                                | (纯展示 + emit)                                                                                  |
+| **EditorStatusbar** (SqlEditor) | ~180  | 状态信息展示 + 连接选择器 + 事务指示                            | (纯展示 + emit)                                                                                  |
+| **CodeEditorStatusbar**         | 479   | 状态栏 + 下拉菜单 + 语言/编码/EOL 切换 + 设置弹窗挂载           | (自管理 click-outside + refs)                                                                    |
+| **EditorSettingsPopup**         | 314   | 16 项编辑器显示设置 UI（字号/字体/换行/Minimap 等）             | (纯展示，props: settings + handlers)                                                             |
+| **SaveStatusIndicator**         | ~80   | 保存状态图标：idle ✓ / saving ⟳ / saved ✓ / unsaved ● / error ✗ | (纯展示)                                                                                         |
+| **EditorWelcome**               | ~80   | 空编辑器欢迎页 + 最近连接                                       | (纯展示 + emit)                                                                                  |
+| **QueryResultPanel**            | >2000 | 结果展示 + 三模式过滤 + Inline Edit + 导出                      | useResultTabs, useGridConfig, useGridKeyboard, useFilterModes, useFilterPresets, useResultExport |
+| **TranspileModal**              | ~60   | 方言转换弹窗                                                    | (纯展示 + emit)                                                                                  |
+| **ParamBindingModal**           | ~100  | 参数绑定表单                                                    | (纯展示 + emit)                                                                                  |
+| **SqlHistoryPanel**             | ~300  | 历史列表 + 搜索 + 收藏 + 双击重执行                             | (事件驱动)                                                                                       |
+| **SnippetPanel**                | ~200  | 代码片段列表 + 搜索 + 插入/删除                                 | (事件驱动)                                                                                       |
+| **SettingsPanel**               | ~500  | 工作台全局设置 (需重构)                                         | 无 (当前用 localStorage)                                                                         |
 
 ---
 
@@ -376,34 +376,34 @@ handleDuckDbExecute()
 
 ### 5.1 Store 职责分工
 
-| Store | 文件 | 作用域 | 职责 |
-| ----- | ---- | ------ | ---- |
-| **useAppStore** | `@/stores/useAppStore` | 全局 | 主题、语言、编辑器设置、默认引擎、最近项目、布局 |
-| **resultStore** | `workbench/stores/result-store` | 工作台 | 结果 Tab 管理、分页、三模式过滤 |
-| **sqlExecutionStore** | `workbench/stores/sql-execution-store` | 工作台 | 执行结果分发、新 Tab 请求、刷新请求 |
-| **layoutStore** | `workbench/stores/layout-store` | 工作台 | 面板布局、分割位置 |
-| **insightStore** | `workbench/stores/insight-store` | 工作台 | 列洞察数据 |
-| **workbenchStore** | `workbench/stores/workbench-store` | 工作台 | 面板管理、编辑器状态 |
+| Store                 | 文件                                   | 作用域 | 职责                                             |
+| --------------------- | -------------------------------------- | ------ | ------------------------------------------------ |
+| **useAppStore**       | `@/stores/useAppStore`                 | 全局   | 主题、语言、编辑器设置、默认引擎、最近项目、布局 |
+| **resultStore**       | `workbench/stores/result-store`        | 工作台 | 结果 Tab 管理、分页、三模式过滤                  |
+| **sqlExecutionStore** | `workbench/stores/sql-execution-store` | 工作台 | 执行结果分发、新 Tab 请求、刷新请求              |
+| **layoutStore**       | `workbench/stores/layout-store`        | 工作台 | 面板布局、分割位置                               |
+| **insightStore**      | `workbench/stores/insight-store`       | 工作台 | 列洞察数据                                       |
+| **workbenchStore**    | `workbench/stores/workbench-store`     | 工作台 | 面板管理、编辑器状态                             |
 
 ### 5.2 通信机制选择
 
-| 场景 | 机制 | 原因 |
-| ---- | ---- | ---- |
-| 执行结果 → 结果面板 | **Pinia Store** (resultStore) | 生产者/消费者解耦，支持多编辑器 |
-| 编辑器 → 工具栏 | **Props + Emits** | 父子组件直接通信 |
-| 编辑器 → 状态栏 | **Composable 共享 ref** | 同一编排层内共享 |
-| 历史面板 → 编辑器 | **CustomEvent** (`sql-history-re-execute`) | 跨 dockview 面板通信（临时方案，待迁移至 Pinia） |
-| 片段面板 → 编辑器 | **CustomEvent** (`insert-snippet`) | 同上 |
-| 全局设置 → 所有编辑器 | **Pinia Store** (useAppStore) + watch | 一对多广播 |
+| 场景                  | 机制                                       | 原因                                             |
+| --------------------- | ------------------------------------------ | ------------------------------------------------ |
+| 执行结果 → 结果面板   | **Pinia Store** (resultStore)              | 生产者/消费者解耦，支持多编辑器                  |
+| 编辑器 → 工具栏       | **Props + Emits**                          | 父子组件直接通信                                 |
+| 编辑器 → 状态栏       | **Composable 共享 ref**                    | 同一编排层内共享                                 |
+| 历史面板 → 编辑器     | **CustomEvent** (`sql-history-re-execute`) | 跨 dockview 面板通信（临时方案，待迁移至 Pinia） |
+| 片段面板 → 编辑器     | **CustomEvent** (`insert-snippet`)         | 同上                                             |
+| 全局设置 → 所有编辑器 | **Pinia Store** (useAppStore) + watch      | 一对多广播                                       |
 
 ### 5.3 待迁移的 CustomEvent
 
 > 当前 2 个残留 CustomEvent 由 Phase 3 双通道过渡时期遗留，建议迁移：
 
-| 事件 | 当前方式 | 建议迁移至 |
-| ---- | -------- | ---------- |
-| `sql-history-re-execute` | CustomEvent | `sqlExecutionStore.reExecuteRequest` |
-| `insert-snippet` | CustomEvent | provide/inject 或 `sqlExecutionStore.insertSnippetRequest` |
+| 事件                     | 当前方式    | 建议迁移至                                                 |
+| ------------------------ | ----------- | ---------------------------------------------------------- |
+| `sql-history-re-execute` | CustomEvent | `sqlExecutionStore.reExecuteRequest`                       |
+| `insert-snippet`         | CustomEvent | provide/inject 或 `sqlExecutionStore.insertSnippetRequest` |
 
 ---
 
@@ -417,13 +417,13 @@ handleDuckDbExecute()
 
 ```typescript
 CONFIG_REGISTRY = {
-  theme,             // 'light' | 'dark' | 'system'
-  language,          // 'zh-CN' | 'en'
-  editorSettings,    // { fontSize, tabSize, wordWrap, minimap, lineNumbers, fontFamily }
-  defaultEngine,     // 'native' | 'duckdb'
-  recentProjects,    // string[]
-  dockviewLayout,    // SerializedDockviewLayout   (projectOnly)
-  sidebarState,      // SerializedSidebarState     (projectOnly)
+  theme, // 'light' | 'dark' | 'system'
+  language, // 'zh-CN' | 'en'
+  editorSettings, // { fontSize, tabSize, wordWrap, minimap, lineNumbers, fontFamily }
+  defaultEngine, // 'native' | 'duckdb'
+  recentProjects, // string[]
+  dockviewLayout, // SerializedDockviewLayout   (projectOnly)
+  sidebarState, // SerializedSidebarState     (projectOnly)
 }
 ```
 
@@ -553,7 +553,7 @@ interface ProjectConfig {
   │  └── 默认引擎                                    │
   └─────────────────────────────────────────────────┘
            ↓ 所有保存通过 useAppStore.saveConfig()
-  
+
   ┌─────────────────────────────────────────────────┐
   │  工作台设置页 (workbench/SettingsPanel.vue)     │
   │  ├── 连接池 (转入 config.ts CONFIG_REGISTRY)    │
@@ -572,27 +572,27 @@ interface ProjectConfig {
 
 ### 7.1 Tauri 命令接口（19 条后端注册 + 15 条 query.ts 封装）
 
-| 命令 | 输入类型 | 输出类型 | 前端入口 |
-| ---- | -------- | -------- | -------- |
-| `execute_sql` | `{ sql, conn_id }` | `QueryResult` | ✅ `queryService.executeSql()` |
-| `execute_transaction` | `{ sqls, conn_id }` | `QueryResult[]` | ✅ `queryService.executeTransaction()` |
-| `begin_transaction` | `{ conn_id }` | `void` | ✅ `queryService.beginTransaction()` |
-| `commit_transaction` | `{ conn_id }` | `void` | ✅ `queryService.commitTransaction()` |
-| `rollback_transaction` | `{ conn_id }` | `void` | ✅ `queryService.rollbackTransaction()` |
-| `get_transaction_status` | `{ conn_id }` | `TransactionStatus` | ✅ `queryService.getTransactionStatus()` |
-| `cancel_sql_query` | `{ conn_id }` | `void` | ✅ `queryService.cancelQuery()` |
-| `execute_duckdb_accelerated` | `DuckDBAcceleratedInput` | `DuckDBAcceleratedResponse` | ✅ `queryService.executeDuckDBAccelerated()` |
-| `get_sql_history` | `{ conn_id? }` | `SqlHistoryItem[]` | ✅ `queryService.getSqlHistory()` |
-| `search_sql_history` | `{ query }` | `SqlHistoryItem[]` | ✅ `queryService.searchSqlHistory()` |
-| `clear_sql_history` | `{ conn_id? }` | `void` | ✅ `queryService.clearSqlHistory()` |
-| `remove_sql_history` | `{ id }` | `void` | ✅ `queryService.removeSqlHistory()` |
-| `register_external_database` | `RegisterExternalDbInput` | `void` | ⚠️ **缺 UI** |
-| `create_external_table` | `CreateExternalTableInput` | `void` | ⚠️ **缺 UI** |
-| `parse_sql` | `{ sql }` | `ParseResult` | ✅ `parseSql()` |
-| `format_sql` | `{ sql, dialect }` | `FormatResult` | ✅ `formatSql()` |
-| `transpile_sql` | `{ sql, from, to }` | `TranspileResult` | ✅ `transpileSql()` |
-| `validate_sql` | `{ sql, dialect }` | `ValidateResult` | ✅ `validateSql()` |
-| `split_sql` | `{ sql }` | `SplitResult` | ✅ `splitSql()` |
+| 命令                         | 输入类型                   | 输出类型                    | 前端入口                                     |
+| ---------------------------- | -------------------------- | --------------------------- | -------------------------------------------- |
+| `execute_sql`                | `{ sql, conn_id }`         | `QueryResult`               | ✅ `queryService.executeSql()`               |
+| `execute_transaction`        | `{ sqls, conn_id }`        | `QueryResult[]`             | ✅ `queryService.executeTransaction()`       |
+| `begin_transaction`          | `{ conn_id }`              | `void`                      | ✅ `queryService.beginTransaction()`         |
+| `commit_transaction`         | `{ conn_id }`              | `void`                      | ✅ `queryService.commitTransaction()`        |
+| `rollback_transaction`       | `{ conn_id }`              | `void`                      | ✅ `queryService.rollbackTransaction()`      |
+| `get_transaction_status`     | `{ conn_id }`              | `TransactionStatus`         | ✅ `queryService.getTransactionStatus()`     |
+| `cancel_sql_query`           | `{ conn_id }`              | `void`                      | ✅ `queryService.cancelQuery()`              |
+| `execute_duckdb_accelerated` | `DuckDBAcceleratedInput`   | `DuckDBAcceleratedResponse` | ✅ `queryService.executeDuckDBAccelerated()` |
+| `get_sql_history`            | `{ conn_id? }`             | `SqlHistoryItem[]`          | ✅ `queryService.getSqlHistory()`            |
+| `search_sql_history`         | `{ query }`                | `SqlHistoryItem[]`          | ✅ `queryService.searchSqlHistory()`         |
+| `clear_sql_history`          | `{ conn_id? }`             | `void`                      | ✅ `queryService.clearSqlHistory()`          |
+| `remove_sql_history`         | `{ id }`                   | `void`                      | ✅ `queryService.removeSqlHistory()`         |
+| `register_external_database` | `RegisterExternalDbInput`  | `void`                      | ⚠️ **缺 UI**                                 |
+| `create_external_table`      | `CreateExternalTableInput` | `void`                      | ⚠️ **缺 UI**                                 |
+| `parse_sql`                  | `{ sql }`                  | `ParseResult`               | ✅ `parseSql()`                              |
+| `format_sql`                 | `{ sql, dialect }`         | `FormatResult`              | ✅ `formatSql()`                             |
+| `transpile_sql`              | `{ sql, from, to }`        | `TranspileResult`           | ✅ `transpileSql()`                          |
+| `validate_sql`               | `{ sql, dialect }`         | `ValidateResult`            | ✅ `validateSql()`                           |
+| `split_sql`                  | `{ sql }`                  | `SplitResult`               | ✅ `splitSql()`                              |
 
 > ⚠️ **已知问题**：历史命令（get_sql_history 等 4 条）在 query.ts 有封装但 **SqlHistoryPanel 实际使用 localStorage 实现**（sql-history-service.ts），后端历史命令目前未被 UI 消费。详见附录"前端审计修复历史"。
 
@@ -658,10 +658,7 @@ function useSqlExecution(options: {
 }
 
 // useConnectionBinding — 连接管理
-function useConnectionBinding(options: {
-  panelId: string
-  initialConnectionId?: string
-}): {
+function useConnectionBinding(options: { panelId: string; initialConnectionId?: string }): {
   selectedConnection: Ref<string>
   runtimeConnId: Ref<string>
   connectionInfoText: Ref<string>
@@ -851,7 +848,7 @@ ExternalDbDialog.vue:
 ```
 解析层 (sql-editor-service.ts):
   new function: parseExplainResult(dbType, rawText) → ExplainTreeNode[]
-  
+
   ExplainTreeNode {
     operation: string      // 'Seq Scan' | 'Index Scan' | 'Hash Join' | 'Sort' | ...
     cost: number           // 预估耗时
@@ -1040,12 +1037,12 @@ src/
 
 ### 10.2 待新增文件
 
-| 文件 | 用途 | 优先级 |
-| ---- | ---- | ------ |
-| `ExternalDbDialog.vue` | DuckDB 外部数据库注册弹窗 | P1 |
-| `CreateExternalTableDialog.vue` | DuckDB 外部表创建弹窗 | P1 |
-| `ExplainVisualization.vue` | 执行计划树形图组件 | P1 |
-| `DiffEditorPanel.vue` | SQL 对比视图 | P2 |
+| 文件                            | 用途                      | 优先级 |
+| ------------------------------- | ------------------------- | ------ |
+| `ExternalDbDialog.vue`          | DuckDB 外部数据库注册弹窗 | P1     |
+| `CreateExternalTableDialog.vue` | DuckDB 外部表创建弹窗     | P1     |
+| `ExplainVisualization.vue`      | 执行计划树形图组件        | P1     |
+| `DiffEditorPanel.vue`           | SQL 对比视图              | P2     |
 
 ---
 
@@ -1053,174 +1050,177 @@ src/
 
 ### 版本历史
 
-| 版本 | 日期 | 说明 |
-| ---- | ---- | ---- |
+| 版本  | 日期       | 说明                                                                                                                                                                                                                                                                                      |
+| ----- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.12 | 2026-05-10 | 死代码清理（adapters/tauri/command.rs 220行移除）、DRY 重构（new_sql_service 工厂函数、From impl for TransactionStatusResponse + SqlHistoryResponse 消除 42 行重复映射）、前端测试 0→7（bindParams 单元测试）、SqlEditorPanel 移除未使用 import clearErrorMarkers、审计评分 87.3（B+/A-） |
-| v1.11 | 2026-05-10 | 吞错修复（result-store console.warn + executeBatch firstError）、Rust 测试 2→22（11x）、adapters 架构文档化、前端测试计划标注 |
-| v1.10 | 2026-05-10 | P1+P2 清理：移除 dead_code execute_update/value_to_sql（47行）、删除 shared/types/sql.ts 冗余 ExecuteSqlResponse、统一 shared/api ExecuteSqlResponse 字段（truncated/total_rows/error）、修复 row_count → total_rows |
-| v1.9 | 2026-05-10 | P0+P1 深度修复：Tauri 命令统一返回 CoreError × 19、消除 sql-editor-service any × 8、sql_service 魔法字符串常量化 × 8、useSqlExecution as unknown as 清理 × 4、SqlExecuteResult 冗余字段移除、abortController 遮蔽 Bug 修复 |
-| v1.8 | 2026-05-10 | P0 全面修复：消除驱动层 unwrap × 16、查询超时机制、结果行数硬限制、console.log 清理 |
-| v1.7 | 2026-05-09 | 前端死代码清理：query.ts 4 函数 + query-store.ts 历史代码 |
-| v1.6 | 2026-05-09 | CONFIG_REGISTRY 完成 13/13 + SQL 历史双轨制标记 dead functions |
-| v1.5 | 2026-05-09 | CONFIG_REGISTRY 扩展 4 键 + Workbench SettingsPanel 迁移 useAppStore |
-| v1.4 | 2026-05-09 | 前端审计修复：删除幽灵命令 get_query_history、文档一致性修正 × 6、记录历史存储双轨制 |
-| v1.3 | 2026-05-09 | 遗漏修复：SQLite rows_to_arrow NULL 类型误判、useSqlExecution parseTimer 清理、WorkbenchTitleBar 桩动作 |
-| v1.2 | 2026-05-09 | 驱动层审计修复：rows_to_arrow NULL 类型误判 × 2、PostgreSQL query_with_params、MySQL affected_rows、_db 命名 |
-| v1.1 | 2026-05-09 | 审计修复：Rust unwrap × 2、runtimeConnId 类型、handleExplain 重构、QueryResultPanel any × 10 |
-| v1.0 | 2026-05-09 | 初始设计文档，覆盖完整架构 + 未实现功能方案 |
+| v1.11 | 2026-05-10 | 吞错修复（result-store console.warn + executeBatch firstError）、Rust 测试 2→22（11x）、adapters 架构文档化、前端测试计划标注                                                                                                                                                             |
+| v1.10 | 2026-05-10 | P1+P2 清理：移除 dead_code execute_update/value_to_sql（47行）、删除 shared/types/sql.ts 冗余 ExecuteSqlResponse、统一 shared/api ExecuteSqlResponse 字段（truncated/total_rows/error）、修复 row_count → total_rows                                                                      |
+| v1.9  | 2026-05-10 | P0+P1 深度修复：Tauri 命令统一返回 CoreError × 19、消除 sql-editor-service any × 8、sql_service 魔法字符串常量化 × 8、useSqlExecution as unknown as 清理 × 4、SqlExecuteResult 冗余字段移除、abortController 遮蔽 Bug 修复                                                                |
+| v1.8  | 2026-05-10 | P0 全面修复：消除驱动层 unwrap × 16、查询超时机制、结果行数硬限制、console.log 清理                                                                                                                                                                                                       |
+| v1.7  | 2026-05-09 | 前端死代码清理：query.ts 4 函数 + query-store.ts 历史代码                                                                                                                                                                                                                                 |
+| v1.6  | 2026-05-09 | CONFIG_REGISTRY 完成 13/13 + SQL 历史双轨制标记 dead functions                                                                                                                                                                                                                            |
+| v1.5  | 2026-05-09 | CONFIG_REGISTRY 扩展 4 键 + Workbench SettingsPanel 迁移 useAppStore                                                                                                                                                                                                                      |
+| v1.4  | 2026-05-09 | 前端审计修复：删除幽灵命令 get_query_history、文档一致性修正 × 6、记录历史存储双轨制                                                                                                                                                                                                      |
+| v1.3  | 2026-05-09 | 遗漏修复：SQLite rows_to_arrow NULL 类型误判、useSqlExecution parseTimer 清理、WorkbenchTitleBar 桩动作                                                                                                                                                                                   |
+| v1.2  | 2026-05-09 | 驱动层审计修复：rows_to_arrow NULL 类型误判 × 2、PostgreSQL query_with_params、MySQL affected_rows、\_db 命名                                                                                                                                                                             |
+| v1.1  | 2026-05-09 | 审计修复：Rust unwrap × 2、runtimeConnId 类型、handleExplain 重构、QueryResultPanel any × 10                                                                                                                                                                                              |
+| v1.0  | 2026-05-09 | 初始设计文档，覆盖完整架构 + 未实现功能方案                                                                                                                                                                                                                                               |
 
 ### 审计修复历史 (2026-05-09)
 
-| # | 修复项 | 文件 | 变更 |
-|---|--------|------|------|
-| 1 | `task.progress.lock().unwrap()` | [cache_warming_commands.rs:499](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/cache_warming_commands.rs#L499) | → `lock().map_err(\|e\| ...)?` |
-| 2 | `results.into_iter().next().unwrap()` | [stream_engine.rs:45](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/dbi/engine/stream_engine.rs#L45) | → `.next().ok_or_else(\|\| ...)?` |
-| 3 | `runtimeConnId: Ref<string \| null>` | [useConnectionBinding.ts:19](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useConnectionBinding.ts#L19) | → `Ref<string>('')` |
-| 4 | `binding.runtimeConnId as unknown as Ref<string>` | [SqlEditorPanel.vue:377](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L377) | → 移除不安全双重转换 |
-| 5 | `handleExplain()` 手动 invoke | [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue) | → 委托 `executeExplain(t('...'))` |
-| 6 | 新增 `executeExplain()` | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts) | 统一执行链路 + 新建 Tab + 自定义标题 |
-| 7 | 新增 `title?: string` 到 ExecutionResult | [sql-execution-store.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/stores/sql-execution-store.ts) | 支持 EXPLAIN Tab 自定义标题 |
-| 8 | QueryResultPanel `any` × 10 | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue) | → AG Grid 事件类型 + PresetSelectEvent + Record<string,unknown> |
-| **Lint** | 审计前：**5 errors, 484 warnings** | 审计后：**0 errors, 469 warnings** | -15 warnings |
+| #        | 修复项                                            | 文件                                                                                                                                                             | 变更                                                            |
+| -------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1        | `task.progress.lock().unwrap()`                   | [cache_warming_commands.rs:499](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/cache_warming_commands.rs#L499)                    | → `lock().map_err(\|e\| ...)?`                                  |
+| 2        | `results.into_iter().next().unwrap()`             | [stream_engine.rs:45](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/dbi/engine/stream_engine.rs#L45)                                 | → `.next().ok_or_else(\|\| ...)?`                               |
+| 3        | `runtimeConnId: Ref<string \| null>`              | [useConnectionBinding.ts:19](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useConnectionBinding.ts#L19) | → `Ref<string>('')`                                             |
+| 4        | `binding.runtimeConnId as unknown as Ref<string>` | [SqlEditorPanel.vue:377](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L377)   | → 移除不安全双重转换                                            |
+| 5        | `handleExplain()` 手动 invoke                     | [SqlEditorPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue)            | → 委托 `executeExplain(t('...'))`                               |
+| 6        | 新增 `executeExplain()`                           | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts)                  | 统一执行链路 + 新建 Tab + 自定义标题                            |
+| 7        | 新增 `title?: string` 到 ExecutionResult          | [sql-execution-store.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/stores/sql-execution-store.ts)               | 支持 EXPLAIN Tab 自定义标题                                     |
+| 8        | QueryResultPanel `any` × 10                       | [QueryResultPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/QueryResultPanel.vue)        | → AG Grid 事件类型 + PresetSelectEvent + Record<string,unknown> |
+| **Lint** | 审计前：**5 errors, 484 warnings**                | 审计后：**0 errors, 469 warnings**                                                                                                                               | -15 warnings                                                    |
 
 ### 驱动层修复历史 (2026-05-09)
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
-| 1 | `postgres_rows_to_arrow()` 首行 NULL → 类型误判 → 数据丢失 | 🔴 P0 | [postgres.rs:L275-L363](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs#L275) | 两阶段重构：Phase 1 扫描非 NULL 值检测类型，Phase 2 统一收集 |
-| 2 | `mysql_rows_to_arrow()` 首行 NULL → 类型误判 → 数据丢失 | 🔴 P0 | [mysql.rs:L355-L410](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs#L355) | 同上两阶段重构 |
-| 3 | PostgreSQL 缺少 `query_with_params()` | 🟠 P1 | [postgres.rs:L86](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs#L86) | 新增 36 行实现，遵循 MySQL 参数绑定模式 |
-| 4 | MySQL `affected_rows` 空写结果不一致 | 🟡 P2 | [mysql.rs:L53](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs#L53) | `None` → `if is_read_only { None } else { Some(0) }` |
-| 5 | PostgreSQL `list_tables` `_db` 命名误导 | 🟡 P2 | [postgres.rs:L198](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs#L198) | `_db: &str` → `db: &str` |
-| **Cargo** | 审计前：28 errors (预存) | 审计后：1 error (预存，非驱动) | 驱动层 0 新错误 |
+| #         | 修复项                                                     |             严重度             | 文件                                                                                                                              | 变更                                                         |
+| --------- | ---------------------------------------------------------- | :----------------------------: | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 1         | `postgres_rows_to_arrow()` 首行 NULL → 类型误判 → 数据丢失 |             🔴 P0              | [postgres.rs:L275-L363](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs#L275) | 两阶段重构：Phase 1 扫描非 NULL 值检测类型，Phase 2 统一收集 |
+| 2         | `mysql_rows_to_arrow()` 首行 NULL → 类型误判 → 数据丢失    |             🔴 P0              | [mysql.rs:L355-L410](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs#L355)       | 同上两阶段重构                                               |
+| 3         | PostgreSQL 缺少 `query_with_params()`                      |             🟠 P1              | [postgres.rs:L86](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs#L86)        | 新增 36 行实现，遵循 MySQL 参数绑定模式                      |
+| 4         | MySQL `affected_rows` 空写结果不一致                       |             🟡 P2              | [mysql.rs:L53](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs#L53)              | `None` → `if is_read_only { None } else { Some(0) }`         |
+| 5         | PostgreSQL `list_tables` `_db` 命名误导                    |             🟡 P2              | [postgres.rs:L198](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs#L198)      | `_db: &str` → `db: &str`                                     |
+| **Cargo** | 审计前：28 errors (预存)                                   | 审计后：1 error (预存，非驱动) | 驱动层 0 新错误                                                                                                                   |
 
 ### 遗漏修复历史 (Round 8, 2026-05-09)
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
-| 1 | `sqlite_rows_to_arrow()` 首行 NULL → 类型误判 → 数据丢失（与 postgres/mysql 同根因） | 🔴 P0 | [sqlite.rs:L401-L407](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite.rs#L401) | 移除 `Null` 分支中的 `detected_type = Some(DataType::Utf8)`，NULL 值不再错误地覆盖类型检测 |
-| 2 | `useSqlExecution` parseTimer 未清理 → 组件卸载后定时器回调访问已销毁 ref | 🟡 P2 | [useSqlExecution.ts:L437-L442](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts#L437) | 新增 `cleanup()` 函数，清除 parseTimer |
-| 3 | `SqlEditorPanel` onBeforeUnmount 未调用 composable 清理 | 🟡 P2 | [SqlEditorPanel.vue:L862](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L862) | onBeforeUnmount 中添加 `cleanupExecution()` 调用 |
-| 4 | `WorkbenchTitleBar` 6 个桩菜单动作 `console.log(...)` → 生产环境无意义输出 | 🟡 P2 | [WorkbenchTitleBar.vue:L274](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue#L274) | 统一替换为 `const notImplemented = (): void => {}` |
-| **Lint** | 审计前：**0 errors, 469 warnings** | 修复后：**0 errors, 449 warnings** | -20 warnings |
-| **Cargo** | 审计前：19 errors (预存) | 修复后：19 errors (全部预存，非本次变更) | 0 新错误 |
+| #         | 修复项                                                                               |                  严重度                  | 文件                                                                                                                                                            | 变更                                                                                       |
+| --------- | ------------------------------------------------------------------------------------ | :--------------------------------------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1         | `sqlite_rows_to_arrow()` 首行 NULL → 类型误判 → 数据丢失（与 postgres/mysql 同根因） |                  🔴 P0                   | [sqlite.rs:L401-L407](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite.rs#L401)                                   | 移除 `Null` 分支中的 `detected_type = Some(DataType::Utf8)`，NULL 值不再错误地覆盖类型检测 |
+| 2         | `useSqlExecution` parseTimer 未清理 → 组件卸载后定时器回调访问已销毁 ref             |                  🟡 P2                   | [useSqlExecution.ts:L437-L442](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts#L437)  | 新增 `cleanup()` 函数，清除 parseTimer                                                     |
+| 3         | `SqlEditorPanel` onBeforeUnmount 未调用 composable 清理                              |                  🟡 P2                   | [SqlEditorPanel.vue:L862](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SqlEditorPanel.vue#L862) | onBeforeUnmount 中添加 `cleanupExecution()` 调用                                           |
+| 4         | `WorkbenchTitleBar` 6 个桩菜单动作 `console.log(...)` → 生产环境无意义输出           |                  🟡 P2                   | [WorkbenchTitleBar.vue:L274](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue#L274)  | 统一替换为 `const notImplemented = (): void => {}`                                         |
+| **Lint**  | 审计前：**0 errors, 469 warnings**                                                   |    修复后：**0 errors, 449 warnings**    | -20 warnings                                                                                                                                                    |
+| **Cargo** | 审计前：19 errors (预存)                                                             | 修复后：19 errors (全部预存，非本次变更) | 0 新错误                                                                                                                                                        |
 
 ### 前端审计修复历史 (Round 9, 2026-05-09)
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
-| 1 | `getQueryHistory()` 调用不存在的 `get_query_history` 命令 → **幽灵命令** | 🔴 P0 | [query.ts:L57](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts#L57) | 删除 `getQueryHistory()` 函数（仅定义、从未导入、调用的后端命令不存在） |
-| 2 | `QueryHistoryItem` 接口仅被已删除的 getQueryHistory 使用 | 🟡 P2 | [query.ts:L225](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts#L225) | 删除 `QueryHistoryItem` 接口（其他文件有独立定义） |
-| 3 | 文档 §10.1 SnippetPanel.vue 重复出现 | 🟡 P2 | [DESIGN.md:L865](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L865) | 删除重复条目，替换为遗漏的 `WorkbenchTitleBar.vue` |
-| 4 | 文档路径 `query/ui/services/` 应为 `Query/ui/services/`（大小写） | 🟡 P2 | [DESIGN.md:L902](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L902) | 修正路径大小写 |
-| 5 | 文档 §3.1 组件树遗漏 `WorkbenchTitleBar.vue` | 🟡 P2 | [DESIGN.md:L117](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L117) | 添加 WorkbenchTitleBar.vue 到组件树 |
-| 6 | `menuActionHandlers.ts` 被归类为 composable 但不遵循 `useXxx` 模式 | 🟡 P2 | [DESIGN.md:L881](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L881) | 标注为"工具模块，非 composable"，补充 `useTitleBar.ts` |
-| 7 | `QueryResultPanel.vue` 行数 ~900 → 实际 >2000 | 🟡 P2 | [DESIGN.md:L155](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L155) | 更新为实际行数 >2000 |
-| 8 | §7.1 命令表标注历史存储双轨制问题 | 🟠 P1 | [DESIGN.md:L481](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L481) | 添加已知问题注释 |
+| #   | 修复项                                                                   | 严重度 | 文件                                                                                                                           | 变更                                                                    |
+| --- | ------------------------------------------------------------------------ | :----: | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| 1   | `getQueryHistory()` 调用不存在的 `get_query_history` 命令 → **幽灵命令** | 🔴 P0  | [query.ts:L57](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts#L57)   | 删除 `getQueryHistory()` 函数（仅定义、从未导入、调用的后端命令不存在） |
+| 2   | `QueryHistoryItem` 接口仅被已删除的 getQueryHistory 使用                 | 🟡 P2  | [query.ts:L225](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts#L225) | 删除 `QueryHistoryItem` 接口（其他文件有独立定义）                      |
+| 3   | 文档 §10.1 SnippetPanel.vue 重复出现                                     | 🟡 P2  | [DESIGN.md:L865](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L865)               | 删除重复条目，替换为遗漏的 `WorkbenchTitleBar.vue`                      |
+| 4   | 文档路径 `query/ui/services/` 应为 `Query/ui/services/`（大小写）        | 🟡 P2  | [DESIGN.md:L902](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L902)               | 修正路径大小写                                                          |
+| 5   | 文档 §3.1 组件树遗漏 `WorkbenchTitleBar.vue`                             | 🟡 P2  | [DESIGN.md:L117](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L117)               | 添加 WorkbenchTitleBar.vue 到组件树                                     |
+| 6   | `menuActionHandlers.ts` 被归类为 composable 但不遵循 `useXxx` 模式       | 🟡 P2  | [DESIGN.md:L881](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L881)               | 标注为"工具模块，非 composable"，补充 `useTitleBar.ts`                  |
+| 7   | `QueryResultPanel.vue` 行数 ~900 → 实际 >2000                            | 🟡 P2  | [DESIGN.md:L155](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L155)               | 更新为实际行数 >2000                                                    |
+| 8   | §7.1 命令表标注历史存储双轨制问题                                        | 🟠 P1  | [DESIGN.md:L481](file:///e:/myapps/tauirapps/RdataStation/rdata-station/docs/frontend/SQL-EDITOR-DESIGN.md#L481)               | 添加已知问题注释                                                        |
 
 > ⚠️ **未修复的已知问题**:
+>
 > - **SQL 历史存储分化**: SqlHistoryPanel 使用 localStorage（sql-history-service.ts），后端 Tauri 命令（get_sql_history 等）被 shared/api → query/extension 消费但不含 tags/notes/favorites。query.ts 死代码已清理（Round 12）。
 > - **QueryResultPanel.vue**: >2000 行，需拆分重构
 
 ### 配置体系修复历史 (Round 10, 2026-05-09)
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
-| 1 | CONFIG_REGISTRY 扩展：`connectionPool` 键 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 新增 `ConnectionPoolSettings` 类型 + zod schema + 注册表条目（7 字段，全局默认） |
-| 2 | CONFIG_REGISTRY 扩展：`historySettings` 键 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 新增 `HistorySettings` 类型 + zod schema + 注册表条目（5 字段） |
-| 3 | CONFIG_REGISTRY 扩展：`monitoringSettings` 键 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 新增 `MonitoringSettings` 类型 + zod schema + 注册表条目（6 字段） |
-| 4 | CONFIG_REGISTRY 扩展：`performanceSettings` 键 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 新增 `PerformanceSettings` 类型 + zod schema + 注册表条目（5 字段） |
-| 5 | `GlobalConfig` 接口扩展到 9 字段 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 添加 connectionPool / historySettings / monitoringSettings / performanceSettings |
-| 6 | `useAppStore` 新增 4 个 effective computed + 4 个 setter | 🟠 P1 | [useAppStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useAppStore.ts) | `effectiveConnectionPool` / `effectiveHistorySettings` / `effectiveMonitoringSettings` / `effectivePerformanceSettings` + 对应 `setConnectionPool()` 等 |
-| 7 | Workbench SettingsPanel localStorage → useAppStore | 🟠 P1 | [SettingsPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SettingsPanel.vue) | 删除 `loadSettings()` / `localStorage.setItem`，改用 `appStore.setConnectionPool/setHistorySettings/setMonitoringSettings/setPerformanceSettings` |
+| #   | 修复项                                                   | 严重度 | 文件                                                                                                                                                | 变更                                                                                                                                                    |
+| --- | -------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | CONFIG_REGISTRY 扩展：`connectionPool` 键                | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                                                            | 新增 `ConnectionPoolSettings` 类型 + zod schema + 注册表条目（7 字段，全局默认）                                                                        |
+| 2   | CONFIG_REGISTRY 扩展：`historySettings` 键               | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                                                            | 新增 `HistorySettings` 类型 + zod schema + 注册表条目（5 字段）                                                                                         |
+| 3   | CONFIG_REGISTRY 扩展：`monitoringSettings` 键            | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                                                            | 新增 `MonitoringSettings` 类型 + zod schema + 注册表条目（6 字段）                                                                                      |
+| 4   | CONFIG_REGISTRY 扩展：`performanceSettings` 键           | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                                                            | 新增 `PerformanceSettings` 类型 + zod schema + 注册表条目（5 字段）                                                                                     |
+| 5   | `GlobalConfig` 接口扩展到 9 字段                         | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                                                            | 添加 connectionPool / historySettings / monitoringSettings / performanceSettings                                                                        |
+| 6   | `useAppStore` 新增 4 个 effective computed + 4 个 setter | 🟠 P1  | [useAppStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useAppStore.ts)                                                  | `effectiveConnectionPool` / `effectiveHistorySettings` / `effectiveMonitoringSettings` / `effectivePerformanceSettings` + 对应 `setConnectionPool()` 等 |
+| 7   | Workbench SettingsPanel localStorage → useAppStore       | 🟠 P1  | [SettingsPanel.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/components/panels/SettingsPanel.vue) | 删除 `loadSettings()` / `localStorage.setItem`，改用 `appStore.setConnectionPool/setHistorySettings/setMonitoringSettings/setPerformanceSettings`       |
 
-| 指标 | 修复前 | 修复后 |
-|------|--------|--------|
-| **Lint** | 1 error, 425 warnings (预存) | **0 errors, 421 warnings** |
-| **CONFIG_REGISTRY** | 7/13 键 | **11/13 键** |
+| 指标                | 修复前                       | 修复后                     |
+| ------------------- | ---------------------------- | -------------------------- |
+| **Lint**            | 1 error, 425 warnings (预存) | **0 errors, 421 warnings** |
+| **CONFIG_REGISTRY** | 7/13 键                      | **11/13 键**               |
 
 ### 配置体系完成历史 (Round 11, 2026-05-09)
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
-| 1 | CONFIG_REGISTRY 扩展：`appearanceSettings` 键 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 新增 `AppearanceSettings`（uiFontSize + compactMode）+ zod schema + 注册表 |
-| 2 | CONFIG_REGISTRY 扩展：`resultSettings` 键 | 🟠 P1 | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts) | 新增 `ResultSettings`（pageSize + defaultViewMode + nullDisplay + dateFormat）+ projectOverridable |
-| 3 | `useAppStore` 新增 2 个 effective computed + 2 个 setter | 🟠 P1 | [useAppStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useAppStore.ts) | `effectiveAppearanceSettings` / `effectiveResultSettings`（含 project merge）+ setter |
-| 4 | SQL 历史双轨制标记 | 🟠 P1 | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts) | 4 个 history 函数添加 `@deprecated` JSDoc，标注未被 UI 消费及后续统一方向 |
+| #   | 修复项                                                   | 严重度 | 文件                                                                                                                 | 变更                                                                                               |
+| --- | -------------------------------------------------------- | :----: | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1   | CONFIG_REGISTRY 扩展：`appearanceSettings` 键            | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                             | 新增 `AppearanceSettings`（uiFontSize + compactMode）+ zod schema + 注册表                         |
+| 2   | CONFIG_REGISTRY 扩展：`resultSettings` 键                | 🟠 P1  | [config.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/config.ts)                             | 新增 `ResultSettings`（pageSize + defaultViewMode + nullDisplay + dateFormat）+ projectOverridable |
+| 3   | `useAppStore` 新增 2 个 effective computed + 2 个 setter | 🟠 P1  | [useAppStore.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/stores/useAppStore.ts)                   | `effectiveAppearanceSettings` / `effectiveResultSettings`（含 project merge）+ setter              |
+| 4   | SQL 历史双轨制标记                                       | 🟠 P1  | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts) | 4 个 history 函数添加 `@deprecated` JSDoc，标注未被 UI 消费及后续统一方向                          |
 
-| 指标 | 修复前 | 修复后 |
-|------|--------|--------|
-| **Lint** | 0 errors, 421 warnings | **2 errors, 423 warnings**（均预存，非本次变更） |
-| **CONFIG_REGISTRY** | 11/13 键 | **13/13 键 ✅ 完成** |
+| 指标                | 修复前                 | 修复后                                           |
+| ------------------- | ---------------------- | ------------------------------------------------ |
+| **Lint**            | 0 errors, 421 warnings | **2 errors, 423 warnings**（均预存，非本次变更） |
+| **CONFIG_REGISTRY** | 11/13 键               | **13/13 键 ✅ 完成**                             |
 
 ### 前端死代码清理历史 (Round 12, 2026-05-09)
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
-| 1 | 删除 `query.ts` 4 个死 history 函数 | 🟡 P2 | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts) | 移除 `getSqlHistory/searchSqlHistory/clearSqlHistory/removeSqlHistory`（仅被 dead query-store.ts 调用） |
-| 2 | 删除 `query.ts` `SqlHistoryItem` 接口 | 🟡 P2 | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts) | 移除死接口定义 |
-| 3 | 删除 `query.ts` `SqlHistoryResponse` 导入 | 🟡 P2 | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts) | 移除无用类型导入 |
-| 4 | 清理 `query-store.ts` 历史相关代码 | 🟡 P2 | [query-store.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/stores/query-store.ts) | 移除 `sqlHistory/historyLoading` refs + 4 历史 actions + SqlHistory 导入 |
+| #   | 修复项                                    | 严重度 | 文件                                                                                                                           | 变更                                                                                                    |
+| --- | ----------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| 1   | 删除 `query.ts` 4 个死 history 函数       | 🟡 P2  | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts)           | 移除 `getSqlHistory/searchSqlHistory/clearSqlHistory/removeSqlHistory`（仅被 dead query-store.ts 调用） |
+| 2   | 删除 `query.ts` `SqlHistoryItem` 接口     | 🟡 P2  | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts)           | 移除死接口定义                                                                                          |
+| 3   | 删除 `query.ts` `SqlHistoryResponse` 导入 | 🟡 P2  | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts)           | 移除无用类型导入                                                                                        |
+| 4   | 清理 `query-store.ts` 历史相关代码        | 🟡 P2  | [query-store.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/stores/query-store.ts) | 移除 `sqlHistory/historyLoading` refs + 4 历史 actions + SqlHistory 导入                                |
 
-| 指标 | 修复前 | 修复后 |
-|------|--------|--------|
-| **Lint errors** | 4 | **0** |
-| **Lint warnings** | 410 | **410** |
+| 指标              | 修复前 | 修复后  |
+| ----------------- | ------ | ------- |
+| **Lint errors**   | 4      | **0**   |
+| **Lint warnings** | 410    | **410** |
 
 > 📝 **SQL 历史现状澄清**:
+>
 > - `shared/api/index.ts` → `sqlApi.getSqlHistory()` → `tauriInvoke('get_sql_history')` → **存活**（被 `query/extension.ts` 使用）
 > - `query.ts` → `queryService.getSqlHistory()` → `invoke('get_sql_history')` → **已删除**（仅被 dead query-store.ts 使用）
 > - `sql-history-service.ts` → localStorage → **存活**（被 `SqlHistoryPanel.vue` 使用，含 tags/notes/favorites 丰富字段）
-> 
+>
 > 后端 Tauri 命令（get_sql_history 等 4 条）被 **shared/api 路径**消费，未被 SQL 编辑器 UI 消费。
 
 ### 相关文档
 
-| 文档 | 路径 |
-| ---- | ---- |
-| SQL 编辑器当前文档 | [SQL-EDITOR.md](./SQL-EDITOR.md) |
-| 架构优化计划 | [SQL-EDITOR-OPTIMIZATION-PLAN.md](./SQL-EDITOR-OPTIMIZATION-PLAN.md) |
-| 前端架构文档 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| 前端组件规范 | [COMPONENTS.md](./COMPONENTS.md) |
-| 项目规则 | `.trae/rules/` |
+| 文档               | 路径                                                                 |
+| ------------------ | -------------------------------------------------------------------- |
+| SQL 编辑器当前文档 | [SQL-EDITOR.md](./SQL-EDITOR.md)                                     |
+| 架构优化计划       | [SQL-EDITOR-OPTIMIZATION-PLAN.md](./SQL-EDITOR-OPTIMIZATION-PLAN.md) |
+| 前端架构文档       | [ARCHITECTURE.md](./ARCHITECTURE.md)                                 |
+| 前端组件规范       | [COMPONENTS.md](./COMPONENTS.md)                                     |
+| 项目规则           | `.trae/rules/`                                                       |
 
 ### 综合审计修复历史 (Round 15, 2026-05-10)
 
 **审计评分**：69.2/100 (C+) → 修复后的预估评分见各指标
 
-| # | 修复项 | 严重度 | 文件 | 变更 |
-|---|--------|:--:|------|------|
+| #                                | 修复项                                                                                         | 严重度 | 文件                                                                                                                                                                                                                                                             | 变更                                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- | :----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | **P0: 消除驱动层 unwrap() × 16** |
-| 1 | postgres.rs get_table_detail 6x `.map(\|a\| a.value(row_idx)).unwrap_or(...)` → `.map_or(...)` | 🔴 P0 | [postgres.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs) | 消除所有 unwrap 字样，使用标准 Option 组合子 |
-| 2 | postgres.rs `detected_type.unwrap_or(DataType::Utf8)` 冗余 → `effective_type` 复用 | 🟡 P2 | [postgres.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs) | 修复 arrow 转换中重复变量 |
-| 3 | mysql.rs `detected_type.clone().unwrap_or()` → `match` 模式 | 🟡 P2 | [mysql.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs) | 消除 unwrap 字样 |
-| 4 | sqlite.rs 3x `row.get(i).unwrap_or(Value::Null)` → for 循环 + `?` err propagation | 🔴 P0 | [sqlite.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite.rs) | query_with_params / query_with_cancel / transaction query 三处行迭代改为严格错误传播 |
-| 5 | sqlite.rs `detected_type.unwrap_or()` → `match` + `effective_type` | 🟡 P2 | [sqlite.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite.rs) | 消除 unwrap 字样 |
-| 6 | duckdb.rs 3x `row.get(i).unwrap_or(Value::Null)` → for 循环 + `?` err propagation | 🔴 P0 | [duckdb.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb.rs) | query / query_with_cancel / transaction query 三处行迭代改为严格错误传播 |
-| 7 | duckdb.rs `detected_type.unwrap_or()` → `match` + `effective_type` | 🟡 P2 | [duckdb.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb.rs) | 消除 unwrap 字样 |
-| **P0: 查询超时机制** |
-| 8 | sql_service.rs 超时逻辑 `tokio::spawn` 泄漏 → `tokio::time::timeout` | 🔴 P0 | [sql_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/sql_service.rs) | 消除 task 泄漏 + 超时错误信息 |
-| 9 | query.ts `timeout_ms: null` → 透传参数 | 🔴 P0 | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts) | `_timeoutMs` 参数从不使用 → 透传到后端 |
-| 10 | useSqlExecution.ts 默认超时 30s + 透传到 queryService | 🔴 P0 | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts) | 新增 `DEFAULT_QUERY_TIMEOUT_MS = 30_000`，本地 wrapper 透传 |
-| **P0: 结果行数硬限制** |
-| 11 | QueryResult 新增 `truncate(max_rows)` 方法 | 🔴 P0 | [models.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/models.rs) | RecordBatch 级别精确保留前 N 行 |
-| 12 | sql_service.rs `MAX_QUERY_ROWS = 10_000` + 执行后截断 | 🔴 P0 | [sql_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/sql_service.rs) | 新增 `truncated` 字段 + 常量 + 截断调用 |
-| 13 | ExecuteSqlResponse / SqlExecuteResult 新增 `truncated: bool` | 🔴 P0 | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs) / [query-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/infrastructure/types/query-service.ts) | 跨层传递截断标志 |
-| 14 | useSqlExecution.ts 截断时 `message.warning` 提示 | 🟠 P1 | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts) | 结果被截断时显示黄色警告 |
-| **P1: console.log 清理** |
-| 15 | sql-editor-service.ts 6x `console.warn/error` → 删除 | 🟠 P1 | [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts) | 所有 console 调用删除 + 空白 catch 块添加注释 |
-| 16 | useSqlExecution.ts 1x 未使用的 catch(error) → catch | 🟡 P2 | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts) | 消除 lint warning |
+| 1                                | postgres.rs get_table_detail 6x `.map(\|a\| a.value(row_idx)).unwrap_or(...)` → `.map_or(...)` | 🔴 P0  | [postgres.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs)                                                                                                                                               | 消除所有 unwrap 字样，使用标准 Option 组合子                                         |
+| 2                                | postgres.rs `detected_type.unwrap_or(DataType::Utf8)` 冗余 → `effective_type` 复用             | 🟡 P2  | [postgres.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs)                                                                                                                                               | 修复 arrow 转换中重复变量                                                            |
+| 3                                | mysql.rs `detected_type.clone().unwrap_or()` → `match` 模式                                    | 🟡 P2  | [mysql.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql.rs)                                                                                                                                                     | 消除 unwrap 字样                                                                     |
+| 4                                | sqlite.rs 3x `row.get(i).unwrap_or(Value::Null)` → for 循环 + `?` err propagation              | 🔴 P0  | [sqlite.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite.rs)                                                                                                                                                   | query_with_params / query_with_cancel / transaction query 三处行迭代改为严格错误传播 |
+| 5                                | sqlite.rs `detected_type.unwrap_or()` → `match` + `effective_type`                             | 🟡 P2  | [sqlite.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite.rs)                                                                                                                                                   | 消除 unwrap 字样                                                                     |
+| 6                                | duckdb.rs 3x `row.get(i).unwrap_or(Value::Null)` → for 循环 + `?` err propagation              | 🔴 P0  | [duckdb.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb.rs)                                                                                                                                                   | query / query_with_cancel / transaction query 三处行迭代改为严格错误传播             |
+| 7                                | duckdb.rs `detected_type.unwrap_or()` → `match` + `effective_type`                             | 🟡 P2  | [duckdb.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb.rs)                                                                                                                                                   | 消除 unwrap 字样                                                                     |
+| **P0: 查询超时机制**             |
+| 8                                | sql_service.rs 超时逻辑 `tokio::spawn` 泄漏 → `tokio::time::timeout`                           | 🔴 P0  | [sql_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/sql_service.rs)                                                                                                                                              | 消除 task 泄漏 + 超时错误信息                                                        |
+| 9                                | query.ts `timeout_ms: null` → 透传参数                                                         | 🔴 P0  | [query.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/ui/services/query.ts)                                                                                                                                             | `_timeoutMs` 参数从不使用 → 透传到后端                                               |
+| 10                               | useSqlExecution.ts 默认超时 30s + 透传到 queryService                                          | 🔴 P0  | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts)                                                                                                                  | 新增 `DEFAULT_QUERY_TIMEOUT_MS = 30_000`，本地 wrapper 透传                          |
+| **P0: 结果行数硬限制**           |
+| 11                               | QueryResult 新增 `truncate(max_rows)` 方法                                                     | 🔴 P0  | [models.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/models.rs)                                                                                                                                                                 | RecordBatch 级别精确保留前 N 行                                                      |
+| 12                               | sql_service.rs `MAX_QUERY_ROWS = 10_000` + 执行后截断                                          | 🔴 P0  | [sql_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/sql_service.rs)                                                                                                                                              | 新增 `truncated` 字段 + 常量 + 截断调用                                              |
+| 13                               | ExecuteSqlResponse / SqlExecuteResult 新增 `truncated: bool`                                   | 🔴 P0  | [sql_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/sql_commands.rs) / [query-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/query/infrastructure/types/query-service.ts) | 跨层传递截断标志                                                                     |
+| 14                               | useSqlExecution.ts 截断时 `message.warning` 提示                                               | 🟠 P1  | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts)                                                                                                                  | 结果被截断时显示黄色警告                                                             |
+| **P1: console.log 清理**         |
+| 15                               | sql-editor-service.ts 6x `console.warn/error` → 删除                                           | 🟠 P1  | [sql-editor-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/services/sql-editor-service.ts)                                                                                                                  | 所有 console 调用删除 + 空白 catch 块添加注释                                        |
+| 16                               | useSqlExecution.ts 1x 未使用的 catch(error) → catch                                            | 🟡 P2  | [useSqlExecution.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts)                                                                                                                  | 消除 lint warning                                                                    |
 
-| 指标 | 修复前 | 修复后 |
-|------|--------|--------|
-| **驱动层 unwrap** | 18 (audit count) | **0** |
-| **查询超时** | 无（forever） | **30s 默认** |
-| **行数限制** | 无限制 | **10,000 行硬限制** |
-| **sql-editor-service console** | 6 | **0** |
-| **Cargo check** | 1 error → 0 | **0 errors** |
-| **Lint (新增)** | - | **0 errors, 0 warnings** |
+| 指标                           | 修复前           | 修复后                   |
+| ------------------------------ | ---------------- | ------------------------ |
+| **驱动层 unwrap**              | 18 (audit count) | **0**                    |
+| **查询超时**                   | 无（forever）    | **30s 默认**             |
+| **行数限制**                   | 无限制           | **10,000 行硬限制**      |
+| **sql-editor-service console** | 6                | **0**                    |
+| **Cargo check**                | 1 error → 0      | **0 errors**             |
+| **Lint (新增)**                | -                | **0 errors, 0 warnings** |
 
 > ⚠️ **Deferred（本次未修复的精确定义）**:
+>
 > - **Tauri commands `Result<T, String>` → `Result<T, CoreError>`**: 涉及 19 个命令签名变更，需一次大规模重构
 > - **QueryResultPanel.vue >2000 lines**: 需拆分重构，风险高，单独进行
 > - **P1: 剩余 149 any/console.log across 27 workbench files**: 分批处理

@@ -26,19 +26,37 @@
       </template>
     </NSelect>
 
-    <NModal v-model:show="showSaveModal" preset="dialog" :title="t('resultPanel.filterPreset.saveTitle')" :show-icon="false">
+    <NModal
+      v-model:show="showSaveModal"
+      preset="dialog"
+      :title="t('resultPanel.filterPreset.saveTitle')"
+      :show-icon="false"
+    >
       <div class="save-form">
         <span class="form-label">{{ t('resultPanel.filterPreset.savePrompt') }}</span>
-        <NInput v-model:value="saveName" :placeholder="t('resultPanel.filterPreset.namePlaceholder')" @keyup.enter="confirmSave" />
+        <NInput
+          v-model:value="saveName"
+          :placeholder="t('resultPanel.filterPreset.namePlaceholder')"
+          @keyup.enter="confirmSave"
+        />
       </div>
       <template #action>
         <NButton size="small" @click="showSaveModal = false">取消</NButton>
-        <NButton size="small" type="primary" :disabled="!saveName.trim()" @click="confirmSave">保存</NButton>
+        <NButton size="small" type="primary" :disabled="!saveName.trim()" @click="confirmSave"
+          >保存</NButton
+        >
       </template>
     </NModal>
 
-    <NModal v-model:show="showDeleteModal" preset="dialog" :title="t('resultPanel.filterPreset.deleteTitle')" :show-icon="false">
-      <div class="delete-confirm">{{ t('resultPanel.filterPreset.deleteConfirm', { name: selectedPresetName }) }}</div>
+    <NModal
+      v-model:show="showDeleteModal"
+      preset="dialog"
+      :title="t('resultPanel.filterPreset.deleteTitle')"
+      :show-icon="false"
+    >
+      <div class="delete-confirm">{{
+        t('resultPanel.filterPreset.deleteConfirm', { name: selectedPresetName })
+      }}</div>
       <template #action>
         <NButton size="small" @click="showDeleteModal = false">取消</NButton>
         <NButton size="small" type="error" @click="confirmDelete">删除</NButton>

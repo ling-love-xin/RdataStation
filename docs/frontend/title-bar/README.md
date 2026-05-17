@@ -55,15 +55,15 @@ WorkbenchTitleBar.vue (入口组件, ~120 行)
 
 ### 2.2 组件职责
 
-| 组件 | 职责 | Props | Emits |
-|------|------|-------|-------|
-| WorkbenchTitleBar | 入口组装，协调子组件，注册命令，处理全局快捷键 | `isMaximized: boolean` | `minimize`, `maximize`, `close` |
-| MenuBar | 渲染汉堡按钮 + 7 个菜单项 + 下拉面板 + 键盘导航 | `menus: MenuConfig[]` | `menu-action` |
-| ProjectSelector | 渲染项目按钮 + 下拉菜单 | `currentProject`, `recentProjects` | `switch-project`, `new-project`, `open-project` |
-| CommandCenter | 渲染搜索按钮，触发命令面板 | - | `open` |
-| CommandPalette | 命令面板弹窗：搜索、执行命令 | `visible` | `close` |
-| ToolbarActions | 渲染工具栏按钮 + 自定义下拉 | `tools: ToolbarTool[]` | `tool-action`, `toggle-tool`, `reset-toolbar` |
-| WindowControls | 渲染窗口控制按钮 | `isMaximized` | `minimize`, `maximize`, `close` |
+| 组件              | 职责                                            | Props                              | Emits                                           |
+| ----------------- | ----------------------------------------------- | ---------------------------------- | ----------------------------------------------- |
+| WorkbenchTitleBar | 入口组装，协调子组件，注册命令，处理全局快捷键  | `isMaximized: boolean`             | `minimize`, `maximize`, `close`                 |
+| MenuBar           | 渲染汉堡按钮 + 7 个菜单项 + 下拉面板 + 键盘导航 | `menus: MenuConfig[]`              | `menu-action`                                   |
+| ProjectSelector   | 渲染项目按钮 + 下拉菜单                         | `currentProject`, `recentProjects` | `switch-project`, `new-project`, `open-project` |
+| CommandCenter     | 渲染搜索按钮，触发命令面板                      | -                                  | `open`                                          |
+| CommandPalette    | 命令面板弹窗：搜索、执行命令                    | `visible`                          | `close`                                         |
+| ToolbarActions    | 渲染工具栏按钮 + 自定义下拉                     | `tools: ToolbarTool[]`             | `tool-action`, `toggle-tool`, `reset-toolbar`   |
+| WindowControls    | 渲染窗口控制按钮                                | `isMaximized`                      | `minimize`, `maximize`, `close`                 |
 
 ### 2.3 数据流设计
 
@@ -187,33 +187,33 @@ export interface ToolbarTool {
 
 ### 4.1 已实现的快捷键
 
-| 快捷键 | 功能 | 触发位置 |
-|--------|------|----------|
-| `Ctrl+Shift+P` | 打开命令面板 | WorkbenchTitleBar |
-| `Ctrl+N` | 新建查询 | WorkbenchTitleBar |
-| `Ctrl+Shift+N` | 新建连接 | WorkbenchTitleBar |
-| `Alt+F` | 打开文件菜单 | MenuBar |
-| `Alt+E` | 打开编辑菜单 | MenuBar |
-| `Alt+V` | 打开视图菜单 | MenuBar |
-| `Alt+C` | 打开连接菜单 | MenuBar |
-| `Alt+R` | 打开运行菜单 | MenuBar |
-| `Alt+T` | 打开工具菜单 | MenuBar |
-| `Alt+H` | 打开帮助菜单 | MenuBar |
-| `Esc` | 关闭下拉/面板 | MenuBar, CommandPalette |
+| 快捷键         | 功能          | 触发位置                |
+| -------------- | ------------- | ----------------------- |
+| `Ctrl+Shift+P` | 打开命令面板  | WorkbenchTitleBar       |
+| `Ctrl+N`       | 新建查询      | WorkbenchTitleBar       |
+| `Ctrl+Shift+N` | 新建连接      | WorkbenchTitleBar       |
+| `Alt+F`        | 打开文件菜单  | MenuBar                 |
+| `Alt+E`        | 打开编辑菜单  | MenuBar                 |
+| `Alt+V`        | 打开视图菜单  | MenuBar                 |
+| `Alt+C`        | 打开连接菜单  | MenuBar                 |
+| `Alt+R`        | 打开运行菜单  | MenuBar                 |
+| `Alt+T`        | 打开工具菜单  | MenuBar                 |
+| `Alt+H`        | 打开帮助菜单  | MenuBar                 |
+| `Esc`          | 关闭下拉/面板 | MenuBar, CommandPalette |
 
 ### 4.2 命令注册表
 
 已注册的核心命令：
 
-| 命令 ID | 标签 | 分类 | 快捷键 |
-|---------|------|------|--------|
-| `newQuery` | 新建查询 | file | Ctrl+N |
-| `newConnection` | 新建连接 | connection | Ctrl+Shift+N |
-| `openProject` | 打开项目 | file | Ctrl+O |
-| `save` | 保存 | file | Ctrl+S |
-| `executeSql` | 执行 SQL | run | Ctrl+Enter |
-| `settings` | 设置 | tools | Ctrl+, |
-| `commandPalette` | 命令面板 | view | Ctrl+Shift+P |
+| 命令 ID          | 标签     | 分类       | 快捷键       |
+| ---------------- | -------- | ---------- | ------------ |
+| `newQuery`       | 新建查询 | file       | Ctrl+N       |
+| `newConnection`  | 新建连接 | connection | Ctrl+Shift+N |
+| `openProject`    | 打开项目 | file       | Ctrl+O       |
+| `save`           | 保存     | file       | Ctrl+S       |
+| `executeSql`     | 执行 SQL | run        | Ctrl+Enter   |
+| `settings`       | 设置     | tools      | Ctrl+,       |
+| `commandPalette` | 命令面板 | view       | Ctrl+Shift+P |
 
 ---
 
@@ -292,6 +292,7 @@ export interface ToolbarTool {
 ## 六、开发进度
 
 ### Phase 1: 组件拆分 + 样式规范化 ✅
+
 - [x] 创建目录结构
 - [x] 提取共享样式 `title-bar.css`
 - [x] 创建 `useTitleBar.ts` composable
@@ -305,6 +306,7 @@ export interface ToolbarTool {
 - [x] 验证 lint + typecheck
 
 ### Phase 2: 菜单系统实现 ✅
+
 - [x] 定义菜单数据结构
 - [x] 实现菜单下拉面板
 - [x] 实现 7 个顶级菜单内容
@@ -314,6 +316,7 @@ export interface ToolbarTool {
 - [x] 添加 Esc 关闭
 
 ### Phase 3: 命令面板实现 ✅
+
 - [x] 创建命令注册表 store (`command-store.ts`)
 - [x] 实现命令面板组件 (`CommandPalette.vue`)
 - [x] 实现模糊搜索算法（多关键词 + 排序）
@@ -323,6 +326,7 @@ export interface ToolbarTool {
 - [x] 最近使用命令记录
 
 ### Phase 4: 工具栏赋能 ✅
+
 - [x] 设置面板打开（settings）
 - [x] 历史记录面板打开（history）
 - [x] 文档链接打开（docs）
@@ -332,6 +336,7 @@ export interface ToolbarTool {
 - [x] 工具栏配置持久化
 
 ### Phase 5: 键盘导航 + 交互优化 ✅
+
 - [x] 实现 Alt 聚焦菜单栏（Alt+F/E/V/C/R/T/H）
 - [x] 实现 Esc 关闭下拉
 - [x] 实现点击外部关闭
@@ -424,17 +429,17 @@ export interface ToolbarTool {
 
 ## 附录：新增文件清单
 
-| 文件路径 | 行数 | 说明 |
-|----------|------|------|
-| `src/extensions/builtin/workbench/ui/stores/command-store.ts` | 98 | 命令注册表 Pinia store |
-| `src/extensions/builtin/workbench/ui/components/title-bar/CommandPalette.vue` | 139 | 命令面板组件 |
-| `docs/frontend/API-INTERFACE.md` | - | 前端接口文档（见下方创建） |
+| 文件路径                                                                      | 行数 | 说明                       |
+| ----------------------------------------------------------------------------- | ---- | -------------------------- |
+| `src/extensions/builtin/workbench/ui/stores/command-store.ts`                 | 98   | 命令注册表 Pinia store     |
+| `src/extensions/builtin/workbench/ui/components/title-bar/CommandPalette.vue` | 139  | 命令面板组件               |
+| `docs/frontend/API-INTERFACE.md`                                              | -    | 前端接口文档（见下方创建） |
 
 ## 附录：修改文件清单
 
-| 文件路径 | 修改内容 |
-|----------|----------|
+| 文件路径                                                               | 修改内容                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------ |
 | `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue` | 导入 useCommandStore，注册命令，全局快捷键，工具栏赋能 |
-| `src/extensions/builtin/workbench/ui/components/title-bar/MenuBar.vue` | 键盘导航，点击外部关闭 |
-| `src/shared/locales/zh-CN.json` | 新增菜单和命令面板翻译 |
-| `src/shared/locales/en.json` | 新增英文翻译 |
+| `src/extensions/builtin/workbench/ui/components/title-bar/MenuBar.vue` | 键盘导航，点击外部关闭                                 |
+| `src/shared/locales/zh-CN.json`                                        | 新增菜单和命令面板翻译                                 |
+| `src/shared/locales/en.json`                                           | 新增英文翻译                                           |

@@ -1,3 +1,9 @@
+<!--
+  /**
+   * @deprecated 由 EditorPanel.vue (单 Editor + 多 Model 架构) 取代。
+   * @see EditorPanel.vue
+   */
+-->
 <template>
   <div class="code-editor-panel">
     <div class="code-editor-body">
@@ -76,10 +82,12 @@ const initialValue = computed(() => String(editorParams.value.initialValue || ''
 const fileName = computed(() => String(editorParams.value.fileName || ''))
 const filePath = computed(() => String(editorParams.value.filePath || ''))
 
-const welcomeTitle = computed(() => fileName.value || 'Untitled')
-const welcomeSubtitle = computed(
-  () => String(editorParams.value.filePath || 'Start editing...')
+const scratchpadRelativePath = computed(() =>
+  String(editorParams.value.scratchpadRelativePath || '')
 )
+
+const welcomeTitle = computed(() => fileName.value || 'Untitled')
+const welcomeSubtitle = computed(() => String(editorParams.value.filePath || 'Start editing...'))
 
 const uiStore = useUiStore()
 const currentTheme = computed(() => {
@@ -115,6 +123,7 @@ const {
   initialValue: initialValue.value,
   language: editorLanguage.value,
   theme: currentTheme.value,
+  scratchpadRelativePath: scratchpadRelativePath.value,
 })
 
 const { settingsState, handlers: settingsHandlers } = useEditorSettings(editor, {
@@ -142,7 +151,7 @@ const {
   onSaveSuccess: () => {
     updateFileSize()
   },
-  onSaveError: (error) => {
+  onSaveError: error => {
     console.warn('[CodeEditorPanel] Save failed:', error)
   },
 })
@@ -173,7 +182,7 @@ function onLanguageChange(langId: string) {
   updateLanguage(langId)
 }
 
-watch(editorParams, (newParams) => {
+watch(editorParams, newParams => {
   if (editorCreated.value) {
     if (newParams.initialValue !== undefined) {
       setValue(String(newParams.initialValue))
@@ -185,7 +194,7 @@ watch(editorParams, (newParams) => {
   }
 })
 
-watch(currentTheme, (newTheme) => {
+watch(currentTheme, newTheme => {
   editor.value?.updateOptions({ theme: newTheme })
 })
 
@@ -225,14 +234,12 @@ onMounted(async () => {
   createEditor()
   editorCreated.value = true
 
-  focusEditor()
-
   setupEditorEvents(
     () => {
       markDirty()
       updateFileSize()
     },
-    (info) => {
+    info => {
       if (info) {
         const linesText = info.lines === 1 ? '1 line' : `${info.lines} lines`
         const charsText = info.chars === 1 ? '1 char' : `${info.chars} chars`

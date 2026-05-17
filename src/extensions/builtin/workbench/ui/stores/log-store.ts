@@ -124,9 +124,9 @@ export const useLogStore = defineStore('log', () => {
       const result = await invoke<LogRecord[]>('export_logs', {
         level: level ?? null,
         start: start ?? null,
-          end: end ?? null,
-          max_results: maxResults ?? null,
-        })
+        end: end ?? null,
+        max_results: maxResults ?? null,
+      })
       return result
     } catch (e) {
       error.value = e instanceof Error ? e.message : '导出日志失败'

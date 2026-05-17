@@ -45,7 +45,11 @@
       <!-- 右侧操作区 -->
       <div class="right-panel">
         <div class="action-cards">
-          <div class="action-card primary" :class="{ disabled: isOpeningProject }" @click="!isOpeningProject && (showNewProjectModal = true)">
+          <div
+            class="action-card primary"
+            :class="{ disabled: isOpeningProject }"
+            @click="!isOpeningProject && (showNewProjectModal = true)"
+          >
             <div class="action-icon">
               <FolderPlus :size="32" />
             </div>
@@ -56,7 +60,11 @@
             <ChevronRight :size="20" />
           </div>
 
-          <div class="action-card" :class="{ disabled: isOpeningProject }" @click="!isOpeningProject && handleOpenExistingProject()">
+          <div
+            class="action-card"
+            :class="{ disabled: isOpeningProject }"
+            @click="!isOpeningProject && handleOpenExistingProject()"
+          >
             <div class="action-icon">
               <Loader v-if="isOpeningProject" :size="32" class="spin" />
               <FolderOpen v-else :size="32" />

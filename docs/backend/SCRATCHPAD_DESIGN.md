@@ -90,55 +90,55 @@
 
 ## 四、核心交互
 
-| 操作             | 说明                                                                                | 状态 |
-| ---------------- | ----------------------------------------------------------------------------------- | :--: |
-| **新建文件**     | 选中文件夹后点击 [+新建] 或在根目录新建，内联输入文件名，Enter 提交，Escape 取消 |  ✅  |
-| **新建文件夹**   | 选中文件夹后点击 [新建文件夹]，内联输入文件夹名创建子目录 |  ✅  |
-| **打开文件**     | 双击文件，根据后缀自动选择合适的编辑器（.sql → SQL 编辑器），自动恢复上次使用的连接 |  ✅  |
-| **编辑保存**     | 编辑后 Ctrl+S 保存回 `.scratchpad/`（原子写入）                                     |  ✅  |
-| **删除文件**     | 右键删除，移入 `.trash/` 回收站（软删除，可恢复）                                   |  ✅  |
-| **重命名**       | 右键重命名或选中后按 F2                                                             |  ✅  |
-| **导入外部文件** | 通过系统文件对话框或拖放文件到面板，复制到 `.scratchpad/`                           |  ✅  |
-| **链接外部目录** | 将外部目录添加到"外部引用"列表（不复制文件，只记录路径引用）                        |  ✅  |
-| **回收站管理**   | list/restore/empty，面板折叠区域含恢复和清空按钮 |  ✅  |
-| **Python 编辑**  | 双击 `.py`，在代码编辑器打开，Monaco Python 语法高亮，Ctrl+S 保存回草稿箱 |  ✅  |
-| **防重复 Tab**   | 同一草稿文件不重复打开 editor tab，自动聚焦已有面板 |  ✅  |
-| **文件监控** | `notify` crate 监控 `.scratchpad/` 目录，文件变更自动刷新面板树 |  ✅  |
-| **提升为分析资源** | 右键 → 将草稿提升为正式分析资源，可选保留/删除原稿 |  ✅  |
-| **键盘导航** | ↑↓ 切换选中、Enter 打开、F2 重命名、Delete 删除、Ctrl+N 新建 |  ✅  |
-| **重命名反馈** | 提交时输入框禁用 + CSS 旋转 spinner，防止重复提交 |  ✅  |
-| **提升事件联动** | promote 完成后 emit `analytics-resource-changed` 事件通知面板刷新 |  ✅  |
-| **文件排序** | 工具栏提供按名称/大小/修改时间排序按钮，点击切换升序/降序，图标实时反馈 |  ✅  |
-| **内容搜索行上下文** | 搜索结果面板显示文件名、匹配行号、匹配行内容 + **前后 2 行上下文**，最多预览 5 行 |  ✅  |
-| **新建文件夹** | 工具栏"新建文件夹"按钮 + 模态框输入名称 |  ✅  |
-| **搜索结果点击跳转** | 点击搜索结果文件名→打开文件，点击行→打开文件并跳转到对应行 |  ✅  |
-| **修改时间显示** | TreeNode 显示相对时间（分钟/小时/天数），7天内有效 |  ✅  |
-| **Toast 操作反馈** | `createDiscreteApi(['message'])` 创建/删除/重命名/导入/提升/清空回收站成功后 toast 提示 |  ✅  |
-| **大小写搜索** | 内容搜索模式新增 Aa 按钮切换大小写敏感，Rust `case_sensitive` 参数逐行条件匹配 |  ✅  |
-| **折叠/展开全部** | 本地文件组头新增"展开全部"/"折叠全部"按钮，操作 `expandedKeys` Set |  ✅  |
-| **搜索文本高亮** | `highlightMatch()` 将匹配文本包裹 `<mark class="search-hl">`，黄色背景高亮 |  ✅  |
-| **最近打开** | 打开文件时记录路径到 `recentFiles`（内存，最大5），顶部可折叠"最近打开"区域 |  ✅  |
-| **空状态引导** | 无本地文件时显示 `FolderOpen` 大图标 + 标题 + 引导文本 + 新建/导入双按钮 |  ✅  |
-| **多选（Ctrl/Shift 点击）** | Ctrl+点击切换选中，Shift+点击范围选中，右键菜单自适应单/多选 |  ✅  |
-| **批量删除** | 多选后右键/Delete 批量删除，confirm 确认，toast 反馈 |  ✅  |
-| **复制/粘贴文件** | 右键"复制"到 clipboard，右键"粘贴"生成 `_copy` 副本 |  ✅  |
-| **Ctrl+A 全选** | 键盘 Ctrl+A 选中当前所有可见条目 |  ✅  |
-| **新建文件模板** | 新建文件时可选 SQL/JSON/Markdown/Python 模板，自动填充预设内容并设置后缀 |  ✅  |
-| **拖放文件到编辑器** | 拖拽草稿箱文件节点到编辑器区，自动插入文件内容到光标位置 |  ✅  |
-| **删除撤销** | 单文件删除后底部弹出撤销栏（5秒自动消失），点击"撤销"从回收站恢复 |  ✅  |
-| **搜索安全加固** | 超过 10MB 的文件跳过搜索；结果最多 500 条截断；前端通知跳过/截断信息 |  ✅ → ♻️  |
-| **流式搜索** | 大文件不再跳过，改用 `BufReader::lines()` 逐行流式读取，内存恒定 ~8KB；30s 超时保护 |  ✅  |
-| **质量加固** | 14 处 `unwrap_or_*` 全清除 → `?` 错误传播；`futures::block_on` → `Handle::block_on`；`Drop` 确保 watcher 清理 |  ✅  |
-| **虚拟滚动** | 超 50 条目自动启用虚拟滚动，仅渲染可视区 + overscan 8 行（ROW_HEIGHT=28px），ResizeObserver 动态容器高度 |  ✅  |
-| **脏状态跟踪** | 编辑后文件名前显示 ● 脏点；Ctrl+S 后消失；外部修改触发冲突对话框（重新加载/忽略） |  ✅  |
-| **懒加载** | 初始仅加载顶层条目（depth=0），展开文件夹时按需加载子目录，减少初始 IO 和内存占用 |  ✅  |
-| **文件移动/剪切** | 右键"剪切"→ clipboardMode='cut' → 粘贴到目标文件夹 → fs::rename 物理移动 → 5秒撤销栏 |  ✅  |
-| **正则搜索** | `.*` 按钮切换正则模式 → `Regex` 前端验证 → `replace_in_file(is_regex=true)` 后端 → 外层 `regex` crate |  ✅  |
-| **搜索替换** | 全文搜索 → 替换栏输入 → 预览计数 → 全部替换 → 原子写回 → 刷新搜索结果 → 替换历史追踪 |  ✅  |
-| **Diff 对比** | 外部冲突 → "查看差异"按钮 → `similar::TextDiff` 行级 diff → 800px 弹窗 → 红/绿标记 → 接受右侧 |  ✅  |
-| **初始化 fallback** | `ScratchpadState` 存储 `last_project_path`，`get_store()` 未初始化时自动 fallback 重建 |  ✅  |
-| **主题打通** | 全组件 CSS 变量化：`font-size`/`spacing`/`color` 统一使用 `var(--font-size-*)`/`var(--spacing-*)`/`var(--color-*)` |  ✅  |
-| **一致性治理** | 移除幽灵 `children` 字段、修复 `restoreFromTrash` 返回值、补齐 locale 时间键与 retry、`init` 走 API 封装、文档数字修正 |  ✅  |
+| 操作                        | 说明                                                                                                                   |  状态   |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | :-----: |
+| **新建文件**                | 选中文件夹后点击 [+新建] 或在根目录新建，内联输入文件名，Enter 提交，Escape 取消                                       |   ✅    |
+| **新建文件夹**              | 选中文件夹后点击 [新建文件夹]，内联输入文件夹名创建子目录                                                              |   ✅    |
+| **打开文件**                | 双击文件，根据后缀自动选择合适的编辑器（.sql → SQL 编辑器），自动恢复上次使用的连接                                    |   ✅    |
+| **编辑保存**                | 编辑后 Ctrl+S 保存回 `.scratchpad/`（原子写入）                                                                        |   ✅    |
+| **删除文件**                | 右键删除，移入 `.trash/` 回收站（软删除，可恢复）                                                                      |   ✅    |
+| **重命名**                  | 右键重命名或选中后按 F2                                                                                                |   ✅    |
+| **导入外部文件**            | 通过系统文件对话框或拖放文件到面板，复制到 `.scratchpad/`                                                              |   ✅    |
+| **链接外部目录**            | 将外部目录添加到"外部引用"列表（不复制文件，只记录路径引用）                                                           |   ✅    |
+| **回收站管理**              | list/restore/empty，面板折叠区域含恢复和清空按钮                                                                       |   ✅    |
+| **Python 编辑**             | 双击 `.py`，在代码编辑器打开，Monaco Python 语法高亮，Ctrl+S 保存回草稿箱                                              |   ✅    |
+| **防重复 Tab**              | 同一草稿文件不重复打开 editor tab，自动聚焦已有面板                                                                    |   ✅    |
+| **文件监控**                | `notify` crate 监控 `.scratchpad/` 目录，文件变更自动刷新面板树                                                        |   ✅    |
+| **提升为分析资源**          | 右键 → 将草稿提升为正式分析资源，可选保留/删除原稿                                                                     |   ✅    |
+| **键盘导航**                | ↑↓ 切换选中、Enter 打开、F2 重命名、Delete 删除、Ctrl+N 新建                                                           |   ✅    |
+| **重命名反馈**              | 提交时输入框禁用 + CSS 旋转 spinner，防止重复提交                                                                      |   ✅    |
+| **提升事件联动**            | promote 完成后 emit `analytics-resource-changed` 事件通知面板刷新                                                      |   ✅    |
+| **文件排序**                | 工具栏提供按名称/大小/修改时间排序按钮，点击切换升序/降序，图标实时反馈                                                |   ✅    |
+| **内容搜索行上下文**        | 搜索结果面板显示文件名、匹配行号、匹配行内容 + **前后 2 行上下文**，最多预览 5 行                                      |   ✅    |
+| **新建文件夹**              | 工具栏"新建文件夹"按钮 + 模态框输入名称                                                                                |   ✅    |
+| **搜索结果点击跳转**        | 点击搜索结果文件名→打开文件，点击行→打开文件并跳转到对应行                                                             |   ✅    |
+| **修改时间显示**            | TreeNode 显示相对时间（分钟/小时/天数），7天内有效                                                                     |   ✅    |
+| **Toast 操作反馈**          | `createDiscreteApi(['message'])` 创建/删除/重命名/导入/提升/清空回收站成功后 toast 提示                                |   ✅    |
+| **大小写搜索**              | 内容搜索模式新增 Aa 按钮切换大小写敏感，Rust `case_sensitive` 参数逐行条件匹配                                         |   ✅    |
+| **折叠/展开全部**           | 本地文件组头新增"展开全部"/"折叠全部"按钮，操作 `expandedKeys` Set                                                     |   ✅    |
+| **搜索文本高亮**            | `highlightMatch()` 将匹配文本包裹 `<mark class="search-hl">`，黄色背景高亮                                             |   ✅    |
+| **最近打开**                | 打开文件时记录路径到 `recentFiles`（内存，最大5），顶部可折叠"最近打开"区域                                            |   ✅    |
+| **空状态引导**              | 无本地文件时显示 `FolderOpen` 大图标 + 标题 + 引导文本 + 新建/导入双按钮                                               |   ✅    |
+| **多选（Ctrl/Shift 点击）** | Ctrl+点击切换选中，Shift+点击范围选中，右键菜单自适应单/多选                                                           |   ✅    |
+| **批量删除**                | 多选后右键/Delete 批量删除，confirm 确认，toast 反馈                                                                   |   ✅    |
+| **复制/粘贴文件**           | 右键"复制"到 clipboard，右键"粘贴"生成 `_copy` 副本                                                                    |   ✅    |
+| **Ctrl+A 全选**             | 键盘 Ctrl+A 选中当前所有可见条目                                                                                       |   ✅    |
+| **新建文件模板**            | 新建文件时可选 SQL/JSON/Markdown/Python 模板，自动填充预设内容并设置后缀                                               |   ✅    |
+| **拖放文件到编辑器**        | 拖拽草稿箱文件节点到编辑器区，自动插入文件内容到光标位置                                                               |   ✅    |
+| **删除撤销**                | 单文件删除后底部弹出撤销栏（5秒自动消失），点击"撤销"从回收站恢复                                                      |   ✅    |
+| **搜索安全加固**            | 超过 10MB 的文件跳过搜索；结果最多 500 条截断；前端通知跳过/截断信息                                                   | ✅ → ♻️ |
+| **流式搜索**                | 大文件不再跳过，改用 `BufReader::lines()` 逐行流式读取，内存恒定 ~8KB；30s 超时保护                                    |   ✅    |
+| **质量加固**                | 14 处 `unwrap_or_*` 全清除 → `?` 错误传播；`futures::block_on` → `Handle::block_on`；`Drop` 确保 watcher 清理          |   ✅    |
+| **虚拟滚动**                | 超 50 条目自动启用虚拟滚动，仅渲染可视区 + overscan 8 行（ROW_HEIGHT=28px），ResizeObserver 动态容器高度               |   ✅    |
+| **脏状态跟踪**              | 编辑后文件名前显示 ● 脏点；Ctrl+S 后消失；外部修改触发冲突对话框（重新加载/忽略）                                      |   ✅    |
+| **懒加载**                  | 初始仅加载顶层条目（depth=0），展开文件夹时按需加载子目录，减少初始 IO 和内存占用                                      |   ✅    |
+| **文件移动/剪切**           | 右键"剪切"→ clipboardMode='cut' → 粘贴到目标文件夹 → fs::rename 物理移动 → 5秒撤销栏                                   |   ✅    |
+| **正则搜索**                | `.*` 按钮切换正则模式 → `Regex` 前端验证 → `replace_in_file(is_regex=true)` 后端 → 外层 `regex` crate                  |   ✅    |
+| **搜索替换**                | 全文搜索 → 替换栏输入 → 预览计数 → 全部替换 → 原子写回 → 刷新搜索结果 → 替换历史追踪                                   |   ✅    |
+| **Diff 对比**               | 外部冲突 → "查看差异"按钮 → `similar::TextDiff` 行级 diff → 800px 弹窗 → 红/绿标记 → 接受右侧                          |   ✅    |
+| **初始化 fallback**         | `ScratchpadState` 存储 `last_project_path`，`get_store()` 未初始化时自动 fallback 重建                                 |   ✅    |
+| **主题打通**                | 全组件 CSS 变量化：`font-size`/`spacing`/`color` 统一使用 `var(--font-size-*)`/`var(--spacing-*)`/`var(--color-*)`     |   ✅    |
+| **一致性治理**              | 移除幽灵 `children` 字段、修复 `restoreFromTrash` 返回值、补齐 locale 时间键与 retry、`init` 走 API 封装、文档数字修正 |   ✅    |
 
 ---
 
@@ -279,29 +279,29 @@ SqlEditorPanel (scratchpad mode)
 
 ## 八、设计决策
 
-| 事项                 | 决策 | 理由                                          |
-| -------------------- | ---- | --------------------------------------------- |
-| 草稿不进 SQLite      | ✅   | 保持临时性，零管理负担                        |
-| 不预设文件后缀       | ✅   | 用户输入完整文件名，自由灵活                  |
-| 暂不引入"提升"机制   | ✅   | 保持简洁；analytics_resource 已预留"出口"     |
-| 删除无确认但软删除   | ✅   | 移入 `.trash/`，避免误删，可恢复              |
-| 外部引用用 alias     | ✅   | 避免存储重复，解决"下载目录临时数据"场景      |
-| 递归最多 4 层        | ✅   | 防止复杂嵌套超出草稿定位                      |
-| 路径遍历防护         | ✅   | `resolve_path` 三重校验                       |
-| 编辑器集成而非独立   | ✅   | SQL 编辑+执行能力高度重合，独立实现是重复建设 |
-| 精简模式而非完整模式 | ✅   | 草稿箱不需要方言高亮/补全/转换/DuckDB 加速    |
-| 文件监控自动刷新     | ✅   | `notify` crate 后台线程监控，Tauri event 推送面板刷新 |
-| 提升机制命令在 scratchpad | ✅ | 触发源于草稿箱，跨模块访问 AnalyticsResourceState |
-| 键盘导航在面板级实现 | ✅ | document keydown listener 统一处理，保持 TreeNode 纯展示 |
-| 文件排序在面板 computed 实现 | ✅ | `filteredLocalEntries` 对 `[...entries].sort()` 按 sortBy/sortOrder |
-| 搜索行上下文展示 | ✅ | `SearchMatch` 结构体（file+line_number+line_content），Map 分组，面板独立区域展示 |
-| 虚拟滚动（>50条目自动切换） | ✅ | `ROW_HEIGHT=28px`，`OVERSCAN=8`，`visibleTreeEntries` 切片，`ResizeObserver` 容器高度，`<50` 条目全量渲染 |
-| 脏状态跟踪（Set + visual dot） | ✅ | `dirtyFiles: Set<string>` 内存跟踪，与文件监控 modify 事件联动检测外部冲突 |
-| 懒加载（depth=0，展开时加载） | ✅ | 初始仅顶层条目，`handleToggleExpand` 检测 `children===null` 时调用 `list_scratchpad_directory` 按需加载 |
-| 文件移动（fs::rename + undo） | ✅ | `move_entry(from, to_parent)` → `fs::rename` + `file_meta` 迁移 → 5秒撤销栏 `handleMoveUndo` |
-| 正则搜索（regex crate） | ✅ | `.*` 按钮 → `Regex::new` 前端验证 → `replace_in_file(is_regex=true)` 后端 regex replace_all |
-| 搜索替换（OCR 闭环） | ✅ | `replace_scratchpad_content` 原子写回 → 搜索结果刷新 → `replaceHistory` 追踪最近 20 条 |
-| Diff 对比（similar crate） | ✅ | `similar::TextDiff::from_lines` 行级差异 → `DiffResult { lines: Vec<DiffLine> }` → NModal 800px 弹窗 |
+| 事项                           | 决策 | 理由                                                                                                      |
+| ------------------------------ | ---- | --------------------------------------------------------------------------------------------------------- |
+| 草稿不进 SQLite                | ✅   | 保持临时性，零管理负担                                                                                    |
+| 不预设文件后缀                 | ✅   | 用户输入完整文件名，自由灵活                                                                              |
+| 暂不引入"提升"机制             | ✅   | 保持简洁；analytics_resource 已预留"出口"                                                                 |
+| 删除无确认但软删除             | ✅   | 移入 `.trash/`，避免误删，可恢复                                                                          |
+| 外部引用用 alias               | ✅   | 避免存储重复，解决"下载目录临时数据"场景                                                                  |
+| 递归最多 4 层                  | ✅   | 防止复杂嵌套超出草稿定位                                                                                  |
+| 路径遍历防护                   | ✅   | `resolve_path` 三重校验                                                                                   |
+| 编辑器集成而非独立             | ✅   | SQL 编辑+执行能力高度重合，独立实现是重复建设                                                             |
+| 精简模式而非完整模式           | ✅   | 草稿箱不需要方言高亮/补全/转换/DuckDB 加速                                                                |
+| 文件监控自动刷新               | ✅   | `notify` crate 后台线程监控，Tauri event 推送面板刷新                                                     |
+| 提升机制命令在 scratchpad      | ✅   | 触发源于草稿箱，跨模块访问 AnalyticsResourceState                                                         |
+| 键盘导航在面板级实现           | ✅   | document keydown listener 统一处理，保持 TreeNode 纯展示                                                  |
+| 文件排序在面板 computed 实现   | ✅   | `filteredLocalEntries` 对 `[...entries].sort()` 按 sortBy/sortOrder                                       |
+| 搜索行上下文展示               | ✅   | `SearchMatch` 结构体（file+line_number+line_content），Map 分组，面板独立区域展示                         |
+| 虚拟滚动（>50条目自动切换）    | ✅   | `ROW_HEIGHT=28px`，`OVERSCAN=8`，`visibleTreeEntries` 切片，`ResizeObserver` 容器高度，`<50` 条目全量渲染 |
+| 脏状态跟踪（Set + visual dot） | ✅   | `dirtyFiles: Set<string>` 内存跟踪，与文件监控 modify 事件联动检测外部冲突                                |
+| 懒加载（depth=0，展开时加载）  | ✅   | 初始仅顶层条目，`handleToggleExpand` 检测 `children===null` 时调用 `list_scratchpad_directory` 按需加载   |
+| 文件移动（fs::rename + undo）  | ✅   | `move_entry(from, to_parent)` → `fs::rename` + `file_meta` 迁移 → 5秒撤销栏 `handleMoveUndo`              |
+| 正则搜索（regex crate）        | ✅   | `.*` 按钮 → `Regex::new` 前端验证 → `replace_in_file(is_regex=true)` 后端 regex replace_all               |
+| 搜索替换（OCR 闭环）           | ✅   | `replace_scratchpad_content` 原子写回 → 搜索结果刷新 → `replaceHistory` 追踪最近 20 条                    |
+| Diff 对比（similar crate）     | ✅   | `similar::TextDiff::from_lines` 行级差异 → `DiffResult { lines: Vec<DiffLine> }` → NModal 800px 弹窗      |
 
 ---
 
@@ -399,14 +399,14 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
-| `ScratchpadPanel.vue` | 文件夹按钮+modal+toast+搜索点击跳转 | +90 |
-| `ScratchpadTreeNode.vue` | 修改时间显示+extension 修复 | +28 |
-| `SqlEditorPanel.vue` | `initialLine` computed + `revealLineInCenter` | +12 |
-| `WorkbenchView.vue` | 透传 `initialLine` 参数 | +2 |
-| `sql.ts` | `SqlEditorParams.initialLine?: number` | +1 |
-| `zh-CN.json` | 10+ 个新 i18n 键 | +12 |
+| 文件                     | 改动                                          | 行数 |
+| ------------------------ | --------------------------------------------- | :--: |
+| `ScratchpadPanel.vue`    | 文件夹按钮+modal+toast+搜索点击跳转           | +90  |
+| `ScratchpadTreeNode.vue` | 修改时间显示+extension 修复                   | +28  |
+| `SqlEditorPanel.vue`     | `initialLine` computed + `revealLineInCenter` | +12  |
+| `WorkbenchView.vue`      | 透传 `initialLine` 参数                       |  +2  |
+| `sql.ts`                 | `SqlEditorParams.initialLine?: number`        |  +1  |
+| `zh-CN.json`             | 10+ 个新 i18n 键                              | +12  |
 
 ### v3.3 已完成 ✅
 
@@ -420,15 +420,15 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
-| `store.rs` | `search_file_content` 新增 `case_sensitive` 参数 + 条件匹配 | +6 |
-| `commands.rs` | `search_scratchpad_content` 新增 `case_sensitive` 参数 | +2 |
-| `scratchpad-api.ts` | `searchFileContent` 新增 `caseSensitive` 参数 | +1 |
-| `use-scratchpad.ts` | `searchContent` 新增 `caseSensitive` 参数 | +1 |
-| `ScratchpadPanel.vue` | Bug 修复 + 折叠/展开全部 + 大小写按钮 + 高亮函数 + 复制 toast + CSS | +60 |
-| `ScratchpadTreeNode.vue` | `.duckdb`/`.parquet` 图标 | +2 |
-| `zh-CN.json` | 4 个新 i18n 键 | +4 |
+| 文件                     | 改动                                                                | 行数 |
+| ------------------------ | ------------------------------------------------------------------- | :--: |
+| `store.rs`               | `search_file_content` 新增 `case_sensitive` 参数 + 条件匹配         |  +6  |
+| `commands.rs`            | `search_scratchpad_content` 新增 `case_sensitive` 参数              |  +2  |
+| `scratchpad-api.ts`      | `searchFileContent` 新增 `caseSensitive` 参数                       |  +1  |
+| `use-scratchpad.ts`      | `searchContent` 新增 `caseSensitive` 参数                           |  +1  |
+| `ScratchpadPanel.vue`    | Bug 修复 + 折叠/展开全部 + 大小写按钮 + 高亮函数 + 复制 toast + CSS | +60  |
+| `ScratchpadTreeNode.vue` | `.duckdb`/`.parquet` 图标                                           |  +2  |
+| `zh-CN.json`             | 4 个新 i18n 键                                                      |  +4  |
 
 ### v3.4 已完成 ✅
 
@@ -438,10 +438,10 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
+| 文件                  | 改动                                  | 行数 |
+| --------------------- | ------------------------------------- | :--: |
 | `ScratchpadPanel.vue` | 最近打开 section + 空状态 state + CSS | +100 |
-| `zh-CN.json` | 4 个新 i18n 键 | +4 |
+| `zh-CN.json`          | 4 个新 i18n 键                        |  +4  |
 
 ### v3.5 已完成 ✅
 
@@ -455,11 +455,11 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
-| `ScratchpadPanel.vue` | selectedKeys/lastSelectPath/clipboardEntry state + handleSelect 重写 + showEntryMenu 自适应 + handleMenuAction 批量/复制/粘贴 + Ctrl+A + openFileInEditor fix | +120 |
-| `ScratchpadTreeNode.vue` | selectedKeys prop + isSelected 兼容 + select emit MouseEvent | +8 |
-| `zh-CN.json` | 7 个新 i18n 键 | +7 |
+| 文件                     | 改动                                                                                                                                                          | 行数 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--: |
+| `ScratchpadPanel.vue`    | selectedKeys/lastSelectPath/clipboardEntry state + handleSelect 重写 + showEntryMenu 自适应 + handleMenuAction 批量/复制/粘贴 + Ctrl+A + openFileInEditor fix | +120 |
+| `ScratchpadTreeNode.vue` | selectedKeys prop + isSelected 兼容 + select emit MouseEvent                                                                                                  |  +8  |
+| `zh-CN.json`             | 7 个新 i18n 键                                                                                                                                                |  +7  |
 
 ### v3.8 已完成 ✅
 
@@ -470,9 +470,9 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
-| `store.rs` | imports + `search_single_file` 函数 + `search_file_content` 重写 + 常量替换 | +55 |
+| 文件       | 改动                                                                        | 行数 |
+| ---------- | --------------------------------------------------------------------------- | :--: |
+| `store.rs` | imports + `search_single_file` 函数 + `search_file_content` 重写 + 常量替换 | +55  |
 
 ### 后续版本 🔮
 
@@ -482,18 +482,18 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
-| `models.rs` | 新增 `SearchResult` struct（5 字段） | +9 |
-| `store.rs` | `search_file_content` 重写：文件大小检查 + 截断 + 统计 + 常量 | +60 |
-| `scratchpad_commands.rs` | 返回类型 `Vec<SearchMatch>` → `SearchResult` | +1 |
-| `mod.rs` | 导出 `SearchResult` | +1 |
-| `types/index.ts` | 新增 `SearchResult` interface | +7 |
-| `scratchpad-api.ts` | `searchFileContent` 返回类型更新 | +2 |
-| `use-scratchpad.ts` | `searchContent` 返回 `SearchResult \| null` | +2 |
-| `ScratchpadPanel.vue` | searchResult ref + 3 computed + 2 watcher 改写 + notice bar 模板 + no-results div + Info icon + CSS | +50 |
-| `zh-CN.json` | 3 新 key | +3 |
-| `en.json` | 3 新 key | +3 |
+| 文件                     | 改动                                                                                                | 行数 |
+| ------------------------ | --------------------------------------------------------------------------------------------------- | :--: |
+| `models.rs`              | 新增 `SearchResult` struct（5 字段）                                                                |  +9  |
+| `store.rs`               | `search_file_content` 重写：文件大小检查 + 截断 + 统计 + 常量                                       | +60  |
+| `scratchpad_commands.rs` | 返回类型 `Vec<SearchMatch>` → `SearchResult`                                                        |  +1  |
+| `mod.rs`                 | 导出 `SearchResult`                                                                                 |  +1  |
+| `types/index.ts`         | 新增 `SearchResult` interface                                                                       |  +7  |
+| `scratchpad-api.ts`      | `searchFileContent` 返回类型更新                                                                    |  +2  |
+| `use-scratchpad.ts`      | `searchContent` 返回 `SearchResult \| null`                                                         |  +2  |
+| `ScratchpadPanel.vue`    | searchResult ref + 3 computed + 2 watcher 改写 + notice bar 模板 + no-results div + Info icon + CSS | +50  |
+| `zh-CN.json`             | 3 新 key                                                                                            |  +3  |
+| `en.json`                | 3 新 key                                                                                            |  +3  |
 
 ### 后续版本 🔮
 
@@ -504,12 +504,12 @@ SqlEditorPanel (scratchpad mode)
 
 ### 变更文件
 
-| 文件 | 改动 | 行数 |
-|------|------|:--:|
-| `ScratchpadPanel.vue` | 模板选择器 modal + selectedTemplate state + TEMPLATE_CONTENTS + selectTemplate + confirmCreate 重写 + undoState/dismissUndo/showUndo/handleUndoDelete + undo-bar 模板 + 拖放状态；删除处理改用 showUndo | +110 |
-| `ScratchpadTreeNode.vue` | draggable + dragstart emit + forwardDragStart | +12 |
-| `SqlEditorPanel.vue` | editor-container @dragover/@drop + handleEditorDragOver/handleEditorDrop | +21 |
-| `zh-CN.json` | templateType/undo 2 个新 key + 逗号修复 | +1 |
+| 文件                     | 改动                                                                                                                                                                                                    | 行数 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--: |
+| `ScratchpadPanel.vue`    | 模板选择器 modal + selectedTemplate state + TEMPLATE_CONTENTS + selectTemplate + confirmCreate 重写 + undoState/dismissUndo/showUndo/handleUndoDelete + undo-bar 模板 + 拖放状态；删除处理改用 showUndo | +110 |
+| `ScratchpadTreeNode.vue` | draggable + dragstart emit + forwardDragStart                                                                                                                                                           | +12  |
+| `SqlEditorPanel.vue`     | editor-container @dragover/@drop + handleEditorDragOver/handleEditorDrop                                                                                                                                | +21  |
+| `zh-CN.json`             | templateType/undo 2 个新 key + 逗号修复                                                                                                                                                                 |  +1  |
 
 ### 后续版本 🔮
 

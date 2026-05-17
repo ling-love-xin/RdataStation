@@ -333,11 +333,15 @@ function exportMarkdown(): void {
     r.type_mismatches.length === 0 ? `- *${t('schemaInsight.mdTypeConsistent')}*` : '',
     '',
     `## ${t('schemaInsight.orphanTables')}`,
-    ...r.orphan_tables.map(o => `- ${o.table_name} (${o.column_count} ${t('resultPanel.rows')}): ${o.reason}`),
+    ...r.orphan_tables.map(
+      o => `- ${o.table_name} (${o.column_count} ${t('resultPanel.rows')}): ${o.reason}`
+    ),
     r.orphan_tables.length === 0 ? `- *${t('schemaInsight.mdNone')}*` : '',
     '',
     `## ${t('schemaInsight.redundantColumns')}`,
-    ...r.redundant_columns.map(c => `- ${c.column_name} (${c.table_count} ${t('resultPanel.rows')}): ${c.suggestion}`),
+    ...r.redundant_columns.map(
+      c => `- ${c.column_name} (${c.table_count} ${t('resultPanel.rows')}): ${c.suggestion}`
+    ),
     r.redundant_columns.length === 0 ? `- *${t('schemaInsight.mdNone')}*` : '',
   ]
   const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })

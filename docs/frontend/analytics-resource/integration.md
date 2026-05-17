@@ -340,20 +340,20 @@ await analyticsApi.deleteAnalyticsResource('ar_xxx')
 
 #### 标签
 
-| 方法                    | 签名                                                   | 说明           |
-| ----------------------- | ------------------------------------------------------ | -------------- |
-| `loadTags`              | `(input?: ListTagsInput) => Promise<void>`             | 加载标签       |
-| `createTag`             | `(input: CreateTagRequest) => Promise<AnalyticsTag>`   | 创建标签       |
-| `addTagToResource`      | `(resourceId: string, tagId: string) => Promise<void>` | 资源添加标签   |
-| `removeTagFromResource` | `(resourceId: string, tagId: string) => Promise<void>` | 从资源移除标签 |
+| 方法                    | 签名                                                   | 说明                |
+| ----------------------- | ------------------------------------------------------ | ------------------- |
+| `loadTags`              | `(input?: ListTagsInput) => Promise<void>`             | 加载标签            |
+| `createTag`             | `(input: CreateTagRequest) => Promise<AnalyticsTag>`   | 创建标签            |
+| `addTagToResource`      | `(resourceId: string, tagId: string) => Promise<void>` | 资源添加标签        |
+| `removeTagFromResource` | `(resourceId: string, tagId: string) => Promise<void>` | 从资源移除标签      |
 | `getAnalyticsTag`       | `(id: string) => Promise<AnalyticsTag>`                | 获取单个标签详情 🆕 |
 
 #### 标签缓存（前端本地）
 
-| 方法                | 签名                                          | 说明                           |
-| ------------------- | --------------------------------------------- | ------------------------------ |
-| `loadResourceTags`  | `(resourceIds: string[]) => Promise<void>`    | 批量加载资源标签到本地缓存 🆕  |
-| `getResourceTags`   | `(resourceId: string) => AnalyticsTag[]`      | 从本地缓存同步获取资源标签 🆕  |
+| 方法               | 签名                                       | 说明                          |
+| ------------------ | ------------------------------------------ | ----------------------------- |
+| `loadResourceTags` | `(resourceIds: string[]) => Promise<void>` | 批量加载资源标签到本地缓存 🆕 |
+| `getResourceTags`  | `(resourceId: string) => AnalyticsTag[]`   | 从本地缓存同步获取资源标签 🆕 |
 
 #### 版本与双向查询
 

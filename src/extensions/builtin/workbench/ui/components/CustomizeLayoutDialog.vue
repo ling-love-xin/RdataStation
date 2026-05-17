@@ -13,18 +13,32 @@
           <div class="modal-body">
             <!-- 布局结构可视化预览 -->
             <div class="preview-section">
-              <span class="section-title">{{ t('workbench.customizeLayoutDialog.layoutPreview') }}</span>
+              <span class="section-title">{{
+                t('workbench.customizeLayoutDialog.layoutPreview')
+              }}</span>
               <div class="layout-preview">
-                <div class="preview-col preview-left" :class="{ collapsed: layoutStore.leftEdgeGroupCollapsed }">
-                  <span class="preview-label">{{ t('workbench.customizeLayoutDialog.columnA') }}</span>
+                <div
+                  class="preview-col preview-left"
+                  :class="{ collapsed: layoutStore.leftEdgeGroupCollapsed }"
+                >
+                  <span class="preview-label">{{
+                    t('workbench.customizeLayoutDialog.columnA')
+                  }}</span>
                   <span class="preview-width">{{ layoutStore.primarySideBarWidth }}px</span>
                 </div>
                 <div class="preview-col preview-center">
-                  <span class="preview-label">{{ t('workbench.customizeLayoutDialog.columnB') }}</span>
+                  <span class="preview-label">{{
+                    t('workbench.customizeLayoutDialog.columnB')
+                  }}</span>
                   <span class="preview-width">auto</span>
                 </div>
-                <div class="preview-col preview-right" :class="{ collapsed: layoutStore.rightEdgeGroupCollapsed }">
-                  <span class="preview-label">{{ t('workbench.customizeLayoutDialog.columnC') }}</span>
+                <div
+                  class="preview-col preview-right"
+                  :class="{ collapsed: layoutStore.rightEdgeGroupCollapsed }"
+                >
+                  <span class="preview-label">{{
+                    t('workbench.customizeLayoutDialog.columnC')
+                  }}</span>
                   <span class="preview-width">{{ layoutStore.secondarySideBarWidth }}px</span>
                 </div>
               </div>
@@ -42,16 +56,24 @@
             <div class="edge-groups-section">
               <div class="edge-group-card">
                 <div class="card-row">
-                  <span class="card-label">A {{ t('workbench.customizeLayoutDialog.column') }}</span>
+                  <span class="card-label"
+                    >A {{ t('workbench.customizeLayoutDialog.column') }}</span
+                  >
                   <NSwitch
                     :value="!layoutStore.leftEdgeGroupCollapsed"
                     size="small"
                     @update:value="handleLeftEdgeToggle"
                   />
-                  <span class="switch-label">{{ layoutStore.leftEdgeGroupCollapsed ? t('workbench.customizeLayoutDialog.hidden') : t('workbench.customizeLayoutDialog.visible') }}</span>
+                  <span class="switch-label">{{
+                    layoutStore.leftEdgeGroupCollapsed
+                      ? t('workbench.customizeLayoutDialog.hidden')
+                      : t('workbench.customizeLayoutDialog.visible')
+                  }}</span>
                 </div>
                 <div v-if="!layoutStore.leftEdgeGroupCollapsed" class="card-row">
-                  <span class="card-label width-label">{{ t('workbench.customizeLayoutDialog.width') }}</span>
+                  <span class="card-label width-label">{{
+                    t('workbench.customizeLayoutDialog.width')
+                  }}</span>
                   <NInputNumber
                     :value="layoutStore.primarySideBarWidth"
                     :min="MIN_WIDTH"
@@ -67,16 +89,24 @@
 
               <div class="edge-group-card">
                 <div class="card-row">
-                  <span class="card-label">C {{ t('workbench.customizeLayoutDialog.column') }}</span>
+                  <span class="card-label"
+                    >C {{ t('workbench.customizeLayoutDialog.column') }}</span
+                  >
                   <NSwitch
                     :value="!layoutStore.rightEdgeGroupCollapsed"
                     size="small"
                     @update:value="handleRightEdgeToggle"
                   />
-                  <span class="switch-label">{{ layoutStore.rightEdgeGroupCollapsed ? t('workbench.customizeLayoutDialog.hidden') : t('workbench.customizeLayoutDialog.visible') }}</span>
+                  <span class="switch-label">{{
+                    layoutStore.rightEdgeGroupCollapsed
+                      ? t('workbench.customizeLayoutDialog.hidden')
+                      : t('workbench.customizeLayoutDialog.visible')
+                  }}</span>
                 </div>
                 <div v-if="!layoutStore.rightEdgeGroupCollapsed" class="card-row">
-                  <span class="card-label width-label">{{ t('workbench.customizeLayoutDialog.width') }}</span>
+                  <span class="card-label width-label">{{
+                    t('workbench.customizeLayoutDialog.width')
+                  }}</span>
                   <NInputNumber
                     :value="layoutStore.secondarySideBarWidth"
                     :min="MIN_WIDTH"
@@ -93,7 +123,9 @@
 
             <!-- 布局模板快速选择器 -->
             <div class="templates-section">
-              <span class="section-title">{{ t('workbench.customizeLayoutDialog.layoutTemplates') }}</span>
+              <span class="section-title">{{
+                t('workbench.customizeLayoutDialog.layoutTemplates')
+              }}</span>
               <div class="template-chips">
                 <button
                   v-for="preset in presetOptions"
@@ -110,7 +142,7 @@
                   v-model:value="newTemplateName"
                   size="small"
                   :placeholder="t('workbench.customizeLayoutDialog.templateNamePlaceholder')"
-                  style="flex:1"
+                  style="flex: 1"
                   @keyup.enter="handleSaveTemplate"
                 />
                 <NButton size="small" :disabled="!newTemplateName" @click="handleSaveTemplate">
@@ -126,7 +158,11 @@
                   <button class="saved-template-name" @click="handleApplyCustomTemplate(tmpl)">
                     {{ tmpl.name }}
                   </button>
-                  <button class="saved-template-delete" :title="t('workbench.customizeLayoutDialog.deleteTemplate')" @click="handleDeleteTemplate(tmpl.name)">
+                  <button
+                    class="saved-template-delete"
+                    :title="t('workbench.customizeLayoutDialog.deleteTemplate')"
+                    @click="handleDeleteTemplate(tmpl.name)"
+                  >
                     <Trash2 :size="14" />
                   </button>
                 </div>
@@ -167,7 +203,10 @@ import { NButton, NInputNumber, NSwitch, NInput } from 'naive-ui'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useLayoutStore, type LayoutTemplate } from '@/extensions/builtin/workbench/ui/stores/layout-store'
+import {
+  useLayoutStore,
+  type LayoutTemplate,
+} from '@/extensions/builtin/workbench/ui/stores/layout-store'
 
 const { t } = useI18n()
 const layoutStore = useLayoutStore()
@@ -191,7 +230,7 @@ const presetOptions = computed<PresetOption[]>(() => [
   { key: 'analysis', label: t('workbench.customizeLayoutDialog.presetAnalysis') },
 ])
 
-watch(visible, (val) => {
+watch(visible, val => {
   if (val && !dialogOpened.value) {
     dialogOpened.value = true
     layoutStore.loadCustomTemplates()
@@ -378,7 +417,9 @@ onUnmounted(() => {
   border-radius: var(--border-radius-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .btn-close:hover {

@@ -70,11 +70,6 @@ const layoutHeights = {
   input: '32px',
 } as const
 
-export {
-  spacings,
-  densityConfigs,
-  borderRadius,
-  layoutHeights,
-}
+export { spacings, densityConfigs, borderRadius, layoutHeights }
 
 export type { DensityConfig }

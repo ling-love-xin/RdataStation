@@ -96,17 +96,17 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
 }
 
 const deactivate = async (): Promise<void> => {
-    // eslint-disable-next-line no-console
-    console.log('[Scratchpad] Deactivating')
+  // eslint-disable-next-line no-console
+  console.log('[Scratchpad] Deactivating')
 
-    for (const d of disposables) {
-      d.dispose()
-    }
-    // eslint-disable-next-line no-console
-    console.log('[Scratchpad] Deactivated')
+  for (const d of disposables) {
+    d.dispose()
   }
+  // eslint-disable-next-line no-console
+  console.log('[Scratchpad] Deactivated')
+}
 
-  const extension: ExtensionModule = {
+const extension: ExtensionModule = {
   activate: activate as (context: ExtensionContext) => ExtensionAPI,
   deactivate,
 }

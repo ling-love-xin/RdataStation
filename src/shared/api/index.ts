@@ -234,9 +234,12 @@ export const navigatorApi = {
   },
 
   listColumns(connId: string, catalog: string, schema: string | null, table: string) {
-    return tauriInvoke<SchemaObject[]>('list_columns',
-      { conn_id: connId, database: catalog, schema, table }
-    )
+    return tauriInvoke<SchemaObject[]>('list_columns', {
+      conn_id: connId,
+      database: catalog,
+      schema,
+      table,
+    })
   },
 }
 

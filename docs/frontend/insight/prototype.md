@@ -63,22 +63,22 @@
 
 ## 二、组件分布与职责矩阵
 
-| 序号 | 组件                         | 占位区域               | 尺寸               | 触发方式                          |
-|------|------------------------------|------------------------|--------------------|-----------------------------------|
-| ①    | **ColumnInsightPanel**       | Right Primary Side Bar | 280px × 自适应     | 表格选中列 / 右键"洞察"           |
-| ②    | **TableProfileView**         | Center Area            | 自适应             | 导航树右键"快速探查" / 表双击     |
-| ③    | **SchemaInsightPanel**       | Center Area            | 自适应             | 导航树 Schema 右键"Schema 洞察"   |
-| ④    | **DataVisualizationPanel**   | Center Area            | 自适应             | 洞察面板"图表可视化"按钮 / 结果右键 |
-| ⑤    | **ColumnInsightsPanel**      | Bottom Panel 顶部      | 自适应宽 × 80px    | 表格选中列（自动）                |
+| 序号 | 组件                       | 占位区域               | 尺寸            | 触发方式                            |
+| ---- | -------------------------- | ---------------------- | --------------- | ----------------------------------- |
+| ①    | **ColumnInsightPanel**     | Right Primary Side Bar | 280px × 自适应  | 表格选中列 / 右键"洞察"             |
+| ②    | **TableProfileView**       | Center Area            | 自适应          | 导航树右键"快速探查" / 表双击       |
+| ③    | **SchemaInsightPanel**     | Center Area            | 自适应          | 导航树 Schema 右键"Schema 洞察"     |
+| ④    | **DataVisualizationPanel** | Center Area            | 自适应          | 洞察面板"图表可视化"按钮 / 结果右键 |
+| ⑤    | **ColumnInsightsPanel**    | Bottom Panel 顶部      | 自适应宽 × 80px | 表格选中列（自动）                  |
 
 ### 子组件（嵌入 ColumnInsightPanel）
 
-| 子组件                  | Tab               | 行数  | 职责                              |
-|-------------------------|-------------------|-------|-----------------------------------|
-| **QualityScoreCard**    | 列洞察（顶部）     | ~50   | 质量评分徽章 + 四维度条形图        |
-| **InsightStatsSection** | 列洞察（中部）     | ~180  | 统计摘要 + 分布直方图 + 样本数据   |
-| **InsightHistoryTab**   | 历史 Tab           | ~140  | 版本列表 + Diff 对比面板           |
-| **MultiColumnView**     | 多列分析 Tab       | ~200  | 列选择 + 规则执行 + 结果展示       |
+| 子组件                  | Tab            | 行数 | 职责                             |
+| ----------------------- | -------------- | ---- | -------------------------------- |
+| **QualityScoreCard**    | 列洞察（顶部） | ~50  | 质量评分徽章 + 四维度条形图      |
+| **InsightStatsSection** | 列洞察（中部） | ~180 | 统计摘要 + 分布直方图 + 样本数据 |
+| **InsightHistoryTab**   | 历史 Tab       | ~140 | 版本列表 + Diff 对比面板         |
+| **MultiColumnView**     | 多列分析 Tab   | ~200 | 列选择 + 规则执行 + 结果展示     |
 
 ---
 
@@ -573,24 +573,24 @@ DockviewLayout.vue (dockview-vue 根容器)
 
   用户操作                          Store Signal                   目标面板
   ────────                        ─────────────                   ────────
-                                                                  
+
   表格选中列          →  insightStore.loadColumnInsight()    →  ColumnInsightPanel
-                                                                  
+
   右键"图表可视化"     →  insightStore.requestVisualization() →  DataVisualizationPanel
                        { data, columns, title, chartType }
-                                                                  
+
   导航树右键"快速探查"  →  insightStore.requestTableProfile()  →  TableProfileView
                        { connId, dbType, database, schema, table }
-                                                                  
+
   导航树右键"Schema洞察"→  insightStore.requestSchemaInsight()  →  SchemaInsightPanel
                        { connId, dbType, database, schema }
-                                                                  
+
   TableProfileView     →  insightStore.loadColumnFromTable()   →  ColumnInsightPanel
   列名点击              { connId, database, schema, table, column }
-                                                                  
+
   ColumnInsightPanel   →  insightStore.requestVisualization()  →  DataVisualizationPanel
   "图表可视化"按钮      { 从 insightData 提取 }
-                                                                  
+
   ColumnInsightsPanel  →  insightStore.loadColumnInsight()     →  ColumnInsightPanel
   "查看完整洞察 ▸"
 ```
@@ -599,37 +599,37 @@ DockviewLayout.vue (dockview-vue 根容器)
 
 ## 六、响应式状态对照表
 
-| 状态           | ColumnInsightPanel                                   | TableProfileView | SchemaInsightPanel |
-|----------------|------------------------------------------------------|------------------|-------------------|
-| **加载中**     | 4 条骨架屏（title + row × 2 + block）                | NSpin            | NSpin             |
-| **数据就绪**   | QualityScoreCard + Stats + Distribution + Samples    | 表元信息 + 列表格 | 健康环 + 4 折叠维度 |
-| **空数据**     | "选中列以查看洞察信息" + Database 图标               | —                | "Schema 中无表"   |
-| **错误**       | 错误消息 + [重试] 按钮                               | 错误消息          | 错误消息          |
-| **空子状态**   | 无样本 / 无分布 → 隐藏对应折叠区                     | 无列 → 空表格     | 无FK候选 / 无孤立表 → "未检测到" |
+| 状态         | ColumnInsightPanel                                | TableProfileView  | SchemaInsightPanel               |
+| ------------ | ------------------------------------------------- | ----------------- | -------------------------------- |
+| **加载中**   | 4 条骨架屏（title + row × 2 + block）             | NSpin             | NSpin                            |
+| **数据就绪** | QualityScoreCard + Stats + Distribution + Samples | 表元信息 + 列表格 | 健康环 + 4 折叠维度              |
+| **空数据**   | "选中列以查看洞察信息" + Database 图标            | —                 | "Schema 中无表"                  |
+| **错误**     | 错误消息 + [重试] 按钮                            | 错误消息          | 错误消息                         |
+| **空子状态** | 无样本 / 无分布 → 隐藏对应折叠区                  | 无列 → 空表格     | 无FK候选 / 无孤立表 → "未检测到" |
 
 ---
 
 ## 七、设计规范遵守清单
 
-| 规范项                     | 状态 | 说明                                          |
-|----------------------------|------|-----------------------------------------------|
-| 所有颜色使用 CSS 变量       | ✅   | `--text-tertiary`, `--border-color`, `--bg-elevated` |
-| 间距从 --spacing-* 选择     | ✅   | padding: 6px/8px/12px/16px                    |
-| 面板内边距 12px             | ✅   | ColumnInsightPanel `.col-insight-root`        |
-| 组件高度 32px              | ✅   | NButton size=small/tiny                       |
-| 面板标题高度 36px           | ✅   | dockview-vue 默认                             |
-| naive-ui 组件库            | ✅   | NTabs, NTabPane, NButton, NTag, NCollapse, NCheckbox, NSpin |
-| lucide-vue-next 图标       | ✅   | Database, RefreshCw, Download                 |
-| 禁止 any / as 滥用         | ✅   | statsKind 收紧为字面量联合，computed 替代 as  |
-| i18n 覆盖                  | ✅   | 所有用户可见文本使用 $t()                      |
-| 双主题适配                  | ✅   | CSS 变量 without .theme-dark/.theme-light 硬编码 |
-| dockview-vue 布局           | ✅   | 6 个面板区域全部由 dockview 管理              |
-| SFC <script setup>         | ✅   | 所有组件                                      |
+| 规范项                   | 状态 | 说明                                                        |
+| ------------------------ | ---- | ----------------------------------------------------------- |
+| 所有颜色使用 CSS 变量    | ✅   | `--text-tertiary`, `--border-color`, `--bg-elevated`        |
+| 间距从 --spacing-\* 选择 | ✅   | padding: 6px/8px/12px/16px                                  |
+| 面板内边距 12px          | ✅   | ColumnInsightPanel `.col-insight-root`                      |
+| 组件高度 32px            | ✅   | NButton size=small/tiny                                     |
+| 面板标题高度 36px        | ✅   | dockview-vue 默认                                           |
+| naive-ui 组件库          | ✅   | NTabs, NTabPane, NButton, NTag, NCollapse, NCheckbox, NSpin |
+| lucide-vue-next 图标     | ✅   | Database, RefreshCw, Download                               |
+| 禁止 any / as 滥用       | ✅   | statsKind 收紧为字面量联合，computed 替代 as                |
+| i18n 覆盖                | ✅   | 所有用户可见文本使用 $t()                                   |
+| 双主题适配               | ✅   | CSS 变量 without .theme-dark/.theme-light 硬编码            |
+| dockview-vue 布局        | ✅   | 6 个面板区域全部由 dockview 管理                            |
+| SFC <script setup>       | ✅   | 所有组件                                                    |
 
 ---
 
 ## 八、版本历史
 
-| 版本 | 日期       | 说明                          |
-|------|------------|-------------------------------|
+| 版本 | 日期       | 说明                                 |
+| ---- | ---------- | ------------------------------------ |
 | v1.0 | 2026-05-09 | 初始原型草图，对应 Phase 20 归档状态 |

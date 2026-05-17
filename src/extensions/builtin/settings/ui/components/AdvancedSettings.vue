@@ -189,35 +189,54 @@
 import { reactive, watch } from 'vue'
 
 import AppIcon from '@/shared/components/common/AppIcon.vue'
-import type { ConnectionPoolSettings, HistorySettings, MonitoringSettings, PerformanceSettings } from '@/stores/config'
+import type {
+  ConnectionPoolSettings,
+  HistorySettings,
+  MonitoringSettings,
+  PerformanceSettings,
+} from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 
 const appStore = useAppStore()
 
-const localConnectionPool = reactive<ConnectionPoolSettings>({ ...appStore.effectiveConnectionPool })
+const localConnectionPool = reactive<ConnectionPoolSettings>({
+  ...appStore.effectiveConnectionPool,
+})
 const localHistorySettings = reactive<HistorySettings>({ ...appStore.effectiveHistorySettings })
-const localMonitoringSettings = reactive<MonitoringSettings>({ ...appStore.effectiveMonitoringSettings })
-const localPerformanceSettings = reactive<PerformanceSettings>({ ...appStore.effectivePerformanceSettings })
+const localMonitoringSettings = reactive<MonitoringSettings>({
+  ...appStore.effectiveMonitoringSettings,
+})
+const localPerformanceSettings = reactive<PerformanceSettings>({
+  ...appStore.effectivePerformanceSettings,
+})
 
 watch(
   () => appStore.effectiveConnectionPool,
-  val => { Object.assign(localConnectionPool, val) },
-  { deep: true },
+  val => {
+    Object.assign(localConnectionPool, val)
+  },
+  { deep: true }
 )
 watch(
   () => appStore.effectiveHistorySettings,
-  val => { Object.assign(localHistorySettings, val) },
-  { deep: true },
+  val => {
+    Object.assign(localHistorySettings, val)
+  },
+  { deep: true }
 )
 watch(
   () => appStore.effectiveMonitoringSettings,
-  val => { Object.assign(localMonitoringSettings, val) },
-  { deep: true },
+  val => {
+    Object.assign(localMonitoringSettings, val)
+  },
+  { deep: true }
 )
 watch(
   () => appStore.effectivePerformanceSettings,
-  val => { Object.assign(localPerformanceSettings, val) },
-  { deep: true },
+  val => {
+    Object.assign(localPerformanceSettings, val)
+  },
+  { deep: true }
 )
 
 function resetToFactory() {
@@ -227,7 +246,13 @@ function resetToFactory() {
   Object.assign(localPerformanceSettings, appStore.effectivePerformanceSettings)
 }
 
-defineExpose({ localConnectionPool, localHistorySettings, localMonitoringSettings, localPerformanceSettings, resetToFactory })
+defineExpose({
+  localConnectionPool,
+  localHistorySettings,
+  localMonitoringSettings,
+  localPerformanceSettings,
+  resetToFactory,
+})
 </script>
 
 <style scoped>

@@ -129,7 +129,9 @@ const props = defineProps<Props>()
 const { t } = useI18n()
 
 const chartType = ref<'bar' | 'line' | 'pie' | 'scatter'>(
-  (['bar', 'line', 'pie', 'scatter'].includes(props.chartType ?? '') ? props.chartType as 'bar' | 'line' | 'pie' | 'scatter' : 'bar')
+  ['bar', 'line', 'pie', 'scatter'].includes(props.chartType ?? '')
+    ? (props.chartType as 'bar' | 'line' | 'pie' | 'scatter')
+    : 'bar'
 )
 const xAxisColumn = ref('')
 const yAxisColumn = ref('')
@@ -258,7 +260,10 @@ const updateChart = () => {
         series: [
           {
             type: 'scatter',
-            data: xData.map((x, i) => [typeof x === 'number' ? x : parseFloat(String(x)) || 0, yData[i]]),
+            data: xData.map((x, i) => [
+              typeof x === 'number' ? x : parseFloat(String(x)) || 0,
+              yData[i],
+            ]),
             symbolSize: 10,
           },
         ],

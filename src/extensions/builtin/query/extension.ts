@@ -8,11 +8,9 @@ import { sqlApi } from '@/shared/api'
 import type { ExecuteSqlResponse, SqlHistoryResponse } from '@/shared/api'
 import type { QueryResult } from '@/shared/types'
 
-import CodeEditorPanel from '../workbench/ui/components/panels/CodeEditorPanel.vue'
 import ColumnInsightsPanel from '../workbench/ui/components/panels/ColumnInsightsPanel.vue'
-import MultiTabResults from '../workbench/ui/components/panels/MultiTabResults.vue'
-import QueryResultPanel from '../workbench/ui/components/panels/QueryResultPanel.vue'
-import SqlEditorPanel from '../workbench/ui/components/panels/SqlEditorPanel.vue'
+import EditorPanel from '../workbench/ui/components/panels/EditorPanel.vue'
+import FileResultPanel from '../workbench/ui/components/panels/FileResultPanel.vue'
 
 import type { ExtensionContext, ExtensionAPI, ExtensionModule, Disposable } from '../../core/types'
 
@@ -80,40 +78,12 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     }))
   }
 
-  // 注册 SQL 编辑器面板
-  const sqlEditorDisposable = context.window.registerViewProvider('sqlEditor', {
-    component: SqlEditorPanel,
-    title: 'SQL 编辑器',
-    location: 'center',
-    icon: 'Code',
-    order: 1,
-  })
-
-  // 注册通用代码编辑器面板（非 SQL 文件场景）
-  const codeEditorDisposable = context.window.registerViewProvider('codeEditor', {
-    component: CodeEditorPanel,
-    title: '代码编辑器',
-    location: 'center',
-    icon: 'FileCode',
-    order: 2,
-  })
-
-  // 注册查询结果面板（单语句结果）
-  const resultPanelDisposable = context.window.registerViewProvider('queryResult', {
-    component: QueryResultPanel,
-    title: '查询结果',
+  const fileResultPanelDisposable = context.window.registerViewProvider('fileResultPanel', {
+    component: FileResultPanel,
+    title: 'Result',
     location: 'bottom',
     icon: 'Table2',
-    order: 2,
-  })
-
-  // 注册多 Tab 结果面板（多语句结果）
-  const multiTabResultDisposable = context.window.registerViewProvider('multiTabResult', {
-    component: MultiTabResults,
-    title: '查询结果',
-    location: 'bottom',
-    icon: 'Table2',
-    order: 3,
+    order: 5,
   })
 
   // 注册列洞察面板（右侧可选面板）
@@ -125,12 +95,19 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     order: 4,
   })
 
+  // 注册统一编辑面板（单 Editor + 多 Model 架构）
+  const editorPanelDisposable = context.window.registerViewProvider('editorPanel', {
+    component: EditorPanel,
+    title: '编辑器',
+    location: 'center',
+    icon: 'Code',
+    order: 3,
+  })
+
   const disposables: Disposable[] = [
-    sqlEditorDisposable,
-    codeEditorDisposable,
-    resultPanelDisposable,
-    multiTabResultDisposable,
+    fileResultPanelDisposable,
     columnInsightsDisposable,
+    editorPanelDisposable,
     context.commands.registerCommand('query.execute', (...args: unknown[]) =>
       execute(args[0] as string, args[1] as string)
     ),

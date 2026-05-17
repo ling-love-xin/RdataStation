@@ -94,10 +94,7 @@ export async function checkFileSize(relativePath: string): Promise<number> {
   })
 }
 
-export async function updateFileMeta(
-  relativePath: string,
-  connectionId?: string
-): Promise<void> {
+export async function updateFileMeta(relativePath: string, connectionId?: string): Promise<void> {
   return invoke<void>('update_scratchpad_file_meta', {
     relativePath,
     connectionId: connectionId ?? null,
@@ -150,17 +147,13 @@ export async function promoteScratchpadToResource(
   })
 }
 
-export async function getScratchpadEntry(
-  relativePath: string
-): Promise<ScratchpadEntry | null> {
+export async function getScratchpadEntry(relativePath: string): Promise<ScratchpadEntry | null> {
   return invoke<ScratchpadEntry | null>('get_scratchpad_entry', {
     relativePath,
   })
 }
 
-export async function listScratchpadDirectory(
-  parentPath: string
-): Promise<ScratchpadEntry[]> {
+export async function listScratchpadDirectory(parentPath: string): Promise<ScratchpadEntry[]> {
   return invoke<ScratchpadEntry[]>('list_scratchpad_directory', {
     parentPath,
   })

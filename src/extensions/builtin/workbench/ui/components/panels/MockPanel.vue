@@ -66,11 +66,7 @@
         </div>
 
         <div class="columns-list">
-          <div
-            v-for="(col, idx) in store.columns"
-            :key="`col-${idx}`"
-            class="column-row"
-          >
+          <div v-for="(col, idx) in store.columns" :key="`col-${idx}`" class="column-row">
             <NInput
               :value="col.name"
               size="small"
@@ -83,7 +79,7 @@
               size="small"
               :options="dataTypeOptions"
               class="col-type"
-              @update:value="(v) => store.updateColumn(idx, { dataType: v })"
+              @update:value="v => store.updateColumn(idx, { dataType: v })"
             />
             <NInputNumber
               v-if="col.dataType === 'varchar'"
@@ -93,7 +89,9 @@
               :max="65535"
               class="col-dt-param"
               placeholder="长度"
-              @update:value="(v: number | null) => store.updateColumn(idx, { varcharLength: v ?? undefined })"
+              @update:value="
+                (v: number | null) => store.updateColumn(idx, { varcharLength: v ?? undefined })
+              "
             />
             <template v-if="col.dataType === 'decimal'">
               <NInputNumber
@@ -103,7 +101,10 @@
                 :max="38"
                 class="col-dt-param-sm"
                 placeholder="精度"
-                @update:value="(v: number | null) => store.updateColumn(idx, { decimalPrecision: v ?? undefined })"
+                @update:value="
+                  (v: number | null) =>
+                    store.updateColumn(idx, { decimalPrecision: v ?? undefined })
+                "
               />
               <NInputNumber
                 :value="col.decimalScale ?? 2"
@@ -112,7 +113,9 @@
                 :max="38"
                 class="col-dt-param-sm"
                 placeholder="标度"
-                @update:value="(v: number | null) => store.updateColumn(idx, { decimalScale: v ?? undefined })"
+                @update:value="
+                  (v: number | null) => store.updateColumn(idx, { decimalScale: v ?? undefined })
+                "
               />
             </template>
             <NSelect
@@ -121,7 +124,7 @@
               :options="generatorOptions"
               filterable
               class="col-gen"
-              @update:value="(v) => store.setColumnType(idx, v)"
+              @update:value="v => store.setColumnType(idx, v)"
             />
             <NInputNumber
               :value="col.nullableRatio"
@@ -131,7 +134,9 @@
               :step="0.1"
               class="col-null"
               placeholder="NULL"
-              @update:value="(v: number | null) => store.updateColumn(idx, { nullableRatio: v ?? 0 })"
+              @update:value="
+                (v: number | null) => store.updateColumn(idx, { nullableRatio: v ?? 0 })
+              "
             />
             <NTag
               v-if="col.unique"
@@ -198,16 +203,19 @@
         <span v-if="store.lastResult" class="generate-info">
           已生成 {{ store.lastResult.rowCount }} 行，耗时 {{ store.lastResult.elapsedMs }}ms
         </span>
-        <span v-if="store.generateLoading && store.generateProgressTotal > 0" class="generate-info progress-info">
-          {{ store.generateProgress }} / {{ store.generateProgressTotal }} 批次 ({{ Math.round(store.generateProgress / store.generateProgressTotal * 100) }}%)
+        <span
+          v-if="store.generateLoading && store.generateProgressTotal > 0"
+          class="generate-info progress-info"
+        >
+          {{ store.generateProgress }} / {{ store.generateProgressTotal }} 批次 ({{
+            Math.round((store.generateProgress / store.generateProgressTotal) * 100)
+          }}%)
         </span>
       </div>
 
       <div v-if="store.previewData.length > 0" class="preview-section">
         <div class="section-header">
-          <span class="section-title">
-            预览 (前 {{ store.previewData.length }} 行)
-          </span>
+          <span class="section-title"> 预览 (前 {{ store.previewData.length }} 行) </span>
           <div class="preview-actions">
             <NButton size="small" quaternary @click="onExportFile('csv')">
               <template #icon><FileDown :size="14" /></template>
@@ -235,7 +243,12 @@
               <template #icon><HardDrive :size="14" /></template>
               持久化
             </NButton>
-            <NButton size="small" quaternary :loading="store.previewLoading" @click="onRefreshPreview">
+            <NButton
+              size="small"
+              quaternary
+              :loading="store.previewLoading"
+              @click="onRefreshPreview"
+            >
               <template #icon><RotateCw :size="14" /></template>
               加载更多
             </NButton>
@@ -273,7 +286,12 @@
             </div>
             <div class="history-item-right">
               <span class="history-time">{{ formatTimeStr(item.createdAt ?? '') }}</span>
-              <NButton size="tiny" quaternary class="history-del" @click.stop="onDeleteHistory(item.id)">
+              <NButton
+                size="tiny"
+                quaternary
+                class="history-del"
+                @click.stop="onDeleteHistory(item.id)"
+              >
                 <template #icon><Trash2 :size="12" /></template>
               </NButton>
             </div>
@@ -285,7 +303,12 @@
     <div v-if="store.userTemplates.length > 0" class="history-section">
       <div class="section-header">
         <span class="section-title">我的模板</span>
-        <NButton size="small" quaternary :loading="store.templatesLoading" @click="onRefreshTemplates">
+        <NButton
+          size="small"
+          quaternary
+          :loading="store.templatesLoading"
+          @click="onRefreshTemplates"
+        >
           <template #icon><RotateCw :size="14" /></template>
         </NButton>
       </div>
@@ -302,8 +325,15 @@
             <span class="history-status">{{ tpl.locale }}</span>
           </div>
           <div class="history-item-right">
-            <span class="history-time">{{ tpl.createdAt ? formatTimeStr(tpl.createdAt) : '-' }}</span>
-            <NButton size="tiny" quaternary class="history-del" @click.stop="onDeleteUserTemplate(tpl.id)">
+            <span class="history-time">{{
+              tpl.createdAt ? formatTimeStr(tpl.createdAt) : '-'
+            }}</span>
+            <NButton
+              size="tiny"
+              quaternary
+              class="history-del"
+              @click.stop="onDeleteUserTemplate(tpl.id)"
+            >
               <template #icon><Trash2 :size="12" /></template>
             </NButton>
           </div>
@@ -311,7 +341,12 @@
       </div>
     </div>
 
-    <NModal v-model:show="showSaveTemplateModal" preset="card" title="保存为模板" style="width: 380px">
+    <NModal
+      v-model:show="showSaveTemplateModal"
+      preset="card"
+      title="保存为模板"
+      style="width: 380px"
+    >
       <div class="save-template-form">
         <div class="form-group">
           <label class="form-label">模板名称</label>
@@ -345,7 +380,9 @@
       v-if="advancedDrawerIndex >= 0"
       :show="advancedDrawerVisible"
       :generator-type="store.columns[advancedDrawerIndex]?.generator.type ?? 'words'"
-      :current-params="(store.columns[advancedDrawerIndex]?.generator.params ?? {}) as Record<string, unknown>"
+      :current-params="
+        (store.columns[advancedDrawerIndex]?.generator.params ?? {}) as Record<string, unknown>
+      "
       :column-name="store.columns[advancedDrawerIndex]?.name ?? ''"
       :column-index="advancedDrawerIndex"
       :column-data-type="store.columns[advancedDrawerIndex]?.dataType ?? 'varchar'"
@@ -361,18 +398,44 @@
 <script setup lang="ts">
 import { save } from '@tauri-apps/plugin-dialog'
 import {
-  Clock, Plus, Trash2, Sparkles, FileDown, FileCode,
-  FileSpreadsheet, HardDrive, LayoutTemplate, Database,
-  Save, RotateCcw, Fingerprint, FileArchive, RotateCw, Settings,
+  Clock,
+  Plus,
+  Trash2,
+  Sparkles,
+  FileDown,
+  FileCode,
+  FileSpreadsheet,
+  HardDrive,
+  LayoutTemplate,
+  Database,
+  Save,
+  RotateCcw,
+  Fingerprint,
+  FileArchive,
+  RotateCw,
+  Settings,
 } from 'lucide-vue-next'
 import {
-  NButton, NInput, NInputNumber, NSelect, NDataTable, NDropdown, NTag, NModal,
+  NButton,
+  NInput,
+  NInputNumber,
+  NSelect,
+  NDataTable,
+  NDropdown,
+  NTag,
+  NModal,
   createDiscreteApi,
 } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 
 import { useProjectStore } from '@/core/project'
-import type { ColumnDef, MockExportFormat, ScenarioTemplate, GeneratorType, ColumnDataType } from '@/shared/api/mock-api'
+import type {
+  ColumnDef,
+  MockExportFormat,
+  ScenarioTemplate,
+  GeneratorType,
+  ColumnDataType,
+} from '@/shared/api/mock-api'
 import { useMockStore } from '@/stores/useMockStore'
 
 import MockAdvancedDrawer from './MockAdvancedDrawer.vue'
@@ -406,7 +469,7 @@ function onAdvancedApply(
   fieldName: string,
   dataType: string,
   nullableRatio: number,
-  unique: boolean,
+  unique: boolean
 ) {
   store.updateColumn(idx, {
     name: fieldName,
@@ -459,159 +522,199 @@ const dataTypeOptions = [
 ]
 
 const generatorOptions = [
-  { type: 'group', label: '数字', key: 'g_numeric', children: [
-    { label: '自动递增', value: 'auto_increment' },
-    { label: '随机整数', value: 'random_int' },
-    { label: '随机浮点数', value: 'random_float' },
-    { label: '随机小数', value: 'random_decimal' },
-    { label: '正态分布', value: 'normal' },
-    { label: '对数正态', value: 'log_normal' },
-    { label: '随机游走', value: 'random_walk' },
-    { label: '数字格式', value: 'number_with_format' },
-    { label: '单个数字', value: 'digit' },
-  ]},
-  { type: 'group', label: '人物信息', key: 'g_person', children: [
-    { label: '姓名', value: 'name' },
-    { label: '名', value: 'first_name' },
-    { label: '姓', value: 'last_name' },
-    { label: '姓名(带称谓)', value: 'name_with_title' },
-    { label: '头衔', value: 'title' },
-    { label: '姓名后缀', value: 'suffix' },
-    { label: '邮箱', value: 'email' },
-    { label: '安全邮箱', value: 'safe_email' },
-    { label: '免费邮箱', value: 'free_email' },
-    { label: '邮箱服务商', value: 'free_email_provider' },
-    { label: '邮箱域名', value: 'domain_suffix' },
-    { label: '用户名', value: 'username' },
-    { label: '密码', value: 'password' },
-    { label: '手机号', value: 'phone_number' },
-    { label: '手机号(纯数字)', value: 'cell_number' },
-  ]},
-  { type: 'group', label: '地址', key: 'g_address', children: [
-    { label: '国家', value: 'country' },
-    { label: '国家名', value: 'country_name' },
-    { label: '国家代码', value: 'country_code' },
-    { label: '城市', value: 'city' },
-    { label: '城市前缀', value: 'city_prefix' },
-    { label: '城市后缀', value: 'city_suffix' },
-    { label: '州/省', value: 'state_name' },
-    { label: '州缩写', value: 'state_abbr' },
-    { label: '街道名', value: 'street_name' },
-    { label: '街道后缀', value: 'street_suffix' },
-    { label: '邮编', value: 'zip_code' },
-    { label: '邮编(通用)', value: 'post_code' },
-    { label: '楼号', value: 'building_number' },
-    { label: '二级地址', value: 'secondary_address' },
-    { label: '二级地址类型', value: 'secondary_address_type' },
-    { label: '经度', value: 'latitude' },
-    { label: '纬度', value: 'longitude' },
-    { label: 'GeoHash', value: 'geohash' },
-    { label: '时区', value: 'timezone' },
-  ]},
-  { type: 'group', label: '日期时间', key: 'g_datetime', children: [
-    { label: '日期', value: 'date' },
-    { label: '时间', value: 'time' },
-    { label: '日期时间', value: 'datetime' },
-    { label: '过去时间', value: 'datetime_before' },
-    { label: '将来时间', value: 'datetime_after' },
-    { label: '时间区间', value: 'datetime_between' },
-    { label: '递增序列', value: 'sequential_date' },
-    { label: '含缺失间隔', value: 'sequential_date_with_gaps' },
-    { label: '持续时间', value: 'duration' },
-  ]},
-  { type: 'group', label: '商业', key: 'g_business', children: [
-    { label: '公司名', value: 'company_name' },
-    { label: '公司后缀', value: 'company_suffix' },
-    { label: '职位', value: 'job_title' },
-    { label: '行业', value: 'industry' },
-    { label: '专业', value: 'profession' },
-    { label: '职级', value: 'seniority' },
-    { label: '领域', value: 'field' },
-    { label: '岗位', value: 'position' },
-    { label: '热词', value: 'buzzword' },
-    { label: '热词(中)', value: 'buzzword_middle' },
-    { label: '热词(尾)', value: 'buzzword_tail' },
-    { label: '口号', value: 'catch_phrase' },
-    { label: '币种代码', value: 'currency_code' },
-    { label: '币种名', value: 'currency_name' },
-    { label: '币种符号', value: 'currency_symbol' },
-    { label: '信用卡号', value: 'credit_card_number' },
-    { label: 'BIC', value: 'bic' },
-    { label: 'ISIN', value: 'isin' },
-  ]},
-  { type: 'group', label: '文本', key: 'g_text', children: [
-    { label: '句子', value: 'sentence' },
-    { label: '多句', value: 'sentences' },
-    { label: '段落', value: 'paragraph' },
-    { label: '多段落', value: 'paragraphs' },
-    { label: '单词组', value: 'words' },
-    { label: '单个单词', value: 'word' },
-    { label: '正则', value: 'regex' },
-    { label: '模板', value: 'template' },
-    { label: 'Markdown 斜体', value: 'md_italic' },
-    { label: 'Markdown 粗体', value: 'md_bold' },
-    { label: 'Markdown 链接', value: 'md_link' },
-    { label: 'Markdown 列表项', value: 'md_bullet' },
-    { label: 'Markdown 列表', value: 'md_list' },
-    { label: 'Markdown 引用(单)', value: 'md_blockquote_single' },
-    { label: 'Markdown 引用(多)', value: 'md_blockquote_multi' },
-    { label: 'Markdown 代码', value: 'md_code' },
-    { label: 'Lorem 短语', value: 'bs' },
-    { label: 'Lorem 动词', value: 'bs_verb' },
-    { label: 'Lorem 形容词', value: 'bs_adj' },
-    { label: 'Lorem 名词', value: 'bs_noun' },
-  ]},
-  { type: 'group', label: '网络 & 技术', key: 'g_tech', children: [
-    { label: 'UUID v1', value: 'uuid_v1' },
-    { label: 'UUID v3', value: 'uuid_v3' },
-    { label: 'UUID v4', value: 'uuid_v4' },
-    { label: 'UUID v5', value: 'uuid_v5' },
-    { label: 'ULID', value: 'ferroid_ulid' },
-    { label: 'Twitter ID', value: 'ferroid_twitter_id' },
-    { label: 'Instagram ID', value: 'ferroid_instagram_id' },
-    { label: 'Mastodon ID', value: 'ferroid_mastodon_id' },
-    { label: 'Discord ID', value: 'ferroid_discord_id' },
-    { label: 'URL', value: 'url' },
-    { label: 'IP 地址', value: 'ip_address' },
-    { label: 'IPv4', value: 'ipv4' },
-    { label: 'IPv6', value: 'ipv6' },
-    { label: 'IP 通用', value: 'ip' },
-    { label: 'MAC 地址', value: 'mac_address' },
-    { label: '用户代理', value: 'user_agent' },
-    { label: 'MIME 类型', value: 'mime_type' },
-    { label: 'SemVer', value: 'semver' },
-    { label: 'SemVer(稳定)', value: 'semver_stable' },
-    { label: 'SemVer(不稳定)', value: 'semver_unstable' },
-    { label: '文件路径', value: 'file_path' },
-    { label: '目录路径', value: 'dir_path' },
-    { label: '图片 URL', value: 'image_url' },
-    { label: '图片(种子)', value: 'image_url_with_seed' },
-    { label: '图片(灰度)', value: 'image_url_grayscale' },
-    { label: '图片(模糊)', value: 'image_url_blur' },
-    { label: '图片(自定义)', value: 'image_url_custom' },
-    { label: 'Hex 颜色', value: 'hex_color' },
-    { label: 'RGB 颜色', value: 'rgb_color' },
-    { label: 'RGBA 颜色', value: 'rgba_color' },
-    { label: 'HSL 颜色', value: 'hsl_color' },
-    { label: 'HSLA 颜色', value: 'hsla_color' },
-    { label: '颜色通用', value: 'color' },
-  ]},
-  { type: 'group', label: '标记', key: 'g_misc', children: [
-    { label: '文件名', value: 'file_name' },
-    { label: '文件扩展名', value: 'file_extension' },
-    { label: '常量', value: 'constant' },
-    { label: '布尔值', value: 'boolean' },
-    { label: 'ISBN', value: 'isbn' },
-    { label: 'ISBN-10', value: 'isbn10' },
-    { label: 'ISBN-13', value: 'isbn13' },
-    { label: 'RFC 状态码', value: 'rfc_status' },
-    { label: 'HTTP 状态码', value: 'valid_status' },
-    { label: '车牌号', value: 'licence_plate' },
-    { label: '医保号', value: 'health_insurance' },
-    { label: '外键约束', value: 'foreign_key' },
-    { label: '序列循环', value: 'sequence' },
-    { label: '加权随机', value: 'weighted' },
-  ]},
+  {
+    type: 'group',
+    label: '数字',
+    key: 'g_numeric',
+    children: [
+      { label: '自动递增', value: 'auto_increment' },
+      { label: '随机整数', value: 'random_int' },
+      { label: '随机浮点数', value: 'random_float' },
+      { label: '随机小数', value: 'random_decimal' },
+      { label: '正态分布', value: 'normal' },
+      { label: '对数正态', value: 'log_normal' },
+      { label: '随机游走', value: 'random_walk' },
+      { label: '数字格式', value: 'number_with_format' },
+      { label: '单个数字', value: 'digit' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '人物信息',
+    key: 'g_person',
+    children: [
+      { label: '姓名', value: 'name' },
+      { label: '名', value: 'first_name' },
+      { label: '姓', value: 'last_name' },
+      { label: '姓名(带称谓)', value: 'name_with_title' },
+      { label: '头衔', value: 'title' },
+      { label: '姓名后缀', value: 'suffix' },
+      { label: '邮箱', value: 'email' },
+      { label: '安全邮箱', value: 'safe_email' },
+      { label: '免费邮箱', value: 'free_email' },
+      { label: '邮箱服务商', value: 'free_email_provider' },
+      { label: '邮箱域名', value: 'domain_suffix' },
+      { label: '用户名', value: 'username' },
+      { label: '密码', value: 'password' },
+      { label: '手机号', value: 'phone_number' },
+      { label: '手机号(纯数字)', value: 'cell_number' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '地址',
+    key: 'g_address',
+    children: [
+      { label: '国家', value: 'country' },
+      { label: '国家名', value: 'country_name' },
+      { label: '国家代码', value: 'country_code' },
+      { label: '城市', value: 'city' },
+      { label: '城市前缀', value: 'city_prefix' },
+      { label: '城市后缀', value: 'city_suffix' },
+      { label: '州/省', value: 'state_name' },
+      { label: '州缩写', value: 'state_abbr' },
+      { label: '街道名', value: 'street_name' },
+      { label: '街道后缀', value: 'street_suffix' },
+      { label: '邮编', value: 'zip_code' },
+      { label: '邮编(通用)', value: 'post_code' },
+      { label: '楼号', value: 'building_number' },
+      { label: '二级地址', value: 'secondary_address' },
+      { label: '二级地址类型', value: 'secondary_address_type' },
+      { label: '经度', value: 'latitude' },
+      { label: '纬度', value: 'longitude' },
+      { label: 'GeoHash', value: 'geohash' },
+      { label: '时区', value: 'timezone' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '日期时间',
+    key: 'g_datetime',
+    children: [
+      { label: '日期', value: 'date' },
+      { label: '时间', value: 'time' },
+      { label: '日期时间', value: 'datetime' },
+      { label: '过去时间', value: 'datetime_before' },
+      { label: '将来时间', value: 'datetime_after' },
+      { label: '时间区间', value: 'datetime_between' },
+      { label: '递增序列', value: 'sequential_date' },
+      { label: '含缺失间隔', value: 'sequential_date_with_gaps' },
+      { label: '持续时间', value: 'duration' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '商业',
+    key: 'g_business',
+    children: [
+      { label: '公司名', value: 'company_name' },
+      { label: '公司后缀', value: 'company_suffix' },
+      { label: '职位', value: 'job_title' },
+      { label: '行业', value: 'industry' },
+      { label: '专业', value: 'profession' },
+      { label: '职级', value: 'seniority' },
+      { label: '领域', value: 'field' },
+      { label: '岗位', value: 'position' },
+      { label: '热词', value: 'buzzword' },
+      { label: '热词(中)', value: 'buzzword_middle' },
+      { label: '热词(尾)', value: 'buzzword_tail' },
+      { label: '口号', value: 'catch_phrase' },
+      { label: '币种代码', value: 'currency_code' },
+      { label: '币种名', value: 'currency_name' },
+      { label: '币种符号', value: 'currency_symbol' },
+      { label: '信用卡号', value: 'credit_card_number' },
+      { label: 'BIC', value: 'bic' },
+      { label: 'ISIN', value: 'isin' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '文本',
+    key: 'g_text',
+    children: [
+      { label: '句子', value: 'sentence' },
+      { label: '多句', value: 'sentences' },
+      { label: '段落', value: 'paragraph' },
+      { label: '多段落', value: 'paragraphs' },
+      { label: '单词组', value: 'words' },
+      { label: '单个单词', value: 'word' },
+      { label: '正则', value: 'regex' },
+      { label: '模板', value: 'template' },
+      { label: 'Markdown 斜体', value: 'md_italic' },
+      { label: 'Markdown 粗体', value: 'md_bold' },
+      { label: 'Markdown 链接', value: 'md_link' },
+      { label: 'Markdown 列表项', value: 'md_bullet' },
+      { label: 'Markdown 列表', value: 'md_list' },
+      { label: 'Markdown 引用(单)', value: 'md_blockquote_single' },
+      { label: 'Markdown 引用(多)', value: 'md_blockquote_multi' },
+      { label: 'Markdown 代码', value: 'md_code' },
+      { label: 'Lorem 短语', value: 'bs' },
+      { label: 'Lorem 动词', value: 'bs_verb' },
+      { label: 'Lorem 形容词', value: 'bs_adj' },
+      { label: 'Lorem 名词', value: 'bs_noun' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '网络 & 技术',
+    key: 'g_tech',
+    children: [
+      { label: 'UUID v1', value: 'uuid_v1' },
+      { label: 'UUID v3', value: 'uuid_v3' },
+      { label: 'UUID v4', value: 'uuid_v4' },
+      { label: 'UUID v5', value: 'uuid_v5' },
+      { label: 'ULID', value: 'ferroid_ulid' },
+      { label: 'Twitter ID', value: 'ferroid_twitter_id' },
+      { label: 'Instagram ID', value: 'ferroid_instagram_id' },
+      { label: 'Mastodon ID', value: 'ferroid_mastodon_id' },
+      { label: 'Discord ID', value: 'ferroid_discord_id' },
+      { label: 'URL', value: 'url' },
+      { label: 'IP 地址', value: 'ip_address' },
+      { label: 'IPv4', value: 'ipv4' },
+      { label: 'IPv6', value: 'ipv6' },
+      { label: 'IP 通用', value: 'ip' },
+      { label: 'MAC 地址', value: 'mac_address' },
+      { label: '用户代理', value: 'user_agent' },
+      { label: 'MIME 类型', value: 'mime_type' },
+      { label: 'SemVer', value: 'semver' },
+      { label: 'SemVer(稳定)', value: 'semver_stable' },
+      { label: 'SemVer(不稳定)', value: 'semver_unstable' },
+      { label: '文件路径', value: 'file_path' },
+      { label: '目录路径', value: 'dir_path' },
+      { label: '图片 URL', value: 'image_url' },
+      { label: '图片(种子)', value: 'image_url_with_seed' },
+      { label: '图片(灰度)', value: 'image_url_grayscale' },
+      { label: '图片(模糊)', value: 'image_url_blur' },
+      { label: '图片(自定义)', value: 'image_url_custom' },
+      { label: 'Hex 颜色', value: 'hex_color' },
+      { label: 'RGB 颜色', value: 'rgb_color' },
+      { label: 'RGBA 颜色', value: 'rgba_color' },
+      { label: 'HSL 颜色', value: 'hsl_color' },
+      { label: 'HSLA 颜色', value: 'hsla_color' },
+      { label: '颜色通用', value: 'color' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '标记',
+    key: 'g_misc',
+    children: [
+      { label: '文件名', value: 'file_name' },
+      { label: '文件扩展名', value: 'file_extension' },
+      { label: '常量', value: 'constant' },
+      { label: '布尔值', value: 'boolean' },
+      { label: 'ISBN', value: 'isbn' },
+      { label: 'ISBN-10', value: 'isbn10' },
+      { label: 'ISBN-13', value: 'isbn13' },
+      { label: 'RFC 状态码', value: 'rfc_status' },
+      { label: 'HTTP 状态码', value: 'valid_status' },
+      { label: '车牌号', value: 'licence_plate' },
+      { label: '医保号', value: 'health_insurance' },
+      { label: '外键约束', value: 'foreign_key' },
+      { label: '序列循环', value: 'sequence' },
+      { label: '加权随机', value: 'weighted' },
+    ],
+  },
 ]
 
 const formatExtMap: Record<string, { ext: string; label: string }> = {
@@ -701,9 +804,8 @@ async function onExportFile(format: string) {
       filters: [{ name: `${fmt.label} 文件`, extensions: [fmt.ext] }],
     })
     if (!filePath) return
-    const backendFormat = format === 'sql'
-      ? 'SqlInsert'
-      : format.charAt(0).toUpperCase() + format.slice(1)
+    const backendFormat =
+      format === 'sql' ? 'SqlInsert' : format.charAt(0).toUpperCase() + format.slice(1)
     await store.doExport(backendFormat as MockExportFormat, filePath)
     message.success(`已导出到: ${filePath}`)
   } catch (e) {
@@ -754,7 +856,9 @@ async function onReGenerateV2(historyId: string) {
       message.warning('该历史记录无字段配置')
       return
     }
-    message.success(`已从历史恢复 ${detail.task.tableName}（${detail.columns.length} 列），请点击生成按钮`)
+    message.success(
+      `已从历史恢复 ${detail.task.tableName}（${detail.columns.length} 列），请点击生成按钮`
+    )
   } catch (e) {
     message.error(`加载历史详情失败: ${String(e)}`)
   }
@@ -801,8 +905,11 @@ function formatTimeStr(timestamp: string): string {
 async function loadHistory() {
   const projectPath = projectStore.projectPath
   if (!projectPath) return
-  try { await store.loadHistoryV2(projectPath, 20) }
-  catch { /* history load is non-critical */ }
+  try {
+    await store.loadHistoryV2(projectPath, 20)
+  } catch {
+    /* history load is non-critical */
+  }
 }
 
 async function onSaveTemplate() {
@@ -824,8 +931,11 @@ async function onSaveTemplate() {
 async function onRefreshTemplates() {
   const projectPath = projectStore.projectPath
   if (!projectPath) return
-  try { await store.loadUserTemplates(projectPath) }
-  catch { /* template load is non-critical */ }
+  try {
+    await store.loadUserTemplates(projectPath)
+  } catch {
+    /* template load is non-critical */
+  }
 }
 
 async function onApplyUserTemplate(templateId: string) {
@@ -880,7 +990,10 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-.header-actions { display: flex; gap: 2px; }
+.header-actions {
+  display: flex;
+  gap: 2px;
+}
 
 .panel-body {
   flex: 1;
@@ -958,13 +1071,32 @@ onMounted(() => {
   align-items: center;
 }
 
-.col-name { flex: 0 0 110px; }
-.col-type { width: 100px; flex-shrink: 0; }
-.col-dt-param { width: 64px; flex-shrink: 0; }
-.col-dt-param-sm { width: 52px; flex-shrink: 0; }
-.col-gen { flex: 1; min-width: 120px; }
-.col-null { width: 72px; flex-shrink: 0; }
-.col-fx { flex-shrink: 0; }
+.col-name {
+  flex: 0 0 110px;
+}
+.col-type {
+  width: 100px;
+  flex-shrink: 0;
+}
+.col-dt-param {
+  width: 64px;
+  flex-shrink: 0;
+}
+.col-dt-param-sm {
+  width: 52px;
+  flex-shrink: 0;
+}
+.col-gen {
+  flex: 1;
+  min-width: 120px;
+}
+.col-null {
+  width: 72px;
+  flex-shrink: 0;
+}
+.col-fx {
+  flex-shrink: 0;
+}
 
 .generate-section {
   display: flex;
@@ -1020,7 +1152,9 @@ onMounted(() => {
   transition: background 0.15s;
 }
 
-.history-item:hover { background: var(--color-hover); }
+.history-item:hover {
+  background: var(--color-hover);
+}
 
 .history-item-left {
   display: flex;
@@ -1029,10 +1163,21 @@ onMounted(() => {
   font-size: var(--font-size-sm);
 }
 
-.history-table { color: var(--color-text-primary); font-weight: 500; }
-.history-rows { color: var(--color-text-secondary); }
-.history-status { color: var(--brand-success); font-size: var(--font-size-xs); }
-.history-item-right { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.history-table {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+.history-rows {
+  color: var(--color-text-secondary);
+}
+.history-status {
+  color: var(--brand-success);
+  font-size: var(--font-size-xs);
+}
+.history-item-right {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
 
 .save-template-form {
   display: flex;

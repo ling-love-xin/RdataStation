@@ -12,24 +12,24 @@
 
 ## 命令分类
 
-| 分类         | 命令模块                      | 命令数   |
-| ------------ | ----------------------------- | -------- |
-| 连接管理     | `connection_commands`         | ~15      |
-| 驱动管理     | `driver_commands`             | ~4       |
-| SQL 执行     | `sql_commands`                | ~12      |
-| 元数据导航 🔗| `metadata_commands`           | 9        |
-| 项目管理     | `project_commands`            | ~12      |
-| 项目存储     | `project_store_commands`      | ~8       |
-| 元数据缓存   | `metadata_cache_commands`     | ~8       |
-| 缓存预热     | `cache_warming_commands`      | ~9       |
-| 分析资源     | `analytics_resource_commands` | ~25      |
-| 洞察分析     | `insight_commands`            | ~10      |
-| 联邦查询     | `federation_commands`         | ~2       |
-| 草稿箱       | `scratchpad_commands`         | ~20      |
-| SQL 解析     | `sql_parse_commands`          | ~6       |
-| 数据导出     | `export_commands`             | ~1       |
-| 模拟数据     | `mock_commands`               | ~12      |
-| DuckDB 连接池| `duckdb_pool_commands`        | ~3       |
+| 分类          | 命令模块                      | 命令数 |
+| ------------- | ----------------------------- | ------ |
+| 连接管理      | `connection_commands`         | ~15    |
+| 驱动管理      | `driver_commands`             | ~4     |
+| SQL 执行      | `sql_commands`                | ~12    |
+| 元数据导航 🔗 | `metadata_commands`           | 9      |
+| 项目管理      | `project_commands`            | ~12    |
+| 项目存储      | `project_store_commands`      | ~8     |
+| 元数据缓存    | `metadata_cache_commands`     | ~8     |
+| 缓存预热      | `cache_warming_commands`      | ~9     |
+| 分析资源      | `analytics_resource_commands` | ~25    |
+| 洞察分析      | `insight_commands`            | ~10    |
+| 联邦查询      | `federation_commands`         | ~2     |
+| 草稿箱        | `scratchpad_commands`         | ~20    |
+| SQL 解析      | `sql_parse_commands`          | ~6     |
+| 数据导出      | `export_commands`             | ~1     |
+| 模拟数据      | `mock_commands`               | ~12    |
+| DuckDB 连接池 | `duckdb_pool_commands`        | ~3     |
 
 ## 连接管理
 
@@ -303,6 +303,7 @@ const result = await invoke('execute_transaction', {
 **缓存层（R14 更新）**：
 
 所有 8 个 `load_*` 命令采用 **Cache-Aside（旁路缓存）** 策略：
+
 ```
 请求 → check L1 MetadataCache (LRU, TTL 300s)
   ├── 命中 → 返回（0ms）
@@ -310,22 +311,23 @@ const result = await invoke('execute_transaction', {
 ```
 
 **共享键设计**：
+
 - `load_catalogs` 和 `load_databases` **共享** `Databases` 缓存键
 - `load_tables` 和 `load_views` **共享** `Tables` 缓存键
 
 **全覆盖状态（R15）**：
 
-| 命令 | 缓存键 | Trait 方法 | 状态 |
-|:---|:---|:---|:---:|
-| `load_catalogs` | Databases | `list_databases()` | ✅ R13 |
-| `load_databases` | Databases（共享） | `list_databases()` | ✅ R13 |
-| `load_schemas` | Schemas | `list_schemas()` | ✅ R13 |
-| `load_tables` | Tables | `list_tables()` | ✅ R13 |
-| `load_views` | Tables（共享） | `list_tables() + filter` | ✅ R13 |
-| `load_columns` | Columns | `list_columns()` | ✅ R14 |
-| `load_procedures` | Procedures | `list_procedures()` | ✅ R14 |
-| `load_functions` | Functions | `list_functions()` | ✅ R14 |
-| `load_routine_source` | RoutineSource | `get_routine_source()` | ✅ R15 |
+| 命令                  | 缓存键            | Trait 方法               |  状态  |
+| :-------------------- | :---------------- | :----------------------- | :----: |
+| `load_catalogs`       | Databases         | `list_databases()`       | ✅ R13 |
+| `load_databases`      | Databases（共享） | `list_databases()`       | ✅ R13 |
+| `load_schemas`        | Schemas           | `list_schemas()`         | ✅ R13 |
+| `load_tables`         | Tables            | `list_tables()`          | ✅ R13 |
+| `load_views`          | Tables（共享）    | `list_tables() + filter` | ✅ R13 |
+| `load_columns`        | Columns           | `list_columns()`         | ✅ R14 |
+| `load_procedures`     | Procedures        | `list_procedures()`      | ✅ R14 |
+| `load_functions`      | Functions         | `list_functions()`       | ✅ R14 |
+| `load_routine_source` | RoutineSource     | `get_routine_source()`   | ✅ R15 |
 
 - 断开连接时自动清除缓存（`ConnectionManager::remove_connection()` → `CacheManager::invalidate_connection()`）
 - 手动刷新 F5 前请调用 `invalidate_metadata_cache`（见下方）
@@ -436,7 +438,7 @@ interface SchemaMeta {
 ```typescript
 interface TableMeta {
   name: string
-  type: string  // "table" | "view"
+  type: string // "table" | "view"
 }
 // 返回: TableMeta[]
 ```
@@ -462,7 +464,7 @@ interface TableMeta {
 ```typescript
 interface ViewMeta {
   name: string
-  type: "view"
+  type: 'view'
 }
 // 返回: ViewMeta[]
 ```
@@ -489,10 +491,10 @@ interface ViewMeta {
 ```typescript
 interface ColumnMeta {
   name: string
-  dataType: string           // 列数据类型（如 "varchar", "integer"）
-  isNullable: boolean        // 是否可为 null
+  dataType: string // 列数据类型（如 "varchar", "integer"）
+  isNullable: boolean // 是否可为 null
   defaultValue: string | null // 默认值
-  isPrimaryKey: boolean      // 是否主键
+  isPrimaryKey: boolean // 是否主键
 }
 // 返回: ColumnMeta[]
 ```
@@ -583,7 +585,7 @@ interface FunctionMeta {
   dbName: string
   schemaName: string
   routineName: string
-  routineKind: string  // "procedure" | "function"
+  routineKind: string // "procedure" | "function"
 }
 ```
 
@@ -592,8 +594,8 @@ interface FunctionMeta {
 ```typescript
 interface RoutineSourceMeta {
   name: string
-  routineKind: string          // "procedure" 或 "function"
-  sourceCode: string | null    // null = 该数据库不支持此 routine
+  routineKind: string // "procedure" 或 "function"
+  sourceCode: string | null // null = 该数据库不支持此 routine
 }
 ```
 
@@ -601,13 +603,14 @@ interface RoutineSourceMeta {
 | 数据库 | Trait 方法 | SQL | 返回 |
 |--------|-----------|-----|------|
 | PostgreSQL | `get_routine_source()` | `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname=? AND prokind=?` | 完整 CREATE OR REPLACE 语句 |
-| MySQL | `get_routine_source()` | `SHOW CREATE PROCEDURE/FUNCTION`  | 完整 CREATE 语句（含 DEFINER） |
+| MySQL | `get_routine_source()` | `SHOW CREATE PROCEDURE/FUNCTION` | 完整 CREATE 语句（含 DEFINER） |
 | SQLite | `get_routine_source()` → 默认 | — | `null` |
 | DuckDB | `get_routine_source()` → 默认 | — | `null` |
 
 **缓存**：L1 MetadataCache，键 `RoutineSource`，TTL 300s（routine 定义变更频率低）。
 
 **前端集成**：
+
 - 双击导航树中的 procedure/function → `loadRoutineSource()` → Monaco Editor 只读 Tab
 - 悬停 → 提取 DDL 第一行作为签名（前端正则解析）
 - 右键 → "Copy DDL"
@@ -673,8 +676,8 @@ interface RoutineSourceMeta {
 ```typescript
 {
   connId: string
-  queryId: string    // 由 execute_sql 返回的查询 ID
-  limit: number       // 预览行数，默认 100
+  queryId: string // 由 execute_sql 返回的查询 ID
+  limit: number // 预览行数，默认 100
 }
 ```
 
@@ -724,18 +727,19 @@ void  // 异步返回 null
 ```
 
 **调用时机**：
+
 ```
 用户按 F5 → invalidate_metadata_cache(connId) → load_catalogs(connId) → load_schemas(connId, db) → ...
 ```
 
 **缓存失效策略**：
 
-| 触发条件 | 方式 | 说明 |
-|:---|:---|:---|
-| 用户断开连接 | `ConnectionManager::remove_connection()` 自动调用 | ✅ 已实现 |
-| 用户手动 F5 | 前端调用 `invalidate_metadata_cache` | ✅ 已实现 |
-| TTL 到期（300s） | LRU 自动淘汰 | ✅ 已实现 |
-| DDL 执行后 | 前端调用 `invalidate` + 重新加载 | 需前端集成 |
+| 触发条件         | 方式                                              | 说明       |
+| :--------------- | :------------------------------------------------ | :--------- |
+| 用户断开连接     | `ConnectionManager::remove_connection()` 自动调用 | ✅ 已实现  |
+| 用户手动 F5      | 前端调用 `invalidate_metadata_cache`              | ✅ 已实现  |
+| TTL 到期（300s） | LRU 自动淘汰                                      | ✅ 已实现  |
+| DDL 执行后       | 前端调用 `invalidate` + 重新加载                  | 需前端集成 |
 
 ---
 
@@ -761,52 +765,52 @@ Connection（连接）
 
 ```typescript
 interface NavigationConfig {
-  hasCatalogs: boolean                   // 📍 网络数据库=true，文件数据库=false
-  hasSchemas: boolean                    // Schema 层级有无
-  systemSchemas: string[]                // 系统 Schema（默认隐藏）
+  hasCatalogs: boolean // 📍 网络数据库=true，文件数据库=false
+  hasSchemas: boolean // Schema 层级有无
+  systemSchemas: string[] // 系统 Schema（默认隐藏）
   folders: {
-    tables:     FolderConfig             // Tables 文件夹
-    views:      FolderConfig             // Views 文件夹
-    functions:  FolderConfig             // Functions 文件夹
-    procedures: FolderConfig             // Procedures 文件夹
-    sequences:  FolderConfig             // Sequences 文件夹
-    triggers:   FolderConfig             // Triggers 文件夹
+    tables: FolderConfig // Tables 文件夹
+    views: FolderConfig // Views 文件夹
+    functions: FolderConfig // Functions 文件夹
+    procedures: FolderConfig // Procedures 文件夹
+    sequences: FolderConfig // Sequences 文件夹
+    triggers: FolderConfig // Triggers 文件夹
   }
   tableChildren: {
-    columns:     boolean                 // 表下是否显示列
-    indexes:     boolean                 // 表下是否显示索引
-    constraints: boolean                 // 表下是否显示约束
-    triggers:    boolean                 // 表下是否显示触发器
-    foreignKeys: boolean                 // 表下是否显示外键
-    references:  boolean                 // 表下是否显示引用
+    columns: boolean // 表下是否显示列
+    indexes: boolean // 表下是否显示索引
+    constraints: boolean // 表下是否显示约束
+    triggers: boolean // 表下是否显示触发器
+    foreignKeys: boolean // 表下是否显示外键
+    references: boolean // 表下是否显示引用
   }
 }
 
 interface FolderConfig {
-  enabled: boolean                       // 是否启用此文件夹
-  label: string                          // 显示标签
-  icon: string                           // 图标名称
-  childTypes: string[]                   // 子节点类型
+  enabled: boolean // 是否启用此文件夹
+  label: string // 显示标签
+  icon: string // 图标名称
+  childTypes: string[] // 子节点类型
 }
 ```
 
 ### 数据库差异示例
 
-| 配置项 | PostgreSQL | MySQL | SQLite | DuckDB |
-|--------|:---:|:---:|:---:|:---:|
-| hasCatalogs | ✅ | ✅ | ❌ | ❌ |
-| hasSchemas | ✅ | ❌ | ❌ | ❌ |
-| tables folder | ✅ | ✅ | ✅ | ✅ |
-| views folder | ✅ | ✅ | ✅ | ✅ |
-| functions folder | ✅ | ✅ | ❌ | ✅ |
-| procedures folder | ✅ | ✅ | ❌ | ❌ |
-| sequences folder | ✅ | ❌ | ❌ | ✅ |
-| triggers folder | ✅ | ❌ | ❌ | ❌ |
-| tableChildren.columns | ✅ | ✅ | ✅ | ✅ |
-| tableChildren.indexes | ✅ | ✅ | ❌ | ❌ |
-| tableChildren.constraints | ✅ | ✅ | ❌ | ❌ |
-| tableChildren.foreignKeys | ✅ | ✅ | ❌ | ❌ |
-| systemSchemas | pg_catalog,pg_toast | mysql,sys | [] | pg_catalog |
+| 配置项                    |     PostgreSQL      |   MySQL   | SQLite |   DuckDB   |
+| ------------------------- | :-----------------: | :-------: | :----: | :--------: |
+| hasCatalogs               |         ✅          |    ✅     |   ❌   |     ❌     |
+| hasSchemas                |         ✅          |    ❌     |   ❌   |     ❌     |
+| tables folder             |         ✅          |    ✅     |   ✅   |     ✅     |
+| views folder              |         ✅          |    ✅     |   ✅   |     ✅     |
+| functions folder          |         ✅          |    ✅     |   ❌   |     ✅     |
+| procedures folder         |         ✅          |    ✅     |   ❌   |     ❌     |
+| sequences folder          |         ✅          |    ❌     |   ❌   |     ✅     |
+| triggers folder           |         ✅          |    ❌     |   ❌   |     ❌     |
+| tableChildren.columns     |         ✅          |    ✅     |   ✅   |     ✅     |
+| tableChildren.indexes     |         ✅          |    ✅     |   ❌   |     ❌     |
+| tableChildren.constraints |         ✅          |    ✅     |   ❌   |     ❌     |
+| tableChildren.foreignKeys |         ✅          |    ✅     |   ❌   |     ❌     |
+| systemSchemas             | pg_catalog,pg_toast | mysql,sys |   []   | pg_catalog |
 
 ---
 
@@ -836,9 +840,9 @@ interface FolderConfig {
 
 **参数**：
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|:---:|------|
-| `conn_id` | `str` | ❌ | 连接 ID，不传则使用当前活动连接 |
+| 字段      | 类型  | 必填 | 说明                            |
+| --------- | ----- | :--: | ------------------------------- |
+| `conn_id` | `str` |  ❌  | 连接 ID，不传则使用当前活动连接 |
 
 **返回**：`bool`（true=连接存活，失败返回 CoreError）
 
@@ -865,14 +869,14 @@ R18 增强后，历史记录响应包含完整审计字段：
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `db_type` | `Option<String>` | 数据库类型（R18 新增） |
-| `duration_ms` | `Option<u64>` | 执行耗时毫秒（R18 新增） |
-| `success` | `Option<bool>` | 是否成功（R18 新增） |
-| `error_message` | `Option<String>` | 错误信息（R18 新增） |
-| `rows_affected` | `Option<u64>` | 影响行数（R18 新增） |
-| `rows_returned` | `Option<u64>` | 返回行数（R18 新增） |
+| 字段            | 类型             | 说明                     |
+| --------------- | ---------------- | ------------------------ |
+| `db_type`       | `Option<String>` | 数据库类型（R18 新增）   |
+| `duration_ms`   | `Option<u64>`    | 执行耗时毫秒（R18 新增） |
+| `success`       | `Option<bool>`   | 是否成功（R18 新增）     |
+| `error_message` | `Option<String>` | 错误信息（R18 新增）     |
+| `rows_affected` | `Option<u64>`    | 影响行数（R18 新增）     |
+| `rows_returned` | `Option<u64>`    | 返回行数（R18 新增）     |
 
 ---
 
@@ -965,6 +969,7 @@ R18 增强后，历史记录响应包含完整审计字段：
 **返回类型变更**：`SchemaObjectResponse[]` → `ColumnDetail[]`。
 
 新返回类型包含完整列元数据：
+
 ```typescript
 interface ColumnDetail {
   name: string
@@ -1093,16 +1098,16 @@ interface DriverDescriptor {
   description: string
   version: string
   icon?: string
-  driver_kind: string          // "native" | "jdbc" | "odbc" | "wasm" | "adbc" | "http" | "python" | "js"
+  driver_kind: string // "native" | "jdbc" | "odbc" | "wasm" | "adbc" | "http" | "python" | "js"
   default_port: number | null
-  category: string             // "relational" | "file-based" | "nosql" | "analytics" | "cloud"
+  category: string // "relational" | "file-based" | "nosql" | "analytics" | "cloud"
   require_database: boolean
   require_file: boolean
   supports_ssl: boolean
   supports_ssh_tunnel: boolean
   supports_http_proxy: boolean
   supports_socks_proxy: boolean
-  url_template?: string        // "postgres://{username}:{password}@{host}:{port}/{database}"
+  url_template?: string // "postgres://{username}:{password}@{host}:{port}/{database}"
   connection_fields: DriverField[]
   features: string[]
   navigation?: {
@@ -1517,19 +1522,19 @@ interface ProjectConfig {
 
 ## 版本历史
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
+| 版本 | 日期       | 变更                                                                                      |
+| ---- | ---------- | ----------------------------------------------------------------------------------------- | ------------ |
 | v3.8 | 2026-05-10 | R22: connection_commands → CoreError、From<String><think> for CoreError、核心三件套全覆盖 |
-| v3.9 | 2026-05-10 | R23: 评分校准到 8.6、result_commands CoreError、TODO 清零 |
-| v3.8 | 2026-05-10 | R22: connection_commands → CoreError、From<String> for CoreError、核心三件套全覆盖 |
-| v3.7 | 2026-05-10 | R21: P0+P1+P2 全修复、connect_database 脱敏、pool_status 真实数据、eprintln→tracing | check 0 错误 |
-| v3.6 | 2026-05-10 | R20: MySQL 集成测试、旧数据迁移。新增 P0 明文 URL 响应问题标记 |
-| v3.5 | 2026-05-10 | R19: URL 密码脱敏、前端 API 完整（getApiVersion/pingConnection/SqlAuditRecord） |
-| v3.4 | 2026-05-10 | R18: metadata_commands → CoreError、API 版本化、AES-256-GCM 加密 |
-| v3.3 | 2026-05-10 | R17: 二次审计修复、编译警告清零 |
-| v3.2 | 2026-05-10 | R16: SQL 注入防护、安全加固 |
-| v3.1 | 2026-05-10 | R15: RoutineSource DDL 查看 |
-| v3.0 | 2026-05-10 | R14: 字段/函数/存储过程 L1 缓存全覆盖 |
+| v3.9 | 2026-05-10 | R23: 评分校准到 8.6、result_commands CoreError、TODO 清零                                 |
+| v3.8 | 2026-05-10 | R22: connection_commands → CoreError、From<String> for CoreError、核心三件套全覆盖        |
+| v3.7 | 2026-05-10 | R21: P0+P1+P2 全修复、connect_database 脱敏、pool_status 真实数据、eprintln→tracing       | check 0 错误 |
+| v3.6 | 2026-05-10 | R20: MySQL 集成测试、旧数据迁移。新增 P0 明文 URL 响应问题标记                            |
+| v3.5 | 2026-05-10 | R19: URL 密码脱敏、前端 API 完整（getApiVersion/pingConnection/SqlAuditRecord）           |
+| v3.4 | 2026-05-10 | R18: metadata_commands → CoreError、API 版本化、AES-256-GCM 加密                          |
+| v3.3 | 2026-05-10 | R17: 二次审计修复、编译警告清零                                                           |
+| v3.2 | 2026-05-10 | R16: SQL 注入防护、安全加固                                                               |
+| v3.1 | 2026-05-10 | R15: RoutineSource DDL 查看                                                               |
+| v3.0 | 2026-05-10 | R14: 字段/函数/存储过程 L1 缓存全覆盖                                                     |
 
 **返回**：`void`
 
@@ -2009,20 +2014,21 @@ export async function getTables(
 
 ### 一、核心设计理念对比
 
-| 设计理念 | DBeaver | DataGrip | RdataStation |
-|:---|:---|:---|:---|
-| **插件模型** | Eclipse 插件（plugin.xml） | IntelliJ 插件（plugin.xml） | JSON 配置 + Rust trait（schemas/{db}.json） |
-| **驱动发现** | 插件注册表 | 插件注册表 | DriverRegistry（OnceLock + auto_register） |
-| **连接管理** | 连接池（DBCP） | 连接池（内置） | ConnectionManager（sqlx Pool） |
-| **元数据浏览** | JDBC DatabaseMetaData | JDBC DatabaseMetaData | Database trait `list_*` 方法 |
-| **SQL 编辑器** | 自研编辑器 | IntelliJ 编辑器 | Monaco Editor |
-| **数据表格** | 自研表格 | IntelliJ 表格 | AG Grid（虚拟滚动） |
-| **布局系统** | Eclipse RCP | IntelliJ Platform | dockview-vue（VSCode 风格） |
-| **沙箱隔离** | ❌ 无 | ❌ 无 | ✅ Wasm 插件（wasmtime + WASI） |
+| 设计理念       | DBeaver                    | DataGrip                    | RdataStation                                |
+| :------------- | :------------------------- | :-------------------------- | :------------------------------------------ |
+| **插件模型**   | Eclipse 插件（plugin.xml） | IntelliJ 插件（plugin.xml） | JSON 配置 + Rust trait（schemas/{db}.json） |
+| **驱动发现**   | 插件注册表                 | 插件注册表                  | DriverRegistry（OnceLock + auto_register）  |
+| **连接管理**   | 连接池（DBCP）             | 连接池（内置）              | ConnectionManager（sqlx Pool）              |
+| **元数据浏览** | JDBC DatabaseMetaData      | JDBC DatabaseMetaData       | Database trait `list_*` 方法                |
+| **SQL 编辑器** | 自研编辑器                 | IntelliJ 编辑器             | Monaco Editor                               |
+| **数据表格**   | 自研表格                   | IntelliJ 表格               | AG Grid（虚拟滚动）                         |
+| **布局系统**   | Eclipse RCP                | IntelliJ Platform           | dockview-vue（VSCode 风格）                 |
+| **沙箱隔离**   | ❌ 无                      | ❌ 无                       | ✅ Wasm 插件（wasmtime + WASI）             |
 
 ### 二、配置驱动对比
 
 #### DBeaver：plugin.xml
+
 ```xml
 <extension point="org.jkiss.dbeaver.dataSourceProvider">
     <datasource class="..." id="postgresql" label="PostgreSQL" ...>
@@ -2032,6 +2038,7 @@ export async function getTables(
 ```
 
 #### RdataStation：schemas/{db}.json
+
 ```json
 {
   "driver_id": "postgres",
@@ -2047,6 +2054,7 @@ export async function getTables(
 ```
 
 **关键对比**：
+
 - DBeaver 使用 XML + Java 类组合定义驱动
 - DataGrip 使用 Java 类 + 注解
 - RdataStation 使用 JSON + Rust trait，**零代码扩展新数据库类型**
@@ -2073,17 +2081,17 @@ RdataStation:
 
 > 更新于 R10（v10.0 / v2.5）：URL 模板引擎消除了后端硬编码 match。
 
-| 新增数据库（如 ClickHouse） | DBeaver | DataGrip | RdataStation（R9） | RdataStation（R10） |
-|:---|:---|:---|:---|:---|
-| 创建连接表单 | XML 配置 + Java 类 | Java 类 | 1 个 JSON 文件 | 1 个 JSON 文件 |
-| 导航树结构 | XML treeInjection | Java 实现 | JSON `navigation` 字段 | JSON `navigation` 字段 |
-| URL 构建 | `<urlTemplate>` | Java 硬编码 | 3 处 Rust 硬编码 | JSON `urlTemplate` ✅ |
-| 驱动种类声明 | `<driverType>` | Java 类 | Rust `DriverKind` 枚举 | JSON `driverKind` ✅ |
-| 元数据查询 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait | Rust `impl Database` trait |
-| SQL 执行 | Java JDBC 实现 | Java 实现 | Rust `impl Database` trait | Rust `impl Database` trait |
-| 前端改动 | Java UI 类 | Java UI 类 | **零改动** ✅ | **零改动** ✅ |
-| 后端核心改动 | — | — | 3 处代码 | **零改动** ✅ |
-| **总计代码量** | ~500-1000 行 Java | ~500-1000 行 Java | ~1 JSON + ~250 行 Rust | ~1 JSON + ~200 行 Rust |
+| 新增数据库（如 ClickHouse） | DBeaver            | DataGrip          | RdataStation（R9）         | RdataStation（R10）        |
+| :-------------------------- | :----------------- | :---------------- | :------------------------- | :------------------------- |
+| 创建连接表单                | XML 配置 + Java 类 | Java 类           | 1 个 JSON 文件             | 1 个 JSON 文件             |
+| 导航树结构                  | XML treeInjection  | Java 实现         | JSON `navigation` 字段     | JSON `navigation` 字段     |
+| URL 构建                    | `<urlTemplate>`    | Java 硬编码       | 3 处 Rust 硬编码           | JSON `urlTemplate` ✅      |
+| 驱动种类声明                | `<driverType>`     | Java 类           | Rust `DriverKind` 枚举     | JSON `driverKind` ✅       |
+| 元数据查询                  | Java JDBC 实现     | Java 实现         | Rust `impl Database` trait | Rust `impl Database` trait |
+| SQL 执行                    | Java JDBC 实现     | Java 实现         | Rust `impl Database` trait | Rust `impl Database` trait |
+| 前端改动                    | Java UI 类         | Java UI 类        | **零改动** ✅              | **零改动** ✅              |
+| 后端核心改动                | —                  | —                 | 3 处代码                   | **零改动** ✅              |
+| **总计代码量**              | ~500-1000 行 Java  | ~500-1000 行 Java | ~1 JSON + ~250 行 Rust     | ~1 JSON + ~200 行 Rust     |
 
 ### 五、RdataStation 的核心优势
 
@@ -2106,20 +2114,20 @@ SmartPool (动态缩放 + 健康检查) ← ✅ 已实现
 metadata_commands.rs 读取缓存？ ← ✅ R13 已集成
 ```
 
-| 优先级 | 差距项 | 说明 | 工作量 |
-|:---:|:---|:---|:---:|
-| ~~🔴 P0~~ | ~~metadata_commands 启用缓存~~ | ✅ **已完成**（R13） | — |
-| 🟡 P1 | Schema 选择器 | 后端 3 行 + 前端 2 天 | 2天 |
-| 🟡 P1 | 自省截断（大 Schema > 1000 表） | Trait 不改，`list_tables` 加截断逻辑 | 1天 |
-| 🟡 P1 | 元数据分离连接 | 大 Schema 场景 | 2天 |
-| 🟡 P1 | 启动延迟连接 | 多连接恢复 | 2天 |
-| 🟢 P2 | 连接类型 (Dev/Test/Prod) | ConnectionInfo 加字段 | 1天 |
-| 🟢 P2 | Bootstrap Queries | ConnectionConfig 加字段 | 0.5天 |
-| 🟢 P2 | 增量刷新 | 仅 PostgreSQL 有效 | 3天 |
-| 🟢 P2 | 智能刷新 | 成本/收益不对等 | 3天 |
-| P3 | Session Manager | Trait 扩展 | 5天 |
-| P3 | 后台任务系统 | Tauri events | 3天 |
-| ❌ P4 | 离线迷你目录 | **不适合桌面工具场景** | — |
+|  优先级   | 差距项                          | 说明                                 | 工作量 |
+| :-------: | :------------------------------ | :----------------------------------- | :----: |
+| ~~🔴 P0~~ | ~~metadata_commands 启用缓存~~  | ✅ **已完成**（R13）                 |   —    |
+|   🟡 P1   | Schema 选择器                   | 后端 3 行 + 前端 2 天                |  2天   |
+|   🟡 P1   | 自省截断（大 Schema > 1000 表） | Trait 不改，`list_tables` 加截断逻辑 |  1天   |
+|   🟡 P1   | 元数据分离连接                  | 大 Schema 场景                       |  2天   |
+|   🟡 P1   | 启动延迟连接                    | 多连接恢复                           |  2天   |
+|   🟢 P2   | 连接类型 (Dev/Test/Prod)        | ConnectionInfo 加字段                |  1天   |
+|   🟢 P2   | Bootstrap Queries               | ConnectionConfig 加字段              | 0.5天  |
+|   🟢 P2   | 增量刷新                        | 仅 PostgreSQL 有效                   |  3天   |
+|   🟢 P2   | 智能刷新                        | 成本/收益不对等                      |  3天   |
+|    P3     | Session Manager                 | Trait 扩展                           |  5天   |
+|    P3     | 后台任务系统                    | Tauri events                         |  3天   |
+|   ❌ P4   | 离线迷你目录                    | **不适合桌面工具场景**               |   —    |
 
 ### 七、总结
 

@@ -39,14 +39,14 @@
 SQL 是数据，Rust 是执行引擎，TOML 是合约
 ```
 
-| 原则 | 说明 |
-|------|------|
-| **规则驱动** | 所有分析逻辑通过 TOML 规则定义，Rust 代码零硬编码 SQL |
-| **DuckDB 沙箱** | 所有计算在 DuckDB 临时表中完成，不污染源数据库 |
-| **零拷贝传输** | 统计结果以 JSON 格式序列化，通过 Tauri IPC 传递 |
-| **懒加载** | 分析按需触发，不在查询时自动执行 |
-| **可插拔** | 规则引擎、质量评分、前端组件均支持扩展 |
-| **前端存算分离** | 原始数据仅在 DuckDB，前端只接收聚合统计结果 |
+| 原则             | 说明                                                  |
+| ---------------- | ----------------------------------------------------- |
+| **规则驱动**     | 所有分析逻辑通过 TOML 规则定义，Rust 代码零硬编码 SQL |
+| **DuckDB 沙箱**  | 所有计算在 DuckDB 临时表中完成，不污染源数据库        |
+| **零拷贝传输**   | 统计结果以 JSON 格式序列化，通过 Tauri IPC 传递       |
+| **懒加载**       | 分析按需触发，不在查询时自动执行                      |
+| **可插拔**       | 规则引擎、质量评分、前端组件均支持扩展                |
+| **前端存算分离** | 原始数据仅在 DuckDB，前端只接收聚合统计结果           |
 
 ### 1.3 与相关文档的关系
 
@@ -111,6 +111,7 @@ UI Layer ← IPC Layer ← Service Layer ← Insight Core ← Persistence
 ```
 
 **层级规则：**
+
 - UI 层只能通过 Tauri Command 调用后端
 - Tauri Command 只能调用 Service 层
 - Service 层可以调用 Insight Core 和 DuckDB Service
@@ -119,14 +120,14 @@ UI Layer ← IPC Layer ← Service Layer ← Insight Core ← Persistence
 
 ### 2.3 核心模块职责
 
-| 模块 | 文件 | 职责 |
-|------|------|------|
-| RuleRegistry | `insight/rule_registry.rs` | 加载、缓存、查询规则（内置+用户） |
-| RuleExecutor | `insight/rule_executor.rs` | 解析 SQL 模板 → 填充参数 → 执行 → 返回 JSON |
-| InsightEngine | `services/insight_engine.rs` | 协调列统计计算（类型检测 → 委托规则执行） |
-| QualityScorer | `services/quality_scorer.rs` | 四维度质量评分 + 表级质量聚合 |
-| SchemaAnalyzer | `insight/schema_analyzer.rs` | 外键推断、类型一致性、孤立表、健康评分 |
-| DuckDbService | `services/duckdb_service.rs` | DuckDB 实例管理、临时表生命周期、TTL 淘汰 |
+| 模块           | 文件                         | 职责                                        |
+| -------------- | ---------------------------- | ------------------------------------------- |
+| RuleRegistry   | `insight/rule_registry.rs`   | 加载、缓存、查询规则（内置+用户）           |
+| RuleExecutor   | `insight/rule_executor.rs`   | 解析 SQL 模板 → 填充参数 → 执行 → 返回 JSON |
+| InsightEngine  | `services/insight_engine.rs` | 协调列统计计算（类型检测 → 委托规则执行）   |
+| QualityScorer  | `services/quality_scorer.rs` | 四维度质量评分 + 表级质量聚合               |
+| SchemaAnalyzer | `insight/schema_analyzer.rs` | 外键推断、类型一致性、孤立表、健康评分      |
+| DuckDbService  | `services/duckdb_service.rs` | DuckDB 实例管理、临时表生命周期、TTL 淘汰   |
 
 ---
 
@@ -361,6 +362,7 @@ compute_column_quality(ColumnInsightFull) → QualityScore
 ```
 
 **版本对比流程：**
+
 ```
 用户点击历史版本
   → load_version_detail(version_id)
@@ -641,30 +643,40 @@ interface ColumnStats {
 
 // ===== 类型变体（tagged union） =====
 type ColumnStatsDetail =
-  | { kind: 'Numeric' } & NumericStatsDetail
-  | { kind: 'Text' } & TextStatsDetail
-  | { kind: 'DateTime' } & DateTimeStatsDetail
-  | { kind: 'Boolean' } & BooleanStatsDetail
+  | ({ kind: 'Numeric' } & NumericStatsDetail)
+  | ({ kind: 'Text' } & TextStatsDetail)
+  | ({ kind: 'DateTime' } & DateTimeStatsDetail)
+  | ({ kind: 'Boolean' } & BooleanStatsDetail)
 
 interface NumericStatsDetail {
-  min: number; max: number; avg: number; median: number
-  p25: number; p75: number
-  stddev: number | null; skewness: number | null
+  min: number
+  max: number
+  avg: number
+  median: number
+  p25: number
+  p75: number
+  stddev: number | null
+  skewness: number | null
   is_extreme: ExtremeValue[]
 }
 
 interface TextStatsDetail {
-  min_length: number; max_length: number
+  min_length: number
+  max_length: number
   top_values: TextFrequency[]
 }
 
 interface DateTimeStatsDetail {
-  earliest: string; latest: string; span_days: number
+  earliest: string
+  latest: string
+  span_days: number
   monthly_distribution: MonthlyBin[]
 }
 
 interface BooleanStatsDetail {
-  true_count: number; false_count: number; true_ratio: number
+  true_count: number
+  false_count: number
+  true_ratio: number
 }
 
 // ===== 质量评分 =====
@@ -676,7 +688,8 @@ interface QualityScore {
 
 // ===== 规则元数据 =====
 interface RuleMeta {
-  id: string; name: string
+  id: string
+  name: string
   category: 'column' | 'multi' | 'table' | 'quality'
   applies_to: string[]
   description: string | null
@@ -684,13 +697,14 @@ interface RuleMeta {
 }
 
 interface RenderHint {
-  component: string | null      // bar | line | pie | scatter
+  component: string | null // bar | line | pie | scatter
   display_order: number | null
 }
 
 // ===== Schema 洞察 =====
 interface SchemaInsightReport {
-  database: string; schema: string
+  database: string
+  schema: string
   table_count: number
   health_score: number
   foreign_keys: ForeignKeyCandidate[]
@@ -732,12 +746,12 @@ interface TableProfile {
 
 ### 5.5 跨组件通信机制
 
-| 通信方式 | 使用场景 | 示例 |
-|----------|----------|------|
-| Pinia Store | 洞察数据共享 | `insightStore.insightData` |
-| CustomEvent | 跨面板联动 | `open-column-insight` / `open-table-profile` |
-| Dockview API | 面板管理 | `api.addPanel()` / `api.focusPanel()` |
-| Store Signal | 异步请求 | `pendingVisualizationRequest` → watcher → addPanel |
+| 通信方式     | 使用场景     | 示例                                               |
+| ------------ | ------------ | -------------------------------------------------- |
+| Pinia Store  | 洞察数据共享 | `insightStore.insightData`                         |
+| CustomEvent  | 跨面板联动   | `open-column-insight` / `open-table-profile`       |
+| Dockview API | 面板管理     | `api.addPanel()` / `api.focusPanel()`              |
+| Store Signal | 异步请求     | `pendingVisualizationRequest` → watcher → addPanel |
 
 ---
 
@@ -1049,12 +1063,12 @@ L3: SQLite 快照缓存 (磁盘)
 
 ### 9.2 大表优化策略
 
-| 数据量级 | 策略 |
-|----------|------|
-| < 10K 行 | 直接 DuckDB 全表计算 |
-| 10K ~ 1M 行 | DuckDB 全表 + 采样统计（APPROX_QUANTILE） |
-| 1M ~ 10M 行 | 使用 DuckDB 分区并行 + 只计算关键统计 |
-| > 10M 行 | 采样分析（TABLESAMPLE） + 延迟加载 + 建议用户缩小范围 |
+| 数据量级    | 策略                                                  |
+| ----------- | ----------------------------------------------------- |
+| < 10K 行    | 直接 DuckDB 全表计算                                  |
+| 10K ~ 1M 行 | DuckDB 全表 + 采样统计（APPROX_QUANTILE）             |
+| 1M ~ 10M 行 | 使用 DuckDB 分区并行 + 只计算关键统计                 |
+| > 10M 行    | 采样分析（TABLESAMPLE） + 延迟加载 + 建议用户缩小范围 |
 
 **DuckDB 优化：** 利用 DuckDB 的列式存储和向量化执行，避免多次全表扫描。在单个 `get_column_insight_full` 调用中尽量合并多个聚合到一个 SQL 中。
 
@@ -1120,10 +1134,10 @@ Step 3: 前端
 ```
 DataVisualizationPanel 的 chartType 枚举:
   'bar' | 'line' | 'pie' | 'scatter'
-  
+
 扩展为:
   'bar' | 'line' | 'pie' | 'scatter' | 'heatmap' | 'boxplot' | 'treemap'
-  
+
 渲染方式:
   ECharts 配置对象工厂:
     createBarOption(data) → EChartsOption
@@ -1136,12 +1150,12 @@ DataVisualizationPanel 的 chartType 枚举:
 ```
 用户编写 quality 类规则:
   {project}/.RSMETA/insight-rules/my-quality-gate.rule.toml
-  
+
   [quality]
   gate = "Transform"
-  
+
   SQL 输出: { overall_score: 85, grade: "good", dimensions: [...] }
-  
+
   → RuleExecutor::execute_qualified()
   → 覆盖 / 合并原有的 QualityScore
   → 前端自动应用新评分
@@ -1162,7 +1176,7 @@ DataVisualizationPanel 的 chartType 枚举:
 示例:
   SQL 模板: "SELECT {col} FROM {table}"
   参数: col="amount", table="rs_001"
-  
+
   阶段1: "SELECT @col@ FROM @table@"
   阶段2: 'SELECT "amount" FROM "rs_001"'
 ```
@@ -1174,10 +1188,10 @@ DataVisualizationPanel 的 chartType 枚举:
 ```
 RuleExecutor::execute() 失败
   → CoreError::common("Rule execution failed: {rule_id}")
-  
+
 InsightEngine::get_column_insight_full() 失败
   → CoreError::common("DuckDB stats failed for '{column}': {error}")
-  
+
 Tauri Command 失败
   → Tauri::Error → 前端 catch
   → insightStore.error = error_message
@@ -1185,6 +1199,7 @@ Tauri Command 失败
 ```
 
 **设计约束：**
+
 - 禁止 `unwrap()` / `expect()` 在生产代码中
 - 所有错误必须通过 `CoreError` 传递
 - 错误信息不得暴露内部路径或连接凭据
@@ -1213,64 +1228,64 @@ Tauri Command 失败
 
 ### v2.1 (下一阶段) — 类型覆盖补齐
 
-| 任务 | 优先级 | 预估影响 |
-|------|:--:|------|
-| BLOB 类型显式处理 | P0 | 修复 fallthrough 到 Text 的 bug |
-| 全 NULL 列类型检测增强 | P0 | 边缘情况鲁棒性 |
-| JSON 列基础统计 MVP | P1 | 高频需求，Number 1 backlog item |
-| Array 列元素分布统计 | P2 | PostgreSQL 用户常用 |
+| 任务                   | 优先级 | 预估影响                        |
+| ---------------------- | :----: | ------------------------------- |
+| BLOB 类型显式处理      |   P0   | 修复 fallthrough 到 Text 的 bug |
+| 全 NULL 列类型检测增强 |   P0   | 边缘情况鲁棒性                  |
+| JSON 列基础统计 MVP    |   P1   | 高频需求，Number 1 backlog item |
+| Array 列元素分布统计   |   P2   | PostgreSQL 用户常用             |
 
 ### v2.2 — 分析能力增强
 
-| 任务 | 优先级 |
-|------|:--:|
-| 异常检测: IQR + Z-Score | P1 |
-| 时序分析: 趋势 + 周期检测 | P1 |
-| ✅ 规则热加载 (文件监听) | ✅ Phase 20 已完成 |
-| 洞察结果缓存 (checksum 驱动) | P1 |
-| 质量评分权重可配置 | P2 |
-| 规则数量扩充 18→30+ | P2 |
+| 任务                         |       优先级       |
+| ---------------------------- | :----------------: |
+| 异常检测: IQR + Z-Score      |         P1         |
+| 时序分析: 趋势 + 周期检测    |         P1         |
+| ✅ 规则热加载 (文件监听)     | ✅ Phase 20 已完成 |
+| 洞察结果缓存 (checksum 驱动) |         P1         |
+| 质量评分权重可配置           |         P2         |
+| 规则数量扩充 18→30+          |         P2         |
 
 ### v2.3 — 用户体验提升
 
-| 任务 | 优先级 |
-|------|:--:|
-| PDF/HTML 报告导出 | P2 |
-| 洞察调度/定时任务 | P2 |
-| 质量告警/通知 | P2 |
-| 跨数据库对比分析 | P3 |
-| AI 建议引擎 | P3 |
+| 任务              | 优先级 |
+| ----------------- | :----: |
+| PDF/HTML 报告导出 |   P2   |
+| 洞察调度/定时任务 |   P2   |
+| 质量告警/通知     |   P2   |
+| 跨数据库对比分析  |   P3   |
+| AI 建议引擎       |   P3   |
 
 ### v3.0 — 生态化
 
-| 任务 | 优先级 |
-|------|:--:|
-| 规则分享/导入/市场 | P3 |
-| 数据血缘分析 | P3 |
-| 跨平台洞察（MySQL→DuckDB→PG 联合分析）| P3 |
-| REST API 暴露洞察服务 | P3 |
+| 任务                                   | 优先级 |
+| -------------------------------------- | :----: |
+| 规则分享/导入/市场                     |   P3   |
+| 数据血缘分析                           |   P3   |
+| 跨平台洞察（MySQL→DuckDB→PG 联合分析） |   P3   |
+| REST API 暴露洞察服务                  |   P3   |
 
 ---
 
 ## 附录 A：文档索引
 
-| 文档 | 路径 | 用途 |
-|------|------|------|
-| 本文档 | `INSIGHT-DESIGN.md` | 权威设计规范 |
-| 架构 | `INSIGHT-ARCHITECTURE.md` | 当前实现架构 |
-| API | `INSIGHT-API-REFERENCE.md` | 接口参考 |
-| 规则 | `INSIGHT-RULE-FORMAT.md` | 规则格式参考 |
-| 进度 | `INSIGHT-DEV-PROGRESS.md` | 开发进度跟踪 |
-| 计划 | `INSIGHT-SYSTEM-PLAN.md` | 原始规划（已归档） |
+| 文档   | 路径                       | 用途               |
+| ------ | -------------------------- | ------------------ |
+| 本文档 | `INSIGHT-DESIGN.md`        | 权威设计规范       |
+| 架构   | `INSIGHT-ARCHITECTURE.md`  | 当前实现架构       |
+| API    | `INSIGHT-API-REFERENCE.md` | 接口参考           |
+| 规则   | `INSIGHT-RULE-FORMAT.md`   | 规则格式参考       |
+| 进度   | `INSIGHT-DEV-PROGRESS.md`  | 开发进度跟踪       |
+| 计划   | `INSIGHT-SYSTEM-PLAN.md`   | 原始规划（已归档） |
 
 ## 附录 B：关键决策记录
 
-| 决策 | 日期 | 原因 |
-|------|------|------|
-| DuckDB 作为唯一计算引擎 | 2026-05-07 | 统一分析层，避免各数据源 SQL 方言差异 |
-| TOML 规则与 Rust 代码分离 | 2026-05-07 | 支持零编译扩展，用户可自定义规则 |
-| DuckDB + SQLite 双库持久化 | 2026-05-07 | DuckDB 存数据、SQLite 存索引，职责分离 |
-| 质量评分四维度固定权重 | 2026-05-08 | MVP 阶段简化，v2.2 支持可配置 |
-| 临时表 30 分钟 TTL | 2026-05-08 | 平衡内存占用与复用效率 |
-| 组件 300 行拆分原则 | 2026-05-08 | 提取 QualityScoreCard/StatsSection/HistoryTab |
-| RenderHint 图表自动选择 | 2026-05-08 | 规则作者声明最佳可视化，减少用户决策 |
+| 决策                       | 日期       | 原因                                          |
+| -------------------------- | ---------- | --------------------------------------------- |
+| DuckDB 作为唯一计算引擎    | 2026-05-07 | 统一分析层，避免各数据源 SQL 方言差异         |
+| TOML 规则与 Rust 代码分离  | 2026-05-07 | 支持零编译扩展，用户可自定义规则              |
+| DuckDB + SQLite 双库持久化 | 2026-05-07 | DuckDB 存数据、SQLite 存索引，职责分离        |
+| 质量评分四维度固定权重     | 2026-05-08 | MVP 阶段简化，v2.2 支持可配置                 |
+| 临时表 30 分钟 TTL         | 2026-05-08 | 平衡内存占用与复用效率                        |
+| 组件 300 行拆分原则        | 2026-05-08 | 提取 QualityScoreCard/StatsSection/HistoryTab |
+| RenderHint 图表自动选择    | 2026-05-08 | 规则作者声明最佳可视化，减少用户决策          |

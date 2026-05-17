@@ -1,6 +1,5 @@
 <template>
   <div class="connection-sidebar">
-    <!-- 搜索框 -->
     <div class="sidebar-search">
       <Search :size="14" class="search-icon" />
       <input
@@ -11,17 +10,14 @@
       />
     </div>
 
-    <!-- 数据库分类树 -->
     <div class="database-tree">
       <div v-for="category in filteredCategories" :key="category.key" class="tree-category">
-        <!-- 分类头部 -->
         <div class="category-header" @click="toggleCategory(category)">
           <ChevronRight :size="14" class="category-icon" :class="{ expanded: category.expanded }" />
           <span class="category-label">{{ category.label }}</span>
           <span class="category-count">{{ category.databases.length }}</span>
         </div>
 
-        <!-- 分类内容 -->
         <div v-show="category.expanded" class="category-items">
           <div
             v-for="db in category.databases"
@@ -39,31 +35,11 @@
         </div>
       </div>
     </div>
-
-    <!-- 最近使用 -->
-    <div v-if="recentDrivers.length > 0" class="recent-section">
-      <div class="section-header">
-        <Clock :size="14" />
-        <span>最近使用</span>
-      </div>
-      <div class="recent-list">
-        <div
-          v-for="driver in recentDrivers"
-          :key="driver.id"
-          class="recent-item"
-          :class="{ active: selectedDriver?.id === driver.id }"
-          @click="selectDatabase(driver)"
-        >
-          <DbIcon :type="driver.id" class="db-icon" />
-          <span>{{ driver.name }}</span>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Search, ChevronRight, Clock } from 'lucide-vue-next'
+import { Search, ChevronRight } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 
 import DbIcon from '@/shared/components/common/DbIcon.vue'
@@ -80,12 +56,9 @@ interface DatabaseCategory {
 interface Props {
   drivers: DriverDescriptor[]
   selectedDriver: DriverDescriptor | null
-  recentDriverIds?: string[]
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  recentDriverIds: () => [],
-})
+const { drivers, selectedDriver } = defineProps<Props>()
 
 const emit = defineEmits<{
   select: [driver: DriverDescriptor]
@@ -93,7 +66,6 @@ const emit = defineEmits<{
 
 const searchQuery = ref('')
 
-// 数据库分类
 const CATEGORY_LABELS: Record<string, string> = {
   relational: '关系型数据库',
   'file-based': '文件数据库',
@@ -107,7 +79,7 @@ function getDefaultCategory(_id: string): string {
 }
 
 const categories = computed<DatabaseCategory[]>(() => {
-  const allDrivers = props.drivers
+  const allDrivers = drivers
   const grouped = new Map<string, DriverDescriptor[]>()
 
   for (const d of allDrivers) {
@@ -122,14 +94,6 @@ const categories = computed<DatabaseCategory[]>(() => {
     expanded: key !== 'nosql',
     databases,
   }))
-})
-
-// 最近使用的驱动
-const recentDrivers = computed(() => {
-  return props.recentDriverIds
-    .map(id => props.drivers.find(d => d.id === id))
-    .filter((d): d is DriverDescriptor => d !== undefined)
-    .slice(0, 5)
 })
 
 // 过滤后的分类（支持搜索）
@@ -310,48 +274,5 @@ function selectDatabase(driver: DriverDescriptor) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* 最近使用 */
-.recent-section {
-  border-top: 1px solid var(--border-color);
-  padding: 12px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.recent-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.recent-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.recent-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.recent-item.active {
-  background: var(--primary-light);
-  color: var(--primary-color);
 }
 </style>

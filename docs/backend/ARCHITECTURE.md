@@ -305,30 +305,30 @@ RdataStation 采用 **SmartPool + StandardPool** 双层连接池架构：
 
 管理 RdataStation 自身运行所需的核心存储，生命周期跟随应用/项目：
 
-| 池实现 | 管理对象 | 文件 | 并发模型 |
-|--------|---------|------|---------|
-| `GlobalSqlitePool` | `global.db` | [global_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/global_db.rs) | Semaphore + Vec\<Connection\> |
-| `ProjectSqlitePool` | `project.db` | [project_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs) | RAII SqlitePoolConnection |
-| `MetadataCachePool` | `conn_{id}.sqlite` | [metadata_cache_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/metadata_cache_pool.rs) | Semaphore + 预建连接池 |
-| `GlobalDuckdbConnection` | `analytics.duckdb` (应用级) | [global_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/global_db.rs) | 单例长连接 |
-| `ProjectDuckdbConnection` | `analytics.duckdb` (项目级) | [project_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs) | 单例长连接 |
+| 池实现                    | 管理对象                    | 文件                                                                                                                                   | 并发模型                      |
+| ------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `GlobalSqlitePool`        | `global.db`                 | [global_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/global_db.rs)                     | Semaphore + Vec\<Connection\> |
+| `ProjectSqlitePool`       | `project.db`                | [project_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs)                   | RAII SqlitePoolConnection     |
+| `MetadataCachePool`       | `conn_{id}.sqlite`          | [metadata_cache_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/metadata_cache_pool.rs) | Semaphore + 预建连接池        |
+| `GlobalDuckdbConnection`  | `analytics.duckdb` (应用级) | [global_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/global_db.rs)                     | 单例长连接                    |
+| `ProjectDuckdbConnection` | `analytics.duckdb` (项目级) | [project_db.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs)                   | 单例长连接                    |
 
 #### StandardPool — 用户数据源
 
 管理用户通过驱动连接的外部数据库，生命周期跟随用户连接：
 
-| 池实现 | 管理对象 | 文件 | 池化方式 |
-|--------|---------|------|---------|
-| `SqlitePoolWrapper` | 外部 `.db` 文件 | [sqlite_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite_pool.rs) | 预建连接 + 异步补充 |
-| `DuckDbPoolWrapper` | 外部 `.duckdb` 文件 | [duckdb_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb_pool.rs) | 单连接 instancing |
-| MySQL/PG | 外部服务器 | sqlx 内置 Pool | sqlx 连接池 |
+| 池实现              | 管理对象            | 文件                                                                                                                     | 池化方式            |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| `SqlitePoolWrapper` | 外部 `.db` 文件     | [sqlite_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/sqlite_pool.rs) | 预建连接 + 异步补充 |
+| `DuckDbPoolWrapper` | 外部 `.duckdb` 文件 | [duckdb_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/duckdb_pool.rs) | 单连接 instancing   |
+| MySQL/PG            | 外部服务器          | sqlx 内置 Pool                                                                                                           | sqlx 连接池         |
 
 #### SQLite / DuckDB 的双重身份
 
-| 数据库 | 角色 A：内置系统库（SmartPool） | 角色 B：用户连接的数据源（StandardPool） |
-|--------|-------------------------------|----------------------------------------|
-| SQLite | `global.db`、`project.db`、`conn_{id}.sqlite` | 外部 `.db` 文件 |
-| DuckDB | `analytics.duckdb`（应用级/项目级） | 外部 `.duckdb` 文件 |
+| 数据库 | 角色 A：内置系统库（SmartPool）               | 角色 B：用户连接的数据源（StandardPool） |
+| ------ | --------------------------------------------- | ---------------------------------------- |
+| SQLite | `global.db`、`project.db`、`conn_{id}.sqlite` | 外部 `.db` 文件                          |
+| DuckDB | `analytics.duckdb`（应用级/项目级）           | 外部 `.duckdb` 文件                      |
 
 > 两个角色的代码路径完全独立，不在同一个 `DbPool` trait 体系下共享生命周期。
 > 角色 A 由 SmartPool 管理（应用启动时创建，关闭时销毁），
@@ -568,11 +568,11 @@ pub trait Database: Send + Sync {
 
 #### 6.2.2 驱动选型
 
-| 数据库类型 | 驱动选择  | 原因                         | 版本 |
-| ---------- | --------- | ---------------------------- | ---- |
-| MySQL      | sqlx      | 异步、编译期检查、连接池     | 0.8  |
-| PostgreSQL | sqlx      | 异步、编译期检查、连接池     | 0.8  |
-| SQLite     | rusqlite  | 官方 Rust 驱动，bundled 特性 | 0.32 |
+| 数据库类型 | 驱动选择  | 原因                         | 版本    |
+| ---------- | --------- | ---------------------------- | ------- |
+| MySQL      | sqlx      | 异步、编译期检查、连接池     | 0.8     |
+| PostgreSQL | sqlx      | 异步、编译期检查、连接池     | 0.8     |
+| SQLite     | rusqlite  | 官方 Rust 驱动，bundled 特性 | 0.32    |
 | DuckDB     | duckdb-rs | 官方 Rust 驱动，分析型数据库 | 1.10502 |
 
 ### 6.3 连接池双层架构
@@ -613,11 +613,11 @@ pub struct StandardPoolConfig {
 }
 ```
 
-| 参数 | 默认值 | SQLite 推荐 | DuckDB 推荐 | 网络数据库 |
-|------|:------:|:-----------:|:-----------:|:----------:|
-| `min_connections` | 2 | 1 | 1 | 2 |
-| `max_connections` | 20 | 5 | 1 | 20 |
-| `idle_timeout_secs` | 600 | 300 | 1800 | 600 |
+| 参数                | 默认值 | SQLite 推荐 | DuckDB 推荐 | 网络数据库 |
+| ------------------- | :----: | :---------: | :---------: | :--------: |
+| `min_connections`   |   2    |      1      |      1      |     2      |
+| `max_connections`   |   20   |      5      |      1      |     20     |
+| `idle_timeout_secs` |  600   |     300     |    1800     |    600     |
 
 ### 6.4 项目级数据库
 
@@ -739,19 +739,19 @@ CoreError (核心错误容器)
 
 ## 十、技术栈
 
-| 技术         | 版本   | 说明                  |
-| ------------ | ------ | --------------------- |
-| Rust Edition | 2021   | 最新稳定版            |
-| Tokio        | 1.44.1 | 异步运行时            |
-| Tauri        | 2.10.3 | 桌面框架              |
-| SQLx         | 0.8.3  | MySQL/PostgreSQL 驱动 |
-| Rusqlite     | 0.32.1 | SQLite 驱动           |
-| DuckDB-RS    | 1.10502.0 | DuckDB 驱动           |
-| Arrow        | 58.1.0 | Apache Arrow 零拷贝传输 |
-| Serde        | 1.0    | 序列化                |
-| thiserror    | 1.0    | 错误处理              |
-| anyhow       | 1.0    | 错误处理              |
-| sqlglot-rust | 0.9.24 | SQL 解析/格式化（仅通过 SqlEngine） |
+| 技术         | 版本      | 说明                                |
+| ------------ | --------- | ----------------------------------- |
+| Rust Edition | 2021      | 最新稳定版                          |
+| Tokio        | 1.44.1    | 异步运行时                          |
+| Tauri        | 2.10.3    | 桌面框架                            |
+| SQLx         | 0.8.3     | MySQL/PostgreSQL 驱动               |
+| Rusqlite     | 0.32.1    | SQLite 驱动                         |
+| DuckDB-RS    | 1.10502.0 | DuckDB 驱动                         |
+| Arrow        | 58.1.0    | Apache Arrow 零拷贝传输             |
+| Serde        | 1.0       | 序列化                              |
+| thiserror    | 1.0       | 错误处理                            |
+| anyhow       | 1.0       | 错误处理                            |
+| sqlglot-rust | 0.9.24    | SQL 解析/格式化（仅通过 SqlEngine） |
 
 ---
 

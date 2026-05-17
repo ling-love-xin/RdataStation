@@ -1,117 +1,92 @@
 <template>
-  <NModal
-    :show="show"
-    :mask-closable="true"
-    @update:show="handleClose"
-  >
+  <NModal :show="show" :mask-closable="true" @update:show="handleClose">
     <div class="settings-card" :style="cardStyle">
-    <div class="card-header">
-      <AppIcon name="Settings" :size="16" accent class="card-icon" />
-      <span class="card-title">{{ $t('settings.title') }}</span>
+      <div class="card-header">
+        <AppIcon name="Settings" :size="16" accent class="card-icon" />
+        <span class="card-title">{{ $t('settings.title') }}</span>
 
-      <div class="header-search">
-        <AppIcon name="Search" :size="14" class="search-icon" />
-        <input
-          ref="searchInputRef"
-          v-model="searchQuery"
-          type="text"
-          :placeholder="$t('settings.searchPlaceholder')"
-          class="search-input"
-        />
-        <button
-          v-if="searchQuery"
-          class="search-clear-btn"
-          @click="searchQuery = ''"
-        >
-          <AppIcon name="X" :size="14" />
-        </button>
-      </div>
-
-      <div class="header-spacer" />
-    </div>
-
-    <div class="card-main">
-      <nav class="card-sidebar">
-        <button
-          v-for="cat in filteredCategories"
-          :key="cat.id"
-          :class="['nav-item', { active: activeCategory === cat.id }]"
-          @click="activeCategory = cat.id"
-        >
-          <AppIcon :name="cat.icon" :size="16" />
-          <span class="nav-label">{{ cat.label }}</span>
-        </button>
-      </nav>
-
-      <div class="card-content">
-        <div class="scope-bar">
-          <div class="scope-toggle">
-            <button
-              :class="['scope-btn', { active: scope === 'global' }]"
-              @click="scope = 'global'"
-            >
-              <AppIcon name="Globe" :size="14" />
-              <span>{{ $t('settings.globalScope') }}</span>
-            </button>
-            <button
-              :class="['scope-btn', { active: scope === 'project' }]"
-              @click="scope = 'project'"
-            >
-              <AppIcon name="Folder" :size="14" />
-              <span>{{ $t('settings.projectScope') }}</span>
-            </button>
-          </div>
-          <span class="scope-hint">
-            {{ scope === 'project' ? $t('settings.projectScopeHint') : $t('settings.globalScopeHint') }}
-          </span>
+        <div class="header-search">
+          <AppIcon name="Search" :size="14" class="search-icon" />
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="text"
+            :placeholder="$t('settings.searchPlaceholder')"
+            class="search-input"
+          />
+          <button v-if="searchQuery" class="search-clear-btn" @click="searchQuery = ''">
+            <AppIcon name="X" :size="14" />
+          </button>
         </div>
 
-        <div class="content-body">
-          <Transition name="fade-slide" mode="out-in">
-            <AppearanceSettings
-              v-if="activeCategory === 'appearance'"
-              key="appearance"
-            />
-            <EditorSettings
-              v-else-if="activeCategory === 'editor'"
-              key="editor"
-            />
-            <ResultSettings
-              v-else-if="activeCategory === 'results'"
-              key="results"
-            />
-            <InterfaceSettings
-              v-else-if="activeCategory === 'interface'"
-              key="interface"
-            />
-            <ShortcutSettings
-              v-else-if="activeCategory === 'shortcuts'"
-              key="shortcuts"
-            />
-            <AdvancedSettings
-              v-else-if="activeCategory === 'advanced'"
-              key="advanced"
-            />
-            <div v-else key="empty" class="content-placeholder">
-              <AppIcon name="Settings" :size="32" muted />
-              <span>{{ $t('settings.title') }}</span>
+        <div class="header-spacer" />
+      </div>
+
+      <div class="card-main">
+        <nav class="card-sidebar">
+          <button
+            v-for="cat in filteredCategories"
+            :key="cat.id"
+            :class="['nav-item', { active: activeCategory === cat.id }]"
+            @click="activeCategory = cat.id"
+          >
+            <AppIcon :name="cat.icon" :size="16" />
+            <span class="nav-label">{{ cat.label }}</span>
+          </button>
+        </nav>
+
+        <div class="card-content">
+          <div class="scope-bar">
+            <div class="scope-toggle">
+              <button
+                :class="['scope-btn', { active: scope === 'global' }]"
+                @click="scope = 'global'"
+              >
+                <AppIcon name="Globe" :size="14" />
+                <span>{{ $t('settings.globalScope') }}</span>
+              </button>
+              <button
+                :class="['scope-btn', { active: scope === 'project' }]"
+                @click="scope = 'project'"
+              >
+                <AppIcon name="Folder" :size="14" />
+                <span>{{ $t('settings.projectScope') }}</span>
+              </button>
             </div>
-          </Transition>
+            <span class="scope-hint">
+              {{
+                scope === 'project'
+                  ? $t('settings.projectScopeHint')
+                  : $t('settings.globalScopeHint')
+              }}
+            </span>
+          </div>
+
+          <div class="content-body">
+            <Transition name="fade-slide" mode="out-in">
+              <AppearanceSettings v-if="activeCategory === 'appearance'" key="appearance" />
+              <EditorSettings v-else-if="activeCategory === 'editor'" key="editor" />
+              <ResultSettings v-else-if="activeCategory === 'results'" key="results" />
+              <InterfaceSettings v-else-if="activeCategory === 'interface'" key="interface" />
+              <ShortcutSettings v-else-if="activeCategory === 'shortcuts'" key="shortcuts" />
+              <AdvancedSettings v-else-if="activeCategory === 'advanced'" key="advanced" />
+              <div v-else key="empty" class="content-placeholder">
+                <AppIcon name="Settings" :size="32" muted />
+                <span>{{ $t('settings.title') }}</span>
+              </div>
+            </Transition>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="card-footer">
-      <NButton @click="handleClose">{{ $t('settings.cancel') }}</NButton>
-      <NButton type="primary">{{ $t('settings.confirm') }}</NButton>
-      <NButton type="info">{{ $t('settings.apply') }}</NButton>
-    </div>
+      <div class="card-footer">
+        <NButton @click="handleClose">{{ $t('settings.cancel') }}</NButton>
+        <NButton type="primary">{{ $t('settings.confirm') }}</NButton>
+        <NButton type="info">{{ $t('settings.apply') }}</NButton>
+      </div>
 
-    <div
-      class="resize-handle"
-      @mousedown="onResizeStart"
-    />
-  </div>
+      <div class="resize-handle" @mousedown="onResizeStart" />
+    </div>
   </NModal>
 </template>
 
@@ -161,19 +136,49 @@ interface Cat {
 }
 
 const categories = computed<Cat[]>(() => [
-  { id: 'appearance', icon: 'Palette',        label: t('settings.appearanceTab'),  keywords: ['theme', 'color', 'font', 'language', 'color'] },
-  { id: 'editor',     icon: 'Code2',          label: t('settings.editorTab'),      keywords: ['font', 'tab', 'wrap', 'minimap'] },
-  { id: 'results',    icon: 'Table2',         label: t('settings.resultsTab'),      keywords: ['page', 'null', 'date', 'export'] },
-  { id: 'interface',  icon: 'LayoutTemplate', label: t('settings.interfaceTab'),    keywords: ['title', 'status', 'command'] },
-  { id: 'shortcuts',  icon: 'Keyboard',       label: t('settings.shortcutsTab'),    keywords: ['key', 'bind', 'hotkey'] },
-  { id: 'advanced',   icon: 'Settings2',      label: t('settings.advancedTab'),     keywords: ['pool', 'history', 'cache', 'monitor'] },
+  {
+    id: 'appearance',
+    icon: 'Palette',
+    label: t('settings.appearanceTab'),
+    keywords: ['theme', 'color', 'font', 'language', 'color'],
+  },
+  {
+    id: 'editor',
+    icon: 'Code2',
+    label: t('settings.editorTab'),
+    keywords: ['font', 'tab', 'wrap', 'minimap'],
+  },
+  {
+    id: 'results',
+    icon: 'Table2',
+    label: t('settings.resultsTab'),
+    keywords: ['page', 'null', 'date', 'export'],
+  },
+  {
+    id: 'interface',
+    icon: 'LayoutTemplate',
+    label: t('settings.interfaceTab'),
+    keywords: ['title', 'status', 'command'],
+  },
+  {
+    id: 'shortcuts',
+    icon: 'Keyboard',
+    label: t('settings.shortcutsTab'),
+    keywords: ['key', 'bind', 'hotkey'],
+  },
+  {
+    id: 'advanced',
+    icon: 'Settings2',
+    label: t('settings.advancedTab'),
+    keywords: ['pool', 'history', 'cache', 'monitor'],
+  },
 ])
 
 const filteredCategories = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (!q) return categories.value
   return categories.value.filter(
-    c => c.label.toLowerCase().includes(q) || c.keywords.some(k => k.includes(q)),
+    c => c.label.toLowerCase().includes(q) || c.keywords.some(k => k.includes(q))
   )
 })
 
@@ -316,7 +321,9 @@ function handleClose() {
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
 }
 
 .search-clear-btn:hover {
@@ -495,7 +502,9 @@ function handleClose() {
 /* ========== transition ========== */
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
 }
 
 .fade-slide-enter-from {

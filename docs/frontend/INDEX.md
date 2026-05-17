@@ -110,35 +110,35 @@ docs/frontend/
 
 ## 模块文档
 
-| 模块             | 索引文档                                        | 说明                     |
-| ---------------- | ----------------------------------------------- | ------------------------ |
-| SQL 编辑器       | [sql-editor/README.md](./sql-editor/README.md)   | 编辑器和代码补全         |
-| 结果集           | [query-result/README.md](./query-result/README.md) | 数据展示、过滤、导出   |
-| 洞察系统         | [insight/README.md](./insight/README.md)         | 数据洞察与分析           |
-| 分析资源管理器   | [analytics-resource/README.md](./analytics-resource/README.md) | 统一资源管理   |
-| 标题栏          | [title-bar/README.md](./title-bar/README.md)     | 标题栏/状态栏重构        |
-| Mock 数据生成器  | [mock/](./mock/)                                 | 106 种生成器 + 持久化    |
-| 连接管理         | [connection/](./connection/)                     | 新建连接模态框           |
+| 模块            | 索引文档                                                       | 说明                  |
+| --------------- | -------------------------------------------------------------- | --------------------- |
+| SQL 编辑器      | [sql-editor/README.md](./sql-editor/README.md)                 | 编辑器和代码补全      |
+| 结果集          | [query-result/README.md](./query-result/README.md)             | 数据展示、过滤、导出  |
+| 洞察系统        | [insight/README.md](./insight/README.md)                       | 数据洞察与分析        |
+| 分析资源管理器  | [analytics-resource/README.md](./analytics-resource/README.md) | 统一资源管理          |
+| 标题栏          | [title-bar/README.md](./title-bar/README.md)                   | 标题栏/状态栏重构     |
+| Mock 数据生成器 | [mock/](./mock/)                                               | 106 种生成器 + 持久化 |
+| 连接管理        | [connection/](./connection/)                                   | 新建连接模态框        |
 
 ---
 
 ## 快速查找
 
-| 我想...                 | 查看文档                                                   |
-| ----------------------- | ---------------------------------------------------------- |
-| 了解整体架构            | [架构文档](./ARCHITECTURE.md)                              |
-| 了解 SQL 编辑器设计     | [sql-editor/README.md](./sql-editor/README.md)             |
-| 了解 SQL 编辑器优化计划 | [sql-editor/optimization-plan.md](./sql-editor/optimization-plan.md) |
-| 了解结果集优化计划      | [query-result/optimization-plan.md](./query-result/optimization-plan.md) |
-| 了解结果集 V2 架构      | [query-result/architecture-v2.md](./query-result/architecture-v2.md) |
-| 创建新插件/组件         | [开发指南](./DEVELOPMENT-GUIDE.md)                         |
-| 管理配置/主题/语言      | [配置系统](./CONFIG-SYSTEM.md)                             |
-| 调用配置 API            | [配置 API](./CONFIG-API.md)                                |
-| 组件 Props/Emits        | [组件规范](./COMPONENTS.md)                                |
-| 了解洞察系统            | [insight/README.md](./insight/README.md)                   |
-| 了解分析资源管理器      | [analytics-resource/README.md](./analytics-resource/README.md) |
-| 了解 Mock 数据生成器    | [mock/mock-data-generator-design.md](./mock/mock-data-generator-design.md) |
-| 了解联调测试方案        | [../project-integration-test-plan.md](../project-integration-test-plan.md) |
+| 我想...                 | 查看文档                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| 了解整体架构            | [架构文档](./ARCHITECTURE.md)                                                                          |
+| 了解 SQL 编辑器设计     | [sql-editor/README.md](./sql-editor/README.md)                                                         |
+| 了解 SQL 编辑器优化计划 | [sql-editor/optimization-plan.md](./sql-editor/optimization-plan.md)                                   |
+| 了解结果集优化计划      | [query-result/optimization-plan.md](./query-result/optimization-plan.md)                               |
+| 了解结果集 V2 架构      | [query-result/architecture-v2.md](./query-result/architecture-v2.md)                                   |
+| 创建新插件/组件         | [开发指南](./DEVELOPMENT-GUIDE.md)                                                                     |
+| 管理配置/主题/语言      | [配置系统](./CONFIG-SYSTEM.md)                                                                         |
+| 调用配置 API            | [配置 API](./CONFIG-API.md)                                                                            |
+| 组件 Props/Emits        | [组件规范](./COMPONENTS.md)                                                                            |
+| 了解洞察系统            | [insight/README.md](./insight/README.md)                                                               |
+| 了解分析资源管理器      | [analytics-resource/README.md](./analytics-resource/README.md)                                         |
+| 了解 Mock 数据生成器    | [mock/mock-data-generator-design.md](./mock/mock-data-generator-design.md)                             |
+| 了解联调测试方案        | [../project-integration-test-plan.md](../project-integration-test-plan.md)                             |
 | 查看四库连接测试        | [../../src-tauri/tests/four_db_connection_tests.rs](../../src-tauri/tests/four_db_connection_tests.rs) |
 
 ---
@@ -186,12 +186,12 @@ src/
 
 ## 相关文档
 
-| 文档         | 路径                             |
-| ------------ | -------------------------------- |
-| 后端架构文档 | `../backend/ARCHITECTURE.md`     |
-| 联调测试方案 | `../project-integration-test-plan.md` |
+| 文档         | 路径                                                |
+| ------------ | --------------------------------------------------- |
+| 后端架构文档 | `../backend/ARCHITECTURE.md`                        |
+| 联调测试方案 | `../project-integration-test-plan.md`               |
 | 四库连接测试 | `../../src-tauri/tests/four_db_connection_tests.rs` |
-| 项目规则     | `.trae/rules/`                   |
+| 项目规则     | `.trae/rules/`                                      |
 
 ---
 

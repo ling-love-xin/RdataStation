@@ -9,8 +9,17 @@ export interface UseGridConfigOptions {
 }
 
 const NUMERIC_HEURISTICS = [
-  'id', '_id', 'count', 'num', 'year', 'age',
-  'price', 'amount', 'total', 'qty', 'rate',
+  'id',
+  '_id',
+  'count',
+  'num',
+  'year',
+  'age',
+  'price',
+  'amount',
+  'total',
+  'qty',
+  'rate',
 ]
 
 export function isLikelyNumeric(colName: string): boolean {

@@ -37,7 +37,12 @@ function readThemeCSSVars(): Record<string, string> {
   }
 }
 
-function fallback(val: string, darkFallback: string, lightFallback: string, isDark: boolean): string {
+function fallback(
+  val: string,
+  darkFallback: string,
+  lightFallback: string,
+  isDark: boolean
+): string {
   return val || (isDark ? darkFallback : lightFallback)
 }
 
@@ -49,7 +54,7 @@ function fallback(val: string, darkFallback: string, lightFallback: string, isDa
  */
 function buildThemeOverrides(
   settings: AppearanceSettings,
-  isDark: boolean,
+  isDark: boolean
 ): Record<string, unknown> {
   const css = readThemeCSSVars()
   const accent = settings.accentColor || brandColors.coral
@@ -141,12 +146,7 @@ function applyDensityClass(density: AppearanceSettings['density']): void {
   }
 }
 
-export {
-  buildThemeOverrides,
-  applyDensityClass,
-  readThemeCSSVars,
-  isValidHex,
-}
+export { buildThemeOverrides, applyDensityClass, readThemeCSSVars, isValidHex }
 
 export { brandColors } from './colors'
 export { fontFamilies, fontSizes, fontSizeMap, fontWeights } from './typography'

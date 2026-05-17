@@ -2,7 +2,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-
 import type { DatabaseType, Connection, RecentConnection, ConnectionType } from '@/shared/types'
 import type { SqlDialect } from '@/shared/types/sql'
 

@@ -1,3 +1,10 @@
+/**
+ * @deprecated 由 ShortcutManager + 'global' scope 快捷键替代。
+ * Ctrl+B / Ctrl+Shift+B / Escape 功能已在 WorkbenchView.onReady 中
+ * 通过 ShortcutManager.register() 注册为全局快捷键。
+ *
+ * @see {@link import('@/extensions/builtin/workbench/manager/ShortcutManager').ShortcutManager}
+ */
 import { onMounted, onUnmounted } from 'vue'
 
 import type { DockviewApi } from 'dockview-vue'

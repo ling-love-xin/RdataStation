@@ -172,7 +172,7 @@ export const useAppStore = defineStore('appConfig', () => {
   const systemDark = ref(
     typeof window !== 'undefined'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : false,
+      : false
   )
 
   const effectiveTheme = computed<Theme>(() => {
@@ -522,27 +522,19 @@ export const useAppStore = defineStore('appConfig', () => {
     return saveConfig(CONFIG_KEYS.SIDEBAR_STATE, state, 'project')
   }
 
-  async function setConnectionPool(
-    settings: ConnectionPoolSettings
-  ): Promise<SaveResult> {
+  async function setConnectionPool(settings: ConnectionPoolSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.CONNECTION_POOL, settings, 'global')
   }
 
-  async function setHistorySettings(
-    settings: HistorySettings
-  ): Promise<SaveResult> {
+  async function setHistorySettings(settings: HistorySettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.HISTORY_SETTINGS, settings, 'global')
   }
 
-  async function setMonitoringSettings(
-    settings: MonitoringSettings
-  ): Promise<SaveResult> {
+  async function setMonitoringSettings(settings: MonitoringSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.MONITORING_SETTINGS, settings, 'global')
   }
 
-  async function setPerformanceSettings(
-    settings: PerformanceSettings
-  ): Promise<SaveResult> {
+  async function setPerformanceSettings(settings: PerformanceSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.PERFORMANCE_SETTINGS, settings, 'global')
   }
 
@@ -568,27 +560,19 @@ export const useAppStore = defineStore('appConfig', () => {
     )
   }
 
-  async function setResultSettings(
-    settings: ResultSettings
-  ): Promise<SaveResult> {
+  async function setResultSettings(settings: ResultSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.RESULT_SETTINGS, settings, 'global')
   }
 
-  async function setTitleBarSettings(
-    settings: TitleBarSettings
-  ): Promise<SaveResult> {
+  async function setTitleBarSettings(settings: TitleBarSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.TITLE_BAR_SETTINGS, settings, 'global')
   }
 
-  async function setStatusBarSettings(
-    settings: StatusBarSettings
-  ): Promise<SaveResult> {
+  async function setStatusBarSettings(settings: StatusBarSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.STATUS_BAR_SETTINGS, settings, 'global')
   }
 
-  async function setCommandPaletteSettings(
-    settings: CommandPaletteSettings
-  ): Promise<SaveResult> {
+  async function setCommandPaletteSettings(settings: CommandPaletteSettings): Promise<SaveResult> {
     return saveConfig(CONFIG_KEYS.COMMAND_PALETTE_SETTINGS, settings, 'global')
   }
 

@@ -9,12 +9,16 @@ import {
 import type { ResultTab } from '../types/result'
 import type { GridApi } from 'ag-grid-community'
 
-
 export function useResultExport(
   activeTab: ComputedRef<ResultTab | null>,
   gridApi: Ref<GridApi | null>,
   rowData: ComputedRef<Record<string, unknown>[]>,
-  message: { success: (msg: string) => void; error: (msg: string) => void; loading: (msg: string, opts?: Record<string, unknown>) => { destroy: () => void }; info: (msg: string) => void },
+  message: {
+    success: (msg: string) => void
+    error: (msg: string) => void
+    loading: (msg: string, opts?: Record<string, unknown>) => { destroy: () => void }
+    info: (msg: string) => void
+  }
 ) {
   function generateCsv(): string {
     const tab = activeTab.value
@@ -92,9 +96,7 @@ export function useResultExport(
     const filterLabel = format === 'parquet' ? 'Parquet' : 'Excel'
     const filePath = await save({
       defaultPath: `result_${Date.now()}.${ext}`,
-      filters: [
-        { name: `${filterLabel} 文件`, extensions: [ext] },
-      ],
+      filters: [{ name: `${filterLabel} 文件`, extensions: [ext] }],
     })
     if (!filePath) return
 

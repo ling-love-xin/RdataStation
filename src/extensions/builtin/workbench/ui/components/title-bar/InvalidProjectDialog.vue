@@ -1,7 +1,14 @@
 <template>
   <Teleport to="body">
     <Transition name="dialog">
-      <div v-if="visible" ref="overlayRef" tabindex="-1" class="dialog-overlay" @click.self="handleClose" @keydown.escape="handleClose">
+      <div
+        v-if="visible"
+        ref="overlayRef"
+        tabindex="-1"
+        class="dialog-overlay"
+        @click.self="handleClose"
+        @keydown.escape="handleClose"
+      >
         <div class="dialog-container" role="alertdialog" aria-labelledby="dialog-title">
           <header class="dialog-header">
             <div class="dialog-icon">
@@ -9,7 +16,9 @@
             </div>
           </header>
           <div class="dialog-body">
-            <h2 id="dialog-title" class="dialog-title">{{ t('workbench.invalidProjectFolderTitle') }}</h2>
+            <h2 id="dialog-title" class="dialog-title">{{
+              t('workbench.invalidProjectFolderTitle')
+            }}</h2>
             <p class="dialog-desc">{{ t('workbench.invalidProjectFolderDesc') }}</p>
             <p class="dialog-path">{{ selectedPath }}</p>
           </div>
@@ -205,5 +214,4 @@ function handleClose() {
 .dialog-enter-from .dialog-container {
   transform: scale(0.95);
 }
-
 </style>

@@ -21,7 +21,10 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import SettingsDialog from '@/extensions/builtin/settings/ui/components/SettingsDialog.vue'
 import WorkbenchStatusBar from '@/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue'
 import WorkbenchTitleBar from '@/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue'
-import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
+import {
+  WorkbenchEvent,
+  listenWorkbenchEvent,
+} from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 
 const isMaximized = ref(false)
 const showSettingsDialog = ref(false)

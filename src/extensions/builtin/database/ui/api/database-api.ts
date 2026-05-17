@@ -355,9 +355,7 @@ export async function setIntrospectionLevel(
 /**
  * 获取连接的内省级别
  */
-export async function getIntrospectionLevel(
-  connectionId: string
-): Promise<IntrospectionLevel> {
+export async function getIntrospectionLevel(connectionId: string): Promise<IntrospectionLevel> {
   return await invoke<IntrospectionLevel>('get_introspection_level', {
     connId: connectionId,
   })
@@ -366,9 +364,7 @@ export async function getIntrospectionLevel(
 /**
  * 重置连接的内省级别为默认 Level 3
  */
-export async function removeIntrospectionLevel(
-  connectionId: string
-): Promise<void> {
+export async function removeIntrospectionLevel(connectionId: string): Promise<void> {
   await invoke('remove_introspection_level', {
     connId: connectionId,
   })

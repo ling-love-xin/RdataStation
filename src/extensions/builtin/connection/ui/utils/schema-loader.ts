@@ -9,15 +9,29 @@ export async function loadDriverSchema(driverId: string): Promise<DriverFormSche
     return schemaCache.get(driverId)!
   }
 
-  try {
-    const schemaModule = await import(`../schemas/${driverId}.json`)
-    const schema = schemaModule.default as DriverFormSchema
-    schemaCache.set(driverId, schema)
-    return schema
-  } catch (e) {
-    console.warn(`未找到驱动 ${driverId} 的表单配置，使用默认配置`)
-    return null
+  const idsToTry = [driverId]
+
+  const dashIdx = driverId.indexOf('-')
+  if (dashIdx > 0) {
+    const baseDbType = driverId.substring(0, dashIdx)
+    if (baseDbType !== driverId) {
+      idsToTry.push(baseDbType)
+    }
   }
+
+  for (const id of idsToTry) {
+    try {
+      const schemaModule = await import(`../schemas/${id}.json`)
+      const schema = schemaModule.default as DriverFormSchema
+      schemaCache.set(driverId, schema)
+      return schema
+    } catch {
+      // try next fallback
+    }
+  }
+
+  console.warn(`未找到驱动 ${driverId} 的表单配置，使用默认配置`)
+  return null
 }
 
 export async function loadAllSchemas(): Promise<DriverFormSchema[]> {

@@ -13,18 +13,18 @@
 
 ### 1.2 测试范围
 
-| 模块         | 测试内容                              |
-| ------------ | ------------------------------------- |
-| **三级缓存管线** | L1内存→L2磁盘→目标DB 全链路读写 ✅ |
-| **自省级别** | Level1/2/3 切换、自动阈值、预热跳过 ✅ |
-| **并行预热** | Phase1/2/3 并行、20并发分批、监控日志 ✅ |
-| **TTL优化** | 差异化 TTL (10min-1h)、DB回源率降低 ✅ |
-| **内省级别** | set/get/remove 命令、前端集成 ✅ |
-| **版本迁移** | V1-V7 自动迁移、迁移历史记录          |
-| **增量同步** | SHA-256 Hash 计算、变更检测、快照管理 |
-| **并行加载** | JoinSet Schema 并行、Table 并行       |
-| **缓存操作** | CRUD 操作、FTS 搜索、级联删除、监控计数 |
-| **性能指标** | 首次预热、增量预热、内存占用          |
+| 模块             | 测试内容                                 |
+| ---------------- | ---------------------------------------- |
+| **三级缓存管线** | L1内存→L2磁盘→目标DB 全链路读写 ✅       |
+| **自省级别**     | Level1/2/3 切换、自动阈值、预热跳过 ✅   |
+| **并行预热**     | Phase1/2/3 并行、20并发分批、监控日志 ✅ |
+| **TTL优化**      | 差异化 TTL (10min-1h)、DB回源率降低 ✅   |
+| **内省级别**     | set/get/remove 命令、前端集成 ✅         |
+| **版本迁移**     | V1-V7 自动迁移、迁移历史记录             |
+| **增量同步**     | SHA-256 Hash 计算、变更检测、快照管理    |
+| **并行加载**     | JoinSet Schema 并行、Table 并行          |
+| **缓存操作**     | CRUD 操作、FTS 搜索、级联删除、监控计数  |
+| **性能指标**     | 首次预热、增量预热、内存占用             |
 
 ### 1.3 测试环境
 
@@ -260,56 +260,56 @@ CREATE VIEW v_column_changes AS ...;
 
 ### 8.1 ✅ 已完成 (P0-P5, 2026-05-12)
 
-| 编号 | 内容 | 状态 |
-|------|------|:--:|
-| P0 | 并行化缓存预热 (3 Phase Promise.allSettled) | ✅ |
-| P1 | 自省级别系统 (IntrospectionLevel Level1/2/3) | ✅ |
-| P2 | TTL 差异化优化 (10min-1h) | ✅ |
-| P3 | 锁优化 (l1_check_and_set 单次锁) | ✅ |
-| P4 | 预热触发点补全 (refreshMetadata) | ✅ |
-| P5 | Minicatalogs 设计骨架 (数据结构 + Registry) | ✅ |
+| 编号 | 内容                                         | 状态 |
+| ---- | -------------------------------------------- | :--: |
+| P0   | 并行化缓存预热 (3 Phase Promise.allSettled)  |  ✅  |
+| P1   | 自省级别系统 (IntrospectionLevel Level1/2/3) |  ✅  |
+| P2   | TTL 差异化优化 (10min-1h)                    |  ✅  |
+| P3   | 锁优化 (l1_check_and_set 单次锁)             |  ✅  |
+| P4   | 预热触发点补全 (refreshMetadata)             |  ✅  |
+| P5   | Minicatalogs 设计骨架 (数据结构 + Registry)  |  ✅  |
 
 ### 8.2 🔧 待实施 — 竞品差距
 
-| 编号 | 内容 | 对标竞品 | 优先级 | 难度 |
-|------|------|---------|:-----:|:---:|
-| GAP-1 | 片段内省 — 按需加载单对象元数据 | DataGrip 2026.1 | 🟡 | 中 |
-| GAP-2 | 智能刷新 — DDL 触发仅刷新修改对象 | DataGrip 2026.1 | 🟡 | 高 |
-| GAP-3 | Minicatalogs JSON 定义 + 编译嵌入 | DataGrip 2026.1 | 🟢 | 低 |
-| GAP-4 | 惰性元数据加载 | DBeaver 26.0.4 | 🟢 | 中 |
-| GAP-5 | 自动刷新开关 | DBeaver 26.0.4 | 🟢 | 低 |
-| GAP-6 | 并行预热连接池限流 (Semaphore) | — | 🔴 | 低 |
+| 编号  | 内容                              | 对标竞品        | 优先级 | 难度 |
+| ----- | --------------------------------- | --------------- | :----: | :--: |
+| GAP-1 | 片段内省 — 按需加载单对象元数据   | DataGrip 2026.1 |   🟡   |  中  |
+| GAP-2 | 智能刷新 — DDL 触发仅刷新修改对象 | DataGrip 2026.1 |   🟡   |  高  |
+| GAP-3 | Minicatalogs JSON 定义 + 编译嵌入 | DataGrip 2026.1 |   🟢   |  低  |
+| GAP-4 | 惰性元数据加载                    | DBeaver 26.0.4  |   🟢   |  中  |
+| GAP-5 | 自动刷新开关                      | DBeaver 26.0.4  |   🟢   |  低  |
+| GAP-6 | 并行预热连接池限流 (Semaphore)    | —               |   🔴   |  低  |
 
 ### 8.3 连接池配置建议
 
 当前 `SmartPoolConfig` 默认值 (位于 [smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs)):
 
-| 参数 | 值 | 生产建议 |
-|------|:--:|------|
-| `max_connections` | 20 | MySQL ≤ 50 / PG ≤ 30 |
-| `acquire_timeout` | 30s | 建议 ≤ 10s |
-| `idle_timeout` | 600s | PG 建议 300s 避免 server 断开 |
-| `max_lifetime` | 1800s | MySQL wait_timeout=28800s 足够 |
-| `initial_connections` | 2 | 并行预热场景建议 ≥ 5 |
+| 参数                  |  值   | 生产建议                       |
+| --------------------- | :---: | ------------------------------ |
+| `max_connections`     |  20   | MySQL ≤ 50 / PG ≤ 30           |
+| `acquire_timeout`     |  30s  | 建议 ≤ 10s                     |
+| `idle_timeout`        | 600s  | PG 建议 300s 避免 server 断开  |
+| `max_lifetime`        | 1800s | MySQL wait_timeout=28800s 足够 |
+| `initial_connections` |   2   | 并行预热场景建议 ≥ 5           |
 
 > **架构差异**: sqlx Pool 基于 async/await，不阻塞线程，这是与 DBCP2 (DBeaver) 和 HikariCP (DataGrip) 的本质差异。详见 [06-CACHE-OPTIMIZATION.md#连接池架构选型分析](../navigator/06-CACHE-OPTIMIZATION.md#连接池架构选型分析)。
 
 ### 8.4 文档更新
 
-| 文档 | 更新内容 |
-|------|---------|
-| CHANGELOG.md | 添加 V8 (P0-P5) 记录 |
-| CACHE-OPTIMIZATION.md | 添加连接池分析 + P0-P5 + 竞品差距 |
-| METADATA-CACHE-TEST-REPORT.md | 本文件 — 更新至 V8 |
+| 文档                          | 更新内容                          |
+| ----------------------------- | --------------------------------- |
+| CHANGELOG.md                  | 添加 V8 (P0-P5) 记录              |
+| CACHE-OPTIMIZATION.md         | 添加连接池分析 + P0-P5 + 竞品差距 |
+| METADATA-CACHE-TEST-REPORT.md | 本文件 — 更新至 V8                |
 
 ### 8.5 修复计划
 
-| 优先级 | 任务 | 负责 |
-| ------ | ---- | ---- |
-| P1 | 修复 7 个失败的单元测试 | 开发 |
-| P1 | 清理 26 个编译警告 | 开发 |
-| P2 | 添加集成测试（实际数据库） | 开发 |
-| P2 | 添加性能基准测试 | 开发 |
+| 优先级 | 任务                       | 负责 |
+| ------ | -------------------------- | ---- |
+| P1     | 修复 7 个失败的单元测试    | 开发 |
+| P1     | 清理 26 个编译警告         | 开发 |
+| P2     | 添加集成测试（实际数据库） | 开发 |
+| P2     | 添加性能基准测试           | 开发 |
 
 ---
 

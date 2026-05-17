@@ -126,9 +126,7 @@ describe('AnalyticsResourceManager', () => {
     })
 
     it('should call store.deleteResource when delete button is clicked', async () => {
-      const store = createTestStore([
-        makeResource({ id: 'del-1', name: 'To Delete' }),
-      ])
+      const store = createTestStore([makeResource({ id: 'del-1', name: 'To Delete' })])
       const wrapper = mountWithProvider(AnalyticsResourceManager)
 
       await wrapper.findAll('.n-button')[2].trigger('click')
@@ -156,9 +154,7 @@ describe('AnalyticsResourceManager', () => {
 
   describe('Edge Cases', () => {
     it('should render resource alias when present', () => {
-      createTestStore([
-        makeResource({ id: '1', name: 'Users', alias: 'usr' }),
-      ])
+      createTestStore([makeResource({ id: '1', name: 'Users', alias: 'usr' })])
       const wrapper = mountWithProvider(AnalyticsResourceManager)
 
       expect(wrapper.find('.resource-alias').exists()).toBe(true)

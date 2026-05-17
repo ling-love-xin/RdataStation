@@ -5,10 +5,12 @@ import type { useScratchpadEditorStore } from '@/stores/useScratchpadEditorStore
 import type { ExternalReference, PromoteResult, ScratchpadEntry } from '../../types'
 import type { Ref } from 'vue'
 
-
-
 export interface ScratchpadApi {
-  createEntry: (name: string, isFolder: boolean, parentPath?: string) => Promise<ScratchpadEntry | null>
+  createEntry: (
+    name: string,
+    isFolder: boolean,
+    parentPath?: string
+  ) => Promise<ScratchpadEntry | null>
   deleteEntry: (path: string) => Promise<boolean>
   renameEntry: (path: string, newName: string) => Promise<ScratchpadEntry | null>
   importFile: (path: string) => Promise<ScratchpadEntry | null>
@@ -45,15 +47,7 @@ export interface FileActionsDeps {
 }
 
 export function useFileActions(deps: FileActionsDeps) {
-  const {
-    api,
-    store,
-    message,
-    t,
-    expandedKeys,
-    scratchpadPath,
-    fileMeta,
-  } = deps
+  const { api, store, message, t, expandedKeys, scratchpadPath, fileMeta } = deps
 
   async function confirmCreate(
     name: string,
@@ -136,13 +130,16 @@ export function useFileActions(deps: FileActionsDeps) {
   }
 
   function doEmptyTrash(): Promise<boolean> {
-    return api.emptyTrashBin().then(ok => {
-      if (ok) message.success(t('scratchpad.trashEmptied'))
-      return ok
-    }).catch(e => {
-      message.error(e instanceof Error ? e.message : String(e))
-      return false
-    })
+    return api
+      .emptyTrashBin()
+      .then(ok => {
+        if (ok) message.success(t('scratchpad.trashEmptied'))
+        return ok
+      })
+      .catch(e => {
+        message.error(e instanceof Error ? e.message : String(e))
+        return false
+      })
   }
 
   function doUndoDelete(name: string): Promise<boolean> {
@@ -152,10 +149,7 @@ export function useFileActions(deps: FileActionsDeps) {
     })
   }
 
-  async function doAddReference(
-    alias: string,
-    path: string
-  ): Promise<ExternalReference | null> {
+  async function doAddReference(alias: string, path: string): Promise<ExternalReference | null> {
     deps.showRefModal.value = false
     const ref = await api.addReference(alias, path)
     if (ref) {

@@ -66,7 +66,7 @@ body.theme-light {
   --color-selected-text: #ffffff;
   --color-warning-text: #92400e;
   --color-warning-bg: rgba(251, 191, 36, 0.15);
-  --brand-accent-soft: rgba(225, 112, 85, 0.10);
+  --brand-accent-soft: rgba(225, 112, 85, 0.1);
 }
 
 ::-webkit-scrollbar {
@@ -157,4 +157,17 @@ body.theme-light {
 
 .dv-render-overlay {
   pointer-events: none !important;
+  contain: none !important;
+  isolation: auto !important;
+  transform: none !important;
+  backface-visibility: visible !important;
+  will-change: auto !important;
+}
+
+.dv-split-view-container .dv-sash-container {
+  pointer-events: none !important;
+}
+
+.dv-split-view-container .dv-sash-container .dv-sash {
+  pointer-events: auto !important;
 }

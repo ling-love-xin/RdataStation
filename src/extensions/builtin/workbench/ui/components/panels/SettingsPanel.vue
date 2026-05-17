@@ -440,12 +440,8 @@ async function saveSettings() {
   await appStore.setConnectionPool(
     structuredClone(settings.connectionPool) as ConnectionPoolSettings
   )
-  await appStore.setHistorySettings(
-    structuredClone(settings.history) as HistorySettings
-  )
-  await appStore.setMonitoringSettings(
-    structuredClone(settings.monitoring) as MonitoringSettings
-  )
+  await appStore.setHistorySettings(structuredClone(settings.history) as HistorySettings)
+  await appStore.setMonitoringSettings(structuredClone(settings.monitoring) as MonitoringSettings)
   await appStore.setPerformanceSettings(
     structuredClone(settings.performance) as PerformanceSettings
   )

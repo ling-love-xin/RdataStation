@@ -139,7 +139,7 @@ export function useFileSave(options: FileSaveOptions) {
 
   watch(
     () => filePath.value,
-    (newPath) => {
+    newPath => {
       if (newPath) {
         startAutoSave()
       } else {

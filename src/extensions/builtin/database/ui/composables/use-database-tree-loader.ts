@@ -7,8 +7,14 @@
 
 import { useRuntimeConnectionStore } from '@/extensions/builtin/connection/ui/stores/runtime-connection-store'
 import type { ProjectConnection } from '@/extensions/builtin/connection/ui/types/connection'
-import type { NavigationConfig, NavigationFolderConfig } from '@/extensions/builtin/connection/ui/types/form-schema'
-import { loadNavigationConfig, getDefaultNavigationConfig } from '@/extensions/builtin/connection/ui/utils/schema-loader'
+import type {
+  NavigationConfig,
+  NavigationFolderConfig,
+} from '@/extensions/builtin/connection/ui/types/form-schema'
+import {
+  loadNavigationConfig,
+  getDefaultNavigationConfig,
+} from '@/extensions/builtin/connection/ui/utils/schema-loader'
 
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
@@ -42,7 +48,9 @@ async function getNavConfig(dbType: string): Promise<NavigationConfig> {
 }
 
 function isFolderEnabled(config: NavigationConfig, folderKey: string): boolean {
-  const folder = config.folders[folderKey as keyof typeof config.folders] as NavigationFolderConfig | undefined
+  const folder = config.folders[folderKey as keyof typeof config.folders] as
+    | NavigationFolderConfig
+    | undefined
   return folder?.enabled ?? false
 }
 
@@ -325,7 +333,7 @@ export function useDatabaseTreeLoader() {
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['tables-folder', connectionId, dbName])
-    const level = parentLevel !== undefined ? parentLevel + 1 : (schemaName ? 4 : 3)
+    const level = parentLevel !== undefined ? parentLevel + 1 : schemaName ? 4 : 3
 
     return tables.map(table => ({
       key: NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName || '', table.name]),
@@ -353,7 +361,7 @@ export function useDatabaseTreeLoader() {
     const parentKey = schemaName
       ? NodeKeyEncoder.encode(['views-folder', connectionId, dbName, schemaName])
       : NodeKeyEncoder.encode(['views-folder', connectionId, dbName])
-    const level = parentLevel !== undefined ? parentLevel + 1 : (schemaName ? 4 : 3)
+    const level = parentLevel !== undefined ? parentLevel + 1 : schemaName ? 4 : 3
 
     return views.map(view => ({
       key: NodeKeyEncoder.encode(['view', connectionId, dbName, schemaName || '', view.name]),
@@ -742,7 +750,6 @@ export function useDatabaseTreeLoader() {
         }
 
         return createTableNodes(connectionId, dbName, schemaName, config, node.level)
-
       }
 
       // Level 2/3: Views 文件夹 -> 视图列表

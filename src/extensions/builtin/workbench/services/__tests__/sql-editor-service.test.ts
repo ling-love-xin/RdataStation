@@ -9,15 +9,12 @@ describe('bindParams', () => {
   })
 
   it('replaces multiple parameters', () => {
-    const result = bindParams(
-      'INSERT INTO t (a, b) VALUES (:x, :y)',
-      { x: 'hello', y: 'world' },
-    )
+    const result = bindParams('INSERT INTO t (a, b) VALUES (:x, :y)', { x: 'hello', y: 'world' })
     expect(result).toBe("INSERT INTO t (a, b) VALUES ('hello', 'world')")
   })
 
   it('escapes single quotes in values', () => {
-    const result = bindParams("SELECT * FROM t WHERE name = :name", {
+    const result = bindParams('SELECT * FROM t WHERE name = :name', {
       name: "O'Brien",
     })
     expect(result).toBe("SELECT * FROM t WHERE name = 'O''Brien'")

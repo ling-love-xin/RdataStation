@@ -189,14 +189,11 @@ async function refreshStatus() {
   }
 }
 
-function increasePoolSize() {
-}
+function increasePoolSize() {}
 
-function decreasePoolSize() {
-}
+function decreasePoolSize() {}
 
-function clearIdleConnections() {
-}
+function clearIdleConnections() {}
 
 let refreshInterval: ReturnType<typeof setInterval> | null = null
 

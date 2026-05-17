@@ -10,8 +10,6 @@ import type { Ref } from 'vue'
 
 type FilterGridApi = GridApi & { setQuickFilter: (value: string) => void }
 
-
-
 interface MessageApi {
   success: (msg: string) => void
   error: (msg: string) => void
@@ -32,7 +30,7 @@ function buildObjectRows(columns: string[], rows: unknown[][]): Record<string, u
 export function useResultFilters(
   gridApi: Ref<GridApi | null>,
   message: MessageApi,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: (key: string, opts?: Record<string, unknown>) => string
 ) {
   function applyQuickFilter(tab: ResultTab, expr: string) {
     if (!gridApi.value) return

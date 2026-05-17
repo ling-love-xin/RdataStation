@@ -169,7 +169,11 @@ const commonColumnOptions = computed<SelectOption[]>(() => {
   return tabA.value.columns.filter(c => bColSet.has(c)).map(c => ({ label: c, value: c }))
 })
 
-const diffResult = useResultDiff(toRef(tabA), toRef(tabB), computed(() => keyColumns.value))
+const diffResult = useResultDiff(
+  toRef(tabA),
+  toRef(tabB),
+  computed(() => keyColumns.value)
+)
 
 const emptyMessage = computed(() => {
   if (!selectedTabAId.value || !selectedTabBId.value) return '选择两个结果集以对比差异'

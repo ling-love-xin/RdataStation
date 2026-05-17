@@ -169,7 +169,9 @@ watch(searchQuery, () => {
   border-radius: var(--border-radius-md);
   width: min(calc(100vw - 80px), 680px);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 0.5px rgba(255, 255, 255, 0.03);
 }
 
 .command-palette-input-wrapper {

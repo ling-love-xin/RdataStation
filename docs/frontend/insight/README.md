@@ -78,28 +78,28 @@ pub fn load_user_rules(project_path: &Path) { ... }  // 项目打开时调用
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | `column/`  | null-check, numeric-stats, numeric-basic, text-frequency, text-length, datetime-range, datetime-monthly, boolean-ratio, histogram | 单列     |
 | `multi/`   | correlation, grouped-stats, cross-tab, scatter-sample                                                                             | 多列     |
-| `table/`   | table-row-count, table-column-overview, table-null-overview, table-quality-overview                                                | 表级     |
+| `table/`   | table-row-count, table-column-overview, table-null-overview, table-quality-overview                                               | 表级     |
 | `quality/` | column-quality-score                                                                                                              | 质量门控 |
 
 ### Tauri Commands
 
-| 命令                        | 输入                                          | 输出                                |
-| --------------------------- | --------------------------------------------- | ----------------------------------- |
-| `get_column_insight_full`   | `{ connId, tempTable, columnName }`           | `ColumnInsightFull` (完整列洞察)     |
-| `get_column_insights`       | `{ connId, tempTable, columnName }`           | `ColumnStats` (轻量统计)            |
-| `execute_insight_rule`      | `{ rule_id, params, temp_table }`             | `Value` (动态JSON)                  |
-| `list_insight_rules`        | `category?`                                   | `RuleMeta[]`                        |
-| `list_rules_for_column`     | `{ column_type }`                             | `RuleMeta[]`                        |
-| `reload_insight_rules`      | `{}`                                           | `bool`                              |
-| `get_table_profile`         | `{ connId, dbType, database, schema, table }` | `TableProfile` (表探查)             |
-| `profile_column_from_table` | `{ connId, database, schema, table, column }` | `ColumnInsightFull` (表列探查)      |
-| `evaluate_quality_rule`     | `{ rule_id, temp_table }`                     | `QualityReport` (质量门控)          |
-| `batch_evaluate_columns`    | `{ conn_id, database, schema, table }`        | `TableQuality` (表级质量)           |
-| `get_schema_insight`        | `{ conn_id, database, schema }`               | `SchemaInsightReport` (Schema 洞察) |
-| `save_insight_snapshot`     | `{ connId, table, column, data }`             | `String` (version_id)               |
-| `list_insight_versions`     | `{ connId, table, column }`                   | `VersionInfo[]`                     |
-| `get_insight_version_detail`| `{ version_id }`                              | `ColumnInsightFull` (历史版本)       |
-| `cleanup_old_snapshots`     | `{ connId, table, column }`                   | `u32` (清理数量)                    |
+| 命令                         | 输入                                          | 输出                                |
+| ---------------------------- | --------------------------------------------- | ----------------------------------- |
+| `get_column_insight_full`    | `{ connId, tempTable, columnName }`           | `ColumnInsightFull` (完整列洞察)    |
+| `get_column_insights`        | `{ connId, tempTable, columnName }`           | `ColumnStats` (轻量统计)            |
+| `execute_insight_rule`       | `{ rule_id, params, temp_table }`             | `Value` (动态JSON)                  |
+| `list_insight_rules`         | `category?`                                   | `RuleMeta[]`                        |
+| `list_rules_for_column`      | `{ column_type }`                             | `RuleMeta[]`                        |
+| `reload_insight_rules`       | `{}`                                          | `bool`                              |
+| `get_table_profile`          | `{ connId, dbType, database, schema, table }` | `TableProfile` (表探查)             |
+| `profile_column_from_table`  | `{ connId, database, schema, table, column }` | `ColumnInsightFull` (表列探查)      |
+| `evaluate_quality_rule`      | `{ rule_id, temp_table }`                     | `QualityReport` (质量门控)          |
+| `batch_evaluate_columns`     | `{ conn_id, database, schema, table }`        | `TableQuality` (表级质量)           |
+| `get_schema_insight`         | `{ conn_id, database, schema }`               | `SchemaInsightReport` (Schema 洞察) |
+| `save_insight_snapshot`      | `{ connId, table, column, data }`             | `String` (version_id)               |
+| `list_insight_versions`      | `{ connId, table, column }`                   | `VersionInfo[]`                     |
+| `get_insight_version_detail` | `{ version_id }`                              | `ColumnInsightFull` (历史版本)      |
+| `cleanup_old_snapshots`      | `{ connId, table, column }`                   | `u32` (清理数量)                    |
 
 ---
 
@@ -280,11 +280,11 @@ DataVisualizationPanel
 ### 支持图表类型
 
 | TOML component | 前端 chartType | 图表类型 |
-| :---: | :---: | --- |
-| `"bar"` | `'bar'` | 柱状图 |
-| `"line"` | `'line'` | 折线图 |
-| `"pie"` | `'pie'` | 饼图 |
-| `"scatter"` | `'scatter'` | 散点图 |
+| :------------: | :------------: | -------- |
+|    `"bar"`     |    `'bar'`     | 柱状图   |
+|    `"line"`    |    `'line'`    | 折线图   |
+|    `"pie"`     |    `'pie'`     | 饼图     |
+|  `"scatter"`   |  `'scatter'`   | 散点图   |
 
 ### 规则示例
 
@@ -324,10 +324,10 @@ InsightHistoryTab.vue
 
 ## 十、相关文档索引
 
-| 文档 | 说明 |
-|------|------|
-| [INSIGHT-DEV-PROGRESS.md](./INSIGHT-DEV-PROGRESS.md) | 开发进度跟踪、变更日志 |
-| [INSIGHT-API-REFERENCE.md](./INSIGHT-API-REFERENCE.md) | Tauri Commands + 前端 API + 数据类型参考 |
-| [INSIGHT-RULE-FORMAT.md](./INSIGHT-RULE-FORMAT.md) | 规则文件 TOML 格式规范 |
-| [INSIGHT-SYSTEM-PLAN.md](./INSIGHT-SYSTEM-PLAN.md) | 洞察系统总体规划 |
-| [QUERY-RESULT-OPTIMIZATION-PROGRESS.md](./QUERY-RESULT-OPTIMIZATION-PROGRESS.md) | 查询结果优化（交叉影响追踪） |
+| 文档                                                                             | 说明                                     |
+| -------------------------------------------------------------------------------- | ---------------------------------------- |
+| [INSIGHT-DEV-PROGRESS.md](./INSIGHT-DEV-PROGRESS.md)                             | 开发进度跟踪、变更日志                   |
+| [INSIGHT-API-REFERENCE.md](./INSIGHT-API-REFERENCE.md)                           | Tauri Commands + 前端 API + 数据类型参考 |
+| [INSIGHT-RULE-FORMAT.md](./INSIGHT-RULE-FORMAT.md)                               | 规则文件 TOML 格式规范                   |
+| [INSIGHT-SYSTEM-PLAN.md](./INSIGHT-SYSTEM-PLAN.md)                               | 洞察系统总体规划                         |
+| [QUERY-RESULT-OPTIMIZATION-PROGRESS.md](./QUERY-RESULT-OPTIMIZATION-PROGRESS.md) | 查询结果优化（交叉影响追踪）             |

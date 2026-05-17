@@ -8,24 +8,24 @@
 
 ## 快速导航
 
-| 我想...               | 查看文档                                                   | 说明                           |
-| --------------------- | ---------------------------------------------------------- | ------------------------------ |
-| 了解项目架构          | [后端架构](./backend/ARCHITECTURE.md)                      | 四层微内核、六域错误、驱动架构 |
-| 开始后端开发          | [后端文档](./backend/README.md)                            | Rust Core + Tauri              |
-| 开始前端开发          | [前端文档](./frontend/INDEX.md)                            | Vue 3 + TypeScript             |
-| 了解 SQL 编辑器       | [SQL 编辑器](./frontend/sql-editor/README.md)              | 编辑器设计与优化               |
-| 了解结果集模块        | [结果集文档](./frontend/query-result/README.md)            | 数据展示、过滤、导出           |
-| 了解洞察系统          | [洞察文档](./frontend/insight/README.md)                   | 数据洞察与分析                 |
-| 了解分析资源管理器    | [分析资源](./frontend/analytics-resource/README.md)        | 统一资源管理                   |
-| 了解 Mock 数据生成器  | [Mock 设计](./frontend/mock/mock-data-generator-design.md) | 106 种生成器 + 6 场景模板      |
-| 了解数据库导航        | [导航器文档](./navigator/README.md)                        | IVM 增量视图设计               |
-| 了解标题栏设计        | [标题栏文档](./frontend/title-bar/README.md)               | 标题栏/状态栏重构              |
-| 了解连接管理          | [连接模态框](./frontend/connection/connection-modal.md)    | 新建数据库连接页面             |
-| 查看竞品对比          | [竞品对比](./COMPARISON.md)                                | vs DBeaver / DataGrip          |
-| 查看变更日志          | [变更日志](./CHANGELOG.md)                                 | 版本变更记录                   |
-| 查看任务进度          | [任务清单](./backend/TASKS.md)                             | 开发任务追踪                   |
-| 查看联调测试方案      | [联调测试方案](./project-integration-test-plan.md)        | 四库连接验证 + 全模块测试策略  |
-| 查看四库连接测试      | [四库连接测试](../src-tauri/tests/four_db_connection_tests.rs) | MySQL/PG/SQLite/DuckDB 集成 |
+| 我想...              | 查看文档                                                       | 说明                           |
+| -------------------- | -------------------------------------------------------------- | ------------------------------ |
+| 了解项目架构         | [后端架构](./backend/ARCHITECTURE.md)                          | 四层微内核、六域错误、驱动架构 |
+| 开始后端开发         | [后端文档](./backend/README.md)                                | Rust Core + Tauri              |
+| 开始前端开发         | [前端文档](./frontend/INDEX.md)                                | Vue 3 + TypeScript             |
+| 了解 SQL 编辑器      | [SQL 编辑器](./frontend/sql-editor/README.md)                  | 编辑器设计与优化               |
+| 了解结果集模块       | [结果集文档](./frontend/query-result/README.md)                | 数据展示、过滤、导出           |
+| 了解洞察系统         | [洞察文档](./frontend/insight/README.md)                       | 数据洞察与分析                 |
+| 了解分析资源管理器   | [分析资源](./frontend/analytics-resource/README.md)            | 统一资源管理                   |
+| 了解 Mock 数据生成器 | [Mock 设计](./frontend/mock/mock-data-generator-design.md)     | 106 种生成器 + 6 场景模板      |
+| 了解数据库导航       | [导航器文档](./navigator/README.md)                            | IVM 增量视图设计               |
+| 了解标题栏设计       | [标题栏文档](./frontend/title-bar/README.md)                   | 标题栏/状态栏重构              |
+| 了解连接管理         | [连接模态框](./frontend/connection/connection-modal.md)        | 新建数据库连接页面             |
+| 查看竞品对比         | [竞品对比](./COMPARISON.md)                                    | vs DBeaver / DataGrip          |
+| 查看变更日志         | [变更日志](./CHANGELOG.md)                                     | 版本变更记录                   |
+| 查看任务进度         | [任务清单](./backend/TASKS.md)                                 | 开发任务追踪                   |
+| 查看联调测试方案     | [联调测试方案](./project-integration-test-plan.md)             | 四库连接验证 + 全模块测试策略  |
+| 查看四库连接测试     | [四库连接测试](../src-tauri/tests/four_db_connection_tests.rs) | MySQL/PG/SQLite/DuckDB 集成    |
 
 ---
 
@@ -145,13 +145,13 @@ docs/
 
 ### 后端 (Rust Core)
 
-| 技术         | 版本   | 用途             |
-| ------------ | ------ | ---------------- |
-| Rust Edition | 2021   | 开发语言         |
-| Tokio        | 1.44.x | 异步运行时       |
-| Tauri        | 2.10.x | 桌面框架         |
-| sqlx         | 0.8.x  | MySQL/PostgreSQL |
-| rusqlite     | 0.32.x | SQLite           |
+| 技术         | 版本      | 用途             |
+| ------------ | --------- | ---------------- |
+| Rust Edition | 2021      | 开发语言         |
+| Tokio        | 1.44.x    | 异步运行时       |
+| Tauri        | 2.10.x    | 桌面框架         |
+| sqlx         | 0.8.x     | MySQL/PostgreSQL |
+| rusqlite     | 0.32.x    | SQLite           |
 | duckdb-rs    | 1.10502.x | DuckDB           |
 
 ### 前端 (Vue 3 + TS)
@@ -201,17 +201,17 @@ docs/
 
 ## 文档版本
 
-| 版本 | 日期       | 说明                                    |
-| ---- | ---------- | --------------------------------------- |
+| 版本 | 日期       | 说明                                       |
+| ---- | ---------- | ------------------------------------------ |
 | v3.1 | 2026-05-11 | 版本号校准、新增联调测试方案、四库连接测试 |
-| v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录    |
-| v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase） |
-| v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成              |
-| v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）   |
-| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定              |
-| v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档            |
-| v2.0 | 2026-05-03 | 创建文档中心，优化索引结构              |
-| v1.0 | 2026-04-23 | 初始文档架构                            |
+| v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录       |
+| v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase）    |
+| v2.4 | 2026-05-08 | SQL 编辑器架构优化全部完成                 |
+| v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成（4 Phase）      |
+| v2.2 | 2026-05-08 | SQL 编辑器架构优化计划制定                 |
+| v2.1 | 2026-05-06 | 添加 V7 增量同步竞品对比文档               |
+| v2.0 | 2026-05-03 | 创建文档中心，优化索引结构                 |
+| v1.0 | 2026-04-23 | 初始文档架构                               |
 
 ---
 

@@ -2,7 +2,11 @@
  * 数据库导航器类型定义
  */
 
-import type { NavigatorNode, NodeProperties, ColumnInfo as SharedColumnInfo } from '@/shared/types/databaseMeta'
+import type {
+  NavigatorNode,
+  NodeProperties,
+  ColumnInfo as SharedColumnInfo,
+} from '@/shared/types/databaseMeta'
 
 /** 数据库连接信息 */
 export interface DatabaseConnection {
@@ -33,10 +37,7 @@ export interface TableStructure {
  *
  * @see {@link SharedColumnInfo} IPC / 完整元数据版本
  */
-export type ColumnInfo = Pick<
-  SharedColumnInfo,
-  'name' | 'isNullable' | 'comment'
-> & {
+export type ColumnInfo = Pick<SharedColumnInfo, 'name' | 'isNullable' | 'comment'> & {
   type: string
   default?: string | null
 }

@@ -2,15 +2,11 @@ import { Database, BarChart3, Puzzle, FileText, Sparkles, StickyNote, Dices } fr
 import { defineStore } from 'pinia'
 import { ref, shallowRef, computed, type Component } from 'vue'
 
-import type {
-  SerializedDockviewLayout,
-  SerializedSidebarState,
-} from '@/stores/config'
+import type { SerializedDockviewLayout, SerializedSidebarState } from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 
 import type { IDockviewPanel } from 'dockview-core'
 import type { DockviewApi } from 'dockview-vue'
-
 
 // ============================================
 // 类型定义
@@ -212,8 +208,16 @@ export const useLayoutStore = defineStore('layout', () => {
     if (api) {
       const leftGroup = api.getEdgeGroup?.('left')
       const rightGroup = api.getEdgeGroup?.('right')
-      if (snapshot.leftEdgeGroupCollapsed) { leftGroup?.collapse() } else { leftGroup?.expand() }
-      if (snapshot.rightEdgeGroupCollapsed) { rightGroup?.collapse() } else { rightGroup?.expand() }
+      if (snapshot.leftEdgeGroupCollapsed) {
+        leftGroup?.collapse()
+      } else {
+        leftGroup?.expand()
+      }
+      if (snapshot.rightEdgeGroupCollapsed) {
+        rightGroup?.collapse()
+      } else {
+        rightGroup?.expand()
+      }
       leftGroup?.setSize({ width: snapshot.primarySideBarWidth })
       rightGroup?.setSize({ width: snapshot.secondarySideBarWidth })
     }
@@ -239,8 +243,12 @@ export const useLayoutStore = defineStore('layout', () => {
   function loadCustomTemplates() {
     try {
       const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY)
-      if (stored) { customTemplates.value = JSON.parse(stored) }
-    } catch { customTemplates.value = [] }
+      if (stored) {
+        customTemplates.value = JSON.parse(stored)
+      }
+    } catch {
+      customTemplates.value = []
+    }
   }
 
   function saveCustomTemplate(name: string) {
@@ -289,7 +297,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // 底部 Panel 模式: 'editor' (仅B区下方) | 'full' (横跨全宽)
   // ============================================
   const bottomPanelMode = ref<'editor' | 'full'>('editor')
-const openPanelIds = ref<string[]>([])
+  const openPanelIds = ref<string[]>([])
 
   // ============================================
   // 面板布局模式: 'tabs' | 'vertical-split'
@@ -469,7 +477,13 @@ const openPanelIds = ref<string[]>([])
     if (targetGroup) {
       panel.api.moveTo({ group: targetGroup })
       panelConfigs.value.set(panelId, {
-        ...(currentConfig || { id: panelId, title: panel.id, icon: null, isVisible: true, order: 0 }),
+        ...(currentConfig || {
+          id: panelId,
+          title: panel.id,
+          icon: null,
+          isVisible: true,
+          order: 0,
+        }),
         location,
       })
       console.log('[LayoutStore] Panel moved to location:', location)

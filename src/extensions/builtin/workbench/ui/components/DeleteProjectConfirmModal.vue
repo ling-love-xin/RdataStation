@@ -92,7 +92,7 @@ const confirmStatus = computed<InputStatus>(() => {
 
 watch(
   () => props.visible,
-  (isVisible) => {
+  isVisible => {
     if (isVisible) {
       confirmName.value = ''
       nextTick(() => {

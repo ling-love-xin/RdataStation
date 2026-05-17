@@ -136,8 +136,8 @@
       </table>
     </div>
 
-    <!-- 连接模态框 -->
-    <ConnectionModal
+    <!-- 添加数据源对话框 -->
+    <AddDataSourceDialog
       v-model="showConnectionModal"
       :is-editing="!!editingConnection"
       :edit-data="editingConnectionAsConfig"
@@ -167,7 +167,7 @@ import { useI18n } from 'vue-i18n'
 import { useProjectStore } from '@/core/project/stores/project'
 import DbIcon from '@/shared/components/common/DbIcon.vue'
 
-import ConnectionModal from './ConnectionModal.vue'
+import AddDataSourceDialog from './AddDataSourceDialog.vue'
 import * as connectionService from '../services/connection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 import { useRuntimeConnectionStore } from '../stores/runtime-connection-store'

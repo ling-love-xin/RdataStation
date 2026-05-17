@@ -218,29 +218,29 @@ export interface SqlEditorParams {
 
 ### 4.1 Tauri Command → 前端 API 映射
 
-| #   | Tauri Command                   | 前端封装函数                                   | 类别     | 状态 |
-| --- | ------------------------------- | ---------------------------------------------- | -------- | :--: |
-| 1   | `init_scratchpad_store`         | _(扩展激活时自动调用)_                         | 初始化   |  ✅  |
-| 2   | `list_scratchpad_files`         | `listScratchpadFiles()`                        | 文件列表 |  ✅  |
-| 3   | `create_scratchpad_entry`       | `createScratchpadEntry(name, isFolder)`        | CRUD     |  ✅  |
-| 4   | `delete_scratchpad_entry`       | `deleteScratchpadEntry(relativePath)`          | CRUD     |  ✅  |
-| 5   | `rename_scratchpad_entry`       | `renameScratchpadEntry(relativePath, newName)` | CRUD     |  ✅  |
-| 6   | `read_scratchpad_file`          | `readScratchpadFile(relativePath)`             | 读写     |  ✅  |
-| 7   | `save_scratchpad_file`          | `saveScratchpadFile(relativePath, content)`    | 读写     |  ✅  |
-| 8   | `import_external_file`          | `importExternalFile(sourcePath)`               | 导入     |  ✅  |
-| 9   | `add_external_reference`        | `addExternalReference(alias, path)`            | 引用     |  ✅  |
-| 10  | `remove_external_reference`     | `removeExternalReference(alias)`               | 引用     |  ✅  |
-| 11  | `open_scratchpad_in_explorer`   | `openInExplorer(path)`                         | 工具     |  ✅  |
-| 12  | `check_scratchpad_file_size`    | `checkFileSize(relativePath)`                  | 工具     |  ✅  |
-| 13  | `get_analyzable_files`          | `getAnalyzableFiles()`                           | 分析     |  ✅  |
-| 14  | `update_scratchpad_file_meta`   | `updateFileMeta(relativePath, connectionId?)`   | 元数据   |  ✅  |
-| 15 | `search_scratchpad_content` | `searchFileContent(query, caseSensitive)` | 搜索 | ✅ (→ `SearchMatch[]`) |
-| 16  | `list_scratchpad_trash`         | `listTrash()`                                    | 回收站   |  ✅  |
-| 17  | `restore_scratchpad_from_trash` | `restoreFromTrash(trashName)`                   | 回收站   |  ✅  |
-| 18  | `empty_scratchpad_trash`        | `emptyTrash()`                                  | 回收站   |  ✅  |
-| 19  | `watch_scratchpad`              | `watchScratchpad()`                               | 监控     |  ✅  |
-| 20  | `unwatch_scratchpad`            | `unwatchScratchpad()`                             | 监控     |  ✅  |
-| 21  | `promote_scratchpad_to_resource` | `promoteScratchpadToResource(relativePath, removeAfter)` | 提升（完成后 emit `analytics-resource-changed`） | ✅ |
+| #   | Tauri Command                    | 前端封装函数                                             | 类别                                             |          状态          |
+| --- | -------------------------------- | -------------------------------------------------------- | ------------------------------------------------ | :--------------------: |
+| 1   | `init_scratchpad_store`          | _(扩展激活时自动调用)_                                   | 初始化                                           |           ✅           |
+| 2   | `list_scratchpad_files`          | `listScratchpadFiles()`                                  | 文件列表                                         |           ✅           |
+| 3   | `create_scratchpad_entry`        | `createScratchpadEntry(name, isFolder)`                  | CRUD                                             |           ✅           |
+| 4   | `delete_scratchpad_entry`        | `deleteScratchpadEntry(relativePath)`                    | CRUD                                             |           ✅           |
+| 5   | `rename_scratchpad_entry`        | `renameScratchpadEntry(relativePath, newName)`           | CRUD                                             |           ✅           |
+| 6   | `read_scratchpad_file`           | `readScratchpadFile(relativePath)`                       | 读写                                             |           ✅           |
+| 7   | `save_scratchpad_file`           | `saveScratchpadFile(relativePath, content)`              | 读写                                             |           ✅           |
+| 8   | `import_external_file`           | `importExternalFile(sourcePath)`                         | 导入                                             |           ✅           |
+| 9   | `add_external_reference`         | `addExternalReference(alias, path)`                      | 引用                                             |           ✅           |
+| 10  | `remove_external_reference`      | `removeExternalReference(alias)`                         | 引用                                             |           ✅           |
+| 11  | `open_scratchpad_in_explorer`    | `openInExplorer(path)`                                   | 工具                                             |           ✅           |
+| 12  | `check_scratchpad_file_size`     | `checkFileSize(relativePath)`                            | 工具                                             |           ✅           |
+| 13  | `get_analyzable_files`           | `getAnalyzableFiles()`                                   | 分析                                             |           ✅           |
+| 14  | `update_scratchpad_file_meta`    | `updateFileMeta(relativePath, connectionId?)`            | 元数据                                           |           ✅           |
+| 15  | `search_scratchpad_content`      | `searchFileContent(query, caseSensitive)`                | 搜索                                             | ✅ (→ `SearchMatch[]`) |
+| 16  | `list_scratchpad_trash`          | `listTrash()`                                            | 回收站                                           |           ✅           |
+| 17  | `restore_scratchpad_from_trash`  | `restoreFromTrash(trashName)`                            | 回收站                                           |           ✅           |
+| 18  | `empty_scratchpad_trash`         | `emptyTrash()`                                           | 回收站                                           |           ✅           |
+| 19  | `watch_scratchpad`               | `watchScratchpad()`                                      | 监控                                             |           ✅           |
+| 20  | `unwatch_scratchpad`             | `unwatchScratchpad()`                                    | 监控                                             |           ✅           |
+| 21  | `promote_scratchpad_to_resource` | `promoteScratchpadToResource(relativePath, removeAfter)` | 提升（完成后 emit `analytics-resource-changed`） |           ✅           |
 
 > **状态说明**：21/21 main 命令全部封装。回收站、元数据、内容搜索、文件监控、"提升"机制全栈打通。
 
@@ -339,12 +339,12 @@ export function useScratchpad() {
 
 ## 七、编辑器类型映射（openFileInEditor）
 
-| 后缀                     | 目标编辑器                                            |  状态   |
-| ------------------------ | ----------------------------------------------------- | :-----: |
-| `.sql`                   | **sql-editor**（核心场景——自动恢复连接 + 执行引擎）   |   ✅    |
-| `.py`                    | code-editor（Monaco Python 高亮 + Ctrl+S 保存）       |   ✅    |
-| `.csv`                   | data-preview / DuckDB 分析入口                        |   ✅    |
-| `.json` / `.txt` / `.md` | code-editor                                           |   ✅    |
+| 后缀                     | 目标编辑器                                          | 状态 |
+| ------------------------ | --------------------------------------------------- | :--: |
+| `.sql`                   | **sql-editor**（核心场景——自动恢复连接 + 执行引擎） |  ✅  |
+| `.py`                    | code-editor（Monaco Python 高亮 + Ctrl+S 保存）     |  ✅  |
+| `.csv`                   | data-preview / DuckDB 分析入口                      |  ✅  |
+| `.json` / `.txt` / `.md` | code-editor                                         |  ✅  |
 
 > **✅ 全部打通**：`openFileInEditor()` 已完整实现，含 50MB 大小预检、file_meta 恢复连接、dockview 面板创建。
 
@@ -352,36 +352,36 @@ export function useScratchpad() {
 
 ## 八、文件变更记录（自 v1.1 起）
 
-| 变更                    | 文件                        | 说明                                                                          |
-| ----------------------- | --------------------------- | ----------------------------------------------------------------------------- |
-| ✅ ScratchpadState 缓存 | `state.rs` (新)             | `Arc<Mutex<Option<ScratchpadStore>>>` 避免每次命令重建 Store                  |
-| ✅ 回收站 (.trash/)     | `store.rs`                  | `delete_entry` 改为 rename 到 `.trash/`；新增 list/restore/empty              |
-| ✅ DuckDB 分析元数据    | `models.rs`                 | `AnalyzableFile` 结构体 + `duckdb_query_hint` 映射表 + `get_analyzable_files` |
-| ✅ 命令层重构           | `commands`                  | 全部改用 `ScratchpadState`；新增 4 命令                                       |
-| ✅ 安全合规修复         | `store.rs`                  | `resolve_path` 中 unwrap 替换为 CoreError                                     |
-| ✅ 原子写入             | `store.rs`                  | 先写 `.tmp` 临时文件，再 rename；失败清理 tmp                                 |
-| ✅ 前端对话框           | `ScratchpadPanel.vue`       | 新建/导入/引用的模态框                                                        |
-| ✅ 右键菜单             | `ScratchpadPanel.vue`       | 打开/重命名/删除/复制路径/展开折叠 + 移除引用/打开位置                        |
-| ✅ F2 内联重命名        | `ScratchpadTreeNode.vue`    | Enter/Escape/Blur 确认取消                                                    |
-| ✅ 大文件检查           | Panel + Store               | 前端 50MB 前置校验 + 后端 `check_file_size`                                   |
-| ✅ 系统管理器打开       | `store.rs` + `opener` crate | 外部引用右键"打开位置"                                                        |
-| ✅ 右键菜单溢出检测     | `ScratchpadPanel.vue`       | `clampToViewport()` 防越界                                                    |
-| ✅ 文件监控             | `state.rs` + `commands`     | `notify` crate + `AtomicBool` watcher + `scratchpad-changed` event            |
-| ✅ 防重复 Tab           | `WorkbenchView.vue`         | `handleOpenSqlEditor` 检测同 `scratchpadRelativePath` 面板                      |
-| ✅ 拖放导入             | `ScratchpadPanel.vue`       | dragover/dragleave/drop 文件从资源管理器导入                                    |
-| ✅ 主题变量对齐         | `ScratchpadTreeNode.vue`    | CSS 变量迁移至 `--color-bg-*` / `--color-text-*` 全局主题                       |
-| ✅ 工具栏人性化优化     | `ScratchpadPanel.vue`       | 两行布局（操作行+搜索行）、`type="primary"` 主操作、硬编码文本 i18n 化          |
-| ✅ "提升"机制           | `commands.rs` + 全栈链路      | `promote_scratchpad_to_resource` → CreateResourceRequest → 分析资源管理器        |
-| ✅ 键盘导航             | `ScratchpadPanel.vue`        | ↑↓/Enter/F2/Delete/Ctrl+N 快捷键 + `scrollToSelected` 自动滚屏              |
-| ✅ 重命名 feedback      | `ScratchpadTreeNode.vue`     | `renamingSaving` loading spinner + input `:disabled`                        |
-| ✅ 提升事件联动         | `commands.rs`                | `app.emit("analytics-resource-changed")` 通知分析资源面板刷新                 |
-| ✅ Entry 精简 + SearchMatch (v2.2) | `models.rs`, `store.rs`, `types/index.ts`, `ScratchpadPanel.vue` | 移除 `extension`/`is_external_ref`，`modified_at` 改 ISO 8601；新增 `SearchMatch` 结构体（file+line_number+line_content）；搜索返回行级上下文 |
-| ✅ 交互增强 (v2.3) | `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue`, `SqlEditorPanel.vue`, `WorkbenchView.vue`, `sql.ts` | 新建文件夹入口/搜索点击跳转（`initialLine` → Monaco `revealLineInCenter`）/修改时间相对显示（分钟/小时/天）/Toast 反馈（`createDiscreteApi`）/extension 修复 |
-| ✅ 搜索增强 + Bug (v2.4) | `store.rs`, `commands.rs`, `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue` | `case_sensitive` 参数大小写搜索/折叠展开全部/搜索文本高亮（`v-html` + `<mark>`）/`.duckdb` 图标/`isAnalyzableFile` extension 修复 |
-| ✅ 最近打开 + 空状态 (v2.5) | `ScratchpadPanel.vue` | `recentFiles` 内存列表（最大 5）+ `addRecentFile` 去重推到首位 + `recentFileEntries` computed 查找 + 可折叠区域；`empty-state` 图标标题引导按钮 |
-| ✅ 多选批量操作 (v2.6) | `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue` | `selectedKeys` Set 多选 + `lastSelectPath` 范围选择 + Ctrl/Shift 点击处理 + 批量删除 confirm toast + `clipboardEntry` 复制粘贴 + Ctrl+A 全选 + `openFileInEditor` extension Bug 修复 |
-| ✅ 搜索安全加固 (v2.8) | `models.rs`, `store.rs`, `commands.rs`, `types/index.ts`, `scratchpad-api.ts`, `use-scratchpad.ts`, `ScratchpadPanel.vue`, `zh-CN.json`, `en.json` | `SearchResult` 结构体（matches/total_scanned/total_skipped/skipped_files/truncated）；`MAX_SEARCH_FILE_SIZE = 10MB` 大文件跳过；`MAX_SEARCH_RESULTS = 500` 结果截断；frontend notice bar 黄色警告 + search-no-results 空态；3 新 i18n key + EN 同步 |
-| ✅ 流式搜索 (v2.9) | `store.rs` | `read_to_string` → `BufReader::lines()` 逐行流式读取；`search_single_file` 独立 async；`tokio::time::timeout` 30s 超时；移除 MAX_SEARCH_FILE_SIZE；1GB 文件搜索内存从 1GB 降至 ~8KB |
+| 变更                               | 文件                                                                                                                                               | 说明                                                                                                                                                                                                                                                |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ ScratchpadState 缓存            | `state.rs` (新)                                                                                                                                    | `Arc<Mutex<Option<ScratchpadStore>>>` 避免每次命令重建 Store                                                                                                                                                                                        |
+| ✅ 回收站 (.trash/)                | `store.rs`                                                                                                                                         | `delete_entry` 改为 rename 到 `.trash/`；新增 list/restore/empty                                                                                                                                                                                    |
+| ✅ DuckDB 分析元数据               | `models.rs`                                                                                                                                        | `AnalyzableFile` 结构体 + `duckdb_query_hint` 映射表 + `get_analyzable_files`                                                                                                                                                                       |
+| ✅ 命令层重构                      | `commands`                                                                                                                                         | 全部改用 `ScratchpadState`；新增 4 命令                                                                                                                                                                                                             |
+| ✅ 安全合规修复                    | `store.rs`                                                                                                                                         | `resolve_path` 中 unwrap 替换为 CoreError                                                                                                                                                                                                           |
+| ✅ 原子写入                        | `store.rs`                                                                                                                                         | 先写 `.tmp` 临时文件，再 rename；失败清理 tmp                                                                                                                                                                                                       |
+| ✅ 前端对话框                      | `ScratchpadPanel.vue`                                                                                                                              | 新建/导入/引用的模态框                                                                                                                                                                                                                              |
+| ✅ 右键菜单                        | `ScratchpadPanel.vue`                                                                                                                              | 打开/重命名/删除/复制路径/展开折叠 + 移除引用/打开位置                                                                                                                                                                                              |
+| ✅ F2 内联重命名                   | `ScratchpadTreeNode.vue`                                                                                                                           | Enter/Escape/Blur 确认取消                                                                                                                                                                                                                          |
+| ✅ 大文件检查                      | Panel + Store                                                                                                                                      | 前端 50MB 前置校验 + 后端 `check_file_size`                                                                                                                                                                                                         |
+| ✅ 系统管理器打开                  | `store.rs` + `opener` crate                                                                                                                        | 外部引用右键"打开位置"                                                                                                                                                                                                                              |
+| ✅ 右键菜单溢出检测                | `ScratchpadPanel.vue`                                                                                                                              | `clampToViewport()` 防越界                                                                                                                                                                                                                          |
+| ✅ 文件监控                        | `state.rs` + `commands`                                                                                                                            | `notify` crate + `AtomicBool` watcher + `scratchpad-changed` event                                                                                                                                                                                  |
+| ✅ 防重复 Tab                      | `WorkbenchView.vue`                                                                                                                                | `handleOpenSqlEditor` 检测同 `scratchpadRelativePath` 面板                                                                                                                                                                                          |
+| ✅ 拖放导入                        | `ScratchpadPanel.vue`                                                                                                                              | dragover/dragleave/drop 文件从资源管理器导入                                                                                                                                                                                                        |
+| ✅ 主题变量对齐                    | `ScratchpadTreeNode.vue`                                                                                                                           | CSS 变量迁移至 `--color-bg-*` / `--color-text-*` 全局主题                                                                                                                                                                                           |
+| ✅ 工具栏人性化优化                | `ScratchpadPanel.vue`                                                                                                                              | 两行布局（操作行+搜索行）、`type="primary"` 主操作、硬编码文本 i18n 化                                                                                                                                                                              |
+| ✅ "提升"机制                      | `commands.rs` + 全栈链路                                                                                                                           | `promote_scratchpad_to_resource` → CreateResourceRequest → 分析资源管理器                                                                                                                                                                           |
+| ✅ 键盘导航                        | `ScratchpadPanel.vue`                                                                                                                              | ↑↓/Enter/F2/Delete/Ctrl+N 快捷键 + `scrollToSelected` 自动滚屏                                                                                                                                                                                      |
+| ✅ 重命名 feedback                 | `ScratchpadTreeNode.vue`                                                                                                                           | `renamingSaving` loading spinner + input `:disabled`                                                                                                                                                                                                |
+| ✅ 提升事件联动                    | `commands.rs`                                                                                                                                      | `app.emit("analytics-resource-changed")` 通知分析资源面板刷新                                                                                                                                                                                       |
+| ✅ Entry 精简 + SearchMatch (v2.2) | `models.rs`, `store.rs`, `types/index.ts`, `ScratchpadPanel.vue`                                                                                   | 移除 `extension`/`is_external_ref`，`modified_at` 改 ISO 8601；新增 `SearchMatch` 结构体（file+line_number+line_content）；搜索返回行级上下文                                                                                                       |
+| ✅ 交互增强 (v2.3)                 | `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue`, `SqlEditorPanel.vue`, `WorkbenchView.vue`, `sql.ts`                                               | 新建文件夹入口/搜索点击跳转（`initialLine` → Monaco `revealLineInCenter`）/修改时间相对显示（分钟/小时/天）/Toast 反馈（`createDiscreteApi`）/extension 修复                                                                                        |
+| ✅ 搜索增强 + Bug (v2.4)           | `store.rs`, `commands.rs`, `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue`                                                                         | `case_sensitive` 参数大小写搜索/折叠展开全部/搜索文本高亮（`v-html` + `<mark>`）/`.duckdb` 图标/`isAnalyzableFile` extension 修复                                                                                                                   |
+| ✅ 最近打开 + 空状态 (v2.5)        | `ScratchpadPanel.vue`                                                                                                                              | `recentFiles` 内存列表（最大 5）+ `addRecentFile` 去重推到首位 + `recentFileEntries` computed 查找 + 可折叠区域；`empty-state` 图标标题引导按钮                                                                                                     |
+| ✅ 多选批量操作 (v2.6)             | `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue`                                                                                                    | `selectedKeys` Set 多选 + `lastSelectPath` 范围选择 + Ctrl/Shift 点击处理 + 批量删除 confirm toast + `clipboardEntry` 复制粘贴 + Ctrl+A 全选 + `openFileInEditor` extension Bug 修复                                                                |
+| ✅ 搜索安全加固 (v2.8)             | `models.rs`, `store.rs`, `commands.rs`, `types/index.ts`, `scratchpad-api.ts`, `use-scratchpad.ts`, `ScratchpadPanel.vue`, `zh-CN.json`, `en.json` | `SearchResult` 结构体（matches/total_scanned/total_skipped/skipped_files/truncated）；`MAX_SEARCH_FILE_SIZE = 10MB` 大文件跳过；`MAX_SEARCH_RESULTS = 500` 结果截断；frontend notice bar 黄色警告 + search-no-results 空态；3 新 i18n key + EN 同步 |
+| ✅ 流式搜索 (v2.9)                 | `store.rs`                                                                                                                                         | `read_to_string` → `BufReader::lines()` 逐行流式读取；`search_single_file` 独立 async；`tokio::time::timeout` 30s 超时；移除 MAX_SEARCH_FILE_SIZE；1GB 文件搜索内存从 1GB 降至 ~8KB                                                                 |
 
 </parameter>
 </｜DSML｜inv

@@ -13,8 +13,8 @@
       @ready="onReady"
     />
 
-    <!-- 新建连接对话框 -->
-    <ConnectionModal v-model="showConnectionModal" @save="handleSaveConnection" />
+    <!-- 添加数据源对话框 -->
+    <AddDataSourceDialog v-model="showConnectionModal" @save="handleSaveConnection" />
 
     <!-- 自定义布局对话框 -->
     <CustomizeLayoutDialog />
@@ -34,13 +34,19 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { panelRegistry } from '@/core/panel-registry'
-import ConnectionModal from '@/extensions/builtin/connection/ui/components/ConnectionModal.vue'
+import AddDataSourceDialog from '@/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue'
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
+import {
+  EditorManager,
+} from '@/extensions/builtin/workbench/manager/EditorManager'
+import { ShortcutManager } from '@/extensions/builtin/workbench/manager/ShortcutManager'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import IconTabComponent from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
-import { useDockviewKeyboard } from '@/extensions/builtin/workbench/ui/composables/useDockviewKeyboard'
-import { WorkbenchEvent, listenWorkbenchEvent } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
+import {
+  WorkbenchEvent,
+  listenWorkbenchEvent,
+} from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
 import { useAppStore } from '@/stores/useAppStore'
@@ -63,12 +69,7 @@ const message = useMessage()
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const showConnectionModal = ref(false)
 
-let activeSqlEditorPanelId: string | null = null
-
 let dockviewApi: DockviewVueApi | null = null
-let sqlEditorCounter = 0
-
-useDockviewKeyboard({ layoutStore })
 
 const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMenuItem[] => {
   const panelId = params.panel.id
@@ -180,28 +181,7 @@ const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
     window.dispatchEvent(new CustomEvent('navigator-refresh'))
 
     if (dockviewApi) {
-      const centerRef = findCenterGroupReference()
-
-      sqlEditorCounter++
-      const panelId = `panel_sqlEditor_${sqlEditorCounter}`
-      dockviewApi.addPanel({
-        id: panelId,
-        component: 'sqlEditor',
-        title: `SQL ${sqlEditorCounter}`,
-        position: centerRef,
-        params: {
-          connectionId: data.name,
-          databaseName: data.database || '',
-          initialSql: '',
-        },
-      })
-
-      const emptyPanel = dockviewApi.getPanel('panel_emptyWorkbench')
-      if (emptyPanel) {
-        emptyPanel.api.close()
-      }
-
-      ensureResultPanel()
+      await EditorManager.openNewQuery(data.name, data.database || '')
     }
 
     message.success(t('workbench.connectionSaved', { name: data.name }))
@@ -216,6 +196,35 @@ const onReady = (event: DockviewReadyEvent) => {
   const api = event.api
   dockviewApi = api
   layoutStore.setDockviewApi(api)
+
+  EditorManager.init(api)
+
+  ShortcutManager.register('Ctrl+B', 'global', () => {
+    const leftGroup = api.getEdgeGroup('left')
+    if (leftGroup?.isCollapsed()) {
+      layoutStore.expandLeftEdgeGroup()
+    } else {
+      layoutStore.collapseLeftEdgeGroup()
+    }
+  }, '切换左侧边栏')
+
+  ShortcutManager.register('Ctrl+Shift+B', 'global', () => {
+    const rightGroup = api.getEdgeGroup('right')
+    if (rightGroup?.isCollapsed()) {
+      layoutStore.expandRightEdgeGroup()
+    } else {
+      layoutStore.collapseRightEdgeGroup()
+    }
+  }, '切换右侧边栏')
+
+  ShortcutManager.register('Escape', 'global', () => {
+    const activeEl = document.activeElement
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return
+    const leftGroup = api.getEdgeGroup('left')
+    if (leftGroup?.isMaximized()) { leftGroup.exitMaximized(); return }
+    const rightGroup = api.getEdgeGroup('right')
+    if (rightGroup?.isMaximized()) { rightGroup.exitMaximized() }
+  }, '退出最大化面板')
 
   const panels = panelRegistry.getAll()
   console.log(`[Workbench] Creating ${panels.length} panels from registry`)
@@ -315,7 +324,11 @@ const onReady = (event: DockviewReadyEvent) => {
       position: { referenceGroup: 'right-edge' },
       renderer: 'onlyWhenVisible',
     })
-    layoutStore.updatePanelConfig(firstRightPanelId, { location: 'right', isVisible: true, order: 0 })
+    layoutStore.updatePanelConfig(firstRightPanelId, {
+      location: 'right',
+      isVisible: true,
+      order: 0,
+    })
 
     for (let i = 1; i < rightPanels.length; i++) {
       const panel = rightPanels[i]
@@ -351,8 +364,19 @@ const onReady = (event: DockviewReadyEvent) => {
   // 事件监听
   // ============================================
   api.onDidActivePanelChange?.(panel => {
-    if (panel?.id?.startsWith('panel_sqlEditor_')) {
-      activeSqlEditorPanelId = panel.id
+    if (!panel) {
+      ShortcutManager.setActiveScope('none')
+      return
+    }
+    if (panel.id.startsWith('panel_editor_')) {
+      EditorManager.onPanelActivated(panel.id)
+      ShortcutManager.setActiveScope('editor')
+    } else if (panel.id.startsWith('panel_result_')) {
+      ShortcutManager.setActiveScope('result')
+    } else if (panel.id === 'scratchpad' || panel.id.startsWith('panel_scratchpad')) {
+      ShortcutManager.setActiveScope('scratchpad')
+    } else {
+      ShortcutManager.setActiveScope('none')
     }
   })
 
@@ -364,14 +388,18 @@ const onReady = (event: DockviewReadyEvent) => {
         restorePinnedPanel(panelId)
       }, 100)
     }
-    editorStore.removeByPanelId(panelId)
-  })
+    if (!panelId.startsWith('panel_editor_')) {
+      editorStore.removeByPanelId(panelId)
+    }
 
-  window.addEventListener(
-    'open-object-properties',
-    handleOpenObjectProperties as (e: Event) => void
-  )
-  window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
+    if (panelId.startsWith('panel_editor_')) {
+      const filePath = EditorManager.panelIdToFilePath(panelId)
+      if (filePath) {
+        EditorManager.closeFile(filePath)
+        console.log(`[Workbench] 编辑器面板关闭，清理 Model: ${filePath}`)
+      }
+    }
+  })
 
   api.onDidLayoutChange?.(() => {
     try {
@@ -511,27 +539,15 @@ const handleResetLayout = () => {
   }
 }
 
-function findActiveSqlEditorPanelId(): string | null {
-  if (!dockviewApi) return null
-  if (activeSqlEditorPanelId) {
-    return activeSqlEditorPanelId
-  }
-  for (const group of dockviewApi.groups || []) {
-    for (const panelInfo of group.model?.panels || []) {
-      if (panelInfo.id?.startsWith('panel_sqlEditor_')) {
-        return panelInfo.id
-      }
-    }
-  }
-  return null
-}
-
-function findCenterGroupReference(): { referencePanel?: string; direction?: 'within' | 'right' } {
+function findCenterGroupReference(): { direction: 'right' } | { referencePanel: string; direction: 'within' } {
   if (!dockviewApi) return { direction: 'right' }
 
-  const sqlPanelId = findActiveSqlEditorPanelId()
-  if (sqlPanelId) {
-    return { referencePanel: sqlPanelId, direction: 'within' }
+  for (const group of dockviewApi.groups || []) {
+    for (const panel of group.model?.panels || []) {
+      if (panel.id?.startsWith('panel_editor_')) {
+        return { referencePanel: panel.id, direction: 'within' }
+      }
+    }
   }
 
   const welcomePanel = dockviewApi.getPanel('panel_emptyWorkbench')
@@ -551,130 +567,49 @@ function findCenterGroupReference(): { referencePanel?: string; direction?: 'wit
   return { direction: 'right' }
 }
 
-const ensureResultPanel = () => {
-  if (!dockviewApi) return
-  let hasResultPanel = false
-  for (const group of dockviewApi.groups || []) {
-    for (const panelInfo of group.model?.panels || []) {
-      if (panelInfo.id?.startsWith('panel_queryResult')) {
-        hasResultPanel = true
-        break
-      }
-    }
-    if (hasResultPanel) break
-  }
-  if (!hasResultPanel) {
-    const refPanelId = findActiveSqlEditorPanelId()
-    if (!refPanelId) return
-    dockviewApi.addPanel({
-      id: 'panel_queryResult',
-      component: 'queryResult',
-      title: t('workbench.queryResult'),
-      position: { referencePanel: refPanelId, direction: 'below' },
-    })
-    console.log(`[Workbench] 自动创建查询结果面板，位置参考: ${refPanelId}`)
-  }
-}
-
-const ensureMultiTabResultPanel = () => {
-  if (!dockviewApi) return
-  let hasMultiTabPanel = false
-  for (const group of dockviewApi.groups || []) {
-    for (const panelInfo of group.model?.panels || []) {
-      if (panelInfo.id?.startsWith('panel_multiTabResult')) {
-        hasMultiTabPanel = true
-        break
-      }
-    }
-    if (hasMultiTabPanel) break
-  }
-  if (!hasMultiTabPanel) {
-    const refPanelId = findActiveSqlEditorPanelId()
-    if (!refPanelId) return
-    dockviewApi.addPanel({
-      id: 'panel_multiTabResult',
-      component: 'multiTabResult',
-      title: t('workbench.queryResult'),
-      position: { referencePanel: refPanelId, direction: 'below' },
-    })
-    console.log(`[Workbench] 自动创建多 TAB 查询结果面板，位置参考: ${refPanelId}`)
-  }
-}
-
+/**
+ * 打开 SQL 编辑器。
+ * - 有 scratchpadRelativePath → 委托 EditorManager.openFile（新架构）
+ * - 无 scratchpadRelativePath  → 委托 EditorManager.openNewQuery（自动创建草稿文件）
+ */
 const handleOpenSqlEditor = (event: CustomEvent) => {
-  if (!dockviewApi) return
-
-  const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language, initialLine } =
-    event.detail || {}
-
-  const isSqlContext =
-    !!connectionId ||
-    !!databaseName ||
-    language === 'sql' ||
-    (scratchpadFileName && String(scratchpadFileName).endsWith('.sql'))
-
-  const editorComponent = isSqlContext ? 'sqlEditor' : 'codeEditor'
+  const {
+    connectionId,
+    databaseName,
+    sql,
+    scratchpadRelativePath,
+    scratchpadFileName,
+    language,
+  } = event.detail || {}
 
   if (scratchpadRelativePath) {
-    const existingPanelId = editorStore.getPanelId(scratchpadRelativePath)
-    if (existingPanelId) {
-      const existingPanel = dockviewApi.getPanel(existingPanelId)
-      if (existingPanel) {
-        existingPanel.focus()
-        return
-      }
-    }
-  }
+    const resolvedLang = language || (scratchpadFileName?.endsWith('.sql') ? 'sql' : 'plaintext')
+    const fileName = scratchpadFileName || scratchpadRelativePath.split('/').pop() || 'Untitled'
 
-  sqlEditorCounter++
-  const panelId = isSqlContext
-    ? `panel_sqlEditor_${sqlEditorCounter}`
-    : `panel_codeEditor_${sqlEditorCounter}`
-
-  const panelTitle = scratchpadFileName
-    ? scratchpadFileName
-    : isSqlContext
-      ? `SQL ${sqlEditorCounter}`
-      : scratchpadRelativePath
-        ? scratchpadRelativePath.split('/').pop() || 'Untitled'
-        : 'Untitled'
-
-  try {
-    const centerRef = findCenterGroupReference()
-
-    dockviewApi.addPanel({
-      id: panelId,
-      component: editorComponent,
-      title: panelTitle,
-      position: centerRef,
-      params: {
-        connectionId: connectionId || '',
-        databaseName: databaseName || '',
-        initialSql: sql || '',
-        initialValue: sql || '',
-        scratchpadRelativePath: scratchpadRelativePath || '',
-        scratchpadFileName: scratchpadFileName || '',
-        fileName: scratchpadFileName || '',
-        filePath: scratchpadRelativePath || '',
-        language: language || (isSqlContext ? 'sql' : 'plaintext'),
-        initialLine: initialLine || 0,
-        panelId,
-      },
+    EditorManager.openFile({
+      filePath: scratchpadRelativePath,
+      fileName,
+      language: resolvedLang,
+      sql: sql || '',
+      type: 'file',
+      connectionId: connectionId || '',
+      databaseName: databaseName || '',
     })
 
-    const welcomePanel = dockviewApi.getPanel('panel_emptyWorkbench')
-    if (welcomePanel) {
-      welcomePanel.api.close()
-    }
-
-    if (scratchpadRelativePath) {
-      editorStore.setOpen(scratchpadRelativePath, panelId, panelTitle as string)
-    }
-
-    console.log(`[Workbench] 创建${isSqlContext ? 'SQL' : '代码'}编辑器面板: ${panelId}`)
-  } catch (error) {
-    console.error('[Workbench] 创建编辑器面板失败:', error)
+    const welcomePanel = dockviewApi?.getPanel('panel_emptyWorkbench')
+    if (welcomePanel) welcomePanel.api.close()
+    console.log(`[Workbench] 打开草稿箱文件: ${scratchpadRelativePath}`)
+    return
   }
+
+  EditorManager.openNewQuery(connectionId || '', databaseName || '')
+    .then(() => {
+      const welcomePanel = dockviewApi?.getPanel('panel_emptyWorkbench')
+      if (welcomePanel) welcomePanel.api.close()
+    })
+    .catch((error) => {
+      console.error('[Workbench] 新建查询失败:', error)
+    })
 }
 
 const handleOpenObjectProperties = (event: CustomEvent) => {
@@ -702,43 +637,34 @@ const handleKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     const conns = connectionStore.connections
     const firstConn = conns.length > 0 ? conns[0] : null
-    handleOpenSqlEditor(
-      new CustomEvent('open-sql-editor', {
-        detail: {
-          connectionId: firstConn?.name || '',
-          databaseName: firstConn?.url || '',
-          sql: '',
-        },
-      })
-    )
+    EditorManager.openNewQuery(firstConn?.name || '', firstConn?.url || '')
   }
 }
 
 // 标题栏菜单/工具栏/命令面板事件处理
-const handleWorkbenchNewQuery = () => {
+const handleWorkbenchNewQuery = async () => {
+  console.log('[Workbench] handleWorkbenchNewQuery 被调用（新架构 EditorManager.openNewQuery）')
+
   const conns = connectionStore.connections
   const firstConn = conns.length > 0 ? conns[0] : null
-  handleOpenSqlEditor(
-    new CustomEvent('open-sql-editor', {
-      detail: {
-        connectionId: firstConn?.name || '',
-        databaseName: '',
-        sql: '',
-      },
-    })
-  )
+
+  await EditorManager.openNewQuery(firstConn?.name || '', '')
 }
 
 const handleWorkbenchNewConnection = () => {
   showConnectionModal.value = true
 }
 
+const handleOpenConnectionModal = () => {
+  showConnectionModal.value = true
+}
+
 const handleWorkbenchSave = () => {
-  window.dispatchEvent(new CustomEvent('sql-editor-save'))
+  EditorManager.saveCurrentFile()
 }
 
 const handleWorkbenchExecuteSql = () => {
-  window.dispatchEvent(new CustomEvent('sql-editor-execute'))
+  EditorManager.executeCurrentSQL()
 }
 
 const handleWorkbenchOpenDocs = () => {
@@ -798,20 +724,35 @@ onMounted(() => {
     handleOpenObjectProperties as (e: Event) => void
   )
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
+  window.addEventListener('open-connection-modal', handleOpenConnectionModal as (e: Event) => void)
   window.addEventListener('keydown', handleKeydown)
 
   // 标题栏事件监听 - 使用常量枚举 + listenWorkbenchEvent
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.NewQuery, handleWorkbenchNewQuery))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.NewConnection, handleWorkbenchNewConnection))
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.NewConnection, handleWorkbenchNewConnection)
+  )
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.Save, handleWorkbenchSave))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ExecuteSql, handleWorkbenchExecuteSql))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenDocs, handleWorkbenchOpenDocs))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.KeyboardShortcuts, handleWorkbenchKeyboardShortcuts))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenTerminal, handleWorkbenchOpenTerminal))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenHistory, handleWorkbenchOpenHistory))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ToggleSidebar, handleWorkbenchToggleSidebar))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.TogglePanel, handleWorkbenchTogglePanel))
-  cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.OpenCustomizeLayout, handleWorkbenchOpenCustomizeLayout))
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.KeyboardShortcuts, handleWorkbenchKeyboardShortcuts)
+  )
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.OpenTerminal, handleWorkbenchOpenTerminal)
+  )
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.OpenHistory, handleWorkbenchOpenHistory)
+  )
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.ToggleSidebar, handleWorkbenchToggleSidebar)
+  )
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.TogglePanel, handleWorkbenchTogglePanel)
+  )
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.OpenCustomizeLayout, handleWorkbenchOpenCustomizeLayout)
+  )
 })
 
 onUnmounted(() => {
@@ -827,6 +768,7 @@ onUnmounted(() => {
     handleOpenObjectProperties as (e: Event) => void
   )
   window.removeEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
+  window.removeEventListener('open-connection-modal', handleOpenConnectionModal as (e: Event) => void)
   window.removeEventListener('keydown', handleKeydown)
 
   // 清理标题栏事件监听

@@ -136,7 +136,12 @@ export function useContextMenu(deps: ContextMenuDeps, callbacks: ContextMenuCall
     contextMenu.target = entry
     contextMenu.items = multi
       ? [
-          { key: 'batch-delete', label: t('scratchpad.batchDelete', { n: multiSelected.value }), icon: Trash2, danger: true },
+          {
+            key: 'batch-delete',
+            label: t('scratchpad.batchDelete', { n: multiSelected.value }),
+            icon: Trash2,
+            danger: true,
+          },
         ]
       : [
           { key: 'new-file', label: t('scratchpad.newFile'), icon: FilePlus },
@@ -166,7 +171,12 @@ export function useContextMenu(deps: ContextMenuDeps, callbacks: ContextMenuCall
           { type: 'divider' as const, key: 'menu-d2', label: '' },
           { key: 'copy-file', label: t('scratchpad.copyFile'), icon: Copy },
           { key: 'cut-file', label: t('scratchpad.cutFile'), icon: Scissors },
-          { key: 'paste-file', label: t('scratchpad.pasteFile'), icon: ClipboardPaste, disabled: !clipboardEntry.value },
+          {
+            key: 'paste-file',
+            label: t('scratchpad.pasteFile'),
+            icon: ClipboardPaste,
+            disabled: !clipboardEntry.value,
+          },
           { type: 'divider' as const, key: 'menu-d3', label: '' },
           { key: 'rename', label: t('scratchpad.rename'), icon: Pencil, shortcut: 'F2' },
           { key: 'copy-path', label: t('scratchpad.copyPath'), icon: Copy },
@@ -174,7 +184,13 @@ export function useContextMenu(deps: ContextMenuDeps, callbacks: ContextMenuCall
           { type: 'divider' as const, key: 'menu-d4', label: '' },
           { key: 'promote', label: t('scratchpad.promoteToResource'), icon: GitBranch },
           { type: 'divider' as const, key: 'menu-d5', label: '' },
-          { key: 'delete', label: t('scratchpad.delete'), icon: Trash2, danger: true, shortcut: 'Del' },
+          {
+            key: 'delete',
+            label: t('scratchpad.delete'),
+            icon: Trash2,
+            danger: true,
+            shortcut: 'Del',
+          },
         ]
     contextMenu.visible = true
   }

@@ -26,7 +26,7 @@ export function useNewProject(getVisible: () => boolean) {
 
   watch(
     () => getVisible(),
-    (isVisible) => {
+    isVisible => {
       if (isVisible) {
         form.name = ''
         form.description = ''

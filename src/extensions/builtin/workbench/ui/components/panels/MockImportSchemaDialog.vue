@@ -87,8 +87,10 @@ const connLoading = ref(false)
 
 const genericGenerators = new Set(['words', 'sentence', 'sentences', 'paragraph', 'word'])
 
-const mappedCount = computed(() =>
-  importedColumns.value.filter(c => c.generator?.type && !genericGenerators.has(c.generator.type)).length
+const mappedCount = computed(
+  () =>
+    importedColumns.value.filter(c => c.generator?.type && !genericGenerators.has(c.generator.type))
+      .length
 )
 
 const connectionStore = useConnectionStore()
@@ -100,15 +102,18 @@ const connectionOptions = computed(() =>
   }))
 )
 
-watch(() => props.show, (val) => {
-  visible.value = val
-  if (val) {
-    importedColumns.value = []
-    loadConnections()
+watch(
+  () => props.show,
+  val => {
+    visible.value = val
+    if (val) {
+      importedColumns.value = []
+      loadConnections()
+    }
   }
-})
+)
 
-watch(visible, (val) => {
+watch(visible, val => {
   emit('update:show', val)
 })
 
@@ -225,11 +230,23 @@ function onApply() {
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
-.imported-col-row:last-child { border-bottom: none; }
+.imported-col-row:last-child {
+  border-bottom: none;
+}
 
-.icol-name { flex: 0 0 140px; color: var(--color-text-primary); font-weight: 500; }
-.icol-type { flex: 0 0 90px; color: var(--color-text-muted); }
-.icol-gen { flex: 1; color: var(--brand-accent); }
+.icol-name {
+  flex: 0 0 140px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+.icol-type {
+  flex: 0 0 90px;
+  color: var(--color-text-muted);
+}
+.icol-gen {
+  flex: 1;
+  color: var(--brand-accent);
+}
 
 .dialog-footer {
   display: flex;

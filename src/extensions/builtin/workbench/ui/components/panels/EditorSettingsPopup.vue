@@ -40,55 +40,91 @@
       <div class="settings-section">
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.wordWrap" @change="handlers.setWordWrap(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.wordWrap"
+              @change="handlers.setWordWrap(($event.target as HTMLInputElement).checked)"
+            />
             <span>自动换行</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.minimap" @change="handlers.setMinimap(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.minimap"
+              @change="handlers.setMinimap(($event.target as HTMLInputElement).checked)"
+            />
             <span>Minimap</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.lineNumbers" @change="handlers.setLineNumbers(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.lineNumbers"
+              @change="handlers.setLineNumbers(($event.target as HTMLInputElement).checked)"
+            />
             <span>行号</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.fontLigatures" @change="handlers.setFontLigatures(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.fontLigatures"
+              @change="handlers.setFontLigatures(($event.target as HTMLInputElement).checked)"
+            />
             <span>字体连字</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.folding" @change="handlers.setFolding(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.folding"
+              @change="handlers.setFolding(($event.target as HTMLInputElement).checked)"
+            />
             <span>代码折叠</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.matchBrackets" @change="handlers.setMatchBrackets(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.matchBrackets"
+              @change="handlers.setMatchBrackets(($event.target as HTMLInputElement).checked)"
+            />
             <span>括号匹配</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.autoIndent" @change="handlers.setAutoIndent(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.autoIndent"
+              @change="handlers.setAutoIndent(($event.target as HTMLInputElement).checked)"
+            />
             <span>自动缩进</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.formatOnPaste" @change="handlers.setFormatOnPaste(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.formatOnPaste"
+              @change="handlers.setFormatOnPaste(($event.target as HTMLInputElement).checked)"
+            />
             <span>粘贴时格式化</span>
           </label>
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.scrollBeyond" @change="handlers.setScrollBeyond(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.scrollBeyond"
+              @change="handlers.setScrollBeyond(($event.target as HTMLInputElement).checked)"
+            />
             <span>滚动超过最后一行</span>
           </label>
         </div>
@@ -123,7 +159,11 @@
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.cursorBlinking" @change="handlers.setCursorBlinking(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.cursorBlinking"
+              @change="handlers.setCursorBlinking(($event.target as HTMLInputElement).checked)"
+            />
             <span>光标闪烁</span>
           </label>
         </div>
@@ -143,7 +183,11 @@
         </div>
         <div class="settings-row">
           <label class="settings-toggle">
-            <input type="checkbox" :checked="settings.renderIndentGuides" @change="handlers.setIndentGuides(($event.target as HTMLInputElement).checked)" />
+            <input
+              type="checkbox"
+              :checked="settings.renderIndentGuides"
+              @change="handlers.setIndentGuides(($event.target as HTMLInputElement).checked)"
+            />
             <span>缩进参考线</span>
           </label>
         </div>
@@ -153,7 +197,10 @@
 </template>
 
 <script setup lang="ts">
-import type { EditorSettingsState, EditorSettingsHandlers } from '@/extensions/builtin/workbench/ui/composables/useEditorSettings'
+import type {
+  EditorSettingsState,
+  EditorSettingsHandlers,
+} from '@/extensions/builtin/workbench/ui/composables/useEditorSettings'
 
 interface Props {
   settings: EditorSettingsState
@@ -258,7 +305,7 @@ function onFontFamilyBlur(e: FocusEvent) {
   width: 100%;
 }
 
-.settings-toggle input[type="checkbox"] {
+.settings-toggle input[type='checkbox'] {
   accent-color: var(--brand-accent, #007acc);
   cursor: pointer;
 }

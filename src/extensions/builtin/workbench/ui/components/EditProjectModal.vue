@@ -106,7 +106,7 @@ const canSubmit = computed(() => form.value.name.trim().length > 0)
 
 watch(
   () => props.visible,
-  (isVisible) => {
+  isVisible => {
     if (isVisible && props.project) {
       form.value.name = props.project.name
       form.value.description = props.project.description || ''
@@ -128,7 +128,12 @@ async function handleConfirm() {
       form.value.description.trim() || undefined
     )
     message.success(t('workbench.updateSuccess'))
-    emit('confirm', props.project.id, form.value.name.trim(), form.value.description.trim() || undefined)
+    emit(
+      'confirm',
+      props.project.id,
+      form.value.name.trim(),
+      form.value.description.trim() || undefined
+    )
   } catch {
     message.error(t('workbench.updateFailed'))
   } finally {

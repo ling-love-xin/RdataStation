@@ -8,19 +8,19 @@
 
 ## 文档目录
 
-| 编号 | 文档                                    | 说明                                | 状态         |
-| ---- | --------------------------------------- | ----------------------------------- | ------------ |
-| 01   | [架构概述](./01-architecture-overview.md)       | 整体架构设计、分层说明              | ✅ v2.0      |
-| 02   | [目录结构](./02-directory-structure.md)         | 目录组织及职责、文件说明            | ✅ v2.0      |
-| 03   | [模块依赖规则](./03-module-dependencies.md)      | 依赖关系及约束                      | v1.0         |
-| 04   | [数据流设计](./04-data-flow.md)                 | 请求处理流程                        | v1.0         |
-| 05   | [驱动架构](./05-driver-architecture.md)          | 数据库驱动设计、Registry、P0 问题   | ✅ v2.0      |
-| 06   | [存储架构](./06-storage-architecture.md)         | SQLite + DuckDB 双层存储            | 🆕 v1.0      |
-| 07   | [升级策略](./07-upgrade-strategy.md)             | 版本升级、依赖管理、接口兼容        | 🆕 v1.0      |
-| 08   | 驱动开发指南（规划中）                  | 新增数据库驱动开发步骤              | 📋 待编写    |
-| 09   | [开发指南](./09-development-guide.md)           | 开发规范及最佳实践                  | v1.0         |
-| 10   | [API 接口文档](./10-api-reference.md)           | Tauri 命令参考                      | v1.0         |
-| 11   | [插件系统设计](./11-plugin-system.md)           | Go Sidecar + Extism WASM 双引擎方案  | 📋 v1.0 远期规划 |
+| 编号 | 文档                                        | 说明                                | 状态             |
+| ---- | ------------------------------------------- | ----------------------------------- | ---------------- |
+| 01   | [架构概述](./01-architecture-overview.md)   | 整体架构设计、分层说明              | ✅ v2.0          |
+| 02   | [目录结构](./02-directory-structure.md)     | 目录组织及职责、文件说明            | ✅ v2.0          |
+| 03   | [模块依赖规则](./03-module-dependencies.md) | 依赖关系及约束                      | v1.0             |
+| 04   | [数据流设计](./04-data-flow.md)             | 请求处理流程                        | v1.0             |
+| 05   | [驱动架构](./05-driver-architecture.md)     | 数据库驱动设计、Registry、P0 问题   | ✅ v2.0          |
+| 06   | [存储架构](./06-storage-architecture.md)    | SQLite + DuckDB 双层存储            | 🆕 v1.0          |
+| 07   | [升级策略](./07-upgrade-strategy.md)        | 版本升级、依赖管理、接口兼容        | 🆕 v1.0          |
+| 08   | 驱动开发指南（规划中）                      | 新增数据库驱动开发步骤              | 📋 待编写        |
+| 09   | [开发指南](./09-development-guide.md)       | 开发规范及最佳实践                  | v1.0             |
+| 10   | [API 接口文档](./10-api-reference.md)       | Tauri 命令参考                      | v1.0             |
+| 11   | [插件系统设计](./11-plugin-system.md)       | Go Sidecar + Extism WASM 双引擎方案 | 📋 v1.0 远期规划 |
 
 ## 快速开始
 
@@ -96,6 +96,7 @@ WAL + 并发             列存储 + 向量化
 ### 4. 为什么锁定 4 种内置数据库？
 
 先将 4 种核心数据库做稳定，确保：
+
 - DriverRegistry 正确运作
 - Database trait 覆盖足够场景
 - 连接池和元数据缓存健壮
@@ -104,21 +105,21 @@ WAL + 并发             列存储 + 向量化
 
 ## 当前架构不足（P0）
 
-| 编号 | 问题                             | 文件                                    |
-| ---- | -------------------------------- | --------------------------------------- |
-| P0-1 | DRIVER_FACTORY_MANAGER 重复注册（✅ 已移除） | [factory.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/factory.rs) |
-| P0-2 | create_database() 硬编码匹配     | [connection_service.rs#L256](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/connection_service.rs#L256) |
-| P0-3 | to_url() 硬编码匹配              | [registry.rs#L117](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry.rs#L117) |
-| P0-4 | SchemaObject 缺少列详情          | [traits.rs#L22](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/traits.rs#L22) |
+| 编号 | 问题                                         | 文件                                                                                                                                        |
+| ---- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-1 | DRIVER_FACTORY_MANAGER 重复注册（✅ 已移除） | [factory.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/factory.rs)                                   |
+| P0-2 | create_database() 硬编码匹配                 | [connection_service.rs#L256](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/connection_service.rs#L256) |
+| P0-3 | to_url() 硬编码匹配                          | [registry.rs#L117](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry.rs#L117)                       |
+| P0-4 | SchemaObject 缺少列详情                      | [traits.rs#L22](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/traits.rs#L22)                             |
 
 ## 版本历史
 
-| 版本 | 日期       | 变更                                                     |
-| ---- | ---------- | -------------------------------------------------------- |
-| v1.0 | 2026-04-10 | 初始架构设计                                             |
-| v1.1 | 2026-04-15 | 添加元数据服务                                           |
-| v1.2 | 2026-04-20 | 添加 DuckDB 支持                                         |
-| v1.3 | 2026-04-27 | DBI 统一数据访问层、智能连接池、DuckDB 联邦查询          |
-| v2.2 | 2026-05-11 | 四库连接测试、联调方案、文档体系更新                     |
+| 版本 | 日期       | 变更                                                                 |
+| ---- | ---------- | -------------------------------------------------------------------- |
+| v1.0 | 2026-04-10 | 初始架构设计                                                         |
+| v1.1 | 2026-04-15 | 添加元数据服务                                                       |
+| v1.2 | 2026-04-20 | 添加 DuckDB 支持                                                     |
+| v1.3 | 2026-04-27 | DBI 统一数据访问层、智能连接池、DuckDB 联邦查询                      |
+| v2.2 | 2026-05-11 | 四库连接测试、联调方案、文档体系更新                                 |
 | v2.1 | 2026-05-10 | 新增插件系统设计文档（#11），Go Sidecar + Extism WASM 双引擎远期规划 |
-| v2.0 | 2026-05-09 | **文档对齐实际代码**：纠正驅動架構、命令迁移、双层存储、升级策略 |
+| v2.0 | 2026-05-09 | **文档对齐实际代码**：纠正驅動架構、命令迁移、双层存储、升级策略     |

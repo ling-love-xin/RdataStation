@@ -1,8 +1,9 @@
 # 分析资源管理器 前端设计方案
 
 > **文档版本**: v1.7 | **最后更新**: 2026-05-12 | **同步**: v1.7 审计
-> 
+>
 > 本文档为 Phase 1 设计蓝图，描述完整目标架构。当前已实现（v1.7）组件：
+>
 > - ✅ `AnalyticsResourceManager.vue` — 主容器（Pinia store + 6 composable）
 > - ✅ `CreateResourceModal.vue` — 创建/编辑模态框（全 naive-ui）
 > - 🔜 其余组件为 Phase 4 目标（参见 `ANALYTICS_RESOURCE_PROGRESS.md`）

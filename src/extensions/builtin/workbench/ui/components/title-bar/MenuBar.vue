@@ -14,12 +14,7 @@
 
     <!-- 可展开的菜单栏 -->
     <Transition name="menu-slide">
-      <div
-        v-if="showMenuBar"
-        class="menu-bar"
-        role="menubar"
-        :aria-label="t('workbench.menu')"
-      >
+      <div v-if="showMenuBar" class="menu-bar" role="menubar" :aria-label="t('workbench.menu')">
         <div
           v-for="menu in menus"
           :key="menu.id"
@@ -171,7 +166,9 @@ function closeAllMenus() {
 
 function handleClickOutside(event: MouseEvent) {
   const target = event.target as HTMLElement
-  if (menuBarRef.value && !menuBarRef.value.contains(target)) {
+  const insideMenuBar = menuBarRef.value && menuBarRef.value.contains(target)
+  const insideDropdown = dropdownRef.value && dropdownRef.value.contains(target)
+  if (!insideMenuBar && !insideDropdown) {
     closeAllMenus()
   }
 }

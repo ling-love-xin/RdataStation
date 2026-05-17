@@ -12,35 +12,35 @@
 
 ### 1.1 新增配置项 (14 项)
 
-| 配置项 | 类型 | 默认值 | 作用域 |
-|--------|------|--------|--------|
-| `titleBar.menuStyle` | `'full' \| 'compact' \| 'hidden'` | `'full'` | global |
-| `titleBar.toolbarTools` | `string[]` | `[]` | project |
-| `titleBar.showProjectSelector` | `boolean` | `true` | global |
-| `titleBar.showCommandCenter` | `boolean` | `true` | global |
-| `titleBar.recentProjectCount` | `number` | `5` | global |
-| `statusBar.visible` | `boolean` | `true` | project |
-| `statusBar.showConnectionStatus` | `boolean` | `true` | global |
-| `statusBar.showExecutionTime` | `boolean` | `true` | global |
-| `statusBar.showRowCount` | `boolean` | `true` | global |
-| `statusBar.showDuckDBIndicator` | `boolean` | `true` | global |
-| `statusBar.showEncoding` | `boolean` | `true` | global |
-| `statusBar.showVersion` | `boolean` | `true` | global |
-| `commandPalette.maxRecentCommands` | `number` | `5` | global |
-| `commandPalette.includeDisabledCommands` | `boolean` | `false` | global |
+| 配置项                                   | 类型                              | 默认值   | 作用域  |
+| ---------------------------------------- | --------------------------------- | -------- | ------- |
+| `titleBar.menuStyle`                     | `'full' \| 'compact' \| 'hidden'` | `'full'` | global  |
+| `titleBar.toolbarTools`                  | `string[]`                        | `[]`     | project |
+| `titleBar.showProjectSelector`           | `boolean`                         | `true`   | global  |
+| `titleBar.showCommandCenter`             | `boolean`                         | `true`   | global  |
+| `titleBar.recentProjectCount`            | `number`                          | `5`      | global  |
+| `statusBar.visible`                      | `boolean`                         | `true`   | project |
+| `statusBar.showConnectionStatus`         | `boolean`                         | `true`   | global  |
+| `statusBar.showExecutionTime`            | `boolean`                         | `true`   | global  |
+| `statusBar.showRowCount`                 | `boolean`                         | `true`   | global  |
+| `statusBar.showDuckDBIndicator`          | `boolean`                         | `true`   | global  |
+| `statusBar.showEncoding`                 | `boolean`                         | `true`   | global  |
+| `statusBar.showVersion`                  | `boolean`                         | `true`   | global  |
+| `commandPalette.maxRecentCommands`       | `number`                          | `5`      | global  |
+| `commandPalette.includeDisabledCommands` | `boolean`                         | `false`  | global  |
 
 ### 1.2 修改文件清单
 
-| 文件 | 变更类型 | 说明 |
-|------|----------|------|
-| `src/stores/config.ts` | 修改 | 新增 3 个配置 schema + 类型 + 默认值 |
-| `src/stores/useAppStore.ts` | 修改 | 新增 3 个 computed + 3 个 action |
-| `src/extensions/builtin/settings/ui/components/SettingsPanel.vue` | 修改 | 新增 "界面" Tab + 设置 UI |
-| `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue` | 修改 | 从配置系统读取设置 |
-| `src/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue` | 修改 | 从配置系统读取设置 |
-| `src/extensions/builtin/workbench/ui/stores/command-store.ts` | 修改 | 从配置系统读取设置 |
-| `src/shared/locales/zh-CN.json` | 修改 | 新增 23 个翻译键 |
-| `src/shared/locales/en.json` | 修改 | 新增 23 个翻译键 |
+| 文件                                                                    | 变更类型 | 说明                                 |
+| ----------------------------------------------------------------------- | -------- | ------------------------------------ |
+| `src/stores/config.ts`                                                  | 修改     | 新增 3 个配置 schema + 类型 + 默认值 |
+| `src/stores/useAppStore.ts`                                             | 修改     | 新增 3 个 computed + 3 个 action     |
+| `src/extensions/builtin/settings/ui/components/SettingsPanel.vue`       | 修改     | 新增 "界面" Tab + 设置 UI            |
+| `src/extensions/builtin/workbench/ui/components/WorkbenchTitleBar.vue`  | 修改     | 从配置系统读取设置                   |
+| `src/extensions/builtin/workbench/ui/components/WorkbenchStatusBar.vue` | 修改     | 从配置系统读取设置                   |
+| `src/extensions/builtin/workbench/ui/stores/command-store.ts`           | 修改     | 从配置系统读取设置                   |
+| `src/shared/locales/zh-CN.json`                                         | 修改     | 新增 23 个翻译键                     |
+| `src/shared/locales/en.json`                                            | 修改     | 新增 23 个翻译键                     |
 
 ---
 
@@ -99,6 +99,7 @@ interface CommandPaletteSettings {
 ### 3.1 WorkbenchTitleBar.vue
 
 **改造前**:
+
 - 工具栏状态从 `localStorage` 读取
 - 菜单始终显示
 - 项目选择器始终显示
@@ -106,6 +107,7 @@ interface CommandPaletteSettings {
 - 最近项目数量固定
 
 **改造后**:
+
 ```typescript
 // 从配置系统读取
 const titleBarSettings = computed(() => appStore.effectiveTitleBarSettings)
@@ -134,10 +136,12 @@ const recentProjectsLimited = computed(() => {
 ### 3.2 WorkbenchStatusBar.vue
 
 **改造前**:
+
 - 所有显示项固定显示
 - 无可见性控制
 
 **改造后**:
+
 ```typescript
 // 从配置系统读取
 const statusBarSettings = computed(() => appStore.effectiveStatusBarSettings)
@@ -156,10 +160,12 @@ const statusBarSettings = computed(() => appStore.effectiveStatusBarSettings)
 ### 3.3 CommandStore.ts
 
 **改造前**:
+
 - `maxRecent` 固定为 5
 - 搜索包含所有命令
 
 **改造后**:
+
 ```typescript
 // 从配置系统读取
 const paletteSettings = computed(() => appStore.effectiveCommandPaletteSettings)
@@ -168,11 +174,10 @@ const maxRecent = computed(() => paletteSettings.value.maxRecentCommands)
 // 搜索时过滤禁用命令
 function search(query: string): Command[] {
   const includeDisabled = paletteSettings.value.includeDisabledCommands
-  return allCommands.value
-    .filter(cmd => {
-      if (!includeDisabled && cmd.disabled) return false
-      // ...
-    })
+  return allCommands.value.filter(cmd => {
+    if (!includeDisabled && cmd.disabled) return false
+    // ...
+  })
 }
 ```
 
@@ -262,11 +267,11 @@ async function setCommandPaletteSettings(settings: CommandPaletteSettings): Prom
 
 ## 六、质量验证
 
-| 检查项 | 结果 |
-|--------|------|
-| Lint (修改文件) | 0 errors, 仅 warnings |
-| Typecheck (修改文件) | 0 errors |
-| 新引入错误 | 无 |
+| 检查项               | 结果                  |
+| -------------------- | --------------------- |
+| Lint (修改文件)      | 0 errors, 仅 warnings |
+| Typecheck (修改文件) | 0 errors              |
+| 新引入错误           | 无                    |
 
 ---
 

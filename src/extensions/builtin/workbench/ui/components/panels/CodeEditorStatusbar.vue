@@ -1,11 +1,13 @@
+<!--
+  /**
+   * @deprecated 功能已合并到 EditorStatusbar.vue，由 EditorPanel.vue 使用。
+   * @see EditorStatusbar.vue
+   */
+-->
 <template>
   <div class="code-editor-statusbar">
     <div class="status-left">
-      <SaveStatusIndicator
-        v-if="filePath"
-        :status="saveStatus"
-        :last-save-time="lastSaveTime"
-      />
+      <SaveStatusIndicator v-if="filePath" :status="saveStatus" :last-save-time="lastSaveTime" />
       <span v-if="filePath" class="status-divider" />
       <span v-if="fileName" class="status-item status-file">
         {{ fileName }}
@@ -147,7 +149,10 @@ import { Settings } from 'lucide-vue-next'
 import * as monaco from 'monaco-editor'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
-import type { EditorSettingsState, EditorSettingsHandlers } from '@/extensions/builtin/workbench/ui/composables/useEditorSettings'
+import type {
+  EditorSettingsState,
+  EditorSettingsHandlers,
+} from '@/extensions/builtin/workbench/ui/composables/useEditorSettings'
 import type { SaveStatus } from '@/extensions/builtin/workbench/ui/composables/useFileSave'
 
 import EditorSettingsPopup from './EditorSettingsPopup.vue'
@@ -274,7 +279,8 @@ function switchEncoding(enc: string) {
 function switchEol(eol: string) {
   currentEol.value = eol
   if (props.editorModel) {
-    const seq = eol === 'CRLF' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF
+    const seq =
+      eol === 'CRLF' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF
     props.editorModel.pushEOL(seq)
   }
   closeDropdown()

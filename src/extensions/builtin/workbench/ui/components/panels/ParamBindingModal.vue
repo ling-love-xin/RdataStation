@@ -47,9 +47,9 @@ const values = reactive<Record<string, string>>({})
 
 watch(
   () => props.params,
-  (newParams) => {
-    Object.keys(values).forEach((k) => delete values[k])
-    newParams.forEach((p) => {
+  newParams => {
+    Object.keys(values).forEach(k => delete values[k])
+    newParams.forEach(p => {
       values[p] = ''
     })
   },
@@ -58,7 +58,7 @@ watch(
 
 function handleConfirm(): void {
   const result: Record<string, string> = {}
-  props.params.forEach((p) => {
+  props.params.forEach(p => {
     result[p] = values[p] || ''
   })
   emit('confirm', result)

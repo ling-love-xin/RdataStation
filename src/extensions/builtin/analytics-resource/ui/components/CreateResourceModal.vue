@@ -1,8 +1,5 @@
 <template>
-  <NModal
-    :show="show"
-    :on-update:show="(val: boolean) => !val && emit('close')"
-  >
+  <NModal :show="show" :on-update:show="(val: boolean) => !val && emit('close')">
     <NCard
       :title="isEdit ? t('analyticsResource.editResource') : t('analyticsResource.createResource')"
       closable
@@ -19,10 +16,7 @@
         </NFormItem>
 
         <NFormItem :label="t('analyticsResource.resourceName')" required>
-          <NInput
-            v-model:value="form.name"
-            :placeholder="t('analyticsResource.resourceName')"
-          />
+          <NInput v-model:value="form.name" :placeholder="t('analyticsResource.resourceName')" />
         </NFormItem>
 
         <NFormItem :label="t('analyticsResource.alias')">
@@ -33,10 +27,7 @@
         </NFormItem>
 
         <NFormItem :label="t('analyticsResource.scope')" required>
-          <NSelect
-            v-model:value="form.scope"
-            :options="scopeOptions"
-          />
+          <NSelect v-model:value="form.scope" :options="scopeOptions" />
         </NFormItem>
 
         <NFormItem
@@ -91,7 +82,11 @@
           />
           <div
             v-if="jsonError"
-            style="color: var(--brand-danger, #d63031); font-size: var(--font-size-sm, 12px); margin-top: var(--spacing-xs, 4px);"
+            style="
+              color: var(--brand-danger, #d63031);
+              font-size: var(--font-size-sm, 12px);
+              margin-top: var(--spacing-xs, 4px);
+            "
           >
             {{ jsonError }}
           </div>

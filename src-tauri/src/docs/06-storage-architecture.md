@@ -46,10 +46,10 @@ RdataStation 采用 **SQLite + DuckDB 双层存储架构**。SQLite 负责事务
 
 ## 配置分层
 
-| 层级     | SQLite 用途                          | DuckDB 用途              | 生命周期         |
-| -------- | ------------------------------------ | ------------------------ | ---------------- |
-| **全局** | 最近连接列表、SQL 历史、最近项目     | 全局查询分析、跨项目缓存 | 应用启动→退出    |
-| **项目** | 项目连接信息、项目 SQL 历史、元数据  | 联邦查询、分析洞察       | 项目打开→关闭    |
+| 层级     | SQLite 用途                         | DuckDB 用途              | 生命周期      |
+| -------- | ----------------------------------- | ------------------------ | ------------- |
+| **全局** | 最近连接列表、SQL 历史、最近项目    | 全局查询分析、跨项目缓存 | 应用启动→退出 |
+| **项目** | 项目连接信息、项目 SQL 历史、元数据 | 联邦查询、分析洞察       | 项目打开→关闭 |
 
 ## 一、全局系统存储
 
@@ -73,11 +73,11 @@ rt.block_on(core::driver::init_driver_manager())?;
 
 **核心表**：
 
-| 表名                    | 用途               | 实现文件                         |
-| ----------------------- | ------------------ | -------------------------------- |
-| `connections`           | 全局连接信息       | connection_store.rs              |
-| `sql_history`           | SQL 执行历史        | history_store.rs                 |
-| `recent_projects`       | 最近打开项目       | (project_commands.rs)            |
+| 表名              | 用途         | 实现文件              |
+| ----------------- | ------------ | --------------------- |
+| `connections`     | 全局连接信息 | connection_store.rs   |
+| `sql_history`     | SQL 执行历史 | history_store.rs      |
+| `recent_projects` | 最近打开项目 | (project_commands.rs) |
 
 **连接池特性**：
 
@@ -148,17 +148,17 @@ MigrationManager
 
 **核心表**：
 
-| 表名                     | 用途               | 实现文件                      |
-| ------------------------ | ------------------ | ----------------------------- |
-| `project_info`           | 项目基本信息       | project_store.rs              |
-| `connections`            | 项目连接信息       | project_connection_store.rs   |
-| `sql_history`            | 项目 SQL 历史       | (project_store.rs)            |
-| `workbench_state`        | 工作台布局状态     | workbench_context_store.rs    |
-| `sql_templates`          | SQL 模板            | sql_template_store.rs         |
-| `analytics_resources`    | 分析资源（图表等） | analytics_resource_store.rs   |
-| `insight_records`        | 洞察记录           | insight_store.rs              |
-| `insight_meta`           | 洞察元数据         | insight_meta_store.rs         |
-| `cache_version`          | 缓存版本管理       | cache_version_migration.rs    |
+| 表名                  | 用途               | 实现文件                    |
+| --------------------- | ------------------ | --------------------------- |
+| `project_info`        | 项目基本信息       | project_store.rs            |
+| `connections`         | 项目连接信息       | project_connection_store.rs |
+| `sql_history`         | 项目 SQL 历史      | (project_store.rs)          |
+| `workbench_state`     | 工作台布局状态     | workbench_context_store.rs  |
+| `sql_templates`       | SQL 模板           | sql_template_store.rs       |
+| `analytics_resources` | 分析资源（图表等） | analytics_resource_store.rs |
+| `insight_records`     | 洞察记录           | insight_store.rs            |
+| `insight_meta`        | 洞察元数据         | insight_meta_store.rs       |
+| `cache_version`       | 缓存版本管理       | cache_version_migration.rs  |
 
 ### 项目 DuckDB
 
@@ -326,15 +326,15 @@ CREATE TABLE IF NOT EXISTS column_metadata (
 
 ### 双层分离原则
 
-| 操作类型           | SQLite | DuckDB | 判断依据               |
-| ------------------ | ------ | ------ | ---------------------- |
-| 连接信息 CRUD      | ✅     | ❌     | 事务性、小数据量       |
-| SQL 历史记录       | ✅     | ❌     | 高频写入、小数据量     |
-| 元数据缓存         | ✅     | ❌     | 需要并发读             |
-| 大结果集缓存       | ❌     | ✅     | 大数据量               |
-| 联邦查询           | ❌     | ✅     | DuckDB 原生能力        |
-| 洞察分析           | ❌     | ✅     | OLAP 场景              |
-| 跨库 JOIN          | ❌     | ✅     | 需要 DuckDB ATTACH     |
+| 操作类型      | SQLite | DuckDB | 判断依据           |
+| ------------- | ------ | ------ | ------------------ |
+| 连接信息 CRUD | ✅     | ❌     | 事务性、小数据量   |
+| SQL 历史记录  | ✅     | ❌     | 高频写入、小数据量 |
+| 元数据缓存    | ✅     | ❌     | 需要并发读         |
+| 大结果集缓存  | ❌     | ✅     | 大数据量           |
+| 联邦查询      | ❌     | ✅     | DuckDB 原生能力    |
+| 洞察分析      | ❌     | ✅     | OLAP 场景          |
+| 跨库 JOIN     | ❌     | ✅     | 需要 DuckDB ATTACH |
 
 ### 版本化支持
 
@@ -353,14 +353,14 @@ pub struct Versioned<T> {
 
 ## 八、存储路径汇总
 
-| 存储内容             | 全局路径                                  | 项目路径                                   |
-| -------------------- | ----------------------------------------- | ------------------------------------------ |
-| 系统数据库           | `system/global.db`                        | `{project}/meta/project.db`               |
-| DuckDB 分析库        | `system/analytics/global.duckdb`          | `{project}/analytics/data.duckdb`         |
-| 连接元数据缓存       | `system/global_metadata/conn_{id}.sqlite` | `{project}/meta/connection_metadata/`     |
-| 连接配置             | `system/connections.json`                 | `{project}/config/connections.json`       |
-| SQL 文件             | -                                         | `{project}/config/sql/`                   |
-| 草稿箱               | -                                         | `{project}/scratchpad/`                   |
+| 存储内容       | 全局路径                                  | 项目路径                              |
+| -------------- | ----------------------------------------- | ------------------------------------- |
+| 系统数据库     | `system/global.db`                        | `{project}/meta/project.db`           |
+| DuckDB 分析库  | `system/analytics/global.duckdb`          | `{project}/analytics/data.duckdb`     |
+| 连接元数据缓存 | `system/global_metadata/conn_{id}.sqlite` | `{project}/meta/connection_metadata/` |
+| 连接配置       | `system/connections.json`                 | `{project}/config/connections.json`   |
+| SQL 文件       | -                                         | `{project}/config/sql/`               |
+| 草稿箱         | -                                         | `{project}/scratchpad/`               |
 
 ## 九、后续演进
 

@@ -64,11 +64,7 @@
           >
         </div>
         <div class="color-picker-row">
-          <input
-            v-model="localAppearance.accentColor"
-            type="color"
-            class="color-input"
-          />
+          <input v-model="localAppearance.accentColor" type="color" class="color-input" />
           <input
             v-model="localAppearance.accentColor"
             type="text"
@@ -302,7 +298,7 @@ const localAppearance = reactive<AppearanceSettingsType>({
 
 const hasProjectThemeOverride = computed(() => appStore.hasProjectOverride(CONFIG_KEYS.THEME))
 const hasProjectAppearanceOverride = computed(() =>
-  appStore.hasProjectOverride(CONFIG_KEYS.APPEARANCE_SETTINGS),
+  appStore.hasProjectOverride(CONFIG_KEYS.APPEARANCE_SETTINGS)
 )
 
 function resetProjectTheme() {
@@ -314,33 +310,33 @@ watch(
   () => appStore.effectiveTheme,
   val => {
     localTheme.value = val
-  },
+  }
 )
 watch(
   () => appStore.effectiveLanguage,
   val => {
     localLanguage.value = val
-  },
+  }
 )
 watch(
   () => appStore.effectiveEditorSettings,
   val => {
     Object.assign(localEditorSettings, val)
   },
-  { deep: true },
+  { deep: true }
 )
 watch(
   () => appStore.effectiveDefaultEngine,
   val => {
     localDefaultEngine.value = val
-  },
+  }
 )
 watch(
   () => appStore.effectiveAppearanceSettings,
   val => {
     Object.assign(localAppearance, val)
   },
-  { deep: true },
+  { deep: true }
 )
 
 function resetToDefault() {

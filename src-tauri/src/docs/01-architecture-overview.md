@@ -122,16 +122,16 @@ pub struct ErrorResponse {
 
 **职责**：Tauri Command 实现，按功能组织
 
-| 模块                         | 职责         | 命令数   |
-| ---------------------------- | ------------ | -------- |
-| `connection_commands.rs`     | 连接管理     | ~15      |
-| `driver_commands.rs`         | 驱动管理     | ~4       |
-| `sql_commands.rs`            | SQL 执行     | ~12      |
-| `project_commands.rs`        | 项目管理     | ~12      |
-| `project_store_commands.rs`  | 项目存储     | ~8       |
-| `metadata_cache_commands.rs` | 元数据缓存   | ~8       |
-| `cache_warming_commands.rs`  | 缓存预热     | ~9       |
-| `analytics_resource_commands.rs` | 分析资源 | ~25     |
+| 模块                             | 职责       | 命令数 |
+| -------------------------------- | ---------- | ------ |
+| `connection_commands.rs`         | 连接管理   | ~15    |
+| `driver_commands.rs`             | 驱动管理   | ~4     |
+| `sql_commands.rs`                | SQL 执行   | ~12    |
+| `project_commands.rs`            | 项目管理   | ~12    |
+| `project_store_commands.rs`      | 项目存储   | ~8     |
+| `metadata_cache_commands.rs`     | 元数据缓存 | ~8     |
+| `cache_warming_commands.rs`      | 缓存预热   | ~9     |
+| `analytics_resource_commands.rs` | 分析资源   | ~25    |
 
 > ⚠️ 命令已从 `adapters/tauri/command.rs` 迁移到 `commands/` 目录。旧路径不再有效。
 
@@ -202,12 +202,12 @@ ConnectionManager
 
 分层升级，禁止主版本升级：
 
-| 依赖       | 当前版本    | 策略                    |
-| ---------- | ----------- | ----------------------- |
-| Tokio      | 1.44.x      | ✅ minor/patch，❌ major |
-| Tauri      | 2.10.x      | ✅ patch only            |
-| sqlx       | 0.8.x       | ✅ patch only            |
-| wasmtime   | 43.0.x      | ✅ minor/patch，❌ major |
+| 依赖     | 当前版本 | 策略                     |
+| -------- | -------- | ------------------------ |
+| Tokio    | 1.44.x   | ✅ minor/patch，❌ major |
+| Tauri    | 2.10.x   | ✅ patch only            |
+| sqlx     | 0.8.x    | ✅ patch only            |
+| wasmtime | 43.0.x   | ✅ minor/patch，❌ major |
 
 > 详见 [07-升级策略](./07-upgrade-strategy.md)
 
@@ -231,24 +231,24 @@ ConnectionManager
 
 ## 当前 P0 问题
 
-| 编号 | 问题                             | 影响                   |
-| ---- | -------------------------------- | ---------------------- |
-| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册（✅ 已移除） | 维护两套注册表 |
-| P0-2 | `create_database()` 硬编码匹配   | 新增数据库需改多处代码 |
-| P0-3 | `to_url()` 硬编码匹配            | 同上                   |
-| P0-4 | `SchemaObject` 缺少列详情        | 无法展示列注释/类型    |
+| 编号 | 问题                                           | 影响                   |
+| ---- | ---------------------------------------------- | ---------------------- |
+| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册（✅ 已移除） | 维护两套注册表         |
+| P0-2 | `create_database()` 硬编码匹配                 | 新增数据库需改多处代码 |
+| P0-3 | `to_url()` 硬编码匹配                          | 同上                   |
+| P0-4 | `SchemaObject` 缺少列详情                      | 无法展示列注释/类型    |
 
 > 详见 [05-驱动架构](./05-driver-architecture.md#p0-问题总结)
 
 ## 五阶段调整计划
 
-| 阶段 | 目标                   | 内容                                  |
-| ---- | ---------------------- | ------------------------------------- |
-| 1    | 架构归一化（✅ 已完成） | 消除 DRIVER_FACTORY_MANAGER，统一创建  |
-| 2    | Database trait 增强    | 引入 MetadataBrowser trait            |
-| 3    | DriverDescriptor 增强  | 增加 driver_kind / url_template       |
-| 4    | Command 层清理         | 合并重复命令，统一走 DataSourceRouter  |
-| 5    | 质量保证               | 单元测试、集成测试、clippy/fmt         |
+| 阶段 | 目标                    | 内容                                  |
+| ---- | ----------------------- | ------------------------------------- |
+| 1    | 架构归一化（✅ 已完成） | 消除 DRIVER_FACTORY_MANAGER，统一创建 |
+| 2    | Database trait 增强     | 引入 MetadataBrowser trait            |
+| 3    | DriverDescriptor 增强   | 增加 driver_kind / url_template       |
+| 4    | Command 层清理          | 合并重复命令，统一走 DataSourceRouter |
+| 5    | 质量保证                | 单元测试、集成测试、clippy/fmt        |
 
 ## 性能目标
 
@@ -259,24 +259,24 @@ ConnectionManager
 
 ## 技术栈总览
 
-| 层级       | 技术                    | 版本        |
-| ---------- | ----------------------- | ----------- |
-| **Rust**   | Edition / Tokio / Tauri  | 2021 / 1.44 / 2.10 |
-| **数据库** | sqlx / rusqlite / duckdb-rs | 0.8 / 0.32 / 1.10502 |
-| **插件**   | wasmtime / Arrow         | 43.0 / 53.0 |
-| **前端**   | Vue 3 / TypeScript / Vite | 3.5 / 5.8 / 6 |
-| **UI**     | naive-ui / dockview-vue / AG Grid | latest / 5.2 / 33 |
-| **编辑器** | Monaco Editor            | 0.52        |
+| 层级       | 技术                              | 版本                 |
+| ---------- | --------------------------------- | -------------------- |
+| **Rust**   | Edition / Tokio / Tauri           | 2021 / 1.44 / 2.10   |
+| **数据库** | sqlx / rusqlite / duckdb-rs       | 0.8 / 0.32 / 1.10502 |
+| **插件**   | wasmtime / Arrow                  | 43.0 / 53.0          |
+| **前端**   | Vue 3 / TypeScript / Vite         | 3.5 / 5.8 / 6        |
+| **UI**     | naive-ui / dockview-vue / AG Grid | latest / 5.2 / 33    |
+| **编辑器** | Monaco Editor                     | 0.52                 |
 
 ## 相关文档
 
-| 文档           | 说明             |
-| -------------- | ---------------- |
-| [02-目录结构](./02-directory-structure.md)     | 目录组织及职责   |
-| [03-模块依赖](./03-module-dependencies.md)     | 依赖关系及约束   |
-| [04-数据流](./04-data-flow.md)                 | 请求处理流程     |
-| [05-驱动架构](./05-driver-architecture.md)      | 数据库驱动设计   |
-| [06-存储架构](./06-storage-architecture.md)     | SQLite + DuckDB 双层存储 |
-| [07-升级策略](./07-upgrade-strategy.md)        | 版本升级策略     |
-| [09-开发指南](./09-development-guide.md)       | 开发规范及实践   |
-| [10-API 参考](./10-api-reference.md)           | Tauri 命令参考   |
+| 文档                                        | 说明                     |
+| ------------------------------------------- | ------------------------ |
+| [02-目录结构](./02-directory-structure.md)  | 目录组织及职责           |
+| [03-模块依赖](./03-module-dependencies.md)  | 依赖关系及约束           |
+| [04-数据流](./04-data-flow.md)              | 请求处理流程             |
+| [05-驱动架构](./05-driver-architecture.md)  | 数据库驱动设计           |
+| [06-存储架构](./06-storage-architecture.md) | SQLite + DuckDB 双层存储 |
+| [07-升级策略](./07-upgrade-strategy.md)     | 版本升级策略             |
+| [09-开发指南](./09-development-guide.md)    | 开发规范及实践           |
+| [10-API 参考](./10-api-reference.md)        | Tauri 命令参考           |

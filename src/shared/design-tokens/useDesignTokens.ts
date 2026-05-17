@@ -46,7 +46,8 @@ function useDesignTokens() {
       fontSizeLg: `${settings.uiFontSize + 2}px`,
 
       /** 间距缩放因子，compact=0.75, comfortable=1, spacious=1.25 */
-      densityScale: settings.density === 'compact' ? 0.75 : settings.density === 'spacious' ? 1.25 : 1,
+      densityScale:
+        settings.density === 'compact' ? 0.75 : settings.density === 'spacious' ? 1.25 : 1,
     }
   })
 

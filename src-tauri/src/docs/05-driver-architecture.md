@@ -176,6 +176,7 @@ pub enum SchemaObjectKind {
 ```
 
 > ⚠️ **已知局限（P0-4）**：`SchemaObject` 仅包含 `name` / `kind` / `children`，缺少：
+>
 > - 列注释（comment）
 > - 列类型（data_type）
 > - 是否可空（nullable）
@@ -197,14 +198,14 @@ pub struct DataSourceMeta {
 }
 ```
 
-| 能力         | MySQL | PostgreSQL | SQLite | DuckDB |
-| ------------ | ----- | ---------- | ------ | ------ |
-| 事务         | ✅    | ✅         | ✅     | ✅     |
-| 流式查询     | ✅    | ✅         | ❌     | ✅     |
-| Arrow 格式   | ❌    | ❌         | ❌     | ✅     |
-| 联邦查询     | ❌    | ❌         | ❌     | ✅     |
-| 并发写入     | ✅    | ✅         | ❌     | ✅     |
-| 内存数据库   | ❌    | ❌         | ❌     | ❌     |
+| 能力       | MySQL | PostgreSQL | SQLite | DuckDB |
+| ---------- | ----- | ---------- | ------ | ------ |
+| 事务       | ✅    | ✅         | ✅     | ✅     |
+| 流式查询   | ✅    | ✅         | ❌     | ✅     |
+| Arrow 格式 | ❌    | ❌         | ❌     | ✅     |
+| 联邦查询   | ❌    | ❌         | ❌     | ✅     |
+| 并发写入   | ✅    | ✅         | ❌     | ✅     |
+| 内存数据库 | ❌    | ❌         | ❌     | ❌     |
 
 ## DriverRegistry（驱动注册表）
 
@@ -239,6 +240,7 @@ impl DriverRegistry {
 ```
 
 **设计要点**：
+
 - 使用 `OnceLock` 保证全局单例
 - `RwLock` 支持并发读（获取工厂）、排他写（注册/注销）
 - `Arc<dyn DriverFactory>` 允许工厂在多个位置共享引用
@@ -280,10 +282,10 @@ impl AutoDriverRegistrar {
 
 存在两套并行的驱动注册机制：
 
-| 注册方式                         | 存储位置                     | 文件             |
-| -------------------------------- | ---------------------------- | ---------------- |
-| `DriverRegistry::register()`     | `OnceLock<RwLock<HashMap>>`  | registry.rs      |
-| ~~`DRIVER_FACTORY_MANAGER` (Lazy)~~  | ~~已移除~~               | ~~factory.rs~~       |
+| 注册方式                            | 存储位置                    | 文件           |
+| ----------------------------------- | --------------------------- | -------------- |
+| `DriverRegistry::register()`        | `OnceLock<RwLock<HashMap>>` | registry.rs    |
+| ~~`DRIVER_FACTORY_MANAGER` (Lazy)~~ | ~~已移除~~                  | ~~factory.rs~~ |
 
 **影响**：`connection_service.rs:create_database()` 硬编码匹配，绕过了两套注册机制。
 
@@ -402,6 +404,7 @@ impl DataSourceRouter {
 ```
 
 **职责**：
+
 - 根据 `config.driver` 从 `DriverRegistry` 查找工厂
 - 调用工厂创建连接
 - **不直接实例化任何数据库驱动**
@@ -442,12 +445,12 @@ core/driver/
 
 每种数据库有独立的 Pool 实现：
 
-| 数据库     | Pool 实现     | 文件                    |
-| ---------- | ------------- | ----------------------- |
-| MySQL      | sqlx MySqlPool | native/mysql_pool.rs    |
-| PostgreSQL | sqlx PgPool    | native/sqlite_pool.rs   |
-| SQLite     | 自定义连接池  | native/sqlite_pool.rs   |
-| DuckDB     | 自定义连接池  | native/duckdb_pool.rs   |
+| 数据库     | Pool 实现      | 文件                  |
+| ---------- | -------------- | --------------------- |
+| MySQL      | sqlx MySqlPool | native/mysql_pool.rs  |
+| PostgreSQL | sqlx PgPool    | native/sqlite_pool.rs |
+| SQLite     | 自定义连接池   | native/sqlite_pool.rs |
+| DuckDB     | 自定义连接池   | native/duckdb_pool.rs |
 
 所有 Pool 实现 `DbPool` trait，通过 `acquire()` 返回 `Box<dyn Database>`。
 
@@ -460,18 +463,19 @@ core/driver/
 **路径**: [smart_pool.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/smart_pool.rs)
 
 包装标准 `DbPool`，提供：
+
 - 动态扩缩容
 - 健康检查
 - 负载均衡
 
 ## P0 问题总结
 
-| 编号 | 问题                             | 影响                   | 改进方向                           |
-| ---- | -------------------------------- | ---------------------- | ---------------------------------- |
-| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册（✅ 已移除） | 维护两套注册表 | 已移除，统一到 DriverRegistry |
-| P0-2 | `create_database()` 硬编码匹配   | 新增数据库需改多处代码 | 通过 DriverRegistry 动态创建       |
-| P0-3 | `to_url()` 硬编码匹配            | 同上                   | 由 DriverFactory/Descriptor 提供   |
-| P0-4 | `SchemaObject` 缺少列详情        | 无法展示列注释/类型    | 引入 NodeDetail 结构体             |
+| 编号 | 问题                                           | 影响                   | 改进方向                         |
+| ---- | ---------------------------------------------- | ---------------------- | -------------------------------- |
+| P0-1 | `DRIVER_FACTORY_MANAGER` 重复注册（✅ 已移除） | 维护两套注册表         | 已移除，统一到 DriverRegistry    |
+| P0-2 | `create_database()` 硬编码匹配                 | 新增数据库需改多处代码 | 通过 DriverRegistry 动态创建     |
+| P0-3 | `to_url()` 硬编码匹配                          | 同上                   | 由 DriverFactory/Descriptor 提供 |
+| P0-4 | `SchemaObject` 缺少列详情                      | 无法展示列注释/类型    | 引入 NodeDetail 结构体           |
 
 ## 后续演进
 
