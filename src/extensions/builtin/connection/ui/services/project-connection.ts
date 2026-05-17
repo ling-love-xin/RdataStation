@@ -50,8 +50,8 @@ export async function updateProjectConnectionStatus(
   return invoke('update_project_connection_status', {
     projectPath,
     connectionId,
-    status,
-    errorMessage,
+    isActive: status === 'connected' || status === 'connecting',
+    errorMessage: errorMessage ?? null,
   })
 }
 

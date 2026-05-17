@@ -121,8 +121,7 @@ import NewProjectModal from './title-bar/NewProjectModal.vue'
 import ToolbarActions from './title-bar/ToolbarActions.vue'
 import WindowControls from './title-bar/WindowControls.vue'
 
-import type { MenuItem } from './title-bar/MenuBar.vue'
-import type { ToolbarTool } from './title-bar/ToolbarActions.vue'
+import type { MenuItem, ToolbarTool } from './title-bar/title-bar-types'
 
 interface Props {
   isMaximized?: boolean
@@ -247,11 +246,9 @@ const toolbarTools = computed<ToolbarTool[]>(() => {
 const menuActionMap = createMenuActionMap(handleOpenProject, handleOpenCommandPalette)
 
 // 菜单动作处理
-function handleMenuAction(item: MenuItem) {
-  console.log('[TitleBar] handleMenuAction 被调用, item.id =', item.id)
+function handleMenuAction(item: MenuItem): void {
   const action = menuActionMap[item.id]
   if (action) {
-    console.log('[TitleBar] 执行 menuActionMap[' + item.id + ']')
     action()
   }
 }

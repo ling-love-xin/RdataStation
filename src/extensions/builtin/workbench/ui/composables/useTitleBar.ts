@@ -5,7 +5,7 @@ import { useProjectStore } from '@/core/project/stores/project'
 import type { Project } from '@/core/project/stores/project'
 import { useUiStore } from '@/shared/stores/ui'
 
-import type { ToolbarTool } from '../components/title-bar/ToolbarActions.vue'
+import type { ToolbarTool } from '../components/title-bar/title-bar-types'
 
 export function useTitleBar() {
   const { t } = useI18n()

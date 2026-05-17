@@ -50,7 +50,7 @@ function onReady(event: DockviewReadyEvent) {
 
   // Get all registered panels
   const panels = panelRegistry.getAll()
-  console.log(`[MainContent] Creating ${panels.length} panels from registry`)
+  console.debug(`[MainContent] Creating ${panels.length} panels from registry`)
 
   // Filter panels by location (center/bottom)
   const centerPanels = panels.filter(p => p.location === 'center')
@@ -66,7 +66,7 @@ function onReady(event: DockviewReadyEvent) {
     } as const
 
     if (index === 0) {
-      ;(api as any).addPanel(panelConfig)
+      api.addPanel(panelConfig)
       centerPanelId = `panel_${panel.id}`
     } else if (centerPanelId) {
       ;(panelConfig as Record<string, unknown>).position = {
@@ -166,73 +166,6 @@ function stopResize() {
   flex-direction: column;
   background-color: var(--bg-secondary, #252526);
   overflow: hidden;
-}
-
-.panel-tabs {
-  display: flex;
-  align-items: center;
-  height: 35px;
-  background-color: var(--bg-tertiary, #2d2d30);
-  border-bottom: 1px solid var(--border-color, #3e3e42);
-  padding: 0 4px;
-  gap: 2px;
-  overflow-x: auto;
-}
-
-.panel-tab {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 12px;
-  height: 30px;
-  font-size: 12px;
-  color: var(--text-secondary, #858585);
-  background-color: transparent;
-  border-radius: 4px 4px 0 0;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.panel-tab:hover {
-  color: var(--text-primary, #cccccc);
-  background-color: var(--bg-hover, #3c3c3c);
-}
-
-.panel-tab.active {
-  color: var(--text-primary, #cccccc);
-  background-color: var(--bg-secondary, #252526);
-}
-
-.close-btn {
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-tertiary, #858585);
-  margin-left: 4px;
-}
-
-.close-btn:hover {
-  color: var(--danger-color, #f53f3f);
-}
-
-.add-tab-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  color: var(--text-tertiary, #858585);
-  background: none;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-left: 4px;
-}
-
-.add-tab-btn:hover {
-  color: var(--text-primary, #d4d4d4);
-  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
 }
 
 .panel-content {

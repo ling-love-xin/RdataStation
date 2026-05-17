@@ -49,12 +49,14 @@ async function withRetry<T>(fn: () => Promise<T>, config: RetryConfig = {}): Pro
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
       const result = await Promise.race([
         fn(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
-        ),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+        }),
       ])
+      if (timeoutId) clearTimeout(timeoutId)
       return result
     } catch (error) {
       lastError = error

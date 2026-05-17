@@ -73,8 +73,8 @@ export class SearchIndex {
     let candidateIds: Set<string> | null = null
 
     for (const term of queryTerms) {
-      const nodeIds = this.index.get(term)
-      if (!nodeIds) return []
+      const nodeIds = this.matchTerm(term)
+      if (!nodeIds || nodeIds.size === 0) return []
 
       if (candidateIds === null) {
         candidateIds = new Set(nodeIds)
@@ -145,6 +145,27 @@ export class SearchIndex {
 
   size(): number {
     return this.entries.size
+  }
+
+  private matchTerm(term: string): Set<string> | null {
+    const matches = new Set<string>()
+
+    const exact = this.index.get(term)
+    if (exact) {
+      for (const id of exact) {
+        matches.add(id)
+      }
+    }
+
+    for (const [key, ids] of this.index) {
+      if (key.startsWith(term)) {
+        for (const id of ids) {
+          matches.add(id)
+        }
+      }
+    }
+
+    return matches.size > 0 ? matches : null
   }
 
   private tokenize(text: string): string[] {

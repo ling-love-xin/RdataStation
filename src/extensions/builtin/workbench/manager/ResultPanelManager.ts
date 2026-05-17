@@ -22,15 +22,6 @@ class ResultPanelManagerImpl implements IResultPanelManager {
     return rs?.rows ?? []
   }
 
-  createResultPanel(
-    _filePath: string,
-    _panelId: string,
-    _metadata: ResultSetMetadata,
-    _rows: unknown[][]
-  ): void {
-    console.warn('[ResultPanelManager] createResultPanel is deprecated, use EditorManager.createResultSet')
-  }
-
   detachResultPanel(panelId: string): void {
     EditorManager.detachResultPanel(panelId)
   }
@@ -48,6 +39,15 @@ class ResultPanelManagerImpl implements IResultPanelManager {
     const info = EditorManager.openFiles.get(filePath)
     if (!info || info.activeResultIndex < 0) return null
     return info.resultSets[info.activeResultIndex] ?? null
+  }
+
+  createResultPanel(
+    _filePath: string,
+    _panelId: string,
+    _metadata: ResultSetMetadata,
+    _rows: unknown[][]
+  ): void {
+    /* creation is handled by EditorManager.createResultSet via addResultSet() */
   }
 }
 

@@ -348,10 +348,10 @@ function handleKeydown(e: KeyboardEvent) {
     handleClose()
   } else if (e.ctrlKey && e.key === 'z') {
     e.preventDefault()
-    layoutStore.canUndo && layoutStore.undo()
+    if (layoutStore.canUndo) layoutStore.undo()
   } else if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
     e.preventDefault()
-    layoutStore.canRedo && layoutStore.redo()
+    if (layoutStore.canRedo) layoutStore.redo()
   }
 }
 

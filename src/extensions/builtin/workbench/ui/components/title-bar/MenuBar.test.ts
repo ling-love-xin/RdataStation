@@ -32,11 +32,20 @@ const mockMenus = [
   },
 ]
 
+async function openMenuBar(wrapper: ReturnType<typeof mount>) {
+  const hamburger = wrapper.find('.hamburger-btn')
+  if (!hamburger.exists()) return
+  await hamburger.trigger('click')
+  await nextTick()
+}
+
 describe('MenuBar', () => {
-  it('should render menu items', () => {
+  it('should render menu items', async () => {
     const wrapper = mount(MenuBar, {
       props: { menus: mockMenus },
     })
+
+    await openMenuBar(wrapper)
 
     const menuItems = wrapper.findAll('.menu-item')
     expect(menuItems).toHaveLength(2)
@@ -48,6 +57,8 @@ describe('MenuBar', () => {
     const wrapper = mount(MenuBar, {
       props: { menus: mockMenus },
     })
+
+    await openMenuBar(wrapper)
 
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
@@ -62,11 +73,11 @@ describe('MenuBar', () => {
       props: { menus: mockMenus },
     })
 
-    // Open menu
+    await openMenuBar(wrapper)
+
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
 
-    // Click dropdown item
     const dropdownItem = wrapper.find('.dropdown-item')
     await dropdownItem.trigger('click')
 
@@ -80,12 +91,12 @@ describe('MenuBar', () => {
       attachTo: document.body,
     })
 
-    // Open menu
+    await openMenuBar(wrapper)
+
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
     expect(wrapper.find('.dropdown-panel').exists()).toBe(true)
 
-    // Click outside
     await document.body.click()
     await nextTick()
 
@@ -99,13 +110,13 @@ describe('MenuBar', () => {
       props: { menus: mockMenus },
     })
 
-    // Open menu
+    await openMenuBar(wrapper)
+
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
     expect(wrapper.find('.dropdown-panel').exists()).toBe(true)
 
-    // Press escape
-    await wrapper.find('.menu-bar-wrapper').trigger('keydown', { key: 'Escape' })
+    await document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await nextTick()
 
     expect(wrapper.find('.dropdown-panel').exists()).toBe(false)
@@ -127,11 +138,11 @@ describe('MenuBar', () => {
       props: { menus: menusWithDisabled },
     })
 
-    // Open menu
+    await openMenuBar(wrapper)
+
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
 
-    // Click disabled item
     const disabledItem = wrapper.find('.dropdown-item.disabled')
     await disabledItem.trigger('click')
 
@@ -143,7 +154,8 @@ describe('MenuBar', () => {
       props: { menus: mockMenus },
     })
 
-    // Open menu
+    await openMenuBar(wrapper)
+
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
 
@@ -156,7 +168,8 @@ describe('MenuBar', () => {
       props: { menus: mockMenus },
     })
 
-    // Open menu
+    await openMenuBar(wrapper)
+
     const menuItem = wrapper.find('.menu-item')
     await menuItem.trigger('click')
 
@@ -171,15 +184,14 @@ describe('MenuBar', () => {
 
     const hamburger = wrapper.find('.hamburger-btn')
 
-    // Initially menu bar should be hidden
     expect(wrapper.find('.menu-bar').exists()).toBe(false)
 
-    // Click hamburger
     await hamburger.trigger('click')
+    await nextTick()
     expect(wrapper.find('.menu-bar').exists()).toBe(true)
 
-    // Click hamburger again
     await hamburger.trigger('click')
+    await nextTick()
     expect(wrapper.find('.menu-bar').exists()).toBe(false)
   })
 
@@ -191,8 +203,8 @@ describe('MenuBar', () => {
     const hamburger = wrapper.find('.hamburger-btn')
     expect(hamburger.attributes('aria-haspopup')).toBe('true')
 
-    // Click hamburger to open menu
     await hamburger.trigger('click')
+    await nextTick()
 
     const menuBar = wrapper.find('.menu-bar')
     expect(menuBar.attributes('role')).toBe('menubar')
@@ -201,7 +213,6 @@ describe('MenuBar', () => {
     expect(menuItems[0].attributes('role')).toBe('menuitem')
     expect(menuItems[0].attributes('aria-haspopup')).toBe('true')
 
-    // Open dropdown
     await menuItems[0].trigger('click')
 
     const dropdownPanel = wrapper.find('.dropdown-panel')

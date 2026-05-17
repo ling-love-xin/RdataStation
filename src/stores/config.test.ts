@@ -116,7 +116,7 @@ describe('CommandPaletteSettingsSchema', () => {
 describe('DEFAULT_GLOBAL_CONFIG', () => {
   it('should have titleBarSettings with correct defaults', () => {
     expect(DEFAULT_GLOBAL_CONFIG.titleBarSettings.menuStyle).toBe('full')
-    expect(DEFAULT_GLOBAL_CONFIG.titleBarSettings.toolbarTools).toEqual([])
+    expect(DEFAULT_GLOBAL_CONFIG.titleBarSettings.toolbarTools).toEqual(['settings'])
     expect(DEFAULT_GLOBAL_CONFIG.titleBarSettings.showProjectSelector).toBe(true)
     expect(DEFAULT_GLOBAL_CONFIG.titleBarSettings.showCommandCenter).toBe(true)
     expect(DEFAULT_GLOBAL_CONFIG.titleBarSettings.recentProjectCount).toBe(5)

@@ -60,10 +60,18 @@
         </option>
       </select>
       <span class="uri-label">URI</span>
-      <div class="uri-display" :title="uri">
+      <div v-if="editUriMode" class="uri-display editing">
+        <input
+          :value="uri"
+          type="text"
+          class="uri-input"
+          @input="$emit('update:uri', ($event.target as HTMLInputElement).value)"
+        />
+      </div>
+      <div v-else class="uri-display" :title="uri">
         <code>{{ uri }}</code>
       </div>
-      <button class="uri-edit-btn" :title="String(t('navigator.editUri'))" @click="$emit('edit-uri')">
+      <button class="uri-edit-btn" :class="{ active: editUriMode }" :title="String(t('navigator.editUri'))" @click="$emit('edit-uri')">
         <Pencil :size="14" />
       </button>
     </div>
@@ -74,7 +82,7 @@
 import { Pencil } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import type { DriverDescriptor } from '../../types/connection'
+import type { DriverDescriptor } from '../types/connection'
 
 const { t } = useI18n()
 
@@ -88,17 +96,19 @@ interface Props {
   nameError?: string
   availableDrivers: DriverDescriptor[]
   selectedDriverId: string
+  editUriMode?: boolean
 }
 
 defineProps<Props>()
 
 defineEmits<{
-  (e: 'update:name', value: string): void
-  (e: 'update:description', value: string): void
-  (e: 'update:save-to-global', value: boolean): void
-  (e: 'update:save-to-project', value: boolean): void
-  (e: 'select-driver', driverId: string): void
-  (e: 'edit-uri'): void
+  'update:name': [value: string]
+  'update:description': [value: string]
+  'update:uri': [value: string]
+  'update:save-to-global': [value: boolean]
+  'update:save-to-project': [value: boolean]
+  'select-driver': [driverId: string]
+  'edit-uri': []
 }>()
 </script>
 
@@ -257,6 +267,21 @@ defineEmits<{
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.uri-display.editing {
+  padding: 0;
+  border-color: var(--color-accent, #89b4fa);
+}
+.uri-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary, #cdd6f4);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  outline: none;
+}
 .uri-edit-btn {
   width: 30px;
   height: 30px;
@@ -274,6 +299,10 @@ defineEmits<{
 .uri-edit-btn:hover {
   background: var(--color-bg-hover, rgba(255,255,255,0.05));
   color: var(--color-text-primary, #cdd6f4);
+}
+.uri-edit-btn.active {
+  background: rgba(137,180,250,0.12);
+  color: var(--color-accent, #89b4fa);
 }
 
 @media (max-width: 900px) {

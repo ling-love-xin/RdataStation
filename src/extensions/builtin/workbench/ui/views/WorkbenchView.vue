@@ -1,5 +1,19 @@
 <template>
   <div :class="['workbench-view', uiStore.isDark ? 'dockview-theme-dark' : 'dockview-theme-light']">
+    <!-- 崩溃恢复横幅 -->
+    <div v-if="showRecoveryBanner" class="recovery-banner">
+      <span class="recovery-icon">⚠</span>
+      <span class="recovery-text">
+        检测到上次未正常关闭，有 {{ recoverySnapshots.length }} 个文件可以恢复
+      </span>
+      <button class="recovery-btn recovery-btn-primary" @click="handleRestoreAllRecovery">
+        恢复全部
+      </button>
+      <button class="recovery-btn recovery-btn-dismiss" @click="handleDismissRecovery">
+        忽略
+      </button>
+    </div>
+
     <!-- Dockview 布局 -->
     <!-- 面板组件通过 app.component() 全局注册，由 dockview-vue 的 findComponent 自动解析 -->
     <DockviewVue
@@ -28,6 +42,8 @@ import {
   type DockviewApi as DockviewVueApi,
   type GetTabContextMenuItemsParams,
   type ContextMenuItem,
+  type DockviewGroupPanel,
+  type IDockviewPanel,
 } from 'dockview-vue'
 import { useMessage } from 'naive-ui'
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -41,6 +57,11 @@ import {
   EditorManager,
 } from '@/extensions/builtin/workbench/manager/EditorManager'
 import { ShortcutManager } from '@/extensions/builtin/workbench/manager/ShortcutManager'
+import {
+  PANEL_ID_EMPTY_WORKBENCH,
+  isEditorPanel,
+  isResultPanel,
+} from '@/extensions/builtin/workbench/types/editor-types'
 import CustomizeLayoutDialog from '@/extensions/builtin/workbench/ui/components/CustomizeLayoutDialog.vue'
 import IconTabComponent from '@/extensions/builtin/workbench/ui/components/IconTab.vue'
 import {
@@ -49,8 +70,16 @@ import {
 } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-store'
 import { useUiStore } from '@/shared/stores/ui'
+import type { SerializedDockviewLayout } from '@/stores/config'
 import { useAppStore } from '@/stores/useAppStore'
 import { useScratchpadEditorStore } from '@/stores/useScratchpadEditorStore'
+
+interface DockviewGroupPanelAPI {
+  setSize?(args: { width: number }): void
+  updateConstraints?(constraints: Record<string, number>): void
+}
+
+type DockviewLayoutJSON = Record<string, unknown>
 
 defineOptions({
   components: {
@@ -68,8 +97,47 @@ const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const showConnectionModal = ref(false)
+const recoverySnapshots = ref<{ filePath: string; fileName: string; language: string; isDirty: boolean }[]>([])
+const showRecoveryBanner = ref(false)
 
 let dockviewApi: DockviewVueApi | null = null
+
+function checkRecoveryState(): void {
+  if (!EditorManager.hasRecoveryData()) return
+
+  try {
+    const snapshots = EditorManager.loadRecoverySnapshots()
+    if (snapshots.length > 0) {
+      recoverySnapshots.value = snapshots
+      showRecoveryBanner.value = true
+    }
+  } catch {
+    // recovery check is best-effort
+  }
+}
+
+function handleRestoreAllRecovery(): void {
+  const count = recoverySnapshots.value.length
+  for (const snap of recoverySnapshots.value) {
+    EditorManager.openFile({
+      filePath: snap.filePath,
+      fileName: snap.fileName,
+      language: snap.language,
+      sql: '',
+      type: 'file',
+    })
+  }
+  EditorManager.clearRecovery()
+  showRecoveryBanner.value = false
+  recoverySnapshots.value = []
+  message.success(`已恢复 ${count} 个文件`)
+}
+
+function handleDismissRecovery(): void {
+  EditorManager.clearRecovery()
+  showRecoveryBanner.value = false
+  recoverySnapshots.value = []
+}
 
 const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMenuItem[] => {
   const panelId = params.panel.id
@@ -162,7 +230,6 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
 }
 
 const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
-  console.log('保存连接:', data)
   try {
     const driver = String((data as Record<string, unknown>).db_type || data.driver)
     if (!driver) {
@@ -199,6 +266,12 @@ const onReady = (event: DockviewReadyEvent) => {
 
   EditorManager.init(api)
 
+  // 跨窗口通信监听（popout 合并回主窗口）
+  EditorManager.setupCrossWindowListeners()
+
+  // 崩溃恢复检测
+  checkRecoveryState()
+
   ShortcutManager.register('Ctrl+B', 'global', () => {
     const leftGroup = api.getEdgeGroup('left')
     if (leftGroup?.isCollapsed()) {
@@ -227,7 +300,7 @@ const onReady = (event: DockviewReadyEvent) => {
   }, '退出最大化面板')
 
   const panels = panelRegistry.getAll()
-  console.log(`[Workbench] Creating ${panels.length} panels from registry`)
+  console.debug(`[Workbench] Creating ${panels.length} panels from registry`)
 
   const leftPanelsAll = panels
     .filter(p => p.location === 'left')
@@ -280,7 +353,7 @@ const onReady = (event: DockviewReadyEvent) => {
       layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: i })
     }
   }
-  console.log(`[Workbench] Created left edge group with ${leftPanelsAll.length} panels`)
+  console.debug(`[Workbench] Created left edge group with ${leftPanelsAll.length} panels`)
 
   // ============================================
   // 第 2 步：B 栏 — 中心 Normal Group（主工作区）
@@ -294,7 +367,7 @@ const onReady = (event: DockviewReadyEvent) => {
       title: welcomePanel.name,
       position: { direction: 'right' },
     })
-    console.log(`[Workbench] Created welcome panel: panel_${welcomePanel.id}`)
+    console.debug(`[Workbench] Created welcome panel: panel_${welcomePanel.id}`)
     layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, {
       location: 'center',
       isVisible: true,
@@ -343,12 +416,12 @@ const onReady = (event: DockviewReadyEvent) => {
       layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: i })
     }
   }
-  console.log(`[Workbench] Created right edge group with ${rightPanels.length} panels`)
+  console.debug(`[Workbench] Created right edge group with ${rightPanels.length} panels`)
 
-  console.log(
+  console.debug(
     `[Workbench] Final layout - groups: ${api.groups.length}, panels: ${api.panels.length}`
   )
-  console.log(
+  console.debug(
     '[Workbench] All groups:',
     api.groups.map(g => ({
       id: g.id,
@@ -368,10 +441,12 @@ const onReady = (event: DockviewReadyEvent) => {
       ShortcutManager.setActiveScope('none')
       return
     }
-    if (panel.id.startsWith('panel_editor_')) {
-      EditorManager.onPanelActivated(panel.id)
-      ShortcutManager.setActiveScope('editor')
-    } else if (panel.id.startsWith('panel_result_')) {
+    if (isEditorPanel(panel.id)) {
+      const filePath = EditorManager.panelIdToFilePath(panel.id)
+      if (filePath) {
+        EditorManager.switchToFile(filePath)
+      }
+    } else if (isResultPanel(panel.id)) {
       ShortcutManager.setActiveScope('result')
     } else if (panel.id === 'scratchpad' || panel.id.startsWith('panel_scratchpad')) {
       ShortcutManager.setActiveScope('scratchpad')
@@ -383,7 +458,7 @@ const onReady = (event: DockviewReadyEvent) => {
   api.onDidRemovePanel?.(panel => {
     const panelId = panel.id
     if (layoutStore.isPanelPinned(panelId)) {
-      console.log(`[Workbench] Attempted to close pinned panel: ${panelId}, restoring...`)
+      console.debug(`[Workbench] Attempted to close pinned panel: ${panelId}, restoring...`)
       setTimeout(() => {
         restorePinnedPanel(panelId)
       }, 100)
@@ -396,20 +471,49 @@ const onReady = (event: DockviewReadyEvent) => {
       const filePath = EditorManager.panelIdToFilePath(panelId)
       if (filePath) {
         EditorManager.closeFile(filePath)
-        console.log(`[Workbench] 编辑器面板关闭，清理 Model: ${filePath}`)
+        console.debug(`[Workbench] 编辑器面板关闭，清理 Model: ${filePath}`)
       }
     }
   })
 
   api.onDidLayoutChange?.(() => {
     try {
-      const serialized = api.toJSON()
-      layoutStore.setLayoutData(serialized)
+      const serialized = api.toJSON() as DockviewLayoutJSON
+      layoutStore.setLayoutData(serialized as unknown as SerializedDockviewLayout)
 
       const ids = api.panels.map((p: { id: string }) => p.id)
       layoutStore.setOpenPanelIds(ids)
     } catch {
       // dockview serialization may fail transiently
+    }
+  })
+
+  api.onDidMovePanel?.((e) => {
+    const movedPanelId = e.panel.id
+    if (movedPanelId.startsWith('panel_editor_')) {
+      const targetGroupId = e.panel.group?.id
+      if (targetGroupId) {
+        EditorManager.updatePanelGroup(movedPanelId, targetGroupId)
+        console.debug(`[Workbench] Editor panel ${movedPanelId} moved to group ${targetGroupId}`)
+      }
+    }
+  })
+
+  api.onDidAddGroup?.((group: DockviewGroupPanel) => {
+    for (const panel of group.panels) {
+      const pid = (panel as IDockviewPanel).id
+      if (pid.startsWith('panel_editor_')) {
+        EditorManager.updatePanelGroup(pid, group.id)
+      }
+    }
+  })
+
+  api.onDidRemoveGroup?.((group: DockviewGroupPanel) => {
+    const editorPanels = group.panels.filter((p: IDockviewPanel) => p.id.startsWith('panel_editor_'))
+    if (editorPanels.length > 0) {
+      for (const panel of editorPanels) {
+        EditorManager.onPanelUndocked(panel.id)
+      }
     }
   })
 
@@ -465,7 +569,7 @@ function restorePinnedPanel(panelId: string) {
             : 'center',
     },
   })
-  console.log(`[Workbench] Restored pinned panel: ${panelId}`)
+  console.debug(`[Workbench] Restored pinned panel: ${panelId}`)
 }
 
 const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
@@ -487,7 +591,7 @@ const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
         })
       )
       if (leftGroup) {
-        const g = leftGroup as unknown as Record<string, (args: Record<string, number>) => void>
+        const g = leftGroup as unknown as DockviewGroupPanelAPI
         g.setSize?.({ width: leftWidth })
       }
     }
@@ -500,7 +604,7 @@ const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
         })
       )
       if (rightGroup) {
-        const g = rightGroup as unknown as Record<string, (args: Record<string, number>) => void>
+        const g = rightGroup as unknown as DockviewGroupPanelAPI
         g.setSize?.({ width: rightWidth })
       }
     }
@@ -510,7 +614,7 @@ const handleLayoutSettingsUpdate = (_event: CustomEvent) => {
         const constraints: Record<string, number> = {}
         if (minimumWidth !== undefined) constraints.minimumWidth = minimumWidth
         if (maximumWidth !== undefined) constraints.maximumWidth = maximumWidth
-        const g = group as unknown as Record<string, (args: Record<string, number>) => void>
+        const g = group as unknown as DockviewGroupPanelAPI
         g.updateConstraints?.(constraints)
       }
     }
@@ -550,9 +654,9 @@ function findCenterGroupReference(): { direction: 'right' } | { referencePanel: 
     }
   }
 
-  const welcomePanel = dockviewApi.getPanel('panel_emptyWorkbench')
+  const welcomePanel = dockviewApi.getPanel(PANEL_ID_EMPTY_WORKBENCH)
   if (welcomePanel) {
-    return { referencePanel: 'panel_emptyWorkbench', direction: 'within' }
+    return { referencePanel: PANEL_ID_EMPTY_WORKBENCH, direction: 'within' }
   }
 
   for (const group of dockviewApi.groups || []) {
@@ -596,15 +700,15 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
       databaseName: databaseName || '',
     })
 
-    const welcomePanel = dockviewApi?.getPanel('panel_emptyWorkbench')
+    const welcomePanel = dockviewApi?.getPanel(PANEL_ID_EMPTY_WORKBENCH)
     if (welcomePanel) welcomePanel.api.close()
-    console.log(`[Workbench] 打开草稿箱文件: ${scratchpadRelativePath}`)
+    console.debug(`[Workbench] 打开草稿箱文件: ${scratchpadRelativePath}`)
     return
   }
 
   EditorManager.openNewQuery(connectionId || '', databaseName || '')
     .then(() => {
-      const welcomePanel = dockviewApi?.getPanel('panel_emptyWorkbench')
+      const welcomePanel = dockviewApi?.getPanel(PANEL_ID_EMPTY_WORKBENCH)
       if (welcomePanel) welcomePanel.api.close()
     })
     .catch((error) => {
@@ -629,7 +733,7 @@ const handleOpenObjectProperties = (event: CustomEvent) => {
       database,
     },
   })
-  console.log(`[Workbench] 创建对象属性面板: ${panelId}`)
+  console.debug(`[Workbench] 创建对象属性面板: ${panelId}`)
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -643,7 +747,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 // 标题栏菜单/工具栏/命令面板事件处理
 const handleWorkbenchNewQuery = async () => {
-  console.log('[Workbench] handleWorkbenchNewQuery 被调用（新架构 EditorManager.openNewQuery）')
+  console.debug('[Workbench] handleWorkbenchNewQuery 被调用（新架构 EditorManager.openNewQuery）')
 
   const conns = connectionStore.connections
   const firstConn = conns.length > 0 ? conns[0] : null
@@ -756,7 +860,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  appStore.closeProject().catch(() => {})
+  appStore.closeProject().catch((e) => { console.warn('[Workbench] closeProject failed:', e) })
 
   window.removeEventListener(
     'layout-settings-update',
@@ -794,5 +898,54 @@ onUnmounted(() => {
   overflow: hidden;
   min-width: 0;
   min-height: 0;
+}
+
+.recovery-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(250, 173, 20, 0.1);
+  border-bottom: 1px solid rgba(250, 173, 20, 0.25);
+  font-size: 13px;
+}
+
+.recovery-icon {
+  font-size: 16px;
+}
+
+.recovery-text {
+  flex: 1;
+  color: #d4a017;
+}
+
+.recovery-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.recovery-btn-primary {
+  background: #faad14;
+  color: #fff;
+}
+
+.recovery-btn-primary:hover {
+  background: #d89614;
+}
+
+.recovery-btn-dismiss {
+  background: transparent;
+  color: #999;
+  border: 1px solid #444;
+}
+
+.recovery-btn-dismiss:hover {
+  color: #ccc;
+  border-color: #666;
 }
 </style>

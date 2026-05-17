@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import { Search, X } from 'lucide-vue-next'
 import { NInput, NButton } from 'naive-ui'
+import { onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -59,6 +60,13 @@ function onApply() {
 function onClear() {
   emit('clear')
 }
+
+onUnmounted(() => {
+  if (timer) {
+    clearTimeout(timer)
+    timer = null
+  }
+})
 </script>
 
 <style scoped>

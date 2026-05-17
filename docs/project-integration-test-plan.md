@@ -162,7 +162,7 @@ RdataStation 采用**四层微内核沙箱架构**，模块层次如下：
 | W02  | SqlEditorPanel           | extensions/builtin/workbench          | Monaco SQL编辑器     |
 | W03  | QueryResultPanel         | extensions/builtin/workbench          | AG Grid结果展示      |
 | W04  | DatabaseNavigator        | extensions/builtin/database           | 虚拟滚动数据库树     |
-| W05  | ConnectionForm           | extensions/builtin/connection         | 连接配置表单         |
+| W05  | AddDataSourceDialog      | extensions/builtin/connection         | 数据源创建对话框     |
 | W06  | AnalyticsResourceManager | extensions/builtin/analytics-resource | 分析资源管理         |
 | W07  | SettingsPanel            | extensions/builtin/settings           | 设置面板             |
 | W08  | ScratchpadPanel          | extensions/builtin/scratchpad         | 草稿面板             |
@@ -174,7 +174,7 @@ RdataStation 采用**四层微内核沙箱架构**，模块层次如下：
 
 ```
 连接管理链路：
-  UI(ConnectionForm) → C01 → M11(connection_service)
+  UI(AddDataSourceDialog) → C01 → M11(connection_service)
   → M10(connection/factory) → M03-M09(具体Driver) → DataSource
 
 SQL执行链路：

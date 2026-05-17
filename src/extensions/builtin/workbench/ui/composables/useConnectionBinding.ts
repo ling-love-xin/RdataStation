@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import { useRuntimeConnectionStore } from '@/extensions/builtin/connection/ui/stores/runtime-connection-store'
@@ -97,51 +97,74 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
       return true
     }
 
-    for (let attempt = 0; attempt < 50; attempt++) {
-      const ids = runtimeConnectionStore.runtimeConnectionIds
-      if (ids.has(connId)) {
-        runtimeConnId.value = connId
-        return true
+    const TIMEOUT_MS = 10_000
+
+    return new Promise<boolean>((resolve) => {
+      let settled = false
+
+      const finish = (value: boolean) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeoutId)
+        stopWatch()
+        resolve(value)
       }
 
-      const conn = connectionStore.connections.find(c => c.connId === connId)
-      if (conn && ids.has(conn.connId)) {
-        runtimeConnId.value = conn.connId
-        return true
-      }
-
-      if (attempt === 4) {
-        try {
-          await connectionStore.loadConnections()
-        } catch {
-          // continue waiting
+      const checkConnection = (ids: Map<string, string>): boolean => {
+        if (ids.has(connId)) {
+          runtimeConnId.value = connId
+          finish(true)
+          return true
         }
-      }
-
-      if (attempt < 49) {
-        await new Promise(resolve => setTimeout(resolve, 200))
-      }
-    }
-
-    const fallbackIds = [...runtimeConnectionStore.runtimeConnectionIds.entries()]
-    if (fallbackIds.length > 0) {
-      runtimeConnId.value = fallbackIds[0][1]
-      return true
-    }
-
-    const firstConnected = connectionStore.connections.find(c => c.status === 'connected')
-    if (firstConnected) {
-      selectedConnection.value = firstConnected.connId
-      try {
-        const runtimeId = await runtimeConnectionStore.establishFromConnection(firstConnected)
-        runtimeConnId.value = runtimeId ?? ''
-        return true
-      } catch {
+        const conn = connectionStore.connections.find(c => c.connId === connId)
+        if (conn && ids.has(conn.connId)) {
+          runtimeConnId.value = conn.connId
+          finish(true)
+          return true
+        }
         return false
       }
-    }
 
-    return false
+      const stopWatch = watch(
+        () => runtimeConnectionStore.runtimeConnectionIds,
+        (newMap) => {
+          if (settled) return
+          checkConnection(newMap)
+        },
+        { immediate: true }
+      )
+
+      setTimeout(() => {
+        if (settled) return
+        connectionStore.loadConnections().catch(() => { /* */ })
+      }, 1000)
+
+      const timeoutId = setTimeout(() => {
+        if (settled) return
+        stopWatch()
+
+        const fallbackIds = [...runtimeConnectionStore.runtimeConnectionIds.entries()]
+        if (fallbackIds.length > 0) {
+          runtimeConnId.value = fallbackIds[0][1]
+          resolve(true)
+          return
+        }
+
+        const firstConnected = connectionStore.connections.find(c => c.status === 'connected')
+        if (firstConnected) {
+          selectedConnection.value = firstConnected.connId
+          runtimeConnectionStore.establishFromConnection(firstConnected).then((runtimeId) => {
+            runtimeConnId.value = runtimeId ?? ''
+            resolve(true)
+          }).catch(() => {
+            resolve(false)
+          })
+          return
+        }
+
+        resolve(false)
+      }, TIMEOUT_MS)
+    })
   }
 
   function onConnectionSelected(connId: string): void {

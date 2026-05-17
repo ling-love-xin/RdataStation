@@ -24,7 +24,7 @@ const ColumnInsightsComponent = defineAsyncComponent(
 )
 
 const RightSidebarPlaceholder = defineAsyncComponent(
-  () => import('@/extensions/builtin/workbench/ui/components/panels/RightSidebarPlaceholder.vue')
+  () => import('@/extensions/builtin/workbench/ui/components/panels/EmptyWorkbenchPanel.vue')
 )
 
 const currentComponent = computed(() => {

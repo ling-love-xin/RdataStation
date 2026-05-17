@@ -603,3 +603,18 @@ pub async fn notify_ddl_event(event: DDLEventInput) -> Result<(), CoreError> {
 
     Ok(())
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncStatusInfo {
+    pub in_progress: bool,
+    pub total_tables: usize,
+    pub completed_tables: usize,
+    pub last_sync_time: Option<i64>,
+}
+
+#[tauri::command]
+pub async fn get_sync_status(
+    _connection_id: String,
+) -> Result<Option<SyncStatusInfo>, CoreError> {
+    Ok(None)
+}

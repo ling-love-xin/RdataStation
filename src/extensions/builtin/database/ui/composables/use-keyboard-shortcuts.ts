@@ -27,7 +27,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
       return
     }
 
-    if ((event.target as HTMLElement)?.closest?.('.monaco-editor')) {
+    if ((event.target as HTMLElement)?.closest?.('.cm-editor')) {
       return
     }
 

@@ -3,8 +3,7 @@ import { markRaw } from 'vue'
 
 import { WorkbenchEvent, dispatchWorkbenchEvent } from '../constants/workbench-events'
 
-import type { MenuConfig } from '../components/title-bar/MenuBar.vue'
-import type { ToolbarTool } from '../components/title-bar/ToolbarActions.vue'
+import type { MenuConfig, ToolbarTool } from '../components/title-bar/title-bar-types'
 
 /**
  * 创建菜单配置

@@ -44,7 +44,7 @@ const tableName = computed(() => props.params?.tableName || '')
 const loading = ref(false)
 const rowCount = ref(0)
 const columns = ref<string[]>([])
-const rows = ref<any[][]>([])
+const rows = ref<unknown[][]>([])
 </script>
 
 <style scoped>

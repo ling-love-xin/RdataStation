@@ -90,109 +90,6 @@
       ]
     },
     {
-      "key": "ssh",
-      "title": "SSH 隧道",
-      "icon": "shield",
-      "collapsible": true,
-      "collapsed": true,
-      "enableField": "enableSsh",
-      "fields": [
-        {
-          "key": "enableSsh",
-          "label": "启用 SSH 隧道",
-          "type": "checkbox",
-          "default": false
-        },
-        {
-          "key": "sshHost",
-          "label": "SSH 主机",
-          "type": "text",
-          "placeholder": "192.168.1.100",
-          "dependsOn": {
-            "field": "enableSsh",
-            "value": true
-          }
-        },
-        {
-          "key": "sshPort",
-          "label": "SSH 端口",
-          "type": "number",
-          "placeholder": "22",
-          "default": 22,
-          "dependsOn": {
-            "field": "enableSsh",
-            "value": true
-          }
-        },
-        {
-          "key": "sshUsername",
-          "label": "SSH 用户名",
-          "type": "text",
-          "placeholder": "root",
-          "dependsOn": {
-            "field": "enableSsh",
-            "value": true
-          }
-        },
-        {
-          "key": "sshPassword",
-          "label": "SSH 密码",
-          "type": "password",
-          "placeholder": "输入密码",
-          "dependsOn": {
-            "field": "enableSsh",
-            "value": true
-          }
-        }
-      ]
-    },
-    {
-      "key": "ssl",
-      "title": "SSL/TLS",
-      "icon": "lock",
-      "collapsible": true,
-      "collapsed": true,
-      "enableField": "enableSsl",
-      "fields": [
-        {
-          "key": "enableSsl",
-          "label": "启用 SSL",
-          "type": "checkbox",
-          "default": false
-        },
-        {
-          "key": "sslCa",
-          "label": "CA 证书",
-          "type": "file",
-          "placeholder": "选择 CA 证书文件",
-          "dependsOn": {
-            "field": "enableSsl",
-            "value": true
-          }
-        },
-        {
-          "key": "sslCert",
-          "label": "客户端证书",
-          "type": "file",
-          "placeholder": "选择客户端证书",
-          "dependsOn": {
-            "field": "enableSsl",
-            "value": true
-          }
-        },
-        {
-          "key": "sslKey",
-          "label": "客户端密钥",
-          "type": "file",
-          "placeholder": "选择客户端密钥",
-          "dependsOn": {
-            "field": "enableSsl",
-            "value": true
-          }
-        }
-      ]
-    },
-    {
       "key": "advanced",
       "title": "高级选项",
       "icon": "settings",
@@ -246,4 +143,5 @@
         "foreignKeys": false,
         "references": false
       }
+  }
 }

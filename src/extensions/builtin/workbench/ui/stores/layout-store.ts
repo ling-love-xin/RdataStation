@@ -278,10 +278,17 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   const panelConfigs = ref<Map<string, PanelConfig>>(new Map())
 
+  interface FloatingPanelRef {
+  id: string
+  api: { close(): void }
+}
+
   // ============================================
   // 浮动窗口列表
   // ============================================
-  const floatingPanels = ref<any[]>([])
+  // IDockviewPanel from dockview-core has type incompatibility with dockview-vue runtime objects;
+// panel.group has additional private members (_model, _explicitConstraints, etc.)
+const floatingPanels = ref<FloatingPanelRef[]>([])
 
   // ============================================
   // 钉住的面板 ID 集合
@@ -330,7 +337,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   function setDockviewApi(api: DockviewApi) {
     dockviewApi.value = api
-    console.log('[LayoutStore] Dockview API registered')
+    console.debug('[LayoutStore] Dockview API registered')
   }
 
   function collapseLeftEdgeGroup() {
@@ -385,13 +392,13 @@ export const useLayoutStore = defineStore('layout', () => {
   /**
    * 设置布局数据（由 dockview 完全托管）
    */
-  function setLayoutData(data: any) {
+  function setLayoutData(data: SerializedDockviewLayout | null) {
     layoutData.value = data
     saveLayoutConfig()
 
     const appStore = useAppStore()
     if (appStore.projectOpen && data) {
-      appStore.saveDockviewLayout(data as SerializedDockviewLayout).catch(() => {})
+      appStore.saveDockviewLayout(data as SerializedDockviewLayout).catch((e) => { console.warn('[LayoutStore] Failed to save dockview layout:', e) })
     }
   }
 
@@ -431,7 +438,7 @@ export const useLayoutStore = defineStore('layout', () => {
     if (panel) {
       try {
         panel.api.setActive()
-        console.log('[LayoutStore] Activated panel:', panelId)
+        console.debug('[LayoutStore] Activated panel:', panelId)
       } catch (e) {
         console.warn('[LayoutStore] Failed to activate panel:', e)
       }
@@ -457,7 +464,7 @@ export const useLayoutStore = defineStore('layout', () => {
 
     const currentConfig = panelConfigs.value.get(panelId)
     if (currentConfig?.location === location) {
-      console.log('[LayoutStore] Panel already at location:', location)
+      console.debug('[LayoutStore] Panel already at location:', location)
       return
     }
 
@@ -486,7 +493,7 @@ export const useLayoutStore = defineStore('layout', () => {
         }),
         location,
       })
-      console.log('[LayoutStore] Panel moved to location:', location)
+      console.debug('[LayoutStore] Panel moved to location:', location)
     } else {
       console.warn('[LayoutStore] No target group found for location:', location)
     }
@@ -546,7 +553,7 @@ export const useLayoutStore = defineStore('layout', () => {
     })
 
     floatingPanels.value.push(existingPanel)
-    console.log('[LayoutStore] Panel floated:', panelId)
+    console.debug('[LayoutStore] Panel floated:', panelId)
   }
 
   /**
@@ -560,18 +567,18 @@ export const useLayoutStore = defineStore('layout', () => {
 
     const panel = floatingPanels.value.find(p => p.id === panelId)
     if (panel) {
-      panel.close()
+      panel.api.close()
       floatingPanels.value = floatingPanels.value.filter(p => p.id !== panelId)
       panelConfigs.value.delete(panelId)
-      console.log('[LayoutStore] Closed floating panel:', panelId)
+      console.debug('[LayoutStore] Closed floating panel:', panelId)
     }
   }
 
   /**
    * 获取浮动面板列表
    */
-  function getFloatingPanels(): any[] {
-    return floatingPanels.value
+  function getFloatingPanels(): IDockviewPanel[] {
+    return floatingPanels.value as IDockviewPanel[]
   }
 
   /**
@@ -623,14 +630,14 @@ export const useLayoutStore = defineStore('layout', () => {
     // 切换左侧面板组的可见性
     // 注意：DockviewApi 没有直接的 setVisible 方法，这里通过关闭/重新添加面板来实现
     // 或者使用 CSS 控制侧边栏容器的显示/隐藏
-    console.log('[LayoutStore] Primary sidebar visibility toggled:', primarySideBarVisible.value)
+    console.debug('[LayoutStore] Primary sidebar visibility toggled:', primarySideBarVisible.value)
   }
 
   function toggleSecondarySideBar() {
     secondarySideBarVisible.value = !secondarySideBarVisible.value
 
     // 切换右侧面板组的可见性
-    console.log(
+    console.debug(
       '[LayoutStore] Secondary sidebar visibility toggled:',
       secondarySideBarVisible.value
     )
@@ -707,7 +714,7 @@ export const useLayoutStore = defineStore('layout', () => {
       // 面板已存在，激活它
       try {
         panel.api.setActive()
-        console.log('[LayoutStore] Activated panel:', panelId)
+        console.debug('[LayoutStore] Activated panel:', panelId)
       } catch (e) {
         console.warn('[LayoutStore] Failed to activate panel:', e)
       }
@@ -821,7 +828,7 @@ export const useLayoutStore = defineStore('layout', () => {
           bottomPanelMode: bottomPanelMode.value,
           openPanelIds: openPanelIds.value,
         }
-        appStore.saveSidebarState(sidebarState).catch(() => {})
+        appStore.saveSidebarState(sidebarState).catch((e) => { console.warn('[LayoutStore] Failed to save sidebar state:', e) })
       }
     } catch (error) {
       console.error('[LayoutStore] Failed to save layout config:', error)

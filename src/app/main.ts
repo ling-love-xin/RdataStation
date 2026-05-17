@@ -18,17 +18,6 @@ import '@/shared/styles/global.css'
 import 'dockview-vue/dist/styles/dockview.css'
 import '@/shared/styles/dockview-brand.css'
 import '@/shared/styles/ag-grid-theme.css'
-;(self as unknown as Record<string, unknown>).MonacoEnvironment = {
-  getWorker: function () {
-    return {
-      postMessage: function () {},
-      terminate: function () {},
-      addEventListener: function () {},
-      removeEventListener: function () {},
-    }
-  },
-}
-
 const app = createApp(App)
 
 const pinia = createPinia()

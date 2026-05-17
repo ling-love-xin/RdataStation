@@ -75,7 +75,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       type: 'sql-editor',
       title: 'SQL 编辑器',
       position: 'center',
-      component: 'SqlEditorPanel',
+      component: 'editorPanel',
       props: {},
       isActive: true,
       isClosable: false,
@@ -296,21 +296,23 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   /**
    * 保存工作台状态
+   *
+   * Rust 端 WorkbenchState 结构:
+   *   layout: Option<String>       - JSON string
+   *   open_panels: Option<String>  - JSON string
+   *   active_panel_id: Option<String>
    */
   async function saveState(): Promise<void> {
     try {
-      const state: WorkbenchState = {
-        panels: panels.value,
-        activePanelId: activePanelId.value,
-        layout: layout.value,
-      }
-
       await invoke('save_project_store_workbench_state', {
-        stateData: state,
+        stateData: {
+          layout: JSON.stringify(layout.value),
+          open_panels: JSON.stringify(panels.value),
+          active_panel_id: activePanelId.value,
+        },
       })
     } catch (e) {
       console.error('保存工作台状态失败:', e)
-      // 保存到 localStorage 作为备份
       localStorage.setItem(
         'workbench_state',
         JSON.stringify({
@@ -327,16 +329,25 @@ export const useWorkbenchStore = defineStore('workbench', () => {
    */
   async function loadState(): Promise<void> {
     try {
-      const state = await invoke<WorkbenchState | null>('get_workbench_state')
+      const state = await invoke<{
+        layout: string | null
+        open_panels: string | null
+        active_panel_id: string | null
+      } | null>('get_project_store_workbench_state')
 
       if (state) {
-        panels.value = state.panels
-        activePanelId.value = state.activePanelId
-        layout.value = state.layout
+        if (state.open_panels) {
+          try { panels.value = JSON.parse(state.open_panels) } catch { /* keep default */ }
+        }
+        if (state.active_panel_id) {
+          activePanelId.value = state.active_panel_id
+        }
+        if (state.layout) {
+          try { layout.value = JSON.parse(state.layout) } catch { /* keep default */ }
+        }
       }
     } catch (e) {
       console.error('加载工作台状态失败:', e)
-      // 从 localStorage 加载
       const saved = localStorage.getItem('workbench_state')
       if (saved) {
         const state = JSON.parse(saved)
@@ -368,7 +379,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         type: 'sql-editor',
         title: 'SQL 编辑器',
         position: 'center',
-        component: 'SqlEditorPanel',
+        component: 'editorPanel',
         props: {},
         isActive: true,
         isClosable: false,

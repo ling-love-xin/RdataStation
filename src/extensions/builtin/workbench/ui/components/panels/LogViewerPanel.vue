@@ -149,9 +149,7 @@ import {
   NSpace,
   NModal,
   NPagination,
-  useDialog,
-  useNotification,
-} from 'naive-ui'
+ createDiscreteApi } from 'naive-ui'
 import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
 
 import { useLogStore } from '@/extensions/builtin/workbench/ui/stores/log-store'
@@ -164,8 +162,7 @@ ModuleRegistry.registerModules([ClientSideRowModelModule])
 
 const store = useLogStore()
 const uiStore = useUiStore()
-const dialog = useDialog()
-const notification = useNotification()
+const { dialog, notification } = createDiscreteApi(['dialog', 'notification'])
 
 const isDark = computed(() => uiStore.isDark)
 const selectedLevel = ref<string | null>(null)

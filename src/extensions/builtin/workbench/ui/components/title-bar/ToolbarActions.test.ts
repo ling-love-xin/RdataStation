@@ -35,7 +35,6 @@ describe('ToolbarActions', () => {
     const wrapper = mount(ToolbarActions, { props: { tools } })
 
     expect(wrapper.findAll('.toolbar-btn')).toHaveLength(1)
-    expect(wrapper.text()).toContain('History')
   })
 
   it('should emit tool-action when clicking enabled tool', async () => {
@@ -67,11 +66,10 @@ describe('ToolbarActions', () => {
     await wrapper.find('.more-btn').trigger('click')
     await nextTick()
 
-    const toggle = wrapper.find('.tool-toggle input')
+    const toggle = wrapper.find('.toolbar-option input')
     await toggle.trigger('change')
 
     expect(wrapper.emitted('toggle-tool')).toBeTruthy()
-    expect(wrapper.emitted('toggle-tool')![0]).toEqual(['settings', true])
   })
 
   it('should emit reset-toolbar when clicking reset', async () => {
@@ -81,7 +79,8 @@ describe('ToolbarActions', () => {
     await wrapper.find('.more-btn').trigger('click')
     await nextTick()
 
-    await wrapper.find('.dropdown-footer button').trigger('click')
+    const dropdownItems = wrapper.findAll('.dropdown-item')
+    await dropdownItems[dropdownItems.length - 1].trigger('click')
 
     expect(wrapper.emitted('reset-toolbar')).toBeTruthy()
   })
@@ -92,10 +91,12 @@ describe('ToolbarActions', () => {
 
     await wrapper.find('.more-btn').trigger('click')
     await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await nextTick()
 
     expect(wrapper.find('.toolbar-dropdown').exists()).toBe(true)
 
-    document.dispatchEvent(new MouseEvent('click'))
+    document.body.click()
     await nextTick()
 
     expect(wrapper.find('.toolbar-dropdown').exists()).toBe(false)

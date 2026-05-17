@@ -132,6 +132,11 @@ export function useSqlExecution(options: SqlExecutionOptions) {
   }
 
   async function executeSingleStatement(): Promise<void> {
+    if (executing.value) {
+      message.warning('查询正在执行中，请稍后重试')
+      return
+    }
+
     const sql = getSelectedText() || getEditorValue()
     if (!sql.trim()) {
       message.warning('No SQL to execute')
@@ -194,6 +199,11 @@ export function useSqlExecution(options: SqlExecutionOptions) {
   }
 
   async function executeBatch(): Promise<void> {
+    if (executing.value) {
+      message.warning('查询正在执行中，请稍后重试')
+      return
+    }
+
     const sql = getSelectedText() || getEditorValue()
     if (!sql.trim()) {
       message.warning('No SQL to execute')
@@ -266,8 +276,8 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     }
 
     lastExecutionTime.value = totalElapsed
-    executing.value = false
     abortController = undefined
+    executing.value = false
 
     const total = successCount + errorCount
     if (errorCount === 0) {

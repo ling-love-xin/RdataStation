@@ -533,6 +533,11 @@ interface SelectedCell {
   row: number
   value: unknown
 }
+
+interface AGGridSortAPI {
+  applySortState(s: Array<{ colId: string; sort: string }>): void
+}
+
 const selectedCell = ref<SelectedCell | null>(null)
 
 const viewModes = [
@@ -914,17 +919,13 @@ function handleContextAction(payload: Record<string, any>) {
       break
     case 'sortAsc':
       if (gridApi.value) {
-        const api = gridApi.value as unknown as {
-          applySortState: (s: Array<{ colId: string; sort: string }>) => void
-        }
+        const api = gridApi.value as unknown as AGGridSortAPI
         api.applySortState([{ colId: col, sort: 'asc' }])
       }
       break
     case 'sortDesc':
       if (gridApi.value) {
-        const api = gridApi.value as unknown as {
-          applySortState: (s: Array<{ colId: string; sort: string }>) => void
-        }
+        const api = gridApi.value as unknown as AGGridSortAPI
         api.applySortState([{ colId: col, sort: 'desc' }])
       }
       break

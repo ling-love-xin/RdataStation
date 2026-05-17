@@ -28,7 +28,7 @@ export function useConnectionHealth() {
     const startTime = Date.now()
 
     try {
-      await invoke('ping_connection', { connectionId })
+      await invoke('ping_connection', { connId: connectionId })
 
       const latency = Date.now() - startTime
 

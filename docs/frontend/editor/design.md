@@ -1,6 +1,17 @@
-# 编辑器与结果集管理架构 — 完整设计文档
+# ⛔ 已废弃 — 编辑器与结果集管理架构
 
-> 版本：v2.0
+> **此文档已废弃，不再维护。**
+> 原因：编辑器引擎已从 Monaco Editor 迁移至 CodeMirror 6（2026-05-17 完成）。
+> Monaco Editor 相关文件（monaco-theme.ts、useMonacoEditor.ts、useEditorSettings.ts、SqlEditorPanel.vue、CodeEditorPanel.vue、CodeEditorStatusbar.vue、sql-dialect-highlight.ts）已全部删除。
+> 替代文档：[编辑器架构设计文档 v3.0](../editor-architecture-v3.md)
+>
+> 以下为历史存档内容，仅供参考。
+
+---
+
+# 编辑器与结果集管理架构 — 完整设计文档（已废弃）
+
+> 版本：v2.0 ⛔ 已废弃
 > 创建日期：2026-05-16
 > 最后更新：2026-05-17
 > 状态：✅ 架构重构完成（ITextModel 单例 + dockview 原生 Float Tab + 每文件 Editor）

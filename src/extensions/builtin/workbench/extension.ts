@@ -33,13 +33,7 @@ interface PanelState {
  * 扩展激活函数
  */
 const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
-  console.log('[Workbench] Activating for project:', context.project.name)
-
-  // TODO: 初始化 DDD 层
-  // const infra = new WorkbenchInfrastructure(context)
-  // const domain = new WorkbenchDomain(infra.repository)
-  // const app = new WorkbenchApplication(domain, infra)
-  // const ui = new WorkbenchUI(app, context)
+  console.debug('[Workbench] Activating for project:', context.project.name)
 
   // 面板状态管理
   const panels = new Map<string, PanelState>()
@@ -51,19 +45,19 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
       component: options?.component,
       isActive: true,
     })
-    console.log(`[Workbench] Opened panel: ${panelId}`)
+    console.debug(`[Workbench] Opened panel: ${panelId}`)
   }
 
   const closePanel = (panelId: string): void => {
     panels.delete(panelId)
-    console.log(`[Workbench] Closed panel: ${panelId}`)
+    console.debug(`[Workbench] Closed panel: ${panelId}`)
   }
 
   const focusPanel = (panelId: string): void => {
     const panel = panels.get(panelId)
     if (panel) {
       panel.isActive = true
-      console.log(`[Workbench] Focused panel: ${panelId}`)
+      console.debug(`[Workbench] Focused panel: ${panelId}`)
     }
   }
 
@@ -168,7 +162,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
 }
 
 const deactivate = (): void => {
-  console.log('[Workbench] Deactivated')
+  console.debug('[Workbench] Deactivated')
 }
 
 const extension: ExtensionModule = {

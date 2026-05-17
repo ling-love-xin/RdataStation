@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { Database, Plug, FileText, FolderOpen } from 'lucide-vue-next'
-import { NButton } from 'naive-ui'
+import { NButton , createDiscreteApi } from 'naive-ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -62,6 +62,7 @@ import { useProjectStore } from '@/core/project/stores/project'
 
 const { t } = useI18n()
 const projectStore = useProjectStore()
+const { message } = createDiscreteApi(['message'])
 
 const recentProjects = computed(() => projectStore.recentProjects || [])
 
@@ -82,6 +83,7 @@ const switchProject = async (project: { id: string; name: string; path: string }
     await projectStore.switchProject(project.id)
   } catch (error) {
     console.error('切换项目失败:', error)
+    message.error(t('common.switchProjectFailed'))
   }
 }
 </script>

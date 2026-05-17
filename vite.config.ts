@@ -17,7 +17,7 @@ export default defineConfig(async () => ({
   },
 
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         popout: resolve(__dirname, 'public/popout.html'),
@@ -46,8 +46,5 @@ export default defineConfig(async () => ({
       ignored: ['**/src-tauri/**'],
     },
   },
-  // Monaco Editor worker configuration
-  worker: {
-    format: 'es',
-  },
+  
 }))

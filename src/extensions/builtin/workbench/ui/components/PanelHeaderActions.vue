@@ -40,7 +40,35 @@ import { useLayoutStore } from '@/extensions/builtin/workbench/ui/stores/layout-
 
 const { t } = useI18n()
 
-const p = defineProps<{ params: any }>()
+interface PanelHeaderParams {
+  api?: {
+    location?: { type: string }
+    moveTo?(options: unknown): void
+  }
+  panel?: {
+    id: string
+  }
+  group?: {
+    api: {
+      isMaximized?(): boolean
+      maximize(): void
+      exitMaximized(): void
+      close?(): void
+      moveTo?(options: unknown): void
+      addFloatingGroup?(group: unknown): void
+      addPopoutGroup?(group: unknown): void
+      onDidMaximizedChange?(cb: (isMax: boolean) => void): void
+    }
+    model?: {
+      accessor: {
+        isMaximized?(): boolean
+        addFloatingGroup?(group: unknown): void
+      }
+    }
+  }
+}
+
+const p = defineProps<{ params: PanelHeaderParams }>()
 
 const layoutStore = useLayoutStore()
 

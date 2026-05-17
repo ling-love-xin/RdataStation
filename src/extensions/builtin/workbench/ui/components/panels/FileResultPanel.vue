@@ -36,6 +36,14 @@ interface GridInstance {
   getSortModel(): unknown[]
 }
 
+interface AGGridOptionAPI {
+  setGridOption(key: string, value: unknown): void
+}
+
+interface AGGridExportAPI {
+  exportDataAsCsv(opts?: { fileName?: string }): void
+}
+
 interface PanelApi {
   isActive: boolean
 }
@@ -101,13 +109,15 @@ async function createGrid(): Promise<void> {
   }
 
   try {
-    const { createGrid: createAgGrid } = await import(
-      '@/extensions/builtin/workbench/ui/composables/useGridConfig'
-    )
+    const { createGrid: createAgGrid } = await import('ag-grid-community')
 
-    const instance = await createAgGrid(el, {
-      columns: metadata.value.columns,
-      rows: metadata.value.rows ?? [],
+    const instance = createAgGrid(el as HTMLElement, {
+      columnDefs: metadata.value.columns.map(c => ({ field: c, headerName: c })),
+      rowData: (metadata.value.rows ?? []).map(r => {
+        const obj: Record<string, unknown> = {}
+        metadata.value.columns.forEach((c, i) => { obj[c] = r[i] })
+        return obj
+      }),
     })
 
     if (instance) {
@@ -124,13 +134,16 @@ async function createGrid(): Promise<void> {
       if (savedGridState.value) {
         const state = savedGridState.value
         if (state.columnState) {
-          instance.setGridOption('columnState', state.columnState)
+          const api = instance as unknown as AGGridOptionAPI
+          api.setGridOption('columnState', state.columnState)
         }
         if (state.filterModel) {
-          instance.setGridOption('filterModel', state.filterModel)
+          const api = instance as unknown as AGGridOptionAPI
+          api.setGridOption('filterModel', state.filterModel)
         }
         if (state.sortModel) {
-          instance.setGridOption('sortModel', state.sortModel)
+          const api = instance as unknown as AGGridOptionAPI
+          api.setGridOption('sortModel', state.sortModel)
         }
       }
     }
@@ -195,17 +208,28 @@ function handleClose(): void {
 }
 
 async function handleExportCsv(): Promise<void> {
-  const { exportCSV } = await import('@/extensions/builtin/workbench/ui/composables/useResultExport')
-  if (gridInstance.value) {
-    await exportCSV(gridInstance.value as unknown as Record<string, unknown>)
-  }
+  const inst = gridInstance.value
+  if (!inst) return
+  const gridApi = inst as unknown as AGGridExportAPI
+  gridApi.exportDataAsCsv?.({ fileName: `result_${Date.now()}.csv` })
 }
 
 async function handleExportJson(): Promise<void> {
-  const { exportJSON } = await import('@/extensions/builtin/workbench/ui/composables/useResultExport')
-  if (gridInstance.value) {
-    await exportJSON(gridInstance.value as unknown as Record<string, unknown>)
-  }
+  const cols = metadata.value.columns
+  const rows = metadata.value.rows ?? []
+  const data = rows.map(r => {
+    const obj: Record<string, unknown> = {}
+    cols.forEach((c, i) => { obj[c] = r[i] })
+    return obj
+  })
+  const json = JSON.stringify(data, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `result_${Date.now()}.json`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 </script>
 

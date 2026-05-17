@@ -46,18 +46,12 @@
 
 <script setup lang="ts">
 import { MoreHorizontal, RotateCcw } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { Component } from 'vue'
+import type { ToolbarTool } from './title-bar-types'
 
-export interface ToolbarTool {
-  id: string
-  name: string
-  icon: Component
-  enabled: boolean
-  action: () => void
-}
+export type { ToolbarTool }
 
 interface Props {
   tools: ToolbarTool[]
@@ -74,6 +68,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const showDropdown = ref(false)
+let dropdownTimeoutId: ReturnType<typeof setTimeout> | null = null
 
 const enabledTools = computed(() => props.tools.filter(tool => tool.enabled))
 
@@ -81,7 +76,8 @@ function toggleDropdown() {
   showDropdown.value = !showDropdown.value
 
   if (showDropdown.value) {
-    setTimeout(() => document.addEventListener('click', handleClickOutside, true), 0)
+    if (dropdownTimeoutId) clearTimeout(dropdownTimeoutId)
+    dropdownTimeoutId = setTimeout(() => document.addEventListener('click', handleClickOutside, true), 0)
   }
 }
 
@@ -96,6 +92,14 @@ function closeDropdown() {
   showDropdown.value = false
   document.removeEventListener('click', handleClickOutside, true)
 }
+
+onUnmounted(() => {
+  if (dropdownTimeoutId) {
+    clearTimeout(dropdownTimeoutId)
+    dropdownTimeoutId = null
+  }
+  document.removeEventListener('click', handleClickOutside, true)
+})
 
 function handleToolAction(tool: ToolbarTool) {
   tool.action()

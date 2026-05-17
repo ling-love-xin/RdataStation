@@ -140,10 +140,14 @@
 
 <script setup lang="ts">
 import { ChevronRight } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+const emit = defineEmits<{
+  'update:config': [config: Record<string, unknown>]
+}>()
 
 const sshExpanded = ref(false)
 const sshEnabled = ref(false)
@@ -169,6 +173,38 @@ const proxyHost = ref('')
 const proxyPort = ref(1080)
 const proxyUsername = ref('')
 const proxyPassword = ref('')
+
+const networkConfig = computed(() => ({
+  ssh: {
+    enabled: sshEnabled.value,
+    host: sshHost.value,
+    port: sshPort.value,
+    username: sshUsername.value,
+    authType: sshAuthType.value,
+    password: sshPassword.value,
+    keyPath: sshKeyPath.value,
+    localPort: sshLocalPort.value,
+    keepAlive: sshKeepAlive.value,
+  },
+  ssl: {
+    enabled: sslEnabled.value,
+    mode: sslMode.value,
+    ca: sslCa.value,
+    cert: sslCert.value,
+  },
+  proxy: {
+    enabled: proxyEnabled.value,
+    type: proxyType.value,
+    host: proxyHost.value,
+    port: proxyPort.value,
+    username: proxyUsername.value,
+    password: proxyPassword.value,
+  },
+}))
+
+watch(networkConfig, (config) => {
+  emit('update:config', config)
+}, { deep: true })
 </script>
 
 <style scoped>

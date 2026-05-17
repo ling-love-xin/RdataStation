@@ -70,23 +70,9 @@ import { Menu } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { Component } from 'vue'
+import type { MenuConfig, MenuItem } from './title-bar-types'
 
-export interface MenuItem {
-  id: string
-  label?: string
-  icon?: Component
-  shortcut?: string
-  disabled?: boolean
-  separator?: boolean
-  action?: () => void
-}
-
-export interface MenuConfig {
-  id: string
-  label: string
-  items: MenuItem[]
-}
+export type { MenuConfig, MenuItem }
 
 interface Props {
   menus: MenuConfig[]

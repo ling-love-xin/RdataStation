@@ -9,6 +9,8 @@ interface ScratchpadExtensionAPI extends ExtensionAPI {
   scratchpad: {}
 }
 
+let disposables: Disposable[] = []
+
 const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
   // eslint-disable-next-line no-console
   console.log('[Scratchpad] Activating for project:', context.project.name)
@@ -66,7 +68,7 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
 
   window.addEventListener('project-switched', handleProjectSwitch)
 
-  const disposables: Disposable[] = [
+  disposables = [
     panelDisposable,
     {
       dispose: () => window.removeEventListener('project-switched', handleProjectSwitch),

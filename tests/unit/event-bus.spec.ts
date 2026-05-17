@@ -1,12 +1,12 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 
-import { useEventBus } from '../../src/extensions/builtin/database/ui/composables/use-event-bus'
+import { EventBus } from '../../src/extensions/builtin/database/ui/composables/use-event-bus'
 
 describe('EventBus', () => {
-  const eventBus = useEventBus()
+  const eventBus = new EventBus()
 
   afterEach(() => {
-    eventBus.offAll()
+    eventBus.clear()
   })
 
   describe('on/off', () => {
@@ -66,7 +66,7 @@ describe('EventBus', () => {
     })
   })
 
-  describe('offAll', () => {
+  describe('clearEvent', () => {
     it('should remove all listeners for a specific event', () => {
       const handler1 = vi.fn()
       const handler2 = vi.fn()
@@ -75,21 +75,21 @@ describe('EventBus', () => {
       eventBus.on('multi-event', handler2)
       eventBus.on('other-event', vi.fn())
 
-      eventBus.offAll('multi-event')
+      eventBus.clearEvent('multi-event')
       eventBus.emit('multi-event', 'data')
 
       expect(handler1).not.toHaveBeenCalled()
       expect(handler2).not.toHaveBeenCalled()
     })
 
-    it('should remove all listeners when no event name provided', () => {
+    it('should remove all listeners when clear is called', () => {
       const handler1 = vi.fn()
       const handler2 = vi.fn()
 
       eventBus.on('event1', handler1)
       eventBus.on('event2', handler2)
 
-      eventBus.offAll()
+      eventBus.clear()
       eventBus.emit('event1', 'data')
       eventBus.emit('event2', 'data')
 
@@ -98,14 +98,14 @@ describe('EventBus', () => {
     })
   })
 
-  describe('hasListeners', () => {
-    it('should return true if event has listeners', () => {
+  describe('getSubscriptionCount', () => {
+    it('should return count when event has listeners', () => {
       eventBus.on('check-event', () => {})
-      expect(eventBus.hasListeners('check-event')).toBe(true)
+      expect(eventBus.getSubscriptionCount('check-event')).toBe(1)
     })
 
-    it('should return false if event has no listeners', () => {
-      expect(eventBus.hasListeners('no-listeners-event')).toBe(false)
+    it('should return 0 when event has no listeners', () => {
+      expect(eventBus.getSubscriptionCount('no-listeners-event')).toBe(0)
     })
   })
 })

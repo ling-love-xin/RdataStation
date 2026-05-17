@@ -51,30 +51,3 @@ export function useEditorPersistence(panelId: string, filePath?: string) {
 
   return { draft }
 }
-
-export function clearOrphanDrafts(activePanelIds: string[]) {
-  const activeSet = new Set(activePanelIds)
-
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i)
-    if (key && key.startsWith(SESSION_DRAFT_PREFIX)) {
-      const payload = key.slice(SESSION_DRAFT_PREFIX.length)
-      const firstColon = payload.indexOf(':')
-      const panelId = firstColon > 0 ? payload.slice(0, firstColon) : payload
-
-      if (!activeSet.has(panelId)) {
-        try {
-          const raw = localStorage.getItem(key)
-          if (raw) {
-            const { timestamp } = JSON.parse(raw)
-            if (Date.now() - timestamp > DRAFT_TTL_MS) {
-              localStorage.removeItem(key)
-            }
-          }
-        } catch {
-          localStorage.removeItem(key)
-        }
-      }
-    }
-  }
-}

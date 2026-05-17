@@ -274,7 +274,7 @@ function handleCleanup() {
   const col = insightStore.currentColumn
   const tt = insightStore.currentTempTable
   if (projectPath && col && tt) {
-    insightStore.cleanupInsightSnapshots({ projectPath, column: col, tempTable: tt } as any)
+    insightStore.cleanupInsightSnapshots(30)
   }
 }
 

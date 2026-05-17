@@ -1,4 +1,27 @@
-import type * as monaco from 'monaco-editor'
+import type { EditorState } from '@codemirror/state'
+import type { EditorView } from '@codemirror/view'
+
+export const PANEL_PREFIX_EDITOR = 'panel_editor_'
+export const PANEL_PREFIX_RESULT = 'panel_result_'
+export const PANEL_ID_EMPTY_WORKBENCH = 'panel_emptyWorkbench'
+export const PANEL_ID_SCRATCHPAD = 'scratchpad'
+
+export function isEditorPanel(panelId: string): boolean {
+  return panelId.startsWith(PANEL_PREFIX_EDITOR)
+}
+
+export function isResultPanel(panelId: string): boolean {
+  return panelId.startsWith(PANEL_PREFIX_RESULT)
+}
+
+export interface EditorInstance {
+  instanceId: string
+  filePath: string
+  groupId: string
+  view: EditorView
+  state: EditorState | null
+  writable: boolean
+}
 
 export interface GridStateSnapshot {
   columnState?: Record<string, unknown>[]
@@ -36,7 +59,6 @@ export interface ResultSetMetadata {
 }
 
 export interface OpenFileInfo {
-  model: monaco.editor.ITextModel
   filePath: string
   fileName: string
   language: string
@@ -48,6 +70,9 @@ export interface OpenFileInfo {
   activeResultIndex: number
   resultPanelIds: string[]
   detachedResultIds: string[]
+  states: Map<string, EditorState>
+  primaryInstanceId: string | null
+  readonlyInstanceIds: string[]
 }
 
 export interface OpenFileParams {
@@ -89,16 +114,37 @@ export interface IEditorManager {
   validateSQL(): void
   toggleComment(): void
   renameResultSet(panelId: string, newTitle: string): void
-  setEditor(ed: monaco.editor.IStandaloneCodeEditor): void
+  setEditor(ed: EditorView): void
   setActiveResultIndex(filePath: string, index: number): void
   readonly openFiles: Map<string, OpenFileInfo>
   readonly activeFilePath: string | null
   readonly activeFileInfo: OpenFileInfo | null
-  readonly editor: monaco.editor.IStandaloneCodeEditor | null
+  readonly editor: EditorView | null
   readonly isExecuting: boolean
   readonly lastExecutionTime: number | null
   readonly isInitialized: boolean
   readonly dockviewApi: unknown
+
+  registerFileEditor(filePath: string, ed: EditorView): void
+  unregisterFileEditor(filePath: string): void
+  isPrimaryInstance(filePath: string, instanceId?: string): boolean
+  isFileOpenElsewhere(filePath: string, excludeGroupId?: string): boolean
+  getSavedStateForFile(filePath: string): EditorState | undefined
+  saveEditorStateForFile(filePath: string, state: EditorState): void
+  hasRecoveryData(): boolean
+  loadRecoverySnapshots(): { filePath: string; fileName: string; language: string; isDirty: boolean }[]
+  clearRecovery(): void
+
+  createResultSet(filePath: string, data: ResultSetCreateParams): string
+  removeResultSet(filePath: string, resultSetId: string): void
+  findCenterGroup(): string | undefined
+  detachResultPanel(panelId: string): void
+  attachResultPanel(panelId: string, filePath: string): void
+
+  updatePanelGroup(panelId: string, groupId: string): void
+  onPanelUndocked(panelId: string): void
+  setupCrossWindowListeners(): void
+  popoutActiveFile(): void
 }
 
 export interface IShortcutManager {

@@ -52,6 +52,13 @@
           ]
         },
         {
+          "key": "connectTimeout",
+          "label": "连接超时 (秒)",
+          "type": "number",
+          "default": 30,
+          "validation": { "min": 1, "max": 300 }
+        },
+        {
           "key": "memoryLimit",
           "label": "内存限制 (GB)",
           "type": "number",
@@ -94,7 +101,7 @@
         "icon": "terminal",
         "childTypes": []
       },
-      "sequences": { "enabled": true, "label": "Sequences", "icon": "hash", "childTypes": [] },
+      "sequences": { "enabled": false, "label": "Sequences", "icon": "hash", "childTypes": [] },
       "triggers": { "enabled": false, "label": "Triggers", "icon": "zap", "childTypes": [] }
     },
     "tableChildren": {

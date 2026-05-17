@@ -101,7 +101,7 @@
 
 <script setup lang="ts">
 import { Zap } from 'lucide-vue-next'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -111,6 +111,10 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  'update:config': [config: Record<string, unknown>]
+}>()
 
 const connectTimeout = ref(30)
 const queryTimeout = ref(0)
@@ -124,6 +128,26 @@ const syncStrategy = ref('auto')
 const syncInterval = ref(15)
 const memoryLimit = ref(512)
 const threads = ref(4)
+
+const advancedConfig = computed(() => ({
+  connectTimeout: connectTimeout.value,
+  queryTimeout: queryTimeout.value,
+  keepAlive: keepAlive.value,
+  maxReconnect: maxReconnect.value,
+  schemaStrategy: schemaStrategy.value,
+  encoding: encoding.value,
+  duckdbAccel: {
+    enabled: duckdbAccelEnabled.value,
+    syncStrategy: syncStrategy.value,
+    syncInterval: syncInterval.value,
+    memoryLimit: memoryLimit.value,
+    threads: threads.value,
+  },
+}))
+
+watch(advancedConfig, (config) => {
+  emit('update:config', config)
+}, { deep: true })
 
 const DB_NAME_MAP: Record<string, string> = {
   mysql: 'MySQL',

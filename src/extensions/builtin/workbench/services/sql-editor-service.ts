@@ -4,10 +4,20 @@
  * 基于 sqlglot-rust 后端实现 SQL 解析、验证、格式化和转译
  */
 
+import { EditorView } from '@codemirror/view'
 import { invoke } from '@tauri-apps/api/core'
-import * as monaco from 'monaco-editor'
 
+import { createErrorDiagnostic, setEditorDiagnostics, clearEditorDiagnostics } from '@/extensions/builtin/workbench/services/cm-sql-extensions'
 import type { SqlDialect } from '@/shared/types/sql'
+
+interface SqlMarkerData {
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  startLineNumber: number
+  startColumn: number
+  endLineNumber: number
+  endColumn: number
+}
 
 interface SqlExecutionResult {
   result?: {
@@ -41,232 +51,14 @@ interface ParseSqlResult {
   error?: string
 }
 
-interface TableSchema {
-  name: string
-  columns: string[]
-}
-
-interface DatabaseSchema {
-  tables: TableSchema[]
-  views: string[]
-  functions: string[]
-}
-
-interface SchemaCacheItem {
-  data: DatabaseSchema
-  timestamp: number
-  ttl: number
-}
-
-// 缓存
-const schemaCache: Map<string, SchemaCacheItem> = new Map()
-const CACHE_TTL = 5 * 60 * 1000 // 5 分钟
-
-// 补全提供者管理
-const completionDisposables: Map<string, monaco.IDisposable> = new Map()
-
-/**
- * 获取数据库结构信息
- */
-export async function getDatabaseSchema(
-  connectionId: string,
-  database: string,
-  schema?: string,
-  dbType?: string
-): Promise<DatabaseSchema | null> {
-  const cacheKey = `${connectionId}_${database}_${schema || 'default'}`
-
-  // 检查缓存（带 TTL）
-  const cacheItem = schemaCache.get(cacheKey)
-  if (cacheItem) {
-    const now = Date.now()
-    if (now - cacheItem.timestamp < cacheItem.ttl) {
-      return cacheItem.data
-    }
-    // 缓存过期，删除
-    schemaCache.delete(cacheKey)
-  }
-
-  try {
-    const isSqlite = dbType?.toLowerCase() === 'sqlite'
-
-    // 获取表列表（SQLite 不支持 information_schema）
-    let tablesSql: string
-    if (isSqlite) {
-      tablesSql = `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name LIMIT 20`
-    } else {
-      tablesSql = schema
-        ? `SELECT table_name FROM information_schema.tables WHERE table_catalog = '${database.replace(/'/g, "''")}' AND table_schema = '${schema.replace(/'/g, "''")}' ORDER BY table_name LIMIT 20`
-        : `SELECT table_name FROM information_schema.tables WHERE table_catalog = '${database.replace(/'/g, "''")}' ORDER BY table_name LIMIT 20`
-    }
-
-    const tablesResult = await invoke<SqlExecutionResult>('execute_sql', {
-      input: { conn_id: connectionId, sql: tablesSql, timeout_ms: 5000 },
-    })
-
-    const tableRows: unknown[][] = tablesResult?.result?.rows || []
-    const tableNames = tableRows
-      .map((r: unknown[]) => String(Array.isArray(r) ? r[0] : ''))
-      .filter(Boolean)
-
-    // 获取每个表的列信息
-    const tableSchemas: TableSchema[] = []
-    for (const tableName of tableNames.slice(0, 20)) {
-      try {
-        let colsSql: string
-        if (isSqlite) {
-          colsSql = `PRAGMA table_info('${tableName.replace(/'/g, "''")}')`
-        } else {
-          colsSql = schema
-            ? `SELECT column_name FROM information_schema.columns WHERE table_catalog = '${database.replace(/'/g, "''")}' AND table_schema = '${schema.replace(/'/g, "''")}' AND table_name = '${tableName.replace(/'/g, "''")}' ORDER BY ordinal_position`
-            : `SELECT column_name FROM information_schema.columns WHERE table_catalog = '${database.replace(/'/g, "''")}' AND table_name = '${tableName.replace(/'/g, "''")}' ORDER BY ordinal_position`
-        }
-
-        const colsResult = await invoke<SqlExecutionResult>('execute_sql', {
-          input: { conn_id: connectionId, sql: colsSql, timeout_ms: 5000 },
-        })
-
-        const colRows: unknown[][] = colsResult?.result?.rows || []
-        const colNames = colRows
-          .map((r: unknown[]) => String(Array.isArray(r) ? (isSqlite ? r[1] : r[0]) : ''))
-          .filter(Boolean)
-
-        tableSchemas.push({
-          name: tableName,
-          columns: colNames,
-        })
-      } catch {
-        // column fetch failed for this table, skip it
-      }
-    }
-
-    const dbSchema: DatabaseSchema = {
-      tables: tableSchemas,
-      views: [],
-      functions: [],
-    }
-
-    // 缓存结果（带 TTL）
-    schemaCache.set(cacheKey, {
-      data: dbSchema,
-      timestamp: Date.now(),
-      ttl: CACHE_TTL,
-    })
-    return dbSchema
-  } catch {
-    return { tables: [], views: [], functions: [] }
-  }
-}
-
-/**
- * 注册数据库相关的代码补全提供器
- * 返回 disposable 以便清理
- */
-export function registerDatabaseCompletionProvider(
-  connectionId: string,
-  database: string,
-  schema?: string,
-  dbType?: string
-): monaco.IDisposable {
-  const disposableKey = `${connectionId}_${database}`
-
-  // 清除之前的提供器
-  if (completionDisposables.has(disposableKey)) {
-    completionDisposables.get(disposableKey)!.dispose()
-  }
-
-  const disposable = monaco.languages.registerCompletionItemProvider('sql', {
-    triggerCharacters: ['.', ' '],
-    provideCompletionItems: async (model, position) => {
-      const word = model.getWordUntilPosition(position)
-      const range = {
-        startLineNumber: position.lineNumber,
-        endLineNumber: position.lineNumber,
-        startColumn: word.startColumn,
-        endColumn: word.endColumn,
-      }
-
-      const suggestions: monaco.languages.CompletionItem[] = []
-
-      // 获取数据库结构
-      const dbSchema = await getDatabaseSchema(connectionId, database, schema, dbType)
-      if (dbSchema) {
-        // 添加表名补全
-        dbSchema.tables.forEach((table, index) => {
-          suggestions.push({
-            label: table.name,
-            kind: monaco.languages.CompletionItemKind.Class,
-            insertText: table.name,
-            detail: 'Table',
-            range,
-            sortText: `a${String(index).padStart(3, '0')}`,
-          })
-
-          // 添加列名补全（带表名前缀）
-          table.columns.forEach((col, colIndex) => {
-            suggestions.push({
-              label: `${table.name}.${col}`,
-              kind: monaco.languages.CompletionItemKind.Field,
-              insertText: `${table.name}.${col}`,
-              detail: `Column of ${table.name}`,
-              range,
-              sortText: `b${String(index).padStart(3, '0')}${String(colIndex).padStart(3, '0')}`,
-            })
-          })
-        })
-      }
-
-      return { suggestions }
-    },
-  })
-
-  // 存储 disposable
-  completionDisposables.set(disposableKey, disposable)
-
-  return disposable
-}
-
-/**
- * 清除指定连接的补全提供者
- */
-export function unregisterCompletionProvider(connectionId: string) {
-  const keysToDelete: string[] = []
-
-  for (const key of completionDisposables.keys()) {
-    if (key.startsWith(connectionId)) {
-      completionDisposables.get(key)?.dispose()
-      keysToDelete.push(key)
-    }
-  }
-
-  keysToDelete.forEach(key => completionDisposables.delete(key))
-}
-
-/**
- * 清除所有补全提供者
- */
-export function clearAllCompletionProviders() {
-  for (const disposable of completionDisposables.values()) {
-    disposable.dispose()
-  }
-  completionDisposables.clear()
-}
-
-/**
- * 清除缓存
- */
-export function clearSchemaCache() {
-  schemaCache.clear()
-}
-
 /**
  * SQL 语法验证（基于 sqlglot-rust）
  */
 export async function validateSql(
   sql: string,
   dialect?: SqlDialect
-): Promise<monaco.editor.IMarkerData[]> {
-  const markers: monaco.editor.IMarkerData[] = []
+): Promise<SqlMarkerData[]> {
+  const markers: SqlMarkerData[] = []
 
   try {
     const result = await invoke<ValidateSqlResult>('validate_sql', {
@@ -279,7 +71,7 @@ export async function validateSql(
     if (!result.valid && result.errors && result.errors.length > 0) {
       result.errors.forEach((error: string) => {
         markers.push({
-          severity: monaco.MarkerSeverity.Error,
+          severity: 'error' as const,
           message: error,
           startLineNumber: 1,
           startColumn: 1,
@@ -300,19 +92,18 @@ export async function validateSql(
 /**
  * 基础 SQL 验证（降级方案）
  */
-function basicValidateSql(sql: string): monaco.editor.IMarkerData[] {
-  const markers: monaco.editor.IMarkerData[] = []
+function basicValidateSql(sql: string): SqlMarkerData[] {
+  const markers: SqlMarkerData[] = []
   const lines = sql.split('\n')
 
   lines.forEach((line, lineIndex) => {
     const lineNum = lineIndex + 1
 
-    // 检查未闭合的括号
     const openParens = (line.match(/\(/g) || []).length
     const closeParens = (line.match(/\)/g) || []).length
     if (openParens !== closeParens) {
       markers.push({
-        severity: monaco.MarkerSeverity.Warning,
+        severity: 'warning',
         message: '括号可能未闭合',
         startLineNumber: lineNum,
         startColumn: 1,
@@ -321,11 +112,10 @@ function basicValidateSql(sql: string): monaco.editor.IMarkerData[] {
       })
     }
 
-    // 检查字符串引号
     const singleQuotes = (line.match(/'/g) || []).length
     if (singleQuotes % 2 !== 0) {
       markers.push({
-        severity: monaco.MarkerSeverity.Error,
+        severity: 'error',
         message: '字符串引号未闭合',
         startLineNumber: lineNum,
         startColumn: 1,
@@ -430,134 +220,33 @@ export async function splitSql(sql: string, dialect?: SqlDialect): Promise<strin
 }
 
 /**
- * 注册 SQL 代码折叠提供器
- *
- * 识别可折叠区域：
- * - 多行括号子查询 (SELECT ... )
- * - CTE 块 WITH ... AS ( ... )
- * - BEGIN ... END 事务块
- * - 连续注释块
- */
-export function registerSqlFoldingProvider(): monaco.IDisposable {
-  return monaco.languages.registerFoldingRangeProvider('sql', {
-    provideFoldingRanges(model) {
-      const ranges: monaco.languages.FoldingRange[] = []
-      const lines = model.getLinesContent()
-
-      // Track bracket-based folding: open parentheses on separate lines
-      const bracketStack: number[] = []
-
-      // Track BEGIN...END blocks
-      const beginStack: number[] = []
-
-      // Track comment blocks
-      let commentStart: number | null = null
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        const trimmed = line.trimStart()
-        const upperTrimmed = trimmed.toUpperCase()
-
-        // Multi-line comment blocks (/* ... */)
-        if (trimmed.includes('/*') && !trimmed.includes('*/')) {
-          if (commentStart === null) {
-            commentStart = i + 1
-          }
-        }
-        if (commentStart !== null && trimmed.includes('*/')) {
-          if (i + 1 > commentStart) {
-            ranges.push({
-              start: commentStart,
-              end: i + 1,
-              kind: monaco.languages.FoldingRangeKind.Comment,
-            })
-          }
-          commentStart = null
-        }
-
-        // CTE start: WITH ... AS (
-        if (upperTrimmed.startsWith('WITH ')) {
-          bracketStack.push(i + 1)
-        }
-
-        // BEGIN transaction blocks
-        if (
-          upperTrimmed === 'BEGIN' ||
-          upperTrimmed === 'BEGIN TRANSACTION' ||
-          upperTrimmed.startsWith('START TRANSACTION')
-        ) {
-          beginStack.push(i + 1)
-        }
-        if (
-          (upperTrimmed === 'END' || upperTrimmed === 'COMMIT' || upperTrimmed === 'ROLLBACK') &&
-          beginStack.length > 0
-        ) {
-          const start = beginStack.pop()!
-          if (i + 1 > start) {
-            ranges.push({ start, end: i + 1 })
-          }
-        }
-
-        // Parenthesized subquery: line ending with ( or starting with (
-        const openParens = (trimmed.match(/\(/g) || []).length
-        const closeParens = (trimmed.match(/\)/g) || []).length
-        const netParens = openParens - closeParens
-
-        // Push stacking for multi-line parenthesized blocks
-        for (let p = 0; p < openParens; p++) {
-          bracketStack.push(i + 1)
-        }
-        for (let p = 0; p < closeParens; p++) {
-          if (bracketStack.length > 0) {
-            const start = bracketStack.pop()!
-            if (i + 1 > start) {
-              ranges.push({ start, end: i + 1 })
-            }
-          }
-        }
-
-        // Dedicated line that is just "(" — fold everything until matching ")"
-        if (trimmed === '(') {
-          bracketStack.push(i + 1)
-        }
-        if (trimmed === ')') {
-          if (
-            bracketStack.length > 0 &&
-            lines[bracketStack[bracketStack.length - 1] - 1]?.trim() === '('
-          ) {
-            const start = bracketStack.pop()!
-            if (i + 1 > start) {
-              ranges.push({ start, end: i + 1 })
-            }
-          }
-        }
-      }
-
-      return ranges
-    },
-  })
-}
-
-/**
  * 生成 DuckDB ATTACH 名称（与后端 `ext_{sanitized_name}` 保持一致）
  */
 export function generateAttachName(connectionName: string): string {
   return `ext_${connectionName.replace(/[^a-zA-Z0-9_]/g, '_')}`
 }
 
-/**
- * 为 DuckDB 联邦查询重写 SQL：给无前缀表名加 ATTACH 前缀
- *
- * 例如：SELECT * FROM users WHERE id = 1
- *    → SELECT * FROM ext_MyConn.users WHERE id = 1
- *
- * 识别范围：FROM | JOIN | INSERT INTO 后的表名
- * 安全过滤：跳过 SQL 关键字、已有 '.' 前缀的表名
- */
-export function rewriteDuckDBSQL(sql: string, attachName: string): string {
-  if (!attachName) return sql
+interface DuckDBExecuteParams {
+  sql: string
+  connId: string
+  dataDir: string
+}
 
-  const SQL_KEYWORDS = new Set([
+/**
+ * DuckDB 加速执行 SQL
+ */
+export async function executeDuckDBAccelerated(params: DuckDBExecuteParams): Promise<SqlExecutionResult> {
+  return invoke<SqlExecutionResult>('execute_sql', {
+    input: {
+      conn_id: params.connId,
+      sql: params.sql,
+      use_duckdb: true,
+      data_dir: params.dataDir,
+    },
+  })
+}
+
+const DUCKDB_SQL_KEYWORDS = new Set([
     'WHERE',
     'SET',
     'VALUES',
@@ -591,7 +280,7 @@ export function rewriteDuckDBSQL(sql: string, attachName: string): string {
     'DISTINCT',
   ])
 
-  const tableKeywords = [
+const DUCKDB_TABLE_KEYWORDS = [
     'FROM',
     'JOIN',
     'INNER JOIN',
@@ -608,15 +297,27 @@ export function rewriteDuckDBSQL(sql: string, attachName: string): string {
     'INTO',
   ]
 
+/**
+ * 为 DuckDB 联邦查询重写 SQL：给无前缀表名加 ATTACH 前缀
+ *
+ * 例如：SELECT * FROM users WHERE id = 1
+ *    → SELECT * FROM ext_MyConn.users WHERE id = 1
+ *
+ * 识别范围：FROM | JOIN | INSERT INTO 后的表名
+ * 安全过滤：跳过 SQL 关键字、已有 '.' 前缀的表名
+ */
+export function rewriteDuckDBSQL(sql: string, attachName: string): string {
+  if (!attachName) return sql
+
   let result = sql
 
-  for (const keyword of tableKeywords) {
+  for (const keyword of DUCKDB_TABLE_KEYWORDS) {
     const pattern = new RegExp(
       `(\\b${keyword}\\b)\\s+(?!${attachName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.)([a-zA-Z_][a-zA-Z0-9_]*)\\b(?!\\s*\\.)`,
       'gi'
     )
     result = result.replace(pattern, (_match, kw, tableName) => {
-      if (SQL_KEYWORDS.has(tableName.toUpperCase())) {
+      if (DUCKDB_SQL_KEYWORDS.has(tableName.toUpperCase())) {
         return _match
       }
       return `${kw} ${attachName}.${tableName}`
@@ -678,23 +379,20 @@ export function parseErrorPosition(errorMessage: string): ErrorPosition | null {
   return null
 }
 
-export function clearErrorMarkers(editor: monaco.editor.IStandaloneCodeEditor): void {
-  const model = editor.getModel()
-  if (!model) return
-  monaco.editor.setModelMarkers(model, 'sql-execution', [])
+export function clearErrorMarkers(view: EditorView): void {
+  clearEditorDiagnostics(view)
 }
 
 const MAX_SQL_LENGTH = 2000
 
 export function setErrorMarker(
-  editor: monaco.editor.IStandaloneCodeEditor,
+  view: EditorView,
   errorMessage: string,
   sql: string
 ): void {
-  const model = editor.getModel()
-  if (!model) return
-
+  const doc = view.state.doc
   const position = parseErrorPosition(errorMessage)
+
   if (position) {
     let { line, column } = position
 
@@ -705,32 +403,39 @@ export function setErrorMarker(
       column = lastNewline >= 0 ? column - lastNewline : column
     }
 
-    line = Math.max(1, Math.min(line, model.getLineCount()))
-    column = Math.max(1, Math.min(column, model.getLineMaxColumn(line)))
-
-    const marker: monaco.editor.IMarkerData = {
-      severity: monaco.MarkerSeverity.Error,
-      message: errorMessage.slice(0, MAX_SQL_LENGTH),
-      startLineNumber: line,
-      startColumn: column,
-      endLineNumber: line,
-      endColumn: model.getLineMaxColumn(line),
+    line = Math.max(1, Math.min(line, doc.lines))
+    try {
+      const lineObj = doc.line(line)
+      column = Math.max(1, Math.min(column, lineObj.length + 1))
+    } catch {
+      column = 1
     }
 
-    monaco.editor.setModelMarkers(model, 'sql-execution', [marker])
-    editor.revealLineInCenter(line)
-    editor.setPosition({ lineNumber: line, column })
-    editor.focus()
+    const diagnostic = createErrorDiagnostic(
+      view,
+      errorMessage.slice(0, MAX_SQL_LENGTH),
+      line,
+      column
+    )
+
+    setEditorDiagnostics(view, [diagnostic])
+
+    try {
+      const pos = doc.line(line).from
+      view.dispatch({
+        effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+        selection: { anchor: pos + column - 1 },
+      })
+    } catch { /* */ }
+    view.focus()
   } else {
-    const marker: monaco.editor.IMarkerData = {
-      severity: monaco.MarkerSeverity.Error,
-      message: errorMessage.slice(0, MAX_SQL_LENGTH),
-      startLineNumber: 1,
-      startColumn: 1,
-      endLineNumber: 1,
-      endColumn: 1,
-    }
-    monaco.editor.setModelMarkers(model, 'sql-execution', [marker])
+    const diagnostic = createErrorDiagnostic(
+      view,
+      errorMessage.slice(0, MAX_SQL_LENGTH),
+      1,
+      1
+    )
+    setEditorDiagnostics(view, [diagnostic])
   }
 }
 

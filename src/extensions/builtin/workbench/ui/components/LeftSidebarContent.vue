@@ -26,13 +26,13 @@ const currentComponent = computed(() => {
     case 'analytics':
       return AnalyticsResourceComponent
     case 'plugins':
-      return null // TODO: Implement plugins panel
+      return { template: '<div class="placeholder-message">Plugins — Coming soon</div>' }
     case 'settings':
-      return null // TODO: Implement settings panel
+      return { template: '<div class="placeholder-message">Settings — Coming soon</div>' }
     default:
-      return null
-  }
-})
+        return DatabaseNavComponent
+    }
+  })
 </script>
 
 <style scoped>

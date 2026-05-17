@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import { Table2, Eye, Code } from 'lucide-vue-next'
-import { NTag, NTabs, NTabPane, NDataTable, NButton, NButtonGroup, NEmpty, NCode } from 'naive-ui'
+import { NTag, NTabs, NTabPane, NDataTable, NButton, NButtonGroup, NEmpty, NCode , createDiscreteApi } from 'naive-ui'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -96,18 +96,39 @@ interface Props {
 const props = defineProps<Props>()
 
 const { t } = useI18n()
+const { message } = createDiscreteApi(['message'])
 
 const emit = defineEmits<{
   viewData: [tableName: string]
   generateSelect: [tableName: string, columns: string[]]
 }>()
 
+interface ColumnInfo {
+  name: string
+  dataType: string
+  nullable: string
+  defaultValue: string
+  comment: string
+}
+
+interface IndexInfo {
+  name: string
+  type: string
+  columns: string
+}
+
+interface ConstraintInfo {
+  name: string
+  type: string
+  columns: string
+}
+
 // 状态
 const loading = ref(false)
 const activeTab = ref('columns')
-const columns = ref<any[]>([])
-const indexes = ref<any[]>([])
-const constraints = ref<any[]>([])
+const columns = ref<ColumnInfo[]>([])
+const indexes = ref<IndexInfo[]>([])
+const constraints = ref<ConstraintInfo[]>([])
 const ddl = ref('')
 
 // 列定义
@@ -148,16 +169,17 @@ async function loadTableStructure() {
 
     columns.value = columnNodes.map(col => ({
       name: col.name,
-      dataType: col.metadata?.dataType || 'unknown',
+      dataType: String(col.metadata?.dataType || 'unknown'),
       nullable: col.metadata?.nullable ? t('workbench.yes') : t('workbench.no'),
-      defaultValue: col.metadata?.defaultValue || '',
-      comment: col.metadata?.comment || '',
+      defaultValue: String(col.metadata?.defaultValue || ''),
+      comment: String(col.metadata?.comment || ''),
     }))
 
     // 生成 DDL
     generateDDL()
   } catch (error) {
     console.error('Failed to load table structure:', error)
+    message.error(t('workbench.loadTableStructureFailed'))
   } finally {
     loading.value = false
   }

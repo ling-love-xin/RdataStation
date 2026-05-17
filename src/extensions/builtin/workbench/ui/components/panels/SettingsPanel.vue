@@ -337,6 +337,7 @@ import {
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { clearHistory as clearSqlHistory } from '@/extensions/builtin/workbench/services/sql-history-service'
 import type {
   Theme,
   ConnectionPoolSettings,
@@ -376,26 +377,8 @@ const shortcuts = reactive([
   { key: 'rollbackTransaction', name: t('workbench.rollbackTooltip'), value: 'Ctrl+Shift+R' },
 ])
 
-const settings = reactive({
-  connectionPool: { ...appStore.effectiveConnectionPool } as ConnectionPoolSettings,
-  history: { ...appStore.effectiveHistorySettings } as HistorySettings,
-  monitoring: { ...appStore.effectiveMonitoringSettings } as MonitoringSettings,
-  performance: { ...appStore.effectivePerformanceSettings } as PerformanceSettings,
-  appearance: {
-    theme: appStore.effectiveTheme as string,
-    fontSize: 13,
-    compactMode: false,
-  },
-})
-
-function clearHistory() {
-  if (confirm(t('workbench.confirmClearHistory'))) {
-    console.log('clear history')
-  }
-}
-
-function resetSettings() {
-  Object.assign(settings.connectionPool, {
+const SETTINGS_DEFAULTS = {
+  connectionPool: {
     maxConnections: 10,
     minIdleConnections: 2,
     connectionTimeout: 30,
@@ -403,34 +386,61 @@ function resetSettings() {
     autoReconnect: true,
     healthCheck: true,
     healthCheckInterval: 60,
-  })
-  Object.assign(settings.history, {
+  },
+  history: {
     maxHistoryItems: 100,
     retentionDays: 30,
     enableHistory: true,
     includeSQL: true,
     enableUndo: true,
-  })
-  Object.assign(settings.monitoring, {
+  },
+  monitoring: {
     enableMonitoring: true,
     updateInterval: 5,
     enableAlerts: true,
     alertOnDisconnect: true,
     alertOnSlowQuery: true,
     slowQueryThreshold: 1000,
-  })
-  Object.assign(settings.performance, {
+  },
+  performance: {
     virtualScrollBuffer: 5,
     maxCacheSize: 100,
     cacheExpireMinutes: 60,
     enableLazyLoad: true,
     enablePreload: true,
-  })
-  Object.assign(settings.appearance, {
+  },
+  appearance: {
     theme: 'system',
     fontSize: 13,
     compactMode: false,
-  })
+  },
+} as const
+
+const settings = reactive({
+  connectionPool: { ...appStore.effectiveConnectionPool } as ConnectionPoolSettings,
+  history: { ...appStore.effectiveHistorySettings } as HistorySettings,
+  monitoring: { ...appStore.effectiveMonitoringSettings } as MonitoringSettings,
+  performance: { ...appStore.effectivePerformanceSettings } as PerformanceSettings,
+  appearance: {
+    theme: appStore.effectiveTheme as string,
+    fontSize: SETTINGS_DEFAULTS.appearance.fontSize,
+    compactMode: SETTINGS_DEFAULTS.appearance.compactMode,
+  },
+})
+
+function clearHistory() {
+  if (confirm(t('workbench.confirmClearHistory'))) {
+    clearSqlHistory()
+    alert(t('workbench.historyCleared'))
+  }
+}
+
+function resetSettings() {
+  Object.assign(settings.connectionPool, SETTINGS_DEFAULTS.connectionPool)
+  Object.assign(settings.history, SETTINGS_DEFAULTS.history)
+  Object.assign(settings.monitoring, SETTINGS_DEFAULTS.monitoring)
+  Object.assign(settings.performance, SETTINGS_DEFAULTS.performance)
+  Object.assign(settings.appearance, SETTINGS_DEFAULTS.appearance)
 }
 
 async function saveSettings() {

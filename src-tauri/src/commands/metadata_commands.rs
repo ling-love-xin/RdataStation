@@ -968,3 +968,40 @@ pub async fn load_routine_source(
         source_code: source,
     })
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexMeta {
+    pub name: String,
+    pub table_name: String,
+    pub column_names: Vec<String>,
+    pub is_unique: bool,
+    pub is_primary: bool,
+}
+
+#[tauri::command]
+pub async fn load_indexes(
+    conn_id: String,
+    table_name: String,
+) -> Result<Vec<IndexMeta>, CoreError> {
+    tracing::debug!("load_indexes called for conn={conn_id}, table={table_name} (not yet implemented)");
+    Ok(vec![])
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintMeta {
+    pub name: String,
+    pub table_name: String,
+    pub constraint_type: String,
+    pub column_names: Vec<String>,
+    pub referenced_table: Option<String>,
+    pub referenced_columns: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn load_constraints(
+    conn_id: String,
+    table_name: String,
+) -> Result<Vec<ConstraintMeta>, CoreError> {
+    tracing::debug!("load_constraints called for conn={conn_id}, table={table_name} (not yet implemented)");
+    Ok(vec![])
+}

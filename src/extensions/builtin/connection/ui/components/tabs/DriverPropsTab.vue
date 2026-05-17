@@ -50,6 +50,10 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const emit = defineEmits<{
+  'update:values': [values: Record<string, string>]
+}>()
+
 const propValues = reactive<Record<string, string>>({})
 
 interface PropertyItem {
@@ -65,7 +69,7 @@ const propertyList = computed<PropertyItem[]>(() => {
   const extraOptions = (driver.extraOptions || driver.extra_options || []) as DriverOption[]
   return extraOptions.map((opt) => ({
     name: opt.name,
-    defaultValue: opt.defaultValue,
+    defaultValue: String(opt.default ?? ''),
     description: opt.description,
     optionType: opt.optionType,
   }))
@@ -86,6 +90,14 @@ watch(
     Object.assign(propValues, vals)
   },
   { immediate: true }
+)
+
+watch(
+  () => ({ ...propValues }),
+  (values) => {
+    emit('update:values', { ...values })
+  },
+  { deep: true }
 )
 </script>
 

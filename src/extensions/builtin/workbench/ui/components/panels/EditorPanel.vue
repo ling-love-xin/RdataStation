@@ -1,5 +1,5 @@
 <template>
-  <div :class="['editor-panel', `toolbar-position-top`]">
+  <div class="editor-panel">
     <EditorToolbar
       v-if="showToolbar"
       :toolbar-position="'top'"
@@ -13,6 +13,10 @@
     />
 
     <div class="editor-body">
+      <div v-if="isReadonly" class="readonly-warning">
+        <EyeOff :size="12" :stroke-width="1.5" />
+        <span>文件已在其他标签页编辑中，当前为只读模式</span>
+      </div>
       <div class="tab-bar">
         <div
           v-for="tab in tabs"
@@ -60,10 +64,21 @@
 
       <div class="editor-split">
         <div
+          v-if="largeFileTier === 'rejected'"
+          class="large-file-warning"
+        >
+          <div class="large-file-icon">&#9888;</div>
+          <div class="large-file-title">文件过大</div>
+          <div class="large-file-desc">
+            文件大小 {{ largeFileSizeMB.toFixed(1) }}MB，超出编辑器支持范围（最大 200MB）。
+          </div>
+          <div class="large-file-desc">建议使用外部工具打开此文件。</div>
+        </div>
+        <div
           class="editor-area"
           :style="{ flex: hasResults ? `${splitRatio}` : '1 1 auto' }"
         >
-          <div ref="editorContainerRef" class="monaco-container" />
+          <div ref="editorContainerRef" class="cm-container" />
           <EditorWelcome
             v-if="showWelcome"
             :visible="showWelcome"
@@ -83,7 +98,7 @@
           :style="{ flex: `calc(1 - ${splitRatio})` }"
         >
           <ResultSubTab />
-          <div ref="resultPanelHost" class="result-panel-host" />
+          <div class="result-panel-host" />
         </div>
       </div>
     </div>
@@ -93,13 +108,13 @@
 </template>
 
 <script setup lang="ts">
-import { File, FileCode, X } from 'lucide-vue-next'
-import * as monaco from 'monaco-editor'
+import { File, FileCode, X, EyeOff } from 'lucide-vue-next'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
+import { useCodeMirror } from '@/extensions/builtin/workbench/ui/composables/useCodeMirror'
+import { classifyFileSize, getChunkedContent, type FileSizeTier } from '@/extensions/builtin/workbench/ui/composables/useLargeFile'
 import { useUiStore } from '@/shared/stores/ui'
-import { rdataDark, rdataLight } from '@/shared/styles/monaco-theme'
 
 import EditorStatusbar from './EditorStatusbar.vue'
 import EditorToolbar from './EditorToolbar.vue'
@@ -107,6 +122,7 @@ import EditorWelcome from './EditorWelcome.vue'
 import ResultSubTab from './ResultSubTab.vue'
 
 const uiStore = useUiStore()
+const { createView, destroyView, setTheme, view, getEditorState, setEditorState } = useCodeMirror()
 
 const props = defineProps<{
   params: Record<string, unknown>
@@ -115,8 +131,12 @@ const props = defineProps<{
 const editorContainerRef = ref<HTMLElement | null>(null)
 const showWelcome = ref(true)
 const cursorPosition = ref('Ln 1, Col 1')
+const selectedTextInfo = ref('')
 const splitRatio = ref(0.55)
 const isDragging = ref(false)
+const largeFileTier = ref<FileSizeTier>('normal')
+const largeFileSizeMB = ref(0)
+let domObserver: MutationObserver | null = null
 
 const currentFilePath = computed(() => String(props.params.filePath || ''))
 const currentLanguage = computed(() => String(props.params.language || 'sql'))
@@ -125,16 +145,30 @@ const myFileInfo = computed(() => EditorManager.openFiles.get(currentFilePath.va
 
 const editorMode = computed(() => {
   const info = myFileInfo.value
-  if (!info) return 'Plain Text'
-  if (info.language === 'sql') return 'SQL'
-  return info.language
+  let base = 'Plain Text'
+  if (info) {
+    if (info.language === 'sql') base = 'SQL'
+    else base = info.language
+  }
+  if (largeFileTier.value === 'rejected') base += ' (too large)'
+  else if (largeFileTier.value === 'chunked') base += ' (chunked)'
+  else if (largeFileTier.value === 'large') base += ' (large)'
+  else if (largeFileTier.value === 'reduced') base += ' (large)'
+  if (isReadonly.value) base += ' (read-only)'
+  return base
 })
 
 const isDirty = computed(() => myFileInfo.value?.isDirty ?? false)
 
+const isReadonly = computed(() => {
+  const fp = currentFilePath.value
+  if (!fp) return false
+  return !EditorManager.isPrimaryInstance(fp)
+})
+
 const statusbarProps = computed(() => ({
   cursorPosition: cursorPosition.value,
-  selectedTextInfo: '',
+  selectedTextInfo: selectedTextInfo.value,
   editorMode: editorMode.value,
   executing: EditorManager.isExecuting,
   canCancel: EditorManager.isExecuting,
@@ -284,42 +318,78 @@ onMounted(async () => {
   const el = editorContainerRef.value
   if (!el) return
 
-  const theme = uiStore.theme === 'dark' ? 'rdata-dark' : 'rdata-light'
-  monaco.editor.defineTheme('rdata-dark', rdataDark)
-  monaco.editor.defineTheme('rdata-light', rdataLight)
+  const theme = uiStore.theme === 'dark' ? 'dark' : 'light'
+  const content = String(props.params.content || '')
+  const strategy = classifyFileSize(content)
+  largeFileTier.value = strategy.tier
+  largeFileSizeMB.value = strategy.sizeMB
 
-  const ed = monaco.editor.create(el, {
-    value: '',
-    language: currentLanguage.value,
+  if (strategy.tier === 'rejected') {
+    showWelcome.value = true
+    return
+  }
+
+  createView(
+    el,
+    strategy.tier === 'chunked'
+      ? getChunkedContent(content, 0, 5000, 500)
+      : content,
+    currentLanguage.value,
     theme,
-    automaticLayout: true,
-    minimap: { enabled: true, scale: 1, showSlider: 'mouseover' },
-    fontSize: 14,
-    lineNumbers: 'on',
-    scrollBeyondLastLine: false,
-    wordWrap: 'off',
-    tabSize: 2,
-    renderWhitespace: 'selection',
-  })
-
-  ed.onDidChangeCursorPosition((e) => {
-    cursorPosition.value = `Ln ${e.position.lineNumber}, Col ${e.position.column}`
-  })
-
-  ed.onDidChangeModelContent(() => {
-    showWelcome.value = false
-  })
+    (_doc, line, col, hasSelection) => {
+      cursorPosition.value = `Ln ${line}, Col ${col}`
+      if (hasSelection && view.value) {
+        const sel = view.value.state.selection.main
+        const text = view.value.state.doc.sliceString(sel.from, sel.to)
+        const chars = text.length
+        const lines = text.split('\n').length
+        selectedTextInfo.value = `${chars} chars, ${lines} lines selected`
+      } else {
+        selectedTextInfo.value = ''
+      }
+      showWelcome.value = false
+    },
+    [],
+    strategy
+  )
 
   const fp = currentFilePath.value
-  EditorManager.setEditor(ed)
+  const currentView = view.value
+  if (currentView) {
+    EditorManager.setEditor(currentView)
+    EditorManager.registerFileEditor(fp, currentView)
+  }
 
-  const myFileInfo = EditorManager.openFiles.get(fp)
-  if (myFileInfo) {
-    ed.setModel(myFileInfo.model)
+  const savedState = EditorManager.getSavedStateForFile(fp)
+  if (savedState && currentView) {
+    setEditorState(savedState)
+  }
+
+  const parentEl = el.parentElement
+  if (parentEl && currentView) {
+    domObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'childList') {
+          for (const node of m.addedNodes) {
+            if (node === el) {
+              currentView.requestMeasure()
+              return
+            }
+          }
+        }
+      }
+    })
+    domObserver.observe(parentEl, { childList: true })
   }
 })
 
 onUnmounted(() => {
+  const fp = currentFilePath.value
+  const state = getEditorState()
+  if (state) EditorManager.saveEditorStateForFile(fp, state)
+  EditorManager.unregisterFileEditor(fp)
+  if (domObserver) { domObserver.disconnect(); domObserver = null }
+  destroyView()
 })
 
 watch(
@@ -335,7 +405,7 @@ watch(
 watch(
   () => uiStore.theme,
   (theme) => {
-    monaco.editor.setTheme(theme === 'dark' ? 'rdata-dark' : 'rdata-light')
+    setTheme(theme === 'dark' ? 'dark' : 'light')
   }
 )
 </script>
@@ -353,6 +423,18 @@ watch(
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.readonly-warning {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #b8956a;
+  background: rgba(184, 149, 106, 0.08);
+  border-bottom: 1px solid rgba(184, 149, 106, 0.2);
 }
 
 .tab-bar {
@@ -496,7 +578,7 @@ watch(
   position: relative;
 }
 
-.monaco-container {
+.cm-container {
   width: 100%;
   height: 100%;
 }
@@ -556,5 +638,35 @@ watch(
   position: fixed;
   inset: 0;
   z-index: 10000;
+}
+
+.large-file-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--n-text-color-2);
+}
+
+.large-file-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.large-file-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--n-text-color);
+}
+
+.large-file-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--n-text-color-3);
 }
 </style>

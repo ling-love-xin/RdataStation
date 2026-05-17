@@ -8,7 +8,8 @@
           :style="{ width: dialogWidth + 'px', height: dialogHeight + 'px' }"
         >
           <div class="dialog-titlebar">
-            <span>{{ isEditing ? t('navigator.editDataSource') : t('navigator.addDataSource') }}</span>
+            <span class="title-label">{{ dialogTitle }}</span>
+            <span v-if="formData.name" class="title-name">&mdash; {{ formData.name }}</span>
             <button class="close-btn" @click="close">&times;</button>
           </div>
 
@@ -23,21 +24,23 @@
 
             <div class="dialog-main">
               <DataSourceHeader
-                :name="formData.name"
+                :name="formData.name ?? ''"
                 :description="description"
-                :uri="connectionUrl"
+                :uri="editUriMode ? editUriCustom : connectionUrl"
                 :save-to-global="saveToGlobal"
                 :save-to-project="saveToProject"
                 :has-project="hasProject"
                 :name-error="errors.name"
+                :edit-uri-mode="editUriMode"
                 :available-drivers="availableDriversForSelectedDb"
                 :selected-driver-id="selectedDriverId"
-                @update:name="(v: string) => formData.name = v"
-                @update:description="(v: string) => description = v"
-                @update:save-to-global="(v: boolean) => saveToGlobal = v"
-                @update:save-to-project="(v: boolean) => saveToProject = v"
+                @update:name="name => { formData.name = name; clearError('name') }"
+                @update:description="desc => { description = desc }"
+                @update:uri="uri => { editUriCustom = uri }"
+                @update:save-to-global="val => { saveToGlobal = val }"
+                @update:save-to-project="val => { saveToProject = val }"
                 @select-driver="onSelectDriver"
-                @edit-uri="onEditUri"
+                @edit-uri="() => { editUriMode = !editUriMode; if (editUriMode) { editUriCustom = connectionUrl } }"
               />
 
               <div v-if="selectedDriver" class="tabs-nav">
@@ -58,6 +61,7 @@
                   <GeneralTab
                     v-show="activeTab === 'general'"
                     :form-data="formData"
+                    :form-sections="formSections"
                     :selected-driver="selectedDriver"
                     :has-project="hasProject"
                     :errors="errors"
@@ -65,7 +69,7 @@
                     @select-file="onSelectFile"
                     @create-file="onCreateFile"
                   />
-                  <NetworkTab v-show="activeTab === 'network'" />
+                  <NetworkTab v-show="activeTab === 'network'" @update:config="updateNetworkConfig" />
                   <CapabilitiesTab
                     v-show="activeTab === 'capabilities'"
                     :selected-driver="selectedDriver"
@@ -73,10 +77,12 @@
                   <DriverPropsTab
                     v-show="activeTab === 'properties'"
                     :selected-driver="selectedDriver"
+                    @update:values="updateDriverProps"
                   />
                   <AdvancedTab
                     v-show="activeTab === 'advanced'"
                     :db-type="selectedDbType"
+                    @update:config="updateAdvancedConfig"
                   />
                 </template>
 
@@ -138,8 +144,11 @@ import CapabilitiesTab from './tabs/CapabilitiesTab.vue'
 import DriverPropsTab from './tabs/DriverPropsTab.vue'
 import GeneralTab from './tabs/GeneralTab.vue'
 import NetworkTab from './tabs/NetworkTab.vue'
+import { useStagingList } from '../composables/useStagingList'
+import { loadDriverSchema } from '../utils/schema-loader'
 
-import type { DriverDescriptor, ConnectionConfig } from '../../types/connection'
+import type { DriverDescriptor, ConnectionConfig } from '../types/connection'
+import type { FormSectionConfig } from '../types/form-schema'
 
 const { t } = useI18n()
 
@@ -245,10 +254,24 @@ const formData = ref<Partial<ConnectionConfig>>({
   options: {},
 })
 const description = ref('')
+const formSections = ref<FormSectionConfig[]>([])
+const editUriMode = ref(false)
+const editUriCustom = ref('')
+const networkConfig = ref<Record<string, unknown>>({})
+const advancedConfig = ref<Record<string, unknown>>({})
+const driverProps = ref<Record<string, string>>({})
+
+const staging = useStagingList()
+const stagingEntryId = ref<number | null>(null)
 
 const errors = ref<Record<string, string>>({})
 
 const visibleTabs = computed(() => TAB_CONFIG)
+
+const dialogTitle = computed(() => {
+  if (formData.value.name?.trim()) return formData.value.name
+  return String(props.isEditing ? t('navigator.editDataSource') : t('navigator.addDataSource'))
+})
 
 const availableDriversForSelectedDb = computed<DriverDescriptor[]>(() => {
   if (!selectedDbType.value) return allDrivers.value
@@ -273,6 +296,9 @@ const connectionUrl = computed(() => {
 })
 
 function buildRealUrl(): string {
+  if (editUriMode.value && editUriCustom.value) {
+    return editUriCustom.value
+  }
   if (!selectedDriver.value || !selectedDbType.value) return ''
   const d = selectedDriver.value
   const host = formData.value.host || 'localhost'
@@ -308,7 +334,7 @@ function onSelectDbType(dbType: string) {
   }
 }
 
-function onSelectDriver(driverId: string) {
+async function onSelectDriver(driverId: string) {
   selectedDriverId.value = driverId
   const driver = allDrivers.value.find((d) => d.id === driverId)
   selectedDriver.value = driver || null
@@ -322,6 +348,19 @@ function onSelectDriver(driverId: string) {
     if (!formData.value.name) {
       formData.value.name = `${driver.name}@localhost`
     }
+
+    const schema = await loadDriverSchema(driverId)
+    if (schema?.sections) {
+      formSections.value = schema.sections
+      const defaults = schema.sections.flatMap(s => s.fields.filter(f => f.default !== undefined))
+      for (const field of defaults) {
+        if (!(field.key in formData.value) && field.default !== undefined) {
+          ;(formData.value as Record<string, unknown>)[field.key] = field.default
+        }
+      }
+    } else {
+      formSections.value = []
+    }
   }
   activeTab.value = 'general'
 }
@@ -331,19 +370,85 @@ function updateFormData(data: Partial<ConnectionConfig>) {
 }
 
 function onSelectFile() {
-  // Tauri native file dialog
+  import('@tauri-apps/plugin-dialog').then(({ open }) => {
+    open({
+      title: String(t('navigator.selectDatabaseFile')),
+      filters: selectedDbType.value === 'duckdb'
+        ? [{ name: 'DuckDB', extensions: ['duckdb', 'db'] }]
+        : [{ name: 'SQLite', extensions: ['sqlite', 'db', 'sqlite3'] }],
+      multiple: false,
+    }).then((filePath) => {
+      if (filePath && typeof filePath === 'string') {
+        formData.value.database = filePath
+        formData.value.host = ''
+        formData.value.port = 0
+        if (!formData.value.name) {
+          formData.value.name = filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || ''
+        }
+      }
+    })
+  })
 }
 
 function onCreateFile() {
-  // Tauri file create + init DB
+  import('@tauri-apps/plugin-dialog').then(({ save }) => {
+    save({
+      title: String(t('navigator.createDatabaseFile')),
+      defaultPath: selectedDbType.value === 'duckdb' ? 'database.duckdb' : 'database.db',
+      filters: selectedDbType.value === 'duckdb'
+        ? [{ name: 'DuckDB', extensions: ['duckdb', 'db'] }]
+        : [{ name: 'SQLite', extensions: ['sqlite', 'db', 'sqlite3'] }],
+    }).then(async (filePath) => {
+      if (filePath && typeof filePath === 'string') {
+        try {
+          await invoke('create_database_file', {
+            dbType: selectedDbType.value,
+            filePath,
+          })
+          formData.value.database = filePath
+          formData.value.host = ''
+          formData.value.port = 0
+          if (!formData.value.name) {
+            formData.value.name = filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || ''
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err)
+          errors.value.database = msg
+        }
+      }
+    })
+  })
 }
 
-function onEditUri() {
-  // Enable URI inline editing mode
+function clearError(field: keyof typeof errors.value) {
+  errors.value[field] = ''
 }
 
-function onSelectStaging(_id: number) {
-  // Select a staging entry
+function onSelectStaging(id: number) {
+  const entry = staging.selectEntry(id)
+  if (entry) {
+    stagingEntryId.value = entry.id
+    formData.value.name = entry.name
+    selectedDbType.value = entry.dbType
+    if (entry.driverId) {
+      const drivers = availableDriversForSelectedDb.value
+      if (drivers.length > 0) {
+        onSelectDriver(entry.driverId)
+      }
+    }
+  }
+}
+
+function updateNetworkConfig(config: Record<string, unknown>) {
+  networkConfig.value = { ...networkConfig.value, ...config }
+}
+
+function updateAdvancedConfig(config: Record<string, unknown>) {
+  advancedConfig.value = { ...advancedConfig.value, ...config }
+}
+
+function updateDriverProps(values: Record<string, string>) {
+  driverProps.value = { ...driverProps.value, ...values }
 }
 
 interface BackendTestResult {
@@ -399,6 +504,9 @@ function onSave() {
     saveToGlobal: saveToGlobal.value,
     saveToProject: saveToProject.value,
     url: buildRealUrl(),
+    network: networkConfig.value,
+    advanced: advancedConfig.value,
+    driverProps: driverProps.value,
   })
   close()
 }
@@ -417,10 +525,11 @@ watch(
       dialogWidth.value = 960
       dialogHeight.value = 640
       if (props.editData) {
-        formData.value = { ...props.editData }
-        selectedDriverId.value = props.editData.driver
-        selectedDbType.value = props.editData.driver.replace(/-.*$/, '')
-        const driver = allDrivers.value.find((d) => d.id === props.editData.driver)
+        const editData = props.editData
+        formData.value = { ...editData }
+        selectedDriverId.value = editData.driver
+        selectedDbType.value = editData.driver.replace(/-.*$/, '')
+        const driver = allDrivers.value.find((d) => d.id === editData.driver)
         selectedDriver.value = driver || null
       } else {
         formData.value = {
@@ -473,6 +582,18 @@ watch(
   color: var(--color-text-secondary, #a6adc8);
   flex-shrink: 0;
   user-select: none;
+  gap: 6px;
+}
+.title-label {
+  white-space: nowrap;
+}
+.title-name {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-accent, #89b4fa);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .close-btn {
   background: none;

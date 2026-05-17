@@ -152,5 +152,6 @@ export async function createExternalTable(params: CreateExternalTableParams): Pr
     schemaName: params.schemaName,
     tableName: params.tableName,
     externalDbName: params.externalDbName,
+    externalTableName: `${params.externalDbName}_${params.tableName}`,
   })
 }

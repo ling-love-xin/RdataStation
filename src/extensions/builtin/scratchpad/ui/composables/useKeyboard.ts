@@ -44,7 +44,7 @@ export function useKeyboard(deps: KeyboardDeps, callbacks: KeyboardCallbacks) {
     ) {
       return
     }
-    if ((el as HTMLElement)?.closest('.monaco-editor')) {
+    if ((el as HTMLElement)?.closest('.cm-editor')) {
       return
     }
 

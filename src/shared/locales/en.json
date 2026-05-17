@@ -347,7 +347,7 @@
     "copyAsValues": "Copy as VALUES",
     "recentConnections": "Recent Connections",
     "fontFamily": "Font Family",
-    "fontFamilyHint": "Monaco Editor monospace font",
+    "fontFamilyHint": "CodeMirror editor monospace font",
     "appearance": "Appearance",
     "projectOverride": "Project Override",
     "resetToGlobal": "Reset to Global Default",
