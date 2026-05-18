@@ -26,7 +26,10 @@ impl ScratchpadState {
             *guard = Some(store.clone());
         }
         if let Err(e) = store.ensure_dir().await {
-            tracing::warn!("[Scratchpad] ensure_dir failed during init (will retry on first write): {}", e);
+            tracing::warn!(
+                "[Scratchpad] ensure_dir failed during init (will retry on first write): {}",
+                e
+            );
         }
         Ok(())
     }

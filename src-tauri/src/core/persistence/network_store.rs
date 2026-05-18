@@ -1,0 +1,148 @@
+use rusqlite::{params, Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
+
+use crate::core::error::{CoreError, StorageError};
+
+/// 网络配置（SSH 隧道、HTTP 代理、SSL 证书等）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkConfig {
+    pub id: String,
+    pub name: Option<String>,
+    pub network_type: String,
+    pub config: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+fn storage_err(op: &str, reason: String) -> CoreError {
+    CoreError::storage(StorageError::Persistence {
+        store: "network_store".to_string(),
+        operation: op.to_string(),
+        reason,
+    })
+}
+
+/// 创建网络配置
+pub fn create_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
+    conn.execute(
+        "INSERT INTO network_configs (id, name, network_type, config, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            nc.id,
+            nc.name,
+            nc.network_type,
+            nc.config,
+            nc.created_at,
+            nc.updated_at
+        ],
+    )
+    .map_err(|e| storage_err("create_network_config", e.to_string()))?;
+    Ok(())
+}
+
+/// 列出网络配置，可按网络类型过滤
+pub fn list_network_configs(
+    conn: &Connection,
+    network_type: Option<&str>,
+) -> Result<Vec<NetworkConfig>, CoreError> {
+    let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
+        (
+            "SELECT id, name, network_type, config, created_at, updated_at
+             FROM network_configs WHERE network_type = ?1 ORDER BY name"
+                .to_string(),
+            Some(t.to_string()),
+        )
+    } else {
+        (
+            "SELECT id, name, network_type, config, created_at, updated_at
+             FROM network_configs ORDER BY network_type, name"
+                .to_string(),
+            None,
+        )
+    };
+
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| storage_err("prepare_list_network_configs", e.to_string()))?;
+
+    let items = if let Some(ref p) = param {
+        stmt.query_map(params![p], |row| {
+            Ok(NetworkConfig {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                network_type: row.get(2)?,
+                config: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| storage_err("query_network_configs", e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect()
+    } else {
+        stmt.query_map([], |row| {
+            Ok(NetworkConfig {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                network_type: row.get(2)?,
+                config: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| storage_err("query_network_configs", e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect()
+    };
+
+    Ok(items)
+}
+
+/// 根据 ID 获取网络配置
+pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, network_type, config, created_at, updated_at
+             FROM network_configs WHERE id = ?1",
+        )
+        .map_err(|e| storage_err("prepare_get_network_config", e.to_string()))?;
+
+    stmt.query_row(params![id], |row| {
+        Ok(NetworkConfig {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            network_type: row.get(2)?,
+            config: row.get(3)?,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    })
+    .optional()
+    .map_err(|e| storage_err("get_network_config", e.to_string()))
+}
+
+/// 更新网络配置，若配置不存在则返回错误
+pub fn update_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
+    let rows = conn
+        .execute(
+            "UPDATE network_configs SET name = ?1, network_type = ?2, config = ?3, updated_at = ?4 WHERE id = ?5",
+            params![nc.name, nc.network_type, nc.config, nc.updated_at, nc.id],
+        )
+        .map_err(|e| storage_err("update_network_config", e.to_string()))?;
+
+    if rows == 0 {
+        return Err(CoreError::storage(StorageError::Persistence {
+            store: "network_store".to_string(),
+            operation: "update_network_config".to_string(),
+            reason: format!("network config not found: {}", nc.id),
+        }));
+    }
+    Ok(())
+}
+
+/// 删除网络配置
+pub fn delete_network_config(conn: &Connection, id: &str) -> Result<(), CoreError> {
+    conn.execute("DELETE FROM network_configs WHERE id = ?1", params![id])
+        .map_err(|e| storage_err("delete_network_config", e.to_string()))?;
+    Ok(())
+}

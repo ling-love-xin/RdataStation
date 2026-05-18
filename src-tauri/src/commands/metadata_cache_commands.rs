@@ -613,8 +613,6 @@ pub struct SyncStatusInfo {
 }
 
 #[tauri::command]
-pub async fn get_sync_status(
-    _connection_id: String,
-) -> Result<Option<SyncStatusInfo>, CoreError> {
+pub async fn get_sync_status(_connection_id: String) -> Result<Option<SyncStatusInfo>, CoreError> {
     Ok(None)
 }

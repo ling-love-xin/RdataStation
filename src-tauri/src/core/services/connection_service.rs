@@ -246,15 +246,14 @@ impl ConnectionService {
         })?;
 
         let encrypted_password = match password {
-            Some(p) if !p.is_empty() => Some(
-                crate::core::crypto::encrypt_password(p)
-                    .map_err(|e| {
-                        CoreError::common(crate::core::error::CommonError::Internal(format!(
-                            "Password encryption failed: {}",
-                            e
-                        )))
-                    })?
-            ),
+            Some(p) if !p.is_empty() => {
+                Some(crate::core::crypto::encrypt_password(p).map_err(|e| {
+                    CoreError::common(crate::core::error::CommonError::Internal(format!(
+                        "Password encryption failed: {}",
+                        e
+                    )))
+                })?)
+            }
             _ => password.map(|p| p.to_string()),
         };
 
@@ -268,6 +267,13 @@ impl ConnectionService {
                 encrypted_password.as_deref(),
                 tags,
                 server_version,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
             )
             .await
     }

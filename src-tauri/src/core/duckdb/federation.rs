@@ -1,6 +1,6 @@
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 
 use duckdb::Connection;
 
@@ -54,10 +54,20 @@ impl DataSourceConfig {
     }
 
     /// 创建 MySQL 数据源配置
-    pub fn mysql(alias: &str, host: &str, port: u16, database: &str, user: &str, password: &str) -> Self {
+    pub fn mysql(
+        alias: &str,
+        host: &str,
+        port: u16,
+        database: &str,
+        user: &str,
+        password: &str,
+    ) -> Self {
         let encoded_user = utf8_percent_encode(user, NON_ALPHANUMERIC).to_string();
         let encoded_pass = utf8_percent_encode(password, NON_ALPHANUMERIC).to_string();
-        let connection_string = format!("mysql://{}:{}@{}:{}/{}", encoded_user, encoded_pass, host, port, database);
+        let connection_string = format!(
+            "mysql://{}:{}@{}:{}/{}",
+            encoded_user, encoded_pass, host, port, database
+        );
         DataSourceConfig {
             source_type: DataSourceType::MySQL,
             connection_string,
@@ -67,10 +77,20 @@ impl DataSourceConfig {
     }
 
     /// 创建 PostgreSQL 数据源配置
-    pub fn postgres(alias: &str, host: &str, port: u16, database: &str, user: &str, password: &str) -> Self {
+    pub fn postgres(
+        alias: &str,
+        host: &str,
+        port: u16,
+        database: &str,
+        user: &str,
+        password: &str,
+    ) -> Self {
         let encoded_user = utf8_percent_encode(user, NON_ALPHANUMERIC).to_string();
         let encoded_pass = utf8_percent_encode(password, NON_ALPHANUMERIC).to_string();
-        let connection_string = format!("postgresql://{}:{}@{}:{}/{}", encoded_user, encoded_pass, host, port, database);
+        let connection_string = format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            encoded_user, encoded_pass, host, port, database
+        );
         DataSourceConfig {
             source_type: DataSourceType::PostgreSQL,
             connection_string,
@@ -157,10 +177,7 @@ impl FederationManager {
             CoreError::common(CommonError::General(format!("ATTACH 数据源失败: {}", e)))
         })?;
 
-        sources.insert(
-            alias.clone(),
-            DataSourceConfig::duckdb(&alias, ""),
-        );
+        sources.insert(alias.clone(), DataSourceConfig::duckdb(&alias, ""));
 
         tracing::info!("[FederationManager] ATTACH 数据源: {}", alias);
         Ok(())
@@ -175,7 +192,11 @@ impl FederationManager {
     /// # 返回
     /// - `Ok(())`: 挂载成功
     /// - `Err(CoreError)`: 挂载失败
-    pub fn attach_data_source(&self, conn: &Connection, config: &DataSourceConfig) -> Result<(), CoreError> {
+    pub fn attach_data_source(
+        &self,
+        conn: &Connection,
+        config: &DataSourceConfig,
+    ) -> Result<(), CoreError> {
         let sql = Self::generate_attach_sql(config);
         self.attach_sql(conn, &sql)
     }
@@ -312,7 +333,11 @@ impl FederationManager {
     ///
     /// # 返回
     /// CREATE TABLE AS SELECT 语句
-    pub fn generate_materialize_sql(source_alias: &str, remote_table: &str, local_table: &str) -> String {
+    pub fn generate_materialize_sql(
+        source_alias: &str,
+        remote_table: &str,
+        local_table: &str,
+    ) -> String {
         format!(
             "CREATE TABLE {} AS SELECT * FROM {}.{}",
             local_table, source_alias, remote_table
@@ -324,8 +349,8 @@ impl FederationManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use std::fs;
+    use std::path::PathBuf;
 
     fn setup_test_db() -> (Connection, PathBuf) {
         use std::time::{SystemTime, UNIX_EPOCH};
@@ -356,7 +381,8 @@ mod tests {
 
     #[test]
     fn test_data_source_config_mysql() {
-        let config = DataSourceConfig::mysql("mysql_src", "localhost", 3306, "mydb", "user", "pass");
+        let config =
+            DataSourceConfig::mysql("mysql_src", "localhost", 3306, "mydb", "user", "pass");
         assert_eq!(config.source_type, DataSourceType::MySQL);
         assert!(config.connection_string.contains("mysql://"));
         assert!(config.connection_string.contains("localhost"));
@@ -364,7 +390,8 @@ mod tests {
 
     #[test]
     fn test_data_source_config_postgres() {
-        let config = DataSourceConfig::postgres("pg_src", "localhost", 5432, "mydb", "user", "pass");
+        let config =
+            DataSourceConfig::postgres("pg_src", "localhost", 5432, "mydb", "user", "pass");
         assert_eq!(config.source_type, DataSourceType::PostgreSQL);
         assert!(config.connection_string.contains("postgresql://"));
     }
@@ -377,22 +404,19 @@ mod tests {
         assert!(federation.list_attached().is_empty());
 
         // ATTACH 另一个 DuckDB 文件
-        let temp_attach_db = std::env::temp_dir().join(format!("test_attach_source_{}.duckdb", std::process::id()));
+        let temp_attach_db =
+            std::env::temp_dir().join(format!("test_attach_source_{}.duckdb", std::process::id()));
         let _ = fs::remove_file(&temp_attach_db);
         let _source_conn = Connection::open(&temp_attach_db).expect("创建源数据库");
         drop(_source_conn);
 
         let sql = format!("ATTACH '{}' AS global", temp_attach_db.display());
-        federation
-            .attach_sql(&conn, &sql)
-            .expect("ATTACH 成功");
+        federation.attach_sql(&conn, &sql).expect("ATTACH 成功");
         assert_eq!(federation.list_attached().len(), 1);
         assert!(federation.is_attached("global"));
 
         // 重复 ATTACH 应失败
-        assert!(federation
-            .attach_sql(&conn, &sql)
-            .is_err());
+        assert!(federation.attach_sql(&conn, &sql).is_err());
 
         // DETACH
         federation.detach(&conn, "global").expect("DETACH 成功");
@@ -422,7 +446,8 @@ mod tests {
         let federation = FederationManager::new();
 
         let temp_db1 = std::env::temp_dir().join(format!("test_attach_db1_{}.duckdb", timestamp));
-        let temp_db2 = std::env::temp_dir().join(format!("test_attach_db2_{}.duckdb", timestamp + 1));
+        let temp_db2 =
+            std::env::temp_dir().join(format!("test_attach_db2_{}.duckdb", timestamp + 1));
         let _ = fs::remove_file(&temp_db1);
         let _ = fs::remove_file(&temp_db2);
         let _ = Connection::open(&temp_db1);
@@ -447,15 +472,16 @@ mod tests {
 
     #[test]
     fn test_parse_attach_alias() {
-        let alias = FederationManager::parse_attach_alias("ATTACH '/path/to/global.duckdb' AS global")
-            .expect("解析成功");
+        let alias =
+            FederationManager::parse_attach_alias("ATTACH '/path/to/global.duckdb' AS global")
+                .expect("解析成功");
         assert_eq!(alias, "global");
     }
 
     #[test]
     fn test_parse_attach_alias_without_as() {
-        let alias = FederationManager::parse_attach_alias("ATTACH '/path/to/db.duckdb'")
-            .expect("解析成功");
+        let alias =
+            FederationManager::parse_attach_alias("ATTACH '/path/to/db.duckdb'").expect("解析成功");
         assert_eq!(alias, "attached");
     }
 

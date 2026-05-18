@@ -23,6 +23,14 @@ pub struct ProjectConnection {
     pub use_duckdb_fed: bool,
     pub metadata_path: Option<String>,
     pub is_active: bool,
+    pub server_version: Option<String>,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -45,8 +53,10 @@ impl ProjectConnectionStore {
             .execute(
                 "INSERT INTO connections (
                 id, name, driver, host, port, database, schema_name, username, password_encrypted,
-                options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                options, tags, use_duckdb_fed, metadata_path, is_active,
+                server_version, description, driver_id, environment_id, auth_config_id,
+                network_config_id, driver_properties, advanced_options, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
                 rusqlite::params![
                     conn.id,
                     conn.name,
@@ -62,6 +72,14 @@ impl ProjectConnectionStore {
                     conn.use_duckdb_fed,
                     conn.metadata_path,
                     conn.is_active,
+                    conn.server_version,
+                    conn.description,
+                    conn.driver_id,
+                    conn.environment_id,
+                    conn.auth_config_id,
+                    conn.network_config_id,
+                    conn.driver_properties,
+                    conn.advanced_options,
                     conn.created_at,
                     conn.updated_at
                 ],
@@ -84,12 +102,18 @@ impl ProjectConnectionStore {
             "UPDATE connections SET
                 name = ?2, driver = ?3, host = ?4, port = ?5, database = ?6,
                 schema_name = ?7, username = ?8, password_encrypted = ?9, options = ?10,
-                tags = ?11, use_duckdb_fed = ?12, metadata_path = ?13, is_active = ?14, updated_at = ?15
+                tags = ?11, use_duckdb_fed = ?12, metadata_path = ?13, is_active = ?14,
+                server_version = ?15, description = ?16, driver_id = ?17, environment_id = ?18,
+                auth_config_id = ?19, network_config_id = ?20, driver_properties = ?21,
+                advanced_options = ?22, updated_at = ?23
             WHERE id = ?1",
             rusqlite::params![
                 conn.id, conn.name, conn.driver, conn.host, conn.port, conn.database,
                 conn.schema_name, conn.username, conn.password_encrypted, conn.options, conn.tags,
-                conn.use_duckdb_fed, conn.metadata_path, conn.is_active, conn.updated_at
+                conn.use_duckdb_fed, conn.metadata_path, conn.is_active,
+                conn.server_version, conn.description, conn.driver_id, conn.environment_id,
+                conn.auth_config_id, conn.network_config_id, conn.driver_properties,
+                conn.advanced_options, conn.updated_at
             ],
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -122,7 +146,9 @@ impl ProjectConnectionStore {
 
         let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
-                    options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
+                    options, tags, use_duckdb_fed, metadata_path, is_active,
+                    server_version, description, driver_id, environment_id, auth_config_id,
+                    network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections WHERE id = ?1"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -146,8 +172,16 @@ impl ProjectConnectionStore {
                 use_duckdb_fed: row.get(11)?,
                 metadata_path: row.get(12)?,
                 is_active: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+                server_version: row.get(14)?,
+                description: row.get(15)?,
+                driver_id: row.get(16)?,
+                environment_id: row.get(17)?,
+                auth_config_id: row.get(18)?,
+                network_config_id: row.get(19)?,
+                driver_properties: row.get(20)?,
+                advanced_options: row.get(21)?,
+                created_at: row.get(22)?,
+                updated_at: row.get(23)?,
             })
         });
 
@@ -167,7 +201,9 @@ impl ProjectConnectionStore {
 
         let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
-                    options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
+                    options, tags, use_duckdb_fed, metadata_path, is_active,
+                    server_version, description, driver_id, environment_id, auth_config_id,
+                    network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections ORDER BY updated_at DESC"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -192,8 +228,16 @@ impl ProjectConnectionStore {
                     use_duckdb_fed: row.get(11)?,
                     metadata_path: row.get(12)?,
                     is_active: row.get(13)?,
-                    created_at: row.get(14)?,
-                    updated_at: row.get(15)?,
+                    server_version: row.get(14)?,
+                    description: row.get(15)?,
+                    driver_id: row.get(16)?,
+                    environment_id: row.get(17)?,
+                    auth_config_id: row.get(18)?,
+                    network_config_id: row.get(19)?,
+                    driver_properties: row.get(20)?,
+                    advanced_options: row.get(21)?,
+                    created_at: row.get(22)?,
+                    updated_at: row.get(23)?,
                 })
             })
             .map_err(|e| {
@@ -221,7 +265,9 @@ impl ProjectConnectionStore {
 
         let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
-                    options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
+                    options, tags, use_duckdb_fed, metadata_path, is_active,
+                    server_version, description, driver_id, environment_id, auth_config_id,
+                    network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections WHERE driver = ?1 ORDER BY updated_at DESC"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -246,8 +292,16 @@ impl ProjectConnectionStore {
                     use_duckdb_fed: row.get(11)?,
                     metadata_path: row.get(12)?,
                     is_active: row.get(13)?,
-                    created_at: row.get(14)?,
-                    updated_at: row.get(15)?,
+                    server_version: row.get(14)?,
+                    description: row.get(15)?,
+                    driver_id: row.get(16)?,
+                    environment_id: row.get(17)?,
+                    auth_config_id: row.get(18)?,
+                    network_config_id: row.get(19)?,
+                    driver_properties: row.get(20)?,
+                    advanced_options: row.get(21)?,
+                    created_at: row.get(22)?,
+                    updated_at: row.get(23)?,
                 })
             })
             .map_err(|e| {
@@ -296,7 +350,9 @@ impl ProjectConnectionStore {
 
         let mut stmt = sqlite.inner()?.prepare(
             "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted,
-                    options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at
+                    options, tags, use_duckdb_fed, metadata_path, is_active,
+                    server_version, description, driver_id, environment_id, auth_config_id,
+                    network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections 
              WHERE name LIKE ?1 OR host LIKE ?1 OR database LIKE ?1
              ORDER BY updated_at DESC"
@@ -323,8 +379,16 @@ impl ProjectConnectionStore {
                     use_duckdb_fed: row.get(11)?,
                     metadata_path: row.get(12)?,
                     is_active: row.get(13)?,
-                    created_at: row.get(14)?,
-                    updated_at: row.get(15)?,
+                    server_version: row.get(14)?,
+                    description: row.get(15)?,
+                    driver_id: row.get(16)?,
+                    environment_id: row.get(17)?,
+                    auth_config_id: row.get(18)?,
+                    network_config_id: row.get(19)?,
+                    driver_properties: row.get(20)?,
+                    advanced_options: row.get(21)?,
+                    created_at: row.get(22)?,
+                    updated_at: row.get(23)?,
                 })
             })
             .map_err(|e| {
@@ -342,5 +406,91 @@ impl ProjectConnectionStore {
                 reason: e.to_string(),
             })
         })
+    }
+
+    /// 为当前项目启用一个驱动（写入 project_drivers 表）
+    pub async fn enable_driver(&self, driver_id: &str) -> Result<(), CoreError> {
+        let sqlite = self.db_manager.sqlite_pool().acquire().await?;
+
+        sqlite.inner()?.execute(
+            "INSERT OR REPLACE INTO project_drivers (id, driver_id, enabled, installed_at)
+             VALUES (?1, ?2, 1, CURRENT_TIMESTAMP)",
+            rusqlite::params![uuid::Uuid::new_v4().to_string(), driver_id],
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "enable_driver".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(())
+    }
+
+    /// 为当前项目禁用一个驱动（软操作：设置 enabled=0）
+    pub async fn disable_driver(&self, driver_id: &str) -> Result<(), CoreError> {
+        let sqlite = self.db_manager.sqlite_pool().acquire().await?;
+
+        sqlite.inner()?.execute(
+            "UPDATE project_drivers SET enabled = 0 WHERE driver_id = ?1",
+            rusqlite::params![driver_id],
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "disable_driver".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        Ok(())
+    }
+
+    /// 检查驱动是否在当前项目中启用
+    pub async fn is_driver_enabled(&self, driver_id: &str) -> Result<bool, CoreError> {
+        let sqlite = self.db_manager.sqlite_pool().acquire().await?;
+
+        let enabled: bool = sqlite.inner()?.query_row(
+            "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
+            rusqlite::params![driver_id],
+            |row| row.get::<_, i32>(0).map(|v| v != 0),
+        ).unwrap_or(false);
+
+        Ok(enabled)
+    }
+
+    /// 列出当前项目中所有已启用的驱动 ID
+    pub async fn list_enabled_drivers(&self) -> Result<Vec<String>, CoreError> {
+        let sqlite = self.db_manager.sqlite_pool().acquire().await?;
+
+        let mut stmt = sqlite.inner()?.prepare(
+            "SELECT driver_id FROM project_drivers WHERE enabled = 1"
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "prepare_list_enabled_drivers".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let drivers: Vec<String> = stmt.query_map([], |row| row.get(0))
+            .map_err(|e| CoreError::Storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "query_enabled_drivers".to_string(),
+                reason: e.to_string(),
+            }))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(drivers)
+    }
+
+    /// 为新项目种子 4 个内置 Native 驱动
+    pub async fn seed_default_drivers(&self) -> Result<(), CoreError> {
+        let defaults = [
+            "mysql-native",
+            "postgres-native",
+            "sqlite-native",
+            "duckdb-native",
+        ];
+        for driver_id in defaults {
+            if !self.is_driver_enabled(driver_id).await? {
+                self.enable_driver(driver_id).await?;
+            }
+        }
+        Ok(())
     }
 }

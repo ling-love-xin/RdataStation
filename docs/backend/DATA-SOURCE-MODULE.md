@@ -1,8 +1,10 @@
 # 新增数据源模块：后端架构 · 设计 · 开发 · 接口文档
 
-> 版本：v1.0
+> 版本：v1.2
 > 初稿日期：2026-05-18
+> 更新时间：2026-05-18（第二轮修复完成：命令接口参数补全 + 连接字段扩展 + 项目驱动自检）
 > 对应后端版本：R25+
+> 实现状态：✅ 基本完成（仅剩 install_driver 下载 + 前端集成）
 
 ---
 
@@ -1025,3 +1027,51 @@ Tauri Command: create_connection
 | 后端架构 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | 迁移系统 | [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md) |
 | 项目模块架构 | [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md) |
+
+---
+
+## 十、实现状态
+
+### 10.1 已完成的文件
+
+| 类型 | 文件 | 说明 |
+|------|------|------|
+| Migration | `migrations/global/008_add_data_source_module.sql` | 全局新表 + 种子数据 + global_connections 扩展 |
+| Migration | `migrations/project_meta/010_add_data_source_module.sql` | 项目新表 + project_drivers + connections 扩展 |
+| Store | `core/persistence/driver_store.rs` | DataSourceType/Driver/DriverFile 结构体 + CRUD |
+| Store | `core/persistence/env_store.rs` | Environment/EnvironmentPolicy 结构体 + CRUD |
+| Store | `core/persistence/auth_store.rs` | AuthConfig 结构体 + CRUD |
+| Store | `core/persistence/network_store.rs` | NetworkConfig 结构体 + CRUD |
+| Service | `core/services/driver_service.rs` | DriverService + DriverAvailability + MissingDriver |
+| Command | `commands/data_source_commands.rs` | 24 个 Tauri Commands（新增 18 个环境/策略/认证/网络/项目驱动命令） |
+| Model | `core/driver/registry/descriptors.rs` | DriverDescriptor +4 字段 (icon/capabilities/supported_auth_types/enabled) |
+| Model | `core/persistence/global_db.rs` | GlobalConnectionInfo +8 字段 + 24 个新 CRUD 方法 |
+| Model | `core/persistence/project_connection_store.rs` | ProjectConnection +8 字段 + project_drivers CRUD + seed_default_drivers |
+| Registry | `core/persistence/mod.rs` | 注册 4 个新子模块 |
+| Registry | `commands/mod.rs` | 注册 data_source_commands |
+| Registry | `core/services/mod.rs` | 注册 driver_service |
+| Registry | `lib.rs` | 24 个新 Tauri Command 登记 |
+| Integration | `commands/project_store_commands.rs` | ProjectConnectionResponse 扩展 |
+| Integration | `core/services/connection_service.rs` | save_global_connection 参数扩展 |
+| Integration | `commands/connection_commands.rs` | ConnectDatabaseInput/ConnectionInfoResponse/GlobalConnectionInfoResponse 扩展 +7 新字段 |
+| Integration | `core/project/store.rs` | check_project_missing_drivers 异步自检函数 |
+
+### 10.2 编译状态
+
+- ✅ `cargo check` 通过，零错误零警告
+
+### 10.3 后续待完成（按优先级）
+
+| 优先级 | 任务 | 说明 |
+|--------|------|------|
+| 🟡 P1 | `install_driver` 实际下载逻辑 | 当前为占位实现，需实现实际的 .jar/.wasm 下载 + SHA256 checksum 校验 + 写入驱动目录 + 注册到 driver_files |
+| 🟡 P1 | 前端集成 | 按 API 文档实现前端 UI |
+
+### 10.4 架构红线合规
+
+- ✅ 无 unwrap/expect
+- ✅ Services 层只调用 connection/driver，不直接碰 datasource
+- ✅ Pool 只负责连接，不负责 SQL 执行
+- ✅ mod.rs 无测试代码
+- ✅ 跨 DB 引用使用 Rust 层校验
+- ✅ 纯函数模式：四个新 store 零代码重复

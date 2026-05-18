@@ -71,19 +71,9 @@ impl MinicatalogDbType {
     /// 获取该数据库类型的内建系统 Schema 列表
     pub fn system_schemas(&self) -> &[&str] {
         match self {
-            Self::MySQL => &[
-                "information_schema",
-                "mysql",
-                "performance_schema",
-                "sys",
-            ],
-            Self::PostgreSQL => &[
-                "pg_catalog",
-                "information_schema",
-            ],
-            Self::SQLite => &[
-                "main",
-            ],
+            Self::MySQL => &["information_schema", "mysql", "performance_schema", "sys"],
+            Self::PostgreSQL => &["pg_catalog", "information_schema"],
+            Self::SQLite => &["main"],
         }
     }
 }

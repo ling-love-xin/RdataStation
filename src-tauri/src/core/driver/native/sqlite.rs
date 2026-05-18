@@ -327,20 +327,13 @@ impl Database for SqliteDatabase {
                  WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' \
                  ORDER BY name",
             )
-            .map_err(|e| {
-                CoreError::database(DatabaseError::query("list_tables", e.to_string()))
-            })?;
+            .map_err(|e| CoreError::database(DatabaseError::query("list_tables", e.to_string())))?;
 
         let rows = stmt
             .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                ))
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })
-            .map_err(|e| {
-                CoreError::database(DatabaseError::query("list_tables", e.to_string()))
-            })?;
+            .map_err(|e| CoreError::database(DatabaseError::query("list_tables", e.to_string())))?;
 
         let mut objects = Vec::new();
         for row in rows {
@@ -390,12 +383,12 @@ impl Database for SqliteDatabase {
         let rows = stmt
             .query_map([], |row| {
                 Ok((
-                    row.get::<_, i32>(0)?, // cid
-                    row.get::<_, String>(1)?, // name
-                    row.get::<_, String>(2)?, // type
-                    row.get::<_, i32>(3)?, // notnull
+                    row.get::<_, i32>(0)?,            // cid
+                    row.get::<_, String>(1)?,         // name
+                    row.get::<_, String>(2)?,         // type
+                    row.get::<_, i32>(3)?,            // notnull
                     row.get::<_, Option<String>>(4)?, // dflt_value
-                    row.get::<_, i32>(5)?, // pk
+                    row.get::<_, i32>(5)?,            // pk
                 ))
             })
             .map_err(|e| {
@@ -686,14 +679,18 @@ mod tests {
     async fn test_sqlite_query() {
         let path = temp_db_path("query");
         let db = SqliteDatabase::new(&path).unwrap();
-        db.query("SELECT sqlite_version() AS version").await.unwrap();
+        db.query("SELECT sqlite_version() AS version")
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
     async fn test_sqlite_transaction_commit() {
         let path = temp_db_path("tx_commit");
         let db = SqliteDatabase::new(&path).unwrap();
-        db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)").await.unwrap();
+        db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)")
+            .await
+            .unwrap();
 
         let mut tx = db.begin_transaction().await.unwrap();
         tx.query("INSERT INTO t VALUES (1)").await.unwrap();
@@ -707,13 +704,18 @@ mod tests {
     async fn test_sqlite_transaction_rollback() {
         let path = temp_db_path("tx_rollback");
         let db = SqliteDatabase::new(&path).unwrap();
-        db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)").await.unwrap();
+        db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)")
+            .await
+            .unwrap();
 
         let mut tx = db.begin_transaction().await.unwrap();
         tx.query("INSERT INTO t VALUES (999)").await.unwrap();
         tx.rollback().await.unwrap();
 
-        let result = db.query("SELECT COUNT(*) AS cnt FROM t WHERE id = 999").await.unwrap();
+        let result = db
+            .query("SELECT COUNT(*) AS cnt FROM t WHERE id = 999")
+            .await
+            .unwrap();
         if let Some(batch) = result.batches.first() {
             assert_eq!(batch.num_rows(), 1);
         }

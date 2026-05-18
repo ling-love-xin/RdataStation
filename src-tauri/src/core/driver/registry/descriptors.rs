@@ -173,6 +173,10 @@ pub struct DriverDescriptor {
     pub fields: Vec<DriverField>,
     /// 额外选项
     pub extra_options: Vec<DriverOption>,
+    pub icon: Option<String>,
+    pub enabled: bool,
+    pub capabilities: Vec<String>,
+    pub supported_auth_types: Vec<String>,
 }
 
 impl DriverDescriptor {
@@ -195,6 +199,10 @@ impl DriverDescriptor {
             fields: Vec::new(),
             extra_options: Vec::new(),
             category: String::new(),
+            icon: None,
+            enabled: true,
+            capabilities: Vec::new(),
+            supported_auth_types: Vec::new(),
         }
     }
 
@@ -227,6 +235,10 @@ impl DriverDescriptor {
             fields: Vec::new(),
             extra_options: Vec::new(),
             category: String::new(),
+            icon: None,
+            enabled: true,
+            capabilities: Vec::new(),
+            supported_auth_types: Vec::new(),
         }
     }
 
@@ -301,6 +313,26 @@ impl DriverDescriptor {
         self.extra_options.push(option);
         self
     }
+
+    pub fn with_icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
+
+    pub fn with_capabilities(mut self, caps: Vec<String>) -> Self {
+        self.capabilities = caps;
+        self
+    }
+
+    pub fn with_supported_auth_types(mut self, types: Vec<String>) -> Self {
+        self.supported_auth_types = types;
+        self
+    }
+
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
 }
 
 // =============================================================================
@@ -320,6 +352,16 @@ pub fn mysql_driver() -> DriverDescriptor {
         .with_http_proxy_support()
         .with_socks_proxy_support()
         .with_url_template("mysql://{username}:{password}@{host}:{port}/{database}")
+        .with_icon("\u{1F42C}")
+        .with_capabilities(vec![
+            "tree".to_string(),
+            "health_check".to_string(),
+            "transactions".to_string(),
+            "index_analysis".to_string(),
+            "sql_autocomplete".to_string(),
+            "table_editor".to_string(),
+        ])
+        .with_supported_auth_types(vec!["password".to_string(), "ssl".to_string()])
         .with_field(DriverField {
             key: "host".to_string(),
             label: "主机".to_string(),
@@ -389,6 +431,21 @@ pub fn postgres_driver() -> DriverDescriptor {
         .with_http_proxy_support()
         .with_socks_proxy_support()
         .with_url_template("postgres://{username}:{password}@{host}:{port}/{database}")
+        .with_icon("\u{1F418}")
+        .with_capabilities(vec![
+            "tree".to_string(),
+            "health_check".to_string(),
+            "transactions".to_string(),
+            "index_analysis".to_string(),
+            "sql_autocomplete".to_string(),
+            "schema_browser".to_string(),
+            "table_editor".to_string(),
+        ])
+        .with_supported_auth_types(vec![
+            "password".to_string(),
+            "ssl".to_string(),
+            "kerberos".to_string(),
+        ])
         .with_field(DriverField {
             key: "host".to_string(),
             label: "主机".to_string(),
@@ -454,6 +511,15 @@ pub fn sqlite_driver() -> DriverDescriptor {
         .with_target_database("sqlite")
         .requires_file()
         .with_url_template("sqlite://{file_path}")
+        .with_icon("\u{1FAB6}")
+        .with_capabilities(vec![
+            "tree".to_string(),
+            "health_check".to_string(),
+            "transactions".to_string(),
+            "sql_autocomplete".to_string(),
+            "table_editor".to_string(),
+        ])
+        .with_supported_auth_types(vec!["password".to_string()])
         .with_field(DriverField {
             key: "file_path".to_string(),
             label: "数据库文件".to_string(),
@@ -480,6 +546,16 @@ pub fn duckdb_driver() -> DriverDescriptor {
         .with_target_database("duckdb")
         .requires_file()
         .with_url_template("duckdb://{file_path}")
+        .with_icon("\u{1F986}")
+        .with_capabilities(vec![
+            "tree".to_string(),
+            "health_check".to_string(),
+            "sql_autocomplete".to_string(),
+            "analytics".to_string(),
+            "federation".to_string(),
+            "table_editor".to_string(),
+        ])
+        .with_supported_auth_types(vec!["password".to_string()])
         .with_field(DriverField {
             key: "file_path".to_string(),
             label: "数据库文件".to_string(),

@@ -157,11 +157,7 @@ impl TempTableManager {
             for table_name in &tables_to_drop {
                 let sql = format!("DROP TABLE IF EXISTS {}", table_name);
                 if let Err(e) = conn.execute(&sql, []) {
-                    tracing::warn!(
-                        "[TempTableManager] 清理临时表 {} 失败: {}",
-                        table_name,
-                        e
-                    );
+                    tracing::warn!("[TempTableManager] 清理临时表 {} 失败: {}", table_name, e);
                 }
             }
         }
@@ -202,10 +198,7 @@ impl TempTableManager {
     /// # 注意
     /// 注册时触发洞察中间表的惰性清理
     pub fn register(&self, table_name: &str) {
-        let mut registry = self
-            .registry
-            .write()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut registry = self.registry.write().unwrap_or_else(|e| e.into_inner());
         registry.insert(table_name.to_string(), Instant::now());
         drop(registry);
 
@@ -228,10 +221,7 @@ impl TempTableManager {
     /// # 返回
     /// 当前注册的临时表总数
     pub fn count(&self) -> usize {
-        self.registry
-            .read()
-            .map(|r| r.len())
-            .unwrap_or(0)
+        self.registry.read().map(|r| r.len()).unwrap_or(0)
     }
 
     /// 获取指定前缀的临时表数量。
@@ -258,10 +248,7 @@ impl TempTableManager {
         let config = TempTableConfig::insight();
         let prefix = "tmp_i_";
 
-        let mut registry = self
-            .registry
-            .write()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut registry = self.registry.write().unwrap_or_else(|e| e.into_inner());
 
         let now = Instant::now();
         let mut cleaned = Vec::new();
@@ -318,10 +305,7 @@ impl TempTableManager {
     /// # 返回
     /// 被清理的表名列表
     pub fn cleanup_by_prefix(&self, prefix: &str) -> Vec<String> {
-        let mut registry = self
-            .registry
-            .write()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut registry = self.registry.write().unwrap_or_else(|e| e.into_inner());
 
         let tables_to_remove: Vec<_> = registry
             .keys()
@@ -341,10 +325,7 @@ impl TempTableManager {
     /// # 返回
     /// 被清理的表名列表
     pub fn cleanup_all(&self) -> Vec<String> {
-        let mut registry = self
-            .registry
-            .write()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut registry = self.registry.write().unwrap_or_else(|e| e.into_inner());
 
         let tables: Vec<_> = registry.keys().cloned().collect();
         registry.clear();
@@ -473,7 +454,9 @@ mod tests {
 
         // 插入过期表
         let mut registry = manager.registry.write().unwrap();
-        let expired_time = Instant::now().checked_sub(Duration::from_secs(1801)).unwrap();
+        let expired_time = Instant::now()
+            .checked_sub(Duration::from_secs(1801))
+            .unwrap();
         registry.insert("tmp_i_expired_20260512140000".to_string(), expired_time);
         registry.insert("tmp_i_fresh_20260512143000".to_string(), Instant::now());
         drop(registry);

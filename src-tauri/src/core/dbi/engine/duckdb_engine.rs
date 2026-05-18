@@ -202,9 +202,11 @@ impl DuckDBEngine {
     pub fn conn(&self) -> Result<duckdb::Connection, CoreError> {
         let _arc = crate::core::DuckDBManager::get_or_create_in_memory()?;
         // 返回连接的克隆（duckdb::Connection 不实现 Clone，需要重新打开）
-        Err(crate::core::error::CoreError::common(crate::core::error::CommonError::General(
-            "DuckDB in-memory connection cannot be returned by value".to_string(),
-        )))
+        Err(crate::core::error::CoreError::common(
+            crate::core::error::CommonError::General(
+                "DuckDB in-memory connection cannot be returned by value".to_string(),
+            ),
+        ))
     }
 
     /// 创建带持久化路径的 DuckDB 引擎

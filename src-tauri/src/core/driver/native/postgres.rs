@@ -316,7 +316,9 @@ impl Database for PostgresDatabase {
                    JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
                    WHERE n.nspname = $1 AND p.prokind = 'p' \
                    ORDER BY p.proname";
-        let result = self.query_with_params(sql, vec![Value::Text(schema_name.to_string())]).await?;
+        let result = self
+            .query_with_params(sql, vec![Value::Text(schema_name.to_string())])
+            .await?;
         Ok(names_to_schema_objects(
             &result,
             SchemaObjectKind::Procedure,
@@ -333,7 +335,9 @@ impl Database for PostgresDatabase {
                    JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
                    WHERE n.nspname = $1 AND p.prokind = 'f' \
                    ORDER BY p.proname";
-        let result = self.query_with_params(sql, vec![Value::Text(schema_name.to_string())]).await?;
+        let result = self
+            .query_with_params(sql, vec![Value::Text(schema_name.to_string())])
+            .await?;
         Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
     }
 
@@ -355,11 +359,16 @@ impl Database for PostgresDatabase {
              FROM pg_catalog.pg_proc p \
              JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid \
              WHERE n.nspname = $1 AND p.proname = $2 AND p.prokind = $3";
-        let result = self.query_with_params(sql, vec![
-            Value::Text(schema_name.to_string()),
-            Value::Text(name.to_string()),
-            Value::Text(prokind.to_string()),
-        ]).await?;
+        let result = self
+            .query_with_params(
+                sql,
+                vec![
+                    Value::Text(schema_name.to_string()),
+                    Value::Text(name.to_string()),
+                    Value::Text(prokind.to_string()),
+                ],
+            )
+            .await?;
         if let Some(batch) = result.batches.first() {
             if batch.num_rows() > 0 {
                 if let Some(col) = batch
@@ -581,11 +590,16 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
         ))
     }
 
-    async fn get_schemas(&self, catalog: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_schemas(
+        &self,
+        catalog: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let sql = "SELECT schema_name FROM information_schema.schemata \
                    WHERE catalog_name = $1 AND schema_name NOT IN ('pg_catalog', 'information_schema') \
                    ORDER BY schema_name";
-        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
+        let result = self
+            .query_with_params(sql, vec![Value::Text(catalog.to_string())])
+            .await?;
         Ok(rows_to_node_info(
             &result,
             crate::core::driver::SchemaObjectKind::Schema,
@@ -600,10 +614,15 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let sql = "SELECT table_name, table_type FROM information_schema.tables \
                    WHERE table_catalog = $1 AND table_schema = $2 ORDER BY table_name";
-        let result = self.query_with_params(sql, vec![
-            Value::Text(catalog.to_string()),
-            Value::Text(schema.to_string()),
-        ]).await?;
+        let result = self
+            .query_with_params(
+                sql,
+                vec![
+                    Value::Text(catalog.to_string()),
+                    Value::Text(schema.to_string()),
+                ],
+            )
+            .await?;
         let mut nodes: Vec<crate::core::driver::NodeInfo> = Vec::new();
         for row_idx in 0..result.total_rows() {
             if let Some(batch) = result.batches.first() {
@@ -652,11 +671,16 @@ impl crate::core::driver::MetadataBrowser for PostgresDatabase {
              FROM information_schema.columns \
              WHERE table_catalog = $1 AND table_schema = $2 AND table_name = $3 \
              ORDER BY ordinal_position";
-        let result = self.query_with_params(sql, vec![
-            Value::Text(catalog.to_string()),
-            Value::Text(schema.to_string()),
-            Value::Text(table.to_string()),
-        ]).await?;
+        let result = self
+            .query_with_params(
+                sql,
+                vec![
+                    Value::Text(catalog.to_string()),
+                    Value::Text(schema.to_string()),
+                    Value::Text(table.to_string()),
+                ],
+            )
+            .await?;
         let mut columns: Vec<crate::core::driver::ColumnDetail> = Vec::new();
         for row_idx in 0..result.total_rows() {
             if let Some(batch) = result.batches.first() {
@@ -788,19 +812,13 @@ mod tests {
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_connect() {
         let db = PostgresDatabase::new(PG_URL).await;
-        assert!(
-            db.is_ok(),
-            "连接 PostgreSQL 失败: {:?}",
-            db.err()
-        );
+        assert!(db.is_ok(), "连接 PostgreSQL 失败: {:?}", db.err());
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_query_select_one() {
-        let db = PostgresDatabase::new(PG_URL)
-            .await
-            .expect("连接失败");
+        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
         let result = db.query("SELECT 1 AS val").await.expect("查询失败");
         assert_eq!(result.columns, vec!["val"]);
     }
@@ -808,9 +826,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_crud_roundtrip() {
-        let db = PostgresDatabase::new(PG_URL)
-            .await
-            .expect("连接失败");
+        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
 
         db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name VARCHAR(100), value DOUBLE PRECISION)")
             .await
@@ -834,9 +850,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_error_handling() {
-        let db = PostgresDatabase::new(PG_URL)
-            .await
-            .expect("连接失败");
+        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
         assert!(result.is_err(), "应返回不存在的表错误");
     }
@@ -844,9 +858,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_list_tables() {
-        let db = PostgresDatabase::new(PG_URL)
-            .await
-            .expect("连接失败");
+        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
         let tables = db.list_tables("public", Some("public")).await;
         assert!(tables.is_ok(), "list_tables 失败: {:?}", tables.err());
     }
@@ -854,9 +866,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_meta() {
-        let db = PostgresDatabase::new(PG_URL)
-            .await
-            .expect("连接失败");
+        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
         let meta = db.meta();
         assert!(meta.supports_transaction);
     }
@@ -864,9 +874,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
     async fn test_is_read_only_flag() {
-        let db = PostgresDatabase::new(PG_URL)
-            .await
-            .expect("连接失败");
+        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
         let result = db.query("SELECT 1").await.expect("查询失败");
         assert_eq!(result.is_read_only, Some(true));
     }

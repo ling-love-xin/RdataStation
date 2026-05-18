@@ -1,4 +1,3 @@
-
 use duckdb::Connection;
 
 use crate::core::error::{CommonError, CoreError};
@@ -101,7 +100,12 @@ impl PlanNode {
         if self.children.is_empty() {
             1
         } else {
-            1 + self.children.iter().map(|c| c.max_depth()).max().unwrap_or(0)
+            1 + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or(0)
         }
     }
 }
@@ -132,16 +136,25 @@ impl ExplainAnalyzer {
         tracing::info!("[ExplainAnalyzer] EXPLAIN SQL: {}", sql);
 
         let mut stmt = conn.prepare(&sql).map_err(|e| {
-            CoreError::common(CommonError::General(format!("准备 EXPLAIN 查询失败: {}", e)))
+            CoreError::common(CommonError::General(format!(
+                "准备 EXPLAIN 查询失败: {}",
+                e
+            )))
         })?;
 
         let mut rows = stmt.query([]).map_err(|e| {
-            CoreError::common(CommonError::General(format!("执行 EXPLAIN 查询失败: {}", e)))
+            CoreError::common(CommonError::General(format!(
+                "执行 EXPLAIN 查询失败: {}",
+                e
+            )))
         })?;
 
         let mut output_lines = Vec::new();
         while let Some(row) = rows.next().map_err(|e| {
-            CoreError::common(CommonError::General(format!("获取 EXPLAIN 结果失败: {}", e)))
+            CoreError::common(CommonError::General(format!(
+                "获取 EXPLAIN 结果失败: {}",
+                e
+            )))
         })? {
             if let Ok(line) = row.get::<usize, String>(0) {
                 output_lines.push(line);
@@ -350,12 +363,7 @@ impl ExplainAnalyzer {
             PlanNodeType::Other(trimmed.to_string())
         };
 
-        Some(PlanNode::new(
-            node_type,
-            trimmed.to_string(),
-            None,
-            None,
-        ))
+        Some(PlanNode::new(node_type, trimmed.to_string(), None, None))
     }
 
     /// 格式化查询计划为可读文本。
@@ -460,7 +468,12 @@ mod tests {
 
     #[test]
     fn test_get_performance_suggestions() {
-        let plan = PlanNode::new(PlanNodeType::SeqScan, "scan".to_string(), Some(2000000.0), None);
+        let plan = PlanNode::new(
+            PlanNodeType::SeqScan,
+            "scan".to_string(),
+            Some(2000000.0),
+            None,
+        );
         let suggestions = ExplainAnalyzer::get_performance_suggestions(&plan);
 
         assert!(suggestions.iter().any(|s| s.contains("全表扫描")));
@@ -469,12 +482,7 @@ mod tests {
 
     #[test]
     fn test_format_plan() {
-        let mut root = PlanNode::new(
-            PlanNodeType::Projection,
-            "root".to_string(),
-            None,
-            None,
-        );
+        let mut root = PlanNode::new(PlanNodeType::Projection, "root".to_string(), None, None);
         let child = PlanNode::new(PlanNodeType::SeqScan, "scan".to_string(), None, None);
         root.add_child(child);
 

@@ -158,16 +158,20 @@ impl<'a> DuckDBExecutor<'a> {
     /// - `Ok(())`: 事务执行成功
     /// - `Err(CoreError)`: 事务执行失败，自动回滚
     pub fn execute_transaction(&self, sql: &str) -> Result<(), CoreError> {
-        self.manager.write_conn().execute_batch(sql).map_err(|e| {
-            CoreError::common(CommonError::General(format!("事务执行失败: {}", e)))
-        })
+        self.manager
+            .write_conn()
+            .execute_batch(sql)
+            .map_err(|e| CoreError::common(CommonError::General(format!("事务执行失败: {}", e))))
     }
 
     /// 内部：执行 SQL 查询（通用）。
     fn execute_query(conn: &Connection, sql: &str) -> Result<DuckDBResult, CoreError> {
         let trimmed = sql.trim().to_uppercase();
 
-        if trimmed.starts_with("SELECT") || trimmed.starts_with("WITH") || trimmed.starts_with("EXPLAIN") {
+        if trimmed.starts_with("SELECT")
+            || trimmed.starts_with("WITH")
+            || trimmed.starts_with("EXPLAIN")
+        {
             let mut stmt = conn.prepare(sql).map_err(|e| {
                 CoreError::common(CommonError::General(format!("准备 SQL 语句失败: {}", e)))
             })?;
@@ -206,10 +210,8 @@ impl<'a> DuckDBExecutor<'a> {
                     rows_affected: None,
                 })
             } else {
-                let batch = crate::core::driver::native::duckdb::duckdb_rows_to_arrow(
-                    &columns,
-                    &row_data,
-                )?;
+                let batch =
+                    crate::core::driver::native::duckdb::duckdb_rows_to_arrow(&columns, &row_data)?;
                 Ok(DuckDBResult {
                     columns,
                     batches: vec![batch],
@@ -241,7 +243,10 @@ impl<'a> DuckDBExecutor<'a> {
             CoreError::common(CommonError::General(format!("准备 SQL 语句失败: {}", e)))
         })?;
 
-        if trimmed.starts_with("SELECT") || trimmed.starts_with("WITH") || trimmed.starts_with("EXPLAIN") {
+        if trimmed.starts_with("SELECT")
+            || trimmed.starts_with("WITH")
+            || trimmed.starts_with("EXPLAIN")
+        {
             let columns: Vec<String> = (0..stmt.column_count())
                 .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
                 .collect();
@@ -276,10 +281,8 @@ impl<'a> DuckDBExecutor<'a> {
                     rows_affected: None,
                 })
             } else {
-                let batch = crate::core::driver::native::duckdb::duckdb_rows_to_arrow(
-                    &columns,
-                    &row_data,
-                )?;
+                let batch =
+                    crate::core::driver::native::duckdb::duckdb_rows_to_arrow(&columns, &row_data)?;
                 Ok(DuckDBResult {
                     columns,
                     batches: vec![batch],
@@ -303,11 +306,13 @@ impl<'a> DuckDBExecutor<'a> {
 // ========== 测试 ==========
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::manager::DuckDBManager;
+    use super::*;
     use std::fs;
 
-    fn setup_test_executor_unique(test_name: &str) -> (DuckDBExecutor<'static>, std::path::PathBuf) {
+    fn setup_test_executor_unique(
+        test_name: &str,
+    ) -> (DuckDBExecutor<'static>, std::path::PathBuf) {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(100);
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -361,7 +366,8 @@ mod tests {
     fn test_execute_write_create_table() {
         let (executor, db_path) = setup_test_executor();
 
-        let result = executor.execute_write("CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT)");
+        let result =
+            executor.execute_write("CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT)");
         assert!(result.is_ok());
 
         let duckdb_result = result.unwrap();
@@ -374,7 +380,9 @@ mod tests {
     fn test_execute_write_insert() {
         let (executor, db_path) = setup_test_executor();
 
-        executor.execute_write("CREATE TABLE test_insert (id INTEGER)").expect("创建表");
+        executor
+            .execute_write("CREATE TABLE test_insert (id INTEGER)")
+            .expect("创建表");
 
         let result = executor.execute_write("INSERT INTO test_insert VALUES (1), (2), (3)");
         assert!(result.is_ok());
@@ -416,14 +424,16 @@ mod tests {
     fn test_execute_read_with_params() {
         let (executor, db_path) = setup_test_executor();
 
-        executor.execute_write("CREATE TABLE test_params (id INTEGER, name TEXT)").expect("创建表");
-        executor.execute_write("INSERT INTO test_params VALUES (1, 'Alice'), (2, 'Bob')").expect("插入数据");
+        executor
+            .execute_write("CREATE TABLE test_params (id INTEGER, name TEXT)")
+            .expect("创建表");
+        executor
+            .execute_write("INSERT INTO test_params VALUES (1, 'Alice'), (2, 'Bob')")
+            .expect("插入数据");
 
         let param_value: &dyn duckdb::types::ToSql = &"Alice";
-        let result = executor.execute_read_with_params(
-            "SELECT * FROM test_params WHERE name = ?",
-            &[param_value],
-        );
+        let result = executor
+            .execute_read_with_params("SELECT * FROM test_params WHERE name = ?", &[param_value]);
         assert!(result.is_ok());
 
         let result = result.unwrap();
@@ -436,7 +446,9 @@ mod tests {
     fn test_execute_read_empty_result() {
         let (executor, db_path) = setup_test_executor();
 
-        executor.execute_write("CREATE TABLE test_empty (id INTEGER)").expect("创建表");
+        executor
+            .execute_write("CREATE TABLE test_empty (id INTEGER)")
+            .expect("创建表");
 
         let result = executor.execute_read("SELECT * FROM test_empty");
         assert!(result.is_ok());

@@ -129,14 +129,10 @@ pub use utils::{hash, string, time};
 
 // 重新导出 DuckDB 分析引擎模块
 pub use duckdb::{
-    DuckDBManager, DuckDBExecutor, DuckDBResult,
-    TempTableManager, TempTableConfig, TempTableSource,
-    FederationManager, DataSourceConfig, DataSourceType,
-    ImportExportManager, DataFormat, ImportConfig, ExportConfig,
-    FTSManager,
-    ExplainAnalyzer, PlanNode, PlanNodeType,
-    PluginManager, PluginConnection, PluginPermissionLevel,
-    ExtensionManager, ExtensionInfo, ExtensionStatus,
+    DataFormat, DataSourceConfig, DataSourceType, DuckDBExecutor, DuckDBManager, DuckDBResult,
+    ExplainAnalyzer, ExportConfig, ExtensionInfo, ExtensionManager, ExtensionStatus, FTSManager,
+    FederationManager, ImportConfig, ImportExportManager, PlanNode, PlanNodeType, PluginConnection,
+    PluginManager, PluginPermissionLevel, TempTableConfig, TempTableManager, TempTableSource,
 };
 
 // 重新导出草稿箱模块

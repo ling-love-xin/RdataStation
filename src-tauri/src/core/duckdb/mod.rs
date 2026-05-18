@@ -16,8 +16,8 @@
 //! - `metrics.rs` - 性能监控与指标采集
 //! - `snapshot.rs` - 快照与备份管理
 
-mod explain;
 mod executor;
+mod explain;
 mod extensions;
 mod federation;
 mod fts;
@@ -29,8 +29,8 @@ mod snapshot;
 mod temp_table;
 
 // 导出所有核心类型
-pub use explain::{ExplainAnalyzer, PlanNode, PlanNodeType};
 pub use executor::{DuckDBExecutor, DuckDBResult};
+pub use explain::{ExplainAnalyzer, PlanNode, PlanNodeType};
 pub use extensions::{ExtensionInfo, ExtensionManager, ExtensionStatus};
 pub use federation::{DataSourceConfig, DataSourceType, FederationManager};
 pub use fts::FTSManager;

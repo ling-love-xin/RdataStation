@@ -159,9 +159,8 @@ impl ExtensionManager {
         let sql = Self::generate_install_sql(name);
         tracing::info!("[ExtensionManager] 安装扩展 SQL: {}", sql);
 
-        conn.execute_batch(&sql).map_err(|e| {
-            CoreError::common(CommonError::General(format!("安装扩展失败: {}", e)))
-        })?;
+        conn.execute_batch(&sql)
+            .map_err(|e| CoreError::common(CommonError::General(format!("安装扩展失败: {}", e))))?;
 
         // 更新缓存状态
         self.register_extension(ExtensionInfo::new(name, ExtensionStatus::Installed, true));
@@ -186,9 +185,8 @@ impl ExtensionManager {
         let sql = Self::generate_load_sql(name);
         tracing::info!("[ExtensionManager] 加载扩展 SQL: {}", sql);
 
-        conn.execute_batch(&sql).map_err(|e| {
-            CoreError::common(CommonError::General(format!("加载扩展失败: {}", e)))
-        })?;
+        conn.execute_batch(&sql)
+            .map_err(|e| CoreError::common(CommonError::General(format!("加载扩展失败: {}", e))))?;
 
         // 更新缓存状态
         self.register_extension(ExtensionInfo::new(name, ExtensionStatus::Loaded, true));
@@ -213,9 +211,8 @@ impl ExtensionManager {
         let sql = Self::generate_unload_sql(name);
         tracing::info!("[ExtensionManager] 卸载扩展 SQL: {}", sql);
 
-        conn.execute_batch(&sql).map_err(|e| {
-            CoreError::common(CommonError::General(format!("卸载扩展失败: {}", e)))
-        })?;
+        conn.execute_batch(&sql)
+            .map_err(|e| CoreError::common(CommonError::General(format!("卸载扩展失败: {}", e))))?;
 
         // 更新缓存状态
         self.update_status(name, ExtensionStatus::Installed);
@@ -353,7 +350,14 @@ impl ExtensionManager {
     /// # 返回
     /// 按需扩展名称列表
     pub fn on_demand_extensions() -> Vec<&'static str> {
-        vec!["spatial", "excel", "httpfs", "fts", "mysql", "postgres_scanner"]
+        vec![
+            "spatial",
+            "excel",
+            "httpfs",
+            "fts",
+            "mysql",
+            "postgres_scanner",
+        ]
     }
 
     /// 按需安装并加载扩展（自动安装加载）。
@@ -390,10 +394,7 @@ impl ExtensionManager {
                 }
             },
             None => {
-                tracing::warn!(
-                    "[ExtensionManager] 扩展 '{}' 不在列表中，尝试安装",
-                    name
-                );
+                tracing::warn!("[ExtensionManager] 扩展 '{}' 不在列表中，尝试安装", name);
                 self.install_extension(conn, name)?;
                 self.load_extension(conn, name)?;
             }
@@ -421,10 +422,7 @@ impl ExtensionManager {
     /// # 返回
     /// SET extension_directory SQL
     pub fn generate_set_extension_dir_sql(&self) -> String {
-        format!(
-            "SET extension_directory = '{}'",
-            self.extension_dir
-        )
+        format!("SET extension_directory = '{}'", self.extension_dir)
     }
 
     /// 验证扩展名称是否合法。
@@ -502,7 +500,11 @@ mod tests {
     fn test_update_status() {
         let manager = ExtensionManager::new("/tmp/extensions");
 
-        manager.register_extension(ExtensionInfo::new("httpfs", ExtensionStatus::NotInstalled, true));
+        manager.register_extension(ExtensionInfo::new(
+            "httpfs",
+            ExtensionStatus::NotInstalled,
+            true,
+        ));
 
         assert!(manager.update_status("httpfs", ExtensionStatus::Installed));
         assert!(manager.update_status("httpfs", ExtensionStatus::Loaded));
@@ -541,10 +543,7 @@ mod tests {
     fn test_generate_set_extension_dir_sql() {
         let manager = ExtensionManager::new("/path/to/extensions");
         let sql = manager.generate_set_extension_dir_sql();
-        assert_eq!(
-            sql,
-            "SET extension_directory = '/path/to/extensions'"
-        );
+        assert_eq!(sql, "SET extension_directory = '/path/to/extensions'");
     }
 
     #[test]

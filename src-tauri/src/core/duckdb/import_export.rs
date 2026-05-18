@@ -111,9 +111,9 @@ impl ImportExportManager {
 
         tracing::info!("[ImportExportManager] CSV 导入 SQL: {}", create_sql);
 
-        let rows = conn.execute(&create_sql, []).map_err(|e| {
-            CoreError::common(CommonError::General(format!("CSV 导入失败: {}", e)))
-        })?;
+        let rows = conn
+            .execute(&create_sql, [])
+            .map_err(|e| CoreError::common(CommonError::General(format!("CSV 导入失败: {}", e))))?;
 
         tracing::info!(
             "[ImportExportManager] CSV 导入完成: {} 行到表 '{}'",
@@ -179,9 +179,9 @@ impl ImportExportManager {
         let sql = Self::generate_export_csv_sql(query, file_path, config);
         tracing::info!("[ImportExportManager] CSV 导出 SQL: {}", sql);
 
-        let rows = conn.execute(&sql, []).map_err(|e| {
-            CoreError::common(CommonError::General(format!("CSV 导出失败: {}", e)))
-        })?;
+        let rows = conn
+            .execute(&sql, [])
+            .map_err(|e| CoreError::common(CommonError::General(format!("CSV 导出失败: {}", e))))?;
 
         tracing::info!("[ImportExportManager] CSV 导出完成: {} 行", rows);
 
@@ -280,7 +280,10 @@ impl ImportExportManager {
         };
 
         let escaped_path = file_path.replace('\'', "''");
-        format!("SELECT * FROM read_csv_auto('{}'{})", escaped_path, options_str)
+        format!(
+            "SELECT * FROM read_csv_auto('{}'{})",
+            escaped_path, options_str
+        )
     }
 
     /// 生成导入 Parquet 的 SQL 语句。
@@ -318,7 +321,10 @@ impl ImportExportManager {
             format!(", {}", options.join(", "))
         };
 
-        format!("SELECT * FROM read_json_auto('{}'{})", file_path, options_str)
+        format!(
+            "SELECT * FROM read_json_auto('{}'{})",
+            file_path, options_str
+        )
     }
 
     /// 生成将查询结果导入到表的 SQL 语句。

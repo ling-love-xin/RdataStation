@@ -476,10 +476,14 @@ mod tests {
 
         // 高位端口应该可用
         let port = negotiator.negotiate(None).expect("协商端口失败");
-        assert!(negotiator.is_port_available(port).expect("检查端口可用性失败"));
+        assert!(negotiator
+            .is_port_available(port)
+            .expect("检查端口可用性失败"));
 
         // 分配后应该不可用
-        assert!(!negotiator.is_port_available(port).expect("检查端口可用性失败"));
+        assert!(!negotiator
+            .is_port_available(port)
+            .expect("检查端口可用性失败"));
 
         negotiator.release_port(port).expect("释放端口失败");
     }

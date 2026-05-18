@@ -130,9 +130,11 @@ impl FTSManager {
         tracing::info!("[FTSManager] FTS 搜索 SQL: {}", sql);
 
         // 执行搜索并返回匹配行数
-        let count: Option<i64> = conn.query_row(&format!("SELECT COUNT(*) FROM ({})", sql), [], |row| row.get(0)).map_err(|e| {
-            CoreError::common(CommonError::General(format!("FTS 搜索失败: {}", e)))
-        })?;
+        let count: Option<i64> = conn
+            .query_row(&format!("SELECT COUNT(*) FROM ({})", sql), [], |row| {
+                row.get(0)
+            })
+            .map_err(|e| CoreError::common(CommonError::General(format!("FTS 搜索失败: {}", e))))?;
 
         Ok(count.unwrap_or(0) as u64)
     }
@@ -215,11 +217,7 @@ impl FTSManager {
     ///     &["name", "description"]
     /// );
     /// ```
-    pub fn generate_search_sql(
-        table_name: &str,
-        _search_term: &str,
-        columns: &[&str],
-    ) -> String {
+    pub fn generate_search_sql(table_name: &str, _search_term: &str, columns: &[&str]) -> String {
         let search_conditions: Vec<String> = columns
             .iter()
             .map(|col| format!("{} MATCH ?", col))
@@ -227,10 +225,7 @@ impl FTSManager {
 
         let where_clause = search_conditions.join(" OR ");
 
-        format!(
-            "SELECT * FROM {} WHERE {}",
-            table_name, where_clause
-        )
+        format!("SELECT * FROM {} WHERE {}", table_name, where_clause)
     }
 
     /// 生成重建 FTS 索引的 SQL 语句。
@@ -298,11 +293,8 @@ mod tests {
 
     #[test]
     fn test_generate_create_index_sql() {
-        let sql = FTSManager::generate_create_index_sql(
-            "users_fts",
-            "users",
-            &["name", "description"],
-        );
+        let sql =
+            FTSManager::generate_create_index_sql("users_fts", "users", &["name", "description"]);
         assert!(sql.contains("CREATE INDEX users_fts"));
         assert!(sql.contains("ON users USING FTS"));
         assert!(sql.contains("name, description"));
@@ -316,11 +308,7 @@ mod tests {
 
     #[test]
     fn test_generate_search_sql() {
-        let sql = FTSManager::generate_search_sql(
-            "users",
-            "John Doe",
-            &["name", "description"],
-        );
+        let sql = FTSManager::generate_search_sql("users", "John Doe", &["name", "description"]);
         assert!(sql.contains("SELECT * FROM users"));
         assert!(sql.contains("name MATCH ?"));
         assert!(sql.contains("description MATCH ?"));
@@ -328,11 +316,7 @@ mod tests {
 
     #[test]
     fn test_generate_rebuild_index_sql() {
-        let sql = FTSManager::generate_rebuild_index_sql(
-            "users_fts",
-            "users",
-            &["name"],
-        );
+        let sql = FTSManager::generate_rebuild_index_sql("users_fts", "users", &["name"]);
         assert!(sql.contains("DROP INDEX"));
         assert!(sql.contains("CREATE INDEX"));
     }

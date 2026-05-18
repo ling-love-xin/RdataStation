@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 /**
  * 标准连接池模块 (Standard Pool)
  *
@@ -43,7 +44,6 @@
  * 配置通过 `StandardPoolConfig` 结构体传递到后端。
  */
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
@@ -188,7 +188,11 @@ impl StandardPool {
     /// * `name` - 池名称（通常为 conn_id）
     /// * `config` - 用户配置的连接池参数
     /// * `inner` - 底层 DbPool 实现
-    pub fn new(name: impl Into<String>, config: StandardPoolConfig, inner: Arc<dyn DbPool>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        config: StandardPoolConfig,
+        inner: Arc<dyn DbPool>,
+    ) -> Self {
         let name = name.into();
         info!(
             pool_name = %name,

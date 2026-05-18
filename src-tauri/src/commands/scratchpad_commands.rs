@@ -357,12 +357,11 @@ pub async fn watch_scratchpad(
 
                     let now = std::time::Instant::now();
                     if !pending_changes.is_empty() && now.duration_since(last_flush) >= debounce {
-                        let changes: Vec<ScratchpadChangeEntry> = std::mem::take(
-                            &mut pending_changes,
-                        )
-                        .into_iter()
-                        .map(|(path, kind)| ScratchpadChangeEntry { path, kind })
-                        .collect();
+                        let changes: Vec<ScratchpadChangeEntry> =
+                            std::mem::take(&mut pending_changes)
+                                .into_iter()
+                                .map(|(path, kind)| ScratchpadChangeEntry { path, kind })
+                                .collect();
                         let payload = ScratchpadChangeEvent { changes };
                         let _ = app.emit("scratchpad-changed", payload);
                         last_flush = now;
@@ -370,12 +369,11 @@ pub async fn watch_scratchpad(
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     if !pending_changes.is_empty() && last_flush.elapsed() >= debounce {
-                        let changes: Vec<ScratchpadChangeEntry> = std::mem::take(
-                            &mut pending_changes,
-                        )
-                        .into_iter()
-                        .map(|(path, kind)| ScratchpadChangeEntry { path, kind })
-                        .collect();
+                        let changes: Vec<ScratchpadChangeEntry> =
+                            std::mem::take(&mut pending_changes)
+                                .into_iter()
+                                .map(|(path, kind)| ScratchpadChangeEntry { path, kind })
+                                .collect();
                         let payload = ScratchpadChangeEvent { changes };
                         let _ = app.emit("scratchpad-changed", payload);
                         last_flush = std::time::Instant::now();

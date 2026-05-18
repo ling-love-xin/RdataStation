@@ -83,13 +83,15 @@ impl DuckDBMetrics {
 
     /// 记录连接创建。
     pub fn record_connection_created(&self) {
-        self.total_connections_created.fetch_add(1, Ordering::Relaxed);
+        self.total_connections_created
+            .fetch_add(1, Ordering::Relaxed);
         self.active_connections.fetch_add(1, Ordering::Relaxed);
     }
 
     /// 记录连接关闭。
     pub fn record_connection_closed(&self) {
-        self.total_connections_closed.fetch_add(1, Ordering::Relaxed);
+        self.total_connections_closed
+            .fetch_add(1, Ordering::Relaxed);
         let current = self.active_connections.fetch_sub(1, Ordering::Relaxed);
         if current == 0 {
             tracing::warn!("[DuckDBMetrics] 活跃连接数变为 0");

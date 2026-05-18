@@ -9,6 +9,7 @@
 
 pub mod cache_warming_commands;
 pub mod connection_commands;
+pub mod data_source_commands;
 pub mod driver_commands;
 pub mod memory_commands;
 pub mod metadata_cache_commands;
@@ -35,6 +36,7 @@ pub mod system_commands;
 pub use analytics_resource_commands::*;
 pub use cache_warming_commands::*;
 pub use connection_commands::*;
+pub use data_source_commands::*;
 pub use driver_commands::*;
 pub use logging_commands::*;
 pub use memory_commands::*;

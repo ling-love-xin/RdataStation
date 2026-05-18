@@ -17,6 +17,12 @@ pub struct ConnectDatabaseInput {
     pub name: Option<String>,
     pub connection_type: Option<String>, // "global" 或 "project"
     pub project_id: Option<String>,      // 仅项目连接时需要
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
 }
 
 /// 连接响应
@@ -117,6 +123,13 @@ pub struct ConnectionInfoResponse {
     pub is_active: bool,
     pub created_at_ms: u64,
     pub server_version: Option<String>,
+    pub driver_id: Option<String>,
+    pub description: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
 }
 
 /// 获取所有连接
@@ -143,6 +156,13 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError>
                 is_active,
                 created_at_ms: info.created_at.elapsed().as_millis() as u64,
                 server_version: info.server_version,
+                driver_id: None,
+                environment_id: None,
+                description: None,
+                auth_config_id: None,
+                network_config_id: None,
+                driver_properties: None,
+                advanced_options: None,
             }
         })
         .collect())
@@ -198,6 +218,13 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, C
             is_active: true,
             created_at_ms: info.created_at.elapsed().as_millis() as u64,
             server_version: info.server_version,
+            driver_id: None,
+            environment_id: None,
+            description: None,
+            auth_config_id: None,
+            network_config_id: None,
+            driver_properties: None,
+            advanced_options: None,
         }))
 }
 
@@ -324,6 +351,13 @@ pub async fn detect_global_connections_in_project(
                 is_active,
                 created_at_ms: info.created_at.elapsed().as_millis() as u64,
                 server_version: info.server_version,
+                driver_id: None,
+                environment_id: None,
+                description: None,
+                auth_config_id: None,
+                network_config_id: None,
+                driver_properties: None,
+                advanced_options: None,
             }
         })
         .collect())
@@ -565,6 +599,13 @@ pub struct GlobalConnectionInfoResponse {
     pub created_at: String,
     pub updated_at: String,
     pub server_version: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
+    pub description: Option<String>,
 }
 
 /// 连接池状态响应
@@ -666,6 +707,13 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
                 created_at: conn.created_at,
                 updated_at: conn.updated_at,
                 server_version: conn.server_version,
+                driver_id: conn.driver_id,
+                environment_id: conn.environment_id,
+                auth_config_id: conn.auth_config_id,
+                network_config_id: conn.network_config_id,
+                driver_properties: conn.driver_properties,
+                advanced_options: conn.advanced_options,
+                description: conn.description,
             }
         })
         .collect())

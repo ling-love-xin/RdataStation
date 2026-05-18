@@ -757,6 +757,81 @@ impl Default for ProjectManager {
     }
 }
 
+// ========== 项目打开自检 ==========
+
+/// 项目打开时检测缺失的外部驱动文件
+///
+/// 比对项目的 project_drivers 表与全局 driver_files 表，
+/// 返回本机未安装的驱动列表，供前端弹窗提示用户安装。
+///
+/// # Arguments
+///
+/// * `project_path` - 项目根目录路径
+///
+/// # Returns
+///
+/// 返回缺失驱动的列表，每个缺失驱动包含 driver_id、driver_name 和 download_url
+pub async fn check_project_missing_drivers(
+    project_path: &std::path::Path,
+) -> Result<Vec<crate::core::services::driver_service::MissingDriver>, CoreError> {
+    use crate::core::migration::get_global_db_manager;
+    use crate::core::services::driver_service::MissingDriver;
+
+    let global_db =
+        get_global_db_manager().ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+    let meta_dir = project_path.join(RS_META_DIR_NAME);
+    let project_db_path = meta_dir.join(PROJECT_DB_NAME);
+
+    if !project_db_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let conn = rusqlite::Connection::open(&project_db_path)
+        .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
+
+    let mut stmt = conn
+        .prepare("SELECT driver_id FROM project_drivers WHERE enabled = 1")
+        .map_err(|e| CoreError::from(format!("查询项目驱动失败: {}", e)))?;
+
+    let enabled: Vec<String> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| CoreError::from(format!("读取项目驱动失败: {}", e)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    drop(stmt);
+    drop(conn);
+
+    let drivers = global_db
+        .get_all_drivers()
+        .await
+        .map_err(|e| CoreError::from(format!("获取驱动列表失败: {}", e)))?;
+
+    let mut missing = Vec::new();
+    for driver in drivers {
+        if !enabled.contains(&driver.id) {
+            continue;
+        }
+        if driver.driver_kind != "native" {
+            let version = driver.version.as_deref().unwrap_or("0.0.0");
+            let installed = global_db
+                .is_driver_installed(&driver.id, version)
+                .await
+                .map_err(|e| CoreError::from(format!("检查驱动安装状态失败: {}", e)))?;
+            if !installed {
+                missing.push(MissingDriver {
+                    driver_id: driver.id,
+                    driver_name: driver.name,
+                    download_url: driver.download_url.unwrap_or_default(),
+                });
+            }
+        }
+    }
+
+    Ok(missing)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -776,8 +851,14 @@ mod tests {
 
         assert_eq!(store.info().name, "Test Project");
         assert!(project_path.join(RS_META_DIR_NAME).exists());
-        assert!(project_path.join(RS_META_DIR_NAME).join(PROJECT_METADATA_DIR_NAME).exists());
-        assert!(project_path.join(RS_META_DIR_NAME).join(ANALYTICS_DB_NAME).exists());
+        assert!(project_path
+            .join(RS_META_DIR_NAME)
+            .join(PROJECT_METADATA_DIR_NAME)
+            .exists());
+        assert!(project_path
+            .join(RS_META_DIR_NAME)
+            .join(ANALYTICS_DB_NAME)
+            .exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("config").exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("queries").exists());
     }

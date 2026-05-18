@@ -15,8 +15,11 @@
 //! 所有 IO 错误都在此模块转换为 CoreError，确保上下文不丢失。
 
 pub mod analytics_resource_store;
+pub mod auth_store;
 pub mod cache_version_migration;
 pub mod connection_store;
+pub mod driver_store;
+pub mod env_store;
 pub mod global_db;
 pub mod history_store;
 pub mod insight_meta_store;
@@ -24,6 +27,7 @@ pub mod insight_store;
 pub mod log_store;
 pub mod metadata_cache;
 pub mod metadata_cache_pool;
+pub mod network_store;
 pub mod project_connection_store;
 pub mod project_db;
 pub mod project_store;

@@ -567,7 +567,7 @@ impl Default for MetadataCacheConfig {
     fn default() -> Self {
         Self {
             capacity: 1000,
-            default_ttl: Duration::from_secs(600),   // 10 分钟
+            default_ttl: Duration::from_secs(600),    // 10 分钟
             databases_ttl: Duration::from_secs(3600), // 1 小时（数据库列表极少变化）
             schemas_ttl: Duration::from_secs(1800),   // 30 分钟
             tables_ttl: Duration::from_secs(600),     // 10 分钟

@@ -287,7 +287,9 @@ impl Database for MySqlDatabase {
             SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
              WHERE ROUTINE_SCHEMA = ? AND ROUTINE_TYPE = 'PROCEDURE' \
              ORDER BY ROUTINE_NAME";
-        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
+        let result = self
+            .query_with_params(sql, vec![Value::Text(catalog.to_string())])
+            .await?;
         Ok(names_to_schema_objects(
             &result,
             SchemaObjectKind::Procedure,
@@ -303,7 +305,9 @@ impl Database for MySqlDatabase {
             SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES \
              WHERE ROUTINE_SCHEMA = ? AND ROUTINE_TYPE = 'FUNCTION' \
              ORDER BY ROUTINE_NAME";
-        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
+        let result = self
+            .query_with_params(sql, vec![Value::Text(catalog.to_string())])
+            .await?;
         Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
     }
 
@@ -321,12 +325,7 @@ impl Database for MySqlDatabase {
         };
         let esc_catalog = catalog.replace('`', "``");
         let esc_name = name.replace('`', "``");
-        let sql = format!(
-            "SHOW CREATE {} `{}`.`{}`",
-            stmt_type,
-            esc_catalog,
-            esc_name,
-        );
+        let sql = format!("SHOW CREATE {} `{}`.`{}`", stmt_type, esc_catalog, esc_name,);
         let result = self.query(&sql).await?;
         if let Some(batch) = result.batches.first() {
             if batch.num_rows() > 0 {
@@ -598,7 +597,9 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
         _schema: &str,
     ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let sql = "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name";
-        let result = self.query_with_params(sql, vec![Value::Text(catalog.to_string())]).await?;
+        let result = self
+            .query_with_params(sql, vec![Value::Text(catalog.to_string())])
+            .await?;
         let nodes: Vec<crate::core::driver::NodeInfo> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
@@ -646,10 +647,15 @@ impl crate::core::driver::MetadataBrowser for MySqlDatabase {
              FROM information_schema.columns \
              WHERE table_schema = ? AND table_name = ? \
              ORDER BY ordinal_position";
-        let result = self.query_with_params(sql, vec![
-            Value::Text(catalog.to_string()),
-            Value::Text(table.to_string()),
-        ]).await?;
+        let result = self
+            .query_with_params(
+                sql,
+                vec![
+                    Value::Text(catalog.to_string()),
+                    Value::Text(table.to_string()),
+                ],
+            )
+            .await?;
         let columns: Vec<crate::core::driver::ColumnDetail> = (0..result.total_rows())
             .filter_map(|row_idx| {
                 result.batches.iter().find_map(|batch| {
@@ -740,9 +746,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_query_select_one() {
-        let db = MySqlDatabase::new(MYSQL_URL)
-            .await
-            .expect("连接失败");
+        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
         let result = db.query("SELECT 1 AS val").await.expect("查询失败");
         assert_eq!(result.columns, vec!["val"]);
     }
@@ -789,9 +793,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_error_handling() {
-        let db = MySqlDatabase::new(MYSQL_URL)
-            .await
-            .expect("连接失败");
+        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
         assert!(result.is_err(), "应返回不存在的表错误");
     }
@@ -799,9 +801,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_list_tables() {
-        let db = MySqlDatabase::new(MYSQL_URL)
-            .await
-            .expect("连接失败");
+        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
         let tables = db.list_tables("mysql", None).await;
         assert!(tables.is_ok(), "list_tables 失败: {:?}", tables.err());
     }
@@ -809,9 +809,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
     async fn test_meta() {
-        let db = MySqlDatabase::new(MYSQL_URL)
-            .await
-            .expect("连接失败");
+        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
         let meta = db.meta();
         assert!(meta.supports_transaction);
     }

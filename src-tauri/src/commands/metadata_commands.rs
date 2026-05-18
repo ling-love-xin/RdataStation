@@ -10,10 +10,7 @@ use crate::core::persistence::metadata_cache::{MetadataCacheManager, MetadataCac
 use crate::core::driver::{get_level, remove_level, set_level, IntrospectionLevel};
 
 #[tauri::command]
-pub async fn set_introspection_level(
-    conn_id: String,
-    level: String,
-) -> Result<(), CoreError> {
+pub async fn set_introspection_level(conn_id: String, level: String) -> Result<(), CoreError> {
     let il = match level.as_str() {
         "level1" => IntrospectionLevel::Level1,
         "level2" => IntrospectionLevel::Level2,
@@ -983,7 +980,9 @@ pub async fn load_indexes(
     conn_id: String,
     table_name: String,
 ) -> Result<Vec<IndexMeta>, CoreError> {
-    tracing::debug!("load_indexes called for conn={conn_id}, table={table_name} (not yet implemented)");
+    tracing::debug!(
+        "load_indexes called for conn={conn_id}, table={table_name} (not yet implemented)"
+    );
     Ok(vec![])
 }
 
@@ -1002,6 +1001,8 @@ pub async fn load_constraints(
     conn_id: String,
     table_name: String,
 ) -> Result<Vec<ConstraintMeta>, CoreError> {
-    tracing::debug!("load_constraints called for conn={conn_id}, table={table_name} (not yet implemented)");
+    tracing::debug!(
+        "load_constraints called for conn={conn_id}, table={table_name} (not yet implemented)"
+    );
     Ok(vec![])
 }

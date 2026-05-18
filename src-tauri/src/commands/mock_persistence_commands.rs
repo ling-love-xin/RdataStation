@@ -105,9 +105,7 @@ pub async fn save_mock_template(
 /// 从项目 SQLite 数据库读取所有用户保存的模板元信息，
 /// 按更新时间倒序排列。
 #[tauri::command]
-pub async fn get_mock_templates(
-    project_path: String,
-) -> Result<Vec<MockUserTemplate>, CoreError> {
+pub async fn get_mock_templates(project_path: String) -> Result<Vec<MockUserTemplate>, CoreError> {
     let store = open_store(&project_path).await?;
     store
         .get_templates()

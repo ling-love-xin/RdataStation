@@ -185,12 +185,8 @@ impl ScratchpadStore {
             if file_type.is_dir() {
                 let children = if current_depth < max_depth {
                     Some(
-                        Box::pin(self.scan_dir_tree(
-                            &entry.path(),
-                            current_depth + 1,
-                            max_depth,
-                        ))
-                        .await?,
+                        Box::pin(self.scan_dir_tree(&entry.path(), current_depth + 1, max_depth))
+                            .await?,
                     )
                 } else {
                     None
@@ -1009,11 +1005,13 @@ impl ScratchpadStore {
 
         let source_name = source_path
             .file_name()
-            .ok_or_else(|| CoreError::storage(StorageError::io(
-                source_path.display().to_string(),
-                "move",
-                "invalid source path: no file name",
-            )))?
+            .ok_or_else(|| {
+                CoreError::storage(StorageError::io(
+                    source_path.display().to_string(),
+                    "move",
+                    "invalid source path: no file name",
+                ))
+            })?
             .to_string_lossy()
             .to_string();
 
@@ -1154,11 +1152,9 @@ impl ScratchpadStore {
                     change.old_index().map(|i| i + 1),
                     None,
                 ),
-                similar::ChangeTag::Insert => (
-                    DiffLineKind::Added,
-                    None,
-                    change.new_index().map(|i| i + 1),
-                ),
+                similar::ChangeTag::Insert => {
+                    (DiffLineKind::Added, None, change.new_index().map(|i| i + 1))
+                }
             };
             lines.push(DiffLine {
                 line_number_left: left_num,
@@ -1185,7 +1181,7 @@ async fn search_single_file(
     max_results: usize,
     context_lines: usize,
 ) -> Result<Vec<SearchMatch>, CoreError> {
-        // Read the entire file into memory so that we can extract context lines
+    // Read the entire file into memory so that we can extract context lines
     // around matches. This trades off memory usage for complete context support.
     // For typical scratchpad file sizes, this is acceptable.
     let file = fs::File::open(&path).await.map_err(|e| {

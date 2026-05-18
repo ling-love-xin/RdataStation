@@ -247,9 +247,7 @@ impl Database for DuckDbDatabase {
         let row_count = row_data.len();
 
         let columns = if columns.is_empty() && column_count > 0 {
-            (0..column_count)
-                .map(|i| format!("column_{}", i))
-                .collect()
+            (0..column_count).map(|i| format!("column_{}", i)).collect()
         } else {
             columns
         };

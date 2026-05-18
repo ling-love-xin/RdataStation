@@ -70,18 +70,15 @@ impl SnapshotManager {
     /// - `max_snapshots`: 最大快照数量
     pub fn new<P: AsRef<Path>>(db_path: P, max_snapshots: usize) -> Result<Self, CoreError> {
         let db_path = db_path.as_ref();
-        let db_dir = db_path.parent().ok_or_else(|| {
-            CoreError::common(CommonError::General("数据库路径无效".to_string()))
-        })?;
+        let db_dir = db_path
+            .parent()
+            .ok_or_else(|| CoreError::common(CommonError::General("数据库路径无效".to_string())))?;
 
         let snapshot_dir = db_dir.join("snapshots");
 
         // 确保快照目录存在
         std::fs::create_dir_all(&snapshot_dir).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "创建快照目录失败: {}",
-                e
-            )))
+            CoreError::common(CommonError::General(format!("创建快照目录失败: {}", e)))
         })?;
 
         Ok(SnapshotManager {
@@ -128,12 +125,8 @@ impl SnapshotManager {
         let snapshot_path = self.snapshot_dir.join(&snapshot_name);
 
         // 复制数据库文件
-        std::fs::copy(db_path, &snapshot_path).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "创建快照失败: {}",
-                e
-            )))
-        })?;
+        std::fs::copy(db_path, &snapshot_path)
+            .map_err(|e| CoreError::common(CommonError::General(format!("创建快照失败: {}", e))))?;
 
         tracing::info!(
             "[SnapshotManager] 创建快照: {} -> {}",
@@ -177,20 +170,13 @@ impl SnapshotManager {
         // 确保目标目录存在
         if let Some(parent) = target_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                CoreError::common(CommonError::General(format!(
-                    "创建目录失败: {}",
-                    e
-                )))
+                CoreError::common(CommonError::General(format!("创建目录失败: {}", e)))
             })?;
         }
 
         // 复制快照文件到目标路径
-        std::fs::copy(snapshot_path, target_path).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "恢复快照失败: {}",
-                e
-            )))
-        })?;
+        std::fs::copy(snapshot_path, target_path)
+            .map_err(|e| CoreError::common(CommonError::General(format!("恢复快照失败: {}", e))))?;
 
         tracing::info!(
             "[SnapshotManager] 恢复快照: {} -> {}",
@@ -219,17 +205,10 @@ impl SnapshotManager {
             ))));
         }
 
-        std::fs::remove_file(snapshot_path).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "删除快照失败: {}",
-                e
-            )))
-        })?;
+        std::fs::remove_file(snapshot_path)
+            .map_err(|e| CoreError::common(CommonError::General(format!("删除快照失败: {}", e))))?;
 
-        tracing::info!(
-            "[SnapshotManager] 删除快照: {}",
-            snapshot_path.display()
-        );
+        tracing::info!("[SnapshotManager] 删除快照: {}", snapshot_path.display());
 
         Ok(())
     }
@@ -247,16 +226,10 @@ impl SnapshotManager {
         let mut snapshots = Vec::new();
 
         for entry in std::fs::read_dir(&self.snapshot_dir).map_err(|e| {
-            CoreError::common(CommonError::General(format!(
-                "读取快照目录失败: {}",
-                e
-            )))
+            CoreError::common(CommonError::General(format!("读取快照目录失败: {}", e)))
         })? {
             let entry = entry.map_err(|e| {
-                CoreError::common(CommonError::General(format!(
-                    "读取目录条目失败: {}",
-                    e
-                )))
+                CoreError::common(CommonError::General(format!("读取目录条目失败: {}", e)))
             })?;
 
             let path = entry.path();
@@ -282,15 +255,9 @@ impl SnapshotManager {
             let to_delete = &snapshots[self.max_snapshots..];
 
             for snapshot in to_delete {
-                tracing::info!(
-                    "[SnapshotManager] 清理旧快照: {}",
-                    snapshot.path.display()
-                );
+                tracing::info!("[SnapshotManager] 清理旧快照: {}", snapshot.path.display());
                 std::fs::remove_file(&snapshot.path).map_err(|e| {
-                    CoreError::common(CommonError::General(format!(
-                        "清理旧快照失败: {}",
-                        e
-                    )))
+                    CoreError::common(CommonError::General(format!("清理旧快照失败: {}", e)))
                 })?;
             }
 
@@ -411,9 +378,7 @@ mod tests {
         let (db_path, db_dir) = setup_test_db();
         let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
 
-        let snapshot = manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照");
+        let snapshot = manager.create_snapshot(&db_path, None).expect("创建快照");
 
         let restore_path = db_dir.join("restored.duckdb");
         manager
@@ -430,13 +395,9 @@ mod tests {
         let (db_path, db_dir) = setup_test_db();
         let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
 
-        let snapshot = manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照");
+        let snapshot = manager.create_snapshot(&db_path, None).expect("创建快照");
 
-        manager
-            .delete_snapshot(&snapshot.path)
-            .expect("删除快照");
+        manager.delete_snapshot(&snapshot.path).expect("删除快照");
         assert!(!snapshot.path.exists());
 
         cleanup_test_db(&db_dir);
@@ -448,17 +409,11 @@ mod tests {
         let manager = SnapshotManager::new(&db_path, 2).expect("创建管理器");
 
         // 创建 3 个快照
-        manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照1");
+        manager.create_snapshot(&db_path, None).expect("创建快照1");
         std::thread::sleep(std::time::Duration::from_secs(1));
-        manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照2");
+        manager.create_snapshot(&db_path, None).expect("创建快照2");
         std::thread::sleep(std::time::Duration::from_secs(1));
-        manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照3");
+        manager.create_snapshot(&db_path, None).expect("创建快照3");
 
         let snapshots = manager.list_snapshots().expect("列出快照");
         assert_eq!(snapshots.len(), 2); // 应该只保留 2 个
@@ -471,16 +426,10 @@ mod tests {
         let (db_path, db_dir) = setup_test_db();
         let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
 
-        manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照1");
-        manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照2");
+        manager.create_snapshot(&db_path, None).expect("创建快照1");
+        manager.create_snapshot(&db_path, None).expect("创建快照2");
 
-        let count = manager
-            .delete_all_snapshots()
-            .expect("删除所有快照");
+        let count = manager.delete_all_snapshots().expect("删除所有快照");
         assert_eq!(count, 2);
 
         let snapshots = manager.list_snapshots().expect("列出快照");
@@ -505,9 +454,7 @@ mod tests {
         let (db_path, db_dir) = setup_test_db();
         let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
 
-        manager
-            .create_snapshot(&db_path, None)
-            .expect("创建快照");
+        manager.create_snapshot(&db_path, None).expect("创建快照");
 
         let total = manager.total_size_bytes().expect("计算总大小");
         assert!(total > 0);

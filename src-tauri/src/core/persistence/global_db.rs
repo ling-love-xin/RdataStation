@@ -18,6 +18,10 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::core::driver::utils::quote_identifier;
 use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::migration::{MigrationManager, MigrationType};
+use crate::core::persistence::auth_store;
+use crate::core::persistence::driver_store::{self, DataSourceType, Driver, DriverFile};
+use crate::core::persistence::env_store;
+use crate::core::persistence::network_store;
 use crate::core::persistence::sql_template_store::SqlTemplateStore;
 use crate::core::persistence::workbench_context_store::WorkbenchContextStore;
 
@@ -40,6 +44,13 @@ pub struct GlobalConnectionInfo {
     pub created_at: String,
     pub updated_at: String,
     pub server_version: Option<String>,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
 }
 
 /// 全局 SQLite 连接池
@@ -537,6 +548,13 @@ impl GlobalDatabaseManager {
         password: Option<&str>,
         tags: Option<&str>,
         server_version: Option<&str>,
+        description: Option<&str>,
+        driver_id: Option<&str>,
+        environment_id: Option<&str>,
+        auth_config_id: Option<&str>,
+        network_config_id: Option<&str>,
+        driver_properties: Option<&str>,
+        advanced_options: Option<&str>,
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
@@ -547,11 +565,9 @@ impl GlobalDatabaseManager {
         // 优先使用传入的 username/password，如果为空则使用 URL 中解析的
         let final_username = username.or(url_username.as_deref()).unwrap_or("");
         let final_password = match password.or(url_password.as_deref()) {
-            Some(p) if !p.is_empty() => crate::core::crypto::encrypt_password(p)
-                .map_err(|e| CoreError::common(CommonError::General(format!(
-                    "密码加密失败: {}",
-                    e
-                ))))?,
+            Some(p) if !p.is_empty() => crate::core::crypto::encrypt_password(p).map_err(|e| {
+                CoreError::common(CommonError::General(format!("密码加密失败: {}", e)))
+            })?,
             _ => String::new(),
         };
 
@@ -560,8 +576,8 @@ impl GlobalDatabaseManager {
 
         conn.execute(
             "INSERT OR REPLACE INTO global_connections 
-             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, is_active, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 1, CURRENT_TIMESTAMP)",
+             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, network_config_id, driver_properties, advanced_options, is_active, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, 1, CURRENT_TIMESTAMP)",
             [
                 conn_id,
                 name,
@@ -569,13 +585,20 @@ impl GlobalDatabaseManager {
                 host.as_deref().unwrap_or(""),
                 &port.map(|p| p.to_string()).unwrap_or_default(),
                 database.as_deref().unwrap_or(""),
-                "",  // schema_name 默认空
+                "",
                 final_username,
                 &final_password,
                 tags_json,
-                "0",  // use_duckdb_fed 默认关闭
-                "",  // metadata_path 默认空
+                "0",
+                "",
                 server_version.unwrap_or(""),
+                description.unwrap_or(""),
+                driver_id.unwrap_or(""),
+                environment_id.unwrap_or(""),
+                auth_config_id.unwrap_or(""),
+                network_config_id.unwrap_or(""),
+                driver_properties.unwrap_or(""),
+                advanced_options.unwrap_or(""),
             ],
         ).map_err(|e| CoreError::storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -598,7 +621,7 @@ impl GlobalDatabaseManager {
 
         let connections: Vec<GlobalConnectionInfo> = {
             let mut stmt = conn.prepare(
-                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version 
+                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, network_config_id, driver_properties, advanced_options 
                  FROM global_connections 
                  WHERE is_active = 1 
                  ORDER BY updated_at DESC"
@@ -616,6 +639,13 @@ impl GlobalDatabaseManager {
                     let created_at: String = row.get(13).unwrap_or_default();
                     let updated_at: String = row.get(14).unwrap_or_default();
                     let server_version: Option<String> = row.get(15).ok();
+                    let description: Option<String> = row.get(16).ok();
+                    let driver_id: Option<String> = row.get(17).ok();
+                    let environment_id: Option<String> = row.get(18).ok();
+                    let auth_config_id: Option<String> = row.get(19).ok();
+                    let network_config_id: Option<String> = row.get(20).ok();
+                    let driver_properties: Option<String> = row.get(21).ok();
+                    let advanced_options: Option<String> = row.get(22).ok();
 
                     Ok(GlobalConnectionInfo {
                         id: row.get(0)?,
@@ -634,6 +664,13 @@ impl GlobalDatabaseManager {
                         created_at,
                         updated_at,
                         server_version,
+                        description,
+                        driver_id,
+                        environment_id,
+                        auth_config_id,
+                        network_config_id,
+                        driver_properties,
+                        advanced_options,
                     })
                 })
                 .map_err(|e| {
@@ -1304,6 +1341,206 @@ impl GlobalDatabaseManager {
     pub fn get_workbench_context_store(&self) -> Result<WorkbenchContextStore, CoreError> {
         WorkbenchContextStore::new(self.sqlite_pool.clone())
     }
+
+    /// 列出所有数据源类型
+    pub async fn list_data_source_types(&self) -> Result<Vec<DataSourceType>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = driver_store::get_data_source_types(&conn)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 获取所有驱动定义
+    pub async fn get_all_drivers(&self) -> Result<Vec<Driver>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = driver_store::get_all_drivers(&conn)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 根据 ID 获取单个驱动定义
+    pub async fn get_driver(&self, id: &str) -> Result<Option<Driver>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = driver_store::get_driver(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 获取指定数据源类型下的所有已启用驱动
+    pub async fn get_drivers_by_type(&self, type_id: &str) -> Result<Vec<Driver>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let drivers = driver_store::get_drivers_by_type(&conn, type_id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(drivers)
+    }
+
+    /// 列出指定驱动在本机已安装的文件版本
+    pub async fn list_driver_files(&self, driver_id: &str) -> Result<Vec<DriverFile>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = driver_store::list_driver_files(&conn, driver_id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 注册驱动文件到本机安装记录
+    pub async fn register_driver_file(&self, df: &DriverFile) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        driver_store::register_driver_file(&conn, df)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 检查指定版本的驱动是否已安装
+    pub async fn is_driver_installed(&self, driver_id: &str, version: &str) -> Result<bool, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = driver_store::is_driver_file_installed(&conn, driver_id, version)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 创建新环境
+    pub async fn create_environment(&self, env: &env_store::Environment) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        env_store::create_environment(&conn, env)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 列出所有环境
+    pub async fn list_environments(&self) -> Result<Vec<env_store::Environment>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = env_store::list_environments(&conn)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 更新环境信息
+    pub async fn update_environment(&self, env: &env_store::Environment) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        env_store::update_environment(&conn, env)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 删除环境
+    pub async fn delete_environment(&self, id: &str) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        env_store::delete_environment(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 根据 ID 获取环境
+    pub async fn get_environment(&self, id: &str) -> Result<Option<env_store::Environment>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = env_store::get_environment(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 为指定环境创建策略
+    pub async fn create_environment_policy(&self, policy: &env_store::EnvironmentPolicy) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        env_store::create_policy(&conn, policy)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 列出指定环境的所有策略
+    pub async fn list_environment_policies(&self, environment_id: &str) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = env_store::list_policies(&conn, environment_id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 更新环境策略
+    pub async fn update_environment_policy(&self, policy: &env_store::EnvironmentPolicy) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        env_store::update_policy(&conn, policy)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 删除环境策略
+    pub async fn delete_environment_policy(&self, id: &str) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        env_store::delete_policy(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 创建认证配置
+    pub async fn create_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        auth_store::create_auth_config(&conn, ac)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 列出认证配置
+    pub async fn list_auth_configs(&self, auth_type: Option<&str>) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = auth_store::list_auth_configs(&conn, auth_type)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 根据 ID 获取认证配置
+    pub async fn get_auth_config(&self, id: &str) -> Result<Option<auth_store::AuthConfig>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = auth_store::get_auth_config(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 删除认证配置
+    pub async fn delete_auth_config(&self, id: &str) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        auth_store::delete_auth_config(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 创建网络配置
+    pub async fn create_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        network_store::create_network_config(&conn, nc)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 列出网络配置
+    pub async fn list_network_configs(&self, network_type: Option<&str>) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = network_store::list_network_configs(&conn, network_type)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 根据 ID 获取网络配置
+    pub async fn get_network_config(&self, id: &str) -> Result<Option<network_store::NetworkConfig>, CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = network_store::get_network_config(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 更新网络配置
+    pub async fn update_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        network_store::update_network_config(&conn, nc)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 删除网络配置
+    pub async fn delete_network_config(&self, id: &str) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        network_store::delete_network_config(&conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
 }
 
 /// 项目信息记录
@@ -1335,7 +1572,9 @@ mod tests {
     async fn test_global_sqlite_pool() {
         let db_path = test_temp_dir("sqlite_pool").join("test.db");
 
-        let pool = GlobalSqlitePool::new(db_path.clone(), 3).await.expect("创建池失败");
+        let pool = GlobalSqlitePool::new(db_path.clone(), 3)
+            .await
+            .expect("创建池失败");
         assert_eq!(pool.semaphore.available_permits(), 3);
 
         let conn = pool.acquire().await.expect("获取连接失败");
@@ -1349,7 +1588,9 @@ mod tests {
     async fn test_global_duckdb_connection() {
         let db_path = test_temp_dir("duckdb_conn").join("test.duckdb");
 
-        let conn = GlobalDuckdbConnection::new(db_path.clone()).await.expect("创建 DuckDB 连接失败");
+        let conn = GlobalDuckdbConnection::new(db_path.clone())
+            .await
+            .expect("创建 DuckDB 连接失败");
         assert!(conn.acquire().await.is_ok());
 
         conn.close().await.expect("关闭连接失败");

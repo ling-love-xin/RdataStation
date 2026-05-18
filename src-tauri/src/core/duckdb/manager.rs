@@ -92,7 +92,9 @@ impl DuckDBManager {
     /// # 返回
     /// - `Ok(Arc<Mutex<duckdb::Connection>>)`: 持久化连接
     /// - `Err(CoreError)`: 初始化失败
-    pub fn set_persistent<P: AsRef<Path>>(path: P) -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
+    pub fn set_persistent<P: AsRef<Path>>(
+        path: P,
+    ) -> Result<Arc<Mutex<duckdb::Connection>>, CoreError> {
         let path = path.as_ref();
         Self::ensure_parent_dir(path)?;
 
@@ -464,7 +466,10 @@ mod tests {
     #[test]
     fn test_ensure_parent_dir_creates_directory() {
         let temp_dir = std::env::temp_dir();
-        let nested_path = temp_dir.join("test_duckdb_dir").join("nested").join("db.duckdb");
+        let nested_path = temp_dir
+            .join("test_duckdb_dir")
+            .join("nested")
+            .join("db.duckdb");
 
         // 确保清理
         let _ = fs::remove_dir_all(nested_path.parent().unwrap());

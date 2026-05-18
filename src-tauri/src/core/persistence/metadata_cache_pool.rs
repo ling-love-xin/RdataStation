@@ -64,11 +64,7 @@ impl MetadataCachePool {
         Ok(arc)
     }
 
-    async fn create(
-        conn_id: &str,
-        db_path: PathBuf,
-        pool_size: usize,
-    ) -> Result<Self, CoreError> {
+    async fn create(conn_id: &str, db_path: PathBuf, pool_size: usize) -> Result<Self, CoreError> {
         if let Some(parent) = db_path.parent() {
             tokio::fs::create_dir_all(parent).await.map_err(|e| {
                 CoreError::storage(StorageError::Persistence {
@@ -175,11 +171,13 @@ impl MetadataCachePool {
     /// 同步获取连接（用于同步上下文）
     pub fn acquire_sync(self: &Arc<Self>) -> Result<PooledMetadataConnection, CoreError> {
         let rt = tokio::runtime::Handle::current();
-        let permit = rt.block_on(Arc::clone(&self.semaphore).acquire_owned()).map_err(|_| {
-            CoreError::common(CommonError::General(
-                "Metadata cache pool semaphore closed".to_string(),
-            ))
-        })?;
+        let permit = rt
+            .block_on(Arc::clone(&self.semaphore).acquire_owned())
+            .map_err(|_| {
+                CoreError::common(CommonError::General(
+                    "Metadata cache pool semaphore closed".to_string(),
+                ))
+            })?;
 
         let conn = {
             let mut pool = rt.block_on(self.pool.lock());
@@ -276,16 +274,14 @@ impl Drop for PooledMetadataConnection {
                         pool_guard.push(conn);
                     });
                 }
-                Err(_) => {
-                    match pool.try_lock() {
-                        Ok(mut pool_guard) => {
-                            pool_guard.push(conn);
-                        }
-                        Err(_) => {
-                            tracing::warn!("Failed to return metadata cache connection to pool");
-                        }
+                Err(_) => match pool.try_lock() {
+                    Ok(mut pool_guard) => {
+                        pool_guard.push(conn);
                     }
-                }
+                    Err(_) => {
+                        tracing::warn!("Failed to return metadata cache connection to pool");
+                    }
+                },
             }
         }
     }
@@ -312,7 +308,11 @@ mod tests {
     #[tokio::test]
     async fn test_pool_create_and_acquire() {
         let path = test_temp_path("acquire");
-        let pool = Arc::new(MetadataCachePool::create("test_conn", path, 3).await.expect("创建池失败"));
+        let pool = Arc::new(
+            MetadataCachePool::create("test_conn", path, 3)
+                .await
+                .expect("创建池失败"),
+        );
 
         let stats = pool.stats().await;
         assert_eq!(stats.pool_size, 3);
@@ -335,15 +335,23 @@ mod tests {
     #[tokio::test]
     async fn test_pool_registry_get_or_create() {
         let path = test_temp_path("registry");
-        let pool1 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await.expect("创建池1失败");
-        let pool2 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await.expect("创建池2失败");
+        let pool1 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2)
+            .await
+            .expect("创建池1失败");
+        let pool2 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2)
+            .await
+            .expect("创建池2失败");
         assert!(Arc::ptr_eq(&pool1, &pool2));
     }
 
     #[tokio::test]
     async fn test_pooled_connection_inner() {
         let path = test_temp_path("inner");
-        let pool = Arc::new(MetadataCachePool::create("inner_conn", path, 1).await.expect("创建池失败"));
+        let pool = Arc::new(
+            MetadataCachePool::create("inner_conn", path, 1)
+                .await
+                .expect("创建池失败"),
+        );
         let conn = pool.acquire().await.expect("获取连接失败");
         assert!(conn.inner().is_ok());
     }

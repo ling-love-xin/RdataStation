@@ -19,6 +19,7 @@
 
 pub mod connection_manager;
 pub mod connection_service;
+pub mod driver_service;
 pub mod duckdb_service;
 pub mod execution_service;
 pub mod insight_engine;
