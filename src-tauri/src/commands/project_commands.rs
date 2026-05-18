@@ -1217,23 +1217,20 @@ pub async fn delete_project_disk(project_id: String) -> Result<(), CoreError> {
 ///
 /// 如果 project.db 尚未创建或打开失败，仅记录警告，不阻止项目创建。
 async fn seed_default_drivers_for_project(project_path: &std::path::Path) {
-    let db_manager = match crate::core::persistence::project_db::ProjectDatabaseManager::open(
-        project_path,
-        3,
-    )
-    .await
-    {
-        Ok(manager) => manager,
-        Err(e) => {
-            tracing::warn!("打开项目数据库失败，跳过驱动种子: {}", e);
-            return;
-        }
-    };
+    let db_manager =
+        match crate::core::persistence::project_db::ProjectDatabaseManager::open(project_path, 3)
+            .await
+        {
+            Ok(manager) => manager,
+            Err(e) => {
+                tracing::warn!("打开项目数据库失败，跳过驱动种子: {}", e);
+                return;
+            }
+        };
 
-    let store =
-        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
-            std::sync::Arc::new(db_manager),
-        );
+    let store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
+        std::sync::Arc::new(db_manager),
+    );
 
     if let Err(e) = store.seed_default_drivers().await {
         tracing::warn!("种子默认驱动失败: {}", e);

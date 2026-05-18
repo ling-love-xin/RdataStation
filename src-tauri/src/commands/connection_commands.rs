@@ -2,6 +2,7 @@
 //!
 //! 处理数据库连接的创建、管理、关闭等操作
 
+use crate::core::driver::connection::config::ConnectionMethod;
 use crate::core::driver::DriverConnectionConfig;
 use crate::core::error::CoreError;
 use crate::core::services::{ConnectionService, ConnectionType};
@@ -95,18 +96,15 @@ pub async fn connect_database(
         let driver = global_db
             .get_driver(driver_id)
             .await?
-            .ok_or_else(|| {
-                CoreError::from(format!("驱动 {} 不存在于全局目录中", driver_id))
-            })?;
+            .ok_or_else(|| CoreError::from(format!("驱动 {} 不存在于全局目录中", driver_id)))?;
 
         if connection_type == ConnectionType::Project {
             if let Some(ref proj_path) = input.project_id {
                 let meta_dir = std::path::Path::new(proj_path).join(".RSmeta");
                 let db_path = meta_dir.join("project.db");
                 if db_path.exists() {
-                    let conn = rusqlite::Connection::open(&db_path).map_err(|e| {
-                        CoreError::from(format!("打开项目数据库失败: {}", e))
-                    })?;
+                    let conn = rusqlite::Connection::open(&db_path)
+                        .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
                     let enabled: bool = conn
                         .query_row(
                             "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
@@ -129,9 +127,7 @@ pub async fn connect_database(
             let installed = global_db
                 .is_driver_installed(driver_id, version)
                 .await
-                .map_err(|e| {
-                    CoreError::from(format!("检查驱动安装状态失败: {}", e))
-                })?;
+                .map_err(|e| CoreError::from(format!("检查驱动安装状态失败: {}", e)))?;
             if !installed {
                 return Err(CoreError::from(format!(
                     "驱动 {} 的文件未在本机安装，请先下载安装",
@@ -155,10 +151,7 @@ pub async fn connect_database(
     };
 
     let is_project = connection_type == ConnectionType::Project;
-    let proj_db = input
-        .project_id
-        .as_deref()
-        .and_then(|p| open_project_db(p));
+    let proj_db = input.project_id.as_deref().and_then(open_project_db);
 
     if let Some(ref env_id) = input.environment_id {
         let mut found = false;
@@ -234,6 +227,9 @@ pub async fn connect_database(
         }
     }
 
+    // ===== 数据源模块：解析网络配置为 ConnectionMethod =====
+    let network_method = parse_network_method(&input).await?;
+
     let (conn_id, db) = service
         .connect_with_type(
             None,
@@ -249,6 +245,7 @@ pub async fn connect_database(
             input.network_config_id.clone(),
             input.driver_properties.clone(),
             input.advanced_options.clone(),
+            network_method,
         )
         .await?;
 
@@ -263,6 +260,91 @@ pub async fn connect_database(
         status: "connected".to_string(),
         meta: meta.into(),
     })
+}
+
+/// 解析 network_config_id → ConnectionMethod
+///
+/// 从 global/project 数据库中加载网络配置，
+/// 根据 network_type 将 config JSON 反序列化为对应的连接方式
+async fn parse_network_method(
+    input: &ConnectDatabaseInput,
+) -> Result<Option<ConnectionMethod>, CoreError> {
+    let Some(ref net_id) = input.network_config_id else {
+        return Ok(None);
+    };
+
+    let is_project = input.connection_type.as_deref() == Some("project");
+
+    // 先从 global.db 查找
+    if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+        if let Ok(nets) = gdb.list_network_configs(None).await {
+            if let Some(net) = nets.iter().find(|n| n.id == *net_id) {
+                return parse_config_json(&net.network_type, &net.config).await;
+            }
+        }
+    }
+
+    // 项目连接时也检查项目 DB
+    if is_project {
+        if let Some(ref proj_path) = input.project_id {
+            let db_path = std::path::Path::new(proj_path)
+                .join(".RSmeta")
+                .join("project.db");
+            if db_path.exists() {
+                let config_result: Result<String, _> = rusqlite::Connection::open(&db_path)
+                    .and_then(|conn| {
+                        conn.query_row::<String, _, _>(
+                            "SELECT config FROM network_configs WHERE id = ?1",
+                            rusqlite::params![net_id],
+                            |row| row.get(0),
+                        )
+                    });
+                if let Ok(config_str) = config_result {
+                    return parse_config_json("unknown", &config_str).await;
+                }
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+/// 根据 network_type 将 config JSON 解析为 ConnectionMethod
+async fn parse_config_json(
+    network_type: &str,
+    config_json: &str,
+) -> Result<Option<ConnectionMethod>, CoreError> {
+    match network_type {
+        "ssh" => {
+            let ssh_config: crate::core::driver::connection::config::SshConfig =
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析 SSH 隧道配置 JSON 失败: {}", e)))?;
+            Ok(Some(ConnectionMethod::Ssh(ssh_config)))
+        }
+        "ssl" => {
+            let ssl_config: crate::core::driver::connection::config::SslConfig =
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析 SSL 配置 JSON 失败: {}", e)))?;
+            Ok(Some(ConnectionMethod::Ssl(ssl_config)))
+        }
+        "proxy" | "http_proxy" | "socks" | "socks5" => {
+            let proxy_config: crate::core::driver::connection::config::ProxyConfig =
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析代理配置 JSON 失败: {}", e)))?;
+            if network_type == "socks" || network_type == "socks5" {
+                Ok(Some(ConnectionMethod::SocksProxy(proxy_config)))
+            } else {
+                Ok(Some(ConnectionMethod::HttpProxy(proxy_config)))
+            }
+        }
+        _ => {
+            tracing::warn!(
+                network_type = %network_type,
+                "未知网络配置类型，将使用直连"
+            );
+            Ok(None)
+        }
+    }
 }
 
 /// 连接信息响应

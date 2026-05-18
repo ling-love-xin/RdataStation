@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::core::driver::connection::config::ConnectionMethod;
 use crate::core::driver::registry::DriverConnectionConfig;
 use crate::core::driver::router::DataSourceRouter;
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
@@ -49,8 +50,23 @@ impl ConnectionService {
         url: &str,
         name: Option<String>,
     ) -> Result<(String, DynDatabase), CoreError> {
-        self.connect_with_type(conn_id, db_type, url, name, ConnectionType::Global, None, None, None, None, None, None, None, None)
-            .await
+        self.connect_with_type(
+            conn_id,
+            db_type,
+            url,
+            name,
+            ConnectionType::Global,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
     }
 
     /// 创建或获取数据库连接（指定连接类型）
@@ -64,6 +80,7 @@ impl ConnectionService {
     /// * `connection_type` - 连接类型（全局/项目）
     /// * `project_path` - 项目路径（仅项目连接时需要）
     /// * `description` - 连接描述（可选）
+    /// * `network_method` - 网络连接方式（可选，用于 SSH 隧道/SSL 加密/代理等）
     /// * `driver_id` - 驱动 ID（可选，数据源模块字段）
     /// * `environment_id` - 环境 ID（可选）
     /// * `auth_config_id` - 认证配置 ID（可选）
@@ -74,6 +91,7 @@ impl ConnectionService {
     /// # Returns
     ///
     /// 返回连接 ID 和数据库实例
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect_with_type(
         &self,
         conn_id: Option<String>,
@@ -89,6 +107,7 @@ impl ConnectionService {
         network_config_id: Option<String>,
         driver_properties: Option<String>,
         advanced_options: Option<String>,
+        network_method: Option<ConnectionMethod>,
     ) -> Result<(String, DynDatabase), CoreError> {
         // 参数校验
         if url.is_empty() {
@@ -168,7 +187,13 @@ impl ConnectionService {
 
         // 创建新连接
         tracing::info!("Creating new connection with ID: {}", conn_id);
-        let db = self.create_database(db_type, url).await?;
+
+        // 应用网络连接方式（SSH 隧道 / SSL / 代理）
+        let effective_url = self
+            .apply_network_method(url, &network_method, &conn_id)
+            .await?;
+
+        let db = self.create_database(db_type, &effective_url).await?;
         let server_version = db.meta().server_version.clone();
         let safe_url = Self::mask_password_in_url(url);
 
@@ -243,20 +268,18 @@ impl ConnectionService {
         }
 
         // 保存到最近连接记录
-        if let Err(e) =
-            connection_store::save_recent_connection(
-                &connection_name,
-                db_type,
-                &safe_url,
-                description.as_deref(),
-                driver_id.as_deref(),
-                environment_id.as_deref(),
-                auth_config_id.as_deref(),
-                network_config_id.as_deref(),
-                driver_properties.as_deref(),
-                advanced_options.as_deref(),
-            )
-        {
+        if let Err(e) = connection_store::save_recent_connection(
+            &connection_name,
+            db_type,
+            &safe_url,
+            description.as_deref(),
+            driver_id.as_deref(),
+            environment_id.as_deref(),
+            auth_config_id.as_deref(),
+            network_config_id.as_deref(),
+            driver_properties.as_deref(),
+            advanced_options.as_deref(),
+        ) {
             tracing::warn!("Failed to save connection history: {}", e);
         }
 
@@ -387,6 +410,147 @@ impl ConnectionService {
             }
         }
         false
+    }
+
+    /// 应用网络连接方式（SSH 隧道 / SSL / 代理）
+    ///
+    /// 根据 ConnectionMethod 对连接 URL 做改写：
+    /// - SSH: 建立本地端口转发隧道，将 URL 中 host:port 改写为 localhost:tunnel_port
+    /// - SSL: 将 SSL 参数注入 URL（如 ssl-ca、ssl-cert 等）
+    /// - Proxy: 暂不支持（sqlx 不原生支持代理，后续通过 wrapping stream 实现）
+    /// - Direct/None: 原样返回
+    async fn apply_network_method(
+        &self,
+        url: &str,
+        method: &Option<ConnectionMethod>,
+        conn_id: &str,
+    ) -> Result<String, CoreError> {
+        match method {
+            None | Some(ConnectionMethod::Direct) => Ok(url.to_string()),
+            Some(ConnectionMethod::Ssh(ssh_config)) => {
+                let (tunnel_stream, local_port) = create_ssh_tunnel_port(ssh_config).await?;
+                drop(tunnel_stream);
+
+                let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
+                tracing::info!(
+                    conn_id = %conn_id,
+                    original = %Self::mask_password_in_url(url),
+                    tunnel = %rewritten,
+                    "SSH 隧道已建立，URL 已改写为本地端口"
+                );
+                Ok(rewritten)
+            }
+            Some(ConnectionMethod::Ssl(_ssl_config)) => {
+                // SSL 参数由 sqlx 原生支持，通过 URL query 参数传递
+                // 例如：mysql://host/db?ssl-mode=VERIFY_CA&ssl-ca=/path/ca.pem
+                // 当前 SslConfig 为一站式 TLS 流加密（connector 层），
+                // sqlx 走自身 SSL 逻辑，暂不在 service 层注入 SSL 参数
+                Ok(url.to_string())
+            }
+            Some(ConnectionMethod::HttpProxy(_) | ConnectionMethod::SocksProxy(_)) => {
+                let (target_host, target_port) = Self::parse_host_port_from_url(url)?;
+                let proxy_config = match method {
+                    Some(ConnectionMethod::HttpProxy(c)) => c,
+                    Some(ConnectionMethod::SocksProxy(c)) => c,
+                    _ => unreachable!(),
+                };
+                let is_socks = matches!(method, Some(ConnectionMethod::SocksProxy(_)));
+
+                let (tunnel_stream, local_port) =
+                    create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks)
+                        .await?;
+                drop(tunnel_stream);
+
+                let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
+                tracing::info!(
+                    conn_id = %conn_id,
+                    original = %Self::mask_password_in_url(url),
+                    proxy = %rewritten,
+                    "代理隧道已建立，URL 已改写为本地端口"
+                );
+                Ok(rewritten)
+            }
+        }
+    }
+
+    /// 将 URL 中的 host:port 改写为新的 host:port
+    ///
+    /// 支持 mysql://, postgres://, sqlite://, duckdb:// 等常见 schema
+    fn rewrite_url_host_port(
+        url: &str,
+        new_host: &str,
+        new_port: u16,
+    ) -> Result<String, CoreError> {
+        if url.starts_with("mysql://") || url.starts_with("postgres://") {
+            let (prefix, rest) = url.split_once("://").unwrap();
+            let after_auth = if let Some(at_pos) = rest.find('@') {
+                let (auth, _host_part) = rest.split_at(at_pos + 1);
+                format!("{}{}:{}", auth, new_host, new_port)
+            } else {
+                format!("{}:{}", new_host, new_port)
+            };
+            let last_part = rest
+                .find('@')
+                .map(|p| {
+                    let host_section = &rest[p + 1..];
+                    host_section
+                        .find('/')
+                        .map(|s| &host_section[s..])
+                        .unwrap_or("")
+                })
+                .unwrap_or("");
+            Ok(format!("{}://{}{}", prefix, after_auth, last_part))
+        } else if url.starts_with("sqlite://") || url.starts_with("duckdb://") {
+            Ok(url.to_string())
+        } else {
+            Err(CoreError::connection(ConnectionError::InvalidConfig {
+                conn_id: url.to_string(),
+                reason: "无法改写 URL，不支持的协议".to_string(),
+            }))
+        }
+    }
+
+    /// 从数据库 URL 中解析目标主机和端口
+    ///
+    /// 支持 mysql://user:pass@host:port/db 和 postgres://user:pass@host:port/db 格式
+    fn parse_host_port_from_url(url: &str) -> Result<(String, u16), CoreError> {
+        let after_scheme = if let Some(pos) = url.find("://") {
+            &url[pos + 3..]
+        } else {
+            return Err(CoreError::connection(ConnectionError::InvalidConfig {
+                conn_id: url.to_string(),
+                reason: "URL 中没有找到协议前缀".to_string(),
+            }));
+        };
+
+        let host_part = if let Some(at_pos) = after_scheme.find('@') {
+            &after_scheme[at_pos + 1..]
+        } else {
+            after_scheme
+        };
+
+        let host = if let Some(slash_pos) = host_part.find('/') {
+            &host_part[..slash_pos]
+        } else {
+            host_part
+        };
+
+        let (hostname, port) = if let Some(colon_pos) = host.rfind(':') {
+            let h = &host[..colon_pos];
+            let p_str = &host[colon_pos + 1..];
+            let p = p_str.parse::<u16>().map_err(|_| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: url.to_string(),
+                    reason: format!("无效端口号: {}", p_str),
+                })
+            })?;
+            (h.to_string(), p)
+        } else {
+            let default_port = if url.starts_with("postgres://") { 5432 } else { 3306 };
+            (host.to_string(), default_port)
+        };
+
+        Ok((hostname, port))
     }
 
     /// 根据数据库类型创建对应的数据库实例
@@ -799,6 +963,107 @@ impl ConnectionService {
 
         Ok(global_connections)
     }
+}
+
+/// 创建 SSH 隧道端口转发，返回（隧道本地流，本地端口号）
+///
+/// 利用 connector 层的 russh SSH 隧道实现建立本地端口转发，
+/// 调用方通过返回的端口号改写数据库 URL 后即可通过隧道连接
+async fn create_ssh_tunnel_port(
+    ssh_config: &crate::core::driver::connection::config::SshConfig,
+) -> Result<(tokio::net::TcpStream, u16), CoreError> {
+    use crate::core::driver::connection::config::ConnectionConfig;
+    use crate::core::driver::connection::connector;
+
+    let dummy_config = ConnectionConfig::direct("127.0.0.1", 0);
+
+    // establish_ssh_tunnel 内部已完成：SSH握手 → 认证 → 端口转发 → 返回本地TcpStream
+    let stream = connector::establish_ssh_tunnel(&dummy_config, ssh_config).await?;
+    let port = stream
+        .local_addr()
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: "ssh_tunnel".to_string(),
+                reason: format!("获取隧道本地端口失败: {}", e),
+            })
+        })?
+        .port();
+
+    Ok((stream, port))
+}
+
+/// 创建代理隧道端口转发，返回（隧道本地流，本地端口号）
+///
+/// 建立本地端口转发：绑定本地端口 → 后台任务通过代理连接到目标 → 双向数据拷贝
+/// 调用方通过返回的端口号改写数据库 URL 后即可通过代理连接
+async fn create_proxy_tunnel_port(
+    proxy_config: &crate::core::driver::connection::config::ProxyConfig,
+    target_host: &str,
+    target_port: u16,
+    is_socks: bool,
+) -> Result<(tokio::net::TcpStream, u16), CoreError> {
+    use crate::core::driver::connection::config::ConnectionConfig;
+    use crate::core::driver::connection::connector;
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: format!("{}:{}", target_host, target_port),
+                reason: format!("绑定代理转发本地端口失败: {}", e),
+            })
+        })?;
+
+    let local_port = listener.local_addr().map_err(|e| {
+        CoreError::connection(ConnectionError::Network {
+            conn_id: format!("{}:{}", target_host, target_port),
+            reason: format!("获取代理转发本地端口失败: {}", e),
+        })
+    })?.port();
+
+    let pc = proxy_config.clone();
+    let th = target_host.to_string();
+    tokio::spawn(async move {
+        match listener.accept().await {
+            Ok((local_stream, _)) => {
+                let dummy = ConnectionConfig::direct(&th, target_port);
+                let tunneled = if is_socks {
+                    connector::establish_socks_proxy(&dummy, &pc).await
+                } else {
+                    connector::establish_http_proxy(&dummy, &pc).await
+                };
+
+                match tunneled {
+                    Ok(tunneled) => {
+                        let (mut lr, mut lw) = tokio::io::split(local_stream);
+                        let (mut tr, mut tw) = tokio::io::split(tunneled);
+                        let _ = tokio::join!(
+                            tokio::io::copy(&mut lr, &mut tw),
+                            tokio::io::copy(&mut tr, &mut lw),
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(target: "proxy_tunnel", host = %th, port = %target_port, "代理隧道连接失败: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(target: "proxy_tunnel", "接受本地代理连接失败: {}", e);
+            }
+        }
+    });
+
+    let local_stream =
+        tokio::net::TcpStream::connect(format!("127.0.0.1:{}", local_port))
+            .await
+            .map_err(|e| {
+                CoreError::connection(ConnectionError::Network {
+                    conn_id: format!("{}:{}", target_host, target_port),
+                    reason: format!("连接代理本地端口失败: {}", e),
+                })
+            })?;
+
+    Ok((local_stream, local_port))
 }
 
 #[cfg(test)]

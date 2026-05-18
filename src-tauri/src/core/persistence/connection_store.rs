@@ -652,6 +652,7 @@ pub struct ConnectionRecord {
 }
 
 /// 保存最近连接
+#[allow(clippy::too_many_arguments)]
 pub fn save_recent_connection(
     name: &str,
     db_type: &str,

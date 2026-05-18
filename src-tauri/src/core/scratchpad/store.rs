@@ -555,7 +555,7 @@ impl ScratchpadStore {
 
         let name = file_path
             .file_name()
-            .and_then(|n| Some(n.to_string_lossy().to_string()))
+            .map(|n| n.to_string_lossy().to_string())
             .ok_or_else(|| {
                 CoreError::storage(StorageError::io(
                     file_path.display().to_string(),
@@ -1212,13 +1212,13 @@ async fn search_single_file(
         if found {
             let before: Vec<String> = if context_lines > 0 {
                 let start = i.saturating_sub(context_lines);
-                all_lines[start..i].iter().cloned().collect()
+                all_lines[start..i].to_vec()
             } else {
                 Vec::new()
             };
             let after: Vec<String> = if context_lines > 0 {
                 let end = (i + 1 + context_lines).min(all_lines.len());
-                all_lines[i + 1..end].iter().cloned().collect()
+                all_lines[i + 1..end].to_vec()
             } else {
                 Vec::new()
             };

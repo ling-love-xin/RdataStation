@@ -777,8 +777,8 @@ pub async fn check_project_missing_drivers(
     use crate::core::migration::get_global_db_manager;
     use crate::core::services::driver_service::MissingDriver;
 
-    let global_db =
-        get_global_db_manager().ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+    let global_db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
 
     let meta_dir = project_path.join(RS_META_DIR_NAME);
     let project_db_path = meta_dir.join(PROJECT_DB_NAME);

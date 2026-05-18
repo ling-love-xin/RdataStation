@@ -1,11 +1,20 @@
 //! 连接器 trait 和实现
 //!
-//! 提供统一的连接器接口，支持多种连接方式
+//! 提供统一的连接器接口，支持多种连接方式：
+//! - Direct: TCP 直连
+//! - SSH: 基于 russh 的真实 SSH 隧道（端口转发）
+//! - SSL: 基于 native-tls 的 TLS 加密（支持 CA/客户端证书 mTLS）
+//! - HTTP Proxy: HTTP CONNECT 隧道
+//! - SOCKS5 Proxy: 基于 tokio-socks 的 SOCKS5 代理
 
 use async_trait::async_trait;
+use russh_keys::key::PrivateKeyWithHashAlg;
+use std::sync::Arc;
 use tokio::net::TcpStream;
 
-use super::config::{ConnectionConfig, ConnectionMethod, ProxyConfig, SshConfig, SslConfig};
+use super::config::{
+    ConnectionConfig, ConnectionMethod, ProxyConfig, SshAuth, SshConfig, SslConfig,
+};
 use super::stream::ConnectionStream;
 use crate::core::error::{ConnectionError, CoreError};
 
@@ -110,6 +119,12 @@ impl Connector for SslConnector {
     }
 }
 
+/// 建立 TLS 加密连接
+///
+/// 支持：
+/// - 服务器证书校验（verify_server_cert）
+/// - CA 证书加载（ca_cert_path）
+/// - 客户端证书双向认证 mTLS（client_cert_path + client_key_path）
 async fn establish_tls(
     stream: TcpStream,
     domain: &str,
@@ -118,15 +133,79 @@ async fn establish_tls(
     use native_tls::TlsConnector;
     use tokio_native_tls::TlsConnector as TokioTlsConnector;
 
-    let connector = TlsConnector::builder()
+    let mut builder = TlsConnector::builder();
+
+    builder
         .danger_accept_invalid_certs(!config.verify_server_cert)
-        .build()
-        .map_err(|e| {
+        .min_protocol_version(Some(map_tls_version(config.min_tls_version)))
+        .max_protocol_version(
+            Some(native_tls::Protocol::Tlsv12), // native-tls 默认上限
+        );
+
+    // 加载 CA 证书（用于验证服务器证书）
+    if let Some(ref ca_path) = config.ca_cert_path {
+        let ca_pem = std::fs::read(ca_path).map_err(|e| {
             CoreError::connection(ConnectionError::Tls {
                 conn_id: domain.to_string(),
-                reason: format!("Failed to build TLS connector: {}", e),
+                reason: format!("读取 CA 证书文件 '{}' 失败: {}", ca_path, e),
             })
         })?;
+        let ca_cert = native_tls::Certificate::from_pem(&ca_pem).map_err(|e| {
+            CoreError::connection(ConnectionError::Tls {
+                conn_id: domain.to_string(),
+                reason: format!("解析 CA 证书失败: {}", e),
+            })
+        })?;
+        builder.add_root_certificate(ca_cert);
+    }
+
+    // 加载客户端证书和私钥（mTLS 双向认证）
+    if let (Some(ref cert_path), Some(ref key_path)) =
+        (&config.client_cert_path, &config.client_key_path)
+    {
+        let cert_pem = std::fs::read(cert_path).map_err(|e| {
+            CoreError::connection(ConnectionError::Tls {
+                conn_id: domain.to_string(),
+                reason: format!("读取客户端证书文件失败: {}", e),
+            })
+        })?;
+
+        let key_pem = std::fs::read(key_path).map_err(|e| {
+            CoreError::connection(ConnectionError::Tls {
+                conn_id: domain.to_string(),
+                reason: format!("读取客户端私钥文件失败: {}", e),
+            })
+        })?;
+
+        let identity = native_tls::Identity::from_pkcs8(&cert_pem, &key_pem).map_err(|e| {
+            CoreError::connection(ConnectionError::Tls {
+                conn_id: domain.to_string(),
+                reason: format!("加载客户端 PKCS8 证书失败: {}", e),
+            })
+        });
+        // also try PEM format with PKCS12 as fallback
+        let identity = match identity {
+            Ok(id) => id,
+            Err(_) => {
+                // try PKCS#12
+                native_tls::Identity::from_pkcs12(&cert_pem, "").map_err(|_e| {
+                    CoreError::connection(ConnectionError::Tls {
+                        conn_id: domain.to_string(),
+                        reason: "客户端证书格式不支持，仅支持 PKCS#8 DER 或 PKCS#12".to_string(),
+                    })
+                })?
+            }
+        };
+
+        builder.identity(identity);
+    }
+
+    let connector = builder.build().map_err(|e| {
+        CoreError::connection(ConnectionError::Tls {
+            conn_id: domain.to_string(),
+            reason: format!("构建 TLS connector 失败: {}", e),
+        })
+    })?;
 
     let tokio_connector = TokioTlsConnector::from(connector);
     let tls_stream = tokio_connector.connect(domain, stream).await.map_err(|e| {
@@ -137,6 +216,19 @@ async fn establish_tls(
     })?;
 
     Ok(tls_stream)
+}
+
+/// 映射 TlsVersion 枚举到 native_tls::Protocol
+fn map_tls_version(
+    version: crate::core::driver::connection::config::TlsVersion,
+) -> native_tls::Protocol {
+    use crate::core::driver::connection::config::TlsVersion;
+    match version {
+        TlsVersion::Tls1_0 => native_tls::Protocol::Tlsv10,
+        TlsVersion::Tls1_1 => native_tls::Protocol::Tlsv11,
+        TlsVersion::Tls1_2 => native_tls::Protocol::Tlsv12,
+        TlsVersion::Tls1_3 => native_tls::Protocol::Tlsv13,
+    }
 }
 
 /// SSH 隧道连接器
@@ -165,17 +257,110 @@ impl Connector for SshTunnelConnector {
     }
 }
 
-async fn establish_ssh_tunnel(
+/// SSH 客户端处理器
+///
+/// 处理 SSH 连接期间的服务端事件，最低限度实现
+struct SshClientHandler;
+
+#[async_trait]
+impl russh::client::Handler for SshClientHandler {
+    type Error = russh::Error;
+
+    /// 校验服务端 Host Key
+    ///
+    /// 当前接受所有 Host Key（后续版本将通过 known_hosts + UI 确认改进）
+    async fn check_server_key(
+        &mut self,
+        server_public_key: &russh::keys::PublicKey,
+    ) -> Result<bool, Self::Error> {
+        let fingerprint = server_public_key
+                    .fingerprint(russh::keys::HashAlg::Sha256);
+        tracing::info!(
+            target: "ssh_tunnel",
+            fingerprint = %fingerprint,
+            "SSH 服务端 Host Key 指纹（当前配置：自动接受）"
+        );
+        Ok(true)
+    }
+}
+
+/// 建立 SSH 隧道（本地端口转发）
+///
+/// 流程：
+/// 1. TCP 连接到 SSH 服务器
+/// 2. russh SSH 协议握手
+/// 3. 用户认证（密码/私钥/Agent）
+/// 4. 绑定本地端口，后台任务接受本地连接并通过 SSH Channel 转发到目标
+/// 5. 返回连接到本地隧道端口的 TcpStream
+pub async fn establish_ssh_tunnel(
     _config: &ConnectionConfig,
     ssh_config: &SshConfig,
 ) -> Result<TcpStream, CoreError> {
     let ssh_addr = format!("{}:{}", ssh_config.host, ssh_config.port);
-    let _ssh_stream = TcpStream::connect(&ssh_addr).await.map_err(|e| {
-        CoreError::connection(ConnectionError::Network {
-            conn_id: ssh_addr.clone(),
-            reason: format!("Failed to connect to SSH server: {}", e),
-        })
-    })?;
+
+    let config = Arc::new(russh::client::Config::default());
+    let handler = SshClientHandler;
+
+    let session = russh::client::connect(config, ssh_addr.as_str(), handler)
+        .await
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: ssh_addr.clone(),
+                reason: format!("SSH 握手失败: {}", e),
+            })
+        })?;
+
+    let session = Arc::new(tokio::sync::Mutex::new(session));
+
+    match &ssh_config.auth {
+        SshAuth::Password { password } => {
+            session
+                .lock()
+                .await
+                .authenticate_password(&ssh_config.username, password)
+                .await
+                .map_err(|_| {
+                    CoreError::connection(ConnectionError::AuthenticationFailed {
+                        conn_id: ssh_addr.clone(),
+                        username: ssh_config.username.clone(),
+                    })
+                })?;
+        }
+        SshAuth::PrivateKey {
+            key_path,
+            passphrase,
+        } => {
+            let key =
+                russh::keys::load_secret_key(key_path, passphrase.as_deref()).map_err(|e| {
+                    CoreError::connection(ConnectionError::InvalidConfig {
+                        conn_id: ssh_addr.clone(),
+                        reason: format!("无法加载SSH私钥 '{}': {}", key_path, e),
+                    })
+                })?;
+            let key_with_hash = PrivateKeyWithHashAlg::new(Arc::new(key), None).map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: ssh_addr.clone(),
+                    reason: format!("SSH私钥哈希算法协商失败: {}", e),
+                })
+            })?;
+            session
+                .lock()
+                .await
+                .authenticate_publickey(&ssh_config.username, key_with_hash)
+                .await
+                .map_err(|_| {
+                    CoreError::connection(ConnectionError::AuthenticationFailed {
+                        conn_id: ssh_addr.clone(),
+                        username: ssh_config.username.clone(),
+                    })
+                })?;
+        }
+        SshAuth::Agent => {
+            return Err(CoreError::connection(ConnectionError::NotSupported(
+                "SSH Agent 认证暂未实现，请使用密码或私钥认证".to_string(),
+            )));
+        }
+    }
 
     let local_bind = if ssh_config.local_port == 0 {
         "127.0.0.1:0".to_string()
@@ -188,21 +373,58 @@ async fn establish_ssh_tunnel(
         .map_err(|e| {
             CoreError::connection(ConnectionError::Network {
                 conn_id: local_bind.clone(),
-                reason: format!("Failed to bind local port: {}", e),
+                reason: format!("绑定本地端口失败: {}", e),
             })
         })?;
 
     let local_addr = listener.local_addr().map_err(|e| {
         CoreError::connection(ConnectionError::Network {
             conn_id: local_bind.clone(),
-            reason: format!("Failed to get local address: {}", e),
+            reason: format!("获取本地地址失败: {}", e),
         })
     })?;
+
+    let remote_host = ssh_config.remote_host.clone();
+    let remote_port = ssh_config.remote_port;
+
+    let forward_session = session.clone();
+    tokio::spawn(async move {
+        match listener.accept().await {
+            Ok((local_stream, _)) => {
+                match forward_session
+                    .lock()
+                    .await
+                    .channel_open_direct_tcpip(&remote_host, remote_port as u32, "127.0.0.1", 0)
+                    .await
+                {
+                    Ok(channel) => {
+                        let mut channel_stream = channel.into_stream();
+                        let (mut local_read, mut local_write) = tokio::io::split(local_stream);
+                        let (mut channel_read, mut channel_write) =
+                            tokio::io::split(&mut channel_stream);
+
+                        let t1 = tokio::io::copy(&mut local_read, &mut channel_write);
+                        let t2 = tokio::io::copy(&mut channel_read, &mut local_write);
+
+                        let _ = tokio::join!(t1, t2);
+                    }
+                    Err(e) => {
+                        tracing::warn!(target: "ssh_tunnel", "端口转发通道打开失败: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(target: "ssh_tunnel", "接受本地隧道连接失败: {}", e);
+            }
+        }
+    });
+
+    drop(session);
 
     let local_stream = TcpStream::connect(local_addr).await.map_err(|e| {
         CoreError::connection(ConnectionError::Network {
             conn_id: local_addr.to_string(),
-            reason: format!("Failed to connect to local port: {}", e),
+            reason: format!("连接本地隧道端口失败: {}", e),
         })
     })?;
 
@@ -235,7 +457,7 @@ impl Connector for HttpProxyConnector {
     }
 }
 
-async fn establish_http_proxy(
+pub async fn establish_http_proxy(
     config: &ConnectionConfig,
     proxy_config: &ProxyConfig,
 ) -> Result<TcpStream, CoreError> {
@@ -316,7 +538,7 @@ impl Connector for SocksProxyConnector {
     }
 }
 
-async fn establish_socks_proxy(
+pub async fn establish_socks_proxy(
     config: &ConnectionConfig,
     proxy_config: &ProxyConfig,
 ) -> Result<TcpStream, CoreError> {

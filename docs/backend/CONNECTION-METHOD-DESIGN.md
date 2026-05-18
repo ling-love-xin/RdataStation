@@ -44,7 +44,7 @@ ConnectionService (服务层) ── URL 改写（SSH 隧道）
 ├── apply_network_method()
 │   ├── SSH: create_ssh_tunnel_port() → 改写 URL host:port
 │   ├── SSL: 透传（sqlx 原生支持 SSL 参数）
-│   └── Proxy: 暂不支持（后续通过 wrapping stream）
+│   └── Proxy: create_proxy_tunnel_port() → 改写 URL host:port
 │
 ConnectionFactory (调度层)
 ├── DirectConnector  ← TCP 直连 ✓

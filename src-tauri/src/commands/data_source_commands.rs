@@ -335,11 +335,7 @@ pub async fn get_all_drivers_catalog(
 
     let filtered: Vec<Driver> = drivers
         .into_iter()
-        .filter(|d| {
-            driver_kind
-                .as_ref()
-                .is_none_or(|k| d.driver_kind == *k)
-        })
+        .filter(|d| driver_kind.as_ref().is_none_or(|k| d.driver_kind == *k))
         .collect();
 
     Ok(filtered)
@@ -407,7 +403,9 @@ pub async fn project_create_environment(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<env_store::Environment, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.create_project_environment(&name, description.as_deref(), color.as_deref(), sort_order).await
+    db_manager
+        .create_project_environment(&name, description.as_deref(), color.as_deref(), sort_order)
+        .await
 }
 
 /// 列出指定项目中的所有环境
@@ -432,7 +430,15 @@ pub async fn project_update_environment(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<bool, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.update_project_environment(&id, name.as_deref(), description.as_deref(), color.as_deref(), sort_order).await?;
+    db_manager
+        .update_project_environment(
+            &id,
+            name.as_deref(),
+            description.as_deref(),
+            color.as_deref(),
+            sort_order,
+        )
+        .await?;
     Ok(true)
 }
 
@@ -460,7 +466,9 @@ pub async fn project_create_environment_policy(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<env_store::EnvironmentPolicy, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.create_project_environment_policy(&environment_id, &policy_type, policy_config.as_deref()).await
+    db_manager
+        .create_project_environment_policy(&environment_id, &policy_type, policy_config.as_deref())
+        .await
 }
 
 /// 列出指定项目中某环境的所有策略
@@ -471,7 +479,9 @@ pub async fn project_list_environment_policies(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.list_project_environment_policies(&environment_id).await
+    db_manager
+        .list_project_environment_policies(&environment_id)
+        .await
 }
 
 /// 更新指定项目中的环境策略
@@ -484,7 +494,9 @@ pub async fn project_update_environment_policy(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<bool, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.update_project_environment_policy(&id, policy_config.as_deref(), enabled).await?;
+    db_manager
+        .update_project_environment_policy(&id, policy_config.as_deref(), enabled)
+        .await?;
     Ok(true)
 }
 
@@ -512,7 +524,9 @@ pub async fn project_create_auth_config(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<auth_store::AuthConfig, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.create_project_auth_config(name.as_deref(), &auth_type, &auth_data).await
+    db_manager
+        .create_project_auth_config(name.as_deref(), &auth_type, &auth_data)
+        .await
 }
 
 /// 列出指定项目中的所有认证配置
@@ -549,7 +563,9 @@ pub async fn project_create_network_config(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<network_store::NetworkConfig, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.create_project_network_config(name.as_deref(), &network_type, &config).await
+    db_manager
+        .create_project_network_config(name.as_deref(), &network_type, &config)
+        .await
 }
 
 /// 列出指定项目中的所有网络配置
@@ -572,7 +588,9 @@ pub async fn project_update_network_config(
     state: tauri::State<'_, ProjectState>,
 ) -> Result<bool, CoreError> {
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    db_manager.update_project_network_config(&id, name.as_deref(), config.as_deref()).await?;
+    db_manager
+        .update_project_network_config(&id, name.as_deref(), config.as_deref())
+        .await?;
     Ok(true)
 }
 
@@ -586,4 +604,151 @@ pub async fn project_delete_network_config(
     let db_manager = get_project_db_manager(&project_path, &state).await?;
     db_manager.delete_project_network_config(&id).await?;
     Ok(true)
+}
+
+// ========== 网络配置测试命令 ==========
+
+/// 测试网络配置响应
+#[derive(serde::Serialize, Debug)]
+pub struct TestNetworkConfigResponse {
+    pub success: bool,
+    pub message: String,
+    pub response_time_ms: u64,
+    pub detail: Option<String>,
+}
+
+/// 测试网络配置连通性
+///
+/// 在不创建数据库连接的情况下，独立测试 SSH 隧道 / SSL 证书 / 代理的连通性
+#[tauri::command]
+pub async fn test_network_config(
+    network_config_id: String,
+) -> Result<TestNetworkConfigResponse, CoreError> {
+    use crate::core::driver::connection::config::{ConnectionConfig, ProxyConfig, SshConfig};
+    use crate::core::driver::connection::connector;
+    use std::time::Instant;
+
+    let db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+    let net = db
+        .get_network_config(&network_config_id)
+        .await?
+        .ok_or_else(|| CoreError::from(format!("网络配置 {} 不存在", network_config_id)))?;
+
+    let start = Instant::now();
+
+    match net.network_type.as_str() {
+        "ssh" => {
+            let ssh_config: SshConfig = serde_json::from_str(&net.config).map_err(|e| {
+                CoreError::from(format!("解析 SSH 配置 JSON 失败: {}", e))
+            })?;
+
+            let dummy = ConnectionConfig::direct(&ssh_config.remote_host, ssh_config.remote_port);
+            match connector::establish_ssh_tunnel(&dummy, &ssh_config).await {
+                Ok(stream) => {
+                    let local = stream.local_addr().map(|a| a.to_string()).unwrap_or_default();
+                    drop(stream);
+                    Ok(TestNetworkConfigResponse {
+                        success: true,
+                        message: format!("SSH 隧道测试成功，本地端口: {}", local),
+                        response_time_ms: start.elapsed().as_millis() as u64,
+                        detail: Some(format!(
+                            "SSH {}:{} → {}:{}",
+                            ssh_config.host,
+                            ssh_config.port,
+                            ssh_config.remote_host,
+                            ssh_config.remote_port
+                        )),
+                    })
+                }
+                Err(e) => Ok(TestNetworkConfigResponse {
+                    success: false,
+                    message: format!("SSH 隧道测试失败: {}", e),
+                    response_time_ms: start.elapsed().as_millis() as u64,
+                    detail: None,
+                }),
+            }
+        }
+        "ssl" => {
+            let cfg: crate::core::driver::connection::config::SslConfig =
+                serde_json::from_str(&net.config).map_err(|e| {
+                    CoreError::from(format!("解析 SSL 配置 JSON 失败: {}", e))
+                })?;
+
+            let mut checks = Vec::new();
+                    if let Some(ref ca) = cfg.ca_cert_path {
+                        match std::fs::read(ca) {
+                            Ok(_) => checks.push(format!("CA 证书文件存在: {}", ca)),
+                            Err(e) => {
+                                checks.push(format!("CA 证书文件读取失败 '{}': {}", ca, e))
+                            }
+                        }
+                    }
+                    if let Some(ref cert) = cfg.client_cert_path {
+                        match std::fs::read(cert) {
+                            Ok(_) => checks.push(format!("客户端证书文件存在: {}", cert)),
+                            Err(e) => checks.push(format!("客户端证书文件读取失败 '{}': {}", cert, e)),
+                        }
+                    }
+                    if let Some(ref key) = cfg.client_key_path {
+                        match std::fs::read(key) {
+                            Ok(_) => checks.push(format!("客户端私钥文件存在: {}", key)),
+                            Err(e) => checks.push(format!("客户端私钥文件读取失败 '{}': {}", key, e)),
+                        }
+                    }
+
+                    let all_ok = !checks.iter().any(|c| c.contains("失败"));
+                    Ok(TestNetworkConfigResponse {
+                        success: all_ok,
+                        message: if all_ok {
+                            "SSL 证书文件验证通过".to_string()
+                        } else {
+                            "SSL 证书文件验证存在失败项".to_string()
+                        },
+                        response_time_ms: start.elapsed().as_millis() as u64,
+                        detail: Some(checks.join("\n")),
+            })
+        }
+        "proxy" | "http_proxy" | "socks" | "socks5" => {
+            let proxy_config: ProxyConfig = serde_json::from_str(&net.config).map_err(|e| {
+                CoreError::from(format!("解析代理配置 JSON 失败: {}", e))
+            })?;
+
+            let is_socks = net.network_type == "socks" || net.network_type == "socks5";
+            let test_host = "127.0.0.1";
+            let test_port = 1u16; // 仅测试代理连通性，不实际连接目标
+
+            let dummy = ConnectionConfig::direct(test_host, test_port);
+            let result = if is_socks {
+                connector::establish_socks_proxy(&dummy, &proxy_config).await
+            } else {
+                connector::establish_http_proxy(&dummy, &proxy_config).await
+            };
+
+            match result {
+                Ok(_) => Ok(TestNetworkConfigResponse {
+                    success: true,
+                    message: "代理连接测试成功".to_string(),
+                    response_time_ms: start.elapsed().as_millis() as u64,
+                    detail: Some(format!("{}:{}", proxy_config.host, proxy_config.port)),
+                }),
+                Err(e) => Ok(TestNetworkConfigResponse {
+                    success: false,
+                    message: format!("代理连接测试失败: {}", e),
+                    response_time_ms: start.elapsed().as_millis() as u64,
+                    detail: Some(format!(
+                        "代理 {}:{} → {}",
+                        proxy_config.host, proxy_config.port, e
+                    )),
+                }),
+            }
+        }
+        other => Ok(TestNetworkConfigResponse {
+            success: false,
+            message: format!("不支持的网络配置类型: {}", other),
+            response_time_ms: start.elapsed().as_millis() as u64,
+            detail: None,
+        }),
+    }
 }

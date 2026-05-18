@@ -502,7 +502,9 @@ impl ProjectDatabaseManager {
     }
 
     /// 列出项目数据库中的所有环境
-    pub async fn list_project_environments(&self) -> Result<Vec<env_store::Environment>, CoreError> {
+    pub async fn list_project_environments(
+        &self,
+    ) -> Result<Vec<env_store::Environment>, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
         env_store::list_environments(conn)
@@ -519,12 +521,13 @@ impl ProjectDatabaseManager {
     ) -> Result<(), CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let mut env = env_store::get_environment(conn, id)?
-            .ok_or_else(|| CoreError::storage(StorageError::Persistence {
+        let mut env = env_store::get_environment(conn, id)?.ok_or_else(|| {
+            CoreError::storage(StorageError::Persistence {
                 store: "env_store".to_string(),
                 operation: "update_environment".to_string(),
                 reason: format!("environment not found: {}", id),
-            }))?;
+            })
+        })?;
         if let Some(n) = name {
             env.name = n.to_string();
         }
@@ -592,14 +595,13 @@ impl ProjectDatabaseManager {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
         let policies = env_store::list_policies(conn, "")?;
-        let mut policy = policies
-            .into_iter()
-            .find(|p| p.id == id)
-            .ok_or_else(|| CoreError::storage(StorageError::Persistence {
+        let mut policy = policies.into_iter().find(|p| p.id == id).ok_or_else(|| {
+            CoreError::storage(StorageError::Persistence {
                 store: "env_store".to_string(),
                 operation: "update_policy".to_string(),
                 reason: format!("policy not found: {}", id),
-            }))?;
+            })
+        })?;
         if let Some(cfg) = policy_config {
             policy.policy_config = Some(cfg.to_string());
         }
@@ -642,7 +644,9 @@ impl ProjectDatabaseManager {
     }
 
     /// 列出项目数据库中的所有认证配置
-    pub async fn list_project_auth_configs(&self) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
+    pub async fn list_project_auth_configs(
+        &self,
+    ) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
         auth_store::list_auth_configs(conn, None)
@@ -698,12 +702,13 @@ impl ProjectDatabaseManager {
     ) -> Result<(), CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let mut nc = network_store::get_network_config(conn, id)?
-            .ok_or_else(|| CoreError::storage(StorageError::Persistence {
+        let mut nc = network_store::get_network_config(conn, id)?.ok_or_else(|| {
+            CoreError::storage(StorageError::Persistence {
                 store: "network_store".to_string(),
                 operation: "update_network_config".to_string(),
                 reason: format!("network config not found: {}", id),
-            }))?;
+            })
+        })?;
         if let Some(n) = name {
             nc.name = Some(n.to_string());
         }

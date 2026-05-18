@@ -145,6 +145,7 @@ pub fn run() {
             create_network_config,
             update_network_config,
             delete_network_config,
+            test_network_config,
             get_all_drivers_catalog,
             enable_driver_for_project,
             disable_driver_for_project,
