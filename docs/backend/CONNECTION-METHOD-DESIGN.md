@@ -432,6 +432,108 @@ Final: rewrite_url(url, "127.0.0.1", 13302)
 
 **核心原理：每跳创建一个本地端口转发，本地端口作为下一跳的 TCP 入口，层层嵌套。**
 
+### 6.5 协议链路深度分析
+
+| 层数 | 场景示例 | 延迟增量 | 可行性 |
+|------|----------|----------|--------|
+| 1 层 | Proxy→DB, SSH→DB, SSL→DB | +5ms | ✅ 基准 |
+| 2 层 | Proxy→SSH→DB, SSH→SSH→DB | +15ms | ✅ 常见 |
+| 3 层 | Proxy→SSH→Proxy→DB | +30ms | ✅ 企业级 |
+| 4 层 | Proxy→SSH1→SSH2→Proxy→DB | +50ms | 🟡 罕见 |
+| 5 层 | Proxy×2→SSH×2→Proxy→DB | +75ms | 🟡 极端 |
+| 6 层 | Proxy×3→SSH×2→Proxy→DB | +100ms | 🔴 工程上限 |
+
+**6 层为工程上限原因：**
+- 每层消耗 1 个 localhost TCP 端口（OS 资源） + 1 个 tokio 桥接任务（~8KB 栈）
+- 延迟叠加：6 层 = 6× localhost 往返 + 3-6× 网络往返
+- TCP 拥塞控制失控：每层独立 TCP 窗口，N 层 = N× bufferbloat
+- 实际堆栈：
+  ```
+  本机 localhost:P1 ── Proxy1 ──► ....(internet)....
+  localhost:P2 ── SSH1 ──► bastion1:22
+  localhost:P3 ── Proxy2 ──► internal_proxy:8080
+  localhost:P4 ── SSH2 ──► bastion2:22
+  localhost:P5 ── Proxy3 ──► proxy3.internal:3128
+  localhost:P6 ── 最终路由 ──► db.internal:3306
+  ```
+
+### 6.6 SSL 模式智能感知
+
+SslConfig 字段根据数据库类型自动映射为 URL 查询参数：
+
+| SslConfig 字段 | MySQL 参数 | PostgreSQL 参数 |
+|---------------|-----------|----------------|
+| `verify_server_cert=true` + `ca_cert_path` | `ssl-mode=VERIFY_CA` | `sslmode=verify-ca` |
+| `verify_server_cert=true` (无 CA) | `ssl-mode=REQUIRED` | `sslmode=require` |
+| `verify_server_cert=false` | `ssl-mode=REQUIRED` | `sslmode=require` |
+| `ca_cert_path` | `&ssl-ca=/path/ca.pem` | `&sslrootcert=/path/ca.pem` |
+| `client_cert_path` | `&ssl-cert=/path/cert.pem` | `&sslcert=/path/cert.pem` |
+| `client_key_path` | `&ssl-key=/path/key.pem` | `&sslkey=/path/key.pem` |
+
+**单跳 SSL 示例：**
+```
+输入 URL:  mysql://user@db.internal:3306/mydb
+SslConfig: { verify_server_cert: true, ca_cert_path: "/etc/ssl/ca.pem" }
+输出 URL:  mysql://user@db.internal:3306/mydb?ssl-mode=VERIFY_CA&ssl-ca=/etc/ssl/ca.pem
+```
+
+**链式 SSL 示例（Proxy → SSH → SSL → DB）：**
+```
+Chain: [HttpProxy, Ssh, Ssl]
+Step 1-2: Proxy + SSH 隧道建立（端口转发）
+Step 3:   在最终 localhost URL 上追加 SSL 参数
+结果:     mysql://127.0.0.1:13303/mydb?ssl-mode=VERIFY_CA&ssl-ca=/etc/ssl/ca.pem
+```
+
+### 6.7 no_proxy 规则匹配
+
+ProxyConfig 支持 `no_proxy: Vec<String>` 字段，用于指定**绕过代理的主机列表**。
+匹配规则沿袭 UNIX `no_proxy` 环境变量的惯例：
+
+| 规则格式 | 示例 | 匹配行为 |
+|----------|------|----------|
+| 精确主机名 | `db.internal` | 精确匹配 `db.internal` |
+| 域名后缀 | `.internal` | 匹配 `*.internal`（如 `db.internal`, `svc.internal`）|
+| IP 地址 | `192.168.1.1` | 精确匹配 IP |
+| localhost | `localhost` | 同时匹配 `localhost` / `127.0.0.1` / `::1` |
+
+**集成位置**：
+- 单跳 Proxy：`apply_network_method()` 在建立隧道前检查
+- 链中 Proxy 跳：`process_chain()` 在每跳处理前检查
+- 匹配成功 → **跳过此代理跳**，日志记录
+
+```json
+{
+  "host": "corp-proxy.example.com",
+  "port": 8080,
+  "no_proxy": ["localhost", ".internal", "192.168.0.0/16"]
+}
+```
+
+### 6.8 SSL 证书过期检测
+
+`connector::check_cert_expiry(path)` 基于 `x509-parser` 纯 Rust 实现，
+支持 PEM 和 DER 格式，返回 `SslCertInfo`：
+
+```
+SslCertInfo {
+  path, subject, issuer,
+  not_before, not_after,
+  days_until_expiry,  // 负数 = 已过期
+  is_expired
+}
+```
+
+已集成到 `test_network_config` SSL 测试中，同时检查 CA 证书和客户端证书。
+
+```bash
+# test_network_config SSL 输出示例
+CA 证书文件存在: /etc/ssl/ca.pem
+CA 证书: subject=CN=MyOrg CA, 过期日期=2027-12-31, 剩余365天
+客户端证书文件存在: /etc/ssl/client.pem
+客户端证书: subject=CN=app-user, 过期日期=2025-03-01, 剩余-79天 ⚠️ 已过期
+```
+
 ---
 
 ## 七、v0.5.0 开发计划
@@ -451,6 +553,9 @@ Final: rewrite_url(url, "127.0.0.1", 13302)
 | P3 | test_network_config Tauri Command（SSH/SSL/Proxy 连通性测试）| ✅ |
 | P2 | SSH Host Key 指纹日志记录 | ✅ |
 | P1 | 协议链路（Chain）：Proxy→SSH / SSH→SSH / Proxy→SSH→DB | ✅ |
+| P1 | 协议链路 Proxy 跳 connect_override（支持 Proxy→SSH→Proxy→DB）| ✅ |
+| P1 | SSL 模式智能感知：SslConfig → MySQL ssl-mode / PostgreSQL sslmode | ✅ |
+| P3 | 协议链路深度分析：6 层工程上限 | ✅ |
 
 ### 7.2 待完成项 🚧
 
@@ -467,12 +572,13 @@ Final: rewrite_url(url, "127.0.0.1", 13302)
 ```
 v0.6.0（预计 7-10 天）:
   ├── SSH Agent 转发 + Host Key 校验 + 用户确认弹窗
-  ├── SSH 多跳隧道链（已实现基础链式，v0.6.0 加 hops 配置可视化）
-  ├── SSL 模式智能感知（MySQL/PostgreSQL ssl_mode 自动映射）
+  ├── SSH 多跳隧道链 hops 配置可视化
+  ├── ~~SSL 模式智能感知~~ ✅ v0.5.0
   ├── SSL 证书过期检测
   ├── no_proxy 规则匹配
-  ├── 代理 → SSL 嵌套（Proxy → TLS）
-  └── 连接方式性能对比监控
+  ├── 代理 → SSL 嵌套（Proxy → TLS wrapping）
+  ├── 连接方式性能对比监控
+  └── Proxy→SSL 嵌套 TlsStream 包装
 
 v0.7.0（预计 5-7 天）:
   ├── SSH 隧道自动重连

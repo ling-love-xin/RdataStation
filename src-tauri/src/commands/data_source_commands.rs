@@ -679,7 +679,21 @@ pub async fn test_network_config(
             let mut checks = Vec::new();
                     if let Some(ref ca) = cfg.ca_cert_path {
                         match std::fs::read(ca) {
-                            Ok(_) => checks.push(format!("CA 证书文件存在: {}", ca)),
+                            Ok(_) => {
+                                checks.push(format!("CA 证书文件存在: {}", ca));
+                                match connector::check_cert_expiry(ca) {
+                                    Ok(info) => {
+                                        checks.push(format!(
+                                            "CA 证书: subject={}, 过期日期={}, 剩余{}天{}",
+                                            info.subject,
+                                            info.not_after,
+                                            info.days_until_expiry,
+                                            if info.is_expired { " ⚠️ 已过期" } else { "" }
+                                        ));
+                                    }
+                                    Err(e) => checks.push(format!("CA 证书过期检查失败: {}", e)),
+                                }
+                            }
                             Err(e) => {
                                 checks.push(format!("CA 证书文件读取失败 '{}': {}", ca, e))
                             }
@@ -687,7 +701,23 @@ pub async fn test_network_config(
                     }
                     if let Some(ref cert) = cfg.client_cert_path {
                         match std::fs::read(cert) {
-                            Ok(_) => checks.push(format!("客户端证书文件存在: {}", cert)),
+                            Ok(_) => {
+                                checks.push(format!("客户端证书文件存在: {}", cert));
+                                match connector::check_cert_expiry(cert) {
+                                    Ok(info) => {
+                                        checks.push(format!(
+                                            "客户端证书: subject={}, 过期日期={}, 剩余{}天{}",
+                                            info.subject,
+                                            info.not_after,
+                                            info.days_until_expiry,
+                                            if info.is_expired { " ⚠️ 已过期" } else { "" }
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        checks.push(format!("客户端证书过期检查失败: {}", e))
+                                    }
+                                }
+                            }
                             Err(e) => checks.push(format!("客户端证书文件读取失败 '{}': {}", cert, e)),
                         }
                     }

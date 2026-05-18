@@ -459,6 +459,16 @@ impl ConnectionService {
                 };
                 let is_socks = matches!(method, Some(ConnectionMethod::SocksProxy(_)));
 
+                if Self::matches_no_proxy(&target_host, &proxy_config.no_proxy) {
+                    tracing::info!(
+                        conn_id = %conn_id,
+                        host = %target_host,
+                        rules = ?proxy_config.no_proxy,
+                        "目标主机匹配 no_proxy 规则，跳过代理"
+                    );
+                    return Ok(url.to_string());
+                }
+
                 let (tunnel_stream, local_port) =
                     create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks, None)
                         .await?;
@@ -528,6 +538,18 @@ impl ConnectionService {
                     let is_socks = matches!(hop, ChainHop::SocksProxy(_));
                     let connect_override =
                         tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
+
+                    if Self::matches_no_proxy(&target_host, &proxy.no_proxy) {
+                        tracing::info!(
+                            conn_id = %conn_id,
+                            hop = i,
+                            host = %target_host,
+                            rules = ?proxy.no_proxy,
+                            "链路中目标主机匹配 no_proxy 规则，跳过此代理跳"
+                        );
+                        continue;
+                    }
+
                     let (_, lp) = create_proxy_tunnel_port(
                         proxy,
                         &target_host,
@@ -741,6 +763,37 @@ impl ConnectionService {
         } else {
             format!("{}?{}", url, params)
         }
+    }
+
+    /// 检查目标主机是否匹配 no_proxy 规则列表
+    ///
+    /// 支持格式：精确主机名、IP 地址、`.domain` 后缀通配（匹配 `*.domain`）
+    fn matches_no_proxy(host: &str, rules: &[String]) -> bool {
+        if rules.is_empty() {
+            return false;
+        }
+        let host_lower = host.to_lowercase();
+        for rule in rules {
+            let rule = rule.trim().to_lowercase();
+            if rule.is_empty() {
+                continue;
+            }
+            if rule == host_lower {
+                return true;
+            }
+            if rule == "localhost" && (host_lower == "127.0.0.1" || host_lower == "::1") {
+                return true;
+            }
+            if rule == "127.0.0.1" && host_lower == "localhost" {
+                return true;
+            }
+            if let Some(suffix) = rule.strip_prefix('.') {
+                if host_lower == suffix || host_lower.ends_with(&format!(".{}", suffix)) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// 根据数据库类型创建对应的数据库实例
