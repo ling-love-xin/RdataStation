@@ -1,7 +1,8 @@
 # 数据库字典（Database Dictionary）
 
-> 版本：v1.0
+> 版本：v1.1
 > 初稿日期：2026-05-12
+> 更新时间：2026-05-18（新增数据源模块表）
 > 对应后端版本：R25+
 
 ## 概述
@@ -89,7 +90,130 @@ CREATE TABLE app_logs (
 -- 索引: timestamp, level, target, session_id
 ```
 
-### 1.5 其他系统表
+### 1.5 数据源模块（新增，v1.1）
+
+> 详细设计见 [DATA-SOURCE-MODULE.md](./DATA-SOURCE-MODULE.md)
+
+#### 1.5.1 数据源类型目录
+
+```sql
+CREATE TABLE data_source_types (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    category    TEXT NOT NULL,          -- relational|file-based|nosql|analytics|cloud|mq|http
+    icon        TEXT,
+    enabled     BOOLEAN DEFAULT 1,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 1.5.2 驱动定义目录
+
+```sql
+CREATE TABLE drivers (
+    id                    TEXT PRIMARY KEY,
+    type_id               TEXT NOT NULL REFERENCES data_source_types(id) ON DELETE CASCADE,
+    name                  TEXT NOT NULL,
+    driver_kind           TEXT NOT NULL DEFAULT 'native',  -- native|jdbc|odbc|wasm|adbc|http|python|js
+    is_file               BOOLEAN DEFAULT 0,
+    default_port          INTEGER,
+    url_template          TEXT,
+    download_url          TEXT,              -- 外部驱动下载 URL
+    download_checksum     TEXT,              -- SHA256 校验和
+    version               TEXT,              -- 驱动版本号
+    config_schema         TEXT NOT NULL,     -- JSON Schema：前端动态生成连接表单
+    supported_auth_types  TEXT,              -- JSON 数组
+    capabilities          TEXT,              -- JSON 数组
+    enabled               BOOLEAN DEFAULT 1,
+    created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- 索引: type_id, driver_kind, enabled
+```
+
+#### 1.5.3 本机驱动文件注册表
+
+```sql
+CREATE TABLE driver_files (
+    id           TEXT PRIMARY KEY,
+    driver_id    TEXT NOT NULL REFERENCES drivers(id),
+    file_path    TEXT NOT NULL,              -- 相对路径
+    file_name    TEXT NOT NULL,
+    file_size    INTEGER,
+    checksum     TEXT,                       -- SHA256
+    version      TEXT NOT NULL,
+    installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- 唯一索引: (driver_id, version)
+```
+
+#### 1.5.4 环境表
+
+```sql
+CREATE TABLE environments (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    description TEXT,
+    color       TEXT,
+    sort_order  INTEGER DEFAULT 0,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 1.5.5 环境策略表
+
+```sql
+CREATE TABLE environment_policies (
+    id              TEXT PRIMARY KEY,
+    environment_id  TEXT NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
+    policy_type     TEXT NOT NULL,           -- read_only|navigation_filter|query_timeout|max_rows|ddl_blocked|dml_blocked|confirm_required
+    policy_config   TEXT,                    -- JSON 配置
+    enabled         BOOLEAN DEFAULT 1,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- 索引: environment_id
+```
+
+#### 1.5.6 认证配置表
+
+```sql
+CREATE TABLE auth_configs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT,
+    auth_type   TEXT NOT NULL,               -- password|keyfile|kerberos|oauth2|aws_iam|gcp_sa
+    auth_data   TEXT NOT NULL,               -- JSON，密码 AES-256-GCM 加密
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 1.5.7 网络配置表
+
+```sql
+CREATE TABLE network_configs (
+    id            TEXT PRIMARY KEY,
+    name          TEXT,
+    network_type  TEXT NOT NULL,             -- ssh|proxy|ssl|none
+    config        TEXT NOT NULL,             -- JSON，结构依赖 network_type
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 1.5.8 全局连接扩展字段
+
+```sql
+-- ALTER TABLE global_connections ADD COLUMN:
+description       TEXT,          -- 连接描述
+driver_id         TEXT,          -- → drivers.id
+environment_id    TEXT,          -- → environments.id
+auth_config_id    TEXT,          -- → auth_configs.id
+network_config_id TEXT,          -- → network_configs.id
+driver_properties TEXT,          -- JSON
+advanced_options  TEXT           -- JSON
+```
+
+### 1.6 其他系统表
 
 | 表名                   | 用途                |
 | ---------------------- | ------------------- |
@@ -164,7 +288,90 @@ CREATE TABLE query_history (
 -- 视图: sql_history（兼容旧代码）
 ```
 
-### 2.4 其他项目表
+### 2.4 数据源模块（项目级，新增 v1.1）
+
+> 详细设计见 [DATA-SOURCE-MODULE.md](./DATA-SOURCE-MODULE.md)
+
+#### 2.4.1 项目驱动启用表（⭐ 核心隔离）
+
+```sql
+CREATE TABLE project_drivers (
+    id           TEXT PRIMARY KEY,
+    driver_id    TEXT NOT NULL,              -- 逻辑引用 global.db.drivers.id
+    enabled      BOOLEAN DEFAULT 1,
+    installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- 唯一索引: driver_id
+-- 注意: driver_id 无 FK 约束（跨DB），由 Rust 层校验
+```
+
+#### 2.4.2 环境表
+
+```sql
+CREATE TABLE environments (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    description TEXT,
+    color       TEXT,
+    sort_order  INTEGER DEFAULT 0,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 2.4.3 环境策略表
+
+```sql
+CREATE TABLE environment_policies (
+    id              TEXT PRIMARY KEY,
+    environment_id  TEXT NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
+    policy_type     TEXT NOT NULL,
+    policy_config   TEXT,
+    enabled         BOOLEAN DEFAULT 1,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- 索引: environment_id
+```
+
+#### 2.4.4 认证配置表
+
+```sql
+CREATE TABLE auth_configs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT,
+    auth_type   TEXT NOT NULL,
+    auth_data   TEXT NOT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 2.4.5 网络配置表
+
+```sql
+CREATE TABLE network_configs (
+    id            TEXT PRIMARY KEY,
+    name          TEXT,
+    network_type  TEXT NOT NULL,
+    config        TEXT NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 2.4.6 项目连接扩展字段
+
+```sql
+-- ALTER TABLE connections ADD COLUMN:
+description       TEXT,
+driver_id         TEXT,          -- → drivers.id (逻辑引用)
+environment_id    TEXT,          -- → environments.id
+auth_config_id    TEXT,          -- → auth_configs.id
+network_config_id TEXT,          -- → network_configs.id
+driver_properties TEXT,          -- JSON
+advanced_options  TEXT           -- JSON
+```
+
+### 2.5 其他项目表
 
 | 表名                   | 用途               |
 | ---------------------- | ------------------ |
@@ -340,4 +547,5 @@ Component (Vue SFC)
 
 | 版本 | 日期       | 说明                                              |
 | ---- | ---------- | ------------------------------------------------- |
+| v1.1 | 2026-05-18 | 新增数据源模块表：data_source_types, drivers, driver_files, environments, environment_policies, auth_configs, network_configs, project_drivers；扩展 connections + global_connections |
 | v1.0 | 2026-05-12 | 初稿：全局/项目/元数据/分析四库 schema + 数据契约 |

@@ -1,8 +1,8 @@
 # RdataStation 后端文档索引
 
-> 版本：v2.0
-> 最后更新：2026-05-10
-> 状态：✅ 文档结构重整完成
+> 版本：v2.1
+> 最后更新：2026-05-18
+> 状态：✅ 新增数据源模块文档
 
 ---
 
@@ -28,6 +28,7 @@
 | [METADATA-CACHE-TEST-REPORT.md](./METADATA-CACHE-TEST-REPORT.md)               | 元数据缓存测试报告      |
 | [ANALYTICS_RESOURCE_SCHEMA.md](./ANALYTICS_RESOURCE_SCHEMA.md)                 | 分析资源模块后端 Schema |
 | [ANALYTICS_RESOURCE_MANAGER_DESIGN.md](./ANALYTICS_RESOURCE_MANAGER_DESIGN.md) | 分析资源后端设计方案    |
+| [DATA-SOURCE-MODULE.md](./DATA-SOURCE-MODULE.md)                               | 新增数据源模块：架构 · 设计 · 开发 · 接口文档 |
 
 ### 草稿本 (Scratchpad)
 
