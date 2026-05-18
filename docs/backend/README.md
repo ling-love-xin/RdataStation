@@ -1,8 +1,8 @@
 # RdataStation 后端文档索引
 
-> 版本：v2.1
-> 最后更新：2026-05-18
-> 状态：✅ 新增数据源模块文档
+> 版本：v2.2
+> 最后更新：2026-05-19
+> 状态：✅ v0.5.0 网络连接功能（SSH隧道 + SSL/TLS + 代理）后端核心完成
 
 ---
 
@@ -15,6 +15,7 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                               | 后端架构设计（目录结构、核心模块、DuckDB 功能）                                |
 | [FILE-RESPONSIBILITY.md](./FILE-RESPONSIBILITY.md)                 | 📋 后端文件职责 + 全方面审计报告（架构/设计/代码/接口/文档/前后端对齐/连通性） |
 | [implementation.md](./implementation.md)                           | 后端实现说明（内存防护、错误处理、持久化服务）                                 |
+| [CONNECTION-METHOD-DESIGN.md](./CONNECTION-METHOD-DESIGN.md)       | 🔌 网络连接方式设计：SSH隧道 + SSL/TLS + 代理（v0.5.0 核心已完成）            |
 | [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md) | 项目模块架构设计（连接分类、元数据缓存）                                       |
 | [PROJECT_MODULE_OPTIMIZATION.md](./PROJECT_MODULE_OPTIMIZATION.md) | 项目模块优化                                                                   |
 | [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md)                       | 数据库迁移系统                                                                 |

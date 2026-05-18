@@ -1,7 +1,7 @@
 # RdataStation 开发规范索引
 
-> 版本：v1.2
-> 最后更新：2026-05-18
+> 版本：v1.3
+> 最后更新：2026-05-19
 > 状态：✅ 持续更新
 
 ---
@@ -63,6 +63,9 @@
 | DuckDB-RS    | 1.10502.0 | 禁止 major 升级 |
 | Arrow        | 58.1.0    | 禁止 major 升级 |
 | sqlglot-rust | 0.9.24    | 禁止 major 升级 |
+| russh        | 0.49.2    | 禁止 major 升级 |
+| russh-keys   | 0.49.2    | 禁止 major 升级 |
+| native-tls   | 0.2.14    | 禁止 major 升级 |
 
 ### Vue 3 Frontend
 
@@ -99,6 +102,8 @@
 | 前端架构文档  | `docs/frontend/INDEX.md`       |
 | 后端架构文档  | `docs/backend/README.md`       |
 | Rust 详细文档 | `src-tauri/src/docs/README.md` |
+| 网络连接设计  | `docs/backend/CONNECTION-METHOD-DESIGN.md` |
+| 网络配置 UI   | `docs/frontend/NETWORK-CONFIG-UI-DESIGN.md` |
 
 ---
 
@@ -106,6 +111,7 @@
 
 | 版本 | 日期       | 说明                                             |
 | ---- | ---------- | ------------------------------------------------ |
+| v1.3 | 2026-05-19 | v0.5.0 网络连接功能：SSH隧道(russh) + SSL/TLS(native-tls) + 代理配置，后端核心完成 |
 | v1.2 | 2026-05-18 | Vite 6→8 升级，Rolldown 引擎，vue-tsc 3.x，@vitejs/plugin-vue 6.x |
 | v1.1 | 2026-05-12 | 代码质量全面修复，TS/ESLint 零错误，依赖版本锁定 |
 | v1.0 | 2026-05-03 | 初始版本，建立规则索引                           |

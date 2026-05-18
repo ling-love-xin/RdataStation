@@ -1,8 +1,8 @@
 # RdataStation 文档中心
 
-> 版本：v3.1
-> 最后更新：2026-05-11
-> 状态：✅ 文档结构重整完成，版本号已校准
+> 版本：v3.2
+> 最后更新：2026-05-19
+> 状态：✅ v0.5.0 网络连接功能（SSH隧道 + SSL/TLS + 代理）后端核心完成
 
 ---
 
@@ -21,6 +21,8 @@
 | 了解数据库导航       | [导航器文档](./navigator/README.md)                            | IVM 增量视图设计               |
 | 了解标题栏设计       | [标题栏文档](./frontend/title-bar/README.md)                   | 标题栏/状态栏重构              |
 | 了解连接管理         | [连接模态框](./frontend/connection/connection-modal.md)        | 新建数据库连接页面             |
+| 了解网络连接设计     | [网络连接设计](./backend/CONNECTION-METHOD-DESIGN.md)          | SSH隧道 + SSL/TLS + 代理       |
+| 了解网络配置 UI      | [网络配置 UI](./frontend/NETWORK-CONFIG-UI-DESIGN.md)          | 网络配置前端设计               |
 | 查看竞品对比         | [竞品对比](./COMPARISON.md)                                    | vs DBeaver / DataGrip          |
 | 查看变更日志         | [变更日志](./CHANGELOG.md)                                     | 版本变更记录                   |
 | 查看任务进度         | [任务清单](./backend/TASKS.md)                                 | 开发任务追踪                   |
@@ -43,6 +45,7 @@ docs/
 │   ├── README.md                       # 后端文档索引
 │   ├── ARCHITECTURE.md                 # 后端架构设计
 │   ├── implementation.md               # 后端实现说明
+│   ├── CONNECTION-METHOD-DESIGN.md     # 网络连接方式设计（SSH/SSL/Proxy）
 │   ├── PROJECT_MODULE_ARCHITECTURE.md  # 项目模块架构
 │   ├── PROJECT_MODULE_OPTIMIZATION.md  # 项目模块优化
 │   ├── MIGRATION_SYSTEM.md             # 数据库迁移系统
@@ -70,6 +73,7 @@ docs/
 │   ├── LAYOUT.md                       # 布局设计
 │   ├── SCRATCHPAD.md                   # 草稿本前端
 │   ├── PLUGIN-ARCHITECTURE-REFACTOR.md # 插件架构重构
+│   ├── NETWORK-CONFIG-UI-DESIGN.md     # 网络配置 UI 设计
 │   │
 │   ├── sql-editor/                     # 📝 SQL 编辑器
 │   │   ├── README.md                   # 编辑器文档索引
@@ -153,6 +157,8 @@ docs/
 | sqlx         | 0.8.x     | MySQL/PostgreSQL |
 | rusqlite     | 0.32.x    | SQLite           |
 | duckdb-rs    | 1.10502.x | DuckDB           |
+| russh        | 0.49.x    | SSH 隧道         |
+| native-tls   | 0.2.x     | SSL/TLS 加密     |
 
 ### 前端 (Vue 3 + TS)
 
@@ -203,6 +209,7 @@ docs/
 
 | 版本 | 日期       | 说明                                       |
 | ---- | ---------- | ------------------------------------------ |
+| v3.2 | 2026-05-19 | v0.5.0 网络连接功能：SSH隧道(russh) + SSL/TLS(native-tls)，后端核心完成，设计文档就位 |
 | v3.1 | 2026-05-11 | 版本号校准、新增联调测试方案、四库连接测试 |
 | v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录       |
 | v2.5 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase）    |

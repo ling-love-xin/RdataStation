@@ -1,8 +1,8 @@
 # RdataStation 前端文档
 
-> 版本：v3.1
-> 更新日期：2026-05-11
-> 状态：✅ 已同步联调测试方案
+> 版本：v3.2
+> 更新日期：2026-05-19
+> 状态：✅ v0.5.0 网络连接功能后端核心完成，前端设计文档就位
 
 ---
 
@@ -22,6 +22,7 @@ docs/frontend/
 ├── LAYOUT.md                         # 布局设计
 ├── SCRATCHPAD.md                     # 草稿本前端
 ├── PLUGIN-ARCHITECTURE-REFACTOR.md   # 插件架构重构
+├── NETWORK-CONFIG-UI-DESIGN.md       # 网络配置 UI 设计
 │
 ├── sql-editor/                       # 📝 SQL 编辑器
 │   ├── README.md                     # 编辑器文档索引
@@ -140,6 +141,7 @@ docs/frontend/
 | 了解 Mock 数据生成器    | [mock/mock-data-generator-design.md](./mock/mock-data-generator-design.md)                             |
 | 了解联调测试方案        | [../project-integration-test-plan.md](../project-integration-test-plan.md)                             |
 | 查看四库连接测试        | [../../src-tauri/tests/four_db_connection_tests.rs](../../src-tauri/tests/four_db_connection_tests.rs) |
+| 了解网络配置 UI 设计    | [NETWORK-CONFIG-UI-DESIGN.md](./NETWORK-CONFIG-UI-DESIGN.md)                                           |
 
 ---
 
@@ -174,6 +176,7 @@ src/
 
 | 版本 | 日期       | 说明                                    |
 | ---- | ---------- | --------------------------------------- |
+| v3.2 | 2026-05-19 | v0.5.0 网络连接功能：网络配置 UI 设计文档 |
 | v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录    |
 | v2.4 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase） |
 | v2.3 | 2026-05-08 | SQL 编辑器架构优化全部完成              |
