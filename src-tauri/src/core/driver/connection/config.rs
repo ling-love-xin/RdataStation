@@ -5,6 +5,31 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// 协议链路中的单跳
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ChainHop {
+    /// SSH 隧道跳
+    Ssh(SshConfig),
+    /// SSL/TLS 加密跳
+    Ssl(SslConfig),
+    /// HTTP/HTTPS 代理跳
+    HttpProxy(ProxyConfig),
+    /// SOCKS4/5 代理跳
+    SocksProxy(ProxyConfig),
+}
+
+impl ChainHop {
+    pub fn hop_name(&self) -> &'static str {
+        match self {
+            ChainHop::Ssh(_) => "ssh",
+            ChainHop::Ssl(_) => "ssl",
+            ChainHop::HttpProxy(_) => "http_proxy",
+            ChainHop::SocksProxy(_) => "socks_proxy",
+        }
+    }
+}
+
 /// 连接方式枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -21,6 +46,8 @@ pub enum ConnectionMethod {
     HttpProxy(ProxyConfig),
     /// SOCKS4/5 代理连接
     SocksProxy(ProxyConfig),
+    /// 协议链路（外层 → 内层顺序，如 Proxy → SSH → SSL → DB）
+    Chain(Vec<ChainHop>),
 }
 
 /// SSL/TLS 配置
@@ -204,6 +231,16 @@ impl ConnectionConfig {
         }
     }
 
+    /// 创建协议链连接配置
+    pub fn chain(host: impl Into<String>, port: u16, hops: Vec<ChainHop>) -> Self {
+        Self {
+            host: host.into(),
+            port,
+            method: ConnectionMethod::Chain(hops),
+            options: HashMap::new(),
+        }
+    }
+
     /// 获取连接方式名称
     pub fn method_name(&self) -> &'static str {
         match &self.method {
@@ -212,23 +249,30 @@ impl ConnectionConfig {
             ConnectionMethod::Ssh(_) => "ssh",
             ConnectionMethod::HttpProxy(_) => "http_proxy",
             ConnectionMethod::SocksProxy(_) => "socks_proxy",
+            ConnectionMethod::Chain(_) => "chain",
         }
     }
 
     /// 检查是否使用加密连接
     pub fn is_encrypted(&self) -> bool {
-        matches!(
-            &self.method,
-            ConnectionMethod::Ssl(_) | ConnectionMethod::Ssh(_)
-        )
+        match &self.method {
+            ConnectionMethod::Ssl(_) | ConnectionMethod::Ssh(_) => true,
+            ConnectionMethod::Chain(hops) => hops
+                .iter()
+                .any(|h| matches!(h, ChainHop::Ssl(_) | ChainHop::Ssh(_))),
+            _ => false,
+        }
     }
 
     /// 检查是否使用代理
     pub fn is_proxied(&self) -> bool {
-        matches!(
-            &self.method,
-            ConnectionMethod::HttpProxy(_) | ConnectionMethod::SocksProxy(_)
-        )
+        match &self.method {
+            ConnectionMethod::HttpProxy(_) | ConnectionMethod::SocksProxy(_) => true,
+            ConnectionMethod::Chain(hops) => hops
+                .iter()
+                .any(|h| matches!(h, ChainHop::HttpProxy(_) | ChainHop::SocksProxy(_))),
+            _ => false,
+        }
     }
 }
 

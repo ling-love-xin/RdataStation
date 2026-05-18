@@ -60,7 +60,7 @@ impl DriverFactory for PostgresDriverFactory {
         Box::pin(async move {
             // 根据连接方式决定如何建立连接
             let url = match &config.connection_method {
-                ConnectionMethod::Direct | ConnectionMethod::Ssl(_) => {
+                ConnectionMethod::Direct | ConnectionMethod::Ssl(_) | ConnectionMethod::Chain(_) => {
                     // 直接连接或 SSL 连接：使用标准 URL
                     config.to_url().map_err(|e| {
                         CoreError::connection(ConnectionError::InvalidConfig {

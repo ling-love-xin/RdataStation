@@ -427,8 +427,12 @@ impl ConnectionService {
     ) -> Result<String, CoreError> {
         match method {
             None | Some(ConnectionMethod::Direct) => Ok(url.to_string()),
+            Some(ConnectionMethod::Chain(hops)) => {
+                self.process_chain(url, hops, conn_id).await
+            }
             Some(ConnectionMethod::Ssh(ssh_config)) => {
-                let (tunnel_stream, local_port) = create_ssh_tunnel_port(ssh_config).await?;
+                let (tunnel_stream, local_port) =
+                    create_ssh_tunnel_port(ssh_config, None).await?;
                 drop(tunnel_stream);
 
                 let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
@@ -470,6 +474,98 @@ impl ConnectionService {
                 );
                 Ok(rewritten)
             }
+        }
+    }
+
+    /// 处理协议链路（外层 → 内层迭代）
+    ///
+    /// 每跳建立本地端口转发，将目标地址作为下一跳的连接入口：
+    /// - Proxy 跳的目标 = 下一跳的 host:port
+    /// - SSH 跳的 connect_to = 上一跳的 localhost 端口
+    /// - SSL 跳由 sqlx 原生处理
+    async fn process_chain(
+        &self,
+        url: &str,
+        hops: &[crate::core::driver::connection::config::ChainHop],
+        conn_id: &str,
+    ) -> Result<String, CoreError> {
+        use crate::core::driver::connection::config::ChainHop;
+
+        let (final_db_host, final_db_port) = Self::parse_host_port_from_url(url)?;
+        let mut tunnel_port: Option<u16> = None;
+
+        for (i, hop) in hops.iter().enumerate() {
+            let next_hop = hops.get(i + 1);
+
+            match hop {
+                ChainHop::Ssh(ssh_config) => {
+                    let connect_override =
+                        tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
+                    let (_, lp) =
+                        create_ssh_tunnel_port(ssh_config, connect_override).await?;
+                    tunnel_port = Some(lp);
+                    tracing::info!(
+                        conn_id = %conn_id,
+                        hop = i,
+                        port = lp,
+                        "SSH 隧道跳已建立"
+                    );
+                }
+                ChainHop::HttpProxy(proxy) | ChainHop::SocksProxy(proxy) => {
+                    let (target_host, target_port) = if let Some(next) = next_hop {
+                        match next {
+                            ChainHop::Ssh(s) => (s.host.clone(), s.port),
+                            ChainHop::HttpProxy(p) | ChainHop::SocksProxy(p) => {
+                                (p.host.clone(), p.port)
+                            }
+                            ChainHop::Ssl(_) => {
+                                (final_db_host.clone(), final_db_port)
+                            }
+                        }
+                    } else {
+                        (final_db_host.clone(), final_db_port)
+                    };
+                    let is_socks = matches!(hop, ChainHop::SocksProxy(_));
+                    let (_, lp) = create_proxy_tunnel_port(
+                        proxy,
+                        &target_host,
+                        target_port,
+                        is_socks,
+                    )
+                    .await?;
+                    tunnel_port = Some(lp);
+                    tracing::info!(
+                        conn_id = %conn_id,
+                        hop = i,
+                        port = lp,
+                        target = %format!("{}:{}", target_host, target_port),
+                        "代理跳已建立"
+                    );
+                }
+                ChainHop::Ssl(_) => {
+                    tracing::info!(
+                        conn_id = %conn_id,
+                        hop = i,
+                        "SSL 跳（由 sqlx 原生处理）"
+                    );
+                }
+            }
+        }
+
+        match tunnel_port {
+            Some(port) => {
+                let rewritten =
+                    Self::rewrite_url_host_port(url, "127.0.0.1", port)?;
+                tracing::info!(
+                    conn_id = %conn_id,
+                    original = %Self::mask_password_in_url(url),
+                    tunnel = %rewritten,
+                    hops = hops.len(),
+                    "协议链已建立"
+                );
+                Ok(rewritten)
+            }
+            None => Ok(url.to_string()),
         }
     }
 
@@ -967,18 +1063,26 @@ impl ConnectionService {
 
 /// 创建 SSH 隧道端口转发，返回（隧道本地流，本地端口号）
 ///
-/// 利用 connector 层的 russh SSH 隧道实现建立本地端口转发，
-/// 调用方通过返回的端口号改写数据库 URL 后即可通过隧道连接
+/// connect_override: 链式跳转时，覆盖 SSH 连接目标（通过上一跳的 localhost 端口间接连接）
 async fn create_ssh_tunnel_port(
     ssh_config: &crate::core::driver::connection::config::SshConfig,
+    connect_override: Option<(String, u16)>,
 ) -> Result<(tokio::net::TcpStream, u16), CoreError> {
     use crate::core::driver::connection::config::ConnectionConfig;
     use crate::core::driver::connection::connector;
 
+    let effective_config = if let Some((ref host, port)) = connect_override {
+        let mut modified = ssh_config.clone();
+        modified.host = host.clone();
+        modified.port = port;
+        modified
+    } else {
+        ssh_config.clone()
+    };
+
     let dummy_config = ConnectionConfig::direct("127.0.0.1", 0);
 
-    // establish_ssh_tunnel 内部已完成：SSH握手 → 认证 → 端口转发 → 返回本地TcpStream
-    let stream = connector::establish_ssh_tunnel(&dummy_config, ssh_config).await?;
+    let stream = connector::establish_ssh_tunnel(&dummy_config, &effective_config).await?;
     let port = stream
         .local_addr()
         .map_err(|e| {

@@ -315,6 +315,16 @@ async fn parse_config_json(
     config_json: &str,
 ) -> Result<Option<ConnectionMethod>, CoreError> {
     match network_type {
+        "chain" => {
+            let hops: Vec<crate::core::driver::connection::config::ChainHop> =
+                serde_json::from_str(config_json).map_err(|e| {
+                    CoreError::from(format!("解析协议链配置 JSON 失败: {}", e))
+                })?;
+            if hops.is_empty() {
+                return Ok(None);
+            }
+            Ok(Some(ConnectionMethod::Chain(hops)))
+        }
         "ssh" => {
             let ssh_config: crate::core::driver::connection::config::SshConfig =
                 serde_json::from_str(config_json)
