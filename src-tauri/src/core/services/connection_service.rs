@@ -190,7 +190,7 @@ impl ConnectionService {
 
         // 应用网络连接方式（SSH 隧道 / SSL / 代理）
         let effective_url = self
-            .apply_network_method(url, &network_method, &conn_id)
+            .apply_network_method(url, &network_method, &conn_id, db_type)
             .await?;
 
         let db = self.create_database(db_type, &effective_url).await?;
@@ -424,11 +424,12 @@ impl ConnectionService {
         url: &str,
         method: &Option<ConnectionMethod>,
         conn_id: &str,
+        db_type: &str,
     ) -> Result<String, CoreError> {
         match method {
             None | Some(ConnectionMethod::Direct) => Ok(url.to_string()),
             Some(ConnectionMethod::Chain(hops)) => {
-                self.process_chain(url, hops, conn_id).await
+                self.process_chain(url, hops, conn_id, db_type).await
             }
             Some(ConnectionMethod::Ssh(ssh_config)) => {
                 let (tunnel_stream, local_port) =
@@ -444,12 +445,10 @@ impl ConnectionService {
                 );
                 Ok(rewritten)
             }
-            Some(ConnectionMethod::Ssl(_ssl_config)) => {
+            Some(ConnectionMethod::Ssl(ssl_config)) => {
                 // SSL 参数由 sqlx 原生支持，通过 URL query 参数传递
-                // 例如：mysql://host/db?ssl-mode=VERIFY_CA&ssl-ca=/path/ca.pem
-                // 当前 SslConfig 为一站式 TLS 流加密（connector 层），
-                // sqlx 走自身 SSL 逻辑，暂不在 service 层注入 SSL 参数
-                Ok(url.to_string())
+                // 根据数据库类型自动映射 ssl_mode/sslmode 与证书路径
+                Self::append_ssl_params(url, db_type, ssl_config)
             }
             Some(ConnectionMethod::HttpProxy(_) | ConnectionMethod::SocksProxy(_)) => {
                 let (target_host, target_port) = Self::parse_host_port_from_url(url)?;
@@ -461,7 +460,7 @@ impl ConnectionService {
                 let is_socks = matches!(method, Some(ConnectionMethod::SocksProxy(_)));
 
                 let (tunnel_stream, local_port) =
-                    create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks)
+                    create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks, None)
                         .await?;
                 drop(tunnel_stream);
 
@@ -488,6 +487,7 @@ impl ConnectionService {
         url: &str,
         hops: &[crate::core::driver::connection::config::ChainHop],
         conn_id: &str,
+        db_type: &str,
     ) -> Result<String, CoreError> {
         use crate::core::driver::connection::config::ChainHop;
 
@@ -526,11 +526,14 @@ impl ConnectionService {
                         (final_db_host.clone(), final_db_port)
                     };
                     let is_socks = matches!(hop, ChainHop::SocksProxy(_));
+                    let connect_override =
+                        tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
                     let (_, lp) = create_proxy_tunnel_port(
                         proxy,
                         &target_host,
                         target_port,
                         is_socks,
+                        connect_override,
                     )
                     .await?;
                     tunnel_port = Some(lp);
@@ -563,10 +566,29 @@ impl ConnectionService {
                     hops = hops.len(),
                     "协议链已建立"
                 );
-                Ok(rewritten)
+                // 链路末尾如有 SSL 跳，注入数据库特定 SSL 参数
+                Self::inject_chain_ssl_params(&rewritten, hops, db_type)
             }
-            None => Ok(url.to_string()),
+            None => {
+                // 纯 SSL 链路：直接注入 SSL 参数
+                Self::inject_chain_ssl_params(url, hops, db_type)
+            }
         }
+    }
+
+    /// 从链路 hops 中提取 SSL 配置并注入 URL 参数
+    fn inject_chain_ssl_params(
+        url: &str,
+        hops: &[crate::core::driver::connection::config::ChainHop],
+        db_type: &str,
+    ) -> Result<String, CoreError> {
+        use crate::core::driver::connection::config::ChainHop;
+        for hop in hops {
+            if let ChainHop::Ssl(ssl_config) = hop {
+                return Self::append_ssl_params(url, db_type, ssl_config);
+            }
+        }
+        Ok(url.to_string())
     }
 
     /// 将 URL 中的 host:port 改写为新的 host:port
@@ -647,6 +669,78 @@ impl ConnectionService {
         };
 
         Ok((hostname, port))
+    }
+
+    /// 根据 SslConfig 和数据库类型向 URL 追加 SSL 连接参数
+    ///
+    /// MySQL: ssl-mode, ssl-ca, ssl-cert, ssl-key
+    /// PostgreSQL: sslmode, sslrootcert, sslcert, sslkey
+    fn append_ssl_params(
+        url: &str,
+        db_type: &str,
+        ssl_config: &crate::core::driver::connection::config::SslConfig,
+    ) -> Result<String, CoreError> {
+        let params = match db_type {
+            "mysql" | "mariadb" => {
+                let mode = if ssl_config.verify_server_cert {
+                    if ssl_config.ca_cert_path.is_some() {
+                        "VERIFY_CA"
+                    } else {
+                        "REQUIRED"
+                    }
+                } else {
+                    "REQUIRED"
+                };
+                let mut p = format!("ssl-mode={}", mode);
+                if let Some(ref ca) = ssl_config.ca_cert_path {
+                    p.push_str(&format!("&ssl-ca={}", ca));
+                }
+                if let Some(ref cert) = ssl_config.client_cert_path {
+                    p.push_str(&format!("&ssl-cert={}", cert));
+                }
+                if let Some(ref key) = ssl_config.client_key_path {
+                    p.push_str(&format!("&ssl-key={}", key));
+                }
+                p
+            }
+            "postgres" | "postgresql" | "pgsql" => {
+                let mode = if ssl_config.verify_server_cert {
+                    if ssl_config.ca_cert_path.is_some() {
+                        "verify-ca"
+                    } else {
+                        "require"
+                    }
+                } else {
+                    "require"
+                };
+                let mut p = format!("sslmode={}", mode);
+                if let Some(ref ca) = ssl_config.ca_cert_path {
+                    p.push_str(&format!("&sslrootcert={}", ca));
+                }
+                if let Some(ref cert) = ssl_config.client_cert_path {
+                    p.push_str(&format!("&sslcert={}", cert));
+                }
+                if let Some(ref key) = ssl_config.client_key_path {
+                    p.push_str(&format!("&sslkey={}", key));
+                }
+                p
+            }
+            _ => {
+                tracing::info!(db_type=%db_type, "非 SQL 数据库，跳过 SSL 参数注入");
+                return Ok(url.to_string());
+            }
+        };
+
+        Ok(Self::append_url_params(url, &params))
+    }
+
+    /// 向 URL 追加 &params 或 ?params
+    fn append_url_params(url: &str, params: &str) -> String {
+        if url.contains('?') {
+            format!("{}&{}", url, params)
+        } else {
+            format!("{}?{}", url, params)
+        }
     }
 
     /// 根据数据库类型创建对应的数据库实例
@@ -1099,12 +1193,14 @@ async fn create_ssh_tunnel_port(
 /// 创建代理隧道端口转发，返回（隧道本地流，本地端口号）
 ///
 /// 建立本地端口转发：绑定本地端口 → 后台任务通过代理连接到目标 → 双向数据拷贝
-/// 调用方通过返回的端口号改写数据库 URL 后即可通过代理连接
+///
+/// connect_override: 链式跳转时，覆盖代理连接目标（通过上一跳的 localhost 端口间接连接代理服务器）
 async fn create_proxy_tunnel_port(
     proxy_config: &crate::core::driver::connection::config::ProxyConfig,
     target_host: &str,
     target_port: u16,
     is_socks: bool,
+    connect_override: Option<(String, u16)>,
 ) -> Result<(tokio::net::TcpStream, u16), CoreError> {
     use crate::core::driver::connection::config::ConnectionConfig;
     use crate::core::driver::connection::connector;
@@ -1126,15 +1222,23 @@ async fn create_proxy_tunnel_port(
     })?.port();
 
     let pc = proxy_config.clone();
+    let effective_pc = if let Some((ref host, port)) = connect_override {
+        let mut modified = pc.clone();
+        modified.host = host.clone();
+        modified.port = port;
+        modified
+    } else {
+        pc.clone()
+    };
     let th = target_host.to_string();
     tokio::spawn(async move {
         match listener.accept().await {
             Ok((local_stream, _)) => {
                 let dummy = ConnectionConfig::direct(&th, target_port);
                 let tunneled = if is_socks {
-                    connector::establish_socks_proxy(&dummy, &pc).await
+                    connector::establish_socks_proxy(&dummy, &effective_pc).await
                 } else {
-                    connector::establish_http_proxy(&dummy, &pc).await
+                    connector::establish_http_proxy(&dummy, &effective_pc).await
                 };
 
                 match tunneled {

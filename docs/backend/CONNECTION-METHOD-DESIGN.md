@@ -40,11 +40,10 @@
 ### 2.2 架构分层
 
 ```
-ConnectionService (服务层) ── URL 改写（SSH 隧道）
+ConnectionService (服务层) ── URL 改写（SSH 隧道 / 代理 / 协议链路）
 ├── apply_network_method()
-│   ├── SSH: create_ssh_tunnel_port() → 改写 URL host:port
-│   ├── SSL: 透传（sqlx 原生支持 SSL 参数）
-│   └── Proxy: create_proxy_tunnel_port() → 改写 URL host:port
+│   ├── Single: SSH/SSL/Proxy → 对应隧道
+│   └── Chain: 迭代 hops → process_chain() → 层层端口转发
 │
 ConnectionFactory (调度层)
 ├── DirectConnector  ← TCP 直连 ✓
@@ -451,6 +450,7 @@ Final: rewrite_url(url, "127.0.0.1", 13302)
 | P3 | Proxy 代理 service 层集成（本地端口转发 + URL 改写）| ✅ |
 | P3 | test_network_config Tauri Command（SSH/SSL/Proxy 连通性测试）| ✅ |
 | P2 | SSH Host Key 指纹日志记录 | ✅ |
+| P1 | 协议链路（Chain）：Proxy→SSH / SSH→SSH / Proxy→SSH→DB | ✅ |
 
 ### 7.2 待完成项 🚧
 
@@ -467,7 +467,7 @@ Final: rewrite_url(url, "127.0.0.1", 13302)
 ```
 v0.6.0（预计 7-10 天）:
   ├── SSH Agent 转发 + Host Key 校验 + 用户确认弹窗
-  ├── SSH 多跳隧道链（hops）
+  ├── SSH 多跳隧道链（已实现基础链式，v0.6.0 加 hops 配置可视化）
   ├── SSL 模式智能感知（MySQL/PostgreSQL ssl_mode 自动映射）
   ├── SSL 证书过期检测
   ├── no_proxy 规则匹配
@@ -525,3 +525,234 @@ v0.7.0（预计 5-7 天）:
 |------|------|------|
 | v1.1 | 2026-05-19 | P0 SSH隧道 + P1 SSL证书 + service/cmd 集成完成，cargo check/clippy 通过 |
 | v1.0 | 2026-05-19 | 初始规划文档，场景地图 + 结构体设计 + 三期路线图 |
+
+---
+
+## 十、动态协议链设计（v0.6.0 核心特性）
+
+### 10.1 设计目标
+
+将当前固定的单一 `ConnectionMethod` 扩展为**动态有序协议链**，支持用户在数据源连接时自由组合 SSH 隧道、代理、SSL/TLS 加密，按序执行。
+
+### 10.2 三种协议的本质差异
+
+这是理解协议链设计的基础——三者做的事情完全不同：
+
+```
+协议     | 本质              | 产生新网络节点？ | 延迟代价        | 在链中的位置
+─────────┼───────────────────┼─────────────────┼────────────────┼─────────────
+SSH      | 隧道创建器         | ✅ 是            | 高 (5-30ms/跳)  | 任意位置
+Proxy    | 流量中继器         | ✅ 是            | 中 (3-15ms/跳)  | 任意位置
+SSL/TLS  | 流加密包装器       | ❌ 否            | 极低 (仅握手)   | 必须最后
+```
+
+**关键认知**：
+- SSL/TLS 拿一个已建立好的 TCP 流做 TLS 握手，只能在链的最末端。不可能在已加密的 TLS 流上再建 SSH（SSH 需要 TCP 三次握手，TLS 流已是一个加密字节流）。
+- SSH 和 Proxy 每增加一个，就在数据路径上插入一个真实的网络节点，增加一次 TCP 往返延迟。
+- 每经过一个 SSH/Proxy 跳，网络的"立足点"就变了，新立足点可能有自己的网络约束，因此**交替穿插是完全合理的**。
+
+### 10.3 协议链结构
+
+```
+正确的协议链结构：
+
+  [N 个 SSH/Proxy 网络跳] → [可选 1 层 TLS 加密] → [DB]
+
+  N = 网络跳数（SSH + Proxy 个数），TLS 不占跳数但占用末尾位置
+```
+
+### 10.4 全场景矩阵（N = SSH/Proxy 网络跳数）
+
+#### 0 跳 — 频次 ~85%
+
+| # | 链路 | 频次 | 场景 |
+|---|------|------|------|
+| 1 | 直连 → DB | 80% | 本地开发、内网直连 |
+| 2 | TLS → DB | 5% | 云数据库强制 TLS（RDS/Cloud SQL），无跳板 |
+
+#### 1 跳 — 频次 ~13%
+
+| # | 链路 | 频次 | 场景 |
+|---|------|------|------|
+| 3 | SSH → DB | 8% | 单堡垒机访问内网库 |
+| 4 | Proxy → DB | 2% | 公司代理出口访问外部 DB |
+| 5 | SSH → TLS → DB | 2.5% | 堡垒机 + 云数据库 TLS |
+| 6 | Proxy → TLS → DB | 0.5% | 代理出口 + TLS |
+
+#### 2 跳 — 频次 ~11%（含交替穿插）
+
+| # | 链路 | 频次 | 场景 |
+|---|------|------|------|
+| 7 | **Proxy → SSH → DB** | 3% | ★ 公司代理 → 堡垒机 → 内网 DB，最常用多跳 |
+| 8 | **SSH → Proxy → DB** | 2% | ★ 跳板机入内网 → 内网代理访问受限 DB |
+| 9 | SSH₁ → SSH₂ → DB | 1.5% | 双跳板：DMZ + 生产网段 |
+| 10 | Proxy₁ → Proxy₂ → DB | 0.3% | 代理链：公司代理 → 境外代理 |
+| 11 | Proxy → SSH → TLS → DB | 2.5% | 代理 + 堡垒机 + TLS 云数据库 |
+| 12 | SSH → Proxy → TLS → DB | 0.8% | VPN跳板 + 内网代理 + TLS |
+| 13 | SSH₁ → SSH₂ → TLS → DB | 0.5% | 双跳板 + TLS |
+
+#### 3 跳 — 频次 ~3%（交替穿插为主）
+
+| # | 链路 | 频次 | 场景 |
+|---|------|------|------|
+| 14 | **SSH → Proxy → SSH → DB** | 1% | ★ VPN跳板 → 内网代理审计 → 生产跳板 |
+| 15 | Proxy → SSH₁ → SSH₂ → DB | 1.2% | 代理 + 双跳板 |
+| 16 | Proxy₁ → Proxy₂ → SSH → DB | 0.4% | 双代理 + 跳板 |
+| 17 | SSH₁ → SSH₂ → Proxy → DB | 0.2% | 双跳板入隔离区 + 代理出站 |
+| 18 | +TLS 变体 | 0.3% | 以上变体末尾加 TLS |
+
+**SSH → Proxy → SSH 典型场景**：开发者 → VPN跳板机(入内网) → 内网HTTP代理(审计) → 生产跳板机(隔离) → DB。这是中大型企业的标配架构。
+
+#### 4 跳 — 频次 ~0.2%
+
+| # | 链路 | 场景 |
+|---|------|------|
+| 19 | Proxy → SSH → Proxy → SSH → DB | 双交替：多区域 + 多安全域。跨国金融机构合规架构 |
+| 20 | SSH → Proxy → SSH → Proxy → DB | 双交替反向 |
+| 21 | Proxy₁ → Proxy₂ → SSH₁ → SSH₂ → DB | 双代理 + 双跳板 |
+
+#### 5 跳 — 频次 < 0.01%
+
+仅理论组合，实际网络中不存在需要跨越 5 个不同安全域的场景。
+
+### 10.5 频次漏斗图
+
+```
+N=0  ████████████████████████████████████████  85%  直连/纯TLS
+N=1  ██████                                    13%  单跳
+N=2  █████                                     11%  代理+SSH(含交替)
+N=3  ██                                         3%  双跳板+代理等(含交替)
+N=4  ▏                                        0.2%  双交替
+N=5  ·                                       <0.01%
+────────────────────────────────────────────────────────
+      3跳覆盖 99%    4跳覆盖 99.8%    5跳覆盖全部
+```
+
+### 10.6 嵌套上限设计
+
+| 上限 | 覆盖 | 决定 |
+|------|------|------|
+| **代码硬上限** | 4 个 SSH/Proxy 网络跳 + 1 层 TLS + DB = **最多 6 层** | 覆盖 99.8%，超过时拒绝并提示 |
+| **UI 黄色警告** | 3 跳（含）以上 | 显示延迟风险警告："当前协议链包含 N 个网络跳，建连延迟预期 ~XXms" |
+| **V5 原型默认** | 1 跳 SSH + 1 层 TLS + 1 跳 Proxy = 2 跳 + TLS | 每种协议至少保留 1 个实例，开关控制是否生效 |
+
+**不推荐无限套娃的原因**：每增加一个 SSH/Proxy 跳，建连时间增加 30-80ms，每个查询增加节点 RTT 延迟，故障点 +1，调试复杂度翻倍。
+
+### 10.7 每跳延迟基准（参考值）
+
+| 跳类型 | TCP 握手 | 协议握手 | 总延迟增量 |
+|--------|----------|----------|-----------|
+| 本地/内网 SSH | ~2ms | ~15ms | ~17ms |
+| 跨区域 SSH | ~30ms | ~20ms | ~50ms |
+| HTTP Proxy (CONNECT) | ~5ms | ~5ms | ~10ms |
+| SOCKS5 Proxy | ~5ms | ~8ms | ~13ms |
+| TLS 握手 | N/A | ~15ms | ~15ms |
+
+```
+最大延迟预估（4 跳 + TLS）：
+内网场景：17ms×4 + 15ms ≈ 83ms  ← 可接受
+跨区域场景：50ms×4 + 30ms ≈ 230ms ← 有感知但仍可用
+```
+
+### 10.8 协议链 JSON 数据模型（规划）
+
+```json
+{
+  "chain": [
+    { "type": "ssh", "profile_id": "ssh-prod-bastion" },
+    { "type": "proxy", "profile_id": "proxy-corp-socks5" },
+    { "type": "ssh", "profile_id": "ssh-internal-bastion" },
+    { "type": "ssl", "profile_id": "ssl-rds-default" }
+  ]
+}
+```
+
+### 10.9 v0.6.0 后端实现要点
+
+1. `ConnectionMethod` → `Vec<Hop>` 数据结构升级
+2. `HopExecutor` 链式引擎：按序执行每个 hop，SSH/Proxy 产出地址改写或流包装，SSL 在最终流上包装
+3. 硬上限：`const MAX_HOP_CHAIN: usize = 4`（SSH/Proxy 跳数）
+4. 隧道句柄数组管理：`Vec<TunnelHandle>` 在连接生命周期中保持所有 SSH 隧道 alive
+5. 每跳超时累计：前 N 跳超时之和 + 最终跳超时 = 总超时
+
+---
+
+## 十一、大厂网页跳板机集成可行性分析
+
+### 11.1 什么是"网页跳板机"
+
+大厂常见的跳板机/堡垒机不再是传统 SSH 22 端口的服务器，而是**基于 Web 的零信任接入网关**：
+
+| 产品 | 厂商 | 接入方式 |
+|------|------|----------|
+| AWS Session Manager | AWS | `aws ssm start-session` → WebSocket → EC2 |
+| Cloud IAP (Identity-Aware Proxy) | GCP | `gcloud compute ssh --tunnel-through-iap` → HTTP 代理 |
+| Azure Bastion | Azure | HTML5 WebSocket，浏览器内终端 |
+| JumpServer | 开源 | Web Terminal + SSH 代理网关 |
+| Teleport | 开源/商业 | `tsh` CLI → WebSocket/HTTP2 → 目标节点 |
+| 阿里云堡垒机 | 阿里云 | Web 运维门户 + SSH/RDP 代理 |
+
+**共同特征**：
+- 不暴露标准 SSH 22 端口
+- 通过 WebSocket / HTTP2 隧道传输
+- 使用 Token/Cookie/OAuth 而非 SSH Key 认证
+- 通常有 CLI 工具可以创建**本地代理端口**
+
+### 11.2 桌面客户端的集成方案
+
+#### 方案 A：CLI 钩子（推荐，通用性最好）
+
+```
+用户在 RdataStation 中配置"前置命令"：
+
+1. 常规 Tab 填连接信息（如 Aurora host:port）
+2. 网络 Tab 选择"外部隧道"类型
+3. 填写前置命令：
+   $ aws ssm start-session \
+       --target i-1234567890abcdef0 \
+       --document-name AWS-StartPortForwardingSessionToRemoteHost \
+       --parameters '{"host":["mydb.cluster-xxx.rds.amazonaws.com"],"portNumber":["3306"],"localPortNumber":["13306"]}'
+
+4. 点击"连接" → RdataStation 执行前置命令（后台进程）
+5. 等待 localhost:13306 就绪 → sqlx 连接 127.0.0.1:13306
+
+同样适用于：
+- gcloud compute ssh --tunnel-through-iap --ssh-flag="-L 15432:db:5432"
+- tsh proxy db --tunnel --port=15432  (Teleport)
+```
+
+**优点**：零侵入，不依赖任何 SDK，只需要 `child_process.spawn` + 端口就绪检测。
+**实现**：在 `ConnectionService` 增加 `pre_connect_commands: Vec<String>` 字段。
+
+#### 方案 B：SDK 集成（深度集成，按厂商逐个实现）
+
+| 厂商 | Rust SDK | 可行性 |
+|------|----------|--------|
+| AWS SSM | `aws-sdk-ssm` (官方) | ✅ 可集成，通过 `StartSession` API + WebSocket |
+| GCP IAP | 无官方 Rust SDK | 🟡 需通过 REST/WebSocket 自实现 |
+| Teleport | `tsh` CLI 或 gRPC API | 🟡 CLI 包装更实用 |
+
+**缺点**：维护成本高，每个厂商需要单独的 Connector 实现。
+
+#### 方案 C：用户手动启动隧道（当前可行方案）
+
+```
+用户手动在终端执行：
+$ aws ssm start-session ... --localPortNumber 13306
+
+然后在 RdataStation 中连接 127.0.0.1:13306
+（或者在常规 Tab 中填 localhost:13306，网络 Tab 设为"直连"）
+```
+
+这是当前就支持的，零开发成本。
+
+### 11.3 推荐路线
+
+| 阶段 | 方案 | 版本 |
+|------|------|------|
+| 当前 | 方案 C：用户手动启动隧道 | ✅ v0.5.0 已可用 |
+| 短期 | 方案 A：`pre_connect_commands` 前置命令钩子 | v0.7.0 |
+| 中期 | 方案 A 增强：端口就绪检测 + 进程生命周期管理 | v0.8.0 |
+| 长期 | 方案 B：AWS SSM SDK 深度集成 | v1.0+ |
+
+**结论**：网页跳板机完全可以集成。最务实的路径是先支持"前置 shell 命令"，利用各厂商已有的 CLI 工具做端口转发，RdataStation 只需管理进程生命周期 + 检测端口就绪。这个方案通用性强、零依赖、覆盖所有厂商。
