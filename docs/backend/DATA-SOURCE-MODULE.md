@@ -1,10 +1,10 @@
 # 新增数据源模块：后端架构 · 设计 · 开发 · 接口文档
 
-> 版本：v1.2
+> 版本：v1.6
 > 初稿日期：2026-05-18
-> 更新时间：2026-05-18（第二轮修复完成：命令接口参数补全 + 连接字段扩展 + 项目驱动自检）
+> 更新时间：2026-05-18（第六轮修复完成：seed_default_drivers 接入 + enable 驱动校验 + CreateProjectConnectionInput 补齐 + connect_database 环境认证网络校验 + recent connections 字段扩展）
 > 对应后端版本：R25+
-> 实现状态：✅ 基本完成（仅剩 install_driver 下载 + 前端集成）
+> 实现状态：✅ 后端完整（仅剩 install_driver 下载 + 前端集成）
 
 ---
 
@@ -546,6 +546,7 @@ pub struct DriverFile {
     pub checksum: Option<String>,
     pub version: String,
     pub installed_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -609,6 +610,10 @@ pub struct NetworkConfig {
 // pub network_config_id: Option<String>,
 // pub driver_properties: Option<String>,   // JSON
 // pub advanced_options: Option<String>,    // JSON
+
+// ---------- 驱动可用性枚举（已序列化）----------
+// DriverAvailability 已 derive(serde::Serialize)，tag="status" 模式
+// 返回值：{ "status": "ready" } | { "status": "not_installed", "download_url": "..." } | ...
 ```
 
 ### 4.3 纯函数共享模式
@@ -678,37 +683,24 @@ impl DriverService {
 ### 4.5 项目打开时驱动自检
 
 ```rust
-// project/store.rs 中的 ProjectStore
+// core/project/store.rs 中的独立异步函数
+// 在 Tauri 命令 open_project_by_path / open_project_by_id 中调用
 
-impl ProjectStore {
-    /// 打开项目时检测缺失驱动，返回列表给前端展示
-    pub fn check_missing_drivers(&self, driver_service: &DriverService) -> Result<Vec<MissingDriver>, CoreError> {
-        let enabled_drivers = self.project_db.list_enabled_project_drivers()?;
-        let mut missing = Vec::new();
-
-        for driver_id in enabled_drivers {
-            if let DriverAvailability::NotInstalled { download_url } =
-                driver_service.check_driver_for_project(&driver_id, &self.project_db)?
-            {
-                let driver = driver_service.find_driver(&driver_id)?
-                    .ok_or_else(|| CoreError::common("驱动定义丢失"))?;
-                missing.push(MissingDriver {
-                    driver_id,
-                    driver_name: driver.name,
-                    download_url,
-                });
-            }
-        }
-        Ok(missing)
-    }
+pub async fn check_project_missing_drivers(
+    project_path: &Path,
+) -> Result<Vec<MissingDriver>, CoreError> {
+    // 1. 打开项目 meta.db 读取 project_drivers
+    // 2. 对比 global.db.driver_files 检查本机安装状态
+    // 3. Native 驱动自动跳过
+    // 4. 返回缺失的外部驱动列表
 }
 
-pub struct MissingDriver {
-    pub driver_id: String,
-    pub driver_name: String,
-    pub download_url: String,
-}
+// Tauri 命令中：
+// let missing = check_project_missing_drivers(Path::new(&path)).await?;
+// response.missing_drivers = missing;
 ```
+
+> 已实现：`open_project_by_path` 和 `open_project_by_id` 打开项目后自动调用，结果通过 `ProjectInfoResponse.missing_drivers` 返回前端
 
 ---
 
@@ -864,45 +856,42 @@ Tauri Command: list_network_configs
 
 ### 5.6 连接（扩展现有命令）
 
-#### `create_connection` (扩展)
+#### `connect_database` (扩展)
+
+已扩展为完整的数据源连接命令，包含驱动校验链：
+
 ```
-创建连接，新增参数
-Tauri Command: create_connection
-参数: {
-  scope: "global" | "project",
-  project_id?: string,
-  name: string,
-  driver_id: string,
-  connection_params: {          // 驱动特定参数，遵循 drivers.config_schema
-    host?: string, port?: number,
-    database?: string, username?: string,
-    password?: string, file_path?: string,
-    ...其他
-  },
+connect_database 命令校验链:
+  1. 基础校验：URL 非空、connection_type 合法
+  2. 驱动校验（仅当 driver_id 非空时）：
+     a. driver_id 是否在 global.db.drivers 中已定义？
+     b. 项目连接：driver_id 是否在 project_drivers 中启用？
+     c. 外部驱动：driver_id 对应文件是否在 driver_files 中已安装？
+  3. 连接建立：通过 ConnectionService 创建数据库连接
+  4. 持久化：全局连接自动保存到 global_connections 表（含所有新字段）
+```
+
+新增参数（已有旧参数不变）：
+```
+{
+  driver_id?: string,
   environment_id?: string,
   auth_config_id?: string,
   network_config_id?: string,
-  driver_properties?: object,   // 用户自定义驱动属性 { "pool.max_connections": "10", ... }
-  advanced_options?: object,    // 高级选项 { "connectionTimeout": 30, "queryTimeout": 0, ... }
-  description?: string,
-  tags?: string[]
+  driver_properties?: string,   // JSON
+  advanced_options?: string,    // JSON
 }
-返回: Connection
-
-校验链:
-  1. driver_id 是否在 project_drivers 中启用?
-  2. driver_id 是否在 drivers 中已定义?
-  3. 如果 driver_kind != native，driver_files 中是否已安装?
-  4. environment_id / auth_config_id / network_config_id 是否有效?
-  5. connection_params 是否符合 drivers.config_schema?
 ```
 
-#### `test_connection` (扩展)
+#### `test_connection`
+
 ```
-测试连接（不持久化）
-参数: { driver_id, connection_params, network_config_id? }
-返回: { success: bool, message: string, latency_ms?: number }
+测试连接（不持久化），复用 connection_service 的 connect_with_type 管道
+参数: { db_type, url }
+返回: TestConnectionResponse { success, message, latency_ms }
 ```
+
+> 备注：test_connection 当前复用基础连接管道，不单独做数据库保存。连接配置测试由前端通过 connect_database 验证。
 
 ---
 
@@ -1043,18 +1032,20 @@ Tauri Command: create_connection
 | Store | `core/persistence/auth_store.rs` | AuthConfig 结构体 + CRUD |
 | Store | `core/persistence/network_store.rs` | NetworkConfig 结构体 + CRUD |
 | Service | `core/services/driver_service.rs` | DriverService + DriverAvailability + MissingDriver |
-| Command | `commands/data_source_commands.rs` | 24 个 Tauri Commands（新增 18 个环境/策略/认证/网络/项目驱动命令） |
+| Command | `commands/data_source_commands.rs` | 40 个 Tauri Commands（8 全局环境 + 8 全局策略 + 6 全局认证网络 + 4 驱动 + 14 项目级新增 env/auth/network） |
 | Model | `core/driver/registry/descriptors.rs` | DriverDescriptor +4 字段 (icon/capabilities/supported_auth_types/enabled) |
 | Model | `core/persistence/global_db.rs` | GlobalConnectionInfo +8 字段 + 24 个新 CRUD 方法 |
 | Model | `core/persistence/project_connection_store.rs` | ProjectConnection +8 字段 + project_drivers CRUD + seed_default_drivers |
+| Model | `core/persistence/project_db.rs` | ProjectDatabaseManager +14 项目级 CRUD 方法 (env/auth/network) |
 | Registry | `core/persistence/mod.rs` | 注册 4 个新子模块 |
 | Registry | `commands/mod.rs` | 注册 data_source_commands |
 | Registry | `core/services/mod.rs` | 注册 driver_service |
 | Registry | `lib.rs` | 24 个新 Tauri Command 登记 |
 | Integration | `commands/project_store_commands.rs` | ProjectConnectionResponse 扩展 |
 | Integration | `core/services/connection_service.rs` | save_global_connection 参数扩展 |
-| Integration | `commands/connection_commands.rs` | ConnectDatabaseInput/ConnectionInfoResponse/GlobalConnectionInfoResponse 扩展 +7 新字段 |
-| Integration | `core/project/store.rs` | check_project_missing_drivers 异步自检函数 |
+| Integration | `commands/connection_commands.rs` | ConnectDatabaseInput/ConnectionInfoResponse/GlobalConnectionInfoResponse 扩展 +7 新字段；connect_database 传递新字段 + 驱动校验链 |
+| Integration | `core/project/store.rs` | check_project_missing_drivers 异步自检函数，已接入 project_commands.rs 的项目打开命令 |
+| Integration | `core/services/connection_service.rs` | connect_with_type 扩展 7 个数据源新参数，save_global_connection_to_db 透传 |
 
 ### 10.2 编译状态
 

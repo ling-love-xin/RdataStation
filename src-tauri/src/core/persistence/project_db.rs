@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 
 use crate::core::error::{CommonError, CoreError, DatabaseError, StorageError};
 use crate::core::migration::{MigrationManager, MigrationType};
+use crate::core::persistence::{auth_store, env_store, network_store};
 
 /// 项目 SQLite 连接池
 ///
@@ -472,6 +473,252 @@ impl ProjectDatabaseManager {
     /// 获取项目路径
     pub fn project_path(&self) -> &PathBuf {
         &self.project_path
+    }
+
+    // ========== 项目级环境管理 ==========
+
+    /// 在项目数据库中创建环境
+    pub async fn create_project_environment(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        color: Option<&str>,
+        sort_order: Option<i32>,
+    ) -> Result<env_store::Environment, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let id = format!("env_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let now = chrono::Utc::now().to_rfc3339();
+        let env = env_store::Environment {
+            id: id.clone(),
+            name: name.to_string(),
+            description: description.map(|s| s.to_string()),
+            color: color.map(|s| s.to_string()),
+            sort_order: sort_order.unwrap_or(0),
+            created_at: now,
+        };
+        env_store::create_environment(conn, &env)?;
+        Ok(env)
+    }
+
+    /// 列出项目数据库中的所有环境
+    pub async fn list_project_environments(&self) -> Result<Vec<env_store::Environment>, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        env_store::list_environments(conn)
+    }
+
+    /// 更新项目数据库中的环境名称、描述、颜色和排序
+    pub async fn update_project_environment(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        description: Option<&str>,
+        color: Option<&str>,
+        sort_order: Option<i32>,
+    ) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let mut env = env_store::get_environment(conn, id)?
+            .ok_or_else(|| CoreError::storage(StorageError::Persistence {
+                store: "env_store".to_string(),
+                operation: "update_environment".to_string(),
+                reason: format!("environment not found: {}", id),
+            }))?;
+        if let Some(n) = name {
+            env.name = n.to_string();
+        }
+        if let Some(d) = description {
+            env.description = Some(d.to_string());
+        }
+        if let Some(c) = color {
+            env.color = Some(c.to_string());
+        }
+        if let Some(s) = sort_order {
+            env.sort_order = s;
+        }
+        env_store::update_environment(conn, &env)
+    }
+
+    /// 从项目数据库中删除环境
+    pub async fn delete_project_environment(&self, id: &str) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        env_store::delete_environment(conn, id)
+    }
+
+    // ========== 项目级环境策略管理 ==========
+
+    /// 在项目数据库中创建环境策略
+    pub async fn create_project_environment_policy(
+        &self,
+        environment_id: &str,
+        policy_type: &str,
+        policy_config: Option<&str>,
+    ) -> Result<env_store::EnvironmentPolicy, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let id = format!("pol_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let now = chrono::Utc::now().to_rfc3339();
+        let policy = env_store::EnvironmentPolicy {
+            id: id.clone(),
+            environment_id: environment_id.to_string(),
+            policy_type: policy_type.to_string(),
+            policy_config: policy_config.map(|s| s.to_string()),
+            enabled: true,
+            created_at: now,
+        };
+        env_store::create_policy(conn, &policy)?;
+        Ok(policy)
+    }
+
+    /// 列出项目数据库中指定环境的所有策略
+    pub async fn list_project_environment_policies(
+        &self,
+        environment_id: &str,
+    ) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        env_store::list_policies(conn, environment_id)
+    }
+
+    /// 更新项目数据库中的环境策略配置
+    pub async fn update_project_environment_policy(
+        &self,
+        id: &str,
+        policy_config: Option<&str>,
+        enabled: Option<bool>,
+    ) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let policies = env_store::list_policies(conn, "")?;
+        let mut policy = policies
+            .into_iter()
+            .find(|p| p.id == id)
+            .ok_or_else(|| CoreError::storage(StorageError::Persistence {
+                store: "env_store".to_string(),
+                operation: "update_policy".to_string(),
+                reason: format!("policy not found: {}", id),
+            }))?;
+        if let Some(cfg) = policy_config {
+            policy.policy_config = Some(cfg.to_string());
+        }
+        if let Some(e) = enabled {
+            policy.enabled = e;
+        }
+        env_store::update_policy(conn, &policy)
+    }
+
+    /// 从项目数据库中删除环境策略
+    pub async fn delete_project_environment_policy(&self, id: &str) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        env_store::delete_policy(conn, id)
+    }
+
+    // ========== 项目级认证配置管理 ==========
+
+    /// 在项目数据库中创建认证配置
+    pub async fn create_project_auth_config(
+        &self,
+        name: Option<&str>,
+        auth_type: &str,
+        auth_data: &str,
+    ) -> Result<auth_store::AuthConfig, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let id = format!("auth_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let now = chrono::Utc::now().to_rfc3339();
+        let ac = auth_store::AuthConfig {
+            id: id.clone(),
+            name: name.map(|s| s.to_string()),
+            auth_type: auth_type.to_string(),
+            auth_data: auth_data.to_string(),
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        auth_store::create_auth_config(conn, &ac)?;
+        Ok(ac)
+    }
+
+    /// 列出项目数据库中的所有认证配置
+    pub async fn list_project_auth_configs(&self) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        auth_store::list_auth_configs(conn, None)
+    }
+
+    /// 从项目数据库中删除认证配置
+    pub async fn delete_project_auth_config(&self, id: &str) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        auth_store::delete_auth_config(conn, id)
+    }
+
+    // ========== 项目级网络配置管理 ==========
+
+    /// 在项目数据库中创建网络配置
+    pub async fn create_project_network_config(
+        &self,
+        name: Option<&str>,
+        network_type: &str,
+        config: &str,
+    ) -> Result<network_store::NetworkConfig, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let id = format!("net_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let now = chrono::Utc::now().to_rfc3339();
+        let nc = network_store::NetworkConfig {
+            id: id.clone(),
+            name: name.map(|s| s.to_string()),
+            network_type: network_type.to_string(),
+            config: config.to_string(),
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        network_store::create_network_config(conn, &nc)?;
+        Ok(nc)
+    }
+
+    /// 列出项目数据库中的所有网络配置
+    pub async fn list_project_network_configs(
+        &self,
+    ) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        network_store::list_network_configs(conn, None)
+    }
+
+    /// 更新项目数据库中的网络配置
+    pub async fn update_project_network_config(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        config: Option<&str>,
+    ) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let mut nc = network_store::get_network_config(conn, id)?
+            .ok_or_else(|| CoreError::storage(StorageError::Persistence {
+                store: "network_store".to_string(),
+                operation: "update_network_config".to_string(),
+                reason: format!("network config not found: {}", id),
+            }))?;
+        if let Some(n) = name {
+            nc.name = Some(n.to_string());
+        }
+        if let Some(c) = config {
+            nc.config = c.to_string();
+        }
+        nc.updated_at = chrono::Utc::now().to_rfc3339();
+        network_store::update_network_config(conn, &nc)
+    }
+
+    /// 从项目数据库中删除网络配置
+    pub async fn delete_project_network_config(&self, id: &str) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        network_store::delete_network_config(conn, id)
     }
 
     /// 关闭数据库连接

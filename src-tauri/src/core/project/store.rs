@@ -787,21 +787,21 @@ pub async fn check_project_missing_drivers(
         return Ok(Vec::new());
     }
 
-    let conn = rusqlite::Connection::open(&project_db_path)
-        .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
+    let enabled: Vec<String> = {
+        let conn = rusqlite::Connection::open(&project_db_path)
+            .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
 
-    let mut stmt = conn
-        .prepare("SELECT driver_id FROM project_drivers WHERE enabled = 1")
-        .map_err(|e| CoreError::from(format!("查询项目驱动失败: {}", e)))?;
+        let mut stmt = conn
+            .prepare("SELECT driver_id FROM project_drivers WHERE enabled = 1")
+            .map_err(|e| CoreError::from(format!("查询项目驱动失败: {}", e)))?;
 
-    let enabled: Vec<String> = stmt
-        .query_map([], |row| row.get(0))
-        .map_err(|e| CoreError::from(format!("读取项目驱动失败: {}", e)))?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    drop(stmt);
-    drop(conn);
+        let result: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| CoreError::from(format!("读取项目驱动失败: {}", e)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        result
+    };
 
     let drivers = global_db
         .get_all_drivers()

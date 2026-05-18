@@ -15,6 +15,7 @@ use crate::core::persistence::project_store::{
 use crate::core::project::{
     ProjectConfig, ProjectInfo, ProjectPath, ProjectStore as CoreProjectStore,
 };
+use crate::core::services::driver_service::MissingDriver;
 
 /// 项目存储状态
 pub struct ProjectState {
@@ -136,6 +137,7 @@ pub struct ProjectInfoResponse {
     pub updated_at: String,
     pub last_opened_at: Option<String>,
     pub version: String,
+    pub missing_drivers: Vec<MissingDriver>,
 }
 
 /// 项目路径响应
@@ -170,6 +172,7 @@ impl From<ProjectInfo> for ProjectInfoResponse {
             updated_at: info.updated_at.to_rfc3339(),
             last_opened_at: info.last_opened_at.map(|t| t.to_rfc3339()),
             version: info.version_count.to_string(),
+            missing_drivers: Vec::new(),
         }
     }
 }
@@ -187,6 +190,7 @@ impl From<crate::core::persistence::global_db::ProjectInfoRecord> for ProjectInf
             updated_at: record.updated_at,
             last_opened_at: record.last_opened_at,
             version: "1".to_string(),
+            missing_drivers: Vec::new(),
         }
     }
 }
@@ -203,6 +207,7 @@ fn build_project_response(info: &ProjectInfo, actual_path: String) -> ProjectInf
         updated_at: info.updated_at.to_rfc3339(),
         last_opened_at: info.last_opened_at.map(|t| t.to_rfc3339()),
         version: info.version_count.to_string(),
+        missing_drivers: Vec::new(),
     }
 }
 
@@ -244,6 +249,8 @@ pub async fn create_project(input: CreateProjectInput) -> Result<CreateProjectRe
 
     let store =
         CoreProjectStore::create(&input.name, &path).map_err(|e| CoreError::from(e.to_string()))?;
+
+    seed_default_drivers_for_project(&path).await;
 
     Ok(CreateProjectResponse {
         project: store.info().clone().into(),
@@ -353,6 +360,8 @@ pub async fn open_project_by_id(id: String) -> Result<ProjectInfoResponse, CoreE
         })?
         .ok_or_else(|| CoreError::from(ProjectError::NotFound(id.clone()).to_string()))?;
 
+    let project_path_for_check = project.path.clone();
+
     let duration = start.elapsed();
     tracing::info!(
         project_id = %id,
@@ -360,7 +369,22 @@ pub async fn open_project_by_id(id: String) -> Result<ProjectInfoResponse, CoreE
         "Project opened successfully"
     );
 
-    Ok(project.into())
+    let mut response: ProjectInfoResponse = project.into();
+
+    let missing_drivers = match crate::core::project::store::check_project_missing_drivers(
+        std::path::Path::new(&project_path_for_check),
+    )
+    .await
+    {
+        Ok(drivers) => drivers,
+        Err(e) => {
+            tracing::warn!("驱动自检失败: {}", e);
+            Vec::new()
+        }
+    };
+    response.missing_drivers = missing_drivers;
+
+    Ok(response)
 }
 
 /// 根据路径打开项目
@@ -380,6 +404,7 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, C
 
     match project {
         Some(p) => {
+            let project_path_for_check = p.path.clone();
             let duration = start.elapsed();
             tracing::info!(
                 path = %path,
@@ -387,8 +412,21 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, C
                 duration_ms = duration.as_millis(),
                 "Project opened successfully"
             );
+            let mut response: ProjectInfoResponse = p.into();
+            let missing_drivers = match crate::core::project::store::check_project_missing_drivers(
+                std::path::Path::new(&project_path_for_check),
+            )
+            .await
+            {
+                Ok(drivers) => drivers,
+                Err(e) => {
+                    tracing::warn!("驱动自检失败: {}", e);
+                    Vec::new()
+                }
+            };
+            response.missing_drivers = missing_drivers;
             crate::core::insight::load_user_rules(&std::path::PathBuf::from(&path));
-            Ok(p.into())
+            Ok(response)
         }
         None => {
             // 项目不存在，尝试从路径加载并创建
@@ -464,7 +502,20 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, C
             );
 
             crate::core::insight::load_user_rules(&path_buf);
-            Ok(build_project_response(info, actual_path))
+            let mut response = build_project_response(info, actual_path);
+            let missing_drivers = match crate::core::project::store::check_project_missing_drivers(
+                std::path::Path::new(&path),
+            )
+            .await
+            {
+                Ok(drivers) => drivers,
+                Err(e) => {
+                    tracing::warn!("驱动自检失败: {}", e);
+                    Vec::new()
+                }
+            };
+            response.missing_drivers = missing_drivers;
+            Ok(response)
         }
     }
 }
@@ -572,6 +623,8 @@ pub async fn create_and_save_project(
         .map_err(|e| {
             CoreError::from(ProjectError::Database(format!("保存项目信息失败: {}", e)).to_string())
         })?;
+
+    seed_default_drivers_for_project(&path).await;
 
     let duration = start.elapsed();
     tracing::info!(
@@ -1158,6 +1211,33 @@ pub async fn delete_project_disk(project_id: String) -> Result<(), CoreError> {
 
     tracing::info!(project_id = %project_id, "Project physically deleted");
     Ok(())
+}
+
+/// 为新项目种子 4 个内置 Native 驱动（MySQL / PostgreSQL / SQLite / DuckDB）
+///
+/// 如果 project.db 尚未创建或打开失败，仅记录警告，不阻止项目创建。
+async fn seed_default_drivers_for_project(project_path: &std::path::Path) {
+    let db_manager = match crate::core::persistence::project_db::ProjectDatabaseManager::open(
+        project_path,
+        3,
+    )
+    .await
+    {
+        Ok(manager) => manager,
+        Err(e) => {
+            tracing::warn!("打开项目数据库失败，跳过驱动种子: {}", e);
+            return;
+        }
+    };
+
+    let store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
+            std::sync::Arc::new(db_manager),
+        );
+
+    if let Err(e) = store.seed_default_drivers().await {
+        tracing::warn!("种子默认驱动失败: {}", e);
+    }
 }
 
 #[cfg(test)]

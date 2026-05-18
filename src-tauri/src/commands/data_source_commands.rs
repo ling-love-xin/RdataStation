@@ -10,6 +10,9 @@ use crate::core::persistence::network_store;
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
 use crate::core::persistence::project_db::ProjectDatabaseManager;
 use crate::core::services::driver_service::{self, DriverService};
+use uuid::Uuid;
+
+use chrono::Utc;
 
 fn get_driver_service() -> Result<DriverService, CoreError> {
     let db = get_global_db_manager()
@@ -24,34 +27,6 @@ pub struct DriverListResponse {
     pub missing: Vec<driver_service::MissingDriver>,
 }
 
-/// 检查项目缺失的外部驱动文件（预置辅助函数，供后续功能扩展使用）
-#[allow(dead_code)]
-async fn check_missing_drivers_impl(
-    _project_id: &str,
-) -> Result<Vec<driver_service::MissingDriver>, CoreError> {
-    let global_db = get_global_db_manager()
-        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
-
-    let all_drivers = global_db.get_all_drivers().await?;
-
-    let mut missing = Vec::new();
-    for driver in &all_drivers {
-        if driver.driver_kind == "native" {
-            continue;
-        }
-        let version = driver.version.as_deref().unwrap_or("1.0.0");
-        let installed = global_db.is_driver_installed(&driver.id, version).await.unwrap_or(false);
-        if !installed {
-            missing.push(driver_service::MissingDriver {
-                driver_id: driver.id.clone(),
-                driver_name: driver.name.clone(),
-                download_url: driver.download_url.clone().unwrap_or_default(),
-            });
-        }
-    }
-    Ok(missing)
-}
-
 /// 获取数据源类型目录（供前端数据源树渲染）
 #[tauri::command]
 pub async fn get_data_source_types(
@@ -61,7 +36,7 @@ pub async fn get_data_source_types(
     let types = service.get_data_source_types().await?;
     let filtered: Vec<DataSourceType> = types
         .into_iter()
-        .filter(|t| category.as_ref().map_or(true, |c| t.category == *c))
+        .filter(|t| category.as_ref().is_none_or(|c| t.category == *c))
         .collect();
     Ok(filtered)
 }
@@ -175,7 +150,13 @@ pub async fn list_environments() -> Result<Vec<env_store::Environment>, CoreErro
 
 /// 创建环境
 #[tauri::command]
-pub async fn create_environment(env: env_store::Environment) -> Result<(), CoreError> {
+pub async fn create_environment(mut env: env_store::Environment) -> Result<(), CoreError> {
+    if env.id.is_empty() {
+        env.id = format!("env_{}", Uuid::new_v4().to_string().replace('-', "_"));
+    }
+    if env.created_at.is_empty() {
+        env.created_at = Utc::now().to_rfc3339();
+    }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
     db.create_environment(&env).await
@@ -210,8 +191,14 @@ pub async fn list_environment_policies(
 /// 创建环境策略
 #[tauri::command]
 pub async fn create_environment_policy(
-    policy: env_store::EnvironmentPolicy,
+    mut policy: env_store::EnvironmentPolicy,
 ) -> Result<(), CoreError> {
+    if policy.id.is_empty() {
+        policy.id = format!("env_pol_{}", Uuid::new_v4().to_string().replace('-', "_"));
+    }
+    if policy.created_at.is_empty() {
+        policy.created_at = Utc::now().to_rfc3339();
+    }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
     db.create_environment_policy(&policy).await
@@ -247,7 +234,17 @@ pub async fn list_auth_configs(
 
 /// 创建认证配置
 #[tauri::command]
-pub async fn create_auth_config(ac: auth_store::AuthConfig) -> Result<(), CoreError> {
+pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<(), CoreError> {
+    let now = Utc::now().to_rfc3339();
+    if ac.id.is_empty() {
+        ac.id = format!("auth_{}", Uuid::new_v4().to_string().replace('-', "_"));
+    }
+    if ac.created_at.is_empty() {
+        ac.created_at = now.clone();
+    }
+    if ac.updated_at.is_empty() {
+        ac.updated_at = now;
+    }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
     db.create_auth_config(&ac).await
@@ -259,6 +256,14 @@ pub async fn delete_auth_config(id: String) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
     db.delete_auth_config(&id).await
+}
+
+/// 更新认证配置
+#[tauri::command]
+pub async fn update_auth_config(ac: auth_store::AuthConfig) -> Result<(), CoreError> {
+    let db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+    db.update_auth_config(&ac).await
 }
 
 /// 列出网络配置
@@ -273,7 +278,17 @@ pub async fn list_network_configs(
 
 /// 创建网络配置
 #[tauri::command]
-pub async fn create_network_config(nc: network_store::NetworkConfig) -> Result<(), CoreError> {
+pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Result<(), CoreError> {
+    let now = Utc::now().to_rfc3339();
+    if nc.id.is_empty() {
+        nc.id = format!("net_{}", Uuid::new_v4().to_string().replace('-', "_"));
+    }
+    if nc.created_at.is_empty() {
+        nc.created_at = now.clone();
+    }
+    if nc.updated_at.is_empty() {
+        nc.updated_at = now;
+    }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
     db.create_network_config(&nc).await
@@ -323,7 +338,7 @@ pub async fn get_all_drivers_catalog(
         .filter(|d| {
             driver_kind
                 .as_ref()
-                .map_or(true, |k| d.driver_kind == *k)
+                .is_none_or(|k| d.driver_kind == *k)
         })
         .collect();
 
@@ -377,4 +392,198 @@ pub async fn list_enabled_project_drivers(
     let db_manager = get_project_db_manager(&project_path, &state).await?;
     let store = ProjectConnectionStore::new(db_manager);
     store.list_enabled_drivers().await
+}
+
+// ========== 项目级环境命令 ==========
+
+/// 在指定项目中创建环境
+#[tauri::command]
+pub async fn project_create_environment(
+    name: String,
+    description: Option<String>,
+    color: Option<String>,
+    sort_order: Option<i32>,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<env_store::Environment, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.create_project_environment(&name, description.as_deref(), color.as_deref(), sort_order).await
+}
+
+/// 列出指定项目中的所有环境
+#[tauri::command]
+pub async fn project_list_environments(
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<Vec<env_store::Environment>, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.list_project_environments().await
+}
+
+/// 更新指定项目中的环境
+#[tauri::command]
+pub async fn project_update_environment(
+    id: String,
+    name: Option<String>,
+    description: Option<String>,
+    color: Option<String>,
+    sort_order: Option<i32>,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.update_project_environment(&id, name.as_deref(), description.as_deref(), color.as_deref(), sort_order).await?;
+    Ok(true)
+}
+
+/// 从指定项目中删除环境
+#[tauri::command]
+pub async fn project_delete_environment(
+    id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.delete_project_environment(&id).await?;
+    Ok(true)
+}
+
+// ========== 项目级环境策略命令 ==========
+
+/// 在指定项目中创建环境策略
+#[tauri::command]
+pub async fn project_create_environment_policy(
+    environment_id: String,
+    policy_type: String,
+    policy_config: Option<String>,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<env_store::EnvironmentPolicy, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.create_project_environment_policy(&environment_id, &policy_type, policy_config.as_deref()).await
+}
+
+/// 列出指定项目中某环境的所有策略
+#[tauri::command]
+pub async fn project_list_environment_policies(
+    environment_id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.list_project_environment_policies(&environment_id).await
+}
+
+/// 更新指定项目中的环境策略
+#[tauri::command]
+pub async fn project_update_environment_policy(
+    id: String,
+    policy_config: Option<String>,
+    enabled: Option<bool>,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.update_project_environment_policy(&id, policy_config.as_deref(), enabled).await?;
+    Ok(true)
+}
+
+/// 从指定项目中删除环境策略
+#[tauri::command]
+pub async fn project_delete_environment_policy(
+    id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.delete_project_environment_policy(&id).await?;
+    Ok(true)
+}
+
+// ========== 项目级认证配置命令 ==========
+
+/// 在指定项目中创建认证配置
+#[tauri::command]
+pub async fn project_create_auth_config(
+    name: Option<String>,
+    auth_type: String,
+    auth_data: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<auth_store::AuthConfig, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.create_project_auth_config(name.as_deref(), &auth_type, &auth_data).await
+}
+
+/// 列出指定项目中的所有认证配置
+#[tauri::command]
+pub async fn project_list_auth_configs(
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.list_project_auth_configs().await
+}
+
+/// 从指定项目中删除认证配置
+#[tauri::command]
+pub async fn project_delete_auth_config(
+    id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.delete_project_auth_config(&id).await?;
+    Ok(true)
+}
+
+// ========== 项目级网络配置命令 ==========
+
+/// 在指定项目中创建网络配置
+#[tauri::command]
+pub async fn project_create_network_config(
+    name: Option<String>,
+    network_type: String,
+    config: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<network_store::NetworkConfig, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.create_project_network_config(name.as_deref(), &network_type, &config).await
+}
+
+/// 列出指定项目中的所有网络配置
+#[tauri::command]
+pub async fn project_list_network_configs(
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.list_project_network_configs().await
+}
+
+/// 更新指定项目中的网络配置
+#[tauri::command]
+pub async fn project_update_network_config(
+    id: String,
+    name: Option<String>,
+    config: Option<String>,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.update_project_network_config(&id, name.as_deref(), config.as_deref()).await?;
+    Ok(true)
+}
+
+/// 从指定项目中删除网络配置
+#[tauri::command]
+pub async fn project_delete_network_config(
+    id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<bool, CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager.delete_project_network_config(&id).await?;
+    Ok(true)
 }

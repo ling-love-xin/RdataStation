@@ -49,7 +49,7 @@ impl ConnectionService {
         url: &str,
         name: Option<String>,
     ) -> Result<(String, DynDatabase), CoreError> {
-        self.connect_with_type(conn_id, db_type, url, name, ConnectionType::Global, None)
+        self.connect_with_type(conn_id, db_type, url, name, ConnectionType::Global, None, None, None, None, None, None, None, None)
             .await
     }
 
@@ -63,6 +63,13 @@ impl ConnectionService {
     /// * `name` - 连接名称（可选）
     /// * `connection_type` - 连接类型（全局/项目）
     /// * `project_path` - 项目路径（仅项目连接时需要）
+    /// * `description` - 连接描述（可选）
+    /// * `driver_id` - 驱动 ID（可选，数据源模块字段）
+    /// * `environment_id` - 环境 ID（可选）
+    /// * `auth_config_id` - 认证配置 ID（可选）
+    /// * `network_config_id` - 网络配置 ID（可选）
+    /// * `driver_properties` - 驱动属性 JSON（可选）
+    /// * `advanced_options` - 高级选项 JSON（可选）
     ///
     /// # Returns
     ///
@@ -75,6 +82,13 @@ impl ConnectionService {
         name: Option<String>,
         connection_type: ConnectionType,
         project_path: Option<String>,
+        description: Option<String>,
+        driver_id: Option<String>,
+        environment_id: Option<String>,
+        auth_config_id: Option<String>,
+        network_config_id: Option<String>,
+        driver_properties: Option<String>,
+        advanced_options: Option<String>,
     ) -> Result<(String, DynDatabase), CoreError> {
         // 参数校验
         if url.is_empty() {
@@ -167,6 +181,13 @@ impl ConnectionService {
             server_version: server_version.clone(),
             connection_type,
             project_id: project_path.clone(),
+            driver_id: driver_id.clone(),
+            environment_id: environment_id.clone(),
+            auth_config_id: auth_config_id.clone(),
+            network_config_id: network_config_id.clone(),
+            driver_properties: driver_properties.clone(),
+            advanced_options: advanced_options.clone(),
+            description: description.clone(),
             created_at: std::time::Instant::now(),
         };
 
@@ -207,6 +228,13 @@ impl ConnectionService {
                     password.as_deref(),
                     tags,
                     server_version.as_deref(),
+                    description.as_deref(),
+                    driver_id.as_deref(),
+                    environment_id.as_deref(),
+                    auth_config_id.as_deref(),
+                    network_config_id.as_deref(),
+                    driver_properties.as_deref(),
+                    advanced_options.as_deref(),
                 )
                 .await
             {
@@ -216,7 +244,18 @@ impl ConnectionService {
 
         // 保存到最近连接记录
         if let Err(e) =
-            connection_store::save_recent_connection(&connection_name, db_type, &safe_url)
+            connection_store::save_recent_connection(
+                &connection_name,
+                db_type,
+                &safe_url,
+                description.as_deref(),
+                driver_id.as_deref(),
+                environment_id.as_deref(),
+                auth_config_id.as_deref(),
+                network_config_id.as_deref(),
+                driver_properties.as_deref(),
+                advanced_options.as_deref(),
+            )
         {
             tracing::warn!("Failed to save connection history: {}", e);
         }
@@ -236,6 +275,13 @@ impl ConnectionService {
         password: Option<&str>,
         tags: Option<&str>,
         server_version: Option<&str>,
+        description: Option<&str>,
+        driver_id: Option<&str>,
+        environment_id: Option<&str>,
+        auth_config_id: Option<&str>,
+        network_config_id: Option<&str>,
+        driver_properties: Option<&str>,
+        advanced_options: Option<&str>,
     ) -> Result<(), CoreError> {
         use crate::core::migration::global_init;
 
@@ -267,13 +313,13 @@ impl ConnectionService {
                 encrypted_password.as_deref(),
                 tags,
                 server_version,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
+                description,
+                driver_id,
+                environment_id,
+                auth_config_id,
+                network_config_id,
+                driver_properties,
+                advanced_options,
             )
             .await
     }
@@ -586,6 +632,13 @@ impl ConnectionService {
             server_version: old_info.server_version.clone(),
             connection_type: ConnectionType::Project,
             project_id: Some(project_id.to_string()),
+            driver_id: old_info.driver_id.clone(),
+            environment_id: old_info.environment_id.clone(),
+            auth_config_id: old_info.auth_config_id.clone(),
+            network_config_id: old_info.network_config_id.clone(),
+            driver_properties: old_info.driver_properties.clone(),
+            advanced_options: old_info.advanced_options.clone(),
+            description: old_info.description.clone(),
             created_at: old_info.created_at,
         };
 
@@ -674,6 +727,13 @@ impl ConnectionService {
             server_version: old_info.server_version.clone(),
             connection_type: ConnectionType::Global,
             project_id: None,
+            driver_id: old_info.driver_id.clone(),
+            environment_id: old_info.environment_id.clone(),
+            auth_config_id: old_info.auth_config_id.clone(),
+            network_config_id: old_info.network_config_id.clone(),
+            driver_properties: old_info.driver_properties.clone(),
+            advanced_options: old_info.advanced_options.clone(),
+            description: old_info.description.clone(),
             created_at: old_info.created_at,
         };
 

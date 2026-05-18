@@ -37,6 +37,20 @@ pub struct ConnectionInfo {
     pub last_used: u64,
     /// 创建时间（Unix 时间戳，秒）
     pub created_at: u64,
+    /// 连接描述
+    pub description: Option<String>,
+    /// 驱动 ID
+    pub driver_id: Option<String>,
+    /// 环境 ID
+    pub environment_id: Option<String>,
+    /// 认证配置 ID
+    pub auth_config_id: Option<String>,
+    /// 网络配置 ID
+    pub network_config_id: Option<String>,
+    /// 驱动属性 JSON
+    pub driver_properties: Option<String>,
+    /// 高级选项 JSON
+    pub advanced_options: Option<String>,
 }
 
 impl ConnectionInfo {
@@ -63,6 +77,13 @@ impl ConnectionInfo {
             server_version: None,
             last_used: now,
             created_at: now,
+            description: None,
+            driver_id: None,
+            environment_id: None,
+            auth_config_id: None,
+            network_config_id: None,
+            driver_properties: None,
+            advanced_options: None,
         }
     }
 
@@ -442,6 +463,13 @@ impl ConnectionStore {
             url = v;
         }
         let server_version = extract_string(json, "server_version");
+        let description = extract_string(json, "description");
+        let driver_id = extract_string(json, "driver_id");
+        let environment_id = extract_string(json, "environment_id");
+        let auth_config_id = extract_string(json, "auth_config_id");
+        let network_config_id = extract_string(json, "network_config_id");
+        let driver_properties = extract_string(json, "driver_properties");
+        let advanced_options = extract_string(json, "advanced_options");
         if let Some(v) = extract_u64(json, "last_used") {
             last_used = v;
         }
@@ -465,6 +493,13 @@ impl ConnectionStore {
             server_version,
             last_used,
             created_at,
+            description,
+            driver_id,
+            environment_id,
+            auth_config_id,
+            network_config_id,
+            driver_properties,
+            advanced_options,
         })
     }
 
@@ -501,6 +536,55 @@ impl ConnectionStore {
             }
             result.push_str(&format!("    \"last_used\": {},\n", conn.last_used));
             result.push_str(&format!("    \"created_at\": {}", conn.created_at));
+            if let Some(ref desc) = conn.description {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"description\": \"{}\"",
+                    Self::escape_json(desc)
+                ));
+            }
+            if let Some(ref did) = conn.driver_id {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"driver_id\": \"{}\"",
+                    Self::escape_json(did)
+                ));
+            }
+            if let Some(ref eid) = conn.environment_id {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"environment_id\": \"{}\"",
+                    Self::escape_json(eid)
+                ));
+            }
+            if let Some(ref aid) = conn.auth_config_id {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"auth_config_id\": \"{}\"",
+                    Self::escape_json(aid)
+                ));
+            }
+            if let Some(ref nid) = conn.network_config_id {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"network_config_id\": \"{}\"",
+                    Self::escape_json(nid)
+                ));
+            }
+            if let Some(ref dp) = conn.driver_properties {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"driver_properties\": \"{}\"",
+                    Self::escape_json(dp)
+                ));
+            }
+            if let Some(ref ao) = conn.advanced_options {
+                result.push_str(",\n");
+                result.push_str(&format!(
+                    "    \"advanced_options\": \"{}\"",
+                    Self::escape_json(ao)
+                ));
+            }
             result.push('\n');
             result.push_str("  }");
             if i < connections.len() - 1 {
@@ -560,16 +644,48 @@ pub struct ConnectionRecord {
     pub db_type: String,
     pub url: String,
     pub last_used_at: chrono::DateTime<chrono::Utc>,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
 }
 
 /// 保存最近连接
-pub fn save_recent_connection(name: &str, db_type: &str, url: &str) -> Result<(), std::io::Error> {
+pub fn save_recent_connection(
+    name: &str,
+    db_type: &str,
+    url: &str,
+    description: Option<&str>,
+    driver_id: Option<&str>,
+    environment_id: Option<&str>,
+    auth_config_id: Option<&str>,
+    network_config_id: Option<&str>,
+    driver_properties: Option<&str>,
+    advanced_options: Option<&str>,
+) -> Result<(), std::io::Error> {
     let mut store = GLOBAL_STORE
         .lock()
         .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
     let id = format!("{}-{}", db_type, url);
-    let conn = ConnectionInfo::new(id, name.to_string(), db_type.to_string(), url.to_string());
+    let now = system_time_secs();
+    let conn = ConnectionInfo {
+        id,
+        name: name.to_string(),
+        db_type: db_type.to_string(),
+        url: url.to_string(),
+        server_version: None,
+        last_used: now,
+        created_at: now,
+        description: description.map(|s| s.to_string()),
+        driver_id: driver_id.map(|s| s.to_string()),
+        environment_id: environment_id.map(|s| s.to_string()),
+        auth_config_id: auth_config_id.map(|s| s.to_string()),
+        network_config_id: network_config_id.map(|s| s.to_string()),
+        driver_properties: driver_properties.map(|s| s.to_string()),
+        advanced_options: advanced_options.map(|s| s.to_string()),
+    };
 
     store.add_connection(conn);
     store.save()
@@ -633,6 +749,11 @@ pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error>
             url: c.url.clone(),
             last_used_at: chrono::DateTime::from_timestamp(c.last_used as i64, 0)
                 .unwrap_or_else(chrono::Utc::now),
+            description: c.description.clone(),
+            driver_id: c.driver_id.clone(),
+            environment_id: c.environment_id.clone(),
+            auth_config_id: c.auth_config_id.clone(),
+            network_config_id: c.network_config_id.clone(),
         })
         .collect();
 

@@ -409,7 +409,23 @@ impl ProjectConnectionStore {
     }
 
     /// 为当前项目启用一个驱动（写入 project_drivers 表）
+    ///
+    /// 在写入前会校验驱动是否在全局目录中存在且未被全局禁用。
     pub async fn enable_driver(&self, driver_id: &str) -> Result<(), CoreError> {
+        let global_db = crate::core::migration::get_global_db_manager()
+            .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+        let driver = global_db
+            .get_driver(driver_id)
+            .await?
+            .ok_or_else(|| {
+                CoreError::from(format!("驱动 {} 不存在于全局目录中", driver_id))
+            })?;
+
+        if !driver.enabled {
+            return Err(CoreError::from(format!("驱动 {} 已被全局禁用", driver_id)));
+        }
+
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         sqlite.inner()?.execute(

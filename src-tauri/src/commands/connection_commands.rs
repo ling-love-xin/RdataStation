@@ -17,6 +17,7 @@ pub struct ConnectDatabaseInput {
     pub name: Option<String>,
     pub connection_type: Option<String>, // "global" 或 "project"
     pub project_id: Option<String>,      // 仅项目连接时需要
+    pub description: Option<String>,
     pub driver_id: Option<String>,
     pub environment_id: Option<String>,
     pub auth_config_id: Option<String>,
@@ -86,6 +87,153 @@ pub async fn connect_database(
         return Err("project_id is required for project connections".into());
     }
 
+    // ===== 数据源模块：驱动校验 =====
+    if let Some(ref driver_id) = input.driver_id {
+        let global_db = crate::core::migration::get_global_db_manager()
+            .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+        let driver = global_db
+            .get_driver(driver_id)
+            .await?
+            .ok_or_else(|| {
+                CoreError::from(format!("驱动 {} 不存在于全局目录中", driver_id))
+            })?;
+
+        if connection_type == ConnectionType::Project {
+            if let Some(ref proj_path) = input.project_id {
+                let meta_dir = std::path::Path::new(proj_path).join(".RSmeta");
+                let db_path = meta_dir.join("project.db");
+                if db_path.exists() {
+                    let conn = rusqlite::Connection::open(&db_path).map_err(|e| {
+                        CoreError::from(format!("打开项目数据库失败: {}", e))
+                    })?;
+                    let enabled: bool = conn
+                        .query_row(
+                            "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
+                            rusqlite::params![driver_id],
+                            |row| row.get(0),
+                        )
+                        .unwrap_or(false);
+                    if !enabled {
+                        return Err(CoreError::from(format!(
+                            "驱动 {} 未在当前项目中启用，请先在驱动管理中启用",
+                            driver_id
+                        )));
+                    }
+                }
+            }
+        }
+
+        if driver.driver_kind != "native" {
+            let version = driver.version.as_deref().unwrap_or("0.0.0");
+            let installed = global_db
+                .is_driver_installed(driver_id, version)
+                .await
+                .map_err(|e| {
+                    CoreError::from(format!("检查驱动安装状态失败: {}", e))
+                })?;
+            if !installed {
+                return Err(CoreError::from(format!(
+                    "驱动 {} 的文件未在本机安装，请先下载安装",
+                    driver_id
+                )));
+            }
+        }
+    }
+
+    // ===== 数据源模块：环境/认证/网络校验 =====
+    // 辅助闭包：打开项目DB连接（复用于项目级校验）
+    let open_project_db = |proj_path: &str| -> Option<rusqlite::Connection> {
+        let db_path = std::path::Path::new(proj_path)
+            .join(".RSmeta")
+            .join("project.db");
+        if db_path.exists() {
+            rusqlite::Connection::open(&db_path).ok()
+        } else {
+            None
+        }
+    };
+
+    let is_project = connection_type == ConnectionType::Project;
+    let proj_db = input
+        .project_id
+        .as_deref()
+        .and_then(|p| open_project_db(p));
+
+    if let Some(ref env_id) = input.environment_id {
+        let mut found = false;
+        // 先查全局环境
+        if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+            if let Ok(envs) = gdb.list_environments().await {
+                found = envs.iter().any(|e| e.id == *env_id);
+            }
+        }
+        // 项目连接时也查项目级环境
+        if !found && is_project {
+            if let Some(ref conn) = proj_db {
+                found = conn
+                    .query_row::<i64, _, _>(
+                        "SELECT COUNT(*) FROM environments WHERE id = ?1",
+                        rusqlite::params![env_id],
+                        |row| row.get(0),
+                    )
+                    .map(|c| c > 0)
+                    .unwrap_or(false);
+            }
+        }
+        if !found {
+            return Err(CoreError::from(format!("环境 {} 不存在", env_id)));
+        }
+    }
+
+    if let Some(ref auth_id) = input.auth_config_id {
+        let mut found = false;
+        if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+            if let Ok(auths) = gdb.list_auth_configs(None).await {
+                found = auths.iter().any(|a| a.id == *auth_id);
+            }
+        }
+        if !found && is_project {
+            if let Some(ref conn) = proj_db {
+                found = conn
+                    .query_row::<i64, _, _>(
+                        "SELECT COUNT(*) FROM auth_configs WHERE id = ?1",
+                        rusqlite::params![auth_id],
+                        |row| row.get(0),
+                    )
+                    .map(|c| c > 0)
+                    .unwrap_or(false);
+            }
+        }
+        if !found {
+            return Err(CoreError::from(format!("认证配置 {} 不存在", auth_id)));
+        }
+    }
+
+    if let Some(ref net_id) = input.network_config_id {
+        let mut found = false;
+        if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+            if let Ok(nets) = gdb.list_network_configs(None).await {
+                found = nets.iter().any(|n| n.id == *net_id);
+            }
+        }
+        if !found && is_project {
+            if let Some(ref conn) = proj_db {
+                found = conn
+                    .query_row::<i64, _, _>(
+                        "SELECT COUNT(*) FROM network_configs WHERE id = ?1",
+                        rusqlite::params![net_id],
+                        |row| row.get(0),
+                    )
+                    .map(|c| c > 0)
+                    .unwrap_or(false);
+            }
+        }
+        if !found {
+            return Err(CoreError::from(format!("网络配置 {} 不存在", net_id)));
+        }
+    }
+
     let (conn_id, db) = service
         .connect_with_type(
             None,
@@ -94,6 +242,13 @@ pub async fn connect_database(
             input.name.clone(),
             connection_type,
             input.project_id.clone(),
+            input.description.clone(),
+            input.driver_id.clone(),
+            input.environment_id.clone(),
+            input.auth_config_id.clone(),
+            input.network_config_id.clone(),
+            input.driver_properties.clone(),
+            input.advanced_options.clone(),
         )
         .await?;
 
@@ -156,13 +311,13 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError>
                 is_active,
                 created_at_ms: info.created_at.elapsed().as_millis() as u64,
                 server_version: info.server_version,
-                driver_id: None,
-                environment_id: None,
-                description: None,
-                auth_config_id: None,
-                network_config_id: None,
-                driver_properties: None,
-                advanced_options: None,
+                driver_id: info.driver_id,
+                environment_id: info.environment_id,
+                description: info.description,
+                auth_config_id: info.auth_config_id,
+                network_config_id: info.network_config_id,
+                driver_properties: info.driver_properties,
+                advanced_options: info.advanced_options,
             }
         })
         .collect())
@@ -218,13 +373,13 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, C
             is_active: true,
             created_at_ms: info.created_at.elapsed().as_millis() as u64,
             server_version: info.server_version,
-            driver_id: None,
-            environment_id: None,
-            description: None,
-            auth_config_id: None,
-            network_config_id: None,
-            driver_properties: None,
-            advanced_options: None,
+            driver_id: info.driver_id,
+            environment_id: info.environment_id,
+            description: info.description,
+            auth_config_id: info.auth_config_id,
+            network_config_id: info.network_config_id,
+            driver_properties: info.driver_properties,
+            advanced_options: info.advanced_options,
         }))
 }
 
@@ -235,6 +390,11 @@ pub struct RecentConnectionResponse {
     pub db_type: String,
     pub url: String,
     pub last_used_at: String,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
 }
 
 /// 获取最近连接列表
@@ -252,6 +412,11 @@ pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, C
             db_type: c.db_type,
             url: c.url,
             last_used_at: c.last_used_at.to_rfc3339(),
+            description: c.description,
+            driver_id: c.driver_id,
+            environment_id: c.environment_id,
+            auth_config_id: c.auth_config_id,
+            network_config_id: c.network_config_id,
         })
         .collect())
 }
@@ -351,13 +516,13 @@ pub async fn detect_global_connections_in_project(
                 is_active,
                 created_at_ms: info.created_at.elapsed().as_millis() as u64,
                 server_version: info.server_version,
-                driver_id: None,
-                environment_id: None,
-                description: None,
-                auth_config_id: None,
-                network_config_id: None,
-                driver_properties: None,
-                advanced_options: None,
+                driver_id: info.driver_id,
+                environment_id: info.environment_id,
+                description: info.description,
+                auth_config_id: info.auth_config_id,
+                network_config_id: info.network_config_id,
+                driver_properties: info.driver_properties,
+                advanced_options: info.advanced_options,
             }
         })
         .collect())

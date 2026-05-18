@@ -127,3 +127,22 @@ pub fn delete_auth_config(conn: &Connection, id: &str) -> Result<(), CoreError> 
         .map_err(|e| storage_err("delete_auth_config", e.to_string()))?;
     Ok(())
 }
+
+/// 更新认证配置的名称和认证数据
+pub fn update_auth_config(conn: &Connection, ac: &AuthConfig) -> Result<(), CoreError> {
+    let rows = conn
+        .execute(
+            "UPDATE auth_configs SET name = ?1, auth_type = ?2, auth_data = ?3, updated_at = ?4 WHERE id = ?5",
+            params![ac.name, ac.auth_type, ac.auth_data, ac.updated_at, ac.id],
+        )
+        .map_err(|e| storage_err("update_auth_config", e.to_string()))?;
+
+    if rows == 0 {
+        return Err(CoreError::storage(StorageError::Persistence {
+            store: "auth_store".to_string(),
+            operation: "update_auth_config".to_string(),
+            reason: format!("auth_config not found: {}", ac.id),
+        }));
+    }
+    Ok(())
+}

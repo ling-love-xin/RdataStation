@@ -1502,6 +1502,14 @@ impl GlobalDatabaseManager {
         Ok(())
     }
 
+    /// 更新认证配置
+    pub async fn update_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
+        let conn = self.sqlite_pool.acquire().await?;
+        auth_store::update_auth_config(&conn, ac)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
     /// 创建网络配置
     pub async fn create_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;

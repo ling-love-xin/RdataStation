@@ -48,6 +48,14 @@ pub struct ConnectionConfig {
     pub url: String,
     pub name: Option<String>,
     pub connection_type: Option<ConnectionType>,
+    pub project_id: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
+    pub description: Option<String>,
 }
 
 /// 连接信息
@@ -60,6 +68,13 @@ pub struct ConnectionInfo {
     pub server_version: Option<String>,
     pub connection_type: ConnectionType,
     pub project_id: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
+    pub description: Option<String>,
     pub created_at: std::time::Instant,
 }
 
@@ -161,6 +176,13 @@ impl ConnectionManager {
             server_version: None,
             connection_type: ConnectionType::Global,
             project_id: None,
+            driver_id: None,
+            environment_id: None,
+            auth_config_id: None,
+            network_config_id: None,
+            driver_properties: None,
+            advanced_options: None,
+            description: None,
             created_at: std::time::Instant::now(),
         };
 

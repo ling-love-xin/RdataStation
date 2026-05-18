@@ -9,14 +9,20 @@ pub struct DriverService {
 }
 
 /// 驱动可用性状态枚举
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "status")]
 pub enum DriverAvailability {
     /// 驱动已就绪，可以创建连接
+    #[serde(rename = "ready")]
     Ready,
     /// 驱动在项目中已启用但本机未安装文件
+    #[serde(rename = "not_installed")]
     NotInstalled { download_url: String },
     /// 驱动未在项目中启用
+    #[serde(rename = "not_enabled")]
     NotEnabled,
     /// 驱动定义不存在
+    #[serde(rename = "not_defined")]
     NotDefined,
 }
 
