@@ -1,8 +1,8 @@
 # 网络连接方式 迭代设计文档
 
-> 版本：v1.1
+> 版本：v1.2
 > 更新：2026-05-19
-> 状态：🚧 开发中 — v0.5.0 后端核心已完成（SSH/SSL/Proxy + test_network_config）
+> 状态：🚧 开发中 — v0.5.0 后端核心已完成（SSH/SSL/Proxy + TunnelGuard生命周期 + test_network_config）
 > 目标版本：v0.5.0 / v0.6.0 / v0.7.0
 
 ---
@@ -556,6 +556,8 @@ CA 证书: subject=CN=MyOrg CA, 过期日期=2027-12-31, 剩余365天
 | P1 | 协议链路 Proxy 跳 connect_override（支持 Proxy→SSH→Proxy→DB）| ✅ |
 | P1 | SSL 模式智能感知：SslConfig → MySQL ssl-mode / PostgreSQL sslmode | ✅ |
 | P3 | 协议链路深度分析：6 层工程上限 | ✅ |
+| P1 | no_proxy 规则匹配：主机名/IP/域名后缀 · 单跳+链式集成 | ✅ |
+| P2 | SSL 证书过期检测：x509-parser not_after · test_network_config 集成 | ✅ |
 
 ### 7.2 待完成项 🚧
 
@@ -574,8 +576,9 @@ v0.6.0（预计 7-10 天）:
   ├── SSH Agent 转发 + Host Key 校验 + 用户确认弹窗
   ├── SSH 多跳隧道链 hops 配置可视化
   ├── ~~SSL 模式智能感知~~ ✅ v0.5.0
-  ├── SSL 证书过期检测
-  ├── no_proxy 规则匹配
+  ├── SSL 证书过期检测 → 仪表盘告警
+  ├── ~~no_proxy 规则匹配~~ ✅ v0.5.0
+  ├── ~~SSL 证书过期基础检测~~ ✅ v0.5.0
   ├── 代理 → SSL 嵌套（Proxy → TLS wrapping）
   ├── 连接方式性能对比监控
   └── Proxy→SSL 嵌套 TlsStream 包装

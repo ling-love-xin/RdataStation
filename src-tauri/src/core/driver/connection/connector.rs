@@ -18,6 +18,63 @@ use super::config::{
 use super::stream::ConnectionStream;
 use crate::core::error::{ConnectionError, CoreError};
 
+/// 隧道生命周期守卫
+///
+/// 持有后台 bridge 任务的 JoinHandle 和优雅关闭信号。
+/// 当 `TunnelGuard` 被 drop 时，自动发送关闭信号并 abort 后台任务，
+/// 释放 TCP listener 和所有关联资源。
+///
+/// 使用模式：
+/// ```ignore
+/// let guard = establish_tunnel(...).await?;
+/// let url = rewrite_url(original, "127.0.0.1", guard.port());
+/// // 数据库连接存活期间保持 guard 不被 drop
+/// // disconnect 时 drop(guard) 自动清理
+/// ```
+pub struct TunnelGuard {
+    port: u16,
+    shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
+    task: Option<tokio::task::JoinHandle<()>>,
+    label: String,
+}
+
+impl TunnelGuard {
+    pub fn new(
+        port: u16,
+        shutdown_tx: tokio::sync::oneshot::Sender<()>,
+        task: tokio::task::JoinHandle<()>,
+        label: impl Into<String>,
+    ) -> Self {
+        Self {
+            port,
+            shutdown_tx: Some(shutdown_tx),
+            task: Some(task),
+            label: label.into(),
+        }
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+}
+
+impl Drop for TunnelGuard {
+    fn drop(&mut self) {
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+            tracing::debug!(target: "tunnel", label = %self.label, port = self.port, "TunnelGuard 发送关闭信号");
+        }
+        if let Some(task) = self.task.take() {
+            task.abort();
+            tracing::debug!(target: "tunnel", label = %self.label, port = self.port, "TunnelGuard 中止后台任务");
+        }
+    }
+}
+
 /// 连接器 trait
 ///
 /// 定义统一的连接接口，所有连接方式都需要实现此 trait
@@ -231,21 +288,15 @@ fn map_tls_version(
     }
 }
 
-/// SSH 隧道连接器
+/// SSH 隧道连接器（已废弃，SSH 隧道统一由 service 层 apply_network_method 处理）
 pub struct SshTunnelConnector;
 
 #[async_trait]
 impl Connector for SshTunnelConnector {
-    async fn connect(&self, config: &ConnectionConfig) -> Result<ConnectionStream, CoreError> {
-        let ConnectionMethod::Ssh(ssh_config) = &config.method else {
-            return Err(CoreError::connection(ConnectionError::InvalidConfig {
-                conn_id: format!("{}:{}", config.host, config.port),
-                reason: "Expected SSH connection method".to_string(),
-            }));
-        };
-
-        let stream = establish_ssh_tunnel(config, ssh_config).await?;
-        Ok(ConnectionStream::ssh_tunnel(stream))
+    async fn connect(&self, _config: &ConnectionConfig) -> Result<ConnectionStream, CoreError> {
+        Err(CoreError::connection(ConnectionError::NotSupported(
+            "SSH 隧道请通过 ConnectionService.apply_network_method() 处理".to_string(),
+        )))
     }
 
     fn supports(&self, method: &ConnectionMethod) -> bool {
@@ -295,7 +346,7 @@ impl russh::client::Handler for SshClientHandler {
 pub async fn establish_ssh_tunnel(
     _config: &ConnectionConfig,
     ssh_config: &SshConfig,
-) -> Result<TcpStream, CoreError> {
+) -> Result<TunnelGuard, CoreError> {
     let ssh_addr = format!("{}:{}", ssh_config.host, ssh_config.port);
 
     let config = Arc::new(russh::client::Config::default());
@@ -377,58 +428,83 @@ pub async fn establish_ssh_tunnel(
             })
         })?;
 
-    let local_addr = listener.local_addr().map_err(|e| {
+    let local_port = listener.local_addr().map_err(|e| {
         CoreError::connection(ConnectionError::Network {
             conn_id: local_bind.clone(),
             reason: format!("获取本地地址失败: {}", e),
         })
-    })?;
+    })?.port();
 
     let remote_host = ssh_config.remote_host.clone();
     let remote_port = ssh_config.remote_port;
-
     let forward_session = session.clone();
-    tokio::spawn(async move {
-        match listener.accept().await {
-            Ok((local_stream, _)) => {
-                match forward_session
-                    .lock()
-                    .await
-                    .channel_open_direct_tcpip(&remote_host, remote_port as u32, "127.0.0.1", 0)
-                    .await
-                {
-                    Ok(channel) => {
-                        let mut channel_stream = channel.into_stream();
-                        let (mut local_read, mut local_write) = tokio::io::split(local_stream);
-                        let (mut channel_read, mut channel_write) =
-                            tokio::io::split(&mut channel_stream);
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let remote_label = format!("{}:{}", remote_host, remote_port);
+    let remote_label2 = remote_label.clone();
 
-                        let t1 = tokio::io::copy(&mut local_read, &mut channel_write);
-                        let t2 = tokio::io::copy(&mut channel_read, &mut local_write);
-
-                        let _ = tokio::join!(t1, t2);
-                    }
-                    Err(e) => {
-                        tracing::warn!(target: "ssh_tunnel", "端口转发通道打开失败: {}", e);
+    let task = tokio::spawn(async move {
+        tracing::info!(
+            target: "ssh_tunnel",
+            remote = %remote_label,
+            local_port,
+            "SSH 隧道后台任务启动 (accept 循环)"
+        );
+        loop {
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((local_stream, _)) => {
+                            let fwd = forward_session.clone();
+                            let rh = remote_host.clone();
+                            let rp = remote_port;
+                            tokio::spawn(async move {
+                                match fwd.lock().await
+                                    .channel_open_direct_tcpip(&rh, rp as u32, "127.0.0.1", 0)
+                                    .await
+                                {
+                                    Ok(channel) => {
+                                        let mut channel_stream = channel.into_stream();
+                                        let (mut local_read, mut local_write) =
+                                            tokio::io::split(local_stream);
+                                        let (mut channel_read, mut channel_write) =
+                                            tokio::io::split(&mut channel_stream);
+                                        let t1 = tokio::io::copy(&mut local_read, &mut channel_write);
+                                        let t2 = tokio::io::copy(&mut channel_read, &mut local_write);
+                                        let _ = tokio::join!(t1, t2);
+                                        tracing::debug!(target: "ssh_tunnel", "SSH 通道桥接结束");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(target: "ssh_tunnel", "SSH 通道打开失败: {}", e);
+                                    }
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            tracing::warn!(target: "ssh_tunnel", "接受本地隧道连接失败: {}", e);
+                            break;
+                        }
                     }
                 }
-            }
-            Err(e) => {
-                tracing::warn!(target: "ssh_tunnel", "接受本地隧道连接失败: {}", e);
+                _ = &mut shutdown_rx => {
+                    tracing::info!(target: "ssh_tunnel", local_port, "SSH 隧道收到关闭信号，退出 accept 循环");
+                    break;
+                }
             }
         }
+        drop(listener);
+        drop(forward_session);
+        tracing::info!(target: "ssh_tunnel", local_port, "SSH 隧道后台任务已退出");
     });
 
-    drop(session);
+    tracing::info!(
+        target: "ssh_tunnel",
+        host = %ssh_config.host,
+        port = local_port,
+        remote = %remote_label2,
+        "SSH 隧道已建立"
+    );
 
-    let local_stream = TcpStream::connect(local_addr).await.map_err(|e| {
-        CoreError::connection(ConnectionError::Network {
-            conn_id: local_addr.to_string(),
-            reason: format!("连接本地隧道端口失败: {}", e),
-        })
-    })?;
-
-    Ok(local_stream)
+    Ok(TunnelGuard::new(local_port, shutdown_tx, task, "ssh"))
 }
 
 /// HTTP 代理连接器

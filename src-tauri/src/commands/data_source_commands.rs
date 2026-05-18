@@ -646,12 +646,11 @@ pub async fn test_network_config(
 
             let dummy = ConnectionConfig::direct(&ssh_config.remote_host, ssh_config.remote_port);
             match connector::establish_ssh_tunnel(&dummy, &ssh_config).await {
-                Ok(stream) => {
-                    let local = stream.local_addr().map(|a| a.to_string()).unwrap_or_default();
-                    drop(stream);
+                Ok(guard) => {
+                    let local_port = guard.port();
                     Ok(TestNetworkConfigResponse {
                         success: true,
-                        message: format!("SSH 隧道测试成功，本地端口: {}", local),
+                        message: format!("SSH 隧道测试成功，本地端口: {}", local_port),
                         response_time_ms: start.elapsed().as_millis() as u64,
                         detail: Some(format!(
                             "SSH {}:{} → {}:{}",

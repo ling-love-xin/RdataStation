@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::core::driver::connection::config::ConnectionMethod;
+use crate::core::driver::connection::connector::TunnelGuard;
 use crate::core::driver::registry::DriverConnectionConfig;
 use crate::core::driver::router::DataSourceRouter;
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
@@ -23,12 +25,16 @@ use crate::core::services::connection_manager::{
 /// - 连接类型转换（全局↔项目）
 pub struct ConnectionService {
     manager: Arc<ConnectionManager>,
+    tunnels: Arc<tokio::sync::Mutex<HashMap<String, Vec<TunnelGuard>>>>,
 }
 
 impl ConnectionService {
     /// 创建新的连接服务
     pub fn new(manager: Arc<ConnectionManager>) -> Self {
-        Self { manager }
+        Self {
+            manager,
+            tunnels: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        }
     }
 
     /// 创建或获取数据库连接（默认全局连接）
@@ -189,9 +195,22 @@ impl ConnectionService {
         tracing::info!("Creating new connection with ID: {}", conn_id);
 
         // 应用网络连接方式（SSH 隧道 / SSL / 代理）
-        let effective_url = self
+        let (effective_url, tunnel_guards) = self
             .apply_network_method(url, &network_method, &conn_id, db_type)
             .await?;
+
+        // 注册隧道守卫，确保隧道在连接生命周期内保持存活
+        if !tunnel_guards.is_empty() {
+            self.tunnels
+                .lock()
+                .await
+                .insert(conn_id.clone(), tunnel_guards);
+            tracing::info!(
+                conn_id = %conn_id,
+                "已注册 {} 个隧道守卫",
+                self.tunnels.lock().await.get(&conn_id).map(|v| v.len()).unwrap_or(0)
+            );
+        }
 
         let db = self.create_database(db_type, &effective_url).await?;
         let server_version = db.meta().server_version.clone();
@@ -425,17 +444,16 @@ impl ConnectionService {
         method: &Option<ConnectionMethod>,
         conn_id: &str,
         db_type: &str,
-    ) -> Result<String, CoreError> {
+    ) -> Result<(String, Vec<TunnelGuard>), CoreError> {
         match method {
-            None | Some(ConnectionMethod::Direct) => Ok(url.to_string()),
+            None | Some(ConnectionMethod::Direct) => Ok((url.to_string(), vec![])),
             Some(ConnectionMethod::Chain(hops)) => {
                 self.process_chain(url, hops, conn_id, db_type).await
             }
             Some(ConnectionMethod::Ssh(ssh_config)) => {
-                let (tunnel_stream, local_port) =
+                let guard =
                     create_ssh_tunnel_port(ssh_config, None).await?;
-                drop(tunnel_stream);
-
+                let local_port = guard.port();
                 let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
                 tracing::info!(
                     conn_id = %conn_id,
@@ -443,12 +461,13 @@ impl ConnectionService {
                     tunnel = %rewritten,
                     "SSH 隧道已建立，URL 已改写为本地端口"
                 );
-                Ok(rewritten)
+                Ok((rewritten, vec![guard]))
             }
             Some(ConnectionMethod::Ssl(ssl_config)) => {
                 // SSL 参数由 sqlx 原生支持，通过 URL query 参数传递
                 // 根据数据库类型自动映射 ssl_mode/sslmode 与证书路径
-                Self::append_ssl_params(url, db_type, ssl_config)
+                let url_with_ssl = Self::append_ssl_params(url, db_type, ssl_config)?;
+                Ok((url_with_ssl, vec![]))
             }
             Some(ConnectionMethod::HttpProxy(_) | ConnectionMethod::SocksProxy(_)) => {
                 let (target_host, target_port) = Self::parse_host_port_from_url(url)?;
@@ -466,13 +485,13 @@ impl ConnectionService {
                         rules = ?proxy_config.no_proxy,
                         "目标主机匹配 no_proxy 规则，跳过代理"
                     );
-                    return Ok(url.to_string());
+                    return Ok((url.to_string(), vec![]));
                 }
 
-                let (tunnel_stream, local_port) =
+                let guard =
                     create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks, None)
                         .await?;
-                drop(tunnel_stream);
+                let local_port = guard.port();
 
                 let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
                 tracing::info!(
@@ -481,7 +500,7 @@ impl ConnectionService {
                     proxy = %rewritten,
                     "代理隧道已建立，URL 已改写为本地端口"
                 );
-                Ok(rewritten)
+                Ok((rewritten, vec![guard]))
             }
         }
     }
@@ -498,11 +517,12 @@ impl ConnectionService {
         hops: &[crate::core::driver::connection::config::ChainHop],
         conn_id: &str,
         db_type: &str,
-    ) -> Result<String, CoreError> {
+    ) -> Result<(String, Vec<TunnelGuard>), CoreError> {
         use crate::core::driver::connection::config::ChainHop;
 
         let (final_db_host, final_db_port) = Self::parse_host_port_from_url(url)?;
         let mut tunnel_port: Option<u16> = None;
+        let mut guards: Vec<TunnelGuard> = Vec::new();
 
         for (i, hop) in hops.iter().enumerate() {
             let next_hop = hops.get(i + 1);
@@ -511,8 +531,9 @@ impl ConnectionService {
                 ChainHop::Ssh(ssh_config) => {
                     let connect_override =
                         tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
-                    let (_, lp) =
+                    let guard =
                         create_ssh_tunnel_port(ssh_config, connect_override).await?;
+                    let lp = guard.port();
                     tunnel_port = Some(lp);
                     tracing::info!(
                         conn_id = %conn_id,
@@ -520,6 +541,7 @@ impl ConnectionService {
                         port = lp,
                         "SSH 隧道跳已建立"
                     );
+                    guards.push(guard);
                 }
                 ChainHop::HttpProxy(proxy) | ChainHop::SocksProxy(proxy) => {
                     let (target_host, target_port) = if let Some(next) = next_hop {
@@ -550,7 +572,7 @@ impl ConnectionService {
                         continue;
                     }
 
-                    let (_, lp) = create_proxy_tunnel_port(
+                    let guard = create_proxy_tunnel_port(
                         proxy,
                         &target_host,
                         target_port,
@@ -558,7 +580,9 @@ impl ConnectionService {
                         connect_override,
                     )
                     .await?;
+                    let lp = guard.port();
                     tunnel_port = Some(lp);
+                    guards.push(guard);
                     tracing::info!(
                         conn_id = %conn_id,
                         hop = i,
@@ -588,12 +612,12 @@ impl ConnectionService {
                     hops = hops.len(),
                     "协议链已建立"
                 );
-                // 链路末尾如有 SSL 跳，注入数据库特定 SSL 参数
-                Self::inject_chain_ssl_params(&rewritten, hops, db_type)
+                let url_with_ssl = Self::inject_chain_ssl_params(&rewritten, hops, db_type)?;
+                Ok((url_with_ssl, guards))
             }
             None => {
-                // 纯 SSL 链路：直接注入 SSL 参数
-                Self::inject_chain_ssl_params(url, hops, db_type)
+                let url_with_ssl = Self::inject_chain_ssl_params(url, hops, db_type)?;
+                Ok((url_with_ssl, guards))
             }
         }
     }
@@ -862,6 +886,17 @@ impl ConnectionService {
         // 获取连接信息以清理元数据缓存
         let conn_info = self.manager.get_connection_info(&conn_id.to_string()).await;
 
+        // 清理隧道守卫（释放本地端口 + 取消后台任务）
+        if let Some(guards) = self.tunnels.lock().await.remove(conn_id) {
+            tracing::info!(
+                conn_id = %conn_id,
+                count = guards.len(),
+                "正在清理 {} 个隧道守卫",
+                guards.len()
+            );
+            drop(guards);
+        }
+
         // 从连接管理器中移除连接
         self.manager.remove_connection(&conn_id.to_string()).await;
 
@@ -890,6 +925,7 @@ impl ConnectionService {
 
     /// 关闭所有连接
     pub async fn close_all_connections(&self) -> Result<(), CoreError> {
+        self.tunnels.lock().await.clear();
         self.manager.close_all_connections().await;
         Ok(())
     }
@@ -1208,13 +1244,13 @@ impl ConnectionService {
     }
 }
 
-/// 创建 SSH 隧道端口转发，返回（隧道本地流，本地端口号）
+/// 创建 SSH 隧道端口转发，返回隧道生命周期守卫
 ///
 /// connect_override: 链式跳转时，覆盖 SSH 连接目标（通过上一跳的 localhost 端口间接连接）
 async fn create_ssh_tunnel_port(
     ssh_config: &crate::core::driver::connection::config::SshConfig,
     connect_override: Option<(String, u16)>,
-) -> Result<(tokio::net::TcpStream, u16), CoreError> {
+) -> Result<crate::core::driver::connection::connector::TunnelGuard, CoreError> {
     use crate::core::driver::connection::config::ConnectionConfig;
     use crate::core::driver::connection::connector;
 
@@ -1229,23 +1265,12 @@ async fn create_ssh_tunnel_port(
 
     let dummy_config = ConnectionConfig::direct("127.0.0.1", 0);
 
-    let stream = connector::establish_ssh_tunnel(&dummy_config, &effective_config).await?;
-    let port = stream
-        .local_addr()
-        .map_err(|e| {
-            CoreError::connection(ConnectionError::Network {
-                conn_id: "ssh_tunnel".to_string(),
-                reason: format!("获取隧道本地端口失败: {}", e),
-            })
-        })?
-        .port();
-
-    Ok((stream, port))
+    connector::establish_ssh_tunnel(&dummy_config, &effective_config).await
 }
 
-/// 创建代理隧道端口转发，返回（隧道本地流，本地端口号）
+/// 创建代理隧道端口转发，返回隧道生命周期守卫
 ///
-/// 建立本地端口转发：绑定本地端口 → 后台任务通过代理连接到目标 → 双向数据拷贝
+/// 建立本地端口转发：绑定本地端口 → accept 循环 → 每个连接的桥接通过代理到目标
 ///
 /// connect_override: 链式跳转时，覆盖代理连接目标（通过上一跳的 localhost 端口间接连接代理服务器）
 async fn create_proxy_tunnel_port(
@@ -1254,7 +1279,7 @@ async fn create_proxy_tunnel_port(
     target_port: u16,
     is_socks: bool,
     connect_override: Option<(String, u16)>,
-) -> Result<(tokio::net::TcpStream, u16), CoreError> {
+) -> Result<crate::core::driver::connection::connector::TunnelGuard, CoreError> {
     use crate::core::driver::connection::config::ConnectionConfig;
     use crate::core::driver::connection::connector;
 
@@ -1284,47 +1309,80 @@ async fn create_proxy_tunnel_port(
         pc.clone()
     };
     let th = target_host.to_string();
-    tokio::spawn(async move {
-        match listener.accept().await {
-            Ok((local_stream, _)) => {
-                let dummy = ConnectionConfig::direct(&th, target_port);
-                let tunneled = if is_socks {
-                    connector::establish_socks_proxy(&dummy, &effective_pc).await
-                } else {
-                    connector::establish_http_proxy(&dummy, &effective_pc).await
-                };
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-                match tunneled {
-                    Ok(tunneled) => {
-                        let (mut lr, mut lw) = tokio::io::split(local_stream);
-                        let (mut tr, mut tw) = tokio::io::split(tunneled);
-                        let _ = tokio::join!(
-                            tokio::io::copy(&mut lr, &mut tw),
-                            tokio::io::copy(&mut tr, &mut lw),
-                        );
-                    }
-                    Err(e) => {
-                        tracing::warn!(target: "proxy_tunnel", host = %th, port = %target_port, "代理隧道连接失败: {}", e);
+    let task = tokio::spawn(async move {
+        tracing::info!(
+            target: "proxy_tunnel",
+            target = %format!("{}:{}", th, target_port),
+            local_port,
+            is_socks,
+            "代理隧道后台任务启动 (accept 循环)"
+        );
+        let th_outer = th.clone();
+        loop {
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((local_stream, _)) => {
+                            let th2 = th_outer.clone();
+                            let dummy = ConnectionConfig::direct(&th2, target_port);
+                            let epc = effective_pc.clone();
+                            tokio::spawn(async move {
+                                let tunneled = if is_socks {
+                                    connector::establish_socks_proxy(&dummy, &epc).await
+                                } else {
+                                    connector::establish_http_proxy(&dummy, &epc).await
+                                };
+                                match tunneled {
+                                    Ok(mut proxy_stream) => {
+                                        let (mut lr, mut lw) =
+                                            tokio::io::split(local_stream);
+                                        let (mut pr, mut pw) =
+                                            tokio::io::split(&mut proxy_stream);
+                                        let _ = tokio::join!(
+                                            tokio::io::copy(&mut lr, &mut pw),
+                                            tokio::io::copy(&mut pr, &mut lw),
+                                        );
+                                        tracing::debug!(target: "proxy_tunnel", "代理桥接结束");
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(target: "proxy_tunnel", host = %th2, port = %target_port, "代理隧道连接失败: {}", e);
+                                    }
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            tracing::warn!(target: "proxy_tunnel", "接受本地代理连接失败: {}", e);
+                            break;
+                        }
                     }
                 }
-            }
-            Err(e) => {
-                tracing::warn!(target: "proxy_tunnel", "接受本地代理连接失败: {}", e);
+                _ = &mut shutdown_rx => {
+                    tracing::info!(target: "proxy_tunnel", local_port, "代理隧道收到关闭信号，退出 accept 循环");
+                    break;
+                }
             }
         }
+        drop(listener);
+        drop(effective_pc);
+        tracing::info!(target: "proxy_tunnel", local_port, "代理隧道后台任务已退出");
     });
 
-    let local_stream =
-        tokio::net::TcpStream::connect(format!("127.0.0.1:{}", local_port))
-            .await
-            .map_err(|e| {
-                CoreError::connection(ConnectionError::Network {
-                    conn_id: format!("{}:{}", target_host, target_port),
-                    reason: format!("连接代理本地端口失败: {}", e),
-                })
-            })?;
+    tracing::info!(
+        target: "proxy_tunnel",
+        target = %format!("{}:{}", target_host, target_port),
+        local_port,
+        is_socks,
+        "代理隧道已建立"
+    );
 
-    Ok((local_stream, local_port))
+    Ok(crate::core::driver::connection::connector::TunnelGuard::new(
+        local_port,
+        shutdown_tx,
+        task,
+        format!("proxy:{}", target_host),
+    ))
 }
 
 #[cfg(test)]
