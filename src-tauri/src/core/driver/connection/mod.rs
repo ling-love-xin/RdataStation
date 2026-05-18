@@ -8,10 +8,12 @@
 //! - `stream` - 连接流抽象
 //! - `connector` - 连接器接口和实现
 //! - `factory` - 连接工厂
+//! - `known_hosts` - SSH known_hosts 文件解析与校验
 
 pub mod config;
 pub mod connector;
 pub mod factory;
+pub mod known_hosts;
 pub mod stream;
 
 // 常用类型重导出

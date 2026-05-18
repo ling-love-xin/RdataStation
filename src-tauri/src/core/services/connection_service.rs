@@ -489,7 +489,7 @@ impl ConnectionService {
                 }
 
                 let guard =
-                    create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks, None)
+                    create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks, None, None)
                         .await?;
                 let local_port = guard.port();
 
@@ -572,12 +572,17 @@ impl ConnectionService {
                         continue;
                     }
 
+                    let wrap_ssl = match next_hop {
+                        Some(ChainHop::Ssl(ref ssl_cfg)) => Some(ssl_cfg.clone()),
+                        _ => None,
+                    };
                     let guard = create_proxy_tunnel_port(
                         proxy,
                         &target_host,
                         target_port,
                         is_socks,
                         connect_override,
+                        wrap_ssl,
                     )
                     .await?;
                     let lp = guard.port();
@@ -623,14 +628,29 @@ impl ConnectionService {
     }
 
     /// 从链路 hops 中提取 SSL 配置并注入 URL 参数
+    ///
+    /// 跳过已被 Proxy→SSL 嵌套层处理的 SSL hop（前一个 hop 是代理）
     fn inject_chain_ssl_params(
         url: &str,
         hops: &[crate::core::driver::connection::config::ChainHop],
         db_type: &str,
     ) -> Result<String, CoreError> {
         use crate::core::driver::connection::config::ChainHop;
-        for hop in hops {
+        for (i, hop) in hops.iter().enumerate() {
             if let ChainHop::Ssl(ssl_config) = hop {
+                let previous_is_proxy = i > 0
+                    && matches!(
+                        hops[i - 1],
+                        ChainHop::HttpProxy(_) | ChainHop::SocksProxy(_)
+                    );
+                if previous_is_proxy {
+                    tracing::info!(
+                        target: "chain",
+                        hop = i,
+                        "SSL 跳已由 Proxy→SSL 嵌套层处理，跳过 URL 参数注入"
+                    );
+                    continue;
+                }
                 return Self::append_ssl_params(url, db_type, ssl_config);
             }
         }
@@ -1273,12 +1293,14 @@ async fn create_ssh_tunnel_port(
 /// 建立本地端口转发：绑定本地端口 → accept 循环 → 每个连接的桥接通过代理到目标
 ///
 /// connect_override: 链式跳转时，覆盖代理连接目标（通过上一跳的 localhost 端口间接连接代理服务器）
+/// wrap_ssl: 代理 CONNECT 成功后对连接进行 TLS 封装（Proxy → SSL 嵌套）
 async fn create_proxy_tunnel_port(
     proxy_config: &crate::core::driver::connection::config::ProxyConfig,
     target_host: &str,
     target_port: u16,
     is_socks: bool,
     connect_override: Option<(String, u16)>,
+    wrap_ssl: Option<crate::core::driver::connection::config::SslConfig>,
 ) -> Result<crate::core::driver::connection::connector::TunnelGuard, CoreError> {
     use crate::core::driver::connection::config::ConnectionConfig;
     use crate::core::driver::connection::connector;
@@ -1309,6 +1331,7 @@ async fn create_proxy_tunnel_port(
         pc.clone()
     };
     let th = target_host.to_string();
+    let ssl_config = wrap_ssl.clone();
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
     let task = tokio::spawn(async move {
@@ -1317,6 +1340,7 @@ async fn create_proxy_tunnel_port(
             target = %format!("{}:{}", th, target_port),
             local_port,
             is_socks,
+            has_tls = ssl_config.is_some(),
             "代理隧道后台任务启动 (accept 循环)"
         );
         let th_outer = th.clone();
@@ -1328,6 +1352,7 @@ async fn create_proxy_tunnel_port(
                             let th2 = th_outer.clone();
                             let dummy = ConnectionConfig::direct(&th2, target_port);
                             let epc = effective_pc.clone();
+                            let ssl = ssl_config.clone();
                             tokio::spawn(async move {
                                 let tunneled = if is_socks {
                                     connector::establish_socks_proxy(&dummy, &epc).await
@@ -1335,16 +1360,41 @@ async fn create_proxy_tunnel_port(
                                     connector::establish_http_proxy(&dummy, &epc).await
                                 };
                                 match tunneled {
-                                    Ok(mut proxy_stream) => {
-                                        let (mut lr, mut lw) =
-                                            tokio::io::split(local_stream);
-                                        let (mut pr, mut pw) =
-                                            tokio::io::split(&mut proxy_stream);
-                                        let _ = tokio::join!(
-                                            tokio::io::copy(&mut lr, &mut pw),
-                                            tokio::io::copy(&mut pr, &mut lw),
-                                        );
-                                        tracing::debug!(target: "proxy_tunnel", "代理桥接结束");
+                                    Ok(proxy_stream) => {
+                                        if let Some(ref ssl_cfg) = ssl {
+                                            match connector::wrap_tls_stream(
+                                                proxy_stream,
+                                                ssl_cfg,
+                                                &th2,
+                                            )
+                                            .await
+                                            {
+                                                Ok(tls_stream) => {
+                                                    let (mut lr, mut lw) =
+                                                        tokio::io::split(local_stream);
+                                                    let (mut pr, mut pw) =
+                                                        tokio::io::split(tls_stream);
+                                                    let _ = tokio::join!(
+                                                        tokio::io::copy(&mut lr, &mut pw),
+                                                        tokio::io::copy(&mut pr, &mut lw),
+                                                    );
+                                                    tracing::debug!(target: "proxy_tunnel", "TLS 加密代理桥接结束");
+                                                }
+                                                Err(e) => {
+                                                    tracing::warn!(target: "proxy_tunnel", host = %th2, "TLS 封装失败: {}", e);
+                                                }
+                                            }
+                                        } else {
+                                            let (mut lr, mut lw) =
+                                                tokio::io::split(local_stream);
+                                            let (mut pr, mut pw) =
+                                                tokio::io::split(proxy_stream);
+                                            let _ = tokio::join!(
+                                                tokio::io::copy(&mut lr, &mut pw),
+                                                tokio::io::copy(&mut pr, &mut lw),
+                                            );
+                                            tracing::debug!(target: "proxy_tunnel", "代理桥接结束");
+                                        }
                                     }
                                     Err(e) => {
                                         tracing::warn!(target: "proxy_tunnel", host = %th2, port = %target_port, "代理隧道连接失败: {}", e);

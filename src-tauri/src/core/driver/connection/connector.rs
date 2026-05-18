@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use russh_keys::key::PrivateKeyWithHashAlg;
+use russh_keys::PublicKeyBase64;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 
@@ -310,28 +311,54 @@ impl Connector for SshTunnelConnector {
 
 /// SSH 客户端处理器
 ///
-/// 处理 SSH 连接期间的服务端事件，最低限度实现
-struct SshClientHandler;
+/// 处理 SSH 连接期间的服务端事件，集成 known_hosts 校验
+struct SshClientHandler {
+    host: String,
+    port: u16,
+    known_hosts: super::known_hosts::KnownHosts,
+}
 
 #[async_trait]
 impl russh::client::Handler for SshClientHandler {
     type Error = russh::Error;
 
-    /// 校验服务端 Host Key
-    ///
-    /// 当前接受所有 Host Key（后续版本将通过 known_hosts + UI 确认改进）
     async fn check_server_key(
         &mut self,
         server_public_key: &russh::keys::PublicKey,
     ) -> Result<bool, Self::Error> {
         let fingerprint = server_public_key
-                    .fingerprint(russh::keys::HashAlg::Sha256);
-        tracing::info!(
-            target: "ssh_tunnel",
-            fingerprint = %fingerprint,
-            "SSH 服务端 Host Key 指纹（当前配置：自动接受）"
+            .fingerprint(russh::keys::HashAlg::Sha256);
+        let key_b64 = server_public_key.public_key_base64();
+        let key_type = key_b64
+            .split_whitespace()
+            .next()
+            .unwrap_or("unknown");
+
+        let verified = self.known_hosts.verify(
+            &self.host,
+            self.port,
+            server_public_key,
         );
-        Ok(true)
+
+        if verified {
+            tracing::info!(
+                target: "ssh_tunnel",
+                fingerprint = %fingerprint,
+                key_type = %key_type,
+                host = %self.host,
+                "Host Key 校验通过"
+            );
+        } else {
+            tracing::error!(
+                target: "ssh_tunnel",
+                fingerprint = %fingerprint,
+                key_type = %key_type,
+                host = %self.host,
+                "Host Key 校验失败，连接拒绝"
+            );
+        }
+
+        Ok(verified)
     }
 }
 
@@ -350,7 +377,12 @@ pub async fn establish_ssh_tunnel(
     let ssh_addr = format!("{}:{}", ssh_config.host, ssh_config.port);
 
     let config = Arc::new(russh::client::Config::default());
-    let handler = SshClientHandler;
+    let known_hosts = super::known_hosts::create_known_hosts_checker(true);
+    let handler = SshClientHandler {
+        host: ssh_config.host.clone(),
+        port: ssh_config.port,
+        known_hosts,
+    };
 
     let session = russh::client::connect(config, ssh_addr.as_str(), handler)
         .await
@@ -406,10 +438,78 @@ pub async fn establish_ssh_tunnel(
                     })
                 })?;
         }
+        #[cfg(unix)]
         SshAuth::Agent => {
-            return Err(CoreError::connection(ConnectionError::NotSupported(
-                "SSH Agent 认证暂未实现，请使用密码或私钥认证".to_string(),
-            )));
+            let mut agent = connect_ssh_agent(&ssh_addr).await?;
+
+            let identities = agent.request_identities().await.map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: ssh_addr.clone(),
+                    reason: format!("无法获取 SSH Agent 身份列表: {}", e),
+                })
+            })?;
+
+            if identities.is_empty() {
+                return Err(CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: ssh_addr.clone(),
+                    reason: "SSH Agent 中没有可用身份，请先通过 ssh-add 添加密钥".to_string(),
+                }));
+            }
+
+            tracing::info!(
+                target: "ssh_tunnel",
+                count = identities.len(),
+                "SSH Agent 中找到 {} 个身份",
+                identities.len()
+            );
+
+            let mut authenticated = false;
+            for pubkey in &identities {
+                match session
+                    .lock()
+                    .await
+                    .authenticate_publickey_with(
+                        &ssh_config.username,
+                        pubkey.clone(),
+                        &mut agent,
+                    )
+                    .await
+                {
+                    Ok(true) => {
+                        authenticated = true;
+                        tracing::info!(
+                            target: "ssh_tunnel",
+                            username = %ssh_config.username,
+                            "SSH Agent 认证成功"
+                        );
+                        break;
+                    }
+                    Ok(false) => {
+                        tracing::debug!(
+                            target: "ssh_tunnel",
+                            "SSH Agent 身份未通过认证，尝试下一个"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "ssh_tunnel",
+                            "SSH Agent 认证过程出错: {}", e
+                        );
+                    }
+                }
+            }
+
+            if !authenticated {
+                return Err(CoreError::connection(ConnectionError::AuthenticationFailed {
+                    conn_id: ssh_addr.clone(),
+                    username: ssh_config.username.clone(),
+                }));
+            }
+        }
+        #[cfg(not(unix))]
+        SshAuth::Agent => {
+            connect_ssh_agent(&ssh_addr).await?;
+            unreachable!("Windows 上 connect_ssh_agent 总是返回 Err");
         }
     }
 
@@ -505,6 +605,45 @@ pub async fn establish_ssh_tunnel(
     );
 
     Ok(TunnelGuard::new(local_port, shutdown_tx, task, "ssh"))
+}
+
+/// 连接到 SSH Agent（跨平台）
+///
+/// - Unix (Linux/macOS): 通过 `SSH_AUTH_SOCK` 环境变量连接 OpenSSH Agent
+/// - Windows: 暂不支持（后续版本将通过 Pageant 集成）
+#[cfg(unix)]
+async fn connect_ssh_agent(
+    ssh_addr: &str,
+) -> Result<
+    russh_keys::agent::client::AgentClient<
+        Box<dyn russh_keys::agent::client::AgentStream + Send + Unpin + 'static>,
+    >,
+    CoreError,
+> {
+    russh_keys::agent::client::AgentClient::connect_env()
+        .await
+        .map(|c| c.dynamic())
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::InvalidConfig {
+                conn_id: ssh_addr.to_string(),
+                reason: format!(
+                    "无法连接到 SSH Agent (SSH_AUTH_SOCK): {}. 请确保 ssh-agent 正在运行",
+                    e
+                ),
+            })
+        })
+}
+
+#[cfg(not(unix))]
+async fn connect_ssh_agent(
+    _ssh_addr: &str,
+) -> Result<
+    (),
+    CoreError,
+> {
+    Err(CoreError::connection(ConnectionError::NotSupported(
+        "SSH Agent 认证在当前平台暂未支持，请使用密码或私钥认证".to_string(),
+    )))
 }
 
 /// HTTP 代理连接器
@@ -738,4 +877,89 @@ pub fn check_cert_expiry(cert_path: &str) -> Result<SslCertInfo, CoreError> {
         days_until_expiry,
         is_expired,
     })
+}
+
+/// 在 TcpStream 之上建立 TLS 加密层
+///
+/// 用于 Proxy → SSL 嵌套：代理 CONNECT 成功后，对透传的 TCP 流进行 TLS 封装。
+/// sqlx 后续通过隧道端口连接时，数据在代理隧道内已经过 TLS 加密。
+pub async fn wrap_tls_stream(
+    tcp_stream: tokio::net::TcpStream,
+    ssl_config: &super::config::SslConfig,
+    server_host: &str,
+) -> Result<tokio_native_tls::TlsStream<tokio::net::TcpStream>, CoreError> {
+    let mut builder = native_tls::TlsConnector::builder();
+
+    if ssl_config.verify_server_cert {
+        if let Some(ca_path) = &ssl_config.ca_cert_path {
+            let ca_cert = std::fs::read(ca_path).map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: ca_path.clone(),
+                    reason: format!("无法读取 CA 证书: {}", e),
+                })
+            })?;
+            let cert = native_tls::Certificate::from_pem(&ca_cert).map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: ca_path.clone(),
+                    reason: format!("CA 证书解析失败: {}", e),
+                })
+            })?;
+            builder.add_root_certificate(cert);
+        }
+    } else {
+        builder.danger_accept_invalid_certs(true);
+    }
+
+    if let (Some(cert_path), Some(key_path)) =
+        (&ssl_config.client_cert_path, &ssl_config.client_key_path)
+    {
+        let client_cert_data = std::fs::read(cert_path).map_err(|e| {
+            CoreError::connection(ConnectionError::InvalidConfig {
+                conn_id: cert_path.clone(),
+                reason: format!("无法读取客户端证书: {}", e),
+            })
+        })?;
+        let client_key_data = std::fs::read(key_path).map_err(|e| {
+            CoreError::connection(ConnectionError::InvalidConfig {
+                conn_id: key_path.clone(),
+                reason: format!("无法读取客户端私钥: {}", e),
+            })
+        })?;
+
+        let identity = native_tls::Identity::from_pkcs8(&client_cert_data, &client_key_data)
+            .or_else(|_| native_tls::Identity::from_pkcs12(&client_cert_data, ""))
+            .map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: cert_path.clone(),
+                    reason: format!("客户端证书/私钥加载失败: {}", e),
+                })
+            })?;
+        builder.identity(identity);
+    }
+
+    let connector = builder.build().map_err(|e| {
+        CoreError::connection(ConnectionError::InvalidConfig {
+            conn_id: server_host.to_string(),
+            reason: format!("TLS Connector 构建失败: {}", e),
+        })
+    })?;
+
+    let tls_connector = tokio_native_tls::TlsConnector::from(connector);
+    let tls_stream = tls_connector
+        .connect(server_host, tcp_stream)
+        .await
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: server_host.to_string(),
+                reason: format!("TLS 握手失败: {}", e),
+            })
+        })?;
+
+    tracing::info!(
+        target: "tls_wrapper",
+        host = %server_host,
+        "Proxy → SSL 嵌套 TLS 层已建立"
+    );
+
+    Ok(tls_stream)
 }
