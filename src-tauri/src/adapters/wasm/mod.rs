@@ -31,6 +31,7 @@ use crate::core::CoreError;
 // 导出子模块
 pub mod api;
 pub mod extism;
+pub mod host_functions;
 pub mod plugin_manager;
 
 // 重新导出核心类型

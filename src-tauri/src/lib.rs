@@ -389,6 +389,9 @@ pub fn run() {
             get_log_session_id,
             export_logs,
             set_log_level,
+            // 插件命令
+            plugin_db_query,
+            plugin_db_metadata,
             // 系统信息命令
             get_api_version,
         ])

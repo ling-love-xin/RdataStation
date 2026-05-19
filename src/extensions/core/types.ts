@@ -433,3 +433,112 @@ export interface PluginDependency {
   id: string
   version: string
 }
+
+// ============================================================================
+// 新版 PluginContext（Plugin 系统）—— 取代旧 ExtensionContext
+// ============================================================================
+
+/** 新版插件上下文 */
+export interface PluginContext {
+  /** 插件唯一 ID */
+  readonly pluginId: string
+
+  /** 解析后的 manifest */
+  readonly manifest: PluginManifest
+
+  /** 当前项目信息 */
+  readonly project: ProjectInfo
+
+  /** 插件文件根目录 */
+  readonly extensionPath: string
+
+  /** 日志 */
+  logging: {
+    info(msg: string, data?: unknown): void
+    warn(msg: string, data?: unknown): void
+    error(msg: string, data?: unknown): void
+  }
+
+  /** 命名空间隔离的存储 */
+  storage: PluginStorage
+
+  /** 事件总线（插件间通信） */
+  events: EventBusInterface
+
+  /** 面板注册 */
+  panels: PanelRegistryInterface
+
+  /** 命令注册 */
+  commands: CommandRegistryInterface
+
+  /** 数据库访问（需权限） */
+  database: PluginDatabaseAPI
+
+  /** 系统能力（需授权） */
+  system: PluginSystemAPI
+
+  /** 订阅资源释放 */
+  subscribe(disposable: Disposable): void
+}
+
+/** 插件存储接口 */
+export interface PluginStorage {
+  get<T>(key: string): Promise<T | null>
+  set<T>(key: string, value: T): Promise<void>
+  delete(key: string): Promise<void>
+  keys(): Promise<string[]>
+}
+
+/** 事件总线接口 */
+export interface EventBusInterface {
+  emit(event: string, data: unknown): void
+  on(event: string, handler: (data: unknown) => void): Disposable
+}
+
+/** 面板注册接口 */
+export interface PanelRegistryInterface {
+  register(panel: PanelDescriptor): Disposable
+}
+
+/** 命令注册接口 */
+export interface CommandRegistryInterface {
+  registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable
+  executeCommand<T>(id: string, ...args: unknown[]): Promise<T>
+}
+
+/** 插件数据库 API */
+export interface PluginDatabaseAPI {
+  query(connId: string, sql: string, options?: { timeout?: number }): Promise<unknown>
+  getActiveConnection(): Promise<ConnectionInfo | null>
+  getMetadata(connId: string, path: { catalog: string; schema: string; kind: string }): Promise<unknown>
+  cancelQuery(queryId: string): Promise<void>
+}
+
+/** 连接信息 */
+export interface ConnectionInfo {
+  id: string
+  name: string
+  dbType: string
+  state: 'connecting' | 'connected' | 'error' | 'closed'
+}
+
+/** 插件系统 API */
+export interface PluginSystemAPI {
+  fetch(url: string, options?: RequestInit): Promise<Response>
+  fs: PluginFileSystem
+}
+
+/** 插件文件系统 */
+export interface PluginFileSystem {
+  readText(path: string): Promise<string>
+  writeText(path: string, content: string): Promise<void>
+  listDir(path: string): Promise<FileEntry[]>
+}
+
+/** 文件条目 */
+export interface FileEntry {
+  name: string
+  path: string
+  isDirectory: boolean
+  size: number
+}

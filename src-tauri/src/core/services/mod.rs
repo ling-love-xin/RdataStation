@@ -24,6 +24,7 @@ pub mod duckdb_service;
 pub mod execution_service;
 pub mod insight_engine;
 pub mod persistence_service;
+pub mod plugin_bridge;
 pub mod quality_scorer;
 pub mod result_service;
 pub mod sql_parser_service;

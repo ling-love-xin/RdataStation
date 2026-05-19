@@ -245,3 +245,102 @@ class ExtensionHost {
 }
 
 export const extensionHost = new ExtensionHost()
+
+export function createPluginContext(
+  pluginId: string,
+  manifest: PluginManifest,
+  project: ProjectInfo,
+  extensionPath: string
+): PluginContext {
+  const disposables: Disposable[] = []
+
+  return {
+    pluginId,
+    manifest,
+    project,
+    extensionPath,
+
+    logging: {
+      info: (msg, data) => console.info(`[Plugin:${pluginId}]`, msg, data ?? ''),
+      warn: (msg, data) => console.warn(`[Plugin:${pluginId}]`, msg, data ?? ''),
+      error: (msg, data) => console.error(`[Plugin:${pluginId}]`, msg, data ?? ''),
+    },
+
+    storage: new ScopedStorage(pluginId),
+
+    events: {
+      emit: (event, data) => eventBus.emit(event, data),
+      on: (event, handler) => {
+        const sub = eventBus.on(event, handler as (...args: unknown[]) => void)
+        disposables.push(sub as unknown as Disposable)
+        return sub as unknown as Disposable
+      },
+    },
+
+    panels: {
+      register: (panel: PanelDescriptor) => {
+        const d = windowAPI.registerViewProvider(panel.id, {
+          component: panel.component,
+          title: panel.name,
+          location: panel.location,
+          icon: panel.icon,
+          order: panel.order,
+        })
+        disposables.push(d)
+        return d
+      },
+    },
+
+    commands: {
+      registerCommand: (id, handler) => {
+        const d = commandRegistry.registerCommand(id, handler)
+        disposables.push(d)
+        return d
+      },
+      executeCommand: (id, ...args) => commandRegistry.executeCommand(id, ...args),
+    },
+
+    database: {
+      query: async (connId, sql, options) => {
+        const { invoke } = await import('@tauri-apps/api/core')
+        return invoke('plugin_db_query', { pluginId, connId, sql, timeout: options?.timeout })
+      },
+      getActiveConnection: async () => {
+        const { invoke } = await import('@tauri-apps/api/core')
+        return invoke('get_active_connection') as Promise<ConnectionInfo | null>
+      },
+      getMetadata: async (connId, path) => {
+        const { invoke } = await import('@tauri-apps/api/core')
+        return invoke('plugin_db_metadata', { pluginId, connId, ...path })
+      },
+      cancelQuery: async (queryId) => {
+        const { invoke } = await import('@tauri-apps/api/core')
+        return invoke('cancel_sql_query', { queryId })
+      },
+    },
+
+    system: {
+      fetch: async (url, options) => {
+        return fetch(url, options)
+      },
+      fs: {
+        readText: async (path) => {
+          const { invoke } = await import('@tauri-apps/api/core')
+          return invoke('plugin_fs_read_text', { pluginId, path }) as Promise<string>
+        },
+        writeText: async (path, content) => {
+          const { invoke } = await import('@tauri-apps/api/core')
+          return invoke('plugin_fs_write_text', { pluginId, path, content })
+        },
+        listDir: async (path) => {
+          const { invoke } = await import('@tauri-apps/api/core')
+          return invoke('plugin_fs_list_dir', { pluginId, path }) as Promise<FileEntry[]>
+        },
+      },
+    },
+
+    subscribe: (disposable) => {
+      disposables.push(disposable)
+    },
+  }
+}
