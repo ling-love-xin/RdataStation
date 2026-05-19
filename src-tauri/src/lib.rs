@@ -80,6 +80,23 @@ pub fn run() {
         eprintln!("ERROR: Driver manager initialization failed: {}", e);
     }
 
+    if let Err(e) = rt.block_on(core::plugin::init_plugin_manager()) {
+        tracing::error!("Plugin manager initialization failed: {}", e);
+        eprintln!("ERROR: Plugin manager initialization failed: {}", e);
+    }
+
+    // 初始化插件加载器
+    let plugin_install_dir = dirs::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("RdataStation")
+        .join("plugins");
+    if let Err(e) = rt.block_on(core::plugin::init_plugin_loader(plugin_install_dir.clone())) {
+        tracing::error!("Plugin loader initialization failed: {}", e);
+        eprintln!("ERROR: Plugin loader initialization failed: {}", e);
+    }
+
+    tracing::info!("Plugin system initialized with install dir: {:?}", plugin_install_dir);
+
     // 阶段2: 数据库就绪后，创建 LogStore 并启动日志消费任务
     // 必须在 Tokio runtime 上下文中调用 spawn_log_consumer（内部使用 tokio::spawn）
     let _log_store = rt.block_on(async {
@@ -392,6 +409,30 @@ pub fn run() {
             // 插件命令
             plugin_db_query,
             plugin_db_metadata,
+            // 插件系统命令
+            plugin_db_query,
+            plugin_db_metadata,
+            plugin_list,
+            plugin_load,
+            plugin_activate,
+            plugin_deactivate,
+            plugin_unload,
+            plugin_get_status,
+            plugin_add_directory,
+            plugin_get_all_installed,
+            plugin_get_with_status,
+            plugin_get,
+            plugin_install,
+            plugin_enable,
+            plugin_disable,
+            plugin_uninstall,
+            project_plugin_enable,
+            project_plugin_disable,
+            project_plugin_remove,
+            project_plugin_list,
+            project_plugin_set_config,
+            project_plugin_get_configs,
+            plugin_load_enabled_on_startup,
             // 系统信息命令
             get_api_version,
         ])

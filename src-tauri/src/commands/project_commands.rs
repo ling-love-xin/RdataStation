@@ -808,6 +808,23 @@ pub async fn init_project_store(
 
     tracing::info!(path = %project_path, "Project store initialized successfully");
 
+    // 加载项目启用的插件
+    if let Some(global_db) = crate::core::migration::get_global_db_manager() {
+        let plugin_service = crate::core::services::plugin_service::PluginService::new(global_db);
+        let project_conn_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
+            (*guard).as_ref().unwrap().db_manager.clone()
+        );
+        
+        if let Ok(project_plugins) = plugin_service.load_project_plugins_on_open(&amp;project_conn_store).await {
+            tracing::info!(
+                path = %project_path,
+                plugin_count = project_plugins.len(),
+                "Project plugins loaded on open"
+            );
+            // TODO: 实际上加载这些插件到 PluginManager
+        }
+    }
+
     Ok(())
 }
 
