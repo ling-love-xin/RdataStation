@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+
 import type { PluginStorage } from '@/extensions/core/types'
 
 export class ScopedStorage implements PluginStorage {

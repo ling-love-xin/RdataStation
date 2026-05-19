@@ -1,4 +1,3 @@
-import type { PluginManifest } from '@/extensions/core/types'
 
 import analyticsResourceExtension from '@/extensions/builtin/analytics-resource/extension'
 import connectionExtension from '@/extensions/builtin/connection/extension'
@@ -8,7 +7,7 @@ import queryExtension from '@/extensions/builtin/query/extension'
 import scratchpadExtension from '@/extensions/builtin/scratchpad/extension'
 import settingsExtension from '@/extensions/builtin/settings/extension'
 import workbenchExtension from '@/extensions/builtin/workbench/extension'
-import type { ExtensionModule } from '@/extensions/core/types'
+import type { PluginManifest , ExtensionModule } from '@/extensions/core/types'
 
 export interface BuiltinExtension {
   id: string

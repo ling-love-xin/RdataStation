@@ -1435,6 +1435,81 @@ async fn create_proxy_tunnel_port(
     ))
 }
 
+/// 从全局 DB 解析 network_config_id → ConnectionMethod
+///
+/// 只查询全局 network_configs 表（测试连接场景）
+/// 根据 config 中的 network_type 字段进行 JSON 反序列化
+pub async fn resolve_network_method(
+    network_config_id: Option<&str>,
+) -> Result<Option<ConnectionMethod>, CoreError> {
+    let Some(net_id) = network_config_id else {
+        return Ok(None);
+    };
+
+    let gdb = match crate::core::migration::get_global_db_manager() {
+        Some(gdb) => gdb,
+        None => return Ok(None),
+    };
+
+    let nets = gdb.list_network_configs(None).await?;
+    let net = match nets.iter().find(|n| n.id == net_id) {
+        Some(net) => net,
+        None => {
+            tracing::warn!("未找到网络配置 ID={}", net_id);
+            return Ok(None);
+        }
+    };
+
+    parse_network_config_json(&net.network_type, &net.config).await
+}
+
+/// 根据 network_type 将 config JSON 解析为 ConnectionMethod
+///
+/// 公共函数，commands 层和 service 层共享
+pub async fn parse_network_config_json(
+    network_type: &str,
+    config_json: &str,
+) -> Result<Option<ConnectionMethod>, CoreError> {
+    match network_type {
+        "chain" => {
+            let hops: Vec<crate::core::driver::connection::config::ChainHop> =
+                serde_json::from_str(config_json).map_err(|e| {
+                    CoreError::from(format!("解析协议链配置 JSON 失败: {}", e))
+                })?;
+            if hops.is_empty() {
+                return Ok(None);
+            }
+            Ok(Some(ConnectionMethod::Chain(hops)))
+        }
+        "ssh" => {
+            let ssh_config: crate::core::driver::connection::config::SshConfig =
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析 SSH 隧道配置 JSON 失败: {}", e)))?;
+            Ok(Some(ConnectionMethod::Ssh(ssh_config)))
+        }
+        "ssl" => {
+            let ssl_config: crate::core::driver::connection::config::SslConfig =
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析 SSL 配置 JSON 失败: {}", e)))?;
+            Ok(Some(ConnectionMethod::Ssl(ssl_config)))
+        }
+        "proxy" | "http_proxy" | "socks" | "socks5" => {
+            let proxy_config: crate::core::driver::connection::config::ProxyConfig =
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析代理配置 JSON 失败: {}", e)))?;
+            if network_type == "socks" || network_type == "socks5" {
+                Ok(Some(ConnectionMethod::SocksProxy(proxy_config)))
+            } else {
+                Ok(Some(ConnectionMethod::HttpProxy(proxy_config)))
+            }
+        }
+        _ => {
+            tracing::warn!("未知的网络配置类型: {}", network_type);
+            Ok(None)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

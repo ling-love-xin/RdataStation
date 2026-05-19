@@ -5,6 +5,9 @@
 use crate::core::driver::connection::config::ConnectionMethod;
 use crate::core::driver::DriverConnectionConfig;
 use crate::core::error::CoreError;
+use crate::core::services::connection_service::{
+    parse_network_config_json, resolve_network_method,
+};
 use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::{get_connection_manager, DataSourceMeta};
 
@@ -291,7 +294,7 @@ async fn parse_network_method(
                 .join("project.db");
             if db_path.exists() {
                 if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
-                    return parse_config_json("unknown", &config_str).await;
+                    return parse_network_config_json("unknown", &config_str).await;
                 }
             }
         }
@@ -305,7 +308,7 @@ async fn parse_network_method(
                 .join("project.db");
             if db_path.exists() {
                 if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
-                    return parse_config_json("unknown", &config_str).await;
+                    return parse_network_config_json("unknown", &config_str).await;
                 }
             }
         }
@@ -315,7 +318,7 @@ async fn parse_network_method(
     if let Some(gdb) = crate::core::migration::get_global_db_manager() {
         if let Ok(nets) = gdb.list_network_configs(None).await {
             if let Some(net) = nets.iter().find(|n| n.id == *net_id) {
-                return parse_config_json(&net.network_type, &net.config).await;
+                return parse_network_config_json(&net.network_type, &net.config).await;
             }
         }
     }
@@ -327,7 +330,7 @@ async fn parse_network_method(
                 .join("project.db");
             if db_path.exists() {
                 if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
-                    return parse_config_json("unknown", &config_str).await;
+                    return parse_network_config_json("unknown", &config_str).await;
                 }
             }
         }
@@ -344,54 +347,6 @@ fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Resu
         |row| row.get(0),
     )
     .map_err(|e| e.to_string())
-}
-
-/// 根据 network_type 将 config JSON 解析为 ConnectionMethod
-async fn parse_config_json(
-    network_type: &str,
-    config_json: &str,
-) -> Result<Option<ConnectionMethod>, CoreError> {
-    match network_type {
-        "chain" => {
-            let hops: Vec<crate::core::driver::connection::config::ChainHop> =
-                serde_json::from_str(config_json).map_err(|e| {
-                    CoreError::from(format!("解析协议链配置 JSON 失败: {}", e))
-                })?;
-            if hops.is_empty() {
-                return Ok(None);
-            }
-            Ok(Some(ConnectionMethod::Chain(hops)))
-        }
-        "ssh" => {
-            let ssh_config: crate::core::driver::connection::config::SshConfig =
-                serde_json::from_str(config_json)
-                    .map_err(|e| CoreError::from(format!("解析 SSH 隧道配置 JSON 失败: {}", e)))?;
-            Ok(Some(ConnectionMethod::Ssh(ssh_config)))
-        }
-        "ssl" => {
-            let ssl_config: crate::core::driver::connection::config::SslConfig =
-                serde_json::from_str(config_json)
-                    .map_err(|e| CoreError::from(format!("解析 SSL 配置 JSON 失败: {}", e)))?;
-            Ok(Some(ConnectionMethod::Ssl(ssl_config)))
-        }
-        "proxy" | "http_proxy" | "socks" | "socks5" => {
-            let proxy_config: crate::core::driver::connection::config::ProxyConfig =
-                serde_json::from_str(config_json)
-                    .map_err(|e| CoreError::from(format!("解析代理配置 JSON 失败: {}", e)))?;
-            if network_type == "socks" || network_type == "socks5" {
-                Ok(Some(ConnectionMethod::SocksProxy(proxy_config)))
-            } else {
-                Ok(Some(ConnectionMethod::HttpProxy(proxy_config)))
-            }
-        }
-        _ => {
-            tracing::warn!(
-                network_type = %network_type,
-                "未知网络配置类型，将使用直连"
-            );
-            Ok(None)
-        }
-    }
 }
 
 /// 连接信息响应
@@ -671,6 +626,7 @@ pub struct TestConnectionResponse {
 pub async fn test_connection(
     db_type: String,
     url: String,
+    network_config_id: Option<String>,
 ) -> Result<TestConnectionResponse, CoreError> {
     use std::time::Instant;
 
@@ -681,6 +637,12 @@ pub async fn test_connection(
     let start = Instant::now();
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager.clone());
+
+    // 解析网络配置（如果有）
+    let network_method = resolve_network_method(
+        network_config_id.as_deref(),
+    )
+    .await?;
 
     // 检查是否已有相同 URL 的正式连接
     let all_connections = service.list_connections().await;
@@ -707,9 +669,24 @@ pub async fn test_connection(
     }
 
     // 没有已有连接，创建临时测试连接
-    tracing::info!("测试连接：创建临时连接进行测试（URL={}）", url);
+    tracing::info!("测试连接：创建临时连接进行测试（URL={}，network_config={:?}）", url, network_config_id);
     let (conn_id, db) = match service
-        .connect(None, &db_type, &url, Some("test_connection".to_string()))
+        .connect_with_type(
+            None,
+            &db_type,
+            &url,
+            Some("test_connection".to_string()),
+            ConnectionType::Global,
+            None,   // project_path
+            None,   // description
+            None,   // driver_id
+            None,   // environment_id
+            None,   // auth_config_id
+            network_config_id.clone(),
+            None,   // driver_properties
+            None,   // advanced_options
+            network_method,
+        )
         .await
     {
         Ok(result) => result,

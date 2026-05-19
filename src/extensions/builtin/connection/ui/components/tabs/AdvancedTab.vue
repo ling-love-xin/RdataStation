@@ -96,12 +96,52 @@
         <option value="utf16">UTF-16</option>
       </select>
     </div>
+
+    <!-- 环境选择 -->
+    <div class="form-section">
+      <div class="section-title">
+        <Server :size="12" />
+        {{ t('connection.advancedTab.environment') }}
+      </div>
+      <select v-model="environmentId" class="form-select encoding-select">
+        <option value="">— {{ t('connection.advancedTab.envDefault') }} —</option>
+        <option
+          v-for="env in environments"
+          :key="env.id"
+          :value="env.id"
+        >
+          {{ env.color || '●' }} {{ env.name }}
+        </option>
+      </select>
+      <p v-if="selectedEnvironmentPolicies.length > 0" class="env-policy-hint">
+        {{ selectedEnvironmentPolicies.length }} 条策略已关联此环境
+      </p>
+    </div>
+
+    <!-- 认证配置选择 -->
+    <div class="form-section">
+      <div class="section-title">
+        <Shield :size="12" />
+        {{ t('connection.advancedTab.authConfig') }}
+      </div>
+      <select v-model="authConfigId" class="form-select encoding-select">
+        <option value="">— {{ t('connection.advancedTab.authNone') }} —</option>
+        <option
+          v-for="ac in authConfigs"
+          :key="ac.id"
+          :value="ac.id"
+        >
+          {{ ac.name || ac.id }} ({{ ac.auth_type }})
+        </option>
+      </select>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Zap } from 'lucide-vue-next'
-import { ref, computed, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
+import { Zap, Server, Shield } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -129,6 +169,66 @@ const syncInterval = ref(15)
 const memoryLimit = ref(512)
 const threads = ref(4)
 
+// 环境相关
+const environmentId = ref('')
+const environments = ref<Array<{ id: string; name: string; color: string | null }>>([])
+
+interface EnvironmentPolicy {
+  id: string
+  environment_id: string
+  policy_type: string
+  enabled: boolean
+}
+const environmentPolicies = ref<EnvironmentPolicy[]>([])
+
+const selectedEnvironmentPolicies = computed(() =>
+  environmentPolicies.value.filter(p =>
+    p.environment_id === environmentId.value && p.enabled
+  )
+)
+
+// 认证配置相关
+const authConfigId = ref('')
+const authConfigs = ref<Array<{ id: string; name: string | null; auth_type: string }>>([])
+
+// 挂载时加载
+onMounted(async () => {
+  // 加载环境列表
+  try {
+    environments.value = await invoke<Array<{ id: string; name: string; color: string | null }>>(
+      'list_environments'
+    )
+  } catch {
+    // 忽略
+  }
+
+  // 加载认证配置列表
+  try {
+    authConfigs.value = await invoke<Array<{ id: string; name: string | null; auth_type: string }>>(
+      'list_auth_configs',
+      { authType: null }
+    )
+  } catch {
+    // 忽略
+  }
+})
+
+// 监听环境变化 → 加载对应策略
+watch(environmentId, async (envId) => {
+  if (envId) {
+    try {
+      environmentPolicies.value = await invoke<EnvironmentPolicy[]>(
+        'list_environment_policies',
+        { environmentId: envId }
+      )
+    } catch {
+      environmentPolicies.value = []
+    }
+  } else {
+    environmentPolicies.value = []
+  }
+})
+
 const advancedConfig = computed(() => ({
   connectTimeout: connectTimeout.value,
   queryTimeout: queryTimeout.value,
@@ -136,6 +236,8 @@ const advancedConfig = computed(() => ({
   maxReconnect: maxReconnect.value,
   schemaStrategy: schemaStrategy.value,
   encoding: encoding.value,
+  environmentId: environmentId.value,
+  authConfigId: authConfigId.value,
   duckdbAccel: {
     enabled: duckdbAccelEnabled.value,
     syncStrategy: syncStrategy.value,
@@ -229,6 +331,18 @@ const dbTypeName = computed(() => DB_NAME_MAP[props.dbType || ''] || props.dbTyp
 }
 .encoding-select {
   max-width: 180px;
+}
+
+.env-policy-hint {
+  font-size: 11px;
+  color: var(--color-text-muted, #6c7086);
+  margin-top: 4px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .accel-card {

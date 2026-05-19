@@ -69,7 +69,13 @@
                     @select-file="onSelectFile"
                     @create-file="onCreateFile"
                   />
-                  <NetworkTab v-show="activeTab === 'network'" @update:config="updateNetworkConfig" />
+                  <NetworkTab
+                    v-show="activeTab === 'network'"
+                    ref="networkTabRef"
+                    :db-type="selectedDbType"
+                    :scope="connectionScope"
+                    @update:config="updateNetworkConfig"
+                  />
                   <CapabilitiesTab
                     v-show="activeTab === 'capabilities'"
                     :selected-driver="selectedDriver"
@@ -144,8 +150,12 @@ import CapabilitiesTab from './tabs/CapabilitiesTab.vue'
 import DriverPropsTab from './tabs/DriverPropsTab.vue'
 import GeneralTab from './tabs/GeneralTab.vue'
 import NetworkTab from './tabs/NetworkTab.vue'
+import {
+  backendDriverToDescriptor,
+  configSchemaToFormSchema,
+  type BackendDriver,
+} from '../adapters/driver-adapter'
 import { useStagingList } from '../composables/useStagingList'
-import { loadDriverSchema } from '../utils/schema-loader'
 
 import type { DriverDescriptor, ConnectionConfig } from '../types/connection'
 import type { FormSectionConfig } from '../types/form-schema'
@@ -163,11 +173,13 @@ interface Props {
   modelValue: boolean
   isEditing?: boolean
   editData?: ConnectionConfig | null
+  projectPath?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isEditing: false,
   editData: null,
+  projectPath: null,
 })
 
 const emit = defineEmits<{
@@ -264,6 +276,14 @@ const driverProps = ref<Record<string, string>>({})
 const staging = useStagingList()
 const stagingEntryId = ref<number | null>(null)
 
+const networkTabRef = ref<InstanceType<typeof NetworkTab> | null>(null)
+
+/** 统一 Scope 枚举 */
+const connectionScope = computed<'global' | 'project'>(() => {
+  if (saveToProject.value) return 'project'
+  return 'global'
+})
+
 const errors = ref<Record<string, string>>({})
 
 const visibleTabs = computed(() => TAB_CONFIG)
@@ -317,10 +337,20 @@ function buildRealUrl(): string {
 
 async function loadDrivers() {
   try {
-    const result = await invoke<DriverDescriptor[]>('get_drivers')
-    allDrivers.value = result || []
-  } catch {
-    allDrivers.value = []
+    const result = await invoke<{ drivers: BackendDriver[]; missing: unknown[] }>(
+      'get_available_drivers',
+      { projectPath: props.projectPath }
+    )
+    const backendDrivers = result?.drivers || []
+    allDrivers.value = backendDrivers.map(backendDriverToDescriptor)
+  } catch (err) {
+    console.error('加载驱动列表失败，回退到旧路径:', err)
+    try {
+      const result = await invoke<DriverDescriptor[]>('get_drivers')
+      allDrivers.value = result || []
+    } catch {
+      allDrivers.value = []
+    }
   }
 }
 
@@ -349,7 +379,8 @@ async function onSelectDriver(driverId: string) {
       formData.value.name = `${driver.name}@localhost`
     }
 
-    const schema = await loadDriverSchema(driverId)
+    // 优先从 DB config_schema 加载（新路径）
+    const schema = await loadDriverConfigSchema(driverId, driver)
     if (schema?.sections) {
       formSections.value = schema.sections
       const defaults = schema.sections.flatMap(s => s.fields.filter(f => f.default !== undefined))
@@ -363,6 +394,33 @@ async function onSelectDriver(driverId: string) {
     }
   }
   activeTab.value = 'general'
+}
+
+/** 从 DB get_driver_detail 加载 config_schema（新路径），失败时回退到本地 JSON 文件 */
+async function loadDriverConfigSchema(
+  driverId: string,
+  _driver: DriverDescriptor
+): Promise<{ sections: FormSectionConfig[]; driverId: string; driverName: string } | null> {
+  try {
+    const detail = await invoke<{
+      driver: BackendDriver
+      availability: string
+    }>('get_driver_detail', { driverId, projectPath: null })
+    const formSchema = configSchemaToFormSchema(detail.driver)
+    if (formSchema.sections.length > 0) {
+      return formSchema
+    }
+  } catch (err) {
+    console.warn('get_driver_detail 失败，回退到本地 JSON Schema:', err)
+  }
+  // 回退到旧路径（本地 JSON 文件）
+  try {
+    const { loadDriverSchema } = await import('../utils/schema-loader')
+    const fallbackSchema = await loadDriverSchema(driverId)
+    return fallbackSchema
+  } catch {
+    return null
+  }
 }
 
 function updateFormData(data: Partial<ConnectionConfig>) {
@@ -464,9 +522,17 @@ async function onTestConnection() {
   testResult.value = null
   try {
     const url = buildRealUrl()
+
+    // 如果有协议链，先持久化以获取 networkConfigId
+    let networkConfigId: string | null = null
+    if (networkTabRef.value) {
+      networkConfigId = await networkTabRef.value.saveNetworkChain(connectionScope.value)
+    }
+
     const result = await invoke<BackendTestResult>('test_connection', {
       dbType: selectedDbType.value,
       url,
+      ...(networkConfigId ? { network_config_id: networkConfigId } : {}),
     })
     testResult.value = {
       success: result.success,
@@ -482,7 +548,7 @@ async function onTestConnection() {
   }
 }
 
-function onSave() {
+async function onSave() {
   if (!formData.value.name?.trim()) {
     errors.value.name = String(t('navigator.validation.nameRequired'))
     return
@@ -490,21 +556,35 @@ function onSave() {
   if (!selectedDbType.value) {
     return
   }
+
   const isFileDb = selectedDbType.value === 'sqlite' || selectedDbType.value === 'duckdb'
+
+  // 保存协议链到后端 DB，获取 networkConfigId
+  let networkConfigId: string | null = null
+  if (!isFileDb && networkTabRef.value) {
+    networkConfigId = await networkTabRef.value.saveNetworkChain(connectionScope.value)
+  }
+
   emit('save', {
     driver: selectedDbType.value,
+    driverId: selectedDriverId.value,
     name: formData.value.name,
-    host: isFileDb ? (formData.value.database || formData.value.host || '') : (formData.value.host || ''),
+    host: isFileDb
+      ? (formData.value.database || formData.value.host || '')
+      : (formData.value.host || ''),
     port: isFileDb ? 0 : (formData.value.port ?? 0),
     database: formData.value.database || '',
     username: formData.value.username || '',
     password: formData.value.password || '',
     properties: formData.value.options || {},
     description: description.value,
+    connectionType: connectionScope.value,
+    connectionScope: connectionScope.value,
     saveToGlobal: saveToGlobal.value,
     saveToProject: saveToProject.value,
     url: buildRealUrl(),
     network: networkConfig.value,
+    networkConfigId,
     advanced: advancedConfig.value,
     driverProps: driverProps.value,
   })

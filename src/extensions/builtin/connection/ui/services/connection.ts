@@ -23,7 +23,15 @@ export async function connectDatabase(
   url: string,
   name?: string,
   connectionType?: 'global' | 'project',
-  projectId?: string
+  projectId?: string,
+  opts?: {
+    driverId?: string
+    networkConfigId?: string | null
+    environmentId?: string
+    authConfigId?: string
+    driverProperties?: string
+    advancedOptions?: string
+  }
 ): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('connect_database', {
     input: {
@@ -32,6 +40,12 @@ export async function connectDatabase(
       name,
       connection_type: connectionType || 'global',
       project_id: projectId,
+      driver_id: opts?.driverId,
+      network_config_id: opts?.networkConfigId || null,
+      environment_id: opts?.environmentId,
+      auth_config_id: opts?.authConfigId,
+      driver_properties: opts?.driverProperties,
+      advanced_options: opts?.advancedOptions,
     },
   })
 }
@@ -84,8 +98,16 @@ export interface TestConnectionResponse {
 /**
  * 测试连接
  */
-export async function testConnection(dbType: string, url: string): Promise<TestConnectionResponse> {
-  return invoke<TestConnectionResponse>('test_connection', { dbType, url })
+export async function testConnection(
+  dbType: string,
+  url: string,
+  networkConfigId?: string | null
+): Promise<TestConnectionResponse> {
+  return invoke<TestConnectionResponse>('test_connection', {
+    dbType,
+    url,
+    ...(networkConfigId ? { network_config_id: networkConfigId } : {}),
+  })
 }
 
 /**

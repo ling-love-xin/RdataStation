@@ -1,4 +1,4 @@
-use extism::{Function, Plugin, UserData, Val, ValType};
+use extism::{CurrentPlugin, Function, UserData, Val, ValType};
 
 pub struct HostFunctionRegistry;
 
@@ -19,13 +19,13 @@ impl HostFunctionRegistry {
     fn create_db_query_fn(_plugin_id: &str) -> Function {
         Function::new(
             "plugin_db_query",
-            &[ValType::I64, ValType::I64, ValType::I64],
-            &[ValType::I64],
-            UserData::default(),
-            move |_plugin: &mut Plugin,
+            [ValType::I64, ValType::I64, ValType::I64],
+            [ValType::I64],
+            UserData::<()>::default(),
+            move |_plugin: &mut CurrentPlugin,
                   _inputs: &[Val],
                   _outputs: &mut [Val],
-                  _user_data: UserData| {
+                  _user_data: UserData<()>| {
                 Err(extism::Error::msg(
                     "host_db_query requires memory access, use host call instead",
                 ))
@@ -36,13 +36,19 @@ impl HostFunctionRegistry {
     fn create_db_metadata_fn(_plugin_id: &str) -> Function {
         Function::new(
             "plugin_db_metadata",
-            &[ValType::I64; 5],
-            &[ValType::I64],
-            UserData::default(),
-            move |_plugin: &mut Plugin,
+            [
+                ValType::I64,
+                ValType::I64,
+                ValType::I64,
+                ValType::I64,
+                ValType::I64,
+            ],
+            [ValType::I64],
+            UserData::<()>::default(),
+            move |_plugin: &mut CurrentPlugin,
                   _inputs: &[Val],
                   _outputs: &mut [Val],
-                  _user_data: UserData| {
+                  _user_data: UserData<()>| {
                 Err(extism::Error::msg(
                     "host_db_metadata requires memory access",
                 ))
@@ -53,13 +59,13 @@ impl HostFunctionRegistry {
     fn create_duckdb_query_fn(_plugin_id: &str) -> Function {
         Function::new(
             "plugin_duckdb_query",
-            &[ValType::I64; 2],
-            &[ValType::I64],
-            UserData::default(),
-            move |_plugin: &mut Plugin,
+            [ValType::I64, ValType::I64],
+            [ValType::I64],
+            UserData::<()>::default(),
+            move |_plugin: &mut CurrentPlugin,
                   _inputs: &[Val],
                   _outputs: &mut [Val],
-                  _user_data: UserData| {
+                  _user_data: UserData<()>| {
                 Err(extism::Error::msg(
                     "host_duckdb_query requires memory access",
                 ))
@@ -70,13 +76,13 @@ impl HostFunctionRegistry {
     fn create_duckdb_load_fn(_plugin_id: &str) -> Function {
         Function::new(
             "plugin_duckdb_load",
-            &[ValType::I64; 3],
-            &[ValType::I64],
-            UserData::default(),
-            move |_plugin: &mut Plugin,
+            [ValType::I64, ValType::I64, ValType::I64],
+            [ValType::I64],
+            UserData::<()>::default(),
+            move |_plugin: &mut CurrentPlugin,
                   _inputs: &[Val],
                   _outputs: &mut [Val],
-                  _user_data: UserData| {
+                  _user_data: UserData<()>| {
                 Err(extism::Error::msg(
                     "host_duckdb_load requires memory access",
                 ))

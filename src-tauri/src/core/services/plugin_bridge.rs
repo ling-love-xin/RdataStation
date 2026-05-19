@@ -63,12 +63,16 @@ impl PluginBridge {
         self.check_query_permission(plugin_id).await?;
 
         let manager = get_connection_manager();
-        let conn = manager.get_connection(conn_id).await.ok_or_else(|| {
-            CoreError::common(CommonError::general(format!(
-                "Connection '{}' not found",
-                conn_id
-            )))
-        })?;
+        let conn_id_owned = conn_id.to_string();
+        let conn = manager
+            .get_connection(&conn_id_owned)
+            .await
+            .ok_or_else(|| {
+                CoreError::common(CommonError::general(format!(
+                    "Connection '{}' not found",
+                    conn_id
+                )))
+            })?;
 
         conn.query(sql).await
     }
@@ -84,12 +88,16 @@ impl PluginBridge {
         self.check_metadata_permission(plugin_id).await?;
 
         let manager = get_connection_manager();
-        let conn = manager.get_connection(conn_id).await.ok_or_else(|| {
-            CoreError::common(CommonError::general(format!(
-                "Connection '{}' not found",
-                conn_id
-            )))
-        })?;
+        let conn_id_owned = conn_id.to_string();
+        let conn = manager
+            .get_connection(&conn_id_owned)
+            .await
+            .ok_or_else(|| {
+                CoreError::common(CommonError::general(format!(
+                    "Connection '{}' not found",
+                    conn_id
+                )))
+            })?;
 
         match kind {
             "tables" => {

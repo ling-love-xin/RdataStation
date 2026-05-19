@@ -141,6 +141,7 @@
       v-model="showConnectionModal"
       :is-editing="!!editingConnection"
       :edit-data="editingConnectionAsConfig"
+      :project-path="projectStore.currentProject?.path || null"
       @save="handleSaveConnection"
     />
   </div>
@@ -173,27 +174,6 @@ import { useProjectConnectionStore } from '../stores/project-connection-store'
 import { useRuntimeConnectionStore } from '../stores/runtime-connection-store'
 
 import type { ProjectConnection, ConnectionConfiguration } from '../types/connection'
-
-// 连接状态类型
-interface Connection {
-  connId: string
-  name: string
-  dbType: string
-  url: string
-  status: 'connected' | 'disconnected'
-}
-
-// 连接测试结果
-interface TestResult {
-  success: boolean
-  message: string
-}
-
-// 过滤选项
-interface FilterOption {
-  key: string
-  label: string
-}
 
 // 状态管理
 const { t } = useI18n()
@@ -350,19 +330,20 @@ const handleSaveConnection = async (
     saveToProject?: boolean
     useDuckdbFed?: boolean
     url?: string
+    networkConfigId?: string | null
+    driverId?: string
+    environmentId?: string
+    authConfigId?: string
+    advanced?: Record<string, unknown>
+    driverProps?: Record<string, unknown>
   }
 ) => {
   try {
-    console.log('=== handleSaveConnection 被调用 ===')
-    console.log('接收到的完整数据:', JSON.stringify(data, null, 2))
-    console.log('data.driver:', data.driver)
-    console.log('saveToGlobal:', data.saveToGlobal)
-    console.log('saveToProject:', data.saveToProject)
-
     const driver = data.driver
     if (!driver) {
       message.error(t('navigator.selectDbType'))
-      console.error('db_type 为空，完整数据:', data)
+      // eslint-disable-next-line no-console
+      console.warn('db_type 为空，完整数据:', data)
       return
     }
 
@@ -392,6 +373,16 @@ const handleSaveConnection = async (
       use_duckdb_fed: data.useDuckdbFed || false,
     }
 
+    // 提取新增字段
+    const connectOpts = {
+      driverId: data.driverId,
+      networkConfigId: data.networkConfigId,
+      environmentId: data.environmentId,
+      authConfigId: data.authConfigId,
+      driverProperties: data.driverProps ? JSON.stringify(data.driverProps) : undefined,
+      advancedOptions: data.advanced ? JSON.stringify(data.advanced) : undefined,
+    }
+
     if (editingConnection.value) {
       // 更新连接：先保存到存储，不重新连接
       const updatedConnection: ProjectConnection = {
@@ -409,10 +400,10 @@ const handleSaveConnection = async (
       if (data.saveToGlobal) {
         try {
           // 建立全局运行时连接
-          await connectionService.connectDatabase(driver, url, data.name, 'global')
+          await connectionService.connectDatabase(driver, url, data.name, 'global', undefined, connectOpts)
           savedLocations.push(t('navigator.global'))
-          console.log('全局连接创建成功')
         } catch (error) {
+          // eslint-disable-next-line no-console
           console.error('创建全局连接失败:', error)
           // 不阻断后续项目连接创建
         }
@@ -430,14 +421,15 @@ const handleSaveConnection = async (
               url,
               data.name,
               'project',
-              projectStore.currentProject.id
+              projectStore.currentProject.id,
+              connectOpts
             )
 
             // 保存配置到项目存储
             await projectConnectionStore.createConnection(connectionData)
             savedLocations.push(t('navigator.project'))
-            console.log('项目连接创建成功')
-          } catch (error) {
+            } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('创建项目连接失败:', error)
           }
         }
@@ -477,6 +469,7 @@ const handleSaveConnection = async (
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : t('navigator.connectionSaveFailed')
     message.error(`${t('common.operationFailed')}: ${errorMsg}`)
+    // eslint-disable-next-line no-console
     console.error('保存连接失败:', error)
   }
 }
