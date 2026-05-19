@@ -10,6 +10,9 @@ pub struct AuthConfig {
     pub name: Option<String>,
     pub auth_type: String,
     pub auth_data: String,
+    pub origin: Option<String>,
+    pub source_id: Option<String>,
+    pub snapshot_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -25,13 +28,16 @@ fn storage_err(op: &str, reason: String) -> CoreError {
 /// 创建认证配置
 pub fn create_auth_config(conn: &Connection, ac: &AuthConfig) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT INTO auth_configs (id, name, auth_type, auth_data, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO auth_configs (id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             ac.id,
             ac.name,
             ac.auth_type,
             ac.auth_data,
+            ac.origin,
+            ac.source_id,
+            ac.snapshot_at,
             ac.created_at,
             ac.updated_at
         ],
@@ -47,14 +53,14 @@ pub fn list_auth_configs(
 ) -> Result<Vec<AuthConfig>, CoreError> {
     let (sql, param): (String, Option<String>) = if let Some(t) = auth_type {
         (
-            "SELECT id, name, auth_type, auth_data, created_at, updated_at
+            "SELECT id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at
              FROM auth_configs WHERE auth_type = ?1 ORDER BY name"
                 .to_string(),
             Some(t.to_string()),
         )
     } else {
         (
-            "SELECT id, name, auth_type, auth_data, created_at, updated_at
+            "SELECT id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at
              FROM auth_configs ORDER BY auth_type, name"
                 .to_string(),
             None,
@@ -72,8 +78,11 @@ pub fn list_auth_configs(
                 name: row.get(1)?,
                 auth_type: row.get(2)?,
                 auth_data: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                origin: row.get(4)?,
+                source_id: row.get(5)?,
+                snapshot_at: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })
         .map_err(|e| storage_err("query_auth_configs", e.to_string()))?
@@ -86,8 +95,11 @@ pub fn list_auth_configs(
                 name: row.get(1)?,
                 auth_type: row.get(2)?,
                 auth_data: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                origin: row.get(4)?,
+                source_id: row.get(5)?,
+                snapshot_at: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })
         .map_err(|e| storage_err("query_auth_configs", e.to_string()))?
@@ -102,7 +114,7 @@ pub fn list_auth_configs(
 pub fn get_auth_config(conn: &Connection, id: &str) -> Result<Option<AuthConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, auth_type, auth_data, created_at, updated_at
+            "SELECT id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at
              FROM auth_configs WHERE id = ?1",
         )
         .map_err(|e| storage_err("prepare_get_auth_config", e.to_string()))?;
@@ -113,8 +125,11 @@ pub fn get_auth_config(conn: &Connection, id: &str) -> Result<Option<AuthConfig>
             name: row.get(1)?,
             auth_type: row.get(2)?,
             auth_data: row.get(3)?,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
+            origin: row.get(4)?,
+            source_id: row.get(5)?,
+            snapshot_at: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
         })
     })
     .optional()

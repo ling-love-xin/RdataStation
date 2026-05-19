@@ -266,6 +266,15 @@ pub async fn connect_database(
 ///
 /// 从 global/project 数据库中加载网络配置，
 /// 根据 network_type 将 config JSON 反序列化为对应的连接方式
+///
+/// ## ID 前缀解析优先级
+///
+/// | 前缀  | 查找顺序                                          |
+/// |-------|--------------------------------------------------|
+/// | `G_`  | 1. global.db.network_configs                       |
+/// | `P_`  | 1. project.db.network_configs (GP_ 优先)           |
+/// | `GP_` | 1. project.db.network_configs（origin='global_snapshot'）|
+/// | 无前缀 | 向后兼容：先查 global，再查 project（历史数据）    |
 async fn parse_network_method(
     input: &ConnectDatabaseInput,
 ) -> Result<Option<ConnectionMethod>, CoreError> {
@@ -275,7 +284,34 @@ async fn parse_network_method(
 
     let is_project = input.connection_type.as_deref() == Some("project");
 
-    // 先从 global.db 查找
+    if net_id.starts_with("GP_") {
+        if let Some(ref proj_path) = input.project_id {
+            let db_path = std::path::Path::new(proj_path)
+                .join(".RSmeta")
+                .join("project.db");
+            if db_path.exists() {
+                if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
+                    return parse_config_json("unknown", &config_str).await;
+                }
+            }
+        }
+        return Ok(None);
+    }
+
+    if net_id.starts_with("P_") && is_project {
+        if let Some(ref proj_path) = input.project_id {
+            let db_path = std::path::Path::new(proj_path)
+                .join(".RSmeta")
+                .join("project.db");
+            if db_path.exists() {
+                if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
+                    return parse_config_json("unknown", &config_str).await;
+                }
+            }
+        }
+        return Ok(None);
+    }
+
     if let Some(gdb) = crate::core::migration::get_global_db_manager() {
         if let Ok(nets) = gdb.list_network_configs(None).await {
             if let Some(net) = nets.iter().find(|n| n.id == *net_id) {
@@ -284,22 +320,13 @@ async fn parse_network_method(
         }
     }
 
-    // 项目连接时也检查项目 DB
     if is_project {
         if let Some(ref proj_path) = input.project_id {
             let db_path = std::path::Path::new(proj_path)
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                let config_result: Result<String, _> = rusqlite::Connection::open(&db_path)
-                    .and_then(|conn| {
-                        conn.query_row::<String, _, _>(
-                            "SELECT config FROM network_configs WHERE id = ?1",
-                            rusqlite::params![net_id],
-                            |row| row.get(0),
-                        )
-                    });
-                if let Ok(config_str) = config_result {
+                if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
                     return parse_config_json("unknown", &config_str).await;
                 }
             }
@@ -307,6 +334,16 @@ async fn parse_network_method(
     }
 
     Ok(None)
+}
+
+fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Result<String, String> {
+    let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
+    conn.query_row::<String, _, _>(
+        "SELECT config FROM network_configs WHERE id = ?1",
+        rusqlite::params![net_id],
+        |row| row.get(0),
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// 根据 network_type 将 config JSON 解析为 ConnectionMethod

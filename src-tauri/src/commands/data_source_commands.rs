@@ -152,10 +152,13 @@ pub async fn list_environments() -> Result<Vec<env_store::Environment>, CoreErro
 #[tauri::command]
 pub async fn create_environment(mut env: env_store::Environment) -> Result<(), CoreError> {
     if env.id.is_empty() {
-        env.id = format!("env_{}", Uuid::new_v4().to_string().replace('-', "_"));
+        env.id = format!("G_env_{}", Uuid::new_v4().to_string().replace('-', "_"));
     }
     if env.created_at.is_empty() {
         env.created_at = Utc::now().to_rfc3339();
+    }
+    if env.origin.is_none() {
+        env.origin = Some("project".to_string());
     }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -194,7 +197,7 @@ pub async fn create_environment_policy(
     mut policy: env_store::EnvironmentPolicy,
 ) -> Result<(), CoreError> {
     if policy.id.is_empty() {
-        policy.id = format!("env_pol_{}", Uuid::new_v4().to_string().replace('-', "_"));
+        policy.id = format!("G_ep_{}", Uuid::new_v4().to_string().replace('-', "_"));
     }
     if policy.created_at.is_empty() {
         policy.created_at = Utc::now().to_rfc3339();
@@ -237,13 +240,16 @@ pub async fn list_auth_configs(
 pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<(), CoreError> {
     let now = Utc::now().to_rfc3339();
     if ac.id.is_empty() {
-        ac.id = format!("auth_{}", Uuid::new_v4().to_string().replace('-', "_"));
+        ac.id = format!("G_auth_{}", Uuid::new_v4().to_string().replace('-', "_"));
     }
     if ac.created_at.is_empty() {
         ac.created_at = now.clone();
     }
     if ac.updated_at.is_empty() {
         ac.updated_at = now;
+    }
+    if ac.origin.is_none() {
+        ac.origin = Some("project".to_string());
     }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -281,13 +287,16 @@ pub async fn list_network_configs(
 pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Result<(), CoreError> {
     let now = Utc::now().to_rfc3339();
     if nc.id.is_empty() {
-        nc.id = format!("net_{}", Uuid::new_v4().to_string().replace('-', "_"));
+        nc.id = format!("G_net_{}", Uuid::new_v4().to_string().replace('-', "_"));
     }
     if nc.created_at.is_empty() {
         nc.created_at = now.clone();
     }
     if nc.updated_at.is_empty() {
         nc.updated_at = now;
+    }
+    if nc.origin.is_none() {
+        nc.origin = Some("project".to_string());
     }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;

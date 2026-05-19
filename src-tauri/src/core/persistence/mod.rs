@@ -22,6 +22,7 @@ pub mod driver_store;
 pub mod env_store;
 pub mod global_db;
 pub mod history_store;
+pub mod id_prefix;
 pub mod insight_meta_store;
 pub mod insight_store;
 pub mod log_store;

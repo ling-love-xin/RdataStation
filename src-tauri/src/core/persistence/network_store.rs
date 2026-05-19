@@ -10,6 +10,9 @@ pub struct NetworkConfig {
     pub name: Option<String>,
     pub network_type: String,
     pub config: String,
+    pub origin: Option<String>,
+    pub source_id: Option<String>,
+    pub snapshot_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -25,13 +28,16 @@ fn storage_err(op: &str, reason: String) -> CoreError {
 /// 创建网络配置
 pub fn create_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT INTO network_configs (id, name, network_type, config, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO network_configs (id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             nc.id,
             nc.name,
             nc.network_type,
             nc.config,
+            nc.origin,
+            nc.source_id,
+            nc.snapshot_at,
             nc.created_at,
             nc.updated_at
         ],
@@ -47,14 +53,14 @@ pub fn list_network_configs(
 ) -> Result<Vec<NetworkConfig>, CoreError> {
     let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
         (
-            "SELECT id, name, network_type, config, created_at, updated_at
+            "SELECT id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at
              FROM network_configs WHERE network_type = ?1 ORDER BY name"
                 .to_string(),
             Some(t.to_string()),
         )
     } else {
         (
-            "SELECT id, name, network_type, config, created_at, updated_at
+            "SELECT id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at
              FROM network_configs ORDER BY network_type, name"
                 .to_string(),
             None,
@@ -72,8 +78,11 @@ pub fn list_network_configs(
                 name: row.get(1)?,
                 network_type: row.get(2)?,
                 config: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                origin: row.get(4)?,
+                source_id: row.get(5)?,
+                snapshot_at: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })
         .map_err(|e| storage_err("query_network_configs", e.to_string()))?
@@ -86,8 +95,11 @@ pub fn list_network_configs(
                 name: row.get(1)?,
                 network_type: row.get(2)?,
                 config: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                origin: row.get(4)?,
+                source_id: row.get(5)?,
+                snapshot_at: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })
         .map_err(|e| storage_err("query_network_configs", e.to_string()))?
@@ -102,7 +114,7 @@ pub fn list_network_configs(
 pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, network_type, config, created_at, updated_at
+            "SELECT id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at
              FROM network_configs WHERE id = ?1",
         )
         .map_err(|e| storage_err("prepare_get_network_config", e.to_string()))?;
@@ -113,8 +125,11 @@ pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkC
             name: row.get(1)?,
             network_type: row.get(2)?,
             config: row.get(3)?,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
+            origin: row.get(4)?,
+            source_id: row.get(5)?,
+            snapshot_at: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
         })
     })
     .optional()

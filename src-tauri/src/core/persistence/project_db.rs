@@ -487,7 +487,7 @@ impl ProjectDatabaseManager {
     ) -> Result<env_store::Environment, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let id = format!("env_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let id = format!("P_env_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
         let now = chrono::Utc::now().to_rfc3339();
         let env = env_store::Environment {
             id: id.clone(),
@@ -495,6 +495,9 @@ impl ProjectDatabaseManager {
             description: description.map(|s| s.to_string()),
             color: color.map(|s| s.to_string()),
             sort_order: sort_order.unwrap_or(0),
+            origin: Some("project".to_string()),
+            source_id: None,
+            snapshot_at: None,
             created_at: now,
         };
         env_store::create_environment(conn, &env)?;
@@ -629,13 +632,16 @@ impl ProjectDatabaseManager {
     ) -> Result<auth_store::AuthConfig, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let id = format!("auth_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let id = format!("P_auth_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
         let now = chrono::Utc::now().to_rfc3339();
         let ac = auth_store::AuthConfig {
             id: id.clone(),
             name: name.map(|s| s.to_string()),
             auth_type: auth_type.to_string(),
             auth_data: auth_data.to_string(),
+            origin: Some("project".to_string()),
+            source_id: None,
+            snapshot_at: None,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -670,13 +676,16 @@ impl ProjectDatabaseManager {
     ) -> Result<network_store::NetworkConfig, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let id = format!("net_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let id = format!("P_net_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
         let now = chrono::Utc::now().to_rfc3339();
         let nc = network_store::NetworkConfig {
             id: id.clone(),
             name: name.map(|s| s.to_string()),
             network_type: network_type.to_string(),
             config: config.to_string(),
+            origin: Some("project".to_string()),
+            source_id: None,
+            snapshot_at: None,
             created_at: now.clone(),
             updated_at: now,
         };

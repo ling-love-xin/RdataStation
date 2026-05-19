@@ -11,6 +11,9 @@ pub struct Environment {
     pub description: Option<String>,
     pub color: Option<String>,
     pub sort_order: i32,
+    pub origin: Option<String>,
+    pub source_id: Option<String>,
+    pub snapshot_at: Option<String>,
     pub created_at: String,
 }
 
@@ -36,14 +39,17 @@ fn storage_err(op: &str, reason: String) -> CoreError {
 /// 创建新环境
 pub fn create_environment(conn: &Connection, env: &Environment) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT INTO environments (id, name, description, color, sort_order, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO environments (id, name, description, color, sort_order, origin, source_id, snapshot_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             env.id,
             env.name,
             env.description,
             env.color,
             env.sort_order,
+            env.origin,
+            env.source_id,
+            env.snapshot_at,
             env.created_at
         ],
     )
@@ -55,7 +61,7 @@ pub fn create_environment(conn: &Connection, env: &Environment) -> Result<(), Co
 pub fn list_environments(conn: &Connection) -> Result<Vec<Environment>, CoreError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, description, color, sort_order, created_at
+            "SELECT id, name, description, color, sort_order, origin, source_id, snapshot_at, created_at
              FROM environments ORDER BY sort_order, name",
         )
         .map_err(|e| storage_err("prepare_list_environments", e.to_string()))?;
@@ -68,7 +74,10 @@ pub fn list_environments(conn: &Connection) -> Result<Vec<Environment>, CoreErro
                 description: row.get(2)?,
                 color: row.get(3)?,
                 sort_order: row.get(4)?,
-                created_at: row.get(5)?,
+                origin: row.get(5)?,
+                source_id: row.get(6)?,
+                snapshot_at: row.get(7)?,
+                created_at: row.get(8)?,
             })
         })
         .map_err(|e| storage_err("query_environments", e.to_string()))?
@@ -108,7 +117,7 @@ pub fn delete_environment(conn: &Connection, id: &str) -> Result<(), CoreError> 
 pub fn get_environment(conn: &Connection, id: &str) -> Result<Option<Environment>, CoreError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, description, color, sort_order, created_at
+            "SELECT id, name, description, color, sort_order, origin, source_id, snapshot_at, created_at
              FROM environments WHERE id = ?1",
         )
         .map_err(|e| storage_err("prepare_get_environment", e.to_string()))?;
@@ -120,7 +129,10 @@ pub fn get_environment(conn: &Connection, id: &str) -> Result<Option<Environment
             description: row.get(2)?,
             color: row.get(3)?,
             sort_order: row.get(4)?,
-            created_at: row.get(5)?,
+            origin: row.get(5)?,
+            source_id: row.get(6)?,
+            snapshot_at: row.get(7)?,
+            created_at: row.get(8)?,
         })
     })
     .optional()
