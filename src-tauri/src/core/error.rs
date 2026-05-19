@@ -43,14 +43,10 @@ pub enum CoreError {
     /// 缓存错误域
     Cache(CacheError),
 
-    /// 插件错误域（预留，支持 Wasm 插件扩展）
+    /// 插件错误域
     ///
-    /// 插件可以定义自己的错误类型，通过此变体传递
-    Plugin {
-        domain: String,
-        code: String,
-        message: String,
-    },
+    /// 插件管理、加载、执行相关的所有错误
+    Plugin(PluginError),
 }
 
 // ==================== 通用错误域 ====================
@@ -415,6 +411,257 @@ impl fmt::Display for CacheError {
     }
 }
 
+// ==================== 插件错误域 ====================
+
+/// 插件错误域
+///
+/// 插件管理、加载、执行相关的所有错误
+#[derive(Debug, Clone, Serialize)]
+pub enum PluginError {
+    /// 插件未找到
+    NotFound {
+        plugin_id: String,
+    },
+
+    /// 插件代码与版本未找到
+    NotFoundByCode {
+        code: String,
+        version: String,
+    },
+
+    /// 插件已存在
+    AlreadyExists {
+        code: String,
+        version: String,
+    },
+
+    /// 插件加载失败
+    LoadFailed {
+        plugin_id: String,
+        reason: String,
+    },
+
+    /// 插件激活失败
+    ActivationFailed {
+        plugin_id: String,
+        reason: String,
+    },
+
+    /// 插件停用失败
+    DeactivationFailed {
+        plugin_id: String,
+        reason: String,
+    },
+
+    /// 插件卸载失败
+    UninstallFailed {
+        plugin_id: String,
+        reason: String,
+    },
+
+    /// 插件执行失败
+    ExecutionFailed {
+        plugin_id: String,
+        function: String,
+        reason: String,
+    },
+
+    /// 插件依赖缺失
+    DependencyMissing {
+        plugin_id: String,
+        dep_code: String,
+        dep_version: String,
+    },
+
+    /// 插件版本不兼容
+    VersionIncompatible {
+        plugin_id: String,
+        version: String,
+        expected: String,
+    },
+
+    /// 插件无效配置
+    InvalidConfig {
+        plugin_id: String,
+        key: String,
+        reason: String,
+    },
+
+    /// 插件清单无效
+    InvalidManifest {
+        reason: String,
+    },
+
+    /// 插件文件缺失
+    FileMissing {
+        path: String,
+        reason: String,
+    },
+
+    /// 插件未启用
+    Disabled {
+        plugin_id: String,
+    },
+
+    /// 插件内部错误
+    Internal {
+        plugin_id: String,
+        reason: String,
+    },
+
+    /// 不支持的插件类型
+    UnsupportedType {
+        plugin_type: String,
+    },
+}
+
+impl PluginError {
+    pub fn not_found(plugin_id: impl Into<String>) -> Self {
+        PluginError::NotFound {
+            plugin_id: plugin_id.into(),
+        }
+    }
+
+    pub fn not_found_by_code(code: impl Into<String>, version: impl Into<String>) -> Self {
+        PluginError::NotFoundByCode {
+            code: code.into(),
+            version: version.into(),
+        }
+    }
+
+    pub fn already_exists(code: impl Into<String>, version: impl Into<String>) -> Self {
+        PluginError::AlreadyExists {
+            code: code.into(),
+            version: version.into(),
+        }
+    }
+
+    pub fn load_failed(plugin_id: impl Into<String>, reason: impl Into<String>) -> Self {
+        PluginError::LoadFailed {
+            plugin_id: plugin_id.into(),
+            reason: reason.into(),
+        }
+    }
+
+    pub fn activation_failed(plugin_id: impl Into<String>, reason: impl Into<String>) -> Self {
+        PluginError::ActivationFailed {
+            plugin_id: plugin_id.into(),
+            reason: reason.into(),
+        }
+    }
+
+    pub fn execution_failed(
+        plugin_id: impl Into<String>,
+        function: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        PluginError::ExecutionFailed {
+            plugin_id: plugin_id.into(),
+            function: function.into(),
+            reason: reason.into(),
+        }
+    }
+
+    pub fn dependency_missing(
+        plugin_id: impl Into<String>,
+        dep_code: impl Into<String>,
+        dep_version: impl Into<String>,
+    ) -> Self {
+        PluginError::DependencyMissing {
+            plugin_id: plugin_id.into(),
+            dep_code: dep_code.into(),
+            dep_version: dep_version.into(),
+        }
+    }
+}
+
+impl fmt::Display for PluginError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PluginError::NotFound { plugin_id } => {
+                write!(f, "Plugin '{}' not found", plugin_id)
+            }
+            PluginError::NotFoundByCode { code, version } => {
+                write!(f, "Plugin '{}@{}' not found", code, version)
+            }
+            PluginError::AlreadyExists { code, version } => {
+                write!(f, "Plugin '{}@{}' already exists", code, version)
+            }
+            PluginError::LoadFailed { plugin_id, reason } => {
+                write!(f, "Failed to load plugin '{}': {}", plugin_id, reason)
+            }
+            PluginError::ActivationFailed { plugin_id, reason } => {
+                write!(f, "Failed to activate plugin '{}': {}", plugin_id, reason)
+            }
+            PluginError::DeactivationFailed { plugin_id, reason } => {
+                write!(f, "Failed to deactivate plugin '{}': {}", plugin_id, reason)
+            }
+            PluginError::UninstallFailed { plugin_id, reason } => {
+                write!(f, "Failed to uninstall plugin '{}': {}", plugin_id, reason)
+            }
+            PluginError::ExecutionFailed {
+                plugin_id,
+                function,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Plugin '{}' execution of '{}' failed: {}",
+                    plugin_id, function, reason
+                )
+            }
+            PluginError::DependencyMissing {
+                plugin_id,
+                dep_code,
+                dep_version,
+            } => {
+                write!(
+                    f,
+                    "Plugin '{}' missing dependency '{}@{}'",
+                    plugin_id, dep_code, dep_version
+                )
+            }
+            PluginError::VersionIncompatible {
+                plugin_id,
+                version,
+                expected,
+            } => {
+                write!(
+                    f,
+                    "Plugin '{}' version '{}' incompatible, expected '{}'",
+                    plugin_id, version, expected
+                )
+            }
+            PluginError::InvalidConfig {
+                plugin_id,
+                key,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Invalid config '{}' for plugin '{}': {}",
+                    key, plugin_id, reason
+                )
+            }
+            PluginError::InvalidManifest { reason } => {
+                write!(f, "Invalid plugin manifest: {}", reason)
+            }
+            PluginError::FileMissing { path, reason } => {
+                write!(f, "Plugin file '{}' missing: {}", path, reason)
+            }
+            PluginError::Disabled { plugin_id } => {
+                write!(f, "Plugin '{}' is disabled", plugin_id)
+            }
+            PluginError::Internal { plugin_id, reason } => {
+                write!(f, "Plugin '{}' internal error: {}", plugin_id, reason)
+            }
+            PluginError::UnsupportedType { plugin_type } => {
+                write!(f, "Unsupported plugin type: {}", plugin_type)
+            }
+        }
+    }
+}
+
 impl StorageError {
     pub fn io(
         path: impl Into<String>,
@@ -481,8 +728,13 @@ impl CoreError {
     }
 
     /// 创建缓存错误
-    pub fn cache(err: CacheError) -> Self {
+    pub fn cache(err: CacheError) -&gt; Self {
         CoreError::Cache(err)
+    }
+
+    /// 创建插件错误
+    pub fn plugin(err: PluginError) -&gt; Self {
+        CoreError::Plugin(err)
     }
 
     /// 获取错误代码
@@ -540,7 +792,24 @@ impl CoreError {
                 CacheError::Internal { .. } => "CACHE_INTERNAL",
                 CacheError::Serialization { .. } => "CACHE_SERIALIZE",
             },
-            CoreError::Plugin { .. } => "PLUGIN_ERROR",
+            CoreError::Plugin(e) =&gt; match e {
+                PluginError::NotFound { .. } =&gt; "PLUGIN_NOT_FOUND",
+                PluginError::NotFoundByCode { .. } =&gt; "PLUGIN_NOT_FOUND_BY_CODE",
+                PluginError::AlreadyExists { .. } =&gt; "PLUGIN_ALREADY_EXISTS",
+                PluginError::LoadFailed { .. } =&gt; "PLUGIN_LOAD_FAILED",
+                PluginError::ActivationFailed { .. } =&gt; "PLUGIN_ACTIVATION_FAILED",
+                PluginError::DeactivationFailed { .. } =&gt; "PLUGIN_DEACTIVATION_FAILED",
+                PluginError::UninstallFailed { .. } =&gt; "PLUGIN_UNINSTALL_FAILED",
+                PluginError::ExecutionFailed { .. } =&gt; "PLUGIN_EXECUTION_FAILED",
+                PluginError::DependencyMissing { .. } =&gt; "PLUGIN_DEPENDENCY_MISSING",
+                PluginError::VersionIncompatible { .. } =&gt; "PLUGIN_VERSION_INCOMPATIBLE",
+                PluginError::InvalidConfig { .. } =&gt; "PLUGIN_INVALID_CONFIG",
+                PluginError::InvalidManifest { .. } =&gt; "PLUGIN_INVALID_MANIFEST",
+                PluginError::FileMissing { .. } =&gt; "PLUGIN_FILE_MISSING",
+                PluginError::Disabled { .. } =&gt; "PLUGIN_DISABLED",
+                PluginError::Internal { .. } =&gt; "PLUGIN_INTERNAL",
+                PluginError::UnsupportedType { .. } =&gt; "PLUGIN_UNSUPPORTED_TYPE",
+            },
         }
     }
 
@@ -552,7 +821,7 @@ impl CoreError {
             CoreError::Database(_) => ErrorCategory::Database,
             CoreError::Storage(_) => ErrorCategory::Storage,
             CoreError::Cache(_) => ErrorCategory::Cache,
-            CoreError::Plugin { .. } => ErrorCategory::Plugin,
+            CoreError::Plugin(_) =&gt; ErrorCategory::Plugin,
         }
     }
 
@@ -588,12 +857,8 @@ impl fmt::Display for CoreError {
             CoreError::Database(e) => write!(f, "[{}] {}", self.code(), e),
             CoreError::Storage(e) => write!(f, "[{}] {}", self.code(), e),
             CoreError::Cache(e) => write!(f, "[{}] {}", self.code(), e),
-            CoreError::Plugin {
-                domain,
-                code,
-                message,
-            } => {
-                write!(f, "[PLUGIN_ERROR] {}::{}: {}", domain, code, message)
+            CoreError::Plugin(e) =&gt; {
+                write!(f, "[{}] {}", self.code(), e)
             }
         }
     }

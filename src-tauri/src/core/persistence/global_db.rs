@@ -22,6 +22,7 @@ use crate::core::persistence::auth_store;
 use crate::core::persistence::driver_store::{self, DataSourceType, Driver, DriverFile};
 use crate::core::persistence::env_store;
 use crate::core::persistence::network_store;
+use crate::core::persistence::plugin_store;
 use crate::core::persistence::sql_template_store::SqlTemplateStore;
 use crate::core::persistence::workbench_context_store::WorkbenchContextStore;
 
@@ -1548,6 +1549,92 @@ impl GlobalDatabaseManager {
         network_store::delete_network_config(&conn, id)?;
         self.sqlite_pool.release(conn).await;
         Ok(())
+    }
+
+    // ==================== 插件管理 ====================
+
+    /// 注册插件到全局插件中心
+    pub async fn register_plugin(&amp;self, plugin: &amp;plugin_store::Plugin) -&gt; Result&lt;(), CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        plugin_store::register_plugin(&amp;conn, plugin)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 根据 ID 获取插件
+    pub async fn get_plugin(&amp;self, id: &amp;str) -&gt; Result&lt;Option&lt;plugin_store::Plugin&gt;, CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = plugin_store::get_plugin(&amp;conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 根据 code 和 version 获取插件
+    pub async fn get_plugin_by_code_version(
+        &amp;self,
+        code: &amp;str,
+        version: &amp;str,
+    ) -&gt; Result&lt;Option&lt;plugin_store::Plugin&gt;, CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = plugin_store::get_plugin_by_code_version(&amp;conn, code, version)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 获取所有已安装插件
+    pub async fn get_all_plugins(&amp;self) -&gt; Result&lt;Vec&lt;plugin_store::Plugin&gt;, CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = plugin_store::get_all_plugins(&amp;conn)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 更新插件启用状态
+    pub async fn update_plugin_enabled(&amp;self, id: &amp;str, is_enabled: bool) -&gt; Result&lt;(), CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        plugin_store::update_plugin_enabled(&amp;conn, id, is_enabled)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 删除插件
+    pub async fn delete_plugin(&amp;self, id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        plugin_store::delete_plugin(&amp;conn, id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 注册插件依赖
+    pub async fn register_plugin_dependency(&amp;self, dep: &amp;plugin_store::PluginDependency) -&gt; Result&lt;(), CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        plugin_store::register_plugin_dependency(&amp;conn, dep)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 获取插件的所有依赖
+    pub async fn get_plugin_dependencies(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Vec&lt;plugin_store::PluginDependency&gt;, CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = plugin_store::get_plugin_dependencies(&amp;conn, plugin_id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
+    }
+
+    /// 设置插件全局配置
+    pub async fn set_plugin_global_config(&amp;self, config: &amp;plugin_store::PluginGlobalConfig) -&gt; Result&lt;(), CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        plugin_store::set_plugin_global_config(&amp;conn, config)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(())
+    }
+
+    /// 获取插件全局配置
+    pub async fn get_plugin_global_configs(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Vec&lt;plugin_store::PluginGlobalConfig&gt;, CoreError&gt; {
+        let conn = self.sqlite_pool.acquire().await?;
+        let result = plugin_store::get_plugin_global_configs(&amp;conn, plugin_id)?;
+        self.sqlite_pool.release(conn).await;
+        Ok(result)
     }
 }
 
