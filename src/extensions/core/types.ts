@@ -342,3 +342,94 @@ export const NavigatorEvents = {
   /** 节点折叠 */
   NODE_COLLAPSED: 'navigator:nodeCollapsed',
 } as const
+
+// ============================================================================
+// 统一插件 Manifest 类型（镜像 Rust 侧 manifest.rs）
+// ============================================================================
+
+export interface PluginManifest {
+  plugin: PluginMeta
+  capabilities: PluginCapabilities
+  permissions?: PluginPermissions
+  contributes?: PluginContributes
+  dependencies?: PluginDependency[]
+}
+
+export interface PluginMeta {
+  id: string
+  name: string
+  version: string
+  publisher: string
+  description?: string
+  icon?: string
+  homepage?: string
+  license?: string
+  engines: { rdatastation: string }
+}
+
+export interface PluginCapabilities {
+  frontend?: CapabilitiesFrontend
+  wasm?: CapabilitiesWasm
+}
+
+export interface CapabilitiesFrontend {
+  entry: string
+  activation_events?: string[]
+}
+
+export interface CapabilitiesWasm {
+  entry: string
+  max_memory_mb?: number
+  max_cpu_time_ms?: number
+  allowed_host_functions?: string[]
+}
+
+export interface PluginPermissions {
+  frontend?: string[]
+  wasm?: string[]
+}
+
+export interface PluginContributes {
+  commands?: ContributesCommand[]
+  panels?: ContributesPanel[]
+  drivers?: ContributesDriver[]
+  settings?: ContributesSetting[]
+  menus?: Record<string, unknown>
+}
+
+export interface ContributesCommand {
+  id: string
+  title: string
+  category?: string
+  icon?: string
+  shortcut?: string
+}
+
+export interface ContributesPanel {
+  id: string
+  title: string
+  location: 'left' | 'right' | 'bottom' | 'center'
+  icon?: string
+  order?: number
+}
+
+export interface ContributesDriver {
+  id: string
+  display_name: string
+  default_port?: number
+  connection_schema?: string
+  features?: string[]
+}
+
+export interface ContributesSetting {
+  key: string
+  type: string
+  default: unknown
+  label?: string
+  description?: string
+}
+
+export interface PluginDependency {
+  id: string
+  version: string
+}

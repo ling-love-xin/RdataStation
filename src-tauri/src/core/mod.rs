@@ -45,6 +45,7 @@ pub mod migration;
 pub mod models;
 pub mod performance;
 pub mod persistence;
+pub mod plugin;
 pub mod port_negotiation;
 pub mod project;
 pub mod scratchpad;
@@ -145,4 +146,12 @@ pub use scratchpad::{
 pub use logging::{
     config::LogConfig,
     record::{LogLevel, LogLevelCounts, LogPage, LogQuery, LogRecord, LogStats, TargetStat},
+};
+
+// 重新导出插件模块
+pub use plugin::{
+    CapabilitiesFrontend, CapabilitiesWasm, ContributesCommand, ContributesDriver,
+    ContributesPanel, ContributesSetting, ManifestParser, PluginCapabilities,
+    PluginContributes, PluginDependency, PluginEngines, PluginManifest, PluginMeta,
+    PluginPermissions,
 };

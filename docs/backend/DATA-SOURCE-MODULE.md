@@ -1,10 +1,10 @@
 # 新增数据源模块：后端架构 · 设计 · 开发 · 接口文档
 
-> 版本：v1.6
+> 版本：v2.0
 > 初稿日期：2026-05-18
-> 更新时间：2026-05-18（第六轮修复完成：seed_default_drivers 接入 + enable 驱动校验 + CreateProjectConnectionInput 补齐 + connect_database 环境认证网络校验 + recent connections 字段扩展）
+> 更新时间：2026-05-19（新增 ID前缀约定 G_/P_/GP_ + 快照溯源机制 + 协议链完整开发计划）
 > 对应后端版本：R25+
-> 实现状态：✅ 后端完整（仅剩 install_driver 下载 + 前端集成）
+> 实现状态：✅ 后端 v1.6 已完成 core store + migrations，v2.0 开发计划就绪
 
 ---
 
@@ -472,6 +472,118 @@ CREATE INDEX IF NOT EXISTS idx_conn_env ON connections(environment_id);
                                     └── driver_id (逻辑→drivers)       │
 ```
 
+### 3.5 ID 前缀约定与快照溯源机制 ⭐ v2.0 新增
+
+> 迁移文件：`src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql`
+
+#### 3.5.1 ID 前缀规则
+
+```
+G_xxx  = 全局表主键，存储于 global.db
+P_xxx  = 项目表主键（本地创建），存储于 project.db
+GP_xxx = 从全局快照到项目的数据，存储于 project.db
+```
+
+| 前缀 | 存储位置 | 创建方式 | 生命周期 |
+|------|---------|---------|---------|
+| `G_xxx` | global.db | 用户在应用级创建 | 全局共享，所有项目可见 |
+| `P_xxx` | project.db | 用户在项目内创建 | 仅该项目可见 |
+| `GP_xxx` | project.db | 从 `G_xxx` 快照而来 | 项目独立副本，可随项目迁移 |
+
+#### 3.5.2 快照溯源字段
+
+以下三张 project.db 表通过 migration 011 新增三个字段：
+
+```sql
+ALTER TABLE environments    ADD COLUMN origin      TEXT DEFAULT 'project';
+ALTER TABLE environments    ADD COLUMN source_id   TEXT;
+ALTER TABLE environments    ADD COLUMN snapshot_at TIMESTAMP;
+
+ALTER TABLE network_configs ADD COLUMN origin      TEXT DEFAULT 'project';
+ALTER TABLE network_configs ADD COLUMN source_id   TEXT;
+ALTER TABLE network_configs ADD COLUMN snapshot_at TIMESTAMP;
+
+ALTER TABLE auth_configs    ADD COLUMN origin      TEXT DEFAULT 'project';
+ALTER TABLE auth_configs    ADD COLUMN source_id   TEXT;
+ALTER TABLE auth_configs    ADD COLUMN snapshot_at TIMESTAMP;
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `origin` | TEXT | `'project'` = 本地创建；`'global_snapshot'` = 从全局快照 |
+| `source_id` | TEXT | 快照来源的全局 `G_xxx` ID（origin='project' 时为 NULL） |
+| `snapshot_at` | TIMESTAMP | 快照创建时间戳 |
+
+#### 3.5.3 项目引用全局配置的完整链路
+
+```
+用户在项目 A 中选择了一个全局环境 "生产环境 (G_env_001)"
+
+    ┌──────────────────────────────────────────────────────────┐
+    │ Step 1: 检查 project.db 是否已有该环境的快照               │
+    │   SELECT * FROM environments                              │
+    │   WHERE source_id = 'G_env_001'                           │
+    │                                                          │
+    │   有 → 直接使用 GP_xxx ID                                 │
+    │   无 → Step 2                                             │
+    ├──────────────────────────────────────────────────────────┤
+    │ Step 2: 从 global.db 读取完整环境 + 策略数据               │
+    │   G_env_001 → { name, color, policies: [...] }            │
+    ├──────────────────────────────────────────────────────────┤
+    │ Step 3: 写入 project.db（生成 GP_xxx ID）                  │
+    │   INSERT INTO environments (id, name, color,              │
+    │       origin, source_id, snapshot_at)                     │
+    │   VALUES ('GP_env_001', '生产环境', '#F5222D',            │
+    │       'global_snapshot', 'G_env_001', datetime('now'))    │
+    │                                                          │
+    │   INSERT INTO environment_policies ... (关联 GP_env_001)   │
+    ├──────────────────────────────────────────────────────────┤
+    │ Step 4: 连接引用快照 ID                                    │
+    │   INSERT INTO connections (..., environment_id)            │
+    │   VALUES (..., 'GP_env_001')                              │
+    └──────────────────────────────────────────────────────────┘
+```
+
+#### 3.5.4 前端识别来源的方式
+
+前端获取项目连接时，通过 `environment_id` 前缀即可判断来源：
+
+```typescript
+function getEnvironmentSource(envId: string): 'global' | 'project' {
+  if (envId.startsWith('GP_')) return 'global'  // 快照自全局 → 显示 🌐 全局
+  if (envId.startsWith('P_'))  return 'project'  // 本地创建 → 显示 📁 项目
+  if (envId.startsWith('G_'))  return 'global'  // 纯全局引用（global_connections 表）
+  return 'project'
+}
+```
+
+#### 3.5.5 作用域可见性规则
+
+```
+                      ┌──────────────────────────────┐
+                      │       应用级（Global）          │
+                      │    G_env_xxx  /  G_net_xxx     │
+                      │    G_auth_xxx                  │
+                      └──────────┬───────────────────┘
+                                 │
+                    ✅ 项目可引用  │  ❌ 应用不可引用
+                    （触发快照）   │  （不能向下看项目私有）
+                                 │
+              ┌──────────────────┴───────────────────┐
+              │                                      │
+     ┌────────┴────────┐                    ┌────────┴────────┐
+     │    项目 A 连接    │                    │    项目 B 连接    │
+     │  P_env_xxx       │                    │  P_env_yyy       │
+     │  GP_env_001 ←快照 │                    │  P_auth_zzz      │
+     │  P_net_xxx       │                    │                   │
+     └─────────────────┘                    └─────────────────┘
+```
+
+**规则**：
+- 项目连接可引用 `P_xxx`（本地创建）+ `GP_xxx`（全局快照）
+- 应用连接只能引用 `G_xxx`（不能访问项目私有 `P_xxx`）
+- 快照在**用户首次引用**时自动触发，项目迁移后快照本地可用无需全局依赖
+
 ---
 
 ## 四、Rust 模块设计
@@ -479,28 +591,44 @@ CREATE INDEX IF NOT EXISTS idx_conn_env ON connections(environment_id);
 ### 4.1 文件变更清单
 
 ```
-新增文件：
-  src-tauri/src/core/persistence/driver_store.rs      — drivers + driver_files CRUD (仅 global)
-  src-tauri/src/core/persistence/env_store.rs         — environments + policies CRUD (纯函数)
-  src-tauri/src/core/persistence/auth_store.rs        — auth_configs CRUD (纯函数)
-  src-tauri/src/core/persistence/network_store.rs     — network_configs CRUD (纯函数)
-  src-tauri/src/core/services/driver_service.rs       — 驱动发现/安装/验证
-  src-tauri/src/commands/data_source_commands.rs      — 前端 API 命令
+v1.6 已完成文件：
+  新增文件：
+    src-tauri/src/core/persistence/driver_store.rs      — drivers + driver_files CRUD (仅 global)
+    src-tauri/src/core/persistence/env_store.rs         — environments + policies CRUD (纯函数)
+    src-tauri/src/core/persistence/auth_store.rs        — auth_configs CRUD (纯函数)
+    src-tauri/src/core/persistence/network_store.rs     — network_configs CRUD (纯函数)
+    src-tauri/src/core/services/driver_service.rs       — 驱动发现/安装/验证
+    src-tauri/src/commands/data_source_commands.rs      — 前端 API 命令
 
-修改文件：
-  src-tauri/src/core/driver/registry/descriptors.rs   — DriverDescriptor +7 字段
-  src-tauri/src/core/persistence/global_db.rs         — 集成新表 CRUD；GlobalConnectionInfo +7 字段
-  src-tauri/src/core/persistence/project_connection_store.rs — ProjectConnection +7 字段
-  src-tauri/src/core/persistence/project_db.rs        — 集成 project_drivers CRUD
-  src-tauri/src/core/persistence/mod.rs               — 注册新子模块
-  src-tauri/src/core/services/connection_service.rs   — 连接创建时驱动校验
-  src-tauri/src/core/project/store.rs                 — 项目打开时驱动自检
-  src-tauri/src/commands/connection_commands.rs       — 新字段传递
-  src-tauri/src/lib.rs                                — 注册新 commands
+  修改文件：
+    src-tauri/src/core/driver/registry/descriptors.rs   — DriverDescriptor +7 字段
+    src-tauri/src/core/persistence/global_db.rs         — 集成新表 CRUD；GlobalConnectionInfo +7 字段
+    src-tauri/src/core/persistence/project_connection_store.rs — ProjectConnection +7 字段
+    src-tauri/src/core/persistence/project_db.rs        — 集成 project_drivers CRUD
+    src-tauri/src/core/persistence/mod.rs               — 注册新子模块
+    src-tauri/src/core/services/connection_service.rs   — 连接创建时驱动校验
+    src-tauri/src/core/project/store.rs                 — 项目打开时驱动自检
+    src-tauri/src/commands/connection_commands.rs       — 新字段传递
+    src-tauri/src/lib.rs                                — 注册新 commands
+
+v2.0 待新增文件（本次开发计划）：
+  src-tauri/src/core/persistence/id_prefix.rs           — ID 前缀生成器 (generate_gid/generate_pid/generate_gpid)
+  src-tauri/src/core/persistence/snapshot_store.rs      — 快照 store (snapshot_environment/network_config/auth_config)
+  src-tauri/src/core/driver/connection/chain_validator.rs — 协议链校验 (validate_protocol_chain)
+  src-tauri/migrations/global/009_seed_environments.sql — Seed 5 环境 + 25 策略
+
+v2.0 待修改文件：
+  src-tauri/src/core/persistence/env_store.rs           — + origin/source_id/snapshot_at 读写
+  src-tauri/src/core/persistence/network_store.rs       — + origin/source_id/snapshot_at 读写
+  src-tauri/src/core/persistence/auth_store.rs          — + origin/source_id/snapshot_at 读写
+  src-tauri/src/commands/data_source_commands.rs        — + snapshot/env merge/chain validate IPC
+  src-tauri/src/commands/connection_commands.rs         — 透传 protocol_chain + env_policies 字段
 
 迁移文件：
   src-tauri/migrations/global/008_add_data_source_module.sql
   src-tauri/migrations/project_meta/010_add_data_source_module.sql
+  src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql  ← v2.0 新增
+  src-tauri/migrations/global/009_seed_environments.sql             ← v2.0 新增
 ```
 
 ### 4.2 Rust 结构体
@@ -970,26 +1098,224 @@ connect_database 命令校验链:
 
 ---
 
-## 七、实施计划
+## 七、v2.0 完整开发计划
 
-| 阶段 | 任务 | 文件 | 优先级 |
-|------|------|------|--------|
-| **P1** 迁移 SQL | `global/008_add_data_source_module.sql` | `migrations/global/` | 🔴 |
-| **P1** 迁移 SQL | `project_meta/010_add_data_source_module.sql` | `migrations/project_meta/` | 🔴 |
-| **P2** Model | 扩展 `DriverDescriptor`；新增 `DataSourceType`/`Driver`/`DriverFile`/`Environment` 等 struct | `descriptors.rs` + 各 store | 🔴 |
-| **P2** Model | 扩展 `GlobalConnectionInfo` + `ProjectConnection` +7 字段 | `global_db.rs` + `project_connection_store.rs` | 🔴 |
-| **P3** Store | `driver_store.rs` — drivers/driver_files CRUD (global only) | 新建 | 🟡 |
-| **P3** Store | `env_store.rs` — environments/policies CRUD (纯函数) | 新建 | 🟡 |
-| **P3** Store | `auth_store.rs` — auth_configs CRUD (纯函数) | 新建 | 🟡 |
-| **P3** Store | `network_store.rs` — network_configs CRUD (纯函数) | 新建 | 🟡 |
-| **P4** Service | `driver_service.rs` — 驱动发现/安装/验证/自检 | 新建 | 🟡 |
-| **P4** Service | 扩展 `connection_service.rs` — 连接创建时驱动校验 | 修改 | 🟡 |
-| **P4** Service | 扩展 `project/store.rs` — 项目打开时驱动自检 | 修改 | 🟡 |
-| **P5** Command | `data_source_commands.rs` — 全部前端 API | 新建 | 🟢 |
-| **P5** Command | 扩展 `connection_commands.rs` — 新字段传递 | 修改 | 🟢 |
-| **P5** Command | `lib.rs` 注册新 commands | 修改 | 🟢 |
+> 本计划覆盖：新增数据源连接的全链路（环境选择、网络协议链、认证配置），
+> 包含 ID 前缀约定、快照机制、5 类环境策略的完整前后端实现。
 
-**总计**：新建 7 文件，修改 8 文件，2 个迁移 SQL。
+### 7.1 开发阶段总览
+
+```
+Phase 0: 基础就绪（0.5 天）  →  011 migration + ID 前缀生成器 + snapshot store
+Phase 1: 后端 IPC（1.5 天）   →  快照 IPC + Seed 环境策略 + 协议链校验
+Phase 2: 前端核心（5 天）     →  NetworkTab 重写 + AdvancedTab 改造 + 覆盖层
+Phase 3: Stores + 集成（3 天）→  Pinia stores + IPC 对接 + 表单聚合
+Phase 4: 联调测试（2 天）     →  端到端测试 + 迁移验证
+─────────────────────────────────────────────────────────
+共计：12 天（前后端并行可压缩至 8 天）
+```
+
+---
+
+### 7.2 Phase 0：基础就绪（后端）
+
+| # | 任务 | 文件 | 说明 |
+|---|------|------|------|
+| 0-1 | 011 migration 注册 | `migrations/project_meta/011_add_id_prefix_snapshot.sql` | 已创建，确认迁移系统加载顺序 |
+| 0-2 | ID 前缀生成器 | `core/persistence/id_prefix.rs` 新建 | 工具函数：`generate_gid()`, `generate_pid()`, `generate_gpid()` |
+| 0-3 | 快照 store | `core/persistence/snapshot_store.rs` 新建 | `snapshot_global_to_project()` 纯函数：接收 global/project 两个 conn，执行快照 |
+| 0-4 | 更新 env_store / network_store / auth_store | 修改 | 新增 `origin`, `source_id`, `snapshot_at` 字段读写 |
+| 0-5 | 更新已有迁移 | `global/008` + `project_meta/010` | 现有 INSERT 语句的 ID 加上前缀（如 `G_ENV_DEV`, `P_xxx`） |
+
+#### ID 前缀生成器设计
+
+```rust
+// core/persistence/id_prefix.rs
+
+pub const ID_SEP: &str = "_";
+
+pub fn generate_gid(prefix: &str, table: &str) -> String {
+    // G_{TABLE}_{UUID_SHORT}  例: G_ENV_a1b2c3d4
+    format!("G{}{}{}{}", ID_SEP, table, ID_SEP, nanoid::nanoid!(12))
+}
+
+pub fn generate_pid(prefix: &str, table: &str) -> String {
+    // P_{TABLE}_{UUID_SHORT}  例: P_NET_a1b2c3d4
+    format!("P{}{}{}{}", ID_SEP, table, ID_SEP, nanoid::nanoid!(12))
+}
+
+pub fn generate_gpid(source_gid: &str) -> String {
+    // GP_{TABLE}_{UUID_SHORT}  例: GP_ENV_a1b2c3d4
+    let table = source_gid.split(ID_SEP).nth(1).unwrap_or("UNK");
+    format!("GP{}{}{}{}", ID_SEP, table, ID_SEP, nanoid::nanoid!(12))
+}
+
+pub fn parse_id_source(id: &str) -> IdSource {
+    if id.starts_with("GP_") { IdSource::GlobalSnapshot }
+    else if id.starts_with("P_") { IdSource::Project }
+    else if id.starts_with("G_") { IdSource::Global }
+    else { IdSource::Unknown }
+}
+
+pub fn extract_table(id: &str) -> &str {
+    // G_ENV_xxx → "ENV";  P_NET_xxx → "NET";  GP_ENV_xxx → "ENV"
+    id.split(ID_SEP).nth(1).unwrap_or("UNK")
+}
+```
+
+#### 快照 store 设计
+
+```rust
+// core/persistence/snapshot_store.rs
+
+/// 从全局快照环境到项目
+/// 返回: 生成的 GP_xxx ID
+pub fn snapshot_environment(
+    global_conn: &rusqlite::Connection,
+    project_conn: &rusqlite::Connection,
+    global_env_id: &str,
+) -> Result<(String, Vec<String>), CoreError> {
+    // 1. 读 global 环境 + 策略
+    let env = env_store::get_environment(global_conn, global_env_id)?;
+    let policies = env_store::list_environment_policies(global_conn, global_env_id)?;
+
+    // 2. 查重：project 中是否已有此快照
+    if let Some(existing) = env_store::find_by_source_id(project_conn, global_env_id)? {
+        return Ok((existing.id, vec![])); // 已存在，复用
+    }
+
+    // 3. 生成 GP_xxx ID，写入 project
+    let gpid = generate_gpid(global_env_id);
+    env_store::create_environment_snapshot(project_conn, &gpid, &env, global_env_id)?;
+    let policy_ids: Vec<String> = policies.iter().map(|p| {
+        let pid = generate_gpid(&p.id);
+        env_store::create_policy_snapshot(project_conn, &pid, p, &gpid)?;
+        Ok(pid)
+    }).collect::<Result<_, CoreError>>()?;
+
+    Ok((gpid, policy_ids))
+}
+```
+
+---
+
+### 7.3 Phase 1：后端 IPC 层（Rust）
+
+| # | 任务 | 文件 | 说明 |
+|---|------|------|------|
+| 1-1 | 全局环境 Seed | `global/009_seed_environments.sql` 新建 | 5 环境 + 25 策略 policy_config JSON |
+| 1-2 | 快照 IPC Commands | `data_source_commands.rs` 新增 | `snapshot_global_env`, `snapshot_global_network`, `snapshot_global_auth` |
+| 1-3 | 协议链校验 | `core/driver/connection/chain_validator.rs` 新建 | `validate_protocol_chain()`, `max_ss_proxy_hops=4`, `ssl_must_be_last` |
+| 1-4 | 协议链校验 IPC | `data_source_commands.rs` 新增 | `validate_protocol_chain` Command |
+| 1-5 | 合并环境列表 IPC | `data_source_commands.rs` 新增 | `list_environments_for_connection(scope, project_id?)` 合并 global + project |
+
+#### Seed 数据：5 环境 + 25 策略
+
+```sql
+-- global/009_seed_environments.sql
+INSERT OR IGNORE INTO environments (id, name, description, color, sort_order) VALUES
+    ('G_ENV_dev',  '开发环境', '本地开发与联调',             '#52C41A', 1),
+    ('G_ENV_test', '测试环境', '功能验证与冒烟测试',         '#1890FF', 2),
+    ('G_ENV_stag', '预发布环境', '生产前最后验证',           '#FA8C16', 3),
+    ('G_ENV_prod', '生产环境', '正式线上服务',               '#F5222D', 4),
+    ('G_ENV_sand', '沙箱环境', '数据探索与临时分析',         '#722ED1', 5);
+
+-- 每个环境 5 条策略（security / schema / performance / audit / ui）
+INSERT OR IGNORE INTO environment_policies (id, environment_id, policy_type, policy_config, enabled) VALUES
+    -- 开发环境：最宽松
+    ('G_POL_dev_sec',  'G_ENV_dev',  'security',    '{"readonly":false,"writeConfirm":false,"ddlConfirm":false,"dropConfirm":"allow","autocommit":true,"rowLimit":0,"sizeLimit":0}', 1),
+    ('G_POL_dev_sch',  'G_ENV_dev',  'schema',      '{"autoLoad":true,"loadDepth":3,"showSystem":true,"refreshInterval":120}', 1),
+    ('G_POL_dev_perf', 'G_ENV_dev',  'performance', '{"poolSize":5,"queryTimeout":60,"connectTimeout":10,"heartbeat":300,"maxReconnect":3}', 1),
+    ('G_POL_dev_audit','G_ENV_dev',  'audit',       '{"sqlLog":false,"operationRecord":false,"sensitiveTableAlert":false}', 1),
+    ('G_POL_dev_ui',   'G_ENV_dev',  'ui',          '{"topBarColor":"#52C41A","tabIndicator":true,"sqlWarningBanner":false,"writeBtnStyle":"normal"}', 1),
+    
+    -- 测试环境：中等
+    ('G_POL_test_sec', 'G_ENV_test', 'security',    '{"readonly":false,"writeConfirm":true,"ddlConfirm":true,"dropConfirm":"confirm","autocommit":true,"rowLimit":5000,"sizeLimit":0}', 1),
+    ('G_POL_test_sch', 'G_ENV_test', 'schema',      '{"autoLoad":true,"loadDepth":3,"showSystem":false,"refreshInterval":300}', 1),
+    ('G_POL_test_perf','G_ENV_test', 'performance', '{"poolSize":5,"queryTimeout":120,"connectTimeout":10,"heartbeat":300,"maxReconnect":3}', 1),
+    ('G_POL_test_aud','G_ENV_test',  'audit',       '{"sqlLog":true,"operationRecord":false,"sensitiveTableAlert":false}', 1),
+    ('G_POL_test_ui',  'G_ENV_test',  'ui',          '{"topBarColor":"#1890FF","tabIndicator":true,"sqlWarningBanner":true,"writeBtnStyle":"confirm"}', 1),
+    
+    -- 预发布环境：接近生产
+    ('G_POL_stag_sec', 'G_ENV_stag', 'security',    '{"readonly":false,"writeConfirm":true,"ddlConfirm":true,"dropConfirm":"confirm","autocommit":false,"rowLimit":10000,"sizeLimit":500}', 1),
+    ('G_POL_stag_sch', 'G_ENV_stag', 'schema',      '{"autoLoad":true,"loadDepth":3,"showSystem":false,"refreshInterval":600}', 1),
+    ('G_POL_stag_perf','G_ENV_stag', 'performance', '{"poolSize":10,"queryTimeout":300,"connectTimeout":15,"heartbeat":120,"maxReconnect":5}', 1),
+    ('G_POL_stag_aud','G_ENV_stag',  'audit',       '{"sqlLog":true,"operationRecord":true,"sensitiveTableAlert":true}', 1),
+    ('G_POL_stag_ui',  'G_ENV_stag',  'ui',          '{"topBarColor":"#FA8C16","tabIndicator":true,"sqlWarningBanner":true,"writeBtnStyle":"confirm"}', 1),
+    
+    -- 生产环境：最严格
+    ('G_POL_prod_sec', 'G_ENV_prod', 'security',    '{"readonly":false,"writeConfirm":true,"ddlConfirm":true,"dropConfirm":"disable","autocommit":false,"rowLimit":1000,"sizeLimit":100}', 1),
+    ('G_POL_prod_sch', 'G_ENV_prod', 'schema',      '{"autoLoad":true,"loadDepth":2,"showSystem":false,"refreshInterval":900}', 1),
+    ('G_POL_prod_perf','G_ENV_prod', 'performance', '{"poolSize":20,"queryTimeout":600,"connectTimeout":20,"heartbeat":60,"maxReconnect":10}', 1),
+    ('G_POL_prod_aud','G_ENV_prod',  'audit',       '{"sqlLog":true,"operationRecord":true,"sensitiveTableAlert":true}', 1),
+    ('G_POL_prod_ui',  'G_ENV_prod',  'ui',          '{"topBarColor":"#F5222D","tabIndicator":true,"sqlWarningBanner":true,"writeBtnStyle":"danger"}', 1),
+    
+    -- 沙箱环境：分析用途
+    ('G_POL_sand_sec', 'G_ENV_sand', 'security',    '{"readonly":true,"writeConfirm":false,"ddlConfirm":false,"dropConfirm":"disable","autocommit":false,"rowLimit":0,"sizeLimit":0}', 1),
+    ('G_POL_sand_sch', 'G_ENV_sand', 'schema',      '{"autoLoad":false,"loadDepth":1,"showSystem":false,"refreshInterval":0}', 1),
+    ('G_POL_sand_perf','G_ENV_sand', 'performance', '{"poolSize":3,"queryTimeout":1800,"connectTimeout":30,"heartbeat":600,"maxReconnect":1}', 1),
+    ('G_POL_sand_aud','G_ENV_sand',  'audit',       '{"sqlLog":true,"operationRecord":false,"sensitiveTableAlert":false}', 1),
+    ('G_POL_sand_ui',  'G_ENV_sand',  'ui',          '{"topBarColor":"#722ED1","tabIndicator":false,"sqlWarningBanner":false,"writeBtnStyle":"normal"}', 1);
+```
+
+---
+
+### 7.4-7.6 前端实现 → 独立文档
+
+前端核心组件（NetworkTab 重写、AdvancedTab 改造）、Stores、Composable、覆盖层管理器的详细设计，
+已独立为前端文档：
+
+> 📄 **[../frontend/connection/add-datasource-frontend-plan.md](../frontend/connection/add-datasource-frontend-plan.md)**
+
+该文档覆盖：
+- 组件树 + Props/Emits 契约
+- TypeScript 类型体系（ChainHopItem / Environment / EnvironmentPolicies 等）
+- Pinia Stores（environmentStore / networkConfigStore）
+- useAddDataSource composable（表单聚合 + 校验 + 提交）
+- NetworkTab 协议链交互伪代码
+- AdvancedTab 环境选择联动逻辑
+- 覆盖层管理器设计
+- 13 个端到端测试场景
+
+---
+
+### 7.7 IPC 接口完整清单
+
+#### 新增 IPC Commands
+
+| Command | 入参 | 返回 | 用途 |
+|---------|------|------|------|
+| `snapshot_global_env` | `{ global_env_id, project_id }` | `String` (GP_xxx) | 快照全局环境到项目 |
+| `snapshot_global_network` | `{ global_net_id, project_id }` | `String` (GP_xxx) | 快照全局网络配置到项目 |
+| `snapshot_global_auth` | `{ global_auth_id, project_id }` | `String` (GP_xxx) | 快照全局认证配置到项目 |
+| `validate_protocol_chain` | `{ chain: ChainHopItem[] }` | `{ valid, errors[] }` | 校验协议链合法性 |
+| `list_environments_for_connection` | `{ scope, project_id? }` | `Environment[]` | 合并 global + project 环境列表（带 source 标记） |
+| `list_network_configs_for_connection` | `{ scope, project_id? }` | `NetworkConfig[]` | 合并 global + project 网络配置列表 |
+| `seed_default_environments` | `{ scope, project_id? }` | `void` | 预置默认 5 环境 + 25 策略 |
+
+#### 已有 IPC（无需改动）
+
+| Command | 说明 |
+|---------|------|
+| `get_drivers` / `load_driver_schema` | 驱动加载 |
+| `test_connection` | 连接测试 |
+| `connect_database` | 建立连接 |
+| `list_environments` / `create_environment` / `update_environment` / `delete_environment` | 环境 CRUD（已有） |
+| `list_network_configs` / `create_network_config` / `update_network_config` / `delete_network_config` | 网络 CRUD（已有） |
+| `list_auth_configs` / `create_auth_config` / `delete_auth_config` | 认证 CRUD（已有） |
+| `save_connection` / `update_connection` | 连接保存（已有，需扩展字段透传） |
+
+---
+
+### 7.8 风险与缓解
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|---------|
+| naive-ui NPopover 环境下拉体验 | 中 | 降级为 NSelect + 自定义渲染模板；实测 NPopover 在 NTabs 内可用 |
+| HTML5 Drag & Drop 在 Electron/Tauri 兼容性 | 低 | 降级为手动 ↑↓ 排序按钮；Tauri webview 支持标准 DnD API |
+| 快照触发时机（首次引用 vs 手动同步） | 中 | 首次引用时自动触发；提供"刷新快照"按钮用于全局配置更新后同步 |
+| GP_xxx ID 前缀与已有数据兼容 | 低 | 011 migration 对存量数据 origin 默认 'project'；已有连接不受影响 |
+| 环境策略 JSON 序列化复杂 | 低 | 使用 serde_json Value 存储，Rust 层不做 schema 校验；前端按类型维护 TS 接口 |
 
 ---
 
@@ -1005,17 +1331,25 @@ connect_database 命令校验链:
 | 密码加密 | 复用 crypto.rs AES-256-GCM | 已有成熟方案 |
 | Store 复用 | 纯函数模式 | Global 和 Project 各传自己的 Connection，零代码重复 |
 | 迁移策略 | ALTER TABLE ADD COLUMN | 不丢失现有数据 |
+| ⭐ ID 前缀约定 | G_/P_/GP_ 三前缀 | 通过 ID 前缀识别来源，无需额外字段或跨表 JOIN |
+| ⭐ 快照机制 | 首次引用时自动触发 | 项目迁移后快照本地可用，无需 global.db 依赖 |
+| ⭐ 协议链存储 | 序列化到 `advanced_options` JSON | 灵活支持动态长度，不固化为固定列数 |
+| ⭐ 环境策略结构 | 5 类 policy_type (security/schema/performance/audit/ui) | 每类 policy_config 为独立 JSON 对象，扩展性强 |
 
 ---
 
 ## 九、相关文档
 
-| 文档 | 路径 |
-|------|------|
-| 数据库字典（含新表） | [DATABASE-DICTIONARY.md](./DATABASE-DICTIONARY.md) |
-| 后端架构 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| 迁移系统 | [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md) |
-| 项目模块架构 | [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md) |
+| 文档 | 路径 | 说明 |
+|------|------|------|
+| 数据库字典（含新表） | [DATABASE-DICTIONARY.md](./DATABASE-DICTIONARY.md) | 所有表完整 DDL + 字段说明 |
+| 后端架构 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 四层微内核架构 |
+| 迁移系统 | [MIGRATION_SYSTEM.md](./MIGRATION_SYSTEM.md) | Migration 框架设计 |
+| 项目模块架构 | [PROJECT_MODULE_ARCHITECTURE.md](./PROJECT_MODULE_ARCHITECTURE.md) | 项目 + 应用双层存储设计 |
+| ⭐ 连接方法设计 | [CONNECTION-METHOD-DESIGN.md](./CONNECTION-METHOD-DESIGN.md) | 协议链 (Chain) 后端设计 + TunnelGuard |
+| ⭐ 网络配置 UI | [../frontend/NETWORK-CONFIG-UI-DESIGN.md](../frontend/NETWORK-CONFIG-UI-DESIGN.md) | 协议链 + 环境策略 UI v2.0 |
+| ⭐ v5 原型 | [../../../prototype/add-datasource-v5.html](../../../prototype/add-datasource-v5.html) | 前端目标原型 |
+| ⭐ 011 migration | [../../../src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql](../../../src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql) | ID 前缀 + 快照溯源迁移 |
 
 ---
 
@@ -1053,10 +1387,28 @@ connect_database 命令校验链:
 
 ### 10.3 后续待完成（按优先级）
 
-| 优先级 | 任务 | 说明 |
-|--------|------|------|
-| 🟡 P1 | `install_driver` 实际下载逻辑 | 当前为占位实现，需实现实际的 .jar/.wasm 下载 + SHA256 checksum 校验 + 写入驱动目录 + 注册到 driver_files |
-| 🟡 P1 | 前端集成 | 按 API 文档实现前端 UI |
+| 优先级 | 任务 | 阶段 | 说明 |
+|--------|------|------|------|
+| 🔴 P0 | ID 前缀生成器 `id_prefix.rs` | Phase 0 | `generate_gid()`, `generate_pid()`, `generate_gpid()`, `parse_id_source()` |
+| 🔴 P0 | 快照 store `snapshot_store.rs` | Phase 0 | `snapshot_environment()`, `snapshot_network_config()`, `snapshot_auth_config()` |
+| 🔴 P0 | 011 migration 注册到迁移系统 | Phase 0 | 确认加载顺序，存量数据 origin='project' |
+| 🔴 P0 | 更新 env/network/auth store 读/写 origin 字段 | Phase 0 | origin / source_id / snapshot_at |
+| 🔴 P1 | Seed 5 环境 + 25 策略 | Phase 1 | `global/009_seed_environments.sql` + 注册到迁移系统 |
+| 🔴 P1 | 快照 IPC Commands | Phase 1 | `snapshot_global_env`, `snapshot_global_network`, `snapshot_global_auth` |
+| 🔴 P1 | 协议链校验 `chain_validator.rs` | Phase 1 | max 4 SSH/Proxy hops + SSL must be last + hop_name 合法 |
+| 🔴 P1 | 合并环境列表 IPC | Phase 1 | `list_environments_for_connection()` 合并 global + project |
+| 🟡 P1 | 前端 TS 类型扩展 | Phase 2 | ChainHopItem / Environment / EnvironmentPolicies / ConnectionScope |
+| 🟡 P1 | NetworkTab.vue 完整重写 | Phase 2 | 动态协议链 + 拖拽排序 + 拓扑预览 |
+| 🟡 P1 | AdvancedTab.vue 改造 | Phase 2 | 环境选择 + 策略面板 + DuckDB 焕新 |
+| 🟡 P2 | EnvironmentSelector.vue | Phase 2 | 环境紧凑下拉组件 |
+| 🟡 P2 | SecurityPolicySection.vue | Phase 2 | 安全策略可折叠 |
+| 🟡 P2 | NetworkProfileManager.vue | Phase 2 | 覆盖层：网络配置文件管理器 |
+| 🟡 P2 | EnvironmentManager.vue | Phase 2 | 覆盖层：环境管理器 |
+| 🟢 P3 | environmentStore.ts | Phase 3 | Pinia store：环境列表 + CRUD |
+| 🟢 P3 | networkConfigStore.ts 改造 | Phase 3 | scope 筛选 + global/project 合并 |
+| 🟢 P3 | useAddDataSource.ts composable | Phase 3 | 表单聚合 + 校验 + payload 构建 |
+| 🟢 P4 | 端到端集成联调 | Phase 4 | 13 个测试场景验证 |
+| 🟢 P4 | `install_driver` 实际下载逻辑 | 后续 | 当前为占位实现，需实现实际的 .jar/.wasm 下载 |
 
 ### 10.4 架构红线合规
 

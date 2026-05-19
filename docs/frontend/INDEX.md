@@ -29,6 +29,10 @@ docs/frontend/
 │   ├── design.md                     # 编辑器设计
 │   └── optimization-plan.md          # 架构优化计划（4 Phase）
 │
+├── connection/                       # 🔗 连接/数据源
+│   ├── connection-modal.md           # 连接弹窗设计
+│   └── add-datasource-frontend-plan.md # ⭐ 新增数据源前端开发计划（v2.0）
+
 ├── query-result/                     # 📊 结果集
 │   ├── README.md                     # 结果集文档索引
 │   ├── design.md                     # 需求文档
