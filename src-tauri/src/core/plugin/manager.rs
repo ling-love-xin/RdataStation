@@ -35,7 +35,7 @@ pub struct PluginInfo {
 pub struct PluginManager {
     wasm_manager: Arc<ExtismPluginManager>,
     plugin_index: Arc<RwLock<HashMap<String, PluginKind>>>,
-    plugin_dirs: Vec<PathBuf>,
+    plugin_dirs: RwLock<Vec<PathBuf>>,
 }
 
 impl Default for PluginManager {
@@ -50,20 +50,25 @@ impl PluginManager {
         Self {
             wasm_manager: Arc::new(ExtismPluginManager::new()),
             plugin_index: Arc::new(RwLock::new(HashMap::new())),
-            plugin_dirs: Vec::new(),
+            plugin_dirs: RwLock::new(Vec::new()),
         }
     }
 
     /// 添加插件目录
-    pub fn add_plugin_dir(&mut self, path: PathBuf) {
-        self.plugin_dirs.push(path);
+    pub fn add_plugin_dir(&self, path: PathBuf) {
+        if let Ok(mut dirs) = self.plugin_dirs.write() {
+            dirs.push(path);
+        }
     }
 
     /// 扫描并发现插件
     pub fn scan_plugins(&self) -> Result<Vec<PluginInfo>, CoreError> {
         let mut discovered_plugins = Vec::new();
 
-        for dir in &self.plugin_dirs {
+        let dirs = self.plugin_dirs.read()
+            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock on plugin_dirs".to_string())))?;
+
+        for dir in dirs.iter() {
             if !dir.exists() {
                 continue;
             }

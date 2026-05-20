@@ -158,9 +158,9 @@ pub fn plugin_add_directory(
     plugin_manager: State<'_, Arc<PluginManager>>,
     directory: String,
 ) -> Result<Vec<PluginInfo>, CoreError> {
-    // Note: add_plugin_dir requires &mut self, not available through Arc.
-    // Directory scanning is done via scan_plugins which takes &self.
-    let _ = directory;
+    use std::path::PathBuf;
+    let path = PathBuf::from(&directory);
+    plugin_manager.add_plugin_dir(path);
     let discovered = plugin_manager.scan_plugins()?;
     Ok(discovered)
 }

@@ -124,6 +124,7 @@ pub fn run() {
         .manage(ProjectState::new())
         .manage(AnalyticsResourceState::new())
         .manage(ScratchpadState::new())
+        .manage(core::plugin::get_plugin_manager().cloned())
         .invoke_handler(tauri::generate_handler![
             // 连接命令
             connect_database,
