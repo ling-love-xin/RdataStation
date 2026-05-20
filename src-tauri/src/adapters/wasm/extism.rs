@@ -73,7 +73,7 @@ impl ExtismPluginManager {
         // 应用配置（如果有）
         if let Some(config) = &config {
             for (key, value) in config {
-                manifest = manifest.with_config(key, value);
+                manifest = manifest.with_config([(key.clone(), value.clone())].into_iter());
             }
         }
 
@@ -123,7 +123,7 @@ impl ExtismPluginManager {
 
         // 尝试调用插件的 activate 钩子
         if let Some(plugin_instance) = plugin.plugin.as_mut() {
-            let _ = plugin_instance.call("activate", b"");
+            let _: Result<Vec<u8>, _> = plugin_instance.call("activate", &b""[..]);
         }
 
         plugin.state = PluginState::Active;
@@ -147,7 +147,7 @@ impl ExtismPluginManager {
 
         // 尝试调用插件的 deactivate 钩子
         if let Some(plugin_instance) = plugin.plugin.as_mut() {
-            let _ = plugin_instance.call("deactivate", b"");
+            let _: Result<Vec<u8>, _> = plugin_instance.call("deactivate", &b""[..]);
         }
 
         plugin.state = PluginState::Inactive;

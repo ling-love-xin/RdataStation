@@ -513,50 +513,44 @@ impl ProjectConnectionStore {
     // ==================== 项目插件管理 ====================
 
     /// 添加插件到项目
-    pub async fn project_add_plugin(&amp;self, plugin: &amp;crate::core::persistence::plugin_store::ProjectUsedPlugin) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn project_add_plugin(&self, plugin: &crate::core::persistence::plugin_store::ProjectUsedPlugin) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        crate::core::persistence::plugin_store::project_add_plugin(&amp;conn, plugin)?;
-        self.db_manager.sqlite_pool().release(conn).await;
+        crate::core::persistence::plugin_store::project_add_plugin(conn.inner()?, plugin)?;
         Ok(())
     }
 
     /// 从项目移除插件
-    pub async fn project_remove_plugin(&amp;self, code: &amp;str, version: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn project_remove_plugin(&self, code: &str, version: &str) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        crate::core::persistence::plugin_store::project_remove_plugin(&amp;conn, code, version)?;
-        self.db_manager.sqlite_pool().release(conn).await;
+        crate::core::persistence::plugin_store::project_remove_plugin(conn.inner()?, code, version)?;
         Ok(())
     }
 
     /// 获取项目使用的所有插件
-    pub async fn project_get_plugins(&amp;self) -&gt; Result&lt;Vec&lt;crate::core::persistence::plugin_store::ProjectUsedPlugin&gt;, CoreError&gt; {
+    pub async fn project_get_plugins(&self) -> Result<Vec<crate::core::persistence::plugin_store::ProjectUsedPlugin>, CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        let result = crate::core::persistence::plugin_store::project_get_plugins(&amp;conn)?;
-        self.db_manager.sqlite_pool().release(conn).await;
+        let result = crate::core::persistence::plugin_store::project_get_plugins(conn.inner()?)?;
         Ok(result)
     }
 
     /// 更新项目插件启用状态
-    pub async fn project_update_plugin_enabled(&amp;self, code: &amp;str, version: &amp;str, enabled: bool) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn project_update_plugin_enabled(&self, code: &str, version: &str, enabled: bool) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        crate::core::persistence::plugin_store::project_update_plugin_enabled(&amp;conn, code, version, enabled)?;
-        self.db_manager.sqlite_pool().release(conn).await;
+        crate::core::persistence::plugin_store::project_update_plugin_enabled(conn.inner()?, code, version, enabled)?;
         Ok(())
     }
 
     /// 设置项目插件配置
-    pub async fn project_set_plugin_config(&amp;self, config: &amp;crate::core::persistence::plugin_store::ProjectPluginConfig) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn project_set_plugin_config(&self, config: &crate::core::persistence::plugin_store::ProjectPluginConfig) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        crate::core::persistence::plugin_store::project_set_plugin_config(&amp;conn, config)?;
-        self.db_manager.sqlite_pool().release(conn).await;
+        crate::core::persistence::plugin_store::project_set_plugin_config(conn.inner()?, config)?;
         Ok(())
     }
 
     /// 获取项目插件配置
-    pub async fn project_get_plugin_configs(&amp;self, code: &amp;str, version: &amp;str) -&gt; Result&lt;Vec&lt;crate::core::persistence::plugin_store::ProjectPluginConfig&gt;, CoreError&gt; {
+    pub async fn project_get_plugin_configs(&self, code: &str, version: &str) -> Result<Vec<crate::core::persistence::plugin_store::ProjectPluginConfig>, CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        let result = crate::core::persistence::plugin_store::project_get_plugin_configs(&amp;conn, code, version)?;
-        self.db_manager.sqlite_pool().release(conn).await;
+        let result = crate::core::persistence::plugin_store::project_get_plugin_configs(conn.inner()?, code, version)?;
         Ok(result)
     }
 }

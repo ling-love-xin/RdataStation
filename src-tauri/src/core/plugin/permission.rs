@@ -3,7 +3,7 @@
 //!
 //! 管理插件权限的定义、验证和授予
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use serde::{Serialize, Deserialize};
 use crate::core::error::{CoreError, CommonError};
@@ -33,7 +33,7 @@ pub struct Permission {
 
 impl Permission {
     /// 创建新权限
-    pub fn new(id: &amp;str, permission_type: PermissionType, description: &amp;str, category: &amp;str) -&gt; Self {
+    pub fn new(id: &str, permission_type: PermissionType, description: &str, category: &str) -> Self {
         Self {
             id: id.to_string(),
             permission_type,
@@ -66,30 +66,30 @@ pub struct PermissionGrant {
     /// 授予状态
     pub status: GrantStatus,
     /// 授予时间
-    pub granted_at: Option&lt;String&gt;,
+    pub granted_at: Option<String>,
 }
 
 /// 权限管理器
 pub struct PermissionManager {
     /// 所有可用权限
-    available_permissions: Arc&lt;HashMap&lt;String, Permission&gt;&gt;,
+    available_permissions: Arc<HashMap<String, Permission>>,
     /// 插件权限授予记录
-    grants: Arc&lt;std::sync::RwLock&lt;HashMap&lt;String, Vec&lt;PermissionGrant&gt;&gt;&gt;&gt;,
+    grants: Arc<std::sync::RwLock<HashMap<String, Vec<PermissionGrant>>>>,
 }
 
 impl Default for PermissionManager {
-    fn default() -&gt; Self {
+    fn default() -> Self {
         Self::new()
     }
 }
 
 impl PermissionManager {
     /// 创建新的权限管理器
-    pub fn new() -&gt; Self {
+    pub fn new() -> Self {
         let mut available = HashMap::new();
 
         // 内置权限定义
-        self::register_builtin_permissions(&amp;mut available);
+        self::register_builtin_permissions(&mut available);
 
         Self {
             available_permissions: Arc::new(available),
@@ -98,18 +98,18 @@ impl PermissionManager {
     }
 
     /// 获取插件需要的权限列表
-    pub fn get_required_permissions(&amp;self, manifest: &amp;PluginManifest) -&gt; Vec&lt;Permission&gt; {
+    pub fn get_required_permissions(&self, manifest: &PluginManifest) -> Vec<Permission> {
         let mut permissions = Vec::new();
 
         // 前端权限
-        for perm_id in &amp;manifest.permissions.frontend {
+        for perm_id in &manifest.permissions.frontend {
             if let Some(perm) = self.available_permissions.get(perm_id) {
                 permissions.push(perm.clone());
             }
         }
 
         // WASM 权限
-        for perm_id in &amp;manifest.permissions.wasm {
+        for perm_id in &manifest.permissions.wasm {
             if let Some(perm) = self.available_permissions.get(perm_id) {
                 permissions.push(perm.clone());
             }
@@ -119,7 +119,7 @@ impl PermissionManager {
     }
 
     /// 验证插件权限是否满足
-    pub async fn validate_permissions(&amp;self, plugin_id: &amp;str, manifest: &amp;PluginManifest) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn validate_permissions(&self, plugin_id: &str, manifest: &PluginManifest) -> Result<(), CoreError> {
         let required = self.get_required_permissions(manifest);
         let grants = self.get_plugin_grants(plugin_id).await;
 
@@ -144,7 +144,7 @@ impl PermissionManager {
     }
 
     /// 授予插件权限
-    pub async fn grant_permission(&amp;self, plugin_id: &amp;str, permission_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn grant_permission(&self, plugin_id: &str, permission_id: &str) -> Result<(), CoreError> {
         if !self.available_permissions.contains_key(permission_id) {
             return Err(CoreError::common(CommonError::general(format!(
                 "Unknown permission: {}", permission_id
@@ -173,7 +173,7 @@ impl PermissionManager {
     }
 
     /// 拒绝插件权限
-    pub async fn deny_permission(&amp;self, plugin_id: &amp;str, permission_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn deny_permission(&self, plugin_id: &str, permission_id: &str) -> Result<(), CoreError> {
         let mut grants = self.grants.write()
             .map_err(|_| CoreError::common(CommonError::general("Failed to lock grants".to_string())))?;
 
@@ -194,23 +194,25 @@ impl PermissionManager {
     }
 
     /// 获取插件的权限授予记录
-    pub async fn get_plugin_grants(&amp;self, plugin_id: &amp;str) -&gt; Vec&lt;PermissionGrant&gt; {
-        let grants = self.grants.read()
-            .ok()?;
+    pub async fn get_plugin_grants(&self, plugin_id: &str) -> Vec<PermissionGrant> {
+        let grants = self.grants.read();
+        let Ok(grants) = grants else {
+            return Vec::new();
+        };
         
         grants.get(plugin_id).cloned().unwrap_or_default()
     }
 
     /// 检查插件是否有指定权限
-    pub async fn has_permission(&amp;self, plugin_id: &amp;str, permission_id: &amp;str) -&gt; bool {
+    pub async fn has_permission(&self, plugin_id: &str, permission_id: &str) -> bool {
         let grants = self.get_plugin_grants(plugin_id).await;
         
         grants.iter()
-            .any(|g| g.permission_id == permission_id &amp;&amp; g.status == GrantStatus::Granted)
+            .any(|g| g.permission_id == permission_id && g.status == GrantStatus::Granted)
     }
 
     /// 重置插件权限
-    pub async fn reset_plugin_permissions(&amp;self, plugin_id: &amp;str) {
+    pub async fn reset_plugin_permissions(&self, plugin_id: &str) {
         let mut grants = self.grants.write().ok();
         if let Some(ref mut g) = grants {
             g.remove(plugin_id);
@@ -218,12 +220,12 @@ impl PermissionManager {
     }
 
     /// 获取所有可用权限
-    pub fn get_all_permissions(&amp;self) -&gt; Vec&lt;Permission&gt; {
+    pub fn get_all_permissions(&self) -> Vec<Permission> {
         self.available_permissions.values().cloned().collect()
     }
 
     /// 按分类获取权限
-    pub fn get_permissions_by_category(&amp;self, category: &amp;str) -&gt; Vec&lt;Permission&gt; {
+    pub fn get_permissions_by_category(&self, category: &str) -> Vec<Permission> {
         self.available_permissions.values()
             .filter(|p| p.category == category)
             .cloned()
@@ -232,7 +234,7 @@ impl PermissionManager {
 }
 
 /// 注册内置权限
-fn register_builtin_permissions(permissions: &amp;mut HashMap&lt;String, Permission&gt;) {
+fn register_builtin_permissions(permissions: &mut HashMap<String, Permission>) {
     // 数据相关权限
     permissions.insert(
         "data:read".to_string(),
@@ -283,10 +285,10 @@ fn register_builtin_permissions(permissions: &amp;mut HashMap&lt;String, Permiss
 }
 
 /// 全局权限管理器实例
-static PERMISSION_MANAGER: std::sync::OnceLock&lt;Arc&lt;PermissionManager&gt;&gt; = std::sync::OnceLock::new();
+static PERMISSION_MANAGER: std::sync::OnceLock<Arc<PermissionManager>> = std::sync::OnceLock::new();
 
 /// 获取全局权限管理器
-pub fn get_permission_manager() -&gt; Arc&lt;PermissionManager&gt; {
+pub fn get_permission_manager() -> Arc<PermissionManager> {
     PERMISSION_MANAGER.get_or_init(|| Arc::new(PermissionManager::new())).clone()
 }
 

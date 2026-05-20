@@ -93,16 +93,13 @@ impl SqlTemplateStore {
         f: F,
     ) -> Result<T, CoreError> {
         let conn = self.pool.acquire_sync()?;
-        let result = f(&conn);
-        self.pool.release_sync(conn);
-        result
+        f(conn.inner()?)
     }
 
     /// 初始化模板表
     fn init_table(&mut self) -> Result<(), CoreError> {
         let conn = self.pool.acquire_sync()?;
-        let result = conn
-            .execute(
+        conn.inner()?.execute(
                 "CREATE TABLE IF NOT EXISTS sql_templates (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -123,9 +120,7 @@ impl SqlTemplateStore {
                     operation: "init_sql_templates_table".to_string(),
                     reason: e.to_string(),
                 })
-            });
-        self.pool.release_sync(conn);
-        result?;
+            })?;
         Ok(())
     }
 
@@ -208,7 +203,7 @@ impl SqlTemplateStore {
 
         let conn = self.pool.acquire_sync()?;
         for template in &builtin_templates {
-            conn.execute(
+            conn.inner()?.execute(
                 "INSERT OR IGNORE INTO sql_templates 
                  (id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -230,7 +225,7 @@ impl SqlTemplateStore {
                 reason: e.to_string(),
             }))?;
         }
-        self.pool.release_sync(conn);
+        
 
         Ok(())
     }

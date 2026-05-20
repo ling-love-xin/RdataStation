@@ -815,7 +815,7 @@ pub async fn init_project_store(
             (*guard).as_ref().unwrap().db_manager.clone()
         );
         
-        if let Ok(project_plugins) = plugin_service.load_project_plugins_on_open(&amp;project_conn_store).await {
+        if let Ok(project_plugins) = plugin_service.load_project_plugins_on_open(&project_conn_store).await {
             tracing::info!(
                 path = %project_path,
                 plugin_count = project_plugins.len(),

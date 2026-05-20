@@ -31,6 +31,7 @@ export async function connectDatabase(
     authConfigId?: string
     driverProperties?: string
     advancedOptions?: string
+    description?: string
   }
 ): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('connect_database', {
@@ -46,6 +47,7 @@ export async function connectDatabase(
       auth_config_id: opts?.authConfigId,
       driver_properties: opts?.driverProperties,
       advanced_options: opts?.advancedOptions,
+      description: opts?.description,
     },
   })
 }
@@ -106,7 +108,7 @@ export async function testConnection(
   return invoke<TestConnectionResponse>('test_connection', {
     dbType,
     url,
-    ...(networkConfigId ? { network_config_id: networkConfigId } : {}),
+    ...(networkConfigId ? { networkConfigId } : {}),
   })
 }
 

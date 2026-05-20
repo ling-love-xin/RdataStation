@@ -6,6 +6,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
+use serde::{Deserialize, Serialize};
+
 use crate::core::error::{CommonError, CoreError};
 use crate::core::plugin::manifest::{ManifestParser, PluginManifest};
 use crate::core::plugin::manager::get_plugin_manager;
@@ -15,7 +17,7 @@ pub struct PluginLoader {
     /// 插件安装目录
     install_dir: PathBuf,
     /// 加载的插件缓存
-    loaded_plugins: RwLock<std::collections::HashMap&lt;String, LoadedPlugin&gt;&gt;,
+    loaded_plugins: RwLock<std::collections::HashMap<String, LoadedPlugin>>,
 }
 
 /// 已加载的插件
@@ -51,14 +53,14 @@ pub enum LoadStatus {
 }
 
 impl Default for LoadStatus {
-    fn default() -&gt; Self {
+    fn default() -> Self {
         Self::Unloaded
     }
 }
 
 impl PluginLoader {
     /// 创建新的插件加载器
-    pub fn new(install_dir: PathBuf) -&gt; Self {
+    pub fn new(install_dir: PathBuf) -> Self {
         Self {
             install_dir,
             loaded_plugins: RwLock::new(std::collections::HashMap::new()),
@@ -66,9 +68,9 @@ impl PluginLoader {
     }
 
     /// 初始化插件目录
-    pub async fn init(&amp;self) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn init(&self) -> Result<(), CoreError> {
         if !self.install_dir.exists() {
-            std::fs::create_dir_all(&amp;self.install_dir)
+            std::fs::create_dir_all(&self.install_dir)
                 .map_err(|e| CoreError::common(CommonError::general(format!(
                     "Failed to create plugin directory: {}",
                     e
@@ -78,14 +80,14 @@ impl PluginLoader {
     }
 
     /// 从目录扫描并加载插件
-    pub async fn scan_and_load_plugins(&amp;self) -&gt; Result&lt;Vec&lt;LoadedPlugin&gt;, CoreError&gt; {
+    pub async fn scan_and_load_plugins(&self) -> Result<Vec<LoadedPlugin>, CoreError> {
         let mut loaded = Vec::new();
 
         if !self.install_dir.exists() {
             return Ok(loaded);
         }
 
-        let entries = std::fs::read_dir(&amp;self.install_dir)
+        let entries = std::fs::read_dir(&self.install_dir)
             .map_err(|e| CoreError::common(CommonError::general(format!(
                 "Failed to read plugin directory: {}",
                 e
@@ -94,7 +96,7 @@ impl PluginLoader {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                if let Ok(plugin) = self.load_plugin_from_dir(&amp;path).await {
+                if let Ok(plugin) = self.load_plugin_from_dir(&path).await {
                     loaded.push(plugin);
                 }
             }
@@ -104,7 +106,7 @@ impl PluginLoader {
     }
 
     /// 从目录加载单个插件
-    pub async fn load_plugin_from_dir(&amp;self, plugin_dir: &amp;Path) -&gt; Result&lt;LoadedPlugin, CoreError&gt; {
+    pub async fn load_plugin_from_dir(&self, plugin_dir: &Path) -> Result<LoadedPlugin, CoreError> {
         let manifest_path = plugin_dir.join("plugin.toml");
         if !manifest_path.exists() {
             return Err(CoreError::common(CommonError::general(format!(
@@ -113,7 +115,7 @@ impl PluginLoader {
             ))));
         }
 
-        let manifest = ManifestParser::parse(&amp;manifest_path)?;
+        let manifest = ManifestParser::parse(&manifest_path)?;
 
         let plugin_id = manifest.plugin.id.clone();
         let loaded_plugin = LoadedPlugin {
@@ -135,7 +137,7 @@ impl PluginLoader {
     }
 
     /// 获取已加载的插件
-    pub fn get_loaded_plugin(&amp;self, plugin_id: &amp;str) -&gt; Option&lt;LoadedPlugin&gt; {
+    pub fn get_loaded_plugin(&self, plugin_id: &str) -> Option<LoadedPlugin> {
         self.loaded_plugins
             .read()
             .ok()?
@@ -144,7 +146,7 @@ impl PluginLoader {
     }
 
     /// 获取所有已加载的插件
-    pub fn list_loaded_plugins(&amp;self) -&gt; Vec&lt;LoadedPlugin&gt; {
+    pub fn list_loaded_plugins(&self) -> Vec<LoadedPlugin> {
         self.loaded_plugins
             .read()
             .map(|map| map.values().cloned().collect())
@@ -152,7 +154,7 @@ impl PluginLoader {
     }
 
     /// 激活插件
-    pub async fn activate_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn activate_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let mut plugin_map = self.loaded_plugins
             .write()
             .map_err(|e| CoreError::common(CommonError::general(format!(
@@ -176,8 +178,8 @@ impl PluginLoader {
         // 根据插件类型加载
         if plugin.manifest.capabilities.wasm.is_some() {
             // 加载 WASM 插件
-            let wasm_path = plugin.install_path.join(&amp;plugin.manifest.capabilities.wasm.as_ref().unwrap().entry);
-            if let Err(e) = manager.load_plugin(plugin_id, &amp;wasm_path) {
+            let wasm_path = plugin.install_path.join(&plugin.manifest.capabilities.wasm.as_ref().unwrap().entry);
+            if let Err(e) = manager.load_plugin(plugin_id, &wasm_path) {
                 plugin.status = LoadStatus::ActivationFailed(e.to_string());
                 return Err(CoreError::common(CommonError::general(format!(
                     "Failed to activate WASM plugin: {}",
@@ -200,7 +202,7 @@ impl PluginLoader {
     }
 
     /// 停用插件
-    pub async fn deactivate_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn deactivate_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let mut plugin_map = self.loaded_plugins
             .write()
             .map_err(|e| CoreError::common(CommonError::general(format!(
@@ -229,7 +231,7 @@ impl PluginLoader {
     }
 
     /// 卸载插件
-    pub async fn unload_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn unload_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let mut plugin_map = self.loaded_plugins
             .write()
             .map_err(|e| CoreError::common(CommonError::general(format!(
@@ -253,15 +255,15 @@ impl PluginLoader {
 }
 
 /// 全局插件加载器实例
-static PLUGIN_LOADER: std::sync::OnceLock&lt;Arc&lt;PluginLoader&gt;&gt; = std::sync::OnceLock::new();
+static PLUGIN_LOADER: std::sync::OnceLock<Arc<PluginLoader>> = std::sync::OnceLock::new();
 
 /// 获取全局插件加载器
-pub fn get_plugin_loader() -&gt; Arc&lt;PluginLoader&gt; {
+pub fn get_plugin_loader() -> Arc<PluginLoader> {
     PLUGIN_LOADER.get().expect("Plugin loader not initialized").clone()
 }
 
 /// 初始化全局插件加载器
-pub async fn init_plugin_loader(install_dir: PathBuf) -&gt; Result&lt;(), CoreError&gt; {
+pub async fn init_plugin_loader(install_dir: PathBuf) -> Result<(), CoreError> {
     let loader = Arc::new(PluginLoader::new(install_dir));
     loader.init().await?;
 

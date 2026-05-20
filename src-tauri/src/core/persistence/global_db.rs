@@ -66,6 +66,51 @@ pub struct GlobalSqlitePool {
     db_path: PathBuf,
 }
 
+/// 全局 SQLite 连接池连接包装器（RAII 模式）
+///
+/// 持有 `OwnedSemaphorePermit` 确保连接到归还前信号量许可不释放。
+/// 在 drop 时自动归还连接到连接池。
+pub struct GlobalPooledConnection {
+    conn: Option<SqliteConnection>,
+    pool: Arc<Mutex<Vec<SqliteConnection>>>,
+    _permit: tokio::sync::OwnedSemaphorePermit,
+}
+
+impl GlobalPooledConnection {
+    pub fn inner(&self) -> Result<&SqliteConnection, CoreError> {
+        self.conn.as_ref().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "Connection already returned to pool".to_string(),
+            ))
+        })
+    }
+
+    pub fn inner_mut(&mut self) -> Result<&mut SqliteConnection, CoreError> {
+        self.conn.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "Connection already returned to pool".to_string(),
+            ))
+        })
+    }
+}
+
+impl Drop for GlobalPooledConnection {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            let pool = Arc::clone(&self.pool);
+            match pool.try_lock() {
+                Ok(mut pool_guard) => {
+                    pool_guard.push(conn);
+                }
+                Err(_) => {
+                    tracing::warn!("Failed to return global SQLite connection to pool (lock unavailable)");
+                }
+            };
+        }
+        // _permit drops automatically, releasing to semaphore
+    }
+}
+
 impl GlobalSqlitePool {
     /// 创建新的 SQLite 连接池
     ///
@@ -149,48 +194,67 @@ impl GlobalSqlitePool {
 
     /// 获取连接（从连接池）
     ///
-    /// 如果连接池已满，将等待直到有连接可用
-    pub async fn acquire(&self) -> Result<SqliteConnection, CoreError> {
-        // 获取信号量许可
-        let _permit =
-            self.semaphore.acquire().await.map_err(|_| {
+    /// 返回 `GlobalPooledConnection` 包装器，在 drop 时自动归还连接。
+    /// 如果连接池暂时为空，将等待直到有连接可用。
+    pub async fn acquire(&self) -> Result<GlobalPooledConnection, CoreError> {
+        let permit = Arc::clone(&self.semaphore)
+            .acquire_owned()
+            .await
+            .map_err(|_| {
                 CoreError::common(CommonError::General("Semaphore closed".to_string()))
             })?;
 
-        // 从连接池获取连接
-        let mut pool = self.pool.lock().await;
-        pool.pop().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "Connection pool exhausted".to_string(),
-            ))
+        let conn = loop {
+            let mut pool = self.pool.lock().await;
+            if let Some(conn) = pool.pop() {
+                break conn;
+            }
+            drop(pool);
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        };
+
+        Ok(GlobalPooledConnection {
+            conn: Some(conn),
+            pool: Arc::clone(&self.pool),
+            _permit: permit,
         })
     }
 
     /// 同步获取连接（用于同步上下文）
-    pub fn acquire_sync(&self) -> Result<SqliteConnection, CoreError> {
+    pub fn acquire_sync(&self) -> Result<GlobalPooledConnection, CoreError> {
         let rt = tokio::runtime::Handle::current();
-        let mut pool = rt.block_on(self.pool.lock());
-        pool.pop().ok_or_else(|| {
-            CoreError::common(CommonError::General(
-                "Connection pool exhausted".to_string(),
-            ))
+
+        let permit = rt
+            .block_on(Arc::clone(&self.semaphore).acquire_owned())
+            .map_err(|_| {
+                CoreError::common(CommonError::General("Semaphore closed".to_string()))
+            })?;
+
+        let conn = loop {
+            let mut pool = rt.block_on(self.pool.lock());
+            if let Some(conn) = pool.pop() {
+                break conn;
+            }
+            drop(pool);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        };
+
+        Ok(GlobalPooledConnection {
+            conn: Some(conn),
+            pool: Arc::clone(&self.pool),
+            _permit: permit,
         })
     }
 
     /// 释放连接（归还到连接池）
-    pub async fn release(&self, conn: SqliteConnection) {
-        let mut pool = self.pool.lock().await;
-        pool.push(conn);
-        // 注意：不增加信号量许可，因为 acquire 时已经获取了许可
-        // 许可会在 _permit 离开作用域时自动释放
+    /// 直接 drop 包装器即可，此方法用于显式提前归还
+    pub async fn release(&self, conn: GlobalPooledConnection) {
+        drop(conn);
     }
 
     /// 同步释放连接
-    pub fn release_sync(&self, conn: SqliteConnection) {
-        let rt = tokio::runtime::Handle::current();
-        let mut pool = rt.block_on(self.pool.lock());
-        pool.push(conn);
-        // 同步版本不需要处理信号量
+    pub fn release_sync(&self, conn: GlobalPooledConnection) {
+        drop(conn);
     }
 
     /// 获取数据库路径
@@ -338,6 +402,7 @@ impl GlobalDatabaseManager {
         for (table, column, column_type) in columns_to_add {
             let sql = format!("PRAGMA table_info({})", quote_identifier(table, '"'));
             let existing_columns: Result<Vec<String>, _> = conn
+                .inner()?
                 .prepare(&sql)
                 .map(|mut stmt| {
                     stmt.query_map([], |row| row.get::<_, String>(1))
@@ -357,7 +422,7 @@ impl GlobalDatabaseManager {
                         "ALTER TABLE {} ADD COLUMN {} {}",
                         table, column, column_type
                     );
-                    if let Err(e) = conn.execute(&alter_sql, []) {
+                    if let Err(e) = conn.inner()?.execute(&alter_sql, []) {
                         tracing::warn!("Failed to add column {}.{}: {}", table, column, e);
                     } else {
                         tracing::info!("Added missing column {}.{}", table, column);
@@ -366,7 +431,7 @@ impl GlobalDatabaseManager {
             }
         }
 
-        pool.release(conn).await;
+        
         Ok(())
     }
 
@@ -575,7 +640,7 @@ impl GlobalDatabaseManager {
         // 默认标签：如果没有提供标签，添加 "global" 标签
         let tags_json = tags.unwrap_or("[\"global\"]");
 
-        conn.execute(
+        conn.inner()?.execute(
             "INSERT OR REPLACE INTO global_connections 
              (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, network_config_id, driver_properties, advanced_options, is_active, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, 1, CURRENT_TIMESTAMP)",
@@ -607,7 +672,7 @@ impl GlobalDatabaseManager {
             reason: e.to_string() 
         }))?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         tracing::info!("全局连接信息已保存: {} ({})", name, conn_id);
         Ok(())
@@ -621,7 +686,7 @@ impl GlobalDatabaseManager {
         let conn = self.sqlite_pool.acquire().await?;
 
         let connections: Vec<GlobalConnectionInfo> = {
-            let mut stmt = conn.prepare(
+            let mut stmt = conn.inner()?.prepare(
                 "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, network_config_id, driver_properties, advanced_options 
                  FROM global_connections 
                  WHERE is_active = 1 
@@ -689,7 +754,7 @@ impl GlobalDatabaseManager {
             result
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(connections)
     }
@@ -787,7 +852,7 @@ impl GlobalDatabaseManager {
 
         let id = format!("nav_{}", connection_id);
 
-        conn.execute(
+        conn.inner()?.execute(
             "INSERT OR REPLACE INTO navigator_states 
              (id, connection_id, expanded_keys, selected_keys, filter_config, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP)",
@@ -807,7 +872,7 @@ impl GlobalDatabaseManager {
             })
         })?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -824,6 +889,7 @@ impl GlobalDatabaseManager {
 
         let result = {
             let mut stmt = conn
+                .inner()?
                 .prepare(
                     "SELECT expanded_keys, selected_keys, filter_config 
                  FROM navigator_states 
@@ -854,7 +920,7 @@ impl GlobalDatabaseManager {
             })?
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(result)
     }
@@ -966,6 +1032,7 @@ impl GlobalDatabaseManager {
         let conn = self.sqlite_pool.acquire().await?;
 
         let id_exists = conn
+            .inner()?
             .query_row(Self::PROJECT_CHECK_ID_EXISTS, [id], |row| {
                 row.get::<_, i64>(0)
             })
@@ -973,6 +1040,7 @@ impl GlobalDatabaseManager {
             > 0;
 
         let path_exists = conn
+            .inner()?
             .query_row(Self::PROJECT_CHECK_PATH_EXISTS, [path], |row| {
                 row.get::<_, i64>(0)
             })
@@ -983,26 +1051,26 @@ impl GlobalDatabaseManager {
         let last_opened = last_opened_at.unwrap_or("");
 
         if id_exists {
-            conn.execute(
+            conn.inner()?.execute(
                 Self::PROJECT_UPDATE_BY_ID,
                 [id, name, desc, path, status, last_opened],
             )
             .map_err(|e| Self::sqlite_persistence_error("update_project_by_id", e.to_string()))?;
         } else if path_exists {
-            conn.execute(
+            conn.inner()?.execute(
                 Self::PROJECT_UPDATE_BY_PATH,
                 [id, name, desc, path, status, last_opened],
             )
             .map_err(|e| Self::sqlite_persistence_error("update_project_by_path", e.to_string()))?;
         } else {
-            conn.execute(
+            conn.inner()?.execute(
                 Self::PROJECT_INSERT,
                 [id, name, desc, path, status, last_opened],
             )
             .map_err(|e| Self::sqlite_persistence_error("insert_project", e.to_string()))?;
         }
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -1014,10 +1082,10 @@ impl GlobalDatabaseManager {
     pub async fn delete_project(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.execute(Self::PROJECT_DELETE, [id])
+        conn.inner()?.execute(Self::PROJECT_DELETE, [id])
             .map_err(|e| Self::sqlite_persistence_error("delete_project", e.to_string()))?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -1036,13 +1104,13 @@ impl GlobalDatabaseManager {
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.execute(
+        conn.inner()?.execute(
             Self::PROJECT_UPDATE_INFO,
             [id, name, description.unwrap_or("")],
         )
         .map_err(|e| Self::sqlite_persistence_error("update_project_info", e.to_string()))?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -1067,7 +1135,7 @@ impl GlobalDatabaseManager {
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.execute(
+        conn.inner()?.execute(
             Self::PROJECT_INSERT_OR_REPLACE,
             [
                 id,
@@ -1080,7 +1148,7 @@ impl GlobalDatabaseManager {
         )
         .map_err(|e| Self::sqlite_persistence_error("save_project_info", e.to_string()))?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -1094,6 +1162,7 @@ impl GlobalDatabaseManager {
 
         let projects = {
             let mut stmt = conn
+                .inner()?
                 .prepare(Self::PROJECT_SELECT_ALL)
                 .map_err(|e| Self::sqlite_persistence_error("get_all_projects", e.to_string()))?;
 
@@ -1108,7 +1177,7 @@ impl GlobalDatabaseManager {
             result
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(projects)
     }
@@ -1125,12 +1194,12 @@ impl GlobalDatabaseManager {
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.execute(Self::PROJECT_UPDATE_LAST_OPENED, [last_opened_at, id])
+        conn.inner()?.execute(Self::PROJECT_UPDATE_LAST_OPENED, [last_opened_at, id])
             .map_err(|e| {
                 Self::sqlite_persistence_error("update_project_last_opened", e.to_string())
             })?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -1142,10 +1211,10 @@ impl GlobalDatabaseManager {
     pub async fn delete_project_info(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.execute(Self::PROJECT_DELETE, [id])
+        conn.inner()?.execute(Self::PROJECT_DELETE, [id])
             .map_err(|e| Self::sqlite_persistence_error("delete_project_info", e.to_string()))?;
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(())
     }
@@ -1165,16 +1234,18 @@ impl GlobalDatabaseManager {
         let now = chrono::Utc::now().to_rfc3339();
 
         let updated = conn
+            .inner()?
             .execute(Self::PROJECT_OPEN_UPDATE, [&now, id])
             .map_err(|e| Self::sqlite_persistence_error("open_project_update", e.to_string()))?;
 
         if updated == 0 {
-            self.sqlite_pool.release(conn).await;
+            
             return Ok(None);
         }
 
         let project = {
             let mut stmt = conn
+                .inner()?
                 .prepare(Self::PROJECT_OPEN_QUERY)
                 .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?;
 
@@ -1183,7 +1254,7 @@ impl GlobalDatabaseManager {
                 .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(project)
     }
@@ -1204,18 +1275,20 @@ impl GlobalDatabaseManager {
         let now = chrono::Utc::now().to_rfc3339();
 
         let updated = conn
+            .inner()?
             .execute(Self::PROJECT_OPEN_BY_PATH_UPDATE, [&now, path])
             .map_err(|e| {
                 Self::sqlite_persistence_error("open_project_by_path_update", e.to_string())
             })?;
 
         if updated == 0 {
-            self.sqlite_pool.release(conn).await;
+            
             return Ok(None);
         }
 
         let project = {
             let mut stmt = conn
+                .inner()?
                 .prepare(Self::PROJECT_OPEN_BY_PATH_QUERY)
                 .map_err(|e| {
                     Self::sqlite_persistence_error("open_project_by_path_query", e.to_string())
@@ -1228,7 +1301,7 @@ impl GlobalDatabaseManager {
                 })?
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(project)
     }
@@ -1247,7 +1320,7 @@ impl GlobalDatabaseManager {
         let conn = self.sqlite_pool.acquire().await?;
 
         let projects = {
-            let mut stmt = conn.prepare(Self::PROJECT_GET_RECENT).map_err(|e| {
+            let mut stmt = conn.inner()?.prepare(Self::PROJECT_GET_RECENT).map_err(|e| {
                 Self::sqlite_persistence_error("get_recent_projects", e.to_string())
             })?;
 
@@ -1264,7 +1337,7 @@ impl GlobalDatabaseManager {
             result
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(projects)
     }
@@ -1284,6 +1357,7 @@ impl GlobalDatabaseManager {
 
         let project = {
             let mut stmt = conn
+                .inner()?
                 .prepare(Self::PROJECT_GET_BY_ID)
                 .map_err(|e| Self::sqlite_persistence_error("get_project_by_id", e.to_string()))?;
 
@@ -1292,7 +1366,7 @@ impl GlobalDatabaseManager {
                 .map_err(|e| Self::sqlite_persistence_error("query_project_by_id", e.to_string()))?
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(project)
     }
@@ -1311,7 +1385,7 @@ impl GlobalDatabaseManager {
         let conn = self.sqlite_pool.acquire().await?;
 
         let project = {
-            let mut stmt = conn.prepare(Self::PROJECT_GET_BY_PATH).map_err(|e| {
+            let mut stmt = conn.inner()?.prepare(Self::PROJECT_GET_BY_PATH).map_err(|e| {
                 Self::sqlite_persistence_error("get_project_by_path", e.to_string())
             })?;
 
@@ -1322,7 +1396,7 @@ impl GlobalDatabaseManager {
                 })?
         };
 
-        self.sqlite_pool.release(conn).await;
+        
 
         Ok(project)
     }
@@ -1346,294 +1420,294 @@ impl GlobalDatabaseManager {
     /// 列出所有数据源类型
     pub async fn list_data_source_types(&self) -> Result<Vec<DataSourceType>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = driver_store::get_data_source_types(&conn)?;
-        self.sqlite_pool.release(conn).await;
+        let result = driver_store::get_data_source_types(conn.inner()?)?;
+        
         Ok(result)
     }
 
     /// 获取所有驱动定义
     pub async fn get_all_drivers(&self) -> Result<Vec<Driver>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = driver_store::get_all_drivers(&conn)?;
-        self.sqlite_pool.release(conn).await;
+        let result = driver_store::get_all_drivers(conn.inner()?)?;
+        
         Ok(result)
     }
 
     /// 根据 ID 获取单个驱动定义
     pub async fn get_driver(&self, id: &str) -> Result<Option<Driver>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = driver_store::get_driver(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = driver_store::get_driver(conn.inner()?, id)?;
+        
         Ok(result)
     }
 
     /// 获取指定数据源类型下的所有已启用驱动
     pub async fn get_drivers_by_type(&self, type_id: &str) -> Result<Vec<Driver>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let drivers = driver_store::get_drivers_by_type(&conn, type_id)?;
-        self.sqlite_pool.release(conn).await;
+        let drivers = driver_store::get_drivers_by_type(conn.inner()?, type_id)?;
+        
         Ok(drivers)
     }
 
     /// 列出指定驱动在本机已安装的文件版本
     pub async fn list_driver_files(&self, driver_id: &str) -> Result<Vec<DriverFile>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = driver_store::list_driver_files(&conn, driver_id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = driver_store::list_driver_files(conn.inner()?, driver_id)?;
+        
         Ok(result)
     }
 
     /// 注册驱动文件到本机安装记录
     pub async fn register_driver_file(&self, df: &DriverFile) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        driver_store::register_driver_file(&conn, df)?;
-        self.sqlite_pool.release(conn).await;
+        driver_store::register_driver_file(conn.inner()?, df)?;
+        
         Ok(())
     }
 
     /// 检查指定版本的驱动是否已安装
     pub async fn is_driver_installed(&self, driver_id: &str, version: &str) -> Result<bool, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = driver_store::is_driver_file_installed(&conn, driver_id, version)?;
-        self.sqlite_pool.release(conn).await;
+        let result = driver_store::is_driver_file_installed(conn.inner()?, driver_id, version)?;
+        
         Ok(result)
     }
 
     /// 创建新环境
     pub async fn create_environment(&self, env: &env_store::Environment) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        env_store::create_environment(&conn, env)?;
-        self.sqlite_pool.release(conn).await;
+        env_store::create_environment(conn.inner()?, env)?;
+        
         Ok(())
     }
 
     /// 列出所有环境
     pub async fn list_environments(&self) -> Result<Vec<env_store::Environment>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = env_store::list_environments(&conn)?;
-        self.sqlite_pool.release(conn).await;
+        let result = env_store::list_environments(conn.inner()?)?;
+        
         Ok(result)
     }
 
     /// 更新环境信息
     pub async fn update_environment(&self, env: &env_store::Environment) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        env_store::update_environment(&conn, env)?;
-        self.sqlite_pool.release(conn).await;
+        env_store::update_environment(conn.inner()?, env)?;
+        
         Ok(())
     }
 
     /// 删除环境
     pub async fn delete_environment(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        env_store::delete_environment(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        env_store::delete_environment(conn.inner()?, id)?;
+        
         Ok(())
     }
 
     /// 根据 ID 获取环境
     pub async fn get_environment(&self, id: &str) -> Result<Option<env_store::Environment>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = env_store::get_environment(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = env_store::get_environment(conn.inner()?, id)?;
+        
         Ok(result)
     }
 
     /// 为指定环境创建策略
     pub async fn create_environment_policy(&self, policy: &env_store::EnvironmentPolicy) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        env_store::create_policy(&conn, policy)?;
-        self.sqlite_pool.release(conn).await;
+        env_store::create_policy(conn.inner()?, policy)?;
+        
         Ok(())
     }
 
     /// 列出指定环境的所有策略
     pub async fn list_environment_policies(&self, environment_id: &str) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = env_store::list_policies(&conn, environment_id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = env_store::list_policies(conn.inner()?, environment_id)?;
+        
         Ok(result)
     }
 
     /// 更新环境策略
     pub async fn update_environment_policy(&self, policy: &env_store::EnvironmentPolicy) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        env_store::update_policy(&conn, policy)?;
-        self.sqlite_pool.release(conn).await;
+        env_store::update_policy(conn.inner()?, policy)?;
+        
         Ok(())
     }
 
     /// 删除环境策略
     pub async fn delete_environment_policy(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        env_store::delete_policy(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        env_store::delete_policy(conn.inner()?, id)?;
+        
         Ok(())
     }
 
     /// 创建认证配置
     pub async fn create_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        auth_store::create_auth_config(&conn, ac)?;
-        self.sqlite_pool.release(conn).await;
+        auth_store::create_auth_config(conn.inner()?, ac)?;
+        
         Ok(())
     }
 
     /// 列出认证配置
     pub async fn list_auth_configs(&self, auth_type: Option<&str>) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = auth_store::list_auth_configs(&conn, auth_type)?;
-        self.sqlite_pool.release(conn).await;
+        let result = auth_store::list_auth_configs(conn.inner()?, auth_type)?;
+        
         Ok(result)
     }
 
     /// 根据 ID 获取认证配置
     pub async fn get_auth_config(&self, id: &str) -> Result<Option<auth_store::AuthConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = auth_store::get_auth_config(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = auth_store::get_auth_config(conn.inner()?, id)?;
+        
         Ok(result)
     }
 
     /// 删除认证配置
     pub async fn delete_auth_config(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        auth_store::delete_auth_config(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        auth_store::delete_auth_config(conn.inner()?, id)?;
+        
         Ok(())
     }
 
     /// 更新认证配置
     pub async fn update_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        auth_store::update_auth_config(&conn, ac)?;
-        self.sqlite_pool.release(conn).await;
+        auth_store::update_auth_config(conn.inner()?, ac)?;
+        
         Ok(())
     }
 
     /// 创建网络配置
     pub async fn create_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        network_store::create_network_config(&conn, nc)?;
-        self.sqlite_pool.release(conn).await;
+        network_store::create_network_config(conn.inner()?, nc)?;
+        
         Ok(())
     }
 
     /// 列出网络配置
     pub async fn list_network_configs(&self, network_type: Option<&str>) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = network_store::list_network_configs(&conn, network_type)?;
-        self.sqlite_pool.release(conn).await;
+        let result = network_store::list_network_configs(conn.inner()?, network_type)?;
+        
         Ok(result)
     }
 
     /// 根据 ID 获取网络配置
     pub async fn get_network_config(&self, id: &str) -> Result<Option<network_store::NetworkConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = network_store::get_network_config(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = network_store::get_network_config(conn.inner()?, id)?;
+        
         Ok(result)
     }
 
     /// 更新网络配置
     pub async fn update_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        network_store::update_network_config(&conn, nc)?;
-        self.sqlite_pool.release(conn).await;
+        network_store::update_network_config(conn.inner()?, nc)?;
+        
         Ok(())
     }
 
     /// 删除网络配置
     pub async fn delete_network_config(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        network_store::delete_network_config(&conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        network_store::delete_network_config(conn.inner()?, id)?;
+        
         Ok(())
     }
 
     // ==================== 插件管理 ====================
 
     /// 注册插件到全局插件中心
-    pub async fn register_plugin(&amp;self, plugin: &amp;plugin_store::Plugin) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn register_plugin(&self, plugin: &plugin_store::Plugin) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        plugin_store::register_plugin(&amp;conn, plugin)?;
-        self.sqlite_pool.release(conn).await;
+        plugin_store::register_plugin(conn.inner()?, plugin)?;
+        
         Ok(())
     }
 
     /// 根据 ID 获取插件
-    pub async fn get_plugin(&amp;self, id: &amp;str) -&gt; Result&lt;Option&lt;plugin_store::Plugin&gt;, CoreError&gt; {
+    pub async fn get_plugin(&self, id: &str) -> Result<Option<plugin_store::Plugin>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = plugin_store::get_plugin(&amp;conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = plugin_store::get_plugin(conn.inner()?, id)?;
+        
         Ok(result)
     }
 
     /// 根据 code 和 version 获取插件
     pub async fn get_plugin_by_code_version(
-        &amp;self,
-        code: &amp;str,
-        version: &amp;str,
-    ) -&gt; Result&lt;Option&lt;plugin_store::Plugin&gt;, CoreError&gt; {
+        &self,
+        code: &str,
+        version: &str,
+    ) -> Result<Option<plugin_store::Plugin>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = plugin_store::get_plugin_by_code_version(&amp;conn, code, version)?;
-        self.sqlite_pool.release(conn).await;
+        let result = plugin_store::get_plugin_by_code_version(conn.inner()?, code, version)?;
+        
         Ok(result)
     }
 
     /// 获取所有已安装插件
-    pub async fn get_all_plugins(&amp;self) -&gt; Result&lt;Vec&lt;plugin_store::Plugin&gt;, CoreError&gt; {
+    pub async fn get_all_plugins(&self) -> Result<Vec<plugin_store::Plugin>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = plugin_store::get_all_plugins(&amp;conn)?;
-        self.sqlite_pool.release(conn).await;
+        let result = plugin_store::get_all_plugins(conn.inner()?)?;
+        
         Ok(result)
     }
 
     /// 更新插件启用状态
-    pub async fn update_plugin_enabled(&amp;self, id: &amp;str, is_enabled: bool) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn update_plugin_enabled(&self, id: &str, is_enabled: bool) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        plugin_store::update_plugin_enabled(&amp;conn, id, is_enabled)?;
-        self.sqlite_pool.release(conn).await;
+        plugin_store::update_plugin_enabled(conn.inner()?, id, is_enabled)?;
+        
         Ok(())
     }
 
     /// 删除插件
-    pub async fn delete_plugin(&amp;self, id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn delete_plugin(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        plugin_store::delete_plugin(&amp;conn, id)?;
-        self.sqlite_pool.release(conn).await;
+        plugin_store::delete_plugin(conn.inner()?, id)?;
+        
         Ok(())
     }
 
     /// 注册插件依赖
-    pub async fn register_plugin_dependency(&amp;self, dep: &amp;plugin_store::PluginDependency) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn register_plugin_dependency(&self, dep: &plugin_store::PluginDependency) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        plugin_store::register_plugin_dependency(&amp;conn, dep)?;
-        self.sqlite_pool.release(conn).await;
+        plugin_store::register_plugin_dependency(conn.inner()?, dep)?;
+        
         Ok(())
     }
 
     /// 获取插件的所有依赖
-    pub async fn get_plugin_dependencies(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Vec&lt;plugin_store::PluginDependency&gt;, CoreError&gt; {
+    pub async fn get_plugin_dependencies(&self, plugin_id: &str) -> Result<Vec<plugin_store::PluginDependency>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = plugin_store::get_plugin_dependencies(&amp;conn, plugin_id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = plugin_store::get_plugin_dependencies(conn.inner()?, plugin_id)?;
+        
         Ok(result)
     }
 
     /// 设置插件全局配置
-    pub async fn set_plugin_global_config(&amp;self, config: &amp;plugin_store::PluginGlobalConfig) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn set_plugin_global_config(&self, config: &plugin_store::PluginGlobalConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        plugin_store::set_plugin_global_config(&amp;conn, config)?;
-        self.sqlite_pool.release(conn).await;
+        plugin_store::set_plugin_global_config(conn.inner()?, config)?;
+        
         Ok(())
     }
 
     /// 获取插件全局配置
-    pub async fn get_plugin_global_configs(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Vec&lt;plugin_store::PluginGlobalConfig&gt;, CoreError&gt; {
+    pub async fn get_plugin_global_configs(&self, plugin_id: &str) -> Result<Vec<plugin_store::PluginGlobalConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = plugin_store::get_plugin_global_configs(&amp;conn, plugin_id)?;
-        self.sqlite_pool.release(conn).await;
+        let result = plugin_store::get_plugin_global_configs(conn.inner()?, plugin_id)?;
+        
         Ok(result)
     }
 }
@@ -1672,10 +1746,10 @@ mod tests {
             .expect("创建池失败");
         assert_eq!(pool.semaphore.available_permits(), 3);
 
-        let conn = pool.acquire().await.expect("获取连接失败");
+        let _conn = pool.acquire().await.expect("获取连接失败");
         assert_eq!(pool.semaphore.available_permits(), 2);
 
-        pool.release(conn).await;
+        drop(_conn);
         assert_eq!(pool.semaphore.available_permits(), 3);
     }
 

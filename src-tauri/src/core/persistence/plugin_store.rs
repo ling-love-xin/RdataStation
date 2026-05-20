@@ -60,7 +60,7 @@ pub struct ProjectPluginConfig {
     pub updated_at: String,
 }
 
-fn storage_err(operation: &amp;str, reason: String) -&gt; CoreError {
+fn storage_err(operation: &str, reason: String) -> CoreError {
     CoreError::Storage(StorageError::Persistence {
         store: "plugin_store".to_string(),
         operation: operation.to_string(),
@@ -71,7 +71,7 @@ fn storage_err(operation: &amp;str, reason: String) -&gt; CoreError {
 // ==================== 全局插件存储函数 ====================
 
 /// 注册插件到全局插件中心
-pub fn register_plugin(conn: &amp;Connection, plugin: &amp;Plugin) -&gt; Result&lt;(), CoreError&gt; {
+pub fn register_plugin(conn: &Connection, plugin: &Plugin) -> Result<(), CoreError> {
     conn.execute(
         "INSERT OR REPLACE INTO plugins 
          (id, code, name, version, author, description, repo_url, plugin_type, manifest_json, install_path, is_enabled, is_builtin, installed_at, updated_at)
@@ -99,7 +99,7 @@ pub fn register_plugin(conn: &amp;Connection, plugin: &amp;Plugin) -&gt; Result&
 }
 
 /// 根据 ID 获取插件
-pub fn get_plugin(conn: &amp;Connection, id: &amp;str) -&gt; Result&lt;Option&lt;Plugin&gt;, CoreError&gt; {
+pub fn get_plugin(conn: &Connection, id: &str) -> Result<Option<Plugin>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, code, name, version, author, description, repo_url, plugin_type, manifest_json, install_path, is_enabled, is_builtin, installed_at, updated_at
@@ -119,8 +119,8 @@ pub fn get_plugin(conn: &amp;Connection, id: &amp;str) -&gt; Result&lt;Option&lt
             plugin_type: row.get(7)?,
             manifest_json: row.get(8)?,
             install_path: row.get(9)?,
-            is_enabled: row.get::&lt;_, i32&gt;(10)? != 0,
-            is_builtin: row.get::&lt;_, i32&gt;(11)? != 0,
+            is_enabled: row.get::<_, i32>(10)? != 0,
+            is_builtin: row.get::<_, i32>(11)? != 0,
             installed_at: row.get(12)?,
             updated_at: row.get(13)?,
         })
@@ -131,10 +131,10 @@ pub fn get_plugin(conn: &amp;Connection, id: &amp;str) -&gt; Result&lt;Option&lt
 
 /// 根据 code 和 version 获取插件
 pub fn get_plugin_by_code_version(
-    conn: &amp;Connection,
-    code: &amp;str,
-    version: &amp;str,
-) -&gt; Result&lt;Option&lt;Plugin&gt;, CoreError&gt; {
+    conn: &Connection,
+    code: &str,
+    version: &str,
+) -> Result<Option<Plugin>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, code, name, version, author, description, repo_url, plugin_type, manifest_json, install_path, is_enabled, is_builtin, installed_at, updated_at
@@ -154,8 +154,8 @@ pub fn get_plugin_by_code_version(
             plugin_type: row.get(7)?,
             manifest_json: row.get(8)?,
             install_path: row.get(9)?,
-            is_enabled: row.get::&lt;_, i32&gt;(10)? != 0,
-            is_builtin: row.get::&lt;_, i32&gt;(11)? != 0,
+            is_enabled: row.get::<_, i32>(10)? != 0,
+            is_builtin: row.get::<_, i32>(11)? != 0,
             installed_at: row.get(12)?,
             updated_at: row.get(13)?,
         })
@@ -165,7 +165,7 @@ pub fn get_plugin_by_code_version(
 }
 
 /// 获取所有已安装插件
-pub fn get_all_plugins(conn: &amp;Connection) -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreError&gt; {
+pub fn get_all_plugins(conn: &Connection) -> Result<Vec<Plugin>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, code, name, version, author, description, repo_url, plugin_type, manifest_json, install_path, is_enabled, is_builtin, installed_at, updated_at
@@ -186,8 +186,8 @@ pub fn get_all_plugins(conn: &amp;Connection) -&gt; Result&lt;Vec&lt;Plugin&gt;,
                 plugin_type: row.get(7)?,
                 manifest_json: row.get(8)?,
                 install_path: row.get(9)?,
-                is_enabled: row.get::&lt;_, i32&gt;(10)? != 0,
-                is_builtin: row.get::&lt;_, i32&gt;(11)? != 0,
+                is_enabled: row.get::<_, i32>(10)? != 0,
+                is_builtin: row.get::<_, i32>(11)? != 0,
                 installed_at: row.get(12)?,
                 updated_at: row.get(13)?,
             })
@@ -195,16 +195,16 @@ pub fn get_all_plugins(conn: &amp;Connection) -&gt; Result&lt;Vec&lt;Plugin&gt;,
         .map_err(|e| storage_err("query_all_plugins", e.to_string()))?;
 
     plugins
-        .collect::&lt;Result&lt;Vec&lt;_&gt;, _&gt;&gt;()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| storage_err("collect_plugins", e.to_string()))
 }
 
 /// 更新插件启用状态
 pub fn update_plugin_enabled(
-    conn: &amp;Connection,
-    id: &amp;str,
+    conn: &Connection,
+    id: &str,
     is_enabled: bool,
-) -&gt; Result&lt;(), CoreError&gt; {
+) -> Result<(), CoreError> {
     conn.execute(
         "UPDATE plugins SET is_enabled = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
         params![is_enabled as i32, id],
@@ -215,7 +215,7 @@ pub fn update_plugin_enabled(
 }
 
 /// 删除插件
-pub fn delete_plugin(conn: &amp;Connection, id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+pub fn delete_plugin(conn: &Connection, id: &str) -> Result<(), CoreError> {
     conn.execute("DELETE FROM plugins WHERE id = ?1", params![id])
         .map_err(|e| storage_err("delete_plugin", e.to_string()))?;
     Ok(())
@@ -223,9 +223,9 @@ pub fn delete_plugin(conn: &amp;Connection, id: &amp;str) -&gt; Result&lt;(), Co
 
 /// 注册插件依赖
 pub fn register_plugin_dependency(
-    conn: &amp;Connection,
-    dep: &amp;PluginDependency,
-) -&gt; Result&lt;(), CoreError&gt; {
+    conn: &Connection,
+    dep: &PluginDependency,
+) -> Result<(), CoreError> {
     conn.execute(
         "INSERT OR REPLACE INTO plugin_dependencies 
          (plugin_id, dep_code, dep_version_range, is_optional)
@@ -244,9 +244,9 @@ pub fn register_plugin_dependency(
 
 /// 获取插件的所有依赖
 pub fn get_plugin_dependencies(
-    conn: &amp;Connection,
-    plugin_id: &amp;str,
-) -&gt; Result&lt;Vec&lt;PluginDependency&gt;, CoreError&gt; {
+    conn: &Connection,
+    plugin_id: &str,
+) -> Result<Vec<PluginDependency>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT plugin_id, dep_code, dep_version_range, is_optional
@@ -260,20 +260,20 @@ pub fn get_plugin_dependencies(
                 plugin_id: row.get(0)?,
                 dep_code: row.get(1)?,
                 dep_version_range: row.get(2)?,
-                is_optional: row.get::&lt;_, i32&gt;(3)? != 0,
+                is_optional: row.get::<_, i32>(3)? != 0,
             })
         })
         .map_err(|e| storage_err("query_plugin_dependencies", e.to_string()))?;
 
-    deps.collect::&lt;Result&lt;Vec&lt;_&gt;, _&gt;&gt;()
+    deps.collect::<Result<Vec<_>, _>>()
         .map_err(|e| storage_err("collect_dependencies", e.to_string()))
 }
 
 /// 设置插件全局配置
 pub fn set_plugin_global_config(
-    conn: &amp;Connection,
-    config: &amp;PluginGlobalConfig,
-) -&gt; Result&lt;(), CoreError&gt; {
+    conn: &Connection,
+    config: &PluginGlobalConfig,
+) -> Result<(), CoreError> {
     conn.execute(
         "INSERT OR REPLACE INTO plugin_global_config 
          (plugin_id, key, value, updated_at)
@@ -287,9 +287,9 @@ pub fn set_plugin_global_config(
 
 /// 获取插件全局配置
 pub fn get_plugin_global_configs(
-    conn: &amp;Connection,
-    plugin_id: &amp;str,
-) -&gt; Result&lt;Vec&lt;PluginGlobalConfig&gt;, CoreError&gt; {
+    conn: &Connection,
+    plugin_id: &str,
+) -> Result<Vec<PluginGlobalConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT plugin_id, key, value, updated_at
@@ -309,7 +309,7 @@ pub fn get_plugin_global_configs(
         .map_err(|e| storage_err("query_plugin_global_configs", e.to_string()))?;
 
     configs
-        .collect::&lt;Result&lt;Vec&lt;_&gt;, _&gt;&gt;()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| storage_err("collect_global_configs", e.to_string()))
 }
 
@@ -317,9 +317,9 @@ pub fn get_plugin_global_configs(
 
 /// 添加插件到项目（启用）
 pub fn project_add_plugin(
-    conn: &amp;Connection,
-    used_plugin: &amp;ProjectUsedPlugin,
-) -&gt; Result&lt;(), CoreError&gt; {
+    conn: &Connection,
+    used_plugin: &ProjectUsedPlugin,
+) -> Result<(), CoreError> {
     conn.execute(
         "INSERT OR REPLACE INTO project_used_plugins 
          (plugin_code, plugin_version, enabled, required)
@@ -337,7 +337,7 @@ pub fn project_add_plugin(
 }
 
 /// 从项目移除插件
-pub fn project_remove_plugin(conn: &amp;Connection, code: &amp;str, version: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+pub fn project_remove_plugin(conn: &Connection, code: &str, version: &str) -> Result<(), CoreError> {
     conn.execute(
         "DELETE FROM project_used_plugins WHERE plugin_code = ?1 AND plugin_version = ?2",
         params![code, version],
@@ -347,7 +347,7 @@ pub fn project_remove_plugin(conn: &amp;Connection, code: &amp;str, version: &am
 }
 
 /// 获取项目使用的所有插件
-pub fn project_get_plugins(conn: &amp;Connection) -&gt; Result&lt;Vec&lt;ProjectUsedPlugin&gt;, CoreError&gt; {
+pub fn project_get_plugins(conn: &Connection) -> Result<Vec<ProjectUsedPlugin>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT plugin_code, plugin_version, enabled, required
@@ -360,24 +360,24 @@ pub fn project_get_plugins(conn: &amp;Connection) -&gt; Result&lt;Vec&lt;Project
             Ok(ProjectUsedPlugin {
                 plugin_code: row.get(0)?,
                 plugin_version: row.get(1)?,
-                enabled: row.get::&lt;_, i32&gt;(2)? != 0,
-                required: row.get::&lt;_, i32&gt;(3)? != 0,
+                enabled: row.get::<_, i32>(2)? != 0,
+                required: row.get::<_, i32>(3)? != 0,
             })
         })
         .map_err(|e| storage_err("query_project_plugins", e.to_string()))?;
 
     plugins
-        .collect::&lt;Result&lt;Vec&lt;_&gt;, _&gt;&gt;()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| storage_err("collect_project_plugins", e.to_string()))
 }
 
 /// 更新项目插件启用状态
 pub fn project_update_plugin_enabled(
-    conn: &amp;Connection,
-    code: &amp;str,
-    version: &amp;str,
+    conn: &Connection,
+    code: &str,
+    version: &str,
     enabled: bool,
-) -&gt; Result&lt;(), CoreError&gt; {
+) -> Result<(), CoreError> {
     conn.execute(
         "UPDATE project_used_plugins SET enabled = ?1 WHERE plugin_code = ?2 AND plugin_version = ?3",
         params![enabled as i32, code, version],
@@ -389,9 +389,9 @@ pub fn project_update_plugin_enabled(
 
 /// 设置项目插件配置
 pub fn project_set_plugin_config(
-    conn: &amp;Connection,
-    config: &amp;ProjectPluginConfig,
-) -&gt; Result&lt;(), CoreError&gt; {
+    conn: &Connection,
+    config: &ProjectPluginConfig,
+) -> Result<(), CoreError> {
     conn.execute(
         "INSERT OR REPLACE INTO project_plugin_config 
          (plugin_code, plugin_version, key, value, updated_at)
@@ -410,10 +410,10 @@ pub fn project_set_plugin_config(
 
 /// 获取项目插件配置
 pub fn project_get_plugin_configs(
-    conn: &amp;Connection,
-    code: &amp;str,
-    version: &amp;str,
-) -&gt; Result&lt;Vec&lt;ProjectPluginConfig&gt;, CoreError&gt; {
+    conn: &Connection,
+    code: &str,
+    version: &str,
+) -> Result<Vec<ProjectPluginConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT plugin_code, plugin_version, key, value, updated_at
@@ -434,6 +434,6 @@ pub fn project_get_plugin_configs(
         .map_err(|e| storage_err("query_project_plugin_configs", e.to_string()))?;
 
     configs
-        .collect::&lt;Result&lt;Vec&lt;_&gt;, _&gt;&gt;()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| storage_err("collect_project_configs", e.to_string()))
 }

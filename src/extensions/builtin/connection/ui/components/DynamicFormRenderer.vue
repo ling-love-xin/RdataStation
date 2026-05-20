@@ -199,27 +199,32 @@ function getIconComponent(iconName: string) {
 </script>
 
 <style scoped>
+/* ---- 容器 ---- */
 .dynamic-form-renderer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-lg);
 }
 
+/* ---- 分区包装器 ---- */
 .form-section-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-lg);
 }
 
+/* ---- 分区头部 ---- */
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
-  margin-bottom: 4px;
+  padding-bottom: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .section-header.collapsible {
@@ -228,21 +233,52 @@ function getIconComponent(iconName: string) {
 }
 
 .section-header.collapsible:hover .section-title {
-  color: var(--primary-color);
+  color: var(--brand-accent);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-xs);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-xs);
 }
 
+.section-icon {
+  color: var(--brand-accent);
+}
+
+.section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+  margin: 0;
+  transition: color 0.2s ease;
+}
+
+.collapse-icon {
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.collapse-icon.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* ---- 分区描述 ---- */
+.section-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-xs);
+}
+
+/* ---- 分区开关 ---- */
 .section-toggle {
   display: flex;
   align-items: center;
@@ -254,12 +290,12 @@ function getIconComponent(iconName: string) {
 }
 
 .section-toggle .toggle-slider {
-  width: 32px;
+  width: 34px;
   height: 18px;
-  background: var(--bg-tertiary);
-  border-radius: 9px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--border-radius-pill);
   position: relative;
-  transition: background 0.2s;
+  transition: background 0.2s ease;
 }
 
 .section-toggle .toggle-slider::after {
@@ -267,228 +303,43 @@ function getIconComponent(iconName: string) {
   position: absolute;
   width: 14px;
   height: 14px;
-  background: white;
+  background: var(--color-text-primary);
   border-radius: 50%;
   top: 2px;
   left: 2px;
-  transition: transform 0.2s;
+  transition: left 0.2s ease;
 }
 
 .section-toggle input:checked + .toggle-slider {
-  background: var(--primary-color);
+  background: var(--brand-accent);
 }
 
 .section-toggle input:checked + .toggle-slider::after {
-  transform: translateX(14px);
+  left: 18px;
 }
 
-.section-icon {
-  color: var(--primary-color);
-}
-
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  transition: color 0.2s;
-}
-
-.collapse-icon {
-  color: var(--text-tertiary);
-  transition: transform 0.2s;
-}
-
-.collapse-icon.collapsed {
-  transform: rotate(-90deg);
-}
-
-.section-description {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
+/* ---- 字段列表 ---- */
 .section-fields {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--spacing-sm);
 }
 
+/* ---- 字段包装器 ---- */
 .field-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
+/* ---- 行内多字段行 ---- */
 .inline-row {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
   align-items: flex-end;
 }
 
 .inline-field {
   min-width: 0;
-}
-
-.field-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.required {
-  color: var(--danger-color);
-}
-
-.tooltip-icon {
-  color: var(--text-tertiary);
-  cursor: help;
-}
-
-.field-input,
-.field-select,
-.field-textarea {
-  height: 36px;
-  padding: 0 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.field-textarea {
-  height: auto;
-  resize: vertical;
-}
-
-.field-input:focus,
-.field-select:focus,
-.field-textarea:focus {
-  border-color: var(--primary-color);
-  background: var(--bg-primary);
-}
-
-.field-input.error,
-.field-select.error,
-.field-textarea.error {
-  border-color: var(--danger-color);
-}
-
-.error-text {
-  font-size: 12px;
-  color: var(--danger-color);
-}
-
-/* 密码输入 */
-.password-wrapper {
-  position: relative;
-}
-
-.password-wrapper .field-input {
-  width: 100%;
-  padding-right: 40px;
-}
-
-.btn-toggle-password {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-toggle-password:hover {
-  color: var(--text-primary);
-}
-
-/* 文件输入 */
-.file-input-wrapper {
-  display: flex;
-  gap: 8px;
-}
-
-.file-input-wrapper .field-input {
-  flex: 1;
-}
-
-.btn-file {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-file:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-/* 复选框 */
-.checkbox-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.checkbox-wrapper input[type='checkbox'] {
-  display: none;
-}
-
-.checkbox-wrapper .checkmark {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 3px;
-  position: relative;
-  transition: all 0.2s;
-}
-
-.checkbox-wrapper input[type='checkbox']:checked + .checkmark {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.checkbox-wrapper input[type='checkbox']:checked + .checkmark::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.checkbox-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 </style>

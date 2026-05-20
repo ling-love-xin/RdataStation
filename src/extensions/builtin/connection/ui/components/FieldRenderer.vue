@@ -207,94 +207,112 @@ function handleCreateFile() {
 </script>
 
 <style scoped>
+/* ---- 标签 ---- */
 .field-label {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .required {
-  color: var(--danger-color);
+  color: var(--brand-danger);
 }
 
 .tooltip-icon {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   cursor: help;
 }
 
+/* ---- 输入框 / 选择器 / 文本域 ---- */
 .field-input,
 .field-select,
 .field-textarea {
-  height: 36px;
-  padding: 0 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 13px;
+  width: 100%;
+  height: var(--height-input);
+  padding: 0 var(--spacing-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
   outline: none;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease;
+  font-family: var(--font-family);
 }
 
 .field-textarea {
   height: auto;
+  min-height: 72px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   resize: vertical;
 }
 
 .field-input:focus,
 .field-select:focus,
 .field-textarea:focus {
-  border-color: var(--primary-color);
-  background: var(--bg-primary);
+  border-color: var(--brand-accent);
+  background: var(--color-bg-primary);
+}
+
+.field-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.field-select {
+  cursor: pointer;
 }
 
 .field-input.error,
 .field-select.error,
 .field-textarea.error {
-  border-color: var(--danger-color);
+  border-color: var(--brand-danger);
 }
 
+/* ---- 错误文本 ---- */
 .error-text {
-  font-size: 12px;
-  color: var(--danger-color);
+  font-size: var(--font-size-xs);
+  color: var(--brand-danger);
 }
 
+/* ---- 密码输入包装器 ---- */
 .password-wrapper {
   position: relative;
 }
 
 .password-wrapper .field-input {
   width: 100%;
-  padding-right: 40px;
+  padding-right: 36px;
 }
 
 .btn-toggle-password {
   position: absolute;
-  right: 8px;
+  right: var(--border-radius-md);
   top: 50%;
   transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.2s ease;
 }
 
 .btn-toggle-password:hover {
-  color: var(--text-primary);
+  color: var(--color-text-secondary);
 }
 
+/* ---- 文件输入 ---- */
 .file-input-wrapper {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .file-input-wrapper .field-input {
@@ -303,47 +321,47 @@ function handleCreateFile() {
 
 .file-buttons {
   display: flex;
-  gap: 6px;
+  gap: var(--spacing-xs);
 }
 
 .btn-file,
 .btn-create {
-  height: 36px;
-  padding: 0 12px;
+  height: var(--height-input);
+  padding: 0 var(--spacing-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  gap: var(--spacing-xs);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
-  font-size: 12px;
+  transition: all 0.2s ease;
+  font-size: var(--font-size-xs);
   white-space: nowrap;
 }
 
-.btn-file:hover,
-.btn-create:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+.btn-file:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
 }
 
 .btn-create {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
+  background: var(--brand-accent);
+  border-color: var(--brand-accent);
+  color: var(--color-bg-primary);
 }
 
 .btn-create:hover {
-  background: var(--primary-color-dark, var(--primary-color));
+  background: var(--brand-accent-hover, var(--brand-accent));
 }
 
+/* ---- 复选框 ---- */
 .checkbox-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   cursor: pointer;
 }
 
@@ -354,15 +372,15 @@ function handleCreateFile() {
 .checkbox-wrapper .checkmark {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 3px;
+  border: 2px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
   position: relative;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .checkbox-wrapper input[type='checkbox']:checked + .checkmark {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: var(--brand-accent);
+  border-color: var(--brand-accent);
 }
 
 .checkbox-wrapper input[type='checkbox']:checked + .checkmark::after {
@@ -372,16 +390,16 @@ function handleCreateFile() {
   top: 1px;
   width: 4px;
   height: 8px;
-  border: solid white;
+  border: solid var(--color-bg-primary);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
 .checkbox-label {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 </style>

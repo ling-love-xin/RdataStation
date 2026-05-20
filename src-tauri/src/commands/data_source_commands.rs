@@ -282,9 +282,9 @@ pub async fn list_network_configs(
     db.list_network_configs(network_type.as_deref()).await
 }
 
-/// 创建网络配置
+/// 创建网络配置（返回创建的 NetworkConfig 含生成的 id）
 #[tauri::command]
-pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Result<(), CoreError> {
+pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Result<network_store::NetworkConfig, CoreError> {
     let now = Utc::now().to_rfc3339();
     if nc.id.is_empty() {
         nc.id = format!("G_net_{}", Uuid::new_v4().to_string().replace('-', "_"));
@@ -300,7 +300,8 @@ pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Resu
     }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
-    db.create_network_config(&nc).await
+    db.create_network_config(&nc).await?;
+    Ok(nc)
 }
 
 /// 更新网络配置

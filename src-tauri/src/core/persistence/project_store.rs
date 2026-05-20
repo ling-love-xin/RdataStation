@@ -72,15 +72,15 @@ pub struct ProjectStore {
 
 impl ProjectStore {
     /// 创建项目存储实例
-    pub async fn new(project_path: &amp;Path) -&gt; Result&lt;Self, CoreError&gt; {
+    pub async fn new(project_path: &Path) -> Result<Self, CoreError> {
         let db_manager = Arc::new(ProjectDatabaseManager::open(project_path, 3).await?);
 
         Ok(Self { db_manager })
     }
 
     /// 获取项目数据库管理器
-    pub fn project_db(&amp;self) -&gt; Arc&lt;ProjectDatabaseManager&gt; {
-        Arc::clone(&amp;self.db_manager)
+    pub fn project_db(&self) -> Arc<ProjectDatabaseManager> {
+        Arc::clone(&self.db_manager)
     }
 
     // ==================== 连接管理 ====================

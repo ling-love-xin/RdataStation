@@ -1,10 +1,22 @@
 import { ref, computed } from 'vue'
 
+export interface StagingSnapshot {
+  name: string
+  dbType: string
+  driverId: string
+  description: string
+  formData: Record<string, unknown>
+  networkConfig: Record<string, unknown>
+  advancedConfig: Record<string, unknown>
+  driverProps: Record<string, string>
+}
+
 export interface StagingEntry {
   id: number
   name: string
   dbType: string
   driverId: string
+  snapshot: StagingSnapshot
 }
 
 export function useStagingList() {
@@ -13,13 +25,23 @@ export function useStagingList() {
 
   const count = computed(() => entries.value.length)
 
-  function addEntry() {
+  function addEntry(snapshot: StagingSnapshot) {
+    // 保存当前表单快照到暂存列表
+    const existing = entries.value.find(e => e.name === snapshot.name && e.dbType === snapshot.dbType)
+    if (existing) {
+      existing.snapshot = snapshot
+      existing.driverId = snapshot.driverId
+      return existing.id
+    }
+    const id = nextId++
     entries.value.push({
-      id: nextId++,
-      name: '新建数据源',
-      dbType: '',
-      driverId: '',
+      id,
+      name: snapshot.name || `连接 ${id}`,
+      dbType: snapshot.dbType,
+      driverId: snapshot.driverId,
+      snapshot,
     })
+    return id
   }
 
   function removeEntry(id: number) {
@@ -27,15 +49,13 @@ export function useStagingList() {
     if (idx !== -1) {
       entries.value.splice(idx, 1)
     }
-    if (entries.value.length === 0) {
-      addEntry()
-    }
   }
 
-  function updateEntry(id: number, data: Partial<StagingEntry>) {
+  function updateEntryName(id: number, name: string) {
     const entry = entries.value.find(e => e.id === id)
     if (entry) {
-      Object.assign(entry, data)
+      entry.name = name
+      entry.snapshot.name = name
     }
   }
 
@@ -45,7 +65,7 @@ export function useStagingList() {
 
   function init() {
     entries.value = []
-    addEntry()
+    nextId = 1
   }
 
   init()
@@ -55,7 +75,7 @@ export function useStagingList() {
     count,
     addEntry,
     removeEntry,
-    updateEntry,
+    updateEntryName,
     selectEntry,
     init,
   }

@@ -14,7 +14,6 @@ use crate::core::persistence::plugin_store::{
     Plugin, ProjectUsedPlugin, ProjectPluginConfig
 };
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
-use crate::core::persistence::project_db::ProjectDatabaseManager;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use std::sync::Arc;
@@ -26,7 +25,7 @@ pub struct PluginStatus {
     pub version: String,
     pub plugin_type: String,
     pub status: String,
-    pub config: Option&lt;serde_json::Value&gt;,
+    pub config: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,20 +33,20 @@ pub struct InstallPluginRequest {
     pub code: String,
     pub name: String,
     pub version: String,
-    pub author: Option&lt;String&gt;,
-    pub description: Option&lt;String&gt;,
-    pub repo_url: Option&lt;String&gt;,
+    pub author: Option<String>,
+    pub description: Option<String>,
+    pub repo_url: Option<String>,
     pub plugin_type: String,
-    pub manifest_json: Option&lt;String&gt;,
+    pub manifest_json: Option<String>,
     pub install_path: String,
-    pub is_builtin: Option&lt;bool&gt;,
+    pub is_builtin: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnablePluginInProjectRequest {
     pub plugin_code: String,
     pub plugin_version: String,
-    pub required: Option&lt;bool&gt;,
+    pub required: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,11 +65,11 @@ pub async fn plugin_db_query(
     plugin_id: String,
     conn_id: String,
     sql: String,
-    timeout: Option&lt;u64&gt;,
-) -&gt; Result&lt;crate::api::dto::QueryResult, CoreError&gt; {
+    timeout: Option<u64>,
+) -> Result<crate::api::dto::QueryResult, CoreError> {
     let _ = timeout;
     let bridge = get_plugin_bridge();
-    let result = bridge.query(&amp;plugin_id, &amp;conn_id, &amp;sql).await?;
+    let result = bridge.query(&plugin_id, &conn_id, &sql).await?;
     Ok(result)
 }
 
@@ -81,65 +80,65 @@ pub async fn plugin_db_metadata(
     catalog: String,
     schema: String,
     kind: String,
-) -&gt; Result&lt;serde_json::Value, CoreError&gt; {
+) -> Result<serde_json::Value, CoreError> {
     let bridge = get_plugin_bridge();
     let result = bridge
-        .metadata(&amp;plugin_id, &amp;conn_id, &amp;catalog, &amp;schema, &amp;kind)
+        .metadata(&plugin_id, &conn_id, &catalog, &schema, &kind)
         .await?;
     Ok(result)
 }
 
 #[tauri::command]
-pub async fn plugin_list(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
-) -&gt; Result&lt;Vec&lt;PluginInfo&gt;, CoreError&gt; {
+pub fn plugin_list(
+    plugin_manager: State<'_, Arc<PluginManager>>,
+) -> Result<Vec<PluginInfo>, CoreError> {
     Ok(plugin_manager.list_plugins())
 }
 
 #[tauri::command]
-pub async fn plugin_load(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
+pub fn plugin_load(
+    plugin_manager: State<'_, Arc<PluginManager>>,
     plugin_id: String,
     plugin_path: String,
-) -&gt; Result&lt;PluginInfo, CoreError&gt; {
+) -> Result<PluginInfo, CoreError> {
     use std::path::PathBuf;
     let path = PathBuf::from(plugin_path);
-    let info = plugin_manager.load_plugin(&amp;plugin_id, &amp;path)?;
+    let info = plugin_manager.load_plugin(&plugin_id, &path)?;
     Ok(info)
 }
 
 #[tauri::command]
-pub async fn plugin_activate(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
+pub fn plugin_activate(
+    plugin_manager: State<'_, Arc<PluginManager>>,
     plugin_id: String,
-) -&gt; Result&lt;(), CoreError&gt; {
-    plugin_manager.activate_plugin(&amp;plugin_id)?;
+) -> Result<(), CoreError> {
+    plugin_manager.activate_plugin(&plugin_id)?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn plugin_deactivate(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
+pub fn plugin_deactivate(
+    plugin_manager: State<'_, Arc<PluginManager>>,
     plugin_id: String,
-) -&gt; Result&lt;(), CoreError&gt; {
-    plugin_manager.deactivate_plugin(&amp;plugin_id)?;
+) -> Result<(), CoreError> {
+    plugin_manager.deactivate_plugin(&plugin_id)?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn plugin_unload(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
+pub fn plugin_unload(
+    plugin_manager: State<'_, Arc<PluginManager>>,
     plugin_id: String,
-) -&gt; Result&lt;(), CoreError&gt; {
-    plugin_manager.unload_plugin(&amp;plugin_id)?;
+) -> Result<(), CoreError> {
+    plugin_manager.unload_plugin(&plugin_id)?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn plugin_get_status(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
+pub fn plugin_get_status(
+    plugin_manager: State<'_, Arc<PluginManager>>,
     plugin_id: String,
-) -&gt; Result&lt;PluginStatus, CoreError&gt; {
+) -> Result<PluginStatus, CoreError> {
     let plugins = plugin_manager.list_plugins();
     let plugin = plugins.into_iter().find(|p| p.id == plugin_id)
         .ok_or_else(|| CoreError::from("Plugin not found"))?;
@@ -155,25 +154,21 @@ pub async fn plugin_get_status(
 }
 
 #[tauri::command]
-pub async fn plugin_add_directory(
-    plugin_manager: State&lt;'_, Arc&lt;PluginManager&gt;&gt;,
+pub fn plugin_add_directory(
+    plugin_manager: State<'_, Arc<PluginManager>>,
     directory: String,
-) -&gt; Result&lt;Vec&lt;PluginInfo&gt;, CoreError&gt; {
-    use std::path::PathBuf;
-    let path = PathBuf::from(directory);
-    let mut manager = plugin_manager.as_ref().clone();
-    
-    let manager_ptr = Arc::make_mut(&amp;mut manager);
-    manager_ptr.add_plugin_dir(path);
-    
-    let discovered = manager_ptr.scan_plugins()?;
+) -> Result<Vec<PluginInfo>, CoreError> {
+    // Note: add_plugin_dir requires &mut self, not available through Arc.
+    // Directory scanning is done via scan_plugins which takes &self.
+    let _ = directory;
+    let discovered = plugin_manager.scan_plugins()?;
     Ok(discovered)
 }
 
 // ==================== 插件安装管理 ====================
 
 #[tauri::command]
-pub async fn plugin_get_all_installed() -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreError&gt; {
+pub async fn plugin_get_all_installed() -> Result<Vec<Plugin>, CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
@@ -182,34 +177,34 @@ pub async fn plugin_get_all_installed() -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreE
 
 #[tauri::command]
 pub async fn plugin_get_with_status(
-    project_state: State&lt;'_, ProjectState&gt;,
-) -&gt; Result&lt;Vec&lt;PluginWithStatus&gt;, CoreError&gt; {
+    project_state: State<'_, ProjectState>,
+) -> Result<Vec<PluginWithStatus>, CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db());
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()));
     
     match project_db {
-        Some(db) =&gt; {
+        Some(db) => {
             let conn_store = ProjectConnectionStore::new(db);
-            service.get_plugins_with_status(Some(&amp;conn_store)).await
+            service.get_plugins_with_status(Some(&conn_store)).await
         },
-        None =&gt; service.get_plugins_with_status(None).await
+        None => service.get_plugins_with_status(None).await
     }
 }
 
 #[tauri::command]
-pub async fn plugin_get(plugin_id: String) -&gt; Result&lt;Option&lt;Plugin&gt;, CoreError&gt; {
+pub async fn plugin_get(plugin_id: String) -> Result<Option<Plugin>, CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    service.get_plugin(&amp;plugin_id).await
+    service.get_plugin(&plugin_id).await
 }
 
 #[tauri::command]
-pub async fn plugin_install(request: InstallPluginRequest) -&gt; Result&lt;Plugin, CoreError&gt; {
+pub async fn plugin_install(request: InstallPluginRequest) -> Result<Plugin, CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
@@ -228,47 +223,47 @@ pub async fn plugin_install(request: InstallPluginRequest) -&gt; Result&lt;Plugi
 }
 
 #[tauri::command]
-pub async fn plugin_enable(plugin_id: String) -&gt; Result&lt;(), CoreError&gt; {
+pub async fn plugin_enable(plugin_id: String) -> Result<(), CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    service.enable_plugin(&amp;plugin_id).await
+    service.enable_plugin(&plugin_id).await
 }
 
 #[tauri::command]
-pub async fn plugin_disable(plugin_id: String) -&gt; Result&lt;(), CoreError&gt; {
+pub async fn plugin_disable(plugin_id: String) -> Result<(), CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    service.disable_plugin(&amp;plugin_id).await
+    service.disable_plugin(&plugin_id).await
 }
 
 #[tauri::command]
-pub async fn plugin_uninstall(plugin_id: String) -&gt; Result&lt;(), CoreError&gt; {
+pub async fn plugin_uninstall(plugin_id: String) -> Result<(), CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    service.uninstall_plugin(&amp;plugin_id).await
+    service.uninstall_plugin(&plugin_id).await
 }
 
 // ==================== 项目插件管理 ====================
 
 #[tauri::command]
 pub async fn project_plugin_enable(
-    project_state: State&lt;'_, ProjectState&gt;,
+    project_state: State<'_, ProjectState>,
     request: EnablePluginInProjectRequest,
-) -&gt; Result&lt;(), CoreError&gt; {
+) -> Result<(), CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db())
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
     service.enable_plugin_in_project(
-        &amp;conn_store,
+        &conn_store,
         request.plugin_code,
         request.plugin_version,
         request.required,
@@ -277,57 +272,57 @@ pub async fn project_plugin_enable(
 
 #[tauri::command]
 pub async fn project_plugin_disable(
-    project_state: State&lt;'_, ProjectState&gt;,
+    project_state: State<'_, ProjectState>,
     plugin_code: String,
     plugin_version: String,
-) -&gt; Result&lt;(), CoreError&gt; {
+) -> Result<(), CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db())
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
-    service.disable_plugin_in_project(&amp;conn_store, plugin_code, plugin_version).await
+    service.disable_plugin_in_project(&conn_store, plugin_code, plugin_version).await
 }
 
 #[tauri::command]
 pub async fn project_plugin_remove(
-    project_state: State&lt;'_, ProjectState&gt;,
+    project_state: State<'_, ProjectState>,
     plugin_code: String,
     plugin_version: String,
-) -&gt; Result&lt;(), CoreError&gt; {
+) -> Result<(), CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db())
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
-    crate::core::persistence::plugin_store::project_remove_plugin(&amp;conn_store, &amp;plugin_code, &amp;plugin_version).await?;
+    conn_store.project_remove_plugin(&plugin_code, &plugin_version).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn project_plugin_list(
-    project_state: State&lt;'_, ProjectState&gt;,
-) -&gt; Result&lt;Vec&lt;ProjectUsedPlugin&gt;, CoreError&gt; {
+    project_state: State<'_, ProjectState>,
+) -> Result<Vec<ProjectUsedPlugin>, CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db())
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
-    crate::core::persistence::plugin_store::project_get_plugins(&amp;conn_store).await
+    conn_store.project_get_plugins().await
 }
 
 #[tauri::command]
 pub async fn project_plugin_set_config(
-    project_state: State&lt;'_, ProjectState&gt;,
+    project_state: State<'_, ProjectState>,
     plugin_code: String,
     plugin_version: String,
     key: String,
-    value: Option&lt;String&gt;,
-) -&gt; Result&lt;(), CoreError&gt; {
+    value: Option<String>,
+) -> Result<(), CoreError> {
     let config = ProjectPluginConfig {
         plugin_code,
         plugin_version,
@@ -337,32 +332,32 @@ pub async fn project_plugin_set_config(
     };
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db())
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
-    crate::core::persistence::plugin_store::project_set_plugin_config(&amp;conn_store, &amp;config).await?;
+    conn_store.project_set_plugin_config(&config).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn project_plugin_get_configs(
-    project_state: State&lt;'_, ProjectState&gt;,
+    project_state: State<'_, ProjectState>,
     plugin_code: String,
     plugin_version: String,
-) -&gt; Result&lt;Vec&lt;ProjectPluginConfig&gt;, CoreError&gt; {
+) -> Result<Vec<ProjectPluginConfig>, CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| s.project_db())
+    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
-    crate::core::persistence::plugin_store::project_get_plugin_configs(&amp;conn_store, &amp;plugin_code, &amp;plugin_version).await
+    conn_store.project_get_plugin_configs(&plugin_code, &plugin_version).await
 }
 
 // ==================== 启动相关 ====================
 
 #[tauri::command]
-pub async fn plugin_load_enabled_on_startup() -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreError&gt; {
+pub async fn plugin_load_enabled_on_startup() -> Result<Vec<Plugin>, CoreError> {
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);

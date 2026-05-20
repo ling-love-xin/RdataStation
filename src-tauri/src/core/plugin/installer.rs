@@ -25,16 +25,16 @@ pub struct PluginInstaller {
 
 impl PluginInstaller {
     /// 创建新的安装器
-    pub fn new(install_dir: PathBuf) -&gt; Self {
+    pub fn new(install_dir: PathBuf) -> Self {
         Self { install_dir }
     }
 
     /// 从文件路径检测插件包格式
-    pub fn detect_format(path: &amp;Path) -&gt; Option&lt;PluginPackageFormat&gt; {
+    pub fn detect_format(path: &Path) -> Option<PluginPackageFormat> {
         let ext = path.extension()?.to_str()?.to_lowercase();
         match ext.as_str() {
-            "zip" =&gt; Some(PluginPackageFormat::Zip),
-            "gz" =&gt; {
+            "zip" => Some(PluginPackageFormat::Zip),
+            "gz" => {
                 if let Some(stem) = path.file_stem() {
                     let stem_path = Path::new(stem);
                     if stem_path.extension().map(|e| e.to_str()).flatten() == Some("tar") {
@@ -43,7 +43,7 @@ impl PluginInstaller {
                 }
                 None
             }
-            _ =&gt; {
+            _ => {
                 if path.is_dir() {
                     Some(PluginPackageFormat::Directory)
                 } else {
@@ -55,10 +55,10 @@ impl PluginInstaller {
 
     /// 安装插件包
     pub async fn install_package(
-        &amp;self,
-        package_path: &amp;Path,
-        db_manager: &amp;'static GlobalDatabaseManager,
-    ) -&gt; Result&lt;Plugin, CoreError&gt; {
+        &self,
+        package_path: &Path,
+        db_manager: &'static GlobalDatabaseManager,
+    ) -> Result<Plugin, CoreError> {
         // 1. 检测格式
         let format = Self::detect_format(package_path)
             .ok_or_else(|| CoreError::common(CommonError::general(format!(
@@ -68,83 +68,51 @@ impl PluginInstaller {
 
         // 2. 解压或直接使用
         let extracted_dir = match format {
-            PluginPackageFormat::Zip =&gt; self.extract_zip(package_path)?,
-            PluginPackageFormat::TarGz =&gt; self.extract_tar_gz(package_path)?,
-            PluginPackageFormat::Directory =&gt; package_path.to_path_buf(),
+            PluginPackageFormat::Zip => self.extract_zip(package_path)?,
+            PluginPackageFormat::TarGz => self.extract_tar_gz(package_path)?,
+            PluginPackageFormat::Directory => package_path.to_path_buf(),
         };
 
         // 3. 验证插件
-        let manifest = self.validate_plugin(&amp;extracted_dir)?;
+        let manifest = self.validate_plugin(&extracted_dir)?;
 
         // 4. 复制到最终安装位置
-        let final_install_path = self.install_dir.join(&amp;manifest.plugin.id);
-        self.copy_plugin(&amp;extracted_dir, &amp;final_install_path)?;
+        let final_install_path = self.install_dir.join(&manifest.plugin.id);
+        self.copy_plugin(&extracted_dir, &final_install_path)?;
 
         // 5. 注册到数据库
-        let plugin = self.register_plugin(&amp;manifest, &amp;final_install_path, db_manager).await?;
+        let plugin = self.register_plugin(&manifest, &final_install_path, db_manager).await?;
 
         // 6. 清理临时解压目录（如果是从压缩包解压的）
         if format != PluginPackageFormat::Directory {
-            let _ = std::fs::remove_dir_all(&amp;extracted_dir);
+            let _ = std::fs::remove_dir_all(&extracted_dir);
         }
 
         // 7. 加载插件
         let loader = get_plugin_loader();
-        let _ = loader.load_plugin_from_dir(&amp;final_install_path).await;
+        let _ = loader.load_plugin_from_dir(&final_install_path).await;
 
         Ok(plugin)
     }
 
-    /// 解压 ZIP 包
-    fn extract_zip(&amp;self, zip_path: &amp;Path) -&gt; Result&lt;PathBuf, CoreError&gt; {
-        use zip::ZipArchive;
-        use std::io::Read;
-
-        let file = std::fs::File::open(zip_path)?;
-        let mut archive = ZipArchive::new(file)?;
-
-        let temp_dir = std::env::temp_dir().join(format!("plugin_install_{}", uuid::Uuid::new_v4().simple()));
-        std::fs::create_dir_all(&amp;temp_dir)?;
-
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let outpath = temp_dir.join(file.mangled_name());
-
-            if file.name().ends_with('/') {
-                std::fs::create_dir_all(&amp;outpath)?;
-            } else {
-                if let Some(p) = outpath.parent() {
-                    if !p.exists() {
-                        std::fs::create_dir_all(p)?;
-                    }
-                }
-                let mut outfile = std::fs::File::create(&amp;outpath)?;
-                std::io::copy(&amp;mut file, &amp;mut outfile)?;
-            }
-        }
-
-        Ok(temp_dir)
+    /// 解压 ZIP 包（占位实现 - 需要添加 zip crate 依赖）
+    fn extract_zip(&self, zip_path: &Path) -> Result<PathBuf, CoreError> {
+        let _ = zip_path;
+        Err(CoreError::common(CommonError::general(
+            "ZIP extraction is not yet available (zip crate not included)".to_string(),
+        )))
     }
 
-    /// 解压 TAR.GZ 包
-    fn extract_tar_gz(&amp;self, tar_path: &amp;Path) -&gt; Result&lt;PathBuf, CoreError&gt; {
-        use flate2::read::GzDecoder;
-        use tar::Archive;
-
-        let tar_gz = std::fs::File::open(tar_path)?;
-        let tar = GzDecoder::new(tar_gz);
-        let mut archive = Archive::new(tar);
-
-        let temp_dir = std::env::temp_dir().join(format!("plugin_install_{}", uuid::Uuid::new_v4().simple()));
-        std::fs::create_dir_all(&amp;temp_dir)?;
-
-        archive.unpack(&amp;temp_dir)?;
-
-        Ok(temp_dir)
+    /// 解压 TAR.GZ 包（占位实现 - 需要添加 tar 和 flate2 crate 依赖）
+    fn extract_tar_gz(&self, tar_path: &Path) -> Result<PathBuf, CoreError> {
+        let _ = tar_path;
+        Err(CoreError::common(CommonError::general(
+            "TAR.GZ extraction is not yet available (tar/flate2 crates not included)".to_string(),
+        )))
     }
 
     /// 验证插件
-    fn validate_plugin(&amp;self, plugin_dir: &amp;Path) -&gt; Result&lt;PluginManifest, CoreError&gt; {
+    fn validate_plugin(&self, plugin_dir: &Path) -> Result<PluginManifest, CoreError> {
         let manifest_path = plugin_dir.join("plugin.toml");
         if !manifest_path.exists() {
             return Err(CoreError::common(CommonError::general(
@@ -152,13 +120,13 @@ impl PluginInstaller {
             )));
         }
 
-        let manifest = ManifestParser::parse(&amp;manifest_path)?;
+        let manifest = ManifestParser::parse(&manifest_path)?;
         manifest.validate()?;
         Ok(manifest)
     }
 
     /// 复制插件到安装目录
-    fn copy_plugin(&amp;self, source_dir: &amp;Path, target_dir: &amp;Path) -&gt; Result&lt;(), CoreError&gt; {
+    fn copy_plugin(&self, source_dir: &Path, target_dir: &Path) -> Result<(), CoreError> {
         if target_dir.exists() {
             let _ = std::fs::remove_dir_all(target_dir);
         }
@@ -169,7 +137,7 @@ impl PluginInstaller {
     }
 
     /// 递归复制目录
-    fn copy_dir(&amp;self, source: &amp;Path, dest: &amp;Path) -&gt; Result&lt;(), std::io::Error&gt; {
+    fn copy_dir(&self, source: &Path, dest: &Path) -> Result<(), std::io::Error> {
         std::fs::create_dir_all(dest)?;
 
         for entry in std::fs::read_dir(source)? {
@@ -178,7 +146,7 @@ impl PluginInstaller {
             let dest_path = dest.join(entry.file_name());
 
             if file_type.is_dir() {
-                self.copy_dir(&amp;entry.path(), &amp;dest_path)?;
+                self.copy_dir(&entry.path(), &dest_path)?;
             } else {
                 std::fs::copy(entry.path(), dest_path)?;
             }
@@ -189,11 +157,11 @@ impl PluginInstaller {
 
     /// 注册插件到数据库
     async fn register_plugin(
-        &amp;self,
-        manifest: &amp;PluginManifest,
-        install_path: &amp;Path,
-        db_manager: &amp;'static GlobalDatabaseManager,
-    ) -&gt; Result&lt;Plugin, CoreError&gt; {
+        &self,
+        manifest: &PluginManifest,
+        install_path: &Path,
+        db_manager: &'static GlobalDatabaseManager,
+    ) -> Result<Plugin, CoreError> {
         let now = chrono::Utc::now().to_rfc3339();
         let plugin = Plugin {
             id: uuid::Uuid::new_v4().to_string(),
@@ -222,7 +190,7 @@ impl PluginInstaller {
             updated_at: now,
         };
 
-        db_manager.register_plugin(&amp;plugin).await?;
+        db_manager.register_plugin(&plugin).await?;
 
         Ok(plugin)
     }

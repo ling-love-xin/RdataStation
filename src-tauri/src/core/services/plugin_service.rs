@@ -36,25 +36,25 @@ pub struct PluginWithStatus {
 
 /// 插件服务
 pub struct PluginService {
-    global_db: &amp;'static GlobalDatabaseManager,
+    global_db: &'static GlobalDatabaseManager,
 }
 
 impl PluginService {
     /// 创建插件服务实例
-    pub fn new(global_db: &amp;'static GlobalDatabaseManager) -&gt; Self {
+    pub fn new(global_db: &'static GlobalDatabaseManager) -> Self {
         Self { global_db }
     }
 
     /// 获取所有已安装的插件
-    pub async fn get_installed_plugins(&amp;self) -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreError&gt; {
+    pub async fn get_installed_plugins(&self) -> Result<Vec<Plugin>, CoreError> {
         self.global_db.get_all_plugins().await
     }
 
     /// 获取带有状态的所有插件
     pub async fn get_plugins_with_status(
-        &amp;self,
-        project_store: Option&lt;&amp;ProjectConnectionStore&gt;,
-    ) -&gt; Result&lt;Vec&lt;PluginWithStatus&gt;, CoreError&gt; {
+        &self,
+        project_store: Option<&ProjectConnectionStore>,
+    ) -> Result<Vec<PluginWithStatus>, CoreError> {
         let plugins = self.get_installed_plugins().await?;
         
         let mut result = Vec::with_capacity(plugins.len());
@@ -63,7 +63,7 @@ impl PluginService {
             let status = if let Some(store) = project_store {
                 let project_plugins = store.project_get_plugins().await?;
                 let found = project_plugins.iter().find(|p| {
-                    p.plugin_code == plugin.code &amp;&amp; p.plugin_version == plugin.version
+                    p.plugin_code == plugin.code && p.plugin_version == plugin.version
                 });
                 
                 if let Some(p) = found {
@@ -90,35 +90,35 @@ impl PluginService {
     }
 
     /// 获取单个插件
-    pub async fn get_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Option&lt;Plugin&gt;, CoreError&gt; {
+    pub async fn get_plugin(&self, plugin_id: &str) -> Result<Option<Plugin>, CoreError> {
         self.global_db.get_plugin(plugin_id).await
     }
 
     /// 通过 code 和 version 获取插件
     pub async fn get_plugin_by_code_version(
-        &amp;self,
-        code: &amp;str,
-        version: &amp;str,
-    ) -&gt; Result&lt;Option&lt;Plugin&gt;, CoreError&gt; {
+        &self,
+        code: &str,
+        version: &str,
+    ) -> Result<Option<Plugin>, CoreError> {
         self.global_db.get_plugin_by_code_version(code, version).await
     }
 
     /// 安装新插件
     pub async fn install_plugin(
-        &amp;self,
+        &self,
         code: String,
         name: String,
         version: String,
-        author: Option&lt;String&gt;,
-        description: Option&lt;String&gt;,
-        repo_url: Option&lt;String&gt;,
+        author: Option<String>,
+        description: Option<String>,
+        repo_url: Option<String>,
         plugin_type: String,
-        manifest_json: Option&lt;String&gt;,
+        manifest_json: Option<String>,
         install_path: String,
-        is_builtin: Option&lt;bool&gt;,
-    ) -&gt; Result&lt;Plugin, CoreError&gt; {
+        is_builtin: Option<bool>,
+    ) -> Result<Plugin, CoreError> {
         // 检查是否已存在
-        let existing = self.get_plugin_by_code_version(&amp;code, &amp;version).await?;
+        let existing = self.get_plugin_by_code_version(&code, &version).await?;
         if existing.is_some() {
             return Err(CoreError::plugin(PluginError::already_exists(code.clone(), version.clone())));
         }
@@ -141,16 +141,16 @@ impl PluginService {
             updated_at: now,
         };
 
-        self.global_db.register_plugin(&amp;plugin).await?;
+        self.global_db.register_plugin(&plugin).await?;
 
         // 发布插件已安装事件
-        emit_plugin_installed(&amp;plugin.id, &amp;code, &amp;version);
+        emit_plugin_installed(&plugin.id, &code, &version);
 
         Ok(plugin)
     }
 
     /// 全局启用插件
-    pub async fn enable_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn enable_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         // 检查插件存在
         let plugin = self.get_plugin(plugin_id).await?;
         if plugin.is_none() {
@@ -168,7 +168,7 @@ impl PluginService {
     }
 
     /// 全局禁用插件
-    pub async fn disable_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn disable_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let plugin = self.get_plugin(plugin_id).await?;
         if plugin.is_none() {
             return Err(CoreError::plugin(PluginError::not_found(plugin_id.to_string())));
@@ -185,7 +185,7 @@ impl PluginService {
     }
 
     /// 卸载插件
-    pub async fn uninstall_plugin(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn uninstall_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let plugin = self.get_plugin(plugin_id).await?;
         if plugin.is_none() {
             return Err(CoreError::plugin(PluginError::not_found(plugin_id.to_string())));
@@ -206,14 +206,14 @@ impl PluginService {
 
     /// 在项目中启用插件
     pub async fn enable_plugin_in_project(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
+        &self,
+        project_store: &ProjectConnectionStore,
         plugin_code: String,
         plugin_version: String,
-        required: Option&lt;bool&gt;,
-    ) -&gt; Result&lt;(), CoreError&gt; {
+        required: Option<bool>,
+    ) -> Result<(), CoreError> {
         // 检查全局是否有这个插件
-        let global_plugin = self.get_plugin_by_code_version(&amp;plugin_code, &amp;plugin_version).await?;
+        let global_plugin = self.get_plugin_by_code_version(&plugin_code, &plugin_version).await?;
         
         if global_plugin.is_none() {
             return Err(CoreError::plugin(PluginError::not_found_by_code(
@@ -229,53 +229,53 @@ impl PluginService {
             required: required.unwrap_or(false),
         };
 
-        project_store.project_add_plugin(&amp;used_plugin).await?;
+        project_store.project_add_plugin(&used_plugin).await?;
         Ok(())
     }
 
     /// 在项目中禁用插件
     pub async fn disable_plugin_in_project(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
+        &self,
+        project_store: &ProjectConnectionStore,
         plugin_code: String,
         plugin_version: String,
-    ) -&gt; Result&lt;(), CoreError&gt; {
+    ) -> Result<(), CoreError> {
         project_store
-            .project_update_plugin_enabled(&amp;plugin_code, &amp;plugin_version, false)
+            .project_update_plugin_enabled(&plugin_code, &plugin_version, false)
             .await?;
         Ok(())
     }
 
     /// 从项目中移除插件
     pub async fn remove_plugin_from_project(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
+        &self,
+        project_store: &ProjectConnectionStore,
         plugin_code: String,
         plugin_version: String,
-    ) -&gt; Result&lt;(), CoreError&gt; {
+    ) -> Result<(), CoreError> {
         project_store
-            .project_remove_plugin(&amp;plugin_code, &amp;plugin_version)
+            .project_remove_plugin(&plugin_code, &plugin_version)
             .await?;
         Ok(())
     }
 
     /// 获取项目使用的所有插件
     pub async fn get_project_plugins(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
-    ) -&gt; Result&lt;Vec&lt;ProjectUsedPlugin&gt;, CoreError&gt; {
+        &self,
+        project_store: &ProjectConnectionStore,
+    ) -> Result<Vec<ProjectUsedPlugin>, CoreError> {
         project_store.project_get_plugins().await
     }
 
     /// 设置项目插件配置
     pub async fn set_project_plugin_config(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
+        &self,
+        project_store: &ProjectConnectionStore,
         plugin_code: String,
         plugin_version: String,
         key: String,
-        value: Option&lt;String&gt;,
-    ) -&gt; Result&lt;(), CoreError&gt; {
+        value: Option<String>,
+    ) -> Result<(), CoreError> {
         let config = ProjectPluginConfig {
             plugin_code,
             plugin_version,
@@ -283,19 +283,19 @@ impl PluginService {
             value,
             updated_at: chrono::Utc::now().to_rfc3339(),
         };
-        project_store.project_set_plugin_config(&amp;config).await?;
+        project_store.project_set_plugin_config(&config).await?;
         Ok(())
     }
 
     /// 获取项目插件配置
     pub async fn get_project_plugin_configs(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
+        &self,
+        project_store: &ProjectConnectionStore,
         plugin_code: String,
         plugin_version: String,
-    ) -&gt; Result&lt;Vec&lt;ProjectPluginConfig&gt;, CoreError&gt; {
+    ) -> Result<Vec<ProjectPluginConfig>, CoreError> {
         project_store
-            .project_get_plugin_configs(&amp;plugin_code, &amp;plugin_version)
+            .project_get_plugin_configs(&plugin_code, &plugin_version)
             .await
     }
 
@@ -303,38 +303,38 @@ impl PluginService {
 
     /// 设置插件全局配置
     pub async fn set_global_config(
-        &amp;self,
+        &self,
         plugin_id: String,
         key: String,
-        value: Option&lt;String&gt;,
-    ) -&gt; Result&lt;(), CoreError&gt; {
+        value: Option<String>,
+    ) -> Result<(), CoreError> {
         let config = PluginGlobalConfig {
             plugin_id,
             key,
             value,
             updated_at: chrono::Utc::now().to_rfc3339(),
         };
-        self.global_db.set_plugin_global_config(&amp;config).await?;
+        self.global_db.set_plugin_global_config(&config).await?;
         Ok(())
     }
 
     /// 获取插件全局配置
     pub async fn get_global_configs(
-        &amp;self,
-        plugin_id: &amp;str,
-    ) -&gt; Result&lt;Vec&lt;PluginGlobalConfig&gt;, CoreError&gt; {
+        &self,
+        plugin_id: &str,
+    ) -> Result<Vec<PluginGlobalConfig>, CoreError> {
         self.global_db.get_plugin_global_configs(plugin_id).await
     }
 
     // ==================== 启动流程 ====================
 
     /// 应用启动时加载所有启用的插件
-    pub async fn load_enabled_plugins_on_startup(&amp;self) -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreError&gt; {
+    pub async fn load_enabled_plugins_on_startup(&self) -> Result<Vec<Plugin>, CoreError> {
         let all_plugins = self.get_installed_plugins().await?;
         let enabled_plugins = all_plugins
             .into_iter()
             .filter(|p| p.is_enabled)
-            .collect::&lt;Vec&lt;_&gt;&gt;();
+            .collect::<Vec<_>>();
 
         // 扫描并加载插件到 PluginManager
         let loader = get_plugin_loader();
@@ -347,7 +347,7 @@ impl PluginService {
 
         // 尝试激活已加载的插件
         for loaded_plugin in loaded.unwrap_or_default() {
-            let _ = loader.activate_plugin(&amp;loaded_plugin.id).await;
+            let _ = loader.activate_plugin(&loaded_plugin.id).await;
         }
 
         Ok(enabled_plugins)
@@ -355,9 +355,9 @@ impl PluginService {
 
     /// 项目打开时加载项目指定的插件
     pub async fn load_project_plugins_on_open(
-        &amp;self,
-        project_store: &amp;ProjectConnectionStore,
-    ) -&gt; Result&lt;Vec&lt;Plugin&gt;, CoreError&gt; {
+        &self,
+        project_store: &ProjectConnectionStore,
+    ) -> Result<Vec<Plugin>, CoreError> {
         let project_plugins = self.get_project_plugins(project_store).await?;
         let mut result = Vec::with_capacity(project_plugins.len());
 
@@ -366,16 +366,16 @@ impl PluginService {
         for used_plugin in project_plugins {
             if used_plugin.enabled {
                 if let Some(plugin) = self
-                    .get_plugin_by_code_version(&amp;used_plugin.plugin_code, &amp;used_plugin.plugin_version)
+                    .get_plugin_by_code_version(&used_plugin.plugin_code, &used_plugin.plugin_version)
                     .await?
                 {
                     result.push(plugin.clone());
 
                     // 尝试加载并激活插件
-                    let install_path = std::path::PathBuf::from(&amp;plugin.install_path);
+                    let install_path = std::path::PathBuf::from(&plugin.install_path);
                     if install_path.exists() {
-                        if let Ok(loaded) = loader.load_plugin_from_dir(&amp;install_path).await {
-                            let _ = loader.activate_plugin(&amp;loaded.id).await;
+                        if let Ok(loaded) = loader.load_plugin_from_dir(&install_path).await {
+                            let _ = loader.activate_plugin(&loaded.id).await;
                         }
                     }
                 }

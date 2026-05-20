@@ -67,14 +67,14 @@ impl LogStore {
         let conn = self.pool.acquire().await?;
 
         let result = (|| -> Result<(), CoreError> {
-            conn.execute_batch("BEGIN TRANSACTION")
+            conn.inner()?.execute_batch("BEGIN TRANSACTION")
                 .map_err(|e| Self::sqlite_err("begin_tx", e.to_string()))?;
 
             let sql = "INSERT INTO app_logs (timestamp, level, target, message, fields, file, line, session_id) \
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
             for record in records {
-                conn.execute(
+                conn.inner()?.execute(
                     sql,
                     rusqlite::params![
                         record.timestamp,
@@ -89,18 +89,18 @@ impl LogStore {
                 )
                 .map_err(|e| {
                     // 回滚事务
-                    let _ = conn.execute_batch("ROLLBACK");
+                    let _ = conn.inner().ok().map(|c| c.execute_batch("ROLLBACK"));
                     Self::sqlite_err("insert_log", e.to_string())
                 })?;
             }
 
-            conn.execute_batch("COMMIT")
+            conn.inner()?.execute_batch("COMMIT")
                 .map_err(|e| Self::sqlite_err("commit_tx", e.to_string()))?;
 
             Ok(())
         })();
 
-        self.pool.release(conn).await;
+        
 
         result?;
 
@@ -126,6 +126,7 @@ impl LogStore {
         let count_sql = format!("SELECT COUNT(*) FROM app_logs {}", where_clause);
         let total: usize = {
             let mut stmt = conn
+                .inner()?
                 .prepare(&count_sql)
                 .map_err(|e| Self::sqlite_err("count_logs", e.to_string()))?;
             let params_refs: Vec<&dyn rusqlite::types::ToSql> = params
@@ -150,6 +151,7 @@ impl LogStore {
 
         let records = {
             let mut stmt = conn
+                .inner()?
                 .prepare(&query_sql)
                 .map_err(|e| Self::sqlite_err("query_logs", e.to_string()))?;
 
@@ -191,7 +193,7 @@ impl LogStore {
             result
         };
 
-        self.pool.release(conn).await;
+        
 
         Ok(LogPage {
             records,
@@ -250,11 +252,13 @@ impl LogStore {
 
         let result = (|| -> Result<LogStats, CoreError> {
             let total: usize = conn
+                .inner()?
                 .query_row("SELECT COUNT(*) FROM app_logs", [], |row| row.get(0))
                 .map_err(|e| Self::sqlite_err("stats_total", e.to_string()))?;
 
             let by_level = {
                 let mut stmt = conn
+                    .inner()?
                     .prepare("SELECT level, COUNT(*) FROM app_logs GROUP BY level")
                     .map_err(|e| Self::sqlite_err("stats_by_level", e.to_string()))?;
 
@@ -286,6 +290,7 @@ impl LogStore {
 
             let by_target = {
                 let mut stmt = conn
+                    .inner()?
                     .prepare(
                         "SELECT target, COUNT(*) as cnt FROM app_logs GROUP BY target ORDER BY cnt DESC LIMIT 20",
                     )
@@ -308,6 +313,7 @@ impl LogStore {
             };
 
             let first_timestamp: Option<String> = conn
+                .inner()?
                 .query_row(
                     "SELECT timestamp FROM app_logs ORDER BY timestamp ASC LIMIT 1",
                     [],
@@ -316,6 +322,7 @@ impl LogStore {
                 .ok();
 
             let last_timestamp: Option<String> = conn
+                .inner()?
                 .query_row(
                     "SELECT timestamp FROM app_logs ORDER BY timestamp DESC LIMIT 1",
                     [],
@@ -332,7 +339,7 @@ impl LogStore {
             })
         })();
 
-        self.pool.release(conn).await;
+        
         result
     }
 
@@ -341,10 +348,10 @@ impl LogStore {
         let conn = self.pool.acquire().await?;
 
         let deleted = if let Some(ts) = before_timestamp {
-            conn.execute("DELETE FROM app_logs WHERE timestamp < ?1", [ts])
+            conn.inner()?.execute("DELETE FROM app_logs WHERE timestamp < ?1", [ts])
                 .map_err(|e| Self::sqlite_err("cleanup_by_time", e.to_string()))?
         } else {
-            conn.execute(
+            conn.inner()?.execute(
                 "DELETE FROM app_logs WHERE id NOT IN (\
                  SELECT id FROM app_logs ORDER BY timestamp DESC LIMIT ?1)",
                 [self.max_records as i64],
@@ -352,7 +359,7 @@ impl LogStore {
             .map_err(|e| Self::sqlite_err("cleanup_by_count", e.to_string()))?
         };
 
-        self.pool.release(conn).await;
+        
 
         tracing::info!("Cleaned up {} old log records", deleted);
         Ok(deleted)
@@ -373,6 +380,7 @@ impl LogStore {
                 .to_string();
 
             let time_deleted = conn
+                .inner()?
                 .execute("DELETE FROM app_logs WHERE timestamp < ?1", [&cutoff])
                 .map_err(|e| Self::sqlite_err("cleanup_by_time", e.to_string()))?;
 
@@ -386,12 +394,13 @@ impl LogStore {
 
             // 策略2: 数量维度 —— 超过上限 20% 时裁剪
             let count: usize = conn
+                .inner()?
                 .query_row("SELECT COUNT(*) FROM app_logs", [], |row| row.get(0))
                 .map_err(|e| Self::sqlite_err("check_count", e.to_string()))?;
 
             if count > self.max_records * 120 / 100 {
                 let excess = count - self.max_records;
-                conn.execute(
+                conn.inner()?.execute(
                     "DELETE FROM app_logs WHERE id IN (\
                      SELECT id FROM app_logs ORDER BY timestamp ASC LIMIT ?1)",
                     [excess as i64],
@@ -409,7 +418,7 @@ impl LogStore {
             Ok(())
         })();
 
-        self.pool.release(conn).await;
+        
         result
     }
 }

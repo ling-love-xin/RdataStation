@@ -104,9 +104,7 @@ impl WorkbenchContextStore {
         f: F,
     ) -> Result<T, CoreError> {
         let conn = self.pool.acquire_sync()?;
-        let result = f(&conn);
-        self.pool.release_sync(conn);
-        result
+        f(conn.inner()?)
     }
 
     /// 初始化表

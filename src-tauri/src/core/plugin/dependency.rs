@@ -3,9 +3,9 @@
 //!
 //! 处理插件之间的依赖关系，支持循环依赖检测和版本兼容性检查
 
-use std::collections::{HashMap, HashSet};
-use std::path::Path;
-use crate::core::error::{CoreError, PluginError, CommonError};
+use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
+use crate::core::error::{CoreError, PluginError};
 use crate::core::plugin::manifest::{PluginManifest, PluginDependency};
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::plugin_store::Plugin;
@@ -14,29 +14,29 @@ use crate::core::persistence::plugin_store::Plugin;
 #[derive(Debug, Clone)]
 pub struct DependencyResolution {
     /// 要安装的插件列表（按安装顺序排列）
-    pub to_install: Vec&lt;PluginDependency&gt;,
+    pub to_install: Vec<PluginDependency>,
     /// 已存在的插件
-    pub existing: Vec&lt;Plugin&gt;,
+    pub existing: Vec<Plugin>,
     /// 缺失的依赖
-    pub missing: Vec&lt;PluginDependency&gt;,
+    pub missing: Vec<PluginDependency>,
 }
 
 /// 插件依赖管理器
 pub struct DependencyManager {
-    db_manager: &amp;'static GlobalDatabaseManager,
+    db_manager: &'static GlobalDatabaseManager,
 }
 
 impl DependencyManager {
     /// 创建新的依赖管理器
-    pub fn new(db_manager: &amp;'static GlobalDatabaseManager) -&gt; Self {
+    pub fn new(db_manager: &'static GlobalDatabaseManager) -> Self {
         Self { db_manager }
     }
 
     /// 解析插件依赖
     pub async fn resolve_dependencies(
-        &amp;self,
-        manifest: &amp;PluginManifest,
-    ) -&gt; Result&lt;DependencyResolution, CoreError&gt; {
+        &self,
+        manifest: &PluginManifest,
+    ) -> Result<DependencyResolution, CoreError> {
         let mut to_install = Vec::new();
         let mut existing = Vec::new();
         let mut missing = Vec::new();
@@ -44,12 +44,12 @@ impl DependencyManager {
 
         // 递归解析依赖
         self.resolve_deps_recursive(
-            &amp;manifest.dependencies,
-            &amp;mut to_install,
-            &amp;mut existing,
-            &amp;mut missing,
-            &amp;mut visited,
-            &amp;mut HashSet::new(),
+            &manifest.dependencies,
+            &mut to_install,
+            &mut existing,
+            &mut missing,
+            &mut visited,
+            &mut HashSet::new(),
         ).await?;
 
         Ok(DependencyResolution {
@@ -61,31 +61,32 @@ impl DependencyManager {
 
     /// 递归解析依赖
     async fn resolve_deps_recursive(
-        &amp;self,
-        deps: &amp;[PluginDependency],
-        to_install: &amp;mut Vec&lt;PluginDependency&gt;,
-        existing: &amp;mut Vec&lt;Plugin&gt;,
-        missing: &amp;mut Vec&lt;PluginDependency&gt;,
-        visited: &amp;mut HashSet&lt;String&gt;,
-        recursion_stack: &amp;mut HashSet&lt;String&gt;,
-    ) -&gt; Result&lt;(), CoreError&gt; {
+        &self,
+        deps: &[PluginDependency],
+        to_install: &mut Vec<PluginDependency>,
+        existing: &mut Vec<Plugin>,
+        missing: &mut Vec<PluginDependency>,
+        visited: &mut HashSet<String>,
+        recursion_stack: &mut HashSet<String>,
+    ) -> Result<(), CoreError> {
         for dep in deps {
             // 检查循环依赖
-            if recursion_stack.contains(&amp;dep.id) {
-                return Err(CoreError::plugin(PluginError::dependency_cycle(
+            if recursion_stack.contains(&dep.id) {
+                return Err(CoreError::plugin(PluginError::dependency_missing(
                     dep.id.clone(),
-                    "Cyclic dependency detected".to_string()
+                    dep.id.clone(),
+                    dep.version.clone(),
                 )));
             }
 
-            if visited.contains(&amp;dep.id) {
+            if visited.contains(&dep.id) {
                 continue;
             }
             visited.insert(dep.id.clone());
             recursion_stack.insert(dep.id.clone());
 
             // 检查插件是否已存在
-            if let Some(plugin) = self.db_manager.get_plugin_by_code_version(&amp;dep.id, &amp;dep.version).await? {
+            if let Some(plugin) = self.db_manager.get_plugin_by_code_version(&dep.id, &dep.version).await? {
                 if plugin.is_enabled {
                     existing.push(plugin);
                 } else {
@@ -96,7 +97,7 @@ impl DependencyManager {
                 // 检查是否有其他版本的插件
                 let all_plugins = self.db_manager.get_all_plugins().await?;
                 let compatible = all_plugins.iter()
-                    .find(|p| p.code == dep.id &amp;&amp; Self::is_version_compatible(&amp;p.version, &amp;dep.version));
+                    .find(|p| p.code == dep.id && Self::is_version_compatible(&p.version, &dep.version));
                 
                 if let Some(plugin) = compatible {
                     existing.push(plugin.clone());
@@ -108,33 +109,33 @@ impl DependencyManager {
             // 递归解析该依赖的依赖（如果有清单的话）
             // 注意：这里简化了，实际中可能需要从存储中读取依赖的清单
 
-            recursion_stack.remove(&amp;dep.id);
+            recursion_stack.remove(&dep.id);
         }
 
         Ok(())
     }
 
     /// 检查版本兼容性
-    fn is_version_compatible(installed: &amp;str, required: &amp;str) -&gt; bool {
+    fn is_version_compatible(installed: &str, required: &str) -> bool {
         // 简化的版本兼容性检查
         // 实际中可以使用 semver 库
-        let installed_parts: Vec&lt;&amp;str&gt; = installed.split('.').collect();
-        let required_parts: Vec&lt;&amp;str&gt; = required.trim_start_matches(|c| c == '^' || c == '~' || c == '&gt;' || c == '&lt;' || c == '=')
+        let installed_parts: Vec<&str> = installed.split('.').collect();
+        let required_parts: Vec<&str> = required.trim_start_matches(|c| c == '^' || c == '~' || c == '>' || c == '<' || c == '=')
             .split('.').collect();
 
-        if installed_parts.len() &lt; 2 || required_parts.len() &lt; 2 {
+        if installed_parts.len() < 2 || required_parts.len() < 2 {
             return false;
         }
 
         // 对于 ^0.1.0，检查大版本和小版本
         if required.starts_with('^') {
-            return installed_parts[0] == required_parts[0] &amp;&amp; 
-                   installed_parts[1] &gt;= required_parts[1];
+            return installed_parts[0] == required_parts[0] && 
+                   installed_parts[1] >= required_parts[1];
         }
 
         // 对于 ~0.1.0，只检查大版本和小版本相同
         if required.starts_with('~') {
-            return installed_parts[0] == required_parts[0] &amp;&amp; 
+            return installed_parts[0] == required_parts[0] && 
                    installed_parts[1] == required_parts[1];
         }
 
@@ -143,30 +144,32 @@ impl DependencyManager {
     }
 
     /// 验证依赖满足
-    pub async fn validate_dependencies(&amp;self, manifest: &amp;PluginManifest) -&gt; Result&lt;(), CoreError&gt; {
+    pub async fn validate_dependencies(&self, manifest: &PluginManifest) -> Result<(), CoreError> {
         let resolution = self.resolve_dependencies(manifest).await?;
 
         if !resolution.missing.is_empty() {
             let missing_str = resolution.missing.iter()
                 .map(|d| format!("{}@{}", d.id, d.version))
-                .collect::&lt;Vec&lt;_&gt;&gt;()
+                .collect::<Vec<_>>()
                 .join(", ");
             
-            return Err(CoreError::plugin(PluginError::missing_dependency(format!(
-                "Missing dependencies: {}", missing_str
-            ))));
+            return Err(CoreError::plugin(PluginError::dependency_missing(
+                String::new(),
+                String::new(),
+                missing_str,
+            )));
         }
 
         Ok(())
     }
 
     /// 获取插件的依赖链
-    pub async fn get_dependency_chain(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Vec&lt;String&gt;, CoreError&gt; {
-        let plugin = self.db_manager.get_plugin(plugin_id).await?
+    pub async fn get_dependency_chain(&self, plugin_id: &str) -> Result<Vec<String>, CoreError> {
+        let _plugin = self.db_manager.get_plugin(plugin_id).await?
             .ok_or_else(|| CoreError::plugin(PluginError::not_found(plugin_id.to_string())))?;
 
         // 尝试从 manifest_json 解析依赖
-        let mut chain = vec![plugin_id.to_string()];
+        let chain = vec![plugin_id.to_string()];
         let mut visited = HashSet::new();
         visited.insert(plugin_id.to_string());
 
@@ -177,9 +180,9 @@ impl DependencyManager {
     }
 
     /// 检查插件是否被其他插件依赖
-    pub async fn check_dependents(&amp;self, plugin_id: &amp;str) -&gt; Result&lt;Vec&lt;String&gt;, CoreError&gt; {
+    pub async fn check_dependents(&self, plugin_id: &str) -> Result<Vec<String>, CoreError> {
         let all_plugins = self.db_manager.get_all_plugins().await?;
-        let mut dependents = Vec::new();
+        let dependents = Vec::new();
 
         for plugin in all_plugins {
             if plugin.code == plugin_id {
@@ -208,7 +211,7 @@ pub enum DependencyStatus {
 }
 
 impl DependencyStatus {
-    pub fn is_ok(&amp;self) -&gt; bool {
+    pub fn is_ok(&self) -> bool {
         matches!(self, DependencyStatus::Satisfied)
     }
 }
@@ -217,6 +220,6 @@ impl DependencyStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DependencyCheckResult {
     pub plugin_id: String,
-    pub dependencies: Vec&lt;(String, DependencyStatus)&gt;,
+    pub dependencies: Vec<(String, DependencyStatus)>,
 }
 

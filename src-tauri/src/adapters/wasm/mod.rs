@@ -27,6 +27,7 @@
 //! 3. **工具插件**: SQL 格式化、代码生成
 
 use crate::core::CoreError;
+use serde::Serialize;
 
 // 导出子模块
 pub mod api;
@@ -79,7 +80,7 @@ impl From<CoreError> for WasmAdapterError {
 }
 
 /// 插件类型
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum PluginType {
     /// 分析插件
     Analytics,
@@ -90,7 +91,7 @@ pub enum PluginType {
 }
 
 /// 插件元数据
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PluginMetadata {
     /// 插件 ID
     pub id: String,

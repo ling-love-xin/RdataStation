@@ -8,12 +8,12 @@ mod tests {
     use std::sync::Arc;
     use uuid::Uuid;
 
-    const GLOBAL_MIGRATION_SQL: &amp;str =
+    const GLOBAL_MIGRATION_SQL: &str =
         include_str!("../../../../migrations/global/001_init.sql");
 
-    async fn create_test_global_store() -&gt; (GlobalDatabaseManager, PathBuf) {
+    async fn create_test_global_store() -> (GlobalDatabaseManager, PathBuf) {
         let dir = std::env::temp_dir().join(format!("rds_plugin_test_{}", Uuid::new_v4().simple()));
-        fs::create_dir_all(&amp;dir).expect("create temp dir");
+        fs::create_dir_all(&dir).expect("create temp dir");
         let db_path = dir.join("global.db");
         let pool = Arc::new(
             GlobalSqlitePool::new(db_path.clone(), 2)
@@ -32,7 +32,7 @@ mod tests {
     }
 
     fn cleanup(dir: PathBuf) {
-        let _ = fs::remove_dir_all(&amp;dir);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]
@@ -56,15 +56,15 @@ mod tests {
             updated_at: now,
         };
         
-        manager.register_plugin(&amp;plugin).await.expect("register plugin");
+        manager.register_plugin(&plugin).await.expect("register plugin");
         
-        let fetched = manager.get_plugin(&amp;plugin.id).await.expect("get plugin");
+        let fetched = manager.get_plugin(&plugin.id).await.expect("get plugin");
         assert!(fetched.is_some());
         let fetched = fetched.unwrap();
         assert_eq!(fetched.code, plugin.code);
         assert_eq!(fetched.name, plugin.name);
         
-        let by_code = manager.get_plugin_by_code_version(&amp;plugin.code, &amp;plugin.version).await.expect("get by code");
+        let by_code = manager.get_plugin_by_code_version(&plugin.code, &plugin.version).await.expect("get by code");
         assert!(by_code.is_some());
         
         cleanup(dir);
@@ -91,7 +91,7 @@ mod tests {
                 created_at: now.clone(),
                 updated_at: now,
             };
-            manager.register_plugin(&amp;plugin).await.expect("register");
+            manager.register_plugin(&plugin).await.expect("register");
         }
         
         let all = manager.get_all_plugins().await.expect("get all");
@@ -121,11 +121,11 @@ mod tests {
             updated_at: now,
         };
         
-        manager.register_plugin(&amp;plugin).await.expect("register");
+        manager.register_plugin(&plugin).await.expect("register");
         
-        manager.update_plugin_enabled(&amp;plugin.id, false).await.expect("update");
+        manager.update_plugin_enabled(&plugin.id, false).await.expect("update");
         
-        let fetched = manager.get_plugin(&amp;plugin.id).await.expect("get");
+        let fetched = manager.get_plugin(&plugin.id).await.expect("get");
         assert!(fetched.is_some());
         assert!(!fetched.unwrap().is_enabled);
         
@@ -153,11 +153,11 @@ mod tests {
             updated_at: now,
         };
         
-        manager.register_plugin(&amp;plugin).await.expect("register");
+        manager.register_plugin(&plugin).await.expect("register");
         
-        manager.delete_plugin(&amp;plugin.id).await.expect("delete");
+        manager.delete_plugin(&plugin.id).await.expect("delete");
         
-        let fetched = manager.get_plugin(&amp;plugin.id).await.expect("get");
+        let fetched = manager.get_plugin(&plugin.id).await.expect("get");
         assert!(fetched.is_none());
         
         cleanup(dir);
@@ -175,9 +175,9 @@ mod tests {
             updated_at: chrono::Utc::now().to_rfc3339(),
         };
         
-        manager.set_plugin_global_config(&amp;config).await.expect("set config");
+        manager.set_plugin_global_config(&config).await.expect("set config");
         
-        let configs = manager.get_plugin_global_configs(&amp;plugin_id).await.expect("get configs");
+        let configs = manager.get_plugin_global_configs(&plugin_id).await.expect("get configs");
         assert_eq!(configs.len(), 1);
         assert_eq!(configs[0].key, "test.key");
         assert_eq!(configs[0].value, Some("test.value".to_string()));

@@ -42,7 +42,7 @@ pub use analytics_resource_store::{
     ResourceVersion,
 };
 pub use cache_version_migration::{CacheVersionManager, CURRENT_CACHE_VERSION};
-pub use global_db::{GlobalDatabaseManager, GlobalDuckdbConnection, GlobalSqlitePool};
+pub use global_db::{GlobalDatabaseManager, GlobalDuckdbConnection, GlobalPooledConnection, GlobalSqlitePool};
 pub use insight_meta_store::InsightMetaStore;
 pub use insight_store::{
     InsightColumnStore, InsightSchemaReportStore, InsightStorage, InsightStorageStats,

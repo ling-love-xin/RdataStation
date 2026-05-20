@@ -728,12 +728,12 @@ impl CoreError {
     }
 
     /// 创建缓存错误
-    pub fn cache(err: CacheError) -&gt; Self {
+    pub fn cache(err: CacheError) -> Self {
         CoreError::Cache(err)
     }
 
     /// 创建插件错误
-    pub fn plugin(err: PluginError) -&gt; Self {
+    pub fn plugin(err: PluginError) -> Self {
         CoreError::Plugin(err)
     }
 
@@ -792,23 +792,23 @@ impl CoreError {
                 CacheError::Internal { .. } => "CACHE_INTERNAL",
                 CacheError::Serialization { .. } => "CACHE_SERIALIZE",
             },
-            CoreError::Plugin(e) =&gt; match e {
-                PluginError::NotFound { .. } =&gt; "PLUGIN_NOT_FOUND",
-                PluginError::NotFoundByCode { .. } =&gt; "PLUGIN_NOT_FOUND_BY_CODE",
-                PluginError::AlreadyExists { .. } =&gt; "PLUGIN_ALREADY_EXISTS",
-                PluginError::LoadFailed { .. } =&gt; "PLUGIN_LOAD_FAILED",
-                PluginError::ActivationFailed { .. } =&gt; "PLUGIN_ACTIVATION_FAILED",
-                PluginError::DeactivationFailed { .. } =&gt; "PLUGIN_DEACTIVATION_FAILED",
-                PluginError::UninstallFailed { .. } =&gt; "PLUGIN_UNINSTALL_FAILED",
-                PluginError::ExecutionFailed { .. } =&gt; "PLUGIN_EXECUTION_FAILED",
-                PluginError::DependencyMissing { .. } =&gt; "PLUGIN_DEPENDENCY_MISSING",
-                PluginError::VersionIncompatible { .. } =&gt; "PLUGIN_VERSION_INCOMPATIBLE",
-                PluginError::InvalidConfig { .. } =&gt; "PLUGIN_INVALID_CONFIG",
-                PluginError::InvalidManifest { .. } =&gt; "PLUGIN_INVALID_MANIFEST",
-                PluginError::FileMissing { .. } =&gt; "PLUGIN_FILE_MISSING",
-                PluginError::Disabled { .. } =&gt; "PLUGIN_DISABLED",
-                PluginError::Internal { .. } =&gt; "PLUGIN_INTERNAL",
-                PluginError::UnsupportedType { .. } =&gt; "PLUGIN_UNSUPPORTED_TYPE",
+            CoreError::Plugin(e) => match e {
+                PluginError::NotFound { .. } => "PLUGIN_NOT_FOUND",
+                PluginError::NotFoundByCode { .. } => "PLUGIN_NOT_FOUND_BY_CODE",
+                PluginError::AlreadyExists { .. } => "PLUGIN_ALREADY_EXISTS",
+                PluginError::LoadFailed { .. } => "PLUGIN_LOAD_FAILED",
+                PluginError::ActivationFailed { .. } => "PLUGIN_ACTIVATION_FAILED",
+                PluginError::DeactivationFailed { .. } => "PLUGIN_DEACTIVATION_FAILED",
+                PluginError::UninstallFailed { .. } => "PLUGIN_UNINSTALL_FAILED",
+                PluginError::ExecutionFailed { .. } => "PLUGIN_EXECUTION_FAILED",
+                PluginError::DependencyMissing { .. } => "PLUGIN_DEPENDENCY_MISSING",
+                PluginError::VersionIncompatible { .. } => "PLUGIN_VERSION_INCOMPATIBLE",
+                PluginError::InvalidConfig { .. } => "PLUGIN_INVALID_CONFIG",
+                PluginError::InvalidManifest { .. } => "PLUGIN_INVALID_MANIFEST",
+                PluginError::FileMissing { .. } => "PLUGIN_FILE_MISSING",
+                PluginError::Disabled { .. } => "PLUGIN_DISABLED",
+                PluginError::Internal { .. } => "PLUGIN_INTERNAL",
+                PluginError::UnsupportedType { .. } => "PLUGIN_UNSUPPORTED_TYPE",
             },
         }
     }
@@ -821,7 +821,7 @@ impl CoreError {
             CoreError::Database(_) => ErrorCategory::Database,
             CoreError::Storage(_) => ErrorCategory::Storage,
             CoreError::Cache(_) => ErrorCategory::Cache,
-            CoreError::Plugin(_) =&gt; ErrorCategory::Plugin,
+            CoreError::Plugin(_) => ErrorCategory::Plugin,
         }
     }
 
@@ -849,6 +849,25 @@ impl From<&str> for CoreError {
     }
 }
 
+impl From<std::io::Error> for CoreError {
+    fn from(e: std::io::Error) -> Self {
+        CoreError::Storage(StorageError::Io {
+            path: String::new(),
+            operation: "io".to_string(),
+            reason: e.to_string(),
+        })
+    }
+}
+
+impl From<serde_json::Error> for CoreError {
+    fn from(e: serde_json::Error) -> Self {
+        CoreError::Storage(StorageError::Serialization {
+            format: "json".to_string(),
+            reason: e.to_string(),
+        })
+    }
+}
+
 impl fmt::Display for CoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -857,7 +876,7 @@ impl fmt::Display for CoreError {
             CoreError::Database(e) => write!(f, "[{}] {}", self.code(), e),
             CoreError::Storage(e) => write!(f, "[{}] {}", self.code(), e),
             CoreError::Cache(e) => write!(f, "[{}] {}", self.code(), e),
-            CoreError::Plugin(e) =&gt; {
+            CoreError::Plugin(e) => {
                 write!(f, "[{}] {}", self.code(), e)
             }
         }

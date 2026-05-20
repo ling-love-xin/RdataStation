@@ -170,11 +170,11 @@ impl AdvancedPluginManager {
 
         // 加载插件
         let metadata = {
-            let mut inner = self.inner.lock().map_err(|_| {
+            let inner = self.inner.lock().map_err(|_| {
                 WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string())
             })?;
             inner
-                .load_plugin(&id, &wasm_bytes)
+                .load_plugin(&id, &wasm_bytes, None, None)
                 .map_err(|e| WasmAdapterError::LoadError(e.to_string()))?
         };
 
@@ -233,7 +233,7 @@ impl PluginManager for AdvancedPluginManager {
     fn unload_plugin(&mut self, id: &str) -> Result<(), WasmAdapterError> {
         // 卸载插件
         {
-            let mut inner = self.inner.lock().map_err(|_| {
+            let inner = self.inner.lock().map_err(|_| {
                 WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string())
             })?;
             inner
@@ -254,7 +254,10 @@ impl PluginManager for AdvancedPluginManager {
     /// 获取已加载插件列表
     fn list_plugins(&self) -> Vec<PluginMetadata> {
         match self.inner.lock() {
-            Ok(inner) => inner.list_plugins(),
+            Ok(inner) => inner.list_plugins()
+                .into_iter()
+                .map(|(meta, _state)| meta)
+                .collect(),
             Err(_) => {
                 // 如果获取锁失败，返回空列表而不是 panic
                 Vec::new()
@@ -276,7 +279,7 @@ impl PluginManager for AdvancedPluginManager {
 
         // 调用插件函数
         let result = {
-            let mut inner = self.inner.lock().map_err(|_| {
+            let inner = self.inner.lock().map_err(|_| {
                 WasmAdapterError::RuntimeError("Failed to lock plugin manager".to_string())
             })?;
             inner

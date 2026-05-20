@@ -336,6 +336,7 @@ const handleSaveConnection = async (
     authConfigId?: string
     advanced?: Record<string, unknown>
     driverProps?: Record<string, unknown>
+    description?: string
   }
 ) => {
   try {
@@ -381,6 +382,7 @@ const handleSaveConnection = async (
       authConfigId: data.authConfigId,
       driverProperties: data.driverProps ? JSON.stringify(data.driverProps) : undefined,
       advancedOptions: data.advanced ? JSON.stringify(data.advanced) : undefined,
+      description: data.description,
     }
 
     if (editingConnection.value) {

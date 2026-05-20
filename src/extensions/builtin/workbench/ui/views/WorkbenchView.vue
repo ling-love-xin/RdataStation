@@ -28,7 +28,7 @@
     />
 
     <!-- 添加数据源对话框 -->
-    <AddDataSourceDialog v-model="showConnectionModal" @save="handleSaveConnection" />
+    <AddDataSourceDialog v-model="showConnectionModal" :project-path="appStore.projectPath" @save="handleSaveConnection" />
 
     <!-- 自定义布局对话框 -->
     <CustomizeLayoutDialog />
@@ -50,9 +50,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { panelRegistry } from '@/core/panel-registry'
+import { useProjectStore } from '@/core/project/stores/project'
 import AddDataSourceDialog from '@/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue'
+import * as connectionService from '@/extensions/builtin/connection/ui/services/connection'
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
-import type { ConnectionConfig } from '@/extensions/builtin/connection/ui/types/connection'
 import {
   EditorManager,
 } from '@/extensions/builtin/workbench/manager/EditorManager'
@@ -91,6 +92,7 @@ const { t } = useI18n()
 const uiStore = useUiStore()
 const layoutStore = useLayoutStore()
 const appStore = useAppStore()
+const projectStore = useProjectStore()
 const connectionStore = useConnectionStore()
 const editorStore = useScratchpadEditorStore()
 const message = useMessage()
@@ -229,32 +231,92 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
   return menuItems
 }
 
-const handleSaveConnection = async (data: Partial<ConnectionConfig>) => {
+const handleSaveConnection = async (data: Record<string, unknown>) => {
   try {
-    const driver = String((data as Record<string, unknown>).db_type || data.driver)
+    const driver = data.driver as string | undefined
     if (!driver) {
-      message.error(t('workbench.selectDbType'))
+      message.error(t('navigator.selectDbType'))
       return
     }
 
-    const url = data.url
+    const url = data.url as string | undefined
     if (!url) {
-      message.error('连接 URL 不能为空')
+      message.error(t('navigator.buildUrlFailed'))
       return
     }
 
-    await connectionStore.connect(driver, url, data.name)
+    const saveToGlobal = Boolean(data.saveToGlobal)
+    const saveToProject = Boolean(data.saveToProject)
+    const name = (data.name as string) || ''
+
+    // 检查是否至少选择了一个保存位置
+    if (!saveToGlobal && !saveToProject) {
+      message.error(t('navigator.selectSaveLocation'))
+      return
+    }
+
+    // 构建 connectOpts
+    const connectOpts = {
+      driverId: data.driverId as string | undefined,
+      networkConfigId: (data.networkConfigId as string | null) ?? null,
+      environmentId: data.environmentId as string | undefined,
+      authConfigId: data.authConfigId as string | undefined,
+      driverProperties: data.driverProps ? JSON.stringify(data.driverProps) : undefined,
+      advancedOptions: data.advanced ? JSON.stringify(data.advanced) : undefined,
+      description: data.description as string | undefined,
+    }
+
+    const savedLocations: string[] = []
+
+    // 1. 保存到全局
+    if (saveToGlobal) {
+      try {
+        await connectionService.connectDatabase(driver, url, name, 'global', undefined, connectOpts)
+        savedLocations.push(t('navigator.global'))
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('创建全局连接失败:', error)
+      }
+    }
+
+    // 2. 保存到项目
+    if (saveToProject) {
+      const projectId = projectStore.currentProject?.id
+      if (!projectId) {
+        message.warning(t('navigator.noOpenProject'))
+      } else {
+        try {
+          await connectionService.connectDatabase(driver, url, name, 'project', projectId, connectOpts)
+          savedLocations.push(t('navigator.project'))
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('创建项目连接失败:', error)
+        }
+      }
+    }
+
+    if (savedLocations.length > 0) {
+      message.success(
+        t('navigator.connectionSavedTo', { name, locations: savedLocations.join(', ') })
+      )
+    } else {
+      message.error(t('navigator.connectionSaveFailed'))
+      return
+    }
+
+    // 刷新连接列表并通知导航器
     await connectionStore.loadConnections()
     window.dispatchEvent(new CustomEvent('navigator-refresh'))
 
+    // 打开 SQL 编辑器
     if (dockviewApi) {
-      await EditorManager.openNewQuery(data.name, data.database || '')
+      const database = (data.database as string) || ''
+      await EditorManager.openNewQuery(name, database)
     }
-
-    message.success(t('workbench.connectionSaved', { name: data.name }))
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : t('workbench.saveConnectionFailed')
-    message.error(t('workbench.saveFailed', { error: errorMsg }))
+    const errorMsg = error instanceof Error ? error.message : t('navigator.connectionSaveFailed')
+    message.error(`${t('common.operationFailed')}: ${errorMsg}`)
+    // eslint-disable-next-line no-console
     console.error('保存连接失败:', error)
   }
 }

@@ -1,415 +1,370 @@
 <template>
   <div class="advanced-tab">
-    <div class="form-section">
-      <div class="section-title">{{ t('connection.advancedTab.connectionParams') }}</div>
-      <div class="adv-grid">
-        <div class="form-group">
-          <span class="form-label">{{ t('connection.advancedTab.connectTimeout') }}</span>
-          <input v-model.number="connectTimeout" type="number" class="form-input" />
+    <!-- 环境选择 -->
+    <div class="adv-section">
+      <div class="section-title">{{ $t('navigator.advancedEnv') }}</div>
+      <div class="section-row">
+        <span class="row-label">{{ $t('navigator.advancedEnvSelect') }}</span>
+        <NSelect
+          :value="envValue"
+          :options="envOptions"
+          size="small"
+          class="env-select"
+          @update:value="onEnvChange"
+        />
+      </div>
+    </div>
+
+    <!-- DuckDB 联邦加速 -->
+    <div class="adv-section">
+      <div class="section-title">{{ $t('navigator.advancedDuckAccel') }}</div>
+      <div class="duck-card">
+        <div class="duck-card-header">
+          <span class="duck-icon">&#x1F986;</span>
+          <span class="duck-title">DuckDB</span>
+          <NSwitch
+            :value="duckEnabled"
+            size="small"
+            @update:value="onDuckToggle"
+          />
         </div>
-        <div class="form-group">
-          <span class="form-label">{{ t('connection.advancedTab.queryTimeout') }}</span>
-          <input v-model.number="queryTimeout" type="number" class="form-input" placeholder="0=不限制" />
+        <div class="duck-card-body">
+          <div class="slot-item">
+            <span class="slot-label">{{ $t('navigator.advancedDuckSlot') }}</span>
+            <span class="slot-value">16</span>
+          </div>
+          <div class="slot-item">
+            <span class="slot-label">{{ $t('navigator.advancedDuckThreads') }}</span>
+            <span class="slot-value">8</span>
+          </div>
         </div>
-        <div class="form-group">
-          <span class="form-label">{{ t('connection.advancedTab.keepAlive') }}</span>
-          <input v-model.number="keepAlive" type="number" class="form-input" placeholder="0=禁用" />
-        </div>
-        <div class="form-group">
-          <span class="form-label">{{ t('connection.advancedTab.maxReconnect') }}</span>
-          <input v-model.number="maxReconnect" type="number" class="form-input" />
+        <div class="duck-card-hint">
+          {{ $t('navigator.advancedDuckHint') }}
         </div>
       </div>
     </div>
 
-    <div class="form-section">
-      <div class="section-title">{{ t('connection.advancedTab.schemaLoading') }}</div>
-      <select v-model="schemaStrategy" class="form-select schema-select">
-        <option value="auto">{{ t('connection.advancedTab.schemaAuto') }}</option>
-        <option value="manual">{{ t('connection.advancedTab.schemaManual') }}</option>
-        <option value="selected">{{ t('connection.advancedTab.schemaSelected') }}</option>
-      </select>
-    </div>
-
-    <div class="form-section">
-      <div class="section-title accel-title">
-        <Zap :size="14" />
-        {{ t('connection.advancedTab.localAccel') }}
-      </div>
-      <div class="accel-card">
-        <div class="accel-header">
-          <span class="accel-icon">🦆</span>
-          <span class="accel-name">{{ t('connection.advancedTab.enableDuckdbAccel') }}</span>
-          <div class="accel-switch">
-            <div
-              class="switch-toggle"
-              :class="{ on: duckdbAccelEnabled }"
-              @click="duckdbAccelEnabled = !duckdbAccelEnabled"
+    <!-- 安全策略（折叠） -->
+    <NCollapse class="security-collapse">
+      <NCollapseItem :title="$t('navigator.advancedSecurity')" name="security">
+        <div class="security-content">
+          <div class="section-row">
+            <span class="row-label">{{ $t('navigator.advancedSslMode') }}</span>
+            <NSelect
+              :value="sslMode"
+              :options="sslOptions"
+              size="small"
+              class="param-select"
+              @update:value="sslMode = $event"
+            />
+          </div>
+          <div class="section-row">
+            <span class="row-label">{{ $t('navigator.advancedReadOnly') }}</span>
+            <NSwitch
+              :value="readOnly"
+              size="small"
+              @update:value="readOnly = $event"
             />
           </div>
         </div>
-        <div v-if="duckdbAccelEnabled" class="accel-body">
-          <p class="accel-desc">
-            {{ t('connection.advancedTab.accelDesc', { dbType: dbTypeName }) }}
-            <br />
-            <code>.rdata/duckdb/accel.duckdb</code>
-          </p>
-          <div class="form-row">
-            <div class="form-group f1">
-              <span class="form-label">{{ t('connection.advancedTab.syncStrategy') }}</span>
-              <select v-model="syncStrategy" class="form-select">
-                <option value="auto">{{ t('connection.advancedTab.syncAuto') }}</option>
-                <option value="scheduled">{{ t('connection.advancedTab.syncScheduled') }}</option>
-                <option value="manual">{{ t('connection.advancedTab.syncManual') }}</option>
-              </select>
-            </div>
-            <div class="form-group f1">
-              <span class="form-label">{{ t('connection.advancedTab.syncInterval') }}</span>
-              <input
-                v-model.number="syncInterval"
-                type="number"
-                class="form-input"
-                :disabled="syncStrategy !== 'scheduled'"
-              />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group f1">
-              <span class="form-label">{{ t('connection.advancedTab.memoryLimit') }}</span>
-              <input v-model.number="memoryLimit" type="number" class="form-input" />
-            </div>
-            <div class="form-group f1">
-              <span class="form-label">{{ t('connection.advancedTab.threads') }}</span>
-              <input v-model.number="threads" type="number" class="form-input" />
-            </div>
-          </div>
+      </NCollapseItem>
+    </NCollapse>
+
+    <!-- 连接参数 -->
+    <div class="adv-section">
+      <div class="section-title">{{ $t('navigator.advancedConnParams') }}</div>
+      <div class="params-grid">
+        <div class="param-cell">
+          <span class="param-cell-label">{{ $t('navigator.advancedTimeout') }}</span>
+          <NInputNumber
+            :value="connTimeout"
+            size="small"
+            :placeholder="'30'"
+            class="cell-input"
+            @update:value="connTimeout = $event ?? undefined"
+          />
+          <span class="param-cell-unit">s</span>
+        </div>
+        <div class="param-cell">
+          <span class="param-cell-label">{{ $t('navigator.advancedPoolMax') }}</span>
+          <NInputNumber
+            :value="poolMax"
+            size="small"
+            :placeholder="'10'"
+            class="cell-input"
+            @update:value="poolMax = $event ?? undefined"
+          />
         </div>
       </div>
     </div>
 
-    <div class="form-section">
-      <div class="section-title">{{ t('connection.advancedTab.encoding') }}</div>
-      <select v-model="encoding" class="form-select encoding-select">
-        <option value="utf8">UTF-8（默认）</option>
-        <option value="gbk">GBK</option>
-        <option value="latin1">Latin1</option>
-        <option value="utf16">UTF-16</option>
-      </select>
-    </div>
-
-    <!-- 环境选择 -->
-    <div class="form-section">
-      <div class="section-title">
-        <Server :size="12" />
-        {{ t('connection.advancedTab.environment') }}
+    <!-- Schema + 编码 -->
+    <div class="adv-section">
+      <div class="params-grid-bottom">
+        <div class="section-row">
+          <span class="row-label">{{ $t('navigator.advancedSchema') }}</span>
+          <NInput
+            :value="schemaValue"
+            size="small"
+            :placeholder="'public'"
+            class="schema-input"
+            @update:value="schemaValue = $event"
+          />
+        </div>
+        <div class="section-row">
+          <span class="row-label">{{ $t('navigator.advancedEncoding') }}</span>
+          <NSelect
+            :value="encodingValue"
+            :options="encodingOptions"
+            size="small"
+            class="encoding-select"
+            @update:value="encodingValue = $event"
+          />
+        </div>
       </div>
-      <select v-model="environmentId" class="form-select encoding-select">
-        <option value="">— {{ t('connection.advancedTab.envDefault') }} —</option>
-        <option
-          v-for="env in environments"
-          :key="env.id"
-          :value="env.id"
-        >
-          {{ env.color || '●' }} {{ env.name }}
-        </option>
-      </select>
-      <p v-if="selectedEnvironmentPolicies.length > 0" class="env-policy-hint">
-        {{ selectedEnvironmentPolicies.length }} 条策略已关联此环境
-      </p>
-    </div>
-
-    <!-- 认证配置选择 -->
-    <div class="form-section">
-      <div class="section-title">
-        <Shield :size="12" />
-        {{ t('connection.advancedTab.authConfig') }}
-      </div>
-      <select v-model="authConfigId" class="form-select encoding-select">
-        <option value="">— {{ t('connection.advancedTab.authNone') }} —</option>
-        <option
-          v-for="ac in authConfigs"
-          :key="ac.id"
-          :value="ac.id"
-        >
-          {{ ac.name || ac.id }} ({{ ac.auth_type }})
-        </option>
-      </select>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { invoke } from '@tauri-apps/api/core'
-import { Zap, Server, Shield } from 'lucide-vue-next'
-import { ref, computed, watch, onMounted } from 'vue'
+import { NCollapse, NCollapseItem, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
+// ====== props / emits ======
 interface Props {
   dbType?: string
+  driverId?: string
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
-const emit = defineEmits<{
-  'update:config': [config: Record<string, unknown>]
-}>()
-
-const connectTimeout = ref(30)
-const queryTimeout = ref(0)
-const keepAlive = ref(60)
-const maxReconnect = ref(3)
-const schemaStrategy = ref('auto')
-const encoding = ref('utf8')
-
-const duckdbAccelEnabled = ref(false)
-const syncStrategy = ref('auto')
-const syncInterval = ref(15)
-const memoryLimit = ref(512)
-const threads = ref(4)
-
-// 环境相关
-const environmentId = ref('')
-const environments = ref<Array<{ id: string; name: string; color: string | null }>>([])
-
-interface EnvironmentPolicy {
-  id: string
-  environment_id: string
-  policy_type: string
-  enabled: boolean
-}
-const environmentPolicies = ref<EnvironmentPolicy[]>([])
-
-const selectedEnvironmentPolicies = computed(() =>
-  environmentPolicies.value.filter(p =>
-    p.environment_id === environmentId.value && p.enabled
-  )
-)
-
-// 认证配置相关
-const authConfigId = ref('')
-const authConfigs = ref<Array<{ id: string; name: string | null; auth_type: string }>>([])
-
-// 挂载时加载
-onMounted(async () => {
-  // 加载环境列表
-  try {
-    environments.value = await invoke<Array<{ id: string; name: string; color: string | null }>>(
-      'list_environments'
-    )
-  } catch {
-    // 忽略
-  }
-
-  // 加载认证配置列表
-  try {
-    authConfigs.value = await invoke<Array<{ id: string; name: string | null; auth_type: string }>>(
-      'list_auth_configs',
-      { authType: null }
-    )
-  } catch {
-    // 忽略
-  }
-})
-
-// 监听环境变化 → 加载对应策略
-watch(environmentId, async (envId) => {
-  if (envId) {
-    try {
-      environmentPolicies.value = await invoke<EnvironmentPolicy[]>(
-        'list_environment_policies',
-        { environmentId: envId }
-      )
-    } catch {
-      environmentPolicies.value = []
-    }
-  } else {
-    environmentPolicies.value = []
-  }
-})
-
-const advancedConfig = computed(() => ({
-  connectTimeout: connectTimeout.value,
-  queryTimeout: queryTimeout.value,
-  keepAlive: keepAlive.value,
-  maxReconnect: maxReconnect.value,
-  schemaStrategy: schemaStrategy.value,
-  encoding: encoding.value,
-  environmentId: environmentId.value,
-  authConfigId: authConfigId.value,
-  duckdbAccel: {
-    enabled: duckdbAccelEnabled.value,
-    syncStrategy: syncStrategy.value,
-    syncInterval: syncInterval.value,
-    memoryLimit: memoryLimit.value,
-    threads: threads.value,
-  },
-}))
-
-watch(advancedConfig, (config) => {
-  emit('update:config', config)
-}, { deep: true })
-
-const DB_NAME_MAP: Record<string, string> = {
-  mysql: 'MySQL',
-  postgresql: 'PostgreSQL',
-  mariadb: 'MariaDB',
-  sqlserver: 'SQL Server',
-  sqlite: 'SQLite',
-  duckdb: 'DuckDB',
-  mongodb: 'MongoDB',
-  redis: 'Redis',
-  clickhouse: 'ClickHouse',
+interface Emits {
+  (e: 'update:config', config: Record<string, unknown>): void
 }
 
-const dbTypeName = computed(() => DB_NAME_MAP[props.dbType || ''] || props.dbType || '')
+const emit = defineEmits<Emits>()
+
+// ====== state ======
+const envValue = ref('production')
+const duckEnabled = ref(false)
+const sslMode = ref('disable')
+const readOnly = ref(false)
+const connTimeout = ref<number | undefined>(30)
+const poolMax = ref<number | undefined>(10)
+const schemaValue = ref('public')
+const encodingValue = ref('utf8')
+
+// ====== options ======
+const envOptions = [
+  { label: t('navigator.advancedEnvProd'), value: 'production' },
+  { label: t('navigator.advancedEnvDev'), value: 'development' },
+  { label: t('navigator.advancedEnvTest'), value: 'test' },
+]
+
+const sslOptions = [
+  { label: 'disable', value: 'disable' },
+  { label: 'prefer', value: 'prefer' },
+  { label: 'require', value: 'require' },
+  { label: 'verify-ca', value: 'verify-ca' },
+  { label: 'verify-full', value: 'verify-full' },
+]
+
+const encodingOptions = [
+  { label: 'UTF-8', value: 'utf8' },
+  { label: 'UTF-16', value: 'utf16' },
+  { label: 'Latin1', value: 'latin1' },
+  { label: 'GBK', value: 'gbk' },
+]
+
+// ====== emit config on change ======
+function emitConfig() {
+  emit('update:config', {
+    env: envValue.value,
+    duckEnabled: duckEnabled.value,
+    sslMode: sslMode.value,
+    readOnly: readOnly.value,
+    connTimeout: connTimeout.value,
+    poolMax: poolMax.value,
+    schema: schemaValue.value,
+    encoding: encodingValue.value,
+  })
+}
+
+function onEnvChange(value: string) {
+  envValue.value = value
+  emitConfig()
+}
+
+function onDuckToggle(value: boolean) {
+  duckEnabled.value = value
+  emitConfig()
+}
+
+watch([sslMode, readOnly, connTimeout, poolMax, schemaValue, encodingValue], emitConfig)
 </script>
 
 <style scoped>
 .advanced-tab {
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
-.form-section {
-  margin-bottom: 20px;
+
+/* ====== sections ====== */
+.adv-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
+
 .section-title {
-  font-size: 11px;
+  font-size: var(--font-size-xs, 10px);
   font-weight: 700;
   text-transform: uppercase;
   color: var(--color-text-muted, #6c7086);
-  margin-bottom: 10px;
-  letter-spacing: 0.5px;
-}
-.accel-title {
-  color: var(--color-warning, #f9e2af);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.adv-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.form-group.f1 {
-  flex: 1;
-}
-.form-label {
-  font-size: 12px;
-  color: var(--color-text-secondary, #a6adc8);
-  font-weight: 500;
-}
-.form-input, .form-select {
-  width: 100%;
-  height: 32px;
-  padding: 0 10px;
-  background: var(--color-bg-raised, #11111b);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 6px;
-  color: var(--color-text-primary, #cdd6f4);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.form-input:focus, .form-select:focus {
-  border-color: var(--color-accent, #89b4fa);
-}
-.form-input:disabled {
-  opacity: 0.4;
-}
-.form-select {
-  cursor: pointer;
-}
-.schema-select {
-  max-width: 280px;
-}
-.encoding-select {
-  max-width: 180px;
+  letter-spacing: 0.7px;
 }
 
-.env-policy-hint {
-  font-size: 11px;
-  color: var(--color-text-muted, #6c7086);
-  margin-top: 4px;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.accel-card {
-  border: 1px solid rgba(249,168,37,0.2);
-  border-radius: 8px;
-  padding: 14px;
-  background: rgba(249,168,37,0.03);
-}
-.accel-header {
+.section-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.accel-icon {
-  font-size: 18px;
+
+.row-label {
+  font-size: var(--font-size-sm, 12px);
+  font-weight: 500;
+  color: var(--color-text-secondary, #a6adc8);
+  width: 60px;
+  flex-shrink: 0;
 }
-.accel-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-warning, #f9e2af);
+
+.env-select {
+  width: 160px;
 }
-.accel-switch {
-  margin-left: auto;
+
+/* ====== duck card ====== */
+.duck-card {
+  background: var(--color-bg-elevated, #1a1b26);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 8px;
+  padding: 12px 14px;
 }
-.switch-toggle {
-  width: 34px;
-  height: 18px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 9px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.switch-toggle.on {
-  background: var(--color-accent, #89b4fa);
-}
-.switch-toggle::after {
-  content: '';
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  transition: left 0.2s;
-}
-.switch-toggle.on::after {
-  left: 18px;
-}
-.accel-body {
-  margin-top: 12px;
-}
-.accel-desc {
-  font-size: 11px;
-  color: var(--color-text-muted, #6c7086);
-  margin-bottom: 12px;
-  line-height: 1.6;
-}
-.accel-desc code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: var(--color-success, #a6e3a1);
-}
-.form-row {
+
+.duck-card-header {
   display: flex;
-  gap: 12px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.duck-icon {
+  font-size: 16px;
+}
+
+.duck-title {
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 600;
+  color: var(--color-text-primary, #cdd6f4);
+  flex: 1;
+}
+
+.duck-card-body {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 6px;
+}
+
+.slot-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slot-label {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-text-muted, #6c7086);
+}
+
+.slot-value {
+  font-size: var(--font-size-sm, 12px);
+  font-weight: 600;
+  color: var(--color-text-secondary, #a6adc8);
+  padding: 1px 7px;
+  background: var(--color-bg-secondary, #11111b);
+  border-radius: 4px;
+}
+
+.duck-card-hint {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-text-muted, #6c7086);
+  line-height: 1.4;
+}
+
+/* ====== security collapse ====== */
+.security-collapse {
+  border-radius: 6px;
+  background: var(--color-bg-elevated, #1a1b26);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.security-collapse :deep(.n-collapse-item__header) {
+  font-size: var(--font-size-sm, 12px);
+  font-weight: 600;
+}
+
+.security-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.param-select {
+  width: 160px;
+}
+
+/* ====== params grid ====== */
+.params-grid {
+  display: flex;
+  gap: 24px;
+}
+
+.param-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.param-cell-label {
+  font-size: var(--font-size-sm, 12px);
+  color: var(--color-text-secondary, #a6adc8);
+  flex-shrink: 0;
+}
+
+.cell-input {
+  width: 80px;
+}
+
+.param-cell-unit {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-text-muted, #6c7086);
+}
+
+/* ====== schema + encoding ====== */
+.params-grid-bottom {
+  display: flex;
+  gap: 32px;
+}
+
+.schema-input {
+  width: 140px;
+}
+
+.encoding-select {
+  width: 130px;
 }
 </style>
