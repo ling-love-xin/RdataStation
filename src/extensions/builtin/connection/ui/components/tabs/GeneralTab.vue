@@ -1,268 +1,543 @@
 <template>
   <div class="general-tab">
-    <!-- 驱动信息横幅 -->
-    <div v-if="dbType" class="info-banner">
-      <div class="banner-icon" :style="{ background: dbColor }">
-        {{ dbInitials }}
-      </div>
-      <div class="banner-body">
-        <div class="banner-title">{{ dbTypeLabel }}</div>
-        <div class="banner-desc">{{ infoText }}</div>
-      </div>
-    </div>
-
-    <!-- 连接参数区域 -->
-    <div class="params-section">
-      <div class="section-title">{{ $t('navigator.tabGeneral') }}</div>
-
-      <!-- 文件数据库模式 -->
-      <template v-if="isFileDb">
-        <div class="param-row">
-          <span class="param-label">{{ $t('navigator.databaseFile') }}</span>
-          <NInput
-            :value="formData.filePath as string"
-            size="small"
-            :placeholder="filePathPlaceholder"
-            class="param-input"
-            @update:value="onUpdate('filePath', $event)"
-          />
-          <NButton size="small" secondary @click="onBrowse">
-            <template #icon><FolderOpen :size="14" /></template>
-            {{ $t('navigator.browse') }}
-          </NButton>
-        </div>
-        <div class="param-row">
-          <span class="param-label">{{ $t('navigator.formDatabase') }}</span>
-          <NInput
-            :value="formData.database as string"
-            size="small"
-            :placeholder="$t('navigator.databasePlaceholder')"
-            class="param-input"
-            @update:value="onUpdate('database', $event)"
-          />
-        </div>
+    <!-- Driver info banner -->
+    <NAlert v-if="driver" type="info" :bordered="false" class="drv-banner">
+      <template #header>
+        <span class="drv-tag" :class="`drv-${driver.driver_kind}`">{{ driver.driver_kind }}</span>
+        {{ driver.name }}
       </template>
-
-      <!-- 网络数据库模式 -->
-      <template v-else>
-        <div class="param-row">
-          <span class="param-label">{{ $t('navigator.formHost') }}</span>
-          <NInput
-            :value="formData.host as string"
-            size="small"
-            :placeholder="$t('navigator.hostPlaceholder')"
-            class="param-input host-input"
-            @update:value="onUpdate('host', $event)"
-          />
-          <span class="param-label-spacer" />
-          <span class="param-label">{{ $t('navigator.formPort') }}</span>
-          <NInputNumber
-            :value="formData.port as number"
-            size="small"
-            :placeholder="$t('navigator.portPlaceholder')"
-            class="port-input"
-            @update:value="onUpdate('port', $event)"
-          />
-        </div>
-        <div class="param-row">
-          <span class="param-label">{{ $t('navigator.formDatabase') }}</span>
-          <NInput
-            :value="formData.database as string"
-            size="small"
-            :placeholder="$t('navigator.databasePlaceholder')"
-            class="param-input"
-            @update:value="onUpdate('database', $event)"
-          />
-        </div>
-        <div class="param-row">
-          <span class="param-label">{{ $t('navigator.formUsername') }}</span>
-          <NInput
-            :value="formData.username as string"
-            size="small"
-            :placeholder="$t('navigator.usernamePlaceholder')"
-            class="param-input"
-            @update:value="onUpdate('username', $event)"
-          />
-          <span class="param-label-spacer" />
-          <span class="param-label">{{ $t('navigator.formPassword') }}</span>
-          <NInput
-            :value="formData.password as string"
-            type="password"
-            size="small"
-            :placeholder="$t('navigator.passwordPlaceholder')"
-            class="param-input"
-            show-password-on="click"
-            @update:value="onUpdate('password', $event)"
-          />
-        </div>
+      <template #default>
+        {{ driver.version ? `v${driver.version} · ` : '' }}{{ driver.is_file ? $t('navigator.fileDbHint') : $t('navigator.networkDbHint') }}
       </template>
-    </div>
+    </NAlert>
+
+    <div v-if="!driver" class="empty-hint">{{ $t('navigator.noDriver') }}</div>
+
+    <template v-else>
+      <!-- Network DB form -->
+      <NSpace v-if="!driver.is_file" vertical :size="14">
+        <div class="sec-title">{{ $t('navigator.connectionParams') }}</div>
+        <div class="form-row">
+          <div class="form-grp" style="flex:2">
+            <span class="form-label">{{ $t('navigator.host') }}</span>
+            <NInput v-model:value="local.host" size="small" placeholder="localhost" @update:value="emitUpdate" />
+          </div>
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.port') }}</span>
+            <NInputNumber v-model:value="local.port" size="small" :min="1" :max="65535" @update:value="emitUpdate" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.database') }}</span>
+            <NInput v-model:value="local.database" size="small" placeholder="mydb" @update:value="emitUpdate" />
+          </div>
+        </div>
+
+        <!-- Database Auth: Two-column layout -->
+        <div class="sec-title" style="margin-top:4px">{{ $t('navigator.databaseAuth') || '数据库认证' }}</div>
+        <div class="form-row auth-two-col">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.authMethod') || '认证方法' }}</span>
+            <NSelect
+              v-model:value="authMethod"
+              size="small"
+              :options="authMethodOpts"
+              :placeholder="$t('navigator.selectAuthMethod') || '选择认证方法'"
+              @update:value="onAuthMethodChange"
+            />
+          </div>
+          <div class="form-grp" style="flex:1.5">
+            <span class="form-label">{{ $t('navigator.savedAuthConfig') || '已保存的认证配置' }}</span>
+            <div class="auth-cfg-row">
+              <NSelect
+                v-model:value="selectedAuthConfigId"
+                size="small"
+                :options="filteredAuthConfigOpts"
+                :placeholder="$t('navigator.selectAuthConfig') || '使用已保存配置'"
+                class="auth-cfg-select"
+                filterable
+                clearable
+                @update:value="onAuthConfigSelect"
+              />
+              <NButton size="tiny" quaternary :title="$t('navigator.manageAuth') || '管理认证配置'" @click="showAuthManager = true">
+                📋
+              </NButton>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic auth fields -->
+        <template v-if="!selectedAuthConfigId">
+          <div v-if="authMethod === 'password'" class="form-row">
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.username') }}</span>
+              <NInput v-model:value="local.username" size="small" placeholder="root" @update:value="emitUpdate" />
+            </div>
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.password') }}</span>
+              <NInput v-model:value="local.password" type="password" size="small" show-password-on="click" placeholder="****" @update:value="emitUpdate" />
+            </div>
+          </div>
+          <div v-else-if="authMethod === 'pg_class'" class="form-row">
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.clientCert') || '客户端证书 (.crt)' }}</span>
+              <div class="file-input-row">
+                <NInput v-model:value="local.certPath" size="small" placeholder="~/client.crt" @update:value="emitUpdate" />
+                <NButton size="tiny" secondary @click="browseCert">
+                  📂
+                </NButton>
+              </div>
+            </div>
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.clientKey') || '私钥 (.key)' }}</span>
+              <div class="file-input-row">
+                <NInput v-model:value="local.certKeyPath" size="small" placeholder="~/client.key" @update:value="emitUpdate" />
+                <NButton size="tiny" secondary @click="browseCertKey">
+                  📂
+                </NButton>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="authMethod === 'kerberos'" class="form-row">
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.principal') || 'Principal' }}</span>
+              <NInput v-model:value="local.principal" size="small" placeholder="user@REALM.COM" @update:value="emitUpdate" />
+            </div>
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.keytabPath') || 'Keytab 文件' }}</span>
+              <div class="file-input-row">
+                <NInput v-model:value="local.keytabPath" size="small" placeholder="/etc/krb5.keytab" @update:value="emitUpdate" />
+                <NButton size="tiny" secondary @click="browseKeytab">
+                  📂
+                </NButton>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="authMethod === 'oauth2'" class="form-row">
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.tokenEndpoint') || 'Token 端点' }}</span>
+              <NInput v-model:value="local.tokenEndpoint" size="small" placeholder="https://auth.example.com/token" @update:value="emitUpdate" />
+            </div>
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.clientId') || 'Client ID' }}</span>
+              <NInput v-model:value="local.clientId" size="small" placeholder="your-client-id" @update:value="emitUpdate" />
+            </div>
+          </div>
+          <div v-if="authMethod === 'oauth2'" class="form-row">
+            <div class="form-grp" style="flex:1">
+              <span class="form-label">{{ $t('navigator.clientSecret') || 'Client Secret' }}</span>
+              <NInput v-model:value="local.clientSecret" type="password" size="small" show-password-on="click" placeholder="****" @update:value="emitUpdate" />
+            </div>
+          </div>
+        </template>
+
+        <!-- Pre-filled from auth config -->
+        <div v-else class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.username') }}</span>
+            <NInput v-model:value="local.username" size="small" disabled />
+          </div>
+          <div v-if="authMethod === 'password'" class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.password') }}</span>
+            <NInput v-model:value="local.password" type="password" size="small" disabled show-password-on="click" />
+          </div>
+          <div class="form-config-badge">
+            🔐 {{ $t('navigator.credentialsFromAuth') || '凭据来自认证配置' }}
+          </div>
+        </div>
+        <div v-if="selectedAuthConfigId && authMethod === 'pg_class'" class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.clientCert') || '客户端证书' }}</span>
+            <NInput v-model:value="local.certPath" size="small" disabled />
+          </div>
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.clientKey') || '私钥' }}</span>
+            <NInput v-model:value="local.certKeyPath" size="small" disabled />
+          </div>
+        </div>
+        <div v-if="selectedAuthConfigId && authMethod === 'kerberos'" class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.principal') || 'Principal' }}</span>
+            <NInput v-model:value="local.principal" size="small" disabled />
+          </div>
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.keytabPath') || 'Keytab' }}</span>
+            <NInput v-model:value="local.keytabPath" size="small" disabled />
+          </div>
+        </div>
+        <div v-if="selectedAuthConfigId && authMethod === 'oauth2'" class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.tokenEndpoint') || 'Token 端点' }}</span>
+            <NInput v-model:value="local.tokenEndpoint" size="small" disabled />
+          </div>
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.clientId') || 'Client ID' }}</span>
+            <NInput v-model:value="local.clientId" size="small" disabled />
+          </div>
+        </div>
+      </NSpace>
+
+      <!-- File DB form -->
+      <NSpace v-else vertical :size="14">
+        <div class="sec-title">{{ $t('navigator.databaseFile') }}</div>
+        <div class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ $t('navigator.filePath') }}</span>
+            <NSpace :size="8">
+              <NInput v-model:value="local.file_path" size="small" :placeholder="filePathPlaceholder" style="flex:1" @update:value="emitUpdate" />
+              <NButton size="small" secondary @click="browseFile">{{ $t('navigator.browse') }}</NButton>
+              <NButton size="small" secondary class="btn-new-file" @click="createNewDbFile">{{ $t('navigator.newFile') || '新建' }}</NButton>
+            </NSpace>
+          </div>
+        </div>
+      </NSpace>
+    </template>
+
+    <!-- Auth Config Manager overlay -->
+    <AuthConfigManager
+      v-if="showAuthManager"
+      @close="showAuthManager = false"
+      @select="onAuthConfigExternalSelect"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { FolderOpen } from 'lucide-vue-next'
-import { NButton, NInput, NInputNumber } from 'naive-ui'
-import { computed } from 'vue'
+import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace } from 'naive-ui'
+import { reactive, ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
+import AuthConfigManager from '../AuthConfigManager.vue'
 
-// ====== props / emits ======
+import type { Driver } from '../../../domain/types'
+
+/** 模拟认证配置存储（后续由后端 API 替换） */
+interface AuthConfig {
+  id: string
+  name: string
+  authType: string
+  scope: 'global' | 'project'
+  username?: string
+  password?: string
+  certPath?: string
+  certKeyPath?: string
+  principal?: string
+  keytabPath?: string
+  tokenEndpoint?: string
+  clientId?: string
+  clientSecret?: string
+  createdAt: string
+}
+
+/** Hardcoded auth configs for demo - will be replaced by API */
+const DEMO_AUTH_CONFIGS: AuthConfig[] = [
+  {
+    id: 'auth-001', name: '生产 MySQL 认证', authType: 'password',
+    scope: 'global', username: 'prod_admin', password: 'encrypted_password_001',
+    createdAt: '2026-05-01T08:00:00Z',
+  },
+  {
+    id: 'auth-002', name: '开发 PG 认证', authType: 'password',
+    scope: 'global', username: 'dev_user', password: 'encrypted_password_002',
+    createdAt: '2026-05-10T10:00:00Z',
+  },
+  {
+    id: 'auth-003', name: 'SA 账户', authType: 'password',
+    scope: 'project', username: 'sa', password: 'encrypted_sa_pass',
+    createdAt: '2026-05-12T12:00:00Z',
+  },
+  {
+    id: 'auth-004', name: 'PG mTLS 证书认证', authType: 'pg_class',
+    scope: 'global', certPath: '/certs/pg_client.crt', certKeyPath: '/certs/pg_client.key',
+    createdAt: '2026-05-15T09:00:00Z',
+  },
+  {
+    id: 'auth-005', name: 'GSSAPI Kerberos', authType: 'kerberos',
+    scope: 'global', principal: 'pgadmin@REALM.COM', keytabPath: '/etc/krb5.keytab',
+    createdAt: '2026-05-16T14:00:00Z',
+  },
+  {
+    id: 'auth-007', name: '跳板机 SSH 密码', authType: 'ssh_password',
+    scope: 'global', username: 'bastion_admin', password: 'ssh_encrypted_pass',
+    createdAt: '2026-05-18T08:00:00Z',
+  },
+  {
+    id: 'auth-008', name: '跳板机 RSA 密钥', authType: 'ssh_private_key',
+    scope: 'global', username: 'deployer', keytabPath: '~/.ssh/id_rsa',
+    createdAt: '2026-05-18T09:00:00Z',
+  },
+  {
+    id: 'auth-009', name: '开发机 ED25519', authType: 'ssh_private_key',
+    scope: 'global', username: 'devops', keytabPath: '~/.ssh/id_ed25519',
+    createdAt: '2026-05-19T10:00:00Z',
+  },
+]
+
 interface Props {
+  driver: Driver | null
   formData: Record<string, unknown>
-  dbType?: string
-  isFileDb?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isFileDb: false,
+  driver: null,
+  formData: () => ({}),
 })
 
-interface Emits {
-  (e: 'update:form-data', data: Record<string, unknown>): void
+const emit = defineEmits<{
+  'update:form-data': [data: Record<string, unknown>]
+  'auth-config-change': [authConfigId: string | null, authMethod: string]
+}>()
+
+const { t } = useI18n()
+
+interface LocalForm {
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+  file_path: string
+  certPath: string
+  certKeyPath: string
+  principal: string
+  keytabPath: string
+  tokenEndpoint: string
+  clientId: string
+  clientSecret: string
 }
 
-const emit = defineEmits<Emits>()
-
-// ====== DB info ======
-const DB_META: Record<string, { label: string; color: string; initials: string }> = {
-  mysql: { label: 'MySQL', color: '#00758f', initials: 'My' },
-  postgresql: { label: 'PostgreSQL', color: '#336791', initials: 'PG' },
-  mariadb: { label: 'MariaDB', color: '#c0765a', initials: 'Ma' },
-  sqlserver: { label: 'SQL Server', color: '#cc2927', initials: 'MS' },
-  sqlite: { label: 'SQLite', color: '#003b57', initials: 'SL' },
-  duckdb: { label: 'DuckDB', color: '#f9a825', initials: 'Du' },
-  mongodb: { label: 'MongoDB', color: '#4db33d', initials: 'Mo' },
-  redis: { label: 'Redis', color: '#d82c20', initials: 'Rd' },
-  clickhouse: { label: 'ClickHouse', color: '#f9a825', initials: 'CH' },
-}
-
-const dbMeta = computed(() => {
-  if (!props.dbType) return null
-  return DB_META[props.dbType] || { label: props.dbType, color: '#888', initials: 'DB' }
+const local = reactive<LocalForm>({
+  host: '',
+  port: 0,
+  database: '',
+  username: '',
+  password: '',
+  file_path: '',
+  certPath: '',
+  certKeyPath: '',
+  principal: '',
+  keytabPath: '',
+  tokenEndpoint: '',
+  clientId: '',
+  clientSecret: '',
 })
 
-const dbTypeLabel = computed(() => dbMeta.value?.label || '')
-const dbColor = computed(() => dbMeta.value?.color || '#888')
-const dbInitials = computed(() => dbMeta.value?.initials || 'DB')
+// Auth state
+const authMethod = ref('password')
+const selectedAuthConfigId = ref<string | null>(null)
+const showAuthManager = ref(false)
 
-const infoText = computed(() => {
-  if (props.isFileDb) {
-    return t('navigator.fileDbHint')
-  }
-  return t('navigator.networkDbHint')
-})
+// Auth configs (will be replaced by API calls)
+const authConfigs = ref<AuthConfig[]>([...DEMO_AUTH_CONFIGS])
 
 const filePathPlaceholder = computed(() => {
-  if (props.dbType === 'duckdb') return './data.duckdb'
-  if (props.dbType === 'sqlite') return './database.db'
-  return './database'
+  if (props.driver?.name?.toLowerCase().includes('duckdb')) return '~/data.duckdb'
+  return '~/data.db'
 })
 
-// ====== helpers ======
-function onUpdate(key: string, value: unknown) {
-  emit('update:form-data', { [key]: value })
+// Auth method options (database auth only - real PostgreSQL/MySQL auth method names)
+const authMethodOpts = computed(() => [
+  { label: '🔑 SCRAM-SHA-256 / mysql_native_password', value: 'password' },
+  { label: '📜 SSL 客户端证书 (mTLS)', value: 'pg_class' },
+  { label: '🎫 GSSAPI Kerberos', value: 'kerberos' },
+  { label: '🔗 OAuth 2.0 Bearer Token', value: 'oauth2' },
+])
+
+// Filter saved auth configs by current auth method
+const filteredAuthConfigOpts = computed(() => {
+  const configs = authConfigs.value.filter(ac => ac.authType === authMethod.value)
+  if (configs.length === 0) return []
+  return [
+    { label: t('navigator.noSavedConfig') || '— 手动填写 —', value: '' },
+    ...configs.map(ac => ({
+      label: `${ac.name} · ${ac.scope === 'global' ? '🌐' : '📝'}`,
+      value: ac.id,
+    })),
+  ]
+})
+
+function emitUpdate() {
+  emit('update:form-data', {
+    ...local,
+    authMethod: authMethod.value,
+    selectedAuthConfigId: selectedAuthConfigId.value,
+  })
 }
 
-function onBrowse() {
-  // TODO: 调用 Tauri 文件选择对话框
-  console.log('Browse file')
+function onAuthMethodChange() {
+  selectedAuthConfigId.value = null
+  emitUpdate()
 }
+
+function onAuthConfigSelect(configId: string | null) {
+  if (!configId) {
+    // User selected "不使用已保存配置"
+    selectedAuthConfigId.value = null
+    // 清空认证字段以便手动填写
+    local.username = ''
+    local.password = ''
+    local.certPath = ''
+    local.certKeyPath = ''
+    local.principal = ''
+    local.keytabPath = ''
+    local.tokenEndpoint = ''
+    local.clientId = ''
+    local.clientSecret = ''
+    emitUpdate()
+    return
+  }
+
+  const config = authConfigs.value.find(ac => ac.id === configId)
+  if (!config) return
+
+  selectedAuthConfigId.value = configId
+  // 同步认证方法类型
+  authMethod.value = config.authType
+  // 预填字段
+  if (config.username) local.username = config.username
+  if (config.password) local.password = config.password
+  if (config.certPath) local.certPath = config.certPath
+  if (config.certKeyPath) local.certKeyPath = config.certKeyPath
+  if (config.principal) local.principal = config.principal
+  if (config.keytabPath) local.keytabPath = config.keytabPath
+  if (config.tokenEndpoint) local.tokenEndpoint = config.tokenEndpoint
+  if (config.clientId) local.clientId = config.clientId
+  if (config.clientSecret) local.clientSecret = config.clientSecret
+
+  emit('auth-config-change', configId, config.authType)
+  emitUpdate()
+}
+
+/** Called when AuthConfigManager fires a select event */
+function onAuthConfigExternalSelect(configId: string) {
+  showAuthManager.value = false
+  onAuthConfigSelect(configId)
+}
+
+async function browseFile() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const file = await open({
+      filters: [{ name: 'Database', extensions: ['db', 'sqlite', 'sqlite3', 'duckdb'] }],
+    })
+    if (file) {
+      local.file_path = file as string
+      emitUpdate()
+    }
+  } catch {
+    /* dialog not available in browser */
+  }
+}
+
+async function browseCert() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const file = await open({
+      filters: [{ name: 'Certificate', extensions: ['crt', 'pem', 'cert'] }],
+    })
+    if (file) {
+      local.certPath = file as string
+      emitUpdate()
+    }
+  } catch { /* browser fallback */ }
+}
+
+async function browseCertKey() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const file = await open({
+      filters: [{ name: 'Private Key', extensions: ['key', 'pem'] }],
+    })
+    if (file) {
+      local.certKeyPath = file as string
+      emitUpdate()
+    }
+  } catch { /* browser fallback */ }
+}
+
+async function browseKeytab() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const file = await open({
+      filters: [{ name: 'Keytab', extensions: ['keytab'] }],
+    })
+    if (file) {
+      local.keytabPath = file as string
+      emitUpdate()
+    }
+  } catch { /* browser fallback */ }
+}
+
+function createNewDbFile() {
+  const ext = props.driver?.name?.toLowerCase().includes('duckdb') ? 'duckdb' : 'db'
+  const defaultName = `new_database.${ext}`
+  const newPath = prompt(
+    `${t('navigator.newDbFilePrompt') || '新建数据库文件\n请输入文件路径（已存在则复用，不存在则自动创建）：'}`,
+    local.file_path || defaultName,
+  )
+  if (newPath) {
+    local.file_path = newPath
+    emitUpdate()
+  }
+}
+
+// Sync from props.formData on creation
+onMounted(() => {
+  if (props.formData) {
+    local.host = String(props.formData.host ?? '')
+    local.port = Number(props.formData.port ?? props.driver?.default_port ?? 0)
+    local.database = String(props.formData.database ?? '')
+    local.username = String(props.formData.username ?? '')
+    local.password = String(props.formData.password ?? '')
+    local.file_path = String(props.formData.file_path ?? '')
+    if (props.formData.authMethod) authMethod.value = String(props.formData.authMethod)
+    if (props.formData.selectedAuthConfigId) selectedAuthConfigId.value = String(props.formData.selectedAuthConfigId)
+  } else if (props.driver?.default_port) {
+    local.port = props.driver.default_port
+  }
+})
+
+// Reset port when driver changes
+watch(
+  () => props.driver?.id,
+  () => {
+    local.port = props.driver?.default_port ?? 0
+    emitUpdate()
+  },
+)
 </script>
 
 <style scoped>
-.general-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.general-tab{display:flex;flex-direction:column;gap:16px;padding:4px 0}
+.drv-banner{border-radius:6px}
+.drv-tag{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;margin-right:6px}
+.drv-tag.drv-native{background:rgba(255,255,255,.06);color:var(--color-text-secondary)}
+.drv-tag.drv-jdbc{background:rgba(244,102,35,.15);color:var(--driver-jdbc)}
+.drv-tag.drv-python{background:rgba(55,118,171,.15);color:var(--driver-python)}
+.drv-tag.drv-js{background:rgba(247,223,30,.15);color:var(--driver-js)}
+.empty-hint{display:flex;align-items:center;justify-content:center;height:120px;font-size:13px;color:var(--color-text-muted)}
+.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:.5px}
+.form-row{display:flex;gap:12px}
+.form-grp{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:12px;color:var(--color-text-secondary);font-weight:500}
+
+/* Auth two-column */
+.auth-two-col{align-items:flex-start}
+.auth-cfg-row{display:flex;gap:6px;align-items:center}
+.auth-cfg-select{flex:1}
+
+/* File input row */
+.file-input-row{display:flex;gap:6px;align-items:center}
+.file-input-row :first-child{flex:1}
+
+/* Auth config badge */
+.form-config-badge{
+  display:flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--brand-accent);padding:4px 8px;
+  background:var(--brand-accent-soft);border-radius:var(--border-radius-sm)
 }
 
-/* ====== info banner ====== */
-.info-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--color-bg-elevated, #1a1b26);
-  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
-  border-radius: 8px;
-}
-
-.banner-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 800;
-  flex-shrink: 0;
-  color: #fff;
-}
-
-.banner-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.banner-title {
-  font-size: var(--font-size-sm, 13px);
-  font-weight: 600;
-  color: var(--color-text-primary, #cdd6f4);
-}
-
-.banner-desc {
-  font-size: var(--font-size-xs, 11px);
-  color: var(--color-text-muted, #6c7086);
-  margin-top: 2px;
-}
-
-/* ====== params ====== */
-.params-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.section-title {
-  font-size: var(--font-size-xs, 10px);
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--color-text-muted, #6c7086);
-  letter-spacing: 0.7px;
-  margin-bottom: 2px;
-}
-
-.param-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.param-label {
-  font-size: var(--font-size-sm, 12px);
-  font-weight: 500;
-  color: var(--color-text-muted, #6c7086);
-  width: 44px;
-  flex-shrink: 0;
-}
-
-.param-label-spacer {
-  width: var(--spacing-md, 16px);
-}
-
-.param-input {
-  flex: 1;
-}
-
-.host-input {
-  flex: 1;
-}
-
-.port-input {
-  width: 100px;
-  flex-shrink: 0;
-}
+/* New file button */
+.btn-new-file{white-space:nowrap}
 </style>

@@ -1,331 +1,503 @@
 <template>
-  <NModal :show="modelValue" :mask-closable="true" @update:show="handleClose">
-    <div class="add-ds-dialog" :style="dialogStyle">
-      <!-- ====== titlebar ====== -->
-      <div class="dialog-titlebar">
-        <span class="titlebar-text">✦ {{ $t('navigator.addDataSource') }}</span>
-        <div class="titlebar-actions">
-          <span class="traffic-dot dot-min" />
-          <span class="traffic-dot dot-max" />
-          <span class="traffic-dot dot-cls" />
-          <NButton quaternary circle size="tiny" @click="handleClose">
-            <template #icon><X :size="14" /></template>
-          </NButton>
-        </div>
+  <NModal :show="modelValue" :mask-closable="false" @update:show="handleClose">
+    <div class="datasource-card">
+      <!-- Card header -->
+      <div class="card-header">
+        <Database :size="16" class="card-icon" />
+        <span class="card-title">{{ isEditing ? $t('navigator.editDataSource') : $t('navigator.addDataSource') }}</span>
       </div>
 
-      <!-- ====== body ====== -->
-      <div class="dialog-body">
-        <!-- 左侧栏占位 -->
-        <aside class="sidebar">
-          <div class="sidebar-placeholder">
-            {{ $t('navigator.databaseTypes') }}
-          </div>
-        </aside>
+      <div class="card-body">
+        <!-- Sidebar -->
+        <AddDataSourceSidebar
+          v-model:selected-type-id="selectedTypeId"
+          :staging-items="stagingItems"
+          :staging-index="stagingIndex"
+          @add-staging="addStaging"
+          @remove-staging="removeStaging"
+          @select-staging="selectStaging"
+        />
 
-        <!-- 右侧主面板 -->
-        <div class="main-panel">
-          <!-- panel header -->
-          <div class="panel-header">
-            <!-- 名称 + Scope -->
-            <div class="header-row">
-              <span class="header-label">{{ $t('navigator.formName') }}</span>
+        <!-- Right panel -->
+        <div class="dlg-right">
+          <!-- Header: 3 rows -->
+          <div class="right-header">
+            <!-- Row 1: Name + Scope -->
+            <div class="rh-row">
+              <span class="rh-label">{{ $t('navigator.name') }}</span>
               <NInput
                 v-model:value="formName"
-                size="small"
                 :placeholder="$t('navigator.dataSourceNamePlaceholder')"
-                class="header-input-name"
+                size="small"
+                class="rh-name-input"
               />
-              <div class="scope-checkboxes">
-                <NCheckbox :checked="saveGlobal" @update:checked="saveGlobal = $event">
-                  {{ $t('navigator.scopeGlobal') }}
-                </NCheckbox>
-                <NCheckbox :checked="saveProject" @update:checked="saveProject = $event">
-                  {{ $t('navigator.scopeProject') }}
-                </NCheckbox>
-              </div>
+              <NCheckbox v-model:checked="scopeGlobal" size="small">
+                {{ $t('navigator.globalConnection') }}
+              </NCheckbox>
+              <NCheckbox v-model:checked="scopeProject" size="small">
+                {{ $t('navigator.projectConnection') }}
+              </NCheckbox>
             </div>
-
-            <!-- 描述 -->
-            <div class="header-row">
-              <span class="header-label">{{ $t('navigator.formDescription') }}</span>
+            <!-- Row 2: Description standalone -->
+            <div class="rh-row">
+              <span class="rh-label">{{ $t('navigator.description') }}</span>
               <NInput
                 v-model:value="formDesc"
                 type="textarea"
+                :placeholder="$t('navigator.dataSourceDescPlaceholder')"
                 size="small"
                 :rows="2"
-                :placeholder="$t('navigator.dataSourceDescPlaceholder')"
-                class="header-input-full"
+                class="rh-desc-input"
               />
             </div>
-
-            <!-- 驱动 + URI -->
-            <div class="header-row">
-              <span class="header-label">{{ $t('navigator.formDriver') }}</span>
+            <!-- Row 3: Driver + URI -->
+            <div class="rh-row uri-row">
+              <span class="rh-label">{{ $t('navigator.driver') }}</span>
               <NSelect
-                :value="selectedDriverId"
+                v-model:value="selectedDriverId"
                 :options="driverOptions"
+                :placeholder="$t('navigator.selectDbType')"
                 size="small"
-                class="header-driver-select"
-                @update:value="selectedDriverId = $event"
+                class="rh-driver-select"
+                @update:value="onDriverChange"
               />
               <span class="uri-label">URI</span>
-              <div class="uri-display">mysql://root:****@localhost:3306/mydb</div>
-              <NButton text size="tiny" class="uri-edit-btn">
-                <template #icon><Edit3 :size="14" /></template>
+              <NInput
+                v-if="uriEditing"
+                v-model:value="manualUri"
+                size="small"
+                class="uri-edit-input"
+                placeholder="jdbc:mysql://..."
+              />
+              <div v-else class="uri-display">{{ uriPreview || '—' }}</div>
+              <NButton
+                size="tiny"
+                quaternary
+                :type="uriEditing ? 'primary' : 'default'"
+                @click="uriEditing = !uriEditing"
+              >
+                <template #icon><Edit :size="13" /></template>
               </NButton>
             </div>
           </div>
 
-          <!-- Tab 区域占位 -->
-          <div class="content-placeholder">
-            <span class="placeholder-text">{{ $t('navigator.tabGeneral') }} · {{ $t('navigator.tabNetwork') }} · {{ $t('navigator.tabCapabilities') }} · {{ $t('navigator.tabDriverProps') }} · {{ $t('navigator.tabAdvanced') }}</span>
+          <!-- Tabs -->
+          <NTabs v-model:value="activeTab" type="line" size="small" class="dlg-tabs">
+            <NTabPane name="general" :tab="$t('navigator.tabGeneral')">
+              <GeneralTab :driver="selectedDriver" :form-data="formData" @update:form-data="onFormData" @auth-config-change="onAuthConfigChange" />
+            </NTabPane>
+            <NTabPane name="network" :tab="$t('navigator.tabNetwork')">
+              <NetworkTab :driver="selectedDriver" @extra-config="onExtraConfig" />
+            </NTabPane>
+            <NTabPane name="capabilities" :tab="$t('navigator.tabCapabilities')">
+              <CapabilitiesTab :driver="selectedDriver" />
+            </NTabPane>
+            <NTabPane name="properties" :tab="$t('navigator.tabDriverProps')">
+              <DriverPropsTab :driver="selectedDriver" @extra-config="onExtraConfig" />
+            </NTabPane>
+            <NTabPane name="advanced" :tab="$t('navigator.tabAdvanced')">
+              <AdvancedTab :driver="selectedDriver" :form-data="formData" @update:form-data="onFormData" @extra-config="onExtraConfig" />
+            </NTabPane>
+          </NTabs>
+
+          <!-- Footer -->
+          <div class="card-footer">
+            <div v-if="testResult" class="test-result">
+              <span :class="['test-icon', testResult.success ? 'ok' : 'fail']">
+                {{ testResult.success ? '✓' : '✗' }}
+              </span>
+              <span class="test-msg">{{ testResult.message }}</span>
+              <span v-if="testResult.latencyMs != null" class="test-latency">· {{ testResult.latencyMs }}ms</span>
+            </div>
+            <div class="footer-spacer" />
+            <NButton @click="handleClose">{{ $t('navigator.cancel') }}</NButton>
+            <NButton :loading="testing" @click="handleTest">{{ $t('navigator.testConnection') }}</NButton>
+            <NButton type="primary" :loading="saving" @click="handleSave">{{ $t('navigator.save') }}</NButton>
+            <NButton type="primary" secondary :loading="saving" @click="handleApply">
+              {{ $t('navigator.apply') }}
+            </NButton>
           </div>
         </div>
       </div>
-
-      <!-- ====== footer ====== -->
-      <div class="dialog-footer">
-        <div class="test-result" :class="testResultClass">
-          <span v-if="testResult">{{ testResult }}</span>
-        </div>
-        <NButton secondary size="small" @click="handleTest">
-          <template #icon><PlugZap :size="14" /></template>
-          {{ $t('navigator.testConnection') }}
-        </NButton>
-        <NButton size="small" @click="handleApply">
-          {{ $t('navigator.apply') }}
-        </NButton>
-        <NButton size="small" @click="handleClose">{{ $t('navigator.cancel') }}</NButton>
-        <NButton type="primary" size="small" :disabled="!canSave" @click="handleSave">
-          {{ $t('navigator.saveDataSource') }}
-        </NButton>
-      </div>
-
-      <!-- resize handle -->
-      <div class="resize-handle" @mousedown="onResizeStart" />
     </div>
   </NModal>
 </template>
 
 <script setup lang="ts">
-import { X, Edit3, PlugZap } from 'lucide-vue-next'
-import { NButton, NCheckbox, NInput, NModal, NSelect } from 'naive-ui'
-import { computed, ref, watch } from 'vue'
+import { Database, Edit } from 'lucide-vue-next'
+import {
+  NButton, NCheckbox, NInput, NModal, NSelect, NTabs, NTabPane, useMessage,
+} from 'naive-ui'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
+import { useProjectStore } from '@/core/project/stores/project'
 
-// ====== props / emits ======
+import AddDataSourceSidebar from './AddDataSourceSidebar.vue'
+import AdvancedTab from './tabs/AdvancedTab.vue'
+import CapabilitiesTab from './tabs/CapabilitiesTab.vue'
+import DriverPropsTab from './tabs/DriverPropsTab.vue'
+import GeneralTab from './tabs/GeneralTab.vue'
+import NetworkTab from './tabs/NetworkTab.vue'
+import { useDriverRegistry } from '../composables/useDriverRegistry'
+import { useProjectConnectionStore } from '../stores/project-connection-store'
+
+import type { Driver } from '../../domain/types'
+
 interface Props {
   modelValue: boolean
+  initialDriver?: Driver | null
+  initialName?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { modelValue: false, initialDriver: null, initialName: '' })
 
-interface Emits {
+const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
-  (e: 'save', data: Record<string, unknown>): void
-}
+  (e: 'save'): void
+}>()
 
-const emit = defineEmits<Emits>()
+const { t } = useI18n()
+const message = useMessage()
+const projectStore = useProjectStore()
+const projectConnectionStore = useProjectConnectionStore()
+const { drivers, loadAll } = useDriverRegistry()
 
-// ====== resize ======
-const MIN_W = 780
-const MIN_H = 520
-const MAX_W = 1300
-const MAX_H = 950
-
-const dialogWidth = ref(960)
-const dialogHeight = ref(640)
-
-const dialogStyle = computed(() => ({
-  width: `${dialogWidth.value}px`,
-  height: `${dialogHeight.value}px`,
-}))
-
-let isResizing = false
-let startX = 0
-let startY = 0
-let startW = 0
-let startH = 0
-
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v))
-}
-
-function onResizeStart(e: MouseEvent) {
-  isResizing = true
-  startX = e.clientX
-  startY = e.clientY
-  startW = dialogWidth.value
-  startH = dialogHeight.value
-  document.addEventListener('mousemove', onResizeMove)
-  document.addEventListener('mouseup', onResizeEnd)
-  e.preventDefault()
-  e.stopPropagation()
-}
-
-function onResizeMove(e: MouseEvent) {
-  if (!isResizing) return
-  dialogWidth.value = clamp(startW + (e.clientX - startX), MIN_W, MAX_W)
-  dialogHeight.value = clamp(startH + (e.clientY - startY), MIN_H, MAX_H)
-}
-
-function onResizeEnd() {
-  isResizing = false
-  document.removeEventListener('mousemove', onResizeMove)
-  document.removeEventListener('mouseup', onResizeEnd)
-}
-
-// ====== state ======
+// Dialog state
+const activeTab = ref('general')
+const selectedTypeId = ref<string | null>(null)
+const selectedDriverId = ref<string | null>(null)
 const formName = ref('')
 const formDesc = ref('')
-const selectedDriverId = ref('')
-const saveGlobal = ref(true)
-const saveProject = ref(false)
-const testResult = ref('')
-const testResultClass = ref('')
+const scopeGlobal = ref(true)
+const scopeProject = ref(false)
+const uriEditing = ref(false)
+const manualUri = ref('')
+const formData = ref<Record<string, unknown>>({})
+const testResult = ref<{ success: boolean; message: string; latencyMs?: number } | null>(null)
+const testing = ref(false)
+const saving = ref(false)
+const isEditing = ref(false)
 
-// ====== placeholder driver options ======
-const driverOptions = computed(() => [
-  { label: t('navigator.noDriver'), value: '' },
-])
+// Staging list
+interface StagingItem {
+  name: string
+  driver?: string
+  driverId?: string
+  formData?: Record<string, unknown>
+  networkConfigId?: string | null
+  driverProperties?: string | null
+  advancedOptions?: string | null
+}
+const stagingItems = ref<StagingItem[]>([{ name: '' }])
+const stagingIndex = ref(0)
 
-// ====== canSave ======
-const canSave = computed(
-  () => !!formName.value && (saveGlobal.value || saveProject.value),
+// Extra config from child tabs
+const networkConfigId = ref<string | null>(null)
+const driverProperties = ref<string | null>(null)
+const advancedOptions = ref<string | null>(null)
+const authConfigId = ref<string | null>(null)
+const authMethod = ref<string>('password')
+
+// Computed
+const selectedDriver = computed(() =>
+  drivers.value.find(d => d.id === selectedDriverId.value) ?? null
 )
 
-// ====== handlers ======
-function handleTest() {
-  testResult.value = t('navigator.testSuccessPlaceholder')
-  testResultClass.value = 'success'
-  setTimeout(() => {
-    testResult.value = ''
-    testResultClass.value = ''
-  }, 8000)
+const driverOptions = computed(() => {
+  if (!selectedTypeId.value) return []
+  return drivers.value
+    .filter(d => d.type_id === selectedTypeId.value && d.enabled)
+    .map(d => ({ label: d.name, value: d.id }))
+})
+
+const uriPreview = computed(() => {
+  const d = selectedDriver.value
+  if (!d) return ''
+  const fd = formData.value
+  if (d.is_file) return `${d.name.toLowerCase()}://${fd.file_path || fd.database || './data.db'}`
+  const usr = fd.username || 'user'
+  const pw = fd.password ? '****' : ''
+  const h = fd.host || 'localhost'
+  const p = fd.port || d.default_port || ''
+  const db = fd.database || ''
+  if (pw) return `${d.name.toLowerCase()}://${usr}:${pw}@${h}${p ? ':' + p : ''}/${db}`
+  return `${d.name.toLowerCase()}://${usr}@${h}${p ? ':' + p : ''}/${db}`
+})
+
+// Actions
+function onDriverChange(_id: string) {
+  formData.value = {}
+  testResult.value = null
+  authConfigId.value = null
+  authMethod.value = 'password'
 }
 
-function handleSave() {
-  emit('save', {
-    name: formName.value,
-    description: formDesc.value,
-    driverId: selectedDriverId.value,
-    saveToGlobal: saveGlobal.value,
-    saveToProject: saveProject.value,
-  })
+function onFormData(d: Record<string, unknown>) {
+  formData.value = { ...formData.value, ...d }
+  if (!formName.value && d.name) formName.value = String(d.name)
 }
 
-function handleApply() {
-  emit('save', {
-    name: formName.value,
-    description: formDesc.value,
-    driverId: selectedDriverId.value,
-    saveToGlobal: saveGlobal.value,
-    saveToProject: saveProject.value,
-    applyOnly: true,
-  })
+function onExtraConfig(config: Record<string, unknown>) {
+  if (config.networkConfigId !== undefined) networkConfigId.value = config.networkConfigId as string | null
+  if (config.driverProperties !== undefined) driverProperties.value = config.driverProperties as string | null
+  if (config.advancedOptions !== undefined) advancedOptions.value = config.advancedOptions as string | null
 }
 
-function handleClose() {
+function onAuthConfigChange(authCfgId: string | null, method: string) {
+  authConfigId.value = authCfgId
+  authMethod.value = method
+}
+
+function addStaging() {
+  stagingItems.value.push({ name: '' })
+  stagingIndex.value = stagingItems.value.length - 1
+}
+
+function removeStaging(i: number) {
+  if (stagingItems.value.length <= 1) return
+  stagingItems.value.splice(i, 1)
+  if (stagingIndex.value >= stagingItems.value.length) stagingIndex.value = stagingItems.value.length - 1
+}
+
+function selectStaging(i: number) {
+  stagingIndex.value = i
+  const s = stagingItems.value[i]
+  if (!s) return
+  formName.value = s.name || ''
+  formDesc.value = ''
+  if (s.driver) {
+    const d = drivers.value.find(x => x.name.toLowerCase() === s.driver?.toLowerCase())
+    if (d) {
+      selectedTypeId.value = d.type_id
+      selectedDriverId.value = d.id
+    }
+  } else if (s.driverId) {
+    selectedDriverId.value = s.driverId
+    const d = drivers.value.find(x => x.id === s.driverId)
+    if (d) selectedTypeId.value = d.type_id
+  }
+  formData.value = s.formData ? { ...s.formData } : {}
+  networkConfigId.value = s.networkConfigId ?? null
+  driverProperties.value = s.driverProperties ?? null
+  advancedOptions.value = s.advancedOptions ?? null
+  testResult.value = null
+}
+
+function buildUrl(): string {
+  if (uriEditing.value && manualUri.value) return manualUri.value
+  const d = selectedDriver.value
+  if (!d) return ''
+  const fd = formData.value
+  if (d.is_file) return `${d.name.toLowerCase()}://${fd.file_path || fd.database || './data.db'}`
+  const h = String(fd.host || 'localhost')
+  const po = String(fd.port || d.default_port || '')
+  const db = String(fd.database || '')
+  const u = String(fd.username || '')
+  const pw = String(fd.password || '')
+  if (u && pw) return `${d.name.toLowerCase()}://${u}:${pw}@${h}${po ? ':' + po : ''}/${db}`
+  return `${d.name.toLowerCase()}://${u}@${h}${po ? ':' + po : ''}/${db}`
+}
+
+async function handleTest() {
+  if (!selectedDriver.value) { message.warning(t('navigator.selectDbType')); return }
+  testing.value = true
+  try {
+    const url = buildUrl()
+    const driverName = selectedDriver.value.name
+    const { invoke } = await import('@tauri-apps/api/core')
+    const params: Record<string, unknown> = {
+      dbType: driverName.toLowerCase(),
+      url,
+    }
+    if (networkConfigId.value) params.networkConfigId = networkConfigId.value
+    const r = await invoke<{ success: boolean; message?: string; latency_ms?: number }>('test_connection', params)
+    testResult.value = {
+      success: r.success,
+      message: r.success
+        ? `✓ ${t('navigator.connectionSuccess', { name: driverName })} — ${driverName} — [本机] → ${r.message || 'DB'}`
+        : (r.message || t('navigator.connectionFailedGeneric')),
+      latencyMs: r.success ? (r.latency_ms ?? undefined) : undefined,
+    }
+  } catch (e) {
+    testResult.value = { success: false, message: (e as Error).message }
+  } finally { testing.value = false }
+}
+
+async function doSave(): Promise<void> {
+  if (!selectedDriver.value) { message.warning(t('navigator.selectDbType')); return }
+  if (!scopeGlobal.value && !scopeProject.value) { message.warning(t('navigator.selectSaveLocation')); return }
+
+  saving.value = true
+  try {
+    const url = buildUrl()
+    const name = formName.value || selectedDriver.value.name
+    const d = selectedDriver.value
+    const fd = formData.value
+
+    stagingItems.value[stagingIndex.value] = {
+      name,
+      driver: d.name.toLowerCase(),
+      driverId: selectedDriverId.value ?? undefined,
+      formData: { ...formData.value },
+      networkConfigId: networkConfigId.value,
+      driverProperties: driverProperties.value,
+      advancedOptions: advancedOptions.value,
+    }
+
+    const { invoke } = await import('@tauri-apps/api/core')
+
+    if (scopeProject.value && projectStore.hasProject) {
+      await projectConnectionStore.createConnection({
+        name,
+        driver: d.name.toLowerCase(),
+        host: d.is_file ? String(fd.file_path || fd.database || '') : String(fd.host || ''),
+        port: d.is_file ? 0 : Number(fd.port || d.default_port || 0),
+        database: String(fd.database || ''),
+        username: String(fd.username || ''),
+        password: String(fd.password || ''),
+        use_duckdb_fed: false,
+      })
+      await invoke('connect_database', {
+        input: {
+          db_type: d.name.toLowerCase(),
+          url,
+          name,
+          connection_type: 'project',
+          project_id: projectStore.currentProject?.id,
+          driver_id: selectedDriverId.value,
+          network_config_id: networkConfigId.value,
+          driver_properties: driverProperties.value,
+          advanced_options: advancedOptions.value,
+          auth_config_id: authConfigId.value,
+          auth_method: authMethod.value,
+          description: formDesc.value || null,
+        },
+      })
+    }
+    if (scopeGlobal.value) {
+      await invoke('connect_database', {
+        input: {
+          db_type: d.name.toLowerCase(),
+          url,
+          name,
+          connection_type: 'global',
+          driver_id: selectedDriverId.value,
+          network_config_id: networkConfigId.value,
+          driver_properties: driverProperties.value,
+          advanced_options: advancedOptions.value,
+          auth_config_id: authConfigId.value,
+          auth_method: authMethod.value,
+          description: formDesc.value || null,
+        },
+      })
+    }
+
+    message.success(t('navigator.connectionSavedTo', { name, locations: '' }))
+    emit('save')
+  } catch (e) {
+    message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
+    console.error('Save failed:', e)
+    throw e
+  } finally { saving.value = false }
+}
+
+async function handleSave() {
+  try {
+    await doSave()
+    resetAndClose()
+  } catch { /* error already shown in doSave */ }
+}
+
+async function handleApply() {
+  try {
+    await doSave()
+    resetAndClose()
+  } catch { /* error already shown in doSave */ }
+}
+
+function resetAndClose() {
+  testResult.value = null
+  formName.value = ''
+  formDesc.value = ''
+  formData.value = {}
   emit('update:modelValue', false)
 }
 
-// ====== 重置 ======
-watch(
-  () => props.modelValue,
-  (val) => {
-    if (val) {
-      formName.value = ''
-      formDesc.value = ''
-      selectedDriverId.value = ''
-      saveGlobal.value = true
-      saveProject.value = false
-      testResult.value = ''
-      testResultClass.value = ''
+function handleClose() { resetAndClose() }
+
+// Init
+onMounted(async () => { await loadAll(projectStore.currentProject?.path) })
+
+watch(() => props.modelValue, (open) => {
+  if (open) {
+    loadAll(projectStore.currentProject?.path)
+    activeTab.value = 'general'
+    testResult.value = null
+    networkConfigId.value = null
+    driverProperties.value = null
+    advancedOptions.value = null
+    authConfigId.value = null
+    authMethod.value = 'password'
+    manualUri.value = ''
+    uriEditing.value = false
+    if (props.initialDriver) {
+      selectedTypeId.value = props.initialDriver.type_id
+      selectedDriverId.value = props.initialDriver.id
     }
-  },
-)
+  }
+}, { immediate: true })
+
+watch(uriEditing, (editing) => {
+  if (editing) {
+    manualUri.value = uriPreview.value
+  }
+})
 </script>
 
 <style scoped>
-/* ====== dialog shell ====== */
-.add-ds-dialog {
+/* ===== Card shell (matches settings-card pattern) ===== */
+.datasource-card {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-primary, #1e1e2e);
-  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
-  border-radius: 12px;
+  width: 980px;
+  max-height: 88vh;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
   overflow: hidden;
-  position: relative;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-  max-height: 95vh;
 }
 
-/* ====== titlebar ====== */
-.dialog-titlebar {
+.card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
+  gap: var(--spacing-sm);
+  padding: 6px var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
-  user-select: none;
 }
 
-.titlebar-text {
-  font-size: var(--font-size-md, 14px);
+.card-icon {
+  color: var(--brand-accent);
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-size: var(--font-size-md);
   font-weight: 600;
-  color: var(--color-text-secondary, #a6adc8);
+  color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
-.titlebar-actions {
+.card-body {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.traffic-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.traffic-dot.dot-min { background: #f9e2af; }
-.traffic-dot.dot-max { background: #a6e3a1; }
-.traffic-dot.dot-cls { background: #f38ba8; }
-
-/* ====== body ====== */
-.dialog-body {
-  flex: 1;
-  display: flex;
+  height: 520px;
+  min-height: 420px;
   overflow: hidden;
-  min-height: 0;
 }
 
-/* ====== sidebar ====== */
-.sidebar {
-  width: 240px;
-  min-width: 240px;
-  border-right: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
-  overflow-y: auto;
-  flex-shrink: 0;
-  background: var(--color-bg-secondary, #11111b);
-}
-
-.sidebar-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: var(--font-size-sm, 12px);
-  color: var(--color-text-muted, #6c7086);
-}
-
-/* ====== main panel ====== */
-.main-panel {
+/* ===== Right panel ===== */
+.dlg-right {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -333,160 +505,115 @@ watch(
   min-width: 0;
 }
 
-/* ====== panel header ====== */
-.panel-header {
-  padding: 12px 20px 8px;
-  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
+/* ===== Header: 3 rows ===== */
+.right-header {
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--spacing-sm);
   flex-shrink: 0;
 }
 
-.header-row {
+.rh-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
-.header-label {
-  font-size: var(--font-size-sm, 12px);
+.rh-label {
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--color-text-muted, #6c7086);
-  width: 40px;
+  color: var(--color-text-muted);
+  width: 48px;
   flex-shrink: 0;
   text-align: right;
 }
 
-.header-input-name {
-  flex: 1;
-  max-width: 260px;
-}
+.rh-name-input { flex: 1; max-width: 280px; }
+.rh-desc-input { flex: 1; }
 
-.header-input-name :deep(.n-input__input-el) {
-  text-align: left;
-}
+.rh-driver-select { flex: 0 0 200px; }
 
-.header-input-full {
-  flex: 1;
-}
-
-.header-input-full :deep(.n-input__textarea-el) {
-  text-align: left;
-}
-
-.header-driver-select {
-  width: 170px;
-  flex-shrink: 0;
-}
-
-.scope-checkboxes {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.scope-checkboxes :deep(.n-checkbox) {
-  font-size: var(--font-size-sm, 12px);
-}
-
+/* URI row */
+.uri-row { gap: var(--spacing-xs); }
 .uri-label {
-  font-size: var(--font-size-sm, 12px);
-  color: var(--color-text-muted, #6c7086);
+  font-size: 11px;
+  color: var(--color-text-muted);
   flex-shrink: 0;
-  margin-left: 4px;
+  padding: 0 2px;
 }
 
 .uri-display {
   flex: 1;
-  height: 30px;
+  height: 28px;
   padding: 0 10px;
-  background: var(--color-bg-elevated, #1a1b26);
-  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
-  border-radius: 6px;
-  color: var(--brand-success, #a6e3a1);
   font-size: 11px;
-  font-family: var(--font-mono, 'JetBrains Mono', 'Consolas', monospace);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--brand-success);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
   display: flex;
   align-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.uri-edit-btn {
-  flex-shrink: 0;
-  color: var(--color-text-muted, #6c7086);
-}
-
-.uri-edit-btn:hover {
-  color: var(--color-text-primary, #cdd6f4);
-}
-
-/* ====== content placeholder ====== */
-.content-placeholder {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-secondary, #11111b);
-}
-
-.placeholder-text {
-  font-size: var(--font-size-sm, 12px);
-  color: var(--color-text-muted, #6c7086);
-}
-
-/* ====== footer ====== */
-.dialog-footer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 20px;
-  border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
-  background: var(--color-bg-secondary, #181825);
-  flex-shrink: 0;
-}
-
-.test-result {
-  flex: 1;
-  font-size: var(--font-size-sm, 12px);
-  display: flex;
-  align-items: center;
-  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.test-result.success { color: var(--brand-success, #a6e3a1); }
-.test-result.error { color: var(--brand-danger, #f38ba8); }
-
-/* ====== resize ====== */
-.resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nwse-resize;
-  z-index: 10;
+.uri-edit-input { flex: 1; min-width: 0; }
+.uri-edit-input :deep(.n-input__input) {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
 }
 
-.resize-handle::after {
-  content: '';
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--color-text-muted, #6c7086);
-  border-bottom: 2px solid var(--color-text-muted, #6c7086);
-  opacity: 0.4;
-  transition: opacity 0.15s ease;
+/* ===== Tabs ===== */
+.dlg-tabs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
-.resize-handle:hover::after { opacity: 0.8; }
+.dlg-tabs :deep(.n-tabs-nav) { flex-shrink: 0; padding-left: var(--spacing-sm); }
+.dlg-tabs :deep(.n-tabs-content) { flex: 1; min-height: 0; }
+.dlg-tabs :deep(.n-tab-pane) {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  box-sizing: border-box;
+}
+
+/* ===== Footer ===== */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  gap: var(--spacing-sm);
+}
+
+.test-result {
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: auto;
+}
+
+.test-icon.ok { color: var(--brand-success); }
+.test-icon.fail { color: var(--brand-danger); }
+.test-msg { color: var(--color-text-secondary); }
+.test-latency { color: var(--brand-accent); font-family: var(--font-mono); font-size: var(--font-size-xs); }
+
+.footer-spacer { flex: 1; }
 </style>

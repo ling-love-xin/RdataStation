@@ -114,4 +114,18 @@
   --shadow-inset-active: inset 0 2px 3px rgba(0, 0, 0, 0.15);
   --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* 连接状态/驱动标签颜色 */
+  --status-locked: #f38ba8;
+  --driver-jdbc: #f46623;
+  --driver-python: #5d9fd3;
+  --driver-js: #f7df1e;
+}
+
+/* 亮色主题下的连接状态/驱动标签颜色 */
+body.theme-light {
+  --status-locked: #d4687e;
+  --driver-jdbc: #d4521e;
+  --driver-python: #4a7db5;
+  --driver-js: #c9a91b;
 }

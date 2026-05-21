@@ -1,12 +1,18 @@
 //! 驱动相关命令
 //!
 //! 处理数据库驱动的查询、连接配置等操作
+//!
+//! 驱动发现路径（v2.0 修复）：
+//!   get_drivers / get_driver_info → global.db.drivers 表（SQLite 动态注册）
+//!   不再依赖硬编码 DriverRegistry → 新增驱动无需发版
 
 use crate::commands::connection_commands::DataSourceMetaResponse;
 use crate::core::error::CoreError;
 use crate::core::get_connection_manager;
+use crate::core::migration::get_global_db_manager;
+use crate::core::persistence::driver_store::Driver;
 use crate::core::services::ConnectionService;
-use crate::core::{get_all_drivers, get_driver, DriverConnectionConfig, DriverDescriptor};
+use crate::core::DriverConnectionConfig;
 
 /// 创建连接响应
 #[derive(serde::Serialize, Debug)]
@@ -20,16 +26,20 @@ pub struct CreateConnectionResponse {
 
 // ==================== Driver Commands ====================
 
-/// 获取所有支持的驱动列表
+/// 获取所有支持的驱动列表（从 SQLite global.db.drivers 读取，动态注册）
 #[tauri::command]
-pub async fn get_drivers() -> Result<Vec<DriverDescriptor>, CoreError> {
-    Ok(get_all_drivers())
+pub async fn get_drivers() -> Result<Vec<Driver>, CoreError> {
+    let db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+    db.get_all_drivers().await
 }
 
-/// 获取指定驱动的描述符
+/// 获取指定驱动的定义（从 SQLite global.db.drivers 读取）
 #[tauri::command]
-pub async fn get_driver_info(driver_id: String) -> Result<Option<DriverDescriptor>, CoreError> {
-    Ok(get_driver(&driver_id))
+pub async fn get_driver_info(driver_id: String) -> Result<Option<Driver>, CoreError> {
+    let db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+    db.get_driver(&driver_id).await
 }
 
 /// 使用 ConnectionConfig 创建连接

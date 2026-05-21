@@ -1,52 +1,69 @@
 /**
- * 驱动适配器 — 将 DB 层的 Driver / config_schema 转换为前端需要的 DriverDescriptor / DriverFormSchema
+ * 驱动适配器 — 将 SQLite drivers 表的 config_schema JSON 转换为前端 DriverDescriptor / DriverFormSchema
  *
- * 桥梁：Backend `get_available_drivers` → `Driver` struct → 前端 `DriverDescriptor` + `DriverFormSchema`
+ * 数据流：
+ *   global.db.drivers.config_schema (JSON Schema 格式)
+ *     → parseConfigSchema() → DbConfigSchema
+ *     → backendDriverToDescriptor() → DriverDescriptor
+ *     → configSchemaToFormSchema() → DriverFormSchema → DynamicFormRenderer
  */
 
-import type { DriverDescriptor } from '../types/connection'
+import type { Driver, DataSourceType, DriverDescriptor } from '../../domain/types'
 import type { DriverFormSchema, FormSectionConfig, FormFieldConfig } from '../types/form-schema'
 
-// ==================== 后端 Driver 结构体映射 ====================
-
-/** 后端 Driver 表的行结构（从 Rust serde Serialize 输出） */
-export interface BackendDriver {
-  id: string
-  type_id: string
-  name: string
-  driver_kind: string
-  is_file: boolean
-  default_port: number | null
-  url_template: string | null
-  download_url: string | null
-  version: string | null
-  config_schema: string // JSON string
-  supported_auth_types: string | null // JSON array string
-  capabilities: string | null // JSON array string
-  enabled: boolean
-}
-
-export interface BackendDataSourceType {
-  id: string
-  name: string
-  category: string
-  icon: string | null
-  enabled: boolean
-}
+// Re-export for convenience
+export type { Driver as BackendDriver, DataSourceType as BackendDataSourceType }
 
 // ==================== config_schema JSON 结构 ====================
 
-interface DbConfigSchema {
-  fields?: DbFieldDef[]
-  options?: DbFieldDef[]
+/**
+ * SQLite seed data 使用的是 JSON Schema 格式:
+ *   { "type":"object", "properties":{ "host":{ "type":"string", "title":"主机" } }, "required":[...] }
+ *
+ * 也兼容自定义格式:
+ *   { "fields":[...], "options":[...] }
+ */
+
+/** JSON Schema 格式的单个属性 */
+interface JsonSchemaProperty {
+  type: string         // "string" | "integer" | "boolean"
+  title?: string       // 中文标签
+  default?: string | number | boolean
+  format?: string      // "password" | "file"
+  enum?: string[]      // 下拉选项
 }
 
-interface DbFieldDef {
+/** JSON Schema 根对象 */
+interface JsonSchemaRoot {
+  type: 'object'
+  properties: Record<string, JsonSchemaProperty>
+  required?: string[]
+}
+
+/** 自定义格式的字段定义 */
+interface CustomFieldDef {
   key: string
   label: string
   type: string
   required?: boolean
   default?: string
+  placeholder?: string
+  values?: string[]
+}
+
+/** 自定义格式的 config_schema */
+interface CustomConfigSchema {
+  fields?: CustomFieldDef[]
+  options?: CustomFieldDef[]
+}
+
+/** 统一内部字段表示 */
+interface NormalizedField {
+  key: string
+  label: string
+  type: string
+  required: boolean
+  default?: string | number | boolean
   placeholder?: string
   values?: string[]
 }
@@ -57,82 +74,57 @@ interface DbFieldDef {
  * 将后端 Driver 转为前端 DriverDescriptor
  * 从 config_schema JSON 中提取 fields/options 构建 fields 和 extraOptions
  */
-export function backendDriverToDescriptor(driver: BackendDriver): DriverDescriptor {
-  const schema = parseConfigSchema(driver.config_schema)
+export function backendDriverToDescriptor(driver: Driver): DriverDescriptor {
+  const { fields, options } = parseConfigSchema(driver.config_schema)
 
-  // 从 config_schema fields 构建 DriverField[] 列表
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fields = (schema.fields || []).map(f => ({
+  const driverFields = fields.map(f => ({
     name: f.key,
     label: f.label,
-    type: mapFieldType(f.type),
-    required: f.required ?? false,
-    default: f.default ?? '',
+    fieldType: mapFieldType(f.type),
+    required: f.required,
+    defaultValue: String(f.default ?? ''),
     placeholder: f.placeholder,
+    options: f.values?.map(v => ({ label: v, value: v })),
   })) as any
 
-  // 从 config_schema options 构建 extraOptions
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const extraOptions = (schema.options || []).map(o => ({
+  const extraOptions = options.map(o => ({
     name: o.key,
     label: o.label,
-    type: mapOptionType(o.type),
+    optionType: mapOptionType(o.type),
+    defaultValue: o.default,
+    description: undefined,
   })) as any
-
-  // 解析 capabilities
-  let capabilitiesStr = driver.capabilities
-  if (capabilitiesStr) {
-    try {
-      capabilitiesStr = JSON.parse(capabilitiesStr) as string
-    } catch {
-      // keep as-is
-    }
-  }
 
   const features = tryParseJsonArray(driver.capabilities)
 
-  const descriptor: DriverDescriptor = {
+  return {
     id: driver.id,
     name: driver.name,
-    icon: driver.id,
-    version: driver.version || undefined,
-    features,
-    category: driver.type_id,
-    defaultPort: driver.default_port ?? undefined,
-    default_port: driver.default_port ?? undefined,
     description: driver.name,
-    driverKind: driver.driver_kind,
-    urlTemplate: driver.url_template || undefined,
-    fields: fields.length > 0 ? fields : undefined,
-    extraOptions: extraOptions.length > 0 ? extraOptions : undefined,
-    extra_options: extraOptions.length > 0 ? extraOptions : undefined,
-    requireFile: driver.is_file,
-    require_file: driver.is_file,
-    requireDatabase: !driver.is_file,
-    require_database: !driver.is_file,
-    supportsSsl: driver.supported_auth_types?.includes('ssl') ?? false,
+    defaultPort: driver.default_port ?? undefined,
+    requiresDatabase: !driver.is_file,
+    requiresFile: driver.is_file,
+    supportsSsl: (tryParseJsonArray(driver.supported_auth_types)).includes('ssl'),
     supportsSshTunnel: false,
     supportsHttpProxy: false,
     supportsSocksProxy: false,
+    fields: driverFields.length > 0 ? driverFields : undefined as any,
+    extraOptions: extraOptions.length > 0 ? extraOptions : undefined as any,
   }
-
-  return descriptor
 }
 
 /**
  * 将 config_schema JSON 字符串转为 DriverFormSchema
  * 用于 DynamicFormRenderer 渲染表单
  */
-export function configSchemaToFormSchema(
-  driver: BackendDriver
-): DriverFormSchema {
-  const schema = parseConfigSchema(driver.config_schema)
+export function configSchemaToFormSchema(driver: Driver): DriverFormSchema {
+  const { fields, options } = parseConfigSchema(driver.config_schema)
 
   const sections: FormSectionConfig[] = []
 
-  // Section 1: Connection 字段
-  const connectionFields: FormFieldConfig[] = (schema.fields || []).map(mapDbFieldToFormField)
-
+  const connectionFields: FormFieldConfig[] = fields.map(mapNormalizedFieldToFormField)
   if (connectionFields.length > 0) {
     sections.push({
       key: 'connection',
@@ -142,9 +134,7 @@ export function configSchemaToFormSchema(
     })
   }
 
-  // Section 2: 选项字段
-  const optionFields: FormFieldConfig[] = (schema.options || []).map(mapDbFieldToFormField)
-
+  const optionFields: FormFieldConfig[] = options.map(mapNormalizedFieldToFormField)
   if (optionFields.length > 0) {
     sections.push({
       key: 'options',
@@ -170,7 +160,7 @@ export function configSchemaToFormSchema(
       urlTemplate: driver.url_template || undefined,
       requireFile: driver.is_file,
       requireDatabase: !driver.is_file,
-      supportsSsl: driver.supported_auth_types?.includes('ssl') ?? false,
+      supportsSsl: (tryParseJsonArray(driver.supported_auth_types)).includes('ssl'),
       supportsSshTunnel: false,
       supportsHttpProxy: false,
       supportsSocksProxy: false,
@@ -179,37 +169,109 @@ export function configSchemaToFormSchema(
 }
 
 /**
- * 解析 config_schema JSON 为结构化对象
+ * 解析 config_schema JSON 为规范化字段列表
+ *
+ * 支持两种格式：
+ *   JSON Schema 格式: { type:"object", properties:{...}, required:[...] }
+ *   自定义格式:       { fields:[...], options:[...] }
  */
-export function parseConfigSchema(raw: string): DbConfigSchema {
+export function parseConfigSchema(raw: string): { fields: NormalizedField[]; options: NormalizedField[] } {
+  if (!raw) return { fields: [], options: [] }
+
   try {
-    return JSON.parse(raw) as DbConfigSchema
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+
+    // 检测自定义格式 { fields, options }
+    if ('fields' in parsed || 'options' in parsed) {
+      return {
+        fields: normalizeCustomFields((parsed as unknown as CustomConfigSchema).fields || []),
+        options: normalizeCustomFields((parsed as unknown as CustomConfigSchema).options || []),
+      }
+    }
+
+    // 检测 JSON Schema 格式 { type:"object", properties }
+    if ((parsed as unknown as JsonSchemaRoot).type === 'object' && (parsed as unknown as JsonSchemaRoot).properties) {
+      return normalizeJsonSchema(parsed as unknown as JsonSchemaRoot)
+    }
+
+    return { fields: [], options: [] }
   } catch {
-    return {}
+    return { fields: [], options: [] }
   }
 }
 
 /**
  * 判断是否为文件数据库
  */
-export function isFileDatabase(driver: BackendDriver): boolean {
+export function isFileDatabase(driver: Driver): boolean {
   return driver.is_file
 }
 
 // ==================== 内部辅助 ====================
 
-function mapDbFieldToFormField(f: DbFieldDef): FormFieldConfig {
+/** 将 JSON Schema 格式转为 NormalizedField[] */
+function normalizeJsonSchema(schema: JsonSchemaRoot): { fields: NormalizedField[]; options: NormalizedField[] } {
+  const required = new Set(schema.required || [])
+  const fields: NormalizedField[] = []
+  const options: NormalizedField[] = []
+
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    const normalized: NormalizedField = {
+      key,
+      label: prop.title || key,
+      type: mapJsonSchemaType(prop.type),
+      required: required.has(key),
+      default: prop.default !== undefined ? String(prop.default) : undefined,
+      placeholder: undefined,
+      values: prop.enum,
+    }
+
+    // format: "password" | "file" 的字段归为连接参数
+    // enum 字段归为高级选项
+    if (prop.enum || (prop.type === 'boolean')) {
+      options.push(normalized)
+    } else {
+      fields.push(normalized)
+    }
+  }
+
+  return { fields, options }
+}
+
+/** 将 JSON Schema type 映射到 UI 字段类型 */
+function mapJsonSchemaType(jsType: string): string {
+  switch (jsType) {
+    case 'integer': return 'number'
+    case 'boolean': return 'checkbox'
+    case 'string': return 'text'
+    default: return 'text'
+  }
+}
+
+/** 将自定义格式字段转为 NormalizedField[] */
+function normalizeCustomFields(raw: CustomFieldDef[]): NormalizedField[] {
+  return raw.map(f => ({
+    key: f.key,
+    label: f.label,
+    type: f.type,
+    required: f.required ?? false,
+    default: f.default,
+    placeholder: f.placeholder,
+    values: f.values,
+  }))
+}
+
+function mapNormalizedFieldToFormField(f: NormalizedField): FormFieldConfig {
   const fieldType = mapFieldType(f.type)
   const formField: FormFieldConfig = {
     key: f.key,
     label: f.label,
     type: fieldType as FormFieldConfig['type'],
-    required: f.required ?? false,
-    default: f.default,
+    required: f.required,
+    default: f.default !== undefined ? String(f.default) : undefined,
     placeholder: f.placeholder,
   }
 
-  // select 类型需要 options
   if (fieldType === 'select' && f.values) {
     formField.options = f.values.map(v => ({ label: v, value: v }))
   }

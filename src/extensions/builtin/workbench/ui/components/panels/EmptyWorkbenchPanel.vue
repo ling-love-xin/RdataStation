@@ -59,6 +59,10 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
+import {
+  WorkbenchEvent,
+  dispatchWorkbenchEvent,
+} from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 
 const { t } = useI18n()
 const projectStore = useProjectStore()
@@ -75,7 +79,7 @@ const handleNewQuery = () => {
 }
 
 const handleNewConnection = () => {
-  window.dispatchEvent(new CustomEvent('open-connection-modal'))
+  dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
 }
 
 const switchProject = async (project: { id: string; name: string; path: string }) => {

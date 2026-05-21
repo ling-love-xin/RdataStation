@@ -121,7 +121,6 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
 
     try {
       await projectConnectionService.updateProjectConnection(
-        projectStore.currentProject.path,
         connection
       )
 
@@ -159,7 +158,6 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
 
     try {
       await projectConnectionService.deleteProjectConnection(
-        projectStore.currentProject.path,
         connectionId
       )
 

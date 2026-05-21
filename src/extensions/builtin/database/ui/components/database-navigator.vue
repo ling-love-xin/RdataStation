@@ -86,8 +86,13 @@ import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/co
 import { useProjectConnectionStore } from '@/extensions/builtin/connection/ui/stores/project-connection-store'
 import { useRuntimeConnectionStore } from '@/extensions/builtin/connection/ui/stores/runtime-connection-store'
 import type { ProjectConnection } from '@/extensions/builtin/connection/ui/types/connection'
+import {
+  WorkbenchEvent,
+  dispatchWorkbenchEvent,
+} from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 import { useWorkbenchStore } from '@/extensions/builtin/workbench/ui/stores/workbench-store'
 import { useUiStore } from '@/shared/stores/ui'
+
 
 import NavigatorGroupDialog from './group-dialog.vue'
 import NavigatorContextMenuV2 from './navigator-context-menu-v2.vue'
@@ -370,7 +375,7 @@ const toggleFilter = () => {
 const toggleView = () => {}
 
 const handleNewConnection = () => {
-  window.dispatchEvent(new CustomEvent('open-connection-modal'))
+  dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
 }
 
 const handleDisconnect = async () => {

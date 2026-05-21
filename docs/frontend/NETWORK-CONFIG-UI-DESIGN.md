@@ -1,8 +1,8 @@
 # 网络配置 UI 设计文档
 
-> 版本：v2.0
-> 更新：2026-05-19
-> 状态：📋 规划中 — v0.6.0 协议链 + 环境策略引擎
+> 版本：v2.2
+> 更新：2026-05-21
+> 状态：🚧 实施中 — NetworkTab v5 原型对齐完成（内联表单+section分段+两栏认证+测试按钮）
 > 后端进度：✅ SSH隧道 + SSL证书 + service/cmd层 + ChainHop + process_chain + TunnelGuard 已完成
 > 原型参考：[add-datasource-v5.html](file:///e:/myapps/tauirapps/RdataStation/rdata-station/prototype/add-datasource-v5.html)
 
@@ -41,31 +41,18 @@
 src/
 ├── extensions/builtin/connection/
 │   ├── domain/
-│   │   └── types.ts                          ← 扩展：ChainHop/ProtocolChain/Environment/EnvironmentPolicies
+│   │   └── types.ts                          ← Driver / ConnectionConfig / SshConfig / ProxyConfig
 │   ├── ui/
 │   │   ├── components/
-│   │   │   ├── AddDataSourceDialog.vue       ← 改造：传递 chain/env 数据
+│   │   │   ├── AddDataSourceDialog.vue       ← 入口对话框
+│   │   │   ├── AuthConfigManager.vue         ← 🆕 认证配置管理器覆盖层（数据库+SSH双Tab）
 │   │   │   ├── tabs/
-│   │   │   │   ├── NetworkTab.vue            ← 🔴 重写：动态协议链
-│   │   │   │   ├── AdvancedTab.vue           ← 🔴 改造：环境+策略+DuckDB
-│   │   │   │   ├── GeneralTab.vue            ← 已有
+│   │   │   │   ├── NetworkTab.vue            ← ✅ 已实施：动态协议链 + 内联表单 + 配置管理器覆盖层
+│   │   │   │   ├── GeneralTab.vue            ← ✅ 已改造：两栏认证（方法+配置）+ 文件数据库新建按钮
+│   │   │   │   ├── AdvancedTab.vue           ← 🟡 待改造：环境+策略+DuckDB
 │   │   │   │   └── DriverPropsTab.vue        ← 已有
-│   │   │   └── network/                      ← 🆕 新增组件
-│   │   │       ├── ProtocolChainEditor.vue    ← 协议链编辑器（拖拽列表）
-│   │   │       ├── TopologyPreview.vue        ← 拓扑路径预览
-│   │   │       ├── EnvironmentSelector.vue    ← 紧凑环境下拉
-│   │   │       ├── SecurityPolicySection.vue  ← 安全策略可折叠面板
-│   │   │       ├── EnvironmentManager.vue     ← 环境类型管理器（覆盖层）
-│   │   │       └── NetworkProfileManager.vue  ← 网络配置文件管理器（覆盖层）
-│   │   ├── stores/
-│   │   │   ├── environmentStore.ts           ← 🆕 环境 + 策略 CRUD
-│   │   │   ├── networkConfigStore.ts         ← 🆕 网络配置 CRUD（增强）
-│   │   │   ├── project-connection-store.ts   ← 已有
-│   │   │   └── runtime-connection-store.ts   ← 已有
-│   │   ├── services/
-│   │   │   └── connection.ts                 ← 改造：扩展参数
-│   │   └── types/
-│   │       └── connection.ts                 ← 扩展：ChainHop/Environment 等类型
+│   │   ├── composables/
+│   │   │   └── useNetworkProfiles.ts         ← 网络配置列表 Composable（SSH/SSL/Proxy）
 
 ---
 
@@ -227,6 +214,98 @@ function canDelete(hopId: string): boolean {
   const hop = protocolChain.value.find(h => h.id === hopId)
   return hop ? protocolChain.value.filter(h => h.protocol === hop.protocol).length > 1 : false
 }
+```
+
+### 4.4 v2.1/v2.2 实施详情（已实现）
+
+以下功能已在实际代码中实施，v2.2 完成原型 v5 对齐：
+
+#### 4.4.1 内联表单模式（v5 对齐）
+
+Select 模式采用 **下拉 + 新建按钮** 并行 layout：
+```
+[NSelect 选择已保存配置...] [+ 新建]
+```
+
+新建模式使用 `inline-form-v5` 包裹（accent 蓝色边框），三段式结构：
+
+```html
+<div class="inline-form-v5">  <!-- 蓝色边框 + bg-surface -->
+  <!-- Row 1: 名称 + 范围归属 -->
+  <div class="form-row">
+    <div class="form-group f1">名称 <NInput></div>
+    <div class="form-group f1">范围 <span class="profile-scope-badge">📝 项目</span></div>
+  </div>
+
+  <!-- Section 1: 跳板机连接 -->
+  <div class="form-section-label">🔗 跳板机连接</div>
+  <div class="form-row">
+    <div class="form-group f2">主机 <NInput></div>
+    <div class="form-group f1">端口 <NInputNumber></div>
+  </div>
+
+  <!-- Section 2: SSH 认证 -->
+  <div class="form-section-label">🔐 SSH 认证</div>
+  <div class="form-row">  <!-- two-col -->
+    <div class="form-group f1"><NSelect 认证方法></div>
+    <div class="form-group" style="flex:1.6"><NSelect 已保存认证></div>
+  </div>
+  <!-- 用户名 / 密码(密钥+passphrase) / 保活 -->
+
+  <!-- Section 3: 端口转发 -->
+  <div class="form-section-label">📡 端口转发</div>
+  <div class="form-row">本地端口 + 远程目标 + 端口</div>
+  <div class="form-hint">将远程目标通过 SSH 隧道映射到本地端口...</div>
+
+  <!-- Actions -->
+  [保存并应用] [🧪 测试连接] [取消]
+</div>
+```
+
+#### 4.4.2 各协议新建表单差异
+
+| 协议 | Section 结构 | 特殊字段 |
+|------|-------------|---------|
+| **SSH** | 名称+范围 → 🔗跳板机(Host/Port) → 🔐认证(two-col+User+Password/Key+Passphrase+Keepalive) → 📡端口转发(Local/RemoteHost/RemotePort) → Hint → 操作 | 密码/密钥切换、保活 |
+| **SSL** | 名称+范围 → Mode(NSelect) → CA+Cert → Key → 操作 | 证书文件路径 |
+| **Proxy** | 名称+范围 → 类型(NSelect) → Host/Port → 🔐代理认证(two-col+User/Pass) → 操作 | 代理类型切换、可选认证 |
+
+#### 4.4.3 Custom 模式（v5 对齐）
+
+简化为一句话提示 + 关闭按钮，使用 `inline-form-v5.custom`（warning 黄色边框）：
+```
+⚡ 一次性自定义 — 不保存为配置文件
+[关闭自定义]
+```
+
+#### 4.4.3 测试连接按钮
+
+- **链内联表单保存行**：`🧪 测试连接` 按钮（`testChainHop(hop)`），模拟测试并弹窗显示延迟
+- **配置管理器新建表单**：`🧪 测试连接` 按钮（`testPmProfile(type)`），与链内联一致
+
+#### 4.4.4 配置管理器覆盖层
+
+`NModal` 内嵌三 Tab（SSH / SSL / Proxy），包含：
+
+- 已保存配置卡片列表（名称 + 详情 + 作用域徽章）
+- 每张卡片：使用 / ✎编辑 / 🗑删除 三个操作按钮
+- 编辑按钮将配置数据回填到新建表单（`editPmProfile(profile)`）
+- 新建表单含作用域选择、协议特定字段、保存/取消/测试按钮
+- 使用 `useNetworkProfiles` composable 管理数据，通过 `invoke('create_network_config')` / `invoke('delete_network_config')` 持久化
+
+#### 4.4.5 数据流
+
+```
+useNetworkProfiles (composable)
+  ├── sshProfiles / sslProfiles / proxyProfiles  ← computed refs
+  ├── loadAll() → invoke('list_network_configs', { networkType })
+  └── NetworkProfile { id, name, type, config, detail, origin }
+
+NetworkTab.vue
+  ├── 链列表 (chain: Hop[]) → 内联表单 (newFormData / customData)
+  ├── saveNewProfile() → invoke('create_network_config')
+  ├── deleteProfile() → invoke('delete_network_config')
+  └── 配置管理器覆盖层 → useProfile() / editPmProfile() / deleteProfile()
 ```
 
 ## 五、AdvancedTab.vue — 环境策略 + 安全策略（改造）
@@ -451,14 +530,18 @@ export const useNetworkConfigStore = defineStore('networkConfig', () => {
 
 ## 九、实施步骤
 
-| 阶段 | 内容 | 预估 |
+| 阶段 | 内容 | 状态 |
 |------|------|------|
-| **后端增量** | Chain 校验 + 环境 Seed SQL + IPC Commands | 3 天 |
-| **前端核心** | NetworkTab 重写 + AdvancedTab 改造 + TS 类型 | 5 天 |
-| **管理面板** | EnvironmentManager + NetworkProfileManager + EnvironmentSelector + SecurityPolicySection | 3 天 |
-| **集成联调** | AddDataSourceDialog 改造 + connection service + 端到端测试 | 2 天 |
-
-**总计**：约 13 天（前后端并行可压缩至 10 天）
+| **NetworkTab 协议链** | 动态协议链 + 内联表单 + 拖拽 + 拓扑预览 | ✅ 已完成 |
+| **两栏认证布局** | SSH 认证方法 + 已保存配置选择 | ✅ 已完成 |
+| **测试连接按钮** | 链内联 + 配置管理器新建表单 | ✅ 已完成 |
+| **配置管理器** | NModal + 三Tab + CRUD + 编辑回填 | ✅ 已完成 |
+| **GeneralTab 改造** | 数据库认证两栏 + 文件DB新建按钮 | ✅ 已完成 |
+| **AuthConfigManager** | 认证配置管理器覆盖层 | ✅ 已完成 |
+| **后端增量** | Chain 校验 + 环境 Seed SQL + IPC Commands | 🟡 部分完成 |
+| **AdvancedTab 改造** | 环境选择 + 策略 + DuckDB 焕新 | 📋 待实施 |
+| **管理面板** | EnvironmentManager + SecurityPolicySection | 📋 待实施 |
+| **集成联调** | AddDataSourceDialog 改造 + connection service | 📋 待实施 |
 
 ## 十、参考
 

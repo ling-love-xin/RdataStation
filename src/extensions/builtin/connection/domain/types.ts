@@ -74,6 +74,73 @@ export interface RecentConnection {
   lastUsedAt: string
 }
 
+// ========== 数据源类型 & 驱动定义（v2.0: SQLite global.db 动态注册） ==========
+
+/** 数据源大类（来自 SQLite data_source_types 表） */
+export interface DataSourceType {
+  id: string
+  name: string
+  category: DataSourceCategory
+  icon?: string
+  enabled: boolean
+  created_at: string
+}
+
+/** 数据源分类，预留 string 兜底以兼容未来新增类型 */
+export type DataSourceCategory =
+  | 'relational'
+  | 'file-based'
+  | 'nosql'
+  | 'analytics'
+  | 'cloud'
+  | 'mq'
+  | 'http'
+  | (string & {})
+
+/** 驱动定义（来自 SQLite drivers 表，config_schema 为 JSON 字符串） */
+export interface Driver {
+  id: string
+  type_id: string
+  name: string
+  driver_kind: DriverKind
+  is_file: boolean
+  default_port?: number
+  url_template?: string
+  download_url?: string
+  download_checksum?: string
+  version?: string
+  config_schema: string // JSON Schema 字符串 → 前端 parseConfigSchema() 解析
+  supported_auth_types?: string // JSON 数组字符串
+  capabilities?: string // JSON 数组字符串
+  enabled: boolean
+}
+
+/** 驱动类型，预留 string 兜底以兼容未来新类型 */
+export type DriverKind =
+  | 'native'
+  | 'jdbc'
+  | 'odbc'
+  | 'wasm'
+  | 'adbc'
+  | 'http'
+  | 'python'
+  | 'js'
+  | (string & {})
+
+/** 驱动列表响应 */
+export interface DriverListResponse {
+  drivers: Driver[]
+  missing: MissingDriver[]
+}
+
+export interface MissingDriver {
+  driver_id: string
+  driver_name: string
+  download_url: string
+}
+
+// ========== 旧版驱动描述符（保留向前兼容） ==========
+
 /** 驱动描述符 */
 export interface DriverDescriptor {
   id: string

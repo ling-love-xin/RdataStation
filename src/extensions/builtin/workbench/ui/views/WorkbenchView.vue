@@ -27,11 +27,15 @@
       @ready="onReady"
     />
 
-    <!-- 添加数据源对话框 -->
-    <AddDataSourceDialog v-model="showConnectionModal" :project-path="appStore.projectPath" @save="handleSaveConnection" />
-
     <!-- 自定义布局对话框 -->
     <CustomizeLayoutDialog />
+
+    <!-- 新增数据源对话框 -->
+    <AddDataSourceDialog
+      v-model="showAddDataSourceDialog"
+      :initial-driver="dialogInitialDriver"
+      @save="handleDataSourceSaved"
+    />
   </div>
 </template>
 
@@ -52,7 +56,6 @@ import { useI18n } from 'vue-i18n'
 import { panelRegistry } from '@/core/panel-registry'
 import { useProjectStore } from '@/core/project/stores/project'
 import AddDataSourceDialog from '@/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue'
-import * as connectionService from '@/extensions/builtin/connection/ui/services/connection'
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
 import {
   EditorManager,
@@ -98,9 +101,10 @@ const editorStore = useScratchpadEditorStore()
 const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
-const showConnectionModal = ref(false)
 const recoverySnapshots = ref<{ filePath: string; fileName: string; language: string; isDirty: boolean }[]>([])
 const showRecoveryBanner = ref(false)
+const showAddDataSourceDialog = ref(false)
+const dialogInitialDriver = ref<import('@/extensions/builtin/connection/domain/types').Driver | null>(null)
 
 let dockviewApi: DockviewVueApi | null = null
 
@@ -229,96 +233,6 @@ const getTabContextMenuItems = (params: GetTabContextMenuItemsParams): ContextMe
   }
 
   return menuItems
-}
-
-const handleSaveConnection = async (data: Record<string, unknown>) => {
-  try {
-    const driver = data.driver as string | undefined
-    if (!driver) {
-      message.error(t('navigator.selectDbType'))
-      return
-    }
-
-    const url = data.url as string | undefined
-    if (!url) {
-      message.error(t('navigator.buildUrlFailed'))
-      return
-    }
-
-    const saveToGlobal = Boolean(data.saveToGlobal)
-    const saveToProject = Boolean(data.saveToProject)
-    const name = (data.name as string) || ''
-
-    // 检查是否至少选择了一个保存位置
-    if (!saveToGlobal && !saveToProject) {
-      message.error(t('navigator.selectSaveLocation'))
-      return
-    }
-
-    // 构建 connectOpts
-    const connectOpts = {
-      driverId: data.driverId as string | undefined,
-      networkConfigId: (data.networkConfigId as string | null) ?? null,
-      environmentId: data.environmentId as string | undefined,
-      authConfigId: data.authConfigId as string | undefined,
-      driverProperties: data.driverProps ? JSON.stringify(data.driverProps) : undefined,
-      advancedOptions: data.advanced ? JSON.stringify(data.advanced) : undefined,
-      description: data.description as string | undefined,
-    }
-
-    const savedLocations: string[] = []
-
-    // 1. 保存到全局
-    if (saveToGlobal) {
-      try {
-        await connectionService.connectDatabase(driver, url, name, 'global', undefined, connectOpts)
-        savedLocations.push(t('navigator.global'))
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('创建全局连接失败:', error)
-      }
-    }
-
-    // 2. 保存到项目
-    if (saveToProject) {
-      const projectId = projectStore.currentProject?.id
-      if (!projectId) {
-        message.warning(t('navigator.noOpenProject'))
-      } else {
-        try {
-          await connectionService.connectDatabase(driver, url, name, 'project', projectId, connectOpts)
-          savedLocations.push(t('navigator.project'))
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error('创建项目连接失败:', error)
-        }
-      }
-    }
-
-    if (savedLocations.length > 0) {
-      message.success(
-        t('navigator.connectionSavedTo', { name, locations: savedLocations.join(', ') })
-      )
-    } else {
-      message.error(t('navigator.connectionSaveFailed'))
-      return
-    }
-
-    // 刷新连接列表并通知导航器
-    await connectionStore.loadConnections()
-    window.dispatchEvent(new CustomEvent('navigator-refresh'))
-
-    // 打开 SQL 编辑器
-    if (dockviewApi) {
-      const database = (data.database as string) || ''
-      await EditorManager.openNewQuery(name, database)
-    }
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : t('navigator.connectionSaveFailed')
-    message.error(`${t('common.operationFailed')}: ${errorMsg}`)
-    // eslint-disable-next-line no-console
-    console.error('保存连接失败:', error)
-  }
 }
 
 const onReady = (event: DockviewReadyEvent) => {
@@ -817,12 +731,20 @@ const handleWorkbenchNewQuery = async () => {
   await EditorManager.openNewQuery(firstConn?.name || '', '')
 }
 
-const handleWorkbenchNewConnection = () => {
-  showConnectionModal.value = true
+const handleWorkbenchNewConnection = (e?: CustomEvent) => {
+  dialogInitialDriver.value = (e?.detail?.driver as import('@/extensions/builtin/connection/domain/types').Driver) || null
+  showAddDataSourceDialog.value = true
 }
 
-const handleOpenConnectionModal = () => {
-  showConnectionModal.value = true
+const handleWorkbenchManageConnections = () => {
+  // 管理连接：打开新增数据源对话框
+  dialogInitialDriver.value = null
+  showAddDataSourceDialog.value = true
+}
+
+const handleDataSourceSaved = () => {
+  // 数据源保存后刷新导航树
+  window.dispatchEvent(new CustomEvent('navigator-refresh'))
 }
 
 const handleWorkbenchSave = () => {
@@ -890,13 +812,15 @@ onMounted(() => {
     handleOpenObjectProperties as (e: Event) => void
   )
   window.addEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
-  window.addEventListener('open-connection-modal', handleOpenConnectionModal as (e: Event) => void)
   window.addEventListener('keydown', handleKeydown)
 
   // 标题栏事件监听 - 使用常量枚举 + listenWorkbenchEvent
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.NewQuery, handleWorkbenchNewQuery))
   cleanupListeners.push(
     listenWorkbenchEvent(WorkbenchEvent.NewConnection, handleWorkbenchNewConnection)
+  )
+  cleanupListeners.push(
+    listenWorkbenchEvent(WorkbenchEvent.ManageConnections, handleWorkbenchManageConnections)
   )
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.Save, handleWorkbenchSave))
   cleanupListeners.push(listenWorkbenchEvent(WorkbenchEvent.ExecuteSql, handleWorkbenchExecuteSql))
@@ -934,7 +858,6 @@ onUnmounted(() => {
     handleOpenObjectProperties as (e: Event) => void
   )
   window.removeEventListener('open-sql-editor', handleOpenSqlEditor as (e: Event) => void)
-  window.removeEventListener('open-connection-modal', handleOpenConnectionModal as (e: Event) => void)
   window.removeEventListener('keydown', handleKeydown)
 
   // 清理标题栏事件监听

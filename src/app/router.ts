@@ -21,13 +21,6 @@ const router = createRouter({
           component: () => import('@/extensions/builtin/workbench/ui/views/WorkbenchView.vue'),
           meta: { title: '工作台', requiresProject: true },
         },
-        {
-          path: 'database-manager',
-          name: 'DatabaseManager',
-          component: () =>
-            import('@/extensions/builtin/connection/ui/components/DatabaseManager.vue'),
-          meta: { title: '数据库管理', requiresProject: true },
-        },
       ],
     },
   ],

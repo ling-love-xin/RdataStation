@@ -1,7 +1,8 @@
 # 新增数据源 — 前端完整开发计划
 
-> 版本：v1.0
+> 版本：v1.2
 > 日期：2026-05-19
+> 更新：2026-05-21（NetworkTab + GeneralTab + AuthConfigManager 已完成实施）
 > 对应原型：[add-datasource-v5.html](../../../prototype/add-datasource-v5.html)
 > 后端文档：[后端 DATA-SOURCE-MODULE](../../backend/DATA-SOURCE-MODULE.md)
 > 网络 UI 设计：[NETWORK-CONFIG-UI-DESIGN](../NETWORK-CONFIG-UI-DESIGN.md)
@@ -21,6 +22,19 @@
 - 开发阶段与文件清单
 
 目标：基于 v5 原型，将当前仅支持 `direct | ssl | ssh` 三种连接方式的对话框，升级为支持**动态协议链 + 环境策略引擎**的完整数据源创建体验。
+
+### 0.1 动态表单渲染（v1.1 已实现）
+
+驱动发现数据管道已打通，无需再硬编码表单字段：
+
+| 层 | 组件 | 职责 |
+|----|------|------|
+| 数据源 | `ui/composables/useDriverRegistry.ts` | 调用 `invoke('get_data_source_types')` + `invoke('get_available_drivers')` 获取 SQLite 数据 |
+| 适配器 | `ui/adapters/driver-adapter.ts` | `parseConfigSchema()` 解析 `config_schema` JSON → `DriverFormSchema` |
+| 渲染器 | `ui/components/DynamicFormRenderer.vue` | 接受 `DriverFormSchema` 动态渲染 NInput/NInputNumber/NSelect 等 |
+| 类型 | `domain/types.ts` | `DataSourceType`, `Driver`, `DriverConfigSchema` 匹配 SQLite struct |
+
+**新增数据库类型无需发版**：`INSERT INTO drivers (...) VALUES (...)` 写入 `config_schema` JSON 即可。
 
 ---
 
@@ -785,8 +799,16 @@ NModal (title="🔧 环境管理器")
 ### 10.1 阶段划分
 
 ```
-Phase 2-1: TS类型 + NetworkTab（2天）
-  文件：types/connection.ts, domain/types.ts, NetworkTab.vue
+Phase 1: NetworkTab 协议链 ✅ 已完成
+  文件：NetworkTab.vue, useNetworkProfiles.ts
+  功能：动态协议链 + 内联表单 + 拖拽 + 拓扑预览 + 两栏SSH认证 + 测试按钮 + 配置管理器覆盖层
+
+Phase 1b: GeneralTab 改造 ✅ 已完成
+  文件：GeneralTab.vue, AuthConfigManager.vue
+  功能：两栏数据库认证（方法+配置）+ 文件数据库新建按钮 + 认证配置管理器覆盖层
+
+Phase 2-1: TS类型 + Stores（1天）
+  文件：types/connection.ts, domain/types.ts
   依赖：Phase 0-1（后端 ID前缀 + 快照）已完成
 
 Phase 2-2: AdvancedTab + EnvironmentSelector（1.5天）
@@ -794,7 +816,7 @@ Phase 2-2: AdvancedTab + EnvironmentSelector（1.5天）
   依赖：Phase 2-1
 
 Phase 2-3: 覆盖层管理器（1.5天）
-  文件：NetworkProfileManager.vue, EnvironmentManager.vue
+  文件：EnvironmentManager.vue
   依赖：Phase 2-1
 
 Phase 3-1: Stores + Composable（1.5天）
@@ -811,21 +833,23 @@ Phase 4: 联调测试（2天）
 
 ### 10.2 完整文件清单
 
-| 文件 | 操作 | Phase |
-|------|------|-------|
-| `types/connection.ts` | 🟡 扩展 | 2-1 |
-| `domain/types.ts` | 🟡 扩展 `ConnectionMethodType` 加 `'chain'` | 2-1 |
-| `tabs/NetworkTab.vue` | 🔴 重写 | 2-1 |
-| `tabs/AdvancedTab.vue` | 🟡 大改 | 2-2 |
-| `tabs/EnvironmentSelector.vue` | 🔴 新建 | 2-2 |
-| `tabs/SecurityPolicySection.vue` | 🔴 新建 | 2-2 |
-| `overlays/NetworkProfileManager.vue` | 🔴 新建 | 2-3 |
-| `overlays/EnvironmentManager.vue` | 🔴 新建 | 2-3 |
-| `AddDataSourceDialog.vue` | 🟡 改造 | 3-2 |
-| `DataSourceHeader.vue` | 🟡 微调 | 3-2 |
-| `stores/environmentStore.ts` | 🔴 新建 | 3-1 |
-| `stores/networkConfigStore.ts` | 🟡 改造 | 3-1 |
-| `composables/useAddDataSource.ts` | 🔴 新建 | 3-1 |
+| 文件 | 操作 | Phase | 状态 |
+|------|------|-------|------|
+| `tabs/NetworkTab.vue` | 🔴 重写 | 1 | ✅ 已完成 |
+| `composables/useNetworkProfiles.ts` | 🔴 新建 | 1 | ✅ 已完成 |
+| `tabs/GeneralTab.vue` | 🟡 改造 | 1b | ✅ 已完成 |
+| `components/AuthConfigManager.vue` | 🔴 新建 | 1b | ✅ 已完成 |
+| `types/connection.ts` | 🟡 扩展 | 2-1 | 📋 待实施 |
+| `domain/types.ts` | 🟡 扩展 `ConnectionMethodType` | 2-1 | 📋 待实施 |
+| `tabs/AdvancedTab.vue` | 🟡 大改 | 2-2 | 📋 待实施 |
+| `tabs/EnvironmentSelector.vue` | 🔴 新建 | 2-2 | 📋 待实施 |
+| `tabs/SecurityPolicySection.vue` | 🔴 新建 | 2-2 | 📋 待实施 |
+| `overlays/EnvironmentManager.vue` | 🔴 新建 | 2-3 | 📋 待实施 |
+| `AddDataSourceDialog.vue` | 🟡 改造 | 3-2 | 📋 待实施 |
+| `DataSourceHeader.vue` | 🟡 微调 | 3-2 | 📋 待实施 |
+| `stores/environmentStore.ts` | 🔴 新建 | 3-1 | 📋 待实施 |
+| `stores/networkConfigStore.ts` | 🟡 改造 | 3-1 | 📋 待实施 |
+| `composables/useAddDataSource.ts` | 🔴 新建 | 3-1 | 📋 待实施 |
 
 ### 10.3 测试场景清单
 

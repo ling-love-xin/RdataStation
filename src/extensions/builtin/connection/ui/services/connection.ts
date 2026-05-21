@@ -151,9 +151,10 @@ export async function executeSql(connId: string, sql: string): Promise<any> {
 
 /**
  * 获取项目级连接
+ * 后端命令: get_project_store_connections
  */
-export async function getProjectConnections(projectPath: string): Promise<any[]> {
-  return invoke<any[]>('get_project_connections', { projectPath })
+export async function getProjectConnections(_projectPath: string): Promise<any[]> {
+  return invoke<any[]>('get_project_store_connections')
 }
 
 /**

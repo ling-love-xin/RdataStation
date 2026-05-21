@@ -874,13 +874,32 @@ textarea.header-input { height: auto; min-height: 44px; resize: none; padding: 1
                 <div class="form-row"><div class="form-group f1"><span class="form-label">数据库</span><input class="form-input" value="mydb"></div></div>
               </div>
               <div id="form-file" class="form-fields" style="display:none">
-                <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">数据库文件</span><div class="file-input-row"><input class="form-input" value="./database.db"><button class="btn-browse">📂 浏览</button></div></div></div>
+                <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">数据库文件</span><div class="file-input-row"><input class="form-input" id="filePathInput" value="./database.db"><button class="btn-browse" onclick="alert('📂 选择现有数据库文件')">📂 浏览</button><button class="btn-browse" onclick="createNewDbFile()" style="background:rgba(137,180,250,0.15);color:var(--accent);border-color:rgba(137,180,250,0.3)" title="新建数据库文件">📄 新建</button></div></div></div>
               </div>
               <div id="form-auth" class="form-fields">
                 <div class="form-row" style="margin-top:8px">
-                  <div class="form-group f1"><span class="form-label">用户</span><input class="form-input" value="root"></div>
-                  <div class="form-group f1"><span class="form-label">密码</span><input class="form-input" type="password" value="***"></div>
+                  <div class="form-group" style="flex:1">
+                    <span class="form-label">数据库认证 <span style="font-size:10px;color:var(--text-muted);font-weight:400">（密码 / 证书 / Kerberos / OAuth2）</span></span>
+                    <div style="display:flex;gap:8px">
+                      <!-- 左：认证方法 -->
+                      <select class="form-select" id="authTypeSelect" onchange="onAuthTypeChange(this.value)" style="flex:1">
+                        <option value="password">🔑 SCRAM-SHA-256 / mysql_native_password</option>
+                        <option value="pg_class">📜 SSL 客户端证书 (mTLS)</option>
+                        <option value="kerberos">🎫 GSSAPI Kerberos</option>
+                        <option value="oauth2">🔗 OAuth 2.0 Bearer Token</option>
+                      </select>
+                      <!-- 右：已保存的配置 -->
+                      <div class="file-input-row" style="flex:1.6">
+                        <select class="form-select" id="authConfigSelect" onchange="onAuthConfigSelect(this.value)" style="flex:1">
+                          <option value="">— 不使用已保存配置 —</option>
+                        </select>
+                        <button class="btn-browse" onclick="openAuthConfigManager()" title="认证配置管理" style="height:34px">📋 管理</button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+                <!-- 动态表单区：根据认证方法类型 + 是否选择已保存配置 -->
+                <div id="authDynamicFields"></div>
               </div>
               <div id="form-driver-specific" style="margin-top:12px"></div>
             </div>
@@ -1129,6 +1148,23 @@ textarea.header-input { height: auto; min-height: 44px; resize: none; padding: 1
   </div>
 </div>
 
+<!-- ============================================================
+     认证配置管理器 — 覆盖层（仅数据库层认证）
+     ============================================================ -->
+<div class="overlay hidden" id="authManagerOverlay" onclick="closeAuthConfigManager(event)">
+  <div class="manager-dialog" style="max-width:620px" onclick="event.stopPropagation()">
+    <div class="manager-titlebar">
+      <span>🔑 认证配置管理器</span>
+      <div style="display:flex;gap:4px;margin-left:12px">
+        <button class="manager-tab-btn active" data-auth-tab="database" onclick="switchAuthManagerTab('database')">📊 数据库认证</button>
+        <button class="manager-tab-btn" data-auth-tab="ssh" onclick="switchAuthManagerTab('ssh')">🖥 SSH 认证</button>
+      </div>
+      <button class="close-btn" onclick="closeAuthConfigManager()">✕</button>
+    </div>
+    <div class="manager-body" id="authManagerBody" style="padding:16px 20px"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // 驱动注册表
@@ -1171,6 +1207,22 @@ const PROXY_PROFILES = [
   { id:'proxy-corp-socks5', name:'公司代理 (SOCKS5)', scope:'global', type:'socks5', host:'proxy.corp.com', port:1080 },
   { id:'proxy-vpn-http', name:'VPN代理 (HTTP)', scope:'global', type:'http', host:'vpn.internal', port:3128 },
   { id:'proxy-client-http', name:'客户代理', scope:'project', type:'http', host:'client.proxy', port:8080 },
+];
+
+// ============================================================
+// 认证配置（对应后端 auth_configs 表 — 数据库 + SSH 两大类）
+// ============================================================
+const AUTH_CONFIGS = [
+  // ---- 数据库认证 ----
+  { id:'auth-prod-mysql',    name:'生产 MySQL 密码',  scope:'global',  auth_type:'password',  username:'root',                   desc:'生产环境 MySQL root' },
+  { id:'auth-dev-pg',        name:'开发 PG 密码',     scope:'global',  auth_type:'password',  username:'dev_user',               desc:'开发环境 PostgreSQL' },
+  { id:'auth-sa-sqlserver',  name:'SA 账户密码',      scope:'project', auth_type:'password',  username:'sa',                     desc:'SQL Server sa 账户' },
+  { id:'auth-pg-class-cert', name:'PG 证书认证',      scope:'global',  auth_type:'pg_class',  certPath:'~/.postgresql/postgresql.crt', keyPath:'~/.postgresql/postgresql.key', desc:'PostgreSQL 客户端证书 (mTLS)' },
+  { id:'auth-pg-kerberos',   name:'PG Kerberos',      scope:'global',  auth_type:'kerberos',  principal:'pg_user@REALM.COM', keytabPath:'/etc/krb5.keytab', desc:'PostgreSQL GSSAPI Kerberos' },
+  // ---- SSH 认证 ----
+  { id:'auth-ssh-bastion-pwd',   name:'跳板机 SSH 密码', scope:'global',  auth_type:'ssh_password',    username:'admin',                           desc:'生产跳板机密码登录' },
+  { id:'auth-ssh-bastion-rsa',   name:'跳板机 RSA 密钥', scope:'global',  auth_type:'ssh_private_key', username:'deploy', keyPath:'~/.ssh/id_rsa', passphrase:'****', desc:'RSA 密钥认证' },
+  { id:'auth-ssh-dev-ed25519',   name:'开发机 ED25519',  scope:'global',  auth_type:'ssh_private_key', username:'dev',    keyPath:'~/.ssh/id_ed25519', desc:'ED25519 密钥无密码' },
 ];
 
 function getProfiles(protocol) {
@@ -1310,6 +1362,14 @@ function applyDriver(drv) {
   document.getElementById('form-file').style.display = drv.isFile ? '' : 'none';
   document.getElementById('form-auth').style.display = drv.isFile ? 'none' : '';
 
+  // 更新文件路径默认值
+  const fpi = document.getElementById('filePathInput');
+  if (fpi) fpi.value = './mydb.' + (drv.dbType === 'duckdb' ? 'duckdb' : 'db');
+
+  // 刷新认证方式下拉框
+  populateAuthConfigSelect();
+  onAuthTypeChange('password');
+
   const capLabels = { transactions:'事务支持', preparedStmt:'预编译语句', streaming:'流式查询', introspection:'Schema 自省', arrowExport:'Arrow 导出', pluginCompat:'插件兼容' };
   document.getElementById('capTableBody').innerHTML = Object.entries(drv.capabilities).map(([k,v]) => `<tr><td>${capLabels[k]}</td><td><span class="cap-badge ${v?'yes':'no'}">${v?'✓ 支持':'✗ 不支持'}</span></td><td>—</td></tr>`).join('');
   document.getElementById('propsTableBody').innerHTML = Object.entries(drv.properties).map(([k,v]) => `<tr><td>${k}</td><td><input value="${v}"></td><td>—</td></tr>`).join('');
@@ -1327,6 +1387,28 @@ function applyDriver(drv) {
 function onDriverChange(id) {
   const drv = DRIVERS[id];
   if (drv) applyDriver(drv);
+}
+
+// ============================================================
+// 文件数据库 — 新建文件
+// ============================================================
+function createNewDbFile() {
+  const input = document.getElementById('filePathInput');
+  const ext = currentDriver?.dbType === 'duckdb' ? 'duckdb' : 'db';
+  const defaultName = 'new_database.' + ext;
+
+  const filePath = prompt('📄 新建数据库文件\n请输入文件路径（已存在则复用，不存在则自动创建）：', input?.value || defaultName);
+  if (!filePath) return;
+
+  if (input) input.value = filePath;
+  if (currentDriver?.isFile) {
+    const uri = currentDriver.urlTemplate.replace('{file_path}', filePath);
+    document.getElementById('uriDisplay').textContent = uri;
+  }
+
+  const dbType = currentDriver?.dbType || 'sqlite';
+  const info = dbType === 'duckdb' ? '分析型 OLAP 数据库，支持列式存储与 Arrow 导出' : '轻量级嵌入式事务数据库，零配置';
+  alert(`📄 数据库文件已就绪\n\n路径: ${filePath}\n类型: ${currentDriver?.name || dbType}\n${info}\n\n连接时将自动创建（如文件不存在）`);
 }
 
 // ============================================================
@@ -1451,7 +1533,14 @@ function renderConfigArea(hop) {
   let opts = `<option value="">— 选择一个配置 —</option>`;
   profiles.forEach(p => {
     const scopeIcon = p.scope === 'global' ? '🌐' : '📝';
-    const detail = p.host ? `${p.host}:${p.port}` : (p.mode ? p.mode : '');
+    let detail = p.host ? `${p.host}:${p.port}` : (p.mode ? p.mode : '');
+    if (hop.protocol === 'ssh') {
+      const authLabel = p.authType === 'ssh_password' ? '🔑密码' : (p.authType === 'ssh_private_key' ? '🔐公钥' : (p.authType === 'key' ? '密钥' : '密码'));
+      detail += ` · ${authLabel}`;
+    }
+    if (hop.protocol === 'proxy' && p.proxyUser) {
+      detail += ` · 认证:${p.proxyUser}`;
+    }
     opts += `<option value="${p.id}" ${hop.profileId === p.id ? 'selected' : ''}>${scopeIcon} ${p.name} (${detail})</option>`;
   });
 
@@ -1476,26 +1565,62 @@ function renderConfigArea(hop) {
 function renderNewForm(hop) {
   const scope = getScopeLabel();
   if (hop.protocol === 'ssh') {
+    const sshAuthConfigs = AUTH_CONFIGS.filter(ac => (AUTH_TYPE_DEFS[ac.auth_type]?.category) === 'ssh');
+    const sshAuthOpts = sshAuthConfigs.length > 0
+      ? '<optgroup label="🖥 已保存的SSH认证">' + sshAuthConfigs.map(ac => `<option value="${ac.id}">${AUTH_TYPE_DEFS[ac.auth_type]?.icon||'🔒'} ${ac.name}</option>`).join('') + '</optgroup>'
+      : '';
     return `<div class="inline-form-v5">
       <div class="form-row"><div class="form-group f1"><span class="form-label">名称</span><input class="form-input" id="new-name-${hop.id}" placeholder="新SSH配置"></div><div class="form-group f1"><span class="form-label">范围归属</span><span class="profile-scope-badge ${getScopeClass()}" style="margin-top:4px">${scope}</span></div></div>
       <div class="form-row" style="margin-bottom:6px"><span style="font-size:10px;font-weight:600;color:var(--ssh-color);letter-spacing:0.5px">🔗 跳板机连接</span></div>
       <div class="form-row"><div class="form-group f2"><span class="form-label">主机</span><input class="form-input" id="new-host-${hop.id}" placeholder="192.168.1.1"></div><div class="form-group f1"><span class="form-label">端口</span><input class="form-input" type="number" id="new-port-${hop.id}" value="22"></div></div>
-      <div class="form-row"><div class="form-group f1"><span class="form-label">用户</span><input class="form-input" id="new-user-${hop.id}" value="root"></div><div class="form-group f1"><span class="form-label">认证</span><select class="form-select" id="new-auth-${hop.id}"><option value="key">密钥</option><option value="password">密码</option></select></div></div>
-      <div class="form-row"><div class="form-group f1"><span class="form-label">密钥路径</span><input class="form-input" id="new-keypath-${hop.id}" value="~/.ssh/id_rsa" placeholder="~/.ssh/id_rsa"></div><div class="form-group f1"><span class="form-label">保活 (秒)</span><input class="form-input" type="number" id="new-keepalive-${hop.id}" value="60"></div></div>
+      <div class="form-row" style="margin-bottom:4px"><span style="font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.5px">🔐 SSH 认证</span></div>
+      <div class="form-row">
+        <div class="form-group f1">
+          <select class="form-select" id="new-auth-${hop.id}" onchange="onChainSshAuthChange('${hop.id}')">
+            <option value="ssh_password">🔑 密码认证</option>
+            <option value="ssh_private_key">🔐 公钥认证 (RSA/ED25519/ECDSA)</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1.6">
+          <select class="form-select" id="new-authcfg-${hop.id}">
+            <option value="">— 手动填写 —</option>
+            ${sshAuthOpts}
+          </select>
+        </div>
+      </div>
+      <div id="chain-ssh-auth-fields-${hop.id}"></div>
+      <div class="form-row"><div class="form-group f1"><span class="form-label">保活 (秒)</span><input class="form-input" type="number" id="new-keepalive-${hop.id}" value="60"></div></div>
       <div class="form-row" style="margin-bottom:6px"><span style="font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.5px">📡 端口转发 (本地:远端)</span></div>
       <div class="form-row"><div class="form-group f1"><span class="form-label">本地端口</span><input class="form-input" type="number" id="new-localport-${hop.id}" value="" placeholder="自动分配"></div><div class="form-group f1"><span class="form-label">远程目标地址</span><input class="form-input" id="new-remotehost-${hop.id}" placeholder="目标DB地址" value=""></div><div class="form-group" style="width:80px"><span class="form-label">端口</span><input class="form-input" type="number" id="new-remoteport-${hop.id}" placeholder="3306" value=""></div></div>
       <div class="form-hint" style="font-size:10px">将远程目标通过 SSH 隧道映射到本地端口，后续协议从此端口连接</div>
-      <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveNewHop('${hop.id}')">保存并应用</button><button class="btn-inline cancel" onclick="switchHopMode('${hop.id}','select')">取消</button></div></div>`;
+      <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveNewHop('${hop.id}')">保存并应用</button><button class="btn-inline test" onclick="testChainHop('${hop.id}')" style="background:rgba(137,180,250,0.15);color:var(--accent);border-color:rgba(137,180,250,0.3);font-size:11px">🧪 测试连接</button><button class="btn-inline cancel" onclick="switchHopMode('${hop.id}','select')">取消</button></div></div>`;
   } else if (hop.protocol === 'ssl') {
     return `<div class="inline-form-v5"><div class="form-row"><div class="form-group f1"><span class="form-label">名称</span><input class="form-input" id="new-name-${hop.id}" placeholder="新SSL配置"></div><div class="form-group f1"><span class="form-label">范围归属</span><span class="profile-scope-badge ${getScopeClass()}" style="margin-top:4px">${scope}</span></div></div>
     <div class="form-row"><div class="form-group f1"><span class="form-label">模式</span><select class="form-select" id="new-mode-${hop.id}"><option value="verify-full">verify-full</option><option value="verify-ca">verify-ca</option><option value="require">require</option></select></div></div>
     <div class="form-row"><div class="form-group f1"><span class="form-label">CA证书</span><input class="form-input" id="new-ca-${hop.id}" placeholder="ca.pem"></div><div class="form-group f1"><span class="form-label">客户端证书</span><input class="form-input" id="new-cert-${hop.id}" placeholder="client.pem"></div></div>
     <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveNewHop('${hop.id}')">保存并应用</button><button class="btn-inline cancel" onclick="switchHopMode('${hop.id}','select')">取消</button></div></div>`;
   } else {
+    const proxyAuthConfigs = AUTH_CONFIGS.filter(ac => ac.auth_type === 'password' && (AUTH_TYPE_DEFS[ac.auth_type]?.category) === 'database');
     return `<div class="inline-form-v5"><div class="form-row"><div class="form-group f1"><span class="form-label">名称</span><input class="form-input" id="new-name-${hop.id}" placeholder="新代理配置"></div><div class="form-group f1"><span class="form-label">范围归属</span><span class="profile-scope-badge ${getScopeClass()}" style="margin-top:4px">${scope}</span></div></div>
     <div class="form-row"><div class="form-group f1"><span class="form-label">类型</span><select class="form-select" id="new-type-${hop.id}"><option value="socks5">SOCKS5</option><option value="http">HTTP</option><option value="socks4">SOCKS4</option></select></div></div>
     <div class="form-row"><div class="form-group f2"><span class="form-label">主机</span><input class="form-input" id="new-host-${hop.id}" placeholder="proxy.example.com"></div><div class="form-group f1"><span class="form-label">端口</span><input class="form-input" type="number" id="new-port-${hop.id}" value="1080"></div></div>
-    <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveNewHop('${hop.id}')">保存并应用</button><button class="btn-inline cancel" onclick="switchHopMode('${hop.id}','select')">取消</button></div></div>`;
+    <div class="form-row" style="margin-bottom:4px"><span style="font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.5px">🔐 代理认证（可选）</span></div>
+    <div class="form-row">
+      <div class="form-group f1">
+        <select class="form-select" id="new-proxyauth-${hop.id}" onchange="onChainProxyAuthChange('${hop.id}')">
+          <option value="">— 无认证 —</option>
+          <option value="password">🔑 用户名/密码</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1.6">
+        <select class="form-select" id="new-proxyauthcfg-${hop.id}">
+          <option value="">— 手动填写 —</option>
+          ${proxyAuthConfigs.map(ac => `<option value="${ac.id}">🔑 ${ac.name} · ${ac.scope==='global'?'🌐':'📝'}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div id="chain-proxy-auth-fields-${hop.id}"></div>
+    <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveNewHop('${hop.id}')">保存并应用</button><button class="btn-inline test" onclick="testChainHop('${hop.id}')" style="background:rgba(137,180,250,0.15);color:var(--accent);border-color:rgba(137,180,250,0.3);font-size:11px">🧪 测试连接</button><button class="btn-inline cancel" onclick="switchHopMode('${hop.id}','select')">取消</button></div></div>`;
   }
 }
 
@@ -1524,6 +1649,13 @@ function switchHopMode(hopId, mode) {
   if (mode === 'select') hop.profileId = '';
   renderChain();
   updateTopology();
+  // 渲染内联认证字段
+  if (mode === 'new') {
+    setTimeout(() => {
+      if (hop.protocol === 'ssh') onChainSshAuthChange(hopId);
+      if (hop.protocol === 'proxy') onChainProxyAuthChange(hopId);
+    }, 0);
+  }
 }
 
 function toggleHop(hopId) {
@@ -1541,6 +1673,60 @@ function deleteHop(hopId) {
   updateTopology();
 }
 
+// ============================================================
+// 协议链内联 SSH / Proxy 认证字段渲染
+// ============================================================
+function onChainSshAuthChange(hopId) {
+  const type = document.getElementById(`new-auth-${hopId}`)?.value || 'ssh_password';
+  const container = document.getElementById(`chain-ssh-auth-fields-${hopId}`);
+  if (!container) return;
+
+  let html = '';
+  if (type === 'ssh_password') {
+    html = `<div class="form-row">
+      <div class="form-group f1"><span class="form-label">SSH 用户</span><input class="form-input" id="new-user-${hopId}" value="root"></div>
+      <div class="form-group f1"><span class="form-label">SSH 密码</span><input class="form-input" id="new-pass-${hopId}" type="password" placeholder="SSH 登录密码"></div>
+    </div>`;
+  } else {
+    html = `<div class="form-row">
+      <div class="form-group f1"><span class="form-label">SSH 用户</span><input class="form-input" id="new-user-${hopId}" value="root"></div>
+      <div class="form-group f1"><span class="form-label">Passphrase</span><input class="form-input" id="new-passphrase-${hopId}" type="password" placeholder="私钥密码（可选）"></div>
+    </div>
+    <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">私钥文件</span><div class="file-input-row"><input class="form-input" id="new-keypath-${hopId}" value="~/.ssh/id_rsa"><button class="btn-browse">📂</button></div></div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+function onChainProxyAuthChange(hopId) {
+  const type = document.getElementById(`new-proxyauth-${hopId}`)?.value || '';
+  const container = document.getElementById(`chain-proxy-auth-fields-${hopId}`);
+  if (!container) return;
+  if (!type) { container.innerHTML = ''; return; }
+  container.innerHTML = `<div class="form-row">
+    <div class="form-group f1"><span class="form-label">用户名</span><input class="form-input" id="new-proxyuser-${hopId}" placeholder="代理用户名"></div>
+    <div class="form-group f1"><span class="form-label">密码</span><input class="form-input" id="new-proxypass-${hopId}" type="password" placeholder="代理密码"></div>
+  </div>`;
+}
+
+function testChainHop(hopId) {
+  const host = document.getElementById(`new-host-${hopId}`)?.value || 'localhost';
+  const port = document.getElementById(`new-port-${hopId}`)?.value || '22';
+  const hop = protocolChain.find(h => h.id === hopId);
+  const proto = hop?.protocol || 'ssh';
+
+  const testBtn = document.querySelector(`#chain-${hopId} .btn-inline.test`);
+  if (testBtn) { testBtn.disabled = true; testBtn.textContent = '⏳ 测试中...'; }
+
+  setTimeout(() => {
+    if (testBtn) { testBtn.disabled = false; testBtn.textContent = '🧪 测试连接'; }
+    if (proto === 'ssh') {
+      alert(`🧪 SSH 隧道测试成功！\n\n主机: ${host}:${port}\n认证: 通过\n延迟: 12ms\n隧道: 正常`);
+    } else {
+      alert(`🧪 代理测试成功！\n\n代理: ${host}:${port}\n认证: 通过\n延迟: 38ms`);
+    }
+  }, 800);
+}
+
 function saveNewHop(hopId) {
   const hop = protocolChain.find(h => h.id === hopId);
   if (!hop) return;
@@ -1552,14 +1738,15 @@ function saveNewHop(hopId) {
   if (hop.protocol === 'ssh') {
     const host = document.getElementById('new-host-' + hopId)?.value || 'localhost';
     const port = parseInt(document.getElementById('new-port-' + hopId)?.value) || 22;
+    const authType = document.getElementById('new-auth-' + hopId)?.value || 'ssh_private_key';
+    const authConfigId = document.getElementById('new-authcfg-' + hopId)?.value || '';
     const username = document.getElementById('new-user-' + hopId)?.value || 'root';
-    const authType = document.getElementById('new-auth-' + hopId)?.value || 'key';
-    const keyPath = document.getElementById('new-keypath-' + hopId)?.value || '';
+    const keyPath = (authType === 'ssh_private_key') ? (document.getElementById('new-keypath-' + hopId)?.value || '') : '';
     const localPort = parseInt(document.getElementById('new-localport-' + hopId)?.value) || null;
     const remoteHost = document.getElementById('new-remotehost-' + hopId)?.value || '';
     const remotePort = parseInt(document.getElementById('new-remoteport-' + hopId)?.value) || null;
     const keepAlive = parseInt(document.getElementById('new-keepalive-' + hopId)?.value) || 60;
-    SSH_PROFILES.push({ id: newId, name, scope, host, port, username, authType, keyPath, localPort, remoteHost, remotePort, keepAlive });
+    SSH_PROFILES.push({ id: newId, name, scope, host, port, username, authType, authConfigId, keyPath, localPort, remoteHost, remotePort, keepAlive });
   } else if (hop.protocol === 'ssl') {
     const mode = document.getElementById('new-mode-' + hopId)?.value || 'verify-full';
     const ca = document.getElementById('new-ca-' + hopId)?.value || '';
@@ -1569,7 +1756,10 @@ function saveNewHop(hopId) {
     const type = document.getElementById('new-type-' + hopId)?.value || 'socks5';
     const host = document.getElementById('new-host-' + hopId)?.value || '';
     const port = parseInt(document.getElementById('new-port-' + hopId)?.value) || 1080;
-    PROXY_PROFILES.push({ id: newId, name, scope, type, host, port });
+    const proxyAuthType = document.getElementById('new-proxyauth-' + hopId)?.value || '';
+    const proxyAuthConfigId = document.getElementById('new-proxyauthcfg-' + hopId)?.value || '';
+    const proxyUser = proxyAuthType ? (document.getElementById('new-proxyuser-' + hopId)?.value || '') : '';
+    PROXY_PROFILES.push({ id: newId, name, scope, type, host, port, proxyAuthType, proxyAuthConfigId, proxyUser });
   }
 
   hop.mode = 'select';
@@ -1856,6 +2046,557 @@ function toggleUriEdit() {
 }
 
 // ============================================================
+// 认证配置 — 统一凭证库（对应后端 auth_configs 表）
+//   分两大类：数据库认证 + SSH 认证
+//   不同认证类型展示不同的表单字段
+// ============================================================
+const AUTH_TYPE_DEFS = {
+  // ---- 数据库认证（出现在「常规」Tab）----
+  password:        { category:'database', icon:'🔑', label:'SCRAM-SHA-256 / mysql_native_password', fields:['username','password'] },
+  pg_class:        { category:'database', icon:'📜', label:'SSL 客户端证书 (mTLS)',  fields:['certPath','certKeyPath'] },
+  kerberos:        { category:'database', icon:'🎫', label:'GSSAPI Kerberos',          fields:['principal','keytabPath'] },
+  oauth2:          { category:'database', icon:'🔗', label:'OAuth 2.0 Bearer Token',   fields:['tokenEndpoint','clientId','clientSecret'] },
+  // ---- SSH 认证（出现在「网络」→ SSH 隧道）----
+  ssh_password:    { category:'ssh',      icon:'🔑', label:'SSH 密码认证',          fields:['username','password'] },
+  ssh_private_key: { category:'ssh',      icon:'🔐', label:'SSH 公钥认证 (RSA/ED25519/ECDSA)', fields:['username','keyPath','passphrase'] },
+};
+
+let selectedAuthType = 'password';  // 左：认证方法类型（默认密码认证）
+let selectedAuthId = '';    // 右：已保存的认证配置 ID
+
+// 刷新右侧配置下拉框 — 筛选当前认证方法类型的已保存配置
+function populateAuthConfigSelect() {
+  const sel = document.getElementById('authConfigSelect');
+  if (!sel) return;
+
+  const scopeFilter = getActiveScopes();
+  const isDatabase = true;  // 常规 Tab 只显示数据库认证
+
+  let configs = AUTH_CONFIGS.filter(ac => {
+    if (isDatabase && (AUTH_TYPE_DEFS[ac.auth_type]?.category) !== 'database') return false;
+    if (scopeFilter.global && !scopeFilter.project && ac.scope !== 'global') return false;
+    return true;
+  });
+
+  // 如果左侧选了具体类型，只显示该类型的配置
+  if (selectedAuthType) {
+    configs = configs.filter(ac => ac.auth_type === selectedAuthType);
+  }
+
+  let html = '<option value="">— 不使用已保存配置 —</option>';
+
+  if (configs.length > 0) {
+    // 按类型分组
+    const types = selectedAuthType ? [selectedAuthType] : ['password','pg_class','kerberos','oauth2'];
+    types.forEach(at => {
+      const group = configs.filter(ac => ac.auth_type === at);
+      if (group.length === 0) return;
+      const def = AUTH_TYPE_DEFS[at];
+      html += `<optgroup label="${def ? def.icon + ' ' + def.label : at}">`;
+      group.forEach(ac => {
+        const scopeIcon = ac.scope === 'global' ? '🌐' : '📝';
+        html += `<option value="${ac.id}">${ac.name} · ${scopeIcon}</option>`;
+      });
+      html += '</optgroup>';
+    });
+  }
+
+  sel.innerHTML = html;
+}
+
+// 左：认证方法类型切换
+function onAuthTypeChange(type) {
+  selectedAuthType = type;
+  selectedAuthId = '';  // 重置右侧选择
+  populateAuthConfigSelect();
+  renderAuthFields(type, null);  // 渲染该类型的可编辑字段
+}
+
+// 右：已保存的配置切换
+function onAuthConfigSelect(configId) {
+  selectedAuthId = configId;
+  if (!configId) {
+    // 不使用已保存配置 → 渲染可编辑字段
+    renderAuthFields(selectedAuthType, null);
+    return;
+  }
+  const ac = AUTH_CONFIGS.find(x => x.id === configId);
+  if (!ac) return;
+  // 同步左侧类型
+  if (selectedAuthType !== ac.auth_type) {
+    selectedAuthType = ac.auth_type;
+    const typeSel = document.getElementById('authTypeSelect');
+    if (typeSel) typeSel.value = ac.auth_type;
+  }
+  renderAuthFields(ac.auth_type, ac);  // 预填并禁用
+}
+
+// 渲染动态表单：type=认证方法类型, config=已保存配置(null=可编辑)
+function renderAuthFields(authType, config) {
+  const container = document.getElementById('authDynamicFields');
+  if (!container) return;
+  removeAuthPreview();
+
+  const readonly = !!config;
+  const disabled = readonly ? 'disabled style="opacity:0.65;cursor:not-allowed"' : '';
+
+  if (!authType) {
+    // 无认证方法 — 默认用户/密码
+    container.innerHTML = `<div class="form-row" style="margin-top:0">
+      <div class="form-group f1"><span class="form-label">用户</span><input class="form-input" id="authUserInput" value="${readonly ? (config?.username || '') : 'root'}"></div>
+      <div class="form-group f1"><span class="form-label">密码</span><input class="form-input" id="authPasswordInput" type="password" value="${readonly ? '******' : '***'}"></div>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  switch (authType) {
+    case 'password':
+      html = `<div class="form-row" style="margin-top:0">
+        <div class="form-group f1">
+          <span class="form-label">用户</span>
+          <input class="form-input" id="authUserInput" value="${readonly ? (config?.username || '') : 'root'}" ${disabled}>
+        </div>
+        <div class="form-group f1">
+          <span class="form-label">密码</span>
+          <input class="form-input" id="authPasswordInput" type="password" value="${readonly ? '******' : '***'}" ${disabled}>
+        </div>
+      </div>`;
+      break;
+
+    case 'pg_class':
+      html = `<div class="form-row" style="margin-top:0">
+        <div class="form-group" style="flex:1">
+          <span class="form-label">客户端证书 (.crt)</span>
+          <div class="file-input-row">
+            <input class="form-input" id="authCertInput" value="${readonly ? (config?.certPath || '') : ''}" ${disabled} placeholder="~/.postgresql/postgresql.crt">
+            <button class="btn-browse" ${disabled.split(' ')[0]}>📂</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <span class="form-label">私钥文件 (.key)</span>
+          <div class="file-input-row">
+            <input class="form-input" id="authKeyInput" value="${readonly ? (config?.keyPath || '') : ''}" ${disabled} placeholder="~/.postgresql/postgresql.key">
+            <button class="btn-browse" ${disabled.split(' ')[0]}>📂</button>
+          </div>
+        </div>
+      </div>`;
+      break;
+
+    case 'kerberos':
+      html = `<div class="form-row" style="margin-top:0">
+        <div class="form-group" style="flex:1">
+          <span class="form-label">Principal</span>
+          <input class="form-input" id="authPrincipalInput" value="${readonly ? (config?.principal || '') : ''}" ${disabled} placeholder="user@REALM.COM">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <span class="form-label">Keytab 文件</span>
+          <div class="file-input-row">
+            <input class="form-input" id="authKeytabInput" value="${readonly ? (config?.keytabPath || '') : ''}" ${disabled} placeholder="/etc/krb5.keytab">
+            <button class="btn-browse" ${disabled.split(' ')[0]}>📂</button>
+          </div>
+        </div>
+      </div>`;
+      break;
+
+    case 'oauth2':
+      html = `<div class="form-row" style="margin-top:0">
+        <div class="form-group" style="flex:1">
+          <span class="form-label">Token 端点</span>
+          <input class="form-input" id="authEndpointInput" value="${readonly ? (config?.tokenEndpoint || '') : ''}" ${disabled} placeholder="https://auth.example.com/token">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group f1">
+          <span class="form-label">Client ID</span>
+          <input class="form-input" id="authClientIdInput" value="${readonly ? (config?.clientId || '') : ''}" ${disabled} placeholder="oauth2-client-id">
+        </div>
+        <div class="form-group f1">
+          <span class="form-label">Client Secret</span>
+          <input class="form-input" id="authClientSecretInput" type="password" value="${readonly ? '****' : ''}" ${disabled} placeholder="secret">
+        </div>
+      </div>`;
+      break;
+  }
+
+  if (readonly && config) {
+    html += `<div class="form-hint">🔐 凭据来自认证配置「${config.name}」，已加密存储 (AES-256-GCM)</div>`;
+    renderAuthPreview(config);
+  }
+
+  container.innerHTML = html;
+}
+
+function renderAuthPreview(ac) {
+  removeAuthPreview();
+  const authSection = document.getElementById('form-auth');
+  if (!authSection) return;
+  const scopeIcon = ac.scope === 'global' ? '🌐 全局' : '📝 项目';
+  const def = AUTH_TYPE_DEFS[ac.auth_type];
+  const typeLabel = def ? def.label : ac.auth_type;
+  const hint = document.createElement('div');
+  hint.id = 'authPreviewHint';
+  hint.style.cssText = 'margin-top:8px;padding:6px 10px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:6px;border:1px solid rgba(137,180,250,0.12);border-radius:4px;background:rgba(137,180,250,0.03)';
+  hint.innerHTML = `<span>📌 已选择: <strong>${ac.name}</strong></span>
+    <span style="color:var(--text-muted);font-size:10px">· ${typeLabel} · ${scopeIcon}</span>
+    <span style="color:var(--text-muted);font-size:10px">· ${ac.desc || ''}</span>`;
+  authSection.appendChild(hint);
+}
+
+function removeAuthPreview() {
+  const existing = document.getElementById('authPreviewHint');
+  if (existing) existing.remove();
+}
+
+// ============================================================
+// 认证配置管理器（覆盖层 — 独立 CRUD，数据库 + SSH 两大分类）
+// ============================================================
+let authManagerTab = 'database';  // 当前管理器 Tab
+
+function switchAuthManagerTab(category) {
+  authManagerTab = category;
+  document.querySelectorAll('[data-auth-tab]').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-auth-tab="${category}"]`)?.classList.add('active');
+  updateAuthManagerUI();
+}
+
+function openAuthConfigManager() {
+  document.getElementById('authManagerOverlay').classList.remove('hidden');
+  updateAuthManagerUI();
+}
+
+function closeAuthConfigManager(event) {
+  if (event && event.target !== document.getElementById('authManagerOverlay')) return;
+  document.getElementById('authManagerOverlay').classList.add('hidden');
+  populateAuthConfigSelect();
+  onAuthTypeChange('password');
+  // 恢复选中状态
+  if (selectedAuthId) {
+    const sel = document.getElementById('authConfigSelect');
+    if (sel) sel.value = selectedAuthId;
+  }
+}
+
+function updateAuthManagerUI() {
+  const body = document.getElementById('authManagerBody');
+  if (!body) return;
+
+  const items = AUTH_CONFIGS.filter(ac => (AUTH_TYPE_DEFS[ac.auth_type]?.category) === authManagerTab);
+  const isDatabase = authManagerTab === 'database';
+  const typeOrder = isDatabase
+    ? ['password', 'pg_class', 'kerberos', 'oauth2']
+    : ['ssh_password', 'ssh_private_key'];
+  const categoryLabel = isDatabase ? '数据库认证' : 'SSH 认证';
+  const categoryIcon = isDatabase ? '📊' : '🖥';
+
+  if (items.length === 0) {
+    body.innerHTML = `<div class="empty-profiles">暂无${categoryLabel}配置<br><span style="font-size:11px;color:var(--text-muted);display:block;margin-top:6px">${isDatabase ? '支持密码、证书、Kerberos、OAuth2 等类型' : '支持SSH密码和SSH私钥认证'}</span><br><br><button class="btn btn-primary" style="font-size:12px;padding:6px 16px" onclick="showAddAuthForm()">+ 新建 ${categoryLabel} 配置</button></div>`;
+    return;
+  }
+
+  let html = '';
+  typeOrder.forEach(at => {
+    const group = items.filter(ac => ac.auth_type === at);
+    if (group.length === 0) return;
+    const def = AUTH_TYPE_DEFS[at];
+    html += `<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);padding:8px 0 4px;letter-spacing:0.5px">${def ? def.icon + ' ' + def.label : at}</div>`;
+    group.forEach(ac => {
+      let detail = '';
+      if (ac.auth_type === 'password') detail = `用户: ${ac.username}`;
+      else if (ac.auth_type === 'pg_class') detail = `证书: ${ac.certPath}`;
+      else if (ac.auth_type === 'kerberos') detail = `Principal: ${ac.principal}`;
+      else if (ac.auth_type === 'oauth2') detail = `端点: ${ac.tokenEndpoint || '—'}`;
+      else if (ac.auth_type === 'ssh_password') detail = `用户: ${ac.username}`;
+      else if (ac.auth_type === 'ssh_private_key') detail = `用户: ${ac.username} · 密钥: ${ac.keyPath}`;
+      const scopeText = ac.scope === 'global' ? '🌐 全局' : '📝 项目';
+      const scopeClass = ac.scope === 'global' ? 'global' : 'project';
+
+      html += `<div class="profile-card">
+        <span class="profile-scope-badge ${scopeClass}">${scopeText}</span>
+        <div class="profile-card-info">
+          <div class="profile-card-name">${ac.name}</div>
+          <div class="profile-card-detail">${detail} · ${ac.desc || ''}</div>
+        </div>
+        <div class="profile-card-actions">
+          <button class="btn-card edit" onclick="editAuthConfig('${ac.id}')" title="编辑">✎</button>
+          <button class="btn-card danger" onclick="deleteAuthConfig('${ac.id}')" title="删除">✕</button>
+        </div>
+      </div>`;
+    });
+  });
+
+  html += `<button class="btn-add-profile" onclick="showAddAuthForm()" style="margin-top:12px">+ 新建 ${categoryIcon} ${categoryLabel} 配置</button>`;
+  body.innerHTML = html;
+}
+
+function showAddAuthForm() {
+  const body = document.getElementById('authManagerBody');
+  if (!body) return;
+
+  const isDatabase = authManagerTab === 'database';
+  const categoryLabel = isDatabase ? '数据库认证' : 'SSH 认证';
+  const typeKeys = isDatabase ? ['password', 'pg_class', 'kerberos', 'oauth2'] : ['ssh_password', 'ssh_private_key'];
+  const typeOptions = typeKeys.map(k => {
+    const v = AUTH_TYPE_DEFS[k];
+    return `<option value="${k}">${v.icon} ${v.label}</option>`;
+  }).join('');
+
+  body.innerHTML = `<div class="inline-form">
+    <div class="form-row">
+      <div class="form-group f1"><span class="form-label">认证类型</span>
+        <select class="form-select" id="newAuthType" onchange="onNewAuthTypeChange()">${typeOptions}</select>
+      </div>
+      <div class="form-group f1"><span class="form-label">范围</span>
+        <select class="form-select" id="newAuthScope"><option value="global">🌐 全局</option><option value="project">📝 项目</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><span class="form-label">名称</span><input class="form-input" id="newAuthName" placeholder="${isDatabase ? '例：生产 PG 密码认证' : '例：跳板机 RSA 密钥'}"></div>
+    </div>
+    <div id="newAuthFields"></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><span class="form-label">备注</span><input class="form-input" id="newAuthDesc" placeholder="可选备注"></div>
+    </div>
+    <div class="form-row" style="margin-top:4px">
+      <button class="btn-inline save" onclick="saveNewAuthConfig()">保存</button>
+      <button class="btn-inline cancel" onclick="updateAuthManagerUI()">取消</button>
+    </div>
+  </div>`;
+
+  onNewAuthTypeChange();  // 渲染默认类型的字段
+}
+
+function onNewAuthTypeChange() {
+  const type = document.getElementById('newAuthType')?.value || (authManagerTab === 'database' ? 'password' : 'ssh_password');
+  const fields = document.getElementById('newAuthFields');
+  if (!fields) return;
+
+  let html = '';
+  switch (type) {
+    case 'password':
+      html = `<div class="form-row">
+        <div class="form-group f1"><span class="form-label">用户名</span><input class="form-input" id="afUser" placeholder="数据库用户名"></div>
+        <div class="form-group f1"><span class="form-label">密码</span><input class="form-input" id="afPass" type="password" placeholder="数据库密码"></div>
+      </div>`;
+      break;
+    case 'pg_class':
+      html = `<div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">客户端证书路径</span><div class="file-input-row"><input class="form-input" id="afCert" placeholder="~/.postgresql/postgresql.crt"><button class="btn-browse">📂</button></div></div></div>
+      <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">私钥路径</span><div class="file-input-row"><input class="form-input" id="afKey" placeholder="~/.postgresql/postgresql.key"><button class="btn-browse">📂</button></div></div></div>`;
+      break;
+    case 'kerberos':
+      html = `<div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">Principal</span><input class="form-input" id="afPrincipal" placeholder="user@REALM.COM"></div></div>
+      <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">Keytab 文件</span><div class="file-input-row"><input class="form-input" id="afKeytab" placeholder="/etc/krb5.keytab"><button class="btn-browse">📂</button></div></div></div>`;
+      break;
+    case 'oauth2':
+      html = `<div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">Token 端点</span><input class="form-input" id="afEndpoint" placeholder="https://auth.example.com/token"></div></div>
+      <div class="form-row"><div class="form-group f1"><span class="form-label">Client ID</span><input class="form-input" id="afClientId" placeholder="oauth2-client-id"></div><div class="form-group f1"><span class="form-label">Client Secret</span><input class="form-input" id="afClientSecret" type="password" placeholder="secret"></div></div>`;
+      break;
+    case 'ssh_password':
+      html = `<div class="form-row">
+        <div class="form-group f1"><span class="form-label">SSH 用户名</span><input class="form-input" id="afUser" placeholder="root"></div>
+        <div class="form-group f1"><span class="form-label">SSH 密码</span><input class="form-input" id="afPass" type="password" placeholder="SSH 登录密码"></div>
+      </div>`;
+      break;
+    case 'ssh_private_key':
+      html = `<div class="form-row">
+        <div class="form-group f1"><span class="form-label">SSH 用户名</span><input class="form-input" id="afUser" placeholder="root"></div>
+        <div class="form-group f1"><span class="form-label">Passphrase</span><input class="form-input" id="afPassphrase" type="password" placeholder="私钥密码（可选）"></div>
+      </div>
+      <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">私钥文件路径</span><div class="file-input-row"><input class="form-input" id="afKeyPath" placeholder="~/.ssh/id_rsa"><button class="btn-browse">📂</button></div></div></div>`;
+      break;
+  }
+  fields.innerHTML = html;
+}
+
+function saveNewAuthConfig() {
+  const type = document.getElementById('newAuthType')?.value || (authManagerTab === 'database' ? 'password' : 'ssh_password');
+  const scope = document.getElementById('newAuthScope')?.value || 'global';
+  const name = document.getElementById('newAuthName')?.value?.trim();
+  const desc = document.getElementById('newAuthDesc')?.value?.trim() || '';
+
+  if (!name) { alert('请输入认证配置名称'); return; }
+
+  const id = 'auth-' + Date.now();
+  const base = { id, name, scope, auth_type: type, desc };
+
+  switch (type) {
+    case 'password':
+      base.username = document.getElementById('afUser')?.value || '';
+      break;
+    case 'pg_class':
+      base.certPath = document.getElementById('afCert')?.value || '';
+      base.keyPath = document.getElementById('afKey')?.value || '';
+      break;
+    case 'kerberos':
+      base.principal = document.getElementById('afPrincipal')?.value || '';
+      base.keytabPath = document.getElementById('afKeytab')?.value || '';
+      break;
+    case 'oauth2':
+      base.tokenEndpoint = document.getElementById('afEndpoint')?.value || '';
+      base.clientId = document.getElementById('afClientId')?.value || '';
+      break;
+    case 'ssh_password':
+      base.username = document.getElementById('afUser')?.value || '';
+      break;
+    case 'ssh_private_key':
+      base.username = document.getElementById('afUser')?.value || '';
+      base.keyPath = document.getElementById('afKeyPath')?.value || '';
+      base.passphrase = document.getElementById('afPassphrase')?.value || '';
+      break;
+  }
+
+  AUTH_CONFIGS.push(base);
+  const scopeLabel = scope === 'global' ? '🌐全局' : '📝项目';
+  const def = AUTH_TYPE_DEFS[type];
+  const typeLabel = def ? def.label : type;
+  alert(`认证配置「${name}」已保存到 ${scopeLabel} 范围。\n类型：${typeLabel}`);
+  updateAuthManagerUI();
+}
+
+function deleteAuthConfig(id) {
+  const ac = AUTH_CONFIGS.find(x => x.id === id);
+  if (!ac) return;
+  if (!confirm(`确定删除认证配置「${ac.name}」？\n（引用该配置的数据源将回退到直接连接）`)) return;
+
+  AUTH_CONFIGS.splice(0, AUTH_CONFIGS.length, ...AUTH_CONFIGS.filter(x => x.id !== id));
+
+  // 如果当前数据源引用了被删除的配置，回退
+  if (selectedAuthId === id) {
+    selectedAuthId = '';
+    const sel = document.getElementById('authConfigSelect');
+    if (sel) sel.value = '';
+    onAuthConfigSelect('');
+  }
+
+  updateAuthManagerUI();
+}
+
+function editAuthConfig(id) {
+  const ac = AUTH_CONFIGS.find(x => x.id === id);
+  if (!ac) return;
+
+  // 切换到正确的分类 Tab
+  const cat = AUTH_TYPE_DEFS[ac.auth_type]?.category || 'database';
+  if (authManagerTab !== cat) {
+    authManagerTab = cat;
+    document.querySelectorAll('[data-auth-tab]').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-auth-tab="${cat}"]`)?.classList.add('active');
+  }
+
+  const body = document.getElementById('authManagerBody');
+  if (!body) return;
+
+  const isDatabase = cat === 'database';
+  const typeKeys = isDatabase ? ['password', 'pg_class', 'kerberos', 'oauth2'] : ['ssh_password', 'ssh_private_key'];
+  const typeOptions = typeKeys.map(k => {
+    const v = AUTH_TYPE_DEFS[k];
+    return `<option value="${k}" ${ac.auth_type === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`;
+  }).join('');
+
+  body.innerHTML = `<div class="inline-form">
+    <div class="form-row">
+      <div class="form-group f1"><span class="form-label">认证类型</span>
+        <select class="form-select" id="newAuthType" onchange="onNewAuthTypeChange()">${typeOptions}</select>
+      </div>
+      <div class="form-group f1"><span class="form-label">范围</span>
+        <select class="form-select" id="newAuthScope"><option value="global" ${ac.scope==='global'?'selected':''}>🌐 全局</option><option value="project" ${ac.scope==='project'?'selected':''}>📝 项目</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><span class="form-label">名称</span><input class="form-input" id="newAuthName" value="${ac.name}"></div>
+    </div>
+    <div id="newAuthFields"></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><span class="form-label">备注</span><input class="form-input" id="newAuthDesc" value="${ac.desc || ''}"></div>
+    </div>
+    <div class="form-row" style="margin-top:4px">
+      <button class="btn-inline save" onclick="saveEditAuthConfig('${id}')">保存修改</button>
+      <button class="btn-inline cancel" onclick="updateAuthManagerUI()">取消</button>
+    </div>
+  </div>`;
+
+  // 渲染对应类型的编辑字段，并预填值
+  setTimeout(() => prefillEditAuthFields(ac), 0);
+}
+
+function prefillEditAuthFields(ac) {
+  onNewAuthTypeChange();  // 先按当前类型渲染字段
+  setTimeout(() => {
+    switch (ac.auth_type) {
+      case 'password':
+        document.getElementById('afUser') && (document.getElementById('afUser').value = ac.username || '');
+        break;
+      case 'pg_class':
+        document.getElementById('afCert') && (document.getElementById('afCert').value = ac.certPath || '');
+        document.getElementById('afKey') && (document.getElementById('afKey').value = ac.keyPath || '');
+        break;
+      case 'kerberos':
+        document.getElementById('afPrincipal') && (document.getElementById('afPrincipal').value = ac.principal || '');
+        document.getElementById('afKeytab') && (document.getElementById('afKeytab').value = ac.keytabPath || '');
+        break;
+      case 'oauth2':
+        document.getElementById('afEndpoint') && (document.getElementById('afEndpoint').value = ac.tokenEndpoint || '');
+        document.getElementById('afClientId') && (document.getElementById('afClientId').value = ac.clientId || '');
+        break;
+      case 'ssh_password':
+        document.getElementById('afUser') && (document.getElementById('afUser').value = ac.username || '');
+        break;
+      case 'ssh_private_key':
+        document.getElementById('afUser') && (document.getElementById('afUser').value = ac.username || '');
+        document.getElementById('afKeyPath') && (document.getElementById('afKeyPath').value = ac.keyPath || '');
+        document.getElementById('afPassphrase') && (document.getElementById('afPassphrase').value = ac.passphrase || '');
+        break;
+    }
+  }, 0);
+}
+
+function saveEditAuthConfig(id) {
+  const ac = AUTH_CONFIGS.find(x => x.id === id);
+  if (!ac) return;
+
+  const name = document.getElementById('newAuthName')?.value?.trim();
+  if (!name) { alert('请输入认证配置名称'); return; }
+
+  ac.name = name;
+  ac.scope = document.getElementById('newAuthScope')?.value || 'global';
+  ac.auth_type = document.getElementById('newAuthType')?.value || ac.auth_type;
+  ac.desc = document.getElementById('newAuthDesc')?.value?.trim() || '';
+
+  switch (ac.auth_type) {
+    case 'password':
+      ac.username = document.getElementById('afUser')?.value || '';
+      break;
+    case 'pg_class':
+      ac.certPath = document.getElementById('afCert')?.value || '';
+      ac.keyPath = document.getElementById('afKey')?.value || '';
+      break;
+    case 'kerberos':
+      ac.principal = document.getElementById('afPrincipal')?.value || '';
+      ac.keytabPath = document.getElementById('afKeytab')?.value || '';
+      break;
+    case 'oauth2':
+      ac.tokenEndpoint = document.getElementById('afEndpoint')?.value || '';
+      ac.clientId = document.getElementById('afClientId')?.value || '';
+      break;
+    case 'ssh_password':
+      ac.username = document.getElementById('afUser')?.value || '';
+      break;
+    case 'ssh_private_key':
+      ac.username = document.getElementById('afUser')?.value || '';
+      ac.keyPath = document.getElementById('afKeyPath')?.value || '';
+      ac.passphrase = document.getElementById('afPassphrase')?.value || '';
+      break;
+  }
+
+  alert(`认证配置「${name}」已更新。`);
+  updateAuthManagerUI();
+}
+
+// ============================================================
 // 配置文件管理器（脱离DB的独立CRUD）
 // ============================================================
 let managerTab = 'ssh';
@@ -1897,9 +2638,12 @@ function updateManagerUI() {
   let html = '';
   profiles.forEach(p => {
     let detail = '';
-    if (managerTab === 'ssh') detail = `${p.host}:${p.port} · ${p.username} · ${p.authType === 'key' ? '密钥认证' : '密码认证'}` + (p.remoteHost ? ` · 转发→${p.remoteHost}:${p.remotePort}` : '');
+    if (managerTab === 'ssh') {
+      const authLabel = p.authType === 'ssh_password' ? '🔑密码' : (p.authType === 'ssh_private_key' ? '🔐公钥' : (p.authType === 'key' ? '密钥' : '密码'));
+      detail = `${p.host}:${p.port} · ${p.username} · ${authLabel}` + (p.remoteHost ? ` · 转发→${p.remoteHost}:${p.remotePort}` : '');
+    }
     else if (managerTab === 'ssl') detail = `模式: ${p.mode}` + (p.ca ? ` · CA: ${p.ca}` : '') + (p.cert ? ` · 证书: ${p.cert}` : '');
-    else detail = `${p.type?.toUpperCase() || ''} · ${p.host}:${p.port}` + (p.username ? ` · ${p.username}` : '');
+    else detail = `${p.type?.toUpperCase() || ''} · ${p.host}:${p.port}` + (p.username ? ` · ${p.username}` : '') + (p.proxyUser ? ` · 认证: ${p.proxyUser}` : '');
     const scopeText = p.scope === 'global' ? '🌐 全局' : '📝 项目';
     const scopeClass = p.scope === 'global' ? 'global' : 'project';
 
@@ -1907,6 +2651,7 @@ function updateManagerUI() {
       <span class="profile-scope-badge ${scopeClass}">${scopeText}</span>
       <div class="profile-card-info"><div class="profile-card-name">${p.name}</div><div class="profile-card-detail">${detail}</div></div>
       <div class="profile-card-actions">
+        <button class="btn-card edit" onclick="editManagerProfile('${p.id}')" title="编辑">✎</button>
         <button class="btn-card use" onclick="deleteManagerProfile('${p.id}')" title="删除">✕</button>
       </div>
     </div>`;
@@ -1918,26 +2663,156 @@ function updateManagerUI() {
 
 function addManagerProfile() {
   let fieldsHtml = '';
+  // 读取已保存的 SSH 认证配置用于右侧下拉框
+  const sshAuthConfigs = AUTH_CONFIGS.filter(ac => (AUTH_TYPE_DEFS[ac.auth_type]?.category) === 'ssh');
+  const sshAuthOpts = sshAuthConfigs.length > 0
+    ? '<optgroup label="🖥 SSH 认证">' + sshAuthConfigs.map(ac => {
+        const def = AUTH_TYPE_DEFS[ac.auth_type];
+        return `<option value="${ac.id}">${def?.icon||'🔒'} ${ac.name} · ${def?.label||ac.auth_type}</option>`;
+      }).join('') + '</optgroup>'
+    : '';
+
   if (managerTab === 'ssh') {
     fieldsHtml = `<div class="form-row" style="margin-bottom:6px"><span style="font-size:10px;font-weight:600;color:var(--ssh-color)">🔗 跳板机连接</span></div>
     <div class="form-row"><div class="form-group f2"><span class="form-label">SSH 主机</span><input class="form-input" id="mgrHost" placeholder="192.168.1.100"></div><div class="form-group f1"><span class="form-label">端口</span><input class="form-input" type="number" id="mgrPort" value="22"></div></div>
-    <div class="form-row"><div class="form-group f1"><span class="form-label">用户名</span><input class="form-input" id="mgrUser" value="root"></div><div class="form-group f1"><span class="form-label">认证</span><select class="form-select" id="mgrAuth"><option value="key">密钥</option><option value="password">密码</option></select></div></div>
-    <div class="form-row"><div class="form-group f1"><span class="form-label">密钥路径</span><input class="form-input" id="mgrKeyPath" value="~/.ssh/id_rsa" placeholder="~/.ssh/id_rsa"></div><div class="form-group f1"><span class="form-label">保活 (秒)</span><input class="form-input" type="number" id="mgrKeepAlive" value="60"></div></div>
+    <!-- SSH 认证：两栏结构 -->
+    <div class="form-row" style="margin-bottom:4px"><span style="font-size:10px;font-weight:600;color:var(--accent)">🔐 SSH 认证</span></div>
+    <div class="form-row">
+      <div class="form-group f1">
+        <select class="form-select" id="mgrSshAuthType" onchange="onMgrSshAuthTypeChange()">
+          <option value="ssh_password">🔑 密码认证</option>
+          <option value="ssh_private_key">🔐 公钥认证 (RSA/ED25519/ECDSA)</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1.6">
+        <select class="form-select" id="mgrSshAuthConfig" onchange="onMgrSshAuthConfigSelect()">
+          <option value="">— 手动填写 —</option>
+          ${sshAuthOpts}
+        </select>
+      </div>
+    </div>
+    <div id="mgrSshAuthFields"></div>
+    <div class="form-row"><div class="form-group f1"><span class="form-label">保活 (秒)</span><input class="form-input" type="number" id="mgrKeepAlive" value="60"></div></div>
     <div class="form-row" style="margin-bottom:6px"><span style="font-size:10px;font-weight:600;color:var(--accent)">📡 端口转发</span></div>
     <div class="form-row"><div class="form-group f1"><span class="form-label">本地端口</span><input class="form-input" type="number" id="mgrLocalPort" placeholder="自动分配"></div><div class="form-group f1"><span class="form-label">远程目标地址</span><input class="form-input" id="mgrRemoteHost" placeholder="DB地址"></div><div class="form-group" style="width:80px"><span class="form-label">端口</span><input class="form-input" type="number" id="mgrRemotePort" placeholder="3306"></div></div>`;
   } else if (managerTab === 'ssl') {
     fieldsHtml = `<div class="form-row"><div class="form-group f1"><span class="form-label">模式</span><select class="form-select" id="mgrMode"><option value="verify-full">verify-full</option><option value="verify-ca">verify-ca</option><option>require</option></select></div></div>
     <div class="form-row"><div class="form-group f1"><span class="form-label">CA</span><input class="form-input" id="mgrCa" placeholder="ca.pem"></div><div class="form-group f1"><span class="form-label">客户端证书</span><input class="form-input" id="mgrCert" placeholder="client.pem"></div></div>`;
   } else {
+    // Proxy
+    const proxyAuthConfigs = AUTH_CONFIGS.filter(ac => ac.auth_type === 'password' && (AUTH_TYPE_DEFS[ac.auth_type]?.category) === 'database');
     fieldsHtml = `<div class="form-row"><div class="form-group f1"><span class="form-label">类型</span><select class="form-select" id="mgrType"><option value="socks5">SOCKS5</option><option value="http">HTTP</option></select></div></div>
-    <div class="form-row"><div class="form-group f2"><span class="form-label">主机</span><input class="form-input" id="mgrHost" placeholder="proxy.example.com"></div><div class="form-group f1"><span class="form-label">端口</span><input class="form-input" type="number" id="mgrPort" value="1080"></div></div>`;
+    <div class="form-row"><div class="form-group f2"><span class="form-label">主机</span><input class="form-input" id="mgrHost" placeholder="proxy.example.com"></div><div class="form-group f1"><span class="form-label">端口</span><input class="form-input" type="number" id="mgrPort" value="1080"></div></div>
+    <div class="form-row" style="margin-bottom:4px"><span style="font-size:10px;font-weight:600;color:var(--accent)">🔐 代理认证（可选）</span></div>
+    <div class="form-row">
+      <div class="form-group f1">
+        <select class="form-select" id="mgrProxyAuthType" onchange="onMgrProxyAuthTypeChange()">
+          <option value="">— 无认证 —</option>
+          <option value="password">🔑 用户名/密码</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1.6">
+        <select class="form-select" id="mgrProxyAuthConfig" onchange="onMgrProxyAuthConfigSelect()">
+          <option value="">— 手动填写 —</option>
+          ${proxyAuthConfigs.map(ac => `<option value="${ac.id}">🔑 ${ac.name} · ${ac.scope==='global'?'🌐':'📝'}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div id="mgrProxyAuthFields"></div>`;
   }
 
   document.getElementById('managerBody').innerHTML = `<div class="inline-form">
     <div class="form-row"><div class="form-group f1"><span class="form-label">名称</span><input class="form-input" id="mgrName" placeholder="配置名称"></div><div class="form-group f1"><span class="form-label">范围（独立选择）</span><select class="form-select" id="mgrScope"><option value="global">🌐 全局</option><option value="project">📝 项目</option></select></div></div>
     ${fieldsHtml}
-    <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveManagerProfile()">保存</button><button class="btn-inline cancel" onclick="updateManagerUI()">取消</button></div>
+    <div class="form-row" style="margin-top:4px"><button class="btn-inline save" onclick="saveManagerProfile()">保存</button><button class="btn-inline test" onclick="testManagerProfile()" style="background:rgba(137,180,250,0.15);color:var(--accent);border-color:rgba(137,180,250,0.3)">🧪 测试连接</button><button class="btn-inline cancel" onclick="updateManagerUI()">取消</button></div>
   </div>`;
+
+  // 渲染默认 SSH 认证字段
+  if (managerTab === 'ssh') onMgrSshAuthTypeChange();
+  if (managerTab !== 'ssh' && managerTab !== 'ssl') onMgrProxyAuthTypeChange();
+}
+
+// ============================================================
+// SSH 认证方法切换（网络配置文件管理器内）
+// ============================================================
+function onMgrSshAuthTypeChange() {
+  const type = document.getElementById('mgrSshAuthType')?.value || 'ssh_password';
+  const container = document.getElementById('mgrSshAuthFields');
+  if (!container) return;
+
+  // 重置配置选择
+  const cfgSel = document.getElementById('mgrSshAuthConfig');
+  if (cfgSel) cfgSel.value = '';
+
+  let html = '';
+  if (type === 'ssh_password') {
+    html = `<div class="form-row">
+      <div class="form-group f1"><span class="form-label">SSH 用户</span><input class="form-input" id="mgrUser" value="root"></div>
+      <div class="form-group f1"><span class="form-label">SSH 密码</span><input class="form-input" id="mgrPass" type="password" placeholder="SSH 登录密码"></div>
+    </div>`;
+  } else {
+    html = `<div class="form-row">
+      <div class="form-group f1"><span class="form-label">SSH 用户</span><input class="form-input" id="mgrUser" value="root"></div>
+      <div class="form-group f1"><span class="form-label">Passphrase</span><input class="form-input" id="mgrPassphrase" type="password" placeholder="私钥密码（可选）"></div>
+    </div>
+    <div class="form-row"><div class="form-group" style="flex:1"><span class="form-label">私钥文件路径</span><div class="file-input-row"><input class="form-input" id="mgrKeyPath" value="~/.ssh/id_rsa" placeholder="~/.ssh/id_rsa"><button class="btn-browse">📂</button></div></div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+function onMgrSshAuthConfigSelect() {
+  const configId = document.getElementById('mgrSshAuthConfig')?.value;
+  if (!configId) return;
+  const ac = AUTH_CONFIGS.find(x => x.id === configId);
+  if (!ac) return;
+
+  // 同步类型
+  const typeSel = document.getElementById('mgrSshAuthType');
+  if (typeSel) typeSel.value = ac.auth_type;
+  onMgrSshAuthTypeChange();
+
+  // 预填
+  setTimeout(() => {
+    if (ac.username) { const u = document.getElementById('mgrUser'); if (u) u.value = ac.username; }
+    if (ac.auth_type === 'ssh_private_key') {
+      const k = document.getElementById('mgrKeyPath'); if (k && ac.keyPath) k.value = ac.keyPath;
+      const p = document.getElementById('mgrPassphrase'); if (p && ac.passphrase) p.value = ac.passphrase;
+    }
+  }, 0);
+}
+
+// ============================================================
+// 代理认证方法切换（网络配置文件管理器内）
+// ============================================================
+function onMgrProxyAuthTypeChange() {
+  const type = document.getElementById('mgrProxyAuthType')?.value || '';
+  const container = document.getElementById('mgrProxyAuthFields');
+  if (!container) return;
+
+  const cfgSel = document.getElementById('mgrProxyAuthConfig');
+  if (cfgSel) cfgSel.value = '';
+
+  if (!type) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = `<div class="form-row">
+    <div class="form-group f1"><span class="form-label">用户名</span><input class="form-input" id="mgrProxyUser" placeholder="代理用户名"></div>
+    <div class="form-group f1"><span class="form-label">密码</span><input class="form-input" id="mgrProxyPass" type="password" placeholder="代理密码"></div>
+  </div>`;
+}
+
+function onMgrProxyAuthConfigSelect() {
+  const configId = document.getElementById('mgrProxyAuthConfig')?.value;
+  if (!configId) return;
+  const ac = AUTH_CONFIGS.find(x => x.id === configId);
+  if (!ac) return;
+
+  document.getElementById('mgrProxyAuthType').value = 'password';
+  onMgrProxyAuthTypeChange();
+  setTimeout(() => {
+    if (ac.username) { const u = document.getElementById('mgrProxyUser'); if (u) u.value = ac.username; }
+  }, 0);
 }
 
 function saveManagerProfile() {
@@ -1948,14 +2823,15 @@ function saveManagerProfile() {
   if (managerTab === 'ssh') {
     const host = document.getElementById('mgrHost')?.value || 'localhost';
     const port = parseInt(document.getElementById('mgrPort')?.value) || 22;
+    const authType = document.getElementById('mgrSshAuthType')?.value || 'ssh_private_key';
+    const authConfigId = document.getElementById('mgrSshAuthConfig')?.value || '';
     const user = document.getElementById('mgrUser')?.value || 'root';
-    const auth = document.getElementById('mgrAuth')?.value || 'key';
-    const keyPath = document.getElementById('mgrKeyPath')?.value || '';
+    const keyPath = (authType === 'ssh_private_key') ? (document.getElementById('mgrKeyPath')?.value || '') : '';
     const keepAlive = parseInt(document.getElementById('mgrKeepAlive')?.value) || 60;
     const localPort = parseInt(document.getElementById('mgrLocalPort')?.value) || null;
     const remoteHost = document.getElementById('mgrRemoteHost')?.value || '';
     const remotePort = parseInt(document.getElementById('mgrRemotePort')?.value) || null;
-    SSH_PROFILES.push({ id, name, scope, host, port, username: user, authType: auth, keyPath, localPort, remoteHost, remotePort, keepAlive });
+    SSH_PROFILES.push({ id, name, scope, host, port, username: user, authType, authConfigId, keyPath, localPort, remoteHost, remotePort, keepAlive });
   } else if (managerTab === 'ssl') {
     const mode = document.getElementById('mgrMode')?.value || 'verify-full';
     const ca = document.getElementById('mgrCa')?.value || '';
@@ -1965,11 +2841,93 @@ function saveManagerProfile() {
     const type = document.getElementById('mgrType')?.value || 'socks5';
     const host = document.getElementById('mgrHost')?.value || '';
     const port = parseInt(document.getElementById('mgrPort')?.value) || 1080;
-    PROXY_PROFILES.push({ id, name, scope, type, host, port });
+    const proxyAuthType = document.getElementById('mgrProxyAuthType')?.value || '';
+    const proxyAuthConfigId = document.getElementById('mgrProxyAuthConfig')?.value || '';
+    const proxyUser = proxyAuthType ? (document.getElementById('mgrProxyUser')?.value || '') : '';
+    PROXY_PROFILES.push({ id, name, scope, type, host, port, proxyAuthType, proxyAuthConfigId, proxyUser });
   }
 
   alert(`配置文件「${name}」已保存到 ${scope === 'global' ? '🌐全局' : '📝项目'} 范围。\n\n(管理器创建的配置脱离具体数据源，需手动应用到数据源的协议链节点上)`);
   updateManagerUI();
+}
+
+function editManagerProfile(id) {
+  let profiles, profile;
+  if (managerTab === 'ssh') {
+    profiles = SSH_PROFILES;
+  } else if (managerTab === 'ssl') {
+    profiles = SSL_PROFILES;
+  } else {
+    profiles = PROXY_PROFILES;
+  }
+  profile = profiles.find(p => p.id === id);
+  if (!profile) return;
+
+  // 删除旧条目
+  const idx = profiles.indexOf(profile);
+  if (idx >= 0) profiles.splice(idx, 1);
+
+  // 以编辑模式打开表单
+  addManagerProfile();
+
+  // 预填表单
+  setTimeout(() => {
+    const nameEl = document.getElementById('mgrName');
+    const scopeEl = document.getElementById('mgrScope');
+    if (nameEl) nameEl.value = profile.name;
+    if (scopeEl) scopeEl.value = profile.scope || 'global';
+
+    if (managerTab === 'ssh') {
+      const hostEl = document.getElementById('mgrHost');
+      const portEl = document.getElementById('mgrPort');
+      const keepAliveEl = document.getElementById('mgrKeepAlive');
+      const localPortEl = document.getElementById('mgrLocalPort');
+      const remoteHostEl = document.getElementById('mgrRemoteHost');
+      const remotePortEl = document.getElementById('mgrRemotePort');
+      if (hostEl) hostEl.value = profile.host;
+      if (portEl) portEl.value = profile.port;
+      if (keepAliveEl) keepAliveEl.value = profile.keepAlive || 60;
+      if (localPortEl) localPortEl.value = profile.localPort || '';
+      if (remoteHostEl) remoteHostEl.value = profile.remoteHost || '';
+      if (remotePortEl) remotePortEl.value = profile.remotePort || '';
+
+      // 认证
+      const authType = profile.authType || 'ssh_private_key';
+      const authTypeEl = document.getElementById('mgrSshAuthType');
+      if (authTypeEl) authTypeEl.value = authType;
+      onMgrSshAuthTypeChange();
+      setTimeout(() => {
+        const userEl = document.getElementById('mgrUser');
+        if (userEl) userEl.value = profile.username || 'root';
+        if (authType === 'ssh_private_key') {
+          const keyEl = document.getElementById('mgrKeyPath');
+          if (keyEl && profile.keyPath) keyEl.value = profile.keyPath;
+        }
+      }, 0);
+    } else if (managerTab === 'ssl') {
+      const modeEl = document.getElementById('mgrMode');
+      const caEl = document.getElementById('mgrCa');
+      const certEl = document.getElementById('mgrCert');
+      if (modeEl) modeEl.value = profile.mode || 'verify-full';
+      if (caEl) caEl.value = profile.ca || '';
+      if (certEl) certEl.value = profile.cert || '';
+    } else {
+      const typeEl = document.getElementById('mgrType');
+      const hostEl = document.getElementById('mgrHost');
+      const portEl = document.getElementById('mgrPort');
+      if (typeEl) typeEl.value = profile.type || 'socks5';
+      if (hostEl) hostEl.value = profile.host || '';
+      if (portEl) portEl.value = profile.port || 1080;
+
+      const proxyAuthTypeEl = document.getElementById('mgrProxyAuthType');
+      if (proxyAuthTypeEl) proxyAuthTypeEl.value = profile.proxyAuthType || '';
+      onMgrProxyAuthTypeChange();
+      setTimeout(() => {
+        const proxyUserEl = document.getElementById('mgrProxyUser');
+        if (proxyUserEl && profile.proxyUser) proxyUserEl.value = profile.proxyUser;
+      }, 0);
+    }
+  }, 0);
 }
 
 function deleteManagerProfile(id) {
@@ -1980,6 +2938,37 @@ function deleteManagerProfile(id) {
   else PROXY_PROFILES.splice(0, PROXY_PROFILES.length, ...PROXY_PROFILES.filter(p => p.id !== id));
 
   updateManagerUI();
+}
+
+// ============================================================
+// 测试 SSH / Proxy 连接
+// ============================================================
+function testManagerProfile(mockSuccess = true) {
+  const name = document.getElementById('mgrName')?.value || '未命名';
+  const host = document.getElementById('mgrHost')?.value || 'localhost';
+  const port = parseInt(document.getElementById('mgrPort')?.value) || (managerTab === 'ssh' ? 22 : 1080);
+
+  // 模拟测试
+  const spinner = document.createElement('span');
+  spinner.innerHTML = ' ⏳';
+  const testBtn = document.querySelector('.btn-inline.test');
+  if (testBtn) { testBtn.disabled = true; testBtn.appendChild(spinner); }
+
+  setTimeout(() => {
+    if (testBtn) { testBtn.disabled = false; testBtn.removeChild(spinner); }
+
+    if (mockSuccess) {
+      if (managerTab === 'ssh') {
+        alert(`🧪 SSH 隧道测试成功！\n\n主机: ${host}:${port}\n延迟: 12ms\n认证: 通过\n通道: 正常\n\n配置「${name}」可用。`);
+      } else if (managerTab === 'ssl') {
+        alert(`🧪 SSL/TLS 验证成功！\n\n证书链校验: 通过\n到期时间: 2026-12-31\n签发者: Let\'s Encrypt\n\n配置「${name}」可用。`);
+      } else {
+        alert(`🧪 代理测试成功！\n\n代理: ${host}:${port}\n延迟: 45ms\n认证: 通过\n\n配置「${name}」可用。`);
+      }
+    } else {
+      alert(`❌ 连接失败！\n\n主机: ${host}:${port}\n错误: Connection refused\n\n请检查主机地址和端口是否正确。`);
+    }
+  }, 800);
 }
 
 // ============================================================
@@ -2059,7 +3048,22 @@ function handleSave() {
     policyStr = sec.length > 0 ? '\n安全策略：' + sec.join(' · ') : '';
   }
 
-  let msg = `数据源「${name}」已保存！\n存储范围：${getScopeLabel()}\n环境：${envName}${policyStr}\n驱动：${currentDriver.name}\n\n网络跳 (${countEnabledNetworkHops()} 个 SSH/Proxy)：\n`;
+  let msg = `数据源「${name}」已保存！\n存储范围：${getScopeLabel()}\n环境：${envName}${policyStr}\n驱动：${currentDriver.name}\n`;
+
+  // 认证方式
+  if (selectedAuthId) {
+    const ac = AUTH_CONFIGS.find(x => x.id === selectedAuthId);
+    if (ac) {
+      const def = AUTH_TYPE_DEFS[ac.auth_type];
+      const typeLabel = def ? def.label : ac.auth_type;
+      const catLabel = (def?.category === 'ssh') ? 'SSH认证' : '数据库认证';
+      msg += `${catLabel}：${typeLabel}「${ac.name}」\n`;
+    }
+  } else {
+    msg += `数据库认证：直接连接（用户名/密码）\n`;
+  }
+
+  msg += `\n网络跳 (${countEnabledNetworkHops()} 个 SSH/Proxy)：\n`;
   protocolChain.filter(h => h.protocol !== 'ssl').forEach((h, i) => {
     const status = h.enabled ? '●' : '○';
     const type = h.protocol === 'ssh' ? 'SSH' : 'Proxy';

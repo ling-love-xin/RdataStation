@@ -1384,6 +1384,93 @@ INSERT OR IGNORE INTO environment_policies (id, environment_id, policy_type, pol
 ### 10.2 编译状态
 
 - ✅ `cargo check` 通过，零错误零警告
+- ✅ `pnpm typecheck` 通过（仅存量文件报错，本次改动零新增）
+
+### 10.2.1 v2.0 动态驱动注册修复（2026-05-20）
+
+**问题**：`get_drivers` / `get_driver_info` 命令走内存 `DriverRegistry`（4个硬编码驱动），SQLite `drivers` 表有 10 种数据源类型 + 4 个驱动 seed 数据但未被命令层读取。新增驱动需要改 Rust 代码 + 发版。
+
+**修复**：
+
+| 文件 | 改动 |
+|------|------|
+| `commands/driver_commands.rs` | `get_drivers()` → `global_db.get_all_drivers()`（SQLite）；`get_driver_info()` → `global_db.get_driver()` |
+| `ui/composables/useDriverRegistry.ts` | 从 TODO stub 改为 `invoke('get_data_source_types')` + `invoke('get_available_drivers')` |
+| `domain/types.ts` | 新增 `DataSourceType`、`Driver`、`MissingDriver`、`DriverListResponse` 接口；`DataSourceCategory` / `DriverKind` 加 `| (string & {})` 兜底 |
+| `ui/adapters/driver-adapter.ts` | `parseConfigSchema()` 兼容两种格式：JSON Schema `{type,properties,required}` 和自定义 `{fields,options}`；类型引用改用 `domain/types.ts` |
+
+**数据流**：
+
+```
+前端侧边栏                          Tauri Command                      SQLite
+─────────                           ────────────                      ──────
+useDriverRegistry.loadAll() ──→ get_data_source_types(None) ──→ data_source_types 表 (10行)
+                            ──→ get_available_drivers(None) ──→ drivers 表 (4行)
+                                   │
+                                   └── config_schema JSON ──→ parseConfigSchema()
+                                         ↓
+                                   DriverFormSchema ──→ DynamicFormRenderer
+```
+
+**新增驱动无需发版**：`INSERT INTO drivers (...) VALUES (...)` 即可，前端下次 `get_available_drivers` 自动可见。
+
+### 10.2.2 三方对齐验证（2026-05-20）
+
+**Backend → Frontend struct 逐字段比对**：
+
+| 结构体 | 字段数 | 对齐 |
+|--------|--------|:--:|
+| `DataSourceType` | 6 | ✅ |
+| `Driver` | 14 | ✅ |
+| `MissingDriver` | 3 | ✅ |
+| `DriverListResponse` | 2 | ✅ |
+
+**Command 签名比对**：
+
+| Command | Backend 参数 | Frontend invoke | 对齐 |
+|---------|-------------|-----------------|:--:|
+| `get_data_source_types` | `category: Option<String>` | 无参 → `None` | ✅ |
+| `get_available_drivers` | `project_path: Option<String>` | `{ projectPath }` | ✅ |
+
+> Tauri `#[tauri::command]` 自动 **snake_case → camelCase** 重命名，`project_path` ↔ `projectPath` 映射正确。
+
+**config_schema JSON 格式比对**：
+
+SQLite seed `{fields:[{key,label,type,required,default,...}], options:[...]}` → `parseConfigSchema` 第一分支（自定义格式）✅
+
+**兜底保护**：
+
+- `DataSourceCategory` 类型：`'relational' | 'file-based' | ... | (string & {})` — 保留智能提示，同时兼容后端任意 `String` 值
+- `DriverKind` 类型：同上，兼容后端未来新增 `driver_kind` 值
+
+### 10.2.3 数据流全链路打通（2026-05-20）
+
+**前端组件重建**（全部使用 Naive UI 组件，对齐原型 v5 布局）：
+
+| 文件 | 改动 |
+|------|------|
+| `AddDataSourceDialog.vue` | 重写：`useDriverRegistry.loadAll()` 在 `onMounted` 触发 → 数据通过 props 传递到 Sidebar 和 5 个 Tab；NTabs 渲染 5 个 TabPane |
+| `DataSourceSidebar.vue` | 重写：NInput 搜索 → 暂存列表(NButton +/X) → 分割线 → 4 分类折叠(NCollapse) → 驱动子项（按 `type_id` 关联） |
+| `GeneralTab.vue` | 重写：接收 `driver: Driver`，通过 `configSchemaToFormSchema()` → `DynamicFormRenderer` 动态渲染表单字段 |
+| `NetworkTab.vue` | 重写：NCollapse 三段（SSH 隧道 / SSL TLS / HTTP 代理），typed refs |
+| `CapabilitiesTab.vue` | 新建：从 `driver.capabilities` JSON 解析能力列表，chip 样式展示 |
+| `DriverPropsTab.vue` | 重写：key-value 属性行，动态增删 |
+| `AdvancedTab.vue` | 重写：NSelect 环境 + NSwitch DuckDB 加速 + NCheckbox 只读 + 2x2 网格参数 |
+| `zh-CN.json` + `en.json` | 新增 12 个 i18n key |
+
+**数据流**：
+
+```
+onMounted → loadAll()
+  └→ invoke('get_data_source_types')  → dataSourceTypes[] → Sidebar(DatabaseTypes)
+  └→ invoke('get_available_drivers') → drivers[]          → Sidebar(Drivers per type)
+                                          │
+                                          └→ selectedDriver
+                                               └→ GeneralTab → configSchemaToFormSchema()
+                                                    └→ DynamicFormRenderer
+                                               └→ CapabilitiesTab → capabilities JSON
+                                               └→ Network/DriverProps/Advanced tabs
+```
 
 ### 10.3 后续待完成（按优先级）
 
@@ -1398,8 +1485,8 @@ INSERT OR IGNORE INTO environment_policies (id, environment_id, policy_type, pol
 | 🔴 P1 | 协议链校验 `chain_validator.rs` | Phase 1 | max 4 SSH/Proxy hops + SSL must be last + hop_name 合法 |
 | 🔴 P1 | 合并环境列表 IPC | Phase 1 | `list_environments_for_connection()` 合并 global + project |
 | 🟡 P1 | 前端 TS 类型扩展 | Phase 2 | ChainHopItem / Environment / EnvironmentPolicies / ConnectionScope |
-| 🟡 P1 | NetworkTab.vue 完整重写 | Phase 2 | 动态协议链 + 拖拽排序 + 拓扑预览 |
-| 🟡 P1 | AdvancedTab.vue 改造 | Phase 2 | 环境选择 + 策略面板 + DuckDB 焕新 |
+| 🟡 P1 | NetworkTab.vue 完整重写 | Phase 2 | ✅ 已完成（Naive UI NCollapse 三段 SSH/SSL/Proxy） |
+| 🟡 P1 | AdvancedTab.vue 改造 | Phase 2 | ✅ 已完成（NSelect 环境 + NSwitch DuckDB + NCheckbox 只读 + 2x2 网格） |
 | 🟡 P2 | EnvironmentSelector.vue | Phase 2 | 环境紧凑下拉组件 |
 | 🟡 P2 | SecurityPolicySection.vue | Phase 2 | 安全策略可折叠 |
 | 🟡 P2 | NetworkProfileManager.vue | Phase 2 | 覆盖层：网络配置文件管理器 |

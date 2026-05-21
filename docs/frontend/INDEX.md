@@ -1,8 +1,8 @@
 # RdataStation 前端文档
 
-> 版本：v3.2
-> 更新日期：2026-05-19
-> 状态：✅ v0.5.0 网络连接功能后端核心完成，前端设计文档就位
+> 版本：v3.3
+> 更新日期：2026-05-21
+> 状态：🚧 NetworkTab + GeneralTab + AuthConfigManager 已完成实施，AdvancedTab 待实施
 
 ---
 

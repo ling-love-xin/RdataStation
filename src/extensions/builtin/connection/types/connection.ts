@@ -147,6 +147,33 @@ export interface ConnectionFormData {
 }
 
 // ============================================================================
+// 后端存储类型（匹配 Rust StoredConnection）
+// ============================================================================
+
+/**
+ * 与后端 Rust StoredConnection 结构体字段对齐的类型
+ * 用于 save_project_store_connection / get_project_store_connections 的数据传输
+ */
+export interface StoredConnection {
+  id: string
+  name: string
+  driver: string
+  host: string | null
+  port: number | null
+  database: string | null
+  schema_name: string | null
+  username: string | null
+  password_encrypted: string | null
+  options: string | null
+  tags: string | null
+  use_duckdb_fed: boolean
+  metadata_path: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ============================================================================
 // API 响应类型
 // ============================================================================
 
