@@ -640,7 +640,20 @@ impl GlobalDatabaseManager {
         };
 
         // 默认标签：如果没有提供标签，添加 "global" 标签
-        let tags_json = tags.unwrap_or("[\"global\"]");
+        let tags_json = tags
+            .filter(|t| !t.is_empty())
+            .map(|t| {
+                // 验证是否为合法 JSON 数组
+                serde_json::from_str::<serde_json::Value>(t)
+                    .map_err(|e| {
+                        tracing::warn!("标签 JSON 格式无效: {}, 原始值: {}", e, t);
+                        format!("invalid tags JSON: {}", t)
+                    })
+                    .map(|_| t.to_string())
+            })
+            .transpose()
+            .map_err(|e| CoreError::common(CommonError::General(e)))?
+            .unwrap_or_else(|| "[\"global\"]".to_string());
 
         conn.inner()?.execute(
             "INSERT OR REPLACE INTO global_connections 
@@ -656,7 +669,7 @@ impl GlobalDatabaseManager {
                 "",
                 final_username,
                 &final_password,
-                tags_json,
+                &tags_json,
                 "0",
                 "",
                 server_version.unwrap_or(""),

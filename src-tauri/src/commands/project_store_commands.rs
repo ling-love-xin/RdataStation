@@ -8,6 +8,7 @@ use crate::commands::project_commands::ProjectState;
 use crate::core::error::CoreError;
 use crate::core::persistence::project_connection_store::ProjectConnection;
 use crate::core::persistence::project_db::ProjectDatabaseManager;
+use crate::core::CommonError;
 
 // ==================== Project Connection Commands ====================
 
@@ -125,6 +126,32 @@ pub async fn create_project_connection(
     let now = chrono::Utc::now().to_rfc3339();
     let id = format!("project-{}-{}", input.driver, uuid::Uuid::new_v4());
 
+    // 校验密码非空
+    if let Some(ref p) = input.password {
+        if p.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "password".to_string(),
+                reason: "密码不能为空字符串".to_string(),
+            }));
+        }
+    }
+
+    // 校验并规范化标签 JSON
+    let tags = input.tags
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            serde_json::from_str::<serde_json::Value>(&t)
+                .map_err(|_| {
+                    CoreError::common(CommonError::InvalidArgument {
+                        param: "tags".to_string(),
+                        reason: format!("标签 JSON 格式无效: {}", t),
+                    })
+                })
+                .map(|_| t)
+        })
+        .transpose()?
+        .or_else(|| Some("[\"project\"]".to_string()));
+
     let conn = ProjectConnection {
         id: id.clone(),
         name: input.name,
@@ -134,9 +161,16 @@ pub async fn create_project_connection(
         database: input.database,
         schema_name: input.schema_name,
         username: input.username,
-        password_encrypted: input.password,
+        password_encrypted: match &input.password {
+            Some(p) if !p.is_empty() => Some(
+                crate::core::crypto::encrypt_password(p).map_err(|e| {
+                    CoreError::common(CommonError::General(format!("密码加密失败: {}", e)))
+                })?
+            ),
+            _ => None,
+        },
         options: input.options,
-        tags: input.tags.or_else(|| Some("[\"project\"]".to_string())),
+        tags,
         use_duckdb_fed: input.use_duckdb_fed.unwrap_or(false),
         metadata_path: input.metadata_path,
         is_active: true,

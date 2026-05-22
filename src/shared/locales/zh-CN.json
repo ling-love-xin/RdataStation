@@ -140,6 +140,8 @@
       "introspectionDesc": "自动读取数据库结构",
       "arrowExport": "Arrow 导出",
       "arrowExportDesc": "零拷贝数据交换",
+      "pluginCompat": "插件兼容",
+      "pluginCompatDesc": "支持WASM插件扩展",
       "federated": "联邦查询",
       "federatedDesc": "跨数据库 JOIN 查询"
     },

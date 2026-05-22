@@ -11,7 +11,14 @@ use crate::core::error::{CommonError, CoreError};
 const LEGACY_FIXED_SALT: &[u8] = b"RdataStation_Connection_Vault_2026";
 
 fn salt_path() -> PathBuf {
-    let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    let mut path = dirs::data_local_dir().unwrap_or_else(|| {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        tracing::warn!(
+            "无法获取系统数据目录，回退到用户主目录: {}",
+            home.display()
+        );
+        home
+    });
     path.push("RdataStation");
     path.push("encryption-salt");
     path
@@ -67,7 +74,14 @@ fn derive_legacy_key() -> [u8; 32] {
 }
 
 fn machine_id_path() -> PathBuf {
-    let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    let mut path = dirs::data_local_dir().unwrap_or_else(|| {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        tracing::warn!(
+            "无法获取系统数据目录，回退到用户主目录: {}",
+            home.display()
+        );
+        home
+    });
     path.push("RdataStation");
     path.push("machine-id");
     path

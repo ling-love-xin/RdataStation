@@ -140,6 +140,8 @@
       "introspectionDesc": "Automatically reads database structure",
       "arrowExport": "Arrow Export",
       "arrowExportDesc": "Zero-copy data exchange",
+      "pluginCompat": "Plugin Compat",
+      "pluginCompatDesc": "Supports WASM plugin extensions",
       "federated": "Federated Query",
       "federatedDesc": "Cross-database JOIN queries"
     },

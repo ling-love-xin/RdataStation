@@ -37,7 +37,7 @@ impl PluginInstaller {
             "gz" => {
                 if let Some(stem) = path.file_stem() {
                     let stem_path = Path::new(stem);
-                    if stem_path.extension().map(|e| e.to_str()).flatten() == Some("tar") {
+                    if stem_path.extension().and_then(|e| e.to_str()) == Some("tar") {
                         return Some(PluginPackageFormat::TarGz);
                     }
                 }

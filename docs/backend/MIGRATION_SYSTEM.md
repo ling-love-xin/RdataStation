@@ -285,6 +285,26 @@ tx.commit()?;
 2. 从 `schema_version` 表删除对应版本
 3. 或重建数据库并重新执行迁移
 
+**手动回滚示例（以撤销版本 011 为例）**：
+
+```sql
+-- 1. 执行反向 SQL（如移除索引）
+-- global/011_add_config_indexes 的反向操作：
+DROP INDEX IF EXISTS idx_auth_configs_type;
+DROP INDEX IF EXISTS idx_network_configs_type;
+
+-- 2. 从迁移记录表移除
+DELETE FROM schema_version WHERE version = 11;
+
+-- 3. 验证当前版本
+SELECT MAX(version) FROM schema_version;
+```
+
+**安全注意事项**：
+- 回滚前务必备份数据库文件
+- 仅在生产前或测试环境执行回滚
+- 级联回滚：如果回滚 v5，则 v6+ 也必须同步回滚
+
 ---
 
 ## 九、调试技巧

@@ -20,6 +20,12 @@ pub struct PluginPermissions {
     pub can_use_duckdb: bool,
 }
 
+impl Default for PluginBridge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PluginBridge {
     pub fn new() -> Self {
         Self {

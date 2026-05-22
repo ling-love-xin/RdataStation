@@ -14,6 +14,43 @@ use crate::core::persistence::project_connection_store::ProjectConnectionStore;
 use crate::core::plugin::loader::get_plugin_loader;
 use crate::core::plugin::events::*;
 
+/// 安装插件输入参数
+#[derive(Debug, Clone)]
+pub struct InstallPluginInput {
+    pub code: String,
+    pub name: String,
+    pub version: String,
+    pub author: Option<String>,
+    pub description: Option<String>,
+    pub repo_url: Option<String>,
+    pub plugin_type: String,
+    pub manifest_json: Option<String>,
+    pub install_path: String,
+    pub is_builtin: Option<bool>,
+}
+
+impl From<InstallPluginInput> for Plugin {
+    fn from(input: InstallPluginInput) -> Self {
+        let now = chrono::Utc::now().to_rfc3339();
+        Plugin {
+            id: uuid::Uuid::new_v4().to_string(),
+            code: input.code.clone(),
+            name: input.name,
+            version: input.version.clone(),
+            author: input.author,
+            description: input.description,
+            repo_url: input.repo_url,
+            plugin_type: input.plugin_type,
+            manifest_json: input.manifest_json,
+            install_path: input.install_path,
+            is_enabled: true,
+            is_builtin: input.is_builtin.unwrap_or(false),
+            installed_at: now.clone(),
+            updated_at: now,
+        }
+    }
+}
+
 /// 插件状态
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum PluginStatus {
@@ -106,45 +143,22 @@ impl PluginService {
     /// 安装新插件
     pub async fn install_plugin(
         &self,
-        code: String,
-        name: String,
-        version: String,
-        author: Option<String>,
-        description: Option<String>,
-        repo_url: Option<String>,
-        plugin_type: String,
-        manifest_json: Option<String>,
-        install_path: String,
-        is_builtin: Option<bool>,
+        input: InstallPluginInput,
     ) -> Result<Plugin, CoreError> {
         // 检查是否已存在
-        let existing = self.get_plugin_by_code_version(&code, &version).await?;
+        let existing = self.get_plugin_by_code_version(&input.code, &input.version).await?;
         if existing.is_some() {
-            return Err(CoreError::plugin(PluginError::already_exists(code.clone(), version.clone())));
+            return Err(CoreError::plugin(PluginError::already_exists(
+                input.code.clone(),
+                input.version.clone(),
+            )));
         }
 
-        let now = chrono::Utc::now().to_rfc3339();
-        let plugin = Plugin {
-            id: uuid::Uuid::new_v4().to_string(),
-            code: code.clone(),
-            name,
-            version: version.clone(),
-            author,
-            description,
-            repo_url,
-            plugin_type,
-            manifest_json,
-            install_path,
-            is_enabled: true,
-            is_builtin: is_builtin.unwrap_or(false),
-            installed_at: now.clone(),
-            updated_at: now,
-        };
-
+        let plugin = Plugin::from(input);
         self.global_db.register_plugin(&plugin).await?;
 
         // 发布插件已安装事件
-        emit_plugin_installed(&plugin.id, &code, &version);
+        emit_plugin_installed(&plugin.id, &plugin.code, &plugin.version);
 
         Ok(plugin)
     }

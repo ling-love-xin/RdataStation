@@ -2,6 +2,12 @@ use extism::{CurrentPlugin, Function, UserData, Val, ValType};
 
 pub struct HostFunctionRegistry;
 
+impl Default for HostFunctionRegistry {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl HostFunctionRegistry {
     pub fn new() -> Self {
         Self

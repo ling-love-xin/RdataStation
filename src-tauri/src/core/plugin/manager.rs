@@ -1,6 +1,6 @@
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::sync::OnceLock;
 
@@ -162,7 +162,7 @@ impl PluginManager {
     }
 
     /// 加载 WASM 插件
-    fn load_wasm_plugin(&self, id: &str, path: &PathBuf) -> Result<(), CoreError> {
+    fn load_wasm_plugin(&self, id: &str, path: &Path) -> Result<(), CoreError> {
         let wasm_path = path.join("plugin.wasm");
         let wasm_bytes = std::fs::read(wasm_path)
             .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to read wasm: {}", e))))?;

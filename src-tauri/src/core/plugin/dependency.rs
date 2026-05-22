@@ -120,7 +120,7 @@ impl DependencyManager {
         // 简化的版本兼容性检查
         // 实际中可以使用 semver 库
         let installed_parts: Vec<&str> = installed.split('.').collect();
-        let required_parts: Vec<&str> = required.trim_start_matches(|c| c == '^' || c == '~' || c == '>' || c == '<' || c == '=')
+        let required_parts: Vec<&str> = required.trim_start_matches(['^', '~', '>', '<', '='])
             .split('.').collect();
 
         if installed_parts.len() < 2 || required_parts.len() < 2 {

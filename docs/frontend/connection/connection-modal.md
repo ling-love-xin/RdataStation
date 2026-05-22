@@ -1,8 +1,12 @@
 # 新增数据源页面文档
 
+> **⚠️ 已废弃 (Deprecated)**
+> 本文档已被 [add-datasource-frontend-plan.md](./add-datasource-frontend-plan.md) 替代。
+> 请使用新版文档，本文档仅保留作历史参考，不再更新。
+
 > 版本：v2.0
 > 最后更新：2026-05-18
-> 状态：✅ 持续更新
+> 状态：⛔ 已废弃（参考 add-datasource-frontend-plan.md）
 
 ---
 

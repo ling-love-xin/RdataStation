@@ -8,7 +8,7 @@ use crate::core::migration::get_global_db_manager;
 use crate::core::plugin::manager::{PluginManager, PluginInfo};
 use crate::core::services::plugin_bridge::get_plugin_bridge;
 use crate::core::services::plugin_service::{
-    PluginService, PluginWithStatus
+    InstallPluginInput, PluginService, PluginWithStatus
 };
 use crate::core::persistence::plugin_store::{
     Plugin, ProjectUsedPlugin, ProjectPluginConfig
@@ -184,7 +184,7 @@ pub async fn plugin_get_with_status(
     let service = PluginService::new(db_manager);
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()));
+    let project_db = store.as_ref().map(|s| s.project_db());
     
     match project_db {
         Some(db) => {
@@ -208,18 +208,18 @@ pub async fn plugin_install(request: InstallPluginRequest) -> Result<Plugin, Cor
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    service.install_plugin(
-        request.code,
-        request.name,
-        request.version,
-        request.author,
-        request.description,
-        request.repo_url,
-        request.plugin_type,
-        request.manifest_json,
-        request.install_path,
-        request.is_builtin,
-    ).await
+    service.install_plugin(InstallPluginInput {
+        code: request.code,
+        name: request.name,
+        version: request.version,
+        author: request.author,
+        description: request.description,
+        repo_url: request.repo_url,
+        plugin_type: request.plugin_type,
+        manifest_json: request.manifest_json,
+        install_path: request.install_path,
+        is_builtin: request.is_builtin,
+    }).await
 }
 
 #[tauri::command]
@@ -258,7 +258,7 @@ pub async fn project_plugin_enable(
     let service = PluginService::new(db_manager);
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
+    let project_db = store.as_ref().map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
@@ -281,7 +281,7 @@ pub async fn project_plugin_disable(
     let service = PluginService::new(db_manager);
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
+    let project_db = store.as_ref().map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
@@ -295,7 +295,7 @@ pub async fn project_plugin_remove(
     plugin_version: String,
 ) -> Result<(), CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
+    let project_db = store.as_ref().map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
@@ -308,7 +308,7 @@ pub async fn project_plugin_list(
     project_state: State<'_, ProjectState>,
 ) -> Result<Vec<ProjectUsedPlugin>, CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
+    let project_db = store.as_ref().map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
@@ -332,7 +332,7 @@ pub async fn project_plugin_set_config(
     };
     
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
+    let project_db = store.as_ref().map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     
@@ -347,7 +347,7 @@ pub async fn project_plugin_get_configs(
     plugin_version: String,
 ) -> Result<Vec<ProjectPluginConfig>, CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().and_then(|s| Some(s.project_db()))
+    let project_db = store.as_ref().map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
     

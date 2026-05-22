@@ -34,9 +34,10 @@ pub struct LoadedPlugin {
 }
 
 /// 加载状态
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LoadStatus {
     /// 未加载
+    #[default]
     Unloaded,
     /// 加载中
     Loading,
@@ -50,12 +51,6 @@ pub enum LoadStatus {
     LoadFailed(String),
     /// 激活失败
     ActivationFailed(String),
-}
-
-impl Default for LoadStatus {
-    fn default() -> Self {
-        Self::Unloaded
-    }
 }
 
 impl PluginLoader {
@@ -176,9 +171,9 @@ impl PluginLoader {
             )))?;
 
         // 根据插件类型加载
-        if plugin.manifest.capabilities.wasm.is_some() {
+        if let Some(wasm) = &plugin.manifest.capabilities.wasm {
             // 加载 WASM 插件
-            let wasm_path = plugin.install_path.join(&plugin.manifest.capabilities.wasm.as_ref().unwrap().entry);
+            let wasm_path = plugin.install_path.join(&wasm.entry);
             if let Err(e) = manager.load_plugin(plugin_id, &wasm_path) {
                 plugin.status = LoadStatus::ActivationFailed(e.to_string());
                 return Err(CoreError::common(CommonError::general(format!(

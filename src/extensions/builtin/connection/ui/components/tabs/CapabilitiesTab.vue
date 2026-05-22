@@ -48,7 +48,7 @@ const CAP_META: Record<string, { label: string; desc: string }> = {
   streaming:        { label: t('connection.capabilitiesTab.streaming'),        desc: t('connection.capabilitiesTab.streamingDesc') },
   introspection:    { label: t('connection.capabilitiesTab.introspection'),    desc: t('connection.capabilitiesTab.introspectionDesc') },
   arrowExport:      { label: t('connection.capabilitiesTab.arrowExport'),      desc: t('connection.capabilitiesTab.arrowExportDesc') },
-  pluginCompat:     { label: 'pluginCompat', desc: '—' },
+  pluginCompat:     { label: t('connection.capabilitiesTab.pluginCompat'),     desc: t('connection.capabilitiesTab.pluginCompatDesc') },
 }
 
 const parsedCaps = computed<string[]>(() => {

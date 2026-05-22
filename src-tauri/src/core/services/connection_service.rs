@@ -673,7 +673,8 @@ impl ConnectionService {
         new_port: u16,
     ) -> Result<String, CoreError> {
         if url.starts_with("mysql://") || url.starts_with("postgres://") {
-            let (prefix, rest) = url.split_once("://").unwrap();
+            let (prefix, rest) = url.split_once("://")
+                .ok_or_else(|| CoreError::from("Invalid connection URL format"))?;
             let after_auth = if let Some(at_pos) = rest.find('@') {
                 let (auth, _host_part) = rest.split_at(at_pos + 1);
                 format!("{}{}:{}", auth, new_host, new_port)
