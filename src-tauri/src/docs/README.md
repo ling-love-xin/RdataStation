@@ -21,6 +21,8 @@
 | 09   | [开发指南](./09-development-guide.md)       | 开发规范及最佳实践                  | v1.0             |
 | 10   | [API 接口文档](./10-api-reference.md)       | Tauri 命令参考                      | v1.0             |
 | 11   | [插件系统设计](./11-plugin-system.md)       | Go Sidecar + Extism WASM 双引擎方案 | 📋 v1.0 远期规划 |
+| 12   | [元数据缓存懒加载设计](./metadata-lazy-loading-design.md) | conn_id hash 生成 + L2 缓存懒加载 | 🆕 v0.6.0 |
+| 13   | [数据源模块优化 v0.6.1](./data-source-module-optimization-v0.6.1.md) | 新建→缓存→导航树全链路优化 | 🆕 v0.6.1 |
 
 ## 快速开始
 

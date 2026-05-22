@@ -65,7 +65,14 @@ export interface ConnectionConfiguration {
 // 连接配置（别名）
 export type ConnectionConfig = ConnectionConfiguration
 
-// 驱动描述符
+/**
+ * UI 层驱动描述符（Rust→TS 传输 DTO）
+ *
+ * 与 domain/types.ts 的 DriverDescriptor 不同：
+ * - domain 版本是精简的领域模型（10字段）
+ * - 此版本是 Rust 后端序列化直出（24字段，含 snake_case 别名供 Rust 反序列化兼容）
+ * - 两者都叫 DriverDescriptor 但不可互换
+ */
 export interface DriverDescriptor {
   id: string
   name: string

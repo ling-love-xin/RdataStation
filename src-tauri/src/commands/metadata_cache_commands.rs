@@ -46,6 +46,9 @@ pub struct ClearCacheInput {
     pub schema_name: Option<String>,
 }
 
+/// 缓存 TTL（秒），超过此时间未同步视为过期
+const CACHE_TTL_SECS: u64 = 300;
+
 /// 表元数据输入
 #[derive(Debug, Clone, Deserialize)]
 pub struct TableInput {
@@ -99,13 +102,26 @@ pub async fn get_metadata_cache_status(
     let ops = MetadataCacheOps::new(conn);
 
     let schema = schema_name.as_deref().unwrap_or("public");
-    let is_valid = ops
+    let mut is_valid = ops
         .is_cache_valid(&database_name, schema, None)
         .map_err(|e| CoreError::from(e.to_string()))?;
 
     let last_sync = ops
         .get_last_sync_time(&database_name, schema)
         .map_err(|e| CoreError::from(e.to_string()))?;
+
+    // TTL 过期检查：如果 last_sync 超过 CACHE_TTL_SECS，标记为无效
+    if is_valid {
+        if let Some(ts) = last_sync {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|e| CoreError::from(format!("获取系统时间失败: {}", e)))?
+                .as_secs() as i64;
+            if now.saturating_sub(ts) > CACHE_TTL_SECS as i64 {
+                is_valid = false;
+            }
+        }
+    }
 
     let stats = if is_valid {
         let cache_stats = ops
@@ -157,7 +173,7 @@ pub async fn refresh_metadata_cache(input: RefreshCacheInput) -> Result<(), Core
     Ok(())
 }
 
-/// 清除元数据缓存
+/// 清除元数据缓存（同时删除缓存文件）
 #[tauri::command]
 pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, CoreError> {
     let cache_manager = MetadataCacheManager::new(
@@ -185,6 +201,13 @@ pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, CoreE
     let affected = ops
         .clear_metadata(&input.database_name, schema, None)
         .map_err(|e| CoreError::from(e.to_string()))?;
+
+    // 删除缓存文件，确保强制刷新时不残留旧数据
+    let cache_path = cache_manager.db_path();
+    if cache_path.exists() {
+        std::fs::remove_file(cache_path)
+            .map_err(|e| CoreError::from(format!("删除缓存文件失败: {}", e)))?;
+    }
 
     Ok(affected)
 }

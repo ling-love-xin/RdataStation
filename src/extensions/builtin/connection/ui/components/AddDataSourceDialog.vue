@@ -43,6 +43,16 @@
             @driver-change="onDriverChange"
           />
 
+          <NAlert
+            v-if="scopeChangedWarning"
+            type="warning"
+            class="scope-warning"
+            closable
+            @close="scopeChangedWarning = false"
+          >
+            {{ $t('navigator.scopeChangeWarning') }}
+          </NAlert>
+
           <!-- Tabs -->
           <NTabs v-model:value="activeTab" type="line" size="small" class="dlg-tabs">
             <NTabPane name="general" :tab="$t('navigator.tabGeneral')">
@@ -88,7 +98,7 @@
 <script setup lang="ts">
 import { Database } from 'lucide-vue-next'
 import {
-  NButton, NModal, NTabs, NTabPane, useMessage,
+  NButton, NModal, NTabs, NTabPane, NAlert, useMessage,
 } from 'naive-ui'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -104,6 +114,7 @@ import GeneralTab from './tabs/GeneralTab.vue'
 import NetworkTab from './tabs/NetworkTab.vue'
 import { useAddDataSource } from '../composables/useAddDataSource'
 import { useDriverRegistry } from '../composables/useDriverRegistry'
+import { connectDatabase as connectDatabaseService } from '../services/connection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
@@ -142,6 +153,7 @@ const testResult = ref<{ success: boolean; message: string; latencyMs?: number }
 const testing = ref(false)
 const saving = ref(false)
 const isEditing = ref(false)
+const scopeChangedWarning = ref(false)
 
 // Auth config (not yet in composable)
 const authConfigId = ref<string | null>(null)
@@ -456,6 +468,24 @@ watch(uriEditing, (editing) => {
     manualUri.value = uriPreview.value
   }
 })
+
+watch(
+  () => ({ global: scope.global, project: scope.project }),
+  (_newVal, oldVal) => {
+    // 仅在 scope 实际发生变化且用户已填写了网络/环境/存储配置时显示警告
+    if (!oldVal || (_newVal.global === oldVal.global && _newVal.project === oldVal.project)) return
+    const hasExtra =
+      networkConfigId.value ||
+      selectedEnvId.value ||
+      driverPropertiesExtra.value ||
+      advancedOptions.value
+    if (hasExtra) {
+      scopeChangedWarning.value = true
+    } else {
+      scopeChangedWarning.value = false
+    }
+  }
+)
 </script>
 
 <style scoped>
@@ -506,6 +536,11 @@ watch(uriEditing, (editing) => {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+}
+
+.scope-warning {
+  margin: var(--spacing-sm) var(--spacing-sm) 0;
+  flex-shrink: 0;
 }
 
 /* ===== Tabs ===== */

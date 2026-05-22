@@ -939,7 +939,8 @@
     "privateKeyFile": "私钥文件",
     "validation": {
       "nameRequired": "数据源名称不能为空"
-    }
+    },
+    "scopeChangeWarning": "切换连接类型后，网络配置和环境设置可能失效，请重新选择"
   },
   "workbench": {
     "pin": "钉住",

@@ -31,6 +31,8 @@ pub struct ConnectionInfo {
     pub db_type: String,
     /// 连接 URL
     pub url: String,
+    /// 连接标识（用于关联后端连接管理器）
+    pub conn_id: Option<String>,
     /// 数据库服务器版本
     pub server_version: Option<String>,
     /// 最后使用时间（Unix 时间戳，秒）
@@ -74,6 +76,7 @@ impl ConnectionInfo {
             name,
             db_type,
             url,
+            conn_id: None,
             server_version: None,
             last_used: now,
             created_at: now,
@@ -470,6 +473,7 @@ impl ConnectionStore {
         let network_config_id = extract_string(json, "network_config_id");
         let driver_properties = extract_string(json, "driver_properties");
         let advanced_options = extract_string(json, "advanced_options");
+        let conn_id = extract_string(json, "conn_id");
         if let Some(v) = extract_u64(json, "last_used") {
             last_used = v;
         }
@@ -490,6 +494,7 @@ impl ConnectionStore {
             name,
             db_type,
             url,
+            conn_id,
             server_version,
             last_used,
             created_at,
@@ -532,6 +537,12 @@ impl ConnectionStore {
                 result.push_str(&format!(
                     "    \"server_version\": \"{}\",\n",
                     Self::escape_json(sv)
+                ));
+            }
+            if let Some(ref cid) = conn.conn_id {
+                result.push_str(&format!(
+                    "    \"conn_id\": \"{}\",\n",
+                    Self::escape_json(cid)
                 ));
             }
             result.push_str(&format!("    \"last_used\": {},\n", conn.last_used));
@@ -656,6 +667,7 @@ pub struct RecentConnectionInput<'a> {
     pub name: &'a str,
     pub db_type: &'a str,
     pub url: &'a str,
+    pub conn_id: Option<&'a str>,
     pub description: Option<&'a str>,
     pub driver_id: Option<&'a str>,
     pub environment_id: Option<&'a str>,
@@ -679,6 +691,7 @@ pub fn save_recent_connection(input: RecentConnectionInput<'_>) -> Result<(), st
         name: input.name.to_string(),
         db_type: input.db_type.to_string(),
         url: input.url.to_string(),
+        conn_id: input.conn_id.map(|s| s.to_string()),
         server_version: None,
         last_used: now,
         created_at: now,

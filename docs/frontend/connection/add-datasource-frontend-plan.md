@@ -1,6 +1,7 @@
 # 新增数据源 — 前端完整开发计划
 
-> 版本：v2.23 (2026-05-23 — 数据源模块 P3 前端警告清零)
+> 版本：v0.7.0 (2026-05-23 — v0.7.0 重构启动：T1 DriverDescriptor类型统一 + T2 大Vue文件拆分)
+> 更新：v0.7.0 — T1: driver-adapter 消除4处as any + T2a: AdvancedTab 1034→922行 (-112) + envDefaults.ts + useSecurityPolicies.ts
 > 更新：v2.23 — P3清零：3×console.log→warn + 13×空catch→warn + 5×any→具体类型，288→282(-6)
 > 更新：v2.22 — A1-M1 password→password_encrypted + A1-M2~3 tags: String→Option<String> + FE空catch修复×5
 > 更新：v2.21 — PS3 save_global_connection 17→1参数 + PS4 save_recent_connection 11→1参数
@@ -2665,9 +2666,111 @@ cargo clippy -- -D warnings → Finished (exit 0)
 | 其他维度 | — | — | — |
 | **综合评级** | **85** | **85** | **A 级巩固** |
 
-| 评级 | 分数 | 含义 |
+---
+
+## 十七、v0.7.0 重构（2026-05-23）
+
+### 17.1 重构动机
+
+v2.23（P3 警告清零）完成后，数据源模块功能性开发基本收敛。以下结构性问题需要在 v0.7.0 中系统性地解决：
+
+| 类别 | 问题 | 严重度 |
+|------|------|--------|
+| **跨层类型不一致** | `DriverDescriptor` 在 domain/types.ts、ui/types/connection.ts、infrastructure/types/connection-service.ts 各有一份定义，`fields`/`extraOptions` 必填导致 driver-adapter.ts 中 4 处 `as any` | 🔴 架构 |
+| **大 Vue 文件** | NetworkTab.vue 1034行、AdvancedTab.vue 1033行、AddDataSourceDialog.vue 542行（已标记为偏大） | 🟠 可维护性 |
+| **composable 未集成** | `useNetworkChain.ts` 632行已实现完整协议链引擎，但 NetworkTab.vue 仍用内联重复实现 | 🟡 代码复用 |
+| **类型导出路径** | ui/types/connection.ts 的 24字段 DriverDescriptor（含 snake_case 别名）与 domain/types.ts 的精简版同名但不可互换 | 🟡 混淆风险 |
+
+### 17.2 重构路线图
+
+#### T1: DriverDescriptor 跨层类型统一 ✅ 已完成
+
+**目标**：消除 domain/infrastructure/ui 三份独立的 DriverDescriptor 定义。
+
+**修改文件**：
+
+| 文件 | 变更 | 影响 |
 |------|------|------|
-| 🟢 A | 85-100 | 合规，可投入生产 |
-| 🟡 B | 70-84 | 基本合规，有改进空间 |
-| 🟠 C | 55-69 | 部分合规，需重点改进 |
-| 🔴 D | <55 | 不合规，需立即修复 |
+| [domain/types.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/domain/types.ts#L7-L26) | `fields: DriverField[]` → `fields?: DriverField[]`, `extraOptions: DriverOption[]` → `extraOptions?: DriverOption[]` | 领域层可选化，消除 adapter 层强制 as any |
+| [infrastructure/types/connection-service.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/infrastructure/types/connection-service.ts#L1-L7) | 删除本地 5字段 DriverDescriptor，改为 `import type { DriverDescriptor } from '../../domain/types'` + re-export | infrastructure 不重复定义 |
+| [driver-adapter.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/adapters/driver-adapter.ts#L85-L108) | 消除 4 处 `as any`：`fields.map(...) as any` / `options.map(...) as any` / `undefined as any` | 类型安全覆盖 |
+
+**验证**：`pnpm lint` → 278 warnings, 0 errors (-4 warnings from driver-adapter.ts)
+
+#### T2: 大 Vue 文件拆分为 composable
+
+| 文件 | 重构前 | 重构后 | 提取内容 | 状态 |
+|------|--------|--------|------|------|
+| [AdvancedTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue) | **1034行** | **922行** (-112, -10.8%) | envDefs → envDefaults.ts (133行) + useSecurityPolicies.ts (120行) | ✅ T2a 完成 |
+
+**T2a 详情**：
+
+| 新文件 | 行数 | 职责 |
+|------|------|------|
+| [envDefaults.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/constants/envDefaults.ts) | 133 | EnvDefItem/EnvPolicyTag/EnvDefPolicy 类型 + 5 个内置环境的完整定义 + envPolicyTagsMap + envDefaultValues + envDefsAsEnvInfo |
+| [useSecurityPolicies.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useSecurityPolicies.ts) | 120 | polReadonly/WriteConfirm/DdlConfirm/Autocommit/Drop/RowLimit/SizeLimit refs + securitySummary/isPolicyOverridden computed + applyEnvDefaults/collectPolicyConfig/applyPolicyConfig 方法 |
+
+**集成点**（AdvancedTab.vue）：
+- 导入 `envDefs, envPolicyTagsMap, envDefaultValues, envDefsAsEnvInfo` 替代内联环境定义
+- 使用 `useSecurityPolicies(envId)` 替代内联安全策略状态
+- `applyEnvDefaults` 委托安全字段给 `applySecurityDefaults(id)`，非安全字段保留内联
+- `collectPolicyConfig` / `applyPolicyConfig` 的 security case 委托给 composable 方法
+- `loadEnvironments` 回退从 `envDefs as EnvInfo[]` 改为 `envDefsAsEnvInfo`
+
+#### T2b: NetworkTab.vue → useNetworkChain.ts 集成 ⏳ 待执行
+
+**现状分析**：
+
+| 指标 | useNetworkChain.ts | NetworkTab.vue |
+|------|-------------------|----------------|
+| 行数 | 632 | 1034 |
+| 状态管理 | ref-based chain<ProtocolNode[]> | ref-based chain<Hop[]>（独立类型） |
+| 计算属性 | networkHopCount, isMaxNetworkHops, hasSsl, showHopWarning 等 | 内联重复实现 |
+| 操作方法 | addHop, deleteHop, switchHopMode, onDrag* | 内联重复实现 |
+| 配置文件管理 | sshProfiles/sslProfiles/proxyProfiles 本地存储 | 通过 useNetworkProfiles composable |
+
+**集成挑战**：
+1. **类型不兼容** — composable 使用 `ProtocolNode`（来自 `types/network-chain.ts`），NetworkTab 使用内联 `Hop` 类型。需要统一类型或添加适配层。
+2. **模板数据源冲突** — NetworkTab 模板直接读写内联 `chain` ref，改为 composable 后需逐个重绑。
+3. **配置文件管理双轨** — composable 自带 `sshProfiles/sslProfiles/proxyProfiles`（模拟数据），NetworkTab 使用 `useNetworkProfiles` composable（真实数据）。
+
+**建议方案**：分三步走
+1. 创建 `ui/types/network-chain.ts` 的 `Hop` → `ProtocolNode` 别名（最小改动）
+2. NetworkTab.vue 中替换内联 `chain` ref + 操作方法为 composable 返回值
+3. 配置文件管理改用 `useNetworkProfiles` composable（统一数据源）
+
+**预估影响**：1034 行 → 约 400-500 行（减少 50-60%）
+
+#### T2c: 其他大文件候选
+
+| 文件 | 行数 | 提取候选 | 优先级 |
+|------|------|---------|--------|
+| NetworkConfigManager.vue | 619 | 三 Tab 表单逻辑 → composable | P3 |
+| DataSourceSidebar.vue | 600 | 驱动管理区域 → DriverPanel.vue 子组件 | P3 |
+| GeneralTab.vue | 547 | 认证方式切换逻辑 → useAuthModeSwitch.ts | P3 |
+| AddDataSourceDialog.vue | 542 | AuthSection / NetworkSection 子组件 | P3 |
+| AuthConfigManager.vue | 536 | 表单验证逻辑 → composable | P3 |
+
+#### T3: 类型导出路径整理 ✅ 已完成
+
+| 任务 | 结论 | 说明 |
+|------|------|------|
+| ui/types/connection.ts → 删除 DriverDescriptor | ❌ 不可行 | 24 字段版含 snake_case 别名（`default_port` 等 9 处引用），是 Rust→TS 传输 DTO，与 domain 版不可互换 |
+| 添加区分注释 | ✅ | 已添加明确注释说明两个 DriverDescriptor 的关系和用途 |
+
+### 17.3 验证状态
+
+| 检查项 | 状态 |
+|--------|------|
+| pnpm lint | 1 error (预存: import/no-unresolved), 278 warnings (无新增) |
+| cargo check | 待验证 |
+| cargo clippy -- -D warnings | 待验证 |
+
+### 17.4 v0.7.0 后续计划
+
+| 任务 | 优先级 | 预估 |
+|------|--------|------|
+| T2b: NetworkTab → useNetworkChain.ts 集成 | 🔴 P0 | v0.7.0 核心 |
+| cargo check + clippy 验证 | 🔴 P0 | 阻塞发布 |
+| T2c: 大文件拆分（NetworkConfigManager/Sidebar/GeneralTab） | 🟡 P2 | v0.7.1 |
+| NetworkTab 空 catch 块 → console.warn | 🟢 P3 | 已记录 |

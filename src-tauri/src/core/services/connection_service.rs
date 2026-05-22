@@ -301,6 +301,7 @@ impl ConnectionService {
             name: &connection_name,
             db_type,
             url: &safe_url,
+            conn_id: Some(&conn_id),
             description: description.as_deref(),
             driver_id: driver_id.as_deref(),
             environment_id: environment_id.as_deref(),
