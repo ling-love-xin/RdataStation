@@ -37,8 +37,7 @@ interface ChainHopJson {
   host?: string
   port?: number
   username?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  auth?: Record<string, any>
+  auth?: Record<string, unknown>
   remote_host?: string
   remote_port?: number
   local_port?: number
@@ -181,14 +180,11 @@ export function backendConfigToSshProfile(nc: BackendNetworkConfig): SshProfile 
       remotePort: config.remote_port as number | undefined,
       keepAlive: (config.timeout_secs as number) || 60,
     }
-  } catch {
+  } catch (err) {
+    console.warn('[network-adapter] SSH 配置 JSON 解析失败:', err instanceof Error ? err.message : String(err))
     return null
   }
 }
-
-/**
- * 将后端 NetworkConfig 转为前端 SSL 配置
- */
 export function backendConfigToSslProfile(nc: BackendNetworkConfig): SslProfile | null {
   try {
     const config = JSON.parse(nc.config) as Record<string, unknown>
@@ -204,14 +200,11 @@ export function backendConfigToSslProfile(nc: BackendNetworkConfig): SslProfile 
       cert: config.client_cert_path as string | undefined,
       key: config.client_key_path as string | undefined,
     }
-  } catch {
+  } catch (err) {
+    console.warn('[network-adapter] SSL 配置 JSON 解析失败:', err instanceof Error ? err.message : String(err))
     return null
   }
 }
-
-/**
- * 将后端 NetworkConfig 转为前端代理配置
- */
 export function backendConfigToProxyProfile(nc: BackendNetworkConfig): ProxyProfile | null {
   try {
     const config = JSON.parse(nc.config) as Record<string, unknown>
@@ -236,12 +229,11 @@ export function backendConfigToProxyProfile(nc: BackendNetworkConfig): ProxyProf
       username: auth?.username as string | undefined,
       password: auth?.password as string | undefined,
     }
-  } catch {
+  } catch (err) {
+    console.warn('[network-adapter] 代理配置 JSON 解析失败:', err instanceof Error ? err.message : String(err))
     return null
   }
 }
-
-// ==================== 前端 Profile → Backend NetworkConfig ====================
 
 /**
  * 将前端 SSH 配置文件转为网络配置 JSON（用于 create/update_network_config）

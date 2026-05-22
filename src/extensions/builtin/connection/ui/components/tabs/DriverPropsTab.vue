@@ -56,7 +56,7 @@ function tryParseProps(raw: string | null | undefined): PropRow[] {
       return Object.entries(obj as Record<string, unknown>).map(([k, v]) => ({ key: k, value: String(v) }))
     }
     return []
-  } catch { return [] }
+  } catch (err) { console.warn('[parseDriverProps] 解析失败:', err); return [] }
 }
 
 watch(() => props.driver, (d) => {

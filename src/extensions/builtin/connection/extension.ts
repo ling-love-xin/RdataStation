@@ -40,7 +40,7 @@ interface Connection {
 }
 
 const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
-  console.log('[Connection] Activating for project:', context.project.name)
+  console.warn('[Connection] Activating for project:', context.project.name)
 
   const getConnections = async (): Promise<Connection[]> => {
     const connections: ConnectionInfoResponse[] = await connectionApi.getConnections()
@@ -131,7 +131,7 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
 }
 
 const deactivate = (): void => {
-  console.log('[Connection] Deactivated')
+  console.warn('[Connection] Deactivated')
 }
 
 const extension: ExtensionModule = {

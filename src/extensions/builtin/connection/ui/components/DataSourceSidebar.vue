@@ -313,7 +313,7 @@ async function testSavedConnection(conn: ProjectConnection) {
       r.success ? undefined : (r.message || '连接失败')
     )
     // eslint-disable-next-line no-console
-    console.log(`[sidebar:test] ${conn.name}: ${msg}`)
+    console.warn(`[sidebar:test] ${conn.name}: ${msg}`)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     // eslint-disable-next-line no-console

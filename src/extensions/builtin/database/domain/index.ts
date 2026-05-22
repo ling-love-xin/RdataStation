@@ -3,7 +3,6 @@
  */
 
 export { loadNodeChildren } from './services/navigator-loader'
-export { loadMockChildren } from './services/mock-database-navigator'
 
 export type {
   DatabaseConnection,

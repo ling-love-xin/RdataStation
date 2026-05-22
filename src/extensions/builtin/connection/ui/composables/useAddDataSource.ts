@@ -286,7 +286,9 @@ export function useAddDataSource() {
         if (opts.protocol_chain) protocolChain.value = opts.protocol_chain
         if (opts.duckdb_accel) Object.assign(duckdbAccel, opts.duckdb_accel)
         if (opts.env_policies) overriddenPolicies.value = opts.env_policies
-      } catch { /* invalid JSON, ignore */ }
+      } catch (err) {
+        console.warn('[useAddDataSource] 高级选项 JSON 解析失败:', err instanceof Error ? err.message : String(err))
+      }
     }
   }
 

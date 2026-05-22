@@ -350,16 +350,17 @@ async function doSave(): Promise<void> {
       environmentId: selectedEnvId.value ?? null,
     }
 
-    // 使用 useAddDataSource 统一构建提交载荷
-    const payload = buildSubmitPayload({
-      dbType: d.type_id,
-      url,
+    const connectOpts = {
       driverId: headerData.selectedDriverId,
-      projectId: scope.project ? projectStore.currentProject?.id : null,
-      authConfigId: authConfigId.value,
-      authMethod: authMethod.value,
       networkConfigId: networkConfigId.value,
-    })
+      environmentId: selectedEnvId.value ?? undefined,
+      authConfigId: authConfigId.value,
+      driverProperties: driverPropertiesExtra.value ?? undefined,
+      advancedOptions: advancedOptions.value ?? undefined,
+      description: headerData.description || undefined,
+    }
+
+    let returnedConnId: string | null = null
 
     if (scope.project && projectStore.hasProject) {
       const fd = formData.value
@@ -373,10 +374,26 @@ async function doSave(): Promise<void> {
         password: String(fd.password || ''),
         use_duckdb_fed: false,
       })
-      await invoke('connect_database', { input: payload })
+      const connResponse = await connectDatabaseService(
+        d.type_id,
+        url,
+        name,
+        'project',
+        projectStore.currentProject?.id,
+        connectOpts
+      )
+      returnedConnId = connResponse.conn_id
     }
     if (scope.global) {
-      await invoke('connect_database', { input: payload })
+      const connResponse = await connectDatabaseService(
+        d.type_id,
+        url,
+        name,
+        'global',
+        undefined,
+        connectOpts
+      )
+      returnedConnId = connResponse.conn_id
     }
 
     message.success(t('navigator.connectionSavedTo', { name, locations: '' }))
@@ -391,14 +408,14 @@ async function handleSave() {
   try {
     await doSave()
     resetAndClose()
-  } catch { /* error already shown in doSave */ }
+  } catch (err) { console.warn('[handleSave] 保存失败:', err) /* error already shown in doSave */ }
 }
 
 async function handleApply() {
   try {
     await doSave()
     resetAndClose()
-  } catch { /* error already shown in doSave */ }
+  } catch (err) { console.warn('[handleSave] 保存失败:', err) /* error already shown in doSave */ }
 }
 
 function resetAndClose() {

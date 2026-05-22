@@ -135,10 +135,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载 Catalog 列表失败'
       console.error('加载 Catalog 列表失败:', e)
-      const currentMap = connectionCatalogs.value
-      const newMap = new Map(currentMap)
-      newMap.set(connectionId, [{ name: 'default', schemas: [] }])
-      connectionCatalogs.value = newMap
+      throw e
     } finally {
       loadingCatalogs.value.delete(connectionId)
     }

@@ -63,6 +63,24 @@ impl MetadataCacheManager {
         })
     }
 
+    /// 将连接 ID 安全的转换为文件名片段
+    ///
+    /// 连接 ID 可能包含 Windows 非法字符（如 `:` `@` `/` `\` 等），
+    /// 这些字符不能出现在文件路径中。使用哈希映射将非法字符替换为安全替代品。
+    fn sanitize_conn_id_for_filename(conn_id: &str) -> String {
+        conn_id
+            .replace(':', "_")
+            .replace('@', "_at_")
+            .replace('/', "_")
+            .replace('\\', "_")
+            .replace('*', "_")
+            .replace('?', "_")
+            .replace('"', "_")
+            .replace('<', "_")
+            .replace('>', "_")
+            .replace('|', "_")
+    }
+
     /// 构建元数据缓存数据库路径
     ///
     /// 元数据文件跟随连接信息：
@@ -98,7 +116,9 @@ impl MetadataCacheManager {
             )))
         })?;
 
-        Ok(dir.join(format!("conn_{}.sqlite", conn_id)))
+        // conn_id 可能包含 Windows 文件系统非法字符（如 : @ / 等）
+        let safe_id = Self::sanitize_conn_id_for_filename(conn_id);
+        Ok(dir.join(format!("conn_{}.sqlite", safe_id)))
     }
 
     /// 打开元数据缓存数据库

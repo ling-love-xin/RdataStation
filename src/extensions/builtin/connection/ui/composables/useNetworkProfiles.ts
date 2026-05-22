@@ -57,7 +57,12 @@ const error = ref<string | null>(null)
 // ==================== 工具函数 ====================
 
 export function parseConfig<T>(configJson: string): T | null {
-  try { return JSON.parse(configJson) as T } catch { return null }
+  try {
+    return JSON.parse(configJson) as T
+  } catch (err) {
+    console.warn('[parseConfig] 解析失败:', err)
+    return null
+  }
 }
 
 function buildDetail(type: string, cfg: unknown): string {

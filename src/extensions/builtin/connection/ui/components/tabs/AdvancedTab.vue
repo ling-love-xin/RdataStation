@@ -244,6 +244,8 @@ import DuckDBAccelSection from './DuckDBAccelSection.vue'
 import EnvironmentManager from './EnvironmentManager.vue'
 import EnvironmentSelector from './EnvironmentSelector.vue'
 import SecurityPolicySection from './SecurityPolicySection.vue'
+import { useSecurityPolicies } from '../../composables/useSecurityPolicies'
+import { envDefs, envPolicyTagsMap, envDefaultValues, envDefsAsEnvInfo, type EnvPolicyTag } from '../../constants/envDefaults'
 
 import type { EnvInfo } from './EnvironmentManager.vue'
 import type { Driver } from '../../../domain/types'
@@ -276,113 +278,21 @@ const envSelectOpts = computed<SelectOption[]>(() =>
   }))
 )
 
-const currentEnvDef = computed<EnvDefItem>(() =>
+const currentEnvDef = computed(() =>
   envDefs.find(e => e.id === envId.value) || envDefs[0]
 )
 
-interface EnvPolicyTag { key: string; label: string; kind: string }
-interface EnvDefItem {
-  id: string; name: string; color: string; icon: string; desc: string; builtin: boolean
-  summarySecurity: string; summarySchema: string; summaryPerf: string; summaryAudit: string
-  ui: { summaryUI: string }
-  policy: { ro: boolean; wc: boolean; ddl: boolean; drop: string; ac: boolean; rl: number; sl: number }
-}
+const envPolicyTags = computed<EnvPolicyTag[]>(() =>
+  envPolicyTagsMap[envId.value] || []
+)
 
-const envDefs: EnvDefItem[] = [
-  { id: 'env-dev', name: '开发环境', color: '#a6e3a1', icon: '🟢', desc: '本地开发、调试数据库', builtin: true,
-    summarySecurity: '读写·自动提交', summarySchema: '自动Schema+系统表', summaryPerf: '池10·超时0s·重连3', summaryAudit: '无审计',
-    ui: { summaryUI: '#a6e3a1' },
-    policy: { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 0, sl: 0 } },
-  { id: 'env-test', name: '测试环境', color: '#f9e2af', icon: '🟡', desc: '集成测试、QA 验证', builtin: true,
-    summarySecurity: '读写·DDL确认·行限1w', summarySchema: '自动Schema+系统表', summaryPerf: '池10·超时120s·重连3', summaryAudit: '基础审计',
-    ui: { summaryUI: '#f9e2af' },
-    policy: { ro: false, wc: false, ddl: true, drop: 'true', ac: true, rl: 10000, sl: 100 } },
-  { id: 'env-staging', name: '预发布', color: '#89b4fa', icon: '🔵', desc: '灰度验证、预发布环境', builtin: true,
-    summarySecurity: '写确认·DDL确认·行限5k', summarySchema: '自动Schema', summaryPerf: '池15·超时180s·重连5', summaryAudit: '完整审计',
-    ui: { summaryUI: '#89b4fa' },
-    policy: { ro: false, wc: true, ddl: true, drop: 'true', ac: false, rl: 5000, sl: 50 } },
-  { id: 'env-prod', name: '生产环境', color: '#f38ba8', icon: '🔴', desc: '线上生产数据库，谨慎操作', builtin: true,
-    summarySecurity: '默认只读·写确认·DROP禁用', summarySchema: '按需Schema', summaryPerf: '池20·超时60s·重连3', summaryAudit: '全面审计',
-    ui: { summaryUI: '#f38ba8' },
-    policy: { ro: true, wc: true, ddl: true, drop: 'disable', ac: false, rl: 1000, sl: 20 } },
-  { id: 'env-sandbox', name: '沙箱环境', color: '#cba6f7', icon: '🟣', desc: '安全隔离的沙箱数据库', builtin: true,
-    summarySecurity: '读写·行限1k', summarySchema: '自动Schema', summaryPerf: '池5·超时60s·重连2', summaryAudit: '无审计',
-    ui: { summaryUI: '#cba6f7' },
-    policy: { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 1000, sl: 50 } },
-]
-
-const envPolicyTags = computed<EnvPolicyTag[]>(() => {
-  const envMap: Record<string, EnvPolicyTag[]> = {
-    'env-dev': [{ key: 'rw', label: '读写', kind: '' }],
-    'env-test': [
-      { key: 'rw', label: '读写', kind: '' },
-      { key: 'ddl', label: 'DDL确认', kind: '' },
-      { key: 'row', label: '行限10000', kind: '' },
-    ],
-    'env-staging': [
-      { key: 'wc', label: '写确认', kind: 'locked' },
-      { key: 'ddl', label: 'DDL确认', kind: 'locked' },
-      { key: 'schema', label: '手动Schema', kind: '' },
-      { key: 'row', label: '行限5000', kind: 'locked' },
-      { key: 'audit', label: '审计', kind: 'audit' },
-    ],
-    'env-prod': [
-      { key: 'ro', label: '默认只读', kind: 'danger' },
-      { key: 'wc', label: '写确认', kind: 'locked' },
-      { key: 'drop', label: 'DROP禁用', kind: 'danger' },
-      { key: 'row', label: '行限1000', kind: 'locked' },
-      { key: 'audit', label: '审计', kind: 'audit' },
-    ],
-    'env-sandbox': [
-      { key: 'rw', label: '读写', kind: '' },
-      { key: 'row', label: '行限1000', kind: '' },
-    ],
-  }
-  return envMap[envId.value] || []
-})
-
-// ========== Security policies ==========
-const polReadonly = ref(false)
-const polWriteConfirm = ref(false)
-const polDdlConfirm = ref(false)
-const polAutocommit = ref(true)
-const polDrop = ref('false')
-const polRowLimit = ref(0)
-const polSizeLimit = ref(0)
-const tempDefaultLocked = ref(false)
-const dropOpts = [
-  { label: t('navigator.advancedDropAllow') || '允许', value: 'false' },
-  { label: t('navigator.advancedDropConfirm') || '确认', value: 'true' },
-  { label: t('navigator.advancedDropDisable') || '禁用', value: 'disable' },
-]
-
-const securitySummary = computed(() => {
-  const parts: string[] = []
-  if (polReadonly.value) parts.push('只读')
-  else parts.push('读写')
-  if (polWriteConfirm.value) parts.push('写确认')
-  if (polDdlConfirm.value) parts.push('DDL确认')
-  if (polDrop.value === 'disable') parts.push('DROP禁用')
-  else if (polDrop.value === 'true') parts.push('DROP确认')
-  if (polRowLimit.value > 0) parts.push(`行限${polRowLimit.value}`)
-  if (polSizeLimit.value > 0) parts.push(`限${polSizeLimit.value}M`)
-  return parts.join('·') || '默认'
-})
-
-const isPolicyOverridden = computed(() => {
-  const p = envDefs.find(e => e.id === envId.value)?.policy || null
-  if (!p) return false
-  if (polReadonly.value !== p.ro) return true
-  if (polWriteConfirm.value !== p.wc) return true
-  if (polDdlConfirm.value !== p.ddl) return true
-  if (polDrop.value !== p.drop) return true
-  if (polAutocommit.value !== p.ac) return true
-  if (polRowLimit.value !== p.rl) return true
-  if (polSizeLimit.value !== p.sl) return true
-  return false
-})
-
-function checkPolicyOverride() { /* computed auto-updates */ }
+// ========== Security policies (composable) ==========
+const {
+  polReadonly, polWriteConfirm, polDdlConfirm, polAutocommit, polDrop, polRowLimit, polSizeLimit,
+  tempDefaultLocked, dropOpts, securitySummary, isPolicyOverridden,
+  applyEnvDefaults: applySecurityDefaults, collectPolicyConfig: collectSecurityConfig,
+  applyPolicyConfig: applySecurityConfig, checkPolicyOverride,
+} = useSecurityPolicies(envId)
 
 function onEnvChange(id: string) {
   // 项目级连接引用全局环境 → 触发快照
@@ -409,28 +319,15 @@ function onEnvChange(id: string) {
 }
 
 function applyEnvDefaults(id: string) {
-  const defaults: Record<string, Record<string, unknown>> = {
-    'env-dev': { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 0, sl: 0, ct: 30, qt: 0, hb: 60, mr: 3 },
-    'env-test': { ro: false, wc: false, ddl: true, drop: 'true', ac: true, rl: 10000, sl: 100, ct: 30, qt: 120, hb: 60, mr: 3 },
-    'env-staging': { ro: false, wc: true, ddl: true, drop: 'true', ac: false, rl: 5000, sl: 50, ct: 30, qt: 180, hb: 60, mr: 5 },
-    'env-prod': { ro: true, wc: true, ddl: true, drop: 'disable', ac: false, rl: 1000, sl: 20, ct: 15, qt: 60, hb: 30, mr: 3 },
-    'env-sandbox': { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 1000, sl: 50, ct: 30, qt: 60, hb: 60, mr: 2 },
-  }
-  const d = defaults[id] || defaults['env-dev']
-  tempDefaultLocked.value = true
-  polReadonly.value = d.ro as boolean
-  polWriteConfirm.value = d.wc as boolean
-  polDdlConfirm.value = d.ddl as boolean
-  polAutocommit.value = d.ac as boolean
-  polDrop.value = d.drop as string
-  polRowLimit.value = d.rl as number
-  polSizeLimit.value = d.sl as number
+  const d = envDefaultValues[id] || envDefaultValues['env-dev']
+  // Security fields delegated to composable
+  applySecurityDefaults(id)
+  // Non-security fields kept inline
   advConnectTimeout.value = d.ct as number
   advQueryTimeout.value = d.qt as number
   advHeartbeat.value = d.hb as number
   advMaxReconnect.value = d.mr as number
   schemaStrategy.value = id === 'env-prod' ? 'manual' : 'auto'
-  // Reset schema/audit/ui to default for the environment
   const isProd = id === 'env-prod'
   schAutoLoad.value = !isProd
   schShowSystem.value = !isProd
@@ -442,7 +339,6 @@ function applyEnvDefaults(id: string) {
   uiSqlWarningBanner.value = isProd || id === 'env-staging'
   uiTopBarColor.value = currentEnvDef.value.color
   uiWriteBtnStyle.value = isProd ? 'danger' : 'default'
-  setTimeout(() => { tempDefaultLocked.value = false }, 0)
 }
 
 // ========== DuckDB ==========
@@ -692,7 +588,7 @@ async function handleDeleteEnv(id: string) {
           await invoke('delete_environment_policy', { id: p.id })
         }
       }
-    } catch { /* 策略不存在则跳过 */ }
+    } catch (err) { console.warn('[applyPolicyConfig] 策略不存在:', err) }
 
     if (props.scope?.project) {
       const { useProjectStore } = await import('@/core/project/stores/project')
@@ -749,7 +645,7 @@ async function loadEnvironments() {
         }))
     }
   } catch {
-    loadedEnvs.value = envDefs as EnvInfo[]
+    loadedEnvs.value = envDefsAsEnvInfo
   } finally { envListLoading.value = false }
 }
 
@@ -767,10 +663,7 @@ interface BackendEnvPolicy {
 function collectPolicyConfig(policyType: string): Record<string, unknown> {
   switch (policyType) {
     case 'security':
-      return {
-        ro: polReadonly.value, wc: polWriteConfirm.value, ddl: polDdlConfirm.value,
-        drop: polDrop.value, ac: polAutocommit.value, rl: polRowLimit.value, sl: polSizeLimit.value,
-      }
+      return collectSecurityConfig()
     case 'schema':
       return {
         autoLoad: schAutoLoad.value, loadDepth: schLoadDepth.value,
@@ -800,13 +693,7 @@ function collectPolicyConfig(policyType: string): Record<string, unknown> {
 function applyPolicyConfig(policyType: string, config: Record<string, unknown>) {
   switch (policyType) {
     case 'security': {
-      if ('ro' in config) polReadonly.value = config.ro as boolean
-      if ('wc' in config) polWriteConfirm.value = config.wc as boolean
-      if ('ddl' in config) polDdlConfirm.value = config.ddl as boolean
-      if ('drop' in config) polDrop.value = config.drop as string
-      if ('ac' in config) polAutocommit.value = config.ac as boolean
-      if ('rl' in config) polRowLimit.value = config.rl as number
-      if ('sl' in config) polSizeLimit.value = config.sl as number
+      applySecurityConfig(config)
       break
     }
     case 'schema': {
@@ -859,7 +746,7 @@ async function loadPoliciesForEnv(envId: string) {
       const config = p.policy_config ? JSON.parse(p.policy_config) : {}
       applyPolicyConfig(p.policy_type, config)
     }
-  } catch { /* 无策略或 API 不可用时静默降级 */ }
+  } catch (err) { console.warn('[applyPolicyConfig] 策略/API不可用:', err) }
 }
 
 /** Save (create or update) a single policy for given environment */
@@ -893,7 +780,7 @@ async function savePolicyForEnv(envId: string, policyType: string) {
         })
       }
     }
-  } catch { /* 静默降级 */ }
+  } catch (err) { console.warn('[applyPolicyConfig] 静默降级:', err) }
 }
 
 /** Debounced save helper */

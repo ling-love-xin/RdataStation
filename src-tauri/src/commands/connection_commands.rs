@@ -10,12 +10,14 @@ use crate::core::services::connection_service::{
 };
 use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::{get_connection_manager, DataSourceMeta};
+use uuid;
 
 // ==================== Connection Commands ====================
 
 /// 创建数据库连接请求参数
 #[derive(serde::Deserialize, Debug)]
 pub struct ConnectDatabaseInput {
+    pub conn_id: Option<String>,
     pub db_type: String,
     pub url: String,
     pub name: Option<String>,
@@ -245,7 +247,7 @@ pub async fn connect_database(
 
     let (conn_id, db) = service
         .connect_with_type(
-            None,
+            input.conn_id.clone(),
             &input.db_type,
             &input.url,
             input.name.clone(),
@@ -263,8 +265,73 @@ pub async fn connect_database(
         )
         .await?;
 
+    // ===== 项目连接：持久化到 project.db =====
     let meta = db.meta();
     let safe_url = ConnectionService::mask_password_in_url(&input.url);
+
+    // 项目连接也保存到项目数据库中，确保重启后数据不丢失
+    if connection_type == ConnectionType::Project {
+        if let Some(ref proj_path) = input.project_id {
+            let meta_dir = std::path::Path::new(proj_path).join(".RSmeta");
+            let db_path = meta_dir.join("project.db");
+            if db_path.exists() {
+                if let Err(e) = (|| -> Result<(), CoreError> {
+                    let proj_conn = rusqlite::Connection::open(&db_path)
+                        .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
+                    let now = chrono::Utc::now().to_rfc3339();
+                    let conn_name = input.name.clone().unwrap_or_else(|| safe_url.clone());
+                    let conn_id = format!("project-{}-{}", input.db_type, uuid::Uuid::new_v4());
+                    // 加密密码
+                    let encrypted_password = input.url.split('@').next()
+                        .and_then(|prefix| prefix.rsplit(':').next())
+                        .filter(|p| !p.is_empty())
+                        .and_then(|p| {
+                            crate::core::crypto::encrypt_password(p).ok()
+                        });
+                    proj_conn.execute(
+                        "INSERT OR REPLACE INTO connections (
+                            id, name, driver, host, port, database, schema_name, username,
+                            password_encrypted, options, tags, use_duckdb_fed, metadata_path,
+                            is_active, server_version, description, driver_id, environment_id,
+                            auth_config_id, auth_method, network_config_id, driver_properties,
+                            advanced_options, created_at, updated_at
+                        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+                            ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
+                        rusqlite::params![
+                            conn_id,
+                            conn_name,
+                            input.db_type,
+                            Option::<String>::None, // host parsed from URL
+                            Option::<i32>::None,     // port parsed from URL
+                            Option::<String>::None,  // database parsed from URL
+                            Option::<String>::None,  // schema_name
+                            Option::<String>::None,  // username parsed from URL
+                            encrypted_password,
+                            Option::<String>::None,  // options
+                            Some("[\"project\"]"),   // tags
+                            false,                   // use_duckdb_fed
+                            Option::<String>::None,  // metadata_path
+                            true,                    // is_active
+                            meta.server_version.clone(),
+                            input.description.clone(),
+                            input.driver_id.clone(),
+                            input.environment_id.clone(),
+                            input.auth_config_id.clone(),
+                            input.auth_method.clone(),
+                            input.network_config_id.clone(),
+                            input.driver_properties.clone(),
+                            input.advanced_options.clone(),
+                            now.clone(),
+                            now,
+                        ],
+                    ).map_err(|e| CoreError::from(format!("保存项目连接失败: {}", e)))?;
+                    Ok(())
+                })() {
+                    tracing::warn!("保存项目连接到 project.db 失败: {}", e);
+                }
+            }
+        }
+    }
 
     Ok(ConnectDatabaseResponse {
         conn_id,
@@ -639,7 +706,7 @@ pub async fn test_connection(
     url: String,
     network_config_id: Option<String>,
 ) -> Result<TestConnectionResponse, CoreError> {
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
 
     if url.is_empty() {
         return Err("Database URL cannot be empty".into());
@@ -679,32 +746,36 @@ pub async fn test_connection(
         });
     }
 
-    // 没有已有连接，创建临时测试连接
+    // 没有已有连接，创建临时测试连接（30秒超时保护）
     tracing::info!("测试连接：创建临时连接进行测试（URL={}，network_config={:?}）", url, network_config_id);
-    let (conn_id, db) = match service
-        .connect_with_type(
-            None,
-            &db_type,
-            &url,
-            Some("test_connection".to_string()),
-            ConnectionType::Global,
-            None,   // project_path
-            None,   // description
-            None,   // driver_id
-            None,   // environment_id
-            None,   // auth_config_id
-            None,   // auth_method
-            network_config_id.clone(),
-            None,   // driver_properties
-            None,   // advanced_options
-            network_method,
-        )
-        .await
+    let connect_future = service.connect_with_type(
+        None,
+        &db_type,
+        &url,
+        Some("test_connection".to_string()),
+        ConnectionType::Global,
+        None,   // project_path
+        None,   // description
+        None,   // driver_id
+        None,   // environment_id
+        None,   // auth_config_id
+        None,   // auth_method
+        network_config_id.clone(),
+        None,   // driver_properties
+        None,   // advanced_options
+        network_method,
+    );
+
+    let (conn_id, db) = match tokio::time::timeout(Duration::from_secs(30), connect_future).await
     {
-        Ok(result) => result,
-        Err(e) => {
+        Ok(Ok(result)) => result,
+        Ok(Err(e)) => {
             tracing::error!("测试连接失败：{}", e);
             return Err(format!("连接失败: {}", e).into());
+        }
+        Err(_elapsed) => {
+            tracing::error!("测试连接超时（30秒），URL={}", url);
+            return Err(format!("连接超时（30秒）: 无法在 30 秒内连接到 {}", url).into());
         }
     };
 
@@ -958,23 +1029,21 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
 
     let connections = global_db
-        .get_global_connections()
+        .get_global_connections(None, None)
         .await
         .map_err(|e| format!("获取全局连接失败: {}", e))?;
 
     Ok(connections
         .into_iter()
         .map(|conn| {
-            let tags: Vec<String> = serde_json::from_str(&conn.tags).unwrap_or_else(|_| {
-                if conn.tags.is_empty() {
-                    vec![]
-                } else {
-                    vec![conn.tags.clone()]
-                }
+            let tags: Vec<String> = conn.tags.as_ref().map_or(Vec::new(), |t| {
+                serde_json::from_str(t).unwrap_or_else(|_| {
+                    if t.is_empty() { vec![] } else { vec![t.clone()] }
+                })
             });
 
             let password = conn
-                .password
+                .password_encrypted
                 .and_then(|p| crate::core::crypto::decrypt_password(&p).ok().or(Some(p)));
 
             GlobalConnectionInfoResponse {

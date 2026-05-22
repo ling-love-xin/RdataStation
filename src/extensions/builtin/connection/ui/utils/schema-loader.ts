@@ -41,7 +41,7 @@ export async function loadAllSchemas(): Promise<DriverFormSchema[]> {
   for (const path of Object.keys(schemaFiles)) {
     try {
       const module = await schemaFiles[path]()
-      const schema = (module as any).default as DriverFormSchema
+      const schema = (module as Record<string, unknown>).default as DriverFormSchema
       schemas.push(schema)
       schemaCache.set(schema.driverId, schema)
     } catch (e) {

@@ -20,7 +20,7 @@
         <div class="form-row">
           <div class="form-grp" style="flex:2">
             <span class="form-label">{{ $t('navigator.host') }}</span>
-            <NInput v-model:value="local.host" size="small" placeholder="localhost" @update:value="emitUpdate" />
+            <NInput v-model:value="local.host" size="small" placeholder="localhost" :maxlength="255" @update:value="emitUpdate" />
           </div>
           <div class="form-grp" style="flex:1">
             <span class="form-label">{{ $t('navigator.port') }}</span>
@@ -30,7 +30,7 @@
         <div class="form-row">
           <div class="form-grp" style="flex:1">
             <span class="form-label">{{ $t('navigator.database') }}</span>
-            <NInput v-model:value="local.database" size="small" placeholder="mydb" @update:value="emitUpdate" />
+            <NInput v-model:value="local.database" size="small" placeholder="mydb" :maxlength="128" @update:value="emitUpdate" />
           </div>
         </div>
 
@@ -72,18 +72,18 @@
           <div v-if="authMethod === 'password'" class="form-row">
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.username') }}</span>
-              <NInput v-model:value="local.username" size="small" placeholder="root" @update:value="emitUpdate" />
+              <NInput v-model:value="local.username" size="small" placeholder="root" :maxlength="128" @update:value="emitUpdate" />
             </div>
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.password') }}</span>
-              <NInput v-model:value="local.password" type="password" size="small" show-password-on="click" placeholder="****" @update:value="emitUpdate" />
+              <NInput v-model:value="local.password" type="password" size="small" show-password-on="click" placeholder="****" :maxlength="256" @update:value="emitUpdate" />
             </div>
           </div>
           <div v-else-if="authMethod === 'pg_class'" class="form-row">
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.clientCert') || '客户端证书 (.crt)' }}</span>
               <div class="file-input-row">
-                <NInput v-model:value="local.certPath" size="small" placeholder="~/client.crt" @update:value="emitUpdate" />
+                <NInput v-model:value="local.certPath" size="small" placeholder="~/client.crt" :maxlength="1024" @update:value="emitUpdate" />
                 <NButton size="tiny" secondary @click="browseCert">
                   📂
                 </NButton>
@@ -92,7 +92,7 @@
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.clientKey') || '私钥 (.key)' }}</span>
               <div class="file-input-row">
-                <NInput v-model:value="local.certKeyPath" size="small" placeholder="~/client.key" @update:value="emitUpdate" />
+                <NInput v-model:value="local.certKeyPath" size="small" placeholder="~/client.key" :maxlength="1024" @update:value="emitUpdate" />
                 <NButton size="tiny" secondary @click="browseCertKey">
                   📂
                 </NButton>
@@ -102,12 +102,12 @@
           <div v-else-if="authMethod === 'kerberos'" class="form-row">
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.principal') || 'Principal' }}</span>
-              <NInput v-model:value="local.principal" size="small" placeholder="user@REALM.COM" @update:value="emitUpdate" />
+              <NInput v-model:value="local.principal" size="small" placeholder="user@REALM.COM" :maxlength="255" @update:value="emitUpdate" />
             </div>
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.keytabPath') || 'Keytab 文件' }}</span>
               <div class="file-input-row">
-                <NInput v-model:value="local.keytabPath" size="small" placeholder="/etc/krb5.keytab" @update:value="emitUpdate" />
+                <NInput v-model:value="local.keytabPath" size="small" placeholder="/etc/krb5.keytab" :maxlength="1024" @update:value="emitUpdate" />
                 <NButton size="tiny" secondary @click="browseKeytab">
                   📂
                 </NButton>
@@ -117,17 +117,17 @@
           <div v-else-if="authMethod === 'oauth2'" class="form-row">
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.tokenEndpoint') || 'Token 端点' }}</span>
-              <NInput v-model:value="local.tokenEndpoint" size="small" placeholder="https://auth.example.com/token" @update:value="emitUpdate" />
+              <NInput v-model:value="local.tokenEndpoint" size="small" placeholder="https://auth.example.com/token" :maxlength="2048" @update:value="emitUpdate" />
             </div>
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.clientId') || 'Client ID' }}</span>
-              <NInput v-model:value="local.clientId" size="small" placeholder="your-client-id" @update:value="emitUpdate" />
+              <NInput v-model:value="local.clientId" size="small" placeholder="your-client-id" :maxlength="255" @update:value="emitUpdate" />
             </div>
           </div>
           <div v-if="authMethod === 'oauth2'" class="form-row">
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.clientSecret') || 'Client Secret' }}</span>
-              <NInput v-model:value="local.clientSecret" type="password" size="small" show-password-on="click" placeholder="****" @update:value="emitUpdate" />
+              <NInput v-model:value="local.clientSecret" type="password" size="small" show-password-on="click" placeholder="****" :maxlength="512" @update:value="emitUpdate" />
             </div>
           </div>
         </template>
@@ -185,7 +185,7 @@
           <div class="form-grp" style="flex:1">
             <span class="form-label">{{ $t('navigator.filePath') }}</span>
             <NSpace :size="8">
-              <NInput v-model:value="local.file_path" size="small" :placeholder="filePathPlaceholder" style="flex:1" @update:value="emitUpdate" />
+              <NInput v-model:value="local.file_path" size="small" :placeholder="filePathPlaceholder" style="flex:1" :maxlength="1024" @update:value="emitUpdate" />
               <NButton size="small" secondary @click="browseFile">{{ $t('navigator.browse') }}</NButton>
               <NButton size="small" secondary class="btn-new-file" @click="createNewDbFile">{{ $t('navigator.newFile') || '新建' }}</NButton>
             </NSpace>
@@ -243,7 +243,7 @@ interface BackendAuthConfig {
 
 function parseAuthConfig(raw: BackendAuthConfig): AuthConfig {
   let data: Record<string, unknown> = {}
-  try { data = JSON.parse(raw.auth_data || '{}') } catch { /* ignore */ }
+  try { data = JSON.parse(raw.auth_data || '{}') } catch (err) { console.warn('[parseAuthConfig] 解析失败:', err) }
   return {
     id: raw.id,
     name: raw.name || '',
@@ -409,7 +409,7 @@ async function onAuthManagerClose() {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     authConfigs.value = await invoke<AuthConfig[]>('list_auth_configs')
-  } catch { /* 静默降级 */ }
+  } catch (err) { console.warn('[loadAuthConfigs] 加载认证列表失败:', err) }
 }
 
 async function browseFile() {
@@ -437,7 +437,7 @@ async function browseCert() {
       local.certPath = file as string
       emitUpdate()
     }
-  } catch { /* browser fallback */ }
+  } catch (err) { console.warn('[loadAuthConfigs] Tauri不可用:', err) }
 }
 
 async function browseCertKey() {
@@ -450,7 +450,7 @@ async function browseCertKey() {
       local.certKeyPath = file as string
       emitUpdate()
     }
-  } catch { /* browser fallback */ }
+  } catch (err) { console.warn('[loadAuthConfigs] Tauri不可用:', err) }
 }
 
 async function browseKeytab() {
@@ -463,7 +463,7 @@ async function browseKeytab() {
       local.keytabPath = file as string
       emitUpdate()
     }
-  } catch { /* browser fallback */ }
+  } catch (err) { console.warn('[loadAuthConfigs] Tauri不可用:', err) }
 }
 
 function createNewDbFile() {

@@ -5,6 +5,7 @@
 
 use crate::core::error::{CoreError, StorageError};
 use crate::core::persistence::project_db::ProjectDatabaseManager;
+use crate::core::CommonError;
 
 /// 连接配置（支持 DuckDB 联邦分析）
 #[derive(Debug, Clone)]
@@ -47,7 +48,67 @@ impl ProjectConnectionStore {
     }
 
     pub async fn create_connection(&self, conn: &ProjectConnection) -> Result<(), CoreError> {
+        // 输入校验：name、driver、host 不能为空
+        if conn.name.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: "连接名称不能为空".to_string(),
+            }));
+        }
+        if conn.driver.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "driver".to_string(),
+                reason: "驱动类型不能为空".to_string(),
+            }));
+        }
+        if let Some(ref h) = conn.host {
+            if h.is_empty() {
+                return Err(CoreError::common(CommonError::InvalidArgument {
+                    param: "host".to_string(),
+                    reason: "主机地址不能为空字符串".to_string(),
+                }));
+            }
+        }
+
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
+
+        // A4-L1: 项目连接数量上限检查
+        const MAX_PROJECT_CONNECTIONS: usize = 50;
+        let count: i64 = sqlite.inner()?.query_row(
+            "SELECT COUNT(*) FROM connections WHERE is_active = 1",
+            [],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "count_project_connections".to_string(),
+            reason: e.to_string(),
+        }))?;
+        if count as usize >= MAX_PROJECT_CONNECTIONS {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "connection".to_string(),
+                reason: format!(
+                    "项目连接数已达上限（{}条），请删除不再使用的连接后再添加",
+                    MAX_PROJECT_CONNECTIONS
+                ),
+            }));
+        }
+
+        // A4-U1: 项目连接名称唯一性检查
+        let dup_count: i64 = sqlite.inner()?.query_row(
+            "SELECT COUNT(*) FROM connections WHERE name = ?1 AND is_active = 1",
+            [&conn.name],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "check_duplicate_project_name".to_string(),
+            reason: e.to_string(),
+        }))?;
+        if dup_count > 0 {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: format!("连接名称 \"{}\" 已存在，请使用其他名称", conn.name),
+            }));
+        }
 
         sqlite
             .inner()?

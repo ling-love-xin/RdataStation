@@ -2,9 +2,10 @@
  * 连接服务类型定义
  */
 
+import type { DriverDescriptor } from '../../domain/types'
 import type { Connection, RecentConnection } from '../../types/connection'
 
-export type { Connection, RecentConnection }
+export type { Connection, RecentConnection, DriverDescriptor }
 
 // 连接服务接口
 export interface ConnectionService {
@@ -59,15 +60,6 @@ export interface RecentConnectionRecord {
   dbType: string
   url: string
   connectedAt: string
-}
-
-// 驱动描述符
-export interface DriverDescriptor {
-  id: string
-  name: string
-  icon: string
-  features: string[]
-  defaultPort?: number
 }
 
 // 连接配置

@@ -8,7 +8,7 @@
  *     → configSchemaToFormSchema() → DriverFormSchema → DynamicFormRenderer
  */
 
-import type { Driver, DataSourceType, DriverDescriptor } from '../../domain/types'
+import type { Driver, DataSourceType, DriverDescriptor, DriverField, DriverOption } from '../../domain/types'
 import type { DriverFormSchema, FormSectionConfig, FormFieldConfig } from '../types/form-schema'
 
 // Re-export for convenience
@@ -77,7 +77,6 @@ interface NormalizedField {
 export function backendDriverToDescriptor(driver: Driver): DriverDescriptor {
   const { fields, options } = parseConfigSchema(driver.config_schema)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const driverFields = fields.map(f => ({
     name: f.key,
     label: f.label,
@@ -86,16 +85,15 @@ export function backendDriverToDescriptor(driver: Driver): DriverDescriptor {
     defaultValue: String(f.default ?? ''),
     placeholder: f.placeholder,
     options: f.values?.map(v => ({ label: v, value: v })),
-  })) as any
+  })) as DriverField[]
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const extraOptions = options.map(o => ({
     name: o.key,
     label: o.label,
     optionType: mapOptionType(o.type),
     defaultValue: o.default,
     description: undefined,
-  })) as any
+  })) as DriverOption[]
 
   const features = tryParseJsonArray(driver.capabilities)
 
@@ -110,8 +108,8 @@ export function backendDriverToDescriptor(driver: Driver): DriverDescriptor {
     supportsSshTunnel: false,
     supportsHttpProxy: false,
     supportsSocksProxy: false,
-    fields: driverFields.length > 0 ? driverFields : undefined as any,
-    extraOptions: extraOptions.length > 0 ? extraOptions : undefined as any,
+    fields: driverFields.length > 0 ? driverFields : undefined,
+    extraOptions: extraOptions.length > 0 ? extraOptions : undefined,
   }
 }
 
@@ -195,7 +193,8 @@ export function parseConfigSchema(raw: string): { fields: NormalizedField[]; opt
     }
 
     return { fields: [], options: [] }
-  } catch {
+  } catch (err) {
+    console.warn('[driver-adapter] 驱动元数据 JSON 解析失败:', err instanceof Error ? err.message : String(err))
     return { fields: [], options: [] }
   }
 }

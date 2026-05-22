@@ -25,6 +25,7 @@ export async function connectDatabase(
   connectionType?: 'global' | 'project',
   projectId?: string,
   opts?: {
+    connId?: string
     driverId?: string
     networkConfigId?: string | null
     environmentId?: string
@@ -36,6 +37,7 @@ export async function connectDatabase(
 ): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('connect_database', {
     input: {
+      conn_id: opts?.connId,
       db_type: dbType,
       url,
       name,
@@ -139,7 +141,7 @@ export async function createDatabaseFile(
 /**
  * 执行 SQL
  */
-export async function executeSql(connId: string, sql: string): Promise<any> {
+export async function executeSql(connId: string, sql: string): Promise<unknown> {
   return invoke('execute_sql', {
     input: {
       conn_id: connId,
@@ -153,16 +155,16 @@ export async function executeSql(connId: string, sql: string): Promise<any> {
  * 获取项目级连接
  * 后端命令: get_project_connections
  */
-export async function getProjectConnections(projectPath: string): Promise<any[]> {
-  return invoke<any[]>('get_project_connections', { projectPath })
+export async function getProjectConnections(projectPath: string): Promise<unknown[]> {
+  return invoke<unknown[]>('get_project_connections', { projectPath })
 }
 
 /**
  * 检测项目中的全局连接（发现全局连接是否与项目中的配置冲突或重叠）
  * 后端命令: detect_global_connections_in_project
  */
-export async function detectGlobalConnectionsInProject(projectId: string): Promise<any[]> {
-  return invoke<any[]>('detect_global_connections_in_project', { projectId })
+export async function detectGlobalConnectionsInProject(projectId: string): Promise<unknown[]> {
+  return invoke<unknown[]>('detect_global_connections_in_project', { projectId })
 }
 
 /**

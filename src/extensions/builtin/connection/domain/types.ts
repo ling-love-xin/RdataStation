@@ -17,6 +17,7 @@ export interface DataSourceMeta {
 
 /** 创建数据库连接请求参数 */
 export interface ConnectDatabaseInput {
+  conn_id?: string | null
   db_type: string
   url: string
   name?: string
@@ -164,8 +165,10 @@ export interface DriverDescriptor {
   supportsSshTunnel: boolean
   supportsHttpProxy: boolean
   supportsSocksProxy: boolean
-  fields: DriverField[]
-  extraOptions: DriverOption[]
+  /** 驱动字段（未加载时为 undefined） */
+  fields?: DriverField[]
+  /** 驱动扩展选项（未加载时为 undefined） */
+  extraOptions?: DriverOption[]
 }
 
 /** 驱动字段定义 */

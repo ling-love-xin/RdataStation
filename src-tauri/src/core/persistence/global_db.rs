@@ -37,8 +37,8 @@ pub struct GlobalConnectionInfo {
     pub database: Option<String>,
     pub schema_name: Option<String>,
     pub username: Option<String>,
-    pub password: Option<String>,
-    pub tags: String,
+    pub password_encrypted: Option<String>,
+    pub tags: Option<String>,
     pub use_duckdb_fed: bool,
     pub metadata_path: Option<String>,
     pub is_active: bool,
@@ -310,6 +310,29 @@ impl GlobalDuckdbConnection {
         *conn = None;
         Ok(())
     }
+}
+
+/// 全局系统数据库管理器
+///
+/// 统一管理全局 SQLite 和 DuckDB 连接
+/// 保存全局连接输入参数
+pub struct GlobalConnectionSaveInput<'a> {
+    pub conn_id: &'a str,
+    pub name: &'a str,
+    pub db_type: &'a str,
+    pub url: &'a str,
+    pub username: Option<&'a str>,
+    pub password: Option<&'a str>,
+    pub tags: Option<&'a str>,
+    pub server_version: Option<&'a str>,
+    pub description: Option<&'a str>,
+    pub driver_id: Option<&'a str>,
+    pub environment_id: Option<&'a str>,
+    pub auth_config_id: Option<&'a str>,
+    pub auth_method: Option<&'a str>,
+    pub network_config_id: Option<&'a str>,
+    pub driver_properties: Option<&'a str>,
+    pub advanced_options: Option<&'a str>,
 }
 
 /// 全局系统数据库管理器
@@ -595,44 +618,77 @@ impl GlobalDatabaseManager {
     }
 
     /// 保存全局连接信息到 SQLite
-    ///
-    /// # 参数
-    /// * `conn_id` - 连接 ID
-    /// * `name` - 连接名称
-    /// * `db_type` - 数据库类型
-    /// * `url` - 连接 URL
-    /// * `username` - 用户名（可选）
-    /// * `password` - 密码（可选，明文存储，后续可加密）
-    /// * `tags` - 标签（JSON 数组字符串）
-    #[allow(clippy::too_many_arguments)]
     pub async fn save_global_connection(
         &self,
-        conn_id: &str,
-        name: &str,
-        db_type: &str,
-        url: &str,
-        username: Option<&str>,
-        password: Option<&str>,
-        tags: Option<&str>,
-        server_version: Option<&str>,
-        description: Option<&str>,
-        driver_id: Option<&str>,
-        environment_id: Option<&str>,
-        auth_config_id: Option<&str>,
-        auth_method: Option<&str>,
-        network_config_id: Option<&str>,
-        driver_properties: Option<&str>,
-        advanced_options: Option<&str>,
+        input: GlobalConnectionSaveInput<'_>,
     ) -> Result<(), CoreError> {
+        // 输入校验：name、db_type、url 不能为空
+        if input.name.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: "连接名称不能为空".to_string(),
+            }));
+        }
+        if input.db_type.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "db_type".to_string(),
+                reason: "数据库类型不能为空".to_string(),
+            }));
+        }
+        if input.url.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "url".to_string(),
+                reason: "连接URL不能为空".to_string(),
+            }));
+        }
+
         let conn = self.sqlite_pool.acquire().await?;
+
+        // A4-L1: 全局连接数量上限检查
+        const MAX_GLOBAL_CONNECTIONS: usize = 50;
+        let count: i64 = conn.inner()?.query_row(
+            "SELECT COUNT(*) FROM global_connections WHERE is_active = 1",
+            [],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "count_global_connections".to_string(),
+            reason: e.to_string(),
+        }))?;
+        if count as usize >= MAX_GLOBAL_CONNECTIONS {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "connection".to_string(),
+                reason: format!(
+                    "全局连接数已达上限（{}条），请删除不再使用的连接后再添加",
+                    MAX_GLOBAL_CONNECTIONS
+                ),
+            }));
+        }
+
+        // A4-U1: 全局连接名称唯一性检查
+        let dup_count: i64 = conn.inner()?.query_row(
+            "SELECT COUNT(*) FROM global_connections WHERE name = ?1 AND is_active = 1",
+            [input.name],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "check_duplicate_global_name".to_string(),
+            reason: e.to_string(),
+        }))?;
+        if dup_count > 0 {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: format!("连接名称 \"{}\" 已存在，请使用其他名称", input.name),
+            }));
+        }
 
         // 解析 URL 提取 host, port, database, username, password
         let (host, port, database, url_username, url_password) =
-            Self::parse_connection_url(db_type, url);
+            Self::parse_connection_url(input.db_type, input.url);
 
         // 优先使用传入的 username/password，如果为空则使用 URL 中解析的
-        let final_username = username.or(url_username.as_deref()).unwrap_or("");
-        let final_password = match password.or(url_password.as_deref()) {
+        let final_username = input.username.or(url_username.as_deref()).unwrap_or("");
+        let final_password = match input.password.or(url_password.as_deref()) {
             Some(p) if !p.is_empty() => crate::core::crypto::encrypt_password(p).map_err(|e| {
                 CoreError::common(CommonError::General(format!("密码加密失败: {}", e)))
             })?,
@@ -640,7 +696,7 @@ impl GlobalDatabaseManager {
         };
 
         // 默认标签：如果没有提供标签，添加 "global" 标签
-        let tags_json = tags
+        let tags_json = input.tags
             .filter(|t| !t.is_empty())
             .map(|t| {
                 // 验证是否为合法 JSON 数组
@@ -660,9 +716,9 @@ impl GlobalDatabaseManager {
              (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, is_active, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, 1, CURRENT_TIMESTAMP)",
             [
-                conn_id,
-                name,
-                db_type,
+                input.conn_id,
+                input.name,
+                input.db_type,
                 host.as_deref().unwrap_or(""),
                 &port.map(|p| p.to_string()).unwrap_or_default(),
                 database.as_deref().unwrap_or(""),
@@ -672,15 +728,15 @@ impl GlobalDatabaseManager {
                 &tags_json,
                 "0",
                 "",
-                server_version.unwrap_or(""),
-                description.unwrap_or(""),
-                driver_id.unwrap_or(""),
-                environment_id.unwrap_or(""),
-                auth_config_id.unwrap_or(""),
-                auth_method.unwrap_or(""),
-                network_config_id.unwrap_or(""),
-                driver_properties.unwrap_or(""),
-                advanced_options.unwrap_or(""),
+                input.server_version.unwrap_or(""),
+                input.description.unwrap_or(""),
+                input.driver_id.unwrap_or(""),
+                input.environment_id.unwrap_or(""),
+                input.auth_config_id.unwrap_or(""),
+                input.auth_method.unwrap_or(""),
+                input.network_config_id.unwrap_or(""),
+                input.driver_properties.unwrap_or(""),
+                input.advanced_options.unwrap_or(""),
             ],
         ).map_err(|e| CoreError::storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -690,7 +746,7 @@ impl GlobalDatabaseManager {
 
         
 
-        tracing::info!("全局连接信息已保存: {} ({})", name, conn_id);
+        tracing::info!("全局连接信息已保存: {} ({})", input.name, input.conn_id);
         Ok(())
     }
 
@@ -698,24 +754,32 @@ impl GlobalDatabaseManager {
     ///
     /// # 返回
     /// 返回全局连接列表，每个连接包含 tags, username, password 字段
-    pub async fn get_global_connections(&self) -> Result<Vec<GlobalConnectionInfo>, CoreError> {
+    pub async fn get_global_connections(
+        &self,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<GlobalConnectionInfo>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
         let connections: Vec<GlobalConnectionInfo> = {
-            let mut stmt = conn.inner()?.prepare(
+            let base_sql = format!(
                 "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
                  FROM global_connections 
                  WHERE is_active = 1 
-                 ORDER BY updated_at DESC"
-            ).map_err(|e| CoreError::storage(StorageError::Persistence { 
-                store: "sqlite".to_string(), 
-                operation: "get_global_connections".to_string(), 
-                reason: e.to_string() 
-            }))?;
+                 ORDER BY updated_at DESC{}{}",
+                limit.map_or(String::new(), |l| format!(" LIMIT {}", l)),
+                offset.map_or(String::new(), |o| format!(" OFFSET {}", o)),
+            );
+            let mut stmt = conn.inner()?.prepare(&base_sql)
+                .map_err(|e| CoreError::storage(StorageError::Persistence { 
+                    store: "sqlite".to_string(), 
+                    operation: "get_global_connections".to_string(), 
+                    reason: e.to_string() 
+                }))?;
 
             let rows = stmt
                 .query_map([], |row| {
-                    let tags: String = row.get(9).unwrap_or_default();
+                    let tags: Option<String> = row.get(9).ok();
                     let use_duckdb_fed: bool = row.get(10).unwrap_or(false);
                     let metadata_path: Option<String> = row.get(11).ok();
                     let created_at: String = row.get(13).unwrap_or_default();
@@ -739,7 +803,7 @@ impl GlobalDatabaseManager {
                         database: row.get(5).ok(),
                         schema_name: row.get(6).ok(),
                         username: row.get(7).ok(),
-                        password: row.get(8).ok(),
+                        password_encrypted: row.get(8).ok(),
                         tags,
                         use_duckdb_fed,
                         metadata_path,

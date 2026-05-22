@@ -8,11 +8,32 @@ use crate::core::driver::registry::DriverConnectionConfig;
 use crate::core::driver::router::DataSourceRouter;
 use crate::core::driver::traits::{DataSourceMeta, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
-use crate::core::persistence::connection_store;
+use crate::core::persistence::connection_store::{self, RecentConnectionInput};
+use crate::core::persistence::global_db::GlobalConnectionSaveInput;
 use crate::core::persistence::MetadataCacheManager;
 use crate::core::services::connection_manager::{
     ConnectionInfo, ConnectionManager, ConnectionType,
 };
+
+/// 保存全局连接输入参数
+pub struct SaveGlobalConnectionInput<'a> {
+    pub conn_id: &'a str,
+    pub name: &'a str,
+    pub db_type: &'a str,
+    pub url: &'a str,
+    pub username: Option<&'a str>,
+    pub password: Option<&'a str>,
+    pub tags: Option<&'a str>,
+    pub server_version: Option<&'a str>,
+    pub description: Option<&'a str>,
+    pub driver_id: Option<&'a str>,
+    pub environment_id: Option<&'a str>,
+    pub auth_config_id: Option<&'a str>,
+    pub auth_method: Option<&'a str>,
+    pub network_config_id: Option<&'a str>,
+    pub driver_properties: Option<&'a str>,
+    pub advanced_options: Option<&'a str>,
+}
 
 /// 连接服务
 ///
@@ -125,43 +146,35 @@ impl ConnectionService {
             }));
         }
 
-        // 生成连接 ID：从 URL 中提取干净的路径部分，并对文件路径进行安全处理
-        // 加入连接类型前缀来区分全局连接和项目连接，避免 ID 重复
+        // 生成连接 ID：统一使用 URL 哈希，确保：
+        //   - 短且唯一（8位 hex）
+        //   - 文件系统安全（无 Windows 非法字符 : @ / \ 等）
+        //   - 全局/项目双链路一致
         let conn_id = conn_id.unwrap_or_else(|| {
             use std::collections::hash_map::DefaultHasher;
             use std::hash::{Hash, Hasher};
 
-            // 连接类型前缀
             let type_prefix = match connection_type {
                 ConnectionType::Global => "global",
                 ConnectionType::Project => "project",
             };
 
-            // 对于文件数据库，使用路径的哈希值避免非法字符
-            if url.starts_with("sqlite://") || url.starts_with("duckdb://") {
-                let path = if url.starts_with("sqlite://") {
-                    url.trim_start_matches("sqlite://")
-                } else {
-                    url.trim_start_matches("duckdb://")
-                };
-                // 使用路径的哈希值作为 ID 的一部分
-                let mut hasher = DefaultHasher::new();
-                path.hash(&mut hasher);
-                let hash = hasher.finish();
-                format!("{}-{}-{:x}", type_prefix, db_type, hash)
-            } else {
-                // 网络数据库：使用主机:端口/数据库格式
-                let clean_url = if url.starts_with("mysql://") {
-                    url.trim_start_matches("mysql://")
-                } else if url.starts_with("postgres://") {
-                    url.trim_start_matches("postgres://")
-                } else {
-                    url
-                };
-                format!("{}-{}-{}", type_prefix, db_type, clean_url)
-            }
+            let mut hasher = DefaultHasher::new();
+            url.hash(&mut hasher);
+            let hash = hasher.finish();
+            format!("{}-{}-{:x}", type_prefix, db_type, hash)
         });
-        let connection_name = name.unwrap_or_else(|| conn_id.clone());
+
+        // 连接显示名称：用户指定 > 自动生成（db_type@host 简洁格式）
+        let connection_name = name.unwrap_or_else(|| {
+            let host = url
+                .split('@')
+                .nth(1)
+                .and_then(|s| s.split('/').next())
+                .map(|s| s.split('?').next().unwrap_or(s))
+                .unwrap_or("localhost");
+            format!("{}@{}", db_type.to_uppercase(), host)
+        });
 
         // 检查是否已有连接（基于 conn_id）
         if let Some(db) = self.manager.get_connection(&conn_id).await {
@@ -248,15 +261,8 @@ impl ConnectionService {
             .add_connection(conn_id.clone(), Arc::clone(&db), info, driver_config)
             .await?;
 
-        // 初始化连接级元数据库（根据连接类型选择路径）
-        self.initialize_connection_metadata(
-            &conn_id,
-            db_type,
-            url,
-            connection_type,
-            project_path.as_deref(),
-        )
-        .await?;
+        // NOTE: 元数据缓存不在连接时立即创建，改为懒加载。
+        // 首次查询 schema / table / column 时通过 L2 cache write 路径自动创建。
 
         // 对于全局连接，保存到全局 SQLite 数据库
         if connection_type == ConnectionType::Global {
@@ -266,24 +272,24 @@ impl ConnectionService {
             // 默认添加 "global" 标签
             let tags = Some("[\"global\"]");
             if let Err(e) = self
-                .save_global_connection_to_db(
-                    &conn_id,
-                    &connection_name,
+                .save_global_connection_to_db(SaveGlobalConnectionInput {
+                    conn_id: &conn_id,
+                    name: &connection_name,
                     db_type,
-                    &safe_url,
-                    username.as_deref(),
-                    password.as_deref(),
+                    url: &safe_url,
+                    username: username.as_deref(),
+                    password: password.as_deref(),
                     tags,
-                    server_version.as_deref(),
-                    description.as_deref(),
-                    driver_id.as_deref(),
-                    environment_id.as_deref(),
-                    auth_config_id.as_deref(),
-                    auth_method.as_deref(),
-                    network_config_id.as_deref(),
-                    driver_properties.as_deref(),
-                    advanced_options.as_deref(),
-                )
+                    server_version: server_version.as_deref(),
+                    description: description.as_deref(),
+                    driver_id: driver_id.as_deref(),
+                    environment_id: environment_id.as_deref(),
+                    auth_config_id: auth_config_id.as_deref(),
+                    auth_method: auth_method.as_deref(),
+                    network_config_id: network_config_id.as_deref(),
+                    driver_properties: driver_properties.as_deref(),
+                    advanced_options: advanced_options.as_deref(),
+                })
                 .await
             {
                 tracing::warn!("保存全局连接信息到 SQLite 失败: {}", e);
@@ -291,19 +297,19 @@ impl ConnectionService {
         }
 
         // 保存到最近连接记录
-        if let Err(e) = connection_store::save_recent_connection(
-            &connection_name,
+        if let Err(e) = connection_store::save_recent_connection(RecentConnectionInput {
+            name: &connection_name,
             db_type,
-            &safe_url,
-            description.as_deref(),
-            driver_id.as_deref(),
-            environment_id.as_deref(),
-            auth_config_id.as_deref(),
-            auth_method.as_deref(),
-            network_config_id.as_deref(),
-            driver_properties.as_deref(),
-            advanced_options.as_deref(),
-        ) {
+            url: &safe_url,
+            description: description.as_deref(),
+            driver_id: driver_id.as_deref(),
+            environment_id: environment_id.as_deref(),
+            auth_config_id: auth_config_id.as_deref(),
+            auth_method: auth_method.as_deref(),
+            network_config_id: network_config_id.as_deref(),
+            driver_properties: driver_properties.as_deref(),
+            advanced_options: advanced_options.as_deref(),
+        }) {
             tracing::warn!("Failed to save connection history: {}", e);
         }
 
@@ -311,25 +317,9 @@ impl ConnectionService {
     }
 
     /// 保存全局连接信息到全局 SQLite 数据库
-    #[allow(clippy::too_many_arguments)]
     async fn save_global_connection_to_db(
         &self,
-        conn_id: &str,
-        name: &str,
-        db_type: &str,
-        url: &str,
-        username: Option<&str>,
-        password: Option<&str>,
-        tags: Option<&str>,
-        server_version: Option<&str>,
-        description: Option<&str>,
-        driver_id: Option<&str>,
-        environment_id: Option<&str>,
-        auth_config_id: Option<&str>,
-        auth_method: Option<&str>,
-        network_config_id: Option<&str>,
-        driver_properties: Option<&str>,
-        advanced_options: Option<&str>,
+        input: SaveGlobalConnectionInput<'_>,
     ) -> Result<(), CoreError> {
         use crate::core::migration::global_init;
 
@@ -339,7 +329,7 @@ impl ConnectionService {
             ))
         })?;
 
-        let encrypted_password = match password {
+        let encrypted_password = match input.password {
             Some(p) if !p.is_empty() => {
                 Some(crate::core::crypto::encrypt_password(p).map_err(|e| {
                     CoreError::common(crate::core::error::CommonError::Internal(format!(
@@ -348,28 +338,28 @@ impl ConnectionService {
                     )))
                 })?)
             }
-            _ => password.map(|p| p.to_string()),
+            _ => input.password.map(|p| p.to_string()),
         };
 
         global_db
-            .save_global_connection(
-                conn_id,
-                name,
-                db_type,
-                url,
-                username,
-                encrypted_password.as_deref(),
-                tags,
-                server_version,
-                description,
-                driver_id,
-                environment_id,
-                auth_config_id,
-                auth_method,
-                network_config_id,
-                driver_properties,
-                advanced_options,
-            )
+            .save_global_connection(GlobalConnectionSaveInput {
+                conn_id: input.conn_id,
+                name: input.name,
+                db_type: input.db_type,
+                url: input.url,
+                username: input.username,
+                password: encrypted_password.as_deref(),
+                tags: input.tags,
+                server_version: input.server_version,
+                description: input.description,
+                driver_id: input.driver_id,
+                environment_id: input.environment_id,
+                auth_config_id: input.auth_config_id,
+                auth_method: input.auth_method,
+                network_config_id: input.network_config_id,
+                driver_properties: input.driver_properties,
+                advanced_options: input.advanced_options,
+            })
             .await
     }
 
@@ -856,33 +846,30 @@ impl ConnectionService {
         DataSourceRouter::route(config).await
     }
 
-    /// 初始化连接级元数据库（根据连接类型选择路径）
+    /// 确保连接级元数据缓存已初始化（懒加载，幂等）
     ///
     /// 元数据缓存跟随连接信息：
-    /// - 全局连接：system/global_metadata/conn_{id}.sqlite
-    /// - 项目连接：project/meta/connection_metadata/conn_{id}.sqlite
-    async fn initialize_connection_metadata(
-        &self,
+    /// - 全局连接：{data_dir}/system/global_metadata/conn_{id}.sqlite
+    /// - 项目连接：{project_path}/meta/connection_metadata/conn_{id}.sqlite
+    ///
+    /// 如果缓存文件已存在则跳过，否则创建并执行迁移。
+    /// 调用时机：首次查询 schema / table / column 时。
+    pub fn ensure_metadata_cache(
         conn_id: &str,
-        _db_type: &str,
-        _url: &str,
-        connection_type: ConnectionType,
+        connection_type: crate::core::persistence::ConnectionType,
         project_path: Option<&str>,
     ) -> Result<(), CoreError> {
-        let cache_manager = MetadataCacheManager::new(
-            conn_id,
-            match connection_type {
-                ConnectionType::Global => crate::core::persistence::ConnectionType::Global,
-                ConnectionType::Project => crate::core::persistence::ConnectionType::Project,
-            },
-            project_path,
-        )?;
+        let cache_manager = MetadataCacheManager::new(conn_id, connection_type, project_path)?;
 
-        // 打开元数据缓存数据库（自动执行迁移）
+        if cache_manager.exists() {
+            tracing::debug!(path = ?cache_manager.db_path(), "Metadata cache already exists, skipping init");
+            return Ok(());
+        }
+
         let _conn = cache_manager.open()?;
 
         tracing::debug!(
-            "Connection metadata initialized ({:?}): {:?}",
+            "Metadata cache lazily initialized ({:?}): {:?}",
             connection_type,
             cache_manager.db_path()
         );

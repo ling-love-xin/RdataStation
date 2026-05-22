@@ -70,9 +70,7 @@ ConnectionService::connect(config)
     │             ...
     │           }
     ├── 3. 注册到 ConnectionManager（add_connection）
-    ├── 4. 初始化元数据缓存（initialize_connection_metadata）
-    │       └── MetadataCacheManager::new(conn_id, type, project_path)
-    │       └── 创建 conn_{id}.sqlite 缓存文件
+    ├── 4. 保存连接信息到全局/项目持久化存储
     └── 5. 返回 conn_id + DataSourceMeta
 ```
 

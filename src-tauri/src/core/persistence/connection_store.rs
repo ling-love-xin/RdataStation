@@ -651,42 +651,44 @@ pub struct ConnectionRecord {
     pub network_config_id: Option<String>,
 }
 
+/// 最近连接保存输入参数
+pub struct RecentConnectionInput<'a> {
+    pub name: &'a str,
+    pub db_type: &'a str,
+    pub url: &'a str,
+    pub description: Option<&'a str>,
+    pub driver_id: Option<&'a str>,
+    pub environment_id: Option<&'a str>,
+    pub auth_config_id: Option<&'a str>,
+    pub auth_method: Option<&'a str>,
+    pub network_config_id: Option<&'a str>,
+    pub driver_properties: Option<&'a str>,
+    pub advanced_options: Option<&'a str>,
+}
+
 /// 保存最近连接
-#[allow(clippy::too_many_arguments)]
-pub fn save_recent_connection(
-    name: &str,
-    db_type: &str,
-    url: &str,
-    description: Option<&str>,
-    driver_id: Option<&str>,
-    environment_id: Option<&str>,
-    auth_config_id: Option<&str>,
-    _auth_method: Option<&str>,
-    network_config_id: Option<&str>,
-    driver_properties: Option<&str>,
-    advanced_options: Option<&str>,
-) -> Result<(), std::io::Error> {
+pub fn save_recent_connection(input: RecentConnectionInput<'_>) -> Result<(), std::io::Error> {
     let mut store = GLOBAL_STORE
         .lock()
         .map_err(|_| std::io::Error::other("Failed to lock store"))?;
 
-    let id = format!("{}-{}", db_type, url);
+    let id = format!("{}-{}", input.db_type, input.url);
     let now = system_time_secs();
     let conn = ConnectionInfo {
         id,
-        name: name.to_string(),
-        db_type: db_type.to_string(),
-        url: url.to_string(),
+        name: input.name.to_string(),
+        db_type: input.db_type.to_string(),
+        url: input.url.to_string(),
         server_version: None,
         last_used: now,
         created_at: now,
-        description: description.map(|s| s.to_string()),
-        driver_id: driver_id.map(|s| s.to_string()),
-        environment_id: environment_id.map(|s| s.to_string()),
-        auth_config_id: auth_config_id.map(|s| s.to_string()),
-        network_config_id: network_config_id.map(|s| s.to_string()),
-        driver_properties: driver_properties.map(|s| s.to_string()),
-        advanced_options: advanced_options.map(|s| s.to_string()),
+        description: input.description.map(|s| s.to_string()),
+        driver_id: input.driver_id.map(|s| s.to_string()),
+        environment_id: input.environment_id.map(|s| s.to_string()),
+        auth_config_id: input.auth_config_id.map(|s| s.to_string()),
+        network_config_id: input.network_config_id.map(|s| s.to_string()),
+        driver_properties: input.driver_properties.map(|s| s.to_string()),
+        advanced_options: input.advanced_options.map(|s| s.to_string()),
     };
 
     store.add_connection(conn);

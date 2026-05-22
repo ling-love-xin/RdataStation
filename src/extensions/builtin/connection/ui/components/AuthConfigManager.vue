@@ -194,7 +194,7 @@ interface AuthConfig {
 // ===== Parse auth_data JSON → display fields =====
 function fromBackend(b: BackendAuthConfig): AuthConfig {
   let data: Record<string, unknown> = {}
-  try { data = JSON.parse(b.auth_data || '{}') } catch { /* ignore */ }
+  try { data = JSON.parse(b.auth_data || '{}') } catch (err) { console.warn('[fromBackend] 解析失败:', err) }
   return {
     id: b.id,
     name: b.name || '',

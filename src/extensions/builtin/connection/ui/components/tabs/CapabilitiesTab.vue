@@ -56,7 +56,7 @@ const parsedCaps = computed<string[]>(() => {
   try {
     const arr = JSON.parse(props.driver.capabilities)
     return Array.isArray(arr) ? arr.filter((c): c is string => typeof c === 'string') : []
-  } catch { return [] }
+  } catch (err) { console.warn('[parseCapabilities] 解析失败:', err); return [] }
 })
 
 const capList = computed<CapItem[]>(() => {
