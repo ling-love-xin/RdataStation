@@ -691,9 +691,15 @@ function buildNetworkCfg(profile: Record<string, unknown>, networkType: string, 
   }
   // ID present = edit mode → use update
   if (profile.id) {
-    return invoke('update_network_config', { nc: base }).then(() => loadAll()).catch(() => {})
+    return invoke('update_network_config', { nc: base }).then(() => loadAll()).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[NetworkTab] update_network_config failed:', msg)
+    })
   }
-  return invoke('create_network_config', { nc: { ...base, id: '' } }).then(() => loadAll()).catch(() => {})
+  return invoke('create_network_config', { nc: { ...base, id: '' } }).then(() => loadAll()).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[NetworkTab] create_network_config failed:', msg)
+  })
 }
 
 async function handleCreateSshProfile(profile: Record<string, unknown>) {
@@ -758,7 +764,10 @@ async function handleDeleteSshProfile(id: string) {
     if (pp2) await loadAllProject(pp2)
     return
   }
-  await invoke('delete_network_config', { id }).catch(() => {})
+  await invoke('delete_network_config', { id }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[NetworkTab] handleDeleteSshProfile failed:', msg)
+  })
   await loadAll()
 }
 
@@ -770,7 +779,10 @@ async function handleDeleteSslProfile(id: string) {
     if (pp2) await loadAllProject(pp2)
     return
   }
-  await invoke('delete_network_config', { id }).catch(() => {})
+  await invoke('delete_network_config', { id }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[NetworkTab] handleDeleteSslProfile failed:', msg)
+  })
   await loadAll()
 }
 
@@ -782,7 +794,10 @@ async function handleDeleteProxyProfile(id: string) {
     if (pp2) await loadAllProject(pp2)
     return
   }
-  await invoke('delete_network_config', { id }).catch(() => {})
+  await invoke('delete_network_config', { id }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[NetworkTab] handleDeleteProxyProfile failed:', msg)
+  })
   await loadAll()
 }
 

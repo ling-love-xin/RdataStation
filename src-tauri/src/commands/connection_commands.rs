@@ -109,13 +109,22 @@ pub async fn connect_database(
                 if db_path.exists() {
                     let conn = rusqlite::Connection::open(&db_path)
                         .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
-                    let enabled: bool = conn
-                        .query_row(
+                    let enabled: bool = match conn.query_row(
                             "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
                             rusqlite::params![driver_id],
                             |row| row.get(0),
-                        )
-                        .unwrap_or(false);
+                        ) {
+                            Ok(v) => v,
+                            Err(rusqlite::Error::QueryReturnedNoRows) => false,
+                            Err(e) => {
+                                tracing::warn!(
+                                    driver_id = %driver_id,
+                                    error = %e,
+                                    "Failed to query project_drivers, assuming disabled"
+                                );
+                                false
+                            }
+                        };
                     if !enabled {
                         return Err(CoreError::from(format!(
                             "驱动 {} 未在当前项目中启用，请先在驱动管理中启用",

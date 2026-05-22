@@ -811,8 +811,15 @@ pub async fn init_project_store(
     // 加载项目启用的插件
     if let Some(global_db) = crate::core::migration::get_global_db_manager() {
         let plugin_service = crate::core::services::plugin_service::PluginService::new(global_db);
+        let db_manager = match guard.as_ref() {
+            Some(store) => store.db_manager.clone(),
+            None => {
+                tracing::warn!("Project store not initialized after set, skipping plugin load");
+                return Ok(());
+            }
+        };
         let project_conn_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
-            (*guard).as_ref().unwrap().db_manager.clone()
+            db_manager
         );
         
         if let Ok(project_plugins) = plugin_service.load_project_plugins_on_open(&project_conn_store).await {

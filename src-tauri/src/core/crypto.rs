@@ -7,13 +7,57 @@ use std::path::PathBuf;
 
 use crate::core::error::{CommonError, CoreError};
 
-const FIXED_SALT: &[u8] = b"RdataStation_Connection_Vault_2026";
+/// 旧版固定盐值（用于向后兼容解密）
+const LEGACY_FIXED_SALT: &[u8] = b"RdataStation_Connection_Vault_2026";
 
+fn salt_path() -> PathBuf {
+    let mut path = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    path.push("RdataStation");
+    path.push("encryption-salt");
+    path
+}
+
+/// 获取或生成安装级随机盐值，存储到文件
+fn get_or_create_salt() -> Vec<u8> {
+    let sp = salt_path();
+    if let Ok(data) = fs::read(&sp) {
+        if data.len() >= 32 {
+            return data;
+        }
+    }
+
+    // 生成 32 字节随机盐值
+    let mut salt = vec![0u8; 32];
+    OsRng.fill_bytes(&mut salt);
+
+    if let Some(parent) = sp.parent() {
+        let _ = fs::create_dir_all(parent);
+        let _ = fs::write(&sp, &salt);
+    }
+    salt
+}
+
+/// 主密钥派生：使用随机安装盐值 + 机器ID
 fn derive_key() -> [u8; 32] {
+    let salt = get_or_create_salt();
     let machine_id = get_machine_id();
 
     let mut hasher = Sha256::new();
-    hasher.update(FIXED_SALT);
+    hasher.update(&salt);
+    hasher.update(machine_id.as_bytes());
+    let result = hasher.finalize();
+
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&result);
+    key
+}
+
+/// 旧版密钥派生（固定盐值 + 机器ID），用于向后兼容解密
+fn derive_legacy_key() -> [u8; 32] {
+    let machine_id = get_machine_id();
+
+    let mut hasher = Sha256::new();
+    hasher.update(LEGACY_FIXED_SALT);
     hasher.update(machine_id.as_bytes());
     let result = hasher.finalize();
 
@@ -86,10 +130,6 @@ pub fn encrypt_password(password: &str) -> Result<String, CoreError> {
 }
 
 pub fn decrypt_password(encrypted: &str) -> Result<String, CoreError> {
-    let key = derive_key();
-    let cipher = Aes256Gcm::new_from_slice(&key)
-        .map_err(|e| CoreError::common(CommonError::Internal(format!("AES init error: {}", e))))?;
-
     let combined = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encrypted)
         .map_err(|e| {
             CoreError::common(CommonError::Internal(format!("Base64 decode error: {}", e)))
@@ -104,12 +144,20 @@ pub fn decrypt_password(encrypted: &str) -> Result<String, CoreError> {
     let (nonce_bytes, ciphertext) = combined.split_at(12);
     let nonce = Nonce::from_slice(nonce_bytes);
 
-    let plaintext = cipher.decrypt(nonce, ciphertext).map_err(|e| {
-        CoreError::common(CommonError::Internal(format!("Decryption error: {}", e)))
-    })?;
+    // 先用新密钥（随机盐值）解密
+    let keys = [derive_key(), derive_legacy_key()];
+    for key in &keys {
+        let cipher = Aes256Gcm::new_from_slice(key)
+            .map_err(|e| CoreError::common(CommonError::Internal(format!("AES init error: {}", e))))?;
+        if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
+            return String::from_utf8(plaintext)
+                .map_err(|e| CoreError::common(CommonError::Internal(format!("UTF-8 decode error: {}", e))));
+        }
+    }
 
-    String::from_utf8(plaintext)
-        .map_err(|e| CoreError::common(CommonError::Internal(format!("UTF-8 decode error: {}", e))))
+    Err(CoreError::common(CommonError::Internal(
+        "Decryption failed with both new and legacy keys".to_string(),
+    )))
 }
 
 #[cfg(test)]

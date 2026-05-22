@@ -226,7 +226,9 @@ impl ProjectSqlitePool {
         // 步骤 3：对每个连接执行 checkpoint
         for conn in &mut all_conns {
             // 将 WAL 数据合并回主数据库并截断 WAL 文件
-            let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []);
+            if let Err(e) = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)", []) {
+                tracing::warn!(error = %e, "WAL checkpoint failed during pool close");
+            }
         }
 
         // 步骤 4：显式 drop 所有连接（关闭文件句柄）
