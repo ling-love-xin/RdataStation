@@ -1,10 +1,10 @@
 # 新增数据源模块：后端架构 · 设计 · 开发 · 接口文档
 
-> 版本：v2.0
+> 版本：v2.1
 > 初稿日期：2026-05-18
-> 更新时间：2026-05-19（新增 ID前缀约定 G_/P_/GP_ + 快照溯源机制 + 协议链完整开发计划）
+> 更新时间：2026-05-22（同步实际代码：auth_method 列、迁移文件名修正、v2.0 部分已实现）
 > 对应后端版本：R25+
-> 实现状态：✅ 后端 v1.6 已完成 core store + migrations，v2.0 开发计划就绪
+> 实现状态：✅ 后端 v1.6 已完成 core store + migrations；v2.0 中 ID前缀约定 + 快照溯源 + 环境 Seed 已实现；快照 store + 链校验待开发
 
 ---
 
@@ -273,6 +273,7 @@ ALTER TABLE global_connections ADD COLUMN description TEXT;
 ALTER TABLE global_connections ADD COLUMN driver_id TEXT;
 ALTER TABLE global_connections ADD COLUMN environment_id TEXT;
 ALTER TABLE global_connections ADD COLUMN auth_config_id TEXT;
+ALTER TABLE global_connections ADD COLUMN auth_method TEXT;
 ALTER TABLE global_connections ADD COLUMN network_config_id TEXT;
 ALTER TABLE global_connections ADD COLUMN driver_properties TEXT;
 ALTER TABLE global_connections ADD COLUMN advanced_options TEXT;
@@ -419,6 +420,7 @@ ALTER TABLE connections ADD COLUMN description TEXT;
 ALTER TABLE connections ADD COLUMN driver_id TEXT;
 ALTER TABLE connections ADD COLUMN environment_id TEXT;
 ALTER TABLE connections ADD COLUMN auth_config_id TEXT;
+ALTER TABLE connections ADD COLUMN auth_method TEXT;
 ALTER TABLE connections ADD COLUMN network_config_id TEXT;
 ALTER TABLE connections ADD COLUMN driver_properties TEXT;
 ALTER TABLE connections ADD COLUMN advanced_options TEXT;
@@ -602,20 +604,26 @@ v1.6 已完成文件：
 
   修改文件：
     src-tauri/src/core/driver/registry/descriptors.rs   — DriverDescriptor +7 字段
-    src-tauri/src/core/persistence/global_db.rs         — 集成新表 CRUD；GlobalConnectionInfo +7 字段
-    src-tauri/src/core/persistence/project_connection_store.rs — ProjectConnection +7 字段
+    src-tauri/src/core/persistence/global_db.rs         — 集成新表 CRUD；GlobalConnectionInfo +8 字段（含 auth_method）
+    src-tauri/src/core/persistence/project_connection_store.rs — ProjectConnection +8 字段（含 auth_method）
     src-tauri/src/core/persistence/project_db.rs        — 集成 project_drivers CRUD
     src-tauri/src/core/persistence/mod.rs               — 注册新子模块
-    src-tauri/src/core/services/connection_service.rs   — 连接创建时驱动校验
-    src-tauri/src/core/project/store.rs                 — 项目打开时驱动自检
-    src-tauri/src/commands/connection_commands.rs       — 新字段传递
+    src-tauri/src/core/services/connection_service.rs   — 连接创建时驱动校验 + auth_method 透传
+    src-tauri/src/core/commands/connection_commands.rs  — 新字段传递（含 auth_method）
     src-tauri/src/lib.rs                                — 注册新 commands
+
+v2.0 已完成文件（本次开发已实现）：
+  src-tauri/migrations/global/009_add_id_prefix_convention.sql — ID 前缀规范 + 5 环境 + 25 策略 Seed
+  src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql — origin/source_id/snapshot_at 快照溯源字段
 
 v2.0 待新增文件（本次开发计划）：
   src-tauri/src/core/persistence/id_prefix.rs           — ID 前缀生成器 (generate_gid/generate_pid/generate_gpid)
   src-tauri/src/core/persistence/snapshot_store.rs      — 快照 store (snapshot_environment/network_config/auth_config)
   src-tauri/src/core/driver/connection/chain_validator.rs — 协议链校验 (validate_protocol_chain)
-  src-tauri/migrations/global/009_seed_environments.sql — Seed 5 环境 + 25 策略
+
+v2.0 已新增迁移（auth_method 补充）：
+  src-tauri/migrations/global/010_add_auth_method.sql  — global_connections 增加 auth_method 列
+  src-tauri/migrations/project_meta/012_add_auth_method.sql — connections 增加 auth_method 列
 
 v2.0 待修改文件：
   src-tauri/src/core/persistence/env_store.rs           — + origin/source_id/snapshot_at 读写
@@ -626,9 +634,11 @@ v2.0 待修改文件：
 
 迁移文件：
   src-tauri/migrations/global/008_add_data_source_module.sql
+  src-tauri/migrations/global/009_add_id_prefix_convention.sql   ← ID 前缀 + 环境 Seed
+  src-tauri/migrations/global/010_add_auth_method.sql            ← auth_method 列
   src-tauri/migrations/project_meta/010_add_data_source_module.sql
-  src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql  ← v2.0 新增
-  src-tauri/migrations/global/009_seed_environments.sql             ← v2.0 新增
+  src-tauri/migrations/project_meta/011_add_id_prefix_snapshot.sql ← 快照溯源字段
+  src-tauri/migrations/project_meta/012_add_auth_method.sql       ← auth_method 列
 ```
 
 ### 4.2 Rust 结构体

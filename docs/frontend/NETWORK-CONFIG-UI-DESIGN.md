@@ -1,9 +1,9 @@
 # 网络配置 UI 设计文档
 
-> 版本：v2.2
-> 更新：2026-05-21
-> 状态：🚧 实施中 — NetworkTab v5 原型对齐完成（内联表单+section分段+两栏认证+测试按钮）
-> 后端进度：✅ SSH隧道 + SSL证书 + service/cmd层 + ChainHop + process_chain + TunnelGuard 已完成
+> 版本：v2.7
+> 更新：2026-05-22
+> 状态：✅ 全部实施完成；v2.7 全链路打通：快照参数修复 + store 参数名修正 + 死代码盘点
+> 后端进度：✅ SSH隧道 + SSL证书 + service/cmd层 + ChainHop + process_chain + TunnelGuard 已完成；环境CRUD命令已实现
 > 原型参考：[add-datasource-v5.html](file:///e:/myapps/tauirapps/RdataStation/rdata-station/prototype/add-datasource-v5.html)
 
 ---
@@ -49,7 +49,7 @@ src/
 │   │   │   ├── tabs/
 │   │   │   │   ├── NetworkTab.vue            ← ✅ 已实施：动态协议链 + 内联表单 + 配置管理器覆盖层
 │   │   │   │   ├── GeneralTab.vue            ← ✅ 已改造：两栏认证（方法+配置）+ 文件数据库新建按钮
-│   │   │   │   ├── AdvancedTab.vue           ← 🟡 待改造：环境+策略+DuckDB
+│   │   │   │   ├── AdvancedTab.vue           ← ✅ 已实施：环境+策略+DuckDB
 │   │   │   │   └── DriverPropsTab.vue        ← 已有
 │   │   ├── composables/
 │   │   │   └── useNetworkProfiles.ts         ← 网络配置列表 Composable（SSH/SSL/Proxy）
@@ -538,10 +538,49 @@ export const useNetworkConfigStore = defineStore('networkConfig', () => {
 | **配置管理器** | NModal + 三Tab + CRUD + 编辑回填 | ✅ 已完成 |
 | **GeneralTab 改造** | 数据库认证两栏 + 文件DB新建按钮 | ✅ 已完成 |
 | **AuthConfigManager** | 认证配置管理器覆盖层 | ✅ 已完成 |
-| **后端增量** | Chain 校验 + 环境 Seed SQL + IPC Commands | 🟡 部分完成 |
-| **AdvancedTab 改造** | 环境选择 + 策略 + DuckDB 焕新 | 📋 待实施 |
-| **管理面板** | EnvironmentManager + SecurityPolicySection | 📋 待实施 |
-| **集成联调** | AddDataSourceDialog 改造 + connection service | 📋 待实施 |
+| **后端增量** | 环境 CRUD + Seed SQL + IPC Commands | ✅ 已完成 |
+| **AdvancedTab 改造** | 环境选择 + 策略 + DuckDB 焕新（已拆分为独立子组件） | ✅ 已完成 |
+| **管理面板** | EnvironmentManager / SecurityPolicySection / EnvironmentSelector / DuckDBAccelSection（独立组件） | ✅ 已完成 |
+| **集成联调** | AddDataSourceDialog 改造 + auth_method/environment_id 透传 | ✅ 已完成 |
+| **Stores + Composable** | environmentStore.ts + networkConfigStore.ts + useAddDataSource.ts | ✅ 已完成 |
+| **快照 IPC** | snapshot_global_env/network/auth | ✅ 已完成 |
+| **链校验** | validate_connection_config (后端 7 步校验) | ✅ 已完成 |
+
+### 遗留问题
+
+| # | 问题 | 严重度 |
+|---|------|--------|
+| L1 | Composable/Store 已创建但 AddDataSourceDialog / NetworkTab 未消费 | 🔴 |
+| L2 | EnvironmentManager 类型不匹配（summary 字段不存在于 Environment 接口） | 🔴 |
+| L3 | `isFileDb` 死代码 — `useAddDataSource.ts` 永远返回 false | 🟡 |
+| L4 | NetworkTab 硬编码 demo 认证配置 (`chainSshAuthCfgOpts`) | 🟡 |
+| L5 | Custom 模式空壳 — 仅提示横幅无实际表单 | 🟡 |
+| L6 | DataSourceHeader 未独立 — 内联在 AddDataSourceDialog | 🟢 | ✅ 已修复 |
+
+#### v2.5 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **G1** | **网络配置编辑创建重复** — `handleCreate*Profile` 编辑时忽略 `profile.id`，始终调用 `create_network_config` | 🔴 | ✅ 已修复 — 提取 `buildNetworkCfg()` 统一函数，编辑时调用 `update_network_config` |
+| **G2** | **认证配置编辑用 create 代替 update** — `saveNewCfg()` 始终调用 `create_auth_config` | 🟡 | ✅ 已修复 — 根据 `editingId` 切换 `update_auth_config` / `create_auth_config` |
+| **G3** | **环境管理器缺少编辑功能** — 只能创建/删除，无法修改已有自定义环境名称/图标/颜色 | 🟡 | ✅ 已修复 — `EnvironmentManager` + `AdvancedTab` 支持编辑 → 调用 `update_environment` |
+
+#### v2.6 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **D1** | **环境列表不区分来源** — EnvironmentManager 混显 G_/P_/GP_，无 scope 标识 | 🟡 | ✅ 已修复 — 新增 sourceLabel/sourceKind helper + 🌐全局/📁项目/📸快照 标签 |
+| **D2** | **loadEnvironments 无 scope 过滤** — 不区分 global/project | 🟡 | ✅ 已修复 — AdvancedTab 接收 scope prop，按 ID 前缀过滤 |
+| **D3** | **项目引用全局环境无快照** — 选择 G_ 环境时未自动 snapshot_global_env | 🔴 | ✅ 已修复 — onEnvChange 检测 project+G_ → snapshot → GP_ + 快照提示 |
+
+#### v2.7 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **E1** | **networkConfigStore.save() 参数名不匹配** — `{ config: profile }` ≠ 后端期望 `{ nc }` | 🔴 | ✅ 已修复 → `{ nc: profile }` |
+| **E2** | **snapshot_global_* 三命令缺 project_path 参数** — AdvancedTab / useAddDataSource 三处调用只传 globalEnvId | 🔴 | ✅ 已修复 — 补全 projectPath 参数 |
+| **E3** | **snapshot_global_* 返回类型不匹配** — 前端 `invoke<string>()` 但后端返回 `SnapshotResult { snapshot_id, ... }` | 🔴 | ✅ 已修复 — `invoke<{ snapshot_id: string }>()` + `.snapshot_id` |
+| **E4** | **doSave 缺认证/网络快照** — 仅环境有快照，认证和网络引用 G_ 时无 GP_ 隔离 | 🔴 | ✅ 已修复 — doSave 前检测 authConfigId/networkConfigId 前缀触发快照 |
 
 ## 十、参考
 

@@ -618,6 +618,7 @@ impl GlobalDatabaseManager {
         driver_id: Option<&str>,
         environment_id: Option<&str>,
         auth_config_id: Option<&str>,
+        auth_method: Option<&str>,
         network_config_id: Option<&str>,
         driver_properties: Option<&str>,
         advanced_options: Option<&str>,
@@ -642,8 +643,8 @@ impl GlobalDatabaseManager {
 
         conn.inner()?.execute(
             "INSERT OR REPLACE INTO global_connections 
-             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, network_config_id, driver_properties, advanced_options, is_active, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, 1, CURRENT_TIMESTAMP)",
+             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, is_active, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, 1, CURRENT_TIMESTAMP)",
             [
                 conn_id,
                 name,
@@ -662,6 +663,7 @@ impl GlobalDatabaseManager {
                 driver_id.unwrap_or(""),
                 environment_id.unwrap_or(""),
                 auth_config_id.unwrap_or(""),
+                auth_method.unwrap_or(""),
                 network_config_id.unwrap_or(""),
                 driver_properties.unwrap_or(""),
                 advanced_options.unwrap_or(""),

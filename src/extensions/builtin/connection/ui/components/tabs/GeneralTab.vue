@@ -197,7 +197,7 @@
     <!-- Auth Config Manager overlay -->
     <AuthConfigManager
       v-if="showAuthManager"
-      @close="showAuthManager = false"
+      @close="onAuthManagerClose"
       @select="onAuthConfigExternalSelect"
     />
   </div>
@@ -212,7 +212,7 @@ import AuthConfigManager from '../AuthConfigManager.vue'
 
 import type { Driver } from '../../../domain/types'
 
-/** 模拟认证配置存储（后续由后端 API 替换） */
+/** 认证配置数据模型 — 由后端 API (list_auth_configs / snapshot_global_auth) 提供 */
 interface AuthConfig {
   id: string
   name: string
@@ -227,52 +227,38 @@ interface AuthConfig {
   tokenEndpoint?: string
   clientId?: string
   clientSecret?: string
-  createdAt: string
 }
 
-/** Hardcoded auth configs for demo - will be replaced by API */
-const DEMO_AUTH_CONFIGS: AuthConfig[] = [
-  {
-    id: 'auth-001', name: '生产 MySQL 认证', authType: 'password',
-    scope: 'global', username: 'prod_admin', password: 'encrypted_password_001',
-    createdAt: '2026-05-01T08:00:00Z',
-  },
-  {
-    id: 'auth-002', name: '开发 PG 认证', authType: 'password',
-    scope: 'global', username: 'dev_user', password: 'encrypted_password_002',
-    createdAt: '2026-05-10T10:00:00Z',
-  },
-  {
-    id: 'auth-003', name: 'SA 账户', authType: 'password',
-    scope: 'project', username: 'sa', password: 'encrypted_sa_pass',
-    createdAt: '2026-05-12T12:00:00Z',
-  },
-  {
-    id: 'auth-004', name: 'PG mTLS 证书认证', authType: 'pg_class',
-    scope: 'global', certPath: '/certs/pg_client.crt', certKeyPath: '/certs/pg_client.key',
-    createdAt: '2026-05-15T09:00:00Z',
-  },
-  {
-    id: 'auth-005', name: 'GSSAPI Kerberos', authType: 'kerberos',
-    scope: 'global', principal: 'pgadmin@REALM.COM', keytabPath: '/etc/krb5.keytab',
-    createdAt: '2026-05-16T14:00:00Z',
-  },
-  {
-    id: 'auth-007', name: '跳板机 SSH 密码', authType: 'ssh_password',
-    scope: 'global', username: 'bastion_admin', password: 'ssh_encrypted_pass',
-    createdAt: '2026-05-18T08:00:00Z',
-  },
-  {
-    id: 'auth-008', name: '跳板机 RSA 密钥', authType: 'ssh_private_key',
-    scope: 'global', username: 'deployer', keytabPath: '~/.ssh/id_rsa',
-    createdAt: '2026-05-18T09:00:00Z',
-  },
-  {
-    id: 'auth-009', name: '开发机 ED25519', authType: 'ssh_private_key',
-    scope: 'global', username: 'devops', keytabPath: '~/.ssh/id_ed25519',
-    createdAt: '2026-05-19T10:00:00Z',
-  },
-]
+/** Backend raw shape — snake_case + auth_data JSON */
+interface BackendAuthConfig {
+  id: string
+  name: string | null
+  auth_type: string
+  auth_data: string
+  origin: string | null
+  created_at: string
+  updated_at: string
+}
+
+function parseAuthConfig(raw: BackendAuthConfig): AuthConfig {
+  let data: Record<string, unknown> = {}
+  try { data = JSON.parse(raw.auth_data || '{}') } catch { /* ignore */ }
+  return {
+    id: raw.id,
+    name: raw.name || '',
+    authType: raw.auth_type,
+    scope: (raw.origin === 'global' ? 'global' : 'project') as 'global' | 'project',
+    username: data.username as string | undefined,
+    password: data.password as string | undefined,
+    certPath: data.certPath as string | undefined,
+    certKeyPath: data.certKeyPath as string | undefined,
+    principal: data.principal as string | undefined,
+    keytabPath: data.keytabPath as string | undefined,
+    tokenEndpoint: data.tokenEndpoint as string | undefined,
+    clientId: data.clientId as string | undefined,
+    clientSecret: data.clientSecret as string | undefined,
+  }
+}
 
 interface Props {
   driver: Driver | null
@@ -328,8 +314,8 @@ const authMethod = ref('password')
 const selectedAuthConfigId = ref<string | null>(null)
 const showAuthManager = ref(false)
 
-// Auth configs (will be replaced by API calls)
-const authConfigs = ref<AuthConfig[]>([...DEMO_AUTH_CONFIGS])
+// Auth configs — loaded from backend API via loadAuthConfigs()
+const authConfigs = ref<AuthConfig[]>([])
 
 const filePathPlaceholder = computed(() => {
   if (props.driver?.name?.toLowerCase().includes('duckdb')) return '~/data.duckdb'
@@ -415,6 +401,15 @@ function onAuthConfigExternalSelect(configId: string) {
   onAuthConfigSelect(configId)
 }
 
+/** Refresh auth config list after AuthConfigManager operations */
+async function onAuthManagerClose() {
+  showAuthManager.value = false
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    authConfigs.value = await invoke<AuthConfig[]>('list_auth_configs')
+  } catch { /* 静默降级 */ }
+}
+
 async function browseFile() {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog')
@@ -483,7 +478,7 @@ function createNewDbFile() {
 }
 
 // Sync from props.formData on creation
-onMounted(() => {
+onMounted(async () => {
   if (props.formData) {
     local.host = String(props.formData.host ?? '')
     local.port = Number(props.formData.port ?? props.driver?.default_port ?? 0)
@@ -495,6 +490,15 @@ onMounted(() => {
     if (props.formData.selectedAuthConfigId) selectedAuthConfigId.value = String(props.formData.selectedAuthConfigId)
   } else if (props.driver?.default_port) {
     local.port = props.driver.default_port
+  }
+
+  // 从后端加载已保存的认证配置列表
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const configs = await invoke<BackendAuthConfig[]>('list_auth_configs')
+    authConfigs.value = configs.map(parseAuthConfig)
+  } catch {
+    // API 不可用时静默降级，authConfigs 保持空数组
   }
 })
 

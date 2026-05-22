@@ -1,185 +1,112 @@
 <template>
-  <div v-if="!empty" class="topo-preview">
-    <div class="topo-title">📡 数据路径预览</div>
+  <div class="topo-box">
+    <div class="topo-title">📡 {{ $t('connection.networkTab.topology') }}</div>
     <div class="topo-path">
-      <template v-for="(node, idx) in nodes" :key="idx">
-        <!-- 箭头分隔符 -->
-        <div
-          v-if="idx > 0"
-          class="topo-arrow"
-          :class="{ 'tls-arrow': node.kind === 'ssl' }"
-        >
-          <span v-if="node.kind !== 'ssl'" class="topo-arrow-label">
-            {{ getArrowLabel(node) }}
-          </span>
-          <span v-else class="topo-arrow-label">TLS 🔐</span>
-        </div>
-
-        <!-- 节点 -->
-        <div class="topo-node" :class="getNodeClass(node.kind)">
-          <span class="topo-node-icon">{{ getNodeIcon(node.kind) }}</span>
-          <span class="topo-node-label">{{ node.label }}</span>
-          <span v-if="node.detail" class="topo-node-detail">{{ node.detail }}</span>
-        </div>
+      <span class="topo-node self">🏠 {{ t('navigator.localhost') }}</span>
+      <template v-for="hop in enabledHops" :key="hop.id">
+        <span v-if="hop.protocol !== 'ssl'" class="topo-arrow">──{{ hop.protocol === 'ssh' ? 'SSH' : 'Proxy' }}──▶</span>
+        <span v-else class="topo-arrow tls">──TLS🔐──▶</span>
+        <span :class="['topo-node', topoNodeClass(hop.protocol)]">
+          {{ topoHopLabel(hop) }}
+        </span>
       </template>
-
-      <!-- 目标数据库 -->
-      <div class="topo-arrow">
-        ────▶
-      </div>
-      <div class="topo-node db-target">
-        <span class="topo-node-icon">🗄</span>
-        <span class="topo-node-label">{{ targetLabel }}</span>
-      </div>
+      <span v-if="enabledHops.length === 0" class="topo-arrow">────▶</span>
+      <span class="topo-node db">🗄 {{ dbLabel }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { TopologyNode, TopologyNodeKind } from '../../types/network-chain'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-defineProps<{
-  nodes: TopologyNode[]
-  targetLabel: string
-  empty: boolean
+export interface TopoHop {
+  id: string
+  protocol: 'ssh' | 'ssl' | 'proxy'
+  enabled: boolean
+  mode: 'select' | 'new' | 'custom'
+  profileId: string
+  host?: string
+  port?: number
+  customData?: Record<string, unknown>
+}
+
+const props = defineProps<{
+  hops: TopoHop[]
+  dbLabel: string
 }>()
 
-function getNodeIcon(kind: TopologyNodeKind): string {
-  const icons: Record<TopologyNodeKind, string> = {
-    self: '🏠',
-    ssh: '🔒',
-    proxy: '🌐',
-    ssl: '🛡',
-    target: '🗄',
-  }
-  return icons[kind] || '●'
+const { t } = useI18n()
+
+const enabledHops = computed(() => props.hops.filter(h => h.enabled))
+
+function topoNodeClass(p: string) {
+  return { ssh: 'ssh', proxy: 'proxy', ssl: '' }[p] || ''
 }
 
-function getNodeClass(kind: TopologyNodeKind): string {
-  const classes: Record<TopologyNodeKind, string> = {
-    self: 'self',
-    ssh: 'ssh-jump',
-    proxy: 'proxy-node',
-    ssl: 'ssl-node',
-    target: 'db-target',
+function topoHopLabel(hop: TopoHop): string {
+  if (hop.mode === 'select' && hop.profileId) {
+    return hop.profileId
   }
-  return classes[kind] || ''
-}
-
-function getArrowLabel(_node: TopologyNode): string {
-  return ''
+  if (hop.host) {
+    return `${hop.host}${hop.port ? ':' + hop.port : ''}`
+  }
+  return hop.protocol.toUpperCase()
 }
 </script>
 
 <style scoped>
-.topo-preview {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-lg);
-  background: var(--color-bg-raised, #11111b);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-lg);
+.topo-box {
+  padding: 14px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
 }
-
 .topo-title {
-  font-size: var(--font-size-xs);
+  font-size: 10px;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 10px;
 }
-
 .topo-path {
   display: flex;
   align-items: center;
-  gap: 0;
   flex-wrap: wrap;
-  font-size: var(--font-size-sm);
+  gap: 0;
+  font-size: 11px;
 }
-
 .topo-node {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--color-bg-active, #2a2a3c);
-  border-radius: var(--border-radius-md);
-  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  border-radius: 4px;
   font-weight: 500;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
 }
-
 .topo-node.self {
   background: rgba(137, 180, 250, 0.06);
-  border-color: rgba(137, 180, 250, 0.15);
-  color: #89b4fa;
+  color: var(--brand-accent);
 }
-
-.topo-node.ssh-jump {
+.topo-node.ssh {
   background: rgba(166, 227, 161, 0.06);
-  border-color: rgba(166, 227, 161, 0.15);
   color: var(--brand-success);
 }
-
-.topo-node.proxy-node {
+.topo-node.proxy {
   background: rgba(203, 166, 247, 0.06);
-  border-color: rgba(203, 166, 247, 0.15);
-  color: #cba6f7;
+  color: var(--brand-purple);
 }
-
-.topo-node.ssl-node {
-  background: rgba(137, 180, 250, 0.06);
-  border-color: rgba(137, 180, 250, 0.15);
-  color: #89b4fa;
-}
-
-.topo-node.db-target {
+.topo-node.db {
   background: rgba(250, 179, 135, 0.06);
-  border-color: rgba(250, 179, 135, 0.15);
-  color: #fab387;
+  color: var(--brand-warning);
 }
-
-.topo-node-icon {
-  flex-shrink: 0;
-}
-
-.topo-node-label {
+.topo-arrow {
+  color: var(--color-text-muted);
+  padding: 0 4px;
   white-space: nowrap;
 }
-
-.topo-node-detail {
-  font-size: var(--font-size-xxs);
-  color: var(--color-text-muted);
-  font-weight: 400;
-}
-
-.topo-arrow {
-  display: flex;
-  align-items: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xxs);
-  padding: 0 6px;
-  flex-shrink: 0;
-}
-
-.topo-arrow.tls-arrow {
+.topo-arrow.tls {
   background: rgba(137, 180, 250, 0.06);
   border: 1px dashed rgba(137, 180, 250, 0.2);
-  border-radius: var(--border-radius-sm);
-  padding: 2px 8px;
-}
-
-.topo-arrow.tls-arrow .topo-arrow-label {
-  color: #89b4fa;
-  font-weight: 600;
-}
-
-.topo-arrow-label {
-  font-size: var(--font-size-xxs);
-  color: var(--color-text-muted);
-  padding: 2px 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--border-radius-sm);
-  white-space: nowrap;
+  border-radius: 3px;
+  color: var(--brand-accent);
 }
 </style>

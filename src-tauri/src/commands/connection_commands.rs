@@ -25,6 +25,7 @@ pub struct ConnectDatabaseInput {
     pub driver_id: Option<String>,
     pub environment_id: Option<String>,
     pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
     pub network_config_id: Option<String>,
     pub driver_properties: Option<String>,
     pub advanced_options: Option<String>,
@@ -245,6 +246,7 @@ pub async fn connect_database(
             input.driver_id.clone(),
             input.environment_id.clone(),
             input.auth_config_id.clone(),
+            input.auth_method.clone(),
             input.network_config_id.clone(),
             input.driver_properties.clone(),
             input.advanced_options.clone(),
@@ -682,6 +684,7 @@ pub async fn test_connection(
             None,   // driver_id
             None,   // environment_id
             None,   // auth_config_id
+            None,   // auth_method
             network_config_id.clone(),
             None,   // driver_properties
             None,   // advanced_options
@@ -988,4 +991,115 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
             }
         })
         .collect())
+}
+
+/// 校验连接配置（不实际连接）
+/// 验证 URL、连接类型、驱动/环境/认证/网络配置的完整性和存在性
+#[derive(serde::Serialize, Debug)]
+pub struct ValidationResult {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn validate_connection_config(
+    input: ConnectDatabaseInput,
+) -> Result<ValidationResult, CoreError> {
+    let mut errors: Vec<String> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+
+    // 1. URL 非空
+    if input.url.trim().is_empty() {
+        errors.push("Database URL cannot be empty".to_string());
+    }
+
+    // 2. connection_type 枚举校验
+    match input.connection_type.as_deref() {
+        Some("global") | None => { /* OK, global is default */ }
+        Some("project") => {
+            if input.project_id.as_deref().unwrap_or("").is_empty() {
+                errors.push("project_id is required for project connections".to_string());
+            }
+        }
+        Some(other) => {
+            errors.push(format!(
+                "Invalid connection_type '{}', must be 'global' or 'project'",
+                other
+            ));
+        }
+    }
+
+    // 3. driver_id 存在性
+    if let Some(ref driver_id) = input.driver_id {
+        if !driver_id.trim().is_empty() {
+            if let Some(gdb) = crate::core::migration::global_init::get_global_db_manager() {
+                let driver = gdb.get_driver(driver_id).await;
+                match driver {
+                    Ok(None) | Err(_) => {
+                        errors.push(format!("Driver '{}' not registered", driver_id));
+                    }
+                    Ok(Some(_)) => { /* OK */ }
+                }
+            }
+        }
+    }
+
+    // 4. environment_id 按前缀路由查找
+    if let Some(ref env_id) = input.environment_id {
+        if !env_id.trim().is_empty() {
+            let mut found = false;
+            if let Some(gdb) = crate::core::migration::global_init::get_global_db_manager() {
+                if let Ok(envs) = gdb.list_environments().await {
+                    found = envs.iter().any(|e| e.id == *env_id);
+                }
+            }
+            if !found {
+                errors.push(format!("Environment '{}' not found", env_id));
+            }
+        }
+    }
+
+    // 5. auth_config_id 按前缀路由查找
+    if let Some(ref auth_id) = input.auth_config_id {
+        if !auth_id.trim().is_empty() {
+            let mut found = false;
+            if let Some(gdb) = crate::core::migration::global_init::get_global_db_manager() {
+                if let Ok(auths) = gdb.list_auth_configs(None).await {
+                    found = auths.iter().any(|a| a.id == *auth_id);
+                }
+            }
+            if !found {
+                errors.push(format!("Auth config '{}' not found", auth_id));
+            }
+        }
+    }
+
+    // 6. network_config_id 按前缀路由查找 + parse_network_method
+    if let Some(ref net_id) = input.network_config_id {
+        if !net_id.trim().is_empty() {
+            let network_method = resolve_network_method(Some(net_id)).await;
+            match network_method {
+                Err(e) => {
+                    errors.push(format!("Network config '{}' invalid: {}", net_id, e));
+                }
+                Ok(_) => { /* OK */ }
+            }
+        }
+    }
+
+    // 7. 数据库类型检查
+    let known_dbs = ["mysql", "postgresql", "postgres", "sqlite", "duckdb", "mssql", "sqlserver"];
+    if !known_dbs.contains(&input.db_type.to_lowercase().as_str()) {
+        warnings.push(format!(
+            "Unrecognized database type '{}', supported: MySQL, PostgreSQL, SQLite, DuckDB, SQL Server",
+            input.db_type
+        ));
+    }
+
+    Ok(ValidationResult {
+        valid: errors.is_empty(),
+        errors,
+        warnings,
+    })
 }

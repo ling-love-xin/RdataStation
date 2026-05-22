@@ -875,6 +875,10 @@
     "autoAssign": "Auto assign",
     "noAuth": "— No auth —",
     "usernamePassword": "Username / Password",
+    "sshUser": "SSH User",
+    "sshPassword": "SSH Password",
+    "privateKeyPassphrase": "Private key passphrase (optional)",
+    "privateKeyFile": "Private key file",
     "validation": {
       "nameRequired": "Data source name cannot be empty"
     }

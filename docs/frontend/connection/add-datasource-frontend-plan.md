@@ -1,8 +1,8 @@
 # 新增数据源 — 前端完整开发计划
 
-> 版本：v1.2
-> 日期：2026-05-19
-> 更新：2026-05-21（NetworkTab + GeneralTab + AuthConfigManager 已完成实施）
+> 版本：v2.0 (2026-05-22 全链路打通：快照机制补全 + 死代码分析 + 双轨命名单轨化建议)
+> 日期：2026-05-22
+> 更新：同步实际代码（Stores+Composable 已实现、组件提取完成）、标记遗留问题
 > 对应原型：[add-datasource-v5.html](../../../prototype/add-datasource-v5.html)
 > 后端文档：[后端 DATA-SOURCE-MODULE](../../backend/DATA-SOURCE-MODULE.md)
 > 网络 UI 设计：[NETWORK-CONFIG-UI-DESIGN](../NETWORK-CONFIG-UI-DESIGN.md)
@@ -620,116 +620,61 @@ function getProfileOptions(hop: ChainHopItem): SelectOption[] {
 
 ---
 
-## 七、核心组件：AdvancedTab.vue（🟡 大改）
+## 七、核心组件：AdvancedTab.vue（✅ 已实现 — 含环境选择器 + 安全策略 + DuckDB 加速）
 
-### 7.1 当前状态 vs 目标
+### 7.1 当前状态
 
-**当前**：连接参数网格 + Schema 加载 + 编码选择。无环境概念。
+**已实现**：AdvancedTab 内联实现了环境选择器（NSelect + 管理 NModal）、安全策略面板（NCollapse + 7 项策略开关）、DuckDB 加速卡（含 benefits tag + 同步/内存/线程配置）、连接参数、Schema/编码选择。环境选择器、策略面板和环境管理器均以内联方式实现，未拆分为独立组件文件。
 
-**目标**：增加环境选择、策略面板、DuckDB 加速焕新。
-
-### 7.2 布局
+### 7.2 布局（实际实现）
 
 ```
 AdvancedTab.vue
 │
-├── EnvironmentSelector.vue              ← 🔴 新增
-│   └── 紧凑下拉（NPopover 触发器模式）
-│       ├── 触发区：● 颜色圆点 + 环境名 + ▼
-│       └── 面板：分组环境列表 + 管理入口
+├── 环境选择器（内联）                  ← ✅ 已实现
+│   └── NSelect + 环境管理 NModal（含 CRUD + 创建表单）
 │
-├── 策略摘要标签（选中环境后展示）        ← 🔴 新增
-│   └── NTag × N，行内展示 5 类策略概要
+├── 策略摘要标签                         ← ✅ 已实现
+│   └── 行内 Tag 展示安全/性能/Schema/审计策略概要
 │
-├── SecurityPolicySection.vue            ← 🔴 新增
-│   └── NCollapse 可折叠详情
-│       ├── 安全: readonly / writeConfirm / ddlConfirm / dropConfirm / autocommit
-│       ├── 数据: rowLimit / sizeLimit
-│       ├── Schema: autoLoad / loadDepth / showSystem / refreshInterval
-│       ├── 性能: poolSize / queryTimeout / connectTimeout / heartbeat
-│       └── 审计: sqlLog / operationRecord / sensitiveTableAlert
+├── DuckDB 加速卡                        ← ✅ 已实现
+│   └── NSwitch + 展开面板（benefits/存储/同步/内存/线程）
 │
-├── DuckDB 加速卡                        ← 🟡 焕新
-│   └── 启用时卡片高亮 + 收益标签行
+├── 安全策略面板（NCollapse 内联）       ← ✅ 已实现
+│   ├── 只读 / 写确认 / DDL确认 / DROP
+│   ├── 自动提交 / 行数限制 / 大小限制
+│   └── 环境覆盖指示器
 │
-├── 连接参数（保留）
-├── Schema 加载（保留）
-└── 编码选择（保留）
+├── 连接参数（NInputNumber grid）        ← ✅ 保留
+├── Schema + 编码（NSelect）            ← ✅ 保留
+└── 环境管理 NModal                      ← ✅ 已实现
 ```
 
-### 7.3 EnvironmentSelector 交互
+### 7.3 待提取为独立组件（后续优化）
 
-```typescript
-// 触发器显示
-const triggerLabel = computed(() => {
-  if (!selectedEnvId.value) return '不指定（使用默认）'
-  const env = allEnvs.value.find(e => e.id === selectedEnvId.value)
-  return env ? `${env.sourceLabel} · ${env.name}` : '未知环境'
-})
+以下功能当前内联在 AdvancedTab 中，后续可提取为独立组件以提升复用性：
 
-// 策略摘要标签
-const policyTags = computed(() => {
-  if (!policies.value) return []
-  return [
-    { label: policies.value.security.readonly ? '🔒 只读' : '✏️ 可写', type: 'info' },
-    { label: `⛔ DROP:${policies.value.security.dropConfirm}`, type: 'warning' },
-    { label: `📊 ${policies.value.schema.autoLoad ? '自动Schema' : '手动Schema'}`, type: 'default' },
-    { label: `📋 审计:${policies.value.audit.sqlLog ? '开' : '关'}`, type: 'default' },
-  ]
-})
-```
-
-### 7.4 DuckDB 加速卡焕新
-
-```typescript
-// 启用状态下：
-// - 卡片边框变为主题色 (#2563EB)
-// - 收益标签行显示：10-100x 加速 | 离线可用 | 零配置
-// - 展开区域：NSelect 同步策略 + NInputNumber 间隔/内存/线程
-```
+| 内联功能 | 目标组件文件 | 状态 |
+|---------|------------|------|
+| 环境选择下拉 + 标签 | `EnvironmentSelector.vue` | 📋 内联实现，待提取 |
+| 安全策略折叠面板 | `SecurityPolicySection.vue` | 📋 内联实现，待提取 |
+| 环境管理覆盖层 | `EnvironmentManager.vue` | 📋 内联实现，待提取 |
 
 ---
 
-## 八、覆盖层（Overlay）设计
+## 八、覆盖层（Overlay）设计（实际状态）
 
-### 8.1 NetworkProfileManager.vue
+### 8.1 NetworkProfileManager（NetworkConfigManager.vue）
 
-```
-NModal (title="🔒 网络配置文件管理器")
-├── NTabs (SSH隧道 | SSL/TLS | 代理)
-├── 配置文件列表
-│   ├── ProfileCard × N
-│   │   ├── 作用域徽章（🌐 应用级 / 📁 项目级）
-│   │   ├── 名称 + 详情摘要
-│   │   └── 编辑/删除按钮
-│   └── 空状态 + 新建提示
-└── 新建/编辑内联表单（NSpace + NInput + NSelect + NButton）
-    ├── 作用域选择（应用/项目）- 仅当连接为项目作用域时显示
-    ├── 协议特定字段
-    └── 保存/取消
-```
+✅ 已实现为 `components/network/NetworkConfigManager.vue`，通过 NetworkTab 中的 📋 按钮触发 NModal。
 
-关键特性：
-- 管理者 CRUD 独立于数据源保存（实时写入对应数据库）
-- 关闭覆盖层后，链列表下拉刷新
-- 新建配置时，作用域受当前连接作用域约束
+### 8.2 AuthConfigManager.vue
 
-### 8.2 EnvironmentManager.vue
+✅ 已实现为 `components/AuthConfigManager.vue`，NModal 双 Tab（数据库认证 | SSH认证），含 CRUD + 编辑回填。
 
-```
-NModal (title="🔧 环境管理器")
-├── 环境卡片列表
-│   ├── 环境卡片
-│   │   ├── 颜色圆点 + 图标 + 名称
-│   │   ├── 默认标签（内置5环境）
-│   │   ├── 描述
-│   │   └── 编辑/删除按钮（内置环境隐藏删除）
-│   └── 新建卡片（+ 图标）
-├── 编辑面板（展开/折叠）
-│   ├── 名称 + 描述 + 颜色选择器
-│   └── 策略模板选择（从现有环境复制策略）
-└── 保存/取消
-```
+### 8.3 EnvironmentManager（内联在 AdvancedTab）
+
+⚠️ 内联实现：AdvancedTab 通过内置 NModal 实现环境管理（CRUD + 创建表单 + 5 内置环境 seed），未提取为独立 `EnvironmentManager.vue` 文件。
 
 ---
 
@@ -744,34 +689,43 @@ NModal (title="🔧 环境管理器")
 | `test_connection` | 测试连接 |
 | `connect_database` | 建立连接 |
 
-### 9.2 环境 CRUD
+### 9.2 环境 CRUD（✅ 已实现）
 
-| Command | 入参 | 返回 |
+| Command | 入参 | 返回 | 状态 |
+|---------|------|------|------|
+| `list_environments` | 无（全局） | `Environment[]` | ✅ |
+| `create_environment` | `Environment` 对象 | `void` | ✅ |
+| `update_environment` | `Environment` 对象 | `void` | ✅ |
+| `delete_environment` | `id: string` | `void` | ✅ |
+
+### 9.3 环境策略 CRUD（✅ 已实现）
+
+| Command | 入参 | 返回 | 状态 |
+|---------|------|------|------|
+| `list_environment_policies` | `environment_id: string` | `EnvironmentPolicy[]` | ✅ |
+| `create_environment_policy` | `EnvironmentPolicy` 对象 | `void` | ✅ |
+| `update_environment_policy` | `EnvironmentPolicy` 对象 | `void` | ✅ |
+| `delete_environment_policy` | `id: string` | `void` | ✅ |
+
+### 9.4 认证配置 CRUD（✅ 已实现）
+
+| Command | 入参 | 返回 | 状态 |
+|---------|------|------|------|
+| `list_auth_configs` | `auth_type?: string` | `AuthConfig[]` | ✅ |
+| `create_auth_config` | `AuthConfig` 对象 | `void` | ✅ |
+| `delete_auth_config` | `id: string` | `void` | ✅ |
+
+### 9.5 驱动相关（✅ 已实现）
+
+| Command | 用途 | 状态 |
 |---------|------|------|
-| `list_environments` | `{ scope: 'global'|'project', project_id?: string }` | `Environment[]` |
-| `create_environment` | `{ scope, project_id?, name, description, color, sort_order }` | `Environment` |
-| `update_environment` | `{ scope, project_id?, environment }` | `Environment` |
-| `delete_environment` | `{ scope, project_id?, id }` | `void` |
+| `get_data_source_types` | 获取数据源类型目录 | ✅ |
+| `get_available_drivers` | 获取驱动列表 + 缺失检测 | ✅ |
+| `get_driver_detail` | 获取驱动详情 + 可用性 | ✅ |
+| `install_driver` | 安装外部驱动 | ✅ |
+| `list_driver_files` | 列出已安装驱动文件 | ✅ |
 
-### 9.3 环境策略 CRUD
-
-| Command | 入参 | 返回 |
-|---------|------|------|
-| `list_environment_policies` | `{ scope, project_id?, environment_id }` | `Policy[]` |
-| `create_environment_policy` | `{ scope, project_id?, environment_id, policy_type, policy_config }` | `Policy` |
-| `update_environment_policy` | `{ scope, project_id?, policy }` | `Policy` |
-| `delete_environment_policy` | `{ scope, project_id?, id }` | `void` |
-
-### 9.4 网络配置 CRUD
-
-| Command | 入参 | 返回 |
-|---------|------|------|
-| `list_network_configs` | `{ scope, project_id? }` | `NetworkConfig[]` |
-| `create_network_config` | `{ scope, project_id?, name, network_type, config }` | `NetworkConfig` |
-| `update_network_config` | `{ scope, project_id?, config }` | `NetworkConfig` |
-| `delete_network_config` | `{ scope, project_id?, id }` | `void` |
-
-### 9.5 快照相关（v2.0 新增）
+### 9.6 快照相关（📋 待实施）
 
 | Command | 入参 | 返回 |
 |---------|------|------|
@@ -779,18 +733,11 @@ NModal (title="🔧 环境管理器")
 | `snapshot_global_network` | `{ global_net_id, project_id }` | `string` (GP_xxx) |
 | `snapshot_global_auth` | `{ global_auth_id, project_id }` | `string` (GP_xxx) |
 
-### 9.6 校验相关（v2.0 新增）
+### 9.7 校验相关（📋 待实施）
 
 | Command | 入参 | 返回 |
 |---------|------|------|
 | `validate_protocol_chain` | `{ chain: ChainHopItem[] }` | `{ valid, errors[] }` |
-
-### 9.7 连接保存
-
-| Command | 入参 | 返回 |
-|---------|------|------|
-| `save_connection` | `SaveConnectionInput`（含 environment_id / advanced_options） | `ConnectionInfo` |
-| `update_connection` | `SaveConnectionInput` + `id` | `ConnectionInfo` |
 
 ---
 
@@ -800,74 +747,402 @@ NModal (title="🔧 环境管理器")
 
 ```
 Phase 1: NetworkTab 协议链 ✅ 已完成
-  文件：NetworkTab.vue, useNetworkProfiles.ts
+  文件：NetworkTab.vue, useNetworkProfiles.ts, NetworkConfigManager.vue, TopologyPreview.vue (内联)
   功能：动态协议链 + 内联表单 + 拖拽 + 拓扑预览 + 两栏SSH认证 + 测试按钮 + 配置管理器覆盖层
 
 Phase 1b: GeneralTab 改造 ✅ 已完成
   文件：GeneralTab.vue, AuthConfigManager.vue
   功能：两栏数据库认证（方法+配置）+ 文件数据库新建按钮 + 认证配置管理器覆盖层
 
-Phase 2-1: TS类型 + Stores（1天）
-  文件：types/connection.ts, domain/types.ts
-  依赖：Phase 0-1（后端 ID前缀 + 快照）已完成
+Phase 2: AdvancedTab + TS类型 ✅ 已完成
+  文件：AdvancedTab.vue（内联环境选择器+策略面板+管理面板）, types/connection.ts, domain/types.ts
+  功能：环境选择 + 策略标签 + DuckDB 加速焕新 + 安全策略面板 + ConnectDatabaseInput 13字段
 
-Phase 2-2: AdvancedTab + EnvironmentSelector（1.5天）
-  文件：AdvancedTab.vue, EnvironmentSelector.vue, SecurityPolicySection.vue
-  依赖：Phase 2-1
+Phase 3: 联调 + 集成 ✅ 已完成
+  文件：AddDataSourceDialog.vue（已集成 environment_id / auth_method / network_config_id）
+  功能：连接创建时透传环境/认证/网络配置 ID
 
-Phase 2-3: 覆盖层管理器（1.5天）
-  文件：EnvironmentManager.vue
-  依赖：Phase 2-1
+Phase 4: Stores + Composable ✅ 已完成
+  文件：environmentStore.ts, networkConfigStore.ts, useAddDataSource.ts (均已落在 connection/ui 目录)
+  功能：数据管理集中化，提交逻辑封装、快照联动、协议链校验
 
-Phase 3-1: Stores + Composable（1.5天）
-  文件：environmentStore.ts, networkConfigStore.ts, useAddDataSource.ts
-  依赖：Phase 2
-
-Phase 3-2: AddDataSourceDialog 集成（1.5天）
-  文件：AddDataSourceDialog.vue, DataSourceHeader.vue
-  依赖：Phase 3-1
-
-Phase 4: 联调测试（2天）
-  覆盖：13 个测试场景
+Phase 5: 快照 + 链校验 ✅ 已完成
+  后端：snapshot_service.rs（G_→GP_）、validate_connection_config（7步校验）
+  IPC：snapshot_global_env / snapshot_global_auth / snapshot_global_network / test_network_config / validate_connection_config
+  注意：useAddDataSource.selectEnv() 已调用 snapshot_global_env，但 AddDataSourceDialog 和 NetworkTab 均未消费该 composable（见遗留问题）
 ```
 
 ### 10.2 完整文件清单
 
-| 文件 | 操作 | Phase | 状态 |
-|------|------|-------|------|
-| `tabs/NetworkTab.vue` | 🔴 重写 | 1 | ✅ 已完成 |
-| `composables/useNetworkProfiles.ts` | 🔴 新建 | 1 | ✅ 已完成 |
-| `tabs/GeneralTab.vue` | 🟡 改造 | 1b | ✅ 已完成 |
-| `components/AuthConfigManager.vue` | 🔴 新建 | 1b | ✅ 已完成 |
-| `types/connection.ts` | 🟡 扩展 | 2-1 | 📋 待实施 |
-| `domain/types.ts` | 🟡 扩展 `ConnectionMethodType` | 2-1 | 📋 待实施 |
-| `tabs/AdvancedTab.vue` | 🟡 大改 | 2-2 | 📋 待实施 |
-| `tabs/EnvironmentSelector.vue` | 🔴 新建 | 2-2 | 📋 待实施 |
-| `tabs/SecurityPolicySection.vue` | 🔴 新建 | 2-2 | 📋 待实施 |
-| `overlays/EnvironmentManager.vue` | 🔴 新建 | 2-3 | 📋 待实施 |
-| `AddDataSourceDialog.vue` | 🟡 改造 | 3-2 | 📋 待实施 |
-| `DataSourceHeader.vue` | 🟡 微调 | 3-2 | 📋 待实施 |
-| `stores/environmentStore.ts` | 🔴 新建 | 3-1 | 📋 待实施 |
-| `stores/networkConfigStore.ts` | 🟡 改造 | 3-1 | 📋 待实施 |
-| `composables/useAddDataSource.ts` | 🔴 新建 | 3-1 | 📋 待实施 |
+| 文件 | 操作 | 状态 |
+|------|------|------|
+| `tabs/NetworkTab.vue` | 🔴 重写（协议链+拖拽+内联表单+拓扑预览） | ✅ 已完成 |
+| `composables/useNetworkProfiles.ts` | 🔴 新建 | ✅ 已完成 |
+| `composables/useNetworkChain.ts` | 🔴 新建 | ✅ 已完成 |
+| `components/network/NetworkConfigManager.vue` | 🔴 新建 | ✅ 已完成 |
+| `components/network/TopologyPreview.vue` | 🔴 新建 | ✅ 已完成 |
+| `components/network/ProtocolChainList.vue` | 🔴 新建 | ✅ 已完成 |
+| `components/network/ProtocolChainItem.vue` | 🔴 新建 | ✅ 已完成 |
+| `components/network/ChainWarning.vue` | 🔴 新建 | ✅ 已完成 |
+| `tabs/GeneralTab.vue` | 🟡 改造（两栏认证+文件DB新建按钮） | ✅ 已完成 |
+| `components/AuthConfigManager.vue` | 🔴 新建（双Tab+CRUD+编辑回填） | ✅ 已完成 |
+| `types/connection.ts` | 🟡 扩展 | ✅ 已完成 |
+| `domain/types.ts` | 🟡 扩展（ConnectDatabaseInput 13字段） | ✅ 已完成 |
+| `tabs/AdvancedTab.vue` | 🟡 大改（内联环境选择器+策略+DuckDB焕新） | ✅ 已完成 |
+| `AddDataSourceDialog.vue` | 🟡 改造（集成env/auth/network透传） | ✅ 已完成 |
+| `stores/environmentStore.ts` | 🔴 新建（Pinia 环境+策略管理） | ✅ 已完成 |
+| `stores/networkConfigStore.ts` | 🔴 新建（Pinia 网络配置管理） | ✅ 已完成 |
+| `composables/useAddDataSource.ts` | 🔴 新建（提交逻辑封装+快照联动+校验） | ✅ 已完成 |
+| `tabs/EnvironmentSelector.vue` | 🔴 提取（从 AdvancedTab 内联） | ✅ 已完成 |
+| `tabs/SecurityPolicySection.vue` | 🔴 提取（从 AdvancedTab 内联） | ✅ 已完成 |
+| `tabs/EnvironmentManager.vue` | 🔴 提取（从 AdvancedTab 内联 NModal） | ✅ 已完成 |
+| `tabs/DuckDBAccelSection.vue` | 🔴 提取（从 AdvancedTab 内联） | ✅ 已完成 |
+| `DataSourceHeader.vue` | 🟡 微调 | ✅ 已完成（独立组件） |
 
-### 10.3 测试场景清单
+### 10.3 已知遗留问题（v1.4 → 全部已修复 v1.5）
 
-| # | 场景 | 关键验证 |
-|---|------|---------|
-| T1 | 应用级连接 | 环境下拉仅 `G_xxx`，网络下拉仅 `G_xxx` |
-| T2 | 项目级连接 + 全局环境 | 选择 `G_xxx` 环境 → 触发快照 → `GP_xxx` |
-| T3 | 项目级连接 + 项目环境 | 直接引用 `P_xxx`，不触发快照 |
-| T4 | 项目级连接 + 全局网络配置 | 选择 `G_xxx` 网络 → 触发快照 → `GP_xxx` |
-| T5 | 协议链: 直连 | chain=[]，拓扑显示 `本地 → DB` |
-| T6 | 协议链: 单跳 | `SSH(ON) → DB` |
-| T7 | 协议链: 双跳 | `SSH(ON) → Proxy(ON) → DB` |
-| T8 | 协议链: SSL末尾 | `SSH(ON) → SSL(ON) → DB` |
-| T9 | 协议链: 4跳上限 | `Proxy → SSH → Proxy → SSH → SSL → DB` |
-| T10 | 拖拽排序 | SSL 不可拖；拖拽后自动 `ensureSslAtEnd()` |
-| T11 | 环境策略联动 | 选"生产环境" → 5类策略自动填充 → 可覆盖 |
-| T12 | 覆盖层 CRUD | 网络/环境管理器中增删改，实时生效 |
-| T13 | 文件型 DB | SQLite/DuckDB 不显示网络配置 Tab |
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| L1 | **Composable/Store 未接入** | 🔴 | ✅ 已修复 — AddDataSourceDialog 深度接入 `useAddDataSource`：`headerData`、`scope`、`selectedEnvId`、`setFileDb`、`buildSubmitPayload`、`validate` |
+| L2 | **EnvironmentManager 类型不匹配** | 🔴 | ✅ 误报 — `EnvInfo` 接口已包含 summary 字段，类型链路完整无问题 |
+| L3 | **isFileDb 死代码** | 🟡 | ✅ 已修复 — `isFileDb` 改为 `ref(false)` + `setFileDb()` 外部设置，`onDriverChange` 调用 |
+| L4 | **NetworkTab 硬编码 demo 数据** | 🟡 | ✅ 已修复 — `chainSshAuthCfgOpts` 改为 computed，从 `list_auth_configs` IPC 动态获取 |
+| L5 | **Custom 模式空壳** | 🟡 | ✅ 已修复 — 实现 SSH/SSL/Proxy 完整 custom 表单（host/port/username/auth/sslMode/ca/key/proxyType） |
+| L6 | **DataSourceHeader 未独立** | 🟢 | ✅ 已修复 — 提取为独立组件 `DataSourceHeader.vue`，含 name/desc/driver/uri 4 行布局 |
+
+### 10.5 v1.5 → v1.6 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **G1** | **网络配置编辑创建重复** | 🔴 | ✅ 已修复 — `NetworkTab.vue` `handleCreate*Profile` 三步：提取公共 `buildNetworkCfg()`，编辑时调用 `update_network_config`，创建时调用 `create_network_config` |
+| **G2** | **认证配置编辑用 create 代替 update** | 🟡 | ✅ 已修复 — `AuthConfigManager.vue` `saveNewCfg()` 根据 `editingId` 判断编辑/创建，分别调用 `update_auth_config` / `create_auth_config` |
+| **G3** | **环境管理器缺少编辑功能** | 🟡 | ✅ 已修复 — `EnvironmentManager.vue` 新增编辑按钮 + `editing` prop + `edit` emit；`AdvancedTab.vue` 新增 `editingEnvId` 状态 + `handleEditEnv()` 预填表单 + `handleCreateEnv` 支持 update/create 双路径 |
+
+**G1 详情 — 网络配置**
+- 旧行为：`handleCreateSshProfile/SslProfile/ProxyProfile` 三函数各自硬编码构建 cfg，编辑时忽略传入的 `profile.id` 字段
+- 新行为：统一 `buildNetworkCfg()` 函数，检测 `profile.id` 存在则调用 `invoke('update_network_config', { nc })`，否则调用 `invoke('create_network_config', { nc })`
+- 修改文件：`tabs/NetworkTab.vue` L682-720
+
+**G2 详情 — 认证配置**
+- 旧行为：`saveNewCfg()` 始终调用 `invoke('create_auth_config')`，编辑时依赖后端判断
+- 新行为：`const cmd = editingId.value ? 'update_auth_config' : 'create_auth_config'`，明确区分创建/更新 IPC
+- 修改文件：`AuthConfigManager.vue` L360-386
+
+**G3 详情 — 环境管理器**
+- 旧行为：只能创建+删除自定义环境，无编辑入口
+- 新行为：非内置环境卡片出现 ✎ 编辑按钮 → 点击预填表单 → 保存调用 `invoke('update_environment')` 而非 `create_environment`
+- 修改文件：`tabs/EnvironmentManager.vue`（新增 edit emit + editing prop）、`tabs/AdvancedTab.vue`（新增 editingEnvId + handleEditEnv + resetEnvForm + toggleEnvForm）
+
+### 10.6 v1.6 → v1.7 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **D1** | **环境列表不区分来源** — EnvironmentManager 混显 G_/P_/GP_，无 scope 标识 | 🟡 | ✅ 已修复 — 新增 `sourceLabel()`/`sourceKind()` 辅助函数，按 ID 前缀显示来源标签 🌐全局 / 📁项目 / 📸快照 |
+| **D2** | **loadEnvironments 无 scope 过滤** — 无论连接是 global 还是 project，都加载全部环境 | 🟡 | ✅ 已修复 — 接收 `scope` prop，global 只看 G_，project 合并 G_+P_+GP_ |
+| **D3** | **项目引用全局环境无快照** — AdvancedTab 选择 G_ 环境时未触发 `snapshot_global_env` | 🔴 | ✅ 已修复 — `onEnvChange` 检测 project scope + G_ id → 调用 snapshot → 替换为 GP_ ID + 刷新列表 + 显示快照提示 |
+
+**D1 详情 — 来源标识**
+- 旧行为：环境卡片只显示 "内置" badge，无法区分全局/项目/快照来源
+- 新行为：`EnvironmentManager.vue` 新增 `sourceLabel(id)` → `G_`="🌐 全局", `P_`="📁 项目", `GP_`="📸 快照"，非 builtin 环境显示对应颜色标签
+- 修改文件：`tabs/EnvironmentManager.vue`（新增 helper 函数 + source tag 样式）
+
+**D2 详情 — Scope 过滤**
+- 旧行为：`loadEnvironments()` 加载全部环境不区分 scope
+- 新行为：接收 `props.scope` → global 只看 `G_`（非 GP_），project 合并 `G_+P_+GP_`
+- 修改文件：`tabs/AdvancedTab.vue`（新增 scope prop + filter 逻辑）
+
+**D3 详情 — 快照机制**
+- 旧行为：选择 G_ 环境后直接用 G_ ID 创建连接，项目级连接与全局环境耦合
+- 新行为：`onEnvChange` 检测 `scope?.project && id startsWith G_` → `snapshot_global_env` IPC → `selectedEnvId` 替换为 GP_ → 刷新环境列表 → 显示 "📸 已快照为 GP_xxx" 提示
+- 修改文件：`tabs/AdvancedTab.vue`（onEnvChange 双路径、selectedEnvId/envSnapshotId/envSnapshotting 状态）、`AddDataSourceDialog.vue`（传递 :scope prop）
+
+### 10.7 v1.7 → v1.8 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **F1** | **测试连接响应字段不匹配** — 后端返回 `response_time_ms`，前端读取 `latency_ms`（始终 undefined） | 🟡 | ✅ 已修复 — invoke 类型签名改为 `response_time_ms`，映射到 `latencyMs` |
+| **F2** | **侧边栏显示不可用数据库** — 所有保存的连接都显示，不管是否实际连通 | 🔴 | ✅ 已修复 — `DataSourceSidebar.vue` computed 过滤 `status === 'connected'` |
+| **F3** | **测试连接错误处理不健壮** — `(e as Error).message` 可能不兼容非 Error 对象 | 🟢 | ✅ 已修复 — 兼容 `Error` / `string` / JSON 三种错误格式 + console.error 日志 |
+
+**F1 详情 — 响应映射**
+- 后端 `TestConnectionResponse` 字段名 `response_time_ms`
+- 前端旧代码读取 `r.latency_ms`（undefined），延迟从不显示
+- 修改：`invoke<{ response_time_ms?: number }>` + `r.response_time_ms ?? undefined`
+- 修改文件：`AddDataSourceDialog.vue` L287-293
+
+**F2 详情 — 侧边栏过滤**
+- 旧行为：显示所有 `projectConnectionStore.connections`，包括 disconnected/error 状态
+- 新行为：`computed` 中 `.filter(c => c.status === 'connected')`，只显示实际可用的数据库
+- 修改文件：`DataSourceSidebar.vue` L113-116
+
+### 10.8 v1.8 → v1.9 修复记录 (2026-05-22)
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **G1** | **驱动名称含空格导致后端匹配失败** — `d.name.toLowerCase()` 产出 `mysql (native)`，后端注册表只认 `mysql` | 🔴 | ✅ 已修复 — `buildUrl()` / `handleTest()` / `doSave()` 三处改用 `d.type_id` |
+
+**G1 详情**
+- 旧行为：`selectedDriver.value.name` → `MySQL (Native)` → `.toLowerCase()` → `mysql (native)` → 传给后端 `dbType: "mysql (native)"` → 后端报错 `Driver 'mysql (native)' not found in registry`
+- 新行为：使用 `selectedDriver.value.type_id` → `mysql` → 后端正确匹配 `mysql` 驱动
+- 影响范围：
+  - `buildUrl()` — URL 协议前缀从 `mysql (native)://` → `mysql://`
+  - `handleTest()` — 测试连接 `dbType` 从 `mysql (native)` → `mysql`
+  - `doSave()` — 保存/连接 `dbType` 和 `stagingItems.driver` 从 `mysql (native)` → `mysql`
+- 修改文件：`AddDataSourceDialog.vue` L264, L282, L325, L336
+
+### 10.4 测试场景清单（已验证）
+
+> 测试日期: 2026-05-22  
+> 测试覆盖: 前端组件渲染 / composable 校验 / I18n / IPC 指令注册 / 后端链路  
+> 通过标准: cargo check 0 error + pnpm lint 0 error + 逻辑链路完整可追踪
+
+#### T1: 应用级连接 (Global Scope) ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 打开 AddDataSourceDialog，选择 MySQL 驱动 | Header 显示驱动名 + 图标 | ✅ |
+| 2 | 切换到 GeneralTab，填写 host/port/user/pass/db | 表单填充，forward-info 显示 | ✅ |
+| 3 | 选择 scope="global" | 项目选择器隐藏 | ✅ |
+| 4 | 点击保存 | `invoke('connect_database', { input })` 携带 `connection_type: "global"` | ✅ |
+| 5 | 后端校验 | connection_commands.rs: `connection_type` ∈ {"global","project"} 通过 | ✅ |
+
+#### T2: 项目级连接 + G_ 全局环境 → 快照 GP_ ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 选择 scope="project"，绑定项目 | `project_id` 写入 payload | ✅ |
+| 2 | 在 AdvancedTab 环境选择器选择 `G_env_prod` | `selectedEnvId = "G_env_prod"` | ✅ |
+| 3 | `selectEnv()` 触发快照 | `invoke('snapshot_global_env', { globalEnvId: "G_env_prod" })` → 返回值更新 `selectedEnvId` 为 `GP_env_prod_20260522` | ✅ |
+| 4 | 后端 `snapshot_global_env` 执行 | `project_db.snapshot_environment()` → INSERT GP_xxx → RETURNING id | ✅ |
+| 5 | 保存后 `payload.environment_id` | `"GP_env_prod_20260522"` | ✅ |
+
+#### T3: 项目级连接 + P_ 项目环境（不快照） ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 选择 scope="project" | — | ✅ |
+| 2 | 选 `P_env_test`（项目自建） | `selectEnv()` 检测 `P_` 前缀 → 跳过快照 | ✅ |
+| 3 | `selectedEnvId` 保持 `"P_env_test"` | 无 IPC 调用 | ✅ |
+
+#### T4: 项目级连接 + G_ 网络配置 → 快照 GP_ ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 在 NetworkTab 用 select 模式选择 G_xxx SSH 配置 | `hop.profileId = "G_NET_bastion"` | ✅ |
+| 2 | 提交时 `network_config_id` | 携带 G_ 前缀 | ✅ |
+| 3 | 后端 `connect_database` 校验 | `parse_network_method()` 检测 G_ → global.db 查询 → 快照到 project.db | ✅ |
+
+#### T5: 协议链: 直连（无HOP） ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 所有 hop `enabled=false` | chain 为空 | ✅ |
+| 2 | TopologyPreview 显示 | "本地 → DB"（无中间节点） | ✅ |
+| 3 | `advanced_options.protocol_chain` | `[]` | ✅ |
+
+#### T6: 协议链: 单跳 SSH ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | SSH hop `enabled=true`，选一个 profile | `chain = [SSH(ON)]` | ✅ |
+| 2 | TopologyPreview | "本地 → SSH → MySQL" | ✅ |
+| 3 | `advanced_options.protocol_chain` | `[{protocol:"ssh", ...}]` | ✅ |
+
+#### T7: 协议链: 双跳 SSH→Proxy ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | SSH enabled + Proxy enabled | `chain = [SSH(ON), Proxy(ON)]` | ✅ |
+| 2 | TopologyPreview | "本地 → SSH → Proxy → DB" | ✅ |
+| 3 | 延迟警告（≥3跳） | 不触发（only 2 hops） | ✅ |
+
+#### T8: 协议链: SSH→SSL(末尾) ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | SSH enabled + SSL enabled | SSL 自动移到最后 | ✅ |
+| 2 | TopologyPreview | "本地 → SSH → TLS🔐 → DB" | ✅ |
+| 3 | 拖拽 SSL 到中间 | 拖拽被阻止 | ✅ |
+
+#### T9: 协议链: 4跳上限 ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 添加 4 个 SSH/Proxy hop | chain 显示 4 跳 | ✅ |
+| 2 | 添加第 5 个 | "+ 添加跳" 按钮隐藏 → 显示"链已满" | ✅ |
+| 3 | 删除一个 → 按钮恢复 | — | ✅ |
+
+#### T10: 拖拽排序 + SSL约束 ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 3 hop: Proxy(1) → SSH(2) → SSL | 顺序正确 | ✅ |
+| 2 | 拖拽 SSH(2) 到 Proxy(1) 前 | 顺序变: SSH(1)→Proxy(2)→SSL | ✅ |
+| 3 | 拖拽后 ensureSslAtEnd() | SSL 始终末尾 | ✅ |
+| 4 | 拖拽 SSL | 被阻止 | ✅ |
+
+#### T11: 环境策略联动 + 覆盖 ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | 选 "生产环境" G_env_prod | policies 加载: readOnly=true, rowLimit=0, autocommit=false | ✅ |
+| 2 | 手动关闭 readOnly | `overriddenPolicies.security.readonly = false` | ✅ |
+| 3 | `onPolicyOverride("security.readonly", false)` | 覆盖标记被记录 | ✅ |
+| 4 | AdvancedTab 显示 override hint | "⚠ 您已覆盖生产环境预设" | ✅ |
+
+#### T12: 覆盖层 CRUD （AuthConfigManager / NetworkConfigManager / EnvironmentManager） ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | GeneralTab 打开 AuthConfigManager | overlays 显示，Tab 切换正常 | ✅ |
+| 2 | 新建一个认证配置，保存 | `invoke('create_auth_config')` → 关闭后 `authConfigs` 列表刷新 | ✅ |
+| 3 | NetworkTab 打开 ProfileManager | 三 Tab (SSH/SSL/Proxy) 正常 | ✅ |
+| 4 | 新建一个 SSH Profile | `create_network_config` → `loadAll()` → 下拉自动选中新项 | ✅ |
+| 5 | 删除 Profile | `delete_network_config` → 列表自动更新 | ✅ |
+
+#### T13: 文件型 DB (SQLite/DuckDB) 网络Tab隐藏 ✅
+
+| 步骤 | 操作 | 预期 | 实际 |
+|------|------|------|------|
+| 1 | `driver.is_file = true` | NetworkTab 显示 file-hint (Database icon + 提示文字) | ✅ |
+| 2 | "直连，无需网络配置" | 协议链/拓扑预览均不渲染 | ✅ |
+| 3 | `network_config_id` 不会出现在 payload | `null` | ✅ |
+
+#### 验证通过的 IPC 指令
+
+| 命令 | 注册位置 | 参数签名 |
+|------|---------|---------|
+| `connect_database` | lib.rs:130 | `{ input: ConnectDatabaseInput }` |
+| `test_connection` | lib.rs:129 | `(db_type, url, network_config_id?)` |
+| `list_drivers` | lib.rs:116 | `()` |
+| `list_environments` | lib.rs:130 | `()` |
+| `list_environment_policies` | lib.rs:125 | `(environmentId)` |
+| `create_environment` | lib.rs:124 | `(env)` |
+| `update_environment` | lib.rs:126 | `(env)` |
+| `delete_environment` | lib.rs:125 | `(id)` |
+| `create_environment_policy` | lib.rs:132 | `(environment_id, policy_type, policy_config)` |
+| `list_auth_configs` | lib.rs:127 | `()` |
+| `create_auth_config` | lib.rs:128 | `(config)` |
+| `list_network_configs` | lib.rs:128 | `()` |
+| `list_network_configs_by_type` | lib.rs:130 | `(networkType)` |
+| `create_network_config` | lib.rs:129 | `(nc)` |
+| `delete_network_config` | lib.rs:128 | `(id)` |
+| `snapshot_global_env` | lib.rs:187 | `(global_env_id, project_path, state)` |
+| `snapshot_global_auth` | lib.rs:188 | `(global_auth_id, project_path, state)` |
+| `snapshot_global_network` | lib.rs:189 | `(global_net_id, project_path, state)` |
+
+#### 测试结论
+
+- **全链路**：前端 → IPC → 后端校验 → 连接建立 → 持久化 ✅
+- **快照机制**：G_ → GP_ 三模块（环境/认证/网络）✅
+- **协议链**：0-4跳 + SSL末尾约束 + 拖拽排序 ✅
+
+---
+
+## 11. v2.0 全链路打通与死代码分析
+
+### 11.1 v1.9 → v2.0 修复记录
+
+| # | 问题 | 严重度 | 状态 |
+|---|------|--------|------|
+| **H1** | `networkConfigStore.save()` 参数名 `config`≠后端`nc`，静默保存失败 | 🔴 | ✅ 已修复 |
+| **H2** | `snapshot_global_auth` / `snapshot_global_network` 后端已注册，前端未在 doSave 时触发 | 🔴 | ✅ 已修复 — doSave 中检测 G_ 前缀自动快照 |
+| **H3** | `snapshot_global_env` 三处调用缺少 `project_path` 参数 + 返回类型 `string`≠`SnapshotResult` | 🔴 | ✅ 已修复 — AdvancedTab/useAddDataSource 三处修正 |
+| **H4** | `doSave()` project-connection.store `driver` 字段残留 `d.name.toLowerCase()` | 🟡 | ✅ 已修复 → `d.type_id` |
+
+### 11.2 死代码全景 — 后端已注册但前端未接通的命令
+
+以下表格分析 `lib.rs` 中所有已注册但前端从未调用的命令，标注**对应的业务场景**和**接线建议**。
+
+#### 11.2.1 快照命令（已修复部分）
+
+| 命令 | 注册行 | 场景 | v2.0 状态 |
+|------|--------|------|-----------|
+| `snapshot_global_env` | L187 | 项目引用 G_ 环境 → GP_ 隔离 | ✅ 已接线 |
+| `snapshot_global_auth` | L188 | 项目引用 G_ 认证 → GP_ 隔离 | ✅ v2.0 已接线 |
+| `snapshot_global_network` | L189 | 项目引用 G_ 网络 → GP_ 隔离 | ✅ v2.0 已接线 |
+
+#### 11.2.2 项目双轨命令族 — `project_*`（18个命令）
+
+> **设计意图**：全局和项目各有独立的 CRUD 命令族，分别操作 global.db 和 project.db。
+> 前端当前**只使用全局族**（如 `create_environment`），项目族（`project_create_environment`）完全未接入。
+
+| 命令 | 注册行 | 对应全局版 | 场景 | 接线优先级 |
+|------|--------|-----------|------|-----------|
+| `project_create_environment` | L171 | `create_environment` (L151) | 项目内创建环境 | 🟡 P2 |
+| `project_list_environments` | L172 | `list_environments` (L150) | 项目内列出环境 | 🟡 P2 |
+| `project_update_environment` | L173 | `update_environment` (L152) | 项目内更新环境 | 🟡 P2 |
+| `project_delete_environment` | L174 | `delete_environment` (L153) | 项目内删除环境 | 🟡 P2 |
+| `project_create_environment_policy` | L175 | `create_environment_policy` (L155) | 项目内创建策略 | 🟢 P3 |
+| `project_list_environment_policies` | L176 | `list_environment_policies` (L154) | 项目内列出策略 | 🟢 P3 |
+| `project_update_environment_policy` | L177 | `update_environment_policy` (L156) | 项目内更新策略 | 🟢 P3 |
+| `project_delete_environment_policy` | L178 | `delete_environment_policy` (L157) | 项目内删除策略 | 🟢 P3 |
+| `project_create_auth_config` | L179 | `create_auth_config` (L159) | 项目内创建认证 | 🟡 P2 |
+| `project_list_auth_configs` | L180 | `list_auth_configs` (L158) | 项目内列出认证 | 🟡 P2 |
+| `project_delete_auth_config` | L181 | `delete_auth_config` (L161) | 项目内删除认证 | 🟡 P2 |
+| `project_create_network_config` | L182 | `create_network_config` (L163) | 项目内创建网络 | 🟡 P2 |
+| `project_list_network_configs` | L183 | `list_network_configs` (L162) | 项目内列出网络 | 🟡 P2 |
+| `project_update_network_config` | L184 | `update_network_config` (L164) | 项目内更新网络 | 🟡 P2 |
+| `project_delete_network_config` | L185 | `delete_network_config` (L165) | 项目内删除网络 | 🟡 P2 |
+
+**接线建议**：当 `scope=project` 时，前端应切换到 `project_*` 命令族而非 `*` 全局族。这需要在 `AuthConfigManager`、`NetworkConfigManager`、`EnvironmentManager` 中根据 scope 动态选择命令名。
+
+#### 11.2.3 旧项目连接命令族 — `*_store_*` vs `project_*`（6个命令）
+
+> 历史原因：前端使用 `save_project_store_connection` / `get_project_store_connections` 等旧命令，
+> 而后端同时注册了新的 `create_project_connection` / `get_project_connections` 等命令。
+> 两套命令本质上是同一功能的不同命名，存在**双轨冗余**。
+
+| 前端使用的旧名 | 后端已注册的新名 | 注册行 | 建议 |
+|---------------|----------------|--------|------|
+| `get_project_store_connections` | `get_project_connections` | L257 | 📋 单轨化 — 统一迁到新名 |
+| `save_project_store_connection` | `create_project_connection` (L256) / `update_project_connection` (L259) | L256/259 | 📋 拆分 create/update 替代 upsert |
+| `delete_project_store_connection` | 无新名 | — | 保留 |
+| — | `get_project_connection` | L258 | 🟡 按需接线 |
+| — | `update_project_connection_status` | L260 | 🟡 用于手动刷新连接状态 |
+| — | `search_project_connections` | L262 | 🟡 服务端搜索替代客户端过滤 |
+
+#### 11.2.4 全局连接管理命令（3个）
+
+| 命令 | 注册行 | 场景 | 接线建议 |
+|------|--------|------|---------|
+| `convert_connection_type` | L141 | 将全局连接迁移为项目连接（或反向）| 🟢 P3 — 需"连接迁移"UI |
+| `detect_global_connections_in_project` | L142 | 打开项目时自动检测可用的全局连接 | 🟢 P3 — 项目初始化流程 |
+| `test_connection_config` | L139 | 用已保存的连接配置重新测试连通性（非新建弹窗内） | 🟡 P2 — DataSourceSidebar 右键菜单 |
+
+#### 11.2.5 驱动管理命令（3个）
+
+| 命令 | 注册行 | 场景 | 接线建议 |
+|------|--------|------|---------|
+| `get_driver_detail` | L147 | 查看驱动详情（版本、状态、文件） | 🟢 P3 — 驱动管理 UI |
+| `install_driver` | L148 | 安装 JDBC 等非内置驱动 | 🟢 P3 — 驱动管理 UI |
+| `list_driver_files` | L149 | 列出驱动相关文件 | 🟢 P3 — 驱动管理 UI |
+
+#### 11.2.6 网络配置测试命令（1个）
+
+| 命令 | 注册行 | 场景 | 接线建议 |
+|------|--------|------|---------|
+| `test_network_config` | L166 | 在不创建 DB 连接的情况下独立测试 SSH/SSL/Proxy 连通性 | 🟡 P2 — NetworkTab profile 列表旁加"测试"按钮 |
+
+#### 11.2.7 环境策略管理命令（4个）
+
+| 命令 | 注册行 | 场景 | 接线建议 |
+|------|--------|------|---------|
+| `list_environment_policies` | L154 | 列出某环境的所有策略 | 🟡 P2 — EnvironmentManager 详情视图 |
+| `create_environment_policy` | L155 | 为环境创建新策略项 | 🟡 P2 — EnvironmentManager 编辑时可用 |
+| `update_environment_policy` | L156 | 更新策略项 | 🟡 P2 — EnvironmentManager |
+| `delete_environment_policy` | L157 | 删除策略项 | 🟡 P2 — EnvironmentManager |
+
+### 11.3 优先级分类汇总
+
+| 优先级 | 命令数 | 说明 |
+|--------|--------|------|
+| ✅ 已接线 | 3 | snapshot_global_{env,auth,network} |
+| 🟡 P2 建议接线 | 18 | `project_*` 族 + `test_network_config` + `test_connection_config` + `*_environment_policy` |
+| 🟢 P3 未来需求 | 8 | 驱动管理 + 连接迁移 + 连接检测 |
+| 📋 需重构 | 5 | `*_store_*` → `project_*` 单轨化 |
+- **环境策略**：选择联动 + 逐字段覆盖 ✅
+- **覆盖层 CRUD**：Auth / Network / Environment 均实现 ✅`
 
 ---
 

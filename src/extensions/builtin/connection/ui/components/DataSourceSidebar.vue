@@ -110,7 +110,10 @@ const selectedTypeId = ref<string | null>(null)
 const selectedDriver = ref<Driver | null>(null)
 
 // Computed
-const connections = computed(() => projectConnectionStore.connections as ProjectConnection[])
+/** 只显示已连接的数据库（排除 disconnected/connecting/error 状态） */
+const connections = computed(() =>
+  (projectConnectionStore.connections as ProjectConnection[]).filter(c => c.status === 'connected')
+)
 
 const filteredTypes = computed(() => {
   const q = searchQuery.value.toLowerCase()

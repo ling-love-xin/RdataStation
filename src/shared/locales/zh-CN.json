@@ -931,6 +931,10 @@
     "autoAssign": "自动分配",
     "noAuth": "— 无认证 —",
     "usernamePassword": "用户名/密码",
+    "sshUser": "SSH 用户",
+    "sshPassword": "SSH 密码",
+    "privateKeyPassphrase": "私钥密码（可选）",
+    "privateKeyFile": "私钥文件",
     "validation": {
       "nameRequired": "数据源名称不能为空"
     }

@@ -183,6 +183,11 @@ pub fn run() {
             project_list_network_configs,
             project_update_network_config,
             project_delete_network_config,
+            // 快照命令
+            snapshot_global_env,
+            snapshot_global_auth,
+            snapshot_global_network,
+            validate_connection_config,
             // SQL 命令
             execute_sql,
             execute_transaction,

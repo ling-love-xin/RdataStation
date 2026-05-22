@@ -20,66 +20,28 @@
 
         <!-- Right panel -->
         <div class="dlg-right">
-          <!-- Header: 3 rows -->
-          <div class="right-header">
-            <!-- Row 1: Name + Scope -->
-            <div class="rh-row">
-              <span class="rh-label">{{ $t('navigator.name') }}</span>
-              <NInput
-                v-model:value="formName"
-                :placeholder="$t('navigator.dataSourceNamePlaceholder')"
-                size="small"
-                class="rh-name-input"
-              />
-              <NCheckbox v-model:checked="scopeGlobal" size="small">
-                {{ $t('navigator.globalConnection') }}
-              </NCheckbox>
-              <NCheckbox v-model:checked="scopeProject" size="small">
-                {{ $t('navigator.projectConnection') }}
-              </NCheckbox>
-            </div>
-            <!-- Row 2: Description standalone -->
-            <div class="rh-row">
-              <span class="rh-label">{{ $t('navigator.description') }}</span>
-              <NInput
-                v-model:value="formDesc"
-                type="textarea"
-                :placeholder="$t('navigator.dataSourceDescPlaceholder')"
-                size="small"
-                :rows="2"
-                class="rh-desc-input"
-              />
-            </div>
-            <!-- Row 3: Driver + URI -->
-            <div class="rh-row uri-row">
-              <span class="rh-label">{{ $t('navigator.driver') }}</span>
-              <NSelect
-                v-model:value="selectedDriverId"
-                :options="driverOptions"
-                :placeholder="$t('navigator.selectDbType')"
-                size="small"
-                class="rh-driver-select"
-                @update:value="onDriverChange"
-              />
-              <span class="uri-label">URI</span>
-              <NInput
-                v-if="uriEditing"
-                v-model:value="manualUri"
-                size="small"
-                class="uri-edit-input"
-                placeholder="jdbc:mysql://..."
-              />
-              <div v-else class="uri-display">{{ uriPreview || '—' }}</div>
-              <NButton
-                size="tiny"
-                quaternary
-                :type="uriEditing ? 'primary' : 'default'"
-                @click="uriEditing = !uriEditing"
-              >
-                <template #icon><Edit :size="13" /></template>
-              </NButton>
-            </div>
-          </div>
+          <DataSourceHeader
+            v-model:name="headerData.name"
+            v-model:description="headerData.description"
+            v-model:scope-global="scope.global"
+            v-model:scope-project="scope.project"
+            v-model:selected-driver-id="headerData.selectedDriverId"
+            v-model:uri-editing="uriEditing"
+            v-model:manual-uri="manualUri"
+            :driver-options="driverOptions"
+            :uri-preview="uriPreview"
+            :name-label="$t('navigator.name')"
+            :name-placeholder="$t('navigator.dataSourceNamePlaceholder')"
+            :desc-label="$t('navigator.description')"
+            :desc-placeholder="$t('navigator.dataSourceDescPlaceholder')"
+            :global-label="$t('navigator.globalConnection')"
+            :project-label="$t('navigator.projectConnection')"
+            :driver-label="$t('navigator.driver')"
+            :driver-placeholder="$t('navigator.selectDbType')"
+            uri-label="URI"
+            uri-placeholder="jdbc:mysql://..."
+            @driver-change="onDriverChange"
+          />
 
           <!-- Tabs -->
           <NTabs v-model:value="activeTab" type="line" size="small" class="dlg-tabs">
@@ -96,7 +58,7 @@
               <DriverPropsTab :driver="selectedDriver" @extra-config="onExtraConfig" />
             </NTabPane>
             <NTabPane name="advanced" :tab="$t('navigator.tabAdvanced')">
-              <AdvancedTab :driver="selectedDriver" :form-data="formData" @update:form-data="onFormData" @extra-config="onExtraConfig" />
+              <AdvancedTab :driver="selectedDriver" :form-data="formData" :scope="scope" @update:form-data="onFormData" @extra-config="onExtraConfig" />
             </NTabPane>
           </NTabs>
 
@@ -124,9 +86,9 @@
 </template>
 
 <script setup lang="ts">
-import { Database, Edit } from 'lucide-vue-next'
+import { Database } from 'lucide-vue-next'
 import {
-  NButton, NCheckbox, NInput, NModal, NSelect, NTabs, NTabPane, useMessage,
+  NButton, NModal, NTabs, NTabPane, useMessage,
 } from 'naive-ui'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -134,11 +96,13 @@ import { useI18n } from 'vue-i18n'
 import { useProjectStore } from '@/core/project/stores/project'
 
 import AddDataSourceSidebar from './AddDataSourceSidebar.vue'
+import DataSourceHeader from './DataSourceHeader.vue'
 import AdvancedTab from './tabs/AdvancedTab.vue'
 import CapabilitiesTab from './tabs/CapabilitiesTab.vue'
 import DriverPropsTab from './tabs/DriverPropsTab.vue'
 import GeneralTab from './tabs/GeneralTab.vue'
 import NetworkTab from './tabs/NetworkTab.vue'
+import { useAddDataSource } from '../composables/useAddDataSource'
 import { useDriverRegistry } from '../composables/useDriverRegistry'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
@@ -162,15 +126,15 @@ const message = useMessage()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
 const { drivers, loadAll } = useDriverRegistry()
+const {
+  headerData, scope, selectedEnvId,
+  setFileDb,
+  buildSubmitPayload, validate,
+} = useAddDataSource()
 
-// Dialog state
+// Dialog state — composable provides: headerData, scope, selectedEnvId, protocolChain, etc.
 const activeTab = ref('general')
 const selectedTypeId = ref<string | null>(null)
-const selectedDriverId = ref<string | null>(null)
-const formName = ref('')
-const formDesc = ref('')
-const scopeGlobal = ref(true)
-const scopeProject = ref(false)
 const uriEditing = ref(false)
 const manualUri = ref('')
 const formData = ref<Record<string, unknown>>({})
@@ -178,6 +142,15 @@ const testResult = ref<{ success: boolean; message: string; latencyMs?: number }
 const testing = ref(false)
 const saving = ref(false)
 const isEditing = ref(false)
+
+// Auth config (not yet in composable)
+const authConfigId = ref<string | null>(null)
+const authMethod = ref<string>('password')
+
+// Extra config from child tabs
+const networkConfigId = ref<string | null>(null)
+const driverPropertiesExtra = ref<string | null>(null)
+const advancedOptions = ref<string | null>(null)
 
 // Staging list
 interface StagingItem {
@@ -188,20 +161,14 @@ interface StagingItem {
   networkConfigId?: string | null
   driverProperties?: string | null
   advancedOptions?: string | null
+  environmentId?: string | null
 }
 const stagingItems = ref<StagingItem[]>([{ name: '' }])
 const stagingIndex = ref(0)
 
-// Extra config from child tabs
-const networkConfigId = ref<string | null>(null)
-const driverProperties = ref<string | null>(null)
-const advancedOptions = ref<string | null>(null)
-const authConfigId = ref<string | null>(null)
-const authMethod = ref<string>('password')
-
 // Computed
 const selectedDriver = computed(() =>
-  drivers.value.find(d => d.id === selectedDriverId.value) ?? null
+  drivers.value.find(d => d.id === headerData.selectedDriverId) ?? null
 )
 
 const driverOptions = computed(() => {
@@ -226,22 +193,27 @@ const uriPreview = computed(() => {
 })
 
 // Actions
-function onDriverChange(_id: string) {
+function onDriverChange(driverId: string) {
   formData.value = {}
   testResult.value = null
   authConfigId.value = null
   authMethod.value = 'password'
+  selectedEnvId.value = null
+  // Set file DB flag for URI preview
+  const d = drivers.value.find(x => x.id === driverId)
+  setFileDb(d?.is_file ?? false)
 }
 
 function onFormData(d: Record<string, unknown>) {
   formData.value = { ...formData.value, ...d }
-  if (!formName.value && d.name) formName.value = String(d.name)
+  if (!headerData.name && d.name) headerData.name = String(d.name)
 }
 
 function onExtraConfig(config: Record<string, unknown>) {
   if (config.networkConfigId !== undefined) networkConfigId.value = config.networkConfigId as string | null
-  if (config.driverProperties !== undefined) driverProperties.value = config.driverProperties as string | null
+  if (config.driverProperties !== undefined) driverPropertiesExtra.value = config.driverProperties as string | null
   if (config.advancedOptions !== undefined) advancedOptions.value = config.advancedOptions as string | null
+  if (config.environmentId !== undefined) selectedEnvId.value = config.environmentId as string | null
 }
 
 function onAuthConfigChange(authCfgId: string | null, method: string) {
@@ -264,23 +236,24 @@ function selectStaging(i: number) {
   stagingIndex.value = i
   const s = stagingItems.value[i]
   if (!s) return
-  formName.value = s.name || ''
-  formDesc.value = ''
+  headerData.name = s.name || ''
+  headerData.description = ''
   if (s.driver) {
     const d = drivers.value.find(x => x.name.toLowerCase() === s.driver?.toLowerCase())
     if (d) {
       selectedTypeId.value = d.type_id
-      selectedDriverId.value = d.id
+      headerData.selectedDriverId = d.id
     }
   } else if (s.driverId) {
-    selectedDriverId.value = s.driverId
+    headerData.selectedDriverId = s.driverId
     const d = drivers.value.find(x => x.id === s.driverId)
     if (d) selectedTypeId.value = d.type_id
   }
   formData.value = s.formData ? { ...s.formData } : {}
   networkConfigId.value = s.networkConfigId ?? null
-  driverProperties.value = s.driverProperties ?? null
+  driverPropertiesExtra.value = s.driverProperties ?? null
   advancedOptions.value = s.advancedOptions ?? null
+  selectedEnvId.value = s.environmentId ?? null
   testResult.value = null
 }
 
@@ -288,15 +261,16 @@ function buildUrl(): string {
   if (uriEditing.value && manualUri.value) return manualUri.value
   const d = selectedDriver.value
   if (!d) return ''
+  const proto = d.type_id.toLowerCase()
   const fd = formData.value
-  if (d.is_file) return `${d.name.toLowerCase()}://${fd.file_path || fd.database || './data.db'}`
+  if (d.is_file) return `${proto}://${fd.file_path || fd.database || './data.db'}`
   const h = String(fd.host || 'localhost')
   const po = String(fd.port || d.default_port || '')
   const db = String(fd.database || '')
   const u = String(fd.username || '')
   const pw = String(fd.password || '')
-  if (u && pw) return `${d.name.toLowerCase()}://${u}:${pw}@${h}${po ? ':' + po : ''}/${db}`
-  return `${d.name.toLowerCase()}://${u}@${h}${po ? ':' + po : ''}/${db}`
+  if (u && pw) return `${proto}://${u}:${pw}@${h}${po ? ':' + po : ''}/${db}`
+  return `${proto}://${u}@${h}${po ? ':' + po : ''}/${db}`
 }
 
 async function handleTest() {
@@ -305,52 +279,93 @@ async function handleTest() {
   try {
     const url = buildUrl()
     const driverName = selectedDriver.value.name
+    const dbType = selectedDriver.value.type_id // 使用 type_id 而非 name，避免 "mysql (native)" 含空格无法匹配后端注册表
     const { invoke } = await import('@tauri-apps/api/core')
     const params: Record<string, unknown> = {
-      dbType: driverName.toLowerCase(),
+      dbType: dbType,
       url,
     }
     if (networkConfigId.value) params.networkConfigId = networkConfigId.value
-    const r = await invoke<{ success: boolean; message?: string; latency_ms?: number }>('test_connection', params)
+    const r = await invoke<{ success: boolean; message?: string; server_version?: string; response_time_ms?: number }>('test_connection', params)
     testResult.value = {
       success: r.success,
       message: r.success
         ? `✓ ${t('navigator.connectionSuccess', { name: driverName })} — ${driverName} — [本机] → ${r.message || 'DB'}`
         : (r.message || t('navigator.connectionFailedGeneric')),
-      latencyMs: r.success ? (r.latency_ms ?? undefined) : undefined,
+      latencyMs: r.success ? (r.response_time_ms ?? undefined) : undefined,
     }
   } catch (e) {
-    testResult.value = { success: false, message: (e as Error).message }
+    const msg = e instanceof Error ? e.message : (typeof e === 'string' ? e : JSON.stringify(e))
+    console.error('[test_connection] 失败:', msg)
+    testResult.value = { success: false, message: msg }
   } finally { testing.value = false }
 }
 
 async function doSave(): Promise<void> {
   if (!selectedDriver.value) { message.warning(t('navigator.selectDbType')); return }
-  if (!scopeGlobal.value && !scopeProject.value) { message.warning(t('navigator.selectSaveLocation')); return }
+
+  // 使用 useAddDataSource 统一校验
+  const validation = validate()
+  if (!validation.valid) {
+    const firstError = Object.values(validation.errors)[0]
+    message.warning(firstError)
+    return
+  }
+
+  if (!scope.global && !scope.project) { message.warning(t('navigator.selectSaveLocation')); return }
 
   saving.value = true
   try {
     const url = buildUrl()
-    const name = formName.value || selectedDriver.value.name
+    const name = headerData.name || selectedDriver.value.name
     const d = selectedDriver.value
-    const fd = formData.value
-
-    stagingItems.value[stagingIndex.value] = {
-      name,
-      driver: d.name.toLowerCase(),
-      driverId: selectedDriverId.value ?? undefined,
-      formData: { ...formData.value },
-      networkConfigId: networkConfigId.value,
-      driverProperties: driverProperties.value,
-      advancedOptions: advancedOptions.value,
-    }
 
     const { invoke } = await import('@tauri-apps/api/core')
 
-    if (scopeProject.value && projectStore.hasProject) {
+    // 项目级连接：快照引用的全局认证/网络配置，防止全局修改影响已有项目
+    if (scope.project && projectStore.hasProject) {
+      const pp = projectStore.currentProject?.path
+      try {
+        if (authConfigId.value?.startsWith('G_') && !authConfigId.value.startsWith('GP_')) {
+          const r = await invoke<{ snapshot_id: string }>('snapshot_global_auth', { globalAuthId: authConfigId.value, projectPath: pp })
+          authConfigId.value = r.snapshot_id
+        }
+        if (networkConfigId.value?.startsWith('G_') && !networkConfigId.value.startsWith('GP_')) {
+          const r = await invoke<{ snapshot_id: string }>('snapshot_global_network', { globalNetId: networkConfigId.value, projectPath: pp })
+          networkConfigId.value = r.snapshot_id
+        }
+      } catch (snapErr) {
+        console.error('[snapshot] 认证/网络快照失败:', snapErr)
+      }
+    }
+
+    stagingItems.value[stagingIndex.value] = {
+      name,
+      driver: d.type_id,
+      driverId: headerData.selectedDriverId ?? undefined,
+      formData: { ...formData.value },
+      networkConfigId: networkConfigId.value,
+      driverProperties: driverPropertiesExtra.value,
+      advancedOptions: advancedOptions.value,
+      environmentId: selectedEnvId.value ?? null,
+    }
+
+    // 使用 useAddDataSource 统一构建提交载荷
+    const payload = buildSubmitPayload({
+      dbType: d.type_id,
+      url,
+      driverId: headerData.selectedDriverId,
+      projectId: scope.project ? projectStore.currentProject?.id : null,
+      authConfigId: authConfigId.value,
+      authMethod: authMethod.value,
+      networkConfigId: networkConfigId.value,
+    })
+
+    if (scope.project && projectStore.hasProject) {
+      const fd = formData.value
       await projectConnectionStore.createConnection({
         name,
-        driver: d.name.toLowerCase(),
+        driver: d.type_id,
         host: d.is_file ? String(fd.file_path || fd.database || '') : String(fd.host || ''),
         port: d.is_file ? 0 : Number(fd.port || d.default_port || 0),
         database: String(fd.database || ''),
@@ -358,46 +373,16 @@ async function doSave(): Promise<void> {
         password: String(fd.password || ''),
         use_duckdb_fed: false,
       })
-      await invoke('connect_database', {
-        input: {
-          db_type: d.name.toLowerCase(),
-          url,
-          name,
-          connection_type: 'project',
-          project_id: projectStore.currentProject?.id,
-          driver_id: selectedDriverId.value,
-          network_config_id: networkConfigId.value,
-          driver_properties: driverProperties.value,
-          advanced_options: advancedOptions.value,
-          auth_config_id: authConfigId.value,
-          auth_method: authMethod.value,
-          description: formDesc.value || null,
-        },
-      })
+      await invoke('connect_database', { input: payload })
     }
-    if (scopeGlobal.value) {
-      await invoke('connect_database', {
-        input: {
-          db_type: d.name.toLowerCase(),
-          url,
-          name,
-          connection_type: 'global',
-          driver_id: selectedDriverId.value,
-          network_config_id: networkConfigId.value,
-          driver_properties: driverProperties.value,
-          advanced_options: advancedOptions.value,
-          auth_config_id: authConfigId.value,
-          auth_method: authMethod.value,
-          description: formDesc.value || null,
-        },
-      })
+    if (scope.global) {
+      await invoke('connect_database', { input: payload })
     }
 
     message.success(t('navigator.connectionSavedTo', { name, locations: '' }))
     emit('save')
   } catch (e) {
     message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
-    console.error('Save failed:', e)
     throw e
   } finally { saving.value = false }
 }
@@ -418,8 +403,8 @@ async function handleApply() {
 
 function resetAndClose() {
   testResult.value = null
-  formName.value = ''
-  formDesc.value = ''
+  headerData.name = ''
+  headerData.description = ''
   formData.value = {}
   emit('update:modelValue', false)
 }
@@ -435,15 +420,16 @@ watch(() => props.modelValue, (open) => {
     activeTab.value = 'general'
     testResult.value = null
     networkConfigId.value = null
-    driverProperties.value = null
+    driverPropertiesExtra.value = null
     advancedOptions.value = null
     authConfigId.value = null
     authMethod.value = 'password'
+    selectedEnvId.value = null
     manualUri.value = ''
     uriEditing.value = false
     if (props.initialDriver) {
       selectedTypeId.value = props.initialDriver.type_id
-      selectedDriverId.value = props.initialDriver.id
+      headerData.selectedDriverId = props.initialDriver.id
     }
   }
 }, { immediate: true })
@@ -503,69 +489,6 @@ watch(uriEditing, (editing) => {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-}
-
-/* ===== Header: 3 rows ===== */
-.right-header {
-  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
-  border-bottom: 1px solid var(--color-border-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  flex-shrink: 0;
-}
-
-.rh-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.rh-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  width: 48px;
-  flex-shrink: 0;
-  text-align: right;
-}
-
-.rh-name-input { flex: 1; max-width: 280px; }
-.rh-desc-input { flex: 1; }
-
-.rh-driver-select { flex: 0 0 200px; }
-
-/* URI row */
-.uri-row { gap: var(--spacing-xs); }
-.uri-label {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-  padding: 0 2px;
-}
-
-.uri-display {
-  flex: 1;
-  height: 28px;
-  padding: 0 10px;
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--brand-success);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-sm);
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.uri-edit-input { flex: 1; min-width: 0; }
-.uri-edit-input :deep(.n-input__input) {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
 }
 
 /* ===== Tabs ===== */

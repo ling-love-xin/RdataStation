@@ -735,6 +735,92 @@ impl ProjectDatabaseManager {
         network_store::delete_network_config(conn, id)
     }
 
+    // ========== 快照方法（全局 → 项目） ==========
+
+    /// 从全局环境快照到项目，返回快照 ID
+    pub async fn snapshot_environment(
+        &self,
+        source: &env_store::Environment,
+        global_env_id: &str,
+    ) -> Result<String, CoreError> {
+        use crate::core::persistence::id_prefix;
+
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let snapshot_id = id_prefix::generate_gpid("env", &source.name);
+        let now = chrono::Utc::now().to_rfc3339();
+
+        let snapshot = env_store::Environment {
+            id: snapshot_id.clone(),
+            name: source.name.clone(),
+            description: source.description.clone(),
+            color: source.color.clone(),
+            sort_order: source.sort_order,
+            origin: Some("global_snapshot".to_string()),
+            source_id: Some(global_env_id.to_string()),
+            snapshot_at: Some(now.clone()),
+            created_at: now,
+        };
+        env_store::create_environment(conn, &snapshot)?;
+        Ok(snapshot_id)
+    }
+
+    /// 从全局认证配置快照到项目，返回快照 ID
+    pub async fn snapshot_auth_config(
+        &self,
+        source: &auth_store::AuthConfig,
+        global_auth_id: &str,
+    ) -> Result<String, CoreError> {
+        use crate::core::persistence::id_prefix;
+
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let snapshot_id = id_prefix::generate_gpid("auth", source.name.as_deref().unwrap_or("unnamed"));
+        let now = chrono::Utc::now().to_rfc3339();
+
+        let snapshot = auth_store::AuthConfig {
+            id: snapshot_id.clone(),
+            name: source.name.clone(),
+            auth_type: source.auth_type.clone(),
+            auth_data: source.auth_data.clone(),
+            origin: Some("global_snapshot".to_string()),
+            source_id: Some(global_auth_id.to_string()),
+            snapshot_at: Some(now.clone()),
+            created_at: source.created_at.clone(),
+            updated_at: now,
+        };
+        auth_store::create_auth_config(conn, &snapshot)?;
+        Ok(snapshot_id)
+    }
+
+    /// 从全局网络配置快照到项目，返回快照 ID
+    pub async fn snapshot_network_config(
+        &self,
+        source: &network_store::NetworkConfig,
+        global_net_id: &str,
+    ) -> Result<String, CoreError> {
+        use crate::core::persistence::id_prefix;
+
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let snapshot_id = id_prefix::generate_gpid("net", source.name.as_deref().unwrap_or("unnamed"));
+        let now = chrono::Utc::now().to_rfc3339();
+
+        let snapshot = network_store::NetworkConfig {
+            id: snapshot_id.clone(),
+            name: source.name.clone(),
+            network_type: source.network_type.clone(),
+            config: source.config.clone(),
+            origin: Some("global_snapshot".to_string()),
+            source_id: Some(global_net_id.to_string()),
+            snapshot_at: Some(now.clone()),
+            created_at: source.created_at.clone(),
+            updated_at: now,
+        };
+        network_store::create_network_config(conn, &snapshot)?;
+        Ok(snapshot_id)
+    }
+
     /// 关闭数据库连接
     pub async fn close(&self) -> Result<(), CoreError> {
         // 关闭 SQLite 连接池，释放所有文件句柄

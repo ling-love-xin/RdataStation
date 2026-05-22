@@ -1,5 +1,5 @@
 <template>
-  <div class="auth-manager-overlay" @click.self="$emit('close')">
+  <div class="auth-manager-overlay" @click.self="emit('close')">
     <div class="auth-manager-dialog">
       <!-- Header -->
       <div class="am-header">
@@ -7,7 +7,7 @@
           <Shield :size="16" />
           {{ t('navigator.authConfigManager') || '认证配置管理器' }}
         </h3>
-        <NButton text size="small" @click="$emit('close')">
+        <NButton text size="small" @click="emit('close')">
           <template #icon><X :size="16" /></template>
         </NButton>
       </div>
@@ -98,13 +98,16 @@
             </div>
           </div>
           <div class="am-form-row" style="margin-top:4px">
-            <NButton size="tiny" type="primary" @click="saveNewCfg">{{ editingId ? (t('navigator.update') || '更新') : (t('navigator.save')) }}</NButton>
+            <NButton size="tiny" type="primary" :loading="saving" @click="saveNewCfg">{{ editingId ? (t('navigator.update') || '更新') : (t('navigator.save')) }}</NButton>
             <NButton size="tiny" @click="cancelEdit">{{ t('navigator.cancel') }}</NButton>
           </div>
         </div>
 
         <!-- Config list -->
-        <div v-if="currentConfigs.length === 0 && !showAddForm" class="am-empty">
+        <div v-if="loading" class="am-empty">
+          {{ t('dataPreview.loading') || '加载中...' }}
+        </div>
+        <div v-else-if="currentConfigs.length === 0 && !showAddForm" class="am-empty">
           {{ t('navigator.noAuthConfigs') || '暂无认证配置，点击上方按钮新建' }}
         </div>
         <div
@@ -129,7 +132,7 @@
             <NButton text size="tiny" title="删除" type="error" @click="deleteCfg(cfg.id)">
               <template #icon><Trash2 :size="14" /></template>
             </NButton>
-            <NButton size="tiny" secondary title="应用到数据源" @click="$emit('select', cfg.id)">
+            <NButton size="tiny" secondary title="应用到数据源" @click="emit('select', cfg.id)">
               {{ t('navigator.apply') || '应用' }}
             </NButton>
           </div>
@@ -142,33 +145,30 @@
 <script setup lang="ts">
 import { Shield, X, Edit2, Trash2 } from 'lucide-vue-next'
 import { NButton, NInput, NSelect } from 'naive-ui'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
   select: [configId: string]
 }>()
 
 const { t } = useI18n()
 
-// Auth type definitions (matches prototype AUTH_TYPE_DEFS)
-interface AuthTypeDef {
-  category: 'database' | 'ssh'
-  icon: string
-  label: string
-  fields: string[]
+// ===== Backend AuthConfig shape (from auth_store.rs) =====
+interface BackendAuthConfig {
+  id: string
+  name: string | null
+  auth_type: string
+  auth_data: string // JSON: { username?, password?, certPath?, certKeyPath?, principal?, keytabPath?, keyPath?, passphrase?, tokenEndpoint?, clientId?, clientSecret? }
+  origin: string | null
+  source_id: string | null
+  snapshot_at: string | null
+  created_at: string
+  updated_at: string
 }
 
-const AUTH_TYPE_DEFS: Record<string, AuthTypeDef> = {
-  password:         { category: 'database', icon: '🔑', label: 'SCRAM-SHA-256 / mysql_native_password', fields: ['username', 'password'] },
-  pg_class:         { category: 'database', icon: '📜', label: 'SSL 客户端证书 (mTLS)', fields: ['certPath', 'certKeyPath'] },
-  kerberos:         { category: 'database', icon: '🎫', label: 'GSSAPI Kerberos', fields: ['principal', 'keytabPath'] },
-  oauth2:           { category: 'database', icon: '🔗', label: 'OAuth 2.0 Bearer Token', fields: ['tokenEndpoint', 'clientId', 'clientSecret'] },
-  ssh_password:     { category: 'ssh', icon: '🔑', label: 'SSH 密码认证', fields: ['username', 'password'] },
-  ssh_private_key:  { category: 'ssh', icon: '🔐', label: 'SSH 公钥认证 (RSA/ED25519/ECDSA)', fields: ['username', 'keyPath', 'passphrase'] },
-}
-
+// ===== Frontend display shape =====
 interface AuthConfig {
   id: string
   name: string
@@ -187,22 +187,69 @@ interface AuthConfig {
   createdAt: string
 }
 
-/** Shared demo configs - will be replaced by API */
-const allConfigs = ref<AuthConfig[]>([
-  { id: 'auth-001', name: '生产 MySQL 认证', authType: 'password', scope: 'global', username: 'prod_admin', password: 'enc_pwd1', createdAt: '2026-05-01' },
-  { id: 'auth-002', name: '开发 PG 认证', authType: 'password', scope: 'global', username: 'dev_user', password: 'enc_pwd2', createdAt: '2026-05-10' },
-  { id: 'auth-003', name: 'SA 账户', authType: 'password', scope: 'project', username: 'sa', password: 'enc_sa', createdAt: '2026-05-12' },
-  { id: 'auth-004', name: 'PG mTLS 证书认证', authType: 'pg_class', scope: 'global', certPath: '/certs/pg_client.crt', certKeyPath: '/certs/pg_client.key', createdAt: '2026-05-15' },
-  { id: 'auth-005', name: 'GSSAPI Kerberos', authType: 'kerberos', scope: 'global', principal: 'pgadmin@REALM.COM', keytabPath: '/etc/krb5.keytab', createdAt: '2026-05-16' },
-  { id: 'auth-007', name: '跳板机 SSH 密码', authType: 'ssh_password', scope: 'global', username: 'bastion_admin', password: 'ssh_enc', createdAt: '2026-05-18' },
-  { id: 'auth-008', name: '跳板机 RSA 密钥', authType: 'ssh_private_key', scope: 'global', username: 'deployer', keytabPath: '~/.ssh/id_rsa', createdAt: '2026-05-18' },
-  { id: 'auth-009', name: '开发机 ED25519', authType: 'ssh_private_key', scope: 'global', username: 'devops', keytabPath: '~/.ssh/id_ed25519', createdAt: '2026-05-19' },
-])
+// ===== Parse auth_data JSON → display fields =====
+function fromBackend(b: BackendAuthConfig): AuthConfig {
+  let data: Record<string, unknown> = {}
+  try { data = JSON.parse(b.auth_data || '{}') } catch { /* ignore */ }
+  return {
+    id: b.id,
+    name: b.name || '',
+    authType: b.auth_type,
+    scope: (b.origin === 'global' ? 'global' : 'project') as 'global' | 'project',
+    username: data.username as string | undefined,
+    password: data.password as string | undefined,
+    certPath: data.certPath as string | undefined,
+    certKeyPath: data.certKeyPath as string | undefined,
+    principal: data.principal as string | undefined,
+    keytabPath: data.keytabPath as string | undefined,
+    keyPath: data.keyPath as string | undefined,
+    passphrase: data.passphrase as string | undefined,
+    tokenEndpoint: data.tokenEndpoint as string | undefined,
+    clientId: data.clientId as string | undefined,
+    clientSecret: data.clientSecret as string | undefined,
+    createdAt: b.created_at,
+  }
+}
 
-// UI State
+// ===== Auth type definitions =====
+interface AuthTypeDef {
+  category: 'database' | 'ssh'
+  icon: string
+  label: string
+  fields: string[]
+}
+
+const AUTH_TYPE_DEFS: Record<string, AuthTypeDef> = {
+  password:         { category: 'database', icon: '🔑', label: 'SCRAM-SHA-256 / mysql_native_password', fields: ['username', 'password'] },
+  pg_class:         { category: 'database', icon: '📜', label: 'SSL 客户端证书 (mTLS)', fields: ['certPath', 'certKeyPath'] },
+  kerberos:         { category: 'database', icon: '🎫', label: 'GSSAPI Kerberos', fields: ['principal', 'keytabPath'] },
+  oauth2:           { category: 'database', icon: '🔗', label: 'OAuth 2.0 Bearer Token', fields: ['tokenEndpoint', 'clientId', 'clientSecret'] },
+  ssh_password:     { category: 'ssh', icon: '🔑', label: 'SSH 密码认证', fields: ['username', 'password'] },
+  ssh_private_key:  { category: 'ssh', icon: '🔐', label: 'SSH 公钥认证 (RSA/ED25519/ECDSA)', fields: ['username', 'keyPath', 'passphrase'] },
+}
+
+// ===== State loaded from backend =====
+const allConfigs = ref<AuthConfig[]>([])
+const loading = ref(false)
+
+async function loadAuthConfigs() {
+  loading.value = true
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const raw = await invoke<BackendAuthConfig[]>('list_auth_configs')
+    allConfigs.value = raw.map(fromBackend)
+  } catch {
+    // API 不可用时静默降级
+  } finally { loading.value = false }
+}
+
+onMounted(() => { loadAuthConfigs() })
+
+// ===== UI State =====
 const amTab = ref<'database' | 'ssh'>('database')
 const showAddForm = ref(false)
 const editingId = ref<string | null>(null)
+const saving = ref(false)
 const newCfg = ref({
   name: '',
   authType: 'password',
@@ -236,15 +283,13 @@ const sshAuthTypeOpts = [
   { label: '🔐 公钥认证 (RSA/ED25519/ECDSA)', value: 'ssh_private_key' },
 ]
 
-// Computed
+// ===== Computed =====
 const dbAuthConfigs = computed(() =>
   allConfigs.value.filter(c => AUTH_TYPE_DEFS[c.authType]?.category === 'database'),
 )
-
 const sshAuthConfigs = computed(() =>
   allConfigs.value.filter(c => AUTH_TYPE_DEFS[c.authType]?.category === 'ssh'),
 )
-
 const currentConfigs = computed(() =>
   amTab.value === 'database' ? dbAuthConfigs.value : sshAuthConfigs.value,
 )
@@ -258,9 +303,28 @@ function needsUsername(type: string): boolean {
   return !!def?.fields?.includes('username')
 }
 
-// Actions
+// ===== Form field name → auth_data key mapping =====
+const FIELD_KEY_MAP: Record<string, string> = {
+  certPath: 'certPath', certKeyPath: 'certKeyPath',
+  principal: 'principal', keytabPath: 'keytabPath',
+  tokenEndpoint: 'tokenEndpoint', clientId: 'clientId', clientSecret: 'clientSecret',
+  passphrase: 'passphrase',
+}
+
+function buildAuthData(): string {
+  const data: Record<string, string> = {}
+  if (newCfg.value.username) data.username = newCfg.value.username
+  if (newCfg.value.password) data.password = newCfg.value.password
+  // Map known field keys
+  for (const [formKey, dataKey] of Object.entries(FIELD_KEY_MAP)) {
+    const val = (newCfg.value as Record<string, string>)[formKey]
+    if (val) data[dataKey] = val
+  }
+  return JSON.stringify(data)
+}
+
+// ===== Actions =====
 function onNewCfgTypeChange() {
-  // Reset type-specific fields
   newCfg.value.username = ''
   newCfg.value.password = ''
   newCfg.value.certPath = ''
@@ -280,15 +344,10 @@ function openAddForm() {
     name: '',
     authType: amTab.value === 'database' ? 'password' : 'ssh_password',
     scope: 'global',
-    username: '',
-    password: '',
-    certPath: '',
-    certKeyPath: '',
-    principal: '',
-    keytabPath: '',
-    tokenEndpoint: '',
-    clientId: '',
-    clientSecret: '',
+    username: '', password: '',
+    certPath: '', certKeyPath: '',
+    principal: '', keytabPath: '',
+    tokenEndpoint: '', clientId: '', clientSecret: '',
     passphrase: '',
   }
 }
@@ -298,54 +357,32 @@ function cancelEdit() {
   editingId.value = null
 }
 
-function saveNewCfg() {
+async function saveNewCfg() {
   if (!newCfg.value.name.trim()) return
-
-  if (editingId.value) {
-    // Update existing
-    const idx = allConfigs.value.findIndex(c => c.id === editingId.value)
-    if (idx >= 0) {
-      allConfigs.value[idx] = {
-        ...allConfigs.value[idx],
+  saving.value = true
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const isEdit = !!editingId.value
+    const cmd = isEdit ? 'update_auth_config' : 'create_auth_config'
+    await invoke(cmd, {
+      ac: {
+        id: editingId.value || '',
         name: newCfg.value.name,
-        authType: newCfg.value.authType,
-        scope: newCfg.value.scope,
-        username: newCfg.value.username || undefined,
-        password: newCfg.value.password || undefined,
-        certPath: newCfg.value.certPath || undefined,
-        certKeyPath: newCfg.value.certKeyPath || undefined,
-        principal: newCfg.value.principal || undefined,
-        keytabPath: newCfg.value.keytabPath || undefined,
-        tokenEndpoint: newCfg.value.tokenEndpoint || undefined,
-        clientId: newCfg.value.clientId || undefined,
-        clientSecret: newCfg.value.clientSecret || undefined,
-        passphrase: newCfg.value.passphrase || undefined,
-      }
-    }
-  } else {
-    // Create new
-    const newId = `auth-${Date.now()}`
-    allConfigs.value.push({
-      id: newId,
-      name: newCfg.value.name,
-      authType: newCfg.value.authType,
-      scope: newCfg.value.scope,
-      username: newCfg.value.username || undefined,
-      password: newCfg.value.password || undefined,
-      certPath: newCfg.value.certPath || undefined,
-      certKeyPath: newCfg.value.certKeyPath || undefined,
-      principal: newCfg.value.principal || undefined,
-      keytabPath: newCfg.value.keytabPath || undefined,
-      tokenEndpoint: newCfg.value.tokenEndpoint || undefined,
-      clientId: newCfg.value.clientId || undefined,
-      clientSecret: newCfg.value.clientSecret || undefined,
-      passphrase: newCfg.value.passphrase || undefined,
-      createdAt: new Date().toISOString(),
+        auth_type: newCfg.value.authType,
+        auth_data: buildAuthData(),
+        origin: newCfg.value.scope,
+        source_id: null,
+        snapshot_at: null,
+        created_at: '',
+        updated_at: '',
+      },
     })
-  }
-
-  showAddForm.value = false
-  editingId.value = null
+    showAddForm.value = false
+    editingId.value = null
+    await loadAuthConfigs()
+  } catch (e) {
+    alert(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
+  } finally { saving.value = false }
 }
 
 function editCfg(cfg: AuthConfig) {
@@ -369,9 +406,14 @@ function editCfg(cfg: AuthConfig) {
   }
 }
 
-function deleteCfg(id: string) {
-  const idx = allConfigs.value.findIndex(c => c.id === id)
-  if (idx >= 0) allConfigs.value.splice(idx, 1)
+async function deleteCfg(id: string) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('delete_auth_config', { id })
+    await loadAuthConfigs()
+  } catch (e) {
+    alert(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
+  }
 }
 </script>
 

@@ -791,3 +791,103 @@ pub async fn test_network_config(
         }),
     }
 }
+
+// ========== 快照命令（全局 → 项目） ==========
+
+/// 快照结果
+#[derive(serde::Serialize, Debug)]
+pub struct SnapshotResult {
+    pub snapshot_id: String,
+    pub origin: String,
+    pub source_id: String,
+}
+
+/// 从全局环境快照到项目
+///
+/// 将全局环境 G_env_xxx 复制到项目表，生成 GP_env_xxx_namedate ID。
+/// 策略（environment_policies）同步复制到项目。
+#[tauri::command]
+pub async fn snapshot_global_env(
+    global_env_id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<SnapshotResult, CoreError> {
+    let global_db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+    let source = global_db
+        .get_environment(&global_env_id)
+        .await?
+        .ok_or_else(|| CoreError::from(format!("全局环境 {} 不存在", global_env_id)))?;
+
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    let snapshot_id = db_manager.snapshot_environment(&source, &global_env_id).await?;
+
+    // 复制策略
+    let policies = global_db.list_environment_policies(&global_env_id).await?;
+    for policy in policies {
+        db_manager
+            .create_project_environment_policy(
+                &snapshot_id,
+                &policy.policy_type,
+                policy.policy_config.as_deref(),
+            )
+            .await?;
+    }
+
+    Ok(SnapshotResult {
+        snapshot_id,
+        origin: "global_snapshot".to_string(),
+        source_id: global_env_id,
+    })
+}
+
+/// 从全局认证配置快照到项目
+#[tauri::command]
+pub async fn snapshot_global_auth(
+    global_auth_id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<SnapshotResult, CoreError> {
+    let global_db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+    let source = global_db
+        .get_auth_config(&global_auth_id)
+        .await?
+        .ok_or_else(|| CoreError::from(format!("全局认证配置 {} 不存在", global_auth_id)))?;
+
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    let snapshot_id = db_manager.snapshot_auth_config(&source, &global_auth_id).await?;
+
+    Ok(SnapshotResult {
+        snapshot_id,
+        origin: "global_snapshot".to_string(),
+        source_id: global_auth_id,
+    })
+}
+
+/// 从全局网络配置快照到项目
+#[tauri::command]
+pub async fn snapshot_global_network(
+    global_net_id: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<SnapshotResult, CoreError> {
+    let global_db = get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+
+    let source = global_db
+        .get_network_config(&global_net_id)
+        .await?
+        .ok_or_else(|| CoreError::from(format!("全局网络配置 {} 不存在", global_net_id)))?;
+
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    let snapshot_id = db_manager.snapshot_network_config(&source, &global_net_id).await?;
+
+    Ok(SnapshotResult {
+        snapshot_id,
+        origin: "global_snapshot".to_string(),
+        source_id: global_net_id,
+    })
+}

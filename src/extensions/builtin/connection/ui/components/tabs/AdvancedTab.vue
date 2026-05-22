@@ -3,104 +3,159 @@
     <div v-if="!driver" class="empty-hint">{{ $t('navigator.noDriver') }}</div>
 
     <template v-else>
-      <!-- Environment selector -->
+      <!-- Environment selector (extracted) -->
       <div class="adv-sec env-sec">
-        <div class="env-row">
-          <span class="sec-title">🏷 {{ $t('navigator.advancedEnv') }}</span>
-          <NSelect
-            v-model:value="envId"
-            :options="envSelectOpts"
-            size="small"
-            class="env-select"
-            @update:value="onEnvChange"
-          />
-          <NButton size="tiny" text @click="showEnvMgr = true">{{ $t('navigator.manage') }}</NButton>
-        </div>
+        <EnvironmentSelector
+          v-model="envId"
+          :options="envSelectOpts"
+          :label="$t('navigator.advancedEnv')"
+          :manage-label="$t('navigator.manage')"
+          @update:model-value="onEnvChange"
+          @manage="showEnvMgr = true"
+        />
         <div v-if="envPolicyTags.length" class="env-tags">
           <span v-for="tag in envPolicyTags" :key="tag.key" :class="['epi-tag', tag.kind]">{{ tag.label }}</span>
         </div>
-        <div v-if="!isPolicyOverridden" class="env-preset-indicator">
-          ← 🟢 {{ currentEnvDef.name }} 预设
-        </div>
+        <div v-if="!isPolicyOverridden" class="env-preset-indicator">← 🟢 {{ currentEnvDef.name }} 预设</div>
         <div v-if="isPolicyOverridden" class="env-override-hint">⚠ {{ $t('navigator.envOverrideHint', { name: currentEnvDef.name }) }}</div>
+        <div v-if="envSnapshotting" class="env-snapshot-hint">📸 正在快照全局环境...</div>
+        <div v-else-if="envSnapshotId" class="env-snapshot-hint">📸 已快照为 {{ envSnapshotId }}</div>
       </div>
 
-      <!-- DuckDB acceleration -->
+      <!-- DuckDB acceleration (extracted) -->
       <div class="adv-sec">
         <div class="sec-title" style="color:var(--brand-warning)">
           ⚡ {{ $t('connection.advancedTab.localAccel') }} <span class="sec-sub">DuckDB</span>
         </div>
-        <div :class="['accel-card', { on: duckdbEnabled }]">
-          <div class="accel-row">
-            <span class="accel-icon">🦆</span>
-            <div class="accel-body">
-              <span class="accel-name">{{ $t('connection.advancedTab.enableDuckdbAccel') }}</span>
-              <span class="accel-desc">{{ $t('connection.advancedTab.accelDesc', { dbType: driver?.name || 'DB' }) }}</span>
-            </div>
-            <NSwitch v-model:value="duckdbEnabled" size="small" />
-          </div>
-          <div v-if="duckdbEnabled" class="accel-expand">
-            <div class="accel-benefits">
-              <span class="benefit-tag">🚀 大表分析</span>
-              <span class="benefit-tag">🔗 跨库联邦</span>
-              <span class="benefit-tag">📊 重复报表</span>
-              <span class="benefit-tag">🗜 列式压缩</span>
-            </div>
-            <div class="accel-storage-info">
-              <span class="storage-icon">📁</span>
-              <span class="storage-path">存储路径: .rdata/duckdb/accel.duckdb</span>
-              <span class="storage-hint">联邦查询中间结果缓存目录</span>
-            </div>
-            <div class="adv-grid" style="margin-top:10px">
-              <div class="adv-cell">
-                <span class="adv-lbl">{{ $t('connection.advancedTab.syncStrategy') }}</span>
-                <NSelect v-model:value="duckdbSync" size="small" :options="syncOpts" />
-              </div>
-              <div class="adv-cell">
-                <span class="adv-lbl">{{ $t('connection.advancedTab.syncInterval') }}</span>
-                <NInputNumber v-model:value="duckdbInterval" size="small" :min="1" :max="1440" />
-              </div>
-              <div class="adv-cell">
-                <span class="adv-lbl">{{ $t('connection.advancedTab.memoryLimit') }}</span>
-                <NInputNumber v-model:value="duckdbMemory" size="small" :min="64" :max="8192" />
-              </div>
-              <div class="adv-cell">
-                <span class="adv-lbl">{{ $t('connection.advancedTab.threads') }}</span>
-                <NInputNumber v-model:value="duckdbThreads" size="small" :min="1" :max="16" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <DuckDBAccelSection
+          v-model:enabled="duckdbEnabled"
+          v-model:sync="duckdbSync"
+          v-model:interval="duckdbInterval"
+          v-model:memory="duckdbMemory"
+          v-model:threads="duckdbThreads"
+          :sync-options="syncOpts"
+          :title="$t('connection.advancedTab.enableDuckdbAccel')"
+          :description="$t('connection.advancedTab.accelDesc', { dbType: driver?.name || 'DB' })"
+          :sync-label="$t('connection.advancedTab.syncStrategy')"
+          :interval-label="$t('connection.advancedTab.syncInterval')"
+          :memory-label="$t('connection.advancedTab.memoryLimit')"
+          :threads-label="$t('connection.advancedTab.threads')"
+        />
       </div>
 
-      <!-- Security policies -->
+      <!-- Security policies (extracted) -->
+      <div class="adv-sec">
+        <SecurityPolicySection
+          v-model:readonly="polReadonly"
+          v-model:write-confirm="polWriteConfirm"
+          v-model:ddl-confirm="polDdlConfirm"
+          v-model:autocommit="polAutocommit"
+          v-model:drop-policy="polDrop"
+          v-model:row-limit="polRowLimit"
+          v-model:size-limit="polSizeLimit"
+          :title="$t('navigator.advancedSecurity')"
+          :summary="securitySummary"
+          :readonly-label="$t('navigator.advancedReadOnly')"
+          :write-confirm-label="$t('navigator.writeConfirm')"
+          :ddl-confirm-label="$t('navigator.advancedDdlConfirm') || 'DDL确认'"
+          :drop-op-label="$t('navigator.advancedDropOp') || 'DROP操作'"
+          :autocommit-label="$t('navigator.autoCommit') || '自动提交'"
+          :row-limit-label="$t('navigator.rowLimit')"
+          :size-limit-label="$t('navigator.sizeLimit')"
+          :drop-options="dropOpts"
+          @override="checkPolicyOverride"
+        />
+      </div>
+
+      <!-- Schema policies -->
       <div class="adv-sec">
         <NCollapse>
-          <NCollapseItem name="sec">
+          <NCollapseItem name="schema">
             <template #header>
-              <span class="sec-title" style="margin-bottom:0">🔐 {{ $t('navigator.advancedSecurity') }}</span>
-              <span class="collapse-summary">{{ $t('navigator.policySummary', { summary: securitySummary }) }}</span>
+              <span class="sec-title" style="margin-bottom:0">📋 {{ $t('navigator.advancedSchema') || 'Schema 策略' }}</span>
+              <span class="collapse-summary">{{ schemaSummary }}</span>
             </template>
             <div class="policy-grid">
               <div class="policy-row">
-                <span class="pol-item">{{ $t('navigator.advancedReadOnly') }} <NSwitch v-model:value="polReadonly" size="small" @update:value="checkPolicyOverride" /></span>
-                <span class="pol-item">{{ $t('navigator.writeConfirm') }} <NSwitch v-model:value="polWriteConfirm" size="small" @update:value="checkPolicyOverride" /></span>
-                <span class="pol-item">{{ $t('navigator.advancedDdlConfirm') || 'DDL确认' }} <NSwitch v-model:value="polDdlConfirm" size="small" @update:value="checkPolicyOverride" /></span>
+                <span class="pol-item">自动加载 <NSwitch v-model:value="schAutoLoad" size="small" /></span>
+                <span class="pol-item">加载深度 <NInputNumber v-model:value="schLoadDepth" size="small" :min="1" :max="10" style="width:80px" /></span>
+                <span class="pol-item">显示系统表 <NSwitch v-model:value="schShowSystem" size="small" /></span>
               </div>
               <div class="policy-row">
-                <span class="pol-item">{{ $t('navigator.advancedDropOp') || 'DROP操作' }}
-                  <NSelect v-model:value="polDrop" size="small" :options="dropOpts" style="width:80px" @update:value="checkPolicyOverride" />
-                </span>
-                <span class="pol-item">{{ $t('navigator.autoCommit') || '自动提交' }} <NSwitch v-model:value="polAutocommit" size="small" @update:value="checkPolicyOverride" /></span>
-                <span class="pol-item">{{ $t('navigator.rowLimit') }} <NInputNumber v-model:value="polRowLimit" size="small" :min="0" style="width:80px" @update:value="checkPolicyOverride" /></span>
-                <span class="pol-item">{{ $t('navigator.sizeLimit') }} <NInputNumber v-model:value="polSizeLimit" size="small" :min="0" :max="10240" style="width:80px" @update:value="checkPolicyOverride" /></span>
+                <span class="pol-item">刷新间隔(秒) <NInputNumber v-model:value="schRefreshInterval" size="small" :min="0" :max="3600" style="width:80px" /></span>
               </div>
             </div>
           </NCollapseItem>
         </NCollapse>
       </div>
 
-      <!-- Connection params -->
+      <!-- Performance policies -->
+      <div class="adv-sec">
+        <NCollapse>
+          <NCollapseItem name="perf">
+            <template #header>
+              <span class="sec-title" style="margin-bottom:0">⚡ {{ $t('navigator.performance') || '性能策略' }}</span>
+              <span class="collapse-summary">{{ perfSummary }}</span>
+            </template>
+            <div class="policy-grid">
+              <div class="policy-row">
+                <span class="pol-item">连接池大小 <NInputNumber v-model:value="perfPoolSize" size="small" :min="1" :max="100" style="width:80px" /></span>
+                <span class="pol-item">查询超时(秒) <NInputNumber v-model:value="advQueryTimeout" size="small" :min="0" :max="3600" style="width:80px" /></span>
+                <span class="pol-item">连接超时(秒) <NInputNumber v-model:value="advConnectTimeout" size="small" :min="1" :max="300" style="width:80px" /></span>
+              </div>
+              <div class="policy-row">
+                <span class="pol-item">心跳间隔(秒) <NInputNumber v-model:value="advHeartbeat" size="small" :min="10" :max="600" style="width:80px" /></span>
+                <span class="pol-item">最大重连 <NInputNumber v-model:value="advMaxReconnect" size="small" :min="0" :max="20" style="width:80px" /></span>
+              </div>
+            </div>
+          </NCollapseItem>
+        </NCollapse>
+      </div>
+
+      <!-- Audit policies -->
+      <div class="adv-sec">
+        <NCollapse>
+          <NCollapseItem name="audit">
+            <template #header>
+              <span class="sec-title" style="margin-bottom:0">📝 {{ $t('navigator.audit') || '审计策略' }}</span>
+              <span class="collapse-summary">{{ auditSummary }}</span>
+            </template>
+            <div class="policy-grid">
+              <div class="policy-row">
+                <span class="pol-item">SQL 日志 <NSwitch v-model:value="audSqlLog" size="small" /></span>
+                <span class="pol-item">操作记录 <NSwitch v-model:value="audOperationRecord" size="small" /></span>
+                <span class="pol-item">敏感表告警 <NSwitch v-model:value="audSensitiveTableAlert" size="small" /></span>
+              </div>
+            </div>
+          </NCollapseItem>
+        </NCollapse>
+      </div>
+
+      <!-- UI policies -->
+      <div class="adv-sec">
+        <NCollapse>
+          <NCollapseItem name="ui">
+            <template #header>
+              <span class="sec-title" style="margin-bottom:0">🎨 {{ $t('navigator.uiPolicy') || 'UI 策略' }}</span>
+              <span class="collapse-summary">{{ uiSummary }}</span>
+            </template>
+            <div class="policy-grid">
+              <div class="policy-row">
+                <span class="pol-item">顶栏颜色 <input v-model="uiTopBarColor" type="color" class="color-input-sm" /></span>
+                <span class="pol-item">标签指示符 <NInput v-model:value="uiTabIndicator" size="small" style="width:100px" placeholder="🔴" /></span>
+              </div>
+              <div class="policy-row">
+                <span class="pol-item">SQL 警告横幅 <NSwitch v-model:value="uiSqlWarningBanner" size="small" /></span>
+                <span class="pol-item">写入按钮样式
+                  <NSelect v-model:value="uiWriteBtnStyle" size="small" :options="writeBtnStyleOpts" style="width:120px" />
+                </span>
+              </div>
+            </div>
+          </NCollapseItem>
+        </NCollapse>
+      </div>
+
+      <!-- Connection params (basic) -->
       <div class="adv-sec">
         <div class="sec-title">{{ $t('navigator.connectionParams') }}</div>
         <div class="adv-grid">
@@ -137,86 +192,70 @@
         </div>
       </div>
 
-      <!-- Env Manager Modal -->
-      <NModal v-model:show="showEnvMgr" preset="card" :style="{ maxWidth: '560px' }" :title="$t('navigator.envManager') || '环境管理器'">
-        <div class="env-mgr-list">
-          <div v-if="envListLoading">{{ $t('dataPreview.loading') }}</div>
-          <div
-            v-for="env in loadedEnvs"
-            :key="env.id"
-            class="env-mgr-card"
-            :style="{ borderLeft: `3px solid ${env.color}` }"
-          >
-            <div class="env-mgr-color-dot" :style="{ background: env.color }" />
-            <div class="env-mgr-content">
-              <div class="env-mgr-header">
-                <span class="env-mgr-icon">{{ env.icon }}</span>
-                <span class="env-mgr-name">{{ env.name }}</span>
-                <span v-if="env.builtin" class="env-mgr-badge">{{ $t('navigator.builtinBadge') || '内置' }}</span>
-              </div>
-              <div class="env-mgr-desc">{{ env.desc }}</div>
-              <div v-if="env.ui" class="env-mgr-meta">
-                <span class="env-mgr-meta-lbl">UI:</span>
-                <span class="env-mgr-meta-dot" :style="{ background: env.ui.summaryUI }"></span>
-                <span class="env-mgr-meta-val">{{ env.ui.summaryUI }}</span>
-              </div>
-              <div class="env-policy-tags">
-                <span class="policy-tag security">{{ env.summarySecurity }}</span>
-                <span class="policy-tag schema">{{ env.summarySchema }}</span>
-                <span class="policy-tag performance">{{ env.summaryPerf }}</span>
-                <span class="policy-tag audit">{{ env.summaryAudit }}</span>
-              </div>
-            </div>
-            <div class="env-mgr-actions">
-              <NButton v-if="!env.builtin" size="tiny" type="error" text @click="handleDeleteEnv(env.id)">✕</NButton>
-            </div>
-          </div>
-        </div>
-        <!-- Create new environment form -->
-        <div class="env-mgr-create-section">
-          <NButton v-if="!showEnvCreateForm" size="small" dashed @click="showEnvCreateForm = true">+ {{ $t('navigator.createEnv') }}</NButton>
-          <div v-else class="env-create-form">
-            <div class="env-create-row">
-              <label class="env-create-lbl">{{ $t('navigator.envName') }}</label>
-              <NInput v-model:value="newEnvName" size="small" :placeholder="$t('navigator.envNamePlaceholder') || '输入环境名称'" />
-            </div>
-            <div class="env-create-row">
-              <label class="env-create-lbl">{{ $t('navigator.envIcon') }}</label>
-              <NInput v-model:value="newEnvIcon" size="small" placeholder="🟢" style="max-width:80px" />
-              <label class="env-create-lbl" style="margin-left:12px">{{ $t('navigator.envColor') }}</label>
-              <input v-model="newEnvColor" type="color" class="color-input" />
-            </div>
-            <div class="env-create-row">
-              <label class="env-create-lbl">{{ $t('navigator.envDesc') }}</label>
-              <NInput v-model:value="newEnvDesc" size="small" :placeholder="$t('navigator.envDescPlaceholder') || '输入环境描述'" />
-            </div>
-            <div class="env-create-row">
-              <label class="env-create-lbl">{{ $t('navigator.envTemplate') }}</label>
-              <NSelect v-model:value="newEnvTemplate" size="small" :options="envTemplateOpts" style="flex:1" />
-            </div>
-            <div class="env-create-actions">
-              <NButton size="tiny" type="primary" @click="handleCreateEnv">{{ $t('common.save') }}</NButton>
-              <NButton size="tiny" @click="showEnvCreateForm = false">{{ $t('common.cancel') }}</NButton>
-            </div>
-          </div>
-        </div>
-      </NModal>
+      <!-- Environment Manager Modal (extracted) -->
+      <EnvironmentManager
+        v-model="showEnvMgr"
+        :title="$t('navigator.envManager') || '环境管理器'"
+        :loading="envListLoading"
+        :loading-text="$t('dataPreview.loading')"
+        :environments="loadedEnvs"
+        :builtin-badge="$t('navigator.builtinBadge') || '内置'"
+        :show-create-form="showEnvCreateForm"
+        :editing="!!editingEnvId"
+        :create-label="$t('navigator.createEnv')"
+        :name-label="$t('navigator.envName')"
+        :name-placeholder="$t('navigator.envNamePlaceholder') || '输入环境名称'"
+        :icon-label="$t('navigator.envIcon')"
+        :color-label="$t('navigator.envColor')"
+        :desc-label="$t('navigator.envDesc')"
+        :desc-placeholder="$t('navigator.envDescPlaceholder') || '输入环境描述'"
+        :template-label="$t('navigator.envTemplate')"
+        :save-label="editingEnvId ? ($t('common.save') || '保存修改') : ($t('common.save') || '保存')"
+        :cancel-label="$t('common.cancel')"
+        :new-name="newEnvName"
+        :new-icon="newEnvIcon"
+        :new-color="newEnvColor"
+        :new-desc="newEnvDesc"
+        :new-template="newEnvTemplate"
+        :template-options="envTemplateOpts"
+        @update:model-value="v => showEnvMgr = v"
+        @update:new-name="v => newEnvName = v"
+        @update:new-icon="v => newEnvIcon = v"
+        @update:new-color="v => newEnvColor = v"
+        @update:new-desc="v => newEnvDesc = v"
+        @update:new-template="v => newEnvTemplate = v"
+        @toggle-create="toggleEnvForm"
+        @create="handleCreateEnv"
+        @edit="handleEditEnv"
+        @delete="handleDeleteEnv"
+      />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import {
-  NCollapse, NCollapseItem, NSelect, NSwitch, NInputNumber, NButton, NModal, NInput,
+  NCollapse, NCollapseItem, NSelect, NSwitch, NInputNumber, NInput,
 } from 'naive-ui'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import DuckDBAccelSection from './DuckDBAccelSection.vue'
+import EnvironmentManager from './EnvironmentManager.vue'
+import EnvironmentSelector from './EnvironmentSelector.vue'
+import SecurityPolicySection from './SecurityPolicySection.vue'
+
+import type { EnvInfo } from './EnvironmentManager.vue'
 import type { Driver } from '../../../domain/types'
 import type { SelectOption } from 'naive-ui'
 
 const { t } = useI18n()
-defineProps<{ driver?: Driver | null; formData?: Record<string, unknown> }>()
+const props = defineProps<{
+  driver?: Driver | null
+  formData?: Record<string, unknown>
+  /** 连接作用域 — 决定环境列表的过滤和快照行为 */
+  scope?: { global: boolean; project: boolean }
+}>()
 
 const emit = defineEmits<{
   'update:formData': [data: Record<string, unknown>]
@@ -225,6 +264,9 @@ const emit = defineEmits<{
 
 // ========== Environment ==========
 const envId = ref('env-dev')
+const selectedEnvId = ref<string | null>(null)
+const envSnapshotting = ref(false)
+const envSnapshotId = ref<string | null>(null)
 const showEnvMgr = ref(false)
 
 const envSelectOpts = computed<SelectOption[]>(() =>
@@ -299,7 +341,21 @@ const envPolicyTags = computed<EnvPolicyTag[]>(() => {
   return envMap[envId.value] || []
 })
 
-// ========== Security policy summary ==========
+// ========== Security policies ==========
+const polReadonly = ref(false)
+const polWriteConfirm = ref(false)
+const polDdlConfirm = ref(false)
+const polAutocommit = ref(true)
+const polDrop = ref('false')
+const polRowLimit = ref(0)
+const polSizeLimit = ref(0)
+const tempDefaultLocked = ref(false)
+const dropOpts = [
+  { label: t('navigator.advancedDropAllow') || '允许', value: 'false' },
+  { label: t('navigator.advancedDropConfirm') || '确认', value: 'true' },
+  { label: t('navigator.advancedDropDisable') || '禁用', value: 'disable' },
+]
+
 const securitySummary = computed(() => {
   const parts: string[] = []
   if (polReadonly.value) parts.push('只读')
@@ -326,11 +382,31 @@ const isPolicyOverridden = computed(() => {
   return false
 })
 
-function checkPolicyOverride() {
-  // isPolicyOverridden is computed, auto-updates
-}
+function checkPolicyOverride() { /* computed auto-updates */ }
 
 function onEnvChange(id: string) {
+  // 项目级连接引用全局环境 → 触发快照
+  if (props.scope?.project && id.startsWith('G_') && !id.startsWith('GP_')) {
+    envSnapshotting.value = true
+    import('@tauri-apps/api/core').then(async ({ invoke }) => {
+      try {
+        const { useProjectStore } = await import('@/core/project/stores/project')
+        const pp = useProjectStore().currentProject?.path
+        const r = await invoke<{ snapshot_id: string }>('snapshot_global_env', { globalEnvId: id, projectPath: pp })
+        const gpId = r.snapshot_id
+        envSnapshotId.value = gpId
+        selectedEnvId.value = gpId // 替换为快照 ID
+        applyEnvDefaults(id)
+        loadEnvironments() // 刷新列表显示新快照
+      } finally { envSnapshotting.value = false }
+    })
+    return
+  }
+  selectedEnvId.value = id
+  applyEnvDefaults(id)
+}
+
+function applyEnvDefaults(id: string) {
   const defaults: Record<string, Record<string, unknown>> = {
     'env-dev': { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 0, sl: 0, ct: 30, qt: 0, hb: 60, mr: 3 },
     'env-test': { ro: false, wc: false, ddl: true, drop: 'true', ac: true, rl: 10000, sl: 100, ct: 30, qt: 120, hb: 60, mr: 3 },
@@ -352,6 +428,18 @@ function onEnvChange(id: string) {
   advHeartbeat.value = d.hb as number
   advMaxReconnect.value = d.mr as number
   schemaStrategy.value = id === 'env-prod' ? 'manual' : 'auto'
+  // Reset schema/audit/ui to default for the environment
+  const isProd = id === 'env-prod'
+  schAutoLoad.value = !isProd
+  schShowSystem.value = !isProd
+  schLoadDepth.value = isProd ? 1 : 3
+  schRefreshInterval.value = isProd ? 60 : 0
+  audSqlLog.value = !(id === 'env-dev' || id === 'env-sandbox')
+  audOperationRecord.value = isProd || id === 'env-staging'
+  audSensitiveTableAlert.value = isProd
+  uiSqlWarningBanner.value = isProd || id === 'env-staging'
+  uiTopBarColor.value = currentEnvDef.value.color
+  uiWriteBtnStyle.value = isProd ? 'danger' : 'default'
   setTimeout(() => { tempDefaultLocked.value = false }, 0)
 }
 
@@ -367,20 +455,66 @@ const syncOpts = [
   { label: t('connection.advancedTab.syncManual'), value: 'manual' },
 ]
 
-// ========== Security policies ==========
-const polReadonly = ref(false)
-const polWriteConfirm = ref(false)
-const polDdlConfirm = ref(false)
-const polAutocommit = ref(true)
-const polDrop = ref('false')
-const polRowLimit = ref(0)
-const polSizeLimit = ref(0)
-const tempDefaultLocked = ref(false)
-const dropOpts = [
-  { label: t('navigator.advancedDropAllow') || '允许', value: 'false' },
-  { label: t('navigator.advancedDropConfirm') || '确认', value: 'true' },
-  { label: t('navigator.advancedDropDisable') || '禁用', value: 'disable' },
+// ========== Schema policies (NEW) ==========
+const schAutoLoad = ref(true)
+const schLoadDepth = ref(3)
+const schShowSystem = ref(false)
+const schRefreshInterval = ref(0)
+
+const schemaSummary = computed(() => {
+  const parts: string[] = []
+  if (schAutoLoad.value) parts.push('自动加载')
+  else parts.push('手动加载')
+  if (schShowSystem.value) parts.push('系统表')
+  if (schLoadDepth.value > 0) parts.push(`深度${schLoadDepth.value}`)
+  if (schRefreshInterval.value > 0) parts.push(`刷新${schRefreshInterval.value}s`)
+  return parts.join('·') || '默认'
+})
+
+// ========== Performance policies (NEW) ==========
+const perfPoolSize = ref(10)
+
+const perfSummary = computed(() => {
+  const parts: string[] = []
+  parts.push(`池${perfPoolSize.value}`)
+  if (advQueryTimeout.value > 0) parts.push(`查询${advQueryTimeout.value}s`)
+  parts.push(`超时${advConnectTimeout.value}s`)
+  parts.push(`重连${advMaxReconnect.value}`)
+  return parts.join('·')
+})
+
+// ========== Audit policies (NEW) ==========
+const audSqlLog = ref(false)
+const audOperationRecord = ref(false)
+const audSensitiveTableAlert = ref(false)
+
+const auditSummary = computed(() => {
+  const parts: string[] = []
+  if (audSqlLog.value) parts.push('SQL日志')
+  if (audOperationRecord.value) parts.push('操作记录')
+  if (audSensitiveTableAlert.value) parts.push('敏感告警')
+  return parts.join('·') || '无审计'
+})
+
+// ========== UI policies (NEW) ==========
+const uiTopBarColor = ref('#a6e3a1')
+const uiTabIndicator = ref('')
+const uiSqlWarningBanner = ref(false)
+const uiWriteBtnStyle = ref('default')
+const writeBtnStyleOpts = [
+  { label: '默认', value: 'default' },
+  { label: '警告', value: 'warning' },
+  { label: '危险', value: 'danger' },
+  { label: '虚线', value: 'dashed' },
 ]
+
+const uiSummary = computed(() => {
+  const parts: string[] = []
+  parts.push(uiTopBarColor.value)
+  if (uiSqlWarningBanner.value) parts.push('警告横幅')
+  if (uiWriteBtnStyle.value !== 'default') parts.push(`按钮:${uiWriteBtnStyle.value}`)
+  return parts.join('·') || '默认'
+})
 
 // ========== Connection params ==========
 const advConnectTimeout = ref(30)
@@ -401,19 +535,11 @@ const encOpts = [
   { label: 'Latin-1', value: 'Latin-1' },
 ]
 
-// ========== Load real environments from backend ==========
-interface EnvInfo {
-  id: string; name: string; color: string; icon: string; desc: string
-  builtin: boolean
-  summarySecurity: string; summarySchema: string; summaryPerf: string; summaryAudit: string
-  ui: { summaryUI: string }
-}
-
+// ========== Env Manager state ==========
 const loadedEnvs = ref<EnvInfo[]>([])
 const envListLoading = ref(false)
-
-// Env create form states
 const showEnvCreateForm = ref(false)
+const editingEnvId = ref<string | null>(null)
 const newEnvName = ref('')
 const newEnvIcon = ref('🟢')
 const newEnvColor = ref('#a6e3a1')
@@ -427,49 +553,98 @@ const envTemplateOpts = [
   { label: '🟣 沙箱环境 (隔离)', value: 'sandbox' },
 ]
 
+function resetEnvForm() {
+  newEnvName.value = ''
+  newEnvIcon.value = '🟢'
+  newEnvColor.value = '#a6e3a1'
+  newEnvDesc.value = ''
+  newEnvTemplate.value = 'dev'
+  editingEnvId.value = null
+}
+
+function toggleEnvForm() {
+  if (showEnvCreateForm.value) {
+    showEnvCreateForm.value = false
+    resetEnvForm()
+  } else {
+    resetEnvForm()
+    showEnvCreateForm.value = true
+  }
+}
+
+function handleEditEnv(env: EnvInfo) {
+  editingEnvId.value = env.id
+  newEnvName.value = env.name
+  newEnvIcon.value = env.icon
+  newEnvColor.value = env.color
+  newEnvDesc.value = env.desc
+  newEnvTemplate.value = 'dev'
+  showEnvCreateForm.value = true
+}
+
 async function handleCreateEnv() {
   const name = newEnvName.value.trim()
   if (!name) return
+  const isEdit = !!editingEnvId.value
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('create_environment', {
-      env: {
-        name,
-        icon: newEnvIcon.value || '🟢',
-        color: newEnvColor.value || '#a6e3a1',
-        description: newEnvDesc.value,
-        templateId: `env-${newEnvTemplate.value}`,
-      },
-    })
-    newEnvName.value = ''
-    newEnvIcon.value = '🟢'
-    newEnvColor.value = '#a6e3a1'
-    newEnvDesc.value = ''
-    newEnvTemplate.value = 'dev'
+    if (isEdit) {
+      await invoke('update_environment', {
+        env: {
+          id: editingEnvId.value,
+          name,
+          description: newEnvDesc.value,
+          color: newEnvColor.value || '#a6e3a1',
+          sort_order: 0,
+          origin: 'project',
+          source_id: null,
+        },
+      })
+    } else {
+      await invoke('create_environment', {
+        env: {
+          name,
+          icon: newEnvIcon.value || '🟢',
+          color: newEnvColor.value || '#a6e3a1',
+          description: newEnvDesc.value,
+          templateId: `env-${newEnvTemplate.value}`,
+        },
+      })
+    }
+    resetEnvForm()
     showEnvCreateForm.value = false
     await loadEnvironments()
   } catch {
-    const id = `env-custom-${Date.now()}`
-    const template = envDefs.find(e => e.id === `env-${newEnvTemplate.value}`)
-    const policy = template?.policy ? { ...template.policy } : { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 0, sl: 0 }
-    loadedEnvs.value.push({
-      id,
-      name,
-      color: newEnvColor.value || '#a6e3a1',
-      icon: newEnvIcon.value || '🟢',
-      desc: newEnvDesc.value,
-      builtin: false,
-      summarySecurity: '自定义',
-      summarySchema: '自动',
-      summaryPerf: '默认',
-      summaryAudit: '自定义',
-      ui: { summaryUI: newEnvColor.value || '#a6e3a1' },
-    })
-    newEnvName.value = ''
-    newEnvIcon.value = '🟢'
-    newEnvColor.value = '#a6e3a1'
-    newEnvDesc.value = ''
-    newEnvTemplate.value = 'dev'
+    if (isEdit) {
+      // Update locally on error as fallback
+      const idx = loadedEnvs.value.findIndex(e => e.id === editingEnvId.value)
+      if (idx >= 0) {
+        loadedEnvs.value[idx] = {
+          ...loadedEnvs.value[idx],
+          name,
+          color: newEnvColor.value || '#a6e3a1',
+          icon: newEnvIcon.value || '🟢',
+          desc: newEnvDesc.value,
+          ui: { summaryUI: newEnvColor.value || '#a6e3a1' },
+        }
+      }
+    } else {
+      const id = `env-custom-${Date.now()}`
+      const template = envDefs.find(e => e.id === `env-${newEnvTemplate.value}`)
+      loadedEnvs.value.push({
+        id, name,
+        color: newEnvColor.value || '#a6e3a1',
+        icon: newEnvIcon.value || '🟢',
+        desc: newEnvDesc.value,
+        builtin: false,
+        summarySecurity: '自定义',
+        summarySchema: '自动',
+        summaryPerf: '默认',
+        summaryAudit: '自定义',
+        ui: { summaryUI: newEnvColor.value || '#a6e3a1' },
+      })
+    }
+    resetEnvForm()
     showEnvCreateForm.value = false
   }
 }
@@ -488,23 +663,32 @@ async function loadEnvironments() {
   envListLoading.value = true
   try {
     const { invoke } = await import('@tauri-apps/api/core')
+    const scopeType = props.scope?.global ? 'global' : 'project'
+    // 按 scope 过滤：global 只看 G_，project 合并 G_ + P_ + GP_
     const remote = await invoke<Array<{ id: string; name: string; description: string; properties?: Record<string, unknown> }>>('list_environments')
     if (remote && remote.length > 0) {
       const colors = ['#a6e3a1', '#f9e2af', '#89b4fa', '#f38ba8', '#cba6f7']
       const icons = ['🟢', '🟡', '🔵', '🔴', '🟣']
-      loadedEnvs.value = remote.map((e, i) => ({
-        id: e.id,
-        name: e.name,
-        color: colors[i % colors.length],
-        icon: icons[i % icons.length],
-        desc: e.description || '',
-        builtin: false,
-        summarySecurity: (e.properties?.security as string) || '默认',
-        summarySchema: (e.properties?.schema as string) || '自动',
-        summaryPerf: (e.properties?.performance as string) || '默认',
-        summaryAudit: (e.properties?.audit as string) || '默认',
-        ui: { summaryUI: (e.properties?.uiColor as string) || colors[i % colors.length] },
-      }))
+      loadedEnvs.value = remote
+        .filter(e => {
+          // global scope → only G_ (not GP_)
+          if (scopeType === 'global') return e.id.startsWith('G_') && !e.id.startsWith('GP_')
+          // project scope → P_ or GP_ (快照), plus G_ (可引用但会触发快照)
+          return e.id.startsWith('P_') || e.id.startsWith('GP_') || e.id.startsWith('G_')
+        })
+        .map((e, i) => ({
+          id: e.id,
+          name: e.name,
+          color: colors[i % colors.length],
+          icon: icons[i % icons.length],
+          desc: e.description || '',
+          builtin: false,
+          summarySecurity: (e.properties?.security as string) || '默认',
+          summarySchema: (e.properties?.schema as string) || '自动',
+          summaryPerf: (e.properties?.performance as string) || '默认',
+          summaryAudit: (e.properties?.audit as string) || '默认',
+          ui: { summaryUI: (e.properties?.uiColor as string) || colors[i % colors.length] },
+        }))
     }
   } catch {
     loadedEnvs.value = envDefs as EnvInfo[]
@@ -517,11 +701,15 @@ onMounted(() => { loadEnvironments() })
 watch(
   [duckdbEnabled, duckdbSync, duckdbInterval, duckdbMemory, duckdbThreads,
    polReadonly, polWriteConfirm, polDdlConfirm, polAutocommit, polDrop, polRowLimit, polSizeLimit,
+   schAutoLoad, schLoadDepth, schShowSystem, schRefreshInterval,
+   perfPoolSize,
+   audSqlLog, audOperationRecord, audSensitiveTableAlert,
+   uiTopBarColor, uiTabIndicator, uiSqlWarningBanner, uiWriteBtnStyle,
    advConnectTimeout, advQueryTimeout, advHeartbeat, advMaxReconnect,
-   schemaStrategy, encoding, envId],
+   schemaStrategy, encoding, envId, selectedEnvId, envSnapshotId],
   () => {
     const opts = {
-      envId: envId.value,
+      envId: envSnapshotId.value || selectedEnvId.value || envId.value,
       duckdb: {
         enabled: duckdbEnabled.value,
         sync: duckdbSync.value,
@@ -537,6 +725,30 @@ watch(
         dropPolicy: polDrop.value,
         rowLimit: polRowLimit.value,
         sizeLimit: polSizeLimit.value,
+      },
+      schema: {
+        autoLoad: schAutoLoad.value,
+        loadDepth: schLoadDepth.value,
+        showSystem: schShowSystem.value,
+        refreshInterval: schRefreshInterval.value,
+      },
+      performance: {
+        poolSize: perfPoolSize.value,
+        queryTimeout: advQueryTimeout.value,
+        connectTimeout: advConnectTimeout.value,
+        heartbeat: advHeartbeat.value,
+        maxReconnect: advMaxReconnect.value,
+      },
+      audit: {
+        sqlLog: audSqlLog.value,
+        operationRecord: audOperationRecord.value,
+        sensitiveTableAlert: audSensitiveTableAlert.value,
+      },
+      ui: {
+        topBarColor: uiTopBarColor.value,
+        tabIndicator: uiTabIndicator.value,
+        sqlWarningBanner: uiSqlWarningBanner.value,
+        writeBtnStyle: uiWriteBtnStyle.value,
       },
       connection: {
         connectTimeout: advConnectTimeout.value,
@@ -562,96 +774,29 @@ watch(
 .sec-sub { font-size: 9px; font-weight: 400; color: var(--color-text-muted); }
 
 .env-sec { border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 12px; margin-bottom: 4px; }
-.env-row { display: flex; align-items: center; gap: 10px; }
 
-/* ===== Environment NSelect ===== */
-.env-select { min-width: 180px; }
-.env-label-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-.env-label-name { vertical-align: middle; }
-
-/* ===== Environment Tags ===== */
 .env-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .epi-tag { font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--border-radius-sm); font-weight: 500; background: rgba(137,180,250,0.1); color: var(--color-text-secondary); }
 .epi-tag.locked { background: rgba(243,139,168,0.12); color: var(--status-locked); }
 .epi-tag.danger { background: rgba(243,139,168,0.15); color: var(--status-locked); font-weight: 700; }
 .epi-tag.audit { background: rgba(249,226,175,0.12); color: var(--brand-warning); }
 
-/* ===== Preset / Override Indicators ===== */
 .env-preset-indicator { font-size: 11px; font-weight: 500; color: var(--brand-success); padding: 4px 10px; margin-top: 2px; background: rgba(0,184,148,0.08); border: 1px solid rgba(0,184,148,0.2); border-radius: 6px; }
 .env-override-hint { font-size: 11px; font-weight: 500; color: var(--brand-warning); padding: 4px 10px; margin-top: 2px; background: rgba(249,226,175,0.08); border: 1px solid rgba(249,226,175,0.2); border-radius: 6px; }
+.env-snapshot-hint { font-size: 11px; font-weight: 500; color: #cba6f7; padding: 4px 10px; margin-top: 2px; background: rgba(245,194,231,0.08); border: 1px solid rgba(245,194,231,0.2); border-radius: 6px; font-style: italic; }
 
-/* ===== DuckDB Acceleration ===== */
-.accel-card { padding: 12px; background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-lg); transition: border-color 0.2s; }
-.accel-card.on { border-color: rgba(166,227,161,0.3); box-shadow: 0 0 0 1px rgba(166,227,161,0.15); }
-.accel-row { display: flex; align-items: flex-start; gap: 12px; }
-.accel-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
-.accel-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.accel-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
-.accel-desc { font-size: 11px; color: var(--color-text-muted); }
-.accel-expand { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--color-border-subtle); }
-.accel-benefits { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.benefit-tag { font-size: 11px; padding: 3px 8px; border-radius: var(--border-radius-sm); font-weight: 500; background: rgba(166,227,161,0.1); color: var(--brand-success); }
-
-.accel-storage-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 8px 10px; margin-bottom: 4px; background: rgba(166,227,161,0.05); border: 1px solid rgba(166,227,161,0.12); border-radius: var(--border-radius-sm); }
-.storage-icon { font-size: 12px; flex-shrink: 0; }
-.storage-path { font-size: 11px; font-family: var(--font-mono); color: var(--color-text-secondary); }
-.storage-hint { font-size: 10px; color: var(--color-text-muted); }
-
-/* ===== Layout Grid / Cells ===== */
-.adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.adv-cell { display: flex; flex-direction: column; gap: 3px; }
-.adv-lbl { font-size: 11px; color: var(--color-text-secondary); }
-.adv-inline { display: flex; gap: 12px; align-items: flex-end; }
-
-/* ===== Security Policies ===== */
+.collapse-summary { font-size: var(--font-size-xs); color: var(--color-text-muted); opacity: 0.7; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: var(--spacing-sm); }
 .policy-grid { border: 1px solid var(--color-border-subtle); border-radius: 6px; padding: 10px; background: var(--color-bg-elevated); }
 .policy-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
 .policy-row:last-child { margin-bottom: 0; }
 .pol-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
 
-/* ===== Collapse Summary ===== */
-.collapse-summary { font-size: var(--font-size-xs); color: var(--color-text-muted); opacity: 0.7; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: var(--spacing-sm); }
+.adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adv-cell { display: flex; flex-direction: column; gap: 3px; }
+.adv-lbl { font-size: 11px; color: var(--color-text-secondary); }
+.adv-inline { display: flex; gap: 12px; align-items: flex-end; }
 
-/* ===== Env Manager Modal ===== */
-.env-mgr-list { display: flex; flex-direction: column; gap: 8px; }
-.env-mgr-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--border-radius-lg); background: var(--color-bg-elevated); }
-.env-mgr-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.env-mgr-content { flex: 1; min-width: 0; }
-.env-mgr-header { display: flex; align-items: center; gap: 6px; }
-.env-mgr-icon { font-size: 14px; }
-.env-mgr-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
-.env-mgr-badge { font-size: var(--font-size-xs); padding: 1px 6px; border-radius: var(--border-radius-sm); background: rgba(137,180,250,0.1); color: var(--brand-accent); font-weight: 500; }
-.env-mgr-desc { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
-
-.env-mgr-meta { display: flex; align-items: center; gap: 4px; margin-top: 2px; font-size: var(--font-size-xxs); color: var(--color-text-muted); }
-.env-mgr-meta-lbl { font-weight: 600; }
-.env-mgr-meta-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.env-mgr-meta-val { font-family: var(--font-mono); }
-
-.env-policy-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.policy-tag { font-size: var(--font-size-xs); padding: 2px 8px; border-radius: var(--border-radius-sm); font-weight: 500; }
-.policy-tag.security { background: rgba(243,139,168,0.12); color: var(--status-locked); }
-.policy-tag.schema { background: rgba(137,180,250,0.1); color: var(--brand-accent); }
-.policy-tag.performance { background: rgba(166,227,161,0.1); color: var(--brand-success); }
-.policy-tag.audit { background: rgba(249,226,175,0.12); color: var(--brand-warning); }
-
-/* ===== Env Manager Actions ===== */
-.env-mgr-actions { flex-shrink: 0; display: flex; align-items: center; }
-
-/* ===== Env Manager Create Section ===== */
-.env-mgr-create-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-border-subtle); }
-.env-create-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--color-bg-elevated); border-radius: var(--border-radius-lg); border: 1px solid var(--color-border-subtle); }
-.env-create-row { display: flex; align-items: center; gap: 8px; }
-.env-create-lbl { font-size: var(--font-size-sm); color: var(--color-text-secondary); font-weight: 500; min-width: 56px; flex-shrink: 0; }
-.env-create-actions { display: flex; gap: 8px; margin-top: 4px; }
-
-/* ===== Color Picker (native input[type=color]) ===== */
-.color-input {
-  width: 32px; height: 32px; padding: 0;
-  border: 1px solid var(--color-border); border-radius: var(--border-radius-sm);
-  background: transparent; cursor: pointer; box-sizing: border-box; flex-shrink: 0;
-}
-.color-input::-webkit-color-swatch-wrapper { padding: 2px; }
-.color-input::-webkit-color-swatch { border: none; border-radius: 2px; }
-.color-input:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
+.color-input-sm { width: 28px; height: 28px; padding: 0; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); background: transparent; cursor: pointer; box-sizing: border-box; flex-shrink: 0; }
+.color-input-sm::-webkit-color-swatch-wrapper { padding: 1px; }
+.color-input-sm::-webkit-color-swatch { border: none; border-radius: 2px; }
 </style>

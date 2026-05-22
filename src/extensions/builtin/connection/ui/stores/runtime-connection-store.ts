@@ -70,9 +70,7 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
       if (!dbType) {
         throw new Error('数据库类型未定义')
       }
-      console.log(
-        `建立运行时连接: id=${projectConn.id}, name=${projectConn.name}, db_type=${dbType}, url=${url}`
-      )
+      // Debug: runtime connection establishment
 
       // 确定连接类型和项目 ID
       const connectionType = projectConn.connection_type || 'global'
@@ -87,7 +85,7 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
         projectId
       )
 
-      console.log(`运行时连接建立成功: runtimeConnId=${result.conn_id}`)
+      // Debug: runtime connection established
       // 保存映射关系 - 创建新 Map 触发响应式更新
       const newMap = new Map(runtimeConnectionIds.value)
       newMap.set(projectConn.id, result.conn_id)
@@ -97,7 +95,6 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
       return result.conn_id
     } catch (e) {
       error.value = e instanceof Error ? e.message : '建立连接失败'
-      console.error('建立运行时连接失败:', e)
       return null
     } finally {
       loading.value = false
@@ -121,8 +118,8 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
       if (currentRuntimeConnId.value === runtimeConnId) {
         currentRuntimeConnId.value = null
       }
-    } catch (e) {
-      console.error('关闭运行时连接失败:', e)
+    } catch {
+      /* ignore close error */
     }
   }
 
@@ -148,8 +145,8 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
     for (const [, runtimeConnId] of runtimeConnectionIds.value) {
       try {
         await connectionService.closeConnection(runtimeConnId)
-      } catch (e) {
-        console.error('关闭连接失败:', e)
+      } catch {
+        /* ignore close error */
       }
     }
     // 创建新 Map 触发响应式更新
@@ -189,7 +186,7 @@ export const useRuntimeConnectionStore = defineStore('runtimeConnection', () => 
       }
       return null
     } catch (e) {
-      console.error('建立运行时连接失败:', e)
+      error.value = e instanceof Error ? e.message : '建立连接失败'
       return null
     } finally {
       loading.value = false

@@ -20,6 +20,16 @@ export interface ConnectDatabaseInput {
   db_type: string
   url: string
   name?: string
+  connection_type?: string
+  project_id?: string
+  description?: string | null
+  driver_id?: string | null
+  environment_id?: string | null
+  auth_config_id?: string | null
+  auth_method?: string
+  network_config_id?: string | null
+  driver_properties?: string | null
+  advanced_options?: string | null
 }
 
 /** 连接响应 */
@@ -28,6 +38,7 @@ export interface ConnectDatabaseResponse {
   name: string
   db_type: string
   url: string
+  status: string
   meta: DataSourceMeta
 }
 

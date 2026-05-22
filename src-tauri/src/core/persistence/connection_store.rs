@@ -661,6 +661,7 @@ pub fn save_recent_connection(
     driver_id: Option<&str>,
     environment_id: Option<&str>,
     auth_config_id: Option<&str>,
+    _auth_method: Option<&str>,
     network_config_id: Option<&str>,
     driver_properties: Option<&str>,
     advanced_options: Option<&str>,
