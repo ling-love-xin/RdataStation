@@ -1,8 +1,8 @@
 # 网络配置 UI 设计文档
 
-> 版本：v2.7
+> 版本：v3.4
 > 更新：2026-05-22
-> 状态：✅ 全部实施完成；v2.7 全链路打通：快照参数修复 + store 参数名修正 + 死代码盘点
+> 状态：✅ 全部实施完成；v3.4 终局：侧边栏→工作台全链路 + 驱动管理 UI + 35命令 91.4% 接线
 > 后端进度：✅ SSH隧道 + SSL证书 + service/cmd层 + ChainHop + process_chain + TunnelGuard 已完成；环境CRUD命令已实现
 > 原型参考：[add-datasource-v5.html](file:///e:/myapps/tauirapps/RdataStation/rdata-station/prototype/add-datasource-v5.html)
 
@@ -581,6 +581,23 @@ export const useNetworkConfigStore = defineStore('networkConfig', () => {
 | **E2** | **snapshot_global_* 三命令缺 project_path 参数** — AdvancedTab / useAddDataSource 三处调用只传 globalEnvId | 🔴 | ✅ 已修复 — 补全 projectPath 参数 |
 | **E3** | **snapshot_global_* 返回类型不匹配** — 前端 `invoke<string>()` 但后端返回 `SnapshotResult { snapshot_id, ... }` | 🔴 | ✅ 已修复 — `invoke<{ snapshot_id: string }>()` + `.snapshot_id` |
 | **E4** | **doSave 缺认证/网络快照** — 仅环境有快照，认证和网络引用 G_ 时无 GP_ 隔离 | 🔴 | ✅ 已修复 — doSave 前检测 authConfigId/networkConfigId 前缀触发快照 |
+| **E5** | **AuthConfigManager.deleteCfg() 未二分** — scope=project 时仍调全局 delete_auth_config | 🟡 | ✅ v2.8 — project_delete_auth_config({ id, projectPath }) |
+| **E6** | **AdvancedTab.handleCreateEnv() 未二分** — scope=project 时仍调全局 create/update_environment | 🟡 | ✅ v2.8 — project_create/update_environment 扁平参数适配 |
+| **E7** | **AdvancedTab.handleDeleteEnv() 未二分** — scope=project 时仍调全局 delete_environment | 🟡 | ✅ v2.8 — project_delete_environment({ id, projectPath }) |
+| **E8** | **AdvancedTab.loadEnvironments() 未二分** — scope=project 时仍调全局 list_environments | 🟡 | ✅ v2.8 — project_list_environments({ projectPath }) |
+| **E9** | **环境策略未持久化** — AdvancedTab 五类策略仅本地状态，切换环境即丢失 | 🟡 | ✅ v2.9 — loadPoliciesForEnv() + debounceSavePolicy(800ms) → `list/create/update_environment_policy` |
+| **E10** | **侧边栏缺重测按钮** — 已保存连接无法从侧边栏快速验证连通性 | 🟡 | ✅ v3.0 — DataSourceSidebar 每行添加刷新按钮 → `test_connection({ dbType, url })` |
+| **E11** | **侧边栏连接点击无响应** — 已保存连接无法通过点击打开数据库 | 🔴 | ✅ v3.2 — `openSavedConnection()` → `connect_database` → `switch_connection` → dispatch `NewQuery` |
+| **E12** | **ProjectConnection 类型重复** — domain/types.ts 与 types/connection.ts 两套定义 | 🟡 | ✅ v3.2 — 删除 domain 重复，统一到 types/connection.ts |
+| **E13** | **project_update_auth_config 缺失** — 后端无项目级认证更新命令 | 🟡 | ✅ v3.2 — project_db.rs + command + lib.rs 注册 |
+| **E14** | **AuthConfigManager delete+create workaround** — 编辑用删除重建代替更新 | 🟡 | ✅ v3.2 — saveNewCfg() 直接调用 project_update_auth_config |
+| **E15** | **delete_environment_policy 未接线** — 删环境时策略成为孤儿数据 | 🟢 | ✅ v3.2 — handleDeleteEnv() 级联删除关联策略 |
+| **E16** | **project_* 环境策略族不通** — scope=project 时策略加载/保存未切换 | 🟢 | ✅ v3.3 — loadPoliciesForEnv + savePolicyForEnv 二分 scope |
+| **E17** | ***_store_* 双轨冗余** — save/get/delete_project_store_connection 与 project_* 并存 | 📋 | ✅ v3.3 — project-connection.ts + connection.ts + store 全量单轨化 |
+| **E18** | **连接操作命令未接线** — convert_connection_type / detect_global_connections_in_project | 🟢 | ✅ v3.3 — connection.ts 新增 connectionService 服务层封装 |
+| **E19** | **侧边栏→工作台链路断裂** — NewQuery detail 载荷被 handleWorkbenchNewQuery 忽略 | 🔴 | ✅ v3.4 — WorkbenchView 读 detail.connectionId → EditorManager.openNewQuery |
+| **E20** | **驱动管理 API 未接线** — get_driver_detail / install_driver / list_driver_files | 🟢 | ✅ v3.4 — useDriverRegistry 新增三大 API + DataSourceSidebar 驱动管理区域 |
+| **E21** | **驱动管理无 UI** — 无法查看驱动状态或安装外部驱动 | 🟢 | ✅ v3.4 — 侧边栏底部 driversWithStatus + 安装按钮 |
 
 ## 十、参考
 

@@ -151,10 +151,40 @@ export async function executeSql(connId: string, sql: string): Promise<any> {
 
 /**
  * 获取项目级连接
- * 后端命令: get_project_store_connections
+ * 后端命令: get_project_connections
  */
-export async function getProjectConnections(_projectPath: string): Promise<any[]> {
-  return invoke<any[]>('get_project_store_connections')
+export async function getProjectConnections(projectPath: string): Promise<any[]> {
+  return invoke<any[]>('get_project_connections', { projectPath })
+}
+
+/**
+ * 检测项目中的全局连接（发现全局连接是否与项目中的配置冲突或重叠）
+ * 后端命令: detect_global_connections_in_project
+ */
+export async function detectGlobalConnectionsInProject(projectId: string): Promise<any[]> {
+  return invoke<any[]>('detect_global_connections_in_project', { projectId })
+}
+
+/**
+ * 转换连接类型（全局 ↔ 项目）
+ * 后端命令: convert_connection_type
+ */
+export async function convertConnectionType(
+  connectionId: string,
+  fromType: 'global' | 'project',
+  toType: 'global' | 'project',
+  projectPath?: string,
+  globalConnectionId?: string
+): Promise<{ success: boolean; message: string }> {
+  return invoke('convert_connection_type', {
+    input: {
+      fromType,
+      toType,
+      connectionId,
+      projectPath: projectPath ?? null,
+      globalConnectionId: globalConnectionId ?? null,
+    },
+  })
 }
 
 /**

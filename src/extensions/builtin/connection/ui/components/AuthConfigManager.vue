@@ -153,6 +153,10 @@ const emit = defineEmits<{
   select: [configId: string]
 }>()
 
+const props = defineProps<{
+  scope?: { global: boolean; project: boolean }
+}>()
+
 const { t } = useI18n()
 
 // ===== Backend AuthConfig shape (from auth_store.rs) =====
@@ -236,8 +240,16 @@ async function loadAuthConfigs() {
   loading.value = true
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    const raw = await invoke<BackendAuthConfig[]>('list_auth_configs')
-    allConfigs.value = raw.map(fromBackend)
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) { allConfigs.value = []; return }
+      const raw = await invoke<BackendAuthConfig[]>('project_list_auth_configs', { projectPath: pp })
+      allConfigs.value = raw.map(fromBackend)
+    } else {
+      const raw = await invoke<BackendAuthConfig[]>('list_auth_configs')
+      allConfigs.value = raw.map(fromBackend)
+    }
   } catch {
     // API 不可用时静默降级
   } finally { loading.value = false }
@@ -363,20 +375,44 @@ async function saveNewCfg() {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     const isEdit = !!editingId.value
-    const cmd = isEdit ? 'update_auth_config' : 'create_auth_config'
-    await invoke(cmd, {
-      ac: {
-        id: editingId.value || '',
-        name: newCfg.value.name,
-        auth_type: newCfg.value.authType,
-        auth_data: buildAuthData(),
-        origin: newCfg.value.scope,
-        source_id: null,
-        snapshot_at: null,
-        created_at: '',
-        updated_at: '',
-      },
-    })
+
+    // scope=project → 使用 project_* 命令族，参数形状不同
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) { alert('⚠️ 未打开项目'); return }
+      if (isEdit) {
+        await invoke('project_update_auth_config', {
+          id: editingId.value,
+          name: newCfg.value.name,
+          authType: newCfg.value.authType,
+          authData: buildAuthData(),
+          projectPath: pp,
+        })
+      } else {
+        await invoke('project_create_auth_config', {
+          name: newCfg.value.name,
+          authType: newCfg.value.authType,
+          authData: buildAuthData(),
+          projectPath: pp,
+        })
+      }
+    } else {
+      const cmd = isEdit ? 'update_auth_config' : 'create_auth_config'
+      await invoke(cmd, {
+        ac: {
+          id: editingId.value || '',
+          name: newCfg.value.name,
+          auth_type: newCfg.value.authType,
+          auth_data: buildAuthData(),
+          origin: newCfg.value.scope,
+          source_id: null,
+          snapshot_at: null,
+          created_at: '',
+          updated_at: '',
+        },
+      })
+    }
     showAddForm.value = false
     editingId.value = null
     await loadAuthConfigs()
@@ -409,7 +445,14 @@ function editCfg(cfg: AuthConfig) {
 async function deleteCfg(id: string) {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('delete_auth_config', { id })
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) { alert('⚠️ 未打开项目'); return }
+      await invoke('project_delete_auth_config', { id, projectPath: pp })
+    } else {
+      await invoke('delete_auth_config', { id })
+    }
     await loadAuthConfigs()
   } catch (e) {
     alert(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)

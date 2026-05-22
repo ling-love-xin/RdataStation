@@ -197,6 +197,7 @@
     <!-- Auth Config Manager overlay -->
     <AuthConfigManager
       v-if="showAuthManager"
+      :scope="props.scope"
       @close="onAuthManagerClose"
       @select="onAuthConfigExternalSelect"
     />
@@ -263,6 +264,7 @@ function parseAuthConfig(raw: BackendAuthConfig): AuthConfig {
 interface Props {
   driver: Driver | null
   formData: Record<string, unknown>
+  scope?: { global: boolean; project: boolean }
 }
 
 const props = withDefaults(defineProps<Props>(), {

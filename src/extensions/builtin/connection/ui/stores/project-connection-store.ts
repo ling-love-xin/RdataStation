@@ -158,6 +158,7 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
 
     try {
       await projectConnectionService.deleteProjectConnection(
+        projectStore.currentProject.path,
         connectionId
       )
 

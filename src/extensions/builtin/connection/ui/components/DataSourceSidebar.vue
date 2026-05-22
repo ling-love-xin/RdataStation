@@ -70,19 +70,60 @@
           v-for="conn in connections"
           :key="conn.id"
           class="ds-conn-item"
+          @click="openSavedConnection(conn)"
         >
           <div class="ds-conn-indicator" :class="'status-' + (conn.status || 'disconnected')" />
           <div class="ds-conn-body">
             <span class="ds-conn-name">{{ conn.name }}</span>
             <span class="ds-conn-meta">{{ conn.driver }}</span>
           </div>
+          <NButton
+            size="tiny"
+            text
+            :loading="testingId === conn.id"
+            title="测试连接"
+            @click.stop="testSavedConnection(conn)"
+          >
+            <template #icon><RefreshCw :size="12" /></template>
+          </NButton>
         </div>
       </div>
     </div>
+
+    <!-- 驱动管理区域 -->
+    <div v-if="driversWithStatus.length > 0" class="ds-section">
+      <div class="ds-section-header">
+        <span class="ds-section-title">驱动管理</span>
+      </div>
+      <div class="ds-driver-mgmt-list">
+        <div
+          v-for="d in driversWithStatus"
+          :key="d.driver.id"
+          class="ds-driver-mgmt-item"
+        >
+          <div class="ds-driver-mgmt-info">
+            <span class="ds-driver-mgmt-name">{{ d.driver.name }}</span>
+            <span class="ds-driver-mgmt-status" :class="'dms-' + d.status">
+              {{ d.status === 'ready' ? '✓ 就绪' : d.status === 'not_installed' ? '⚠ 未安装' : '✗ 未启用' }}
+            </span>
+          </div>
+          <NButton
+            v-if="d.status === 'not_installed'"
+            size="tiny"
+            secondary
+            type="warning"
+            @click="handleInstallDriver(d.driver.id)"
+          >
+            安装
+          </NButton>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { Plus, Search, Database, Server, Globe, HardDrive, Cloud, Radio } from 'lucide-vue-next'
+import { Plus, Search, Database, Server, Globe, HardDrive, Cloud, Radio, RefreshCw } from 'lucide-vue-next'
 import { NButton } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -102,12 +143,40 @@ import type { ProjectConnection } from '../../types/connection'
 const { t } = useI18n()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
-const { drivers, dataSourceTypes, loadAll } = useDriverRegistry()
+const { drivers, dataSourceTypes, loadAll, installDriver, getDriverDetail } = useDriverRegistry()
+
+const driverDetailCache = ref<Map<string, string>>(new Map()) // driver_id → availability
+const installingDriverId = ref<string | null>(null)
+
+/** 带有安装状态的驱动列表 */
+const driversWithStatus = computed(() => {
+  // 只显示有驱动（非 necessarily native，可能是外部 JAR 等需安装的）
+  // 但实际上对于 native 驱动也会显示（扭计为小）
+  return drivers.value.map(d => ({
+    driver: d,
+    status: driverDetailCache.value.get(d.id) || (d.driver_kind === 'native' ? 'ready' : 'not_installed'),
+  }))
+})
+
+/** 安装驱动 */
+async function handleInstallDriver(driverId: string) {
+  installingDriverId.value = driverId
+  try {
+    await installDriver(driverId)
+    driverDetailCache.value.set(driverId, 'ready')
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`[sidebar:driver] 安装 ${driverId} 失败:`, e)
+  } finally {
+    installingDriverId.value = null
+  }
+}
 
 // State
 const searchQuery = ref('')
 const selectedTypeId = ref<string | null>(null)
 const selectedDriver = ref<Driver | null>(null)
+const testingId = ref<string | null>(null)
 
 // Computed
 /** 只显示已连接的数据库（排除 disconnected/connecting/error 状态） */
@@ -181,6 +250,78 @@ function selectDriver(driver: Driver) {
 
 function openAddDialog(driver?: Driver) {
   dispatchWorkbenchEvent(WorkbenchEvent.NewConnection, { driver: driver || null })
+}
+
+/** 从侧边栏打开已有连接 → 切换活动连接并打开查询编辑器 */
+async function openSavedConnection(conn: ProjectConnection) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const url = projectConnectionStore.getConnectionUrl(conn)
+    const driverName = conn.driver || 'mysql'
+
+    // 1. 建立（或复用）运行时连接
+    const r = await invoke<{ conn_id: string; name: string; db_type: string; url: string }>(
+      'connect_database',
+      {
+        input: {
+          db_type: driverName,
+          url,
+          name: conn.name,
+          connection_type: conn.connection_type || 'project',
+          project_id: projectStore.currentProject?.id || null,
+        },
+      }
+    )
+
+    // 2. 切换为活动连接
+    await invoke('switch_connection', { connId: r.conn_id })
+
+    // 3. 派发事件打开查询编辑器
+    dispatchWorkbenchEvent(WorkbenchEvent.NewQuery, {
+      connectionId: r.conn_id,
+      databaseName: conn.database || '',
+      sql: '',
+    })
+
+    // 4. 刷新侧边栏连接列表（更新状态）
+    await projectConnectionStore.loadConnections()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // eslint-disable-next-line no-console
+    console.error(`[sidebar:open] ${conn.name}:`, msg)
+  }
+}
+
+/** 从侧边栏测试已保存连接 */
+async function testSavedConnection(conn: ProjectConnection) {
+  testingId.value = conn.id
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const url = projectConnectionStore.getConnectionUrl(conn)
+    const driverName = conn.driver || 'mysql'
+    const r = await invoke<{ success: boolean; message?: string; response_time_ms?: number }>(
+      'test_connection',
+      { dbType: driverName, url }
+    )
+    const msg = r.success
+      ? `✓ 连接成功 (${r.response_time_ms ?? '?'}ms)`
+      : `✗ ${r.message || '连接失败'}`
+    // 更新本地连接状态
+    await projectConnectionStore.updateConnectionStatus(
+      conn.id,
+      r.success ? 'connected' : 'error',
+      r.success ? undefined : (r.message || '连接失败')
+    )
+    // eslint-disable-next-line no-console
+    console.log(`[sidebar:test] ${conn.name}: ${msg}`)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // eslint-disable-next-line no-console
+    console.error(`[sidebar:test] ${conn.name} 失败:`, msg)
+    await projectConnectionStore.updateConnectionStatus(conn.id, 'error', msg)
+  } finally {
+    testingId.value = null
+  }
 }
 
 // Init
@@ -412,5 +553,51 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--color-text-muted, #6c7086);
   text-align: center;
+}
+
+/* ── 驱动管理 ── */
+.ds-driver-mgmt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ds-driver-mgmt-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--color-bg-secondary, #2b2d30);
+}
+
+.ds-driver-mgmt-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ds-driver-mgmt-name {
+  font-size: 12px;
+  color: var(--color-text-primary, #e5e7eb);
+  white-space: nowrap;
+}
+
+.ds-driver-mgmt-status {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ds-driver-mgmt-status.dms-ready {
+  color: var(--color-success, #22c55e);
+}
+
+.ds-driver-mgmt-status.dms-not_installed {
+  color: var(--color-warning, #f59e0b);
+}
+
+.ds-driver-mgmt-status.dms-not_enabled {
+  color: var(--color-text-muted, #6c7086);
 }
 </style>

@@ -341,6 +341,7 @@
     <!-- ========== Profile Manager (NetworkConfigManager) ========== -->
     <NetworkConfigManager
       :visible="showProfileMgr"
+      :scope="props.scope"
       :default-tab="profileMgrTab"
       :ssh-profiles="rawSshProfiles"
       :ssl-profiles="rawSslProfiles"
@@ -372,13 +373,13 @@ import type { NetworkProfile } from '../../composables/useNetworkProfiles'
 import type { TopoHop } from '../network/TopologyPreview.vue'
 
 
-const props = defineProps<{ driver?: Driver | null }>()
+const props = defineProps<{ driver?: Driver | null; scope?: { global: boolean; project: boolean } }>()
 
 const emit = defineEmits<{
   'extra-config': [config: Record<string, unknown>]
 }>()
 
-const { sshProfiles, sslProfiles, proxyProfiles, loadAll } = useNetworkProfiles()
+const { sshProfiles, sslProfiles, proxyProfiles, loadAll, loadAllProject, saveProjectProfile, removeProjectProfile, getProjectPath } = useNetworkProfiles()
 const { t } = useI18n()
 
 // ==================== Chain Model ====================
@@ -695,7 +696,19 @@ function buildNetworkCfg(profile: Record<string, unknown>, networkType: string, 
   return invoke('create_network_config', { nc: { ...base, id: '' } }).then(() => loadAll()).catch(() => {})
 }
 
-function handleCreateSshProfile(profile: Record<string, unknown>) {
+async function handleCreateSshProfile(profile: Record<string, unknown>) {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await saveProjectProfile(profile, 'ssh', {
+      host: profile.host, port: profile.port, username: profile.username,
+      authMethod: profile.authMethod, password: profile.password,
+      keyPath: profile.keyPath, passphrase: profile.passphrase,
+      keepalive: profile.keepalive, localPort: profile.localPort,
+      remoteHost: profile.remoteHost, remotePort: profile.remotePort,
+    }, pp)
+    await loadAllProject(pp)
+    return
+  }
   buildNetworkCfg(profile, 'ssh', {
     host: profile.host, port: profile.port, username: profile.username,
     authMethod: profile.authMethod, password: profile.password,
@@ -705,14 +718,32 @@ function handleCreateSshProfile(profile: Record<string, unknown>) {
   })
 }
 
-function handleCreateSslProfile(profile: Record<string, unknown>) {
+async function handleCreateSslProfile(profile: Record<string, unknown>) {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await saveProjectProfile(profile, 'ssl', {
+      mode: profile.mode, ca: profile.ca, clientCert: profile.clientCert,
+      clientKey: profile.clientKey, hostnameOverride: profile.hostnameOverride,
+    }, pp)
+    await loadAllProject(pp)
+    return
+  }
   buildNetworkCfg(profile, 'ssl', {
     mode: profile.mode, ca: profile.ca, clientCert: profile.clientCert,
     clientKey: profile.clientKey, hostnameOverride: profile.hostnameOverride,
   })
 }
 
-function handleCreateProxyProfile(profile: Record<string, unknown>) {
+async function handleCreateProxyProfile(profile: Record<string, unknown>) {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await saveProjectProfile(profile, 'proxy', {
+      type: profile.type, host: profile.host, port: profile.port,
+      username: profile.username, password: profile.password,
+    }, pp)
+    await loadAllProject(pp)
+    return
+  }
   buildNetworkCfg(profile, 'proxy', {
     type: profile.type, host: profile.host, port: profile.port,
     username: profile.username, password: profile.password,
@@ -720,24 +751,50 @@ function handleCreateProxyProfile(profile: Record<string, unknown>) {
 }
 
 async function handleDeleteSshProfile(id: string) {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await removeProjectProfile(id, pp)
+    const pp2 = await getProjectPath()
+    if (pp2) await loadAllProject(pp2)
+    return
+  }
   await invoke('delete_network_config', { id }).catch(() => {})
   await loadAll()
 }
 
 async function handleDeleteSslProfile(id: string) {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await removeProjectProfile(id, pp)
+    const pp2 = await getProjectPath()
+    if (pp2) await loadAllProject(pp2)
+    return
+  }
   await invoke('delete_network_config', { id }).catch(() => {})
   await loadAll()
 }
 
 async function handleDeleteProxyProfile(id: string) {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await removeProjectProfile(id, pp)
+    const pp2 = await getProjectPath()
+    if (pp2) await loadAllProject(pp2)
+    return
+  }
   await invoke('delete_network_config', { id }).catch(() => {})
   await loadAll()
 }
 
 // ==================== Lifecycle & Watch ====================
 
-onMounted(() => {
-  loadAll()
+onMounted(async () => {
+  if (props.scope?.project) {
+    const pp = await getProjectPath()
+    if (pp) await loadAllProject(pp)
+  } else {
+    loadAll()
+  }
   loadSavedAuthConfigs()
   // Ensure forms exist for initial hops
   chain.value.forEach(h => ensureForm(h.id))

@@ -1,6 +1,6 @@
 # 新增数据源 — 前端完整开发计划
 
-> 版本：v2.0 (2026-05-22 全链路打通：快照机制补全 + 死代码分析 + 双轨命名单轨化建议)
+> 版本：v2.7 (2026-05-22 终局：侧边栏→工作台全链路打通 + 驱动管理面板 + 全 35 命令 91.4% 接线)
 > 日期：2026-05-22
 > 更新：同步实际代码（Stores+Composable 已实现、组件提取完成）、标记遗留问题
 > 对应原型：[add-datasource-v5.html](../../../prototype/add-datasource-v5.html)
@@ -1050,6 +1050,184 @@ Phase 5: 快照 + 链校验 ✅ 已完成
 | **H3** | `snapshot_global_env` 三处调用缺少 `project_path` 参数 + 返回类型 `string`≠`SnapshotResult` | 🔴 | ✅ 已修复 — AdvancedTab/useAddDataSource 三处修正 |
 | **H4** | `doSave()` project-connection.store `driver` 字段残留 `d.name.toLowerCase()` | 🟡 | ✅ 已修复 → `d.type_id` |
 
+### 11.1.1 v2.0 → v2.1 双轨制 project_* 命令族全接线
+
+> **目标**：将 §11.2.2 中标记为 🟡 P2 的 `project_*` 命令族全部接入 scope 感知链路。
+
+| # | 组件 | 修改项 | 全局命令(旧) | 项目命令(新) | 状态 |
+|---|------|--------|-------------|-------------|------|
+| **E5** | `AuthConfigManager` | `deleteCfg()` | `delete_auth_config({ id })` | `project_delete_auth_config({ id, projectPath })` | ✅ |
+| **E6a** | `AdvancedTab` | `handleCreateEnv()` create | `create_environment({ env: {...} })` | `project_create_environment({ name, description, color, sortOrder, projectPath })` | ✅ |
+| **E6b** | `AdvancedTab` | `handleCreateEnv()` update | `update_environment({ env: {...} })` | `project_update_environment({ id, name, description, color, sortOrder, projectPath })` | ✅ |
+| **E7** | `AdvancedTab` | `handleDeleteEnv()` | `delete_environment({ id })` | `project_delete_environment({ id, projectPath })` | ✅ |
+| **E8** | `AdvancedTab` | `loadEnvironments()` | `list_environments()` | `project_list_environments({ projectPath })` | ✅ |
+
+**参数形状差异**：项目级命令使用扁平参数（如 `name, authType, projectPath`），全局版使用单对象参数（如 `{ env: {...} }`），前端已按后端签名逐函数适配。
+
+### 11.1.2 v2.1 → v2.2 环境策略持久化
+
+> **目标**：将 §11.2.7 中标记为 🟡 P2 的环境策略 CRUD 命令 (`list_environment_policies`, `create_environment_policy`, `update_environment_policy`) 接线到 AdvancedTab，实现策略变更自动持久化。
+
+| 类别 | 策略字段 | 持久化机制 | 状态 |
+|------|---------|-----------|------|
+| **security** | `polReadonly, polWriteConfirm, polDdlConfirm, polAutocommit, polDrop, polRowLimit, polSizeLimit` | watch → debounce(800ms) → `savePolicyForEnv()` | ✅ |
+| **schema** | `schAutoLoad, schLoadDepth, schShowSystem, schRefreshInterval` | watch → debounce(800ms) → `savePolicyForEnv()` | ✅ |
+| **performance** | `perfPoolSize, advQueryTimeout, advConnectTimeout, advHeartbeat, advMaxReconnect` | watch → debounce(800ms) → `savePolicyForEnv()` | ✅ |
+| **audit** | `audSqlLog, audOperationRecord, audSensitiveTableAlert` | watch → debounce(800ms) → `savePolicyForEnv()` | ✅ |
+| **ui** | `uiTopBarColor, uiTabIndicator, uiSqlWarningBanner, uiWriteBtnStyle` | watch → debounce(800ms) → `savePolicyForEnv()` | ✅ |
+
+**流程**：
+1. `onEnvChange(id)` → `applyEnvDefaults(id)` 加载硬编码默认
+2. `loadPoliciesForEnv(id)` → `list_environment_policies` 加载持久策略 overlay
+3. 用户修改任意策略 → watch 触发 `debounceSavePolicy()` → 800ms 后 `savePolicyForEnv()` 
+4. `savePolicyForEnv()` → 查 `list_environment_policies` 判断 create/update → perserve 到 global.db
+
+### 11.1.3 v2.2 → v2.3 侧边栏重测连接
+
+> **目标**：将 §11.2.7 中标记为 🟡 P2 的 `test_connection` 接线到侧边栏，用户无需打开对话框即可重测已保存的连接。
+
+| # | 组件 | 修改项 | 触发方式 | 状态 |
+|---|------|--------|---------|------|
+| **E9** | `DataSourceSidebar` | 每条连接右侧新增刷新按钮 | 点击 → `testSavedConnection(conn)` | ✅ |
+| — | `DataSourceSidebar` | `testSavedConnection()` | `invoke('test_connection', { dbType, url })` → 更新 `ProjectConnection` 状态 | ✅ |
+
+**流程**：
+1. 点击侧边栏连接右侧 🔄 图标
+2. `getConnectionUrl(conn)` 构建 JDBC URL
+3. `test_connection({ dbType, url })` 发送到后端
+4. 成功 → 状态更新为 `connected`；失败 → 状态更新为 `error`
+5. 测试期间按钮显示 loading spinner
+
+**覆盖场景**：
+- 侧边栏显示所有已连接状态的连接（`status === 'connected'`）
+- 测试结果自动更新侧边栏状态指示器（绿点/红点）
+- 无需打开 AddDataSourceDialog 即可验证保存的配置有效性
+
+### 11.1.4 v2.4 → v2.5 审计 P0/P1/P2 全修复
+
+> **目标**：修复 v2.4 综合审计中发现的全部高优先级问题。
+
+| # | 优先级 | 问题 | 文件 | 修复内容 | 状态 |
+|---|--------|------|------|---------|------|
+| **F1** | 🔴 P0 | 侧边栏连接点击无响应 | `DataSourceSidebar.vue` | 连接项添加 `@click="openSavedConnection(conn)"` → `connect_database` → `switch_connection` → dispatch `NewQuery` | ✅ |
+| **F2** | 🟡 P1 | `ProjectConnection` 类型重复 | `domain/types.ts` | 删除重复定义（`db_type`版），保留 `types/connection.ts` 统一入口 + 迁移注释 | ✅ |
+| **F3** | 🟡 P1 | `project_update_auth_config` 缺失 | `project_db.rs` + `data_source_commands.rs` + `lib.rs` | 新增 `update_project_auth_config()` 方法 + Tauri 命令 + invoke_handler 注册 | ✅ |
+| **F4** | 🟡 P1 | AuthConfigManager delete+create workaround | `AuthConfigManager.vue` | `saveNewCfg()` 编辑分支改为直接调用 `project_update_auth_config` | ✅ |
+| **F5** | 🟢 P2 | `delete_environment_policy` 未接线 | `AdvancedTab.vue` | `handleDeleteEnv()` 先 `list_environment_policies` → 逐个删除策略 → 再删环境（含 project 分叉） | ✅ |
+
+**F1 详细流程**：
+```
+侧边栏连接点击 → openSavedConnection(conn)
+  → projectConnectionStore.getConnectionUrl(conn)
+  → invoke('connect_database', { input: { db_type, url, name, ... } })
+  → invoke('switch_connection', { connId: r.conn_id })
+  → dispatchWorkbenchEvent(WorkbenchEvent.NewQuery, { connectionId, databaseName, sql })
+  → projectConnectionStore.loadConnections()
+```
+
+**F3 后端新增**：
+- [project_db.rs](file:///E:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/project_db.rs#L668) — `update_project_auth_config(id, name, auth_type, auth_data)`
+- [data_source_commands.rs](file:///E:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/data_source_commands.rs#L564) — `project_update_auth_config` Tauri command
+- [lib.rs](file:///E:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/lib.rs#L182) — invoke_handler 注册
+
+**F5 环境删除级联**：
+```
+delete env id=xxx
+  → list_environment_policies(environmentId=xxx)
+  → for each policy: delete_environment_policy(id=policy.id)
+  → delete_environment(id=xxx)
+```
+
+### 11.1.5 v2.5 → v2.6 剩余 P3 + 重构全部收敛
+
+> **目标**：处理 v2.5 审计中的所有剩余项（project_* 策略族 / *_store_* 重构 / 连接操作）
+
+| # | 优先级 | 类别 | 文件 | 修复内容 | 状态 |
+|---|--------|------|------|---------|------|
+| **F6** | 🟢 P3 | project_* 策略族 | `AdvancedTab.vue` | `loadPoliciesForEnv()` + `savePolicyForEnv()` 二分 scope → `project_list/create/update_environment_policy` | ✅ |
+| **F7** | 📋 重构 | *_store_* 单轨化 | `project-connection.ts` | 全量替换：`save_project_store_connection` → `create_project_connection` / `update_project_connection`；`get_project_store_connections` → `get_project_connections`；`delete_project_store_connection` → `delete_project_connection`；`update_project_connection_status` 新增接线；新增 `mapResponse()` 统一响应转换 | ✅ |
+| **F8** | 📋 重构 | *_store_* 单轨化 | `connection.ts` | `getProjectConnections()` 替换为 `get_project_connections` | ✅ |
+| **F9** | 📋 重构 | *_store_* 单轨化 | `project-connection-store.ts` | `deleteProjectConnection` 新增 `projectPath` 参数适配 | ✅ |
+| **F10** | 🟢 P3 | 连接操作 | `connection.ts` | 新增 `detectGlobalConnectionsInProject(projectId)` — 全局连接冲突检测；新增 `convertConnectionType(...)` — 全局↔项目连接迁移 | ✅ |
+
+**F6 项目级策略持久化**：
+```
+AdvancedTab scope=project
+  → loadPoliciesForEnv → project_list_environment_policies({ environmentId, projectPath })
+  → savePolicyForEnv    → project_list → project_update / project_create
+  → handleDeleteEnv     → project_delete_environment_policy (级联)
+```
+
+**F7-F9 *_store_* 单轨化链路**：
+```
+旧: save_project_store_connection({ connection: StoredConnection })
+新: create_project_connection({ input: CreateProjectConnectionInput })
+    update_project_connection({ projectPath, connection: ProjectConnectionResponse })
+
+旧: get_project_store_connections()
+新: get_project_connections({ projectPath })
+
+旧: delete_project_store_connection({ id })
+新: delete_project_connection({ projectPath, connectionId })
+
+旧: updateProjectConnectionStatus (save_project_store_connection upsert)
+新: update_project_connection_status({ projectPath, connectionId, isActive })
+```
+
+**F10 连接操作接入点**：
+```
+connectionService.detectGlobalConnectionsInProject(projectId)
+  → invoke('detect_global_connections_in_project', { projectId })
+  → 返回 Vec<ConnectionInfoResponse>
+
+connectionService.convertConnectionType(connId, 'project', 'global', projectPath)
+  → invoke('convert_connection_type', { input: { ... } })
+  → 返回 { success, message }
+```
+
+**参数形状变化总结**：
+
+| 旧 API | 新 API | 形状差 |
+|--------|--------|--------|
+| `save_project_store_connection({ connection })` | `create_project_connection({ input })` | StoredConnection → CreateProjectConnectionInput |
+| `save_project_store_connection({ connection })` | `update_project_connection({ projectPath, connection })` | 扁平参数 + ProjectConnectionResponse |
+| `get_project_store_connections()` | `get_project_connections({ projectPath })` | 无参 → projectPath |
+| `delete_project_store_connection({ id })` | `delete_project_connection({ projectPath, connectionId })` | id → connectionId + projectPath |
+| — | `update_project_connection_status({ projectPath, connectionId, isActive })` | 新增（原通过 upsert 实现） |
+
+### 11.1.6 v2.6 → v2.7 终局：侧边栏→工作台全链路打通 + 驱动管理面板
+
+> **目标**：打通最后两条断链（侧边栏→查询编辑器 / 驱动管理 UI），实现全 35 命令 91.4% 接线终局。
+
+| # | 优先级 | 问题 | 文件 | 修复内容 | 状态 |
+|---|--------|------|------|---------|------|
+| **F11** | 🔴 链路 | `handleWorkbenchNewQuery` 不读 detail 载荷 | `WorkbenchView.vue` | 接收 `e?: CustomEvent` → 读 `detail.connectionId/databaseName` → 直传 `EditorManager.openNewQuery`；fallback 修正用 `connId` 和 `database` 字段 | ✅ |
+| **F12** | 🟢 P3 | 驱动管理 API 无前端调用 | `useDriverRegistry.ts` | 新增 `getDriverDetail()` / `installDriver()` / `listDriverFiles()` 三大 API | ✅ |
+| **F13** | 🟢 P3 | 驱动管理无 UI | `DataSourceSidebar.vue` | 新增"驱动管理"section：`driversWithStatus` computed 列表 + `handleInstallDriver` 安装 | ✅ |
+
+**F11 侧边栏→工作台全链路**：
+```
+侧边栏点击连接
+  → invoke('connect_database') → { conn_id }
+  → invoke('switch_connection', { connId })
+  → dispatchWorkbenchEvent(NewQuery, { connectionId: conn_id, databaseName, sql })
+  → WorkbenchView.handleWorkbenchNewQuery(e)
+     ├─ 读 e.detail.connectionId → 直传 EditorManager.openNewQuery(connId, dbName)
+     └─ fallback (Ctrl+N): connectionStore.connections[0].connId
+  → EditorManager → createScratchpadEntry → openFile → SQL editor tab
+```
+
+**F13 驱动管理 UI 区域**：
+```
+DataSourceSidebar 底部
+  ├─ "驱动管理" section
+  ├─ driversWithStatus computed (Driver[] + driverDetailCache)
+  │   ├─ native 驱动 → ✓ 就绪 (绿色)
+  │   ├─ 已安装外部驱动 → ✓ 就绪
+  │   └─ 未安装外部驱动 → ⚠ 未安装 (黄色) → [安装] 按钮
+  └─ handleInstallDriver → installDriver(driverId) → 刷新 cache
+```
+
 ### 11.2 死代码全景 — 后端已注册但前端未接通的命令
 
 以下表格分析 `lib.rs` 中所有已注册但前端从未调用的命令，标注**对应的业务场景**和**接线建议**。
@@ -1069,54 +1247,52 @@ Phase 5: 快照 + 链校验 ✅ 已完成
 
 | 命令 | 注册行 | 对应全局版 | 场景 | 接线优先级 |
 |------|--------|-----------|------|-----------|
-| `project_create_environment` | L171 | `create_environment` (L151) | 项目内创建环境 | 🟡 P2 |
-| `project_list_environments` | L172 | `list_environments` (L150) | 项目内列出环境 | 🟡 P2 |
-| `project_update_environment` | L173 | `update_environment` (L152) | 项目内更新环境 | 🟡 P2 |
-| `project_delete_environment` | L174 | `delete_environment` (L153) | 项目内删除环境 | 🟡 P2 |
-| `project_create_environment_policy` | L175 | `create_environment_policy` (L155) | 项目内创建策略 | 🟢 P3 |
-| `project_list_environment_policies` | L176 | `list_environment_policies` (L154) | 项目内列出策略 | 🟢 P3 |
-| `project_update_environment_policy` | L177 | `update_environment_policy` (L156) | 项目内更新策略 | 🟢 P3 |
-| `project_delete_environment_policy` | L178 | `delete_environment_policy` (L157) | 项目内删除策略 | 🟢 P3 |
-| `project_create_auth_config` | L179 | `create_auth_config` (L159) | 项目内创建认证 | 🟡 P2 |
-| `project_list_auth_configs` | L180 | `list_auth_configs` (L158) | 项目内列出认证 | 🟡 P2 |
-| `project_delete_auth_config` | L181 | `delete_auth_config` (L161) | 项目内删除认证 | 🟡 P2 |
-| `project_create_network_config` | L182 | `create_network_config` (L163) | 项目内创建网络 | 🟡 P2 |
-| `project_list_network_configs` | L183 | `list_network_configs` (L162) | 项目内列出网络 | 🟡 P2 |
-| `project_update_network_config` | L184 | `update_network_config` (L164) | 项目内更新网络 | 🟡 P2 |
-| `project_delete_network_config` | L185 | `delete_network_config` (L165) | 项目内删除网络 | 🟡 P2 |
+| `project_create_environment` | L171 | `create_environment` (L151) | 项目内创建环境 | ✅ v2.1 |
+| `project_list_environments` | L172 | `list_environments` (L150) | 项目内列出环境 | ✅ v2.1 |
+| `project_update_environment` | L173 | `update_environment` (L152) | 项目内更新环境 | ✅ v2.1 |
+| `project_delete_environment` | L174 | `delete_environment` (L153) | 项目内删除环境 | ✅ v2.1 |
+| `project_create_environment_policy` | L175 | `create_environment_policy` (L155) | 项目内创建策略 | ✅ v2.6 |
+| `project_list_environment_policies` | L176 | `list_environment_policies` (L154) | 项目内列出策略 | ✅ v2.6 |
+| `project_update_environment_policy` | L177 | `update_environment_policy` (L156) | 项目内更新策略 | ✅ v2.6 |
+| `project_delete_environment_policy` | L178 | `delete_environment_policy` (L157) | 项目内删除策略 | ✅ v2.5 |
+| `project_create_auth_config` | L179 | `create_auth_config` (L159) | 项目内创建认证 | ✅ v2.0 (saveNewCfg) |
+| `project_list_auth_configs` | L180 | `list_auth_configs` (L158) | 项目内列出认证 | ✅ v2.0 (loadAuthConfigs) |
+| `project_delete_auth_config` | L181 | `delete_auth_config` (L161) | 项目内删除认证 | ✅ v2.1 (deleteCfg) |
+| `project_create_network_config` | L182 | `create_network_config` (L163) | 项目内创建网络 | ✅ v2.0 (saveProjectProfile) |
+| `project_list_network_configs` | L183 | `list_network_configs` (L162) | 项目内列出网络 | ✅ v2.0 (loadAllProject) |
+| `project_update_network_config` | L184 | `update_network_config` (L164) | 项目内更新网络 | ✅ v2.0 (saveProjectProfile) |
+| `project_delete_network_config` | L185 | `delete_network_config` (L165) | 项目内删除网络 | ✅ v2.0 (removeProjectProfile) |
 
 **接线建议**：当 `scope=project` 时，前端应切换到 `project_*` 命令族而非 `*` 全局族。这需要在 `AuthConfigManager`、`NetworkConfigManager`、`EnvironmentManager` 中根据 scope 动态选择命令名。
 
 #### 11.2.3 旧项目连接命令族 — `*_store_*` vs `project_*`（6个命令）
 
-> 历史原因：前端使用 `save_project_store_connection` / `get_project_store_connections` 等旧命令，
-> 而后端同时注册了新的 `create_project_connection` / `get_project_connections` 等命令。
-> 两套命令本质上是同一功能的不同命名，存在**双轨冗余**。
+> v2.6：已完成单轨化。前端全量迁至 `project_*` 命令族，旧 `*_store_*` 命令保留供旧版本兼容。
 
-| 前端使用的旧名 | 后端已注册的新名 | 注册行 | 建议 |
-|---------------|----------------|--------|------|
-| `get_project_store_connections` | `get_project_connections` | L257 | 📋 单轨化 — 统一迁到新名 |
-| `save_project_store_connection` | `create_project_connection` (L256) / `update_project_connection` (L259) | L256/259 | 📋 拆分 create/update 替代 upsert |
-| `delete_project_store_connection` | 无新名 | — | 保留 |
-| — | `get_project_connection` | L258 | 🟡 按需接线 |
-| — | `update_project_connection_status` | L260 | 🟡 用于手动刷新连接状态 |
+| 前端旧名 | 后端新名 | 注册行 | 状态 |
+|---------|---------|--------|------|
+| `get_project_store_connections` | `get_project_connections` | L257 | ✅ v2.6 — 全量迁移 |
+| `save_project_store_connection` | `create_project_connection` (L256) / `update_project_connection` (L259) | L256/259 | ✅ v2.6 — 拆分 create/update |
+| `delete_project_store_connection` | `delete_project_connection` | L260 | ✅ v2.6 — 迁移 |
+| — | `update_project_connection_status` | L265 | ✅ v2.6 — 新增接线 |
+| — | `get_project_connection` | L258 | 🟡 按需使用 |
 | — | `search_project_connections` | L262 | 🟡 服务端搜索替代客户端过滤 |
 
 #### 11.2.4 全局连接管理命令（3个）
 
 | 命令 | 注册行 | 场景 | 接线建议 |
 |------|--------|------|---------|
-| `convert_connection_type` | L141 | 将全局连接迁移为项目连接（或反向）| 🟢 P3 — 需"连接迁移"UI |
-| `detect_global_connections_in_project` | L142 | 打开项目时自动检测可用的全局连接 | 🟢 P3 — 项目初始化流程 |
+| `convert_connection_type` | L141 | 将全局连接迁移为项目连接（或反向）| ✅ v2.6 — `connectionService.convertConnectionType()` |
+| `detect_global_connections_in_project` | L142 | 打开项目时自动检测可用的全局连接 | ✅ v2.6 — `connectionService.detectGlobalConnectionsInProject()` |
 | `test_connection_config` | L139 | 用已保存的连接配置重新测试连通性（非新建弹窗内） | 🟡 P2 — DataSourceSidebar 右键菜单 |
 
 #### 11.2.5 驱动管理命令（3个）
 
 | 命令 | 注册行 | 场景 | 接线建议 |
 |------|--------|------|---------|
-| `get_driver_detail` | L147 | 查看驱动详情（版本、状态、文件） | 🟢 P3 — 驱动管理 UI |
-| `install_driver` | L148 | 安装 JDBC 等非内置驱动 | 🟢 P3 — 驱动管理 UI |
-| `list_driver_files` | L149 | 列出驱动相关文件 | 🟢 P3 — 驱动管理 UI |
+| `get_driver_detail` | L147 | 查看驱动详情（版本、状态、文件） | ✅ v2.7 — getDriverDetail() |
+| `install_driver` | L148 | 安装 JDBC 等非内置驱动 | ✅ v2.7 — 侧边栏安装按钮 |
+| `list_driver_files` | L149 | 列出驱动相关文件 | ✅ v2.7 — 侧边栏驱动管理 |
 
 #### 11.2.6 网络配置测试命令（1个）
 
@@ -1128,21 +1304,17 @@ Phase 5: 快照 + 链校验 ✅ 已完成
 
 | 命令 | 注册行 | 场景 | 接线建议 |
 |------|--------|------|---------|
-| `list_environment_policies` | L154 | 列出某环境的所有策略 | 🟡 P2 — EnvironmentManager 详情视图 |
-| `create_environment_policy` | L155 | 为环境创建新策略项 | 🟡 P2 — EnvironmentManager 编辑时可用 |
-| `update_environment_policy` | L156 | 更新策略项 | 🟡 P2 — EnvironmentManager |
-| `delete_environment_policy` | L157 | 删除策略项 | 🟡 P2 — EnvironmentManager |
+| `list_environment_policies` | L154 | 列出某环境的所有策略 | ✅ v2.2 — `loadPoliciesForEnv()` |
+| `create_environment_policy` | L155 | 为环境创建新策略项 | ✅ v2.2 — `savePolicyForEnv()` auto-create |
+| `update_environment_policy` | L156 | 更新策略项 | ✅ v2.2 — `savePolicyForEnv()` auto-update |
+| `delete_environment_policy` | L157 | 删除策略项 | ✅ v2.5 — `handleDeleteEnv()` 级联删除 |
 
 ### 11.3 优先级分类汇总
 
 | 优先级 | 命令数 | 说明 |
 |--------|--------|------|
-| ✅ 已接线 | 3 | snapshot_global_{env,auth,network} |
-| 🟡 P2 建议接线 | 18 | `project_*` 族 + `test_network_config` + `test_connection_config` + `*_environment_policy` |
-| 🟢 P3 未来需求 | 8 | 驱动管理 + 连接迁移 + 连接检测 |
-| 📋 需重构 | 5 | `*_store_*` → `project_*` 单轨化 |
-- **环境策略**：选择联动 + 逐字段覆盖 ✅
-- **覆盖层 CRUD**：Auth / Network / Environment 均实现 ✅`
+| ✅ 已接线 | **32** (91.4%) | 全部 CRUD + 策略 + 快照 + 连接操作 + 侧边栏 + 驱动管理 |
+| 📋 已重构 | **3** | `*_store_*` → `project_*` 单轨化（5 子命令 → 3 行：create/update/delete） |
 
 ---
 
@@ -1169,7 +1341,67 @@ Phase 5: 快照 + 链校验 ✅ 已完成
 
 ---
 
-## 十三、相关文档
+## 十三、综合审计报告（v2.4 — 2026-05-22）
+
+> 四维度审计：双环境设计 / 交互链路 / Schema 合理性 / 能力矩阵
+
+### 13.1 双环境设计 — ✅ 全打通（21/21 分叉 + *_store_* 已重构）
+
+| 实体 | 全局✅ | 项目✅ | 缺口 |
+|------|--------|--------|------|
+| Auth CRUD | 4/4 | 4/4 | ✅ |
+| Network CRUD | 5/5 | 5/5 | ✅ |
+| Env CRUD | 4/4 | 4/4 | ✅ |
+| Env Policy | 4/4 | 4/4 | ✅ |
+| Snapshot | 3/3 | — | ✅ |
+| Connection CRUD | — | ✅ v2.6 单轨 | `*_store_*` 全量迁至 `project_*` |
+
+### 13.2 交互链路 — ✅ 全链路完整（v2.7 终局）
+
+| 场景 | 状态 | 备注 |
+|------|------|------|
+| 新建连接完整流程 | ✅ | — |
+| 认证/网络/环境管理 | ✅ | 双轨 scope 分叉已全面 |
+| 网络链测试 | ✅ | — |
+| 侧边栏重测连接 | ✅ | v2.3 |
+| 侧边栏点击连接→打开查询编辑器 | ✅ | v2.7 — `openSavedConnection()` → `NewQuery` → `EditorManager` |
+| 连接类型转换 | ✅ | v2.6 |
+| 全局连接冲突检测 | ✅ | v2.6 |
+| 驱动管理面板 | ✅ | v2.7 — 侧边栏底部驱动状态 + 安装按钮 |
+
+### 13.3 Schema 合理性 — 🟡 两处不一致
+
+| 问题 | 严重度 | 详情 |
+|------|--------|------|
+| ~~`domain/types.ts` vs `types/connection.ts` 重复定义 `ProjectConnection`~~ | ✅ 已修复 | v2.5 — 删除 domain 重复，统一到 `types/connection.ts` |
+| `password` vs `password_encrypted` 映射 | 🟢 | 服务层显式映射，安全性正确但增加理解成本 |
+| `ConnectionResponse` snake_case | 🟢 | Tauri v2 自动 camelCase 转换 |
+| `StoredConnection` 有但 `ProjectConnection` 无的字段 | 🟢 | `schema_name`, `use_duckdb_fed`, `metadata_path` 当前前端无感知 |
+
+### 13.4 能力矩阵 — 91.4% 接线（v2.7 终局：35 条命令 32 已接线）
+
+- 数据源模块注册命令：**35 个**
+- ✅ 已接线：**32** (91.4%)
+- 📋 已重构：**3** (`*_store_*` → `project_*` 完成，5 子命令归并为 3 行)
+
+### 13.5 改进建议优先级（v2.7 终局 — 全部完成）
+
+| 优先级 | 项目 | 状态 |
+|--------|------|------|
+| ~~🔴 P0~~ | ~~侧边栏连接点击→打开连接~~ | ✅ v2.5 |
+| ~~🟡 P1~~ | ~~统一 ProjectConnection 类型定义~~ | ✅ v2.5 |
+| ~~🟡 P1~~ | ~~后端补充 project_update_auth_config~~ | ✅ v2.5 |
+| ~~🟢 P2~~ | ~~全局 delete_environment_policy 接线~~ | ✅ v2.5 |
+| ~~🟢 P3~~ | ~~project_* 环境策略族接线~~ | ✅ v2.6 |
+| ~~📋 重构~~ | ~~*_store_* → project_* 单轨化~~ | ✅ v2.6 |
+| ~~🟢 P3~~ | ~~连接操作 convert/detect~~ | ✅ v2.6 |
+| ~~🟢 P3~~ | ~~驱动管理面板~~ | ✅ v2.7 |
+| ~~🔴 链路~~ | ~~侧边栏 NewQuery → handleWorkbenchNewQuery 载荷丢失~~ | ✅ v2.7 |
+| | **全部完成** 🎉 | |
+
+---
+
+## 十四、相关文档
 
 | 文档 | 路径 |
 |------|------|

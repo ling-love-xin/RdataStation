@@ -275,35 +275,5 @@ export interface SchemaObject {
 }
 
 // ==================== 项目级连接类型 ====================
-
-/** 项目连接 */
-export interface ProjectConnection {
-  id: string
-  name: string
-  db_type: string
-  host: string
-  port: number
-  database: string
-  username?: string
-  password?: string
-  options?: string
-  connection_method: string
-  method_config?: string
-  created_at: string
-  updated_at: string
-}
-
-/** 创建项目连接输入 */
-export interface CreateProjectConnectionInput {
-  project_path: string
-  name: string
-  db_type: string
-  host: string
-  port: number
-  database: string
-  username?: string
-  password?: string
-  options?: string
-  connection_method: string
-  method_config?: string
-}
+// ⚠️ 已迁移到 types/connection.ts — 统一使用该文件中的 ProjectConnection
+// domain 保留此注释供追溯，新代码请 import from '@/extensions/builtin/connection/types/connection'

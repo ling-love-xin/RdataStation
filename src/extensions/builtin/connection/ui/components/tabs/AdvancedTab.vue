@@ -397,6 +397,7 @@ function onEnvChange(id: string) {
         envSnapshotId.value = gpId
         selectedEnvId.value = gpId // 替换为快照 ID
         applyEnvDefaults(id)
+        loadPoliciesForEnv(gpId) // overlay persisted policies for snapshot
         loadEnvironments() // 刷新列表显示新快照
       } finally { envSnapshotting.value = false }
     })
@@ -404,6 +405,7 @@ function onEnvChange(id: string) {
   }
   selectedEnvId.value = id
   applyEnvDefaults(id)
+  loadPoliciesForEnv(id) // overlay persisted policies
 }
 
 function applyEnvDefaults(id: string) {
@@ -588,28 +590,54 @@ async function handleCreateEnv() {
   const isEdit = !!editingEnvId.value
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    if (isEdit) {
-      await invoke('update_environment', {
-        env: {
+
+    // 项目级 → 使用 project_* 命令族
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) { alert('⚠️ 未打开项目'); return }
+      if (isEdit) {
+        await invoke('project_update_environment', {
           id: editingEnvId.value,
           name,
-          description: newEnvDesc.value,
+          description: newEnvDesc.value || null,
           color: newEnvColor.value || '#a6e3a1',
-          sort_order: 0,
-          origin: 'project',
-          source_id: null,
-        },
-      })
-    } else {
-      await invoke('create_environment', {
-        env: {
+          sortOrder: 0,
+          projectPath: pp,
+        })
+      } else {
+        await invoke('project_create_environment', {
           name,
-          icon: newEnvIcon.value || '🟢',
+          description: newEnvDesc.value || null,
           color: newEnvColor.value || '#a6e3a1',
-          description: newEnvDesc.value,
-          templateId: `env-${newEnvTemplate.value}`,
-        },
-      })
+          sortOrder: 0,
+          projectPath: pp,
+        })
+      }
+    } else {
+      if (isEdit) {
+        await invoke('update_environment', {
+          env: {
+            id: editingEnvId.value,
+            name,
+            description: newEnvDesc.value,
+            color: newEnvColor.value || '#a6e3a1',
+            sort_order: 0,
+            origin: 'project',
+            source_id: null,
+          },
+        })
+      } else {
+        await invoke('create_environment', {
+          env: {
+            name,
+            icon: newEnvIcon.value || '🟢',
+            color: newEnvColor.value || '#a6e3a1',
+            description: newEnvDesc.value,
+            templateId: `env-${newEnvTemplate.value}`,
+          },
+        })
+      }
     }
     resetEnvForm()
     showEnvCreateForm.value = false
@@ -652,7 +680,28 @@ async function handleCreateEnv() {
 async function handleDeleteEnv(id: string) {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('delete_environment', { id })
+    // 清理关联的环境策略，避免孤儿数据
+    try {
+      const policies = await invoke<BackendEnvPolicy[]>('list_environment_policies', { environmentId: id })
+      for (const p of policies) {
+        if (props.scope?.project) {
+          const { useProjectStore } = await import('@/core/project/stores/project')
+          const pp = useProjectStore().currentProject?.path
+          if (pp) await invoke('project_delete_environment_policy', { id: p.id, projectPath: pp })
+        } else {
+          await invoke('delete_environment_policy', { id: p.id })
+        }
+      }
+    } catch { /* 策略不存在则跳过 */ }
+
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) { alert('⚠️ 未打开项目'); return }
+      await invoke('project_delete_environment', { id, projectPath: pp })
+    } else {
+      await invoke('delete_environment', { id })
+    }
     await loadEnvironments()
   } catch {
     loadedEnvs.value = loadedEnvs.value.filter(e => e.id !== id)
@@ -664,8 +713,17 @@ async function loadEnvironments() {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     const scopeType = props.scope?.global ? 'global' : 'project'
-    // 按 scope 过滤：global 只看 G_，project 合并 G_ + P_ + GP_
-    const remote = await invoke<Array<{ id: string; name: string; description: string; properties?: Record<string, unknown> }>>('list_environments')
+
+    // 项目级 → 使用 project_list_environments
+    let remote: Array<{ id: string; name: string; description: string; properties?: Record<string, unknown> }>
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) { loadedEnvs.value = []; return }
+      remote = await invoke<Array<{ id: string; name: string; description: string; properties?: Record<string, unknown> }>>('project_list_environments', { projectPath: pp })
+    } else {
+      remote = await invoke<Array<{ id: string; name: string; description: string; properties?: Record<string, unknown> }>>('list_environments')
+    }
     if (remote && remote.length > 0) {
       const colors = ['#a6e3a1', '#f9e2af', '#89b4fa', '#f38ba8', '#cba6f7']
       const icons = ['🟢', '🟡', '🔵', '🔴', '🟣']
@@ -693,6 +751,157 @@ async function loadEnvironments() {
   } catch {
     loadedEnvs.value = envDefs as EnvInfo[]
   } finally { envListLoading.value = false }
+}
+
+// ========== Environment Policy Persistence ==========
+/** Backend EnvironmentPolicy shape */
+interface BackendEnvPolicy {
+  id: string
+  environment_id: string
+  policy_type: string
+  policy_config: string | null
+  enabled: boolean
+}
+
+/** Map policy_type → form fields snapshot */
+function collectPolicyConfig(policyType: string): Record<string, unknown> {
+  switch (policyType) {
+    case 'security':
+      return {
+        ro: polReadonly.value, wc: polWriteConfirm.value, ddl: polDdlConfirm.value,
+        drop: polDrop.value, ac: polAutocommit.value, rl: polRowLimit.value, sl: polSizeLimit.value,
+      }
+    case 'schema':
+      return {
+        autoLoad: schAutoLoad.value, loadDepth: schLoadDepth.value,
+        showSystem: schShowSystem.value, refreshInterval: schRefreshInterval.value,
+      }
+    case 'performance':
+      return {
+        poolSize: perfPoolSize.value, queryTimeout: advQueryTimeout.value,
+        connectTimeout: advConnectTimeout.value, heartbeat: advHeartbeat.value,
+        maxReconnect: advMaxReconnect.value,
+      }
+    case 'audit':
+      return {
+        sqlLog: audSqlLog.value, operationRecord: audOperationRecord.value,
+        sensitiveTableAlert: audSensitiveTableAlert.value,
+      }
+    case 'ui':
+      return {
+        topBarColor: uiTopBarColor.value, tabIndicator: uiTabIndicator.value,
+        sqlWarningBanner: uiSqlWarningBanner.value, writeBtnStyle: uiWriteBtnStyle.value,
+      }
+    default: return {}
+  }
+}
+
+/** Apply persisted policy config onto local state */
+function applyPolicyConfig(policyType: string, config: Record<string, unknown>) {
+  switch (policyType) {
+    case 'security': {
+      if ('ro' in config) polReadonly.value = config.ro as boolean
+      if ('wc' in config) polWriteConfirm.value = config.wc as boolean
+      if ('ddl' in config) polDdlConfirm.value = config.ddl as boolean
+      if ('drop' in config) polDrop.value = config.drop as string
+      if ('ac' in config) polAutocommit.value = config.ac as boolean
+      if ('rl' in config) polRowLimit.value = config.rl as number
+      if ('sl' in config) polSizeLimit.value = config.sl as number
+      break
+    }
+    case 'schema': {
+      if ('autoLoad' in config) schAutoLoad.value = config.autoLoad as boolean
+      if ('loadDepth' in config) schLoadDepth.value = config.loadDepth as number
+      if ('showSystem' in config) schShowSystem.value = config.showSystem as boolean
+      if ('refreshInterval' in config) schRefreshInterval.value = config.refreshInterval as number
+      break
+    }
+    case 'performance': {
+      if ('poolSize' in config) perfPoolSize.value = config.poolSize as number
+      if ('queryTimeout' in config) advQueryTimeout.value = config.queryTimeout as number
+      if ('connectTimeout' in config) advConnectTimeout.value = config.connectTimeout as number
+      if ('heartbeat' in config) advHeartbeat.value = config.heartbeat as number
+      if ('maxReconnect' in config) advMaxReconnect.value = config.maxReconnect as number
+      break
+    }
+    case 'audit': {
+      if ('sqlLog' in config) audSqlLog.value = config.sqlLog as boolean
+      if ('operationRecord' in config) audOperationRecord.value = config.operationRecord as boolean
+      if ('sensitiveTableAlert' in config) audSensitiveTableAlert.value = config.sensitiveTableAlert as boolean
+      break
+    }
+    case 'ui': {
+      if ('topBarColor' in config) uiTopBarColor.value = config.topBarColor as string
+      if ('tabIndicator' in config) uiTabIndicator.value = config.tabIndicator as string
+      if ('sqlWarningBanner' in config) uiSqlWarningBanner.value = config.sqlWarningBanner as boolean
+      if ('writeBtnStyle' in config) uiWriteBtnStyle.value = config.writeBtnStyle as string
+      break
+    }
+  }
+}
+
+/** Load persisted policies for an environment and overlay on defaults */
+async function loadPoliciesForEnv(envId: string) {
+  if (!envId || envId.startsWith('env-')) return // 内置 env-dev 等无持久策略
+  const { invoke } = await import('@tauri-apps/api/core')
+  try {
+    let policies: BackendEnvPolicy[]
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) return
+      policies = await invoke<BackendEnvPolicy[]>('project_list_environment_policies', { environmentId: envId, projectPath: pp })
+    } else {
+      policies = await invoke<BackendEnvPolicy[]>('list_environment_policies', { environmentId: envId })
+    }
+    for (const p of policies) {
+      if (!p.enabled) continue
+      const config = p.policy_config ? JSON.parse(p.policy_config) : {}
+      applyPolicyConfig(p.policy_type, config)
+    }
+  } catch { /* 无策略或 API 不可用时静默降级 */ }
+}
+
+/** Save (create or update) a single policy for given environment */
+async function savePolicyForEnv(envId: string, policyType: string) {
+  if (!envId || envId.startsWith('env-')) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  const config = JSON.stringify(collectPolicyConfig(policyType))
+  try {
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (!pp) return
+      // 先查是否存在 → update 或 create
+      const policies = await invoke<BackendEnvPolicy[]>('project_list_environment_policies', { environmentId: envId, projectPath: pp })
+      const existing = policies.find(p => p.policy_type === policyType)
+      if (existing) {
+        await invoke('project_update_environment_policy', { id: existing.id, policyConfig: config, enabled: true, projectPath: pp })
+      } else {
+        await invoke('project_create_environment_policy', { environmentId: envId, policyType, policyConfig: config, projectPath: pp })
+      }
+    } else {
+      const policies = await invoke<BackendEnvPolicy[]>('list_environment_policies', { environmentId: envId })
+      const existing = policies.find(p => p.policy_type === policyType)
+      if (existing) {
+        await invoke('update_environment_policy', {
+          policy: { id: existing.id, environment_id: envId, policy_type: policyType, policy_config: config, enabled: true },
+        })
+      } else {
+        await invoke('create_environment_policy', {
+          policy: { id: '', environment_id: envId, policy_type: policyType, policy_config: config, enabled: true },
+        })
+      }
+    }
+  } catch { /* 静默降级 */ }
+}
+
+/** Debounced save helper */
+const _policySaveTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+function debounceSavePolicy(envId: string, policyType: string) {
+  const key = `${envId}:${policyType}`
+  if (_policySaveTimers[key]) clearTimeout(_policySaveTimers[key])
+  _policySaveTimers[key] = setTimeout(() => savePolicyForEnv(envId, policyType), 800)
 }
 
 onMounted(() => { loadEnvironments() })
@@ -763,6 +972,30 @@ watch(
   },
   { deep: true }
 )
+
+// ========== Auto-save policies on change (debounced) ==========
+const activeEnvId = () => envSnapshotId.value || selectedEnvId.value || envId.value
+
+// Security policies
+watch([polReadonly, polWriteConfirm, polDdlConfirm, polAutocommit, polDrop, polRowLimit, polSizeLimit], () => {
+  debounceSavePolicy(activeEnvId(), 'security')
+})
+// Schema policies
+watch([schAutoLoad, schLoadDepth, schShowSystem, schRefreshInterval], () => {
+  debounceSavePolicy(activeEnvId(), 'schema')
+})
+// Performance policies
+watch([perfPoolSize, advQueryTimeout, advConnectTimeout, advHeartbeat, advMaxReconnect], () => {
+  debounceSavePolicy(activeEnvId(), 'performance')
+})
+// Audit policies
+watch([audSqlLog, audOperationRecord, audSensitiveTableAlert], () => {
+  debounceSavePolicy(activeEnvId(), 'audit')
+})
+// UI policies
+watch([uiTopBarColor, uiTabIndicator, uiSqlWarningBanner, uiWriteBtnStyle], () => {
+  debounceSavePolicy(activeEnvId(), 'ui')
+})
 </script>
 
 <style scoped>

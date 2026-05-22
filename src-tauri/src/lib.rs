@@ -179,6 +179,7 @@ pub fn run() {
             project_create_auth_config,
             project_list_auth_configs,
             project_delete_auth_config,
+            project_update_auth_config,
             project_create_network_config,
             project_list_network_configs,
             project_update_network_config,

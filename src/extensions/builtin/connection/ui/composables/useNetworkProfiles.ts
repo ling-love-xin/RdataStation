@@ -2,6 +2,7 @@
  * useNetworkProfiles — 网络配置文件列表 Composable
  *
  * 核心职责：从后端获取 SSH/SSL/Proxy 三类网络配置，解析 config JSON 并生成可读摘要。
+ * 支持 scope=project 时自动切换到 project_* 命令族操作 project.db。
  */
 import { invoke } from '@tauri-apps/api/core'
 import { ref, computed, readonly } from 'vue'
@@ -75,6 +76,32 @@ function toProfile(raw: ConfigRaw): NetworkProfile | null {
 
 // ==================== API ====================
 
+/** 命令选择：scope=project 时使用 project_* 命令族 */
+async function getProjectPath(): Promise<string | null> {
+  const { useProjectStore } = await import('@/core/project/stores/project')
+  return useProjectStore().currentProject?.path ?? null
+}
+
+function pickCmd(globalCmd: string, isProject: boolean): [string, (extra: Record<string, unknown>) => Record<string, unknown>] {
+  if (!isProject) {
+    return [globalCmd, (e) => e]
+  }
+  switch (globalCmd) {
+    case 'create_network_config':
+      return ['project_create_network_config', (p) => ({
+        name: p.name, networkType: p.network_type, config: p.config
+      })]
+    case 'update_network_config':
+      return ['project_update_network_config', (p) => ({
+        id: p.id, name: p.name, networkType: p.network_type, config: p.config
+      })]
+    case 'delete_network_config':
+      return ['project_delete_network_config', (p) => ({ id: p.id })]
+    default:
+      return [globalCmd, (e) => e]
+  }
+}
+
 async function loadByType(type: 'ssh' | 'ssl' | 'proxy'): Promise<void> {
   try {
     const raws = await invoke<ConfigRaw[]>('list_network_configs', { networkType: type })
@@ -94,6 +121,43 @@ async function loadAll(): Promise<void> {
   finally { loading.value = false }
 }
 
+// ==================== 项目级命令 ====================
+
+async function loadByTypeProject(type: 'ssh' | 'ssl' | 'proxy', projectPath: string): Promise<void> {
+  try {
+    const raws = await invoke<ConfigRaw[]>('project_list_network_configs', { networkType: type, projectPath })
+    const profiles = raws.map(toProfile).filter((p): p is NetworkProfile => p !== null)
+    if (type === 'ssh') sshProfiles.value = profiles
+    else if (type === 'ssl') sslProfiles.value = profiles
+    else proxyProfiles.value = profiles
+  } catch (e) {
+    console.error(`[useNetworkProfiles] Failed to load project ${type}:`, e)
+    error.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
+async function loadAllProject(projectPath: string): Promise<void> {
+  loading.value = true; error.value = null
+  try { await Promise.all([loadByTypeProject('ssh', projectPath), loadByTypeProject('ssl', projectPath), loadByTypeProject('proxy', projectPath)]) }
+  finally { loading.value = false }
+}
+
+/** 创建/更新网络配置 */
+async function saveProjectProfile(profile: Record<string, unknown>, networkType: string, configObj: Record<string, unknown>, projectPath: string): Promise<void> {
+  const name = (profile.name as string) || `未命名-${networkType.toUpperCase()}`
+  const config = JSON.stringify(configObj)
+  if (profile.id) {
+    await invoke('project_update_network_config', { id: profile.id, name, config, projectPath })
+  } else {
+    await invoke('project_create_network_config', { name, networkType, config, projectPath })
+  }
+}
+
+/** 删除网络配置 */
+async function removeProjectProfile(id: string, projectPath: string): Promise<void> {
+  await invoke('project_delete_network_config', { id, projectPath })
+}
+
 // ==================== Composable ====================
 
 export function useNetworkProfiles() {
@@ -105,6 +169,10 @@ export function useNetworkProfiles() {
     error: readonly(error),
     loadAll,
     loadByType,
+    loadAllProject,
+    saveProjectProfile,
+    removeProjectProfile,
     parseConfig,
+    getProjectPath,
   }
 }

@@ -722,13 +722,20 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 // 标题栏菜单/工具栏/命令面板事件处理
-const handleWorkbenchNewQuery = async () => {
-  console.debug('[Workbench] handleWorkbenchNewQuery 被调用（新架构 EditorManager.openNewQuery）')
+const handleWorkbenchNewQuery = async (e?: CustomEvent) => {
+  const detail = e?.detail as { connectionId?: string; databaseName?: string; sql?: string } | undefined
 
+  // 优先使用事件载荷（来自侧边栏等的指定连接），否则 fallback 到首个活动连接
+  if (detail?.connectionId) {
+    console.debug('[Workbench] handleWorkbenchNewQuery 由侧边栏触发:', detail.connectionId)
+    await EditorManager.openNewQuery(detail.connectionId, detail.databaseName || '')
+    return
+  }
+
+  // fallback: Ctrl+N 无连接上下文时，使用首个活动连接
   const conns = connectionStore.connections
   const firstConn = conns.length > 0 ? conns[0] : null
-
-  await EditorManager.openNewQuery(firstConn?.name || '', '')
+  await EditorManager.openNewQuery(firstConn?.connId || '', firstConn?.database || '')
 }
 
 const handleWorkbenchNewConnection = (e?: CustomEvent) => {

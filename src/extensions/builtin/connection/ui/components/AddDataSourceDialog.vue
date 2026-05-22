@@ -46,10 +46,10 @@
           <!-- Tabs -->
           <NTabs v-model:value="activeTab" type="line" size="small" class="dlg-tabs">
             <NTabPane name="general" :tab="$t('navigator.tabGeneral')">
-              <GeneralTab :driver="selectedDriver" :form-data="formData" @update:form-data="onFormData" @auth-config-change="onAuthConfigChange" />
+              <GeneralTab :driver="selectedDriver" :form-data="formData" :scope="scope" @update:form-data="onFormData" @auth-config-change="onAuthConfigChange" />
             </NTabPane>
             <NTabPane name="network" :tab="$t('navigator.tabNetwork')">
-              <NetworkTab :driver="selectedDriver" @extra-config="onExtraConfig" />
+              <NetworkTab :driver="selectedDriver" :scope="scope" @extra-config="onExtraConfig" />
             </NTabPane>
             <NTabPane name="capabilities" :tab="$t('navigator.tabCapabilities')">
               <CapabilitiesTab :driver="selectedDriver" />

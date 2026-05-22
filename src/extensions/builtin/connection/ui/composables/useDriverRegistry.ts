@@ -91,6 +91,38 @@ function getGroupedTypes(): Record<string, DataSourceType[]> {
   return groups
 }
 
+// ==================== 驱动管理 ====================
+
+interface DriverDetailResponse {
+  driver: Driver
+  availability: string
+}
+
+interface DriverFile {
+  name: string
+  size: number
+  version: string
+  path: string
+}
+
+/** 获取驱动详情（含可用性状态） */
+async function getDriverDetail(driverId: string, projectPath?: string): Promise<DriverDetailResponse> {
+  return invoke<DriverDetailResponse>('get_driver_detail', {
+    driverId,
+    projectPath: projectPath ?? null,
+  })
+}
+
+/** 安装外部驱动（下载并注册到本机） */
+async function installDriver(driverId: string): Promise<void> {
+  await invoke('install_driver', { driverId })
+}
+
+/** 列出某驱动在本机的所有文件 */
+async function listDriverFiles(driverId: string): Promise<DriverFile[]> {
+  return invoke<DriverFile[]>('list_driver_files', { driverId })
+}
+
 export function useDriverRegistry() {
   return {
     // 响应式数据
@@ -108,5 +140,10 @@ export function useDriverRegistry() {
     getDriversByType,
     getTypesByCategory,
     getGroupedTypes,
+
+    // 驱动管理
+    getDriverDetail,
+    installDriver,
+    listDriverFiles,
   }
 }

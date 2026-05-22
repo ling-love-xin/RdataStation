@@ -561,6 +561,22 @@ pub async fn project_delete_auth_config(
     Ok(true)
 }
 
+/// 更新指定项目中的认证配置
+#[tauri::command]
+pub async fn project_update_auth_config(
+    id: String,
+    name: Option<String>,
+    auth_type: String,
+    auth_data: String,
+    project_path: String,
+    state: tauri::State<'_, ProjectState>,
+) -> Result<(), CoreError> {
+    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    db_manager
+        .update_project_auth_config(&id, name.as_deref(), &auth_type, &auth_data)
+        .await
+}
+
 // ========== 项目级网络配置命令 ==========
 
 /// 在指定项目中创建网络配置

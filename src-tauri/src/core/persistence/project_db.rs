@@ -665,6 +665,32 @@ impl ProjectDatabaseManager {
         auth_store::delete_auth_config(conn, id)
     }
 
+    /// 更新项目数据库中的认证配置
+    pub async fn update_project_auth_config(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        auth_type: &str,
+        auth_data: &str,
+    ) -> Result<(), CoreError> {
+        let sqlite = self.sqlite_pool.acquire().await?;
+        let conn = sqlite.inner()?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let ac = auth_store::AuthConfig {
+            id: id.to_string(),
+            name: name.map(|s| s.to_string()),
+            auth_type: auth_type.to_string(),
+            auth_data: auth_data.to_string(),
+            origin: Some("project".to_string()),
+            source_id: None,
+            snapshot_at: None,
+            created_at: now.clone(), // keep original created_at, but AuthConfig has no way to know original
+            updated_at: now,
+        };
+        auth_store::update_auth_config(conn, &ac)?;
+        Ok(())
+    }
+
     // ========== 项目级网络配置管理 ==========
 
     /// 在项目数据库中创建网络配置
