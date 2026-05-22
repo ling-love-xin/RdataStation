@@ -49,6 +49,7 @@ pub struct GlobalConnectionInfo {
     pub driver_id: Option<String>,
     pub environment_id: Option<String>,
     pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
     pub network_config_id: Option<String>,
     pub driver_properties: Option<String>,
     pub advanced_options: Option<String>,
@@ -689,7 +690,7 @@ impl GlobalDatabaseManager {
 
         let connections: Vec<GlobalConnectionInfo> = {
             let mut stmt = conn.inner()?.prepare(
-                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, network_config_id, driver_properties, advanced_options 
+                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
                  FROM global_connections 
                  WHERE is_active = 1 
                  ORDER BY updated_at DESC"
@@ -711,9 +712,10 @@ impl GlobalDatabaseManager {
                     let driver_id: Option<String> = row.get(17).ok();
                     let environment_id: Option<String> = row.get(18).ok();
                     let auth_config_id: Option<String> = row.get(19).ok();
-                    let network_config_id: Option<String> = row.get(20).ok();
-                    let driver_properties: Option<String> = row.get(21).ok();
-                    let advanced_options: Option<String> = row.get(22).ok();
+                    let auth_method: Option<String> = row.get(20).ok();
+                    let network_config_id: Option<String> = row.get(21).ok();
+                    let driver_properties: Option<String> = row.get(22).ok();
+                    let advanced_options: Option<String> = row.get(23).ok();
 
                     Ok(GlobalConnectionInfo {
                         id: row.get(0)?,
@@ -736,6 +738,7 @@ impl GlobalDatabaseManager {
                         driver_id,
                         environment_id,
                         auth_config_id,
+                        auth_method,
                         network_config_id,
                         driver_properties,
                         advanced_options,
