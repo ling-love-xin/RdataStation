@@ -357,8 +357,10 @@
 
 <script setup lang="ts">
 import { Boxes, X, Trash2, Pencil, Plus } from 'lucide-vue-next'
-import { ref, computed, watch, reactive } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import { useProfileForm, isGlobalProfile } from '../../composables/useProfileForm'
 
 import type { NetworkProfile } from '../../composables/useNetworkProfiles'
 
@@ -395,10 +397,6 @@ function cfgField(p: NetworkProfile, field: string, fallback?: unknown): unknown
   return c[field] ?? fallback
 }
 
-function isGlobal(p: NetworkProfile): boolean {
-  return p.origin === 'global'
-}
-
 // ===== Tab state =====
 const activeTab = ref<'ssh' | 'ssl' | 'proxy'>('ssh')
 watch(() => props.visible, (v) => { if (v) activeTab.value = props.defaultTab ?? 'ssh' })
@@ -409,12 +407,12 @@ function switchTab(t: 'ssh' | 'ssl' | 'proxy') {
 }
 
 // ===== Grouped lists =====
-const sshGlobal = computed(() => props.sshProfiles.filter(p => isGlobal(p)))
-const sshProject = computed(() => props.sshProfiles.filter(p => !isGlobal(p)))
-const sslGlobal = computed(() => props.sslProfiles.filter(p => isGlobal(p)))
-const sslProject = computed(() => props.sslProfiles.filter(p => !isGlobal(p)))
-const proxyGlobal = computed(() => props.proxyProfiles.filter(p => isGlobal(p)))
-const proxyProject = computed(() => props.proxyProfiles.filter(p => !isGlobal(p)))
+const sshGlobal = computed(() => props.sshProfiles.filter(p => isGlobalProfile(p)))
+const sshProject = computed(() => props.sshProfiles.filter(p => !isGlobalProfile(p)))
+const sslGlobal = computed(() => props.sslProfiles.filter(p => isGlobalProfile(p)))
+const sslProject = computed(() => props.sslProfiles.filter(p => !isGlobalProfile(p)))
+const proxyGlobal = computed(() => props.proxyProfiles.filter(p => isGlobalProfile(p)))
+const proxyProject = computed(() => props.proxyProfiles.filter(p => !isGlobalProfile(p)))
 
 const activeList = computed(() => {
   if (activeTab.value === 'ssh') return props.sshProfiles
@@ -429,113 +427,79 @@ const emptyLabel = computed(() => {
 })
 
 const showActiveForm = computed(() => {
-  if (activeTab.value === 'ssh') return showSshForm.value
-  if (activeTab.value === 'ssl') return showSslForm.value
-  return showProxyForm.value
+  if (activeTab.value === 'ssh') return ssh.showForm.value
+  if (activeTab.value === 'ssl') return ssl.showForm.value
+  return proxy.showForm.value
 })
 
-// ===== SSH form =====
-const showSshForm = ref(false)
-const editingSshId = ref<string | null>(null)
-const sshForm = reactive({ name: '', scope: 'project' as 'global' | 'project', host: '', port: 22, username: 'root', authMethod: 'password' as 'password' | 'key', password: '', keyPath: '', passphrase: '', keepalive: 60, localPort: undefined as number | undefined, remoteHost: '', remotePort: undefined as number | undefined })
-
-function resetSshForm() {
-  sshForm.name = ''; sshForm.scope = 'project'; sshForm.host = ''; sshForm.port = 22; sshForm.username = 'root'
-  sshForm.authMethod = 'password'; sshForm.password = ''; sshForm.keyPath = ''; sshForm.passphrase = ''
-  sshForm.keepalive = 60; sshForm.localPort = undefined; sshForm.remoteHost = ''; sshForm.remotePort = undefined
-  editingSshId.value = null
-}
-
+// ===== SSH form (composable) =====
+const ssh = useProfileForm(
+  { name: '', scope: 'project' as 'global' | 'project', host: '', port: 22, username: 'root', authMethod: 'password' as 'password' | 'key', password: '', keyPath: '', passphrase: '', keepalive: 60, localPort: undefined as number | undefined, remoteHost: '', remotePort: undefined as number | undefined },
+  {
+    onSave: (f) => emit('create-ssh', f),
+    testMsg: (f) => `🧪 测试 SSH 连接: ${f.host}:${f.port}`,
+  },
+)
 function editSsh(p: NetworkProfile) {
-  sshForm.name = p.name
-  sshForm.scope = isGlobal(p) ? 'global' : 'project'
-  sshForm.host = String(cfgField(p, 'host', ''))
-  sshForm.port = Number(cfgField(p, 'port', 22))
-  sshForm.username = String(cfgField(p, 'username', 'root'))
-  sshForm.authMethod = cfgField(p, 'authMethod') === 'key' ? 'key' : 'password'
-  sshForm.password = String(cfgField(p, 'password', ''))
-  sshForm.keyPath = String(cfgField(p, 'keyPath', ''))
-  sshForm.passphrase = String(cfgField(p, 'passphrase', ''))
-  sshForm.keepalive = Number(cfgField(p, 'keepalive', 60))
-  sshForm.localPort = cfgField(p, 'localPort') as number || undefined
-  sshForm.remoteHost = String(cfgField(p, 'remoteHost', ''))
-  sshForm.remotePort = cfgField(p, 'remotePort') as number || undefined
-  editingSshId.value = p.id
-  showSshForm.value = true
+  ssh.edit(p, (p) => ({
+    name: p.name,
+    scope: isGlobalProfile(p) ? 'global' : 'project',
+    host: String(cfgField(p, 'host', '')),
+    port: Number(cfgField(p, 'port', 22)),
+    username: String(cfgField(p, 'username', 'root')),
+    authMethod: cfgField(p, 'authMethod') === 'key' ? 'key' : 'password',
+    password: String(cfgField(p, 'password', '')),
+    keyPath: String(cfgField(p, 'keyPath', '')),
+    passphrase: String(cfgField(p, 'passphrase', '')),
+    keepalive: Number(cfgField(p, 'keepalive', 60)),
+    localPort: cfgField(p, 'localPort') as number || undefined,
+    remoteHost: String(cfgField(p, 'remoteHost', '')),
+    remotePort: cfgField(p, 'remotePort') as number || undefined,
+  }))
 }
+const { showForm: showSshForm, editingId: editingSshId, form: sshForm, cancelForm: cancelSshForm, testForm: testSshForm, saveForm: saveSshForm } = ssh
 
-function cancelSshForm() { showSshForm.value = false; resetSshForm() }
-function testSshForm() { alert(`🧪 测试 SSH 连接: ${sshForm.host}:${sshForm.port}`) }
-
-function saveSshForm() {
-  if (!sshForm.name.trim()) { alert('请填写配置名称'); return }
-  emit('create-ssh', { ...sshForm, id: editingSshId.value })
-  cancelSshForm()
-}
-
-// ===== SSL form =====
-const showSslForm = ref(false)
-const editingSslId = ref<string | null>(null)
-const sslForm = reactive({ name: '', scope: 'project' as 'global' | 'project', mode: 'require', ca: '', clientCert: '', clientKey: '', hostnameOverride: '' })
-
-function resetSslForm() {
-  sslForm.name = ''; sslForm.scope = 'project'; sslForm.mode = 'require'
-  sslForm.ca = ''; sslForm.clientCert = ''; sslForm.clientKey = ''; sslForm.hostnameOverride = ''
-  editingSslId.value = null
-}
-
+// ===== SSL form (composable) =====
+const ssl = useProfileForm(
+  { name: '', scope: 'project' as 'global' | 'project', mode: 'require', ca: '', clientCert: '', clientKey: '', hostnameOverride: '' },
+  {
+    onSave: (f) => emit('create-ssl', f),
+    testMsg: (f) => `🧪 测试 SSL 连接: ${f.mode}`,
+  },
+)
 function editSsl(p: NetworkProfile) {
-  sslForm.name = p.name
-  sslForm.scope = isGlobal(p) ? 'global' : 'project'
-  sslForm.mode = String(cfgField(p, 'mode', 'require'))
-  sslForm.ca = String(cfgField(p, 'ca', ''))
-  sslForm.clientCert = String(cfgField(p, 'clientCert', ''))
-  sslForm.clientKey = String(cfgField(p, 'clientKey', ''))
-  sslForm.hostnameOverride = String(cfgField(p, 'hostnameOverride', ''))
-  editingSslId.value = p.id
-  showSslForm.value = true
+  ssl.edit(p, (p) => ({
+    name: p.name,
+    scope: isGlobalProfile(p) ? 'global' : 'project',
+    mode: String(cfgField(p, 'mode', 'require')),
+    ca: String(cfgField(p, 'ca', '')),
+    clientCert: String(cfgField(p, 'clientCert', '')),
+    clientKey: String(cfgField(p, 'clientKey', '')),
+    hostnameOverride: String(cfgField(p, 'hostnameOverride', '')),
+  }))
 }
+const { showForm: showSslForm, editingId: editingSslId, form: sslForm, cancelForm: cancelSslForm, testForm: testSslForm, saveForm: saveSslForm } = ssl
 
-function cancelSslForm() { showSslForm.value = false; resetSslForm() }
-function testSslForm() { alert(`🧪 测试 SSL 连接: ${sslForm.mode}`) }
-
-function saveSslForm() {
-  if (!sslForm.name.trim()) { alert('请填写配置名称'); return }
-  emit('create-ssl', { ...sslForm, id: editingSslId.value })
-  cancelSslForm()
-}
-
-// ===== Proxy form =====
-const showProxyForm = ref(false)
-const editingProxyId = ref<string | null>(null)
-const proxyForm = reactive({ name: '', scope: 'project' as 'global' | 'project', type: 'socks5', host: '', port: 1080, username: '', password: '' })
-
-function resetProxyForm() {
-  proxyForm.name = ''; proxyForm.scope = 'project'; proxyForm.type = 'socks5'
-  proxyForm.host = ''; proxyForm.port = 1080; proxyForm.username = ''; proxyForm.password = ''
-  editingProxyId.value = null
-}
-
+// ===== Proxy form (composable) =====
+const proxy = useProfileForm(
+  { name: '', scope: 'project' as 'global' | 'project', type: 'socks5', host: '', port: 1080, username: '', password: '' },
+  {
+    onSave: (f) => emit('create-proxy', f),
+    testMsg: (f) => `🧪 测试代理: ${String(f.type).toUpperCase()} ${f.host}:${f.port}`,
+  },
+)
 function editProxy(p: NetworkProfile) {
-  proxyForm.name = p.name
-  proxyForm.scope = isGlobal(p) ? 'global' : 'project'
-  proxyForm.type = String(cfgField(p, 'type', 'socks5'))
-  proxyForm.host = String(cfgField(p, 'host', ''))
-  proxyForm.port = Number(cfgField(p, 'port', 1080))
-  proxyForm.username = String(cfgField(p, 'username', ''))
-  proxyForm.password = String(cfgField(p, 'password', ''))
-  editingProxyId.value = p.id
-  showProxyForm.value = true
+  proxy.edit(p, (p) => ({
+    name: p.name,
+    scope: isGlobalProfile(p) ? 'global' : 'project',
+    type: String(cfgField(p, 'type', 'socks5')),
+    host: String(cfgField(p, 'host', '')),
+    port: Number(cfgField(p, 'port', 1080)),
+    username: String(cfgField(p, 'username', '')),
+    password: String(cfgField(p, 'password', '')),
+  }))
 }
-
-function cancelProxyForm() { showProxyForm.value = false; resetProxyForm() }
-function testProxyForm() { alert(`🧪 测试代理: ${proxyForm.type.toUpperCase()} ${proxyForm.host}:${proxyForm.port}`) }
-
-function saveProxyForm() {
-  if (!proxyForm.name.trim()) { alert('请填写配置名称'); return }
-  emit('create-proxy', { ...proxyForm, id: editingProxyId.value })
-  cancelProxyForm()
-}
+const { showForm: showProxyForm, editingId: editingProxyId, form: proxyForm, cancelForm: cancelProxyForm, testForm: testProxyForm, saveForm: saveProxyForm } = proxy
 
 // ===== Cancel all on tab switch =====
 function cancelForms() {

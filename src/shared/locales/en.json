@@ -883,7 +883,27 @@
     "privateKeyFile": "Private key file",
     "validation": {
       "nameRequired": "Data source name cannot be empty"
-    }
+    },
+    "savedToStaging": "\"{name}\" saved to staging list",
+    "noStagingToApply": "Staging list is empty. Save a data source first.",
+    "applySuccess": "Successfully applied {count} data source connections",
+    "applyPartial": "Partial success: {success} succeeded, {fail} failed",
+    "testSuccess": "Connection Successful",
+    "testFailed": "Connection Failed",
+    "remoteServer": "Remote Server",
+    "localClient": "Local Client",
+    "connectionInfo": "Connection Info",
+    "errorDetail": "Error Detail",
+    "hostPort": "Host:Port",
+    "serverVersion": "Server Version",
+    "application": "Application",
+    "responseTime": "Response Time",
+    "status": "Status",
+    "connected": "Connected",
+    "confirm": "OK",
+    "directConnect": "Direct",
+    "configured": "Configured",
+    "proxy": "Proxy"
   },
   "workbench": {
     "pin": "Pin",

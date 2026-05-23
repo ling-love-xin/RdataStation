@@ -1,6 +1,9 @@
 # 新增数据源 — 前端完整开发计划
 
-> 版本：v0.7.2 (2026-05-23 — ProfileManager 桥接提取 + AuthConfig 类型统一)
+> 版本：v0.7.5 (2026-05-23 — useSidebarConnection 提取侧边栏连接操作)
+> 更新：v0.7.5 — DataSourceSidebar 内联操作消除 (-67行) + useSidebarConnection.ts (99行) 依赖注入解耦
+> 更新：v0.7.4 — NetworkConfigManager 558→534 (-24行) + useProfileForm.ts (69行) 消除 SSH/SSL/Proxy 重复
+> 更新：v0.7.3 — AuthConfig 内联定义删除 (-48行) + useUrlBuilder.ts (65行) 提取 buildUrl/uriPreview
 > 更新：v0.7.2 — NetworkTab 1004→892行 (-112) + useNetworkProfileBridge.ts (132行) + AuthConfig 统一 (NetworkTab → useAuthConfig canonical)
 > 更新：v0.7.1 — GeneralTab 547→440行 (-107) + useAuthConfig.ts (176行) + AuthConfig/BackendAuthConfig/parseAuthConfig 类型统一
 > 更新：v0.7.0 — T1: driver-adapter 消除4处as any + T2a: AdvancedTab 1034→922行 (-112) + T2b: NetworkTab 1034→1004行 (-30) + T3: 类型导出路径整理
@@ -2793,6 +2796,10 @@ v2.23（P3 警告清零）完成后，数据源模块功能性开发基本收敛
 | ProfileManager 桥接 → useNetworkProfileBridge.ts | 🟡 P2 | ✅ 已完成 | v0.7.2 |
 | NetworkTab P3 空catch → console.warn | 🟢 P3 | ✅ 已完成 | v0.7.1 |
 | T2c: NetworkConfigManager / Sidebar 拆分 | 🟡 P2 | 评估延后 | v0.7.3 |
+| AuthConfigManager 类型统一 | 🟡 P2 | ✅ 已完成 | v0.7.3 |
+| useUrlBuilder 提取 (AddDataSourceDialog) | 🟡 P2 | ✅ 已完成 | v0.7.3 |
+| useProfileForm 提取 (NetworkConfigManager) | 🟡 P2 | ✅ 已完成 | v0.7.4 |
+| useSidebarConnection 提取 (DataSourceSidebar) | 🟡 P2 | ✅ 已完成 | v0.7.5 |
 | 后端网络配置文件 API 统一 | 🟡 P2 | 后端任务 | TBD |
 
 ---
@@ -2923,7 +2930,7 @@ const { createSshProfile: handleCreateSshProfile, ... } = useNetworkProfileBridg
 | [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue#L854) | 删除内联定义 (7行) → `import type { AuthConfig } from '../../composables/useAuthConfig'` | 4 → 13 (canonical) |
 | [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue#L176) | 保留独立定义 | 14 (含 passphrase/createdAt/keyPath) |
 
-**决策记录**：AuthConfigManager 的 `AuthConfig` 包含 `passphrase`/`createdAt`/`keyPath` 字段，与 canonical 差异较大。统一需先对齐后端 API 响应格式，延后到后端任务。
+> **v0.7.3 更新**：AuthConfig canonical 已扩展至 16 字段（新增 keyPath/passphrase/createdAt），AuthConfigManager 内联定义已在 v0.7.3 彻底删除，统一完成。详见 [§20](#二十v073-authconfigmanager-类型统一--useurlbuilder-提取2026-05-23)。
 
 ### 19.4 验证
 
@@ -2931,3 +2938,247 @@ const { createSshProfile: handleCreateSshProfile, ... } = useNetworkProfileBridg
 |--------|------|
 | pnpm lint | 269 warnings, 0 errors (无新增) |
 | NetworkTab 编译 | 无 TypeScript 错误 |
+
+---
+
+## 二十、v0.7.3 AuthConfigManager 类型统一 + useUrlBuilder 提取（2026-05-23）
+
+### 20.1 变更概要
+
+**目标**：
+1. 完成 AuthConfigManager 的类型定义统一（v0.7.2 遗留）
+2. 将 AddDataSourceDialog 中 `buildUrl` + `uriPreview` 逻辑提取为独立 composable
+
+**结果**：
+- [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue) 删除内联类型 (-48行)
+- 新建 [useUrlBuilder.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useUrlBuilder.ts) (65行)
+- [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) 删除内联 `uriPreview` computed (13行) + `buildUrl` 函数 (15行)
+
+### 20.2 AuthConfigManager 类型统一
+
+**v0.7.2 遗留问题**：v0.7.2 已将 NetworkTab 的 AuthConfig 统一到 canonical，但 AuthConfigManager 仍保留独立的内联定义（BackendAuthConfig 10行 + AuthConfig 16行 + fromBackend 22行 = 48行）。
+
+**v0.7.3 统一**：
+
+| 移除 | 行数 | 替代 |
+|------|------|------|
+| `interface BackendAuthConfig { ... }` | 10行 | → `import type { BackendAuthConfig } from '../composables/useAuthConfig'` (已在 v0.7.2 添加) |
+| `interface AuthConfig { ... }` | 16行 | → `import type { AuthConfig } from '../composables/useAuthConfig'` (已在 v0.7.2 添加) |
+| `function fromBackend(b): AuthConfig { ... }` | 22行 | → `import { parseAuthConfig } from '../composables/useAuthConfig'` (已在 v0.7.2 添加) |
+| `raw.map(fromBackend)` × 2 | — | → `raw.map(parseAuthConfig)` |
+
+**AuthConfig canonical 扩展**（useAuthConfig.ts，v0.7.3 扩展）：
+- AuthConfig 新增 `keyPath?`, `passphrase?`, `createdAt?` → 16字段（覆盖原 AuthConfigManager 的 14字段）
+- BackendAuthConfig 新增 `source_id?`, `snapshot_at?` → 9字段（覆盖原 AuthConfigManager 的 9字段）
+- `parseAuthConfig` 新增 `keyPath`, `passphrase`, `createdAt` 映射
+
+### 20.3 useUrlBuilder composable 提取
+
+**旧代码**（AddDataSourceDialog.vue）：
+```
+uriPreview computed (13行) — 展示用，密码 **** 遮蔽
+buildUrl function  (15行) — 连接测试/保存用
+                    28行
+```
+
+**新模式**：[useUrlBuilder.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useUrlBuilder.ts)
+
+```typescript
+export function useUrlBuilder(opts: {
+  selectedDriver: ComputedRef<DriverInfo | null>
+  formData: Ref<Record<string, unknown>>
+  uriEditing: Ref<boolean>
+  manualUri: Ref<string>
+}) {
+  const uriPreview = computed(() => { ... })  // 展示预览
+  function buildUrl(): string { ... }          // 实际连接 URL
+  return { uriPreview, buildUrl }
+}
+```
+
+| 特性 | 说明 |
+|------|------|
+| `uriPreview` | 密码用 `****` 遮蔽，仅展示 |
+| `buildUrl` | 优先使用 manualUri（手动编辑模式），否则从表单字段构建 |
+| `DriverInfo` | 对外开放的类型接口，包含 `id/name/type_id/is_file/default_port` |
+
+### 20.4 大文件缩减总结（v0.7.0-v0.7.3 完整）
+
+| 文件 | v0.7.0 前 | v0.7.3 后 | 缩减 | 提取内容 |
+|------|----------|----------|------|---------|
+| [AdvancedTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue) | 1034行 | 922行 | -112 (-10.8%) | envDefaults (133行) + useSecurityPolicies (120行) |
+| [GeneralTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/GeneralTab.vue) | 547行 | 440行 | -107 (-19.6%) | useAuthConfig (176行) |
+| [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue) | 1034行 | 892行 | -142 (-13.7%) | useNetworkChain (632行) + useNetworkProfileBridge (132行) + AuthConfig 统一 |
+| [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue) | - | - | -48 | 类型统一到 canonical |
+| [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) | - | - | -28 | useUrlBuilder (65行) |
+| **合计** | **2615行** | **2254行** | **-437 (-16.7%)** | 7个 composable/constant 文件 (1318行提取) |
+
+### 20.5 验证
+
+| 检查项 | 状态 |
+|--------|------|
+| pnpm lint | 269 warnings, 0 errors (基线稳定) |
+| 编译 | 无 TypeScript 错误 |
+| AuthConfigManager | 类型定义 100% 来自 canonical |
+
+---
+
+## 二十一、v0.7.4 useProfileForm 消除 3x CRUD 重复（2026-05-23）
+
+### 21.1 变更概要
+
+**目标**：消除 [NetworkConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/network/NetworkConfigManager.vue) 中 SSH/SSL/Proxy 三套高度重复的表单 CRUD 逻辑。
+
+**结果**：
+- NetworkConfigManager **558 → 534 行** (-24)
+- 新建 [useProfileForm.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useProfileForm.ts) (69行)
+
+### 21.2 重复模式分析
+
+**旧代码**：每个协议都有独立的表单管理代码块：
+
+```
+SSH form  (L437-475, 38行)
+  showSshForm ref + editingSshId ref + sshForm reactive
+  resetSshForm() — 逐字段赋值
+  editSsh(p)    — 逐字段填充 + showSshForm = true
+  cancelSshForm() / testSshForm() / saveSshForm()
+
+SSL form  (L476-506, 30行)
+  showSslForm ref + editingSslId ref + sslForm reactive
+  resetSslForm() — 逐字段赋值
+  editSsl(p)    — 逐字段填充 + showSslForm = true
+  cancelSslForm() / testSslForm() / saveSslForm()
+
+Proxy form (L508-538, 30行)
+  showProxyForm ref + editingProxyId ref + proxyForm reactive
+  resetProxyForm() — 逐字段赋值
+  editProxy(p)    — 逐字段填充 + showProxyForm = true
+  cancelProxyForm() / testProxyForm() / saveProxyForm()
+```
+
+**核心重复**：`showForm` / `editingId` / `reactive` 状态 + `reset` / `cancel` / `save` 逻辑完全相同，只有字段名和保存 emit 不同。
+
+### 21.3 useProfileForm 设计方案
+
+```typescript
+export function useProfileForm<T extends Record<string, unknown>>(
+  defaults: T,
+  opts: {
+    onSave: (form: T & { id?: string | null }) => void
+    testMsg?: (form: T) => string
+  },
+) {
+  // 返回: showForm, editingId, form, edit, cancelForm, testForm, saveForm
+}
+```
+
+| 方法 | 说明 |
+|------|------|
+| `showForm` | `ref<boolean>` — 表单可见性 |
+| `editingId` | `ref<string \| null>` — 编辑中的 profile ID |
+| `form` | `reactive<T>` — 表单数据 |
+| `edit(profile, mapper)` | 通过 `mapper` 函数从 NetworkProfile 填充表单 |
+| `cancelForm()` | 隐藏表单 + 重置 |
+| `testForm()` | 可选的测试连接 alert |
+| `saveForm()` | name 校验 + emit onSave + cancel |
+
+**Template 兼容策略**：使用 destructuring aliases 保持旧变量名不变
+```ts
+const { showForm: showSshForm, editingId: editingSshId, form: sshForm,
+        cancelForm: cancelSshForm, testForm: testSshForm, saveForm: saveSshForm } = ssh
+```
+
+### 21.4 v0.7.0-v0.7.4 大文件缩减总结
+
+| 文件 | v0.7.0 前 | v0.7.4 后 | 缩减 | 提取内容 |
+|------|----------|----------|------|---------|
+| [AdvancedTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue) | 1034 | 859 | -175 (-16.9%) | envDefaults + useSecurityPolicies |
+| [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue) | 1034 | 789 | -245 (-23.7%) | useNetworkChain + useNetworkProfileBridge |
+| [GeneralTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/GeneralTab.vue) | 547 | 406 | -141 (-25.8%) | useAuthConfig |
+| [NetworkConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/network/NetworkConfigManager.vue) | 558 | 534 | -24 (-4.3%) | useProfileForm |
+| [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue) | — | 451 | -48 | 类型统一到 canonical |
+| [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) | — | 506 | -28 | useUrlBuilder |
+| **合计** | — | — | **累计 -661 行** | 8 个 composable/constant 文件 |
+
+### 21.5 验证
+
+| 检查项 | 状态 |
+|--------|------|
+| pnpm lint | 269 warnings, 0 errors (基线稳定) |
+| 编译 | 无 TypeScript 错误 |
+| NetworkConfigManager | SSH/SSL/Proxy 三表单功能保持完整 |
+
+---
+
+## 二十二、v0.7.5 useSidebarConnection 提取侧边栏连接操作（2026-05-23）
+
+### 22.1 变更概要
+
+**目标**：从 [DataSourceSidebar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/DataSourceSidebar.vue) 中提取内联的 `openSavedConnection` / `testSavedConnection` 函数和相关 `testingId` 状态。
+
+**结果**：
+- DataSourceSidebar **526 → 459 行** (-67)
+- 新建 [useSidebarConnection.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useSidebarConnection.ts) (99行)
+
+### 22.2 提取内容
+
+**删除的内联逻辑**（DataSourceSidebar，共约67行）：
+
+| 删除项 | 行数 | 说明 |
+|--------|------|------|
+| `testingId` ref | 1行 | 测试连接 loading 状态 |
+| `openSavedConnection()` | 37行 | Tauri invoke: connect_database → switch_connection → NewQuery event → loadConnections |
+| `testSavedConnection()` | 29行 | Tauri invoke: test_connection → updateConnectionStatus |
+
+**新增 composable**：
+
+```typescript
+export function useSidebarConnection(deps: SidebarConnectionDeps) {
+  // deps 注入: getConnectionUrl, updateConnectionStatus, loadConnections, currentProjectId
+  return { testingId, openSavedConnection, testSavedConnection }
+}
+```
+
+### 22.3 架构设计
+
+**依赖注入模式**：通过 `SidebarConnectionDeps` 接口注入 store 方法，将 composable 与具体 store 实现解耦：
+
+| 依赖方法 | 来源 | 用途 |
+|----------|------|------|
+| `getConnectionUrl` | projectConnectionStore | 构建数据库连接 URL |
+| `updateConnectionStatus` | projectConnectionStore | 测试后更新连接状态 |
+| `loadConnections` | projectConnectionStore | 刷新侧边栏连接列表 |
+| `currentProjectId` | projectStore | 获取当前项目 ID |
+
+**调用方式**（DataSourceSidebar script setup）：
+
+```typescript
+const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnection({
+  getConnectionUrl: (conn) => projectConnectionStore.getConnectionUrl(conn),
+  updateConnectionStatus: (id, status, errorMsg) => projectConnectionStore.updateConnectionStatus(id, status, errorMsg),
+  loadConnections: () => projectConnectionStore.loadConnections(),
+  currentProjectId: () => projectStore.currentProject?.id ?? null,
+})
+```
+
+### 22.4 v0.7.0-v0.7.5 大文件缩减总结
+
+| 文件 | v0.7.0 前 | v0.7.5 后 | 缩减 | 提取内容 |
+|------|----------|----------|------|---------|
+| [AdvancedTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue) | 1034 | 859 | -175 (-16.9%) | envDefaults + useSecurityPolicies |
+| [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue) | 1034 | 789 | -245 (-23.7%) | useNetworkChain + useNetworkProfileBridge |
+| [GeneralTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/GeneralTab.vue) | 547 | 406 | -141 (-25.8%) | useAuthConfig |
+| [NetworkConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/network/NetworkConfigManager.vue) | 558 | 534 | -24 (-4.3%) | useProfileForm |
+| [DataSourceSidebar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/DataSourceSidebar.vue) | 526 | 459 | -67 (-12.7%) | useSidebarConnection |
+| [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue) | — | 451 | -48 | 类型统一到 canonical |
+| [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) | — | 506 | -28 | useUrlBuilder |
+| **合计** | — | — | **累计 -728 行** | 9 个 composable/constant 文件 |
+
+### 22.5 验证
+
+| 检查项 | 状态 |
+|--------|------|
+| pnpm lint | 269 warnings, 0 errors (基线稳定) |
+| 编译 | 无 TypeScript 错误 |
+| DataSourceSidebar | 连接打开/测试功能保持完整 |

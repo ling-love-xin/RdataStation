@@ -940,6 +940,26 @@
     "validation": {
       "nameRequired": "数据源名称不能为空"
     },
+    "savedToStaging": "\"{name}\" 已保存到暂存列表",
+    "noStagingToApply": "暂存列表为空，请先保存数据源配置",
+    "applySuccess": "已成功应用 {count} 个数据源连接",
+    "applyPartial": "部分应用成功：{success} 个成功，{fail} 个失败",
+    "testSuccess": "连接成功",
+    "testFailed": "连接失败",
+    "remoteServer": "远程服务器",
+    "localClient": "本地客户端",
+    "connectionInfo": "连接信息",
+    "errorDetail": "错误详情",
+    "hostPort": "主机:端口",
+    "serverVersion": "服务器版本",
+    "application": "应用程序",
+    "responseTime": "响应时间",
+    "status": "状态",
+    "connected": "已连接",
+    "confirm": "确定",
+    "directConnect": "直连",
+    "configured": "已配置",
+    "proxy": "代理",
     "scopeChangeWarning": "切换连接类型后，网络配置和环境设置可能失效，请重新选择"
   },
   "workbench": {

@@ -30,13 +30,14 @@
             v-model:manual-uri="manualUri"
             :driver-options="driverOptions"
             :uri-preview="uriPreview"
-            :name-label="$t('navigator.name')"
+            :name-label="'* ' + $t('navigator.name')"
+            name-required
             :name-placeholder="$t('navigator.dataSourceNamePlaceholder')"
             :desc-label="$t('navigator.description')"
             :desc-placeholder="$t('navigator.dataSourceDescPlaceholder')"
             :global-label="$t('navigator.globalConnection')"
             :project-label="$t('navigator.projectConnection')"
-            :driver-label="$t('navigator.driver')"
+            :driver-label="'* ' + $t('navigator.driver')"
             :driver-placeholder="$t('navigator.selectDbType')"
             uri-label="URI"
             uri-placeholder="jdbc:mysql://..."
@@ -93,6 +94,19 @@
       </div>
     </div>
   </NModal>
+  <!-- Test connection feedback modal -->
+  <TestResultModal
+    :show="showTestModal"
+    :result="lastTestResult"
+    :host="String(formData.host || '')"
+    :port="String(formData.port || '')"
+    :database="String(formData.database || '')"
+    :user="String(formData.username || '')"
+    :url="uriPreview"
+    :driver-name="selectedDriver?.name ?? ''"
+    :network-info="testNetworkInfo"
+    @close="showTestModal = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -112,8 +126,10 @@ import CapabilitiesTab from './tabs/CapabilitiesTab.vue'
 import DriverPropsTab from './tabs/DriverPropsTab.vue'
 import GeneralTab from './tabs/GeneralTab.vue'
 import NetworkTab from './tabs/NetworkTab.vue'
+import TestResultModal from './TestResultModal.vue'
 import { useAddDataSource } from '../composables/useAddDataSource'
 import { useDriverRegistry } from '../composables/useDriverRegistry'
+import { useNetworkProfiles } from '../composables/useNetworkProfiles'
 import { useUrlBuilder } from '../composables/useUrlBuilder'
 import { connectDatabase as connectDatabaseService } from '../services/connection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
@@ -170,39 +186,58 @@ interface StagingItem {
   name: string
   driver?: string
   driverId?: string
+  url?: string
   formData?: Record<string, unknown>
+  authConfigId?: string | null
+  authMethod?: string
   networkConfigId?: string | null
   driverProperties?: string | null
   advancedOptions?: string | null
   environmentId?: string | null
+  scope?: 'global' | 'project'
+  description?: string
 }
 const stagingItems = ref<StagingItem[]>([{ name: '' }])
 const stagingIndex = ref(0)
+const isResetting = ref(false) // 守卫：防止重置时 watch 覆盖暂存列表名字
+
+const { sshProfiles, proxyProfiles, loadAll: loadNetworkProfiles } = useNetworkProfiles()
+
+// Test connection modal state
+const showTestModal = ref(false)
+const lastTestResult = ref<{ success: boolean; message: string; serverVersion?: string; responseTimeMs?: number }>({ success: false, message: '' })
+
+const testNetworkInfo = computed(() => {
+  if (!networkConfigId.value) return t('navigator.directConnect')
+  // 从已加载的网络配置中查找
+  const allProfiles = [...sshProfiles.value, ...proxyProfiles.value]
+  const profile = allProfiles.find(p => p.id === networkConfigId.value)
+  if (!profile) return `${t('navigator.configured')} (${networkConfigId.value})`
+
+  const detail = profile.detail || ''
+  const typeLabel = profile.type === 'ssh'
+    ? 'SSH'
+    : profile.type === 'proxy'
+      ? t('navigator.proxy')
+      : profile.type.toUpperCase()
+
+  // 构建路径: RdataStation → SSH(user@host:22) → target
+  const dbTarget = String(formData.value.host || formData.value.file_path || '—')
+  return `RdataStation → ${typeLabel}(${detail}) → ${dbTarget}`
+})
 
 // Computed
 const selectedDriver = computed(() =>
   drivers.value.find(d => d.id === headerData.selectedDriverId) ?? null
 )
 
+const { uriPreview, buildUrl } = useUrlBuilder({ selectedDriver, formData, uriEditing, manualUri })
+
 const driverOptions = computed(() => {
   if (!selectedTypeId.value) return []
   return drivers.value
     .filter(d => d.type_id === selectedTypeId.value && d.enabled)
     .map(d => ({ label: d.name, value: d.id }))
-})
-
-const uriPreview = computed(() => {
-  const d = selectedDriver.value
-  if (!d) return ''
-  const fd = formData.value
-  if (d.is_file) return `${d.name.toLowerCase()}://${fd.file_path || fd.database || './data.db'}`
-  const usr = fd.username || 'user'
-  const pw = fd.password ? '****' : ''
-  const h = fd.host || 'localhost'
-  const p = fd.port || d.default_port || ''
-  const db = fd.database || ''
-  if (pw) return `${d.name.toLowerCase()}://${usr}:${pw}@${h}${p ? ':' + p : ''}/${db}`
-  return `${d.name.toLowerCase()}://${usr}@${h}${p ? ':' + p : ''}/${db}`
 })
 
 // Actions
@@ -237,6 +272,20 @@ function onAuthConfigChange(authCfgId: string | null, method: string) {
 function addStaging() {
   stagingItems.value.push({ name: '' })
   stagingIndex.value = stagingItems.value.length - 1
+  // 新增时清空右侧表单
+  isResetting.value = true
+  headerData.name = ''
+  headerData.description = ''
+  formData.value = {}
+  testResult.value = null
+  authConfigId.value = null
+  authMethod.value = 'password'
+  networkConfigId.value = null
+  driverPropertiesExtra.value = null
+  advancedOptions.value = null
+  selectedEnvId.value = null
+  activeTab.value = 'general'
+  isResetting.value = false
 }
 
 function removeStaging(i: number) {
@@ -249,6 +298,7 @@ function selectStaging(i: number) {
   stagingIndex.value = i
   const s = stagingItems.value[i]
   if (!s) return
+  isResetting.value = true
   headerData.name = s.name || ''
   headerData.description = ''
   if (s.driver) {
@@ -268,22 +318,7 @@ function selectStaging(i: number) {
   advancedOptions.value = s.advancedOptions ?? null
   selectedEnvId.value = s.environmentId ?? null
   testResult.value = null
-}
-
-function buildUrl(): string {
-  if (uriEditing.value && manualUri.value) return manualUri.value
-  const d = selectedDriver.value
-  if (!d) return ''
-  const proto = d.type_id.toLowerCase()
-  const fd = formData.value
-  if (d.is_file) return `${proto}://${fd.file_path || fd.database || './data.db'}`
-  const h = String(fd.host || 'localhost')
-  const po = String(fd.port || d.default_port || '')
-  const db = String(fd.database || '')
-  const u = String(fd.username || '')
-  const pw = String(fd.password || '')
-  if (u && pw) return `${proto}://${u}:${pw}@${h}${po ? ':' + po : ''}/${db}`
-  return `${proto}://${u}@${h}${po ? ':' + po : ''}/${db}`
+  isResetting.value = false
 }
 
 async function handleTest() {
@@ -307,6 +342,54 @@ async function handleTest() {
         : (r.message || t('navigator.connectionFailedGeneric')),
       latencyMs: r.success ? (r.response_time_ms ?? undefined) : undefined,
     }
+
+    // 存储结构化结果并弹出详细反馈弹窗
+    lastTestResult.value = {
+      success: r.success,
+      message: r.message || '',
+      serverVersion: r.server_version,
+      responseTimeMs: r.response_time_ms,
+    }
+    showTestModal.value = true
+
+    // 测试成功后自动保存认证信息到认证表
+    if (r.success) {
+      const fd = formData.value
+      const hasAuth = fd.username || fd.password
+      if (hasAuth) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const authData: Record<string, any> = {}
+          if (fd.username) authData.username = String(fd.username)
+          if (fd.password) authData.password = String(fd.password)
+          if (fd.host) authData.host = String(fd.host)
+          if (fd.port) authData.port = String(fd.port)
+          if (fd.database) authData.database = String(fd.database)
+
+          const authName = headerData.name
+            ? `${headerData.name} — 认证`
+            : `${driverName} — 认证`
+
+          await invoke('create_auth_config', {
+            ac: {
+              id: '',
+              name: authName,
+              auth_type: authMethod.value,
+              auth_data: JSON.stringify(authData),
+              origin: scope.global ? 'global' : 'project',
+              source_id: null,
+              snapshot_at: null,
+              created_at: '',
+              updated_at: '',
+            },
+          })
+          // eslint-disable-next-line no-console
+          console.log(`[auth] 测试成功，认证配置已保存: ${authName}`)
+        } catch (authErr) {
+          console.warn('[auth] 保存认证配置失败:', authErr)
+        }
+      }
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : (typeof e === 'string' ? e : JSON.stringify(e))
     console.error('[test_connection] 失败:', msg)
@@ -314,10 +397,10 @@ async function handleTest() {
   } finally { testing.value = false }
 }
 
-async function doSave(): Promise<void> {
+/** 保存到暂存列表（不连库，不关对话框） */
+function saveToStaging() {
   if (!selectedDriver.value) { message.warning(t('navigator.selectDbType')); return }
 
-  // 使用 useAddDataSource 统一校验
   const validation = validate()
   if (!validation.valid) {
     const firstError = Object.values(validation.errors)[0]
@@ -327,108 +410,131 @@ async function doSave(): Promise<void> {
 
   if (!scope.global && !scope.project) { message.warning(t('navigator.selectSaveLocation')); return }
 
-  saving.value = true
-  try {
-    const url = buildUrl()
-    const name = headerData.name || selectedDriver.value.name
-    const d = selectedDriver.value
+  const url = buildUrl()
+  const name = headerData.name || selectedDriver.value.name
+  const d = selectedDriver.value
 
-    const { invoke } = await import('@tauri-apps/api/core')
+  // 写入当前 staging 位置
+  stagingItems.value[stagingIndex.value] = {
+    name,
+    driver: d.type_id,
+    driverId: headerData.selectedDriverId ?? undefined,
+    url,
+    formData: { ...formData.value },
+    authConfigId: authConfigId.value,
+    authMethod: authMethod.value,
+    networkConfigId: networkConfigId.value,
+    driverProperties: driverPropertiesExtra.value,
+    advancedOptions: advancedOptions.value,
+    environmentId: selectedEnvId.value ?? null,
+    scope: scope.global ? 'global' : 'project',
+    description: headerData.description || undefined,
+  }
 
-    // 项目级连接：快照引用的全局认证/网络配置，防止全局修改影响已有项目
-    if (scope.project && projectStore.hasProject) {
-      const pp = projectStore.currentProject?.path
-      try {
-        if (authConfigId.value?.startsWith('G_') && !authConfigId.value.startsWith('GP_')) {
-          const r = await invoke<{ snapshot_id: string }>('snapshot_global_auth', { globalAuthId: authConfigId.value, projectPath: pp })
-          authConfigId.value = r.snapshot_id
-        }
-        if (networkConfigId.value?.startsWith('G_') && !networkConfigId.value.startsWith('GP_')) {
-          const r = await invoke<{ snapshot_id: string }>('snapshot_global_network', { globalNetId: networkConfigId.value, projectPath: pp })
-          networkConfigId.value = r.snapshot_id
-        }
-      } catch (snapErr) {
-        console.error('[snapshot] 认证/网络快照失败:', snapErr)
-      }
-    }
-
-    stagingItems.value[stagingIndex.value] = {
-      name,
-      driver: d.type_id,
-      driverId: headerData.selectedDriverId ?? undefined,
-      formData: { ...formData.value },
-      networkConfigId: networkConfigId.value,
-      driverProperties: driverPropertiesExtra.value,
-      advancedOptions: advancedOptions.value,
-      environmentId: selectedEnvId.value ?? null,
-    }
-
-    const connectOpts = {
-      driverId: headerData.selectedDriverId,
-      networkConfigId: networkConfigId.value,
-      environmentId: selectedEnvId.value ?? undefined,
-      authConfigId: authConfigId.value,
-      driverProperties: driverPropertiesExtra.value ?? undefined,
-      advancedOptions: advancedOptions.value ?? undefined,
-      description: headerData.description || undefined,
-    }
-
-    let returnedConnId: string | null = null
-
-    if (scope.project && projectStore.hasProject) {
-      const fd = formData.value
-      await projectConnectionStore.createConnection({
-        name,
-        driver: d.type_id,
-        host: d.is_file ? String(fd.file_path || fd.database || '') : String(fd.host || ''),
-        port: d.is_file ? 0 : Number(fd.port || d.default_port || 0),
-        database: String(fd.database || ''),
-        username: String(fd.username || ''),
-        password: String(fd.password || ''),
-        use_duckdb_fed: false,
-      })
-      const connResponse = await connectDatabaseService(
-        d.type_id,
-        url,
-        name,
-        'project',
-        projectStore.currentProject?.id,
-        connectOpts
-      )
-      returnedConnId = connResponse.conn_id
-    }
-    if (scope.global) {
-      const connResponse = await connectDatabaseService(
-        d.type_id,
-        url,
-        name,
-        'global',
-        undefined,
-        connectOpts
-      )
-      returnedConnId = connResponse.conn_id
-    }
-
-    message.success(t('navigator.connectionSavedTo', { name, locations: '' }))
-    emit('save')
-  } catch (e) {
-    message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
-    throw e
-  } finally { saving.value = false }
+  message.success(t('navigator.savedToStaging', { name }))
 }
 
 async function handleSave() {
-  try {
-    await doSave()
-    resetAndClose()
-  } catch (err) { console.warn('[handleSave] 保存失败:', err) /* error already shown in doSave */ }
+  saveToStaging()
 }
 
+/** 批量应用所有暂存连接 → 写入数据库 */
 async function handleApply() {
+  if (stagingItems.value.length === 0 || !stagingItems.value[0].name) {
+    message.warning(t('navigator.noStagingToApply'))
+    return
+  }
+
+  saving.value = true
+  let successCount = 0
+  const errors: string[] = []
+
   try {
-    await doSave()
-    resetAndClose()
-  } catch (err) { console.warn('[handleSave] 保存失败:', err) /* error already shown in doSave */ }
+    const { invoke } = await import('@tauri-apps/api/core')
+
+    for (const item of stagingItems.value) {
+      if (!item.name) continue
+      try {
+        const driverName = item.driver || 'mysql'
+        const url = item.url || ''
+        const name = item.name
+        const itemScope = item.scope || 'global'
+        const projectId = itemScope === 'project' ? projectStore.currentProject?.id ?? null : null
+
+        // 项目级连接快照全局配置
+        let snapshotNetId = item.networkConfigId ?? null
+        let snapshotAuthId = item.authConfigId ?? null
+        if (itemScope === 'project' && projectStore.hasProject) {
+          const pp = projectStore.currentProject?.path
+          try {
+            if (snapshotAuthId?.startsWith('G_') && !snapshotAuthId.startsWith('GP_')) {
+              const r = await invoke<{ snapshot_id: string }>('snapshot_global_auth', { globalAuthId: snapshotAuthId, projectPath: pp })
+              snapshotAuthId = r.snapshot_id
+            }
+            if (snapshotNetId?.startsWith('G_') && !snapshotNetId.startsWith('GP_')) {
+              const r = await invoke<{ snapshot_id: string }>('snapshot_global_network', { globalNetId: snapshotNetId, projectPath: pp })
+              snapshotNetId = r.snapshot_id
+            }
+          } catch (snapErr) {
+            console.error('[snapshot] 认证/网络快照失败:', snapErr)
+          }
+        }
+
+        const connectOpts = {
+          driverId: item.driverId,
+          networkConfigId: snapshotNetId,
+          environmentId: item.environmentId ?? undefined,
+          authConfigId: snapshotAuthId,
+          driverProperties: item.driverProperties ?? undefined,
+          advancedOptions: item.advancedOptions ?? undefined,
+          description: item.description || undefined,
+        }
+
+        if (itemScope === 'project' && projectStore.hasProject) {
+          const fd = item.formData || {}
+          await projectConnectionStore.createConnection({
+            name,
+            driver: driverName,
+            host: String(fd.host || ''),
+            port: Number(fd.port || 0),
+            database: String(fd.database || ''),
+            username: String(fd.username || ''),
+            password: String(fd.password || ''),
+            use_duckdb_fed: false,
+          })
+        }
+
+        await connectDatabaseService(
+          driverName,
+          url,
+          name,
+          itemScope,
+          itemScope === 'project' ? projectStore.currentProject?.id : undefined,
+          connectOpts
+        )
+        successCount++
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        errors.push(`${item.name}: ${msg}`)
+        console.error(`[apply] ${item.name} 应用失败:`, msg)
+      }
+    }
+
+    if (errors.length === 0) {
+      message.success(t('navigator.applySuccess', { count: successCount }))
+    } else if (successCount > 0) {
+      message.warning(t('navigator.applyPartial', { success: successCount, fail: errors.length }))
+    } else {
+      message.error(`${t('common.operationFailed')}: ${errors.join('; ')}`)
+    }
+
+    if (successCount > 0) {
+      emit('save')
+      resetAndClose()
+    }
+  } catch (e) {
+    message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
+  } finally { saving.value = false }
 }
 
 function resetAndClose() {
@@ -436,17 +542,20 @@ function resetAndClose() {
   headerData.name = ''
   headerData.description = ''
   formData.value = {}
+  stagingItems.value = [{ name: '' }]
+  stagingIndex.value = 0
   emit('update:modelValue', false)
 }
 
 function handleClose() { resetAndClose() }
 
 // Init
-onMounted(async () => { await loadAll(projectStore.currentProject?.path) })
+onMounted(async () => { await loadAll(projectStore.currentProject?.path); await loadNetworkProfiles() })
 
 watch(() => props.modelValue, (open) => {
   if (open) {
     loadAll(projectStore.currentProject?.path)
+    loadNetworkProfiles()
     activeTab.value = 'general'
     testResult.value = null
     networkConfigId.value = null
@@ -467,6 +576,28 @@ watch(() => props.modelValue, (open) => {
 watch(uriEditing, (editing) => {
   if (editing) {
     manualUri.value = uriPreview.value
+  }
+})
+
+// T1: 暂存列表名字实时跟随右侧名称（表单重置时跳过，flush:sync 确保表单重置时同步拦截）
+watch(() => headerData.name, (name) => {
+  if (isResetting.value) return
+  if (stagingItems.value[stagingIndex.value]) {
+    stagingItems.value[stagingIndex.value].name = name
+  }
+}, { flush: 'sync' })
+
+// T6: 选择数据源类型时自动选中第一个驱动
+watch(selectedTypeId, (typeId) => {
+  if (!typeId) return
+  // 仅在未选择驱动或当前驱动不属于该类型时自动选中
+  const currentDriver = drivers.value.find(d => d.id === headerData.selectedDriverId)
+  if (currentDriver && currentDriver.type_id === typeId) return
+  const firstDriver = drivers.value.find(d => d.type_id === typeId && d.enabled)
+  if (firstDriver) {
+    headerData.selectedDriverId = firstDriver.id
+    formData.value = {}
+    testResult.value = null
   }
 })
 
