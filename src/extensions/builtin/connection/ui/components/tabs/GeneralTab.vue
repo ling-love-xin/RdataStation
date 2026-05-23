@@ -206,60 +206,14 @@
 
 <script setup lang="ts">
 import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace } from 'naive-ui'
-import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { useAuthConfig } from '../../composables/useAuthConfig'
 import AuthConfigManager from '../AuthConfigManager.vue'
 
+
 import type { Driver } from '../../../domain/types'
-
-/** 认证配置数据模型 — 由后端 API (list_auth_configs / snapshot_global_auth) 提供 */
-interface AuthConfig {
-  id: string
-  name: string
-  authType: string
-  scope: 'global' | 'project'
-  username?: string
-  password?: string
-  certPath?: string
-  certKeyPath?: string
-  principal?: string
-  keytabPath?: string
-  tokenEndpoint?: string
-  clientId?: string
-  clientSecret?: string
-}
-
-/** Backend raw shape — snake_case + auth_data JSON */
-interface BackendAuthConfig {
-  id: string
-  name: string | null
-  auth_type: string
-  auth_data: string
-  origin: string | null
-  created_at: string
-  updated_at: string
-}
-
-function parseAuthConfig(raw: BackendAuthConfig): AuthConfig {
-  let data: Record<string, unknown> = {}
-  try { data = JSON.parse(raw.auth_data || '{}') } catch (err) { console.warn('[parseAuthConfig] 解析失败:', err) }
-  return {
-    id: raw.id,
-    name: raw.name || '',
-    authType: raw.auth_type,
-    scope: (raw.origin === 'global' ? 'global' : 'project') as 'global' | 'project',
-    username: data.username as string | undefined,
-    password: data.password as string | undefined,
-    certPath: data.certPath as string | undefined,
-    certKeyPath: data.certKeyPath as string | undefined,
-    principal: data.principal as string | undefined,
-    keytabPath: data.keytabPath as string | undefined,
-    tokenEndpoint: data.tokenEndpoint as string | undefined,
-    clientId: data.clientId as string | undefined,
-    clientSecret: data.clientSecret as string | undefined,
-  }
-}
 
 interface Props {
   driver: Driver | null
@@ -311,38 +265,40 @@ const local = reactive<LocalForm>({
   clientSecret: '',
 })
 
-// Auth state
-const authMethod = ref('password')
-const selectedAuthConfigId = ref<string | null>(null)
-const showAuthManager = ref(false)
-
-// Auth configs — loaded from backend API via loadAuthConfigs()
-const authConfigs = ref<AuthConfig[]>([])
+// Auth state (via composable)
+const {
+  authMethod, selectedAuthConfigId, showAuthManager,
+  authMethodOpts, filteredAuthConfigOpts,
+  onAuthMethodChange, onAuthConfigSelect, onAuthConfigExternalSelect,
+  onAuthManagerClose, loadAuthConfigs,
+} = useAuthConfig({
+  local: {
+    get username() { return local.username },
+    set username(v) { local.username = v },
+    get password() { return local.password },
+    set password(v) { local.password = v },
+    get certPath() { return local.certPath },
+    set certPath(v) { local.certPath = v },
+    get certKeyPath() { return local.certKeyPath },
+    set certKeyPath(v) { local.certKeyPath = v },
+    get principal() { return local.principal },
+    set principal(v) { local.principal = v },
+    get keytabPath() { return local.keytabPath },
+    set keytabPath(v) { local.keytabPath = v },
+    get tokenEndpoint() { return local.tokenEndpoint },
+    set tokenEndpoint(v) { local.tokenEndpoint = v },
+    get clientId() { return local.clientId },
+    set clientId(v) { local.clientId = v },
+    get clientSecret() { return local.clientSecret },
+    set clientSecret(v) { local.clientSecret = v },
+  },
+  onFormUpdate: emitUpdate,
+  onAuthConfigChange: (configId, authType) => emit('auth-config-change', configId, authType),
+})
 
 const filePathPlaceholder = computed(() => {
   if (props.driver?.name?.toLowerCase().includes('duckdb')) return '~/data.duckdb'
   return '~/data.db'
-})
-
-// Auth method options (database auth only - real PostgreSQL/MySQL auth method names)
-const authMethodOpts = computed(() => [
-  { label: '🔑 SCRAM-SHA-256 / mysql_native_password', value: 'password' },
-  { label: '📜 SSL 客户端证书 (mTLS)', value: 'pg_class' },
-  { label: '🎫 GSSAPI Kerberos', value: 'kerberos' },
-  { label: '🔗 OAuth 2.0 Bearer Token', value: 'oauth2' },
-])
-
-// Filter saved auth configs by current auth method
-const filteredAuthConfigOpts = computed(() => {
-  const configs = authConfigs.value.filter(ac => ac.authType === authMethod.value)
-  if (configs.length === 0) return []
-  return [
-    { label: t('navigator.noSavedConfig') || '— 手动填写 —', value: '' },
-    ...configs.map(ac => ({
-      label: `${ac.name} · ${ac.scope === 'global' ? '🌐' : '📝'}`,
-      value: ac.id,
-    })),
-  ]
 })
 
 function emitUpdate() {
@@ -351,65 +307,6 @@ function emitUpdate() {
     authMethod: authMethod.value,
     selectedAuthConfigId: selectedAuthConfigId.value,
   })
-}
-
-function onAuthMethodChange() {
-  selectedAuthConfigId.value = null
-  emitUpdate()
-}
-
-function onAuthConfigSelect(configId: string | null) {
-  if (!configId) {
-    // User selected "不使用已保存配置"
-    selectedAuthConfigId.value = null
-    // 清空认证字段以便手动填写
-    local.username = ''
-    local.password = ''
-    local.certPath = ''
-    local.certKeyPath = ''
-    local.principal = ''
-    local.keytabPath = ''
-    local.tokenEndpoint = ''
-    local.clientId = ''
-    local.clientSecret = ''
-    emitUpdate()
-    return
-  }
-
-  const config = authConfigs.value.find(ac => ac.id === configId)
-  if (!config) return
-
-  selectedAuthConfigId.value = configId
-  // 同步认证方法类型
-  authMethod.value = config.authType
-  // 预填字段
-  if (config.username) local.username = config.username
-  if (config.password) local.password = config.password
-  if (config.certPath) local.certPath = config.certPath
-  if (config.certKeyPath) local.certKeyPath = config.certKeyPath
-  if (config.principal) local.principal = config.principal
-  if (config.keytabPath) local.keytabPath = config.keytabPath
-  if (config.tokenEndpoint) local.tokenEndpoint = config.tokenEndpoint
-  if (config.clientId) local.clientId = config.clientId
-  if (config.clientSecret) local.clientSecret = config.clientSecret
-
-  emit('auth-config-change', configId, config.authType)
-  emitUpdate()
-}
-
-/** Called when AuthConfigManager fires a select event */
-function onAuthConfigExternalSelect(configId: string) {
-  showAuthManager.value = false
-  onAuthConfigSelect(configId)
-}
-
-/** Refresh auth config list after AuthConfigManager operations */
-async function onAuthManagerClose() {
-  showAuthManager.value = false
-  try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    authConfigs.value = await invoke<AuthConfig[]>('list_auth_configs')
-  } catch (err) { console.warn('[loadAuthConfigs] 加载认证列表失败:', err) }
 }
 
 async function browseFile() {
@@ -495,13 +392,7 @@ onMounted(async () => {
   }
 
   // 从后端加载已保存的认证配置列表
-  try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    const configs = await invoke<BackendAuthConfig[]>('list_auth_configs')
-    authConfigs.value = configs.map(parseAuthConfig)
-  } catch {
-    // API 不可用时静默降级，authConfigs 保持空数组
-  }
+  loadAuthConfigs()
 })
 
 // Reset port when driver changes

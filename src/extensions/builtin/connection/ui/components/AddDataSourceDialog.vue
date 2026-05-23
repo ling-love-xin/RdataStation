@@ -114,6 +114,7 @@ import GeneralTab from './tabs/GeneralTab.vue'
 import NetworkTab from './tabs/NetworkTab.vue'
 import { useAddDataSource } from '../composables/useAddDataSource'
 import { useDriverRegistry } from '../composables/useDriverRegistry'
+import { useUrlBuilder } from '../composables/useUrlBuilder'
 import { connectDatabase as connectDatabaseService } from '../services/connection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 

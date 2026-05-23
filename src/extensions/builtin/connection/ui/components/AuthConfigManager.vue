@@ -148,6 +148,8 @@ import { NButton, NInput, NSelect } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { parseAuthConfig, type AuthConfig, type BackendAuthConfig } from '../composables/useAuthConfig'
+
 const emit = defineEmits<{
   close: []
   select: [configId: string]
@@ -158,62 +160,6 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-
-// ===== Backend AuthConfig shape (from auth_store.rs) =====
-interface BackendAuthConfig {
-  id: string
-  name: string | null
-  auth_type: string
-  auth_data: string // JSON: { username?, password?, certPath?, certKeyPath?, principal?, keytabPath?, keyPath?, passphrase?, tokenEndpoint?, clientId?, clientSecret? }
-  origin: string | null
-  source_id: string | null
-  snapshot_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-// ===== Frontend display shape =====
-interface AuthConfig {
-  id: string
-  name: string
-  authType: string
-  scope: 'global' | 'project'
-  username?: string
-  password?: string
-  certPath?: string
-  certKeyPath?: string
-  principal?: string
-  keytabPath?: string
-  tokenEndpoint?: string
-  clientId?: string
-  clientSecret?: string
-  passphrase?: string
-  createdAt: string
-}
-
-// ===== Parse auth_data JSON → display fields =====
-function fromBackend(b: BackendAuthConfig): AuthConfig {
-  let data: Record<string, unknown> = {}
-  try { data = JSON.parse(b.auth_data || '{}') } catch (err) { console.warn('[fromBackend] 解析失败:', err) }
-  return {
-    id: b.id,
-    name: b.name || '',
-    authType: b.auth_type,
-    scope: (b.origin === 'global' ? 'global' : 'project') as 'global' | 'project',
-    username: data.username as string | undefined,
-    password: data.password as string | undefined,
-    certPath: data.certPath as string | undefined,
-    certKeyPath: data.certKeyPath as string | undefined,
-    principal: data.principal as string | undefined,
-    keytabPath: data.keytabPath as string | undefined,
-    keyPath: data.keyPath as string | undefined,
-    passphrase: data.passphrase as string | undefined,
-    tokenEndpoint: data.tokenEndpoint as string | undefined,
-    clientId: data.clientId as string | undefined,
-    clientSecret: data.clientSecret as string | undefined,
-    createdAt: b.created_at,
-  }
-}
 
 // ===== Auth type definitions =====
 interface AuthTypeDef {
@@ -245,10 +191,10 @@ async function loadAuthConfigs() {
       const pp = useProjectStore().currentProject?.path
       if (!pp) { allConfigs.value = []; return }
       const raw = await invoke<BackendAuthConfig[]>('project_list_auth_configs', { projectPath: pp })
-      allConfigs.value = raw.map(fromBackend)
+      allConfigs.value = raw.map(parseAuthConfig)
     } else {
       const raw = await invoke<BackendAuthConfig[]>('list_auth_configs')
-      allConfigs.value = raw.map(fromBackend)
+      allConfigs.value = raw.map(parseAuthConfig)
     }
   } catch {
     // API 不可用时静默降级

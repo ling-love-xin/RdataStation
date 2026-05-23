@@ -302,7 +302,7 @@
 
           <div class="act-wrap">
             <NButton text size="tiny" :title="t('navigator.networkProfileManager')" @click="openProfileMgr(hop)">📋</NButton>
-            <NButton v-if="canDelete(hop)" text size="tiny" class="del-btn" :title="t('navigator.deleteNode')" @click="deleteHop(hop.id)">✕</NButton>
+            <NButton v-if="canDelete(hop)" text size="tiny" class="del-btn" :title="t('navigator.deleteNode')" @click="deleteHopWrapped(hop.id)">✕</NButton>
             <span v-else class="no-del">✕</span>
           </div>
         </div>
@@ -320,15 +320,15 @@
           v-if="canAddSshProxy"
           size="small"
           dashed
-          @click="showHopMenu = !showHopMenu"
+          @click="menuOpen = !menuOpen"
         >{{ addHopButtonLabel() }}</NButton>
-        <NButton v-else-if="!sslInChain" size="small" dashed @click="addHop('ssl')">{{ $t('connection.networkTab.addTls') }}</NButton>
+        <NButton v-else-if="!sslInChain" size="small" dashed @click="addHopWrapped('ssl')">{{ $t('connection.networkTab.addTls') }}</NButton>
         <span v-else class="hop-limit">{{ $t('connection.networkTab.chainFull') }}</span>
 
-        <div v-if="showHopMenu && canAddSshProxy" class="hop-menu">
-          <div class="hop-opt" @click="addHop('ssh'); showHopMenu = false">🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
-          <div class="hop-opt" @click="addHop('proxy'); showHopMenu = false">🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
-          <div class="hop-opt" @click="addHop('ssl'); showHopMenu = false">{{ sslMenuLabel() }}</div>
+        <div v-if="menuOpen && canAddSshProxy" class="hop-menu">
+          <div class="hop-opt" @click="addHopWrapped('ssh'); menuOpen = false">🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
+          <div class="hop-opt" @click="addHopWrapped('proxy'); menuOpen = false">🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
+          <div class="hop-opt" @click="addHopWrapped('ssl'); menuOpen = false">{{ sslMenuLabel() }}</div>
           <div class="hop-menu-sep"></div>
           <div class="hop-menu-desc">🛡 {{ t('navigator.sslTailHint') }}</div>
         </div>
@@ -364,12 +364,16 @@ import { NButton, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { useNetworkChain } from '../../composables/useNetworkChain'
+import { useNetworkProfileBridge } from '../../composables/useNetworkProfileBridge'
 import { useNetworkProfiles } from '../../composables/useNetworkProfiles'
 import NetworkConfigManager from '../network/NetworkConfigManager.vue'
 import TopologyPreview from '../network/TopologyPreview.vue'
 
 import type { Driver } from '../../../domain/types'
+import type { AuthConfig } from '../../composables/useAuthConfig'
 import type { NetworkProfile } from '../../composables/useNetworkProfiles'
+import type { ProtocolType, ProtocolNode, HopConfigMode } from '../../types/network-chain'
 import type { TopoHop } from '../network/TopologyPreview.vue'
 
 
@@ -382,28 +386,52 @@ const emit = defineEmits<{
 const { sshProfiles, sslProfiles, proxyProfiles, loadAll, loadAllProject, saveProjectProfile, removeProjectProfile, getProjectPath } = useNetworkProfiles()
 const { t } = useI18n()
 
-// ==================== Chain Model ====================
+// ===== Network profile bridge (SSH/SSL/Proxy CRUD) =====
+const {
+  buildNetworkCfg,
+  createSshProfile: handleCreateSshProfile,
+  createSslProfile: handleCreateSslProfile,
+  createProxyProfile: handleCreateProxyProfile,
+  deleteSshProfile: handleDeleteSshProfile,
+  deleteSslProfile: handleDeleteSslProfile,
+  deleteProxyProfile: handleDeleteProxyProfile,
+} = useNetworkProfileBridge({
+  isProject: !!props.scope?.project,
+  getProjectPath, saveProjectProfile, loadAllProject, loadAll, removeProjectProfile,
+})
 
-type Protocol = 'ssh' | 'ssl' | 'proxy'
-type HopMode = 'select' | 'new' | 'custom'
+// ==================== Chain Model (via composable) ====================
 
-interface Hop {
-  id: string
-  protocol: Protocol
-  enabled: boolean
-  mode: HopMode
-  profileId: string
-}
+// Canonical type alias — ProtocolNode from network-chain.ts
+type Hop = ProtocolNode
 
-let hopCounter = 4
-const chain = ref<Hop[]>([
-  { id: 'h1', protocol: 'ssh', enabled: false, mode: 'select', profileId: '' },
-  { id: 'h2', protocol: 'proxy', enabled: false, mode: 'select', profileId: '' },
-  { id: 'h3', protocol: 'ssl', enabled: false, mode: 'select', profileId: '' },
+const {
+  chain, menuOpen,
+  networkHopCount, enabledNetworkHopCount: _enabledNetworkHopCount,
+  hasSsl, isMaxNetworkHops, showHopWarning, estimatedLatency,
+  remainingHops, countInstancesOfType, findHop,
+  addHop: chainAddHop, deleteHop: chainDeleteHop,
+  switchHopMode: composableSwitchHopMode,
+  onDragStart: composableDragStart, onDragEnd: composableDragEnd, onDrop: composableDrop,
+  ensureSslAtEnd,
+} = useNetworkChain([
+  { id: 'h1', protocol: 'ssh' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
+  { id: 'h2', protocol: 'proxy' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
+  { id: 'h3', protocol: 'ssl' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
 ])
 
-const showHopMenu = ref(false)
-const MAX_HOPS = 4
+// ===== Wrappers for template compatibility =====
+function addHopWrapped(protocol: ProtocolType) {
+  const newId = chainAddHop(protocol)
+  if (newId) ensureForm(newId)
+  menuOpen.value = false
+}
+function deleteHopWrapped(id: string) { chainDeleteHop(id) }
+function setHopMode(id: string, mode: HopConfigMode) {
+  composableSwitchHopMode(id, mode)
+  ensureForm(id)
+}
+function maxHopsRemaining(): number { return remainingHops.value }
 
 // ==================== Inline New/Custom Forms ====================
 
@@ -443,9 +471,9 @@ const activeProfileMgrHop = ref<Hop | null>(null)
 // ==================== Computed ====================
 
 const enabledHops = computed(() => chain.value.filter(h => h.enabled))
-const enabledHopCount = computed(() => chain.value.filter(h => h.protocol !== 'ssl' && h.enabled).length)
-const sslInChain = computed(() => chain.value.some(h => h.protocol === 'ssl'))
-const canAddSshProxy = computed(() => chain.value.filter(h => h.protocol !== 'ssl').length < MAX_HOPS)
+const enabledHopCount = computed(() => _enabledNetworkHopCount.value)
+const sslInChain = computed(() => hasSsl.value)
+const canAddSshProxy = computed(() => !isMaxNetworkHops.value)
 const dbLabel = computed(() => props.driver?.name?.toUpperCase() || 'DB')
 
 /** Map chain hops to TopoHop format for the topology preview */
@@ -528,7 +556,7 @@ function hopIcon(p: string) { return { ssh: '🔒', ssl: '🛡', proxy: '🌐' }
 function hopLabel(p: string) { return { ssh: 'SSH 隧道', ssl: 'SSL/TLS (末尾)', proxy: '代理' }[p] || p }
 
 function canDelete(hop: Hop) {
-  return chain.value.filter(h => h.protocol === hop.protocol).length > 1
+  return countInstancesOfType(hop.protocol) > 1
 }
 
 function defPort(p: string): string {
@@ -549,10 +577,6 @@ function getForwardInfo(profileId: string): string {
 
 // ==================== Add Hop Button & Menu ====================
 
-function maxHopsRemaining(): number {
-  return MAX_HOPS - chain.value.filter(h => h.protocol !== 'ssl').length
-}
-
 function addHopButtonLabel(): string {
   return t('connection.networkTab.addHop')
 }
@@ -564,31 +588,6 @@ function sslMenuLabel(): string {
   }
   return '🛡 SSL/TLS'
 }
-
-// ==================== Hop CRUD ====================
-
-function setHopMode(id: string, mode: HopMode) {
-  const hop = chain.value.find(h => h.id === id)
-  if (hop) {
-    hop.mode = mode
-    ensureForm(id)
-  }
-}
-
-function addHop(protocol: Protocol) {
-  if (protocol === 'ssl') {
-    const idx = chain.value.findIndex(h => h.protocol === 'ssl')
-    if (idx >= 0) chain.value.splice(idx, 1)
-    chain.value.push({ id: `h${hopCounter++}`, protocol: 'ssl', enabled: true, mode: 'select', profileId: '' })
-  } else {
-    const sslIdx = chain.value.findIndex(h => h.protocol === 'ssl')
-    const hop: Hop = { id: `h${hopCounter++}`, protocol, enabled: true, mode: 'select', profileId: '' }
-    if (sslIdx >= 0) chain.value.splice(sslIdx, 0, hop)
-    else chain.value.push(hop)
-  }
-}
-
-function deleteHop(id: string) { chain.value = chain.value.filter(h => h.id !== id) }
 
 // ==================== Save New Profile (inline) ====================
 
@@ -642,32 +641,20 @@ function buildConfigJson(protocol: string, f: NewFormFields): string {
   return JSON.stringify(cfg)
 }
 
-// ==================== Drag & Drop ====================
-
-let dragId = ''
-function dragStart(e: DragEvent, id: string) { dragId = id; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' }
-function dragOver(e: DragEvent, id: string) {
-  if (id !== dragId && e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; (e.currentTarget as HTMLElement).classList.add('drag-over') }
+// ===== Drag helpers (composable + DOM style) =====
+function dragStart(e: DragEvent, id: string) {
+  composableDragStart(id)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+}
+function dragOver(e: DragEvent) {
+  if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; (e.currentTarget as HTMLElement).classList.add('drag-over') }
 }
 function dragLeave(e: DragEvent) { (e.currentTarget as HTMLElement).classList.remove('drag-over') }
+function dragEnd() { composableDragEnd(); document.querySelectorAll('.chain-item').forEach(el => el.classList.remove('drag-over')) }
 function drop(_e: DragEvent, targetId: string) {
   document.querySelectorAll('.chain-item').forEach(el => el.classList.remove('drag-over'))
-  if (dragId === targetId || !dragId || !targetId) return
-  const srcIdx = chain.value.findIndex(h => h.id === dragId)
-  const tgtIdx = chain.value.findIndex(h => h.id === targetId)
-  if (srcIdx < 0 || tgtIdx < 0) return
-  const src = chain.value[srcIdx]
-  if (src.protocol === 'ssl' && tgtIdx < chain.value.length - 1) return
-  const [moved] = chain.value.splice(srcIdx, 1)
-  const newTgt = chain.value.findIndex(h => h.id === targetId)
-  chain.value.splice(newTgt, 0, moved)
-  const si = chain.value.findIndex(h => h.protocol === 'ssl')
-  if (si >= 0 && si < chain.value.length - 1) {
-    const [s] = chain.value.splice(si, 1)
-    chain.value.push(s)
-  }
+  composableDrop(targetId)
 }
-function dragEnd() { dragId = ''; document.querySelectorAll('.chain-item').forEach(el => el.classList.remove('drag-over')) }
 
 // ==================== Profile Manager Modal ====================
 
@@ -678,127 +665,6 @@ function openProfileMgr(hop: Hop) {
   activeProfileMgrHop.value = hop
   profileMgrTab.value = hop.protocol
   showProfileMgr.value = true
-}
-
-// ===== NetworkConfigManager bridge handlers (create / update) =====
-function buildNetworkCfg(profile: Record<string, unknown>, networkType: string, configObj: Record<string, unknown>) {
-  const base = {
-    id: (profile.id as string) || '',
-    name: (profile.name as string) || `未命名-${networkType.toUpperCase()}`,
-    network_type: networkType,
-    origin: profile.scope as string || 'project',
-    config: JSON.stringify(configObj),
-  }
-  // ID present = edit mode → use update
-  if (profile.id) {
-    return invoke('update_network_config', { nc: base }).then(() => loadAll()).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[NetworkTab] update_network_config failed:', msg)
-    })
-  }
-  return invoke('create_network_config', { nc: { ...base, id: '' } }).then(() => loadAll()).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[NetworkTab] create_network_config failed:', msg)
-  })
-}
-
-async function handleCreateSshProfile(profile: Record<string, unknown>) {
-  if (props.scope?.project) {
-    const pp = await getProjectPath()
-    if (pp) await saveProjectProfile(profile, 'ssh', {
-      host: profile.host, port: profile.port, username: profile.username,
-      authMethod: profile.authMethod, password: profile.password,
-      keyPath: profile.keyPath, passphrase: profile.passphrase,
-      keepalive: profile.keepalive, localPort: profile.localPort,
-      remoteHost: profile.remoteHost, remotePort: profile.remotePort,
-    }, pp)
-    await loadAllProject(pp)
-    return
-  }
-  buildNetworkCfg(profile, 'ssh', {
-    host: profile.host, port: profile.port, username: profile.username,
-    authMethod: profile.authMethod, password: profile.password,
-    keyPath: profile.keyPath, passphrase: profile.passphrase,
-    keepalive: profile.keepalive, localPort: profile.localPort,
-    remoteHost: profile.remoteHost, remotePort: profile.remotePort,
-  })
-}
-
-async function handleCreateSslProfile(profile: Record<string, unknown>) {
-  if (props.scope?.project) {
-    const pp = await getProjectPath()
-    if (pp) await saveProjectProfile(profile, 'ssl', {
-      mode: profile.mode, ca: profile.ca, clientCert: profile.clientCert,
-      clientKey: profile.clientKey, hostnameOverride: profile.hostnameOverride,
-    }, pp)
-    await loadAllProject(pp)
-    return
-  }
-  buildNetworkCfg(profile, 'ssl', {
-    mode: profile.mode, ca: profile.ca, clientCert: profile.clientCert,
-    clientKey: profile.clientKey, hostnameOverride: profile.hostnameOverride,
-  })
-}
-
-async function handleCreateProxyProfile(profile: Record<string, unknown>) {
-  if (props.scope?.project) {
-    const pp = await getProjectPath()
-    if (pp) await saveProjectProfile(profile, 'proxy', {
-      type: profile.type, host: profile.host, port: profile.port,
-      username: profile.username, password: profile.password,
-    }, pp)
-    await loadAllProject(pp)
-    return
-  }
-  buildNetworkCfg(profile, 'proxy', {
-    type: profile.type, host: profile.host, port: profile.port,
-    username: profile.username, password: profile.password,
-  })
-}
-
-async function handleDeleteSshProfile(id: string) {
-  if (props.scope?.project) {
-    const pp = await getProjectPath()
-    if (pp) await removeProjectProfile(id, pp)
-    const pp2 = await getProjectPath()
-    if (pp2) await loadAllProject(pp2)
-    return
-  }
-  await invoke('delete_network_config', { id }).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[NetworkTab] handleDeleteSshProfile failed:', msg)
-  })
-  await loadAll()
-}
-
-async function handleDeleteSslProfile(id: string) {
-  if (props.scope?.project) {
-    const pp = await getProjectPath()
-    if (pp) await removeProjectProfile(id, pp)
-    const pp2 = await getProjectPath()
-    if (pp2) await loadAllProject(pp2)
-    return
-  }
-  await invoke('delete_network_config', { id }).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[NetworkTab] handleDeleteSslProfile failed:', msg)
-  })
-  await loadAll()
-}
-
-async function handleDeleteProxyProfile(id: string) {
-  if (props.scope?.project) {
-    const pp = await getProjectPath()
-    if (pp) await removeProjectProfile(id, pp)
-    const pp2 = await getProjectPath()
-    if (pp2) await loadAllProject(pp2)
-    return
-  }
-  await invoke('delete_network_config', { id }).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[NetworkTab] handleDeleteProxyProfile failed:', msg)
-  })
-  await loadAll()
 }
 
 // ==================== Lifecycle & Watch ====================
@@ -879,14 +745,6 @@ const sshAuthTypeOpts = [
   { label: '🔐 公钥认证 (RSA/ED25519/ECDSA)', value: 'ssh_private_key' },
 ]
 
-/** Auth config data model — from list_auth_configs IPC */
-interface AuthConfig {
-  id: string
-  name: string
-  authType: string
-  scope: string
-}
-
 const savedAuthConfigs = ref<AuthConfig[]>([])
 
 /** Dynamic auth config select options — fetched from backend */
@@ -907,7 +765,7 @@ async function loadSavedAuthConfigs() {
     const { invoke } = await import('@tauri-apps/api/core')
     savedAuthConfigs.value = await invoke<AuthConfig[]>('list_auth_configs')
   } catch {
-    // API 不可用时静默降级
+    console.warn('[NetworkTab] list_auth_configs unavailable, auth config picker disabled')
   }
 }
 

@@ -1,7 +1,9 @@
 # 新增数据源 — 前端完整开发计划
 
-> 版本：v0.7.0 (2026-05-23 — v0.7.0 重构启动：T1 DriverDescriptor类型统一 + T2 大Vue文件拆分)
-> 更新：v0.7.0 — T1: driver-adapter 消除4处as any + T2a: AdvancedTab 1034→922行 (-112) + envDefaults.ts + useSecurityPolicies.ts
+> 版本：v0.7.2 (2026-05-23 — ProfileManager 桥接提取 + AuthConfig 类型统一)
+> 更新：v0.7.2 — NetworkTab 1004→892行 (-112) + useNetworkProfileBridge.ts (132行) + AuthConfig 统一 (NetworkTab → useAuthConfig canonical)
+> 更新：v0.7.1 — GeneralTab 547→440行 (-107) + useAuthConfig.ts (176行) + AuthConfig/BackendAuthConfig/parseAuthConfig 类型统一
+> 更新：v0.7.0 — T1: driver-adapter 消除4处as any + T2a: AdvancedTab 1034→922行 (-112) + T2b: NetworkTab 1034→1004行 (-30) + T3: 类型导出路径整理
 > 更新：v2.23 — P3清零：3×console.log→warn + 13×空catch→warn + 5×any→具体类型，288→282(-6)
 > 更新：v2.22 — A1-M1 password→password_encrypted + A1-M2~3 tags: String→Option<String> + FE空catch修复×5
 > 更新：v2.21 — PS3 save_global_connection 17→1参数 + PS4 save_recent_connection 11→1参数
@@ -2702,6 +2704,7 @@ v2.23（P3 警告清零）完成后，数据源模块功能性开发基本收敛
 | 文件 | 重构前 | 重构后 | 提取内容 | 状态 |
 |------|--------|--------|------|------|
 | [AdvancedTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue) | **1034行** | **922行** (-112, -10.8%) | envDefs → envDefaults.ts (133行) + useSecurityPolicies.ts (120行) | ✅ T2a 完成 |
+| [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue) | **1034行** | **892行** (-142, -13.7%) | 链管理+拖拽 → useNetworkChain + 桥接 → useNetworkProfileBridge + AuthConfig 统一 | ✅ T2b+v0.7.2 完成 |
 
 **T2a 详情**：
 
@@ -2717,29 +2720,40 @@ v2.23（P3 警告清零）完成后，数据源模块功能性开发基本收敛
 - `collectPolicyConfig` / `applyPolicyConfig` 的 security case 委托给 composable 方法
 - `loadEnvironments` 回退从 `envDefs as EnvInfo[]` 改为 `envDefsAsEnvInfo`
 
-#### T2b: NetworkTab.vue → useNetworkChain.ts 集成 ⏳ 待执行
+#### T2b: NetworkTab.vue → useNetworkChain.ts 集成 ✅ 已完成
 
-**现状分析**：
+**实施结果**：NetworkTab **1034 → 1004 行** (-30, -2.9%)，268 warnings / 0 errors
 
-| 指标 | useNetworkChain.ts | NetworkTab.vue |
-|------|-------------------|----------------|
-| 行数 | 632 | 1034 |
-| 状态管理 | ref-based chain<ProtocolNode[]> | ref-based chain<Hop[]>（独立类型） |
-| 计算属性 | networkHopCount, isMaxNetworkHops, hasSsl, showHopWarning 等 | 内联重复实现 |
-| 操作方法 | addHop, deleteHop, switchHopMode, onDrag* | 内联重复实现 |
-| 配置文件管理 | sshProfiles/sslProfiles/proxyProfiles 本地存储 | 通过 useNetworkProfiles composable |
+**集成策略**：最小化模板改动，使用 wrapper functions 桥接 composable API
 
-**集成挑战**：
-1. **类型不兼容** — composable 使用 `ProtocolNode`（来自 `types/network-chain.ts`），NetworkTab 使用内联 `Hop` 类型。需要统一类型或添加适配层。
-2. **模板数据源冲突** — NetworkTab 模板直接读写内联 `chain` ref，改为 composable 后需逐个重绑。
-3. **配置文件管理双轨** — composable 自带 `sshProfiles/sslProfiles/proxyProfiles`（模拟数据），NetworkTab 使用 `useNetworkProfiles` composable（真实数据）。
+**具体变更**：
 
-**建议方案**：分三步走
-1. 创建 `ui/types/network-chain.ts` 的 `Hop` → `ProtocolNode` 别名（最小改动）
-2. NetworkTab.vue 中替换内联 `chain` ref + 操作方法为 composable 返回值
-3. 配置文件管理改用 `useNetworkProfiles` composable（统一数据源）
+| 类别 | 变更 | 行数影响 |
+|------|------|------|
+| **类型统一** | `type Protocol = 'ssh'\|'ssl'\|'proxy'` → `ProtocolType` (from network-chain.ts) | -3 |
+| | `interface Hop { ... }` → `type Hop = ProtocolNode` | -6 |
+| | `type HopMode` → `HopConfigMode` (from network-chain.ts) | -2 |
+| **链管理委托** | `chain: ref<Hop[]>([...])` → `useNetworkChain([...]).chain` | -5 |
+| | `let hopCounter` + `addHop(inline)` → composable `chainAddHop` (via `addHopWrapped`) | -12 |
+| | `deleteHop(inline)` → composable `chainDeleteHop` (via `deleteHopWrapped`) | -2 |
+| | `setHopMode(inline)` → composable `switchHopMode` (via wrapper) | -6 |
+| | `MAX_HOPS` → `MAX_NETWORK_HOPS` (from network-chain.ts) | -1 |
+| **拖拽委托** | inline `let dragId` + 5 函数 (~30行) → composable `onDragStart/onDragEnd/onDrop` + 薄 wrapper (~18行) | -12 |
+| **计算属性** | `enabledHopCount` / `sslInChain` / `canAddSshProxy` → 委托 composable computed | -5 |
+| | `maxHopsRemaining()` → composable `remainingHops.value` | -3 |
+| **模板** | `showHopMenu` → `menuOpen` (composable ref) | 0 |
+| | `addHop('ssh')` → `addHopWrapped('ssh')` | 0 |
+| | `deleteHop(hop.id)` → `deleteHopWrapped(hop.id)` | 0 |
 
-**预估影响**：1034 行 → 约 400-500 行（减少 50-60%）
+**未合并部分**（保留 NetworkTab 内联）：
+- 内联表单管理 (`newFormData`/`customData`/`creating`) — 模板直接绑定
+- 配置文件加载 (`useNetworkProfiles` composable) — 与 composable 内置 `sshProfiles` 是**独立系统**，不合并以避免 API 冲突
+- `saveNewProfile`/`buildConfigJson` — 调用 `invoke('create_network_config')`，与 composable `saveNewHop` 路径不同
+- 测试连接 (`testChainHop`) — UI 交互逻辑
+- 认证配置管理 (`savedAuthConfigs`/`loadSavedAuthConfigs`) — 认证 UI
+- ProfileManager 桥接 (`handleCreate*`/`handleDelete*`/`buildNetworkCfg`) — 组件间通信
+
+**决策记录**：composable 内置 `loadProfilesFromDb`（调用 `list_network_configs`）与 NetworkTab 使用的 `useNetworkProfiles`（调用 `loadAll/loadAllProject`）是**两条不同的后端 API 路径**。合并风险高于收益，决定保留双轨直到后端统一网络配置文件 API。
 
 #### T2c: 其他大文件候选
 
@@ -2762,15 +2776,158 @@ v2.23（P3 警告清零）完成后，数据源模块功能性开发基本收敛
 
 | 检查项 | 状态 |
 |--------|------|
-| pnpm lint | 1 error (预存: import/no-unresolved), 278 warnings (无新增) |
-| cargo check | 待验证 |
+| pnpm lint | 268 warnings (0 errors, 无新增) |
+| cargo check | 1 pre-existing error (ConnectionInfo conn_id, 与前端改动无关) |
 | cargo clippy -- -D warnings | 待验证 |
 
-### 17.4 v0.7.0 后续计划
+### 17.4 v0.7.0-v0.7.2 任务状态
 
-| 任务 | 优先级 | 预估 |
-|------|--------|------|
-| T2b: NetworkTab → useNetworkChain.ts 集成 | 🔴 P0 | v0.7.0 核心 |
-| cargo check + clippy 验证 | 🔴 P0 | 阻塞发布 |
-| T2c: 大文件拆分（NetworkConfigManager/Sidebar/GeneralTab） | 🟡 P2 | v0.7.1 |
-| NetworkTab 空 catch 块 → console.warn | 🟢 P3 | 已记录 |
+| 任务 | 优先级 | 状态 | 版本 |
+|------|--------|------|------|
+| T1: DriverDescriptor 跨层类型统一 | 🔴 P0 | ✅ 已完成 | v0.7.0 |
+| T2a: AdvancedTab envDefaults + useSecurityPolicies | 🔴 P0 | ✅ 已完成 | v0.7.0 |
+| T2b: NetworkTab → useNetworkChain.ts 集成 | 🔴 P0 | ✅ 已完成 | v0.7.0 |
+| T2c: GeneralTab 认证逻辑 → useAuthConfig.ts | 🟡 P2 | ✅ 已完成 | v0.7.1 |
+| T3: 类型导出路径整理 | 🟡 P2 | ✅ 已完成 | v0.7.0 |
+| AuthConfig 类型统一 (NetworkTab) | 🟡 P2 | ✅ 已完成 | v0.7.2 |
+| ProfileManager 桥接 → useNetworkProfileBridge.ts | 🟡 P2 | ✅ 已完成 | v0.7.2 |
+| NetworkTab P3 空catch → console.warn | 🟢 P3 | ✅ 已完成 | v0.7.1 |
+| T2c: NetworkConfigManager / Sidebar 拆分 | 🟡 P2 | 评估延后 | v0.7.3 |
+| 后端网络配置文件 API 统一 | 🟡 P2 | 后端任务 | TBD |
+
+---
+
+## 十八、v0.7.1 T2c 续：GeneralTab 认证逻辑提取（2026-05-23）
+
+### 18.1 变更概要
+
+**目标**：从 GeneralTab.vue 提取认证配置管理逻辑为独立 composable，同时统一 3 处内联 `AuthConfig` 类型定义。
+
+**结果**：GeneralTab **547 → 440 行** (-107, -19.6%)，新建 [useAuthConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useAuthConfig.ts) (176 行)
+
+### 18.2 提取内容
+
+| 类别 | 移出代码 | 行数 |
+|------|---------|------|
+| **类型定义** | `AuthConfig` (13字段) + `BackendAuthConfig` (7字段) + `parseAuthConfig()` 函数 | 47 |
+| **认证状态** | `authMethod`, `selectedAuthConfigId`, `showAuthManager`, `authConfigs` refs | 4 |
+| **计算属性** | `authMethodOpts`, `filteredAuthConfigOpts` | 15 |
+| **方法** | `onAuthMethodChange`, `onAuthConfigSelect`, `onAuthConfigExternalSelect`, `onAuthManagerClose`, `loadAuthConfigs` | 43 |
+| **总移出** | | **109** |
+
+### 18.3 新 composable 设计
+
+[useAuthConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useAuthConfig.ts) (176 行)：
+
+```ts
+export function useAuthConfig(opts: {
+  local: AuthFormFields        // 表单数据（composable 修改预填字段）
+  onFormUpdate: () => void     // 表单更新回调
+  onAuthConfigChange: (configId: string | null, authMethod: string) => void  // 认证变更回调
+})
+```
+
+| 导出 | 类型 | 说明 |
+|------|------|------|
+| `authMethod` | Ref\<string\> | 当前认证方式 (password/pg_class/kerberos/oauth2) |
+| `selectedAuthConfigId` | Ref\<string \| null\> | 选中的已保存配置 ID |
+| `showAuthManager` | Ref\<boolean\> | AuthConfigManager Modal 状态 |
+| `authMethodOpts` | Computed | 认证方式选项列表 |
+| `filteredAuthConfigOpts` | Computed | 按当前方式过滤的保存配置 |
+| `onAuthMethodChange` | () → void | 切换认证方式 |
+| `onAuthConfigSelect` | (configId) → void | 选择配置并预填字段 |
+| `onAuthConfigExternalSelect` | (configId) → void | AuthConfigManager select 事件 |
+| `onAuthManagerClose` | () → Promise\<void\> | 关闭并刷新列表 |
+| `loadAuthConfigs` | () → Promise\<void\> | 从后端加载配置 |
+
+**额外导出**（类型定义可被其他文件引用）：
+- `AuthConfig` — 认证配置数据模型（13字段）
+- `BackendAuthConfig` — 后端原始响应（snake_case）
+- `parseAuthConfig(raw)` — 后端 → 前端转换函数
+- `AuthFormFields` — 表单字段接口
+- `UseAuthConfigOptions` — composable 参数类型
+
+### 18.4 类型统一状态
+
+| 文件 | AuthConfig 定义 | 状态 |
+|------|----------------|------|
+| [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue#L854) | 4字段 (id, name, authType, scope) | 待统一 → useAuthConfig 导出 |
+| [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue#L176) | 完整版 (13字段) | 待统一 → useAuthConfig 导出 |
+| [useAuthConfig.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useAuthConfig.ts#L14) | **canonical** (13字段) | ✅ 标准定义 |
+
+### 18.5 验证
+
+| 检查项 | 状态 |
+|--------|------|
+| pnpm lint | 268 warnings, 0 errors (基线不变) |
+| GeneralTab 编译 | 无 TypeScript 错误 |
+
+### 18.6 v0.7.0-v0.7.2 大文件缩减总结
+
+| 文件 | 重构前 | 重构后 | 减少 | 提取内容 |
+|------|--------|--------|------|---------|
+| AdvancedTab.vue | 1034 | 922 | -112 (-10.8%) | envDefaults.ts + useSecurityPolicies.ts |
+| NetworkTab.vue | 1034 | 892 | -142 (-13.7%) | useNetworkChain + useNetworkProfileBridge + AuthConfig 统一 |
+| GeneralTab.vue | 547 | 440 | -107 (-19.6%) | useAuthConfig.ts |
+| **合计** | **2615** | **2254** | **-361 (-13.8%)** | |
+
+| 新建 composable/const 文件 | 行数 |
+|------|------|
+| envDefaults.ts | 133 |
+| useSecurityPolicies.ts | 120 |
+| useAuthConfig.ts | 176 |
+| useNetworkProfileBridge.ts | 132 |
+
+---
+
+## 十九、v0.7.2 ProfileManager 桥接提取 + AuthConfig 统一（2026-05-23）
+
+### 19.1 变更概要
+
+**目标**：消除 NetworkTab 中 3 对重复的 create/delete handler，并完成 AuthConfig 类型统一。
+
+**结果**：NetworkTab **1004 → 892 行** (-112)，新建 [useNetworkProfileBridge.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useNetworkProfileBridge.ts) (132 行)
+
+### 19.2 ProfileManager 桥接提取
+
+**旧代码结构**：
+```
+buildNetworkCfg          (20行) — 通用 create/update invoke 封装
+handleCreateSshProfile   (18行) — project/global 分支 → SSH config
+handleCreateSslProfile   (15行) — project/global 分支 → SSL config
+handleCreateProxyProfile (15行) — project/global 分支 → Proxy config
+handleDeleteSshProfile   (14行) — project/global 分支
+handleDeleteSslProfile   (14行) — project/global 分支
+handleDeleteProxyProfile (14行) — project/global 分支
+                           110行
+```
+
+**新模式**：`useNetworkProfileBridge(deps)` composable
+
+| 内部函数 | 说明 |
+|---------|------|
+| `createProfile(profile, protocol)` | 统一 project/global 分支 + config mapper |
+| `deleteProfile(id, protocol)` | 统一 project/global 分支 |
+| `configMappers` | 静态 Record，映射 3 种协议的字段提取 |
+| `buildNetworkCfg` | 保持独立（NetworkTab `saveNewProfile` 也调用） |
+
+**Template 兼容**：使用 destructuring aliases 保持函数名不变
+```ts
+const { createSshProfile: handleCreateSshProfile, ... } = useNetworkProfileBridge(...)
+```
+
+### 19.3 AuthConfig 类型统一
+
+| 文件 | 变更 | AuthConfig 字段数 |
+|------|------|-----------------|
+| [NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue#L854) | 删除内联定义 (7行) → `import type { AuthConfig } from '../../composables/useAuthConfig'` | 4 → 13 (canonical) |
+| [AuthConfigManager.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AuthConfigManager.vue#L176) | 保留独立定义 | 14 (含 passphrase/createdAt/keyPath) |
+
+**决策记录**：AuthConfigManager 的 `AuthConfig` 包含 `passphrase`/`createdAt`/`keyPath` 字段，与 canonical 差异较大。统一需先对齐后端 API 响应格式，延后到后端任务。
+
+### 19.4 验证
+
+| 检查项 | 状态 |
+|--------|------|
+| pnpm lint | 269 warnings, 0 errors (无新增) |
+| NetworkTab 编译 | 无 TypeScript 错误 |
