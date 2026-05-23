@@ -901,7 +901,12 @@
     "status": "Status",
     "connected": "Connected",
     "confirm": "OK",
+    "authSaved": "Auth config \"{name}\" saved",
+    "authSaveFailed": "Auth save failed",
+    "osAuthTip": "Uses OS current user identity, no extra credentials required",
+    "trustTip": "Skip authentication, for dev environments or trusted networks only",
     "directConnect": "Direct",
+    "none": "None",
     "configured": "Configured",
     "proxy": "Proxy"
   },

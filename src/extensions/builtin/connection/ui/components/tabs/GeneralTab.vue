@@ -69,7 +69,7 @@
 
         <!-- Dynamic auth fields -->
         <template v-if="!selectedAuthConfigId">
-          <div v-if="authMethod === 'password'" class="form-row">
+          <div v-if="authMethod === 'password' || authMethod === 'ldap'" class="form-row">
             <div class="form-grp" style="flex:1">
               <span class="form-label">{{ $t('navigator.username') }}</span>
               <NInput v-model:value="local.username" size="small" placeholder="root" :maxlength="128" @update:value="emitUpdate" />
@@ -129,6 +129,11 @@
               <span class="form-label">{{ $t('navigator.clientSecret') || 'Client Secret' }}</span>
               <NInput v-model:value="local.clientSecret" type="password" size="small" show-password-on="click" placeholder="****" :maxlength="512" @update:value="emitUpdate" />
             </div>
+          </div>
+          <div v-if="authMethod === 'os_auth' || authMethod === 'trust'" class="form-row">
+            <NAlert type="info" :bordered="false">
+              {{ authMethod === 'os_auth' ? $t('navigator.osAuthTip') : $t('navigator.trustTip') }}
+            </NAlert>
           </div>
         </template>
 
@@ -209,7 +214,7 @@ import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace } from 'naive-ui
 import { reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useAuthConfig } from '../../composables/useAuthConfig'
+import { useAuthConfig, parseSupportedAuthTypes } from '../../composables/useAuthConfig'
 import AuthConfigManager from '../AuthConfigManager.vue'
 
 
@@ -270,7 +275,7 @@ const {
   authMethod, selectedAuthConfigId, showAuthManager,
   authMethodOpts, filteredAuthConfigOpts,
   onAuthMethodChange, onAuthConfigSelect, onAuthConfigExternalSelect,
-  onAuthManagerClose, loadAuthConfigs,
+  onAuthManagerClose, loadAuthConfigs, updateSupportedAuthTypes,
 } = useAuthConfig({
   local: {
     get username() { return local.username },
@@ -395,13 +400,17 @@ onMounted(async () => {
   loadAuthConfigs()
 })
 
-// Reset port when driver changes
+// Reset port and auth methods when driver changes
 watch(
   () => props.driver?.id,
   () => {
     local.port = props.driver?.default_port ?? 0
+    // 解析驱动支持的认证方式列表
+    const types = parseSupportedAuthTypes(props.driver?.supported_auth_types)
+    updateSupportedAuthTypes(types)
     emitUpdate()
   },
+  { immediate: true },
 )
 </script>
 

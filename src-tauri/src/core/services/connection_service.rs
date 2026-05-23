@@ -31,6 +31,7 @@ pub struct SaveGlobalConnectionInput<'a> {
     pub auth_config_id: Option<&'a str>,
     pub auth_method: Option<&'a str>,
     pub network_config_id: Option<&'a str>,
+    pub options: Option<&'a str>,
     pub driver_properties: Option<&'a str>,
     pub advanced_options: Option<&'a str>,
 }
@@ -287,6 +288,7 @@ impl ConnectionService {
                     auth_config_id: auth_config_id.as_deref(),
                     auth_method: auth_method.as_deref(),
                     network_config_id: network_config_id.as_deref(),
+                    options: None,
                     driver_properties: driver_properties.as_deref(),
                     advanced_options: advanced_options.as_deref(),
                 })
@@ -358,6 +360,7 @@ impl ConnectionService {
                 auth_config_id: input.auth_config_id,
                 auth_method: input.auth_method,
                 network_config_id: input.network_config_id,
+                options: input.options,
                 driver_properties: input.driver_properties,
                 advanced_options: input.advanced_options,
             })

@@ -38,6 +38,7 @@ pub struct GlobalConnectionInfo {
     pub schema_name: Option<String>,
     pub username: Option<String>,
     pub password_encrypted: Option<String>,
+    pub options: Option<String>,
     pub tags: Option<String>,
     pub use_duckdb_fed: bool,
     pub metadata_path: Option<String>,
@@ -331,6 +332,7 @@ pub struct GlobalConnectionSaveInput<'a> {
     pub auth_config_id: Option<&'a str>,
     pub auth_method: Option<&'a str>,
     pub network_config_id: Option<&'a str>,
+    pub options: Option<&'a str>,
     pub driver_properties: Option<&'a str>,
     pub advanced_options: Option<&'a str>,
 }
@@ -713,8 +715,8 @@ impl GlobalDatabaseManager {
 
         conn.inner()?.execute(
             "INSERT OR REPLACE INTO global_connections 
-             (id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, is_active, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, 1, CURRENT_TIMESTAMP)",
+             (id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, is_active, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, 1, CURRENT_TIMESTAMP)",
             [
                 input.conn_id,
                 input.name,
@@ -725,6 +727,7 @@ impl GlobalDatabaseManager {
                 "",
                 final_username,
                 &final_password,
+                input.options.unwrap_or(""),
                 &tags_json,
                 "0",
                 "",
@@ -763,7 +766,7 @@ impl GlobalDatabaseManager {
 
         let connections: Vec<GlobalConnectionInfo> = {
             let base_sql = format!(
-                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
+                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
                  FROM global_connections 
                  WHERE is_active = 1 
                  ORDER BY updated_at DESC{}{}",
@@ -779,20 +782,20 @@ impl GlobalDatabaseManager {
 
             let rows = stmt
                 .query_map([], |row| {
-                    let tags: Option<String> = row.get(9).ok();
-                    let use_duckdb_fed: bool = row.get(10).unwrap_or(false);
-                    let metadata_path: Option<String> = row.get(11).ok();
-                    let created_at: String = row.get(13).unwrap_or_default();
-                    let updated_at: String = row.get(14).unwrap_or_default();
-                    let server_version: Option<String> = row.get(15).ok();
-                    let description: Option<String> = row.get(16).ok();
-                    let driver_id: Option<String> = row.get(17).ok();
-                    let environment_id: Option<String> = row.get(18).ok();
-                    let auth_config_id: Option<String> = row.get(19).ok();
-                    let auth_method: Option<String> = row.get(20).ok();
-                    let network_config_id: Option<String> = row.get(21).ok();
-                    let driver_properties: Option<String> = row.get(22).ok();
-                    let advanced_options: Option<String> = row.get(23).ok();
+                    let tags: Option<String> = row.get(10).ok();
+                    let use_duckdb_fed: bool = row.get(11).unwrap_or(false);
+                    let metadata_path: Option<String> = row.get(12).ok();
+                    let created_at: String = row.get(14).unwrap_or_default();
+                    let updated_at: String = row.get(15).unwrap_or_default();
+                    let server_version: Option<String> = row.get(16).ok();
+                    let description: Option<String> = row.get(17).ok();
+                    let driver_id: Option<String> = row.get(18).ok();
+                    let environment_id: Option<String> = row.get(19).ok();
+                    let auth_config_id: Option<String> = row.get(20).ok();
+                    let auth_method: Option<String> = row.get(21).ok();
+                    let network_config_id: Option<String> = row.get(22).ok();
+                    let driver_properties: Option<String> = row.get(23).ok();
+                    let advanced_options: Option<String> = row.get(24).ok();
 
                     Ok(GlobalConnectionInfo {
                         id: row.get(0)?,
@@ -804,10 +807,11 @@ impl GlobalDatabaseManager {
                         schema_name: row.get(6).ok(),
                         username: row.get(7).ok(),
                         password_encrypted: row.get(8).ok(),
+                        options: row.get(9).ok(),
                         tags,
                         use_duckdb_fed,
                         metadata_path,
-                        is_active: row.get(12).unwrap_or(true),
+                        is_active: row.get(13).unwrap_or(true),
                         created_at,
                         updated_at,
                         server_version,
@@ -1630,7 +1634,7 @@ impl GlobalDatabaseManager {
     /// 创建认证配置
     pub async fn create_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        auth_store::create_auth_config(conn.inner()?, ac)?;
+        auth_store::create_global_auth_config(conn.inner()?, ac)?;
         
         Ok(())
     }
@@ -1638,7 +1642,7 @@ impl GlobalDatabaseManager {
     /// 列出认证配置
     pub async fn list_auth_configs(&self, auth_type: Option<&str>) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = auth_store::list_auth_configs(conn.inner()?, auth_type)?;
+        let result = auth_store::list_global_auth_configs(conn.inner()?, auth_type)?;
         
         Ok(result)
     }
@@ -1646,7 +1650,7 @@ impl GlobalDatabaseManager {
     /// 根据 ID 获取认证配置
     pub async fn get_auth_config(&self, id: &str) -> Result<Option<auth_store::AuthConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = auth_store::get_auth_config(conn.inner()?, id)?;
+        let result = auth_store::get_global_auth_config(conn.inner()?, id)?;
         
         Ok(result)
     }
@@ -1670,7 +1674,7 @@ impl GlobalDatabaseManager {
     /// 创建网络配置
     pub async fn create_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        network_store::create_network_config(conn.inner()?, nc)?;
+        network_store::create_global_network_config(conn.inner()?, nc)?;
         
         Ok(())
     }
@@ -1678,7 +1682,7 @@ impl GlobalDatabaseManager {
     /// 列出网络配置
     pub async fn list_network_configs(&self, network_type: Option<&str>) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = network_store::list_network_configs(conn.inner()?, network_type)?;
+        let result = network_store::list_global_network_configs(conn.inner()?, network_type)?;
         
         Ok(result)
     }
@@ -1686,7 +1690,7 @@ impl GlobalDatabaseManager {
     /// 根据 ID 获取网络配置
     pub async fn get_network_config(&self, id: &str) -> Result<Option<network_store::NetworkConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let result = network_store::get_network_config(conn.inner()?, id)?;
+        let result = network_store::get_global_network_config(conn.inner()?, id)?;
         
         Ok(result)
     }

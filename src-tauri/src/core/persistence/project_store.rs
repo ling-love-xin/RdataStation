@@ -32,6 +32,15 @@ pub struct StoredConnection {
     pub use_duckdb_fed: bool,
     pub metadata_path: Option<String>,
     pub is_active: bool,
+    pub server_version: Option<String>,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -100,11 +109,20 @@ impl ProjectStore {
         let use_duckdb_fed = conn.use_duckdb_fed.to_string();
         let metadata_path = conn.metadata_path.clone().unwrap_or_default();
         let is_active = conn.is_active.to_string();
+        let server_version = conn.server_version.clone().unwrap_or_default();
+        let description = conn.description.clone().unwrap_or_default();
+        let driver_id = conn.driver_id.clone().unwrap_or_default();
+        let environment_id = conn.environment_id.clone().unwrap_or_default();
+        let auth_config_id = conn.auth_config_id.clone().unwrap_or_default();
+        let auth_method = conn.auth_method.clone().unwrap_or_default();
+        let network_config_id = conn.network_config_id.clone().unwrap_or_default();
+        let driver_properties = conn.driver_properties.clone().unwrap_or_default();
+        let advanced_options = conn.advanced_options.clone().unwrap_or_default();
 
         sqlite.inner()?.execute(
             "INSERT OR REPLACE INTO connections 
-             (id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+             (id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
             [
                 &conn.id,
                 &conn.name,
@@ -120,6 +138,15 @@ impl ProjectStore {
                 &use_duckdb_fed,
                 &metadata_path,
                 &is_active,
+                &server_version,
+                &description,
+                &driver_id,
+                &environment_id,
+                &auth_config_id,
+                &auth_method,
+                &network_config_id,
+                &driver_properties,
+                &advanced_options,
                 &conn.created_at,
                 &conn.updated_at,
             ],
@@ -139,7 +166,7 @@ impl ProjectStore {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         let mut stmt = sqlite.inner()?.prepare(
-            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at 
+            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
              FROM connections WHERE is_active = 1 ORDER BY created_at DESC"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -166,6 +193,15 @@ impl ProjectStore {
                     is_active: row.get::<_, bool>(13)?,
                     created_at: row.get(14)?,
                     updated_at: row.get(15)?,
+                    server_version: row.get(16).ok(),
+                    description: row.get(17).ok(),
+                    driver_id: row.get(18).ok(),
+                    environment_id: row.get(19).ok(),
+                    auth_config_id: row.get(20).ok(),
+                    auth_method: row.get(21).ok(),
+                    network_config_id: row.get(22).ok(),
+                    driver_properties: row.get(23).ok(),
+                    advanced_options: row.get(24).ok(),
                 })
             })
             .map_err(|e| {
@@ -191,7 +227,7 @@ impl ProjectStore {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         let mut stmt = sqlite.inner()?.prepare(
-            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at 
+            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
              FROM connections WHERE id = ?1 AND is_active = 1"
         ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
             store: "sqlite".to_string(), 
@@ -217,6 +253,15 @@ impl ProjectStore {
                 is_active: row.get::<_, bool>(13)?,
                 created_at: row.get(14)?,
                 updated_at: row.get(15)?,
+                server_version: row.get(16).ok(),
+                description: row.get(17).ok(),
+                driver_id: row.get(18).ok(),
+                environment_id: row.get(19).ok(),
+                auth_config_id: row.get(20).ok(),
+                auth_method: row.get(21).ok(),
+                network_config_id: row.get(22).ok(),
+                driver_properties: row.get(23).ok(),
+                advanced_options: row.get(24).ok(),
             })
         });
 

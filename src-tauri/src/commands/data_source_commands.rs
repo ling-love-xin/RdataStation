@@ -248,9 +248,6 @@ pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<(), Co
     if ac.updated_at.is_empty() {
         ac.updated_at = now;
     }
-    if ac.origin.is_none() {
-        ac.origin = Some("project".to_string());
-    }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
     db.create_auth_config(&ac).await
@@ -294,9 +291,6 @@ pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Resu
     }
     if nc.updated_at.is_empty() {
         nc.updated_at = now;
-    }
-    if nc.origin.is_none() {
-        nc.origin = Some("project".to_string());
     }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;

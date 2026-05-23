@@ -105,7 +105,7 @@
     :url="uriPreview"
     :driver-name="selectedDriver?.name ?? ''"
     :network-info="testNetworkInfo"
-    @close="showTestModal = false"
+    @close="onTestModalClose"
   />
 </template>
 
@@ -169,6 +169,7 @@ const formData = ref<Record<string, unknown>>({})
 const testResult = ref<{ success: boolean; message: string; latencyMs?: number } | null>(null)
 const testing = ref(false)
 const saving = ref(false)
+const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
 const scopeChangedWarning = ref(false)
 
@@ -201,7 +202,7 @@ const stagingItems = ref<StagingItem[]>([{ name: '' }])
 const stagingIndex = ref(0)
 const isResetting = ref(false) // 守卫：防止重置时 watch 覆盖暂存列表名字
 
-const { sshProfiles, proxyProfiles, loadAll: loadNetworkProfiles } = useNetworkProfiles()
+const { sshProfiles, proxyProfiles } = useNetworkProfiles()
 
 // Test connection modal state
 const showTestModal = ref(false)
@@ -212,7 +213,7 @@ const testNetworkInfo = computed(() => {
   // 从已加载的网络配置中查找
   const allProfiles = [...sshProfiles.value, ...proxyProfiles.value]
   const profile = allProfiles.find(p => p.id === networkConfigId.value)
-  if (!profile) return `${t('navigator.configured')} (${networkConfigId.value})`
+  if (!profile) return t('navigator.none')
 
   const detail = profile.detail || ''
   const typeLabel = profile.type === 'ssh'
@@ -351,50 +352,79 @@ async function handleTest() {
       responseTimeMs: r.response_time_ms,
     }
     showTestModal.value = true
-
-    // 测试成功后自动保存认证信息到认证表
-    if (r.success) {
-      const fd = formData.value
-      const hasAuth = fd.username || fd.password
-      if (hasAuth) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const authData: Record<string, any> = {}
-          if (fd.username) authData.username = String(fd.username)
-          if (fd.password) authData.password = String(fd.password)
-          if (fd.host) authData.host = String(fd.host)
-          if (fd.port) authData.port = String(fd.port)
-          if (fd.database) authData.database = String(fd.database)
-
-          const authName = headerData.name
-            ? `${headerData.name} — 认证`
-            : `${driverName} — 认证`
-
-          await invoke('create_auth_config', {
-            ac: {
-              id: '',
-              name: authName,
-              auth_type: authMethod.value,
-              auth_data: JSON.stringify(authData),
-              origin: scope.global ? 'global' : 'project',
-              source_id: null,
-              snapshot_at: null,
-              created_at: '',
-              updated_at: '',
-            },
-          })
-          // eslint-disable-next-line no-console
-          console.log(`[auth] 测试成功，认证配置已保存: ${authName}`)
-        } catch (authErr) {
-          console.warn('[auth] 保存认证配置失败:', authErr)
-        }
-      }
-    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : (typeof e === 'string' ? e : JSON.stringify(e))
     console.error('[test_connection] 失败:', msg)
     testResult.value = { success: false, message: msg }
+    lastTestResult.value = { success: false, message: msg }
+    showTestModal.value = true
   } finally { testing.value = false }
+}
+
+/** 测试连接弹窗关闭回调 — 成功时保存认证到后台库 */
+async function onTestModalClose() {
+  showTestModal.value = false
+
+  // 防重复调用（NModal @update:show 和按钮 @click 都可能触发）
+  if (savingAuth.value) return
+  if (!lastTestResult.value.success) return
+
+  const fd = formData.value
+  const hasAuth = fd.username || fd.password
+  if (!hasAuth) return
+
+  savingAuth.value = true
+  try {
+    const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authData: Record<string, any> = {}
+    if (fd.username) authData.username = String(fd.username)
+    if (fd.password) authData.password = String(fd.password)
+    if (fd.host) authData.host = String(fd.host)
+    if (fd.port) authData.port = String(fd.port)
+    if (fd.database) authData.database = String(fd.database)
+
+    const driverName = selectedDriver.value?.name || ''
+    const authName = headerData.name
+      ? `${headerData.name} — 认证`
+      : `${driverName} — 认证`
+
+    const authType = authMethod.value
+    const authDataStr = JSON.stringify(authData)
+
+    // 根据 scope 写入对应数据库（全局 / 项目 / 两者）
+    if (scope.global) {
+      await invokeTauri('create_auth_config', {
+        ac: {
+          id: '',
+          name: authName,
+          auth_type: authType,
+          auth_data: authDataStr,
+          created_at: '',
+          updated_at: '',
+        },
+      })
+    }
+    if (scope.project) {
+      const pp = projectStore.currentProject?.path
+      if (pp) {
+        await invokeTauri('project_create_auth_config', {
+          name: authName,
+          authType,
+          authData: authDataStr,
+          projectPath: pp,
+        })
+      }
+    }
+
+    message.success(t('navigator.authSaved', { name: authName }))
+  } catch (authErr) {
+    const msg = authErr instanceof Error ? authErr.message : JSON.stringify(authErr)
+    console.error('[auth] 保存认证配置失败:', msg)
+    message.error(`${t('navigator.authSaveFailed')}: ${msg}`)
+  } finally {
+    savingAuth.value = false
+  }
 }
 
 /** 保存到暂存列表（不连库，不关对话框） */
@@ -438,9 +468,34 @@ async function handleSave() {
   saveToStaging()
 }
 
+/** 将当前表单/名称同步到暂存列表当前项（应用前调用，确保最新数据） */
+function syncCurrentToStaging() {
+  const idx = stagingIndex.value
+  const item = stagingItems.value[idx]
+  if (!item) return
+  const name = headerData.name || item.name || selectedDriver.value?.name || ''
+  item.name = name
+  item.formData = { ...formData.value }
+  item.driverProperties = driverPropertiesExtra.value
+  item.advancedOptions = advancedOptions.value
+  item.environmentId = selectedEnvId.value ?? null
+  item.networkConfigId = networkConfigId.value
+  item.authConfigId = authConfigId.value
+  item.authMethod = authMethod.value
+  item.description = headerData.description || undefined
+  if (selectedDriver.value) {
+    item.driver = selectedDriver.value.type_id
+    item.driverId = headerData.selectedDriverId ?? undefined
+  }
+}
+
 /** 批量应用所有暂存连接 → 写入数据库 */
 async function handleApply() {
-  if (stagingItems.value.length === 0 || !stagingItems.value[0].name) {
+  // 应用前将当前表单同步到暂存列表，确保名称/参数最新
+  syncCurrentToStaging()
+
+  const validItems = stagingItems.value.filter(item => item.name)
+  if (validItems.length === 0) {
     message.warning(t('navigator.noStagingToApply'))
     return
   }
@@ -452,8 +507,7 @@ async function handleApply() {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
 
-    for (const item of stagingItems.value) {
-      if (!item.name) continue
+    for (const item of validItems) {
       try {
         const driverName = item.driver || 'mysql'
         const url = item.url || ''
@@ -550,12 +604,11 @@ function resetAndClose() {
 function handleClose() { resetAndClose() }
 
 // Init
-onMounted(async () => { await loadAll(projectStore.currentProject?.path); await loadNetworkProfiles() })
+onMounted(async () => { await loadAll(projectStore.currentProject?.path) })
 
 watch(() => props.modelValue, (open) => {
   if (open) {
     loadAll(projectStore.currentProject?.path)
-    loadNetworkProfiles()
     activeTab.value = 'general'
     testResult.value = null
     networkConfigId.value = null

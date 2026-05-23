@@ -75,6 +75,34 @@ export function parseAuthConfig(raw: BackendAuthConfig): AuthConfig {
   }
 }
 
+// ==================== Constants ====================
+
+/** 认证方式 → 人性化标签（7 大抽象类别） */
+const AUTH_LABELS: Record<string, string> = {
+  password: '用户名/密码',
+  kerberos: 'Kerberos',
+  oauth2: 'OAuth 2.0',
+  ldap: 'LDAP / AD',
+  pg_class: 'TLS 客户端证书',
+  os_auth: '操作系统认证',
+  trust: '无认证',
+}
+
+/** 所有认证方式（标签 + 值） */
+const ALL_AUTH_OPTS = Object.entries(AUTH_LABELS).map(([value, label]) => ({ label, value }))
+
+/** 解析驱动 supported_auth_types JSON 字符串 → 认证方式数组 */
+export function parseSupportedAuthTypes(raw?: string): string[] {
+  if (!raw) return []
+  try {
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) return arr.filter((v): v is string => typeof v === 'string')
+    return []
+  } catch {
+    return []
+  }
+}
+
 // ==================== Composable ====================
 
 export interface AuthFormFields {
@@ -96,10 +124,15 @@ export interface UseAuthConfigOptions {
   onFormUpdate: () => void
   /** 认证配置变更回调 */
   onAuthConfigChange: (configId: string | null, authMethod: string) => void
+  /** 驱动支持的认证方式列表（如 ["password","kerberos"]），不传则显示全部 */
+  supportedAuthTypes?: string[]
 }
 
 export function useAuthConfig(opts: UseAuthConfigOptions) {
   const { local, onFormUpdate, onAuthConfigChange } = opts
+
+  // 驱动支持的认证方式（可在运行时更新）
+  const _supportedAuthTypes = ref<string[]>(opts.supportedAuthTypes ?? [])
 
   // ===== State =====
   const authMethod = ref('password')
@@ -109,12 +142,11 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
 
   // ===== Computed =====
 
-  const authMethodOpts = computed(() => [
-    { label: '🔑 SCRAM-SHA-256 / mysql_native_password', value: 'password' },
-    { label: '📜 SSL 客户端证书 (mTLS)', value: 'pg_class' },
-    { label: '🎫 GSSAPI Kerberos', value: 'kerberos' },
-    { label: '🔗 OAuth 2.0 Bearer Token', value: 'oauth2' },
-  ])
+  const authMethodOpts = computed(() => {
+    const supported = _supportedAuthTypes.value
+    if (supported.length === 0) return ALL_AUTH_OPTS
+    return ALL_AUTH_OPTS.filter(m => supported.includes(m.value))
+  })
 
   /** 按当前认证方式过滤已保存的认证配置 */
   const filteredAuthConfigOpts = computed(() => {
@@ -131,7 +163,7 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
 
   // ===== Methods =====
 
-  /** 切换认证方式时清空已选配置 */
+  /** 切换认证方式时清空已选配置，并确保当前方式在驱动支持列表内 */
   function onAuthMethodChange() {
     selectedAuthConfigId.value = null
     onFormUpdate()
@@ -185,6 +217,15 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
     await loadAuthConfigs()
   }
 
+  /** 驱动切换时更新支持的认证方式，当前方式不兼容则重置为首个 */
+  function updateSupportedAuthTypes(types: string[]) {
+    _supportedAuthTypes.value = types
+    if (types.length > 0 && !types.includes(authMethod.value)) {
+      authMethod.value = types[0]
+      selectedAuthConfigId.value = null
+    }
+  }
+
   /** 从后端加载已保存的认证配置列表 */
   async function loadAuthConfigs() {
     try {
@@ -210,5 +251,6 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
     onAuthConfigExternalSelect,
     onAuthManagerClose,
     loadAuthConfigs,
+    updateSupportedAuthTypes,
   }
 }

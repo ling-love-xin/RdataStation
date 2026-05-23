@@ -957,7 +957,12 @@
     "status": "状态",
     "connected": "已连接",
     "confirm": "确定",
+    "authSaved": "认证配置「{name}」已保存",
+    "authSaveFailed": "认证保存失败",
+    "osAuthTip": "使用操作系统当前用户身份认证，无需额外凭据",
+    "trustTip": "跳过身份验证，仅适用于开发环境或可信内网",
     "directConnect": "直连",
+    "none": "无",
     "configured": "已配置",
     "proxy": "代理",
     "scopeChangeWarning": "切换连接类型后，网络配置和环境设置可能失效，请重新选择"

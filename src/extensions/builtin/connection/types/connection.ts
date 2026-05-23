@@ -57,11 +57,23 @@ export interface ProjectConnection {
   host?: string
   port?: number
   database?: string
+  schema_name?: string
   username?: string
   password?: string
   options?: string
   tags?: string
+  use_duckdb_fed?: boolean
+  metadata_path?: string
   is_active?: boolean
+  server_version?: string
+  description?: string
+  driver_id?: string
+  environment_id?: string
+  auth_config_id?: string
+  auth_method?: string
+  network_config_id?: string
+  driver_properties?: string
+  advanced_options?: string
   /** 连接状态 */
   status?: ConnectionStatus
   /** 连接错误信息 */
@@ -76,19 +88,34 @@ export interface ProjectConnection {
 }
 
 export interface CreateProjectConnectionInput {
+  id?: string
   project_path: string
   name: string
   driver: string
   host?: string
   port?: number
   database?: string
+  schema_name?: string
   username?: string
   password?: string
   options?: string
   tags?: string
+  is_active?: boolean
+  use_duckdb_fed?: boolean
+  metadata_path?: string
+  server_version?: string
+  description?: string
+  driver_id?: string
+  environment_id?: string
+  auth_config_id?: string
+  auth_method?: string
+  network_config_id?: string
+  driver_properties?: string
+  advanced_options?: string
   properties?: Record<string, unknown>
   connection_type?: 'global' | 'project'
-  use_duckdb_fed?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 // ============================================================================
@@ -169,6 +196,15 @@ export interface StoredConnection {
   use_duckdb_fed: boolean
   metadata_path: string | null
   is_active: boolean
+  server_version: string | null
+  description: string | null
+  driver_id: string | null
+  environment_id: string | null
+  auth_config_id: string | null
+  auth_method: string | null
+  network_config_id: string | null
+  driver_properties: string | null
+  advanced_options: string | null
   created_at: string
   updated_at: string
 }

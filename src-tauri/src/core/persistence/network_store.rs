@@ -161,3 +161,117 @@ pub fn delete_network_config(conn: &Connection, id: &str) -> Result<(), CoreErro
         .map_err(|e| storage_err("delete_network_config", e.to_string()))?;
     Ok(())
 }
+
+// ===========================================================================
+// ======================== 全局库专用函数（无 origin/source_id/snapshot_at）==
+// ===========================================================================
+// 全局 network_configs 表不需要快照溯源字段（全局和项目物理隔离）
+// 项目 network_configs 表（有 origin 列）使用上面的通用函数
+
+/// 全局库：创建网络配置（不含快照溯源字段）
+pub fn create_global_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
+    conn.execute(
+        "INSERT INTO network_configs (id, name, network_type, config, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            nc.id,
+            nc.name,
+            nc.network_type,
+            nc.config,
+            nc.created_at,
+            nc.updated_at
+        ],
+    )
+    .map_err(|e| storage_err("create_global_network_config", e.to_string()))?;
+    Ok(())
+}
+
+/// 全局库：列出网络配置（不含快照溯源字段）
+pub fn list_global_network_configs(
+    conn: &Connection,
+    network_type: Option<&str>,
+) -> Result<Vec<NetworkConfig>, CoreError> {
+    let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
+        (
+            "SELECT id, name, network_type, config, created_at, updated_at
+             FROM network_configs WHERE network_type = ?1 ORDER BY name"
+                .to_string(),
+            Some(t.to_string()),
+        )
+    } else {
+        (
+            "SELECT id, name, network_type, config, created_at, updated_at
+             FROM network_configs ORDER BY network_type, name"
+                .to_string(),
+            None,
+        )
+    };
+
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| storage_err("prepare_list_global_network_configs", e.to_string()))?;
+
+    let items = if let Some(ref p) = param {
+        stmt.query_map(params![p], |row| {
+            Ok(NetworkConfig {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                network_type: row.get(2)?,
+                config: row.get(3)?,
+                origin: None,
+                source_id: None,
+                snapshot_at: None,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| storage_err("query_global_network_configs", e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect()
+    } else {
+        stmt.query_map([], |row| {
+            Ok(NetworkConfig {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                network_type: row.get(2)?,
+                config: row.get(3)?,
+                origin: None,
+                source_id: None,
+                snapshot_at: None,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })
+        .map_err(|e| storage_err("query_global_network_configs", e.to_string()))?
+        .filter_map(|r| r.ok())
+        .collect()
+    };
+
+    Ok(items)
+}
+
+/// 全局库：根据 ID 获取网络配置（不含快照溯源字段）
+pub fn get_global_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, network_type, config, created_at, updated_at
+             FROM network_configs WHERE id = ?1",
+        )
+        .map_err(|e| storage_err("prepare_get_global_network_config", e.to_string()))?;
+
+    stmt.query_row(params![id], |row| {
+        Ok(NetworkConfig {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            network_type: row.get(2)?,
+            config: row.get(3)?,
+            origin: None,
+            source_id: None,
+            snapshot_at: None,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    })
+    .optional()
+    .map_err(|e| storage_err("get_global_network_config", e.to_string()))
+}

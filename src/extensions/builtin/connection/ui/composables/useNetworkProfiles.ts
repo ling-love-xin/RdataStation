@@ -115,8 +115,8 @@ async function loadByType(type: 'ssh' | 'ssl' | 'proxy'): Promise<void> {
     else if (type === 'ssl') sslProfiles.value = profiles
     else proxyProfiles.value = profiles
   } catch (e) {
-    console.error(`[useNetworkProfiles] Failed to load ${type}:`, e)
-    error.value = e instanceof Error ? e.message : String(e)
+    console.error(`[useNetworkProfiles] Failed to load ${type}:`, JSON.stringify(e))
+    error.value = e instanceof Error ? e.message : JSON.stringify(e)
   }
 }
 
