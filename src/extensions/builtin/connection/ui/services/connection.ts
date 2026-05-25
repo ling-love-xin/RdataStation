@@ -30,9 +30,15 @@ export async function connectDatabase(
     networkConfigId?: string | null
     environmentId?: string
     authConfigId?: string
+    authMethod?: string
     driverProperties?: string
     advancedOptions?: string
     description?: string
+    options?: string
+    tags?: string
+    metadataPath?: string
+    schemaName?: string
+    useDuckdbFed?: boolean
   }
 ): Promise<ConnectionResponse> {
   return invoke<ConnectionResponse>('connect_database', {
@@ -47,9 +53,15 @@ export async function connectDatabase(
       network_config_id: opts?.networkConfigId || null,
       environment_id: opts?.environmentId,
       auth_config_id: opts?.authConfigId,
+      auth_method: opts?.authMethod,
       driver_properties: opts?.driverProperties,
       advanced_options: opts?.advancedOptions,
       description: opts?.description,
+      options: opts?.options,
+      tags: opts?.tags,
+      metadata_path: opts?.metadataPath,
+      schema_name: opts?.schemaName,
+      use_duckdb_fed: opts?.useDuckdbFed ?? false,
     },
   })
 }

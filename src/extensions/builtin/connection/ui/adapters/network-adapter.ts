@@ -23,6 +23,7 @@ export interface BackendNetworkConfig {
   name: string | null
   network_type: string // "ssh" | "ssl" | "proxy" | "http_proxy" | "socks" | "socks5" | "chain"
   config: string // JSON string — ChainHop[] 或 SshConfig/SslConfig/ProxyConfig
+  auth_config_id: string | null
   origin: string | null // "global" | "project"
   source_id: string | null
   snapshot_at: string | null

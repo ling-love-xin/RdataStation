@@ -10,7 +10,6 @@ use crate::core::services::connection_service::{
 };
 use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::{get_connection_manager, DataSourceMeta};
-use uuid;
 
 // ==================== Connection Commands ====================
 
@@ -31,6 +30,11 @@ pub struct ConnectDatabaseInput {
     pub network_config_id: Option<String>,
     pub driver_properties: Option<String>,
     pub advanced_options: Option<String>,
+    pub options: Option<String>,
+    pub tags: Option<String>,
+    pub metadata_path: Option<String>,
+    pub schema_name: Option<String>,
+    pub use_duckdb_fed: Option<bool>,
 }
 
 /// 连接响应
@@ -261,77 +265,21 @@ pub async fn connect_database(
             input.network_config_id.clone(),
             input.driver_properties.clone(),
             input.advanced_options.clone(),
+            input.options.clone(),
+            input.tags.clone(),
+            input.metadata_path.clone(),
+            input.schema_name.clone(),
+            input.use_duckdb_fed,
+            None, // skip_persistence: normal connections DO persist
             network_method,
         )
         .await?;
 
-    // ===== 项目连接：持久化到 project.db =====
     let meta = db.meta();
     let safe_url = ConnectionService::mask_password_in_url(&input.url);
 
-    // 项目连接也保存到项目数据库中，确保重启后数据不丢失
-    if connection_type == ConnectionType::Project {
-        if let Some(ref proj_path) = input.project_id {
-            let meta_dir = std::path::Path::new(proj_path).join(".RSmeta");
-            let db_path = meta_dir.join("project.db");
-            if db_path.exists() {
-                if let Err(e) = (|| -> Result<(), CoreError> {
-                    let proj_conn = rusqlite::Connection::open(&db_path)
-                        .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
-                    let now = chrono::Utc::now().to_rfc3339();
-                    let conn_name = input.name.clone().unwrap_or_else(|| safe_url.clone());
-                    let conn_id = format!("project-{}-{}", input.db_type, uuid::Uuid::new_v4());
-                    // 加密密码
-                    let encrypted_password = input.url.split('@').next()
-                        .and_then(|prefix| prefix.rsplit(':').next())
-                        .filter(|p| !p.is_empty())
-                        .and_then(|p| {
-                            crate::core::crypto::encrypt_password(p).ok()
-                        });
-                    proj_conn.execute(
-                        "INSERT OR REPLACE INTO connections (
-                            id, name, driver, host, port, database, schema_name, username,
-                            password_encrypted, options, tags, use_duckdb_fed, metadata_path,
-                            is_active, server_version, description, driver_id, environment_id,
-                            auth_config_id, auth_method, network_config_id, driver_properties,
-                            advanced_options, created_at, updated_at
-                        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
-                            ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
-                        rusqlite::params![
-                            conn_id,
-                            conn_name,
-                            input.db_type,
-                            Option::<String>::None, // host parsed from URL
-                            Option::<i32>::None,     // port parsed from URL
-                            Option::<String>::None,  // database parsed from URL
-                            Option::<String>::None,  // schema_name
-                            Option::<String>::None,  // username parsed from URL
-                            encrypted_password,
-                            Option::<String>::None,  // options
-                            Some("[\"project\"]"),   // tags
-                            false,                   // use_duckdb_fed
-                            Option::<String>::None,  // metadata_path
-                            true,                    // is_active
-                            meta.server_version.clone(),
-                            input.description.clone(),
-                            input.driver_id.clone(),
-                            input.environment_id.clone(),
-                            input.auth_config_id.clone(),
-                            input.auth_method.clone(),
-                            input.network_config_id.clone(),
-                            input.driver_properties.clone(),
-                            input.advanced_options.clone(),
-                            now.clone(),
-                            now,
-                        ],
-                    ).map_err(|e| CoreError::from(format!("保存项目连接失败: {}", e)))?;
-                    Ok(())
-                })() {
-                    tracing::warn!("保存项目连接到 project.db 失败: {}", e);
-                }
-            }
-        }
-    }
+    // ===== 项目连接持久化：由前端 handleApply → create_project_connection 统一管理 =====
+    // 此处不再重复写入，避免 conn_id 不一致和数据覆盖
 
     Ok(ConnectDatabaseResponse {
         conn_id,
@@ -763,6 +711,12 @@ pub async fn test_connection(
         network_config_id.clone(),
         None,   // driver_properties
         None,   // advanced_options
+        None,   // options
+        None,   // tags
+        None,   // metadata_path
+        None,   // schema_name
+        None,   // use_duckdb_fed
+        Some(true), // skip_persistence: test connections do NOT persist to DB
         network_method,
     );
 
@@ -785,6 +739,10 @@ pub async fn test_connection(
         .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
     let response_time_ms = start.elapsed().as_millis() as u64;
+
+    // 显式从管理器移除连接，防止测试连接被持久化到 global_db
+    manager.remove_connection(&conn_id).await;
+    tracing::info!("测试连接：已从管理器移除临时连接（ID={}），跳过持久化", conn_id);
 
     // 关键：测试成功后，必须彻底关闭临时连接
     // 1. 先释放 db 的 Arc 引用

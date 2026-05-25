@@ -4,12 +4,15 @@ use serde::{Deserialize, Serialize};
 use crate::core::error::{CoreError, StorageError};
 
 /// 网络配置（SSH 隧道、HTTP 代理、SSL 证书等）
+/// config 列保留完整配置信息（含 host/port/forwarding + auth 冗余）
+/// auth_config_id 引用 auth_configs.id，指向独立存储的认证凭据
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
     pub id: String,
     pub name: Option<String>,
     pub network_type: String,
     pub config: String,
+    pub auth_config_id: Option<String>,
     pub origin: Option<String>,
     pub source_id: Option<String>,
     pub snapshot_at: Option<String>,
@@ -25,16 +28,17 @@ fn storage_err(op: &str, reason: String) -> CoreError {
     })
 }
 
-/// 创建网络配置
+/// 创建网络配置（项目库，含快照溯源字段）
 pub fn create_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT INTO network_configs (id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO network_configs (id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             nc.id,
             nc.name,
             nc.network_type,
             nc.config,
+            nc.auth_config_id,
             nc.origin,
             nc.source_id,
             nc.snapshot_at,
@@ -46,21 +50,21 @@ pub fn create_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<()
     Ok(())
 }
 
-/// 列出网络配置，可按网络类型过滤
+/// 列出网络配置，可按网络类型过滤（项目库，含快照溯源字段）
 pub fn list_network_configs(
     conn: &Connection,
     network_type: Option<&str>,
 ) -> Result<Vec<NetworkConfig>, CoreError> {
     let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
         (
-            "SELECT id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at
+            "SELECT id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at
              FROM network_configs WHERE network_type = ?1 ORDER BY name"
                 .to_string(),
             Some(t.to_string()),
         )
     } else {
         (
-            "SELECT id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at
+            "SELECT id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at
              FROM network_configs ORDER BY network_type, name"
                 .to_string(),
             None,
@@ -78,11 +82,12 @@ pub fn list_network_configs(
                 name: row.get(1)?,
                 network_type: row.get(2)?,
                 config: row.get(3)?,
-                origin: row.get(4)?,
-                source_id: row.get(5)?,
-                snapshot_at: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                auth_config_id: row.get(4)?,
+                origin: row.get(5)?,
+                source_id: row.get(6)?,
+                snapshot_at: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         })
         .map_err(|e| storage_err("query_network_configs", e.to_string()))?
@@ -95,11 +100,12 @@ pub fn list_network_configs(
                 name: row.get(1)?,
                 network_type: row.get(2)?,
                 config: row.get(3)?,
-                origin: row.get(4)?,
-                source_id: row.get(5)?,
-                snapshot_at: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+                auth_config_id: row.get(4)?,
+                origin: row.get(5)?,
+                source_id: row.get(6)?,
+                snapshot_at: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
             })
         })
         .map_err(|e| storage_err("query_network_configs", e.to_string()))?
@@ -110,11 +116,11 @@ pub fn list_network_configs(
     Ok(items)
 }
 
-/// 根据 ID 获取网络配置
+/// 根据 ID 获取网络配置（项目库，含快照溯源字段）
 pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, network_type, config, origin, source_id, snapshot_at, created_at, updated_at
+            "SELECT id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at
              FROM network_configs WHERE id = ?1",
         )
         .map_err(|e| storage_err("prepare_get_network_config", e.to_string()))?;
@@ -125,11 +131,12 @@ pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkC
             name: row.get(1)?,
             network_type: row.get(2)?,
             config: row.get(3)?,
-            origin: row.get(4)?,
-            source_id: row.get(5)?,
-            snapshot_at: row.get(6)?,
-            created_at: row.get(7)?,
-            updated_at: row.get(8)?,
+            auth_config_id: row.get(4)?,
+            origin: row.get(5)?,
+            source_id: row.get(6)?,
+            snapshot_at: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
         })
     })
     .optional()
@@ -140,8 +147,8 @@ pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkC
 pub fn update_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
     let rows = conn
         .execute(
-            "UPDATE network_configs SET name = ?1, network_type = ?2, config = ?3, updated_at = ?4 WHERE id = ?5",
-            params![nc.name, nc.network_type, nc.config, nc.updated_at, nc.id],
+            "UPDATE network_configs SET name = ?1, network_type = ?2, config = ?3, auth_config_id = ?4, updated_at = ?5 WHERE id = ?6",
+            params![nc.name, nc.network_type, nc.config, nc.auth_config_id, nc.updated_at, nc.id],
         )
         .map_err(|e| storage_err("update_network_config", e.to_string()))?;
 
@@ -168,16 +175,17 @@ pub fn delete_network_config(conn: &Connection, id: &str) -> Result<(), CoreErro
 // 全局 network_configs 表不需要快照溯源字段（全局和项目物理隔离）
 // 项目 network_configs 表（有 origin 列）使用上面的通用函数
 
-/// 全局库：创建网络配置（不含快照溯源字段）
+/// 全局库：创建网络配置（不含快照溯源字段，含 auth_config_id）
 pub fn create_global_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT INTO network_configs (id, name, network_type, config, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO network_configs (id, name, network_type, config, auth_config_id, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             nc.id,
             nc.name,
             nc.network_type,
             nc.config,
+            nc.auth_config_id,
             nc.created_at,
             nc.updated_at
         ],
@@ -193,14 +201,14 @@ pub fn list_global_network_configs(
 ) -> Result<Vec<NetworkConfig>, CoreError> {
     let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
         (
-            "SELECT id, name, network_type, config, created_at, updated_at
+            "SELECT id, name, network_type, config, auth_config_id, created_at, updated_at
              FROM network_configs WHERE network_type = ?1 ORDER BY name"
                 .to_string(),
             Some(t.to_string()),
         )
     } else {
         (
-            "SELECT id, name, network_type, config, created_at, updated_at
+            "SELECT id, name, network_type, config, auth_config_id, created_at, updated_at
              FROM network_configs ORDER BY network_type, name"
                 .to_string(),
             None,
@@ -218,11 +226,12 @@ pub fn list_global_network_configs(
                 name: row.get(1)?,
                 network_type: row.get(2)?,
                 config: row.get(3)?,
+                auth_config_id: row.get(4)?,
                 origin: None,
                 source_id: None,
                 snapshot_at: None,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
             })
         })
         .map_err(|e| storage_err("query_global_network_configs", e.to_string()))?
@@ -235,11 +244,12 @@ pub fn list_global_network_configs(
                 name: row.get(1)?,
                 network_type: row.get(2)?,
                 config: row.get(3)?,
+                auth_config_id: row.get(4)?,
                 origin: None,
                 source_id: None,
                 snapshot_at: None,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
             })
         })
         .map_err(|e| storage_err("query_global_network_configs", e.to_string()))?
@@ -254,7 +264,7 @@ pub fn list_global_network_configs(
 pub fn get_global_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, network_type, config, created_at, updated_at
+            "SELECT id, name, network_type, config, auth_config_id, created_at, updated_at
              FROM network_configs WHERE id = ?1",
         )
         .map_err(|e| storage_err("prepare_get_global_network_config", e.to_string()))?;
@@ -265,11 +275,12 @@ pub fn get_global_network_config(conn: &Connection, id: &str) -> Result<Option<N
             name: row.get(1)?,
             network_type: row.get(2)?,
             config: row.get(3)?,
+            auth_config_id: row.get(4)?,
             origin: None,
             source_id: None,
             snapshot_at: None,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
         })
     })
     .optional()

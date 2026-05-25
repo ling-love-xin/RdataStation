@@ -111,9 +111,7 @@
 
 <script setup lang="ts">
 import { Database } from 'lucide-vue-next'
-import {
-  NButton, NModal, NTabs, NTabPane, NAlert, useMessage,
-} from 'naive-ui'
+import { NButton, NModal, NTabs, NTabPane, NAlert, useMessage, useDialog } from 'naive-ui'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -151,6 +149,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const message = useMessage()
+const dialog = useDialog()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
 const { drivers, loadAll } = useDriverRegistry()
@@ -314,6 +313,10 @@ function selectStaging(i: number) {
     if (d) selectedTypeId.value = d.type_id
   }
   formData.value = s.formData ? { ...s.formData } : {}
+  if (s.scope) {
+    scope.global = s.scope === 'global'
+    scope.project = s.scope === 'project'
+  }
   networkConfigId.value = s.networkConfigId ?? null
   driverPropertiesExtra.value = s.driverProperties ?? null
   advancedOptions.value = s.advancedOptions ?? null
@@ -361,7 +364,7 @@ async function handleTest() {
   } finally { testing.value = false }
 }
 
-/** 测试连接弹窗关闭回调 — 成功时保存认证到后台库 */
+/** 测试连接弹窗关闭回调 — 成功时弹出确认对话框再决定是否保存认证 */
 async function onTestModalClose() {
   showTestModal.value = false
 
@@ -370,29 +373,58 @@ async function onTestModalClose() {
   if (!lastTestResult.value.success) return
 
   const fd = formData.value
-  const hasAuth = fd.username || fd.password
+  const authType = authMethod.value
+  const hasAuth = fd.username || fd.password || fd.certPath || fd.principal || fd.tokenEndpoint || (authType === 'os_auth' || authType === 'trust')
   if (!hasAuth) return
 
+  // 弹出确认对话框，由用户决定是否保存
+  const d = dialog.info({
+    title: t('navigator.testSuccess'),
+    content: t('navigator.saveAuthConfirm'),
+    positiveText: t('navigator.confirm'),
+    negativeText: t('navigator.cancel'),
+    onPositiveClick: async () => {
+      d.loading = true
+      await doSaveAuth(authType, fd)
+      d.loading = false
+    },
+    onNegativeClick: () => {
+      d.destroy()
+    },
+  })
+}
+
+/** 实际执行认证保存 */
+async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
+  if (savingAuth.value) return
   savingAuth.value = true
   try {
     const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const authData: Record<string, any> = {}
-    if (fd.username) authData.username = String(fd.username)
-    if (fd.password) authData.password = String(fd.password)
-    if (fd.host) authData.host = String(fd.host)
-    if (fd.port) authData.port = String(fd.port)
-    if (fd.database) authData.database = String(fd.database)
+
+    if (authType === 'password' || authType === 'ldap') {
+      if (fd.username) authData.username = String(fd.username)
+      if (fd.password) authData.password = String(fd.password)
+    } else if (authType === 'pg_class') {
+      if (fd.certPath) authData.certPath = String(fd.certPath)
+      if (fd.certKeyPath) authData.certKeyPath = String(fd.certKeyPath)
+    } else if (authType === 'kerberos') {
+      if (fd.principal) authData.principal = String(fd.principal)
+      if (fd.keytabPath) authData.keytabPath = String(fd.keytabPath)
+    } else if (authType === 'oauth2') {
+      if (fd.tokenEndpoint) authData.tokenEndpoint = String(fd.tokenEndpoint)
+      if (fd.clientId) authData.clientId = String(fd.clientId)
+      if (fd.clientSecret) authData.clientSecret = String(fd.clientSecret)
+    }
 
     const driverName = selectedDriver.value?.name || ''
     const authName = headerData.name
       ? `${headerData.name} — 认证`
       : `${driverName} — 认证`
 
-    const authType = authMethod.value
     const authDataStr = JSON.stringify(authData)
 
-    // 根据 scope 写入对应数据库（全局 / 项目 / 两者）
     if (scope.global) {
       await invokeTauri('create_auth_config', {
         ac: {
@@ -417,7 +449,7 @@ async function onTestModalClose() {
       }
     }
 
-    message.success(t('navigator.authSaved', { name: authName }))
+    message.info(t('navigator.authSavedHint'))
   } catch (authErr) {
     const msg = authErr instanceof Error ? authErr.message : JSON.stringify(authErr)
     console.error('[auth] 保存认证配置失败:', msg)
@@ -513,24 +545,33 @@ async function handleApply() {
         const url = item.url || ''
         const name = item.name
         const itemScope = item.scope || 'global'
-        const projectId = itemScope === 'project' ? projectStore.currentProject?.id ?? null : null
 
-        // 项目级连接快照全局配置
+        // F3: 项目级连接快照全局配置 — 分别 await 每个快照操作，失败时单独警告
         let snapshotNetId = item.networkConfigId ?? null
         let snapshotAuthId = item.authConfigId ?? null
+        let snapshotFailed = false
         if (itemScope === 'project' && projectStore.hasProject) {
           const pp = projectStore.currentProject?.path
-          try {
-            if (snapshotAuthId?.startsWith('G_') && !snapshotAuthId.startsWith('GP_')) {
+          if (snapshotAuthId?.startsWith('G_') && !snapshotAuthId.startsWith('GP_')) {
+            try {
               const r = await invoke<{ snapshot_id: string }>('snapshot_global_auth', { globalAuthId: snapshotAuthId, projectPath: pp })
               snapshotAuthId = r.snapshot_id
+            } catch (snapErr) {
+              snapshotFailed = true
+              console.error(`[apply] ${name} 认证快照失败:`, snapErr)
             }
-            if (snapshotNetId?.startsWith('G_') && !snapshotNetId.startsWith('GP_')) {
+          }
+          if (snapshotNetId?.startsWith('G_') && !snapshotNetId.startsWith('GP_')) {
+            try {
               const r = await invoke<{ snapshot_id: string }>('snapshot_global_network', { globalNetId: snapshotNetId, projectPath: pp })
               snapshotNetId = r.snapshot_id
+            } catch (snapErr) {
+              snapshotFailed = true
+              console.error(`[apply] ${name} 网络快照失败:`, snapErr)
             }
-          } catch (snapErr) {
-            console.error('[snapshot] 认证/网络快照失败:', snapErr)
+          }
+          if (snapshotFailed) {
+            message.warning(t('navigator.snapshotFailedWarning'))
           }
         }
 
@@ -539,34 +580,84 @@ async function handleApply() {
           networkConfigId: snapshotNetId,
           environmentId: item.environmentId ?? undefined,
           authConfigId: snapshotAuthId,
+          authMethod: item.authMethod ?? undefined,
           driverProperties: item.driverProperties ?? undefined,
           advancedOptions: item.advancedOptions ?? undefined,
           description: item.description || undefined,
+          options: item.options || undefined,
+          tags: item.tags || undefined,
+          metadataPath: item.metadataPath || undefined,
+          schemaName: item.schemaName || undefined,
+          useDuckdbFed: item.useDuckdbFed ?? false,
         }
 
+        // F2: 项目连接 — 全局连接优先，成功后再做项目持久化
         if (itemScope === 'project' && projectStore.hasProject) {
-          const fd = item.formData || {}
-          await projectConnectionStore.createConnection({
-            name,
-            driver: driverName,
-            host: String(fd.host || ''),
-            port: Number(fd.port || 0),
-            database: String(fd.database || ''),
-            username: String(fd.username || ''),
-            password: String(fd.password || ''),
-            use_duckdb_fed: false,
-          })
-        }
+          // Step 1: 全局连接（connectDatabaseService）
+          try {
+            await connectDatabaseService(
+              driverName,
+              url,
+              name,
+              itemScope,
+              projectStore.currentProject?.id,
+              connectOpts
+            )
+          } catch (connectErr) {
+            const msg = connectErr instanceof Error ? connectErr.message : String(connectErr)
+            errors.push(`${item.name}: ${msg}`)
+            console.error(`[apply] ${item.name} 全局连接失败:`, msg)
+            // 全局连接失败则跳过，不继续项目保存
+            continue
+          }
 
-        await connectDatabaseService(
-          driverName,
-          url,
-          name,
-          itemScope,
-          itemScope === 'project' ? projectStore.currentProject?.id : undefined,
-          connectOpts
-        )
-        successCount++
+          // Step 2: 项目持久化（createConnection）
+          try {
+            const fd = item.formData || {}
+            await projectConnectionStore.createConnection({
+              name,
+              driver: driverName,
+              host: String(fd.host || ''),
+              port: Number(fd.port || 0),
+              database: String(fd.database || ''),
+              username: String(fd.username || ''),
+              password: String(fd.password || ''),
+              use_duckdb_fed: false,
+              description: item.description || undefined,
+              driver_id: item.driverId,
+              environment_id: item.environmentId ?? undefined,
+              auth_config_id: snapshotAuthId ?? undefined,
+              auth_method: item.authMethod ?? undefined,
+              network_config_id: snapshotNetId ?? undefined,
+              driver_properties: item.driverProperties ?? undefined,
+              advanced_options: item.advancedOptions ?? undefined,
+            })
+            successCount++
+          } catch (createErr) {
+            const msg = createErr instanceof Error ? createErr.message : String(createErr)
+            console.error(`[apply] ${item.name} 项目保存失败:`, msg)
+            message.warning(t('navigator.partialSaveWarning'))
+            // 全局连接已建立，仍算部分成功
+            successCount++
+          }
+        } else {
+          // 全局 scope — 直接连接
+          try {
+            await connectDatabaseService(
+              driverName,
+              url,
+              name,
+              itemScope,
+              undefined,
+              connectOpts
+            )
+            successCount++
+          } catch (connectErr) {
+            const msg = connectErr instanceof Error ? connectErr.message : String(connectErr)
+            errors.push(`${item.name}: ${msg}`)
+            console.error(`[apply] ${item.name} 连接失败:`, msg)
+          }
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         errors.push(`${item.name}: ${msg}`)

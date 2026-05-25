@@ -335,6 +335,9 @@ pub struct GlobalConnectionSaveInput<'a> {
     pub options: Option<&'a str>,
     pub driver_properties: Option<&'a str>,
     pub advanced_options: Option<&'a str>,
+    pub use_duckdb_fed: Option<bool>,
+    pub metadata_path: Option<&'a str>,
+    pub schema_name: Option<&'a str>,
 }
 
 /// 全局系统数据库管理器
@@ -724,13 +727,13 @@ impl GlobalDatabaseManager {
                 host.as_deref().unwrap_or(""),
                 &port.map(|p| p.to_string()).unwrap_or_default(),
                 database.as_deref().unwrap_or(""),
-                "",
+                input.schema_name.unwrap_or(""),
                 final_username,
                 &final_password,
                 input.options.unwrap_or(""),
                 &tags_json,
-                "0",
-                "",
+                &input.use_duckdb_fed.map(|v| if v { "1" } else { "0" }).unwrap_or("0"),
+                input.metadata_path.unwrap_or(""),
                 input.server_version.unwrap_or(""),
                 input.description.unwrap_or(""),
                 input.driver_id.unwrap_or(""),

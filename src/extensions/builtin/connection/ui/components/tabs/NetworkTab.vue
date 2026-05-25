@@ -603,6 +603,39 @@ async function saveNewProfile(hop: Hop) {
       origin: 'project',
       config: buildConfigJson(hop.protocol, f),
     }
+
+    // SSH/Proxy 有认证凭据时，同步创建 auth_config 并注入引用
+    if ((hop.protocol === 'ssh' || hop.protocol === 'proxy') && (f.username || f.password || (hop.protocol === 'ssh' && f.authType !== 'ssh_password' && f.keyPath))) {
+      try {
+        const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const authData: Record<string, any> = {}
+        if (f.username) authData.username = f.username
+        if (f.password) authData.password = f.password
+        if (hop.protocol === 'ssh') {
+          authData.authType = f.authType || 'ssh_password'
+          if (f.authType !== 'ssh_password' && f.keyPath) authData.keyPath = f.keyPath
+          if (f.passphrase) authData.passphrase = f.passphrase
+        }
+        const authName = `${f.name || '未命名'} — ${hop.protocol}认证`
+        const authId = `G_${hop.protocol}_auth_${Date.now()}`
+
+        await invokeTauri('create_auth_config', {
+          ac: {
+            id: authId,
+            name: authName,
+            auth_type: hop.protocol === 'ssh' ? 'ssh_password' : 'proxy_password',
+            auth_data: JSON.stringify(authData),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        })
+        ;(cfg as Record<string, unknown>).auth_config_id = authId
+      } catch (authErr) {
+        console.warn('[NetworkTab] 创建认证配置失败，继续保存网络配置:', authErr)
+      }
+    }
+
     await invoke('create_network_config', { nc: cfg })
     await loadAll()
     // Auto-select newly created profile

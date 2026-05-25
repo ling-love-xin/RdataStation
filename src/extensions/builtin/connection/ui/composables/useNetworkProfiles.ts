@@ -23,6 +23,7 @@ interface ConfigRaw {
   name?: string
   network_type: string
   config: string
+  auth_config_id?: string
   origin?: string
   created_at: string
   updated_at: string

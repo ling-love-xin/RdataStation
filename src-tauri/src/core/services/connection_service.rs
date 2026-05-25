@@ -34,6 +34,9 @@ pub struct SaveGlobalConnectionInput<'a> {
     pub options: Option<&'a str>,
     pub driver_properties: Option<&'a str>,
     pub advanced_options: Option<&'a str>,
+    pub use_duckdb_fed: Option<bool>,
+    pub metadata_path: Option<&'a str>,
+    pub schema_name: Option<&'a str>,
 }
 
 /// 连接服务
@@ -94,6 +97,12 @@ impl ConnectionService {
             None,
             None,
             None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         )
         .await
     }
@@ -116,6 +125,7 @@ impl ConnectionService {
     /// * `network_config_id` - 网络配置 ID（可选）
     /// * `driver_properties` - 驱动属性 JSON（可选）
     /// * `advanced_options` - 高级选项 JSON（可选）
+    /// * `skip_persistence` - 跳过持久化到 SQLite（测试连接等场景，默认 false）
     ///
     /// # Returns
     ///
@@ -137,6 +147,12 @@ impl ConnectionService {
         network_config_id: Option<String>,
         driver_properties: Option<String>,
         advanced_options: Option<String>,
+        options: Option<String>,
+        tags: Option<String>,
+        metadata_path: Option<String>,
+        schema_name: Option<String>,
+        use_duckdb_fed: Option<bool>,
+        skip_persistence: Option<bool>,
         network_method: Option<ConnectionMethod>,
     ) -> Result<(String, DynDatabase), CoreError> {
         // 参数校验
@@ -265,13 +281,13 @@ impl ConnectionService {
         // NOTE: 元数据缓存不在连接时立即创建，改为懒加载。
         // 首次查询 schema / table / column 时通过 L2 cache write 路径自动创建。
 
-        // 对于全局连接，保存到全局 SQLite 数据库
-        if connection_type == ConnectionType::Global {
+        // 对于全局连接，保存到全局 SQLite 数据库（skip_persistence 时跳过）
+        if !skip_persistence.unwrap_or(false) && connection_type == ConnectionType::Global {
             // 从 URL 中解析 username 和 password
             let (username, password) = Self::extract_credentials_from_url(url);
 
-            // 默认添加 "global" 标签
-            let tags = Some("[\"global\"]");
+            // 标签：优先使用输入值，无输入时默认 ["global"]
+            let final_tags = tags.clone().or(Some("[\"global\"]".to_string()));
             if let Err(e) = self
                 .save_global_connection_to_db(SaveGlobalConnectionInput {
                     conn_id: &conn_id,
@@ -280,7 +296,7 @@ impl ConnectionService {
                     url: &safe_url,
                     username: username.as_deref(),
                     password: password.as_deref(),
-                    tags,
+                    tags: final_tags.as_deref(),
                     server_version: server_version.as_deref(),
                     description: description.as_deref(),
                     driver_id: driver_id.as_deref(),
@@ -288,9 +304,12 @@ impl ConnectionService {
                     auth_config_id: auth_config_id.as_deref(),
                     auth_method: auth_method.as_deref(),
                     network_config_id: network_config_id.as_deref(),
-                    options: None,
+                    options: options.as_deref(),
                     driver_properties: driver_properties.as_deref(),
                     advanced_options: advanced_options.as_deref(),
+                    use_duckdb_fed: use_duckdb_fed,
+                    metadata_path: metadata_path.as_deref(),
+                    schema_name: schema_name.as_deref(),
                 })
                 .await
             {
@@ -298,7 +317,8 @@ impl ConnectionService {
             }
         }
 
-        // 保存到最近连接记录
+        // 保存到最近连接记录（skip_persistence 时跳过）
+        if !skip_persistence.unwrap_or(false) {
         if let Err(e) = connection_store::save_recent_connection(RecentConnectionInput {
             name: &connection_name,
             db_type,
@@ -314,6 +334,7 @@ impl ConnectionService {
             advanced_options: advanced_options.as_deref(),
         }) {
             tracing::warn!("Failed to save connection history: {}", e);
+        }
         }
 
         Ok((conn_id, db))
@@ -363,6 +384,9 @@ impl ConnectionService {
                 options: input.options,
                 driver_properties: input.driver_properties,
                 advanced_options: input.advanced_options,
+                use_duckdb_fed: input.use_duckdb_fed,
+                metadata_path: input.metadata_path,
+                schema_name: input.schema_name,
             })
             .await
     }
