@@ -6,7 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch, onMounted } from 'vue'
 
 import { useProjectStore } from '@/core/project/stores/project'
 
@@ -21,6 +21,42 @@ export interface ConnectionScope {
   global: boolean
   project: boolean
 }
+
+/** 暂存项 */
+export interface StagingItem {
+  id: string
+  name: string
+  driver?: string
+  driverId?: string
+  url?: string
+  formData?: Record<string, unknown>
+  authConfigId?: string | null
+  authMethod?: string
+  networkConfigId?: string | null
+  driverProperties?: string | null
+  advancedOptions?: string | null
+  environmentId?: string | null
+  scope?: 'global' | 'project'
+  description?: string
+  schemaName?: string
+  options?: string
+  metadataPath?: string
+  tags?: string
+  useDuckdbFed?: boolean
+  applied?: boolean
+}
+
+/** StagingItem 字段列表 */
+const STAGING_FIELDS = [
+  'id', 'name', 'driver', 'driverId', 'url', 'formData',
+  'authConfigId', 'authMethod', 'networkConfigId',
+  'driverProperties', 'advancedOptions', 'environmentId',
+  'scope', 'description', 'schemaName', 'options',
+  'metadataPath', 'tags', 'useDuckdbFed', 'applied'
+] as const
+
+/** localStorage 存储键 */
+const STAGING_STORAGE_KEY = 'rdata-station-staging-items'
 
 /** 常规表单数据 */
 export interface GeneralFormData {
@@ -380,8 +416,16 @@ export function useAddDataSource() {
   }
 
   // ========== 校验 ==========
-  function validate(): ValidationResult {
+  /** 验证结果类型 */
+  interface ExtendedValidationResult extends ValidationResult {
+    warnings?: string[]
+  }
+
+  /** 扩展验证（包含警告） */
+  function validateExtended(): ExtendedValidationResult {
     const errs: Record<string, string> = {}
+    const warnings: string[] = []
+
     if (!headerData.name.trim()) errs.name = '请输入数据源名称'
     if (!headerData.selectedDriverId) errs.driver = '请选择数据驱动'
     if (!scope.global && !scope.project) errs.scope = '请至少选择一个作用域'
@@ -392,9 +436,120 @@ export function useAddDataSource() {
       if (sslIdx >= 0 && sslIdx !== protocolChain.value.length - 1) {
         errs.chain = 'SSL 必须在协议链末尾'
       }
+
+      const nonSslCount = protocolChain.value.filter(h => h.enabled && h.protocol !== 'ssl').length
+      if (nonSslCount > 3) {
+        warnings.push('协议链超过 3 跳，可能影响连接性能')
+      }
     }
 
-    return { valid: Object.keys(errs).length === 0, errors: errs }
+    if (scope.project && !projectStore().currentProject) {
+      errs.project = '请先打开一个项目'
+    }
+
+    return { valid: Object.keys(errs).length === 0, errors: errs, warnings }
+  }
+
+  /** 基础验证 */
+  function validate(): ValidationResult {
+    const result = validateExtended()
+    return { valid: result.valid, errors: result.errors }
+  }
+
+  /** URL 验证 */
+  function validateUrl(url: string): { valid: boolean; error?: string } {
+    if (!url) return { valid: false, error: 'URL 不能为空' }
+
+    try {
+      const urlObj = new URL(url)
+      if (!['mysql', 'postgres', 'postgresql', 'sqlite', 'duckdb', 'mongodb', 'redis'].some(p => urlObj.protocol.includes(p))) {
+        return { valid: false, error: '不支持的数据库协议' }
+      }
+      return { valid: true }
+    } catch {
+      return { valid: false, error: '无效的 URL 格式' }
+    }
+  }
+
+  /** 端口范围验证 */
+  function validatePort(port: number): { valid: boolean; error?: string } {
+    if (port < 1 || port > 65535) {
+      return { valid: false, error: '端口号必须在 1-65535 范围内' }
+    }
+    return { valid: true }
+  }
+
+  /** IP 地址验证 */
+  function validateHost(host: string): { valid: boolean; error?: string } {
+    if (!host) return { valid: false, error: '主机地址不能为空' }
+    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/
+    const hostnamePattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+    if (ipv4Pattern.test(host) || hostnamePattern.test(host) || host === 'localhost') {
+      return { valid: true }
+    }
+    return { valid: false, error: '无效的主机地址格式' }
+  }
+
+  // ========== 类型守卫 ==========
+  /** 判断是否为有效的 StagingItem */
+  function isValidStagingItem(item: unknown): item is StagingItem {
+    if (!item || typeof item !== 'object') return false
+    const s = item as StagingItem
+    return typeof s.name === 'string' && s.name.length > 0
+  }
+
+  /** 判断是否为文件型数据库 */
+  function isFileDatabase(driverId: string): boolean {
+    return ['sqlite', 'duckdb'].includes(driverId.toLowerCase())
+  }
+
+  /** 判断是否需要快照（全局配置引用） */
+  function needsSnapshot(configId: string | null | undefined): boolean {
+    return !!configId?.startsWith('G_') && !configId.startsWith('GP_')
+  }
+
+  // ========== 连接字符串构建 ==========
+  /** 构建 JDBC 连接字符串 */
+  function buildJdbcUrl(driverId: string, host: string, port: number, database: string): string {
+    if (isFileDatabase(driverId)) {
+      return `jdbc:${driverId}:${database}`
+    }
+    return `jdbc:${driverId}://${host}:${port}/${database}`
+  }
+
+  /** 构建标准连接 URL */
+  function buildStandardUrl(driverId: string, host: string, port: number, database: string): string {
+    if (isFileDatabase(driverId)) {
+      return `${driverId}:${database}`
+    }
+    return `${driverId}://${host}:${port}/${database}`
+  }
+
+  /** 提取连接 URL 中的数据库名称 */
+  function extractDatabaseFromUrl(url: string): string | null {
+    try {
+      const urlObj = new URL(url)
+      const path = urlObj.pathname
+      if (path && path.length > 1) {
+        return decodeURIComponent(path.substring(1))
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /** 从 URL 中提取主机和端口 */
+  function extractHostAndPort(url: string): { host: string; port: number } | null {
+    try {
+      const urlObj = new URL(url)
+      return {
+        host: urlObj.hostname,
+        port: parseInt(urlObj.port) || (urlObj.protocol.includes('mysql') ? 3306 : 5432),
+      }
+    } catch {
+      return null
+    }
   }
 
   // ========== 协议链操作 ==========
@@ -461,6 +616,156 @@ export function useAddDataSource() {
     if (hop) hop.enabled = enabled
   }
 
+  // ========== StagingItem 管理 ==========
+  const stagingItems = ref<StagingItem[]>([{ name: '' }])
+  const stagingIndex = ref(0)
+  const isResetting = ref(false)
+
+  /**
+   * 构建 StagingItem（统一字段处理）
+   */
+  function buildStagingItem(
+    name: string,
+    driver: string | undefined,
+    driverId: string | undefined,
+    url: string,
+    formData: Record<string, unknown>,
+    authConfigId: string | null,
+    authMethod: string,
+    networkConfigId: string | null,
+    driverProperties: string | null,
+    advancedOptions: string | null,
+    environmentId: string | null,
+    description: string | undefined,
+    schemaName: string | undefined,
+    options: string | undefined,
+    metadataPath: string | undefined,
+    tags: string | undefined,
+    useDuckdbFed: boolean
+  ): StagingItem {
+    return {
+      id: uuidv4(),
+      name,
+      driver,
+      driverId,
+      url,
+      formData: { ...formData },
+      authConfigId,
+      authMethod,
+      networkConfigId,
+      driverProperties,
+      advancedOptions,
+      environmentId,
+      scope: scope.global ? 'global' : 'project',
+      description,
+      schemaName,
+      options,
+      metadataPath,
+      tags,
+      useDuckdbFed,
+      applied: false,
+    }
+  }
+
+  /**
+   * 从 StagingItem 更新表单数据
+   */
+  function applyStagingItem(item: StagingItem) {
+    isResetting.value = true
+    headerData.name = item.name || ''
+    headerData.description = item.description || ''
+    formData.value = item.formData ? { ...item.formData } : {}
+    if (item.scope) {
+      scope.global = item.scope === 'global'
+      scope.project = item.scope === 'project'
+    }
+    isResetting.value = false
+  }
+
+  /**
+   * 加载持久化的暂存项
+   */
+  function loadStagingItems() {
+    try {
+      const stored = localStorage.getItem(STAGING_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          stagingItems.value = parsed
+        }
+      }
+    } catch (e) {
+      console.error('[Staging] 加载暂存项失败:', e)
+    }
+  }
+
+  /**
+   * 保存暂存项到 localStorage
+   */
+  function saveStagingItems() {
+    try {
+      localStorage.setItem(STAGING_STORAGE_KEY, JSON.stringify(stagingItems.value))
+    } catch (e) {
+      console.error('[Staging] 保存暂存项失败:', e)
+    }
+  }
+
+  /**
+   * 清空持久化的暂存项
+   */
+  function clearStagingItems() {
+    try {
+      localStorage.removeItem(STAGING_STORAGE_KEY)
+      stagingItems.value = [{ name: '' }]
+      stagingIndex.value = 0
+    } catch (e) {
+      console.error('[Staging] 清空暂存项失败:', e)
+    }
+  }
+
+  /**
+   * 添加暂存项
+   */
+  function addStaging() {
+    stagingItems.value.push({ id: uuidv4(), name: '', applied: false })
+    stagingIndex.value = stagingItems.value.length - 1
+  }
+
+  /**
+   * 标记暂存项为已应用
+   */
+  function markStagingApplied(index: number) {
+    if (stagingItems.value[index]) {
+      stagingItems.value[index].applied = true
+    }
+  }
+
+  /**
+   * 移除暂存项
+   */
+  function removeStaging(index: number) {
+    if (stagingItems.value.length <= 1) return
+    stagingItems.value.splice(index, 1)
+    if (stagingIndex.value >= stagingItems.value.length) {
+      stagingIndex.value = stagingItems.value.length - 1
+    }
+  }
+
+  /**
+   * 选择暂存项
+   */
+  function selectStaging(index: number) {
+    stagingIndex.value = index
+  }
+
+  // 初始化时加载暂存项
+  onMounted(() => {
+    loadStagingItems()
+  })
+
+  // 监听暂存项变化，自动持久化
+  watch(stagingItems, saveStagingItems, { deep: true })
+
   return {
     // 状态
     headerData,
@@ -473,6 +778,17 @@ export function useAddDataSource() {
     driverProps,
     saving,
     error,
+    // 暂存项管理
+    stagingItems,
+    stagingIndex,
+    isResetting,
+    buildStagingItem,
+    applyStagingItem,
+    addStaging,
+    removeStaging,
+    selectStaging,
+    clearStagingItems,
+    markStagingApplied,
     // 计算
     isFileDb,
     setFileDb,
@@ -486,6 +802,10 @@ export function useAddDataSource() {
     buildSavePayload,
     buildSubmitPayload,
     validate,
+    validateExtended,
+    validateUrl,
+    validatePort,
+    validateHost,
     // 协议链
     addHop,
     removeHop,
@@ -493,6 +813,15 @@ export function useAddDataSource() {
     toggleHop,
     countNetworkHops,
     ensureSslAtEnd,
+    // 类型守卫
+    isValidStagingItem,
+    isFileDatabase,
+    needsSnapshot,
+    // 连接字符串
+    buildJdbcUrl,
+    buildStandardUrl,
+    extractDatabaseFromUrl,
+    extractHostAndPort,
     // 默认值工具
     getDefaultChain,
     defaultDuckdbAccel,

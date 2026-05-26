@@ -52,6 +52,7 @@ pub mod scratchpad;
 pub mod services;
 pub mod sql;
 pub mod stream;
+pub mod types;
 pub mod utils;
 
 // 重新导出常用错误类型

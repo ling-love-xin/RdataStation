@@ -13,9 +13,9 @@
           v-model:selected-type-id="selectedTypeId"
           :staging-items="stagingItems"
           :staging-index="stagingIndex"
-          @add-staging="addStaging"
-          @remove-staging="removeStaging"
-          @select-staging="selectStaging"
+          @add-staging="handleAddStaging"
+          @remove-staging="handleRemoveStaging"
+          @select-staging="handleSelectStaging"
         />
 
         <!-- Right panel -->
@@ -129,7 +129,7 @@ import { useAddDataSource } from '../composables/useAddDataSource'
 import { useDriverRegistry } from '../composables/useDriverRegistry'
 import { useNetworkProfiles } from '../composables/useNetworkProfiles'
 import { useUrlBuilder } from '../composables/useUrlBuilder'
-import { connectDatabase as connectDatabaseService } from '../services/connection'
+import { connectDatabase as connectDatabaseService, closeConnection } from '../services/connection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
@@ -157,9 +157,18 @@ const {
   headerData, scope, selectedEnvId,
   setFileDb,
   buildSubmitPayload, validate,
+  stagingItems,
+  stagingIndex,
+  isResetting,
+  buildStagingItem,
+  applyStagingItem,
+  addStaging,
+  removeStaging,
+  selectStaging,
+  clearStagingItems,
 } = useAddDataSource()
 
-// Dialog state — composable provides: headerData, scope, selectedEnvId, protocolChain, etc.
+// Dialog state
 const activeTab = ref('general')
 const selectedTypeId = ref<string | null>(null)
 const uriEditing = ref(false)
@@ -180,31 +189,6 @@ const authMethod = ref<string>('password')
 const networkConfigId = ref<string | null>(null)
 const driverPropertiesExtra = ref<string | null>(null)
 const advancedOptions = ref<string | null>(null)
-
-// Staging list
-interface StagingItem {
-  name: string
-  driver?: string
-  driverId?: string
-  url?: string
-  formData?: Record<string, unknown>
-  authConfigId?: string | null
-  authMethod?: string
-  networkConfigId?: string | null
-  driverProperties?: string | null
-  advancedOptions?: string | null
-  environmentId?: string | null
-  scope?: 'global' | 'project'
-  description?: string
-  schemaName?: string
-  options?: string
-  metadataPath?: string
-  tags?: string
-  useDuckdbFed?: boolean
-}
-const stagingItems = ref<StagingItem[]>([{ name: '' }])
-const stagingIndex = ref(0)
-const isResetting = ref(false) // 守卫：防止重置时 watch 覆盖暂存列表名字
 
 const { sshProfiles, proxyProfiles } = useNetworkProfiles()
 
@@ -274,9 +258,8 @@ function onAuthConfigChange(authCfgId: string | null, method: string) {
   authMethod.value = method
 }
 
-function addStaging() {
-  stagingItems.value.push({ name: '' })
-  stagingIndex.value = stagingItems.value.length - 1
+function handleAddStaging() {
+  addStaging()
   // 新增时清空右侧表单
   isResetting.value = true
   headerData.name = ''
@@ -293,19 +276,17 @@ function addStaging() {
   isResetting.value = false
 }
 
-function removeStaging(i: number) {
-  if (stagingItems.value.length <= 1) return
-  stagingItems.value.splice(i, 1)
-  if (stagingIndex.value >= stagingItems.value.length) stagingIndex.value = stagingItems.value.length - 1
+function handleRemoveStaging(i: number) {
+  removeStaging(i)
 }
 
-function selectStaging(i: number) {
-  stagingIndex.value = i
+function handleSelectStaging(i: number) {
+  selectStaging(i)
   const s = stagingItems.value[i]
   if (!s) return
   isResetting.value = true
   headerData.name = s.name || ''
-  headerData.description = ''
+  headerData.description = s.description || ''
   if (s.driver) {
     const d = drivers.value.find(x => x.name.toLowerCase() === s.driver?.toLowerCase())
     if (d) {
@@ -345,6 +326,8 @@ async function handleTest() {
       url,
     }
     if (networkConfigId.value) params.networkConfigId = networkConfigId.value
+    if (authConfigId.value) params.authConfigId = authConfigId.value
+    if (authMethod.value) params.authMethod = authMethod.value
     const r = await invoke<{ success: boolean; message?: string; server_version?: string; response_time_ms?: number }>('test_connection', params)
     testResult.value = {
       success: r.success,
@@ -375,16 +358,16 @@ async function handleTest() {
 async function onTestModalClose() {
   showTestModal.value = false
 
-  // 防重复调用（NModal @update:show 和按钮 @click 都可能触发）
   if (savingAuth.value) return
-  if (!lastTestResult.value.success) return
+  if (!lastTestResult.value?.success) return
 
   const fd = formData.value
   const authType = authMethod.value
-  const hasAuth = fd.username || fd.password || fd.certPath || fd.principal || fd.tokenEndpoint
+  const hasAuth = isAuthRequired(authType) && (
+    fd.username || fd.password || fd.certPath || fd.principal || fd.tokenEndpoint
+  )
   if (!hasAuth) return
 
-  // 弹出确认对话框，由用户决定是否保存
   const d = dialog.info({
     title: t('navigator.testSuccess'),
     content: t('navigator.saveAuthConfirm'),
@@ -401,29 +384,18 @@ async function onTestModalClose() {
   })
 }
 
+/** 判断认证方式是否需要凭据 */
+function isAuthRequired(authMethod: string): boolean {
+  return ['password', 'ldap', 'pg_class', 'kerberos', 'oauth2'].includes(authMethod)
+}
+
 /** 实际执行认证保存 */
 async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
   if (savingAuth.value) return
   savingAuth.value = true
   try {
     const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const authData: Record<string, any> = {}
-
-    if (authType === 'password' || authType === 'ldap') {
-      if (fd.username) authData.username = String(fd.username)
-      if (fd.password) authData.password = String(fd.password)
-    } else if (authType === 'pg_class') {
-      if (fd.certPath) authData.certPath = String(fd.certPath)
-      if (fd.certKeyPath) authData.certKeyPath = String(fd.certKeyPath)
-    } else if (authType === 'kerberos') {
-      if (fd.principal) authData.principal = String(fd.principal)
-      if (fd.keytabPath) authData.keytabPath = String(fd.keytabPath)
-    } else if (authType === 'oauth2') {
-      if (fd.tokenEndpoint) authData.tokenEndpoint = String(fd.tokenEndpoint)
-      if (fd.clientId) authData.clientId = String(fd.clientId)
-      if (fd.clientSecret) authData.clientSecret = String(fd.clientSecret)
-    }
+    const authData = buildAuthData(authType, fd)
 
     const driverName = selectedDriver.value?.name || ''
     const authName = headerData.name
@@ -432,7 +404,33 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
 
     const authDataStr = JSON.stringify(authData)
 
-    if (scope.global) {
+    const shouldSaveGlobal = scope.global
+    const shouldSaveProject = scope.project && projectStore.hasProject
+
+    if (shouldSaveGlobal && shouldSaveProject) {
+      const globalId = await invokeTauri<{ id: string }>('create_auth_config', {
+        ac: {
+          id: '',
+          name: `${authName} (全局)`,
+          auth_type: authType,
+          auth_data: authDataStr,
+          created_at: '',
+          updated_at: '',
+        },
+      })
+
+      const pp = projectStore.currentProject!.path
+      const projectId = await invokeTauri<{ id: string }>('project_create_auth_config', {
+        name: `${authName} (项目)`,
+        authType,
+        authData: authDataStr,
+        projectPath: pp,
+      })
+
+      authConfigId.value = projectId.id
+      authMethod.value = authType
+      message.info(t('navigator.authSavedHint', { global: true, project: true }))
+    } else if (shouldSaveGlobal) {
       const created = await invokeTauri<{ id: string }>('create_auth_config', {
         ac: {
           id: '',
@@ -444,21 +442,20 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
         },
       })
       authConfigId.value = created.id
+      authMethod.value = authType
+      message.info(t('navigator.authSavedHint', { global: true, project: false }))
+    } else if (shouldSaveProject) {
+      const pp = projectStore.currentProject!.path
+      const created = await invokeTauri<{ id: string }>('project_create_auth_config', {
+        name: authName,
+        authType,
+        authData: authDataStr,
+        projectPath: pp,
+      })
+      authConfigId.value = created.id
+      authMethod.value = authType
+      message.info(t('navigator.authSavedHint', { global: false, project: true }))
     }
-    if (scope.project) {
-      const pp = projectStore.currentProject?.path
-      if (pp) {
-        const created = await invokeTauri<{ id: string }>('project_create_auth_config', {
-          name: authName,
-          authType,
-          authData: authDataStr,
-          projectPath: pp,
-        })
-        authConfigId.value = created.id
-      }
-    }
-
-    message.info(t('navigator.authSavedHint'))
   } catch (authErr) {
     const msg = authErr instanceof Error ? authErr.message : JSON.stringify(authErr)
     console.error('[auth] 保存认证配置失败:', msg)
@@ -466,6 +463,28 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
   } finally {
     savingAuth.value = false
   }
+}
+
+/** 构建认证数据对象 */
+function buildAuthData(authType: string, fd: Record<string, unknown>): Record<string, unknown> {
+  const authData: Record<string, unknown> = {}
+
+  if (authType === 'password' || authType === 'ldap') {
+    if (fd.username) authData.username = String(fd.username)
+    if (fd.password) authData.password = String(fd.password)
+  } else if (authType === 'pg_class') {
+    if (fd.certPath) authData.certPath = String(fd.certPath)
+    if (fd.certKeyPath) authData.certKeyPath = String(fd.certKeyPath)
+  } else if (authType === 'kerberos') {
+    if (fd.principal) authData.principal = String(fd.principal)
+    if (fd.keytabPath) authData.keytabPath = String(fd.keytabPath)
+  } else if (authType === 'oauth2') {
+    if (fd.tokenEndpoint) authData.tokenEndpoint = String(fd.tokenEndpoint)
+    if (fd.clientId) authData.clientId = String(fd.clientId)
+    if (fd.clientSecret) authData.clientSecret = String(fd.clientSecret)
+  }
+
+  return authData
 }
 
 /** 保存到暂存列表（不连库，不关对话框） */
@@ -485,27 +504,25 @@ function saveToStaging() {
   const name = headerData.name || selectedDriver.value.name
   const d = selectedDriver.value
 
-  // 写入当前 staging 位置
-  stagingItems.value[stagingIndex.value] = {
+  stagingItems.value[stagingIndex.value] = buildStagingItem(
     name,
-    driver: d.type_id,
-    driverId: headerData.selectedDriverId ?? undefined,
+    d.type_id,
+    headerData.selectedDriverId ?? undefined,
     url,
-    formData: { ...formData.value },
-    authConfigId: authConfigId.value,
-    authMethod: authMethod.value,
-    networkConfigId: networkConfigId.value,
-    driverProperties: driverPropertiesExtra.value,
-    advancedOptions: advancedOptions.value,
-    environmentId: selectedEnvId.value ?? null,
-    scope: scope.global ? 'global' : 'project',
-    description: headerData.description || undefined,
-    schemaName: (formData.value.schema_name as string) || undefined,
-    options: (formData.value.options as string) || undefined,
-    metadataPath: (formData.value.metadata_path as string) || undefined,
-    tags: (formData.value.tags as string) || undefined,
-    useDuckdbFed: (formData.value.use_duckdb_fed as boolean) ?? false,
-  }
+    { ...formData.value },
+    authConfigId.value,
+    authMethod.value,
+    networkConfigId.value,
+    driverPropertiesExtra.value,
+    advancedOptions.value,
+    selectedEnvId.value ?? null,
+    headerData.description || undefined,
+    (formData.value.schema_name as string) || undefined,
+    (formData.value.options as string) || undefined,
+    (formData.value.metadata_path as string) || undefined,
+    (formData.value.tags as string) || undefined,
+    (formData.value.use_duckdb_fed as boolean) ?? false
+  )
 
   message.success(t('navigator.savedToStaging', { name }))
 }
@@ -514,35 +531,62 @@ async function handleSave() {
   saveToStaging()
 }
 
-/** 将当前表单/名称同步到暂存列表当前项（应用前调用，确保最新数据） */
 function syncCurrentToStaging() {
   const idx = stagingIndex.value
-  const item = stagingItems.value[idx]
-  if (!item) return
-  const name = headerData.name || item.name || selectedDriver.value?.name || ''
-  item.name = name
-  item.formData = { ...formData.value }
-  item.driverProperties = driverPropertiesExtra.value
-  item.advancedOptions = advancedOptions.value
-  item.environmentId = selectedEnvId.value ?? null
-  item.networkConfigId = networkConfigId.value
-  item.authConfigId = authConfigId.value
-  item.authMethod = authMethod.value
-  item.description = headerData.description || undefined
-  item.schemaName = (formData.value.schema_name as string) || undefined
-  item.options = (formData.value.options as string) || undefined
-  item.metadataPath = (formData.value.metadata_path as string) || undefined
-  item.tags = (formData.value.tags as string) || undefined
-  item.useDuckdbFed = (formData.value.use_duckdb_fed as boolean) ?? false
-  if (selectedDriver.value) {
-    item.driver = selectedDriver.value.type_id
-    item.driverId = headerData.selectedDriverId ?? undefined
+  const name = headerData.name || stagingItems.value[idx]?.name || selectedDriver.value?.name || ''
+  
+  stagingItems.value[idx] = buildStagingItem(
+    name,
+    selectedDriver.value?.type_id,
+    headerData.selectedDriverId ?? undefined,
+    buildUrl(),
+    { ...formData.value },
+    authConfigId.value,
+    authMethod.value,
+    networkConfigId.value,
+    driverPropertiesExtra.value,
+    advancedOptions.value,
+    selectedEnvId.value ?? null,
+    headerData.description || undefined,
+    (formData.value.schema_name as string) || undefined,
+    (formData.value.options as string) || undefined,
+    (formData.value.metadata_path as string) || undefined,
+    (formData.value.tags as string) || undefined,
+    (formData.value.use_duckdb_fed as boolean) ?? false
+  )
+}
+
+
+
+/** 构建连接选项 */
+function buildConnectOpts(
+  item: StagingItem,
+  networkConfigId: string | null,
+  authConfigId: string | null
+): {
+  driverId?: string
+  authConfigId?: string
+  authMethod?: string
+  networkConfigId?: string
+  driverProperties?: string
+  advancedOptions?: string
+  environmentId?: string
+  description?: string
+} {
+  return {
+    driverId: item.driverId,
+    authConfigId: authConfigId || undefined,
+    authMethod: item.authMethod,
+    networkConfigId: networkConfigId || undefined,
+    driverProperties: item.driverProperties,
+    advancedOptions: item.advancedOptions,
+    environmentId: item.environmentId || undefined,
+    description: item.description
   }
 }
 
 /** 批量应用所有暂存连接 → 写入数据库 */
 async function handleApply() {
-  // 应用前将当前表单同步到暂存列表，确保名称/参数最新
   syncCurrentToStaging()
 
   const validItems = stagingItems.value.filter(item => item.name)
@@ -554,139 +598,90 @@ async function handleApply() {
   saving.value = true
   let successCount = 0
   const errors: string[] = []
+  const appliedIndices: number[] = []
 
   try {
     const { invoke } = await import('@tauri-apps/api/core')
 
-    for (const item of validItems) {
+    for (let idx = 0; idx < validItems.length; idx++) {
+      const item = validItems[idx]
+      const originalIndex = stagingItems.value.findIndex(
+        (i, j) => i.id === item.id || (i.name === item.name && j === idx)
+      )
+      
       try {
         const driverName = item.driver || 'mysql'
         const url = item.url || ''
         const name = item.name
-        const itemScope = item.scope || 'global'
+        
+        const shouldSaveGlobal = scope.global || (item.scope === 'global')
+        const shouldSaveProject = scope.project || (item.scope === 'project')
 
-        // F3: 项目级连接快照全局配置 — 分别 await 每个快照操作，失败时单独警告
-        let snapshotNetId = item.networkConfigId ?? null
-        let snapshotAuthId = item.authConfigId ?? null
-        let snapshotFailed = false
-        if (itemScope === 'project' && projectStore.hasProject) {
-          const pp = projectStore.currentProject?.path
-          if (snapshotAuthId?.startsWith('G_') && !snapshotAuthId.startsWith('GP_')) {
-            try {
-              const r = await invoke<{ snapshot_id: string }>('snapshot_global_auth', { globalAuthId: snapshotAuthId, projectPath: pp })
-              snapshotAuthId = r.snapshot_id
-            } catch (snapErr) {
-              snapshotFailed = true
-              console.error(`[apply] ${name} 认证快照失败:`, snapErr)
-            }
-          }
-          if (snapshotNetId?.startsWith('G_') && !snapshotNetId.startsWith('GP_')) {
-            try {
-              const r = await invoke<{ snapshot_id: string }>('snapshot_global_network', { globalNetId: snapshotNetId, projectPath: pp })
-              snapshotNetId = r.snapshot_id
-            } catch (snapErr) {
-              snapshotFailed = true
-              console.error(`[apply] ${name} 网络快照失败:`, snapErr)
-            }
-          }
-          if (snapshotFailed) {
-            message.warning(t('navigator.snapshotFailedWarning'))
-          }
-        }
+        let itemSuccess = false
 
-        const connectOpts = {
-          driverId: item.driverId,
-          networkConfigId: snapshotNetId,
-          environmentId: item.environmentId ?? undefined,
-          authConfigId: snapshotAuthId,
-          authMethod: item.authMethod ?? undefined,
-          driverProperties: item.driverProperties ?? undefined,
-          advancedOptions: item.advancedOptions ?? undefined,
-          description: item.description || undefined,
-          options: item.options || undefined,
-          tags: item.tags || undefined,
-          metadataPath: item.metadataPath || undefined,
-          schemaName: item.schemaName || undefined,
-          useDuckdbFed: item.useDuckdbFed ?? false,
-        }
-
-        // F2: 项目连接 — 全局连接优先，成功后再做项目持久化
-        if (itemScope === 'project' && projectStore.hasProject) {
-          // Step 1: 全局连接（connectDatabaseService）
-          try {
-            await connectDatabaseService(
-              driverName,
-              url,
-              name,
-              itemScope,
-              projectStore.currentProject?.path,
-              connectOpts
-            )
-          } catch (connectErr) {
-            const msg = connectErr instanceof Error ? connectErr.message : String(connectErr)
-            errors.push(`${item.name}: ${msg}`)
-            console.error(`[apply] ${item.name} 全局连接失败:`, msg)
-            // 全局连接失败则跳过，不继续项目保存
-            continue
-          }
-
-          // Step 2: 项目持久化（createConnection）
-          try {
-            const fd = item.formData || {}
-            await projectConnectionStore.createConnection({
-              name,
-              driver: driverName,
-              host: String(fd.host || ''),
-              port: Number(fd.port || 0),
-              database: String(fd.database || ''),
-              schema_name: item.schemaName || undefined,
-              username: String(fd.username || ''),
-              password: String(fd.password || ''),
-              options: item.options || undefined,
-              tags: item.tags || undefined,
-              use_duckdb_fed: item.useDuckdbFed ?? false,
-              metadata_path: item.metadataPath || undefined,
-              description: item.description || undefined,
-              driver_id: item.driverId,
-              environment_id: item.environmentId ?? undefined,
-              auth_config_id: snapshotAuthId ?? undefined,
-              auth_method: item.authMethod ?? undefined,
-              network_config_id: snapshotNetId ?? undefined,
-              driver_properties: item.driverProperties ?? undefined,
-              advanced_options: item.advancedOptions ?? undefined,
-            })
-            successCount++
-          } catch (createErr) {
-            const msg = createErr instanceof Error ? createErr.message : String(createErr)
-            console.error(`[apply] ${item.name} 项目保存失败:`, msg)
-            message.warning(t('navigator.partialSaveWarning'))
-            // 全局连接已建立，仍算部分成功
-            successCount++
-          }
+        if (shouldSaveProject && !shouldSaveGlobal) {
+          await saveToProjectOnly(item, driverName, url, name, errors, invoke)
+          itemSuccess = true
         } else {
-          // 全局 scope — 直接连接
-          try {
-            await connectDatabaseService(
-              driverName,
-              url,
-              name,
-              itemScope,
-              undefined,
-              connectOpts
-            )
-            successCount++
-          } catch (connectErr) {
-            const msg = connectErr instanceof Error ? connectErr.message : String(connectErr)
-            errors.push(`${item.name}: ${msg}`)
-            console.error(`[apply] ${item.name} 连接失败:`, msg)
+          let snapshotNetId = item.networkConfigId ?? null
+          let snapshotAuthId = item.authConfigId ?? null
+          
+          if (shouldSaveProject && projectStore.hasProject) {
+            const pp = projectStore.currentProject?.path
+            snapshotAuthId = await snapshotIfNeeded(snapshotAuthId, 'auth', pp, name, errors, invoke)
+            snapshotNetId = await snapshotIfNeeded(snapshotNetId, 'network', pp, name, errors, invoke)
+            
+            if (snapshotAuthId === 'failed' || snapshotNetId === 'failed') {
+              continue
+            }
+          }
+
+          const connectOpts = buildConnectOpts(item, snapshotNetId, snapshotAuthId)
+
+          let globalConnId: string | null = null
+          if (shouldSaveGlobal) {
+            try {
+              const result = await connectDatabaseService(
+                driverName, url, name, 'global', undefined, connectOpts
+              )
+              globalConnId = result.conn_id
+            } catch (e) {
+              errors.push(`${name} (全局): ${String(e)}`)
+              if (!shouldSaveProject) continue
+            }
+          }
+
+          if (shouldSaveProject && projectStore.hasProject) {
+            try {
+              await saveToProject(item, driverName, url, name, item.networkConfigId ?? null, item.authConfigId ?? null, invoke)
+            } catch (e) {
+              errors.push(`${name} (项目): ${String(e)}`)
+              if (globalConnId) {
+                try {
+                  await closeConnection(globalConnId)
+                } catch {}
+              }
+            }
+          }
+
+          if (!errors.some(err => err.startsWith(name))) {
+            itemSuccess = true
+          }
+        }
+
+        if (itemSuccess) {
+          successCount++
+          if (originalIndex !== -1) {
+            appliedIndices.push(originalIndex)
           }
         }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        errors.push(`${item.name}: ${msg}`)
-        console.error(`[apply] ${item.name} 应用失败:`, msg)
+        errors.push(`${name}: ${String(e)}`)
       }
     }
+
+    // 标记成功的项为已应用
+    appliedIndices.forEach(index => markStagingApplied(index))
 
     if (errors.length === 0) {
       message.success(t('navigator.applySuccess', { count: successCount }))
@@ -698,6 +693,7 @@ async function handleApply() {
 
     if (successCount > 0) {
       emit('save')
+      emit('connectionsChanged')
       resetAndClose()
     }
   } catch (e) {
@@ -705,13 +701,206 @@ async function handleApply() {
   } finally { saving.value = false }
 }
 
+async function snapshotIfNeeded(
+  configId: string | null,
+  type: 'auth' | 'network',
+  projectPath: string | undefined,
+  name: string,
+  errors: string[],
+  invoke: typeof import('@tauri-apps/api/core').invoke
+): Promise<string | null> {
+  if (!configId?.startsWith('G_') || configId.startsWith('GP_')) {
+    return configId
+  }
+
+  const invokeFn = type === 'auth' ? 'snapshot_global_auth' : 'snapshot_global_network'
+  const paramName = type === 'auth' ? 'globalAuthId' : 'globalNetId'
+
+  try {
+    const r = await invoke<{ snapshot_id: string }>(invokeFn, { [paramName]: configId, projectPath })
+    return r.snapshot_id
+  } catch (e) {
+    errors.push(`${name}: ${type === 'auth' ? '认证' : '网络'}配置快照失败`)
+    return 'failed'
+  }
+}
+
+function buildConnectOpts(
+  item: StagingItem,
+  networkConfigId: string | null,
+  authConfigId: string | null
+) {
+  return {
+    driverId: item.driverId,
+    networkConfigId,
+    environmentId: item.environmentId ?? undefined,
+    authConfigId,
+    authMethod: item.authMethod ?? undefined,
+    driverProperties: item.driverProperties ?? undefined,
+    advancedOptions: item.advancedOptions ?? undefined,
+    description: item.description || undefined,
+    options: item.options || undefined,
+    tags: item.tags || undefined,
+    metadataPath: item.metadataPath || undefined,
+    schemaName: item.schemaName || undefined,
+    useDuckdbFed: item.useDuckdbFed ?? false,
+  }
+}
+
+async function saveToProjectOnly(
+  item: StagingItem,
+  driverName: string,
+  url: string,
+  name: string,
+  errors: string[],
+  invoke: typeof import('@tauri-apps/api/core').invoke
+) {
+  if (!projectStore.hasProject) {
+    errors.push(`${name}: 没有打开的项目`)
+    return
+  }
+
+  const pp = projectStore.currentProject?.path
+  let snapshotNetId = await snapshotIfNeeded(item.networkConfigId ?? null, 'network', pp, name, errors, invoke)
+  let snapshotAuthId = await snapshotIfNeeded(item.authConfigId ?? null, 'auth', pp, name, errors, invoke)
+
+  if (snapshotAuthId === 'failed' || snapshotNetId === 'failed') {
+    return
+  }
+
+  const fd = item.formData || {}
+  
+  // 如果没有使用已保存的认证配置，且用户填写了认证信息，则保存新的认证配置
+  let finalAuthConfigId = snapshotAuthId
+  let finalAuthMethod = item.authMethod || authMethod.value
+  const hasAuthData = (fd.username && fd.password) || fd.certPath || fd.principal
+  if (!finalAuthConfigId && hasAuthData) {
+    try {
+      const authName = `${name} (认证)`
+      const authData = buildAuthData(finalAuthMethod, fd as Record<string, unknown>)
+      
+      const r = await invoke<{ id: string }>('project_create_auth_config', {
+        name: authName,
+        authType: finalAuthMethod,
+        authData: JSON.stringify(authData),
+        projectPath: pp
+      })
+      finalAuthConfigId = r.id
+    } catch (e) {
+      console.warn('[AddDataSource] 保存认证配置失败:', e)
+    }
+  }
+
+  const conn = await projectConnectionStore.createConnection({
+    name,
+    driver: driverName,
+    host: String(fd.host || ''),
+    port: Number(fd.port || 0),
+    database: String(fd.database || ''),
+    schema_name: item.schemaName || undefined,
+    username: String(fd.username || ''),
+    password: String(fd.password || ''),
+    options: item.options || undefined,
+    tags: item.tags || undefined,
+    use_duckdb_fed: item.useDuckdbFed ?? false,
+    metadata_path: item.metadataPath || undefined,
+    description: item.description || undefined,
+    driver_id: item.driverId,
+    environment_id: item.environmentId ?? undefined,
+    auth_config_id: finalAuthConfigId ?? undefined,
+    auth_method: finalAuthMethod ?? undefined,
+    network_config_id: snapshotNetId ?? undefined,
+    driver_properties: item.driverProperties ?? undefined,
+    advanced_options: item.advancedOptions ?? undefined,
+  })
+
+  await projectConnectionStore.loadConnections()
+  
+  // 自动建立项目连接
+  if (pp) {
+    try {
+      await connectDatabaseService(
+        driverName,
+        url,
+        name,
+        'project',
+        pp,
+        buildConnectOpts(item, snapshotNetId, finalAuthConfigId)
+      )
+    } catch (e) {
+      console.warn('[AddDataSource] 自动建立项目连接失败:', e)
+    }
+  }
+  
+  return conn
+}
+
+async function saveToProject(
+  item: StagingItem,
+  driverName: string,
+  url: string,
+  name: string,
+  networkConfigId: string | null,
+  authConfigId: string | null,
+  invoke: typeof import('@tauri-apps/api/core').invoke
+) {
+  const pp = projectStore.currentProject?.path
+  
+  // 先对全局配置做快照
+  const snapshotNetId = await snapshotIfNeeded(networkConfigId, 'network', pp, name, [], invoke)
+  const snapshotAuthId = await snapshotIfNeeded(authConfigId, 'auth', pp, name, [], invoke)
+  
+  const fd = item.formData || {}
+  const conn = await projectConnectionStore.createConnection({
+    name,
+    driver: driverName,
+    host: String(fd.host || ''),
+    port: Number(fd.port || 0),
+    database: String(fd.database || ''),
+    schema_name: item.schemaName || undefined,
+    username: String(fd.username || ''),
+    password: String(fd.password || ''),
+    options: item.options || undefined,
+    tags: item.tags || undefined,
+    use_duckdb_fed: item.useDuckdbFed ?? false,
+    metadata_path: item.metadataPath || undefined,
+    description: item.description || undefined,
+    driver_id: item.driverId,
+    environment_id: item.environmentId ?? undefined,
+    auth_config_id: (snapshotAuthId !== 'failed' ? snapshotAuthId : authConfigId) ?? undefined,
+    auth_method: item.authMethod ?? undefined,
+    network_config_id: (snapshotNetId !== 'failed' ? snapshotNetId : networkConfigId) ?? undefined,
+    driver_properties: item.driverProperties ?? undefined,
+    advanced_options: item.advancedOptions ?? undefined,
+  })
+
+  await projectConnectionStore.loadConnections()
+  
+  // 自动建立项目连接
+  if (pp) {
+    try {
+      await connectDatabaseService(
+        driverName,
+        url,
+        name,
+        'project',
+        pp,
+        buildConnectOpts(item, snapshotNetId !== 'failed' ? snapshotNetId : networkConfigId, snapshotAuthId !== 'failed' ? snapshotAuthId : authConfigId)
+      )
+    } catch (e) {
+      console.warn('[AddDataSource] 自动建立项目连接失败:', e)
+    }
+  }
+  
+  return conn
+}
+
 function resetAndClose() {
   testResult.value = null
   headerData.name = ''
   headerData.description = ''
   formData.value = {}
-  stagingItems.value = [{ name: '' }]
-  stagingIndex.value = 0
+  clearStagingItems()
   emit('update:modelValue', false)
 }
 

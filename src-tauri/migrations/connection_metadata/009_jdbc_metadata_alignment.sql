@@ -156,7 +156,6 @@ CREATE TABLE IF NOT EXISTS privileges (
     schema_name TEXT,
     object_name TEXT NOT NULL,
     column_name TEXT,
-    connection_id INTEGER NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );

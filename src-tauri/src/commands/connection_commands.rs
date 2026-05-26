@@ -319,8 +319,8 @@ async fn parse_network_method(
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
-                    return parse_network_config_json("unknown", &config_str).await;
+                if let Ok((network_type, config_str, auth_config_id)) = project_query_network_config_with_auth(&db_path, net_id) {
+                    return parse_network_config_json(&network_type, &config_str, auth_config_id.as_deref()).await;
                 }
             }
         }
@@ -333,8 +333,8 @@ async fn parse_network_method(
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
-                    return parse_network_config_json("unknown", &config_str).await;
+                if let Ok((network_type, config_str, auth_config_id)) = project_query_network_config_with_auth(&db_path, net_id) {
+                    return parse_network_config_json(&network_type, &config_str, auth_config_id.as_deref()).await;
                 }
             }
         }
@@ -344,7 +344,7 @@ async fn parse_network_method(
     if let Some(gdb) = crate::core::migration::get_global_db_manager() {
         if let Ok(nets) = gdb.list_network_configs(None).await {
             if let Some(net) = nets.iter().find(|n| n.id == *net_id) {
-                return parse_network_config_json(&net.network_type, &net.config).await;
+                return parse_network_config_json(&net.network_type, &net.config, net.auth_config_id.as_deref()).await;
             }
         }
     }
@@ -355,8 +355,8 @@ async fn parse_network_method(
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                if let Ok(config_str) = project_query_network_config(&db_path, net_id) {
-                    return parse_network_config_json("unknown", &config_str).await;
+                if let Ok((network_type, config_str, auth_config_id)) = project_query_network_config_with_auth(&db_path, net_id) {
+                    return parse_network_config_json(&network_type, &config_str, auth_config_id.as_deref()).await;
                 }
             }
         }
@@ -365,14 +365,29 @@ async fn parse_network_method(
     Ok(None)
 }
 
-fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Result<String, String> {
+/// 查询项目网络配置，同时返回 network_type、config 和 auth_config_id
+fn project_query_network_config_with_auth(
+    db_path: &std::path::Path,
+    net_id: &str,
+) -> Result<(String, String, Option<String>), String> {
     let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
-    conn.query_row::<String, _, _>(
-        "SELECT config FROM network_configs WHERE id = ?1",
+    conn.query_row(
+        "SELECT network_type, config, auth_config_id FROM network_configs WHERE id = ?1",
         rusqlite::params![net_id],
-        |row| row.get(0),
+        |row| {
+            let network_type: String = row.get(0)?;
+            let config: String = row.get(1)?;
+            let auth_config_id: Option<String> = row.get(2)?;
+            Ok((network_type, config, auth_config_id))
+        },
     )
     .map_err(|e| e.to_string())
+}
+
+/// 查询项目网络配置（只返回 config，向后兼容）
+fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Result<String, String> {
+    let (_, config, _) = project_query_network_config_with_auth(db_path, net_id)?;
+    Ok(config)
 }
 
 /// 连接信息响应
@@ -653,6 +668,8 @@ pub async fn test_connection(
     db_type: String,
     url: String,
     network_config_id: Option<String>,
+    auth_config_id: Option<String>,
+    auth_method: Option<String>,
 ) -> Result<TestConnectionResponse, CoreError> {
     use std::time::{Duration, Instant};
 
@@ -695,7 +712,10 @@ pub async fn test_connection(
     }
 
     // 没有已有连接，创建临时测试连接（30秒超时保护）
-    tracing::info!("测试连接：创建临时连接进行测试（URL={}，network_config={:?}）", url, network_config_id);
+    tracing::info!(
+        "测试连接：创建临时连接进行测试（URL={}，network_config={:?}，auth_config={:?}，auth_method={:?}）",
+        url, network_config_id, auth_config_id, auth_method
+    );
     let connect_future = service.connect_with_type(
         None,
         &db_type,
@@ -706,8 +726,8 @@ pub async fn test_connection(
         None,   // description
         None,   // driver_id
         None,   // environment_id
-        None,   // auth_config_id
-        None,   // auth_method
+        auth_config_id.clone(),   // auth_config_id
+        auth_method.clone(),      // auth_method
         network_config_id.clone(),
         None,   // driver_properties
         None,   // advanced_options

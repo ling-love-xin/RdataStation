@@ -226,9 +226,33 @@ impl ConnectionService {
         // 创建新连接
         tracing::info!("Creating new connection with ID: {}", conn_id);
 
+        // 如果有 auth_config_id，从数据库中读取认证凭据并注入到 URL
+        let mut url_with_auth = url.to_string();
+        if let (Some(ref auth_id), Some(ref auth_meth)) = (auth_config_id, auth_method) {
+            match Self::load_auth_data_from_db(auth_id, connection_type, project_path.as_deref()).await {
+                Ok(Some(auth_data)) => {
+                    match Self::inject_auth_into_url(&url_with_auth, auth_meth, &auth_data) {
+                        Ok(injected_url) => {
+                            url_with_auth = injected_url;
+                            tracing::info!(conn_id = %conn_id, auth_id = %auth_id, "已将认证凭据注入到 URL");
+                        }
+                        Err(e) => {
+                            tracing::warn!(conn_id = %conn_id, auth_id = %auth_id, error = %e, "注入认证凭据失败，使用原始 URL");
+                        }
+                    }
+                }
+                Ok(None) => {
+                    tracing::warn!(conn_id = %conn_id, auth_id = %auth_id, "未找到认证配置，使用原始 URL");
+                }
+                Err(e) => {
+                    tracing::warn!(conn_id = %conn_id, auth_id = %auth_id, error = %e, "读取认证配置失败，使用原始 URL");
+                }
+            }
+        }
+
         // 应用网络连接方式（SSH 隧道 / SSL / 代理）
         let (effective_url, tunnel_guards) = self
-            .apply_network_method(url, &network_method, &conn_id, db_type)
+            .apply_network_method(&url_with_auth, &network_method, &conn_id, db_type)
             .await?;
 
         // 注册隧道守卫，确保隧道在连接生命周期内保持存活
@@ -246,7 +270,7 @@ impl ConnectionService {
 
         let db = self.create_database(db_type, &effective_url).await?;
         let server_version = db.meta().server_version.clone();
-        let safe_url = Self::mask_password_in_url(url);
+        let safe_url = Self::mask_password_in_url(&url_with_auth);
 
         // 创建连接信息
         let info = ConnectionInfo {
@@ -454,6 +478,176 @@ impl ConnectionService {
             }
         }
         false
+    }
+
+    /// 从数据库中加载认证配置数据
+    ///
+    /// 根据连接类型和认证配置 ID，从全局或项目数据库中读取认证配置，
+    /// 并返回解密后的 auth_data JSON。
+    async fn load_auth_data_from_db(
+        auth_id: &str,
+        connection_type: ConnectionType,
+        project_path: Option<&str>,
+    ) -> Result<Option<String>, CoreError> {
+        use crate::core::persistence::auth_store;
+
+        // 优先尝试从全局数据库读取
+        if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+            if let Ok(Some(auth_config)) = gdb.get_auth_config(auth_id).await {
+                let auth_data = auth_store::decrypt_auth_data(&auth_config.auth_data)?;
+                return Ok(Some(auth_data));
+            }
+        }
+
+        // 如果是项目连接，尝试从项目数据库读取
+        if connection_type == ConnectionType::Project {
+            if let Some(pp) = project_path {
+                let db_path = std::path::Path::new(pp)
+                    .join(".RSmeta")
+                    .join("project.db");
+                if db_path.exists() {
+                    let conn = rusqlite::Connection::open(&db_path)
+                        .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
+                    if let Some(auth_config) = auth_store::get_auth_config(&conn, auth_id)? {
+                        let auth_data = auth_store::decrypt_auth_data(&auth_config.auth_data)?;
+                        return Ok(Some(auth_data));
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// 将认证凭据注入到 URL 中
+    ///
+    /// 支持的 auth_data 字段：
+    /// - username / password: 基本认证
+    /// - certPath / certKeyPath: PostgreSQL 证书认证
+    /// - principal / keytabPath: Kerberos 认证
+    ///
+    /// 认证凭据优先级高于 URL 中已有的凭据。
+    pub fn inject_auth_into_url(url: &str, auth_method: &str, auth_data_json: &str) -> Result<String, CoreError> {
+        let auth_data: serde_json::Value = serde_json::from_str(auth_data_json)
+            .map_err(|e| CoreError::from(format!("解析 auth_data 失败: {}", e)))?;
+
+        let obj = auth_data.as_object()
+            .ok_or_else(|| CoreError::from("auth_data 不是 JSON 对象".to_string()))?;
+
+        match auth_method {
+            "password" | "ldap" => {
+                let username = obj.get("username")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let password = obj.get("password")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                
+                if username.is_empty() && password.is_empty() {
+                    return Ok(url.to_string());
+                }
+                
+                Self::inject_username_password(url, username, password)
+            }
+            "pg_class" => {
+                let cert_path = obj.get("certPath")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let cert_key_path = obj.get("certKeyPath")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                
+                if cert_path.is_empty() {
+                    return Ok(url.to_string());
+                }
+                
+                Self::inject_ssl_cert(url, cert_path, cert_key_path)
+            }
+            "kerberos" => {
+                let principal = obj.get("principal")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let keytab_path = obj.get("keytabPath")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                
+                if principal.is_empty() {
+                    return Ok(url.to_string());
+                }
+                
+                Self::inject_kerberos(url, principal, keytab_path)
+            }
+            _ => {
+                tracing::warn!("未支持的 auth_method: {}，跳过凭据注入", auth_method);
+                Ok(url.to_string())
+            }
+        }
+    }
+
+    /// 向 URL 中注入用户名和密码
+    fn inject_username_password(url: &str, username: &str, password: &str) -> Result<String, CoreError> {
+        if username.is_empty() {
+            return Ok(url.to_string());
+        }
+
+        if let Some(scheme_end) = url.find("://") {
+            let prefix = &url[..scheme_end + 3];
+            let rest = &url[scheme_end + 3..];
+            
+            if let Some(at_pos) = rest.find('@') {
+                let host_part = &rest[at_pos..];
+                return Ok(format!("{}{}:{}@{}", prefix, username, password, host_part));
+            } else {
+                if let Some(path_start) = rest.find('/') {
+                    let host_port = &rest[..path_start];
+                    let path = &rest[path_start..];
+                    return Ok(format!("{}{}:{}@{}{}", prefix, username, password, host_port, path));
+                } else {
+                    return Ok(format!("{}{}:{}@{}", prefix, username, password, rest));
+                }
+            }
+        }
+        
+        Ok(url.to_string())
+    }
+
+    /// 向 PostgreSQL URL 中注入 SSL 证书参数
+    fn inject_ssl_cert(url: &str, cert_path: &str, cert_key_path: &str) -> Result<String, CoreError> {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+        let mut result = url.to_string();
+        
+        if !cert_path.is_empty() {
+            let encoded_cert = utf8_percent_encode(cert_path, NON_ALPHANUMERIC).to_string();
+            if result.contains('?') {
+                result.push_str(&format!("&sslmode=verify-ca&sslcert={}", encoded_cert));
+            } else {
+                result.push_str(&format!("?sslmode=verify-ca&sslcert={}", encoded_cert));
+            }
+        }
+        
+        if !cert_key_path.is_empty() {
+            let encoded_key = utf8_percent_encode(cert_key_path, NON_ALPHANUMERIC).to_string();
+            result.push_str(&format!("&sslkey={}", encoded_key));
+        }
+        
+        Ok(result)
+    }
+
+    /// 向 Kerberos URL 中注入认证参数
+    fn inject_kerberos(url: &str, principal: &str, _keytab_path: &str) -> Result<String, CoreError> {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+        let mut result = url.to_string();
+        
+        if !principal.is_empty() {
+            let encoded_principal = utf8_percent_encode(principal, NON_ALPHANUMERIC).to_string();
+            if result.contains('?') {
+                result.push_str(&format!("&krbrprincipal={}", encoded_principal));
+            } else {
+                result.push_str(&format!("?krbrprincipal={}", encoded_principal));
+            }
+        }
+        
+        Ok(result)
     }
 
     /// 应用网络连接方式（SSH 隧道 / SSL / 代理）
@@ -1485,15 +1679,18 @@ pub async fn resolve_network_method(
         }
     };
 
-    parse_network_config_json(&net.network_type, &net.config).await
+    parse_network_config_json(&net.network_type, &net.config, net.auth_config_id.as_deref()).await
 }
 
 /// 根据 network_type 将 config JSON 解析为 ConnectionMethod
 ///
 /// 公共函数，commands 层和 service 层共享
+///
+/// 如果提供了 auth_config_id，则从 auth_configs 表读取网络认证配置并注入
 pub async fn parse_network_config_json(
     network_type: &str,
     config_json: &str,
+    auth_config_id: Option<&str>,
 ) -> Result<Option<ConnectionMethod>, CoreError> {
     match network_type {
         "chain" => {
@@ -1507,9 +1704,17 @@ pub async fn parse_network_config_json(
             Ok(Some(ConnectionMethod::Chain(hops)))
         }
         "ssh" => {
-            let ssh_config: crate::core::driver::connection::config::SshConfig =
+            let mut ssh_config: crate::core::driver::connection::config::SshConfig =
                 serde_json::from_str(config_json)
                     .map_err(|e| CoreError::from(format!("解析 SSH 隧道配置 JSON 失败: {}", e)))?;
+            
+            // 如果有 auth_config_id，从 auth_configs 读取网络认证并注入
+            if let Some(auth_id) = auth_config_id {
+                if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id).await? {
+                    ssh_config = inject_ssh_auth_from_auth_data(ssh_config, &auth_data);
+                }
+            }
+            
             Ok(Some(ConnectionMethod::Ssh(ssh_config)))
         }
         "ssl" => {
@@ -1519,9 +1724,17 @@ pub async fn parse_network_config_json(
             Ok(Some(ConnectionMethod::Ssl(ssl_config)))
         }
         "proxy" | "http_proxy" | "socks" | "socks5" => {
-            let proxy_config: crate::core::driver::connection::config::ProxyConfig =
+            let mut proxy_config: crate::core::driver::connection::config::ProxyConfig =
                 serde_json::from_str(config_json)
                     .map_err(|e| CoreError::from(format!("解析代理配置 JSON 失败: {}", e)))?;
+            
+            // 如果有 auth_config_id，从 auth_configs 读取网络认证并注入
+            if let Some(auth_id) = auth_config_id {
+                if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id).await? {
+                    proxy_config = inject_proxy_auth_from_auth_data(proxy_config, &auth_data);
+                }
+            }
+            
             if network_type == "socks" || network_type == "socks5" {
                 Ok(Some(ConnectionMethod::SocksProxy(proxy_config)))
             } else {
@@ -1533,6 +1746,104 @@ pub async fn parse_network_config_json(
             Ok(None)
         }
     }
+}
+
+/// 从 auth_configs 表加载网络认证配置（用于 SSH/Proxy 认证）
+///
+/// 此函数与 `load_auth_data_from_db` 不同，它用于加载网络认证，
+/// 而 `load_auth_data_from_db` 用于加载数据库认证
+async fn load_auth_data_from_db_for_network(
+    auth_config_id: &str,
+) -> Result<Option<String>, CoreError> {
+    // 优先从全局数据库读取
+    if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+        if let Ok(Some(auth_config)) = gdb.get_auth_config(auth_config_id).await {
+            let auth_data = crate::core::persistence::auth_store::decrypt_auth_data(&auth_config.auth_data)?;
+            return Ok(Some(auth_data));
+        }
+    }
+    
+    // 全局没有找到时返回 None
+    Ok(None)
+}
+
+/// 从 auth_data JSON 注入 SSH 认证配置
+fn inject_ssh_auth_from_auth_data(
+    mut ssh_config: crate::core::driver::connection::config::SshConfig,
+    auth_data_json: &str,
+) -> crate::core::driver::connection::config::SshConfig {
+    let auth_data: serde_json::Value = match serde_json::from_str(auth_data_json) {
+        Ok(v) => v,
+        Err(_) => return ssh_config,
+    };
+    
+    let obj = match auth_data.as_object() {
+        Some(o) => o,
+        None => return ssh_config,
+    };
+    
+    // 优先使用 auth_data 中的 username
+    if let Some(username) = obj.get("username").and_then(|v| v.as_str()) {
+        if !username.is_empty() {
+            ssh_config.username = username.to_string();
+        }
+    }
+    
+    // 根据常见的 SSH 认证类型注入认证
+    // 首先尝试私钥认证
+    if let Some(key_path) = obj.get("keyPath").and_then(|v| v.as_str()) {
+        if !key_path.is_empty() {
+            let passphrase = obj.get("passphrase").and_then(|v| v.as_str()).map(|s| s.to_string());
+            ssh_config.auth = crate::core::driver::connection::config::SshAuth::PrivateKey {
+                key_path: key_path.to_string(),
+                passphrase,
+            };
+            return ssh_config;
+        }
+    }
+    
+    // 然后尝试密码认证
+    if let Some(password) = obj.get("password").and_then(|v| v.as_str()) {
+        if !password.is_empty() {
+            ssh_config.auth = crate::core::driver::connection::config::SshAuth::Password {
+                password: password.to_string(),
+            };
+            return ssh_config;
+        }
+    }
+    
+    ssh_config
+}
+
+/// 从 auth_data JSON 注入 Proxy 认证配置
+fn inject_proxy_auth_from_auth_data(
+    mut proxy_config: crate::core::driver::connection::config::ProxyConfig,
+    auth_data_json: &str,
+) -> crate::core::driver::connection::config::ProxyConfig {
+    let auth_data: serde_json::Value = match serde_json::from_str(auth_data_json) {
+        Ok(v) => v,
+        Err(_) => return proxy_config,
+    };
+    
+    let obj = match auth_data.as_object() {
+        Some(o) => o,
+        None => return proxy_config,
+    };
+    
+    // 从 auth_data 读取 username 和 password
+    let username = obj.get("username").and_then(|v| v.as_str());
+    let password = obj.get("password").and_then(|v| v.as_str());
+    
+    if let (Some(u), Some(p)) = (username, password) {
+        if !u.is_empty() && !p.is_empty() {
+            proxy_config.auth = Some(crate::core::driver::connection::config::ProxyAuth {
+                username: u.to_string(),
+                password: p.to_string(),
+            });
+        }
+    }
+    
+    proxy_config
 }
 
 #[cfg(test)]

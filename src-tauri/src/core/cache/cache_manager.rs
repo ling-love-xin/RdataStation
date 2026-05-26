@@ -117,13 +117,6 @@ impl CacheManager {
         self.l1_metadata.clone()
     }
 
-    /// 获取元数据缓存（可变）
-    pub fn metadata_cache_mut(&mut self) -> &mut MetadataCache {
-        // 由于 Arc<Mutex<>>，这里需要重新设计
-        // 实际使用时通过 lock() 获取
-        unimplemented!("Use metadata_cache() and lock() instead")
-    }
-
     // ==================== 查询缓存接口 ====================
 
     /// 获取查询缓存
