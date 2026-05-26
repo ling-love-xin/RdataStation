@@ -600,7 +600,7 @@ async function saveNewProfile(hop: Hop) {
     const cfg: Record<string, unknown> = {
       name: f.name || `未命名-${hop.protocol}`,
       network_type: hop.protocol,
-      origin: 'project',
+      origin: props.scope?.project ? 'project' : 'global',
       config: buildConfigJson(hop.protocol, f),
     }
 
@@ -618,19 +618,18 @@ async function saveNewProfile(hop: Hop) {
           if (f.passphrase) authData.passphrase = f.passphrase
         }
         const authName = `${f.name || '未命名'} — ${hop.protocol}认证`
-        const authId = `G_${hop.protocol}_auth_${Date.now()}`
 
-        await invokeTauri('create_auth_config', {
+        const created = await invokeTauri<{ id: string }>('create_auth_config', {
           ac: {
-            id: authId,
+            id: '',
             name: authName,
             auth_type: hop.protocol === 'ssh' ? 'ssh_password' : 'proxy_password',
             auth_data: JSON.stringify(authData),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            created_at: '',
+            updated_at: '',
           },
         })
-        ;(cfg as Record<string, unknown>).auth_config_id = authId
+        ;(cfg as Record<string, unknown>).auth_config_id = created.id
       } catch (authErr) {
         console.warn('[NetworkTab] 创建认证配置失败，继续保存网络配置:', authErr)
       }
@@ -703,11 +702,10 @@ function openProfileMgr(hop: Hop) {
 // ==================== Lifecycle & Watch ====================
 
 onMounted(async () => {
+  loadAll()
   if (props.scope?.project) {
     const pp = await getProjectPath()
     if (pp) await loadAllProject(pp)
-  } else {
-    loadAll()
   }
   loadSavedAuthConfigs()
   // Ensure forms exist for initial hops

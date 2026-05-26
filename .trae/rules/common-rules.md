@@ -204,8 +204,72 @@ mod tests {
 - [ ] 业务模块是否直接 use sqlglot_rust？（必须通过 SqlEngine）
 - [ ] mod.rs 是否包含测试代码？（绝对禁止）
 - [ ] 测试函数是否出现在业务代码中间？（必须放在独立的 mod tests 块）
+- [ ] 全局/项目 DB 字段映射是否一致？（global_connections 与 connections 表必须对齐）
+- [ ] auth_data 只存认证凭据，不混入连接属性（host/port/database）？
+- [ ] 密码/Auth 凭据是否已 AES-256-GCM 加密？（前缀 AES: 标记）
+- [ ] network_configs 全局/项目表结构是否区别对待？（全局无 origin，项目有 origin）
+- [ ] auth_configs 的 auth_type 是否正确分类？（数据库认证 vs 网络认证）
+- [ ] addDataSource StagingItem 是否包含全量 19 字段（schemaName/options/metadataPath/tags/useDuckdbFed）？
+- [ ] addDataSource selectStaging 是否恢复了 authConfigId 和 authMethod？
+- [ ] create_auth_config 是否返回创建的 AuthConfig（含生成的 id），调用方是否捕获并更新状态？
+- [ ] NetworkTab.saveNewProfile 是否由后端生成 auth/network ID（禁止前端自生成）？
+- [ ] useAuthConfig.loadAuthConfigs 是否按 scope 同时加载全局和项目级认证配置？
+- [ ] addDataSource handleApply project_id 参数是否使用 projectPath 而非 projectId？
 
-# 十、项目约束
+# 十、数据源模块专项约束（v0.5.1+）
+
+## 10.1 认证配置（auth_configs）
+
+```markdown
+❌ auth_data 禁止混入 host / port / database 等连接属性
+✅ auth_data 只存认证凭据（username / password / certPath / principal / clientSecret）
+✅ 密码/敏感字段写入前必须 encrypt_auth_data()（AES-256-GCM，AES: 前缀）
+✅ 读取时自动 decrypt_auth_data()
+```
+
+### auth_type 分类
+
+| 大类 | auth_type |
+|------|-----------|
+| 数据库认证 | password, ldap, pg_class, kerberos, oauth2, os_auth, trust |
+| 网络认证 | ssh_password, proxy_password |
+
+## 10.2 网络配置（network_configs）
+
+```markdown
+✅ 全局 network_configs 表：6 列基础字段（无 origin/source_id/snapshot_at）
+✅ 项目 network_configs 表：9 列（含 origin + 快照溯源）
+✅ config 列保留完整冗余（host/port/forwarding + auth）
+✅ auth_config_id 列引用 auth_configs.id（可选，SSL 证书配置不需要）
+```
+
+## 10.3 连接配置（global_connections / connections）
+
+```markdown
+✅ 两表字段完全对齐（25 列），前后端类型一一映射
+✅ 全局 DB INSERT：字段值来源自 ConnectDatabaseInput，禁止硬编码
+✅ 项目 DB INSERT：由 create_project_connection 统一管理
+✅ 前端 StagingItem → CreateProjectConnectionInput → Rust CreateProjectConnectionInput 全程透传
+```
+
+## 10.4 StagingItem 状态管理（v0.5.2+）
+
+```markdown
+✅ saveToStaging 必须写入 StagingItem 全量 19 字段（含 schemaName/options/metadataPath/tags/useDuckdbFed）
+✅ syncCurrentToStaging 必须与 saveToStaging 字段集合一致
+✅ selectStaging 必须恢复 authConfigId 和 authMethod（与 syncCurrentToStaging 对称）
+✅ addStaging（"+"按钮）必须重置 authConfigId/authMethod 为默认值
+❌ 禁止 saveToStaging 静默丢弃字段（如只写 14/19 字段）
+✅ create_auth_config（全局）必须返回 AuthConfig（含后端生成的 id，对齐 project_create_auth_config）
+✅ doSaveAuth 保存后必须捕获返回值并更新 authConfigId.value
+❌ 禁止前端自生成 auth/network ID（如 G_ssh_auth_${Date.now()}），ID 必须由后端统一分配
+✅ NetworkTab.onMounted 必须始终 loadAll()（全局），再按需 loadAllProject()（项目），禁止 if/else 短路
+✅ useAuthConfig.loadAuthConfigs 必须接受 projectPath 参数，按 scope 合并全局+项目配置
+✅ handleApply project 连接时必须使用 projectStore.currentProject?.path（而非 .id）作为 project_id
+✅ os_auth/trust 等无凭据认证方式不触发认证配置保存（hasAuth 判定不含 authType 后缀条件）
+```
+
+# 十一、项目约束
 
 - 每次提交代码前，必须先自检以上问题，确保代码符合项目规范，并且汇报修改内容。
 - 本Skill适用于Trae CN AI编辑器，启用后AI将全程遵循上述规范，生成可直接编译、贴合项目需求的代码，无需重复说明项目规则。

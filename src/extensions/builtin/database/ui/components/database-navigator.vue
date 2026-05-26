@@ -73,10 +73,27 @@
       :is-in-transaction="isInTransaction"
       :transaction-duration="transactionDuration"
     />
+
+    <NModal
+      v-model:show="showPropertiesDialog"
+      preset="card"
+      :title="propertiesDialogTitle"
+      :style="{ width: '480px' }"
+      :mask-closable="true"
+    >
+      <div class="properties-content">
+        <NDescriptions label-placement="left" bordered :column="1" size="small">
+          <NDescriptionsItem v-for="item in propertiesItems" :key="item.label" :label="item.label">
+            {{ item.value }}
+          </NDescriptionsItem>
+        </NDescriptions>
+      </div>
+    </NModal>
   </div>
 </template>
 
 <script setup lang="ts">
+import { NModal, NDescriptions, NDescriptionsItem } from 'naive-ui'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -117,6 +134,11 @@ import { useKeyboardShortcuts } from '../composables/use-keyboard-shortcuts'
 import { useVirtualTree } from '../composables/use-virtual-tree'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
+import {
+  clearConnectionNavigatorState,
+  getConnectionNavigatorState,
+  saveConnectionNavigatorState,
+} from '../utils/navigator-persistence'
 
 import type { NavigatorError as NavigatorErrorType } from './navigator-error.vue'
 import type { IContextMenuItem } from '../composables/use-context-menu-actions'
@@ -159,6 +181,11 @@ const virtualTreeRef = ref<InstanceType<typeof VirtualTree> | null>(null)
 const globalConnections = ref<GlobalConnectionInfo[]>([])
 const contextMenuItems = ref<IContextMenuItem[]>([])
 const contextMenuCurrentNode = ref<VirtualTreeNode | null>(null)
+
+const showPropertiesDialog = ref(false)
+const propertiesDialogTitle = ref('')
+const propertiesItems = ref<Array<{ label: string; value: string }>>([])
+const selectedNodeForStatus = ref<VirtualTreeNode | null>(null)
 
 const filterConfig = ref<FilterConfig>({
   showTables: true,
@@ -242,6 +269,26 @@ const {
 })
 
 const statusText = computed(() => {
+  const node = selectedNodeForStatus.value
+  if (node?.type === 'index') {
+    const d = node.data
+    const parts: string[] = []
+    parts.push(`索引: ${d.indexName || node.label}`)
+    if (d.indexType) parts.push(d.indexType)
+    if (d.isUnique) parts.push('唯一')
+    if (d.isPrimary) parts.push('主键')
+    if (d.indexColumnNames?.length) parts.push(`[${d.indexColumnNames.join(', ')}]`)
+    return parts.join(' | ')
+  }
+  if (node?.type === 'constraint') {
+    const d = node.data
+    const parts: string[] = []
+    parts.push(`约束: ${d.constraintName || node.label} (${d.constraintType})`)
+    if (d.constraintColumnNames?.length) parts.push(`[${d.constraintColumnNames.join(', ')}]`)
+    if (d.referencedTable) parts.push(`→ ${d.referencedTable}`)
+    return parts.join(' | ')
+  }
+
   const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
   const totalConnections = allConnections.length
   let totalCatalogs = 0
@@ -276,6 +323,40 @@ handleVirtualTreeLoadChildrenRef.value = async function (
   node: VirtualTreeNode
 ): Promise<VirtualTreeNode[]> {
   return treeLoader.loadChildren(node)
+}
+
+function openIndexProperties(node: VirtualTreeNode) {
+  const d = node.data
+  propertiesDialogTitle.value = `索引属性 - ${d.indexName || node.label}`
+  propertiesItems.value = [
+    { label: '索引名称', value: d.indexName || node.label },
+    { label: '所属表', value: `${d.dbName}.${d.schemaName || ''}.${d.tableName}` },
+    { label: '索引类型', value: d.indexType || '-' },
+    { label: '是否唯一', value: d.isUnique ? '是' : '否' },
+    { label: '是否主键', value: d.isPrimary ? '是' : '否' },
+    { label: '包含列', value: d.indexColumnNames?.join(', ') || '-' },
+    { label: '注释', value: d.indexComment || '-' },
+  ]
+  showPropertiesDialog.value = true
+}
+
+function openConstraintProperties(node: VirtualTreeNode) {
+  const d = node.data
+  const items: Array<{ label: string; value: string }> = [
+    { label: '约束名称', value: d.constraintName || node.label },
+    { label: '所属表', value: `${d.dbName}.${d.schemaName || ''}.${d.tableName}` },
+    { label: '约束类型', value: d.constraintType || '-' },
+    { label: '包含列', value: d.constraintColumnNames?.join(', ') || '-' },
+  ]
+  if (d.referencedTable) {
+    items.push({ label: '引用表', value: d.referencedTable })
+    items.push({ label: '引用列', value: d.referencedColumns?.join(', ') || '-' })
+    items.push({ label: '更新规则', value: d.updateRule || '-' })
+    items.push({ label: '删除规则', value: d.deleteRule || '-' })
+  }
+  propertiesDialogTitle.value = `约束属性 - ${d.constraintName || node.label}`
+  propertiesItems.value = items
+  showPropertiesDialog.value = true
 }
 
 /**
@@ -372,7 +453,9 @@ const toggleFilter = () => {
   showFilter.value = !showFilter.value
 }
 
-const toggleView = () => {}
+const toggleView = () => {
+  uiStore.toggleNavigatorViewMode()
+}
 
 const handleNewConnection = () => {
   dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
@@ -539,6 +622,8 @@ async function handleErrorRetry() {
 }
 
 handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
+  selectedNodeForStatus.value = node
+
   if (node.type === 'connection') {
     const currentConn = await connectionHandler.handleConnectionClick(
       node,
@@ -639,6 +724,8 @@ function setupDragDropListeners() {
   window.addEventListener('open-table-data', handleOpenTableData)
   window.addEventListener('open-table-ddl', handleOpenTableDdl)
   window.addEventListener('open-connection-editor', handleOpenConnectionEditor)
+  window.addEventListener('show-index-properties', handleShowIndexProperties)
+  window.addEventListener('show-constraint-properties', handleShowConstraintProperties)
 }
 
 function cleanupDragDropListeners() {
@@ -650,26 +737,74 @@ function cleanupDragDropListeners() {
   window.removeEventListener('open-table-data', handleOpenTableData)
   window.removeEventListener('open-table-ddl', handleOpenTableDdl)
   window.removeEventListener('open-connection-editor', handleOpenConnectionEditor)
+  window.removeEventListener('show-index-properties', handleShowIndexProperties)
+  window.removeEventListener('show-constraint-properties', handleShowConstraintProperties)
 }
 
 function handleOpenCreateTable(event: Event) {
   const detail = (event as CustomEvent).detail
+  const { connectionId, dbName, schemaName } = detail
+  if (!connectionId || !dbName) return
+
+  dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
 }
 
 function handleOpenCreateView(event: Event) {
   const detail = (event as CustomEvent).detail
+  const { connectionId, dbName, schemaName } = detail
+  if (!connectionId || !dbName) return
+
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId,
+        databaseName: dbName,
+        schemaName: schemaName || dbName,
+        sql: `CREATE VIEW new_view AS SELECT 1;`,
+      },
+    })
+  )
 }
 
 function handleOpenCreateFunction(event: Event) {
   const detail = (event as CustomEvent).detail
+  const { connectionId, dbName, schemaName } = detail
+  if (!connectionId || !dbName) return
+
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId,
+        databaseName: dbName,
+        schemaName: schemaName || dbName,
+        sql: `CREATE FUNCTION new_function() RETURNS INT AS $$ BEGIN RETURN 1; END; $$ LANGUAGE plpgsql;`,
+      },
+    })
+  )
 }
 
 function handleOpenCreateProcedure(event: Event) {
   const detail = (event as CustomEvent).detail
+  const { connectionId, dbName, schemaName } = detail
+  if (!connectionId || !dbName) return
+
+  window.dispatchEvent(
+    new CustomEvent('open-sql-editor', {
+      detail: {
+        connectionId,
+        databaseName: dbName,
+        schemaName: schemaName || dbName,
+        sql: `CREATE PROCEDURE new_procedure() BEGIN END;`,
+      },
+    })
+  )
 }
 
 function handleOpenSqlEditor(event: Event) {
   const detail = (event as CustomEvent).detail
+  const { connectionId, databaseName, schemaName, sql } = detail
+
+  workbenchStore.addEditorTab(connectionId, sql || '', `${databaseName}.${schemaName || ''}`)
 }
 
 function handleOpenTableData(event: Event) {
@@ -688,6 +823,17 @@ function handleOpenTableDdl(event: Event) {
 
 function handleOpenConnectionEditor(event: Event) {
   const detail = (event as CustomEvent).detail
+  dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
+}
+
+function handleShowIndexProperties(event: Event) {
+  const detail = (event as CustomEvent).detail
+  openIndexProperties(detail.node)
+}
+
+function handleShowConstraintProperties(event: Event) {
+  const detail = (event as CustomEvent).detail
+  openConstraintProperties(detail.node)
 }
 
 // 键盘快捷键 - 必须在所有函数定义之后初始化
@@ -710,19 +856,84 @@ const handleContextMenuRefresh = async () => {
   }
 }
 
-const handleContextMenuCopyName = () => {}
+const handleContextMenuCopyName = () => {
+  const node = contextMenuCurrentNode.value
+  if (!node) return
 
-const handleContextMenuOpenTable = () => {}
+  const name = node.label || node.key.split('_').pop() || ''
+  navigator.clipboard.writeText(name).catch(() => {
+    console.warn('[navigator] 复制名称失败')
+  })
+}
 
-const handleContextMenuOpenView = () => {}
+const handleContextMenuOpenTable = () => {
+  const node = contextMenuCurrentNode.value
+  if (!node || node.type !== 'table') return
 
-const handleExpandAll = () => {}
+  const { connectionId, dbName, schemaName, tableName } = node.data
+  if (connectionId && dbName && tableName) {
+    workbenchStore.openTableData(connectionId, dbName, schemaName || '', tableName)
+  }
+}
 
-const handleCollapseAll = () => {}
+const handleContextMenuOpenView = () => {
+  const node = contextMenuCurrentNode.value
+  if (!node || node.type !== 'view') return
 
-const handleContextMenuRefreshSchema = async () => {}
+  const { connectionId, dbName, schemaName, viewName } = node.data
+  if (connectionId && dbName && viewName) {
+    workbenchStore.openTableData(connectionId, dbName, schemaName || '', viewName)
+  }
+}
 
-const handleContextMenuRefreshDatabase = async () => {}
+const handleExpandAll = async () => {
+  if (!virtualTreeRef.value) return
+
+  const allNodes = virtualTreeNodes.value
+  for (const node of allNodes) {
+    if (!node.isExpanded && !node.isLeaf) {
+      await toggleNode(node)
+    }
+  }
+}
+
+const handleCollapseAll = async () => {
+  if (!virtualTreeRef.value) return
+
+  const allNodes = [...virtualTreeNodes.value]
+  for (const node of allNodes.reverse()) {
+    if (node.isExpanded && !node.isLeaf) {
+      await toggleNode(node)
+    }
+  }
+}
+
+const handleContextMenuRefreshSchema = async () => {
+  const node = contextMenuCurrentNode.value
+  if (!node?.data) return
+
+  const { connectionId, dbName, schemaName } = node.data
+  if (!connectionId) return
+
+  if (dbName && schemaName) {
+    await navigatorStore.refreshMetadata(connectionId, dbName, schemaName)
+  } else if (dbName) {
+    await navigatorStore.refreshMetadata(connectionId, dbName)
+  }
+
+  initializeRootNodes()
+}
+
+const handleContextMenuRefreshDatabase = async () => {
+  const node = contextMenuCurrentNode.value
+  if (!node?.data?.connectionId) return
+
+  const connId = node.data.connectionId as string
+  clearConnectionNavigatorState(connId)
+  clearConnection(connId)
+  await navigatorStore.refreshMetadata(connId)
+  initializeRootNodes()
+}
 
 async function loadGlobalConnections() {
   try {
@@ -782,6 +993,17 @@ watch(
   { deep: true }
 )
 
+watch(
+  () => virtualTreeNodes.value.map(n => ({ key: n.key, isExpanded: n.isExpanded })),
+  () => {
+    const connId = currentConnection.value?.id
+    if (connId) {
+      debouncedPersistSave(connId)
+    }
+  },
+  { deep: true }
+)
+
 onMounted(async () => {
   await loadGlobalConnections()
   await projectConnectionStore.loadConnections()
@@ -797,13 +1019,59 @@ onMounted(async () => {
   const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
   for (const conn of allConnections) {
     connectionStatusSync.startHealthCheck(conn.id)
+    restoreNavigatorState(conn.id)
   }
 })
 
 onUnmounted(() => {
   connectionStatusSync.cleanup()
   cleanupDragDropListeners()
+  saveAllNavigatorStates()
 })
+
+function getExpandedKeys(): string[] {
+  return virtualTreeNodes.value.filter(n => n.isExpanded).map(n => n.key)
+}
+
+function restoreNavigatorState(connId: string): void {
+  try {
+    const entry = getConnectionNavigatorState(connId)
+    if (!entry?.expandedKeys.length) return
+
+    for (const node of virtualTreeNodes.value) {
+      if (entry.expandedKeys.includes(node.key) && !node.isExpanded && !node.isLeaf) {
+        node.isExpanded = true
+      }
+    }
+  } catch (e) {
+    console.warn(`[navigator] 恢复持久化状态失败 (${connId})`, e)
+  }
+}
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+function debouncedPersistSave(connId: string): void {
+  if (persistTimer) clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    saveConnectionNavigatorState(connId, { expandedKeys: getExpandedKeys() })
+  }, 800)
+}
+
+function saveAllNavigatorStates(): void {
+  try {
+    const connIds = new Set<string>()
+    for (const node of virtualTreeNodes.value) {
+      if (node.data?.connectionId) {
+        connIds.add(node.data.connectionId as string)
+      }
+    }
+    for (const connId of connIds) {
+      saveConnectionNavigatorState(connId, { expandedKeys: getExpandedKeys() })
+    }
+  } catch (e) {
+    console.warn('[navigator] 保存持久化状态失败', e)
+  }
+}
 </script>
 
 <style scoped>
@@ -838,5 +1106,9 @@ onUnmounted(() => {
   --text-secondary: #666666;
   --text-tertiary: #999999;
   --border-color: #d9d9d9;
+}
+
+.properties-content {
+  padding: 4px 0;
 }
 </style>

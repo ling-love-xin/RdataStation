@@ -1,8 +1,14 @@
 /**
- * 数据库导航器加载服务
+ * @deprecated 此模块为遗留代码，已被 database-navigator 的主加载流程替代。
  *
- * 根据数据库类型使用对应的适配器加载元数据
- * 支持：MySQL, SQLite, PostgreSQL 等
+ * 旧版适配器模式（DatabaseMetaAdapter + execute_sql）不再使用。
+ * 当前主流程：use-database-tree-loader.ts → database-navigator-store.ts → database-api.ts (tauri.invoke)
+ *
+ * @see ../../ui/composables/use-database-tree-loader.ts  — 当前树加载器
+ * @see ../../ui/api/database-api.ts              — 当前 IPC API 层
+ * @see ../../ui/stores/database-navigator-store.ts — 当前状态管理
+ *
+ * 计划移除版本：v0.6.0
  */
 
 import { invoke } from '@tauri-apps/api/core'
@@ -14,26 +20,28 @@ import type { NavigatorNode, QueryContext } from '@/shared/types/databaseMeta'
 /**
  * 加载节点子节点
  * 根据节点类型和数据库类型选择正确的加载方式
+ *
+ * @deprecated 使用 use-database-tree-loader.ts::loadChildren() 替代
  */
 export async function loadNodeChildren(
   node: NavigatorNode,
   dbType: string = 'mysql'
 ): Promise<NavigatorNode[]> {
-  console.log(`[NavigatorLoader] 加载节点: ${node.type}, dbType: ${dbType}`)
+  console.warn(
+    '[NavigatorLoader][DEPRECATED] loadNodeChildren 已弃用，' +
+    '请使用 use-database-tree-loader.ts'
+  )
 
-  // 获取适配器
   const adapter = getAdapter(dbType)
   if (!adapter) {
     console.warn(`[NavigatorLoader] 未找到适配器: ${dbType}`)
     return []
   }
 
-  // 特殊处理：connection 节点
   if (node.type === 'connection') {
     return loadConnectionChildren(node, dbType, adapter)
   }
 
-  // 构建查询上下文
   const context: QueryContext = {
     connectionId: node.connectionId || '',
     database: node.database,
@@ -41,16 +49,12 @@ export async function loadNodeChildren(
     table: (node.metadata?.tableName as string) || node.name,
   }
 
-  // 获取查询 SQL
   const query = adapter.getChildrenQuery(node.type, context)
-  console.log(`[NavigatorLoader] 查询 SQL:`, query)
 
-  // 如果没有查询（如文件夹节点），直接解析
   if (!query) {
     return adapter.parseChildrenResult(node.type, [], context)
   }
 
-  // 执行查询（调用后端 API）
   try {
     const result = await executeQuery(query, context)
     return adapter.parseChildrenResult(node.type, result, context)
@@ -60,29 +64,18 @@ export async function loadNodeChildren(
   }
 }
 
-/**
- * 加载连接节点的子节点
- * 根据数据库类型返回不同的结构
- */
 function loadConnectionChildren(
   node: NavigatorNode,
   dbType: string,
   adapter: DatabaseMetaAdapter
 ): NavigatorNode[] {
-  console.log(`[NavigatorLoader] 加载连接子节点, dbType: ${dbType}`)
-
   const context: QueryContext = {
     connectionId: node.connectionId || '',
   }
 
-  // 使用适配器创建对象类型文件夹
   return adapter.parseChildrenResult('connection', [], context)
 }
 
-/**
- * 执行 SQL 查询
- * 通过 Tauri invoke 调用后端 execute_sql 命令
- */
 async function executeQuery(query: string, context: QueryContext): Promise<unknown[]> {
   const response = await invoke<{ result: unknown[] }>('execute_sql', {
     input: {

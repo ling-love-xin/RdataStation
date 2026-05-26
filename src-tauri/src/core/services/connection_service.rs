@@ -307,7 +307,7 @@ impl ConnectionService {
                     options: options.as_deref(),
                     driver_properties: driver_properties.as_deref(),
                     advanced_options: advanced_options.as_deref(),
-                    use_duckdb_fed: use_duckdb_fed,
+                    use_duckdb_fed,
                     metadata_path: metadata_path.as_deref(),
                     schema_name: schema_name.as_deref(),
                 })

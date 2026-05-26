@@ -407,6 +407,7 @@ impl Database for SqliteDatabase {
                         is_foreign_key: false,
                         default_value: default_val,
                         comment: None,
+                        extra: std::collections::HashMap::new(),
                     });
                 }
                 Err(e) => {
@@ -416,6 +417,72 @@ impl Database for SqliteDatabase {
         }
 
         Ok(columns)
+    }
+
+    fn as_metadata_browser(&self) -> Option<&dyn crate::core::driver::MetadataBrowser> {
+        Some(self)
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::core::driver::MetadataBrowser for SqliteDatabase {
+    async fn get_catalogs(&self) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        Ok(vec![crate::core::driver::NodeInfo {
+            name: "main".to_string(),
+            kind: crate::core::driver::SchemaObjectKind::Catalog,
+            icon: Some("database".to_string()),
+            comment: None,
+        }])
+    }
+
+    async fn get_schemas(&self, _catalog: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        Ok(vec![])
+    }
+
+    async fn get_tables(&self, catalog: &str, _schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+        let objects = self.list_tables(catalog, None).await?;
+        Ok(objects.into_iter().map(|obj| {
+            let is_view = matches!(obj.kind, crate::core::driver::SchemaObjectKind::View);
+            crate::core::driver::NodeInfo {
+                name: obj.name,
+                kind: obj.kind,
+                icon: Some(if is_view { "view".to_string() } else { "table".to_string() }),
+                comment: obj.comment,
+            }
+        }).collect())
+    }
+
+    async fn get_table_detail(&self, catalog: &str, _schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+        let columns = self.list_columns(catalog, None, table).await?;
+        Ok(crate::core::driver::NodeDetail {
+            node: crate::core::driver::NodeInfo {
+                name: table.to_string(),
+                kind: crate::core::driver::SchemaObjectKind::Table,
+                icon: Some("table".to_string()),
+                comment: None,
+            },
+            columns,
+            index_count: None,
+            row_count_estimate: None,
+        })
+    }
+
+    async fn get_indexes(
+        &self,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<crate::core::driver::IndexDetail>, CoreError> {
+        self.list_indexes(catalog, Some(schema), table).await
+    }
+
+    async fn get_constraints(
+        &self,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<crate::core::driver::ConstraintDetail>, CoreError> {
+        self.list_constraints(catalog, Some(schema), table).await
     }
 }
 

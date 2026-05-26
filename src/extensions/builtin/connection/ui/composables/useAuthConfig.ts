@@ -227,10 +227,18 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
   }
 
   /** 从后端加载已保存的认证配置列表 */
-  async function loadAuthConfigs() {
+  async function loadAuthConfigs(projectPath?: string) {
     try {
       const configs = await invoke<BackendAuthConfig[]>('list_auth_configs')
-      authConfigs.value = configs.map(parseAuthConfig)
+      const globalConfigs = configs.map(parseAuthConfig)
+
+      let projectConfigs: AuthConfig[] = []
+      if (projectPath) {
+        const projConfigs = await invoke<BackendAuthConfig[]>('project_list_auth_configs', { projectPath })
+        projectConfigs = projConfigs.map(parseAuthConfig)
+      }
+
+      authConfigs.value = [...globalConfigs, ...projectConfigs]
     } catch (err) {
       console.warn('[useAuthConfig] loadAuthConfigs 失败:', err)
     }

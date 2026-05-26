@@ -57,7 +57,7 @@
           <!-- Tabs -->
           <NTabs v-model:value="activeTab" type="line" size="small" class="dlg-tabs">
             <NTabPane name="general" :tab="$t('navigator.tabGeneral')">
-              <GeneralTab :driver="selectedDriver" :form-data="formData" :scope="scope" @update:form-data="onFormData" @auth-config-change="onAuthConfigChange" />
+              <GeneralTab :driver="selectedDriver" :form-data="formData" :scope="scope" :project-path="projectStore.currentProject?.path" @update:form-data="onFormData" @auth-config-change="onAuthConfigChange" />
             </NTabPane>
             <NTabPane name="network" :tab="$t('navigator.tabNetwork')">
               <NetworkTab :driver="selectedDriver" :scope="scope" @extra-config="onExtraConfig" />
@@ -196,6 +196,11 @@ interface StagingItem {
   environmentId?: string | null
   scope?: 'global' | 'project'
   description?: string
+  schemaName?: string
+  options?: string
+  metadataPath?: string
+  tags?: string
+  useDuckdbFed?: boolean
 }
 const stagingItems = ref<StagingItem[]>([{ name: '' }])
 const stagingIndex = ref(0)
@@ -321,6 +326,8 @@ function selectStaging(i: number) {
   driverPropertiesExtra.value = s.driverProperties ?? null
   advancedOptions.value = s.advancedOptions ?? null
   selectedEnvId.value = s.environmentId ?? null
+  authConfigId.value = s.authConfigId ?? null
+  authMethod.value = s.authMethod ?? 'password'
   testResult.value = null
   isResetting.value = false
 }
@@ -374,7 +381,7 @@ async function onTestModalClose() {
 
   const fd = formData.value
   const authType = authMethod.value
-  const hasAuth = fd.username || fd.password || fd.certPath || fd.principal || fd.tokenEndpoint || (authType === 'os_auth' || authType === 'trust')
+  const hasAuth = fd.username || fd.password || fd.certPath || fd.principal || fd.tokenEndpoint
   if (!hasAuth) return
 
   // 弹出确认对话框，由用户决定是否保存
@@ -426,7 +433,7 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
     const authDataStr = JSON.stringify(authData)
 
     if (scope.global) {
-      await invokeTauri('create_auth_config', {
+      const created = await invokeTauri<{ id: string }>('create_auth_config', {
         ac: {
           id: '',
           name: authName,
@@ -436,16 +443,18 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
           updated_at: '',
         },
       })
+      authConfigId.value = created.id
     }
     if (scope.project) {
       const pp = projectStore.currentProject?.path
       if (pp) {
-        await invokeTauri('project_create_auth_config', {
+        const created = await invokeTauri<{ id: string }>('project_create_auth_config', {
           name: authName,
           authType,
           authData: authDataStr,
           projectPath: pp,
         })
+        authConfigId.value = created.id
       }
     }
 
@@ -491,6 +500,11 @@ function saveToStaging() {
     environmentId: selectedEnvId.value ?? null,
     scope: scope.global ? 'global' : 'project',
     description: headerData.description || undefined,
+    schemaName: (formData.value.schema_name as string) || undefined,
+    options: (formData.value.options as string) || undefined,
+    metadataPath: (formData.value.metadata_path as string) || undefined,
+    tags: (formData.value.tags as string) || undefined,
+    useDuckdbFed: (formData.value.use_duckdb_fed as boolean) ?? false,
   }
 
   message.success(t('navigator.savedToStaging', { name }))
@@ -515,6 +529,11 @@ function syncCurrentToStaging() {
   item.authConfigId = authConfigId.value
   item.authMethod = authMethod.value
   item.description = headerData.description || undefined
+  item.schemaName = (formData.value.schema_name as string) || undefined
+  item.options = (formData.value.options as string) || undefined
+  item.metadataPath = (formData.value.metadata_path as string) || undefined
+  item.tags = (formData.value.tags as string) || undefined
+  item.useDuckdbFed = (formData.value.use_duckdb_fed as boolean) ?? false
   if (selectedDriver.value) {
     item.driver = selectedDriver.value.type_id
     item.driverId = headerData.selectedDriverId ?? undefined
@@ -600,7 +619,7 @@ async function handleApply() {
               url,
               name,
               itemScope,
-              projectStore.currentProject?.id,
+              projectStore.currentProject?.path,
               connectOpts
             )
           } catch (connectErr) {
@@ -620,9 +639,13 @@ async function handleApply() {
               host: String(fd.host || ''),
               port: Number(fd.port || 0),
               database: String(fd.database || ''),
+              schema_name: item.schemaName || undefined,
               username: String(fd.username || ''),
               password: String(fd.password || ''),
-              use_duckdb_fed: false,
+              options: item.options || undefined,
+              tags: item.tags || undefined,
+              use_duckdb_fed: item.useDuckdbFed ?? false,
+              metadata_path: item.metadataPath || undefined,
               description: item.description || undefined,
               driver_id: item.driverId,
               environment_id: item.environmentId ?? undefined,

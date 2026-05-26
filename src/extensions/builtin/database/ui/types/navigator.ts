@@ -23,12 +23,21 @@ export interface DatabaseInfo {
   schemas: SchemaInfo[]
 }
 
+/** 索引信息（与后端 IndexMeta JSON 输出对齐） */
 export interface IndexInfo {
   name: string
-  columns: string[]
+  /** 所属表名 */
+  tableName: string
+  /** 索引列名列表 */
+  columnNames: string[]
+  /** 是否唯一索引 */
   isUnique: boolean
+  /** 是否主键索引 */
   isPrimary: boolean
-  type: 'btree' | 'hash' | 'gist' | 'spatial' | 'other'
+  /** 索引类型（btree/hash/gist 等） */
+  type?: string
+  /** 索引注释 */
+  comment?: string
 }
 
 export interface TriggerInfo {
@@ -39,12 +48,23 @@ export interface TriggerInfo {
   enabled: boolean
 }
 
+/** 约束信息（与后端 ConstraintMeta JSON 输出对齐） */
 export interface ConstraintInfo {
   name: string
-  type: 'PRIMARY KEY' | 'FOREIGN KEY' | 'UNIQUE' | 'CHECK' | 'NOT NULL'
-  columns: string[]
+  /** 所属表名 */
+  tableName: string
+  /** 约束类型（PRIMARY KEY/FOREIGN KEY/UNIQUE/CHECK/NOT NULL） */
+  constraintType: string
+  /** 约束列名列表 */
+  columnNames: string[]
+  /** 外键引用的表名 */
   referencedTable?: string
+  /** 外键引用的列名列表 */
   referencedColumns?: string[]
+  /** 外键更新规则（CASCADE/SET NULL/RESTRICT/NO ACTION） */
+  updateRule?: string
+  /** 外键删除规则（CASCADE/SET NULL/RESTRICT/NO ACTION） */
+  deleteRule?: string
 }
 
 export interface ProcedureInfo {
@@ -100,13 +120,20 @@ export interface ViewInfo {
   definition?: string
 }
 
+/** 列信息（与后端 ColumnMeta JSON 输出对齐） */
 export interface ColumnInfo {
   name: string
+  /** 数据类型 */
   dataType: string
+  /** 是否可空 */
   isNullable: boolean
-  defaultValue?: string | null
+  /** 默认值（后端始终返回，可能为 null） */
+  defaultValue: string | null
+  /** 是否主键列（后端始终返回） */
   isPrimaryKey: boolean
+  /** 是否外键列（后端始终返回） */
   isForeignKey: boolean
+  /** 列注释 */
   comment?: string | null
 }
 

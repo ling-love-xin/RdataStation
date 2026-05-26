@@ -1,7 +1,7 @@
 # RdataStation 开发规范索引
 
-> 版本：v1.3
-> 最后更新：2026-05-19
+> 版本：v1.5
+> 最后更新：2026-05-25
 > 状态：✅ 持续更新
 
 ---
@@ -91,6 +91,9 @@
 - [ ] services 层是否只调用 connection / driver，不直接碰 datasource？
 - [ ] Rust 代码中是否存在 unwrap()？
 - [ ] Pool 是否只负责连接，不负责 SQL 执行？
+- [ ] 全局/项目 DB 字段映射是否一致？
+- [ ] auth_data 只存认证凭据，不混入连接属性？
+- [ ] 密码/Auth 凭据是否已 AES-256-GCM 加密？
 
 ---
 
@@ -111,6 +114,8 @@
 
 | 版本 | 日期       | 说明                                             |
 | ---- | ---------- | ------------------------------------------------ |
+| v1.5 | 2026-05-25 | v0.5.2 新增数据源审计修复：StagingItem全字段补齐、selectStaging恢复authConfigId/authMethod、create_auth_config返回AuthConfig、NetworkTab ID后端生成、useAuthConfig支持project级加载、handleApply projectPath修复、os_auth/trust不写入空认证、NetworkTab.onMounted scope both分流 |
+| v1.4 | 2026-05-25 | v0.5.1 数据源模块完善：auth_configs密码加密，network_configs新增auth_config_id引用，auth_type分类（DB/Network），global_connections/connections字段全链路对齐（25列），ConnectDatabaseInput补全 |
 | v1.3 | 2026-05-19 | v0.5.0 网络连接功能：SSH隧道(russh) + SSL/TLS(native-tls) + 代理配置，后端核心完成 |
 | v1.2 | 2026-05-18 | Vite 6→8 升级，Rolldown 引擎，vue-tsc 3.x，@vitejs/plugin-vue 6.x |
 | v1.1 | 2026-05-12 | 代码质量全面修复，TS/ESLint 零错误，依赖版本锁定 |

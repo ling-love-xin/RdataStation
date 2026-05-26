@@ -224,6 +224,7 @@ interface Props {
   driver: Driver | null
   formData: Record<string, unknown>
   scope?: { global: boolean; project: boolean }
+  projectPath?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -397,7 +398,7 @@ onMounted(async () => {
   }
 
   // 从后端加载已保存的认证配置列表
-  loadAuthConfigs()
+  loadAuthConfigs(props.projectPath ?? undefined)
 })
 
 // Reset port and auth methods when driver changes

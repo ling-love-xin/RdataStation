@@ -10,6 +10,7 @@ export const useUiStore = defineStore('ui', () => {
   const sidebarWidth = ref(280)
   const showHistoryPanel = ref(false)
   const showConnectionPanel = ref(true)
+  const navigatorViewMode = ref<'tree' | 'flat'>('tree')
 
   const isDark = computed(() => {
     const appStore = useAppStore()
@@ -66,6 +67,14 @@ export const useUiStore = defineStore('ui', () => {
     showConnectionPanel.value = !showConnectionPanel.value
   }
 
+  function setNavigatorViewMode(mode: 'tree' | 'flat') {
+    navigatorViewMode.value = mode
+  }
+
+  function toggleNavigatorViewMode() {
+    navigatorViewMode.value = navigatorViewMode.value === 'tree' ? 'flat' : 'tree'
+  }
+
   return {
     theme,
     sidebarCollapsed,
@@ -80,6 +89,9 @@ export const useUiStore = defineStore('ui', () => {
     setSidebarWidth,
     toggleHistoryPanel,
     toggleConnectionPanel,
+    navigatorViewMode,
+    setNavigatorViewMode,
+    toggleNavigatorViewMode,
     applyTheme,
   }
 })

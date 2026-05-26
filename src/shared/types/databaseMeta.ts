@@ -357,12 +357,12 @@ export interface ViewInfo {
 /**
  * 列元数据（共享规范 — 前后端均可使用的标准列信息模型）
  *
- * @remarks
- * 本接口是 **内部存储 / 缓存 / Mock 生成** 的规范化类型。
- * IPC 传输版本见 `navigator.ts::ColumnInfo`，字段名对应后端 serde 重命名。
+ * @deprecated 此接口已废弃，请使用 `navigator.ts::ColumnInfo` 作为 IPC 传输的权威类型定义。
+ *             本接口保留用于内部存储 / 缓存 / Mock 生成等非 IPC 场景。
  *
+ * @remarks
  * 命名约定：
- * - `dataType` / `isNullable` — 统一驼峰 + is 前缀，匹配后端 ColumnMeta 序列化
+ * - `dataType` / `isNullable` — 统一驼峰 + is 前缀，匹配后端 ColumnDetail 序列化
  * - `columnSize` / `decimalDigits` — 仅 JDBC 驱动可用，原生驱动可能为空
  */
 export interface ColumnInfo {
@@ -382,14 +382,19 @@ export interface ColumnInfo {
   decimalDigits?: number
 }
 
+/** 索引信息（内部详细模型，含列排序信息） */
 export interface IndexInfo {
   name: string
   tableName: string
   schema?: string
   isUnique: boolean
   isPrimary: boolean
+  /** 索引类型（btree/hash/gist 等） */
   type?: string
-  columns: IndexColumnInfo[]
+  /** 索引注释 */
+  comment?: string
+  /** 索引列详细信息（含排序方向）— 内部使用；IPC 版本见 navigator.ts::IndexInfo.columnNames */
+  columns?: IndexColumnInfo[]
 }
 
 export interface IndexColumnInfo {
@@ -398,15 +403,20 @@ export interface IndexColumnInfo {
   ordinalPosition: number
 }
 
+/** 外键信息（与后端 ConstraintMeta JSON 输出对齐） */
 export interface ForeignKeyInfo {
   name: string
   tableName: string
   schema?: string
-  columnName: string
+  /** 外键列名列表（支持多列复合外键） */
+  columnNames: string[]
   referencedTableName: string
   referencedSchema?: string
-  referencedColumnName: string
+  /** 被引用列名列表（支持多列复合外键） */
+  referencedColumnNames: string[]
+  /** 外键更新规则（CASCADE/SET NULL/RESTRICT/NO ACTION） */
   updateRule?: string
+  /** 外键删除规则（CASCADE/SET NULL/RESTRICT/NO ACTION） */
   deleteRule?: string
 }
 

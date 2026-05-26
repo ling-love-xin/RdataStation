@@ -584,6 +584,56 @@ export function useContextMenuActions() {
   }
 
   /**
+   * 获取索引节点菜单
+   */
+  function getIndexMenu(node: VirtualTreeNode): IContextMenuItem[] {
+    const indexName = node.data?.indexName as string
+    if (!indexName) return []
+
+    return [
+      {
+        id: 'properties',
+        label: '属性',
+        icon: 'Info',
+        action: () => showIndexProperties(node),
+      },
+      { separator: true },
+      {
+        id: 'copy-name',
+        label: '复制名称',
+        icon: 'Copy',
+        shortcut: 'Ctrl+C',
+        action: () => copyToClipboard(indexName),
+      },
+    ]
+  }
+
+  /**
+   * 获取约束节点菜单
+   */
+  function getConstraintMenu(node: VirtualTreeNode): IContextMenuItem[] {
+    const constraintName = node.data?.constraintName as string
+    if (!constraintName) return []
+
+    return [
+      {
+        id: 'properties',
+        label: '属性',
+        icon: 'Info',
+        action: () => showConstraintProperties(node),
+      },
+      { separator: true },
+      {
+        id: 'copy-name',
+        label: '复制名称',
+        icon: 'Copy',
+        shortcut: 'Ctrl+C',
+        action: () => copyToClipboard(constraintName),
+      },
+    ]
+  }
+
+  /**
    * 获取文件夹节点菜单
    */
   function getFolderMenu(node: VirtualTreeNode): IContextMenuItem[] {
@@ -654,6 +704,10 @@ export function useContextMenuActions() {
         return getViewMenu(node)
       case 'column':
         return getColumnMenu(node)
+      case 'index':
+        return getIndexMenu(node)
+      case 'constraint':
+        return getConstraintMenu(node)
       case 'tables-folder':
       case 'views-folder':
       case 'functions-folder':
@@ -1023,6 +1077,18 @@ export function useContextMenuActions() {
     } else if (nodeType === 'views-folder' && schemaName) {
       await navigatorStore.loadViews(connectionId, dbName, schemaName)
     }
+  }
+
+  function showIndexProperties(node: VirtualTreeNode): void {
+    window.dispatchEvent(
+      new CustomEvent('show-index-properties', { detail: { node } })
+    )
+  }
+
+  function showConstraintProperties(node: VirtualTreeNode): void {
+    window.dispatchEvent(
+      new CustomEvent('show-constraint-properties', { detail: { node } })
+    )
   }
 
   async function copyToClipboard(text: string): Promise<void> {

@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use super::{CachePolicy, CacheStats, LruCache, MemoryEstimate};
-use crate::core::driver::ColumnDetail;
+use crate::core::driver::{ColumnDetail, ConstraintDetail, IndexDetail};
 use crate::core::{DataSourceMeta, SchemaObject};
 
 /// 元数据缓存键
@@ -48,6 +48,13 @@ pub enum MetadataCacheKey {
     },
     /// 索引列表
     Indexes {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+        table: String,
+    },
+    /// 约束列表
+    Constraints {
         conn_id: String,
         database: String,
         schema: Option<String>,
@@ -163,6 +170,7 @@ impl MetadataCacheKey {
             Self::Indexes { conn_id, .. } => conn_id,
             Self::Procedures { conn_id, .. } => conn_id,
             Self::Functions { conn_id, .. } => conn_id,
+            Self::Constraints { conn_id, .. } => conn_id,
             Self::DataSourceMeta { conn_id } => conn_id,
             Self::RoutineSource { conn_id, .. } => conn_id,
         }
@@ -178,6 +186,10 @@ pub enum MetadataCacheValue {
     SchemaObjects(Vec<SchemaObject>),
     /// 列详细信息列表
     ColumnDetails(Vec<ColumnDetail>),
+    /// 索引详情列表
+    IndexDetails(Vec<IndexDetail>),
+    /// 约束详情列表
+    ConstraintDetails(Vec<ConstraintDetail>),
     /// 数据源元数据
     DataSourceMeta(DataSourceMeta),
     /// 过程/函数 DDL 源码
@@ -192,6 +204,8 @@ impl MemoryEstimate for MetadataCacheValue {
             }
             MetadataCacheValue::SchemaObjects(objects) => objects.len() * 200,
             MetadataCacheValue::ColumnDetails(columns) => columns.len() * 250,
+            MetadataCacheValue::IndexDetails(indexes) => indexes.len() * 200,
+            MetadataCacheValue::ConstraintDetails(constraints) => constraints.len() * 220,
             MetadataCacheValue::DataSourceMeta(_) => 200,
             MetadataCacheValue::RoutineSource(s) => s.len() + 32,
         }
@@ -317,6 +331,46 @@ impl MetadataCache {
         })
     }
 
+    /// 获取索引列表
+    pub fn get_indexes(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        table: &str,
+    ) -> Option<Vec<IndexDetail>> {
+        let key = MetadataCacheKey::Indexes {
+            conn_id: conn_id.to_string(),
+            database: database.to_string(),
+            schema: schema.map(|s| s.to_string()),
+            table: table.to_string(),
+        };
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::IndexDetails(list) => Some(list),
+            _ => None,
+        })
+    }
+
+    /// 获取约束列表
+    pub fn get_constraints(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        table: &str,
+    ) -> Option<Vec<ConstraintDetail>> {
+        let key = MetadataCacheKey::Constraints {
+            conn_id: conn_id.to_string(),
+            database: database.to_string(),
+            schema: schema.map(|s| s.to_string()),
+            table: table.to_string(),
+        };
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::ConstraintDetails(list) => Some(list),
+            _ => None,
+        })
+    }
+
     /// 获取数据源元数据
     pub fn get_data_source_meta(&mut self, conn_id: &str) -> Option<DataSourceMeta> {
         let key = MetadataCacheKey::DataSourceMeta {
@@ -435,6 +489,44 @@ impl MetadataCache {
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
 
+    /// 设置索引列表
+    pub fn set_indexes(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        table: &str,
+        indexes: Vec<IndexDetail>,
+    ) {
+        let key = MetadataCacheKey::Indexes {
+            conn_id: conn_id.to_string(),
+            database: database.to_string(),
+            schema: schema.map(|s| s.to_string()),
+            table: table.to_string(),
+        };
+        let value = MetadataCacheValue::IndexDetails(indexes);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
+    /// 设置约束列表
+    pub fn set_constraints(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        table: &str,
+        constraints: Vec<ConstraintDetail>,
+    ) {
+        let key = MetadataCacheKey::Constraints {
+            conn_id: conn_id.to_string(),
+            database: database.to_string(),
+            schema: schema.map(|s| s.to_string()),
+            table: table.to_string(),
+        };
+        let value = MetadataCacheValue::ConstraintDetails(constraints);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
     /// 设置数据源元数据
     pub fn set_data_source_meta(&mut self, conn_id: &str, meta: DataSourceMeta) {
         let key = MetadataCacheKey::DataSourceMeta {
@@ -534,6 +626,7 @@ impl MetadataCache {
                 MetadataCacheKey::Columns { .. } => total += 1000,
                 MetadataCacheKey::Views { .. } => total += 500,
                 MetadataCacheKey::Indexes { .. } => total += 300,
+                MetadataCacheKey::Constraints { .. } => total += 300,
                 MetadataCacheKey::Procedures { .. } => total += 300,
                 MetadataCacheKey::Functions { .. } => total += 300,
                 MetadataCacheKey::DataSourceMeta { .. } => total += 200,

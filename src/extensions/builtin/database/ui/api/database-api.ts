@@ -372,18 +372,28 @@ export async function removeIntrospectionLevel(connectionId: string): Promise<vo
 
 export async function loadIndexes(
   connectionId: string,
-  _catalog: string,
-  _schema: string,
+  catalogName: string,
+  schemaName: string,
   tableName: string
 ): Promise<unknown[]> {
-  return invoke('load_indexes', { connId: connectionId, tableName })
+  return invoke('load_indexes', {
+    connId: connectionId,
+    dbName: catalogName,
+    schemaName,
+    tableName
+  })
 }
 
 export async function loadConstraints(
   connectionId: string,
-  _catalog: string,
-  _schema: string,
+  catalogName: string,
+  schemaName: string,
   tableName: string
 ): Promise<unknown[]> {
-  return invoke('load_constraints', { connId: connectionId, tableName })
+  return invoke('load_constraints', {
+    connId: connectionId,
+    dbName: catalogName,
+    schemaName,
+    tableName
+  })
 }

@@ -71,14 +71,7 @@ impl MetadataCacheManager {
         conn_id
             .replace(':', "_")
             .replace('@', "_at_")
-            .replace('/', "_")
-            .replace('\\', "_")
-            .replace('*', "_")
-            .replace('?', "_")
-            .replace('"', "_")
-            .replace('<', "_")
-            .replace('>', "_")
-            .replace('|', "_")
+            .replace(['/', '\\', '*', '?', '"', '<', '>', '|'], "_")
     }
 
     /// 构建元数据缓存数据库路径
@@ -458,8 +451,12 @@ impl MetadataCacheOps {
     /// 获取 Schema 列表
     pub fn list_schemas(&self, catalog_name: Option<&str>) -> Result<Vec<SchemaInfo>, CoreError> {
         let query = match catalog_name {
-            Some(_) => "SELECT id, catalog_name, schema_name, owner, comment, last_sync FROM schemata WHERE catalog_name = ?1 ORDER BY schema_name",
-            None => "SELECT id, catalog_name, schema_name, owner, comment, last_sync FROM schemata ORDER BY schema_name",
+            Some(_) => "SELECT id, catalog_name, schema_name, owner, comment, last_sync, \
+                        default_character_set_name, default_collation_name, introspect_level, is_loaded \
+                        FROM schemata WHERE catalog_name = ?1 ORDER BY schema_name",
+            None => "SELECT id, catalog_name, schema_name, owner, comment, last_sync, \
+                     default_character_set_name, default_collation_name, introspect_level, is_loaded \
+                     FROM schemata ORDER BY schema_name",
         };
 
         let mut stmt = self.conn.prepare(query).map_err(|e| {
@@ -595,10 +592,12 @@ impl MetadataCacheOps {
         table_type: Option<&str>,
     ) -> Result<Vec<TableDetailInfo>, CoreError> {
         let query = match table_type {
-            Some(_t) => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, t.last_sync, s.schema_name
+            Some(_t) => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, \
+                        t.created_at, t.last_altered_at, t.last_sync, s.schema_name
                         FROM tables t INNER JOIN schemata s ON t.schema_id = s.id
                         WHERE t.schema_id = ?1 AND t.table_type = ?2 ORDER BY t.table_name",
-            None => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, t.last_sync, s.schema_name
+            None => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, \
+                     t.created_at, t.last_altered_at, t.last_sync, s.schema_name
                      FROM tables t INNER JOIN schemata s ON t.schema_id = s.id
                      WHERE t.schema_id = ?1 ORDER BY t.table_name",
         };
@@ -754,7 +753,10 @@ impl MetadataCacheOps {
             "SELECT c.id, c.column_name, c.ordinal_position, c.data_type, c.is_nullable, c.is_identity, \
              COALESCE(c.is_primary, 0) AS is_primary_key, \
              CASE WHEN fkc.column_name IS NOT NULL THEN 1 ELSE 0 END AS is_foreign_key, \
-             c.column_default, c.column_comment \
+             c.column_default, c.column_comment, \
+             c.character_maximum_length, c.numeric_precision, c.numeric_scale, \
+             c.character_set_name, c.collation_name, COALESCE(c.is_generated, 0) AS is_generated, \
+             c.extra \
              FROM columns c \
              LEFT JOIN foreign_key_columns fkc ON c.table_id = fkc.table_id AND c.column_name = fkc.column_name \
              WHERE c.table_id = ?1 ORDER BY c.ordinal_position"
@@ -762,7 +764,10 @@ impl MetadataCacheOps {
             "SELECT c.id, c.column_name, c.ordinal_position, c.data_type, c.is_nullable, c.is_identity, \
              COALESCE(c.is_primary, 0) AS is_primary_key, \
              0 AS is_foreign_key, \
-             c.column_default, c.column_comment \
+             c.column_default, c.column_comment, \
+             c.character_maximum_length, c.numeric_precision, c.numeric_scale, \
+             c.character_set_name, c.collation_name, COALESCE(c.is_generated, 0) AS is_generated, \
+             c.extra \
              FROM columns c \
              WHERE c.table_id = ?1 ORDER BY c.ordinal_position"
         };
@@ -1232,6 +1237,75 @@ impl MetadataCacheOps {
         Ok(result)
     }
 
+    // ==================== Trigger 操作 ====================
+
+    /// 保存 Trigger 元数据（基础版）
+    pub fn save_trigger(
+        &self,
+        _schema_id: i64,
+        table_id: Option<i64>,
+        name: &str,
+        event_manipulation: &str,
+        action_timing: &str,
+        action_statement: Option<&str>,
+    ) -> Result<i64, CoreError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
+            .as_secs() as i64;
+
+        self.conn.execute(
+            "INSERT OR REPLACE INTO triggers
+             (table_id, trigger_name, trigger_event, trigger_timing, trigger_body, introspect_level, is_loaded, last_sync, last_accessed)
+             VALUES (?1, ?2, ?3, ?4, ?5, 3, 1, ?6, ?6)",
+            rusqlite::params![table_id, name, event_manipulation, action_timing, action_statement, now],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_trigger".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    // ==================== Sequence 操作 ====================
+
+    /// 保存 Sequence 元数据（基础版）
+    pub fn save_sequence(
+        &self,
+        schema_id: i64,
+        name: &str,
+        data_type: &str,
+        start_value: Option<i64>,
+        increment: Option<i64>,
+    ) -> Result<i64, CoreError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
+            .as_secs() as i64;
+
+        self.conn.execute(
+            "INSERT OR REPLACE INTO sequences
+             (schema_id, sequence_name, data_type, start_value, increment_by, introspect_level, is_loaded, last_sync, last_accessed)
+             VALUES (?1, ?2, ?3, ?4, ?5, 3, 1, ?6, ?6)",
+            rusqlite::params![schema_id, name, data_type, start_value, increment.unwrap_or(1), now],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_sequence".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        Ok(self.conn.last_insert_rowid())
+    }
+
     /// 记录同步日志
     pub fn log_sync(
         &self,
@@ -1464,12 +1538,13 @@ impl MetadataCacheOps {
 
         let table_id: i64 = tx.query_row(
             "INSERT INTO tables (schema_id, table_name, table_type, table_comment, row_count_estimate, \
-             introspect_level, is_loaded, last_sync, last_accessed)
-             VALUES (?1, ?2, ?3, ?4, ?5, 3, 1, ?6, ?6)
+             engine, created_at, last_altered_at, introspect_level, is_loaded, last_sync, last_accessed)
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?6, 3, 1, ?6, ?6)
              ON CONFLICT(schema_id, table_name) DO UPDATE SET
              table_type = excluded.table_type,
              table_comment = excluded.table_comment,
              row_count_estimate = excluded.row_count_estimate,
+             last_altered_at = excluded.last_altered_at,
              last_sync = excluded.last_sync
              RETURNING id",
             rusqlite::params![
@@ -1488,20 +1563,43 @@ impl MetadataCacheOps {
         ))?;
 
         for (idx, col) in detail.columns.iter().enumerate() {
+            let char_max_len = col.extra.get("character_maximum_length").cloned().unwrap_or_default();
+            let num_prec = col.extra.get("numeric_precision").cloned().unwrap_or_default();
+            let num_scale = col.extra.get("numeric_scale").cloned().unwrap_or_default();
+            let charset = col.extra.get("character_set_name").cloned().unwrap_or_default();
+            let collation = col.extra.get("collation_name").cloned().unwrap_or_default();
+            let is_identity: i32 = if col.extra.contains_key("identity_generation")
+                || col.extra.get("extra_info").map(|v| v.contains("auto_increment")).unwrap_or(false)
+            {
+                1
+            } else {
+                0
+            };
+
             tx.execute(
                 "INSERT OR REPLACE INTO columns \
-                 (table_id, column_name, ordinal_position, data_type, is_nullable, is_primary, \
-                  column_default, column_comment, introspect_level, is_loaded, last_sync, last_accessed) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 3, 1, ?9, ?9)",
+                 (table_id, column_name, ordinal_position, data_type, is_nullable, is_identity, is_primary, \
+                  is_foreign_key, column_default, column_comment, character_maximum_length, numeric_precision, \
+                  numeric_scale, character_set_name, collation_name, is_generated, extra, \
+                  introspect_level, is_loaded, last_sync, last_accessed) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, 0, '{}', \
+                         3, 1, ?16, ?16)",
                 rusqlite::params![
                     table_id,
                     col.name,
                     (idx + 1) as i32,
                     col.data_type,
                     col.nullable as i32,
+                    is_identity,
                     col.is_primary_key as i32,
+                    col.is_foreign_key as i32,
                     col.default_value,
                     col.comment,
+                    char_max_len,
+                    num_prec,
+                    num_scale,
+                    charset,
+                    collation,
                     now,
                 ],
             ).map_err(|e| CoreError::storage(
@@ -1522,6 +1620,267 @@ impl MetadataCacheOps {
         })?;
 
         Ok(table_id)
+    }
+
+    /// 保存表的索引信息到缓存
+    ///
+    /// # 参数
+    /// * `table_id` - 表 ID
+    /// * `indexes` - 索引详情列表
+    pub fn save_table_indexes(
+        &mut self,
+        table_id: i64,
+        indexes: Vec<crate::core::driver::IndexDetail>,
+    ) -> Result<(), CoreError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
+            .as_secs() as i64;
+
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_table_indexes_tx".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        tx.execute(
+            "DELETE FROM index_columns WHERE index_id IN (SELECT id FROM indexes WHERE table_id = ?1)",
+            rusqlite::params![table_id],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "delete_index_columns".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        tx.execute(
+            "DELETE FROM indexes WHERE table_id = ?1",
+            rusqlite::params![table_id],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "delete_indexes".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        for idx in &indexes {
+            let index_id: i64 = tx.query_row(
+                "INSERT INTO indexes (table_id, index_name, index_type, is_unique, is_primary, index_comment, \
+                 introspect_level, is_loaded, last_sync, last_accessed)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 3, 1, ?7, ?7)
+                 RETURNING id",
+                rusqlite::params![
+                    table_id,
+                    idx.name,
+                    idx.index_type,
+                    idx.is_unique as i32,
+                    idx.is_primary as i32,
+                    idx.comment,
+                    now,
+                ],
+                |row| row.get(0),
+            ).map_err(|e| CoreError::storage(
+                StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "save_index".to_string(),
+                    reason: e.to_string(),
+                }
+            ))?;
+
+            for (col_idx, col_name) in idx.column_names.iter().enumerate() {
+                tx.execute(
+                    "INSERT INTO index_columns (index_id, column_name, ordinal_position, is_included_column) \
+                     VALUES (?1, ?2, ?3, 0)",
+                    rusqlite::params![index_id, col_name, (col_idx + 1) as i32],
+                ).map_err(|e| CoreError::storage(
+                    StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "save_index_column".to_string(),
+                        reason: e.to_string(),
+                    }
+                ))?;
+            }
+        }
+
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_table_indexes_commit".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        Ok(())
+    }
+
+    /// 保存表的约束（外键等）信息到缓存
+    ///
+    /// # 参数
+    /// * `table_id` - 表 ID
+    /// * `constraints` - 约束详情列表
+    pub fn save_table_constraints(
+        &mut self,
+        table_id: i64,
+        constraints: Vec<crate::core::driver::ConstraintDetail>,
+    ) -> Result<(), CoreError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
+            .as_secs() as i64;
+
+        let tx = self.conn.transaction().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_table_constraints_tx".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        tx.execute(
+            "DELETE FROM foreign_key_columns WHERE foreign_key_id IN (SELECT id FROM foreign_keys WHERE table_id = ?1)",
+            rusqlite::params![table_id],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "delete_foreign_key_columns".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        tx.execute(
+            "DELETE FROM foreign_keys WHERE table_id = ?1",
+            rusqlite::params![table_id],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "delete_foreign_keys".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        for constraint in &constraints {
+            if constraint.constraint_type != "FOREIGN KEY" {
+                continue;
+            }
+
+            let fk_id: i64 = tx.query_row(
+                "INSERT INTO foreign_keys (table_id, constraint_name, delete_rule, update_rule, deferrability, \
+                 introspect_level, is_loaded, last_sync, last_accessed)
+                 VALUES (?1, ?2, ?3, ?4, 'NOT DEFERRABLE', 3, 1, ?5, ?5)
+                 RETURNING id",
+                rusqlite::params![
+                    table_id,
+                    constraint.name,
+                    constraint.delete_rule,
+                    constraint.update_rule,
+                    now,
+                ],
+                |row| row.get(0),
+            ).map_err(|e| CoreError::storage(
+                StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "save_foreign_key".to_string(),
+                    reason: e.to_string(),
+                }
+            ))?;
+
+            for (col_idx, col_name) in constraint.column_names.iter().enumerate() {
+                let ref_col = constraint.referenced_columns.get(col_idx).map(|s| s.as_str()).unwrap_or("");
+                tx.execute(
+                    "INSERT INTO foreign_key_columns (foreign_key_id, ordinal_position, column_name, ref_column_name) \
+                     VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![fk_id, (col_idx + 1) as i32, col_name, ref_col],
+                ).map_err(|e| CoreError::storage(
+                    StorageError::Persistence {
+                        store: "sqlite".to_string(),
+                        operation: "save_foreign_key_column".to_string(),
+                        reason: e.to_string(),
+                    }
+                ))?;
+            }
+        }
+
+        tx.commit().map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_table_constraints_commit".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        Ok(())
+    }
+
+    /// 通过 schema_name + table_name 查找 table_id 并保存索引
+    pub fn save_indexes_for_table(
+        &mut self,
+        _conn_id: &str,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+        indexes: Vec<crate::core::driver::IndexDetail>,
+    ) -> Result<(), CoreError> {
+        let schema_id: i64 = self.conn.query_row(
+            "SELECT id FROM schemata WHERE catalog_name = ? AND schema_name = ?",
+            rusqlite::params![catalog, schema],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "find_schema_id".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let table_id: i64 = self.conn.query_row(
+            "SELECT id FROM tables WHERE schema_id = ? AND table_name = ?",
+            rusqlite::params![schema_id, table],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "find_table_id".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        self.save_table_indexes(table_id, indexes)
+    }
+
+    /// 通过 schema_name + table_name 查找 table_id 并保存约束
+    pub fn save_constraints_for_table(
+        &mut self,
+        _conn_id: &str,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+        constraints: Vec<crate::core::driver::ConstraintDetail>,
+    ) -> Result<(), CoreError> {
+        let schema_id: i64 = self.conn.query_row(
+            "SELECT id FROM schemata WHERE catalog_name = ? AND schema_name = ?",
+            rusqlite::params![catalog, schema],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "find_schema_id".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let table_id: i64 = self.conn.query_row(
+            "SELECT id FROM tables WHERE schema_id = ? AND table_name = ?",
+            rusqlite::params![schema_id, table],
+            |row| row.get(0),
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "find_table_id".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        self.save_table_constraints(table_id, constraints)
     }
 
     /// 从缓存加载表详情（MetadataBrowser::get_table_detail() 格式）
@@ -1567,7 +1926,7 @@ impl MetadataCacheOps {
 
         let mut stmt = self.conn.prepare(
             "SELECT column_name, data_type, is_nullable, COALESCE(is_primary, 0) AS is_primary_key,
-             0 AS is_foreign_key, column_default, column_comment \
+             0 AS is_foreign_key, column_default, column_comment, extra
              FROM columns WHERE table_id = ?1 ORDER BY ordinal_position"
         ).map_err(|e| CoreError::storage(StorageError::Persistence {
             store: "sqlite".to_string(),
@@ -1577,6 +1936,13 @@ impl MetadataCacheOps {
 
         let columns: Vec<crate::core::driver::ColumnDetail> = stmt
             .query_map(rusqlite::params![table_id], |row| {
+                let extra_json: Option<String> = row.get(7)?;
+                let extra = if let Some(ref json_str) = extra_json {
+                    serde_json::from_str(json_str).unwrap_or_default()
+                } else {
+                    std::collections::HashMap::new()
+                };
+
                 Ok(crate::core::driver::ColumnDetail {
                     name: row.get(0)?,
                     data_type: row.get(1)?,
@@ -1585,6 +1951,7 @@ impl MetadataCacheOps {
                     is_foreign_key: row.get::<_, i32>(4)? != 0,
                     default_value: row.get(5)?,
                     comment: row.get(6)?,
+                    extra,
                 })
             })
             .map_err(|e| {
@@ -1603,6 +1970,8 @@ impl MetadataCacheOps {
                 })
             })?;
 
+        let index_count = self.load_index_count(table_id)?;
+
         Ok(Some(crate::core::driver::NodeDetail {
             node: crate::core::driver::NodeInfo {
                 name: table_name.to_string(),
@@ -1615,9 +1984,177 @@ impl MetadataCacheOps {
                 comment: table_comment,
             },
             columns,
-            index_count: None,
+            index_count: Some(index_count),
             row_count_estimate: row_count_estimate.map(|n| n as u64),
         }))
+    }
+
+    /// 加载表的索引数量
+    fn load_index_count(&self, table_id: i64) -> Result<usize, CoreError> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM indexes WHERE table_id = ?1",
+            rusqlite::params![table_id],
+            |row| row.get(0),
+        ).optional().map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_index_count".to_string(),
+            reason: e.to_string(),
+        }))?.unwrap_or(0);
+
+        Ok(count as usize)
+    }
+
+    /// 从缓存加载表的索引详情
+    pub fn load_table_indexes(
+        &self,
+        table_id: i64,
+    ) -> Result<Vec<IndexDetailInfo>, CoreError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT i.id, i.index_name, i.index_type, i.is_unique, i.is_primary, i.index_comment \
+             FROM indexes i WHERE i.table_id = ?1 ORDER BY i.index_name"
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_table_indexes_prepare".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let indexes: Vec<(i64, IndexDetailInfo)> = stmt
+            .query_map(rusqlite::params![table_id], |row| {
+                let index_id: i64 = row.get(0)?;
+                Ok((index_id, IndexDetailInfo {
+                    id: index_id,
+                    index_name: row.get(1)?,
+                    index_type: row.get(2)?,
+                    is_unique: row.get::<_, i32>(3)? != 0,
+                    is_primary: row.get::<_, i32>(4)? != 0,
+                    index_comment: row.get(5)?,
+                    columns: Vec::new(),
+                }))
+            })
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_table_indexes_map".to_string(),
+                reason: e.to_string(),
+            }))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_table_indexes_collect".to_string(),
+                reason: e.to_string(),
+            }))?;
+
+        let mut result = Vec::with_capacity(indexes.len());
+        for (index_id, mut idx) in indexes {
+            idx.columns = self.load_index_columns(index_id)?;
+            result.push(idx);
+        }
+
+        Ok(result)
+    }
+
+    /// 加载索引的列信息
+    fn load_index_columns(&self, index_id: i64) -> Result<Vec<IndexColumnInfo>, CoreError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, column_name, ordinal_position, sort_order, is_included_column \
+             FROM index_columns WHERE index_id = ?1 ORDER BY ordinal_position"
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_index_columns_prepare".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let columns = stmt
+            .query_map(rusqlite::params![index_id], IndexColumnInfo::from_row)
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_index_columns_query".to_string(),
+                reason: e.to_string(),
+            }))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_index_columns_collect".to_string(),
+                reason: e.to_string(),
+            }))?;
+
+        Ok(columns)
+    }
+
+    /// 从缓存加载表的外键约束
+    pub fn load_table_foreign_keys(
+        &self,
+        table_id: i64,
+    ) -> Result<Vec<ForeignKeyDetailInfo>, CoreError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT fk.id, fk.constraint_name, fk.delete_rule, fk.update_rule, \
+                    fk.ref_schema_id, fk.ref_table_id \
+             FROM foreign_keys fk WHERE fk.table_id = ?1 ORDER BY fk.constraint_name"
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_table_foreign_keys_prepare".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let fks: Vec<(i64, ForeignKeyDetailInfo)> = stmt
+            .query_map(rusqlite::params![table_id], |row| {
+                let fk_id: i64 = row.get(0)?;
+                Ok((fk_id, ForeignKeyDetailInfo {
+                    id: fk_id,
+                    constraint_name: row.get(1)?,
+                    delete_rule: row.get(2)?,
+                    update_rule: row.get(3)?,
+                    ref_schema_id: row.get(4)?,
+                    ref_table_id: row.get(5)?,
+                    columns: Vec::new(),
+                }))
+            })
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_table_foreign_keys_map".to_string(),
+                reason: e.to_string(),
+            }))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_table_foreign_keys_collect".to_string(),
+                reason: e.to_string(),
+            }))?;
+
+        let mut result = Vec::with_capacity(fks.len());
+        for (fk_id, mut fk) in fks {
+            fk.columns = self.load_foreign_key_columns(fk_id)?;
+            result.push(fk);
+        }
+
+        Ok(result)
+    }
+
+    /// 加载外键的列映射信息
+    fn load_foreign_key_columns(&self, fk_id: i64) -> Result<Vec<ForeignKeyColumnInfo>, CoreError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, ordinal_position, column_name, ref_column_name \
+             FROM foreign_key_columns WHERE foreign_key_id = ?1 ORDER BY ordinal_position"
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "load_foreign_key_columns_prepare".to_string(),
+            reason: e.to_string(),
+        }))?;
+
+        let columns = stmt
+            .query_map(rusqlite::params![fk_id], ForeignKeyColumnInfo::from_row)
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_foreign_key_columns_query".to_string(),
+                reason: e.to_string(),
+            }))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "load_foreign_key_columns_collect".to_string(),
+                reason: e.to_string(),
+            }))?;
+
+        Ok(columns)
     }
 
     /// 检查缓存是否有效（默认 24 小时）
@@ -3984,6 +4521,10 @@ pub struct SchemaInfo {
     pub owner: Option<String>,
     pub comment: Option<String>,
     pub last_sync: Option<i64>,
+    pub default_character_set_name: Option<String>,
+    pub default_collation_name: Option<String>,
+    pub introspect_level: Option<i32>,
+    pub is_loaded: Option<i32>,
 }
 
 impl SchemaInfo {
@@ -3995,6 +4536,10 @@ impl SchemaInfo {
             owner: row.get(3)?,
             comment: row.get(4)?,
             last_sync: row.get(5)?,
+            default_character_set_name: row.get(6)?,
+            default_collation_name: row.get(7)?,
+            introspect_level: row.get(8)?,
+            is_loaded: row.get(9)?,
         })
     }
 }
@@ -4008,6 +4553,8 @@ pub struct TableDetailInfo {
     pub table_comment: Option<String>,
     pub engine: Option<String>,
     pub row_count_estimate: Option<i64>,
+    pub created_at: Option<i64>,
+    pub last_altered_at: Option<i64>,
     pub last_sync: Option<i64>,
     pub schema_name: String,
 }
@@ -4021,8 +4568,10 @@ impl TableDetailInfo {
             table_comment: row.get(3)?,
             engine: row.get(4)?,
             row_count_estimate: row.get(5)?,
-            last_sync: row.get(6)?,
-            schema_name: row.get(7)?,
+            created_at: row.get(6)?,
+            last_altered_at: row.get(7)?,
+            last_sync: row.get(8)?,
+            schema_name: row.get(9)?,
         })
     }
 }
@@ -4040,10 +4589,25 @@ pub struct ColumnDetailInfo {
     pub is_foreign_key: bool,
     pub column_default: Option<String>,
     pub column_comment: Option<String>,
+    pub character_maximum_length: Option<i32>,
+    pub numeric_precision: Option<i32>,
+    pub numeric_scale: Option<i32>,
+    pub character_set_name: Option<String>,
+    pub collation_name: Option<String>,
+    pub is_generated: bool,
+    /// 扩展属性（JSON 格式，来自 columns.extra 列）
+    pub extra: std::collections::HashMap<String, String>,
 }
 
 impl ColumnDetailInfo {
     pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let extra_json: Option<String> = row.get(16)?;
+        let extra = if let Some(ref json_str) = extra_json {
+            serde_json::from_str(json_str).unwrap_or_default()
+        } else {
+            std::collections::HashMap::new()
+        };
+
         Ok(Self {
             id: row.get(0)?,
             column_name: row.get(1)?,
@@ -4055,6 +4619,13 @@ impl ColumnDetailInfo {
             is_foreign_key: row.get::<_, i32>(7)? != 0,
             column_default: row.get(8)?,
             column_comment: row.get(9)?,
+            character_maximum_length: row.get(10)?,
+            numeric_precision: row.get(11)?,
+            numeric_scale: row.get(12)?,
+            character_set_name: row.get(13)?,
+            collation_name: row.get(14)?,
+            is_generated: row.get::<_, i32>(15)? != 0,
+            extra,
         })
     }
 }
@@ -4089,6 +4660,38 @@ impl IndexColumnInfo {
             ordinal_position: row.get(2)?,
             sort_order: row.get(3)?,
             is_included_column: row.get::<_, i32>(4)? != 0,
+        })
+    }
+}
+
+/// 外键约束详情信息
+#[derive(Debug, Clone)]
+pub struct ForeignKeyDetailInfo {
+    pub id: i64,
+    pub constraint_name: String,
+    pub delete_rule: Option<String>,
+    pub update_rule: Option<String>,
+    pub ref_schema_id: Option<i64>,
+    pub ref_table_id: Option<i64>,
+    pub columns: Vec<ForeignKeyColumnInfo>,
+}
+
+/// 外键列映射信息
+#[derive(Debug, Clone)]
+pub struct ForeignKeyColumnInfo {
+    pub id: i64,
+    pub ordinal_position: i32,
+    pub column_name: String,
+    pub ref_column_name: String,
+}
+
+impl ForeignKeyColumnInfo {
+    pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get(0)?,
+            ordinal_position: row.get(1)?,
+            column_name: row.get(2)?,
+            ref_column_name: row.get(3)?,
         })
     }
 }

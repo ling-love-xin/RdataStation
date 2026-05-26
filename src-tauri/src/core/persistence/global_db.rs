@@ -732,7 +732,7 @@ impl GlobalDatabaseManager {
                 &final_password,
                 input.options.unwrap_or(""),
                 &tags_json,
-                &input.use_duckdb_fed.map(|v| if v { "1" } else { "0" }).unwrap_or("0"),
+                input.use_duckdb_fed.map(|v| if v { "1" } else { "0" }).unwrap_or("0"),
                 input.metadata_path.unwrap_or(""),
                 input.server_version.unwrap_or(""),
                 input.description.unwrap_or(""),

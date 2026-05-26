@@ -1,65 +1,76 @@
 <template>
-  <div
-    class="virtual-tree-node"
-    :class="{
-      'is-expanded': node.isExpanded,
-      'is-selected': isSelected,
-      'is-loading': node.isLoading,
-      'is-favorite': isFavorite,
-    }"
-    :style="{ paddingLeft: `${node.level * 16 + 8}px` }"
-    @click="handleClick"
-    @dblclick="handleDblClick"
-    @contextmenu.prevent="handleContextMenu"
-  >
-    <span class="expand-icon" @click.stop="handleExpand">
-      <ChevronRight v-if="!node.isExpanded && !node.isLeaf" :size="14" />
-      <ChevronDown v-if="node.isExpanded" :size="14" />
-      <span v-if="node.isLeaf" class="leaf-spacer" />
-      <Loader2 v-if="node.isLoading" :size="14" class="loading-icon" />
-    </span>
+  <NTooltip :show-arrow="false" placement="right" :delay="500">
+    <div
+      class="virtual-tree-node"
+      :class="{
+        'is-expanded': node.isExpanded,
+        'is-selected': isSelected,
+        'is-loading': node.isLoading,
+        'is-favorite': isFavorite,
+      }"
+      :style="{ paddingLeft: `${node.level * 16 + 8}px` }"
+      @click="handleClick"
+      @dblclick="handleDblClick"
+      @contextmenu.prevent="handleContextMenu"
+    >
+      <span class="expand-icon" @click.stop="handleExpand">
+        <ChevronRight v-if="!node.isExpanded && !node.isLeaf" :size="14" />
+        <ChevronDown v-if="node.isExpanded" :size="14" />
+        <span v-if="node.isLeaf" class="leaf-spacer" />
+        <Loader2 v-if="node.isLoading" :size="14" class="loading-icon" />
+      </span>
 
-    <component :is="iconConfig.icon" :size="14" class="node-icon" :style="{ color: iconColor }" />
+      <component :is="iconConfig.icon" :size="14" class="node-icon" :style="{ color: iconColor }" />
 
-    <Star v-if="isFavorite" :size="12" class="favorite-icon" />
+      <Star v-if="isFavorite" :size="12" class="favorite-icon" />
 
-    <span class="node-label" :class="{ 'is-highlight': isHighlighted }">
-      <template v-if="isHighlighted">
-        <span
-          v-for="(part, index) in labelParts"
-          :key="index"
-          :class="{ 'highlight-match': part.isMatch }"
-        >
-          {{ part.text }}
-        </span>
-      </template>
-      <template v-else>
-        {{ node.label }}
-      </template>
-    </span>
+      <span class="node-label" :class="{ 'is-highlight': isHighlighted }">
+        <template v-if="isHighlighted">
+          <span
+            v-for="(part, index) in labelParts"
+            :key="index"
+            :class="{ 'highlight-match': part.isMatch }"
+          >
+            {{ part.text }}
+          </span>
+        </template>
+        <template v-else>
+          {{ node.label }}
+        </template>
+      </span>
 
-    <span v-if="node.connectionStatus === 'connected'" class="status-dot connected" title="已连接">
-      <span class="pulse-ring"></span>
-    </span>
-    <span
-      v-else-if="node.connectionStatus === 'connecting'"
-      class="status-dot connecting"
-      title="连接中"
-    ></span>
-    <span
-      v-else-if="node.type === 'connection'"
-      class="status-dot disconnected"
-      title="未连接"
-    ></span>
+      <span v-if="node.connectionStatus === 'connected'" class="status-dot connected" title="已连接">
+        <span class="pulse-ring"></span>
+      </span>
+      <span
+        v-else-if="node.connectionStatus === 'connecting'"
+        class="status-dot connecting"
+        title="连接中"
+      ></span>
+      <span
+        v-else-if="node.type === 'connection'"
+        class="status-dot disconnected"
+        title="未连接"
+      ></span>
 
-    <span v-if="node.connectionTags?.length" class="connection-tags">
-      <span v-for="tag in node.connectionTags" :key="tag" class="tag">{{ tag }}</span>
-    </span>
-  </div>
+      <span v-if="node.connectionTags?.length" class="connection-tags">
+        <span v-for="tag in node.connectionTags" :key="tag" class="tag">{{ tag }}</span>
+      </span>
+    </div>
+
+    <template #trigger>
+      <div style="display: none"></div>
+    </template>
+
+    <template v-if="tooltipContent" #default>
+      <div class="node-tooltip">{{ tooltipContent }}</div>
+    </template>
+  </NTooltip>
 </template>
 
 <script setup lang="ts">
 import { ChevronRight, ChevronDown, Loader2, Star } from 'lucide-vue-next'
+import { NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 
 import { getNodeIcon } from '../config/node-icons'
@@ -146,6 +157,34 @@ function handleExpand() {
 function handleContextMenu(event: MouseEvent) {
   emit('context-menu', props.node, event)
 }
+
+const tooltipContent = computed(() => {
+  const { node } = props
+  if (node.type === 'index') {
+    const d = node.data
+    const parts: string[] = []
+    if (d.indexType) parts.push(`类型: ${d.indexType}`)
+    if (d.isUnique) parts.push('唯一索引')
+    if (d.isPrimary) parts.push('主键索引')
+    if (d.indexColumnNames?.length) parts.push(`列: ${d.indexColumnNames.join(', ')}`)
+    if (d.indexComment) parts.push(`注释: ${d.indexComment}`)
+    return parts.length > 0 ? parts.join('\n') : undefined
+  }
+  if (node.type === 'constraint') {
+    const d = node.data
+    const parts: string[] = []
+    if (d.constraintType) parts.push(`类型: ${d.constraintType}`)
+    if (d.constraintColumnNames?.length) parts.push(`列: ${d.constraintColumnNames.join(', ')}`)
+    if (d.referencedTable) {
+      parts.push(`引用表: ${d.referencedTable}`)
+      if (d.referencedColumns?.length) parts.push(`引用列: ${d.referencedColumns.join(', ')}`)
+    }
+    if (d.updateRule) parts.push(`更新规则: ${d.updateRule}`)
+    if (d.deleteRule) parts.push(`删除规则: ${d.deleteRule}`)
+    return parts.length > 0 ? parts.join('\n') : undefined
+  }
+  return undefined
+})
 </script>
 
 <style scoped>
@@ -310,5 +349,12 @@ function handleContextMenu(event: MouseEvent) {
   50% {
     opacity: 0.3;
   }
+}
+
+.node-tooltip {
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-line;
+  max-width: 320px;
 }
 </style>

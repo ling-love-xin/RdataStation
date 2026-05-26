@@ -491,6 +491,10 @@ impl Database for DuckDbDatabase {
 
         Ok(())
     }
+
+    fn as_metadata_browser(&self) -> Option<&dyn crate::core::driver::MetadataBrowser> {
+        Some(self)
+    }
 }
 
 /// DuckDB 事务句柄
@@ -907,6 +911,7 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
                                 Some(default.to_string())
                             },
                             comment: None,
+                            extra: std::collections::HashMap::new(),
                         })
                     } else {
                         None
@@ -926,6 +931,24 @@ impl crate::core::driver::MetadataBrowser for DuckDbDatabase {
             index_count: None,
             row_count_estimate: None,
         })
+    }
+
+    async fn get_indexes(
+        &self,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<crate::core::driver::IndexDetail>, CoreError> {
+        self.list_indexes(catalog, Some(schema), table).await
+    }
+
+    async fn get_constraints(
+        &self,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<crate::core::driver::ConstraintDetail>, CoreError> {
+        self.list_constraints(catalog, Some(schema), table).await
     }
 }
 

@@ -41,6 +41,39 @@ pub struct ColumnDetail {
     pub is_foreign_key: bool,
     pub default_value: Option<String>,
     pub comment: Option<String>,
+    #[serde(default)]
+    pub extra: std::collections::HashMap<String, String>,
+}
+
+/// 索引详情
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexDetail {
+    pub name: String,
+    pub table_name: String,
+    pub column_names: Vec<String>,
+    pub is_unique: bool,
+    pub is_primary: bool,
+    #[serde(default)]
+    pub index_type: Option<String>,
+    #[serde(default)]
+    pub comment: Option<String>,
+}
+
+/// 约束详情
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintDetail {
+    pub name: String,
+    pub table_name: String,
+    pub constraint_type: String,
+    pub column_names: Vec<String>,
+    #[serde(default)]
+    pub referenced_table: Option<String>,
+    #[serde(default)]
+    pub referenced_columns: Vec<String>,
+    #[serde(default)]
+    pub update_rule: Option<String>,
+    #[serde(default)]
+    pub delete_rule: Option<String>,
 }
 
 /// 对象树节点（轻量级，用于快速树渲染）
@@ -89,6 +122,28 @@ pub trait MetadataBrowser: Send + Sync {
         schema: &str,
         table: &str,
     ) -> Result<NodeDetail, CoreError>;
+
+    /// 获取表的索引列表
+    async fn get_indexes(
+        &self,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<IndexDetail>, CoreError> {
+        let _ = (catalog, schema, table);
+        Ok(vec![])
+    }
+
+    /// 获取表的约束列表（主键/外键/唯一约束等）
+    async fn get_constraints(
+        &self,
+        catalog: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<ConstraintDetail>, CoreError> {
+        let _ = (catalog, schema, table);
+        Ok(vec![])
+    }
 }
 
 /// 数据源能力描述
@@ -226,6 +281,14 @@ pub trait Database: Send + Sync {
         Ok(())
     }
 
+    /// 尝试将 self 转型为 MetadataBrowser，用于统一元数据浏览路径
+    ///
+    /// 默认返回 None（不支持 MetadataBrowser 的驱动）。
+    /// 实现了 MetadataBrowser 的驱动（MySQL/PostgreSQL/DuckDB/SQLite）应覆盖此方法返回 Some(self)。
+    fn as_metadata_browser(&self) -> Option<&dyn MetadataBrowser> {
+        None
+    }
+
     /// 获取连接池状态（仅池化数据库支持）
     ///
     /// 返回连接池的运行时指标。非池化数据库（如 SQLite/DuckDB 单连接）返回 None。
@@ -261,6 +324,26 @@ pub trait Database: Send + Sync {
         _schema: Option<&str>,
         _table: &str,
     ) -> Result<Vec<ColumnDetail>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 列举索引
+    async fn list_indexes(
+        &self,
+        _catalog: &str,
+        _schema: Option<&str>,
+        _table: &str,
+    ) -> Result<Vec<IndexDetail>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 列举约束
+    async fn list_constraints(
+        &self,
+        _catalog: &str,
+        _schema: Option<&str>,
+        _table: &str,
+    ) -> Result<Vec<ConstraintDetail>, CoreError> {
         Ok(vec![])
     }
 

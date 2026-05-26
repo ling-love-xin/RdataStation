@@ -42,6 +42,14 @@ export interface ITreeNodeData {
   isPrimary?: boolean
   constraintName?: string
   constraintType?: 'PRIMARY KEY' | 'FOREIGN KEY' | 'UNIQUE' | 'CHECK'
+  indexType?: string
+  indexComment?: string | null
+  indexColumnNames?: string[]
+  constraintColumnNames?: string[]
+  referencedTable?: string
+  referencedColumns?: string[]
+  updateRule?: string
+  deleteRule?: string
   [key: string]: unknown
 }
 

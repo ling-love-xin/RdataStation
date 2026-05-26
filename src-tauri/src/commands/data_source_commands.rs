@@ -235,9 +235,9 @@ pub async fn list_auth_configs(
     db.list_auth_configs(auth_type.as_deref()).await
 }
 
-/// 创建认证配置
+/// 创建认证配置（返回创建的 AuthConfig 含生成的 id）
 #[tauri::command]
-pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<(), CoreError> {
+pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<auth_store::AuthConfig, CoreError> {
     let now = Utc::now().to_rfc3339();
     if ac.id.is_empty() {
         ac.id = format!("G_auth_{}", Uuid::new_v4().to_string().replace('-', "_"));
@@ -250,7 +250,8 @@ pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<(), Co
     }
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
-    db.create_auth_config(&ac).await
+    db.create_auth_config(&ac).await?;
+    Ok(ac)
 }
 
 /// 删除认证配置
