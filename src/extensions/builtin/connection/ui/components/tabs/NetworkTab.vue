@@ -31,6 +31,7 @@
       <div class="chain-list">
         <div
           v-for="(hop, idx) in chain"
+          v-if="shouldShowHop(hop.protocol)"
           :key="hop.id"
           :class="hopItemClass(hop)"
           :draggable="true"
@@ -322,13 +323,13 @@
           dashed
           @click="menuOpen = !menuOpen"
         >{{ addHopButtonLabel() }}</NButton>
-        <NButton v-else-if="!sslInChain" size="small" dashed @click="addHopWrapped('ssl')">{{ $t('connection.networkTab.addTls') }}</NButton>
+        <NButton v-else-if="canAddSsl" size="small" dashed @click="addHopWrapped('ssl')">{{ $t('connection.networkTab.addTls') }}</NButton>
         <span v-else class="hop-limit">{{ $t('connection.networkTab.chainFull') }}</span>
 
         <div v-if="menuOpen && canAddSshProxy" class="hop-menu">
-          <div class="hop-opt" @click="addHopWrapped('ssh'); menuOpen = false">🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
-          <div class="hop-opt" @click="addHopWrapped('proxy'); menuOpen = false">🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
-          <div class="hop-opt" @click="addHopWrapped('ssl'); menuOpen = false">{{ sslMenuLabel() }}</div>
+          <div v-if="canAddSsh" class="hop-opt" @click="addHopWrapped('ssh'); menuOpen = false">🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
+          <div v-if="canAddProxy" class="hop-opt" @click="addHopWrapped('proxy'); menuOpen = false">🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
+          <div v-if="canAddSsl" class="hop-opt" @click="addHopWrapped('ssl'); menuOpen = false">{{ sslMenuLabel() }}</div>
           <div class="hop-menu-sep"></div>
           <div class="hop-menu-desc">🛡 {{ t('navigator.sslTailHint') }}</div>
         </div>
@@ -468,13 +469,55 @@ function ensureForm(hopId: string) {
 
 const activeProfileMgrHop = ref<Hop | null>(null)
 
+// ==================== Driver Capabilities (基于 capabilities 字段动态控制 UI) ====================
+
+/** 解析驱动的 capabilities 字段，返回支持的协议列表 */
+function parseDriverCapabilities(capabilities: string | undefined): string[] {
+  if (!capabilities) return []
+  try {
+    return JSON.parse(capabilities) as string[]
+  } catch {
+    return []
+  }
+}
+
+/** 是否支持 SSL/TLS */
+const supportsSsl = computed(() => {
+  const caps = parseDriverCapabilities(props.driver?.capabilities)
+  return caps.length === 0 || caps.includes('ssl') || caps.includes('ssl_tls')
+})
+
+/** 是否支持 SSH 隧道 */
+const supportsSsh = computed(() => {
+  const caps = parseDriverCapabilities(props.driver?.capabilities)
+  return caps.length === 0 || caps.includes('ssh_tunnel') || caps.includes('ssh')
+})
+
+/** 是否支持代理 */
+const supportsProxy = computed(() => {
+  const caps = parseDriverCapabilities(props.driver?.capabilities)
+  return caps.length === 0 || caps.includes('proxy')
+})
+
 // ==================== Computed ====================
 
 const enabledHops = computed(() => chain.value.filter(h => h.enabled))
 const enabledHopCount = computed(() => _enabledNetworkHopCount.value)
 const sslInChain = computed(() => hasSsl.value)
-const canAddSshProxy = computed(() => !isMaxNetworkHops.value)
+const canAddSshProxy = computed(() => !isMaxNetworkHops.value && (supportsSsh.value || supportsProxy.value))
 const dbLabel = computed(() => props.driver?.name?.toUpperCase() || 'DB')
+
+/** 是否显示网络配置区域（文件型数据库不显示） */
+const showNetworkConfig = computed(() => !props.driver?.is_file && !!props.driver)
+
+/** 是否可以添加 SSL（驱动支持且链中还没有 SSL） */
+const canAddSsl = computed(() => supportsSsl.value && !sslInChain.value)
+
+/** 是否可以添加 SSH（驱动支持且未达上限） */
+const canAddSsh = computed(() => supportsSsh.value && remainingHops.value > 0)
+
+/** 是否可以添加 Proxy（驱动支持且未达上限） */
+const canAddProxy = computed(() => supportsProxy.value && remainingHops.value > 0)
 
 /** Map chain hops to TopoHop format for the topology preview */
 const topoHops = computed<TopoHop[]>(() =>
@@ -540,6 +583,17 @@ function findProfile(type: string, id: string): NetworkProfile | undefined {
 }
 
 // ==================== Hop Helpers ====================
+
+/** 是否应该显示某个协议的节点（基于驱动 capabilities） */
+function shouldShowHop(protocol: ProtocolType): boolean {
+  if (!props.driver) return false
+  switch (protocol) {
+    case 'ssl': return supportsSsl.value
+    case 'ssh': return supportsSsh.value
+    case 'proxy': return supportsProxy.value
+    default: return true
+  }
+}
 
 function hopItemClass(hop: Hop) {
   const base = hop.protocol === 'ssl' ? 'chain-item ssl' : 'chain-item'

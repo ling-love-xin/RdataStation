@@ -197,6 +197,61 @@
           </div>
         </div>
       </NSpace>
+
+      <!-- Dynamic config schema fields (高级连接参数) -->
+      <NSpace v-if="schemaFields.length > 0" vertical :size="14">
+        <div class="sec-title">{{ $t('navigator.advancedParams') || '高级连接参数' }}</div>
+        <div v-for="field in schemaFields" :key="field.key" class="form-row">
+          <div class="form-grp" style="flex:1">
+            <span class="form-label">{{ field.label }}</span>
+            <!-- Select 类型 -->
+            <NSelect
+              v-if="field.type === 'select'"
+              v-model:value="schemaFormData[field.key]"
+              size="small"
+              :placeholder="field.placeholder"
+              :options="field.options"
+              @update:value="emitUpdate"
+            />
+            <!-- Switch 类型 -->
+            <NSwitch
+              v-else-if="field.type === 'switch'"
+              v-model:value="schemaFormData[field.key]"
+              @update:value="emitUpdate"
+            />
+            <!-- Number 类型 -->
+            <NInputNumber
+              v-else-if="field.type === 'input-number'"
+              v-model:value="schemaFormData[field.key]"
+              size="small"
+              :placeholder="field.placeholder"
+              :min="field.min"
+              :max="field.max"
+              @update:value="emitUpdate"
+            />
+            <!-- Textarea 类型 -->
+            <NInput
+              v-else-if="field.type === 'textarea'"
+              v-model:value="schemaFormData[field.key]"
+              type="textarea"
+              size="small"
+              :placeholder="field.placeholder"
+              :rows="field.rows || 3"
+              @update:value="emitUpdate"
+            />
+            <!-- 默认 Input 类型 -->
+            <NInput
+              v-else
+              v-model:value="schemaFormData[field.key]"
+              size="small"
+              :placeholder="field.placeholder"
+              type="password"
+              @update:value="emitUpdate"
+            />
+            <div v-if="field.helpText" class="field-help">{{ field.helpText }}</div>
+          </div>
+        </div>
+      </NSpace>
     </template>
 
     <!-- Auth Config Manager overlay -->
@@ -210,13 +265,13 @@
 </template>
 
 <script setup lang="ts">
-import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace } from 'naive-ui'
-import { reactive, computed, watch, onMounted } from 'vue'
+import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace, NSwitch } from 'naive-ui'
+import { reactive, computed, watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useAuthConfig, parseSupportedAuthTypes } from '../../composables/useAuthConfig'
 import AuthConfigManager from '../AuthConfigManager.vue'
-
+import { parseSchemaToFormFields, type FormFieldConfig } from '../../utils/schema-parser'
 
 import type { Driver } from '../../../domain/types'
 
@@ -409,10 +464,51 @@ watch(
     // 解析驱动支持的认证方式列表
     const types = parseSupportedAuthTypes(props.driver?.supported_auth_types)
     updateSupportedAuthTypes(types)
+    // 更新 config_schema 字段
+    updateSchemaFields()
     emitUpdate()
   },
   { immediate: true },
 )
+
+// ==================== Config Schema 动态表单 ====================
+
+/** 从 config_schema 解析出的表单字段列表 */
+const schemaFields = ref<FormFieldConfig[]>([])
+
+/** 动态表单数据 */
+const schemaFormData = reactive<Record<string, unknown>>({})
+
+/** 更新 config_schema 字段 */
+function updateSchemaFields() {
+  const schema = props.driver?.config_schema
+  schemaFields.value = parseSchemaToFormFields(schema || '')
+  
+  // 初始化表单数据
+  for (const field of schemaFields.value) {
+    if (schemaFormData[field.key] === undefined) {
+      schemaFormData[field.key] = field.defaultValue ?? ''
+    }
+  }
+  
+  // 从 formData 恢复值
+  for (const key of Object.keys(schemaFormData)) {
+    if (props.formData[key] !== undefined) {
+      schemaFormData[key] = props.formData[key]
+    }
+  }
+}
+
+// 修改 emitUpdate 函数，包含 schema 数据
+const originalEmitUpdate = emitUpdate
+function emitUpdate() {
+  emit('update:form-data', {
+    ...local,
+    ...schemaFormData,
+    authMethod: authMethod.value,
+    selectedAuthConfigId: selectedAuthConfigId.value,
+  })
+}
 </script>
 
 <style scoped>
@@ -447,4 +543,7 @@ watch(
 
 /* New file button */
 .btn-new-file{white-space:nowrap}
+
+/* Schema dynamic fields */
+.field-help{font-size:11px;color:var(--color-text-muted);margin-top:2px}
 </style>
