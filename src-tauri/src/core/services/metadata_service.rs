@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::core::driver::traits::{
-    ColumnDetail, ConstraintDetail, DynDatabase, IndexDetail, MetadataBrowser,
-    SchemaObject, SchemaObjectKind,
+    ColumnDetail, ConstraintDetail, DynDatabase, IndexDetail, SchemaObject,
+    SchemaObjectKind,
 };
 use crate::core::error::{ConnectionError, CoreError};
 use crate::core::services::connection_manager::ConnectionManager;
