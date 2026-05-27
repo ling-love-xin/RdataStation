@@ -453,6 +453,8 @@ impl Database for DuckDbDatabase {
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
+                table_name: None,
+                event: None,
             })
             .collect())
     }
@@ -465,6 +467,108 @@ impl Database for DuckDbDatabase {
     ) -> Result<Vec<ColumnDetail>, CoreError> {
         let detail = self.get_table_detail("main", "main", table).await?;
         Ok(detail.columns)
+    }
+
+    /// 列举表的所有索引
+    ///
+    /// DuckDB 通过 duckdb_indexes() 表函数获取索引信息。
+    /// 返回 IndexDetail 列表，包含索引名、列名、是否唯一/主键等。
+    async fn list_indexes(
+        &self,
+        _catalog: &str,
+        _schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<IndexDetail>, CoreError> {
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "duckdb".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
+
+        // duckdb_indexes() 返回: database_name, schema_name, table_name, index_name,
+        // column_indexes (UINTEGER[]), is_unique, is_primary, index_type, constraint_type, expression, sql
+        let mut stmt = conn
+            .prepare(
+                "SELECT index_name, column_indexes, is_unique, is_primary, index_type
+                 FROM duckdb_indexes()
+                 WHERE table_name = ?",
+            )
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_indexes", e.to_string()))
+            })?;
+
+        // DuckDB 的 column_indexes 返回的是序号数组，需要映射到列名
+        // 先获取表的所有列序号→列名映射
+        let mut col_stmt = conn
+            .prepare("SELECT column_index, column_name FROM duckdb_columns() WHERE table_name = ?")
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_indexes_columns", e.to_string()))
+            })?;
+
+        let col_rows = col_stmt
+            .query_map([table], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,   // column_index
+                    row.get::<_, String>(1)?, // column_name
+                ))
+            })
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_indexes_col_map", e.to_string()))
+            })?;
+
+        let mut col_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+        for row in col_rows {
+            match row {
+                Ok((idx, name)) => {
+                    col_map.insert(idx, name);
+                }
+                Err(e) => {
+                    tracing::warn!("DuckDB list_indexes column map row error: {}", e);
+                }
+            }
+        }
+
+        let rows = stmt
+            .query_map([table], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,  // index_name
+                    row.get::<_, Vec<i64>>(1)?, // column_indexes
+                    row.get::<_, bool>(2)?,    // is_unique
+                    row.get::<_, bool>(3)?,    // is_primary
+                    row.get::<_, Option<String>>(4)?, // index_type
+                ))
+            })
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_indexes", e.to_string()))
+            })?;
+
+        let mut indexes = Vec::new();
+        for row in rows {
+            match row {
+                Ok((name, col_indexes, is_unique, is_primary, index_type)) => {
+                    let column_names: Vec<String> = col_indexes
+                        .iter()
+                        .filter_map(|ci| col_map.get(ci).cloned())
+                        .collect();
+                    indexes.push(IndexDetail {
+                        name,
+                        table_name: table.to_string(),
+                        column_names,
+                        is_unique,
+                        is_primary,
+                        index_type,
+                        comment: None,
+                    });
+                }
+                Err(e) => {
+                    tracing::warn!("DuckDB list_indexes row error: {}", e);
+                }
+            }
+        }
+
+        Ok(indexes)
     }
 
     async fn register_external_database(

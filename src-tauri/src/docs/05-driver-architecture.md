@@ -1,7 +1,7 @@
 # 驱动架构
 
-> 版本：v2.2
-> 最后更新：2026-05-27
+> 版本：v2.3
+> 最后更新：2026-05-28
 > 状态：✅ 实际代码对齐
 
 ## 概述
@@ -207,6 +207,56 @@ pub struct DataSourceMeta {
 | 并发写入   | ✅    | ✅         | ❌     | ✅     |
 | 内存数据库 | ❌    | ❌         | ❌     | ❌     |
 
+## DB 驱动能力标记（capabilities）
+
+`drivers.capabilities` 存储 JSON 数组，描述驱动对前端功能的支持。当前定义的 9 种能力：
+
+| 能力               | 标识               | MySQL | MySQL Native | PostgreSQL | PG Native | SQLite | DuckDB |
+| ------------------ | ------------------ | ----- | ------------ | ---------- | --------- | ------ | ------ |
+| 对象树导航         | `tree`             | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 健康检查/连接测试  | `health_check`     | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 事务支持           | `transactions`     | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 索引分析           | `index_analysis`   | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+| SQL 自动补全       | `sql_autocomplete` | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+| Schema 浏览        | `schema_browser`   |       |             | ✅         | ✅        |       | ✅     |
+| 分析查询           | `analytics`        |       |             |           |          |       | ✅     |
+| 联邦查询           | `federation`       |       |             |           |          |       | ✅     |
+| 表编辑器           | `table_editor`     | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+
+> **能力分配依据**：
+> - `schema_browser`：具备 `list_databases()` / `list_schemas()` 默认实现的驱动（PG/DuckDB）
+> - `analytics` / `federation`：DuckDB 独占（分析引擎 + `register_external_database`）
+> - `index_analysis`：所有驱动均支持（EXPLAIN 或 EXPLAIN QUERY PLAN）
+> - `table_editor`：支持 DML 的 SQL 数据库均开启
+
+## 驱动属性（driver_properties）
+
+`drivers.driver_properties` 存储 JSON 键值对，为前端 **DriverPropsTab** 提供默认连接属性。每个驱动按数据库官方推荐配置填充：
+
+| 驱动             | 默认属性                                                                                    | 说明               |
+| ---------------- | ------------------------------------------------------------------------------------------- | ------------------ |
+| MySQL (sqlx)     | `connectTimeout`, `socketTimeout`, `maxAllowedPacket`, `useCompression`, `characterEncoding` | SQLx 连接池常用    |
+| MySQL (Official) | 同上                                                                                        | mysql_async 兼容   |
+| PostgreSQL(x2)   | `connectTimeout`, `socketTimeout`, `applicationName`, `sslmode`, `keepalivesIdle`            | pg 官方推荐        |
+| SQLite           | `journalMode:WAL`, `synchronous:NORMAL`, `busyTimeout`, `cacheSize`, `foreignKeys`           | rusqlite 性能优化  |
+| DuckDB           | `memoryLimit:1GB`, `threads:4`, `enableObjectCache`, `tempDirectory`, `accessMode`           | duckdb-rs 推荐配置 |
+
+### 数据流
+
+```
+drivers.driver_properties (JSON string)
+    ↓
+driver_store::Driver { driver_properties: Option<String> }
+    ↓ [Tauri Command / specta 序列化]
+前端 Driver { driver_properties?: string }
+    ↓ [JSON.parse()]
+DriverPropsTab 初始填充表单
+```
+
+> 迁移 016 负责为存量数据库添加 `driver_properties` 列并填充默认值，迁移 008/013 负责新库初始 seed data。
+
+## 内置驱动（共 6 个）
+
 ## DriverRegistry（驱动注册表）
 
 **路径**: [registry.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry.rs#L656)
@@ -360,6 +410,15 @@ pub struct DriverDescriptor {
 - 支持: SSL、SSH 隧道、HTTP/SOCKS 代理
 - 连接方式: `mysql://user:pass@host:port/db`
 
+### MySQL (Official / mysql_async)
+
+**路径**: [native/mysql_native.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/mysql_native.rs)
+
+- 驱动: `mysql_async::Conn`（MySQL 官方 Rust 驱动）
+- 默认端口: 3306
+- 支持: password、SSL 认证
+- Registry key: `mysql_native`
+
 ### PostgreSQL (sqlx)
 
 **路径**: [native/postgres.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres.rs)
@@ -368,6 +427,15 @@ pub struct DriverDescriptor {
 - 默认端口: 5432
 - 支持: SSL、SSH 隧道（完整实现）、HTTP/SOCKS 代理
 - 连接方式: `postgres://user:pass@host:port/db`
+
+### PostgreSQL (Official / tokio-postgres)
+
+**路径**: [native/postgres_native.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/native/postgres_native.rs)
+
+- 驱动: `tokio_postgres::Client`（PostgreSQL 官方 Rust 驱动）
+- 默认端口: 5432
+- 支持: password (SCRAM/MD5)、SSL (TLS)、Kerberos (GSSAPI) 认证
+- Registry key: `postgres_native`
 
 ### SQLite (rusqlite)
 
@@ -512,3 +580,126 @@ trait MetadataBrowser {
 - `DriverRegistry::unregister()` 已就绪
 - WASM 插件通过 `wasmtime` 加载
 - JDBC 通过 Go Sidecar + gRPC 桥接
+
+---
+
+## 四重冗余收敛方案（A1）
+
+### 问题定义
+
+当前存在 4 套独立的驱动定义，字段重叠率高达 90%：
+
+| 类型 | 文件 | 用途 | 字段数 |
+|------|------|------|:---:|
+| `DriverDescriptor` | [descriptors.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/descriptors.rs) | Registry 运行时描述符 | 22 |
+| `Driver` (ORM) | [driver_store.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/driver_store.rs) | DB 表 `drivers` 映射 | 15 |
+| `DriverConnectionConfig` | [config.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/config.rs) | 连接实例运行时配置 | 12 |
+| `DriverMetadata` | [metadata.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/metadata.rs) | 驱动元信息（UI 展示） | 10+ |
+
+### 字段重叠矩阵
+
+| 字段 | Descriptor | Driver(ORM) | Config | Metadata |
+|------|:---:|:---:|:---:|:---:|
+| `id` | ✅ | ✅ | | ✅ |
+| `name` | ✅ | ✅ | ✅ | ✅ |
+| `driver_kind` | ✅ | ✅ | | |
+| `default_port` | ✅ | ✅ | | |
+| `version` | ✅ | ✅ | | ✅ |
+| `url_template` | ✅ | ✅ | ✅ | |
+| `supported_auth_types` | ✅ | ✅ | | |
+| `capabilities` | ✅ | ✅ | | |
+| `driver_properties` | ✅ | ✅ | | |
+| `config_schema` | ✅ | ✅ | | |
+| `download_url` | ✅ | ✅ | | |
+| `download_checksum` | ✅ | ✅ | | |
+| `icon` | ✅ | | | ✅ |
+| `description` | ✅ | | | ✅ |
+
+### 收敛方案：`DriverProfile` 统一模型
+
+#### Phase 1：合并 Driver(ORM) + DriverDescriptor → `DriverProfile`
+
+```rust
+/// 驱动档案 — 合并 DB 持久化 + Registry 运行时描述符
+/// 取代: DriverDescriptor + Driver
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct DriverProfile {
+    // ===== 标识 (原 Driver.id + DriverDescriptor.id) =====
+    pub id: String,                    // e.g. "mysql", "postgres_native"
+    pub name: String,                  // 显示名称
+    pub description: String,
+
+    // ===== 分类 (原 DriverDescriptor) =====
+    pub driver_kind: DriverKind,       // Native / Jdbc / Wasm / ...
+    pub category: String,              // "relational" / "file-based" / ...
+    pub type_id: String,               // 数据库类型 (mysql/postgres/sqlite/duckdb)
+
+    // ===== 网络属性 =====
+    pub default_port: Option<u16>,
+    pub is_file: bool,                 // 合并: require_file → is_file
+    pub require_database: bool,
+
+    // ===== 模板 (A3修复) =====
+    pub url_template: Option<String>,
+
+    // ===== 能力 (v0.5.3) =====
+    pub capabilities: Vec<String>,     // 从 JSON string 改为强类型 Vec
+    pub supported_auth_types: Vec<String>,
+    pub driver_properties: HashMap<String, String>,  // 从 JSON string 改为强类型
+
+    // ===== UI / 配置 =====
+    pub config_schema: DriverConfigSchema, // 从 JSON string 改为强类型
+    pub icon: Option<DriverIcon>,
+
+    // ===== 版本 / 下载 =====
+    pub version: String,
+    pub download_url: Option<String>,
+    pub download_checksum: Option<String>,
+
+    // ===== 状态 =====
+    pub enabled: bool,                 // 来自 Driver
+}
+```
+
+#### Phase 2：`DriverConnectionConfig` 引用 `DriverProfile`
+
+```rust
+pub struct DriverConnectionConfig {
+    /// 驱动档案引用（仅存 id，运行时从 Registry 获取）
+    pub driver_id: String,
+    /// URL 模板（从 DriverProfile.url_template 派生）
+    pub url_template: Option<String>,
+    // ... 其余保持连接运行时字段
+}
+```
+
+#### Phase 3：`DriverMetadata` 合并入 `DriverProfile`
+
+`DriverMetadata` 的 `features` / `form_fields` 等字段直接合并到 `DriverProfile.config_schema` 强类型中。
+
+### 收敛路线图
+
+| Phase | 工作内容 | 预估工时 | 风险 |
+|------|------|:---:|------|
+| **Phase 0** (当前) | JSON string 字段改为强类型（`capabilities: Vec<String>`, `driver_properties: HashMap`） | 3h | 低 |
+| **Phase 1** | 合并 `Driver` + `DriverDescriptor` → `DriverProfile`，更新 DB 迁移和 persistence 层 | 6h | 中 |
+| **Phase 2** | `DriverConnectionConfig` 只存 `driver_id`，运行时从 Registry 查 `DriverProfile` | 3h | 中 |
+| **Phase 3** | `DriverMetadata` 合并入 `DriverProfile` 并删除 | 2h | 低 |
+
+### 预期收益
+
+- **字段修改从 4 处 → 1 处**（新增字段只需改 `DriverProfile`）
+- **JSON 字符串 → 强类型**（`capabilities: String` → `Vec<String>`，编译期类型安全）
+- **`to_url()` 模板化**（无需硬编码 match，新驱动只需提供 `url_template`）
+- **前端 specta 绑定自动更新**（无需手动同步类型）
+
+---
+
+## 版本历史
+
+| 版本 | 日期 | 说明 |
+|------|------|------|
+| v2.4 | 2026-05-28 | specta 字段对齐修复：P1 domain/types.ts ConnectDatabaseInput 缺5字段补齐；P2 ConnectionInfoResponse 缺 auth_method（3处映射）；P3 onExtraConfig 补齐5字段转发；P4 ConnectionResponse 前类型补齐8字段；P5 移除未使用导入 |
+| v2.3 | 2026-05-28 | 新增 DB 能力标记表 + driver_properties 数据流；B1-B3 修复（StagingItem 状态恢复 + auth 字段）；A2-A4 重构（ConnectRequest 消除参数反模式 + to_url 模板化 + 前端 URL 对齐）；A1 四重冗余收敛方案 |
+| v2.2 | 2026-05-27 | capability 9 种 + driver_properties 添加 |
+| v2.1 | 2026-05-25 | 新增 MySQL Native / PostgreSQL Native 驱动条目 |

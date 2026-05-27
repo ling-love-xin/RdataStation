@@ -110,7 +110,7 @@
 - Columns/Routines: 1小时
 
 ### 3. 完整的版本迁移
-- 9个迁移版本
+- 10个迁移版本（新增 V10：企业级统计 + 显示控制）
 - 自动升级检测
 - 迁移历史追踪
 
@@ -125,14 +125,54 @@
 - Level 2: 标准信息（中等）
 - Level 3: 完整信息（慢但详细）
 
+### 6. 企业级元数据统计（V10 新增）
+- **schemata 聚合统计列**：total_tables, total_views, total_procedures, total_functions, total_size_bytes, row_count_total
+- **tables 显示控制列**：display_order, hidden, favorite, color_label, user_comment
+- **schema_stats 视图**：实时聚合每个 Schema 的对象数量和数据大小
+- **connection_stats 视图**：跨 Schema 的连接级统计汇总
+- **save_table_with_stats**：保存表元数据时自动更新所属 Schema 的聚合统计
+- **list_schemas_with_stats**：查询 Schema 列表时返回完整统计信息
+
+### 7. 导航树修复（V10 同步）
+- **childCount 动态计算**：Schema 节点按 NavigationConfig 启用的文件夹数计算；Tables/Views 文件夹按实际已加载数据计数；表节点按 columns + 配置的 tableChildren 计算
+- **离线浏览支持**：`loadCatalogsFromCacheSilent` 方法，连接断开后仍可从 L2 SQLite 缓存构建导航树
+- **数据库类型自适应**：PostgreSQL（catalog+schema）、MySQL（catalog→tables 直接）、DuckDB/SQLite（connection→tables 直接）
+
+### 8. 前后端一致性修复（V10.1）
+- **Rust TableMeta 扩展**：新增 7 个 V10 字段（row_count_estimate, data_length, index_length, display_order, hidden, favorite, color_label, user_comment），使用 `skip_serializing_if` 可选序列化
+- **Rust SchemaMeta 扩展**：新增 6 个 Schema 聚合统计字段（total_tables, total_views, total_procedures, total_functions, total_size_bytes, row_count_total）及 `SchemaMeta::basic()` 构造函数
+- **前端 metadata-cache-service.ts**：SchemaMeta 新增 6 个可选统计字段，与 Rust 完全对齐
+- **生成绑定同步**：`src/generated/specta/bindings.ts` 的 SchemaMeta/TableMeta 类型同步更新
+- **所有 TableMeta/SchemaMeta 构造点**：统一使用 `TableMeta::basic()` / `SchemaMeta::basic()` 工厂方法
+- **ColumnMeta 验证**：前后端 8 字段（name/dataType/isNullable/defaultValue/isPrimaryKey/isForeignKey/comment）经 serde rename 完全对齐
+
+### 9. 导航栏全链路打通修复（V10.2）
+- **P0-1 indexes/constraints 加载修复**：Store 新增 `loadIndexes`/`loadConstraints` 方法，写入 TableNode.indexes/constraints；Tree Loader 展开 indexes-folder/constraints-folder 时先调用 Store 加载再渲染
+- **P0-2 sequences/triggers 文件夹修复**：Tree Loader `loadChildren` 新增 `sequences-folder`/`triggers-folder` 分支，之前展开时静默返回空
+- **P0-3 后端 commands 新增**：
+  - `load_sequences` Tauri 命令（返回 SequenceMeta）
+  - `load_triggers` Tauri 命令（返回 TriggerMeta，含 tableName/event）
+  - Specta 类型绑定 + lib.rs 命令注册（3 处）
+- **P0-4 驱动实现补齐**：
+  - Database trait 新增 `list_sequences` / `list_triggers` 默认方法
+  - PostgreSQL 实现：`pg_catalog.pg_proc` 查询序列/触发器
+  - MySQL 实现：`SHOW INDEX FROM` 查询索引
+  - MetadataBrowser trait 新增 `get_sequences` / `get_triggers` 方法
+  - MetadataService 新增 `list_sequences` / `list_triggers` 方法
+- **SchemaObject 扩展**：新增 `Sequence` / `Trigger` 变体；新增 `table_name` / `event` 可选字段；`names_to_schema_objects` 支持触发器 3 列解析
+- **前端 API 补齐**：`database-api.ts` 新增 `loadSequences` / `loadTriggers`（tauri.invoke 直调），`SequenceMeta` / `TriggerMeta` 类型定义
+- **前端 Store 接口扩展**：`SchemaNode.sequences?` / `triggers?` 字段，`SequenceNode` / `TriggerNode` 接口
+- **Tree Loader 新增**：`createSequenceNodes` / `createTriggerNodes` 渲染函数
+
 ## 后续建议
 
 1. **启用类型自动生成**
-   - 在首次调试构建时运行类型导出
+   - 在首次调试构建时运行 `cargo build` 重新生成 specta bindings
    - 切换前端使用自动生成的类型而不是临时定义
 
 2. **进一步优化**
-   - 考虑添加 L2 缓存的实际实现
+   - 在 `load_tables` 命令中从驱动层读取 row_count_estimate / data_length / index_length
+   - 调用 `save_table_with_stats()` 将统计信息写入 L2 缓存
    - 完善权限表的读写逻辑
    - 添加更多单元测试
 
@@ -144,17 +184,29 @@
 ## 文件清单
 
 ### 新增文件
-- `src-tauri/src/core/types.rs`
-- `src-tauri/build.rs`
+- `src-tauri/migrations/connection_metadata/010_enterprise_statistics_and_display.sql`
 - `docs/metadata-cache-implementation.md` (本文件)
 
-### 修改文件
-- `src-tauri/migrations/connection_metadata/009_jdbc_metadata_alignment.sql`
-- `src-tauri/src/core/cache/cache_manager.rs`
-- `src-tauri/src/core/mod.rs`
-- `src-tauri/Cargo.toml`
-- `src/extensions/builtin/database/ui/services/metadata-cache-service.ts`
+### 修改文件 (V10)
+- `src-tauri/src/core/persistence/metadata_cache.rs` — SchemaInfo/TableDetailInfo 扩展 + save_table_with_stats / update_schema_stats / get_schema_stats / list_schemas_with_stats
+- `src/extensions/builtin/database/ui/services/metadata-cache-service.ts` — TableMeta + SchemaMeta 扩展
+- `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — loadCatalogsFromCacheSilent
+- `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — childCount 修复 + countEnabledFolders/countTableChildren + 离线支持
+
+### 修改文件 (V10.1 一致性修复)
+- `src-tauri/src/commands/metadata_commands.rs` — TableMeta/SchemaMeta 扩展 + basic()/from_detail() 工厂方法
+- `src/generated/specta/bindings.ts` — SchemaMeta/TableMeta 类型同步
+
+### 修改文件 (V10.2 导航栏全链路打通)
+- `src-tauri/src/core/driver/traits.rs` — SchemaObjectKind 新增 Sequence/Trigger；SchemaObject 新增 table_name/event；Database trait 新增 list_sequences/list_triggers；MetadataBrowser 新增 get_sequences/get_triggers
+- `src-tauri/src/core/driver/native/postgres.rs` — 实现 list_sequences/list_triggers；names_to_schema_objects 支持 3 列触发器解析
+- `src-tauri/src/core/driver/native/mysql.rs` — 实现 list_indexes via SHOW INDEX FROM
+- `src-tauri/src/commands/metadata_commands.rs` — 新增 SequenceMeta/TriggerMeta + load_sequences/load_triggers 命令
+- `src-tauri/src/core/services/metadata_service.rs` — 新增 list_sequences/list_triggers
+- `src-tauri/src/lib.rs` — 命令注册（3 处）+ 权限允许列表
+- `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — 新增 loadIndexes/loadConstraints/loadSequences/loadTriggers；SchemaNode 新增 sequences/triggers；新增 SequenceNode/TriggerNode 接口
+- `src/extensions/builtin/database/ui/api/database-api.ts` — 新增 loadSequences/loadTriggers + SequenceMeta/TriggerMeta 类型
+- `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — indexes/constraints 先加载再渲染；新增 sequences/triggers folder 和 node 处理
 
 ---
-
-**修复完成日期**: 2026-05-26
+**最后更新**: 2026-05-28 (V10.2 导航栏全链路打通)

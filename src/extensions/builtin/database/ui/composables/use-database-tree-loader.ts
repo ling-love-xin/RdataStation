@@ -257,6 +257,10 @@ export function useDatabaseTreeLoader() {
     const parentKey = NodeKeyEncoder.encode(['schema', connectionId, dbName, schemaName])
     const nodes: VirtualTreeNode[] = []
 
+    // 获取该 schema 下实际的表和视图数量
+    const tables = navigatorStore.getSchemaTables(connectionId, dbName, schemaName)
+    const views = navigatorStore.getSchemaViews(connectionId, dbName, schemaName)
+
     if (isFolderEnabled(config, 'tables')) {
       nodes.push({
         key: NodeKeyEncoder.encode(['tables-folder', connectionId, dbName, schemaName]),
@@ -267,7 +271,7 @@ export function useDatabaseTreeLoader() {
         type: 'tables-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0,
+        childCount: tables.length, // 已加载的数据中的真实表数量
       })
     }
 
@@ -281,7 +285,7 @@ export function useDatabaseTreeLoader() {
         type: 'views-folder',
         data: { connectionId, dbName, schemaName },
         parentId: parentKey,
-        childCount: 0,
+        childCount: views.length,
       })
     }
 
@@ -462,6 +466,64 @@ export function useDatabaseTreeLoader() {
       label: func.name,
       type: 'function',
       data: { connectionId, dbName, schemaName, functionName: func.name },
+      parentId: parentKey,
+      childCount: 0,
+    }))
+  }
+
+  /**
+   * 创建序列节点
+   */
+  function createSequenceNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined
+  ): VirtualTreeNode[] {
+    const schema = navigatorStore
+      .getCatalogSchemas(connectionId, dbName)
+      .find(s => s.name === (schemaName || ''))
+
+    if (!schema || !schema.sequences) return []
+
+    const parentKey = NodeKeyEncoder.encode(['sequences-folder', connectionId, dbName, schemaName || ''])
+
+    return schema.sequences.map(seq => ({
+      key: NodeKeyEncoder.encode(['sequence', connectionId, dbName, schemaName || '', seq.name]),
+      level: schemaName ? 4 : 3,
+      isExpanded: false,
+      isLeaf: true,
+      label: seq.name,
+      type: 'sequence',
+      data: { connectionId, dbName, schemaName, sequenceName: seq.name },
+      parentId: parentKey,
+      childCount: 0,
+    }))
+  }
+
+  /**
+   * 创建触发器节点
+   */
+  function createTriggerNodes(
+    connectionId: string,
+    dbName: string,
+    schemaName: string | undefined
+  ): VirtualTreeNode[] {
+    const schema = navigatorStore
+      .getCatalogSchemas(connectionId, dbName)
+      .find(s => s.name === (schemaName || ''))
+
+    if (!schema || !schema.triggers) return []
+
+    const parentKey = NodeKeyEncoder.encode(['triggers-folder', connectionId, dbName, schemaName || ''])
+
+    return schema.triggers.map(trg => ({
+      key: NodeKeyEncoder.encode(['trigger', connectionId, dbName, schemaName || '', trg.name]),
+      level: schemaName ? 4 : 3,
+      isExpanded: false,
+      isLeaf: true,
+      label: trg.name,
+      type: 'trigger',
+      data: { connectionId, dbName, schemaName, triggerName: trg.name },
       parentId: parentKey,
       childCount: 0,
     }))
@@ -735,8 +797,12 @@ export function useDatabaseTreeLoader() {
 
         const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(connId)
 
+        // 在线：从数据库加载 catalogs
         if (hasRuntimeConn) {
           await navigatorStore.loadCatalogs(connId)
+        } else {
+          // 离线：尝试从 L2 缓存加载 catalogs
+          await navigatorStore.loadCatalogsFromCacheSilent(connId)
         }
 
         if (config.hasCatalogs) {
@@ -825,6 +891,30 @@ export function useDatabaseTreeLoader() {
         return createFunctionNodes(connectionId, dbName, schemaName)
       }
 
+      // Level 2/3: Sequences 文件夹 -> 序列列表
+      if (nodeType === 'sequences-folder') {
+        const dbName = keyParts[2]
+        const schemaName = keyParts[3] || undefined
+
+        if (schemaName) {
+          await navigatorStore.loadSequences(connectionId, dbName, schemaName)
+        }
+
+        return createSequenceNodes(connectionId, dbName, schemaName)
+      }
+
+      // Level 2/3: Triggers 文件夹 -> 触发器列表
+      if (nodeType === 'triggers-folder') {
+        const dbName = keyParts[2]
+        const schemaName = keyParts[3] || undefined
+
+        if (schemaName) {
+          await navigatorStore.loadTriggers(connectionId, dbName, schemaName)
+        }
+
+        return createTriggerNodes(connectionId, dbName, schemaName)
+      }
+
       // Level 3/4: 表节点 -> Columns/Indexes/Constraints 文件夹
       if (nodeType === 'table') {
         const dbName = keyParts[2]
@@ -857,6 +947,9 @@ export function useDatabaseTreeLoader() {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
         const tableName = keyParts[4]
+        if (schemaName) {
+          await navigatorStore.loadIndexes(connectionId, dbName, schemaName, tableName)
+        }
         return createIndexNodes(connectionId, dbName, schemaName, tableName)
       }
 
@@ -865,6 +958,9 @@ export function useDatabaseTreeLoader() {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
         const tableName = keyParts[4]
+        if (schemaName) {
+          await navigatorStore.loadConstraints(connectionId, dbName, schemaName, tableName)
+        }
         return createConstraintNodes(connectionId, dbName, schemaName, tableName)
       }
     } catch (error) {

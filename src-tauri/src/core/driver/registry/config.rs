@@ -32,6 +32,8 @@ pub struct DriverConnectionConfig {
     pub file_path: Option<String>,
     /// 连接方式覆盖（避免重新构建 URL）
     pub url_override: Option<String>,
+    /// URL 模板（从 DriverDescriptor.url_template 传入，用于模板化构建 URL）
+    pub url_template: Option<String>,
     /// 连接方式（SSL/SSH/Proxy）
     #[serde(default)]
     pub connection_method: ConnectionMethod,
@@ -52,6 +54,7 @@ impl DriverConnectionConfig {
             password: None,
             file_path: None,
             url_override: None,
+            url_template: None,
             connection_method: ConnectionMethod::Direct,
             options: HashMap::new(),
         }
@@ -117,14 +120,24 @@ impl DriverConnectionConfig {
         self
     }
 
+    /// 设置 URL 模板（从 DriverDescriptor.url_template 传入）
+    pub fn with_url_template(mut self, template: impl Into<String>) -> Self {
+        self.url_template = Some(template.into());
+        self
+    }
+
     /// 转换为数据库连接 URL
     ///
-    /// 如果设置了 url_override，直接返回；
-    /// 否则根据驱动类型生成对应的连接字符串
+    /// 优先级: url_override > url_template > hardcoded match (legacy fallback)
     pub fn to_url(&self) -> Result<String, CoreError> {
         if let Some(ref url) = self.url_override {
             return Ok(url.clone());
         }
+        // Preferred: use url_template from driver descriptor
+        if let Some(ref template) = self.url_template {
+            return self.build_from_template(template);
+        }
+        // Legacy fallback
         match self.driver.as_str() {
             "mysql" | "mysql_native" => self.build_mysql_url(),
             "postgres" | "postgres_native" => self.build_postgres_url(),
@@ -135,6 +148,37 @@ impl DriverConnectionConfig {
                 self.driver
             )))),
         }
+    }
+
+    /// 模板化构建 URL: "{schema}://{username}:{password}@{host}:{port}/{database}"
+    fn build_from_template(&self, template: &str) -> Result<String, CoreError> {
+        let username = self.username.as_deref().unwrap_or("");
+        let password = self.password.as_deref().unwrap_or("");
+        let host = self.host.as_deref().unwrap_or("localhost");
+        let port = self.port.map(|p| p.to_string()).unwrap_or_default();
+        let database = self.database.as_deref().unwrap_or("");
+        let file_path = self.file_path.as_deref().unwrap_or("");
+
+        let mut url = template
+            .replace("{username}", username)
+            .replace("{password}", password)
+            .replace("{host}", host)
+            .replace("{port}", &port)
+            .replace("{database}", database)
+            .replace("{file_path}", file_path);
+
+        // Append extra options as query params
+        if !self.options.is_empty() {
+            url.push('?');
+            let params: Vec<String> = self
+                .options
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect();
+            url.push_str(&params.join("&"));
+        }
+
+        Ok(url)
     }
 
     fn build_mysql_url(&self) -> Result<String, CoreError> {

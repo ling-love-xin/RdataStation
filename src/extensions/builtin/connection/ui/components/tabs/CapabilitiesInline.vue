@@ -42,35 +42,50 @@ const CAPABILITY_DEFS: Record<string, {
   deriveFrom: (d: DriverDescriptor) => boolean
   descKey: string
 }> = {
+  tree: {
+    labelKey: 'connection.capabilitiesTab.tree',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.treeDesc',
+  },
+  health_check: {
+    labelKey: 'connection.capabilitiesTab.healthCheck',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.healthCheckDesc',
+  },
   transactions: {
     labelKey: 'connection.capabilitiesTab.transactions',
     deriveFrom: () => true,
     descKey: 'connection.capabilitiesTab.transactionsDesc',
   },
-  preparedStmt: {
-    labelKey: 'connection.capabilitiesTab.preparedStmt',
+  index_analysis: {
+    labelKey: 'connection.capabilitiesTab.indexAnalysis',
     deriveFrom: () => true,
-    descKey: 'connection.capabilitiesTab.preparedStmtDesc',
+    descKey: 'connection.capabilitiesTab.indexAnalysisDesc',
   },
-  streaming: {
-    labelKey: 'connection.capabilitiesTab.streaming',
-    deriveFrom: (d) => !!d.features?.includes('streaming'),
-    descKey: 'connection.capabilitiesTab.streamingDesc',
+  sql_autocomplete: {
+    labelKey: 'connection.capabilitiesTab.sqlAutocomplete',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.sqlAutocompleteDesc',
   },
-  introspection: {
-    labelKey: 'connection.capabilitiesTab.introspection',
-    deriveFrom: (d) => !!d.features?.includes('introspection'),
-    descKey: 'connection.capabilitiesTab.introspectionDesc',
+  table_editor: {
+    labelKey: 'connection.capabilitiesTab.tableEditor',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.tableEditorDesc',
   },
-  arrowExport: {
-    labelKey: 'connection.capabilitiesTab.arrowExport',
-    deriveFrom: (d) => !!d.features?.includes('arrow'),
-    descKey: 'connection.capabilitiesTab.arrowExportDesc',
+  schema_browser: {
+    labelKey: 'connection.capabilitiesTab.schemaBrowser',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.schemaBrowserDesc',
   },
-  federated: {
-    labelKey: 'connection.capabilitiesTab.federated',
-    deriveFrom: (d) => !!d.features?.includes('federated'),
-    descKey: 'connection.capabilitiesTab.federatedDesc',
+  analytics: {
+    labelKey: 'connection.capabilitiesTab.analytics',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.analyticsDesc',
+  },
+  federation: {
+    labelKey: 'connection.capabilitiesTab.federation',
+    deriveFrom: () => true,
+    descKey: 'connection.capabilitiesTab.federationDesc',
   },
 }
 

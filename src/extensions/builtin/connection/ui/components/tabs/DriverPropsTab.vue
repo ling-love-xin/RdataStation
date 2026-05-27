@@ -39,7 +39,11 @@ import { ref, watch } from 'vue'
 
 import type { Driver } from '../../../domain/types'
 
-const props = defineProps<{ driver: Driver | null }>()
+const props = defineProps<{
+  driver: Driver | null
+  /** 初始连接属性（编辑已有连接时传入，来自 connections.driver_properties JSON 字符串） */
+  driverProperties?: string | null
+}>()
 
 const emit = defineEmits<{
   'extra-config': [config: Record<string, unknown>]
@@ -48,7 +52,8 @@ const emit = defineEmits<{
 interface PropRow { key: string; value: string }
 const rows = ref<PropRow[]>([])
 
-function tryParseProps(raw: string | null | undefined): PropRow[] {
+/// 解析 driver_properties JSON 字符串 { key: value } → PropRow[]
+function tryParseDriverProperties(raw: string | null | undefined): PropRow[] {
   if (!raw) return []
   try {
     const obj: unknown = JSON.parse(raw)
@@ -56,11 +61,17 @@ function tryParseProps(raw: string | null | undefined): PropRow[] {
       return Object.entries(obj as Record<string, unknown>).map(([k, v]) => ({ key: k, value: String(v) }))
     }
     return []
-  } catch (err) { console.warn('[parseDriverProps] 解析失败:', err); return [] }
+  } catch (err) { console.warn('[parseDriverProperties] 解析失败:', err); return [] }
 }
 
-watch(() => props.driver, (d) => {
-  rows.value = d?.config_schema ? tryParseProps(d.config_schema) : []
+/// 当 driver 变化时重置（新驱动 → 新属性）
+watch(() => props.driver, () => {
+  rows.value = []
+}, { immediate: true })
+
+/// 当初始属性传入时（编辑已有连接），用 driver_properties 填充
+watch(() => props.driverProperties, (dp) => {
+  rows.value = tryParseDriverProperties(dp)
 }, { immediate: true })
 
 function addRow() { rows.value.push({ key: '', value: '' }) }

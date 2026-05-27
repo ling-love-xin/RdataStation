@@ -39,6 +39,32 @@ pub struct SaveGlobalConnectionInput<'a> {
     pub schema_name: Option<&'a str>,
 }
 
+/// 连接请求 — 消除 connect_with_type 的 22 参数反模式
+/// 对应前端 ConnectDatabaseInput，增加已解析的 connection_type / network_method
+pub struct ConnectRequest {
+    pub conn_id: Option<String>,
+    pub db_type: String,
+    pub url: String,
+    pub name: Option<String>,
+    pub connection_type: ConnectionType,
+    pub project_path: Option<String>,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
+    pub options: Option<String>,
+    pub tags: Option<String>,
+    pub metadata_path: Option<String>,
+    pub schema_name: Option<String>,
+    pub use_duckdb_fed: Option<bool>,
+    pub skip_persistence: Option<bool>,
+    pub network_method: Option<ConnectionMethod>,
+}
+
 /// 连接服务
 ///
 /// 负责数据库连接的生命周期管理，包括：
@@ -81,29 +107,29 @@ impl ConnectionService {
         url: &str,
         name: Option<String>,
     ) -> Result<(String, DynDatabase), CoreError> {
-        self.connect_with_type(
+        self.connect_with_type(ConnectRequest {
             conn_id,
-            db_type,
-            url,
+            db_type: db_type.to_string(),
+            url: url.to_string(),
             name,
-            ConnectionType::Global,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
+            connection_type: ConnectionType::Global,
+            project_path: None,
+            description: None,
+            driver_id: None,
+            environment_id: None,
+            auth_config_id: None,
+            auth_method: None,
+            network_config_id: None,
+            driver_properties: None,
+            advanced_options: None,
+            options: None,
+            tags: None,
+            metadata_path: None,
+            schema_name: None,
+            use_duckdb_fed: None,
+            skip_persistence: None,
+            network_method: None,
+        })
         .await
     }
 
@@ -130,31 +156,14 @@ impl ConnectionService {
     /// # Returns
     ///
     /// 返回连接 ID 和数据库实例
-    #[allow(clippy::too_many_arguments)]
-    pub async fn connect_with_type(
-        &self,
-        conn_id: Option<String>,
-        db_type: &str,
-        url: &str,
-        name: Option<String>,
-        connection_type: ConnectionType,
-        project_path: Option<String>,
-        description: Option<String>,
-        driver_id: Option<String>,
-        environment_id: Option<String>,
-        auth_config_id: Option<String>,
-        auth_method: Option<String>,
-        network_config_id: Option<String>,
-        driver_properties: Option<String>,
-        advanced_options: Option<String>,
-        options: Option<String>,
-        tags: Option<String>,
-        metadata_path: Option<String>,
-        schema_name: Option<String>,
-        use_duckdb_fed: Option<bool>,
-        skip_persistence: Option<bool>,
-        network_method: Option<ConnectionMethod>,
-    ) -> Result<(String, DynDatabase), CoreError> {
+    pub async fn connect_with_type(&self, req: ConnectRequest) -> Result<(String, DynDatabase), CoreError> {
+        let ConnectRequest {
+            conn_id, db_type, url, name, connection_type, project_path,
+            description, driver_id, environment_id, auth_config_id, auth_method,
+            network_config_id, driver_properties, advanced_options, options, tags,
+            metadata_path, schema_name, use_duckdb_fed, skip_persistence, network_method,
+        } = req;
+
         // 参数校验
         if url.is_empty() {
             return Err(CoreError::connection(ConnectionError::InvalidConfig {
@@ -254,7 +263,7 @@ impl ConnectionService {
 
         // 应用网络连接方式（SSH 隧道 / SSL / 代理）
         let (effective_url, tunnel_guards) = self
-            .apply_network_method(&url_with_auth, &network_method, &conn_id, db_type)
+            .apply_network_method(&url_with_auth, &network_method, &conn_id, &db_type)
             .await?;
 
         // 注册隧道守卫，确保隧道在连接生命周期内保持存活
@@ -270,7 +279,7 @@ impl ConnectionService {
             );
         }
 
-        let db = self.create_database(db_type, &effective_url).await?;
+        let db = self.create_database(&db_type, &effective_url).await?;
         let server_version = db.meta().server_version.clone();
         let safe_url = Self::mask_password_in_url(&url_with_auth);
 
@@ -295,8 +304,8 @@ impl ConnectionService {
         };
 
         // 转换为 DriverConnectionConfig（用于重连）
-        let driver_config = crate::core::driver::registry::DriverConnectionConfig::new(db_type)
-            .with_url_override(url)
+        let driver_config = crate::core::driver::registry::DriverConnectionConfig::new(db_type.clone())
+            .with_url_override(url.clone())
             .with_name(&connection_name);
 
         // 添加到连接管理器
@@ -310,7 +319,7 @@ impl ConnectionService {
         // 对于全局连接，保存到全局 SQLite 数据库（skip_persistence 时跳过）
         if !skip_persistence.unwrap_or(false) && connection_type == ConnectionType::Global {
             // 从 URL 中解析 username 和 password
-            let (username, password) = Self::extract_credentials_from_url(url);
+            let (username, password) = Self::extract_credentials_from_url(&url);
 
             // 标签：优先使用输入值，无输入时默认 ["global"]
             let final_tags = tags.clone().or(Some("[\"global\"]".to_string()));
@@ -318,7 +327,7 @@ impl ConnectionService {
                 .save_global_connection_to_db(SaveGlobalConnectionInput {
                     conn_id: &conn_id,
                     name: &connection_name,
-                    db_type,
+                    db_type: &db_type,
                     url: &safe_url,
                     username: username.as_deref(),
                     password: password.as_deref(),
@@ -347,7 +356,7 @@ impl ConnectionService {
         if !skip_persistence.unwrap_or(false) {
             if let Err(e) = connection_store::save_recent_connection(RecentConnectionInput {
                 name: &connection_name,
-                db_type,
+                db_type: &db_type,
                 url: &safe_url,
                 conn_id: Some(&conn_id),
                 description: description.as_deref(),

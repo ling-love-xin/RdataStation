@@ -22,7 +22,7 @@
 --   auth_type 值与 common-rules.md §10.1 中定义一致：
 --     password, ssl, kerberos, ldap, oauth2, os_auth, trust
 
-INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
+INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, driver_properties, enabled) VALUES
     ('mysql_native', 'mysql', 'MySQL (Official)',
      'native', 0, 3306,
      'mysql://{username}:{password}@{host}:{port}/{database}',
@@ -30,9 +30,10 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
      '{"fields":[{"key":"host","label":"主机","type":"text","required":true,"default":"localhost","placeholder":"localhost 或 IP 地址"},{"key":"port","label":"端口","type":"number","required":true,"default":"3306"},{"key":"database","label":"数据库","type":"text","required":false,"placeholder":"可选，留空显示所有数据库"},{"key":"username","label":"用户名","type":"text","required":true,"default":"root"},{"key":"password","label":"密码","type":"password","required":false}],"options":[{"key":"ssl_mode","label":"SSL 模式","type":"select","default":"PREFERRED","values":["DISABLED","PREFERRED","REQUIRED","VERIFY_CA","VERIFY_IDENTITY"]}]}',
      '["password","ssl"]',
      '["tree","health_check","transactions","index_analysis","sql_autocomplete","table_editor"]',
+     '{"connectTimeout":"10000","socketTimeout":"30000","maxAllowedPacket":"67108864","useCompression":"true","characterEncoding":"utf8mb4","allowMultiQueries":"true"}',
      1);
 
-INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
+INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, driver_properties, enabled) VALUES
     ('postgres_native', 'postgresql', 'PostgreSQL (Official)',
      'native', 0, 5432,
      'postgres://{username}:{password}@{host}:{port}/{database}',
@@ -40,4 +41,5 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
      '{"fields":[{"key":"host","label":"主机","type":"text","required":true,"default":"localhost","placeholder":"localhost 或 IP 地址"},{"key":"port","label":"端口","type":"number","required":true,"default":"5432"},{"key":"database","label":"数据库","type":"text","required":true,"default":"postgres"},{"key":"username","label":"用户名","type":"text","required":true,"default":"postgres"},{"key":"password","label":"密码","type":"password","required":false}],"options":[{"key":"ssl_mode","label":"SSL 模式","type":"select","default":"prefer","values":["disable","allow","prefer","require","verify-ca","verify-full"]}]}',
      '["password","ssl","kerberos"]',
      '["tree","health_check","transactions","index_analysis","sql_autocomplete","schema_browser","table_editor"]',
+     '{"connectTimeout":"10000","socketTimeout":"30000","applicationName":"RdataStation","sslmode":"prefer","keepalivesIdle":"60","statementTimeout":"0","tcpUserTimeout":"0"}',
      1);

@@ -42,13 +42,18 @@ const props = withDefaults(defineProps<Props>(), { driver: null })
 
 interface CapItem { key: string; label: string; has: boolean; desc: string }
 
+// 所有后端驱动 capabilities 的元数据定义（与 drivers 表 seed data 中 capabilities JSON 严格同步）
+// 新增能力只需在此添加一条 + 对应 i18n key
 const CAP_META: Record<string, { label: string; desc: string }> = {
+  tree:             { label: t('connection.capabilitiesTab.tree'),             desc: t('connection.capabilitiesTab.treeDesc') },
+  health_check:     { label: t('connection.capabilitiesTab.healthCheck'),      desc: t('connection.capabilitiesTab.healthCheckDesc') },
   transactions:     { label: t('connection.capabilitiesTab.transactions'),     desc: t('connection.capabilitiesTab.transactionsDesc') },
-  preparedStmt:     { label: t('connection.capabilitiesTab.preparedStmt'),     desc: t('connection.capabilitiesTab.preparedStmtDesc') },
-  streaming:        { label: t('connection.capabilitiesTab.streaming'),        desc: t('connection.capabilitiesTab.streamingDesc') },
-  introspection:    { label: t('connection.capabilitiesTab.introspection'),    desc: t('connection.capabilitiesTab.introspectionDesc') },
-  arrowExport:      { label: t('connection.capabilitiesTab.arrowExport'),      desc: t('connection.capabilitiesTab.arrowExportDesc') },
-  pluginCompat:     { label: t('connection.capabilitiesTab.pluginCompat'),     desc: t('connection.capabilitiesTab.pluginCompatDesc') },
+  index_analysis:   { label: t('connection.capabilitiesTab.indexAnalysis'),    desc: t('connection.capabilitiesTab.indexAnalysisDesc') },
+  sql_autocomplete: { label: t('connection.capabilitiesTab.sqlAutocomplete'),  desc: t('connection.capabilitiesTab.sqlAutocompleteDesc') },
+  table_editor:     { label: t('connection.capabilitiesTab.tableEditor'),      desc: t('connection.capabilitiesTab.tableEditorDesc') },
+  schema_browser:   { label: t('connection.capabilitiesTab.schemaBrowser'),    desc: t('connection.capabilitiesTab.schemaBrowserDesc') },
+  analytics:        { label: t('connection.capabilitiesTab.analytics'),        desc: t('connection.capabilitiesTab.analyticsDesc') },
+  federation:       { label: t('connection.capabilitiesTab.federation'),       desc: t('connection.capabilitiesTab.federationDesc') },
 }
 
 const parsedCaps = computed<string[]>(() => {

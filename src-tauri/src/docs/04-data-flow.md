@@ -1,8 +1,8 @@
 # 数据流设计
 
-> 版本：v2.0
-> 最后更新：2026-05-09
-> 状态：✅ 实际代码对齐
+> 版本：v2.2
+> 最后更新：2026-05-28
+> 状态：✅ specta 字段对齐修复（ConnectDatabaseInput 19字段 / ConnectionInfoResponse auth_method）
 
 ## 概述
 
@@ -134,6 +134,30 @@ Database trait 方法
 ```
 
 ## 四、双层存储读写流程
+
+### 驱动属性读取流程（v0.5.3+）
+
+```
+前端 (AddDataSourceDialog)
+    │ 打开新增数据源对话框 → 选择驱动类型
+    ▼
+Tauri Command
+    │ get_drivers_by_type(type_id) 或 get_driver(driver_id)
+    ▼
+persistence::driver_store
+    │ SELECT ... driver_properties FROM drivers
+    ▼
+Driver { driver_properties: Option<String> }
+    │ 序列化为 JSON → 返回前端
+    ▼
+DriverPropsTab
+    │ JSON.parse(driver_properties) → 初始填充键值对表单
+    │ 用户可修改/添加/删除属性
+    ▼
+保存时 driver_properties 写入 global_connections 或 connections 表
+```
+
+> `driver_properties` 是 JSON 键值对字符串（`{"key":"value"}`），前端 DriverPropsTab 解析后作为连接属性的默认值。
 
 ### 连接信息存储（SQLite）
 

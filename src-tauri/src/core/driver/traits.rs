@@ -19,6 +19,8 @@ pub enum SchemaObjectKind {
     ForeignKey,
     Procedure,
     Function,
+    Sequence,
+    Trigger,
 }
 
 /// Schema 对象（对象树模型）
@@ -30,6 +32,10 @@ pub struct SchemaObject {
     pub kind: SchemaObjectKind,
     pub children: Option<Vec<SchemaObject>>,
     pub comment: Option<String>,
+    /// 触发器关联的表名（仅 Trigger 类型）
+    pub table_name: Option<String>,
+    /// 触发器事件（INSERT/UPDATE/DELETE，仅 Trigger 类型）
+    pub event: Option<String>,
 }
 
 /// 列详情（完整元数据）
@@ -143,6 +149,24 @@ pub trait MetadataBrowser: Send + Sync {
         table: &str,
     ) -> Result<Vec<ConstraintDetail>, CoreError> {
         let _ = (catalog, schema, table);
+        Ok(vec![])
+    }
+
+    /// 获取 Schema 的序列列表
+    async fn get_sequences(
+        &self,
+        _catalog: &str,
+        _schema: &str,
+    ) -> Result<Vec<NodeInfo>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 获取 Schema 的触发器列表
+    async fn get_triggers(
+        &self,
+        _catalog: &str,
+        _schema: &str,
+    ) -> Result<Vec<NodeInfo>, CoreError> {
         Ok(vec![])
     }
 }
@@ -359,6 +383,24 @@ pub trait Database: Send + Sync {
 
     /// 列举函数
     async fn list_functions(
+        &self,
+        _catalog: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 列举序列
+    async fn list_sequences(
+        &self,
+        _catalog: &str,
+        _schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        Ok(vec![])
+    }
+
+    /// 列举触发器
+    async fn list_triggers(
         &self,
         _catalog: &str,
         _schema: Option<&str>,

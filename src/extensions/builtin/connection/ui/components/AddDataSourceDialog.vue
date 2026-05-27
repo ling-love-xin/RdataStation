@@ -66,7 +66,7 @@
               <CapabilitiesTab :driver="selectedDriver" />
             </NTabPane>
             <NTabPane name="properties" :tab="$t('navigator.tabDriverProps')">
-              <DriverPropsTab :driver="selectedDriver" @extra-config="onExtraConfig" />
+              <DriverPropsTab :driver="selectedDriver" :driver-properties="driverPropertiesExtra" @extra-config="onExtraConfig" />
             </NTabPane>
             <NTabPane name="advanced" :tab="$t('navigator.tabAdvanced')">
               <AdvancedTab :driver="selectedDriver" :form-data="formData" :scope="scope" @update:form-data="onFormData" @extra-config="onExtraConfig" />
@@ -158,7 +158,7 @@ const { drivers, loadAll } = useDriverRegistry()
 const {
   headerData, scope, selectedEnvId,
   setFileDb,
-  buildSubmitPayload, validate,
+  validate,
   stagingItems,
   stagingIndex,
   isResetting,
@@ -170,6 +170,14 @@ const {
   clearStagingItems,
   markStagingApplied,
   formData,
+  authConfigId,
+  authMethod,
+  networkConfigId,
+  schemaName,
+  options,
+  metadataPath,
+  tags,
+  useDuckdbFed,
 } = useAddDataSource()
 
 // Dialog state
@@ -184,12 +192,7 @@ const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
 const scopeChangedWarning = ref(false)
 
-// Auth config (not yet in composable)
-const authConfigId = ref<string | null>(null)
-const authMethod = ref<string>('password')
-
-// Extra config from child tabs
-const networkConfigId = ref<string | null>(null)
+// Extra config from child tabs (UI composition state — not in composable)
 const driverPropertiesExtra = ref<string | null>(null)
 const advancedOptions = ref<string | null>(null)
 
@@ -254,6 +257,11 @@ function onExtraConfig(config: Record<string, unknown>) {
   if (config.driverProperties !== undefined) driverPropertiesExtra.value = config.driverProperties as string | null
   if (config.advancedOptions !== undefined) advancedOptions.value = config.advancedOptions as string | null
   if (config.environmentId !== undefined) selectedEnvId.value = config.environmentId as string | null
+  if (config.schemaName !== undefined) schemaName.value = config.schemaName as string | null
+  if (config.options !== undefined) options.value = config.options as string | null
+  if (config.metadataPath !== undefined) metadataPath.value = config.metadataPath as string | null
+  if (config.tags !== undefined) tags.value = config.tags as string | null
+  if (config.useDuckdbFed !== undefined) useDuckdbFed.value = config.useDuckdbFed as boolean
 }
 
 function onAuthConfigChange(authCfgId: string | null, method: string) {

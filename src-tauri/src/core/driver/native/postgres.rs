@@ -1,5 +1,5 @@
 use arrow::array::{
-    ArrayRef, BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array, Int64Array,
+    Array, ArrayRef, BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array, Int64Array,
     StringArray,
 };
 use arrow::datatypes::{DataType, Field, Schema};
@@ -295,6 +295,8 @@ impl Database for PostgresDatabase {
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
+                table_name: None,
+                event: None,
             })
             .collect())
     }
@@ -343,6 +345,35 @@ impl Database for PostgresDatabase {
             .query_with_params(sql, vec![Value::Text(schema_name.to_string())])
             .await?;
         Ok(names_to_schema_objects(&result, SchemaObjectKind::Function))
+    }
+
+    async fn list_sequences(
+        &self,
+        _catalog: &str,
+        schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let schema_name = schema.unwrap_or("public");
+        let sql = "SELECT sequence_name FROM information_schema.sequences \
+                   WHERE sequence_schema = $1 ORDER BY sequence_name";
+        let result = self
+            .query_with_params(sql, vec![Value::Text(schema_name.to_string())])
+            .await?;
+        Ok(names_to_schema_objects(&result, SchemaObjectKind::Sequence))
+    }
+
+    async fn list_triggers(
+        &self,
+        _catalog: &str,
+        schema: Option<&str>,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let schema_name = schema.unwrap_or("public");
+        let sql = "SELECT trigger_name, event_object_table, event_manipulation \
+                   FROM information_schema.triggers \
+                   WHERE trigger_schema = $1 ORDER BY trigger_name";
+        let result = self
+            .query_with_params(sql, vec![Value::Text(schema_name.to_string())])
+            .await?;
+        Ok(names_to_schema_objects(&result, SchemaObjectKind::Trigger))
     }
 
     async fn get_routine_source(
@@ -812,17 +843,47 @@ fn names_to_schema_objects(
     kind: crate::core::driver::SchemaObjectKind,
 ) -> Vec<crate::core::driver::SchemaObject> {
     let mut objects: Vec<crate::core::driver::SchemaObject> = Vec::new();
+    let is_trigger = kind == crate::core::driver::SchemaObjectKind::Trigger;
     for row_idx in 0..result.total_rows() {
         if let Some(batch) = result.batches.first() {
             if row_idx < batch.num_rows() {
                 if let Some(arr) = batch.column(0).as_any().downcast_ref::<StringArray>() {
                     let name = arr.value(row_idx);
                     if !name.is_empty() {
+                        let (table_name, event) = if is_trigger {
+                            let tn = batch
+                                .column(1)
+                                .as_any()
+                                .downcast_ref::<StringArray>()
+                                .and_then(|a| {
+                                    if a.is_null(row_idx) {
+                                        None
+                                    } else {
+                                        Some(a.value(row_idx).to_string())
+                                    }
+                                });
+                            let ev = batch
+                                .column(2)
+                                .as_any()
+                                .downcast_ref::<StringArray>()
+                                .and_then(|a| {
+                                    if a.is_null(row_idx) {
+                                        None
+                                    } else {
+                                        Some(a.value(row_idx).to_string())
+                                    }
+                                });
+                            (tn, ev)
+                        } else {
+                            (None, None)
+                        };
                         objects.push(crate::core::driver::SchemaObject {
                             name: name.to_string(),
                             kind: kind.clone(),
                             children: None,
                             comment: None,
+                            table_name,
+                            event,
                         });
                     }
                 }

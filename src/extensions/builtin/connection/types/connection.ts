@@ -222,6 +222,14 @@ export interface ConnectionResponse {
   project_id: string | null
   status: 'connected' | 'disconnected' | 'error'
   is_active: boolean
+  description?: string | null
+  driver_id?: string | null
+  environment_id?: string | null
+  auth_config_id?: string | null
+  auth_method?: string | null
+  network_config_id?: string | null
+  driver_properties?: string | null
+  advanced_options?: string | null
   meta?: {
     supports_transaction?: boolean
     supports_streaming?: boolean

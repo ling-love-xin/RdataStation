@@ -338,6 +338,8 @@ fn names_to_schema_objects(
                             kind: kind.clone(),
                             children: None,
                             comment: None,
+                            table_name: None,
+                            event: None,
                         });
                     }
                 }
@@ -555,6 +557,8 @@ impl Database for PostgresNativeDatabase {
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
+                table_name: None,
+                event: None,
             })
             .collect())
     }

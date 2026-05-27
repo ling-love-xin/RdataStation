@@ -173,9 +173,15 @@ export interface SaveConnectionInput {
   password: string
   environment_id: string | null
   auth_config_id: string | null
+  auth_method: string | null
   network_config_id: string | null
   driver_properties: string
   advanced_options: string
+  schema_name: string | null
+  options: string | null
+  metadata_path: string | null
+  tags: string | null
+  use_duckdb_fed: boolean | null
 }
 
 /** 校验结果 */
@@ -263,6 +269,16 @@ export function useAddDataSource() {
   const driverProps = ref<Record<string, string>>({})
   const formData = ref<Record<string, unknown>>({})
 
+  // Auth / Network / Extra — owned by composable, synced by dialog
+  const authConfigId = ref<string | null>(null)
+  const authMethod = ref<string>('password')
+  const networkConfigId = ref<string | null>(null)
+  const schemaName = ref<string | null>(null)
+  const options = ref<string | null>(null)
+  const metadataPath = ref<string | null>(null)
+  const tags = ref<string | null>(null)
+  const useDuckdbFed = ref<boolean | null>(null)
+
   const saving = ref(false)
   const error = ref<string | null>(null)
 
@@ -292,6 +308,14 @@ export function useAddDataSource() {
     overriddenPolicies.value = {}
     Object.assign(duckdbAccel, defaultDuckdbAccel())
     driverProps.value = {}
+    authConfigId.value = null
+    authMethod.value = 'password'
+    networkConfigId.value = null
+    schemaName.value = null
+    options.value = null
+    metadataPath.value = null
+    tags.value = null
+    useDuckdbFed.value = null
     saving.value = false
     error.value = null
   }
@@ -379,14 +403,20 @@ export function useAddDataSource() {
       username: generalData.username,
       password: generalData.password,
       environment_id: selectedEnvId.value,
-      auth_config_id: null,
-      network_config_id: null,
+      auth_config_id: authConfigId.value,
+      auth_method: authMethod.value,
+      network_config_id: networkConfigId.value,
       driver_properties: JSON.stringify(driverProps.value),
       advanced_options: JSON.stringify({
         protocol_chain: protocolChain.value.filter(h => h.enabled),
         env_policies: overriddenPolicies.value,
         duckdb_accel: duckdbAccel,
       }),
+      schema_name: schemaName.value,
+      options: options.value,
+      metadata_path: metadataPath.value,
+      tags: tags.value,
+      use_duckdb_fed: useDuckdbFed.value,
     }
   }
 
@@ -402,19 +432,25 @@ export function useAddDataSource() {
   }): ConnectDatabaseInput {
     const savePayload = buildSavePayload()
     return {
+      conn_id: null,
       db_type: params.dbType,
       url: params.url,
       name: savePayload.name,
       connection_type: savePayload.scope,
-      project_id: params.projectId ?? undefined,
+      project_id: params.projectId ?? null,
       description: savePayload.description || null,
       driver_id: params.driverId ?? null,
       environment_id: savePayload.environment_id,
-      auth_config_id: params.authConfigId ?? null,
-      auth_method: params.authMethod ?? 'password',
-      network_config_id: params.networkConfigId ?? null,
+      auth_config_id: params.authConfigId ?? savePayload.auth_config_id,
+      auth_method: params.authMethod ?? savePayload.auth_method ?? 'password',
+      network_config_id: params.networkConfigId ?? savePayload.network_config_id,
       driver_properties: savePayload.driver_properties || null,
       advanced_options: savePayload.advanced_options || null,
+      options: savePayload.options || null,
+      tags: savePayload.tags || null,
+      metadata_path: savePayload.metadata_path || null,
+      schema_name: savePayload.schema_name || null,
+      use_duckdb_fed: savePayload.use_duckdb_fed ?? null,
     }
   }
 
@@ -520,8 +556,18 @@ export function useAddDataSource() {
     return `jdbc:${driverId}://${host}:${port}/${database}`
   }
 
-  /** 构建标准连接 URL */
-  function buildStandardUrl(driverId: string, host: string, port: number, database: string): string {
+  /** 构建标准连接 URL（优先使用 url_template，回退到硬编码模式） */
+  function buildStandardUrl(driverId: string, host: string, port: number, database: string, urlTemplate?: string | null): string {
+    if (urlTemplate) {
+      return urlTemplate
+        .replace('{host}', host || 'localhost')
+        .replace('{port}', String(port || ''))
+        .replace('{database}', database || '')
+        .replace('{username}', '')
+        .replace('{password}', '')
+        .replace('{file_path}', database || '')
+    }
+    // Fallback for drivers without url_template
     if (isFileDatabase(driverId)) {
       return `${driverId}:${database}`
     }
@@ -671,7 +717,7 @@ export function useAddDataSource() {
   }
 
   /**
-   * 从 StagingItem 更新表单数据
+   * 从 StagingItem 更新表单数据（含 auth/network/properties 恢复）
    */
   function applyStagingItem(item: StagingItem) {
     isResetting.value = true
@@ -682,6 +728,14 @@ export function useAddDataSource() {
       scope.global = item.scope === 'global'
       scope.project = item.scope === 'project'
     }
+    authConfigId.value = item.authConfigId ?? null
+    authMethod.value = item.authMethod ?? 'password'
+    networkConfigId.value = item.networkConfigId ?? null
+    schemaName.value = item.schemaName ?? null
+    options.value = item.options ?? null
+    metadataPath.value = item.metadataPath ?? null
+    tags.value = item.tags ?? null
+    useDuckdbFed.value = item.useDuckdbFed ?? null
     isResetting.value = false
   }
 
@@ -727,11 +781,19 @@ export function useAddDataSource() {
   }
 
   /**
-   * 添加暂存项
+   * 添加暂存项（同时重置 auth/network/extra 状态）
    */
   function addStaging() {
     stagingItems.value.push({ id: uuidv4(), name: '', applied: false })
     stagingIndex.value = stagingItems.value.length - 1
+    authConfigId.value = null
+    authMethod.value = 'password'
+    networkConfigId.value = null
+    schemaName.value = null
+    options.value = null
+    metadataPath.value = null
+    tags.value = null
+    useDuckdbFed.value = null
   }
 
   /**
@@ -780,6 +842,14 @@ export function useAddDataSource() {
     duckdbAccel,
     driverProps,
     formData,
+    authConfigId,
+    authMethod,
+    networkConfigId,
+    schemaName,
+    options,
+    metadataPath,
+    tags,
+    useDuckdbFed,
     saving,
     error,
     // 暂存项管理

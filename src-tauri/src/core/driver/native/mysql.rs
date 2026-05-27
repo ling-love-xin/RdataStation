@@ -17,6 +17,8 @@ fn names_to_schema_objects(
                             kind: kind.clone(),
                             children: None,
                             comment: None,
+                            table_name: None,
+                            event: None,
                         });
                     }
                 }
@@ -32,7 +34,7 @@ use std::sync::Arc;
 
 use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, PoolStatus, Transaction};
-use crate::core::driver::{SchemaObject, SchemaObjectKind};
+use crate::core::driver::{IndexDetail, SchemaObject, SchemaObjectKind};
 use crate::core::error::{ConnectionError, CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult, Value};
 
@@ -264,6 +266,8 @@ impl Database for MySqlDatabase {
                 kind: n.kind,
                 children: None,
                 comment: n.comment,
+                table_name: None,
+                event: None,
             })
             .collect())
     }
@@ -276,6 +280,59 @@ impl Database for MySqlDatabase {
     ) -> Result<Vec<ColumnDetail>, CoreError> {
         let detail = self.get_table_detail(catalog, catalog, table).await?;
         Ok(detail.columns)
+    }
+
+    async fn list_indexes(
+        &self,
+        catalog: &str,
+        _schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<IndexDetail>, CoreError> {
+        let sql = format!("SHOW INDEX FROM `{}`.`{}`", catalog, table);
+        let result = self
+            .query_with_params(&sql, vec![])
+            .await?;
+
+        let mut indexes: Vec<IndexDetail> = Vec::new();
+        if let Some(batch) = result.batches.first() {
+            let name_col = batch
+                .column_by_name("Key_name")
+                .and_then(|c| c.as_any().downcast_ref::<arrow::array::StringArray>());
+            let col_col = batch
+                .column_by_name("Column_name")
+                .and_then(|c| c.as_any().downcast_ref::<arrow::array::StringArray>());
+            let non_unique_col = batch
+                .column_by_name("Non_unique")
+                .and_then(|c| c.as_any().downcast_ref::<arrow::array::Int64Array>());
+
+            if let (Some(name_arr), Some(col_arr)) = (name_col, col_col) {
+                let mut seen: std::collections::HashMap<String, IndexDetail> =
+                    std::collections::HashMap::new();
+                for row_idx in 0..batch.num_rows() {
+                    let name = name_arr.value(row_idx).to_string();
+                    let col_name = col_arr.value(row_idx).to_string();
+                    let is_unique = non_unique_col
+                        .map(|a| a.value(row_idx) == 0)
+                        .unwrap_or(false);
+
+                    seen.entry(name.clone())
+                        .and_modify(|idx| {
+                            idx.column_names.push(col_name.clone());
+                        })
+                        .or_insert(IndexDetail {
+                            name,
+                            table_name: table.to_string(),
+                            column_names: vec![col_name],
+                            is_unique,
+                            is_primary: false,
+                            index_type: None,
+                            comment: None,
+                        });
+                }
+                indexes = seen.into_values().collect();
+            }
+        }
+        Ok(indexes)
     }
 
     async fn list_procedures(

@@ -1045,6 +1045,7 @@ export type Driver = {
 	config_schema: string,
 	supported_auth_types: string | null,
 	capabilities: string | null,
+	driver_properties: string | null,
 	enabled: boolean,
 };
 
@@ -1893,6 +1894,13 @@ export type SchemaInsightReport = {
 
 export type SchemaMeta = {
 	name: string,
+	// V10: Schema 聚合统计
+	totalTables?: number,
+	totalViews?: number,
+	totalProcedures?: number,
+	totalFunctions?: number,
+	totalSizeBytes?: number,
+	rowCountTotal?: number,
 };
 
 /**  V6: Schema 对象数量统计响应 */
@@ -2028,6 +2036,15 @@ export type TableInput = {
 export type TableMeta = {
 	name: string,
 	type: string,
+	// V10: 企业级统计
+	rowCountEstimate?: number,
+	dataLength?: number,
+	indexLength?: number,
+	displayOrder?: number,
+	hidden?: boolean,
+	favorite?: boolean,
+	colorLabel?: string,
+	userComment?: string,
 };
 
 export type TableProfile = {

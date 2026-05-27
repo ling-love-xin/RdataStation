@@ -365,6 +365,8 @@ impl Database for SqliteDatabase {
                         kind,
                         children: None,
                         comment: None,
+                        table_name: None,
+                        event: None,
                     });
                 }
                 Err(e) => {
@@ -434,6 +436,102 @@ impl Database for SqliteDatabase {
         }
 
         Ok(columns)
+    }
+
+    /// 列举表的所有索引
+    ///
+    /// SQLite 通过 PRAGMA index_list(table) 获取索引列表，
+    /// 再通过 PRAGMA index_info(index) 获取每个索引的列名。
+    async fn list_indexes(
+        &self,
+        _catalog: &str,
+        _schema: Option<&str>,
+        table: &str,
+    ) -> Result<Vec<IndexDetail>, CoreError> {
+        let conn = self.conn.lock().map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "lock".to_string(),
+                source: e.to_string(),
+            })
+        })?;
+
+        // PRAGMA index_list(table) 返回: seq, name, unique, origin, partial
+        let quoted = quote_identifier(table, '"');
+        let sql = format!("PRAGMA index_list({})", quoted);
+        let mut stmt = conn.prepare(&sql).map_err(|e| {
+            CoreError::database(DatabaseError::query("list_indexes", e.to_string()))
+        })?;
+
+        let index_rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i32>(0)?,            // seq
+                    row.get::<_, String>(1)?,         // name
+                    row.get::<_, i32>(2)?,            // unique (1=unique, 0=not)
+                    row.get::<_, String>(3)?,         // origin (c/pk/u)
+                ))
+            })
+            .map_err(|e| {
+                CoreError::database(DatabaseError::query("list_indexes_query", e.to_string()))
+            })?;
+
+        let mut indexes = Vec::new();
+        for index_row in index_rows {
+            match index_row {
+                Ok((_seq, name, unique, origin)) => {
+                    // origin: "c"=user-created, "pk"=PRIMARY KEY, "u"=UNIQUE constraint
+                    let is_primary = origin == "pk";
+
+                    // 获取索引的列名
+                    let info_sql = format!("PRAGMA index_info({})", quote_identifier(&name, '"'));
+                    let mut col_stmt = conn.prepare(&info_sql).map_err(|e| {
+                        CoreError::database(DatabaseError::query(
+                            "list_indexes_info",
+                            e.to_string(),
+                        ))
+                    })?;
+
+                    let col_rows = col_stmt
+                        .query_map([], |row| {
+                            Ok(row.get::<_, String>(2)?) // name (seqno=0, cid=1, name=2)
+                        })
+                        .map_err(|e| {
+                            CoreError::database(DatabaseError::query(
+                                "list_indexes_info_query",
+                                e.to_string(),
+                            ))
+                        })?;
+
+                    let mut column_names = Vec::new();
+                    for col_row in col_rows {
+                        match col_row {
+                            Ok(col_name) => column_names.push(col_name),
+                            Err(e) => {
+                                tracing::warn!("SQLite list_indexes column row error: {}", e);
+                            }
+                        }
+                    }
+
+                    if !column_names.is_empty() {
+                        indexes.push(IndexDetail {
+                            name,
+                            table_name: table.to_string(),
+                            column_names,
+                            is_unique: unique != 0,
+                            is_primary,
+                            index_type: None,
+                            comment: None,
+                        });
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("SQLite list_indexes row error: {}", e);
+                }
+            }
+        }
+
+        Ok(indexes)
     }
 
     fn as_metadata_browser(&self) -> Option<&dyn crate::core::driver::MetadataBrowser> {

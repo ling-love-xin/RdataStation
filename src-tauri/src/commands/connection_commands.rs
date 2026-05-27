@@ -6,7 +6,7 @@ use crate::core::driver::connection::config::ConnectionMethod;
 use crate::core::driver::DriverConnectionConfig;
 use crate::core::error::CoreError;
 use crate::core::services::connection_service::{
-    parse_network_config_json, resolve_network_method,
+    parse_network_config_json, resolve_network_method, ConnectRequest,
 };
 use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::{get_connection_manager, DataSourceMeta};
@@ -251,29 +251,29 @@ pub async fn connect_database(
     let network_method = parse_network_method(&input).await?;
 
     let (conn_id, db) = service
-        .connect_with_type(
-            input.conn_id.clone(),
-            &input.db_type,
-            &input.url,
-            input.name.clone(),
+        .connect_with_type(ConnectRequest {
+            conn_id: input.conn_id.clone(),
+            db_type: input.db_type.clone(),
+            url: input.url.clone(),
+            name: input.name.clone(),
             connection_type,
-            input.project_id.clone(),
-            input.description.clone(),
-            input.driver_id.clone(),
-            input.environment_id.clone(),
-            input.auth_config_id.clone(),
-            input.auth_method.clone(),
-            input.network_config_id.clone(),
-            input.driver_properties.clone(),
-            input.advanced_options.clone(),
-            input.options.clone(),
-            input.tags.clone(),
-            input.metadata_path.clone(),
-            input.schema_name.clone(),
-            input.use_duckdb_fed,
-            None, // skip_persistence: normal connections DO persist
+            project_path: input.project_id.clone(),
+            description: input.description.clone(),
+            driver_id: input.driver_id.clone(),
+            environment_id: input.environment_id.clone(),
+            auth_config_id: input.auth_config_id.clone(),
+            auth_method: input.auth_method.clone(),
+            network_config_id: input.network_config_id.clone(),
+            driver_properties: input.driver_properties.clone(),
+            advanced_options: input.advanced_options.clone(),
+            options: input.options.clone(),
+            tags: input.tags.clone(),
+            metadata_path: input.metadata_path.clone(),
+            schema_name: input.schema_name.clone(),
+            use_duckdb_fed: input.use_duckdb_fed,
+            skip_persistence: None, // normal connections DO persist
             network_method,
-        )
+        })
         .await?;
 
     let meta = db.meta();
@@ -435,6 +435,7 @@ pub struct ConnectionInfoResponse {
     pub description: Option<String>,
     pub environment_id: Option<String>,
     pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
     pub network_config_id: Option<String>,
     pub driver_properties: Option<String>,
     pub advanced_options: Option<String>,
@@ -469,6 +470,7 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError>
                 environment_id: info.environment_id,
                 description: info.description,
                 auth_config_id: info.auth_config_id,
+                auth_method: info.auth_method,
                 network_config_id: info.network_config_id,
                 driver_properties: info.driver_properties,
                 advanced_options: info.advanced_options,
@@ -535,6 +537,7 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, C
             environment_id: info.environment_id,
             description: info.description,
             auth_config_id: info.auth_config_id,
+            auth_method: info.auth_method,
             network_config_id: info.network_config_id,
             driver_properties: info.driver_properties,
             advanced_options: info.advanced_options,
@@ -682,6 +685,7 @@ pub async fn detect_global_connections_in_project(
                 environment_id: info.environment_id,
                 description: info.description,
                 auth_config_id: info.auth_config_id,
+                auth_method: info.auth_method,
                 network_config_id: info.network_config_id,
                 driver_properties: info.driver_properties,
                 advanced_options: info.advanced_options,
@@ -751,29 +755,29 @@ pub async fn test_connection(
         "测试连接：创建临时连接进行测试（URL={}，network_config={:?}，auth_config={:?}，auth_method={:?}）",
         url, network_config_id, auth_config_id, auth_method
     );
-    let connect_future = service.connect_with_type(
-        None,
-        &db_type,
-        &url,
-        Some("test_connection".to_string()),
-        ConnectionType::Global,
-        None,                   // project_path
-        None,                   // description
-        None,                   // driver_id
-        None,                   // environment_id
-        auth_config_id.clone(), // auth_config_id
-        auth_method.clone(),    // auth_method
-        network_config_id.clone(),
-        None,       // driver_properties
-        None,       // advanced_options
-        None,       // options
-        None,       // tags
-        None,       // metadata_path
-        None,       // schema_name
-        None,       // use_duckdb_fed
-        Some(true), // skip_persistence: test connections do NOT persist to DB
+    let connect_future = service.connect_with_type(ConnectRequest {
+        conn_id: None,
+        db_type: db_type.clone(),
+        url: url.clone(),
+        name: Some("test_connection".to_string()),
+        connection_type: ConnectionType::Global,
+        project_path: None,                   // project_path
+        description: None,                   // description
+        driver_id: None,                   // driver_id
+        environment_id: None,                   // environment_id
+        auth_config_id: auth_config_id.clone(), // auth_config_id
+        auth_method: auth_method.clone(),    // auth_method
+        network_config_id: network_config_id.clone(),
+        driver_properties: None,       // driver_properties
+        advanced_options: None,       // advanced_options
+        options: None,       // options
+        tags: None,       // tags
+        metadata_path: None,       // metadata_path
+        schema_name: None,       // schema_name
+        use_duckdb_fed: None,       // use_duckdb_fed
+        skip_persistence: Some(true), // skip_persistence: test connections do NOT persist to DB
         network_method,
-    );
+    });
 
     let (conn_id, db) = match tokio::time::timeout(Duration::from_secs(30), connect_future).await {
         Ok(Ok(result)) => result,

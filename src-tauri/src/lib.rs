@@ -221,6 +221,8 @@ pub fn run() {
         load_constraints,
         load_procedures,
         load_functions,
+        load_sequences,
+        load_triggers,
         load_routine_source,
         invalidate_metadata_cache,
         get_cache_stats,
@@ -428,6 +430,8 @@ pub fn run() {
             load_constraints,
             load_procedures,
             load_functions,
+            load_sequences,
+            load_triggers,
             load_routine_source,
             invalidate_metadata_cache,
             get_cache_stats,
@@ -751,6 +755,8 @@ pub fn run() {
             | "load_constraints"
             | "load_procedures"
             | "load_functions"
+            | "load_sequences"
+            | "load_triggers"
             | "load_routine_source"
             | "invalidate_metadata_cache"
             | "get_cache_stats"

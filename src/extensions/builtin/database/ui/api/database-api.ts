@@ -17,6 +17,18 @@ import type {
 } from '@/generated/specta/bindings'
 import { typed } from '@/shared/api'
 
+/** 序列元数据（后端实现后迁移到 specta bindings） */
+export interface SequenceMeta {
+  name: string
+}
+
+/** 触发器元数据（后端实现后迁移到 specta bindings） */
+export interface TriggerMeta {
+  name: string
+  tableName?: string
+  event?: string
+}
+
 
 /**
  * Catalog 元数据 — 树形导航根节点
@@ -224,6 +236,46 @@ export async function loadConstraints(
   projectPath?: string
 ): Promise<ConstraintMeta[]> {
   return typed(commands.loadConstraints(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null))
+}
+
+/**
+ * 加载序列列表
+ */
+export async function loadSequences(
+  connectionId: string,
+  catalogName: string,
+  schemaName: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<SequenceMeta[]> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke('load_sequences', {
+    connId: connectionId,
+    dbName: catalogName,
+    schemaName,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
+}
+
+/**
+ * 加载触发器列表
+ */
+export async function loadTriggers(
+  connectionId: string,
+  catalogName: string,
+  schemaName: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<TriggerMeta[]> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke('load_triggers', {
+    connId: connectionId,
+    dbName: catalogName,
+    schemaName,
+    connectionType: connectionType ?? null,
+    projectPath: projectPath ?? null,
+  })
 }
 
 /**

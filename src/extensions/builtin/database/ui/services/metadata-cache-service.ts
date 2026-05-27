@@ -44,8 +44,28 @@ import { invoke } from '@tauri-apps/api/core'
 // 临时类型定义（待自动生成启用）
 export interface DatabaseMeta { name: string; }
 export interface CatalogMeta { name: string; }
-export interface SchemaMeta { name: string; }
-export interface TableMeta { name: string; type: string; }
+export interface SchemaMeta {
+  name: string
+  // V10: 企业级 schema 聚合统计
+  totalTables?: number
+  totalViews?: number
+  totalProcedures?: number
+  totalFunctions?: number
+  totalSizeBytes?: number
+  rowCountTotal?: number
+}
+export interface TableMeta {
+  name: string
+  type: string
+  rowCountEstimate?: number | null
+  dataLength?: number | null
+  indexLength?: number | null
+  displayOrder?: number
+  hidden?: boolean
+  favorite?: boolean
+  colorLabel?: string | null
+  userComment?: string | null
+}
 export interface ViewMeta { name: string; type: string; }
 export interface ColumnMeta {
   name: string;

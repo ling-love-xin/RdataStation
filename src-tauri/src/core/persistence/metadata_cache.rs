@@ -585,6 +585,144 @@ impl MetadataCacheOps {
         Ok(())
     }
 
+    /// 保存表元数据并填充统计信息
+    #[allow(clippy::too_many_arguments)]
+    pub fn save_table_with_stats(
+        &self,
+        schema_id: i64,
+        table_name: &str,
+        table_type: &str,
+        comment: Option<&str>,
+        engine: Option<&str>,
+        row_count_estimate: Option<i64>,
+        data_length: Option<i64>,
+        index_length: Option<i64>,
+    ) -> Result<i64, CoreError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| {
+                CoreError::common(CommonError::General(format!("获取系统时间失败: {}", e)))
+            })?
+            .as_secs() as i64;
+
+        self.conn.execute(
+            "INSERT OR REPLACE INTO tables
+             (schema_id, table_name, table_type, table_comment, engine, row_count_estimate,
+              data_length, index_length, introspect_level, is_loaded, last_sync, last_accessed, stats_last_updated)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 3, 1, ?9, ?9, ?9)",
+            rusqlite::params![schema_id, table_name, table_type, comment, engine, row_count_estimate, data_length, index_length, now],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "save_table_with_stats".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        let table_id = self.conn.last_insert_rowid();
+        // 保存后更新所属 schema 的聚合统计
+        let _ = self.update_schema_stats(schema_id);
+        Ok(table_id)
+    }
+
+    /// 更新 Schema 聚合统计
+    pub fn update_schema_stats(&self, schema_id: i64) -> Result<(), CoreError> {
+        self.conn.execute(
+            "UPDATE schemata SET
+                total_tables = (SELECT COUNT(*) FROM tables WHERE schema_id = ?1 AND table_type IN ('TABLE', 'PARTITIONED TABLE', 'SYSTEM TABLE', 'GLOBAL TEMPORARY', 'LOCAL TEMPORARY') AND hidden = 0),
+                total_views = (SELECT COUNT(*) FROM tables WHERE schema_id = ?1 AND table_type IN ('VIEW', 'MATERIALIZED VIEW') AND hidden = 0),
+                total_procedures = (SELECT COUNT(*) FROM routines WHERE schema_id = ?1 AND routine_type = 'PROCEDURE'),
+                total_functions = (SELECT COUNT(*) FROM routines WHERE schema_id = ?1 AND routine_type = 'FUNCTION'),
+                total_size_bytes = (SELECT COALESCE(SUM(data_length), 0) + COALESCE(SUM(index_length), 0) FROM tables WHERE schema_id = ?1),
+                row_count_total = (SELECT COALESCE(SUM(row_count_estimate), 0) FROM tables WHERE schema_id = ?1)
+            WHERE id = ?1",
+            rusqlite::params![schema_id],
+        ).map_err(|e| CoreError::storage(
+            StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "update_schema_stats".to_string(),
+                reason: e.to_string(),
+            }
+        ))?;
+
+        Ok(())
+    }
+
+    /// 获取 Schema 对象数量统计
+    pub fn get_schema_stats(&self, schema_id: i64) -> Result<Option<SchemaInfo>, CoreError> {
+        let schema = self
+            .conn
+            .query_row(
+                "SELECT s.id, s.catalog_name, s.schema_name, s.owner, s.comment, s.last_sync, \
+                 s.default_character_set_name, s.default_collation_name, s.introspect_level, s.is_loaded, \
+                 s.total_tables, s.total_views, s.total_procedures, s.total_functions, \
+                 s.total_size_bytes, s.row_count_total
+                 FROM schemata s WHERE s.id = ?1",
+                rusqlite::params![schema_id],
+                SchemaInfo::from_row_with_stats,
+            )
+            .optional()
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_schema_stats".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        Ok(schema)
+    }
+
+    /// 获取 Schema 列表（含 V10 统计）
+    pub fn list_schemas_with_stats(
+        &self,
+        catalog_name: Option<&str>,
+    ) -> Result<Vec<SchemaInfo>, CoreError> {
+        let query = match catalog_name {
+            Some(_) => "SELECT id, catalog_name, schema_name, owner, comment, last_sync, \
+                        default_character_set_name, default_collation_name, introspect_level, is_loaded, \
+                        total_tables, total_views, total_procedures, total_functions, total_size_bytes, row_count_total
+                        FROM schemata WHERE catalog_name = ?1 ORDER BY schema_name",
+            None => "SELECT id, catalog_name, schema_name, owner, comment, last_sync, \
+                     default_character_set_name, default_collation_name, introspect_level, is_loaded, \
+                     total_tables, total_views, total_procedures, total_functions, total_size_bytes, row_count_total
+                     FROM schemata ORDER BY schema_name",
+        };
+
+        let mut stmt = self.conn.prepare(query).map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "list_schemas_with_stats".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        let schemas = match catalog_name {
+            Some(cat) => stmt.query_map(rusqlite::params![cat], SchemaInfo::from_row_with_stats),
+            None => stmt.query_map([], SchemaInfo::from_row_with_stats),
+        }
+        .map_err(|e| {
+            CoreError::storage(StorageError::Persistence {
+                store: "sqlite".to_string(),
+                operation: "query_schemas_with_stats".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+        let mut result = Vec::new();
+        for schema in schemas {
+            result.push(schema.map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "fetch_schema_with_stats".to_string(),
+                    reason: e.to_string(),
+                })
+            })?);
+        }
+
+        Ok(result)
+    }
+
     /// 获取表列表（规范化）
     pub fn list_tables_normalized(
         &self,
@@ -593,11 +731,13 @@ impl MetadataCacheOps {
     ) -> Result<Vec<TableDetailInfo>, CoreError> {
         let query = match table_type {
             Some(_t) => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, \
-                        t.created_at, t.last_altered_at, t.last_sync, s.schema_name
+                        t.created_at, t.last_altered_at, t.last_sync, s.schema_name, \
+                        t.data_length, t.index_length, t.display_order, t.hidden, t.favorite, t.color_label, t.user_comment
                         FROM tables t INNER JOIN schemata s ON t.schema_id = s.id
                         WHERE t.schema_id = ?1 AND t.table_type = ?2 ORDER BY t.table_name",
             None => "SELECT t.id, t.table_name, t.table_type, t.table_comment, t.engine, t.row_count_estimate, \
-                     t.created_at, t.last_altered_at, t.last_sync, s.schema_name
+                     t.created_at, t.last_altered_at, t.last_sync, s.schema_name, \
+                     t.data_length, t.index_length, t.display_order, t.hidden, t.favorite, t.color_label, t.user_comment
                      FROM tables t INNER JOIN schemata s ON t.schema_id = s.id
                      WHERE t.schema_id = ?1 ORDER BY t.table_name",
         };
@@ -4608,9 +4748,17 @@ pub struct SchemaInfo {
     pub default_collation_name: Option<String>,
     pub introspect_level: Option<i32>,
     pub is_loaded: Option<i32>,
+    /// V10: 企业级统计
+    pub total_tables: Option<i32>,
+    pub total_views: Option<i32>,
+    pub total_procedures: Option<i32>,
+    pub total_functions: Option<i32>,
+    pub total_size_bytes: Option<i64>,
+    pub row_count_total: Option<i64>,
 }
 
 impl SchemaInfo {
+    /// 从 schemata 表读取基本字段（兼容旧查询）
     pub fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         Ok(Self {
             id: row.get(0)?,
@@ -4623,6 +4771,34 @@ impl SchemaInfo {
             default_collation_name: row.get(7)?,
             introspect_level: row.get(8)?,
             is_loaded: row.get(9)?,
+            total_tables: None,
+            total_views: None,
+            total_procedures: None,
+            total_functions: None,
+            total_size_bytes: None,
+            row_count_total: None,
+        })
+    }
+
+    /// 从 schemata 表读取完整字段（含 V10 统计）
+    pub fn from_row_with_stats(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get(0)?,
+            catalog_name: row.get(1)?,
+            schema_name: row.get(2)?,
+            owner: row.get(3)?,
+            comment: row.get(4)?,
+            last_sync: row.get(5)?,
+            default_character_set_name: row.get(6)?,
+            default_collation_name: row.get(7)?,
+            introspect_level: row.get(8)?,
+            is_loaded: row.get(9)?,
+            total_tables: row.get(10)?,
+            total_views: row.get(11)?,
+            total_procedures: row.get(12)?,
+            total_functions: row.get(13)?,
+            total_size_bytes: row.get(14)?,
+            row_count_total: row.get(15)?,
         })
     }
 }
@@ -4640,6 +4816,15 @@ pub struct TableDetailInfo {
     pub last_altered_at: Option<i64>,
     pub last_sync: Option<i64>,
     pub schema_name: String,
+    /// V10: 存储空间
+    pub data_length: Option<i64>,
+    pub index_length: Option<i64>,
+    /// V10: 显示控制
+    pub display_order: Option<i32>,
+    pub hidden: Option<bool>,
+    pub favorite: Option<bool>,
+    pub color_label: Option<String>,
+    pub user_comment: Option<String>,
 }
 
 impl TableDetailInfo {
@@ -4655,6 +4840,13 @@ impl TableDetailInfo {
             last_altered_at: row.get(7)?,
             last_sync: row.get(8)?,
             schema_name: row.get(9)?,
+            data_length: row.get(10)?,
+            index_length: row.get(11)?,
+            display_order: row.get(12)?,
+            hidden: row.get::<_, Option<i32>>(13)?.map(|v| v != 0),
+            favorite: row.get::<_, Option<i32>>(14)?.map(|v| v != 0),
+            color_label: row.get(15)?,
+            user_comment: row.get(16)?,
         })
     }
 }

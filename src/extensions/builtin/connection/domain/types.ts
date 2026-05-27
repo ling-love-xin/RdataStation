@@ -15,7 +15,12 @@ export interface DataSourceMeta {
   is_in_memory: boolean
 }
 
-/** 创建数据库连接请求参数 */
+/** 创建数据库连接请求参数
+ *
+ * ⚠️ 与 Rust specta 自动生成的 @/generated/specta/bindings.ts 中的
+ *    ConnectDatabaseInput 保持同步。此为手写副本，用于减少编译时依赖。
+ *    修改此类型前，请先对照 bindings.ts 中的 specta 定义。
+ */
 export interface ConnectDatabaseInput {
   conn_id?: string | null
   db_type: string
@@ -31,6 +36,11 @@ export interface ConnectDatabaseInput {
   network_config_id?: string | null
   driver_properties?: string | null
   advanced_options?: string | null
+  options?: string | null
+  tags?: string | null
+  metadata_path?: string | null
+  schema_name?: string | null
+  use_duckdb_fed?: boolean | null
 }
 
 /** 连接响应 */
@@ -124,6 +134,7 @@ export interface Driver {
   config_schema: string // JSON Schema 字符串 → 前端 parseConfigSchema() 解析
   supported_auth_types?: string // JSON 数组字符串
   capabilities?: string // JSON 数组字符串
+  driver_properties?: string // JSON 键值对字符串，驱动默认连接属性
   enabled: boolean
 }
 

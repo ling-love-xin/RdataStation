@@ -148,9 +148,7 @@ fn try_l2_schemas(
         Ok(Some(
             schema_infos
                 .into_iter()
-                .map(|s| SchemaMeta {
-                    name: s.schema_name,
-                })
+                .map(|s| SchemaMeta::basic(s.schema_name))
                 .collect(),
         ))
     }
@@ -175,12 +173,11 @@ fn try_l2_tables(
         .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 tables query: {}", e))))?;
     let tables: Vec<TableMeta> = stmt
         .query_map(rusqlite::params![database, schema_name], |row| {
-            Ok(TableMeta {
-                name: row.get(0)?,
-                table_type: row
-                    .get::<_, String>(1)
+            Ok(TableMeta::basic(
+                row.get(0)?,
+                row.get::<_, String>(1)
                     .unwrap_or_else(|_| "TABLE".to_string()),
-            })
+            ))
         })
         .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 tables rows: {}", e))))?
         .filter_map(|r| r.ok())
@@ -353,6 +350,33 @@ pub struct DatabaseMeta {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SchemaMeta {
     pub name: String,
+    // V10: Schema 聚合统计（可选，仅当从 schema_stats 视图读取时填充）
+    #[serde(rename = "totalTables", skip_serializing_if = "Option::is_none")]
+    pub total_tables: Option<i32>,
+    #[serde(rename = "totalViews", skip_serializing_if = "Option::is_none")]
+    pub total_views: Option<i32>,
+    #[serde(rename = "totalProcedures", skip_serializing_if = "Option::is_none")]
+    pub total_procedures: Option<i32>,
+    #[serde(rename = "totalFunctions", skip_serializing_if = "Option::is_none")]
+    pub total_functions: Option<i32>,
+    #[serde(rename = "totalSizeBytes", skip_serializing_if = "Option::is_none")]
+    pub total_size_bytes: Option<i64>,
+    #[serde(rename = "rowCountTotal", skip_serializing_if = "Option::is_none")]
+    pub row_count_total: Option<i64>,
+}
+
+impl SchemaMeta {
+    pub fn basic(name: String) -> Self {
+        Self {
+            name,
+            total_tables: None,
+            total_views: None,
+            total_procedures: None,
+            total_functions: None,
+            total_size_bytes: None,
+            row_count_total: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -360,6 +384,57 @@ pub struct TableMeta {
     pub name: String,
     #[serde(rename = "type")]
     pub table_type: String,
+    // V10: 企业级统计（可选，仅当查询系统表成功时填充）
+    #[serde(rename = "rowCountEstimate", skip_serializing_if = "Option::is_none")]
+    pub row_count_estimate: Option<i64>,
+    #[serde(rename = "dataLength", skip_serializing_if = "Option::is_none")]
+    pub data_length: Option<i64>,
+    #[serde(rename = "indexLength", skip_serializing_if = "Option::is_none")]
+    pub index_length: Option<i64>,
+    #[serde(rename = "displayOrder", skip_serializing_if = "Option::is_none")]
+    pub display_order: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub favorite: Option<bool>,
+    #[serde(rename = "colorLabel", skip_serializing_if = "Option::is_none")]
+    pub color_label: Option<String>,
+    #[serde(rename = "userComment", skip_serializing_if = "Option::is_none")]
+    pub user_comment: Option<String>,
+}
+
+impl TableMeta {
+    /// 从基础信息创建（兼容旧代码路径）
+    pub fn basic(name: String, table_type: String) -> Self {
+        Self {
+            name,
+            table_type,
+            row_count_estimate: None,
+            data_length: None,
+            index_length: None,
+            display_order: None,
+            hidden: None,
+            favorite: None,
+            color_label: None,
+            user_comment: None,
+        }
+    }
+
+    /// 从持久化层 TableDetailInfo 创建（含 V10 统计）
+    pub fn from_detail(info: &crate::core::persistence::metadata_cache::TableDetailInfo) -> Self {
+        Self {
+            name: info.table_name.clone(),
+            table_type: info.table_type.clone(),
+            row_count_estimate: info.row_count_estimate,
+            data_length: info.data_length,
+            index_length: info.index_length,
+            display_order: info.display_order,
+            hidden: info.hidden,
+            favorite: info.favorite,
+            color_label: info.color_label.clone(),
+            user_comment: info.user_comment.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -484,7 +559,7 @@ pub async fn load_schemas(
 ) -> Result<Vec<SchemaMeta>, CoreError> {
     let cached = check_l1_cache(|mc| mc.get_schemas(&conn_id, &db_name))?;
     if let Some(names) = cached {
-        return Ok(names.into_iter().map(|name| SchemaMeta { name }).collect());
+        return Ok(names.into_iter().map(SchemaMeta::basic).collect());
     }
 
     let ct = connection_type.as_deref().unwrap_or("global");
@@ -500,7 +575,7 @@ pub async fn load_schemas(
 
     let _ = write_l1_cache(|mc| mc.set_schemas(&conn_id, &db_name, names.clone()));
 
-    Ok(names.into_iter().map(|name| SchemaMeta { name }).collect())
+    Ok(names.into_iter().map(SchemaMeta::basic).collect())
 }
 
 #[tauri::command]
@@ -516,10 +591,7 @@ pub async fn load_tables(
     if let Some(objects) = cached {
         return Ok(objects
             .into_iter()
-            .map(|obj| TableMeta {
-                name: obj.name,
-                table_type: "TABLE".to_string(),
-            })
+            .map(|obj| TableMeta::basic(obj.name, "TABLE".to_string()))
             .collect());
     }
 
@@ -533,6 +605,8 @@ pub async fn load_tables(
                 kind: crate::core::driver::SchemaObjectKind::Table,
                 children: None,
                 comment: None,
+                table_name: None,
+                event: None,
             })
             .collect();
         let _ = write_l1_cache(|mc| mc.set_tables(&conn_id, &db_name, Some(&schema_name), objects));
@@ -549,10 +623,7 @@ pub async fn load_tables(
 
     let table_metas: Vec<TableMeta> = objects
         .iter()
-        .map(|obj| TableMeta {
-            name: obj.name.clone(),
-            table_type: "TABLE".to_string(),
-        })
+        .map(|obj| TableMeta::basic(obj.name.clone(), "TABLE".to_string()))
         .collect();
     write_l2_tables_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_metas);
 
@@ -594,6 +665,8 @@ pub async fn load_views(
                 },
                 children: None,
                 comment: None,
+                table_name: None,
+                event: None,
             })
             .collect();
         let _ = write_l1_cache(|mc| mc.set_tables(&conn_id, &db_name, Some(&schema_name), objects));
@@ -617,14 +690,14 @@ pub async fn load_views(
 
     let table_metas: Vec<TableMeta> = objects
         .iter()
-        .map(|obj| TableMeta {
-            name: obj.name.clone(),
-            table_type: if matches!(obj.kind, crate::core::driver::SchemaObjectKind::View) {
+        .map(|obj| TableMeta::basic(
+            obj.name.clone(),
+            if matches!(obj.kind, crate::core::driver::SchemaObjectKind::View) {
                 "VIEW".to_string()
             } else {
                 "TABLE".to_string()
             },
-        })
+        ))
         .collect();
     write_l2_tables_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_metas);
 
@@ -1112,4 +1185,70 @@ pub async fn load_constraints(
     );
 
     Ok(constraint_metas)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SequenceMeta {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct TriggerMeta {
+    pub name: String,
+    #[serde(rename = "tableName")]
+    pub table_name: Option<String>,
+    #[serde(rename = "event")]
+    pub event: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn load_sequences(
+    conn_id: String,
+    db_name: String,
+    schema_name: String,
+    connection_type: Option<String>,
+    project_path: Option<String>,
+) -> Result<Vec<SequenceMeta>, CoreError> {
+    let _ = (connection_type, project_path);
+    let service = new_metadata_service();
+    let sequences = service
+        .list_sequences(&conn_id, &db_name, &schema_name)
+        .await?;
+
+    let sequence_metas: Vec<SequenceMeta> = sequences
+        .iter()
+        .map(|s| SequenceMeta {
+            name: s.name.clone(),
+        })
+        .collect();
+
+    Ok(sequence_metas)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn load_triggers(
+    conn_id: String,
+    db_name: String,
+    schema_name: String,
+    connection_type: Option<String>,
+    project_path: Option<String>,
+) -> Result<Vec<TriggerMeta>, CoreError> {
+    let _ = (connection_type, project_path);
+    let service = new_metadata_service();
+    let triggers = service
+        .list_triggers(&conn_id, &db_name, &schema_name)
+        .await?;
+
+    let trigger_metas: Vec<TriggerMeta> = triggers
+        .iter()
+        .map(|t| TriggerMeta {
+            name: t.name.clone(),
+            table_name: t.table_name.clone(),
+            event: t.event.clone(),
+        })
+        .collect();
+
+    Ok(trigger_metas)
 }

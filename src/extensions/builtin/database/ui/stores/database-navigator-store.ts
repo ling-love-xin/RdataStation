@@ -172,6 +172,33 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }))
   }
 
+  /**
+   * 静默从 L2 缓存加载 Catalogs（离线模式专用）
+   * 不访问数据库，只从本地 SQLite 元数据缓存读取，失败时静默处理
+   */
+  async function loadCatalogsFromCacheSilent(connectionId: string): Promise<boolean> {
+    // 如果已经有缓存数据，不重复加载
+    const existing = connectionCatalogs.value.get(connectionId)
+    if (existing && existing.length > 0) return true
+
+    try {
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
+      const catalogs = await loadCatalogsFromCache(connectionId, connType, projectPath)
+
+      if (catalogs.length > 0) {
+        const currentMap = connectionCatalogs.value
+        const newMap = new Map(currentMap)
+        newMap.set(connectionId, catalogs)
+        connectionCatalogs.value = newMap
+        return true
+      }
+    } catch {
+      // 离线模式下静默处理缓存加载失败
+    }
+    return false
+  }
+
   async function loadCatalogsFromDb(connectionId: string) {
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
@@ -518,6 +545,190 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载函数列表失败'
       console.error('加载函数列表失败:', e)
+    } finally {
+      loadingTables.value.delete(key)
+    }
+  }
+
+  async function loadIndexes(
+    connectionId: string,
+    catalogName: string,
+    schemaName: string,
+    tableName: string
+  ) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:${tableName}:indexes`
+    if (loadingTables.value.has(key)) return
+
+    loadingTables.value.add(key)
+    error.value = null
+
+    try {
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
+
+      const indexMetas = await databaseApi.loadIndexes(
+        connectionId,
+        catalogName,
+        schemaName,
+        tableName,
+        connType,
+        projectPath
+      )
+      const indexes: IndexNode[] = indexMetas.map((idx: { name: string; columnNames: string[]; isUnique: boolean; isPrimary: boolean }) => ({
+        name: idx.name,
+        columns: idx.columnNames || [],
+        isUnique: idx.isUnique || false,
+        isPrimary: idx.isPrimary || false,
+      }))
+
+      // 写入 SchemaNode 的 table.indexes
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (!catalogs) return
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (!cat) return
+      const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
+      if (!schema) return
+      const table = schema.tables.find((t: { name: string }) => t.name === tableName)
+      if (table) {
+        table.indexes = indexes
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载索引列表失败'
+      console.error('加载索引列表失败:', e)
+    } finally {
+      loadingTables.value.delete(key)
+    }
+  }
+
+  async function loadConstraints(
+    connectionId: string,
+    catalogName: string,
+    schemaName: string,
+    tableName: string
+  ) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:${tableName}:constraints`
+    if (loadingTables.value.has(key)) return
+
+    loadingTables.value.add(key)
+    error.value = null
+
+    try {
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
+
+      const constraintMetas = await databaseApi.loadConstraints(
+        connectionId,
+        catalogName,
+        schemaName,
+        tableName,
+        connType,
+        projectPath
+      )
+      const constraints: ConstraintNode[] = constraintMetas.map((c: { name: string; constraintType: string; columnNames: string[] }) => ({
+        name: c.name,
+        type: c.constraintType as ConstraintNode['type'],
+        columns: c.columnNames || [],
+      }))
+
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (!catalogs) return
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (!cat) return
+      const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
+      if (!schema) return
+      const table = schema.tables.find((t: { name: string }) => t.name === tableName)
+      if (table) {
+        table.constraints = constraints
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载约束列表失败'
+      console.error('加载约束列表失败:', e)
+    } finally {
+      loadingTables.value.delete(key)
+    }
+  }
+
+  async function loadSequences(
+    connectionId: string,
+    catalogName: string,
+    schemaName: string
+  ) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:sequences`
+    if (loadingTables.value.has(key)) return
+
+    loadingTables.value.add(key)
+    error.value = null
+
+    try {
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
+
+      const sequenceMetas = await databaseApi.loadSequences(
+        connectionId,
+        catalogName,
+        schemaName,
+        connType,
+        projectPath
+      )
+      const sequences: SequenceNode[] = sequenceMetas.map((s: { name: string }) => ({
+        name: s.name,
+      }))
+
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (!catalogs) return
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (!cat) return
+      const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
+      if (schema) {
+        schema.sequences = sequences
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载序列列表失败'
+      console.error('加载序列列表失败:', e)
+    } finally {
+      loadingTables.value.delete(key)
+    }
+  }
+
+  async function loadTriggers(
+    connectionId: string,
+    catalogName: string,
+    schemaName: string
+  ) {
+    const key = `${connectionId}:${catalogName}:${schemaName}:triggers`
+    if (loadingTables.value.has(key)) return
+
+    loadingTables.value.add(key)
+    error.value = null
+
+    try {
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
+
+      const triggerMetas = await databaseApi.loadTriggers(
+        connectionId,
+        catalogName,
+        schemaName,
+        connType,
+        projectPath
+      )
+      const triggers: TriggerNode[] = triggerMetas.map((t: { name: string; tableName?: string; event?: string }) => ({
+        name: t.name,
+        tableName: t.tableName,
+        event: t.event,
+      }))
+
+      const catalogs = connectionCatalogs.value.get(connectionId)
+      if (!catalogs) return
+      const cat = catalogs.find((c: { name: string }) => c.name === catalogName)
+      if (!cat) return
+      const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
+      if (schema) {
+        schema.triggers = triggers
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载触发器列表失败'
+      console.error('加载触发器列表失败:', e)
     } finally {
       loadingTables.value.delete(key)
     }
@@ -995,11 +1206,16 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     setIntrospectionLevel,
     getIntrospectionLevel,
     loadCatalogs,
+    loadCatalogsFromCacheSilent,
     loadSchemas,
     loadTables,
     loadViews,
     loadProcedures,
     loadFunctions,
+    loadIndexes,
+    loadConstraints,
+    loadSequences,
+    loadTriggers,
     loadColumns,
     refreshMetadata,
     searchObjects,
@@ -1031,6 +1247,8 @@ interface SchemaNode {
   views: ViewNode[]
   procedures?: ProcedureNode[]
   functions?: FunctionNode[]
+  sequences?: SequenceNode[]
+  triggers?: TriggerNode[]
 }
 
 interface TableNode {
@@ -1066,6 +1284,16 @@ interface ProcedureNode {
 
 interface FunctionNode {
   name: string
+}
+
+interface SequenceNode {
+  name: string
+}
+
+interface TriggerNode {
+  name: string
+  tableName?: string
+  event?: string
 }
 
 interface ColumnNode {

@@ -60,6 +60,8 @@ impl MetadataService {
                     kind: n.kind,
                     children: None,
                     comment: n.comment,
+                    table_name: None,
+                    event: None,
                 })
                 .collect());
         }
@@ -127,6 +129,26 @@ impl MetadataService {
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let db = self.get_database(conn_id).await?;
         db.list_functions(catalog, Some(schema)).await
+    }
+
+    pub async fn list_sequences(
+        &self,
+        conn_id: &str,
+        catalog: &str,
+        schema: &str,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let db = self.get_database(conn_id).await?;
+        db.list_sequences(catalog, Some(schema)).await
+    }
+
+    pub async fn list_triggers(
+        &self,
+        conn_id: &str,
+        catalog: &str,
+        schema: &str,
+    ) -> Result<Vec<SchemaObject>, CoreError> {
+        let db = self.get_database(conn_id).await?;
+        db.list_triggers(catalog, Some(schema)).await
     }
 
     pub async fn get_routine_source(
