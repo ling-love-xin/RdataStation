@@ -97,15 +97,9 @@ ALTER TABLE global_connections ADD COLUMN network_config_id TEXT;
 ALTER TABLE global_connections ADD COLUMN driver_properties TEXT;
 ALTER TABLE global_connections ADD COLUMN advanced_options TEXT;
 
-UPDATE global_connections SET driver_id =
-    CASE driver
-        WHEN 'mysql'    THEN 'mysql-native'
-        WHEN 'postgres' THEN 'postgres-native'
-        WHEN 'sqlite'   THEN 'sqlite-native'
-        WHEN 'duckdb'   THEN 'duckdb-native'
-        ELSE driver || '-native'
-    END
-WHERE driver_id IS NULL;
+-- driver_id 直接复制 driver 字段（与 Registry key 对齐）
+-- Registry keys: mysql, postgres, sqlite, duckdb
+UPDATE global_connections SET driver_id = driver WHERE driver_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_gc_driver_id ON global_connections(driver_id);
 CREATE INDEX IF NOT EXISTS idx_gc_env ON global_connections(environment_id);
@@ -122,8 +116,13 @@ INSERT OR IGNORE INTO data_source_types (id, name, category, icon, enabled) VALU
     ('mongodb',    'MongoDB',    'nosql',       '🍃', 0),
     ('redis',      'Redis',      'nosql',       '🔶', 0);
 
+-- 驱动 ID 与 Registry key 严格对齐：
+--   mysql   → MySqlDriverFactory (sqlx)
+--   postgres → PostgresDriverFactory (sqlx)
+--   sqlite  → SqliteDriverFactory (rusqlite)
+--   duckdb  → DuckDbDriverFactory (duckdb-rs)
 INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
-    ('mysql-native', 'mysql', 'MySQL (Native)',
+    ('mysql', 'mysql', 'MySQL (sqlx)',
      'native', 0, 3306,
      'mysql://{username}:{password}@{host}:{port}/{database}',
      '1.0.0',
@@ -133,7 +132,7 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
      1);
 
 INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
-    ('postgres-native', 'postgresql', 'PostgreSQL (Native)',
+    ('postgres', 'postgresql', 'PostgreSQL (sqlx)',
      'native', 0, 5432,
      'postgres://{username}:{password}@{host}:{port}/{database}',
      '1.0.0',
@@ -143,7 +142,7 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
      1);
 
 INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
-    ('sqlite-native', 'sqlite', 'SQLite (Native)',
+    ('sqlite', 'sqlite', 'SQLite (rusqlite)',
      'native', 1, NULL,
      'sqlite://{file_path}',
      '1.0.0',
@@ -153,7 +152,7 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
      1);
 
 INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port, url_template, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
-    ('duckdb-native', 'duckdb', 'DuckDB (Native)',
+    ('duckdb', 'duckdb', 'DuckDB (duckdb-rs)',
      'native', 1, NULL,
      'duckdb://{file_path}',
      '1.0.0',

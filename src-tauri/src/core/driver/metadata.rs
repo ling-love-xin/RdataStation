@@ -375,4 +375,154 @@ impl DriverMetadata {
             homepage: Some("https://rdatastation.com".to_string()),
         }
     }
+
+    /// 创建 MySQL 官方原生驱动元信息（mysql_async）
+    pub fn mysql_native() -> Self {
+        Self {
+            id: "mysql_native".to_string(),
+            name: "MySQL (Official)".to_string(),
+            version: "1.0.0".to_string(),
+            r#type: DriverType::Native,
+            description: "MySQL official pure-Rust async driver (mysql_async)".to_string(),
+            icon: Some(DriverIcon {
+                r#type: "svg".to_string(),
+                content: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"#4479A1\"><path d=\"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z\"/></svg>".to_string(),
+            }),
+            features: vec![
+                "transaction".to_string(),
+                "streaming".to_string(),
+                "ssl".to_string(),
+                "ssh".to_string(),
+                "protocol_compression".to_string(),
+            ],
+            config_form: vec![
+                DriverFormField {
+                    name: "host".to_string(),
+                    label: "Host".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::String("localhost".to_string())),
+                    options: None,
+                    description: Some("MySQL server hostname".to_string()),
+                },
+                DriverFormField {
+                    name: "port".to_string(),
+                    label: "Port".to_string(),
+                    field_type: "number".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::Number(serde_json::Number::from(3306))),
+                    options: None,
+                    description: Some("MySQL server port".to_string()),
+                },
+                DriverFormField {
+                    name: "database".to_string(),
+                    label: "Database".to_string(),
+                    field_type: "text".to_string(),
+                    required: false,
+                    default_value: None,
+                    options: None,
+                    description: Some("Database name".to_string()),
+                },
+                DriverFormField {
+                    name: "username".to_string(),
+                    label: "Username".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::String("root".to_string())),
+                    options: None,
+                    description: Some("MySQL username".to_string()),
+                },
+                DriverFormField {
+                    name: "password".to_string(),
+                    label: "Password".to_string(),
+                    field_type: "password".to_string(),
+                    required: false,
+                    default_value: None,
+                    options: None,
+                    description: Some("MySQL password".to_string()),
+                },
+            ],
+            url_template: "mysql://{username}:{password}@{host}:{port}/{database}".to_string(),
+            default_port: Some(3306),
+            author: Some("RdataStation Team".to_string()),
+            license: Some("MIT".to_string()),
+            homepage: Some("https://rdatastation.com".to_string()),
+        }
+    }
+
+    /// 创建 PostgreSQL 官方原生驱动元信息（tokio-postgres）
+    pub fn postgres_native() -> Self {
+        Self {
+            id: "postgres_native".to_string(),
+            name: "PostgreSQL (Official)".to_string(),
+            version: "1.0.0".to_string(),
+            r#type: DriverType::Native,
+            description: "PostgreSQL official async driver (tokio-postgres)".to_string(),
+            icon: Some(DriverIcon {
+                r#type: "svg".to_string(),
+                content: "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"#336791\"><path d=\"M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z\"/></svg>".to_string(),
+            }),
+            features: vec![
+                "transaction".to_string(),
+                "streaming".to_string(),
+                "ssl".to_string(),
+                "ssh".to_string(),
+                "pipeline".to_string(),
+                "copy_protocol".to_string(),
+                "listen_notify".to_string(),
+            ],
+            config_form: vec![
+                DriverFormField {
+                    name: "host".to_string(),
+                    label: "Host".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::String("localhost".to_string())),
+                    options: None,
+                    description: Some("PostgreSQL server hostname".to_string()),
+                },
+                DriverFormField {
+                    name: "port".to_string(),
+                    label: "Port".to_string(),
+                    field_type: "number".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::Number(serde_json::Number::from(5432))),
+                    options: None,
+                    description: Some("PostgreSQL server port".to_string()),
+                },
+                DriverFormField {
+                    name: "database".to_string(),
+                    label: "Database".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::String("postgres".to_string())),
+                    options: None,
+                    description: Some("Database name".to_string()),
+                },
+                DriverFormField {
+                    name: "username".to_string(),
+                    label: "Username".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some(serde_json::Value::String("postgres".to_string())),
+                    options: None,
+                    description: Some("PostgreSQL username".to_string()),
+                },
+                DriverFormField {
+                    name: "password".to_string(),
+                    label: "Password".to_string(),
+                    field_type: "password".to_string(),
+                    required: false,
+                    default_value: None,
+                    options: None,
+                    description: Some("PostgreSQL password".to_string()),
+                },
+            ],
+            url_template: "postgres://{username}:{password}@{host}:{port}/{database}".to_string(),
+            default_port: Some(5432),
+            author: Some("RdataStation Team".to_string()),
+            license: Some("MIT".to_string()),
+            homepage: Some("https://rdatastation.com".to_string()),
+        }
+    }
 }

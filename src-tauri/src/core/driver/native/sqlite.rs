@@ -96,102 +96,115 @@ impl Database for SqliteDatabase {
         sql: &str,
         params: Vec<Value>,
     ) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| {
-            CoreError::database(DatabaseError::Driver {
-                db_type: "sqlite".to_string(),
-                operation: "lock".to_string(),
-                source: e.to_string(),
-            })
-        })?;
+        let conn = Arc::clone(&self.conn);
+        let sql_owned = sql.to_string();
 
-        let mut stmt = conn
-            .prepare(sql)
-            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "sqlite".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
 
-        let columns: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|name| name.to_string())
-            .collect();
+            let mut stmt = conn
+                .prepare(&sql_owned)
+                .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
 
-        let params_slice: Vec<rusqlite::types::Value> = params
-            .iter()
-            .map(|v| match v {
-                Value::Null => rusqlite::types::Value::Null,
-                Value::Bool(b) => rusqlite::types::Value::Integer(*b as i64),
-                Value::Int(i) => rusqlite::types::Value::Integer(*i),
-                Value::Float(f) => rusqlite::types::Value::Real(*f),
-                Value::Text(s) => rusqlite::types::Value::Text(s.clone()),
-                Value::Bytes(b) => rusqlite::types::Value::Blob(b.clone()),
-            })
-            .collect();
-
-        let mut rows = match params_slice.len() {
-            0 => stmt.query([]),
-            1 => stmt.query([&params_slice[0]]),
-            2 => stmt.query([&params_slice[0], &params_slice[1]]),
-            3 => stmt.query([&params_slice[0], &params_slice[1], &params_slice[2]]),
-            4 => stmt.query([
-                &params_slice[0],
-                &params_slice[1],
-                &params_slice[2],
-                &params_slice[3],
-            ]),
-            5 => stmt.query([
-                &params_slice[0],
-                &params_slice[1],
-                &params_slice[2],
-                &params_slice[3],
-                &params_slice[4],
-            ]),
-            _ => {
-                let params_refs: Vec<&dyn rusqlite::ToSql> = params_slice
-                    .iter()
-                    .take(16)
-                    .map(|v| v as &dyn rusqlite::ToSql)
-                    .collect();
-                stmt.query(rusqlite::params_from_iter(params_refs))
-            }
-        }
-        .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-        let mut row_data: Vec<Vec<rusqlite::types::Value>> = Vec::new();
-        while let Ok(Some(row)) = rows.next() {
-            let values: Vec<rusqlite::types::Value> = columns
+            let columns: Vec<String> = stmt
+                .column_names()
                 .iter()
-                .enumerate()
-                .map(|(i, _)| {
-                    row.get::<usize, rusqlite::types::Value>(i)
-                        .unwrap_or(rusqlite::types::Value::Null)
+                .map(|name| name.to_string())
+                .collect();
+
+            let params_slice: Vec<rusqlite::types::Value> = params
+                .iter()
+                .map(|v| match v {
+                    Value::Null => rusqlite::types::Value::Null,
+                    Value::Bool(b) => rusqlite::types::Value::Integer(*b as i64),
+                    Value::Int(i) => rusqlite::types::Value::Integer(*i),
+                    Value::Float(f) => rusqlite::types::Value::Real(*f),
+                    Value::Text(s) => rusqlite::types::Value::Text(s.clone()),
+                    Value::Bytes(b) => rusqlite::types::Value::Blob(b.clone()),
                 })
                 .collect();
-            row_data.push(values);
-        }
 
-        let is_read_only = is_read_only_sql(sql);
-        let row_count = row_data.len();
+            let mut rows = match params_slice.len() {
+                0 => stmt.query([]),
+                1 => stmt.query([&params_slice[0]]),
+                2 => stmt.query([&params_slice[0], &params_slice[1]]),
+                3 => stmt.query([&params_slice[0], &params_slice[1], &params_slice[2]]),
+                4 => stmt.query([
+                    &params_slice[0],
+                    &params_slice[1],
+                    &params_slice[2],
+                    &params_slice[3],
+                ]),
+                5 => stmt.query([
+                    &params_slice[0],
+                    &params_slice[1],
+                    &params_slice[2],
+                    &params_slice[3],
+                    &params_slice[4],
+                ]),
+                _ => {
+                    let params_refs: Vec<&dyn rusqlite::ToSql> = params_slice
+                        .iter()
+                        .take(16)
+                        .map(|v| v as &dyn rusqlite::ToSql)
+                        .collect();
+                    stmt.query(rusqlite::params_from_iter(params_refs))
+                }
+            }
+            .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
 
-        let batch = if row_count > 0 {
-            sqlite_rows_to_arrow(&columns, &row_data)?
-        } else {
-            return Ok(QueryResult {
-                columns,
-                batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
-            });
-        };
+            let mut row_data: Vec<Vec<rusqlite::types::Value>> = Vec::new();
+            while let Ok(Some(row)) = rows.next() {
+                let values: Vec<rusqlite::types::Value> = columns
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| {
+                        row.get::<usize, rusqlite::types::Value>(i)
+                            .unwrap_or(rusqlite::types::Value::Null)
+                    })
+                    .collect();
+                row_data.push(values);
+            }
 
-        Ok(QueryResult {
-            columns,
-            batches: vec![batch],
-            affected_rows: if is_read_only {
-                None
+            let is_read_only = is_read_only_sql(&sql_owned);
+            let row_count = row_data.len();
+
+            let batch = if row_count > 0 {
+                sqlite_rows_to_arrow(&columns, &row_data)?
             } else {
-                Some(row_count as u32)
-            },
-            is_read_only: Some(is_read_only),
+                return Ok(QueryResult {
+                    columns,
+                    batches: vec![],
+                    affected_rows: if is_read_only { None } else { Some(0) },
+                    is_read_only: Some(is_read_only),
+                });
+            };
+
+            Ok(QueryResult {
+                columns,
+                batches: vec![batch],
+                affected_rows: if is_read_only {
+                    None
+                } else {
+                    Some(row_count as u32)
+                },
+                is_read_only: Some(is_read_only),
+            })
         })
+        .await
+        .map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "spawn_blocking".to_string(),
+                source: e.to_string(),
+            })
+        })?
     }
 
     async fn query_with_cancel(
@@ -649,7 +662,8 @@ fn sqlite_rows_to_arrow(
         let mut bool_values: Vec<Option<bool>> = Vec::with_capacity(num_rows);
         let mut binary_values: Vec<Option<Vec<u8>>> = Vec::with_capacity(num_rows);
 
-        let mut detected_type: Option<DataType> = None;
+        // 遍历所有行确定最宽类型并同时收集值（0=Null, 1=Int64, 2=Float64, 3=Blob, 4=Text）
+        let mut detected_rank: u8 = 0;
 
         for row in rows {
             if let Some(value) = row.get(col_idx) {
@@ -662,9 +676,7 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Integer(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 1 { detected_rank = 1; }
                         string_values.push(None);
                         int_values.push(Some(*i));
                         float_values.push(None);
@@ -672,9 +684,7 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Real(f) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Float64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         string_values.push(None);
                         int_values.push(None);
                         float_values.push(Some(*f));
@@ -682,9 +692,7 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Text(s) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Utf8);
-                        }
+                        detected_rank = 4; // Text 为最宽类型
                         string_values.push(Some(s.clone()));
                         int_values.push(None);
                         float_values.push(None);
@@ -692,9 +700,7 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Blob(b) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Binary);
-                        }
+                        if detected_rank < 3 { detected_rank = 3; }
                         string_values.push(None);
                         int_values.push(None);
                         float_values.push(None);
@@ -711,7 +717,13 @@ fn sqlite_rows_to_arrow(
             }
         }
 
-        let array: ArrayRef = match detected_type.unwrap_or(DataType::Utf8) {
+        let effective_type = match detected_rank {
+            1 => DataType::Int64,
+            2 => DataType::Float64,
+            3 => DataType::Binary,
+            _ => DataType::Utf8,
+        };
+        let array: ArrayRef = match effective_type {
             DataType::Boolean => Arc::new(BooleanArray::from(bool_values)),
             DataType::Int64 => Arc::new(Int64Array::from(int_values)),
             DataType::Float64 => Arc::new(Float64Array::from(float_values)),

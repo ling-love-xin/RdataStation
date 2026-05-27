@@ -175,10 +175,8 @@ main.rs → lib.rs::run()
     │
     ├── 1. register_drivers()
     │       AutoDriverRegistrar::auto_register()
-    │       → DriverRegistry::register(MySqlDriverFactory)
-    │       → DriverRegistry::register(PostgresDriverFactory)
-    │       → DriverRegistry::register(SqliteDriverFactory)
-    │       → DriverRegistry::register(DuckDbDriverFactory)
+    │       → BuiltinDriverDiscovery::builtin_factories()  // 唯一真相源 × 6
+    │       → DriverRegistry::register_by_factory(id, factory) × 6
     │
     ├── 2. initialize_global_system()
     │       → 创建 system/global.db (SQLite)
@@ -187,7 +185,8 @@ main.rs → lib.rs::run()
     │       → 执行 MigrationType::GlobalDuckDB
     │
     ├── 3. init_driver_manager()
-    │       → 初始化全局 DriverManager
+    │       → BuiltinDriverDiscovery::builtin_factories()  // 同一真相源 × 6
+    │       → DriverManager::register_driver(id, factory) × 6
     │
     └── 4. Tauri Builder
             → manage(ProjectState)

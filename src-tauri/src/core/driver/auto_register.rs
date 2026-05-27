@@ -1,36 +1,30 @@
 //! 驱动自动注册模块
 //!
-//! 提供从配置文件或自动扫描注册驱动的功能
+//! 提供内置驱动的统一注册入口。
+//! 驱动列表的唯一真相源在 [BuiltinDriverDiscovery::builtin_factories()]。
+//!
+//! 新增内置驱动流程：
+//! 1. 在 driver/factory.rs 实现 DriverFactory
+//! 2. 在 driver/native/<db>.rs 实现 Database trait
+//! 3. 在 loader.rs BuiltinDriverDiscovery::builtin_factories() 添加一行 → 唯一修改点
+//!    （auto_register.rs 和 manager.rs 自动同步，无需修改）
 
-use crate::core::driver::{
-    DriverRegistry, DuckDbDriverFactory, MySqlDriverFactory, PostgresDriverFactory,
-    SqliteDriverFactory,
-};
+use crate::core::driver::loader::BuiltinDriverDiscovery;
+use crate::core::driver::DriverRegistry;
 
 /// 驱动自动注册器
 ///
-/// 支持多种注册方式：
-/// 1. 内置驱动自动注册
-/// 2. 配置文件驱动注册
-/// 3. 自动扫描驱动注册
+/// 通过 [BuiltinDriverDiscovery::builtin_factories()] 获取内置驱动工厂列表，
+/// 统一注册到全局 [DriverRegistry]。
 pub struct AutoDriverRegistrar;
 
 impl AutoDriverRegistrar {
-    /// 注册所有内置驱动
-    ///
-    /// 在应用启动时调用，自动发现和注册所有可用的内置驱动
+    /// 注册所有内置驱动（委托 BuiltinDriverDiscovery）
     pub fn register_builtin_drivers() {
-        // 注册 MySQL 驱动
-        DriverRegistry::register(MySqlDriverFactory);
-
-        // 注册 PostgreSQL 驱动
-        DriverRegistry::register(PostgresDriverFactory);
-
-        // 注册 SQLite 驱动
-        DriverRegistry::register(SqliteDriverFactory);
-
-        // 注册 DuckDB 驱动
-        DriverRegistry::register(DuckDbDriverFactory);
+        for factory in BuiltinDriverDiscovery::builtin_factories() {
+            let id = factory.descriptor().id.clone();
+            DriverRegistry::register_by_factory(id, factory);
+        }
 
         #[cfg(debug_assertions)]
         tracing::debug!(
@@ -40,10 +34,7 @@ impl AutoDriverRegistrar {
     }
 
     /// 自动注册所有驱动
-    ///
-    /// 注册所有内置驱动
     pub fn auto_register() {
-        // 注册内置驱动
         Self::register_builtin_drivers();
 
         #[cfg(debug_assertions)]

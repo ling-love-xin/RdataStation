@@ -126,8 +126,8 @@ impl DriverConnectionConfig {
             return Ok(url.clone());
         }
         match self.driver.as_str() {
-            "mysql" => self.build_mysql_url(),
-            "postgres" => self.build_postgres_url(),
+            "mysql" | "mysql_native" => self.build_mysql_url(),
+            "postgres" | "postgres_native" => self.build_postgres_url(),
             "sqlite" => self.build_sqlite_url(),
             "duckdb" => self.build_duckdb_url(),
             _ => Err(CoreError::common(CommonError::Internal(format!(

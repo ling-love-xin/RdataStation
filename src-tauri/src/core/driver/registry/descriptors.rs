@@ -582,3 +582,142 @@ pub fn get_all_drivers() -> Vec<DriverDescriptor> {
 pub fn get_driver(id: &str) -> Option<DriverDescriptor> {
     super::DriverRegistry::get(id).map(|f| f.descriptor())
 }
+
+// =============================================================================
+// 官方原生驱动描述符（mysql_native / postgres_native）
+// =============================================================================
+
+/// MySQL 官方原生驱动描述符（mysql_async）
+pub fn mysql_native_driver() -> DriverDescriptor {
+    DriverDescriptor::new("mysql_native", "MySQL (Native)")
+        .with_description("MySQL 官方纯 Rust 异步驱动 (mysql_async)，支持协议压缩、原生认证插件")
+        .with_category("relational")
+        .with_target_database("mysql")
+        .with_default_port(3306)
+        .requires_database()
+        .with_ssl_support()
+        .with_ssh_tunnel_support()
+        .with_http_proxy_support()
+        .with_socks_proxy_support()
+        .with_url_template("mysql://{username}:{password}@{host}:{port}/{database}")
+        .with_icon("\u{1F42C}")
+        .with_capabilities(vec![
+            "tree".to_string(),
+            "health_check".to_string(),
+            "transactions".to_string(),
+            "index_analysis".to_string(),
+            "sql_autocomplete".to_string(),
+            "table_editor".to_string(),
+        ])
+        .with_supported_auth_types(vec!["password".to_string(), "ssl".to_string()])
+        .with_field(DriverField {
+            key: "host".to_string(),
+            label: "主机".to_string(),
+            field_type: DriverFieldType::Text,
+            required: true,
+            default_value: Some("localhost".to_string()),
+            placeholder: Some("localhost 或 IP 地址".to_string()),
+        })
+        .with_field(DriverField {
+            key: "port".to_string(),
+            label: "端口".to_string(),
+            field_type: DriverFieldType::Number,
+            required: true,
+            default_value: Some("3306".to_string()),
+            placeholder: None,
+        })
+        .with_field(DriverField {
+            key: "database".to_string(),
+            label: "数据库".to_string(),
+            field_type: DriverFieldType::Text,
+            required: false,
+            default_value: None,
+            placeholder: Some("可选，留空显示所有数据库".to_string()),
+        })
+        .with_field(DriverField {
+            key: "username".to_string(),
+            label: "用户名".to_string(),
+            field_type: DriverFieldType::Text,
+            required: true,
+            default_value: Some("root".to_string()),
+            placeholder: None,
+        })
+        .with_field(DriverField {
+            key: "password".to_string(),
+            label: "密码".to_string(),
+            field_type: DriverFieldType::Password,
+            required: false,
+            default_value: None,
+            placeholder: Some("可选".to_string()),
+        })
+}
+
+/// PostgreSQL 官方原生驱动描述符（tokio-postgres）
+pub fn postgres_native_driver() -> DriverDescriptor {
+    DriverDescriptor::new("postgres_native", "PostgreSQL (Native)")
+        .with_description("PostgreSQL 官方异步驱动 (tokio-postgres)，支持 Pipeline、COPY 协议、LISTEN/NOTIFY")
+        .with_category("relational")
+        .with_target_database("postgres")
+        .with_default_port(5432)
+        .requires_database()
+        .with_ssl_support()
+        .with_ssh_tunnel_support()
+        .with_http_proxy_support()
+        .with_socks_proxy_support()
+        .with_url_template("postgres://{username}:{password}@{host}:{port}/{database}")
+        .with_icon("\u{1F418}")
+        .with_capabilities(vec![
+            "tree".to_string(),
+            "health_check".to_string(),
+            "transactions".to_string(),
+            "index_analysis".to_string(),
+            "sql_autocomplete".to_string(),
+            "schema_browser".to_string(),
+            "table_editor".to_string(),
+        ])
+        .with_supported_auth_types(vec![
+            "password".to_string(),
+            "ssl".to_string(),
+            "kerberos".to_string(),
+        ])
+        .with_field(DriverField {
+            key: "host".to_string(),
+            label: "主机".to_string(),
+            field_type: DriverFieldType::Text,
+            required: true,
+            default_value: Some("localhost".to_string()),
+            placeholder: Some("localhost 或 IP 地址".to_string()),
+        })
+        .with_field(DriverField {
+            key: "port".to_string(),
+            label: "端口".to_string(),
+            field_type: DriverFieldType::Number,
+            required: true,
+            default_value: Some("5432".to_string()),
+            placeholder: None,
+        })
+        .with_field(DriverField {
+            key: "database".to_string(),
+            label: "数据库".to_string(),
+            field_type: DriverFieldType::Text,
+            required: true,
+            default_value: Some("postgres".to_string()),
+            placeholder: None,
+        })
+        .with_field(DriverField {
+            key: "username".to_string(),
+            label: "用户名".to_string(),
+            field_type: DriverFieldType::Text,
+            required: true,
+            default_value: Some("postgres".to_string()),
+            placeholder: None,
+        })
+        .with_field(DriverField {
+            key: "password".to_string(),
+            label: "密码".to_string(),
+            field_type: DriverFieldType::Password,
+            required: false,
+            default_value: None,
+            placeholder: Some("可选".to_string()),
+        })
+}

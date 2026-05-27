@@ -54,6 +54,30 @@ function isFolderEnabled(config: NavigationConfig, folderKey: string): boolean {
   return folder?.enabled ?? false
 }
 
+/** 计算 NavigationConfig 中启用的文件夹数量 */
+function countEnabledFolders(config: NavigationConfig): number {
+  let count = 0
+  const folderKeys: (keyof typeof config.folders)[] = [
+    'tables', 'views', 'functions', 'procedures', 'sequences', 'triggers'
+  ]
+  for (const key of folderKeys) {
+    if (isFolderEnabled(config, key)) count++
+  }
+  return count
+}
+
+/** 计算表节点的子节点数量（Columns + 启用的 Indexes/Constraints 等） */
+function countTableChildren(config: NavigationConfig, columnCount: number): number {
+  let count = 0
+  if (config.tableChildren.columns) count++ // columns-folder
+  if (config.tableChildren.indexes) count++
+  if (config.tableChildren.constraints) count++
+  if (config.tableChildren.triggers) count++
+  if (config.tableChildren.foreignKeys) count++
+  if (config.tableChildren.references) count++
+  return count
+}
+
 export function useDatabaseTreeLoader() {
   const navigatorStore = useDatabaseNavigatorStore()
   const runtimeConnectionStore = useRuntimeConnectionStore()
@@ -117,6 +141,7 @@ export function useDatabaseTreeLoader() {
   ): VirtualTreeNode[] {
     const schemas = navigatorStore.getCatalogSchemas(connectionId, dbName)
     const parentKey = NodeKeyEncoder.encode(['catalog', connectionId, dbName])
+    const folderCount = countEnabledFolders(config)
 
     return schemas
       .filter(schema => !config.systemSchemas.includes(schema.name))
@@ -129,7 +154,7 @@ export function useDatabaseTreeLoader() {
         type: 'schema',
         data: { connectionId, dbName, schemaName: schema.name },
         parentId: parentKey,
-        childCount: 8, // Tables/Views/Functions/Procedures/Sequences/Triggers + 系统对象
+        childCount: folderCount, // 按数据库类型动态计算
       }))
   }
 
@@ -335,17 +360,21 @@ export function useDatabaseTreeLoader() {
       : NodeKeyEncoder.encode(['tables-folder', connectionId, dbName])
     const level = parentLevel !== undefined ? parentLevel + 1 : schemaName ? 4 : 3
 
-    return tables.map(table => ({
-      key: NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName || '', table.name]),
-      level,
-      isExpanded: false,
-      isLeaf: false,
-      label: table.name,
-      type: 'table',
-      data: { connectionId, dbName, schemaName, tableName: table.name },
-      parentId: parentKey,
-      childCount: config.tableChildren.columns ? (table.columns?.length || 0) + 3 : 0,
-    }))
+    return tables.map(table => {
+      const colCount = table.columns?.length || 0
+      const configChildCount = countTableChildren(config, colCount)
+      return {
+        key: NodeKeyEncoder.encode(['table', connectionId, dbName, schemaName || '', table.name]),
+        level,
+        isExpanded: false,
+        isLeaf: false,
+        label: table.name,
+        type: 'table',
+        data: { connectionId, dbName, schemaName, tableName: table.name },
+        parentId: parentKey,
+        childCount: configChildCount, // 按配置动态计算子文件夹数
+      }
+    })
   }
 
   /**

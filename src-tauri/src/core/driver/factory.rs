@@ -4,8 +4,8 @@ use super::connection::config::ConnectionMethod;
 use super::connection::{ConnectionConfig, ConnectionFactory};
 use super::registry::DriverConnectionConfig;
 use crate::core::driver::native::{
-    duckdb::DuckDbDatabase, mysql::MySqlDatabase, postgres::PostgresDatabase,
-    sqlite::SqliteDatabase,
+    duckdb::DuckDbDatabase, mysql::MySqlDatabase, mysql_native::MySqlNativeDatabase,
+    postgres::PostgresDatabase, postgres_native::PostgresNativeDatabase, sqlite::SqliteDatabase,
 };
 use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
@@ -217,6 +217,74 @@ impl DriverFactory for DuckDbDriverFactory {
                 })
             })?;
 
+            let db: DynDatabase = Arc::new(db);
+            Ok(db)
+        })
+    }
+}
+
+/// MySQL 官方原生驱动工厂（mysql_async）
+///
+/// 实现 DriverFactory trait，用于创建 MySQL 数据库连接
+/// 使用 MySQL 官方维护的纯 Rust 异步驱动
+pub struct MySqlNativeDriverFactory;
+
+impl DriverFactory for MySqlNativeDriverFactory {
+    fn descriptor(&self) -> DriverDescriptor {
+        crate::core::driver::registry::mysql_native_driver()
+    }
+
+    fn create(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
+        Box::pin(async move {
+            let url = config.to_url().map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: config
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| "mysql_native".to_string()),
+                    reason: e.to_string(),
+                })
+            })?;
+
+            let db = MySqlNativeDatabase::new(&url).await?;
+            let db: DynDatabase = Arc::new(db);
+            Ok(db)
+        })
+    }
+}
+
+/// PostgreSQL 官方原生驱动工厂（tokio-postgres）
+///
+/// 实现 DriverFactory trait，用于创建 PostgreSQL 数据库连接
+/// 使用 PostgreSQL 官方维护的异步驱动
+pub struct PostgresNativeDriverFactory;
+
+impl DriverFactory for PostgresNativeDriverFactory {
+    fn descriptor(&self) -> DriverDescriptor {
+        crate::core::driver::registry::postgres_native_driver()
+    }
+
+    fn create(
+        &self,
+        config: DriverConnectionConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
+    {
+        Box::pin(async move {
+            let url = config.to_url().map_err(|e| {
+                CoreError::connection(ConnectionError::InvalidConfig {
+                    conn_id: config
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| "postgres_native".to_string()),
+                    reason: e.to_string(),
+                })
+            })?;
+
+            let db = PostgresNativeDatabase::new(&url).await?;
             let db: DynDatabase = Arc::new(db);
             Ok(db)
         })

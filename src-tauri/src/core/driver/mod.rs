@@ -59,7 +59,8 @@ pub mod utils;
 pub mod wasm;
 pub use auto_register::AutoDriverRegistrar;
 pub use factory::{
-    DuckDbDriverFactory, MySqlDriverFactory, PostgresDriverFactory, SqliteDriverFactory,
+    DuckDbDriverFactory, MySqlDriverFactory, MySqlNativeDriverFactory, PostgresDriverFactory,
+    PostgresNativeDriverFactory, SqliteDriverFactory,
 };
 pub use introspection::{get_level, remove_level, set_level, IntrospectionLevel};
 pub use loader::{BuiltinDriverDiscovery, DriverLoader, JdbcDriverDiscovery, WasmDriverDiscovery};

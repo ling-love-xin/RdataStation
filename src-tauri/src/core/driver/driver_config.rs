@@ -104,7 +104,9 @@ impl DriverRegistryConfig {
         Self {
             drivers: vec![
                 Self::mysql_config(),
+                Self::mysql_native_config(),
                 Self::postgres_config(),
+                Self::postgres_native_config(),
                 Self::sqlite_config(),
                 Self::duckdb_config(),
             ],
@@ -339,6 +341,157 @@ impl DriverRegistryConfig {
                     required: false,
                     description: Some("例如: 1GB, 512MB（留空表示无限制）".to_string()),
                     options: None,
+                },
+            ],
+        }
+    }
+
+    fn mysql_native_config() -> DriverConfig {
+        DriverConfig {
+            id: "mysql_native".to_string(),
+            name: "MySQL (Official)".to_string(),
+            description: "MySQL 官方纯 Rust 异步驱动 (mysql_async)".to_string(),
+            driver_type: "builtin".to_string(),
+            default_port: Some(3306),
+            require_database: true,
+            require_file: false,
+            supports_ssl: true,
+            supports_ssh_tunnel: true,
+            supports_http_proxy: true,
+            supports_socks_proxy: true,
+            fields: vec![
+                DriverFieldConfig {
+                    key: "host".to_string(),
+                    label: "主机".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some("localhost".to_string()),
+                    placeholder: Some("localhost 或 IP 地址".to_string()),
+                },
+                DriverFieldConfig {
+                    key: "port".to_string(),
+                    label: "端口".to_string(),
+                    field_type: "number".to_string(),
+                    required: true,
+                    default_value: Some("3306".to_string()),
+                    placeholder: None,
+                },
+                DriverFieldConfig {
+                    key: "database".to_string(),
+                    label: "数据库".to_string(),
+                    field_type: "text".to_string(),
+                    required: false,
+                    default_value: None,
+                    placeholder: Some("可选，留空显示所有数据库".to_string()),
+                },
+                DriverFieldConfig {
+                    key: "username".to_string(),
+                    label: "用户名".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some("root".to_string()),
+                    placeholder: None,
+                },
+                DriverFieldConfig {
+                    key: "password".to_string(),
+                    label: "密码".to_string(),
+                    field_type: "password".to_string(),
+                    required: false,
+                    default_value: None,
+                    placeholder: Some("可选".to_string()),
+                },
+            ],
+            extra_options: vec![
+                DriverOptionConfig {
+                    key: "ssl_mode".to_string(),
+                    label: "SSL 模式".to_string(),
+                    default_value: "PREFERRED".to_string(),
+                    option_type: "select".to_string(),
+                    required: false,
+                    description: Some("SSL 连接模式".to_string()),
+                    options: Some(vec![
+                        "DISABLED".to_string(),
+                        "PREFERRED".to_string(),
+                        "REQUIRED".to_string(),
+                        "VERIFY_CA".to_string(),
+                        "VERIFY_IDENTITY".to_string(),
+                    ]),
+                },
+            ],
+        }
+    }
+
+    fn postgres_native_config() -> DriverConfig {
+        DriverConfig {
+            id: "postgres_native".to_string(),
+            name: "PostgreSQL (Official)".to_string(),
+            description: "PostgreSQL 官方异步驱动 (tokio-postgres)".to_string(),
+            driver_type: "builtin".to_string(),
+            default_port: Some(5432),
+            require_database: true,
+            require_file: false,
+            supports_ssl: true,
+            supports_ssh_tunnel: true,
+            supports_http_proxy: true,
+            supports_socks_proxy: true,
+            fields: vec![
+                DriverFieldConfig {
+                    key: "host".to_string(),
+                    label: "主机".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some("localhost".to_string()),
+                    placeholder: Some("localhost 或 IP 地址".to_string()),
+                },
+                DriverFieldConfig {
+                    key: "port".to_string(),
+                    label: "端口".to_string(),
+                    field_type: "number".to_string(),
+                    required: true,
+                    default_value: Some("5432".to_string()),
+                    placeholder: None,
+                },
+                DriverFieldConfig {
+                    key: "database".to_string(),
+                    label: "数据库".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some("postgres".to_string()),
+                    placeholder: None,
+                },
+                DriverFieldConfig {
+                    key: "username".to_string(),
+                    label: "用户名".to_string(),
+                    field_type: "text".to_string(),
+                    required: true,
+                    default_value: Some("postgres".to_string()),
+                    placeholder: None,
+                },
+                DriverFieldConfig {
+                    key: "password".to_string(),
+                    label: "密码".to_string(),
+                    field_type: "password".to_string(),
+                    required: false,
+                    default_value: None,
+                    placeholder: Some("可选".to_string()),
+                },
+            ],
+            extra_options: vec![
+                DriverOptionConfig {
+                    key: "ssl_mode".to_string(),
+                    label: "SSL 模式".to_string(),
+                    default_value: "prefer".to_string(),
+                    option_type: "select".to_string(),
+                    required: false,
+                    description: Some("SSL 连接模式".to_string()),
+                    options: Some(vec![
+                        "disable".to_string(),
+                        "allow".to_string(),
+                        "prefer".to_string(),
+                        "require".to_string(),
+                        "verify-ca".to_string(),
+                        "verify-full".to_string(),
+                    ]),
                 },
             ],
         }

@@ -18,8 +18,9 @@ use crate::core::error::CoreError;
 
 pub use config::DriverConnectionConfig;
 pub use descriptors::{
-    duckdb_driver, get_all_drivers, get_driver, mysql_driver, postgres_driver, sqlite_driver,
-    DriverDescriptor, DriverField, DriverFieldType, DriverKind, DriverOption, DriverOptionType,
+    duckdb_driver, get_all_drivers, get_driver, mysql_driver, mysql_native_driver,
+    postgres_driver, postgres_native_driver, sqlite_driver, DriverDescriptor, DriverField,
+    DriverFieldType, DriverKind, DriverOption, DriverOptionType,
 };
 
 /// 动态数据库类型
@@ -110,6 +111,32 @@ impl DriverRegistry {
 
         if let Ok(mut reg) = registry.write() {
             reg.insert(id, Arc::new(factory));
+        }
+    }
+
+    /// 注册已构建的驱动工厂 Arc（配合 BuiltinDriverDiscovery 使用）
+    ///
+    /// 与 register() 不同，此方法接受已构建的 Arc<dyn DriverFactory>，
+    /// 避免二次包装。主要用于批量注册场景。
+    pub fn register_by_factory(id: String, factory: Arc<dyn DriverFactory>) {
+        let registry = DRIVER_REGISTRY.get_or_init(|| RwLock::new(HashMap::new()));
+        if let Ok(mut reg) = registry.write() {
+            reg.insert(id, factory);
+        }
+    }
+
+    /// 批量注册驱动工厂
+    ///
+    /// 一次性注册多个驱动工厂，减少锁竞争。
+    pub fn register_batch(factories: Vec<(String, Arc<dyn DriverFactory>)>) {
+        if factories.is_empty() {
+            return;
+        }
+        let registry = DRIVER_REGISTRY.get_or_init(|| RwLock::new(HashMap::new()));
+        if let Ok(mut reg) = registry.write() {
+            for (id, factory) in factories {
+                reg.insert(id, factory);
+            }
         }
     }
 

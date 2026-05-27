@@ -31,7 +31,8 @@ docs/frontend/
 │
 ├── connection/                       # 🔗 连接/数据源
 │   ├── connection-modal.md           # 连接弹窗设计
-│   └── add-datasource-frontend-plan.md # ⭐ 新增数据源前端开发计划（v2.0）
+│   ├── add-datasource-frontend-plan.md # ⭐ 新增数据源前端开发计划（Phase 1）
+│   └── add-datasource-phase2-enterprise-plan.md # ⭐ Phase 2 企业级便利功能规划
 
 ├── query-result/                     # 📊 结果集
 │   ├── README.md                     # 结果集文档索引
@@ -123,7 +124,7 @@ docs/frontend/
 | 分析资源管理器  | [analytics-resource/README.md](./analytics-resource/README.md) | 统一资源管理          |
 | 标题栏          | [title-bar/README.md](./title-bar/README.md)                   | 标题栏/状态栏重构     |
 | Mock 数据生成器 | [mock/](./mock/)                                               | 106 种生成器 + 持久化 |
-| 连接管理        | [connection/](./connection/)                                   | 新建连接模态框        |
+| 连接管理        | [connection/](./connection/)                                   | 新建连接模态框 / Phase 2 规划 |
 
 ---
 
@@ -180,6 +181,7 @@ src/
 
 | 版本 | 日期       | 说明                                    |
 | ---- | ---------- | --------------------------------------- |
+| v3.3 | 2026-05-28 | 新增 Phase 2 企业级便利功能规划文档（导入/导出/模板/批量编辑/健康监控/撤销重做/代码收敛） |
 | v3.2 | 2026-05-19 | v0.5.0 网络连接功能：网络配置 UI 设计文档 |
 | v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录    |
 | v2.4 | 2026-05-09 | Mock 数据生成器模块全部完成（10 Phase） |

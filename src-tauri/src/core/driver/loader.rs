@@ -79,19 +79,40 @@ impl DriverLoader {
 }
 
 /// 内置驱动发现器
+///
+/// 这是所有内置驱动的 **唯一真相源（Single Source of Truth）**。
+/// 任何需要获取内置驱动列表的地方（Registry 注册、Manager 初始化、
+/// Loader 发现）都必须通过此结构体的方法获取。
 pub struct BuiltinDriverDiscovery;
 
 impl BuiltinDriverDiscovery {
-    /// 加载内置驱动
-    pub async fn load_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
-        let drivers: Vec<Arc<dyn DriverFactory>> = vec![
+    /// 获取所有内置驱动的工厂实例（同步，无 I/O）
+    ///
+    /// 这是系统中唯一定义内置驱动列表的位置。
+    /// 驱动 ID 与 Registry key / DB drivers.id 严格对齐：
+    ///
+    /// | Registry key    | 驱动实现               |
+    /// |-----------------|-----------------------|
+    /// | mysql           | sqlx::MySql           |
+    /// | mysql_native    | mysql_async           |
+    /// | postgres        | sqlx::Postgres        |
+    /// | postgres_native | tokio-postgres        |
+    /// | sqlite          | rusqlite              |
+    /// | duckdb          | duckdb-rs             |
+    pub fn builtin_factories() -> Vec<Arc<dyn DriverFactory>> {
+        vec![
             Arc::new(crate::core::driver::factory::MySqlDriverFactory),
+            Arc::new(crate::core::driver::factory::MySqlNativeDriverFactory),
             Arc::new(crate::core::driver::factory::PostgresDriverFactory),
+            Arc::new(crate::core::driver::factory::PostgresNativeDriverFactory),
             Arc::new(crate::core::driver::factory::SqliteDriverFactory),
             Arc::new(crate::core::driver::factory::DuckDbDriverFactory),
-        ];
+        ]
+    }
 
-        Ok(drivers)
+    /// 异步加载内置驱动（委托给 sync builtin_factories）
+    pub async fn load_drivers(&self) -> Result<Vec<Arc<dyn DriverFactory>>, CoreError> {
+        Ok(Self::builtin_factories())
     }
 }
 

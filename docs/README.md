@@ -21,6 +21,7 @@
 | 了解数据库导航       | [导航器文档](./navigator/README.md)                            | IVM 增量视图设计               |
 | 了解标题栏设计       | [标题栏文档](./frontend/title-bar/README.md)                   | 标题栏/状态栏重构              |
 | 了解连接管理         | [连接模态框](./frontend/connection/connection-modal.md)        | 新建数据库连接页面             |
+| 了解 Phase 2 规划     | [Phase 2 规划](./frontend/connection/add-datasource-phase2-enterprise-plan.md) | 导入/导出/模板/批量编辑/健康监控 |
 | 了解网络连接设计     | [网络连接设计](./backend/CONNECTION-METHOD-DESIGN.md)          | SSH隧道 + SSL/TLS + 代理       |
 | 了解网络配置 UI      | [网络配置 UI](./frontend/NETWORK-CONFIG-UI-DESIGN.md)          | 网络配置前端设计               |
 | 查看竞品对比         | [竞品对比](./COMPARISON.md)                                    | vs DBeaver / DataGrip          |
@@ -125,7 +126,8 @@ docs/
 │   │   └── mock-persistence-layer.md      # 持久化层设计
 │   │
 │   └── connection/                     # 🔌 连接管理
-│       └── connection-modal.md         # 新建连接页面
+│       ├── connection-modal.md         # 新建连接页面
+│       └── add-datasource-phase2-enterprise-plan.md # Phase 2 企业级便利功能规划
 │
 ├── navigator/                          # 🧭 导航器文档
 │   ├── README.md                       # 导航器索引 + 已知问题
@@ -209,6 +211,7 @@ docs/
 
 | 版本 | 日期       | 说明                                       |
 | ---- | ---------- | ------------------------------------------ |
+| v3.3 | 2026-05-28 | 新增 Phase 2 企业级便利功能规划文档（导入/导出/模板/批量编辑/健康监控/撤销重做/代码收敛） |
 | v3.2 | 2026-05-19 | v0.5.0 网络连接功能：SSH隧道(russh) + SSL/TLS(native-tls)，后端核心完成，设计文档就位 |
 | v3.1 | 2026-05-11 | 版本号校准、新增联调测试方案、四库连接测试 |
 | v3.0 | 2026-05-10 | 文档结构重整：按模块归类、创建子目录       |

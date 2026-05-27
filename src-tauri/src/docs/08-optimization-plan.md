@@ -23,13 +23,13 @@
 │         │             │         │           │       │       │
 │         ▼             ▼         ▼           ▼       ▼       │
 ├──────────────────────────────────────────────────────────┤
-│               三套注册体系（冗余）                          │
+│               注册体系（v2.2 已收敛）                       │
 ├───────────────┬───────────────┬──────────────────────────┤
-│ DriverRegistry│ DataSourceR   │ ❌ DRIVER_FACTORY_MGR   │
-│ (OnceLock, ✅) │ Router (✅)   │   (Dead Code)            │
-│ auto_register │ calls Registy│   无人使用                │
-│ → register()  │ .get()→facto│   (P0-1)                  │
-│ 原生驱动4种   │ ry.create()  │                           │
+│ DriverRegistry│ DataSourceR   │ ✅ 统一真相源             │
+│ (OnceLock, ✅) │ Router (✅)   │   BuiltinDriverDiscovery │
+│ auto_register │ calls Registy│   .builtin_factories()   │
+│ → register_by │ .get()→facto│   (唯一修改点)             │
+│ _factory() 6种│ ry.create()  │                            │
 └───────────────┴──────────────┴──────────────────────────┘
 ```
 

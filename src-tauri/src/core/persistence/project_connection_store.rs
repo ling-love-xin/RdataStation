@@ -590,11 +590,16 @@ impl ProjectConnectionStore {
 
     /// 为新项目种子 4 个内置 Native 驱动
     pub async fn seed_default_drivers(&self) -> Result<(), CoreError> {
+        // 驱动 ID 与 Registry key 严格对齐
+        //   008 迁移: mysql, postgres, sqlite, duckdb（sqlx/rusqlite/duckdb-rs）
+        //   013 迁移: mysql_native, postgres_native（官方原生驱动）
         let defaults = [
-            "mysql-native",
-            "postgres-native",
-            "sqlite-native",
-            "duckdb-native",
+            "mysql",
+            "mysql_native",
+            "postgres",
+            "postgres_native",
+            "sqlite",
+            "duckdb",
         ];
         for driver_id in defaults {
             if !self.is_driver_enabled(driver_id).await? {

@@ -483,42 +483,46 @@ fn postgres_rows_to_arrow(
         let mut bool_values: Vec<Option<bool>> = Vec::with_capacity(num_rows);
         let mut binary_values: Vec<Option<Vec<u8>>> = Vec::with_capacity(num_rows);
 
-        let mut detected_type: Option<DataType> = None;
+        // 遍历所有行确定最宽类型（0=Null, 1=Bool, 2=Int32, 3=Int64, 4=Float32, 5=Float64, 6=Binary, 7=Utf8）
+        let mut detected_rank: u8 = 0;
 
         for row in rows {
             use sqlx::Row;
 
-            if let Ok(Some(_)) = row.try_get::<Option<bool>, _>(col_idx) {
-                detected_type = Some(DataType::Boolean);
-                break;
+            let row_rank = if let Ok(Some(_)) = row.try_get::<Option<bool>, _>(col_idx) {
+                1 // Boolean
+            } else if let Ok(Some(_)) = row.try_get::<Option<i32>, _>(col_idx) {
+                2 // Int32
+            } else if let Ok(Some(_)) = row.try_get::<Option<i64>, _>(col_idx) {
+                3 // Int64
+            } else if let Ok(Some(_)) = row.try_get::<Option<f32>, _>(col_idx) {
+                4 // Float32
+            } else if let Ok(Some(_)) = row.try_get::<Option<f64>, _>(col_idx) {
+                5 // Float64
+            } else if let Ok(Some(_)) = row.try_get::<Option<Vec<u8>>, _>(col_idx) {
+                6 // Binary
+            } else if let Ok(Some(_)) = row.try_get::<Option<String>, _>(col_idx) {
+                7 // Utf8
+            } else {
+                0 // NULL — 不影响类型推断
+            };
+            if row_rank > detected_rank {
+                detected_rank = row_rank;
             }
-            if let Ok(Some(_)) = row.try_get::<Option<i32>, _>(col_idx) {
-                detected_type = Some(DataType::Int32);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<i64>, _>(col_idx) {
-                detected_type = Some(DataType::Int64);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<f32>, _>(col_idx) {
-                detected_type = Some(DataType::Float32);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<f64>, _>(col_idx) {
-                detected_type = Some(DataType::Float64);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<Vec<u8>>, _>(col_idx) {
-                detected_type = Some(DataType::Binary);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<String>, _>(col_idx) {
-                detected_type = Some(DataType::Utf8);
-                break;
+            if detected_rank == 7 {
+                break; // Utf8 为最宽类型，无需继续
             }
         }
 
-        let effective_type = detected_type.clone().unwrap_or(DataType::Utf8);
+        let effective_type = match detected_rank {
+            1 => DataType::Boolean,
+            2 => DataType::Int32,
+            3 => DataType::Int64,
+            4 => DataType::Float32,
+            5 => DataType::Float64,
+            6 => DataType::Binary,
+            _ => DataType::Utf8,
+        };
 
         for row in rows {
             use sqlx::Row;

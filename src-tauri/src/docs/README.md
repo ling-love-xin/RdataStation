@@ -1,7 +1,7 @@
 # RdataStation 后端架构文档
 
-> 版本：v2.2
-> 最后更新：2026-05-11
+> 版本：v2.3
+> 最后更新：2026-05-27
 > 状态：✅ 实际代码对齐
 >
 > 本文档描述 RdataStation 桌面数据库工具的后端架构设计、数据流、模块依赖规则及开发指南。
@@ -30,9 +30,9 @@
 ```rust
 // 主入口：src-tauri/src/lib.rs
 // 启动流程：
-//   1. register_drivers()       → AutoDriverRegistrar 注册 4 种内置驱动
+//   1. register_drivers()       → BuiltinDriverDiscovery::builtin_factories() × 6
 //   2. initialize_global_system() → 创建全局 SQLite + DuckDB 连接
-//   3. init_driver_manager()     → 初始化全局驱动管理器
+//   3. init_driver_manager()     → 同源 builtin_factories() × 6
 //   4. Tauri Builder             → 注册 70+ 命令 + 启动应用
 ```
 
@@ -51,7 +51,7 @@ core/services/                   ← 业务服务层
 core/driver/                     ← 驱动抽象层
     │ Database trait / DriverRegistry / DriverFactory
     ▼
-driver/native/{mysql,postgres,sqlite,duckdb}.rs  ← 4 种内置驱动
+driver/native/{mysql,mysql_native,postgres,postgres_native,sqlite,duckdb}.rs  ← 6 种内置驱动
 ```
 
 ## 核心原则

@@ -24,16 +24,19 @@ src-tauri/src/
 │   ├── driver/                         # 驱动层（驱动核心 + 连接管理 + 数据源路由）
 │   │   ├── mod.rs                      # 模块导出 + re-export
 │   │   ├── traits.rs                   # Database / Transaction / DbPool / SchemaObject
-│   │   ├── registry.rs                 # DriverRegistry + ConnectionConfig + DriverFactory
-│   │   ├── factory.rs                  # DriverFactoryManager + 4 工厂实现
+│   │   ├── registry/                   # DriverRegistry 子模块
+│   │   │   ├── mod.rs                  # DriverRegistry + DriverFactory trait + 全局单例
+│   │   │   ├── config.rs               # DriverConnectionConfig + to_url() + URL builder
+│   │   │   └── descriptors.rs          # DriverDescriptor + DriverKind + 6 个内置描述符
+│   │   ├── factory.rs                  # 6 个 DriverFactory 实现
 │   │   ├── router.rs                   # DataSourceRouter（原 datasource/router.rs 迁移至此）
-│   │   ├── auto_register.rs            # AutoDriverRegistrar（启动注册 4 驱动）
-│   │   ├── manager.rs                  # DriverManager（全局驱动状态）
+│   │   ├── auto_register.rs            # AutoDriverRegistrar（委托 BuiltinDriverDiscovery，唯一真相源 × 6）
+│   │   ├── manager.rs                  # DriverManager（全局驱动状态，同源 BuiltinDriverDiscovery × 6）
 │   │   ├── metadata.rs                 # DriverMetadata / DriverType / DriverIcon
-│   │   ├── loader.rs                   # DriverLoader（Builtin/Wasm/JDBC 发现）
+│   │   ├── loader.rs                   # DriverLoader + BuiltinDriverDiscovery（唯一真相源）
 │   │   ├── utils.rs                    # build_connection_url / validate_driver_config
 │   │   ├── smart_pool.rs               # SmartPool 智能连接池
-│   │   ├── driver_config.rs            # 驱动配置
+│   │   ├── driver_config.rs            # 驱动配置（待合并）
 │   │   │
 │   │   ├── connection/                 # 连接管理（原 core/connection/ 迁移至此）
 │   │   │   ├── mod.rs
@@ -166,7 +169,7 @@ src-tauri/src/
 ```rust
 // 启动流程
 fn register_drivers() {
-    AutoDriverRegistrar::auto_register();   // 注册 4 种驱动
+    AutoDriverRegistrar::auto_register();   // 委托 BuiltinDriverDiscovery，注册 6 种驱动
 }
 
 pub fn run() {
@@ -175,7 +178,7 @@ pub fn run() {
     // 初始化全局系统数据库（SQLite + DuckDB）
     rt.block_on(core::migration::initialize_global_system())?;
 
-    // 初始化全局驱动管理器
+    // 初始化全局驱动管理器（同源 BuiltinDriverDiscovery × 6）
     rt.block_on(core::driver::init_driver_manager())?;
 
     tauri::Builder::default()
@@ -197,10 +200,12 @@ pub fn run() {
 
 | 文件               | 行数 | 职责                                                  |
 | ------------------ | ---- | ----------------------------------------------------- |
-| `registry.rs`      | 798  | DriverRegistry + DriverFactory trait + 4 种驱动描述符 |
-| `factory.rs`       | 236  | DriverFactoryManager + 4 个工厂实现（⚠️ 重复注册）    |
+| `registry/mod.rs`  | ~240 | DriverRegistry + DriverFactory trait + 全局单例       |
+| `registry/descriptors.rs` | ~720 | DriverDescriptor + DriverKind + 6 种驱动描述符      |
+| `factory.rs`       | ~290 | 6 个 DriverFactory 实现                               |
 | `traits.rs`        | 253  | Database / Transaction / DbPool trait                 |
-| `auto_register.rs` | 84   | 启动注册 4 个驱动                                     |
+| `auto_register.rs` | 80   | AutoDriverRegistrar（委托 BuiltinDriverDiscovery × 6）|
+| `loader.rs`        | ~186 | DriverLoader + BuiltinDriverDiscovery（唯一真相源）   |
 | `smart_pool.rs`    | -    | SmartPool 智能连接池                                  |
 
 ### 3. core/persistence/ 目录
@@ -280,12 +285,11 @@ use crate::core::driver::DriverRegistry;
 
 ### 添加新数据库驱动
 
-1. 在 `driver/native/` 创建 `{db}.rs` + `{db}_pool.rs`
+1. 在 `driver/native/` 创建 `{db}.rs`
 2. 实现 `Database` + `DbPool` trait
 3. 在 `driver/native/mod.rs` 导出
-4. 在 `driver/factory.rs` 创建工厂 + 注册到 `DriverRegistry`（✅ 已统一，不再使用 DRIVER_FACTORY_MANAGER）
-5. 在 `driver/auto_register.rs` 注册到 `DriverRegistry`
-6. (Phase 1 后统一到 DriverRegistry)
+4. 在 `driver/factory.rs` 创建 `DriverFactory` 实现
+5. **在 `driver/loader.rs` `BuiltinDriverDiscovery::builtin_factories()` 添加一行**（唯一修改点，auto_register 和 manager 自动同步）
 
 ### 添加新命令
 

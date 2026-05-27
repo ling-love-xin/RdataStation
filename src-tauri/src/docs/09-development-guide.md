@@ -200,25 +200,26 @@ impl DriverFactory for MongoDriverFactory {
 #### 步骤 4: 注册驱动
 
 ```rust
-// core/driver/auto_register.rs
-impl AutoDriverRegistrar {
-    pub fn register_builtin_drivers() {
-        // ... 现有 4 种
-        DriverRegistry::register(MongoDriverFactory);
+// core/driver/loader.rs — BuiltinDriverDiscovery::builtin_factories()
+// 这是驱动列表的唯一真相源，新增驱动只需在此添加一行：
+impl BuiltinDriverDiscovery {
+    pub fn builtin_factories() -> Vec<Arc<dyn DriverFactory>> {
+        vec![
+            // ... 现有 6 种（mysql/postgres/sqlite/duckdb + mysql_native/postgres_native）
+            Arc::new(MongoDriverFactory),    // ← 在此添加一行即可
+            // auto_register.rs 和 manager.rs 自动同步，无需修改
+        ]
     }
 }
 ```
 
-> ✅ **Phase 1 已完成**：`DRIVER_FACTORY_MANAGER` 已移除，驱动注册统一到 `DriverRegistry`。
+> ✅ **v2.2 已统一**：`BuiltinDriverDiscovery::builtin_factories()` 作为唯一真相源，`auto_register.rs` 和 `manager.rs` 均从此获取驱动列表，不再各自硬编码。
 
 ```rust
-// lib.rs
+// lib.rs — 保持不变，AutoDriverRegistrar 自动从 BuiltinDriverDiscovery 获取
 fn register_drivers() {
-    use core::driver::DriverRegistry;
-
-    DriverRegistry::register(MySqlDriverFactory);
-    DriverRegistry::register(PostgresDriverFactory);
-    DriverRegistry::register(MongoDbDriverFactory); // 添加这一行
+    use core::driver::auto_register::AutoDriverRegistrar;
+    AutoDriverRegistrar::auto_register();   // 自动包含所有 builtin_factories() 中的驱动
 }
 ```
 

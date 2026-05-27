@@ -96,80 +96,93 @@ fn is_read_only_sql(sql: &str) -> bool {
 /// 然后将结果集转换为 Arrow `RecordBatch`。
 impl Database for DuckDbDatabase {
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| {
+        let conn = Arc::clone(&self.conn);
+        let sql_owned = sql.to_string();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "duckdb".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
+
+            let mut stmt = conn
+                .prepare(&sql_owned)
+                .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
+
+            let row_data: Vec<Vec<duckdb::types::Value>>;
+
+            {
+                let mut rows = stmt
+                    .query([])
+                    .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
+
+                let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+                while let Some(row) = rows
+                    .next()
+                    .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?
+                {
+                    let mut values: Vec<duckdb::types::Value> = Vec::new();
+                    for i in 0.. {
+                        match row.get::<usize, duckdb::types::Value>(i) {
+                            Ok(v) => values.push(v),
+                            Err(_) => break,
+                        }
+                    }
+                    data.push(values);
+                }
+                row_data = data;
+            }
+
+            let column_count: usize = if let Some(first) = row_data.first() {
+                first.len()
+            } else {
+                stmt.column_count()
+            };
+
+            let columns: Vec<String> = if column_count > 0 {
+                (0..column_count)
+                    .map(|i| stmt.column_name(i).map_or("unknown".to_string(), |v| v.to_string()))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            let is_read_only = is_read_only_sql(&sql_owned);
+            let row_count = row_data.len();
+
+            let batch = if row_count > 0 {
+                duckdb_rows_to_arrow(&columns, &row_data)?
+            } else {
+                return Ok(QueryResult {
+                    columns,
+                    batches: vec![],
+                    affected_rows: if is_read_only { None } else { Some(0) },
+                    is_read_only: Some(is_read_only),
+                });
+            };
+
+            Ok(QueryResult {
+                columns,
+                batches: vec![batch],
+                affected_rows: if is_read_only {
+                    None
+                } else {
+                    Some(row_count as u32)
+                },
+                is_read_only: Some(is_read_only),
+            })
+        })
+        .await
+        .map_err(|e| {
             CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
-                operation: "lock".to_string(),
+                operation: "spawn_blocking".to_string(),
                 source: e.to_string(),
             })
-        })?;
-
-        let mut stmt = conn
-            .prepare(sql)
-            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-        let row_data: Vec<Vec<duckdb::types::Value>>;
-
-        {
-            let mut rows = stmt
-                .query([])
-                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-            let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-            while let Some(row) = rows
-                .next()
-                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?
-            {
-                let mut values: Vec<duckdb::types::Value> = Vec::new();
-                for i in 0.. {
-                    match row.get::<usize, duckdb::types::Value>(i) {
-                        Ok(v) => values.push(v),
-                        Err(_) => break,
-                    }
-                }
-                data.push(values);
-            }
-            row_data = data;
-        }
-
-        let column_count: usize = if let Some(first) = row_data.first() {
-            first.len()
-        } else {
-            stmt.column_count()
-        };
-
-        let columns: Vec<String> = if column_count > 0 {
-            (0..column_count)
-                .map(|i| stmt.column_name(i).map_or("unknown", |v| v).to_string())
-                .collect()
-        } else {
-            Vec::new()
-        };
-
-        let is_read_only = is_read_only_sql(sql);
-        let row_count = row_data.len();
-
-        let batch = if row_count > 0 {
-            duckdb_rows_to_arrow(&columns, &row_data)?
-        } else {
-            return Ok(QueryResult {
-                columns,
-                batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
-            });
-        };
-
-        Ok(QueryResult {
-            columns,
-            batches: vec![batch],
-            affected_rows: if is_read_only {
-                None
-            } else {
-                Some(row_count as u32)
-            },
-            is_read_only: Some(is_read_only),
-        })
+        })?
     }
 
     async fn query_with_params(
@@ -177,106 +190,119 @@ impl Database for DuckDbDatabase {
         sql: &str,
         params: Vec<Value>,
     ) -> Result<QueryResult, CoreError> {
-        let conn = self.conn.lock().map_err(|e| {
+        let conn = Arc::clone(&self.conn);
+        let sql_owned = sql.to_string();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "duckdb".to_string(),
+                    operation: "lock".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
+
+            let mut stmt = conn
+                .prepare(&sql_owned)
+                .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
+
+            let column_count = stmt.column_count();
+            let columns: Vec<String> = if column_count > 0 {
+                (0..column_count)
+                    .map(|i| {
+                        stmt.column_name(i)
+                            .map(|n| n.to_string())
+                            .unwrap_or_else(|_| format!("column_{}", i))
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            let duckdb_params: Vec<duckdb::types::Value> = params
+                .iter()
+                .map(|v| match v {
+                    Value::Null => duckdb::types::Value::Null,
+                    Value::Bool(b) => duckdb::types::Value::Boolean(*b),
+                    Value::Int(i) => duckdb::types::Value::BigInt(*i),
+                    Value::Float(f) => duckdb::types::Value::Double(*f),
+                    Value::Text(s) => duckdb::types::Value::Text(s.clone()),
+                    Value::Bytes(b) => duckdb::types::Value::Blob(b.clone()),
+                })
+                .collect();
+
+            let params_slice: Vec<&dyn duckdb::ToSql> = duckdb_params
+                .iter()
+                .map(|v| v as &dyn duckdb::ToSql)
+                .collect();
+
+            let row_data: Vec<Vec<duckdb::types::Value>>;
+            {
+                let mut rows = stmt
+                    .query(params_slice.as_slice())
+                    .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
+
+                let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
+                while let Some(row) = rows
+                    .next()
+                    .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?
+                {
+                    let mut values: Vec<duckdb::types::Value> = Vec::new();
+                    let col_count = if column_count > 0 {
+                        column_count
+                    } else {
+                        row.as_ref().column_count()
+                    };
+                    for i in 0..col_count {
+                        match row.get::<usize, duckdb::types::Value>(i) {
+                            Ok(v) => values.push(v),
+                            Err(_) => values.push(duckdb::types::Value::Null),
+                        }
+                    }
+                    data.push(values);
+                }
+                row_data = data;
+            }
+
+            let is_read_only = is_read_only_sql(&sql_owned);
+            let row_count = row_data.len();
+
+            let columns = if columns.is_empty() && column_count > 0 {
+                (0..column_count).map(|i| format!("column_{}", i)).collect()
+            } else {
+                columns
+            };
+
+            let batch = if row_count > 0 {
+                duckdb_rows_to_arrow(&columns, &row_data)?
+            } else {
+                return Ok(QueryResult {
+                    columns,
+                    batches: vec![],
+                    affected_rows: if is_read_only { None } else { Some(0) },
+                    is_read_only: Some(is_read_only),
+                });
+            };
+
+            Ok(QueryResult {
+                columns,
+                batches: vec![batch],
+                affected_rows: if is_read_only {
+                    None
+                } else {
+                    Some(row_count as u32)
+                },
+                is_read_only: Some(is_read_only),
+            })
+        })
+        .await
+        .map_err(|e| {
             CoreError::database(DatabaseError::Driver {
                 db_type: "duckdb".to_string(),
-                operation: "lock".to_string(),
+                operation: "spawn_blocking".to_string(),
                 source: e.to_string(),
             })
-        })?;
-
-        let mut stmt = conn
-            .prepare(sql)
-            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-        let column_count = stmt.column_count();
-        let columns: Vec<String> = if column_count > 0 {
-            (0..column_count)
-                .map(|i| {
-                    stmt.column_name(i)
-                        .map(|n| n.to_string())
-                        .unwrap_or_else(|_| format!("column_{}", i))
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
-
-        let duckdb_params: Vec<duckdb::types::Value> = params
-            .iter()
-            .map(|v| match v {
-                Value::Null => duckdb::types::Value::Null,
-                Value::Bool(b) => duckdb::types::Value::Boolean(*b),
-                Value::Int(i) => duckdb::types::Value::BigInt(*i),
-                Value::Float(f) => duckdb::types::Value::Double(*f),
-                Value::Text(s) => duckdb::types::Value::Text(s.clone()),
-                Value::Bytes(b) => duckdb::types::Value::Blob(b.clone()),
-            })
-            .collect();
-
-        let params_slice: Vec<&dyn duckdb::ToSql> = duckdb_params
-            .iter()
-            .map(|v| v as &dyn duckdb::ToSql)
-            .collect();
-
-        let row_data: Vec<Vec<duckdb::types::Value>>;
-        {
-            let mut rows = stmt
-                .query(params_slice.as_slice())
-                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
-
-            let mut data: Vec<Vec<duckdb::types::Value>> = Vec::new();
-            while let Some(row) = rows
-                .next()
-                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?
-            {
-                let mut values: Vec<duckdb::types::Value> = Vec::new();
-                let col_count = if column_count > 0 {
-                    column_count
-                } else {
-                    row.as_ref().column_count()
-                };
-                for i in 0..col_count {
-                    match row.get::<usize, duckdb::types::Value>(i) {
-                        Ok(v) => values.push(v),
-                        Err(_) => values.push(duckdb::types::Value::Null),
-                    }
-                }
-                data.push(values);
-            }
-            row_data = data;
-        }
-
-        let is_read_only = is_read_only_sql(sql);
-        let row_count = row_data.len();
-
-        let columns = if columns.is_empty() && column_count > 0 {
-            (0..column_count).map(|i| format!("column_{}", i)).collect()
-        } else {
-            columns
-        };
-
-        let batch = if row_count > 0 {
-            duckdb_rows_to_arrow(&columns, &row_data)?
-        } else {
-            return Ok(QueryResult {
-                columns,
-                batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
-            });
-        };
-
-        Ok(QueryResult {
-            columns,
-            batches: vec![batch],
-            affected_rows: if is_read_only {
-                None
-            } else {
-                Some(row_count as u32)
-            },
-            is_read_only: Some(is_read_only),
-        })
+        })?
     }
 
     async fn query_with_cancel(
@@ -661,15 +687,13 @@ pub fn duckdb_rows_to_arrow(
         let mut bool_values: Vec<Option<bool>> = Vec::with_capacity(num_rows);
         let mut binary_values: Vec<Option<Vec<u8>>> = Vec::with_capacity(num_rows);
 
-        let mut detected_type: Option<DataType> = None;
+        // 遍历所有行确定最宽类型（0=Null, 1=Bool, 2=Int64, 3=Float64, 4=Blob, 5=Text）
+        let mut detected_rank: u8 = 0;
 
         for row in rows {
             if let Some(value) = row.get(col_idx) {
                 match value {
                     duckdb::types::Value::Null => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Utf8);
-                        }
                         string_values.push(None);
                         int_values.push(None);
                         float_values.push(None);
@@ -677,102 +701,74 @@ pub fn duckdb_rows_to_arrow(
                         binary_values.push(None);
                     }
                     duckdb::types::Value::Boolean(b) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Boolean);
-                        }
+                        if detected_rank < 1 { detected_rank = 1; }
                         bool_values.push(Some(*b));
                     }
                     duckdb::types::Value::TinyInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::SmallInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::Int(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::BigInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i));
                     }
                     duckdb::types::Value::UTinyInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::USmallInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::UInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::UBigInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::HugeInt(i) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Int64);
-                        }
+                        if detected_rank < 2 { detected_rank = 2; }
                         int_values.push(Some(*i as i64));
                     }
                     duckdb::types::Value::Float(f) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Float64);
-                        }
+                        if detected_rank < 3 { detected_rank = 3; }
                         float_values.push(Some(*f as f64));
                     }
                     duckdb::types::Value::Double(f) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Float64);
-                        }
+                        if detected_rank < 3 { detected_rank = 3; }
                         float_values.push(Some(*f));
                     }
                     duckdb::types::Value::Text(s) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Utf8);
-                        }
+                        detected_rank = 5; // Text 为最宽类型
                         string_values.push(Some(s.clone()));
                     }
                     duckdb::types::Value::Blob(b) => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Binary);
-                        }
+                        if detected_rank < 4 { detected_rank = 4; }
                         binary_values.push(Some(b.clone()));
                     }
                     _ => {
-                        if detected_type.is_none() {
-                            detected_type = Some(DataType::Utf8);
-                        }
                         string_values.push(None);
                     }
                 }
             }
         }
 
-        let effective_type = match detected_type {
-            Some(t) => t,
-            None => DataType::Utf8,
+        let effective_type = match detected_rank {
+            1 => DataType::Boolean,
+            2 => DataType::Int64,
+            3 => DataType::Float64,
+            4 => DataType::Binary,
+            _ => DataType::Utf8,
         };
 
         let array: ArrayRef = match effective_type {

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use super::loader::BuiltinDriverDiscovery;
 use super::registry::DriverConnectionConfig;
 use crate::core::driver::{DriverDescriptor, DriverFactory, DynDatabase};
 use crate::core::error::{ConnectionError, CoreError};
@@ -170,34 +171,15 @@ pub fn get_driver_manager() -> Option<&'static DriverManager> {
 /// 初始化全局驱动管理器
 ///
 /// 必须在应用启动时调用此函数，且只能调用一次。
+/// 内置驱动列表来自 [BuiltinDriverDiscovery::builtin_factories()] 唯一真相源。
 pub async fn init_driver_manager() -> Result<(), CoreError> {
     let manager = DriverManager::new();
 
-    // 注册内置驱动
-    manager
-        .register_driver(
-            "mysql",
-            Arc::new(crate::core::driver::factory::MySqlDriverFactory),
-        )
-        .await;
-    manager
-        .register_driver(
-            "postgres",
-            Arc::new(crate::core::driver::factory::PostgresDriverFactory),
-        )
-        .await;
-    manager
-        .register_driver(
-            "sqlite",
-            Arc::new(crate::core::driver::factory::SqliteDriverFactory),
-        )
-        .await;
-    manager
-        .register_driver(
-            "duckdb",
-            Arc::new(crate::core::driver::factory::DuckDbDriverFactory),
-        )
-        .await;
+    // 从唯一真相源批量注册所有内置驱动
+    for factory in BuiltinDriverDiscovery::builtin_factories() {
+        let id = factory.descriptor().id.clone();
+        manager.register_driver(&id, factory).await;
+    }
 
     DRIVER_MANAGER.set(manager).map_err(|_| {
         CoreError::common(crate::core::error::CommonError::General(

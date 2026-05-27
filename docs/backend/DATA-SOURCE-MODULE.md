@@ -1,8 +1,8 @@
 # 新增数据源模块：后端架构 · 设计 · 开发 · 接口文档
 
-> 版本：v2.1
+> 版本：v2.2
 > 初稿日期：2026-05-18
-> 更新时间：2026-05-22（同步实际代码：auth_method 列、迁移文件名修正、v2.0 部分已实现）
+> 更新时间：2026-05-27（v0.5.3 驱动 ID 对齐 Registry：mysql-native→mysql 等，新增 014/015 修复迁移，seed 6 驱动）
 > 对应后端版本：R25+
 > 实现状态：✅ 后端 v1.6 已完成 core store + migrations；v2.0 中 ID前缀约定 + 快照溯源 + 环境 Seed 已实现；快照 store + 链校验待开发
 
@@ -78,15 +78,17 @@
 项目 A（已安装 Oracle JDBC）              项目 B（从未安装 Oracle）
   .RSmeta/meta.db                           .RSmeta/meta.db
     project_drivers:                          project_drivers:
-      ✅ mysql-native                          ✅ mysql-native
-      ✅ postgres-native                       ✅ postgres-native
-      ✅ sqlite-native                         ✅ sqlite-native
-      ✅ duckdb-native                         ✅ duckdb-native
+      ✅ mysql                                ✅ mysql
+      ✅ mysql_native                         ✅ mysql_native
+      ✅ postgres                             ✅ postgres
+      ✅ postgres_native                      ✅ postgres_native
+      ✅ sqlite                               ✅ sqlite
+      ✅ duckdb                               ✅ duckdb
       ✅ oracle-jdbc     ← 用户主动安装的      (无 oracle-jdbc)  ← 就这么干净
 
 结果：
-  项目 A 前端驱动列表：MySQL, PostgreSQL, SQLite, DuckDB, Oracle  ← 全部5个
-  项目 B 前端驱动列表：MySQL, PostgreSQL, SQLite, DuckDB          ← 只有4个
+  项目 A 前端驱动列表：MySQL (sqlx), MySQL (Official), PostgreSQL (sqlx), PostgreSQL (Official), SQLite, DuckDB, Oracle  ← 全部7个
+  项目 B 前端驱动列表：MySQL (sqlx), MySQL (Official), PostgreSQL (sqlx), PostgreSQL (Official), SQLite, DuckDB          ← 只有6个
   项目 B 无法创建 Oracle 连接 🔒
 ```
 
@@ -123,14 +125,16 @@ global.db:                                    global.db:
 ```
 用户创建 "项目 C"
     ↓
-自动在项目 C 的 project_drivers 中种子4个内置驱动：
-    mysql-native      ✅
-    postgres-native   ✅
-    sqlite-native     ✅
-    duckdb-native     ✅
+自动在项目 C 的 project_drivers 中种子 6 个内置驱动（v0.5.3+）：
+    mysql              ✅  (sqlx)
+    mysql_native       ✅  (mysql_async)
+    postgres           ✅  (sqlx)
+    postgres_native    ✅  (tokio-postgres)
+    sqlite             ✅  (rusqlite)
+    duckdb             ✅  (duckdb-rs)
     (仅此而已，无其他驱动)
 
-项目 C 前端驱动列表：MySQL, PostgreSQL, SQLite, DuckDB
+项目 C 前端驱动列表：MySQL (sqlx), MySQL (Official), PostgreSQL (sqlx), PostgreSQL (Official), SQLite, DuckDB
 ```
 
 ---
@@ -278,15 +282,7 @@ ALTER TABLE global_connections ADD COLUMN network_config_id TEXT;
 ALTER TABLE global_connections ADD COLUMN driver_properties TEXT;
 ALTER TABLE global_connections ADD COLUMN advanced_options TEXT;
 
-UPDATE global_connections SET driver_id =
-    CASE driver
-        WHEN 'mysql'    THEN 'mysql-native'
-        WHEN 'postgres' THEN 'postgres-native'
-        WHEN 'sqlite'   THEN 'sqlite-native'
-        WHEN 'duckdb'   THEN 'duckdb-native'
-        ELSE driver || '-native'
-    END
-WHERE driver_id IS NULL;
+UPDATE global_connections SET driver_id = driver WHERE driver_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_gc_driver_id ON global_connections(driver_id);
 CREATE INDEX IF NOT EXISTS idx_gc_env ON global_connections(environment_id);
@@ -307,9 +303,10 @@ INSERT OR IGNORE INTO data_source_types (id, name, category, icon, enabled) VALU
     ('redis',      'Redis',           'nosql',      '🔶', 1);
 
 -- 4 个内置 Native 驱动（driver_files 不需要，编译在 Rust 二进制中）
+-- 驱动 ID 与 Runtime DriverRegistry key 严格对齐
 INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_port,
     url_template, download_url, version, config_schema, supported_auth_types, capabilities, enabled) VALUES
-('mysql-native', 'mysql', 'MySQL (Native)', 'native', 0, 3306,
+('mysql', 'mysql', 'MySQL (sqlx)', 'native', 0, 3306,
  'mysql://{username}:{password}@{host}:{port}/{database}',
  NULL, 'builtin',
  '{"type":"object","properties":{"host":{"type":"string","title":"主机","default":"localhost"},"port":{"type":"integer","title":"端口","default":3306},"database":{"type":"string","title":"数据库名"},"username":{"type":"string","title":"用户名"},"password":{"type":"string","title":"密码","format":"password"}},"required":["host","port","username"]}',
@@ -317,7 +314,7 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
  '["tree","health_check","transactions","prepared_stmts"]',
  1),
 
-('postgres-native', 'postgresql', 'PostgreSQL (Native)', 'native', 0, 5432,
+('postgres', 'postgresql', 'PostgreSQL (sqlx)', 'native', 0, 5432,
  'postgres://{username}:{password}@{host}:{port}/{database}',
  NULL, 'builtin',
  '{"type":"object","properties":{"host":{"type":"string","title":"主机","default":"localhost"},"port":{"type":"integer","title":"端口","default":5432},"database":{"type":"string","title":"数据库名"},"username":{"type":"string","title":"用户名"},"password":{"type":"string","title":"密码","format":"password"}},"required":["host","port","database","username"]}',
@@ -325,7 +322,7 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
  '["tree","health_check","schema_filter","transactions","prepared_stmts"]',
  1),
 
-('sqlite-native', 'sqlite', 'SQLite (Native)', 'native', 1, NULL,
+('sqlite', 'sqlite', 'SQLite (rusqlite)', 'native', 1, NULL,
  'sqlite://{file_path}',
  NULL, 'builtin',
  '{"type":"object","properties":{"file_path":{"type":"string","title":"数据库文件路径","format":"file"}},"required":["file_path"]}',
@@ -333,7 +330,7 @@ INSERT OR IGNORE INTO drivers (id, type_id, name, driver_kind, is_file, default_
  '["tree","transactions","in_memory"]',
  1),
 
-('duckdb-native', 'duckdb', 'DuckDB (Native)', 'native', 1, NULL,
+('duckdb', 'duckdb', 'DuckDB (duckdb-rs)', 'native', 1, NULL,
  'duckdb://{file_path}',
  NULL, 'builtin',
  '{"type":"object","properties":{"file_path":{"type":"string","title":"数据库文件路径","format":"file"},"memory_limit":{"type":"string","title":"内存限制"}},"required":["file_path"]}',
@@ -425,15 +422,7 @@ ALTER TABLE connections ADD COLUMN network_config_id TEXT;
 ALTER TABLE connections ADD COLUMN driver_properties TEXT;
 ALTER TABLE connections ADD COLUMN advanced_options TEXT;
 
-UPDATE connections SET driver_id =
-    CASE driver
-        WHEN 'mysql'    THEN 'mysql-native'
-        WHEN 'postgres' THEN 'postgres-native'
-        WHEN 'sqlite'   THEN 'sqlite-native'
-        WHEN 'duckdb'   THEN 'duckdb-native'
-        ELSE driver || '-native'
-    END
-WHERE driver_id IS NULL;
+UPDATE connections SET driver_id = driver WHERE driver_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_conn_driver_id ON connections(driver_id);
 CREATE INDEX IF NOT EXISTS idx_conn_env ON connections(environment_id);

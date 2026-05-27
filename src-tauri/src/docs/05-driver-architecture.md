@@ -1,14 +1,14 @@
 # 驱动架构
 
-> 版本：v2.0
-> 最后更新：2026-05-09
+> 版本：v2.2
+> 最后更新：2026-05-27
 > 状态：✅ 实际代码对齐
 
 ## 概述
 
 RdataStation 使用 **Trait-based + Registry** 的驱动架构，支持多种数据库类型。驱动层负责数据库连接创建、SQL 执行、元数据查询和 Schema 浏览。
 
-当前阶段锁定 4 种内置数据库，架构稳定后通过插件机制（JDBC/ODBC/WASM/ADBC）扩展。
+当前阶段锁定 6 种内置驱动（4 种 sqlx/rusqlite/duckdb-rs 驱动 + 2 种官方原生驱动），架构稳定后通过插件机制（JDBC/ODBC/WASM/ADBC）扩展。
 
 ## 核心架构
 
@@ -299,7 +299,7 @@ impl AutoDriverRegistrar {
 
 ```rust
 pub struct ConnectionConfig {
-    pub driver: String,              // "mysql" | "postgres" | "sqlite" | "duckdb"
+    pub driver: String,              // 6 种内置："mysql"|"mysql_native"|"postgres"|"postgres_native"|"sqlite"|"duckdb"
     pub name: Option<String>,        // 连接显示名称
     pub host: Option<String>,        // 主机地址
     pub port: Option<u16>,           // 端口
@@ -349,9 +349,7 @@ pub struct DriverDescriptor {
 }
 ```
 
-> ⚠️ **待增强（P3）**：缺少 `target_database`、`driver_kind`（native/jdbc/odbc/wasm）、`url_template` 字段。
-
-## 四种内置驱动
+## 内置驱动
 
 ### MySQL (sqlx)
 
@@ -417,24 +415,31 @@ impl DataSourceRouter {
 core/driver/
 ├── mod.rs              # 模块导出
 ├── traits.rs           # Database / Transaction / DbPool trait 定义
-├── registry.rs         # DriverRegistry + ConnectionConfig + DriverFactory trait
-├── factory.rs          # DriverFactoryManager + 4 个工厂实现 (⚠️ 重复注册)
-├── auto_register.rs    # AutoDriverRegistrar（启动时注册 4 个驱动）
+├── registry/
+│   ├── mod.rs          # DriverRegistry + DriverFactory trait
+│   ├── config.rs       # DriverConnectionConfig + to_url()
+│   └── descriptors.rs  # DriverDescriptor + DriverKind + 6 个内置描述符
+├── factory.rs          # 6 个 DriverFactory 实现
+├── auto_register.rs    # AutoDriverRegistrar（启动时注册 6 个驱动）
+├── config.rs           # 驱动配置（别名，从 registry/config 重新导出）
 ├── manager.rs          # DriverManager（全局驱动状态管理）
 ├── metadata.rs         # DriverMetadata + DriverType + DriverIcon
 ├── loader.rs           # DriverLoader + 发现机制（Builtin/Wasm/JDBC）
+├── router.rs           # DataSourceRouter
 ├── utils.rs            # 工具函数
 ├── smart_pool.rs       # SmartPool 智能连接池
 ├── native/             # 原生驱动实现
 │   ├── mod.rs
-│   ├── mysql.rs        # MySqlDatabase
+│   ├── mysql.rs        # MySqlDatabase (sqlx)
+│   ├── mysql_native.rs # MySqlNativeDatabase (mysql_async) v0.5.2+
 │   ├── mysql_pool.rs
-│   ├── postgres.rs     # PostgresDatabase
-│   ├── sqlite.rs       # SqliteDatabase
+│   ├── postgres.rs     # PostgresDatabase (sqlx)
+│   ├── postgres_native.rs # PostgresNativeDatabase (tokio-postgres) v0.5.2+
+│   ├── sqlite.rs       # SqliteDatabase (rusqlite)
 │   ├── sqlite_pool.rs
-│   ├── duckdb.rs       # DuckDbDatabase
+│   ├── duckdb.rs       # DuckDbDatabase (duckdb-rs)
 │   └── duckdb_pool.rs
-├── jdbc/               # JDBC 桥接（骨架，待 Go Sidecar 实现）
+├── jdbc/               # JDBC 桥接（骨架）
 ├── wasm/               # WASM 插件驱动（骨架）
 └── tests/              # 驱动测试
 ```

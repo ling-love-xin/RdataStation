@@ -60,15 +60,9 @@ ALTER TABLE connections ADD COLUMN network_config_id TEXT;
 ALTER TABLE connections ADD COLUMN driver_properties TEXT;
 ALTER TABLE connections ADD COLUMN advanced_options TEXT;
 
-UPDATE connections SET driver_id =
-    CASE driver
-        WHEN 'mysql'    THEN 'mysql-native'
-        WHEN 'postgres' THEN 'postgres-native'
-        WHEN 'sqlite'   THEN 'sqlite-native'
-        WHEN 'duckdb'   THEN 'duckdb-native'
-        ELSE driver || '-native'
-    END
-WHERE driver_id IS NULL;
+-- driver_id 直接复制 driver 字段（与 Registry key 对齐）
+-- Registry keys: mysql, postgres, sqlite, duckdb
+UPDATE connections SET driver_id = driver WHERE driver_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_conn_driver_id ON connections(driver_id);
 CREATE INDEX IF NOT EXISTS idx_conn_env ON connections(environment_id);
