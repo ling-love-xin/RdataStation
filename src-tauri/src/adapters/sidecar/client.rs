@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::SidecarError;
-use crate::core::error::CoreError;
 use crate::core::models::QueryResult;
 
 /// JSON-RPC 请求
@@ -168,7 +167,9 @@ impl SidecarClient {
     ) -> Result<HashMap<String, bool>, SidecarError> {
         self.request(
             "connectors.test_connection",
-            Some(serde_json::to_value(params).unwrap()),
+            Some(serde_json::to_value(params).map_err(|e| {
+                SidecarError::CommunicationError(format!("Serialization failed: {}", e))
+            })?),
         )
         .await
     }
@@ -180,7 +181,9 @@ impl SidecarClient {
     ) -> Result<QueryResult, SidecarError> {
         self.request(
             "connectors.execute_query",
-            Some(serde_json::to_value(params).unwrap()),
+            Some(serde_json::to_value(params).map_err(|e| {
+                SidecarError::CommunicationError(format!("Serialization failed: {}", e))
+            })?),
         )
         .await
     }
@@ -192,7 +195,9 @@ impl SidecarClient {
     ) -> Result<HashMap<String, Value>, SidecarError> {
         self.request(
             "connectors.list_tables",
-            Some(serde_json::to_value(params).unwrap()),
+            Some(serde_json::to_value(params).map_err(|e| {
+                SidecarError::CommunicationError(format!("Serialization failed: {}", e))
+            })?),
         )
         .await
     }

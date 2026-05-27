@@ -105,7 +105,9 @@ impl Drop for GlobalPooledConnection {
                     pool_guard.push(conn);
                 }
                 Err(_) => {
-                    tracing::warn!("Failed to return global SQLite connection to pool (lock unavailable)");
+                    tracing::warn!(
+                        "Failed to return global SQLite connection to pool (lock unavailable)"
+                    );
                 }
             };
         }
@@ -202,9 +204,7 @@ impl GlobalSqlitePool {
         let permit = Arc::clone(&self.semaphore)
             .acquire_owned()
             .await
-            .map_err(|_| {
-                CoreError::common(CommonError::General("Semaphore closed".to_string()))
-            })?;
+            .map_err(|_| CoreError::common(CommonError::General("Semaphore closed".to_string())))?;
 
         let conn = loop {
             let mut pool = self.pool.lock().await;
@@ -228,9 +228,7 @@ impl GlobalSqlitePool {
 
         let permit = rt
             .block_on(Arc::clone(&self.semaphore).acquire_owned())
-            .map_err(|_| {
-                CoreError::common(CommonError::General("Semaphore closed".to_string()))
-            })?;
+            .map_err(|_| CoreError::common(CommonError::General("Semaphore closed".to_string())))?;
 
         let conn = loop {
             let mut pool = rt.block_on(self.pool.lock());
@@ -460,7 +458,6 @@ impl GlobalDatabaseManager {
             }
         }
 
-        
         Ok(())
     }
 
@@ -651,15 +648,20 @@ impl GlobalDatabaseManager {
 
         // A4-L1: 全局连接数量上限检查
         const MAX_GLOBAL_CONNECTIONS: usize = 50;
-        let count: i64 = conn.inner()?.query_row(
-            "SELECT COUNT(*) FROM global_connections WHERE is_active = 1",
-            [],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "count_global_connections".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let count: i64 = conn
+            .inner()?
+            .query_row(
+                "SELECT COUNT(*) FROM global_connections WHERE is_active = 1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "count_global_connections".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
         if count as usize >= MAX_GLOBAL_CONNECTIONS {
             return Err(CoreError::common(CommonError::InvalidArgument {
                 param: "connection".to_string(),
@@ -671,15 +673,20 @@ impl GlobalDatabaseManager {
         }
 
         // A4-U1: 全局连接名称唯一性检查
-        let dup_count: i64 = conn.inner()?.query_row(
-            "SELECT COUNT(*) FROM global_connections WHERE name = ?1 AND is_active = 1",
-            [input.name],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "check_duplicate_global_name".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let dup_count: i64 = conn
+            .inner()?
+            .query_row(
+                "SELECT COUNT(*) FROM global_connections WHERE name = ?1 AND is_active = 1",
+                [input.name],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "check_duplicate_global_name".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
         if dup_count > 0 {
             return Err(CoreError::common(CommonError::InvalidArgument {
                 param: "name".to_string(),
@@ -701,7 +708,8 @@ impl GlobalDatabaseManager {
         };
 
         // 默认标签：如果没有提供标签，添加 "global" 标签
-        let tags_json = input.tags
+        let tags_json = input
+            .tags
             .filter(|t| !t.is_empty())
             .map(|t| {
                 // 验证是否为合法 JSON 数组
@@ -717,7 +725,7 @@ impl GlobalDatabaseManager {
             .unwrap_or_else(|| "[\"global\"]".to_string());
 
         conn.inner()?.execute(
-            "INSERT OR REPLACE INTO global_connections 
+            "INSERT OR REPLACE INTO global_connections
              (id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, is_active, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, 1, CURRENT_TIMESTAMP)",
             [
@@ -744,13 +752,11 @@ impl GlobalDatabaseManager {
                 input.driver_properties.unwrap_or(""),
                 input.advanced_options.unwrap_or(""),
             ],
-        ).map_err(|e| CoreError::storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "save_global_connection".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "save_global_connection".to_string(),
+            reason: e.to_string()
         }))?;
-
-        
 
         tracing::info!("全局连接信息已保存: {} ({})", input.name, input.conn_id);
         Ok(())
@@ -769,19 +775,20 @@ impl GlobalDatabaseManager {
 
         let connections: Vec<GlobalConnectionInfo> = {
             let base_sql = format!(
-                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
-                 FROM global_connections 
-                 WHERE is_active = 1 
+                "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options
+                 FROM global_connections
+                 WHERE is_active = 1
                  ORDER BY updated_at DESC{}{}",
                 limit.map_or(String::new(), |l| format!(" LIMIT {}", l)),
                 offset.map_or(String::new(), |o| format!(" OFFSET {}", o)),
             );
-            let mut stmt = conn.inner()?.prepare(&base_sql)
-                .map_err(|e| CoreError::storage(StorageError::Persistence { 
-                    store: "sqlite".to_string(), 
-                    operation: "get_global_connections".to_string(), 
-                    reason: e.to_string() 
-                }))?;
+            let mut stmt = conn.inner()?.prepare(&base_sql).map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "get_global_connections".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
             let rows = stmt
                 .query_map([], |row| {
@@ -842,8 +849,6 @@ impl GlobalDatabaseManager {
             }
             result
         };
-
-        
 
         Ok(connections)
     }
@@ -941,27 +946,26 @@ impl GlobalDatabaseManager {
 
         let id = format!("nav_{}", connection_id);
 
-        conn.inner()?.execute(
-            "INSERT OR REPLACE INTO navigator_states 
+        conn.inner()?
+            .execute(
+                "INSERT OR REPLACE INTO navigator_states
              (id, connection_id, expanded_keys, selected_keys, filter_config, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP)",
-            [
-                &id,
-                connection_id,
-                expanded_keys,
-                selected_keys,
-                filter_config,
-            ],
-        )
-        .map_err(|e| {
-            CoreError::storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "save_navigator_state".to_string(),
-                reason: e.to_string(),
-            })
-        })?;
-
-        
+                [
+                    &id,
+                    connection_id,
+                    expanded_keys,
+                    selected_keys,
+                    filter_config,
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "save_navigator_state".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
@@ -980,8 +984,8 @@ impl GlobalDatabaseManager {
             let mut stmt = conn
                 .inner()?
                 .prepare(
-                    "SELECT expanded_keys, selected_keys, filter_config 
-                 FROM navigator_states 
+                    "SELECT expanded_keys, selected_keys, filter_config
+                 FROM navigator_states
                  WHERE connection_id = ?1",
                 )
                 .map_err(|e| {
@@ -1009,8 +1013,6 @@ impl GlobalDatabaseManager {
             })?
         };
 
-        
-
         Ok(result)
     }
 
@@ -1026,24 +1028,24 @@ impl GlobalDatabaseManager {
     const PROJECT_CHECK_PATH_EXISTS: &'static str =
         "SELECT COUNT(*) FROM project_info WHERE path = ?1";
 
-    const PROJECT_UPDATE_BY_ID: &'static str = 
+    const PROJECT_UPDATE_BY_ID: &'static str =
         "UPDATE project_info SET name = ?2, description = ?3, path = ?4, status = ?5, updated_at = CURRENT_TIMESTAMP, last_opened_at = ?6 WHERE id = ?1";
 
-    const PROJECT_UPDATE_BY_PATH: &'static str = 
+    const PROJECT_UPDATE_BY_PATH: &'static str =
         "UPDATE project_info SET id = ?1, name = ?2, description = ?3, status = ?5, updated_at = CURRENT_TIMESTAMP, last_opened_at = ?6 WHERE path = ?4";
 
-    const PROJECT_INSERT: &'static str = 
+    const PROJECT_INSERT: &'static str =
         "INSERT INTO project_info (id, name, description, path, status, updated_at, last_opened_at) VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP, ?6)";
 
     const PROJECT_DELETE: &'static str = "DELETE FROM project_info WHERE id = ?1";
 
-    const PROJECT_UPDATE_INFO: &'static str = 
+    const PROJECT_UPDATE_INFO: &'static str =
         "UPDATE project_info SET name = ?2, description = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?1";
 
-    const PROJECT_INSERT_OR_REPLACE: &'static str = 
+    const PROJECT_INSERT_OR_REPLACE: &'static str =
         "INSERT OR REPLACE INTO project_info (id, name, description, path, status, updated_at, last_opened_at) VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP, ?6)";
 
-    const PROJECT_SELECT_ALL: &'static str = 
+    const PROJECT_SELECT_ALL: &'static str =
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info ORDER BY last_opened_at DESC";
 
     const PROJECT_UPDATE_LAST_OPENED: &'static str =
@@ -1052,22 +1054,22 @@ impl GlobalDatabaseManager {
     const PROJECT_OPEN_UPDATE: &'static str =
         "UPDATE project_info SET last_opened_at = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2";
 
-    const PROJECT_OPEN_QUERY: &'static str = 
+    const PROJECT_OPEN_QUERY: &'static str =
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE id = ?1";
 
-    const PROJECT_OPEN_BY_PATH_UPDATE: &'static str = 
+    const PROJECT_OPEN_BY_PATH_UPDATE: &'static str =
         "UPDATE project_info SET last_opened_at = ?1, updated_at = CURRENT_TIMESTAMP WHERE path = ?2";
 
-    const PROJECT_OPEN_BY_PATH_QUERY: &'static str = 
+    const PROJECT_OPEN_BY_PATH_QUERY: &'static str =
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE path = ?1";
 
-    const PROJECT_GET_RECENT: &'static str = 
+    const PROJECT_GET_RECENT: &'static str =
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE last_opened_at IS NOT NULL AND last_opened_at != '' ORDER BY last_opened_at DESC LIMIT ?1";
 
-    const PROJECT_GET_BY_ID: &'static str = 
+    const PROJECT_GET_BY_ID: &'static str =
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE id = ?1";
 
-    const PROJECT_GET_BY_PATH: &'static str = 
+    const PROJECT_GET_BY_PATH: &'static str =
         "SELECT id, name, description, path, status, created_at, updated_at, last_opened_at FROM project_info WHERE path = ?1";
 
     /// 辅助函数：将数据库行转换为 ProjectInfoRecord
@@ -1140,26 +1142,31 @@ impl GlobalDatabaseManager {
         let last_opened = last_opened_at.unwrap_or("");
 
         if id_exists {
-            conn.inner()?.execute(
-                Self::PROJECT_UPDATE_BY_ID,
-                [id, name, desc, path, status, last_opened],
-            )
-            .map_err(|e| Self::sqlite_persistence_error("update_project_by_id", e.to_string()))?;
+            conn.inner()?
+                .execute(
+                    Self::PROJECT_UPDATE_BY_ID,
+                    [id, name, desc, path, status, last_opened],
+                )
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("update_project_by_id", e.to_string())
+                })?;
         } else if path_exists {
-            conn.inner()?.execute(
-                Self::PROJECT_UPDATE_BY_PATH,
-                [id, name, desc, path, status, last_opened],
-            )
-            .map_err(|e| Self::sqlite_persistence_error("update_project_by_path", e.to_string()))?;
+            conn.inner()?
+                .execute(
+                    Self::PROJECT_UPDATE_BY_PATH,
+                    [id, name, desc, path, status, last_opened],
+                )
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("update_project_by_path", e.to_string())
+                })?;
         } else {
-            conn.inner()?.execute(
-                Self::PROJECT_INSERT,
-                [id, name, desc, path, status, last_opened],
-            )
-            .map_err(|e| Self::sqlite_persistence_error("insert_project", e.to_string()))?;
+            conn.inner()?
+                .execute(
+                    Self::PROJECT_INSERT,
+                    [id, name, desc, path, status, last_opened],
+                )
+                .map_err(|e| Self::sqlite_persistence_error("insert_project", e.to_string()))?;
         }
-
-        
 
         Ok(())
     }
@@ -1171,10 +1178,9 @@ impl GlobalDatabaseManager {
     pub async fn delete_project(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner()?.execute(Self::PROJECT_DELETE, [id])
+        conn.inner()?
+            .execute(Self::PROJECT_DELETE, [id])
             .map_err(|e| Self::sqlite_persistence_error("delete_project", e.to_string()))?;
-
-        
 
         Ok(())
     }
@@ -1193,13 +1199,12 @@ impl GlobalDatabaseManager {
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner()?.execute(
-            Self::PROJECT_UPDATE_INFO,
-            [id, name, description.unwrap_or("")],
-        )
-        .map_err(|e| Self::sqlite_persistence_error("update_project_info", e.to_string()))?;
-
-        
+        conn.inner()?
+            .execute(
+                Self::PROJECT_UPDATE_INFO,
+                [id, name, description.unwrap_or("")],
+            )
+            .map_err(|e| Self::sqlite_persistence_error("update_project_info", e.to_string()))?;
 
         Ok(())
     }
@@ -1224,20 +1229,19 @@ impl GlobalDatabaseManager {
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner()?.execute(
-            Self::PROJECT_INSERT_OR_REPLACE,
-            [
-                id,
-                name,
-                description.unwrap_or(""),
-                path,
-                status,
-                last_opened_at.unwrap_or(""),
-            ],
-        )
-        .map_err(|e| Self::sqlite_persistence_error("save_project_info", e.to_string()))?;
-
-        
+        conn.inner()?
+            .execute(
+                Self::PROJECT_INSERT_OR_REPLACE,
+                [
+                    id,
+                    name,
+                    description.unwrap_or(""),
+                    path,
+                    status,
+                    last_opened_at.unwrap_or(""),
+                ],
+            )
+            .map_err(|e| Self::sqlite_persistence_error("save_project_info", e.to_string()))?;
 
         Ok(())
     }
@@ -1266,8 +1270,6 @@ impl GlobalDatabaseManager {
             result
         };
 
-        
-
         Ok(projects)
     }
 
@@ -1283,12 +1285,11 @@ impl GlobalDatabaseManager {
     ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner()?.execute(Self::PROJECT_UPDATE_LAST_OPENED, [last_opened_at, id])
+        conn.inner()?
+            .execute(Self::PROJECT_UPDATE_LAST_OPENED, [last_opened_at, id])
             .map_err(|e| {
                 Self::sqlite_persistence_error("update_project_last_opened", e.to_string())
             })?;
-
-        
 
         Ok(())
     }
@@ -1300,10 +1301,9 @@ impl GlobalDatabaseManager {
     pub async fn delete_project_info(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        conn.inner()?.execute(Self::PROJECT_DELETE, [id])
+        conn.inner()?
+            .execute(Self::PROJECT_DELETE, [id])
             .map_err(|e| Self::sqlite_persistence_error("delete_project_info", e.to_string()))?;
-
-        
 
         Ok(())
     }
@@ -1328,7 +1328,6 @@ impl GlobalDatabaseManager {
             .map_err(|e| Self::sqlite_persistence_error("open_project_update", e.to_string()))?;
 
         if updated == 0 {
-            
             return Ok(None);
         }
 
@@ -1342,8 +1341,6 @@ impl GlobalDatabaseManager {
                 .optional()
                 .map_err(|e| Self::sqlite_persistence_error("open_project_query", e.to_string()))?
         };
-
-        
 
         Ok(project)
     }
@@ -1371,7 +1368,6 @@ impl GlobalDatabaseManager {
             })?;
 
         if updated == 0 {
-            
             return Ok(None);
         }
 
@@ -1390,8 +1386,6 @@ impl GlobalDatabaseManager {
                 })?
         };
 
-        
-
         Ok(project)
     }
 
@@ -1409,9 +1403,12 @@ impl GlobalDatabaseManager {
         let conn = self.sqlite_pool.acquire().await?;
 
         let projects = {
-            let mut stmt = conn.inner()?.prepare(Self::PROJECT_GET_RECENT).map_err(|e| {
-                Self::sqlite_persistence_error("get_recent_projects", e.to_string())
-            })?;
+            let mut stmt = conn
+                .inner()?
+                .prepare(Self::PROJECT_GET_RECENT)
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("get_recent_projects", e.to_string())
+                })?;
 
             let rows = stmt
                 .query_map([limit as i64], Self::row_to_project_record)
@@ -1425,8 +1422,6 @@ impl GlobalDatabaseManager {
             }
             result
         };
-
-        
 
         Ok(projects)
     }
@@ -1455,8 +1450,6 @@ impl GlobalDatabaseManager {
                 .map_err(|e| Self::sqlite_persistence_error("query_project_by_id", e.to_string()))?
         };
 
-        
-
         Ok(project)
     }
 
@@ -1474,9 +1467,12 @@ impl GlobalDatabaseManager {
         let conn = self.sqlite_pool.acquire().await?;
 
         let project = {
-            let mut stmt = conn.inner()?.prepare(Self::PROJECT_GET_BY_PATH).map_err(|e| {
-                Self::sqlite_persistence_error("get_project_by_path", e.to_string())
-            })?;
+            let mut stmt = conn
+                .inner()?
+                .prepare(Self::PROJECT_GET_BY_PATH)
+                .map_err(|e| {
+                    Self::sqlite_persistence_error("get_project_by_path", e.to_string())
+                })?;
 
             stmt.query_row([path], Self::row_to_project_record)
                 .optional()
@@ -1484,8 +1480,6 @@ impl GlobalDatabaseManager {
                     Self::sqlite_persistence_error("query_project_by_path", e.to_string())
                 })?
         };
-
-        
 
         Ok(project)
     }
@@ -1510,7 +1504,7 @@ impl GlobalDatabaseManager {
     pub async fn list_data_source_types(&self) -> Result<Vec<DataSourceType>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = driver_store::get_data_source_types(conn.inner()?)?;
-        
+
         Ok(result)
     }
 
@@ -1518,7 +1512,7 @@ impl GlobalDatabaseManager {
     pub async fn get_all_drivers(&self) -> Result<Vec<Driver>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = driver_store::get_all_drivers(conn.inner()?)?;
-        
+
         Ok(result)
     }
 
@@ -1526,7 +1520,7 @@ impl GlobalDatabaseManager {
     pub async fn get_driver(&self, id: &str) -> Result<Option<Driver>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = driver_store::get_driver(conn.inner()?, id)?;
-        
+
         Ok(result)
     }
 
@@ -1534,7 +1528,7 @@ impl GlobalDatabaseManager {
     pub async fn get_drivers_by_type(&self, type_id: &str) -> Result<Vec<Driver>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let drivers = driver_store::get_drivers_by_type(conn.inner()?, type_id)?;
-        
+
         Ok(drivers)
     }
 
@@ -1542,7 +1536,7 @@ impl GlobalDatabaseManager {
     pub async fn list_driver_files(&self, driver_id: &str) -> Result<Vec<DriverFile>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = driver_store::list_driver_files(conn.inner()?, driver_id)?;
-        
+
         Ok(result)
     }
 
@@ -1550,15 +1544,19 @@ impl GlobalDatabaseManager {
     pub async fn register_driver_file(&self, df: &DriverFile) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         driver_store::register_driver_file(conn.inner()?, df)?;
-        
+
         Ok(())
     }
 
     /// 检查指定版本的驱动是否已安装
-    pub async fn is_driver_installed(&self, driver_id: &str, version: &str) -> Result<bool, CoreError> {
+    pub async fn is_driver_installed(
+        &self,
+        driver_id: &str,
+        version: &str,
+    ) -> Result<bool, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = driver_store::is_driver_file_installed(conn.inner()?, driver_id, version)?;
-        
+
         Ok(result)
     }
 
@@ -1566,7 +1564,7 @@ impl GlobalDatabaseManager {
     pub async fn create_environment(&self, env: &env_store::Environment) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         env_store::create_environment(conn.inner()?, env)?;
-        
+
         Ok(())
     }
 
@@ -1574,7 +1572,7 @@ impl GlobalDatabaseManager {
     pub async fn list_environments(&self) -> Result<Vec<env_store::Environment>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = env_store::list_environments(conn.inner()?)?;
-        
+
         Ok(result)
     }
 
@@ -1582,7 +1580,7 @@ impl GlobalDatabaseManager {
     pub async fn update_environment(&self, env: &env_store::Environment) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         env_store::update_environment(conn.inner()?, env)?;
-        
+
         Ok(())
     }
 
@@ -1590,39 +1588,51 @@ impl GlobalDatabaseManager {
     pub async fn delete_environment(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         env_store::delete_environment(conn.inner()?, id)?;
-        
+
         Ok(())
     }
 
     /// 根据 ID 获取环境
-    pub async fn get_environment(&self, id: &str) -> Result<Option<env_store::Environment>, CoreError> {
+    pub async fn get_environment(
+        &self,
+        id: &str,
+    ) -> Result<Option<env_store::Environment>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = env_store::get_environment(conn.inner()?, id)?;
-        
+
         Ok(result)
     }
 
     /// 为指定环境创建策略
-    pub async fn create_environment_policy(&self, policy: &env_store::EnvironmentPolicy) -> Result<(), CoreError> {
+    pub async fn create_environment_policy(
+        &self,
+        policy: &env_store::EnvironmentPolicy,
+    ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         env_store::create_policy(conn.inner()?, policy)?;
-        
+
         Ok(())
     }
 
     /// 列出指定环境的所有策略
-    pub async fn list_environment_policies(&self, environment_id: &str) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
+    pub async fn list_environment_policies(
+        &self,
+        environment_id: &str,
+    ) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = env_store::list_policies(conn.inner()?, environment_id)?;
-        
+
         Ok(result)
     }
 
     /// 更新环境策略
-    pub async fn update_environment_policy(&self, policy: &env_store::EnvironmentPolicy) -> Result<(), CoreError> {
+    pub async fn update_environment_policy(
+        &self,
+        policy: &env_store::EnvironmentPolicy,
+    ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         env_store::update_policy(conn.inner()?, policy)?;
-        
+
         Ok(())
     }
 
@@ -1630,7 +1640,7 @@ impl GlobalDatabaseManager {
     pub async fn delete_environment_policy(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         env_store::delete_policy(conn.inner()?, id)?;
-        
+
         Ok(())
     }
 
@@ -1638,23 +1648,29 @@ impl GlobalDatabaseManager {
     pub async fn create_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         auth_store::create_global_auth_config(conn.inner()?, ac)?;
-        
+
         Ok(())
     }
 
     /// 列出认证配置
-    pub async fn list_auth_configs(&self, auth_type: Option<&str>) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
+    pub async fn list_auth_configs(
+        &self,
+        auth_type: Option<&str>,
+    ) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = auth_store::list_global_auth_configs(conn.inner()?, auth_type)?;
-        
+
         Ok(result)
     }
 
     /// 根据 ID 获取认证配置
-    pub async fn get_auth_config(&self, id: &str) -> Result<Option<auth_store::AuthConfig>, CoreError> {
+    pub async fn get_auth_config(
+        &self,
+        id: &str,
+    ) -> Result<Option<auth_store::AuthConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = auth_store::get_global_auth_config(conn.inner()?, id)?;
-        
+
         Ok(result)
     }
 
@@ -1662,7 +1678,7 @@ impl GlobalDatabaseManager {
     pub async fn delete_auth_config(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         auth_store::delete_auth_config(conn.inner()?, id)?;
-        
+
         Ok(())
     }
 
@@ -1670,39 +1686,51 @@ impl GlobalDatabaseManager {
     pub async fn update_auth_config(&self, ac: &auth_store::AuthConfig) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         auth_store::update_auth_config(conn.inner()?, ac)?;
-        
+
         Ok(())
     }
 
     /// 创建网络配置
-    pub async fn create_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
+    pub async fn create_network_config(
+        &self,
+        nc: &network_store::NetworkConfig,
+    ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         network_store::create_global_network_config(conn.inner()?, nc)?;
-        
+
         Ok(())
     }
 
     /// 列出网络配置
-    pub async fn list_network_configs(&self, network_type: Option<&str>) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
+    pub async fn list_network_configs(
+        &self,
+        network_type: Option<&str>,
+    ) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = network_store::list_global_network_configs(conn.inner()?, network_type)?;
-        
+
         Ok(result)
     }
 
     /// 根据 ID 获取网络配置
-    pub async fn get_network_config(&self, id: &str) -> Result<Option<network_store::NetworkConfig>, CoreError> {
+    pub async fn get_network_config(
+        &self,
+        id: &str,
+    ) -> Result<Option<network_store::NetworkConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = network_store::get_global_network_config(conn.inner()?, id)?;
-        
+
         Ok(result)
     }
 
     /// 更新网络配置
-    pub async fn update_network_config(&self, nc: &network_store::NetworkConfig) -> Result<(), CoreError> {
+    pub async fn update_network_config(
+        &self,
+        nc: &network_store::NetworkConfig,
+    ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         network_store::update_network_config(conn.inner()?, nc)?;
-        
+
         Ok(())
     }
 
@@ -1710,7 +1738,7 @@ impl GlobalDatabaseManager {
     pub async fn delete_network_config(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         network_store::delete_network_config(conn.inner()?, id)?;
-        
+
         Ok(())
     }
 
@@ -1720,7 +1748,7 @@ impl GlobalDatabaseManager {
     pub async fn register_plugin(&self, plugin: &plugin_store::Plugin) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         plugin_store::register_plugin(conn.inner()?, plugin)?;
-        
+
         Ok(())
     }
 
@@ -1728,7 +1756,7 @@ impl GlobalDatabaseManager {
     pub async fn get_plugin(&self, id: &str) -> Result<Option<plugin_store::Plugin>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = plugin_store::get_plugin(conn.inner()?, id)?;
-        
+
         Ok(result)
     }
 
@@ -1740,7 +1768,7 @@ impl GlobalDatabaseManager {
     ) -> Result<Option<plugin_store::Plugin>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = plugin_store::get_plugin_by_code_version(conn.inner()?, code, version)?;
-        
+
         Ok(result)
     }
 
@@ -1748,7 +1776,7 @@ impl GlobalDatabaseManager {
     pub async fn get_all_plugins(&self) -> Result<Vec<plugin_store::Plugin>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = plugin_store::get_all_plugins(conn.inner()?)?;
-        
+
         Ok(result)
     }
 
@@ -1756,7 +1784,7 @@ impl GlobalDatabaseManager {
     pub async fn update_plugin_enabled(&self, id: &str, is_enabled: bool) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         plugin_store::update_plugin_enabled(conn.inner()?, id, is_enabled)?;
-        
+
         Ok(())
     }
 
@@ -1764,39 +1792,51 @@ impl GlobalDatabaseManager {
     pub async fn delete_plugin(&self, id: &str) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         plugin_store::delete_plugin(conn.inner()?, id)?;
-        
+
         Ok(())
     }
 
     /// 注册插件依赖
-    pub async fn register_plugin_dependency(&self, dep: &plugin_store::PluginDependency) -> Result<(), CoreError> {
+    pub async fn register_plugin_dependency(
+        &self,
+        dep: &plugin_store::PluginDependency,
+    ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         plugin_store::register_plugin_dependency(conn.inner()?, dep)?;
-        
+
         Ok(())
     }
 
     /// 获取插件的所有依赖
-    pub async fn get_plugin_dependencies(&self, plugin_id: &str) -> Result<Vec<plugin_store::PluginDependency>, CoreError> {
+    pub async fn get_plugin_dependencies(
+        &self,
+        plugin_id: &str,
+    ) -> Result<Vec<plugin_store::PluginDependency>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = plugin_store::get_plugin_dependencies(conn.inner()?, plugin_id)?;
-        
+
         Ok(result)
     }
 
     /// 设置插件全局配置
-    pub async fn set_plugin_global_config(&self, config: &plugin_store::PluginGlobalConfig) -> Result<(), CoreError> {
+    pub async fn set_plugin_global_config(
+        &self,
+        config: &plugin_store::PluginGlobalConfig,
+    ) -> Result<(), CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         plugin_store::set_plugin_global_config(conn.inner()?, config)?;
-        
+
         Ok(())
     }
 
     /// 获取插件全局配置
-    pub async fn get_plugin_global_configs(&self, plugin_id: &str) -> Result<Vec<plugin_store::PluginGlobalConfig>, CoreError> {
+    pub async fn get_plugin_global_configs(
+        &self,
+        plugin_id: &str,
+    ) -> Result<Vec<plugin_store::PluginGlobalConfig>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
         let result = plugin_store::get_plugin_global_configs(conn.inner()?, plugin_id)?;
-        
+
         Ok(result)
     }
 }
@@ -1843,16 +1883,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_global_duckdb_connection() {
+    async fn test_global_duckdb_connection() -> Result<(), CoreError> {
         let db_path = test_temp_dir("duckdb_conn").join("test.duckdb");
 
-        let conn = GlobalDuckdbConnection::new(db_path.clone())
-            .await
-            .expect("创建 DuckDB 连接失败");
+        let conn = GlobalDuckdbConnection::new(db_path.clone()).await?;
         assert!(conn.acquire().await.is_ok());
 
-        conn.close().await.expect("关闭连接失败");
+        conn.close().await?;
         assert!(conn.acquire().await.is_err());
+        Ok(())
     }
 
     #[tokio::test]

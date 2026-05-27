@@ -163,7 +163,11 @@ impl Database for DuckDbDatabase {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
+            affected_rows: if is_read_only {
+                None
+            } else {
+                Some(row_count as u32)
+            },
             is_read_only: Some(is_read_only),
         })
     }
@@ -266,7 +270,11 @@ impl Database for DuckDbDatabase {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
+            affected_rows: if is_read_only {
+                None
+            } else {
+                Some(row_count as u32)
+            },
             is_read_only: Some(is_read_only),
         })
     }
@@ -585,7 +593,11 @@ impl Transaction for DuckDbTransaction {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
+            affected_rows: if is_read_only {
+                None
+            } else {
+                Some(row_count as u32)
+            },
             is_read_only: Some(is_read_only),
         })
     }
@@ -969,73 +981,75 @@ mod tests {
         path.to_string_lossy().to_string()
     }
 
-    fn db() -> DuckDbDatabase {
+    fn db() -> Result<DuckDbDatabase, CoreError> {
         let path = unique_db_path();
-        DuckDbDatabase::new(&path).expect("Failed to connect")
+        DuckDbDatabase::new(&path)
     }
 
     #[test]
-    fn test_connect() {
-        let db = DuckDbDatabase::new(&unique_db_path());
-        assert!(db.is_ok(), "Failed to connect to DuckDB: {:?}", db.err());
+    fn test_connect() -> Result<(), CoreError> {
+        DuckDbDatabase::new(&unique_db_path())?;
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_query_select_one() {
-        let db = db();
-        let result = db.query("SELECT 1 AS val").await.expect("Query failed");
+    async fn test_query_select_one() -> Result<(), CoreError> {
+        let db = db()?;
+        let result = db.query("SELECT 1 AS val").await?;
         assert_eq!(result.columns, vec!["val"]);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_crud_roundtrip() {
-        let db = db();
+    async fn test_crud_roundtrip() -> Result<(), CoreError> {
+        let db = db()?;
 
         db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER, name VARCHAR, value DOUBLE)")
-            .await
-            .expect("CREATE TABLE failed");
+            .await?;
 
         db.query("INSERT INTO _rd_test VALUES (1, 'hello', 3.14)")
-            .await
-            .expect("INSERT failed");
+            .await?;
 
         let result = db
             .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
-            .await
-            .expect("SELECT failed");
+            .await?;
         assert_eq!(result.columns, vec!["id", "name", "value"]);
 
-        db.query("DROP TABLE IF EXISTS _rd_test")
-            .await
-            .expect("DROP TABLE failed");
+        db.query("DROP TABLE IF EXISTS _rd_test").await?;
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_error_handling() {
-        let db = db();
+    async fn test_error_handling() -> Result<(), CoreError> {
+        let db = db()?;
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
         assert!(result.is_err(), "Expected error for non-existent table");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_list_tables() {
-        let db = db();
+    async fn test_list_tables() -> Result<(), CoreError> {
+        let db = db()?;
         let tables = db.list_tables("main", None).await;
         assert!(tables.is_ok(), "list_tables failed: {:?}", tables.err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_meta() {
-        let db = db();
+    async fn test_meta() -> Result<(), CoreError> {
+        let db = db()?;
         let meta = db.meta();
         assert!(meta.supports_arrow);
         assert!(meta.supports_federated);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_is_read_only_flag() {
-        let db = db();
-        let result = db.query("SELECT 1").await.expect("Query failed");
+    async fn test_is_read_only_flag() -> Result<(), CoreError> {
+        let db = db()?;
+        let result = db.query("SELECT 1").await?;
         assert_eq!(result.is_read_only, Some(true));
+        Ok(())
     }
 }

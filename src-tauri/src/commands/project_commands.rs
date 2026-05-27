@@ -829,11 +829,15 @@ pub async fn init_project_store(
                 return Ok(());
             }
         };
-        let project_conn_store = crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
-            db_manager
-        );
-        
-        if let Ok(project_plugins) = plugin_service.load_project_plugins_on_open(&project_conn_store).await {
+        let project_conn_store =
+            crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
+                db_manager,
+            );
+
+        if let Ok(project_plugins) = plugin_service
+            .load_project_plugins_on_open(&project_conn_store)
+            .await
+        {
             tracing::info!(
                 path = %project_path,
                 plugin_count = project_plugins.len(),
@@ -1312,7 +1316,7 @@ mod tests {
         assert_eq!(response.description, Some("A test project".to_string()));
         assert_eq!(response.status, "active");
         assert_eq!(response.version, "3");
-        assert_eq!(response.last_opened_at.is_some(), true);
+        assert!(response.last_opened_at.is_some());
 
         match response.path {
             ProjectPathResponse::Local { path } => assert!(path.contains("test-project")),

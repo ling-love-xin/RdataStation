@@ -307,6 +307,7 @@ pub fn get_query_cache() -> &'static Arc<QueryCache> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::CoreError;
     use crate::core::models::QueryResult;
     use arrow::array::{Int32Array, StringArray};
     use arrow::datatypes::{DataType, Field, Schema};
@@ -339,7 +340,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_query_cache_basic() {
+    async fn test_query_cache_basic() -> Result<(), CoreError> {
         let cache = QueryCache::new(None);
         let connection_id = "test-conn";
         let sql = "SELECT * FROM users";
@@ -352,7 +353,7 @@ mod tests {
         };
 
         // 测试存储和获取
-        cache.set(connection_id, sql, result, None).await.unwrap();
+        cache.set(connection_id, sql, result, None).await?;
         let cached_result = cache.get(connection_id, sql).await;
         assert!(cached_result.is_some());
 
@@ -360,7 +361,7 @@ mod tests {
         assert_eq!(cache.size().await, 1);
 
         // 测试移除
-        cache.remove(connection_id, sql).await.unwrap();
+        cache.remove(connection_id, sql).await?;
         assert_eq!(cache.size().await, 0);
 
         // 测试清空
@@ -371,14 +372,15 @@ mod tests {
             affected_rows: None,
             is_read_only: Some(true),
         };
-        cache.set(connection_id, sql, result2, None).await.unwrap();
+        cache.set(connection_id, sql, result2, None).await?;
         assert_eq!(cache.size().await, 1);
-        cache.clear().await.unwrap();
+        cache.clear().await?;
         assert_eq!(cache.size().await, 0);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_query_cache_expiration() {
+    async fn test_query_cache_expiration() -> Result<(), CoreError> {
         let config = QueryCacheConfig {
             max_entries: 1000,
             default_ttl: Duration::from_millis(10),
@@ -396,7 +398,7 @@ mod tests {
         };
 
         // 存储缓存
-        cache.set(connection_id, sql, result, None).await.unwrap();
+        cache.set(connection_id, sql, result, None).await?;
         assert_eq!(cache.size().await, 1);
 
         // 等待缓存过期
@@ -405,10 +407,11 @@ mod tests {
         // 测试缓存过期
         assert!(cache.get(connection_id, sql).await.is_none());
         assert_eq!(cache.size().await, 0);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_query_cache_stats() {
+    async fn test_query_cache_stats() -> Result<(), CoreError> {
         let cache = QueryCache::new(None);
         let connection_id = "test-conn";
         let sql = "SELECT * FROM users";
@@ -424,7 +427,7 @@ mod tests {
         assert!(cache.get(connection_id, sql).await.is_none());
 
         // 测试存储
-        cache.set(connection_id, sql, result, None).await.unwrap();
+        cache.set(connection_id, sql, result, None).await?;
 
         // 测试命中
         assert!(cache.get(connection_id, sql).await.is_some());
@@ -437,5 +440,6 @@ mod tests {
         assert_eq!(stats.expired, 0);
         assert_eq!(stats.removed, 0);
         assert_eq!(stats.hit_rate(), 0.5);
+        Ok(())
     }
 }

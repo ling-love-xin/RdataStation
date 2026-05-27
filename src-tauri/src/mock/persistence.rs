@@ -481,9 +481,10 @@ impl MockGenerationStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::CoreError;
 
     #[test]
-    fn test_task_serialization_roundtrip() {
+    fn test_task_serialization_roundtrip() -> Result<(), CoreError> {
         let task = MockGenerationTask {
             id: "t1".to_string(),
             table_name: "orders".to_string(),
@@ -500,16 +501,17 @@ mod tests {
             created_at: Some("2026-05-10T10:00:00Z".to_string()),
             updated_at: None,
         };
-        let json = serde_json::to_string(&task).unwrap();
-        let parsed: MockGenerationTask = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&task)?;
+        let parsed: MockGenerationTask = serde_json::from_str(&json)?;
         assert_eq!(parsed.id, "t1");
         assert_eq!(parsed.table_name, "orders");
         assert_eq!(parsed.row_count, 1000);
         assert_eq!(parsed.seed, Some(42));
+        Ok(())
     }
 
     #[test]
-    fn test_column_serialization_roundtrip() {
+    fn test_column_serialization_roundtrip() -> Result<(), CoreError> {
         let col = MockGenerationColumn {
             id: "c1".to_string(),
             task_id: "t1".to_string(),
@@ -527,16 +529,17 @@ mod tests {
             confidence: Some("high".to_string()),
             sort_order: 1,
         };
-        let json = serde_json::to_string(&col).unwrap();
-        let parsed: MockGenerationColumn = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&col)?;
+        let parsed: MockGenerationColumn = serde_json::from_str(&json)?;
         assert_eq!(parsed.column_name, "email");
         assert_eq!(parsed.null_ratio, 0.1);
         assert!(parsed.is_unique);
         assert_eq!(parsed.sort_order, 1);
+        Ok(())
     }
 
     #[test]
-    fn test_template_serialization_roundtrip() {
+    fn test_template_serialization_roundtrip() -> Result<(), CoreError> {
         let tmpl = MockUserTemplate {
             id: "tm1".to_string(),
             name: "我的电商模板".to_string(),
@@ -547,11 +550,12 @@ mod tests {
             created_at: Some("2026-05-10T10:00:00Z".to_string()),
             updated_at: None,
         };
-        let json = serde_json::to_string(&tmpl).unwrap();
-        let parsed: MockUserTemplate = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&tmpl)?;
+        let parsed: MockUserTemplate = serde_json::from_str(&json)?;
         assert_eq!(parsed.id, "tm1");
         assert_eq!(parsed.name, "我的电商模板");
         assert_eq!(parsed.row_count, 5000);
+        Ok(())
     }
 
     #[test]
@@ -563,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn test_task_all_optional_fields_null() {
+    fn test_task_all_optional_fields_null() -> Result<(), CoreError> {
         let task = MockGenerationTask {
             id: "min".to_string(),
             table_name: "min".to_string(),
@@ -580,11 +584,12 @@ mod tests {
             created_at: None,
             updated_at: None,
         };
-        let json = serde_json::to_string(&task).unwrap();
-        let parsed: MockGenerationTask = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&task)?;
+        let parsed: MockGenerationTask = serde_json::from_str(&json)?;
         assert_eq!(parsed.table_alias, None);
         assert_eq!(parsed.seed, None);
         assert_eq!(parsed.error_message, None);
+        Ok(())
     }
 
     #[test]

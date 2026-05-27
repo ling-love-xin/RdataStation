@@ -57,7 +57,9 @@ export const useConnectionStore = defineStore('connection', () => {
           projectStore.currentProject.path
         )
 
-        connections.value = projectConnections.map(r => ({
+        // getProjectConnections 返回 unknown[]（该命令有 State 参数未纳入 specta）
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        connections.value = (projectConnections as any[]).map((r: any) => ({
           connId: r.id,
           name: r.name,
           dbType: r.db_type || r.driver,

@@ -229,7 +229,9 @@ impl ConnectionService {
         // 如果有 auth_config_id，从数据库中读取认证凭据并注入到 URL
         let mut url_with_auth = url.to_string();
         if let (Some(auth_id), Some(auth_meth)) = (auth_config_id.as_ref(), auth_method.as_ref()) {
-            match Self::load_auth_data_from_db(auth_id, connection_type, project_path.as_deref()).await {
+            match Self::load_auth_data_from_db(auth_id, connection_type, project_path.as_deref())
+                .await
+            {
                 Ok(Some(auth_data)) => {
                     match Self::inject_auth_into_url(&url_with_auth, auth_meth, &auth_data) {
                         Ok(injected_url) => {
@@ -343,22 +345,22 @@ impl ConnectionService {
 
         // 保存到最近连接记录（skip_persistence 时跳过）
         if !skip_persistence.unwrap_or(false) {
-        if let Err(e) = connection_store::save_recent_connection(RecentConnectionInput {
-            name: &connection_name,
-            db_type,
-            url: &safe_url,
-            conn_id: Some(&conn_id),
-            description: description.as_deref(),
-            driver_id: driver_id.as_deref(),
-            environment_id: environment_id.as_deref(),
-            auth_config_id: auth_config_id.as_deref(),
-            auth_method: auth_method.as_deref(),
-            network_config_id: network_config_id.as_deref(),
-            driver_properties: driver_properties.as_deref(),
-            advanced_options: advanced_options.as_deref(),
-        }) {
-            tracing::warn!("Failed to save connection history: {}", e);
-        }
+            if let Err(e) = connection_store::save_recent_connection(RecentConnectionInput {
+                name: &connection_name,
+                db_type,
+                url: &safe_url,
+                conn_id: Some(&conn_id),
+                description: description.as_deref(),
+                driver_id: driver_id.as_deref(),
+                environment_id: environment_id.as_deref(),
+                auth_config_id: auth_config_id.as_deref(),
+                auth_method: auth_method.as_deref(),
+                network_config_id: network_config_id.as_deref(),
+                driver_properties: driver_properties.as_deref(),
+                advanced_options: advanced_options.as_deref(),
+            }) {
+                tracing::warn!("Failed to save connection history: {}", e);
+            }
         }
 
         Ok((conn_id, db))
@@ -502,9 +504,7 @@ impl ConnectionService {
         // 如果是项目连接，尝试从项目数据库读取
         if connection_type == ConnectionType::Project {
             if let Some(pp) = project_path {
-                let db_path = std::path::Path::new(pp)
-                    .join(".RSmeta")
-                    .join("project.db");
+                let db_path = std::path::Path::new(pp).join(".RSmeta").join("project.db");
                 if db_path.exists() {
                     let conn = rusqlite::Connection::open(&db_path)
                         .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
@@ -527,54 +527,65 @@ impl ConnectionService {
     /// - principal / keytabPath: Kerberos 认证
     ///
     /// 认证凭据优先级高于 URL 中已有的凭据。
-    pub fn inject_auth_into_url(url: &str, auth_method: &str, auth_data_json: &str) -> Result<String, CoreError> {
+    pub fn inject_auth_into_url(
+        url: &str,
+        auth_method: &str,
+        auth_data_json: &str,
+    ) -> Result<String, CoreError> {
         let auth_data: serde_json::Value = serde_json::from_str(auth_data_json)
             .map_err(|e| CoreError::from(format!("解析 auth_data 失败: {}", e)))?;
 
-        let obj = auth_data.as_object()
+        let obj = auth_data
+            .as_object()
             .ok_or_else(|| CoreError::from("auth_data 不是 JSON 对象".to_string()))?;
 
         match auth_method {
             "password" | "ldap" => {
-                let username = obj.get("username")
+                let username = obj
+                    .get("username")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                let password = obj.get("password")
+                let password = obj
+                    .get("password")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                
+
                 if username.is_empty() && password.is_empty() {
                     return Ok(url.to_string());
                 }
-                
+
                 Self::inject_username_password(url, username, password)
             }
             "pg_class" => {
-                let cert_path = obj.get("certPath")
+                let cert_path = obj
+                    .get("certPath")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                let cert_key_path = obj.get("certKeyPath")
+                let cert_key_path = obj
+                    .get("certKeyPath")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                
+
                 if cert_path.is_empty() {
                     return Ok(url.to_string());
                 }
-                
+
                 Self::inject_ssl_cert(url, cert_path, cert_key_path)
             }
             "kerberos" => {
-                let principal = obj.get("principal")
+                let principal = obj
+                    .get("principal")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                let keytab_path = obj.get("keytabPath")
+                let keytab_path = obj
+                    .get("keytabPath")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default();
-                
+
                 if principal.is_empty() {
                     return Ok(url.to_string());
                 }
-                
+
                 Self::inject_kerberos(url, principal, keytab_path)
             }
             _ => {
@@ -585,7 +596,11 @@ impl ConnectionService {
     }
 
     /// 向 URL 中注入用户名和密码
-    fn inject_username_password(url: &str, username: &str, password: &str) -> Result<String, CoreError> {
+    fn inject_username_password(
+        url: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<String, CoreError> {
         if username.is_empty() {
             return Ok(url.to_string());
         }
@@ -593,7 +608,7 @@ impl ConnectionService {
         if let Some(scheme_end) = url.find("://") {
             let prefix = &url[..scheme_end + 3];
             let rest = &url[scheme_end + 3..];
-            
+
             if let Some(at_pos) = rest.find('@') {
                 let host_part = &rest[at_pos..];
                 return Ok(format!("{}{}:{}@{}", prefix, username, password, host_part));
@@ -601,21 +616,28 @@ impl ConnectionService {
                 if let Some(path_start) = rest.find('/') {
                     let host_port = &rest[..path_start];
                     let path = &rest[path_start..];
-                    return Ok(format!("{}{}:{}@{}{}", prefix, username, password, host_port, path));
+                    return Ok(format!(
+                        "{}{}:{}@{}{}",
+                        prefix, username, password, host_port, path
+                    ));
                 } else {
                     return Ok(format!("{}{}:{}@{}", prefix, username, password, rest));
                 }
             }
         }
-        
+
         Ok(url.to_string())
     }
 
     /// 向 PostgreSQL URL 中注入 SSL 证书参数
-    fn inject_ssl_cert(url: &str, cert_path: &str, cert_key_path: &str) -> Result<String, CoreError> {
+    fn inject_ssl_cert(
+        url: &str,
+        cert_path: &str,
+        cert_key_path: &str,
+    ) -> Result<String, CoreError> {
         use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
         let mut result = url.to_string();
-        
+
         if !cert_path.is_empty() {
             let encoded_cert = utf8_percent_encode(cert_path, NON_ALPHANUMERIC).to_string();
             if result.contains('?') {
@@ -624,20 +646,24 @@ impl ConnectionService {
                 result.push_str(&format!("?sslmode=verify-ca&sslcert={}", encoded_cert));
             }
         }
-        
+
         if !cert_key_path.is_empty() {
             let encoded_key = utf8_percent_encode(cert_key_path, NON_ALPHANUMERIC).to_string();
             result.push_str(&format!("&sslkey={}", encoded_key));
         }
-        
+
         Ok(result)
     }
 
     /// 向 Kerberos URL 中注入认证参数
-    fn inject_kerberos(url: &str, principal: &str, _keytab_path: &str) -> Result<String, CoreError> {
+    fn inject_kerberos(
+        url: &str,
+        principal: &str,
+        _keytab_path: &str,
+    ) -> Result<String, CoreError> {
         use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
         let mut result = url.to_string();
-        
+
         if !principal.is_empty() {
             let encoded_principal = utf8_percent_encode(principal, NON_ALPHANUMERIC).to_string();
             if result.contains('?') {
@@ -646,7 +672,7 @@ impl ConnectionService {
                 result.push_str(&format!("?krbrprincipal={}", encoded_principal));
             }
         }
-        
+
         Ok(result)
     }
 
@@ -670,8 +696,7 @@ impl ConnectionService {
                 self.process_chain(url, hops, conn_id, db_type).await
             }
             Some(ConnectionMethod::Ssh(ssh_config)) => {
-                let guard =
-                    create_ssh_tunnel_port(ssh_config, None).await?;
+                let guard = create_ssh_tunnel_port(ssh_config, None).await?;
                 let local_port = guard.port();
                 let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
                 tracing::info!(
@@ -707,9 +732,15 @@ impl ConnectionService {
                     return Ok((url.to_string(), vec![]));
                 }
 
-                let guard =
-                    create_proxy_tunnel_port(proxy_config, &target_host, target_port, is_socks, None, None)
-                        .await?;
+                let guard = create_proxy_tunnel_port(
+                    proxy_config,
+                    &target_host,
+                    target_port,
+                    is_socks,
+                    None,
+                    None,
+                )
+                .await?;
                 let local_port = guard.port();
 
                 let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", local_port)?;
@@ -748,10 +779,8 @@ impl ConnectionService {
 
             match hop {
                 ChainHop::Ssh(ssh_config) => {
-                    let connect_override =
-                        tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
-                    let guard =
-                        create_ssh_tunnel_port(ssh_config, connect_override).await?;
+                    let connect_override = tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
+                    let guard = create_ssh_tunnel_port(ssh_config, connect_override).await?;
                     let lp = guard.port();
                     tunnel_port = Some(lp);
                     tracing::info!(
@@ -769,16 +798,13 @@ impl ConnectionService {
                             ChainHop::HttpProxy(p) | ChainHop::SocksProxy(p) => {
                                 (p.host.clone(), p.port)
                             }
-                            ChainHop::Ssl(_) => {
-                                (final_db_host.clone(), final_db_port)
-                            }
+                            ChainHop::Ssl(_) => (final_db_host.clone(), final_db_port),
                         }
                     } else {
                         (final_db_host.clone(), final_db_port)
                     };
                     let is_socks = matches!(hop, ChainHop::SocksProxy(_));
-                    let connect_override =
-                        tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
+                    let connect_override = tunnel_port.map(|p| ("127.0.0.1".to_string(), p));
 
                     if Self::matches_no_proxy(&target_host, &proxy.no_proxy) {
                         tracing::info!(
@@ -827,8 +853,7 @@ impl ConnectionService {
 
         match tunnel_port {
             Some(port) => {
-                let rewritten =
-                    Self::rewrite_url_host_port(url, "127.0.0.1", port)?;
+                let rewritten = Self::rewrite_url_host_port(url, "127.0.0.1", port)?;
                 tracing::info!(
                     conn_id = %conn_id,
                     original = %Self::mask_password_in_url(url),
@@ -885,7 +910,8 @@ impl ConnectionService {
         new_port: u16,
     ) -> Result<String, CoreError> {
         if url.starts_with("mysql://") || url.starts_with("postgres://") {
-            let (prefix, rest) = url.split_once("://")
+            let (prefix, rest) = url
+                .split_once("://")
                 .ok_or_else(|| CoreError::from("Invalid connection URL format"))?;
             let after_auth = if let Some(at_pos) = rest.find('@') {
                 let (auth, _host_part) = rest.split_at(at_pos + 1);
@@ -950,7 +976,11 @@ impl ConnectionService {
             })?;
             (h.to_string(), p)
         } else {
-            let default_port = if url.starts_with("postgres://") { 5432 } else { 3306 };
+            let default_port = if url.starts_with("postgres://") {
+                5432
+            } else {
+                3306
+            };
             (host.to_string(), default_port)
         };
 
@@ -1533,12 +1563,15 @@ async fn create_proxy_tunnel_port(
             })
         })?;
 
-    let local_port = listener.local_addr().map_err(|e| {
-        CoreError::connection(ConnectionError::Network {
-            conn_id: format!("{}:{}", target_host, target_port),
-            reason: format!("获取代理转发本地端口失败: {}", e),
-        })
-    })?.port();
+    let local_port = listener
+        .local_addr()
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: format!("{}:{}", target_host, target_port),
+                reason: format!("获取代理转发本地端口失败: {}", e),
+            })
+        })?
+        .port();
 
     let pc = proxy_config.clone();
     let effective_pc = if let Some((ref host, port)) = connect_override {
@@ -1646,12 +1679,14 @@ async fn create_proxy_tunnel_port(
         "代理隧道已建立"
     );
 
-    Ok(crate::core::driver::connection::connector::TunnelGuard::new(
-        local_port,
-        shutdown_tx,
-        task,
-        format!("proxy:{}", target_host),
-    ))
+    Ok(
+        crate::core::driver::connection::connector::TunnelGuard::new(
+            local_port,
+            shutdown_tx,
+            task,
+            format!("proxy:{}", target_host),
+        ),
+    )
 }
 
 /// 从全局 DB 解析 network_config_id → ConnectionMethod
@@ -1679,7 +1714,12 @@ pub async fn resolve_network_method(
         }
     };
 
-    parse_network_config_json(&net.network_type, &net.config, net.auth_config_id.as_deref()).await
+    parse_network_config_json(
+        &net.network_type,
+        &net.config,
+        net.auth_config_id.as_deref(),
+    )
+    .await
 }
 
 /// 根据 network_type 将 config JSON 解析为 ConnectionMethod
@@ -1695,9 +1735,8 @@ pub async fn parse_network_config_json(
     match network_type {
         "chain" => {
             let hops: Vec<crate::core::driver::connection::config::ChainHop> =
-                serde_json::from_str(config_json).map_err(|e| {
-                    CoreError::from(format!("解析协议链配置 JSON 失败: {}", e))
-                })?;
+                serde_json::from_str(config_json)
+                    .map_err(|e| CoreError::from(format!("解析协议链配置 JSON 失败: {}", e)))?;
             if hops.is_empty() {
                 return Ok(None);
             }
@@ -1707,14 +1746,14 @@ pub async fn parse_network_config_json(
             let mut ssh_config: crate::core::driver::connection::config::SshConfig =
                 serde_json::from_str(config_json)
                     .map_err(|e| CoreError::from(format!("解析 SSH 隧道配置 JSON 失败: {}", e)))?;
-            
+
             // 如果有 auth_config_id，从 auth_configs 读取网络认证并注入
             if let Some(auth_id) = auth_config_id {
                 if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id).await? {
                     ssh_config = inject_ssh_auth_from_auth_data(ssh_config, &auth_data);
                 }
             }
-            
+
             Ok(Some(ConnectionMethod::Ssh(ssh_config)))
         }
         "ssl" => {
@@ -1727,14 +1766,14 @@ pub async fn parse_network_config_json(
             let mut proxy_config: crate::core::driver::connection::config::ProxyConfig =
                 serde_json::from_str(config_json)
                     .map_err(|e| CoreError::from(format!("解析代理配置 JSON 失败: {}", e)))?;
-            
+
             // 如果有 auth_config_id，从 auth_configs 读取网络认证并注入
             if let Some(auth_id) = auth_config_id {
                 if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id).await? {
                     proxy_config = inject_proxy_auth_from_auth_data(proxy_config, &auth_data);
                 }
             }
-            
+
             if network_type == "socks" || network_type == "socks5" {
                 Ok(Some(ConnectionMethod::SocksProxy(proxy_config)))
             } else {
@@ -1758,11 +1797,12 @@ async fn load_auth_data_from_db_for_network(
     // 优先从全局数据库读取
     if let Some(gdb) = crate::core::migration::get_global_db_manager() {
         if let Ok(Some(auth_config)) = gdb.get_auth_config(auth_config_id).await {
-            let auth_data = crate::core::persistence::auth_store::decrypt_auth_data(&auth_config.auth_data)?;
+            let auth_data =
+                crate::core::persistence::auth_store::decrypt_auth_data(&auth_config.auth_data)?;
             return Ok(Some(auth_data));
         }
     }
-    
+
     // 全局没有找到时返回 None
     Ok(None)
 }
@@ -1776,24 +1816,27 @@ fn inject_ssh_auth_from_auth_data(
         Ok(v) => v,
         Err(_) => return ssh_config,
     };
-    
+
     let obj = match auth_data.as_object() {
         Some(o) => o,
         None => return ssh_config,
     };
-    
+
     // 优先使用 auth_data 中的 username
     if let Some(username) = obj.get("username").and_then(|v| v.as_str()) {
         if !username.is_empty() {
             ssh_config.username = username.to_string();
         }
     }
-    
+
     // 根据常见的 SSH 认证类型注入认证
     // 首先尝试私钥认证
     if let Some(key_path) = obj.get("keyPath").and_then(|v| v.as_str()) {
         if !key_path.is_empty() {
-            let passphrase = obj.get("passphrase").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let passphrase = obj
+                .get("passphrase")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             ssh_config.auth = crate::core::driver::connection::config::SshAuth::PrivateKey {
                 key_path: key_path.to_string(),
                 passphrase,
@@ -1801,7 +1844,7 @@ fn inject_ssh_auth_from_auth_data(
             return ssh_config;
         }
     }
-    
+
     // 然后尝试密码认证
     if let Some(password) = obj.get("password").and_then(|v| v.as_str()) {
         if !password.is_empty() {
@@ -1811,7 +1854,7 @@ fn inject_ssh_auth_from_auth_data(
             return ssh_config;
         }
     }
-    
+
     ssh_config
 }
 
@@ -1824,16 +1867,16 @@ fn inject_proxy_auth_from_auth_data(
         Ok(v) => v,
         Err(_) => return proxy_config,
     };
-    
+
     let obj = match auth_data.as_object() {
         Some(o) => o,
         None => return proxy_config,
     };
-    
+
     // 从 auth_data 读取 username 和 password
     let username = obj.get("username").and_then(|v| v.as_str());
     let password = obj.get("password").and_then(|v| v.as_str());
-    
+
     if let (Some(u), Some(p)) = (username, password) {
         if !u.is_empty() && !p.is_empty() {
             proxy_config.auth = Some(crate::core::driver::connection::config::ProxyAuth {
@@ -1842,7 +1885,7 @@ fn inject_proxy_auth_from_auth_data(
             });
         }
     }
-    
+
     proxy_config
 }
 

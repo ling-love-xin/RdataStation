@@ -94,11 +94,11 @@ impl DriverRegistryConfig {
     pub fn from_file(_path: &str) -> Result<Self, CoreError> {
         Ok(Self::default_config())
     }
-    
+
     pub fn to_file(&self, _path: &str) -> Result<(), CoreError> {
         Ok(())
     }
-    
+
     /// 创建默认配置
     pub fn default_config() -> Self {
         Self {
@@ -114,7 +114,7 @@ impl DriverRegistryConfig {
             enable_builtin: true,
         }
     }
-    
+
     fn mysql_config() -> DriverConfig {
         DriverConfig {
             id: "mysql".to_string(),
@@ -189,7 +189,7 @@ impl DriverRegistryConfig {
             ],
         }
     }
-    
+
     fn postgres_config() -> DriverConfig {
         DriverConfig {
             id: "postgres".to_string(),
@@ -265,7 +265,7 @@ impl DriverRegistryConfig {
             ],
         }
     }
-    
+
     fn sqlite_config() -> DriverConfig {
         DriverConfig {
             id: "sqlite".to_string(),
@@ -306,7 +306,7 @@ impl DriverRegistryConfig {
             ],
         }
     }
-    
+
     fn duckdb_config() -> DriverConfig {
         DriverConfig {
             id: "duckdb".to_string(),

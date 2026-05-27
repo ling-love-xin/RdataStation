@@ -346,42 +346,38 @@ mod tests {
     }
 
     #[test]
-    fn test_create_plugin_connection() {
+    fn test_create_plugin_connection() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
         assert!(!manager.has_connection("test-plugin"));
 
-        manager
-            .create_plugin_connection("test-plugin", PluginPermissionLevel::ReadOnly)
-            .expect("创建连接");
+        manager.create_plugin_connection("test-plugin", PluginPermissionLevel::ReadOnly)?;
 
         assert!(manager.has_connection("test-plugin"));
         assert_eq!(
             manager.get_permission_level("test-plugin"),
             Some(PluginPermissionLevel::ReadOnly)
         );
+        Ok(())
     }
 
     #[test]
-    fn test_create_duplicate_connection() {
+    fn test_create_duplicate_connection() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
-        manager
-            .create_plugin_connection("test-plugin", PluginPermissionLevel::ReadOnly)
-            .expect("创建连接");
+        manager.create_plugin_connection("test-plugin", PluginPermissionLevel::ReadOnly)?;
 
         assert!(manager
             .create_plugin_connection("test-plugin", PluginPermissionLevel::ReadWrite)
             .is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_validate_plugin_sql_readonly() {
+    fn test_validate_plugin_sql_readonly() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
-        manager
-            .create_plugin_connection("readonly-plugin", PluginPermissionLevel::ReadOnly)
-            .expect("创建连接");
+        manager.create_plugin_connection("readonly-plugin", PluginPermissionLevel::ReadOnly)?;
 
         // 允许 SELECT
         assert!(manager
@@ -397,15 +393,14 @@ mod tests {
         assert!(manager
             .validate_plugin_sql("readonly-plugin", "ATTACH 'db.duckdb'")
             .is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_validate_plugin_sql_readwrite() {
+    fn test_validate_plugin_sql_readwrite() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
-        manager
-            .create_plugin_connection("rw-plugin", PluginPermissionLevel::ReadWrite)
-            .expect("创建连接");
+        manager.create_plugin_connection("rw-plugin", PluginPermissionLevel::ReadWrite)?;
 
         // 允许 INSERT
         assert!(manager
@@ -416,62 +411,54 @@ mod tests {
         assert!(manager
             .validate_plugin_sql("rw-plugin", "ATTACH 'db.duckdb'")
             .is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_validate_plugin_sql_admin() {
+    fn test_validate_plugin_sql_admin() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
-        manager
-            .create_plugin_connection("admin-plugin", PluginPermissionLevel::Admin)
-            .expect("创建连接");
+        manager.create_plugin_connection("admin-plugin", PluginPermissionLevel::Admin)?;
 
         // 允许 ATTACH
         assert!(manager
             .validate_plugin_sql("admin-plugin", "ATTACH 'db.duckdb' AS db")
             .is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_attach_plugin_temp_table() {
+    fn test_attach_plugin_temp_table() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
-        manager
-            .create_plugin_connection("rw-plugin", PluginPermissionLevel::ReadWrite)
-            .expect("创建连接");
+        manager.create_plugin_connection("rw-plugin", PluginPermissionLevel::ReadWrite)?;
 
         assert!(manager
             .attach_plugin_temp_table("rw-plugin", "tmp_p_test_20260512143040")
             .is_ok());
 
         // 只读插件禁止创建临时表
-        manager
-            .create_plugin_connection("ro-plugin", PluginPermissionLevel::ReadOnly)
-            .expect("创建连接");
+        manager.create_plugin_connection("ro-plugin", PluginPermissionLevel::ReadOnly)?;
 
         assert!(manager
             .attach_plugin_temp_table("ro-plugin", "tmp_p_test2_20260512143040")
             .is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_revoke_plugin_connection() {
+    fn test_revoke_plugin_connection() -> Result<(), CoreError> {
         let manager = PluginManager::new();
 
-        manager
-            .create_plugin_connection("test-plugin", PluginPermissionLevel::ReadWrite)
-            .expect("创建连接");
-        manager
-            .attach_plugin_temp_table("test-plugin", "tmp_p_test_20260512143040")
-            .expect("注册临时表");
+        manager.create_plugin_connection("test-plugin", PluginPermissionLevel::ReadWrite)?;
+        manager.attach_plugin_temp_table("test-plugin", "tmp_p_test_20260512143040")?;
 
-        let cleaned = manager
-            .revoke_plugin_connection("test-plugin")
-            .expect("回收连接");
+        let cleaned = manager.revoke_plugin_connection("test-plugin")?;
 
         assert_eq!(cleaned.len(), 1);
         assert!(cleaned.contains(&"tmp_p_test_20260512143040".to_string()));
         assert!(!manager.has_connection("test-plugin"));
+        Ok(())
     }
 
     #[test]
@@ -481,20 +468,17 @@ mod tests {
     }
 
     #[test]
-    fn test_active_connection_count() {
+    fn test_active_connection_count() -> Result<(), CoreError> {
         let manager = PluginManager::new();
         assert_eq!(manager.active_connection_count(), 0);
 
-        manager
-            .create_plugin_connection("plugin1", PluginPermissionLevel::ReadOnly)
-            .expect("创建");
-        manager
-            .create_plugin_connection("plugin2", PluginPermissionLevel::ReadWrite)
-            .expect("创建");
+        manager.create_plugin_connection("plugin1", PluginPermissionLevel::ReadOnly)?;
+        manager.create_plugin_connection("plugin2", PluginPermissionLevel::ReadWrite)?;
 
         assert_eq!(manager.active_connection_count(), 2);
 
-        manager.revoke_plugin_connection("plugin1").expect("回收");
+        manager.revoke_plugin_connection("plugin1")?;
         assert_eq!(manager.active_connection_count(), 1);
+        Ok(())
     }
 }

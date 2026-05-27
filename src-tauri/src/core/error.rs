@@ -420,45 +420,25 @@ impl fmt::Display for CacheError {
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum PluginError {
     /// 插件未找到
-    NotFound {
-        plugin_id: String,
-    },
+    NotFound { plugin_id: String },
 
     /// 插件代码与版本未找到
-    NotFoundByCode {
-        code: String,
-        version: String,
-    },
+    NotFoundByCode { code: String, version: String },
 
     /// 插件已存在
-    AlreadyExists {
-        code: String,
-        version: String,
-    },
+    AlreadyExists { code: String, version: String },
 
     /// 插件加载失败
-    LoadFailed {
-        plugin_id: String,
-        reason: String,
-    },
+    LoadFailed { plugin_id: String, reason: String },
 
     /// 插件激活失败
-    ActivationFailed {
-        plugin_id: String,
-        reason: String,
-    },
+    ActivationFailed { plugin_id: String, reason: String },
 
     /// 插件停用失败
-    DeactivationFailed {
-        plugin_id: String,
-        reason: String,
-    },
+    DeactivationFailed { plugin_id: String, reason: String },
 
     /// 插件卸载失败
-    UninstallFailed {
-        plugin_id: String,
-        reason: String,
-    },
+    UninstallFailed { plugin_id: String, reason: String },
 
     /// 插件执行失败
     ExecutionFailed {
@@ -489,31 +469,19 @@ pub enum PluginError {
     },
 
     /// 插件清单无效
-    InvalidManifest {
-        reason: String,
-    },
+    InvalidManifest { reason: String },
 
     /// 插件文件缺失
-    FileMissing {
-        path: String,
-        reason: String,
-    },
+    FileMissing { path: String, reason: String },
 
     /// 插件未启用
-    Disabled {
-        plugin_id: String,
-    },
+    Disabled { plugin_id: String },
 
     /// 插件内部错误
-    Internal {
-        plugin_id: String,
-        reason: String,
-    },
+    Internal { plugin_id: String, reason: String },
 
     /// 不支持的插件类型
-    UnsupportedType {
-        plugin_type: String,
-    },
+    UnsupportedType { plugin_type: String },
 }
 
 impl PluginError {
@@ -864,6 +832,26 @@ impl From<serde_json::Error> for CoreError {
     fn from(e: serde_json::Error) -> Self {
         CoreError::Storage(StorageError::Serialization {
             format: "json".to_string(),
+            reason: e.to_string(),
+        })
+    }
+}
+
+impl From<duckdb::Error> for CoreError {
+    fn from(e: duckdb::Error) -> Self {
+        CoreError::Database(DatabaseError::Driver {
+            db_type: "DuckDB".to_string(),
+            operation: "query".to_string(),
+            source: e.to_string(),
+        })
+    }
+}
+
+impl From<rusqlite::Error> for CoreError {
+    fn from(e: rusqlite::Error) -> Self {
+        CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "query".to_string(),
             reason: e.to_string(),
         })
     }

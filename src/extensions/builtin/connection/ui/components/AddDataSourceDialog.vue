@@ -133,6 +133,7 @@ import { connectDatabase as connectDatabaseService, closeConnection } from '../s
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
+import type { StagingItem } from '../composables/useAddDataSource'
 
 interface Props {
   modelValue: boolean
@@ -167,6 +168,8 @@ const {
   removeStaging,
   selectStaging,
   clearStagingItems,
+  markStagingApplied,
+  formData,
 } = useAddDataSource()
 
 // Dialog state
@@ -174,7 +177,6 @@ const activeTab = ref('general')
 const selectedTypeId = ref<string | null>(null)
 const uriEditing = ref(false)
 const manualUri = ref('')
-const formData = ref<Record<string, unknown>>({})
 const testResult = ref<{ success: boolean; message: string; latencyMs?: number } | null>(null)
 const testing = ref(false)
 const saving = ref(false)
@@ -635,7 +637,7 @@ async function handleApply() {
               if (globalConnId) {
                 try {
                   await closeConnection(globalConnId)
-                } catch {}
+                } catch { /* cleanup error ignored */ }
               }
             }
           }
@@ -710,7 +712,7 @@ function buildConnectOpts(
     driverId: item.driverId,
     networkConfigId,
     environmentId: item.environmentId ?? undefined,
-    authConfigId,
+    authConfigId: authConfigId ?? undefined,
     authMethod: item.authMethod ?? undefined,
     driverProperties: item.driverProperties ?? undefined,
     advancedOptions: item.advancedOptions ?? undefined,

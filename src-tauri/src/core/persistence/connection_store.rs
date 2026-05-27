@@ -16,7 +16,7 @@ fn system_time_secs() -> u64 {
 }
 
 /// 最大保存的连接数量
-pub(crate) const MAX_CONNECTIONS: usize = 20;
+pub const MAX_CONNECTIONS: usize = 20;
 
 /// 连接信息
 ///
@@ -509,7 +509,7 @@ impl ConnectionStore {
     }
 
     /// 序列化连接列表为 JSON
-    pub(crate) fn serialize_connections(connections: &[ConnectionInfo]) -> String {
+    pub fn serialize_connections(connections: &[ConnectionInfo]) -> String {
         if connections.is_empty() {
             return "[]".to_string();
         }

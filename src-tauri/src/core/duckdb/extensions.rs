@@ -474,7 +474,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_and_get_extension() {
+    fn test_register_and_get_extension() -> Result<(), CoreError> {
         let manager = ExtensionManager::new("/tmp/extensions");
 
         let info = ExtensionInfo::new("httpfs", ExtensionStatus::Loaded, true);
@@ -482,7 +482,10 @@ mod tests {
 
         let retrieved = manager.get_extension("httpfs");
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().name, "httpfs");
+        let ext = retrieved
+            .ok_or_else(|| CoreError::common(CommonError::General("扩展不存在".to_string())))?;
+        assert_eq!(ext.name, "httpfs");
+        Ok(())
     }
 
     #[test]

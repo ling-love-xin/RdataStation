@@ -1,4 +1,3 @@
-
 //! 插件加载器
 //!
 //! 负责从文件系统加载插件包，解析清单，注册到系统
@@ -9,8 +8,8 @@ use std::sync::{Arc, RwLock};
 use serde::{Deserialize, Serialize};
 
 use crate::core::error::{CommonError, CoreError};
-use crate::core::plugin::manifest::{ManifestParser, PluginManifest};
 use crate::core::plugin::manager::get_plugin_manager;
+use crate::core::plugin::manifest::{ManifestParser, PluginManifest};
 
 /// 插件加载器
 pub struct PluginLoader {
@@ -65,11 +64,12 @@ impl PluginLoader {
     /// 初始化插件目录
     pub async fn init(&self) -> Result<(), CoreError> {
         if !self.install_dir.exists() {
-            std::fs::create_dir_all(&self.install_dir)
-                .map_err(|e| CoreError::common(CommonError::general(format!(
+            std::fs::create_dir_all(&self.install_dir).map_err(|e| {
+                CoreError::common(CommonError::general(format!(
                     "Failed to create plugin directory: {}",
                     e
-                ))))?;
+                )))
+            })?;
         }
         Ok(())
     }
@@ -82,11 +82,12 @@ impl PluginLoader {
             return Ok(loaded);
         }
 
-        let entries = std::fs::read_dir(&self.install_dir)
-            .map_err(|e| CoreError::common(CommonError::general(format!(
+        let entries = std::fs::read_dir(&self.install_dir).map_err(|e| {
+            CoreError::common(CommonError::general(format!(
                 "Failed to read plugin directory: {}",
                 e
-            ))))?;
+            )))
+        })?;
 
         for entry in entries.flatten() {
             let path = entry.path();
@@ -122,10 +123,12 @@ impl PluginLoader {
 
         self.loaded_plugins
             .write()
-            .map_err(|e| CoreError::common(CommonError::general(format!(
-                "Failed to lock plugin map: {}",
-                e
-            ))))?
+            .map_err(|e| {
+                CoreError::common(CommonError::general(format!(
+                    "Failed to lock plugin map: {}",
+                    e
+                )))
+            })?
             .insert(plugin_id, loaded_plugin.clone());
 
         Ok(loaded_plugin)
@@ -133,11 +136,7 @@ impl PluginLoader {
 
     /// 获取已加载的插件
     pub fn get_loaded_plugin(&self, plugin_id: &str) -> Option<LoadedPlugin> {
-        self.loaded_plugins
-            .read()
-            .ok()?
-            .get(plugin_id)
-            .cloned()
+        self.loaded_plugins.read().ok()?.get(plugin_id).cloned()
     }
 
     /// 获取所有已加载的插件
@@ -150,25 +149,25 @@ impl PluginLoader {
 
     /// 激活插件
     pub async fn activate_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
-        let mut plugin_map = self.loaded_plugins
-            .write()
-            .map_err(|e| CoreError::common(CommonError::general(format!(
+        let mut plugin_map = self.loaded_plugins.write().map_err(|e| {
+            CoreError::common(CommonError::general(format!(
                 "Failed to lock plugin map: {}",
                 e
-            ))))?;
+            )))
+        })?;
 
-        let plugin = plugin_map.get_mut(plugin_id)
-            .ok_or_else(|| CoreError::common(CommonError::general(format!(
+        let plugin = plugin_map.get_mut(plugin_id).ok_or_else(|| {
+            CoreError::common(CommonError::general(format!(
                 "Plugin {} not found",
                 plugin_id
-            ))))?;
+            )))
+        })?;
 
         plugin.status = LoadStatus::Activating;
 
-        let manager = get_plugin_manager()
-            .ok_or_else(|| CoreError::common(CommonError::general(
-                "Plugin manager not initialized"
-            )))?;
+        let manager = get_plugin_manager().ok_or_else(|| {
+            CoreError::common(CommonError::general("Plugin manager not initialized"))
+        })?;
 
         // 根据插件类型加载
         if let Some(wasm) = &plugin.manifest.capabilities.wasm {
@@ -198,25 +197,25 @@ impl PluginLoader {
 
     /// 停用插件
     pub async fn deactivate_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
-        let mut plugin_map = self.loaded_plugins
-            .write()
-            .map_err(|e| CoreError::common(CommonError::general(format!(
+        let mut plugin_map = self.loaded_plugins.write().map_err(|e| {
+            CoreError::common(CommonError::general(format!(
                 "Failed to lock plugin map: {}",
                 e
-            ))))?;
+            )))
+        })?;
 
-        let plugin = plugin_map.get_mut(plugin_id)
-            .ok_or_else(|| CoreError::common(CommonError::general(format!(
+        let plugin = plugin_map.get_mut(plugin_id).ok_or_else(|| {
+            CoreError::common(CommonError::general(format!(
                 "Plugin {} not found",
                 plugin_id
-            ))))?;
+            )))
+        })?;
 
         plugin.status = LoadStatus::Loaded;
 
-        let manager = get_plugin_manager()
-            .ok_or_else(|| CoreError::common(CommonError::general(
-                "Plugin manager not initialized"
-            )))?;
+        let manager = get_plugin_manager().ok_or_else(|| {
+            CoreError::common(CommonError::general("Plugin manager not initialized"))
+        })?;
 
         manager.deactivate_plugin(plugin_id)?;
 
@@ -227,18 +226,17 @@ impl PluginLoader {
 
     /// 卸载插件
     pub async fn unload_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
-        let mut plugin_map = self.loaded_plugins
-            .write()
-            .map_err(|e| CoreError::common(CommonError::general(format!(
+        let mut plugin_map = self.loaded_plugins.write().map_err(|e| {
+            CoreError::common(CommonError::general(format!(
                 "Failed to lock plugin map: {}",
                 e
-            ))))?;
+            )))
+        })?;
 
         if plugin_map.remove(plugin_id).is_some() {
-            let manager = get_plugin_manager()
-                .ok_or_else(|| CoreError::common(CommonError::general(
-                    "Plugin manager not initialized"
-                )))?;
+            let manager = get_plugin_manager().ok_or_else(|| {
+                CoreError::common(CommonError::general("Plugin manager not initialized"))
+            })?;
 
             let _ = manager.unload_plugin(plugin_id);
 
@@ -253,8 +251,12 @@ impl PluginLoader {
 static PLUGIN_LOADER: std::sync::OnceLock<Arc<PluginLoader>> = std::sync::OnceLock::new();
 
 /// 获取全局插件加载器
-pub fn get_plugin_loader() -> Arc<PluginLoader> {
-    PLUGIN_LOADER.get().expect("Plugin loader not initialized").clone()
+pub fn get_plugin_loader() -> Result<Arc<PluginLoader>, CoreError> {
+    PLUGIN_LOADER.get().cloned().ok_or_else(|| {
+        CoreError::common(CommonError::Internal(
+            "Plugin loader not initialized".to_string(),
+        ))
+    })
 }
 
 /// 初始化全局插件加载器
@@ -262,10 +264,9 @@ pub async fn init_plugin_loader(install_dir: PathBuf) -> Result<(), CoreError> {
     let loader = Arc::new(PluginLoader::new(install_dir));
     loader.init().await?;
 
-    PLUGIN_LOADER.set(loader)
-        .map_err(|_| CoreError::common(CommonError::general(
-            "Plugin loader already initialized"
-        )))?;
+    PLUGIN_LOADER.set(loader).map_err(|_| {
+        CoreError::common(CommonError::general("Plugin loader already initialized"))
+    })?;
 
     Ok(())
 }

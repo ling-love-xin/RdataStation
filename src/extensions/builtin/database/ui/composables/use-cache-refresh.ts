@@ -14,7 +14,6 @@ import {
   refreshMetadataCache,
   saveTablesBatchToCache,
   saveColumnsBatchToCache,
-  generateStableCacheId,
 } from '../services/metadata-cache-service'
 
 import type { TableInput, ColumnInput } from '../services/metadata-cache-service'
@@ -57,11 +56,17 @@ export async function refreshCacheComplete(
   >
 ): Promise<CacheRefreshResult> {
   try {
-    await refreshMetadataCache(connectionId, connectionType, dbName, schemaName, projectPath)
+    await refreshMetadataCache({
+      connection_id: connectionId,
+      connection_type: connectionType,
+      database_name: dbName,
+      schema_name: schemaName,
+      project_path: projectPath,
+    })
 
     const tables = await fetchTablesFn()
     const tableInputs: TableInput[] = tables.map(t => ({
-      id: generateStableCacheId(connectionId, dbName, schemaName, t.name),
+      id: `${connectionId}:${dbName}:${schemaName}:${t.name}`,
       name: t.name,
       comment: undefined,
     }))
@@ -73,16 +78,16 @@ export async function refreshCacheComplete(
       tablesSaved = await saveTablesBatchToCache(
         connectionId,
         connectionType,
+        projectPath,
         dbName,
         schemaName,
-        tableInputs,
-        projectPath
+        tableInputs
       )
 
       for (const table of tables) {
         const columns = await fetchColumnsFn(table.name)
         const columnInputs: ColumnInput[] = columns.map(c => ({
-          id: generateStableCacheId(connectionId, dbName, schemaName, table.name, c.name),
+          id: `${connectionId}:${dbName}:${schemaName}:${table.name}:${c.name}`,
           name: c.name,
           data_type: c.data_type,
           is_nullable: c.nullable,
@@ -94,11 +99,11 @@ export async function refreshCacheComplete(
           const saved = await saveColumnsBatchToCache(
             connectionId,
             connectionType,
+            projectPath,
             dbName,
             schemaName,
             table.name,
-            columnInputs,
-            projectPath
+            columnInputs
           )
           columnsSaved += saved
         }
@@ -214,11 +219,11 @@ export async function refreshTableCache(
       columnsSaved = await saveColumnsBatchToCache(
         connectionId,
         connectionType,
+        projectPath,
         dbName,
         schemaName,
         tableName,
-        columnInputs,
-        projectPath
+        columnInputs
       )
     }
 

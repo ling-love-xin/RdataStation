@@ -83,7 +83,8 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
   }
 
   const testConnection = async (dbType: string, url: string): Promise<boolean> => {
-    return connectionApi.testConnection(dbType, url)
+    const result = await connectionApi.testConnection(dbType, url)
+    return result.success
   }
 
   const disconnectConnection = async (connectionId: string): Promise<void> => {

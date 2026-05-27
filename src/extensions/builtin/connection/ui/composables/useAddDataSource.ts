@@ -261,6 +261,7 @@ export function useAddDataSource() {
   const overriddenPolicies = ref<Partial<EnvironmentPolicies>>({})
   const duckdbAccel = reactive<DuckdbAccelConfig>(defaultDuckdbAccel())
   const driverProps = ref<Record<string, string>>({})
+  const formData = ref<Record<string, unknown>>({})
 
   const saving = ref(false)
   const error = ref<string | null>(null)
@@ -445,7 +446,7 @@ export function useAddDataSource() {
       }
     }
 
-    if (scope.project && !projectStore().currentProject) {
+    if (scope.project && !useProjectStore().currentProject) {
       errs.project = '请先打开一个项目'
     }
 
@@ -619,7 +620,7 @@ export function useAddDataSource() {
   }
 
   // ========== StagingItem 管理 ==========
-  const stagingItems = ref<StagingItem[]>([{ name: '' }])
+  const stagingItems = ref<StagingItem[]>([{ id: '', name: '' }])
   const stagingIndex = ref(0)
   const isResetting = ref(false)
 
@@ -718,7 +719,7 @@ export function useAddDataSource() {
   function clearStagingItems() {
     try {
       localStorage.removeItem(STAGING_STORAGE_KEY)
-      stagingItems.value = [{ name: '' }]
+      stagingItems.value = [{ id: '', name: '' }]
       stagingIndex.value = 0
     } catch (e) {
       console.error('[Staging] 清空暂存项失败:', e)
@@ -778,6 +779,7 @@ export function useAddDataSource() {
     overriddenPolicies,
     duckdbAccel,
     driverProps,
+    formData,
     saving,
     error,
     // 暂存项管理

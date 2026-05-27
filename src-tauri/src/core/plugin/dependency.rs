@@ -1,14 +1,13 @@
-
 //! 插件依赖管理
 //!
 //! 处理插件之间的依赖关系，支持循环依赖检测和版本兼容性检查
 
-use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
 use crate::core::error::{CoreError, PluginError};
-use crate::core::plugin::manifest::{PluginManifest, PluginDependency};
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::plugin_store::Plugin;
+use crate::core::plugin::manifest::{PluginDependency, PluginManifest};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// 依赖解析结果
 #[derive(Debug, Clone)]
@@ -50,7 +49,8 @@ impl DependencyManager {
             &mut missing,
             &mut visited,
             &mut HashSet::new(),
-        ).await?;
+        )
+        .await?;
 
         Ok(DependencyResolution {
             to_install,
@@ -86,7 +86,11 @@ impl DependencyManager {
             recursion_stack.insert(dep.id.clone());
 
             // 检查插件是否已存在
-            if let Some(plugin) = self.db_manager.get_plugin_by_code_version(&dep.id, &dep.version).await? {
+            if let Some(plugin) = self
+                .db_manager
+                .get_plugin_by_code_version(&dep.id, &dep.version)
+                .await?
+            {
                 if plugin.is_enabled {
                     existing.push(plugin);
                 } else {
@@ -96,9 +100,10 @@ impl DependencyManager {
             } else {
                 // 检查是否有其他版本的插件
                 let all_plugins = self.db_manager.get_all_plugins().await?;
-                let compatible = all_plugins.iter()
-                    .find(|p| p.code == dep.id && Self::is_version_compatible(&p.version, &dep.version));
-                
+                let compatible = all_plugins.iter().find(|p| {
+                    p.code == dep.id && Self::is_version_compatible(&p.version, &dep.version)
+                });
+
                 if let Some(plugin) = compatible {
                     existing.push(plugin.clone());
                 } else {
@@ -120,8 +125,10 @@ impl DependencyManager {
         // 简化的版本兼容性检查
         // 实际中可以使用 semver 库
         let installed_parts: Vec<&str> = installed.split('.').collect();
-        let required_parts: Vec<&str> = required.trim_start_matches(['^', '~', '>', '<', '='])
-            .split('.').collect();
+        let required_parts: Vec<&str> = required
+            .trim_start_matches(['^', '~', '>', '<', '='])
+            .split('.')
+            .collect();
 
         if installed_parts.len() < 2 || required_parts.len() < 2 {
             return false;
@@ -129,14 +136,14 @@ impl DependencyManager {
 
         // 对于 ^0.1.0，检查大版本和小版本
         if required.starts_with('^') {
-            return installed_parts[0] == required_parts[0] && 
-                   installed_parts[1] >= required_parts[1];
+            return installed_parts[0] == required_parts[0]
+                && installed_parts[1] >= required_parts[1];
         }
 
         // 对于 ~0.1.0，只检查大版本和小版本相同
         if required.starts_with('~') {
-            return installed_parts[0] == required_parts[0] && 
-                   installed_parts[1] == required_parts[1];
+            return installed_parts[0] == required_parts[0]
+                && installed_parts[1] == required_parts[1];
         }
 
         // 精确匹配
@@ -148,11 +155,13 @@ impl DependencyManager {
         let resolution = self.resolve_dependencies(manifest).await?;
 
         if !resolution.missing.is_empty() {
-            let missing_str = resolution.missing.iter()
+            let missing_str = resolution
+                .missing
+                .iter()
                 .map(|d| format!("{}@{}", d.id, d.version))
                 .collect::<Vec<_>>()
                 .join(", ");
-            
+
             return Err(CoreError::plugin(PluginError::dependency_missing(
                 String::new(),
                 String::new(),
@@ -165,7 +174,10 @@ impl DependencyManager {
 
     /// 获取插件的依赖链
     pub async fn get_dependency_chain(&self, plugin_id: &str) -> Result<Vec<String>, CoreError> {
-        let _plugin = self.db_manager.get_plugin(plugin_id).await?
+        let _plugin = self
+            .db_manager
+            .get_plugin(plugin_id)
+            .await?
             .ok_or_else(|| CoreError::plugin(PluginError::not_found(plugin_id.to_string())))?;
 
         // 尝试从 manifest_json 解析依赖
@@ -222,4 +234,3 @@ pub struct DependencyCheckResult {
     pub plugin_id: String,
     pub dependencies: Vec<(String, DependencyStatus)>,
 }
-

@@ -185,7 +185,11 @@ impl Database for SqliteDatabase {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
+            affected_rows: if is_read_only {
+                None
+            } else {
+                Some(row_count as u32)
+            },
             is_read_only: Some(is_read_only),
         })
     }
@@ -435,24 +439,43 @@ impl crate::core::driver::MetadataBrowser for SqliteDatabase {
         }])
     }
 
-    async fn get_schemas(&self, _catalog: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_schemas(
+        &self,
+        _catalog: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         Ok(vec![])
     }
 
-    async fn get_tables(&self, catalog: &str, _schema: &str) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
+    async fn get_tables(
+        &self,
+        catalog: &str,
+        _schema: &str,
+    ) -> Result<Vec<crate::core::driver::NodeInfo>, CoreError> {
         let objects = self.list_tables(catalog, None).await?;
-        Ok(objects.into_iter().map(|obj| {
-            let is_view = matches!(obj.kind, crate::core::driver::SchemaObjectKind::View);
-            crate::core::driver::NodeInfo {
-                name: obj.name,
-                kind: obj.kind,
-                icon: Some(if is_view { "view".to_string() } else { "table".to_string() }),
-                comment: obj.comment,
-            }
-        }).collect())
+        Ok(objects
+            .into_iter()
+            .map(|obj| {
+                let is_view = matches!(obj.kind, crate::core::driver::SchemaObjectKind::View);
+                crate::core::driver::NodeInfo {
+                    name: obj.name,
+                    kind: obj.kind,
+                    icon: Some(if is_view {
+                        "view".to_string()
+                    } else {
+                        "table".to_string()
+                    }),
+                    comment: obj.comment,
+                }
+            })
+            .collect())
     }
 
-    async fn get_table_detail(&self, catalog: &str, _schema: &str, table: &str) -> Result<crate::core::driver::NodeDetail, CoreError> {
+    async fn get_table_detail(
+        &self,
+        catalog: &str,
+        _schema: &str,
+        table: &str,
+    ) -> Result<crate::core::driver::NodeDetail, CoreError> {
         let columns = self.list_columns(catalog, None, table).await?;
         Ok(crate::core::driver::NodeDetail {
             node: crate::core::driver::NodeInfo {
@@ -559,7 +582,11 @@ impl Transaction for SqliteTransaction {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
+            affected_rows: if is_read_only {
+                None
+            } else {
+                Some(row_count as u32)
+            },
             is_read_only: Some(is_read_only),
         })
     }
@@ -725,66 +752,77 @@ fn sqlite_rows_to_arrow(
 mod tests {
     use super::*;
 
-    fn temp_db_path(name: &str) -> String {
+    fn temp_db_path(name: &str) -> Result<String, CoreError> {
         let dir = std::env::temp_dir().join(format!("rdata_test_sqlite_{}", name));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
+                db_type: "sqlite".to_string(),
+                operation: "create_test_dir".to_string(),
+                source: e.to_string(),
+            })
+        })?;
         let path = dir.join("test.db");
         if path.exists() {
-            std::fs::remove_file(&path).unwrap();
+            std::fs::remove_file(&path).map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "sqlite".to_string(),
+                    operation: "remove_test_file".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
         }
-        format!("sqlite://{}", path.display())
+        Ok(format!("sqlite://{}", path.display()))
     }
 
     #[tokio::test]
-    async fn test_sqlite_connect_ping() {
-        let path = temp_db_path("ping");
-        let db = SqliteDatabase::new(&path).unwrap();
-        db.ping().await.unwrap();
+    async fn test_sqlite_connect_ping() -> Result<(), CoreError> {
+        let path = temp_db_path("ping")?;
+        let db = SqliteDatabase::new(&path)?;
+        db.ping().await?;
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_sqlite_query() {
-        let path = temp_db_path("query");
-        let db = SqliteDatabase::new(&path).unwrap();
-        db.query("SELECT sqlite_version() AS version")
-            .await
-            .unwrap();
+    async fn test_sqlite_query() -> Result<(), CoreError> {
+        let path = temp_db_path("query")?;
+        let db = SqliteDatabase::new(&path)?;
+        db.query("SELECT sqlite_version() AS version").await?;
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_sqlite_transaction_commit() {
-        let path = temp_db_path("tx_commit");
-        let db = SqliteDatabase::new(&path).unwrap();
+    async fn test_sqlite_transaction_commit() -> Result<(), CoreError> {
+        let path = temp_db_path("tx_commit")?;
+        let db = SqliteDatabase::new(&path)?;
         db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)")
-            .await
-            .unwrap();
+            .await?;
 
-        let mut tx = db.begin_transaction().await.unwrap();
-        tx.query("INSERT INTO t VALUES (1)").await.unwrap();
-        tx.commit().await.unwrap();
+        let mut tx = db.begin_transaction().await?;
+        tx.query("INSERT INTO t VALUES (1)").await?;
+        tx.commit().await?;
 
-        let result = db.query("SELECT COUNT(*) AS cnt FROM t").await.unwrap();
+        let result = db.query("SELECT COUNT(*) AS cnt FROM t").await?;
         assert!(!result.batches.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_sqlite_transaction_rollback() {
-        let path = temp_db_path("tx_rollback");
-        let db = SqliteDatabase::new(&path).unwrap();
+    async fn test_sqlite_transaction_rollback() -> Result<(), CoreError> {
+        let path = temp_db_path("tx_rollback")?;
+        let db = SqliteDatabase::new(&path)?;
         db.query("CREATE TABLE IF NOT EXISTS t (id INTEGER)")
-            .await
-            .unwrap();
+            .await?;
 
-        let mut tx = db.begin_transaction().await.unwrap();
-        tx.query("INSERT INTO t VALUES (999)").await.unwrap();
-        tx.rollback().await.unwrap();
+        let mut tx = db.begin_transaction().await?;
+        tx.query("INSERT INTO t VALUES (999)").await?;
+        tx.rollback().await?;
 
         let result = db
             .query("SELECT COUNT(*) AS cnt FROM t WHERE id = 999")
-            .await
-            .unwrap();
+            .await?;
         if let Some(batch) = result.batches.first() {
             assert_eq!(batch.num_rows(), 1);
         }
+        Ok(())
     }
 }

@@ -38,7 +38,7 @@ pub struct ExecuteSqlResponse {
 
 impl From<SqlExecuteResult> for ExecuteSqlResponse {
     fn from(result: SqlExecuteResult) -> Self {
-        let affected_rows = result.result.affected_rows.map(|n| n as u32);
+        let affected_rows = result.result.affected_rows;
         Self {
             result: result.result,
             elapsed_ms: result.elapsed_ms as u32,
@@ -66,9 +66,9 @@ pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, C
 
     let options = SqlExecuteOptions {
         record_history: true,
-            use_transaction: false,
-            timeout_ms: input.timeout_ms.map(|v| v as u64),
-            use_cache: true,
+        use_transaction: false,
+        timeout_ms: input.timeout_ms.map(|v| v as u64),
+        use_cache: true,
     };
 
     let result = service.execute(input.conn_id, &input.sql, options).await?;

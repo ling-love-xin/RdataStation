@@ -1,23 +1,18 @@
-
 //! 插件相关命令
 //!
 //! 处理插件的安装、卸载、项目级管理等操作
 
 use crate::core::error::CoreError;
 use crate::core::migration::get_global_db_manager;
-use crate::core::plugin::manager::{PluginManager, PluginInfo};
-use crate::core::services::plugin_bridge::get_plugin_bridge;
-use crate::core::services::plugin_service::{
-    InstallPluginInput, PluginService, PluginWithStatus
-};
-use crate::core::persistence::plugin_store::{
-    Plugin, ProjectUsedPlugin, ProjectPluginConfig
-};
+use crate::core::persistence::plugin_store::{Plugin, ProjectPluginConfig, ProjectUsedPlugin};
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
+use crate::core::plugin::manager::{PluginInfo, PluginManager};
+use crate::core::services::plugin_bridge::get_plugin_bridge;
+use crate::core::services::plugin_service::{InstallPluginInput, PluginService, PluginWithStatus};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::State;
 use std::sync::Arc;
+use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct PluginStatus {
@@ -94,7 +89,7 @@ pub async fn plugin_db_metadata(
 pub fn plugin_list(
     plugin_manager: State<'_, Arc<PluginManager>>,
 ) -> Result<Vec<PluginInfo>, CoreError> {
-    Ok(plugin_manager.list_plugins())
+    plugin_manager.list_plugins()
 }
 
 #[tauri::command]
@@ -141,8 +136,10 @@ pub fn plugin_get_status(
     plugin_manager: State<'_, Arc<PluginManager>>,
     plugin_id: String,
 ) -> Result<PluginStatus, CoreError> {
-    let plugins = plugin_manager.list_plugins();
-    let plugin = plugins.into_iter().find(|p| p.id == plugin_id)
+    let plugins = plugin_manager.list_plugins()?;
+    let plugin = plugins
+        .into_iter()
+        .find(|p| p.id == plugin_id)
         .ok_or_else(|| CoreError::from("Plugin not found"))?;
 
     Ok(PluginStatus {
@@ -184,16 +181,16 @@ pub async fn plugin_get_with_status(
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    
+
     let store = project_state.store.lock().await;
     let project_db = store.as_ref().map(|s| s.project_db());
-    
+
     match project_db {
         Some(db) => {
             let conn_store = ProjectConnectionStore::new(db);
             service.get_plugins_with_status(Some(&conn_store)).await
-        },
-        None => service.get_plugins_with_status(None).await
+        }
+        None => service.get_plugins_with_status(None).await,
     }
 }
 
@@ -210,18 +207,20 @@ pub async fn plugin_install(request: InstallPluginRequest) -> Result<Plugin, Cor
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    service.install_plugin(InstallPluginInput {
-        code: request.code,
-        name: request.name,
-        version: request.version,
-        author: request.author,
-        description: request.description,
-        repo_url: request.repo_url,
-        plugin_type: request.plugin_type,
-        manifest_json: request.manifest_json,
-        install_path: request.install_path,
-        is_builtin: request.is_builtin,
-    }).await
+    service
+        .install_plugin(InstallPluginInput {
+            code: request.code,
+            name: request.name,
+            version: request.version,
+            author: request.author,
+            description: request.description,
+            repo_url: request.repo_url,
+            plugin_type: request.plugin_type,
+            manifest_json: request.manifest_json,
+            install_path: request.install_path,
+            is_builtin: request.is_builtin,
+        })
+        .await
 }
 
 #[tauri::command]
@@ -258,18 +257,22 @@ pub async fn project_plugin_enable(
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    
+
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().map(|s| s.project_db())
+    let project_db = store
+        .as_ref()
+        .map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
-    
-    service.enable_plugin_in_project(
-        &conn_store,
-        request.plugin_code,
-        request.plugin_version,
-        request.required,
-    ).await
+
+    service
+        .enable_plugin_in_project(
+            &conn_store,
+            request.plugin_code,
+            request.plugin_version,
+            request.required,
+        )
+        .await
 }
 
 #[tauri::command]
@@ -281,13 +284,17 @@ pub async fn project_plugin_disable(
     let db_manager = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database manager not available"))?;
     let service = PluginService::new(db_manager);
-    
+
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().map(|s| s.project_db())
+    let project_db = store
+        .as_ref()
+        .map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
-    
-    service.disable_plugin_in_project(&conn_store, plugin_code, plugin_version).await
+
+    service
+        .disable_plugin_in_project(&conn_store, plugin_code, plugin_version)
+        .await
 }
 
 #[tauri::command]
@@ -297,11 +304,15 @@ pub async fn project_plugin_remove(
     plugin_version: String,
 ) -> Result<(), CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().map(|s| s.project_db())
+    let project_db = store
+        .as_ref()
+        .map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
-    
-    conn_store.project_remove_plugin(&plugin_code, &plugin_version).await?;
+
+    conn_store
+        .project_remove_plugin(&plugin_code, &plugin_version)
+        .await?;
     Ok(())
 }
 
@@ -310,10 +321,12 @@ pub async fn project_plugin_list(
     project_state: State<'_, ProjectState>,
 ) -> Result<Vec<ProjectUsedPlugin>, CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().map(|s| s.project_db())
+    let project_db = store
+        .as_ref()
+        .map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
-    
+
     conn_store.project_get_plugins().await
 }
 
@@ -332,12 +345,14 @@ pub async fn project_plugin_set_config(
         value,
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
-    
+
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().map(|s| s.project_db())
+    let project_db = store
+        .as_ref()
+        .map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
-    
+
     conn_store.project_set_plugin_config(&config).await?;
     Ok(())
 }
@@ -349,11 +364,15 @@ pub async fn project_plugin_get_configs(
     plugin_version: String,
 ) -> Result<Vec<ProjectPluginConfig>, CoreError> {
     let store = project_state.store.lock().await;
-    let project_db = store.as_ref().map(|s| s.project_db())
+    let project_db = store
+        .as_ref()
+        .map(|s| s.project_db())
         .ok_or_else(|| CoreError::from("Project not open"))?;
     let conn_store = ProjectConnectionStore::new(project_db);
-    
-    conn_store.project_get_plugin_configs(&plugin_code, &plugin_version).await
+
+    conn_store
+        .project_get_plugin_configs(&plugin_code, &plugin_version)
+        .await
 }
 
 // ==================== 启动相关 ====================

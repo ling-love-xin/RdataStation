@@ -700,10 +700,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_smart_pool_close() {
+    async fn test_smart_pool_close() -> Result<(), CoreError> {
         let pool = SmartPool::with_defaults("test_pool");
-        pool.close().await.unwrap();
+        pool.close().await?;
         assert!(pool.is_closed().await);
+        Ok(())
     }
 
     #[tokio::test]

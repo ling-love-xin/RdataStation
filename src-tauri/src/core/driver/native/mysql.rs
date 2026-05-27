@@ -394,7 +394,11 @@ impl Transaction for MySqlTransaction {
             Ok(QueryResult {
                 columns,
                 batches: vec![batch],
-                affected_rows: if is_read_only { None } else { Some(rows.len() as u32) },
+                affected_rows: if is_read_only {
+                    None
+                } else {
+                    Some(rows.len() as u32)
+                },
                 is_read_only: Some(is_read_only),
             })
         } else {
@@ -446,7 +450,11 @@ fn build_query_result(
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only { None } else { Some(rows.len() as u32) },
+        affected_rows: if is_read_only {
+            None
+        } else {
+            Some(rows.len() as u32)
+        },
         is_read_only: Some(is_read_only),
     })
 }
@@ -468,36 +476,39 @@ fn mysql_rows_to_arrow(
         let mut bool_values: Vec<Option<bool>> = Vec::with_capacity(num_rows);
         let mut binary_values: Vec<Option<Vec<u8>>> = Vec::with_capacity(num_rows);
 
-        let mut detected_type: Option<DataType> = None;
+        // 遍历所有行确定最宽类型（0=Null, 1=Bool, 2=Int64, 3=Float64, 4=Binary, 5=Utf8）
+        let mut detected_rank: u8 = 0;
 
         for row in rows {
             use sqlx::Row;
 
-            if let Ok(Some(_)) = row.try_get::<Option<bool>, _>(col_idx) {
-                detected_type = Some(DataType::Boolean);
-                break;
+            let row_rank = if let Ok(Some(_)) = row.try_get::<Option<bool>, _>(col_idx) {
+                1 // Boolean
+            } else if let Ok(Some(_)) = row.try_get::<Option<i64>, _>(col_idx) {
+                2 // Int64
+            } else if let Ok(Some(_)) = row.try_get::<Option<f64>, _>(col_idx) {
+                3 // Float64
+            } else if let Ok(Some(_)) = row.try_get::<Option<Vec<u8>>, _>(col_idx) {
+                4 // Binary
+            } else if let Ok(Some(_)) = row.try_get::<Option<String>, _>(col_idx) {
+                5 // Utf8
+            } else {
+                0 // NULL — 不影响类型推断
+            };
+            if row_rank > detected_rank {
+                detected_rank = row_rank;
             }
-            if let Ok(Some(_)) = row.try_get::<Option<i64>, _>(col_idx) {
-                detected_type = Some(DataType::Int64);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<f64>, _>(col_idx) {
-                detected_type = Some(DataType::Float64);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<Vec<u8>>, _>(col_idx) {
-                detected_type = Some(DataType::Binary);
-                break;
-            }
-            if let Ok(Some(_)) = row.try_get::<Option<String>, _>(col_idx) {
-                detected_type = Some(DataType::Utf8);
-                break;
+            if detected_rank == 5 {
+                break; // Utf8 为最宽类型，无需继续
             }
         }
 
-        let effective_type = match detected_type {
-            Some(t) => t,
-            None => DataType::Utf8,
+        let effective_type = match detected_rank {
+            1 => DataType::Boolean,
+            2 => DataType::Int64,
+            3 => DataType::Float64,
+            4 => DataType::Binary,
+            _ => DataType::Utf8,
         };
 
         for row in rows {
@@ -768,82 +779,75 @@ mod tests {
 
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
-    async fn test_query_select_one() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
-        let result = db.query("SELECT 1 AS val").await.expect("查询失败");
+    async fn test_query_select_one() -> Result<(), CoreError> {
+        let db = MySqlDatabase::new(MYSQL_URL).await?;
+        let result = db.query("SELECT 1 AS val").await?;
         assert_eq!(result.columns, vec!["val"]);
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
-    async fn test_crud_roundtrip() {
-        let setup_db = MySqlDatabase::new(MYSQL_URL)
-            .await
-            .expect("Failed to connect");
+    async fn test_crud_roundtrip() -> Result<(), CoreError> {
+        let setup_db = MySqlDatabase::new(MYSQL_URL).await?;
         setup_db
             .query("CREATE DATABASE IF NOT EXISTS _rd_test_db")
-            .await
-            .expect("CREATE DATABASE failed");
+            .await?;
 
         let db_url = format!("{}_rd_test_db", MYSQL_URL);
-        let db = MySqlDatabase::new(&db_url)
-            .await
-            .expect("Failed to connect to test db");
+        let db = MySqlDatabase::new(&db_url).await?;
 
         db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INT PRIMARY KEY, name VARCHAR(100), value DOUBLE)")
-            .await
-            .expect("CREATE TABLE failed");
+            .await?;
 
         db.query("INSERT INTO _rd_test (id, name, value) VALUES (1, 'hello', 3.14)")
-            .await
-            .expect("INSERT failed");
+            .await?;
 
         let result = db
             .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
-            .await
-            .expect("SELECT failed");
+            .await?;
         assert_eq!(result.columns, vec!["id", "name", "value"]);
 
-        db.query("DROP TABLE IF EXISTS _rd_test")
-            .await
-            .expect("DROP TABLE failed");
+        db.query("DROP TABLE IF EXISTS _rd_test").await?;
         setup_db
             .query("DROP DATABASE IF EXISTS _rd_test_db")
-            .await
-            .expect("DROP DATABASE failed");
+            .await?;
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
-    async fn test_error_handling() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
+    async fn test_error_handling() -> Result<(), CoreError> {
+        let db = MySqlDatabase::new(MYSQL_URL).await?;
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
         assert!(result.is_err(), "应返回不存在的表错误");
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
-    async fn test_list_tables() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
+    async fn test_list_tables() -> Result<(), CoreError> {
+        let db = MySqlDatabase::new(MYSQL_URL).await?;
         let tables = db.list_tables("mysql", None).await;
         assert!(tables.is_ok(), "list_tables 失败: {:?}", tables.err());
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
-    async fn test_meta() {
-        let db = MySqlDatabase::new(MYSQL_URL).await.expect("连接失败");
+    async fn test_meta() -> Result<(), CoreError> {
+        let db = MySqlDatabase::new(MYSQL_URL).await?;
         let meta = db.meta();
         assert!(meta.supports_transaction);
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 MySQL 服务"]
-    async fn test_is_read_only_flag() {
-        let db = MySqlDatabase::new(MYSQL_URL)
-            .await
-            .expect("Failed to connect");
-        let result = db.query("SELECT 1").await.expect("Query failed");
+    async fn test_is_read_only_flag() -> Result<(), CoreError> {
+        let db = MySqlDatabase::new(MYSQL_URL).await?;
+        let result = db.query("SELECT 1").await?;
         assert_eq!(result.is_read_only, Some(true));
+        Ok(())
     }
 }

@@ -6,9 +6,7 @@
 //! 遵循 RdataStation 测试代码组织铁律。
 
 use rdata_station_lib::core::persistence::auth_store::{self, AuthConfig};
-use rdata_station_lib::core::persistence::env_store::{
-    self, Environment, EnvironmentPolicy,
-};
+use rdata_station_lib::core::persistence::env_store::{self, Environment, EnvironmentPolicy};
 use rdata_station_lib::core::persistence::id_prefix;
 use rdata_station_lib::core::persistence::network_store::{self, NetworkConfig};
 use rusqlite::Connection;
@@ -72,7 +70,9 @@ fn setup_in_memory_db() -> Connection {
 }
 
 fn now_str() -> String {
-    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
+    chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
 }
 
 // ==================== Auth Config CRUD 测试 ====================
@@ -178,6 +178,7 @@ fn test_network_config_create_and_list() {
         name: Some("Bastion SSH".to_string()),
         network_type: "ssh".to_string(),
         config: r#"{"host":"bastion.example.com","port":22}"#.to_string(),
+        auth_config_id: None,
         origin: None,
         source_id: None,
         snapshot_at: None,
@@ -208,6 +209,7 @@ fn test_network_config_filter_by_type() {
             name: Some(ntype.to_string()),
             network_type: ntype.to_string(),
             config: "{}".to_string(),
+            auth_config_id: None,
             origin: None,
             source_id: None,
             snapshot_at: None,
@@ -217,11 +219,36 @@ fn test_network_config_filter_by_type() {
         network_store::create_network_config(&conn, &nc).unwrap();
     }
 
-    assert_eq!(network_store::list_network_configs(&conn, None).unwrap().len(), 3);
-    assert_eq!(network_store::list_network_configs(&conn, Some("ssh")).unwrap().len(), 1);
-    assert_eq!(network_store::list_network_configs(&conn, Some("ssl")).unwrap().len(), 1);
-    assert_eq!(network_store::list_network_configs(&conn, Some("proxy")).unwrap().len(), 1);
-    assert_eq!(network_store::list_network_configs(&conn, Some("nonexistent")).unwrap().len(), 0);
+    assert_eq!(
+        network_store::list_network_configs(&conn, None)
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        network_store::list_network_configs(&conn, Some("ssh"))
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        network_store::list_network_configs(&conn, Some("ssl"))
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        network_store::list_network_configs(&conn, Some("proxy"))
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        network_store::list_network_configs(&conn, Some("nonexistent"))
+            .unwrap()
+            .len(),
+        0
+    );
 }
 
 #[test]
@@ -234,6 +261,7 @@ fn test_network_config_delete() {
         name: Some("Delete Me".to_string()),
         network_type: "ssh".to_string(),
         config: "{}".to_string(),
+        auth_config_id: None,
         origin: None,
         source_id: None,
         snapshot_at: None,
@@ -242,10 +270,20 @@ fn test_network_config_delete() {
     };
 
     network_store::create_network_config(&conn, &nc).unwrap();
-    assert_eq!(network_store::list_network_configs(&conn, None).unwrap().len(), 1);
+    assert_eq!(
+        network_store::list_network_configs(&conn, None)
+            .unwrap()
+            .len(),
+        1
+    );
 
     network_store::delete_network_config(&conn, "G_net_del_1").unwrap();
-    assert_eq!(network_store::list_network_configs(&conn, None).unwrap().len(), 0);
+    assert_eq!(
+        network_store::list_network_configs(&conn, None)
+            .unwrap()
+            .len(),
+        0
+    );
 }
 
 // ==================== Environment CRUD 测试 ====================
@@ -270,7 +308,7 @@ fn test_environment_create_and_list() {
     env_store::create_environment(&conn, &env).expect("create environment failed");
 
     let list = env_store::list_environments(&conn).unwrap();
-    assert!(list.len() >= 1);
+    assert!(!list.is_empty());
     assert_eq!(list[0].id, "G_env_dev");
     assert_eq!(list[0].name, "Development");
 }
@@ -293,10 +331,14 @@ fn test_environment_delete() {
     };
 
     env_store::create_environment(&conn, &env).unwrap();
-    assert!(env_store::get_environment(&conn, "G_env_del_test").unwrap().is_some());
+    assert!(env_store::get_environment(&conn, "G_env_del_test")
+        .unwrap()
+        .is_some());
 
     env_store::delete_environment(&conn, "G_env_del_test").unwrap();
-    assert!(env_store::get_environment(&conn, "G_env_del_test").unwrap().is_none());
+    assert!(env_store::get_environment(&conn, "G_env_del_test")
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -400,7 +442,10 @@ fn test_policy_update() {
     let list = env_store::list_policies(&conn, "G_env_upd_test").unwrap();
     assert_eq!(list.len(), 1);
     assert!(!list[0].enabled);
-    assert_eq!(list[0].policy_config.as_deref(), Some(r#"{"max_rows":1000}"#));
+    assert_eq!(
+        list[0].policy_config.as_deref(),
+        Some(r#"{"max_rows":1000}"#)
+    );
 }
 
 #[test]
@@ -469,10 +514,20 @@ fn test_policy_delete() {
         created_at: ts,
     };
     env_store::create_policy(&conn, &policy).unwrap();
-    assert_eq!(env_store::list_policies(&conn, "G_env_del_pol").unwrap().len(), 1);
+    assert_eq!(
+        env_store::list_policies(&conn, "G_env_del_pol")
+            .unwrap()
+            .len(),
+        1
+    );
 
     env_store::delete_policy(&conn, "G_pol_del_1").unwrap();
-    assert_eq!(env_store::list_policies(&conn, "G_env_del_pol").unwrap().len(), 0);
+    assert_eq!(
+        env_store::list_policies(&conn, "G_env_del_pol")
+            .unwrap()
+            .len(),
+        0
+    );
 }
 
 // ==================== ID 前缀工具测试 ====================
@@ -558,7 +613,10 @@ fn test_id_prefix_non_snapshot_conversion() {
 fn test_origin_from_id() {
     assert_eq!(id_prefix::origin_from_id("G_env_dev"), "global");
     assert_eq!(id_prefix::origin_from_id("P_env_local"), "project");
-    assert_eq!(id_prefix::origin_from_id("GP_env_dev_20260522"), "global_snapshot");
+    assert_eq!(
+        id_prefix::origin_from_id("GP_env_dev_20260522"),
+        "global_snapshot"
+    );
 }
 
 // ==================== 边界情况测试 ====================
@@ -627,6 +685,7 @@ fn test_network_config_with_origin_fields() {
         name: Some("Prod SSH".to_string()),
         network_type: "ssh".to_string(),
         config: r#"{"host":"prod-bastion.example.com"}"#.to_string(),
+        auth_config_id: None,
         origin: Some("global_snapshot".to_string()),
         source_id: Some("G_net_ssh_prod".to_string()),
         snapshot_at: Some("2026-05-22T10:00:00Z".to_string()),

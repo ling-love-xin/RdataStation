@@ -55,10 +55,7 @@ impl KnownHosts {
     /// 加载默认路径 `~/.ssh/known_hosts`
     pub fn load_default(allow_unknown: bool) -> Result<Self, std::io::Error> {
         let home = dirs::home_dir().ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "无法获取用户 HOME 目录",
-            )
+            std::io::Error::new(std::io::ErrorKind::NotFound, "无法获取用户 HOME 目录")
         })?;
 
         let path = home.join(DEFAULT_KNOWN_HOSTS);
@@ -113,9 +110,7 @@ impl KnownHosts {
                 }
             };
 
-            let entry = KnownHostEntry {
-                public_key,
-            };
+            let entry = KnownHostEntry { public_key };
 
             for host in hosts.split(',') {
                 let host = host.trim();
@@ -135,18 +130,10 @@ impl KnownHosts {
     /// - `Ok(false)` — 密钥不匹配（MITM 攻击风险）
     /// - 如果 allow_unknown=true 且主机不在 known_hosts 中，返回 `Ok(true)`
     /// - 如果 allow_unknown=false 且主机不在 known_hosts 中，返回 `Ok(false)`
-    pub fn verify(
-        &self,
-        host: &str,
-        port: u16,
-        server_key: &PublicKey,
-    ) -> bool {
+    pub fn verify(&self, host: &str, port: u16, server_key: &PublicKey) -> bool {
         let server_fingerprint = server_key.fingerprint(russh::keys::HashAlg::Sha256);
         let key_b64 = server_key.public_key_base64();
-        let key_type = key_b64
-            .split_whitespace()
-            .next()
-            .unwrap_or("unknown");
+        let key_type = key_b64.split_whitespace().next().unwrap_or("unknown");
 
         let candidates = self.find_candidates(host, port);
 
@@ -204,10 +191,7 @@ impl KnownHosts {
     fn find_candidates(&self, host: &str, port: u16) -> Vec<&KnownHostEntry> {
         let mut results = Vec::new();
 
-        let candidates = [
-            host.to_string(),
-            format!("[{}]:{}", host, port),
-        ];
+        let candidates = [host.to_string(), format!("[{}]:{}", host, port)];
 
         for key in &candidates {
             if let Some(entries) = self.entries.get(key.as_str()) {
@@ -253,53 +237,52 @@ pub fn create_known_hosts_checker(allow_unknown: bool) -> KnownHosts {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::{CommonError, CoreError};
 
     #[test]
-    fn test_empty_known_hosts_allow_unknown() {
+    fn test_empty_known_hosts_allow_unknown() -> Result<(), CoreError> {
         let hosts = KnownHosts::new(true);
-        let test_key = create_test_key();
+        let test_key = create_test_key()?;
         assert!(hosts.verify("example.com", 22, &test_key));
+        Ok(())
     }
 
     #[test]
-    fn test_empty_known_hosts_deny_unknown() {
+    fn test_empty_known_hosts_deny_unknown() -> Result<(), CoreError> {
         let hosts = KnownHosts::new(false);
-        let test_key = create_test_key();
+        let test_key = create_test_key()?;
         assert!(!hosts.verify("example.com", 22, &test_key));
+        Ok(())
     }
 
     #[test]
-    fn test_parse_non_hashed_entry() {
-        let test_key = create_test_key();
+    fn test_parse_non_hashed_entry() -> Result<(), CoreError> {
+        let test_key = create_test_key()?;
         let key_b64 = test_key.public_key_base64();
 
-        let content = format!(
-            "example.com {}\n",
-            key_b64
-        );
+        let content = format!("example.com {}\n", key_b64);
 
         let mut hosts = KnownHosts::new(false);
         hosts.parse(&content);
 
         assert!(hosts.verify("example.com", 22, &test_key));
         assert!(!hosts.verify("other.com", 22, &test_key));
+        Ok(())
     }
 
     #[test]
-    fn test_parse_port_specific_entry() {
-        let test_key = create_test_key();
+    fn test_parse_port_specific_entry() -> Result<(), CoreError> {
+        let test_key = create_test_key()?;
         let key_b64 = test_key.public_key_base64();
 
-        let content = format!(
-            "[example.com]:2222 {}\n",
-            key_b64
-        );
+        let content = format!("[example.com]:2222 {}\n", key_b64);
 
         let mut hosts = KnownHosts::new(false);
         hosts.parse(&content);
 
         assert!(hosts.verify("example.com", 2222, &test_key));
         assert!(!hosts.verify("example.com", 22, &test_key));
+        Ok(())
     }
 
     #[test]
@@ -321,34 +304,33 @@ mod tests {
     }
 
     #[test]
-    fn test_key_mismatch_detected() {
-        let test_key = create_test_key();
+    fn test_key_mismatch_detected() -> Result<(), CoreError> {
+        let test_key = create_test_key()?;
         let key_b64 = test_key.public_key_base64();
 
         let different_key = russh::keys::PrivateKey::random(
             &mut rand::thread_rng(),
             russh::keys::Algorithm::Ed25519,
         )
-        .unwrap();
-        let different_public = different_key.public_key();
+        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?
+        .public_key()
+        .clone();
 
-        let content = format!(
-            "example.com {}\n",
-            key_b64
-        );
+        let content = format!("example.com {}\n", key_b64);
 
         let mut hosts = KnownHosts::new(false);
         hosts.parse(&content);
 
-        assert!(!hosts.verify("example.com", 22, &different_public));
+        assert!(!hosts.verify("example.com", 22, &different_key));
+        Ok(())
     }
 
-    fn create_test_key() -> PublicKey {
+    fn create_test_key() -> Result<PublicKey, CoreError> {
         let private = russh::keys::PrivateKey::random(
             &mut rand::thread_rng(),
             russh::keys::Algorithm::Ed25519,
         )
-        .unwrap();
-        private.public_key().clone()
+        .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
+        Ok(private.public_key().clone())
     }
 }

@@ -102,7 +102,11 @@ fn build_query_result(
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only { None } else { Some(rows.len() as u32) },
+        affected_rows: if is_read_only {
+            None
+        } else {
+            Some(rows.len() as u32)
+        },
         is_read_only: Some(is_read_only),
     })
 }
@@ -840,65 +844,66 @@ mod tests {
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
-    async fn test_query_select_one() {
-        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
-        let result = db.query("SELECT 1 AS val").await.expect("查询失败");
+    async fn test_query_select_one() -> Result<(), CoreError> {
+        let db = PostgresDatabase::new(PG_URL).await?;
+        let result = db.query("SELECT 1 AS val").await?;
         assert_eq!(result.columns, vec!["val"]);
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
-    async fn test_crud_roundtrip() {
-        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
+    async fn test_crud_roundtrip() -> Result<(), CoreError> {
+        let db = PostgresDatabase::new(PG_URL).await?;
 
         db.query("CREATE TABLE IF NOT EXISTS _rd_test (id INTEGER PRIMARY KEY, name VARCHAR(100), value DOUBLE PRECISION)")
-            .await
-            .expect("创建表失败");
+            .await?;
 
         db.query("INSERT INTO _rd_test (id, name, value) VALUES (1, 'hello', 3.14)")
-            .await
-            .expect("插入数据失败");
+            .await?;
 
         let result = db
             .query("SELECT id, name, value FROM _rd_test WHERE id = 1")
-            .await
-            .expect("查询失败");
+            .await?;
         assert_eq!(result.columns, vec!["id", "name", "value"]);
 
-        db.query("DROP TABLE IF EXISTS _rd_test")
-            .await
-            .expect("删除表失败");
+        db.query("DROP TABLE IF EXISTS _rd_test").await?;
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
-    async fn test_error_handling() {
-        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
+    async fn test_error_handling() -> Result<(), CoreError> {
+        let db = PostgresDatabase::new(PG_URL).await?;
         let result = db.query("SELECT * FROM _non_existent_table_rd").await;
         assert!(result.is_err(), "应返回不存在的表错误");
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
-    async fn test_list_tables() {
-        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
+    async fn test_list_tables() -> Result<(), CoreError> {
+        let db = PostgresDatabase::new(PG_URL).await?;
         let tables = db.list_tables("public", Some("public")).await;
         assert!(tables.is_ok(), "list_tables 失败: {:?}", tables.err());
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
-    async fn test_meta() {
-        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
+    async fn test_meta() -> Result<(), CoreError> {
+        let db = PostgresDatabase::new(PG_URL).await?;
         let meta = db.meta();
         assert!(meta.supports_transaction);
+        Ok(())
     }
 
     #[tokio::test]
     #[ignore = "需要运行中的 PostgreSQL 服务"]
-    async fn test_is_read_only_flag() {
-        let db = PostgresDatabase::new(PG_URL).await.expect("连接失败");
-        let result = db.query("SELECT 1").await.expect("查询失败");
+    async fn test_is_read_only_flag() -> Result<(), CoreError> {
+        let db = PostgresDatabase::new(PG_URL).await?;
+        let result = db.query("SELECT 1").await?;
         assert_eq!(result.is_read_only, Some(true));
+        Ok(())
     }
 }

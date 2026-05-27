@@ -462,7 +462,11 @@ impl DuckDBEngine {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { Some(row_count as u32) } else { None },
+            affected_rows: if is_read_only {
+                Some(row_count as u32)
+            } else {
+                None
+            },
             is_read_only: Some(is_read_only),
         })
     }

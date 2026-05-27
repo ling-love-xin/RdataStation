@@ -121,7 +121,7 @@ impl ProjectStore {
         let advanced_options = conn.advanced_options.clone().unwrap_or_default();
 
         sqlite.inner()?.execute(
-            "INSERT OR REPLACE INTO connections 
+            "INSERT OR REPLACE INTO connections
              (id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
             [
@@ -151,10 +151,10 @@ impl ProjectStore {
                 &conn.created_at,
                 &conn.updated_at,
             ],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "save_connection".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "save_connection".to_string(),
+            reason: e.to_string()
         }))?;
 
         // sqlite 在 drop 时自动归还到连接池
@@ -167,12 +167,12 @@ impl ProjectStore {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         let mut stmt = sqlite.inner()?.prepare(
-            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
+            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options
              FROM connections WHERE is_active = 1 ORDER BY created_at DESC"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "get_connections".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "get_connections".to_string(),
+            reason: e.to_string()
         }))?;
 
         let connections = stmt
@@ -228,12 +228,12 @@ impl ProjectStore {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         let mut stmt = sqlite.inner()?.prepare(
-            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options 
+            "SELECT id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, created_at, updated_at, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options
              FROM connections WHERE id = ?1 AND is_active = 1"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "prepare_get_connection".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "prepare_get_connection".to_string(),
+            reason: e.to_string()
         }))?;
 
         let result = stmt.query_row([id], |row| {
@@ -286,10 +286,10 @@ impl ProjectStore {
         sqlite.inner()?.execute(
             "UPDATE connections SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
             [id],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "delete_connection".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "delete_connection".to_string(),
+            reason: e.to_string()
         }))?;
 
         // sqlite 在 drop 时自动归还到连接池
@@ -304,7 +304,7 @@ impl ProjectStore {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         sqlite.inner()?.execute(
-            "INSERT INTO sql_history 
+            "INSERT INTO sql_history
              (id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             [
@@ -317,10 +317,10 @@ impl ProjectStore {
                 &record.is_favorite.to_string(),
                 &record.created_at,
             ],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "save_sql_history".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "save_sql_history".to_string(),
+            reason: e.to_string()
         }))?;
 
         // sqlite 在 drop 时自动归还到连接池
@@ -338,14 +338,14 @@ impl ProjectStore {
 
         let query = if let Some(conn_id) = connection_id {
             format!(
-                "SELECT id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at 
+                "SELECT id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at
                  FROM sql_history WHERE connection_id = '{}' ORDER BY created_at DESC LIMIT {}",
                 escape_sql_string(conn_id),
                 limit.unwrap_or(100)
             )
         } else {
             format!(
-                "SELECT id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at 
+                "SELECT id, connection_id, sql_text, execution_time_ms, rows_affected, error_message, is_favorite, created_at
                  FROM sql_history ORDER BY created_at DESC LIMIT {}",
                 limit.unwrap_or(100)
             )
@@ -400,10 +400,10 @@ impl ProjectStore {
         sqlite.inner()?.execute(
             "INSERT OR REPLACE INTO project_settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
             [key, value],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "save_setting".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "save_setting".to_string(),
+            reason: e.to_string()
         }))?;
 
         // sqlite 在 drop 时自动归还到连接池
@@ -485,17 +485,17 @@ impl ProjectStore {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
         sqlite.inner()?.execute(
-            "INSERT OR REPLACE INTO workbench_state (id, layout, open_panels, active_panel_id, updated_at) 
+            "INSERT OR REPLACE INTO workbench_state (id, layout, open_panels, active_panel_id, updated_at)
              VALUES ('default', ?1, ?2, ?3, CURRENT_TIMESTAMP)",
             [
                 state.layout.as_deref().unwrap_or(""),
                 state.open_panels.as_deref().unwrap_or(""),
                 state.active_panel_id.as_deref().unwrap_or(""),
             ],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "save_workbench_state".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "save_workbench_state".to_string(),
+            reason: e.to_string()
         }))?;
 
         // sqlite 在 drop 时自动归还到连接池

@@ -158,7 +158,7 @@ impl WorkbenchContextStore {
     pub fn save_layout(&self, layout: &WorkbenchLayout) -> Result<(), CoreError> {
         self.with_connection(|conn| {
             conn.execute(
-                "INSERT OR REPLACE INTO workbench_layouts 
+                "INSERT OR REPLACE INTO workbench_layouts
                  (id, connection_id, panel_config, active_panel, sidebar_visible, bottom_bar_visible, updated_at_ms)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
@@ -184,7 +184,7 @@ impl WorkbenchContextStore {
     pub fn load_layout(&self, connection_id: &str) -> Result<Option<WorkbenchLayout>, CoreError> {
         self.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, connection_id, panel_config, active_panel, sidebar_visible, bottom_bar_visible, updated_at_ms 
+                "SELECT id, connection_id, panel_config, active_panel, sidebar_visible, bottom_bar_visible, updated_at_ms
                  FROM workbench_layouts WHERE connection_id = ?1"
             ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
@@ -216,7 +216,7 @@ impl WorkbenchContextStore {
     pub fn save_editor_context(&self, context: &EditorContext) -> Result<(), CoreError> {
         self.with_connection(|conn| {
             conn.execute(
-                "INSERT OR REPLACE INTO editor_contexts 
+                "INSERT OR REPLACE INTO editor_contexts
                  (id, connection_id, content, cursor_position, selection_start, selection_end, updated_at_ms)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
@@ -242,7 +242,7 @@ impl WorkbenchContextStore {
     pub fn load_editor_context(&self, editor_id: &str) -> Result<Option<EditorContext>, CoreError> {
         self.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, connection_id, content, cursor_position, selection_start, selection_end, updated_at_ms 
+                "SELECT id, connection_id, content, cursor_position, selection_start, selection_end, updated_at_ms
                  FROM editor_contexts WHERE id = ?1"
             ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),

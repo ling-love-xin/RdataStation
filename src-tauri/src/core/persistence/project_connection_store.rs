@@ -74,15 +74,20 @@ impl ProjectConnectionStore {
 
         // A4-L1: 项目连接数量上限检查
         const MAX_PROJECT_CONNECTIONS: usize = 50;
-        let count: i64 = sqlite.inner()?.query_row(
-            "SELECT COUNT(*) FROM connections WHERE is_active = 1",
-            [],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "count_project_connections".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let count: i64 = sqlite
+            .inner()?
+            .query_row(
+                "SELECT COUNT(*) FROM connections WHERE is_active = 1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "count_project_connections".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
         if count as usize >= MAX_PROJECT_CONNECTIONS {
             return Err(CoreError::common(CommonError::InvalidArgument {
                 param: "connection".to_string(),
@@ -94,15 +99,20 @@ impl ProjectConnectionStore {
         }
 
         // A4-U1: 项目连接名称唯一性检查
-        let dup_count: i64 = sqlite.inner()?.query_row(
-            "SELECT COUNT(*) FROM connections WHERE name = ?1 AND is_active = 1",
-            [&conn.name],
-            |row| row.get(0),
-        ).map_err(|e| CoreError::storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "check_duplicate_project_name".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let dup_count: i64 = sqlite
+            .inner()?
+            .query_row(
+                "SELECT COUNT(*) FROM connections WHERE name = ?1 AND is_active = 1",
+                [&conn.name],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "check_duplicate_project_name".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
         if dup_count > 0 {
             return Err(CoreError::common(CommonError::InvalidArgument {
                 param: "name".to_string(),
@@ -178,10 +188,10 @@ impl ProjectConnectionStore {
                 conn.auth_config_id, conn.auth_method, conn.network_config_id, conn.driver_properties,
                 conn.advanced_options, conn.updated_at
             ],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "update_connection".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "update_connection".to_string(),
+            reason: e.to_string()
         }))?;
 
         Ok(())
@@ -213,10 +223,10 @@ impl ProjectConnectionStore {
                     server_version, description, driver_id, environment_id, auth_config_id,
                     auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections WHERE id = ?1"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "prepare_get_connection".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "prepare_get_connection".to_string(),
+            reason: e.to_string()
         }))?;
 
         let result = stmt.query_row([id], |row| {
@@ -269,10 +279,10 @@ impl ProjectConnectionStore {
                     server_version, description, driver_id, environment_id, auth_config_id,
                     auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections ORDER BY updated_at DESC"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "prepare_get_all_connections".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "prepare_get_all_connections".to_string(),
+            reason: e.to_string()
         }))?;
 
         let connections = stmt
@@ -334,10 +344,10 @@ impl ProjectConnectionStore {
                     server_version, description, driver_id, environment_id, auth_config_id,
                     auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at
              FROM connections WHERE driver = ?1 ORDER BY updated_at DESC"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "prepare_get_connections_by_type".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "prepare_get_connections_by_type".to_string(),
+            reason: e.to_string()
         }))?;
 
         let connections = stmt
@@ -397,10 +407,10 @@ impl ProjectConnectionStore {
         sqlite.inner()?.execute(
             "UPDATE connections SET is_active = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
             rusqlite::params![is_active, id],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "update_connection_status".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "update_connection_status".to_string(),
+            reason: e.to_string()
         }))?;
 
         Ok(())
@@ -419,13 +429,13 @@ impl ProjectConnectionStore {
                     options, tags, use_duckdb_fed, metadata_path, is_active,
                     server_version, description, driver_id, environment_id, auth_config_id,
                     auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at
-             FROM connections 
+             FROM connections
              WHERE name LIKE ?1 OR host LIKE ?1 OR database LIKE ?1
              ORDER BY updated_at DESC"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence { 
-            store: "sqlite".to_string(), 
-            operation: "prepare_search_connections".to_string(), 
-            reason: e.to_string() 
+        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
+            store: "sqlite".to_string(),
+            operation: "prepare_search_connections".to_string(),
+            reason: e.to_string()
         }))?;
 
         let connections = stmt
@@ -485,9 +495,7 @@ impl ProjectConnectionStore {
         let driver = global_db
             .get_driver(driver_id)
             .await?
-            .ok_or_else(|| {
-                CoreError::from(format!("驱动 {} 不存在于全局目录中", driver_id))
-            })?;
+            .ok_or_else(|| CoreError::from(format!("驱动 {} 不存在于全局目录中", driver_id)))?;
 
         if !driver.enabled {
             return Err(CoreError::from(format!("驱动 {} 已被全局禁用", driver_id)));
@@ -495,15 +503,20 @@ impl ProjectConnectionStore {
 
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
-        sqlite.inner()?.execute(
-            "INSERT OR REPLACE INTO project_drivers (id, driver_id, enabled, installed_at)
+        sqlite
+            .inner()?
+            .execute(
+                "INSERT OR REPLACE INTO project_drivers (id, driver_id, enabled, installed_at)
              VALUES (?1, ?2, 1, CURRENT_TIMESTAMP)",
-            rusqlite::params![uuid::Uuid::new_v4().to_string(), driver_id],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "enable_driver".to_string(),
-            reason: e.to_string(),
-        }))?;
+                rusqlite::params![uuid::Uuid::new_v4().to_string(), driver_id],
+            )
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "enable_driver".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
@@ -512,14 +525,19 @@ impl ProjectConnectionStore {
     pub async fn disable_driver(&self, driver_id: &str) -> Result<(), CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
-        sqlite.inner()?.execute(
-            "UPDATE project_drivers SET enabled = 0 WHERE driver_id = ?1",
-            rusqlite::params![driver_id],
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "disable_driver".to_string(),
-            reason: e.to_string(),
-        }))?;
+        sqlite
+            .inner()?
+            .execute(
+                "UPDATE project_drivers SET enabled = 0 WHERE driver_id = ?1",
+                rusqlite::params![driver_id],
+            )
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "disable_driver".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
         Ok(())
     }
@@ -528,11 +546,14 @@ impl ProjectConnectionStore {
     pub async fn is_driver_enabled(&self, driver_id: &str) -> Result<bool, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
-        let enabled: bool = sqlite.inner()?.query_row(
-            "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
-            rusqlite::params![driver_id],
-            |row| row.get::<_, i32>(0).map(|v| v != 0),
-        ).unwrap_or(false);
+        let enabled: bool = sqlite
+            .inner()?
+            .query_row(
+                "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
+                rusqlite::params![driver_id],
+                |row| row.get::<_, i32>(0).map(|v| v != 0),
+            )
+            .unwrap_or(false);
 
         Ok(enabled)
     }
@@ -541,20 +562,26 @@ impl ProjectConnectionStore {
     pub async fn list_enabled_drivers(&self) -> Result<Vec<String>, CoreError> {
         let sqlite = self.db_manager.sqlite_pool().acquire().await?;
 
-        let mut stmt = sqlite.inner()?.prepare(
-            "SELECT driver_id FROM project_drivers WHERE enabled = 1"
-        ).map_err(|e| CoreError::Storage(StorageError::Persistence {
-            store: "sqlite".to_string(),
-            operation: "prepare_list_enabled_drivers".to_string(),
-            reason: e.to_string(),
-        }))?;
+        let mut stmt = sqlite
+            .inner()?
+            .prepare("SELECT driver_id FROM project_drivers WHERE enabled = 1")
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "prepare_list_enabled_drivers".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
 
-        let drivers: Vec<String> = stmt.query_map([], |row| row.get(0))
-            .map_err(|e| CoreError::Storage(StorageError::Persistence {
-                store: "sqlite".to_string(),
-                operation: "query_enabled_drivers".to_string(),
-                reason: e.to_string(),
-            }))?
+        let drivers: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| {
+                CoreError::Storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "query_enabled_drivers".to_string(),
+                    reason: e.to_string(),
+                })
+            })?
             .filter_map(|r| r.ok())
             .collect();
 
@@ -580,7 +607,10 @@ impl ProjectConnectionStore {
     // ==================== 项目插件管理 ====================
 
     /// 添加插件到项目
-    pub async fn project_add_plugin(&self, plugin: &crate::core::persistence::plugin_store::ProjectUsedPlugin) -> Result<(), CoreError> {
+    pub async fn project_add_plugin(
+        &self,
+        plugin: &crate::core::persistence::plugin_store::ProjectUsedPlugin,
+    ) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
         crate::core::persistence::plugin_store::project_add_plugin(conn.inner()?, plugin)?;
         Ok(())
@@ -589,35 +619,62 @@ impl ProjectConnectionStore {
     /// 从项目移除插件
     pub async fn project_remove_plugin(&self, code: &str, version: &str) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        crate::core::persistence::plugin_store::project_remove_plugin(conn.inner()?, code, version)?;
+        crate::core::persistence::plugin_store::project_remove_plugin(
+            conn.inner()?,
+            code,
+            version,
+        )?;
         Ok(())
     }
 
     /// 获取项目使用的所有插件
-    pub async fn project_get_plugins(&self) -> Result<Vec<crate::core::persistence::plugin_store::ProjectUsedPlugin>, CoreError> {
+    pub async fn project_get_plugins(
+        &self,
+    ) -> Result<Vec<crate::core::persistence::plugin_store::ProjectUsedPlugin>, CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
         let result = crate::core::persistence::plugin_store::project_get_plugins(conn.inner()?)?;
         Ok(result)
     }
 
     /// 更新项目插件启用状态
-    pub async fn project_update_plugin_enabled(&self, code: &str, version: &str, enabled: bool) -> Result<(), CoreError> {
+    pub async fn project_update_plugin_enabled(
+        &self,
+        code: &str,
+        version: &str,
+        enabled: bool,
+    ) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        crate::core::persistence::plugin_store::project_update_plugin_enabled(conn.inner()?, code, version, enabled)?;
+        crate::core::persistence::plugin_store::project_update_plugin_enabled(
+            conn.inner()?,
+            code,
+            version,
+            enabled,
+        )?;
         Ok(())
     }
 
     /// 设置项目插件配置
-    pub async fn project_set_plugin_config(&self, config: &crate::core::persistence::plugin_store::ProjectPluginConfig) -> Result<(), CoreError> {
+    pub async fn project_set_plugin_config(
+        &self,
+        config: &crate::core::persistence::plugin_store::ProjectPluginConfig,
+    ) -> Result<(), CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
         crate::core::persistence::plugin_store::project_set_plugin_config(conn.inner()?, config)?;
         Ok(())
     }
 
     /// 获取项目插件配置
-    pub async fn project_get_plugin_configs(&self, code: &str, version: &str) -> Result<Vec<crate::core::persistence::plugin_store::ProjectPluginConfig>, CoreError> {
+    pub async fn project_get_plugin_configs(
+        &self,
+        code: &str,
+        version: &str,
+    ) -> Result<Vec<crate::core::persistence::plugin_store::ProjectPluginConfig>, CoreError> {
         let conn = self.db_manager.sqlite_pool().acquire().await?;
-        let result = crate::core::persistence::plugin_store::project_get_plugin_configs(conn.inner()?, code, version)?;
+        let result = crate::core::persistence::plugin_store::project_get_plugin_configs(
+            conn.inner()?,
+            code,
+            version,
+        )?;
         Ok(result)
     }
 }

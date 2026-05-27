@@ -496,7 +496,7 @@ export async function getMetadataCacheStatus(
 export async function refreshMetadataCache(
   input: RefreshCacheInput
 ): Promise<void> {
-  return invoke('refresh_metadata_cache', input)
+  return invoke('refresh_metadata_cache', input as unknown as Record<string, unknown>)
 }
 
 /**
@@ -505,7 +505,7 @@ export async function refreshMetadataCache(
 export async function clearMetadataCache(
   input: ClearCacheInput
 ): Promise<number> {
-  return invoke<number>('clear_metadata_cache', input)
+  return invoke<number>('clear_metadata_cache', input as unknown as Record<string, unknown>)
 }
 
 /**
@@ -656,7 +656,7 @@ export async function getColumnsFromCache(
 export async function notifyDDLEvent(
   event: DDLEventInput
 ): Promise<void> {
-  return invoke('notify_ddl_event', event)
+  return invoke('notify_ddl_event', event as unknown as Record<string, unknown>)
 }
 
 /**
@@ -695,7 +695,7 @@ export async function cancelSync(
 export async function buildCacheIndex(
   input: BuildCacheIndexInput
 ): Promise<IndexBuildResponse> {
-  return invoke<IndexBuildResponse>('build_cache_index', input)
+  return invoke<IndexBuildResponse>('build_cache_index', input as unknown as Record<string, unknown>)
 }
 
 /**
@@ -704,7 +704,7 @@ export async function buildCacheIndex(
 export async function startCacheWarming(
   input: WarmCacheInput
 ): Promise<WarmingProgressResponse> {
-  return invoke<WarmingProgressResponse>('start_cache_warming', input)
+  return invoke<WarmingProgressResponse>('start_cache_warming', input as unknown as Record<string, unknown>)
 }
 
 /**
@@ -713,7 +713,7 @@ export async function startCacheWarming(
 export async function cancelCacheWarming(
   input: CancelWarmingInput
 ): Promise<void> {
-  return invoke('cancel_cache_warming', input)
+  return invoke('cancel_cache_warming', input as unknown as Record<string, unknown>)
 }
 
 /**

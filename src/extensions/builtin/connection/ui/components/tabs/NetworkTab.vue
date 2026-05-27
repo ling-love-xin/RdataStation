@@ -30,13 +30,12 @@
       <!-- Chain list -->
       <div class="chain-list">
         <div
-          v-for="(hop, idx) in chain"
-          v-if="shouldShowHop(hop.protocol)"
+          v-for="(hop, idx) in filteredChain"
           :key="hop.id"
           :class="hopItemClass(hop)"
           :draggable="true"
           @dragstart="dragStart($event, hop.id)"
-          @dragover.prevent="dragOver($event, hop.id)"
+          @dragover.prevent="dragOver($event)"
           @dragleave="dragLeave($event)"
           @drop="drop($event, hop.id)"
           @dragend="dragEnd"
@@ -421,6 +420,9 @@ const {
   { id: 'h3', protocol: 'ssl' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
 ])
 
+/** Chain items filtered by driver capabilities */
+const filteredChain = computed(() => chain.value.filter(hop => shouldShowHop(hop.protocol)))
+
 // ===== Wrappers for template compatibility =====
 function addHopWrapped(protocol: ProtocolType) {
   const newId = chainAddHop(protocol)
@@ -741,7 +743,7 @@ function drop(_e: DragEvent, targetId: string) {
 // ==================== Profile Manager Modal ====================
 
 const showProfileMgr = ref(false)
-const profileMgrTab = ref<string>('ssh')
+const profileMgrTab = ref<'ssh' | 'ssl' | 'proxy'>('ssh')
 
 function openProfileMgr(hop: Hop) {
   activeProfileMgrHop.value = hop

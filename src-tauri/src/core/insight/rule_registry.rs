@@ -189,6 +189,7 @@ pub fn get_project_rules_dir(project_path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::CoreError;
 
     fn sample_toml() -> &'static str {
         r#"
@@ -214,9 +215,9 @@ value_type = "f64"
     }
 
     #[test]
-    fn test_parse_toml_valid() {
+    fn test_parse_toml_valid() -> Result<(), CoreError> {
         let registry = RuleRegistry::new();
-        let rule = registry.parse_toml(sample_toml()).unwrap();
+        let rule = registry.parse_toml(sample_toml())?;
         assert_eq!(rule.meta.id, "test-rule-1");
         assert_eq!(rule.meta.name, "Test Rule");
         assert_eq!(rule.meta.category, "test");
@@ -224,6 +225,7 @@ value_type = "f64"
         assert_eq!(rule.query.parameters, vec!["table", "col"]);
         assert_eq!(rule.output.len(), 1);
         assert_eq!(rule.output[0].json_name, "result");
+        Ok(())
     }
 
     #[test]
@@ -261,9 +263,9 @@ value_type = "f64"
     }
 
     #[test]
-    fn test_rules_for_column_type() {
+    fn test_rules_for_column_type() -> Result<(), CoreError> {
         let mut registry = RuleRegistry::new();
-        let rule = registry.parse_toml(sample_toml()).unwrap();
+        let rule = registry.parse_toml(sample_toml())?;
         registry.rules.insert(rule.meta.id.clone(), rule);
 
         let numeric_rules = registry.rules_for_column_type("Numeric");
@@ -274,6 +276,7 @@ value_type = "f64"
 
         let text_rules = registry.rules_for_column_type("Text");
         assert_eq!(text_rules.len(), 0);
+        Ok(())
     }
 
     #[test]

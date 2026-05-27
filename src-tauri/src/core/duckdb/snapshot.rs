@@ -332,22 +332,26 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn setup_test_db() -> (PathBuf, PathBuf) {
+    fn setup_test_db() -> Result<(PathBuf, PathBuf), CoreError> {
         use std::time::{SystemTime, UNIX_EPOCH};
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("时间获取失败")
+            .map_err(|e| CoreError::common(CommonError::General(format!("时间获取失败: {}", e))))?
             .as_nanos();
         let temp_dir = std::env::temp_dir();
         let db_dir = temp_dir.join(format!("test_snapshot_{}", timestamp));
 
         let _ = fs::remove_dir_all(&db_dir);
-        fs::create_dir_all(&db_dir).expect("创建测试目录");
+        fs::create_dir_all(&db_dir).map_err(|e| {
+            CoreError::common(CommonError::General(format!("创建测试目录失败: {}", e)))
+        })?;
 
         let db_path = db_dir.join("test.duckdb");
-        fs::write(&db_path, "fake duckdb content").expect("创建测试数据库");
+        fs::write(&db_path, "fake duckdb content").map_err(|e| {
+            CoreError::common(CommonError::General(format!("创建测试数据库失败: {}", e)))
+        })?;
 
-        (db_path, db_dir)
+        Ok((db_path, db_dir))
     }
 
     fn cleanup_test_db(db_dir: &Path) {
@@ -355,126 +359,128 @@ mod tests {
     }
 
     #[test]
-    fn test_create_and_list_snapshot() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_create_and_list_snapshot() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
-        let snapshot = manager
-            .create_snapshot(&db_path, Some("测试快照".to_string()))
-            .expect("创建快照");
+        let snapshot = manager.create_snapshot(&db_path, Some("测试快照".to_string()))?;
 
         assert!(snapshot.name.contains("test_snapshot_"));
         assert!(snapshot.path.exists());
         assert!(snapshot.description.is_some());
 
-        let snapshots = manager.list_snapshots().expect("列出快照");
+        let snapshots = manager.list_snapshots()?;
         assert_eq!(snapshots.len(), 1);
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_restore_snapshot() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_restore_snapshot() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
-        let snapshot = manager.create_snapshot(&db_path, None).expect("创建快照");
+        let snapshot = manager.create_snapshot(&db_path, None)?;
 
         let restore_path = db_dir.join("restored.duckdb");
-        manager
-            .restore_snapshot(&snapshot.path, &restore_path)
-            .expect("恢复快照");
+        manager.restore_snapshot(&snapshot.path, &restore_path)?;
 
         assert!(restore_path.exists());
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_delete_snapshot() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_delete_snapshot() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
-        let snapshot = manager.create_snapshot(&db_path, None).expect("创建快照");
+        let snapshot = manager.create_snapshot(&db_path, None)?;
 
-        manager.delete_snapshot(&snapshot.path).expect("删除快照");
+        manager.delete_snapshot(&snapshot.path)?;
         assert!(!snapshot.path.exists());
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_cleanup_old_snapshots() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 2).expect("创建管理器");
+    fn test_cleanup_old_snapshots() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 2)?;
 
         // 创建 3 个快照
-        manager.create_snapshot(&db_path, None).expect("创建快照1");
+        manager.create_snapshot(&db_path, None)?;
         std::thread::sleep(std::time::Duration::from_secs(1));
-        manager.create_snapshot(&db_path, None).expect("创建快照2");
+        manager.create_snapshot(&db_path, None)?;
         std::thread::sleep(std::time::Duration::from_secs(1));
-        manager.create_snapshot(&db_path, None).expect("创建快照3");
+        manager.create_snapshot(&db_path, None)?;
 
-        let snapshots = manager.list_snapshots().expect("列出快照");
+        let snapshots = manager.list_snapshots()?;
         assert_eq!(snapshots.len(), 2); // 应该只保留 2 个
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_delete_all_snapshots() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_delete_all_snapshots() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
-        manager.create_snapshot(&db_path, None).expect("创建快照1");
-        manager.create_snapshot(&db_path, None).expect("创建快照2");
+        manager.create_snapshot(&db_path, None)?;
+        manager.create_snapshot(&db_path, None)?;
 
-        let count = manager.delete_all_snapshots().expect("删除所有快照");
+        let count = manager.delete_all_snapshots()?;
         assert_eq!(count, 2);
 
-        let snapshots = manager.list_snapshots().expect("列出快照");
+        let snapshots = manager.list_snapshots()?;
         assert_eq!(snapshots.len(), 0);
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_estimate_backup_time() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_estimate_backup_time() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
         let time = manager.estimate_backup_time(&db_path);
         assert!(time.as_secs() >= 1);
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_total_size_bytes() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_total_size_bytes() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
-        manager.create_snapshot(&db_path, None).expect("创建快照");
+        manager.create_snapshot(&db_path, None)?;
 
-        let total = manager.total_size_bytes().expect("计算总大小");
+        let total = manager.total_size_bytes()?;
         assert!(total > 0);
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_snapshot_info_from_path() {
-        let (db_path, db_dir) = setup_test_db();
-        let manager = SnapshotManager::new(&db_path, 5).expect("创建管理器");
+    fn test_snapshot_info_from_path() -> Result<(), CoreError> {
+        let (db_path, db_dir) = setup_test_db()?;
+        let manager = SnapshotManager::new(&db_path, 5)?;
 
-        let snapshot = manager
-            .create_snapshot(&db_path, Some("测试".to_string()))
-            .expect("创建快照");
+        let snapshot = manager.create_snapshot(&db_path, Some("测试".to_string()))?;
 
-        let info = SnapshotInfo::from_path(&snapshot.path).expect("加载信息");
+        let info = SnapshotInfo::from_path(&snapshot.path)?;
         assert_eq!(info.size_bytes, snapshot.size_bytes);
         assert!(info.created_at > 0);
 
         cleanup_test_db(&db_dir);
+        Ok(())
     }
 }

@@ -119,7 +119,13 @@ pub fn gen_project_id(entity: &str, suffix: &str) -> String {
 /// 清理名称中的特殊字符，替换为下划线
 fn sanitize_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -134,6 +140,7 @@ fn short_rand() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::{CommonError, CoreError};
 
     #[test]
     fn test_generate_gid() {
@@ -192,10 +199,14 @@ mod tests {
     }
 
     #[test]
-    fn test_to_snapshot_id() {
-        let snapshot = to_snapshot_id("G_env_dev");
-        assert!(snapshot.is_some());
-        assert!(snapshot.unwrap().starts_with("GP_env_dev_"));
+    fn test_to_snapshot_id() -> Result<(), CoreError> {
+        let snapshot = to_snapshot_id("G_env_dev").ok_or_else(|| {
+            CoreError::common(CommonError::General(
+                "to_snapshot_id returned None".to_string(),
+            ))
+        })?;
+        assert!(snapshot.starts_with("GP_env_dev_"));
+        Ok(())
     }
 
     #[test]

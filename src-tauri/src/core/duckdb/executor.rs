@@ -310,9 +310,9 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn setup_test_executor_unique(
+    fn setup_test_executor(
         test_name: &str,
-    ) -> (DuckDBExecutor<'static>, std::path::PathBuf) {
+    ) -> Result<(DuckDBExecutor<'static>, std::path::PathBuf), CoreError> {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(100);
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -326,11 +326,11 @@ mod tests {
         }
 
         // 使用 Box::leak 创建 'static 生命周期引用用于测试
-        let manager = Box::new(DuckDBManager::open(&db_path).expect("创建测试数据库"));
+        let manager = Box::new(DuckDBManager::open(&db_path)?);
         let manager: &'static DuckDBManager = Box::leak(manager);
 
         let executor = DuckDBExecutor::new(manager);
-        (executor, db_path)
+        Ok((executor, db_path))
     }
 
     fn cleanup_test_db(path: &std::path::Path) {
@@ -338,74 +338,63 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_read_simple_select() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_read_simple_select() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("read_simple")?;
 
         // 先创建测试表
-        executor
-            .execute_write("CREATE TABLE test_users (id INTEGER, name TEXT)")
-            .expect("创建表");
-        executor
-            .execute_write("INSERT INTO test_users VALUES (1, 'Alice'), (2, 'Bob')")
-            .expect("插入数据");
+        executor.execute_write("CREATE TABLE test_users (id INTEGER, name TEXT)")?;
+        executor.execute_write("INSERT INTO test_users VALUES (1, 'Alice'), (2, 'Bob')")?;
 
         // 执行只读查询
-        let result = executor.execute_read("SELECT * FROM test_users");
-        assert!(result.is_ok());
-
-        let result = result.unwrap();
+        let result = executor.execute_read("SELECT * FROM test_users")?;
         assert_eq!(result.columns.len(), 2);
         assert_eq!(result.columns[0], "id");
         assert_eq!(result.columns[1], "name");
         assert_eq!(result.total_rows(), 2);
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_write_create_table() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_write_create_table() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("write_create")?;
 
-        let result =
-            executor.execute_write("CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT)");
-        assert!(result.is_ok());
-
-        let duckdb_result = result.unwrap();
-        assert!(duckdb_result.rows_affected.is_some());
+        let result = executor
+            .execute_write("CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT)")?;
+        assert!(result.rows_affected.is_some());
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_write_insert() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_write_insert() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("write_insert")?;
 
-        executor
-            .execute_write("CREATE TABLE test_insert (id INTEGER)")
-            .expect("创建表");
+        executor.execute_write("CREATE TABLE test_insert (id INTEGER)")?;
 
-        let result = executor.execute_write("INSERT INTO test_insert VALUES (1), (2), (3)");
-        assert!(result.is_ok());
-
-        let duckdb_result = result.unwrap();
-        assert_eq!(duckdb_result.rows_affected, Some(3));
+        let result = executor.execute_write("INSERT INTO test_insert VALUES (1), (2), (3)")?;
+        assert_eq!(result.rows_affected, Some(3));
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_invalid_sql() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_invalid_sql() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("invalid_sql")?;
 
         let result = executor.execute_read("INVALID SQL STATEMENT");
         assert!(result.is_err());
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_batch() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_batch() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("batch")?;
 
         let sql = "
             CREATE TABLE test_batch1 (id INTEGER);
@@ -414,49 +403,39 @@ mod tests {
             INSERT INTO test_batch2 VALUES ('test');
         ";
 
-        let result = executor.execute_batch(sql);
-        assert!(result.is_ok());
+        executor.execute_batch(sql)?;
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_read_with_params() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_read_with_params() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("read_params")?;
 
-        executor
-            .execute_write("CREATE TABLE test_params (id INTEGER, name TEXT)")
-            .expect("创建表");
-        executor
-            .execute_write("INSERT INTO test_params VALUES (1, 'Alice'), (2, 'Bob')")
-            .expect("插入数据");
+        executor.execute_write("CREATE TABLE test_params (id INTEGER, name TEXT)")?;
+        executor.execute_write("INSERT INTO test_params VALUES (1, 'Alice'), (2, 'Bob')")?;
 
         let param_value: &dyn duckdb::types::ToSql = &"Alice";
         let result = executor
-            .execute_read_with_params("SELECT * FROM test_params WHERE name = ?", &[param_value]);
-        assert!(result.is_ok());
-
-        let result = result.unwrap();
+            .execute_read_with_params("SELECT * FROM test_params WHERE name = ?", &[param_value])?;
         assert_eq!(result.total_rows(), 1);
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_execute_read_empty_result() {
-        let (executor, db_path) = setup_test_executor();
+    fn test_execute_read_empty_result() -> Result<(), CoreError> {
+        let (executor, db_path) = setup_test_executor("read_empty")?;
 
-        executor
-            .execute_write("CREATE TABLE test_empty (id INTEGER)")
-            .expect("创建表");
+        executor.execute_write("CREATE TABLE test_empty (id INTEGER)")?;
 
-        let result = executor.execute_read("SELECT * FROM test_empty");
-        assert!(result.is_ok());
-
-        let result = result.unwrap();
+        let result = executor.execute_read("SELECT * FROM test_empty")?;
         assert_eq!(result.total_rows(), 0);
         assert!(result.batches.is_empty());
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 }

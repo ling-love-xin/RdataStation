@@ -13,10 +13,7 @@ const LEGACY_FIXED_SALT: &[u8] = b"RdataStation_Connection_Vault_2026";
 fn salt_path() -> PathBuf {
     let mut path = dirs::data_local_dir().unwrap_or_else(|| {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        tracing::warn!(
-            "无法获取系统数据目录，回退到用户主目录: {}",
-            home.display()
-        );
+        tracing::warn!("无法获取系统数据目录，回退到用户主目录: {}", home.display());
         home
     });
     path.push("RdataStation");
@@ -76,10 +73,7 @@ fn derive_legacy_key() -> [u8; 32] {
 fn machine_id_path() -> PathBuf {
     let mut path = dirs::data_local_dir().unwrap_or_else(|| {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        tracing::warn!(
-            "无法获取系统数据目录，回退到用户主目录: {}",
-            home.display()
-        );
+        tracing::warn!("无法获取系统数据目录，回退到用户主目录: {}", home.display());
         home
     });
     path.push("RdataStation");
@@ -161,11 +155,13 @@ pub fn decrypt_password(encrypted: &str) -> Result<String, CoreError> {
     // 先用新密钥（随机盐值）解密
     let keys = [derive_key(), derive_legacy_key()];
     for key in &keys {
-        let cipher = Aes256Gcm::new_from_slice(key)
-            .map_err(|e| CoreError::common(CommonError::Internal(format!("AES init error: {}", e))))?;
+        let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| {
+            CoreError::common(CommonError::Internal(format!("AES init error: {}", e)))
+        })?;
         if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
-            return String::from_utf8(plaintext)
-                .map_err(|e| CoreError::common(CommonError::Internal(format!("UTF-8 decode error: {}", e))));
+            return String::from_utf8(plaintext).map_err(|e| {
+                CoreError::common(CommonError::Internal(format!("UTF-8 decode error: {}", e)))
+            });
         }
     }
 
@@ -179,11 +175,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_encrypt_decrypt_roundtrip() {
+    fn test_encrypt_decrypt_roundtrip() -> Result<(), CoreError> {
         let original = "MySecretPassword123!";
-        let encrypted = encrypt_password(original).expect("encrypt failed");
-        let decrypted = decrypt_password(&encrypted).expect("decrypt failed");
+        let encrypted = encrypt_password(original)?;
+        let decrypted = decrypt_password(&encrypted)?;
         assert_eq!(original, decrypted);
+        Ok(())
     }
 
     #[test]
@@ -195,10 +192,11 @@ mod tests {
     }
 
     #[test]
-    fn test_encrypt_unicode_password() {
+    fn test_encrypt_unicode_password() -> Result<(), CoreError> {
         let original = "密码测试🔐";
-        let encrypted = encrypt_password(original).expect("encrypt failed");
-        let decrypted = decrypt_password(&encrypted).expect("decrypt failed");
+        let encrypted = encrypt_password(original)?;
+        let decrypted = decrypt_password(&encrypted)?;
         assert_eq!(original, decrypted);
+        Ok(())
     }
 }

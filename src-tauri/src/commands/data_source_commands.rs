@@ -252,7 +252,9 @@ pub async fn list_auth_configs(
 /// 创建认证配置（返回创建的 AuthConfig 含生成的 id）
 #[tauri::command]
 #[specta::specta]
-pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<auth_store::AuthConfig, CoreError> {
+pub async fn create_auth_config(
+    mut ac: auth_store::AuthConfig,
+) -> Result<auth_store::AuthConfig, CoreError> {
     let now = Utc::now().to_rfc3339();
     if ac.id.is_empty() {
         ac.id = format!("G_auth_{}", Uuid::new_v4().to_string().replace('-', "_"));
@@ -301,7 +303,9 @@ pub async fn list_network_configs(
 /// 创建网络配置（返回创建的 NetworkConfig 含生成的 id）
 #[tauri::command]
 #[specta::specta]
-pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Result<network_store::NetworkConfig, CoreError> {
+pub async fn create_network_config(
+    mut nc: network_store::NetworkConfig,
+) -> Result<network_store::NetworkConfig, CoreError> {
     let now = Utc::now().to_rfc3339();
     if nc.id.is_empty() {
         nc.id = format!("G_net_{}", Uuid::new_v4().to_string().replace('-', "_"));
@@ -703,9 +707,8 @@ pub async fn test_network_config(
 
     match net.network_type.as_str() {
         "ssh" => {
-            let ssh_config: SshConfig = serde_json::from_str(&net.config).map_err(|e| {
-                CoreError::from(format!("解析 SSH 配置 JSON 失败: {}", e))
-            })?;
+            let ssh_config: SshConfig = serde_json::from_str(&net.config)
+                .map_err(|e| CoreError::from(format!("解析 SSH 配置 JSON 失败: {}", e)))?;
 
             let dummy = ConnectionConfig::direct(&ssh_config.remote_host, ssh_config.remote_port);
             match connector::establish_ssh_tunnel(&dummy, &ssh_config).await {
@@ -734,78 +737,80 @@ pub async fn test_network_config(
         }
         "ssl" => {
             let cfg: crate::core::driver::connection::config::SslConfig =
-                serde_json::from_str(&net.config).map_err(|e| {
-                    CoreError::from(format!("解析 SSL 配置 JSON 失败: {}", e))
-                })?;
+                serde_json::from_str(&net.config)
+                    .map_err(|e| CoreError::from(format!("解析 SSL 配置 JSON 失败: {}", e)))?;
 
             let mut checks = Vec::new();
-                    if let Some(ref ca) = cfg.ca_cert_path {
-                        match std::fs::read(ca) {
-                            Ok(_) => {
-                                checks.push(format!("CA 证书文件存在: {}", ca));
-                                match connector::check_cert_expiry(ca) {
-                                    Ok(info) => {
-                                        checks.push(format!(
-                                            "CA 证书: subject={}, 过期日期={}, 剩余{}天{}",
-                                            info.subject,
-                                            info.not_after,
-                                            info.days_until_expiry,
-                                            if info.is_expired { " ⚠️ 已过期" } else { "" }
-                                        ));
+            if let Some(ref ca) = cfg.ca_cert_path {
+                match std::fs::read(ca) {
+                    Ok(_) => {
+                        checks.push(format!("CA 证书文件存在: {}", ca));
+                        match connector::check_cert_expiry(ca) {
+                            Ok(info) => {
+                                checks.push(format!(
+                                    "CA 证书: subject={}, 过期日期={}, 剩余{}天{}",
+                                    info.subject,
+                                    info.not_after,
+                                    info.days_until_expiry,
+                                    if info.is_expired {
+                                        " ⚠️ 已过期"
+                                    } else {
+                                        ""
                                     }
-                                    Err(e) => checks.push(format!("CA 证书过期检查失败: {}", e)),
-                                }
+                                ));
                             }
-                            Err(e) => {
-                                checks.push(format!("CA 证书文件读取失败 '{}': {}", ca, e))
-                            }
+                            Err(e) => checks.push(format!("CA 证书过期检查失败: {}", e)),
                         }
                     }
-                    if let Some(ref cert) = cfg.client_cert_path {
-                        match std::fs::read(cert) {
-                            Ok(_) => {
-                                checks.push(format!("客户端证书文件存在: {}", cert));
-                                match connector::check_cert_expiry(cert) {
-                                    Ok(info) => {
-                                        checks.push(format!(
-                                            "客户端证书: subject={}, 过期日期={}, 剩余{}天{}",
-                                            info.subject,
-                                            info.not_after,
-                                            info.days_until_expiry,
-                                            if info.is_expired { " ⚠️ 已过期" } else { "" }
-                                        ));
+                    Err(e) => checks.push(format!("CA 证书文件读取失败 '{}': {}", ca, e)),
+                }
+            }
+            if let Some(ref cert) = cfg.client_cert_path {
+                match std::fs::read(cert) {
+                    Ok(_) => {
+                        checks.push(format!("客户端证书文件存在: {}", cert));
+                        match connector::check_cert_expiry(cert) {
+                            Ok(info) => {
+                                checks.push(format!(
+                                    "客户端证书: subject={}, 过期日期={}, 剩余{}天{}",
+                                    info.subject,
+                                    info.not_after,
+                                    info.days_until_expiry,
+                                    if info.is_expired {
+                                        " ⚠️ 已过期"
+                                    } else {
+                                        ""
                                     }
-                                    Err(e) => {
-                                        checks.push(format!("客户端证书过期检查失败: {}", e))
-                                    }
-                                }
+                                ));
                             }
-                            Err(e) => checks.push(format!("客户端证书文件读取失败 '{}': {}", cert, e)),
+                            Err(e) => checks.push(format!("客户端证书过期检查失败: {}", e)),
                         }
                     }
-                    if let Some(ref key) = cfg.client_key_path {
-                        match std::fs::read(key) {
-                            Ok(_) => checks.push(format!("客户端私钥文件存在: {}", key)),
-                            Err(e) => checks.push(format!("客户端私钥文件读取失败 '{}': {}", key, e)),
-                        }
-                    }
+                    Err(e) => checks.push(format!("客户端证书文件读取失败 '{}': {}", cert, e)),
+                }
+            }
+            if let Some(ref key) = cfg.client_key_path {
+                match std::fs::read(key) {
+                    Ok(_) => checks.push(format!("客户端私钥文件存在: {}", key)),
+                    Err(e) => checks.push(format!("客户端私钥文件读取失败 '{}': {}", key, e)),
+                }
+            }
 
-                    let all_ok = !checks.iter().any(|c| c.contains("失败"));
-                    Ok(TestNetworkConfigResponse {
-                        success: all_ok,
-                        message: if all_ok {
-                            "SSL 证书文件验证通过".to_string()
-                        } else {
-                            "SSL 证书文件验证存在失败项".to_string()
-                        },
-                        response_time_ms: start.elapsed().as_millis() as u32,
-                        detail: Some(checks.join("\n")),
+            let all_ok = !checks.iter().any(|c| c.contains("失败"));
+            Ok(TestNetworkConfigResponse {
+                success: all_ok,
+                message: if all_ok {
+                    "SSL 证书文件验证通过".to_string()
+                } else {
+                    "SSL 证书文件验证存在失败项".to_string()
+                },
+                response_time_ms: start.elapsed().as_millis() as u32,
+                detail: Some(checks.join("\n")),
             })
         }
         "proxy" | "http_proxy" | "socks" | "socks5" => {
-            let proxy_config: ProxyConfig = serde_json::from_str(&net.config).map_err(|e| {
-                CoreError::from(format!("解析代理配置 JSON 失败: {}", e))
-            })?;
+            let proxy_config: ProxyConfig = serde_json::from_str(&net.config)
+                .map_err(|e| CoreError::from(format!("解析代理配置 JSON 失败: {}", e)))?;
 
             let is_socks = net.network_type == "socks" || net.network_type == "socks5";
             let test_host = "127.0.0.1";
@@ -875,7 +880,9 @@ pub async fn snapshot_global_env(
         .ok_or_else(|| CoreError::from(format!("全局环境 {} 不存在", global_env_id)))?;
 
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    let snapshot_id = db_manager.snapshot_environment(&source, &global_env_id).await?;
+    let snapshot_id = db_manager
+        .snapshot_environment(&source, &global_env_id)
+        .await?;
 
     // 复制策略
     let policies = global_db.list_environment_policies(&global_env_id).await?;
@@ -913,7 +920,9 @@ pub async fn snapshot_global_auth(
         .ok_or_else(|| CoreError::from(format!("全局认证配置 {} 不存在", global_auth_id)))?;
 
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    let snapshot_id = db_manager.snapshot_auth_config(&source, &global_auth_id).await?;
+    let snapshot_id = db_manager
+        .snapshot_auth_config(&source, &global_auth_id)
+        .await?;
 
     Ok(SnapshotResult {
         snapshot_id,
@@ -939,7 +948,9 @@ pub async fn snapshot_global_network(
         .ok_or_else(|| CoreError::from(format!("全局网络配置 {} 不存在", global_net_id)))?;
 
     let db_manager = get_project_db_manager(&project_path, &state).await?;
-    let snapshot_id = db_manager.snapshot_network_config(&source, &global_net_id).await?;
+    let snapshot_id = db_manager
+        .snapshot_network_config(&source, &global_net_id)
+        .await?;
 
     Ok(SnapshotResult {
         snapshot_id,

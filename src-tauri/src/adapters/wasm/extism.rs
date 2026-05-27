@@ -69,7 +69,7 @@ impl ExtismPluginManager {
         env_vars: Option<HashMap<String, String>>,
     ) -> Result<PluginMetadata, CoreError> {
         let mut manifest = Manifest::new([Wasm::data(wasm_bytes.to_vec())]);
-        
+
         // 应用配置（如果有）
         if let Some(config) = &config {
             for (key, value) in config {
@@ -100,7 +100,9 @@ impl ExtismPluginManager {
 
         self.plugins
             .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?
+            .map_err(|_| {
+                CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+            })?
             .insert(id.to_string(), managed);
 
         Ok(metadata)
@@ -108,14 +110,13 @@ impl ExtismPluginManager {
 
     /// 激活插件
     pub fn activate_plugin(&self, id: &str) -> Result<(), CoreError> {
-        let mut plugins = self
-            .plugins
-            .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+        let mut plugins = self.plugins.write().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let plugin = plugins
-            .get_mut(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let plugin = plugins.get_mut(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         if plugin.state == PluginState::Active {
             return Ok(());
@@ -132,14 +133,13 @@ impl ExtismPluginManager {
 
     /// 停用插件
     pub fn deactivate_plugin(&self, id: &str) -> Result<(), CoreError> {
-        let mut plugins = self
-            .plugins
-            .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+        let mut plugins = self.plugins.write().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let plugin = plugins
-            .get_mut(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let plugin = plugins.get_mut(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         if plugin.state != PluginState::Active && plugin.state != PluginState::Error {
             return Ok(());
@@ -155,15 +155,18 @@ impl ExtismPluginManager {
     }
 
     /// 热更新插件
-    pub fn hot_reload_plugin(&self, id: &str, new_wasm: &[u8]) -> Result<PluginMetadata, CoreError> {
-        let mut plugins = self
-            .plugins
-            .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+    pub fn hot_reload_plugin(
+        &self,
+        id: &str,
+        new_wasm: &[u8],
+    ) -> Result<PluginMetadata, CoreError> {
+        let mut plugins = self.plugins.write().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let old_plugin = plugins
-            .remove(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let old_plugin = plugins.remove(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         let was_activated = old_plugin.state == PluginState::Active;
 
@@ -187,51 +190,47 @@ impl ExtismPluginManager {
 
         self.plugins
             .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?
+            .map_err(|_| {
+                CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+            })?
             .remove(id);
 
         Ok(())
     }
 
     /// 列出所有插件
-    pub fn list_plugins(&self) -> Vec<(PluginMetadata, PluginState)> {
-        self.plugins
-            .read()
-            .unwrap()
+    pub fn list_plugins(&self) -> Result<Vec<(PluginMetadata, PluginState)>, CoreError> {
+        let plugins = self.plugins.read().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
+        Ok(plugins
             .values()
             .map(|p| (p.metadata.clone(), p.state))
-            .collect()
+            .collect())
     }
 
     /// 获取插件状态
     pub fn get_plugin_state(&self, id: &str) -> Result<PluginState, CoreError> {
-        let plugins = self
-            .plugins
-            .read()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+        let plugins = self.plugins.read().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let plugin = plugins
-            .get(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let plugin = plugins.get(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         Ok(plugin.state)
     }
 
     /// 调用插件函数
-    pub fn call_plugin(
-        &self,
-        id: &str,
-        func: &str,
-        input: &[u8],
-    ) -> Result<Vec<u8>, CoreError> {
-        let mut plugins = self
-            .plugins
-            .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+    pub fn call_plugin(&self, id: &str, func: &str, input: &[u8]) -> Result<Vec<u8>, CoreError> {
+        let mut plugins = self.plugins.write().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let plugin = plugins
-            .get_mut(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let plugin = plugins.get_mut(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         if plugin.state != PluginState::Active {
             return Err(CoreError::common(CommonError::Internal(format!(
@@ -240,10 +239,9 @@ impl ExtismPluginManager {
             ))));
         }
 
-        let plugin_instance = plugin
-            .plugin
-            .as_mut()
-            .ok_or_else(|| CoreError::common(CommonError::Internal("Plugin not initialized".to_string())))?;
+        let plugin_instance = plugin.plugin.as_mut().ok_or_else(|| {
+            CoreError::common(CommonError::Internal("Plugin not initialized".to_string()))
+        })?;
 
         plugin_instance.call(func, input).map_err(|e| {
             plugin.state = PluginState::Error;
@@ -252,15 +250,18 @@ impl ExtismPluginManager {
     }
 
     /// 更新插件配置
-    pub fn update_plugin_config(&self, id: &str, config: HashMap<String, String>) -> Result<(), CoreError> {
-        let mut plugins = self
-            .plugins
-            .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+    pub fn update_plugin_config(
+        &self,
+        id: &str,
+        config: HashMap<String, String>,
+    ) -> Result<(), CoreError> {
+        let mut plugins = self.plugins.write().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let plugin = plugins
-            .get_mut(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let plugin = plugins.get_mut(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         plugin.config = config;
         Ok(())

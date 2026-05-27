@@ -238,8 +238,8 @@ impl ProjectStore {
         // 从旧数据库读取所有连接
         let mut stmt = old_conn
             .prepare(
-                "SELECT id, name, db_type, host, port, database, username, password, 
-                    properties, tags, is_active, created_at, updated_at 
+                "SELECT id, name, db_type, host, port, database, username, password,
+                    properties, tags, is_active, created_at, updated_at
              FROM connections",
             )
             .map_err(|e| {
@@ -296,8 +296,8 @@ impl ProjectStore {
 
             new_conn
                 .execute(
-                    "INSERT OR IGNORE INTO connections 
-                 (id, name, db_type, host, port, database, username, password, 
+                    "INSERT OR IGNORE INTO connections
+                 (id, name, db_type, host, port, database, username, password,
                   properties, tags, is_active, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                     [
@@ -444,7 +444,7 @@ impl ProjectStore {
         })?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO project 
+            "INSERT OR REPLACE INTO project
              (id, name, description, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             [
@@ -570,7 +570,7 @@ impl ProjectStore {
                 comment TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-            
+
             CREATE TABLE IF NOT EXISTS columns (
                 id TEXT PRIMARY KEY,
                 table_id TEXT NOT NULL,
@@ -582,7 +582,7 @@ impl ProjectStore {
                 ordinal_position INTEGER,
                 FOREIGN KEY (table_id) REFERENCES tables(id)
             );
-            
+
             CREATE TABLE IF NOT EXISTS indexes (
                 id TEXT PRIMARY KEY,
                 table_id TEXT NOT NULL,
@@ -591,7 +591,7 @@ impl ProjectStore {
                 is_unique BOOLEAN DEFAULT 0,
                 FOREIGN KEY (table_id) REFERENCES tables(id)
             );
-            
+
             CREATE TABLE IF NOT EXISTS views (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -599,7 +599,7 @@ impl ProjectStore {
                 comment TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-            
+
             CREATE TABLE IF NOT EXISTS functions (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -835,6 +835,7 @@ pub async fn check_project_missing_drivers(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::CoreError;
     use std::path::PathBuf;
 
     fn test_temp_dir(name: &str) -> PathBuf {
@@ -844,7 +845,7 @@ mod tests {
     }
 
     #[test]
-    fn test_project_store_create() {
+    fn test_project_store_create() -> Result<(), CoreError> {
         let project_path = test_temp_dir("create").join("test-project");
 
         let store = ProjectStore::create("Test Project", &project_path).expect("创建项目失败");
@@ -861,29 +862,29 @@ mod tests {
             .exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("config").exists());
         assert!(project_path.join(RS_META_DIR_NAME).join("queries").exists());
+        Ok(())
     }
 
     #[test]
-    fn test_project_store_load() {
+    fn test_project_store_load() -> Result<(), CoreError> {
         let project_path = test_temp_dir("load").join("test-project");
 
         // 先创建
-        let _ = ProjectStore::create("Test Project", &project_path).unwrap();
+        let _ = ProjectStore::create("Test Project", &project_path)?;
 
         // 再加载
-        let store = ProjectStore::load(&project_path).unwrap();
+        let store = ProjectStore::load(&project_path)?;
         assert_eq!(store.info().name, "Test Project");
+        Ok(())
     }
 
     #[test]
-    fn test_project_manager() {
+    fn test_project_manager() -> Result<(), CoreError> {
         let mut manager = ProjectManager::new();
 
         // 创建项目
         let project_path = test_temp_dir("manager").join("managed-project");
-        let _project = manager
-            .create_project("Managed Project", &project_path)
-            .unwrap();
+        let _project = manager.create_project("Managed Project", &project_path)?;
 
         // 验证当前项目
         assert!(manager.current_project().is_some());
@@ -893,7 +894,8 @@ mod tests {
         assert!(manager.current_project().is_none());
 
         // 重新打开
-        let _ = manager.open_project(&project_path).unwrap();
+        let _ = manager.open_project(&project_path)?;
         assert!(manager.current_project().is_some());
+        Ok(())
     }
 }

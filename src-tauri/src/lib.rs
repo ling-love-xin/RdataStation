@@ -98,7 +98,10 @@ pub fn run() {
         eprintln!("ERROR: Plugin loader initialization failed: {}", e);
     }
 
-    tracing::info!("Plugin system initialized with install dir: {:?}", plugin_install_dir);
+    tracing::info!(
+        "Plugin system initialized with install dir: {:?}",
+        plugin_install_dir
+    );
 
     // 阶段2: 数据库就绪后，创建 LogStore 并启动日志消费任务
     // 必须在 Tokio runtime 上下文中调用 spawn_log_consumer（内部使用 tokio::spawn）
@@ -661,50 +664,124 @@ pub fn run() {
         // handler1 覆盖到 get_port_range_info 之前的所有命令
         match cmd.as_str() {
             // handler1 范围的命令（从 connect_database 到 get_port_range_info）
-            | "connect_database" | "get_connections" | "switch_connection"
-            | "close_connection" | "close_all_connections" | "get_active_connection"
-            | "get_recent_connections" | "remove_recent_connection" | "test_connection"
-            | "test_connection_config" | "create_database_file" | "convert_connection_type"
-            | "detect_global_connections_in_project" | "get_global_connections"
-            | "get_data_source_types" | "get_available_drivers" | "get_driver_detail"
-            | "install_driver" | "list_driver_files" | "list_environments"
-            | "create_environment" | "update_environment" | "delete_environment"
-            | "list_environment_policies" | "create_environment_policy"
-            | "update_environment_policy" | "delete_environment_policy"
-            | "list_auth_configs" | "create_auth_config" | "update_auth_config"
-            | "delete_auth_config" | "list_network_configs" | "create_network_config"
-            | "update_network_config" | "delete_network_config" | "test_network_config"
-            | "get_all_drivers_catalog" | "enable_driver_for_project"
-            | "disable_driver_for_project" | "list_enabled_project_drivers"
-            | "project_create_environment" | "project_list_environments"
-            | "project_update_environment" | "project_delete_environment"
-            | "project_create_environment_policy" | "project_list_environment_policies"
-            | "project_update_environment_policy" | "project_delete_environment_policy"
-            | "project_create_auth_config" | "project_list_auth_configs"
-            | "project_delete_auth_config" | "project_update_auth_config"
-            | "project_create_network_config" | "project_list_network_configs"
-            | "project_update_network_config" | "project_delete_network_config"
-            | "snapshot_global_env" | "snapshot_global_auth" | "snapshot_global_network"
-            | "validate_connection_config" | "execute_sql" | "execute_transaction"
-            | "begin_transaction" | "commit_transaction" | "rollback_transaction"
-            | "get_transaction_status" | "get_sql_history" | "search_sql_history"
-            | "clear_sql_history" | "remove_sql_history" | "get_drivers"
-            | "get_driver_info" | "create_connection" | "create_connection_with_config"
-            | "update_connection" | "save_navigator_state" | "load_navigator_state"
-            | "load_databases" | "load_catalogs" | "load_schemas" | "load_tables"
-            | "load_views" | "load_columns" | "load_indexes" | "load_constraints"
-            | "load_procedures" | "load_functions" | "load_routine_source"
-            | "invalidate_metadata_cache" | "get_cache_stats" | "reset_cache_stats"
-            | "set_introspection_level" | "get_introspection_level"
-            | "remove_introspection_level" | "create_project" | "get_project_config"
-            | "update_project_config" | "get_recent_projects" | "add_recent_project"
-            | "open_project_by_id" | "open_project_by_path" | "create_and_save_project"
-            | "validate_project" | "validate_project_full" | "delete_project"
-            | "update_project" | "rename_project" | "get_all_projects"
-            | "remove_from_recent" | "delete_project_disk" | "negotiate_port"
-            | "negotiate_local_port" | "is_port_available" | "release_port"
-            | "negotiate_multiple_ports" | "negotiate_port_range"
-            | "get_common_db_ports" | "get_port_range_info" => h1(invoke),
+            "connect_database"
+            | "get_connections"
+            | "switch_connection"
+            | "close_connection"
+            | "close_all_connections"
+            | "get_active_connection"
+            | "get_recent_connections"
+            | "remove_recent_connection"
+            | "test_connection"
+            | "test_connection_config"
+            | "create_database_file"
+            | "convert_connection_type"
+            | "detect_global_connections_in_project"
+            | "get_global_connections"
+            | "get_data_source_types"
+            | "get_available_drivers"
+            | "get_driver_detail"
+            | "install_driver"
+            | "list_driver_files"
+            | "list_environments"
+            | "create_environment"
+            | "update_environment"
+            | "delete_environment"
+            | "list_environment_policies"
+            | "create_environment_policy"
+            | "update_environment_policy"
+            | "delete_environment_policy"
+            | "list_auth_configs"
+            | "create_auth_config"
+            | "update_auth_config"
+            | "delete_auth_config"
+            | "list_network_configs"
+            | "create_network_config"
+            | "update_network_config"
+            | "delete_network_config"
+            | "test_network_config"
+            | "get_all_drivers_catalog"
+            | "enable_driver_for_project"
+            | "disable_driver_for_project"
+            | "list_enabled_project_drivers"
+            | "project_create_environment"
+            | "project_list_environments"
+            | "project_update_environment"
+            | "project_delete_environment"
+            | "project_create_environment_policy"
+            | "project_list_environment_policies"
+            | "project_update_environment_policy"
+            | "project_delete_environment_policy"
+            | "project_create_auth_config"
+            | "project_list_auth_configs"
+            | "project_delete_auth_config"
+            | "project_update_auth_config"
+            | "project_create_network_config"
+            | "project_list_network_configs"
+            | "project_update_network_config"
+            | "project_delete_network_config"
+            | "snapshot_global_env"
+            | "snapshot_global_auth"
+            | "snapshot_global_network"
+            | "validate_connection_config"
+            | "execute_sql"
+            | "execute_transaction"
+            | "begin_transaction"
+            | "commit_transaction"
+            | "rollback_transaction"
+            | "get_transaction_status"
+            | "get_sql_history"
+            | "search_sql_history"
+            | "clear_sql_history"
+            | "remove_sql_history"
+            | "get_drivers"
+            | "get_driver_info"
+            | "create_connection"
+            | "create_connection_with_config"
+            | "update_connection"
+            | "save_navigator_state"
+            | "load_navigator_state"
+            | "load_databases"
+            | "load_catalogs"
+            | "load_schemas"
+            | "load_tables"
+            | "load_views"
+            | "load_columns"
+            | "load_indexes"
+            | "load_constraints"
+            | "load_procedures"
+            | "load_functions"
+            | "load_routine_source"
+            | "invalidate_metadata_cache"
+            | "get_cache_stats"
+            | "reset_cache_stats"
+            | "set_introspection_level"
+            | "get_introspection_level"
+            | "remove_introspection_level"
+            | "create_project"
+            | "get_project_config"
+            | "update_project_config"
+            | "get_recent_projects"
+            | "add_recent_project"
+            | "open_project_by_id"
+            | "open_project_by_path"
+            | "create_and_save_project"
+            | "validate_project"
+            | "validate_project_full"
+            | "delete_project"
+            | "update_project"
+            | "rename_project"
+            | "get_all_projects"
+            | "remove_from_recent"
+            | "delete_project_disk"
+            | "negotiate_port"
+            | "negotiate_local_port"
+            | "is_port_available"
+            | "release_port"
+            | "negotiate_multiple_ports"
+            | "negotiate_port_range"
+            | "get_common_db_ports"
+            | "get_port_range_info" => h1(invoke),
             // 所有其他命令由 handler2 处理
             _ => h2(invoke),
         }
@@ -714,27 +791,34 @@ pub fn run() {
     #[cfg(debug_assertions)]
     {
         // 使用大栈线程避免 specta 类型图递归导致栈溢出
-        let result = std::thread::Builder::new()
+        match std::thread::Builder::new()
+            .name("specta-export".into())
             .stack_size(32 * 1024 * 1024) // 32 MiB
             .spawn(move || {
                 specta_builder.export(
                     specta_typescript::Typescript::default(),
                     "../src/generated/specta/bindings.ts",
                 )
-            })
-            .expect("Failed to spawn export thread")
-            .join();
-
-        match result {
-            Ok(Ok(())) => { /* bindings.ts 导出成功 */ }
-            Ok(Err(e)) => {
-                eprintln!("[specta] WARNING: Failed to export bindings.ts: {e}");
-                eprintln!("[specta] The app will continue without updated bindings.ts");
+            }) {
+            Ok(handle) => {
+                match handle.join() {
+                    Ok(Ok(())) => { /* bindings.ts 导出成功 */ }
+                    Ok(Err(e)) => {
+                        eprintln!("[specta] WARNING: Failed to export bindings.ts: {e}");
+                        eprintln!("[specta] The app will continue without updated bindings.ts");
+                    }
+                    Err(_panic) => {
+                        eprintln!(
+                            "[specta] WARNING: Export thread panicked (likely stack overflow)"
+                        );
+                        eprintln!("[specta] The app will continue without updated bindings.ts");
+                        eprintln!("[specta] Try reducing the number of commands in specta_builder");
+                    }
+                }
             }
-            Err(_panic) => {
-                eprintln!("[specta] WARNING: Export thread panicked (likely stack overflow)");
+            Err(e) => {
+                eprintln!("[specta] WARNING: Failed to spawn export thread: {e}");
                 eprintln!("[specta] The app will continue without updated bindings.ts");
-                eprintln!("[specta] Try reducing the number of commands in specta_builder");
             }
         }
     }

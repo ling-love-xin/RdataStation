@@ -7,8 +7,8 @@ use crate::core::cache::CacheManager;
 use crate::core::error::{CacheError, CommonError, CoreError};
 use crate::core::get_connection_manager;
 use crate::core::persistence::metadata_cache::{MetadataCacheManager, MetadataCacheOps};
-use crate::core::types::{FunctionMeta, ProcedureMeta, RoutineSourceMeta};
 use crate::core::services::MetadataService;
+use crate::core::types::{FunctionMeta, ProcedureMeta, RoutineSourceMeta};
 
 use crate::core::driver::{get_level, remove_level, set_level, IntrospectionLevel};
 
@@ -235,13 +235,15 @@ fn write_l2_tables_after_load(
     if let Ok(mut ops) = open_l2_cache_for_write(conn_id, connection_type, project_path) {
         let batch: Vec<(String, String, String, String, Option<String>)> = tables
             .iter()
-            .map(|t| (
-                database.to_string(),
-                schema_name.to_string(),
-                t.name.clone(),
-                t.table_type.clone(),
-                None::<String>,
-            ))
+            .map(|t| {
+                (
+                    database.to_string(),
+                    schema_name.to_string(),
+                    t.name.clone(),
+                    t.table_type.clone(),
+                    None::<String>,
+                )
+            })
             .collect();
         let _ = ops.save_tables_batch(batch);
     }
@@ -256,21 +258,37 @@ fn write_l2_columns_after_load(
     table_name: &str,
     columns: &[ColumnMeta],
 ) {
-    type ColumnBatchEntry = (String, String, String, String, String, String, bool, bool, bool);
+    type ColumnBatchEntry = (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        bool,
+        bool,
+        bool,
+    );
     if let Ok(mut ops) = open_l2_cache_for_write(conn_id, connection_type, project_path) {
         let batch: Vec<ColumnBatchEntry> = columns
             .iter()
-            .map(|c| (
-                database.to_string(),
-                schema_name.to_string(),
-                table_name.to_string(),
-                c.name.clone(),
-                c.data_type.clone(),
-                if c.is_nullable { "YES".to_string() } else { "NO".to_string() },
-                c.is_primary_key,
-                c.is_foreign_key,
-                false,
-            ))
+            .map(|c| {
+                (
+                    database.to_string(),
+                    schema_name.to_string(),
+                    table_name.to_string(),
+                    c.name.clone(),
+                    c.data_type.clone(),
+                    if c.is_nullable {
+                        "YES".to_string()
+                    } else {
+                        "NO".to_string()
+                    },
+                    c.is_primary_key,
+                    c.is_foreign_key,
+                    false,
+                )
+            })
             .collect();
         let _ = ops.save_columns_batch(batch);
     }
@@ -311,7 +329,8 @@ fn write_l2_constraints_after_load(
     constraints: Vec<crate::core::driver::ConstraintDetail>,
 ) {
     if let Ok(mut ops) = open_l2_cache_for_write(conn_id, connection_type, project_path) {
-        let _ = ops.save_constraints_for_table(conn_id, database, schema_name, table_name, constraints);
+        let _ =
+            ops.save_constraints_for_table(conn_id, database, schema_name, table_name, constraints);
     }
 }
 
@@ -383,7 +402,10 @@ pub async fn load_databases(
     if let Some(names) = cached {
         L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
         L1_HIT_TIME_US.fetch_add(t0.elapsed().as_micros() as u64, Ordering::Relaxed);
-        return Ok(names.into_iter().map(|name| DatabaseMeta { name }).collect());
+        return Ok(names
+            .into_iter()
+            .map(|name| DatabaseMeta { name })
+            .collect());
     }
     L1_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
 
@@ -407,7 +429,10 @@ pub async fn load_databases(
 
     let _ = write_l1_cache(|mc| mc.set_catalogs(&conn_id, names.clone()));
 
-    Ok(names.into_iter().map(|name| DatabaseMeta { name }).collect())
+    Ok(names
+        .into_iter()
+        .map(|name| DatabaseMeta { name })
+        .collect())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -424,7 +449,10 @@ pub async fn load_catalogs(
 ) -> Result<Vec<CatalogMeta>, CoreError> {
     let cached = check_l1_cache(|mc| mc.get_catalogs(&conn_id))?;
     if let Some(databases) = cached {
-        return Ok(databases.into_iter().map(|name| CatalogMeta { name }).collect());
+        return Ok(databases
+            .into_iter()
+            .map(|name| CatalogMeta { name })
+            .collect());
     }
 
     let ct = connection_type.as_deref().unwrap_or("global");
@@ -432,7 +460,10 @@ pub async fn load_catalogs(
     if let Ok(Some(databases)) = try_l2_databases(&conn_id, ct, pp) {
         let names: Vec<String> = databases.iter().map(|d| d.name.clone()).collect();
         let _ = write_l1_cache(|mc| mc.set_catalogs(&conn_id, names));
-        return Ok(databases.into_iter().map(|d| CatalogMeta { name: d.name }).collect());
+        return Ok(databases
+            .into_iter()
+            .map(|d| CatalogMeta { name: d.name })
+            .collect());
     }
 
     let service = new_metadata_service();
@@ -485,7 +516,10 @@ pub async fn load_tables(
     if let Some(objects) = cached {
         return Ok(objects
             .into_iter()
-            .map(|obj| TableMeta { name: obj.name, table_type: "TABLE".to_string() })
+            .map(|obj| TableMeta {
+                name: obj.name,
+                table_type: "TABLE".to_string(),
+            })
             .collect());
     }
 
@@ -506,13 +540,19 @@ pub async fn load_tables(
     }
 
     let service = new_metadata_service();
-    let objects = service.list_tables(&conn_id, &db_name, &schema_name).await?;
+    let objects = service
+        .list_tables(&conn_id, &db_name, &schema_name)
+        .await?;
 
-    let _ = write_l1_cache(|mc| mc.set_tables(&conn_id, &db_name, Some(&schema_name), objects.clone()));
+    let _ =
+        write_l1_cache(|mc| mc.set_tables(&conn_id, &db_name, Some(&schema_name), objects.clone()));
 
     let table_metas: Vec<TableMeta> = objects
         .iter()
-        .map(|obj| TableMeta { name: obj.name.clone(), table_type: "TABLE".to_string() })
+        .map(|obj| TableMeta {
+            name: obj.name.clone(),
+            table_type: "TABLE".to_string(),
+        })
         .collect();
     write_l2_tables_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_metas);
 
@@ -533,7 +573,10 @@ pub async fn load_views(
         return Ok(objects
             .into_iter()
             .filter(|obj| matches!(obj.kind, crate::core::driver::SchemaObjectKind::View))
-            .map(|obj| ViewMeta { name: obj.name, view_type: "VIEW".to_string() })
+            .map(|obj| ViewMeta {
+                name: obj.name,
+                view_type: "VIEW".to_string(),
+            })
             .collect());
     }
 
@@ -557,14 +600,20 @@ pub async fn load_views(
         return Ok(tables
             .into_iter()
             .filter(|t| t.table_type.to_uppercase() == "VIEW")
-            .map(|t| ViewMeta { name: t.name, view_type: "VIEW".to_string() })
+            .map(|t| ViewMeta {
+                name: t.name,
+                view_type: "VIEW".to_string(),
+            })
             .collect());
     }
 
     let service = new_metadata_service();
-    let objects = service.list_tables(&conn_id, &db_name, &schema_name).await?;
+    let objects = service
+        .list_tables(&conn_id, &db_name, &schema_name)
+        .await?;
 
-    let _ = write_l1_cache(|mc| mc.set_tables(&conn_id, &db_name, Some(&schema_name), objects.clone()));
+    let _ =
+        write_l1_cache(|mc| mc.set_tables(&conn_id, &db_name, Some(&schema_name), objects.clone()));
 
     let table_metas: Vec<TableMeta> = objects
         .iter()
@@ -582,7 +631,10 @@ pub async fn load_views(
     Ok(objects
         .into_iter()
         .filter(|obj| matches!(obj.kind, crate::core::driver::SchemaObjectKind::View))
-        .map(|obj| ViewMeta { name: obj.name, view_type: "VIEW".to_string() })
+        .map(|obj| ViewMeta {
+            name: obj.name,
+            view_type: "VIEW".to_string(),
+        })
         .collect())
 }
 
@@ -616,7 +668,8 @@ pub async fn load_columns(
 
     let ct = connection_type.as_deref().unwrap_or("global");
     let pp = project_path.as_deref();
-    if let Ok(Some(columns)) = try_l2_columns(&conn_id, ct, pp, &db_name, &schema_name, &table_name) {
+    if let Ok(Some(columns)) = try_l2_columns(&conn_id, ct, pp, &db_name, &schema_name, &table_name)
+    {
         let details: Vec<crate::core::driver::ColumnDetail> = columns
             .iter()
             .map(|c| crate::core::driver::ColumnDetail {
@@ -637,7 +690,9 @@ pub async fn load_columns(
     }
 
     let service = new_metadata_service();
-    let columns_detail = service.list_columns(&conn_id, &db_name, &schema_name, &table_name).await?;
+    let columns_detail = service
+        .list_columns(&conn_id, &db_name, &schema_name, &table_name)
+        .await?;
 
     let column_metas: Vec<ColumnMeta> = columns_detail
         .iter()
@@ -653,10 +708,24 @@ pub async fn load_columns(
         .collect();
 
     let _ = write_l1_cache(|mc| {
-        mc.set_columns_detail(&conn_id, &db_name, Some(&schema_name), &table_name, columns_detail)
+        mc.set_columns_detail(
+            &conn_id,
+            &db_name,
+            Some(&schema_name),
+            &table_name,
+            columns_detail,
+        )
     });
 
-    write_l2_columns_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_name, &column_metas);
+    write_l2_columns_after_load(
+        &conn_id,
+        ct,
+        pp,
+        &db_name,
+        &schema_name,
+        &table_name,
+        &column_metas,
+    );
 
     Ok(column_metas)
 }
@@ -670,17 +739,25 @@ pub async fn load_procedures(
 ) -> Result<Vec<ProcedureMeta>, CoreError> {
     let cached = check_l1_cache(|mc| mc.get_procedures(&conn_id, &db_name, Some(&schema_name)))?;
     if let Some(objects) = cached {
-        return Ok(objects.into_iter().map(|obj| ProcedureMeta { name: obj.name }).collect());
+        return Ok(objects
+            .into_iter()
+            .map(|obj| ProcedureMeta { name: obj.name })
+            .collect());
     }
 
     let service = new_metadata_service();
-    let objects = service.list_procedures(&conn_id, &db_name, &schema_name).await?;
+    let objects = service
+        .list_procedures(&conn_id, &db_name, &schema_name)
+        .await?;
 
     let _ = write_l1_cache(|mc| {
         mc.set_procedures(&conn_id, &db_name, Some(&schema_name), objects.clone())
     });
 
-    Ok(objects.into_iter().map(|obj| ProcedureMeta { name: obj.name }).collect())
+    Ok(objects
+        .into_iter()
+        .map(|obj| ProcedureMeta { name: obj.name })
+        .collect())
 }
 
 #[tauri::command]
@@ -692,17 +769,25 @@ pub async fn load_functions(
 ) -> Result<Vec<FunctionMeta>, CoreError> {
     let cached = check_l1_cache(|mc| mc.get_functions(&conn_id, &db_name, Some(&schema_name)))?;
     if let Some(objects) = cached {
-        return Ok(objects.into_iter().map(|obj| FunctionMeta { name: obj.name }).collect());
+        return Ok(objects
+            .into_iter()
+            .map(|obj| FunctionMeta { name: obj.name })
+            .collect());
     }
 
     let service = new_metadata_service();
-    let objects = service.list_functions(&conn_id, &db_name, &schema_name).await?;
+    let objects = service
+        .list_functions(&conn_id, &db_name, &schema_name)
+        .await?;
 
     let _ = write_l1_cache(|mc| {
         mc.set_functions(&conn_id, &db_name, Some(&schema_name), objects.clone())
     });
 
-    Ok(objects.into_iter().map(|obj| FunctionMeta { name: obj.name }).collect())
+    Ok(objects
+        .into_iter()
+        .map(|obj| FunctionMeta { name: obj.name })
+        .collect())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -743,9 +828,21 @@ impl CacheStats {
             l1_hit_avg_us: (l1_hit_time.checked_div(l1_hits).unwrap_or(0)) as u32,
             l2_hit_avg_us: (l2_hit_time.checked_div(l2_hits).unwrap_or(0)) as u32,
             db_query_avg_us: (db_query_time.checked_div(db_queries).unwrap_or(0)) as u32,
-            l1_hit_rate: if l1_total > 0 { l1_hits as f64 / l1_total as f64 } else { 0.0 },
-            l2_hit_rate: if l2_total > 0 { l2_hits as f64 / l2_total as f64 } else { 0.0 },
-            overall_hit_rate: if l1_total > 0 { (l1_hits + l2_hits) as f64 / l1_total as f64 } else { 0.0 },
+            l1_hit_rate: if l1_total > 0 {
+                l1_hits as f64 / l1_total as f64
+            } else {
+                0.0
+            },
+            l2_hit_rate: if l2_total > 0 {
+                l2_hits as f64 / l2_total as f64
+            } else {
+                0.0
+            },
+            overall_hit_rate: if l1_total > 0 {
+                (l1_hits + l2_hits) as f64 / l1_total as f64
+            } else {
+                0.0
+            },
         }
     }
 }
@@ -781,10 +878,20 @@ pub async fn load_routine_source(
 ) -> Result<RoutineSourceMeta, CoreError> {
     let kind_str = routine_kind.clone();
     let cached = check_l1_cache(|mc| {
-        mc.get_routine_source(&conn_id, &db_name, Some(&schema_name), &routine_name, &routine_kind)
+        mc.get_routine_source(
+            &conn_id,
+            &db_name,
+            Some(&schema_name),
+            &routine_name,
+            &routine_kind,
+        )
     })?;
     if let Some(source) = cached {
-        return Ok(RoutineSourceMeta { name: routine_name, routine_kind: kind_str, source_code: Some(source) });
+        return Ok(RoutineSourceMeta {
+            name: routine_name,
+            routine_kind: kind_str,
+            source_code: Some(source),
+        });
     }
 
     let service = new_metadata_service();
@@ -794,20 +901,36 @@ pub async fn load_routine_source(
         _ => {
             return Err(CoreError::common(CommonError::invalid_argument(
                 "routine_kind",
-                format!("Unknown routine kind: {}. Expected 'procedure' or 'function'", routine_kind),
+                format!(
+                    "Unknown routine kind: {}. Expected 'procedure' or 'function'",
+                    routine_kind
+                ),
             )))
         }
     };
 
-    let source = service.get_routine_source(&conn_id, &db_name, &schema_name, &routine_name, kind).await?;
+    let source = service
+        .get_routine_source(&conn_id, &db_name, &schema_name, &routine_name, kind)
+        .await?;
 
     if let Some(ref src) = source {
         let _ = write_l1_cache(|mc| {
-            mc.set_routine_source(&conn_id, &db_name, Some(&schema_name), &routine_name, &routine_kind, src.clone())
+            mc.set_routine_source(
+                &conn_id,
+                &db_name,
+                Some(&schema_name),
+                &routine_name,
+                &routine_kind,
+                src.clone(),
+            )
         });
     }
 
-    Ok(RoutineSourceMeta { name: routine_name, routine_kind, source_code: source })
+    Ok(RoutineSourceMeta {
+        name: routine_name,
+        routine_kind,
+        source_code: source,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -837,9 +960,8 @@ pub async fn load_indexes(
     connection_type: Option<String>,
     project_path: Option<String>,
 ) -> Result<Vec<IndexMeta>, CoreError> {
-    let cached = check_l1_cache(|mc| {
-        mc.get_indexes(&conn_id, &db_name, Some(&schema_name), &table_name)
-    })?;
+    let cached =
+        check_l1_cache(|mc| mc.get_indexes(&conn_id, &db_name, Some(&schema_name), &table_name))?;
     if let Some(indexes) = cached {
         return Ok(indexes
             .into_iter()
@@ -859,7 +981,9 @@ pub async fn load_indexes(
     let pp = project_path.as_deref();
 
     let service = new_metadata_service();
-    let indexes = service.list_indexes(&conn_id, &db_name, &schema_name, &table_name).await?;
+    let indexes = service
+        .list_indexes(&conn_id, &db_name, &schema_name, &table_name)
+        .await?;
 
     let index_metas: Vec<IndexMeta> = indexes
         .iter()
@@ -875,10 +999,24 @@ pub async fn load_indexes(
         .collect();
 
     let _ = write_l1_cache(|mc| {
-        mc.set_indexes(&conn_id, &db_name, Some(&schema_name), &table_name, indexes.clone())
+        mc.set_indexes(
+            &conn_id,
+            &db_name,
+            Some(&schema_name),
+            &table_name,
+            indexes.clone(),
+        )
     });
 
-    write_l2_indexes_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_name, indexes);
+    write_l2_indexes_after_load(
+        &conn_id,
+        ct,
+        pp,
+        &db_name,
+        &schema_name,
+        &table_name,
+        indexes,
+    );
 
     Ok(index_metas)
 }
@@ -935,7 +1073,9 @@ pub async fn load_constraints(
     let pp = project_path.as_deref();
 
     let service = new_metadata_service();
-    let constraints = service.list_constraints(&conn_id, &db_name, &schema_name, &table_name).await?;
+    let constraints = service
+        .list_constraints(&conn_id, &db_name, &schema_name, &table_name)
+        .await?;
 
     let constraint_metas: Vec<ConstraintMeta> = constraints
         .iter()
@@ -952,10 +1092,24 @@ pub async fn load_constraints(
         .collect();
 
     let _ = write_l1_cache(|mc| {
-        mc.set_constraints(&conn_id, &db_name, Some(&schema_name), &table_name, constraints.clone())
+        mc.set_constraints(
+            &conn_id,
+            &db_name,
+            Some(&schema_name),
+            &table_name,
+            constraints.clone(),
+        )
     });
 
-    write_l2_constraints_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_name, constraints);
+    write_l2_constraints_after_load(
+        &conn_id,
+        ct,
+        pp,
+        &db_name,
+        &schema_name,
+        &table_name,
+        constraints,
+    );
 
     Ok(constraint_metas)
 }

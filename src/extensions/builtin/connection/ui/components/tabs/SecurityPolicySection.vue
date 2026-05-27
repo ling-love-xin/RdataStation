@@ -55,8 +55,8 @@ defineEmits<{
   'update:ddlConfirm': [value: boolean]
   'update:autocommit': [value: boolean]
   'update:dropPolicy': [value: string]
-  'update:rowLimit': [value: number]
-  'update:sizeLimit': [value: number]
+  'update:rowLimit': [value: number | null]
+  'update:sizeLimit': [value: number | null]
   override: []
 }>()
 </script>

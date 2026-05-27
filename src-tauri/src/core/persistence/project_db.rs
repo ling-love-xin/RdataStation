@@ -489,7 +489,10 @@ impl ProjectDatabaseManager {
     ) -> Result<env_store::Environment, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let id = format!("P_env_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let id = format!(
+            "P_env_{}",
+            uuid::Uuid::new_v4().to_string().replace('-', "")
+        );
         let now = chrono::Utc::now().to_rfc3339();
         let env = env_store::Environment {
             id: id.clone(),
@@ -634,7 +637,10 @@ impl ProjectDatabaseManager {
     ) -> Result<auth_store::AuthConfig, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let id = format!("P_auth_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let id = format!(
+            "P_auth_{}",
+            uuid::Uuid::new_v4().to_string().replace('-', "")
+        );
         let now = chrono::Utc::now().to_rfc3339();
         let ac = auth_store::AuthConfig {
             id: id.clone(),
@@ -704,7 +710,10 @@ impl ProjectDatabaseManager {
     ) -> Result<network_store::NetworkConfig, CoreError> {
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let id = format!("P_net_{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
+        let id = format!(
+            "P_net_{}",
+            uuid::Uuid::new_v4().to_string().replace('-', "")
+        );
         let now = chrono::Utc::now().to_rfc3339();
         let nc = network_store::NetworkConfig {
             id: id.clone(),
@@ -804,7 +813,8 @@ impl ProjectDatabaseManager {
 
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let snapshot_id = id_prefix::generate_gpid("auth", source.name.as_deref().unwrap_or("unnamed"));
+        let snapshot_id =
+            id_prefix::generate_gpid("auth", source.name.as_deref().unwrap_or("unnamed"));
         let now = chrono::Utc::now().to_rfc3339();
 
         let snapshot = auth_store::AuthConfig {
@@ -832,7 +842,8 @@ impl ProjectDatabaseManager {
 
         let sqlite = self.sqlite_pool.acquire().await?;
         let conn = sqlite.inner()?;
-        let snapshot_id = id_prefix::generate_gpid("net", source.name.as_deref().unwrap_or("unnamed"));
+        let snapshot_id =
+            id_prefix::generate_gpid("net", source.name.as_deref().unwrap_or("unnamed"));
         let now = chrono::Utc::now().to_rfc3339();
 
         let snapshot = network_store::NetworkConfig {

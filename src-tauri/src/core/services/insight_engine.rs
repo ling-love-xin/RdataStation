@@ -360,7 +360,7 @@ fn compute_datetime_stats(
     Ok(ColumnStatsDetail::DateTime(DateTimeStats {
         earliest,
         latest,
-        span_days: span as i32,
+        span_days: span,
         monthly_distribution,
     }))
 }
@@ -558,19 +558,52 @@ pub(crate) fn list_insight_rules(
     Ok(result)
 }
 
+/// Lists rules applicable to a given column type (e.g. "numeric", "text",
+/// "Any"). Uses the registry's column-type index for fast filtering.
+pub(crate) fn list_rules_for_column(
+    column_type: &str,
+) -> Result<Vec<serde_json::Value>, CoreError> {
+    let registry = insight::global_registry().read().map_err(|e| {
+        CoreError::common(CommonError::General(format!(
+            "Failed to lock insight registry: {}",
+            e
+        )))
+    })?;
+    let result: Vec<serde_json::Value> = registry
+        .rules_for_column_type(column_type)
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.meta.id,
+                "name": r.meta.name,
+                "category": r.meta.category,
+                "applies_to": r.meta.applies_to,
+                "parameters": r.query.parameters,
+            })
+        })
+        .collect();
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::services::quality_scorer;
 
-    fn setup_test_table(conn: &duckdb::Connection) -> (&str, &str) {
+    fn duckdb_err(e: duckdb::Error) -> CoreError {
+        CoreError::common(CommonError::General(e.to_string()))
+    }
+
+    fn setup_test_table(
+        conn: &duckdb::Connection,
+    ) -> Result<(&'static str, &'static str), CoreError> {
         let table = "rs_test_insight";
         let col = "amount";
         conn.execute_batch(&format!(
             "CREATE TABLE \"{}\" (\"{}\" DOUBLE, name VARCHAR, created_date DATE, is_active BOOLEAN)",
             table, col
         ))
-        .expect("create test table");
+        .map_err(duckdb_err)?;
         conn.execute_batch(&format!(
             "INSERT INTO \"{}\" VALUES \
              (100.0, 'Alice', '2025-01-15', true), \
@@ -585,18 +618,18 @@ mod tests {
              (450.0, 'Judy', '2025-08-25', true)",
             table
         ))
-        .expect("insert test data");
+        .map_err(duckdb_err)?;
 
         let _ = crate::core::insight::global_registry();
-        (table, col)
+        Ok((table, col))
     }
 
     #[test]
-    fn test_get_column_stats_numeric() {
-        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
-        let (table, col) = setup_test_table(&conn);
+    fn test_get_column_stats_numeric() -> Result<(), CoreError> {
+        let conn = duckdb::Connection::open_in_memory().map_err(duckdb_err)?;
+        let (table, col) = setup_test_table(&conn)?;
 
-        let stats = get_column_stats_internal(&conn, table, col).expect("get column stats");
+        let stats = get_column_stats_internal(&conn, table, col)?;
 
         assert_eq!(stats.column_name, col);
         assert_eq!(stats.total_count, 10);
@@ -609,6 +642,7 @@ mod tests {
                 assert!(n.min > 0.0);
                 assert!(n.max > n.min);
                 assert!(n.avg > n.min && n.avg < n.max);
+                Ok(())
             }
             other => panic!(
                 "Expected Numeric stats, got: {:?}",
@@ -618,30 +652,31 @@ mod tests {
     }
 
     #[test]
-    fn test_get_column_stats_all_null() {
-        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+    fn test_get_column_stats_all_null() -> Result<(), CoreError> {
+        let conn = duckdb::Connection::open_in_memory().map_err(duckdb_err)?;
         conn.execute_batch("CREATE TABLE \"rs_null\" (\"col\" DOUBLE)")
-            .expect("create");
+            .map_err(duckdb_err)?;
         conn.execute_batch("INSERT INTO \"rs_null\" VALUES (null), (null)")
-            .expect("insert");
+            .map_err(duckdb_err)?;
 
-        let stats = get_column_stats_internal(&conn, "rs_null", "col").expect("get stats");
+        let stats = get_column_stats_internal(&conn, "rs_null", "col")?;
         assert_eq!(stats.total_count, 2);
         assert_eq!(stats.null_count, 2);
         assert_eq!(stats.null_rate, 1.0);
+        Ok(())
     }
 
     #[test]
-    fn test_get_column_stats_text() {
-        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+    fn test_get_column_stats_text() -> Result<(), CoreError> {
+        let conn = duckdb::Connection::open_in_memory().map_err(duckdb_err)?;
         conn.execute_batch("CREATE TABLE \"rs_text\" (\"name\" VARCHAR)")
-            .expect("create");
+            .map_err(duckdb_err)?;
         conn.execute_batch(
             "INSERT INTO \"rs_text\" VALUES ('Alice'), ('Bob'), ('Alice'), ('Charlie'), ('Bob')",
         )
-        .expect("insert");
+        .map_err(duckdb_err)?;
 
-        let stats = get_column_stats_internal(&conn, "rs_text", "name").expect("get stats");
+        let stats = get_column_stats_internal(&conn, "rs_text", "name")?;
 
         assert_eq!(stats.total_count, 5);
         assert_eq!(stats.null_count, 0);
@@ -652,22 +687,23 @@ mod tests {
                 assert!(!t.top_values.is_empty());
                 assert!(t.min_length > 0);
                 assert!(t.max_length >= t.min_length);
+                Ok(())
             }
             _other => panic!("Expected Text stats, got variant"),
         }
     }
 
     #[test]
-    fn test_get_column_stats_boolean() {
-        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
+    fn test_get_column_stats_boolean() -> Result<(), CoreError> {
+        let conn = duckdb::Connection::open_in_memory().map_err(duckdb_err)?;
         conn.execute_batch("CREATE TABLE \"rs_bool\" (\"active\" BOOLEAN)")
-            .expect("create");
+            .map_err(duckdb_err)?;
         conn.execute_batch(
             "INSERT INTO \"rs_bool\" VALUES (true), (true), (false), (true), (null)",
         )
-        .expect("insert");
+        .map_err(duckdb_err)?;
 
-        let stats = get_column_stats_internal(&conn, "rs_bool", "active").expect("get stats");
+        let stats = get_column_stats_internal(&conn, "rs_bool", "active")?;
 
         assert_eq!(stats.total_count, 5);
         assert_eq!(stats.null_count, 1);
@@ -677,18 +713,20 @@ mod tests {
                 assert_eq!(b.true_count, 3);
                 assert_eq!(b.false_count, 1);
                 assert!((b.true_ratio - 0.75).abs() < 0.01);
+                Ok(())
             }
             _other => panic!("Expected Boolean stats, got variant"),
         }
     }
 
     #[test]
-    fn test_get_column_sample_returns_limit_5() {
-        let conn = duckdb::Connection::open_in_memory().expect("open duckdb");
-        let (table, col) = setup_test_table(&conn);
+    fn test_get_column_sample_returns_limit_5() -> Result<(), CoreError> {
+        let conn = duckdb::Connection::open_in_memory().map_err(duckdb_err)?;
+        let (table, col) = setup_test_table(&conn)?;
 
-        let sample = get_column_sample_internal(&conn, table, col).expect("get sample");
+        let sample = get_column_sample_internal(&conn, table, col)?;
         assert!(sample.len() <= 5, "sample should be at most 5 rows");
+        Ok(())
     }
 
     #[test]
@@ -850,50 +888,25 @@ mod tests {
     }
 
     #[test]
-    fn test_list_insight_rules_all() {
-        let rules = list_insight_rules(None).expect("list rules");
+    fn test_list_insight_rules_all() -> Result<(), CoreError> {
+        let rules = list_insight_rules(None)?;
         assert!(!rules.is_empty(), "built-in rules should exist");
         for rule in &rules {
             assert!(rule["id"].is_string(), "every rule should have an id");
             assert!(rule["name"].is_string(), "every rule should have a name");
         }
+        Ok(())
     }
 
     #[test]
-    fn test_list_rules_for_numeric_column() {
-        let rules = list_rules_for_column("numeric").expect("list numeric rules");
+    fn test_list_rules_for_numeric_column() -> Result<(), CoreError> {
+        let rules = list_rules_for_column("numeric")?;
         assert!(!rules.is_empty(), "should have numeric rules");
         let ids: Vec<&str> = rules.iter().filter_map(|r| r["id"].as_str()).collect();
         assert!(
             ids.contains(&"numeric-stats"),
             "should contain numeric-stats"
         );
+        Ok(())
     }
-}
-
-/// Lists rules applicable to a given column type (e.g. "numeric", "text",
-/// "Any"). Uses the registry's column-type index for fast filtering.
-pub(crate) fn list_rules_for_column(
-    column_type: &str,
-) -> Result<Vec<serde_json::Value>, CoreError> {
-    let registry = insight::global_registry().read().map_err(|e| {
-        CoreError::common(CommonError::General(format!(
-            "Failed to lock insight registry: {}",
-            e
-        )))
-    })?;
-    let result: Vec<serde_json::Value> = registry
-        .rules_for_column_type(column_type)
-        .iter()
-        .map(|r| {
-            serde_json::json!({
-                "id": r.meta.id,
-                "name": r.meta.name,
-                "category": r.meta.category,
-                "applies_to": r.meta.applies_to,
-                "parameters": r.query.parameters,
-            })
-        })
-        .collect();
-    Ok(result)
 }

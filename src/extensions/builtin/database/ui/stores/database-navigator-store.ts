@@ -14,7 +14,6 @@ import {
   getTablesFromCache,
   saveTablesBatchToCache,
   saveColumnsBatchToCache,
-  generateStableCacheId,
 } from '../services/metadata-cache-service'
 
 import type { IntrospectionLevel } from '../api/database-api'
@@ -383,7 +382,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       )
 
       const tableInputs: TableInput[] = merged.map(t => ({
-        id: generateStableCacheId(connectionId, catalogName, schemaName, t.name),
+        id: `${connectionId}:${catalogName}:${schemaName}:${t.name}`,
         name: t.name,
         comment: undefined,
       }))
@@ -393,10 +392,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           await saveTablesBatchToCache(
             connectionId,
             connType,
+            projectPath,
             catalogName,
             schemaName,
-            tableInputs,
-            projectPath
+            tableInputs
           )
         } catch (err) {
           console.warn('保存表缓存失败（非致命）:', err)
@@ -619,7 +618,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         default_value: string | undefined
         is_primary_key: boolean
       }) => ({
-        id: generateStableCacheId(connectionId, catalogName, schemaName, tableName, col.name),
+        id: `${connectionId}:${catalogName}:${schemaName}:${tableName}:${col.name}`,
         name: col.name,
         data_type: col.data_type,
         is_nullable: col.nullable,
@@ -633,11 +632,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         await saveColumnsBatchToCache(
           connectionId,
           connType,
+          projectPath,
           catalogName,
           schemaName,
           tableName,
-          columnInputs,
-          projectPath
+          columnInputs
         )
       } catch (err) {
         console.warn('保存列缓存失败（非致命）:', err)
@@ -698,13 +697,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     const connType = connectionTypes.value.get(connectionId) || 'global'
     const projectPath = connectionProjectPaths.value.get(connectionId)
 
-    await clearMetadataCache(
-      connectionId,
-      connType,
-      catalogName || 'all',
-      schemaName,
-      projectPath
-    ).catch(() => {})
+    await clearMetadataCache({
+      connection_id: connectionId,
+      connection_type: connType,
+      database_name: catalogName || 'all',
+      schema_name: schemaName,
+      project_path: projectPath,
+    }).catch(() => {})
 
     clearCache(connectionId)
 

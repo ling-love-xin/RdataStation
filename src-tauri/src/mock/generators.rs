@@ -15,9 +15,9 @@ pub(super) fn generate_cell(
         GeneratorConfig::AutoIncrement { start, step } => {
             (*start as i64 + (row_index as i64) * *step as i64).to_string()
         }
-        GeneratorConfig::RandomInt { min, max } => {
-            (*min as i64..=*max as i64).fake_with_rng::<i64, _>(rng).to_string()
-        }
+        GeneratorConfig::RandomInt { min, max } => (*min as i64..=*max as i64)
+            .fake_with_rng::<i64, _>(rng)
+            .to_string(),
         GeneratorConfig::RandomFloat {
             min,
             max,

@@ -66,12 +66,7 @@ pub fn snapshot_environment(
             params![global_env_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
-        .map_err(|e| {
-            storage_err(
-                "snapshot_environment",
-                format!("读取全局环境失败: {}", e),
-            )
-        })?;
+        .map_err(|e| storage_err("snapshot_environment", format!("读取全局环境失败: {}", e)))?;
 
     project_conn
         .execute(
@@ -256,12 +251,7 @@ pub fn check_sync_status(
             params![snapshot_id],
             |row| row.get(0),
         )
-        .map_err(|e| {
-            storage_err(
-                "check_sync_status",
-                format!("读取项目快照时间失败: {}", e),
-            )
-        })?;
+        .map_err(|e| storage_err("check_sync_status", format!("读取项目快照时间失败: {}", e)))?;
 
     let global_updated_at: Option<String> = global_conn
         .query_row(

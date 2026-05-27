@@ -143,6 +143,7 @@ pub struct TargetStat {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::CoreError;
 
     #[test]
     fn test_log_level_from_str_all_variants() {
@@ -162,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn test_log_level_as_str_roundtrip() {
+    fn test_log_level_as_str_roundtrip() -> Result<(), CoreError> {
         for original in &[
             LogLevel::Trace,
             LogLevel::Debug,
@@ -171,9 +172,11 @@ mod tests {
             LogLevel::Error,
         ] {
             let s = original.as_str();
-            let parsed = LogLevel::parse_level(s).unwrap();
+            let parsed = LogLevel::parse_level(s)
+                .ok_or_else(|| CoreError::from(format!("failed to parse level: {}", s)))?;
             assert_eq!(*original, parsed);
         }
+        Ok(())
     }
 
     #[test]
@@ -209,7 +212,7 @@ mod tests {
             total: 125,
             page: 1,
             page_size: 50,
-            total_pages: (125 + 50 - 1) / 50,
+            total_pages: 125_u32.div_ceil(50),
         };
         assert_eq!(page.total_pages, 3);
 

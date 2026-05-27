@@ -16,9 +16,15 @@ import type {
   ExtensionAPI,
   Disposable,
   ProjectInfo,
+  PluginManifest,
+  PluginContext,
+  PanelDescriptor,
+  ConnectionInfo,
+  FileEntry,
 } from '@/extensions/core/types'
 
 import { commandRegistry } from './command-registry'
+import { ScopedStorage } from './scoped-storage'
 import { windowAPI } from './window-api'
 
 /**
@@ -297,6 +303,7 @@ export function createPluginContext(
         disposables.push(d)
         return d
       },
+      // @ts-expect-error: specta v2 generic constraint too strict for dynamic command registry
       executeCommand: (id, ...args) => commandRegistry.executeCommand(id, ...args),
     },
 

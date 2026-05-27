@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use crate::core::driver::traits::{
-    ColumnDetail, ConstraintDetail, DynDatabase, IndexDetail, SchemaObject,
-    SchemaObjectKind,
+    ColumnDetail, ConstraintDetail, DynDatabase, IndexDetail, SchemaObject, SchemaObjectKind,
 };
 use crate::core::error::{ConnectionError, CoreError};
 use crate::core::services::connection_manager::ConnectionManager;
@@ -139,6 +138,7 @@ impl MetadataService {
         kind: SchemaObjectKind,
     ) -> Result<Option<String>, CoreError> {
         let db = self.get_database(conn_id).await?;
-        db.get_routine_source(catalog, Some(schema), name, kind).await
+        db.get_routine_source(catalog, Some(schema), name, kind)
+            .await
     }
 }

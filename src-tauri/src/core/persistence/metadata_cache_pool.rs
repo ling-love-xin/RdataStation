@@ -333,26 +333,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_pool_registry_get_or_create() {
+    async fn test_pool_registry_get_or_create() -> Result<(), CoreError> {
         let path = test_temp_path("registry");
-        let pool1 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2)
-            .await
-            .expect("创建池1失败");
-        let pool2 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2)
-            .await
-            .expect("创建池2失败");
+        let pool1 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await?;
+        let pool2 = MetadataCachePool::get_or_create("reg_conn", path.clone(), 2).await?;
         assert!(Arc::ptr_eq(&pool1, &pool2));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_pooled_connection_inner() {
+    async fn test_pooled_connection_inner() -> Result<(), CoreError> {
         let path = test_temp_path("inner");
-        let pool = Arc::new(
-            MetadataCachePool::create("inner_conn", path, 1)
-                .await
-                .expect("创建池失败"),
-        );
-        let conn = pool.acquire().await.expect("获取连接失败");
+        let pool = Arc::new(MetadataCachePool::create("inner_conn", path, 1).await?);
+        let conn = pool.acquire().await?;
         assert!(conn.inner().is_ok());
+        Ok(())
     }
 }

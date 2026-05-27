@@ -67,40 +67,41 @@ impl LogStore {
         let conn = self.pool.acquire().await?;
 
         let result = (|| -> Result<(), CoreError> {
-            conn.inner()?.execute_batch("BEGIN TRANSACTION")
+            conn.inner()?
+                .execute_batch("BEGIN TRANSACTION")
                 .map_err(|e| Self::sqlite_err("begin_tx", e.to_string()))?;
 
             let sql = "INSERT INTO app_logs (timestamp, level, target, message, fields, file, line, session_id) \
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
             for record in records {
-                conn.inner()?.execute(
-                    sql,
-                    rusqlite::params![
-                        record.timestamp,
-                        record.level.as_str(),
-                        record.target,
-                        record.message,
-                        record.fields,
-                        record.file,
-                        record.line,
-                        record.session_id,
-                    ],
-                )
-                .map_err(|e| {
-                    // 回滚事务
-                    let _ = conn.inner().ok().map(|c| c.execute_batch("ROLLBACK"));
-                    Self::sqlite_err("insert_log", e.to_string())
-                })?;
+                conn.inner()?
+                    .execute(
+                        sql,
+                        rusqlite::params![
+                            record.timestamp,
+                            record.level.as_str(),
+                            record.target,
+                            record.message,
+                            record.fields,
+                            record.file,
+                            record.line,
+                            record.session_id,
+                        ],
+                    )
+                    .map_err(|e| {
+                        // 回滚事务
+                        let _ = conn.inner().ok().map(|c| c.execute_batch("ROLLBACK"));
+                        Self::sqlite_err("insert_log", e.to_string())
+                    })?;
             }
 
-            conn.inner()?.execute_batch("COMMIT")
+            conn.inner()?
+                .execute_batch("COMMIT")
                 .map_err(|e| Self::sqlite_err("commit_tx", e.to_string()))?;
 
             Ok(())
         })();
-
-        
 
         result?;
 
@@ -193,14 +194,13 @@ impl LogStore {
             result
         };
 
-        
-
         Ok(LogPage {
             records,
             total: total as u32,
             page,
             page_size,
-            total_pages: total as u32 / page_size + if total as u32 % page_size > 0 { 1 } else { 0 },
+            total_pages: total as u32 / page_size
+                + u32::from(!(total as u32).is_multiple_of(page_size)),
         })
     }
 
@@ -339,7 +339,6 @@ impl LogStore {
             })
         })();
 
-        
         result
     }
 
@@ -348,18 +347,18 @@ impl LogStore {
         let conn = self.pool.acquire().await?;
 
         let deleted = if let Some(ts) = before_timestamp {
-            conn.inner()?.execute("DELETE FROM app_logs WHERE timestamp < ?1", [ts])
+            conn.inner()?
+                .execute("DELETE FROM app_logs WHERE timestamp < ?1", [ts])
                 .map_err(|e| Self::sqlite_err("cleanup_by_time", e.to_string()))?
         } else {
-            conn.inner()?.execute(
-                "DELETE FROM app_logs WHERE id NOT IN (\
+            conn.inner()?
+                .execute(
+                    "DELETE FROM app_logs WHERE id NOT IN (\
                  SELECT id FROM app_logs ORDER BY timestamp DESC LIMIT ?1)",
-                [self.max_records as i64],
-            )
-            .map_err(|e| Self::sqlite_err("cleanup_by_count", e.to_string()))?
+                    [self.max_records as i64],
+                )
+                .map_err(|e| Self::sqlite_err("cleanup_by_count", e.to_string()))?
         };
-
-        
 
         tracing::info!("Cleaned up {} old log records", deleted);
         Ok(deleted)
@@ -400,12 +399,13 @@ impl LogStore {
 
             if count > self.max_records * 120 / 100 {
                 let excess = count - self.max_records;
-                conn.inner()?.execute(
-                    "DELETE FROM app_logs WHERE id IN (\
+                conn.inner()?
+                    .execute(
+                        "DELETE FROM app_logs WHERE id IN (\
                      SELECT id FROM app_logs ORDER BY timestamp ASC LIMIT ?1)",
-                    [excess as i64],
-                )
-                .map_err(|e| Self::sqlite_err("auto_cleanup", e.to_string()))?;
+                        [excess as i64],
+                    )
+                    .map_err(|e| Self::sqlite_err("auto_cleanup", e.to_string()))?;
 
                 tracing::info!(
                     "Trimmed {} log records (count {} exceeds max {})",
@@ -418,7 +418,6 @@ impl LogStore {
             Ok(())
         })();
 
-        
         result
     }
 }

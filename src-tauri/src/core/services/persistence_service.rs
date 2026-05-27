@@ -88,7 +88,10 @@ pub(crate) async fn cleanup_old_insight_snapshots(
     insight_store: &crate::core::persistence::InsightStorage,
     meta_store: &crate::core::persistence::InsightMetaStore,
 ) -> Result<(i32, usize), CoreError> {
-    let duckdb_deleted = insight_store.columns.cleanup_older_than(days as i64).await? as i32;
+    let duckdb_deleted = insight_store
+        .columns
+        .cleanup_older_than(days as i64)
+        .await? as i32;
     let sqlite_deleted = meta_store.cleanup_older_than(days).await?;
     Ok((duckdb_deleted, sqlite_deleted))
 }

@@ -1253,6 +1253,7 @@ pub fn get_template_by_id(id: &str) -> Option<ScenarioTemplate> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::error::CoreError;
 
     #[test]
     fn test_all_templates_exist() {
@@ -1268,10 +1269,12 @@ mod tests {
     }
 
     #[test]
-    fn test_get_template_by_id_found() {
-        let t = get_template_by_id("builtin:ecommerce").unwrap();
+    fn test_get_template_by_id_found() -> Result<(), CoreError> {
+        let t = get_template_by_id("builtin:ecommerce")
+            .ok_or_else(|| CoreError::from("template not found: builtin:ecommerce"))?;
         assert_eq!(t.name, "电商系统");
         assert!(!t.tables.is_empty());
+        Ok(())
     }
 
     #[test]
@@ -1280,14 +1283,16 @@ mod tests {
     }
 
     #[test]
-    fn test_ecommerce_template_has_four_tables() {
-        let t = get_template_by_id("builtin:ecommerce").unwrap();
+    fn test_ecommerce_template_has_four_tables() -> Result<(), CoreError> {
+        let t = get_template_by_id("builtin:ecommerce")
+            .ok_or_else(|| CoreError::from("template not found: builtin:ecommerce"))?;
         assert_eq!(t.tables.len(), 4);
         let table_names: Vec<&str> = t.tables.iter().map(|tb| tb.name.as_str()).collect();
         assert!(table_names.contains(&"users"));
         assert!(table_names.contains(&"products"));
         assert!(table_names.contains(&"orders"));
         assert!(table_names.contains(&"order_items"));
+        Ok(())
     }
 
     #[test]
@@ -1327,11 +1332,17 @@ mod tests {
     }
 
     #[test]
-    fn test_ecommerce_users_has_username_email() {
-        let t = get_template_by_id("builtin:ecommerce").unwrap();
-        let users = t.tables.iter().find(|tb| tb.name == "users").unwrap();
+    fn test_ecommerce_users_has_username_email() -> Result<(), CoreError> {
+        let t = get_template_by_id("builtin:ecommerce")
+            .ok_or_else(|| CoreError::from("template not found: builtin:ecommerce"))?;
+        let users = t
+            .tables
+            .iter()
+            .find(|tb| tb.name == "users")
+            .ok_or_else(|| CoreError::from("table 'users' not found"))?;
         let names: Vec<&str> = users.columns.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"username"));
         assert!(names.contains(&"email"));
+        Ok(())
     }
 }

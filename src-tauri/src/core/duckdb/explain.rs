@@ -451,6 +451,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_parse_explain_output() {
         let output = "PROJECTION\n  SEQ_SCAN";
         let nodes = ExplainAnalyzer::parse_explain_output(output);

@@ -427,64 +427,64 @@ mod tests {
     }
 
     #[test]
-    fn test_port_negotiator_basic() {
+    fn test_port_negotiator_basic() -> Result<(), CoreError> {
         let negotiator = PortNegotiator::new();
 
         // 协商一个端口
-        let port = negotiator.negotiate(None).unwrap();
-        assert!(port >= 10000 && port <= 20000);
+        let port = negotiator.negotiate(None)?;
+        assert!((10000..=20000).contains(&port));
 
         // 检查端口已被分配
-        let allocated = negotiator.get_allocated_ports().unwrap();
+        let allocated = negotiator.get_allocated_ports()?;
         assert!(allocated.contains(&port));
 
         // 释放端口
-        negotiator.release_port(port).unwrap();
-        let allocated = negotiator.get_allocated_ports().unwrap();
+        negotiator.release_port(port)?;
+        let allocated = negotiator.get_allocated_ports()?;
         assert!(!allocated.contains(&port));
+        Ok(())
     }
 
     #[test]
-    fn test_port_negotiator_preferred() {
+    fn test_port_negotiator_preferred() -> Result<(), CoreError> {
         let negotiator = PortNegotiator::with_range(PortRange::new(30000, 40000));
 
         // 尝试协商首选端口
         let preferred = 35000;
-        let port = negotiator.negotiate(Some(preferred)).unwrap();
+        let port = negotiator.negotiate(Some(preferred))?;
 
         // 如果 35000 可用，应该返回它
-        if negotiator.is_port_available(preferred).unwrap() {
+        if negotiator.is_port_available(preferred)? {
             assert_eq!(port, preferred);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_port_negotiator_multiple() {
+    fn test_port_negotiator_multiple() -> Result<(), CoreError> {
         let negotiator = PortNegotiator::new();
 
-        let ports = negotiator.negotiate_multiple(5).unwrap();
+        let ports = negotiator.negotiate_multiple(5)?;
         assert_eq!(ports.len(), 5);
 
         // 确保所有端口都是唯一的
         let unique_ports: HashSet<_> = ports.iter().copied().collect();
         assert_eq!(unique_ports.len(), 5);
+        Ok(())
     }
 
     #[test]
-    fn test_is_port_available() {
+    fn test_is_port_available() -> Result<(), CoreError> {
         let negotiator = PortNegotiator::new();
 
         // 高位端口应该可用
-        let port = negotiator.negotiate(None).expect("协商端口失败");
-        assert!(negotiator
-            .is_port_available(port)
-            .expect("检查端口可用性失败"));
+        let port = negotiator.negotiate(None)?;
+        assert!(negotiator.is_port_available(port)?);
 
         // 分配后应该不可用
-        assert!(!negotiator
-            .is_port_available(port)
-            .expect("检查端口可用性失败"));
+        assert!(!negotiator.is_port_available(port)?);
 
-        negotiator.release_port(port).expect("释放端口失败");
+        negotiator.release_port(port)?;
+        Ok(())
     }
 }

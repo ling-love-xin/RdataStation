@@ -137,7 +137,8 @@ pub async fn create_project_connection(
     }
 
     // 校验并规范化标签 JSON
-    let tags = input.tags
+    let tags = input
+        .tags
         .filter(|t| !t.is_empty())
         .map(|t| {
             serde_json::from_str::<serde_json::Value>(&t)
@@ -162,11 +163,11 @@ pub async fn create_project_connection(
         schema_name: input.schema_name,
         username: input.username,
         password_encrypted: match &input.password {
-            Some(p) if !p.is_empty() => Some(
-                crate::core::crypto::encrypt_password(p).map_err(|e| {
+            Some(p) if !p.is_empty() => {
+                Some(crate::core::crypto::encrypt_password(p).map_err(|e| {
                     CoreError::common(CommonError::General(format!("密码加密失败: {}", e)))
-                })?
-            ),
+                })?)
+            }
             _ => None,
         },
         options: input.options,

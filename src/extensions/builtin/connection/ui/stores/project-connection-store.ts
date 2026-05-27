@@ -121,7 +121,8 @@ export const useProjectConnectionStore = defineStore('projectConnection', () => 
 
     try {
       await projectConnectionService.updateProjectConnection(
-        connection
+        connection,
+        projectStore.currentProject.path
       )
 
       // 更新本地状态

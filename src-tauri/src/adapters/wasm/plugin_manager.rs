@@ -254,10 +254,10 @@ impl PluginManager for AdvancedPluginManager {
     /// 获取已加载插件列表
     fn list_plugins(&self) -> Vec<PluginMetadata> {
         match self.inner.lock() {
-            Ok(inner) => inner.list_plugins()
-                .into_iter()
-                .map(|(meta, _state)| meta)
-                .collect(),
+            Ok(inner) => match inner.list_plugins() {
+                Ok(plugins) => plugins.into_iter().map(|(meta, _state)| meta).collect(),
+                Err(_) => Vec::new(),
+            },
             Err(_) => {
                 // 如果获取锁失败，返回空列表而不是 panic
                 Vec::new()

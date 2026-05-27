@@ -1,4 +1,3 @@
-
 //! Plugin Service - 插件管理服务
 //!
 //! 提供插件的安装、卸载、启用、禁用，以及项目级插件管理等功能。
@@ -6,14 +5,14 @@
 //! 通过 ProjectDatabaseManager 处理项目级存储。
 
 use crate::core::error::{CoreError, PluginError};
-use specta::Type;
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::plugin_store::{
     Plugin, PluginGlobalConfig, ProjectPluginConfig, ProjectUsedPlugin,
 };
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
-use crate::core::plugin::loader::get_plugin_loader;
 use crate::core::plugin::events::*;
+use crate::core::plugin::loader::get_plugin_loader;
+use specta::Type;
 
 /// 安装插件输入参数
 #[derive(Debug, Clone)]
@@ -94,16 +93,16 @@ impl PluginService {
         project_store: Option<&ProjectConnectionStore>,
     ) -> Result<Vec<PluginWithStatus>, CoreError> {
         let plugins = self.get_installed_plugins().await?;
-        
+
         let mut result = Vec::with_capacity(plugins.len());
-        
+
         for plugin in plugins {
             let status = if let Some(store) = project_store {
                 let project_plugins = store.project_get_plugins().await?;
-                let found = project_plugins.iter().find(|p| {
-                    p.plugin_code == plugin.code && p.plugin_version == plugin.version
-                });
-                
+                let found = project_plugins
+                    .iter()
+                    .find(|p| p.plugin_code == plugin.code && p.plugin_version == plugin.version);
+
                 if let Some(p) = found {
                     if p.enabled {
                         PluginStatus::ProjectEnabled
@@ -138,16 +137,17 @@ impl PluginService {
         code: &str,
         version: &str,
     ) -> Result<Option<Plugin>, CoreError> {
-        self.global_db.get_plugin_by_code_version(code, version).await
+        self.global_db
+            .get_plugin_by_code_version(code, version)
+            .await
     }
 
     /// 安装新插件
-    pub async fn install_plugin(
-        &self,
-        input: InstallPluginInput,
-    ) -> Result<Plugin, CoreError> {
+    pub async fn install_plugin(&self, input: InstallPluginInput) -> Result<Plugin, CoreError> {
         // 检查是否已存在
-        let existing = self.get_plugin_by_code_version(&input.code, &input.version).await?;
+        let existing = self
+            .get_plugin_by_code_version(&input.code, &input.version)
+            .await?;
         if existing.is_some() {
             return Err(CoreError::plugin(PluginError::already_exists(
                 input.code.clone(),
@@ -169,14 +169,18 @@ impl PluginService {
         // 检查插件存在
         let plugin = self.get_plugin(plugin_id).await?;
         if plugin.is_none() {
-            return Err(CoreError::plugin(PluginError::not_found(plugin_id.to_string())));
+            return Err(CoreError::plugin(PluginError::not_found(
+                plugin_id.to_string(),
+            )));
         }
 
-        self.global_db.update_plugin_enabled(plugin_id, true).await?;
+        self.global_db
+            .update_plugin_enabled(plugin_id, true)
+            .await?;
         emit_plugin_enabled(plugin_id);
 
         // 尝试激活插件
-        let loader = get_plugin_loader();
+        let loader = get_plugin_loader()?;
         let _ = loader.activate_plugin(plugin_id).await;
 
         Ok(())
@@ -186,14 +190,18 @@ impl PluginService {
     pub async fn disable_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let plugin = self.get_plugin(plugin_id).await?;
         if plugin.is_none() {
-            return Err(CoreError::plugin(PluginError::not_found(plugin_id.to_string())));
+            return Err(CoreError::plugin(PluginError::not_found(
+                plugin_id.to_string(),
+            )));
         }
 
         // 先停用插件
-        let loader = get_plugin_loader();
+        let loader = get_plugin_loader()?;
         let _ = loader.deactivate_plugin(plugin_id).await;
 
-        self.global_db.update_plugin_enabled(plugin_id, false).await?;
+        self.global_db
+            .update_plugin_enabled(plugin_id, false)
+            .await?;
         emit_plugin_disabled(plugin_id);
 
         Ok(())
@@ -203,11 +211,13 @@ impl PluginService {
     pub async fn uninstall_plugin(&self, plugin_id: &str) -> Result<(), CoreError> {
         let plugin = self.get_plugin(plugin_id).await?;
         if plugin.is_none() {
-            return Err(CoreError::plugin(PluginError::not_found(plugin_id.to_string())));
+            return Err(CoreError::plugin(PluginError::not_found(
+                plugin_id.to_string(),
+            )));
         }
 
         // 先停用和卸载
-        let loader = get_plugin_loader();
+        let loader = get_plugin_loader()?;
         let _ = loader.deactivate_plugin(plugin_id).await;
         let _ = loader.unload_plugin(plugin_id).await;
 
@@ -228,8 +238,10 @@ impl PluginService {
         required: Option<bool>,
     ) -> Result<(), CoreError> {
         // 检查全局是否有这个插件
-        let global_plugin = self.get_plugin_by_code_version(&plugin_code, &plugin_version).await?;
-        
+        let global_plugin = self
+            .get_plugin_by_code_version(&plugin_code, &plugin_version)
+            .await?;
+
         if global_plugin.is_none() {
             return Err(CoreError::plugin(PluginError::not_found_by_code(
                 plugin_code,
@@ -352,7 +364,7 @@ impl PluginService {
             .collect::<Vec<_>>();
 
         // 扫描并加载插件到 PluginManager
-        let loader = get_plugin_loader();
+        let loader = get_plugin_loader()?;
         let loaded = loader.scan_and_load_plugins().await;
 
         tracing::info!(
@@ -376,12 +388,15 @@ impl PluginService {
         let project_plugins = self.get_project_plugins(project_store).await?;
         let mut result = Vec::with_capacity(project_plugins.len());
 
-        let loader = get_plugin_loader();
+        let loader = get_plugin_loader()?;
 
         for used_plugin in project_plugins {
             if used_plugin.enabled {
                 if let Some(plugin) = self
-                    .get_plugin_by_code_version(&used_plugin.plugin_code, &used_plugin.plugin_version)
+                    .get_plugin_by_code_version(
+                        &used_plugin.plugin_code,
+                        &used_plugin.plugin_version,
+                    )
                     .await?
                 {
                     result.push(plugin.clone());
@@ -397,12 +412,8 @@ impl PluginService {
             }
         }
 
-        tracing::info!(
-            "Loaded {} project plugins on open",
-            result.len()
-        );
+        tracing::info!("Loaded {} project plugins on open", result.len());
 
         Ok(result)
     }
 }
-

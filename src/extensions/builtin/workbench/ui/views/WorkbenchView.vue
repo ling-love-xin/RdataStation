@@ -454,7 +454,7 @@ const onReady = (event: DockviewReadyEvent) => {
 
   api.onDidLayoutChange?.(() => {
     try {
-      const serialized = api.toJSON() as DockviewLayoutJSON
+      const serialized = api.toJSON() as unknown as DockviewLayoutJSON
       layoutStore.setLayoutData(serialized as unknown as SerializedDockviewLayout)
 
       const ids = api.panels.map((p: { id: string }) => p.id)
@@ -735,7 +735,7 @@ const handleWorkbenchNewQuery = async (e?: CustomEvent) => {
   // fallback: Ctrl+N 无连接上下文时，使用首个活动连接
   const conns = connectionStore.connections
   const firstConn = conns.length > 0 ? conns[0] : null
-  await EditorManager.openNewQuery(firstConn?.connId || '', firstConn?.database || '')
+  await EditorManager.openNewQuery(firstConn?.connId || '', (firstConn as Record<string, unknown>)?.database as string || '')
 }
 
 const handleWorkbenchNewConnection = (e?: CustomEvent) => {

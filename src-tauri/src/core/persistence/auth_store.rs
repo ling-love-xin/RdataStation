@@ -33,19 +33,21 @@ pub fn encrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
         return Ok(auth_data.to_string());
     }
 
-    let mut data: serde_json::Value = serde_json::from_str(auth_data).map_err(|e| {
-        storage_err("parse_auth_data", format!("JSON 解析失败: {}", e))
-    })?;
+    let mut data: serde_json::Value = serde_json::from_str(auth_data)
+        .map_err(|e| storage_err("parse_auth_data", format!("JSON 解析失败: {}", e)))?;
 
-    let obj = data.as_object_mut().ok_or_else(|| {
-        storage_err("encrypt_auth_data", "auth_data 不是 JSON 对象".to_string())
-    })?;
+    let obj = data
+        .as_object_mut()
+        .ok_or_else(|| storage_err("encrypt_auth_data", "auth_data 不是 JSON 对象".to_string()))?;
 
     // 加密 password 字段
     if let Some(pwd) = obj.get("password").and_then(|v| v.as_str()) {
         if !pwd.is_empty() && !pwd.starts_with("AES:") {
             let encrypted = crate::core::crypto::encrypt_password(pwd)?;
-            obj.insert("password".to_string(), serde_json::Value::String(format!("AES:{}", encrypted)));
+            obj.insert(
+                "password".to_string(),
+                serde_json::Value::String(format!("AES:{}", encrypted)),
+            );
         }
     }
 
@@ -53,7 +55,10 @@ pub fn encrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
     if let Some(pp) = obj.get("passphrase").and_then(|v| v.as_str()) {
         if !pp.is_empty() && !pp.starts_with("AES:") {
             let encrypted = crate::core::crypto::encrypt_password(pp)?;
-            obj.insert("passphrase".to_string(), serde_json::Value::String(format!("AES:{}", encrypted)));
+            obj.insert(
+                "passphrase".to_string(),
+                serde_json::Value::String(format!("AES:{}", encrypted)),
+            );
         }
     }
 
@@ -61,13 +66,15 @@ pub fn encrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
     if let Some(cs) = obj.get("clientSecret").and_then(|v| v.as_str()) {
         if !cs.is_empty() && !cs.starts_with("AES:") {
             let encrypted = crate::core::crypto::encrypt_password(cs)?;
-            obj.insert("clientSecret".to_string(), serde_json::Value::String(format!("AES:{}", encrypted)));
+            obj.insert(
+                "clientSecret".to_string(),
+                serde_json::Value::String(format!("AES:{}", encrypted)),
+            );
         }
     }
 
-    serde_json::to_string(&data).map_err(|e| {
-        storage_err("serialize_auth_data", format!("JSON 序列化失败: {}", e))
-    })
+    serde_json::to_string(&data)
+        .map_err(|e| storage_err("serialize_auth_data", format!("JSON 序列化失败: {}", e)))
 }
 
 /// 解密 auth_data JSON 中的敏感字段（用于读取时前端展示）
@@ -77,8 +84,8 @@ pub fn decrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
         return Ok(auth_data.to_string());
     }
 
-    let mut data: serde_json::Value = serde_json::from_str(auth_data)
-        .unwrap_or(serde_json::Value::Object(Default::default()));
+    let mut data: serde_json::Value =
+        serde_json::from_str(auth_data).unwrap_or(serde_json::Value::Object(Default::default()));
 
     let obj = match data.as_object_mut() {
         Some(o) => o,
@@ -96,9 +103,8 @@ pub fn decrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
         }
     }
 
-    serde_json::to_string(&data).map_err(|e| {
-        storage_err("serialize_auth_data", format!("JSON 序列化失败: {}", e))
-    })
+    serde_json::to_string(&data)
+        .map_err(|e| storage_err("serialize_auth_data", format!("JSON 序列化失败: {}", e)))
 }
 
 /// 创建认证配置（项目库，含快照溯源字段）
@@ -340,7 +346,10 @@ pub fn list_global_auth_configs(
 }
 
 /// 全局库：根据 ID 获取认证配置（不含快照溯源字段，返回解密后的 auth_data）
-pub fn get_global_auth_config(conn: &Connection, id: &str) -> Result<Option<AuthConfig>, CoreError> {
+pub fn get_global_auth_config(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<AuthConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, auth_type, auth_data, created_at, updated_at

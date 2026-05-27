@@ -1,14 +1,13 @@
-
 //! 插件包安装器
 //!
 //! 支持从 .zip、.tar.gz 等压缩包安装插件到系统中
 
-use std::path::{Path, PathBuf};
-use crate::core::error::{CoreError, CommonError};
-use crate::core::plugin::manifest::{ManifestParser, PluginManifest};
-use crate::core::plugin::loader::get_plugin_loader;
+use crate::core::error::{CommonError, CoreError};
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::plugin_store::Plugin;
+use crate::core::plugin::loader::get_plugin_loader;
+use crate::core::plugin::manifest::{ManifestParser, PluginManifest};
+use std::path::{Path, PathBuf};
 
 /// 插件包格式
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,11 +59,12 @@ impl PluginInstaller {
         db_manager: &'static GlobalDatabaseManager,
     ) -> Result<Plugin, CoreError> {
         // 1. 检测格式
-        let format = Self::detect_format(package_path)
-            .ok_or_else(|| CoreError::common(CommonError::general(format!(
+        let format = Self::detect_format(package_path).ok_or_else(|| {
+            CoreError::common(CommonError::general(format!(
                 "Unsupported plugin package format: {}",
                 package_path.display()
-            ))))?;
+            )))
+        })?;
 
         // 2. 解压或直接使用
         let extracted_dir = match format {
@@ -81,7 +81,9 @@ impl PluginInstaller {
         self.copy_plugin(&extracted_dir, &final_install_path)?;
 
         // 5. 注册到数据库
-        let plugin = self.register_plugin(&manifest, &final_install_path, db_manager).await?;
+        let plugin = self
+            .register_plugin(&manifest, &final_install_path, db_manager)
+            .await?;
 
         // 6. 清理临时解压目录（如果是从压缩包解压的）
         if format != PluginPackageFormat::Directory {
@@ -89,7 +91,7 @@ impl PluginInstaller {
         }
 
         // 7. 加载插件
-        let loader = get_plugin_loader();
+        let loader = get_plugin_loader()?;
         let _ = loader.load_plugin_from_dir(&final_install_path).await;
 
         Ok(plugin)
@@ -116,7 +118,7 @@ impl PluginInstaller {
         let manifest_path = plugin_dir.join("plugin.toml");
         if !manifest_path.exists() {
             return Err(CoreError::common(CommonError::general(
-                "plugin.toml not found in plugin package".to_string()
+                "plugin.toml not found in plugin package".to_string(),
             )));
         }
 

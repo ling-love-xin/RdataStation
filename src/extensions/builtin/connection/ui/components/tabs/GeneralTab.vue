@@ -207,22 +207,22 @@
             <!-- Select 类型 -->
             <NSelect
               v-if="field.type === 'select'"
-              v-model:value="schemaFormData[field.key]"
+              v-model:value="(schemaFormData[field.key] as string | null | undefined)"
               size="small"
               :placeholder="field.placeholder"
-              :options="field.options"
+              :options="(field.options as SelectOption[] | undefined)"
               @update:value="emitUpdate"
             />
             <!-- Switch 类型 -->
             <NSwitch
               v-else-if="field.type === 'switch'"
-              v-model:value="schemaFormData[field.key]"
+              v-model:value="(schemaFormData[field.key] as boolean | undefined)"
               @update:value="emitUpdate"
             />
             <!-- Number 类型 -->
             <NInputNumber
               v-else-if="field.type === 'input-number'"
-              v-model:value="schemaFormData[field.key]"
+              v-model:value="(schemaFormData[field.key] as number | null | undefined)"
               size="small"
               :placeholder="field.placeholder"
               :min="field.min"
@@ -232,7 +232,7 @@
             <!-- Textarea 类型 -->
             <NInput
               v-else-if="field.type === 'textarea'"
-              v-model:value="schemaFormData[field.key]"
+              v-model:value="(schemaFormData[field.key] as string | [string, string] | null | undefined)"
               type="textarea"
               size="small"
               :placeholder="field.placeholder"
@@ -242,7 +242,7 @@
             <!-- 默认 Input 类型 -->
             <NInput
               v-else
-              v-model:value="schemaFormData[field.key]"
+              v-model:value="(schemaFormData[field.key] as string | [string, string] | null | undefined)"
               size="small"
               :placeholder="field.placeholder"
               type="password"
@@ -265,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace, NSwitch } from 'naive-ui'
+import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace, NSwitch, type SelectOption } from 'naive-ui'
 import { reactive, computed, watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -365,6 +365,7 @@ const filePathPlaceholder = computed(() => {
 function emitUpdate() {
   emit('update:form-data', {
     ...local,
+    ...schemaFormData,
     authMethod: authMethod.value,
     selectedAuthConfigId: selectedAuthConfigId.value,
   })
@@ -499,16 +500,6 @@ function updateSchemaFields() {
   }
 }
 
-// 修改 emitUpdate 函数，包含 schema 数据
-const originalEmitUpdate = emitUpdate
-function emitUpdate() {
-  emit('update:form-data', {
-    ...local,
-    ...schemaFormData,
-    authMethod: authMethod.value,
-    selectedAuthConfigId: selectedAuthConfigId.value,
-  })
-}
 </script>
 
 <style scoped>

@@ -1,8 +1,7 @@
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
 use std::sync::OnceLock;
+use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -65,16 +64,23 @@ impl PluginManager {
     pub fn scan_plugins(&self) -> Result<Vec<PluginInfo>, CoreError> {
         let mut discovered_plugins = Vec::new();
 
-        let dirs = self.plugin_dirs.read()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock on plugin_dirs".to_string())))?;
+        let dirs = self.plugin_dirs.read().map_err(|_| {
+            CoreError::common(CommonError::Internal(
+                "Failed to acquire lock on plugin_dirs".to_string(),
+            ))
+        })?;
 
         for dir in dirs.iter() {
             if !dir.exists() {
                 continue;
             }
 
-            let entries = std::fs::read_dir(dir)
-                .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to read plugin dir: {}", e))))?;
+            let entries = std::fs::read_dir(dir).map_err(|e| {
+                CoreError::common(CommonError::Internal(format!(
+                    "Failed to read plugin dir: {}",
+                    e
+                )))
+            })?;
 
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -90,16 +96,24 @@ impl PluginManager {
     /// 尝试发现单个插件
     fn try_discover_plugin(&self, path: &PathBuf) -> Result<Option<PluginInfo>, CoreError> {
         let manifest_path = path.join("plugin.toml");
-        
+
         if !manifest_path.exists() {
             return Ok(None);
         }
 
-        let manifest_str = std::fs::read_to_string(&manifest_path)
-            .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to read manifest: {}", e))))?;
+        let manifest_str = std::fs::read_to_string(&manifest_path).map_err(|e| {
+            CoreError::common(CommonError::Internal(format!(
+                "Failed to read manifest: {}",
+                e
+            )))
+        })?;
 
-        let manifest: PluginManifest = toml::from_str(&manifest_str)
-            .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to parse manifest: {}", e))))?;
+        let manifest: PluginManifest = toml::from_str(&manifest_str).map_err(|e| {
+            CoreError::common(CommonError::Internal(format!(
+                "Failed to parse manifest: {}",
+                e
+            )))
+        })?;
 
         let kind = self.detect_plugin_kind(&manifest, path)?;
         let state = PluginState::Inactive;
@@ -127,7 +141,11 @@ impl PluginManager {
     }
 
     /// 检测插件类型
-    fn detect_plugin_kind(&self, manifest: &PluginManifest, path: &PathBuf) -> Result<PluginKind, CoreError> {
+    fn detect_plugin_kind(
+        &self,
+        manifest: &PluginManifest,
+        path: &PathBuf,
+    ) -> Result<PluginKind, CoreError> {
         // 根据 manifest capabilities 判断
         if manifest.capabilities.wasm.is_some() {
             return Ok(PluginKind::Wasm);
@@ -138,15 +156,19 @@ impl PluginManager {
 
         // 自动检测：检查文件系统中的文件
         let _ = path;
-        Err(CoreError::common(CommonError::Internal(
-            format!("Could not detect plugin type for {}", path.display())
-        )))
+        Err(CoreError::common(CommonError::Internal(format!(
+            "Could not detect plugin type for {}",
+            path.display()
+        ))))
     }
 
     /// 加载插件
     pub fn load_plugin(&self, id: &str, path: &PathBuf) -> Result<PluginInfo, CoreError> {
-        let info = self.try_discover_plugin(path)?
-            .ok_or_else(|| CoreError::common(CommonError::Internal("Plugin not found or invalid".to_string())))?;
+        let info = self.try_discover_plugin(path)?.ok_or_else(|| {
+            CoreError::common(CommonError::Internal(
+                "Plugin not found or invalid".to_string(),
+            ))
+        })?;
 
         match info.kind {
             PluginKind::Wasm => self.load_wasm_plugin(id, path)?,
@@ -155,7 +177,9 @@ impl PluginManager {
 
         self.plugin_index
             .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?
+            .map_err(|_| {
+                CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+            })?
             .insert(id.to_string(), info.kind);
 
         Ok(info)
@@ -164,17 +188,31 @@ impl PluginManager {
     /// 加载 WASM 插件
     fn load_wasm_plugin(&self, id: &str, path: &Path) -> Result<(), CoreError> {
         let wasm_path = path.join("plugin.wasm");
-        let wasm_bytes = std::fs::read(wasm_path)
-            .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to read wasm: {}", e))))?;
+        let wasm_bytes = std::fs::read(wasm_path).map_err(|e| {
+            CoreError::common(CommonError::Internal(format!("Failed to read wasm: {}", e)))
+        })?;
 
         let manifest_path = path.join("plugin.toml");
-        let manifest_str = std::fs::read_to_string(&manifest_path)
-            .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to read manifest: {}", e))))?;
+        let manifest_str = std::fs::read_to_string(&manifest_path).map_err(|e| {
+            CoreError::common(CommonError::Internal(format!(
+                "Failed to read manifest: {}",
+                e
+            )))
+        })?;
 
-        let _manifest: PluginManifest = toml::from_str(&manifest_str)
-            .map_err(|e| CoreError::common(CommonError::Internal(format!("Failed to parse manifest: {}", e))))?;
+        let _manifest: PluginManifest = toml::from_str(&manifest_str).map_err(|e| {
+            CoreError::common(CommonError::Internal(format!(
+                "Failed to parse manifest: {}",
+                e
+            )))
+        })?;
 
-        self.wasm_manager.load_plugin(id, &wasm_bytes, Some(std::collections::HashMap::new()), None)?;
+        self.wasm_manager.load_plugin(
+            id,
+            &wasm_bytes,
+            Some(std::collections::HashMap::new()),
+            None,
+        )?;
         Ok(())
     }
 
@@ -186,12 +224,13 @@ impl PluginManager {
 
     /// 激活插件
     pub fn activate_plugin(&self, id: &str) -> Result<(), CoreError> {
-        let index = self.plugin_index
-            .read()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+        let index = self.plugin_index.read().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let kind = index.get(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let kind = index.get(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         match kind {
             PluginKind::Wasm => self.wasm_manager.activate_plugin(id),
@@ -201,12 +240,13 @@ impl PluginManager {
 
     /// 停用插件
     pub fn deactivate_plugin(&self, id: &str) -> Result<(), CoreError> {
-        let index = self.plugin_index
-            .read()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+        let index = self.plugin_index.read().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let kind = index.get(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let kind = index.get(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         match kind {
             PluginKind::Wasm => self.wasm_manager.deactivate_plugin(id),
@@ -216,29 +256,40 @@ impl PluginManager {
 
     /// 卸载插件
     pub fn unload_plugin(&self, id: &str) -> Result<(), CoreError> {
-        let index = self.plugin_index
-            .read()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?;
+        let index = self.plugin_index.read().map_err(|_| {
+            CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+        })?;
 
-        let kind = index.get(id)
-            .ok_or_else(|| CoreError::common(CommonError::Internal(format!("Plugin {} not found", id))))?;
+        let kind = index.get(id).ok_or_else(|| {
+            CoreError::common(CommonError::Internal(format!("Plugin {} not found", id)))
+        })?;
 
         match kind {
             PluginKind::Wasm => self.wasm_manager.unload_plugin(id)?,
-            PluginKind::Sidecar => { /* no-op */ },
+            PluginKind::Sidecar => { /* no-op */ }
         }
 
         self.plugin_index
             .write()
-            .map_err(|_| CoreError::common(CommonError::Internal("Failed to acquire lock".to_string())))?
+            .map_err(|_| {
+                CoreError::common(CommonError::Internal("Failed to acquire lock".to_string()))
+            })?
             .remove(id);
 
         Ok(())
     }
 
     /// 列出所有已加载插件
-    pub fn list_plugins(&self) -> Vec<PluginInfo> {
-        let wasm_plugins: Vec<_> = self.wasm_manager.list_plugins()
+    pub fn list_plugins(&self) -> Result<Vec<PluginInfo>, CoreError> {
+        let wasm_plugins: Vec<_> = self
+            .wasm_manager
+            .list_plugins()
+            .map_err(|e| {
+                CoreError::common(CommonError::Internal(format!(
+                    "Failed to list plugins: {}",
+                    e
+                )))
+            })?
             .into_iter()
             .map(|(meta, state)| PluginInfo {
                 id: meta.id.clone(),
@@ -251,7 +302,7 @@ impl PluginManager {
             .collect();
 
         // TODO: Add Sidecar plugins
-        wasm_plugins
+        Ok(wasm_plugins)
     }
 
     /// 获取 WASM 管理器引用

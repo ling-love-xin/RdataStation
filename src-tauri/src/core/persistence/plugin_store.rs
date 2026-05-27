@@ -1,4 +1,3 @@
-
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -74,7 +73,7 @@ fn storage_err(operation: &str, reason: String) -> CoreError {
 /// 注册插件到全局插件中心
 pub fn register_plugin(conn: &Connection, plugin: &Plugin) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT OR REPLACE INTO plugins 
+        "INSERT OR REPLACE INTO plugins
          (id, code, name, version, author, description, repo_url, plugin_type, manifest_json, install_path, is_enabled, is_builtin, installed_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
@@ -228,7 +227,7 @@ pub fn register_plugin_dependency(
     dep: &PluginDependency,
 ) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT OR REPLACE INTO plugin_dependencies 
+        "INSERT OR REPLACE INTO plugin_dependencies
          (plugin_id, dep_code, dep_version_range, is_optional)
          VALUES (?1, ?2, ?3, ?4)",
         params![
@@ -276,7 +275,7 @@ pub fn set_plugin_global_config(
     config: &PluginGlobalConfig,
 ) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT OR REPLACE INTO plugin_global_config 
+        "INSERT OR REPLACE INTO plugin_global_config
          (plugin_id, key, value, updated_at)
          VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
         params![config.plugin_id, config.key, config.value,],
@@ -322,7 +321,7 @@ pub fn project_add_plugin(
     used_plugin: &ProjectUsedPlugin,
 ) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT OR REPLACE INTO project_used_plugins 
+        "INSERT OR REPLACE INTO project_used_plugins
          (plugin_code, plugin_version, enabled, required)
          VALUES (?1, ?2, ?3, ?4)",
         params![
@@ -338,7 +337,11 @@ pub fn project_add_plugin(
 }
 
 /// 从项目移除插件
-pub fn project_remove_plugin(conn: &Connection, code: &str, version: &str) -> Result<(), CoreError> {
+pub fn project_remove_plugin(
+    conn: &Connection,
+    code: &str,
+    version: &str,
+) -> Result<(), CoreError> {
     conn.execute(
         "DELETE FROM project_used_plugins WHERE plugin_code = ?1 AND plugin_version = ?2",
         params![code, version],
@@ -394,7 +397,7 @@ pub fn project_set_plugin_config(
     config: &ProjectPluginConfig,
 ) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT OR REPLACE INTO project_plugin_config 
+        "INSERT OR REPLACE INTO project_plugin_config
          (plugin_code, plugin_version, key, value, updated_at)
          VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)",
         params![

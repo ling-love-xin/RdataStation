@@ -152,7 +152,6 @@ pub use logging::{
 // 重新导出插件模块
 pub use plugin::{
     CapabilitiesFrontend, CapabilitiesWasm, ContributesCommand, ContributesDriver,
-    ContributesPanel, ContributesSetting, ManifestParser, PluginCapabilities,
-    PluginContributes, PluginDependency, PluginEngines, PluginManifest, PluginMeta,
-    PluginPermissions,
+    ContributesPanel, ContributesSetting, ManifestParser, PluginCapabilities, PluginContributes,
+    PluginDependency, PluginEngines, PluginManifest, PluginMeta, PluginPermissions,
 };

@@ -55,18 +55,18 @@ mod tests {
             created_at: now.clone(),
             updated_at: now,
         };
-        
+
         manager.register_plugin(&plugin).await.expect("register plugin");
-        
+
         let fetched = manager.get_plugin(&plugin.id).await.expect("get plugin");
         assert!(fetched.is_some());
         let fetched = fetched.unwrap();
         assert_eq!(fetched.code, plugin.code);
         assert_eq!(fetched.name, plugin.name);
-        
+
         let by_code = manager.get_plugin_by_code_version(&plugin.code, &plugin.version).await.expect("get by code");
         assert!(by_code.is_some());
-        
+
         cleanup(dir);
     }
 
@@ -93,10 +93,10 @@ mod tests {
             };
             manager.register_plugin(&plugin).await.expect("register");
         }
-        
+
         let all = manager.get_all_plugins().await.expect("get all");
         assert_eq!(all.len(), 3);
-        
+
         cleanup(dir);
     }
 
@@ -120,15 +120,15 @@ mod tests {
             created_at: now.clone(),
             updated_at: now,
         };
-        
+
         manager.register_plugin(&plugin).await.expect("register");
-        
+
         manager.update_plugin_enabled(&plugin.id, false).await.expect("update");
-        
+
         let fetched = manager.get_plugin(&plugin.id).await.expect("get");
         assert!(fetched.is_some());
         assert!(!fetched.unwrap().is_enabled);
-        
+
         cleanup(dir);
     }
 
@@ -152,14 +152,14 @@ mod tests {
             created_at: now.clone(),
             updated_at: now,
         };
-        
+
         manager.register_plugin(&plugin).await.expect("register");
-        
+
         manager.delete_plugin(&plugin.id).await.expect("delete");
-        
+
         let fetched = manager.get_plugin(&plugin.id).await.expect("get");
         assert!(fetched.is_none());
-        
+
         cleanup(dir);
     }
 
@@ -167,21 +167,21 @@ mod tests {
     async fn t005_global_config() {
         let (manager, dir) = create_test_global_store().await;
         let plugin_id = Uuid::new_v4().to_string();
-        
+
         let config = PluginGlobalConfig {
             plugin_id: plugin_id.clone(),
             key: "test.key".to_string(),
             value: Some("test.value".to_string()),
             updated_at: chrono::Utc::now().to_rfc3339(),
         };
-        
+
         manager.set_plugin_global_config(&config).await.expect("set config");
-        
+
         let configs = manager.get_plugin_global_configs(&plugin_id).await.expect("get configs");
         assert_eq!(configs.len(), 1);
         assert_eq!(configs[0].key, "test.key");
         assert_eq!(configs[0].value, Some("test.value".to_string()));
-        
+
         cleanup(dir);
     }
 }

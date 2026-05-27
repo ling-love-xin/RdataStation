@@ -571,8 +571,7 @@ mod tests {
         let results = match result {
             Ok(r) => r,
             Err(_) => {
-                assert!(false, "expected Ok");
-                return;
+                panic!("expected Ok");
             }
         };
         assert!(results.is_empty());

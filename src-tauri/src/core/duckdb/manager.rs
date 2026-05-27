@@ -367,7 +367,7 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn setup_test_db_unique(test_name: &str) -> (DuckDBManager, PathBuf) {
+    fn setup_test_db_unique(test_name: &str) -> Result<(DuckDBManager, PathBuf), CoreError> {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -380,8 +380,8 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
 
-        let manager = DuckDBManager::open(&db_path).expect("创建测试数据库");
-        (manager, db_path)
+        let manager = DuckDBManager::open(&db_path)?;
+        Ok((manager, db_path))
     }
 
     fn cleanup_test_db(path: &Path) {
@@ -389,18 +389,19 @@ mod tests {
     }
 
     #[test]
-    fn test_open_creates_database() {
-        let (manager, db_path) = setup_test_db_unique("open_creates");
+    fn test_open_creates_database() -> Result<(), CoreError> {
+        let (manager, db_path) = setup_test_db_unique("open_creates")?;
 
         assert!(db_path.exists());
         assert_eq!(manager.db_path(), db_path.as_path());
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_write_conn_is_unique() {
-        let (manager, db_path) = setup_test_db_unique("write_conn");
+    fn test_write_conn_is_unique() -> Result<(), CoreError> {
+        let (manager, db_path) = setup_test_db_unique("write_conn")?;
 
         let conn1 = manager.write_conn();
         let conn2 = manager.write_conn();
@@ -409,11 +410,12 @@ mod tests {
         assert_eq!(conn1 as *const Connection, conn2 as *const Connection);
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_read_conn_round_robin() {
-        let (manager, db_path) = setup_test_db_unique("read_conn");
+    fn test_read_conn_round_robin() -> Result<(), CoreError> {
+        let (manager, db_path) = setup_test_db_unique("read_conn")?;
 
         // 获取 2 * DEFAULT_READ_POOL_SIZE 次读取连接
         let mut conn_ptrs = Vec::new();
@@ -431,11 +433,12 @@ mod tests {
         );
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
-    fn test_maintenance_conn_is_unique() {
-        let (manager, db_path) = setup_test_db_unique("maintenance_conn");
+    fn test_maintenance_conn_is_unique() -> Result<(), CoreError> {
+        let (manager, db_path) = setup_test_db_unique("maintenance_conn")?;
 
         let conn1 = manager.maintenance_conn();
         let conn2 = manager.maintenance_conn();
@@ -450,6 +453,7 @@ mod tests {
         );
 
         cleanup_test_db(&db_path);
+        Ok(())
     }
 
     #[test]
@@ -464,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_parent_dir_creates_directory() {
+    fn test_ensure_parent_dir_creates_directory() -> Result<(), CoreError> {
         let temp_dir = std::env::temp_dir();
         let nested_path = temp_dir
             .join("test_duckdb_dir")
@@ -472,13 +476,19 @@ mod tests {
             .join("db.duckdb");
 
         // 确保清理
-        let _ = fs::remove_dir_all(nested_path.parent().unwrap());
+        if let Some(parent) = nested_path.parent() {
+            let _ = fs::remove_dir_all(parent);
+        }
 
         let result = DuckDBManager::ensure_parent_dir(&nested_path);
         assert!(result.is_ok());
-        assert!(nested_path.parent().unwrap().exists());
+        assert!(nested_path
+            .parent()
+            .ok_or_else(|| CoreError::common(CommonError::General("路径无父目录".to_string())))?
+            .exists());
 
         // 清理
         let _ = fs::remove_dir_all(temp_dir.join("test_duckdb_dir"));
+        Ok(())
     }
 }

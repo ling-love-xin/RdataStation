@@ -1083,7 +1083,7 @@ mod tests {
         record.set_rows_returned(10);
         store.add_record(record);
 
-        let json = HistoryStore::serialize_history(&store.get_records(None));
+        let json = HistoryStore::serialize_history(store.get_records(None));
         assert!(json.contains("\"sql\""));
         assert!(json.contains("SELECT * FROM \\\"users\\\"")); // 转义的引号
         assert!(json.contains("\"success\": true"));

@@ -320,11 +320,11 @@ pub async fn cleanup_insight_snapshots(
     let meta_store = InsightMetaStore::new(db.sqlite_pool());
 
     let (duckdb_deleted, sqlite_deleted) =
-        ResultService::cleanup_old_insight_snapshots(input.days as i32, &insight_store, &meta_store)
+        ResultService::cleanup_old_insight_snapshots(input.days, &insight_store, &meta_store)
             .await?;
 
     Ok(CleanupResult {
-        duckdb_deleted: duckdb_deleted as i32,
+        duckdb_deleted,
         sqlite_deleted: sqlite_deleted as i32,
     })
 }

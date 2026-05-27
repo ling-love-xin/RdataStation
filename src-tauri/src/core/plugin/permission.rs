@@ -1,13 +1,12 @@
-
 //! 插件权限管理
 //!
 //! 管理插件权限的定义、验证和授予
 
+use crate::core::error::{CommonError, CoreError};
+use crate::core::plugin::manifest::PluginManifest;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::{Serialize, Deserialize};
-use crate::core::error::{CoreError, CommonError};
-use crate::core::plugin::manifest::PluginManifest;
 
 /// 权限类型
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -33,7 +32,12 @@ pub struct Permission {
 
 impl Permission {
     /// 创建新权限
-    pub fn new(id: &str, permission_type: PermissionType, description: &str, category: &str) -> Self {
+    pub fn new(
+        id: &str,
+        permission_type: PermissionType,
+        description: &str,
+        category: &str,
+    ) -> Self {
         Self {
             id: id.to_string(),
             permission_type,
@@ -119,23 +123,28 @@ impl PermissionManager {
     }
 
     /// 验证插件权限是否满足
-    pub async fn validate_permissions(&self, plugin_id: &str, manifest: &PluginManifest) -> Result<(), CoreError> {
+    pub async fn validate_permissions(
+        &self,
+        plugin_id: &str,
+        manifest: &PluginManifest,
+    ) -> Result<(), CoreError> {
         let required = self.get_required_permissions(manifest);
         let grants = self.get_plugin_grants(plugin_id).await;
 
         for perm in required {
-            let granted = grants.iter()
-                .find(|g| g.permission_id == perm.id);
-            
+            let granted = grants.iter().find(|g| g.permission_id == perm.id);
+
             if let Some(grant) = granted {
                 if grant.status != GrantStatus::Granted {
                     return Err(CoreError::common(CommonError::general(format!(
-                        "Permission {} not granted", perm.id
+                        "Permission {} not granted",
+                        perm.id
                     ))));
                 }
             } else {
                 return Err(CoreError::common(CommonError::general(format!(
-                    "Permission {} not requested", perm.id
+                    "Permission {} not requested",
+                    perm.id
                 ))));
             }
         }
@@ -144,20 +153,29 @@ impl PermissionManager {
     }
 
     /// 授予插件权限
-    pub async fn grant_permission(&self, plugin_id: &str, permission_id: &str) -> Result<(), CoreError> {
+    pub async fn grant_permission(
+        &self,
+        plugin_id: &str,
+        permission_id: &str,
+    ) -> Result<(), CoreError> {
         if !self.available_permissions.contains_key(permission_id) {
             return Err(CoreError::common(CommonError::general(format!(
-                "Unknown permission: {}", permission_id
+                "Unknown permission: {}",
+                permission_id
             ))));
         }
 
-        let mut grants = self.grants.write()
-            .map_err(|_| CoreError::common(CommonError::general("Failed to lock grants".to_string())))?;
+        let mut grants = self.grants.write().map_err(|_| {
+            CoreError::common(CommonError::general("Failed to lock grants".to_string()))
+        })?;
 
         let plugin_grants = grants.entry(plugin_id.to_string()).or_default();
-        
+
         // 查找或创建权限授予记录
-        if let Some(grant) = plugin_grants.iter_mut().find(|g| g.permission_id == permission_id) {
+        if let Some(grant) = plugin_grants
+            .iter_mut()
+            .find(|g| g.permission_id == permission_id)
+        {
             grant.status = GrantStatus::Granted;
             grant.granted_at = Some(chrono::Utc::now().to_rfc3339());
         } else {
@@ -173,12 +191,20 @@ impl PermissionManager {
     }
 
     /// 拒绝插件权限
-    pub async fn deny_permission(&self, plugin_id: &str, permission_id: &str) -> Result<(), CoreError> {
-        let mut grants = self.grants.write()
-            .map_err(|_| CoreError::common(CommonError::general("Failed to lock grants".to_string())))?;
+    pub async fn deny_permission(
+        &self,
+        plugin_id: &str,
+        permission_id: &str,
+    ) -> Result<(), CoreError> {
+        let mut grants = self.grants.write().map_err(|_| {
+            CoreError::common(CommonError::general("Failed to lock grants".to_string()))
+        })?;
 
         if let Some(plugin_grants) = grants.get_mut(plugin_id) {
-            if let Some(grant) = plugin_grants.iter_mut().find(|g| g.permission_id == permission_id) {
+            if let Some(grant) = plugin_grants
+                .iter_mut()
+                .find(|g| g.permission_id == permission_id)
+            {
                 grant.status = GrantStatus::Denied;
             } else {
                 plugin_grants.push(PermissionGrant {
@@ -199,15 +225,16 @@ impl PermissionManager {
         let Ok(grants) = grants else {
             return Vec::new();
         };
-        
+
         grants.get(plugin_id).cloned().unwrap_or_default()
     }
 
     /// 检查插件是否有指定权限
     pub async fn has_permission(&self, plugin_id: &str, permission_id: &str) -> bool {
         let grants = self.get_plugin_grants(plugin_id).await;
-        
-        grants.iter()
+
+        grants
+            .iter()
             .any(|g| g.permission_id == permission_id && g.status == GrantStatus::Granted)
     }
 
@@ -226,7 +253,8 @@ impl PermissionManager {
 
     /// 按分类获取权限
     pub fn get_permissions_by_category(&self, category: &str) -> Vec<Permission> {
-        self.available_permissions.values()
+        self.available_permissions
+            .values()
             .filter(|p| p.category == category)
             .cloned()
             .collect()
@@ -238,49 +266,99 @@ fn register_builtin_permissions(permissions: &mut HashMap<String, Permission>) {
     // 数据相关权限
     permissions.insert(
         "data:read".to_string(),
-        Permission::new("data:read", PermissionType::Frontend, "Read data from connections", "Data"),
+        Permission::new(
+            "data:read",
+            PermissionType::Frontend,
+            "Read data from connections",
+            "Data",
+        ),
     );
     permissions.insert(
         "data:write".to_string(),
-        Permission::new("data:write", PermissionType::Frontend, "Write data to connections", "Data"),
+        Permission::new(
+            "data:write",
+            PermissionType::Frontend,
+            "Write data to connections",
+            "Data",
+        ),
     );
     permissions.insert(
         "data:query".to_string(),
-        Permission::new("data:query", PermissionType::Frontend, "Execute SQL queries", "Data"),
+        Permission::new(
+            "data:query",
+            PermissionType::Frontend,
+            "Execute SQL queries",
+            "Data",
+        ),
     );
 
     // UI 相关权限
     permissions.insert(
         "ui:modify".to_string(),
-        Permission::new("ui:modify", PermissionType::Frontend, "Modify user interface", "UI"),
+        Permission::new(
+            "ui:modify",
+            PermissionType::Frontend,
+            "Modify user interface",
+            "UI",
+        ),
     );
     permissions.insert(
         "ui:add-panel".to_string(),
-        Permission::new("ui:add-panel", PermissionType::Frontend, "Add custom panels", "UI"),
+        Permission::new(
+            "ui:add-panel",
+            PermissionType::Frontend,
+            "Add custom panels",
+            "UI",
+        ),
     );
 
     // WASM 权限
     permissions.insert(
         "plugin:wasm".to_string(),
-        Permission::new("plugin:wasm", PermissionType::Wasm, "Execute WASM code", "Plugin"),
+        Permission::new(
+            "plugin:wasm",
+            PermissionType::Wasm,
+            "Execute WASM code",
+            "Plugin",
+        ),
     );
     permissions.insert(
         "db:read".to_string(),
-        Permission::new("db:read", PermissionType::Wasm, "Read database metadata", "Database"),
+        Permission::new(
+            "db:read",
+            PermissionType::Wasm,
+            "Read database metadata",
+            "Database",
+        ),
     );
     permissions.insert(
         "db:query".to_string(),
-        Permission::new("db:query", PermissionType::Wasm, "Execute database queries", "Database"),
+        Permission::new(
+            "db:query",
+            PermissionType::Wasm,
+            "Execute database queries",
+            "Database",
+        ),
     );
 
     // 系统权限
     permissions.insert(
         "system:filesystem".to_string(),
-        Permission::new("system:filesystem", PermissionType::Wasm, "Access file system", "System"),
+        Permission::new(
+            "system:filesystem",
+            PermissionType::Wasm,
+            "Access file system",
+            "System",
+        ),
     );
     permissions.insert(
         "system:network".to_string(),
-        Permission::new("system:network", PermissionType::Wasm, "Make network requests", "System"),
+        Permission::new(
+            "system:network",
+            PermissionType::Wasm,
+            "Make network requests",
+            "System",
+        ),
     );
 }
 
@@ -289,6 +367,7 @@ static PERMISSION_MANAGER: std::sync::OnceLock<Arc<PermissionManager>> = std::sy
 
 /// 获取全局权限管理器
 pub fn get_permission_manager() -> Arc<PermissionManager> {
-    PERMISSION_MANAGER.get_or_init(|| Arc::new(PermissionManager::new())).clone()
+    PERMISSION_MANAGER
+        .get_or_init(|| Arc::new(PermissionManager::new()))
+        .clone()
 }
-

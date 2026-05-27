@@ -326,19 +326,13 @@ impl russh::client::Handler for SshClientHandler {
         &mut self,
         server_public_key: &russh::keys::PublicKey,
     ) -> Result<bool, Self::Error> {
-        let fingerprint = server_public_key
-            .fingerprint(russh::keys::HashAlg::Sha256);
+        let fingerprint = server_public_key.fingerprint(russh::keys::HashAlg::Sha256);
         let key_b64 = server_public_key.public_key_base64();
-        let key_type = key_b64
-            .split_whitespace()
-            .next()
-            .unwrap_or("unknown");
+        let key_type = key_b64.split_whitespace().next().unwrap_or("unknown");
 
-        let verified = self.known_hosts.verify(
-            &self.host,
-            self.port,
-            server_public_key,
-        );
+        let verified = self
+            .known_hosts
+            .verify(&self.host, self.port, server_public_key);
 
         if verified {
             tracing::info!(
@@ -468,11 +462,7 @@ pub async fn establish_ssh_tunnel(
                 match session
                     .lock()
                     .await
-                    .authenticate_publickey_with(
-                        &ssh_config.username,
-                        pubkey.clone(),
-                        &mut agent,
-                    )
+                    .authenticate_publickey_with(&ssh_config.username, pubkey.clone(), &mut agent)
                     .await
                 {
                     Ok(true) => {
@@ -500,10 +490,12 @@ pub async fn establish_ssh_tunnel(
             }
 
             if !authenticated {
-                return Err(CoreError::connection(ConnectionError::AuthenticationFailed {
-                    conn_id: ssh_addr.clone(),
-                    username: ssh_config.username.clone(),
-                }));
+                return Err(CoreError::connection(
+                    ConnectionError::AuthenticationFailed {
+                        conn_id: ssh_addr.clone(),
+                        username: ssh_config.username.clone(),
+                    },
+                ));
             }
         }
         #[cfg(not(unix))]
@@ -528,12 +520,15 @@ pub async fn establish_ssh_tunnel(
             })
         })?;
 
-    let local_port = listener.local_addr().map_err(|e| {
-        CoreError::connection(ConnectionError::Network {
-            conn_id: local_bind.clone(),
-            reason: format!("获取本地地址失败: {}", e),
-        })
-    })?.port();
+    let local_port = listener
+        .local_addr()
+        .map_err(|e| {
+            CoreError::connection(ConnectionError::Network {
+                conn_id: local_bind.clone(),
+                reason: format!("获取本地地址失败: {}", e),
+            })
+        })?
+        .port();
 
     let remote_host = ssh_config.remote_host.clone();
     let remote_port = ssh_config.remote_port;
@@ -635,12 +630,7 @@ async fn connect_ssh_agent(
 }
 
 #[cfg(not(unix))]
-async fn connect_ssh_agent(
-    _ssh_addr: &str,
-) -> Result<
-    (),
-    CoreError,
-> {
+async fn connect_ssh_agent(_ssh_addr: &str) -> Result<(), CoreError> {
     Err(CoreError::connection(ConnectionError::NotSupported(
         "SSH Agent 认证在当前平台暂未支持，请使用密码或私钥认证".to_string(),
     )))
@@ -840,13 +830,12 @@ pub fn check_cert_expiry(cert_path: &str) -> Result<SslCertInfo, CoreError> {
         &pem_data
     };
 
-    let (_, cert) =
-        x509_parser::parse_x509_certificate(der_ref).map_err(|e| {
-            CoreError::connection(ConnectionError::InvalidConfig {
-                conn_id: cert_path.to_string(),
-                reason: format!("证书解析失败: {}", e),
-            })
-        })?;
+    let (_, cert) = x509_parser::parse_x509_certificate(der_ref).map_err(|e| {
+        CoreError::connection(ConnectionError::InvalidConfig {
+            conn_id: cert_path.to_string(),
+            reason: format!("证书解析失败: {}", e),
+        })
+    })?;
 
     let subject = cert.subject().to_string();
     let issuer = cert.issuer().to_string();

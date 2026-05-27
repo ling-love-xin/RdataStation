@@ -468,7 +468,7 @@ impl CacheVersionManager {
         // 检查 cache_version 表是否存在
         let table_exists: bool = conn
             .query_row(
-                "SELECT COUNT(*) > 0 FROM sqlite_master 
+                "SELECT COUNT(*) > 0 FROM sqlite_master
              WHERE type='table' AND name='cache_version'",
                 [],
                 |row| row.get(0),
@@ -511,7 +511,7 @@ impl CacheVersionManager {
     ) -> Result<Option<CacheVersionInfo>, CoreError> {
         let table_exists: bool = conn
             .query_row(
-                "SELECT COUNT(*) > 0 FROM sqlite_master 
+                "SELECT COUNT(*) > 0 FROM sqlite_master
              WHERE type='table' AND name='cache_version'",
                 [],
                 |row| row.get(0),
@@ -530,7 +530,7 @@ impl CacheVersionManager {
 
         let info = conn
             .query_row(
-                "SELECT version, upgraded_at, upgrade_reason, created_at, updated_at 
+                "SELECT version, upgraded_at, upgrade_reason, created_at, updated_at
              FROM cache_version WHERE id = 1",
                 [],
                 |row| {
@@ -675,7 +675,7 @@ impl CacheVersionManager {
     ) -> Result<Vec<CacheMigrationRecord>, CoreError> {
         let table_exists: bool = conn
             .query_row(
-                "SELECT COUNT(*) > 0 FROM sqlite_master 
+                "SELECT COUNT(*) > 0 FROM sqlite_master
              WHERE type='table' AND name='cache_migration_history'",
                 [],
                 |row| row.get(0),
@@ -694,7 +694,7 @@ impl CacheVersionManager {
 
         let mut stmt = conn
             .prepare(
-                "SELECT from_version, to_version, migrated_at, reason, duration_ms, success 
+                "SELECT from_version, to_version, migrated_at, reason, duration_ms, success
              FROM cache_migration_history ORDER BY migrated_at DESC",
             )
             .map_err(|e| {
@@ -776,10 +776,10 @@ mod tests {
     }
 
     #[test]
-    fn test_cache_version_manager() {
+    fn test_cache_version_manager() -> Result<(), CoreError> {
         let db_path = test_temp_dir("version").join("test_cache_version.sqlite");
 
-        let conn = Connection::open(&db_path).unwrap();
+        let conn = Connection::open(&db_path)?;
 
         // 创建 cache_version 表
         conn.execute(
@@ -792,31 +792,31 @@ mod tests {
                 updated_at INTEGER NOT NULL
             )",
             [],
-        )
-        .unwrap();
+        )?;
 
         conn.execute(
             "INSERT INTO cache_version (id, version, created_at, updated_at) VALUES (1, 1, strftime('%s', 'now'), strftime('%s', 'now'))",
             [],
-        ).unwrap();
+        )?;
 
         let manager = CacheVersionManager::new();
 
         // 检查当前版本
-        let version = manager.get_current_version(&conn).unwrap();
+        let version = manager.get_current_version(&conn)?;
         assert_eq!(version, 1);
 
         // 检查是否需要升级
-        let needs_upgrade = manager.needs_upgrade(&conn).unwrap();
+        let needs_upgrade = manager.needs_upgrade(&conn)?;
         assert!(needs_upgrade);
 
         // 执行迁移
-        let records = manager.migrate(&conn).unwrap();
+        let records = manager.migrate(&conn)?;
         assert_eq!(records.len(), 1);
         assert!(records[0].success);
 
         // 检查迁移后的版本
-        let version = manager.get_current_version(&conn).unwrap();
+        let version = manager.get_current_version(&conn)?;
         assert_eq!(version, CURRENT_CACHE_VERSION);
+        Ok(())
     }
 }

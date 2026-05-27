@@ -15,7 +15,7 @@ export interface NetworkBridgeDeps {
   /** 是否项目级作用域 */
   isProject: boolean
   /** 获取项目路径 */
-  getProjectPath: () => Promise<string>
+  getProjectPath: () => Promise<string | null>
   /** 项目级保存 */
   saveProjectProfile: (
     profile: Record<string, unknown>,

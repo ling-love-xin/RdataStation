@@ -117,21 +117,21 @@ pub async fn connect_database(
                     let conn = rusqlite::Connection::open(&db_path)
                         .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
                     let enabled: bool = match conn.query_row(
-                            "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
-                            rusqlite::params![driver_id],
-                            |row| row.get(0),
-                        ) {
-                            Ok(v) => v,
-                            Err(rusqlite::Error::QueryReturnedNoRows) => false,
-                            Err(e) => {
-                                tracing::warn!(
-                                    driver_id = %driver_id,
-                                    error = %e,
-                                    "Failed to query project_drivers, assuming disabled"
-                                );
-                                false
-                            }
-                        };
+                        "SELECT enabled FROM project_drivers WHERE driver_id = ?1",
+                        rusqlite::params![driver_id],
+                        |row| row.get(0),
+                    ) {
+                        Ok(v) => v,
+                        Err(rusqlite::Error::QueryReturnedNoRows) => false,
+                        Err(e) => {
+                            tracing::warn!(
+                                driver_id = %driver_id,
+                                error = %e,
+                                "Failed to query project_drivers, assuming disabled"
+                            );
+                            false
+                        }
+                    };
                     if !enabled {
                         return Err(CoreError::from(format!(
                             "驱动 {} 未在当前项目中启用，请先在驱动管理中启用",
@@ -320,8 +320,15 @@ async fn parse_network_method(
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                if let Ok((network_type, config_str, auth_config_id)) = project_query_network_config_with_auth(&db_path, net_id) {
-                    return parse_network_config_json(&network_type, &config_str, auth_config_id.as_deref()).await;
+                if let Ok((network_type, config_str, auth_config_id)) =
+                    project_query_network_config_with_auth(&db_path, net_id)
+                {
+                    return parse_network_config_json(
+                        &network_type,
+                        &config_str,
+                        auth_config_id.as_deref(),
+                    )
+                    .await;
                 }
             }
         }
@@ -334,8 +341,15 @@ async fn parse_network_method(
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                if let Ok((network_type, config_str, auth_config_id)) = project_query_network_config_with_auth(&db_path, net_id) {
-                    return parse_network_config_json(&network_type, &config_str, auth_config_id.as_deref()).await;
+                if let Ok((network_type, config_str, auth_config_id)) =
+                    project_query_network_config_with_auth(&db_path, net_id)
+                {
+                    return parse_network_config_json(
+                        &network_type,
+                        &config_str,
+                        auth_config_id.as_deref(),
+                    )
+                    .await;
                 }
             }
         }
@@ -345,7 +359,12 @@ async fn parse_network_method(
     if let Some(gdb) = crate::core::migration::get_global_db_manager() {
         if let Ok(nets) = gdb.list_network_configs(None).await {
             if let Some(net) = nets.iter().find(|n| n.id == *net_id) {
-                return parse_network_config_json(&net.network_type, &net.config, net.auth_config_id.as_deref()).await;
+                return parse_network_config_json(
+                    &net.network_type,
+                    &net.config,
+                    net.auth_config_id.as_deref(),
+                )
+                .await;
             }
         }
     }
@@ -356,8 +375,15 @@ async fn parse_network_method(
                 .join(".RSmeta")
                 .join("project.db");
             if db_path.exists() {
-                if let Ok((network_type, config_str, auth_config_id)) = project_query_network_config_with_auth(&db_path, net_id) {
-                    return parse_network_config_json(&network_type, &config_str, auth_config_id.as_deref()).await;
+                if let Ok((network_type, config_str, auth_config_id)) =
+                    project_query_network_config_with_auth(&db_path, net_id)
+                {
+                    return parse_network_config_json(
+                        &network_type,
+                        &config_str,
+                        auth_config_id.as_deref(),
+                    )
+                    .await;
                 }
             }
         }
@@ -386,6 +412,7 @@ fn project_query_network_config_with_auth(
 }
 
 /// 查询项目网络配置（只返回 config，向后兼容）
+#[allow(dead_code)]
 fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Result<String, String> {
     let (_, config, _) = project_query_network_config_with_auth(db_path, net_id)?;
     Ok(config)
@@ -693,10 +720,7 @@ pub async fn test_connection(
     let service = ConnectionService::new(manager.clone());
 
     // 解析网络配置（如果有）
-    let network_method = resolve_network_method(
-        network_config_id.as_deref(),
-    )
-    .await?;
+    let network_method = resolve_network_method(network_config_id.as_deref()).await?;
 
     // 检查是否已有相同 URL 的正式连接
     let all_connections = service.list_connections().await;
@@ -733,26 +757,25 @@ pub async fn test_connection(
         &url,
         Some("test_connection".to_string()),
         ConnectionType::Global,
-        None,   // project_path
-        None,   // description
-        None,   // driver_id
-        None,   // environment_id
-        auth_config_id.clone(),   // auth_config_id
-        auth_method.clone(),      // auth_method
+        None,                   // project_path
+        None,                   // description
+        None,                   // driver_id
+        None,                   // environment_id
+        auth_config_id.clone(), // auth_config_id
+        auth_method.clone(),    // auth_method
         network_config_id.clone(),
-        None,   // driver_properties
-        None,   // advanced_options
-        None,   // options
-        None,   // tags
-        None,   // metadata_path
-        None,   // schema_name
-        None,   // use_duckdb_fed
+        None,       // driver_properties
+        None,       // advanced_options
+        None,       // options
+        None,       // tags
+        None,       // metadata_path
+        None,       // schema_name
+        None,       // use_duckdb_fed
         Some(true), // skip_persistence: test connections do NOT persist to DB
         network_method,
     );
 
-    let (conn_id, db) = match tokio::time::timeout(Duration::from_secs(30), connect_future).await
-    {
+    let (conn_id, db) = match tokio::time::timeout(Duration::from_secs(30), connect_future).await {
         Ok(Ok(result)) => result,
         Ok(Err(e)) => {
             tracing::error!("测试连接失败：{}", e);
@@ -773,7 +796,10 @@ pub async fn test_connection(
 
     // 显式从管理器移除连接，防止测试连接被持久化到 global_db
     manager.remove_connection(&conn_id).await;
-    tracing::info!("测试连接：已从管理器移除临时连接（ID={}），跳过持久化", conn_id);
+    tracing::info!(
+        "测试连接：已从管理器移除临时连接（ID={}），跳过持久化",
+        conn_id
+    );
 
     // 关键：测试成功后，必须彻底关闭临时连接
     // 1. 先释放 db 的 Arc 引用
@@ -1031,7 +1057,11 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
         .map(|conn| {
             let tags: Vec<String> = conn.tags.as_ref().map_or(Vec::new(), |t| {
                 serde_json::from_str(t).unwrap_or_else(|_| {
-                    if t.is_empty() { vec![] } else { vec![t.clone()] }
+                    if t.is_empty() {
+                        vec![]
+                    } else {
+                        vec![t.clone()]
+                    }
                 })
             });
 
@@ -1163,7 +1193,15 @@ pub async fn validate_connection_config(
     }
 
     // 7. 数据库类型检查
-    let known_dbs = ["mysql", "postgresql", "postgres", "sqlite", "duckdb", "mssql", "sqlserver"];
+    let known_dbs = [
+        "mysql",
+        "postgresql",
+        "postgres",
+        "sqlite",
+        "duckdb",
+        "mssql",
+        "sqlserver",
+    ];
     if !known_dbs.contains(&input.db_type.to_lowercase().as_str()) {
         warnings.push(format!(
             "Unrecognized database type '{}', supported: MySQL, PostgreSQL, SQLite, DuckDB, SQL Server",

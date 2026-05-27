@@ -139,14 +139,14 @@ import { useSidebarConnection } from '../composables/useSidebarConnection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
-import type { ProjectConnection } from '../../types/connection'
+import type { ProjectConnection, ConnectionStatus } from '../../types/connection'
 
 const { t } = useI18n()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
 const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnection({
   getConnectionUrl: (conn) => projectConnectionStore.getConnectionUrl(conn),
-  updateConnectionStatus: (id, status, errorMsg) => projectConnectionStore.updateConnectionStatus(id, status, errorMsg),
+  updateConnectionStatus: (id, status, errorMsg) => projectConnectionStore.updateConnectionStatus(id, status as ConnectionStatus, errorMsg),
   loadConnections: () => projectConnectionStore.loadConnections(),
   currentProjectId: () => projectStore.currentProject?.id ?? null,
 })

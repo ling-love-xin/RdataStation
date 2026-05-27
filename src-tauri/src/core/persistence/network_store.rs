@@ -177,7 +177,10 @@ pub fn delete_network_config(conn: &Connection, id: &str) -> Result<(), CoreErro
 // 项目 network_configs 表（有 origin 列）使用上面的通用函数
 
 /// 全局库：创建网络配置（不含快照溯源字段，含 auth_config_id）
-pub fn create_global_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
+pub fn create_global_network_config(
+    conn: &Connection,
+    nc: &NetworkConfig,
+) -> Result<(), CoreError> {
     conn.execute(
         "INSERT INTO network_configs (id, name, network_type, config, auth_config_id, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -262,7 +265,10 @@ pub fn list_global_network_configs(
 }
 
 /// 全局库：根据 ID 获取网络配置（不含快照溯源字段）
-pub fn get_global_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
+pub fn get_global_network_config(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<NetworkConfig>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, network_type, config, auth_config_id, created_at, updated_at

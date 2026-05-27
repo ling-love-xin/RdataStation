@@ -142,14 +142,18 @@ impl MockEngine {
             let mut all_values: Vec<Vec<String>> = Vec::with_capacity(count as usize);
 
             for row_idx in 0..count {
-                let global_row = start_row + row_idx as u32;
+                let global_row = start_row + row_idx;
                 let mut row_vals = Vec::with_capacity(config.columns.len());
 
                 for (col_idx, col) in config.columns.iter().enumerate() {
                     let mut attempts = 0;
                     let value = loop {
-                        let val =
-                            generate_cell(&col.generator, &mut rng, global_row as usize, &config.locale);
+                        let val = generate_cell(
+                            &col.generator,
+                            &mut rng,
+                            global_row as usize,
+                            &config.locale,
+                        );
                         if !col.unique || !unique_sets[col_idx].contains(&val) {
                             if col.unique {
                                 unique_sets[col_idx].insert(val.clone());
@@ -710,7 +714,9 @@ fn infer_datatype_for_column(sql_type: &str) -> ColumnDataType {
             .parse::<u32>()
             .ok()
             .map(|v| v as usize);
-        ColumnDataType::Varchar { length: length.map(|v| v as u32) }
+        ColumnDataType::Varchar {
+            length: length.map(|v| v as u32),
+        }
     } else if lower.starts_with("decimal") || lower.starts_with("numeric") {
         let inner = lower
             .trim_start_matches(|c: char| c.is_alphabetic())
@@ -753,6 +759,7 @@ fn infer_datatype_for_column(sql_type: &str) -> ColumnDataType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::CoreError;
     use crate::mock::generators::generate_cell;
     use crate::mock::models::GeneratorConfig;
     use crate::mock::models::Locale;
@@ -822,13 +829,14 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cell_random_int_range() {
+    fn test_generate_cell_random_int_range() -> Result<(), CoreError> {
         let mut rng = StdRng::seed_from_u64(42);
         let gen = GeneratorConfig::RandomInt { min: 10, max: 20 };
         let val: i64 = generate_cell(&gen, &mut rng, 0, &Locale::ZhCn)
             .parse()
-            .unwrap();
-        assert!(val >= 10 && val <= 20);
+            .map_err(|e| CoreError::from(format!("parse int error: {}", e)))?;
+        assert!((10..=20).contains(&val));
+        Ok(())
     }
 
     #[test]

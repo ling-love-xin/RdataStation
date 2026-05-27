@@ -418,20 +418,20 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_build_col_map_extracts_column_names() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE test (id INTEGER, name TEXT, value REAL)")
-            .unwrap();
-        let mut stmt = conn.prepare("SELECT id, name, value FROM test").unwrap();
+    fn test_build_col_map_extracts_column_names() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE test (id INTEGER, name TEXT, value REAL)")?;
+        let mut stmt = conn.prepare("SELECT id, name, value FROM test")?;
         // DuckDB requires query execution before column_name() is available
         {
-            let _ = stmt.query([]).unwrap();
+            let _ = stmt.query([])?;
         }
         let map = RuleExecutor::build_col_map(&stmt);
         assert_eq!(map.len(), 3);
         assert_eq!(map.get("id"), Some(&0));
         assert_eq!(map.get("name"), Some(&1));
         assert_eq!(map.get("value"), Some(&2));
+        Ok(())
     }
 
     #[test]
@@ -459,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    fn test_build_sql_replaces_params() {
+    fn test_build_sql_replaces_params() -> Result<(), CoreError> {
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
                 id: "test".into(),
@@ -482,12 +482,13 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("table".to_string(), "users".to_string());
         params.insert("col".to_string(), "COUNT(*)".to_string());
-        let sql = RuleExecutor::build_sql(&rule, &params).unwrap();
+        let sql = RuleExecutor::build_sql(&rule, &params)?;
         assert_eq!(sql, "SELECT COUNT(*) FROM users");
+        Ok(())
     }
 
     #[test]
-    fn test_build_sql_handles_similar_param_names() {
+    fn test_build_sql_handles_similar_param_names() -> Result<(), CoreError> {
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
                 id: "test".into(),
@@ -510,8 +511,9 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("col".to_string(), "A".to_string());
         params.insert("col_name".to_string(), "B".to_string());
-        let sql = RuleExecutor::build_sql(&rule, &params).unwrap();
+        let sql = RuleExecutor::build_sql(&rule, &params)?;
         assert_eq!(sql, "A vs B");
+        Ok(())
     }
 
     #[test]
@@ -540,10 +542,9 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_single_with_valid_rule() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);")
-            .unwrap();
+    fn test_execute_single_with_valid_rule() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);")?;
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -571,15 +572,15 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("table".to_string(), "t".to_string());
         params.insert("col".to_string(), "col1".to_string());
-        let result = RuleExecutor::execute(&rule, &conn, &params).unwrap();
+        let result = RuleExecutor::execute(&rule, &conn, &params)?;
         assert_eq!(result["value"], json!(42));
+        Ok(())
     }
 
     #[test]
-    fn test_execute_list_with_valid_rule() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1), (2), (3);")
-            .unwrap();
+    fn test_execute_list_with_valid_rule() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1), (2), (3);")?;
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -607,17 +608,20 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("table".to_string(), "t".to_string());
         params.insert("col".to_string(), "col1".to_string());
-        let result = RuleExecutor::execute(&rule, &conn, &params).unwrap();
-        let arr = result.as_array().unwrap();
+        let result = RuleExecutor::execute(&rule, &conn, &params)?;
+        let arr = result.as_array().ok_or_else(|| {
+            CoreError::common(CommonError::General("Expected array result".into()))
+        })?;
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0]["value"], json!(1));
         assert_eq!(arr[2]["value"], json!(3));
+        Ok(())
     }
 
     #[test]
-    fn test_execute_rejects_missing_column() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER)").unwrap();
+    fn test_execute_rejects_missing_column() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER)")?;
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -644,13 +648,13 @@ mod tests {
         };
         let result = RuleExecutor::execute(&rule, &conn, &HashMap::new());
         assert!(result.is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_execute_qualified_with_quality_rules_passing() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);")
-            .unwrap();
+    fn test_execute_qualified_with_quality_rules_passing() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (42);")?;
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -682,22 +686,24 @@ mod tests {
             render: None,
         };
 
-        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new()).unwrap();
+        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new())?;
         assert_eq!(result.data["value"], json!(42));
 
-        let quality = result.quality.unwrap();
+        let quality = result.quality.ok_or_else(|| {
+            CoreError::common(CommonError::General("Expected quality report".into()))
+        })?;
         assert!(quality.passed);
         assert_eq!(quality.checks.len(), 1);
         assert!(quality.checks[0].passed);
         assert_eq!(quality.checks[0].field, "value");
         assert_eq!(quality.checks[0].actual, Some(42.0));
+        Ok(())
     }
 
     #[test]
-    fn test_execute_qualified_with_quality_rules_failing_min() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (-5);")
-            .unwrap();
+    fn test_execute_qualified_with_quality_rules_failing_min() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (-5);")?;
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -729,20 +735,22 @@ mod tests {
             render: None,
         };
 
-        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new()).unwrap();
-        let quality = result.quality.unwrap();
+        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new())?;
+        let quality = result.quality.ok_or_else(|| {
+            CoreError::common(CommonError::General("Expected quality report".into()))
+        })?;
         assert!(!quality.passed);
         assert_eq!(quality.checks.len(), 1);
         assert!(!quality.checks[0].passed);
         assert_eq!(quality.checks[0].actual, Some(-5.0));
         assert_eq!(quality.checks[0].severity, "error");
+        Ok(())
     }
 
     #[test]
-    fn test_execute_qualified_no_quality_rules() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1)")
-            .unwrap();
+    fn test_execute_qualified_no_quality_rules() -> Result<(), CoreError> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch("CREATE TABLE t (col1 INTEGER); INSERT INTO t VALUES (1)")?;
 
         let rule = RuleFile {
             meta: rule_types::RuleMeta {
@@ -768,8 +776,9 @@ mod tests {
             render: None,
         };
 
-        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new()).unwrap();
+        let result = RuleExecutor::execute_qualified(&rule, &conn, &HashMap::new())?;
         assert!(result.quality.is_none());
         assert_eq!(result.data["value"], json!(1));
+        Ok(())
     }
 }

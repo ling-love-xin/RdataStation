@@ -20,8 +20,16 @@ fn create_test_connection_info(id: &str) -> ConnectionInfo {
         url: "mysql://localhost:3306/test".to_string(),
         connection_type: ConnectionType::Global,
         project_id: None,
-        created_at: std::time::Instant::now(),
+        driver_id: None,
+        environment_id: None,
+        auth_config_id: None,
+        auth_method: None,
+        network_config_id: None,
+        driver_properties: None,
+        advanced_options: None,
+        description: None,
         server_version: None,
+        created_at: std::time::Instant::now(),
     }
 }
 

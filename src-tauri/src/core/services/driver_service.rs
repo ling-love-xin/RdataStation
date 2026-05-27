@@ -1,8 +1,8 @@
 use crate::core::error::CoreError;
-use specta::Type;
 use crate::core::persistence::driver_store::{DataSourceType, Driver, DriverFile};
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
+use specta::Type;
 
 /// 驱动管理服务，提供驱动发现、安装验证、项目可用性检查
 pub struct DriverService {

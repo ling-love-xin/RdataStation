@@ -99,7 +99,8 @@ impl SqlTemplateStore {
     /// 初始化模板表
     fn init_table(&mut self) -> Result<(), CoreError> {
         let conn = self.pool.acquire_sync()?;
-        conn.inner()?.execute(
+        conn.inner()?
+            .execute(
                 "CREATE TABLE IF NOT EXISTS sql_templates (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -204,7 +205,7 @@ impl SqlTemplateStore {
         let conn = self.pool.acquire_sync()?;
         for template in &builtin_templates {
             conn.inner()?.execute(
-                "INSERT OR IGNORE INTO sql_templates 
+                "INSERT OR IGNORE INTO sql_templates
                  (id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                 params![
@@ -225,7 +226,6 @@ impl SqlTemplateStore {
                 reason: e.to_string(),
             }))?;
         }
-        
 
         Ok(())
     }
@@ -234,7 +234,7 @@ impl SqlTemplateStore {
     pub fn save(&self, template: &SqlTemplate) -> Result<(), CoreError> {
         self.with_connection(|conn| {
             conn.execute(
-                "INSERT OR REPLACE INTO sql_templates 
+                "INSERT OR REPLACE INTO sql_templates
                  (id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                 params![
@@ -262,7 +262,7 @@ impl SqlTemplateStore {
     pub fn get_by_id(&self, id: &str) -> Result<Option<SqlTemplate>, CoreError> {
         self.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms 
+                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms
                  FROM sql_templates WHERE id = ?1"
             ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
@@ -297,7 +297,7 @@ impl SqlTemplateStore {
     pub fn get_all(&self) -> Result<Vec<SqlTemplate>, CoreError> {
         self.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms 
+                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms
                  FROM sql_templates ORDER BY is_builtin DESC, updated_at_ms DESC"
             ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
@@ -332,7 +332,7 @@ impl SqlTemplateStore {
     pub fn get_by_category(&self, category: &str) -> Result<Vec<SqlTemplate>, CoreError> {
         self.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms 
+                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms
                  FROM sql_templates WHERE category = ?1 ORDER BY is_builtin DESC, updated_at_ms DESC"
             ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),
@@ -367,7 +367,7 @@ impl SqlTemplateStore {
     pub fn get_by_db_type(&self, db_type: &str) -> Result<Vec<SqlTemplate>, CoreError> {
         self.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms 
+                "SELECT id, name, content, db_type, category, description, tags, is_builtin, created_at_ms, updated_at_ms
                  FROM sql_templates WHERE db_type = ?1 OR db_type IS NULL ORDER BY is_builtin DESC, updated_at_ms DESC"
             ).map_err(|e| CoreError::storage(StorageError::Persistence {
                 store: "sqlite".to_string(),

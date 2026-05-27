@@ -268,13 +268,13 @@ export function useCacheWarming() {
             databaseName: dbName,
           })
         ) {
-          await refreshMetadataCache(
-            connectionId,
-            connectionType,
-            dbName,
-            undefined,
-            projectPath
-          ).catch(() => {})
+          await refreshMetadataCache({
+            connection_id: connectionId,
+            connection_type: connectionType,
+            database_name: dbName,
+            schema_name: undefined,
+            project_path: projectPath,
+          }).catch(() => {})
         }
 
         if (smartDepth === 'schemas' || smartDepth === 'tables' || smartDepth === 'columns') {
@@ -405,13 +405,13 @@ export function useCacheWarming() {
           databaseName: dbName,
         })
       ) {
-        await refreshMetadataCache(
-          connectionId,
-          connectionType,
-          dbName,
-          undefined,
-          projectPath
-        ).catch(() => {})
+        await refreshMetadataCache({
+          connection_id: connectionId,
+          connection_type: connectionType,
+          database_name: dbName,
+          schema_name: undefined,
+          project_path: projectPath,
+        }).catch(() => {})
       }
 
       if (smartDepth === 'schemas' || smartDepth === 'tables' || smartDepth === 'columns') {

@@ -5,7 +5,9 @@
 
 use std::path::PathBuf;
 
-use rdata_station_lib::core::persistence::connection_store::{ConnectionInfo, ConnectionStore, MAX_CONNECTIONS};
+use rdata_station_lib::core::persistence::connection_store::{
+    ConnectionInfo, ConnectionStore, MAX_CONNECTIONS,
+};
 
 #[test]
 fn test_connection_info_new() {
@@ -115,7 +117,7 @@ fn test_json_serialization() {
         "mysql://localhost:3306/test".to_string(),
     ));
 
-    let json = ConnectionStore::serialize_connections(&store.get_connections());
+    let json = ConnectionStore::serialize_connections(store.get_connections());
     assert!(json.contains("\"id\": \"test-1\""));
     assert!(json.contains("Test \\\"Quoted\\\" Name")); // 转义的引号
 }

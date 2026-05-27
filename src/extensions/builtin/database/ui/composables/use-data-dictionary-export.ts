@@ -40,7 +40,7 @@ export function useDataDictionaryExport() {
       md += '|--------|-----|------|------|\n'
 
       for (const index of schema.indexes) {
-        md += `| ${index.name} | ${index.columns.join(', ')} | ${index.isUnique ? '是' : '否'} | ${index.type} |\n`
+        md += `| ${index.name} | ${index.columnNames.join(', ')} | ${index.isUnique ? '是' : '否'} | ${index.type || ''} |\n`
       }
 
       md += '\n'

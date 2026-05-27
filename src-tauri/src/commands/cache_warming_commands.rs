@@ -885,7 +885,7 @@ pub struct IndexBuildResponse {
     pub column_count: u32,
     pub total_entries: u32,
     pub message: String,
-    pub incremental: Option<bool>,   // V7: 是否使用增量模式
+    pub incremental: Option<bool>, // V7: 是否使用增量模式
     pub create_count: Option<u32>, // V7: 新增对象数
     pub update_count: Option<u32>, // V7: 更新对象数
     pub delete_count: Option<u32>, // V7: 删除对象数

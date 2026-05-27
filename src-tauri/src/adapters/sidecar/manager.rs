@@ -14,8 +14,6 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 use super::{SidecarConfig, SidecarError, SidecarStatus};
-use crate::core::error::CommonError;
-use crate::core::CoreError;
 
 /// Sidecar 进程管理器
 pub struct SidecarManager {
@@ -46,11 +44,53 @@ impl SidecarManager {
         }
     }
 
+    /// 获取状态锁（带错误处理）
+    fn lock_status(&self) -> Result<std::sync::MutexGuard<SidecarStatus>, SidecarError> {
+        self.status
+            .lock()
+            .map_err(|e| SidecarError::Internal(format!("Mutex poisoned: {}", e)))
+    }
+
+    /// 获取子进程锁（带错误处理）
+    fn lock_child(&self) -> Result<std::sync::MutexGuard<Option<Child>>, SidecarError> {
+        self.child
+            .lock()
+            .map_err(|e| SidecarError::Internal(format!("Mutex poisoned: {}", e)))
+    }
+
+    /// 获取端口锁（带错误处理）
+    fn lock_port(&self) -> Result<std::sync::MutexGuard<Option<u16>>, SidecarError> {
+        self.port
+            .lock()
+            .map_err(|e| SidecarError::Internal(format!("Mutex poisoned: {}", e)))
+    }
+
+    /// 获取停止信号锁（带错误处理）
+    fn lock_stop_tx(&self) -> Result<std::sync::MutexGuard<Option<oneshot::Sender<()>>>, SidecarError> {
+        self.stop_tx
+            .lock()
+            .map_err(|e| SidecarError::Internal(format!("Mutex poisoned: {}", e)))
+    }
+
+    /// 获取健康检查任务锁（带错误处理）
+    fn lock_health_check_task(&self) -> Result<std::sync::MutexGuard<Option<JoinHandle<()>>>, SidecarError> {
+        self.health_check_task
+            .lock()
+            .map_err(|e| SidecarError::Internal(format!("Mutex poisoned: {}", e)))
+    }
+
+    /// 尝试设置状态（忽略锁中毒错误，用于错误恢复路径）
+    fn try_set_status(&self, new_status: SidecarStatus) {
+        if let Ok(mut status) = self.status.lock() {
+            *status = new_status;
+        }
+    }
+
     /// 启动 Sidecar 进程
     pub async fn start(&self) -> Result<u16, SidecarError> {
         // 检查当前状态
         {
-            let status = self.status.lock().unwrap();
+            let status = self.lock_status()?;
             if *status != SidecarStatus::Stopped {
                 return Err(SidecarError::ProcessStartError(
                     "Sidecar is already running or starting".to_string(),
@@ -59,7 +99,7 @@ impl SidecarManager {
         }
 
         // 更新状态为正在启动
-        *self.status.lock().unwrap() = SidecarStatus::Starting;
+        *self.lock_status()? = SidecarStatus::Starting;
 
         // 构建命令
         let mut cmd = Command::new(&self.config.binary_path);
@@ -72,13 +112,14 @@ impl SidecarManager {
 
         // 启动进程
         let mut child = cmd.spawn().map_err(|e| {
-            *self.status.lock().unwrap() = SidecarStatus::Error;
+            // 尽可能更新状态，忽略锁错误
+            let _ = self.try_set_status(SidecarStatus::Error);
             SidecarError::ProcessStartError(format!("Failed to start Sidecar: {}", e))
         })?;
 
         // 从 stdout 读取端口号
         let stdout = child.stdout.take().ok_or_else(|| {
-            *self.status.lock().unwrap() = SidecarStatus::Error;
+            let _ = self.try_set_status(SidecarStatus::Error);
             SidecarError::ProcessStartError("Failed to capture Sidecar stdout".to_string())
         })?;
 
@@ -100,14 +141,14 @@ impl SidecarManager {
         })
         .await
         .map_err(|e| {
-            *self.status.lock().unwrap() = SidecarStatus::Error;
+            let _ = self.try_set_status(SidecarStatus::Error);
             SidecarError::ProcessStartError(format!("Task join error: {}", e))
         })??;
 
         // 保存进程句柄
-        *self.child.lock().unwrap() = Some(child);
-        *self.port.lock().unwrap() = Some(port);
-        *self.status.lock().unwrap() = SidecarStatus::Running;
+        *self.lock_child()? = Some(child);
+        *self.lock_port()? = Some(port);
+        *self.lock_status()? = SidecarStatus::Running;
 
         // 启动健康检查
         self.start_health_check().await?;
@@ -118,20 +159,20 @@ impl SidecarManager {
     /// 停止 Sidecar 进程
     pub async fn stop(&self) -> Result<(), SidecarError> {
         // 发送停止信号给健康检查任务
-        if let Some(tx) = self.stop_tx.lock().unwrap().take() {
+        if let Some(tx) = self.lock_stop_tx()?.take() {
             let _ = tx.send(());
         }
 
         // 等待健康检查任务结束
-        if let Some(handle) = self.health_check_task.lock().unwrap().take() {
+        if let Some(handle) = self.lock_health_check_task()?.take() {
             let _ = handle.await;
         }
 
         // 更新状态
-        *self.status.lock().unwrap() = SidecarStatus::Stopping;
+        *self.lock_status()? = SidecarStatus::Stopping;
 
         // 停止进程
-        if let Some(mut child) = self.child.lock().unwrap().take() {
+        if let Some(mut child) = self.lock_child()?.take() {
             // 尝试优雅停止
             #[cfg(unix)]
             {
@@ -154,20 +195,23 @@ impl SidecarManager {
         }
 
         // 更新状态
-        *self.status.lock().unwrap() = SidecarStatus::Stopped;
-        *self.port.lock().unwrap() = None;
+        *self.lock_status()? = SidecarStatus::Stopped;
+        *self.lock_port()? = None;
 
         Ok(())
     }
 
     /// 获取 Sidecar 当前状态
     pub fn status(&self) -> SidecarStatus {
-        self.status.lock().unwrap().clone()
+        self.status
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// 获取 Sidecar 监听端口
     pub fn port(&self) -> Option<u16> {
-        *self.port.lock().unwrap()
+        *self.port.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// 启动健康检查
@@ -179,7 +223,7 @@ impl SidecarManager {
         let interval = Duration::from_millis(self.config.health_check_interval_ms);
         let config_clone = self.config.clone();
 
-        *self.stop_tx.lock().unwrap() = Some(stop_tx);
+        *self.lock_stop_tx()? = Some(stop_tx);
 
         let handle = tokio::spawn(async move {
             let mut stop_rx = stop_rx;
@@ -190,7 +234,7 @@ impl SidecarManager {
                         break;
                     }
                     _ = tokio::time::sleep(interval) => {
-                        if let Some(port) = *port_clone.lock().unwrap() {
+                        if let Some(port) = *port_clone.lock().unwrap_or_else(|e| e.into_inner()) {
                             // 执行健康检查
                             let client = reqwest::Client::new();
                             let url = format!("http://localhost:{}/rpc", port);
@@ -209,11 +253,11 @@ impl SidecarManager {
                                 tracing::warn!("Sidecar health check failed: {}", e);
 
                                 // 检查进程是否还在运行
-                                let mut child_lock = child_clone.lock().unwrap();
+                                let mut child_lock = child_clone.lock().unwrap_or_else(|e| e.into_inner());
                                 if let Some(child) = child_lock.as_mut() {
                                     if let Ok(Some(_)) = child.try_wait() {
                                         tracing::error!("Sidecar process died, marking as error");
-                                        *status_clone.lock().unwrap() = SidecarStatus::Error;
+                                        *status_clone.lock().unwrap_or_else(|e| e.into_inner()) = SidecarStatus::Error;
                                         break;
                                     }
                                 }
@@ -224,7 +268,7 @@ impl SidecarManager {
             }
         });
 
-        *self.health_check_task.lock().unwrap() = Some(handle);
+        *self.lock_health_check_task()? = Some(handle);
 
         Ok(())
     }
@@ -240,7 +284,7 @@ impl SidecarManager {
 impl Drop for SidecarManager {
     fn drop(&mut self) {
         // 尝试停止进程
-        if *self.status.lock().unwrap() == SidecarStatus::Running {
+        if *self.status.lock().unwrap_or_else(|e| e.into_inner()) == SidecarStatus::Running {
             let _ = self.stop();
         }
     }

@@ -65,9 +65,9 @@ defineProps<{
 defineEmits<{
   'update:enabled': [value: boolean]
   'update:sync': [value: string]
-  'update:interval': [value: number]
-  'update:memory': [value: number]
-  'update:threads': [value: number]
+  'update:interval': [value: number | null]
+  'update:memory': [value: number | null]
+  'update:threads': [value: number | null]
 }>()
 </script>
 

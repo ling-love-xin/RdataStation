@@ -1,4 +1,3 @@
-
 //! 插件事件系统
 //!
 //! 提供插件生命周期事件的发布和订阅机制
@@ -12,21 +11,13 @@ use tokio::sync::broadcast;
 #[serde(tag = "type", content = "data")]
 pub enum PluginEvent {
     /// 插件已加载
-    PluginLoaded {
-        plugin_id: String,
-    },
+    PluginLoaded { plugin_id: String },
     /// 插件已激活
-    PluginActivated {
-        plugin_id: String,
-    },
+    PluginActivated { plugin_id: String },
     /// 插件已停用
-    PluginDeactivated {
-        plugin_id: String,
-    },
+    PluginDeactivated { plugin_id: String },
     /// 插件已卸载
-    PluginUnloaded {
-        plugin_id: String,
-    },
+    PluginUnloaded { plugin_id: String },
     /// 插件已安装
     PluginInstalled {
         plugin_id: String,
@@ -34,17 +25,11 @@ pub enum PluginEvent {
         version: String,
     },
     /// 插件已卸载（从系统中删除）
-    PluginUninstalled {
-        plugin_id: String,
-    },
+    PluginUninstalled { plugin_id: String },
     /// 插件已启用
-    PluginEnabled {
-        plugin_id: String,
-    },
+    PluginEnabled { plugin_id: String },
     /// 插件已禁用
-    PluginDisabled {
-        plugin_id: String,
-    },
+    PluginDisabled { plugin_id: String },
     /// 自定义事件
     Custom {
         plugin_id: String,
@@ -87,7 +72,9 @@ static EVENT_MANAGER: std::sync::OnceLock<Arc<PluginEventManager>> = std::sync::
 
 /// 获取全局事件管理器
 pub fn get_event_manager() -> Arc<PluginEventManager> {
-    EVENT_MANAGER.get_or_init(|| Arc::new(PluginEventManager::default())).clone()
+    EVENT_MANAGER
+        .get_or_init(|| Arc::new(PluginEventManager::default()))
+        .clone()
 }
 
 /// 初始化事件管理器

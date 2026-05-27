@@ -9,9 +9,9 @@ fn main() {
 
     // 额外的 specta 相关重编译触发器
     println!("cargo:rerun-if-changed=src/core/types.rs");
-    println!("cargo:rerun-if-changed=src/commands/");
-    println!("cargo:rerun-if-changed=src/core/persistence/");
-    println!("cargo:rerun-if-changed=src/core/services/");
+    println!("cargo:rerun-if-changed=src/commands");
+    println!("cargo:rerun-if-changed=src/core/persistence");
+    println!("cargo:rerun-if-changed=src/core/services");
     println!("cargo:rerun-if-changed=src/core/models.rs");
     // specta 类型导出见 lib.rs #[cfg(debug_assertions)] 块
 }
