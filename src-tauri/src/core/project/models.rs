@@ -123,17 +123,19 @@ pub struct ProjectInfo {
     /// 创建者（DuckLake 预留）
     pub created_by: Option<String>,
     /// 版本数量
-    pub version_count: u64,
+    pub version_count: u32,
 }
 
 /// 项目配置
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, specta::Type)]
 pub struct ProjectConfig {
     /// 项目设置
+    #[specta(skip)]
     pub settings: HashMap<String, serde_json::Value>,
     /// 默认连接ID
     pub default_connection_id: Option<String>,
     /// 扩展配置
+    #[specta(skip)]
     pub extensions: HashMap<String, serde_json::Value>,
 }
 

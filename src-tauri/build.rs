@@ -1,18 +1,17 @@
 //! Build script for Rdata Station
 //!
-//! Automatically generates TypeScript type definitions from Rust types.
+//! v3.0: ts-rs → specta 迁移，类型导出改为 specta::collect_types! + ts::export
+//! 导出逻辑移至 lib.rs（调试模式启动时自动执行）和测试中。
 
 fn main() {
-    // Tell Cargo to rerun this script if any of the source files change
-    println!("cargo:rerun-if-changed=src/core/types.rs");
-    println!("cargo:rerun-if-changed=src/commands/metadata_commands.rs");
-    println!("cargo:rerun-if-changed=src/commands/metadata_cache_commands.rs");
-    println!("cargo:rerun-if-changed=src/commands/cache_warming_commands.rs");
+    // Tauri build: 自动设置 rerun-if-changed 并校验 config/capabilities
+    tauri_build::build();
 
-    // Export types in debug builds only
-    #[cfg(debug_assertions)]
-    {
-        use rdata_station_lib::core::types::export_types;
-        export_types();
-    }
+    // 额外的 specta 相关重编译触发器
+    println!("cargo:rerun-if-changed=src/core/types.rs");
+    println!("cargo:rerun-if-changed=src/commands/");
+    println!("cargo:rerun-if-changed=src/core/persistence/");
+    println!("cargo:rerun-if-changed=src/core/services/");
+    println!("cargo:rerun-if-changed=src/core/models.rs");
+    // specta 类型导出见 lib.rs #[cfg(debug_assertions)] 块
 }

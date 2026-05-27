@@ -7,6 +7,7 @@ use crate::core::performance::get_performance_monitor;
 
 /// 获取性能指标
 #[tauri::command]
+#[specta::specta]
 pub async fn get_performance_metrics() -> Result<serde_json::Value, CoreError> {
     let monitor = get_performance_monitor();
     let metrics = monitor.get_metrics().await;
@@ -27,6 +28,7 @@ pub async fn get_performance_metrics() -> Result<serde_json::Value, CoreError> {
 
 /// 重置性能指标
 #[tauri::command]
+#[specta::specta]
 pub async fn reset_performance_metrics() -> Result<(), CoreError> {
     let monitor = get_performance_monitor();
     monitor.reset_metrics().await;
@@ -35,6 +37,7 @@ pub async fn reset_performance_metrics() -> Result<(), CoreError> {
 
 /// 获取系统健康状态
 #[tauri::command]
+#[specta::specta]
 pub async fn get_system_health() -> Result<serde_json::Value, CoreError> {
     let monitor = get_performance_monitor();
     let metrics = monitor.get_metrics().await;

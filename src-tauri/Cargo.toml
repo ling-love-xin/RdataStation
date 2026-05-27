@@ -11,8 +11,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 # ---------- Build Dependencies ----------
 [build-dependencies]
-# ✅ 精确锁定，与 tauri-cli 2.10.1 完美匹配
-tauri-build = { version = "2.5.6", features = [] }
+# ✅ 与 tauri 2.11.2 兼容（2.5.6→2.6.2 修复 capabilities 解析）
+tauri-build = { version = "2.6.2", features = [] }
 
 # ---------- Dependencies ----------
 [dependencies]
@@ -43,8 +43,10 @@ duckdb = { version = "1.10502.0", features = ["bundled"] }
 # ===== 序列化 =====
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.135"
-# ===== TypeScript 类型生成 =====
-ts-rs = { version = "10.0", features = ["serde-compat", "export-impl"] }
+# ===== TypeScript 类型生成 (specta 替代 ts-rs) =====
+specta = { version = "=2.0.0-rc.25", features = ["derive", "function", "collect", "serde_json", "chrono"] }
+specta-typescript = "0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript", "derive"] }
 
 # ===== 错误处理 =====
 thiserror = "1.0.69"

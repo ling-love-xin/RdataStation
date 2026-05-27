@@ -186,7 +186,7 @@ impl LogStore {
                 })
                 .map_err(|e| Self::sqlite_err("query_logs_rows", e.to_string()))?;
 
-            let mut result = Vec::with_capacity(page_size);
+            let mut result = Vec::with_capacity(page_size as usize);
             for record in rows.flatten() {
                 result.push(record);
             }
@@ -197,10 +197,10 @@ impl LogStore {
 
         Ok(LogPage {
             records,
-            total,
+            total: total as u32,
             page,
             page_size,
-            total_pages: total.div_ceil(page_size),
+            total_pages: total as u32 / page_size + if total as u32 % page_size > 0 { 1 } else { 0 },
         })
     }
 
@@ -271,7 +271,7 @@ impl LogStore {
                 };
                 let rows = stmt
                     .query_map([], |row| {
-                        Ok((row.get::<_, String>(0)?, row.get::<_, usize>(1)?))
+                        Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?))
                     })
                     .map_err(|e| Self::sqlite_err("stats_level_rows", e.to_string()))?;
 
@@ -331,7 +331,7 @@ impl LogStore {
                 .ok();
 
             Ok(LogStats {
-                total,
+                total: total as u32,
                 by_level,
                 by_target,
                 first_timestamp,

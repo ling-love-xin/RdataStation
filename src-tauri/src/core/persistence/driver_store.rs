@@ -1,10 +1,11 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::{CoreError, StorageError};
 
 /// 数据源类型（MySQL, PostgreSQL, Oracle 等数据库大类）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DataSourceType {
     pub id: String,
     pub name: String,
@@ -15,7 +16,7 @@ pub struct DataSourceType {
 }
 
 /// 驱动定义，描述驱动的元数据、连接参数 Schema、下载地址和版本信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Driver {
     pub id: String,
     pub type_id: String,
@@ -34,13 +35,13 @@ pub struct Driver {
 }
 
 /// 本机已安装的外部驱动文件注册信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverFile {
     pub id: String,
     pub driver_id: String,
     pub file_path: String,
     pub file_name: String,
-    pub file_size: Option<i64>,
+    pub file_size: Option<i32>,
     pub checksum: Option<String>,
     pub version: String,
     pub installed_at: String,

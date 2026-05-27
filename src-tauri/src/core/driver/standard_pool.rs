@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 /**
  * 标准连接池模块 (Standard Pool)
  *
@@ -53,7 +54,7 @@ use crate::core::error::{ConnectionError, CoreError};
 /// 标准连接池用户可配置参数
 ///
 /// 通过前端连接页面表单传递，支持 JSON 序列化
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct StandardPoolConfig {
     /// 最小连接数
     #[serde(default = "default_min_connections")]
@@ -63,13 +64,13 @@ pub struct StandardPoolConfig {
     pub max_connections: u32,
     /// 空闲超时（秒）
     #[serde(default = "default_idle_timeout")]
-    pub idle_timeout_secs: u64,
+    pub idle_timeout_secs: u32,
     /// 连接最大生命周期（秒）
     #[serde(default = "default_max_lifetime")]
-    pub max_lifetime_secs: u64,
+    pub max_lifetime_secs: u32,
     /// 获取连接超时（秒）
     #[serde(default = "default_acquire_timeout")]
-    pub acquire_timeout_secs: u64,
+    pub acquire_timeout_secs: u32,
     /// 是否启用健康检查
     #[serde(default = "default_health_check")]
     pub health_check_enabled: bool,
@@ -81,13 +82,13 @@ fn default_min_connections() -> u32 {
 fn default_max_connections() -> u32 {
     20
 }
-fn default_idle_timeout() -> u64 {
+fn default_idle_timeout() -> u32 {
     600
 }
-fn default_max_lifetime() -> u64 {
+fn default_max_lifetime() -> u32 {
     1800
 }
-fn default_acquire_timeout() -> u64 {
+fn default_acquire_timeout() -> u32 {
     30
 }
 fn default_health_check() -> bool {
@@ -317,17 +318,17 @@ impl StandardPoolBuilder {
         self
     }
 
-    pub fn idle_timeout_secs(mut self, secs: u64) -> Self {
+    pub fn idle_timeout_secs(mut self, secs: u32) -> Self {
         self.config.idle_timeout_secs = secs;
         self
     }
 
-    pub fn max_lifetime_secs(mut self, secs: u64) -> Self {
+    pub fn max_lifetime_secs(mut self, secs: u32) -> Self {
         self.config.max_lifetime_secs = secs;
         self
     }
 
-    pub fn acquire_timeout_secs(mut self, secs: u64) -> Self {
+    pub fn acquire_timeout_secs(mut self, secs: u32) -> Self {
         self.config.acquire_timeout_secs = secs;
         self
     }

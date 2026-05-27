@@ -4,9 +4,10 @@
 //! 本模块不直接依赖 sqlglot-rust，所有 SQL 处理通过 SqlEngine 间接调用。
 
 use crate::core::sql::SqlEngine;
+use specta::Type;
 
 /// SQL 方言枚举（前端兼容）
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
 pub enum SqlDialect {
     Generic,
@@ -39,22 +40,22 @@ impl SqlDialect {
 }
 
 /// SQL 解析结果
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Type)]
 pub struct ParseResult {
     pub success: bool,
     pub error: Option<String>,
-    pub statements_count: usize,
+    pub statements_count: u32,
 }
 
 /// SQL 格式化请求
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, Type)]
 pub struct FormatRequest {
     pub sql: String,
     pub dialect: Option<SqlDialect>,
 }
 
 /// SQL 格式化响应
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Type)]
 pub struct FormatResponse {
     pub formatted_sql: String,
     pub success: bool,
@@ -62,7 +63,7 @@ pub struct FormatResponse {
 }
 
 /// SQL 转译请求
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, Type)]
 pub struct TranspileRequest {
     pub sql: String,
     pub source_dialect: SqlDialect,
@@ -70,7 +71,7 @@ pub struct TranspileRequest {
 }
 
 /// SQL 转译响应
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Type)]
 pub struct TranspileResponse {
     pub transpiled_sql: String,
     pub success: bool,
@@ -78,14 +79,14 @@ pub struct TranspileResponse {
 }
 
 /// SQL 验证请求
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, Type)]
 pub struct ValidateRequest {
     pub sql: String,
     pub dialect: Option<SqlDialect>,
 }
 
 /// SQL 验证响应
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Type)]
 pub struct ValidateResponse {
     pub valid: bool,
     pub errors: Vec<String>,

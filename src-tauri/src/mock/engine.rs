@@ -79,7 +79,7 @@ impl MockEngine {
         let start = Instant::now();
 
         let mut rng: StdRng = match config.seed {
-            Some(s) => StdRng::seed_from_u64(s),
+            Some(s) => StdRng::seed_from_u64(s as u64),
             None => StdRng::seed_from_u64(rand::random()),
         };
 
@@ -95,13 +95,13 @@ impl MockEngine {
         let ddl = Self::build_create_table_ddl(&table_name, &config.columns);
         conn.execute_batch(&ddl)?;
 
-        let total_batches = config.row_count.div_ceil(BATCH_SIZE);
+        let total_batches = config.row_count.div_ceil(BATCH_SIZE as u32);
         let mut unique_sets: Vec<HashSet<String>> = config
             .columns
             .iter()
             .map(|c| {
                 if c.unique {
-                    HashSet::with_capacity(config.row_count)
+                    HashSet::with_capacity(config.row_count as usize)
                 } else {
                     HashSet::new()
                 }
@@ -136,20 +136,20 @@ impl MockEngine {
             .collect::<MockResult<Vec<_>>>()?;
 
         for batch_idx in 0..total_batches {
-            let start_row = batch_idx * BATCH_SIZE;
-            let count = std::cmp::min(BATCH_SIZE, config.row_count - start_row);
+            let start_row = batch_idx * BATCH_SIZE as u32;
+            let count = std::cmp::min(BATCH_SIZE as u32, config.row_count - start_row);
 
-            let mut all_values: Vec<Vec<String>> = Vec::with_capacity(count);
+            let mut all_values: Vec<Vec<String>> = Vec::with_capacity(count as usize);
 
             for row_idx in 0..count {
-                let global_row = start_row + row_idx;
+                let global_row = start_row + row_idx as u32;
                 let mut row_vals = Vec::with_capacity(config.columns.len());
 
                 for (col_idx, col) in config.columns.iter().enumerate() {
                     let mut attempts = 0;
                     let value = loop {
                         let val =
-                            generate_cell(&col.generator, &mut rng, global_row, &config.locale);
+                            generate_cell(&col.generator, &mut rng, global_row as usize, &config.locale);
                         if !col.unique || !unique_sets[col_idx].contains(&val) {
                             if col.unique {
                                 unique_sets[col_idx].insert(val.clone());
@@ -181,7 +181,7 @@ impl MockEngine {
 
             let insert_sql = SqlEngine::build_insert(&table_name, &safe_col_names, &all_values);
             conn.execute_batch(&insert_sql)?;
-            on_progress(batch_idx + 1, total_batches);
+            on_progress(batch_idx as usize + 1, total_batches as usize);
         }
 
         DuckDBManager::register_temp_table(&table_name);
@@ -197,7 +197,7 @@ impl MockEngine {
             row_count: config.row_count,
             preview,
             columns: config.columns.iter().map(|c| c.name.clone()).collect(),
-            elapsed_ms,
+            elapsed_ms: elapsed_ms as u32,
         })
     }
 
@@ -421,7 +421,7 @@ impl MockEngine {
         Ok(QueryResult {
             columns,
             batches: vec![arrow_batch],
-            affected_rows: Some(total),
+            affected_rows: Some(total as u32),
             is_read_only: Some(true),
         })
     }
@@ -710,7 +710,7 @@ fn infer_datatype_for_column(sql_type: &str) -> ColumnDataType {
             .parse::<u32>()
             .ok()
             .map(|v| v as usize);
-        ColumnDataType::Varchar { length }
+        ColumnDataType::Varchar { length: length.map(|v| v as u32) }
     } else if lower.starts_with("decimal") || lower.starts_with("numeric") {
         let inner = lower
             .trim_start_matches(|c: char| c.is_alphabetic())

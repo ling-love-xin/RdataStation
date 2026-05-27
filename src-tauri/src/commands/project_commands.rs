@@ -126,7 +126,7 @@ impl From<ProjectError> for String {
 }
 
 /// 项目信息响应
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, specta::Type)]
 pub struct ProjectInfoResponse {
     pub id: String,
     pub name: String,
@@ -141,7 +141,7 @@ pub struct ProjectInfoResponse {
 }
 
 /// 项目路径响应
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, specta::Type)]
 #[serde(tag = "type")]
 pub enum ProjectPathResponse {
     Local { path: String },
@@ -212,7 +212,7 @@ fn build_project_response(info: &ProjectInfo, actual_path: String) -> ProjectInf
 }
 
 /// 创建项目请求
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateProjectInput {
     pub name: String,
     pub path: String,
@@ -220,13 +220,14 @@ pub struct CreateProjectInput {
 }
 
 /// 创建项目响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct CreateProjectResponse {
     pub project: ProjectInfoResponse,
 }
 
 /// 创建新项目
 #[tauri::command]
+#[specta::specta]
 pub async fn create_project(input: CreateProjectInput) -> Result<CreateProjectResponse, CoreError> {
     let path = PathBuf::from(&input.path);
 
@@ -259,6 +260,7 @@ pub async fn create_project(input: CreateProjectInput) -> Result<CreateProjectRe
 
 /// 获取项目配置
 #[tauri::command]
+#[specta::specta]
 pub async fn get_project_config(path: String) -> Result<ProjectConfig, CoreError> {
     let path = PathBuf::from(path);
 
@@ -270,7 +272,7 @@ pub async fn get_project_config(path: String) -> Result<ProjectConfig, CoreError
 }
 
 /// 更新项目配置请求
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct UpdateProjectConfigInput {
     pub path: String,
     pub config: ProjectConfig,
@@ -278,6 +280,7 @@ pub struct UpdateProjectConfigInput {
 
 /// 更新项目配置
 #[tauri::command]
+#[specta::specta]
 pub async fn update_project_config(input: UpdateProjectConfigInput) -> Result<(), CoreError> {
     tracing::info!(
         path = %input.path,
@@ -311,6 +314,7 @@ pub async fn update_project_config(input: UpdateProjectConfigInput) -> Result<()
 
 /// 获取最近项目列表
 #[tauri::command]
+#[specta::specta]
 pub async fn get_recent_projects(
     limit: Option<usize>,
 ) -> Result<Vec<ProjectInfoResponse>, CoreError> {
@@ -343,6 +347,7 @@ pub async fn get_recent_projects(
 
 /// 打开项目（更新最后打开时间并返回项目信息）
 #[tauri::command]
+#[specta::specta]
 pub async fn open_project_by_id(id: String) -> Result<ProjectInfoResponse, CoreError> {
     tracing::info!(project_id = %id, "Opening project by ID");
     let start = std::time::Instant::now();
@@ -389,6 +394,7 @@ pub async fn open_project_by_id(id: String) -> Result<ProjectInfoResponse, CoreE
 
 /// 根据路径打开项目
 #[tauri::command]
+#[specta::specta]
 pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, CoreError> {
     tracing::info!(path = %path, "Opening project by path");
     let start = std::time::Instant::now();
@@ -522,6 +528,7 @@ pub async fn open_project_by_path(path: String) -> Result<ProjectInfoResponse, C
 
 /// 创建并保存项目到全局数据库
 #[tauri::command]
+#[specta::specta]
 pub async fn create_and_save_project(
     input: CreateProjectInput,
 ) -> Result<ProjectInfoResponse, CoreError> {
@@ -639,6 +646,7 @@ pub async fn create_and_save_project(
 
 /// 添加到最近项目（更新最后打开时间）
 #[tauri::command]
+#[specta::specta]
 pub async fn add_recent_project(project_id: String) -> Result<(), CoreError> {
     tracing::debug!(project_id = %project_id, "Adding project to recent list");
 
@@ -664,6 +672,7 @@ pub async fn add_recent_project(project_id: String) -> Result<(), CoreError> {
 
 /// 验证项目有效性（检查路径和项目结构）
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_project(project_id: String) -> Result<bool, CoreError> {
     tracing::debug!(project_id = %project_id, "Validating project");
 
@@ -712,6 +721,7 @@ pub async fn validate_project(project_id: String) -> Result<bool, CoreError> {
 
 /// 删除项目（从全局数据库中移除）
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_project(project_id: String) -> Result<(), CoreError> {
     tracing::info!(project_id = %project_id, "Deleting project from global database");
 
@@ -732,7 +742,7 @@ pub async fn delete_project(project_id: String) -> Result<(), CoreError> {
 }
 
 /// 更新项目信息（名称、描述）
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct UpdateProjectInput {
     pub id: String,
     pub name: String,
@@ -740,6 +750,7 @@ pub struct UpdateProjectInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn update_project(input: UpdateProjectInput) -> Result<(), CoreError> {
     tracing::info!(project_id = %input.id, name = %input.name, "Updating project info");
 
@@ -849,7 +860,7 @@ pub async fn close_project_store(state: State<'_, ProjectState>) -> Result<(), C
     Ok(())
 }
 
-/// 保存连接到项目存储
+/// 保存连接信息到项目存储
 #[tauri::command]
 pub async fn save_project_store_connection(
     connection: StoredConnection,
@@ -1015,6 +1026,7 @@ pub async fn get_project_store_workbench_state(
 
 /// 获取所有项目信息（系统级）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_all_projects() -> Result<Vec<ProjectInfoResponse>, CoreError> {
     let global_db = crate::core::migration::get_global_db_manager().ok_or_else(|| {
         CoreError::from(ProjectError::OperationFailed("全局数据库未初始化".to_string()).to_string())
@@ -1028,13 +1040,14 @@ pub async fn get_all_projects() -> Result<Vec<ProjectInfoResponse>, CoreError> {
 }
 
 /// 重命名项目
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct RenameProjectInput {
     pub project_id: String,
     pub new_name: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn rename_project(input: RenameProjectInput) -> Result<(), CoreError> {
     tracing::info!(
         project_id = %input.project_id,
@@ -1083,7 +1096,7 @@ pub async fn rename_project(input: RenameProjectInput) -> Result<(), CoreError> 
 }
 
 /// 项目验证结果
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ProjectValidationResult {
     pub is_valid: bool,
     pub path_exists: bool,
@@ -1094,6 +1107,7 @@ pub struct ProjectValidationResult {
 
 /// 验证项目完整性
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_project_full(
     project_id: String,
 ) -> Result<ProjectValidationResult, CoreError> {
@@ -1161,6 +1175,7 @@ pub async fn validate_project_full(
 /// 从全局数据库中删除项目记录，使缓存失效。
 /// 返回被移除的项目信息，供前端做 UI 回滚。
 #[tauri::command]
+#[specta::specta]
 pub async fn remove_from_recent(project_id: String) -> Result<ProjectInfoResponse, CoreError> {
     tracing::info!(project_id = %project_id, "Removing project from recent list");
 
@@ -1198,6 +1213,7 @@ pub async fn remove_from_recent(project_id: String) -> Result<ProjectInfoRespons
 /// 先删除磁盘目录，再删除数据库记录，保证数据一致性。
 /// 如果磁盘删除失败，数据库记录不受影响。
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_project_disk(project_id: String) -> Result<(), CoreError> {
     tracing::info!(project_id = %project_id, "Physically deleting project from disk");
 

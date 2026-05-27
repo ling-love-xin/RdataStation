@@ -53,10 +53,10 @@ pub(crate) async fn re_execute_with_filter(
     let temp_table = duckdb_service::DuckDbService::create_duckdb_temp_table(&columns, &rows)?;
 
     Ok(ResultSet {
-        row_count: rows.len(),
+        row_count: rows.len() as u32,
         columns,
         rows,
-        elapsed_ms: elapsed,
+        elapsed_ms: elapsed as u32,
         temp_table,
     })
 }
@@ -99,8 +99,8 @@ pub(crate) fn execute_duckdb_analysis(
     Ok(ResultSet {
         columns: cols_out,
         rows: rws_out,
-        row_count,
-        elapsed_ms: elapsed,
+        row_count: row_count as u32,
+        elapsed_ms: elapsed as u32,
         temp_table: actual_table,
     })
 }

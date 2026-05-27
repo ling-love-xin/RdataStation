@@ -3,11 +3,12 @@
 //! 支持从配置文件或代码自动扫描注册驱动
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::CoreError;
 
 /// 驱动配置（用于配置文件）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverConfig {
     /// 驱动 ID
     pub id: String,
@@ -46,7 +47,7 @@ pub struct DriverConfig {
 }
 
 /// 驱动字段配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverFieldConfig {
     pub key: String,
     pub label: String,
@@ -58,7 +59,7 @@ pub struct DriverFieldConfig {
 }
 
 /// 驱动选项配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverOptionConfig {
     pub key: String,
     pub label: String,
@@ -72,7 +73,7 @@ pub struct DriverOptionConfig {
 }
 
 /// 驱动注册表配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverRegistryConfig {
     /// 驱动列表
     pub drivers: Vec<DriverConfig>,

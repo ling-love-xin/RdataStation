@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::OnceLock;
@@ -8,7 +9,7 @@ use std::sync::OnceLock;
 /// Level 1: 仅名称 + 类型签名（列类型为 unknown）
 /// Level 2: 全部元数据，不含源码
 /// Level 3: 全部元数据 + 例程源码
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum IntrospectionLevel {
     Level1,

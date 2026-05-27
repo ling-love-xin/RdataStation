@@ -20,13 +20,14 @@
 //! 4. **向前兼容**: 新增错误域不会破坏现有代码
 
 use serde::Serialize;
+use specta::Type;
 use std::fmt;
 
 /// 核心错误容器
 ///
 /// 这是 Core 层统一的错误类型，采用"容器模式"包装各个错误域。
 /// 每个错误域都是独立的枚举，避免 God Enum 问题。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreError {
     /// 通用错误域
     Common(CommonError),
@@ -54,7 +55,7 @@ pub enum CoreError {
 /// 通用错误域
 ///
 /// 适用于所有模块的基础错误类型
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum CommonError {
     /// 通用错误 - 兜底类型
     General(String),
@@ -101,7 +102,7 @@ impl CommonError {
 /// 连接错误域
 ///
 /// 数据库连接相关的所有错误
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum ConnectionError {
     /// 连接被拒绝
     Refused { conn_id: String, reason: String },
@@ -191,7 +192,7 @@ impl ConnectionError {
 /// 数据库错误域
 ///
 /// SQL 执行、事务、查询相关的错误
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum DatabaseError {
     /// 查询执行错误
     Query {
@@ -264,7 +265,7 @@ impl DatabaseError {
 }
 
 /// 事务状态
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum TransactionState {
     NotStarted,
     InProgress,
@@ -278,7 +279,7 @@ pub enum TransactionState {
 /// 存储错误域
 ///
 /// 持久化、序列化、IO 相关的错误
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum StorageError {
     /// 持久化存储错误
     Persistence {
@@ -310,7 +311,7 @@ pub enum StorageError {
 /// 缓存错误域
 ///
 /// 缓存操作相关的错误
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum CacheError {
     /// 缓存未命中
     Miss { key: String },
@@ -416,7 +417,7 @@ impl fmt::Display for CacheError {
 /// 插件错误域
 ///
 /// 插件管理、加载、执行相关的所有错误
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub enum PluginError {
     /// 插件未找到
     NotFound {

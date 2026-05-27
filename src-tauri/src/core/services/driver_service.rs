@@ -1,4 +1,5 @@
 use crate::core::error::CoreError;
+use specta::Type;
 use crate::core::persistence::driver_store::{DataSourceType, Driver, DriverFile};
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
@@ -27,7 +28,7 @@ pub enum DriverAvailability {
 }
 
 /// 项目打开时检测到的缺失驱动信息
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct MissingDriver {
     pub driver_id: String,
     pub driver_name: String,

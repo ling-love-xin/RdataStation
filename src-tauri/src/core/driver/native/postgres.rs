@@ -102,7 +102,7 @@ fn build_query_result(
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only { None } else { Some(rows.len()) },
+        affected_rows: if is_read_only { None } else { Some(rows.len() as u32) },
         is_read_only: Some(is_read_only),
     })
 }

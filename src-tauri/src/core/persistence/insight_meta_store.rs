@@ -9,20 +9,22 @@
 
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 use crate::core::error::{CoreError, StorageError};
 use crate::core::persistence::project_db::ProjectSqlitePool;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct InsightSnapshotMeta {
     pub id: String,
     pub entity_type: String,
     pub entity_name: String,
     pub entity_source: Option<String>,
     pub snapshot_id: String,
-    pub row_count: Option<i64>,
-    pub elapsed_ms: Option<i64>,
+    pub row_count: Option<i32>,
+    pub elapsed_ms: Option<i32>,
     pub version_id: String,
     pub parent_version_id: Option<String>,
     pub checksum: String,
@@ -46,8 +48,8 @@ impl InsightMetaStore {
         entity_name: &str,
         entity_source: Option<&str>,
         snapshot_id: &str,
-        row_count: Option<i64>,
-        elapsed_ms: Option<i64>,
+        row_count: Option<i32>,
+        elapsed_ms: Option<i32>,
         version_id: &str,
         parent_version_id: Option<&str>,
         checksum: &str,
@@ -127,7 +129,7 @@ impl InsightMetaStore {
         limit: Option<usize>,
     ) -> Result<Vec<InsightSnapshotMeta>, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
-        let limit_val = limit.unwrap_or(20) as i64;
+        let limit_val = limit.unwrap_or(20) as i32;
 
         let mut stmt = conn.inner()?.prepare(
             "SELECT id, entity_type, entity_name, entity_source, snapshot_id, row_count, elapsed_ms, version_id, parent_version_id, checksum, created_at
@@ -230,10 +232,10 @@ impl InsightMetaStore {
     }
 
     /// 统计指定类型洞察的总数
-    pub async fn count_by_type(&self, entity_type: &str) -> Result<i64, CoreError> {
+    pub async fn count_by_type(&self, entity_type: &str) -> Result<i32, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
-        let count: i64 = conn
+        let count: i32 = conn
             .inner()?
             .query_row(
                 "SELECT COUNT(*) FROM insight_snapshots WHERE entity_type = ?1",
@@ -292,7 +294,7 @@ impl InsightMetaStore {
     /// 按天数清理过期元数据
     ///
     /// 返回清理的条目数
-    pub async fn cleanup_older_than(&self, days: i64) -> Result<usize, CoreError> {
+    pub async fn cleanup_older_than(&self, days: i32) -> Result<usize, CoreError> {
         let conn = self.sqlite_pool.acquire().await?;
 
         let deleted = conn

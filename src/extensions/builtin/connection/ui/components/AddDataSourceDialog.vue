@@ -145,6 +145,7 @@ const props = withDefaults(defineProps<Props>(), { modelValue: false, initialDri
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
   (e: 'save'): void
+  (e: 'connectionsChanged'): void
 }>()
 
 const { t } = useI18n()
@@ -558,32 +559,7 @@ function syncCurrentToStaging() {
 
 
 
-/** 构建连接选项 */
-function buildConnectOpts(
-  item: StagingItem,
-  networkConfigId: string | null,
-  authConfigId: string | null
-): {
-  driverId?: string
-  authConfigId?: string
-  authMethod?: string
-  networkConfigId?: string
-  driverProperties?: string
-  advancedOptions?: string
-  environmentId?: string
-  description?: string
-} {
-  return {
-    driverId: item.driverId,
-    authConfigId: authConfigId || undefined,
-    authMethod: item.authMethod,
-    networkConfigId: networkConfigId || undefined,
-    driverProperties: item.driverProperties,
-    advancedOptions: item.advancedOptions,
-    environmentId: item.environmentId || undefined,
-    description: item.description
-  }
-}
+
 
 /** 批量应用所有暂存连接 → 写入数据库 */
 async function handleApply() {
@@ -761,8 +737,8 @@ async function saveToProjectOnly(
   }
 
   const pp = projectStore.currentProject?.path
-  let snapshotNetId = await snapshotIfNeeded(item.networkConfigId ?? null, 'network', pp, name, errors, invoke)
-  let snapshotAuthId = await snapshotIfNeeded(item.authConfigId ?? null, 'auth', pp, name, errors, invoke)
+  const snapshotNetId = await snapshotIfNeeded(item.networkConfigId ?? null, 'network', pp, name, errors, invoke)
+  const snapshotAuthId = await snapshotIfNeeded(item.authConfigId ?? null, 'auth', pp, name, errors, invoke)
 
   if (snapshotAuthId === 'failed' || snapshotNetId === 'failed') {
     return
@@ -772,7 +748,7 @@ async function saveToProjectOnly(
   
   // 如果没有使用已保存的认证配置，且用户填写了认证信息，则保存新的认证配置
   let finalAuthConfigId = snapshotAuthId
-  let finalAuthMethod = item.authMethod || authMethod.value
+  const finalAuthMethod = item.authMethod || authMethod.value
   const hasAuthData = (fd.username && fd.password) || fd.certPath || fd.principal
   if (!finalAuthConfigId && hasAuthData) {
     try {

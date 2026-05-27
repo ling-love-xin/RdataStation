@@ -2,10 +2,21 @@
  * 数据库导航 API 层
  *
  * 统一处理与 Tauri 后端的通信
+ * 使用 tauri-specta 生成的 typed commands
  * 遵循规范：所有数据交互必须通过 tauri.invoke 调用 Rust 核心接口
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { commands } from '@/generated/specta/bindings'
+import type {
+  ColumnMeta,
+  IndexMeta,
+  ConstraintMeta,
+  ProcedureMeta,
+  FunctionMeta,
+  RoutineSourceMeta,
+} from '@/generated/specta/bindings'
+import { typed } from '@/shared/api'
+
 
 /**
  * Catalog 元数据 — 树形导航根节点
@@ -104,11 +115,7 @@ export async function loadCatalogs(
   connectionType?: string,
   projectPath?: string
 ): Promise<ICatalogMeta[]> {
-  return await invoke<ICatalogMeta[]>('load_catalogs', {
-    connId: connectionId,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadCatalogs(connectionId, connectionType ?? null, projectPath ?? null)) as unknown as ICatalogMeta[]
 }
 
 /**
@@ -126,12 +133,7 @@ export async function loadSchemas(
   connectionType?: string,
   projectPath?: string
 ): Promise<ISchemaMeta[]> {
-  return await invoke<ISchemaMeta[]>('load_schemas', {
-    connId: connectionId,
-    dbName: catalogName,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadSchemas(connectionId, catalogName, connectionType ?? null, projectPath ?? null)) as unknown as ISchemaMeta[]
 }
 
 /**
@@ -151,13 +153,7 @@ export async function loadTables(
   connectionType?: string,
   projectPath?: string
 ): Promise<ITableMeta[]> {
-  return await invoke<ITableMeta[]>('load_tables', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadTables(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null)) as unknown as ITableMeta[]
 }
 
 /**
@@ -177,13 +173,7 @@ export async function loadViews(
   connectionType?: string,
   projectPath?: string
 ): Promise<IViewMeta[]> {
-  return await invoke<IViewMeta[]>('load_views', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadViews(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null)) as unknown as IViewMeta[]
 }
 
 /**
@@ -205,14 +195,35 @@ export async function loadColumns(
   connectionType?: string,
   projectPath?: string
 ): Promise<IColumnMeta[]> {
-  return await invoke<IColumnMeta[]>('load_columns', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    tableName,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadColumns(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null)) as unknown as IColumnMeta[]
+}
+
+/**
+ * 加载索引列表
+ */
+export async function loadIndexes(
+  connectionId: string,
+  catalogName: string,
+  schemaName: string,
+  tableName: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<IndexMeta[]> {
+  return typed(commands.loadIndexes(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null))
+}
+
+/**
+ * 加载约束列表
+ */
+export async function loadConstraints(
+  connectionId: string,
+  catalogName: string,
+  schemaName: string,
+  tableName: string,
+  connectionType?: string,
+  projectPath?: string
+): Promise<ConstraintMeta[]> {
+  return typed(commands.loadConstraints(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null))
 }
 
 /**
@@ -227,12 +238,8 @@ export async function loadProcedures(
   connectionId: string,
   catalogName: string,
   schemaName: string
-): Promise<{ name: string }[]> {
-  return await invoke<{ name: string }[]>('load_procedures', {
-    connectionId,
-    dbName: catalogName,
-    schemaName,
-  })
+): Promise<ProcedureMeta[]> {
+  return typed(commands.loadProcedures(connectionId, catalogName, schemaName))
 }
 
 /**
@@ -247,12 +254,8 @@ export async function loadFunctions(
   connectionId: string,
   catalogName: string,
   schemaName: string
-): Promise<{ name: string }[]> {
-  return await invoke<{ name: string }[]>('load_functions', {
-    connectionId,
-    dbName: catalogName,
-    schemaName,
-  })
+): Promise<FunctionMeta[]> {
+  return typed(commands.loadFunctions(connectionId, catalogName, schemaName))
 }
 
 /**
@@ -266,11 +269,7 @@ export async function loadFunctions(
  * @param routineKind - 例程类型（PROCEDURE / FUNCTION）
  * @returns 例程源码元数据
  */
-export interface RoutineSourceMeta {
-  name: string
-  routineKind: string
-  sourceCode: string | null
-}
+export type { RoutineSourceMeta }
 
 export async function loadRoutineSource(
   connectionId: string,
@@ -279,23 +278,13 @@ export async function loadRoutineSource(
   routineName: string,
   routineKind: string
 ): Promise<RoutineSourceMeta> {
-  return await invoke<RoutineSourceMeta>('load_routine_source', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    routineName,
-    routineKind,
-  })
+  return typed(commands.loadRoutineSource(connectionId, catalogName, schemaName, routineName, routineKind))
 }
-
-// 索引/约束 API 待后端实现
-// - load_indexes: Tauri command
-// - load_constraints: Tauri command
 
 /**
  * API 版本信息
  */
-export interface ApiVersionResponse {
+export type ApiVersionResponse = {
   version: string
   major: number
   minor: number
@@ -304,14 +293,14 @@ export interface ApiVersionResponse {
 }
 
 export async function getApiVersion(): Promise<ApiVersionResponse> {
-  return await invoke<ApiVersionResponse>('get_api_version')
+  return commands.getApiVersion()
 }
 
 /**
  * 连接健康检查（ping）
  */
 export async function pingConnection(connId?: string): Promise<boolean> {
-  return await invoke<boolean>('ping_connection', { connId })
+  return typed(commands.pingConnection(connId ?? null))
 }
 
 /**
@@ -346,54 +335,19 @@ export async function setIntrospectionLevel(
   connectionId: string,
   level: IntrospectionLevel
 ): Promise<void> {
-  await invoke('set_introspection_level', {
-    connId: connectionId,
-    level,
-  })
+  await typed(commands.setIntrospectionLevel(connectionId, level))
 }
 
 /**
  * 获取连接的内省级别
  */
 export async function getIntrospectionLevel(connectionId: string): Promise<IntrospectionLevel> {
-  return await invoke<IntrospectionLevel>('get_introspection_level', {
-    connId: connectionId,
-  })
+  return typed(commands.getIntrospectionLevel(connectionId)) as unknown as IntrospectionLevel
 }
 
 /**
  * 重置连接的内省级别为默认 Level 3
  */
 export async function removeIntrospectionLevel(connectionId: string): Promise<void> {
-  await invoke('remove_introspection_level', {
-    connId: connectionId,
-  })
-}
-
-export async function loadIndexes(
-  connectionId: string,
-  catalogName: string,
-  schemaName: string,
-  tableName: string
-): Promise<unknown[]> {
-  return invoke('load_indexes', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    tableName
-  })
-}
-
-export async function loadConstraints(
-  connectionId: string,
-  catalogName: string,
-  schemaName: string,
-  tableName: string
-): Promise<unknown[]> {
-  return invoke('load_constraints', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    tableName
-  })
+  await typed(commands.removeIntrospectionLevel(connectionId))
 }

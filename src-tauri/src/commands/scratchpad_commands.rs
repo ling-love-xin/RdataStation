@@ -173,11 +173,12 @@ pub async fn open_scratchpad_in_explorer(
 pub async fn check_scratchpad_file_size(
     relative_path: String,
     scratchpad_state: State<'_, ScratchpadState>,
-) -> Result<u64, CoreError> {
+) -> Result<u32, CoreError> {
     let scratchpad = get_store(&scratchpad_state).await?;
     scratchpad
         .check_file_size(&relative_path)
         .await
+        .map(|n| n as u32)
         .map_err(|e| CoreError::from(e.to_string()))
 }
 
@@ -463,7 +464,7 @@ fn extension_to_resource_type(ext: &str) -> &str {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
 pub struct PromoteResult {
     pub resource: AnalyticsResource,
     pub removed: bool,
@@ -526,7 +527,7 @@ pub async fn promote_scratchpad_to_resource(
         scope: "project".to_string(),
         row_count: None,
         column_count: None,
-        file_size: Some(file_size as i64),
+        file_size: Some(file_size as i32),
         parent_resource_id: None,
         source_query: if ext == "sql" {
             Some(file_content)

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// 驱动类型
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum DriverType {
     /// 原生驱动（Rust实现）
     Native,
@@ -22,7 +23,7 @@ pub enum DriverType {
 }
 
 /// 驱动图标
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverIcon {
     /// 图标类型
     pub r#type: String,
@@ -31,7 +32,7 @@ pub struct DriverIcon {
 }
 
 /// 驱动配置表单字段
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverFormField {
     /// 字段名称
     pub name: String,
@@ -42,6 +43,7 @@ pub struct DriverFormField {
     /// 是否必填
     pub required: bool,
     /// 默认值
+    #[specta(skip)]
     pub default_value: Option<serde_json::Value>,
     /// 选项（用于下拉框等）
     pub options: Option<Vec<(String, String)>>,
@@ -50,7 +52,7 @@ pub struct DriverFormField {
 }
 
 /// 驱动元信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverMetadata {
     /// 驱动ID
     pub id: String,

@@ -1,10 +1,11 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::{CoreError, StorageError};
 
 /// 环境定义（生产环境、预发布环境、开发环境等）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Environment {
     pub id: String,
     pub name: String,
@@ -18,7 +19,7 @@ pub struct Environment {
 }
 
 /// 环境策略（只读模式、导航过滤、查询超时、行数限制、DDL/DML 阻断等）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct EnvironmentPolicy {
     pub id: String,
     pub environment_id: String,

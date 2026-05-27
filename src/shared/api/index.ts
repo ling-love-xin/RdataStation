@@ -1,22 +1,56 @@
 /**
- * Tauri API 封装
+ * Tauri API 封装 — 使用 tauri-specta 生成的 typed commands
  *
- * 统一封装 Tauri invoke 调用
- * 提供类型安全的 API 接口和错误处理
+ * 所有类型从 bindings.ts 自动生成，命令调用具有完整类型安全。
+ * 兼容层提供与旧 API 相同的调用接口。
+ *
+ * 迁移策略：
+ * - typed commands 直接从 bindings.ts 导出，新代码优先使用
+ * - 旧 API 对象保留向后兼容，内部逐步迁移到 typed commands
+ * - tauriInvoke 保留用于尚未迁移的命令
  */
 
-import { invoke } from '@tauri-apps/api/core'
-
+import type {
+  ConnectDatabaseInput,
+  ConnectDatabaseResponse,
+  ConnectionInfoResponse,
+  SqlHistoryResponse,
+  ProjectInfoResponse,
+  CreateProjectInput,
+  UpdateProjectInput,
+  RegisterExternalDatabaseInput,
+  CreateExternalTableInput,
+} from '@/generated/specta/bindings'
+import { commands } from '@/generated/specta/bindings'
 import type { SchemaObject } from '@/shared/types'
-import type { DatabaseType } from '@/shared/types/sql'
 
-/**
- * 统一调用 Tauri 命令
- */
+/** 重新导出 typed commands 供新代码直接使用 */
+export { commands }
+
+/** 重新导出 specta 生成的类型 */
+export type {
+  ConnectDatabaseInput,
+  ConnectDatabaseResponse,
+  ConnectionInfoResponse,
+  SqlHistoryResponse,
+  ProjectInfoResponse as ProjectInfo,
+  CreateProjectInput,
+  UpdateProjectInput,
+}
+
+/** specta typedError 的 unwrap helper */
+export async function typed<T>(promise: Promise<{ status: 'ok'; data: T } | { status: 'error'; error: unknown }>): Promise<T> {
+  const result = await promise
+  if (result.status === 'ok') return result.data
+  throw result.error
+}
+
+/** 保留向后兼容的 tauriInvoke 用于尚未迁移的调用 */
 export async function tauriInvoke<T = unknown>(
   command: string,
   args: Record<string, unknown> = {}
 ): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core')
   try {
     return await invoke<T>(command, args)
   } catch (error) {
@@ -25,75 +59,38 @@ export async function tauriInvoke<T = unknown>(
   }
 }
 
-// ==================== 连接类型定义 ====================
-
-export interface DataSourceMeta {
-  supports_transaction: boolean
-  supports_streaming: boolean
-  supports_arrow: boolean
-  supports_federated: boolean
-  supports_concurrent_write: boolean
-  is_in_memory: boolean
-}
-
-export interface ConnectDatabaseInput {
-  db_type: DatabaseType
-  url: string
-  name?: string
-  hosts?: Array<{
-    host: string
-    port?: number
-    priority?: number
-    role?: 'primary' | 'replica'
-  }>
-  connection_type?: string
-  project_id?: string
-}
-
-export interface ConnectDatabaseResponse {
-  conn_id: string
-  name: string
-  db_type: DatabaseType
-  url: string
-  connection_type: string
-  project_id: string | null
-  status: string
-  meta: DataSourceMeta
-}
-
-export interface ConnectionInfoResponse {
-  id: string
-  name: string
-  db_type: DatabaseType
-  url: string
-  connection_type: string
-  project_id: string | null
-  status: string
-  is_active: boolean
-  created_at_ms: number
-}
-
 // ==================== 连接相关 API ====================
 
 export const connectionApi = {
+  /** typed — 创建数据库连接 */
   connectDatabase(input: ConnectDatabaseInput) {
-    return tauriInvoke<ConnectDatabaseResponse>('connect_database', { input })
+    return typed(commands.connectDatabase(input))
   },
 
+  /** legacy — 断开连接 */
   disconnectDatabase(connId: string) {
     return tauriInvoke<void>('disconnect_database', { conn_id: connId })
   },
 
+  /** typed — 获取所有连接 */
   getConnections() {
-    return tauriInvoke<ConnectionInfoResponse[]>('get_connections')
+    return typed(commands.getConnections())
   },
 
+  /** legacy — 获取单个连接信息 */
   getConnectionInfo(connId: string) {
     return tauriInvoke<ConnectionInfoResponse>('get_connection_info', { conn_id: connId })
   },
 
-  testConnection(dbType: string, url: string) {
-    return tauriInvoke<boolean>('test_connection', { db_type: dbType, url })
+  /** typed — 测试连接 */
+  testConnection(
+    dbType: string,
+    url: string,
+    networkConfigId?: string | null,
+    authConfigId?: string | null,
+    authMethod?: string | null
+  ) {
+    return typed(commands.testConnection(dbType, url, networkConfigId ?? null, authConfigId ?? null, authMethod ?? null))
   },
 }
 
@@ -127,13 +124,6 @@ export interface ExecuteSqlResponse {
   error?: string
 }
 
-export interface SqlHistoryResponse {
-  id: string
-  sql: string
-  conn_id: string | null
-  executed_at: string
-}
-
 // ==================== SQL 执行相关 API ====================
 
 export const sqlApi = {
@@ -164,7 +154,7 @@ export const sqlApi = {
   },
 }
 
-// ==================== 导航器类型定义 ====================
+// ==================== 导航器相关 API ====================
 
 export interface NavigatorNodeResponse {
   id: string
@@ -176,8 +166,6 @@ export interface NavigatorNodeResponse {
   is_leaf: boolean
   metadata?: Record<string, unknown>
 }
-
-// ==================== 导航器相关 API ====================
 
 export const navigatorApi = {
   getCatalogs(connId: string) {
@@ -246,22 +234,23 @@ export const navigatorApi = {
 // ==================== 联邦查询相关 API ====================
 
 export const federatedApi = {
+  /** typed — 注册外部数据库 */
   registerExternalDatabase(
     connId: string | null,
     name: string,
     driver: string,
     connectionString: string
   ) {
-    return tauriInvoke<void>('register_external_database', {
-      input: {
-        conn_id: connId,
-        name,
-        driver,
-        connection_string: connectionString,
-      },
-    })
+    const input: RegisterExternalDatabaseInput = {
+      conn_id: connId,
+      name,
+      driver,
+      connection_string: connectionString,
+    }
+    return typed(commands.registerExternalDatabase(input))
   },
 
+  /** typed — 创建外部表 */
   createExternalTable(
     connId: string | null,
     externalDbName: string,
@@ -269,83 +258,60 @@ export const federatedApi = {
     tableName: string,
     externalTableName: string
   ) {
-    return tauriInvoke<void>('create_external_table', {
-      input: {
-        conn_id: connId,
-        external_db_name: externalDbName,
-        schema_name: schemaName,
-        table_name: tableName,
-        external_table_name: externalTableName,
-      },
-    })
+    const input: CreateExternalTableInput = {
+      conn_id: connId,
+      external_db_name: externalDbName,
+      schema_name: schemaName,
+      table_name: tableName,
+      external_table_name: externalTableName,
+    }
+    return typed(commands.createExternalTable(input))
   },
 }
 
 // ==================== 项目相关 API ====================
 
-/** 与 workbench/ui/services/project.ts 中 ProjectInfo 保持一致的共享类型 */
-export interface ProjectInfo {
-  id: string
-  name: string
-  description?: string
-  path: {
-    type: 'Local' | 'Remote'
-    path?: string
-    url?: string
-    project_id?: string
-  }
-  status: string
-  created_at: string
-  updated_at: string
-  last_opened_at?: string
-  version: string
-}
-
-export interface CreateProjectInput {
-  name: string
-  path: string
-  description?: string
-}
-
-export interface UpdateProjectInput {
-  id: string
-  name?: string
-  description?: string
-}
-
 /** @deprecated 使用 ProjectInfo 替代 */
-export type ProjectResponse = ProjectInfo
+export type ProjectResponse = ProjectInfoResponse
 
 export const projectApi = {
+  /** typed — 创建并保存项目 */
   createProject(input: CreateProjectInput) {
-    return tauriInvoke<ProjectInfo>('create_and_save_project', { input })
+    return typed(commands.createAndSaveProject(input))
   },
 
+  /** typed — 通过路径打开 */
   openProjectByPath(path: string) {
-    return tauriInvoke<ProjectInfo>('open_project_by_path', { path })
+    return typed(commands.openProjectByPath(path))
   },
 
+  /** typed — 通过 ID 打开 */
   openProjectById(id: string) {
-    return tauriInvoke<ProjectInfo>('open_project_by_id', { id })
+    return typed(commands.openProjectById(id))
   },
 
-  getRecentProjects(limit: number = 10) {
-    return tauriInvoke<ProjectInfo[]>('get_recent_projects', { limit })
+  /** typed — 获取最近项目 */
+  getRecentProjects() {
+    return typed(commands.getRecentProjects(null))
   },
 
+  /** typed — 从最近移除 */
   removeFromRecent(projectId: string) {
-    return tauriInvoke<ProjectInfo>('remove_from_recent', { projectId })
+    return typed(commands.removeFromRecent(projectId))
   },
 
+  /** typed — 删除项目 */
   deleteProject(projectId: string) {
-    return tauriInvoke<void>('delete_project', { projectId })
+    return typed(commands.deleteProject(projectId))
   },
 
+  /** typed — 从磁盘删除 */
   deleteProjectDisk(projectId: string) {
-    return tauriInvoke<void>('delete_project_disk', { projectId })
+    return typed(commands.deleteProjectDisk(projectId))
   },
 
+  /** typed — 更新项目 */
   updateProject(input: UpdateProjectInput) {
-    return tauriInvoke<void>('update_project', { input })
+    return typed(commands.updateProject(input))
   },
 }

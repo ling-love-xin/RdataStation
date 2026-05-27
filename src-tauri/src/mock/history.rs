@@ -122,8 +122,8 @@ impl MockHistoryStore {
             records.push(MockHistoryRecord {
                 id: row.get(0)?,
                 table_name: row.get(1)?,
-                row_count: row.get::<_, i64>(2)? as usize,
-                seed: seed_val.map(|s| s as u64),
+                row_count: row.get::<_, i64>(2)? as u32,
+                seed: seed_val.map(|s| s as u32),
                 config_json: row.get(4)?,
                 generated_at: row.get(5)?,
                 status: row.get(6)?,
@@ -154,8 +154,8 @@ impl MockHistoryStore {
             Ok(Some(MockHistoryRecord {
                 id: row.get(0)?,
                 table_name: row.get(1)?,
-                row_count: row.get::<_, i64>(2)? as usize,
-                seed: seed_val.map(|s| s as u64),
+                row_count: row.get::<_, i64>(2)? as u32,
+                seed: seed_val.map(|s| s as u32),
                 config_json: row.get(4)?,
                 generated_at: row.get(5)?,
                 status: row.get(6)?,

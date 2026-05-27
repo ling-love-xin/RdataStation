@@ -1984,8 +1984,8 @@ impl MetadataCacheOps {
                 comment: table_comment,
             },
             columns,
-            index_count: Some(index_count),
-            row_count_estimate: row_count_estimate.map(|n| n as u64),
+            index_count: Some(index_count as u32),
+            row_count_estimate: row_count_estimate.map(|n| n as u32),
         }))
     }
 

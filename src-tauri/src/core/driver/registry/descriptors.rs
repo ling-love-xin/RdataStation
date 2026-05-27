@@ -4,9 +4,10 @@
 //! 以及四种内置数据库（MySQL/PostgreSQL/SQLite/DuckDB）的驱动描述符。
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// 驱动选项定义
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverOption {
     /// 选项键
     pub key: String,
@@ -61,7 +62,7 @@ impl DriverOption {
 }
 
 /// 驱动选项类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum DriverOptionType {
     /// 字符串输入
@@ -77,7 +78,7 @@ pub enum DriverOptionType {
 }
 
 /// 驱动字段定义（用于前端表单渲染）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverField {
     /// 字段键
     pub key: String,
@@ -94,7 +95,7 @@ pub struct DriverField {
 }
 
 /// 驱动字段类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum DriverFieldType {
     /// 文本输入
@@ -110,7 +111,7 @@ pub enum DriverFieldType {
 }
 
 /// 驱动种类：区分驱动实现方式
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum DriverKind {
     Native,
     Jdbc,
@@ -138,7 +139,7 @@ impl DriverKind {
 }
 
 /// 驱动描述符（类似 DBeaver 的驱动定义）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverDescriptor {
     /// 驱动 ID
     pub id: String,

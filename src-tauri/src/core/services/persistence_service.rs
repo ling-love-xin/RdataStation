@@ -16,8 +16,8 @@ pub(crate) async fn save_column_insight_snapshot(
     db_name: Option<&str>,
     schema_name: Option<&str>,
     table_name: Option<&str>,
-    row_count: Option<i64>,
-    elapsed_ms: Option<i64>,
+    row_count: Option<i32>,
+    elapsed_ms: Option<i32>,
     insight_store: &crate::core::persistence::InsightStorage,
     meta_store: &crate::core::persistence::InsightMetaStore,
 ) -> Result<(String, String), CoreError> {
@@ -84,11 +84,11 @@ pub(crate) async fn get_column_insight_history(
 }
 
 pub(crate) async fn cleanup_old_insight_snapshots(
-    days: i64,
+    days: i32,
     insight_store: &crate::core::persistence::InsightStorage,
     meta_store: &crate::core::persistence::InsightMetaStore,
-) -> Result<(i64, usize), CoreError> {
-    let duckdb_deleted = insight_store.columns.cleanup_older_than(days).await?;
+) -> Result<(i32, usize), CoreError> {
+    let duckdb_deleted = insight_store.columns.cleanup_older_than(days as i64).await? as i32;
     let sqlite_deleted = meta_store.cleanup_older_than(days).await?;
     Ok((duckdb_deleted, sqlite_deleted))
 }

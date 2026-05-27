@@ -14,7 +14,7 @@ use crate::core::{get_connection_manager, DataSourceMeta};
 // ==================== Connection Commands ====================
 
 /// 创建数据库连接请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ConnectDatabaseInput {
     pub conn_id: Option<String>,
     pub db_type: String,
@@ -38,7 +38,7 @@ pub struct ConnectDatabaseInput {
 }
 
 /// 连接响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ConnectDatabaseResponse {
     pub conn_id: String,
     pub name: String,
@@ -49,7 +49,7 @@ pub struct ConnectDatabaseResponse {
 }
 
 /// 数据源元数据响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct DataSourceMetaResponse {
     pub supports_transaction: bool,
     pub supports_streaming: bool,
@@ -76,6 +76,7 @@ impl From<DataSourceMeta> for DataSourceMetaResponse {
 
 /// 创建数据库连接
 #[tauri::command]
+#[specta::specta]
 pub async fn connect_database(
     input: ConnectDatabaseInput,
 ) -> Result<ConnectDatabaseResponse, CoreError> {
@@ -391,7 +392,7 @@ fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Resu
 }
 
 /// 连接信息响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ConnectionInfoResponse {
     pub id: String,
     pub name: String,
@@ -401,7 +402,7 @@ pub struct ConnectionInfoResponse {
     pub project_id: Option<String>,
     pub status: String,
     pub is_active: bool,
-    pub created_at_ms: u64,
+    pub created_at_ms: f64,
     pub server_version: Option<String>,
     pub driver_id: Option<String>,
     pub description: Option<String>,
@@ -414,6 +415,7 @@ pub struct ConnectionInfoResponse {
 
 /// 获取所有连接
 #[tauri::command]
+#[specta::specta]
 pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -434,7 +436,7 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError>
                 project_id: info.project_id,
                 status: "connected".to_string(),
                 is_active,
-                created_at_ms: info.created_at.elapsed().as_millis() as u64,
+                created_at_ms: info.created_at.elapsed().as_millis() as f64,
                 server_version: info.server_version,
                 driver_id: info.driver_id,
                 environment_id: info.environment_id,
@@ -450,6 +452,7 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError>
 
 /// 切换活动连接
 #[tauri::command]
+#[specta::specta]
 pub async fn switch_connection(conn_id: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -459,6 +462,7 @@ pub async fn switch_connection(conn_id: String) -> Result<(), CoreError> {
 
 /// 关闭指定连接
 #[tauri::command]
+#[specta::specta]
 pub async fn close_connection(conn_id: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -468,6 +472,7 @@ pub async fn close_connection(conn_id: String) -> Result<(), CoreError> {
 
 /// 关闭所有连接
 #[tauri::command]
+#[specta::specta]
 pub async fn close_all_connections() -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -477,6 +482,7 @@ pub async fn close_all_connections() -> Result<(), CoreError> {
 
 /// 获取当前活动连接
 #[tauri::command]
+#[specta::specta]
 pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -496,7 +502,7 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, C
             project_id: info.project_id,
             status: "connected".to_string(),
             is_active: true,
-            created_at_ms: info.created_at.elapsed().as_millis() as u64,
+            created_at_ms: info.created_at.elapsed().as_millis() as f64,
             server_version: info.server_version,
             driver_id: info.driver_id,
             environment_id: info.environment_id,
@@ -509,7 +515,7 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, C
 }
 
 /// 最近连接记录响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct RecentConnectionResponse {
     pub name: String,
     pub db_type: String,
@@ -524,6 +530,7 @@ pub struct RecentConnectionResponse {
 
 /// 获取最近连接列表
 #[tauri::command]
+#[specta::specta]
 pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -548,6 +555,7 @@ pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, C
 
 /// 删除最近连接记录
 #[tauri::command]
+#[specta::specta]
 pub async fn remove_recent_connection(name: String) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager);
@@ -558,7 +566,7 @@ pub async fn remove_recent_connection(name: String) -> Result<(), CoreError> {
 }
 
 /// 连接类型转换请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ConvertConnectionInput {
     pub conn_id: String,
     pub target_type: String,        // "global" 或 "project"
@@ -566,7 +574,7 @@ pub struct ConvertConnectionInput {
 }
 
 /// 连接类型转换响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ConvertConnectionResponse {
     pub conn_id: String,
     pub connection_type: String,
@@ -576,6 +584,7 @@ pub struct ConvertConnectionResponse {
 
 /// 转换连接类型（全局↔项目）
 #[tauri::command]
+#[specta::specta]
 pub async fn convert_connection_type(
     input: ConvertConnectionInput,
 ) -> Result<ConvertConnectionResponse, CoreError> {
@@ -614,6 +623,7 @@ pub async fn convert_connection_type(
 
 /// 检测项目中的全局连接
 #[tauri::command]
+#[specta::specta]
 pub async fn detect_global_connections_in_project(
     project_id: String,
 ) -> Result<Vec<ConnectionInfoResponse>, CoreError> {
@@ -639,7 +649,7 @@ pub async fn detect_global_connections_in_project(
                 project_id: info.project_id,
                 status: "connected".to_string(),
                 is_active,
-                created_at_ms: info.created_at.elapsed().as_millis() as u64,
+                created_at_ms: info.created_at.elapsed().as_millis() as f64,
                 server_version: info.server_version,
                 driver_id: info.driver_id,
                 environment_id: info.environment_id,
@@ -654,16 +664,17 @@ pub async fn detect_global_connections_in_project(
 }
 
 /// 测试连接响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct TestConnectionResponse {
     pub success: bool,
     pub message: String,
     pub server_version: String,
-    pub response_time_ms: u64,
+    pub response_time_ms: u32,
 }
 
 /// 测试数据库连接
 #[tauri::command]
+#[specta::specta]
 pub async fn test_connection(
     db_type: String,
     url: String,
@@ -701,7 +712,7 @@ pub async fn test_connection(
             .and_then(|db| db.meta().server_version)
             .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
-        let response_time_ms = start.elapsed().as_millis() as u64;
+        let response_time_ms = start.elapsed().as_millis() as u32;
 
         return Ok(TestConnectionResponse {
             success: true,
@@ -758,7 +769,7 @@ pub async fn test_connection(
         .server_version
         .unwrap_or_else(|| format!("{} (未知版本)", db_type));
 
-    let response_time_ms = start.elapsed().as_millis() as u64;
+    let response_time_ms = start.elapsed().as_millis() as u32;
 
     // 显式从管理器移除连接，防止测试连接被持久化到 global_db
     manager.remove_connection(&conn_id).await;
@@ -792,14 +803,14 @@ pub async fn test_connection(
 }
 
 /// 创建数据库文件请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateDatabaseFileInput {
     pub db_type: String, // "sqlite" 或 "duckdb"
     pub file_path: String,
 }
 
 /// 创建数据库文件响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct CreateDatabaseFileResponse {
     pub file_path: String,
     pub success: bool,
@@ -808,6 +819,7 @@ pub struct CreateDatabaseFileResponse {
 
 /// 创建数据库文件（SQLite/DuckDB）
 #[tauri::command]
+#[specta::specta]
 pub async fn create_database_file(
     input: CreateDatabaseFileInput,
 ) -> Result<CreateDatabaseFileResponse, CoreError> {
@@ -879,6 +891,7 @@ pub async fn create_database_file(
 
 /// 测试连接配置（不保存）
 #[tauri::command]
+#[specta::specta]
 pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<(), CoreError> {
     let url = config.to_url()?;
 
@@ -916,7 +929,7 @@ pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<()
 }
 
 /// 全局连接信息响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct GlobalConnectionInfoResponse {
     pub id: String,
     pub name: String,
@@ -942,21 +955,22 @@ pub struct GlobalConnectionInfoResponse {
 }
 
 /// 连接池状态响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ConnectionPoolStatusResponse {
     pub conn_id: String,
-    pub active_connections: usize,
-    pub idle_connections: usize,
-    pub max_connections: usize,
-    pub min_connections: usize,
-    pub connection_timeout_ms: u64,
-    pub idle_timeout_ms: u64,
-    pub total_connections: usize,
-    pub wait_queue_size: usize,
+    pub active_connections: u32,
+    pub idle_connections: u32,
+    pub max_connections: u32,
+    pub min_connections: u32,
+    pub connection_timeout_ms: u32,
+    pub idle_timeout_ms: u32,
+    pub total_connections: u32,
+    pub wait_queue_size: u32,
 }
 
 /// 获取连接池状态
 #[tauri::command]
+#[specta::specta]
 pub async fn get_connection_pool_status(
     conn_id: String,
 ) -> Result<ConnectionPoolStatusResponse, CoreError> {
@@ -975,14 +989,14 @@ pub async fn get_connection_pool_status(
     match pool_status {
         Some(ps) => Ok(ConnectionPoolStatusResponse {
             conn_id: conn_id.clone(),
-            active_connections: ps.active,
-            idle_connections: ps.idle,
-            max_connections: ps.max_connections,
-            min_connections: ps.min_connections,
-            connection_timeout_ms: 30000,
-            idle_timeout_ms: 300000,
-            total_connections: ps.size,
-            wait_queue_size: ps.waiting,
+            active_connections: ps.active as u32,
+            idle_connections: ps.idle as u32,
+            max_connections: ps.max_connections as u32,
+            min_connections: ps.min_connections as u32,
+            connection_timeout_ms: 30000u32,
+            idle_timeout_ms: 300000u32,
+            total_connections: ps.size as u32,
+            wait_queue_size: ps.waiting as u32,
         }),
         None => Ok(ConnectionPoolStatusResponse {
             conn_id: conn_id.clone(),
@@ -990,8 +1004,8 @@ pub async fn get_connection_pool_status(
             idle_connections: 0,
             max_connections: 1,
             min_connections: 1,
-            connection_timeout_ms: 30000,
-            idle_timeout_ms: 300000,
+            connection_timeout_ms: 30000u32,
+            idle_timeout_ms: 300000u32,
             total_connections: 1,
             wait_queue_size: 0,
         }),
@@ -1000,6 +1014,7 @@ pub async fn get_connection_pool_status(
 
 /// 获取所有全局连接
 #[tauri::command]
+#[specta::specta]
 pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse>, CoreError> {
     use crate::core::migration::global_init;
 
@@ -1053,7 +1068,7 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
 
 /// 校验连接配置（不实际连接）
 /// 验证 URL、连接类型、驱动/环境/认证/网络配置的完整性和存在性
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ValidationResult {
     pub valid: bool,
     pub errors: Vec<String>,
@@ -1061,6 +1076,7 @@ pub struct ValidationResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn validate_connection_config(
     input: ConnectDatabaseInput,
 ) -> Result<ValidationResult, CoreError> {

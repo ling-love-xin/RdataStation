@@ -1,8 +1,9 @@
 use serde::Serialize;
+use specta::Type;
 
 use crate::core::api_version::API_VERSION_INFO;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 pub struct ApiVersionResponse {
     pub version: String,
     pub major: u32,
@@ -12,6 +13,7 @@ pub struct ApiVersionResponse {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_api_version() -> ApiVersionResponse {
     ApiVersionResponse {
         version: API_VERSION_INFO.version.to_string(),

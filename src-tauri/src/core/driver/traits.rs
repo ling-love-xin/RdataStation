@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{QueryResult, Value};
 
 /// Schema 对象类型
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub enum SchemaObjectKind {
     Catalog,
     Schema,
@@ -23,7 +24,7 @@ pub enum SchemaObjectKind {
 /// Schema 对象（对象树模型）
 ///
 /// 前端友好的统一结构，支持懒加载（children = None 表示未加载）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SchemaObject {
     pub name: String,
     pub kind: SchemaObjectKind,
@@ -32,7 +33,7 @@ pub struct SchemaObject {
 }
 
 /// 列详情（完整元数据）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ColumnDetail {
     pub name: String,
     pub data_type: String,
@@ -46,7 +47,7 @@ pub struct ColumnDetail {
 }
 
 /// 索引详情
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexDetail {
     pub name: String,
     pub table_name: String,
@@ -60,7 +61,7 @@ pub struct IndexDetail {
 }
 
 /// 约束详情
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ConstraintDetail {
     pub name: String,
     pub table_name: String,
@@ -77,7 +78,7 @@ pub struct ConstraintDetail {
 }
 
 /// 对象树节点（轻量级，用于快速树渲染）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NodeInfo {
     pub name: String,
     pub kind: SchemaObjectKind,
@@ -86,12 +87,12 @@ pub struct NodeInfo {
 }
 
 /// 对象详情（完整元数据，按需加载）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NodeDetail {
     pub node: NodeInfo,
     pub columns: Vec<ColumnDetail>,
-    pub index_count: Option<usize>,
-    pub row_count_estimate: Option<u64>,
+    pub index_count: Option<u32>,
+    pub row_count_estimate: Option<u32>,
 }
 
 /// 元数据浏览器 trait

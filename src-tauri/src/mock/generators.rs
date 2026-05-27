@@ -13,10 +13,10 @@ pub(super) fn generate_cell(
     match generator {
         // ========== 数值类 ==========
         GeneratorConfig::AutoIncrement { start, step } => {
-            (*start + (row_index as i64) * *step).to_string()
+            (*start as i64 + (row_index as i64) * *step as i64).to_string()
         }
         GeneratorConfig::RandomInt { min, max } => {
-            (*min..=*max).fake_with_rng::<i64, _>(rng).to_string()
+            (*min as i64..=*max as i64).fake_with_rng::<i64, _>(rng).to_string()
         }
         GeneratorConfig::RandomFloat {
             min,
@@ -76,25 +76,25 @@ pub(super) fn generate_cell(
         GeneratorConfig::Constant { value } => value.clone(),
         GeneratorConfig::Words { min, max } => {
             use fake::faker::lorem::en::Words;
-            let words: Vec<String> = Words(*min..*max).fake_with_rng(rng);
+            let words: Vec<String> = Words(*min as usize..*max as usize).fake_with_rng(rng);
             words.join(" ")
         }
         GeneratorConfig::Sentence { min, max } => {
             use fake::faker::lorem::en::Sentence;
-            Sentence(*min..*max).fake_with_rng::<String, _>(rng)
+            Sentence(*min as usize..*max as usize).fake_with_rng::<String, _>(rng)
         }
         GeneratorConfig::Sentences { min, max } => {
             use fake::faker::lorem::en::Sentences;
-            let sentences: Vec<String> = Sentences(*min..*max).fake_with_rng(rng);
+            let sentences: Vec<String> = Sentences(*min as usize..*max as usize).fake_with_rng(rng);
             sentences.join(" ")
         }
         GeneratorConfig::Paragraph { count } => {
             use fake::faker::lorem::en::Paragraph;
-            Paragraph(*count..*count + 1).fake_with_rng::<String, _>(rng)
+            Paragraph(*count as usize..*count as usize + 1).fake_with_rng::<String, _>(rng)
         }
         GeneratorConfig::Paragraphs { count } => {
             use fake::faker::lorem::en::Paragraphs;
-            Paragraphs(*count..(count + 1))
+            Paragraphs(*count as usize..(*count as usize + 1))
                 .fake_with_rng::<Vec<String>, _>(rng)
                 .join("\n\n")
         }
@@ -164,7 +164,7 @@ pub(super) fn generate_cell(
         }
         GeneratorConfig::Password { min, max } => {
             use fake::faker::internet::en::Password;
-            Password(*min..*max).fake_with_rng::<String, _>(rng)
+            Password(*min as usize..*max as usize).fake_with_rng::<String, _>(rng)
         }
 
         // ========== 地址类 ==========
@@ -329,7 +329,7 @@ pub(super) fn generate_cell(
                     })
                     .unwrap_or_default()
                 });
-            let new_dt = dt + chrono::Duration::seconds(*step_seconds * row_index as i64);
+            let new_dt = dt + chrono::Duration::seconds(*step_seconds as i64 * row_index as i64);
             new_dt.format("%Y-%m-%d %H:%M:%S").to_string()
         }
         GeneratorConfig::SequentialDateWithGaps {
@@ -356,7 +356,7 @@ pub(super) fn generate_cell(
                     .unwrap_or_default()
                 });
             let total_steps = (row_index as f64 * (1.0 - *miss_probability)).max(0.0) as i64;
-            let new_dt = dt + chrono::Duration::seconds(*step_seconds * total_steps);
+            let new_dt = dt + chrono::Duration::seconds(*step_seconds as i64 * total_steps);
             new_dt.format("%Y-%m-%d %H:%M:%S").to_string()
         }
 

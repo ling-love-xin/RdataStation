@@ -8,7 +8,7 @@ use crate::core::{PortNegotiator, PortRange, COMMON_DB_PORTS, DEFAULT_PORT_RANGE
 // ==================== Port Negotiation Commands ====================
 
 /// 端口协商请求
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct NegotiatePortInput {
     /// 首选端口（可选）
     pub preferred_port: Option<u16>,
@@ -21,7 +21,7 @@ pub struct NegotiatePortInput {
 }
 
 /// 端口协商响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct NegotiatePortResponse {
     /// 分配的端口
     pub port: u16,
@@ -33,6 +33,7 @@ pub struct NegotiatePortResponse {
 
 /// 协商端口
 #[tauri::command]
+#[specta::specta]
 pub async fn negotiate_port(input: NegotiatePortInput) -> Result<NegotiatePortResponse, CoreError> {
     let range = if let (Some(start), Some(end)) = (input.range_start, input.range_end) {
         PortRange::new(start, end)
@@ -55,6 +56,7 @@ pub async fn negotiate_port(input: NegotiatePortInput) -> Result<NegotiatePortRe
 
 /// 协商本地端口（用于 SSH 隧道等）
 #[tauri::command]
+#[specta::specta]
 pub async fn negotiate_local_port(preferred: Option<u16>) -> Result<u16, CoreError> {
     let negotiator = PortNegotiator::new();
 
@@ -65,6 +67,7 @@ pub async fn negotiate_local_port(preferred: Option<u16>) -> Result<u16, CoreErr
 
 /// 检查端口是否可用
 #[tauri::command]
+#[specta::specta]
 pub async fn is_port_available(port: u16) -> Result<bool, CoreError> {
     let negotiator = PortNegotiator::new();
 
@@ -75,6 +78,7 @@ pub async fn is_port_available(port: u16) -> Result<bool, CoreError> {
 
 /// 释放端口
 #[tauri::command]
+#[specta::specta]
 pub async fn release_port(port: u16) -> Result<(), CoreError> {
     let negotiator = PortNegotiator::new();
 
@@ -85,6 +89,7 @@ pub async fn release_port(port: u16) -> Result<(), CoreError> {
 
 /// 批量协商端口
 #[tauri::command]
+#[specta::specta]
 pub async fn negotiate_multiple_ports(count: usize) -> Result<Vec<u16>, CoreError> {
     let negotiator = PortNegotiator::new();
 
@@ -95,6 +100,7 @@ pub async fn negotiate_multiple_ports(count: usize) -> Result<Vec<u16>, CoreErro
 
 /// 协商连续端口范围
 #[tauri::command]
+#[specta::specta]
 pub async fn negotiate_port_range(start: u16, count: usize) -> Result<Vec<u16>, CoreError> {
     let negotiator = PortNegotiator::new();
 
@@ -105,12 +111,13 @@ pub async fn negotiate_port_range(start: u16, count: usize) -> Result<Vec<u16>, 
 
 /// 获取常用数据库端口列表
 #[tauri::command]
+#[specta::specta]
 pub async fn get_common_db_ports() -> Result<Vec<u16>, CoreError> {
     Ok(COMMON_DB_PORTS.to_vec())
 }
 
 /// 端口范围信息
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct PortRangeInfo {
     pub default_start: u16,
     pub default_end: u16,
@@ -119,6 +126,7 @@ pub struct PortRangeInfo {
 
 /// 获取端口范围信息
 #[tauri::command]
+#[specta::specta]
 pub async fn get_port_range_info() -> Result<PortRangeInfo, CoreError> {
     Ok(PortRangeInfo {
         default_start: DEFAULT_PORT_RANGE.start,

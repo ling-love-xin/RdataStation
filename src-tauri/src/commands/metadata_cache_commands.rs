@@ -4,6 +4,7 @@
  * 处理数据库元数据缓存的读取、刷新、清除等操作
  */
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::CoreError;
 use crate::core::persistence::metadata_cache::{
@@ -11,23 +12,23 @@ use crate::core::persistence::metadata_cache::{
 };
 
 /// 缓存状态响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CacheStatusResponse {
     pub is_valid: bool,
-    pub last_sync: Option<i64>,
+    pub last_sync: Option<i32>,
     pub stats: Option<CacheStatsResponse>,
 }
 
 /// 缓存统计响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CacheStatsResponse {
-    pub table_count: usize,
-    pub column_count: usize,
-    pub last_sync: Option<i64>,
+    pub table_count: u32,
+    pub column_count: u32,
+    pub last_sync: Option<i32>,
 }
 
 /// 刷新缓存请求
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct RefreshCacheInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -37,7 +38,7 @@ pub struct RefreshCacheInput {
 }
 
 /// 清除缓存请求
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct ClearCacheInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -50,7 +51,7 @@ pub struct ClearCacheInput {
 const CACHE_TTL_SECS: u64 = 300;
 
 /// 表元数据输入
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct TableInput {
     pub id: String,
     pub name: String,
@@ -58,7 +59,7 @@ pub struct TableInput {
 }
 
 /// 列元数据输入
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct ColumnInput {
     pub id: String,
     pub name: String,
@@ -70,6 +71,7 @@ pub struct ColumnInput {
 
 /// 获取缓存状态
 #[tauri::command]
+#[specta::specta]
 pub async fn get_metadata_cache_status(
     connection_id: String,
     connection_type: String,
@@ -128,9 +130,9 @@ pub async fn get_metadata_cache_status(
             .get_cache_stats(&database_name, schema)
             .map_err(|e| CoreError::from(e.to_string()))?;
         Some(CacheStatsResponse {
-            table_count: cache_stats.table_count,
-            column_count: cache_stats.column_count,
-            last_sync: cache_stats.last_sync,
+            table_count: cache_stats.table_count as u32,
+            column_count: cache_stats.column_count as u32,
+            last_sync: cache_stats.last_sync.map(|v| v as i32),
         })
     } else {
         None
@@ -138,13 +140,14 @@ pub async fn get_metadata_cache_status(
 
     Ok(CacheStatusResponse {
         is_valid,
-        last_sync,
+        last_sync: last_sync.map(|v| v as i32),
         stats,
     })
 }
 
 /// 刷新元数据缓存
 #[tauri::command]
+#[specta::specta]
 pub async fn refresh_metadata_cache(input: RefreshCacheInput) -> Result<(), CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &input.connection_id,
@@ -175,7 +178,8 @@ pub async fn refresh_metadata_cache(input: RefreshCacheInput) -> Result<(), Core
 
 /// 清除元数据缓存（同时删除缓存文件）
 #[tauri::command]
-pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, CoreError> {
+#[specta::specta]
+pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<u32, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &input.connection_id,
         if input.connection_type == "global" {
@@ -209,11 +213,12 @@ pub async fn clear_metadata_cache(input: ClearCacheInput) -> Result<usize, CoreE
             .map_err(|e| CoreError::from(format!("删除缓存文件失败: {}", e)))?;
     }
 
-    Ok(affected)
+    Ok(affected as u32)
 }
 
 /// 保存表元数据到缓存
 #[tauri::command]
+#[specta::specta]
 #[allow(clippy::too_many_arguments)]
 pub async fn save_table_metadata_to_cache(
     connection_id: String,
@@ -261,6 +266,7 @@ pub async fn save_table_metadata_to_cache(
 
 /// 批量保存表元数据到缓存
 #[tauri::command]
+#[specta::specta]
 pub async fn save_tables_batch_to_cache(
     connection_id: String,
     connection_type: String,
@@ -268,7 +274,7 @@ pub async fn save_tables_batch_to_cache(
     database_name: String,
     schema_name: String,
     tables: Vec<TableInput>,
-) -> Result<usize, CoreError> {
+) -> Result<u32, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -299,7 +305,7 @@ pub async fn save_tables_batch_to_cache(
         })
         .collect();
 
-    let count = batch.len();
+    let count = batch.len() as u32;
     ops.save_tables_batch(batch)
         .map_err(|e| CoreError::from(e.to_string()))?;
 
@@ -308,6 +314,7 @@ pub async fn save_tables_batch_to_cache(
 
 /// 批量保存列元数据到缓存
 #[tauri::command]
+#[specta::specta]
 pub async fn save_columns_batch_to_cache(
     connection_id: String,
     connection_type: String,
@@ -316,7 +323,7 @@ pub async fn save_columns_batch_to_cache(
     schema_name: String,
     table_name: String,
     columns: Vec<ColumnInput>,
-) -> Result<usize, CoreError> {
+) -> Result<u32, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
         if connection_type == "global" {
@@ -361,7 +368,7 @@ pub async fn save_columns_batch_to_cache(
         })
         .collect();
 
-    let count = batch.len();
+    let count = batch.len() as u32;
     ops.save_columns_batch(batch)
         .map_err(|e| CoreError::from(e.to_string()))?;
 
@@ -425,6 +432,7 @@ pub async fn save_column_metadata_to_cache(
 
 /// 从缓存获取表列表
 #[tauri::command]
+#[specta::specta]
 pub async fn get_tables_from_cache(
     connection_id: String,
     connection_type: String,
@@ -476,6 +484,7 @@ pub async fn get_tables_from_cache(
 
 /// 从缓存获取列列表
 #[tauri::command]
+#[specta::specta]
 pub async fn get_columns_from_cache(
     connection_id: String,
     connection_type: String,
@@ -528,7 +537,7 @@ pub async fn get_columns_from_cache(
 }
 
 /// DDL 事件输入
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct DDLEventInput {
     #[serde(rename = "type")]
     pub ddl_type: String,
@@ -544,6 +553,7 @@ pub struct DDLEventInput {
 
 /// 取消同步任务
 #[tauri::command]
+#[specta::specta]
 pub async fn cancel_sync(
     connection_id: String,
     connection_type: String,
@@ -577,6 +587,7 @@ pub async fn cancel_sync(
 
 /// 通知后端 DDL 事件（缓存失效）
 #[tauri::command]
+#[specta::specta]
 pub async fn notify_ddl_event(event: DDLEventInput) -> Result<(), CoreError> {
     let conn_type = event.connection_type.as_deref().unwrap_or("global");
 
@@ -627,15 +638,16 @@ pub async fn notify_ddl_event(event: DDLEventInput) -> Result<(), CoreError> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SyncStatusInfo {
     pub in_progress: bool,
-    pub total_tables: usize,
-    pub completed_tables: usize,
-    pub last_sync_time: Option<i64>,
+    pub total_tables: u32,
+    pub completed_tables: u32,
+    pub last_sync_time: Option<i32>,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_sync_status(_connection_id: String) -> Result<Option<SyncStatusInfo>, CoreError> {
     Ok(None)
 }

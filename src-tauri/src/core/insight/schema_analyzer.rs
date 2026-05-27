@@ -3,12 +3,13 @@ use crate::core::error::CoreError;
 use crate::core::get_connection_manager;
 use crate::core::services::sql_service::{SqlExecuteOptions, SqlService};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SchemaInsightReport {
     pub schema_name: String,
-    pub table_count: usize,
-    pub total_columns: usize,
+    pub table_count: u32,
+    pub total_columns: u32,
     pub fk_candidates: Vec<ForeignKeyCandidate>,
     pub type_mismatches: Vec<TypeMismatch>,
     pub orphan_tables: Vec<OrphanTable>,
@@ -28,7 +29,7 @@ pub struct TableColumnInfo {
     pub ordinal_position: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ForeignKeyCandidate {
     pub source_table: String,
     pub source_column: String,
@@ -38,30 +39,30 @@ pub struct ForeignKeyCandidate {
     pub naming_pattern: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TypeMismatch {
     pub column_name: String,
     pub tables: Vec<TypeMismatchEntry>,
     pub severity: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TypeMismatchEntry {
     pub table_name: String,
     pub data_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct OrphanTable {
     pub table_name: String,
-    pub column_count: usize,
+    pub column_count: u32,
     pub reason: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct RedundantColumn {
     pub column_name: String,
-    pub table_count: usize,
+    pub table_count: u32,
     pub tables: Vec<String>,
     pub suggestion: String,
 }
@@ -85,8 +86,8 @@ impl SchemaAnalyzer {
         let all_tables =
             Self::fetch_all_tables(&service, Some(conn_id.clone()), database, schema).await?;
 
-        let table_count = all_tables.len();
-        let total_columns = all_columns.len();
+        let table_count = all_tables.len() as u32;
+        let total_columns = all_columns.len() as u32;
 
         let fk_candidates = Self::infer_foreign_keys(&all_columns, &all_tables);
         let type_mismatches = Self::detect_type_mismatches(&all_columns);
@@ -390,7 +391,7 @@ impl SchemaAnalyzer {
                 let col_count = columns.iter().filter(|c| c.table_name == *t).count();
                 OrphanTable {
                     table_name: t.to_string(),
-                    column_count: col_count,
+                    column_count: col_count as u32,
                     reason: if col_count <= 2 {
                         "列数少，可能为配置表".into()
                     } else {
@@ -433,7 +434,7 @@ impl SchemaAnalyzer {
             })
             .map(|(name, tables)| RedundantColumn {
                 column_name: (*name).to_string(),
-                table_count: tables.len(),
+                table_count: tables.len() as u32,
                 tables: tables.iter().map(|t| t.to_string()).collect(),
                 suggestion: if tables.len() >= 5 {
                     format!(
@@ -452,8 +453,8 @@ impl SchemaAnalyzer {
     }
 
     fn compute_health(
-        table_count: usize,
-        total_columns: usize,
+        table_count: u32,
+        total_columns: u32,
         fk_candidates: &[ForeignKeyCandidate],
         type_mismatches: &[TypeMismatch],
         orphan_tables: &[OrphanTable],

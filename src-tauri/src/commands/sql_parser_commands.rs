@@ -9,6 +9,7 @@ use crate::core::services::sql_parser_service::{
 
 /// 解析 SQL
 #[tauri::command]
+#[specta::specta]
 pub fn parse_sql(
     sql: String,
     dialect: Option<SqlDialect>,
@@ -18,12 +19,14 @@ pub fn parse_sql(
 
 /// 格式化 SQL
 #[tauri::command]
+#[specta::specta]
 pub fn format_sql(input: FormatRequest) -> Result<sql_parser_service::FormatResponse, CoreError> {
     Ok(sql_parser_service::format_sql(&input.sql, input.dialect))
 }
 
 /// 转译 SQL
 #[tauri::command]
+#[specta::specta]
 pub fn transpile_sql(
     input: TranspileRequest,
 ) -> Result<sql_parser_service::TranspileResponse, CoreError> {
@@ -36,6 +39,7 @@ pub fn transpile_sql(
 
 /// 验证 SQL
 #[tauri::command]
+#[specta::specta]
 pub fn validate_sql(
     input: ValidateRequest,
 ) -> Result<sql_parser_service::ValidateResponse, CoreError> {
@@ -44,6 +48,7 @@ pub fn validate_sql(
 
 /// 分割 SQL 语句
 #[tauri::command]
+#[specta::specta]
 pub fn split_sql(
     sql: String,
     dialect: Option<sql_parser_service::SqlDialect>,

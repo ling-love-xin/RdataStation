@@ -228,7 +228,7 @@ impl ConnectionService {
 
         // 如果有 auth_config_id，从数据库中读取认证凭据并注入到 URL
         let mut url_with_auth = url.to_string();
-        if let (Some(ref auth_id), Some(ref auth_meth)) = (auth_config_id, auth_method) {
+        if let (Some(auth_id), Some(auth_meth)) = (auth_config_id.as_ref(), auth_method.as_ref()) {
             match Self::load_auth_data_from_db(auth_id, connection_type, project_path.as_deref()).await {
                 Ok(Some(auth_data)) => {
                     match Self::inject_auth_into_url(&url_with_auth, auth_meth, &auth_data) {

@@ -4,6 +4,7 @@
  * 处理缓存预热的启动、取消、进度查询等操作
  */
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
@@ -18,13 +19,13 @@ use crate::core::services::ConnId;
 use futures::FutureExt;
 
 /// 预热进度响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct WarmingProgressResponse {
     pub connection_id: String,
     pub is_warming: bool,
     pub current_step: String,
-    pub total_steps: usize,
-    pub completed_steps: usize,
+    pub total_steps: u32,
+    pub completed_steps: u32,
     pub progress_percentage: f64,
     pub current_database: Option<String>,
     pub current_schema: Option<String>,
@@ -32,7 +33,7 @@ pub struct WarmingProgressResponse {
 }
 
 /// 预热请求
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct WarmCacheInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -47,12 +48,12 @@ pub struct CancelWarmingInput {
 }
 
 /// 版本迁移响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct MigrationResponse {
     pub from_version: u32,
     pub to_version: u32,
     pub success: bool,
-    pub duration_ms: Option<u64>,
+    pub duration_ms: Option<u32>,
     pub message: String,
 }
 
@@ -471,10 +472,10 @@ pub async fn build_cache_index(
     // V7: 返回响应
     Ok(IndexBuildResponse {
         success: true,
-        schema_count: schema_ids.len(),
-        table_count: total_tables,
-        column_count: total_columns,
-        total_entries,
+        schema_count: schema_ids.len() as u32,
+        table_count: total_tables as u32,
+        column_count: total_columns as u32,
+        total_entries: total_entries as u32,
         message: if use_incremental {
             format!(
                 "索引构建完成（增量模式）：{} schemas, {} tables, {} columns",
@@ -491,14 +492,15 @@ pub async fn build_cache_index(
             )
         },
         incremental: Some(use_incremental),
-        create_count: change_result.as_ref().map(|r| r.create_count),
-        update_count: change_result.as_ref().map(|r| r.update_count),
-        delete_count: change_result.as_ref().map(|r| r.delete_count),
+        create_count: change_result.as_ref().map(|r| r.create_count as u32),
+        update_count: change_result.as_ref().map(|r| r.update_count as u32),
+        delete_count: change_result.as_ref().map(|r| r.delete_count as u32),
     })
 }
 
 /// 启动缓存预热
 #[tauri::command]
+#[specta::specta]
 pub async fn start_cache_warming(
     input: WarmCacheInput,
 ) -> Result<WarmingProgressResponse, CoreError> {
@@ -539,7 +541,7 @@ pub async fn start_cache_warming(
         }
     }
 
-    let total_steps = input.databases.len();
+    let total_steps = input.databases.len() as u32;
 
     ops.update_sync_status(&input.connection_id, "indexing", 0, None)
         .map_err(|e| CoreError::from(e.to_string()))?;
@@ -593,8 +595,8 @@ pub async fn get_warming_progress(
             connection_id: connection_id.clone(),
             is_warming: progress.is_warming,
             current_step: progress.current_step.clone(),
-            total_steps: progress.total_steps,
-            completed_steps: progress.completed_steps,
+            total_steps: progress.total_steps as u32,
+            completed_steps: progress.completed_steps as u32,
             progress_percentage: progress.progress_percentage,
             current_database: progress.current_database.clone(),
             current_schema: progress.current_schema.clone(),
@@ -617,6 +619,7 @@ pub async fn get_warming_progress(
 
 /// 检查缓存版本
 #[tauri::command]
+#[specta::specta]
 pub async fn check_cache_version(
     connection_id: String,
     connection_type: String,
@@ -649,6 +652,7 @@ pub async fn check_cache_version(
 
 /// 执行缓存版本迁移
 #[tauri::command]
+#[specta::specta]
 pub async fn execute_cache_migration(
     connection_id: String,
     connection_type: String,
@@ -704,7 +708,7 @@ pub async fn execute_cache_migration(
             from_version: record.from_version,
             to_version: record.to_version,
             success: record.success,
-            duration_ms: Some(duration.as_millis() as u64),
+            duration_ms: Some(duration.as_millis() as u32),
             message: if record.success {
                 format!("迁移成功: {} -> {}", record.from_version, record.to_version)
             } else {
@@ -716,6 +720,7 @@ pub async fn execute_cache_migration(
 
 /// 获取缓存版本迁移历史
 #[tauri::command]
+#[specta::specta]
 pub async fn get_cache_migration_history(
     connection_id: String,
     connection_type: String,
@@ -764,11 +769,12 @@ pub async fn get_cache_migration_history(
 
 /// V6: 获取内省级别建议（DataGrip 风格）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_introspect_level_suggestion(
     connection_id: String,
     connection_type: String,
     project_path: Option<String>,
-    schema_id: i64,
+    schema_id: i32,
     is_current_schema: bool,
 ) -> Result<i32, CoreError> {
     let cache_manager = MetadataCacheManager::new(
@@ -792,7 +798,7 @@ pub async fn get_introspect_level_suggestion(
     let ops = MetadataCacheOps::new(conn);
 
     let counts = ops
-        .get_schema_object_counts(&connection_id, schema_id)
+        .get_schema_object_counts(&connection_id, schema_id as i64)
         .map_err(|e| CoreError::from(e.to_string()))?;
 
     let level = ops.calculate_introspect_level(counts.total as i64, is_current_schema);
@@ -802,11 +808,12 @@ pub async fn get_introspect_level_suggestion(
 
 /// V6: 获取 Schema 对象数量统计
 #[tauri::command]
+#[specta::specta]
 pub async fn get_schema_object_counts(
     connection_id: String,
     connection_type: String,
     project_path: Option<String>,
-    schema_id: i64,
+    schema_id: i32,
 ) -> Result<SchemaObjectCountsResponse, CoreError> {
     let cache_manager = MetadataCacheManager::new(
         &connection_id,
@@ -835,30 +842,30 @@ pub async fn get_schema_object_counts(
     let ops = MetadataCacheOps::new(conn);
 
     let counts = ops
-        .get_schema_object_counts(&connection_id, schema_id)
+        .get_schema_object_counts(&connection_id, schema_id as i64)
         .map_err(|e| CoreError::from(e.to_string()))?;
 
     Ok(SchemaObjectCountsResponse {
-        table_count: counts.table_count,
-        view_count: counts.view_count,
-        column_count: counts.column_count,
-        routine_count: counts.routine_count,
-        total: counts.total,
+        table_count: counts.table_count as u32,
+        view_count: counts.view_count as u32,
+        column_count: counts.column_count as u32,
+        routine_count: counts.routine_count as u32,
+        total: counts.total as u32,
     })
 }
 
 /// V6: Schema 对象数量统计响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SchemaObjectCountsResponse {
-    pub table_count: usize,
-    pub view_count: usize,
-    pub column_count: usize,
-    pub routine_count: usize,
-    pub total: usize,
+    pub table_count: u32,
+    pub view_count: u32,
+    pub column_count: u32,
+    pub routine_count: u32,
+    pub total: u32,
 }
 
 /// V7: 构建缓存索引请求（支持增量模式）
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Type)]
 pub struct BuildCacheIndexInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -870,16 +877,16 @@ pub struct BuildCacheIndexInput {
 }
 
 /// V7: 索引构建响应（支持增量模式）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexBuildResponse {
     pub success: bool,
-    pub schema_count: usize,
-    pub table_count: usize,
-    pub column_count: usize,
-    pub total_entries: usize,
+    pub schema_count: u32,
+    pub table_count: u32,
+    pub column_count: u32,
+    pub total_entries: u32,
     pub message: String,
     pub incremental: Option<bool>,   // V7: 是否使用增量模式
-    pub create_count: Option<usize>, // V7: 新增对象数
-    pub update_count: Option<usize>, // V7: 更新对象数
-    pub delete_count: Option<usize>, // V7: 删除对象数
+    pub create_count: Option<u32>, // V7: 新增对象数
+    pub update_count: Option<u32>, // V7: 更新对象数
+    pub delete_count: Option<u32>, // V7: 删除对象数
 }

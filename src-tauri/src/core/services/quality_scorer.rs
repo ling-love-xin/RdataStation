@@ -252,8 +252,8 @@ pub(crate) fn compute_table_quality(
         level: level.into(),
         column_scores: entries,
         summary,
-        scored_count,
-        total_columns,
+        scored_count: scored_count as u32,
+        total_columns: total_columns as u32,
     }
 }
 
@@ -271,10 +271,10 @@ mod tests {
             stats: ColumnStats {
                 column_name: "test_col".into(),
                 data_type: "DOUBLE".into(),
-                total_count: total as usize,
-                null_count: (total * null_rate) as usize,
+                total_count: total as u32,
+                null_count: (total * null_rate) as u32,
                 null_rate,
-                unique_count: Some((total * unique_ratio) as usize),
+                unique_count: Some((total * unique_ratio) as u32),
                 stats_detail: ColumnStatsDetail::Numeric(NumericStats {
                     min: 1.0,
                     max: 100.0,

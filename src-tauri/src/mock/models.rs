@@ -1,21 +1,22 @@
 use crate::core::models::QueryResult;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 // ==================== 核心配置 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockConfig {
     pub table_name: String,
-    pub row_count: usize,
-    pub seed: Option<u64>,
+    pub row_count: u32,
+    pub seed: Option<u32>,
     pub locale: Locale,
     pub columns: Vec<ColumnDef>,
 }
 
 // ==================== 列定义 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ColumnDef {
     pub name: String,
@@ -33,7 +34,7 @@ fn default_nullable_ratio() -> f64 {
 
 // ==================== 列数据类型 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ColumnDataType {
     Integer,
@@ -42,7 +43,7 @@ pub enum ColumnDataType {
     Double,
     Decimal { precision: u8, scale: u8 },
     Boolean,
-    Varchar { length: Option<usize> },
+    Varchar { length: Option<u32> },
     Text,
     Date,
     DateTime,
@@ -81,17 +82,17 @@ impl ColumnDataType {
 
 // ==================== 生成器配置 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum GeneratorConfig {
     // 数值类
     AutoIncrement {
-        start: i64,
-        step: i64,
+        start: i32,
+        step: i32,
     },
     RandomInt {
-        min: i64,
-        max: i64,
+        min: i32,
+        max: i32,
     },
     RandomFloat {
         min: f64,
@@ -129,22 +130,22 @@ pub enum GeneratorConfig {
         value: String,
     },
     Words {
-        min: usize,
-        max: usize,
+        min: u32,
+        max: u32,
     },
     Sentence {
-        min: usize,
-        max: usize,
+        min: u32,
+        max: u32,
     },
     Sentences {
-        min: usize,
-        max: usize,
+        min: u32,
+        max: u32,
     },
     Paragraph {
-        count: usize,
+        count: u32,
     },
     Paragraphs {
-        count: usize,
+        count: u32,
     },
     Word,
     Regex {
@@ -180,8 +181,8 @@ pub enum GeneratorConfig {
     CellNumber,
     Username,
     Password {
-        min: usize,
-        max: usize,
+        min: u32,
+        max: u32,
     },
 
     // 地址类
@@ -235,11 +236,11 @@ pub enum GeneratorConfig {
     Duration,
     SequentialDate {
         start: String,
-        step_seconds: i64,
+        step_seconds: i32,
     },
     SequentialDateWithGaps {
         start: String,
-        step_seconds: i64,
+        step_seconds: i32,
         miss_probability: f64,
     },
 
@@ -293,7 +294,7 @@ pub enum GeneratorConfig {
     ImageUrlWithSeed {
         width: u32,
         height: u32,
-        seed: u64,
+        seed: u32,
     },
     ImageUrlGrayscale {
         width: u32,
@@ -309,7 +310,7 @@ pub enum GeneratorConfig {
         height: u32,
         grayscale: bool,
         blur_amount: Option<u8>,
-        seed: Option<u64>,
+        seed: Option<u32>,
     },
 
     // 颜色类
@@ -353,7 +354,7 @@ pub enum GeneratorConfig {
 
 // ==================== 语言/地区 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Locale {
     ZhCn,
@@ -373,20 +374,20 @@ pub enum Locale {
 
 // ==================== 生成结果 ====================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockGenerateResult {
     pub table_name: String,
     pub temp_table_name: String,
-    pub row_count: usize,
+    pub row_count: u32,
     pub preview: QueryResult,
     pub columns: Vec<String>,
-    pub elapsed_ms: u64,
+    pub elapsed_ms: u32,
 }
 
 // ==================== 导出格式 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MockExportFormat {
     Csv,
@@ -398,7 +399,7 @@ pub enum MockExportFormat {
 
 // ==================== 导出请求 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockExportInput {
     pub temp_table_name: String,
@@ -409,7 +410,7 @@ pub struct MockExportInput {
 
 // ==================== 列映射响应 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ColumnMappingResponse {
     pub column_name: String,
@@ -420,7 +421,7 @@ pub struct ColumnMappingResponse {
 
 // ==================== 导入结构请求 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSchemaInput {
     pub conn_id: String,
@@ -438,13 +439,13 @@ fn default_connection_type() -> String {
 
 // ==================== 生成历史记录 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockHistoryRecord {
     pub id: String,
     pub table_name: String,
-    pub row_count: usize,
-    pub seed: Option<u64>,
+    pub row_count: u32,
+    pub seed: Option<u32>,
     pub config_json: String,
     pub generated_at: String,
     pub status: String,
@@ -452,7 +453,7 @@ pub struct MockHistoryRecord {
 
 // ==================== 场景模板 ====================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ScenarioTemplate {
     pub id: String,
@@ -463,32 +464,32 @@ pub struct ScenarioTemplate {
     pub tables: Vec<TemplateTable>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateTable {
     pub name: String,
-    pub row_count: usize,
+    pub row_count: u32,
     pub columns: Vec<ColumnDef>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockSaveToScratchpadInput {
     pub temp_table_name: String,
     pub format: MockExportFormat,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockPersistAssetInput {
     pub temp_table_name: String,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockPersistAssetResult {
     pub table_name: String,
-    pub row_count: i64,
+    pub row_count: i32,
     pub column_count: i32,
 }

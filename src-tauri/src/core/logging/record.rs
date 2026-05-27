@@ -4,12 +4,13 @@
 //! 支持 Serde 序列化，用于前后端通信。
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// ISO 8601 时间戳格式（毫秒精度）
 pub const TIMESTAMP_FMT: &str = "%Y-%m-%dT%H:%M:%S%.3fZ";
 
 /// 日志级别
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LogLevel {
     Trace,
@@ -63,9 +64,9 @@ impl From<tracing::Level> for LogLevel {
 /// 日志记录
 ///
 /// 对应 SQLite app_logs 表结构，用于前后端通信
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LogRecord {
-    pub id: i64,
+    pub id: i32,
     pub timestamp: String,
     pub level: LogLevel,
     pub target: String,
@@ -77,10 +78,10 @@ pub struct LogRecord {
 }
 
 /// 日志查询参数
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LogQuery {
-    pub page: Option<usize>,
-    pub page_size: Option<usize>,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
     pub level: Option<LogLevel>,
     pub target: Option<String>,
     pub keyword: Option<String>,
@@ -103,19 +104,19 @@ impl Default for LogQuery {
 }
 
 /// 分页日志查询结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LogPage {
     pub records: Vec<LogRecord>,
-    pub total: usize,
-    pub page: usize,
-    pub page_size: usize,
-    pub total_pages: usize,
+    pub total: u32,
+    pub page: u32,
+    pub page_size: u32,
+    pub total_pages: u32,
 }
 
 /// 日志统计
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LogStats {
-    pub total: usize,
+    pub total: u32,
     pub by_level: LogLevelCounts,
     pub by_target: Vec<TargetStat>,
     pub first_timestamp: Option<String>,
@@ -123,20 +124,20 @@ pub struct LogStats {
 }
 
 /// 各级别日志计数
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LogLevelCounts {
-    pub trace: usize,
-    pub debug: usize,
-    pub info: usize,
-    pub warn: usize,
-    pub error: usize,
+    pub trace: u32,
+    pub debug: u32,
+    pub info: u32,
+    pub warn: u32,
+    pub error: u32,
 }
 
 /// 模块日志计数
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TargetStat {
     pub target: String,
-    pub count: usize,
+    pub count: u32,
 }
 
 #[cfg(test)]

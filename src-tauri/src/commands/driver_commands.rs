@@ -15,7 +15,7 @@ use crate::core::services::ConnectionService;
 use crate::core::DriverConnectionConfig;
 
 /// 创建连接响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct CreateConnectionResponse {
     pub conn_id: String,
     pub name: String,
@@ -28,6 +28,7 @@ pub struct CreateConnectionResponse {
 
 /// 获取所有支持的驱动列表（从 SQLite global.db.drivers 读取，动态注册）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_drivers() -> Result<Vec<Driver>, CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -36,6 +37,7 @@ pub async fn get_drivers() -> Result<Vec<Driver>, CoreError> {
 
 /// 获取指定驱动的定义（从 SQLite global.db.drivers 读取）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_driver_info(driver_id: String) -> Result<Option<Driver>, CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -43,12 +45,13 @@ pub async fn get_driver_info(driver_id: String) -> Result<Option<Driver>, CoreEr
 }
 
 /// 使用 ConnectionConfig 创建连接
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateConnectionInput {
     pub config: DriverConnectionConfig,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn create_connection(
     input: CreateConnectionInput,
 ) -> Result<CreateConnectionResponse, CoreError> {
@@ -83,12 +86,13 @@ pub async fn create_connection(
 }
 
 /// 使用 ConnectionConfig 创建连接（新方法）
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateConnectionWithConfigInput {
     pub config: DriverConnectionConfig,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn create_connection_with_config(
     input: CreateConnectionWithConfigInput,
 ) -> Result<CreateConnectionResponse, CoreError> {
@@ -123,13 +127,14 @@ pub async fn create_connection_with_config(
 }
 
 /// 更新连接配置
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct UpdateConnectionInput {
     pub id: String,
     pub config: DriverConnectionConfig,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn update_connection(input: UpdateConnectionInput) -> Result<(), CoreError> {
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager.clone());

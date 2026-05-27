@@ -1,12 +1,13 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::{CoreError, StorageError};
 
 /// 网络配置（SSH 隧道、HTTP 代理、SSL 证书等）
 /// config 列保留完整配置信息（含 host/port/forwarding + auth 冗余）
 /// auth_config_id 引用 auth_configs.id，指向独立存储的认证凭据
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NetworkConfig {
     pub id: String,
     pub name: Option<String>,

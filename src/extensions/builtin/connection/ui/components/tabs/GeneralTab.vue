@@ -270,8 +270,8 @@ import { reactive, computed, watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useAuthConfig, parseSupportedAuthTypes } from '../../composables/useAuthConfig'
-import AuthConfigManager from '../AuthConfigManager.vue'
 import { parseSchemaToFormFields, type FormFieldConfig } from '../../utils/schema-parser'
+import AuthConfigManager from '../AuthConfigManager.vue'
 
 import type { Driver } from '../../../domain/types'
 

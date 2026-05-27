@@ -1,16 +1,19 @@
-import { invoke } from '@tauri-apps/api/core'
+/**
+ * 查询服务
+ *
+ * 负责与后端 SQL 查询相关的所有 API 调用
+ * 使用 tauri-specta 生成的 typed commands
+ */
+
+import { commands } from '@/generated/specta/bindings'
+import type { ExecuteSqlInput, ExecuteTransactionInput } from '@/generated/specta/bindings'
+import { typed } from '@/shared/api'
 
 import type {
   ExecuteSqlResponse,
   ExecuteTransactionResponse,
   SqlHistoryResponse,
 } from '../types/query-service'
-
-/**
- * 查询服务
- *
- * 负责与后端 SQL 查询相关的所有 API 调用
- */
 
 /**
  * 执行 SQL 查询
@@ -20,9 +23,12 @@ export async function executeSql(
   connId?: string,
   timeoutMs?: number
 ): Promise<ExecuteSqlResponse> {
-  return invoke('execute_sql', {
-    input: { sql, conn_id: connId, timeout_ms: timeoutMs },
-  })
+  const input: ExecuteSqlInput = {
+    conn_id: connId ?? null,
+    sql,
+    timeout_ms: timeoutMs ?? null,
+  }
+  return typed(commands.executeSql(input)) as unknown as ExecuteSqlResponse
 }
 
 /**
@@ -32,16 +38,18 @@ export async function executeTransaction(
   sqls: string[],
   connId?: string
 ): Promise<ExecuteTransactionResponse> {
-  return invoke('execute_transaction', {
-    input: { sqls, conn_id: connId },
-  })
+  const input: ExecuteTransactionInput = {
+    conn_id: connId ?? null,
+    sqls,
+  }
+  return typed(commands.executeTransaction(input)) as unknown as ExecuteTransactionResponse
 }
 
 /**
  * 获取 SQL 历史记录
  */
 export async function getSqlHistory(limit?: number): Promise<SqlHistoryResponse[]> {
-  return invoke('get_sql_history', { limit })
+  return typed(commands.getSqlHistory(limit ?? null)) as unknown as SqlHistoryResponse[]
 }
 
 /**
@@ -51,19 +59,19 @@ export async function searchSqlHistory(
   keyword: string,
   limit?: number
 ): Promise<SqlHistoryResponse[]> {
-  return invoke('search_sql_history', { keyword, limit })
+  return typed(commands.searchSqlHistory(keyword, limit ?? null)) as unknown as SqlHistoryResponse[]
 }
 
 /**
  * 清空 SQL 历史记录
  */
 export async function clearSqlHistory(): Promise<void> {
-  return invoke('clear_sql_history')
+  await typed(commands.clearSqlHistory())
 }
 
 /**
  * 删除指定 SQL 历史记录
  */
 export async function removeSqlHistory(id: string): Promise<void> {
-  return invoke('remove_sql_history', { id })
+  await typed(commands.removeSqlHistory(id))
 }

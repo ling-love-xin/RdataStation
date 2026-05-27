@@ -1,11 +1,12 @@
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::{CoreError, StorageError};
 
 /// 插件信息结构（全局存储）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Plugin {
     pub id: String,
     pub code: String,
@@ -24,7 +25,7 @@ pub struct Plugin {
 }
 
 /// 插件依赖项
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PluginDependency {
     pub plugin_id: String,
     pub dep_code: String,
@@ -33,7 +34,7 @@ pub struct PluginDependency {
 }
 
 /// 插件全局配置项
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PluginGlobalConfig {
     pub plugin_id: String,
     pub key: String,
@@ -42,7 +43,7 @@ pub struct PluginGlobalConfig {
 }
 
 /// 项目使用的插件（项目级存储）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProjectUsedPlugin {
     pub plugin_code: String,
     pub plugin_version: String,
@@ -51,7 +52,7 @@ pub struct ProjectUsedPlugin {
 }
 
 /// 项目插件配置项
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProjectPluginConfig {
     pub plugin_code: String,
     pub plugin_version: String,

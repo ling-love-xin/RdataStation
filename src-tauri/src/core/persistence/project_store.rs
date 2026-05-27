@@ -8,13 +8,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::driver::utils::escape_sql_string;
 use crate::core::error::{CoreError, StorageError};
 use crate::core::persistence::project_db::ProjectDatabaseManager;
 
 /// 连接信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct StoredConnection {
     pub id: String,
     pub name: String,
@@ -46,7 +47,7 @@ pub struct StoredConnection {
 }
 
 /// SQL 历史记录
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SqlHistoryRecord {
     pub id: String,
     pub connection_id: Option<String>,
@@ -59,7 +60,7 @@ pub struct SqlHistoryRecord {
 }
 
 /// 项目设置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProjectSetting {
     pub key: String,
     pub value: String,
@@ -67,7 +68,7 @@ pub struct ProjectSetting {
 }
 
 /// 工作台状态
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct WorkbenchState {
     pub layout: Option<String>,
     pub open_panels: Option<String>,

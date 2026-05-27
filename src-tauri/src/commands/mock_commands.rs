@@ -9,6 +9,7 @@ use tauri::Emitter;
 use tauri::Manager;
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_generate(
     config: MockConfig,
     app: tauri::AppHandle,
@@ -28,11 +29,13 @@ pub async fn mock_generate(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_preview(table_name: String, limit: usize) -> Result<QueryResult, CoreError> {
     MockEngine::preview(&table_name, limit).map_err(CoreError::from)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_export(input: MockExportInput) -> Result<String, CoreError> {
     MockEngine::export(
         &input.temp_table_name,
@@ -44,6 +47,7 @@ pub async fn mock_export(input: MockExportInput) -> Result<String, CoreError> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_map_column(
     column_name: String,
     data_type: String,
@@ -52,6 +56,7 @@ pub async fn mock_map_column(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_map_columns_batch(
     columns: Vec<(String, String)>,
 ) -> Result<Vec<ColumnMappingResponse>, CoreError> {
@@ -59,21 +64,25 @@ pub async fn mock_map_columns_batch(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_list_templates() -> Result<Vec<ScenarioTemplate>, CoreError> {
     MockEngine::list_templates().map_err(CoreError::from)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_import_schema(input: ImportSchemaInput) -> Result<Vec<ColumnDef>, CoreError> {
     MockEngine::import_schema(&input).map_err(CoreError::from)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_apply_template(template_id: String) -> Result<ScenarioTemplate, CoreError> {
     MockEngine::apply_template(&template_id).map_err(CoreError::from)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_save_to_scratchpad(
     input: MockSaveToScratchpadInput,
     app_handle: tauri::AppHandle,
@@ -97,6 +106,7 @@ pub async fn mock_save_to_scratchpad(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_persist_as_asset(
     input: MockPersistAssetInput,
 ) -> Result<MockPersistAssetResult, CoreError> {
@@ -106,22 +116,27 @@ pub async fn mock_persist_as_asset(
 
     Ok(MockPersistAssetResult {
         table_name,
-        row_count,
+        row_count: row_count as i32,
         column_count,
     })
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_get_history(limit: usize) -> Result<Vec<MockHistoryRecord>, CoreError> {
     MockEngine::get_history(limit).map_err(CoreError::from)
 }
 
 #[tauri::command]
-pub async fn mock_clear_history() -> Result<usize, CoreError> {
-    MockEngine::clear_history().map_err(CoreError::from)
+#[specta::specta]
+pub async fn mock_clear_history() -> Result<u32, CoreError> {
+    MockEngine::clear_history()
+        .map(|n| n as u32)
+        .map_err(CoreError::from)
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn mock_re_generate(history_id: String) -> Result<MockGenerateResult, CoreError> {
     MockEngine::re_generate(&history_id)
         .await

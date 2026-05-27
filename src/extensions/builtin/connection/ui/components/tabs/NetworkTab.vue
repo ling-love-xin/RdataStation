@@ -677,7 +677,7 @@ async function saveNewProfile(hop: Hop) {
           ac: {
             id: '',
             name: authName,
-            auth_type: hop.protocol === 'ssh' ? 'ssh_password' : 'proxy_password',
+            auth_type: hop.protocol === 'ssh' ? (f.authType || 'ssh_password') : 'proxy_password',
             auth_data: JSON.stringify(authData),
             created_at: '',
             updated_at: '',
@@ -689,15 +689,11 @@ async function saveNewProfile(hop: Hop) {
       }
     }
 
-    await invoke('create_network_config', { nc: cfg })
+    const createdNc = await invoke<NetworkProfile>('create_network_config', { nc: cfg })
     await loadAll()
-    // Auto-select newly created profile
-    const profiles = { ssh: rawSshProfiles, ssl: rawSslProfiles, proxy: rawProxyProfiles }[hop.protocol]
-    const latest = profiles?.value?.find((pr: NetworkProfile) => pr.name === (f.name || `未命名-${hop.protocol}`))
-    if (latest) {
-      hop.profileId = latest.id
-      hop.mode = 'select'
-    }
+    // Auto-select newly created profile using backend-generated ID
+    hop.profileId = createdNc.id
+    hop.mode = 'select'
   } catch (e) {
     console.error('[NetworkTab] Failed to create profile:', e)
   } finally {

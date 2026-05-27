@@ -8,38 +8,43 @@
  * - 规则引擎 API（统一入口，SQL 模板与 Rust 代码分离）
  */
 
+use specta::Type;
+use crate::core::error::CoreError;
+
 // ==================== 结果集响应 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Type)]
 pub struct ResultSet {
     pub columns: Vec<String>,
+    #[specta(skip)]
     pub rows: Vec<Vec<serde_json::Value>>,
-    pub row_count: usize,
-    pub elapsed_ms: u64,
+    pub row_count: u32,
+    pub elapsed_ms: u32,
     pub temp_table: String,
 }
 
 // ==================== 洞察体系 — 顶层结构 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct ColumnInsightFull {
     pub stats: ColumnStats,
+    #[specta(skip)]
     pub sample: Vec<serde_json::Value>,
     pub histogram: Option<Vec<DistributionBin>>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct ColumnStats {
     pub column_name: String,
     pub data_type: String,
-    pub total_count: usize,
-    pub null_count: usize,
+    pub total_count: u32,
+    pub null_count: u32,
     pub null_rate: f64,
-    pub unique_count: Option<usize>,
+    pub unique_count: Option<u32>,
     pub stats_detail: ColumnStatsDetail,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 #[serde(tag = "kind")]
 pub enum ColumnStatsDetail {
     Numeric(NumericStats),
@@ -51,7 +56,7 @@ pub enum ColumnStatsDetail {
 
 // ==================== 数值列统计 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct NumericStats {
     pub min: f64,
     pub max: f64,
@@ -66,7 +71,7 @@ pub struct NumericStats {
     pub is_extreme: Vec<ExtremeValue>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct ExtremeValue {
     pub value: f64,
     pub kind: String,
@@ -74,60 +79,60 @@ pub struct ExtremeValue {
 
 // ==================== 文本列统计 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct TextStats {
-    pub min_length: usize,
-    pub max_length: usize,
+    pub min_length: u32,
+    pub max_length: u32,
     pub top_values: Vec<TextFrequency>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct TextFrequency {
     pub value: String,
-    pub count: usize,
+    pub count: u32,
     pub ratio: f64,
 }
 
 // ==================== 日期时间列统计 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct DateTimeStats {
     pub earliest: String,
     pub latest: String,
-    pub span_days: i64,
+    pub span_days: i32,
     pub monthly_distribution: Vec<TextFrequency>,
 }
 
 // ==================== 布尔列统计 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct BooleanStats {
-    pub true_count: usize,
-    pub false_count: usize,
+    pub true_count: u32,
+    pub false_count: u32,
     pub true_ratio: f64,
 }
 
 // ==================== 分箱直方图 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct DistributionBin {
     pub label: String,
-    pub count: usize,
+    pub count: u32,
     pub ratio: f64,
 }
 
 // ==================== 表探查 ====================
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct TableProfile {
     pub table_name: String,
     pub db_type: String,
     pub columns: Vec<TableColumnMeta>,
-    pub row_count: Option<i64>,
+    pub row_count: Option<i32>,
     pub schema_name: Option<String>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Type)]
 pub struct TableColumnMeta {
     pub column_name: String,
     pub data_type: String,
@@ -138,7 +143,7 @@ pub struct TableColumnMeta {
 
 // ==================== 质量评分 ====================
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct QualityScore {
     pub column_name: String,
     pub overall_score: f64,
@@ -147,7 +152,7 @@ pub struct QualityScore {
     pub summary: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct QualityDimension {
     pub name: String,
     pub score: f64,
@@ -155,18 +160,18 @@ pub struct QualityDimension {
     pub detail: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct TableQuality {
     pub table_name: String,
     pub overall_score: f64,
     pub level: String,
     pub column_scores: Vec<ColumnQualityEntry>,
     pub summary: String,
-    pub scored_count: usize,
-    pub total_columns: usize,
+    pub scored_count: u32,
+    pub total_columns: u32,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct ColumnQualityEntry {
     pub column_name: String,
     pub quality_score: f64,
@@ -175,8 +180,6 @@ pub struct ColumnQualityEntry {
 }
 
 // ==================== ResultService（外观 / Facade）====================
-
-use crate::core::error::CoreError;
 
 pub struct ResultService;
 
@@ -269,8 +272,8 @@ impl ResultService {
         db_name: Option<&str>,
         schema_name: Option<&str>,
         table_name: Option<&str>,
-        row_count: Option<i64>,
-        elapsed_ms: Option<i64>,
+        row_count: Option<i32>,
+        elapsed_ms: Option<i32>,
         insight_store: &crate::core::persistence::InsightStorage,
         meta_store: &crate::core::persistence::InsightMetaStore,
     ) -> Result<(String, String), CoreError> {
@@ -300,10 +303,10 @@ impl ResultService {
     }
 
     pub async fn cleanup_old_insight_snapshots(
-        days: i64,
+        days: i32,
         insight_store: &crate::core::persistence::InsightStorage,
         meta_store: &crate::core::persistence::InsightMetaStore,
-    ) -> Result<(i64, usize), CoreError> {
+    ) -> Result<(i32, usize), CoreError> {
         crate::core::services::persistence_service::cleanup_old_insight_snapshots(
             days,
             insight_store,
@@ -373,7 +376,7 @@ impl ResultService {
                 0
             }
         };
-        Ok((affected, format!("成功更新 {} 行", affected)))
+        Ok((affected as usize, format!("成功更新 {} 行", affected)))
     }
 
     pub fn export_result(

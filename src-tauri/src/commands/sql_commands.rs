@@ -20,28 +20,28 @@ fn new_sql_service() -> SqlService {
 // ==================== SQL Query Commands ====================
 
 /// 执行 SQL 请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ExecuteSqlInput {
     pub conn_id: Option<String>,
     pub sql: String,
-    pub timeout_ms: Option<u64>,
+    pub timeout_ms: Option<u32>,
 }
 
 /// 执行 SQL 响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ExecuteSqlResponse {
     pub result: QueryResult,
-    pub elapsed_ms: u64,
-    pub affected_rows: Option<usize>,
+    pub elapsed_ms: u32,
+    pub affected_rows: Option<u32>,
     pub truncated: bool,
 }
 
 impl From<SqlExecuteResult> for ExecuteSqlResponse {
     fn from(result: SqlExecuteResult) -> Self {
-        let affected_rows = result.result.affected_rows;
+        let affected_rows = result.result.affected_rows.map(|n| n as u32);
         Self {
             result: result.result,
-            elapsed_ms: result.elapsed_ms,
+            elapsed_ms: result.elapsed_ms as u32,
             affected_rows,
             truncated: result.truncated,
         }
@@ -50,6 +50,7 @@ impl From<SqlExecuteResult> for ExecuteSqlResponse {
 
 /// 执行 SQL 查询
 #[tauri::command]
+#[specta::specta]
 pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, CoreError> {
     if input.sql.trim().is_empty() {
         return Err(CoreError::common(
@@ -65,9 +66,9 @@ pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, C
 
     let options = SqlExecuteOptions {
         record_history: true,
-        use_transaction: false,
-        timeout_ms: input.timeout_ms,
-        use_cache: true,
+            use_transaction: false,
+            timeout_ms: input.timeout_ms.map(|v| v as u64),
+            use_cache: true,
     };
 
     let result = service.execute(input.conn_id, &input.sql, options).await?;
@@ -76,18 +77,19 @@ pub async fn execute_sql(input: ExecuteSqlInput) -> Result<ExecuteSqlResponse, C
 }
 
 /// 在事务中执行多个 SQL
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ExecuteTransactionInput {
     pub conn_id: Option<String>,
     pub sqls: Vec<String>,
 }
 
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ExecuteTransactionResponse {
     pub results: Vec<ExecuteSqlResponse>,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn execute_transaction(
     input: ExecuteTransactionInput,
 ) -> Result<ExecuteTransactionResponse, CoreError> {
@@ -114,12 +116,12 @@ pub async fn execute_transaction(
 // ==================== Transaction Commands ====================
 
 /// 事务状态响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct TransactionStatusResponse {
     pub conn_id: String,
     pub is_in_transaction: bool,
-    pub transaction_start_time_ms: Option<u64>,
-    pub transaction_duration_ms: Option<u64>,
+    pub transaction_start_time_ms: Option<u32>,
+    pub transaction_duration_ms: Option<u32>,
 }
 
 impl From<TransactionStatusResult> for TransactionStatusResponse {
@@ -127,14 +129,15 @@ impl From<TransactionStatusResult> for TransactionStatusResponse {
         Self {
             conn_id: result.conn_id,
             is_in_transaction: result.is_in_transaction,
-            transaction_start_time_ms: result.transaction_start_time_ms,
-            transaction_duration_ms: result.transaction_duration_ms,
+            transaction_start_time_ms: result.transaction_start_time_ms.map(|v| v as u32),
+            transaction_duration_ms: result.transaction_duration_ms.map(|v| v as u32),
         }
     }
 }
 
 /// 开始事务
 #[tauri::command]
+#[specta::specta]
 pub async fn begin_transaction(
     conn_id: Option<String>,
 ) -> Result<TransactionStatusResponse, CoreError> {
@@ -144,6 +147,7 @@ pub async fn begin_transaction(
 
 /// 提交事务
 #[tauri::command]
+#[specta::specta]
 pub async fn commit_transaction(
     conn_id: Option<String>,
 ) -> Result<TransactionStatusResponse, CoreError> {
@@ -153,6 +157,7 @@ pub async fn commit_transaction(
 
 /// 回滚事务
 #[tauri::command]
+#[specta::specta]
 pub async fn rollback_transaction(
     conn_id: Option<String>,
 ) -> Result<TransactionStatusResponse, CoreError> {
@@ -162,12 +167,14 @@ pub async fn rollback_transaction(
 
 /// 取消正在执行的 SQL 查询
 #[tauri::command]
+#[specta::specta]
 pub async fn cancel_sql_query(conn_id: Option<String>) -> Result<bool, CoreError> {
     new_sql_service().cancel_query(conn_id).await
 }
 
 /// 连接健康检查（ping）
 #[tauri::command]
+#[specta::specta]
 pub async fn ping_connection(conn_id: Option<String>) -> Result<bool, CoreError> {
     let manager = get_connection_manager().clone();
     let conn_id = match conn_id {
@@ -188,6 +195,7 @@ pub async fn ping_connection(conn_id: Option<String>) -> Result<bool, CoreError>
 
 /// 获取事务状态
 #[tauri::command]
+#[specta::specta]
 pub async fn get_transaction_status(
     conn_id: Option<String>,
 ) -> Result<TransactionStatusResponse, CoreError> {
@@ -199,18 +207,18 @@ pub async fn get_transaction_status(
 }
 
 /// SQL 历史记录响应（含审计信息）
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct SqlHistoryResponse {
     pub id: String,
     pub sql: String,
     pub conn_id: Option<String>,
     pub db_type: Option<String>,
     pub executed_at: String,
-    pub duration_ms: Option<u64>,
+    pub duration_ms: Option<u32>,
     pub success: Option<bool>,
     pub error_message: Option<String>,
-    pub rows_affected: Option<u64>,
-    pub rows_returned: Option<u64>,
+    pub rows_affected: Option<u32>,
+    pub rows_returned: Option<u32>,
 }
 
 impl From<SqlHistoryRecord> for SqlHistoryResponse {
@@ -221,42 +229,46 @@ impl From<SqlHistoryRecord> for SqlHistoryResponse {
             conn_id: h.conn_id,
             db_type: h.db_type,
             executed_at: h.executed_at.to_rfc3339(),
-            duration_ms: h.duration_ms,
+            duration_ms: h.duration_ms.map(|v| v as u32),
             success: h.success,
             error_message: h.error_message,
-            rows_affected: h.rows_affected,
-            rows_returned: h.rows_returned,
+            rows_affected: h.rows_affected.map(|v| v as u32),
+            rows_returned: h.rows_returned.map(|v| v as u32),
         }
     }
 }
 
 /// 获取 SQL 执行历史（含审计日志）
 #[tauri::command]
-pub async fn get_sql_history(limit: Option<usize>) -> Result<Vec<SqlHistoryResponse>, CoreError> {
+#[specta::specta]
+pub async fn get_sql_history(limit: Option<u32>) -> Result<Vec<SqlHistoryResponse>, CoreError> {
     let service = new_sql_service();
-    let history = service.get_sql_history(limit.unwrap_or(100))?;
+    let history = service.get_sql_history(limit.unwrap_or(100) as usize)?;
     Ok(history.into_iter().map(Into::into).collect())
 }
 
 /// 搜索 SQL 历史
 #[tauri::command]
+#[specta::specta]
 pub async fn search_sql_history(
     keyword: String,
-    limit: Option<usize>,
+    limit: Option<u32>,
 ) -> Result<Vec<SqlHistoryResponse>, CoreError> {
     let service = new_sql_service();
-    let history = service.search_sql_history(&keyword, limit.unwrap_or(100))?;
+    let history = service.search_sql_history(&keyword, limit.unwrap_or(100) as usize)?;
     Ok(history.into_iter().map(Into::into).collect())
 }
 
 /// 清空 SQL 历史
 #[tauri::command]
+#[specta::specta]
 pub async fn clear_sql_history() -> Result<(), CoreError> {
     new_sql_service().clear_sql_history()
 }
 
 /// 删除单条 SQL 历史
 #[tauri::command]
+#[specta::specta]
 pub async fn remove_sql_history(id: String) -> Result<(), CoreError> {
     new_sql_service().remove_sql_history(&id)
 }
@@ -264,7 +276,7 @@ pub async fn remove_sql_history(id: String) -> Result<(), CoreError> {
 // ==================== Federated Query Commands ====================
 
 /// 注册外部数据库连接请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct RegisterExternalDatabaseInput {
     pub conn_id: Option<String>,
     pub name: String,
@@ -274,6 +286,7 @@ pub struct RegisterExternalDatabaseInput {
 
 /// 注册外部数据库连接
 #[tauri::command]
+#[specta::specta]
 pub async fn register_external_database(
     input: RegisterExternalDatabaseInput,
 ) -> Result<(), CoreError> {
@@ -301,12 +314,12 @@ pub struct DuckDBAcceleratedInput {
 }
 
 /// DuckDB 加速执行响应
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, specta::Type)]
 pub struct DuckDBAcceleratedResponse {
     pub success: bool,
     pub columns: Option<Vec<String>>,
     pub rows: Option<Vec<Vec<serde_json::Value>>>,
-    pub elapsed_ms: u64,
+    pub elapsed_ms: u32,
     pub error: Option<String>,
 }
 
@@ -379,7 +392,7 @@ pub async fn execute_duckdb_accelerated(
             Some(columns)
         },
         rows: if rows.is_empty() { None } else { Some(rows) },
-        elapsed_ms: 0,
+        elapsed_ms: 0u32,
         error: None,
     })
 }
@@ -447,7 +460,7 @@ fn format_arrow_value(col: &dyn arrow::array::Array, row_idx: usize) -> serde_js
 }
 
 /// 创建外部表请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateExternalTableInput {
     pub conn_id: Option<String>,
     pub external_db_name: String,
@@ -458,6 +471,7 @@ pub struct CreateExternalTableInput {
 
 /// 创建外部表
 #[tauri::command]
+#[specta::specta]
 pub async fn create_external_table(input: CreateExternalTableInput) -> Result<(), CoreError> {
     new_sql_service()
         .create_external_table(

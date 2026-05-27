@@ -10,18 +10,20 @@
 use arrow::array::*;
 use arrow::record_batch::RecordBatch;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt;
 
 /// Arrow 批处理类型
 pub type ArrowBatch = RecordBatch;
 
 /// 统一的查询结果
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Type)]
 pub struct QueryResult {
     pub columns: Vec<String>,
+    #[specta(skip)]
     pub batches: Vec<ArrowBatch>,
     /// 影响的行数（对于 INSERT/UPDATE/DELETE）
-    pub affected_rows: Option<usize>,
+    pub affected_rows: Option<u32>,
     /// 是否是只读查询（SELECT）
     pub is_read_only: Option<bool>,
 }
@@ -39,7 +41,7 @@ impl QueryResult {
 
     /// 从 Arrow 批处理创建查询结果
     pub fn from_batches(columns: Vec<String>, batches: Vec<ArrowBatch>) -> Self {
-        let row_count: usize = batches.iter().map(|b| b.num_rows()).sum();
+        let row_count: u32 = batches.iter().map(|b| b.num_rows() as u32).sum();
         Self {
             columns,
             batches,
@@ -149,10 +151,9 @@ impl<'de> Deserialize<'de> for QueryResult {
         #[derive(Deserialize)]
         struct QueryResultHelper {
             columns: Vec<String>,
-            affected_rows: Option<usize>,
+            affected_rows: Option<u32>,
             is_read_only: Option<bool>,
         }
-
         let helper = QueryResultHelper::deserialize(deserializer)?;
         Ok(Self {
             columns: helper.columns,
@@ -167,7 +168,7 @@ impl<'de> Deserialize<'de> for QueryResult {
 pub type Row = Vec<Value>;
 
 /// 与 SQL 类型兼容的值
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 #[serde(untagged)]
 pub enum Value {
     Null,

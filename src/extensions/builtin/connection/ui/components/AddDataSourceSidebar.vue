@@ -74,13 +74,10 @@ import { useI18n } from 'vue-i18n'
 
 import { useDriverRegistry } from '../composables/useDriverRegistry'
 
+import type { StagingItem } from '../composables/useAddDataSource'
+
 const { t } = useI18n()
 const { drivers, getGroupedTypes } = useDriverRegistry()
-
-interface StagingItem {
-  name: string
-  driver?: string
-}
 
 defineProps<{
   selectedTypeId: string | null

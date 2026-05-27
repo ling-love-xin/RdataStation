@@ -8,9 +8,10 @@ use crate::core::logging::record::{LogLevel, LogPage, LogQuery, LogRecord, LogSt
 
 /// 分页查询日志
 #[tauri::command]
+#[specta::specta]
 pub async fn get_logs(
-    page: Option<usize>,
-    page_size: Option<usize>,
+    page: Option<u32>,
+    page_size: Option<u32>,
     level: Option<String>,
     target: Option<String>,
     keyword: Option<String>,
@@ -37,6 +38,7 @@ pub async fn get_logs(
 
 /// 搜索日志（关键字搜索）
 #[tauri::command]
+#[specta::specta]
 pub async fn search_logs(
     keyword: String,
     level: Option<String>,
@@ -59,6 +61,7 @@ pub async fn search_logs(
 
 /// 获取日志统计
 #[tauri::command]
+#[specta::specta]
 pub async fn get_log_stats() -> Result<LogStats, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
@@ -70,28 +73,32 @@ pub async fn get_log_stats() -> Result<LogStats, CoreError> {
 
 /// 清理旧日志
 #[tauri::command]
-pub async fn clear_logs(before: Option<String>) -> Result<usize, CoreError> {
+#[specta::specta]
+pub async fn clear_logs(before: Option<String>) -> Result<u32, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
     store
         .cleanup(before.as_deref())
         .await
+        .map(|n| n as u32)
         .map_err(|e| CoreError::from(e.to_string()))
 }
 
 /// 获取当前日志会话 ID
 #[tauri::command]
+#[specta::specta]
 pub fn get_log_session_id() -> String {
     crate::core::logging::session_id()
 }
 
 /// 导出日志（JSON 格式）
 #[tauri::command]
+#[specta::specta]
 pub async fn export_logs(
     level: Option<String>,
     start: Option<String>,
     end: Option<String>,
-    max_results: Option<usize>,
+    max_results: Option<u32>,
 ) -> Result<Vec<LogRecord>, CoreError> {
     let store = get_log_store().ok_or_else(|| "Log store not initialized".to_string())?;
 
@@ -119,6 +126,7 @@ pub async fn export_logs(
 /// 立即影响所有后续日志输出的级别过滤。
 /// 支持格式："info"、"debug"、"warn,my_crate=trace"等 EnvFilter 语法。
 #[tauri::command]
+#[specta::specta]
 pub fn set_log_level(level: String) -> Result<(), CoreError> {
     use crate::core::logging::subscriber;
     subscriber::reload_log_level(&level).map_err(|e| CoreError::from(e.to_string()))

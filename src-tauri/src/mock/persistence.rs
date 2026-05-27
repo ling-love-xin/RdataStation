@@ -1,29 +1,30 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 
 use crate::core::error::{CommonError, CoreError, StorageError};
 use crate::core::persistence::project_db::{ProjectSqlitePool, SqlitePoolConnection};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockGenerationTask {
     pub id: String,
     pub table_name: String,
     pub table_alias: Option<String>,
-    pub row_count: i64,
-    pub seed: Option<i64>,
+    pub row_count: i32,
+    pub seed: Option<i32>,
     pub locale: String,
     pub scene_id: Option<String>,
     pub save_format: Option<String>,
     pub status: String,
     pub error_message: Option<String>,
-    pub generated_rows: Option<i64>,
-    pub generation_time_ms: Option<i64>,
+    pub generated_rows: Option<i32>,
+    pub generation_time_ms: Option<i32>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockGenerationColumn {
     pub id: String,
@@ -40,23 +41,23 @@ pub struct MockGenerationColumn {
     pub ref_column: Option<String>,
     pub comment: Option<String>,
     pub confidence: Option<String>,
-    pub sort_order: i64,
+    pub sort_order: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockUserTemplate {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
-    pub row_count: i64,
-    pub seed: Option<i64>,
+    pub row_count: i32,
+    pub seed: Option<i32>,
     pub locale: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockTemplateColumn {
     pub id: String,
@@ -73,10 +74,10 @@ pub struct MockTemplateColumn {
     pub ref_column: Option<String>,
     pub comment: Option<String>,
     pub confidence: Option<String>,
-    pub sort_order: i64,
+    pub sort_order: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct MockGenerationDetail {
     pub task: MockGenerationTask,

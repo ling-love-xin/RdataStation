@@ -2,9 +2,12 @@
  * 查询服务
  *
  * 提供 SQL 查询执行的 API 调用
+ * 使用 tauri-specta 生成的 typed commands
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { commands } from '@/generated/specta/bindings'
+import type { ExecuteSqlInput, ExecuteTransactionInput } from '@/generated/specta/bindings'
+import { typed, tauriInvoke } from '@/shared/api'
 
 import type {
   ExecuteSqlResponse,
@@ -19,13 +22,12 @@ export async function executeSql(
   connectionId?: string,
   timeoutMs?: number
 ): Promise<ExecuteSqlResponse> {
-  return invoke<ExecuteSqlResponse>('execute_sql', {
-    input: {
-      conn_id: connectionId,
-      sql,
-      timeout_ms: timeoutMs ?? null,
-    },
-  })
+  const input: ExecuteSqlInput = {
+    conn_id: connectionId ?? null,
+    sql,
+    timeout_ms: timeoutMs ?? null,
+  }
+  return typed(commands.executeSql(input)) as unknown as ExecuteSqlResponse
 }
 
 /**
@@ -35,19 +37,18 @@ export async function executeTransaction(
   sqls: string[],
   connectionId?: string
 ): Promise<ExecuteTransactionResponse> {
-  return invoke<ExecuteTransactionResponse>('execute_transaction', {
-    input: {
-      conn_id: connectionId,
-      sqls,
-    },
-  })
+  const input: ExecuteTransactionInput = {
+    conn_id: connectionId ?? null,
+    sqls,
+  }
+  return typed(commands.executeTransaction(input)) as unknown as ExecuteTransactionResponse
 }
 
 /**
  * 取消查询
  */
 export async function cancelQuery(connId: string): Promise<boolean> {
-  return invoke<boolean>('cancel_sql_query', { connId })
+  return typed(commands.cancelSqlQuery(connId))
 }
 
 /**
@@ -62,19 +63,19 @@ export interface TransactionStatus {
 }
 
 export async function beginTransaction(connId?: string): Promise<TransactionStatus> {
-  return invoke<TransactionStatus>('begin_transaction', { connId })
+  return typed(commands.beginTransaction(connId ?? null)) as unknown as TransactionStatus
 }
 
 export async function commitTransaction(connId?: string): Promise<TransactionStatus> {
-  return invoke<TransactionStatus>('commit_transaction', { connId })
+  return typed(commands.commitTransaction(connId ?? null)) as unknown as TransactionStatus
 }
 
 export async function rollbackTransaction(connId?: string): Promise<TransactionStatus> {
-  return invoke<TransactionStatus>('rollback_transaction', { connId })
+  return typed(commands.rollbackTransaction(connId ?? null)) as unknown as TransactionStatus
 }
 
 export async function getTransactionStatus(connId?: string): Promise<TransactionStatus> {
-  return invoke<TransactionStatus>('get_transaction_status', { connId })
+  return typed(commands.getTransactionStatus(connId ?? null)) as unknown as TransactionStatus
 }
 
 // ==================== DuckDB 加速查询 ====================
@@ -94,10 +95,13 @@ export interface DuckDBAcceleratedResult {
   error: string | null
 }
 
+/**
+ * DuckDB 加速查询 — 尚未在 specta collect_commands! 中注册
+ */
 export async function executeDuckDBAccelerated(
   params: DuckDBAcceleratedParams
 ): Promise<DuckDBAcceleratedResult> {
-  const raw = await invoke<{
+  const raw = await tauriInvoke<{
     success: boolean
     columns: string[] | null
     rows: unknown[][] | null
@@ -131,12 +135,12 @@ export interface RegisterExternalDatabaseParams {
 export async function registerExternalDatabase(
   params: RegisterExternalDatabaseParams
 ): Promise<void> {
-  return invoke('register_external_database', {
-    connId: params.connId,
+  await typed(commands.registerExternalDatabase({
+    conn_id: params.connId ?? null,
     name: params.name,
     driver: params.driver,
-    connectionString: params.connectionString,
-  })
+    connection_string: params.connectionString,
+  }))
 }
 
 export interface CreateExternalTableParams {
@@ -147,11 +151,11 @@ export interface CreateExternalTableParams {
 }
 
 export async function createExternalTable(params: CreateExternalTableParams): Promise<void> {
-  return invoke('create_external_table', {
-    connId: params.connId,
-    schemaName: params.schemaName,
-    tableName: params.tableName,
-    externalDbName: params.externalDbName,
-    externalTableName: `${params.externalDbName}_${params.tableName}`,
-  })
+  await typed(commands.createExternalTable({
+    conn_id: params.connId ?? null,
+    external_db_name: params.externalDbName,
+    schema_name: params.schemaName,
+    table_name: params.tableName,
+    external_table_name: `${params.externalDbName}_${params.tableName}`,
+  }))
 }

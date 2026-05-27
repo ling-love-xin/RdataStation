@@ -13,7 +13,7 @@ use crate::core::services::result_service::{
 };
 
 /// 重新执行带过滤条件的 SQL
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ReExecuteFilterInput {
     pub conn_id: String,
     pub original_sql: String,
@@ -22,6 +22,7 @@ pub struct ReExecuteFilterInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<ResultSet, CoreError> {
     let where_clause = input.where_clause.unwrap_or_default();
     let order_clause = input.order_clause.unwrap_or_default();
@@ -37,23 +38,26 @@ pub async fn re_execute_with_filter(input: ReExecuteFilterInput) -> Result<Resul
 
 // ═══════════════ 单元格编辑持久化 ═══════════════
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, specta::Type)]
 pub struct CellUpdateResult {
     pub success: bool,
-    pub affected_rows: usize,
+    pub affected_rows: u32,
     pub message: String,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CellUpdateInput {
     pub conn_id: String,
     pub table_name: String,
     pub column_name: String,
+    #[specta(skip)]
     pub new_value: serde_json::Value,
+    #[specta(skip)]
     pub row_identity: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult, CoreError> {
     match ResultService::save_cell_update(
         input.conn_id,
@@ -66,7 +70,7 @@ pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult
     {
         Ok((affected, message)) => Ok(CellUpdateResult {
             success: true,
-            affected_rows: affected,
+            affected_rows: affected as u32,
             message,
         }),
         Err(e) => Err(format!("更新失败: {}", e).into()),
@@ -74,7 +78,7 @@ pub async fn save_cell_update(input: CellUpdateInput) -> Result<CellUpdateResult
 }
 
 /// Schema 洞察输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct SchemaInsightInput {
     pub conn_id: String,
     pub database: String,
@@ -83,6 +87,7 @@ pub struct SchemaInsightInput {
 
 /// Schema 级洞察分析（外键推断、类型一致性、孤立表检测）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_schema_insight(
     input: SchemaInsightInput,
 ) -> Result<SchemaInsightReport, CoreError> {
@@ -90,7 +95,7 @@ pub async fn get_schema_insight(
 }
 
 /// 列质量评分输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ColumnQualityInput {
     pub column_name: String,
     pub temp_table: String,
@@ -98,13 +103,14 @@ pub struct ColumnQualityInput {
 
 /// 计算列数据质量评分 (0-100)
 #[tauri::command]
+#[specta::specta]
 pub async fn get_column_quality(input: ColumnQualityInput) -> Result<QualityScore, CoreError> {
     let stats = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)?;
     Ok(ResultService::compute_column_quality(&stats))
 }
 
 /// 批量评估表质量 — 一次调用完成全表所有列的质量评分
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct BatchEvaluateInput {
     pub conn_id: String,
     pub database: String,
@@ -113,6 +119,7 @@ pub struct BatchEvaluateInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQuality, CoreError> {
     ResultService::batch_evaluate_columns(
         input.conn_id,
@@ -125,7 +132,7 @@ pub async fn batch_evaluate_columns(input: BatchEvaluateInput) -> Result<TableQu
 
 // ═══════════════ 从表直接探查列命令 ═══════════════
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ProfileColumnFromTableInput {
     pub conn_id: String,
     pub database: String,
@@ -135,6 +142,7 @@ pub struct ProfileColumnFromTableInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn profile_column_from_table(
     input: ProfileColumnFromTableInput,
 ) -> Result<ColumnInsightFull, CoreError> {
@@ -150,7 +158,7 @@ pub async fn profile_column_from_table(
 
 // ═══════════════ 版本详情命令 ═══════════════
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct InsightVersionDetailInput {
     pub version_id: String,
 }
@@ -170,21 +178,23 @@ pub async fn get_insight_version_detail(
 }
 
 /// DuckDB 分析输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct DuckDbAnalysisInput {
     pub temp_table: String,
     pub sql: String,
     pub columns: Option<Vec<String>>,
+    #[specta(skip)]
     pub rows: Option<Vec<Vec<serde_json::Value>>>,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn execute_duckdb_analysis(input: DuckDbAnalysisInput) -> Result<ResultSet, CoreError> {
     ResultService::execute_duckdb_analysis(&input.temp_table, &input.sql, input.columns, input.rows)
 }
 
 /// 列洞察输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ColumnInsightInput {
     pub temp_table: String,
     pub column_name: String,
@@ -192,12 +202,14 @@ pub struct ColumnInsightInput {
 
 /// 获取列统计信息（旧版兼容，返回 ColumnStats）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_column_insights(input: ColumnInsightInput) -> Result<ColumnStats, CoreError> {
     ResultService::get_column_insights(&input.temp_table, &input.column_name)
 }
 
 /// 获取列全量洞察（统计 + 样本 + 直方图）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_column_insight_full(
     input: ColumnInsightInput,
 ) -> Result<ColumnInsightFull, CoreError> {
@@ -205,14 +217,16 @@ pub async fn get_column_insight_full(
 }
 
 /// 创建 DuckDB 临时表输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateTempTableInput {
     pub columns: Vec<String>,
+    #[specta(skip)]
     pub rows: Vec<Vec<serde_json::Value>>,
 }
 
 /// 从已有数据创建 DuckDB 临时表，返回表名
 #[tauri::command]
+#[specta::specta]
 pub async fn create_duckdb_temp_table(input: CreateTempTableInput) -> Result<String, CoreError> {
     ResultService::create_duckdb_temp_table(&input.columns, &input.rows)
 }
@@ -220,7 +234,7 @@ pub async fn create_duckdb_temp_table(input: CreateTempTableInput) -> Result<Str
 // ═══════════════════ 持久化命令 ═══════════════════
 
 /// 保存列洞察快照输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct SaveInsightSnapshotInput {
     pub temp_table: String,
     pub column_name: String,
@@ -245,9 +259,9 @@ pub async fn save_column_insight_snapshot(
 
     let insight = ResultService::get_column_insight_full(&input.temp_table, &input.column_name)?;
 
-    let row_count = insight.stats.total_count as i64;
+    let row_count = insight.stats.total_count as i32;
     let start = std::time::Instant::now();
-    let elapsed = start.elapsed().as_millis() as i64;
+    let elapsed = start.elapsed().as_millis() as i32;
 
     let (_snapshot_id, version_id) = ResultService::save_column_insight_snapshot(
         &insight,
@@ -266,7 +280,7 @@ pub async fn save_column_insight_snapshot(
 }
 
 /// 获取列洞察历史版本输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct InsightHistoryInput {
     pub column_name: String,
 }
@@ -287,9 +301,9 @@ pub async fn get_column_insight_history(
 }
 
 /// 清理洞察快照输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CleanupInsightInput {
-    pub days: i64,
+    pub days: i32,
 }
 
 /// 清理 N 天前的洞察快照（DuckDB + SQLite 双写清理）
@@ -306,19 +320,19 @@ pub async fn cleanup_insight_snapshots(
     let meta_store = InsightMetaStore::new(db.sqlite_pool());
 
     let (duckdb_deleted, sqlite_deleted) =
-        ResultService::cleanup_old_insight_snapshots(input.days, &insight_store, &meta_store)
+        ResultService::cleanup_old_insight_snapshots(input.days as i32, &insight_store, &meta_store)
             .await?;
 
     Ok(CleanupResult {
-        duckdb_deleted,
-        sqlite_deleted: sqlite_deleted as i64,
+        duckdb_deleted: duckdb_deleted as i32,
+        sqlite_deleted: sqlite_deleted as i32,
     })
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 pub struct CleanupResult {
-    pub duckdb_deleted: i64,
-    pub sqlite_deleted: i64,
+    pub duckdb_deleted: i32,
+    pub sqlite_deleted: i32,
 }
 
 /// 获取洞察存储用量统计
@@ -337,7 +351,7 @@ pub async fn get_insight_storage_stats(
 
 // ═══════════════ 规则引擎公开命令 ═══════════════
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ExecuteRuleInput {
     pub rule_id: String,
     pub params: std::collections::HashMap<String, String>,
@@ -345,6 +359,7 @@ pub struct ExecuteRuleInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn execute_insight_rule(input: ExecuteRuleInput) -> Result<serde_json::Value, CoreError> {
     let duckdb = ResultService::get_or_create_duckdb()?;
     let conn = duckdb
@@ -357,18 +372,20 @@ pub async fn execute_insight_rule(input: ExecuteRuleInput) -> Result<serde_json:
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn list_insight_rules(
     category: Option<String>,
 ) -> Result<Vec<serde_json::Value>, CoreError> {
     ResultService::list_insight_rules(category.as_deref())
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct RulesForColumnInput {
     pub column_type: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn list_rules_for_column(
     input: RulesForColumnInput,
 ) -> Result<Vec<serde_json::Value>, CoreError> {
@@ -376,25 +393,26 @@ pub async fn list_rules_for_column(
 }
 
 /// 规则热加载输入
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ReloadInsightRulesInput {
     pub project_path: String,
 }
 
 /// 热加载洞察规则（重新扫描 embedded + user 目录）
 #[tauri::command]
-pub fn reload_insight_rules(input: ReloadInsightRulesInput) -> Result<usize, CoreError> {
+#[specta::specta]
+pub fn reload_insight_rules(input: ReloadInsightRulesInput) -> Result<u32, CoreError> {
     let path = std::path::PathBuf::from(&input.project_path);
     insight::reload_insight_rules(&path);
     let reg = insight::global_registry()
         .read()
         .map_err(|e| CoreError::common(CommonError::General(e.to_string())))?;
-    Ok(reg.rule_count())
+    Ok(reg.rule_count() as u32)
 }
 
 // ═══════════════ 表探查命令 ═══════════════
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct TableProfileInput {
     pub conn_id: String,
     pub db_type: String,
@@ -404,6 +422,7 @@ pub struct TableProfileInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile, CoreError> {
     ResultService::get_table_profile(
         input.conn_id,
@@ -417,7 +436,7 @@ pub async fn get_table_profile(input: TableProfileInput) -> Result<TableProfile,
 
 // ═══════════════ 数据导出命令 ═══════════════
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct ExportInput {
     pub temp_table: String,
     pub file_path: String,
@@ -425,6 +444,7 @@ pub struct ExportInput {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn export_result_to_file(input: ExportInput) -> Result<String, CoreError> {
     ResultService::export_result(&input.temp_table, &input.file_path, &input.format)
 }

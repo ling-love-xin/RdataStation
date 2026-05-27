@@ -185,7 +185,7 @@ impl Database for SqliteDatabase {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count) },
+            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
             is_read_only: Some(is_read_only),
         })
     }
@@ -245,7 +245,7 @@ impl Database for SqliteDatabase {
                 Ok(QueryResult {
                     columns,
                     batches: vec![batch],
-                    affected_rows: if is_read_only { None } else { Some(row_count) },
+                    affected_rows: if is_read_only { None } else { Some(row_count as u32) },
                     is_read_only: Some(is_read_only),
                 })
             }) => {
@@ -559,7 +559,7 @@ impl Transaction for SqliteTransaction {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only { None } else { Some(row_count) },
+            affected_rows: if is_read_only { None } else { Some(row_count as u32) },
             is_read_only: Some(is_read_only),
         })
     }

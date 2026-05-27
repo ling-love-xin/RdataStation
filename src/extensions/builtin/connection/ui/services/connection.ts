@@ -2,9 +2,20 @@
  * 连接服务
  *
  * 提供运行时连接的 API 调用
+ * 使用 tauri-specta 生成的 typed commands
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import type {
+  ConnectDatabaseInput,
+  ConnectionInfoResponse,
+  CreateDatabaseFileInput,
+  ExecuteSqlInput,
+  GlobalConnectionInfoResponse,
+  SaveNavigatorStateInput,
+  TestConnectionResponse,
+} from '@/generated/specta/bindings'
+import { commands } from '@/generated/specta/bindings'
+import { typed, tauriInvoke } from '@/shared/api'
 
 import type { ConnectionResponse, RecentConnectionResponse } from '../../types/connection'
 
@@ -12,7 +23,7 @@ import type { ConnectionResponse, RecentConnectionResponse } from '../../types/c
  * 获取所有活动连接
  */
 export async function getConnections(): Promise<ConnectionResponse[]> {
-  return invoke<ConnectionResponse[]>('get_connections')
+  return (await typed(commands.getConnections())) as unknown as ConnectionResponse[]
 }
 
 /**
@@ -41,75 +52,70 @@ export async function connectDatabase(
     useDuckdbFed?: boolean
   }
 ): Promise<ConnectionResponse> {
-  return invoke<ConnectionResponse>('connect_database', {
-    input: {
-      conn_id: opts?.connId,
-      db_type: dbType,
-      url,
-      name,
-      connection_type: connectionType || 'global',
-      project_id: projectId,
-      driver_id: opts?.driverId,
-      network_config_id: opts?.networkConfigId || null,
-      environment_id: opts?.environmentId,
-      auth_config_id: opts?.authConfigId,
-      auth_method: opts?.authMethod,
-      driver_properties: opts?.driverProperties,
-      advanced_options: opts?.advancedOptions,
-      description: opts?.description,
-      options: opts?.options,
-      tags: opts?.tags,
-      metadata_path: opts?.metadataPath,
-      schema_name: opts?.schemaName,
-      use_duckdb_fed: opts?.useDuckdbFed ?? false,
-    },
-  })
+  const input: ConnectDatabaseInput = {
+    conn_id: opts?.connId ?? null,
+    db_type: dbType,
+    url,
+    name: name ?? null,
+    connection_type: connectionType || 'global',
+    project_id: projectId ?? null,
+    driver_id: opts?.driverId ?? null,
+    network_config_id: opts?.networkConfigId ?? null,
+    environment_id: opts?.environmentId ?? null,
+    auth_config_id: opts?.authConfigId ?? null,
+    auth_method: opts?.authMethod ?? null,
+    driver_properties: opts?.driverProperties ?? null,
+    advanced_options: opts?.advancedOptions ?? null,
+    description: opts?.description ?? null,
+    options: opts?.options ?? null,
+    tags: opts?.tags ?? null,
+    metadata_path: opts?.metadataPath ?? null,
+    schema_name: opts?.schemaName ?? null,
+    use_duckdb_fed: opts?.useDuckdbFed ?? false,
+  }
+  const result = await typed(commands.connectDatabase(input))
+  return result as unknown as ConnectionResponse
 }
 
 /**
  * 切换活动连接
  */
 export async function switchConnection(connId: string): Promise<void> {
-  return invoke('switch_connection', { connId })
+  await typed(commands.switchConnection(connId))
 }
 
 /**
  * 关闭指定连接
  */
 export async function closeConnection(connId: string): Promise<void> {
-  return invoke('close_connection', { connId })
+  await typed(commands.closeConnection(connId))
 }
 
 /**
  * 关闭所有连接
  */
 export async function closeAllConnections(): Promise<void> {
-  return invoke('close_all_connections')
+  await typed(commands.closeAllConnections())
 }
 
 /**
  * 获取最近连接列表
  */
 export async function getRecentConnections(): Promise<RecentConnectionResponse[]> {
-  return invoke<RecentConnectionResponse[]>('get_recent_connections')
+  return (await typed(commands.getRecentConnections())) as unknown as RecentConnectionResponse[]
 }
 
 /**
  * 删除最近连接记录
  */
 export async function removeRecentConnection(name: string): Promise<void> {
-  return invoke('remove_recent_connection', { name })
+  await typed(commands.removeRecentConnection(name))
 }
 
 /**
- * 测试连接响应
+ * 测试连接响应 — 由 specta 导出
  */
-export interface TestConnectionResponse {
-  success: boolean
-  message: string
-  server_version: string
-  response_time_ms: number
-}
+export type { TestConnectionResponse }
 
 /**
  * 测试连接
@@ -117,22 +123,11 @@ export interface TestConnectionResponse {
 export async function testConnection(
   dbType: string,
   url: string,
-  networkConfigId?: string | null
+  networkConfigId?: string | null,
+  authConfigId?: string | null,
+  authMethod?: string | null
 ): Promise<TestConnectionResponse> {
-  return invoke<TestConnectionResponse>('test_connection', {
-    dbType,
-    url,
-    ...(networkConfigId ? { networkConfigId } : {}),
-  })
-}
-
-/**
- * 创建数据库文件响应
- */
-export interface CreateDatabaseFileResponse {
-  file_path: string
-  success: boolean
-  message: string
+  return typed(commands.testConnection(dbType, url, networkConfigId ?? null, authConfigId ?? null, authMethod ?? null))
 }
 
 /**
@@ -141,47 +136,44 @@ export interface CreateDatabaseFileResponse {
 export async function createDatabaseFile(
   dbType: string,
   filePath: string
-): Promise<CreateDatabaseFileResponse> {
-  return invoke<CreateDatabaseFileResponse>('create_database_file', {
-    input: {
-      db_type: dbType,
-      file_path: filePath,
-    },
-  })
+): Promise<{ file_path: string; success: boolean; message: string }> {
+  const input: CreateDatabaseFileInput = {
+    db_type: dbType,
+    file_path: filePath,
+  }
+  return typed(commands.createDatabaseFile(input))
 }
 
 /**
  * 执行 SQL
  */
 export async function executeSql(connId: string, sql: string): Promise<unknown> {
-  return invoke('execute_sql', {
-    input: {
-      conn_id: connId,
-      sql,
-      timeout_ms: null,
-    },
-  })
+  const input: ExecuteSqlInput = {
+    conn_id: connId,
+    sql,
+    timeout_ms: null,
+  }
+  return typed(commands.executeSql(input))
 }
 
 /**
  * 获取项目级连接
- * 后端命令: get_project_connections
+ * 后端命令: get_project_connections（尚未在 specta collect_commands! 中注册）
  */
 export async function getProjectConnections(projectPath: string): Promise<unknown[]> {
-  return invoke<unknown[]>('get_project_connections', { projectPath })
+  return tauriInvoke<unknown[]>('get_project_connections', { projectPath })
 }
 
 /**
- * 检测项目中的全局连接（发现全局连接是否与项目中的配置冲突或重叠）
- * 后端命令: detect_global_connections_in_project
+ * 检测项目中的全局连接
  */
-export async function detectGlobalConnectionsInProject(projectId: string): Promise<unknown[]> {
-  return invoke<unknown[]>('detect_global_connections_in_project', { projectId })
+export async function detectGlobalConnectionsInProject(projectId: string): Promise<ConnectionInfoResponse[]> {
+  return typed(commands.detectGlobalConnectionsInProject(projectId))
 }
 
 /**
  * 转换连接类型（全局 ↔ 项目）
- * 后端命令: convert_connection_type
+ * 后端命令: convert_connection_type（specta 类型与旧 API 不兼容，保留 tauriInvoke）
  */
 export async function convertConnectionType(
   connectionId: string,
@@ -190,7 +182,7 @@ export async function convertConnectionType(
   projectPath?: string,
   globalConnectionId?: string
 ): Promise<{ success: boolean; message: string }> {
-  return invoke('convert_connection_type', {
+  return tauriInvoke('convert_connection_type', {
     input: {
       fromType,
       toType,
@@ -202,47 +194,33 @@ export async function convertConnectionType(
 }
 
 /**
- * 全局连接信息
+ * 全局连接信息 — 由 specta 导出
  */
-export interface GlobalConnectionInfo {
-  id: string
-  name: string
-  driver: string
-  host: string | null
-  port: number | null
-  database: string | null
-  username: string | null
-  password: string | null
-  tags: string[]
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
+export type { GlobalConnectionInfoResponse as GlobalConnectionInfo }
 
 /**
  * 获取所有全局连接
  */
-export async function getGlobalConnections(): Promise<GlobalConnectionInfo[]> {
-  return invoke<GlobalConnectionInfo[]>('get_global_connections')
+export async function getGlobalConnections(): Promise<GlobalConnectionInfoResponse[]> {
+  return typed(commands.getGlobalConnections())
 }
 
 /**
  * 保存导航器状态
+ * 注意：filter_config 被 #[specta(skip)]，不通过 specta 通道传输
  */
 export async function saveNavigatorState(
   connectionId: string,
   expandedKeys: string[],
   selectedKeys: string[],
-  filterConfig?: Record<string, unknown>
+  _filterConfig?: Record<string, unknown>
 ): Promise<void> {
-  return invoke('save_navigator_state', {
-    input: {
-      connection_id: connectionId,
-      expanded_keys: expandedKeys,
-      selected_keys: selectedKeys,
-      filter_config: filterConfig || null,
-    },
-  })
+  const input: SaveNavigatorStateInput = {
+    connection_id: connectionId,
+    expanded_keys: expandedKeys,
+    selected_keys: selectedKeys,
+  }
+  await typed(commands.saveNavigatorState(input))
 }
 
 /**
@@ -255,5 +233,6 @@ export interface NavigatorState {
 }
 
 export async function loadNavigatorState(connectionId: string): Promise<NavigatorState> {
-  return invoke<NavigatorState>('load_navigator_state', { connectionId })
+  const result = await typed(commands.loadNavigatorState(connectionId))
+  return result as unknown as NavigatorState
 }

@@ -6,24 +6,27 @@ use crate::core::error::CoreError;
 use crate::core::migration::global_init;
 
 /// 保存导航器状态请求参数
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct SaveNavigatorStateInput {
     pub connection_id: String,
     pub expanded_keys: Vec<String>,
     pub selected_keys: Vec<String>,
+    #[specta(skip)]
     pub filter_config: Option<serde_json::Value>,
 }
 
 /// 加载导航器状态响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct LoadNavigatorStateResponse {
     pub expanded_keys: Vec<String>,
     pub selected_keys: Vec<String>,
+    #[specta(skip)]
     pub filter_config: Option<serde_json::Value>,
 }
 
 /// 保存导航器状态
 #[tauri::command]
+#[specta::specta]
 pub async fn save_navigator_state(input: SaveNavigatorStateInput) -> Result<(), CoreError> {
     let global_db = global_init::get_global_db_manager()
         .ok_or_else(|| "Global database manager not initialized".to_string())?;
@@ -53,6 +56,7 @@ pub async fn save_navigator_state(input: SaveNavigatorStateInput) -> Result<(), 
 
 /// 加载导航器状态
 #[tauri::command]
+#[specta::specta]
 pub async fn load_navigator_state(
     connection_id: String,
 ) -> Result<LoadNavigatorStateResponse, CoreError> {

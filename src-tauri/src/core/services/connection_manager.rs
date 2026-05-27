@@ -4,6 +4,8 @@ use std::time::{Duration, Instant};
 
 use tracing::{info, warn};
 
+use specta::Type;
+
 use crate::core::cache::CacheManager;
 use crate::core::driver::registry::DriverConnectionConfig;
 use crate::core::driver::traits::DynDatabase;
@@ -14,7 +16,7 @@ use crate::core::error::{ConnectionError, CoreError};
 pub type ConnId = String;
 
 /// 连接类型枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Type)]
 pub enum ConnectionType {
     /// 全局连接：归属软件，不随项目迁移
     Global,

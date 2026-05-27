@@ -3,10 +3,11 @@
 //! 定义统一的连接配置结构，支持多种连接方式
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 
 /// 协议链路中的单跳
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChainHop {
     /// SSH 隧道跳
@@ -31,7 +32,7 @@ impl ChainHop {
 }
 
 /// 连接方式枚举
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum ConnectionMethod {
@@ -51,7 +52,7 @@ pub enum ConnectionMethod {
 }
 
 /// SSL/TLS 配置
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
 pub struct SslConfig {
     /// 是否验证服务器证书
     #[serde(default = "default_true")]
@@ -68,7 +69,7 @@ pub struct SslConfig {
 }
 
 /// TLS 版本
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum TlsVersion {
@@ -84,7 +85,7 @@ fn default_tls_version() -> TlsVersion {
 }
 
 /// SSH 隧道配置
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct SshConfig {
     /// SSH 服务器主机
     pub host: String,
@@ -105,7 +106,7 @@ pub struct SshConfig {
     pub local_port: u16,
     /// SSH 连接超时（秒）
     #[serde(default = "default_timeout_secs")]
-    pub timeout_secs: u64,
+    pub timeout_secs: u32,
 }
 
 fn default_ssh_port() -> u16 {
@@ -113,7 +114,7 @@ fn default_ssh_port() -> u16 {
 }
 
 /// SSH 认证方式
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 #[serde(tag = "auth_type", rename_all = "snake_case")]
 pub enum SshAuth {
     /// 密码认证
@@ -130,7 +131,7 @@ pub enum SshAuth {
 }
 
 /// 代理配置（HTTP/HTTPS/SOCKS）
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct ProxyConfig {
     /// 代理服务器主机
     pub host: String,
@@ -143,11 +144,11 @@ pub struct ProxyConfig {
     pub no_proxy: Vec<String>,
     /// 连接超时（秒）
     #[serde(default = "default_timeout_secs")]
-    pub timeout_secs: u64,
+    pub timeout_secs: u32,
 }
 
 /// 代理认证
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct ProxyAuth {
     /// 用户名
     pub username: String,
@@ -155,7 +156,7 @@ pub struct ProxyAuth {
     pub password: String,
 }
 
-fn default_timeout_secs() -> u64 {
+fn default_timeout_secs() -> u32 {
     30
 }
 
@@ -166,7 +167,7 @@ fn default_true() -> bool {
 /// 统一连接配置
 ///
 /// 用于配置数据库连接的底层连接方式
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Type)]
 pub struct ConnectionConfig {
     /// 目标主机
     pub host: String,

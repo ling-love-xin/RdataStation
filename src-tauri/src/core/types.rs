@@ -1,39 +1,41 @@
 //! TypeScript 类型导出模块
 //!
 //! 这个模块包含所有需要与前端共享的类型定义，
-//! 并通过 ts-rs 自动生成 TypeScript 类型文件。
+//! 并通过 specta 自动生成 TypeScript 类型文件。
+//!
+//! v3.0: ts-rs → specta 迁移，类型通过 specta::collect_types! + ts::export 导出
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use specta::Type;
 
 // ============================================================================
 // 元数据缓存服务类型 (metadata_commands.rs)
 // ============================================================================
 
 /// 数据库元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct DatabaseMeta {
     pub name: String,
 }
 
 /// 数据库元数据 (别名)
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct CatalogMeta {
     pub name: String,
 }
 
 /// Schema 元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct SchemaMeta {
     pub name: String,
 }
 
 /// 表元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct TableMeta {
     pub name: String,
     #[serde(rename = "type")]
@@ -41,8 +43,8 @@ pub struct TableMeta {
 }
 
 /// 视图元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct ViewMeta {
     pub name: String,
     #[serde(rename = "type")]
@@ -50,8 +52,8 @@ pub struct ViewMeta {
 }
 
 /// 列元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct ColumnMeta {
     pub name: String,
     #[serde(rename = "dataType")]
@@ -68,22 +70,22 @@ pub struct ColumnMeta {
 }
 
 /// 存储过程元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct ProcedureMeta {
     pub name: String,
 }
 
 /// 函数元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct FunctionMeta {
     pub name: String,
 }
 
 /// 例程源码元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct RoutineSourceMeta {
     pub name: String,
     #[serde(rename = "routineKind")]
@@ -93,8 +95,8 @@ pub struct RoutineSourceMeta {
 }
 
 /// 索引元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct IndexMeta {
     pub name: String,
     #[serde(rename = "tableName")]
@@ -111,8 +113,8 @@ pub struct IndexMeta {
 }
 
 /// 约束元数据
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct ConstraintMeta {
     pub name: String,
     #[serde(rename = "tableName")]
@@ -132,17 +134,17 @@ pub struct ConstraintMeta {
 }
 
 /// 缓存统计信息
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct CacheStats {
-    pub l1_hits: u64,
-    pub l1_misses: u64,
-    pub l2_hits: u64,
-    pub l2_misses: u64,
-    pub db_queries: u64,
-    pub l1_hit_avg_us: u64,
-    pub l2_hit_avg_us: u64,
-    pub db_query_avg_us: u64,
+    pub l1_hits: u32,
+    pub l1_misses: u32,
+    pub l2_hits: u32,
+    pub l2_misses: u32,
+    pub db_queries: u32,
+    pub l1_hit_avg_us: u32,
+    pub l2_hit_avg_us: u32,
+    pub db_query_avg_us: u32,
     pub l1_hit_rate: f64,
     pub l2_hit_rate: f64,
     pub overall_hit_rate: f64,
@@ -153,26 +155,26 @@ pub struct CacheStats {
 // ============================================================================
 
 /// 缓存状态响应
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct CacheStatusResponse {
     pub is_valid: bool,
-    pub last_sync: Option<i64>,
+    pub last_sync: Option<i32>,
     pub stats: Option<CacheStatsResponse>,
 }
 
 /// 缓存统计响应
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct CacheStatsResponse {
-    pub table_count: usize,
-    pub column_count: usize,
-    pub last_sync: Option<i64>,
+    pub table_count: u32,
+    pub column_count: u32,
+    pub last_sync: Option<i32>,
 }
 
 /// 刷新缓存请求
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct RefreshCacheInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -182,8 +184,8 @@ pub struct RefreshCacheInput {
 }
 
 /// 清除缓存请求
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct ClearCacheInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -193,8 +195,8 @@ pub struct ClearCacheInput {
 }
 
 /// 表元数据输入
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct TableInput {
     pub id: String,
     pub name: String,
@@ -202,8 +204,8 @@ pub struct TableInput {
 }
 
 /// 列元数据输入
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct ColumnInput {
     pub id: String,
     pub name: String,
@@ -214,8 +216,8 @@ pub struct ColumnInput {
 }
 
 /// DDL 事件输入
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct DDLEventInput {
     #[serde(rename = "type")]
     pub ddl_type: String,
@@ -230,13 +232,13 @@ pub struct DDLEventInput {
 }
 
 /// 同步状态信息
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct SyncStatusInfo {
     pub in_progress: bool,
-    pub total_tables: usize,
-    pub completed_tables: usize,
-    pub last_sync_time: Option<i64>,
+    pub total_tables: u32,
+    pub completed_tables: u32,
+    pub last_sync_time: Option<i32>,
 }
 
 // ============================================================================
@@ -244,14 +246,14 @@ pub struct SyncStatusInfo {
 // ============================================================================
 
 /// 预热进度响应
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct WarmingProgressResponse {
     pub connection_id: String,
     pub is_warming: bool,
     pub current_step: String,
-    pub total_steps: usize,
-    pub completed_steps: usize,
+    pub total_steps: u32,
+    pub completed_steps: u32,
     pub progress_percentage: f64,
     pub current_database: Option<String>,
     pub current_schema: Option<String>,
@@ -259,8 +261,8 @@ pub struct WarmingProgressResponse {
 }
 
 /// 预热请求
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct WarmCacheInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -269,26 +271,26 @@ pub struct WarmCacheInput {
 }
 
 /// 取消预热请求
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct CancelWarmingInput {
     pub connection_id: String,
 }
 
 /// 版本迁移响应
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct MigrationResponse {
     pub from_version: u32,
     pub to_version: u32,
     pub success: bool,
-    pub duration_ms: Option<u64>,
+    pub duration_ms: Option<u32>,
     pub message: String,
 }
 
 /// V7: 构建缓存索引请求（支持增量模式）
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct BuildCacheIndexInput {
     pub connection_id: String,
     pub connection_type: String,
@@ -300,73 +302,31 @@ pub struct BuildCacheIndexInput {
 }
 
 /// V7: 索引构建响应（支持增量模式）
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct IndexBuildResponse {
     pub success: bool,
-    pub schema_count: usize,
-    pub table_count: usize,
-    pub column_count: usize,
-    pub total_entries: usize,
+    pub schema_count: u32,
+    pub table_count: u32,
+    pub column_count: u32,
+    pub total_entries: u32,
     pub message: String,
     pub incremental: Option<bool>,
-    pub create_count: Option<usize>,
-    pub update_count: Option<usize>,
-    pub delete_count: Option<usize>,
+    pub create_count: Option<u32>,
+    pub update_count: Option<u32>,
+    pub delete_count: Option<u32>,
 }
 
 /// V7: Schema 对象数量统计响应
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../src/generated/")]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+
 pub struct SchemaObjectCountsResponse {
-    pub table_count: usize,
-    pub view_count: usize,
-    pub column_count: usize,
-    pub routine_count: usize,
-    pub total: usize,
+    pub table_count: u32,
+    pub view_count: u32,
+    pub column_count: u32,
+    pub routine_count: u32,
+    pub total: u32,
 }
 
-// ============================================================================
-// 通用导出函数
-// ============================================================================
-
-/// 导出所有 TypeScript 类型
-///
-/// 在 build.rs 中调用，用于自动生成 TypeScript 类型文件
-#[cfg(debug_assertions)]
-pub fn export_types() {
-    // 元数据服务类型
-    DatabaseMeta::export().unwrap();
-    CatalogMeta::export().unwrap();
-    SchemaMeta::export().unwrap();
-    TableMeta::export().unwrap();
-    ViewMeta::export().unwrap();
-    ColumnMeta::export().unwrap();
-    ProcedureMeta::export().unwrap();
-    FunctionMeta::export().unwrap();
-    RoutineSourceMeta::export().unwrap();
-    IndexMeta::export().unwrap();
-    ConstraintMeta::export().unwrap();
-    CacheStats::export().unwrap();
-
-    // 元数据缓存服务类型
-    CacheStatusResponse::export().unwrap();
-    CacheStatsResponse::export().unwrap();
-    RefreshCacheInput::export().unwrap();
-    ClearCacheInput::export().unwrap();
-    TableInput::export().unwrap();
-    ColumnInput::export().unwrap();
-    DDLEventInput::export().unwrap();
-    SyncStatusInfo::export().unwrap();
-
-    // 缓存预热服务类型
-    WarmingProgressResponse::export().unwrap();
-    WarmCacheInput::export().unwrap();
-    CancelWarmingInput::export().unwrap();
-    MigrationResponse::export().unwrap();
-    BuildCacheIndexInput::export().unwrap();
-    IndexBuildResponse::export().unwrap();
-    SchemaObjectCountsResponse::export().unwrap();
-
-    println!("✅ TypeScript types exported successfully!");
-}
+// ⚠️ 类型导出已迁移至 lib.rs 中的 specta::collect_types! + tauri_specta::ts::export
+// 废弃原因: ts-rs → specta 迁移 (v3.0)

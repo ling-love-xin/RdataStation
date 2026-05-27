@@ -1,10 +1,11 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use crate::core::error::{CoreError, StorageError};
 
 /// 认证配置（用户名/密码、密钥文件、Kerberos、OAuth2 等），密码字段已 AES-256-GCM 加密
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AuthConfig {
     pub id: String,
     pub name: Option<String>,

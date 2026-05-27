@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
@@ -6,11 +7,13 @@ use crate::core::cache::CacheManager;
 use crate::core::error::{CacheError, CommonError, CoreError};
 use crate::core::get_connection_manager;
 use crate::core::persistence::metadata_cache::{MetadataCacheManager, MetadataCacheOps};
+use crate::core::types::{FunctionMeta, ProcedureMeta, RoutineSourceMeta};
 use crate::core::services::MetadataService;
 
 use crate::core::driver::{get_level, remove_level, set_level, IntrospectionLevel};
 
 #[tauri::command]
+#[specta::specta]
 pub async fn set_introspection_level(conn_id: String, level: String) -> Result<(), CoreError> {
     let il = match level.as_str() {
         "level1" => IntrospectionLevel::Level1,
@@ -28,11 +31,13 @@ pub async fn set_introspection_level(conn_id: String, level: String) -> Result<(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_introspection_level(conn_id: String) -> Result<String, CoreError> {
     Ok(get_level(&conn_id).to_string())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn remove_introspection_level(conn_id: String) -> Result<(), CoreError> {
     remove_level(&conn_id);
     Ok(())
@@ -311,6 +316,7 @@ fn write_l2_constraints_after_load(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn invalidate_metadata_cache(conn_id: String) -> Result<(), CoreError> {
     let instance = CacheManager::instance();
     let cm = instance
@@ -320,31 +326,31 @@ pub async fn invalidate_metadata_cache(conn_id: String) -> Result<(), CoreError>
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DatabaseMeta {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SchemaMeta {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TableMeta {
     pub name: String,
     #[serde(rename = "type")]
     pub table_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ViewMeta {
     pub name: String,
     #[serde(rename = "type")]
     pub view_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ColumnMeta {
     pub name: String,
     #[serde(rename = "dataType")]
@@ -366,6 +372,7 @@ fn new_metadata_service() -> MetadataService {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_databases(
     conn_id: String,
     connection_type: Option<String>,
@@ -403,12 +410,13 @@ pub async fn load_databases(
     Ok(names.into_iter().map(|name| DatabaseMeta { name }).collect())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CatalogMeta {
     pub name: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_catalogs(
     conn_id: String,
     connection_type: Option<String>,
@@ -436,6 +444,7 @@ pub async fn load_catalogs(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_schemas(
     conn_id: String,
     db_name: String,
@@ -464,6 +473,7 @@ pub async fn load_schemas(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_tables(
     conn_id: String,
     db_name: String,
@@ -510,6 +520,7 @@ pub async fn load_tables(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_views(
     conn_id: String,
     db_name: String,
@@ -576,6 +587,7 @@ pub async fn load_views(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_columns(
     conn_id: String,
     db_name: String,
@@ -649,17 +661,8 @@ pub async fn load_columns(
     Ok(column_metas)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcedureMeta {
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FunctionMeta {
-    pub name: String,
-}
-
 #[tauri::command]
+#[specta::specta]
 pub async fn load_procedures(
     conn_id: String,
     db_name: String,
@@ -681,6 +684,7 @@ pub async fn load_procedures(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_functions(
     conn_id: String,
     db_name: String,
@@ -701,25 +705,16 @@ pub async fn load_functions(
     Ok(objects.into_iter().map(|obj| FunctionMeta { name: obj.name }).collect())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoutineSourceMeta {
-    pub name: String,
-    #[serde(rename = "routineKind")]
-    pub routine_kind: String,
-    #[serde(rename = "sourceCode")]
-    pub source_code: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CacheStats {
-    pub l1_hits: u64,
-    pub l1_misses: u64,
-    pub l2_hits: u64,
-    pub l2_misses: u64,
-    pub db_queries: u64,
-    pub l1_hit_avg_us: u64,
-    pub l2_hit_avg_us: u64,
-    pub db_query_avg_us: u64,
+    pub l1_hits: u32,
+    pub l1_misses: u32,
+    pub l2_hits: u32,
+    pub l2_misses: u32,
+    pub db_queries: u32,
+    pub l1_hit_avg_us: u32,
+    pub l2_hit_avg_us: u32,
+    pub db_query_avg_us: u32,
     pub l1_hit_rate: f64,
     pub l2_hit_rate: f64,
     pub overall_hit_rate: f64,
@@ -740,14 +735,14 @@ impl CacheStats {
         let l2_total = l2_hits + l2_misses;
 
         Self {
-            l1_hits,
-            l1_misses,
-            l2_hits,
-            l2_misses,
-            db_queries,
-            l1_hit_avg_us: l1_hit_time.checked_div(l1_hits).unwrap_or(0),
-            l2_hit_avg_us: l2_hit_time.checked_div(l2_hits).unwrap_or(0),
-            db_query_avg_us: db_query_time.checked_div(db_queries).unwrap_or(0),
+            l1_hits: l1_hits as u32,
+            l1_misses: l1_misses as u32,
+            l2_hits: l2_hits as u32,
+            l2_misses: l2_misses as u32,
+            db_queries: db_queries as u32,
+            l1_hit_avg_us: (l1_hit_time.checked_div(l1_hits).unwrap_or(0)) as u32,
+            l2_hit_avg_us: (l2_hit_time.checked_div(l2_hits).unwrap_or(0)) as u32,
+            db_query_avg_us: (db_query_time.checked_div(db_queries).unwrap_or(0)) as u32,
             l1_hit_rate: if l1_total > 0 { l1_hits as f64 / l1_total as f64 } else { 0.0 },
             l2_hit_rate: if l2_total > 0 { l2_hits as f64 / l2_total as f64 } else { 0.0 },
             overall_hit_rate: if l1_total > 0 { (l1_hits + l2_hits) as f64 / l1_total as f64 } else { 0.0 },
@@ -756,11 +751,13 @@ impl CacheStats {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn get_cache_stats() -> Result<CacheStats, CoreError> {
     Ok(CacheStats::snapshot())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn reset_cache_stats() -> Result<(), CoreError> {
     L1_HIT_COUNT.store(0, Ordering::Relaxed);
     L1_MISS_COUNT.store(0, Ordering::Relaxed);
@@ -774,6 +771,7 @@ pub async fn reset_cache_stats() -> Result<(), CoreError> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_routine_source(
     conn_id: String,
     db_name: String,
@@ -812,7 +810,7 @@ pub async fn load_routine_source(
     Ok(RoutineSourceMeta { name: routine_name, routine_kind, source_code: source })
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexMeta {
     pub name: String,
     #[serde(rename = "tableName")]
@@ -830,6 +828,7 @@ pub struct IndexMeta {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_indexes(
     conn_id: String,
     db_name: String,
@@ -884,7 +883,7 @@ pub async fn load_indexes(
     Ok(index_metas)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ConstraintMeta {
     pub name: String,
     #[serde(rename = "tableName")]
@@ -904,6 +903,7 @@ pub struct ConstraintMeta {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn load_constraints(
     conn_id: String,
     db_name: String,

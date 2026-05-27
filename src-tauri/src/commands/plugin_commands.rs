@@ -15,20 +15,22 @@ use crate::core::persistence::plugin_store::{
 };
 use crate::core::persistence::project_connection_store::ProjectConnectionStore;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use tauri::State;
 use std::sync::Arc;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Type)]
 pub struct PluginStatus {
     pub plugin_id: String,
     pub name: String,
     pub version: String,
     pub plugin_type: String,
     pub status: String,
+    #[specta(skip)]
     pub config: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Type)]
 pub struct InstallPluginRequest {
     pub code: String,
     pub name: String,
@@ -42,14 +44,14 @@ pub struct InstallPluginRequest {
     pub is_builtin: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Type)]
 pub struct EnablePluginInProjectRequest {
     pub plugin_code: String,
     pub plugin_version: String,
     pub required: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Type)]
 pub struct LoadPluginRequest {
     pub plugin_id: String,
     pub plugin_path: String,

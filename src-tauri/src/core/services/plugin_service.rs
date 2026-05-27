@@ -6,6 +6,7 @@
 //! 通过 ProjectDatabaseManager 处理项目级存储。
 
 use crate::core::error::{CoreError, PluginError};
+use specta::Type;
 use crate::core::persistence::global_db::GlobalDatabaseManager;
 use crate::core::persistence::plugin_store::{
     Plugin, PluginGlobalConfig, ProjectPluginConfig, ProjectUsedPlugin,
@@ -52,7 +53,7 @@ impl From<InstallPluginInput> for Plugin {
 }
 
 /// 插件状态
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub enum PluginStatus {
     /// 未安装
     NotInstalled,
@@ -65,7 +66,7 @@ pub enum PluginStatus {
 }
 
 /// 插件信息（包含状态）
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct PluginWithStatus {
     pub plugin: Plugin,
     pub status: PluginStatus,

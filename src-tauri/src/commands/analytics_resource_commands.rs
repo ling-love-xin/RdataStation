@@ -4,6 +4,7 @@
 
 use std::sync::{Arc, OnceLock};
 use tauri::State;
+use specta::Type;
 
 use crate::commands::project_commands::ProjectState;
 use crate::core::error::{CommonError, CoreError};
@@ -46,6 +47,7 @@ pub const ANALYTICS_RESOURCE_API_VERSION: &str = "1.7.0";
 
 /// 获取分析资源模块 API 版本号
 #[tauri::command]
+#[specta::specta]
 pub fn get_analytics_resource_api_version() -> String {
     ANALYTICS_RESOURCE_API_VERSION.to_string()
 }
@@ -100,7 +102,7 @@ pub async fn get_analytics_resource(
 }
 
 /// 列出资源
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct ListAnalyticsResourcesInput {
     pub scope: Option<String>,
     pub resource_type: Option<String>,
@@ -181,7 +183,7 @@ pub async fn clone_analytics_resource(
 }
 
 /// 分页列出资源
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct ListResourcesInput {
     pub scope: Option<String>,
     pub resource_type: Option<String>,
@@ -191,13 +193,13 @@ pub struct ListResourcesInput {
     pub sort: Option<SortInput>,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct PaginationInput {
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct SortInput {
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
@@ -280,7 +282,7 @@ pub async fn get_analytics_folder(
 }
 
 /// 列出文件夹
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct ListAnalyticsFoldersInput {
     pub scope: Option<String>,
     pub parent_folder_id: Option<String>,
@@ -305,7 +307,7 @@ pub async fn list_analytics_folders(
 }
 
 /// 将资源添加到文件夹
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct AddResourceToFolderInput {
     pub resource_id: String,
     pub folder_id: String,
@@ -366,7 +368,7 @@ pub async fn create_analytics_tag(
 }
 
 /// 列出标签
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct ListAnalyticsTagsInput {
     pub scope: Option<String>,
 }
@@ -386,7 +388,7 @@ pub async fn list_analytics_tags(
 }
 
 /// 将标签添加到资源
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Type)]
 pub struct AddTagToResourceInput {
     pub resource_id: String,
     pub tag_id: String,

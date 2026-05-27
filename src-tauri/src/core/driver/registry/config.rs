@@ -3,6 +3,7 @@
 //! 一个结构支持所有数据库类型，前端根据 driver 字段动态渲染表单。
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 
 use crate::core::driver::connection::config::ConnectionMethod;
@@ -11,7 +12,7 @@ use crate::core::error::{CommonError, CoreError};
 /// 连接配置（统一模型）
 ///
 /// 一个结构支持所有数据库类型，前端根据 driver 字段动态渲染表单
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DriverConnectionConfig {
     /// 驱动类型: "mysql" | "postgres" | "sqlite" | "duckdb"
     pub driver: String,

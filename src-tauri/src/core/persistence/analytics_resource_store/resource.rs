@@ -131,9 +131,9 @@ impl AnalyticsResourceStore {
                     alias: row.get(3)?,
                     config,
                     scope: row.get(5)?,
-                    row_count: row.get(6)?,
+                    row_count: row.get::<_, Option<i64>>(6)?.map(|v| v as i32),
                     column_count: row.get(7)?,
-                    file_size: row.get(8)?,
+                    file_size: row.get::<_, Option<i64>>(8)?.map(|v| v as i32),
                     version: row.get(9)?,
                     parent_version_id: row.get(10)?,
                     parent_resource_id: row.get(11)?,
@@ -220,9 +220,9 @@ impl AnalyticsResourceStore {
                 alias: row.get(3)?,
                 config,
                 scope: row.get(5)?,
-                row_count: row.get(6)?,
+                row_count: row.get::<_, Option<i64>>(6)?.map(|v| v as i32),
                 column_count: row.get(7)?,
-                file_size: row.get(8)?,
+                file_size: row.get::<_, Option<i64>>(8)?.map(|v| v as i32),
                 version: row.get(9)?,
                 parent_version_id: row.get(10)?,
                 parent_resource_id: row.get(11)?,
@@ -306,8 +306,8 @@ impl AnalyticsResourceStore {
         resource_type: Option<&str>,
         folder_id: Option<&str>,
         search: Option<&str>,
-        page: i64,
-        page_size: i64,
+        page: i32,
+        page_size: i32,
         sort_by: Option<&str>,
         sort_order: Option<&str>,
     ) -> Result<ListResourcesOutput, CoreError> {
@@ -349,7 +349,7 @@ impl AnalyticsResourceStore {
 
         let count_sql = format!("SELECT COUNT(*) FROM analytics_resources {}", where_sql);
 
-        let total: i64 = conn
+        let total: i32 = conn
             .inner()?
             .query_row(
                 &count_sql,
@@ -393,8 +393,8 @@ impl AnalyticsResourceStore {
             where_sql, sort_field, sort_dir
         );
 
-        params.push(rusqlite::types::Value::Integer(page_size));
-        params.push(rusqlite::types::Value::Integer(offset));
+        params.push(rusqlite::types::Value::Integer(page_size as i64));
+        params.push(rusqlite::types::Value::Integer(offset as i64));
 
         let mut stmt = conn.inner()?.prepare(&sql).map_err(|e| {
             CoreError::storage(StorageError::Persistence {
@@ -418,9 +418,9 @@ impl AnalyticsResourceStore {
                 alias: row.get(3)?,
                 config,
                 scope: row.get(5)?,
-                row_count: row.get(6)?,
+                row_count: row.get::<_, Option<i64>>(6)?.map(|v| v as i32),
                 column_count: row.get(7)?,
-                file_size: row.get(8)?,
+                file_size: row.get::<_, Option<i64>>(8)?.map(|v| v as i32),
                 version: row.get(9)?,
                 parent_version_id: row.get(10)?,
                 parent_resource_id: row.get(11)?,

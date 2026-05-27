@@ -26,7 +26,9 @@ export interface ConnectionScope {
 export interface StagingItem {
   id: string
   name: string
+  /** 数据库类型名称 (e.g. "mysql", "postgres")，注意与 driverId（具体驱动实例ID）区分 */
   driver?: string
+  /** 具体驱动实例 ID (e.g. "mysql_local_01") */
   driverId?: string
   url?: string
   formData?: Record<string, unknown>

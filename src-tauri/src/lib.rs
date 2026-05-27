@@ -20,6 +20,9 @@ pub use api::{ErrorResponse, QueryResult, Row, Value};
 // 统一从 commands 模块导入所有 Tauri 命令
 use commands::*;
 
+// tauri-specta: TypeScript 绑定生成
+use tauri_specta::{collect_commands, Builder};
+
 // 项目状态管理
 use commands::project_commands::ProjectState;
 // 分析资源状态管理
@@ -117,16 +120,218 @@ pub fn run() {
         }
     });
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .manage(ProjectState::new())
-        .manage(AnalyticsResourceState::new())
-        .manage(ScratchpadState::new())
-        .manage(core::plugin::get_plugin_manager().cloned())
-        .invoke_handler(tauri::generate_handler![
-            // 连接命令
+    // ===== tauri-specta: 收集命令并导出 TypeScript 绑定 =====
+    // 注意：返回 serde_json::Value / Vec<serde_json::Value> 的命令无法进入 collect_commands!
+    // (specta 无法为递归类型生成 TypeScript)，这些命令仅在 all_handler 中注册。
+    let specta_builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+        // 连接命令
+        connect_database,
+        get_connections,
+        switch_connection,
+        close_connection,
+        close_all_connections,
+        get_active_connection,
+        get_recent_connections,
+        remove_recent_connection,
+        test_connection,
+        test_connection_config,
+        create_database_file,
+        convert_connection_type,
+        detect_global_connections_in_project,
+        get_global_connections,
+        // 数据源命令
+        get_data_source_types,
+        get_available_drivers,
+        get_driver_detail,
+        install_driver,
+        list_driver_files,
+        list_environments,
+        create_environment,
+        update_environment,
+        delete_environment,
+        list_environment_policies,
+        create_environment_policy,
+        update_environment_policy,
+        delete_environment_policy,
+        list_auth_configs,
+        create_auth_config,
+        update_auth_config,
+        delete_auth_config,
+        list_network_configs,
+        create_network_config,
+        update_network_config,
+        delete_network_config,
+        test_network_config,
+        get_all_drivers_catalog,
+        enable_driver_for_project,
+        disable_driver_for_project,
+        list_enabled_project_drivers,
+        project_create_environment,
+        project_list_environments,
+        project_update_environment,
+        project_delete_environment,
+        project_create_environment_policy,
+        project_list_environment_policies,
+        project_update_environment_policy,
+        project_delete_environment_policy,
+        project_create_auth_config,
+        project_list_auth_configs,
+        project_delete_auth_config,
+        project_update_auth_config,
+        project_create_network_config,
+        project_list_network_configs,
+        project_update_network_config,
+        project_delete_network_config,
+        // 快照命令
+        snapshot_global_env,
+        snapshot_global_auth,
+        snapshot_global_network,
+        validate_connection_config,
+        // SQL 命令
+        execute_sql,
+        execute_transaction,
+        begin_transaction,
+        commit_transaction,
+        rollback_transaction,
+        get_transaction_status,
+        get_sql_history,
+        search_sql_history,
+        clear_sql_history,
+        remove_sql_history,
+        // 驱动命令
+        get_drivers,
+        get_driver_info,
+        create_connection,
+        create_connection_with_config,
+        update_connection,
+        // 导航器状态命令
+        save_navigator_state,
+        load_navigator_state,
+        // 元数据浏览命令
+        load_databases,
+        load_catalogs,
+        load_schemas,
+        load_tables,
+        load_views,
+        load_columns,
+        load_indexes,
+        load_constraints,
+        load_procedures,
+        load_functions,
+        load_routine_source,
+        invalidate_metadata_cache,
+        get_cache_stats,
+        reset_cache_stats,
+        set_introspection_level,
+        get_introspection_level,
+        remove_introspection_level,
+        // 项目命令
+        create_project,
+        get_project_config,
+        update_project_config,
+        get_recent_projects,
+        add_recent_project,
+        open_project_by_id,
+        open_project_by_path,
+        create_and_save_project,
+        validate_project,
+        validate_project_full,
+        delete_project,
+        update_project,
+        rename_project,
+        get_all_projects,
+        remove_from_recent,
+        delete_project_disk,
+        // 端口协商命令
+        negotiate_port,
+        negotiate_local_port,
+        is_port_available,
+        release_port,
+        negotiate_multiple_ports,
+        negotiate_port_range,
+        get_common_db_ports,
+        get_port_range_info,
+        // 联邦查询命令
+        register_external_database,
+        create_external_table,
+        // 元数据缓存命令（排除返回 Vec<serde_json::Value> 的 get_tables_from_cache / get_columns_from_cache）
+        metadata_cache_commands::get_metadata_cache_status,
+        metadata_cache_commands::refresh_metadata_cache,
+        metadata_cache_commands::clear_metadata_cache,
+        metadata_cache_commands::get_sync_status,
+        metadata_cache_commands::save_table_metadata_to_cache,
+        metadata_cache_commands::save_tables_batch_to_cache,
+        metadata_cache_commands::save_columns_batch_to_cache,
+        metadata_cache_commands::cancel_sync,
+        metadata_cache_commands::notify_ddl_event,
+        // 缓存预热命令
+        cache_warming_commands::start_cache_warming,
+        cache_warming_commands::check_cache_version,
+        cache_warming_commands::execute_cache_migration,
+        // get_cache_migration_history 返回 Vec<serde_json::Value>，排除
+        cache_warming_commands::get_introspect_level_suggestion,
+        cache_warming_commands::get_schema_object_counts,
+        // SQL 解析与转译命令
+        parse_sql,
+        format_sql,
+        transpile_sql,
+        validate_sql,
+        split_sql,
+        cancel_sql_query,
+        ping_connection,
+        // 结果集分析命令（排除返回 serde_json::Value 的 execute_insight_rule/get_column_insights/get_column_insight_full/list_insight_rules/list_rules_for_column）
+        re_execute_with_filter,
+        profile_column_from_table,
+        execute_duckdb_analysis,
+        create_duckdb_temp_table,
+        save_cell_update,
+        reload_insight_rules,
+        get_table_profile,
+        get_column_quality,
+        batch_evaluate_columns,
+        get_schema_insight,
+        // 数据导出命令
+        export_result_to_file,
+        // 模拟数据生成 Mock
+        mock_generate,
+        mock_preview,
+        mock_export,
+        mock_map_column,
+        mock_map_columns_batch,
+        mock_list_templates,
+        mock_import_schema,
+        mock_apply_template,
+        mock_save_to_scratchpad,
+        mock_persist_as_asset,
+        mock_get_history,
+        mock_clear_history,
+        mock_re_generate,
+        // 模拟数据生成 Mock 持久化
+        save_mock_generation_task,
+        get_mock_generation_history,
+        get_mock_generation_detail,
+        delete_mock_generation_task,
+        save_mock_template,
+        get_mock_templates,
+        get_mock_template_detail,
+        // 日志命令
+        get_logs,
+        search_logs,
+        get_log_stats,
+        clear_logs,
+        get_log_session_id,
+        export_logs,
+        set_log_level,
+        // 系统信息命令
+        get_api_version,
+    ]);
+
+    // 全量命令处理器：collect_commands! 仅用于 specta 类型导出（上方），实际 dispatch 由此 handler 负责。
+    // 插件命令含 State 参数，#[specta::specta] 不支持，因此不能放入 collect_commands!。
+    // 使用函数 + impl Trait 返回类型包裹，避免 Tauri 2.x 大型 generate_handler! 的类型推断失败。
+    fn make_handler1() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
+        tauri::generate_handler![
+            // ===== 连接命令 =====
             connect_database,
             get_connections,
             switch_connection,
@@ -141,7 +346,7 @@ pub fn run() {
             convert_connection_type,
             detect_global_connections_in_project,
             get_global_connections,
-            // 数据源命令
+            // ===== 数据源命令 =====
             get_data_source_types,
             get_available_drivers,
             get_driver_detail,
@@ -184,12 +389,12 @@ pub fn run() {
             project_list_network_configs,
             project_update_network_config,
             project_delete_network_config,
-            // 快照命令
+            // ===== 快照命令 =====
             snapshot_global_env,
             snapshot_global_auth,
             snapshot_global_network,
             validate_connection_config,
-            // SQL 命令
+            // ===== SQL 命令 =====
             execute_sql,
             execute_transaction,
             begin_transaction,
@@ -200,16 +405,16 @@ pub fn run() {
             search_sql_history,
             clear_sql_history,
             remove_sql_history,
-            // 驱动命令
+            // ===== 驱动命令 =====
             get_drivers,
             get_driver_info,
             create_connection,
             create_connection_with_config,
             update_connection,
-            // 导航器状态命令
+            // ===== 导航器状态命令 =====
             save_navigator_state,
             load_navigator_state,
-            // 元数据浏览命令
+            // ===== 元数据浏览命令 =====
             load_databases,
             load_catalogs,
             load_schemas,
@@ -227,7 +432,7 @@ pub fn run() {
             set_introspection_level,
             get_introspection_level,
             remove_introspection_level,
-            // 项目命令
+            // ===== 项目命令 =====
             create_project,
             get_project_config,
             update_project_config,
@@ -244,7 +449,7 @@ pub fn run() {
             get_all_projects,
             remove_from_recent,
             delete_project_disk,
-            // 端口协商命令
+            // ===== 端口协商命令 =====
             negotiate_port,
             negotiate_local_port,
             is_port_available,
@@ -253,7 +458,12 @@ pub fn run() {
             negotiate_port_range,
             get_common_db_ports,
             get_port_range_info,
-            // 项目连接命令
+        ]
+    }
+
+    fn make_handler2() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
+        tauri::generate_handler![
+            // ===== 项目连接命令 =====
             create_project_connection,
             get_project_connections,
             get_project_connection,
@@ -261,7 +471,7 @@ pub fn run() {
             update_project_connection_status,
             delete_project_connection,
             search_project_connections,
-            // 项目存储命令
+            // ===== 项目存储命令 =====
             init_project_store,
             close_project_store,
             save_project_store_connection,
@@ -272,23 +482,24 @@ pub fn run() {
             get_project_store_sql_history,
             save_project_store_workbench_state,
             get_project_store_workbench_state,
-            // 联邦查询命令
+            // ===== 联邦查询命令 =====
             register_external_database,
             create_external_table,
-            // 元数据缓存命令
+            // ===== 元数据缓存命令 =====
             metadata_cache_commands::get_metadata_cache_status,
             metadata_cache_commands::refresh_metadata_cache,
             metadata_cache_commands::clear_metadata_cache,
             metadata_cache_commands::get_sync_status,
             metadata_cache_commands::save_table_metadata_to_cache,
-            metadata_cache_commands::save_column_metadata_to_cache,
+            // REMOVED: too many params for specta (12 > 10 limit)
+            // metadata_cache_commands::save_column_metadata_to_cache,
             metadata_cache_commands::save_tables_batch_to_cache,
             metadata_cache_commands::save_columns_batch_to_cache,
             metadata_cache_commands::get_tables_from_cache,
             metadata_cache_commands::get_columns_from_cache,
             metadata_cache_commands::cancel_sync,
             metadata_cache_commands::notify_ddl_event,
-            // 缓存预热命令
+            // ===== 缓存预热命令 =====
             cache_warming_commands::start_cache_warming,
             cache_warming_commands::cancel_cache_warming,
             cache_warming_commands::get_warming_progress,
@@ -298,7 +509,7 @@ pub fn run() {
             cache_warming_commands::get_introspect_level_suggestion,
             cache_warming_commands::get_schema_object_counts,
             cache_warming_commands::build_cache_index,
-            // SQL 解析与转译命令
+            // ===== SQL 解析与转译命令 =====
             parse_sql,
             format_sql,
             transpile_sql,
@@ -307,7 +518,7 @@ pub fn run() {
             cancel_sql_query,
             execute_duckdb_accelerated,
             ping_connection,
-            // 结果集分析命令
+            // ===== 结果集分析命令 =====
             re_execute_with_filter,
             profile_column_from_table,
             get_insight_version_detail,
@@ -328,9 +539,9 @@ pub fn run() {
             get_column_quality,
             batch_evaluate_columns,
             get_schema_insight,
-            // 数据导出命令
+            // ===== 数据导出命令 =====
             export_result_to_file,
-            // 分析资源管理命令
+            // ===== 分析资源管理命令 =====
             create_analytics_resource,
             update_analytics_resource,
             get_analytics_resource,
@@ -356,7 +567,7 @@ pub fn run() {
             get_resource_versions,
             get_tags_for_resource,
             get_resources_by_tag,
-            // 草稿箱命令
+            // ===== 草稿箱命令 =====
             list_scratchpad_files,
             list_scratchpad_directory,
             create_scratchpad_entry,
@@ -383,7 +594,7 @@ pub fn run() {
             move_scratchpad_entry,
             replace_scratchpad_content,
             diff_scratchpad_with_content,
-            // 模拟数据生成 Mock
+            // ===== 模拟数据生成命令 =====
             mock_generate,
             mock_preview,
             mock_export,
@@ -397,7 +608,7 @@ pub fn run() {
             mock_get_history,
             mock_clear_history,
             mock_re_generate,
-            // 模拟数据生成 Mock 持久化
+            // ===== 模拟数据持久化命令 =====
             save_mock_generation_task,
             get_mock_generation_history,
             get_mock_generation_detail,
@@ -405,7 +616,7 @@ pub fn run() {
             save_mock_template,
             get_mock_templates,
             get_mock_template_detail,
-            // 日志命令
+            // ===== 日志命令 =====
             get_logs,
             search_logs,
             get_log_stats,
@@ -413,10 +624,9 @@ pub fn run() {
             get_log_session_id,
             export_logs,
             set_log_level,
-            // 插件命令
-            plugin_db_query,
-            plugin_db_metadata,
-            // 插件系统命令
+            // ===== 系统信息命令 =====
+            get_api_version,
+            // ===== 插件系统命令 (含 State 参数，无 #[specta::specta]) =====
             plugin_db_query,
             plugin_db_metadata,
             plugin_list,
@@ -440,9 +650,105 @@ pub fn run() {
             project_plugin_set_config,
             project_plugin_get_configs,
             plugin_load_enabled_on_startup,
-            // 系统信息命令
-            get_api_version,
-        ])
+        ]
+    }
+
+    let h1 = make_handler1();
+    let h2 = make_handler2();
+    let all_handler = move |invoke: tauri::ipc::Invoke<tauri::Wry>| -> bool {
+        let cmd = invoke.message.command().to_string();
+        // 根据命令字符串判断属于哪个 handler
+        // handler1 覆盖到 get_port_range_info 之前的所有命令
+        match cmd.as_str() {
+            // handler1 范围的命令（从 connect_database 到 get_port_range_info）
+            | "connect_database" | "get_connections" | "switch_connection"
+            | "close_connection" | "close_all_connections" | "get_active_connection"
+            | "get_recent_connections" | "remove_recent_connection" | "test_connection"
+            | "test_connection_config" | "create_database_file" | "convert_connection_type"
+            | "detect_global_connections_in_project" | "get_global_connections"
+            | "get_data_source_types" | "get_available_drivers" | "get_driver_detail"
+            | "install_driver" | "list_driver_files" | "list_environments"
+            | "create_environment" | "update_environment" | "delete_environment"
+            | "list_environment_policies" | "create_environment_policy"
+            | "update_environment_policy" | "delete_environment_policy"
+            | "list_auth_configs" | "create_auth_config" | "update_auth_config"
+            | "delete_auth_config" | "list_network_configs" | "create_network_config"
+            | "update_network_config" | "delete_network_config" | "test_network_config"
+            | "get_all_drivers_catalog" | "enable_driver_for_project"
+            | "disable_driver_for_project" | "list_enabled_project_drivers"
+            | "project_create_environment" | "project_list_environments"
+            | "project_update_environment" | "project_delete_environment"
+            | "project_create_environment_policy" | "project_list_environment_policies"
+            | "project_update_environment_policy" | "project_delete_environment_policy"
+            | "project_create_auth_config" | "project_list_auth_configs"
+            | "project_delete_auth_config" | "project_update_auth_config"
+            | "project_create_network_config" | "project_list_network_configs"
+            | "project_update_network_config" | "project_delete_network_config"
+            | "snapshot_global_env" | "snapshot_global_auth" | "snapshot_global_network"
+            | "validate_connection_config" | "execute_sql" | "execute_transaction"
+            | "begin_transaction" | "commit_transaction" | "rollback_transaction"
+            | "get_transaction_status" | "get_sql_history" | "search_sql_history"
+            | "clear_sql_history" | "remove_sql_history" | "get_drivers"
+            | "get_driver_info" | "create_connection" | "create_connection_with_config"
+            | "update_connection" | "save_navigator_state" | "load_navigator_state"
+            | "load_databases" | "load_catalogs" | "load_schemas" | "load_tables"
+            | "load_views" | "load_columns" | "load_indexes" | "load_constraints"
+            | "load_procedures" | "load_functions" | "load_routine_source"
+            | "invalidate_metadata_cache" | "get_cache_stats" | "reset_cache_stats"
+            | "set_introspection_level" | "get_introspection_level"
+            | "remove_introspection_level" | "create_project" | "get_project_config"
+            | "update_project_config" | "get_recent_projects" | "add_recent_project"
+            | "open_project_by_id" | "open_project_by_path" | "create_and_save_project"
+            | "validate_project" | "validate_project_full" | "delete_project"
+            | "update_project" | "rename_project" | "get_all_projects"
+            | "remove_from_recent" | "delete_project_disk" | "negotiate_port"
+            | "negotiate_local_port" | "is_port_available" | "release_port"
+            | "negotiate_multiple_ports" | "negotiate_port_range"
+            | "get_common_db_ports" | "get_port_range_info" => h1(invoke),
+            // 所有其他命令由 handler2 处理
+            _ => h2(invoke),
+        }
+    };
+
+    // 仅在调试模式下导出 TypeScript 绑定文件（仅用于类型生成，不用于 dispatch）
+    #[cfg(debug_assertions)]
+    {
+        // 使用大栈线程避免 specta 类型图递归导致栈溢出
+        let result = std::thread::Builder::new()
+            .stack_size(32 * 1024 * 1024) // 32 MiB
+            .spawn(move || {
+                specta_builder.export(
+                    specta_typescript::Typescript::default(),
+                    "../src/generated/specta/bindings.ts",
+                )
+            })
+            .expect("Failed to spawn export thread")
+            .join();
+
+        match result {
+            Ok(Ok(())) => { /* bindings.ts 导出成功 */ }
+            Ok(Err(e)) => {
+                eprintln!("[specta] WARNING: Failed to export bindings.ts: {e}");
+                eprintln!("[specta] The app will continue without updated bindings.ts");
+            }
+            Err(_panic) => {
+                eprintln!("[specta] WARNING: Export thread panicked (likely stack overflow)");
+                eprintln!("[specta] The app will continue without updated bindings.ts");
+                eprintln!("[specta] Try reducing the number of commands in specta_builder");
+            }
+        }
+    }
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(ProjectState::new())
+        .manage(AnalyticsResourceState::new())
+        .manage(ScratchpadState::new())
+        .manage(core::plugin::get_plugin_manager().cloned())
+        .invoke_handler(all_handler)
+        .setup(|_app| Ok(()))
         .run(tauri::generate_context!())
         .map_err(|e| {
             eprintln!("FATAL: Failed to run Tauri application: {}", e);

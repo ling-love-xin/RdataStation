@@ -157,10 +157,10 @@ fn get_column_stats_internal(
     Ok(ColumnStats {
         column_name: column_name.to_string(),
         data_type,
-        total_count: total as usize,
-        null_count,
+        total_count: total as u32,
+        null_count: null_count as u32,
         null_rate,
-        unique_count: Some(unique_cnt as usize),
+        unique_count: Some(unique_cnt as u32),
         stats_detail,
     })
 }
@@ -275,7 +275,7 @@ fn compute_text_stats(
                 let obj = item.as_object()?;
                 Some(TextFrequency {
                     value: obj.get("value")?.as_str()?.to_string(),
-                    count: obj.get("count")?.as_u64()? as usize,
+                    count: obj.get("count")?.as_u64()? as u32,
                     ratio: obj.get("ratio")?.as_f64()?,
                 })
             })
@@ -288,10 +288,10 @@ fn compute_text_stats(
             "Rule 'text-length' not found".to_string(),
         ))
     })?;
-    let (min_len, max_len): (usize, usize) = match RuleExecutor::execute(len_rule, conn, &params) {
+    let (min_len, max_len): (u32, u32) = match RuleExecutor::execute(len_rule, conn, &params) {
         Ok(serde_json::Value::Object(map)) => (
-            map.get("min_length").and_then(|v| v.as_i64()).unwrap_or(0) as usize,
-            map.get("max_length").and_then(|v| v.as_i64()).unwrap_or(0) as usize,
+            map.get("min_length").and_then(|v| v.as_i64()).unwrap_or(0) as u32,
+            map.get("max_length").and_then(|v| v.as_i64()).unwrap_or(0) as u32,
         ),
         _ => (0, 0),
     };
@@ -331,7 +331,7 @@ fn compute_datetime_stats(
                 .and_then(|v| v.as_str())
                 .unwrap_or("N/A")
                 .to_string(),
-            map.get("span_days").and_then(|v| v.as_i64()).unwrap_or(0),
+            map.get("span_days").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
         ),
         _ => ("N/A".to_string(), "N/A".to_string(), 0),
     };
@@ -349,7 +349,7 @@ fn compute_datetime_stats(
                     let obj = item.as_object()?;
                     Some(TextFrequency {
                         value: obj.get("value")?.as_str()?.to_string(),
-                        count: obj.get("count")?.as_u64()? as usize,
+                        count: obj.get("count")?.as_u64()? as u32,
                         ratio: obj.get("ratio")?.as_f64()?,
                     })
                 })
@@ -360,7 +360,7 @@ fn compute_datetime_stats(
     Ok(ColumnStatsDetail::DateTime(DateTimeStats {
         earliest,
         latest,
-        span_days: span,
+        span_days: span as i32,
         monthly_distribution,
     }))
 }
@@ -385,8 +385,8 @@ fn compute_boolean_stats(
 
     match RuleExecutor::execute(rule, conn, &params) {
         Ok(serde_json::Value::Object(map)) => {
-            let true_count = map.get("true_count").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
-            let false_count = map.get("false_count").and_then(|v| v.as_i64()).unwrap_or(0) as usize;
+            let true_count = map.get("true_count").and_then(|v| v.as_i64()).unwrap_or(0) as u32;
+            let false_count = map.get("false_count").and_then(|v| v.as_i64()).unwrap_or(0) as u32;
             let total = true_count + false_count;
             let true_ratio = if total > 0 {
                 true_count as f64 / total as f64
@@ -481,7 +481,7 @@ fn get_column_histogram_internal(
                     let obj = item.as_object()?;
                     Some(DistributionBin {
                         label: obj.get("label")?.as_str()?.to_string(),
-                        count: obj.get("count")?.as_u64()? as usize,
+                        count: obj.get("count")?.as_u64()? as u32,
                         ratio: obj.get("ratio")?.as_f64()?,
                     })
                 })
@@ -792,9 +792,9 @@ mod tests {
                 column_name: name.into(),
                 data_type: "INTEGER".into(),
                 total_count: 100,
-                null_count: ((1.0 - score / 100.0) * 100.0) as usize,
+                null_count: ((1.0 - score / 100.0) * 100.0) as u32,
                 null_rate: 1.0 - score / 100.0,
-                unique_count: Some((score * 0.9) as usize),
+                unique_count: Some((score * 0.9) as u32),
                 stats_detail: ColumnStatsDetail::Numeric(
                     crate::core::services::result_service::NumericStats {
                         min: 0.0,

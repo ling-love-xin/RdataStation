@@ -70,7 +70,7 @@ impl StreamEngine {
         }
 
         let mut merged_batches: Vec<ArrowBatch> = Vec::new();
-        let mut total_affected_rows = 0;
+        let mut total_affected_rows: u32 = 0;
         let mut is_read_only = true;
 
         for result in results {
@@ -278,7 +278,7 @@ impl StreamEngine {
         QueryResult {
             columns: result.columns,
             batches: limited_batches,
-            affected_rows: Some(total_limited),
+            affected_rows: Some(total_limited as u32),
             is_read_only: result.is_read_only,
         }
     }

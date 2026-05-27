@@ -21,7 +21,7 @@ fn get_driver_service() -> Result<DriverService, CoreError> {
 }
 
 /// 驱动列表响应（含缺失驱动自检）
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct DriverListResponse {
     pub drivers: Vec<Driver>,
     pub missing: Vec<driver_service::MissingDriver>,
@@ -29,6 +29,7 @@ pub struct DriverListResponse {
 
 /// 获取数据源类型目录（供前端数据源树渲染）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_data_source_types(
     category: Option<String>,
 ) -> Result<Vec<DataSourceType>, CoreError> {
@@ -43,6 +44,7 @@ pub async fn get_data_source_types(
 
 /// 获取驱动列表，传入 project_path 时自动检测缺失驱动
 #[tauri::command]
+#[specta::specta]
 pub async fn get_available_drivers(
     project_path: Option<String>,
     state: tauri::State<'_, ProjectState>,
@@ -82,7 +84,7 @@ pub async fn get_available_drivers(
 }
 
 /// 驱动详情响应（含可用性状态）
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct DriverDetailResponse {
     pub driver: Driver,
     pub availability: String,
@@ -90,6 +92,7 @@ pub struct DriverDetailResponse {
 
 /// 获取驱动详情（含 config_schema + 可用性状态）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_driver_detail(
     driver_id: String,
     project_path: Option<String>,
@@ -128,6 +131,7 @@ pub async fn get_driver_detail(
 
 /// 安装外部驱动文件（下载到本机并注册）
 #[tauri::command]
+#[specta::specta]
 pub async fn install_driver(driver_id: String) -> Result<(), CoreError> {
     let service = get_driver_service()?;
     service.install_driver(&driver_id).await
@@ -135,6 +139,7 @@ pub async fn install_driver(driver_id: String) -> Result<(), CoreError> {
 
 /// 列出某驱动在本机已安装的所有文件版本
 #[tauri::command]
+#[specta::specta]
 pub async fn list_driver_files(driver_id: String) -> Result<Vec<DriverFile>, CoreError> {
     let service = get_driver_service()?;
     service.list_driver_files(&driver_id).await
@@ -142,6 +147,7 @@ pub async fn list_driver_files(driver_id: String) -> Result<Vec<DriverFile>, Cor
 
 /// 列出所有环境
 #[tauri::command]
+#[specta::specta]
 pub async fn list_environments() -> Result<Vec<env_store::Environment>, CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -150,6 +156,7 @@ pub async fn list_environments() -> Result<Vec<env_store::Environment>, CoreErro
 
 /// 创建环境
 #[tauri::command]
+#[specta::specta]
 pub async fn create_environment(mut env: env_store::Environment) -> Result<(), CoreError> {
     if env.id.is_empty() {
         env.id = format!("G_env_{}", Uuid::new_v4().to_string().replace('-', "_"));
@@ -167,6 +174,7 @@ pub async fn create_environment(mut env: env_store::Environment) -> Result<(), C
 
 /// 更新环境
 #[tauri::command]
+#[specta::specta]
 pub async fn update_environment(env: env_store::Environment) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -175,6 +183,7 @@ pub async fn update_environment(env: env_store::Environment) -> Result<(), CoreE
 
 /// 删除环境
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_environment(id: String) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -183,6 +192,7 @@ pub async fn delete_environment(id: String) -> Result<(), CoreError> {
 
 /// 列出环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn list_environment_policies(
     environment_id: String,
 ) -> Result<Vec<env_store::EnvironmentPolicy>, CoreError> {
@@ -193,6 +203,7 @@ pub async fn list_environment_policies(
 
 /// 创建环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn create_environment_policy(
     mut policy: env_store::EnvironmentPolicy,
 ) -> Result<(), CoreError> {
@@ -209,6 +220,7 @@ pub async fn create_environment_policy(
 
 /// 更新环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn update_environment_policy(
     policy: env_store::EnvironmentPolicy,
 ) -> Result<(), CoreError> {
@@ -219,6 +231,7 @@ pub async fn update_environment_policy(
 
 /// 删除环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_environment_policy(id: String) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -227,6 +240,7 @@ pub async fn delete_environment_policy(id: String) -> Result<(), CoreError> {
 
 /// 列出认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn list_auth_configs(
     auth_type: Option<String>,
 ) -> Result<Vec<auth_store::AuthConfig>, CoreError> {
@@ -237,6 +251,7 @@ pub async fn list_auth_configs(
 
 /// 创建认证配置（返回创建的 AuthConfig 含生成的 id）
 #[tauri::command]
+#[specta::specta]
 pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<auth_store::AuthConfig, CoreError> {
     let now = Utc::now().to_rfc3339();
     if ac.id.is_empty() {
@@ -256,6 +271,7 @@ pub async fn create_auth_config(mut ac: auth_store::AuthConfig) -> Result<auth_s
 
 /// 删除认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_auth_config(id: String) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -264,6 +280,7 @@ pub async fn delete_auth_config(id: String) -> Result<(), CoreError> {
 
 /// 更新认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn update_auth_config(ac: auth_store::AuthConfig) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -272,6 +289,7 @@ pub async fn update_auth_config(ac: auth_store::AuthConfig) -> Result<(), CoreEr
 
 /// 列出网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn list_network_configs(
     network_type: Option<String>,
 ) -> Result<Vec<network_store::NetworkConfig>, CoreError> {
@@ -282,6 +300,7 @@ pub async fn list_network_configs(
 
 /// 创建网络配置（返回创建的 NetworkConfig 含生成的 id）
 #[tauri::command]
+#[specta::specta]
 pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Result<network_store::NetworkConfig, CoreError> {
     let now = Utc::now().to_rfc3339();
     if nc.id.is_empty() {
@@ -301,6 +320,7 @@ pub async fn create_network_config(mut nc: network_store::NetworkConfig) -> Resu
 
 /// 更新网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn update_network_config(nc: network_store::NetworkConfig) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -309,6 +329,7 @@ pub async fn update_network_config(nc: network_store::NetworkConfig) -> Result<(
 
 /// 删除网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn delete_network_config(id: String) -> Result<(), CoreError> {
     let db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
@@ -317,6 +338,7 @@ pub async fn delete_network_config(id: String) -> Result<(), CoreError> {
 
 /// 获取全局驱动目录（按 category / driver_kind 过滤，供"驱动市场"展示）
 #[tauri::command]
+#[specta::specta]
 pub async fn get_all_drivers_catalog(
     category: Option<String>,
     driver_kind: Option<String>,
@@ -362,6 +384,7 @@ async fn get_project_db_manager(
 
 /// 为项目启用一个驱动
 #[tauri::command]
+#[specta::specta]
 pub async fn enable_driver_for_project(
     driver_id: String,
     project_path: String,
@@ -374,6 +397,7 @@ pub async fn enable_driver_for_project(
 
 /// 为项目禁用一个驱动
 #[tauri::command]
+#[specta::specta]
 pub async fn disable_driver_for_project(
     driver_id: String,
     project_path: String,
@@ -386,6 +410,7 @@ pub async fn disable_driver_for_project(
 
 /// 列出项目中所有已启用的驱动
 #[tauri::command]
+#[specta::specta]
 pub async fn list_enabled_project_drivers(
     project_path: String,
     state: tauri::State<'_, ProjectState>,
@@ -399,6 +424,7 @@ pub async fn list_enabled_project_drivers(
 
 /// 在指定项目中创建环境
 #[tauri::command]
+#[specta::specta]
 pub async fn project_create_environment(
     name: String,
     description: Option<String>,
@@ -415,6 +441,7 @@ pub async fn project_create_environment(
 
 /// 列出指定项目中的所有环境
 #[tauri::command]
+#[specta::specta]
 pub async fn project_list_environments(
     project_path: String,
     state: tauri::State<'_, ProjectState>,
@@ -425,6 +452,7 @@ pub async fn project_list_environments(
 
 /// 更新指定项目中的环境
 #[tauri::command]
+#[specta::specta]
 pub async fn project_update_environment(
     id: String,
     name: Option<String>,
@@ -449,6 +477,7 @@ pub async fn project_update_environment(
 
 /// 从指定项目中删除环境
 #[tauri::command]
+#[specta::specta]
 pub async fn project_delete_environment(
     id: String,
     project_path: String,
@@ -463,6 +492,7 @@ pub async fn project_delete_environment(
 
 /// 在指定项目中创建环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn project_create_environment_policy(
     environment_id: String,
     policy_type: String,
@@ -478,6 +508,7 @@ pub async fn project_create_environment_policy(
 
 /// 列出指定项目中某环境的所有策略
 #[tauri::command]
+#[specta::specta]
 pub async fn project_list_environment_policies(
     environment_id: String,
     project_path: String,
@@ -491,6 +522,7 @@ pub async fn project_list_environment_policies(
 
 /// 更新指定项目中的环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn project_update_environment_policy(
     id: String,
     policy_config: Option<String>,
@@ -507,6 +539,7 @@ pub async fn project_update_environment_policy(
 
 /// 从指定项目中删除环境策略
 #[tauri::command]
+#[specta::specta]
 pub async fn project_delete_environment_policy(
     id: String,
     project_path: String,
@@ -521,6 +554,7 @@ pub async fn project_delete_environment_policy(
 
 /// 在指定项目中创建认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_create_auth_config(
     name: Option<String>,
     auth_type: String,
@@ -536,6 +570,7 @@ pub async fn project_create_auth_config(
 
 /// 列出指定项目中的所有认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_list_auth_configs(
     project_path: String,
     state: tauri::State<'_, ProjectState>,
@@ -546,6 +581,7 @@ pub async fn project_list_auth_configs(
 
 /// 从指定项目中删除认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_delete_auth_config(
     id: String,
     project_path: String,
@@ -558,6 +594,7 @@ pub async fn project_delete_auth_config(
 
 /// 更新指定项目中的认证配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_update_auth_config(
     id: String,
     name: Option<String>,
@@ -576,6 +613,7 @@ pub async fn project_update_auth_config(
 
 /// 在指定项目中创建网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_create_network_config(
     name: Option<String>,
     network_type: String,
@@ -591,6 +629,7 @@ pub async fn project_create_network_config(
 
 /// 列出指定项目中的所有网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_list_network_configs(
     project_path: String,
     state: tauri::State<'_, ProjectState>,
@@ -601,6 +640,7 @@ pub async fn project_list_network_configs(
 
 /// 更新指定项目中的网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_update_network_config(
     id: String,
     name: Option<String>,
@@ -617,6 +657,7 @@ pub async fn project_update_network_config(
 
 /// 从指定项目中删除网络配置
 #[tauri::command]
+#[specta::specta]
 pub async fn project_delete_network_config(
     id: String,
     project_path: String,
@@ -630,11 +671,11 @@ pub async fn project_delete_network_config(
 // ========== 网络配置测试命令 ==========
 
 /// 测试网络配置响应
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct TestNetworkConfigResponse {
     pub success: bool,
     pub message: String,
-    pub response_time_ms: u64,
+    pub response_time_ms: u32,
     pub detail: Option<String>,
 }
 
@@ -642,6 +683,7 @@ pub struct TestNetworkConfigResponse {
 ///
 /// 在不创建数据库连接的情况下，独立测试 SSH 隧道 / SSL 证书 / 代理的连通性
 #[tauri::command]
+#[specta::specta]
 pub async fn test_network_config(
     network_config_id: String,
 ) -> Result<TestNetworkConfigResponse, CoreError> {
@@ -672,7 +714,7 @@ pub async fn test_network_config(
                     Ok(TestNetworkConfigResponse {
                         success: true,
                         message: format!("SSH 隧道测试成功，本地端口: {}", local_port),
-                        response_time_ms: start.elapsed().as_millis() as u64,
+                        response_time_ms: start.elapsed().as_millis() as u32,
                         detail: Some(format!(
                             "SSH {}:{} → {}:{}",
                             ssh_config.host,
@@ -685,7 +727,7 @@ pub async fn test_network_config(
                 Err(e) => Ok(TestNetworkConfigResponse {
                     success: false,
                     message: format!("SSH 隧道测试失败: {}", e),
-                    response_time_ms: start.elapsed().as_millis() as u64,
+                    response_time_ms: start.elapsed().as_millis() as u32,
                     detail: None,
                 }),
             }
@@ -756,7 +798,7 @@ pub async fn test_network_config(
                         } else {
                             "SSL 证书文件验证存在失败项".to_string()
                         },
-                        response_time_ms: start.elapsed().as_millis() as u64,
+                        response_time_ms: start.elapsed().as_millis() as u32,
                         detail: Some(checks.join("\n")),
             })
         }
@@ -780,13 +822,13 @@ pub async fn test_network_config(
                 Ok(_) => Ok(TestNetworkConfigResponse {
                     success: true,
                     message: "代理连接测试成功".to_string(),
-                    response_time_ms: start.elapsed().as_millis() as u64,
+                    response_time_ms: start.elapsed().as_millis() as u32,
                     detail: Some(format!("{}:{}", proxy_config.host, proxy_config.port)),
                 }),
                 Err(e) => Ok(TestNetworkConfigResponse {
                     success: false,
                     message: format!("代理连接测试失败: {}", e),
-                    response_time_ms: start.elapsed().as_millis() as u64,
+                    response_time_ms: start.elapsed().as_millis() as u32,
                     detail: Some(format!(
                         "代理 {}:{} → {}",
                         proxy_config.host, proxy_config.port, e
@@ -797,7 +839,7 @@ pub async fn test_network_config(
         other => Ok(TestNetworkConfigResponse {
             success: false,
             message: format!("不支持的网络配置类型: {}", other),
-            response_time_ms: start.elapsed().as_millis() as u64,
+            response_time_ms: start.elapsed().as_millis() as u32,
             detail: None,
         }),
     }
@@ -806,7 +848,7 @@ pub async fn test_network_config(
 // ========== 快照命令（全局 → 项目） ==========
 
 /// 快照结果
-#[derive(serde::Serialize, Debug)]
+#[derive(serde::Serialize, Debug, specta::Type)]
 pub struct SnapshotResult {
     pub snapshot_id: String,
     pub origin: String,
@@ -818,6 +860,7 @@ pub struct SnapshotResult {
 /// 将全局环境 G_env_xxx 复制到项目表，生成 GP_env_xxx_namedate ID。
 /// 策略（environment_policies）同步复制到项目。
 #[tauri::command]
+#[specta::specta]
 pub async fn snapshot_global_env(
     global_env_id: String,
     project_path: String,
@@ -855,6 +898,7 @@ pub async fn snapshot_global_env(
 
 /// 从全局认证配置快照到项目
 #[tauri::command]
+#[specta::specta]
 pub async fn snapshot_global_auth(
     global_auth_id: String,
     project_path: String,
@@ -880,6 +924,7 @@ pub async fn snapshot_global_auth(
 
 /// 从全局网络配置快照到项目
 #[tauri::command]
+#[specta::specta]
 pub async fn snapshot_global_network(
     global_net_id: String,
     project_path: String,

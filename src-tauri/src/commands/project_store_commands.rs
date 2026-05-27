@@ -13,7 +13,7 @@ use crate::core::CommonError;
 // ==================== Project Connection Commands ====================
 
 /// 项目连接响应（与 GlobalConnection 结构一致）
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, specta::Type)]
 pub struct ProjectConnectionResponse {
     pub id: String,
     pub name: String,
@@ -73,7 +73,7 @@ impl From<ProjectConnection> for ProjectConnectionResponse {
 }
 
 /// 创建项目连接请求
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, specta::Type)]
 pub struct CreateProjectConnectionInput {
     pub project_path: String,
     pub name: String,

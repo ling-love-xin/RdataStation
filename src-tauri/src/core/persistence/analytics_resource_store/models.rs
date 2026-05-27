@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use specta::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AnalyticsResource {
     pub id: String,
     pub resource_type: String,
@@ -10,9 +11,9 @@ pub struct AnalyticsResource {
     pub alias: Option<String>,
     pub config: Value,
     pub scope: String,
-    pub row_count: Option<i64>,
+    pub row_count: Option<i32>,
     pub column_count: Option<i32>,
-    pub file_size: Option<i64>,
+    pub file_size: Option<i32>,
     pub version: i32,
     pub parent_version_id: Option<String>,
     pub parent_resource_id: Option<String>,
@@ -23,7 +24,7 @@ pub struct AnalyticsResource {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AnalyticsFolder {
     pub id: String,
     pub name: String,
@@ -37,7 +38,7 @@ pub struct AnalyticsFolder {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AnalyticsTag {
     pub id: String,
     pub name: String,
@@ -48,7 +49,7 @@ pub struct AnalyticsTag {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AnalyticsRecycleItem {
     pub id: String,
     pub resource_id: String,
@@ -59,7 +60,7 @@ pub struct AnalyticsRecycleItem {
     pub deleted_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ResourceVersion {
     pub id: String,
     pub resource_id: String,
@@ -68,21 +69,21 @@ pub struct ResourceVersion {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateResourceRequest {
     pub resource_type: String,
     pub name: String,
     pub alias: Option<String>,
     pub config: Value,
     pub scope: String,
-    pub row_count: Option<i64>,
+    pub row_count: Option<i32>,
     pub column_count: Option<i32>,
-    pub file_size: Option<i64>,
+    pub file_size: Option<i32>,
     pub parent_resource_id: Option<String>,
     pub source_query: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateFolderRequest {
     pub name: String,
     pub scope: String,
@@ -91,7 +92,7 @@ pub struct CreateFolderRequest {
     pub icon: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateTagRequest {
     pub name: String,
     pub color: Option<String>,
@@ -99,11 +100,11 @@ pub struct CreateTagRequest {
     pub scope: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListResourcesOutput {
     pub items: Vec<AnalyticsResource>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-    pub total_pages: i64,
+    pub total: i32,
+    pub page: i32,
+    pub page_size: i32,
+    pub total_pages: i32,
 }
