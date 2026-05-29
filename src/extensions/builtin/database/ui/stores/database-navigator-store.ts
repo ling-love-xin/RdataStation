@@ -371,6 +371,9 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
               name: t.name,
               type: 'table',
               columns: [],
+              rowCount: t.rowCountEstimate ?? null,
+              dataLength: t.dataLength ?? null,
+              indexLength: t.indexLength ?? null,
             }))
           )
           return
@@ -452,6 +455,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           const schema = cat.schemas.find((s: { name: string }) => s.name === schemaName)
           if (schema) {
             schema.tables = tables
+            computeSchemaStats(schema)
           } else {
             console.warn(`未找到 schema: ${schemaName}，回退到 catalog.tables`)
             cat.tables = tables
@@ -1107,6 +1111,21 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     return connectionDbTypes.value.get(connectionId)?.toLowerCase() || ''
   }
 
+  function computeSchemaStats(schema: SchemaNode) {
+    schema.totalTables = schema.tables.filter(t => t.type === 'table' || !t.type).length
+    schema.totalViews = schema.views.length
+
+    let totalSize = 0
+    let totalRows = 0
+    for (const t of schema.tables) {
+      if (t.dataLength) totalSize += t.dataLength
+      if (t.indexLength) totalSize += t.indexLength
+      if (t.rowCount) totalRows += t.rowCount
+    }
+    if (totalSize > 0) schema.totalSizeBytes = totalSize
+    if (totalRows > 0) schema.rowCountTotal = totalRows
+  }
+
   async function executeSql(
     connectionId: string,
     _catalogName: string,
@@ -1249,6 +1268,10 @@ interface SchemaNode {
   functions?: FunctionNode[]
   sequences?: SequenceNode[]
   triggers?: TriggerNode[]
+  totalTables?: number
+  totalViews?: number
+  totalSizeBytes?: number
+  rowCountTotal?: number
 }
 
 interface TableNode {
@@ -1257,6 +1280,9 @@ interface TableNode {
   columns: ColumnNode[]
   indexes?: IndexNode[]
   constraints?: ConstraintNode[]
+  rowCount?: number | null
+  dataLength?: number | null
+  indexLength?: number | null
 }
 
 interface IndexNode {

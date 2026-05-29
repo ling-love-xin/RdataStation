@@ -86,6 +86,14 @@
           >
             <template #icon><RefreshCw :size="12" /></template>
           </NButton>
+          <NButton
+            size="tiny"
+            text
+            title="编辑连接"
+            @click.stop="editSavedConnection(conn)"
+          >
+            <template #icon><Pencil :size="12" /></template>
+          </NButton>
         </div>
       </div>
     </div>
@@ -123,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Search, Database, Server, Globe, HardDrive, Cloud, Radio, RefreshCw } from 'lucide-vue-next'
+import { Plus, Search, Database, Server, Globe, HardDrive, Cloud, Radio, RefreshCw, Pencil } from 'lucide-vue-next'
 import { NButton } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -256,6 +264,10 @@ function selectDriver(driver: Driver) {
 
 function openAddDialog(driver?: Driver) {
   dispatchWorkbenchEvent(WorkbenchEvent.NewConnection, { driver: driver || null })
+}
+
+function editSavedConnection(conn: ProjectConnection) {
+  dispatchWorkbenchEvent(WorkbenchEvent.NewConnection, { connection: { ...conn } })
 }
 
 // Init

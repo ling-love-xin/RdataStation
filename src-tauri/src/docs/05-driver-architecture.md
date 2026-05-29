@@ -1,8 +1,8 @@
 # 驱动架构
 
-> 版本：v2.3
+> 版本：v2.4
 > 最后更新：2026-05-28
-> 状态：✅ 实际代码对齐
+> 状态：✅ url_template 前端实现 / 编辑连接流程 / 数据源字段全链路
 
 ## 概述
 
@@ -380,6 +380,8 @@ pub fn to_url(&self) -> Result<String, String> {
 
 **改进方向**：`to_url()` 应该通过 `DriverRegistry::get(id)` 获取工厂后，由工厂提供 URL 构建逻辑，或由 `DriverDescriptor` 携带 `url_template`。
 
+> **v0.6.1 前端实现**：`useUrlBuilder` 已支持 `url_template` 字段，优先使用驱动配置的 URL 模板构建连接 URL，回退到硬编码模式。模板占位符包括 `{host}`, `{port}`, `{database}`, `{username}`, `{password}`, `{file_path}`, `{driver}`。
+
 ## DriverDescriptor（驱动描述符）
 
 ```rust
@@ -695,10 +697,61 @@ pub struct DriverConnectionConfig {
 
 ---
 
+---
+
+## 编辑连接流程（v0.6.1+）
+
+### 组件交互
+
+```
+DataSourceSidebar                    WorkbenchView              AddDataSourceDialog
+    │                                   │                            │
+    │ 点击"编辑" → editSavedConnection  │                            │
+    │ dispatchWorkbenchEvent(           │                            │
+    │   NewConnection,                  │                            │
+    │   { connection: ProjectConn })    │                            │
+    │ ──────────────────────────────→   │                            │
+    │                                   │ handleWorkbenchNewConn     │
+    │                                   │ dialogInitialConnection    │
+    │                                   │ showDialog = true          │
+    │                                   │ ───────────────────────→   │
+    │                                   │                            │ watch modelValue
+    │                                   │                            │ initFromConnection()
+    │                                   │                            │   ├─ 回填 headerData
+    │                                   │                            │   ├─ 回填 formData
+    │                                   │                            │   ├─ 回填 auth/network
+    │                                   │                            │   └─ 回填 extra fields
+    │                                   │                            │
+    │                                   │                            │ 用户修改 → 点击应用
+    │                                   │                            │ handleApply()
+    │                                   │                            │ updateProjectConnection()
+```
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) | 新增 `initialConnection` prop + `initFromConnection()` 函数 |
+| [WorkbenchView.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/views/WorkbenchView.vue) | 新增 `dialogInitialConnection` ref，`handleWorkbenchNewConnection` 支持 connection 数据 |
+| [DataSourceSidebar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/DataSourceSidebar.vue) | 新增编辑按钮 + `editSavedConnection()` 函数 |
+| [useUrlBuilder.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useUrlBuilder.ts) | 新增 `url_template?` 字段 + `applyTemplate()` 模板替换 |
+
+### 数据流
+
+```
+ProjectConnection (侧边栏) → dispatchWorkbenchEvent → initialConnection prop
+    → initFromConnection() → 表单回填 → 用户编辑
+    → handleApply() → updateProjectConnection() → 后端 UPDATE
+    → connectDatabase() → 重建运行时连接
+```
+
+---
+
 ## 版本历史
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v2.5 | 2026-05-28 | 编辑连接流程：AddDataSourceDialog initialConnection prop + initFromConnection()；DataSourceSidebar 编辑按钮；useUrlBuilder url_template 支持；recent_connections ConnectionInfo/ConnectionRecord/RecentConnectionResponse 补齐 auth_method/driver_properties/advanced_options |
 | v2.4 | 2026-05-28 | specta 字段对齐修复：P1 domain/types.ts ConnectDatabaseInput 缺5字段补齐；P2 ConnectionInfoResponse 缺 auth_method（3处映射）；P3 onExtraConfig 补齐5字段转发；P4 ConnectionResponse 前类型补齐8字段；P5 移除未使用导入 |
 | v2.3 | 2026-05-28 | 新增 DB 能力标记表 + driver_properties 数据流；B1-B3 修复（StagingItem 状态恢复 + auth 字段）；A2-A4 重构（ConnectRequest 消除参数反模式 + to_url 模板化 + 前端 URL 对齐）；A1 四重冗余收敛方案 |
 | v2.2 | 2026-05-27 | capability 9 种 + driver_properties 添加 |

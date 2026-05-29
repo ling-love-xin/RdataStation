@@ -152,9 +152,17 @@ export function useDatabaseTreeLoader() {
         isLeaf: false,
         label: schema.name,
         type: 'schema',
-        data: { connectionId, dbName, schemaName: schema.name },
+        data: {
+          connectionId,
+          dbName,
+          schemaName: schema.name,
+          tableCount: schema.totalTables,
+          viewCount: schema.totalViews,
+          totalSizeBytes: schema.totalSizeBytes,
+          rowCountTotal: schema.rowCountTotal,
+        },
         parentId: parentKey,
-        childCount: folderCount, // 按数据库类型动态计算
+        childCount: folderCount,
       }))
   }
 
@@ -374,7 +382,15 @@ export function useDatabaseTreeLoader() {
         isLeaf: false,
         label: table.name,
         type: 'table',
-        data: { connectionId, dbName, schemaName, tableName: table.name },
+        data: {
+          connectionId,
+          dbName,
+          schemaName,
+          tableName: table.name,
+          rowCount: table.rowCount ?? undefined,
+          dataLength: table.dataLength ?? undefined,
+          indexLength: table.indexLength ?? undefined,
+        },
         parentId: parentKey,
         childCount: configChildCount, // 按配置动态计算子文件夹数
       }

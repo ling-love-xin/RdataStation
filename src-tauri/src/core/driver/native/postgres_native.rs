@@ -17,8 +17,8 @@ use tokio::sync::Mutex;
 
 use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{
-    ColumnDetail, ConstraintDetail, DataSourceMeta, Database, IndexDetail,
-    NodeDetail, NodeInfo, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
+    ColumnDetail, ConstraintDetail, DataSourceMeta, Database, IndexDetail, NodeDetail, NodeInfo,
+    PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
 };
 use crate::core::error::{ConnectionError, CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult, Value};
@@ -44,20 +44,22 @@ impl PostgresNativeDatabase {
         let tls_connector = native_tls::TlsConnector::builder()
             .danger_accept_invalid_certs(true)
             .build()
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
-                db_type: "postgres_native".to_string(),
-                operation: "tls_init".to_string(),
-                source: e.to_string(),
-            }))?;
+            .map_err(|e| {
+                CoreError::database(DatabaseError::Driver {
+                    db_type: "postgres_native".to_string(),
+                    operation: "tls_init".to_string(),
+                    source: e.to_string(),
+                })
+            })?;
         let tls = postgres_native_tls::MakeTlsConnector::new(tls_connector);
 
-        let (client, connection) = tokio_postgres::connect(url, tls)
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        let (client, connection) = tokio_postgres::connect(url, tls).await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "postgres_native".to_string(),
                 operation: "connect".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
 
         // 在后台任务中驱动连接事件循环
         tokio::spawn(async move {
@@ -72,9 +74,7 @@ impl PostgresNativeDatabase {
                 .query("SELECT version()", &[])
                 .await
                 .ok()
-                .and_then(|rows| {
-                    rows.first().map(|r| r.get::<_, String>(0))
-                });
+                .and_then(|rows| rows.first().map(|r| r.get::<_, String>(0)));
             rows
         };
 
@@ -294,11 +294,7 @@ fn build_query_result(
     })
 }
 
-fn rows_to_node_info(
-    result: &QueryResult,
-    kind: SchemaObjectKind,
-    icon: &str,
-) -> Vec<NodeInfo> {
+fn rows_to_node_info(result: &QueryResult, kind: SchemaObjectKind, icon: &str) -> Vec<NodeInfo> {
     use arrow::array::StringArray;
     let mut nodes: Vec<NodeInfo> = Vec::new();
     for row_idx in 0..result.total_rows() {
@@ -321,10 +317,7 @@ fn rows_to_node_info(
     nodes
 }
 
-fn names_to_schema_objects(
-    result: &QueryResult,
-    kind: SchemaObjectKind,
-) -> Vec<SchemaObject> {
+fn names_to_schema_objects(result: &QueryResult, kind: SchemaObjectKind) -> Vec<SchemaObject> {
     use arrow::array::StringArray;
     let mut objects: Vec<SchemaObject> = Vec::new();
     for row_idx in 0..result.total_rows() {
@@ -480,14 +473,13 @@ impl Database for PostgresNativeDatabase {
 
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError> {
         let client = self.client.lock().await;
-        client
-            .batch_execute("BEGIN")
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        client.batch_execute("BEGIN").await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "postgres_native".to_string(),
                 operation: "begin_transaction".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         // Drop the lock so transaction can use the client
         drop(client);
 
@@ -506,13 +498,12 @@ impl Database for PostgresNativeDatabase {
 
     async fn ping(&self) -> Result<(), CoreError> {
         let client = self.client.lock().await;
-        client
-            .query_one("SELECT 1", &[])
-            .await
-            .map_err(|e| CoreError::connection(ConnectionError::Other {
+        client.query_one("SELECT 1", &[]).await.map_err(|e| {
+            CoreError::connection(ConnectionError::Other {
                 conn_id: "postgres_native".to_string(),
                 reason: format!("Ping failed: {}", e),
-            }))?;
+            })
+        })?;
         Ok(())
     }
 
@@ -706,14 +697,13 @@ impl Transaction for PostgresNativeTransaction {
             return Ok(());
         }
         let client = self.client.lock().await;
-        client
-            .batch_execute("COMMIT")
-            .await
-            .map_err(|e| CoreError::database(DatabaseError::Driver {
+        client.batch_execute("COMMIT").await.map_err(|e| {
+            CoreError::database(DatabaseError::Driver {
                 db_type: "postgres_native".to_string(),
                 operation: "commit".to_string(),
                 source: e.to_string(),
-            }))?;
+            })
+        })?;
         self.active = false;
         Ok(())
     }
@@ -764,10 +754,7 @@ impl MetadataBrowser for PostgresNativeDatabase {
         ))
     }
 
-    async fn get_schemas(
-        &self,
-        catalog: &str,
-    ) -> Result<Vec<NodeInfo>, CoreError> {
+    async fn get_schemas(&self, catalog: &str) -> Result<Vec<NodeInfo>, CoreError> {
         let sql = "SELECT schema_name FROM information_schema.schemata \
                    WHERE catalog_name = $1 AND schema_name NOT IN ('pg_catalog', 'information_schema') \
                    ORDER BY schema_name";
@@ -781,11 +768,7 @@ impl MetadataBrowser for PostgresNativeDatabase {
         ))
     }
 
-    async fn get_tables(
-        &self,
-        catalog: &str,
-        schema: &str,
-    ) -> Result<Vec<NodeInfo>, CoreError> {
+    async fn get_tables(&self, catalog: &str, schema: &str) -> Result<Vec<NodeInfo>, CoreError> {
         use arrow::array::StringArray;
         let sql = "SELECT table_name, table_type FROM information_schema.tables \
                    WHERE table_catalog = $1 AND table_schema = $2 ORDER BY table_name";

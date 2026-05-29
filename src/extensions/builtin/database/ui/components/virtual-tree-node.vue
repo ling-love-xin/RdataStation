@@ -158,6 +158,20 @@ function handleContextMenu(event: MouseEvent) {
   emit('context-menu', props.node, event)
 }
 
+function formatNumber(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return n.toLocaleString()
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(1) + ' GB'
+  if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(1) + ' MB'
+  if (bytes >= 1_024) return (bytes / 1_024).toFixed(1) + ' KB'
+  return bytes + ' B'
+}
+
 const tooltipContent = computed(() => {
   const { node } = props
   if (node.type === 'index') {
@@ -181,6 +195,23 @@ const tooltipContent = computed(() => {
     }
     if (d.updateRule) parts.push(`更新规则: ${d.updateRule}`)
     if (d.deleteRule) parts.push(`删除规则: ${d.deleteRule}`)
+    return parts.length > 0 ? parts.join('\n') : undefined
+  }
+  if (node.type === 'table') {
+    const d = node.data
+    const parts: string[] = []
+    if (d.rowCount != null) parts.push(`行数: ${formatNumber(d.rowCount)}`)
+    if (d.dataLength != null) parts.push(`数据大小: ${formatBytes(d.dataLength)}`)
+    if (d.indexLength != null) parts.push(`索引大小: ${formatBytes(d.indexLength)}`)
+    return parts.length > 0 ? parts.join('\n') : undefined
+  }
+  if (node.type === 'schema') {
+    const d = node.data
+    const parts: string[] = []
+    if (d.tableCount != null) parts.push(`表数量: ${d.tableCount}`)
+    if (d.viewCount != null) parts.push(`视图数量: ${d.viewCount}`)
+    if (d.totalSizeBytes != null && d.totalSizeBytes > 0) parts.push(`总大小: ${formatBytes(d.totalSizeBytes)}`)
+    if (d.rowCountTotal != null && d.rowCountTotal > 0) parts.push(`总行数: ${formatNumber(d.rowCountTotal)}`)
     return parts.length > 0 ? parts.join('\n') : undefined
   }
   return undefined

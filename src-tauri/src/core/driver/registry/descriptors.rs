@@ -655,7 +655,9 @@ pub fn mysql_native_driver() -> DriverDescriptor {
 /// PostgreSQL 官方原生驱动描述符（tokio-postgres）
 pub fn postgres_native_driver() -> DriverDescriptor {
     DriverDescriptor::new("postgres_native", "PostgreSQL (Native)")
-        .with_description("PostgreSQL 官方异步驱动 (tokio-postgres)，支持 Pipeline、COPY 协议、LISTEN/NOTIFY")
+        .with_description(
+            "PostgreSQL 官方异步驱动 (tokio-postgres)，支持 Pipeline、COPY 协议、LISTEN/NOTIFY",
+        )
         .with_category("relational")
         .with_target_database("postgres")
         .with_default_port(5432)

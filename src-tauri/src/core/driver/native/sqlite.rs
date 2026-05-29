@@ -17,7 +17,7 @@ use arrow::record_batch::RecordBatch;
 use rusqlite::Connection;
 
 use crate::core::driver::utils::quote_identifier;
-use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, Transaction};
+use crate::core::driver::{ColumnDetail, DataSourceMeta, Database, IndexDetail, Transaction};
 use crate::core::error::{CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult, Value};
 
@@ -108,9 +108,9 @@ impl Database for SqliteDatabase {
                 })
             })?;
 
-            let mut stmt = conn
-                .prepare(&sql_owned)
-                .map_err(|e| CoreError::database(DatabaseError::query(&sql_owned, e.to_string())))?;
+            let mut stmt = conn.prepare(&sql_owned).map_err(|e| {
+                CoreError::database(DatabaseError::query(&sql_owned, e.to_string()))
+            })?;
 
             let columns: Vec<String> = stmt
                 .column_names()
@@ -466,10 +466,10 @@ impl Database for SqliteDatabase {
         let index_rows = stmt
             .query_map([], |row| {
                 Ok((
-                    row.get::<_, i32>(0)?,            // seq
-                    row.get::<_, String>(1)?,         // name
-                    row.get::<_, i32>(2)?,            // unique (1=unique, 0=not)
-                    row.get::<_, String>(3)?,         // origin (c/pk/u)
+                    row.get::<_, i32>(0)?,    // seq
+                    row.get::<_, String>(1)?, // name
+                    row.get::<_, i32>(2)?,    // unique (1=unique, 0=not)
+                    row.get::<_, String>(3)?, // origin (c/pk/u)
                 ))
             })
             .map_err(|e| {
@@ -494,7 +494,7 @@ impl Database for SqliteDatabase {
 
                     let col_rows = col_stmt
                         .query_map([], |row| {
-                            Ok(row.get::<_, String>(2)?) // name (seqno=0, cid=1, name=2)
+                            row.get::<_, String>(2) // name (seqno=0, cid=1, name=2)
                         })
                         .map_err(|e| {
                             CoreError::database(DatabaseError::query(
@@ -774,7 +774,9 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Integer(i) => {
-                        if detected_rank < 1 { detected_rank = 1; }
+                        if detected_rank < 1 {
+                            detected_rank = 1;
+                        }
                         string_values.push(None);
                         int_values.push(Some(*i));
                         float_values.push(None);
@@ -782,7 +784,9 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Real(f) => {
-                        if detected_rank < 2 { detected_rank = 2; }
+                        if detected_rank < 2 {
+                            detected_rank = 2;
+                        }
                         string_values.push(None);
                         int_values.push(None);
                         float_values.push(Some(*f));
@@ -798,7 +802,9 @@ fn sqlite_rows_to_arrow(
                         binary_values.push(None);
                     }
                     rusqlite::types::Value::Blob(b) => {
-                        if detected_rank < 3 { detected_rank = 3; }
+                        if detected_rank < 3 {
+                            detected_rank = 3;
+                        }
                         string_values.push(None);
                         int_values.push(None);
                         float_values.push(None);

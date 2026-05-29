@@ -50,6 +50,13 @@ export interface ITreeNodeData {
   referencedColumns?: string[]
   updateRule?: string
   deleteRule?: string
+  rowCount?: number
+  dataLength?: number
+  indexLength?: number
+  tableCount?: number
+  viewCount?: number
+  totalSizeBytes?: number
+  rowCountTotal?: number
   [key: string]: unknown
 }
 

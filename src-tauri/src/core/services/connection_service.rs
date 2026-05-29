@@ -156,12 +156,32 @@ impl ConnectionService {
     /// # Returns
     ///
     /// 返回连接 ID 和数据库实例
-    pub async fn connect_with_type(&self, req: ConnectRequest) -> Result<(String, DynDatabase), CoreError> {
+    pub async fn connect_with_type(
+        &self,
+        req: ConnectRequest,
+    ) -> Result<(String, DynDatabase), CoreError> {
         let ConnectRequest {
-            conn_id, db_type, url, name, connection_type, project_path,
-            description, driver_id, environment_id, auth_config_id, auth_method,
-            network_config_id, driver_properties, advanced_options, options, tags,
-            metadata_path, schema_name, use_duckdb_fed, skip_persistence, network_method,
+            conn_id,
+            db_type,
+            url,
+            name,
+            connection_type,
+            project_path,
+            description,
+            driver_id,
+            environment_id,
+            auth_config_id,
+            auth_method,
+            network_config_id,
+            driver_properties,
+            advanced_options,
+            options,
+            tags,
+            metadata_path,
+            schema_name,
+            use_duckdb_fed,
+            skip_persistence,
+            network_method,
         } = req;
 
         // 参数校验
@@ -304,9 +324,10 @@ impl ConnectionService {
         };
 
         // 转换为 DriverConnectionConfig（用于重连）
-        let driver_config = crate::core::driver::registry::DriverConnectionConfig::new(db_type.clone())
-            .with_url_override(url.clone())
-            .with_name(&connection_name);
+        let driver_config =
+            crate::core::driver::registry::DriverConnectionConfig::new(db_type.clone())
+                .with_url_override(url.clone())
+                .with_name(&connection_name);
 
         // 添加到连接管理器
         self.manager

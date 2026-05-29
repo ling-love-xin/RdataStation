@@ -555,7 +555,10 @@ pub struct RecentConnectionResponse {
     pub driver_id: Option<String>,
     pub environment_id: Option<String>,
     pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
     pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
 }
 
 /// 获取最近连接列表
@@ -578,7 +581,10 @@ pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, C
             driver_id: c.driver_id,
             environment_id: c.environment_id,
             auth_config_id: c.auth_config_id,
+            auth_method: c.auth_method,
             network_config_id: c.network_config_id,
+            driver_properties: c.driver_properties,
+            advanced_options: c.advanced_options,
         })
         .collect())
 }
@@ -761,20 +767,20 @@ pub async fn test_connection(
         url: url.clone(),
         name: Some("test_connection".to_string()),
         connection_type: ConnectionType::Global,
-        project_path: None,                   // project_path
-        description: None,                   // description
-        driver_id: None,                   // driver_id
+        project_path: None,                     // project_path
+        description: None,                      // description
+        driver_id: None,                        // driver_id
         environment_id: None,                   // environment_id
         auth_config_id: auth_config_id.clone(), // auth_config_id
-        auth_method: auth_method.clone(),    // auth_method
+        auth_method: auth_method.clone(),       // auth_method
         network_config_id: network_config_id.clone(),
-        driver_properties: None,       // driver_properties
+        driver_properties: None,      // driver_properties
         advanced_options: None,       // advanced_options
-        options: None,       // options
-        tags: None,       // tags
-        metadata_path: None,       // metadata_path
-        schema_name: None,       // schema_name
-        use_duckdb_fed: None,       // use_duckdb_fed
+        options: None,                // options
+        tags: None,                   // tags
+        metadata_path: None,          // metadata_path
+        schema_name: None,            // schema_name
+        use_duckdb_fed: None,         // use_duckdb_fed
         skip_persistence: Some(true), // skip_persistence: test connections do NOT persist to DB
         network_method,
     });

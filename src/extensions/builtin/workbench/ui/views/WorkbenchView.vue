@@ -34,6 +34,7 @@
     <AddDataSourceDialog
       v-model="showAddDataSourceDialog"
       :initial-driver="dialogInitialDriver"
+      :initial-connection="dialogInitialConnection"
       @save="handleDataSourceSaved"
     />
   </div>
@@ -105,6 +106,7 @@ const recoverySnapshots = ref<{ filePath: string; fileName: string; language: st
 const showRecoveryBanner = ref(false)
 const showAddDataSourceDialog = ref(false)
 const dialogInitialDriver = ref<import('@/extensions/builtin/connection/domain/types').Driver | null>(null)
+const dialogInitialConnection = ref<import('@/extensions/builtin/connection/types/connection').ProjectConnection | null>(null)
 
 let dockviewApi: DockviewVueApi | null = null
 
@@ -739,7 +741,14 @@ const handleWorkbenchNewQuery = async (e?: CustomEvent) => {
 }
 
 const handleWorkbenchNewConnection = (e?: CustomEvent) => {
-  dialogInitialDriver.value = (e?.detail?.driver as import('@/extensions/builtin/connection/domain/types').Driver) || null
+  const connection = e?.detail?.connection as import('@/extensions/builtin/connection/types/connection').ProjectConnection | undefined
+  if (connection) {
+    dialogInitialConnection.value = connection
+    dialogInitialDriver.value = null
+  } else {
+    dialogInitialDriver.value = (e?.detail?.driver as import('@/extensions/builtin/connection/domain/types').Driver) || null
+    dialogInitialConnection.value = null
+  }
   showAddDataSourceDialog.value = true
 }
 
@@ -750,7 +759,8 @@ const handleWorkbenchManageConnections = () => {
 }
 
 const handleDataSourceSaved = () => {
-  // 数据源保存后刷新导航树
+  dialogInitialDriver.value = null
+  dialogInitialConnection.value = null
   window.dispatchEvent(new CustomEvent('navigator-refresh'))
 }
 

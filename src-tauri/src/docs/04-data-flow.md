@@ -1,8 +1,8 @@
 # 数据流设计
 
-> 版本：v2.2
+> 版本：v2.3
 > 最后更新：2026-05-28
-> 状态：✅ specta 字段对齐修复（ConnectDatabaseInput 19字段 / ConnectionInfoResponse auth_method）
+> 状态：✅ 编辑流程实现 / url_template 支持 / recent_connections 字段补齐
 
 ## 概述
 
@@ -174,6 +174,61 @@ ConnectionService::connect()
         └── INSERT INTO connections (project.db)
 ```
 
+### 编辑已有连接流程（v0.6.1+）
+
+```
+DataSourceSidebar (前端)
+    │ 点击"编辑连接"按钮 → editSavedConnection(conn)
+    ▼
+dispatchWorkbenchEvent(NewConnection, { connection: ProjectConnection })
+    ▼
+WorkbenchView::handleWorkbenchNewConnection(e)
+    │ 检测 e.detail.connection → 设置 dialogInitialConnection
+    ▼
+AddDataSourceDialog
+    │ watch modelValue → initFromConnection(conn)
+    │   ├── 回填 name, description, driver_id
+    │   ├── 回填 formData (host, port, database, username, password)
+    │   ├── 回填 authConfigId, authMethod, networkConfigId
+    │   ├── 回填 driverProperties, advancedOptions, environmentId
+    │   └── 回填 schemaName, options, metadataPath, tags, useDuckdbFed
+    ▼
+用户修改表单字段 → 点击"应用"
+    │ handleApply() 保存更新后的连接配置
+    ▼
+projectConnectionStore → updateProjectConnection()
+    │ invoke('update_project_connection', { projectPath, connection })
+    ▼
+Rust 后端 → ProjectConnectionStore::update_connection()
+    │ UPDATE connections SET ... WHERE id = ?
+    ▼
+connectDatabase() → 重新建立运行时连接
+```
+
+> 编辑流程复用新增数据源对话框，通过 `initialConnection` prop 传递已有 `ProjectConnection` 数据实现表单回填。
+
+### URL 模板支持（url_template）
+
+```
+Driver 配置
+    │ url_template: "{driver}://{host}:{port}/{database}"
+    ▼
+useUrlBuilder (前端)
+    │ applyTemplate(template, formData)
+    │   .replace("{host}", host)
+    │   .replace("{port}", port)
+    │   .replace("{database}", database)
+    │   .replace("{username}", username)
+    │   .replace("{password}", password)
+    │   .replace("{file_path}", filePath)
+    │   .replace("{driver}", driverName)
+    ▼
+uriPreview (显示用, 密码脱敏为 ****)
+buildUrl (连接用, 真实密码)
+```
+
+> 驱动表 `drivers` 包含 `url_template` 字段，优先使用模板构建连接 URL，回退到硬编码模式。
+
 ### 分析查询（DuckDB 加速）
 
 ```
@@ -262,7 +317,62 @@ CoreError
     └── ValidationError # 校验错误
 ```
 
-## 七、关键约束
+## 七、最近连接记录（recent_connections）
+
+### 数据模型（v0.6.1+）
+
+```
+ConnectionRecord / RecentConnectionResponse
+├── name: String                # 连接名称
+├── db_type: String             # 数据库类型
+├── url: String                 # 连接 URL（密码脱敏）
+├── last_used_at: DateTime      # 最后使用时间
+├── description: Option<String> # 连接描述
+├── driver_id: Option<String>   # 驱动实例 ID
+├── environment_id: Option<String>  # 环境 ID
+├── auth_config_id: Option<String>  # 认证配置 ID
+├── auth_method: Option<String> # 认证方式 (password/ldap/kerberos/...)
+├── network_config_id: Option<String>  # 网络配置 ID
+├── driver_properties: Option<String>  # 驱动属性 JSON
+└── advanced_options: Option<String>   # 高级选项 JSON
+```
+
+### 写入流程
+
+```
+ConnectionService::connect()
+    │ 创建连接成功后
+    ▼
+connection_store::save_recent_connection(RecentConnectionInput {
+    name, db_type, url, conn_id,
+    description, driver_id, environment_id,
+    auth_config_id, auth_method,    // ← v0.6.1 补齐
+    network_config_id,
+    driver_properties,               // ← v0.6.1 补齐
+    advanced_options,                // ← v0.6.1 补齐
+})
+    ▼
+GLOBAL_STORE (Lazy<Mutex<ConnectionStore>>)
+    │ add_connection(ConnectionInfo) → save() → JSON 文件
+    ▼
+recent_connections.json
+```
+
+### 读取流程
+
+```
+Frontend invoke('get_recent_connections')
+    ▼
+connection_store::get_recent_connections()
+    │ ConnectionInfo → ConnectionRecord
+    │   (auth_method, driver_properties, advanced_options 透传)
+    ▼
+RecentConnectionResponse → JSON → 前端
+```
+
+> `connection_store::ConnectionInfo` 新增 `auth_method` 字段（v0.6.1），避免 `RecentConnectionInput` 中的 `auth_method` 被静默丢弃。
+
+## 八、关键约束
 
 | 约束                | 说明                                                       |
 | ------------------- | ---------------------------------------------------------- |

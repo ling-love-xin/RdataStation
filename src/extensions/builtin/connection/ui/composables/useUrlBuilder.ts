@@ -13,6 +13,7 @@ export interface DriverInfo {
   type_id: string
   is_file?: boolean
   default_port?: number | string
+  url_template?: string
 }
 
 export interface UseUrlBuilderOptions {
@@ -29,11 +30,27 @@ export interface UseUrlBuilderOptions {
 export function useUrlBuilder(opts: UseUrlBuilderOptions) {
   const { selectedDriver, formData, uriEditing, manualUri } = opts
 
+  /** 使用 url_template 构建 URL */
+  function applyTemplate(template: string, fd: Record<string, unknown>): string {
+    return template
+      .replace('{host}', String(fd.host || 'localhost'))
+      .replace('{port}', String(fd.port || ''))
+      .replace('{database}', String(fd.database || ''))
+      .replace('{username}', String(fd.username || ''))
+      .replace('{password}', String(fd.password || ''))
+      .replace('{file_path}', String(fd.file_path || fd.database || ''))
+      .replace('{driver}', String(fd.driver || ''))
+  }
+
   /** URI 预览（展示用，密码用 **** 遮蔽） */
   const uriPreview = computed(() => {
     const d = selectedDriver.value
     if (!d) return ''
     const fd = formData.value
+    if (d.url_template) {
+      const masked = { ...fd, password: fd.password ? '****' : '' }
+      return applyTemplate(d.url_template, masked)
+    }
     if (d.is_file) return `${d.name.toLowerCase()}://${fd.file_path || fd.database || './data.db'}`
     const usr = fd.username || 'user'
     const pw = fd.password ? '****' : ''
@@ -49,8 +66,11 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
     if (uriEditing.value && manualUri.value) return manualUri.value
     const d = selectedDriver.value
     if (!d) return ''
-    const proto = d.type_id.toLowerCase()
     const fd = formData.value
+    if (d.url_template) {
+      return applyTemplate(d.url_template, fd)
+    }
+    const proto = d.type_id.toLowerCase()
     if (d.is_file) return `${proto}://${fd.file_path || fd.database || './data.db'}`
     const h = String(fd.host || 'localhost')
     const po = String(fd.port || d.default_port || '')

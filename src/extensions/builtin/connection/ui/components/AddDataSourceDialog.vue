@@ -133,15 +133,17 @@ import { connectDatabase as connectDatabaseService, closeConnection } from '../s
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
+import type { ProjectConnection } from '../../types/connection'
 import type { StagingItem } from '../composables/useAddDataSource'
 
 interface Props {
   modelValue: boolean
   initialDriver?: Driver | null
   initialName?: string
+  initialConnection?: ProjectConnection | null
 }
 
-const props = withDefaults(defineProps<Props>(), { modelValue: false, initialDriver: null, initialName: '' })
+const props = withDefaults(defineProps<Props>(), { modelValue: false, initialDriver: null, initialName: '', initialConnection: null })
 
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
@@ -892,6 +894,50 @@ function resetAndClose() {
 
 function handleClose() { resetAndClose() }
 
+/** 从已有 ProjectConnection 初始化编辑表单 */
+function initFromConnection(conn: ProjectConnection) {
+  isEditing.value = true
+  isResetting.value = true
+
+  headerData.name = conn.name || ''
+  headerData.description = conn.description || ''
+  headerData.selectedDriverId = conn.driver_id || ''
+
+  scope.global = conn.connection_type === 'global'
+  scope.project = conn.connection_type !== 'global'
+
+  formData.value = {
+    host: conn.host ?? '',
+    port: conn.port ?? 3306,
+    database: conn.database ?? '',
+    username: conn.username ?? '',
+    password: conn.password ?? '',
+    schema_name: conn.schema_name ?? null,
+    options: conn.options ?? null,
+    metadata_path: conn.metadata_path ?? null,
+    tags: conn.tags ?? null,
+    use_duckdb_fed: conn.use_duckdb_fed ?? false,
+  }
+
+  authConfigId.value = conn.auth_config_id ?? null
+  authMethod.value = conn.auth_method ?? 'password'
+  networkConfigId.value = conn.network_config_id ?? null
+  driverPropertiesExtra.value = conn.driver_properties ?? null
+  advancedOptions.value = conn.advanced_options ?? null
+  selectedEnvId.value = conn.environment_id ?? null
+  schemaName.value = conn.schema_name ?? null
+  options.value = conn.options ?? null
+  metadataPath.value = conn.metadata_path ?? null
+  tags.value = conn.tags ?? null
+  useDuckdbFed.value = conn.use_duckdb_fed ?? false
+
+  const d = drivers.value.find(x => x.id === conn.driver_id)
+  if (d) selectedTypeId.value = d.type_id
+
+  testResult.value = null
+  isResetting.value = false
+}
+
 // Init
 onMounted(async () => { await loadAll(projectStore.currentProject?.path) })
 
@@ -908,9 +954,14 @@ watch(() => props.modelValue, (open) => {
     selectedEnvId.value = null
     manualUri.value = ''
     uriEditing.value = false
-    if (props.initialDriver) {
+    if (props.initialConnection) {
+      initFromConnection(props.initialConnection)
+    } else if (props.initialDriver) {
+      isEditing.value = false
       selectedTypeId.value = props.initialDriver.type_id
       headerData.selectedDriverId = props.initialDriver.id
+    } else {
+      isEditing.value = false
     }
   }
 }, { immediate: true })

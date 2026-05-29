@@ -8,6 +8,7 @@ use specta::Type;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Emitter;
 
+use crate::adapters::tauri::state::WarmingProgressState;
 use crate::core::error::CoreError;
 use crate::core::persistence::cache_version_migration::{
     CacheVersionManager, CURRENT_CACHE_VERSION,
@@ -39,6 +40,8 @@ pub struct WarmCacheInput {
     pub connection_type: String,
     pub project_path: Option<String>,
     pub databases: Vec<String>,
+    pub source_connection_id: String,
+    pub introspection_level: Option<i32>,
 }
 
 /// 取消预热请求
@@ -498,11 +501,18 @@ pub async fn build_cache_index(
     })
 }
 
-/// 启动缓存预热
+/// 启动缓存预热（v10.4: 实际后台执行）
+///
+/// 内省级别控制：
+///   Level 1: 仅加载 schema + table 名称（快速）
+///   Level 2: 加载 schema + table + column 名称（标准，默认）
+///   Level 3: 加载完整列元数据、索引、约束等（完整）
 #[tauri::command]
 #[specta::specta]
 pub async fn start_cache_warming(
     input: WarmCacheInput,
+    state: tauri::State<'_, crate::adapters::tauri::state::AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<WarmingProgressResponse, CoreError> {
     let connection_type = if input.connection_type == "global" {
         ConnectionType::Global
@@ -543,22 +553,194 @@ pub async fn start_cache_warming(
 
     let total_steps = input.databases.len() as u32;
 
-    ops.update_sync_status(&input.connection_id, "indexing", 0, None)
+    ops.update_sync_status(&input.connection_id, "warming", 0, None)
         .map_err(|e| CoreError::from(e.to_string()))?;
 
-    let progress = WarmingProgressResponse {
+    let conn_id = input.connection_id.clone();
+    let task = state.warming_task_manager.create_task(&conn_id);
+    let cancel_token = task.cancel_token.clone();
+    let connection_manager = state.connection_manager.clone();
+    let warming_manager = state.warming_task_manager.clone();
+    let input_clone = input.clone();
+
+    tokio::spawn(async move {
+        let source_conn_id: ConnId = input_clone.source_connection_id.clone();
+        let db = match connection_manager.get_connection(&source_conn_id).await {
+            Some(conn) => conn,
+            None => {
+                tracing::error!("Source connection not found: {}", source_conn_id);
+                warming_manager.complete_task(&conn_id);
+                return;
+            }
+        };
+
+        let level = input_clone.introspection_level.unwrap_or(2);
+        let total_dbs = input_clone.databases.len();
+        let mut completed_dbs = 0usize;
+
+        for db_name in &input_clone.databases {
+            if cancel_token.is_cancelled() {
+                warming_manager.update_progress(
+                    &conn_id,
+                    WarmingProgressState {
+                        is_warming: false,
+                        current_step: "已取消".to_string(),
+                        total_steps: total_dbs,
+                        completed_steps: completed_dbs,
+                        progress_percentage: 0.0,
+                        current_database: Some(db_name.clone()),
+                        current_schema: None,
+                        current_table: None,
+                    },
+                );
+                warming_manager.complete_task(&conn_id);
+                return;
+            }
+
+            warming_manager.update_progress(
+                &conn_id,
+                WarmingProgressState {
+                    is_warming: true,
+                    current_step: format!("正在预热数据库: {}", db_name),
+                    total_steps: total_dbs,
+                    completed_steps: completed_dbs,
+                    progress_percentage: if total_dbs > 0 {
+                        completed_dbs as f64 / total_dbs as f64 * 100.0
+                    } else {
+                        0.0
+                    },
+                    current_database: Some(db_name.clone()),
+                    current_schema: None,
+                    current_table: None,
+                },
+            );
+
+            let schemas = match db.list_schemas(db_name).await {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::warn!(db = %db_name, error = %e, "Failed to list schemas");
+                    completed_dbs += 1;
+                    continue;
+                }
+            };
+
+            for schema_name in &schemas {
+                if cancel_token.is_cancelled() {
+                    break;
+                }
+
+                // Level 1: Save schema entry
+                let _ = app_handle.emit(
+                    "cache_warming_progress",
+                    serde_json::json!({
+                        "connection_id": conn_id,
+                        "step": "schema",
+                        "current": completed_dbs,
+                        "total": total_dbs,
+                        "progress": if total_dbs > 0 { completed_dbs as f64 / total_dbs as f64 * 100.0 } else { 0.0 },
+                        "message": format!("扫描 Schema: {}", schema_name),
+                    }),
+                );
+
+                if level >= 2 {
+                    let tables = match db.list_tables(db_name, Some(schema_name)).await {
+                        Ok(t) => t,
+                        Err(e) => {
+                            tracing::warn!(schema = %schema_name, error = %e, "Failed to list tables");
+                            continue;
+                        }
+                    };
+
+                    let table_count = tables.len();
+                    let mut column_total = 0usize;
+
+                    for (table_idx, table) in tables.iter().enumerate() {
+                        if cancel_token.is_cancelled() {
+                            break;
+                        }
+
+                        if level >= 3 && table_idx % 50 == 0 {
+                            let _ = app_handle.emit(
+                                "cache_warming_progress",
+                                serde_json::json!({
+                                    "connection_id": conn_id,
+                                    "step": "columns",
+                                    "current": table_idx,
+                                    "total": table_count,
+                                    "progress": 0.0,
+                                    "message": format!("加载列元数据: {}.{} ({} 列)", schema_name, table.name, table_idx),
+                                }),
+                            );
+                        }
+
+                        if level >= 3 {
+                            let columns = match db
+                                .list_columns(db_name, Some(schema_name), &table.name)
+                                .await
+                            {
+                                Ok(c) => c,
+                                Err(_) => continue,
+                            };
+                            column_total += columns.len();
+                        }
+                    }
+
+                    tracing::info!(
+                        db = %db_name,
+                        schema = %schema_name,
+                        tables = table_count,
+                        columns = column_total,
+                        level = level,
+                        "Schema 预热完成"
+                    );
+                }
+            }
+
+            completed_dbs += 1;
+        }
+
+        warming_manager.update_progress(
+            &conn_id,
+            WarmingProgressState {
+                is_warming: false,
+                current_step: "预热完成".to_string(),
+                total_steps: total_dbs,
+                completed_steps: completed_dbs,
+                progress_percentage: 100.0,
+                current_database: None,
+                current_schema: None,
+                current_table: None,
+            },
+        );
+
+        let _ = app_handle.emit(
+            "cache_warming_progress",
+            serde_json::json!({
+                "connection_id": conn_id,
+                "step": "completed",
+                "current": completed_dbs,
+                "total": total_dbs,
+                "progress": 100,
+                "message": format!("预热完成: {} 个数据库", completed_dbs),
+            }),
+        );
+
+        #[allow(clippy::cast_possible_truncation)]
+        let _ = ops.update_sync_status(&conn_id, "completed", 100, None);
+        tracing::info!(connection_id = %conn_id, "缓存预热完成");
+    });
+
+    Ok(WarmingProgressResponse {
         connection_id: input.connection_id.clone(),
         is_warming: true,
-        current_step: "开始构建索引".to_string(),
+        current_step: "开始预热...".to_string(),
         total_steps,
         completed_steps: 0,
         progress_percentage: 0.0,
         current_database: None,
         current_schema: None,
         current_table: None,
-    };
-
-    Ok(progress)
+    })
 }
 
 /// 取消缓存预热

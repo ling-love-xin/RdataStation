@@ -289,9 +289,7 @@ impl Database for MySqlDatabase {
         table: &str,
     ) -> Result<Vec<IndexDetail>, CoreError> {
         let sql = format!("SHOW INDEX FROM `{}`.`{}`", catalog, table);
-        let result = self
-            .query_with_params(&sql, vec![])
-            .await?;
+        let result = self.query_with_params(&sql, vec![]).await?;
 
         let mut indexes: Vec<IndexDetail> = Vec::new();
         if let Some(batch) = result.batches.first() {

@@ -437,7 +437,7 @@ export function useAddDataSource() {
       url: params.url,
       name: savePayload.name,
       connection_type: savePayload.scope,
-      project_id: params.projectId ?? null,
+      project_id: params.projectId ?? undefined,
       description: savePayload.description || null,
       driver_id: params.driverId ?? null,
       environment_id: savePayload.environment_id,

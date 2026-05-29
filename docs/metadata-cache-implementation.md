@@ -164,6 +164,26 @@
 - **前端 Store 接口扩展**：`SchemaNode.sequences?` / `triggers?` 字段，`SequenceNode` / `TriggerNode` 接口
 - **Tree Loader 新增**：`createSequenceNodes` / `createTriggerNodes` 渲染函数
 
+### 10. 后端 Schema 对齐审计 + 驱动索引实现（V10.3）
+- **三库 Schema 全链路对齐验证**：
+  - `global_connections`（global.db）25 列完整：id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at
+  - `connections`（project.db）25 列完整：字段与 global_connections 一一对应，driver 列替代旧 db_type
+  - 列演化路径验证：global（001:16列 → 005:+server_version → 008:+7列 → 010:+auth_method = 25列），project（001:13列 → 002:重建17列 → 010:+8列 → 012:+auth_method = 25列）
+- **Rust 结构体与 DB 对齐**：
+  - `GlobalConnectionInfo`（25 字段）↔ `global_connections`（25 列）✅
+  - `ProjectConnection`（25 字段）↔ `connections`（25 列）✅
+  - `AuthConfig`（9 字段）↔ 项目 `auth_configs`（9 列，含 origin/source_id/snapshot_at），全局 `auth_configs`（6 列，无快照字段）✅
+  - `NetworkConfig`（10 字段）↔ 项目 `network_configs`（10 列，含 origin + auth_config_id），全局 `network_configs`（7 列，无快照字段）✅
+- **认证/网络配置 INSERT 一致性**：
+  - `create_global_auth_config`：6 列（无 origin 字段）✅
+  - `create_auth_config`（项目）：9 列（含 origin/source_id/snapshot_at）✅
+  - `create_global_network_config`：7 列（含 auth_config_id，无 origin）✅
+  - `create_network_config`（项目）：10 列（含 origin + auth_config_id）✅
+- **DuckDB `list_indexes` 实现**：使用 `duckdb_indexes()` 表函数查询索引名、唯一性、类型、表达式，从 expression 字段（如 `"CREATE INDEX idx ON t (col1, col2)"`）正则解析列名列表；避免 `Vec<i64>` 与 duckdb-rs `FromSql` trait 不兼容问题
+- **SQLite `list_indexes` 实现**：`PRAGMA index_list(table)` 获取索引列表（seq/name/unique/origin），`PRAGMA index_info(index_name)` 获取列名；通过 origin 列（"pk"）检测主键
+- **前端类型修复**：`useAddDataSource.ts` 第 440 行 `project_id: params.projectId ?? null` → `params.projectId ?? undefined`（修复 `string | null` 不可赋值给 `string | undefined` 的类型错误）
+- **Quality Gates**：`cargo clippy -- -D warnings`（0 errors）、`cargo fmt`（passed）、`pnpm vue-tsc`（0 errors）
+
 ## 后续建议
 
 1. **启用类型自动生成**
@@ -208,5 +228,51 @@
 - `src/extensions/builtin/database/ui/api/database-api.ts` — 新增 loadSequences/loadTriggers + SequenceMeta/TriggerMeta 类型
 - `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — indexes/constraints 先加载再渲染；新增 sequences/triggers folder 和 node 处理
 
+### 修改文件 (V10.3 Schema 审计 + 驱动索引实现)
+- `src-tauri/src/core/driver/native/duckdb.rs` — 实现 `list_indexes`（`duckdb_indexes()` 表函数 + expression 列解析列名）
+- `src-tauri/src/core/driver/native/sqlite.rs` — 实现 `list_indexes`（`PRAGMA index_list` + `PRAGMA index_info`）
+- `src/extensions/builtin/connection/ui/composables/useAddDataSource.ts` — 修复 `null` → `undefined` 类型错误（第 440 行）
+
+### 审计验证（V10.3 无代码变更，仅验证通过）
+- `src-tauri/migrations/global/001-016` — 25 列 global_connections 完整对齐 ✅
+- `src-tauri/migrations/project_meta/001-015` — 25 列 connections 完整对齐 ✅
+- `src-tauri/migrations/connection_metadata/001-010` — V10 企业级统计字段完整 ✅
+- `src-tauri/src/core/persistence/global_db.rs` — GlobalConnectionInfo 25 字段 ↔ 25 列 ✅
+- `src-tauri/src/core/persistence/project_connection_store.rs` — ProjectConnection 25 字段 ↔ 25 列 ✅
+- `src-tauri/src/core/persistence/auth_store.rs` — AuthConfig 9 字段，全局/项目 INSERT 列数一致 ✅
+- `src-tauri/src/core/persistence/network_store.rs` — NetworkConfig 10 字段，全局/项目 INSERT 列数一致 ✅
+
+### 11. 缓存预热 + 导航树统计增强（V10.4）
+
+- **P1-1 缓存预热实际化**：
+  - `start_cache_warming` Tauri 命令从空壳变为真实后台任务：接受 `AppState` + `AppHandle`，通过 `WarmingTaskManager` 创建任务并 `tokio::spawn` 后台执行
+  - 按 `IntrospectionLevel` 分级加载：Level 1 仅加载 Schema，Level 2 加载表，Level 3 加载列
+  - 进度实时推送：通过 `warming_manager.update_progress()` + `app_handle.emit()` 将进度推送到前端
+  - 支持取消：`cancel_token.is_cancelled()` 检查后立即退出后台循环
+  - `WarmCacheInput` 扩展：新增 `source_connection_id: String` 和 `introspection_level: Option<i32>` 字段
+
+- **P1-2 表节点 Tooltip 统计**：
+  - `virtual-tree-node.vue` tooltip 新增 `table` 类型：显示行数（formatNumber）、数据大小（formatBytes）、索引大小（formatBytes）
+  - 数据来源：`ITreeNodeData.rowCount` / `dataLength` / `indexLength`，由 `createTableNodes` 从 `TableNode` 传入
+  - `TableNode` 扩展：新增 `rowCount?: number | null` / `dataLength?: number | null` / `indexLength?: number | null` 字段
+  - 缓存路径 `loadTablesFromCache`：从 `TableMeta.rowCountEstimate` / `dataLength` / `indexLength` 映射到 `TableNode`
+
+- **P2 Schema 节点统计摘要**：
+  - `virtual-tree-node.vue` tooltip 新增 `schema` 类型：显示表数量、视图数量、总大小、总行数
+  - `computeSchemaStats(schema: SchemaNode)` 新增辅助函数：从 `schema.tables` 计算 `totalTables`/`totalViews`/`totalSizeBytes`/`rowCountTotal`
+  - `updateSchemaTables` 在写入表后自动调用 `computeSchemaStats`，保证 Schema 统计随数据实时更新
+  - `createSchemaNodes` 将 `SchemaNode.totalTables` / `totalViews` / `totalSizeBytes` / `rowCountTotal` 传递到 `ITreeNodeData`
+
+- **辅助函数**：`formatNumber`（千/百万/十亿缩写）和 `formatBytes`（B/KB/MB/GB）内置于 `virtual-tree-node.vue`
+
+- **修改文件**：
+  - `src-tauri/src/commands/cache_warming_commands.rs` — start_cache_warming 真实后台任务实现
+  - `src/extensions/builtin/database/ui/components/virtual-tree-node.vue` — table/schema tooltip + formatNumber/formatBytes
+  - `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — createSchemaNodes 传递 schema 统计数据
+  - `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — computeSchemaStats + updateSchemaTables 自动统计
+  - `src/extensions/builtin/database/ui/types/virtual-tree.ts` — ITreeNodeData 扩展 7 个统计字段
+
+- **Quality Gates**：`cargo clippy -- -D warnings`（0 errors）、`cargo fmt`（passed）、`pnpm typecheck`（仅 1 个预存在的无关错误）
+
 ---
-**最后更新**: 2026-05-28 (V10.2 导航栏全链路打通)
+**最后更新**: 2026-05-28 (V10.4 缓存预热实际化 + 导航树统计增强)

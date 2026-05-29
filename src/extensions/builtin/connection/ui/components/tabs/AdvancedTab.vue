@@ -192,6 +192,33 @@
         </div>
       </div>
 
+      <!-- Data source metadata -->
+      <div class="adv-sec">
+        <div class="sec-title">{{ $t('navigator.dataSourceMeta') || '数据源元数据' }}</div>
+        <div class="adv-grid">
+          <div class="adv-cell">
+            <span class="adv-lbl">{{ $t('navigator.schemaName') || 'Schema 名称' }}</span>
+            <NInput v-model:value="schemaName" size="small" :placeholder="$t('navigator.schemaNamePlaceholder') || '默认 schema'" />
+          </div>
+          <div class="adv-cell">
+            <span class="adv-lbl">{{ $t('navigator.metadataPath') || '元数据路径' }}</span>
+            <NInput v-model:value="metadataPath" size="small" :placeholder="$t('navigator.metadataPathPlaceholder') || '/path/to/metadata'" />
+          </div>
+          <div class="adv-cell">
+            <span class="adv-lbl">{{ $t('navigator.tags') || '标签' }}</span>
+            <NInput v-model:value="tags" size="small" :placeholder="$t('navigator.tagsPlaceholder') || 'production, analytics'" />
+          </div>
+          <div class="adv-cell" style="align-items:flex-start;gap:2px;flex-direction:row;align-items:center">
+            <span class="adv-lbl" style="margin-bottom:0">DuckDB {{ $t('navigator.federation') || '联邦' }}</span>
+            <NSwitch v-model:value="useDuckdbFed" size="small" />
+          </div>
+        </div>
+        <div class="adv-cell" style="margin-top:6px">
+          <span class="adv-lbl">{{ $t('navigator.options') || '连接选项 (JSON)' }}</span>
+          <NInput v-model:value="options" type="textarea" size="small" :placeholder="$t('navigator.optionsPlaceholder') || '{&quot;ssl&quot;: true}'" :autosize="{ minRows: 2, maxRows: 4 }" />
+        </div>
+      </div>
+
       <!-- Environment Manager Modal (extracted) -->
       <EnvironmentManager
         v-model="showEnvMgr"
@@ -413,6 +440,13 @@ const uiSummary = computed(() => {
   if (uiWriteBtnStyle.value !== 'default') parts.push(`按钮:${uiWriteBtnStyle.value}`)
   return parts.join('·') || '默认'
 })
+
+// ========== Data source metadata ==========
+const schemaName = ref('')
+const options = ref('')
+const metadataPath = ref('')
+const tags = ref('')
+const useDuckdbFed = ref(false)
 
 // ========== Connection params ==========
 const advConnectTimeout = ref(30)
@@ -802,7 +836,8 @@ watch(
    audSqlLog, audOperationRecord, audSensitiveTableAlert,
    uiTopBarColor, uiTabIndicator, uiSqlWarningBanner, uiWriteBtnStyle,
    advConnectTimeout, advQueryTimeout, advHeartbeat, advMaxReconnect,
-   schemaStrategy, encoding, envId, selectedEnvId, envSnapshotId],
+   schemaStrategy, encoding, envId, selectedEnvId, envSnapshotId,
+   schemaName, options, metadataPath, tags, useDuckdbFed],
   () => {
     const opts = {
       envId: envSnapshotId.value || selectedEnvId.value || envId.value,
@@ -855,7 +890,14 @@ watch(
       schemaStrategy: schemaStrategy.value,
       encoding: encoding.value,
     }
-    emit('extra-config', { advancedOptions: JSON.stringify(opts) })
+    emit('extra-config', {
+      advancedOptions: JSON.stringify(opts),
+      schemaName: schemaName.value || null,
+      options: options.value || null,
+      metadataPath: metadataPath.value || null,
+      tags: tags.value || null,
+      useDuckdbFed: useDuckdbFed.value,
+    })
   },
   { deep: true }
 )

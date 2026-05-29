@@ -31,18 +31,31 @@ export function useSidebarConnection(deps: SidebarConnectionDeps) {
       const url = deps.getConnectionUrl(conn)
       const driverName = conn.driver || 'mysql'
 
+      const input: Record<string, unknown> = {
+        db_type: driverName,
+        url,
+        name: conn.name,
+        connection_type: conn.connection_type || 'project',
+        project_id: deps.currentProjectId() ?? null,
+        driver_id: conn.driver_id ?? null,
+        auth_config_id: conn.auth_config_id ?? null,
+        auth_method: conn.auth_method ?? null,
+        network_config_id: conn.network_config_id ?? null,
+        driver_properties: conn.driver_properties ?? null,
+        advanced_options: conn.advanced_options ?? null,
+        description: conn.description ?? null,
+        environment_id: conn.environment_id ?? null,
+        options: conn.options ?? null,
+        tags: conn.tags ?? null,
+        metadata_path: conn.metadata_path ?? null,
+        schema_name: conn.schema_name ?? null,
+        use_duckdb_fed: conn.use_duckdb_fed ?? false,
+      }
+
       // 1. 建立（或复用）运行时连接
       const r = await invoke<{ conn_id: string; name: string; db_type: string; url: string }>(
         'connect_database',
-        {
-          input: {
-            db_type: driverName,
-            url,
-            name: conn.name,
-            connection_type: conn.connection_type || 'project',
-            project_id: deps.currentProjectId() ?? null,
-          },
-        }
+        { input }
       )
 
       // 2. 切换为活动连接

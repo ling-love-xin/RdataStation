@@ -5,9 +5,7 @@
 //! - 支持更多 MySQL 特定功能（协议压缩、原生认证插件等）
 //! - 与 sqlx 驱动并存，用户可在连接时选择驱动
 
-use arrow::array::{
-    ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray,
-};
+use arrow::array::{ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
@@ -16,8 +14,8 @@ use tokio::sync::Mutex;
 
 use crate::core::driver::traits::MetadataBrowser;
 use crate::core::driver::{
-    ColumnDetail, ConstraintDetail, DataSourceMeta, Database, IndexDetail,
-    NodeDetail, NodeInfo, PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
+    ColumnDetail, ConstraintDetail, DataSourceMeta, Database, IndexDetail, NodeDetail, NodeInfo,
+    PoolStatus, SchemaObject, SchemaObjectKind, Transaction,
 };
 use crate::core::error::{ConnectionError, CoreError, DatabaseError};
 use crate::core::models::{ArrowBatch, QueryResult, Value};
@@ -65,14 +63,13 @@ impl MySqlNativeDatabase {
                     source: e.to_string(),
                 })
             })?;
-            rows.first()
-                .and_then(|r| {
-                    let val: mysql_async::Value = r.get(0).unwrap_or(mysql_async::Value::NULL);
-                    match val {
-                        mysql_async::Value::Bytes(b) => String::from_utf8(b).ok(),
-                        _ => None,
-                    }
-                })
+            rows.first().and_then(|r| {
+                let val: mysql_async::Value = r.get(0).unwrap_or(mysql_async::Value::NULL);
+                match val {
+                    mysql_async::Value::Bytes(b) => String::from_utf8(b).ok(),
+                    _ => None,
+                }
+            })
         };
         Ok(Self {
             pool,
@@ -233,12 +230,10 @@ fn mysql_native_rows_to_arrow(
                         mysql_async::Value::UInt(v) => Some(v.to_string()),
                         mysql_async::Value::Float(v) => Some(v.to_string()),
                         mysql_async::Value::Double(v) => Some(v.to_string()),
-                        mysql_async::Value::Date(y, m, d, h, min, s, _us) => {
-                            Some(format!(
-                                "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-                                y, m, d, h, min, s
-                            ))
-                        }
+                        mysql_async::Value::Date(y, m, d, h, min, s, _us) => Some(format!(
+                            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+                            y, m, d, h, min, s
+                        )),
                         mysql_async::Value::Time(neg, days, hours, minutes, seconds, _us) => {
                             let days = *days as i64;
                             let hours = *hours as i64;
@@ -297,11 +292,7 @@ fn mysql_native_rows_to_arrow(
 // 辅助: 从 QueryResult 解析 NodeInfo 列表
 // ============================================================================
 
-fn rows_to_node_info(
-    result: &QueryResult,
-    kind: SchemaObjectKind,
-    icon: &str,
-) -> Vec<NodeInfo> {
+fn rows_to_node_info(result: &QueryResult, kind: SchemaObjectKind, icon: &str) -> Vec<NodeInfo> {
     use arrow::array::StringArray;
     let mut nodes: Vec<NodeInfo> = Vec::new();
     for row_idx in 0..result.total_rows() {
@@ -324,10 +315,7 @@ fn rows_to_node_info(
     nodes
 }
 
-fn names_to_schema_objects(
-    result: &QueryResult,
-    kind: SchemaObjectKind,
-) -> Vec<SchemaObject> {
+fn names_to_schema_objects(result: &QueryResult, kind: SchemaObjectKind) -> Vec<SchemaObject> {
     use arrow::array::StringArray;
     let mut objects: Vec<SchemaObject> = Vec::new();
     for row_idx in 0..result.total_rows() {
@@ -399,9 +387,10 @@ impl Database for MySqlNativeDatabase {
             })
         })?;
 
-        let mut result = conn.query_iter(sql).await.map_err(|e| {
-            CoreError::database(DatabaseError::query(sql, e.to_string()))
-        })?;
+        let mut result = conn
+            .query_iter(sql)
+            .await
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let columns: Vec<String> = result
             .columns_ref()
@@ -409,9 +398,10 @@ impl Database for MySqlNativeDatabase {
             .map(|c| c.name_str().to_string())
             .collect();
 
-        let rows: Vec<mysql_async::Row> = result.collect().await.map_err(|e| {
-            CoreError::database(DatabaseError::query(sql, e.to_string()))
-        })?;
+        let rows: Vec<mysql_async::Row> = result
+            .collect()
+            .await
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         build_query_result(&columns, &rows, is_read_only)
     }
@@ -445,9 +435,10 @@ impl Database for MySqlNativeDatabase {
 
         let params_ref: Vec<&mysql_async::Value> = mysql_params.iter().collect();
 
-        let mut result = conn.exec_iter(sql, params_ref).await.map_err(|e| {
-            CoreError::database(DatabaseError::query(sql, e.to_string()))
-        })?;
+        let mut result = conn
+            .exec_iter(sql, params_ref)
+            .await
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         let columns: Vec<String> = result
             .columns_ref()
@@ -455,9 +446,10 @@ impl Database for MySqlNativeDatabase {
             .map(|c| c.name_str().to_string())
             .collect();
 
-        let rows: Vec<mysql_async::Row> = result.collect().await.map_err(|e| {
-            CoreError::database(DatabaseError::query(sql, e.to_string()))
-        })?;
+        let rows: Vec<mysql_async::Row> = result
+            .collect()
+            .await
+            .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
         build_query_result(&columns, &rows, is_read_only)
     }
@@ -689,9 +681,10 @@ impl Transaction for MySqlNativeTransaction {
         if let Some(ref mut conn) = *guard {
             let is_read_only = is_read_only_sql(sql);
 
-            let mut result = conn.query_iter(sql).await.map_err(|e| {
-                CoreError::database(DatabaseError::query(sql, e.to_string()))
-            })?;
+            let mut result = conn
+                .query_iter(sql)
+                .await
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
             let columns: Vec<String> = result
                 .columns_ref()
@@ -699,9 +692,10 @@ impl Transaction for MySqlNativeTransaction {
                 .map(|c| c.name_str().to_string())
                 .collect();
 
-            let rows: Vec<mysql_async::Row> = result.collect().await.map_err(|e| {
-                CoreError::database(DatabaseError::query(sql, e.to_string()))
-            })?;
+            let rows: Vec<mysql_async::Row> = result
+                .collect()
+                .await
+                .map_err(|e| CoreError::database(DatabaseError::query(sql, e.to_string())))?;
 
             build_query_result(&columns, &rows, is_read_only)
         } else {
@@ -760,18 +754,11 @@ impl MetadataBrowser for MySqlNativeDatabase {
         ))
     }
 
-    async fn get_schemas(
-        &self,
-        _catalog: &str,
-    ) -> Result<Vec<NodeInfo>, CoreError> {
+    async fn get_schemas(&self, _catalog: &str) -> Result<Vec<NodeInfo>, CoreError> {
         self.get_catalogs().await
     }
 
-    async fn get_tables(
-        &self,
-        catalog: &str,
-        _schema: &str,
-    ) -> Result<Vec<NodeInfo>, CoreError> {
+    async fn get_tables(&self, catalog: &str, _schema: &str) -> Result<Vec<NodeInfo>, CoreError> {
         use arrow::array::StringArray;
         let sql = "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name";
         let result = self

@@ -690,14 +690,16 @@ pub async fn load_views(
 
     let table_metas: Vec<TableMeta> = objects
         .iter()
-        .map(|obj| TableMeta::basic(
-            obj.name.clone(),
-            if matches!(obj.kind, crate::core::driver::SchemaObjectKind::View) {
-                "VIEW".to_string()
-            } else {
-                "TABLE".to_string()
-            },
-        ))
+        .map(|obj| {
+            TableMeta::basic(
+                obj.name.clone(),
+                if matches!(obj.kind, crate::core::driver::SchemaObjectKind::View) {
+                    "VIEW".to_string()
+                } else {
+                    "TABLE".to_string()
+                },
+            )
+        })
         .collect();
     write_l2_tables_after_load(&conn_id, ct, pp, &db_name, &schema_name, &table_metas);
 

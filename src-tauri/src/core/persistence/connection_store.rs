@@ -47,6 +47,8 @@ pub struct ConnectionInfo {
     pub environment_id: Option<String>,
     /// 认证配置 ID
     pub auth_config_id: Option<String>,
+    /// 认证方式
+    pub auth_method: Option<String>,
     /// 网络配置 ID
     pub network_config_id: Option<String>,
     /// 驱动属性 JSON
@@ -84,6 +86,7 @@ impl ConnectionInfo {
             driver_id: None,
             environment_id: None,
             auth_config_id: None,
+            auth_method: None,
             network_config_id: None,
             driver_properties: None,
             advanced_options: None,
@@ -470,6 +473,7 @@ impl ConnectionStore {
         let driver_id = extract_string(json, "driver_id");
         let environment_id = extract_string(json, "environment_id");
         let auth_config_id = extract_string(json, "auth_config_id");
+        let auth_method = extract_string(json, "auth_method");
         let network_config_id = extract_string(json, "network_config_id");
         let driver_properties = extract_string(json, "driver_properties");
         let advanced_options = extract_string(json, "advanced_options");
@@ -502,6 +506,7 @@ impl ConnectionStore {
             driver_id,
             environment_id,
             auth_config_id,
+            auth_method,
             network_config_id,
             driver_properties,
             advanced_options,
@@ -659,7 +664,10 @@ pub struct ConnectionRecord {
     pub driver_id: Option<String>,
     pub environment_id: Option<String>,
     pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
     pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
 }
 
 /// 最近连接保存输入参数
@@ -699,6 +707,7 @@ pub fn save_recent_connection(input: RecentConnectionInput<'_>) -> Result<(), st
         driver_id: input.driver_id.map(|s| s.to_string()),
         environment_id: input.environment_id.map(|s| s.to_string()),
         auth_config_id: input.auth_config_id.map(|s| s.to_string()),
+        auth_method: input.auth_method.map(|s| s.to_string()),
         network_config_id: input.network_config_id.map(|s| s.to_string()),
         driver_properties: input.driver_properties.map(|s| s.to_string()),
         advanced_options: input.advanced_options.map(|s| s.to_string()),
@@ -770,7 +779,10 @@ pub fn get_recent_connections() -> Result<Vec<ConnectionRecord>, std::io::Error>
             driver_id: c.driver_id.clone(),
             environment_id: c.environment_id.clone(),
             auth_config_id: c.auth_config_id.clone(),
+            auth_method: c.auth_method.clone(),
             network_config_id: c.network_config_id.clone(),
+            driver_properties: c.driver_properties.clone(),
+            advanced_options: c.advanced_options.clone(),
         })
         .collect();
 
