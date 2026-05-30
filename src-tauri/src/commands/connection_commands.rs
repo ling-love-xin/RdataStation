@@ -1150,6 +1150,7 @@ pub struct UpdateGlobalConnectionInput {
     pub driver_properties: Option<String>,
     pub advanced_options: Option<String>,
     pub description: Option<String>,
+    pub server_version: Option<String>,
 }
 
 /// 更新全局连接
@@ -1172,7 +1173,7 @@ pub async fn update_global_connection(input: UpdateGlobalConnectionInput) -> Res
         .map(|t| serde_json::to_string(&t).unwrap_or_default());
 
     let db_input = GlobalConnectionUpdateInput {
-        conn_id: input.conn_id,
+        conn_id: input.conn_id.clone(),
         name,
         driver: input.driver,
         host: input.host,
@@ -1182,7 +1183,7 @@ pub async fn update_global_connection(input: UpdateGlobalConnectionInput) -> Res
         username: input.username,
         password: input.password,
         tags: tags_json,
-        server_version: None,
+        server_version: input.server_version,
         description: input.description,
         driver_id: input.driver_id,
         environment_id: input.environment_id,
@@ -1199,7 +1200,25 @@ pub async fn update_global_connection(input: UpdateGlobalConnectionInput) -> Res
     global_db
         .update_global_connection(db_input)
         .await
-        .map_err(|e| CoreError::from(format!("Failed to update global connection: {}", e)))
+        .map_err(|e| CoreError::from(format!("Failed to update global connection: {}", e)))?;
+
+    let manager = get_connection_manager().clone();
+    if let Some(mut conn_info) = manager.get_connection_info(&input.conn_id).await {
+        if let Some(ref host) = input.host {
+            let driver = input.driver.unwrap_or_else(|| conn_info.db_type.clone());
+            let port = input.port.unwrap_or(0);
+            let database = input.database.unwrap_or_default();
+            let username = input.username.unwrap_or_default();
+            let password = "******";
+            let url = format!("{}://{}:{}@{}:{}/{}", driver, username, password, host, port, database);
+            conn_info.url = url;
+            if let Err(e) = manager.update_connection_info(&input.conn_id, conn_info).await {
+                tracing::warn!("更新运行时连接信息失败: {}", e);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

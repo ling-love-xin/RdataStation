@@ -451,6 +451,7 @@ export function useAddDataSource() {
       metadata_path: savePayload.metadata_path || null,
       schema_name: savePayload.schema_name || null,
       use_duckdb_fed: savePayload.use_duckdb_fed ?? null,
+      password: savePayload.password || null,
     }
   }
 

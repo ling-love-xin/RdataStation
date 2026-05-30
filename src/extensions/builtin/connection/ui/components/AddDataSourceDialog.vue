@@ -629,6 +629,7 @@ async function handleEditApply() {
         network_config_id: networkConfigId.value ?? undefined,
         driver_properties: driverPropertiesExtra.value ?? undefined,
         advanced_options: advancedOptions.value ?? undefined,
+        server_version: (fd.server_version as string) || undefined,
         created_at: '',
         updated_at: new Date().toISOString(),
       }
@@ -660,6 +661,7 @@ async function handleEditApply() {
         driver_properties: driverPropertiesExtra.value ?? undefined,
         advanced_options: advancedOptions.value ?? undefined,
         description: headerData.description || undefined,
+        server_version: (fd.server_version as string) || undefined,
       })
     }
 
@@ -819,6 +821,7 @@ function buildConnectOpts(
   networkConfigId: string | null,
   authConfigId: string | null
 ) {
+  const fd = item.formData || {}
   return {
     driverId: item.driverId,
     networkConfigId,
@@ -833,6 +836,7 @@ function buildConnectOpts(
     metadataPath: item.metadataPath || undefined,
     schemaName: item.schemaName || undefined,
     useDuckdbFed: item.useDuckdbFed ?? false,
+    password: String(fd.password || '') || undefined,
   }
 }
 
@@ -1010,9 +1014,14 @@ function initFromConnection(conn: ProjectConnection) {
   scope.global = conn.connection_type === 'global'
   scope.project = conn.connection_type !== 'global'
 
+  const d = drivers.value.find(x => x.id === conn.driver_id)
+  if (d) selectedTypeId.value = d.type_id
+
+  const defaultPort = d?.default_port ?? 0
+
   formData.value = {
     host: conn.host ?? '',
-    port: conn.port ?? 3306,
+    port: conn.port ?? defaultPort,
     database: conn.database ?? '',
     username: conn.username ?? '',
     password: conn.password ?? '',
@@ -1021,6 +1030,7 @@ function initFromConnection(conn: ProjectConnection) {
     metadata_path: conn.metadata_path ?? null,
     tags: conn.tags ?? null,
     use_duckdb_fed: conn.use_duckdb_fed ?? false,
+    server_version: conn.server_version ?? null,
   }
 
   authConfigId.value = conn.auth_config_id ?? null
@@ -1034,9 +1044,6 @@ function initFromConnection(conn: ProjectConnection) {
   metadataPath.value = conn.metadata_path ?? null
   tags.value = conn.tags ?? null
   useDuckdbFed.value = conn.use_duckdb_fed ?? false
-
-  const d = drivers.value.find(x => x.id === conn.driver_id)
-  if (d) selectedTypeId.value = d.type_id
 
   testResult.value = null
   isResetting.value = false

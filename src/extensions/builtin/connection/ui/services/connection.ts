@@ -50,6 +50,7 @@ export async function connectDatabase(
     metadataPath?: string
     schemaName?: string
     useDuckdbFed?: boolean
+    password?: string
   }
 ): Promise<ConnectionResponse> {
   const input: ConnectDatabaseInput = {
@@ -72,6 +73,7 @@ export async function connectDatabase(
     metadata_path: opts?.metadataPath ?? null,
     schema_name: opts?.schemaName ?? null,
     use_duckdb_fed: opts?.useDuckdbFed ?? false,
+    password: opts?.password ?? null,
   }
   const result = await typed(commands.connectDatabase(input))
   return result as unknown as ConnectionResponse
@@ -240,6 +242,7 @@ export async function updateGlobalConnection(input: {
   driver_properties?: string
   advanced_options?: string
   description?: string
+  server_version?: string
 }): Promise<void> {
   const payload: Record<string, unknown> = {
     conn_id: input.conn_id,
@@ -263,6 +266,7 @@ export async function updateGlobalConnection(input: {
     driver_properties: input.driver_properties ?? null,
     advanced_options: input.advanced_options ?? null,
     description: input.description ?? null,
+    server_version: input.server_version ?? null,
   }
   await tauriInvoke('update_global_connection', payload)
 }
