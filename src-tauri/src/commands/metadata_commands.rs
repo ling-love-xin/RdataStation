@@ -221,6 +221,150 @@ fn try_l2_columns(
     }
 }
 
+fn try_l2_procedures(
+    conn_id: &str,
+    connection_type: &str,
+    project_path: Option<&str>,
+    database: &str,
+    schema_name: &str,
+) -> Result<Option<Vec<ProcedureMeta>>, CoreError> {
+    let ops = open_l2_cache(conn_id, connection_type, project_path)?;
+    let conn = ops.get_connection();
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.routine_name FROM routines r
+         INNER JOIN schemata s ON r.schema_id = s.id
+         WHERE s.catalog_name = ?1 AND s.schema_name = ?2 AND r.routine_type = 'PROCEDURE'
+         ORDER BY r.routine_name",
+        )
+        .map_err(|e| {
+            CoreError::cache(CacheError::internal(format!("L2 procedures query: {}", e)))
+        })?;
+    let names: Vec<String> = stmt
+        .query_map(rusqlite::params![database, schema_name], |row| row.get(0))
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 procedures rows: {}", e))))?
+        .filter_map(|r| r.ok())
+        .collect();
+    if names.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            names
+                .into_iter()
+                .map(|name| ProcedureMeta { name })
+                .collect(),
+        ))
+    }
+}
+
+fn try_l2_functions(
+    conn_id: &str,
+    connection_type: &str,
+    project_path: Option<&str>,
+    database: &str,
+    schema_name: &str,
+) -> Result<Option<Vec<FunctionMeta>>, CoreError> {
+    let ops = open_l2_cache(conn_id, connection_type, project_path)?;
+    let conn = ops.get_connection();
+    let mut stmt = conn
+        .prepare(
+            "SELECT r.routine_name FROM routines r
+         INNER JOIN schemata s ON r.schema_id = s.id
+         WHERE s.catalog_name = ?1 AND s.schema_name = ?2 AND r.routine_type = 'FUNCTION'
+         ORDER BY r.routine_name",
+        )
+        .map_err(|e| {
+            CoreError::cache(CacheError::internal(format!("L2 functions query: {}", e)))
+        })?;
+    let names: Vec<String> = stmt
+        .query_map(rusqlite::params![database, schema_name], |row| row.get(0))
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 functions rows: {}", e))))?
+        .filter_map(|r| r.ok())
+        .collect();
+    if names.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            names
+                .into_iter()
+                .map(|name| FunctionMeta { name })
+                .collect(),
+        ))
+    }
+}
+
+fn try_l2_sequences(
+    conn_id: &str,
+    connection_type: &str,
+    project_path: Option<&str>,
+    database: &str,
+    schema_name: &str,
+) -> Result<Option<Vec<SequenceMeta>>, CoreError> {
+    let ops = open_l2_cache(conn_id, connection_type, project_path)?;
+    let conn = ops.get_connection();
+    let mut stmt = conn
+        .prepare(
+            "SELECT seq.sequence_name FROM sequences seq
+         INNER JOIN schemata s ON seq.schema_id = s.id
+         WHERE s.catalog_name = ?1 AND s.schema_name = ?2
+         ORDER BY seq.sequence_name",
+        )
+        .map_err(|e| {
+            CoreError::cache(CacheError::internal(format!("L2 sequences query: {}", e)))
+        })?;
+    let names: Vec<String> = stmt
+        .query_map(rusqlite::params![database, schema_name], |row| row.get(0))
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 sequences rows: {}", e))))?
+        .filter_map(|r| r.ok())
+        .collect();
+    if names.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            names
+                .into_iter()
+                .map(|name| SequenceMeta { name })
+                .collect(),
+        ))
+    }
+}
+
+fn try_l2_triggers(
+    conn_id: &str,
+    connection_type: &str,
+    project_path: Option<&str>,
+    database: &str,
+    schema_name: &str,
+) -> Result<Option<Vec<TriggerMeta>>, CoreError> {
+    let ops = open_l2_cache(conn_id, connection_type, project_path)?;
+    let conn = ops.get_connection();
+    let mut stmt = conn
+        .prepare(
+            "SELECT trg.trigger_name, t.table_name, trg.trigger_event FROM triggers trg
+         INNER JOIN tables t ON trg.table_id = t.id
+         INNER JOIN schemata s ON t.schema_id = s.id
+         WHERE s.catalog_name = ?1 AND s.schema_name = ?2
+         ORDER BY trg.trigger_name",
+        )
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 triggers query: {}", e))))?;
+    let triggers: Vec<TriggerMeta> = stmt
+        .query_map(rusqlite::params![database, schema_name], |row| {
+            Ok(TriggerMeta {
+                name: row.get(0)?,
+                table_name: row.get(1)?,
+                event: row.get(2)?,
+            })
+        })
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 triggers rows: {}", e))))?
+        .filter_map(|r| r.ok())
+        .collect();
+    if triggers.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(triggers))
+    }
+}
+
 fn write_l2_tables_after_load(
     conn_id: &str,
     connection_type: &str,
@@ -811,14 +955,25 @@ pub async fn load_procedures(
     conn_id: String,
     db_name: String,
     schema_name: String,
+    connection_type: Option<String>,
+    project_path: Option<String>,
 ) -> Result<Vec<ProcedureMeta>, CoreError> {
+    let ct = connection_type.as_deref().unwrap_or("global");
+    let pp = project_path.as_deref();
     let cached = check_l1_cache(|mc| mc.get_procedures(&conn_id, &db_name, Some(&schema_name)))?;
     if let Some(objects) = cached {
+        L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
         return Ok(objects
             .into_iter()
             .map(|obj| ProcedureMeta { name: obj.name })
             .collect());
     }
+
+    if let Ok(Some(procedures)) = try_l2_procedures(&conn_id, ct, pp, &db_name, &schema_name) {
+        L2_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
+        return Ok(procedures);
+    }
+    L2_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
 
     let service = new_metadata_service();
     let objects = service
@@ -841,14 +996,25 @@ pub async fn load_functions(
     conn_id: String,
     db_name: String,
     schema_name: String,
+    connection_type: Option<String>,
+    project_path: Option<String>,
 ) -> Result<Vec<FunctionMeta>, CoreError> {
+    let ct = connection_type.as_deref().unwrap_or("global");
+    let pp = project_path.as_deref();
     let cached = check_l1_cache(|mc| mc.get_functions(&conn_id, &db_name, Some(&schema_name)))?;
     if let Some(objects) = cached {
+        L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
         return Ok(objects
             .into_iter()
             .map(|obj| FunctionMeta { name: obj.name })
             .collect());
     }
+
+    if let Ok(Some(functions)) = try_l2_functions(&conn_id, ct, pp, &db_name, &schema_name) {
+        L2_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
+        return Ok(functions);
+    }
+    L2_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
 
     let service = new_metadata_service();
     let objects = service
@@ -1212,11 +1378,33 @@ pub async fn load_sequences(
     connection_type: Option<String>,
     project_path: Option<String>,
 ) -> Result<Vec<SequenceMeta>, CoreError> {
-    let _ = (connection_type, project_path);
+    let ct = connection_type.as_deref().unwrap_or("global");
+    let pp = project_path.as_deref();
+    let cached = check_l1_cache(|mc| mc.get_sequences(&conn_id, &db_name, Some(&schema_name)))?;
+    if let Some(objects) = cached {
+        L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
+        return Ok(objects
+            .into_iter()
+            .map(|s| SequenceMeta {
+                name: s.name.clone(),
+            })
+            .collect());
+    }
+
+    if let Ok(Some(sequences)) = try_l2_sequences(&conn_id, ct, pp, &db_name, &schema_name) {
+        L2_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
+        return Ok(sequences);
+    }
+    L2_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
+
     let service = new_metadata_service();
     let sequences = service
         .list_sequences(&conn_id, &db_name, &schema_name)
         .await?;
+
+    let _ = write_l1_cache(|mc| {
+        mc.set_sequences(&conn_id, &db_name, Some(&schema_name), sequences.clone())
+    });
 
     let sequence_metas: Vec<SequenceMeta> = sequences
         .iter()
@@ -1237,11 +1425,35 @@ pub async fn load_triggers(
     connection_type: Option<String>,
     project_path: Option<String>,
 ) -> Result<Vec<TriggerMeta>, CoreError> {
-    let _ = (connection_type, project_path);
+    let ct = connection_type.as_deref().unwrap_or("global");
+    let pp = project_path.as_deref();
+    let cached = check_l1_cache(|mc| mc.get_triggers(&conn_id, &db_name, Some(&schema_name)))?;
+    if let Some(objects) = cached {
+        L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
+        return Ok(objects
+            .into_iter()
+            .map(|t| TriggerMeta {
+                name: t.name.clone(),
+                table_name: t.table_name.clone(),
+                event: t.event.clone(),
+            })
+            .collect());
+    }
+
+    if let Ok(Some(triggers)) = try_l2_triggers(&conn_id, ct, pp, &db_name, &schema_name) {
+        L2_HIT_COUNT.fetch_add(1, Ordering::Relaxed);
+        return Ok(triggers);
+    }
+    L2_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
+
     let service = new_metadata_service();
     let triggers = service
         .list_triggers(&conn_id, &db_name, &schema_name)
         .await?;
+
+    let _ = write_l1_cache(|mc| {
+        mc.set_triggers(&conn_id, &db_name, Some(&schema_name), triggers.clone())
+    });
 
     let trigger_metas: Vec<TriggerMeta> = triggers
         .iter()

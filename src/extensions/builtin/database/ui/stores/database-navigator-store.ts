@@ -498,10 +498,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     error.value = null
 
     try {
-      const dbType = connectionDbTypes.value.get(connectionId)
-      if (!dbType) return
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
 
-      const procedureMetas = await databaseApi.loadProcedures(connectionId, dbType, schemaName)
+      const procedureMetas = await databaseApi.loadProcedures(connectionId, catalogName, schemaName, connType, projectPath)
       const procedures = procedureMetas.map((p: { name: string }) => ({ name: p.name }))
 
       const catalogs = connectionCatalogs.value.get(connectionId)
@@ -530,10 +530,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     error.value = null
 
     try {
-      const dbType = connectionDbTypes.value.get(connectionId)
-      if (!dbType) return
+      const connType = connectionTypes.value.get(connectionId) || 'global'
+      const projectPath = connectionProjectPaths.value.get(connectionId)
 
-      const functionMetas = await databaseApi.loadFunctions(connectionId, dbType, schemaName)
+      const functionMetas = await databaseApi.loadFunctions(connectionId, catalogName, schemaName, connType, projectPath)
       const functions = functionMetas.map((f: { name: string }) => ({ name: f.name }))
 
       const catalogs = connectionCatalogs.value.get(connectionId)
@@ -716,10 +716,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         connType,
         projectPath
       )
-      const triggers: TriggerNode[] = triggerMetas.map((t: { name: string; tableName?: string; event?: string }) => ({
+      const triggers: TriggerNode[] = triggerMetas.map((t) => ({
         name: t.name,
-        tableName: t.tableName,
-        event: t.event,
+        tableName: t.tableName ?? undefined,
+        event: t.event ?? undefined,
       }))
 
       const catalogs = connectionCatalogs.value.get(connectionId)

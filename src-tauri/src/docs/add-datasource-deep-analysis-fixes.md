@@ -1,8 +1,37 @@
-# 新增数据源深度分析与修复 v0.6.2
+# 新增数据源深度分析与修复 v0.6.3
 
-> 日期：2026-05-23
+> 日期：2026-05-29
 > 状态：✅ 已完成
 > 基于：前后端全链路深度分析
+
+---
+
+## 零、v0.6.3 审计修复（新增）
+
+| # | 严重度 | 问题 | 根因 | 修复 |
+|---|--------|------|------|------|
+| **A1** | 🔴 致命 | 全局连接密码双重加密 | `connection_service.rs` `save_global_connection_to_db` 和 `global_db.rs` `save_global_connection` 各加密一次 | 移除 `connection_service.rs` 中的加密，统一由 `global_db.rs` 处理 |
+| **A2** | 🔴 致命 | 项目连接编辑时密码丢失 | `update_project_connection` 中 `password_encrypted: None` 硬编码 | 编辑时检查新密码：有则加密，无则保留已加密密码 |
+| **A3** | 🔴 致命 | 缺少全局连接更新命令 | 后端无 `update_global_connection` 命令，编辑全局连接无法持久化 | 新增 `global_db.rs::update_global_connection` + `connection_commands.rs::update_global_connection` Tauri command |
+| **A4** | 🔴 致命 | ProjectConnectionResponse 缺少 password 字段 | 响应未解密密码，前端编辑表单密码回填为空 | 新增 `password` 字段，`From<ProjectConnection>` 中调用 `decrypt_password()` |
+| **A5** | 🟡 高 | 名称唯一性检查误杀编辑场景 | SQL `WHERE name = ?1` 不排除自身 ID，编辑即报"已存在" | SQL 增加 `AND id != ?2`，编辑自身时不触发冲突 |
+| **A6** | 🔴 致命 | GlobalConnectionInfoResponse 缺字段 | 响应缺少 `schema_name`/`options`/`use_duckdb_fed`/`metadata_path` | 补全 `GlobalConnectionInfoResponse` 和 `get_global_connections` 映射 |
+| **A7** | 🔴 致命 | UpdateGlobalConnectionInput 缺字段 | 更新命令映射中 `schema_name: None`/`options: None`/`use_duckdb_fed: None`/`metadata_path: None` 硬编码 | 从 input 透传，补全 `UpdateGlobalConnectionInput` 字段 |
+| **A8** | 🔴 致命 | project-connection.ts mapResponse 字段下沉到 properties | `schema_name`/`driver_id`/`description` 等关键字段被放入 `properties` 对象而非顶层，`initFromConnection` 读取全为 undefined | 所有字段从 `properties` 提升到 `ProjectConnection` 顶层，与 TypeScript 接口对齐 |
+| **A9** | 🟡 高 | 编辑模式下 handleApply 只创建不更新 | `handleApply` 无编辑分支，编辑已有连接时走新建流程 | 新增 `handleEditApply`：根据 `isEditing` 调用 `updateProjectConnection` 或 `updateGlobalConnection` |
+| **A10** | 🟡 高 | connection.ts 缺少 updateGlobalConnection 服务函数 | 前端无 API 函数调用新增的后端命令 | 新增 `updateGlobalConnection()` 和 `getGlobalConnection()` 函数 |
+
+### 变更文件清单 (v0.6.3)
+
+| 文件 | 变更 |
+|------|------|
+| `src-tauri/src/core/services/connection_service.rs` | A1: 移除 `save_global_connection_to_db` 中重复的密码加密 |
+| `src-tauri/src/commands/connection_commands.rs` | A3: 新增 `update_global_connection` 命令；A6: 补全 `GlobalConnectionInfoResponse`；A7: 补全 `UpdateGlobalConnectionInput` + 映射 |
+| `src-tauri/src/core/persistence/global_db.rs` | A3: 新增 `update_global_connection()` 方法；A5: SQL 增加 `AND id != ?2` |
+| `src-tauri/src/commands/project_store_commands.rs` | A2: `update_project_connection` 密码保留逻辑；A4: `ProjectConnectionResponse` 新增 `password` + 解密 |
+| `src/extensions/builtin/connection/ui/services/project-connection.ts` | A8: `mapResponse` 字段全部提升到顶层，移除 `properties` 包装 |
+| `src/extensions/builtin/connection/ui/services/connection.ts` | A10: 新增 `updateGlobalConnection()` / `getGlobalConnection()` |
+| `src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue` | A9: `handleEditApply` 编辑更新流程；`editingConnId` 状态跟踪 |
 
 ---
 
@@ -122,5 +151,6 @@
 
 ## 六、验证
 
-- `cargo check` → 0 errors, 0 warnings
-- `pnpm run lint` → 0 errors, 263 warnings（全部已有）
+- `cargo check --lib` → 0 errors, 0 warnings
+- `cargo clippy --lib -- -D warnings` → 0 errors, 0 warnings
+- `pnpm run lint` → 0 errors, 274 warnings（全部已有）

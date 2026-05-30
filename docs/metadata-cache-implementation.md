@@ -272,7 +272,154 @@
   - `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — computeSchemaStats + updateSchemaTables 自动统计
   - `src/extensions/builtin/database/ui/types/virtual-tree.ts` — ITreeNodeData 扩展 7 个统计字段
 
-- **Quality Gates**：`cargo clippy -- -D warnings`（0 errors）、`cargo fmt`（passed）、`pnpm typecheck`（仅 1 个预存在的无关错误）
+- **Quality Gates**：`cargo clippy -- -D warnings`（0 errors）、`cargo fmt`（passed）、`pnpm typecheck`（0 errors）
+
+### 12. 数据导航栏全链路修复（V10.5）
+
+**审计发现**：6 层全栈审计（Driver → Cache → Tauri Command → Frontend API → Store → Tree Loader → UI）共发现 10 项遗漏。
+
+#### P0 — 关键 Bug 修复
+
+- **P0-1: `loadProcedures` / `loadFunctions` 传参错误**：
+  - 缺陷：Store 将 `connectionDbTypes.value.get()` 返回的驱动类型名（如 "postgresql"）错误地当作 `catalogName` 传给后端
+  - 修复：`database-navigator-store.ts` 中 `loadProcedures` 和 `loadFunctions` 改为直接传递 `catalogName` 参数
+  - 影响：修复后 PostgreSQL/MySQL 的存储过程和函数列表能正常加载
+
+- **P0-2: 视图列无法加载**：
+  - 缺陷①：`view` 节点展开时未调用 `loadColumns`，直接跳到 `createColumnNodes`
+  - 缺陷②：`createColumnNodes` 只查 `getSchemaTables`，不查 `getSchemaViews`，永远找不到视图
+  - 修复：`use-database-tree-loader.ts` 中添加 `await navigatorStore.loadColumns(...)` 调用，且 `createColumnNodes` 增加了 `getSchemaViews` 回退查找
+  - 影响：修复后视图展开能正常显示列列表
+
+- **P0-3: `load_sequences` / `load_triggers` 无 L1 缓存**：
+  - `metadata_cache.rs` 新增 `Sequences` / `Triggers` key 变体、getter/setter 方法
+  - `metadata_commands.rs` 中 `load_sequences` / `load_triggers` 添加完整 `check_l1_cache` + `write_l1_cache` 缓存链路
+  - `estimated_memory_usage()` 匹配新增的 key 变体
+
+#### P1 — 数据完整性与架构修复
+
+- **P1-1: MetadataService 新增 MetadataBrowser 回退路径**：
+  - `list_sequences` / `list_triggers` 增加 `as_metadata_browser()` 优先路径（NodeInfo → SchemaObject 转换）
+  - 与 `list_tables` / `list_indexes` / `list_constraints` 保持一致的双路径架构
+
+- **P1-2: `load_procedures` / `load_functions` 新增 `connection_type`/`project_path` 参数**：
+  - Rust 侧：4 个命令签名统一添加 `connection_type: Option<String>, project_path: Option<String>`
+  - 参数暂未用于 L2 缓存（需后续实现 L2 procedures/functions 表），但为 Specta 类型生成和 L2 打通预留
+
+- **P1-3: 前端 `loadSequences`/`loadTriggers` 连接参数链路**：
+  - API 层 `loadSequences`/`loadTriggers` 已支持 `connectionType`/`projectPath` 参数（raw invoke）
+  - Store 层 `loadSequences`/`loadTriggers` 已从 `connectionTypes`/`connectionProjectPaths` 中获取并传递
+
+- **P1-6: 默认 NavigationConfig 开放**：
+  - 文件夹默认全开：`functions`/`procedures`/`sequences`/`triggers` 由 `enabled: false` → `enabled: true`
+  - 表子文件夹默认开：`indexes`/`constraints` 由 `false` → `true`
+  - 影响：PostgreSQL 连接可见全部对象文件夹，表节点下 Indexes/Constraints 可展开
+
+#### P2 — 体验改善
+
+- **P2-2: 视图节点 Tooltip**：
+  - `virtual-tree-node.vue` 新增 `view` 类型 tooltip（"类型: 视图" + 行数/数据大小，当数据可用时）
+
+- **修改文件**：
+  - `src-tauri/src/core/cache/metadata_cache.rs` — 新增 Sequences/Triggers key + getter/setter
+  - `src-tauri/src/core/services/metadata_service.rs` — list_sequences/list_triggers 增加 MetadataBrowser 回退
+  - `src-tauri/src/commands/metadata_commands.rs` — 4 个命令添加 connection_type/project_path 参数 + L1 缓存链路
+  - `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — P0-1 传参修复
+  - `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — P0-2 视图列加载修复
+  - `src/extensions/builtin/database/ui/components/virtual-tree-node.vue` — P2-2 视图 tooltip
+  - `src/extensions/builtin/connection/ui/utils/schema-loader.ts` — P1-6 默认导航配置开放
+
+- **Quality Gates**：`cargo clippy -- -D warnings`（0 errors）、`cargo fmt`（passed）、`pnpm typecheck`（0 errors）
+
+### 13. Specta 类型迁移完成（V10.5.1）
+
+完成 Specta 类型绑定迁移，将 V10.5 中遗留的手动类型定义和 raw invoke 全部迁移到类型安全的 Specta typed commands。
+
+#### Specta bindings 手动同步
+
+> **背景**：由于 Specta 代码生成步骤（`cargo build`）在开发流程中未稳定执行，V10.5.1 采用手动同步策略：先修改 Rust 命令签名和类型定义，再手动同步 `bindings.ts` 以确保前后端类型一致。
+
+- **Rust 侧新增类型**（`metadata_commands.rs`）：
+  - `SequenceMeta { name: String }` — 序列元数据，标记 `#[derive(Type)]` + `#[specta::specta]`
+  - `TriggerMeta { name, table_name: Option<String>, event: Option<String> }` — 触发器元数据，`serde(rename = "tableName"/"event")` 确保 camelCase 序列化
+
+- **Rust 侧命令签名更新**（4 个命令）：
+  - `load_sequences` / `load_triggers`：新增 `connection_type: Option<String>, project_path: Option<String>` 参数
+  - `load_procedures` / `load_functions`：同上，新增连接参数
+  - 参数暂不用于 L2 缓存查询，但为 L2 打通和 Specta 类型生成预留完整签名
+
+- **`bindings.ts` 手动同步**：
+  - `commands` 对象新增 `loadSequences` / `loadTriggers`（含 `connectionType`/`projectPath` 参数）
+  - `commands.loadProcedures` / `commands.loadFunctions` 签名更新：增加 `connectionType`/`projectPath` 参数
+  - 新增导出类型：`SequenceMeta { name }` / `TriggerMeta { name, tableName: string | null, event: string | null }`
+
+#### 前端 API 层迁移
+
+- **`database-api.ts` 迁移到 Specta typed commands**：
+  - 移除手动定义的 `SequenceMeta` / `TriggerMeta` 接口
+  - 改为从 `@/generated/specta/bindings` 统一导入所有元数据类型
+  - `loadProcedures` / `loadFunctions` / `loadSequences` / `loadTriggers` 全部使用 `typed(commands.xxx(...))` 调用
+  - 所有方法新增 `connectionType?: string, projectPath?: string` 可选参数，以 `?? null` 传递
+
+- **`database-navigator-store.ts` 类型适配**：
+  - `loadProcedures` / `loadFunctions` 调用传递 `connType` / `projectPath`
+  - `loadSequences` / `loadTriggers` 调用传递 `connType` / `projectPath`
+  - `TriggerMeta` 类型转换：`tableName: t.tableName ?? undefined` / `event: t.event ?? undefined`（`string | null` → `string | undefined`）
+
+#### 验证结果
+
+- `pnpm run typecheck`（vue-tsc --noEmit）：✅ 0 errors
+- `cargo check`：✅ 0 errors（`Finished dev profile`）
+- `cargo clippy -- -D warnings`：✅ 0 errors
+- `cargo fmt`：✅ passed
+
+#### 仍待完成
+
+- **Specta 绑定的 Rust 源码级重新生成**：✅ **已完成**（V10.5.3）。`cargo build`（debug 模式）已自动重新生成 `bindings.ts`，输出与手动版本一致，确认 `SequenceMeta`/`TriggerMeta` 类型和 4 个命令的 `connectionType`/`projectPath` 参数均已正确导出。
+
+- **修改文件（V10.5.1）**：
+  - `src/generated/specta/bindings.ts` — 手动同步 SequenceMeta/TriggerMeta 类型和 4 个命令签名
+  - `src/extensions/builtin/database/ui/api/database-api.ts` — 迁移到 Specta typed commands，移除手动类型
+  - `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — 类型适配（null → undefined）
+
+### 14. L2 缓存补齐 + 计数器统一（V10.5.2）
+
+V10.5 遗留审计发现：`load_sequences` / `load_triggers` / `load_procedures` / `load_functions` 四个命令缺少 L2（SQLite）缓存回退路径，而 databases/schemas/tables/columns 均有完整 L2 链路。
+
+#### L2 缓存补齐
+
+- **4 个 `try_l2_*` 辅助函数**（[metadata_commands.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/commands/metadata_commands.rs)）：
+  - `try_l2_procedures` — 查询 L2 `routines` 表，`routine_type = 'PROCEDURE'`，JOIN `schemata` 按 `catalog_name + schema_name` 过滤
+  - `try_l2_functions` — 同上，`routine_type = 'FUNCTION'`
+  - `try_l2_sequences` — 查询 L2 `sequences` 表，JOIN `schemata` 过滤
+  - `try_l2_triggers` — 查询 L2 `triggers` 表，JOIN `tables` + `schemata`，返回 `(trigger_name, table_name, trigger_event)` 三列
+  - 所有函数遵循 `try_l2_tables` / `try_l2_columns` 模式：`open_l2_cache` → `get_connection()` → raw SQL → 空结果返回 `Ok(None)`
+
+- **4 个 `load_*` 命令接入 L2**：
+  - 移除 `let _ = (connection_type, project_path);` 占位代码
+  - 改为 `let ct = connection_type.as_deref().unwrap_or("global")` + `let pp = project_path.as_deref()`
+  - L2 命中 → `L2_HIT_COUNT.fetch_add(1)` + 直接返回（L2 已有数据，不重复写 L1）
+  - L2 未命中 → `L2_MISS_COUNT.fetch_add(1)` + 回退到 MetadataService 直接查询
+  - 缓存链路完整：L1 → L2 → DB Query → write L1
+
+#### 原子计数器统一
+
+4 个 `load_*` 命令的 L1 命中路径补充 `L1_HIT_COUNT.fetch_add(1, Ordering::Relaxed)`（之前缺失），与 `load_databases` / `load_schemas` / `load_tables` / `load_columns` 保持一致的统计口径。
+
+#### 前端类型断言说明（P2）
+
+`database-api.ts` 中的 `as unknown as ICatalogMeta[]` 等类型断言是 Specta 生成类型 ↔ 自定义树形接口之间的必要桥接。自定义接口（`ICatalogMeta` / `ISchemaMeta` / `ITableMeta` / `IViewMeta` / `IColumnMeta`）扩展了 Specta 类型以支持树形导航的嵌套结构（`schemas?` / `tables?` / `views?` / `columns?` 可选字段），这些字段在 API 层返回时为 `undefined`，由 Store/Tree Loader 层按需填充。断言安全且无运行时开销。
+
+#### 验证结果
+
+- `cargo check`：✅ 0 errors
+- `cargo clippy -- -D warnings`：✅ 0 warnings
+- `cargo fmt`：✅ passed
+- `pnpm typecheck`：✅ 0 errors
+
+- **修改文件（V10.5.2）**：
+  - `src-tauri/src/commands/metadata_commands.rs` — 新增 4 个 `try_l2_*` 函数 + 4 个 `load_*` 命令接入 L2 + L1 计数器补充
+  - `docs/metadata-cache-implementation.md` — 本文档
 
 ---
-**最后更新**: 2026-05-28 (V10.4 缓存预热实际化 + 导航树统计增强)
+**最后更新**: 2026-05-30 (V10.5.2 L2 缓存补齐 + V10.5.3 Specta 自动生成确认)

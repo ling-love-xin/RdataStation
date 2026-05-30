@@ -61,6 +61,7 @@ pub struct ConnectRequest {
     pub metadata_path: Option<String>,
     pub schema_name: Option<String>,
     pub use_duckdb_fed: Option<bool>,
+    pub password: Option<String>,
     pub skip_persistence: Option<bool>,
     pub network_method: Option<ConnectionMethod>,
 }
@@ -127,6 +128,7 @@ impl ConnectionService {
             metadata_path: None,
             schema_name: None,
             use_duckdb_fed: None,
+            password: None,
             skip_persistence: None,
             network_method: None,
         })
@@ -180,6 +182,7 @@ impl ConnectionService {
             metadata_path,
             schema_name,
             use_duckdb_fed,
+            password,
             skip_persistence,
             network_method,
         } = req;
@@ -340,7 +343,9 @@ impl ConnectionService {
         // 对于全局连接，保存到全局 SQLite 数据库（skip_persistence 时跳过）
         if !skip_persistence.unwrap_or(false) && connection_type == ConnectionType::Global {
             // 从 URL 中解析 username 和 password
-            let (username, password) = Self::extract_credentials_from_url(&url);
+            let (url_username, url_password) = Self::extract_credentials_from_url(&url);
+            // 优先使用直接传入的 password，回退到 URL 解析
+            let effective_password = password.or(url_password);
 
             // 标签：优先使用输入值，无输入时默认 ["global"]
             let final_tags = tags.clone().or(Some("[\"global\"]".to_string()));
@@ -350,8 +355,8 @@ impl ConnectionService {
                     name: &connection_name,
                     db_type: &db_type,
                     url: &safe_url,
-                    username: username.as_deref(),
-                    password: password.as_deref(),
+                    username: url_username.as_deref(),
+                    password: effective_password.as_deref(),
                     tags: final_tags.as_deref(),
                     server_version: server_version.as_deref(),
                     description: description.as_deref(),
@@ -409,18 +414,6 @@ impl ConnectionService {
             ))
         })?;
 
-        let encrypted_password = match input.password {
-            Some(p) if !p.is_empty() => {
-                Some(crate::core::crypto::encrypt_password(p).map_err(|e| {
-                    CoreError::common(crate::core::error::CommonError::Internal(format!(
-                        "Password encryption failed: {}",
-                        e
-                    )))
-                })?)
-            }
-            _ => input.password.map(|p| p.to_string()),
-        };
-
         global_db
             .save_global_connection(GlobalConnectionSaveInput {
                 conn_id: input.conn_id,
@@ -428,7 +421,7 @@ impl ConnectionService {
                 db_type: input.db_type,
                 url: input.url,
                 username: input.username,
-                password: encrypted_password.as_deref(),
+                password: input.password,
                 tags: input.tags,
                 server_version: input.server_version,
                 description: input.description,

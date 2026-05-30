@@ -206,6 +206,68 @@ export async function getGlobalConnections(): Promise<GlobalConnectionInfoRespon
 }
 
 /**
+ * 获取单个全局连接（通过 ID 过滤）
+ */
+export async function getGlobalConnection(
+  connId: string
+): Promise<GlobalConnectionInfoResponse | null> {
+  const all = await typed(commands.getGlobalConnections())
+  return all.find(c => c.id === connId) ?? null
+}
+
+/**
+ * 更新全局连接
+ */
+export async function updateGlobalConnection(input: {
+  conn_id: string
+  name?: string
+  driver?: string
+  host?: string
+  port?: number
+  database?: string
+  schema_name?: string
+  username?: string
+  password?: string
+  options?: string
+  tags?: string[]
+  use_duckdb_fed?: boolean
+  metadata_path?: string
+  driver_id?: string
+  environment_id?: string
+  auth_config_id?: string
+  auth_method?: string
+  network_config_id?: string
+  driver_properties?: string
+  advanced_options?: string
+  description?: string
+}): Promise<void> {
+  const payload: Record<string, unknown> = {
+    conn_id: input.conn_id,
+    name: input.name ?? null,
+    driver: input.driver ?? null,
+    host: input.host ?? null,
+    port: input.port ?? null,
+    database: input.database ?? null,
+    schema_name: input.schema_name ?? null,
+    username: input.username ?? null,
+    password: input.password ?? null,
+    options: input.options ?? null,
+    tags: input.tags ?? null,
+    use_duckdb_fed: input.use_duckdb_fed ?? null,
+    metadata_path: input.metadata_path ?? null,
+    driver_id: input.driver_id ?? null,
+    environment_id: input.environment_id ?? null,
+    auth_config_id: input.auth_config_id ?? null,
+    auth_method: input.auth_method ?? null,
+    network_config_id: input.network_config_id ?? null,
+    driver_properties: input.driver_properties ?? null,
+    advanced_options: input.advanced_options ?? null,
+    description: input.description ?? null,
+  }
+  await tauriInvoke('update_global_connection', payload)
+}
+
+/**
  * 保存导航器状态
  * 注意：filter_config 被 #[specta(skip)]，不通过 specta 通道传输
  */

@@ -311,6 +311,32 @@ impl GlobalDuckdbConnection {
     }
 }
 
+/// 全局连接更新输入参数
+pub struct GlobalConnectionUpdateInput {
+    pub conn_id: String,
+    pub name: String,
+    pub driver: Option<String>,
+    pub host: Option<String>,
+    pub port: Option<i32>,
+    pub database: Option<String>,
+    pub schema_name: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub tags: Option<String>,
+    pub server_version: Option<String>,
+    pub description: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
+    pub network_config_id: Option<String>,
+    pub options: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
+    pub use_duckdb_fed: Option<bool>,
+    pub metadata_path: Option<String>,
+}
+
 /// 全局系统数据库管理器
 ///
 /// 统一管理全局 SQLite 和 DuckDB 连接
@@ -672,12 +698,12 @@ impl GlobalDatabaseManager {
             }));
         }
 
-        // A4-U1: 全局连接名称唯一性检查
+        // A4-U1: 全局连接名称唯一性检查（排除自身，支持编辑）
         let dup_count: i64 = conn
             .inner()?
             .query_row(
-                "SELECT COUNT(*) FROM global_connections WHERE name = ?1 AND is_active = 1",
-                [input.name],
+                "SELECT COUNT(*) FROM global_connections WHERE name = ?1 AND is_active = 1 AND id != ?2",
+                rusqlite::params![input.name, input.conn_id],
                 |row| row.get(0),
             )
             .map_err(|e| {
@@ -759,6 +785,123 @@ impl GlobalDatabaseManager {
         }))?;
 
         tracing::info!("全局连接信息已保存: {} ({})", input.name, input.conn_id);
+        Ok(())
+    }
+
+    /// 更新全局连接信息
+    pub async fn update_global_connection(
+        &self,
+        input: GlobalConnectionUpdateInput,
+    ) -> Result<(), CoreError> {
+        if input.name.is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: "连接名称不能为空".to_string(),
+            }));
+        }
+
+        let conn = self.sqlite_pool.acquire().await?;
+
+        // 名称唯一性检查（排除自身）
+        let dup_count: i64 = conn
+            .inner()?
+            .query_row(
+                "SELECT COUNT(*) FROM global_connections WHERE name = ?1 AND is_active = 1 AND id != ?2",
+                rusqlite::params![input.name, input.conn_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "check_duplicate_global_name_update".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+        if dup_count > 0 {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: format!("连接名称 \"{}\" 已存在，请使用其他名称", input.name),
+            }));
+        }
+
+        // 密码：如果提供新密码则加密，否则保留现有值
+        let password_encrypted = match input.password {
+            Some(p) if !p.is_empty() => {
+                Some(crate::core::crypto::encrypt_password(&p).map_err(|e| {
+                    CoreError::common(CommonError::General(format!("密码加密失败: {}", e)))
+                })?)
+            }
+            _ => {
+                let existing: Option<String> = conn
+                    .inner()?
+                    .query_row(
+                        "SELECT password_encrypted FROM global_connections WHERE id = ?1",
+                        [&input.conn_id],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(|e| {
+                        CoreError::storage(StorageError::Persistence {
+                            store: "sqlite".to_string(),
+                            operation: "read_existing_password_update".to_string(),
+                            reason: e.to_string(),
+                        })
+                    })?
+                    .flatten();
+                existing
+            }
+        };
+
+        let use_duckdb_fed_str = input
+            .use_duckdb_fed
+            .map(|v| if v { "1" } else { "0" })
+            .unwrap_or("0");
+
+        conn.inner()?
+            .execute(
+                "UPDATE global_connections SET
+                name = ?2, driver = ?3, host = ?4, port = ?5, database = ?6,
+                schema_name = ?7, username = ?8, password_encrypted = ?9,
+                options = ?10, tags = ?11, use_duckdb_fed = ?12,
+                metadata_path = ?13, server_version = ?14, description = ?15,
+                driver_id = ?16, environment_id = ?17, auth_config_id = ?18,
+                auth_method = ?19, network_config_id = ?20,
+                driver_properties = ?21, advanced_options = ?22, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?1 AND is_active = 1",
+                rusqlite::params![
+                    input.conn_id,
+                    input.name,
+                    input.driver.as_deref().unwrap_or(""),
+                    input.host.as_deref().unwrap_or(""),
+                    input.port.map(|p| p.to_string()).unwrap_or_default(),
+                    input.database.as_deref().unwrap_or(""),
+                    input.schema_name.as_deref().unwrap_or(""),
+                    input.username.as_deref().unwrap_or(""),
+                    password_encrypted.as_deref().unwrap_or(""),
+                    input.options.as_deref().unwrap_or(""),
+                    input.tags.as_deref().unwrap_or(""),
+                    use_duckdb_fed_str,
+                    input.metadata_path.as_deref().unwrap_or(""),
+                    input.server_version.as_deref().unwrap_or(""),
+                    input.description.as_deref().unwrap_or(""),
+                    input.driver_id.as_deref().unwrap_or(""),
+                    input.environment_id.as_deref().unwrap_or(""),
+                    input.auth_config_id.as_deref().unwrap_or(""),
+                    input.auth_method.as_deref().unwrap_or(""),
+                    input.network_config_id.as_deref().unwrap_or(""),
+                    input.driver_properties.as_deref().unwrap_or(""),
+                    input.advanced_options.as_deref().unwrap_or(""),
+                ],
+            )
+            .map_err(|e| {
+                CoreError::storage(StorageError::Persistence {
+                    store: "sqlite".to_string(),
+                    operation: "update_global_connection".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
+        tracing::info!("全局连接信息已更新: {} ({})", input.name, input.conn_id);
         Ok(())
     }
 

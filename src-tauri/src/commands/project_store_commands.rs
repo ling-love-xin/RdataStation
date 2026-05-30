@@ -23,6 +23,7 @@ pub struct ProjectConnectionResponse {
     pub database: Option<String>,
     pub schema_name: Option<String>,
     pub username: Option<String>,
+    pub password: Option<String>,
     pub options: Option<String>,
     pub tags: Option<String>,
     pub use_duckdb_fed: bool,
@@ -37,12 +38,17 @@ pub struct ProjectConnectionResponse {
     pub network_config_id: Option<String>,
     pub driver_properties: Option<String>,
     pub advanced_options: Option<String>,
+    pub connection_type: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
 
 impl From<ProjectConnection> for ProjectConnectionResponse {
     fn from(conn: ProjectConnection) -> Self {
+        let password = conn
+            .password_encrypted
+            .and_then(|p| crate::core::crypto::decrypt_password(&p).ok());
+
         Self {
             id: conn.id,
             name: conn.name,
@@ -52,6 +58,7 @@ impl From<ProjectConnection> for ProjectConnectionResponse {
             database: conn.database,
             schema_name: conn.schema_name,
             username: conn.username,
+            password,
             options: conn.options,
             tags: conn.tags,
             use_duckdb_fed: conn.use_duckdb_fed,
@@ -66,6 +73,7 @@ impl From<ProjectConnection> for ProjectConnectionResponse {
             network_config_id: conn.network_config_id,
             driver_properties: conn.driver_properties,
             advanced_options: conn.advanced_options,
+            connection_type: Some("project".to_string()),
             created_at: conn.created_at,
             updated_at: conn.updated_at,
         }
@@ -244,6 +252,26 @@ pub async fn update_project_connection(
 ) -> Result<(), CoreError> {
     let db_manager = get_db_manager(&project_path, state).await?;
 
+    let connection_store =
+        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(
+            db_manager.clone(),
+        );
+
+    let password_encrypted = match &connection.password {
+        Some(p) if !p.is_empty() => {
+            Some(crate::core::crypto::encrypt_password(p).map_err(|e| {
+                CoreError::common(CommonError::General(format!("密码加密失败: {}", e)))
+            })?)
+        }
+        _ => {
+            let existing = connection_store
+                .get_connection(&connection.id)
+                .await
+                .map_err(|e| CoreError::from(e.to_string()))?;
+            existing.and_then(|c| c.password_encrypted)
+        }
+    };
+
     let conn = ProjectConnection {
         id: connection.id,
         name: connection.name,
@@ -253,7 +281,7 @@ pub async fn update_project_connection(
         database: connection.database,
         schema_name: connection.schema_name,
         username: connection.username,
-        password_encrypted: None,
+        password_encrypted,
         options: connection.options,
         tags: connection.tags,
         use_duckdb_fed: connection.use_duckdb_fed,
@@ -272,8 +300,6 @@ pub async fn update_project_connection(
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
 
-    let connection_store =
-        crate::core::persistence::project_connection_store::ProjectConnectionStore::new(db_manager);
     connection_store
         .update_connection(&conn)
         .await

@@ -138,6 +138,20 @@ impl MetadataService {
         schema: &str,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let db = self.get_database(conn_id).await?;
+        if let Some(browser) = db.as_metadata_browser() {
+            let nodes = browser.get_sequences(catalog, schema).await?;
+            return Ok(nodes
+                .into_iter()
+                .map(|n| SchemaObject {
+                    name: n.name,
+                    kind: n.kind,
+                    children: None,
+                    comment: n.comment,
+                    table_name: None,
+                    event: None,
+                })
+                .collect());
+        }
         db.list_sequences(catalog, Some(schema)).await
     }
 
@@ -148,6 +162,20 @@ impl MetadataService {
         schema: &str,
     ) -> Result<Vec<SchemaObject>, CoreError> {
         let db = self.get_database(conn_id).await?;
+        if let Some(browser) = db.as_metadata_browser() {
+            let nodes = browser.get_triggers(catalog, schema).await?;
+            return Ok(nodes
+                .into_iter()
+                .map(|n| SchemaObject {
+                    name: n.name,
+                    kind: n.kind,
+                    children: None,
+                    comment: n.comment,
+                    table_name: None,
+                    event: None,
+                })
+                .collect());
+        }
         db.list_triggers(catalog, Some(schema)).await
     }
 

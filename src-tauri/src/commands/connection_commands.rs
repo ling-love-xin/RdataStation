@@ -35,6 +35,7 @@ pub struct ConnectDatabaseInput {
     pub metadata_path: Option<String>,
     pub schema_name: Option<String>,
     pub use_duckdb_fed: Option<bool>,
+    pub password: Option<String>,
 }
 
 /// 连接响应
@@ -271,6 +272,7 @@ pub async fn connect_database(
             metadata_path: input.metadata_path.clone(),
             schema_name: input.schema_name.clone(),
             use_duckdb_fed: input.use_duckdb_fed,
+            password: input.password.clone(),
             skip_persistence: None, // normal connections DO persist
             network_method,
         })
@@ -973,9 +975,13 @@ pub struct GlobalConnectionInfoResponse {
     pub host: Option<String>,
     pub port: Option<i32>,
     pub database: Option<String>,
+    pub schema_name: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
+    pub options: Option<String>,
     pub tags: Vec<String>,
+    pub use_duckdb_fed: bool,
+    pub metadata_path: Option<String>,
     pub is_active: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -1086,9 +1092,13 @@ pub async fn get_global_connections() -> Result<Vec<GlobalConnectionInfoResponse
                 host: conn.host,
                 port: conn.port,
                 database: conn.database,
+                schema_name: conn.schema_name,
                 username: conn.username,
                 password,
+                options: conn.options,
                 tags,
+                use_duckdb_fed: conn.use_duckdb_fed,
+                metadata_path: conn.metadata_path,
                 is_active: conn.is_active,
                 created_at: conn.created_at,
                 updated_at: conn.updated_at,
@@ -1113,6 +1123,83 @@ pub struct ValidationResult {
     pub valid: bool,
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
+}
+
+/// 更新全局连接请求参数
+#[derive(serde::Deserialize, Debug, specta::Type)]
+pub struct UpdateGlobalConnectionInput {
+    pub conn_id: String,
+    pub name: Option<String>,
+    pub url: Option<String>,
+    pub driver: Option<String>,
+    pub host: Option<String>,
+    pub port: Option<i32>,
+    pub database: Option<String>,
+    pub schema_name: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub options: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub use_duckdb_fed: Option<bool>,
+    pub metadata_path: Option<String>,
+    pub driver_id: Option<String>,
+    pub environment_id: Option<String>,
+    pub auth_config_id: Option<String>,
+    pub auth_method: Option<String>,
+    pub network_config_id: Option<String>,
+    pub driver_properties: Option<String>,
+    pub advanced_options: Option<String>,
+    pub description: Option<String>,
+}
+
+/// 更新全局连接
+#[tauri::command]
+#[specta::specta]
+pub async fn update_global_connection(input: UpdateGlobalConnectionInput) -> Result<(), CoreError> {
+    use crate::core::persistence::global_db::GlobalConnectionUpdateInput;
+
+    let global_db = crate::core::migration::global_init::get_global_db_manager()
+        .ok_or_else(|| CoreError::from("Global database manager not initialized".to_string()))?;
+
+    let name = input
+        .name
+        .clone()
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| format!("unknown-{}", &input.conn_id[..8.min(input.conn_id.len())]));
+
+    let tags_json = input
+        .tags
+        .map(|t| serde_json::to_string(&t).unwrap_or_default());
+
+    let db_input = GlobalConnectionUpdateInput {
+        conn_id: input.conn_id,
+        name,
+        driver: input.driver,
+        host: input.host,
+        port: input.port,
+        database: input.database,
+        schema_name: input.schema_name,
+        username: input.username,
+        password: input.password,
+        tags: tags_json,
+        server_version: None,
+        description: input.description,
+        driver_id: input.driver_id,
+        environment_id: input.environment_id,
+        auth_config_id: input.auth_config_id,
+        auth_method: input.auth_method,
+        network_config_id: input.network_config_id,
+        options: input.options,
+        driver_properties: input.driver_properties,
+        advanced_options: input.advanced_options,
+        use_duckdb_fed: input.use_duckdb_fed,
+        metadata_path: input.metadata_path,
+    };
+
+    global_db
+        .update_global_connection(db_input)
+        .await
+        .map_err(|e| CoreError::from(format!("Failed to update global connection: {}", e)))
 }
 
 #[tauri::command]

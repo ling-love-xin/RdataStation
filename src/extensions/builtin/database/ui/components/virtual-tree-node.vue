@@ -205,6 +205,13 @@ const tooltipContent = computed(() => {
     if (d.indexLength != null) parts.push(`索引大小: ${formatBytes(d.indexLength)}`)
     return parts.length > 0 ? parts.join('\n') : undefined
   }
+  if (node.type === 'view') {
+    const d = node.data
+    const parts: string[] = ['类型: 视图']
+    if (d.rowCount != null) parts.push(`行数: ${formatNumber(d.rowCount)}`)
+    if (d.dataLength != null) parts.push(`数据大小: ${formatBytes(d.dataLength)}`)
+    return parts.length > 0 ? parts.join('\n') : undefined
+  }
   if (node.type === 'schema') {
     const d = node.data
     const parts: string[] = []

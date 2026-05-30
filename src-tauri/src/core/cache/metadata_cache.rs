@@ -60,6 +60,18 @@ pub enum MetadataCacheKey {
         schema: Option<String>,
         table: String,
     },
+    /// 序列列表
+    Sequences {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+    },
+    /// 触发器列表
+    Triggers {
+        conn_id: String,
+        database: String,
+        schema: Option<String>,
+    },
     /// 数据源元数据
     DataSourceMeta { conn_id: String },
     /// 过程/函数 DDL 源码
@@ -142,6 +154,32 @@ impl MetadataCacheKey {
         }
     }
 
+    /// 创建序列列表键
+    pub fn sequences(
+        conn_id: impl Into<String>,
+        database: impl Into<String>,
+        schema: Option<String>,
+    ) -> Self {
+        Self::Sequences {
+            conn_id: conn_id.into(),
+            database: database.into(),
+            schema,
+        }
+    }
+
+    /// 创建触发器列表键
+    pub fn triggers(
+        conn_id: impl Into<String>,
+        database: impl Into<String>,
+        schema: Option<String>,
+    ) -> Self {
+        Self::Triggers {
+            conn_id: conn_id.into(),
+            database: database.into(),
+            schema,
+        }
+    }
+
     /// 创建过程/函数源码键
     pub fn routine_source(
         conn_id: impl Into<String>,
@@ -171,6 +209,8 @@ impl MetadataCacheKey {
             Self::Procedures { conn_id, .. } => conn_id,
             Self::Functions { conn_id, .. } => conn_id,
             Self::Constraints { conn_id, .. } => conn_id,
+            Self::Sequences { conn_id, .. } => conn_id,
+            Self::Triggers { conn_id, .. } => conn_id,
             Self::DataSourceMeta { conn_id } => conn_id,
             Self::RoutineSource { conn_id, .. } => conn_id,
         }
@@ -325,6 +365,34 @@ impl MetadataCache {
         schema: Option<&str>,
     ) -> Option<Vec<SchemaObject>> {
         let key = MetadataCacheKey::functions(conn_id, database, schema.map(|s| s.to_string()));
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::SchemaObjects(list) => Some(list),
+            _ => None,
+        })
+    }
+
+    /// 获取序列列表
+    pub fn get_sequences(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+    ) -> Option<Vec<SchemaObject>> {
+        let key = MetadataCacheKey::sequences(conn_id, database, schema.map(|s| s.to_string()));
+        self.cache.get(&key).and_then(|v| match v {
+            MetadataCacheValue::SchemaObjects(list) => Some(list),
+            _ => None,
+        })
+    }
+
+    /// 获取触发器列表
+    pub fn get_triggers(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+    ) -> Option<Vec<SchemaObject>> {
+        let key = MetadataCacheKey::triggers(conn_id, database, schema.map(|s| s.to_string()));
         self.cache.get(&key).and_then(|v| match v {
             MetadataCacheValue::SchemaObjects(list) => Some(list),
             _ => None,
@@ -527,6 +595,32 @@ impl MetadataCache {
         self.cache.put_with_ttl(key, value, Some(self.default_ttl));
     }
 
+    /// 设置序列列表
+    pub fn set_sequences(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        sequences: Vec<SchemaObject>,
+    ) {
+        let key = MetadataCacheKey::sequences(conn_id, database, schema.map(|s| s.to_string()));
+        let value = MetadataCacheValue::SchemaObjects(sequences);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
+    /// 设置触发器列表
+    pub fn set_triggers(
+        &mut self,
+        conn_id: &str,
+        database: &str,
+        schema: Option<&str>,
+        triggers: Vec<SchemaObject>,
+    ) {
+        let key = MetadataCacheKey::triggers(conn_id, database, schema.map(|s| s.to_string()));
+        let value = MetadataCacheValue::SchemaObjects(triggers);
+        self.cache.put_with_ttl(key, value, Some(self.default_ttl));
+    }
+
     /// 设置数据源元数据
     pub fn set_data_source_meta(&mut self, conn_id: &str, meta: DataSourceMeta) {
         let key = MetadataCacheKey::DataSourceMeta {
@@ -627,6 +721,8 @@ impl MetadataCache {
                 MetadataCacheKey::Views { .. } => total += 500,
                 MetadataCacheKey::Indexes { .. } => total += 300,
                 MetadataCacheKey::Constraints { .. } => total += 300,
+                MetadataCacheKey::Sequences { .. } => total += 200,
+                MetadataCacheKey::Triggers { .. } => total += 200,
                 MetadataCacheKey::Procedures { .. } => total += 300,
                 MetadataCacheKey::Functions { .. } => total += 300,
                 MetadataCacheKey::DataSourceMeta { .. } => total += 200,

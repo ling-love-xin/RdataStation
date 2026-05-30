@@ -647,7 +647,13 @@ export function useDatabaseTreeLoader() {
       .getSchemaTables(connectionId, dbName, schemaName || '')
       .find(t => t.name === tableName)
 
-    if (!table || !table.columns) return []
+    const views = navigatorStore
+      .getSchemaViews(connectionId, dbName, schemaName || '')
+    const view = views.find(v => v.name === tableName)
+
+    const target = table || view
+
+    if (!target || !target.columns) return []
 
     const parentKey = NodeKeyEncoder.encode([
       'columns-folder',
@@ -657,7 +663,7 @@ export function useDatabaseTreeLoader() {
       tableName,
     ])
 
-    return table.columns.map(col => ({
+    return target.columns.map(col => ({
       key: NodeKeyEncoder.encode([
         'column',
         connectionId,
@@ -947,6 +953,9 @@ export function useDatabaseTreeLoader() {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
         const viewName = keyParts[4]
+
+        await navigatorStore.loadColumns(connectionId, dbName, schemaName || '', viewName)
+
         return createColumnNodes(connectionId, dbName, schemaName, viewName)
       }
 

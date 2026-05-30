@@ -129,7 +129,7 @@ import { useAddDataSource } from '../composables/useAddDataSource'
 import { useDriverRegistry } from '../composables/useDriverRegistry'
 import { useNetworkProfiles } from '../composables/useNetworkProfiles'
 import { useUrlBuilder } from '../composables/useUrlBuilder'
-import { connectDatabase as connectDatabaseService, closeConnection } from '../services/connection'
+import { connectDatabase as connectDatabaseService, closeConnection , updateGlobalConnection } from '../services/connection'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
@@ -192,6 +192,7 @@ const testing = ref(false)
 const saving = ref(false)
 const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
+const editingConnId = ref<string | null>(null)
 const scopeChangedWarning = ref(false)
 
 // Extra config from child tabs (UI composition state — not in composable)
@@ -573,8 +574,108 @@ function syncCurrentToStaging() {
 
 
 
-/** 批量应用所有暂存连接 → 写入数据库 */
+/** 应用操作：新连接创建 或 已有连接更新 */
 async function handleApply() {
+  if (isEditing.value && editingConnId.value) {
+    await handleEditApply()
+    return
+  }
+
+  await handleCreateApply()
+}
+
+/** 编辑模式下：更新已有连接 */
+async function handleEditApply() {
+  if (!editingConnId.value) return
+
+  const validation = validate()
+  if (!validation.valid) {
+    const firstError = Object.values(validation.errors)[0]
+    message.warning(firstError)
+    return
+  }
+
+  if (!scope.global && !scope.project) {
+    message.warning(t('navigator.selectSaveLocation'))
+    return
+  }
+
+  saving.value = true
+  try {
+    const url = buildUrl()
+    const name = headerData.name || selectedDriver.value?.name || ''
+    const fd = formData.value
+
+    if (scope.project) {
+      const conn: ProjectConnection = {
+        id: editingConnId.value,
+        name,
+        driver: selectedDriver.value?.type_id || '',
+        host: String(fd.host || ''),
+        port: Number(fd.port || 0),
+        database: String(fd.database || ''),
+        schema_name: schemaName.value || (fd.schema_name as string) || undefined,
+        username: String(fd.username || ''),
+        password: String(fd.password || ''),
+        options: options.value || (fd.options as string) || undefined,
+        tags: tags.value || (fd.tags as string) || undefined,
+        use_duckdb_fed: useDuckdbFed.value ?? (fd.use_duckdb_fed as boolean) ?? false,
+        metadata_path: metadataPath.value || (fd.metadata_path as string) || undefined,
+        description: headerData.description || undefined,
+        driver_id: headerData.selectedDriverId || undefined,
+        environment_id: selectedEnvId.value ?? undefined,
+        auth_config_id: authConfigId.value ?? undefined,
+        auth_method: authMethod.value ?? undefined,
+        network_config_id: networkConfigId.value ?? undefined,
+        driver_properties: driverPropertiesExtra.value ?? undefined,
+        advanced_options: advancedOptions.value ?? undefined,
+        created_at: '',
+        updated_at: new Date().toISOString(),
+      }
+      await projectConnectionStore.updateConnection(conn)
+    }
+
+    if (scope.global) {
+      await updateGlobalConnection({
+        conn_id: editingConnId.value,
+        name,
+        driver: selectedDriver.value?.type_id,
+        host: String(fd.host || ''),
+        port: Number(fd.port || 0),
+        database: String(fd.database || ''),
+        schema_name: schemaName.value || (fd.schema_name as string) || undefined,
+        username: String(fd.username || ''),
+        password: String(fd.password || ''),
+        options: options.value || (fd.options as string) || undefined,
+        tags: (tags.value || (fd.tags as string))
+          ? [tags.value || (fd.tags as string)].filter(Boolean) as string[]
+          : undefined,
+        use_duckdb_fed: useDuckdbFed.value ?? (fd.use_duckdb_fed as boolean) ?? undefined,
+        metadata_path: metadataPath.value || (fd.metadata_path as string) || undefined,
+        driver_id: headerData.selectedDriverId,
+        environment_id: selectedEnvId.value ?? undefined,
+        auth_config_id: authConfigId.value ?? undefined,
+        auth_method: authMethod.value ?? undefined,
+        network_config_id: networkConfigId.value ?? undefined,
+        driver_properties: driverPropertiesExtra.value ?? undefined,
+        advanced_options: advancedOptions.value ?? undefined,
+        description: headerData.description || undefined,
+      })
+    }
+
+    message.success(t('navigator.applySuccess', { count: 1 }))
+    emit('save')
+    emit('connectionsChanged')
+    resetAndClose()
+  } catch (e) {
+    message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
+  } finally {
+    saving.value = false
+  }
+}
+
+/** 新增模式：批量应用所有暂存连接 → 写入数据库 */
+async function handleCreateApply() {
   syncCurrentToStaging()
 
   const validItems = stagingItems.value.filter(item => item.name)
@@ -888,6 +989,8 @@ function resetAndClose() {
   headerData.name = ''
   headerData.description = ''
   formData.value = {}
+  isEditing.value = false
+  editingConnId.value = null
   clearStagingItems()
   emit('update:modelValue', false)
 }
@@ -897,6 +1000,7 @@ function handleClose() { resetAndClose() }
 /** 从已有 ProjectConnection 初始化编辑表单 */
 function initFromConnection(conn: ProjectConnection) {
   isEditing.value = true
+  editingConnId.value = conn.id
   isResetting.value = true
 
   headerData.name = conn.name || ''
@@ -954,6 +1058,7 @@ watch(() => props.modelValue, (open) => {
     selectedEnvId.value = null
     manualUri.value = ''
     uriEditing.value = false
+    editingConnId.value = null
     if (props.initialConnection) {
       initFromConnection(props.initialConnection)
     } else if (props.initialDriver) {

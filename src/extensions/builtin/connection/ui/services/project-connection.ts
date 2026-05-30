@@ -32,9 +32,11 @@ interface ProjectConnectionResponse {
   driver_id: string | null
   environment_id: string | null
   auth_config_id: string | null
+  auth_method: string | null
   network_config_id: string | null
   driver_properties: string | null
   advanced_options: string | null
+  connection_type: string | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -49,24 +51,27 @@ function mapResponse(r: ProjectConnectionResponse): ProjectConnection {
     host: r.host ?? undefined,
     port: r.port ?? undefined,
     database: r.database ?? undefined,
+    schema_name: r.schema_name ?? undefined,
     username: r.username ?? undefined,
     password: r.password ?? undefined,
     options: r.options ?? undefined,
     tags: r.tags ?? undefined,
+    use_duckdb_fed: r.use_duckdb_fed,
+    metadata_path: r.metadata_path ?? undefined,
     is_active: r.is_active,
+    server_version: r.server_version ?? undefined,
+    description: r.description ?? undefined,
+    driver_id: r.driver_id ?? undefined,
+    environment_id: r.environment_id ?? undefined,
+    auth_config_id: r.auth_config_id ?? undefined,
+    auth_method: r.auth_method ?? undefined,
+    network_config_id: r.network_config_id ?? undefined,
+    driver_properties: r.driver_properties ?? undefined,
+    advanced_options: r.advanced_options ?? undefined,
+    connection_type: (r.connection_type as 'global' | 'project') ?? 'project',
     status: r.is_active ? 'connected' : 'disconnected',
     created_at: r.created_at,
     updated_at: r.updated_at,
-    properties: {
-      schemaName: r.schema_name,
-      description: r.description,
-      driverId: r.driver_id,
-      environmentId: r.environment_id,
-      authConfigId: r.auth_config_id,
-      networkConfigId: r.network_config_id,
-      driverProperties: r.driver_properties,
-      advancedOptions: r.advanced_options,
-    },
   }
 }
 
@@ -151,6 +156,7 @@ export async function updateProjectConnection(
       network_config_id: connection.network_config_id ?? null,
       driver_properties: connection.driver_properties ?? null,
       advanced_options: connection.advanced_options ?? null,
+      connection_type: connection.connection_type ?? null,
       created_at: connection.created_at,
       updated_at: new Date().toISOString(),
     },

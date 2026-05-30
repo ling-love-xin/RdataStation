@@ -13,21 +13,11 @@ import type {
   ConstraintMeta,
   ProcedureMeta,
   FunctionMeta,
+  SequenceMeta,
+  TriggerMeta,
   RoutineSourceMeta,
 } from '@/generated/specta/bindings'
 import { typed } from '@/shared/api'
-
-/** 序列元数据（后端实现后迁移到 specta bindings） */
-export interface SequenceMeta {
-  name: string
-}
-
-/** 触发器元数据（后端实现后迁移到 specta bindings） */
-export interface TriggerMeta {
-  name: string
-  tableName?: string
-  event?: string
-}
 
 
 /**
@@ -240,6 +230,13 @@ export async function loadConstraints(
 
 /**
  * 加载序列列表
+ *
+ * @param connectionId - 连接标识符
+ * @param catalogName - Catalog 名称
+ * @param schemaName - Schema 名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
+ * @returns 序列元数据数组
  */
 export async function loadSequences(
   connectionId: string,
@@ -248,18 +245,18 @@ export async function loadSequences(
   connectionType?: string,
   projectPath?: string
 ): Promise<SequenceMeta[]> {
-  const { invoke } = await import('@tauri-apps/api/core')
-  return invoke('load_sequences', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadSequences(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
 }
 
 /**
  * 加载触发器列表
+ *
+ * @param connectionId - 连接标识符
+ * @param catalogName - Catalog 名称
+ * @param schemaName - Schema 名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
+ * @returns 触发器元数据数组
  */
 export async function loadTriggers(
   connectionId: string,
@@ -268,14 +265,7 @@ export async function loadTriggers(
   connectionType?: string,
   projectPath?: string
 ): Promise<TriggerMeta[]> {
-  const { invoke } = await import('@tauri-apps/api/core')
-  return invoke('load_triggers', {
-    connId: connectionId,
-    dbName: catalogName,
-    schemaName,
-    connectionType: connectionType ?? null,
-    projectPath: projectPath ?? null,
-  })
+  return typed(commands.loadTriggers(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
 }
 
 /**
@@ -284,14 +274,18 @@ export async function loadTriggers(
  * @param connectionId - 连接标识符
  * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns 存储过程名数组
  */
 export async function loadProcedures(
   connectionId: string,
   catalogName: string,
-  schemaName: string
+  schemaName: string,
+  connectionType?: string,
+  projectPath?: string
 ): Promise<ProcedureMeta[]> {
-  return typed(commands.loadProcedures(connectionId, catalogName, schemaName))
+  return typed(commands.loadProcedures(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
 }
 
 /**
@@ -300,14 +294,18 @@ export async function loadProcedures(
  * @param connectionId - 连接标识符
  * @param catalogName - Catalog 名称
  * @param schemaName - Schema 名称
+ * @param connectionType - 连接类型（global / project）
+ * @param projectPath - 项目路径（project 连接需要）
  * @returns 函数名数组
  */
 export async function loadFunctions(
   connectionId: string,
   catalogName: string,
-  schemaName: string
+  schemaName: string,
+  connectionType?: string,
+  projectPath?: string
 ): Promise<FunctionMeta[]> {
-  return typed(commands.loadFunctions(connectionId, catalogName, schemaName))
+  return typed(commands.loadFunctions(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
 }
 
 /**

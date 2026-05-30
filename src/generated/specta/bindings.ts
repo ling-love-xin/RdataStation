@@ -203,8 +203,10 @@ export const commands = {
 	loadColumns: (connId: string, dbName: string, schemaName: string, tableName: string, connectionType: string | null, projectPath: string | null) => typedError<ColumnMeta[], CoreError>(__TAURI_INVOKE("load_columns", { connId, dbName, schemaName, tableName, connectionType, projectPath })),
 	loadIndexes: (connId: string, dbName: string, schemaName: string, tableName: string, connectionType: string | null, projectPath: string | null) => typedError<IndexMeta[], CoreError>(__TAURI_INVOKE("load_indexes", { connId, dbName, schemaName, tableName, connectionType, projectPath })),
 	loadConstraints: (connId: string, dbName: string, schemaName: string, tableName: string, connectionType: string | null, projectPath: string | null) => typedError<ConstraintMeta[], CoreError>(__TAURI_INVOKE("load_constraints", { connId, dbName, schemaName, tableName, connectionType, projectPath })),
-	loadProcedures: (connId: string, dbName: string, schemaName: string) => typedError<ProcedureMeta[], CoreError>(__TAURI_INVOKE("load_procedures", { connId, dbName, schemaName })),
-	loadFunctions: (connId: string, dbName: string, schemaName: string) => typedError<FunctionMeta[], CoreError>(__TAURI_INVOKE("load_functions", { connId, dbName, schemaName })),
+	loadProcedures: (connId: string, dbName: string, schemaName: string, connectionType: string | null, projectPath: string | null) => typedError<ProcedureMeta[], CoreError>(__TAURI_INVOKE("load_procedures", { connId, dbName, schemaName, connectionType, projectPath })),
+	loadFunctions: (connId: string, dbName: string, schemaName: string, connectionType: string | null, projectPath: string | null) => typedError<FunctionMeta[], CoreError>(__TAURI_INVOKE("load_functions", { connId, dbName, schemaName, connectionType, projectPath })),
+	loadSequences: (connId: string, dbName: string, schemaName: string, connectionType: string | null, projectPath: string | null) => typedError<SequenceMeta[], CoreError>(__TAURI_INVOKE("load_sequences", { connId, dbName, schemaName, connectionType, projectPath })),
+	loadTriggers: (connId: string, dbName: string, schemaName: string, connectionType: string | null, projectPath: string | null) => typedError<TriggerMeta[], CoreError>(__TAURI_INVOKE("load_triggers", { connId, dbName, schemaName, connectionType, projectPath })),
 	loadRoutineSource: (connId: string, dbName: string, schemaName: string, routineName: string, routineKind: string) => typedError<RoutineSourceMeta, CoreError>(__TAURI_INVOKE("load_routine_source", { connId, dbName, schemaName, routineName, routineKind })),
 	invalidateMetadataCache: (connId: string) => typedError<null, CoreError>(__TAURI_INVOKE("invalidate_metadata_cache", { connId })),
 	getCacheStats: () => typedError<CacheStats, CoreError>(__TAURI_INVOKE("get_cache_stats")),
@@ -1698,6 +1700,18 @@ export type PortRangeInfo = {
 /**  存储过程元数据 */
 export type ProcedureMeta = {
 	name: string,
+};
+
+/**  序列元数据 */
+export type SequenceMeta = {
+	name: string,
+};
+
+/**  触发器元数据 */
+export type TriggerMeta = {
+	name: string,
+	tableName: string | null,
+	event: string | null,
 };
 
 export type ProfileColumnFromTableInput = {
