@@ -19,7 +19,7 @@ export interface ProfileFormOptions<T extends Record<string, unknown>> {
 
 export function useProfileForm<T extends Record<string, unknown>>(
   defaults: T,
-  opts: ProfileFormOptions<T>,
+  opts: ProfileFormOptions<T>
 ) {
   const showForm = ref(false)
   const editingId: Ref<string | null> = ref(null)

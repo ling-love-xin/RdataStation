@@ -1,10 +1,7 @@
 import { type Diagnostic, setDiagnostics } from '@codemirror/lint'
 import { EditorView } from '@codemirror/view'
 
-export function setEditorDiagnostics(
-  view: EditorView,
-  diagnostics: Diagnostic[]
-): void {
+export function setEditorDiagnostics(view: EditorView, diagnostics: Diagnostic[]): void {
   if (!view.dom.isConnected) return
   view.dispatch(setDiagnostics(view.state, diagnostics))
 }

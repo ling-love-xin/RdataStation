@@ -58,7 +58,12 @@ function isFolderEnabled(config: NavigationConfig, folderKey: string): boolean {
 function countEnabledFolders(config: NavigationConfig): number {
   let count = 0
   const folderKeys: (keyof typeof config.folders)[] = [
-    'tables', 'views', 'functions', 'procedures', 'sequences', 'triggers'
+    'tables',
+    'views',
+    'functions',
+    'procedures',
+    'sequences',
+    'triggers',
   ]
   for (const key of folderKeys) {
     if (isFolderEnabled(config, key)) count++
@@ -501,7 +506,12 @@ export function useDatabaseTreeLoader() {
 
     if (!schema || !schema.sequences) return []
 
-    const parentKey = NodeKeyEncoder.encode(['sequences-folder', connectionId, dbName, schemaName || ''])
+    const parentKey = NodeKeyEncoder.encode([
+      'sequences-folder',
+      connectionId,
+      dbName,
+      schemaName || '',
+    ])
 
     return schema.sequences.map(seq => ({
       key: NodeKeyEncoder.encode(['sequence', connectionId, dbName, schemaName || '', seq.name]),
@@ -530,7 +540,12 @@ export function useDatabaseTreeLoader() {
 
     if (!schema || !schema.triggers) return []
 
-    const parentKey = NodeKeyEncoder.encode(['triggers-folder', connectionId, dbName, schemaName || ''])
+    const parentKey = NodeKeyEncoder.encode([
+      'triggers-folder',
+      connectionId,
+      dbName,
+      schemaName || '',
+    ])
 
     return schema.triggers.map(trg => ({
       key: NodeKeyEncoder.encode(['trigger', connectionId, dbName, schemaName || '', trg.name]),
@@ -647,8 +662,7 @@ export function useDatabaseTreeLoader() {
       .getSchemaTables(connectionId, dbName, schemaName || '')
       .find(t => t.name === tableName)
 
-    const views = navigatorStore
-      .getSchemaViews(connectionId, dbName, schemaName || '')
+    const views = navigatorStore.getSchemaViews(connectionId, dbName, schemaName || '')
     const view = views.find(v => v.name === tableName)
 
     const target = table || view

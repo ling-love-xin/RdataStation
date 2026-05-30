@@ -98,7 +98,10 @@ function convertPropertyToField(
   }
 
   if (prop.maxLength !== undefined) {
-    rules.push({ pattern: `^.{0,${prop.maxLength}}$`, message: `${label}最多${prop.maxLength}个字符` })
+    rules.push({
+      pattern: `^.{0,${prop.maxLength}}$`,
+      message: `${label}最多${prop.maxLength}个字符`,
+    })
   }
 
   if (prop.pattern) {
@@ -152,7 +155,7 @@ function convertPropertyToField(
           placeholder: prop.description || `请选择${label}`,
           defaultValue: prop.default,
           rules: rules_obj,
-          options: prop.items.enum.map((v) => ({ label: String(v), value: v })),
+          options: prop.items.enum.map(v => ({ label: String(v), value: v })),
           helpText: prop.description,
         }
       }
@@ -167,7 +170,7 @@ function convertPropertyToField(
           placeholder: prop.description || `请选择${label}`,
           defaultValue: prop.default,
           rules: rules_obj,
-          options: prop.enum.map((v) => ({ label: String(v), value: v })),
+          options: prop.enum.map(v => ({ label: String(v), value: v })),
           helpText: prop.description,
         }
       }
@@ -223,5 +226,11 @@ function formatLabel(key: string): string {
     proxy: '启用代理',
   }
 
-  return labelMap[key] || key.replace(/([A-Z])/g, '_$1').replace(/_+/g, ' ').trim()
+  return (
+    labelMap[key] ||
+    key
+      .replace(/([A-Z])/g, '_$1')
+      .replace(/_+/g, ' ')
+      .trim()
+  )
 }

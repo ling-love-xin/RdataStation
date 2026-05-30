@@ -7,7 +7,8 @@
         {{ driver.name }}
       </template>
       <template #default>
-        {{ driver.version ? `v${driver.version} · ` : '' }}{{ driver.is_file ? $t('navigator.fileDbHint') : $t('navigator.networkDbHint') }}
+        {{ driver.version ? `v${driver.version} · ` : ''
+        }}{{ driver.is_file ? $t('navigator.fileDbHint') : $t('navigator.networkDbHint') }}
       </template>
     </NAlert>
 
@@ -18,26 +19,46 @@
       <NSpace v-if="!driver.is_file" vertical :size="14">
         <div class="sec-title">{{ $t('navigator.connectionParams') }}</div>
         <div class="form-row">
-          <div class="form-grp" style="flex:2">
+          <div class="form-grp" style="flex: 2">
             <span class="form-label">{{ $t('navigator.host') }}</span>
-            <NInput v-model:value="local.host" size="small" placeholder="localhost" :maxlength="255" @update:value="emitUpdate" />
+            <NInput
+              v-model:value="local.host"
+              size="small"
+              placeholder="localhost"
+              :maxlength="255"
+              @update:value="emitUpdate"
+            />
           </div>
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.port') }}</span>
-            <NInputNumber v-model:value="local.port" size="small" :min="1" :max="65535" @update:value="emitUpdate" />
+            <NInputNumber
+              v-model:value="local.port"
+              size="small"
+              :min="1"
+              :max="65535"
+              @update:value="emitUpdate"
+            />
           </div>
         </div>
         <div class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.database') }}</span>
-            <NInput v-model:value="local.database" size="small" placeholder="mydb" :maxlength="128" @update:value="emitUpdate" />
+            <NInput
+              v-model:value="local.database"
+              size="small"
+              placeholder="mydb"
+              :maxlength="128"
+              @update:value="emitUpdate"
+            />
           </div>
         </div>
 
         <!-- Database Auth: Two-column layout -->
-        <div class="sec-title" style="margin-top:4px">{{ $t('navigator.databaseAuth') || '数据库认证' }}</div>
+        <div class="sec-title" style="margin-top: 4px">{{
+          $t('navigator.databaseAuth') || '数据库认证'
+        }}</div>
         <div class="form-row auth-two-col">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.authMethod') || '认证方法' }}</span>
             <NSelect
               v-model:value="authMethod"
@@ -47,8 +68,10 @@
               @update:value="onAuthMethodChange"
             />
           </div>
-          <div class="form-grp" style="flex:1.5">
-            <span class="form-label">{{ $t('navigator.savedAuthConfig') || '已保存的认证配置' }}</span>
+          <div class="form-grp" style="flex: 1.5">
+            <span class="form-label">{{
+              $t('navigator.savedAuthConfig') || '已保存的认证配置'
+            }}</span>
             <div class="auth-cfg-row">
               <NSelect
                 v-model:value="selectedAuthConfigId"
@@ -60,7 +83,12 @@
                 clearable
                 @update:value="onAuthConfigSelect"
               />
-              <NButton size="tiny" quaternary :title="$t('navigator.manageAuth') || '管理认证配置'" @click="showAuthManager = true">
+              <NButton
+                size="tiny"
+                quaternary
+                :title="$t('navigator.manageAuth') || '管理认证配置'"
+                @click="showAuthManager = true"
+              >
                 📋
               </NButton>
             </div>
@@ -70,64 +98,118 @@
         <!-- Dynamic auth fields -->
         <template v-if="!selectedAuthConfigId">
           <div v-if="authMethod === 'password' || authMethod === 'ldap'" class="form-row">
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.username') }}</span>
-              <NInput v-model:value="local.username" size="small" placeholder="root" :maxlength="128" @update:value="emitUpdate" />
+              <NInput
+                v-model:value="local.username"
+                size="small"
+                placeholder="root"
+                :maxlength="128"
+                @update:value="emitUpdate"
+              />
             </div>
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.password') }}</span>
-              <NInput v-model:value="local.password" type="password" size="small" show-password-on="click" placeholder="****" :maxlength="256" @update:value="emitUpdate" />
+              <NInput
+                v-model:value="local.password"
+                type="password"
+                size="small"
+                show-password-on="click"
+                placeholder="****"
+                :maxlength="256"
+                @update:value="emitUpdate"
+              />
             </div>
           </div>
           <div v-else-if="authMethod === 'pg_class'" class="form-row">
-            <div class="form-grp" style="flex:1">
-              <span class="form-label">{{ $t('navigator.clientCert') || '客户端证书 (.crt)' }}</span>
+            <div class="form-grp" style="flex: 1">
+              <span class="form-label">{{
+                $t('navigator.clientCert') || '客户端证书 (.crt)'
+              }}</span>
               <div class="file-input-row">
-                <NInput v-model:value="local.certPath" size="small" placeholder="~/client.crt" :maxlength="1024" @update:value="emitUpdate" />
-                <NButton size="tiny" secondary @click="browseCert">
-                  📂
-                </NButton>
+                <NInput
+                  v-model:value="local.certPath"
+                  size="small"
+                  placeholder="~/client.crt"
+                  :maxlength="1024"
+                  @update:value="emitUpdate"
+                />
+                <NButton size="tiny" secondary @click="browseCert"> 📂 </NButton>
               </div>
             </div>
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.clientKey') || '私钥 (.key)' }}</span>
               <div class="file-input-row">
-                <NInput v-model:value="local.certKeyPath" size="small" placeholder="~/client.key" :maxlength="1024" @update:value="emitUpdate" />
-                <NButton size="tiny" secondary @click="browseCertKey">
-                  📂
-                </NButton>
+                <NInput
+                  v-model:value="local.certKeyPath"
+                  size="small"
+                  placeholder="~/client.key"
+                  :maxlength="1024"
+                  @update:value="emitUpdate"
+                />
+                <NButton size="tiny" secondary @click="browseCertKey"> 📂 </NButton>
               </div>
             </div>
           </div>
           <div v-else-if="authMethod === 'kerberos'" class="form-row">
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.principal') || 'Principal' }}</span>
-              <NInput v-model:value="local.principal" size="small" placeholder="user@REALM.COM" :maxlength="255" @update:value="emitUpdate" />
+              <NInput
+                v-model:value="local.principal"
+                size="small"
+                placeholder="user@REALM.COM"
+                :maxlength="255"
+                @update:value="emitUpdate"
+              />
             </div>
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.keytabPath') || 'Keytab 文件' }}</span>
               <div class="file-input-row">
-                <NInput v-model:value="local.keytabPath" size="small" placeholder="/etc/krb5.keytab" :maxlength="1024" @update:value="emitUpdate" />
-                <NButton size="tiny" secondary @click="browseKeytab">
-                  📂
-                </NButton>
+                <NInput
+                  v-model:value="local.keytabPath"
+                  size="small"
+                  placeholder="/etc/krb5.keytab"
+                  :maxlength="1024"
+                  @update:value="emitUpdate"
+                />
+                <NButton size="tiny" secondary @click="browseKeytab"> 📂 </NButton>
               </div>
             </div>
           </div>
           <div v-else-if="authMethod === 'oauth2'" class="form-row">
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.tokenEndpoint') || 'Token 端点' }}</span>
-              <NInput v-model:value="local.tokenEndpoint" size="small" placeholder="https://auth.example.com/token" :maxlength="2048" @update:value="emitUpdate" />
+              <NInput
+                v-model:value="local.tokenEndpoint"
+                size="small"
+                placeholder="https://auth.example.com/token"
+                :maxlength="2048"
+                @update:value="emitUpdate"
+              />
             </div>
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.clientId') || 'Client ID' }}</span>
-              <NInput v-model:value="local.clientId" size="small" placeholder="your-client-id" :maxlength="255" @update:value="emitUpdate" />
+              <NInput
+                v-model:value="local.clientId"
+                size="small"
+                placeholder="your-client-id"
+                :maxlength="255"
+                @update:value="emitUpdate"
+              />
             </div>
           </div>
           <div v-if="authMethod === 'oauth2'" class="form-row">
-            <div class="form-grp" style="flex:1">
+            <div class="form-grp" style="flex: 1">
               <span class="form-label">{{ $t('navigator.clientSecret') || 'Client Secret' }}</span>
-              <NInput v-model:value="local.clientSecret" type="password" size="small" show-password-on="click" placeholder="****" :maxlength="512" @update:value="emitUpdate" />
+              <NInput
+                v-model:value="local.clientSecret"
+                type="password"
+                size="small"
+                show-password-on="click"
+                placeholder="****"
+                :maxlength="512"
+                @update:value="emitUpdate"
+              />
             </div>
           </div>
           <div v-if="authMethod === 'os_auth' || authMethod === 'trust'" class="form-row">
@@ -139,44 +221,50 @@
 
         <!-- Pre-filled from auth config -->
         <div v-else class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.username') }}</span>
             <NInput v-model:value="local.username" size="small" disabled />
           </div>
-          <div v-if="authMethod === 'password'" class="form-grp" style="flex:1">
+          <div v-if="authMethod === 'password'" class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.password') }}</span>
-            <NInput v-model:value="local.password" type="password" size="small" disabled show-password-on="click" />
+            <NInput
+              v-model:value="local.password"
+              type="password"
+              size="small"
+              disabled
+              show-password-on="click"
+            />
           </div>
           <div class="form-config-badge">
             🔐 {{ $t('navigator.credentialsFromAuth') || '凭据来自认证配置' }}
           </div>
         </div>
         <div v-if="selectedAuthConfigId && authMethod === 'pg_class'" class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.clientCert') || '客户端证书' }}</span>
             <NInput v-model:value="local.certPath" size="small" disabled />
           </div>
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.clientKey') || '私钥' }}</span>
             <NInput v-model:value="local.certKeyPath" size="small" disabled />
           </div>
         </div>
         <div v-if="selectedAuthConfigId && authMethod === 'kerberos'" class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.principal') || 'Principal' }}</span>
             <NInput v-model:value="local.principal" size="small" disabled />
           </div>
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.keytabPath') || 'Keytab' }}</span>
             <NInput v-model:value="local.keytabPath" size="small" disabled />
           </div>
         </div>
         <div v-if="selectedAuthConfigId && authMethod === 'oauth2'" class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.tokenEndpoint') || 'Token 端点' }}</span>
             <NInput v-model:value="local.tokenEndpoint" size="small" disabled />
           </div>
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.clientId') || 'Client ID' }}</span>
             <NInput v-model:value="local.clientId" size="small" disabled />
           </div>
@@ -187,12 +275,23 @@
       <NSpace v-else vertical :size="14">
         <div class="sec-title">{{ $t('navigator.databaseFile') }}</div>
         <div class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ $t('navigator.filePath') }}</span>
             <NSpace :size="8">
-              <NInput v-model:value="local.file_path" size="small" :placeholder="filePathPlaceholder" style="flex:1" :maxlength="1024" @update:value="emitUpdate" />
-              <NButton size="small" secondary @click="browseFile">{{ $t('navigator.browse') }}</NButton>
-              <NButton size="small" secondary class="btn-new-file" @click="createNewDbFile">{{ $t('navigator.newFile') || '新建' }}</NButton>
+              <NInput
+                v-model:value="local.file_path"
+                size="small"
+                :placeholder="filePathPlaceholder"
+                style="flex: 1"
+                :maxlength="1024"
+                @update:value="emitUpdate"
+              />
+              <NButton size="small" secondary @click="browseFile">{{
+                $t('navigator.browse')
+              }}</NButton>
+              <NButton size="small" secondary class="btn-new-file" @click="createNewDbFile">{{
+                $t('navigator.newFile') || '新建'
+              }}</NButton>
             </NSpace>
           </div>
         </div>
@@ -202,27 +301,27 @@
       <NSpace v-if="schemaFields.length > 0" vertical :size="14">
         <div class="sec-title">{{ $t('navigator.advancedParams') || '高级连接参数' }}</div>
         <div v-for="field in schemaFields" :key="field.key" class="form-row">
-          <div class="form-grp" style="flex:1">
+          <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ field.label }}</span>
             <!-- Select 类型 -->
             <NSelect
               v-if="field.type === 'select'"
-              v-model:value="(schemaFormData[field.key] as string | null | undefined)"
+              v-model:value="schemaFormData[field.key] as string | null | undefined"
               size="small"
               :placeholder="field.placeholder"
-              :options="(field.options as SelectOption[] | undefined)"
+              :options="field.options as SelectOption[] | undefined"
               @update:value="emitUpdate"
             />
             <!-- Switch 类型 -->
             <NSwitch
               v-else-if="field.type === 'switch'"
-              v-model:value="(schemaFormData[field.key] as boolean | undefined)"
+              v-model:value="schemaFormData[field.key] as boolean | undefined"
               @update:value="emitUpdate"
             />
             <!-- Number 类型 -->
             <NInputNumber
               v-else-if="field.type === 'input-number'"
-              v-model:value="(schemaFormData[field.key] as number | null | undefined)"
+              v-model:value="schemaFormData[field.key] as number | null | undefined"
               size="small"
               :placeholder="field.placeholder"
               :min="field.min"
@@ -232,7 +331,9 @@
             <!-- Textarea 类型 -->
             <NInput
               v-else-if="field.type === 'textarea'"
-              v-model:value="(schemaFormData[field.key] as string | [string, string] | null | undefined)"
+              v-model:value="
+                schemaFormData[field.key] as string | [string, string] | null | undefined
+              "
               type="textarea"
               size="small"
               :placeholder="field.placeholder"
@@ -242,7 +343,9 @@
             <!-- 默认 Input 类型 -->
             <NInput
               v-else
-              v-model:value="(schemaFormData[field.key] as string | [string, string] | null | undefined)"
+              v-model:value="
+                schemaFormData[field.key] as string | [string, string] | null | undefined
+              "
               size="small"
               :placeholder="field.placeholder"
               type="password"
@@ -265,7 +368,16 @@
 </template>
 
 <script setup lang="ts">
-import { NAlert, NButton, NInput, NInputNumber, NSelect, NSpace, NSwitch, type SelectOption } from 'naive-ui'
+import {
+  NAlert,
+  NButton,
+  NInput,
+  NInputNumber,
+  NSelect,
+  NSpace,
+  NSwitch,
+  type SelectOption,
+} from 'naive-ui'
 import { reactive, computed, watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -328,30 +440,73 @@ const local = reactive<LocalForm>({
 
 // Auth state (via composable)
 const {
-  authMethod, selectedAuthConfigId, showAuthManager,
-  authMethodOpts, filteredAuthConfigOpts,
-  onAuthMethodChange, onAuthConfigSelect, onAuthConfigExternalSelect,
-  onAuthManagerClose, loadAuthConfigs, updateSupportedAuthTypes,
+  authMethod,
+  selectedAuthConfigId,
+  showAuthManager,
+  authMethodOpts,
+  filteredAuthConfigOpts,
+  onAuthMethodChange,
+  onAuthConfigSelect,
+  onAuthConfigExternalSelect,
+  onAuthManagerClose,
+  loadAuthConfigs,
+  updateSupportedAuthTypes,
 } = useAuthConfig({
   local: {
-    get username() { return local.username },
-    set username(v) { local.username = v },
-    get password() { return local.password },
-    set password(v) { local.password = v },
-    get certPath() { return local.certPath },
-    set certPath(v) { local.certPath = v },
-    get certKeyPath() { return local.certKeyPath },
-    set certKeyPath(v) { local.certKeyPath = v },
-    get principal() { return local.principal },
-    set principal(v) { local.principal = v },
-    get keytabPath() { return local.keytabPath },
-    set keytabPath(v) { local.keytabPath = v },
-    get tokenEndpoint() { return local.tokenEndpoint },
-    set tokenEndpoint(v) { local.tokenEndpoint = v },
-    get clientId() { return local.clientId },
-    set clientId(v) { local.clientId = v },
-    get clientSecret() { return local.clientSecret },
-    set clientSecret(v) { local.clientSecret = v },
+    get username() {
+      return local.username
+    },
+    set username(v) {
+      local.username = v
+    },
+    get password() {
+      return local.password
+    },
+    set password(v) {
+      local.password = v
+    },
+    get certPath() {
+      return local.certPath
+    },
+    set certPath(v) {
+      local.certPath = v
+    },
+    get certKeyPath() {
+      return local.certKeyPath
+    },
+    set certKeyPath(v) {
+      local.certKeyPath = v
+    },
+    get principal() {
+      return local.principal
+    },
+    set principal(v) {
+      local.principal = v
+    },
+    get keytabPath() {
+      return local.keytabPath
+    },
+    set keytabPath(v) {
+      local.keytabPath = v
+    },
+    get tokenEndpoint() {
+      return local.tokenEndpoint
+    },
+    set tokenEndpoint(v) {
+      local.tokenEndpoint = v
+    },
+    get clientId() {
+      return local.clientId
+    },
+    set clientId(v) {
+      local.clientId = v
+    },
+    get clientSecret() {
+      return local.clientSecret
+    },
+    set clientSecret(v) {
+      local.clientSecret = v
+    },
   },
   onFormUpdate: emitUpdate,
   onAuthConfigChange: (configId, authType) => emit('auth-config-change', configId, authType),
@@ -396,7 +551,9 @@ async function browseCert() {
       local.certPath = file as string
       emitUpdate()
     }
-  } catch (err) { console.warn('[loadAuthConfigs] Tauri不可用:', err) }
+  } catch (err) {
+    console.warn('[loadAuthConfigs] Tauri不可用:', err)
+  }
 }
 
 async function browseCertKey() {
@@ -409,7 +566,9 @@ async function browseCertKey() {
       local.certKeyPath = file as string
       emitUpdate()
     }
-  } catch (err) { console.warn('[loadAuthConfigs] Tauri不可用:', err) }
+  } catch (err) {
+    console.warn('[loadAuthConfigs] Tauri不可用:', err)
+  }
 }
 
 async function browseKeytab() {
@@ -422,7 +581,9 @@ async function browseKeytab() {
       local.keytabPath = file as string
       emitUpdate()
     }
-  } catch (err) { console.warn('[loadAuthConfigs] Tauri不可用:', err) }
+  } catch (err) {
+    console.warn('[loadAuthConfigs] Tauri不可用:', err)
+  }
 }
 
 function createNewDbFile() {
@@ -430,7 +591,7 @@ function createNewDbFile() {
   const defaultName = `new_database.${ext}`
   const newPath = prompt(
     `${t('navigator.newDbFilePrompt') || '新建数据库文件\n请输入文件路径（已存在则复用，不存在则自动创建）：'}`,
-    local.file_path || defaultName,
+    local.file_path || defaultName
   )
   if (newPath) {
     local.file_path = newPath
@@ -448,7 +609,8 @@ onMounted(async () => {
     local.password = String(props.formData.password ?? '')
     local.file_path = String(props.formData.file_path ?? '')
     if (props.formData.authMethod) authMethod.value = String(props.formData.authMethod)
-    if (props.formData.selectedAuthConfigId) selectedAuthConfigId.value = String(props.formData.selectedAuthConfigId)
+    if (props.formData.selectedAuthConfigId)
+      selectedAuthConfigId.value = String(props.formData.selectedAuthConfigId)
   } else if (props.driver?.default_port) {
     local.port = props.driver.default_port
   }
@@ -469,7 +631,7 @@ watch(
     updateSchemaFields()
     emitUpdate()
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 // ==================== Config Schema 动态表单 ====================
@@ -484,14 +646,14 @@ const schemaFormData = reactive<Record<string, unknown>>({})
 function updateSchemaFields() {
   const schema = props.driver?.config_schema
   schemaFields.value = parseSchemaToFormFields(schema || '')
-  
+
   // 初始化表单数据
   for (const field of schemaFields.value) {
     if (schemaFormData[field.key] === undefined) {
       schemaFormData[field.key] = field.defaultValue ?? ''
     }
   }
-  
+
   // 从 formData 恢复值
   for (const key of Object.keys(schemaFormData)) {
     if (props.formData[key] !== undefined) {
@@ -499,42 +661,115 @@ function updateSchemaFields() {
     }
   }
 }
-
 </script>
 
 <style scoped>
-.general-tab{display:flex;flex-direction:column;gap:16px;padding:4px 0}
-.drv-banner{border-radius:6px}
-.drv-tag{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;margin-right:6px}
-.drv-tag.drv-native{background:rgba(255,255,255,.06);color:var(--color-text-secondary)}
-.drv-tag.drv-jdbc{background:rgba(244,102,35,.15);color:var(--driver-jdbc)}
-.drv-tag.drv-python{background:rgba(55,118,171,.15);color:var(--driver-python)}
-.drv-tag.drv-js{background:rgba(247,223,30,.15);color:var(--driver-js)}
-.empty-hint{display:flex;align-items:center;justify-content:center;height:120px;font-size:13px;color:var(--color-text-muted)}
-.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:.5px}
-.form-row{display:flex;gap:12px}
-.form-grp{display:flex;flex-direction:column;gap:4px}
-.form-label{font-size:12px;color:var(--color-text-secondary);font-weight:500}
+.general-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0;
+}
+.drv-banner {
+  border-radius: 6px;
+}
+.drv-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+.drv-tag.drv-native {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-secondary);
+}
+.drv-tag.drv-jdbc {
+  background: rgba(244, 102, 35, 0.15);
+  color: var(--driver-jdbc);
+}
+.drv-tag.drv-python {
+  background: rgba(55, 118, 171, 0.15);
+  color: var(--driver-python);
+}
+.drv-tag.drv-js {
+  background: rgba(247, 223, 30, 0.15);
+  color: var(--driver-js);
+}
+.empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.sec-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+}
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+.form-grp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
 
 /* Auth two-column */
-.auth-two-col{align-items:flex-start}
-.auth-cfg-row{display:flex;gap:6px;align-items:center}
-.auth-cfg-select{flex:1}
+.auth-two-col {
+  align-items: flex-start;
+}
+.auth-cfg-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.auth-cfg-select {
+  flex: 1;
+}
 
 /* File input row */
-.file-input-row{display:flex;gap:6px;align-items:center}
-.file-input-row :first-child{flex:1}
+.file-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.file-input-row :first-child {
+  flex: 1;
+}
 
 /* Auth config badge */
-.form-config-badge{
-  display:flex;align-items:center;gap:4px;
-  font-size:11px;color:var(--brand-accent);padding:4px 8px;
-  background:var(--brand-accent-soft);border-radius:var(--border-radius-sm)
+.form-config-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--brand-accent);
+  padding: 4px 8px;
+  background: var(--brand-accent-soft);
+  border-radius: var(--border-radius-sm);
 }
 
 /* New file button */
-.btn-new-file{white-space:nowrap}
+.btn-new-file {
+  white-space: nowrap;
+}
 
 /* Schema dynamic fields */
-.field-help{font-size:11px;color:var(--color-text-muted);margin-top:2px}
+.field-help {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
 </style>

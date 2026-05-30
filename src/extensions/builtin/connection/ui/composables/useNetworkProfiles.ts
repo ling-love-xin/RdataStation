@@ -77,7 +77,14 @@ function toProfile(raw: ConfigRaw): NetworkProfile | null {
   const config = parseConfig<unknown>(raw.config)
   if (config === null) return null
   const type = raw.network_type as NetworkProfile['type']
-  return { id: raw.id, name: raw.name ?? raw.id, type, config, detail: buildDetail(type, config), origin: raw.origin }
+  return {
+    id: raw.id,
+    name: raw.name ?? raw.id,
+    type,
+    config,
+    detail: buildDetail(type, config),
+    origin: raw.origin,
+  }
 }
 
 // ==================== API ====================
@@ -88,23 +95,37 @@ async function getProjectPath(): Promise<string | null> {
   return useProjectStore().currentProject?.path ?? null
 }
 
-function pickCmd(globalCmd: string, isProject: boolean): [string, (extra: Record<string, unknown>) => Record<string, unknown>] {
+function pickCmd(
+  globalCmd: string,
+  isProject: boolean
+): [string, (extra: Record<string, unknown>) => Record<string, unknown>] {
   if (!isProject) {
-    return [globalCmd, (e) => e]
+    return [globalCmd, e => e]
   }
   switch (globalCmd) {
     case 'create_network_config':
-      return ['project_create_network_config', (p) => ({
-        name: p.name, networkType: p.network_type, config: p.config
-      })]
+      return [
+        'project_create_network_config',
+        p => ({
+          name: p.name,
+          networkType: p.network_type,
+          config: p.config,
+        }),
+      ]
     case 'update_network_config':
-      return ['project_update_network_config', (p) => ({
-        id: p.id, name: p.name, networkType: p.network_type, config: p.config
-      })]
+      return [
+        'project_update_network_config',
+        p => ({
+          id: p.id,
+          name: p.name,
+          networkType: p.network_type,
+          config: p.config,
+        }),
+      ]
     case 'delete_network_config':
-      return ['project_delete_network_config', (p) => ({ id: p.id })]
+      return ['project_delete_network_config', p => ({ id: p.id })]
     default:
-      return [globalCmd, (e) => e]
+      return [globalCmd, e => e]
   }
 }
 
@@ -122,16 +143,26 @@ async function loadByType(type: 'ssh' | 'ssl' | 'proxy'): Promise<void> {
 }
 
 async function loadAll(): Promise<void> {
-  loading.value = true; error.value = null
-  try { await Promise.all([loadByType('ssh'), loadByType('ssl'), loadByType('proxy')]) }
-  finally { loading.value = false }
+  loading.value = true
+  error.value = null
+  try {
+    await Promise.all([loadByType('ssh'), loadByType('ssl'), loadByType('proxy')])
+  } finally {
+    loading.value = false
+  }
 }
 
 // ==================== 项目级命令 ====================
 
-async function loadByTypeProject(type: 'ssh' | 'ssl' | 'proxy', projectPath: string): Promise<void> {
+async function loadByTypeProject(
+  type: 'ssh' | 'ssl' | 'proxy',
+  projectPath: string
+): Promise<void> {
   try {
-    const raws = await invoke<ConfigRaw[]>('project_list_network_configs', { networkType: type, projectPath })
+    const raws = await invoke<ConfigRaw[]>('project_list_network_configs', {
+      networkType: type,
+      projectPath,
+    })
     const profiles = raws.map(toProfile).filter((p): p is NetworkProfile => p !== null)
     if (type === 'ssh') sshProfiles.value = profiles
     else if (type === 'ssl') sslProfiles.value = profiles
@@ -143,13 +174,26 @@ async function loadByTypeProject(type: 'ssh' | 'ssl' | 'proxy', projectPath: str
 }
 
 async function loadAllProject(projectPath: string): Promise<void> {
-  loading.value = true; error.value = null
-  try { await Promise.all([loadByTypeProject('ssh', projectPath), loadByTypeProject('ssl', projectPath), loadByTypeProject('proxy', projectPath)]) }
-  finally { loading.value = false }
+  loading.value = true
+  error.value = null
+  try {
+    await Promise.all([
+      loadByTypeProject('ssh', projectPath),
+      loadByTypeProject('ssl', projectPath),
+      loadByTypeProject('proxy', projectPath),
+    ])
+  } finally {
+    loading.value = false
+  }
 }
 
 /** 创建/更新网络配置 */
-async function saveProjectProfile(profile: Record<string, unknown>, networkType: string, configObj: Record<string, unknown>, projectPath: string): Promise<void> {
+async function saveProjectProfile(
+  profile: Record<string, unknown>,
+  networkType: string,
+  configObj: Record<string, unknown>,
+  projectPath: string
+): Promise<void> {
   const name = (profile.name as string) || `未命名-${networkType.toUpperCase()}`
   const config = JSON.stringify(configObj)
   if (profile.id) {

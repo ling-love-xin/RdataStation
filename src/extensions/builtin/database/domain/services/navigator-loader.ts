@@ -28,8 +28,7 @@ export async function loadNodeChildren(
   dbType: string = 'mysql'
 ): Promise<NavigatorNode[]> {
   console.warn(
-    '[NavigatorLoader][DEPRECATED] loadNodeChildren 已弃用，' +
-    '请使用 use-database-tree-loader.ts'
+    '[NavigatorLoader][DEPRECATED] loadNodeChildren 已弃用，' + '请使用 use-database-tree-loader.ts'
   )
 
   const adapter = getAdapter(dbType)

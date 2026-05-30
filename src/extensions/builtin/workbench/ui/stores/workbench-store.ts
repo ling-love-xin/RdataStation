@@ -337,13 +337,21 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
       if (state) {
         if (state.open_panels) {
-          try { panels.value = JSON.parse(state.open_panels) } catch { /* keep default */ }
+          try {
+            panels.value = JSON.parse(state.open_panels)
+          } catch {
+            console.warn('[WorkbenchStore] JSON.parse open_panels failed, keeping default')
+          }
         }
         if (state.active_panel_id) {
           activePanelId.value = state.active_panel_id
         }
         if (state.layout) {
-          try { layout.value = JSON.parse(state.layout) } catch { /* keep default */ }
+          try {
+            layout.value = JSON.parse(state.layout)
+          } catch {
+            console.warn('[WorkbenchStore] JSON.parse layout failed, keeping default')
+          }
         }
       }
     } catch (e) {

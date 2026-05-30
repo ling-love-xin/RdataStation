@@ -4,7 +4,9 @@
     <div class="topo-path">
       <span class="topo-node self">🏠 {{ t('navigator.localhost') }}</span>
       <template v-for="hop in enabledHops" :key="hop.id">
-        <span v-if="hop.protocol !== 'ssl'" class="topo-arrow">──{{ hop.protocol === 'ssh' ? 'SSH' : 'Proxy' }}──▶</span>
+        <span v-if="hop.protocol !== 'ssl'" class="topo-arrow"
+          >──{{ hop.protocol === 'ssh' ? 'SSH' : 'Proxy' }}──▶</span
+        >
         <span v-else class="topo-arrow tls">──TLS🔐──▶</span>
         <span :class="['topo-node', topoNodeClass(hop.protocol)]">
           {{ topoHopLabel(hop) }}

@@ -20,7 +20,7 @@ let editorView: EditorView | null = null
 let unlistenPopout: (() => void) | null = null
 
 async function initPopoutListener(): Promise<void> {
-  unlistenPopout = await listenPopoutTransfer((payload) => {
+  unlistenPopout = await listenPopoutTransfer(payload => {
     popoutFile.value = payload
     if (editorView) {
       editorView.dispatch({
@@ -42,22 +42,24 @@ function setupEditorView(container: HTMLElement): void {
     extensions: [
       basicSetup,
       lang,
-      cmKeymap.of([{
-        key: 'Mod-s',
-        run: () => {
-          if (popoutFile.value) {
-            const content = editorView!.state.doc.toString()
-            sendMergeTransfer({
-              filePath: popoutFile.value.filePath,
-              content,
-              stateJSON: editorView!.state.toJSON() as Record<string, unknown>,
-              isDirty: content !== popoutFile.value.content,
-            })
-          }
-          return true
+      cmKeymap.of([
+        {
+          key: 'Mod-s',
+          run: () => {
+            if (popoutFile.value) {
+              const content = editorView!.state.doc.toString()
+              sendMergeTransfer({
+                filePath: popoutFile.value.filePath,
+                content,
+                stateJSON: editorView!.state.toJSON() as Record<string, unknown>,
+                isDirty: content !== popoutFile.value.content,
+              })
+            }
+            return true
+          },
+          preventDefault: true,
         },
-        preventDefault: true,
-      }]),
+      ]),
       EditorView.updateListener.of((update: ViewUpdate) => {
         if (!popoutFile.value) return
         if (update.docChanged || update.selectionSet) {

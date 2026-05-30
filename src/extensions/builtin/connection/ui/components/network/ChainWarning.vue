@@ -2,8 +2,8 @@
   <div v-if="visible" class="chain-warning" role="alert">
     <div class="warning-icon">&#9888;</div>
     <div class="warning-text">
-      当前协议链包含 <strong>{{ hopCount }}</strong> 个网络跳（SSH/Proxy），
-      建连延迟预期 <strong>~{{ estimatedLatency }}ms</strong>。每增加一跳会增加 10-50ms 延迟和一个故障点。
+      当前协议链包含 <strong>{{ hopCount }}</strong> 个网络跳（SSH/Proxy）， 建连延迟预期
+      <strong>~{{ estimatedLatency }}ms</strong>。每增加一跳会增加 10-50ms 延迟和一个故障点。
     </div>
   </div>
 </template>

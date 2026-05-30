@@ -39,7 +39,9 @@ export type {
 }
 
 /** specta typedError 的 unwrap helper */
-export async function typed<T>(promise: Promise<{ status: 'ok'; data: T } | { status: 'error'; error: unknown }>): Promise<T> {
+export async function typed<T>(
+  promise: Promise<{ status: 'ok'; data: T } | { status: 'error'; error: unknown }>
+): Promise<T> {
   const result = await promise
   if (result.status === 'ok') return result.data
   throw result.error
@@ -90,7 +92,15 @@ export const connectionApi = {
     authConfigId?: string | null,
     authMethod?: string | null
   ) {
-    return typed(commands.testConnection(dbType, url, networkConfigId ?? null, authConfigId ?? null, authMethod ?? null))
+    return typed(
+      commands.testConnection(
+        dbType,
+        url,
+        networkConfigId ?? null,
+        authConfigId ?? null,
+        authMethod ?? null
+      )
+    )
   },
 }
 

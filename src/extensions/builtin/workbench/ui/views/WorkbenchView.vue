@@ -58,9 +58,7 @@ import { panelRegistry } from '@/core/panel-registry'
 import { useProjectStore } from '@/core/project/stores/project'
 import AddDataSourceDialog from '@/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue'
 import { useConnectionStore } from '@/extensions/builtin/connection/ui/stores/connection-store'
-import {
-  EditorManager,
-} from '@/extensions/builtin/workbench/manager/EditorManager'
+import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
 import { ShortcutManager } from '@/extensions/builtin/workbench/manager/ShortcutManager'
 import {
   PANEL_ID_EMPTY_WORKBENCH,
@@ -102,11 +100,17 @@ const editorStore = useScratchpadEditorStore()
 const message = useMessage()
 
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
-const recoverySnapshots = ref<{ filePath: string; fileName: string; language: string; isDirty: boolean }[]>([])
+const recoverySnapshots = ref<
+  { filePath: string; fileName: string; language: string; isDirty: boolean }[]
+>([])
 const showRecoveryBanner = ref(false)
 const showAddDataSourceDialog = ref(false)
-const dialogInitialDriver = ref<import('@/extensions/builtin/connection/domain/types').Driver | null>(null)
-const dialogInitialConnection = ref<import('@/extensions/builtin/connection/types/connection').ProjectConnection | null>(null)
+const dialogInitialDriver = ref<
+  import('@/extensions/builtin/connection/domain/types').Driver | null
+>(null)
+const dialogInitialConnection = ref<
+  import('@/extensions/builtin/connection/types/connection').ProjectConnection | null
+>(null)
 
 let dockviewApi: DockviewVueApi | null = null
 
@@ -120,7 +124,7 @@ function checkRecoveryState(): void {
       showRecoveryBanner.value = true
     }
   } catch {
-    // recovery check is best-effort
+    console.warn('[WorkbenchView] recovery check failed')
   }
 }
 
@@ -250,32 +254,52 @@ const onReady = (event: DockviewReadyEvent) => {
   // 崩溃恢复检测
   checkRecoveryState()
 
-  ShortcutManager.register('Ctrl+B', 'global', () => {
-    const leftGroup = api.getEdgeGroup('left')
-    if (leftGroup?.isCollapsed()) {
-      layoutStore.expandLeftEdgeGroup()
-    } else {
-      layoutStore.collapseLeftEdgeGroup()
-    }
-  }, '切换左侧边栏')
+  ShortcutManager.register(
+    'Ctrl+B',
+    'global',
+    () => {
+      const leftGroup = api.getEdgeGroup('left')
+      if (leftGroup?.isCollapsed()) {
+        layoutStore.expandLeftEdgeGroup()
+      } else {
+        layoutStore.collapseLeftEdgeGroup()
+      }
+    },
+    '切换左侧边栏'
+  )
 
-  ShortcutManager.register('Ctrl+Shift+B', 'global', () => {
-    const rightGroup = api.getEdgeGroup('right')
-    if (rightGroup?.isCollapsed()) {
-      layoutStore.expandRightEdgeGroup()
-    } else {
-      layoutStore.collapseRightEdgeGroup()
-    }
-  }, '切换右侧边栏')
+  ShortcutManager.register(
+    'Ctrl+Shift+B',
+    'global',
+    () => {
+      const rightGroup = api.getEdgeGroup('right')
+      if (rightGroup?.isCollapsed()) {
+        layoutStore.expandRightEdgeGroup()
+      } else {
+        layoutStore.collapseRightEdgeGroup()
+      }
+    },
+    '切换右侧边栏'
+  )
 
-  ShortcutManager.register('Escape', 'global', () => {
-    const activeEl = document.activeElement
-    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return
-    const leftGroup = api.getEdgeGroup('left')
-    if (leftGroup?.isMaximized()) { leftGroup.exitMaximized(); return }
-    const rightGroup = api.getEdgeGroup('right')
-    if (rightGroup?.isMaximized()) { rightGroup.exitMaximized() }
-  }, '退出最大化面板')
+  ShortcutManager.register(
+    'Escape',
+    'global',
+    () => {
+      const activeEl = document.activeElement
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return
+      const leftGroup = api.getEdgeGroup('left')
+      if (leftGroup?.isMaximized()) {
+        leftGroup.exitMaximized()
+        return
+      }
+      const rightGroup = api.getEdgeGroup('right')
+      if (rightGroup?.isMaximized()) {
+        rightGroup.exitMaximized()
+      }
+    },
+    '退出最大化面板'
+  )
 
   const panels = panelRegistry.getAll()
   console.debug(`[Workbench] Creating ${panels.length} panels from registry`)
@@ -462,11 +486,11 @@ const onReady = (event: DockviewReadyEvent) => {
       const ids = api.panels.map((p: { id: string }) => p.id)
       layoutStore.setOpenPanelIds(ids)
     } catch {
-      // dockview serialization may fail transiently
+      console.warn('[WorkbenchView] dockview serialization failed')
     }
   })
 
-  api.onDidMovePanel?.((e) => {
+  api.onDidMovePanel?.(e => {
     const movedPanelId = e.panel.id
     if (movedPanelId.startsWith('panel_editor_')) {
       const targetGroupId = e.panel.group?.id
@@ -487,7 +511,9 @@ const onReady = (event: DockviewReadyEvent) => {
   })
 
   api.onDidRemoveGroup?.((group: DockviewGroupPanel) => {
-    const editorPanels = group.panels.filter((p: IDockviewPanel) => p.id.startsWith('panel_editor_'))
+    const editorPanels = group.panels.filter((p: IDockviewPanel) =>
+      p.id.startsWith('panel_editor_')
+    )
     if (editorPanels.length > 0) {
       for (const panel of editorPanels) {
         EditorManager.onPanelUndocked(panel.id)
@@ -520,7 +546,7 @@ function restoreSavedPanels() {
         title: panelInfo.name,
       })
     } catch {
-      // restore of individual panel may fail
+      console.warn('[WorkbenchView] panel restore failed')
     }
   }
 }
@@ -621,7 +647,9 @@ const handleResetLayout = () => {
   }
 }
 
-function findCenterGroupReference(): { direction: 'right' } | { referencePanel: string; direction: 'within' } {
+function findCenterGroupReference():
+  | { direction: 'right' }
+  | { referencePanel: string; direction: 'within' } {
   if (!dockviewApi) return { direction: 'right' }
 
   for (const group of dockviewApi.groups || []) {
@@ -655,14 +683,8 @@ function findCenterGroupReference(): { direction: 'right' } | { referencePanel: 
  * - 无 scratchpadRelativePath  → 委托 EditorManager.openNewQuery（自动创建草稿文件）
  */
 const handleOpenSqlEditor = (event: CustomEvent) => {
-  const {
-    connectionId,
-    databaseName,
-    sql,
-    scratchpadRelativePath,
-    scratchpadFileName,
-    language,
-  } = event.detail || {}
+  const { connectionId, databaseName, sql, scratchpadRelativePath, scratchpadFileName, language } =
+    event.detail || {}
 
   if (scratchpadRelativePath) {
     const resolvedLang = language || (scratchpadFileName?.endsWith('.sql') ? 'sql' : 'plaintext')
@@ -689,7 +711,7 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
       const welcomePanel = dockviewApi?.getPanel(PANEL_ID_EMPTY_WORKBENCH)
       if (welcomePanel) welcomePanel.api.close()
     })
-    .catch((error) => {
+    .catch(error => {
       console.error('[Workbench] 新建查询失败:', error)
     })
 }
@@ -725,7 +747,9 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 // 标题栏菜单/工具栏/命令面板事件处理
 const handleWorkbenchNewQuery = async (e?: CustomEvent) => {
-  const detail = e?.detail as { connectionId?: string; databaseName?: string; sql?: string } | undefined
+  const detail = e?.detail as
+    | { connectionId?: string; databaseName?: string; sql?: string }
+    | undefined
 
   // 优先使用事件载荷（来自侧边栏等的指定连接），否则 fallback 到首个活动连接
   if (detail?.connectionId) {
@@ -737,16 +761,22 @@ const handleWorkbenchNewQuery = async (e?: CustomEvent) => {
   // fallback: Ctrl+N 无连接上下文时，使用首个活动连接
   const conns = connectionStore.connections
   const firstConn = conns.length > 0 ? conns[0] : null
-  await EditorManager.openNewQuery(firstConn?.connId || '', (firstConn as Record<string, unknown>)?.database as string || '')
+  await EditorManager.openNewQuery(
+    firstConn?.connId || '',
+    ((firstConn as Record<string, unknown>)?.database as string) || ''
+  )
 }
 
 const handleWorkbenchNewConnection = (e?: CustomEvent) => {
-  const connection = e?.detail?.connection as import('@/extensions/builtin/connection/types/connection').ProjectConnection | undefined
+  const connection = e?.detail?.connection as
+    | import('@/extensions/builtin/connection/types/connection').ProjectConnection
+    | undefined
   if (connection) {
     dialogInitialConnection.value = connection
     dialogInitialDriver.value = null
   } else {
-    dialogInitialDriver.value = (e?.detail?.driver as import('@/extensions/builtin/connection/domain/types').Driver) || null
+    dialogInitialDriver.value =
+      (e?.detail?.driver as import('@/extensions/builtin/connection/domain/types').Driver) || null
     dialogInitialConnection.value = null
   }
   showAddDataSourceDialog.value = true
@@ -863,7 +893,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  appStore.closeProject().catch((e) => { console.warn('[Workbench] closeProject failed:', e) })
+  appStore.closeProject().catch(e => {
+    console.warn('[Workbench] closeProject failed:', e)
+  })
 
   window.removeEventListener(
     'layout-settings-update',

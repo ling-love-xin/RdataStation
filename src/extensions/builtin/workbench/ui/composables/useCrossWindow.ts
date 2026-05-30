@@ -34,25 +34,25 @@ export interface StateSyncPayload {
 }
 
 export function sendPopoutTransfer(payload: PopoutPayload): void {
-  emit(CrossWindowEvent.PopoutTransfer, payload).catch((e) => {
+  emit(CrossWindowEvent.PopoutTransfer, payload).catch(e => {
     console.warn('[CrossWindow] Failed to send popout transfer:', e)
   })
 }
 
 export function sendMergeTransfer(payload: MergePayload): void {
-  emit(CrossWindowEvent.MergeTransfer, payload).catch((e) => {
+  emit(CrossWindowEvent.MergeTransfer, payload).catch(e => {
     console.warn('[CrossWindow] Failed to send merge transfer:', e)
   })
 }
 
 export function sendWindowReady(): void {
-  emit(CrossWindowEvent.WindowReady, undefined).catch((e) => {
+  emit(CrossWindowEvent.WindowReady, undefined).catch(e => {
     console.warn('[CrossWindow] Failed to send window ready:', e)
   })
 }
 
 export function sendStateSync(payload: StateSyncPayload): void {
-  emit(CrossWindowEvent.StateSync, payload).catch((e) => {
+  emit(CrossWindowEvent.StateSync, payload).catch(e => {
     console.warn('[CrossWindow] Failed to send state sync:', e)
   })
 }
@@ -60,13 +60,13 @@ export function sendStateSync(payload: StateSyncPayload): void {
 export function listenPopoutTransfer(
   handler: (payload: PopoutPayload) => void
 ): Promise<UnlistenFn> {
-  return listen<PopoutPayload>(CrossWindowEvent.PopoutTransfer, (event) => {
+  return listen<PopoutPayload>(CrossWindowEvent.PopoutTransfer, event => {
     handler(event.payload)
   })
 }
 
 export function listenMergeTransfer(handler: (payload: MergePayload) => void): Promise<UnlistenFn> {
-  return listen<MergePayload>(CrossWindowEvent.MergeTransfer, (event) => {
+  return listen<MergePayload>(CrossWindowEvent.MergeTransfer, event => {
     handler(event.payload)
   })
 }
@@ -78,7 +78,7 @@ export function listenWindowReady(handler: () => void): Promise<UnlistenFn> {
 }
 
 export function listenStateSync(handler: (payload: StateSyncPayload) => void): Promise<UnlistenFn> {
-  return listen<StateSyncPayload>(CrossWindowEvent.StateSync, (event) => {
+  return listen<StateSyncPayload>(CrossWindowEvent.StateSync, event => {
     handler(event.payload)
   })
 }

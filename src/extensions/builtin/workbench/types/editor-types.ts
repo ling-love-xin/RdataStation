@@ -132,7 +132,12 @@ export interface IEditorManager {
   getSavedStateForFile(filePath: string): EditorState | undefined
   saveEditorStateForFile(filePath: string, state: EditorState): void
   hasRecoveryData(): boolean
-  loadRecoverySnapshots(): { filePath: string; fileName: string; language: string; isDirty: boolean }[]
+  loadRecoverySnapshots(): {
+    filePath: string
+    fileName: string
+    language: string
+    isDirty: boolean
+  }[]
   clearRecovery(): void
 
   createResultSet(filePath: string, data: ResultSetCreateParams): string
@@ -169,3 +174,90 @@ export interface IResultPanelManager {
   getAllResultSets(filePath: string): ResultSetMetadata[]
   getActiveResultSet(filePath: string): ResultSetMetadata | null
 }
+
+// ========== 多模式编辑器类型系统 ==========
+
+/** 编辑器模式 */
+export type EditorType = 'query' | 'analysis' | 'code'
+
+/** 工具栏按钮分组 */
+export type ToolbarGroup = 'execute' | 'edit' | 'mode' | 'transaction' | 'federation' | 'general'
+
+/** 工具栏按钮配置 */
+export interface ToolbarButton {
+  id: string
+  group: ToolbarGroup
+  label: string
+  icon?: string
+  shortcut?: string
+  visible: (ctx: EditorContext) => boolean
+  action: (ctx: EditorContext) => void
+}
+
+/** 工具栏分隔符 */
+export interface ToolbarSeparator {
+  type: 'separator'
+  group: string
+}
+
+export type ToolbarItem = ToolbarButton | ToolbarSeparator
+
+/** 工具栏配置 */
+export interface EditorToolbarConfig {
+  items: ToolbarItem[]
+}
+
+/** 状态栏字段配置 */
+export interface StatusBarField {
+  id: string
+  label: string
+  value: () => string
+  visible: (type: EditorType) => boolean
+}
+
+/** 状态栏配置 */
+export interface EditorStatusBarConfig {
+  fields: StatusBarField[]
+}
+
+/** 编辑器面板上下文 */
+export interface EditorContext {
+  editorType: EditorType
+  filePath: string
+  language: string
+  editorView: import('@codemirror/view').EditorView | null
+  connectionId: string | null
+  isExecuting: boolean
+}
+
+/** 编辑器类型选项（用于下拉选择器） */
+export const EDITOR_TYPE_OPTIONS: Array<{ label: string; value: EditorType }> = [
+  { label: '查询编辑器', value: 'query' },
+  { label: '分析编辑器', value: 'analysis' },
+  { label: '代码编辑器', value: 'code' },
+]
+
+/** 编辑器模式解析器配置 */
+export interface EditorModeRule {
+  /** 匹配的文件扩展名列表（不含点），如 ['sql', 'mysql', 'pgsql'] */
+  extensions: string[]
+  /** 匹配的语言标识 */
+  languages: string[]
+  /** 对应的编辑器类型 */
+  editorType: EditorType
+}
+
+/** 默认编辑器模式解析规则 */
+export const EDITOR_MODE_RULES: EditorModeRule[] = [
+  {
+    extensions: ['sql', 'mysql', 'pgsql', 'sqlite'],
+    languages: ['sql', 'mysql', 'pgsql', 'plpgsql'],
+    editorType: 'query',
+  },
+  { extensions: ['duckdb.sql'], languages: ['duckdb'], editorType: 'analysis' },
+  {
+    extensions: ['rs', 'ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'c', 'cpp', 'h', 'hpp'],
+    languages: ['rust', 'typescript', 'javascript', 'python', 'go', 'java', 'c', 'cpp'],
+    editorType: 'code',
+  },
+]

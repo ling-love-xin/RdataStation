@@ -77,7 +77,10 @@ function toggleDropdown() {
 
   if (showDropdown.value) {
     if (dropdownTimeoutId) clearTimeout(dropdownTimeoutId)
-    dropdownTimeoutId = setTimeout(() => document.addEventListener('click', handleClickOutside, true), 0)
+    dropdownTimeoutId = setTimeout(
+      () => document.addEventListener('click', handleClickOutside, true),
+      0
+    )
   }
 }
 

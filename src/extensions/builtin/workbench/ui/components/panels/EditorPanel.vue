@@ -63,10 +63,7 @@
       </Teleport>
 
       <div class="editor-split">
-        <div
-          v-if="largeFileTier === 'rejected'"
-          class="large-file-warning"
-        >
+        <div v-if="largeFileTier === 'rejected'" class="large-file-warning">
           <div class="large-file-icon">&#9888;</div>
           <div class="large-file-title">文件过大</div>
           <div class="large-file-desc">
@@ -74,10 +71,7 @@
           </div>
           <div class="large-file-desc">建议使用外部工具打开此文件。</div>
         </div>
-        <div
-          class="editor-area"
-          :style="{ flex: hasResults ? `${splitRatio}` : '1 1 auto' }"
-        >
+        <div class="editor-area" :style="{ flex: hasResults ? `${splitRatio}` : '1 1 auto' }">
           <div ref="editorContainerRef" class="cm-container" />
           <EditorWelcome
             v-if="showWelcome"
@@ -86,17 +80,9 @@
           />
         </div>
 
-        <div
-          v-if="hasResults"
-          class="split-handle"
-          @mousedown="startSplitDrag"
-        />
+        <div v-if="hasResults" class="split-handle" @mousedown="startSplitDrag" />
 
-        <div
-          v-if="hasResults"
-          class="result-area"
-          :style="{ flex: `calc(1 - ${splitRatio})` }"
-        >
+        <div v-if="hasResults" class="result-area" :style="{ flex: `calc(1 - ${splitRatio})` }">
           <ResultSubTab />
           <div class="result-panel-host" />
         </div>
@@ -113,7 +99,11 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
 import { useCodeMirror } from '@/extensions/builtin/workbench/ui/composables/useCodeMirror'
-import { classifyFileSize, getChunkedContent, type FileSizeTier } from '@/extensions/builtin/workbench/ui/composables/useLargeFile'
+import {
+  classifyFileSize,
+  getChunkedContent,
+  type FileSizeTier,
+} from '@/extensions/builtin/workbench/ui/composables/useLargeFile'
 import { useUiStore } from '@/shared/stores/ui'
 
 import EditorStatusbar from './EditorStatusbar.vue'
@@ -205,7 +195,10 @@ const tabs = computed(() =>
 )
 
 const contextMenu = ref<{ visible: boolean; x: number; y: number; filePath: string }>({
-  visible: false, x: 0, y: 0, filePath: '',
+  visible: false,
+  x: 0,
+  y: 0,
+  filePath: '',
 })
 
 function onTabContextMenu(e: MouseEvent, filePath: string) {
@@ -331,9 +324,7 @@ onMounted(async () => {
 
   createView(
     el,
-    strategy.tier === 'chunked'
-      ? getChunkedContent(content, 0, 5000, 500)
-      : content,
+    strategy.tier === 'chunked' ? getChunkedContent(content, 0, 5000, 500) : content,
     currentLanguage.value,
     theme,
     (_doc, line, col, hasSelection) => {
@@ -367,7 +358,7 @@ onMounted(async () => {
 
   const parentEl = el.parentElement
   if (parentEl && currentView) {
-    domObserver = new MutationObserver((mutations) => {
+    domObserver = new MutationObserver(mutations => {
       for (const m of mutations) {
         if (m.type === 'childList') {
           for (const node of m.addedNodes) {
@@ -388,13 +379,16 @@ onUnmounted(() => {
   const state = getEditorState()
   if (state) EditorManager.saveEditorStateForFile(fp, state)
   EditorManager.unregisterFileEditor(fp)
-  if (domObserver) { domObserver.disconnect(); domObserver = null }
+  if (domObserver) {
+    domObserver.disconnect()
+    domObserver = null
+  }
   destroyView()
 })
 
 watch(
   () => EditorManager.activeFileInfo,
-  (info) => {
+  info => {
     if (info) {
       showWelcome.value = false
     }
@@ -404,7 +398,7 @@ watch(
 
 watch(
   () => uiStore.theme,
-  (theme) => {
+  theme => {
     setTheme(theme === 'dark' ? 'dark' : 'light')
   }
 )
@@ -472,7 +466,9 @@ watch(
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
   position: relative;
 }
 
@@ -525,8 +521,13 @@ watch(
 }
 
 @keyframes dirty-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .tab-close {
@@ -538,7 +539,9 @@ watch(
   border-radius: 4px;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.1s ease, background 0.1s ease;
+  transition:
+    opacity 0.1s ease,
+    background 0.1s ease;
 }
 
 .tab-item:hover .tab-close,

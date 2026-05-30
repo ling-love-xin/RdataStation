@@ -37,11 +37,14 @@ interface CapabilityItem {
   description: string
 }
 
-const CAPABILITY_DEFS: Record<string, {
-  labelKey: string
-  deriveFrom: (d: DriverDescriptor) => boolean
-  descKey: string
-}> = {
+const CAPABILITY_DEFS: Record<
+  string,
+  {
+    labelKey: string
+    deriveFrom: (d: DriverDescriptor) => boolean
+    descKey: string
+  }
+> = {
   tree: {
     labelKey: 'connection.capabilitiesTab.tree',
     deriveFrom: () => true,

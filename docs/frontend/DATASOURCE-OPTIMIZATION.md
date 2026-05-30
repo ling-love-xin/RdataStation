@@ -4,23 +4,23 @@
 
 本文档记录了新增数据源模块的优化方案，解决了以下核心问题：
 
-| 优先级 | 问题 | 影响 |
-|--------|------|------|
-| **P0** | 只选项目时仍建立全局连接 | 不符合预期行为 |
-| **P0** | 快照失败时继续使用全局 ID | 数据不一致风险 |
-| **P0** | 缺少双路线保存支持 | 不支持同时保存到全局和项目 |
-| **P1** | StagingItem 字段不一致 | 数据丢失风险 |
-| **P1** | 两步式保存非原子 | 可能产生孤立连接 |
-| **P1** | 认证配置保存逻辑不完善 | 同时保存全局和项目时只保存了项目级配置 |
-| **P2** | StagingItem 未持久化 | 页面刷新后丢失 |
-| **P2** | 缺少类型守卫和验证函数 | 代码可维护性差 |
-| **P2** | 缺少 URL 验证 | 可能保存无效连接 |
-| **P0** | `createProjectConnection` 字段名不匹配 | 后端收到 null 或 undefined 值 |
-| **P0** | 项目连接保存后未自动建立连接 | 用户需额外操作 |
-| **P0** | 只选「项目」时未自动保存认证配置 | 认证信息丢失 |
-| **P1** | 测试连接时未传递认证配置信息 | 测试不准确 |
-| **P1** | 连接成功后缺少事件通知 | 导航器不会刷新 |
-| **P2** | 暂存项应用后缺少状态标记 | 用户体验不佳 |
+| 优先级 | 问题                                   | 影响                                   |
+| ------ | -------------------------------------- | -------------------------------------- |
+| **P0** | 只选项目时仍建立全局连接               | 不符合预期行为                         |
+| **P0** | 快照失败时继续使用全局 ID              | 数据不一致风险                         |
+| **P0** | 缺少双路线保存支持                     | 不支持同时保存到全局和项目             |
+| **P1** | StagingItem 字段不一致                 | 数据丢失风险                           |
+| **P1** | 两步式保存非原子                       | 可能产生孤立连接                       |
+| **P1** | 认证配置保存逻辑不完善                 | 同时保存全局和项目时只保存了项目级配置 |
+| **P2** | StagingItem 未持久化                   | 页面刷新后丢失                         |
+| **P2** | 缺少类型守卫和验证函数                 | 代码可维护性差                         |
+| **P2** | 缺少 URL 验证                          | 可能保存无效连接                       |
+| **P0** | `createProjectConnection` 字段名不匹配 | 后端收到 null 或 undefined 值          |
+| **P0** | 项目连接保存后未自动建立连接           | 用户需额外操作                         |
+| **P0** | 只选「项目」时未自动保存认证配置       | 认证信息丢失                           |
+| **P1** | 测试连接时未传递认证配置信息           | 测试不准确                             |
+| **P1** | 连接成功后缺少事件通知                 | 导航器不会刷新                         |
+| **P2** | 暂存项应用后缺少状态标记               | 用户体验不佳                           |
 
 ## 二、优化方案
 
@@ -29,10 +29,11 @@
 **问题**：原实现中，即使只选择项目，也会先建立全局连接再保存到项目。
 
 **解决方案**：
+
 ```typescript
 // 判断保存范围
-const shouldSaveGlobal = scope.global || (item.scope === 'global')
-const shouldSaveProject = scope.project || (item.scope === 'project')
+const shouldSaveGlobal = scope.global || item.scope === 'global'
+const shouldSaveProject = scope.project || item.scope === 'project'
 
 // 只选项目时直接保存到项目，不建立全局连接
 if (shouldSaveProject && !shouldSaveGlobal) {
@@ -49,6 +50,7 @@ if (shouldSaveProject && !shouldSaveGlobal) {
 **问题**：快照失败时继续使用全局配置 ID，导致项目依赖全局配置。
 
 **解决方案**：
+
 ```typescript
 async function snapshotIfNeeded(configId, type, projectPath, name, errors, invoke) {
   if (!configId?.startsWith('G_') || configId.startsWith('GP_')) {
@@ -60,7 +62,7 @@ async function snapshotIfNeeded(configId, type, projectPath, name, errors, invok
     return r.snapshot_id
   } catch (e) {
     errors.push(`${name}: ${type === 'auth' ? '认证' : '网络'}配置快照失败`)
-    return 'failed'  // 返回失败标记，中断保存
+    return 'failed' // 返回失败标记，中断保存
   }
 }
 ```
@@ -72,6 +74,7 @@ async function snapshotIfNeeded(configId, type, projectPath, name, errors, invok
 **问题**：不支持同时保存到全局和项目。
 
 **解决方案**：
+
 ```typescript
 // 同时保存到全局和项目
 if (shouldSaveGlobal) {
@@ -91,19 +94,46 @@ if (shouldSaveProject && projectStore.hasProject) {
 **问题**：`saveToStaging` 和 `syncCurrentToStaging` 字段集合不一致。
 
 **解决方案**：抽取统一的 `buildStagingItem` 函数：
+
 ```typescript
 function buildStagingItem(
-  name, driver, driverId, url, formData,
-  authConfigId, authMethod, networkConfigId,
-  driverProperties, advancedOptions, environmentId,
-  description, schemaName, options, metadataPath, tags, useDuckdbFed
+  name,
+  driver,
+  driverId,
+  url,
+  formData,
+  authConfigId,
+  authMethod,
+  networkConfigId,
+  driverProperties,
+  advancedOptions,
+  environmentId,
+  description,
+  schemaName,
+  options,
+  metadataPath,
+  tags,
+  useDuckdbFed
 ) {
   return {
-    name, driver, driverId, url, formData,
-    authConfigId, authMethod, networkConfigId,
-    driverProperties, advancedOptions, environmentId,
+    name,
+    driver,
+    driverId,
+    url,
+    formData,
+    authConfigId,
+    authMethod,
+    networkConfigId,
+    driverProperties,
+    advancedOptions,
+    environmentId,
     scope: scope.global ? 'global' : 'project',
-    description, schemaName, options, metadataPath, tags, useDuckdbFed,
+    description,
+    schemaName,
+    options,
+    metadataPath,
+    tags,
+    useDuckdbFed,
   }
 }
 ```
@@ -115,13 +145,14 @@ function buildStagingItem(
 **问题**：项目连接保存分两步执行，可能产生孤立连接。
 
 **解决方案**：使用 try-catch 补偿机制：
+
 ```typescript
 let globalConnId = null
 try {
   // Step 1: 建立全局连接
   const result = await connectDatabaseService(...)
   globalConnId = result.conn_id
-  
+
   // Step 2: 保存到项目
   await saveToProject(...)
 } catch (e) {
@@ -140,6 +171,7 @@ try {
 **问题**：StagingItem 仅存于内存，页面刷新后丢失。
 
 **解决方案**：使用 localStorage 持久化：
+
 ```typescript
 const STAGING_STORAGE_KEY = 'rdata-station-staging-items'
 
@@ -165,16 +197,17 @@ watch(stagingItems, saveStagingItems, { deep: true })
 **问题**：同时保存全局和项目时，只保存了项目级认证配置。
 
 **解决方案**：分别保存全局和项目级认证配置：
+
 ```typescript
 if (shouldSaveGlobal && shouldSaveProject) {
   const globalId = await invokeTauri('create_auth_config', {
     ac: { name: `${authName} (全局)`, ... }
   })
-  
+
   const projectId = await invokeTauri('project_create_auth_config', {
     name: `${authName} (项目)`, ...
   })
-  
+
   authConfigId.value = projectId.id
   message.info(t('navigator.authSavedHint', { global: true, project: true }))
 }
@@ -214,6 +247,7 @@ function extractHostAndPort(url: string): { host: string; port: number } | null
 **问题**：缺少判断认证方式是否需要凭据的辅助函数。
 
 **解决方案**：
+
 ```typescript
 function isAuthRequired(authMethod: string): boolean {
   return ['password', 'ldap', 'pg_class', 'kerberos', 'oauth2'].includes(authMethod)
@@ -227,6 +261,7 @@ function isAuthRequired(authMethod: string): boolean {
 **问题**：`AddDataSourceDialog.vue` 和 `useAddDataSource.ts` 中重复实现了 StagingItem 管理功能。
 
 **解决方案**：
+
 - 在 `useAddDataSource.ts` 中实现完整的 StagingItem 管理功能
 - 在 `AddDataSourceDialog.vue` 中使用 `useAddDataSource` 提供的功能，避免代码重复
 - 添加了 `isResetting` 状态来防止重置时的循环 watch 触发
@@ -240,6 +275,7 @@ function isAuthRequired(authMethod: string): boolean {
 **问题**：前端调用 `create_project_connection` 时使用 `camelCase` 字段，后端期望 `snake_case`，导致字段值为 null 或 undefined。
 
 **解决方案**：统一使用 `snake_case` 字段名与后端通信：
+
 ```typescript
 // 修复前（错误）
 {
@@ -263,6 +299,7 @@ function isAuthRequired(authMethod: string): boolean {
 **问题**：项目连接保存到数据库后，用户需要手动点击「连接」才能建立实际连接。
 
 **解决方案**：保存项目连接后自动调用 `connectDatabaseService`：
+
 ```typescript
 async function saveToProject(...) {
   // 先保存到项目数据库
@@ -286,6 +323,7 @@ async function saveToProject(...) {
 **问题**：只选「项目」时，如果填写了认证信息但未选择已保存的认证配置，认证配置不会保存。
 
 **解决方案**：在 `saveToProjectOnly` 中添加认证配置保存逻辑：
+
 ```typescript
 // 如果没有使用已保存的认证配置，且用户填写了认证信息，则保存新的认证配置
 let finalAuthConfigId = snapshotAuthId
@@ -298,7 +336,7 @@ if (!finalAuthConfigId && hasAuthData) {
     name: authName,
     authType: finalAuthMethod,
     authData: JSON.stringify(authData),
-    projectPath: pp
+    projectPath: pp,
   })
   finalAuthConfigId = r.id
 }
@@ -311,6 +349,7 @@ if (!finalAuthConfigId && hasAuthData) {
 **问题**：测试连接时没有传递 `authConfigId` 和 `authMethod`，导致测试不准确。
 
 **解决方案**：在 `handleTest` 中添加认证配置信息：
+
 ```typescript
 const params: Record<string, unknown> = {
   dbType: dbType,
@@ -328,6 +367,7 @@ if (authMethod.value) params.authMethod = authMethod.value
 **问题**：连接成功后没有 emit 事件通知父组件，导航器不会刷新。
 
 **解决方案**：在 `handleApply` 成功后 emit 事件：
+
 ```typescript
 if (successCount > 0) {
   emit('save')
@@ -343,6 +383,7 @@ if (successCount > 0) {
 **问题**：暂存项缺少唯一 ID，无法准确定位，且应用后没有状态标记。
 
 **解决方案**：
+
 ```typescript
 export interface StagingItem {
   id: string  // 新增唯一标识
@@ -373,6 +414,7 @@ function markStagingApplied(index: number) {
 **问题**：连接选项构建分散在多处，代码重复。
 
 **解决方案**：抽取统一的 `buildConnectOpts` 函数：
+
 ```typescript
 function buildConnectOpts(
   item: StagingItem,
@@ -387,7 +429,7 @@ function buildConnectOpts(
     driverProperties: item.driverProperties,
     advancedOptions: item.advancedOptions,
     environmentId: item.environmentId ?? undefined,
-    description: item.description
+    description: item.description,
   }
 }
 ```
@@ -480,17 +522,17 @@ function buildConnectOpts(
 
 ## 四、修改文件清单
 
-| 文件 | 修改类型 | 说明 |
-|------|----------|------|
-| `src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue` | 修改 | 修复 handleApply 逻辑，添加认证配置保存优化，统一使用 useAddDataSource 的 StagingItem 管理 |
-| `src/extensions/builtin/connection/ui/composables/useAddDataSource.ts` | 修改 | 添加 StagingItem 管理和持久化，添加验证函数和类型守卫，添加连接字符串构建函数 |
-| `src/extensions/builtin/connection/ui/services/project-connection.ts` | 修改 | 修复 createProjectConnection 字段名从 camelCase 改为 snake_case，与后端匹配 |
-| `docs/frontend/DATASOURCE-OPTIMIZATION.md` | 新增 | 优化文档 |
+| 文件                                                                      | 修改类型 | 说明                                                                                       |
+| ------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue` | 修改     | 修复 handleApply 逻辑，添加认证配置保存优化，统一使用 useAddDataSource 的 StagingItem 管理 |
+| `src/extensions/builtin/connection/ui/composables/useAddDataSource.ts`    | 修改     | 添加 StagingItem 管理和持久化，添加验证函数和类型守卫，添加连接字符串构建函数              |
+| `src/extensions/builtin/connection/ui/services/project-connection.ts`     | 修改     | 修复 createProjectConnection 字段名从 camelCase 改为 snake_case，与后端匹配                |
+| `docs/frontend/DATASOURCE-OPTIMIZATION.md`                                | 新增     | 优化文档                                                                                   |
 
 ## 五、版本记录
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v1.0 | 2026-05-26 | 初始优化方案 |
-| v1.1 | 2026-05-26 | 添加字段名一致性修复，确保与后端匹配 |
+| 版本 | 日期       | 说明                                                                                       |
+| ---- | ---------- | ------------------------------------------------------------------------------------------ |
+| v1.0 | 2026-05-26 | 初始优化方案                                                                               |
+| v1.1 | 2026-05-26 | 添加字段名一致性修复，确保与后端匹配                                                       |
 | v1.2 | 2026-05-26 | 添加自动连接建立、认证配置自动保存、事件通知、测试连接增强、StagingItem id 和 applied 状态 |

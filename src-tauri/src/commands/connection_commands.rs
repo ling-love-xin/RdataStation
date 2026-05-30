@@ -783,6 +783,7 @@ pub async fn test_connection(
         metadata_path: None,          // metadata_path
         schema_name: None,            // schema_name
         use_duckdb_fed: None,         // use_duckdb_fed
+        password: None,               // test connections don't save password
         skip_persistence: Some(true), // skip_persistence: test connections do NOT persist to DB
         network_method,
     });
@@ -1172,8 +1173,15 @@ pub async fn update_global_connection(input: UpdateGlobalConnectionInput) -> Res
         .tags
         .map(|t| serde_json::to_string(&t).unwrap_or_default());
 
+    let conn_id = input.conn_id.clone();
+    let host_clone = input.host.clone();
+    let driver_clone = input.driver.clone();
+    let port_clone = input.port;
+    let database_clone = input.database.clone();
+    let username_clone = input.username.clone();
+
     let db_input = GlobalConnectionUpdateInput {
-        conn_id: input.conn_id.clone(),
+        conn_id: input.conn_id,
         name,
         driver: input.driver,
         host: input.host,
@@ -1203,16 +1211,16 @@ pub async fn update_global_connection(input: UpdateGlobalConnectionInput) -> Res
         .map_err(|e| CoreError::from(format!("Failed to update global connection: {}", e)))?;
 
     let manager = get_connection_manager().clone();
-    if let Some(mut conn_info) = manager.get_connection_info(&input.conn_id).await {
-        if let Some(ref host) = input.host {
-            let driver = input.driver.unwrap_or_else(|| conn_info.db_type.clone());
-            let port = input.port.unwrap_or(0);
-            let database = input.database.unwrap_or_default();
-            let username = input.username.unwrap_or_default();
+    if let Some(mut conn_info) = manager.get_connection_info(&conn_id).await {
+        if let Some(ref host) = host_clone {
+            let driver = driver_clone.unwrap_or_else(|| conn_info.db_type.clone());
+            let port = port_clone.unwrap_or(0);
+            let database = database_clone.unwrap_or_default();
+            let username = username_clone.unwrap_or_default();
             let password = "******";
             let url = format!("{}://{}:{}@{}:{}/{}", driver, username, password, host, port, database);
             conn_info.url = url;
-            if let Err(e) = manager.update_connection_info(&input.conn_id, conn_info).await {
+            if let Err(e) = manager.update_connection_info(&conn_id, conn_info).await {
                 tracing::warn!("更新运行时连接信息失败: {}", e);
             }
         }

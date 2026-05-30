@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { Database, Plug, FileText, FolderOpen } from 'lucide-vue-next'
-import { NButton , createDiscreteApi } from 'naive-ui'
+import { NButton, createDiscreteApi } from 'naive-ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 

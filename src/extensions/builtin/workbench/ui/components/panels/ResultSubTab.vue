@@ -7,20 +7,10 @@
       :closable="resultTabs.length > 1"
       @close="handleResultClose"
     >
-      <NTabPane
-        v-for="tab in resultTabs"
-        :key="tab.id"
-        :name="tab.id"
-        :tab="tab.title"
-      />
+      <NTabPane v-for="tab in resultTabs" :key="tab.id" :name="tab.id" :tab="tab.title" />
     </NTabs>
     <div class="result-sub-actions">
-      <NButton
-        v-if="showGridToolbar"
-        quaternary
-        size="tiny"
-        @click="toggleGridToolbar"
-      >
+      <NButton v-if="showGridToolbar" quaternary size="tiny" @click="toggleGridToolbar">
         {{ gridToolbarVisible ? '隐藏工具栏' : '显示工具栏' }}
       </NButton>
     </div>
@@ -89,7 +79,11 @@ const activeResultTab = computed({
       EditorManager.setActiveResultIndex(active.filePath, idx)
       const panelId = active.resultPanelIds[idx]
       if (panelId && EditorManager.dockviewApi) {
-        try { EditorManager.dockviewApi.getPanel(panelId)?.focus() } catch { /* dockview */ }
+        try {
+          EditorManager.dockviewApi.getPanel(panelId)?.focus()
+        } catch {
+          console.warn('[ResultSubTab] dockview focus failed')
+        }
       }
     }
   },
@@ -110,12 +104,24 @@ function toggleGridToolbar() {
   gridToolbarVisible.value = !gridToolbarVisible.value
 }
 
-const contextMenu = ref<{ visible: boolean; x: number; y: number; resultSetId: string; panelId: string }>({
-  visible: false, x: 0, y: 0, resultSetId: '', panelId: '',
+const contextMenu = ref<{
+  visible: boolean
+  x: number
+  y: number
+  resultSetId: string
+  panelId: string
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  resultSetId: '',
+  panelId: '',
 })
 
 const renameModal = ref<{ visible: boolean; value: string; panelId: string }>({
-  visible: false, value: '', panelId: '',
+  visible: false,
+  value: '',
+  panelId: '',
 })
 
 const renameInputRef = ref<InstanceType<typeof NInput> | null>(null)

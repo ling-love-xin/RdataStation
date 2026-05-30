@@ -279,16 +279,16 @@ export const useLayoutStore = defineStore('layout', () => {
   const panelConfigs = ref<Map<string, PanelConfig>>(new Map())
 
   interface FloatingPanelRef {
-  id: string
-  api: { close(): void }
-}
+    id: string
+    api: { close(): void }
+  }
 
   // ============================================
   // 浮动窗口列表
   // ============================================
   // IDockviewPanel from dockview-core has type incompatibility with dockview-vue runtime objects;
-// panel.group has additional private members (_model, _explicitConstraints, etc.)
-const floatingPanels = ref<FloatingPanelRef[]>([])
+  // panel.group has additional private members (_model, _explicitConstraints, etc.)
+  const floatingPanels = ref<FloatingPanelRef[]>([])
 
   // ============================================
   // 钉住的面板 ID 集合
@@ -398,7 +398,9 @@ const floatingPanels = ref<FloatingPanelRef[]>([])
 
     const appStore = useAppStore()
     if (appStore.projectOpen && data) {
-      appStore.saveDockviewLayout(data as SerializedDockviewLayout).catch((e) => { console.warn('[LayoutStore] Failed to save dockview layout:', e) })
+      appStore.saveDockviewLayout(data as SerializedDockviewLayout).catch(e => {
+        console.warn('[LayoutStore] Failed to save dockview layout:', e)
+      })
     }
   }
 
@@ -828,7 +830,9 @@ const floatingPanels = ref<FloatingPanelRef[]>([])
           bottomPanelMode: bottomPanelMode.value,
           openPanelIds: openPanelIds.value,
         }
-        appStore.saveSidebarState(sidebarState).catch((e) => { console.warn('[LayoutStore] Failed to save sidebar state:', e) })
+        appStore.saveSidebarState(sidebarState).catch(e => {
+          console.warn('[LayoutStore] Failed to save sidebar state:', e)
+        })
       }
     } catch (error) {
       console.error('[LayoutStore] Failed to save layout config:', error)

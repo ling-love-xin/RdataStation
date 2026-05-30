@@ -467,7 +467,7 @@ export function importCustomSnippets(json: string): boolean {
     const existingSnippets = getCustomSnippets()
     const mergedSnippets = [
       ...existingSnippets,
-      ...snippets.map((s) => ({
+      ...snippets.map(s => ({
         ...s,
         isCustom: true,
       })),

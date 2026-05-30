@@ -7,7 +7,11 @@
 import { EditorView } from '@codemirror/view'
 import { invoke } from '@tauri-apps/api/core'
 
-import { createErrorDiagnostic, setEditorDiagnostics, clearEditorDiagnostics } from '@/extensions/builtin/workbench/services/cm-sql-extensions'
+import {
+  createErrorDiagnostic,
+  setEditorDiagnostics,
+  clearEditorDiagnostics,
+} from '@/extensions/builtin/workbench/services/cm-sql-extensions'
 import type { SqlDialect } from '@/shared/types/sql'
 
 interface SqlMarkerData {
@@ -54,10 +58,7 @@ interface ParseSqlResult {
 /**
  * SQL 语法验证（基于 sqlglot-rust）
  */
-export async function validateSql(
-  sql: string,
-  dialect?: SqlDialect
-): Promise<SqlMarkerData[]> {
+export async function validateSql(sql: string, dialect?: SqlDialect): Promise<SqlMarkerData[]> {
   const markers: SqlMarkerData[] = []
 
   try {
@@ -235,7 +236,9 @@ interface DuckDBExecuteParams {
 /**
  * DuckDB 加速执行 SQL
  */
-export async function executeDuckDBAccelerated(params: DuckDBExecuteParams): Promise<SqlExecutionResult> {
+export async function executeDuckDBAccelerated(
+  params: DuckDBExecuteParams
+): Promise<SqlExecutionResult> {
   return invoke<SqlExecutionResult>('execute_sql', {
     input: {
       conn_id: params.connId,
@@ -247,55 +250,55 @@ export async function executeDuckDBAccelerated(params: DuckDBExecuteParams): Pro
 }
 
 const DUCKDB_SQL_KEYWORDS = new Set([
-    'WHERE',
-    'SET',
-    'VALUES',
-    'SELECT',
-    'ON',
-    'AS',
-    'AND',
-    'OR',
-    'NOT',
-    'IN',
-    'IS',
-    'NULL',
-    'TRUE',
-    'FALSE',
-    'LIKE',
-    'BETWEEN',
-    'EXISTS',
-    'CASE',
-    'WHEN',
-    'THEN',
-    'ELSE',
-    'END',
-    'GROUP',
-    'BY',
-    'ORDER',
-    'HAVING',
-    'LIMIT',
-    'OFFSET',
-    'UNION',
-    'ALL',
-    'DISTINCT',
-  ])
+  'WHERE',
+  'SET',
+  'VALUES',
+  'SELECT',
+  'ON',
+  'AS',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'IS',
+  'NULL',
+  'TRUE',
+  'FALSE',
+  'LIKE',
+  'BETWEEN',
+  'EXISTS',
+  'CASE',
+  'WHEN',
+  'THEN',
+  'ELSE',
+  'END',
+  'GROUP',
+  'BY',
+  'ORDER',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'UNION',
+  'ALL',
+  'DISTINCT',
+])
 
 const DUCKDB_TABLE_KEYWORDS = [
-    'FROM',
-    'JOIN',
-    'INNER JOIN',
-    'LEFT JOIN',
-    'RIGHT JOIN',
-    'FULL JOIN',
-    'CROSS JOIN',
-    'NATURAL JOIN',
-    'LEFT OUTER JOIN',
-    'RIGHT OUTER JOIN',
-    'FULL OUTER JOIN',
-    'INSERT INTO',
-    'UPDATE',
-    'INTO',
-  ]
+  'FROM',
+  'JOIN',
+  'INNER JOIN',
+  'LEFT JOIN',
+  'RIGHT JOIN',
+  'FULL JOIN',
+  'CROSS JOIN',
+  'NATURAL JOIN',
+  'LEFT OUTER JOIN',
+  'RIGHT OUTER JOIN',
+  'FULL OUTER JOIN',
+  'INSERT INTO',
+  'UPDATE',
+  'INTO',
+]
 
 /**
  * 为 DuckDB 联邦查询重写 SQL：给无前缀表名加 ATTACH 前缀
@@ -385,11 +388,7 @@ export function clearErrorMarkers(view: EditorView): void {
 
 const MAX_SQL_LENGTH = 2000
 
-export function setErrorMarker(
-  view: EditorView,
-  errorMessage: string,
-  sql: string
-): void {
+export function setErrorMarker(view: EditorView, errorMessage: string, sql: string): void {
   const doc = view.state.doc
   const position = parseErrorPosition(errorMessage)
 
@@ -426,15 +425,12 @@ export function setErrorMarker(
         effects: EditorView.scrollIntoView(pos, { y: 'center' }),
         selection: { anchor: pos + column - 1 },
       })
-    } catch { /* */ }
+    } catch {
+      console.warn('[sql-editor-service] scrollIntoView failed')
+    }
     view.focus()
   } else {
-    const diagnostic = createErrorDiagnostic(
-      view,
-      errorMessage.slice(0, MAX_SQL_LENGTH),
-      1,
-      1
-    )
+    const diagnostic = createErrorDiagnostic(view, errorMessage.slice(0, MAX_SQL_LENGTH), 1, 1)
     setEditorDiagnostics(view, [diagnostic])
   }
 }

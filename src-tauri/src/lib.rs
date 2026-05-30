@@ -259,6 +259,9 @@ pub fn run() {
         // 联邦查询命令
         register_external_database,
         create_external_table,
+        // DuckDB 加速查询
+        execute_duckdb_accelerated,
+        execute_sql_paginated,
         // 元数据缓存命令（排除返回 Vec<serde_json::Value> 的 get_tables_from_cache / get_columns_from_cache）
         metadata_cache_commands::get_metadata_cache_status,
         metadata_cache_commands::refresh_metadata_cache,

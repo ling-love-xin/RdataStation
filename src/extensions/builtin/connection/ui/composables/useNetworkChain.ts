@@ -21,11 +21,7 @@ import {
   protocolChainToChainHops,
   type BackendNetworkConfig,
 } from '../adapters/network-adapter'
-import {
-  MAX_NETWORK_HOPS,
-  WARN_NETWORK_HOPS,
-  createDefaultChain,
-} from '../types/network-chain'
+import { MAX_NETWORK_HOPS, WARN_NETWORK_HOPS, createDefaultChain } from '../types/network-chain'
 
 import type {
   ProtocolNode,
@@ -58,44 +54,30 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
   // ===== 计算属性 =====
 
   /** 网络跳总数（不含 SSL） */
-  const networkHopCount = computed(() =>
-    chain.value.filter(h => h.protocol !== 'ssl').length
-  )
+  const networkHopCount = computed(() => chain.value.filter(h => h.protocol !== 'ssl').length)
 
   /** 已启用的网络跳数 */
-  const enabledNetworkHopCount = computed(() =>
-    chain.value.filter(h => h.protocol !== 'ssl' && h.enabled).length
+  const enabledNetworkHopCount = computed(
+    () => chain.value.filter(h => h.protocol !== 'ssl' && h.enabled).length
   )
 
   /** 是否达到网络跳上限 */
-  const isMaxNetworkHops = computed(() =>
-    networkHopCount.value >= MAX_NETWORK_HOPS
-  )
+  const isMaxNetworkHops = computed(() => networkHopCount.value >= MAX_NETWORK_HOPS)
 
   /** 是否存在 SSL 节点 */
-  const hasSsl = computed(() =>
-    chain.value.some(h => h.protocol === 'ssl')
-  )
+  const hasSsl = computed(() => chain.value.some(h => h.protocol === 'ssl'))
 
   /** 是否存在已启用的 SSL 节点 */
-  const hasEnabledSsl = computed(() =>
-    chain.value.some(h => h.protocol === 'ssl' && h.enabled)
-  )
+  const hasEnabledSsl = computed(() => chain.value.some(h => h.protocol === 'ssl' && h.enabled))
 
   /** 是否应显示跳数警告 */
-  const showHopWarning = computed(() =>
-    enabledNetworkHopCount.value >= WARN_NETWORK_HOPS
-  )
+  const showHopWarning = computed(() => enabledNetworkHopCount.value >= WARN_NETWORK_HOPS)
 
   /** 预估延迟 (ms) */
-  const estimatedLatency = computed(() =>
-    enabledNetworkHopCount.value * 25
-  )
+  const estimatedLatency = computed(() => enabledNetworkHopCount.value * 25)
 
   /** 剩余可用跳数 */
-  const remainingHops = computed(() =>
-    Math.max(0, MAX_NETWORK_HOPS - networkHopCount.value)
-  )
+  const remainingHops = computed(() => Math.max(0, MAX_NETWORK_HOPS - networkHopCount.value))
 
   /** 添加菜单选项 */
   const addHopOptions = computed<AddHopOption[]>(() => [
@@ -126,12 +108,8 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
   const topologyNodes = computed<TopologyNode[]>(() => {
     const nodes: TopologyNode[] = [{ kind: 'self', label: '本机' }]
 
-    const networkHops = chain.value.filter(
-      h => h.protocol !== 'ssl' && h.enabled
-    )
-    const tlsEnabled = chain.value.some(
-      h => h.protocol === 'ssl' && h.enabled
-    )
+    const networkHops = chain.value.filter(h => h.protocol !== 'ssl' && h.enabled)
+    const tlsEnabled = chain.value.some(h => h.protocol === 'ssl' && h.enabled)
 
     for (const hop of networkHops) {
       const label = hop.protocol === 'ssh' ? 'SSH' : 'Proxy'
@@ -184,7 +162,7 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
     return chain.value.find(h => h.id === id)
   }
 
- function generateHopId(): string {
+  function generateHopId(): string {
     return `hop-${hopIdCounter++}`
   }
 
@@ -286,8 +264,7 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
     if (!hop) return null
 
     const name = (data.name as string) || '未命名'
-    const scope: ProfileScope =
-      (data.scope as ProfileScope) || 'project'
+    const scope: ProfileScope = (data.scope as ProfileScope) || 'project'
 
     try {
       if (hop.protocol === 'ssh') {
@@ -319,7 +296,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
 
         if (result?.id) {
           sshProfiles.value.push({
-            id: result.id, name, scope,
+            id: result.id,
+            name,
+            scope,
             host: (data.host as string) || 'localhost',
             port: (data.port as number) || 22,
             username: (data.username as string) || 'root',
@@ -337,7 +316,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         }
       } else if (hop.protocol === 'ssl') {
         const nc = sslProfileToNetworkConfig({
-          id: '', name, scope,
+          id: '',
+          name,
+          scope,
           mode: (data.mode as 'verify-full' | 'verify-ca' | 'require') || 'verify-full',
           ca: data.ca as string | undefined,
           cert: data.cert as string | undefined,
@@ -345,12 +326,20 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         })
 
         const result = await invoke<{ id: string }>('create_network_config', {
-          nc: { id: '', name: nc.name, network_type: nc.network_type, config: nc.config, origin: scope },
+          nc: {
+            id: '',
+            name: nc.name,
+            network_type: nc.network_type,
+            config: nc.config,
+            origin: scope,
+          },
         }).catch(() => null)
 
         if (result?.id) {
           sslProfiles.value.push({
-            id: result.id, name, scope,
+            id: result.id,
+            name,
+            scope,
             mode: (data.mode as 'verify-full' | 'verify-ca' | 'require') || 'verify-full',
             ca: data.ca as string | undefined,
             cert: data.cert as string | undefined,
@@ -362,7 +351,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         }
       } else {
         const nc = proxyProfileToNetworkConfig({
-          id: '', name, scope,
+          id: '',
+          name,
+          scope,
           type: (data.type as 'socks5' | 'http' | 'socks4') || 'socks5',
           host: (data.host as string) || '',
           port: (data.port as number) || 1080,
@@ -371,12 +362,20 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         })
 
         const result = await invoke<{ id: string }>('create_network_config', {
-          nc: { id: '', name: nc.name, network_type: nc.network_type, config: nc.config, origin: scope },
+          nc: {
+            id: '',
+            name: nc.name,
+            network_type: nc.network_type,
+            config: nc.config,
+            origin: scope,
+          },
         }).catch(() => null)
 
         if (result?.id) {
           proxyProfiles.value.push({
-            id: result.id, name, scope,
+            id: result.id,
+            name,
+            scope,
             type: (data.type as 'socks5' | 'http' | 'socks4') || 'socks5',
             host: (data.host as string) || '',
             port: (data.port as number) || 1080,
@@ -414,8 +413,12 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
       }).catch(() => [] as BackendNetworkConfig[])
       const allProxyNets = [...socksNets, ...httpNets]
 
-      sshProfiles.value = sshNets.map(backendConfigToSshProfile).filter((p): p is SshProfile => p !== null)
-      sslProfiles.value = sslNets.map(backendConfigToSslProfile).filter((p): p is SslProfile => p !== null)
+      sshProfiles.value = sshNets
+        .map(backendConfigToSshProfile)
+        .filter((p): p is SshProfile => p !== null)
+      sslProfiles.value = sslNets
+        .map(backendConfigToSslProfile)
+        .filter((p): p is SslProfile => p !== null)
       proxyProfiles.value = allProxyNets
         .map(backendConfigToProxyProfile)
         .filter((p): p is ProxyProfile => p !== null)
@@ -567,11 +570,7 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
 
   // ===== 初始化配置文件 =====
 
-  function initProfiles(
-    ssh?: SshProfile[],
-    ssl?: SslProfile[],
-    proxy?: ProxyProfile[]
-  ) {
+  function initProfiles(ssh?: SshProfile[], ssl?: SslProfile[], proxy?: ProxyProfile[]) {
     if (ssh) sshProfiles.value = ssh
     if (ssl) sslProfiles.value = ssl
     if (proxy) proxyProfiles.value = proxy

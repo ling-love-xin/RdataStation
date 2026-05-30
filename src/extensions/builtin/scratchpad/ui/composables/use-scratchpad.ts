@@ -164,7 +164,14 @@ export function useScratchpad() {
       if (parentPath) {
         if (!response.value) return null
         const children = await listScratchpadDirectory(parentPath)
-        console.log('[createEntry] loaded children for:', parentPath, 'count:', children.length, 'names:', children.map(c => c.name))
+        console.log(
+          '[createEntry] loaded children for:',
+          parentPath,
+          'count:',
+          children.length,
+          'names:',
+          children.map(c => c.name)
+        )
         setEntryChildren(response.value.local_entries, parentPath, children)
       } else {
         await loadFiles()
@@ -413,7 +420,10 @@ export function useScratchpad() {
     }
 
     if (creates.length > 0) {
-      console.log('[applyFileChanges] create events:', creates.map(c => c.path))
+      console.log(
+        '[applyFileChanges] create events:',
+        creates.map(c => c.path)
+      )
       const fetchResults = await Promise.allSettled(creates.map(c => getScratchpadEntry(c.path)))
       const newEntries: ScratchpadEntry[] = []
       for (const result of fetchResults) {
@@ -424,9 +434,19 @@ export function useScratchpad() {
       if (newEntries.length > 0) {
         const existingPaths = collectAllPaths(currentEntries)
         const filtered = newEntries.filter(e => !existingPaths.has(normalizePathForCompare(e.path)))
-        console.log('[applyFileChanges] newEntries:', newEntries.map(e => e.name), 'filtered:', filtered.map(e => e.name), 'existingPaths count:', existingPaths.size)
+        console.log(
+          '[applyFileChanges] newEntries:',
+          newEntries.map(e => e.name),
+          'filtered:',
+          filtered.map(e => e.name),
+          'existingPaths count:',
+          existingPaths.size
+        )
         if (filtered.length > 0) {
-          console.log('[applyFileChanges] inserting:', filtered.map(e => e.name + '@' + e.path))
+          console.log(
+            '[applyFileChanges] inserting:',
+            filtered.map(e => e.name + '@' + e.path)
+          )
         }
         currentEntries = insertEntriesIntoTree(currentEntries, filtered)
       }
@@ -521,7 +541,14 @@ export function useScratchpad() {
       const e = entries[i]
       if (normalizePathForCompare(e.path) === parentPath) {
         const existingNames = e.children ? e.children.map(c => c.name) : []
-        console.log('[insertUnderParent] adding child:', child.name, 'to parent:', parentPath, 'existing children:', existingNames)
+        console.log(
+          '[insertUnderParent] adding child:',
+          child.name,
+          'to parent:',
+          parentPath,
+          'existing children:',
+          existingNames
+        )
         entries[i] = {
           ...e,
           children: e.children ? [...e.children, child] : [child],
@@ -603,7 +630,14 @@ export function useScratchpad() {
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i]
       if (normalizePathForCompare(e.path) === normalizePathForCompare(parentPath)) {
-        console.log('[setEntryChildren] replacing children for:', parentPath, 'old children count:', e.children?.length, 'new children:', children.map(c => c.name))
+        console.log(
+          '[setEntryChildren] replacing children for:',
+          parentPath,
+          'old children count:',
+          e.children?.length,
+          'new children:',
+          children.map(c => c.name)
+        )
         entries[i] = { ...e, children }
         return true
       }

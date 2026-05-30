@@ -128,20 +128,30 @@
     "hasSchemas": false,
     "systemSchemas": ["information_schema", "mysql", "performance_schema", "sys"],
     "folders": {
-      "tables":       { "enabled": true, "label": "Tables",      "icon": "table",    "childTypes": ["table"] },
-      "views":        { "enabled": true, "label": "Views",       "icon": "eye",      "childTypes": ["view"] },
-      "functions":    { "enabled": true, "label": "Functions",   "icon": "function", "childTypes": ["function"] },
-      "procedures":   { "enabled": true, "label": "Procedures",  "icon": "terminal", "childTypes": ["procedure"] },
-      "sequences":    { "enabled": false, "label": "Sequences",  "icon": "hash",     "childTypes": [] },
-      "triggers":     { "enabled": false, "label": "Triggers",   "icon": "zap",      "childTypes": [] }
+      "tables": { "enabled": true, "label": "Tables", "icon": "table", "childTypes": ["table"] },
+      "views": { "enabled": true, "label": "Views", "icon": "eye", "childTypes": ["view"] },
+      "functions": {
+        "enabled": true,
+        "label": "Functions",
+        "icon": "function",
+        "childTypes": ["function"]
+      },
+      "procedures": {
+        "enabled": true,
+        "label": "Procedures",
+        "icon": "terminal",
+        "childTypes": ["procedure"]
+      },
+      "sequences": { "enabled": false, "label": "Sequences", "icon": "hash", "childTypes": [] },
+      "triggers": { "enabled": false, "label": "Triggers", "icon": "zap", "childTypes": [] }
     },
     "tableChildren": {
-        "columns": true,
-        "indexes": false,
-        "constraints": false,
-        "triggers": false,
-        "foreignKeys": false,
-        "references": false
-      }
+      "columns": true,
+      "indexes": false,
+      "constraints": false,
+      "triggers": false,
+      "foreignKeys": false,
+      "references": false
+    }
   }
 }

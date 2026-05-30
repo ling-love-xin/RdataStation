@@ -11,20 +11,8 @@
     </div>
 
     <div class="toolbar-group">
-      <NButton
-        quaternary
-        size="tiny"
-        @click="$emit('export-csv')"
-      >
-        导出 CSV
-      </NButton>
-      <NButton
-        quaternary
-        size="tiny"
-        @click="$emit('export-json')"
-      >
-        导出 JSON
-      </NButton>
+      <NButton quaternary size="tiny" @click="$emit('export-csv')"> 导出 CSV </NButton>
+      <NButton quaternary size="tiny" @click="$emit('export-json')"> 导出 JSON </NButton>
     </div>
 
     <div class="toolbar-spacer" />
@@ -34,13 +22,7 @@
     </div>
 
     <div class="toolbar-group">
-      <NButton
-        quaternary
-        size="tiny"
-        @click="$emit('close')"
-      >
-        关闭
-      </NButton>
+      <NButton quaternary size="tiny" @click="$emit('close')"> 关闭 </NButton>
     </div>
   </div>
 </template>
@@ -49,7 +31,6 @@
 import { NButton, NTag } from 'naive-ui'
 import { computed } from 'vue'
 
-
 const props = defineProps<{
   rowCount?: number
   elapsedMs?: number
@@ -57,7 +38,7 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  'close': []
+  close: []
   'export-csv': []
   'export-json': []
 }>()

@@ -1,7 +1,7 @@
-
 # 插件 API 参考文档
 
 ## 目录
+
 1. [Tauri Commands](#tauri-commands)
 2. [核心插件管理](#plugin-manager)
 3. [事件系统](#events)
@@ -18,20 +18,21 @@
 获取所有已加载的插件列表。
 
 ```typescript
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
-const plugins = await invoke('plugin_list');
+const plugins = await invoke('plugin_list')
 ```
 
 **返回值**: `Array&lt;PluginInfo&gt;`
+
 ```typescript
 interface PluginInfo {
-  id: string;
-  name: string;
-  version: string;
-  plugin_type: string;  // "Wasm" | "Sidecar"
-  metadata: any;
-  state: string;  // "Loaded" | "Active" | "Inactive" | "Error"
+  id: string
+  name: string
+  version: string
+  plugin_type: string // "Wasm" | "Sidecar"
+  metadata: any
+  state: string // "Loaded" | "Active" | "Inactive" | "Error"
 }
 ```
 
@@ -41,12 +42,13 @@ interface PluginInfo {
 
 ```typescript
 await invoke('plugin_load', {
-    pluginId: 'com.example.plugin',
-    pluginPath: '/path/to/plugin'
-});
+  pluginId: 'com.example.plugin',
+  pluginPath: '/path/to/plugin',
+})
 ```
 
 **参数**:
+
 - `pluginId`: 插件唯一标识符
 - `pluginPath`: 插件目录路径
 
@@ -58,11 +60,12 @@ await invoke('plugin_load', {
 
 ```typescript
 await invoke('plugin_activate', {
-    pluginId: 'com.example.plugin'
-});
+  pluginId: 'com.example.plugin',
+})
 ```
 
 **参数**:
+
 - `pluginId`: 插件 ID
 
 ### plugin_deactivate
@@ -71,8 +74,8 @@ await invoke('plugin_activate', {
 
 ```typescript
 await invoke('plugin_deactivate', {
-    pluginId: 'com.example.plugin'
-});
+  pluginId: 'com.example.plugin',
+})
 ```
 
 ### plugin_unload
@@ -81,8 +84,8 @@ await invoke('plugin_deactivate', {
 
 ```typescript
 await invoke('plugin_unload', {
-    pluginId: 'com.example.plugin'
-});
+  pluginId: 'com.example.plugin',
+})
 ```
 
 ### plugin_get_status
@@ -91,19 +94,20 @@ await invoke('plugin_unload', {
 
 ```typescript
 const status = await invoke('plugin_get_status', {
-    pluginId: 'com.example.plugin'
-});
+  pluginId: 'com.example.plugin',
+})
 ```
 
 **返回值**: `PluginStatus`
+
 ```typescript
 interface PluginStatus {
-  plugin_id: string;
-  name: string;
-  version: string;
-  plugin_type: string;
-  status: string;
-  config: any | null;
+  plugin_id: string
+  name: string
+  version: string
+  plugin_type: string
+  status: string
+  config: any | null
 }
 ```
 
@@ -113,8 +117,8 @@ interface PluginStatus {
 
 ```typescript
 const plugins = await invoke('plugin_add_directory', {
-    directory: '~/.rdata-station/plugins'
-});
+  directory: '~/.rdata-station/plugins',
+})
 ```
 
 **返回值**: `Array&lt;PluginInfo&gt;` - 发现的插件列表
@@ -125,11 +129,11 @@ const plugins = await invoke('plugin_add_directory', {
 
 ```typescript
 const result = await invoke('plugin_db_query', {
-    pluginId: 'com.example.plugin',
-    connId: 'connection-id',
-    sql: 'SELECT * FROM users',
-    timeout: 30000
-});
+  pluginId: 'com.example.plugin',
+  connId: 'connection-id',
+  sql: 'SELECT * FROM users',
+  timeout: 30000,
+})
 ```
 
 ### plugin_db_metadata
@@ -138,12 +142,12 @@ const result = await invoke('plugin_db_query', {
 
 ```typescript
 const metadata = await invoke('plugin_db_metadata', {
-    pluginId: 'com.example.plugin',
-    connId: 'connection-id',
-    catalog: 'db',
-    schema: 'public',
-    kind: 'tables'
-});
+  pluginId: 'com.example.plugin',
+  connId: 'connection-id',
+  catalog: 'db',
+  schema: 'public',
+  kind: 'tables',
+})
 ```
 
 ---
@@ -328,42 +332,44 @@ async fn save_plugin_config(
 ```typescript
 // 1. 添加插件目录
 await invoke('plugin_add_directory', {
-    directory: '~/.rdata-station/plugins'
-});
+  directory: '~/.rdata-station/plugins',
+})
 
 // 2. 加载插件
 await invoke('plugin_load', {
-    pluginId: 'com.example.plugin',
-    pluginPath: '~/.rdata-station/plugins/example'
-});
+  pluginId: 'com.example.plugin',
+  pluginPath: '~/.rdata-station/plugins/example',
+})
 
 // 3. 激活插件
 await invoke('plugin_activate', {
-    pluginId: 'com.example.plugin'
-});
+  pluginId: 'com.example.plugin',
+})
 
 // 4. 检查状态
 const status = await invoke('plugin_get_status', {
-    pluginId: 'com.example.plugin'
-});
-console.log('Plugin status:', status);
+  pluginId: 'com.example.plugin',
+})
+console.log('Plugin status:', status)
 
 // 5. 使用插件功能
 const result = await invoke('plugin_db_query', {
-    pluginId: 'com.example.plugin',
-    connId: 'my-connection',
-    sql: 'SELECT * FROM data'
-});
+  pluginId: 'com.example.plugin',
+  connId: 'my-connection',
+  sql: 'SELECT * FROM data',
+})
 ```
 
 ### 错误处理
 
 ```typescript
 try {
-    await invoke('plugin_load', { /* ... */ });
+  await invoke('plugin_load', {
+    /* ... */
+  })
 } catch (e) {
-    console.error('Plugin load failed:', e);
-    // 处理错误
+  console.error('Plugin load failed:', e)
+  // 处理错误
 }
 ```
 
@@ -373,4 +379,3 @@ try {
 
 - [PLUGIN_SYSTEM.md](./PLUGIN_SYSTEM.md) - 架构文档
 - [PLUGIN_DEVELOPMENT.md](./PLUGIN_DEVELOPMENT.md) - 开发指南
-

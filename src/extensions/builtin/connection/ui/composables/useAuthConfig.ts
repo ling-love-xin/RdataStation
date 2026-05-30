@@ -59,7 +59,7 @@ export function parseAuthConfig(raw: BackendAuthConfig): AuthConfig {
     id: raw.id,
     name: raw.name || '',
     authType: raw.auth_type,
-    scope: (raw.origin === 'global' ? 'global' : 'project'),
+    scope: raw.origin === 'global' ? 'global' : 'project',
     username: data.username as string | undefined,
     password: data.password as string | undefined,
     certPath: data.certPath as string | undefined,
@@ -234,7 +234,9 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
 
       let projectConfigs: AuthConfig[] = []
       if (projectPath) {
-        const projConfigs = await invoke<BackendAuthConfig[]>('project_list_auth_configs', { projectPath })
+        const projConfigs = await invoke<BackendAuthConfig[]>('project_list_auth_configs', {
+          projectPath,
+        })
         projectConfigs = projConfigs.map(parseAuthConfig)
       }
 

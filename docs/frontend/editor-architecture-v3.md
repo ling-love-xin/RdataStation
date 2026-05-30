@@ -35,13 +35,13 @@
 
 Monaco Editor → CodeMirror 6 全量迁移已于 2026-05-17 完成：
 
-| 操作 | 数量 | 说明 |
-|------|------|------|
-| 删除文件 | 7 | monaco-theme.ts、useMonacoEditor.ts、useEditorSettings.ts、SqlEditorPanel.vue、CodeEditorPanel.vue、CodeEditorStatusbar.vue、sql-dialect-highlight.ts |
-| 新建文件 | 3 | useCodeMirror.ts、cm-sql-extensions.ts、cm-theme.ts |
-| 修改文件 | 19 | 配置、Manager、Service、Panel、Store、i18n、Composables |
-| 移除依赖 | 1 | monaco-editor (~15MB) |
-| 新增依赖 | 10 | @codemirror/* 轻量包（总计 ~800KB） |
+| 操作     | 数量 | 说明                                                                                                                                                  |
+| -------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 删除文件 | 7    | monaco-theme.ts、useMonacoEditor.ts、useEditorSettings.ts、SqlEditorPanel.vue、CodeEditorPanel.vue、CodeEditorStatusbar.vue、sql-dialect-highlight.ts |
+| 新建文件 | 3    | useCodeMirror.ts、cm-sql-extensions.ts、cm-theme.ts                                                                                                   |
+| 修改文件 | 19   | 配置、Manager、Service、Panel、Store、i18n、Composables                                                                                               |
+| 移除依赖 | 1    | monaco-editor (~15MB)                                                                                                                                 |
+| 新增依赖 | 10   | @codemirror/\* 轻量包（总计 ~800KB）                                                                                                                  |
 
 ### 1.2 当前 CM6 依赖栈
 
@@ -89,6 +89,7 @@ EditorPanel.vue
 - **语言模式配置**（语法树缓存）
 
 关键特性：
+
 - 不可变，任何修改都产生新的 EditorState
 - 独立于 DOM，可序列化（`EditorState.toJSON()`）
 - 体积约为文档内容的 2-3 倍（含历史记录栈）
@@ -118,12 +119,12 @@ languageCompartment.reconfigure(sql({ dialect: MySQL }))
 
 CM6 通过 Extension 组合功能，核心类型：
 
-| Extension 类型 | 示例 | 可序列化 |
-|----------------|------|----------|
-| ViewPlugin | 光标闪烁、高亮当前行 | ❌ 视图临时状态 |
-| StateField | 折叠状态、语法树缓存 | ✅ 需实现 toJSON/fromJSON |
-| Facet | 编辑器配置 | ❌ |
-| 装饰器 | lint 标记、语法高亮 | ❌ 由外部服务管理 |
+| Extension 类型 | 示例                 | 可序列化                  |
+| -------------- | -------------------- | ------------------------- |
+| ViewPlugin     | 光标闪烁、高亮当前行 | ❌ 视图临时状态           |
+| StateField     | 折叠状态、语法树缓存 | ✅ 需实现 toJSON/fromJSON |
+| Facet          | 编辑器配置           | ❌                        |
+| 装饰器         | lint 标记、语法高亮  | ❌ 由外部服务管理         |
 
 ---
 
@@ -134,9 +135,9 @@ CM6 通过 Extension 组合功能，核心类型：
 [EditorManager.ts](../src/extensions/builtin/workbench/manager/EditorManager.ts) 核心数据结构：
 
 ```typescript
-const editorInstances = new Map<string, EditorInstance>()   // instanceId → EditorInstance
-const panelGroupMap = new Map<string, string>()             // panelId → groupId
-const savedStates = new Map<string, EditorState>()          // filePath → EditorState（缓存）
+const editorInstances = new Map<string, EditorInstance>() // instanceId → EditorInstance
+const panelGroupMap = new Map<string, string>() // panelId → groupId
+const savedStates = new Map<string, EditorState>() // filePath → EditorState（缓存）
 ```
 
 每个通过 dockview 打开的标签页都有独立的 `EditorView` 实例（Phase B：一对一映射）：
@@ -154,8 +155,8 @@ dockview Panel 2 (file B.sql) ─── EditorInstance #2 (EditorView #2)
 interface OpenFileInfo {
   filePath: string
   fileName: string
-  language: string          // 'sql' | 'python' | 'json' | ...
-  type: FileType            // 'file' | 'analysis'
+  language: string // 'sql' | 'python' | 'json' | ...
+  type: FileType // 'file' | 'analysis'
   isDirty: boolean
   connectionId: string
   databaseName: string
@@ -170,13 +171,13 @@ interface OpenFileInfo {
 
 ### 3.3 当前模式的局限性
 
-| 问题 | 说明 | 严重程度 |
-|------|------|----------|
-| **一对一映射** | `editorInstances` 是 `Map<instanceId, EditorInstance>`，每个 Instance 仍有独立 EditorView（Phase B） | 🟡 P1 |
+| 问题                    | 说明                                                                                                   | 严重程度  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ | --------- |
+| **一对一映射**          | `editorInstances` 是 `Map<instanceId, EditorInstance>`，每个 Instance 仍有独立 EditorView（Phase B）   | 🟡 P1     |
 | **无 EditorState 保存** | 切换/关闭标签页时，选区位置和历史记录通过 `savedStates` 缓存保持，但非 Group 级 `view.setState()` 切换 | 🟢 已缓解 |
-| **Tab 切换时重建 View** | 每次切换依赖 Panel `onMounted/onUnmounted` 生命周期，不是 `view.setState()` | 🟡 P1 |
-| **分屏支持** | 通过 `instanceId` 区分已支持，同一文件可在不同 Group 独立打开 | 🟢 已解决 |
-| **无弹窗支持** | Popout 端到端链路断裂 | 🟠 P2 |
+| **Tab 切换时重建 View** | 每次切换依赖 Panel `onMounted/onUnmounted` 生命周期，不是 `view.setState()`                            | 🟡 P1     |
+| **分屏支持**            | 通过 `instanceId` 区分已支持，同一文件可在不同 Group 独立打开                                          | 🟢 已解决 |
+| **无弹窗支持**          | Popout 端到端链路断裂                                                                                  | 🟠 P2     |
 
 ---
 
@@ -202,6 +203,7 @@ Group B (右边，分屏)
 ```
 
 关键约束：
+
 - **同一 Group 内**：EditorView 复用，`view.setState()` 切换，O(1)
 - **跨 Group 同一文件**：每个 Group 独立副本（`EditorInstance`），一个可编辑、其余只读
 - **状态保存**：每个 Tab 关闭或切换前，将其 `EditorState` 保存到映射
@@ -210,16 +212,16 @@ Group B (右边，分屏)
 
 ```typescript
 interface EditorInstance {
-  instanceId: string          // `${groupId}_${filePath}`
-  groupId: string             // 所属 Group
+  instanceId: string // `${groupId}_${filePath}`
+  groupId: string // 所属 Group
   filePath: string
-  view: EditorView            // 该 Group 的共享 View
-  state: EditorState          // 当前激活状态（切换前保存到映射）
-  writable: boolean           // 是否可编辑（同文件首个实例为 true，其余只读）
+  view: EditorView // 该 Group 的共享 View
+  state: EditorState // 当前激活状态（切换前保存到映射）
+  writable: boolean // 是否可编辑（同文件首个实例为 true，其余只读）
 }
 
 const editorInstances = new Map<string, EditorInstance>()
-const groupViews = new Map<string, EditorView>()        // groupId → 共享 EditorView
+const groupViews = new Map<string, EditorView>() // groupId → 共享 EditorView
 const groupActiveState = new Map<string, EditorState>() // groupId → 当前活跃 EditorState
 ```
 
@@ -230,7 +232,7 @@ interface OpenFileInfo {
   // ... 现有字段
 
   // 新增：每个打开实例的 EditorState 完整快照
-  states: Map<string, EditorState>   // instanceId → EditorState
+  states: Map<string, EditorState> // instanceId → EditorState
 
   // 新增：主实例 ID（可编辑的那个）
   primaryInstanceId: string
@@ -267,12 +269,12 @@ Phase D（P2 - 弹窗）
 
 ### 5.1 场景分类
 
-| 场景 | 触发方式 | EditorView | EditorState | 编辑权限 |
-|------|----------|------------|-------------|----------|
-| 普通打开 | 双击文件树 | 新建/复用 | 新建 | 可编辑 |
-| 同组切换 | 点击 Tab | 复用 | 切换 | 可编辑 |
-| 分屏观看 | 拖拽 Tab 到另一 Group | 目标 Group 的共享 View | 新建副本 | **只读** |
-| 弹出窗口 | 弹出 Group 按钮 | 新窗口内的共享 View | 原 Group 的 State 迁移 | 弹出窗口可编辑，原窗口锁定 |
+| 场景     | 触发方式              | EditorView             | EditorState            | 编辑权限                   |
+| -------- | --------------------- | ---------------------- | ---------------------- | -------------------------- |
+| 普通打开 | 双击文件树            | 新建/复用              | 新建                   | 可编辑                     |
+| 同组切换 | 点击 Tab              | 复用                   | 切换                   | 可编辑                     |
+| 分屏观看 | 拖拽 Tab 到另一 Group | 目标 Group 的共享 View | 新建副本               | **只读**                   |
+| 弹出窗口 | 弹出 Group 按钮       | 新窗口内的共享 View    | 原 Group 的 State 迁移 | 弹出窗口可编辑，原窗口锁定 |
 
 ### 5.2 分屏冲突策略
 
@@ -289,6 +291,7 @@ Phase D（P2 - 弹窗）
 ```
 
 推荐方案一，理由：
+
 - 符合用户预期（点击已打开的文件 = 导航到该文件）
 - 实现成本低
 - DataGrip / DBeaver 均采用类似策略
@@ -296,11 +299,13 @@ Phase D（P2 - 弹窗）
 ### 5.3 弹出窗口冲突策略
 
 弹出 Group 时：
+
 1. 主窗口中该 Group 内所有文件的编辑器**锁定为只读**
 2. 弹出窗口中的副本获得**编辑权限**
 3. 合并回主窗口时，覆盖原状态
 
 用户关闭弹出窗口时的处理：
+
 - 选择合并 → 序列化并回传，覆盖主窗口中的对应状态
 - 选择放弃 → 主窗口中的只读锁定解除
 
@@ -310,13 +315,13 @@ Phase D（P2 - 弹窗）
 
 ### 6.1 状态管理器职责
 
-| 职责 | 说明 |
-|------|------|
-| 存储 | 维护 `instanceId → EditorState` 映射 |
-| CRUD | 创建/读取/更新/删除标签页状态 |
-| 当前活动 | 跟踪 `(groupId, instanceId)` 当前活跃对 |
-| 序列化 | 提供 `serializeGroup(groupId)` / `deserializeGroup(data)` |
-| 同步 | 编辑器内容变更后自动回写 EditorState |
+| 职责     | 说明                                                      |
+| -------- | --------------------------------------------------------- |
+| 存储     | 维护 `instanceId → EditorState` 映射                      |
+| CRUD     | 创建/读取/更新/删除标签页状态                             |
+| 当前活动 | 跟踪 `(groupId, instanceId)` 当前活跃对                   |
+| 序列化   | 提供 `serializeGroup(groupId)` / `deserializeGroup(data)` |
+| 同步     | 编辑器内容变更后自动回写 EditorState                      |
 
 ### 6.2 状态与视图分离
 
@@ -332,13 +337,13 @@ EditorView (DOM)  ←→  EditorState (数据)
 
 ### 6.3 状态持久化时机
 
-| 时机 | 操作 |
-|------|------|
-| 每次编辑 | `updateListener` → 保存最新 `EditorState` 到映射 |
-| 切换标签页前 | 先保存当前 State，再加载新 State（顺序不可逆） |
-| 弹出 Group | 序列化整个 Group 的所有 State 并传输 |
-| 合并关闭 | 接收序列化数据，反序列化后合并到映射 |
-| 应用关闭 | `EditorState.toJSON()` → localStorage（崩溃恢复） |
+| 时机         | 操作                                              |
+| ------------ | ------------------------------------------------- |
+| 每次编辑     | `updateListener` → 保存最新 `EditorState` 到映射  |
+| 切换标签页前 | 先保存当前 State，再加载新 State（顺序不可逆）    |
+| 弹出 Group   | 序列化整个 Group 的所有 State 并传输              |
+| 合并关闭     | 接收序列化数据，反序列化后合并到映射              |
+| 应用关闭     | `EditorState.toJSON()` → localStorage（崩溃恢复） |
 
 ### 6.4 状态同步合约
 
@@ -363,9 +368,9 @@ function onTabSwitch(oldInstanceId: string, newInstanceId: string): void {
 function onTabClose(instanceId: string, groupId: string): void {
   const siblings = getSiblingsInGroup(groupId, instanceId)
   if (siblings.length > 0) {
-    onTabSwitch(instanceId, siblings[0])  // 触发切换（内部先保存）
+    onTabSwitch(instanceId, siblings[0]) // 触发切换（内部先保存）
   }
-  editorInstances.delete(instanceId)       // 再删除
+  editorInstances.delete(instanceId) // 再删除
 }
 ```
 
@@ -375,14 +380,14 @@ function onTabClose(instanceId: string, groupId: string): void {
 
 ### 7.1 事件映射表
 
-| DockView 事件 | 当前处理 | 目标处理 |
-|---------------|----------|----------|
-| `onDidAddPanel` | `openFile()` → 创建 EditorView + OpenFileInfo | 创建 EditorState + 注册 EditorInstance；若是同 Group 第二个 Tab，复用 EditorView |
-| `onDidActivePanelChange` | `onPanelActivated()` → 更新 activeFilePath | 保存当前 State → `view.setState(nextState)` → 更新活动记录 |
-| `onDidRemovePanel` | `closeFile()` → `view.destroy()` + 删除 fileEditors | 从映射删除；若是活动页则先切换到同组其他页 |
-| `onDidMovePanel` | ✅ 已处理 | 更新 `instance.groupId`；若移动的是活动页，更新 Group→View 的关联 |
-| `onDidDockGroup` | ⚠️ 仅日志 | 合并外部 Group：反序列化数据 → 注册实例 → dockview 重建（反序列化逻辑待实现） |
-| `onDidUndockGroup` | ✅ 已处理 | 弹出 Group：序列化状态 → Tauri EventSystem 发送 → 锁定主窗口文件（通过 `onDidRemoveGroup` 触发） |
+| DockView 事件            | 当前处理                                            | 目标处理                                                                                         |
+| ------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `onDidAddPanel`          | `openFile()` → 创建 EditorView + OpenFileInfo       | 创建 EditorState + 注册 EditorInstance；若是同 Group 第二个 Tab，复用 EditorView                 |
+| `onDidActivePanelChange` | `onPanelActivated()` → 更新 activeFilePath          | 保存当前 State → `view.setState(nextState)` → 更新活动记录                                       |
+| `onDidRemovePanel`       | `closeFile()` → `view.destroy()` + 删除 fileEditors | 从映射删除；若是活动页则先切换到同组其他页                                                       |
+| `onDidMovePanel`         | ✅ 已处理                                           | 更新 `instance.groupId`；若移动的是活动页，更新 Group→View 的关联                                |
+| `onDidDockGroup`         | ⚠️ 仅日志                                           | 合并外部 Group：反序列化数据 → 注册实例 → dockview 重建（反序列化逻辑待实现）                    |
+| `onDidUndockGroup`       | ✅ 已处理                                           | 弹出 Group：序列化状态 → Tauri EventSystem 发送 → 锁定主窗口文件（通过 `onDidRemoveGroup` 触发） |
 
 ### 7.2 时序约束
 
@@ -404,7 +409,7 @@ dockview 拖拽时会将 EditorView 的 DOM 节点从文档树中临时移除再
 ```typescript
 // 在 EditorPanel.vue 中监听 DOM 重新挂载
 onMounted(() => {
-  const observer = new MutationObserver((mutations) => {
+  const observer = new MutationObserver(mutations => {
     for (const m of mutations) {
       if (m.type === 'childList' && editorContainerEl.value?.isConnected) {
         view.value?.requestMeasure()
@@ -574,28 +579,29 @@ interface SerializedTab {
   language: string
   title: string
   writable: boolean
-  stateJSON: object                   // EditorState.toJSON()
-  scrollTop: number                   // view.scrollDOM.scrollTop
-  scrollLeft: number                  // view.scrollDOM.scrollLeft
+  stateJSON: object // EditorState.toJSON()
+  scrollTop: number // view.scrollDOM.scrollTop
+  scrollLeft: number // view.scrollDOM.scrollLeft
 }
 ```
 
 ### 10.2 不可序列化内容及处理
 
-| 内容 | 原因 | 处理方式 |
-|------|------|----------|
-| 滚动位置 | ViewPlugin 临时状态 | 序列化前单独读取 `view.scrollDOM.scrollTop/Left`，反序列化后 `view.scrollTo()` |
-| 代码折叠 | 取决于扩展实现 | `foldGutter` 的折叠状态是 StateField，可自动序列化 |
-| 当前高亮行 | ViewPlugin 临时状态 | 丢失（可接受） |
-| 数据库连接 | 运行时引用 | 不存储在 EditorState 中，通过外部服务管理 |
-| LSP 连接 | 运行时引用 | 弹出窗口独立创建 |
-| 光标闪烁相位 | ViewPlugin 临时状态 | 丢失（可接受） |
+| 内容         | 原因                | 处理方式                                                                       |
+| ------------ | ------------------- | ------------------------------------------------------------------------------ |
+| 滚动位置     | ViewPlugin 临时状态 | 序列化前单独读取 `view.scrollDOM.scrollTop/Left`，反序列化后 `view.scrollTo()` |
+| 代码折叠     | 取决于扩展实现      | `foldGutter` 的折叠状态是 StateField，可自动序列化                             |
+| 当前高亮行   | ViewPlugin 临时状态 | 丢失（可接受）                                                                 |
+| 数据库连接   | 运行时引用          | 不存储在 EditorState 中，通过外部服务管理                                      |
+| LSP 连接     | 运行时引用          | 弹出窗口独立创建                                                               |
+| 光标闪烁相位 | ViewPlugin 临时状态 | 丢失（可接受）                                                                 |
 
 ### 10.3 扩展兼容性约束
 
 跨窗口（或保存→恢复）需要**两端扩展集完全一致**，否则 `EditorState.fromJSON()` 会失败。
 
 实现策略：
+
 - 主窗口和弹出窗口使用相同的 Extensions 构建函数
 - Compartment 配置（language/theme/extra）在主窗口打包发送，弹出窗口按配置重建
 - 扩展集 hash 校验：发送前取 `extensions.hash`，接收端比对，不匹配则拒绝恢复
@@ -608,24 +614,24 @@ interface SerializedTab {
 
 RdataStation 编辑器承载的内容不止 SQL 脚本，还包括：
 
-| 文件类型 | 典型大小 | 使用场景 |
-|----------|----------|----------|
-| SQL 脚本 | 1KB - 500KB | 日常查询、存储过程 |
-| Python 脚本 | 1KB - 2MB | 数据分析脚本 |
-| JSON 配置 | 100B - 5MB | 数据导出/导入 |
-| CSV/TSV 数据文件 | 100KB - **100MB+** | 数据预览/编辑 |
-| 日志文件 | 1MB - **500MB+** | 调试/审计 |
-| XML/HTML | 1KB - 50MB | 数据交换格式 |
+| 文件类型         | 典型大小           | 使用场景           |
+| ---------------- | ------------------ | ------------------ |
+| SQL 脚本         | 1KB - 500KB        | 日常查询、存储过程 |
+| Python 脚本      | 1KB - 2MB          | 数据分析脚本       |
+| JSON 配置        | 100B - 5MB         | 数据导出/导入      |
+| CSV/TSV 数据文件 | 100KB - **100MB+** | 数据预览/编辑      |
+| 日志文件         | 1MB - **500MB+**   | 调试/审计          |
+| XML/HTML         | 1KB - 50MB         | 数据交换格式       |
 
 ### 11.2 分级处理策略
 
-| 文件大小 | 策略 | 说明 |
-|----------|------|------|
-| < 1MB | 全量加载 | 正常模式，完整语法高亮 + 历史记录 + 序列化 |
-| 1MB - 10MB | 全量加载 + 限制历史 | 限制撤销栈深度（如 200 步），禁用代码折叠自动分析 |
-| 10MB - 50MB | 全量加载 + 禁用扩展 | 仅基础语法高亮，禁用补全/折叠/lint；提示"大文件模式" |
-| 50MB - 200MB | 分片加载 | 仅加载可视区域 + 前后各 5000 行缓冲区；语法高亮延迟 |
-| > 200MB | 拒绝或只读预览 | 显示"文件过大，建议使用外部编辑器"，或仅显示前 1000 行预览 |
+| 文件大小     | 策略                | 说明                                                       |
+| ------------ | ------------------- | ---------------------------------------------------------- |
+| < 1MB        | 全量加载            | 正常模式，完整语法高亮 + 历史记录 + 序列化                 |
+| 1MB - 10MB   | 全量加载 + 限制历史 | 限制撤销栈深度（如 200 步），禁用代码折叠自动分析          |
+| 10MB - 50MB  | 全量加载 + 禁用扩展 | 仅基础语法高亮，禁用补全/折叠/lint；提示"大文件模式"       |
+| 50MB - 200MB | 分片加载            | 仅加载可视区域 + 前后各 5000 行缓冲区；语法高亮延迟        |
+| > 200MB      | 拒绝或只读预览      | 显示"文件过大，建议使用外部编辑器"，或仅显示前 1000 行预览 |
 
 ### 11.3 大文件序列化策略
 
@@ -686,10 +692,10 @@ Group 级单 EditorView（目标，2个 Group）：
 
 ### 12.2 Tab 切换性能
 
-| 方案 | 操作 | 延迟 |
-|------|------|------|
-| 当前（多 View） | destroyView() + createView() | ~50ms |
-| 目标（单 View 复用） | view.setState(nextState) | <5ms |
+| 方案                 | 操作                         | 延迟  |
+| -------------------- | ---------------------------- | ----- |
+| 当前（多 View）      | destroyView() + createView() | ~50ms |
+| 目标（单 View 复用） | view.setState(nextState)     | <5ms  |
 
 ### 12.3 弹出窗口首屏加载
 
@@ -719,11 +725,11 @@ function buildExtensions(fileInfo: OpenFileInfo): Extension[] {
 
 ### 13.1 同文件并发编辑冲突
 
-| 场景 | 处理 |
-|------|------|
-| 分屏打开已在编辑的文件 | 第二个实例设为只读，提示"文件已在左侧编辑中" |
+| 场景                        | 处理                                           |
+| --------------------------- | ---------------------------------------------- |
+| 分屏打开已在编辑的文件      | 第二个实例设为只读，提示"文件已在左侧编辑中"   |
 | 弹出 Group 后再打开同一文件 | 主窗口中文件锁定，提示"文件已在弹出窗口中编辑" |
-| 弹出窗口合并时发现冲突 | 不实现自动合并——仅弹出窗口的更改覆盖主窗口 |
+| 弹出窗口合并时发现冲突      | 不实现自动合并——仅弹出窗口的更改覆盖主窗口     |
 
 ### 13.2 弹出窗口数据合并失败
 
@@ -742,10 +748,12 @@ function buildExtensions(fileInfo: OpenFileInfo): Extension[] {
 ### 13.4 EditorState.fromJSON() 失败
 
 反序列化失败的可能原因：
+
 - 扩展集不一致
 - JSON 数据损坏
 
 处理：
+
 - 降级为仅恢复文档内容（`EditorState.create({ doc: rawText })`），丢弃历史/选区
 - 提示用户"编辑器状态恢复失败，仅恢复了文档内容"
 
@@ -765,6 +773,7 @@ function buildExtensions(fileInfo: OpenFileInfo): Extension[] {
 2. **`.scratchpad/` 目录**：正式存储，文件系统持久化
 
 新增的 `EditorState` 序列化叠加在此之上：
+
 - 编辑器关闭：`EditorState.toJSON()` → localStorage（选区 + 历史）
 - 草稿保存：`doc.toString()` → `.scratchpad/` 文件系统
 
@@ -829,18 +838,18 @@ EditorPanel.vue
 
 ### 15.1 优先级矩阵
 
-| 优先级 | 任务 | 说明 | 预估改动 |
-|--------|------|------|----------|
-| **P0** | `fileEditors` 一对一 → `editorInstances` 多实例映射 | 修复分屏架构缺陷 | ~150 行 |
-| **P0** | DOM 重新挂载后 `requestMeasure()` | dockview 拖拽兼容 | ~20 行 |
-| **P0** | 同一文件打开冲突检测 | 已打开时切换到已有实例 | ~30 行 |
-| **P1** | EditorState 保存到 OpenFileInfo | 选区/历史不丢失 | ~50 行 |
-| **P1** | 同 Group 内 EditorView 复用 | `view.setState()` 替代重建，切换 <5ms | ~100 行 |
-| **P1** | 大文件分级处理 | 按 1MB/10MB/50MB/200MB 分级 | ~120 行 |
-| **P2** | Tauri EventSystem 跨窗口通信 | 弹出窗口基础设施 | ~200 行 |
-| **P2** | Group 级分组序列化/反序列化 | 为弹出/合并做准备 | ~150 行 |
-| **P3** | 崩溃恢复（EditorState 持久化） | localStorage 快照 | ~80 行 |
-| **P3** | 弹出窗口生命周期 | WebviewWindow 创建/合并/销毁 | ~200 行 |
+| 优先级 | 任务                                                | 说明                                  | 预估改动 |
+| ------ | --------------------------------------------------- | ------------------------------------- | -------- |
+| **P0** | `fileEditors` 一对一 → `editorInstances` 多实例映射 | 修复分屏架构缺陷                      | ~150 行  |
+| **P0** | DOM 重新挂载后 `requestMeasure()`                   | dockview 拖拽兼容                     | ~20 行   |
+| **P0** | 同一文件打开冲突检测                                | 已打开时切换到已有实例                | ~30 行   |
+| **P1** | EditorState 保存到 OpenFileInfo                     | 选区/历史不丢失                       | ~50 行   |
+| **P1** | 同 Group 内 EditorView 复用                         | `view.setState()` 替代重建，切换 <5ms | ~100 行  |
+| **P1** | 大文件分级处理                                      | 按 1MB/10MB/50MB/200MB 分级           | ~120 行  |
+| **P2** | Tauri EventSystem 跨窗口通信                        | 弹出窗口基础设施                      | ~200 行  |
+| **P2** | Group 级分组序列化/反序列化                         | 为弹出/合并做准备                     | ~150 行  |
+| **P3** | 崩溃恢复（EditorState 持久化）                      | localStorage 快照                     | ~80 行   |
+| **P3** | 弹出窗口生命周期                                    | WebviewWindow 创建/合并/销毁          | ~200 行  |
 
 ### 15.2 不变事项
 
@@ -861,39 +870,39 @@ EditorPanel.vue
 
 ### 16.1 已完成
 
-| 任务 | 状态 | 改动文件 | 说明 |
-|------|------|----------|------|
-| **P0-1 多实例映射** | ✅ 完成 | `editor-types.ts`, `EditorManager.ts` | `fileEditors: Map<filePath, EditorView>` → `editorInstances: Map<instanceId, EditorInstance>`；新增 `EditorInstance` 接口 |
-| **P0-2 DOM re-attach** | ✅ 完成 | `EditorPanel.vue` | `MutationObserver` 监听 `.cm-container` 父元素 `childList`，dockview 拖拽后自动 `requestMeasure()` |
-| **P0-3 冲突检测** | ✅ 完成 | `EditorManager.ts` | `isFileOpenElsewhere()` 跨 Group 检测；`openFile()` 增强 |
-| **P1-2 同组 EditorView 复用** | ⏳ Phase B（多实例映射）已完成，Phase C（Group 级复用）未实现 | `useCodeMirror.ts`, `EditorManager.ts`, `EditorPanel.vue` | `setEditorState()`/`getEditorState()` API；`savedStates` 缓存；生命周期状态保存/恢复；Group 级 `view.setState()` 切换待实现 |
-| **P1-1 EditorState 保存到 OpenFileInfo** | ✅ 完成 | `editor-types.ts`, `EditorManager.ts` | `OpenFileInfo.states`/`primaryInstanceId`/`readonlyInstanceIds`；全生命周期同步 |
-| **P1-3 大文件分级处理** | ✅ 完成 | `useLargeFile.ts` (新建), `useCodeMirror.ts`, `EditorPanel.vue` | 5 级策略（normal/reduced/large/chunked/rejected）；按 tier 条件加载扩展 |
-| **P2 跨窗口通信** | ✅ 完成 | `useCrossWindow.ts` (新建), `EditorManager.ts`, `WorkbenchView.vue`, `popout.ts` | Tauri EventSystem 封装；`PopoutTransfer`/`MergeTransfer`/`StateSync`/`WindowReady`；`popoutActiveFile()` + `setupCrossWindowListeners()`（在 WorkbenchView.onReady 中调用）；popout.ts 完整初始化 |
-| **P3 崩溃恢复** | ✅ 完成 | `useEditorRecovery.ts` (新建), `EditorManager.ts`, `WorkbenchView.vue` | `saveSnapshot()`→localStorage；`loadSnapshots()`/`hasRecoveryData()`；恢复横幅 UI（恢复全部/忽略）；4MB 总额 + 2MB 单文件配额降级策略 |
-| **IPC 对齐 (6 P0)** | ✅ 完成 | `lib.rs`, `metadata_commands.rs`, `metadata_cache_commands.rs`, `workbench-store.ts`, `use-connection-health.ts`, `project-connection.ts`, `query.ts` | 命令名修正/注册；参数名/类型对齐；缺少字段补充 |
-| **代码清理 第一轮** | ✅ 完成 | 5 删除 + 7 修改 | Monaco 残留：EditorSettingsPopup(361行)、3个Test*Panel、useDialectSync(75行)、sql-editor-service死代码(185行) |
-| **P1-2 popout.ts** | ✅ 完成 | `popout.ts` | 填充完整 CodeMirror 初始化 + `PopoutTransfer` 监听 + `beforeunload` 合并回传 |
-| **P3-3 IEditorManager** | ✅ 完成 | `editor-types.ts` | 补全 18 个缺失方法签名 |
-| **any/magic/log 清理** | ✅ 完成 | 6 文件 | any 7→2处；魔法字符串提取 4 常量 2 函数；console.log 移除 5 调试日志 |
-| **代码清理 第二轮** | ✅ 完成 | 10 删除 | 死文件：menuActionHandlers.ts、useEditorManager.ts、useGridKeyboard.ts、useDockviewKeyboard.ts、useResultTabs.ts、useFilterModes.ts、RightSidebarPlaceholder.vue、ThreeColumnLayout.vue、ActivityBarPanel.vue、format.ts |
-| **内存泄漏修复** | ✅ 完成 | 5 文件 | MainContentArea resize onUnmounted、EditorManager UnlistenFn 保存/destroy、QuickFilterInput timer 清理、ToolbarActions setTimeout 竞态、project.ts Promise.race setTimeout |
-| **错误处理增强** | ✅ 完成 | 3 文件 | toggleComment 废弃 API→@codemirror/commands；空 catch 块添加 warn 日志；emit 错误日志 |
-| **popout 链路修复** | ✅ 完成 | `WorkbenchView.vue` | `setupCrossWindowListeners()` 在 onReady 中调用 |
-| **any 类型清零** | ✅ 完成 | `TableStructurePanel.vue`, `TableDataPanel.vue` | ColumnInfo/IndexInfo/ConstraintInfo 接口定义；any[][]→unknown[][] |
-| **静默错误修复** | ✅ 完成 | `EmptyWorkbenchPanel.vue`, `TableStructurePanel.vue` | 错误 catch 增加 message.error 用户反馈 |
-| **SQL 执行竞态修复** | ✅ 完成 | `useSqlExecution.ts` | executeSingleStatement/executeBatch 添加 executing 状态守卫 |
-| **规则文件更新** | ✅ 完成 | 4 个 `.trae/rules/*.md` | Monaco Editor → CodeMirror 6 |
-| **旧文档废弃** | ✅ 完成 | 4 个 `docs/frontend/*.md` | 加 ⛔ 废弃标记 + 指向 v3.0 |
+| 任务                                     | 状态                                                          | 改动文件                                                                                                                                              | 说明                                                                                                                                                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **P0-1 多实例映射**                      | ✅ 完成                                                       | `editor-types.ts`, `EditorManager.ts`                                                                                                                 | `fileEditors: Map<filePath, EditorView>` → `editorInstances: Map<instanceId, EditorInstance>`；新增 `EditorInstance` 接口                                                                                                |
+| **P0-2 DOM re-attach**                   | ✅ 完成                                                       | `EditorPanel.vue`                                                                                                                                     | `MutationObserver` 监听 `.cm-container` 父元素 `childList`，dockview 拖拽后自动 `requestMeasure()`                                                                                                                       |
+| **P0-3 冲突检测**                        | ✅ 完成                                                       | `EditorManager.ts`                                                                                                                                    | `isFileOpenElsewhere()` 跨 Group 检测；`openFile()` 增强                                                                                                                                                                 |
+| **P1-2 同组 EditorView 复用**            | ⏳ Phase B（多实例映射）已完成，Phase C（Group 级复用）未实现 | `useCodeMirror.ts`, `EditorManager.ts`, `EditorPanel.vue`                                                                                             | `setEditorState()`/`getEditorState()` API；`savedStates` 缓存；生命周期状态保存/恢复；Group 级 `view.setState()` 切换待实现                                                                                              |
+| **P1-1 EditorState 保存到 OpenFileInfo** | ✅ 完成                                                       | `editor-types.ts`, `EditorManager.ts`                                                                                                                 | `OpenFileInfo.states`/`primaryInstanceId`/`readonlyInstanceIds`；全生命周期同步                                                                                                                                          |
+| **P1-3 大文件分级处理**                  | ✅ 完成                                                       | `useLargeFile.ts` (新建), `useCodeMirror.ts`, `EditorPanel.vue`                                                                                       | 5 级策略（normal/reduced/large/chunked/rejected）；按 tier 条件加载扩展                                                                                                                                                  |
+| **P2 跨窗口通信**                        | ✅ 完成                                                       | `useCrossWindow.ts` (新建), `EditorManager.ts`, `WorkbenchView.vue`, `popout.ts`                                                                      | Tauri EventSystem 封装；`PopoutTransfer`/`MergeTransfer`/`StateSync`/`WindowReady`；`popoutActiveFile()` + `setupCrossWindowListeners()`（在 WorkbenchView.onReady 中调用）；popout.ts 完整初始化                        |
+| **P3 崩溃恢复**                          | ✅ 完成                                                       | `useEditorRecovery.ts` (新建), `EditorManager.ts`, `WorkbenchView.vue`                                                                                | `saveSnapshot()`→localStorage；`loadSnapshots()`/`hasRecoveryData()`；恢复横幅 UI（恢复全部/忽略）；4MB 总额 + 2MB 单文件配额降级策略                                                                                    |
+| **IPC 对齐 (6 P0)**                      | ✅ 完成                                                       | `lib.rs`, `metadata_commands.rs`, `metadata_cache_commands.rs`, `workbench-store.ts`, `use-connection-health.ts`, `project-connection.ts`, `query.ts` | 命令名修正/注册；参数名/类型对齐；缺少字段补充                                                                                                                                                                           |
+| **代码清理 第一轮**                      | ✅ 完成                                                       | 5 删除 + 7 修改                                                                                                                                       | Monaco 残留：EditorSettingsPopup(361行)、3个Test\*Panel、useDialectSync(75行)、sql-editor-service死代码(185行)                                                                                                           |
+| **P1-2 popout.ts**                       | ✅ 完成                                                       | `popout.ts`                                                                                                                                           | 填充完整 CodeMirror 初始化 + `PopoutTransfer` 监听 + `beforeunload` 合并回传                                                                                                                                             |
+| **P3-3 IEditorManager**                  | ✅ 完成                                                       | `editor-types.ts`                                                                                                                                     | 补全 18 个缺失方法签名                                                                                                                                                                                                   |
+| **any/magic/log 清理**                   | ✅ 完成                                                       | 6 文件                                                                                                                                                | any 7→2处；魔法字符串提取 4 常量 2 函数；console.log 移除 5 调试日志                                                                                                                                                     |
+| **代码清理 第二轮**                      | ✅ 完成                                                       | 10 删除                                                                                                                                               | 死文件：menuActionHandlers.ts、useEditorManager.ts、useGridKeyboard.ts、useDockviewKeyboard.ts、useResultTabs.ts、useFilterModes.ts、RightSidebarPlaceholder.vue、ThreeColumnLayout.vue、ActivityBarPanel.vue、format.ts |
+| **内存泄漏修复**                         | ✅ 完成                                                       | 5 文件                                                                                                                                                | MainContentArea resize onUnmounted、EditorManager UnlistenFn 保存/destroy、QuickFilterInput timer 清理、ToolbarActions setTimeout 竞态、project.ts Promise.race setTimeout                                               |
+| **错误处理增强**                         | ✅ 完成                                                       | 3 文件                                                                                                                                                | toggleComment 废弃 API→@codemirror/commands；空 catch 块添加 warn 日志；emit 错误日志                                                                                                                                    |
+| **popout 链路修复**                      | ✅ 完成                                                       | `WorkbenchView.vue`                                                                                                                                   | `setupCrossWindowListeners()` 在 onReady 中调用                                                                                                                                                                          |
+| **any 类型清零**                         | ✅ 完成                                                       | `TableStructurePanel.vue`, `TableDataPanel.vue`                                                                                                       | ColumnInfo/IndexInfo/ConstraintInfo 接口定义；any[][]→unknown[][]                                                                                                                                                        |
+| **静默错误修复**                         | ✅ 完成                                                       | `EmptyWorkbenchPanel.vue`, `TableStructurePanel.vue`                                                                                                  | 错误 catch 增加 message.error 用户反馈                                                                                                                                                                                   |
+| **SQL 执行竞态修复**                     | ✅ 完成                                                       | `useSqlExecution.ts`                                                                                                                                  | executeSingleStatement/executeBatch 添加 executing 状态守卫                                                                                                                                                              |
+| **规则文件更新**                         | ✅ 完成                                                       | 4 个 `.trae/rules/*.md`                                                                                                                               | Monaco Editor → CodeMirror 6                                                                                                                                                                                             |
+| **旧文档废弃**                           | ✅ 完成                                                       | 4 个 `docs/frontend/*.md`                                                                                                                             | 加 ⛔ 废弃标记 + 指向 v3.0                                                                                                                                                                                               |
 
 ### 16.2 未完成
 
 > 仅剩余跨窗口串行反序列化和光标同步：
 
-| 方向 | 说明 |
-|------|------|
+| 方向                        | 说明                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
 | **onDidDockGroup 反序列化** | `WorkbenchView.vue` 中仅日志输出，合并外部 Group 时反序列化数据→注册实例→dockview 重建逻辑待实现 |
-| **跨窗口光标实时同步** | `StateSync` 事件已定义，`listenStateSync` 已就绪；EditorPanel 中 watch cursor position 后 emit |
+| **跨窗口光标实时同步**      | `StateSync` 事件已定义，`listenStateSync` 已就绪；EditorPanel 中 watch cursor position 后 emit   |
 
 ### 16.3 关键设计决策记录
 

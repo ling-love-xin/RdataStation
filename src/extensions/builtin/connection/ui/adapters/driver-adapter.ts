@@ -8,7 +8,13 @@
  *     → configSchemaToFormSchema() → DriverFormSchema → DynamicFormRenderer
  */
 
-import type { Driver, DataSourceType, DriverDescriptor, DriverField, DriverOption } from '../../domain/types'
+import type {
+  Driver,
+  DataSourceType,
+  DriverDescriptor,
+  DriverField,
+  DriverOption,
+} from '../../domain/types'
 import type { DriverFormSchema, FormSectionConfig, FormFieldConfig } from '../types/form-schema'
 
 // Re-export for convenience
@@ -26,11 +32,11 @@ export type { Driver as BackendDriver, DataSourceType as BackendDataSourceType }
 
 /** JSON Schema 格式的单个属性 */
 interface JsonSchemaProperty {
-  type: string         // "string" | "integer" | "boolean"
-  title?: string       // 中文标签
+  type: string // "string" | "integer" | "boolean"
+  title?: string // 中文标签
   default?: string | number | boolean
-  format?: string      // "password" | "file"
-  enum?: string[]      // 下拉选项
+  format?: string // "password" | "file"
+  enum?: string[] // 下拉选项
 }
 
 /** JSON Schema 根对象 */
@@ -104,7 +110,7 @@ export function backendDriverToDescriptor(driver: Driver): DriverDescriptor {
     defaultPort: driver.default_port ?? undefined,
     requiresDatabase: !driver.is_file,
     requiresFile: driver.is_file,
-    supportsSsl: (tryParseJsonArray(driver.supported_auth_types)).includes('ssl'),
+    supportsSsl: tryParseJsonArray(driver.supported_auth_types).includes('ssl'),
     supportsSshTunnel: false,
     supportsHttpProxy: false,
     supportsSocksProxy: false,
@@ -158,7 +164,7 @@ export function configSchemaToFormSchema(driver: Driver): DriverFormSchema {
       urlTemplate: driver.url_template || undefined,
       requireFile: driver.is_file,
       requireDatabase: !driver.is_file,
-      supportsSsl: (tryParseJsonArray(driver.supported_auth_types)).includes('ssl'),
+      supportsSsl: tryParseJsonArray(driver.supported_auth_types).includes('ssl'),
       supportsSshTunnel: false,
       supportsHttpProxy: false,
       supportsSocksProxy: false,
@@ -173,7 +179,10 @@ export function configSchemaToFormSchema(driver: Driver): DriverFormSchema {
  *   JSON Schema 格式: { type:"object", properties:{...}, required:[...] }
  *   自定义格式:       { fields:[...], options:[...] }
  */
-export function parseConfigSchema(raw: string): { fields: NormalizedField[]; options: NormalizedField[] } {
+export function parseConfigSchema(raw: string): {
+  fields: NormalizedField[]
+  options: NormalizedField[]
+} {
   if (!raw) return { fields: [], options: [] }
 
   try {
@@ -188,13 +197,19 @@ export function parseConfigSchema(raw: string): { fields: NormalizedField[]; opt
     }
 
     // 检测 JSON Schema 格式 { type:"object", properties }
-    if ((parsed as unknown as JsonSchemaRoot).type === 'object' && (parsed as unknown as JsonSchemaRoot).properties) {
+    if (
+      (parsed as unknown as JsonSchemaRoot).type === 'object' &&
+      (parsed as unknown as JsonSchemaRoot).properties
+    ) {
       return normalizeJsonSchema(parsed as unknown as JsonSchemaRoot)
     }
 
     return { fields: [], options: [] }
   } catch (err) {
-    console.warn('[driver-adapter] 驱动元数据 JSON 解析失败:', err instanceof Error ? err.message : String(err))
+    console.warn(
+      '[driver-adapter] 驱动元数据 JSON 解析失败:',
+      err instanceof Error ? err.message : String(err)
+    )
     return { fields: [], options: [] }
   }
 }
@@ -209,7 +224,10 @@ export function isFileDatabase(driver: Driver): boolean {
 // ==================== 内部辅助 ====================
 
 /** 将 JSON Schema 格式转为 NormalizedField[] */
-function normalizeJsonSchema(schema: JsonSchemaRoot): { fields: NormalizedField[]; options: NormalizedField[] } {
+function normalizeJsonSchema(schema: JsonSchemaRoot): {
+  fields: NormalizedField[]
+  options: NormalizedField[]
+} {
   const required = new Set(schema.required || [])
   const fields: NormalizedField[] = []
   const options: NormalizedField[] = []
@@ -227,7 +245,7 @@ function normalizeJsonSchema(schema: JsonSchemaRoot): { fields: NormalizedField[
 
     // format: "password" | "file" 的字段归为连接参数
     // enum 字段归为高级选项
-    if (prop.enum || (prop.type === 'boolean')) {
+    if (prop.enum || prop.type === 'boolean') {
       options.push(normalized)
     } else {
       fields.push(normalized)
@@ -240,10 +258,14 @@ function normalizeJsonSchema(schema: JsonSchemaRoot): { fields: NormalizedField[
 /** 将 JSON Schema type 映射到 UI 字段类型 */
 function mapJsonSchemaType(jsType: string): string {
   switch (jsType) {
-    case 'integer': return 'number'
-    case 'boolean': return 'checkbox'
-    case 'string': return 'text'
-    default: return 'text'
+    case 'integer':
+      return 'number'
+    case 'boolean':
+      return 'checkbox'
+    case 'string':
+      return 'text'
+    default:
+      return 'text'
   }
 }
 
@@ -307,12 +329,13 @@ function tryParseJsonArray(raw: string | null | undefined): string[] {
   try {
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (item: unknown): item is string => typeof item === 'string'
-      )
+      return parsed.filter((item: unknown): item is string => typeof item === 'string')
     }
     return []
   } catch {
-    return raw.split(',').map(s => s.trim()).filter(Boolean)
+    return raw
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
   }
 }

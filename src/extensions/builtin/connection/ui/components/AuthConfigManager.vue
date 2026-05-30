@@ -14,7 +14,11 @@
 
       <!-- Tabs -->
       <div class="am-tabs">
-        <button class="am-tab" :class="{ active: amTab === 'database' }" @click="amTab = 'database'">
+        <button
+          class="am-tab"
+          :class="{ active: amTab === 'database' }"
+          @click="amTab = 'database'"
+        >
           📊 {{ t('navigator.databaseAuth') || '数据库认证' }}
           <span class="am-badge">{{ dbAuthConfigs.length }}</span>
         </button>
@@ -36,17 +40,21 @@
         <!-- Add / Edit form -->
         <div v-if="showAddForm" class="am-form-box">
           <div class="am-form-row">
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.name') }}</span>
-              <NInput v-model:value="newCfg.name" size="small" :placeholder="t('navigator.dataSourceNamePlaceholder')" />
+              <NInput
+                v-model:value="newCfg.name"
+                size="small"
+                :placeholder="t('navigator.dataSourceNamePlaceholder')"
+              />
             </div>
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.scope') || '范围' }}</span>
               <NSelect v-model:value="newCfg.scope" size="small" :options="scopeOpts" />
             </div>
           </div>
           <div class="am-form-row">
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.authType') || '认证类型' }}</span>
               <NSelect
                 v-model:value="newCfg.authType"
@@ -55,50 +63,67 @@
                 @update:value="onNewCfgTypeChange"
               />
             </div>
-            <div v-if="needsUsername(newCfg.authType)" class="am-fg" style="flex:1">
+            <div v-if="needsUsername(newCfg.authType)" class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.username') }}</span>
               <NInput v-model:value="newCfg.username" size="small" placeholder="root" />
             </div>
           </div>
           <!-- Dynamic extra fields -->
           <div v-if="newCfg.authType === 'password'" class="am-form-row">
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.password') }}</span>
-              <NInput v-model:value="newCfg.password" type="password" size="small" show-password-on="click" placeholder="****" />
+              <NInput
+                v-model:value="newCfg.password"
+                type="password"
+                size="small"
+                show-password-on="click"
+                placeholder="****"
+              />
             </div>
           </div>
           <div v-if="newCfg.authType === 'pg_class'" class="am-form-row">
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.clientCert') || '客户端证书 (.crt)' }}</span>
               <NInput v-model:value="newCfg.certPath" size="small" placeholder="~/client.crt" />
             </div>
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.clientKey') || '私钥 (.key)' }}</span>
               <NInput v-model:value="newCfg.certKeyPath" size="small" placeholder="~/client.key" />
             </div>
           </div>
           <div v-if="newCfg.authType === 'kerberos'" class="am-form-row">
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.principal') || 'Principal' }}</span>
               <NInput v-model:value="newCfg.principal" size="small" placeholder="user@REALM.COM" />
             </div>
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.keytabPath') || 'Keytab 文件' }}</span>
-              <NInput v-model:value="newCfg.keytabPath" size="small" placeholder="/etc/krb5.keytab" />
+              <NInput
+                v-model:value="newCfg.keytabPath"
+                size="small"
+                placeholder="/etc/krb5.keytab"
+              />
             </div>
           </div>
           <div v-if="newCfg.authType === 'ssh_private_key'" class="am-form-row">
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">{{ t('navigator.privateKeyPath') || '私钥路径' }}</span>
               <NInput v-model:value="newCfg.keytabPath" size="small" placeholder="~/.ssh/id_rsa" />
             </div>
-            <div class="am-fg" style="flex:1">
+            <div class="am-fg" style="flex: 1">
               <span class="am-fl">Passphrase</span>
-              <NInput v-model:value="newCfg.passphrase" type="password" size="small" placeholder="可选" />
+              <NInput
+                v-model:value="newCfg.passphrase"
+                type="password"
+                size="small"
+                placeholder="可选"
+              />
             </div>
           </div>
-          <div class="am-form-row" style="margin-top:4px">
-            <NButton size="tiny" type="primary" :loading="saving" @click="saveNewCfg">{{ editingId ? (t('navigator.update') || '更新') : (t('navigator.save')) }}</NButton>
+          <div class="am-form-row" style="margin-top: 4px">
+            <NButton size="tiny" type="primary" :loading="saving" @click="saveNewCfg">{{
+              editingId ? t('navigator.update') || '更新' : t('navigator.save')
+            }}</NButton>
             <NButton size="tiny" @click="cancelEdit">{{ t('navigator.cancel') }}</NButton>
           </div>
         </div>
@@ -110,17 +135,18 @@
         <div v-else-if="currentConfigs.length === 0 && !showAddForm" class="am-empty">
           {{ t('navigator.noAuthConfigs') || '暂无认证配置，点击上方按钮新建' }}
         </div>
-        <div
-          v-for="cfg in currentConfigs"
-          :key="cfg.id"
-          class="am-card"
-        >
+        <div v-for="cfg in currentConfigs" :key="cfg.id" class="am-card">
           <div class="am-card-info">
-            <span class="am-card-type">{{ authTypeDef(cfg.authType)?.icon || '🔒' }} {{ authTypeDef(cfg.authType)?.label || cfg.authType }}</span>
+            <span class="am-card-type"
+              >{{ authTypeDef(cfg.authType)?.icon || '🔒' }}
+              {{ authTypeDef(cfg.authType)?.label || cfg.authType }}</span
+            >
             <span class="am-card-name">{{ cfg.name }}</span>
             <span class="am-card-detail">
               <template v-if="cfg.username">{{ cfg.username }} · </template>
-              <template v-if="cfg.authType === 'pg_class'">{{ (cfg.certPath || '').split('/').pop() }} </template>
+              <template v-if="cfg.authType === 'pg_class'"
+                >{{ (cfg.certPath || '').split('/').pop() }}
+              </template>
               <template v-if="cfg.authType === 'kerberos'">{{ cfg.principal }} </template>
             </span>
             <span class="am-card-scope">{{ cfg.scope === 'global' ? '🌐' : '📝' }}</span>
@@ -148,7 +174,11 @@ import { NButton, NInput, NSelect } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { parseAuthConfig, type AuthConfig, type BackendAuthConfig } from '../composables/useAuthConfig'
+import {
+  parseAuthConfig,
+  type AuthConfig,
+  type BackendAuthConfig,
+} from '../composables/useAuthConfig'
 
 const emit = defineEmits<{
   close: []
@@ -170,12 +200,42 @@ interface AuthTypeDef {
 }
 
 const AUTH_TYPE_DEFS: Record<string, AuthTypeDef> = {
-  password:         { category: 'database', icon: '🔑', label: 'SCRAM-SHA-256 / mysql_native_password', fields: ['username', 'password'] },
-  pg_class:         { category: 'database', icon: '📜', label: 'SSL 客户端证书 (mTLS)', fields: ['certPath', 'certKeyPath'] },
-  kerberos:         { category: 'database', icon: '🎫', label: 'GSSAPI Kerberos', fields: ['principal', 'keytabPath'] },
-  oauth2:           { category: 'database', icon: '🔗', label: 'OAuth 2.0 Bearer Token', fields: ['tokenEndpoint', 'clientId', 'clientSecret'] },
-  ssh_password:     { category: 'ssh', icon: '🔑', label: 'SSH 密码认证', fields: ['username', 'password'] },
-  ssh_private_key:  { category: 'ssh', icon: '🔐', label: 'SSH 公钥认证 (RSA/ED25519/ECDSA)', fields: ['username', 'keyPath', 'passphrase'] },
+  password: {
+    category: 'database',
+    icon: '🔑',
+    label: 'SCRAM-SHA-256 / mysql_native_password',
+    fields: ['username', 'password'],
+  },
+  pg_class: {
+    category: 'database',
+    icon: '📜',
+    label: 'SSL 客户端证书 (mTLS)',
+    fields: ['certPath', 'certKeyPath'],
+  },
+  kerberos: {
+    category: 'database',
+    icon: '🎫',
+    label: 'GSSAPI Kerberos',
+    fields: ['principal', 'keytabPath'],
+  },
+  oauth2: {
+    category: 'database',
+    icon: '🔗',
+    label: 'OAuth 2.0 Bearer Token',
+    fields: ['tokenEndpoint', 'clientId', 'clientSecret'],
+  },
+  ssh_password: {
+    category: 'ssh',
+    icon: '🔑',
+    label: 'SSH 密码认证',
+    fields: ['username', 'password'],
+  },
+  ssh_private_key: {
+    category: 'ssh',
+    icon: '🔐',
+    label: 'SSH 公钥认证 (RSA/ED25519/ECDSA)',
+    fields: ['username', 'keyPath', 'passphrase'],
+  },
 }
 
 // ===== State loaded from backend =====
@@ -189,8 +249,13 @@ async function loadAuthConfigs() {
     if (props.scope?.project) {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
-      if (!pp) { allConfigs.value = []; return }
-      const raw = await invoke<BackendAuthConfig[]>('project_list_auth_configs', { projectPath: pp })
+      if (!pp) {
+        allConfigs.value = []
+        return
+      }
+      const raw = await invoke<BackendAuthConfig[]>('project_list_auth_configs', {
+        projectPath: pp,
+      })
       allConfigs.value = raw.map(parseAuthConfig)
     } else {
       const raw = await invoke<BackendAuthConfig[]>('list_auth_configs')
@@ -198,10 +263,14 @@ async function loadAuthConfigs() {
     }
   } catch {
     // API 不可用时静默降级
-  } finally { loading.value = false }
+  } finally {
+    loading.value = false
+  }
 }
 
-onMounted(() => { loadAuthConfigs() })
+onMounted(() => {
+  loadAuthConfigs()
+})
 
 // ===== UI State =====
 const amTab = ref<'database' | 'ssh'>('database')
@@ -243,13 +312,13 @@ const sshAuthTypeOpts = [
 
 // ===== Computed =====
 const dbAuthConfigs = computed(() =>
-  allConfigs.value.filter(c => AUTH_TYPE_DEFS[c.authType]?.category === 'database'),
+  allConfigs.value.filter(c => AUTH_TYPE_DEFS[c.authType]?.category === 'database')
 )
 const sshAuthConfigs = computed(() =>
-  allConfigs.value.filter(c => AUTH_TYPE_DEFS[c.authType]?.category === 'ssh'),
+  allConfigs.value.filter(c => AUTH_TYPE_DEFS[c.authType]?.category === 'ssh')
 )
 const currentConfigs = computed(() =>
-  amTab.value === 'database' ? dbAuthConfigs.value : sshAuthConfigs.value,
+  amTab.value === 'database' ? dbAuthConfigs.value : sshAuthConfigs.value
 )
 
 function authTypeDef(type: string): AuthTypeDef | undefined {
@@ -263,9 +332,13 @@ function needsUsername(type: string): boolean {
 
 // ===== Form field name → auth_data key mapping =====
 const FIELD_KEY_MAP: Record<string, string> = {
-  certPath: 'certPath', certKeyPath: 'certKeyPath',
-  principal: 'principal', keytabPath: 'keytabPath',
-  tokenEndpoint: 'tokenEndpoint', clientId: 'clientId', clientSecret: 'clientSecret',
+  certPath: 'certPath',
+  certKeyPath: 'certKeyPath',
+  principal: 'principal',
+  keytabPath: 'keytabPath',
+  tokenEndpoint: 'tokenEndpoint',
+  clientId: 'clientId',
+  clientSecret: 'clientSecret',
   passphrase: 'passphrase',
 }
 
@@ -302,10 +375,15 @@ function openAddForm() {
     name: '',
     authType: amTab.value === 'database' ? 'password' : 'ssh_password',
     scope: 'global',
-    username: '', password: '',
-    certPath: '', certKeyPath: '',
-    principal: '', keytabPath: '',
-    tokenEndpoint: '', clientId: '', clientSecret: '',
+    username: '',
+    password: '',
+    certPath: '',
+    certKeyPath: '',
+    principal: '',
+    keytabPath: '',
+    tokenEndpoint: '',
+    clientId: '',
+    clientSecret: '',
     passphrase: '',
   }
 }
@@ -326,7 +404,10 @@ async function saveNewCfg() {
     if (props.scope?.project) {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
-      if (!pp) { alert('⚠️ 未打开项目'); return }
+      if (!pp) {
+        alert('⚠️ 未打开项目')
+        return
+      }
       if (isEdit) {
         await invoke('project_update_auth_config', {
           id: editingId.value,
@@ -364,7 +445,9 @@ async function saveNewCfg() {
     await loadAuthConfigs()
   } catch (e) {
     alert(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
-  } finally { saving.value = false }
+  } finally {
+    saving.value = false
+  }
 }
 
 function editCfg(cfg: AuthConfig) {
@@ -394,7 +477,10 @@ async function deleteCfg(id: string) {
     if (props.scope?.project) {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
-      if (!pp) { alert('⚠️ 未打开项目'); return }
+      if (!pp) {
+        alert('⚠️ 未打开项目')
+        return
+      }
       await invoke('project_delete_auth_config', { id, projectPath: pp })
     } else {
       await invoke('delete_auth_config', { id })
@@ -407,76 +493,156 @@ async function deleteCfg(id: string) {
 </script>
 
 <style scoped>
-.auth-manager-overlay{
-  position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,.55);z-index:9999;
-  display:flex;align-items:center;justify-content:center
+.auth-manager-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.auth-manager-dialog{
-  width:560px;max-height:72vh;
-  background:var(--color-bg-primary);
-  border:1px solid var(--color-border);
-  border-radius:var(--border-radius-md);
-  display:flex;flex-direction:column;
-  overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,.4)
+.auth-manager-dialog {
+  width: 560px;
+  max-height: 72vh;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
-.am-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px var(--spacing-md);
-  border-bottom:1px solid var(--color-border);
-  flex-shrink:0
+.am-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
-.am-title{
-  font-size:var(--font-size-md);font-weight:600;color:var(--color-text-primary);
-  display:flex;align-items:center;gap:8px;margin:0
+.am-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
-.am-tabs{
-  display:flex;border-bottom:1px solid var(--color-border-subtle);flex-shrink:0
+.am-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
 }
-.am-tab{
-  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:8px 12px;font-size:12px;font-weight:600;border:none;
-  background:transparent;color:var(--color-text-secondary);
-  cursor:pointer;border-bottom:2px solid transparent;
-  transition:all .15s
+.am-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
 }
-.am-tab.active{
-  color:var(--brand-accent);border-bottom-color:var(--brand-accent)
+.am-tab.active {
+  color: var(--brand-accent);
+  border-bottom-color: var(--brand-accent);
 }
-.am-tab:hover{background:var(--color-hover)}
-.am-badge{
-  font-size:10px;padding:1px 6px;border-radius:8px;
-  background:var(--color-bg-elevated);color:var(--color-text-muted)
+.am-tab:hover {
+  background: var(--color-hover);
 }
-.am-content{
-  flex:1;overflow-y:auto;padding:var(--spacing-md);
-  display:flex;flex-direction:column;gap:8px
+.am-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-muted);
 }
-.am-toolbar{margin-bottom:4px}
-.am-form-box{
-  padding:12px;background:var(--color-bg-secondary);
-  border:1px solid var(--color-border-subtle);
-  border-radius:var(--border-radius-sm);
-  display:flex;flex-direction:column;gap:8px
+.am-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.am-form-row{display:flex;gap:12px}
-.am-fg{display:flex;flex-direction:column;gap:4px}
-.am-fl{font-size:11px;font-weight:600;color:var(--color-text-muted)}
-.am-empty{
-  text-align:center;padding:32px 0;font-size:12px;
-  color:var(--color-text-muted)
+.am-toolbar {
+  margin-bottom: 4px;
 }
-.am-card{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;background:var(--color-bg-secondary);
-  border:1px solid var(--color-border-subtle);
-  border-radius:var(--border-radius-sm)
+.am-form-box {
+  padding: 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.am-card-info{display:flex;flex-direction:column;gap:2px}
-.am-card-type{font-size:11px;font-weight:600;color:var(--color-text-secondary)}
-.am-card-name{font-size:13px;font-weight:600;color:var(--color-text-primary)}
-.am-card-detail{font-size:11px;color:var(--color-text-muted)}
-.am-card-scope{font-size:10px}
-.am-card-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.am-form-row {
+  display: flex;
+  gap: 12px;
+}
+.am-fg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.am-fl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.am-empty {
+  text-align: center;
+  padding: 32px 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.am-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+}
+.am-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.am-card-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.am-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.am-card-detail {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.am-card-scope {
+  font-size: 10px;
+}
+.am-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 </style>

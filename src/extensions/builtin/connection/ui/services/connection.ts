@@ -129,7 +129,15 @@ export async function testConnection(
   authConfigId?: string | null,
   authMethod?: string | null
 ): Promise<TestConnectionResponse> {
-  return typed(commands.testConnection(dbType, url, networkConfigId ?? null, authConfigId ?? null, authMethod ?? null))
+  return typed(
+    commands.testConnection(
+      dbType,
+      url,
+      networkConfigId ?? null,
+      authConfigId ?? null,
+      authMethod ?? null
+    )
+  )
 }
 
 /**
@@ -169,7 +177,9 @@ export async function getProjectConnections(projectPath: string): Promise<unknow
 /**
  * 检测项目中的全局连接
  */
-export async function detectGlobalConnectionsInProject(projectId: string): Promise<ConnectionInfoResponse[]> {
+export async function detectGlobalConnectionsInProject(
+  projectId: string
+): Promise<ConnectionInfoResponse[]> {
   return typed(commands.detectGlobalConnectionsInProject(projectId))
 }
 

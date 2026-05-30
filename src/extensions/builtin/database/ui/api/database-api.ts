@@ -19,7 +19,6 @@ import type {
 } from '@/generated/specta/bindings'
 import { typed } from '@/shared/api'
 
-
 /**
  * Catalog 元数据 — 树形导航根节点
  */
@@ -117,7 +116,9 @@ export async function loadCatalogs(
   connectionType?: string,
   projectPath?: string
 ): Promise<ICatalogMeta[]> {
-  return typed(commands.loadCatalogs(connectionId, connectionType ?? null, projectPath ?? null)) as unknown as ICatalogMeta[]
+  return typed(
+    commands.loadCatalogs(connectionId, connectionType ?? null, projectPath ?? null)
+  ) as unknown as ICatalogMeta[]
 }
 
 /**
@@ -135,7 +136,9 @@ export async function loadSchemas(
   connectionType?: string,
   projectPath?: string
 ): Promise<ISchemaMeta[]> {
-  return typed(commands.loadSchemas(connectionId, catalogName, connectionType ?? null, projectPath ?? null)) as unknown as ISchemaMeta[]
+  return typed(
+    commands.loadSchemas(connectionId, catalogName, connectionType ?? null, projectPath ?? null)
+  ) as unknown as ISchemaMeta[]
 }
 
 /**
@@ -155,7 +158,15 @@ export async function loadTables(
   connectionType?: string,
   projectPath?: string
 ): Promise<ITableMeta[]> {
-  return typed(commands.loadTables(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null)) as unknown as ITableMeta[]
+  return typed(
+    commands.loadTables(
+      connectionId,
+      catalogName,
+      schemaName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  ) as unknown as ITableMeta[]
 }
 
 /**
@@ -175,7 +186,15 @@ export async function loadViews(
   connectionType?: string,
   projectPath?: string
 ): Promise<IViewMeta[]> {
-  return typed(commands.loadViews(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null)) as unknown as IViewMeta[]
+  return typed(
+    commands.loadViews(
+      connectionId,
+      catalogName,
+      schemaName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  ) as unknown as IViewMeta[]
 }
 
 /**
@@ -197,7 +216,16 @@ export async function loadColumns(
   connectionType?: string,
   projectPath?: string
 ): Promise<IColumnMeta[]> {
-  return typed(commands.loadColumns(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null)) as unknown as IColumnMeta[]
+  return typed(
+    commands.loadColumns(
+      connectionId,
+      catalogName,
+      schemaName,
+      tableName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  ) as unknown as IColumnMeta[]
 }
 
 /**
@@ -211,7 +239,16 @@ export async function loadIndexes(
   connectionType?: string,
   projectPath?: string
 ): Promise<IndexMeta[]> {
-  return typed(commands.loadIndexes(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null))
+  return typed(
+    commands.loadIndexes(
+      connectionId,
+      catalogName,
+      schemaName,
+      tableName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  )
 }
 
 /**
@@ -225,7 +262,16 @@ export async function loadConstraints(
   connectionType?: string,
   projectPath?: string
 ): Promise<ConstraintMeta[]> {
-  return typed(commands.loadConstraints(connectionId, catalogName, schemaName, tableName, connectionType ?? null, projectPath ?? null))
+  return typed(
+    commands.loadConstraints(
+      connectionId,
+      catalogName,
+      schemaName,
+      tableName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  )
 }
 
 /**
@@ -245,7 +291,15 @@ export async function loadSequences(
   connectionType?: string,
   projectPath?: string
 ): Promise<SequenceMeta[]> {
-  return typed(commands.loadSequences(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
+  return typed(
+    commands.loadSequences(
+      connectionId,
+      catalogName,
+      schemaName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  )
 }
 
 /**
@@ -265,7 +319,15 @@ export async function loadTriggers(
   connectionType?: string,
   projectPath?: string
 ): Promise<TriggerMeta[]> {
-  return typed(commands.loadTriggers(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
+  return typed(
+    commands.loadTriggers(
+      connectionId,
+      catalogName,
+      schemaName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  )
 }
 
 /**
@@ -285,7 +347,15 @@ export async function loadProcedures(
   connectionType?: string,
   projectPath?: string
 ): Promise<ProcedureMeta[]> {
-  return typed(commands.loadProcedures(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
+  return typed(
+    commands.loadProcedures(
+      connectionId,
+      catalogName,
+      schemaName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  )
 }
 
 /**
@@ -305,7 +375,15 @@ export async function loadFunctions(
   connectionType?: string,
   projectPath?: string
 ): Promise<FunctionMeta[]> {
-  return typed(commands.loadFunctions(connectionId, catalogName, schemaName, connectionType ?? null, projectPath ?? null))
+  return typed(
+    commands.loadFunctions(
+      connectionId,
+      catalogName,
+      schemaName,
+      connectionType ?? null,
+      projectPath ?? null
+    )
+  )
 }
 
 /**
@@ -328,7 +406,9 @@ export async function loadRoutineSource(
   routineName: string,
   routineKind: string
 ): Promise<RoutineSourceMeta> {
-  return typed(commands.loadRoutineSource(connectionId, catalogName, schemaName, routineName, routineKind))
+  return typed(
+    commands.loadRoutineSource(connectionId, catalogName, schemaName, routineName, routineKind)
+  )
 }
 
 /**

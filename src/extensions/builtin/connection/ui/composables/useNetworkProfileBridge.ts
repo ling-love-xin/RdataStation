@@ -21,7 +21,7 @@ export interface NetworkBridgeDeps {
     profile: Record<string, unknown>,
     type: string,
     config: Record<string, unknown>,
-    path: string,
+    path: string
   ) => Promise<void>
   /** 项目级重新加载 */
   loadAllProject: (path: string) => Promise<void>
@@ -44,52 +44,75 @@ export interface NetworkProfileDeleter {
 type ConfigMapper = (profile: Record<string, unknown>) => Record<string, unknown>
 
 const configMappers: Record<string, ConfigMapper> = {
-  ssh: (p) => ({
-    host: p.host, port: p.port, username: p.username,
-    authMethod: p.authMethod, password: p.password,
-    keyPath: p.keyPath, passphrase: p.passphrase,
-    keepalive: p.keepalive, localPort: p.localPort,
-    remoteHost: p.remoteHost, remotePort: p.remotePort,
+  ssh: p => ({
+    host: p.host,
+    port: p.port,
+    username: p.username,
+    authMethod: p.authMethod,
+    password: p.password,
+    keyPath: p.keyPath,
+    passphrase: p.passphrase,
+    keepalive: p.keepalive,
+    localPort: p.localPort,
+    remoteHost: p.remoteHost,
+    remotePort: p.remotePort,
   }),
-  ssl: (p) => ({
-    mode: p.mode, ca: p.ca, clientCert: p.clientCert,
-    clientKey: p.clientKey, hostnameOverride: p.hostnameOverride,
+  ssl: p => ({
+    mode: p.mode,
+    ca: p.ca,
+    clientCert: p.clientCert,
+    clientKey: p.clientKey,
+    hostnameOverride: p.hostnameOverride,
   }),
-  proxy: (p) => ({
-    type: p.type, host: p.host, port: p.port,
-    username: p.username, password: p.password,
+  proxy: p => ({
+    type: p.type,
+    host: p.host,
+    port: p.port,
+    username: p.username,
+    password: p.password,
   }),
 }
 
 // ==================== Composable ====================
 
 export function useNetworkProfileBridge(deps: NetworkBridgeDeps) {
-  const { isProject, getProjectPath, saveProjectProfile, loadAllProject, loadAll, removeProjectProfile } = deps
+  const {
+    isProject,
+    getProjectPath,
+    saveProjectProfile,
+    loadAllProject,
+    loadAll,
+    removeProjectProfile,
+  } = deps
 
   // ===== Generic create/update =====
 
   function buildNetworkCfg(
     profile: Record<string, unknown>,
     networkType: string,
-    configObj: Record<string, unknown>,
+    configObj: Record<string, unknown>
   ): Promise<void> {
     const base = {
       id: (profile.id as string) || '',
       name: (profile.name as string) || `未命名-${networkType.toUpperCase()}`,
       network_type: networkType,
-      origin: profile.scope as string || 'project',
+      origin: (profile.scope as string) || 'project',
       config: JSON.stringify(configObj),
     }
     if (profile.id) {
-      return invoke('update_network_config', { nc: base }).then(() => loadAll()).catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[NetworkBridge] update ${networkType} failed:`, msg)
-      })
+      return invoke('update_network_config', { nc: base })
+        .then(() => loadAll())
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error(`[NetworkBridge] update ${networkType} failed:`, msg)
+        })
     }
-    return invoke('create_network_config', { nc: { ...base, id: '' } }).then(() => loadAll()).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[NetworkBridge] create ${networkType} failed:`, msg)
-    })
+    return invoke('create_network_config', { nc: { ...base, id: '' } })
+      .then(() => loadAll())
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[NetworkBridge] create ${networkType} failed:`, msg)
+      })
   }
 
   // ===== Create handlers =====
@@ -121,7 +144,10 @@ export function useNetworkProfileBridge(deps: NetworkBridgeDeps) {
   async function deleteProfile(id: string, protocol: string) {
     if (isProject) {
       const pp = await getProjectPath()
-      if (pp) { await removeProjectProfile(id, pp); await loadAllProject(pp) }
+      if (pp) {
+        await removeProjectProfile(id, pp)
+        await loadAllProject(pp)
+      }
       return
     }
     await invoke('delete_network_config', { id }).catch((err: unknown) => {
@@ -131,13 +157,23 @@ export function useNetworkProfileBridge(deps: NetworkBridgeDeps) {
     await loadAll()
   }
 
-  function deleteSshProfile(id: string): Promise<void> { return deleteProfile(id, 'ssh') }
-  function deleteSslProfile(id: string): Promise<void> { return deleteProfile(id, 'ssl') }
-  function deleteProxyProfile(id: string): Promise<void> { return deleteProfile(id, 'proxy') }
+  function deleteSshProfile(id: string): Promise<void> {
+    return deleteProfile(id, 'ssh')
+  }
+  function deleteSslProfile(id: string): Promise<void> {
+    return deleteProfile(id, 'ssl')
+  }
+  function deleteProxyProfile(id: string): Promise<void> {
+    return deleteProfile(id, 'proxy')
+  }
 
   return {
     buildNetworkCfg,
-    createSshProfile, createSslProfile, createProxyProfile,
-    deleteSshProfile, deleteSslProfile, deleteProxyProfile,
+    createSshProfile,
+    createSslProfile,
+    createProxyProfile,
+    deleteSshProfile,
+    deleteSslProfile,
+    deleteProxyProfile,
   }
 }

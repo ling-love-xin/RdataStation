@@ -1080,15 +1080,11 @@ export function useContextMenuActions() {
   }
 
   function showIndexProperties(node: VirtualTreeNode): void {
-    window.dispatchEvent(
-      new CustomEvent('show-index-properties', { detail: { node } })
-    )
+    window.dispatchEvent(new CustomEvent('show-index-properties', { detail: { node } }))
   }
 
   function showConstraintProperties(node: VirtualTreeNode): void {
-    window.dispatchEvent(
-      new CustomEvent('show-constraint-properties', { detail: { node } })
-    )
+    window.dispatchEvent(new CustomEvent('show-constraint-properties', { detail: { node } }))
   }
 
   async function copyToClipboard(text: string): Promise<void> {

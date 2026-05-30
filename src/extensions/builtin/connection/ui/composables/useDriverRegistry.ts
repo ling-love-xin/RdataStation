@@ -106,7 +106,10 @@ interface DriverFile {
 }
 
 /** 获取驱动详情（含可用性状态） */
-async function getDriverDetail(driverId: string, projectPath?: string): Promise<DriverDetailResponse> {
+async function getDriverDetail(
+  driverId: string,
+  projectPath?: string
+): Promise<DriverDetailResponse> {
   return invoke<DriverDetailResponse>('get_driver_detail', {
     driverId,
     projectPath: projectPath ?? null,

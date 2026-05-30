@@ -211,19 +211,20 @@ pub struct DataSourceMeta {
 
 `drivers.capabilities` 存储 JSON 数组，描述驱动对前端功能的支持。当前定义的 9 种能力：
 
-| 能力               | 标识               | MySQL | MySQL Native | PostgreSQL | PG Native | SQLite | DuckDB |
-| ------------------ | ------------------ | ----- | ------------ | ---------- | --------- | ------ | ------ |
-| 对象树导航         | `tree`             | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
-| 健康检查/连接测试  | `health_check`     | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
-| 事务支持           | `transactions`     | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
-| 索引分析           | `index_analysis`   | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
-| SQL 自动补全       | `sql_autocomplete` | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
-| Schema 浏览        | `schema_browser`   |       |             | ✅         | ✅        |       | ✅     |
-| 分析查询           | `analytics`        |       |             |           |          |       | ✅     |
-| 联邦查询           | `federation`       |       |             |           |          |       | ✅     |
-| 表编辑器           | `table_editor`     | ✅     | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 能力              | 标识               | MySQL | MySQL Native | PostgreSQL | PG Native | SQLite | DuckDB |
+| ----------------- | ------------------ | ----- | ------------ | ---------- | --------- | ------ | ------ |
+| 对象树导航        | `tree`             | ✅    | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 健康检查/连接测试 | `health_check`     | ✅    | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 事务支持          | `transactions`     | ✅    | ✅           | ✅         | ✅        | ✅     | ✅     |
+| 索引分析          | `index_analysis`   | ✅    | ✅           | ✅         | ✅        | ✅     | ✅     |
+| SQL 自动补全      | `sql_autocomplete` | ✅    | ✅           | ✅         | ✅        | ✅     | ✅     |
+| Schema 浏览       | `schema_browser`   |       |              | ✅         | ✅        |        | ✅     |
+| 分析查询          | `analytics`        |       |              |            |           |        | ✅     |
+| 联邦查询          | `federation`       |       |              |            |           |        | ✅     |
+| 表编辑器          | `table_editor`     | ✅    | ✅           | ✅         | ✅        | ✅     | ✅     |
 
 > **能力分配依据**：
+>
 > - `schema_browser`：具备 `list_databases()` / `list_schemas()` 默认实现的驱动（PG/DuckDB）
 > - `analytics` / `federation`：DuckDB 独占（分析引擎 + `register_external_database`）
 > - `index_analysis`：所有驱动均支持（EXPLAIN 或 EXPLAIN QUERY PLAN）
@@ -233,10 +234,10 @@ pub struct DataSourceMeta {
 
 `drivers.driver_properties` 存储 JSON 键值对，为前端 **DriverPropsTab** 提供默认连接属性。每个驱动按数据库官方推荐配置填充：
 
-| 驱动             | 默认属性                                                                                    | 说明               |
-| ---------------- | ------------------------------------------------------------------------------------------- | ------------------ |
+| 驱动             | 默认属性                                                                                     | 说明               |
+| ---------------- | -------------------------------------------------------------------------------------------- | ------------------ |
 | MySQL (sqlx)     | `connectTimeout`, `socketTimeout`, `maxAllowedPacket`, `useCompression`, `characterEncoding` | SQLx 连接池常用    |
-| MySQL (Official) | 同上                                                                                        | mysql_async 兼容   |
+| MySQL (Official) | 同上                                                                                         | mysql_async 兼容   |
 | PostgreSQL(x2)   | `connectTimeout`, `socketTimeout`, `applicationName`, `sslmode`, `keepalivesIdle`            | pg 官方推荐        |
 | SQLite           | `journalMode:WAL`, `synchronous:NORMAL`, `busyTimeout`, `cacheSize`, `foreignKeys`           | rusqlite 性能优化  |
 | DuckDB           | `memoryLimit:1GB`, `threads:4`, `enableObjectCache`, `tempDirectory`, `accessMode`           | duckdb-rs 推荐配置 |
@@ -591,31 +592,31 @@ trait MetadataBrowser {
 
 当前存在 4 套独立的驱动定义，字段重叠率高达 90%：
 
-| 类型 | 文件 | 用途 | 字段数 |
-|------|------|------|:---:|
-| `DriverDescriptor` | [descriptors.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/descriptors.rs) | Registry 运行时描述符 | 22 |
-| `Driver` (ORM) | [driver_store.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/driver_store.rs) | DB 表 `drivers` 映射 | 15 |
-| `DriverConnectionConfig` | [config.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/config.rs) | 连接实例运行时配置 | 12 |
-| `DriverMetadata` | [metadata.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/metadata.rs) | 驱动元信息（UI 展示） | 10+ |
+| 类型                     | 文件                                                                                                                       | 用途                  | 字段数 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- | --------------------- | :----: |
+| `DriverDescriptor`       | [descriptors.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/descriptors.rs) | Registry 运行时描述符 |   22   |
+| `Driver` (ORM)           | [driver_store.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/persistence/driver_store.rs)   | DB 表 `drivers` 映射  |   15   |
+| `DriverConnectionConfig` | [config.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/config.rs)           | 连接实例运行时配置    |   12   |
+| `DriverMetadata`         | [metadata.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/metadata.rs)                | 驱动元信息（UI 展示） |  10+   |
 
 ### 字段重叠矩阵
 
-| 字段 | Descriptor | Driver(ORM) | Config | Metadata |
-|------|:---:|:---:|:---:|:---:|
-| `id` | ✅ | ✅ | | ✅ |
-| `name` | ✅ | ✅ | ✅ | ✅ |
-| `driver_kind` | ✅ | ✅ | | |
-| `default_port` | ✅ | ✅ | | |
-| `version` | ✅ | ✅ | | ✅ |
-| `url_template` | ✅ | ✅ | ✅ | |
-| `supported_auth_types` | ✅ | ✅ | | |
-| `capabilities` | ✅ | ✅ | | |
-| `driver_properties` | ✅ | ✅ | | |
-| `config_schema` | ✅ | ✅ | | |
-| `download_url` | ✅ | ✅ | | |
-| `download_checksum` | ✅ | ✅ | | |
-| `icon` | ✅ | | | ✅ |
-| `description` | ✅ | | | ✅ |
+| 字段                   | Descriptor | Driver(ORM) | Config | Metadata |
+| ---------------------- | :--------: | :---------: | :----: | :------: |
+| `id`                   |     ✅     |     ✅      |        |    ✅    |
+| `name`                 |     ✅     |     ✅      |   ✅   |    ✅    |
+| `driver_kind`          |     ✅     |     ✅      |        |          |
+| `default_port`         |     ✅     |     ✅      |        |          |
+| `version`              |     ✅     |     ✅      |        |    ✅    |
+| `url_template`         |     ✅     |     ✅      |   ✅   |          |
+| `supported_auth_types` |     ✅     |     ✅      |        |          |
+| `capabilities`         |     ✅     |     ✅      |        |          |
+| `driver_properties`    |     ✅     |     ✅      |        |          |
+| `config_schema`        |     ✅     |     ✅      |        |          |
+| `download_url`         |     ✅     |     ✅      |        |          |
+| `download_checksum`    |     ✅     |     ✅      |        |          |
+| `icon`                 |     ✅     |             |        |    ✅    |
+| `description`          |     ✅     |             |        |    ✅    |
 
 ### 收敛方案：`DriverProfile` 统一模型
 
@@ -681,12 +682,12 @@ pub struct DriverConnectionConfig {
 
 ### 收敛路线图
 
-| Phase | 工作内容 | 预估工时 | 风险 |
-|------|------|:---:|------|
-| **Phase 0** (当前) | JSON string 字段改为强类型（`capabilities: Vec<String>`, `driver_properties: HashMap`） | 3h | 低 |
-| **Phase 1** | 合并 `Driver` + `DriverDescriptor` → `DriverProfile`，更新 DB 迁移和 persistence 层 | 6h | 中 |
-| **Phase 2** | `DriverConnectionConfig` 只存 `driver_id`，运行时从 Registry 查 `DriverProfile` | 3h | 中 |
-| **Phase 3** | `DriverMetadata` 合并入 `DriverProfile` 并删除 | 2h | 低 |
+| Phase              | 工作内容                                                                                | 预估工时 | 风险 |
+| ------------------ | --------------------------------------------------------------------------------------- | :------: | ---- |
+| **Phase 0** (当前) | JSON string 字段改为强类型（`capabilities: Vec<String>`, `driver_properties: HashMap`） |    3h    | 低   |
+| **Phase 1**        | 合并 `Driver` + `DriverDescriptor` → `DriverProfile`，更新 DB 迁移和 persistence 层     |    6h    | 中   |
+| **Phase 2**        | `DriverConnectionConfig` 只存 `driver_id`，运行时从 Registry 查 `DriverProfile`         |    3h    | 中   |
+| **Phase 3**        | `DriverMetadata` 合并入 `DriverProfile` 并删除                                          |    2h    | 低   |
 
 ### 预期收益
 
@@ -729,12 +730,12 @@ DataSourceSidebar                    WorkbenchView              AddDataSourceDia
 
 ### 涉及文件
 
-| 文件 | 变更 |
-|------|------|
-| [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) | 新增 `initialConnection` prop + `initFromConnection()` 函数 |
-| [WorkbenchView.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/views/WorkbenchView.vue) | 新增 `dialogInitialConnection` ref，`handleWorkbenchNewConnection` 支持 connection 数据 |
-| [DataSourceSidebar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/DataSourceSidebar.vue) | 新增编辑按钮 + `editSavedConnection()` 函数 |
-| [useUrlBuilder.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useUrlBuilder.ts) | 新增 `url_template?` 字段 + `applyTemplate()` 模板替换 |
+| 文件                                                                                                                                                      | 变更                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [AddDataSourceDialog.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue) | 新增 `initialConnection` prop + `initFromConnection()` 函数                             |
+| [WorkbenchView.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/workbench/ui/views/WorkbenchView.vue)                   | 新增 `dialogInitialConnection` ref，`handleWorkbenchNewConnection` 支持 connection 数据 |
+| [DataSourceSidebar.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/DataSourceSidebar.vue)     | 新增编辑按钮 + `editSavedConnection()` 函数                                             |
+| [useUrlBuilder.ts](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/composables/useUrlBuilder.ts)              | 新增 `url_template?` 字段 + `applyTemplate()` 模板替换                                  |
 
 ### 数据流
 
@@ -749,10 +750,10 @@ ProjectConnection (侧边栏) → dispatchWorkbenchEvent → initialConnection p
 
 ## 版本历史
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本 | 日期       | 说明                                                                                                                                                                                                                                                                          |
+| ---- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v2.5 | 2026-05-28 | 编辑连接流程：AddDataSourceDialog initialConnection prop + initFromConnection()；DataSourceSidebar 编辑按钮；useUrlBuilder url_template 支持；recent_connections ConnectionInfo/ConnectionRecord/RecentConnectionResponse 补齐 auth_method/driver_properties/advanced_options |
-| v2.4 | 2026-05-28 | specta 字段对齐修复：P1 domain/types.ts ConnectDatabaseInput 缺5字段补齐；P2 ConnectionInfoResponse 缺 auth_method（3处映射）；P3 onExtraConfig 补齐5字段转发；P4 ConnectionResponse 前类型补齐8字段；P5 移除未使用导入 |
-| v2.3 | 2026-05-28 | 新增 DB 能力标记表 + driver_properties 数据流；B1-B3 修复（StagingItem 状态恢复 + auth 字段）；A2-A4 重构（ConnectRequest 消除参数反模式 + to_url 模板化 + 前端 URL 对齐）；A1 四重冗余收敛方案 |
-| v2.2 | 2026-05-27 | capability 9 种 + driver_properties 添加 |
-| v2.1 | 2026-05-25 | 新增 MySQL Native / PostgreSQL Native 驱动条目 |
+| v2.4 | 2026-05-28 | specta 字段对齐修复：P1 domain/types.ts ConnectDatabaseInput 缺5字段补齐；P2 ConnectionInfoResponse 缺 auth_method（3处映射）；P3 onExtraConfig 补齐5字段转发；P4 ConnectionResponse 前类型补齐8字段；P5 移除未使用导入                                                       |
+| v2.3 | 2026-05-28 | 新增 DB 能力标记表 + driver_properties 数据流；B1-B3 修复（StagingItem 状态恢复 + auth 字段）；A2-A4 重构（ConnectRequest 消除参数反模式 + to_url 模板化 + 前端 URL 对齐）；A1 四重冗余收敛方案                                                                               |
+| v2.2 | 2026-05-27 | capability 9 种 + driver_properties 添加                                                                                                                                                                                                                                      |
+| v2.1 | 2026-05-25 | 新增 MySQL Native / PostgreSQL Native 驱动条目                                                                                                                                                                                                                                |

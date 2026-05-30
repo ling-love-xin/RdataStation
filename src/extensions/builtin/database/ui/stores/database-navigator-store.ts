@@ -501,7 +501,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const connType = connectionTypes.value.get(connectionId) || 'global'
       const projectPath = connectionProjectPaths.value.get(connectionId)
 
-      const procedureMetas = await databaseApi.loadProcedures(connectionId, catalogName, schemaName, connType, projectPath)
+      const procedureMetas = await databaseApi.loadProcedures(
+        connectionId,
+        catalogName,
+        schemaName,
+        connType,
+        projectPath
+      )
       const procedures = procedureMetas.map((p: { name: string }) => ({ name: p.name }))
 
       const catalogs = connectionCatalogs.value.get(connectionId)
@@ -533,7 +539,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
       const connType = connectionTypes.value.get(connectionId) || 'global'
       const projectPath = connectionProjectPaths.value.get(connectionId)
 
-      const functionMetas = await databaseApi.loadFunctions(connectionId, catalogName, schemaName, connType, projectPath)
+      const functionMetas = await databaseApi.loadFunctions(
+        connectionId,
+        catalogName,
+        schemaName,
+        connType,
+        projectPath
+      )
       const functions = functionMetas.map((f: { name: string }) => ({ name: f.name }))
 
       const catalogs = connectionCatalogs.value.get(connectionId)
@@ -578,12 +590,14 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         connType,
         projectPath
       )
-      const indexes: IndexNode[] = indexMetas.map((idx: { name: string; columnNames: string[]; isUnique: boolean; isPrimary: boolean }) => ({
-        name: idx.name,
-        columns: idx.columnNames || [],
-        isUnique: idx.isUnique || false,
-        isPrimary: idx.isPrimary || false,
-      }))
+      const indexes: IndexNode[] = indexMetas.map(
+        (idx: { name: string; columnNames: string[]; isUnique: boolean; isPrimary: boolean }) => ({
+          name: idx.name,
+          columns: idx.columnNames || [],
+          isUnique: idx.isUnique || false,
+          isPrimary: idx.isPrimary || false,
+        })
+      )
 
       // 写入 SchemaNode 的 table.indexes
       const catalogs = connectionCatalogs.value.get(connectionId)
@@ -628,11 +642,13 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         connType,
         projectPath
       )
-      const constraints: ConstraintNode[] = constraintMetas.map((c: { name: string; constraintType: string; columnNames: string[] }) => ({
-        name: c.name,
-        type: c.constraintType as ConstraintNode['type'],
-        columns: c.columnNames || [],
-      }))
+      const constraints: ConstraintNode[] = constraintMetas.map(
+        (c: { name: string; constraintType: string; columnNames: string[] }) => ({
+          name: c.name,
+          type: c.constraintType as ConstraintNode['type'],
+          columns: c.columnNames || [],
+        })
+      )
 
       const catalogs = connectionCatalogs.value.get(connectionId)
       if (!catalogs) return
@@ -652,11 +668,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadSequences(
-    connectionId: string,
-    catalogName: string,
-    schemaName: string
-  ) {
+  async function loadSequences(connectionId: string, catalogName: string, schemaName: string) {
     const key = `${connectionId}:${catalogName}:${schemaName}:sequences`
     if (loadingTables.value.has(key)) return
 
@@ -694,11 +706,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  async function loadTriggers(
-    connectionId: string,
-    catalogName: string,
-    schemaName: string
-  ) {
+  async function loadTriggers(connectionId: string, catalogName: string, schemaName: string) {
     const key = `${connectionId}:${catalogName}:${schemaName}:triggers`
     if (loadingTables.value.has(key)) return
 
@@ -716,7 +724,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         connType,
         projectPath
       )
-      const triggers: TriggerNode[] = triggerMetas.map((t) => ({
+      const triggers: TriggerNode[] = triggerMetas.map(t => ({
         name: t.name,
         tableName: t.tableName ?? undefined,
         event: t.event ?? undefined,

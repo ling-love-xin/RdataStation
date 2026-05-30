@@ -1,11 +1,13 @@
 # RdataStation 插件系统设计文档
 
 ## Overview
+
 - **Summary**: 设计一个类似 VSCode 的插件系统，支持前端扩展、WASM 插件和 Go-Sidecar 驱动插件，实现完整的插件生命周期管理、贡献点系统和安全隔离机制。
 - **Purpose**: 为 RdataStation 提供可扩展的插件生态，允许开发者扩展功能而不修改核心代码。
 - **Target Users**: 插件开发者、RdataStation 用户、系统管理员
 
 ## Goals
+
 - 实现完整的插件生命周期管理（安装、激活、停用、卸载）
 - 支持三种插件类型：前端扩展、WASM 插件、Go-Sidecar 驱动插件
 - 提供丰富的贡献点系统（命令、面板、驱动、设置、菜单）
@@ -13,18 +15,21 @@
 - 提供插件市场集成支持
 
 ## Non-Goals (Out of Scope)
+
 - 插件市场前端界面（仅提供后端 API）
 - 插件打包工具（建议使用 npm/rust cargo）
 - 插件国际化系统
 - 插件调试器
 
 ## Background & Context
+
 - 现有基础：`core/plugin/manifest.rs` 已定义插件清单结构
 - WASM 支持：`adapters/wasm/` 已集成 Extism 运行时
 - Sidecar 支持：`adapters/sidecar/` 已实现 Go 侧通信
 - 参考架构：VSCode Extension API + Eclipse Plugin Framework
 
 ## Functional Requirements
+
 - **FR-1**: 插件清单解析与验证
 - **FR-2**: 插件加载与激活（按需/启动时）
 - **FR-3**: 插件贡献点注册（命令、面板、驱动、设置）
@@ -35,6 +40,7 @@
 - **FR-8**: 插件状态持久化
 
 ## Non-Functional Requirements
+
 - **NFR-1**: 插件加载时间 < 500ms
 - **NFR-2**: 插件崩溃不影响主程序稳定性
 - **NFR-3**: 内存限制可配置（默认 512MB/插件）
@@ -42,11 +48,13 @@
 - **NFR-5**: 插件权限最小化原则
 
 ## Constraints
+
 - **Technical**: Rust 2021, Tauri 2.x, Extism 43.x, Go 1.21+
 - **Business**: 插件必须签名验证（生产环境）
 - **Dependencies**: 依赖外部 WASM 运行时和 Go Sidecar 进程
 
 ## Assumptions
+
 - 用户已熟悉 VSCode 插件概念
 - 插件开发者使用 TypeScript/Rust/Go 进行开发
 - 插件通过 HTTP(S) 或本地文件系统安装
@@ -86,11 +94,11 @@
 
 ### 插件类型架构
 
-| 类型 | 运行位置 | 语言支持 | 用途 | 隔离级别 |
-|------|----------|----------|------|----------|
-| **前端扩展** | 渲染进程 | TypeScript/Vue | UI 扩展、命令注册 | 渲染进程隔离 |
-| **WASM 插件** | 主进程沙箱 | Rust/C/Go → WASM | 数据分析、工具函数 | WASM 沙箱 |
-| **Sidecar 插件** | 独立进程 | Go | 数据库驱动、系统级任务 | 进程隔离 |
+| 类型             | 运行位置   | 语言支持         | 用途                   | 隔离级别     |
+| ---------------- | ---------- | ---------------- | ---------------------- | ------------ |
+| **前端扩展**     | 渲染进程   | TypeScript/Vue   | UI 扩展、命令注册      | 渲染进程隔离 |
+| **WASM 插件**    | 主进程沙箱 | Rust/C/Go → WASM | 数据分析、工具函数     | WASM 沙箱    |
+| **Sidecar 插件** | 独立进程   | Go               | 数据库驱动、系统级任务 | 进程隔离     |
 
 ### 目录结构
 
@@ -231,30 +239,30 @@ pub struct ContributesSetting {
 pub trait PluginManager {
     // 加载插件
     fn load_plugin(&mut self, manifest_path: &Path) -> Result<PluginId, PluginError>;
-    
+
     // 卸载插件
     fn unload_plugin(&mut self, id: &PluginId) -> Result<(), PluginError>;
-    
+
     // 激活插件（触发激活事件）
     fn activate_plugin(&mut self, id: &PluginId) -> Result<(), PluginError>;
-    
+
     // 停用插件
     fn deactivate_plugin(&mut self, id: &PluginId) -> Result<(), PluginError>;
-    
+
     // 获取插件状态
     fn get_plugin_status(&self, id: &PluginId) -> Option<PluginStatus>;
-    
+
     // 获取已加载插件列表
     fn list_plugins(&self) -> Vec<PluginInfo>;
-    
+
     // 调用插件方法（前端/WASM）
     fn call_plugin_method(
-        &self, 
-        id: &PluginId, 
-        method: &str, 
+        &self,
+        id: &PluginId,
+        method: &str,
         args: serde_json::Value
     ) -> Result<serde_json::Value, PluginError>;
-    
+
     // 广播事件到所有插件
     fn broadcast_event(&self, event: &PluginEvent) -> Result<(), PluginError>;
 }
@@ -293,22 +301,22 @@ pub struct ContributionRegistry {
 impl ContributionRegistry {
     // 注册命令
     fn register_command(&mut self, plugin_id: &PluginId, command: ContributesCommand);
-    
+
     // 注册面板
     fn register_panel(&mut self, plugin_id: &PluginId, panel: ContributesPanel);
-    
+
     // 注册驱动
     fn register_driver(&mut self, plugin_id: &PluginId, driver: ContributesDriver);
-    
+
     // 注册设置
     fn register_setting(&mut self, plugin_id: &PluginId, setting: ContributesSetting);
-    
+
     // 根据 ID 获取命令
     fn get_command(&self, id: &CommandId) -> Option<&RegisteredCommand>;
-    
+
     // 获取所有命令
     fn get_all_commands(&self) -> Vec<&RegisteredCommand>;
-    
+
     // 根据插件 ID 移除所有贡献
     fn remove_by_plugin(&mut self, plugin_id: &PluginId);
 }
@@ -343,16 +351,16 @@ pub struct ResourceUsage {
 impl PluginSandbox {
     // 创建沙箱实例
     fn new(config: PluginSandboxConfig) -> Self;
-    
+
     // 检查资源使用
     fn check_resource_limits(&self, usage: &ResourceUsage) -> Result<(), SandboxError>;
-    
+
     // 验证文件访问权限
     fn check_file_access(&self, path: &Path) -> Result<(), SandboxError>;
-    
+
     // 验证网络访问权限
     fn check_network_access(&self, host: &str) -> Result<(), SandboxError>;
-    
+
     // 获取资源使用统计
     fn get_resource_usage(&self) -> ResourceUsage;
 }
@@ -365,29 +373,29 @@ impl PluginSandbox {
 pub enum PluginEvent {
     // 应用启动完成
     ApplicationStarted,
-    
+
     // 插件加载完成
     PluginLoaded(PluginId),
-    
+
     // 插件激活
     PluginActivated(PluginId),
-    
+
     // 插件停用
     PluginDeactivated(PluginId),
-    
+
     // 配置变更
     ConfigurationChanged {
         key: String,
         old_value: Option<serde_json::Value>,
         new_value: serde_json::Value,
     },
-    
+
     // 连接状态变更
     ConnectionChanged {
         connection_id: String,
         status: ConnectionStatus,
     },
-    
+
     // 自定义事件
     Custom {
         name: String,
@@ -416,14 +424,14 @@ pub trait EventHandler {
 
 ### 详细阶段说明
 
-| 阶段 | 触发条件 | 执行操作 | 状态变更 |
-|------|----------|----------|----------|
-| **安装** | 用户安装插件 | 下载、解压、验证签名 | Installed |
-| **加载** | 应用启动或手动触发 | 解析清单、验证兼容性、加载代码 | Loaded |
-| **激活** | 激活事件触发 | 注册贡献点、调用 activate 钩子 | Active |
-| **运行** | 激活后 | 处理命令调用、响应事件 | Active |
-| **停用** | 用户停用或应用关闭 | 移除贡献点、调用 deactivate 钩子 | Loaded |
-| **卸载** | 用户卸载 | 删除文件、清理状态 | 已删除 |
+| 阶段     | 触发条件           | 执行操作                         | 状态变更  |
+| -------- | ------------------ | -------------------------------- | --------- |
+| **安装** | 用户安装插件       | 下载、解压、验证签名             | Installed |
+| **加载** | 应用启动或手动触发 | 解析清单、验证兼容性、加载代码   | Loaded    |
+| **激活** | 激活事件触发       | 注册贡献点、调用 activate 钩子   | Active    |
+| **运行** | 激活后             | 处理命令调用、响应事件           | Active    |
+| **停用** | 用户停用或应用关闭 | 移除贡献点、调用 deactivate 钩子 | Loaded    |
+| **卸载** | 用户卸载           | 删除文件、清理状态               | 已删除    |
 
 ### 激活事件类型
 
@@ -431,22 +439,22 @@ pub trait EventHandler {
 pub enum ActivationEvent {
     // 应用启动时激活
     OnStartup,
-    
+
     // 命令被调用时激活
     OnCommand(String),
-    
+
     // 面板被打开时激活
     OnPanel(String),
-    
+
     // 设置被访问时激活
     OnSetting(String),
-    
+
     // 特定数据库连接时激活
     OnDatabaseConnection(String),
-    
+
     // 自定义事件激活
     OnEvent(String),
-    
+
     // 工作区包含特定文件类型时激活
     OnWorkspaceContains(String),
 }
@@ -500,22 +508,22 @@ pub struct HostFunctions;
 impl HostFunctions {
     // 日志函数
     pub fn log(level: LogLevel, message: &str);
-    
+
     // 数据库查询
     pub fn db_query(connection_id: &str, sql: &str) -> Result<QueryResult, HostFunctionError>;
-    
+
     // 获取配置
     pub fn get_config(key: &str) -> Option<serde_json::Value>;
-    
+
     // 设置配置
     pub fn set_config(key: &str, value: serde_json::Value) -> Result<(), HostFunctionError>;
-    
+
     // 发送事件
     pub fn emit_event(name: &str, data: &[u8]);
-    
+
     // HTTP 请求
     pub fn http_request(request: HttpRequest) -> Result<HttpResponse, HostFunctionError>;
-    
+
     // 文件系统操作
     pub fn fs_read(path: &str) -> Result<Vec<u8>, HostFunctionError>;
     pub fn fs_write(path: &str, data: &[u8]) -> Result<(), HostFunctionError>;
@@ -542,20 +550,20 @@ pub mod permissions {
     pub const DATA_QUERY: &str = "data:query";
     pub const DATA_WRITE: &str = "data:write";
     pub const DATA_METADATA: &str = "data:metadata";
-    
+
     // 文件系统权限
     pub const FS_READ: &str = "fs:read";
     pub const FS_WRITE: &str = "fs:write";
     pub const FS_EXECUTE: &str = "fs:execute";
-    
+
     // 网络权限
     pub const NETWORK_HTTP: &str = "network:http";
     pub const NETWORK_WEBSOCKET: &str = "network:websocket";
-    
+
     // 系统权限
     pub const SYSTEM_PROCESS: &str = "system:process";
     pub const SYSTEM_ENV: &str = "system:env";
-    
+
     // 设置权限
     pub const SETTINGS_READ: &str = "settings:read";
     pub const SETTINGS_WRITE: &str = "settings:write";
@@ -601,27 +609,27 @@ impl PluginManager {
 
 ### 插件管理 API
 
-| 方法 | 描述 | 参数 | 返回值 |
-|------|------|------|--------|
-| `plugin.install` | 安装插件 | `url: string` | `PluginInfo` |
-| `plugin.uninstall` | 卸载插件 | `plugin_id: string` | `void` |
-| `plugin.load` | 加载插件 | `plugin_id: string` | `void` |
-| `plugin.unload` | 卸载插件 | `plugin_id: string` | `void` |
-| `plugin.activate` | 激活插件 | `plugin_id: string` | `void` |
-| `plugin.deactivate` | 停用插件 | `plugin_id: string` | `void` |
-| `plugin.list` | 获取插件列表 | 无 | `PluginInfo[]` |
-| `plugin.get` | 获取插件信息 | `plugin_id: string` | `PluginInfo` |
-| `plugin.call` | 调用插件方法 | `plugin_id, method, args` | `any` |
-| `plugin.update` | 更新插件 | `plugin_id: string` | `PluginInfo` |
+| 方法                | 描述         | 参数                      | 返回值         |
+| ------------------- | ------------ | ------------------------- | -------------- |
+| `plugin.install`    | 安装插件     | `url: string`             | `PluginInfo`   |
+| `plugin.uninstall`  | 卸载插件     | `plugin_id: string`       | `void`         |
+| `plugin.load`       | 加载插件     | `plugin_id: string`       | `void`         |
+| `plugin.unload`     | 卸载插件     | `plugin_id: string`       | `void`         |
+| `plugin.activate`   | 激活插件     | `plugin_id: string`       | `void`         |
+| `plugin.deactivate` | 停用插件     | `plugin_id: string`       | `void`         |
+| `plugin.list`       | 获取插件列表 | 无                        | `PluginInfo[]` |
+| `plugin.get`        | 获取插件信息 | `plugin_id: string`       | `PluginInfo`   |
+| `plugin.call`       | 调用插件方法 | `plugin_id, method, args` | `any`          |
+| `plugin.update`     | 更新插件     | `plugin_id: string`       | `PluginInfo`   |
 
 ### 插件市场 API
 
-| 方法 | 描述 | 参数 | 返回值 |
-|------|------|------|--------|
-| `market.search` | 搜索插件 | `query: string, filters: object` | `PluginSearchResult[]` |
-| `market.get` | 获取插件详情 | `plugin_id: string` | `PluginDetails` |
-| `market.install` | 从市场安装 | `plugin_id: string, version?: string` | `PluginInfo` |
-| `market.updates` | 检查更新 | 无 | `UpdateInfo[]` |
+| 方法             | 描述         | 参数                                  | 返回值                 |
+| ---------------- | ------------ | ------------------------------------- | ---------------------- |
+| `market.search`  | 搜索插件     | `query: string, filters: object`      | `PluginSearchResult[]` |
+| `market.get`     | 获取插件详情 | `plugin_id: string`                   | `PluginDetails`        |
+| `market.install` | 从市场安装   | `plugin_id: string, version?: string` | `PluginInfo`           |
+| `market.updates` | 检查更新     | 无                                    | `UpdateInfo[]`         |
 
 ---
 
@@ -637,19 +645,19 @@ pub struct PluginStore {
 impl PluginStore {
     // 保存插件信息
     fn save_plugin(&self, info: &PluginInfo) -> Result<(), StorageError>;
-    
+
     // 获取插件信息
     fn get_plugin(&self, id: &PluginId) -> Result<Option<PluginInfo>, StorageError>;
-    
+
     // 获取所有插件
     fn get_all_plugins(&self) -> Result<Vec<PluginInfo>, StorageError>;
-    
+
     // 删除插件记录
     fn delete_plugin(&self, id: &PluginId) -> Result<(), StorageError>;
-    
+
     // 更新插件状态
     fn update_plugin_status(&self, id: &PluginId, status: PluginStatus) -> Result<(), StorageError>;
-    
+
     // 获取已启用的插件列表
     fn get_enabled_plugins(&self) -> Result<Vec<PluginInfo>, StorageError>;
 }
@@ -702,31 +710,31 @@ CREATE TABLE plugin_contributions (
 pub enum PluginError {
     // 清单错误
     ManifestError(String),
-    
+
     // 加载错误
     LoadError(String),
-    
+
     // 激活错误
     ActivationError(String),
-    
+
     // 权限错误
     PermissionError(String),
-    
+
     // 资源限制错误
     ResourceLimitError(String),
-    
+
     // 通信错误
     CommunicationError(String),
-    
+
     // 签名验证错误
     SignatureError(String),
-    
+
     // 兼容性错误
     CompatibilityError(String),
-    
+
     // 存储错误
     StorageError(StorageError),
-    
+
     // Core 错误
     CoreError(CoreError),
 }
@@ -751,12 +759,12 @@ impl PluginManager {
     fn load_plugin_on_demand(&mut self, activation_event: &ActivationEvent) {
         // 根据激活事件查找需要加载的插件
         let plugins_to_load = self.find_plugins_for_event(activation_event);
-        
+
         for plugin_id in plugins_to_load {
             if !self.is_plugin_loaded(plugin_id) {
                 self.load_plugin(plugin_id);
             }
-            
+
             if !self.is_plugin_active(plugin_id) {
                 self.activate_plugin(plugin_id);
             }
@@ -778,10 +786,10 @@ pub struct PluginCache {
 impl PluginCache {
     // 获取缓存的清单
     fn get_manifest(&mut self, id: &PluginId) -> Option<&PluginManifest>;
-    
+
     // 缓存清单
     fn cache_manifest(&mut self, id: PluginId, manifest: PluginManifest);
-    
+
     // 清理过期缓存
     fn cleanup(&mut self);
 }
@@ -797,27 +805,27 @@ impl PluginCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_manifest_validation() {
         // 测试清单解析和验证
     }
-    
+
     #[test]
     fn test_plugin_loading() {
         // 测试插件加载流程
     }
-    
+
     #[test]
     fn test_permission_check() {
         // 测试权限验证
     }
-    
+
     #[test]
     fn test_resource_limits() {
         // 测试资源限制
     }
-    
+
     #[test]
     fn test_event_broadcast() {
         // 测试事件广播机制
@@ -954,6 +962,7 @@ impl ExtismPluginManager {
 ## 未来规划
 
 ### 版本 1.0（基础版）
+
 - [ ] 插件清单解析
 - [ ] 插件加载与激活
 - [ ] 命令贡献点
@@ -961,18 +970,21 @@ impl ExtismPluginManager {
 - [ ] WASM 插件支持
 
 ### 版本 1.1（扩展版）
+
 - [ ] 驱动贡献点
 - [ ] 设置贡献点
 - [ ] 菜单贡献点
 - [ ] 快捷键贡献点
 
 ### 版本 1.2（高级版）
+
 - [ ] 插件市场集成
 - [ ] 插件签名验证
 - [ ] 热更新支持
 - [ ] 插件调试支持
 
 ### 版本 2.0（完善版）
+
 - [ ] 插件国际化
 - [ ] 插件依赖管理
 - [ ] 插件性能监控
@@ -1022,29 +1034,29 @@ icon = "database"
 
 ### 宿主函数列表
 
-| 函数名 | 描述 | 参数 | 返回值 |
-|--------|------|------|--------|
-| `log` | 记录日志 | `level: LogLevel, message: string` | `void` |
-| `db_query` | 执行查询 | `conn_id: string, sql: string` | `QueryResult` |
-| `db_execute` | 执行命令 | `conn_id: string, sql: string` | `ExecuteResult` |
-| `get_config` | 获取配置 | `key: string` | `any` |
-| `set_config` | 设置配置 | `key: string, value: any` | `void` |
-| `emit_event` | 发送事件 | `name: string, data: bytes` | `void` |
-| `http_get` | HTTP GET | `url: string, headers: object` | `HttpResponse` |
-| `http_post` | HTTP POST | `url: string, body: bytes, headers: object` | `HttpResponse` |
-| `fs_read` | 读取文件 | `path: string` | `bytes` |
-| `fs_write` | 写入文件 | `path: string, data: bytes` | `void` |
-| `fs_list` | 列出目录 | `path: string` | `string[]` |
+| 函数名       | 描述      | 参数                                        | 返回值          |
+| ------------ | --------- | ------------------------------------------- | --------------- |
+| `log`        | 记录日志  | `level: LogLevel, message: string`          | `void`          |
+| `db_query`   | 执行查询  | `conn_id: string, sql: string`              | `QueryResult`   |
+| `db_execute` | 执行命令  | `conn_id: string, sql: string`              | `ExecuteResult` |
+| `get_config` | 获取配置  | `key: string`                               | `any`           |
+| `set_config` | 设置配置  | `key: string, value: any`                   | `void`          |
+| `emit_event` | 发送事件  | `name: string, data: bytes`                 | `void`          |
+| `http_get`   | HTTP GET  | `url: string, headers: object`              | `HttpResponse`  |
+| `http_post`  | HTTP POST | `url: string, body: bytes, headers: object` | `HttpResponse`  |
+| `fs_read`    | 读取文件  | `path: string`                              | `bytes`         |
+| `fs_write`   | 写入文件  | `path: string, data: bytes`                 | `void`          |
+| `fs_list`    | 列出目录  | `path: string`                              | `string[]`      |
 
 ### 权限矩阵
 
-| 权限 | 前端扩展 | WASM 插件 | Sidecar 插件 | 默认值 |
-|------|----------|-----------|--------------|--------|
-| `data:query` | ✅ | ✅ | ✅ | 否 |
-| `data:write` | ❌ | ✅ | ✅ | 否 |
-| `data:metadata` | ✅ | ✅ | ✅ | 是 |
-| `fs:read` | ❌ | ✅ | ✅ | 否 |
-| `fs:write` | ❌ | ✅ | ✅ | 否 |
-| `network:http` | ❌ | ✅ | ✅ | 否 |
-| `settings:read` | ✅ | ✅ | ✅ | 是 |
-| `settings:write` | ❌ | ✅ | ✅ | 否 |
+| 权限             | 前端扩展 | WASM 插件 | Sidecar 插件 | 默认值 |
+| ---------------- | -------- | --------- | ------------ | ------ |
+| `data:query`     | ✅       | ✅        | ✅           | 否     |
+| `data:write`     | ❌       | ✅        | ✅           | 否     |
+| `data:metadata`  | ✅       | ✅        | ✅           | 是     |
+| `fs:read`        | ❌       | ✅        | ✅           | 否     |
+| `fs:write`       | ❌       | ✅        | ✅           | 否     |
+| `network:http`   | ❌       | ✅        | ✅           | 否     |
+| `settings:read`  | ✅       | ✅        | ✅           | 是     |
+| `settings:write` | ❌       | ✅        | ✅           | 否     |

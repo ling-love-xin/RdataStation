@@ -1,8 +1,16 @@
-import { EditorState } from "@codemirror/state"
-import { EditorView } from "@codemirror/view"
-import { ref, shallowRef, computed, markRaw, type Ref, type ShallowRef, type ComputedRef } from "vue"
+import { EditorState } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
+import {
+  ref,
+  shallowRef,
+  computed,
+  markRaw,
+  type Ref,
+  type ShallowRef,
+  type ComputedRef,
+} from 'vue'
 
-import { ShortcutManager } from "@/extensions/builtin/workbench/manager/ShortcutManager"
+import { ShortcutManager } from '@/extensions/builtin/workbench/manager/ShortcutManager'
 import {
   PANEL_PREFIX_EDITOR,
   type OpenFileInfo,
@@ -10,11 +18,17 @@ import {
   type ResultSetCreateParams,
   type ResultSetMetadata,
   type EditorInstance,
-} from "@/extensions/builtin/workbench/types/editor-types"
-import { sendPopoutTransfer, listenMergeTransfer, listenWindowReady, listenStateSync, type StateSyncPayload } from "@/extensions/builtin/workbench/ui/composables/useCrossWindow"
-import { useEditorPersistence } from "@/extensions/builtin/workbench/ui/composables/useEditorPersistence"
-import { useEditorRecovery } from "@/extensions/builtin/workbench/ui/composables/useEditorRecovery"
-import { useEditorRuntime } from "@/extensions/builtin/workbench/ui/stores/editor-runtime-store"
+} from '@/extensions/builtin/workbench/types/editor-types'
+import {
+  sendPopoutTransfer,
+  listenMergeTransfer,
+  listenWindowReady,
+  listenStateSync,
+  type StateSyncPayload,
+} from '@/extensions/builtin/workbench/ui/composables/useCrossWindow'
+import { useEditorPersistence } from '@/extensions/builtin/workbench/ui/composables/useEditorPersistence'
+import { useEditorRecovery } from '@/extensions/builtin/workbench/ui/composables/useEditorRecovery'
+import { useEditorRuntime } from '@/extensions/builtin/workbench/ui/stores/editor-runtime-store'
 
 interface DockviewPanelHandle {
   api: { close(): void; setTitle(t: string): void; setVisible(v: boolean): void }
@@ -41,7 +55,12 @@ type ApiResponseJSON = Record<string, unknown>
 
 let dockviewApi: DockviewApiFacade | null = null
 
-const { runtime, startExecution, finishExecution, cancelExecution: cancelRuntime } = useEditorRuntime()
+const {
+  runtime,
+  startExecution,
+  finishExecution,
+  cancelExecution: cancelRuntime,
+} = useEditorRuntime()
 
 const openFiles: ShallowRef<Map<string, OpenFileInfo>> = shallowRef(new Map())
 const activeFilePath: Ref<string | null> = ref(null)
@@ -64,15 +83,23 @@ const activeFileInfo: ComputedRef<OpenFileInfo | null> = computed(() => {
   return openFiles.value.get(activeFilePath.value) ?? null
 })
 
-function sanitize(s: string): string { return s.replace(/[^a-zA-Z0-9_-]/g, "_") }
+function sanitize(s: string): string {
+  return s.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
 
-function filePanelId(filePath: string): string { return `${PANEL_PREFIX_EDITOR}${sanitize(filePath)}` }
+function filePanelId(filePath: string): string {
+  return `${PANEL_PREFIX_EDITOR}${sanitize(filePath)}`
+}
 
 function syncDirtyToTab(filePath: string, isDirty: boolean): void {
   const info = openFiles.value.get(filePath)
   if (!info) return
   const title = isDirty ? `\u2022 ${info.fileName}` : info.fileName
-  try { dockviewApi?.getPanel(filePanelId(filePath))?.api.setTitle(title) } catch { /* */ }
+  try {
+    dockviewApi?.getPanel(filePanelId(filePath))?.api.setTitle(title)
+  } catch {
+    console.warn('[EditorManager] dockview setTitle failed')
+  }
 }
 
 function instanceId(filePath: string, groupId: string): string {
@@ -104,17 +131,35 @@ function getSavedState(filePath: string): EditorState | undefined {
   return savedStates.get(filePath)
 }
 
-function onKeydown(e: KeyboardEvent): void { ShortcutManager.handleKeydown(e) }
+function onKeydown(e: KeyboardEvent): void {
+  ShortcutManager.handleKeydown(e)
+}
 
 export const EditorManager = {
-  get openFiles() { return openFiles.value },
-  get activeFilePath() { return activeFilePath.value },
-  get activeFileInfo() { return activeFileInfo.value },
-  get editor() { return editorRef.value },
-  get isExecuting() { return runtime.isExecuting },
-  get lastExecutionTime() { return runtime.lastExecutionTime },
-  get isInitialized() { return isInitialized.value },
-  get dockviewApi() { return dockviewApi },
+  get openFiles() {
+    return openFiles.value
+  },
+  get activeFilePath() {
+    return activeFilePath.value
+  },
+  get activeFileInfo() {
+    return activeFileInfo.value
+  },
+  get editor() {
+    return editorRef.value
+  },
+  get isExecuting() {
+    return runtime.isExecuting
+  },
+  get lastExecutionTime() {
+    return runtime.lastExecutionTime
+  },
+  get isInitialized() {
+    return isInitialized.value
+  },
+  get dockviewApi() {
+    return dockviewApi
+  },
 
   getSavedStateForFile(filePath: string): EditorState | undefined {
     return getSavedState(filePath)
@@ -129,7 +174,12 @@ export const EditorManager = {
     return hasRecoveryData()
   },
 
-  loadRecoverySnapshots(): { filePath: string; fileName: string; language: string; isDirty: boolean }[] {
+  loadRecoverySnapshots(): {
+    filePath: string
+    fileName: string
+    language: string
+    isDirty: boolean
+  }[] {
     const { loadSnapshots } = useEditorRecovery()
     return loadSnapshots().map(s => ({
       filePath: s.filePath,
@@ -155,8 +205,12 @@ export const EditorManager = {
     panelGroupMap.set(pid, groupId)
     const writable = EditorManager.isPrimaryInstance(filePath, id)
     const inst: EditorInstance = {
-      instanceId: id, filePath, groupId, view: markRaw(ed),
-      state: null, writable,
+      instanceId: id,
+      filePath,
+      groupId,
+      view: markRaw(ed),
+      state: null,
+      writable,
     }
     editorInstances.set(id, inst)
 
@@ -179,7 +233,11 @@ export const EditorManager = {
     const inst = editorInstances.get(id)
     if (inst) {
       saveEditorState(filePath, inst.view.state)
-      try { inst.view.destroy() } catch { /* */ }
+      try {
+        inst.view.destroy()
+      } catch {
+        console.warn('[EditorManager] view.destroy failed during unregister')
+      }
     }
     editorInstances.delete(id)
     panelGroupMap.delete(pid)
@@ -216,7 +274,9 @@ export const EditorManager = {
       for (const rpId of info.resultPanelIds) {
         try {
           dockviewApi?.getPanel(rpId)?.api.setVisible(path === fp)
-        } catch { /* dockview */ }
+        } catch {
+          console.warn('[EditorManager] result panel visibility update failed')
+        }
       }
     }
   },
@@ -243,14 +303,19 @@ export const EditorManager = {
           connectionId: info.connectionId,
           databaseName: info.databaseName,
         })
-      } catch { /* serialization may fail */ }
+      } catch {
+        console.warn('[EditorManager] serialization failed during popout')
+      }
     }
   },
 
   setActiveResultIndex(filePath: string, index: number): void {
     const info = openFiles.value.get(filePath)
     if (!info) return
-    if (info.resultSets.length === 0) { info.activeResultIndex = -1; return }
+    if (info.resultSets.length === 0) {
+      info.activeResultIndex = -1
+      return
+    }
     info.activeResultIndex = Math.max(0, Math.min(index, info.resultSets.length - 1))
     openFiles.value = new Map(openFiles.value)
   },
@@ -276,7 +341,9 @@ export const EditorManager = {
         position: { direction: 'right' },
         floating: DEFAULT_POPOUT_GEOMETRY,
       })
-    } catch { /* dockview */ }
+    } catch {
+      console.warn('[EditorManager] dockview movePanelOrGroup failed during detach')
+    }
 
     openFiles.value = new Map(openFiles.value)
   },
@@ -295,7 +362,9 @@ export const EditorManager = {
           group: gid,
           position: { direction: 'below' },
         })
-      } catch { /* dockview */ }
+      } catch {
+        console.warn('[EditorManager] dockview movePanelOrGroup failed during attach')
+      }
     }
 
     openFiles.value = new Map(openFiles.value)
@@ -303,7 +372,10 @@ export const EditorManager = {
 
   createResultSet(filePath: string, data: ResultSetCreateParams): string {
     const info = openFiles.value.get(filePath)
-    if (!info) { console.warn(`[EditorManager] File not found: ${filePath}`); return '' }
+    if (!info) {
+      console.warn(`[EditorManager] File not found: ${filePath}`)
+      return ''
+    }
 
     while (info.resultSets.length >= MAX_RESULT_SETS) {
       const oldest = info.resultSets[0]
@@ -360,22 +432,29 @@ export const EditorManager = {
     info.resultPanelIds = info.resultPanelIds.filter(id => id !== panelId)
     if (info.activeResultIndex >= info.resultSets.length) {
       EditorManager.setActiveResultIndex(filePath, Math.max(-1, info.resultSets.length - 1))
-    } else { openFiles.value = new Map(openFiles.value) }
+    } else {
+      openFiles.value = new Map(openFiles.value)
+    }
   },
 
   init(api: unknown): void {
     if (isInitialized.value) return
     dockviewApi = api as DockviewApiFacade
     isInitialized.value = true
-    window.addEventListener("keydown", onKeydown)
+    window.addEventListener('keydown', onKeydown)
 
     ShortcutManager.register('Ctrl+S', 'editor', () => EditorManager.saveCurrentFile(), '保存')
-    ShortcutManager.register('Ctrl+Enter', 'editor', () => EditorManager.executeCurrentSQL(), '执行')
+    ShortcutManager.register(
+      'Ctrl+Enter',
+      'editor',
+      () => EditorManager.executeCurrentSQL(),
+      '执行'
+    )
     ShortcutManager.register('Ctrl+/', 'editor', () => EditorManager.toggleComment(), '注释')
   },
 
   destroy(): void {
-    window.removeEventListener("keydown", onKeydown)
+    window.removeEventListener('keydown', onKeydown)
     const { saveSnapshot } = useEditorRecovery()
     for (const [id, inst] of editorInstances) {
       try {
@@ -388,9 +467,17 @@ export const EditorManager = {
           scrollTop: inst.view.scrollDOM.scrollTop,
           scrollLeft: inst.view.scrollDOM.scrollLeft,
         })
-      } catch { /* save best-effort */ }
+      } catch {
+        console.warn('[EditorManager] recovery saveSnapshot failed during destroy')
+      }
     }
-    for (const [, inst] of editorInstances) { try { inst.view.destroy() } catch { /* */ } }
+    for (const [, inst] of editorInstances) {
+      try {
+        inst.view.destroy()
+      } catch {
+        console.warn('[EditorManager] view.destroy failed during destroy')
+      }
+    }
     editorInstances.clear()
     panelGroupMap.clear()
     savedStates.clear()
@@ -399,7 +486,11 @@ export const EditorManager = {
     editorRef.value = null
     tabGroupId.value = null
     for (const unlisten of crossWindowUnlisteners) {
-      try { unlisten() } catch { /* */ }
+      try {
+        unlisten()
+      } catch {
+        console.warn('[EditorManager] unlisten failed during destroy')
+      }
     }
     crossWindowUnlisteners.length = 0
     dockviewApi = null
@@ -407,7 +498,10 @@ export const EditorManager = {
   },
 
   openFile(params: OpenFileParams): void {
-    if (!isInitialized.value) { console.warn("[EditorManager] Not initialized"); return }
+    if (!isInitialized.value) {
+      console.warn('[EditorManager] Not initialized')
+      return
+    }
     if (openFiles.value.has(params.filePath)) {
       EditorManager.switchToFile(params.filePath)
       if (EditorManager.isFileOpenElsewhere(params.filePath)) {
@@ -421,24 +515,38 @@ export const EditorManager = {
     const refGroup = tabGroupId.value
 
     const info: OpenFileInfo = {
-      filePath: params.filePath, fileName: params.fileName,
-      language: params.language, type: params.type ?? "file",
-      isDirty: false, connectionId: params.connectionId ?? "",
-      databaseName: params.databaseName ?? "",
-      resultSets: [], activeResultIndex: -1, resultPanelIds: [], detachedResultIds: [],
-      states: new Map(), primaryInstanceId: null, readonlyInstanceIds: [],
+      filePath: params.filePath,
+      fileName: params.fileName,
+      language: params.language,
+      type: params.type ?? 'file',
+      isDirty: false,
+      connectionId: params.connectionId ?? '',
+      databaseName: params.databaseName ?? '',
+      resultSets: [],
+      activeResultIndex: -1,
+      resultPanelIds: [],
+      detachedResultIds: [],
+      states: new Map(),
+      primaryInstanceId: null,
+      readonlyInstanceIds: [],
     }
 
     openFiles.value.set(params.filePath, info)
 
     dockviewApi?.addPanel({
       id: pid,
-      component: "editorPanel",
+      component: 'editorPanel',
       title: params.fileName,
-      position: isFirstFile || !refGroup
-        ? { direction: "right" }
-        : { referenceGroup: refGroup, direction: "within" },
-      params: { filePath: params.filePath, fileName: params.fileName, language: params.language, content: params.sql },
+      position:
+        isFirstFile || !refGroup
+          ? { direction: 'right' }
+          : { referenceGroup: refGroup, direction: 'within' },
+      params: {
+        filePath: params.filePath,
+        fileName: params.fileName,
+        language: params.language,
+        content: params.sql,
+      },
     })
 
     if (isFirstFile) {
@@ -463,22 +571,32 @@ export const EditorManager = {
 
     const pid = filePanelId(filePath)
 
-    for (const rpId of info.resultPanelIds) { dockviewApi?.getPanel(rpId)?.api.close() }
+    for (const rpId of info.resultPanelIds) {
+      dockviewApi?.getPanel(rpId)?.api.close()
+    }
 
     const idToRemove: string[] = []
     for (const [id, inst] of editorInstances) {
       if (inst.filePath === filePath) {
         inst.state = inst.view.state
         info.states.set(id, inst.view.state)
-        try { inst.view.destroy() } catch { /* */ }
+        try {
+          inst.view.destroy()
+        } catch {
+          console.warn('[EditorManager] view.destroy failed during closeFile')
+        }
         idToRemove.push(id)
       }
     }
-    for (const id of idToRemove) { editorInstances.delete(id) }
+    for (const id of idToRemove) {
+      editorInstances.delete(id)
+    }
     try {
       const { draft } = useEditorPersistence(pid, filePath)
       draft.remove()
-    } catch { /* persistence */ }
+    } catch {
+      console.warn('[EditorManager] draft.remove failed during closeFile')
+    }
 
     const wasActive = activeFilePath.value === filePath
 
@@ -516,7 +634,10 @@ export const EditorManager = {
 
   switchToFile(filePath: string): void {
     const info = openFiles.value.get(filePath)
-    if (!info) { console.warn(`[EditorManager] File not found: ${filePath}`); return }
+    if (!info) {
+      console.warn(`[EditorManager] File not found: ${filePath}`)
+      return
+    }
     if (activeFilePath.value === filePath) return
 
     if (activeFilePath.value) {
@@ -549,9 +670,12 @@ export const EditorManager = {
     if (!ed) return
     const content = ed.state.doc.toString()
     try {
-      const { saveScratchpadFile } = await import("@/extensions/builtin/scratchpad/infrastructure/api/scratchpad-api")
+      const { saveScratchpadFile } =
+        await import('@/extensions/builtin/scratchpad/infrastructure/api/scratchpad-api')
       await saveScratchpadFile(info.filePath, content)
-    } catch (e) { console.warn("[EditorManager] Save:", e) }
+    } catch (e) {
+      console.warn('[EditorManager] Save:', e)
+    }
     info.isDirty = false
     syncDirtyToTab(info.filePath, false)
     openFiles.value = new Map(openFiles.value)
@@ -563,12 +687,26 @@ export const EditorManager = {
   },
 
   async openNewQuery(connectionId?: string, databaseName?: string): Promise<void> {
-    const { createScratchpadEntry, listScratchpadFiles } = await import("@/extensions/builtin/scratchpad/infrastructure/api/scratchpad-api")
-    const ts = Date.now(); const fileName = `Untitled-${ts}.sql`
-    try { await listScratchpadFiles() } catch { /* */ }
+    const { createScratchpadEntry, listScratchpadFiles } =
+      await import('@/extensions/builtin/scratchpad/infrastructure/api/scratchpad-api')
+    const ts = Date.now()
+    const fileName = `Untitled-${ts}.sql`
+    try {
+      await listScratchpadFiles()
+    } catch {
+      console.warn('[EditorManager] listScratchpadFiles failed')
+    }
     const entry = await createScratchpadEntry(fileName, false)
     const path = (entry as { path?: string }).path || fileName
-    EditorManager.openFile({ filePath: path, fileName, language: "sql", sql: "", type: "file", connectionId: connectionId ?? "", databaseName: databaseName ?? "" })
+    EditorManager.openFile({
+      filePath: path,
+      fileName,
+      language: 'sql',
+      sql: '',
+      type: 'file',
+      connectionId: connectionId ?? '',
+      databaseName: databaseName ?? '',
+    })
   },
 
   openAnalysisPanel(connectionId?: string, databaseName?: string): void {
@@ -576,10 +714,13 @@ export const EditorManager = {
     const fileName = `分析-${ts}`
     const filePath = `__analysis__${ts}`
     EditorManager.openFile({
-      filePath, fileName, language: "sql", sql: "",
-      type: "analysis",
-      connectionId: connectionId ?? "",
-      databaseName: databaseName ?? "",
+      filePath,
+      fileName,
+      language: 'sql',
+      sql: '',
+      type: 'analysis',
+      connectionId: connectionId ?? '',
+      databaseName: databaseName ?? '',
     })
   },
 
@@ -601,18 +742,22 @@ export const EditorManager = {
         databaseName: info.databaseName,
       })
     } catch {
-      /* popout transfer best-effort */
+      console.warn('[EditorManager] popout transfer failed')
     }
   },
 
   setupCrossWindowListeners(): void {
     listenWindowReady(() => {
       /* popout window is ready */
-    }).then((unlisten) => {
-      crossWindowUnlisteners.push(unlisten)
-    }).catch(() => { /* */ })
+    })
+      .then(unlisten => {
+        crossWindowUnlisteners.push(unlisten)
+      })
+      .catch(() => {
+        console.warn('[EditorManager] listenStateSync setup failed')
+      })
 
-    listenMergeTransfer((payload) => {
+    listenMergeTransfer(payload => {
       EditorManager.openFile({
         filePath: payload.filePath,
         fileName: payload.filePath.split(/[/\\]/).pop() ?? payload.filePath,
@@ -620,9 +765,13 @@ export const EditorManager = {
         sql: payload.content,
         type: 'file',
       })
-    }).then((unlisten) => {
-      crossWindowUnlisteners.push(unlisten)
-    }).catch(() => { /* */ })
+    })
+      .then(unlisten => {
+        crossWindowUnlisteners.push(unlisten)
+      })
+      .catch(() => {
+        console.warn('[EditorManager] listenMergeTransfer setup failed')
+      })
 
     listenStateSync((payload: StateSyncPayload) => {
       const ed = getEditorView(payload.filePath)
@@ -638,9 +787,13 @@ export const EditorManager = {
         info.isDirty = payload.isDirty
         openFiles.value = new Map(openFiles.value)
       }
-    }).then((unlisten) => {
-      crossWindowUnlisteners.push(unlisten)
-    }).catch(() => { /* */ })
+    })
+      .then(unlisten => {
+        crossWindowUnlisteners.push(unlisten)
+      })
+      .catch(() => {
+        console.warn('[EditorManager] listenWindowReady setup failed')
+      })
   },
 
   executeCurrentSQL(): Promise<void> {
@@ -654,7 +807,7 @@ export const EditorManager = {
     startExecution()
     return (async () => {
       try {
-        const { executeSql } = await import("@/extensions/builtin/query/ui/services/query")
+        const { executeSql } = await import('@/extensions/builtin/query/ui/services/query')
         const result = await executeSql(sql, info.connectionId || undefined)
         const typed = result as unknown as ApiResponseJSON
         if (typed.success) {
@@ -664,29 +817,43 @@ export const EditorManager = {
             totalRows: (typed.totalRows as number) ?? (typed.rowCount as number) ?? 0,
             elapsedMs: (typed.elapsedMs as number) ?? (typed.elapsed_ms as number) ?? 0,
             affectedRows: (typed.affectedRows as number) ?? (typed.affected_rows as number) ?? 0,
-            sql: sql.slice(0, SQL_LOG_TRUNCATE_LENGTH), error: null,
+            sql: sql.slice(0, SQL_LOG_TRUNCATE_LENGTH),
+            error: null,
           })
         } else {
           EditorManager.createResultSet(info.filePath, {
-            columns: [], rows: [], totalRows: 0,
+            columns: [],
+            rows: [],
+            totalRows: 0,
             elapsedMs: (typed.elapsedMs as number) ?? (typed.elapsed_ms as number) ?? 0,
-            affectedRows: 0, sql: sql.slice(0, SQL_LOG_TRUNCATE_LENGTH),
-            error: (typed.error as string) ?? "Unknown error",
+            affectedRows: 0,
+            sql: sql.slice(0, SQL_LOG_TRUNCATE_LENGTH),
+            error: (typed.error as string) ?? 'Unknown error',
           })
         }
       } catch (e) {
-        console.error("[EditorManager] Exec:", e)
+        console.error('[EditorManager] Exec:', e)
         EditorManager.createResultSet(info.filePath, {
-          columns: [], rows: [], totalRows: 0, elapsedMs: 0, affectedRows: 0,
-          sql: sql.slice(0, SQL_LOG_TRUNCATE_LENGTH), error: e instanceof Error ? e.message : "Unknown error",
+          columns: [],
+          rows: [],
+          totalRows: 0,
+          elapsedMs: 0,
+          affectedRows: 0,
+          sql: sql.slice(0, SQL_LOG_TRUNCATE_LENGTH),
+          error: e instanceof Error ? e.message : 'Unknown error',
         })
-      } finally { finishExecution() }
+      } finally {
+        finishExecution()
+      }
     })()
   },
 
   async executeNewTabSQL(): Promise<void> {
     const info = activeFileInfo.value
-    if (!info) { await EditorManager.executeCurrentSQL(); return }
+    if (!info) {
+      await EditorManager.executeCurrentSQL()
+      return
+    }
     const prevIndex = info.activeResultIndex
     await EditorManager.executeCurrentSQL()
     if (prevIndex >= 0 && prevIndex !== info.activeResultIndex) {
@@ -704,15 +871,25 @@ export const EditorManager = {
     if (!sql.trim()) return
     startExecution()
     try {
-      const { executeDuckDBAccelerated, generateAttachName, rewriteDuckDBSQL } = await import("@/extensions/builtin/workbench/services/sql-editor-service")
-      const { appDataDir } = await import("@tauri-apps/api/path")
-      const attachName = generateAttachName(info.connectionId || "remote")
-      await executeDuckDBAccelerated({ sql: rewriteDuckDBSQL(sql, attachName), connId: info.connectionId, dataDir: await appDataDir() })
-    } catch (e) { console.error("[EditorManager] DuckDB:", e) }
-    finally { finishExecution() }
+      const { executeDuckDBAccelerated, generateAttachName, rewriteDuckDBSQL } =
+        await import('@/extensions/builtin/workbench/services/sql-editor-service')
+      const { appDataDir } = await import('@tauri-apps/api/path')
+      const attachName = generateAttachName(info.connectionId || 'remote')
+      await executeDuckDBAccelerated({
+        sql: rewriteDuckDBSQL(sql, attachName),
+        connId: info.connectionId,
+        dataDir: await appDataDir(),
+      })
+    } catch (e) {
+      console.error('[EditorManager] DuckDB:', e)
+    } finally {
+      finishExecution()
+    }
   },
 
-  cancelExecution(): void { cancelRuntime() },
+  cancelExecution(): void {
+    cancelRuntime()
+  },
 
   async formatSQL(): Promise<void> {
     const info = activeFileInfo.value
@@ -720,12 +897,15 @@ export const EditorManager = {
     const ed = getEditorView(info.filePath)
     if (!ed) return
     try {
-      const { formatSql } = await import("@/extensions/builtin/workbench/services/sql-editor-service")
+      const { formatSql } =
+        await import('@/extensions/builtin/workbench/services/sql-editor-service')
       const r = await formatSql(ed.state.doc.toString())
       if (r) {
         ed.dispatch({ changes: { from: 0, to: ed.state.doc.length, insert: r } })
       }
-    } catch (e) { console.error("[EditorManager] Format:", e) }
+    } catch (e) {
+      console.error('[EditorManager] Format:', e)
+    }
   },
 
   async validateSQL(): Promise<void> {
@@ -734,16 +914,23 @@ export const EditorManager = {
     const ed = getEditorView(info.filePath)
     if (!ed) return
     try {
-      const { validateSql } = await import("@/extensions/builtin/workbench/services/sql-editor-service")
-      const { setEditorDiagnostics } = await import("@/extensions/builtin/workbench/services/cm-sql-extensions")
+      const { validateSql } =
+        await import('@/extensions/builtin/workbench/services/sql-editor-service')
+      const { setEditorDiagnostics } =
+        await import('@/extensions/builtin/workbench/services/cm-sql-extensions')
       const markers = await validateSql(ed.state.doc.toString())
-      setEditorDiagnostics(ed, markers.map((m) => ({
-        from: 0,
-        to: 0,
-        severity: m.severity as 'error' | 'warning' | 'info',
-        message: m.message,
-      })))
-    } catch { /* validation is best-effort */ }
+      setEditorDiagnostics(
+        ed,
+        markers.map(m => ({
+          from: 0,
+          to: 0,
+          severity: m.severity as 'error' | 'warning' | 'info',
+          message: m.message,
+        }))
+      )
+    } catch {
+      console.warn('[EditorManager] SQL validation failed')
+    }
   },
 
   toggleComment(): void {
@@ -752,9 +939,13 @@ export const EditorManager = {
     const ed = getEditorView(info.filePath)
     if (!ed) return
     ed.focus()
-    import('@codemirror/commands').then(({ toggleComment }) => {
-      toggleComment(ed)
-    }).catch(() => { /* fallback: toggleComment extension may not be loaded */ })
+    import('@codemirror/commands')
+      .then(({ toggleComment }) => {
+        toggleComment(ed)
+      })
+      .catch(() => {
+        console.warn('[EditorManager] toggleComment extension unavailable')
+      })
   },
 
   renameResultSet(panelId: string, newTitle: string): void {
@@ -770,7 +961,9 @@ export const EditorManager = {
 
       try {
         dockviewApi?.getPanel(panelId)?.api.setTitle(newTitle)
-      } catch { /* dockview */ }
+      } catch {
+        console.warn('[EditorManager] dockview setTitle failed during rename')
+      }
 
       openFiles.value = new Map(openFiles.value)
       break

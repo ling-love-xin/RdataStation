@@ -8,22 +8,22 @@
 
 ## 文档目录
 
-| 编号 | 文档                                        | 说明                                | 状态             |
-| ---- | ------------------------------------------- | ----------------------------------- | ---------------- |
-| 01   | [架构概述](./01-architecture-overview.md)   | 整体架构设计、分层说明              | ✅ v2.0          |
-| 02   | [目录结构](./02-directory-structure.md)     | 目录组织及职责、文件说明            | ✅ v2.0          |
-| 03   | [模块依赖规则](./03-module-dependencies.md) | 依赖关系及约束                      | v1.0             |
-| 04   | [数据流设计](./04-data-flow.md)             | 请求处理流程                        | v1.0             |
-| 05   | [驱动架构](./05-driver-architecture.md)     | 数据库驱动设计、Registry、P0 问题   | ✅ v2.0          |
-| 06   | [存储架构](./06-storage-architecture.md)    | SQLite + DuckDB 双层存储            | 🆕 v1.0          |
-| 07   | [升级策略](./07-upgrade-strategy.md)        | 版本升级、依赖管理、接口兼容        | 🆕 v1.0          |
-| 08   | 驱动开发指南（规划中）                      | 新增数据库驱动开发步骤              | 📋 待编写        |
-| 09   | [开发指南](./09-development-guide.md)       | 开发规范及最佳实践                  | v1.0             |
-| 10   | [API 接口文档](./10-api-reference.md)       | Tauri 命令参考                      | v1.0             |
-| 11   | [插件系统设计](./11-plugin-system.md)       | Go Sidecar + Extism WASM 双引擎方案 | 📋 v1.0 远期规划 |
-| 12   | [元数据缓存懒加载设计](./metadata-lazy-loading-design.md) | conn_id hash 生成 + L2 缓存懒加载 | 🆕 v0.6.0 |
-| 13   | [数据源模块优化 v0.6.1](./data-source-module-optimization-v0.6.1.md) | 新建→缓存→导航树全链路优化 | 🆕 v0.6.1 |
-| 14   | [新增数据源深度分析与修复 v0.6.2](./add-datasource-deep-analysis-fixes.md) | 全链路分析 + 7项修复（暂存/事务/快照/认证/持久化） | 🆕 v0.6.2 |
+| 编号 | 文档                                                                       | 说明                                               | 状态             |
+| ---- | -------------------------------------------------------------------------- | -------------------------------------------------- | ---------------- |
+| 01   | [架构概述](./01-architecture-overview.md)                                  | 整体架构设计、分层说明                             | ✅ v2.0          |
+| 02   | [目录结构](./02-directory-structure.md)                                    | 目录组织及职责、文件说明                           | ✅ v2.0          |
+| 03   | [模块依赖规则](./03-module-dependencies.md)                                | 依赖关系及约束                                     | v1.0             |
+| 04   | [数据流设计](./04-data-flow.md)                                            | 请求处理流程                                       | v1.0             |
+| 05   | [驱动架构](./05-driver-architecture.md)                                    | 数据库驱动设计、Registry、P0 问题                  | ✅ v2.0          |
+| 06   | [存储架构](./06-storage-architecture.md)                                   | SQLite + DuckDB 双层存储                           | 🆕 v1.0          |
+| 07   | [升级策略](./07-upgrade-strategy.md)                                       | 版本升级、依赖管理、接口兼容                       | 🆕 v1.0          |
+| 08   | 驱动开发指南（规划中）                                                     | 新增数据库驱动开发步骤                             | 📋 待编写        |
+| 09   | [开发指南](./09-development-guide.md)                                      | 开发规范及最佳实践                                 | v1.0             |
+| 10   | [API 接口文档](./10-api-reference.md)                                      | Tauri 命令参考                                     | v1.0             |
+| 11   | [插件系统设计](./11-plugin-system.md)                                      | Go Sidecar + Extism WASM 双引擎方案                | 📋 v1.0 远期规划 |
+| 12   | [元数据缓存懒加载设计](./metadata-lazy-loading-design.md)                  | conn_id hash 生成 + L2 缓存懒加载                  | 🆕 v0.6.0        |
+| 13   | [数据源模块优化 v0.6.1](./data-source-module-optimization-v0.6.1.md)       | 新建→缓存→导航树全链路优化                         | 🆕 v0.6.1        |
+| 14   | [新增数据源深度分析与修复 v0.6.2](./add-datasource-deep-analysis-fixes.md) | 全链路分析 + 7项修复（暂存/事务/快照/认证/持久化） | 🆕 v0.6.2        |
 
 ## 快速开始
 

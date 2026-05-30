@@ -42,8 +42,12 @@ import { invoke } from '@tauri-apps/api/core'
 // } from '../../../generated';
 
 // 临时类型定义（待自动生成启用）
-export interface DatabaseMeta { name: string; }
-export interface CatalogMeta { name: string; }
+export interface DatabaseMeta {
+  name: string
+}
+export interface CatalogMeta {
+  name: string
+}
 export interface SchemaMeta {
   name: string
   // V10: 企业级 schema 聚合统计
@@ -66,163 +70,170 @@ export interface TableMeta {
   colorLabel?: string | null
   userComment?: string | null
 }
-export interface ViewMeta { name: string; type: string; }
-export interface ColumnMeta {
-  name: string;
-  dataType: string;
-  isNullable: boolean;
-  defaultValue: string | null;
-  isPrimaryKey: boolean;
-  isForeignKey: boolean;
-  comment: string | null;
+export interface ViewMeta {
+  name: string
+  type: string
 }
-export interface ProcedureMeta { name: string; }
-export interface FunctionMeta { name: string; }
+export interface ColumnMeta {
+  name: string
+  dataType: string
+  isNullable: boolean
+  defaultValue: string | null
+  isPrimaryKey: boolean
+  isForeignKey: boolean
+  comment: string | null
+}
+export interface ProcedureMeta {
+  name: string
+}
+export interface FunctionMeta {
+  name: string
+}
 export interface RoutineSourceMeta {
-  name: string;
-  routineKind: string;
-  sourceCode: string | null;
+  name: string
+  routineKind: string
+  sourceCode: string | null
 }
 export interface IndexMeta {
-  name: string;
-  tableName: string;
-  columnNames: string[];
-  isUnique: boolean;
-  isPrimary: boolean;
-  indexType: string | null;
-  comment: string | null;
+  name: string
+  tableName: string
+  columnNames: string[]
+  isUnique: boolean
+  isPrimary: boolean
+  indexType: string | null
+  comment: string | null
 }
 export interface ConstraintMeta {
-  name: string;
-  tableName: string;
-  constraintType: string;
-  columnNames: string[];
-  referencedTable: string | null;
-  referencedColumns: string[];
-  updateRule: string | null;
-  deleteRule: string | null;
+  name: string
+  tableName: string
+  constraintType: string
+  columnNames: string[]
+  referencedTable: string | null
+  referencedColumns: string[]
+  updateRule: string | null
+  deleteRule: string | null
 }
 export interface CacheStats {
-  l1_hits: number;
-  l1_misses: number;
-  l2_hits: number;
-  l2_misses: number;
-  db_queries: number;
-  l1_hit_avg_us: number;
-  l2_hit_avg_us: number;
-  db_query_avg_us: number;
-  l1_hit_rate: number;
-  l2_hit_rate: number;
-  overall_hit_rate: number;
+  l1_hits: number
+  l1_misses: number
+  l2_hits: number
+  l2_misses: number
+  db_queries: number
+  l1_hit_avg_us: number
+  l2_hit_avg_us: number
+  db_query_avg_us: number
+  l1_hit_rate: number
+  l2_hit_rate: number
+  overall_hit_rate: number
 }
 export interface CacheStatusResponse {
-  is_valid: boolean;
-  last_sync: number | null;
-  stats: CacheStatsResponse | null;
+  is_valid: boolean
+  last_sync: number | null
+  stats: CacheStatsResponse | null
 }
 export interface CacheStatsResponse {
-  table_count: number;
-  column_count: number;
-  last_sync: number | null;
+  table_count: number
+  column_count: number
+  last_sync: number | null
 }
 export interface RefreshCacheInput {
-  connection_id: string;
-  connection_type: string;
-  project_path?: string;
-  database_name: string;
-  schema_name?: string;
+  connection_id: string
+  connection_type: string
+  project_path?: string
+  database_name: string
+  schema_name?: string
 }
 export interface ClearCacheInput {
-  connection_id: string;
-  connection_type: string;
-  project_path?: string;
-  database_name: string;
-  schema_name?: string;
+  connection_id: string
+  connection_type: string
+  project_path?: string
+  database_name: string
+  schema_name?: string
 }
 export interface TableInput {
-  id: string;
-  name: string;
-  comment?: string;
+  id: string
+  name: string
+  comment?: string
 }
 export interface ColumnInput {
-  id: string;
-  name: string;
-  data_type: string;
-  is_nullable: boolean;
-  is_primary: boolean;
-  is_unique: boolean;
+  id: string
+  name: string
+  data_type: string
+  is_nullable: boolean
+  is_primary: boolean
+  is_unique: boolean
 }
 export interface DDLEventInput {
-  type: string;
-  connection_id: string;
-  connection_type?: string;
-  project_path?: string;
-  database_name: string;
-  schema_name?: string;
-  table_name?: string;
-  column_name?: string;
-  executed_at?: number;
+  type: string
+  connection_id: string
+  connection_type?: string
+  project_path?: string
+  database_name: string
+  schema_name?: string
+  table_name?: string
+  column_name?: string
+  executed_at?: number
 }
 export interface SyncStatusInfo {
-  in_progress: boolean;
-  total_tables: number;
-  completed_tables: number;
-  last_sync_time: number | null;
+  in_progress: boolean
+  total_tables: number
+  completed_tables: number
+  last_sync_time: number | null
 }
 export interface WarmingProgressResponse {
-  connection_id: string;
-  is_warming: boolean;
-  current_step: string;
-  total_steps: number;
-  completed_steps: number;
-  progress_percentage: number;
-  current_database?: string;
-  current_schema?: string;
-  current_table?: string;
+  connection_id: string
+  is_warming: boolean
+  current_step: string
+  total_steps: number
+  completed_steps: number
+  progress_percentage: number
+  current_database?: string
+  current_schema?: string
+  current_table?: string
 }
 export interface WarmCacheInput {
-  connection_id: string;
-  connection_type: string;
-  project_path?: string;
-  databases: string[];
+  connection_id: string
+  connection_type: string
+  project_path?: string
+  databases: string[]
 }
 export interface CancelWarmingInput {
-  connection_id: string;
+  connection_id: string
 }
 export interface MigrationResponse {
-  from_version: number;
-  to_version: number;
-  success: boolean;
-  duration_ms?: number;
-  message: string;
+  from_version: number
+  to_version: number
+  success: boolean
+  duration_ms?: number
+  message: string
 }
 export interface BuildCacheIndexInput {
-  connection_id: string;
-  connection_type: string;
-  project_path?: string;
-  source_connection_id: string;
-  database: string;
-  schema?: string;
-  incremental?: boolean;
+  connection_id: string
+  connection_type: string
+  project_path?: string
+  source_connection_id: string
+  database: string
+  schema?: string
+  incremental?: boolean
 }
 export interface IndexBuildResponse {
-  success: boolean;
-  schema_count: number;
-  table_count: number;
-  column_count: number;
-  total_entries: number;
-  message: string;
-  incremental?: boolean;
-  create_count?: number;
-  update_count?: number;
-  delete_count?: number;
+  success: boolean
+  schema_count: number
+  table_count: number
+  column_count: number
+  total_entries: number
+  message: string
+  incremental?: boolean
+  create_count?: number
+  update_count?: number
+  delete_count?: number
 }
 export interface SchemaObjectCountsResponse {
-  table_count: number;
-  view_count: number;
-  column_count: number;
-  routine_count: number;
-  total: number;
+  table_count: number
+  view_count: number
+  column_count: number
+  routine_count: number
+  total: number
 }
 
 // ============================================================================
@@ -429,9 +440,7 @@ export async function loadConstraints(
 /**
  * 使元数据缓存失效
  */
-export async function invalidateMetadataCache(
-  connId: string
-): Promise<void> {
+export async function invalidateMetadataCache(connId: string): Promise<void> {
   return invoke('invalidate_metadata_cache', {
     connId,
   })
@@ -455,10 +464,7 @@ export async function resetCacheStats(): Promise<void> {
  * 设置内省级别
  * @param level 'level1' | 'level2' | 'level3'
  */
-export async function setIntrospectionLevel(
-  connId: string,
-  level: string
-): Promise<void> {
+export async function setIntrospectionLevel(connId: string, level: string): Promise<void> {
   return invoke('set_introspection_level', {
     connId,
     level,
@@ -468,9 +474,7 @@ export async function setIntrospectionLevel(
 /**
  * 获取内省级别
  */
-export async function getIntrospectionLevel(
-  connId: string
-): Promise<string> {
+export async function getIntrospectionLevel(connId: string): Promise<string> {
   return invoke<string>('get_introspection_level', {
     connId,
   })
@@ -479,9 +483,7 @@ export async function getIntrospectionLevel(
 /**
  * 移除内省级别
  */
-export async function removeIntrospectionLevel(
-  connId: string
-): Promise<void> {
+export async function removeIntrospectionLevel(connId: string): Promise<void> {
   return invoke('remove_introspection_level', {
     connId,
   })
@@ -513,18 +515,14 @@ export async function getMetadataCacheStatus(
 /**
  * 刷新元数据缓存
  */
-export async function refreshMetadataCache(
-  input: RefreshCacheInput
-): Promise<void> {
+export async function refreshMetadataCache(input: RefreshCacheInput): Promise<void> {
   return invoke('refresh_metadata_cache', input as unknown as Record<string, unknown>)
 }
 
 /**
  * 清除元数据缓存（同时删除缓存文件）
  */
-export async function clearMetadataCache(
-  input: ClearCacheInput
-): Promise<number> {
+export async function clearMetadataCache(input: ClearCacheInput): Promise<number> {
   return invoke<number>('clear_metadata_cache', input as unknown as Record<string, unknown>)
 }
 
@@ -673,18 +671,14 @@ export async function getColumnsFromCache(
 /**
  * 通知后端 DDL 事件（缓存失效）
  */
-export async function notifyDDLEvent(
-  event: DDLEventInput
-): Promise<void> {
+export async function notifyDDLEvent(event: DDLEventInput): Promise<void> {
   return invoke('notify_ddl_event', event as unknown as Record<string, unknown>)
 }
 
 /**
  * 获取同步状态
  */
-export async function getSyncStatus(
-  connectionId: string
-): Promise<SyncStatusInfo | null> {
+export async function getSyncStatus(connectionId: string): Promise<SyncStatusInfo | null> {
   return invoke<SyncStatusInfo | null>('get_sync_status', {
     connectionId,
   })
@@ -712,36 +706,34 @@ export async function cancelSync(
 /**
  * V7: 构建缓存索引（支持增量模式）
  */
-export async function buildCacheIndex(
-  input: BuildCacheIndexInput
-): Promise<IndexBuildResponse> {
-  return invoke<IndexBuildResponse>('build_cache_index', input as unknown as Record<string, unknown>)
+export async function buildCacheIndex(input: BuildCacheIndexInput): Promise<IndexBuildResponse> {
+  return invoke<IndexBuildResponse>(
+    'build_cache_index',
+    input as unknown as Record<string, unknown>
+  )
 }
 
 /**
  * 启动缓存预热
  */
-export async function startCacheWarming(
-  input: WarmCacheInput
-): Promise<WarmingProgressResponse> {
-  return invoke<WarmingProgressResponse>('start_cache_warming', input as unknown as Record<string, unknown>)
+export async function startCacheWarming(input: WarmCacheInput): Promise<WarmingProgressResponse> {
+  return invoke<WarmingProgressResponse>(
+    'start_cache_warming',
+    input as unknown as Record<string, unknown>
+  )
 }
 
 /**
  * 取消缓存预热
  */
-export async function cancelCacheWarming(
-  input: CancelWarmingInput
-): Promise<void> {
+export async function cancelCacheWarming(input: CancelWarmingInput): Promise<void> {
   return invoke('cancel_cache_warming', input as unknown as Record<string, unknown>)
 }
 
 /**
  * 获取预热进度
  */
-export async function getWarmingProgress(
-  connectionId: string
-): Promise<WarmingProgressResponse> {
+export async function getWarmingProgress(connectionId: string): Promise<WarmingProgressResponse> {
   return invoke<WarmingProgressResponse>('get_warming_progress', {
     connectionId,
   })

@@ -52,10 +52,7 @@ export function saveConnectionNavigatorState(
   }
 }
 
-export function clearConnectionNavigatorState(
-  connId: string,
-  projectPath?: string
-): void {
+export function clearConnectionNavigatorState(connId: string, projectPath?: string): void {
   localStorage.removeItem(entryKey(connId, projectPath))
 }
 
@@ -67,5 +64,5 @@ export function clearAllNavigatorStates(): void {
       keysToRemove.push(key)
     }
   }
-  keysToRemove.forEach((k) => localStorage.removeItem(k))
+  keysToRemove.forEach(k => localStorage.removeItem(k))
 }

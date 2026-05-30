@@ -40,11 +40,20 @@
           @drop="drop($event, hop.id)"
           @dragend="dragEnd"
         >
-          <div class="drag-handle" :title="hop.protocol === 'ssl' ? $t('connection.networkTab.sslLocked') : $t('connection.networkTab.dragHint')">
+          <div
+            class="drag-handle"
+            :title="
+              hop.protocol === 'ssl'
+                ? $t('connection.networkTab.sslLocked')
+                : $t('connection.networkTab.dragHint')
+            "
+          >
             {{ hop.protocol === 'ssl' ? '🔒' : '≡' }}
           </div>
           <span :class="['order-badge', hop.protocol]">{{ orderNum(idx, hop) }}</span>
-          <span :class="['type-badge', hop.protocol]">{{ hopIcon(hop.protocol) }} {{ hopLabel(hop.protocol) }}</span>
+          <span :class="['type-badge', hop.protocol]"
+            >{{ hopIcon(hop.protocol) }} {{ hopLabel(hop.protocol) }}</span
+          >
 
           <div class="config-area">
             <!-- Select mode: dropdown + actions -->
@@ -57,8 +66,16 @@
                 class="config-select"
                 filterable
               />
-              <NButton size="tiny" type="primary" ghost @click="setHopMode(hop.id, 'new')">+ {{ t('navigator.newConfig') }}</NButton>
-              <NButton size="tiny" quaternary class="custom-link" @click="setHopMode(hop.id, 'custom')">{{ t('navigator.customConfig') }}</NButton>
+              <NButton size="tiny" type="primary" ghost @click="setHopMode(hop.id, 'new')"
+                >+ {{ t('navigator.newConfig') }}</NButton
+              >
+              <NButton
+                size="tiny"
+                quaternary
+                class="custom-link"
+                @click="setHopMode(hop.id, 'custom')"
+                >{{ t('navigator.customConfig') }}</NButton
+              >
             </div>
 
             <!-- New mode: inline form -->
@@ -67,7 +84,11 @@
               <div class="form-row">
                 <div class="form-group f1">
                   <span class="form-label">{{ t('navigator.configName') }}</span>
-                  <NInput v-model:value="newFormData[hop.id].name" size="small" :placeholder="t('navigator.newSshProfile')" />
+                  <NInput
+                    v-model:value="newFormData[hop.id].name"
+                    size="small"
+                    :placeholder="t('navigator.newSshProfile')"
+                  />
                 </div>
                 <div class="form-group f1">
                   <span class="form-label">{{ t('connection.networkTab.formScope') }}</span>
@@ -81,49 +102,98 @@
                 <div class="form-row">
                   <div class="form-group f2">
                     <span class="form-label">{{ t('navigator.host') }}</span>
-                    <NInput v-model:value="newFormData[hop.id].host" size="small" placeholder="192.168.1.1" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].host"
+                      size="small"
+                      placeholder="192.168.1.1"
+                    />
                   </div>
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.port') }}</span>
-                    <NInputNumber v-model:value="newFormData[hop.id].port" size="small" :min="1" :max="65535" :default-value="22" />
+                    <NInputNumber
+                      v-model:value="newFormData[hop.id].port"
+                      size="small"
+                      :min="1"
+                      :max="65535"
+                      :default-value="22"
+                    />
                   </div>
                 </div>
                 <!-- Section: SSH Auth -->
-                <div class="form-section-label">🔐 {{ t('navigator.sshAuthTitle') || 'SSH 认证' }}</div>
+                <div class="form-section-label"
+                  >🔐 {{ t('navigator.sshAuthTitle') || 'SSH 认证' }}</div
+                >
                 <div class="form-row">
                   <div class="form-group f1">
-                    <NSelect v-model:value="newFormData[hop.id].authType" size="small" :options="sshAuthTypeOpts" :placeholder="t('navigator.authMethod')" @update:value="() => onChainAuthChange(hop.id, newFormData[hop.id].authType)" />
+                    <NSelect
+                      v-model:value="newFormData[hop.id].authType"
+                      size="small"
+                      :options="sshAuthTypeOpts"
+                      :placeholder="t('navigator.authMethod')"
+                      @update:value="() => onChainAuthChange(hop.id, newFormData[hop.id].authType)"
+                    />
                   </div>
-                  <div class="form-group" style="flex:1.6">
-                    <NSelect v-model:value="newFormData[hop.id].savedAuthId" size="small" :options="chainSshAuthCfgOpts" :placeholder="t('navigator.manualFill') || '— 手动填写 —'" clearable filterable />
+                  <div class="form-group" style="flex: 1.6">
+                    <NSelect
+                      v-model:value="newFormData[hop.id].savedAuthId"
+                      size="small"
+                      :options="chainSshAuthCfgOpts"
+                      :placeholder="t('navigator.manualFill') || '— 手动填写 —'"
+                      clearable
+                      filterable
+                    />
                   </div>
                 </div>
                 <div v-if="newFormData[hop.id].authType === 'ssh_password'" class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.sshUser') || 'SSH 用户' }}</span>
-                    <NInput v-model:value="newFormData[hop.id].username" size="small" :placeholder="'root'" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].username"
+                      size="small"
+                      :placeholder="'root'"
+                    />
                   </div>
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.sshPassword') || 'SSH 密码' }}</span>
-                    <NInput v-model:value="newFormData[hop.id].password" size="small" type="password" :placeholder="t('navigator.password')" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].password"
+                      size="small"
+                      type="password"
+                      :placeholder="t('navigator.password')"
+                    />
                   </div>
                 </div>
                 <template v-else>
                   <div class="form-row">
                     <div class="form-group f1">
                       <span class="form-label">{{ t('navigator.sshUser') || 'SSH 用户' }}</span>
-                      <NInput v-model:value="newFormData[hop.id].username" size="small" :placeholder="'root'" />
+                      <NInput
+                        v-model:value="newFormData[hop.id].username"
+                        size="small"
+                        :placeholder="'root'"
+                      />
                     </div>
                     <div class="form-group f1">
                       <span class="form-label">Passphrase</span>
-                      <NInput v-model:value="newFormData[hop.id].passphrase" size="small" type="password" :placeholder="t('navigator.privateKeyPassphrase') || '私钥密码（可选）'" />
+                      <NInput
+                        v-model:value="newFormData[hop.id].passphrase"
+                        size="small"
+                        type="password"
+                        :placeholder="t('navigator.privateKeyPassphrase') || '私钥密码（可选）'"
+                      />
                     </div>
                   </div>
                   <div class="form-row">
-                    <div class="form-group" style="flex:1">
-                      <span class="form-label">{{ t('navigator.privateKeyFile') || '私钥文件' }}</span>
+                    <div class="form-group" style="flex: 1">
+                      <span class="form-label">{{
+                        t('navigator.privateKeyFile') || '私钥文件'
+                      }}</span>
                       <div class="file-input-row">
-                        <NInput v-model:value="newFormData[hop.id].keyPath" size="small" :placeholder="'~/.ssh/id_rsa'" />
+                        <NInput
+                          v-model:value="newFormData[hop.id].keyPath"
+                          size="small"
+                          :placeholder="'~/.ssh/id_rsa'"
+                        />
                         <NButton size="small" quaternary>📂</NButton>
                       </div>
                     </div>
@@ -132,7 +202,13 @@
                 <div class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.keepAliveInterval') }}</span>
-                    <NInputNumber v-model:value="newFormData[hop.id].keepAlive" size="small" :min="0" :max="600" :default-value="60" />
+                    <NInputNumber
+                      v-model:value="newFormData[hop.id].keepAlive"
+                      size="small"
+                      :min="0"
+                      :max="600"
+                      :default-value="60"
+                    />
                   </div>
                 </div>
                 <!-- Section: Port Forwarding -->
@@ -140,15 +216,31 @@
                 <div class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.localPort') }}</span>
-                    <NInputNumber v-model:value="newFormData[hop.id].localPort" size="small" :min="1" :max="65535" :placeholder="t('navigator.autoAssign')" />
+                    <NInputNumber
+                      v-model:value="newFormData[hop.id].localPort"
+                      size="small"
+                      :min="1"
+                      :max="65535"
+                      :placeholder="t('navigator.autoAssign')"
+                    />
                   </div>
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.remoteHost') }}</span>
-                    <NInput v-model:value="newFormData[hop.id].remoteHost" size="small" :placeholder="t('navigator.targetDbHost')" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].remoteHost"
+                      size="small"
+                      :placeholder="t('navigator.targetDbHost')"
+                    />
                   </div>
-                  <div class="form-group" style="width:80px">
+                  <div class="form-group" style="width: 80px">
                     <span class="form-label">{{ t('navigator.port') }}</span>
-                    <NInputNumber v-model:value="newFormData[hop.id].remotePort" size="small" :min="1" :max="65535" placeholder="3306" />
+                    <NInputNumber
+                      v-model:value="newFormData[hop.id].remotePort"
+                      size="small"
+                      :min="1"
+                      :max="65535"
+                      placeholder="3306"
+                    />
                   </div>
                 </div>
                 <div class="form-hint">{{ t('navigator.sectionPortForwardHint') }}</div>
@@ -157,23 +249,40 @@
                 <div class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.sslMode') }}</span>
-                    <NSelect v-model:value="newFormData[hop.id].sslMode" size="small" :options="sslModeOpts" :placeholder="t('navigator.sslMode')" />
+                    <NSelect
+                      v-model:value="newFormData[hop.id].sslMode"
+                      size="small"
+                      :options="sslModeOpts"
+                      :placeholder="t('navigator.sslMode')"
+                    />
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.caFilePath') }}</span>
-                    <NInput v-model:value="newFormData[hop.id].ca" size="small" placeholder="ca.pem" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].ca"
+                      size="small"
+                      placeholder="ca.pem"
+                    />
                   </div>
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.certFilePath') }}</span>
-                    <NInput v-model:value="newFormData[hop.id].cert" size="small" placeholder="client.pem" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].cert"
+                      size="small"
+                      placeholder="client.pem"
+                    />
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.keyFilePath') }}</span>
-                    <NInput v-model:value="newFormData[hop.id].key" size="small" :placeholder="t('navigator.keyFilePath')" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].key"
+                      size="small"
+                      :placeholder="t('navigator.keyFilePath')"
+                    />
                   </div>
                 </div>
               </template>
@@ -181,75 +290,174 @@
                 <div class="form-row">
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.proxyType') }}</span>
-                    <NSelect v-model:value="newFormData[hop.id].proxyType" size="small" :options="proxyTypeOpts" :placeholder="t('navigator.proxyType')" />
+                    <NSelect
+                      v-model:value="newFormData[hop.id].proxyType"
+                      size="small"
+                      :options="proxyTypeOpts"
+                      :placeholder="t('navigator.proxyType')"
+                    />
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="form-group f2">
                     <span class="form-label">{{ t('navigator.host') }}</span>
-                    <NInput v-model:value="newFormData[hop.id].host" size="small" placeholder="proxy.example.com" />
+                    <NInput
+                      v-model:value="newFormData[hop.id].host"
+                      size="small"
+                      placeholder="proxy.example.com"
+                    />
                   </div>
                   <div class="form-group f1">
                     <span class="form-label">{{ t('navigator.port') }}</span>
-                    <NInputNumber v-model:value="newFormData[hop.id].port" size="small" :min="1" :max="65535" :default-value="1080" />
+                    <NInputNumber
+                      v-model:value="newFormData[hop.id].port"
+                      size="small"
+                      :min="1"
+                      :max="65535"
+                      :default-value="1080"
+                    />
                   </div>
                 </div>
                 <!-- Section: Proxy Auth -->
-                <div class="form-section-label">🔐 {{ t('navigator.proxyAuthTitle') || '代理认证（可选）' }}</div>
+                <div class="form-section-label"
+                  >🔐 {{ t('navigator.proxyAuthTitle') || '代理认证（可选）' }}</div
+                >
                 <div class="form-row">
                   <div class="form-group f1">
-                    <NSelect v-model:value="newFormData[hop.id].authType" size="small" :options="proxyAuthTypeOpts" :placeholder="t('navigator.authMethod')" />
+                    <NSelect
+                      v-model:value="newFormData[hop.id].authType"
+                      size="small"
+                      :options="proxyAuthTypeOpts"
+                      :placeholder="t('navigator.authMethod')"
+                    />
                   </div>
-                  <div class="form-group" style="flex:1.6">
-                    <NSelect v-model:value="newFormData[hop.id].savedAuthId" size="small" :options="chainSshAuthCfgOpts" :placeholder="t('navigator.manualFill') || '— 手动填写 —'" clearable filterable />
+                  <div class="form-group" style="flex: 1.6">
+                    <NSelect
+                      v-model:value="newFormData[hop.id].savedAuthId"
+                      size="small"
+                      :options="chainSshAuthCfgOpts"
+                      :placeholder="t('navigator.manualFill') || '— 手动填写 —'"
+                      clearable
+                      filterable
+                    />
                   </div>
                 </div>
                 <template v-if="newFormData[hop.id].authType === 'password'">
                   <div class="form-row">
                     <div class="form-group f1">
                       <span class="form-label">{{ t('navigator.username') }}</span>
-                      <NInput v-model:value="newFormData[hop.id].username" size="small" :placeholder="t('navigator.usernameOptional')" />
+                      <NInput
+                        v-model:value="newFormData[hop.id].username"
+                        size="small"
+                        :placeholder="t('navigator.usernameOptional')"
+                      />
                     </div>
                     <div class="form-group f1">
                       <span class="form-label">{{ t('navigator.password') }}</span>
-                      <NInput v-model:value="newFormData[hop.id].password" size="small" type="password" :placeholder="t('navigator.passwordOptional')" />
+                      <NInput
+                        v-model:value="newFormData[hop.id].password"
+                        size="small"
+                        type="password"
+                        :placeholder="t('navigator.passwordOptional')"
+                      />
                     </div>
                   </div>
                 </template>
               </template>
               <div class="new-save-row">
-                <NButton size="tiny" type="primary" :loading="creating[hop.id]" @click="saveNewProfile(hop)">{{ t('navigator.saveApply') || '保存并应用' }}</NButton>
-                <NButton size="tiny" secondary :loading="testingHop[hop.id]" class="btn-test-conn" @click="testChainHop(hop)">
+                <NButton
+                  size="tiny"
+                  type="primary"
+                  :loading="creating[hop.id]"
+                  @click="saveNewProfile(hop)"
+                  >{{ t('navigator.saveApply') || '保存并应用' }}</NButton
+                >
+                <NButton
+                  size="tiny"
+                  secondary
+                  :loading="testingHop[hop.id]"
+                  class="btn-test-conn"
+                  @click="testChainHop(hop)"
+                >
                   🧪 {{ t('navigator.testConnection') }}
                 </NButton>
-                <NButton size="tiny" quaternary @click="setHopMode(hop.id, 'select')">{{ t('navigator.cancel') }}</NButton>
+                <NButton size="tiny" quaternary @click="setHopMode(hop.id, 'select')">{{
+                  t('navigator.cancel')
+                }}</NButton>
               </div>
             </div>
 
             <!-- Custom mode: one-time form -->
             <div v-else-if="hop.mode === 'custom'" class="inline-form-v5 custom">
-              <div class="custom-hint">⚡ {{ t('navigator.customOneTime') || '一次性自定义 — 不保存为配置文件' }}</div>
+              <div class="custom-hint"
+                >⚡ {{ t('navigator.customOneTime') || '一次性自定义 — 不保存为配置文件' }}</div
+              >
 
               <!-- SSH custom fields -->
               <template v-if="hop.protocol === 'ssh'">
-                <div class="form-section-label">🔗 {{ t('navigator.jumpHost') || '跳板机连接' }}</div>
+                <div class="form-section-label"
+                  >🔗 {{ t('navigator.jumpHost') || '跳板机连接' }}</div
+                >
                 <div class="form-row">
-                  <div class="form-group f2">{{ t('navigator.host') }} <NInput v-model:value="customData[hop.id].host" size="small" :placeholder="t('navigator.hostPlaceholder')" /></div>
-                  <div class="form-group f1">{{ t('navigator.port') }} <NInputNumber v-model:value="customData[hop.id].port" size="small" :min="1" :max="65535" /></div>
+                  <div class="form-group f2"
+                    >{{ t('navigator.host') }}
+                    <NInput
+                      v-model:value="customData[hop.id].host"
+                      size="small"
+                      :placeholder="t('navigator.hostPlaceholder')"
+                  /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.port') }}
+                    <NInputNumber
+                      v-model:value="customData[hop.id].port"
+                      size="small"
+                      :min="1"
+                      :max="65535"
+                  /></div>
                 </div>
                 <div class="form-row">
-                  <div class="form-group f1">{{ t('navigator.username') }} <NInput v-model:value="customData[hop.id].username" size="small" placeholder="root" /></div>
-                  <div class="form-group f1">{{ t('navigator.authMethod') }} <NSelect v-model:value="customData[hop.id].authType" size="small" :options="sshAuthTypeOpts" /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.username') }}
+                    <NInput
+                      v-model:value="customData[hop.id].username"
+                      size="small"
+                      placeholder="root"
+                  /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.authMethod') }}
+                    <NSelect
+                      v-model:value="customData[hop.id].authType"
+                      size="small"
+                      :options="sshAuthTypeOpts"
+                  /></div>
                 </div>
                 <div v-if="customData[hop.id].authType === 'ssh_password'" class="form-row">
-                  <div class="form-group f2">{{ t('navigator.password') }} <NInput v-model:value="customData[hop.id].password" type="password" size="small" /></div>
+                  <div class="form-group f2"
+                    >{{ t('navigator.password') }}
+                    <NInput
+                      v-model:value="customData[hop.id].password"
+                      type="password"
+                      size="small"
+                  /></div>
                 </div>
                 <template v-else>
                   <div class="form-row">
-                    <div class="form-group f2">{{ t('navigator.keyPath') || '私钥路径' }} <NInput v-model:value="customData[hop.id].keyPath" size="small" placeholder="~/.ssh/id_rsa" /></div>
+                    <div class="form-group f2"
+                      >{{ t('navigator.keyPath') || '私钥路径' }}
+                      <NInput
+                        v-model:value="customData[hop.id].keyPath"
+                        size="small"
+                        placeholder="~/.ssh/id_rsa"
+                    /></div>
                   </div>
                   <div class="form-row">
-                    <div class="form-group f1">{{ t('navigator.passphrase') || '密钥密码' }} <NInput v-model:value="customData[hop.id].passphrase" type="password" size="small" /></div>
+                    <div class="form-group f1"
+                      >{{ t('navigator.passphrase') || '密钥密码' }}
+                      <NInput
+                        v-model:value="customData[hop.id].passphrase"
+                        type="password"
+                        size="small"
+                    /></div>
                   </div>
                 </template>
               </template>
@@ -257,42 +465,96 @@
               <!-- SSL custom fields -->
               <template v-if="hop.protocol === 'ssl'">
                 <div class="form-row">
-                  <div class="form-group f1">{{ t('navigator.sslMode') }} <NSelect v-model:value="customData[hop.id].sslMode" size="small" :options="sslModeOpts" /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.sslMode') }}
+                    <NSelect
+                      v-model:value="customData[hop.id].sslMode"
+                      size="small"
+                      :options="sslModeOpts"
+                  /></div>
                 </div>
                 <div class="form-row">
-                  <div class="form-group f2">{{ t('navigator.caCert') || 'CA 证书' }} <NInput v-model:value="customData[hop.id].ca" size="small" placeholder="/path/to/ca.pem" /></div>
+                  <div class="form-group f2"
+                    >{{ t('navigator.caCert') || 'CA 证书' }}
+                    <NInput
+                      v-model:value="customData[hop.id].ca"
+                      size="small"
+                      placeholder="/path/to/ca.pem"
+                  /></div>
                 </div>
                 <div class="form-row">
-                  <div class="form-group f2">{{ t('navigator.clientCert') || '客户端证书' }} <NInput v-model:value="customData[hop.id].cert" size="small" /></div>
+                  <div class="form-group f2"
+                    >{{ t('navigator.clientCert') || '客户端证书' }}
+                    <NInput v-model:value="customData[hop.id].cert" size="small"
+                  /></div>
                 </div>
                 <div class="form-row">
-                  <div class="form-group f2">{{ t('navigator.clientKey') || '客户端密钥' }} <NInput v-model:value="customData[hop.id].key" size="small" /></div>
+                  <div class="form-group f2"
+                    >{{ t('navigator.clientKey') || '客户端密钥' }}
+                    <NInput v-model:value="customData[hop.id].key" size="small"
+                  /></div>
                 </div>
               </template>
 
               <!-- Proxy custom fields -->
               <template v-if="hop.protocol === 'proxy'">
                 <div class="form-row">
-                  <div class="form-group f1">{{ t('navigator.proxyType') }} <NSelect v-model:value="customData[hop.id].proxyType" size="small" :options="proxyTypeOpts" /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.proxyType') }}
+                    <NSelect
+                      v-model:value="customData[hop.id].proxyType"
+                      size="small"
+                      :options="proxyTypeOpts"
+                  /></div>
                 </div>
                 <div class="form-row">
-                  <div class="form-group f2">{{ t('navigator.host') }} <NInput v-model:value="customData[hop.id].host" size="small" /></div>
-                  <div class="form-group f1">{{ t('navigator.port') }} <NInputNumber v-model:value="customData[hop.id].port" size="small" :min="1" :max="65535" /></div>
+                  <div class="form-group f2"
+                    >{{ t('navigator.host') }}
+                    <NInput v-model:value="customData[hop.id].host" size="small"
+                  /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.port') }}
+                    <NInputNumber
+                      v-model:value="customData[hop.id].port"
+                      size="small"
+                      :min="1"
+                      :max="65535"
+                  /></div>
                 </div>
                 <div class="form-row">
-                  <div class="form-group f1">{{ t('navigator.username') }} <NInput v-model:value="customData[hop.id].username" size="small" /></div>
-                  <div class="form-group f1">{{ t('navigator.password') }} <NInput v-model:value="customData[hop.id].password" type="password" size="small" /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.username') }}
+                    <NInput v-model:value="customData[hop.id].username" size="small"
+                  /></div>
+                  <div class="form-group f1"
+                    >{{ t('navigator.password') }}
+                    <NInput
+                      v-model:value="customData[hop.id].password"
+                      type="password"
+                      size="small"
+                  /></div>
                 </div>
               </template>
 
-              <div class="form-row" style="justify-content:flex-end;gap:8px">
-                <NButton size="tiny" quaternary type="warning" @click="setHopMode(hop.id, 'select')">{{ t('navigator.closeCustom') || '关闭自定义' }}</NButton>
+              <div class="form-row" style="justify-content: flex-end; gap: 8px">
+                <NButton
+                  size="tiny"
+                  quaternary
+                  type="warning"
+                  @click="setHopMode(hop.id, 'select')"
+                  >{{ t('navigator.closeCustom') || '关闭自定义' }}</NButton
+                >
               </div>
             </div>
 
             <!-- SSH forward info -->
-            <div v-if="hop.protocol === 'ssh' && hop.mode === 'select' && hop.profileId" class="forward-info">
-              <span v-if="getForwardInfo(hop.profileId)" class="forward-tag">{{ getForwardInfo(hop.profileId) }}</span>
+            <div
+              v-if="hop.protocol === 'ssh' && hop.mode === 'select' && hop.profileId"
+              class="forward-info"
+            >
+              <span v-if="getForwardInfo(hop.profileId)" class="forward-tag">{{
+                getForwardInfo(hop.profileId)
+              }}</span>
             </div>
           </div>
 
@@ -301,34 +563,76 @@
           </div>
 
           <div class="act-wrap">
-            <NButton text size="tiny" :title="t('navigator.networkProfileManager')" @click="openProfileMgr(hop)">📋</NButton>
-            <NButton v-if="canDelete(hop)" text size="tiny" class="del-btn" :title="t('navigator.deleteNode')" @click="deleteHopWrapped(hop.id)">✕</NButton>
+            <NButton
+              text
+              size="tiny"
+              :title="t('navigator.networkProfileManager')"
+              @click="openProfileMgr(hop)"
+              >📋</NButton
+            >
+            <NButton
+              v-if="canDelete(hop)"
+              text
+              size="tiny"
+              class="del-btn"
+              :title="t('navigator.deleteNode')"
+              @click="deleteHopWrapped(hop.id)"
+              >✕</NButton
+            >
             <span v-else class="no-del">✕</span>
           </div>
         </div>
-        <div v-if="chain.length === 0" class="net-empty">🔗 {{ $t('connection.networkTab.directConnect') }}</div>
+        <div v-if="chain.length === 0" class="net-empty"
+          >🔗 {{ $t('connection.networkTab.directConnect') }}</div
+        >
       </div>
 
       <!-- Warning with latency estimate -->
       <div v-if="enabledHopCount >= 3" class="net-warning">
-        ⚠️ {{ t('navigator.latencyWarning', { count: enabledHopCount, latency: enabledHopCount * 25 }) }}
+        ⚠️
+        {{
+          t('navigator.latencyWarning', { count: enabledHopCount, latency: enabledHopCount * 25 })
+        }}
       </div>
 
       <!-- Add hop -->
       <div class="add-hop-row">
-        <NButton
-          v-if="canAddSshProxy"
-          size="small"
-          dashed
-          @click="menuOpen = !menuOpen"
-        >{{ addHopButtonLabel() }}</NButton>
-        <NButton v-else-if="canAddSsl" size="small" dashed @click="addHopWrapped('ssl')">{{ $t('connection.networkTab.addTls') }}</NButton>
+        <NButton v-if="canAddSshProxy" size="small" dashed @click="menuOpen = !menuOpen">{{
+          addHopButtonLabel()
+        }}</NButton>
+        <NButton v-else-if="canAddSsl" size="small" dashed @click="addHopWrapped('ssl')">{{
+          $t('connection.networkTab.addTls')
+        }}</NButton>
         <span v-else class="hop-limit">{{ $t('connection.networkTab.chainFull') }}</span>
 
         <div v-if="menuOpen && canAddSshProxy" class="hop-menu">
-          <div v-if="canAddSsh" class="hop-opt" @click="addHopWrapped('ssh'); menuOpen = false">🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
-          <div v-if="canAddProxy" class="hop-opt" @click="addHopWrapped('proxy'); menuOpen = false">🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div>
-          <div v-if="canAddSsl" class="hop-opt" @click="addHopWrapped('ssl'); menuOpen = false">{{ sslMenuLabel() }}</div>
+          <div
+            v-if="canAddSsh"
+            class="hop-opt"
+            @click="
+              addHopWrapped('ssh')
+              menuOpen = false
+            "
+            >🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div
+          >
+          <div
+            v-if="canAddProxy"
+            class="hop-opt"
+            @click="
+              addHopWrapped('proxy')
+              menuOpen = false
+            "
+            >🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div
+          >
+          <div
+            v-if="canAddSsl"
+            class="hop-opt"
+            @click="
+              addHopWrapped('ssl')
+              menuOpen = false
+            "
+            >{{ sslMenuLabel() }}</div
+          >
           <div class="hop-menu-sep"></div>
           <div class="hop-menu-desc">🛡 {{ t('navigator.sslTailHint') }}</div>
         </div>
@@ -376,14 +680,25 @@ import type { NetworkProfile } from '../../composables/useNetworkProfiles'
 import type { ProtocolType, ProtocolNode, HopConfigMode } from '../../types/network-chain'
 import type { TopoHop } from '../network/TopologyPreview.vue'
 
-
-const props = defineProps<{ driver?: Driver | null; scope?: { global: boolean; project: boolean } }>()
+const props = defineProps<{
+  driver?: Driver | null
+  scope?: { global: boolean; project: boolean }
+}>()
 
 const emit = defineEmits<{
   'extra-config': [config: Record<string, unknown>]
 }>()
 
-const { sshProfiles, sslProfiles, proxyProfiles, loadAll, loadAllProject, saveProjectProfile, removeProjectProfile, getProjectPath } = useNetworkProfiles()
+const {
+  sshProfiles,
+  sslProfiles,
+  proxyProfiles,
+  loadAll,
+  loadAllProject,
+  saveProjectProfile,
+  removeProjectProfile,
+  getProjectPath,
+} = useNetworkProfiles()
 const { t } = useI18n()
 
 // ===== Network profile bridge (SSH/SSL/Proxy CRUD) =====
@@ -397,7 +712,11 @@ const {
   deleteProxyProfile: handleDeleteProxyProfile,
 } = useNetworkProfileBridge({
   isProject: !!props.scope?.project,
-  getProjectPath, saveProjectProfile, loadAllProject, loadAll, removeProjectProfile,
+  getProjectPath,
+  saveProjectProfile,
+  loadAllProject,
+  loadAll,
+  removeProjectProfile,
 })
 
 // ==================== Chain Model (via composable) ====================
@@ -406,18 +725,46 @@ const {
 type Hop = ProtocolNode
 
 const {
-  chain, menuOpen,
-  networkHopCount, enabledNetworkHopCount: _enabledNetworkHopCount,
-  hasSsl, isMaxNetworkHops, showHopWarning, estimatedLatency,
-  remainingHops, countInstancesOfType, findHop,
-  addHop: chainAddHop, deleteHop: chainDeleteHop,
+  chain,
+  menuOpen,
+  networkHopCount,
+  enabledNetworkHopCount: _enabledNetworkHopCount,
+  hasSsl,
+  isMaxNetworkHops,
+  showHopWarning,
+  estimatedLatency,
+  remainingHops,
+  countInstancesOfType,
+  findHop,
+  addHop: chainAddHop,
+  deleteHop: chainDeleteHop,
   switchHopMode: composableSwitchHopMode,
-  onDragStart: composableDragStart, onDragEnd: composableDragEnd, onDrop: composableDrop,
+  onDragStart: composableDragStart,
+  onDragEnd: composableDragEnd,
+  onDrop: composableDrop,
   ensureSslAtEnd,
 } = useNetworkChain([
-  { id: 'h1', protocol: 'ssh' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
-  { id: 'h2', protocol: 'proxy' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
-  { id: 'h3', protocol: 'ssl' as ProtocolType, enabled: false, mode: 'select' as HopConfigMode, profileId: '' },
+  {
+    id: 'h1',
+    protocol: 'ssh' as ProtocolType,
+    enabled: false,
+    mode: 'select' as HopConfigMode,
+    profileId: '',
+  },
+  {
+    id: 'h2',
+    protocol: 'proxy' as ProtocolType,
+    enabled: false,
+    mode: 'select' as HopConfigMode,
+    profileId: '',
+  },
+  {
+    id: 'h3',
+    protocol: 'ssl' as ProtocolType,
+    enabled: false,
+    mode: 'select' as HopConfigMode,
+    profileId: '',
+  },
 ])
 
 /** Chain items filtered by driver capabilities */
@@ -429,30 +776,59 @@ function addHopWrapped(protocol: ProtocolType) {
   if (newId) ensureForm(newId)
   menuOpen.value = false
 }
-function deleteHopWrapped(id: string) { chainDeleteHop(id) }
+function deleteHopWrapped(id: string) {
+  chainDeleteHop(id)
+}
 function setHopMode(id: string, mode: HopConfigMode) {
   composableSwitchHopMode(id, mode)
   ensureForm(id)
 }
-function maxHopsRemaining(): number { return remainingHops.value }
+function maxHopsRemaining(): number {
+  return remainingHops.value
+}
 
 // ==================== Inline New/Custom Forms ====================
 
 interface NewFormFields {
-  name: string; host: string; port: number | null
-  username: string; authType: string; password: string; keyPath: string
-  passphrase: string; savedAuthId: string
-  localPort: number | null; remoteHost: string; remotePort: number | null
+  name: string
+  host: string
+  port: number | null
+  username: string
+  authType: string
+  password: string
+  keyPath: string
+  passphrase: string
+  savedAuthId: string
+  localPort: number | null
+  remoteHost: string
+  remotePort: number | null
   keepAlive: number | null
-  sslMode: string; ca: string; cert: string; key: string
+  sslMode: string
+  ca: string
+  cert: string
+  key: string
   proxyType: string
 }
 
 function blankNewForm(): NewFormFields {
   return {
-    name: '', host: '', port: null, username: '', authType: 'ssh_password', password: '', keyPath: '', passphrase: '', savedAuthId: '',
-    localPort: null, remoteHost: '', remotePort: null, keepAlive: 60,
-    sslMode: 'verify-full', ca: '', cert: '', key: '',
+    name: '',
+    host: '',
+    port: null,
+    username: '',
+    authType: 'ssh_password',
+    password: '',
+    keyPath: '',
+    passphrase: '',
+    savedAuthId: '',
+    localPort: null,
+    remoteHost: '',
+    remotePort: null,
+    keepAlive: 60,
+    sslMode: 'verify-full',
+    ca: '',
+    cert: '',
+    key: '',
     proxyType: 'socks5',
   }
 }
@@ -506,7 +882,9 @@ const supportsProxy = computed(() => {
 const enabledHops = computed(() => chain.value.filter(h => h.enabled))
 const enabledHopCount = computed(() => _enabledNetworkHopCount.value)
 const sslInChain = computed(() => hasSsl.value)
-const canAddSshProxy = computed(() => !isMaxNetworkHops.value && (supportsSsh.value || supportsProxy.value))
+const canAddSshProxy = computed(
+  () => !isMaxNetworkHops.value && (supportsSsh.value || supportsProxy.value)
+)
 const dbLabel = computed(() => props.driver?.name?.toUpperCase() || 'DB')
 
 /** 是否显示网络配置区域（文件型数据库不显示） */
@@ -529,9 +907,9 @@ const topoHops = computed<TopoHop[]>(() =>
     enabled: h.enabled,
     mode: h.mode,
     profileId: h.profileId,
-    host: (newFormData[h.id]?.host) || undefined,
+    host: newFormData[h.id]?.host || undefined,
     port: (newFormData[h.id]?.port ?? undefined) as number | undefined,
-  })),
+  }))
 )
 
 // Direct access to raw profiles (unwrap ComputedRef)
@@ -568,7 +946,13 @@ function profScopeLabel(): string {
 // ==================== Profile Options ====================
 
 function selectPlaceholder(p: string): string {
-  return { ssh: t('navigator.selectSsh'), ssl: t('navigator.selectSsl'), proxy: t('navigator.selectProxy') }[p] || t('navigator.selectProfile')
+  return (
+    {
+      ssh: t('navigator.selectSsh'),
+      ssl: t('navigator.selectSsl'),
+      proxy: t('navigator.selectProxy'),
+    }[p] || t('navigator.selectProfile')
+  )
 }
 
 function profileOpts(p: string) {
@@ -580,7 +964,9 @@ function profileOpts(p: string) {
 }
 
 function findProfile(type: string, id: string): NetworkProfile | undefined {
-  const list = { ssh: rawSshProfiles.value, ssl: rawSslProfiles.value, proxy: rawProxyProfiles.value }[type] ?? []
+  const list =
+    { ssh: rawSshProfiles.value, ssl: rawSslProfiles.value, proxy: rawProxyProfiles.value }[type] ??
+    []
   return list.find(p => p.id === id)
 }
 
@@ -590,10 +976,14 @@ function findProfile(type: string, id: string): NetworkProfile | undefined {
 function shouldShowHop(protocol: ProtocolType): boolean {
   if (!props.driver) return false
   switch (protocol) {
-    case 'ssl': return supportsSsl.value
-    case 'ssh': return supportsSsh.value
-    case 'proxy': return supportsProxy.value
-    default: return true
+    case 'ssl':
+      return supportsSsl.value
+    case 'ssh':
+      return supportsSsh.value
+    case 'proxy':
+      return supportsProxy.value
+    default:
+      return true
   }
 }
 
@@ -608,8 +998,12 @@ function orderNum(idx: number, hop: Hop) {
   return hop.enabled ? String(netHops.indexOf(hop) + 1) : '-'
 }
 
-function hopIcon(p: string) { return { ssh: '🔒', ssl: '🛡', proxy: '🌐' }[p] || '' }
-function hopLabel(p: string) { return { ssh: 'SSH 隧道', ssl: 'SSL/TLS (末尾)', proxy: '代理' }[p] || p }
+function hopIcon(p: string) {
+  return { ssh: '🔒', ssl: '🛡', proxy: '🌐' }[p] || ''
+}
+function hopLabel(p: string) {
+  return { ssh: 'SSH 隧道', ssl: 'SSL/TLS (末尾)', proxy: '代理' }[p] || p
+}
 
 function canDelete(hop: Hop) {
   return countInstancesOfType(hop.protocol) > 1
@@ -661,7 +1055,12 @@ async function saveNewProfile(hop: Hop) {
     }
 
     // SSH/Proxy 有认证凭据时，同步创建 auth_config 并注入引用
-    if ((hop.protocol === 'ssh' || hop.protocol === 'proxy') && (f.username || f.password || (hop.protocol === 'ssh' && f.authType !== 'ssh_password' && f.keyPath))) {
+    if (
+      (hop.protocol === 'ssh' || hop.protocol === 'proxy') &&
+      (f.username ||
+        f.password ||
+        (hop.protocol === 'ssh' && f.authType !== 'ssh_password' && f.keyPath))
+    ) {
       try {
         const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -679,7 +1078,7 @@ async function saveNewProfile(hop: Hop) {
           ac: {
             id: '',
             name: authName,
-            auth_type: hop.protocol === 'ssh' ? (f.authType || 'ssh_password') : 'proxy_password',
+            auth_type: hop.protocol === 'ssh' ? f.authType || 'ssh_password' : 'proxy_password',
             auth_data: JSON.stringify(authData),
             created_at: '',
             updated_at: '',
@@ -707,19 +1106,31 @@ function buildConfigJson(protocol: string, f: NewFormFields): string {
   let cfg: Record<string, unknown>
   if (protocol === 'ssh') {
     cfg = {
-      host: f.host || 'localhost', port: f.port || 22,
-      username: f.username || 'root', authType: f.authType || 'password',
-      password: f.authType === 'password' ? (f.password || '') : undefined,
-      keyPath: f.authType === 'key' ? (f.keyPath || '') : undefined,
-      localPort: f.localPort, remoteHost: f.remoteHost || undefined,
-      remotePort: f.remotePort, keepAlive: f.keepAlive ?? 60,
+      host: f.host || 'localhost',
+      port: f.port || 22,
+      username: f.username || 'root',
+      authType: f.authType || 'password',
+      password: f.authType === 'password' ? f.password || '' : undefined,
+      keyPath: f.authType === 'key' ? f.keyPath || '' : undefined,
+      localPort: f.localPort,
+      remoteHost: f.remoteHost || undefined,
+      remotePort: f.remotePort,
+      keepAlive: f.keepAlive ?? 60,
     }
   } else if (protocol === 'ssl') {
-    cfg = { mode: f.sslMode || 'verify-full', ca: f.ca || undefined, cert: f.cert || undefined, key: f.key || undefined }
+    cfg = {
+      mode: f.sslMode || 'verify-full',
+      ca: f.ca || undefined,
+      cert: f.cert || undefined,
+      key: f.key || undefined,
+    }
   } else {
     cfg = {
-      type: f.proxyType || 'socks5', host: f.host || 'proxy.corp.com',
-      port: f.port || 1080, username: f.username || undefined, password: f.password || undefined,
+      type: f.proxyType || 'socks5',
+      host: f.host || 'proxy.corp.com',
+      port: f.port || 1080,
+      username: f.username || undefined,
+      password: f.password || undefined,
     }
   }
   return JSON.stringify(cfg)
@@ -731,10 +1142,18 @@ function dragStart(e: DragEvent, id: string) {
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
 function dragOver(e: DragEvent) {
-  if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; (e.currentTarget as HTMLElement).classList.add('drag-over') }
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+    ;(e.currentTarget as HTMLElement).classList.add('drag-over')
+  }
 }
-function dragLeave(e: DragEvent) { (e.currentTarget as HTMLElement).classList.remove('drag-over') }
-function dragEnd() { composableDragEnd(); document.querySelectorAll('.chain-item').forEach(el => el.classList.remove('drag-over')) }
+function dragLeave(e: DragEvent) {
+  ;(e.currentTarget as HTMLElement).classList.remove('drag-over')
+}
+function dragEnd() {
+  composableDragEnd()
+  document.querySelectorAll('.chain-item').forEach(el => el.classList.remove('drag-over'))
+}
 function drop(_e: DragEvent, targetId: string) {
   document.querySelectorAll('.chain-item').forEach(el => el.classList.remove('drag-over'))
   composableDrop(targetId)
@@ -764,30 +1183,36 @@ onMounted(async () => {
   chain.value.forEach(h => ensureForm(h.id))
 })
 
-watch(chain, () => {
-  const enabledProfileIds = chain.value
-    .filter(h => h.enabled)
-    .map(h => {
-      if (h.mode === 'select' && h.profileId) return h.profileId
-      if (h.mode === 'new' && h.id) return `new:${h.id}`
-      if (h.mode === 'custom' && h.id) return `custom:${h.id}`
-      return null
+watch(
+  chain,
+  () => {
+    const enabledProfileIds = chain.value
+      .filter(h => h.enabled)
+      .map(h => {
+        if (h.mode === 'select' && h.profileId) return h.profileId
+        if (h.mode === 'new' && h.id) return `new:${h.id}`
+        if (h.mode === 'custom' && h.id) return `custom:${h.id}`
+        return null
+      })
+      .filter((x): x is string => x !== null)
+
+    const customConfigs: Record<string, unknown> = {}
+    chain.value
+      .filter(h => h.mode === 'custom' && h.enabled)
+      .forEach(h => {
+        if (h.id && customData[h.id]) {
+          const vals = customData[h.id]
+          customConfigs[h.id] = JSON.parse(buildConfigJson(h.protocol, vals))
+        }
+      })
+
+    emit('extra-config', {
+      networkConfigId: enabledProfileIds.length > 0 ? enabledProfileIds.join(',') : null,
+      customConfigs: Object.keys(customConfigs).length > 0 ? customConfigs : undefined,
     })
-    .filter((x): x is string => x !== null)
-
-  const customConfigs: Record<string, unknown> = {}
-  chain.value.filter(h => h.mode === 'custom' && h.enabled).forEach(h => {
-    if (h.id && customData[h.id]) {
-      const vals = customData[h.id]
-      customConfigs[h.id] = JSON.parse(buildConfigJson(h.protocol, vals))
-    }
-  })
-
-  emit('extra-config', {
-    networkConfigId: enabledProfileIds.length > 0 ? enabledProfileIds.join(',') : null,
-    customConfigs: Object.keys(customConfigs).length > 0 ? customConfigs : undefined,
-  })
-}, { deep: true })
+  },
+  { deep: true }
+)
 
 // ==================== Chain Hop Test Connection ====================
 
@@ -798,9 +1223,14 @@ async function testChainHop(hop: Hop) {
   try {
     if (hop.mode === 'select' && hop.profileId) {
       // Test saved network config on backend
-      const result = await invoke<{ success: boolean; message: string; response_time_ms: number }>('test_network_config', { networkConfigId: hop.profileId })
+      const result = await invoke<{ success: boolean; message: string; response_time_ms: number }>(
+        'test_network_config',
+        { networkConfigId: hop.profileId }
+      )
       if (result.success) {
-        alert(`🧪 ${hop.protocol.toUpperCase()} ${t('navigator.testSuccess')}\n\n${result.message}\n延迟: ${result.response_time_ms}ms`)
+        alert(
+          `🧪 ${hop.protocol.toUpperCase()} ${t('navigator.testSuccess')}\n\n${result.message}\n延迟: ${result.response_time_ms}ms`
+        )
       } else {
         alert(`❌ ${hop.protocol.toUpperCase()} ${t('navigator.testFailed')}\n\n${result.message}`)
       }
@@ -813,7 +1243,9 @@ async function testChainHop(hop: Hop) {
       }
       alert(`⚠️ ${t('navigator.pleaseSaveFirst') || '请先保存配置'}`)
     } else {
-      alert(`⚠️ ${t('navigator.customCannotTest') || '一次性自定义配置不支持单独测试，请保存后再测试'}`)
+      alert(
+        `⚠️ ${t('navigator.customCannotTest') || '一次性自定义配置不支持单独测试，请保存后再测试'}`
+      )
     }
   } catch (e) {
     alert(`❌ ${t('navigator.testFailed')}: ${e instanceof Error ? e.message : String(e)}`)
@@ -832,9 +1264,7 @@ const savedAuthConfigs = ref<AuthConfig[]>([])
 
 /** Dynamic auth config select options — fetched from backend */
 const chainSshAuthCfgOpts = computed(() => {
-  const opts: { label: string; value: string }[] = [
-    { label: '— 手动填写 —', value: '' },
-  ]
+  const opts: { label: string; value: string }[] = [{ label: '— 手动填写 —', value: '' }]
   for (const a of savedAuthConfigs.value) {
     const scopeIcon = a.scope === 'global' ? '🌐' : '📝'
     opts.push({ label: `${a.name} · ${scopeIcon}`, value: a.id })
@@ -856,120 +1286,394 @@ function onChainAuthChange(hopId: string, _val: string) {
   // Reset saved auth when auth type changes
   if (newFormData[hopId]) newFormData[hopId].savedAuthId = ''
 }
-
-
 </script>
 
 <style scoped>
-.net-tab { display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
-.net-file-hint { text-align: center; padding: 40px 20px; }
-.net-file-hint .hint-icon { opacity: 0.3; margin-bottom: 12px; }
-.net-file-hint h3 { font-size: 15px; color: var(--color-text-secondary); margin-bottom: 6px; }
-.net-file-hint p { font-size: 12px; color: var(--color-text-muted); line-height: 1.6; }
-.empty-hint { display: flex; align-items: center; justify-content: center; height: 120px; font-size: 13px; color: var(--color-text-muted); }
-
-.net-hint { font-size: 12px; color: var(--color-text-muted); padding: 8px 12px; background: var(--color-bg-elevated); border: 1px dashed var(--color-border-subtle); border-radius: 6px; line-height: 1.6; text-align: center; }
-.net-hint strong { color: var(--brand-accent); }
-
-.chain-header { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; padding: 0 2px; }
-.ch-drag { width: 26px; } .ch-order { width: 30px; text-align: center; } .ch-type { width: 90px; }
-.ch-config { flex: 1; } .ch-toggle { width: 48px; text-align: center; } .ch-acts { width: 56px; text-align: center; }
-
-.chain-list { display: flex; flex-direction: column; gap: 4px; }
-.chain-item {
-  display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px;
-  background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle); border-radius: 6px; transition: all 0.15s;
+.net-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
 }
-.chain-item:hover { border-color: var(--color-border); }
-.chain-item.disabled { opacity: 0.45; }
-.chain-item.drag-over { border-color: var(--brand-accent); background: var(--brand-accent-soft); }
-.chain-item.ssl { position: relative; border-left: 3px solid var(--brand-accent); }
-.chain-item.ssl::after { content: '末尾层'; position: absolute; top: -6px; right: 8px; font-size: 9px; padding: 1px 5px; border-radius: 3px; background: rgba(137,180,250,0.12); color: var(--brand-accent); }
+.net-file-hint {
+  text-align: center;
+  padding: 40px 20px;
+}
+.net-file-hint .hint-icon {
+  opacity: 0.3;
+  margin-bottom: 12px;
+}
+.net-file-hint h3 {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+.net-file-hint p {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+.empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
 
-.drag-handle { width: 26px; text-align: center; cursor: grab; color: var(--color-text-muted); font-size: 14px; user-select: none; padding-top: 2px; }
-.drag-handle:active { cursor: grabbing; }
+.net-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 8px 12px;
+  background: var(--color-bg-elevated);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: 6px;
+  line-height: 1.6;
+  text-align: center;
+}
+.net-hint strong {
+  color: var(--brand-accent);
+}
 
-.order-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
-.order-badge.ssh { background: rgba(166,227,161,0.1); border: 2px solid rgba(166,227,161,0.2); color: var(--brand-success); }
-.order-badge.ssl { background: rgba(137,180,250,0.1); border: 2px solid rgba(137,180,250,0.2); color: var(--brand-accent); }
-.order-badge.proxy { background: rgba(250,179,135,0.1); border: 2px solid rgba(250,179,135,0.2); color: var(--brand-warning); }
+.chain-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  padding: 0 2px;
+}
+.ch-drag {
+  width: 26px;
+}
+.ch-order {
+  width: 30px;
+  text-align: center;
+}
+.ch-type {
+  width: 90px;
+}
+.ch-config {
+  flex: 1;
+}
+.ch-toggle {
+  width: 48px;
+  text-align: center;
+}
+.ch-acts {
+  width: 56px;
+  text-align: center;
+}
 
-.type-badge { width: 90px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.type-badge.ssh { background: rgba(166,227,161,0.08); color: var(--brand-success); }
-.type-badge.ssl { background: rgba(137,180,250,0.08); color: var(--brand-accent); }
-.type-badge.proxy { background: rgba(250,179,135,0.08); color: var(--brand-warning); }
+.chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chain-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.chain-item:hover {
+  border-color: var(--color-border);
+}
+.chain-item.disabled {
+  opacity: 0.45;
+}
+.chain-item.drag-over {
+  border-color: var(--brand-accent);
+  background: var(--brand-accent-soft);
+}
+.chain-item.ssl {
+  position: relative;
+  border-left: 3px solid var(--brand-accent);
+}
+.chain-item.ssl::after {
+  content: '末尾层';
+  position: absolute;
+  top: -6px;
+  right: 8px;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(137, 180, 250, 0.12);
+  color: var(--brand-accent);
+}
 
-.config-area { flex: 1; min-width: 0; }
-.config-select { max-width: 240px; }
+.drag-handle {
+  width: 26px;
+  text-align: center;
+  cursor: grab;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  user-select: none;
+  padding-top: 2px;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.order-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.order-badge.ssh {
+  background: rgba(166, 227, 161, 0.1);
+  border: 2px solid rgba(166, 227, 161, 0.2);
+  color: var(--brand-success);
+}
+.order-badge.ssl {
+  background: rgba(137, 180, 250, 0.1);
+  border: 2px solid rgba(137, 180, 250, 0.2);
+  color: var(--brand-accent);
+}
+.order-badge.proxy {
+  background: rgba(250, 179, 135, 0.1);
+  border: 2px solid rgba(250, 179, 135, 0.2);
+  color: var(--brand-warning);
+}
+
+.type-badge {
+  width: 90px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.type-badge.ssh {
+  background: rgba(166, 227, 161, 0.08);
+  color: var(--brand-success);
+}
+.type-badge.ssl {
+  background: rgba(137, 180, 250, 0.08);
+  color: var(--brand-accent);
+}
+.type-badge.proxy {
+  background: rgba(250, 179, 135, 0.08);
+  color: var(--brand-warning);
+}
+
+.config-area {
+  flex: 1;
+  min-width: 0;
+}
+.config-select {
+  max-width: 240px;
+}
 
 /* Select row */
-.select-row { display: flex; gap: 6px; align-items: center; }
-.select-row .config-select { flex: 1; max-width: none; }
-.custom-link { font-size: 10px; flex-shrink: 0; }
+.select-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.select-row .config-select {
+  flex: 1;
+  max-width: none;
+}
+.custom-link {
+  font-size: 10px;
+  flex-shrink: 0;
+}
 
 /* File input with browse button */
-.file-input-row { display: flex; gap: 4px; }
-.file-input-row .n-input { flex: 1; }
+.file-input-row {
+  display: flex;
+  gap: 4px;
+}
+.file-input-row .n-input {
+  flex: 1;
+}
 
-.new-save-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-.forward-info { margin-top: 4px; }
-.forward-tag { font-size: 10px; color: var(--color-text-muted); }
+.new-save-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.forward-info {
+  margin-top: 4px;
+}
+.forward-tag {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
 
-.toggle-wrap { width: 48px; display: flex; justify-content: center; padding-top: 4px; }
-.act-wrap { width: 56px; display: flex; gap: 2px; justify-content: center; align-items: flex-start; padding-top: 2px; }
-.del-btn:hover :deep(svg) { color: var(--brand-danger); }
-.no-del { opacity: 0.25; cursor: not-allowed; font-size: 12px; }
+.toggle-wrap {
+  width: 48px;
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+.act-wrap {
+  width: 56px;
+  display: flex;
+  gap: 2px;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+.del-btn:hover :deep(svg) {
+  color: var(--brand-danger);
+}
+.no-del {
+  opacity: 0.25;
+  cursor: not-allowed;
+  font-size: 12px;
+}
 
-.net-warning { font-size: 11px; padding: 8px 12px; background: rgba(249,226,175,0.06); border: 1px solid rgba(249,226,175,0.15); border-radius: 6px; color: var(--brand-warning); }
+.net-warning {
+  font-size: 11px;
+  padding: 8px 12px;
+  background: rgba(249, 226, 175, 0.06);
+  border: 1px solid rgba(249, 226, 175, 0.15);
+  border-radius: 6px;
+  color: var(--brand-warning);
+}
 
-.add-hop-row { position: relative; display: flex; gap: 8px; align-items: center; }
-.hop-limit { font-size: 11px; color: var(--color-text-muted); }
+.add-hop-row {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.hop-limit {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
 
-.hop-menu { position: absolute; top: 100%; left: 0; z-index: 10; min-width: 220px; background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: 6px; box-shadow: 0 8px 24px var(--color-bg-primary); overflow: hidden; }
-.hop-opt { display: flex; align-items: center; gap: 6px; padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--color-text-secondary); transition: background 0.1s; }
-.hop-opt:hover { background: var(--color-hover); }
-.hop-menu-sep { height: 1px; background: var(--color-border-subtle); margin: 4px 0; }
-.hop-menu-desc { padding: 6px 12px 8px; font-size: 10px; color: var(--color-text-muted); line-height: 1.5; }
+.hop-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  min-width: 220px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--color-bg-primary);
+  overflow: hidden;
+}
+.hop-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  transition: background 0.1s;
+}
+.hop-opt:hover {
+  background: var(--color-hover);
+}
+.hop-menu-sep {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: 4px 0;
+}
+.hop-menu-desc {
+  padding: 6px 12px 8px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
 
-.net-empty { text-align: center; padding: 16px; color: var(--color-text-muted); font-size: 12px; }
+.net-empty {
+  text-align: center;
+  padding: 16px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
 
 /* ===== Inline forms (aligned with prototype v5) ===== */
 .inline-form-v5 {
-  padding: 12px; margin-top: 4px;
-  background: var(--color-bg-surface); border: 1px solid var(--brand-accent);
-  border-radius: 8px; display: flex; flex-direction: column; gap: 6px;
+  padding: 12px;
+  margin-top: 4px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--brand-accent);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .inline-form-v5.custom {
   border-color: var(--brand-warning);
 }
 .custom-hint {
-  font-size: 10px; color: var(--brand-warning); margin-bottom: 2px;
+  font-size: 10px;
+  color: var(--brand-warning);
+  margin-bottom: 2px;
 }
 
 .form-row {
-  display: flex; gap: 8px; align-items: flex-end;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
 }
-.form-group { display: flex; flex-direction: column; gap: 2px; }
-.form-group.f1 { flex: 1; }
-.form-group.f2 { flex: 2; }
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.form-group.f1 {
+  flex: 1;
+}
+.form-group.f2 {
+  flex: 2;
+}
 .form-label {
-  font-size: 11px; font-weight: 500; color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 .form-section-label {
-  font-size: 10px; font-weight: 600; color: var(--brand-accent);
-  letter-spacing: 0.5px; padding: 4px 0 2px;
-  border-top: 1px solid var(--color-border-subtle); margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--brand-accent);
+  letter-spacing: 0.5px;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--color-border-subtle);
+  margin-top: 2px;
 }
 .form-hint {
-  font-size: 10px; color: var(--color-text-muted); line-height: 1.4;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 .profile-scope-badge {
-  font-size: 11px; color: var(--color-text-secondary);
-  padding: 2px 8px; background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-subtle); border-radius: 4px;
-  align-self: flex-start; margin-top: 2px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 /* Test connection button in chain save row */
-.btn-test-conn { white-space: nowrap; }
+.btn-test-conn {
+  white-space: nowrap;
+}
 </style>

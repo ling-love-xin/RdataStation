@@ -657,7 +657,7 @@ column: order_line_item_id
 | 2026-05-09 | refactor | **审计修复 P2**: insight-store 移除 `isOpen` 死状态 + `closeInsight()` + handleCleanup 修正 |
 | 2026-05-09 | build | ✅ cargo check exit 0 + eslint 4 insight 文件 0 errors (第33次验证, Phase 22 完成) |
 | 2026-05-09 | docs | **文档一致化**: ARCHITECTURE.md 规则数13→18 + Commands 8→15 + v18→v19 |
-| 2026-05-09 | docs | **文档一致化**: DESIGN.md v1.2→v1.3 + v2.1路线图热加载标记已完成 |
+| 2026-05-09 | docs | **文档一致化\*\*: DESIGN.md v1.2→v1.3 + v2.1路线图热加载标记已完成 |
 | 2026-05-09 | build | ✅ cargo check exit 0 + eslint 0 errors (第34次验证, Phase 22.1 完成) |
 
 ---

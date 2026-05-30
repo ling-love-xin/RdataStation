@@ -86,12 +86,7 @@
           >
             <template #icon><RefreshCw :size="12" /></template>
           </NButton>
-          <NButton
-            size="tiny"
-            text
-            title="编辑连接"
-            @click.stop="editSavedConnection(conn)"
-          >
+          <NButton size="tiny" text title="编辑连接" @click.stop="editSavedConnection(conn)">
             <template #icon><Pencil :size="12" /></template>
           </NButton>
         </div>
@@ -104,15 +99,17 @@
         <span class="ds-section-title">驱动管理</span>
       </div>
       <div class="ds-driver-mgmt-list">
-        <div
-          v-for="d in driversWithStatus"
-          :key="d.driver.id"
-          class="ds-driver-mgmt-item"
-        >
+        <div v-for="d in driversWithStatus" :key="d.driver.id" class="ds-driver-mgmt-item">
           <div class="ds-driver-mgmt-info">
             <span class="ds-driver-mgmt-name">{{ d.driver.name }}</span>
             <span class="ds-driver-mgmt-status" :class="'dms-' + d.status">
-              {{ d.status === 'ready' ? '✓ 就绪' : d.status === 'not_installed' ? '⚠ 未安装' : '✗ 未启用' }}
+              {{
+                d.status === 'ready'
+                  ? '✓ 就绪'
+                  : d.status === 'not_installed'
+                    ? '⚠ 未安装'
+                    : '✗ 未启用'
+              }}
             </span>
           </div>
           <NButton
@@ -131,7 +128,18 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Search, Database, Server, Globe, HardDrive, Cloud, Radio, RefreshCw, Pencil } from 'lucide-vue-next'
+import {
+  Plus,
+  Search,
+  Database,
+  Server,
+  Globe,
+  HardDrive,
+  Cloud,
+  Radio,
+  RefreshCw,
+  Pencil,
+} from 'lucide-vue-next'
 import { NButton } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -153,8 +161,9 @@ const { t } = useI18n()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
 const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnection({
-  getConnectionUrl: (conn) => projectConnectionStore.getConnectionUrl(conn),
-  updateConnectionStatus: (id, status, errorMsg) => projectConnectionStore.updateConnectionStatus(id, status as ConnectionStatus, errorMsg),
+  getConnectionUrl: conn => projectConnectionStore.getConnectionUrl(conn),
+  updateConnectionStatus: (id, status, errorMsg) =>
+    projectConnectionStore.updateConnectionStatus(id, status as ConnectionStatus, errorMsg),
   loadConnections: () => projectConnectionStore.loadConnections(),
   currentProjectId: () => projectStore.currentProject?.id ?? null,
 })
@@ -169,7 +178,8 @@ const driversWithStatus = computed(() => {
   // 但实际上对于 native 驱动也会显示（扭计为小）
   return drivers.value.map(d => ({
     driver: d,
-    status: driverDetailCache.value.get(d.id) || (d.driver_kind === 'native' ? 'ready' : 'not_installed'),
+    status:
+      driverDetailCache.value.get(d.id) || (d.driver_kind === 'native' ? 'ready' : 'not_installed'),
   }))
 })
 
@@ -201,16 +211,12 @@ const connections = computed(() =>
 const filteredTypes = computed(() => {
   const q = searchQuery.value.toLowerCase()
   if (!q) return dataSourceTypes.value
-  return dataSourceTypes.value.filter(
-    t => t.enabled && t.name.toLowerCase().includes(q)
-  )
+  return dataSourceTypes.value.filter(t => t.enabled && t.name.toLowerCase().includes(q))
 })
 
 const selectedTypeDrivers = computed(() => {
   if (!selectedTypeId.value) return []
-  return drivers.value.filter(
-    d => d.type_id === selectedTypeId.value && d.enabled
-  )
+  return drivers.value.filter(d => d.type_id === selectedTypeId.value && d.enabled)
 })
 
 function getDriverCount(typeId: string): number {
@@ -234,13 +240,26 @@ function typeIcon(category: string) {
 
 // Driver colors & initials
 const driverColors: Record<string, string> = {
-  mysql: '#00758f', postgresql: '#336791', sqlite: '#003b57',
-  duckdb: '#f9a825', mariadb: '#c49a6c', oracle: '#f80000',
-  mssql: '#0089b6', clickhouse: '#faff00', mongodb: '#47a248',
-  redis: '#dc382d', cassandra: '#1287b1', cockroachdb: '#6933ff',
-  snowflake: '#29bfff', bigquery: '#4285f4', redshift: '#8c4fff',
-  elasticsearch: '#00bfb3', neo4j: '#018bff', couchbase: '#ea2328',
-  influxdb: '#22adf6', timescaledb: '#fec514',
+  mysql: '#00758f',
+  postgresql: '#336791',
+  sqlite: '#003b57',
+  duckdb: '#f9a825',
+  mariadb: '#c49a6c',
+  oracle: '#f80000',
+  mssql: '#0089b6',
+  clickhouse: '#faff00',
+  mongodb: '#47a248',
+  redis: '#dc382d',
+  cassandra: '#1287b1',
+  cockroachdb: '#6933ff',
+  snowflake: '#29bfff',
+  bigquery: '#4285f4',
+  redshift: '#8c4fff',
+  elasticsearch: '#00bfb3',
+  neo4j: '#018bff',
+  couchbase: '#ea2328',
+  influxdb: '#22adf6',
+  timescaledb: '#fec514',
 }
 
 function driverColor(name: string): string {
@@ -390,7 +409,7 @@ onMounted(async () => {
 .ds-type-count {
   font-size: 10px;
   color: var(--color-text-muted, #6c7086);
-  background: var(--color-bg-elevated, rgba(255,255,255,0.04));
+  background: var(--color-bg-elevated, rgba(255, 255, 255, 0.04));
   padding: 1px 6px;
   border-radius: 8px;
 }
@@ -464,14 +483,28 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-.status-connected { background: var(--brand-success, #00b894); }
-.status-disconnected { background: var(--color-text-muted, #6c7086); }
-.status-connecting { background: var(--brand-accent, #e17055); animation: pulse 1s infinite; }
-.status-error { background: var(--brand-danger, #d63031); }
+.status-connected {
+  background: var(--brand-success, #00b894);
+}
+.status-disconnected {
+  background: var(--color-text-muted, #6c7086);
+}
+.status-connecting {
+  background: var(--brand-accent, #e17055);
+  animation: pulse 1s infinite;
+}
+.status-error {
+  background: var(--brand-danger, #d63031);
+}
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .ds-conn-body {

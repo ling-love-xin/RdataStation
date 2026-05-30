@@ -72,16 +72,9 @@
           <span class="opt-icon">{{ option.icon }}</span>
           {{ option.label }}
           <span class="opt-hint">{{ option.hint }}</span>
-          <span
-            v-if="option.protocol === 'ssl' && hasSsl"
-            class="opt-replace"
-          >
-            (替换)
-          </span>
+          <span v-if="option.protocol === 'ssl' && hasSsl" class="opt-replace"> (替换) </span>
         </div>
-        <div class="menu-footer">
-          SSL 始终在链末尾（流加密包装器），不产生网络节点
-        </div>
+        <div class="menu-footer"> SSL 始终在链末尾（流加密包装器），不产生网络节点 </div>
       </div>
     </div>
   </div>
@@ -94,7 +87,15 @@ import { useI18n } from 'vue-i18n'
 import ProtocolChainItem from './ProtocolChainItem.vue'
 import { MAX_NETWORK_HOPS } from '../../types/network-chain'
 
-import type { ProtocolNode, ProtocolType, SshProfile, SslProfile, ProxyProfile, AddHopOption, HopConfigMode } from '../../types/network-chain'
+import type {
+  ProtocolNode,
+  ProtocolType,
+  SshProfile,
+  SslProfile,
+  ProxyProfile,
+  AddHopOption,
+  HopConfigMode,
+} from '../../types/network-chain'
 
 const { t } = useI18n()
 
@@ -112,15 +113,15 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'toggle': [hopId: string]
-  'delete': [hopId: string]
+  toggle: [hopId: string]
+  delete: [hopId: string]
   'switch-mode': [hopId: string, mode: HopConfigMode]
   'save-new': [hopId: string]
-  'manage': [protocol: ProtocolType]
+  manage: [protocol: ProtocolType]
   'select-profile': [hopId: string, profileId: string]
   'drag-start': [hopId: string]
   'drag-end': []
-  'drop': [targetId: string]
+  drop: [targetId: string]
   'toggle-menu': []
   'add-hop': [protocol: ProtocolType]
 }>()
@@ -151,9 +152,7 @@ function getOrderLabel(hop: ProtocolNode, _index: number): string | number {
   if (!hop.enabled) return '-'
   if (hop.protocol === 'ssl') return '🔐'
 
-  const enabledNetworkHops = props.chain.filter(
-    h => h.protocol !== 'ssl' && h.enabled
-  )
+  const enabledNetworkHops = props.chain.filter(h => h.protocol !== 'ssl' && h.enabled)
   const idx = enabledNetworkHops.indexOf(hop)
   return idx >= 0 ? idx + 1 : '-'
 }
@@ -179,12 +178,33 @@ function getOrderLabel(hop: ProtocolNode, _index: number): string | number {
   margin-bottom: var(--spacing-sm);
 }
 
-.drag-col { width: 24px; flex-shrink: 0; }
-.order-col { width: 28px; text-align: center; flex-shrink: 0; }
-.type-col { width: 110px; flex-shrink: 0; }
-.config-col { flex: 1; min-width: 0; }
-.toggle-col { width: 48px; text-align: center; flex-shrink: 0; }
-.action-col { width: 60px; text-align: center; flex-shrink: 0; }
+.drag-col {
+  width: 24px;
+  flex-shrink: 0;
+}
+.order-col {
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.type-col {
+  width: 110px;
+  flex-shrink: 0;
+}
+.config-col {
+  flex: 1;
+  min-width: 0;
+}
+.toggle-col {
+  width: 48px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.action-col {
+  width: 60px;
+  text-align: center;
+  flex-shrink: 0;
+}
 
 /* 节点列表 */
 .chain-list {

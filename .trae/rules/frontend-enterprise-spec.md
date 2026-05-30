@@ -1900,7 +1900,7 @@ interface ColumnInput {
 | 创建函数对话框     | 低     | 需要 UI 组件           |
 | 创建存储过程对话框 | 低     | 需要 UI 组件           |
 | 连接编辑器         | 中     | 需要 UI 组件           |
-| SQL 片段拖入编辑器 | 中     | 需要 CodeMirror 集成       |
+| SQL 片段拖入编辑器 | 中     | 需要 CodeMirror 集成   |
 | 收藏面板集成到布局 | 低     | 需要 dockview 面板注册 |
 
 ### 12.19.3 性能指标
@@ -1924,4 +1924,4 @@ interface ColumnInput {
 | naive-ui        | 最新   | 组件库     |
 | lucide-vue-next | 最新   | 图标库     |
 | AG Grid         | 33.0.0 | 表格引擎   |
-| CodeMirror 6   | 6.x | 代码编辑器 |
+| CodeMirror 6    | 6.x    | 代码编辑器 |

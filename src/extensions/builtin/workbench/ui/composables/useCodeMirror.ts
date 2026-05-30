@@ -1,20 +1,35 @@
 import { closeBrackets, autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { sql } from '@codemirror/lang-sql'
-import { indentOnInput, bracketMatching, foldGutter, syntaxHighlighting } from '@codemirror/language'
+import {
+  indentOnInput,
+  bracketMatching,
+  foldGutter,
+  syntaxHighlighting,
+} from '@codemirror/language'
 import { lintGutter } from '@codemirror/lint'
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search'
 import { EditorState, type Extension, Compartment } from '@codemirror/state'
 import { EditorView, keymap as cmKeymap } from '@codemirror/view'
 import { shallowRef, type ShallowRef } from 'vue'
 
-import { rdataDarkTheme, rdataDarkHighlight, rdataLightTheme, rdataLightHighlight } from '@/shared/styles/cm-theme'
+import {
+  rdataDarkTheme,
+  rdataDarkHighlight,
+  rdataLightTheme,
+  rdataLightHighlight,
+} from '@/shared/styles/cm-theme'
 
 import { type LargeFileStrategy } from './useLargeFile'
 
 export type LanguageType = 'sql' | 'python' | 'json' | 'plaintext' | string
 
-export type EditorUpdateCallback = (doc: string, cursorLine: number, cursorCol: number, hasSelection: boolean) => void
+export type EditorUpdateCallback = (
+  doc: string,
+  cursorLine: number,
+  cursorCol: number,
+  hasSelection: boolean
+) => void
 
 export interface UseCodeMirrorReturn {
   view: ShallowRef<EditorView | null>
@@ -80,9 +95,7 @@ export function useCodeMirror(): UseCodeMirrorReturn {
     const isLarge = s?.tier === 'large' || s?.tier === 'chunked' || s?.tier === 'rejected'
     const isChunked = s?.tier === 'chunked' || s?.tier === 'rejected'
 
-    const baseExtensions: Extension[] = [
-      EditorView.lineWrapping,
-    ]
+    const baseExtensions: Extension[] = [EditorView.lineWrapping]
 
     if (!isChunked) {
       baseExtensions.push(indentOnInput())
@@ -109,10 +122,12 @@ export function useCodeMirror(): UseCodeMirrorReturn {
     }
 
     if (!isLarge) {
-      baseExtensions.push(autocompletion({
-        closeOnBlur: true,
-        activateOnTyping: true,
-      }))
+      baseExtensions.push(
+        autocompletion({
+          closeOnBlur: true,
+          activateOnTyping: true,
+        })
+      )
     }
 
     const keymaps = [defaultKeymap, historyKeymap, searchKeymap]
@@ -133,18 +148,13 @@ export function useCodeMirror(): UseCodeMirrorReturn {
 
     if (onUpdate) {
       baseExtensions.push(
-        EditorView.updateListener.of((update) => {
+        EditorView.updateListener.of(update => {
           if (update.docChanged || update.selectionSet) {
             const state = update.state
             const cursor = state.selection.main.head
             const line = state.doc.lineAt(cursor)
             const hasSelection = !state.selection.main.empty
-            onUpdate(
-              state.doc.toString(),
-              line.number,
-              cursor - line.from + 1,
-              hasSelection
-            )
+            onUpdate(state.doc.toString(), line.number, cursor - line.from + 1, hasSelection)
           }
         })
       )
@@ -234,7 +244,7 @@ export function useCodeMirror(): UseCodeMirrorReturn {
         effects: EditorView.scrollIntoView(pos, { y: 'center' }),
       })
     } catch {
-      // invalid line number
+      console.warn('[useCodeMirror] gotoLine invalid line number')
     }
   }
 

@@ -320,7 +320,7 @@ export function createPluginContext(
         const { invoke } = await import('@tauri-apps/api/core')
         return invoke('plugin_db_metadata', { pluginId, connId, ...path })
       },
-      cancelQuery: async (queryId) => {
+      cancelQuery: async queryId => {
         const { invoke } = await import('@tauri-apps/api/core')
         return invoke('cancel_sql_query', { queryId })
       },
@@ -331,7 +331,7 @@ export function createPluginContext(
         return fetch(url, options)
       },
       fs: {
-        readText: async (path) => {
+        readText: async path => {
           const { invoke } = await import('@tauri-apps/api/core')
           return invoke('plugin_fs_read_text', { pluginId, path }) as Promise<string>
         },
@@ -339,14 +339,14 @@ export function createPluginContext(
           const { invoke } = await import('@tauri-apps/api/core')
           return invoke('plugin_fs_write_text', { pluginId, path, content })
         },
-        listDir: async (path) => {
+        listDir: async path => {
           const { invoke } = await import('@tauri-apps/api/core')
           return invoke('plugin_fs_list_dir', { pluginId, path }) as Promise<FileEntry[]>
         },
       },
     },
 
-    subscribe: (disposable) => {
+    subscribe: disposable => {
       disposables.push(disposable)
     },
   }

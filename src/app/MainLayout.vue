@@ -27,7 +27,6 @@ import {
   listenWorkbenchEvent,
 } from '@/extensions/builtin/workbench/ui/constants/workbench-events'
 
-
 const isMaximized = ref(false)
 const showSettingsDialog = ref(false)
 

@@ -143,15 +143,15 @@ V3 主对话框组件，采用左右分栏 + 顶部驱动的布局：
 
 ### Metadata 字段说明
 
-| 字段              | 类型     | 说明                                                     |
-| ----------------- | -------- | -------------------------------------------------------- |
-| category          | string   | 数据库类别：relational（关系型）、file（文件型）        |
-| description       | string   | 数据库描述                                               |
-| features          | string[] | 支持的功能特性                                           |
-| defaultPort       | number   | 默认端口号                                               |
-| requireFile       | boolean  | 是否需要文件路径（文件数据库为 true）                    |
-| supportsSsl       | boolean  | 是否支持 SSL                                             |
-| supportsSshTunnel | boolean  | 是否支持 SSH 隧道                                        |
+| 字段              | 类型     | 说明                                             |
+| ----------------- | -------- | ------------------------------------------------ |
+| category          | string   | 数据库类别：relational（关系型）、file（文件型） |
+| description       | string   | 数据库描述                                       |
+| features          | string[] | 支持的功能特性                                   |
+| defaultPort       | number   | 默认端口号                                       |
+| requireFile       | boolean  | 是否需要文件路径（文件数据库为 true）            |
+| supportsSsl       | boolean  | 是否支持 SSL                                     |
+| supportsSshTunnel | boolean  | 是否支持 SSH 隧道                                |
 
 ### Section 字段说明
 
@@ -492,17 +492,20 @@ export interface DriverDescriptor {
 将 SSH 隧道和代理配置从连接配置中解耦，实现"创建一次、多处复用"。
 
 **核心设计**：
+
 - `NetworkProfile`：命名的、可复用的网络配置档案（SSH / Proxy / SSH+Proxy 组合）
 - 持久化跟随连接作用域（全局连接 → 全局 profile，项目连接 → 项目 profile，由 migrations 管理）
 - 连接配置通过 `profileId` 引用 profile，不再内联 SSH/Proxy 字段
 
 **新增模块**：
+
 ```
 后端: src-tauri/src/core/network/{models,store,manager}.rs
 前端: ui/components/network/{NetworkProfileSelector,NetworkProfileEditor,NetworkProfileManager}.vue
 ```
 
 **数据流**：
+
 ```
 创建数据源 → NetworkTab → NetworkProfileSelector
   ├── [选择已有 profile] → 一键应用 SSH/Proxy
@@ -514,19 +517,19 @@ export interface DriverDescriptor {
 
 > 状态：🟢 基本完成（2026-05-18）
 
-| 按钮/功能 | 状态 | 说明 |
-|-----------|:----:|------|
-| 测试连接 | ✅ | `invoke('test_connection', {dbType, url})` |
-| 保存 | ✅ | `emit('save')` → DatabaseManager → `connect_database` |
-| 常规 Tab 表单 | ✅ | `loadDriverSchema()` → `formSections` → `GeneralTab` |
-| 文件选择 | ✅ | `@tauri-apps/plugin-dialog` `open()` |
-| 文件创建 | ✅ | `save()` + `invoke('create_database_file')` |
-| NetworkTab 数据流 | ✅ | `emit('update:config')` + `watch` deep |
-| URI 实时预览 | ✅ | `connectionUrl` computed 值 |
-| 编辑 URI | ✅ | `editUriMode` toggle |
-| 暂存列表 | ✅ | `useStagingList().selectEntry()` |
-| 驱动加载 | ✅ | `invoke('get_drivers')` |
-| NetworkProfile 管理 | 📋 | 已设计，待后续实现 |
+| 按钮/功能           | 状态 | 说明                                                  |
+| ------------------- | :--: | ----------------------------------------------------- |
+| 测试连接            |  ✅  | `invoke('test_connection', {dbType, url})`            |
+| 保存                |  ✅  | `emit('save')` → DatabaseManager → `connect_database` |
+| 常规 Tab 表单       |  ✅  | `loadDriverSchema()` → `formSections` → `GeneralTab`  |
+| 文件选择            |  ✅  | `@tauri-apps/plugin-dialog` `open()`                  |
+| 文件创建            |  ✅  | `save()` + `invoke('create_database_file')`           |
+| NetworkTab 数据流   |  ✅  | `emit('update:config')` + `watch` deep                |
+| URI 实时预览        |  ✅  | `connectionUrl` computed 值                           |
+| 编辑 URI            |  ✅  | `editUriMode` toggle                                  |
+| 暂存列表            |  ✅  | `useStagingList().selectEntry()`                      |
+| 驱动加载            |  ✅  | `invoke('get_drivers')`                               |
+| NetworkProfile 管理 |  📋  | 已设计，待后续实现                                    |
 
 ### 4. 类型定义去重
 

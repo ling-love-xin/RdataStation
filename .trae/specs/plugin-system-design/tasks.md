@@ -10,7 +10,7 @@
 
 - **Priority**: P0
 - **Depends On**: None
-- **Description**: 
+- **Description**:
   - 实现 `PluginManager` trait 和 `AdvancedPluginManager` 结构体
   - 实现插件加载/卸载/激活/停用逻辑
   - 集成现有 `ManifestParser`
@@ -27,7 +27,7 @@
 
 - **Priority**: P0
 - **Depends On**: Task 1
-- **Description**: 
+- **Description**:
   - 实现 `ContributionRegistry` 结构体
   - 支持命令、面板、驱动、设置的注册和查询
   - 实现按插件 ID 批量删除
@@ -44,7 +44,7 @@
 
 - **Priority**: P0
 - **Depends On**: Task 1
-- **Description**: 
+- **Description**:
   - 实现 `PluginSandbox` 和 `ResourceTracker`
   - 实现内存、CPU、文件系统访问限制
   - 集成到插件管理器
@@ -61,7 +61,7 @@
 
 - **Priority**: P0
 - **Depends On**: Task 1, Task 3
-- **Description**: 
+- **Description**:
   - 增强 `adapters/wasm/plugin_manager.rs`
   - 实现宿主函数注册和调用
   - 集成 Extism 运行时与插件管理器
@@ -78,7 +78,7 @@
 
 - **Priority**: P1
 - **Depends On**: Task 1
-- **Description**: 
+- **Description**:
   - 实现前端 ↔ 后端 JSON-RPC 通信
   - 支持命令调用和事件广播
   - 集成到 Tauri Command
@@ -95,7 +95,7 @@
 
 - **Priority**: P1
 - **Depends On**: Task 1
-- **Description**: 
+- **Description**:
   - 实现 `PluginStore` 结构体
   - 创建数据库表结构
   - 实现插件信息的保存、查询、删除
@@ -112,7 +112,7 @@
 
 - **Priority**: P1
 - **Depends On**: Task 1
-- **Description**: 
+- **Description**:
   - 扩展 `adapters/sidecar/` 支持插件化驱动
   - 实现 Sidecar 进程管理
   - 集成到插件管理器
@@ -129,7 +129,7 @@
 
 - **Priority**: P2
 - **Depends On**: Task 1, Task 5
-- **Description**: 
+- **Description**:
   - 实现 `commands/plugin_commands.rs`
   - 提供插件安装、卸载、激活、停用、列表等命令
 - **Acceptance Criteria Addressed**: FR-5
@@ -144,7 +144,7 @@
 
 - **Priority**: P2
 - **Depends On**: Task 6
-- **Description**: 
+- **Description**:
   - 实现插件市场 API 客户端
   - 支持搜索、安装、更新插件
   - 集成到插件命令
@@ -160,7 +160,7 @@
 
 - **Priority**: P2
 - **Depends On**: Task 3
-- **Description**: 
+- **Description**:
   - 实现权限验证逻辑
   - 集成到宿主函数调用
   - 支持权限请求和用户确认
@@ -176,7 +176,7 @@
 
 - **Priority**: P2
 - **Depends On**: 所有任务
-- **Description**: 
+- **Description**:
   - 为所有核心模块编写单元测试
   - 编写集成测试
   - 确保代码覆盖率 >= 80%
@@ -222,10 +222,10 @@ Task 11 (测试)
 
 ## 里程碑
 
-| 里程碑 | 完成条件 | 预计时间 |
-|--------|----------|----------|
-| **M1: 核心功能** | Task 1-4 完成 | 2 周 |
-| **M2: 通信与持久化** | Task 5-6 完成 | 1 周 |
-| **M3: 扩展功能** | Task 7-9 完成 | 2 周 |
-| **M4: 安全与质量** | Task 10-11 完成 | 1 周 |
-| **总计** | 所有任务完成 | 6 周 |
+| 里程碑               | 完成条件        | 预计时间 |
+| -------------------- | --------------- | -------- |
+| **M1: 核心功能**     | Task 1-4 完成   | 2 周     |
+| **M2: 通信与持久化** | Task 5-6 完成   | 1 周     |
+| **M3: 扩展功能**     | Task 7-9 完成   | 2 周     |
+| **M4: 安全与质量**   | Task 10-11 完成 | 1 周     |
+| **总计**             | 所有任务完成    | 6 周     |

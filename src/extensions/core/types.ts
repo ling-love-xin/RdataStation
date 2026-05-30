@@ -510,7 +510,10 @@ export interface CommandRegistryInterface {
 export interface PluginDatabaseAPI {
   query(connId: string, sql: string, options?: { timeout?: number }): Promise<unknown>
   getActiveConnection(): Promise<ConnectionInfo | null>
-  getMetadata(connId: string, path: { catalog: string; schema: string; kind: string }): Promise<unknown>
+  getMetadata(
+    connId: string,
+    path: { catalog: string; schema: string; kind: string }
+  ): Promise<unknown>
   cancelQuery(queryId: string): Promise<void>
 }
 

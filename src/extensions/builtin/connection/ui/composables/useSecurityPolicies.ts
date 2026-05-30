@@ -69,7 +69,15 @@ export function useSecurityPolicies(envId: ReturnType<typeof ref<string>> | { va
       'env-test': { ro: false, wc: false, ddl: true, drop: 'true', ac: true, rl: 10000, sl: 100 },
       'env-staging': { ro: false, wc: true, ddl: true, drop: 'true', ac: false, rl: 5000, sl: 50 },
       'env-prod': { ro: true, wc: true, ddl: true, drop: 'disable', ac: false, rl: 1000, sl: 20 },
-      'env-sandbox': { ro: false, wc: false, ddl: false, drop: 'false', ac: true, rl: 1000, sl: 50 },
+      'env-sandbox': {
+        ro: false,
+        wc: false,
+        ddl: false,
+        drop: 'false',
+        ac: true,
+        rl: 1000,
+        sl: 50,
+      },
     }
     const d = defaults[envIdVal] ?? defaults['env-dev']
     tempDefaultLocked.value = true
@@ -80,14 +88,21 @@ export function useSecurityPolicies(envId: ReturnType<typeof ref<string>> | { va
     polDrop.value = d.drop as string
     polRowLimit.value = d.rl as number
     polSizeLimit.value = d.sl as number
-    setTimeout(() => { tempDefaultLocked.value = false }, 0)
+    setTimeout(() => {
+      tempDefaultLocked.value = false
+    }, 0)
   }
 
   /** 导出策略快照 */
   function collectPolicyConfig(): Record<string, unknown> {
     return {
-      ro: polReadonly.value, wc: polWriteConfirm.value, ddl: polDdlConfirm.value,
-      drop: polDrop.value, ac: polAutocommit.value, rl: polRowLimit.value, sl: polSizeLimit.value,
+      ro: polReadonly.value,
+      wc: polWriteConfirm.value,
+      ddl: polDdlConfirm.value,
+      drop: polDrop.value,
+      ac: polAutocommit.value,
+      rl: polRowLimit.value,
+      sl: polSizeLimit.value,
     }
   }
 
@@ -103,7 +118,9 @@ export function useSecurityPolicies(envId: ReturnType<typeof ref<string>> | { va
   }
 
   /** 空操作——computed 自动更新覆盖状态 */
-  function checkPolicyOverride() { /* no-op */ }
+  function checkPolicyOverride() {
+    /* no-op */
+  }
 
   return {
     polReadonly,

@@ -198,15 +198,15 @@ pub fn run() {
 
 关键文件：
 
-| 文件               | 行数 | 职责                                                  |
-| ------------------ | ---- | ----------------------------------------------------- |
-| `registry/mod.rs`  | ~240 | DriverRegistry + DriverFactory trait + 全局单例       |
-| `registry/descriptors.rs` | ~720 | DriverDescriptor + DriverKind + 6 种驱动描述符      |
-| `factory.rs`       | ~290 | 6 个 DriverFactory 实现                               |
-| `traits.rs`        | 253  | Database / Transaction / DbPool trait                 |
-| `auto_register.rs` | 80   | AutoDriverRegistrar（委托 BuiltinDriverDiscovery × 6）|
-| `loader.rs`        | ~186 | DriverLoader + BuiltinDriverDiscovery（唯一真相源）   |
-| `smart_pool.rs`    | -    | SmartPool 智能连接池                                  |
+| 文件                      | 行数 | 职责                                                   |
+| ------------------------- | ---- | ------------------------------------------------------ |
+| `registry/mod.rs`         | ~240 | DriverRegistry + DriverFactory trait + 全局单例        |
+| `registry/descriptors.rs` | ~720 | DriverDescriptor + DriverKind + 6 种驱动描述符         |
+| `factory.rs`              | ~290 | 6 个 DriverFactory 实现                                |
+| `traits.rs`               | 253  | Database / Transaction / DbPool trait                  |
+| `auto_register.rs`        | 80   | AutoDriverRegistrar（委托 BuiltinDriverDiscovery × 6） |
+| `loader.rs`               | ~186 | DriverLoader + BuiltinDriverDiscovery（唯一真相源）    |
+| `smart_pool.rs`           | -    | SmartPool 智能连接池                                   |
 
 ### 3. core/persistence/ 目录
 

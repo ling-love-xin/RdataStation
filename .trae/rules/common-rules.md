@@ -229,10 +229,10 @@ mod tests {
 
 ### auth_type 分类
 
-| 大类 | auth_type |
-|------|-----------|
+| 大类       | auth_type                                                  |
+| ---------- | ---------------------------------------------------------- |
 | 数据库认证 | password, ldap, pg_class, kerberos, oauth2, os_auth, trust |
-| 网络认证 | ssh_password, proxy_password |
+| 网络认证   | ssh_password, proxy_password                               |
 
 ## 10.2 网络配置（network_configs）
 
@@ -260,9 +260,9 @@ mod tests {
 ✅ selectStaging 必须恢复 authConfigId 和 authMethod（与 syncCurrentToStaging 对称）
 ✅ addStaging（"+"按钮）必须重置 authConfigId/authMethod 为默认值
 ❌ 禁止 saveToStaging 静默丢弃字段（如只写 14/19 字段）
-✅ create_auth_config（全局）必须返回 AuthConfig（含后端生成的 id，对齐 project_create_auth_config）
+✅ create*auth_config（全局）必须返回 AuthConfig（含后端生成的 id，对齐 project_create_auth_config）
 ✅ doSaveAuth 保存后必须捕获返回值并更新 authConfigId.value
-❌ 禁止前端自生成 auth/network ID（如 G_ssh_auth_${Date.now()}），ID 必须由后端统一分配
+❌ 禁止前端自生成 auth/network ID（如 G_ssh_auth*${Date.now()}），ID 必须由后端统一分配
 ✅ NetworkTab.onMounted 必须始终 loadAll()（全局），再按需 loadAllProject()（项目），禁止 if/else 短路
 ✅ useAuthConfig.loadAuthConfigs 必须接受 projectPath 参数，按 scope 合并全局+项目配置
 ✅ handleApply project 连接时必须使用 projectStore.currentProject?.path（而非 .id）作为 project_id

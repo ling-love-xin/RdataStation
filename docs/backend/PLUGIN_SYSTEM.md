@@ -1,4 +1,3 @@
-
 # RdataStation 插件系统架构
 
 ## 概述
@@ -78,6 +77,7 @@ rdata-station/src-tauri/src/
 与驱动管理设计保持一致，插件系统使用双层数据库架构：
 
 ### 1. 全局数据库 (Global Database)
+
 - 存储插件注册表信息
 - 存储所有已安装的插件元数据
 - 存储插件全局配置
@@ -88,6 +88,7 @@ rdata-station/src-tauri/src/
   - `plugin_global_config`: 插件全局配置
 
 ### 2. 项目数据库 (Project Database)
+
 - 存储每个项目使用的插件引用
 - 存储每个项目的插件配置
 - 每个项目独立的配置
@@ -100,6 +101,7 @@ rdata-station/src-tauri/src/
 ### 1. PluginManager (核心管理器)
 
 统一管理所有插件的生命周期，包括：
+
 - 插件发现和加载
 - 插件激活/停用
 - 插件类型路由
@@ -108,6 +110,7 @@ rdata-station/src-tauri/src/
 ### 2. PluginStore (持久化层)
 
 负责插件数据的持久化，提供：
+
 - 全局插件注册表操作
 - 项目插件引用管理
 - 插件配置存储
@@ -116,6 +119,7 @@ rdata-station/src-tauri/src/
 ### 3. ExtismPluginManager (WASM 插件)
 
 负责 WASM 插件的加载和管理：
+
 - 沙箱隔离执行
 - 宿主函数绑定
 - 配置和环境变量
@@ -124,6 +128,7 @@ rdata-station/src-tauri/src/
 ### 4. SidecarManager (Sidecar 插件)
 
 管理 Go Sidecar 进程：
+
 - 进程生命周期管理
 - 健康检查
 - 热重载/热更新
@@ -132,6 +137,7 @@ rdata-station/src-tauri/src/
 ### 5. EventManager (事件系统)
 
 提供插件间通信机制：
+
 - 发布-订阅模式
 - 类型安全事件
 - 插件生命周期事件
@@ -139,6 +145,7 @@ rdata-station/src-tauri/src/
 ### 6. PluginStorage (存储系统)
 
 为插件提供运行时存储：
+
 - 键值存储
 - 内存缓存
 - 数据隔离
@@ -193,6 +200,7 @@ timeout = 30000
 ## 数据模型
 
 ### 全局插件表 (plugins)
+
 ```sql
 CREATE TABLE plugins (
     id TEXT PRIMARY KEY,
@@ -214,6 +222,7 @@ CREATE TABLE plugins (
 ```
 
 ### 项目使用插件表 (project_used_plugins)
+
 ```sql
 CREATE TABLE project_used_plugins (
     plugin_code TEXT NOT NULL,
@@ -243,6 +252,7 @@ CREATE TABLE project_used_plugins (
 ## Tauri 命令 API
 
 ### 插件管理
+
 - `plugin_install`: 安装新插件
 - `plugin_uninstall`: 卸载插件
 - `plugin_enable`: 全局启用插件
@@ -250,6 +260,7 @@ CREATE TABLE project_used_plugins (
 - `plugin_get_all_installed`: 获取所有已安装插件
 
 ### 项目引用
+
 - `project_plugin_enable`: 在项目中启用插件
 - `project_plugin_disable`: 在项目中禁用插件
 - `project_plugin_remove`: 从项目移除插件
@@ -258,8 +269,8 @@ CREATE TABLE project_used_plugins (
 - `project_plugin_get_configs`: 获取项目插件配置
 
 ### 运行时
+
 - `plugin_load`: 加载插件（内存）
 - `plugin_activate`: 激活插件
 - `plugin_deactivate`: 停用插件
 - `plugin_unload`: 卸载插件
-

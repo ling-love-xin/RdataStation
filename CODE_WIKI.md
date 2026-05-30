@@ -52,32 +52,32 @@ RdataStation 是一个**本地优先、不上云**的数据库桌面管理工具
 
 ### 后端 (Rust)
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Rust | 2021 Edition | 主要开发语言 |
-| Tokio | 1.44.1 | 异步运行时 |
-| Tauri | 2.10.3 | 桌面应用框架 |
-| SQLx | 0.8.3 | MySQL/PostgreSQL 驱动 |
-| Rusqlite | 0.32.1 | SQLite 驱动 |
-| DuckDB-rs | 1.10502.0 | DuckDB 官方驱动 |
-| Arrow | 58.1.0 | 数据传输格式 |
-| Extism | 1.21.0 | WASM 插件运行时 |
-| Russh | 0.49.0 | SSH 隧道支持 |
-| Native-TLS | 0.2.13 | SSL/TLS 支持 |
+| 技术       | 版本         | 用途                  |
+| ---------- | ------------ | --------------------- |
+| Rust       | 2021 Edition | 主要开发语言          |
+| Tokio      | 1.44.1       | 异步运行时            |
+| Tauri      | 2.10.3       | 桌面应用框架          |
+| SQLx       | 0.8.3        | MySQL/PostgreSQL 驱动 |
+| Rusqlite   | 0.32.1       | SQLite 驱动           |
+| DuckDB-rs  | 1.10502.0    | DuckDB 官方驱动       |
+| Arrow      | 58.1.0       | 数据传输格式          |
+| Extism     | 1.21.0       | WASM 插件运行时       |
+| Russh      | 0.49.0       | SSH 隧道支持          |
+| Native-TLS | 0.2.13       | SSL/TLS 支持          |
 
 ### 前端 (Vue 3)
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Vue | 3.5.x | UI 框架 |
-| TypeScript | 6.0.x | 类型系统 |
-| Vite | 8.x | 构建工具 |
-| Pinia | 3.0.x | 状态管理 |
-| Naive UI | 2.44.x | UI 组件库 |
-| Dockview-vue | 6.1.x | IDE 布局引擎 |
-| AG Grid | 35.3.x | 数据表格 |
-| CodeMirror 6 | 6.x | 代码编辑器 |
-| ECharts | 6.x | 数据可视化 |
+| 技术         | 版本   | 用途         |
+| ------------ | ------ | ------------ |
+| Vue          | 3.5.x  | UI 框架      |
+| TypeScript   | 6.0.x  | 类型系统     |
+| Vite         | 8.x    | 构建工具     |
+| Pinia        | 3.0.x  | 状态管理     |
+| Naive UI     | 2.44.x | UI 组件库    |
+| Dockview-vue | 6.1.x  | IDE 布局引擎 |
+| AG Grid      | 35.3.x | 数据表格     |
+| CodeMirror 6 | 6.x    | 代码编辑器   |
+| ECharts      | 6.x    | 数据可视化   |
 
 ---
 
@@ -120,12 +120,12 @@ RdataStation 是一个**本地优先、不上云**的数据库桌面管理工具
 
 ### 数据分层策略
 
-| 数据类型 | 存储引擎 | 用途 |
-|---------|---------|------|
-| 事务性 | SQLite | 连接信息、SQL 历史、项目元数据 |
-| 分析性 | DuckDB | 查询结果、数据分析、临时表 |
-| 配置性 | JSON | 用户偏好、编辑器设置 |
-| 元数据缓存 | SQLite (每连接独立) | 表结构、列信息、索引 |
+| 数据类型   | 存储引擎            | 用途                           |
+| ---------- | ------------------- | ------------------------------ |
+| 事务性     | SQLite              | 连接信息、SQL 历史、项目元数据 |
+| 分析性     | DuckDB              | 查询结果、数据分析、临时表     |
+| 配置性     | JSON                | 用户偏好、编辑器设置           |
+| 元数据缓存 | SQLite (每连接独立) | 表结构、列信息、索引           |
 
 ### 项目组织结构
 
@@ -203,13 +203,13 @@ core/
 pub trait Database: Send + Sync {
     /// 执行 SQL 查询，返回 Arrow 格式结果
     async fn query(&self, sql: &str) -> Result<QueryResult, CoreError>;
-    
+
     /// 执行非查询 SQL (INSERT/UPDATE/DELETE)
     async fn execute(&self, sql: &str) -> Result<u64, CoreError>;
-    
+
     /// 开始事务
     async fn begin_transaction(&self) -> Result<Box<dyn Transaction>, CoreError>;
-    
+
     /// 获取元数据浏览器
     fn metadata_browser(&self) -> Option<&dyn MetadataBrowser>;
 }
@@ -300,13 +300,13 @@ L3: 源数据库 (原始数据)
 
 所有前端调用的后端接口均通过 Tauri 命令暴露：
 
-| 命令模块 | 功能 |
-|---------|------|
-| [`connection_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/connection_commands.rs) | 连接管理 |
-| [`sql_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/sql_commands.rs) | SQL 执行 |
-| [`metadata_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/metadata_commands.rs) | 元数据访问 |
-| [`project_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/project_commands.rs) | 项目管理 |
-| [`analytics_resource_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/analytics_resource_commands.rs) | 分析资源 |
+| 命令模块                                                                                                                                                         | 功能       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`connection_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/connection_commands.rs)                 | 连接管理   |
+| [`sql_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/sql_commands.rs)                               | SQL 执行   |
+| [`metadata_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/metadata_commands.rs)                     | 元数据访问 |
+| [`project_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/project_commands.rs)                       | 项目管理   |
+| [`analytics_resource_commands.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/commands/analytics_resource_commands.rs) | 分析资源   |
 
 ---
 
@@ -349,29 +349,25 @@ RdataStation 采用插件化架构，所有功能都作为扩展实现：
 
 ```typescript
 // 扩展清单结构 (rdata-plugin.toml)
-[plugin]
-name = "workbench"
-version = "0.1.0"
-description = "工作台核心扩展"
-
-[contributes.panels]
-"sql-editor" = { component = "EditorPanel" }
-"query-result" = { component = "QueryResultPanel" }
-
-[contributes.commands]
-"sql.execute" = { handler = "executeSql" }
+;[plugin]
+name = 'workbench'
+version = '0.1.0'
+description = '工作台核心扩展'[contributes.panels]
+'sql-editor' = { component = 'EditorPanel' }
+'query-result' = { component = 'QueryResultPanel' }[contributes.commands]
+'sql.execute' = { handler = 'executeSql' }
 ```
 
 ### 状态管理（Pinia）
 
 主要 Store：
 
-| Store | 位置 | 用途 |
-|-------|------|------|
-| ProjectStore | [`core/project/stores/project.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/core/project/stores/project.ts) | 项目状态管理 |
-| ConnectionStore | [`extensions/builtin/connection/ui/stores/connection-store.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/connection/ui/stores/connection-store.ts) | 连接状态 |
-| DatabaseNavigatorStore | [`extensions/builtin/database/ui/stores/database-navigator-store.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/database/ui/stores/database-navigator-store.ts) | 数据库导航 |
-| AnalyticsResourceStore | [`extensions/builtin/analytics-resource/ui/stores/analytics-resource-store.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/analytics-resource/ui/stores/analytics-resource-store.ts) | 分析资源 |
+| Store                  | 位置                                                                                                                                                                                                                                    | 用途         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| ProjectStore           | [`core/project/stores/project.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/core/project/stores/project.ts)                                                                                           | 项目状态管理 |
+| ConnectionStore        | [`extensions/builtin/connection/ui/stores/connection-store.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/connection/ui/stores/connection-store.ts)                                 | 连接状态     |
+| DatabaseNavigatorStore | [`extensions/builtin/database/ui/stores/database-navigator-store.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/database/ui/stores/database-navigator-store.ts)                     | 数据库导航   |
+| AnalyticsResourceStore | [`extensions/builtin/analytics-resource/ui/stores/analytics-resource-store.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/analytics-resource/ui/stores/analytics-resource-store.ts) | 分析资源     |
 
 ### Dockview 布局系统
 
@@ -686,14 +682,14 @@ A: 默认不持久化。如需持久化，点击查询结果面板的"持久化"
 
 ## 版本历史
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本   | 日期       | 说明                         |
+| ------ | ---------- | ---------------------------- |
 | v0.5.0 | 2026-05-20 | 网络连接功能 (SSH/SSL/Proxy) |
-| v0.4.0 | 2026-05-18 | Vite 8 升级，前端重构 |
-| v0.3.0 | 2026-05-12 | 代码质量优化，测试覆盖 |
-| v0.2.0 | 2026-05-03 | DuckDB 分析引擎集成 |
-| v0.1.0 | 2026-04-24 | 初始版本，基础架构 |
+| v0.4.0 | 2026-05-18 | Vite 8 升级，前端重构        |
+| v0.3.0 | 2026-05-12 | 代码质量优化，测试覆盖       |
+| v0.2.0 | 2026-05-03 | DuckDB 分析引擎集成          |
+| v0.1.0 | 2026-04-24 | 初始版本，基础架构           |
 
 ---
 
-*本文档持续更新中，如有疑问请提交 Issue 或 PR。*
+_本文档持续更新中，如有疑问请提交 Issue 或 PR。_

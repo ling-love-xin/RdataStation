@@ -109,7 +109,10 @@ impl SqlService {
 
         // 检查缓存（仅当启用缓存、非事务操作、非 DDL/DML 时）
         if options.use_cache && !options.use_transaction && is_dql {
-            let connection_id = conn_id.as_deref().unwrap_or(DEFAULT_CONN_KEY);
+            let connection_id = match conn_id.as_deref() {
+                Some(id) => id,
+                None => DEFAULT_CONN_KEY,
+            };
             if let Some(cached_result) = query_cache.get(connection_id, sql).await {
                 let elapsed_ms = start_time.elapsed().as_millis() as u64;
 
@@ -125,9 +128,10 @@ impl SqlService {
         let db = self.get_database(conn_id.clone()).await?;
 
         // 创建取消令牌（支持前端 cancel_query）
-        let conn_key = conn_id
-            .clone()
-            .unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
+        let conn_key = match conn_id.clone() {
+            Some(id) => id,
+            None => DEFAULT_CONN_KEY.to_string(),
+        };
         let cancel_token = self.manager.create_cancel_token(&conn_key).await;
 
         // 执行查询（支持取消和超时）
@@ -161,7 +165,10 @@ impl SqlService {
 
         // 将结果存入缓存（仅当启用缓存、非事务操作、且为 SELECT 查询时）
         if options.use_cache && !options.use_transaction && is_dql {
-            let connection_id = conn_id.as_deref().unwrap_or(DEFAULT_CONN_KEY);
+            let connection_id = match conn_id.as_deref() {
+                Some(id) => id,
+                None => DEFAULT_CONN_KEY,
+            };
             let _ = query_cache
                 .set(connection_id, sql, result.clone(), None)
                 .await;
@@ -239,15 +246,15 @@ impl SqlService {
         }
 
         if failed {
-            // 执行失败，回滚事务
             let _ = tx.rollback().await;
-            return Err(error.unwrap_or_else(|| {
-                CoreError::database(DatabaseError::Query {
+            return Err(match error {
+                Some(e) => e,
+                None => CoreError::database(DatabaseError::Query {
                     sql: "unknown".to_string(),
                     reason: "Transaction failed with unknown error".to_string(),
                     position: None,
-                })
-            }));
+                }),
+            });
         }
 
         // 提交事务
@@ -406,7 +413,10 @@ impl SqlService {
         conn_id: Option<String>,
     ) -> Result<TransactionStatusResult, CoreError> {
         let db = self.get_database(conn_id.clone()).await?;
-        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
+        let conn_id_str = match conn_id {
+            Some(ref id) => id.clone(),
+            None => DEFAULT_CONN_KEY.to_string(),
+        };
 
         // 执行 BEGIN TRANSACTION
         db.query("BEGIN TRANSACTION").await?;
@@ -416,10 +426,12 @@ impl SqlService {
             conn_id: conn_id_str,
             is_in_transaction: true,
             transaction_start_time_ms: Some(
-                std::time::SystemTime::now()
+                match std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64,
+                {
+                    Ok(d) => d.as_millis() as u64,
+                    Err(_) => 0u64,
+                },
             ),
             transaction_duration_ms: Some(0),
         })
@@ -431,7 +443,10 @@ impl SqlService {
         conn_id: Option<String>,
     ) -> Result<TransactionStatusResult, CoreError> {
         let db = self.get_database(conn_id.clone()).await?;
-        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
+        let conn_id_str = match conn_id {
+            Some(ref id) => id.clone(),
+            None => DEFAULT_CONN_KEY.to_string(),
+        };
 
         // 执行 COMMIT
         db.query("COMMIT").await?;
@@ -451,7 +466,10 @@ impl SqlService {
         conn_id: Option<String>,
     ) -> Result<TransactionStatusResult, CoreError> {
         let db = self.get_database(conn_id.clone()).await?;
-        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
+        let conn_id_str = match conn_id {
+            Some(ref id) => id.clone(),
+            None => DEFAULT_CONN_KEY.to_string(),
+        };
 
         // 执行 ROLLBACK
         db.query("ROLLBACK").await?;
@@ -470,7 +488,10 @@ impl SqlService {
         &self,
         conn_id: Option<String>,
     ) -> Result<TransactionStatusResult, CoreError> {
-        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
+        let conn_id_str = match conn_id {
+            Some(ref id) => id.clone(),
+            None => DEFAULT_CONN_KEY.to_string(),
+        };
 
         // 检查事务状态（简化实现，实际应从 session 获取）
         Ok(TransactionStatusResult {
@@ -483,7 +504,10 @@ impl SqlService {
 
     /// 取消指定连接正在执行的查询
     pub async fn cancel_query(&self, conn_id: Option<String>) -> Result<bool, CoreError> {
-        let conn_id_str = conn_id.unwrap_or_else(|| DEFAULT_CONN_KEY.to_string());
+        let conn_id_str = match conn_id {
+            Some(ref id) => id.clone(),
+            None => DEFAULT_CONN_KEY.to_string(),
+        };
         if conn_id_str.is_empty() {
             return Err(CoreError::connection(
                 crate::core::error::ConnectionError::NoActiveConnection,

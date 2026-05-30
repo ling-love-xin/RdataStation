@@ -149,7 +149,8 @@ import {
   NSpace,
   NModal,
   NPagination,
- createDiscreteApi } from 'naive-ui'
+  createDiscreteApi,
+} from 'naive-ui'
 import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
 
 import { useLogStore } from '@/extensions/builtin/workbench/ui/stores/log-store'

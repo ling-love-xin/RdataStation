@@ -99,7 +99,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
 
     const TIMEOUT_MS = 10_000
 
-    return new Promise<boolean>((resolve) => {
+    return new Promise<boolean>(resolve => {
       let settled = false
 
       const finish = (value: boolean) => {
@@ -127,7 +127,7 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
 
       const stopWatch = watch(
         () => runtimeConnectionStore.runtimeConnectionIds,
-        (newMap) => {
+        newMap => {
           if (settled) return
           checkConnection(newMap)
         },
@@ -136,7 +136,9 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
 
       setTimeout(() => {
         if (settled) return
-        connectionStore.loadConnections().catch(() => { /* */ })
+        connectionStore.loadConnections().catch(() => {
+          /* */
+        })
       }, 1000)
 
       const timeoutId = setTimeout(() => {
@@ -153,12 +155,15 @@ export function useConnectionBinding(_options: ConnectionBindingOptions = {}) {
         const firstConnected = connectionStore.connections.find(c => c.status === 'connected')
         if (firstConnected) {
           selectedConnection.value = firstConnected.connId
-          runtimeConnectionStore.establishFromConnection(firstConnected).then((runtimeId) => {
-            runtimeConnId.value = runtimeId ?? ''
-            resolve(true)
-          }).catch(() => {
-            resolve(false)
-          })
+          runtimeConnectionStore
+            .establishFromConnection(firstConnected)
+            .then(runtimeId => {
+              runtimeConnId.value = runtimeId ?? ''
+              resolve(true)
+            })
+            .catch(() => {
+              resolve(false)
+            })
           return
         }
 

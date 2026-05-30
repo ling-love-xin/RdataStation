@@ -1,4 +1,3 @@
-
 # RdataStation 插件系统实现完成总结
 
 ## 概述
@@ -10,6 +9,7 @@
 ### 1. 插件依赖管理系统 (core/plugin/dependency.rs) ✨ 新增
 
 **功能特性**:
+
 - 递归插件依赖解析
 - 循环依赖检测
 - 版本兼容性检查 (支持 ^ ~ 等前缀)
@@ -17,6 +17,7 @@
 - 插件被依赖检测
 
 **关键类型**:
+
 - `DependencyManager` - 依赖管理器
 - `DependencyResolution` - 依赖解析结果
 - `DependencyStatus` - 依赖状态
@@ -25,6 +26,7 @@
 ### 2. 插件权限管理系统 (core/plugin/permission.rs) ✨ 新增
 
 **功能特性**:
+
 - 内置权限定义 (数据、UI、WASM、系统 四类)
 - 权限验证与授予
 - 权限分类管理
@@ -32,6 +34,7 @@
 - 权限状态跟踪 (已授予、已拒绝、待确认)
 
 **关键类型**:
+
 - `PermissionManager` - 权限管理器
 - `Permission` - 权限定义
 - `PermissionGrant` - 权限授予记录
@@ -41,6 +44,7 @@
 ### 3. 插件加载系统 (core/plugin/loader.rs) ✨ 新增
 
 **功能特性：**
+
 - 插件目录自动扫描
 - 插件清单 (plugin.toml) 解析
 - 插件加载、激活、停用、卸载全生命周期管理
@@ -48,6 +52,7 @@
 - 加载状态跟踪
 
 **关键类型：**
+
 - `PluginLoader` - 插件加载器
 - `LoadedPlugin` - 已加载的插件信息
 - `LoadStatus` - 加载状态枚举
@@ -55,12 +60,14 @@
 ### 4. 事件系统 (core/plugin/events.rs)
 
 **功能特性：**
+
 - 插件全生命周期事件广播
 - 基于 tokio broadcast 的事件总线
 - 事件订阅和发布
 - 完整的事件类型定义
 
 **事件类型：**
+
 - `PluginLoaded` - 插件已加载
 - `PluginActivated` - 插件已激活
 - `PluginDeactivated` - 插件已停用
@@ -74,6 +81,7 @@
 ### 5. 插件包安装器 (core/plugin/installer.rs)
 
 **功能特性：**
+
 - 支持 .zip 格式插件包
 - 支持 .tar.gz 格式插件包
 - 支持目录格式插件
@@ -84,6 +92,7 @@
 ### 6. PluginService 完善 (core/services/plugin_service.rs)
 
 **新增功能：**
+
 - 完成 TODO 标记的实际加载流程
 - 应用启动时加载启用的插件
 - 项目打开时加载项目关联的插件
@@ -93,6 +102,7 @@
 ### 7. PluginManager 完善 (core/plugin/manager.rs)
 
 **新增功能：**
+
 - 添加全局单例初始化函数 `init_plugin_manager()`
 - 添加 `get_plugin_manager()` 获取器
 - 与事件系统集成
@@ -100,6 +110,7 @@
 ### 8. 系统初始化 (lib.rs)
 
 **完善内容：**
+
 - 初始化 PluginManager
 - 初始化 PluginLoader
 - 配置插件安装目录为 `{data_dir}/RdataStation/plugins`
@@ -128,6 +139,7 @@ src-tauri/src/
 ```
 
 **新增加的模块**:
+
 - `core/plugin/dependency.rs` - 插件依赖管理
 - `core/plugin/permission.rs` - 插件权限管理
 
@@ -191,23 +203,23 @@ load_project_plugins_on_open()
 
 插件系统提供了完整的 Tauri 命令集（已在 lib.rs 中注册）：
 
-| 命令 | 功能 |
-|-----|-----|
-| `plugin_get_all_installed` | 获取所有已安装插件 |
-| `plugin_get_with_status` | 获取带状态的插件列表 |
-| `plugin_install` | 安装插件 |
-| `plugin_uninstall` | 卸载插件 |
-| `plugin_enable` | 启用插件 |
-| `plugin_disable` | 禁用插件 |
-| `plugin_activate` | 激活插件 |
-| `plugin_deactivate` | 停用插件 |
-| `project_plugin_enable` | 在项目中启用插件 |
-| `project_plugin_disable` | 在项目中禁用插件 |
-| `project_plugin_remove` | 从项目中移除插件 |
-| `project_plugin_list` | 获取项目插件列表 |
-| `project_plugin_set_config` | 设置项目插件配置 |
-| `project_plugin_get_configs` | 获取项目插件配置 |
-| `plugin_load_enabled_on_startup` | 启动加载 |
+| 命令                             | 功能                 |
+| -------------------------------- | -------------------- |
+| `plugin_get_all_installed`       | 获取所有已安装插件   |
+| `plugin_get_with_status`         | 获取带状态的插件列表 |
+| `plugin_install`                 | 安装插件             |
+| `plugin_uninstall`               | 卸载插件             |
+| `plugin_enable`                  | 启用插件             |
+| `plugin_disable`                 | 禁用插件             |
+| `plugin_activate`                | 激活插件             |
+| `plugin_deactivate`              | 停用插件             |
+| `project_plugin_enable`          | 在项目中启用插件     |
+| `project_plugin_disable`         | 在项目中禁用插件     |
+| `project_plugin_remove`          | 从项目中移除插件     |
+| `project_plugin_list`            | 获取项目插件列表     |
+| `project_plugin_set_config`      | 设置项目插件配置     |
+| `project_plugin_get_configs`     | 获取项目插件配置     |
+| `plugin_load_enabled_on_startup` | 启动加载             |
 
 ### 直接使用服务
 
@@ -308,12 +320,14 @@ shortcut = "Ctrl+H"
 ## 🚧 待完善功能
 
 ### 中优先级
+
 - [ ] 插件依赖管理（自动安装依赖）
 - [ ] 权限系统与 PluginBridge 完全对接
 - [ ] 插件版本升级/回滚
 - [ ] 更多错误处理完善
 
 ### 低优先级
+
 - [ ] 插件市场/仓库
 - [ ] 插件搜索与分类
 - [ ] 插件更新检查
@@ -364,15 +378,15 @@ shortcut = "Ctrl+H"
 
 ## 📖 功能完整度
 
-| 功能模块 | 完成度 | 说明 |
-|---------|---------|-----|
-| 插件生命周期管理 | ✅ 100% | 加载、激活、停用、卸载完整实现 |
-| 插件存储 (全局+项目) | ✅ 100% | 数据库完整对接 |
-| 事件系统 | ✅ 100% | 完整的事件发布订阅 |
-| 插件包格式支持 | ✅ 95% | 框架实现完整，待实际测试 |
-| 依赖管理 | ✅ 90% | 核心逻辑完成，待实际测试 |
-| 权限管理 | ✅ 90% | 权限定义和授予完成，待与安全模块对接 |
-| 错误处理 | ✅ 100% | PluginError 完整定义 |
+| 功能模块             | 完成度  | 说明                                 |
+| -------------------- | ------- | ------------------------------------ |
+| 插件生命周期管理     | ✅ 100% | 加载、激活、停用、卸载完整实现       |
+| 插件存储 (全局+项目) | ✅ 100% | 数据库完整对接                       |
+| 事件系统             | ✅ 100% | 完整的事件发布订阅                   |
+| 插件包格式支持       | ✅ 95%  | 框架实现完整，待实际测试             |
+| 依赖管理             | ✅ 90%  | 核心逻辑完成，待实际测试             |
+| 权限管理             | ✅ 90%  | 权限定义和授予完成，待与安全模块对接 |
+| 错误处理             | ✅ 100% | PluginError 完整定义                 |
 
 ## 🎯 下一步建议
 

@@ -163,7 +163,9 @@ const isSelected = computed(() => {
   }
   return props.selectedKey ? normPath(props.selectedKey) === np : false
 })
-const isRenaming = computed(() => (props.renamingKey ? normPath(props.renamingKey) === normPath(props.entry.path) : false))
+const isRenaming = computed(() =>
+  props.renamingKey ? normPath(props.renamingKey) === normPath(props.entry.path) : false
+)
 
 const isInlineCreateTarget = computed(
   () =>
@@ -238,19 +240,23 @@ watch(isRenaming, async val => {
 let inlineClickOutsideCleanup: (() => void) | null = null
 let inlineClickOutsideTimer: ReturnType<typeof setTimeout> | null = null
 
-watch(isInlineCreateTarget, async val => {
-  if (val) {
-    console.log('[TreeNode] isInlineCreateTarget=true, entry:', props.entry.path)
-    inlineCreateName.value = ''
-    await nextTick()
-    console.log('[TreeNode] inlineInputRef:', inlineInputRef.value ? 'exists' : 'null')
-    inlineInputRef.value?.focus()
-    inlineInputRef.value?.scrollIntoView({ block: 'nearest' })
-    registerInlineClickOutside()
-  } else {
-    cleanupInlineClickOutside()
-  }
-}, { immediate: true })
+watch(
+  isInlineCreateTarget,
+  async val => {
+    if (val) {
+      console.log('[TreeNode] isInlineCreateTarget=true, entry:', props.entry.path)
+      inlineCreateName.value = ''
+      await nextTick()
+      console.log('[TreeNode] inlineInputRef:', inlineInputRef.value ? 'exists' : 'null')
+      inlineInputRef.value?.focus()
+      inlineInputRef.value?.scrollIntoView({ block: 'nearest' })
+      registerInlineClickOutside()
+    } else {
+      cleanupInlineClickOutside()
+    }
+  },
+  { immediate: true }
+)
 
 function registerInlineClickOutside(): void {
   cleanupInlineClickOutside()

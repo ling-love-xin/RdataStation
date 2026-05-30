@@ -22,7 +22,11 @@
           🔒 {{ t('networkTab.profileManager.ssl') }}
           <span class="cm-badge">{{ sslProfiles.length }}</span>
         </button>
-        <button class="cm-tab" :class="{ active: activeTab === 'proxy' }" @click="switchTab('proxy')">
+        <button
+          class="cm-tab"
+          :class="{ active: activeTab === 'proxy' }"
+          @click="switchTab('proxy')"
+        >
           🌐 {{ t('networkTab.profileManager.proxy') }}
           <span class="cm-badge">{{ proxyProfiles.length }}</span>
         </button>
@@ -30,7 +34,6 @@
 
       <!-- Content -->
       <div class="cm-content">
-
         <!-- ===== SSH Tab ===== -->
         <template v-if="activeTab === 'ssh'">
           <div v-if="sshGlobal.length > 0" class="cm-group">
@@ -41,8 +44,12 @@
                 <span class="cm-card-detail">{{ p.detail }}</span>
               </div>
               <div class="cm-card-actions">
-                <button class="cm-action-btn edit" title="编辑" @click="editSsh(p)"><Pencil :size="13" /></button>
-                <button class="cm-action-btn" title="删除" @click="onDeleteSsh(p.id)"><Trash2 :size="13" /></button>
+                <button class="cm-action-btn edit" title="编辑" @click="editSsh(p)"
+                  ><Pencil :size="13"
+                /></button>
+                <button class="cm-action-btn" title="删除" @click="onDeleteSsh(p.id)"
+                  ><Trash2 :size="13"
+                /></button>
               </div>
             </div>
           </div>
@@ -54,8 +61,12 @@
                 <span class="cm-card-detail">{{ p.detail }}</span>
               </div>
               <div class="cm-card-actions">
-                <button class="cm-action-btn edit" title="编辑" @click="editSsh(p)"><Pencil :size="13" /></button>
-                <button class="cm-action-btn" title="删除" @click="onDeleteSsh(p.id)"><Trash2 :size="13" /></button>
+                <button class="cm-action-btn edit" title="编辑" @click="editSsh(p)"
+                  ><Pencil :size="13"
+                /></button>
+                <button class="cm-action-btn" title="删除" @click="onDeleteSsh(p.id)"
+                  ><Trash2 :size="13"
+                /></button>
               </div>
             </div>
           </div>
@@ -63,7 +74,9 @@
           <!-- New SSH form -->
           <template v-if="showSshForm">
             <div class="cm-create-form">
-              <div class="cm-form-title">{{ editingSshId ? '编辑 SSH 隧道配置' : '+ 新建 SSH 隧道配置' }}</div>
+              <div class="cm-form-title">{{
+                editingSshId ? '编辑 SSH 隧道配置' : '+ 新建 SSH 隧道配置'
+              }}</div>
 
               <div class="cm-form-row">
                 <div class="cm-form-group f2">
@@ -87,7 +100,12 @@
                 </div>
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">端口</label>
-                  <input v-model.number="sshForm.port" type="number" class="cm-input" placeholder="22" />
+                  <input
+                    v-model.number="sshForm.port"
+                    type="number"
+                    class="cm-input"
+                    placeholder="22"
+                  />
                 </div>
               </div>
 
@@ -108,7 +126,12 @@
               <div v-if="sshForm.authMethod === 'password'" class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">密码</label>
-                  <input v-model="sshForm.password" type="password" class="cm-input" placeholder="输入 SSH 密码" />
+                  <input
+                    v-model="sshForm.password"
+                    type="password"
+                    class="cm-input"
+                    placeholder="输入 SSH 密码"
+                  />
                 </div>
               </div>
               <div v-else class="cm-form-row">
@@ -120,13 +143,23 @@
               <div v-if="sshForm.authMethod === 'key'" class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">私钥密码 (可选)</label>
-                  <input v-model="sshForm.passphrase" type="password" class="cm-input" placeholder="私钥保护密码" />
+                  <input
+                    v-model="sshForm.passphrase"
+                    type="password"
+                    class="cm-input"
+                    placeholder="私钥保护密码"
+                  />
                 </div>
               </div>
               <div class="cm-form-row">
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">保活间隔 (秒)</label>
-                  <input v-model.number="sshForm.keepalive" type="number" class="cm-input" placeholder="60" />
+                  <input
+                    v-model.number="sshForm.keepalive"
+                    type="number"
+                    class="cm-input"
+                    placeholder="60"
+                  />
                 </div>
               </div>
 
@@ -134,7 +167,12 @@
               <div class="cm-form-row">
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">本地端口</label>
-                  <input v-model.number="sshForm.localPort" type="number" class="cm-input" placeholder="自动分配" />
+                  <input
+                    v-model.number="sshForm.localPort"
+                    type="number"
+                    class="cm-input"
+                    placeholder="自动分配"
+                  />
                 </div>
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">远程主机</label>
@@ -142,16 +180,25 @@
                 </div>
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">远程端口</label>
-                  <input v-model.number="sshForm.remotePort" type="number" class="cm-input" placeholder="3306" />
+                  <input
+                    v-model.number="sshForm.remotePort"
+                    type="number"
+                    class="cm-input"
+                    placeholder="3306"
+                  />
                 </div>
               </div>
 
-              <div class="cm-form-hint">将远程目标通过 SSH 隧道映射到本地端口，实现安全穿透访问</div>
+              <div class="cm-form-hint"
+                >将远程目标通过 SSH 隧道映射到本地端口，实现安全穿透访问</div
+              >
 
               <div class="cm-form-actions">
                 <button class="cm-btn secondary" @click="cancelSshForm">取消</button>
                 <button class="cm-btn test" @click="testSshForm">🧪 测试连接</button>
-                <button class="cm-btn primary" @click="saveSshForm">{{ editingSshId ? '保存修改' : '保存配置' }}</button>
+                <button class="cm-btn primary" @click="saveSshForm">{{
+                  editingSshId ? '保存修改' : '保存配置'
+                }}</button>
               </div>
             </div>
           </template>
@@ -169,11 +216,20 @@
             <div v-for="p in sslGlobal" :key="p.id" class="cm-card">
               <div class="cm-card-info">
                 <span class="cm-card-name">{{ p.name }}</span>
-                <span class="cm-card-detail">模式: {{ cfgField(p, 'mode', 'require') }}<template v-if="cfgField(p, 'ca')"> · CA: {{ basename(String(cfgField(p, 'ca', ''))) }}</template></span>
+                <span class="cm-card-detail"
+                  >模式: {{ cfgField(p, 'mode', 'require')
+                  }}<template v-if="cfgField(p, 'ca')">
+                    · CA: {{ basename(String(cfgField(p, 'ca', ''))) }}</template
+                  ></span
+                >
               </div>
               <div class="cm-card-actions">
-                <button class="cm-action-btn edit" title="编辑" @click="editSsl(p)"><Pencil :size="13" /></button>
-                <button class="cm-action-btn" title="删除" @click="onDeleteSsl(p.id)"><Trash2 :size="13" /></button>
+                <button class="cm-action-btn edit" title="编辑" @click="editSsl(p)"
+                  ><Pencil :size="13"
+                /></button>
+                <button class="cm-action-btn" title="删除" @click="onDeleteSsl(p.id)"
+                  ><Trash2 :size="13"
+                /></button>
               </div>
             </div>
           </div>
@@ -182,18 +238,29 @@
             <div v-for="p in sslProject" :key="p.id" class="cm-card">
               <div class="cm-card-info">
                 <span class="cm-card-name">{{ p.name }}</span>
-                <span class="cm-card-detail">模式: {{ cfgField(p, 'mode', 'require') }}<template v-if="cfgField(p, 'ca')"> · CA: {{ basename(String(cfgField(p, 'ca', ''))) }}</template></span>
+                <span class="cm-card-detail"
+                  >模式: {{ cfgField(p, 'mode', 'require')
+                  }}<template v-if="cfgField(p, 'ca')">
+                    · CA: {{ basename(String(cfgField(p, 'ca', ''))) }}</template
+                  ></span
+                >
               </div>
               <div class="cm-card-actions">
-                <button class="cm-action-btn edit" title="编辑" @click="editSsl(p)"><Pencil :size="13" /></button>
-                <button class="cm-action-btn" title="删除" @click="onDeleteSsl(p.id)"><Trash2 :size="13" /></button>
+                <button class="cm-action-btn edit" title="编辑" @click="editSsl(p)"
+                  ><Pencil :size="13"
+                /></button>
+                <button class="cm-action-btn" title="删除" @click="onDeleteSsl(p.id)"
+                  ><Trash2 :size="13"
+                /></button>
               </div>
             </div>
           </div>
 
           <template v-if="showSslForm">
             <div class="cm-create-form">
-              <div class="cm-form-title">{{ editingSslId ? '编辑 SSL/TLS 配置' : '+ 新建 SSL/TLS 配置' }}</div>
+              <div class="cm-form-title">{{
+                editingSslId ? '编辑 SSL/TLS 配置' : '+ 新建 SSL/TLS 配置'
+              }}</div>
               <div class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">配置名称</label>
@@ -228,25 +295,39 @@
               <div class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">客户端证书路径</label>
-                  <input v-model="sslForm.clientCert" class="cm-input" placeholder="/path/to/client-cert.pem" />
+                  <input
+                    v-model="sslForm.clientCert"
+                    class="cm-input"
+                    placeholder="/path/to/client-cert.pem"
+                  />
                 </div>
               </div>
               <div class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">客户端密钥路径</label>
-                  <input v-model="sslForm.clientKey" class="cm-input" placeholder="/path/to/client-key.pem" />
+                  <input
+                    v-model="sslForm.clientKey"
+                    class="cm-input"
+                    placeholder="/path/to/client-key.pem"
+                  />
                 </div>
               </div>
               <div class="cm-form-row">
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">主机名覆盖 (可选)</label>
-                  <input v-model="sslForm.hostnameOverride" class="cm-input" placeholder="db.example.com" />
+                  <input
+                    v-model="sslForm.hostnameOverride"
+                    class="cm-input"
+                    placeholder="db.example.com"
+                  />
                 </div>
               </div>
               <div class="cm-form-actions">
                 <button class="cm-btn secondary" @click="cancelSslForm">取消</button>
                 <button class="cm-btn test" @click="testSslForm">🧪 测试连接</button>
-                <button class="cm-btn primary" @click="saveSslForm">{{ editingSslId ? '保存修改' : '保存配置' }}</button>
+                <button class="cm-btn primary" @click="saveSslForm">{{
+                  editingSslId ? '保存修改' : '保存配置'
+                }}</button>
               </div>
             </div>
           </template>
@@ -263,11 +344,21 @@
             <div v-for="p in proxyGlobal" :key="p.id" class="cm-card">
               <div class="cm-card-info">
                 <span class="cm-card-name">{{ p.name }}</span>
-                <span class="cm-card-detail">{{ String(cfgField(p, 'type', 'socks5')).toUpperCase() }} {{ cfgField(p, 'host') }}:{{ cfgField(p, 'port') }}<template v-if="cfgField(p, 'username')"> · {{ cfgField(p, 'username') }}</template></span>
+                <span class="cm-card-detail"
+                  >{{ String(cfgField(p, 'type', 'socks5')).toUpperCase() }}
+                  {{ cfgField(p, 'host') }}:{{ cfgField(p, 'port')
+                  }}<template v-if="cfgField(p, 'username')">
+                    · {{ cfgField(p, 'username') }}</template
+                  ></span
+                >
               </div>
               <div class="cm-card-actions">
-                <button class="cm-action-btn edit" title="编辑" @click="editProxy(p)"><Pencil :size="13" /></button>
-                <button class="cm-action-btn" title="删除" @click="onDeleteProxy(p.id)"><Trash2 :size="13" /></button>
+                <button class="cm-action-btn edit" title="编辑" @click="editProxy(p)"
+                  ><Pencil :size="13"
+                /></button>
+                <button class="cm-action-btn" title="删除" @click="onDeleteProxy(p.id)"
+                  ><Trash2 :size="13"
+                /></button>
               </div>
             </div>
           </div>
@@ -276,18 +367,30 @@
             <div v-for="p in proxyProject" :key="p.id" class="cm-card">
               <div class="cm-card-info">
                 <span class="cm-card-name">{{ p.name }}</span>
-                <span class="cm-card-detail">{{ String(cfgField(p, 'type', 'socks5')).toUpperCase() }} {{ cfgField(p, 'host') }}:{{ cfgField(p, 'port') }}<template v-if="cfgField(p, 'username')"> · {{ cfgField(p, 'username') }}</template></span>
+                <span class="cm-card-detail"
+                  >{{ String(cfgField(p, 'type', 'socks5')).toUpperCase() }}
+                  {{ cfgField(p, 'host') }}:{{ cfgField(p, 'port')
+                  }}<template v-if="cfgField(p, 'username')">
+                    · {{ cfgField(p, 'username') }}</template
+                  ></span
+                >
               </div>
               <div class="cm-card-actions">
-                <button class="cm-action-btn edit" title="编辑" @click="editProxy(p)"><Pencil :size="13" /></button>
-                <button class="cm-action-btn" title="删除" @click="onDeleteProxy(p.id)"><Trash2 :size="13" /></button>
+                <button class="cm-action-btn edit" title="编辑" @click="editProxy(p)"
+                  ><Pencil :size="13"
+                /></button>
+                <button class="cm-action-btn" title="删除" @click="onDeleteProxy(p.id)"
+                  ><Trash2 :size="13"
+                /></button>
               </div>
             </div>
           </div>
 
           <template v-if="showProxyForm">
             <div class="cm-create-form">
-              <div class="cm-form-title">{{ editingProxyId ? '编辑代理配置' : '+ 新建代理配置' }}</div>
+              <div class="cm-form-title">{{
+                editingProxyId ? '编辑代理配置' : '+ 新建代理配置'
+              }}</div>
               <div class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">配置名称</label>
@@ -315,11 +418,20 @@
               <div class="cm-form-row">
                 <div class="cm-form-group f2">
                   <label class="cm-form-label">主机</label>
-                  <input v-model="proxyForm.host" class="cm-input" placeholder="proxy.company.com" />
+                  <input
+                    v-model="proxyForm.host"
+                    class="cm-input"
+                    placeholder="proxy.company.com"
+                  />
                 </div>
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">端口</label>
-                  <input v-model.number="proxyForm.port" type="number" class="cm-input" placeholder="1080" />
+                  <input
+                    v-model.number="proxyForm.port"
+                    type="number"
+                    class="cm-input"
+                    placeholder="1080"
+                  />
                 </div>
               </div>
               <div class="cm-form-section">🔐 代理认证 (可选)</div>
@@ -330,13 +442,20 @@
                 </div>
                 <div class="cm-form-group f1">
                   <label class="cm-form-label">密码</label>
-                  <input v-model="proxyForm.password" type="password" class="cm-input" placeholder="可选" />
+                  <input
+                    v-model="proxyForm.password"
+                    type="password"
+                    class="cm-input"
+                    placeholder="可选"
+                  />
                 </div>
               </div>
               <div class="cm-form-actions">
                 <button class="cm-btn secondary" @click="cancelProxyForm">取消</button>
                 <button class="cm-btn test" @click="testProxyForm">🧪 测试连接</button>
-                <button class="cm-btn primary" @click="saveProxyForm">{{ editingProxyId ? '保存修改' : '保存配置' }}</button>
+                <button class="cm-btn primary" @click="saveProxyForm">{{
+                  editingProxyId ? '保存修改' : '保存配置'
+                }}</button>
               </div>
             </div>
           </template>
@@ -399,7 +518,12 @@ function cfgField(p: NetworkProfile, field: string, fallback?: unknown): unknown
 
 // ===== Tab state =====
 const activeTab = ref<'ssh' | 'ssl' | 'proxy'>('ssh')
-watch(() => props.visible, (v) => { if (v) activeTab.value = props.defaultTab ?? 'ssh' })
+watch(
+  () => props.visible,
+  v => {
+    if (v) activeTab.value = props.defaultTab ?? 'ssh'
+  }
+)
 
 function switchTab(t: 'ssh' | 'ssl' | 'proxy') {
   activeTab.value = t
@@ -434,14 +558,28 @@ const showActiveForm = computed(() => {
 
 // ===== SSH form (composable) =====
 const ssh = useProfileForm(
-  { name: '', scope: 'project' as 'global' | 'project', host: '', port: 22, username: 'root', authMethod: 'password' as 'password' | 'key', password: '', keyPath: '', passphrase: '', keepalive: 60, localPort: undefined as number | undefined, remoteHost: '', remotePort: undefined as number | undefined },
   {
-    onSave: (f) => emit('create-ssh', f),
-    testMsg: (f) => `🧪 测试 SSH 连接: ${f.host}:${f.port}`,
+    name: '',
+    scope: 'project' as 'global' | 'project',
+    host: '',
+    port: 22,
+    username: 'root',
+    authMethod: 'password' as 'password' | 'key',
+    password: '',
+    keyPath: '',
+    passphrase: '',
+    keepalive: 60,
+    localPort: undefined as number | undefined,
+    remoteHost: '',
+    remotePort: undefined as number | undefined,
   },
+  {
+    onSave: f => emit('create-ssh', f),
+    testMsg: f => `🧪 测试 SSH 连接: ${f.host}:${f.port}`,
+  }
 )
 function editSsh(p: NetworkProfile) {
-  ssh.edit(p, (p) => ({
+  ssh.edit(p, p => ({
     name: p.name,
     scope: isGlobalProfile(p) ? 'global' : 'project',
     host: String(cfgField(p, 'host', '')),
@@ -452,23 +590,38 @@ function editSsh(p: NetworkProfile) {
     keyPath: String(cfgField(p, 'keyPath', '')),
     passphrase: String(cfgField(p, 'passphrase', '')),
     keepalive: Number(cfgField(p, 'keepalive', 60)),
-    localPort: cfgField(p, 'localPort') as number || undefined,
+    localPort: (cfgField(p, 'localPort') as number) || undefined,
     remoteHost: String(cfgField(p, 'remoteHost', '')),
-    remotePort: cfgField(p, 'remotePort') as number || undefined,
+    remotePort: (cfgField(p, 'remotePort') as number) || undefined,
   }))
 }
-const { showForm: showSshForm, editingId: editingSshId, form: sshForm, cancelForm: cancelSshForm, testForm: testSshForm, saveForm: saveSshForm } = ssh
+const {
+  showForm: showSshForm,
+  editingId: editingSshId,
+  form: sshForm,
+  cancelForm: cancelSshForm,
+  testForm: testSshForm,
+  saveForm: saveSshForm,
+} = ssh
 
 // ===== SSL form (composable) =====
 const ssl = useProfileForm(
-  { name: '', scope: 'project' as 'global' | 'project', mode: 'require', ca: '', clientCert: '', clientKey: '', hostnameOverride: '' },
   {
-    onSave: (f) => emit('create-ssl', f),
-    testMsg: (f) => `🧪 测试 SSL 连接: ${f.mode}`,
+    name: '',
+    scope: 'project' as 'global' | 'project',
+    mode: 'require',
+    ca: '',
+    clientCert: '',
+    clientKey: '',
+    hostnameOverride: '',
   },
+  {
+    onSave: f => emit('create-ssl', f),
+    testMsg: f => `🧪 测试 SSL 连接: ${f.mode}`,
+  }
 )
 function editSsl(p: NetworkProfile) {
-  ssl.edit(p, (p) => ({
+  ssl.edit(p, p => ({
     name: p.name,
     scope: isGlobalProfile(p) ? 'global' : 'project',
     mode: String(cfgField(p, 'mode', 'require')),
@@ -478,18 +631,33 @@ function editSsl(p: NetworkProfile) {
     hostnameOverride: String(cfgField(p, 'hostnameOverride', '')),
   }))
 }
-const { showForm: showSslForm, editingId: editingSslId, form: sslForm, cancelForm: cancelSslForm, testForm: testSslForm, saveForm: saveSslForm } = ssl
+const {
+  showForm: showSslForm,
+  editingId: editingSslId,
+  form: sslForm,
+  cancelForm: cancelSslForm,
+  testForm: testSslForm,
+  saveForm: saveSslForm,
+} = ssl
 
 // ===== Proxy form (composable) =====
 const proxy = useProfileForm(
-  { name: '', scope: 'project' as 'global' | 'project', type: 'socks5', host: '', port: 1080, username: '', password: '' },
   {
-    onSave: (f) => emit('create-proxy', f),
-    testMsg: (f) => `🧪 测试代理: ${String(f.type).toUpperCase()} ${f.host}:${f.port}`,
+    name: '',
+    scope: 'project' as 'global' | 'project',
+    type: 'socks5',
+    host: '',
+    port: 1080,
+    username: '',
+    password: '',
   },
+  {
+    onSave: f => emit('create-proxy', f),
+    testMsg: f => `🧪 测试代理: ${String(f.type).toUpperCase()} ${f.host}:${f.port}`,
+  }
 )
 function editProxy(p: NetworkProfile) {
-  proxy.edit(p, (p) => ({
+  proxy.edit(p, p => ({
     name: p.name,
     scope: isGlobalProfile(p) ? 'global' : 'project',
     type: String(cfgField(p, 'type', 'socks5')),
@@ -499,7 +667,14 @@ function editProxy(p: NetworkProfile) {
     password: String(cfgField(p, 'password', '')),
   }))
 }
-const { showForm: showProxyForm, editingId: editingProxyId, form: proxyForm, cancelForm: cancelProxyForm, testForm: testProxyForm, saveForm: saveProxyForm } = proxy
+const {
+  showForm: showProxyForm,
+  editingId: editingProxyId,
+  form: proxyForm,
+  cancelForm: cancelProxyForm,
+  testForm: testProxyForm,
+  saveForm: saveProxyForm,
+} = proxy
 
 // ===== Cancel all on tab switch =====
 function cancelForms() {
@@ -509,10 +684,18 @@ function cancelForms() {
 }
 
 // ===== Delete =====
-function close() { emit('close') }
-function onDeleteSsh(id: string) { emit('delete-ssh', id) }
-function onDeleteSsl(id: string) { emit('delete-ssl', id) }
-function onDeleteProxy(id: string) { emit('delete-proxy', id) }
+function close() {
+  emit('close')
+}
+function onDeleteSsh(id: string) {
+  emit('delete-ssh', id)
+}
+function onDeleteSsl(id: string) {
+  emit('delete-ssl', id)
+}
+function onDeleteProxy(id: string) {
+  emit('delete-proxy', id)
+}
 
 function basename(path: string): string {
   return path.replace(/\\/g, '/').split('/').pop() || path
@@ -520,64 +703,327 @@ function basename(path: string): string {
 </script>
 
 <style scoped>
-.config-manager-overlay { position: fixed; inset: 0; z-index: 1001; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
-.config-manager-dialog { width: 620px; max-height: 560px; background: var(--color-bg-primary,#1e1e2e); border: 1px solid var(--color-border,#313244); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.config-manager-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.config-manager-dialog {
+  width: 620px;
+  max-height: 560px;
+  background: var(--color-bg-primary, #1e1e2e);
+  border: 1px solid var(--color-border, #313244);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
 
-.cm-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--color-border,#313244); }
-.cm-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; color: var(--color-text-primary,#cdd6f4); }
-.cm-close-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: var(--color-text-muted,#6c7086); cursor: pointer; }
-.cm-close-btn:hover { background: rgba(255,255,255,0.08); color: var(--color-text-primary,#cdd6f4); }
+.cm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border, #313244);
+}
+.cm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #cdd6f4);
+}
+.cm-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted, #6c7086);
+  cursor: pointer;
+}
+.cm-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary, #cdd6f4);
+}
 
-.cm-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border,#313244); padding: 0 18px; }
-.cm-tab { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--color-text-muted,#6c7086); font-size: 13px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
-.cm-tab:hover { color: var(--color-text-secondary,#a6adc8); }
-.cm-tab.active { color: var(--brand-accent,#e17055); border-bottom-color: var(--brand-accent,#e17055); }
-.cm-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: rgba(255,255,255,0.08); font-size: 11px; color: var(--color-text-muted,#6c7086); }
-.cm-tab.active .cm-badge { background: rgba(225,112,85,0.15); color: var(--brand-accent,#e17055); }
+.cm-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border, #313244);
+  padding: 0 18px;
+}
+.cm-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted, #6c7086);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.cm-tab:hover {
+  color: var(--color-text-secondary, #a6adc8);
+}
+.cm-tab.active {
+  color: var(--brand-accent, #e17055);
+  border-bottom-color: var(--brand-accent, #e17055);
+}
+.cm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: var(--color-text-muted, #6c7086);
+}
+.cm-tab.active .cm-badge {
+  background: rgba(225, 112, 85, 0.15);
+  color: var(--brand-accent, #e17055);
+}
 
-.cm-content { flex: 1; overflow-y: auto; padding: 12px 18px 16px; }
+.cm-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px 16px;
+}
 
-.cm-group { margin-bottom: 8px; }
-.cm-group-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted,#6c7086); padding: 6px 4px 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.cm-group {
+  margin-bottom: 8px;
+}
+.cm-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6c7086);
+  padding: 6px 4px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 
-.cm-card { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 4px; border-radius: 6px; background: var(--color-bg-secondary,rgba(255,255,255,0.04)); border: 1px solid transparent; transition: border-color 0.15s; }
-.cm-card:hover { border-color: var(--color-border,#313244); }
-.cm-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.cm-card-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary,#cdd6f4); }
-.cm-card-detail { font-size: 11px; color: var(--color-text-muted,#6c7086); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cm-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.cm-action-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; border-radius: 4px; background: transparent; color: var(--color-text-muted,#6c7086); cursor: pointer; }
-.cm-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--color-text-primary,#cdd6f4); }
-.cm-action-btn.edit:hover { color: var(--brand-accent,#e17055); }
+.cm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  background: var(--color-bg-secondary, rgba(255, 255, 255, 0.04));
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.cm-card:hover {
+  border-color: var(--color-border, #313244);
+}
+.cm-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cm-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary, #cdd6f4);
+}
+.cm-card-detail {
+  font-size: 11px;
+  color: var(--color-text-muted, #6c7086);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.cm-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted, #6c7086);
+  cursor: pointer;
+}
+.cm-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary, #cdd6f4);
+}
+.cm-action-btn.edit:hover {
+  color: var(--brand-accent, #e17055);
+}
 
-.cm-empty { display: flex; align-items: center; justify-content: center; height: 80px; color: var(--color-text-muted,#6c7086); font-size: 13px; }
+.cm-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  color: var(--color-text-muted, #6c7086);
+  font-size: 13px;
+}
 
 /* add button */
-.cm-add-btn { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px; border: 1px dashed var(--color-border,#45475a); border-radius: 6px; background: transparent; color: var(--color-text-muted,#6c7086); font-size: 13px; cursor: pointer; margin-top: 8px; transition: all 0.15s; }
-.cm-add-btn:hover { border-color: var(--brand-accent,#e17055); color: var(--color-text-primary,#cdd6f4); background: rgba(255,255,255,0.02); }
+.cm-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: 1px dashed var(--color-border, #45475a);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted, #6c7086);
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.15s;
+}
+.cm-add-btn:hover {
+  border-color: var(--brand-accent, #e17055);
+  color: var(--color-text-primary, #cdd6f4);
+  background: rgba(255, 255, 255, 0.02);
+}
 
 /* create form */
-.cm-create-form { margin-top: 8px; padding: 14px; border: 1px solid var(--brand-accent,#e17055); border-radius: 8px; background: var(--color-bg-secondary,rgba(137,180,250,0.03)); display: flex; flex-direction: column; gap: 10px; }
-.cm-form-title { font-size: 13px; font-weight: 600; color: var(--brand-accent,#e17055); margin-bottom: 2px; }
-.cm-form-section { font-size: 11px; font-weight: 600; color: var(--color-text-muted,#6c7086); padding-top: 4px; border-top: 1px solid var(--color-border-subtle,rgba(255,255,255,0.06)); letter-spacing: 0.3px; }
-.cm-form-row { display: flex; gap: 10px; align-items: flex-end; }
-.cm-form-group { display: flex; flex-direction: column; gap: 4px; }
-.cm-form-group.f2 { flex: 2; }
-.cm-form-group.f1 { flex: 1; }
-.cm-form-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary,#a6adc8); }
-.cm-form-hint { font-size: 11px; color: var(--color-text-muted,#6c7086); font-style: italic; padding: 2px 0; }
+.cm-create-form {
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--brand-accent, #e17055);
+  border-radius: 8px;
+  background: var(--color-bg-secondary, rgba(137, 180, 250, 0.03));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cm-form-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-accent, #e17055);
+  margin-bottom: 2px;
+}
+.cm-form-section {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6c7086);
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
+  letter-spacing: 0.3px;
+}
+.cm-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.cm-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cm-form-group.f2 {
+  flex: 2;
+}
+.cm-form-group.f1 {
+  flex: 1;
+}
+.cm-form-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #a6adc8);
+}
+.cm-form-hint {
+  font-size: 11px;
+  color: var(--color-text-muted, #6c7086);
+  font-style: italic;
+  padding: 2px 0;
+}
 
-.cm-input, .cm-select { padding: 6px 10px; border: 1px solid var(--color-border,#45475a); border-radius: 4px; background: var(--color-bg-primary,#1e1e2e); color: var(--color-text-primary,#cdd6f4); font-size: 12px; font-family: inherit; transition: border-color 0.15s; box-sizing: border-box; width: 100%; }
-.cm-input:focus, .cm-select:focus { outline: none; border-color: var(--brand-accent,#e17055); }
-.cm-select { cursor: pointer; }
-.cm-input[type="number"] { -moz-appearance: textfield; }
+.cm-input,
+.cm-select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #45475a);
+  border-radius: 4px;
+  background: var(--color-bg-primary, #1e1e2e);
+  color: var(--color-text-primary, #cdd6f4);
+  font-size: 12px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+  width: 100%;
+}
+.cm-input:focus,
+.cm-select:focus {
+  outline: none;
+  border-color: var(--brand-accent, #e17055);
+}
+.cm-select {
+  cursor: pointer;
+}
+.cm-input[type='number'] {
+  -moz-appearance: textfield;
+}
 
-.cm-form-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 6px; border-top: 1px solid var(--color-border-subtle,rgba(255,255,255,0.06)); }
-.cm-btn { padding: 6px 16px; border: 1px solid transparent; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
-.cm-btn.primary { background: var(--brand-accent,#e17055); color: #fff; border-color: var(--brand-accent,#e17055); }
-.cm-btn.primary:hover { opacity: 0.9; }
-.cm-btn.secondary { background: transparent; color: var(--color-text-secondary,#a6adc8); border-color: var(--color-border,#45475a); }
-.cm-btn.secondary:hover { border-color: var(--color-text-muted,#6c7086); }
-.cm-btn.test { background: transparent; color: var(--status-attached,#a6e3a1); border-color: rgba(166,227,161,0.3); }
-.cm-btn.test:hover { background: rgba(166,227,161,0.08); }
+.cm-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
+}
+.cm-btn {
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.cm-btn.primary {
+  background: var(--brand-accent, #e17055);
+  color: #fff;
+  border-color: var(--brand-accent, #e17055);
+}
+.cm-btn.primary:hover {
+  opacity: 0.9;
+}
+.cm-btn.secondary {
+  background: transparent;
+  color: var(--color-text-secondary, #a6adc8);
+  border-color: var(--color-border, #45475a);
+}
+.cm-btn.secondary:hover {
+  border-color: var(--color-text-muted, #6c7086);
+}
+.cm-btn.test {
+  background: transparent;
+  color: var(--status-attached, #a6e3a1);
+  border-color: rgba(166, 227, 161, 0.3);
+}
+.cm-btn.test:hover {
+  background: rgba(166, 227, 161, 0.08);
+}
 </style>

@@ -42,24 +42,20 @@
             @change="onProfileSelect(($event.target as HTMLSelectElement).value)"
           >
             <option value="">— 选择一个配置 —</option>
-            <option
-              v-for="p in profiles"
-              :key="p.id"
-              :value="p.id"
-            >
+            <option v-for="p in profiles" :key="p.id" :value="p.id">
               {{ getProfileOptionLabel(p) }}
             </option>
           </select>
-          <button
-            class="btn-inline save"
-            @click="emit('switch-mode', hop.id, 'new')"
-          >
+          <button class="btn-inline save" @click="emit('switch-mode', hop.id, 'new')">
             + 新建
           </button>
         </div>
         <!-- SSH 转发提示 -->
         <div v-if="hop.protocol === 'ssh' && selectedSshProfile" class="fwd-hint">
-          📡 转发: {{ selectedSshProfile.remoteHost || 'DB' }}:{{ selectedSshProfile.remotePort || 'auto' }} → 127.0.0.1:{{ selectedSshProfile.localPort || 'auto' }}
+          📡 转发: {{ selectedSshProfile.remoteHost || 'DB' }}:{{
+            selectedSshProfile.remotePort || 'auto'
+          }}
+          → 127.0.0.1:{{ selectedSshProfile.localPort || 'auto' }}
         </div>
       </template>
 
@@ -68,16 +64,8 @@
         <div class="inline-form">
           <slot name="new-form" :hop="hop" :profiles="profiles" />
           <div class="form-actions">
-            <button
-              class="btn-inline save"
-              @click="emit('save-new', hop.id)"
-            >
-              保存并应用
-            </button>
-            <button
-              class="btn-inline cancel"
-              @click="emit('switch-mode', hop.id, 'select')"
-            >
+            <button class="btn-inline save" @click="emit('save-new', hop.id)"> 保存并应用 </button>
+            <button class="btn-inline cancel" @click="emit('switch-mode', hop.id, 'select')">
               取消
             </button>
           </div>
@@ -90,10 +78,7 @@
           <div class="custom-hint">⚡ 一次性自定义 — 不保存为配置文件</div>
           <slot name="custom-form" :hop="hop" />
           <div class="form-actions">
-            <button
-              class="btn-inline cancel"
-              @click="emit('switch-mode', hop.id, 'select')"
-            >
+            <button class="btn-inline cancel" @click="emit('switch-mode', hop.id, 'select')">
               关闭自定义
             </button>
           </div>
@@ -103,37 +88,18 @@
 
     <!-- 启用开关 -->
     <div class="toggle-wrap" @click.stop>
-      <div
-        class="switch-toggle"
-        :class="{ on: hop.enabled }"
-        @click="emit('toggle', hop.id)"
-      />
+      <div class="switch-toggle" :class="{ on: hop.enabled }" @click="emit('toggle', hop.id)" />
     </div>
 
     <!-- 操作按钮 -->
     <div class="action-btns">
-      <button
-        class="btn-mini manage"
-        :title="'管理'"
-        @click="emit('manage', hop.protocol)"
-      >
+      <button class="btn-mini manage" :title="'管理'" @click="emit('manage', hop.protocol)">
         📋
       </button>
-      <button
-        v-if="canDelete"
-        class="btn-mini danger"
-        title="删除"
-        @click="emit('delete', hop.id)"
-      >
+      <button v-if="canDelete" class="btn-mini danger" title="删除" @click="emit('delete', hop.id)">
         ✕
       </button>
-      <span
-        v-else
-        class="delete-disabled"
-        title="每种协议至少保留一个实例"
-      >
-        ✕
-      </span>
+      <span v-else class="delete-disabled" title="每种协议至少保留一个实例"> ✕ </span>
     </div>
   </div>
 </template>
@@ -141,7 +107,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { ProtocolNode, ProtocolType, SshProfile, SslProfile, ProxyProfile, HopConfigMode } from '../../types/network-chain'
+import type {
+  ProtocolNode,
+  ProtocolType,
+  SshProfile,
+  SslProfile,
+  ProxyProfile,
+  HopConfigMode,
+} from '../../types/network-chain'
 
 const props = defineProps<{
   hop: ProtocolNode
@@ -151,15 +124,15 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'toggle': [hopId: string]
-  'delete': [hopId: string]
+  toggle: [hopId: string]
+  delete: [hopId: string]
   'switch-mode': [hopId: string, mode: HopConfigMode]
   'save-new': [hopId: string]
-  'manage': [protocol: ProtocolType]
+  manage: [protocol: ProtocolType]
   'select-profile': [hopId: string, profileId: string]
   'drag-start': [hopId: string]
   'drag-end': []
-  'drop': [hopId: string]
+  drop: [hopId: string]
 }>()
 
 const isSsl = computed(() => props.hop.protocol === 'ssl')
@@ -228,7 +201,10 @@ function onDragEnd() {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--border-radius-lg);
   margin-bottom: 6px;
-  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    opacity 0.15s;
 }
 
 .chain-item:hover {

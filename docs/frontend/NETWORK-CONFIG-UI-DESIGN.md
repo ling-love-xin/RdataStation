@@ -16,14 +16,14 @@
 
 ### 前端技术栈
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| Vue 3 | 3.5.x | 组件框架 (Composition API + `<script setup>`) |
-| TypeScript | 6.0.x | 类型安全 |
-| dockview-vue | 6.1.x | IDE 布局基座 |
-| naive-ui | 2.44.x | 组件库 (NForm/NInput/NSelect/NTabs/NButton/NModal 等) |
-| lucide-vue-next | 0.460.x | 图标 |
-| Pinia | 3.0.x | 状态管理 |
+| 技术            | 版本    | 用途                                                  |
+| --------------- | ------- | ----------------------------------------------------- |
+| Vue 3           | 3.5.x   | 组件框架 (Composition API + `<script setup>`)         |
+| TypeScript      | 6.0.x   | 类型安全                                              |
+| dockview-vue    | 6.1.x   | IDE 布局基座                                          |
+| naive-ui        | 2.44.x  | 组件库 (NForm/NInput/NSelect/NTabs/NButton/NModal 等) |
+| lucide-vue-next | 0.460.x | 图标                                                  |
+| Pinia           | 3.0.x   | 状态管理                                              |
 
 ---
 
@@ -37,7 +37,7 @@
 
 ### 目录结构
 
-```
+````
 src/
 ├── extensions/builtin/connection/
 │   ├── domain/
@@ -78,26 +78,26 @@ interface ChainHopConfig {
   enabled: boolean
   profileId?: string
 }
-```
+````
 
 ### 3.2 后端 Rust 结构体对应
 
-| 前端 ChainItem.protocol | 后端 ChainHop 变体 | 产生的网络节点 |
-|-------------------------|-------------------|---------------|
-| `'ssh'` | `ChainHop::Ssh(SshConfig)` | ✅ 是 |
-| `'http_proxy'` | `ChainHop::HttpProxy(ProxyConfig)` | ✅ 是 |
-| `'socks_proxy'` | `ChainHop::SocksProxy(ProxyConfig)` | ✅ 是 |
-| `'ssl'` | `ChainHop::Ssl(SslConfig)` | ❌ 否（末尾流加密） |
+| 前端 ChainItem.protocol | 后端 ChainHop 变体                  | 产生的网络节点      |
+| ----------------------- | ----------------------------------- | ------------------- |
+| `'ssh'`                 | `ChainHop::Ssh(SshConfig)`          | ✅ 是               |
+| `'http_proxy'`          | `ChainHop::HttpProxy(ProxyConfig)`  | ✅ 是               |
+| `'socks_proxy'`         | `ChainHop::SocksProxy(ProxyConfig)` | ✅ 是               |
+| `'ssl'`                 | `ChainHop::Ssl(SslConfig)`          | ❌ 否（末尾流加密） |
 
 ### 3.3 协议链约束
 
-| 约束 | 值 | 说明 |
-|------|-----|------|
-| SSH/Proxy 最大跳数 | 4 | `MAX_NETWORK_HOPS` 硬上限 |
-| SSL 最多 | 1 | 链末尾，添加时替换已有 |
-| 每种协议最少实例 | 1 | 唯一实例时删除按钮禁用 |
-| 拖拽约束 | SSL 固定末尾 | 不可拖到中间，其他不可拖到 SSL 后 |
-| 3 跳警告阈值 | ≥ 3 | 黄色横幅显示延迟风险 |
+| 约束               | 值           | 说明                              |
+| ------------------ | ------------ | --------------------------------- |
+| SSH/Proxy 最大跳数 | 4            | `MAX_NETWORK_HOPS` 硬上限         |
+| SSL 最多           | 1            | 链末尾，添加时替换已有            |
+| 每种协议最少实例   | 1            | 唯一实例时删除按钮禁用            |
+| 拖拽约束           | SSL 固定末尾 | 不可拖到中间，其他不可拖到 SSL 后 |
+| 3 跳警告阈值       | ≥ 3          | 黄色横幅显示延迟风险              |
 
 ### 3.4 环境策略数据（从 SQLite 加载）
 
@@ -154,17 +154,17 @@ environments 表                  environment_policies 表
 
 ### 4.2 核心交互
 
-| 操作 | 实现 |
-|------|------|
-| **拖拽排序** | HTML5 Drag & Drop API，`dragstart/dragover/drop/dragend` 事件 |
-| **开关切换** | 点击 toggle div，更新 `enabled`，刷新拓扑预览 |
-| **配置下拉选择** | `v-for` 渲染对应协议类型的 profiles，选中后存 `profileId` |
-| **"+ 新建"按钮** | 切换 `mode: 'new'`，展开内联表单（SSH含端口转发字段） |
-| **新建保存** | 检查当前 scope 选择 → 生成 profile ID → push 到对应 profiles 数组 → 切换回 select 模式 |
-| **"📋 管理"按钮** | 打开 `NetworkProfileManager` 覆盖层，修改返回后 `renderChain()` |
-| **"✕ 删除"** | `countInstancesOfType(protocol) > 1` 时才可点击，否则灰色禁用 |
-| **"+ 添加"按钮** | 弹出下拉菜单：SSH 隧道 / 代理 / SSL 加密（标末尾层）|
-| **拓扑预览** | 过滤 `enabled` hops，过滤文件数据库，构建路径链 |
+| 操作              | 实现                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| **拖拽排序**      | HTML5 Drag & Drop API，`dragstart/dragover/drop/dragend` 事件                          |
+| **开关切换**      | 点击 toggle div，更新 `enabled`，刷新拓扑预览                                          |
+| **配置下拉选择**  | `v-for` 渲染对应协议类型的 profiles，选中后存 `profileId`                              |
+| **"+ 新建"按钮**  | 切换 `mode: 'new'`，展开内联表单（SSH含端口转发字段）                                  |
+| **新建保存**      | 检查当前 scope 选择 → 生成 profile ID → push 到对应 profiles 数组 → 切换回 select 模式 |
+| **"📋 管理"按钮** | 打开 `NetworkProfileManager` 覆盖层，修改返回后 `renderChain()`                        |
+| **"✕ 删除"**      | `countInstancesOfType(protocol) > 1` 时才可点击，否则灰色禁用                          |
+| **"+ 添加"按钮**  | 弹出下拉菜单：SSH 隧道 / 代理 / SSL 加密（标末尾层）                                   |
+| **拓扑预览**      | 过滤 `enabled` hops，过滤文件数据库，构建路径链                                        |
 
 ### 4.3 关键逻辑伪代码
 
@@ -186,7 +186,12 @@ function addHop(protocol: string) {
     // 替换已存在的 SSL（最多 1 个）
     const idx = protocolChain.value.findIndex(h => h.protocol === 'ssl')
     if (idx >= 0) protocolChain.value.splice(idx, 1)
-    protocolChain.value.push({ id: 'hop-' + nextId(), protocol: 'ssl', enabled: true, mode: 'select' })
+    protocolChain.value.push({
+      id: 'hop-' + nextId(),
+      protocol: 'ssl',
+      enabled: true,
+      mode: 'select',
+    })
   } else {
     if (countNetworkHops() >= MAX_HOPS) return
     // 插入到 SSL 之前（SSL 固定末尾）
@@ -223,6 +228,7 @@ function canDelete(hopId: string): boolean {
 #### 4.4.1 内联表单模式（v5 对齐）
 
 Select 模式采用 **下拉 + 新建按钮** 并行 layout：
+
 ```
 [NSelect 选择已保存配置...] [+ 新建]
 ```
@@ -264,15 +270,16 @@ Select 模式采用 **下拉 + 新建按钮** 并行 layout：
 
 #### 4.4.2 各协议新建表单差异
 
-| 协议 | Section 结构 | 特殊字段 |
-|------|-------------|---------|
-| **SSH** | 名称+范围 → 🔗跳板机(Host/Port) → 🔐认证(two-col+User+Password/Key+Passphrase+Keepalive) → 📡端口转发(Local/RemoteHost/RemotePort) → Hint → 操作 | 密码/密钥切换、保活 |
-| **SSL** | 名称+范围 → Mode(NSelect) → CA+Cert → Key → 操作 | 证书文件路径 |
-| **Proxy** | 名称+范围 → 类型(NSelect) → Host/Port → 🔐代理认证(two-col+User/Pass) → 操作 | 代理类型切换、可选认证 |
+| 协议      | Section 结构                                                                                                                                     | 特殊字段               |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| **SSH**   | 名称+范围 → 🔗跳板机(Host/Port) → 🔐认证(two-col+User+Password/Key+Passphrase+Keepalive) → 📡端口转发(Local/RemoteHost/RemotePort) → Hint → 操作 | 密码/密钥切换、保活    |
+| **SSL**   | 名称+范围 → Mode(NSelect) → CA+Cert → Key → 操作                                                                                                 | 证书文件路径           |
+| **Proxy** | 名称+范围 → 类型(NSelect) → Host/Port → 🔐代理认证(two-col+User/Pass) → 操作                                                                     | 代理类型切换、可选认证 |
 
 #### 4.4.3 Custom 模式（v5 对齐）
 
 简化为一句话提示 + 关闭按钮，使用 `inline-form-v5.custom`（warning 黄色边框）：
+
 ```
 ⚡ 一次性自定义 — 不保存为配置文件
 [关闭自定义]
@@ -316,12 +323,12 @@ NetworkTab.vue
 
 **v2.0 新增**：
 
-| 新增区域 | 组件 | 说明 |
-|----------|------|------|
-| **环境选择** | `EnvironmentSelector.vue` | 紧凑下拉，含策略行内标签 |
-| **环境策略摘要** | 内联 Tag 行 | 只读/写确认/DDL确认/行限/大小限/审计 等 tag |
-| **安全策略面板** | `SecurityPolicySection.vue` | 可折叠，7 个策略字段，环境覆盖指示器 |
-| **DuckDB 加速（焕新）** | 内联 Card | 提高视觉权重，增加 benefits tag |
+| 新增区域                | 组件                        | 说明                                        |
+| ----------------------- | --------------------------- | ------------------------------------------- |
+| **环境选择**            | `EnvironmentSelector.vue`   | 紧凑下拉，含策略行内标签                    |
+| **环境策略摘要**        | 内联 Tag 行                 | 只读/写确认/DDL确认/行限/大小限/审计 等 tag |
+| **安全策略面板**        | `SecurityPolicySection.vue` | 可折叠，7 个策略字段，环境覆盖指示器        |
+| **DuckDB 加速（焕新）** | 内联 Card                   | 提高视觉权重，增加 benefits tag             |
 
 ### 5.2 布局
 
@@ -483,9 +490,15 @@ export const useNetworkConfigStore = defineStore('networkConfig', () => {
 
   async function fetchAll() {
     // 按类型分组拉取
-    sshProfiles.value = await invoke<NetworkProfile[]>('list_network_configs_by_type', { networkType: 'ssh' })
-    sslProfiles.value = await invoke<NetworkProfile[]>('list_network_configs_by_type', { networkType: 'ssl' })
-    proxyProfiles.value = await invoke<NetworkProfile[]>('list_network_configs_by_type', { networkType: 'proxy' })
+    sshProfiles.value = await invoke<NetworkProfile[]>('list_network_configs_by_type', {
+      networkType: 'ssh',
+    })
+    sslProfiles.value = await invoke<NetworkProfile[]>('list_network_configs_by_type', {
+      networkType: 'ssl',
+    })
+    proxyProfiles.value = await invoke<NetworkProfile[]>('list_network_configs_by_type', {
+      networkType: 'proxy',
+    })
   }
 
   function getProfiles(protocol: string): NetworkProfile[] {
@@ -512,92 +525,92 @@ export const useNetworkConfigStore = defineStore('networkConfig', () => {
 
 ### 8.1 已实现
 
-| Command | 说明 |
-|---------|------|
+| Command            | 说明                                                  |
+| ------------------ | ----------------------------------------------------- |
 | `connect_database` | 创建连接（已支持 network_config_id / environment_id） |
 
 ### 8.2 待实现（v0.6.0 后端新增）
 
-| Command | 说明 | Rust 调用 |
-|---------|------|----------|
-| `list_environments` | 列出所有环境（含策略） | `env_store.list_all()` |
-| `save_environment` | 保存/更新环境 | `env_store.create()` / `update()` |
-| `delete_environment` | 删除环境（内置不可删） | `env_store.delete()` |
-| `list_network_configs_by_type` | 按 network_type + scope 过滤 | `network_store.list_by_type()` |
-| `save_network_config` | 保存网络配置 | `network_store.create()` |
-| `delete_network_config` | 删除网络配置 | `network_store.delete()` |
-| `test_network_config` | 测试网络配置连通性 | 已有，需支持 chain |
+| Command                        | 说明                         | Rust 调用                         |
+| ------------------------------ | ---------------------------- | --------------------------------- |
+| `list_environments`            | 列出所有环境（含策略）       | `env_store.list_all()`            |
+| `save_environment`             | 保存/更新环境                | `env_store.create()` / `update()` |
+| `delete_environment`           | 删除环境（内置不可删）       | `env_store.delete()`              |
+| `list_network_configs_by_type` | 按 network_type + scope 过滤 | `network_store.list_by_type()`    |
+| `save_network_config`          | 保存网络配置                 | `network_store.create()`          |
+| `delete_network_config`        | 删除网络配置                 | `network_store.delete()`          |
+| `test_network_config`          | 测试网络配置连通性           | 已有，需支持 chain                |
 
 ## 九、实施步骤
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| **NetworkTab 协议链** | 动态协议链 + 内联表单 + 拖拽 + 拓扑预览 | ✅ 已完成 |
-| **两栏认证布局** | SSH 认证方法 + 已保存配置选择 | ✅ 已完成 |
-| **测试连接按钮** | 链内联 + 配置管理器新建表单 | ✅ 已完成 |
-| **配置管理器** | NModal + 三Tab + CRUD + 编辑回填 | ✅ 已完成 |
-| **GeneralTab 改造** | 数据库认证两栏 + 文件DB新建按钮 | ✅ 已完成 |
-| **AuthConfigManager** | 认证配置管理器覆盖层 | ✅ 已完成 |
-| **后端增量** | 环境 CRUD + Seed SQL + IPC Commands | ✅ 已完成 |
-| **AdvancedTab 改造** | 环境选择 + 策略 + DuckDB 焕新（已拆分为独立子组件） | ✅ 已完成 |
-| **管理面板** | EnvironmentManager / SecurityPolicySection / EnvironmentSelector / DuckDBAccelSection（独立组件） | ✅ 已完成 |
-| **集成联调** | AddDataSourceDialog 改造 + auth_method/environment_id 透传 | ✅ 已完成 |
-| **Stores + Composable** | environmentStore.ts + networkConfigStore.ts + useAddDataSource.ts | ✅ 已完成 |
-| **快照 IPC** | snapshot_global_env/network/auth | ✅ 已完成 |
-| **链校验** | validate_connection_config (后端 7 步校验) | ✅ 已完成 |
+| 阶段                    | 内容                                                                                              | 状态      |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | --------- |
+| **NetworkTab 协议链**   | 动态协议链 + 内联表单 + 拖拽 + 拓扑预览                                                           | ✅ 已完成 |
+| **两栏认证布局**        | SSH 认证方法 + 已保存配置选择                                                                     | ✅ 已完成 |
+| **测试连接按钮**        | 链内联 + 配置管理器新建表单                                                                       | ✅ 已完成 |
+| **配置管理器**          | NModal + 三Tab + CRUD + 编辑回填                                                                  | ✅ 已完成 |
+| **GeneralTab 改造**     | 数据库认证两栏 + 文件DB新建按钮                                                                   | ✅ 已完成 |
+| **AuthConfigManager**   | 认证配置管理器覆盖层                                                                              | ✅ 已完成 |
+| **后端增量**            | 环境 CRUD + Seed SQL + IPC Commands                                                               | ✅ 已完成 |
+| **AdvancedTab 改造**    | 环境选择 + 策略 + DuckDB 焕新（已拆分为独立子组件）                                               | ✅ 已完成 |
+| **管理面板**            | EnvironmentManager / SecurityPolicySection / EnvironmentSelector / DuckDBAccelSection（独立组件） | ✅ 已完成 |
+| **集成联调**            | AddDataSourceDialog 改造 + auth_method/environment_id 透传                                        | ✅ 已完成 |
+| **Stores + Composable** | environmentStore.ts + networkConfigStore.ts + useAddDataSource.ts                                 | ✅ 已完成 |
+| **快照 IPC**            | snapshot_global_env/network/auth                                                                  | ✅ 已完成 |
+| **链校验**              | validate_connection_config (后端 7 步校验)                                                        | ✅ 已完成 |
 
 ### 遗留问题
 
-| # | 问题 | 严重度 |
-|---|------|--------|
-| L1 | Composable/Store 已创建但 AddDataSourceDialog / NetworkTab 未消费 | 🔴 |
-| L2 | EnvironmentManager 类型不匹配（summary 字段不存在于 Environment 接口） | 🔴 |
-| L3 | `isFileDb` 死代码 — `useAddDataSource.ts` 永远返回 false | 🟡 |
-| L4 | NetworkTab 硬编码 demo 认证配置 (`chainSshAuthCfgOpts`) | 🟡 |
-| L5 | Custom 模式空壳 — 仅提示横幅无实际表单 | 🟡 |
-| L6 | DataSourceHeader 未独立 — 内联在 AddDataSourceDialog | 🟢 | ✅ 已修复 |
+| #   | 问题                                                                   | 严重度 |
+| --- | ---------------------------------------------------------------------- | ------ | --------- |
+| L1  | Composable/Store 已创建但 AddDataSourceDialog / NetworkTab 未消费      | 🔴     |
+| L2  | EnvironmentManager 类型不匹配（summary 字段不存在于 Environment 接口） | 🔴     |
+| L3  | `isFileDb` 死代码 — `useAddDataSource.ts` 永远返回 false               | 🟡     |
+| L4  | NetworkTab 硬编码 demo 认证配置 (`chainSshAuthCfgOpts`)                | 🟡     |
+| L5  | Custom 模式空壳 — 仅提示横幅无实际表单                                 | 🟡     |
+| L6  | DataSourceHeader 未独立 — 内联在 AddDataSourceDialog                   | 🟢     | ✅ 已修复 |
 
 #### v2.5 修复记录 (2026-05-22)
 
-| # | 问题 | 严重度 | 状态 |
-|---|------|--------|------|
-| **G1** | **网络配置编辑创建重复** — `handleCreate*Profile` 编辑时忽略 `profile.id`，始终调用 `create_network_config` | 🔴 | ✅ 已修复 — 提取 `buildNetworkCfg()` 统一函数，编辑时调用 `update_network_config` |
-| **G2** | **认证配置编辑用 create 代替 update** — `saveNewCfg()` 始终调用 `create_auth_config` | 🟡 | ✅ 已修复 — 根据 `editingId` 切换 `update_auth_config` / `create_auth_config` |
-| **G3** | **环境管理器缺少编辑功能** — 只能创建/删除，无法修改已有自定义环境名称/图标/颜色 | 🟡 | ✅ 已修复 — `EnvironmentManager` + `AdvancedTab` 支持编辑 → 调用 `update_environment` |
+| #      | 问题                                                                                                        | 严重度 | 状态                                                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| **G1** | **网络配置编辑创建重复** — `handleCreate*Profile` 编辑时忽略 `profile.id`，始终调用 `create_network_config` | 🔴     | ✅ 已修复 — 提取 `buildNetworkCfg()` 统一函数，编辑时调用 `update_network_config`     |
+| **G2** | **认证配置编辑用 create 代替 update** — `saveNewCfg()` 始终调用 `create_auth_config`                        | 🟡     | ✅ 已修复 — 根据 `editingId` 切换 `update_auth_config` / `create_auth_config`         |
+| **G3** | **环境管理器缺少编辑功能** — 只能创建/删除，无法修改已有自定义环境名称/图标/颜色                            | 🟡     | ✅ 已修复 — `EnvironmentManager` + `AdvancedTab` 支持编辑 → 调用 `update_environment` |
 
 #### v2.6 修复记录 (2026-05-22)
 
-| # | 问题 | 严重度 | 状态 |
-|---|------|--------|------|
-| **D1** | **环境列表不区分来源** — EnvironmentManager 混显 G_/P_/GP_，无 scope 标识 | 🟡 | ✅ 已修复 — 新增 sourceLabel/sourceKind helper + 🌐全局/📁项目/📸快照 标签 |
-| **D2** | **loadEnvironments 无 scope 过滤** — 不区分 global/project | 🟡 | ✅ 已修复 — AdvancedTab 接收 scope prop，按 ID 前缀过滤 |
-| **D3** | **项目引用全局环境无快照** — 选择 G_ 环境时未自动 snapshot_global_env | 🔴 | ✅ 已修复 — onEnvChange 检测 project+G_ → snapshot → GP_ + 快照提示 |
+| #      | 问题                                                                       | 严重度 | 状态                                                                       |
+| ------ | -------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------- |
+| **D1** | **环境列表不区分来源** — EnvironmentManager 混显 G*/P*/GP\_，无 scope 标识 | 🟡     | ✅ 已修复 — 新增 sourceLabel/sourceKind helper + 🌐全局/📁项目/📸快照 标签 |
+| **D2** | **loadEnvironments 无 scope 过滤** — 不区分 global/project                 | 🟡     | ✅ 已修复 — AdvancedTab 接收 scope prop，按 ID 前缀过滤                    |
+| **D3** | **项目引用全局环境无快照** — 选择 G\_ 环境时未自动 snapshot_global_env     | 🔴     | ✅ 已修复 — onEnvChange 检测 project+G* → snapshot → GP* + 快照提示        |
 
 #### v2.7 修复记录 (2026-05-22)
 
-| # | 问题 | 严重度 | 状态 |
-|---|------|--------|------|
-| **E1** | **networkConfigStore.save() 参数名不匹配** — `{ config: profile }` ≠ 后端期望 `{ nc }` | 🔴 | ✅ 已修复 → `{ nc: profile }` |
-| **E2** | **snapshot_global_* 三命令缺 project_path 参数** — AdvancedTab / useAddDataSource 三处调用只传 globalEnvId | 🔴 | ✅ 已修复 — 补全 projectPath 参数 |
-| **E3** | **snapshot_global_* 返回类型不匹配** — 前端 `invoke<string>()` 但后端返回 `SnapshotResult { snapshot_id, ... }` | 🔴 | ✅ 已修复 — `invoke<{ snapshot_id: string }>()` + `.snapshot_id` |
-| **E4** | **doSave 缺认证/网络快照** — 仅环境有快照，认证和网络引用 G_ 时无 GP_ 隔离 | 🔴 | ✅ 已修复 — doSave 前检测 authConfigId/networkConfigId 前缀触发快照 |
-| **E5** | **AuthConfigManager.deleteCfg() 未二分** — scope=project 时仍调全局 delete_auth_config | 🟡 | ✅ v2.8 — project_delete_auth_config({ id, projectPath }) |
-| **E6** | **AdvancedTab.handleCreateEnv() 未二分** — scope=project 时仍调全局 create/update_environment | 🟡 | ✅ v2.8 — project_create/update_environment 扁平参数适配 |
-| **E7** | **AdvancedTab.handleDeleteEnv() 未二分** — scope=project 时仍调全局 delete_environment | 🟡 | ✅ v2.8 — project_delete_environment({ id, projectPath }) |
-| **E8** | **AdvancedTab.loadEnvironments() 未二分** — scope=project 时仍调全局 list_environments | 🟡 | ✅ v2.8 — project_list_environments({ projectPath }) |
-| **E9** | **环境策略未持久化** — AdvancedTab 五类策略仅本地状态，切换环境即丢失 | 🟡 | ✅ v2.9 — loadPoliciesForEnv() + debounceSavePolicy(800ms) → `list/create/update_environment_policy` |
-| **E10** | **侧边栏缺重测按钮** — 已保存连接无法从侧边栏快速验证连通性 | 🟡 | ✅ v3.0 — DataSourceSidebar 每行添加刷新按钮 → `test_connection({ dbType, url })` |
-| **E11** | **侧边栏连接点击无响应** — 已保存连接无法通过点击打开数据库 | 🔴 | ✅ v3.2 — `openSavedConnection()` → `connect_database` → `switch_connection` → dispatch `NewQuery` |
-| **E12** | **ProjectConnection 类型重复** — domain/types.ts 与 types/connection.ts 两套定义 | 🟡 | ✅ v3.2 — 删除 domain 重复，统一到 types/connection.ts |
-| **E13** | **project_update_auth_config 缺失** — 后端无项目级认证更新命令 | 🟡 | ✅ v3.2 — project_db.rs + command + lib.rs 注册 |
-| **E14** | **AuthConfigManager delete+create workaround** — 编辑用删除重建代替更新 | 🟡 | ✅ v3.2 — saveNewCfg() 直接调用 project_update_auth_config |
-| **E15** | **delete_environment_policy 未接线** — 删环境时策略成为孤儿数据 | 🟢 | ✅ v3.2 — handleDeleteEnv() 级联删除关联策略 |
-| **E16** | **project_* 环境策略族不通** — scope=project 时策略加载/保存未切换 | 🟢 | ✅ v3.3 — loadPoliciesForEnv + savePolicyForEnv 二分 scope |
-| **E17** | ***_store_* 双轨冗余** — save/get/delete_project_store_connection 与 project_* 并存 | 📋 | ✅ v3.3 — project-connection.ts + connection.ts + store 全量单轨化 |
-| **E18** | **连接操作命令未接线** — convert_connection_type / detect_global_connections_in_project | 🟢 | ✅ v3.3 — connection.ts 新增 connectionService 服务层封装 |
-| **E19** | **侧边栏→工作台链路断裂** — NewQuery detail 载荷被 handleWorkbenchNewQuery 忽略 | 🔴 | ✅ v3.4 — WorkbenchView 读 detail.connectionId → EditorManager.openNewQuery |
-| **E20** | **驱动管理 API 未接线** — get_driver_detail / install_driver / list_driver_files | 🟢 | ✅ v3.4 — useDriverRegistry 新增三大 API + DataSourceSidebar 驱动管理区域 |
-| **E21** | **驱动管理无 UI** — 无法查看驱动状态或安装外部驱动 | 🟢 | ✅ v3.4 — 侧边栏底部 driversWithStatus + 安装按钮 |
+| #       | 问题                                                                                                             | 严重度 | 状态                                                                                                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| **E1**  | **networkConfigStore.save() 参数名不匹配** — `{ config: profile }` ≠ 后端期望 `{ nc }`                           | 🔴     | ✅ 已修复 → `{ nc: profile }`                                                                        |
+| **E2**  | **snapshot*global*\* 三命令缺 project_path 参数** — AdvancedTab / useAddDataSource 三处调用只传 globalEnvId      | 🔴     | ✅ 已修复 — 补全 projectPath 参数                                                                    |
+| **E3**  | **snapshot*global*\* 返回类型不匹配** — 前端 `invoke<string>()` 但后端返回 `SnapshotResult { snapshot_id, ... }` | 🔴     | ✅ 已修复 — `invoke<{ snapshot_id: string }>()` + `.snapshot_id`                                     |
+| **E4**  | **doSave 缺认证/网络快照** — 仅环境有快照，认证和网络引用 G* 时无 GP* 隔离                                       | 🔴     | ✅ 已修复 — doSave 前检测 authConfigId/networkConfigId 前缀触发快照                                  |
+| **E5**  | **AuthConfigManager.deleteCfg() 未二分** — scope=project 时仍调全局 delete_auth_config                           | 🟡     | ✅ v2.8 — project_delete_auth_config({ id, projectPath })                                            |
+| **E6**  | **AdvancedTab.handleCreateEnv() 未二分** — scope=project 时仍调全局 create/update_environment                    | 🟡     | ✅ v2.8 — project_create/update_environment 扁平参数适配                                             |
+| **E7**  | **AdvancedTab.handleDeleteEnv() 未二分** — scope=project 时仍调全局 delete_environment                           | 🟡     | ✅ v2.8 — project_delete_environment({ id, projectPath })                                            |
+| **E8**  | **AdvancedTab.loadEnvironments() 未二分** — scope=project 时仍调全局 list_environments                           | 🟡     | ✅ v2.8 — project_list_environments({ projectPath })                                                 |
+| **E9**  | **环境策略未持久化** — AdvancedTab 五类策略仅本地状态，切换环境即丢失                                            | 🟡     | ✅ v2.9 — loadPoliciesForEnv() + debounceSavePolicy(800ms) → `list/create/update_environment_policy` |
+| **E10** | **侧边栏缺重测按钮** — 已保存连接无法从侧边栏快速验证连通性                                                      | 🟡     | ✅ v3.0 — DataSourceSidebar 每行添加刷新按钮 → `test_connection({ dbType, url })`                    |
+| **E11** | **侧边栏连接点击无响应** — 已保存连接无法通过点击打开数据库                                                      | 🔴     | ✅ v3.2 — `openSavedConnection()` → `connect_database` → `switch_connection` → dispatch `NewQuery`   |
+| **E12** | **ProjectConnection 类型重复** — domain/types.ts 与 types/connection.ts 两套定义                                 | 🟡     | ✅ v3.2 — 删除 domain 重复，统一到 types/connection.ts                                               |
+| **E13** | **project_update_auth_config 缺失** — 后端无项目级认证更新命令                                                   | 🟡     | ✅ v3.2 — project_db.rs + command + lib.rs 注册                                                      |
+| **E14** | **AuthConfigManager delete+create workaround** — 编辑用删除重建代替更新                                          | 🟡     | ✅ v3.2 — saveNewCfg() 直接调用 project_update_auth_config                                           |
+| **E15** | **delete_environment_policy 未接线** — 删环境时策略成为孤儿数据                                                  | 🟢     | ✅ v3.2 — handleDeleteEnv() 级联删除关联策略                                                         |
+| **E16** | **project\_\* 环境策略族不通** — scope=project 时策略加载/保存未切换                                             | 🟢     | ✅ v3.3 — loadPoliciesForEnv + savePolicyForEnv 二分 scope                                           |
+| **E17** | **_*store*_ 双轨冗余** — save/get/delete*project_store_connection 与 project*\* 并存                             | 📋     | ✅ v3.3 — project-connection.ts + connection.ts + store 全量单轨化                                   |
+| **E18** | **连接操作命令未接线** — convert_connection_type / detect_global_connections_in_project                          | 🟢     | ✅ v3.3 — connection.ts 新增 connectionService 服务层封装                                            |
+| **E19** | **侧边栏→工作台链路断裂** — NewQuery detail 载荷被 handleWorkbenchNewQuery 忽略                                  | 🔴     | ✅ v3.4 — WorkbenchView 读 detail.connectionId → EditorManager.openNewQuery                          |
+| **E20** | **驱动管理 API 未接线** — get_driver_detail / install_driver / list_driver_files                                 | 🟢     | ✅ v3.4 — useDriverRegistry 新增三大 API + DataSourceSidebar 驱动管理区域                            |
+| **E21** | **驱动管理无 UI** — 无法查看驱动状态或安装外部驱动                                                               | 🟢     | ✅ v3.4 — 侧边栏底部 driversWithStatus + 安装按钮                                                    |
 
 ## 十、参考
 

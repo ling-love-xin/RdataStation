@@ -87,7 +87,7 @@ function protocolNodeToChainHop(
     const profile = findProfile(node, sshProfiles)
     if (!profile && node.mode !== 'custom') return null
 
-    const data = node.mode === 'custom' ? (node.customData || {}) : (profile || {})
+    const data = node.mode === 'custom' ? node.customData || {} : profile || {}
     return {
       type: 'ssh',
       host: (data.host as string) || 'localhost',
@@ -115,7 +115,7 @@ function protocolNodeToChainHop(
     const profile = findProfile(node, _sslProfiles)
     if (!profile && node.mode !== 'custom') return null
 
-    const data = node.mode === 'custom' ? (node.customData || {}) : (profile || {})
+    const data = node.mode === 'custom' ? node.customData || {} : profile || {}
     return {
       type: 'ssl',
       verify_server_cert: (data.mode as string) !== 'require',
@@ -129,7 +129,7 @@ function protocolNodeToChainHop(
     const profile = findProfile(node, proxyProfiles)
     if (!profile && node.mode !== 'custom') return null
 
-    const data = node.mode === 'custom' ? (node.customData || {}) : (profile || {})
+    const data = node.mode === 'custom' ? node.customData || {} : profile || {}
     const proxyType = (data.type as string) || 'socks5'
     const host = (data.host as string) || ''
     const port = (data.port as number) || 1080
@@ -182,7 +182,10 @@ export function backendConfigToSshProfile(nc: BackendNetworkConfig): SshProfile 
       keepAlive: (config.timeout_secs as number) || 60,
     }
   } catch (err) {
-    console.warn('[network-adapter] SSH 配置 JSON 解析失败:', err instanceof Error ? err.message : String(err))
+    console.warn(
+      '[network-adapter] SSH 配置 JSON 解析失败:',
+      err instanceof Error ? err.message : String(err)
+    )
     return null
   }
 }
@@ -202,7 +205,10 @@ export function backendConfigToSslProfile(nc: BackendNetworkConfig): SslProfile 
       key: config.client_key_path as string | undefined,
     }
   } catch (err) {
-    console.warn('[network-adapter] SSL 配置 JSON 解析失败:', err instanceof Error ? err.message : String(err))
+    console.warn(
+      '[network-adapter] SSL 配置 JSON 解析失败:',
+      err instanceof Error ? err.message : String(err)
+    )
     return null
   }
 }
@@ -231,7 +237,10 @@ export function backendConfigToProxyProfile(nc: BackendNetworkConfig): ProxyProf
       password: auth?.password as string | undefined,
     }
   } catch (err) {
-    console.warn('[network-adapter] 代理配置 JSON 解析失败:', err instanceof Error ? err.message : String(err))
+    console.warn(
+      '[network-adapter] 代理配置 JSON 解析失败:',
+      err instanceof Error ? err.message : String(err)
+    )
     return null
   }
 }
@@ -239,9 +248,11 @@ export function backendConfigToProxyProfile(nc: BackendNetworkConfig): ProxyProf
 /**
  * 将前端 SSH 配置文件转为网络配置 JSON（用于 create/update_network_config）
  */
-export function sshProfileToNetworkConfig(
-  profile: SshProfile
-): { config: string; network_type: string; name: string } {
+export function sshProfileToNetworkConfig(profile: SshProfile): {
+  config: string
+  network_type: string
+  name: string
+} {
   const config = {
     host: profile.host,
     port: profile.port,
@@ -271,9 +282,11 @@ export function sshProfileToNetworkConfig(
 /**
  * 将前端 SSL 配置文件转为网络配置 JSON
  */
-export function sslProfileToNetworkConfig(
-  profile: SslProfile
-): { config: string; network_type: string; name: string } {
+export function sslProfileToNetworkConfig(profile: SslProfile): {
+  config: string
+  network_type: string
+  name: string
+} {
   const config = {
     verify_server_cert: profile.mode !== 'require',
     ca_cert_path: profile.ca || null,
@@ -291,9 +304,11 @@ export function sslProfileToNetworkConfig(
 /**
  * 将前端代理配置文件转为网络配置 JSON
  */
-export function proxyProfileToNetworkConfig(
-  profile: ProxyProfile
-): { config: string; network_type: string; name: string } {
+export function proxyProfileToNetworkConfig(profile: ProxyProfile): {
+  config: string
+  network_type: string
+  name: string
+} {
   const networkType = profile.type === 'http' ? 'http_proxy' : 'socks5'
 
   const config: Record<string, unknown> = {
@@ -318,10 +333,7 @@ export function proxyProfileToNetworkConfig(
 
 // ==================== 辅助 ====================
 
-function findProfile<T extends { id: string }>(
-  node: ProtocolNode,
-  profiles: T[]
-): T | undefined {
+function findProfile<T extends { id: string }>(node: ProtocolNode, profiles: T[]): T | undefined {
   if (!node.profileId) return undefined
   return profiles.find(p => p.id === node.profileId)
 }

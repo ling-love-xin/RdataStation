@@ -301,7 +301,7 @@ pub async fn register_external_database(
 }
 
 /// DuckDB 加速执行输入
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, specta::Type)]
 pub struct DuckDBAcceleratedInput {
     /// SQL 查询
     pub sql: String,
@@ -325,6 +325,7 @@ pub struct DuckDBAcceleratedResponse {
 
 /// 使用 DuckDB 加速引擎执行 SQL（含自动 ATTACH / DETACH）
 #[tauri::command]
+#[specta::specta]
 pub async fn execute_duckdb_accelerated(
     state: tauri::State<'_, AppState>,
     input: DuckDBAcceleratedInput,
@@ -439,13 +440,11 @@ fn format_arrow_value(col: &dyn arrow::array::Array, row_idx: usize) -> serde_js
     }
     if let Some(v) = as_array!(col, Float32Array) {
         return serde_json::Number::from_f64(v as f64)
-            .map(Value::Number)
-            .unwrap_or(Value::Null);
+            .map_or(Value::Null, Value::Number);
     }
     if let Some(v) = as_array!(col, Float64Array) {
         return serde_json::Number::from_f64(v)
-            .map(Value::Number)
-            .unwrap_or(Value::Null);
+            .map_or(Value::Null, Value::Number);
     }
 
     if let Some(arr) = col.as_any().downcast_ref::<StringArray>() {
@@ -454,9 +453,72 @@ fn format_arrow_value(col: &dyn arrow::array::Array, row_idx: usize) -> serde_js
 
     Value::String(
         arrow::util::display::array_value_to_string(col, row_idx)
-            .unwrap_or_default()
+            .unwrap_or_else(|_| "?".to_string())
             .to_string(),
     )
+}
+
+// ==================== Paginated Query Commands ====================
+
+/// 分页执行 SQL 请求参数
+#[derive(serde::Deserialize, Debug, specta::Type)]
+pub struct ExecuteSqlPaginatedInput {
+    pub conn_id: Option<String>,
+    pub sql: String,
+    pub offset: u32,
+    pub limit: u32,
+    pub timeout_ms: Option<u32>,
+}
+
+/// 分页执行 SQL 查询
+///
+/// 与 `execute_sql` 的区别：
+/// - 内部仍然执行完整 SQL 查询
+/// - 序列化时只返回 [offset, offset+limit) 范围的行
+/// - `total_rows` 始终返回原始总行数（非分页后行数）
+#[tauri::command]
+#[specta::specta]
+pub async fn execute_sql_paginated(
+    input: ExecuteSqlPaginatedInput,
+) -> Result<ExecuteSqlResponse, CoreError> {
+    if input.sql.trim().is_empty() {
+        return Err(CoreError::common(
+            crate::core::error::CommonError::InvalidArgument {
+                param: "sql".to_string(),
+                reason: "SQL statement cannot be empty".to_string(),
+            },
+        ));
+    }
+
+    let manager = get_connection_manager().clone();
+    let service = SqlService::new(manager);
+
+    let options = SqlExecuteOptions {
+        record_history: true,
+        use_transaction: false,
+        timeout_ms: input.timeout_ms.map(|v| v as u64),
+        use_cache: true,
+    };
+
+    let result = service.execute(input.conn_id, &input.sql, options).await?;
+
+    let total_rows = result.result.total_rows() as u32;
+    let offset = input.offset.min(total_rows);
+    let limit = input.limit.min(total_rows.saturating_sub(offset));
+
+    let mut paginated_result = result.result;
+    if offset > 0 || (limit as usize) < paginated_result.total_rows() {
+        paginated_result.slice(offset as usize, limit as usize);
+    }
+
+    let response: ExecuteSqlResponse = SqlExecuteResult {
+        result: paginated_result,
+        elapsed_ms: result.elapsed_ms,
+        truncated: result.truncated,
+    }
+    .into();
+
+    Ok(response)
 }
 
 /// 创建外部表请求参数

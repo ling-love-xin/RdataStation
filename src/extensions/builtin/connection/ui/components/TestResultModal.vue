@@ -5,7 +5,9 @@
       <div :class="['test-header', result.success ? 'success' : 'fail']">
         <CheckCircle v-if="result.success" :size="24" />
         <XCircle v-else :size="24" />
-        <span class="test-title">{{ result.success ? $t('navigator.testSuccess') : $t('navigator.testFailed') }}</span>
+        <span class="test-title">{{
+          result.success ? $t('navigator.testSuccess') : $t('navigator.testFailed')
+        }}</span>
       </div>
 
       <!-- Error detail (only on failure) -->
@@ -167,7 +169,9 @@ const hostPort = computed(() => {
   padding: 12px 20px;
   border-bottom: 1px solid var(--color-border-subtle);
 }
-.test-section:last-of-type { border-bottom: none; }
+.test-section:last-of-type {
+  border-bottom: none;
+}
 
 .section-title {
   font-size: var(--font-size-xs);
@@ -178,7 +182,9 @@ const hostPort = computed(() => {
   letter-spacing: 0.5px;
 }
 
-.section-body { padding-left: 2px; }
+.section-body {
+  padding-left: 2px;
+}
 
 .error-detail {
   font-size: var(--font-size-sm);
@@ -223,7 +229,9 @@ const hostPort = computed(() => {
   color: var(--brand-success);
   font-weight: 500;
 }
-.url-row { align-items: flex-start; }
+.url-row {
+  align-items: flex-start;
+}
 
 /* Footer */
 .test-footer {

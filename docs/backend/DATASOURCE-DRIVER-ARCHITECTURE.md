@@ -53,17 +53,17 @@ CREATE TABLE IF NOT EXISTS drivers (
 
 ### 1.3 字段说明
 
-| 字段 | 类型 | 说明 | 示例 |
-|------|------|------|------|
-| `id` | TEXT | 驱动唯一标识 | `mysql`, `postgres` |
-| `name` | TEXT | 驱动显示名称 | `MySQL`, `PostgreSQL` |
-| `driver_kind` | TEXT | 驱动类型 | `native`, `jdbc`, `wasm` |
-| `is_file` | BOOLEAN | 是否文件型数据库 | `true` for SQLite/DuckDB |
-| `default_port` | INTEGER | 默认端口 | `3306`, `5432` |
-| `url_template` | TEXT | URL 模板 | `mysql://{host}:{port}/{database}` |
-| `config_schema` | TEXT | JSON Schema 表单定义 | 见下方详细说明 |
-| `supported_auth_types` | TEXT | 支持的认证类型 | `["password","ssl"]` |
-| `capabilities` | TEXT | 驱动能力 | `["ssl","ssh_tunnel"]` |
+| 字段                   | 类型    | 说明                 | 示例                               |
+| ---------------------- | ------- | -------------------- | ---------------------------------- |
+| `id`                   | TEXT    | 驱动唯一标识         | `mysql`, `postgres`                |
+| `name`                 | TEXT    | 驱动显示名称         | `MySQL`, `PostgreSQL`              |
+| `driver_kind`          | TEXT    | 驱动类型             | `native`, `jdbc`, `wasm`           |
+| `is_file`              | BOOLEAN | 是否文件型数据库     | `true` for SQLite/DuckDB           |
+| `default_port`         | INTEGER | 默认端口             | `3306`, `5432`                     |
+| `url_template`         | TEXT    | URL 模板             | `mysql://{host}:{port}/{database}` |
+| `config_schema`        | TEXT    | JSON Schema 表单定义 | 见下方详细说明                     |
+| `supported_auth_types` | TEXT    | 支持的认证类型       | `["password","ssl"]`               |
+| `capabilities`         | TEXT    | 驱动能力             | `["ssl","ssh_tunnel"]`             |
 
 ### 1.4 默认驱动数据
 
@@ -107,23 +107,23 @@ CREATE TABLE IF NOT EXISTS auth_configs (
 
 #### 数据库认证类型
 
-| auth_type | 存储字段 | 说明 |
-|-----------|----------|------|
-| `password` | username, password | 用户名/密码认证 |
-| `ldap` | username, password | LDAP/AD 认证 |
-| `pg_class` | certPath, certKeyPath | PostgreSQL 客户端证书 |
-| `kerberos` | principal, keytabPath | Kerberos 认证 |
-| `oauth2` | tokenEndpoint, clientId, clientSecret | OAuth 2.0 |
-| `os_auth` | - | 操作系统认证（无凭据） |
-| `trust` | - | 信任认证（无密码） |
+| auth_type  | 存储字段                              | 说明                   |
+| ---------- | ------------------------------------- | ---------------------- |
+| `password` | username, password                    | 用户名/密码认证        |
+| `ldap`     | username, password                    | LDAP/AD 认证           |
+| `pg_class` | certPath, certKeyPath                 | PostgreSQL 客户端证书  |
+| `kerberos` | principal, keytabPath                 | Kerberos 认证          |
+| `oauth2`   | tokenEndpoint, clientId, clientSecret | OAuth 2.0              |
+| `os_auth`  | -                                     | 操作系统认证（无凭据） |
+| `trust`    | -                                     | 信任认证（无密码）     |
 
 #### 网络认证类型
 
-| auth_type | 存储字段 | 说明 |
-|-----------|----------|------|
-| `ssh_password` | username, password | SSH 密码认证 |
+| auth_type         | 存储字段            | 说明         |
+| ----------------- | ------------------- | ------------ |
+| `ssh_password`    | username, password  | SSH 密码认证 |
 | `ssh_private_key` | keyPath, passphrase | SSH 私钥认证 |
-| `proxy_password` | username, password | 代理密码认证 |
+| `proxy_password`  | username, password  | 代理密码认证 |
 
 ### 2.4 数据流
 
@@ -161,12 +161,12 @@ CREATE TABLE IF NOT EXISTS network_configs (
 
 ### 3.2 网络类型
 
-| network_type | 说明 | 协议链位置 |
-|--------------|------|-----------|
-| `ssh` | SSH 隧道 | 中间（可多跳） |
-| `ssl` | SSL/TLS 加密 | 末尾（固定） |
-| `proxy` | 代理服务器 | 中间（可多跳） |
-| `chain` | 协议链 | 完整链 |
+| network_type | 说明         | 协议链位置     |
+| ------------ | ------------ | -------------- |
+| `ssh`        | SSH 隧道     | 中间（可多跳） |
+| `ssl`        | SSL/TLS 加密 | 末尾（固定）   |
+| `proxy`      | 代理服务器   | 中间（可多跳） |
+| `chain`      | 协议链       | 完整链         |
 
 ### 3.3 协议链设计
 
@@ -213,9 +213,7 @@ const supportsSsh = computed(() => {
 const filteredAuthConfigs = computed(() => {
   if (!props.driver?.supported_auth_types) return authConfigs.value
   const supportedTypes = parseSupportedAuthTypes(props.driver.supported_auth_types)
-  return authConfigs.value.filter(cfg =>
-    supportedTypes.includes(cfg.auth_type)
-  )
+  return authConfigs.value.filter(cfg => supportedTypes.includes(cfg.auth_type))
 })
 ```
 
@@ -388,6 +386,6 @@ src-tauri/
 
 ## 八、版本历史
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本 | 日期       | 说明                       |
+| ---- | ---------- | -------------------------- |
 | v1.0 | 2026-05-26 | 初始版本，包含完整架构设计 |

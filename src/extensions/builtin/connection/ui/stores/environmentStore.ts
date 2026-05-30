@@ -35,13 +35,11 @@ export const useEnvironmentStore = defineStore('environment', () => {
   const currentEnvId = ref<string>('G_env_dev')
   const loading = ref(false)
 
-  const currentEnv = computed(() =>
-    environments.value.find(e => e.id === currentEnvId.value) ?? null
+  const currentEnv = computed(
+    () => environments.value.find(e => e.id === currentEnvId.value) ?? null
   )
 
-  const currentPolicies = computed(() =>
-    policies.value.get(currentEnvId.value) ?? []
-  )
+  const currentPolicies = computed(() => policies.value.get(currentEnvId.value) ?? [])
 
   async function fetchAll() {
     loading.value = true
@@ -107,8 +105,10 @@ export const useEnvironmentStore = defineStore('environment', () => {
 
   /** 按作用域过滤环境列表 */
   function forScope(scope: 'global' | 'project' | 'all'): Environment[] {
-    if (scope === 'global') return environments.value.filter(e => e.id.startsWith('G_') && !e.id.startsWith('GP_'))
-    if (scope === 'project') return environments.value.filter(e => e.id.startsWith('P_') || e.id.startsWith('GP_'))
+    if (scope === 'global')
+      return environments.value.filter(e => e.id.startsWith('G_') && !e.id.startsWith('GP_'))
+    if (scope === 'project')
+      return environments.value.filter(e => e.id.startsWith('P_') || e.id.startsWith('GP_'))
     return environments.value
   }
 

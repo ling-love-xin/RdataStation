@@ -69,16 +69,16 @@
 
 ### Vue 3 Frontend
 
-| 技术          | 版本   | 约束            |
-| ------------- | ------ | --------------- |
-| Vue           | 3.5.x  | 允许 minor 升级 |
-| TypeScript    | 6.0.x  | 允许 minor 升级 |
-| Vite          | 8.0.x  | 允许 patch 升级 |
-| AG Grid       | 35.3.x | 允许 minor 升级 |
-| CodeMirror 6 | 6.x | 允许 minor 升级 |
-| Pinia         | 3.0.x  | 允许 minor 升级 |
-| dockview-vue  | 6.1.x  | 允许 minor 升级 |
-| naive-ui      | 2.44.x | 允许 minor 升级 |
+| 技术         | 版本   | 约束            |
+| ------------ | ------ | --------------- |
+| Vue          | 3.5.x  | 允许 minor 升级 |
+| TypeScript   | 6.0.x  | 允许 minor 升级 |
+| Vite         | 8.0.x  | 允许 patch 升级 |
+| AG Grid      | 35.3.x | 允许 minor 升级 |
+| CodeMirror 6 | 6.x    | 允许 minor 升级 |
+| Pinia        | 3.0.x  | 允许 minor 升级 |
+| dockview-vue | 6.1.x  | 允许 minor 升级 |
+| naive-ui     | 2.44.x | 允许 minor 升级 |
 
 ---
 
@@ -99,24 +99,24 @@
 
 ## 相关文档
 
-| 文档          | 路径                           |
-| ------------- | ------------------------------ |
-| 项目文档中心  | `docs/README.md`               |
-| 前端架构文档  | `docs/frontend/INDEX.md`       |
-| 后端架构文档  | `docs/backend/README.md`       |
-| Rust 详细文档 | `src-tauri/src/docs/README.md` |
-| 网络连接设计  | `docs/backend/CONNECTION-METHOD-DESIGN.md` |
+| 文档          | 路径                                        |
+| ------------- | ------------------------------------------- |
+| 项目文档中心  | `docs/README.md`                            |
+| 前端架构文档  | `docs/frontend/INDEX.md`                    |
+| 后端架构文档  | `docs/backend/README.md`                    |
+| Rust 详细文档 | `src-tauri/src/docs/README.md`              |
+| 网络连接设计  | `docs/backend/CONNECTION-METHOD-DESIGN.md`  |
 | 网络配置 UI   | `docs/frontend/NETWORK-CONFIG-UI-DESIGN.md` |
 
 ---
 
 ## 版本历史
 
-| 版本 | 日期       | 说明                                             |
-| ---- | ---------- | ------------------------------------------------ |
+| 版本 | 日期       | 说明                                                                                                                                                                                                                                                                             |
+| ---- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.5 | 2026-05-25 | v0.5.2 新增数据源审计修复：StagingItem全字段补齐、selectStaging恢复authConfigId/authMethod、create_auth_config返回AuthConfig、NetworkTab ID后端生成、useAuthConfig支持project级加载、handleApply projectPath修复、os_auth/trust不写入空认证、NetworkTab.onMounted scope both分流 |
-| v1.4 | 2026-05-25 | v0.5.1 数据源模块完善：auth_configs密码加密，network_configs新增auth_config_id引用，auth_type分类（DB/Network），global_connections/connections字段全链路对齐（25列），ConnectDatabaseInput补全 |
-| v1.3 | 2026-05-19 | v0.5.0 网络连接功能：SSH隧道(russh) + SSL/TLS(native-tls) + 代理配置，后端核心完成 |
-| v1.2 | 2026-05-18 | Vite 6→8 升级，Rolldown 引擎，vue-tsc 3.x，@vitejs/plugin-vue 6.x |
-| v1.1 | 2026-05-12 | 代码质量全面修复，TS/ESLint 零错误，依赖版本锁定 |
-| v1.0 | 2026-05-03 | 初始版本，建立规则索引                           |
+| v1.4 | 2026-05-25 | v0.5.1 数据源模块完善：auth_configs密码加密，network_configs新增auth_config_id引用，auth_type分类（DB/Network），global_connections/connections字段全链路对齐（25列），ConnectDatabaseInput补全                                                                                  |
+| v1.3 | 2026-05-19 | v0.5.0 网络连接功能：SSH隧道(russh) + SSL/TLS(native-tls) + 代理配置，后端核心完成                                                                                                                                                                                               |
+| v1.2 | 2026-05-18 | Vite 6→8 升级，Rolldown 引擎，vue-tsc 3.x，@vitejs/plugin-vue 6.x                                                                                                                                                                                                                |
+| v1.1 | 2026-05-12 | 代码质量全面修复，TS/ESLint 零错误，依赖版本锁定                                                                                                                                                                                                                                 |
+| v1.0 | 2026-05-03 | 初始版本，建立规则索引                                                                                                                                                                                                                                                           |

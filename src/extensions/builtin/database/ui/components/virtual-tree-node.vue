@@ -39,7 +39,11 @@
         </template>
       </span>
 
-      <span v-if="node.connectionStatus === 'connected'" class="status-dot connected" title="已连接">
+      <span
+        v-if="node.connectionStatus === 'connected'"
+        class="status-dot connected"
+        title="已连接"
+      >
         <span class="pulse-ring"></span>
       </span>
       <span
@@ -217,8 +221,10 @@ const tooltipContent = computed(() => {
     const parts: string[] = []
     if (d.tableCount != null) parts.push(`表数量: ${d.tableCount}`)
     if (d.viewCount != null) parts.push(`视图数量: ${d.viewCount}`)
-    if (d.totalSizeBytes != null && d.totalSizeBytes > 0) parts.push(`总大小: ${formatBytes(d.totalSizeBytes)}`)
-    if (d.rowCountTotal != null && d.rowCountTotal > 0) parts.push(`总行数: ${formatNumber(d.rowCountTotal)}`)
+    if (d.totalSizeBytes != null && d.totalSizeBytes > 0)
+      parts.push(`总大小: ${formatBytes(d.totalSizeBytes)}`)
+    if (d.rowCountTotal != null && d.rowCountTotal > 0)
+      parts.push(`总行数: ${formatNumber(d.rowCountTotal)}`)
     return parts.length > 0 ? parts.join('\n') : undefined
   }
   return undefined

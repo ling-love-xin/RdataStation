@@ -30,9 +30,9 @@ const currentComponent = computed(() => {
     case 'settings':
       return { template: '<div class="placeholder-message">Settings — Coming soon</div>' }
     default:
-        return DatabaseNavComponent
-    }
-  })
+      return DatabaseNavComponent
+  }
+})
 </script>
 
 <style scoped>

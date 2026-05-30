@@ -24,7 +24,10 @@ import { NSpin } from 'naive-ui'
 import { ref, onMounted, onBeforeUnmount, nextTick, shallowRef, watch } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
-import type { ResultSetMetadata, GridStateSnapshot } from '@/extensions/builtin/workbench/types/editor-types'
+import type {
+  ResultSetMetadata,
+  GridStateSnapshot,
+} from '@/extensions/builtin/workbench/types/editor-types'
 
 import GridToolbar from './GridToolbar.vue'
 
@@ -115,7 +118,9 @@ async function createGrid(): Promise<void> {
       columnDefs: metadata.value.columns.map(c => ({ field: c, headerName: c })),
       rowData: (metadata.value.rows ?? []).map(r => {
         const obj: Record<string, unknown> = {}
-        metadata.value.columns.forEach((c, i) => { obj[c] = r[i] })
+        metadata.value.columns.forEach((c, i) => {
+          obj[c] = r[i]
+        })
         return obj
       }),
     })
@@ -126,9 +131,13 @@ async function createGrid(): Promise<void> {
 
       const elapsed = Math.round(performance.now() - startTs)
       if (elapsed > 200) {
-        console.warn(`[Perf] AG Grid create: ${elapsed}ms (>200ms target) | cols=${metadata.value.columns.length} rows=${(metadata.value.rows ?? []).length}`)
+        console.warn(
+          `[Perf] AG Grid create: ${elapsed}ms (>200ms target) | cols=${metadata.value.columns.length} rows=${(metadata.value.rows ?? []).length}`
+        )
       } else {
-        console.info(`[Perf] AG Grid create: ${elapsed}ms | cols=${metadata.value.columns.length} rows=${(metadata.value.rows ?? []).length}`)
+        console.info(
+          `[Perf] AG Grid create: ${elapsed}ms | cols=${metadata.value.columns.length} rows=${(metadata.value.rows ?? []).length}`
+        )
       }
 
       if (savedGridState.value) {
@@ -163,7 +172,7 @@ function destroyGrid(): void {
     try {
       gridInstance.value.destroy()
     } catch {
-      /* grid may already be destroyed */
+      console.warn('[FileResultPanel] grid.destroy failed, may already be destroyed')
     }
     gridInstance.value = null
   }
@@ -196,7 +205,7 @@ watch(
     } else {
       destroyGrid()
     }
-  },
+  }
 )
 
 onBeforeUnmount(() => {
@@ -219,7 +228,9 @@ async function handleExportJson(): Promise<void> {
   const rows = metadata.value.rows ?? []
   const data = rows.map(r => {
     const obj: Record<string, unknown> = {}
-    cols.forEach((c, i) => { obj[c] = r[i] })
+    cols.forEach((c, i) => {
+      obj[c] = r[i]
+    })
     return obj
   })
   const json = JSON.stringify(data, null, 2)

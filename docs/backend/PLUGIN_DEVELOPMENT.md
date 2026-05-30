@@ -1,4 +1,3 @@
-
 # 插件开发指南
 
 本指南将帮助你为 RdataStation 开发插件。
@@ -28,6 +27,7 @@ my-plugin/
 ### 2. 编写插件清单
 
 **plugin.toml**
+
 ```toml
 id = "com.example.myplugin"
 name = "My Plugin"
@@ -48,6 +48,7 @@ api_key = ""
 ## WASM 插件开发 (Rust)
 
 ### Cargo.toml
+
 ```toml
 [package]
 name = "my-plugin"
@@ -64,6 +65,7 @@ serde_json = "1.0"
 ```
 
 ### lib.rs
+
 ```rust
 use extism_pdk::*;
 use serde::{Deserialize, Serialize};
@@ -106,6 +108,7 @@ pub fn process(input: Json<MyRequest>) -> FnResult<Json<MyResponse>> {
 ## Go Sidecar 插件开发
 
 ### main.go
+
 ```go
 package main
 
@@ -169,6 +172,7 @@ func toJSON(v interface{}) json.RawMessage {
 ## 安装插件
 
 1. 将插件文件放入插件目录：
+
 ```
 ~/.rdata-station/plugins/
 └── my-plugin/
@@ -177,19 +181,20 @@ func toJSON(v interface{}) json.RawMessage {
 ```
 
 2. 在 RdataStation 中通过 UI 或命令加载插件：
+
 ```typescript
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
 // 加载插件
 await invoke('plugin_load', {
-    pluginId: 'com.example.myplugin',
-    pluginPath: '~/.rdata-station/plugins/my-plugin'
-});
+  pluginId: 'com.example.myplugin',
+  pluginPath: '~/.rdata-station/plugins/my-plugin',
+})
 
 // 激活插件
 await invoke('plugin_activate', {
-    pluginId: 'com.example.myplugin'
-});
+  pluginId: 'com.example.myplugin',
+})
 ```
 
 ## 前端集成
@@ -198,14 +203,14 @@ await invoke('plugin_activate', {
 
 ```typescript
 // 在前端应用中
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
 export async function callMyPlugin(data: string) {
-    return await invoke('plugin_call', {
-        pluginId: 'com.example.myplugin',
-        method: 'process',
-        input: { message: data }
-    });
+  return await invoke('plugin_call', {
+    pluginId: 'com.example.myplugin',
+    method: 'process',
+    input: { message: data },
+  })
 }
 ```
 
@@ -232,9 +237,9 @@ export function MyPluginPanel() {
     return (
         <div>
             <h2>My Plugin</h2>
-            <input 
-                value={data} 
-                onChange={e =&gt; setData(e.target.value)} 
+            <input
+                value={data}
+                onChange={e =&gt; setData(e.target.value)}
                 placeholder="Input message"
             /&gt;
             <button onClick={handleClick}>Process</button>
@@ -260,11 +265,11 @@ pub fn on_sql_executed(event: Json<SqlExecutedEvent>) -> FnResult<()> {
 前端也可以监听事件：
 
 ```typescript
-import { listen } from '@tauri-apps/api/event';
+import { listen } from '@tauri-apps/api/event'
 
-await listen('plugin-event', (event) => {
-    console.log('Plugin event:', event.payload);
-});
+await listen('plugin-event', event => {
+  console.log('Plugin event:', event.payload)
+})
 ```
 
 ## 数据存储
@@ -299,7 +304,7 @@ pub fn save_setting(key: String, value: String) -> FnResult<()> {
 ## 插件发布
 
 完成开发后，可以：
+
 1. 在 GitHub 上发布插件
 2. 提交到插件市场（未来功能）
 3. 分享文档和使用示例
-

@@ -80,7 +80,17 @@
 
 <script setup lang="ts">
 import { Table2, Eye, Code } from 'lucide-vue-next'
-import { NTag, NTabs, NTabPane, NDataTable, NButton, NButtonGroup, NEmpty, NCode , createDiscreteApi } from 'naive-ui'
+import {
+  NTag,
+  NTabs,
+  NTabPane,
+  NDataTable,
+  NButton,
+  NButtonGroup,
+  NEmpty,
+  NCode,
+  createDiscreteApi,
+} from 'naive-ui'
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 

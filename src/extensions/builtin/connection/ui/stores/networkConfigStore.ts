@@ -25,17 +25,11 @@ export const useNetworkConfigStore = defineStore('networkConfig', () => {
   const profiles = ref<NetworkProfile[]>([])
   const loading = ref(false)
 
-  const sshProfiles = computed(() =>
-    profiles.value.filter(p => p.network_type === 'ssh')
-  )
+  const sshProfiles = computed(() => profiles.value.filter(p => p.network_type === 'ssh'))
 
-  const sslProfiles = computed(() =>
-    profiles.value.filter(p => p.network_type === 'ssl')
-  )
+  const sslProfiles = computed(() => profiles.value.filter(p => p.network_type === 'ssl'))
 
-  const proxyProfiles = computed(() =>
-    profiles.value.filter(p => p.network_type === 'proxy')
-  )
+  const proxyProfiles = computed(() => profiles.value.filter(p => p.network_type === 'proxy'))
 
   async function fetchAll() {
     loading.value = true

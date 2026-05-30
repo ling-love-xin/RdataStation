@@ -128,7 +128,7 @@ export async function createProjectConnection(
  */
 export async function updateProjectConnection(
   connection: ProjectConnection,
-  projectPath: string,
+  projectPath: string
 ): Promise<void> {
   await invoke('update_project_connection', {
     projectPath,
@@ -201,7 +201,10 @@ export async function searchProjectConnections(
   _limit?: number,
   _offset?: number
 ): Promise<ProjectConnection[]> {
-  const list = await invoke<ProjectConnectionResponse[]>('search_project_connections', { projectPath, query })
+  const list = await invoke<ProjectConnectionResponse[]>('search_project_connections', {
+    projectPath,
+    query,
+  })
   let results = list.map(mapResponse)
   // 后端不支持分页，前端裁剪
   if (_offset) results = results.slice(_offset)

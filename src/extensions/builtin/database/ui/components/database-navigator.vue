@@ -110,7 +110,6 @@ import {
 import { useWorkbenchStore } from '@/extensions/builtin/workbench/ui/stores/workbench-store'
 import { useUiStore } from '@/shared/stores/ui'
 
-
 import NavigatorGroupDialog from './group-dialog.vue'
 import NavigatorContextMenuV2 from './navigator-context-menu-v2.vue'
 import NavigatorError from './navigator-error.vue'

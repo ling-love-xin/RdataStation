@@ -1146,28 +1146,42 @@ const treeScrollTop = ref(0)
 const treeContainerHeight = ref(0)
 
 const flattenedTree = computed(() => {
-   const tree = flattenVisibleEntries(filteredLocalEntries.value, expandedKeys.value)
-   const seen = new Map<string, number>()
-   for (const item of tree) {
-     const key = normalizePathForCompare(item.entry.path)
-     seen.set(key, (seen.get(key) || 0) + 1)
-   }
-   for (const [key, count] of seen) {
-     if (count > 1) {
-       console.warn('[flattenedTree] DUPLICATE across levels! path:', key, 'count:', count, 'entries:',
-         tree.filter(i => normalizePathForCompare(i.entry.path) === key).map(i => ({ name: i.entry.name, kind: i.entry.kind, depth: i.depth })))
-     }
-   }
-   const testDir = tree.filter(i => i.entry.path.includes('测试2026'))
-   if (testDir.length > 0) {
-     console.log('[flattenedTree] 测试2026 entries:', testDir.map(i => `${i.depth}:${i.entry.kind}:${i.entry.name}`))
-     const children = testDir.filter(i => i.entry.kind === 'file')
-     if (children.length > 0) {
-       console.log('[flattenedTree] 测试2026 files:', children.map(i => `${i.entry.name}@${i.entry.path}@depth${i.depth}`))
-     }
-   }
-   return tree
- })
+  const tree = flattenVisibleEntries(filteredLocalEntries.value, expandedKeys.value)
+  const seen = new Map<string, number>()
+  for (const item of tree) {
+    const key = normalizePathForCompare(item.entry.path)
+    seen.set(key, (seen.get(key) || 0) + 1)
+  }
+  for (const [key, count] of seen) {
+    if (count > 1) {
+      console.warn(
+        '[flattenedTree] DUPLICATE across levels! path:',
+        key,
+        'count:',
+        count,
+        'entries:',
+        tree
+          .filter(i => normalizePathForCompare(i.entry.path) === key)
+          .map(i => ({ name: i.entry.name, kind: i.entry.kind, depth: i.depth }))
+      )
+    }
+  }
+  const testDir = tree.filter(i => i.entry.path.includes('测试2026'))
+  if (testDir.length > 0) {
+    console.log(
+      '[flattenedTree] 测试2026 entries:',
+      testDir.map(i => `${i.depth}:${i.entry.kind}:${i.entry.name}`)
+    )
+    const children = testDir.filter(i => i.entry.kind === 'file')
+    if (children.length > 0) {
+      console.log(
+        '[flattenedTree] 测试2026 files:',
+        children.map(i => `${i.entry.name}@${i.entry.path}@depth${i.depth}`)
+      )
+    }
+  }
+  return tree
+})
 
 const useVirtualScrollEnabled = computed(
   () => flattenedTree.value.length > VIRTUAL_SCROLL_THRESHOLD
@@ -1744,7 +1758,12 @@ function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
   }
 
   const entry = findEntryInTree(localEntries.value, parentPath)
-  console.log('[Scratchpad] startInlineCreate: findEntryInTree found?', !!entry, 'kind:', entry?.kind)
+  console.log(
+    '[Scratchpad] startInlineCreate: findEntryInTree found?',
+    !!entry,
+    'kind:',
+    entry?.kind
+  )
   if (entry && entry.kind === 'folder') {
     inlineCreateParentPath.value = parentPath
     inlineCreateTargetDir.value = parentPath
@@ -1795,7 +1814,18 @@ function cancelRootInlineCreate(): void {
 async function confirmInlineCreate(name: string): Promise<void> {
   const parentPath = inlineCreateTargetDir.value || inlineCreateParentPath.value
   const isFolder = inlineCreateIsFolder.value
-  console.log('[Scratchpad] confirmInlineCreate, name:', name, 'isFolder:', isFolder, 'parentPath:', parentPath, 'inlineCreateTargetDir:', inlineCreateTargetDir.value, 'inlineCreateParentPath:', inlineCreateParentPath.value)
+  console.log(
+    '[Scratchpad] confirmInlineCreate, name:',
+    name,
+    'isFolder:',
+    isFolder,
+    'parentPath:',
+    parentPath,
+    'inlineCreateTargetDir:',
+    inlineCreateTargetDir.value,
+    'inlineCreateParentPath:',
+    inlineCreateParentPath.value
+  )
   if (!name) {
     cancelInlineCreate()
     return

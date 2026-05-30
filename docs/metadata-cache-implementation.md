@@ -11,10 +11,12 @@
 **问题**: `privileges` 表的外键引用了不存在的表 `connections`
 
 **修复内容**:
+
 - 移除了 `src-tauri/migrations/connection_metadata/009_jdbc_metadata_alignment.sql` 中的错误外键
 - 简化了表结构，移除了 `connection_id` 字段（因为每个连接有独立的元数据缓存库）
 
 **修改文件**:
+
 - [`src-tauri/migrations/connection_metadata/009_jdbc_metadata_alignment.sql`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/migrations/connection_metadata/009_jdbc_metadata_alignment.sql)
 
 ### 2. 代码质量修复
@@ -22,10 +24,12 @@
 **问题**: `cache_manager.rs` 中的 `metadata_cache_mut` 函数有 `unimplemented!()`
 
 **修复内容**:
+
 - 移除了 `src-tauri/src/core/cache/cache_manager.rs` 中的有问题函数
 - 保持使用线程安全的 `Arc<Mutex<MetadataCache>>` 设计
 
 **修改文件**:
+
 - [`src-tauri/src/core/cache/cache_manager.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/core/cache/cache_manager.rs)
 
 ### 3. 前后端 API 对齐
@@ -33,11 +37,13 @@
 **问题**: 前后端 API 完全不对齐，类型定义不一致
 
 **修复内容**:
+
 - 完整更新了前端服务，添加了所有后端已实现的 API 调用
 - 添加了类型定义，与后端保持一致
 - 支持全局/项目双架构模式
 
 **修改文件**:
+
 - [`src/extensions/builtin/database/ui/services/metadata-cache-service.ts`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src/extensions/builtin/database/ui/services/metadata-cache-service.ts)
 
 ### 4. 类型自动生成集成
@@ -45,12 +51,14 @@
 **问题**: 前后端类型需要手动维护，容易不一致
 
 **修复内容**:
+
 - 添加了 `ts-rs` 依赖到 `Cargo.toml`
 - 创建了 `types.rs` 统一导出模块
 - 添加了 `build.rs` 构建脚本
 - 更新了 `core/mod.rs` 导出新模块
 
 **新增/修改文件**:
+
 - [`src-tauri/Cargo.toml`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/Cargo.toml)
 - [`src-tauri/src/core/types.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/src/core/types.rs)（新建）
 - [`src-tauri/build.rs`](file:///e:/myapps/tauirapps/RdataStation/个人工作台-插件/rdata-station/src-tauri/build.rs)（新建）
@@ -59,6 +67,7 @@
 ## 完整的 API 功能
 
 ### 元数据加载 API (metadata_commands.rs)
+
 - `loadDatabases` / `loadCatalogs` - 加载数据库列表
 - `loadSchemas` - 加载 Schema 列表
 - `loadTables` / `loadViews` - 加载表/视图
@@ -72,6 +81,7 @@
 - `setIntrospectionLevel` / `getIntrospectionLevel` / `removeIntrospectionLevel` - 内省级别管理
 
 ### 元数据缓存管理 API (metadata_cache_commands.rs)
+
 - `getMetadataCacheStatus` - 获取缓存状态
 - `refreshMetadataCache` / `clearMetadataCache` - 刷新/清除缓存
 - `saveTableMetadataToCache` / `saveColumnMetadataToCache` - 保存元数据
@@ -81,6 +91,7 @@
 - `getSyncStatus` / `cancelSync` - 同步状态管理
 
 ### 缓存预热 API (cache_warming_commands.rs)
+
 - `buildCacheIndex` - V7: 构建缓存索引（支持增量模式）
 - `startCacheWarming` / `cancelCacheWarming` - 预热控制
 - `getWarmingProgress` - 预热进度
@@ -92,6 +103,7 @@
 ## 全局/项目双架构
 
 系统完整支持：
+
 - **全局连接**: 元数据缓存存储在用户系统目录
 - **项目连接**: 元数据缓存存储在项目内部目录
 - 所有 API 都接受 `connectionType` 和 `projectPath` 参数
@@ -99,33 +111,39 @@
 ## 架构特性
 
 ### 1. 三层缓存架构
+
 - **L1**: 内存 LRU 缓存（进程内）
 - **L2**: SQLite 持久化缓存（可选）
 - **L3**: 数据库直接查询
 
 ### 2. 差异化过期策略
+
 - Catalogs: 1小时
 - Schemas: 30分钟
 - Tables/Views: 10分钟
 - Columns/Routines: 1小时
 
 ### 3. 完整的版本迁移
+
 - 10个迁移版本（新增 V10：企业级统计 + 显示控制）
 - 自动升级检测
 - 迁移历史追踪
 
 ### 4. 高性能优化
+
 - WAL 模式
 - Memory-Mapped I/O (256MB)
 - 批量写入
 - JoinSet 并行查询
 
 ### 5. 内省级别 (V7)
+
 - Level 1: 基础信息（快速）
 - Level 2: 标准信息（中等）
 - Level 3: 完整信息（慢但详细）
 
 ### 6. 企业级元数据统计（V10 新增）
+
 - **schemata 聚合统计列**：total_tables, total_views, total_procedures, total_functions, total_size_bytes, row_count_total
 - **tables 显示控制列**：display_order, hidden, favorite, color_label, user_comment
 - **schema_stats 视图**：实时聚合每个 Schema 的对象数量和数据大小
@@ -134,11 +152,13 @@
 - **list_schemas_with_stats**：查询 Schema 列表时返回完整统计信息
 
 ### 7. 导航树修复（V10 同步）
+
 - **childCount 动态计算**：Schema 节点按 NavigationConfig 启用的文件夹数计算；Tables/Views 文件夹按实际已加载数据计数；表节点按 columns + 配置的 tableChildren 计算
 - **离线浏览支持**：`loadCatalogsFromCacheSilent` 方法，连接断开后仍可从 L2 SQLite 缓存构建导航树
 - **数据库类型自适应**：PostgreSQL（catalog+schema）、MySQL（catalog→tables 直接）、DuckDB/SQLite（connection→tables 直接）
 
 ### 8. 前后端一致性修复（V10.1）
+
 - **Rust TableMeta 扩展**：新增 7 个 V10 字段（row_count_estimate, data_length, index_length, display_order, hidden, favorite, color_label, user_comment），使用 `skip_serializing_if` 可选序列化
 - **Rust SchemaMeta 扩展**：新增 6 个 Schema 聚合统计字段（total_tables, total_views, total_procedures, total_functions, total_size_bytes, row_count_total）及 `SchemaMeta::basic()` 构造函数
 - **前端 metadata-cache-service.ts**：SchemaMeta 新增 6 个可选统计字段，与 Rust 完全对齐
@@ -147,6 +167,7 @@
 - **ColumnMeta 验证**：前后端 8 字段（name/dataType/isNullable/defaultValue/isPrimaryKey/isForeignKey/comment）经 serde rename 完全对齐
 
 ### 9. 导航栏全链路打通修复（V10.2）
+
 - **P0-1 indexes/constraints 加载修复**：Store 新增 `loadIndexes`/`loadConstraints` 方法，写入 TableNode.indexes/constraints；Tree Loader 展开 indexes-folder/constraints-folder 时先调用 Store 加载再渲染
 - **P0-2 sequences/triggers 文件夹修复**：Tree Loader `loadChildren` 新增 `sequences-folder`/`triggers-folder` 分支，之前展开时静默返回空
 - **P0-3 后端 commands 新增**：
@@ -165,6 +186,7 @@
 - **Tree Loader 新增**：`createSequenceNodes` / `createTriggerNodes` 渲染函数
 
 ### 10. 后端 Schema 对齐审计 + 驱动索引实现（V10.3）
+
 - **三库 Schema 全链路对齐验证**：
   - `global_connections`（global.db）25 列完整：id, name, driver, host, port, database, schema_name, username, password_encrypted, options, tags, use_duckdb_fed, metadata_path, is_active, server_version, description, driver_id, environment_id, auth_config_id, auth_method, network_config_id, driver_properties, advanced_options, created_at, updated_at
   - `connections`（project.db）25 列完整：字段与 global_connections 一一对应，driver 列替代旧 db_type
@@ -204,20 +226,24 @@
 ## 文件清单
 
 ### 新增文件
+
 - `src-tauri/migrations/connection_metadata/010_enterprise_statistics_and_display.sql`
 - `docs/metadata-cache-implementation.md` (本文件)
 
 ### 修改文件 (V10)
+
 - `src-tauri/src/core/persistence/metadata_cache.rs` — SchemaInfo/TableDetailInfo 扩展 + save_table_with_stats / update_schema_stats / get_schema_stats / list_schemas_with_stats
 - `src/extensions/builtin/database/ui/services/metadata-cache-service.ts` — TableMeta + SchemaMeta 扩展
 - `src/extensions/builtin/database/ui/stores/database-navigator-store.ts` — loadCatalogsFromCacheSilent
 - `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — childCount 修复 + countEnabledFolders/countTableChildren + 离线支持
 
 ### 修改文件 (V10.1 一致性修复)
+
 - `src-tauri/src/commands/metadata_commands.rs` — TableMeta/SchemaMeta 扩展 + basic()/from_detail() 工厂方法
 - `src/generated/specta/bindings.ts` — SchemaMeta/TableMeta 类型同步
 
 ### 修改文件 (V10.2 导航栏全链路打通)
+
 - `src-tauri/src/core/driver/traits.rs` — SchemaObjectKind 新增 Sequence/Trigger；SchemaObject 新增 table_name/event；Database trait 新增 list_sequences/list_triggers；MetadataBrowser 新增 get_sequences/get_triggers
 - `src-tauri/src/core/driver/native/postgres.rs` — 实现 list_sequences/list_triggers；names_to_schema_objects 支持 3 列触发器解析
 - `src-tauri/src/core/driver/native/mysql.rs` — 实现 list_indexes via SHOW INDEX FROM
@@ -229,11 +255,13 @@
 - `src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts` — indexes/constraints 先加载再渲染；新增 sequences/triggers folder 和 node 处理
 
 ### 修改文件 (V10.3 Schema 审计 + 驱动索引实现)
+
 - `src-tauri/src/core/driver/native/duckdb.rs` — 实现 `list_indexes`（`duckdb_indexes()` 表函数 + expression 列解析列名）
 - `src-tauri/src/core/driver/native/sqlite.rs` — 实现 `list_indexes`（`PRAGMA index_list` + `PRAGMA index_info`）
 - `src/extensions/builtin/connection/ui/composables/useAddDataSource.ts` — 修复 `null` → `undefined` 类型错误（第 440 行）
 
 ### 审计验证（V10.3 无代码变更，仅验证通过）
+
 - `src-tauri/migrations/global/001-016` — 25 列 global_connections 完整对齐 ✅
 - `src-tauri/migrations/project_meta/001-015` — 25 列 connections 完整对齐 ✅
 - `src-tauri/migrations/connection_metadata/001-010` — V10 企业级统计字段完整 ✅
@@ -422,4 +450,5 @@ V10.5 遗留审计发现：`load_sequences` / `load_triggers` / `load_procedures
   - `docs/metadata-cache-implementation.md` — 本文档
 
 ---
+
 **最后更新**: 2026-05-30 (V10.5.2 L2 缓存补齐 + V10.5.3 Specta 自动生成确认)

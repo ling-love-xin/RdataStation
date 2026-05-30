@@ -44,11 +44,11 @@
 
 ### 0.1 模块名称演进
 
-| 阶段 | 称呼 | 说明 |
-|------|------|------|
-| Phase 1-3 | SQL 编辑器（sqlEditor） | 仅支持 SQL 文件的编辑和执行 |
-| Phase 4-5 | 编辑面板模块 | 加入 CodeEditorPanel，支持通用文本文件 |
-| **Phase 6（本文档）** | **统一编辑器系统** | 单 Editor 实例 + 多 Model，融合 SQL 与通用编辑 |
+| 阶段                  | 称呼                    | 说明                                           |
+| --------------------- | ----------------------- | ---------------------------------------------- |
+| Phase 1-3             | SQL 编辑器（sqlEditor） | 仅支持 SQL 文件的编辑和执行                    |
+| Phase 4-5             | 编辑面板模块            | 加入 CodeEditorPanel，支持通用文本文件         |
+| **Phase 6（本文档）** | **统一编辑器系统**      | 单 Editor 实例 + 多 Model，融合 SQL 与通用编辑 |
 
 ### 0.2 三种架构方案对比
 
@@ -278,22 +278,22 @@ dockview 原生 Float Tab（拖出/弹出）：
 ```typescript
 // EditorManager 核心状态
 interface OpenFileInfo {
-  model: monaco.editor.ITextModel              // Monaco TextModel（markRaw，全局单例）
-  filePath: string                             // 草稿箱相对路径
-  fileName: string                             // 显示名称
-  language: string                             // sql | python | json | plaintext
-  type: 'file' | 'analysis'                   // 文件类型
-  isDirty: boolean                             // 未保存标记
-  connectionId: string                         // 绑定的数据库连接（SQL 文件）
-  databaseName: string                         // 绑定的数据库名
-  resultSets: ResultSetMetadata[]              // 结果集元数据
-  activeResultIndex: number                    // 当前选中的结果集索引
-  resultPanelIds: string[]                     // 文件 Group 内结果集 Panel ID 列表
+  model: monaco.editor.ITextModel // Monaco TextModel（markRaw，全局单例）
+  filePath: string // 草稿箱相对路径
+  fileName: string // 显示名称
+  language: string // sql | python | json | plaintext
+  type: 'file' | 'analysis' // 文件类型
+  isDirty: boolean // 未保存标记
+  connectionId: string // 绑定的数据库连接（SQL 文件）
+  databaseName: string // 绑定的数据库名
+  resultSets: ResultSetMetadata[] // 结果集元数据
+  activeResultIndex: number // 当前选中的结果集索引
+  resultPanelIds: string[] // 文件 Group 内结果集 Panel ID 列表
 }
 
 interface ResultSetMetadata {
   id: string
-  title: string                                // "结果1" | "2026-05-16 14:30"
+  title: string // "结果1" | "2026-05-16 14:30"
   columns: string[]
   totalRowCount: number
   elapsedMs: number
@@ -301,8 +301,8 @@ interface ResultSetMetadata {
   messages: string
   sql: string
   timestamp: number
-  gridState?: GridStateSnapshot                // AG Grid 状态快照
-  rows?: unknown[][]                           // 按需加载的数据
+  gridState?: GridStateSnapshot // AG Grid 状态快照
+  rows?: unknown[][] // 按需加载的数据
 }
 
 // EditorManager 全局状态
@@ -608,15 +608,18 @@ ResultPanelManager.addResultSet('__analysis__', resultData)
 
 ```typescript
 // 用户执行 SQL 后
-function storeResult(filePath: string, data: {
-  columns: string[]
-  rows: unknown[][]
-  totalRows: number
-  elapsedMs: number
-  affectedRows: number
-  sql: string
-  error: string | null
-}) {
+function storeResult(
+  filePath: string,
+  data: {
+    columns: string[]
+    rows: unknown[][]
+    totalRows: number
+    elapsedMs: number
+    affectedRows: number
+    sql: string
+    error: string | null
+  }
+) {
   const fileInfo = openFiles.get(filePath)
   if (!fileInfo) return
 
@@ -645,9 +648,10 @@ function storeResult(filePath: string, data: {
   const group = editorPanel?.group
   if (group) {
     // 找到 Group 下方的结果区域 Panel 作为参考
-    const refPanelId = fileInfo.resultPanelIds.length > 0
-      ? fileInfo.resultPanelIds[fileInfo.resultPanelIds.length - 1]
-      : editorPanelId
+    const refPanelId =
+      fileInfo.resultPanelIds.length > 0
+        ? fileInfo.resultPanelIds[fileInfo.resultPanelIds.length - 1]
+        : editorPanelId
 
     dockviewApi.value?.addPanel({
       id: panelId,
@@ -677,7 +681,7 @@ function storeResult(filePath: string, data: {
 // FileResultPanel.vue
 const panelApi = usePanelApi()
 const isActive = ref(false)
-const isDetached = ref(false)  // 是否已脱离文件 Group
+const isDetached = ref(false) // 是否已脱离文件 Group
 const gridInstance = shallowRef<AgGridVue | null>(null)
 const gridState = shallowRef<GridStateSnapshot | null>(null)
 
@@ -886,8 +890,8 @@ dockview API 自动处理：
 type ShortcutScope = 'global' | 'editor' | 'scratchpad' | 'result' | 'none'
 
 interface ShortcutRegistration {
-  key: string                     // 'Ctrl+S' | 'Ctrl+Enter' | ...
-  scope: ShortcutScope            // 绑定作用域
+  key: string // 'Ctrl+S' | 'Ctrl+Enter' | ...
+  scope: ShortcutScope // 绑定作用域
   handler: () => void
   description: string
 }
@@ -931,7 +935,7 @@ export const ShortcutManager = new ShortcutManagerImpl()
 
 ```typescript
 // WorkbenchView.vue onReady
-dockviewApi.onDidActivePanelChange((panel) => {
+dockviewApi.onDidActivePanelChange(panel => {
   if (!panel) {
     ShortcutManager.setActiveScope('none')
     return
@@ -963,33 +967,68 @@ dockviewApi.onDidActivePanelChange((panel) => {
 
 ```typescript
 // 注册时机：EditorManager 初始化时
-ShortcutManager.register('Ctrl+S', 'editor', () => {
-  EditorManager.saveCurrentFile()
-}, '保存当前文件')
+ShortcutManager.register(
+  'Ctrl+S',
+  'editor',
+  () => {
+    EditorManager.saveCurrentFile()
+  },
+  '保存当前文件'
+)
 
-ShortcutManager.register('Ctrl+Enter', 'editor', () => {
-  EditorManager.executeCurrentSQL()
-}, '执行当前 SQL')
+ShortcutManager.register(
+  'Ctrl+Enter',
+  'editor',
+  () => {
+    EditorManager.executeCurrentSQL()
+  },
+  '执行当前 SQL'
+)
 
-ShortcutManager.register('Ctrl+/', 'editor', () => {
-  EditorManager.toggleComment()
-}, '切换注释')
+ShortcutManager.register(
+  'Ctrl+/',
+  'editor',
+  () => {
+    EditorManager.toggleComment()
+  },
+  '切换注释'
+)
 
-ShortcutManager.register('Ctrl+Shift+E', 'global', () => {
-  EditorManager.openNewQuery()
-}, '新建查询')
+ShortcutManager.register(
+  'Ctrl+Shift+E',
+  'global',
+  () => {
+    EditorManager.openNewQuery()
+  },
+  '新建查询'
+)
 
-ShortcutManager.register('Ctrl+Alt+N', 'scratchpad', () => {
-  // 委托草稿箱的 handleCreateFile
-}, '草稿箱新建文件')
+ShortcutManager.register(
+  'Ctrl+Alt+N',
+  'scratchpad',
+  () => {
+    // 委托草稿箱的 handleCreateFile
+  },
+  '草稿箱新建文件'
+)
 
-ShortcutManager.register('Delete', 'scratchpad', () => {
-  // 委托草稿箱的 handleDelete
-}, '草稿箱删除文件')
+ShortcutManager.register(
+  'Delete',
+  'scratchpad',
+  () => {
+    // 委托草稿箱的 handleDelete
+  },
+  '草稿箱删除文件'
+)
 
-ShortcutManager.register('Ctrl+C', 'result', () => {
-  // 复制选中的结果行
-}, '复制结果数据')
+ShortcutManager.register(
+  'Ctrl+C',
+  'result',
+  () => {
+    // 复制选中的结果行
+  },
+  '复制结果数据'
+)
 
 // 关键：编辑器快捷键在所有 Group 中共享同一个 'editor' scope
 // 用户从 Group A 的编辑器切换到 Group B 的编辑器
@@ -1218,17 +1257,17 @@ WorkbenchView.vue（dockview 宿主）
 
 ### 12.2 组件职责矩阵
 
-| 组件 / 管理器 | 行数（估） | 职责 | 依赖 |
-|--------------|-----------|------|------|
-| **EditorManager.ts** | ~350 | Editor 生命周期、Model 管理、Panel ID 映射、文件 CRUD、fileEditors 管理、Dirty 追踪、onPanelActivated | dockviewApi, monaco, useEditorPersistence |
-| **ResultPanelManager.ts** | ~200 | 结果集 Panel CRUD、独立/跟随判断、Grid 状态缓存 | dockviewApi, EditorManager |
-| **ShortcutManager.ts** | ~150 | 快捷键注册/注销、作用域管理、keydown 事件分发 | dockviewApi.onDidActivePanelChange |
-| **EditorPanel.vue** | ~280 | n-tabs 标签栏、Editor DOM 容器、工具栏显隐、ResultSubTab 集成 | EditorManager, EditorToolbar, ResultSubTab |
-| **FileResultPanel.vue** | ~250 | AG Grid 按需创建/销毁、Grid 状态保存恢复、导出 | AG Grid, props(columns, rows), panelApi |
-| **ResultSubTab.vue** | ~80 | 结果集子 Tab 栏、激活索引切换 | EditorManager.activeFileInfo |
-| **EditorToolbar.vue** | ~180 | 连接选择器、执行按钮组、模式切换、方言转译入口 | EditorManager, useSqlExecution |
-| **WorkbenchView.vue** | ~200（重构后） | dockview 初始化、Panel 注册、Group 布局、事件监听初始化 | EditorManager, ShortcutManager |
-| **废弃文件** | — | SqlEditorPanel.vue、CodeEditorPanel.vue、useDockviewKeyboard.ts（功能迁移） | — |
+| 组件 / 管理器             | 行数（估）     | 职责                                                                                                  | 依赖                                       |
+| ------------------------- | -------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| **EditorManager.ts**      | ~350           | Editor 生命周期、Model 管理、Panel ID 映射、文件 CRUD、fileEditors 管理、Dirty 追踪、onPanelActivated | dockviewApi, monaco, useEditorPersistence  |
+| **ResultPanelManager.ts** | ~200           | 结果集 Panel CRUD、独立/跟随判断、Grid 状态缓存                                                       | dockviewApi, EditorManager                 |
+| **ShortcutManager.ts**    | ~150           | 快捷键注册/注销、作用域管理、keydown 事件分发                                                         | dockviewApi.onDidActivePanelChange         |
+| **EditorPanel.vue**       | ~280           | n-tabs 标签栏、Editor DOM 容器、工具栏显隐、ResultSubTab 集成                                         | EditorManager, EditorToolbar, ResultSubTab |
+| **FileResultPanel.vue**   | ~250           | AG Grid 按需创建/销毁、Grid 状态保存恢复、导出                                                        | AG Grid, props(columns, rows), panelApi    |
+| **ResultSubTab.vue**      | ~80            | 结果集子 Tab 栏、激活索引切换                                                                         | EditorManager.activeFileInfo               |
+| **EditorToolbar.vue**     | ~180           | 连接选择器、执行按钮组、模式切换、方言转译入口                                                        | EditorManager, useSqlExecution             |
+| **WorkbenchView.vue**     | ~200（重构后） | dockview 初始化、Panel 注册、Group 布局、事件监听初始化                                               | EditorManager, ShortcutManager             |
+| **废弃文件**              | —              | SqlEditorPanel.vue、CodeEditorPanel.vue、useDockviewKeyboard.ts（功能迁移）                           | —                                          |
 
 ### 12.3 架构层级对比
 
@@ -1319,8 +1358,8 @@ interface IResultPanelManager {
   ): void
 
   // 独立管理
-  detachResultPanel(panelId: string): void    // Panel 被拖出时调用
-  attachResultPanel(panelId: string, filePath: string): void  // Panel 被拖回时调用
+  detachResultPanel(panelId: string): void // Panel 被拖出时调用
+  attachResultPanel(panelId: string, filePath: string): void // Panel 被拖回时调用
 
   // 状态查询
   getAllResultSets(filePath: string): ResultSetMetadata[]
@@ -1447,29 +1486,29 @@ src/extensions/builtin/workbench/
 
 ### 14.2 文件统计
 
-| 文件 | 操作 | 行数（估） |
-|------|------|-----------|
-| `manager/EditorManager.ts` | **新建** | ~350 |
-| `manager/ResultPanelManager.ts` | **新建** | ~200 |
-| `manager/ShortcutManager.ts` | **新建** | ~150 |
-| `ui/components/panels/EditorPanel.vue` | **新建** | ~280 |
-| `ui/components/panels/FileResultPanel.vue` | **新建** | ~250 |
-| `ui/components/panels/ResultSubTab.vue` | **新建** | ~80 |
-| `ui/components/panels/EditorToolbar.vue` | **新建** | ~180 |
-| `ui/components/panels/GridToolbar.vue` | **新建** | ~80 |
-| `ui/composables/useEditorManager.ts` | **新建** | ~30 |
-| `ui/stores/editor-runtime-store.ts` | **新建** | ~120 |
-| `types/editor-types.ts` | **新建** | ~60 |
-| `ui/views/WorkbenchView.vue` | **重构** | ~200（精简） |
-| `ui/composables/useSqlExecution.ts` | **重构** | ~50（精简） |
-| **新建总计** | | **~1800 行** |
-| `SqlEditorPanel.vue` | **废弃** | -~1200 |
-| `CodeEditorPanel.vue` | **废弃** | -~350 |
-| `CodeEditorStatusbar.vue` | **废弃** | -~480 |
-| `sql-execution-store.ts` | **废弃** | -~150 |
-| `useDockviewKeyboard.ts` | **废弃** | -~70 |
-| **废弃总计** | | **~2250 行** |
-| **净变化** | | **-450 行** |
+| 文件                                       | 操作     | 行数（估）   |
+| ------------------------------------------ | -------- | ------------ |
+| `manager/EditorManager.ts`                 | **新建** | ~350         |
+| `manager/ResultPanelManager.ts`            | **新建** | ~200         |
+| `manager/ShortcutManager.ts`               | **新建** | ~150         |
+| `ui/components/panels/EditorPanel.vue`     | **新建** | ~280         |
+| `ui/components/panels/FileResultPanel.vue` | **新建** | ~250         |
+| `ui/components/panels/ResultSubTab.vue`    | **新建** | ~80          |
+| `ui/components/panels/EditorToolbar.vue`   | **新建** | ~180         |
+| `ui/components/panels/GridToolbar.vue`     | **新建** | ~80          |
+| `ui/composables/useEditorManager.ts`       | **新建** | ~30          |
+| `ui/stores/editor-runtime-store.ts`        | **新建** | ~120         |
+| `types/editor-types.ts`                    | **新建** | ~60          |
+| `ui/views/WorkbenchView.vue`               | **重构** | ~200（精简） |
+| `ui/composables/useSqlExecution.ts`        | **重构** | ~50（精简）  |
+| **新建总计**                               |          | **~1800 行** |
+| `SqlEditorPanel.vue`                       | **废弃** | -~1200       |
+| `CodeEditorPanel.vue`                      | **废弃** | -~350        |
+| `CodeEditorStatusbar.vue`                  | **废弃** | -~480        |
+| `sql-execution-store.ts`                   | **废弃** | -~150        |
+| `useDockviewKeyboard.ts`                   | **废弃** | -~70         |
+| **废弃总计**                               |          | **~2250 行** |
+| **净变化**                                 |          | **-450 行**  |
 
 ---
 
@@ -1663,6 +1702,7 @@ Week 2:
 | FileResultPanel AG Grid | 挂载即创建 | **dockview Tab 激活时按需创建** |
 
 **修改清单**：
+
 - EditorManager.ts：新增 `DockviewApiFacade` 接口、`setEditor()`、`setActiveResultIndex()`、`dockviewApi` getter；移除 4 个死函数
 - EditorPanel.vue：`(EditorManager as unknown).editor = ed` → `EditorManager.setEditor(ed)`
 - ResultSubTab.vue：`(EditorManager as Record).activeResultIndex = idx` → `EditorManager.setActiveResultIndex()`
@@ -1690,38 +1730,38 @@ dockview 原生 Float Tab 处理弹出，无需 DOM 迁移，无需 isPoppedOut 
 
 ### A. 风险矩阵
 
-| 风险 | 概率 | 影响 | 缓解措施 |
-|------|------|------|----------|
-| 多 Editor Panel 内存增长超预期 | 低 | 中 | fileEditors Map 管理，懒创建 + 统一 dispose，监控内存 |
-| AG Grid 创建/销毁延迟用户感知 | 中 | 中 | 骨架屏预热 + Grid 状态持久化 |
-| ShortcutManager 与现有 keydown 监听冲突 | 低 | 低 | 逐步迁移，新旧并存过渡期 |
-| 结果集 Panel 数量过多 dockview 性能下降 | 低 | 中 | 限制每文件结果集上限（如 5 个），超限提示清理 |
-| dockview 原生 Float Tab 兼容性问题 | 低 | 低 | dockview-vue 6.1 已验证，保留降级方案
+| 风险                                    | 概率 | 影响 | 缓解措施                                              |
+| --------------------------------------- | ---- | ---- | ----------------------------------------------------- |
+| 多 Editor Panel 内存增长超预期          | 低   | 中   | fileEditors Map 管理，懒创建 + 统一 dispose，监控内存 |
+| AG Grid 创建/销毁延迟用户感知           | 中   | 中   | 骨架屏预热 + Grid 状态持久化                          |
+| ShortcutManager 与现有 keydown 监听冲突 | 低   | 低   | 逐步迁移，新旧并存过渡期                              |
+| 结果集 Panel 数量过多 dockview 性能下降 | 低   | 中   | 限制每文件结果集上限（如 5 个），超限提示清理         |
+| dockview 原生 Float Tab 兼容性问题      | 低   | 低   | dockview-vue 6.1 已验证，保留降级方案                 |
 
 ### B. 依赖项版本锁定
 
-| 依赖 | 版本 | 约束 |
-|------|------|------|
+| 依赖          | 版本   | 约束            |
+| ------------- | ------ | --------------- |
 | monaco-editor | 0.55.x | 禁止 major 升级 |
-| dockview-vue | 6.1.x | 禁止 major 升级 |
-| ag-grid-vue3 | 35.3.x | 禁止 major 升级 |
-| naive-ui | 2.44.x | 允许 minor 升级 |
-| Vue | 3.5.x | 禁止 major 升级 |
-| TypeScript | 6.0.x | 允许 minor 升级 |
+| dockview-vue  | 6.1.x  | 禁止 major 升级 |
+| ag-grid-vue3  | 35.3.x | 禁止 major 升级 |
+| naive-ui      | 2.44.x | 允许 minor 升级 |
+| Vue           | 3.5.x  | 禁止 major 升级 |
+| TypeScript    | 6.0.x  | 允许 minor 升级 |
 
 ### C. 版本历史
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
+| 版本 | 日期       | 说明                                                                                                                                                                                             |
+| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | v2.0 | 2026-05-17 | 架构重构：ITextModel 单例 + dockview 原生 Float Tab + 每文件 Editor。移除 popOutFile/mergeBackFile/DOM 迁移，用 fileEditors Map 替代单一 editorRef，dockview direction:'within' 实现同 Group Tab |
-| v1.1 | 2026-05-16 | Phase 1-5 实现完成：类型安全清洗、Ctrl+N/文件打开迁移新架构、FileResultPanel 按需 AG Grid、旧组件 @deprecated 标注 |
-| v1.0 | 2026-05-16 | 初始版本，完整架构设计文档 |
+| v1.1 | 2026-05-16 | Phase 1-5 实现完成：类型安全清洗、Ctrl+N/文件打开迁移新架构、FileResultPanel 按需 AG Grid、旧组件 @deprecated 标注                                                                               |
+| v1.0 | 2026-05-16 | 初始版本，完整架构设计文档                                                                                                                                                                       |
 
 ### D. 相关文档
 
-| 文档 | 路径 |
-|------|------|
-| SQL 编辑器设计文档 | [docs/frontend/sql-editor/design.md](../sql-editor/design.md) |
+| 文档               | 路径                                                              |
+| ------------------ | ----------------------------------------------------------------- |
+| SQL 编辑器设计文档 | [docs/frontend/sql-editor/design.md](../sql-editor/design.md)     |
 | 结果集面板设计文档 | [docs/frontend/query-result/design.md](../query-result/design.md) |
-| 前端架构概述 | [docs/frontend/ARCHITECTURE.md](../ARCHITECTURE.md) |
-| 前端文档索引 | [docs/frontend/INDEX.md](../INDEX.md) |
+| 前端架构概述       | [docs/frontend/ARCHITECTURE.md](../ARCHITECTURE.md)               |
+| 前端文档索引       | [docs/frontend/INDEX.md](../INDEX.md)                             |

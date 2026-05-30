@@ -8,6 +8,7 @@
 //! 注意：这些模型会被 api 层重新导出，供前端使用
 
 use arrow::array::*;
+use arrow::datatypes::DataType;
 use arrow::record_batch::RecordBatch;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -86,6 +87,38 @@ impl QueryResult {
         total - max_rows
     }
 
+    /// 按行范围切片（offset, limit）
+    /// 保留指定范围的行，丢弃其余
+    pub fn slice(&mut self, offset: usize, limit: usize) {
+        if self.batches.is_empty() {
+            return;
+        }
+        let mut new_batches = Vec::new();
+        let mut row_offset = 0usize;
+        for batch in self.batches.drain(..) {
+            let batch_rows = batch.num_rows();
+            let batch_end = row_offset + batch_rows;
+            if batch_end <= offset {
+                row_offset = batch_end;
+                continue;
+            }
+            if row_offset >= offset + limit {
+                break;
+            }
+            let local_start = offset.saturating_sub(row_offset);
+            let local_end = ((offset + limit).saturating_sub(row_offset)).min(batch_rows);
+            if local_start < local_end {
+                let sliced = batch.slice(local_start, local_end - local_start);
+                new_batches.push(sliced);
+            }
+            row_offset = batch_end;
+            if row_offset >= offset + limit {
+                break;
+            }
+        }
+        self.batches = new_batches;
+    }
+
     /// 将 Arrow batches 转换为行数据（Vec<Vec<Value>>）
     pub fn to_rows(&self) -> Vec<Vec<Value>> {
         let mut rows = Vec::with_capacity(self.total_rows());
@@ -100,6 +133,39 @@ impl QueryResult {
             }
         }
         rows
+    }
+
+    /// 从 Arrow Schema 提取列类型名称
+    pub fn column_types(&self) -> Vec<String> {
+        self.batches
+            .first()
+            .map(|batch| {
+                batch
+                    .schema()
+                    .fields()
+                    .iter()
+                    .map(|f| match f.data_type() {
+                        DataType::Int8
+                        | DataType::Int16
+                        | DataType::Int32
+                        | DataType::Int64
+                        | DataType::UInt8
+                        | DataType::UInt16
+                        | DataType::UInt32
+                        | DataType::UInt64 => "INTEGER",
+                        DataType::Float16 | DataType::Float32 | DataType::Float64 => "FLOAT",
+                        DataType::Utf8 | DataType::LargeUtf8 => "TEXT",
+                        DataType::Boolean => "BOOLEAN",
+                        DataType::Null => "NULL",
+                        DataType::Binary | DataType::LargeBinary | DataType::FixedSizeBinary(_) => {
+                            "BYTES"
+                        }
+                        _ => "TEXT",
+                    }
+                    .to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -133,8 +199,9 @@ impl Serialize for QueryResult {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("QueryResult", 5)?;
+        let mut state = serializer.serialize_struct("QueryResult", 6)?;
         state.serialize_field("columns", &self.columns)?;
+        state.serialize_field("column_types", &self.column_types())?;
         state.serialize_field("rows", &self.to_rows())?;
         state.serialize_field("affected_rows", &self.affected_rows)?;
         state.serialize_field("is_read_only", &self.is_read_only)?;

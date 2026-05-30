@@ -50,11 +50,26 @@ export interface StagingItem {
 
 /** StagingItem 字段列表 */
 const STAGING_FIELDS = [
-  'id', 'name', 'driver', 'driverId', 'url', 'formData',
-  'authConfigId', 'authMethod', 'networkConfigId',
-  'driverProperties', 'advancedOptions', 'environmentId',
-  'scope', 'description', 'schemaName', 'options',
-  'metadataPath', 'tags', 'useDuckdbFed', 'applied'
+  'id',
+  'name',
+  'driver',
+  'driverId',
+  'url',
+  'formData',
+  'authConfigId',
+  'authMethod',
+  'networkConfigId',
+  'driverProperties',
+  'advancedOptions',
+  'environmentId',
+  'scope',
+  'description',
+  'schemaName',
+  'options',
+  'metadataPath',
+  'tags',
+  'useDuckdbFed',
+  'applied',
 ] as const
 
 /** localStorage 存储键 */
@@ -194,9 +209,33 @@ export interface ValidationResult {
 
 function getDefaultChain(): ChainHopItem[] {
   return [
-    { id: uuidv4(), protocol: 'ssh', enabled: false, mode: 'select', profileId: null, profileSource: null, customData: null },
-    { id: uuidv4(), protocol: 'proxy', enabled: false, mode: 'select', profileId: null, profileSource: null, customData: null },
-    { id: uuidv4(), protocol: 'ssl', enabled: false, mode: 'select', profileId: null, profileSource: null, customData: null },
+    {
+      id: uuidv4(),
+      protocol: 'ssh',
+      enabled: false,
+      mode: 'select',
+      profileId: null,
+      profileSource: null,
+      customData: null,
+    },
+    {
+      id: uuidv4(),
+      protocol: 'proxy',
+      enabled: false,
+      mode: 'select',
+      profileId: null,
+      profileSource: null,
+      customData: null,
+    },
+    {
+      id: uuidv4(),
+      protocol: 'ssl',
+      enabled: false,
+      mode: 'select',
+      profileId: null,
+      profileSource: null,
+      customData: null,
+    },
   ]
 }
 
@@ -212,7 +251,15 @@ function defaultDuckdbAccel(): DuckdbAccelConfig {
 }
 
 function defaultSecurityPolicy(): SecurityPolicy {
-  return { readonly: false, writeConfirm: true, ddlConfirm: true, dropConfirm: 'confirm', autocommit: true, rowLimit: 1000, sizeLimit: 100 }
+  return {
+    readonly: false,
+    writeConfirm: true,
+    ddlConfirm: true,
+    dropConfirm: 'confirm',
+    autocommit: true,
+    rowLimit: 1000,
+    sizeLimit: 100,
+  }
 }
 
 function defaultSchemaPolicy(): SchemaPolicy {
@@ -350,7 +397,10 @@ export function useAddDataSource() {
         if (opts.duckdb_accel) Object.assign(duckdbAccel, opts.duckdb_accel)
         if (opts.env_policies) overriddenPolicies.value = opts.env_policies
       } catch (err) {
-        console.warn('[useAddDataSource] 高级选项 JSON 解析失败:', err instanceof Error ? err.message : String(err))
+        console.warn(
+          '[useAddDataSource] 高级选项 JSON 解析失败:',
+          err instanceof Error ? err.message : String(err)
+        )
       }
     }
   }
@@ -369,7 +419,10 @@ export function useAddDataSource() {
       try {
         const { invoke } = await import('@tauri-apps/api/core')
         const pp = useProjectStore().currentProject?.path
-        const r = await invoke<{ snapshot_id: string }>('snapshot_global_env', { globalEnvId: envId, projectPath: pp })
+        const r = await invoke<{ snapshot_id: string }>('snapshot_global_env', {
+          globalEnvId: envId,
+          projectPath: pp,
+        })
         selectedEnvId.value = r.snapshot_id
       } catch (e) {
         error.value = `快照环境失败: ${e instanceof Error ? e.message : String(e)}`
@@ -502,7 +555,11 @@ export function useAddDataSource() {
 
     try {
       const urlObj = new URL(url)
-      if (!['mysql', 'postgres', 'postgresql', 'sqlite', 'duckdb', 'mongodb', 'redis'].some(p => urlObj.protocol.includes(p))) {
+      if (
+        !['mysql', 'postgres', 'postgresql', 'sqlite', 'duckdb', 'mongodb', 'redis'].some(p =>
+          urlObj.protocol.includes(p)
+        )
+      ) {
         return { valid: false, error: '不支持的数据库协议' }
       }
       return { valid: true }
@@ -523,7 +580,8 @@ export function useAddDataSource() {
   function validateHost(host: string): { valid: boolean; error?: string } {
     if (!host) return { valid: false, error: '主机地址不能为空' }
     const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/
-    const hostnamePattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+    const hostnamePattern =
+      /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
     if (ipv4Pattern.test(host) || hostnamePattern.test(host) || host === 'localhost') {
       return { valid: true }
     }
@@ -558,7 +616,13 @@ export function useAddDataSource() {
   }
 
   /** 构建标准连接 URL（优先使用 url_template，回退到硬编码模式） */
-  function buildStandardUrl(driverId: string, host: string, port: number, database: string, urlTemplate?: string | null): string {
+  function buildStandardUrl(
+    driverId: string,
+    host: string,
+    port: number,
+    database: string,
+    urlTemplate?: string | null
+  ): string {
     if (urlTemplate) {
       return urlTemplate
         .replace('{host}', host || 'localhost')

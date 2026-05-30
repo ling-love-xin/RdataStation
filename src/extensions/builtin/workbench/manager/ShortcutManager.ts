@@ -1,4 +1,8 @@
-import type { ShortcutScope, ShortcutRegistration, IShortcutManager } from '@/extensions/builtin/workbench/types/editor-types'
+import type {
+  ShortcutScope,
+  ShortcutRegistration,
+  IShortcutManager,
+} from '@/extensions/builtin/workbench/types/editor-types'
 
 function buildKeyCombo(e: KeyboardEvent): string {
   const parts: string[] = []

@@ -18,14 +18,14 @@ Phase 2 聚焦 **企业级便利功能（Enterprise Convenience Features）**，
 
 ## 二、功能清单
 
-| 编号 | 功能                          | 优先级 | 预估复杂度 | 对标竞品              |
-|------|-------------------------------|--------|-----------|-----------------------|
-| E1   | 连接配置导入/导出 (JSON)       | P0     | 中        | DBeaver Import/Export  |
-| E2   | 连接配置模板（从模板创建）      | P0     | 中        | DataGrip Templates     |
-| E3   | 批量编辑（scope / 环境 / 标签）| P1     | 中        | DBeaver Bulk Edit      |
-| E4   | 连接健康监控（心跳检测）        | P1     | 高        | DataGrip Connection Monitor |
-| E5   | Staging 撤销/重做              | P1     | 低        | VS Code Undo/Redo      |
-| E6   | AddDataSourceDialog 代码收敛   | P2     | 低        | — 工程优化            |
+| 编号 | 功能                            | 优先级 | 预估复杂度 | 对标竞品                    |
+| ---- | ------------------------------- | ------ | ---------- | --------------------------- |
+| E1   | 连接配置导入/导出 (JSON)        | P0     | 中         | DBeaver Import/Export       |
+| E2   | 连接配置模板（从模板创建）      | P0     | 中         | DataGrip Templates          |
+| E3   | 批量编辑（scope / 环境 / 标签） | P1     | 中         | DBeaver Bulk Edit           |
+| E4   | 连接健康监控（心跳检测）        | P1     | 高         | DataGrip Connection Monitor |
+| E5   | Staging 撤销/重做               | P1     | 低         | VS Code Undo/Redo           |
+| E6   | AddDataSourceDialog 代码收敛    | P2     | 低         | — 工程优化                  |
 
 ---
 
@@ -36,6 +36,7 @@ Phase 2 聚焦 **企业级便利功能（Enterprise Convenience Features）**，
 #### 3.1.1 需求描述
 
 用户可以：
+
 - **导出**：选择一个或多个连接，导出为 `.rdc`（RdataStation Connection）JSON 文件
 - **导入**：选择 `.rdc` 文件，解析并批量创建连接
 - 导出时自动脱敏密码（替换为 `******`），导入时提示用户补填
@@ -128,14 +129,14 @@ struct ImportResult {
 
 #### 3.1.5 文件清单
 
-| 层       | 文件                                                              | 说明               |
-|----------|-------------------------------------------------------------------|-------------------|
-| 前端     | `src/.../composables/useConnectionExport.ts`                      | 导出逻辑           |
-| 前端     | `src/.../composables/useConnectionImport.ts`                      | 导入逻辑           |
-| 前端     | `src/.../components/ImportExportToolbar.vue`                      | 导入/导出工具栏     |
-| 前端     | `src/.../components/ImportPreviewPanel.vue`                       | 导入预览面板        |
-| 后端     | `src-tauri/src/commands/connection_commands.rs`（追加）            | export/import 命令 |
-| 测试     | `src-tauri/tests/connection_import_export_tests.rs`               | 集成测试            |
+| 层   | 文件                                                    | 说明               |
+| ---- | ------------------------------------------------------- | ------------------ |
+| 前端 | `src/.../composables/useConnectionExport.ts`            | 导出逻辑           |
+| 前端 | `src/.../composables/useConnectionImport.ts`            | 导入逻辑           |
+| 前端 | `src/.../components/ImportExportToolbar.vue`            | 导入/导出工具栏    |
+| 前端 | `src/.../components/ImportPreviewPanel.vue`             | 导入预览面板       |
+| 后端 | `src-tauri/src/commands/connection_commands.rs`（追加） | export/import 命令 |
+| 测试 | `src-tauri/tests/connection_import_export_tests.rs`     | 集成测试           |
 
 ---
 
@@ -144,6 +145,7 @@ struct ImportResult {
 #### 3.2.1 需求描述
 
 用户可以：
+
 - **保存为模板**：将当前表单配置保存为可复用的模板
 - **从模板创建**：在新建数据源时，选择一个模板快速填充表单
 - 模板存储于 `global.db` 新表 `connection_templates`
@@ -175,7 +177,7 @@ CREATE TABLE IF NOT EXISTS connection_templates (
   "port": 3306,
   "database": "",
   "username": "root",
-  "options": {"ssl_mode": "PREFERRED"},
+  "options": { "ssl_mode": "PREFERRED" },
   "driver_properties": {},
   "advanced_options": {},
   "tags": []
@@ -212,23 +214,23 @@ async fn delete_connection_template(id: String) -> Result<(), CoreError>;
 
 系统预置 4 个常用模板（随 migration 写入）：
 
-| 模板名称       | 驱动     | 分类        | 关键配置                              |
-|----------------|----------|-------------|---------------------------------------|
-| MySQL 本地开发 | mysql    | development | host=localhost, port=3306, user=root  |
+| 模板名称        | 驱动     | 分类        | 关键配置                                 |
+| --------------- | -------- | ----------- | ---------------------------------------- |
+| MySQL 本地开发  | mysql    | development | host=localhost, port=3306, user=root     |
 | PostgreSQL 本地 | postgres | development | host=localhost, port=5432, user=postgres |
-| SQLite 文件    | sqlite   | development | file_path=./data.db                   |
-| DuckDB 分析    | duckdb   | analytics   | file_path=:memory:                    |
+| SQLite 文件     | sqlite   | development | file_path=./data.db                      |
+| DuckDB 分析     | duckdb   | analytics   | file_path=:memory:                       |
 
 #### 3.2.7 文件清单
 
-| 层       | 文件                                                              | 说明            |
-|----------|-------------------------------------------------------------------|-----------------|
-| 前端     | `src/.../composables/useConnectionTemplate.ts`                    | 模板管理逻辑     |
-| 前端     | `src/.../components/DataSourceHeader.vue`（修改）                 | 新增模板选择器   |
-| 后端     | `src-tauri/src/commands/connection_commands.rs`（追加）            | 模板 CRUD 命令  |
-| 后端     | `src-tauri/src/core/persistence/template_store.rs`（新增）         | 模板持久化       |
-| 迁移     | `src-tauri/migrations/global/014_add_connection_templates.sql`    | 全局模板表       |
-| 迁移     | `src-tauri/migrations/project_meta/015_add_connection_templates.sql` | 项目模板表     |
+| 层   | 文件                                                                 | 说明           |
+| ---- | -------------------------------------------------------------------- | -------------- |
+| 前端 | `src/.../composables/useConnectionTemplate.ts`                       | 模板管理逻辑   |
+| 前端 | `src/.../components/DataSourceHeader.vue`（修改）                    | 新增模板选择器 |
+| 后端 | `src-tauri/src/commands/connection_commands.rs`（追加）              | 模板 CRUD 命令 |
+| 后端 | `src-tauri/src/core/persistence/template_store.rs`（新增）           | 模板持久化     |
+| 迁移 | `src-tauri/migrations/global/014_add_connection_templates.sql`       | 全局模板表     |
+| 迁移 | `src-tauri/migrations/project_meta/015_add_connection_templates.sql` | 项目模板表     |
 
 ---
 
@@ -237,6 +239,7 @@ async fn delete_connection_template(id: String) -> Result<(), CoreError>;
 #### 3.3.1 需求描述
 
 在 staging 列表（`AddDataSourceSidebar`）中支持：
+
 - 多选暂存项（Shift+Click / Ctrl+Click）
 - 批量修改 scope（全部切换为 global / project / both）
 - 批量修改 environment_id
@@ -277,10 +280,10 @@ function isAllSelected(): boolean
 
 #### 3.3.4 文件清单
 
-| 层   | 文件                                                    | 说明                |
-|------|---------------------------------------------------------|---------------------|
-| 前端 | `src/.../composables/useAddDataSource.ts`（修改）       | 新增批量操作方法      |
-| 前端 | `src/.../components/AddDataSourceSidebar.vue`（修改）   | 新增多选 + 批量工具栏 |
+| 层   | 文件                                                  | 说明                  |
+| ---- | ----------------------------------------------------- | --------------------- |
+| 前端 | `src/.../composables/useAddDataSource.ts`（修改）     | 新增批量操作方法      |
+| 前端 | `src/.../components/AddDataSourceSidebar.vue`（修改） | 新增多选 + 批量工具栏 |
 
 ---
 
@@ -334,11 +337,23 @@ pub enum ConnectionHealth {
 <span :class="['health-dot', health]"></span>
 
 <style>
-.health-dot.healthy     { background: var(--brand-success); }
-.health-dot.degraded    { background: var(--brand-warning); animation: pulse 2s infinite; }
-.health-dot.unhealthy   { background: var(--brand-warning); }
-.health-dot.disconnected { background: var(--brand-danger); }
-.health-dot.reconnecting { background: var(--brand-warning); animation: spin 1s linear infinite; }
+.health-dot.healthy {
+  background: var(--brand-success);
+}
+.health-dot.degraded {
+  background: var(--brand-warning);
+  animation: pulse 2s infinite;
+}
+.health-dot.unhealthy {
+  background: var(--brand-warning);
+}
+.health-dot.disconnected {
+  background: var(--brand-danger);
+}
+.health-dot.reconnecting {
+  background: var(--brand-warning);
+  animation: spin 1s linear infinite;
+}
 </style>
 ```
 
@@ -362,12 +377,12 @@ async fn get_all_health_statuses() -> Result<HashMap<String, ConnectionHealth>, 
 
 #### 3.4.6 文件清单
 
-| 层       | 文件                                                              | 说明                   |
-|----------|-------------------------------------------------------------------|-----------------------|
-| 后端     | `src-tauri/src/core/services/health_monitor.rs`（新增）            | 健康监控服务           |
-| 后端     | `src-tauri/src/commands/connection_commands.rs`（追加）            | 健康监控 Tauri Command |
-| 前端     | `src/.../composables/useHealthMonitor.ts`（新增）                  | 前端健康监控订阅       |
-| 前端     | `src/.../components/DataSourceSidebar.vue`（修改）                 | 连接状态指示器          |
+| 层   | 文件                                                    | 说明                   |
+| ---- | ------------------------------------------------------- | ---------------------- |
+| 后端 | `src-tauri/src/core/services/health_monitor.rs`（新增） | 健康监控服务           |
+| 后端 | `src-tauri/src/commands/connection_commands.rs`（追加） | 健康监控 Tauri Command |
+| 前端 | `src/.../composables/useHealthMonitor.ts`（新增）       | 前端健康监控订阅       |
+| 前端 | `src/.../components/DataSourceSidebar.vue`（修改）      | 连接状态指示器         |
 
 ---
 
@@ -398,10 +413,10 @@ const redoStack = ref<StagingSnapshot[]>([])
 const MAX_HISTORY = 50
 
 // 操作
-function pushSnapshot(): void        // 变更前保存快照
-function undo(): void                // Ctrl+Z
-function redo(): void                // Ctrl+Shift+Z
-function clearHistory(): void        // 对话框关闭时清理
+function pushSnapshot(): void // 变更前保存快照
+function undo(): void // Ctrl+Z
+function redo(): void // Ctrl+Shift+Z
+function clearHistory(): void // 对话框关闭时清理
 ```
 
 #### 3.5.3 键盘快捷键绑定
@@ -410,19 +425,25 @@ function clearHistory(): void        // 对话框关闭时清理
 
 ```typescript
 onMounted(() => {
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
-    if (e.ctrlKey && e.key === 'z' && e.shiftKey) { e.preventDefault(); redo() }
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      undo()
+    }
+    if (e.ctrlKey && e.key === 'z' && e.shiftKey) {
+      e.preventDefault()
+      redo()
+    }
   })
 })
 ```
 
 #### 3.5.4 文件清单
 
-| 层   | 文件                                                    | 说明               |
-|------|---------------------------------------------------------|--------------------|
-| 前端 | `src/.../composables/useAddDataSource.ts`（修改）       | 新增撤销/重做逻辑   |
-| 前端 | `src/.../components/AddDataSourceDialog.vue`（修改）    | 绑定快捷键          |
+| 层   | 文件                                                 | 说明              |
+| ---- | ---------------------------------------------------- | ----------------- |
+| 前端 | `src/.../composables/useAddDataSource.ts`（修改）    | 新增撤销/重做逻辑 |
+| 前端 | `src/.../components/AddDataSourceDialog.vue`（修改） | 绑定快捷键        |
 
 ---
 
@@ -432,14 +453,14 @@ onMounted(() => {
 
 `AddDataSourceDialog.vue` 当前 **1060 行**，超过 800 行阈值。以下逻辑应当抽取到 composable：
 
-| 行范围  | 功能                    | 行数  | 目标 composable          |
-|---------|-------------------------|-------|--------------------------|
-| 319-358 | `handleTest` / `onTestModalClose` | ~40   | `useTestConnection.ts`   |
-| 361-469 | `doSaveAuth` / `buildAuthData`    | ~110  | `useSaveAuth.ts`（或合并到 useAuthConfig） |
-| 567-680 | `handleApply` 三路分流            | ~115  | `useApplyConnections.ts` |
-| 682-726 | `saveToProjectOnly`                | ~45   | 同上                     |
-| 728-774 | `saveToProject`                    | ~50   | 同上                     |
-| 776-783 | `resetAndClose`                    | ~8    | `useDialogLifecycle.ts`  |
+| 行范围  | 功能                              | 行数 | 目标 composable                            |
+| ------- | --------------------------------- | ---- | ------------------------------------------ |
+| 319-358 | `handleTest` / `onTestModalClose` | ~40  | `useTestConnection.ts`                     |
+| 361-469 | `doSaveAuth` / `buildAuthData`    | ~110 | `useSaveAuth.ts`（或合并到 useAuthConfig） |
+| 567-680 | `handleApply` 三路分流            | ~115 | `useApplyConnections.ts`                   |
+| 682-726 | `saveToProjectOnly`               | ~45  | 同上                                       |
+| 728-774 | `saveToProject`                   | ~50  | 同上                                       |
+| 776-783 | `resetAndClose`                   | ~8   | `useDialogLifecycle.ts`                    |
 
 #### 3.6.2 目标
 
@@ -449,12 +470,12 @@ onMounted(() => {
 
 #### 3.6.3 文件清单
 
-| 层   | 文件                                                              | 说明                    |
-|------|-------------------------------------------------------------------|-------------------------|
-| 前端 | `src/.../composables/useTestConnection.ts`（新增）                 | 测试连接逻辑             |
-| 前端 | `src/.../composables/useApplyConnections.ts`（新增）               | 三路保存分流逻辑         |
-| 前端 | `src/.../composables/useDialogLifecycle.ts`（新增）                | resetAndClose 等生命周期  |
-| 前端 | `src/.../components/AddDataSourceDialog.vue`（修改）               | 精简至 ~500 行           |
+| 层   | 文件                                                 | 说明                     |
+| ---- | ---------------------------------------------------- | ------------------------ |
+| 前端 | `src/.../composables/useTestConnection.ts`（新增）   | 测试连接逻辑             |
+| 前端 | `src/.../composables/useApplyConnections.ts`（新增） | 三路保存分流逻辑         |
+| 前端 | `src/.../composables/useDialogLifecycle.ts`（新增）  | resetAndClose 等生命周期 |
+| 前端 | `src/.../components/AddDataSourceDialog.vue`（修改） | 精简至 ~500 行           |
 
 ---
 
@@ -462,17 +483,17 @@ onMounted(() => {
 
 ### Phase 2A — 快速提效（预期 3-5 天）
 
-| 任务 | 功能         | 工作量 | 依赖 |
-|------|-------------|--------|------|
-| E5   | 撤销/重做     | 0.5d   | 无   |
-| E6   | 代码收敛     | 1d     | 无   |
-| E1   | 导入/导出     | 2d     | E6   |
-| E2   | 连接模板     | 2d     | E6   |
+| 任务 | 功能      | 工作量 | 依赖 |
+| ---- | --------- | ------ | ---- |
+| E5   | 撤销/重做 | 0.5d   | 无   |
+| E6   | 代码收敛  | 1d     | 无   |
+| E1   | 导入/导出 | 2d     | E6   |
+| E2   | 连接模板  | 2d     | E6   |
 
 ### Phase 2B — 深度增强（预期 3-4 天）
 
 | 任务 | 功能         | 工作量 | 依赖 |
-|------|-------------|--------|------|
+| ---- | ------------ | ------ | ---- |
 | E3   | 批量编辑     | 1.5d   | E5   |
 | E4   | 连接健康监控 | 2.5d   | 无   |
 
@@ -480,26 +501,26 @@ onMounted(() => {
 
 ## 五、测试策略
 
-| 功能 | 测试类型   | 测试要点                                       |
-|------|-----------|-----------------------------------------------|
-| E1   | 集成测试   | 导出 → 导入全链路，密码脱敏/恢复，scope 转换     |
-| E2   | 单元+集成  | 模板 CRUD，从模板填充表单字段完整性               |
-| E3   | 单元测试   | 批量操作不破坏未选中项，scope/env/driver 联动     |
-| E4   | 集成测试   | 心跳超时检测、自动重连、状态变更事件              |
-| E5   | 单元测试   | 撤销/重做边界：空栈、满栈、连续操作后的栈一致性    |
-| E6   | 回归测试   | AddDataSourceDialog 全部现有功能不受影响         |
+| 功能 | 测试类型  | 测试要点                                        |
+| ---- | --------- | ----------------------------------------------- |
+| E1   | 集成测试  | 导出 → 导入全链路，密码脱敏/恢复，scope 转换    |
+| E2   | 单元+集成 | 模板 CRUD，从模板填充表单字段完整性             |
+| E3   | 单元测试  | 批量操作不破坏未选中项，scope/env/driver 联动   |
+| E4   | 集成测试  | 心跳超时检测、自动重连、状态变更事件            |
+| E5   | 单元测试  | 撤销/重做边界：空栈、满栈、连续操作后的栈一致性 |
+| E6   | 回归测试  | AddDataSourceDialog 全部现有功能不受影响        |
 
 ---
 
 ## 六、风险与注意事项
 
-| 风险                       | 缓解措施                                    |
-|----------------------------|--------------------------------------------|
+| 风险                         | 缓解措施                                     |
+| ---------------------------- | -------------------------------------------- |
 | 导入/导出格式版本不兼容      | 使用 `format: "rdc/v1"` 版本标记，后续可迭代 |
-| 健康监控增加连接负载         | 默认 60s 间隔，`SELECT 1` 极轻量            |
+| 健康监控增加连接负载         | 默认 60s 间隔，`SELECT 1` 极轻量             |
 | 批量操作可能部分失败         | 逐条错误收集，失败不阻塞成功项               |
-| 模板与实际表单差异           | 模板仅填充基础字段，高级配置保持默认          |
-| AddDataSourceDialog 重构回归 | E6 在 Phase 2A 最先执行，稳定后再做 E1~E4     |
+| 模板与实际表单差异           | 模板仅填充基础字段，高级配置保持默认         |
+| AddDataSourceDialog 重构回归 | E6 在 Phase 2A 最先执行，稳定后再做 E1~E4    |
 
 ---
 
@@ -518,10 +539,10 @@ onMounted(() => {
 
 ## 八、相关文档
 
-| 文档 | 路径 |
-|------|------|
-| Phase 1 开发计划 | [add-datasource-frontend-plan.md](./add-datasource-frontend-plan.md) |
-| 后端数据源模块 | [../../backend/DATA-SOURCE-MODULE.md](../../backend/DATA-SOURCE-MODULE.md) |
-| 网络配置 UI 设计 | [../NETWORK-CONFIG-UI-DESIGN.md](../NETWORK-CONFIG-UI-DESIGN.md) |
-| 连接方式设计   | [../../backend/CONNECTION-METHOD-DESIGN.md](../../backend/CONNECTION-METHOD-DESIGN.md) |
-| 前端索引       | [../INDEX.md](../INDEX.md) |
+| 文档             | 路径                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| Phase 1 开发计划 | [add-datasource-frontend-plan.md](./add-datasource-frontend-plan.md)                   |
+| 后端数据源模块   | [../../backend/DATA-SOURCE-MODULE.md](../../backend/DATA-SOURCE-MODULE.md)             |
+| 网络配置 UI 设计 | [../NETWORK-CONFIG-UI-DESIGN.md](../NETWORK-CONFIG-UI-DESIGN.md)                       |
+| 连接方式设计     | [../../backend/CONNECTION-METHOD-DESIGN.md](../../backend/CONNECTION-METHOD-DESIGN.md) |
+| 前端索引         | [../INDEX.md](../INDEX.md)                                                             |

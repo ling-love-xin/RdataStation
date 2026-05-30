@@ -95,7 +95,7 @@ export function useSidebarConnection(deps: SidebarConnectionDeps) {
       await deps.updateConnectionStatus(
         conn.id,
         r.success ? 'connected' : 'error',
-        r.success ? undefined : (r.message || '连接失败')
+        r.success ? undefined : r.message || '连接失败'
       )
       // eslint-disable-next-line no-console
       console.warn(`[sidebar:test] ${conn.name}: ${msg}`)

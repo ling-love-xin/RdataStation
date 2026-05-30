@@ -43,12 +43,12 @@
 let conn_id = format!("{type_prefix}-{db_type}-{:x}", hash(url));
 ```
 
-| 连接类型 | 示例 conn_id |
-|---------|-------------|
-| 全局 MySQL | `global-mysql-a1b2c3d4` |
+| 连接类型             | 示例 conn_id                                |
+| -------------------- | ------------------------------------------- |
+| 全局 MySQL           | `global-mysql-a1b2c3d4`                     |
 | 项目 MySQL（同 URL） | `project-mysql-a1b2c3d4` ← type_prefix 区分 |
-| 全局 SQLite | `global-sqlite-e5f6a7b8` |
-| 全局 DuckDB | `global-duckdb-9c0d1e2f` |
+| 全局 SQLite          | `global-sqlite-e5f6a7b8`                    |
+| 全局 DuckDB          | `global-duckdb-9c0d1e2f`                    |
 
 ### 显示名称
 
@@ -105,24 +105,24 @@ load_databases(conn_id, connection_type, project_path)
 
 ### 关键代码路径
 
-| 操作 | 路径 | 文件是否存在 | 行为 |
-|------|------|-------------|------|
-| **连接** | `connect_with_type` | 不关心 | 不创建 |
-| **读缓存** | `open_l2_cache` → `mgr.exists()` | 否 | 返回 err，调用者 fall through |
-| **读缓存** | `open_l2_cache` → `mgr.exists()` | 是 | 打开并读取 |
-| **写缓存** | `open_l2_cache_for_write` → `mgr.open()` | 否 | rusqlite 自动创建 |
-| **写缓存** | `open_l2_cache_for_write` → `mgr.open()` | 是 | 打开并写入 |
-| **手动预热** | `build_cache_index` → `mgr.open()` | 任意 | 创建或打开 |
-| **显式确保** | `ensure_metadata_cache()` | 否 | 创建 + 迁移 |
-| **显式确保** | `ensure_metadata_cache()` | 是 | 跳过（幂等） |
+| 操作         | 路径                                     | 文件是否存在 | 行为                          |
+| ------------ | ---------------------------------------- | ------------ | ----------------------------- |
+| **连接**     | `connect_with_type`                      | 不关心       | 不创建                        |
+| **读缓存**   | `open_l2_cache` → `mgr.exists()`         | 否           | 返回 err，调用者 fall through |
+| **读缓存**   | `open_l2_cache` → `mgr.exists()`         | 是           | 打开并读取                    |
+| **写缓存**   | `open_l2_cache_for_write` → `mgr.open()` | 否           | rusqlite 自动创建             |
+| **写缓存**   | `open_l2_cache_for_write` → `mgr.open()` | 是           | 打开并写入                    |
+| **手动预热** | `build_cache_index` → `mgr.open()`       | 任意         | 创建或打开                    |
+| **显式确保** | `ensure_metadata_cache()`                | 否           | 创建 + 迁移                   |
+| **显式确保** | `ensure_metadata_cache()`                | 是           | 跳过（幂等）                  |
 
 ### 双链路一致性
 
 全局连接和项目连接的元数据缓存路径不同，但懒加载逻辑完全一致：
 
-| 连接类型 | 缓存路径 |
-|---------|---------|
-| **全局** | `{data_dir}/system/global_metadata/conn_{id}.sqlite` |
+| 连接类型 | 缓存路径                                                   |
+| -------- | ---------------------------------------------------------- |
+| **全局** | `{data_dir}/system/global_metadata/conn_{id}.sqlite`       |
 | **项目** | `{project_path}/meta/connection_metadata/conn_{id}.sqlite` |
 
 两者都通过 `open_l2_cache` / `open_l2_cache_for_write` 走相同的懒加载路径。
@@ -131,11 +131,11 @@ load_databases(conn_id, connection_type, project_path)
 
 ## 四、修改文件清单
 
-| 文件 | 变更 |
-|------|------|
+| 文件                    | 变更                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `connection_service.rs` | conn_id 统一 hash 生成；移除 eager `initialize_connection_metadata`；新增 `ensure_metadata_cache` 公开方法 |
-| `metadata_cache.rs` | `sanitize_conn_id_for_filename` 安全网（hash 已天然安全，保留以防自定义 conn_id） |
-| `04-data-flow.md` | 更新连接流程文档 |
+| `metadata_cache.rs`     | `sanitize_conn_id_for_filename` 安全网（hash 已天然安全，保留以防自定义 conn_id）                          |
+| `04-data-flow.md`       | 更新连接流程文档                                                                                           |
 
 ### 未修改的文件（已有懒加载逻辑）
 

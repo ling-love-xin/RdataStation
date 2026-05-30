@@ -164,13 +164,22 @@ function onDriverSelect(value: string | number | null) {
   text-align: right;
 }
 
-.rh-name-input { flex: 1; max-width: 280px; }
-.rh-desc-input { flex: 1; }
+.rh-name-input {
+  flex: 1;
+  max-width: 280px;
+}
+.rh-desc-input {
+  flex: 1;
+}
 
-.rh-driver-select { flex: 0 0 200px; }
+.rh-driver-select {
+  flex: 0 0 200px;
+}
 
 /* URI row */
-.uri-row { gap: var(--spacing-xs); }
+.uri-row {
+  gap: var(--spacing-xs);
+}
 .uri-label {
   font-size: 11px;
   color: var(--color-text-muted);
@@ -196,7 +205,10 @@ function onDriverSelect(value: string | number | null) {
   min-width: 0;
 }
 
-.uri-edit-input { flex: 1; min-width: 0; }
+.uri-edit-input {
+  flex: 1;
+  min-width: 0;
+}
 .uri-edit-input :deep(.n-input__input) {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;

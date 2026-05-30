@@ -16,6 +16,7 @@ import { useSqlExecutionStore } from '@/extensions/builtin/workbench/ui/stores/s
 import { useTransaction } from './useTransaction'
 
 const DEFAULT_QUERY_TIMEOUT_MS = 30_000
+const SMART_MODE_THRESHOLD = 1000
 
 interface SqlExecutionOptions {
   panelId: string
@@ -41,6 +42,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
   const executing = ref(false)
   const lastExecutionTime = ref<number | null>(null)
   const hasResults = ref(false)
+  const executionMode = ref<'normal' | 'analysis' | 'smart'>('normal')
   let abortController: AbortController | undefined
   const currentResultData = ref<{
     columns: string[]
@@ -295,7 +297,7 @@ export function useSqlExecution(options: SqlExecutionOptions) {
       try {
         await queryService.cancelQuery(runtimeConnId.value)
       } catch {
-        // 后端取消失败不影响前端状态
+        console.warn('[useSqlExecution] cancelQuery failed,不影响前端状态')
       }
       message.info('Query cancelled')
     }
@@ -417,6 +419,76 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     }
   }
 
+  async function estimateRowCount(sql: string, connId: string): Promise<number> {
+    try {
+      const countSql = `SELECT COUNT(*) AS _cnt FROM (${sql}) AS _sub`
+      const result = await queryService.executeSql(countSql, connId, DEFAULT_QUERY_TIMEOUT_MS)
+      const rows = result.result?.rows ?? []
+      if (rows.length > 0 && rows[0].length > 0) {
+        const val = rows[0][0]
+        return typeof val === 'number' ? val : parseInt(String(val), 10) || 0
+      }
+      return 0
+    } catch {
+      return SMART_MODE_THRESHOLD + 1
+    }
+  }
+
+  async function executeSmart(sql: string, connId: string): Promise<void> {
+    executing.value = true
+    const startTime = performance.now()
+
+    try {
+      const estimatedRows = await estimateRowCount(sql, connId)
+
+      if (estimatedRows <= SMART_MODE_THRESHOLD) {
+        executionMode.value = 'normal'
+        executing.value = false
+        await executeSingleStatement()
+        return
+      }
+
+      executionMode.value = 'analysis'
+      executing.value = false
+      await executeDuckDBAccelerated()
+    } catch (error) {
+      const elapsed = performance.now() - startTime
+      lastExecutionTime.value = elapsed
+      storeResult({
+        columns: [],
+        rows: [],
+        totalRows: 0,
+        elapsedMs: elapsed,
+        affectedRows: 0,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      message.error(`Smart mode failed: ${error instanceof Error ? error.message : String(error)}`)
+      executing.value = false
+    }
+  }
+
+  async function executeWithMode(): Promise<void> {
+    const sql = getSelectedText() || getEditorValue()
+    if (!sql.trim()) {
+      message.warning('No SQL to execute')
+      return
+    }
+    const connId = runtimeConnId.value
+    if (!connId) {
+      message.warning('No active connection')
+      return
+    }
+
+    switch (executionMode.value) {
+      case 'normal':
+        return executeSingleStatement()
+      case 'analysis':
+        return executeDuckDBAccelerated()
+      case 'smart':
+        return executeSmart(sql, connId)
+    }
+  }
+
   function checkForParams(sql: string) {
     return detectParams(sql)
   }
@@ -436,11 +508,14 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     executing,
     lastExecutionTime,
     hasResults,
+    executionMode,
     currentResultData,
     inTransaction,
     statementCount,
     scheduleParse,
     executeSingleStatement,
+    executeWithMode,
+    executeSmart,
     cancelExecution,
     executeNewTab,
     beginTransaction,

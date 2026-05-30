@@ -35,7 +35,13 @@ export function useEditorRecovery() {
   function saveSnapshot(
     filePath: string,
     stateJSON: Record<string, unknown> | null,
-    meta: { fileName: string; language: string; isDirty: boolean; scrollTop?: number; scrollLeft?: number }
+    meta: {
+      fileName: string
+      language: string
+      isDirty: boolean
+      scrollTop?: number
+      scrollLeft?: number
+    }
   ): boolean {
     try {
       const payload: RecoverySnapshot = {
@@ -126,7 +132,7 @@ export function useEditorRecovery() {
         keysToRemove.push(key)
       }
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k))
+    keysToRemove.forEach(k => localStorage.removeItem(k))
   }
 
   function removeSnapshot(filePath: string): void {
