@@ -29,6 +29,7 @@ interface ProjectConnectionResponse {
   use_duckdb_fed: boolean
   metadata_path: string | null
   description: string | null
+  server_version: string | null
   driver_id: string | null
   environment_id: string | null
   auth_config_id: string | null

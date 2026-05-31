@@ -2,21 +2,21 @@ const DEFAULT_POPOUT_GEOMETRY = { x: 200, y: 200, width: 800, height: 400 }
 
 interface DockviewApi {
   addPanel(opts: Record<string, unknown>): void
-  getPanel(id: string):
-    | {
-        api: { close(): void; setTitle(t: string): void; setVisible(v: boolean): void }
-        focus(): void
-        id: string
-        group?: { id: string }
-      }
-    | undefined
-  getGroup(id: string):
-    | {
-        api: { close(): void; setVisible(v: boolean): void; moveTo(p: { group: string }): void }
-        id: string
-        panels: Array<{ id: string }>
-      }
-    | undefined
+  getPanel(
+    id: string,
+  ): {
+    api: { close(): void; setTitle(t: string): void; setVisible(v: boolean): void }
+    focus(): void
+    id: string
+    group?: { id: string }
+  } | undefined
+  getGroup(
+    id: string,
+  ): {
+    api: { close(): void; setVisible(v: boolean): void; moveTo(p: { group: string }): void }
+    id: string
+    panels: Array<{ id: string }>
+  } | undefined
   movePanelOrGroup(panelId: string, opts: Record<string, unknown>): void
 }
 
@@ -32,10 +32,8 @@ export class DockviewBridge {
   }
 
   getPanel(
-    id: string
-  ):
-    | { api: { close(): void; setTitle(t: string): void; setVisible(v: boolean): void } }
-    | undefined {
+    id: string,
+  ): { api: { close(): void; setTitle(t: string): void; setVisible(v: boolean): void } } | undefined {
     try {
       return this.api?.getPanel(id)
     } catch {
@@ -44,7 +42,9 @@ export class DockviewBridge {
     }
   }
 
-  getGroup(id: string): { id: string; panels: Array<{ id: string }> } | undefined {
+  getGroup(
+    id: string,
+  ): { id: string; panels: Array<{ id: string }> } | undefined {
     try {
       return this.api?.getGroup(id)
     } catch {

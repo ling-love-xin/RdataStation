@@ -86,7 +86,7 @@ function handleAccelerate() {
 }
 
 function handleExplain() {
-  EditorManager.executeExplainPlan?.()
+  // TODO: 实现执行计划功能
 }
 
 function handleFormat() {
@@ -94,7 +94,7 @@ function handleFormat() {
 }
 
 function handleTranspile(_dialect: string) {
-  EditorManager.transpileSQL?.(_dialect)
+  // TODO: 实现 SQL 方言转译功能
 }
 
 function handleModeChange(mode: 'normal' | 'analysis' | 'smart') {

@@ -12,30 +12,21 @@
             <NSwitch
               :value="readonly"
               size="small"
-              @update:value="
-                $emit('update:readonly', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:readonly', $event); $emit('override')"
           /></span>
           <span class="pol-item"
             >{{ writeConfirmLabel }}
             <NSwitch
               :value="writeConfirm"
               size="small"
-              @update:value="
-                $emit('update:writeConfirm', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:writeConfirm', $event); $emit('override')"
           /></span>
           <span class="pol-item"
             >{{ ddlConfirmLabel }}
             <NSwitch
               :value="ddlConfirm"
               size="small"
-              @update:value="
-                $emit('update:ddlConfirm', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:ddlConfirm', $event); $emit('override')"
           /></span>
         </div>
         <div class="policy-row">
@@ -46,10 +37,7 @@
               size="small"
               :options="dropOptions"
               style="width: 80px"
-              @update:value="
-                $emit('update:dropPolicy', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:dropPolicy', $event); $emit('override')"
             />
           </span>
           <span class="pol-item"
@@ -57,10 +45,7 @@
             <NSwitch
               :value="autocommit"
               size="small"
-              @update:value="
-                $emit('update:autocommit', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:autocommit', $event); $emit('override')"
           /></span>
           <span class="pol-item"
             >{{ rowLimitLabel }}
@@ -69,10 +54,7 @@
               size="small"
               :min="0"
               style="width: 80px"
-              @update:value="
-                $emit('update:rowLimit', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:rowLimit', $event); $emit('override')"
           /></span>
           <span class="pol-item"
             >{{ sizeLimitLabel }}
@@ -82,10 +64,7 @@
               :min="0"
               :max="10240"
               style="width: 80px"
-              @update:value="
-                $emit('update:sizeLimit', $event)
-                $emit('override')
-              "
+              @update:value="$emit('update:sizeLimit', $event); $emit('override')"
           /></span>
         </div>
       </div>

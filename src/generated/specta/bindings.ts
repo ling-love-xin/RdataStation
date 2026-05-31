@@ -4585,6 +4585,9 @@ export type QualityScore = {
 /**  统一的查询结果 */
 export type QueryResult = {
   columns: string[]
+  column_types: string[]
+  rows: unknown[][]
+  total_rows: number
   /**  影响的行数（对于 INSERT/UPDATE/DELETE） */
   affected_rows: number | null
   /**  是否是只读查询（SELECT） */

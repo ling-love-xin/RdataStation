@@ -279,18 +279,13 @@ fn postgres_native_rows_to_arrow(
 fn build_query_result(
     columns: &[String],
     rows: &[tokio_postgres::Row],
-    is_read_only: bool,
+    _is_read_only: bool,
 ) -> Result<QueryResult, CoreError> {
     let batch = postgres_native_rows_to_arrow(columns, rows)?;
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only {
-            None
-        } else {
-            Some(rows.len() as u32)
-        },
-        is_read_only: Some(is_read_only),
+        ..Default::default()
     })
 }
 
@@ -361,8 +356,7 @@ impl Database for PostgresNativeDatabase {
             return Ok(QueryResult {
                 columns: vec![],
                 batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             });
         }
 
@@ -411,8 +405,7 @@ impl Database for PostgresNativeDatabase {
             return Ok(QueryResult {
                 columns: vec![],
                 batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             });
         }
 
@@ -448,8 +441,7 @@ impl Database for PostgresNativeDatabase {
                     return Ok(QueryResult {
                         columns: vec![],
                         batches: vec![],
-                        affected_rows: if is_read_only { None } else { Some(0) },
-                        is_read_only: Some(is_read_only),
+                        ..Default::default()
                     });
                 }
 
@@ -678,8 +670,7 @@ impl Transaction for PostgresNativeTransaction {
             return Ok(QueryResult {
                 columns: vec![],
                 batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             });
         }
 

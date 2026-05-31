@@ -348,8 +348,7 @@ mod tests {
         let result = QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: None,
-            is_read_only: Some(true),
+            ..Default::default()
         };
 
         // 测试存储和获取
@@ -369,8 +368,7 @@ mod tests {
         let result2 = QueryResult {
             columns: columns2,
             batches: vec![batch2],
-            affected_rows: None,
-            is_read_only: Some(true),
+            ..Default::default()
         };
         cache.set(connection_id, sql, result2, None).await?;
         assert_eq!(cache.size().await, 1);
@@ -393,8 +391,7 @@ mod tests {
         let result = QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: None,
-            is_read_only: Some(true),
+            ..Default::default()
         };
 
         // 存储缓存
@@ -419,8 +416,7 @@ mod tests {
         let result = QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: None,
-            is_read_only: Some(true),
+            ..Default::default()
         };
 
         // 测试未命中

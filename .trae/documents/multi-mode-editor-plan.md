@@ -33,13 +33,13 @@ export type EditorType = 'query' | 'analysis' | 'code'
 
 // 工具栏按钮配置
 interface ToolbarButton {
-  id: string // 唯一标识
+  id: string           // 唯一标识
   group: 'execute' | 'edit' | 'mode' | 'transaction' | 'federation' | 'general'
-  label: string // 按钮文本
-  icon?: string // lucide 图标名
-  shortcut?: string // 快捷键 (如 'Ctrl+Enter')
-  visible: (ctx: EditorContext) => boolean // 可见性条件
-  action: (ctx: EditorContext) => void // 点击行为
+  label: string        // 按钮文本
+  icon?: string        // lucide 图标名
+  shortcut?: string    // 快捷键 (如 'Ctrl+Enter')
+  visible: (ctx: EditorContext) => boolean  // 可见性条件
+  action: (ctx: EditorContext) => void      // 点击行为
 }
 
 // 工具栏分隔符
@@ -75,14 +75,9 @@ interface EditorContext {
 ```
 
 **新增 `EditorModeResolver`**：
-
 ```typescript
 // 根据文件扩展名返回默认 EditorType
-function resolveEditorType(
-  filePath: string,
-  language: string,
-  userPreference?: EditorType
-): EditorType
+function resolveEditorType(filePath: string, language: string, userPreference?: EditorType): EditorType
 // 规则：.sql → query, .duckdb.sql → analysis, .rs/.ts/.py/.js/.go → code
 // 用户手动切换后优先使用 userPreference
 ```
@@ -93,16 +88,15 @@ function resolveEditorType(
 
 当前 `EditorManager.ts` (~400+ 行) 包含 7 种职责，需拆分为：
 
-| 新模块                   | 文件路径                                      | 职责                                                                     |
-| ------------------------ | --------------------------------------------- | ------------------------------------------------------------------------ |
-| `FileStateStore`         | `workbench/ui/stores/file-state-store.ts`     | Pinia Store，管理 openFiles / activeFilePath / isDirty / file open/close |
-| `EditorInstanceRegistry` | `workbench/manager/EditorInstanceRegistry.ts` | EditorView 实例注册/注销/查询/主实例判定/状态保存恢复                    |
-| `ResultSetManager`       | `workbench/manager/ResultSetManager.ts`       | 结果集 CRUD / MAX_RESULT_SETS 限制 & toast 提示 / 面板绑定               |
-| `DockviewBridge`         | `workbench/manager/DockviewBridge.ts`         | dockviewApi 封装 / addPanel / movePanelOrGroup / getPanel / 浮动弹窗     |
-| `EditorModeResolver`     | `workbench/manager/EditorModeResolver.ts`     | 文件扩展名 → EditorType 映射                                             |
+| 新模块 | 文件路径 | 职责 |
+|--------|----------|------|
+| `FileStateStore` | `workbench/ui/stores/file-state-store.ts` | Pinia Store，管理 openFiles / activeFilePath / isDirty / file open/close |
+| `EditorInstanceRegistry` | `workbench/manager/EditorInstanceRegistry.ts` | EditorView 实例注册/注销/查询/主实例判定/状态保存恢复 |
+| `ResultSetManager` | `workbench/manager/ResultSetManager.ts` | 结果集 CRUD / MAX_RESULT_SETS 限制 & toast 提示 / 面板绑定 |
+| `DockviewBridge` | `workbench/manager/DockviewBridge.ts` | dockviewApi 封装 / addPanel / movePanelOrGroup / getPanel / 浮动弹窗 |
+| `EditorModeResolver` | `workbench/manager/EditorModeResolver.ts` | 文件扩展名 → EditorType 映射 |
 
 **拆分策略**：
-
 1. 先创建 5 个新模块文件，逐个抽出原 `EditorManager.ts` 的方法
 2. 维持 `EditorManager` 作为兼容性 re-export 层（逐步废弃）
 3. 全量搜索替换引用后，删除原文件
@@ -116,7 +110,6 @@ function resolveEditorType(
 当前问题：所有 specta 调用都使用 `as unknown as` 双重强转。
 
 **修复方案**：
-
 1. 确认 specta `ExecuteSqlResponse` 结构体字段与前端 `ExecuteSqlResponse` 一致
 2. 若不一致，修改前端 interface 以对齐 specta 类型，而非强转
 3. 消除 `query.ts` 中全部 8 处 `as unknown as`
@@ -124,7 +117,6 @@ function resolveEditorType(
 5. 移除 `DuckDBAcceleratedResult` 手写 interface，改为从 specta 导入
 
 **关键文件变更**：
-
 ```
 src-tauri/src/commands/sql_commands.rs  — 添加 #[specta::specta] 到 execute_duckdb_accelerated
 src-tauri/src/main.rs                   — collect_commands! 注册新命令
@@ -172,7 +164,6 @@ impl QueryResult {
 ```
 
 修改 `Serialize` 实现：
-
 ```rust
 impl Serialize for QueryResult {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -189,7 +180,6 @@ impl Serialize for QueryResult {
 ```
 
 前端同步新增：
-
 ```typescript
 // src/extensions/builtin/workbench/ui/types/result.ts
 interface QueryResult {
@@ -231,7 +221,6 @@ pub async fn execute_sql_paginated(
 ```
 
 前端新增：
-
 ```typescript
 // src/extensions/builtin/query/ui/services/query.ts
 export async function executeSqlPaginated(
@@ -252,7 +241,6 @@ export async function executeSqlPaginated(
 两处需要修复：
 
 **`sql_commands.rs:L443`**：
-
 ```rust
 // ❌ 当前
 .unwrap_or(Value::Null)
@@ -261,7 +249,6 @@ export async function executeSqlPaginated(
 ```
 
 **`sql_commands.rs:L458`**：
-
 ```rust
 // ❌ 当前
 .unwrap_or_default()
@@ -286,15 +273,14 @@ export async function executeSqlPaginated(
     </div>
 
     <!-- 根据 EditorType 动态渲染子面板 -->
-    <QueryEditorPanel v-if="currentEditorType === 'query'" :params="props.params" />
+    <QueryEditorPanel    v-if="currentEditorType === 'query'"    :params="props.params" />
     <AnalysisEditorPanel v-if="currentEditorType === 'analysis'" :params="props.params" />
-    <CodeEditorPanel v-if="currentEditorType === 'code'" :params="props.params" />
+    <CodeEditorPanel     v-if="currentEditorType === 'code'"     :params="props.params" />
   </div>
 </template>
 ```
 
 **EditorBody 共享组件**（提取自当前 EditorPanel.vue）：
-
 ```vue
 <!-- EditorBody.vue — 三个子面板共用 -->
 <template>
@@ -331,13 +317,11 @@ QueryEditorPanel.vue
 ```
 
 **QueryToolbar.vue 按钮布局**：
-
 ```
 [▶ 执行] [▶+ 新标签执行] [⚡ 本地加速] [📊 执行计划] [|] [格式化] [方言▾] [|] [普通|分析|智能] [|] [事务▾] [📋 历史]
 ```
 
 每个按钮映射到现有的 `EditorManager` / `useSqlExecution` 方法：
-
 - 执行 → `executeSingleStatement()`
 - 新标签执行 → `executeNewTab()`
 - 本地加速 → `executeDuckDBAccelerated()`
@@ -349,7 +333,6 @@ QueryEditorPanel.vue
 - 历史 → 打开 SQL 历史面板
 
 **QueryStatusBar.vue**：
-
 ```
 连接: postgres@localhost  |  LN 12, COL 5  |  3条SQL  |  事务中  |  125ms  |  SQL
 ```
@@ -363,14 +346,14 @@ QueryEditorPanel.vue
 ```typescript
 // 新增执行模式
 const executionMode = ref<'normal' | 'analysis' | 'smart'>('normal')
-const SMART_MODE_THRESHOLD = 1000 // 可配置阈值
+const SMART_MODE_THRESHOLD = 1000  // 可配置阈值
 
 async function executeWithMode(): Promise<void> {
   switch (executionMode.value) {
     case 'normal':
-      return executeSingleStatement() // 现有逻辑
+      return executeSingleStatement()  // 现有逻辑
     case 'analysis':
-      return executeDuckDBAccelerated() // 现有逻辑
+      return executeDuckDBAccelerated()  // 现有逻辑
     case 'smart':
       return executeSmart()
   }
@@ -379,13 +362,13 @@ async function executeWithMode(): Promise<void> {
 async function executeSmart(): Promise<void> {
   // 1. 先查询行数预估（EXPLAIN 或 SELECT COUNT(*)）
   const estimatedRows = await estimateRowCount(sql, connId)
-
+  
   // 2. 根据阈值选择策略
   if (estimatedRows <= SMART_MODE_THRESHOLD) {
-    executionMode.value = 'normal' // 小数据量走普通模式
+    executionMode.value = 'normal'  // 小数据量走普通模式
     return executeSingleStatement()
   } else {
-    executionMode.value = 'analysis' // 大数据量走分析模式
+    executionMode.value = 'analysis'  // 大数据量走分析模式
     return executeDuckDBAccelerated()
   }
 }
@@ -397,7 +380,6 @@ async function estimateRowCount(sql: string, connId: string): Promise<number> {
 ```
 
 **后端新增行数预估命令**（可选）：
-
 ```rust
 #[tauri::command]
 pub async fn estimate_query_rows(conn_id: Option<String>, sql: String) -> Result<u64, CoreError> {
@@ -420,13 +402,11 @@ AnalysisEditorPanel.vue
 ```
 
 **AnalysisToolbar.vue 独有按钮**：
-
 ```
 [▶ 执行] [▶+ 新标签执行] [|] [联邦查询▾] [|] [格式化] [|] [📋 历史]
 ```
 
 **联邦查询选择器**：
-
 ```vue
 <!-- 联邦查询：多选已 ATTACH 的外部数据源 -->
 <NSelect
@@ -439,14 +419,12 @@ AnalysisEditorPanel.vue
 ```
 
 选择数据源后，自动在编辑器顶部插入：
-
 ```sql
 -- ATTACH 'postgres:dbname=mydb' AS pg_source (TYPE postgres)
 -- ATTACH 'mysql:host=localhost:3306/db' AS mysql_source (TYPE mysql)
 ```
 
 **Composable**: `useFederationQuery.ts`
-
 - 从后端获取已 ATTACH 的外部数据库列表
 - 管理当前选中的数据源
 - 提供 ATTACH / DETACH 操作
@@ -465,15 +443,12 @@ CodeEditorPanel.vue
 ```
 
 **CodeToolbar.vue**：
-
 ```
 [💾 保存] [格式化] [🔍 查找] [↩ 撤销] [↪ 重做]
 ```
-
 **无** SQL 执行相关按钮。
 
 **LSP 扩展点接口**：
-
 ```typescript
 // src/extensions/builtin/workbench/types/lsp-types.ts
 export interface LspExtensionPoint {
@@ -493,28 +468,13 @@ export interface LspDiagnostic {
   range: { start: LspPosition; end: LspPosition }
 }
 
-export interface LspPosition {
-  line: number
-  character: number
-}
-export interface LspCompletion {
-  label: string
-  kind: string
-  detail?: string
-  insertText?: string
-}
-export interface LspHover {
-  contents: string
-  range?: { start: LspPosition; end: LspPosition }
-}
-export interface LspLocation {
-  uri: string
-  range: { start: LspPosition; end: LspPosition }
-}
+export interface LspPosition { line: number; character: number }
+export interface LspCompletion { label: string; kind: string; detail?: string; insertText?: string }
+export interface LspHover { contents: string; range?: { start: LspPosition; end: LspPosition } }
+export interface LspLocation { uri: string; range: { start: LspPosition; end: LspPosition } }
 ```
 
 **CodeStatusBar.vue**：
-
 ```
 语言: Rust  |  编码: UTF-8  |  缩进: 4空格  |  LN 5, COL 12  |  ⚠ 2W  ❌ 1E
 ```
@@ -524,20 +484,13 @@ export interface LspLocation {
 ### Step 12: 统一消除空 catch
 
 遍历所有编辑器相关文件，将空 catch 替换为有意义的 warn：
-
 ```typescript
 // ❌ 之前
-try {
-  dockviewApi?.getPanel(id)?.api.setVisible(true)
-} catch {
-  /* */
-}
+try { dockviewApi?.getPanel(id)?.api.setVisible(true) } catch { /* */ }
 
 // ✅ 之后
-try {
-  dockviewApi?.getPanel(id)?.api.setVisible(true)
-} catch {
-  console.warn('[DockviewBridge] getPanel failed for', id)
+try { dockviewApi?.getPanel(id)?.api.setVisible(true) } catch { 
+  console.warn('[DockviewBridge] getPanel failed for', id) 
 }
 ```
 
@@ -545,51 +498,51 @@ try {
 
 ### Step 13: 端到端验证
 
-| 验证场景                    | 预期结果                                     |
-| --------------------------- | -------------------------------------------- |
-| 打开 `test.sql`             | 自动进入 QueryEditorPanel                    |
-| 查询编辑器执行 SELECT       | 结果面板正常展示（含 column_types）          |
-| 切换面板类型 查询→分析→代码 | 工具栏/状态栏即时切换，编辑器内容不变        |
-| 分析编辑器 DuckDB 加速      | 正常执行，结果正确                           |
-| 联邦查询选择器              | 展示已 ATTACH 数据源，选择后插入 ATTACH 提示 |
-| 智能模式执行                | ≤1000 行走普通模式，>1000 行走分析模式       |
-| 打开 `main.rs`              | 自动进入 CodeEditorPanel，无 SQL 按钮        |
-| 分页查询                    | offset=100 / limit=50 返回正确行数           |
-| `pnpm run lint`             | 零错误                                       |
-| `pnpm run format`           | 通过                                         |
+| 验证场景 | 预期结果 |
+|----------|----------|
+| 打开 `test.sql` | 自动进入 QueryEditorPanel |
+| 查询编辑器执行 SELECT | 结果面板正常展示（含 column_types） |
+| 切换面板类型 查询→分析→代码 | 工具栏/状态栏即时切换，编辑器内容不变 |
+| 分析编辑器 DuckDB 加速 | 正常执行，结果正确 |
+| 联邦查询选择器 | 展示已 ATTACH 数据源，选择后插入 ATTACH 提示 |
+| 智能模式执行 | ≤1000 行走普通模式，>1000 行走分析模式 |
+| 打开 `main.rs` | 自动进入 CodeEditorPanel，无 SQL 按钮 |
+| 分页查询 | offset=100 / limit=50 返回正确行数 |
+| `pnpm run lint` | 零错误 |
+| `pnpm run format` | 通过 |
 
 ---
 
 ## 三、关键文件变更清单
 
-| 文件                                                     | 操作 | 说明                                                         |
-| -------------------------------------------------------- | ---- | ------------------------------------------------------------ |
-| `workbench/types/editor-types.ts`                        | 修改 | 新增 EditorType / EditorToolbarConfig / EditorContext 等类型 |
-| `workbench/types/lsp-types.ts`                           | 新增 | LSP 扩展点接口定义                                           |
-| `workbench/ui/stores/file-state-store.ts`                | 新增 | 文件状态 Pinia Store                                         |
-| `workbench/manager/EditorInstanceRegistry.ts`            | 新增 | 编辑器实例注册表                                             |
-| `workbench/manager/ResultSetManager.ts`                  | 新增 | 结果集管理器                                                 |
-| `workbench/manager/DockviewBridge.ts`                    | 新增 | Dockview API 桥接                                            |
-| `workbench/manager/EditorModeResolver.ts`                | 新增 | 编辑器类型解析器                                             |
-| `workbench/manager/EditorManager.ts`                     | 删除 | 原 God Object，拆分后移除                                    |
-| `workbench/ui/components/panels/EditorPanelFactory.vue`  | 新增 | 面板工厂路由组件                                             |
-| `workbench/ui/components/panels/EditorBody.vue`          | 新增 | 共享编辑器主体（从 EditorPanel 抽出）                        |
-| `workbench/ui/components/panels/EditorPanel.vue`         | 删除 | 重构后移除                                                   |
-| `workbench/ui/components/panels/QueryEditorPanel.vue`    | 新增 | 查询编辑器面板                                               |
-| `workbench/ui/components/panels/QueryToolbar.vue`        | 新增 | 查询工具栏                                                   |
-| `workbench/ui/components/panels/QueryStatusBar.vue`      | 新增 | 查询状态栏                                                   |
-| `workbench/ui/components/panels/AnalysisEditorPanel.vue` | 新增 | 分析编辑器面板                                               |
-| `workbench/ui/components/panels/AnalysisToolbar.vue`     | 新增 | 分析工具栏（含联邦查询选择器）                               |
-| `workbench/ui/components/panels/AnalysisStatusBar.vue`   | 新增 | 分析状态栏                                                   |
-| `workbench/ui/components/panels/CodeEditorPanel.vue`     | 新增 | 代码编辑器面板                                               |
-| `workbench/ui/components/panels/CodeToolbar.vue`         | 新增 | 代码工具栏                                                   |
-| `workbench/ui/components/panels/CodeStatusBar.vue`       | 新增 | 代码状态栏（LSP 诊断）                                       |
-| `workbench/ui/composables/useSqlExecution.ts`            | 修改 | 新增 executionMode / estimateRowCount / executeSmart         |
-| `workbench/ui/composables/useFederationQuery.ts`         | 新增 | 联邦查询管理                                                 |
-| `workbench/ui/types/result.ts`                           | 修改 | 新增 columnTypes                                             |
-| `query/ui/services/query.ts`                             | 修改 | 消除 as unknown as，新增 executeSqlPaginated                 |
-| `src-tauri/src/core/models.rs`                           | 修改 | 新增 column_types() + Serialize 修改                         |
-| `src-tauri/src/commands/sql_commands.rs`                 | 修改 | 注册 specta，新增 execute_sql_paginated，修复 unwrap         |
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `workbench/types/editor-types.ts` | 修改 | 新增 EditorType / EditorToolbarConfig / EditorContext 等类型 |
+| `workbench/types/lsp-types.ts` | 新增 | LSP 扩展点接口定义 |
+| `workbench/ui/stores/file-state-store.ts` | 新增 | 文件状态 Pinia Store |
+| `workbench/manager/EditorInstanceRegistry.ts` | 新增 | 编辑器实例注册表 |
+| `workbench/manager/ResultSetManager.ts` | 新增 | 结果集管理器 |
+| `workbench/manager/DockviewBridge.ts` | 新增 | Dockview API 桥接 |
+| `workbench/manager/EditorModeResolver.ts` | 新增 | 编辑器类型解析器 |
+| `workbench/manager/EditorManager.ts` | 删除 | 原 God Object，拆分后移除 |
+| `workbench/ui/components/panels/EditorPanelFactory.vue` | 新增 | 面板工厂路由组件 |
+| `workbench/ui/components/panels/EditorBody.vue` | 新增 | 共享编辑器主体（从 EditorPanel 抽出） |
+| `workbench/ui/components/panels/EditorPanel.vue` | 删除 | 重构后移除 |
+| `workbench/ui/components/panels/QueryEditorPanel.vue` | 新增 | 查询编辑器面板 |
+| `workbench/ui/components/panels/QueryToolbar.vue` | 新增 | 查询工具栏 |
+| `workbench/ui/components/panels/QueryStatusBar.vue` | 新增 | 查询状态栏 |
+| `workbench/ui/components/panels/AnalysisEditorPanel.vue` | 新增 | 分析编辑器面板 |
+| `workbench/ui/components/panels/AnalysisToolbar.vue` | 新增 | 分析工具栏（含联邦查询选择器） |
+| `workbench/ui/components/panels/AnalysisStatusBar.vue` | 新增 | 分析状态栏 |
+| `workbench/ui/components/panels/CodeEditorPanel.vue` | 新增 | 代码编辑器面板 |
+| `workbench/ui/components/panels/CodeToolbar.vue` | 新增 | 代码工具栏 |
+| `workbench/ui/components/panels/CodeStatusBar.vue` | 新增 | 代码状态栏（LSP 诊断） |
+| `workbench/ui/composables/useSqlExecution.ts` | 修改 | 新增 executionMode / estimateRowCount / executeSmart |
+| `workbench/ui/composables/useFederationQuery.ts` | 新增 | 联邦查询管理 |
+| `workbench/ui/types/result.ts` | 修改 | 新增 columnTypes |
+| `query/ui/services/query.ts` | 修改 | 消除 as unknown as，新增 executeSqlPaginated |
+| `src-tauri/src/core/models.rs` | 修改 | 新增 column_types() + Serialize 修改 |
+| `src-tauri/src/commands/sql_commands.rs` | 修改 | 注册 specta，新增 execute_sql_paginated，修复 unwrap |
 
 ---
 

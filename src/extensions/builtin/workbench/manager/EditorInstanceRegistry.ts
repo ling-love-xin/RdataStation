@@ -15,13 +15,7 @@ export class EditorInstanceRegistry {
     return `${groupId}::${filePath}`
   }
 
-  register(
-    filePath: string,
-    instanceId: string,
-    groupId: string,
-    view: EditorView,
-    writable: boolean
-  ): void {
+  register(filePath: string, instanceId: string, groupId: string, view: EditorView, writable: boolean): void {
     const inst: EditorInstance = {
       instanceId,
       filePath,

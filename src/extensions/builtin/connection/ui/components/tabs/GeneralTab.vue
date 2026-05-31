@@ -306,22 +306,22 @@
             <!-- Select 类型 -->
             <NSelect
               v-if="field.type === 'select'"
-              v-model:value="schemaFormData[field.key] as string | null | undefined"
+              v-model:value="(schemaFormData[field.key] as any)"
               size="small"
               :placeholder="field.placeholder"
-              :options="field.options as SelectOption[] | undefined"
+              :options="(field.options as any)"
               @update:value="emitUpdate"
             />
             <!-- Switch 类型 -->
             <NSwitch
               v-else-if="field.type === 'switch'"
-              v-model:value="schemaFormData[field.key] as boolean | undefined"
+              v-model:value="(schemaFormData[field.key] as any)"
               @update:value="emitUpdate"
             />
             <!-- Number 类型 -->
             <NInputNumber
               v-else-if="field.type === 'input-number'"
-              v-model:value="schemaFormData[field.key] as number | null | undefined"
+              v-model:value="(schemaFormData[field.key] as any)"
               size="small"
               :placeholder="field.placeholder"
               :min="field.min"
@@ -331,9 +331,7 @@
             <!-- Textarea 类型 -->
             <NInput
               v-else-if="field.type === 'textarea'"
-              v-model:value="
-                schemaFormData[field.key] as string | [string, string] | null | undefined
-              "
+              v-model:value="(schemaFormData[field.key] as any)"
               type="textarea"
               size="small"
               :placeholder="field.placeholder"
@@ -343,9 +341,7 @@
             <!-- 默认 Input 类型 -->
             <NInput
               v-else
-              v-model:value="
-                schemaFormData[field.key] as string | [string, string] | null | undefined
-              "
+              v-model:value="(schemaFormData[field.key] as any)"
               size="small"
               :placeholder="field.placeholder"
               type="password"
@@ -376,7 +372,6 @@ import {
   NSelect,
   NSpace,
   NSwitch,
-  type SelectOption,
 } from 'naive-ui'
 import { reactive, computed, watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -619,21 +614,6 @@ onMounted(async () => {
   loadAuthConfigs(props.projectPath ?? undefined)
 })
 
-// Reset port and auth methods when driver changes
-watch(
-  () => props.driver?.id,
-  () => {
-    local.port = props.driver?.default_port ?? 0
-    // 解析驱动支持的认证方式列表
-    const types = parseSupportedAuthTypes(props.driver?.supported_auth_types)
-    updateSupportedAuthTypes(types)
-    // 更新 config_schema 字段
-    updateSchemaFields()
-    emitUpdate()
-  },
-  { immediate: true }
-)
-
 // ==================== Config Schema 动态表单 ====================
 
 /** 从 config_schema 解析出的表单字段列表 */
@@ -661,6 +641,21 @@ function updateSchemaFields() {
     }
   }
 }
+
+// Reset port and auth methods when driver changes
+watch(
+  () => props.driver?.id,
+  () => {
+    local.port = props.driver?.default_port ?? 0
+    // 解析驱动支持的认证方式列表
+    const types = parseSupportedAuthTypes(props.driver?.supported_auth_types)
+    updateSupportedAuthTypes(types)
+    // 更新 config_schema 字段
+    updateSchemaFields()
+    emitUpdate()
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>

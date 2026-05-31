@@ -420,13 +420,12 @@ impl MockEngine {
         };
 
         let arrow_batch = duckdb_rows_to_arrow(&columns, &row_data)?;
-        let total = arrow_batch.num_rows();
+        let _total = arrow_batch.num_rows();
 
         Ok(QueryResult {
             columns,
             batches: vec![arrow_batch],
-            affected_rows: Some(total as u32),
-            is_read_only: Some(true),
+            ..Default::default()
         })
     }
 }

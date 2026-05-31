@@ -50,7 +50,6 @@ export async function connectDatabase(
     metadataPath?: string
     schemaName?: string
     useDuckdbFed?: boolean
-    password?: string
   }
 ): Promise<ConnectionResponse> {
   const input: ConnectDatabaseInput = {
@@ -73,7 +72,6 @@ export async function connectDatabase(
     metadata_path: opts?.metadataPath ?? null,
     schema_name: opts?.schemaName ?? null,
     use_duckdb_fed: opts?.useDuckdbFed ?? false,
-    password: opts?.password ?? null,
   }
   const result = await typed(commands.connectDatabase(input))
   return result as unknown as ConnectionResponse

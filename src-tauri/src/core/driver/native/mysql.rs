@@ -420,7 +420,7 @@ impl Transaction for MySqlTransaction {
     async fn query(&mut self, sql: &str) -> Result<QueryResult, CoreError> {
         if let Some(ref mut tx) = self.tx {
             let sql_upper = sql.trim_start().to_uppercase();
-            let is_read_only = sql_upper.starts_with("SELECT")
+            let _is_read_only = sql_upper.starts_with("SELECT")
                 || sql_upper.starts_with("SHOW")
                 || sql_upper.starts_with("DESCRIBE");
 
@@ -433,8 +433,7 @@ impl Transaction for MySqlTransaction {
                 return Ok(QueryResult {
                     columns: vec![],
                     batches: vec![],
-                    affected_rows: None,
-                    is_read_only: Some(is_read_only),
+                    ..Default::default()
                 });
             }
 
@@ -449,12 +448,7 @@ impl Transaction for MySqlTransaction {
             Ok(QueryResult {
                 columns,
                 batches: vec![batch],
-                affected_rows: if is_read_only {
-                    None
-                } else {
-                    Some(rows.len() as u32)
-                },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             })
         } else {
             Err(CoreError::database(DatabaseError::Driver {
@@ -491,26 +485,20 @@ impl Transaction for MySqlTransaction {
 fn build_query_result(
     columns: &[String],
     rows: &[sqlx::mysql::MySqlRow],
-    is_read_only: bool,
+    _is_read_only: bool,
 ) -> Result<QueryResult, CoreError> {
     if rows.is_empty() {
         return Ok(QueryResult {
             columns: columns.to_vec(),
             batches: vec![],
-            affected_rows: if is_read_only { None } else { Some(0) },
-            is_read_only: Some(is_read_only),
+            ..Default::default()
         });
     }
     let batch = mysql_rows_to_arrow(columns, rows)?;
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only {
-            None
-        } else {
-            Some(rows.len() as u32)
-        },
-        is_read_only: Some(is_read_only),
+        ..Default::default()
     })
 }
 

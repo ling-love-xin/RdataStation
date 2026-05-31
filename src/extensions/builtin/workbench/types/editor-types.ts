@@ -132,12 +132,7 @@ export interface IEditorManager {
   getSavedStateForFile(filePath: string): EditorState | undefined
   saveEditorStateForFile(filePath: string, state: EditorState): void
   hasRecoveryData(): boolean
-  loadRecoverySnapshots(): {
-    filePath: string
-    fileName: string
-    language: string
-    isDirty: boolean
-  }[]
+  loadRecoverySnapshots(): { filePath: string; fileName: string; language: string; isDirty: boolean }[]
   clearRecovery(): void
 
   createResultSet(filePath: string, data: ResultSetCreateParams): string
@@ -249,15 +244,7 @@ export interface EditorModeRule {
 
 /** 默认编辑器模式解析规则 */
 export const EDITOR_MODE_RULES: EditorModeRule[] = [
-  {
-    extensions: ['sql', 'mysql', 'pgsql', 'sqlite'],
-    languages: ['sql', 'mysql', 'pgsql', 'plpgsql'],
-    editorType: 'query',
-  },
+  { extensions: ['sql', 'mysql', 'pgsql', 'sqlite'], languages: ['sql', 'mysql', 'pgsql', 'plpgsql'], editorType: 'query' },
   { extensions: ['duckdb.sql'], languages: ['duckdb'], editorType: 'analysis' },
-  {
-    extensions: ['rs', 'ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'c', 'cpp', 'h', 'hpp'],
-    languages: ['rust', 'typescript', 'javascript', 'python', 'go', 'java', 'c', 'cpp'],
-    editorType: 'code',
-  },
+  { extensions: ['rs', 'ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'c', 'cpp', 'h', 'hpp'], languages: ['rust', 'typescript', 'javascript', 'python', 'go', 'java', 'c', 'cpp'], editorType: 'code' },
 ]

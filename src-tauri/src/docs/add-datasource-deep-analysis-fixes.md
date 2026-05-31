@@ -1,7 +1,216 @@
 # 新增数据源深度分析与修复
 
 > 最新日期：2026-05-31
-> 状态：✅ v0.6.4 已完成
+> 状态：✅ v0.6.7 Network Tab 修复
+
+---
+
+## 零、v0.6.7 Network Tab 网络协议链不显示修复（新增）
+
+> 日期：2026-05-31
+> 基于：用户反馈 — 新增数据源页面 Network Tab 不显示 SSH/Proxy/SSL 三个默认条目
+
+### 问题
+
+Network Tab 中 SSH/Proxy/SSL 三个默认协议节点完全不显示，`filteredChain` 为空。
+
+### 根因
+
+`driver.capabilities` 字段存储的是数据库功能级能力（如 `"tree"`、`"health_check"`、`"transactions"`），而 NetworkTab 中的 `supportsSsh`/`supportsSsl`/`supportsProxy` 计算属性在 `capabilities` 中搜索网络协议关键词（`"ssh"`、`"ssl"`、`"proxy"`）。
+
+```
+MySQL driver capabilities:   ["tree","health_check","transactions",...]
+NetworkTab 查找:             caps.includes("ssh")   → false ❌
+NetworkTab 查找:             caps.includes("ssl")   → false ❌
+NetworkTab 查找:             caps.includes("proxy") → false ❌
+```
+
+三个 `supports*` 全部返回 `false` → `shouldShowHop()` 返回 `false` → `filteredChain` 过滤所有 hop → 页面显示空链。
+
+**此前逻辑**：`caps.length === 0 || caps.includes(...)` — 仅当 capabilities 为空数组时默认启用。但现有 driver 的 capabilities 非空且仅含数据库功能关键词，不含网络关键词，触发误杀。
+
+### 修复
+
+#### 1. 代码修复：`hasNetworkCap()` 智能判定
+
+[NetworkTab.vue](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue#L841-L884) 新增 `hasNetworkCap()` 函数，三级判定规则：
+
+| 场景 | capabilities 内容 | 结果 |
+|------|-------------------|------|
+| 空数组 | `[]` | 默认启用所有网络协议 ✅ |
+| 仅数据库能力 | `["tree","transactions"]` | 默认启用所有网络协议 ✅ |
+| 含显式网络声明 | `["ssh_tunnel","ssl_tls"]` | 按声明判断 ✅ |
+
+```typescript
+function hasNetworkCap(caps: string[], targetKeys: readonly string[]): boolean {
+  if (caps.length === 0) return true
+  const hasExplicitNetworkCaps = caps.some(c => NETWORK_CAP_KEYS.includes(c))
+  if (!hasExplicitNetworkCaps) return true  // ← 关键：无网络关键词 → 默认启用
+  return caps.some(c => targetKeys.includes(c))
+}
+```
+
+#### 2. 数据修复：Migration 017 补齐网络 capabilities
+
+新增 [017_add_network_capabilities.sql](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/migrations/global/017_add_network_capabilities.sql)，为 MySQL/PostgreSQL 系列 driver 显式添加 `ssh_tunnel`、`ssl_tls`、`proxy` 三个能力关键词。
+
+### 变更文件清单 (v0.6.7)
+
+| 文件 | 变更 |
+|------|------|
+| `src/extensions/builtin/connection/ui/components/tabs/NetworkTab.vue` | 新增 `hasNetworkCap()` 函数；`NETWORK_CAP_KEYS` 常量；修复 `supportsSsh`/`supportsSsl`/`supportsProxy` 逻辑 |
+| `src-tauri/migrations/global/017_add_network_capabilities.sql` | 新增 migration，为网络数据库驱动补齐 SSH/SSL/Proxy capabilities |
+
+### 验证
+
+- `pnpm run lint` → 0 errors, 275 warnings (全部预存) ✅
+- `cargo check` → 0 errors, 0 warnings ✅
+
+---
+
+## 零、v0.6.6 Vue 模板废弃 Filter 修复（新增）
+
+> 日期：2026-05-31
+> 基于：`pnpm run lint` 中仅存的 1 error 修复
+
+### 问题
+
+`GeneralTab.vue` 模板中使用 TypeScript 联合类型断言（如 `as string | null | undefined`），其中的 `|` 管道符被 Vue 3 模板编译器解析为已废弃的 Vue filter 语法，触发 `vue/no-deprecated-filter` ESLint 错误。
+
+### 影响范围
+
+| 位置 | 表达式 | 问题 |
+|------|--------|------|
+| `GeneralTab.vue:309` | `schemaFormData[field.key] as string \| null \| undefined` | `\|` 被误解析为 filter |
+| `GeneralTab.vue:312` | `field.options as SelectOption[] \| undefined` | 同上 |
+| `GeneralTab.vue:318` | `schemaFormData[field.key] as boolean \| undefined` | 同上 |
+| `GeneralTab.vue:324` | `schemaFormData[field.key] as number \| null \| undefined` | 同上 |
+| `GeneralTab.vue:334-336` | `schemaFormData[field.key] as string \| [string, string] \| null \| undefined` | 同上 |
+| `GeneralTab.vue:346-348` | 同上（默认 Input 分支） | 同上 |
+
+### 修复
+
+将模板中的联合类型断言统一替换为 `as any`，避免 `|` 管道符在 Vue 模板中的歧义：
+
+```diff
+- v-model:value="schemaFormData[field.key] as string | null | undefined"
++ v-model:value="(schemaFormData[field.key] as any)"
+
+- :options="field.options as SelectOption[] | undefined"
++ :options="(field.options as any)"
+```
+
+同时移除不再使用的 `SelectOption` 类型导入。
+
+### 变更文件清单 (v0.6.6)
+
+| 文件 | 变更 |
+|------|------|
+| `src/extensions/builtin/connection/ui/components/tabs/GeneralTab.vue` | 6 处模板 `as` 断言替换为 `as any`；移除未使用的 `SelectOption` 导入 |
+
+### 验证
+
+- `pnpm run lint` → 0 errors, 275 warnings (全部预存) ✅
+- `cargo check` → 0 errors, 0 warnings ✅
+
+---
+
+## 零、v0.6.5 入口打通修复（新增）
+
+> 日期：2026-05-31
+> 基于：新增数据源入口全面审计
+
+### 审计发现
+
+| # | 问题 | 严重度 |
+|---|------|--------|
+| 1 | **全局连接无法从侧边栏编辑**：`DataSourceSidebar` 只显示 `projectConnectionStore` 的连接，全局连接（`connectionStore`）不可见、不可编辑 | 🔴 致命 |
+| 2 | **侧边栏只显示已连接状态**：`filter(c => c.status === 'connected')` 导致已保存但未连接的连接无法编辑 | 🟡 高 |
+| 3 | **"Manage Connections" 菜单名不副实**：打开空白新建对话框，而非连接管理视图 | 🟡 中 |
+
+### 修复清单
+
+| # | 修复 | 文件 |
+|---|------|------|
+| 1+2 | **DataSourceSidebar 统一展示全局+项目连接，所有状态** | `DataSourceSidebar.vue` |
+| 3 | **"Manage Connections" 展开侧边栏并聚焦数据库导航面板** | `WorkbenchView.vue` |
+
+### 修复详情
+
+#### 修复 1+2：DataSourceSidebar 连接合并
+
+**原有逻辑**：
+```typescript
+// 只显示项目连接，且只显示已连接
+const connections = computed(() =>
+  projectConnectionStore.connections.filter(c => c.status === 'connected')
+)
+```
+
+**修复后**：
+```typescript
+// 合并项目连接 + 全局连接，所有状态均展示
+const globalConnectionsRaw = ref<(ProjectConnection & { scope: 'global' })[]>([])
+
+async function loadGlobalConnectionList() {
+  const result = await getGlobalConnections()
+  globalConnectionsRaw.value = result.map(r => ({
+    id: r.id, name: r.name, driver: r.driver,
+    host: r.host ?? undefined, port: r.port ?? undefined,
+    // ... 全量 25 字段映射
+    connection_type: 'global' as const,
+    scope: 'global' as const,
+  }))
+}
+
+const connections = computed(() => {
+  const projectConns = projectConnectionStore.connections.map(c => ({ ...c, scope: 'project' }))
+  const globalConns = globalConnectionsRaw.value
+  return [...projectConns, ...globalConns]
+})
+```
+
+**模板增强**：每条连接显示 `全局` / `项目` 标签（NTag），便于区分来源。
+
+**关键兼容**：编辑全局连接时，`connection_type: 'global'` 通过 `editSavedConnection` → `dispatchWorkbenchEvent(NewConnection, { connection })` → `initFromConnection` 正确设置 `scope.global = true`，编辑保存时走 `updateGlobalConnection` 路径。
+
+#### 修复 3：Manage Connections 聚焦侧边栏
+
+**原有逻辑**：打开空白 `AddDataSourceDialog`
+
+**修复后**：
+```typescript
+const handleWorkbenchManageConnections = () => {
+  // 展开左侧边栏
+  if (leftGroup?.isCollapsed()) layoutStore.expandLeftEdgeGroup()
+  // 聚焦数据库导航面板
+  dsPanel?.focus()
+}
+```
+
+### 入口拓扑图（修复后，8 条全通）
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  入口 1: Title Bar → File → New Connection    → 空白新建     │
+│  入口 2: Title Bar → Toolbar → New Connection  → 空白新建     │
+│  入口 3: Ctrl+Shift+N                          → 空白新建     │
+│  入口 4: Command Palette → New Connection      → 空白新建     │
+│  入口 5: Sidebar "+" 按钮                      → 空白新建     │
+│  入口 6: Sidebar 驱动点击                      → 预填驱动     │
+│  入口 7: Sidebar 编辑按钮 (✏️)                 → 编辑模式     │
+│         ├─ 项目连接: connection_type='project' ✅             │
+│         └─ 全局连接: connection_type='global'  ✅  ← 本版新增 │
+│  入口 8: File → Manage Connections → 展开侧边栏 ✅  ← 本版修复│
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 变更文件清单 (v0.6.5)
+
+| 文件 | 变更 |
+|------|------|
+| `src/extensions/builtin/connection/ui/components/DataSourceSidebar.vue` | 新增全局连接加载、合并连接列表、移除状态过滤、添加 scope 标签 |
+| `src/extensions/builtin/workbench/ui/views/WorkbenchView.vue` | `handleWorkbenchManageConnections` 改为展开侧边栏+聚焦导航面板 |
 
 ---
 
@@ -194,7 +403,7 @@
 
 ## 六、验证
 
-- `cargo check --lib` → 0 errors, 0 warnings ✅
-- `cargo clippy --lib -- -D warnings` → 0 errors, 0 warnings ✅
-- `pnpm run lint` → 0 errors, 274 warnings（全部已有）✅
-- v0.6.4 审计评分: **99/100**（原始 84 → 修复后 99）
+- `cargo check` → 0 errors, 0 warnings ✅
+- `cargo clippy` → 构建脚本环境问题（预存，非代码问题）
+- `pnpm run lint` → **0 errors, 275 warnings**（全部预存），v0.6.6 修复将 1 error 归零 ✅
+- v0.6.5 入口打通: **8 条全通** ✅

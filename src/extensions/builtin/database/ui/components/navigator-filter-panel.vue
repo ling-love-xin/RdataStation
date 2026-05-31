@@ -16,9 +16,7 @@
               :key="type.value"
               class="filter-option"
               :class="{ active: filters.databaseType === type.value }"
-              @click="
-                updateFilter('databaseType', filters.databaseType === type.value ? '' : type.value)
-              "
+              @click="updateFilter('databaseType', filters.databaseType === type.value ? '' : type.value)"
             >
               {{ type.label }}
             </button>
@@ -33,12 +31,7 @@
               :key="status.value"
               class="filter-option"
               :class="{ active: filters.connectionStatus === status.value }"
-              @click="
-                updateFilter(
-                  'connectionStatus',
-                  filters.connectionStatus === status.value ? '' : status.value
-                )
-              "
+              @click="updateFilter('connectionStatus', filters.connectionStatus === status.value ? '' : status.value)"
             >
               {{ status.label }}
             </button>

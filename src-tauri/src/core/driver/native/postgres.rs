@@ -96,18 +96,13 @@ fn is_read_only_sql(sql: &str) -> bool {
 fn build_query_result(
     columns: &[String],
     rows: &[sqlx::postgres::PgRow],
-    is_read_only: bool,
+    _is_read_only: bool,
 ) -> Result<QueryResult, CoreError> {
     let batch = postgres_rows_to_arrow(columns, rows)?;
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only {
-            None
-        } else {
-            Some(rows.len() as u32)
-        },
-        is_read_only: Some(is_read_only),
+        ..Default::default()
     })
 }
 
@@ -124,8 +119,7 @@ impl Database for PostgresDatabase {
             return Ok(QueryResult {
                 columns: vec![],
                 batches: vec![],
-                affected_rows: if read_only { None } else { Some(0) },
-                is_read_only: Some(read_only),
+                ..Default::default()
             });
         }
 
@@ -167,8 +161,7 @@ impl Database for PostgresDatabase {
             return Ok(QueryResult {
                 columns: vec![],
                 batches: vec![],
-                affected_rows: if read_only { None } else { Some(0) },
-                is_read_only: Some(read_only),
+                ..Default::default()
             });
         }
 
@@ -203,8 +196,7 @@ impl Database for PostgresDatabase {
                     return Ok(QueryResult {
                         columns: vec![],
                         batches: vec![],
-                        affected_rows: if read_only { None } else { Some(0) },
-                        is_read_only: Some(read_only),
+                        ..Default::default()
                     });
                 }
 
@@ -452,8 +444,7 @@ impl Transaction for PostgresTransaction {
                 return Ok(QueryResult {
                     columns: vec![],
                     batches: vec![],
-                    affected_rows: if read_only { None } else { Some(0) },
-                    is_read_only: Some(read_only),
+                    ..Default::default()
                 });
             }
 

@@ -448,7 +448,7 @@ impl DuckDBEngine {
         }
 
         let sql_upper = sql.trim_start().to_uppercase();
-        let is_read_only = sql_upper.starts_with("SELECT")
+        let _is_read_only = sql_upper.starts_with("SELECT")
             || sql_upper.starts_with("SHOW")
             || sql_upper.starts_with("DESCRIBE");
         let row_count = row_data.len();
@@ -462,12 +462,7 @@ impl DuckDBEngine {
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only {
-                Some(row_count as u32)
-            } else {
-                None
-            },
-            is_read_only: Some(is_read_only),
+            ..Default::default()
         })
     }
 

@@ -68,13 +68,22 @@
       <div v-else class="ds-conn-list">
         <div
           v-for="conn in connections"
-          :key="conn.id"
+          :key="conn.id + (conn.scope || '')"
           class="ds-conn-item"
           @click="openSavedConnection(conn)"
         >
           <div class="ds-conn-indicator" :class="'status-' + (conn.status || 'disconnected')" />
           <div class="ds-conn-body">
-            <span class="ds-conn-name">{{ conn.name }}</span>
+            <span class="ds-conn-name">
+              {{ conn.name }}
+              <NTag
+                :type="(conn.scope || conn.connection_type) === 'global' ? 'warning' : 'info'"
+                size="tiny"
+                :bordered="false"
+              >
+                {{ (conn.scope || conn.connection_type) === 'global' ? '全局' : '项目' }}
+              </NTag>
+            </span>
             <span class="ds-conn-meta">{{ conn.driver }}</span>
           </div>
           <NButton
@@ -140,7 +149,7 @@ import {
   RefreshCw,
   Pencil,
 } from 'lucide-vue-next'
-import { NButton } from 'naive-ui'
+import { NButton, NTag } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -152,6 +161,8 @@ import {
 
 import { useDriverRegistry } from '../composables/useDriverRegistry'
 import { useSidebarConnection } from '../composables/useSidebarConnection'
+import { getGlobalConnections } from '../services/connection'
+import { useConnectionStore } from '../stores/connection-store'
 import { useProjectConnectionStore } from '../stores/project-connection-store'
 
 import type { Driver } from '../../domain/types'
@@ -160,6 +171,7 @@ import type { ProjectConnection, ConnectionStatus } from '../../types/connection
 const { t } = useI18n()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
+const connectionStore = useConnectionStore()
 const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnection({
   getConnectionUrl: conn => projectConnectionStore.getConnectionUrl(conn),
   updateConnectionStatus: (id, status, errorMsg) =>
@@ -171,6 +183,45 @@ const { drivers, dataSourceTypes, loadAll, installDriver, getDriverDetail } = us
 
 const driverDetailCache = ref<Map<string, string>>(new Map()) // driver_id → availability
 const installingDriverId = ref<string | null>(null)
+
+// ==================== 全局连接 ====================
+const globalConnectionsRaw = ref<(ProjectConnection & { scope: 'global' })[]>([])
+
+async function loadGlobalConnectionList() {
+  try {
+    const result = await getGlobalConnections()
+    globalConnectionsRaw.value = result.map(
+      (r): ProjectConnection & { scope: 'global' } => ({
+        id: r.id,
+        name: r.name,
+        driver: r.driver,
+        host: r.host ?? undefined,
+        port: r.port ?? undefined,
+        database: r.database ?? undefined,
+        username: r.username ?? undefined,
+        password: r.password ?? undefined,
+        tags: JSON.stringify(r.tags),
+        is_active: r.is_active,
+        server_version: r.server_version ?? undefined,
+        description: r.description ?? undefined,
+        driver_id: r.driver_id ?? undefined,
+        environment_id: r.environment_id ?? undefined,
+        auth_config_id: r.auth_config_id ?? undefined,
+        auth_method: r.auth_method ?? undefined,
+        network_config_id: r.network_config_id ?? undefined,
+        driver_properties: r.driver_properties ?? undefined,
+        advanced_options: r.advanced_options ?? undefined,
+        status: (r.is_active ? 'connected' : 'disconnected') as ConnectionStatus,
+        connection_type: 'global' as const,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        scope: 'global' as const,
+      })
+    )
+  } catch {
+    // 全局连接加载失败时静默
+  }
+}
 
 /** 带有安装状态的驱动列表 */
 const driversWithStatus = computed(() => {
@@ -203,10 +254,16 @@ const selectedTypeId = ref<string | null>(null)
 const selectedDriver = ref<Driver | null>(null)
 
 // Computed
-/** 只显示已连接的数据库（排除 disconnected/connecting/error 状态） */
-const connections = computed(() =>
-  (projectConnectionStore.connections as ProjectConnection[]).filter(c => c.status === 'connected')
-)
+/** 合并连接：项目连接 + 全局连接，所有状态 */
+const connections = computed(() => {
+  const projectConns = (projectConnectionStore.connections as ProjectConnection[]).map(c => ({
+    ...c,
+    connection_type: (c.connection_type || 'project') as 'global' | 'project',
+    scope: 'project' as const,
+  }))
+  const globalConns = globalConnectionsRaw.value
+  return [...projectConns, ...globalConns]
+})
 
 const filteredTypes = computed(() => {
   const q = searchQuery.value.toLowerCase()
@@ -295,6 +352,7 @@ onMounted(async () => {
   if (projectStore.hasProject) {
     await projectConnectionStore.loadConnections()
   }
+  await loadGlobalConnectionList()
 })
 </script>
 

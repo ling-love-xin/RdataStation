@@ -119,16 +119,16 @@ export function useSqlExecution(options: SqlExecutionOptions) {
     truncated: boolean
     error: string | null
   }> {
-    const result = await queryService.executeSql(sql, connId, DEFAULT_QUERY_TIMEOUT_MS)
-    const data = result.result ?? result
+    const response = await queryService.executeSql(sql, connId, DEFAULT_QUERY_TIMEOUT_MS)
+    const data = response.result
 
     return {
       columns: data.columns ?? [],
       rows: data.rows ?? [],
-      totalRows: data.total_rows ?? data.rows?.length ?? 0,
-      elapsedMs: result.elapsed_ms ?? 0,
-      affectedRows: data.affected_rows ?? 0,
-      truncated: result.truncated ?? false,
+      totalRows: data.total_rows ?? 0,
+      elapsedMs: response.elapsed_ms ?? 0,
+      affectedRows: response.affected_rows ?? 0,
+      truncated: response.truncated ?? false,
       error: null,
     }
   }

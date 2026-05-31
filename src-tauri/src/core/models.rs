@@ -18,9 +18,15 @@ use std::fmt;
 pub type ArrowBatch = RecordBatch;
 
 /// 统一的查询结果
-#[derive(Debug, Clone, Type)]
+#[derive(Debug, Clone, Type, Default)]
 pub struct QueryResult {
     pub columns: Vec<String>,
+    /// 列类型名称（从 Arrow Schema 提取）
+    pub column_types: Vec<String>,
+    /// 行数据（Vec<Vec<Value>>）
+    pub rows: Vec<Vec<Value>>,
+    /// 总行数
+    pub total_rows: u32,
     #[specta(skip)]
     pub batches: Vec<ArrowBatch>,
     /// 影响的行数（对于 INSERT/UPDATE/DELETE）
@@ -34,19 +40,81 @@ impl QueryResult {
     pub fn empty() -> Self {
         Self {
             columns: vec![],
+            column_types: vec![],
+            rows: vec![],
+            total_rows: 0,
             batches: vec![],
             affected_rows: None,
             is_read_only: None,
         }
     }
 
-    /// 从 Arrow 批处理创建查询结果
-    pub fn from_batches(columns: Vec<String>, batches: Vec<ArrowBatch>) -> Self {
-        let row_count: u32 = batches.iter().map(|b| b.num_rows() as u32).sum();
+    /// 创建不含 Arrow 数据的简单查询结果（用于 DML/DDL 等场景）
+    pub fn simple(
+        columns: Vec<String>,
+        affected_rows: Option<u32>,
+        is_read_only: Option<bool>,
+    ) -> Self {
         Self {
             columns,
+            column_types: vec![],
+            rows: vec![],
+            total_rows: 0,
+            batches: vec![],
+            affected_rows,
+            is_read_only,
+        }
+    }
+
+    /// 从 Arrow 批处理创建查询结果
+    pub fn from_batches(columns: Vec<String>, batches: Vec<ArrowBatch>) -> Self {
+        let column_types = if let Some(batch) = batches.first() {
+            batch
+                .schema()
+                .fields()
+                .iter()
+                .map(|f| match f.data_type() {
+                    DataType::Int8
+                    | DataType::Int16
+                    | DataType::Int32
+                    | DataType::Int64
+                    | DataType::UInt8
+                    | DataType::UInt16
+                    | DataType::UInt32
+                    | DataType::UInt64 => "INTEGER",
+                    DataType::Float16 | DataType::Float32 | DataType::Float64 => "FLOAT",
+                    DataType::Utf8 | DataType::LargeUtf8 => "TEXT",
+                    DataType::Boolean => "BOOLEAN",
+                    DataType::Null => "NULL",
+                    DataType::Binary | DataType::LargeBinary | DataType::FixedSizeBinary(_) => {
+                        "BYTES"
+                    }
+                    _ => "TEXT",
+                }
+                .to_string())
+                .collect()
+        } else {
+            vec![]
+        };
+        let rows: Vec<Vec<Value>> = batches
+            .iter()
+            .flat_map(|batch| {
+                let num_rows = batch.num_rows();
+                (0..num_rows).map(move |row_idx| {
+                    (0..batch.num_columns())
+                        .map(|col_idx| arrow_value_at(batch.column(col_idx), row_idx))
+                        .collect()
+                })
+            })
+            .collect();
+        let total_rows = rows.len() as u32;
+        Self {
+            columns,
+            column_types,
+            rows,
+            total_rows,
             batches,
-            affected_rows: Some(row_count),
+            affected_rows: Some(total_rows),
             is_read_only: Some(true),
         }
     }
@@ -84,6 +152,7 @@ impl QueryResult {
                 true
             }
         });
+        self.recompute_computed_fields();
         total - max_rows
     }
 
@@ -117,6 +186,24 @@ impl QueryResult {
             }
         }
         self.batches = new_batches;
+        self.recompute_computed_fields();
+    }
+
+    /// 从 batches 重新计算 rows / total_rows
+    fn recompute_computed_fields(&mut self) {
+        self.rows = self
+            .batches
+            .iter()
+            .flat_map(|batch| {
+                let num_rows = batch.num_rows();
+                (0..num_rows).map(move |row_idx| {
+                    (0..batch.num_columns())
+                        .map(|col_idx| arrow_value_at(batch.column(col_idx), row_idx))
+                        .collect()
+                })
+            })
+            .collect();
+        self.total_rows = self.rows.len() as u32;
     }
 
     /// 将 Arrow batches 转换为行数据（Vec<Vec<Value>>）
@@ -201,11 +288,11 @@ impl Serialize for QueryResult {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("QueryResult", 6)?;
         state.serialize_field("columns", &self.columns)?;
-        state.serialize_field("column_types", &self.column_types())?;
-        state.serialize_field("rows", &self.to_rows())?;
+        state.serialize_field("column_types", &self.column_types)?;
+        state.serialize_field("rows", &self.rows)?;
         state.serialize_field("affected_rows", &self.affected_rows)?;
         state.serialize_field("is_read_only", &self.is_read_only)?;
-        state.serialize_field("total_rows", &self.total_rows())?;
+        state.serialize_field("total_rows", &self.total_rows)?;
         state.end()
     }
 }
@@ -218,12 +305,18 @@ impl<'de> Deserialize<'de> for QueryResult {
         #[derive(Deserialize)]
         struct QueryResultHelper {
             columns: Vec<String>,
+            column_types: Option<Vec<String>>,
+            rows: Option<Vec<Vec<Value>>>,
+            total_rows: Option<u32>,
             affected_rows: Option<u32>,
             is_read_only: Option<bool>,
         }
         let helper = QueryResultHelper::deserialize(deserializer)?;
         Ok(Self {
             columns: helper.columns,
+            column_types: helper.column_types.unwrap_or_default(),
+            rows: helper.rows.unwrap_or_default(),
+            total_rows: helper.total_rows.unwrap_or(0),
             batches: vec![],
             affected_rows: helper.affected_rows,
             is_read_only: helper.is_read_only,

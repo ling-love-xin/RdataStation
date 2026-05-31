@@ -237,9 +237,7 @@ fn try_l2_procedures(
          WHERE s.catalog_name = ?1 AND s.schema_name = ?2 AND r.routine_type = 'PROCEDURE'
          ORDER BY r.routine_name",
         )
-        .map_err(|e| {
-            CoreError::cache(CacheError::internal(format!("L2 procedures query: {}", e)))
-        })?;
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 procedures query: {}", e))))?;
     let names: Vec<String> = stmt
         .query_map(rusqlite::params![database, schema_name], |row| row.get(0))
         .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 procedures rows: {}", e))))?
@@ -248,12 +246,7 @@ fn try_l2_procedures(
     if names.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(
-            names
-                .into_iter()
-                .map(|name| ProcedureMeta { name })
-                .collect(),
-        ))
+        Ok(Some(names.into_iter().map(|name| ProcedureMeta { name }).collect()))
     }
 }
 
@@ -273,9 +266,7 @@ fn try_l2_functions(
          WHERE s.catalog_name = ?1 AND s.schema_name = ?2 AND r.routine_type = 'FUNCTION'
          ORDER BY r.routine_name",
         )
-        .map_err(|e| {
-            CoreError::cache(CacheError::internal(format!("L2 functions query: {}", e)))
-        })?;
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 functions query: {}", e))))?;
     let names: Vec<String> = stmt
         .query_map(rusqlite::params![database, schema_name], |row| row.get(0))
         .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 functions rows: {}", e))))?
@@ -284,12 +275,7 @@ fn try_l2_functions(
     if names.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(
-            names
-                .into_iter()
-                .map(|name| FunctionMeta { name })
-                .collect(),
-        ))
+        Ok(Some(names.into_iter().map(|name| FunctionMeta { name }).collect()))
     }
 }
 
@@ -309,9 +295,7 @@ fn try_l2_sequences(
          WHERE s.catalog_name = ?1 AND s.schema_name = ?2
          ORDER BY seq.sequence_name",
         )
-        .map_err(|e| {
-            CoreError::cache(CacheError::internal(format!("L2 sequences query: {}", e)))
-        })?;
+        .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 sequences query: {}", e))))?;
     let names: Vec<String> = stmt
         .query_map(rusqlite::params![database, schema_name], |row| row.get(0))
         .map_err(|e| CoreError::cache(CacheError::internal(format!("L2 sequences rows: {}", e))))?
@@ -320,12 +304,7 @@ fn try_l2_sequences(
     if names.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(
-            names
-                .into_iter()
-                .map(|name| SequenceMeta { name })
-                .collect(),
-        ))
+        Ok(Some(names.into_iter().map(|name| SequenceMeta { name }).collect()))
     }
 }
 

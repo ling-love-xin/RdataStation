@@ -152,7 +152,7 @@ impl Database for DuckDbDatabase {
                 Vec::new()
             };
 
-            let is_read_only = is_read_only_sql(&sql_owned);
+            let _is_read_only = is_read_only_sql(&sql_owned);
             let row_count = row_data.len();
 
             let batch = if row_count > 0 {
@@ -161,20 +161,14 @@ impl Database for DuckDbDatabase {
                 return Ok(QueryResult {
                     columns,
                     batches: vec![],
-                    affected_rows: if is_read_only { None } else { Some(0) },
-                    is_read_only: Some(is_read_only),
+                    ..Default::default()
                 });
             };
 
             Ok(QueryResult {
                 columns,
                 batches: vec![batch],
-                affected_rows: if is_read_only {
-                    None
-                } else {
-                    Some(row_count as u32)
-                },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             })
         })
         .await
@@ -265,7 +259,7 @@ impl Database for DuckDbDatabase {
                 row_data = data;
             }
 
-            let is_read_only = is_read_only_sql(&sql_owned);
+            let _is_read_only = is_read_only_sql(&sql_owned);
             let row_count = row_data.len();
 
             let columns = if columns.is_empty() && column_count > 0 {
@@ -280,20 +274,14 @@ impl Database for DuckDbDatabase {
                 return Ok(QueryResult {
                     columns,
                     batches: vec![],
-                    affected_rows: if is_read_only { None } else { Some(0) },
-                    is_read_only: Some(is_read_only),
+                    ..Default::default()
                 });
             };
 
             Ok(QueryResult {
                 columns,
                 batches: vec![batch],
-                affected_rows: if is_read_only {
-                    None
-                } else {
-                    Some(row_count as u32)
-                },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             })
         })
         .await
@@ -361,7 +349,7 @@ impl Database for DuckDbDatabase {
                     Vec::new()
                 };
 
-                let is_read_only = is_read_only_sql(&sql_owned);
+                let _is_read_only = is_read_only_sql(&sql_owned);
                 let row_count = row_data.len();
 
                 let batch = if row_count > 0 {
@@ -370,16 +358,14 @@ impl Database for DuckDbDatabase {
                     return Ok(QueryResult {
                         columns,
                         batches: vec![],
-                        affected_rows: if is_read_only { None } else { Some(0) },
-                        is_read_only: Some(is_read_only),
+                        ..Default::default()
                     });
                 };
 
                 Ok(QueryResult {
                     columns,
                     batches: vec![batch],
-                    affected_rows: if is_read_only { None } else { Some(row_count as u32) },
-                    is_read_only: Some(is_read_only),
+                    ..Default::default()
                 })
             }) => {
                 result.map_err(|e| CoreError::database(DatabaseError::query(
@@ -688,7 +674,7 @@ impl Transaction for DuckDbTransaction {
         };
 
         let sql_upper = sql.trim_start().to_uppercase();
-        let is_read_only = sql_upper.starts_with("SELECT")
+        let _is_read_only = sql_upper.starts_with("SELECT")
             || sql_upper.starts_with("SHOW")
             || sql_upper.starts_with("DESCRIBE");
         let row_count = row_data.len();
@@ -699,20 +685,14 @@ impl Transaction for DuckDbTransaction {
             return Ok(QueryResult {
                 columns,
                 batches: vec![],
-                affected_rows: if is_read_only { None } else { Some(0) },
-                is_read_only: Some(is_read_only),
+                ..Default::default()
             });
         };
 
         Ok(QueryResult {
             columns,
             batches: vec![batch],
-            affected_rows: if is_read_only {
-                None
-            } else {
-                Some(row_count as u32)
-            },
-            is_read_only: Some(is_read_only),
+            ..Default::default()
         })
     }
 

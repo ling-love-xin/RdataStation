@@ -89,9 +89,7 @@
               :max="65535"
               class="col-dt-param"
               placeholder="长度"
-              @update:value="
-                (v: number | null) => store.updateColumn(idx, { varcharLength: v ?? undefined })
-              "
+              @update:value="(v: number | null) => store.updateColumn(idx, { varcharLength: v ?? undefined })"
             />
             <template v-if="col.dataType === 'decimal'">
               <NInputNumber
@@ -101,10 +99,7 @@
                 :max="38"
                 class="col-dt-param-sm"
                 placeholder="精度"
-                @update:value="
-                  (v: number | null) =>
-                    store.updateColumn(idx, { decimalPrecision: v ?? undefined })
-                "
+                @update:value="(v: number | null) => store.updateColumn(idx, { decimalPrecision: v ?? undefined })"
               />
               <NInputNumber
                 :value="col.decimalScale ?? 2"
@@ -113,9 +108,7 @@
                 :max="38"
                 class="col-dt-param-sm"
                 placeholder="标度"
-                @update:value="
-                  (v: number | null) => store.updateColumn(idx, { decimalScale: v ?? undefined })
-                "
+                @update:value="(v: number | null) => store.updateColumn(idx, { decimalScale: v ?? undefined })"
               />
             </template>
             <NSelect
@@ -134,9 +127,7 @@
               :step="0.1"
               class="col-null"
               placeholder="NULL"
-              @update:value="
-                (v: number | null) => store.updateColumn(idx, { nullableRatio: v ?? 0 })
-              "
+              @update:value="(v: number | null) => store.updateColumn(idx, { nullableRatio: v ?? 0 })"
             />
             <NTag
               v-if="col.unique"

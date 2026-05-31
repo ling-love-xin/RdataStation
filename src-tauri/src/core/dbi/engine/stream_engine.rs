@@ -70,19 +70,9 @@ impl StreamEngine {
         }
 
         let mut merged_batches: Vec<ArrowBatch> = Vec::new();
-        let mut total_affected_rows: u32 = 0;
-        let mut is_read_only = true;
 
         for result in results {
             merged_batches.extend(result.batches);
-            if let Some(affected) = result.affected_rows {
-                total_affected_rows += affected;
-            }
-            if let Some(read_only) = result.is_read_only {
-                if !read_only {
-                    is_read_only = false;
-                }
-            }
         }
 
         let final_batches = if merged_batches.len() > 1 {
@@ -100,8 +90,7 @@ impl StreamEngine {
         Ok(QueryResult {
             columns,
             batches: final_batches,
-            affected_rows: Some(total_affected_rows),
-            is_read_only: Some(is_read_only),
+            ..Default::default()
         })
     }
 
@@ -174,8 +163,7 @@ impl StreamEngine {
         Ok(QueryResult {
             columns: result.columns,
             batches: filtered_batches,
-            affected_rows: result.affected_rows,
-            is_read_only: result.is_read_only,
+            ..Default::default()
         })
     }
 
@@ -233,8 +221,7 @@ impl StreamEngine {
         Ok(QueryResult {
             columns: result.columns,
             batches: vec![sorted],
-            affected_rows: result.affected_rows,
-            is_read_only: result.is_read_only,
+            ..Default::default()
         })
     }
 
@@ -273,13 +260,12 @@ impl StreamEngine {
             }
         }
 
-        let total_limited = limited_batches.iter().map(|b| b.num_rows()).sum::<usize>();
+        let _total_limited = limited_batches.iter().map(|b| b.num_rows()).sum::<usize>();
 
         QueryResult {
             columns: result.columns,
             batches: limited_batches,
-            affected_rows: Some(total_limited as u32),
-            is_read_only: result.is_read_only,
+            ..Default::default()
         }
     }
 }

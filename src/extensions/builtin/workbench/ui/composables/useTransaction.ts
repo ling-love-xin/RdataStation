@@ -15,7 +15,7 @@ export function useTransaction(runtimeConnId: Ref<string>) {
     }
     try {
       const status = await queryService.beginTransaction(connId)
-      inTransaction.value = status.isInTransaction
+      inTransaction.value = status.is_in_transaction
     } catch {
       message.error('Failed to begin transaction')
     }

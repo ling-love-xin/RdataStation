@@ -347,26 +347,20 @@ fn names_to_schema_objects(result: &QueryResult, kind: SchemaObjectKind) -> Vec<
 fn build_query_result(
     columns: &[String],
     rows: &[mysql_async::Row],
-    is_read_only: bool,
+    _is_read_only: bool,
 ) -> Result<QueryResult, CoreError> {
     if rows.is_empty() {
         return Ok(QueryResult {
             columns: columns.to_vec(),
             batches: vec![],
-            affected_rows: if is_read_only { None } else { Some(0) },
-            is_read_only: Some(is_read_only),
+            ..Default::default()
         });
     }
     let batch = mysql_native_rows_to_arrow(columns, rows)?;
     Ok(QueryResult {
         columns: columns.to_vec(),
         batches: vec![batch],
-        affected_rows: if is_read_only {
-            None
-        } else {
-            Some(rows.len() as u32)
-        },
-        is_read_only: Some(is_read_only),
+        ..Default::default()
     })
 }
 

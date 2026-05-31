@@ -8,7 +8,9 @@ const MAX_RESULT_SETS = 5
 
 interface DockviewApi {
   addPanel(opts: Record<string, unknown>): void
-  getPanel(id: string): { api: { close(): void; setVisible(v: boolean): void } } | undefined
+  getPanel(
+    id: string,
+  ): { api: { close(): void; setVisible(v: boolean): void } } | undefined
   movePanelOrGroup(panelId: string, opts: Record<string, unknown>): void
 }
 
@@ -34,7 +36,7 @@ export class ResultSetManager {
     filePath: string,
     info: OpenFileInfo,
     sanitize: (s: string) => string,
-    data: ResultSetCreateParams
+    data: ResultSetCreateParams,
   ): string {
     while (info.resultSets.length >= MAX_RESULT_SETS) {
       const oldest = info.resultSets[0]
@@ -81,12 +83,12 @@ export class ResultSetManager {
   }
 
   removeResultSet(filePath: string, info: OpenFileInfo, resultSetId: string): void {
-    const idx = info.resultSets.findIndex(rs => rs.id === resultSetId)
+    const idx = info.resultSets.findIndex((rs) => rs.id === resultSetId)
     if (idx < 0) return
     const panelId = `panel_${resultSetId}`
     this.dockviewApi?.getPanel(panelId)?.api.close()
     info.resultSets.splice(idx, 1)
-    info.resultPanelIds = info.resultPanelIds.filter(id => id !== panelId)
+    info.resultPanelIds = info.resultPanelIds.filter((id) => id !== panelId)
     if (info.activeResultIndex >= info.resultSets.length) {
       this.setActiveResultIndex(info, Math.max(-1, info.resultSets.length - 1))
     }

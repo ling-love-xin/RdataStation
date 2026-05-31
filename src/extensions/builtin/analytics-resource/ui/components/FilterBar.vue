@@ -6,13 +6,7 @@
         <select
           class="filter-select"
           :value="selectedScope ?? 'all'"
-          @change="
-            selectScope(
-              ($event.target as HTMLSelectElement).value === 'all'
-                ? null
-                : ($event.target as HTMLSelectElement).value
-            )
-          "
+          @change="selectScope(($event.target as HTMLSelectElement).value === 'all' ? null : ($event.target as HTMLSelectElement).value)"
         >
           <option value="all">{{ t('analyticsResource.all') }}</option>
           <option value="global">🌍 {{ t('analyticsResource.global') }}</option>
@@ -26,13 +20,7 @@
         <select
           class="filter-select"
           :value="selectedType ?? 'all'"
-          @change="
-            selectType(
-              ($event.target as HTMLSelectElement).value === 'all'
-                ? null
-                : ($event.target as HTMLSelectElement).value
-            )
-          "
+          @change="selectType(($event.target as HTMLSelectElement).value === 'all' ? null : ($event.target as HTMLSelectElement).value)"
         >
           <option value="all">{{ t('analyticsResource.all') }}</option>
           <option value="connection">🔌 {{ t('analyticsResource.connection') }}</option>

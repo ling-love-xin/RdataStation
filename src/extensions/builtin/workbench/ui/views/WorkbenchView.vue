@@ -783,9 +783,14 @@ const handleWorkbenchNewConnection = (e?: CustomEvent) => {
 }
 
 const handleWorkbenchManageConnections = () => {
-  // 管理连接：打开新增数据源对话框
-  dialogInitialDriver.value = null
-  showAddDataSourceDialog.value = true
+  const leftGroup = dockviewApi?.getEdgeGroup('left')
+  if (leftGroup?.isCollapsed()) {
+    layoutStore.expandLeftEdgeGroup()
+  }
+  const dsPanel = dockviewApi?.getPanel('panel_databaseNavigator')
+  if (dsPanel) {
+    dsPanel.focus()
+  }
 }
 
 const handleDataSourceSaved = () => {

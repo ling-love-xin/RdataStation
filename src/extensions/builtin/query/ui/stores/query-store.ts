@@ -134,24 +134,17 @@ export const useQueryStore = defineStore('query', () => {
     tab.elapsedMs = 0
 
     try {
-      const result = await queryService.executeSql(executeSql, connId, timeoutMs)
-      if (result.result) {
+      const response = await queryService.executeSql(executeSql, connId, timeoutMs)
+      if (response.result) {
         tab.result = {
-          columns: result.result.columns,
-          rows: result.result.rows,
-          rowCount: result.rowCount || result.result.rows.length,
-          executionTime: result.executionTime || result.elapsed_ms || 0,
-        }
-      } else if (result.rows) {
-        tab.result = {
-          columns: result.columns,
-          rows: result.rows,
-          rowCount: result.rowCount || result.rows.length,
-          executionTime: result.executionTime || result.elapsed_ms || 0,
+          columns: response.result.columns,
+          rows: response.result.rows,
+          rowCount: response.result.total_rows,
+          executionTime: response.elapsed_ms,
         }
       }
-      tab.elapsedMs = result.elapsed_ms ?? result.executionTime ?? 0
-      tab.affectedRows = result.affected_rows ?? result.affectedRows ?? undefined
+      tab.elapsedMs = response.elapsed_ms ?? 0
+      tab.affectedRows = response.affected_rows ?? undefined
     } catch (e) {
       tab.error = e instanceof Error ? e.message : '执行失败'
     } finally {
@@ -171,20 +164,20 @@ export const useQueryStore = defineStore('query', () => {
     tab.result = null
 
     try {
-      const result = await queryService.executeTransaction(sqls, connId)
-      // 显示最后一个查询的结果
-      if (result.results && result.results.length > 0) {
-        const lastResult = result.results[result.results.length - 1]
-        if (lastResult) {
+      const response = await queryService.executeTransaction(sqls, connId)
+      if (response.results && response.results.length > 0) {
+        const lastResult = response.results[response.results.length - 1]
+        if (lastResult && lastResult.result) {
           tab.result = {
-            columns: lastResult.columns,
-            rows: lastResult.rows,
-            rowCount: lastResult.rowCount || lastResult.rows?.length || 0,
-            executionTime: lastResult.executionTime || 0,
+            columns: lastResult.result.columns,
+            rows: lastResult.result.rows,
+            rowCount: lastResult.result.total_rows,
+            executionTime: lastResult.elapsed_ms,
           }
         }
       }
-      tab.elapsedMs = result.total_elapsed_ms ?? 0
+      const totalElapsed = response.results.reduce((sum, r) => sum + r.elapsed_ms, 0)
+      tab.elapsedMs = totalElapsed
     } catch (e) {
       tab.error = e instanceof Error ? e.message : '事务执行失败'
     } finally {

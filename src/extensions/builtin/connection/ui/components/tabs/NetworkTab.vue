@@ -609,28 +609,19 @@
           <div
             v-if="canAddSsh"
             class="hop-opt"
-            @click="
-              addHopWrapped('ssh')
-              menuOpen = false
-            "
+            @click="addHopWrapped('ssh'); menuOpen = false"
             >🔒 SSH {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div
           >
           <div
             v-if="canAddProxy"
             class="hop-opt"
-            @click="
-              addHopWrapped('proxy')
-              menuOpen = false
-            "
+            @click="addHopWrapped('proxy'); menuOpen = false"
             >🌐 Proxy {{ t('navigator.remainingHops', { n: maxHopsRemaining() }) }}</div
           >
           <div
             v-if="canAddSsl"
             class="hop-opt"
-            @click="
-              addHopWrapped('ssl')
-              menuOpen = false
-            "
+            @click="addHopWrapped('ssl'); menuOpen = false"
             >{{ sslMenuLabel() }}</div
           >
           <div class="hop-menu-sep"></div>
@@ -849,6 +840,9 @@ const activeProfileMgrHop = ref<Hop | null>(null)
 
 // ==================== Driver Capabilities (基于 capabilities 字段动态控制 UI) ====================
 
+/** 网络协议关键词（用于判定 capabilities 是否显式声明了网络能力） */
+const NETWORK_CAP_KEYS = ['ssh', 'ssh_tunnel', 'ssl', 'ssl_tls', 'proxy'] as const
+
 /** 解析驱动的 capabilities 字段，返回支持的协议列表 */
 function parseDriverCapabilities(capabilities: string | undefined): string[] {
   if (!capabilities) return []
@@ -859,22 +853,37 @@ function parseDriverCapabilities(capabilities: string | undefined): string[] {
   }
 }
 
+/**
+ * 检查指定网络能力是否受支持
+ *
+ * 规则：
+ * 1. capabilities 为空 → 默认启用所有网络协议（向后兼容未设置 capabilities 的驱动）
+ * 2. capabilities 不含任何网络关键词 → 默认启用所有网络协议（capabilities 仅声明了数据库功能，网络能力不受限）
+ * 3. capabilities 含网络关键词 → 按显式声明判断
+ */
+function hasNetworkCap(caps: string[], targetKeys: readonly string[]): boolean {
+  if (caps.length === 0) return true
+  const hasExplicitNetworkCaps = caps.some(c => (NETWORK_CAP_KEYS as readonly string[]).includes(c))
+  if (!hasExplicitNetworkCaps) return true
+  return caps.some(c => targetKeys.includes(c))
+}
+
 /** 是否支持 SSL/TLS */
 const supportsSsl = computed(() => {
   const caps = parseDriverCapabilities(props.driver?.capabilities)
-  return caps.length === 0 || caps.includes('ssl') || caps.includes('ssl_tls')
+  return hasNetworkCap(caps, ['ssl', 'ssl_tls'])
 })
 
 /** 是否支持 SSH 隧道 */
 const supportsSsh = computed(() => {
   const caps = parseDriverCapabilities(props.driver?.capabilities)
-  return caps.length === 0 || caps.includes('ssh_tunnel') || caps.includes('ssh')
+  return hasNetworkCap(caps, ['ssh', 'ssh_tunnel'])
 })
 
 /** 是否支持代理 */
 const supportsProxy = computed(() => {
   const caps = parseDriverCapabilities(props.driver?.capabilities)
-  return caps.length === 0 || caps.includes('proxy')
+  return hasNetworkCap(caps, ['proxy'])
 })
 
 // ==================== Computed ====================
