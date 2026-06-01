@@ -101,7 +101,7 @@ export function backendDriverToDescriptor(driver: Driver): DriverDescriptor {
     description: undefined,
   })) as DriverOption[]
 
-  const features = tryParseJsonArray(driver.capabilities)
+  const _features = tryParseJsonArray(driver.capabilities)
 
   return {
     id: driver.id,

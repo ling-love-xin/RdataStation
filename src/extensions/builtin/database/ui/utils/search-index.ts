@@ -40,7 +40,10 @@ export class SearchIndex {
         if (!this.index.has(term)) {
           this.index.set(term, new Set())
         }
-        this.index.get(term)!.add(entry.nodeId)
+        const nodeSet = this.index.get(term)
+        if (nodeSet) {
+          nodeSet.add(entry.nodeId)
+        }
       }
     }
   }

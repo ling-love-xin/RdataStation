@@ -82,6 +82,7 @@ describe('MenuBar', () => {
     await dropdownItem.trigger('click')
 
     expect(wrapper.emitted('menu-action')).toBeTruthy()
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect(wrapper.emitted('menu-action')![0][0]).toMatchObject({ id: 'new' })
   })
 

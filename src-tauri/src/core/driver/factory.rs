@@ -240,7 +240,7 @@ impl DriverFactory for MySqlNativeDriverFactory {
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<DynDatabase, CoreError>> + Send>>
     {
         Box::pin(async move {
-            let url = config.to_url().map_err(|e| {
+            let mut url = config.to_url().map_err(|e| {
                 CoreError::connection(ConnectionError::InvalidConfig {
                     conn_id: config
                         .name
@@ -249,6 +249,12 @@ impl DriverFactory for MySqlNativeDriverFactory {
                     reason: e.to_string(),
                 })
             })?;
+
+            if !url.contains("prefer_socket") {
+                let sep = if url.contains('?') { '&' } else { '?' };
+                url.push(sep);
+                url.push_str("prefer_socket=false");
+            }
 
             let db = MySqlNativeDatabase::new(&url).await?;
             let db: DynDatabase = Arc::new(db);

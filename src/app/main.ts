@@ -38,6 +38,7 @@ async function main() {
         `[Main] API version mismatch: frontend expects ${expectedVersion}, backend returns ${apiVersion.version}`
       )
     } else {
+      // eslint-disable-next-line no-console
       console.log(`[Main] API version check passed: ${apiVersion.version}`)
     }
   } catch {
@@ -53,6 +54,7 @@ async function main() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
+    // eslint-disable-next-line no-console
     console.log('[Main] All builtin extensions activated')
   } catch (error) {
     console.error('[Main] Failed to activate extensions:', error)
@@ -63,21 +65,26 @@ async function main() {
     if (panel.component) {
       try {
         app.component(panel.id, panel.component as unknown as Parameters<typeof app.component>[1])
+        // eslint-disable-next-line no-console
         console.log(`[Main] Registered global component: ${panel.id}`)
       } catch (e) {
         console.warn(`[Main] Failed to register component '${panel.id}':`, e)
       }
     }
   }
+  // eslint-disable-next-line no-console
   console.log(`[Main] Registered ${panels.length} panel components globally`)
 
   app.component('PanelHeaderActions', PanelHeaderActions)
+  // eslint-disable-next-line no-console
   console.log('[Main] Registered panelHeaderActions component')
 
   app.component('IconTab', IconTab)
+  // eslint-disable-next-line no-console
   console.log('[Main] Registered iconTab component')
 
   app.component('MinimalEditorTab', MinimalEditorTab)
+  // eslint-disable-next-line no-console
   console.log('[Main] Registered minimalEditorTab component')
 
   app.mount('#app')
@@ -85,11 +92,13 @@ async function main() {
   const recent = appStore.recentProjects
   if (recent.length > 0) {
     const lastProject = recent[0]
+    // eslint-disable-next-line no-console
     console.log('[Main] Opening last project:', lastProject)
     const result = await appStore.openProject(lastProject)
     if (!result.success) {
       console.warn('[Main] Failed to open last project:', result.error)
     } else {
+      // eslint-disable-next-line no-console
       console.log('[Main] Opened last project:', lastProject)
     }
   }

@@ -22,10 +22,12 @@ export class EventBus {
    * @returns 订阅对象，调用 dispose() 取消订阅
    */
   on(event: string, handler: EventHandler): EventSubscription {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, new Set())
+    let handlers = this.handlers.get(event)
+    if (!handlers) {
+      handlers = new Set()
+      this.handlers.set(event, handlers)
     }
-    this.handlers.get(event)!.add(handler)
+    handlers.add(handler)
 
     return {
       dispose: () => this.off(event, handler),

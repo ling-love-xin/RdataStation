@@ -694,7 +694,7 @@ const { t } = useI18n()
 
 // ===== Network profile bridge (SSH/SSL/Proxy CRUD) =====
 const {
-  buildNetworkCfg,
+  _buildNetworkCfg,
   createSshProfile: handleCreateSshProfile,
   createSslProfile: handleCreateSslProfile,
   createProxyProfile: handleCreateProxyProfile,
@@ -718,22 +718,22 @@ type Hop = ProtocolNode
 const {
   chain,
   menuOpen,
-  networkHopCount,
+  _networkHopCount,
   enabledNetworkHopCount: _enabledNetworkHopCount,
   hasSsl,
   isMaxNetworkHops,
-  showHopWarning,
-  estimatedLatency,
+  _showHopWarning,
+  _estimatedLatency,
   remainingHops,
   countInstancesOfType,
-  findHop,
+  _findHop,
   addHop: chainAddHop,
   deleteHop: chainDeleteHop,
   switchHopMode: composableSwitchHopMode,
   onDragStart: composableDragStart,
   onDragEnd: composableDragEnd,
   onDrop: composableDrop,
-  ensureSslAtEnd,
+  _ensureSslAtEnd,
 } = useNetworkChain([
   {
     id: 'h1',
@@ -888,7 +888,7 @@ const supportsProxy = computed(() => {
 
 // ==================== Computed ====================
 
-const enabledHops = computed(() => chain.value.filter(h => h.enabled))
+const _enabledHops = computed(() => chain.value.filter(h => h.enabled))
 const enabledHopCount = computed(() => _enabledNetworkHopCount.value)
 const sslInChain = computed(() => hasSsl.value)
 const canAddSshProxy = computed(
@@ -897,7 +897,7 @@ const canAddSshProxy = computed(
 const dbLabel = computed(() => props.driver?.name?.toUpperCase() || 'DB')
 
 /** 是否显示网络配置区域（文件型数据库不显示） */
-const showNetworkConfig = computed(() => !props.driver?.is_file && !!props.driver)
+const _showNetworkConfig = computed(() => !props.driver?.is_file && !!props.driver)
 
 /** 是否可以添加 SSL（驱动支持且链中还没有 SSL） */
 const canAddSsl = computed(() => supportsSsl.value && !sslInChain.value)
@@ -926,7 +926,7 @@ const rawSshProfiles = computed(() => sshProfiles.value)
 const rawSslProfiles = computed(() => sslProfiles.value)
 const rawProxyProfiles = computed(() => proxyProfiles.value)
 
-const authOpts = [
+const _authOpts = [
   { label: '密码', value: 'password' },
   { label: '密钥', value: 'key' },
 ]
@@ -1018,7 +1018,7 @@ function canDelete(hop: Hop) {
   return countInstancesOfType(hop.protocol) > 1
 }
 
-function defPort(p: string): string {
+function _defPort(p: string): string {
   return { ssh: '22', ssl: '443', proxy: '1080' }[p] || ''
 }
 

@@ -639,7 +639,8 @@ export const useAppStore = defineStore('appConfig', () => {
         current.toolbarTools = enabledIds
         await saveConfig(CONFIG_KEYS.TITLE_BAR_SETTINGS, current, 'global')
         localStorage.removeItem('toolbar-tools')
-        console.log('[useAppStore] Migrated toolbar settings from localStorage:', enabledIds)
+        // eslint-disable-next-line no-console
+        console.info('[useAppStore] Migrated toolbar settings from localStorage:', enabledIds)
       }
     } catch {
       // ignore migration errors

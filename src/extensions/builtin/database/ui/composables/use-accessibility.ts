@@ -99,7 +99,7 @@ export function useAccessibility() {
     }
   }
 
-  function getLiveRegionAttributes(message: string): Record<string, string> {
+  function getLiveRegionAttributes(_message: string): Record<string, string> {
     return {
       'aria-live': 'polite',
       'aria-atomic': 'true',

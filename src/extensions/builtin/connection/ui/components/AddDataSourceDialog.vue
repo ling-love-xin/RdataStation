@@ -201,7 +201,7 @@ const {
   stagingIndex,
   isResetting,
   buildStagingItem,
-  applyStagingItem,
+  applyStagingItem: _applyStagingItem,
   addStaging,
   removeStaging,
   selectStaging,
@@ -282,6 +282,7 @@ const driverOptions = computed(() => {
 
 // Actions
 function onDriverChange(driverId: string) {
+  if (isResetting.value) return
   formData.value = {}
   testResult.value = null
   authConfigId.value = null
@@ -369,6 +370,11 @@ function handleSelectStaging(i: number) {
   selectedEnvId.value = s.environmentId ?? null
   authConfigId.value = s.authConfigId ?? null
   authMethod.value = s.authMethod ?? 'password'
+  schemaName.value = s.schemaName ?? null
+  options.value = s.options ?? null
+  metadataPath.value = s.metadataPath ?? null
+  tags.value = s.tags ?? null
+  useDuckdbFed.value = s.useDuckdbFed ?? null
   testResult.value = null
   isResetting.value = false
 }
@@ -413,8 +419,8 @@ async function handleTest() {
       responseTimeMs: r.response_time_ms,
     }
     showTestModal.value = true
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err)
     console.error('[test_connection] 失败:', msg)
     testResult.value = { success: false, message: msg }
     lastTestResult.value = { success: false, message: msg }
@@ -476,7 +482,7 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
     const shouldSaveProject = scope.project && projectStore.hasProject
 
     if (shouldSaveGlobal && shouldSaveProject) {
-      const globalId = await invokeTauri<{ id: string }>('create_auth_config', {
+      const _globalId = await invokeTauri<{ id: string }>('create_auth_config', {
         ac: {
           id: '',
           name: `${authName} (全局)`,
@@ -487,7 +493,8 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
         },
       })
 
-      const pp = projectStore.currentProject!.path
+      const pp = projectStore.currentProject?.path
+      if (!pp) return
       const projectId = await invokeTauri<{ id: string }>('project_create_auth_config', {
         name: `${authName} (项目)`,
         authType,
@@ -513,7 +520,8 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
       authMethod.value = authType
       message.info(t('navigator.authSavedHint', { global: true, project: false }))
     } else if (shouldSaveProject) {
-      const pp = projectStore.currentProject!.path
+      const pp = projectStore.currentProject?.path
+      if (!pp) return
       const created = await invokeTauri<{ id: string }>('project_create_auth_config', {
         name: authName,
         authType,
@@ -658,7 +666,7 @@ async function handleEditApply() {
 
   saving.value = true
   try {
-    const url = buildUrl()
+    const _url = buildUrl()
     const name = headerData.name || selectedDriver.value?.name || ''
     const fd = formData.value
 
@@ -901,7 +909,7 @@ async function snapshotIfNeeded(
       projectPath,
     })
     return r.snapshot_id
-  } catch (e) {
+  } catch {
     errors.push(`${name}: ${type === 'auth' ? '认证' : '网络'}配置快照失败`)
     return 'failed'
   }

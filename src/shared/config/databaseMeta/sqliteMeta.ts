@@ -415,7 +415,7 @@ export function parseSQLiteDataType(type: string): {
 }
 
 // 辅助函数：解析表信息
-export function parseTableInfo(row: any): Partial<NavigatorNode['metadata']> {
+export function parseTableInfo(row: Record<string, unknown>): Partial<NavigatorNode['metadata']> {
   return {
     ddl: row.ddl,
     rowCount: row.rowCount || 0,
@@ -423,7 +423,7 @@ export function parseTableInfo(row: any): Partial<NavigatorNode['metadata']> {
 }
 
 // 辅助函数：解析列信息
-export function parseColumnInfo(row: any): Partial<NavigatorNode['metadata']> {
+export function parseColumnInfo(row: Record<string, unknown>): Partial<NavigatorNode['metadata']> {
   return {
     dataType: row.type,
     nullable: row.notnull === 0,

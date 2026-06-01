@@ -33,6 +33,7 @@ interface PanelState {
  * 扩展激活函数
  */
 const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
+  // eslint-disable-next-line no-console
   console.debug('[Workbench] Activating for project:', context.project.name)
 
   // 面板状态管理
@@ -45,11 +46,13 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
       component: options?.component,
       isActive: true,
     })
+    // eslint-disable-next-line no-console
     console.debug(`[Workbench] Opened panel: ${panelId}`)
   }
 
   const closePanel = (panelId: string): void => {
     panels.delete(panelId)
+    // eslint-disable-next-line no-console
     console.debug(`[Workbench] Closed panel: ${panelId}`)
   }
 
@@ -57,6 +60,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
     const panel = panels.get(panelId)
     if (panel) {
       panel.isActive = true
+      // eslint-disable-next-line no-console
       console.debug(`[Workbench] Focused panel: ${panelId}`)
     }
   }
@@ -162,6 +166,7 @@ const activate = (context: ExtensionContext): WorkbenchExtensionAPI => {
 }
 
 const deactivate = (): void => {
+  // eslint-disable-next-line no-console
   console.debug('[Workbench] Deactivated')
 }
 

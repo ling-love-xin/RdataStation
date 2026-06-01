@@ -628,6 +628,21 @@ export async function saveColumnsBatchToCache(
   })
 }
 
+interface CachedTableRow {
+  name: string
+  schema_name?: string
+  rowCountEstimate?: number
+  dataLength?: number
+  indexLength?: number
+}
+
+interface CachedColumnRow {
+  name: string
+  data_type: string
+  is_nullable: boolean
+  is_primary: boolean
+}
+
 /**
  * 从缓存获取表列表
  */
@@ -637,8 +652,8 @@ export async function getTablesFromCache(
   databaseName: string,
   schemaName?: string,
   projectPath?: string
-): Promise<any[]> {
-  return invoke<any[]>('get_tables_from_cache', {
+): Promise<CachedTableRow[]> {
+  return invoke<CachedTableRow[]>('get_tables_from_cache', {
     connectionId,
     connectionType,
     projectPath,
@@ -657,8 +672,8 @@ export async function getColumnsFromCache(
   schemaName: string,
   tableName: string,
   projectPath?: string
-): Promise<any[]> {
-  return invoke<any[]>('get_columns_from_cache', {
+): Promise<CachedColumnRow[]> {
+  return invoke<CachedColumnRow[]>('get_columns_from_cache', {
     connectionId,
     connectionType,
     projectPath,
@@ -776,8 +791,8 @@ export async function getCacheMigrationHistory(
   connectionId: string,
   connectionType: 'global' | 'project',
   projectPath?: string
-): Promise<any[]> {
-  return invoke<any[]>('get_cache_migration_history', {
+): Promise<Record<string, unknown>[]> {
+  return invoke<Record<string, unknown>[]>('get_cache_migration_history', {
     connectionId,
     connectionType,
     projectPath,

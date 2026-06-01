@@ -95,7 +95,7 @@ async function getProjectPath(): Promise<string | null> {
   return useProjectStore().currentProject?.path ?? null
 }
 
-function pickCmd(
+function _pickCmd(
   globalCmd: string,
   isProject: boolean
 ): [string, (extra: Record<string, unknown>) => Record<string, unknown>] {

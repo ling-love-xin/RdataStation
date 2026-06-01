@@ -3,13 +3,13 @@
     <!-- 顶部标签栏 -->
     <div v-if="tabs.length > 0" class="result-tabs">
       <div
-        v-for="t in tabs"
-        :key="t.id"
-        :class="['result-tab', { active: t.id === activeTabId }]"
-        @click="switchTab(t.id)"
+        v-for="tabItem in tabs"
+        :key="tabItem.id"
+        :class="['result-tab', { active: tabItem.id === activeTabId }]"
+        @click="switchTab(tabItem.id)"
       >
-        <span class="tab-title">{{ tab.title }}</span>
-        <span class="tab-close" @click.stop="closeTab(tab.id)">&times;</span>
+        <span class="tab-title">{{ tabItem.title }}</span>
+        <span class="tab-close" @click.stop="closeTab(tabItem.id)">&times;</span>
       </div>
     </div>
 
@@ -658,7 +658,7 @@ const handleResultNew = () => {
   const columns = qr.columns || []
   const rows: unknown[][] = qr.rows || []
   const elapsedMs = qr.executionTime || 0
-  const panelId = latest.panelId || ''
+  const _panelId = latest.panelId || ''
 
   const tab = resultStore.addTab('', '')
   if (latest.title) {
@@ -696,7 +696,7 @@ onUnmounted(() => {
 })
 
 // ─── DuckDB 临时表（委托到 store）──────────────────────
-async function ensureDuckdbTempTable(tabId: string) {
+async function _ensureDuckdbTempTable(tabId: string) {
   await resultStore.ensureDuckdbTable(tabId)
 }
 
@@ -725,7 +725,8 @@ function onCellValueChanged(event: CellValueChangedEvent) {
   if (!dirtyCells.value.has(key)) {
     dirtyCells.value.set(key, { rowIndex, colId, oldValue, newValue })
   } else {
-    const existing = dirtyCells.value.get(key)!
+    const existing = dirtyCells.value.get(key)
+    if (!existing) return
     if (existing.oldValue === newValue) {
       dirtyCells.value.delete(key)
     } else {
@@ -785,7 +786,7 @@ function closeContextMenu() {
 // ─── 桥接模式（委托到 useResultFilters）────────────────
 
 // ─── 操作 ───────────────────────────────────────────────
-function handleCopySql() {
+function _handleCopySql() {
   if (activeTab.value) navigator.clipboard.writeText(activeTab.value.originalSql)
 }
 function handleRefresh(tab: ResultTab) {
@@ -862,7 +863,7 @@ async function handleExport(format: string) {
 }
 
 // ─── 右键菜单操作 ───────────────────────────────────────
-function handleContextAction(payload: Record<string, any>) {
+function handleContextAction(payload: Record<string, unknown>) {
   closeContextMenu()
   const tab = activeTab.value
   if (!tab) return

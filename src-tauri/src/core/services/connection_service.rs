@@ -327,10 +327,17 @@ impl ConnectionService {
         };
 
         // 转换为 DriverConnectionConfig（用于重连）
-        let driver_config =
+        let mut driver_config =
             crate::core::driver::registry::DriverConnectionConfig::new(db_type.clone())
                 .with_url_override(url.clone())
                 .with_name(&connection_name);
+
+        if let Some(ref opts_json) = advanced_options {
+            Self::apply_advanced_options(&mut driver_config, opts_json);
+        }
+        if let Some(ref props_json) = driver_properties {
+            Self::apply_driver_properties(&mut driver_config, props_json);
+        }
 
         // 添加到连接管理器
         self.manager
@@ -697,6 +704,92 @@ impl ConnectionService {
         }
 
         Ok(result)
+    }
+
+    /// 解析 advanced_options JSON 并应用到 DriverConnectionConfig
+    ///
+    /// advanced_options 结构（来自 AdvancedTab emit）：
+    /// ```json
+    /// {
+    ///   "performance": { "poolSize": 10, "queryTimeout": 60, "connectTimeout": 30, ... },
+    ///   "connection": { "connectTimeout": 30, "queryTimeout": 0, ... },
+    ///   "encoding": "UTF-8"
+    /// }
+    /// ```
+    fn apply_advanced_options(
+        config: &mut crate::core::driver::registry::DriverConnectionConfig,
+        json: &str,
+    ) {
+        let Ok(root) = serde_json::from_str::<serde_json::Value>(json) else {
+            return;
+        };
+        let Some(obj) = root.as_object() else { return };
+
+        if let Some(perf) = obj.get("performance").and_then(|v| v.as_object()) {
+            if let Some(v) = perf.get("poolSize").and_then(|v| v.as_u64()) {
+                config.pool_size = Some(v as u32);
+            }
+            if let Some(v) = perf.get("queryTimeout").and_then(|v| v.as_u64()) {
+                if v > 0 {
+                    config.query_timeout = Some(v as u32);
+                }
+            }
+            if let Some(v) = perf.get("heartbeat").and_then(|v| v.as_u64()) {
+                config.heartbeat_interval = Some(v as u32);
+            }
+            if let Some(v) = perf.get("maxReconnect").and_then(|v| v.as_u64()) {
+                config.max_reconnect = Some(v as u32);
+            }
+        }
+
+        if let Some(conn) = obj.get("connection").and_then(|v| v.as_object()) {
+            if config.connect_timeout.is_none() {
+                if let Some(v) = conn.get("connectTimeout").and_then(|v| v.as_u64()) {
+                    config.connect_timeout = Some(v as u32);
+                }
+            }
+            if config.query_timeout.is_none() {
+                if let Some(v) = conn.get("queryTimeout").and_then(|v| v.as_u64()) {
+                    if v > 0 {
+                        config.query_timeout = Some(v as u32);
+                    }
+                }
+            }
+            if config.heartbeat_interval.is_none() {
+                if let Some(v) = conn.get("keepAlive").and_then(|v| v.as_u64()) {
+                    config.heartbeat_interval = Some(v as u32);
+                }
+            }
+            if config.max_reconnect.is_none() {
+                if let Some(v) = conn.get("maxReconnect").and_then(|v| v.as_u64()) {
+                    config.max_reconnect = Some(v as u32);
+                }
+            }
+        }
+
+        if let Some(enc) = obj.get("encoding").and_then(|v| v.as_str()) {
+            config.encoding = Some(enc.to_string());
+        }
+    }
+
+    /// 解析 driver_properties JSON 并应用到 DriverConnectionConfig
+    fn apply_driver_properties(
+        config: &mut crate::core::driver::registry::DriverConnectionConfig,
+        json: &str,
+    ) {
+        let Ok(root) = serde_json::from_str::<serde_json::Value>(json) else {
+            return;
+        };
+        let Some(obj) = root.as_object() else { return };
+        for (k, v) in obj {
+            if let Some(s) = v.as_str() {
+                config.driver_properties.insert(k.clone(), s.to_string());
+            } else {
+                config
+                    .driver_properties
+                    .insert(k.clone(), v.to_string());
+            }
+        }
     }
 
     /// 应用网络连接方式（SSH 隧道 / SSL / 代理）

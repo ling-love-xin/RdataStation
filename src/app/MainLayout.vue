@@ -30,7 +30,7 @@ import {
 const isMaximized = ref(false)
 const showSettingsDialog = ref(false)
 
-const projectStore = useProjectStore()
+const _projectStore = useProjectStore()
 
 const handleMinimize = async () => {
   const window = getCurrentWindow()

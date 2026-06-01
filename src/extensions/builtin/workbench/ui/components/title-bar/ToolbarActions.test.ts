@@ -44,6 +44,7 @@ describe('ToolbarActions', () => {
     await wrapper.find('.toolbar-btn').trigger('click')
 
     expect(wrapper.emitted('tool-action')).toBeTruthy()
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     expect(wrapper.emitted('tool-action')![0][0]).toBe('history')
   })
 

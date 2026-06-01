@@ -160,10 +160,12 @@ export function useScratchpad() {
   ): Promise<ScratchpadEntry | null> {
     try {
       const entry = await createScratchpadEntry(name, isFolder, parentPath)
+      // eslint-disable-next-line no-console
       console.log('[createEntry] created:', entry.name, 'parentPath:', parentPath)
       if (parentPath) {
         if (!response.value) return null
         const children = await listScratchpadDirectory(parentPath)
+        // eslint-disable-next-line no-console
         console.log(
           '[createEntry] loaded children for:',
           parentPath,
@@ -420,6 +422,7 @@ export function useScratchpad() {
     }
 
     if (creates.length > 0) {
+      // eslint-disable-next-line no-console
       console.log(
         '[applyFileChanges] create events:',
         creates.map(c => c.path)
@@ -434,6 +437,7 @@ export function useScratchpad() {
       if (newEntries.length > 0) {
         const existingPaths = collectAllPaths(currentEntries)
         const filtered = newEntries.filter(e => !existingPaths.has(normalizePathForCompare(e.path)))
+        // eslint-disable-next-line no-console
         console.log(
           '[applyFileChanges] newEntries:',
           newEntries.map(e => e.name),
@@ -443,6 +447,7 @@ export function useScratchpad() {
           existingPaths.size
         )
         if (filtered.length > 0) {
+          // eslint-disable-next-line no-console
           console.log(
             '[applyFileChanges] inserting:',
             filtered.map(e => e.name + '@' + e.path)
@@ -541,6 +546,7 @@ export function useScratchpad() {
       const e = entries[i]
       if (normalizePathForCompare(e.path) === parentPath) {
         const existingNames = e.children ? e.children.map(c => c.name) : []
+        // eslint-disable-next-line no-console
         console.log(
           '[insertUnderParent] adding child:',
           child.name,
@@ -630,6 +636,7 @@ export function useScratchpad() {
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i]
       if (normalizePathForCompare(e.path) === normalizePathForCompare(parentPath)) {
+        // eslint-disable-next-line no-console
         console.log(
           '[setEntryChildren] replacing children for:',
           parentPath,

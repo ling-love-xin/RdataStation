@@ -32,7 +32,10 @@ export const useCommandStore = defineStore('commands', () => {
       if (!grouped.has(cmd.category)) {
         grouped.set(cmd.category, [])
       }
-      grouped.get(cmd.category)!.push(cmd)
+      const entry = grouped.get(cmd.category)
+      if (entry) {
+        entry.push(cmd)
+      }
     })
     return grouped
   })

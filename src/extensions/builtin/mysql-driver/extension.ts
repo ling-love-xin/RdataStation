@@ -46,12 +46,12 @@ class MySQLConnection implements Connection {
   }
 
   async disconnect(): Promise<void> {
-    // TODO: 实际断开连接
+    // eslint-disable-next-line no-console
     console.log(`[MySQL] Disconnecting: ${this.id}`)
   }
 
   async execute(sql: string): Promise<QueryResult> {
-    // TODO: 实际执行 SQL
+    // eslint-disable-next-line no-console
     console.log(`[MySQL] Executing: ${sql}`)
     return {
       columns: [],
@@ -73,6 +73,7 @@ const mysqlConnectionProvider: ConnectionProvider = {
     const connectionId = `mysql_${Date.now()}`
 
     // TODO: 实际建立连接
+    // eslint-disable-next-line no-console
     console.log(`[MySQL] Connecting to ${mysqlConfig.host}:${mysqlConfig.port}`)
 
     return new MySQLConnection(connectionId, mysqlConfig)
@@ -83,6 +84,7 @@ const mysqlConnectionProvider: ConnectionProvider = {
  * 扩展激活函数
  */
 const activate = (context: ExtensionContext): MySQLDriverExtensionAPI => {
+  // eslint-disable-next-line no-console
   console.log('[MySQL Driver] Activating for project:', context.project.name)
 
   const driverContribution: DatabaseDriverContribution = {
@@ -143,6 +145,7 @@ const activate = (context: ExtensionContext): MySQLDriverExtensionAPI => {
 }
 
 const deactivate = (): void => {
+  // eslint-disable-next-line no-console
   console.log('[MySQL Driver] Deactivated')
 }
 

@@ -30,7 +30,7 @@ export interface Panel {
   title: string
   position: PanelPosition
   component: string // 组件名称
-  props: Record<string, any>
+  props: Record<string, unknown>
   isActive: boolean
   isClosable: boolean
   isPinned?: boolean
@@ -207,7 +207,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     schema: string,
     table: string
   ): void {
-    const id = addPanel({
+    const _id = addPanel({
       type: 'table-data',
       title: `${database}.${schema}.${table}`,
       position: 'center',

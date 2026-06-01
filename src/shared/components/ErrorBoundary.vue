@@ -17,7 +17,7 @@
 import { AlertCircle, RefreshCw } from 'lucide-vue-next'
 import { ref, onMounted, onUnmounted } from 'vue'
 
-const props = defineProps<{
+const _props = defineProps<{
   component: unknown
 }>()
 

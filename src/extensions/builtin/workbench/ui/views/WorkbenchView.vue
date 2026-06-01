@@ -94,7 +94,7 @@ const { t } = useI18n()
 const uiStore = useUiStore()
 const layoutStore = useLayoutStore()
 const appStore = useAppStore()
-const projectStore = useProjectStore()
+const _projectStore = useProjectStore()
 const connectionStore = useConnectionStore()
 const editorStore = useScratchpadEditorStore()
 const message = useMessage()
@@ -302,6 +302,7 @@ const onReady = (event: DockviewReadyEvent) => {
   )
 
   const panels = panelRegistry.getAll()
+  // eslint-disable-next-line no-console
   console.debug(`[Workbench] Creating ${panels.length} panels from registry`)
 
   const leftPanelsAll = panels
@@ -355,6 +356,7 @@ const onReady = (event: DockviewReadyEvent) => {
       layoutStore.updatePanelConfig(panelId, { location: 'left', isVisible: true, order: i })
     }
   }
+  // eslint-disable-next-line no-console
   console.debug(`[Workbench] Created left edge group with ${leftPanelsAll.length} panels`)
 
   // ============================================
@@ -369,6 +371,7 @@ const onReady = (event: DockviewReadyEvent) => {
       title: welcomePanel.name,
       position: { direction: 'right' },
     })
+    // eslint-disable-next-line no-console
     console.debug(`[Workbench] Created welcome panel: panel_${welcomePanel.id}`)
     layoutStore.updatePanelConfig(`panel_${welcomePanel.id}`, {
       location: 'center',
@@ -418,11 +421,14 @@ const onReady = (event: DockviewReadyEvent) => {
       layoutStore.updatePanelConfig(panelId, { location: 'right', isVisible: true, order: i })
     }
   }
+  // eslint-disable-next-line no-console
   console.debug(`[Workbench] Created right edge group with ${rightPanels.length} panels`)
 
+  // eslint-disable-next-line no-console
   console.debug(
     `[Workbench] Final layout - groups: ${api.groups.length}, panels: ${api.panels.length}`
   )
+  // eslint-disable-next-line no-console
   console.debug(
     '[Workbench] All groups:',
     api.groups.map(g => ({
@@ -460,6 +466,7 @@ const onReady = (event: DockviewReadyEvent) => {
   api.onDidRemovePanel?.(panel => {
     const panelId = panel.id
     if (layoutStore.isPanelPinned(panelId)) {
+      // eslint-disable-next-line no-console
       console.debug(`[Workbench] Attempted to close pinned panel: ${panelId}, restoring...`)
       setTimeout(() => {
         restorePinnedPanel(panelId)
@@ -473,6 +480,7 @@ const onReady = (event: DockviewReadyEvent) => {
       const filePath = EditorManager.panelIdToFilePath(panelId)
       if (filePath) {
         EditorManager.closeFile(filePath)
+        // eslint-disable-next-line no-console
         console.debug(`[Workbench] 编辑器面板关闭，清理 Model: ${filePath}`)
       }
     }
@@ -496,6 +504,7 @@ const onReady = (event: DockviewReadyEvent) => {
       const targetGroupId = e.panel.group?.id
       if (targetGroupId) {
         EditorManager.updatePanelGroup(movedPanelId, targetGroupId)
+        // eslint-disable-next-line no-console
         console.debug(`[Workbench] Editor panel ${movedPanelId} moved to group ${targetGroupId}`)
       }
     }
@@ -573,6 +582,7 @@ function restorePinnedPanel(panelId: string) {
             : 'center',
     },
   })
+  // eslint-disable-next-line no-console
   console.debug(`[Workbench] Restored pinned panel: ${panelId}`)
 }
 
@@ -702,6 +712,7 @@ const handleOpenSqlEditor = (event: CustomEvent) => {
 
     const welcomePanel = dockviewApi?.getPanel(PANEL_ID_EMPTY_WORKBENCH)
     if (welcomePanel) welcomePanel.api.close()
+    // eslint-disable-next-line no-console
     console.debug(`[Workbench] 打开草稿箱文件: ${scratchpadRelativePath}`)
     return
   }
@@ -733,6 +744,7 @@ const handleOpenObjectProperties = (event: CustomEvent) => {
       database,
     },
   })
+  // eslint-disable-next-line no-console
   console.debug(`[Workbench] 创建对象属性面板: ${panelId}`)
 }
 
@@ -753,6 +765,7 @@ const handleWorkbenchNewQuery = async (e?: CustomEvent) => {
 
   // 优先使用事件载荷（来自侧边栏等的指定连接），否则 fallback 到首个活动连接
   if (detail?.connectionId) {
+    // eslint-disable-next-line no-console
     console.debug('[Workbench] handleWorkbenchNewQuery 由侧边栏触发:', detail.connectionId)
     await EditorManager.openNewQuery(detail.connectionId, detail.databaseName || '')
     return

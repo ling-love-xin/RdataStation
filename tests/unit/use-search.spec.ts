@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 

@@ -29,7 +29,7 @@ export class EventBus {
       once: false,
     }
 
-    this.subscriptions.get(eventName)!.push(subscription)
+    this.subscriptions.get(eventName)?.push(subscription)
 
     return () => {
       this.off(eventName, handler)
@@ -50,7 +50,7 @@ export class EventBus {
       once: true,
     }
 
-    this.subscriptions.get(eventName)!.push(subscription)
+    this.subscriptions.get(eventName)?.push(subscription)
 
     return () => {
       this.off(eventName, handler)

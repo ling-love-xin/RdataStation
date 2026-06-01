@@ -19,6 +19,7 @@ export async function safeCacheRead<T>(
   try {
     return await operation()
   } catch (error) {
+    /* eslint-disable-next-line no-console */
     console.debug(`${context} 失败（预期行为）:`, error)
     return defaultValue
   }

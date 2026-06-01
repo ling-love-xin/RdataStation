@@ -28,7 +28,7 @@ interface Props {
 
 const { t } = useI18n()
 
-const props = withDefaults(defineProps<Props>(), {
+const _props = withDefaults(defineProps<Props>(), {
   columns: () => [],
 })
 

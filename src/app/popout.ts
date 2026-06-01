@@ -47,10 +47,12 @@ function setupEditorView(container: HTMLElement): void {
           key: 'Mod-s',
           run: () => {
             if (popoutFile.value) {
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
               const content = editorView!.state.doc.toString()
               sendMergeTransfer({
                 filePath: popoutFile.value.filePath,
                 content,
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 stateJSON: editorView!.state.toJSON() as Record<string, unknown>,
                 isDirty: content !== popoutFile.value.content,
               })

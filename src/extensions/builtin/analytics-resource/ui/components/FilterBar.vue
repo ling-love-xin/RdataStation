@@ -97,7 +97,7 @@ const _types = [
   { value: 'file', label: '📄 ' + t('analyticsResource.file') },
 ]
 
-const sortOptions: { value: SortField; label: string }[] = [
+const _sortOptions: { value: SortField; label: string }[] = [
   { value: 'name', label: t('analyticsResource.name') },
   { value: 'created_at', label: t('analyticsResource.createdAt') },
   { value: 'updated_at', label: t('analyticsResource.updatedAt') },

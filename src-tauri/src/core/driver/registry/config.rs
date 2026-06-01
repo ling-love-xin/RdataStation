@@ -37,8 +37,22 @@ pub struct DriverConnectionConfig {
     /// 连接方式（SSL/SSH/Proxy）
     #[serde(default)]
     pub connection_method: ConnectionMethod,
-    /// 额外连接选项
+    /// 额外连接选项（URL query params）
     pub options: HashMap<String, String>,
+    /// 连接超时（秒，来自 AdvancedTab 性能策略 / 高级选项）
+    pub connect_timeout: Option<u32>,
+    /// 查询超时（秒，来自 AdvancedTab 性能策略）
+    pub query_timeout: Option<u32>,
+    /// 连接池大小（来自 AdvancedTab 性能策略）
+    pub pool_size: Option<u32>,
+    /// 心跳间隔（秒，来自 AdvancedTab 性能策略）
+    pub heartbeat_interval: Option<u32>,
+    /// 最大重连次数（来自 AdvancedTab 性能策略）
+    pub max_reconnect: Option<u32>,
+    /// 字符编码（来自 AdvancedTab Schema + 编码选择器，如 "UTF-8"/"GBK"）
+    pub encoding: Option<String>,
+    /// 驱动属性（来自 DriverPropsTab，key=value）
+    pub driver_properties: HashMap<String, String>,
 }
 
 impl DriverConnectionConfig {
@@ -57,6 +71,13 @@ impl DriverConnectionConfig {
             url_template: None,
             connection_method: ConnectionMethod::Direct,
             options: HashMap::new(),
+            connect_timeout: None,
+            query_timeout: None,
+            pool_size: None,
+            heartbeat_interval: None,
+            max_reconnect: None,
+            encoding: None,
+            driver_properties: HashMap::new(),
         }
     }
 
@@ -108,6 +129,48 @@ impl DriverConnectionConfig {
         self
     }
 
+    /// 设置连接超时
+    pub fn with_connect_timeout(mut self, secs: u32) -> Self {
+        self.connect_timeout = Some(secs);
+        self
+    }
+
+    /// 设置查询超时
+    pub fn with_query_timeout(mut self, secs: u32) -> Self {
+        self.query_timeout = Some(secs);
+        self
+    }
+
+    /// 设置连接池大小
+    pub fn with_pool_size(mut self, size: u32) -> Self {
+        self.pool_size = Some(size);
+        self
+    }
+
+    /// 设置心跳间隔
+    pub fn with_heartbeat_interval(mut self, secs: u32) -> Self {
+        self.heartbeat_interval = Some(secs);
+        self
+    }
+
+    /// 设置最大重连
+    pub fn with_max_reconnect(mut self, retries: u32) -> Self {
+        self.max_reconnect = Some(retries);
+        self
+    }
+
+    /// 设置字符编码
+    pub fn with_encoding(mut self, encoding: impl Into<String>) -> Self {
+        self.encoding = Some(encoding.into());
+        self
+    }
+
+    /// 添加驱动属性
+    pub fn with_driver_property(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.driver_properties.insert(key.into(), value.into());
+        self
+    }
+
     /// 设置连接方式（SSL/SSH/Proxy）
     pub fn with_connection_method(mut self, method: ConnectionMethod) -> Self {
         self.connection_method = method;
@@ -150,7 +213,44 @@ impl DriverConnectionConfig {
         }
     }
 
-    /// 模板化构建 URL: "{schema}://{username}:{password}@{host}:{port}/{database}"
+    /// 追加所有查询参数（options + encoding + driver_properties + connect_timeout）到 URL
+    fn append_query_params(&self, url: &mut String) {
+        let mut params: Vec<String> = self
+            .options
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect();
+
+        if let Some(ref enc) = self.encoding {
+            if !self.options.contains_key("charset") {
+                let charset = match enc.as_str() {
+                    "GBK" => "gbk",
+                    "Latin-1" => "latin1",
+                    _ => "utf8mb4",
+                };
+                params.push(format!("charset={}", charset));
+            }
+        }
+
+        if let Some(ct) = self.connect_timeout {
+            if !self.options.contains_key("connect_timeout")
+                && !self.options.contains_key("connectTimeout")
+            {
+                params.push(format!("connect_timeout={}", ct));
+            }
+        }
+
+        for (k, v) in &self.driver_properties {
+            if !self.options.contains_key(k) {
+                params.push(format!("{}={}", k, v));
+            }
+        }
+
+        if !params.is_empty() {
+            url.push('?');
+            url.push_str(&params.join("&"));
+        }
+    }
     fn build_from_template(&self, template: &str) -> Result<String, CoreError> {
         let username = self.username.as_deref().unwrap_or("");
         let password = self.password.as_deref().unwrap_or("");
@@ -167,16 +267,7 @@ impl DriverConnectionConfig {
             .replace("{database}", database)
             .replace("{file_path}", file_path);
 
-        // Append extra options as query params
-        if !self.options.is_empty() {
-            url.push('?');
-            let params: Vec<String> = self
-                .options
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect();
-            url.push_str(&params.join("&"));
-        }
+        self.append_query_params(&mut url);
 
         Ok(url)
     }
@@ -194,15 +285,7 @@ impl DriverConnectionConfig {
             url.push_str(db);
         }
 
-        if !self.options.is_empty() {
-            url.push('?');
-            let params: Vec<String> = self
-                .options
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect();
-            url.push_str(&params.join("&"));
-        }
+        self.append_query_params(&mut url);
 
         Ok(url)
     }
@@ -223,15 +306,7 @@ impl DriverConnectionConfig {
             username, password, host, port, database
         );
 
-        if !self.options.is_empty() {
-            url.push('?');
-            let params: Vec<String> = self
-                .options
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect();
-            url.push_str(&params.join("&"));
-        }
+        self.append_query_params(&mut url);
 
         Ok(url)
     }

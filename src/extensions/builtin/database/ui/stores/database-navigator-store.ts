@@ -109,7 +109,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     try {
       const connType = connectionTypes.value.get(connectionId) || 'global'
       const projectPath = connectionProjectPaths.value.get(connectionId)
-      const dbType = connectionDbTypes.value.get(connectionId)
+      const _dbType = connectionDbTypes.value.get(connectionId)
 
       const cacheStatus = await getMetadataCacheStatus(
         connectionId,
@@ -162,7 +162,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
         if (!dbMap.has(catalogName)) {
           dbMap.set(catalogName, new Set())
         }
-        dbMap.get(catalogName)!.add(schemaName)
+        const schemas = dbMap.get(catalogName)
+        if (schemas) {
+          schemas.add(schemaName)
+        }
       }
     })
 
@@ -1197,7 +1200,8 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
 
     const elapsed = (performance.now() - t0).toFixed(0)
-    console.log(
+    // eslint-disable-next-line no-console
+    console.debug(
       `[CacheWarming] 连接 ${connectionId} 缓存预热完成 ` +
         `(耗时 ${elapsed}ms, Catalog=${targetCatalogs.length}, schema结果=${schemaResults.length}, ` +
         `table任务=${tablePromises.length}, column任务=${colTaskCount})`

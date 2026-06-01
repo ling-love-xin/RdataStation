@@ -39,7 +39,7 @@ const navConfigCache = new Map<string, NavigationConfig>()
 async function getNavConfig(dbType: string): Promise<NavigationConfig> {
   const key = dbType.toLowerCase()
   if (navConfigCache.has(key)) {
-    return navConfigCache.get(key)!
+    return navConfigCache.get(key) ?? getDefaultNavigationConfig()
   }
   const config = await loadNavigationConfig(key)
   const resolved = config || getDefaultNavigationConfig()
@@ -72,7 +72,7 @@ function countEnabledFolders(config: NavigationConfig): number {
 }
 
 /** 计算表节点的子节点数量（Columns + 启用的 Indexes/Constraints 等） */
-function countTableChildren(config: NavigationConfig, columnCount: number): number {
+function countTableChildren(config: NavigationConfig, _columnCount: number): number {
   let count = 0
   if (config.tableChildren.columns) count++ // columns-folder
   if (config.tableChildren.indexes) count++

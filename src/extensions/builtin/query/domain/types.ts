@@ -7,7 +7,7 @@
 /** 查询结果 */
 export interface QueryResult {
   columns: string[]
-  rows: any[][]
+  rows: unknown[][]
 }
 
 /** 执行 SQL 请求参数 */

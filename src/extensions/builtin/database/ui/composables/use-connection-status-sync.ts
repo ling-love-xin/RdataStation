@@ -193,14 +193,14 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
     } catch (error) {
       const newFailures = consecutiveFailures + 1
 
-      newInfo.status = newFailures >= opts.maxConsecutiveFailures! ? 'unhealthy' : 'degraded'
+      newInfo.status = newFailures >= (opts.maxConsecutiveFailures ?? DEFAULT_OPTIONS.maxConsecutiveFailures) ? 'unhealthy' : 'degraded'
       newInfo.consecutiveFailures = newFailures
       newInfo.error = error instanceof Error ? error.message : '检查失败'
       newInfo.isChecking = false
 
       healthInfoMap.value.set(connectionId, newInfo)
 
-      if (opts.enableAutoReconnect && newFailures >= opts.maxConsecutiveFailures!) {
+      if (opts.enableAutoReconnect && newFailures >= (opts.maxConsecutiveFailures ?? DEFAULT_OPTIONS.maxConsecutiveFailures)) {
         scheduleReconnect(connectionId)
       }
 
@@ -276,7 +276,7 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
           healthInfo.consecutiveFailures += 1
           healthInfoMap.value.set(connectionId, healthInfo)
 
-          if (healthInfo.consecutiveFailures < opts.maxReconnectAttempts!) {
+          if (healthInfo.consecutiveFailures < (opts.maxReconnectAttempts ?? DEFAULT_OPTIONS.maxReconnectAttempts)) {
             scheduleReconnect(connectionId)
           }
         }

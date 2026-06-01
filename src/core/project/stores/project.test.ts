@@ -144,6 +144,7 @@ describe('useProjectStore', () => {
       const result = await store.openProjectById('proj-1')
 
       expect(result).not.toBeNull()
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(result!.name).toBe('Test Project')
       expect(store.currentProject).not.toBeNull()
       expect(eventSpy).toHaveBeenCalled()

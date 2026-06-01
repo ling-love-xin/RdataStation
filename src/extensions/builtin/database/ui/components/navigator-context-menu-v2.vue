@@ -49,6 +49,8 @@ import {
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 import type { IContextMenuItem } from '../composables/use-context-menu-actions'
+import type { Component } from 'vue'
+
 
 interface ContextMenuProps {
   items: IContextMenuItem[]
@@ -82,8 +84,8 @@ function handleClickOutside() {
   hide()
 }
 
-function getIcon(iconName: string) {
-  const iconMap: Record<string, any> = {
+function getIcon(iconName: string): Component {
+  const iconMap: Record<string, Component> = {
     Settings,
     Zap,
     LogOut,

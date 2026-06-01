@@ -21,11 +21,13 @@ class PanelRegistryImpl {
     }
 
     this.panels.set(panel.id, panel)
+    // eslint-disable-next-line no-console
     console.log(`[PanelRegistry] Registered panel: ${panel.id} at ${panel.location}`)
 
     return {
       dispose: () => {
         this.panels.delete(panel.id)
+        // eslint-disable-next-line no-console
         console.log(`[PanelRegistry] Unregistered panel: ${panel.id}`)
       },
     }
@@ -81,6 +83,7 @@ class PanelRegistryImpl {
    */
   clear(): void {
     this.panels.clear()
+    // eslint-disable-next-line no-console
     console.log('[PanelRegistry] Cleared all panels')
   }
 }

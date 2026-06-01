@@ -244,9 +244,11 @@ watch(
   isInlineCreateTarget,
   async val => {
     if (val) {
+      // eslint-disable-next-line no-console
       console.log('[TreeNode] isInlineCreateTarget=true, entry:', props.entry.path)
       inlineCreateName.value = ''
       await nextTick()
+      // eslint-disable-next-line no-console
       console.log('[TreeNode] inlineInputRef:', inlineInputRef.value ? 'exists' : 'null')
       inlineInputRef.value?.focus()
       inlineInputRef.value?.scrollIntoView({ block: 'nearest' })
@@ -356,6 +358,7 @@ function cancelRename(): void {
 function commitInlineCreate(_event?: FocusEvent): void {
   if (inlineCreating.value) return
   const name = inlineCreateName.value.trim()
+  // eslint-disable-next-line no-console
   console.log('[TreeNode] commitInlineCreate, name:', name)
   if (!name) {
     cancelInlineCreate()

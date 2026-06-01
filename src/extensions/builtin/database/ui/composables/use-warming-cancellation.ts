@@ -88,6 +88,7 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
     state.value.isCancelling = false
 
     if (cfg.value.showNotification) {
+      // eslint-disable-next-line no-console
       console.log(`已取消连接 ${connectionId} 的缓存预热：${reason}`)
     }
   }
@@ -110,7 +111,8 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
     state.value.isCancelling = false
 
     if (cfg.value.showNotification) {
-      console.log(`已取消所有缓存预热：${reason}`)
+      // eslint-disable-next-line no-console
+      console.debug(`已取消所有缓存预热：${reason}`)
     }
   }
 

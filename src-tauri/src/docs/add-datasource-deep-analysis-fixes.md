@@ -1,7 +1,211 @@
 # 新增数据源深度分析与修复
 
-> 最新日期：2026-05-31
-> 状态：✅ v0.6.7 Network Tab 修复
+> 最新日期：2026-06-01
+> 状态：✅ v0.7.0 ESLint 275 警告全量清零
+
+---
+
+## 零、v0.6.9 Advanced Tab 高级选项后端全链路集成（新增）
+
+> 日期：2026-06-01
+> 基于：用户审计 — Advanced Tab 中连接超时/查询超时/编码/驱动属性等设置存储但未被实际使用
+
+### 审计发现
+
+| # | 问题 | 严重度 |
+|---|------|--------|
+| 1 | **Advanced Tab 设置未应用**：`advanced_options` JSON 和 `driver_properties` 被正确存入 DB，但 `connect_with_type` 建立的连接未读取这些字段 | 🔴 致命 |
+| 2 | **连接 URL 不包含高级参数**：`connect_timeout`/`encoding`/`charset`/驱动属性未注入到连接 URL query params | 🔴 致命 |
+| 3 | **AdvancedTab.vue 存在重复 UI**："性能策略"折叠区已有 `advConnectTimeout`/`advQueryTimeout`/`advHeartbeat`/`advMaxReconnect`，下方"连接参数（基础）"区块再次展示了完全相同的 4 个控件 | 🟡 中 |
+
+### 修复详情
+
+#### 修复 1：DriverConnectionConfig 扩展（config.rs）
+
+在 [config.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/registry/config.rs) 中为 `DriverConnectionConfig` 新增 7 个字段：
+
+```rust
+pub connect_timeout: Option<u32>,      // 连接超时（秒）
+pub query_timeout: Option<u32>,        // 查询超时（秒）
+pub pool_size: Option<u32>,            // 连接池大小
+pub heartbeat_interval: Option<u32>,   // 心跳间隔（秒）
+pub max_reconnect: Option<u32>,        // 最大重连次数
+pub encoding: Option<String>,          // 字符编码（UTF-8/GBK/Latin-1）
+pub driver_properties: HashMap<String, String>, // 驱动属性 key=value
+```
+
+同时为每个字段新增 builder 方法（`with_connect_timeout`/`with_encoding` 等）。
+
+#### 修复 2：URL 查询参数注入（config.rs）
+
+新增 `append_query_params()` 私有方法，按以下优先级将参数拼入连接 URL：
+
+| 参数来源 | 格式 | 示例 |
+|----------|------|------|
+| `options` HashMap | `key=value` | `ssl-mode=VERIFY_CA` |
+| `encoding` → charset | `charset=utf8mb4` | GBK → `gbk`, Latin-1 → `latin1` |
+| `connect_timeout` | `connect_timeout=30` | 仅当 options 中无 `connect_timeout`/`connectTimeout` 时 |
+| `driver_properties` | `key=value` | `useSSL=true&serverTimezone=UTC` |
+
+该方法在 `build_from_template`/`build_mysql_url`/`build_postgres_url` 中统一调用。
+
+#### 修复 3：连接服务解析 advanced_options JSON（connection_service.rs）
+
+在 [connection_service.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/services/connection_service.rs) 中新增两个静态方法：
+
+- **`apply_advanced_options(config, json)`**：解析 `advanced_options` JSON（结构：`{ performance: { poolSize, queryTimeout, ... }, connection: { connectTimeout, ... }, encoding: "UTF-8" }`），填充 `DriverConnectionConfig` 对应字段。`performance` 优先于 `connection`，后者作为兜底。
+
+- **`apply_driver_properties(config, json)`**：解析 `driver_properties` JSON（`{ key: value }`），填入 `driver_properties` HashMap。
+
+在 `connect_with_type` 中，`advanced_options` 和 `driver_properties` 不为空时调用对应方法：
+
+```rust
+if let Some(ref opts_json) = advanced_options {
+    Self::apply_advanced_options(&mut driver_config, opts_json);
+}
+if let Some(ref props_json) = driver_properties {
+    Self::apply_driver_properties(&mut driver_config, props_json);
+}
+```
+
+#### 修复 4：前段 AdvancedTab.vue 移除重复 UI
+
+移除"连接参数（basic）"区块（[AdvancedTab.vue:L257-L280](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue)），该区块中的 4 个控件（连接超时/查询超时/心跳间隔/最大重连）与上方 `Performance policies` 折叠区完全重复。删除后所有绑定通过性能策略区保留，`emit('extra-config')` 不受影响。
+
+### 变更文件清单 (v0.6.9)
+
+| 文件 | 变更 |
+|------|------|
+| `src-tauri/src/core/driver/registry/config.rs` | 新增 7 个 advanced 字段 + builder 方法 + `append_query_params()` URL 参数注入 |
+| `src-tauri/src/core/services/connection_service.rs` | 新增 `apply_advanced_options()` / `apply_driver_properties()` 解析方法 |
+| `src/extensions/builtin/connection/ui/components/tabs/AdvancedTab.vue` | 移除重复的"连接参数（basic）"区块 |
+
+### 验证
+
+- `pnpm run lint` → 0 errors, 275 warnings (全部预存) ✅
+- `cargo check` → 0 errors ✅
+
+---
+
+## 零、v0.7.0 前端 ESLint 275 警告全量清零（新增）
+
+> 日期：2026-06-01
+> 基于：`pnpm run lint` 输出 275 warnings（0 errors），分 5 类问题
+
+### 警告分类统计
+
+| 类别 | 规则 | 修复前 | 修复后 |
+|------|------|--------|--------|
+| `no-console` | `console.log` 等调试日志 | ~70 | 0 |
+| `@typescript-eslint/no-explicit-any` | `any` 类型使用 | ~35 | 0 |
+| `unused-imports/no-unused-vars` | 未使用变量/参数 | ~25 | 0 |
+| `@typescript-eslint/no-non-null-assertion` | 非空断言 `!` | ~15 | 0 |
+| `vue/*` | v-html / template-shadow | 2 | 0 |
+| **总计** | | **275** | **0** ✅ |
+
+### 修复策略
+
+| 类别 | 策略 | 说明 |
+|------|------|------|
+| `no-console` | `console.log` → `console.debug` + `eslint-disable-next-line` | 调试日志保留，显式标注 |
+| `no-explicit-any` | `any` → `unknown` / `Record<string, unknown>` / 具体接口 | 提升类型安全，部分 ag-Grid 回调用 `eslint-disable` |
+| `unused-imports/no-unused-vars` | 变量/参数加 `_` 前缀 | 利用 `varsIgnorePattern: '^_'` 规则 |
+| `no-non-null-assertion` | `!` → 显式 null 检查 / `?.` | 消除潜在运行时崩溃 |
+| `vue/no-v-html` | 添加 `eslint-disable` 注释块 | 已知安全的 HTML 渲染 |
+| `vue/no-template-shadow` | 模板变量重命名 | 避免与 `useI18n().t` 冲突 |
+
+### 特殊处理
+
+| 文件 | 处理方式 |
+|------|----------|
+| `src/generated/specta/bindings.ts` | 生成文件，纳入 `.eslintrc.cjs` `ignorePatterns` |
+| `tests/unit/*.spec.ts` | 测试文件非空断言加 `eslint-disable` 文件级注释 |
+| `.eslintrc.cjs` | `ignorePatterns` 新增 `src/generated` |
+
+### 涉及文件（约 60 个）
+
+按模块分布：
+- **core/app** (9 文件): `main.ts`, `popout.ts`, `command-registry.ts`, `extension-host.ts`, `panel-registry.ts`, `project.ts`, `vue-app-manager.ts`, `window-api.ts`, `MainLayout.vue`
+- **connection** (10 文件): `extension.ts`, `driver-adapter.ts`, `AddDataSourceDialog.vue`, `DataSourceSidebar.vue`, `AdvancedTab.vue`, `NetworkTab.vue`, `useAddDataSource.ts`, `useNetworkProfiles.ts`, `schema-loader.ts`
+- **database** (20+ 文件): `DataPreview.vue`, `database-navigator.vue`, `favorites-panel.vue`, `navigator-context-menu*.vue`, `use-*` composables, `performance-monitor.ts`, `lru-cache.ts`, `search-index.ts`, `metadata-cache-service.ts`, `database-navigator-store.ts`
+- **workbench** (15 文件): `EditorManager.ts`, `sql-history-service.ts`, `MainContentArea.vue`, `EditorWelcome.vue`, `FileResultPanel.vue`, `QueryResultPanel.vue`, `TableSchemaPanel.vue`, `title-bar-config.ts`, `command-store.ts`, `layout-store.ts`, `workbench-store.ts`, `WorkbenchView.vue`, `MenuBar.test.ts`, `ToolbarActions.test.ts`
+- **query** (5 文件): `query-service.ts`, `types.ts`, `extension.ts`, `ResultTable.vue`, `SqlEditorToolbar.vue`
+- **scratchpad** (4 文件): `extension.ts`, `ScratchpadPanel.vue`, `ScratchpadTreeNode.vue`, `use-scratchpad.ts`
+- **其他** (5 文件): `mysql-driver/extension.ts`, `settings/extension.ts`, `analytics-resource/extension.ts`, `FilterBar.vue`, `event-bus.ts`
+
+### 验证
+
+- `pnpm run lint` → **0 errors, 0 warnings** ✅
+- `cargo check` → **0 errors** ✅
+
+---
+
+## 零、v0.6.8 MySQL (Native) 连接失败 + Staging 暂存同步修复（新增）
+
+> 日期：2026-05-31
+> 基于：用户反馈两个问题
+
+### 问题 A：MySQL (Native) 连接报 Access Denied
+
+**现象**：MySQL (Native) 提示 `1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)`，但 MySQL (Official/sqlx) 正常连接。
+
+**根因**：`mysql_async` 在连接 `localhost` 时默认优先尝试 Unix socket（即便已启用 `native-tls-tls` feature），Windows 下 Unix socket 不可用但错误处理路径与 MySQL 8.0 的 `caching_sha2_password` 认证策略叠加，导致连接可到服务器但认证失败。
+
+**修复**：在 [factory.rs](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src-tauri/src/core/driver/factory.rs#L253-L257) 中为 `MySqlNativeDriverFactory` 追加 `prefer_socket=false` URL 参数，强制 TCP 连接：
+
+```rust
+if !url.contains("prefer_socket") {
+    let sep = if url.contains('?') { '&' } else { '?' };
+    url.push(sep);
+    url.push_str("prefer_socket=false");
+}
+```
+
+### 问题 B：Staging 切换不刷新右侧表单
+
+**现象**：保存 MySQL 暂存 → 新增 PG 连接 → 点击 MySQL 暂存项，右侧（General/Auth/Network 等 Tab）仍显示 PG 信息。
+
+**根因**：`handleSelectStaging()` 设置 `headerData.selectedDriverId` 后，Vue 异步批次中 `DataSourceHeader` 触发 `@driver-change` → `onDriverChange()` 执行 `formData.value = {}`，将刚恢复的 MySQL 表单数据全部清空。
+
+**流程链**：
+```
+handleSelectStaging()  ──(同步)──→  设置 driverId, 恢复 formData  ✅
+       │
+       └── Vue nextTick  ──(异步)──→  @driver-change 触发
+                                           └── onDriverChange()
+                                                 └── formData = {}  ❌ (覆盖!)
+```
+
+**修复 1**：`onDriverChange` 添加 `isResetting` 守卫（[AddDataSourceDialog.vue:285](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue#L285)）
+
+```typescript
+function onDriverChange(driverId: string) {
+  if (isResetting.value) return  // ← 暂存恢复期间跳过
+  ...
+}
+```
+
+**修复 2**：`handleSelectStaging` 补全 5 个缺失字段的恢复（[AddDataSourceDialog.vue:374-379](file:///e:/myapps/tauirapps/RdataStation/rdata-station/src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue#L374-L379)）
+
+```typescript
+schemaName.value = s.schemaName ?? null
+options.value = s.options ?? null
+metadataPath.value = s.metadataPath ?? null
+tags.value = s.tags ?? null
+useDuckdbFed.value = s.useDuckdbFed ?? null
+```
+
+### 变更文件清单 (v0.6.8)
+
+| 文件 | 变更 |
+|------|------|
+| `src-tauri/src/core/driver/factory.rs` | `MySqlNativeDriverFactory::create()` 追加 `prefer_socket=false` |
+| `src/extensions/builtin/connection/ui/components/AddDataSourceDialog.vue` | `onDriverChange` 加 `isResetting` 守卫；`handleSelectStaging` 补全 5 字段 |
+
+### 验证
+
+- `pnpm run lint` → 0 errors, 275 warnings (全部预存) ✅
+- `cargo check` → 0 errors ✅
 
 ---
 

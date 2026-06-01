@@ -23,7 +23,7 @@ export function useWorkbenchIntegration() {
     connectionId: string,
     schemaName: string,
     tableName: string,
-    objectType: 'table' | 'view' = 'table'
+    _objectType: 'table' | 'view' = 'table'
   ) {
     const sql = `SELECT * FROM ${schemaName}.${tableName} LIMIT 100;`
     const tabTitle = `${schemaName}.${tableName}`

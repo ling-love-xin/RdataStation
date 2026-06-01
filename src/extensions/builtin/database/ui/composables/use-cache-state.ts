@@ -245,7 +245,7 @@ class CacheStateManager {
   /**
    * 获取指定连接的缓存统计
    */
-  getConnectionStats(connectionId: string): {
+  getConnectionStats(_connectionId: string): {
     total: number
     valid: number
     invalid: number

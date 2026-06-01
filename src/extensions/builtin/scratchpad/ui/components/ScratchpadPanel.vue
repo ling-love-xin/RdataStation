@@ -172,11 +172,12 @@
                         @click="handleSearchMatchClick(match)"
                       >
                         <span class="search-result-line-number">{{ match.line_number }}</span>
-                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <!-- eslint-disable vue/no-v-html -->
                         <span
                           class="search-result-line-content"
                           v-html="highlightSearchMatch(match)"
                         ></span>
+                        <!-- eslint-enable vue/no-v-html -->
                       </div>
                     </div>
                   </div>
@@ -1168,12 +1169,14 @@ const flattenedTree = computed(() => {
   }
   const testDir = tree.filter(i => i.entry.path.includes('测试2026'))
   if (testDir.length > 0) {
+    // eslint-disable-next-line no-console
     console.log(
       '[flattenedTree] 测试2026 entries:',
       testDir.map(i => `${i.depth}:${i.entry.kind}:${i.entry.name}`)
     )
     const children = testDir.filter(i => i.entry.kind === 'file')
     if (children.length > 0) {
+      // eslint-disable-next-line no-console
       console.log(
         '[flattenedTree] 测试2026 files:',
         children.map(i => `${i.entry.name}@${i.entry.path}@depth${i.depth}`)
@@ -1738,6 +1741,7 @@ function cleanupRootInlineClickOutside(): void {
 }
 
 function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
+  // eslint-disable-next-line no-console
   console.log('[Scratchpad] startInlineCreate, parentPath:', parentPath, 'isFolder:', isFolder)
   showExplorerFilter.value = false
   contentSearchMode.value = false
@@ -1758,6 +1762,7 @@ function startInlineCreate(parentPath: string | null, isFolder: boolean): void {
   }
 
   const entry = findEntryInTree(localEntries.value, parentPath)
+  // eslint-disable-next-line no-console
   console.log(
     '[Scratchpad] startInlineCreate: findEntryInTree found?',
     !!entry,
@@ -1796,6 +1801,7 @@ function cancelInlineCreate(): void {
 function commitRootInlineCreate(_event?: FocusEvent): void {
   if (rootInlineCreating.value) return
   const name = rootInlineCreateName.value.trim()
+  // eslint-disable-next-line no-console
   console.log('[Scratchpad] commitRootInlineCreate, name:', name)
   if (!name) {
     cancelInlineCreate()
@@ -1814,6 +1820,7 @@ function cancelRootInlineCreate(): void {
 async function confirmInlineCreate(name: string): Promise<void> {
   const parentPath = inlineCreateTargetDir.value || inlineCreateParentPath.value
   const isFolder = inlineCreateIsFolder.value
+  // eslint-disable-next-line no-console
   console.log(
     '[Scratchpad] confirmInlineCreate, name:',
     name,
@@ -1844,12 +1851,14 @@ async function confirmInlineCreate(name: string): Promise<void> {
 }
 
 async function handleCreateFile(): Promise<void> {
+  // eslint-disable-next-line no-console
   console.log('[Scratchpad] handleCreateFile 被点击')
   const selectedFolder = findSelectedFolder()
   startInlineCreate(selectedFolder, false)
 }
 
 async function handleCreateFolder(): Promise<void> {
+  // eslint-disable-next-line no-console
   console.log('[Scratchpad] handleCreateFolder 被点击')
   const selectedFolder = findSelectedFolder()
   startInlineCreate(selectedFolder, true)

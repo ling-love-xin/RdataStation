@@ -22,11 +22,13 @@ class CommandRegistryImpl implements CommandRegistry {
     }
 
     this.commands.set(id, handler)
+    // eslint-disable-next-line no-console
     console.log(`[CommandRegistry] Registered command: ${id}`)
 
     return {
       dispose: () => {
         this.commands.delete(id)
+        // eslint-disable-next-line no-console
         console.log(`[CommandRegistry] Unregistered command: ${id}`)
       },
     }
@@ -45,6 +47,7 @@ class CommandRegistryImpl implements CommandRegistry {
       throw new Error(`Command '${id}' not found`)
     }
 
+    // eslint-disable-next-line no-console
     console.log(`[CommandRegistry] Executing command: ${id}`)
     return handler(...args)
   }
@@ -79,6 +82,7 @@ class CommandRegistryImpl implements CommandRegistry {
    */
   clear(): void {
     this.commands.clear()
+    // eslint-disable-next-line no-console
     console.log('[CommandRegistry] Cleared all commands')
   }
 }

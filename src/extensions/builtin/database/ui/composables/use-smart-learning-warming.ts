@@ -287,7 +287,7 @@ export const smartLearningManager = new SmartLearningManager()
  * 智能学习预热 Composable
  */
 export function useSmartLearningWarming(config?: Partial<LearningConfig>) {
-  const navigatorStore = useDatabaseNavigatorStore()
+  const _navigatorStore = useDatabaseNavigatorStore()
   const cacheWarming = useCacheWarming()
 
   const learningManager = new SmartLearningManager(config)

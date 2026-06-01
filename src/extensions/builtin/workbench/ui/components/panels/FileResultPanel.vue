@@ -135,7 +135,8 @@ async function createGrid(): Promise<void> {
           `[Perf] AG Grid create: ${elapsed}ms (>200ms target) | cols=${metadata.value.columns.length} rows=${(metadata.value.rows ?? []).length}`
         )
       } else {
-        console.info(
+        // eslint-disable-next-line no-console
+        console.debug(
           `[Perf] AG Grid create: ${elapsed}ms | cols=${metadata.value.columns.length} rows=${(metadata.value.rows ?? []).length}`
         )
       }

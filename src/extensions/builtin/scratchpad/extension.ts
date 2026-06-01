@@ -27,6 +27,7 @@ const activate = (context: ExtensionContext): ScratchpadExtensionAPI => {
 
   const initStore = async (projectPath: string): Promise<void> => {
     if (!projectPath) {
+      // eslint-disable-next-line no-console
       console.debug('[Scratchpad] No project path, store init deferred')
       return
     }

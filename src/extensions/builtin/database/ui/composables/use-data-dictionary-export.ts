@@ -49,7 +49,7 @@ export function useDataDictionaryExport() {
     return md
   }
 
-  function generateTableMarkdown(table: TableInfo, options: DataDictionaryOptions): string {
+  function generateTableMarkdown(table: TableInfo, _options: DataDictionaryOptions): string {
     let md = `### ${table.name}\n\n`
 
     if (table.description) {
@@ -120,7 +120,7 @@ export function useDataDictionaryExport() {
     return html
   }
 
-  function generateTableHtml(table: TableInfo, options: DataDictionaryOptions): string {
+  function generateTableHtml(table: TableInfo, _options: DataDictionaryOptions): string {
     let html = `<h3>${table.name}</h3>\n`
 
     if (table.description) {

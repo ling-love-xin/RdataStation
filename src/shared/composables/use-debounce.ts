@@ -87,7 +87,7 @@ export function useDebounce<T>(source: WatchSource<T>, delay = 300): UseDebounce
  * debouncedSearch('keyword')
  * ```
  */
-export function useDebounceFn<T extends (...args: any[]) => any>(
+export function useDebounceFn<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay = 300
 ): {

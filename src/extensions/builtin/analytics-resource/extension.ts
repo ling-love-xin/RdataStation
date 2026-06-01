@@ -9,6 +9,7 @@ interface AnalyticsResourceExtensionAPI extends ExtensionAPI {
 }
 
 const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
+  // eslint-disable-next-line no-console
   console.log('[Analytics Resource] Activating for project:', context.project.name)
 
   // 注册面板
@@ -47,6 +48,7 @@ const activate = (context: ExtensionContext): AnalyticsResourceExtensionAPI => {
 }
 
 const deactivate = (): void => {
+  // eslint-disable-next-line no-console
   console.log('[Analytics Resource] Deactivated')
 }
 

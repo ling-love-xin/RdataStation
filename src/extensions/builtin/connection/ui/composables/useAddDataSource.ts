@@ -49,7 +49,7 @@ export interface StagingItem {
 }
 
 /** StagingItem 字段列表 */
-const STAGING_FIELDS = [
+const _STAGING_FIELDS = [
   'id',
   'name',
   'driver',

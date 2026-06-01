@@ -168,10 +168,10 @@ import { useProjectConnectionStore } from '../stores/project-connection-store'
 import type { Driver } from '../../domain/types'
 import type { ProjectConnection, ConnectionStatus } from '../../types/connection'
 
-const { t } = useI18n()
+const { _t } = useI18n()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
-const connectionStore = useConnectionStore()
+const _connectionStore = useConnectionStore()
 const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnection({
   getConnectionUrl: conn => projectConnectionStore.getConnectionUrl(conn),
   updateConnectionStatus: (id, status, errorMsg) =>
@@ -179,7 +179,7 @@ const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnec
   loadConnections: () => projectConnectionStore.loadConnections(),
   currentProjectId: () => projectStore.currentProject?.id ?? null,
 })
-const { drivers, dataSourceTypes, loadAll, installDriver, getDriverDetail } = useDriverRegistry()
+const { drivers, dataSourceTypes, loadAll, installDriver, _getDriverDetail } = useDriverRegistry()
 
 const driverDetailCache = ref<Map<string, string>>(new Map()) // driver_id → availability
 const installingDriverId = ref<string | null>(null)

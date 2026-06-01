@@ -351,9 +351,11 @@ export function logError(
 
   switch (level) {
     case LogLevel.DEBUG:
+      // eslint-disable-next-line no-console
       console.debug('[AppError]', logEntry)
       break
     case LogLevel.INFO:
+      // eslint-disable-next-line no-console
       console.info('[AppError]', logEntry)
       break
     case LogLevel.WARN:

@@ -734,6 +734,7 @@ export function useContextMenuActions() {
       const startTime = Date.now()
       await navigatorStore.loadCatalogs(connectionId)
       const latency = Date.now() - startTime
+      // eslint-disable-next-line no-console
       console.log(`连接测试成功，延迟: ${latency}ms`)
     } catch (error) {
       console.error('连接测试失败:', error)
@@ -825,7 +826,7 @@ export function useContextMenuActions() {
     )
   }
 
-  async function refreshDatabase(connectionId: string, dbName: string): Promise<void> {
+  async function refreshDatabase(connectionId: string, _dbName: string): Promise<void> {
     await navigatorStore.loadCatalogs(connectionId)
   }
 

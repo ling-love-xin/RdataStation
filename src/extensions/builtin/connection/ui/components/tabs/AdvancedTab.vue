@@ -254,31 +254,6 @@
         </NCollapse>
       </div>
 
-      <!-- Connection params (basic) -->
-      <div class="adv-sec">
-        <div class="sec-title">{{ $t('navigator.connectionParams') }}</div>
-        <div class="adv-grid">
-          <div class="adv-cell">
-            <span class="adv-lbl">{{ $t('navigator.advancedTimeout') }}</span>
-            <NInputNumber v-model:value="advConnectTimeout" size="small" :min="1" :max="300" />
-          </div>
-          <div class="adv-cell">
-            <span class="adv-lbl">{{
-              $t('navigator.advancedQueryTimeout') || '查询超时 (秒)'
-            }}</span>
-            <NInputNumber v-model:value="advQueryTimeout" size="small" :min="0" :max="3600" />
-          </div>
-          <div class="adv-cell">
-            <span class="adv-lbl">{{ $t('navigator.keepAliveInterval') }}</span>
-            <NInputNumber v-model:value="advHeartbeat" size="small" :min="10" :max="600" />
-          </div>
-          <div class="adv-cell">
-            <span class="adv-lbl">{{ $t('navigator.advancedMaxReconnect') || '最大重连' }}</span>
-            <NInputNumber v-model:value="advMaxReconnect" size="small" :min="0" :max="20" />
-          </div>
-        </div>
-      </div>
-
       <!-- Schema + Encoding -->
       <div class="adv-sec">
         <div class="adv-inline">
@@ -446,7 +421,7 @@ const {
   polDrop,
   polRowLimit,
   polSizeLimit,
-  tempDefaultLocked,
+  _tempDefaultLocked,
   dropOpts,
   securitySummary,
   isPolicyOverridden,
@@ -731,7 +706,7 @@ async function handleCreateEnv() {
       }
     } else {
       const id = `env-custom-${Date.now()}`
-      const template = envDefs.find(e => e.id === `env-${newEnvTemplate.value}`)
+      const _template = envDefs.find(e => e.id === `env-${newEnvTemplate.value}`)
       loadedEnvs.value.push({
         id,
         name,

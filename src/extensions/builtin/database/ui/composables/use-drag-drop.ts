@@ -78,7 +78,9 @@ export function useDragDrop() {
     dragData.value = data
     isDragging.value = true
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     event.dataTransfer!.setData(DRAG_DATA_TYPE, JSON.stringify(data))
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     event.dataTransfer!.effectAllowed = 'copy'
   }
 
@@ -87,7 +89,10 @@ export function useDragDrop() {
    */
   function handleDragOver(event: DragEvent): void {
     event.preventDefault()
-    event.dataTransfer!.dropEffect = 'copy'
+    const dt = event.dataTransfer
+    if (dt) {
+      dt.dropEffect = 'copy'
+    }
   }
 
   /**
@@ -97,7 +102,10 @@ export function useDragDrop() {
     event.preventDefault()
 
     try {
-      const dataStr = event.dataTransfer!.getData(DRAG_DATA_TYPE)
+      const dt = event.dataTransfer
+      if (!dt) return null
+
+      const dataStr = dt.getData(DRAG_DATA_TYPE)
       if (!dataStr) return null
 
       const data = JSON.parse(dataStr) as IDragData

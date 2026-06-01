@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import { ref, defineComponent, h, nextTick } from 'vue'
@@ -58,7 +59,7 @@ describe('useVirtualScroll', () => {
 
   it('should calculate visible range after DOM mount and scroll', async () => {
     const items = makeItems(100)
-    const { wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40, overscan: 1 })
+    const { wrapper: _wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40, overscan: 1 })
     await nextTick()
 
     const el = vr.containerRef.value!
@@ -76,7 +77,7 @@ describe('useVirtualScroll', () => {
 
   it('should include overscan items before and after visible range', async () => {
     const items = makeItems(200)
-    const { wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40, overscan: 3 })
+    const { wrapper: _wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40, overscan: 3 })
     await nextTick()
 
     const el = vr.containerRef.value!
@@ -94,7 +95,7 @@ describe('useVirtualScroll', () => {
 
   it('should not crash when scrollTop exceeds totalHeight', async () => {
     const items = makeItems(10)
-    const { wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40 })
+    const { wrapper: _wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40 })
     await nextTick()
 
     const el = vr.containerRef.value!
@@ -112,7 +113,7 @@ describe('useVirtualScroll', () => {
 
   it('should expose handleScroll without throwing', async () => {
     const items = makeItems(50)
-    const { wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40 })
+    const { wrapper: _wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40 })
     await nextTick()
 
     const el = vr.containerRef.value!
@@ -123,7 +124,7 @@ describe('useVirtualScroll', () => {
 
   it('should compute offsetY based on startIndex', async () => {
     const items = makeItems(100)
-    const { wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40, overscan: 1 })
+    const { wrapper: _wrapper, vr } = mountVirtualScroll(items, { itemHeight: 40, overscan: 1 })
     await nextTick()
 
     const el = vr.containerRef.value!

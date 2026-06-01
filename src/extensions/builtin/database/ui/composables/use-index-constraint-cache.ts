@@ -192,7 +192,7 @@ export const indexConstraintCacheManager = new IndexConstraintCacheManager()
  * 索引与约束缓存 Composable
  */
 export function useIndexConstraintCache() {
-  const navigatorStore = useDatabaseNavigatorStore()
+  const _navigatorStore = useDatabaseNavigatorStore()
 
   /**
    * 加载并缓存表的索引和约束
@@ -203,7 +203,7 @@ export function useIndexConstraintCache() {
     dbName: string,
     schemaName: string | undefined,
     tableName: string,
-    projectPath?: string
+    _projectPath?: string
   ): Promise<{ indexes: IndexMeta[]; constraints: ConstraintMeta[] }> {
     const cached = indexConstraintCacheManager.getCache(connectionId, dbName, schemaName, tableName)
 
@@ -219,31 +219,33 @@ export function useIndexConstraintCache() {
         loadConstraints(connectionId, dbName, schemaName || '', tableName),
       ])
 
-      const indexMetas: IndexMeta[] = (indexes as any[]).map((idx: any) => ({
-        id: `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:${idx.name}`,
-        name: idx.name,
-        tableName,
-        columns: idx.columns || [],
-        isUnique: idx.isUnique || false,
-        isPrimary: idx.isPrimary || false,
-        type: ((idx as unknown as Record<string, unknown>).type as string) || 'BTREE',
-        comment: ((idx as unknown as Record<string, unknown>).comment as string) || null,
-      }))
+      const indexMetas: IndexMeta[] = (indexes as unknown[]).map((idx: unknown) => {
+        const i = idx as Record<string, unknown>
+        return {
+          id: `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:${i.name}`,
+          name: i.name as string,
+          tableName,
+          columns: (i.columns as string[]) || [],
+          isUnique: (i.isUnique as boolean) || false,
+          isPrimary: (i.isPrimary as boolean) || false,
+          type: (i.type as string) || 'BTREE',
+          comment: (i.comment as string) || null,
+        }
+      })
 
-      const constraintMetas: ConstraintMeta[] = (constraints as any[]).map((con: any) => ({
-        id: `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:${con.name}`,
-        name: con.name,
-        tableName,
-        type: con.type as ConstraintMeta['type'],
-        columns: con.columns || [],
-        referencedTable: (con as unknown as Record<string, unknown>).referenced_table as
-          | string
-          | undefined,
-        referencedColumns: (con as unknown as Record<string, unknown>).referenced_columns as
-          | string[]
-          | undefined,
-        comment: ((con as unknown as Record<string, unknown>).comment as string) || null,
-      }))
+      const constraintMetas: ConstraintMeta[] = (constraints as unknown[]).map((con: unknown) => {
+        const c = con as Record<string, unknown>
+        return {
+          id: `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:${c.name}`,
+          name: c.name as string,
+          tableName,
+          type: c.type as ConstraintMeta['type'],
+          columns: (c.columns as string[]) || [],
+          referencedTable: c.referenced_table as string | undefined,
+          referencedColumns: c.referenced_columns as string[] | undefined,
+          comment: (c.comment as string) || null,
+        }
+      })
 
       indexConstraintCacheManager.setCache(
         connectionId,

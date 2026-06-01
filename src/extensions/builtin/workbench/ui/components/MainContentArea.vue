@@ -50,11 +50,12 @@ function onReady(event: DockviewReadyEvent) {
 
   // Get all registered panels
   const panels = panelRegistry.getAll()
+  // eslint-disable-next-line no-console
   console.debug(`[MainContent] Creating ${panels.length} panels from registry`)
 
   // Filter panels by location (center/bottom)
   const centerPanels = panels.filter(p => p.location === 'center')
-  const bottomPanels = panels.filter(p => p.location === 'bottom')
+  const _bottomPanels = panels.filter(p => p.location === 'bottom')
 
   // Create center panels (SQL Editor)
   let centerPanelId: string | null = null

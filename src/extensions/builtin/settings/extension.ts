@@ -10,6 +10,7 @@ import type {
 } from '@/extensions/core/types'
 
 const activate = (context: ExtensionContext): ExtensionAPI => {
+  // eslint-disable-next-line no-console
   console.log('[Settings] Activating for project:', context.project.name)
 
   const openSettingsDisposable = context.commands.registerCommand('settings.open', () => {
@@ -37,6 +38,7 @@ const activate = (context: ExtensionContext): ExtensionAPI => {
 }
 
 const deactivate = (): void => {
+  // eslint-disable-next-line no-console
   console.log('[Settings] Deactivated')
 }
 

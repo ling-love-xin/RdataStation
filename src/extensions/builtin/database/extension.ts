@@ -36,6 +36,7 @@ interface DatabaseExtensionAPI extends ExtensionAPI {
 }
 
 const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
+  // eslint-disable-next-line no-console
   console.log('[Database] Activating for project:', context.project.name)
 
   const getCatalogs = async (connectionId: string): Promise<NavigatorNodeResponse[]> => {
@@ -75,6 +76,7 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
   }
 
   const refresh = async (connectionId: string): Promise<void> => {
+    // eslint-disable-next-line no-console
     console.log('[Database] Refreshing connection:', connectionId)
   }
 
@@ -137,6 +139,7 @@ const activate = (context: ExtensionContext): DatabaseExtensionAPI => {
 }
 
 const deactivate = (): void => {
+  // eslint-disable-next-line no-console
   console.log('[Database] Deactivated')
 }
 

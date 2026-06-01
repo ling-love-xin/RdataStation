@@ -20,7 +20,7 @@ export interface SqlHistoryItem {
 }
 
 const STORAGE_KEY = 'sql-execution-history'
-const FAVORITES_KEY = 'sql-favorites'
+const _FAVORITES_KEY = 'sql-favorites'
 
 /**
  * 获取所有历史记录

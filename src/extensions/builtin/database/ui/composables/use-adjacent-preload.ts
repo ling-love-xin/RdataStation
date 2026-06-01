@@ -118,7 +118,7 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
     dbName: string,
     schemaName: string | undefined,
     tableName: string,
-    projectPath?: string
+    _projectPath?: string
   ): Promise<boolean> {
     const cacheKey = `${connectionId}:${dbName}:${schemaName || ''}:${tableName}`
 
@@ -174,7 +174,7 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
     dbName: string,
     schemaName: string | undefined,
     tableName: string,
-    projectPath?: string
+    _projectPath?: string
   ): Promise<boolean> {
     const cacheKey = `${connectionId}:${dbName}:${schemaName || ''}:${tableName}:columns`
 

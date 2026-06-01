@@ -7,7 +7,7 @@
  */
 export interface QueryResult {
   columns: string[]
-  rows: any[]
+  rows: Record<string, unknown>[]
   rowCount?: number
   executionTime?: number
   error?: string
@@ -29,7 +29,7 @@ export interface ExecuteSqlResponse {
   success: boolean
   result?: {
     columns: string[]
-    rows: any[]
+    rows: Record<string, unknown>[]
   }
   error?: string
   execution_time: number
@@ -52,7 +52,7 @@ export interface ExecuteTransactionResponse {
   success: boolean
   results?: {
     columns: string[]
-    rows: any[]
+    rows: Record<string, unknown>[]
   }[]
   error?: string
   execution_time: number

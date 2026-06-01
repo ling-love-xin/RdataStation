@@ -64,6 +64,7 @@ export const windowAPI: WindowAPI = {
    * @param type 通知类型
    */
   showNotification(message: string, type: 'info' | 'warning' | 'error' = 'info'): void {
+    // eslint-disable-next-line no-console
     console.log(`[WindowAPI] Notification [${type}]: ${message}`)
     // TODO: 集成 Naive UI 的 notification 组件
     // 可以使用 window.dispatchEvent 触发自定义事件

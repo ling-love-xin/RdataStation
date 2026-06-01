@@ -24,7 +24,7 @@ export interface UseVirtualTreeOptions {
 }
 
 export function useVirtualTree(options: UseVirtualTreeOptions) {
-  const { onLoadChildren, onSelect, onExpand } = options
+  const { onLoadChildren, onSelect, onExpand: _onExpand } = options
 
   // 扁平化的节点数组（纯对象，无响应式）
   const flatNodes = shallowRef<VirtualTreeNode[]>([])
@@ -59,7 +59,7 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
   /**
    * 获取指定节点的所有子节点
    */
-  function getChildren(parentKey: string): VirtualTreeNode[] {
+  function _getChildren(parentKey: string): VirtualTreeNode[] {
     const parentIndex = flatNodes.value.findIndex(n => n.key === parentKey)
     if (parentIndex === -1) return []
 

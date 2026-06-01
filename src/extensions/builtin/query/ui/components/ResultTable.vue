@@ -29,10 +29,11 @@ ModuleRegistry.registerModules([ClientSideRowModelModule])
 
 const props = defineProps<{
   columns: string[]
-  rows: any[][]
+  rows: unknown[][]
 }>()
 
 const uiStore = useUiStore()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const gridApi = ref<any>(null)
 
 // 转换列为 ag-Grid 格式
@@ -45,6 +46,7 @@ const columnDefs = computed(() => {
     resizable: true,
     minWidth: 100,
     flex: 1,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     valueFormatter: (params: any) => {
       if (params.value === null || params.value === undefined) {
         return 'NULL'
@@ -54,6 +56,7 @@ const columnDefs = computed(() => {
       }
       return String(params.value)
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cellClass: (params: any) => {
       if (params.value === null || params.value === undefined) {
         return 'cell-null'
@@ -66,7 +69,7 @@ const columnDefs = computed(() => {
 // 转换行为 ag-Grid 格式
 const rowData = computed(() => {
   return props.rows.map(row => {
-    const obj: Record<string, any> = {}
+    const obj: Record<string, unknown> = {}
     props.columns.forEach((col, index) => {
       obj[col] = row[index]
     })
@@ -81,6 +84,7 @@ const defaultColDef = {
   minWidth: 80,
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function onGridReady(params: any) {
   gridApi.value = params.api
   // 自动调整列宽

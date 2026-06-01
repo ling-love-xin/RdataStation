@@ -422,7 +422,7 @@ export function formatSize(bytes: number): string {
 }
 
 // 辅助函数：解析表状态结果
-export function parseTableStatus(row: any): Partial<NavigatorNode['metadata']> {
+export function parseTableStatus(row: Record<string, unknown>): Partial<NavigatorNode['metadata']> {
   return {
     engine: row.engine,
     rowCount: row.rowCount,

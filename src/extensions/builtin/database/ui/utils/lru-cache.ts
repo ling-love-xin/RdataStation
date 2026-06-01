@@ -48,9 +48,10 @@ export class LRUCache<T> {
   }
 
   clear(): void {
-    if (this.onEvict) {
+    const onEvictFn = this.onEvict
+    if (onEvictFn) {
       this.cache.forEach((entry, key) => {
-        this.onEvict!(key, entry.value)
+        onEvictFn(key, entry.value)
       })
     }
     this.cache.clear()

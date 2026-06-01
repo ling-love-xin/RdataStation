@@ -221,7 +221,7 @@ export function useIncrementalRefresh() {
    */
   async function refreshFolder(
     keyParts: string[],
-    options: IRefreshOptions
+    _options: IRefreshOptions
   ): Promise<IRefreshResult> {
     const connectionId = keyParts[1]
     const dbName = keyParts[2]
@@ -254,6 +254,7 @@ export function useIncrementalRefresh() {
    */
   async function refreshTable(
     keyParts: string[],
+    // eslint-disable-next-line unused-imports/no-unused-vars
     options: IRefreshOptions
   ): Promise<IRefreshResult> {
     const connectionId = keyParts[1]
@@ -331,7 +332,7 @@ export function useIncrementalRefresh() {
         return { success: false, affectedKeys: [], duration: 0, error: '无效的节点 key' }
       }
 
-      const nodeType = keyParts[0]
+      const _nodeType = keyParts[0]
       const connectionId = keyParts[1]
 
       // 检查连接是否有效

@@ -737,6 +737,7 @@ function migrateConfig(
     const migration = MIGRATIONS[current]
     if (migration) {
       result = migration(result)
+      // eslint-disable-next-line no-console
       console.info(`[config] Migrated schema ${current} → ${current + 1}`)
     }
     current++

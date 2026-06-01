@@ -298,7 +298,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   // Dockview 布局数据（完全托管）
   // ============================================
-  const layoutData = ref<any | null>(null)
+  const layoutData = ref<unknown | null>(null)
 
   // ============================================
   // 底部 Panel 模式: 'editor' (仅B区下方) | 'full' (横跨全宽)
@@ -337,6 +337,7 @@ export const useLayoutStore = defineStore('layout', () => {
   // ============================================
   function setDockviewApi(api: DockviewApi) {
     dockviewApi.value = api
+    // eslint-disable-next-line no-console
     console.debug('[LayoutStore] Dockview API registered')
   }
 
@@ -440,6 +441,7 @@ export const useLayoutStore = defineStore('layout', () => {
     if (panel) {
       try {
         panel.api.setActive()
+        // eslint-disable-next-line no-console
         console.debug('[LayoutStore] Activated panel:', panelId)
       } catch (e) {
         console.warn('[LayoutStore] Failed to activate panel:', e)
@@ -466,6 +468,7 @@ export const useLayoutStore = defineStore('layout', () => {
 
     const currentConfig = panelConfigs.value.get(panelId)
     if (currentConfig?.location === location) {
+      // eslint-disable-next-line no-console
       console.debug('[LayoutStore] Panel already at location:', location)
       return
     }
@@ -495,6 +498,7 @@ export const useLayoutStore = defineStore('layout', () => {
         }),
         location,
       })
+      // eslint-disable-next-line no-console
       console.debug('[LayoutStore] Panel moved to location:', location)
     } else {
       console.warn('[LayoutStore] No target group found for location:', location)
@@ -504,7 +508,7 @@ export const useLayoutStore = defineStore('layout', () => {
   /**
    * 获取第一个中心面板 ID
    */
-  function getFirstCenterPanelId(): string | undefined {
+  function _getFirstCenterPanelId(): string | undefined {
     const centerPanels = dockviewApi.value?.panels?.filter(
       p => panelConfigs.value.get(p.id)?.location === 'center'
     )
@@ -555,6 +559,7 @@ export const useLayoutStore = defineStore('layout', () => {
     })
 
     floatingPanels.value.push(existingPanel)
+    // eslint-disable-next-line no-console
     console.debug('[LayoutStore] Panel floated:', panelId)
   }
 
@@ -572,6 +577,7 @@ export const useLayoutStore = defineStore('layout', () => {
       panel.api.close()
       floatingPanels.value = floatingPanels.value.filter(p => p.id !== panelId)
       panelConfigs.value.delete(panelId)
+      // eslint-disable-next-line no-console
       console.debug('[LayoutStore] Closed floating panel:', panelId)
     }
   }
@@ -632,6 +638,7 @@ export const useLayoutStore = defineStore('layout', () => {
     // 切换左侧面板组的可见性
     // 注意：DockviewApi 没有直接的 setVisible 方法，这里通过关闭/重新添加面板来实现
     // 或者使用 CSS 控制侧边栏容器的显示/隐藏
+    // eslint-disable-next-line no-console
     console.debug('[LayoutStore] Primary sidebar visibility toggled:', primarySideBarVisible.value)
   }
 
@@ -639,6 +646,7 @@ export const useLayoutStore = defineStore('layout', () => {
     secondarySideBarVisible.value = !secondarySideBarVisible.value
 
     // 切换右侧面板组的可见性
+    // eslint-disable-next-line no-console
     console.debug(
       '[LayoutStore] Secondary sidebar visibility toggled:',
       secondarySideBarVisible.value
@@ -703,7 +711,7 @@ export const useLayoutStore = defineStore('layout', () => {
   /**
    * 通过面板注册表 ID 激活面板
    */
-  function activatePanelByRegistryId(registryId: string, location: PanelLocation) {
+  function activatePanelByRegistryId(registryId: string, _location: PanelLocation) {
     if (!dockviewApi.value) {
       console.warn('[LayoutStore] Dockview API not available')
       return
@@ -716,6 +724,7 @@ export const useLayoutStore = defineStore('layout', () => {
       // 面板已存在，激活它
       try {
         panel.api.setActive()
+        // eslint-disable-next-line no-console
         console.debug('[LayoutStore] Activated panel:', panelId)
       } catch (e) {
         console.warn('[LayoutStore] Failed to activate panel:', e)

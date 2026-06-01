@@ -63,6 +63,7 @@ class ExtensionHost {
     extensions: Array<{ id: string; module: ExtensionModule }>,
     projectInfo: ProjectInfo
   ): Promise<void> {
+    // eslint-disable-next-line no-console
     console.log(
       `[ExtensionHost] Activating ${extensions.length} extensions for project: ${projectInfo.name}`
     )
@@ -80,19 +81,21 @@ class ExtensionHost {
           configuration: this.createConfigurationAPI(),
           utils: this.createUtilsAPI(),
           extensionPath: `/extensions/${id}`,
-          subscribe: (disposable: Disposable) => {
+          subscribe: (_disposable: Disposable) => {
             // 将 disposable 添加到订阅列表，扩展停用时自动清理
           },
         }
 
         const api = await module.activate(context)
         this.activatedExtensions.set(id, api)
+        // eslint-disable-next-line no-console
         console.log(`[ExtensionHost] ✅ Activated: ${id}`)
       } catch (error) {
         console.error(`[ExtensionHost] ❌ Failed to activate ${id}:`, error)
       }
     }
 
+    // eslint-disable-next-line no-console
     console.log(
       `[ExtensionHost] Successfully activated ${this.activatedExtensions.size}/${extensions.length} extensions`
     )
@@ -102,6 +105,7 @@ class ExtensionHost {
    * 停用所有扩展
    */
   async deactivateExtensions(): Promise<void> {
+    // eslint-disable-next-line no-console
     console.log(`[ExtensionHost] Deactivating ${this.activatedExtensions.size} extensions`)
 
     for (const [id, api] of this.activatedExtensions) {
@@ -109,6 +113,7 @@ class ExtensionHost {
         if (api.dispose) {
           api.dispose()
         }
+        // eslint-disable-next-line no-console
         console.log(`[ExtensionHost] ✅ Deactivated: ${id}`)
       } catch (error) {
         console.error(`[ExtensionHost] ❌ Failed to deactivate ${id}:`, error)
@@ -116,6 +121,7 @@ class ExtensionHost {
     }
 
     this.activatedExtensions.clear()
+    // eslint-disable-next-line no-console
     console.log('[ExtensionHost] All extensions deactivated')
   }
 
@@ -156,6 +162,7 @@ class ExtensionHost {
         return undefined
       },
       async openFile(_path: string): Promise<void> {
+        // eslint-disable-next-line no-console
         console.log('[WorkspaceAPI] openFile not implemented')
       },
     }
@@ -170,20 +177,24 @@ class ExtensionHost {
     return {
       registerConnectionProvider(provider: { driverId: string }): Disposable {
         connectionProviders.set(provider.driverId, provider)
+        // eslint-disable-next-line no-console
         console.log(`[DatabaseAPI] Registered connection provider: ${provider.driverId}`)
 
         return {
           dispose: () => {
             connectionProviders.delete(provider.driverId)
+            // eslint-disable-next-line no-console
             console.log(`[DatabaseAPI] Unregistered connection provider: ${provider.driverId}`)
           },
         }
       },
       async executeQuery(_connId: string, _sql: string): Promise<unknown> {
+        // eslint-disable-next-line no-console
         console.log('[DatabaseAPI] executeQuery not implemented')
         return null
       },
       getConnection(_connId: string): unknown {
+        // eslint-disable-next-line no-console
         console.log('[DatabaseAPI] getConnection not implemented')
         return null
       },
@@ -199,9 +210,11 @@ class ExtensionHost {
   private createSqlEditorAPI() {
     return {
       async openEditor(_connId?: string): Promise<void> {
+        // eslint-disable-next-line no-console
         console.log('[SqlEditorAPI] openEditor not implemented')
       },
       getCurrentEditor(): unknown {
+        // eslint-disable-next-line no-console
         console.log('[SqlEditorAPI] getCurrentEditor not implemented')
         return null
       },
@@ -267,6 +280,7 @@ export function createPluginContext(
     extensionPath,
 
     logging: {
+      // eslint-disable-next-line no-console
       info: (msg, data) => console.info(`[Plugin:${pluginId}]`, msg, data ?? ''),
       warn: (msg, data) => console.warn(`[Plugin:${pluginId}]`, msg, data ?? ''),
       error: (msg, data) => console.error(`[Plugin:${pluginId}]`, msg, data ?? ''),

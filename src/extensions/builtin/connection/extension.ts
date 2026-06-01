@@ -92,17 +92,17 @@ const activate = (context: ExtensionContext): ConnectionExtensionAPI => {
   }
 
   const disposables: Disposable[] = [
-    context.commands.registerCommand('connection.getConnections', (...args: unknown[]) =>
+    context.commands.registerCommand('connection.getConnections', (..._args: unknown[]) =>
       getConnections()
     ),
-    context.commands.registerCommand('connection.createConnection', (...args: unknown[]) =>
-      createConnection(args[0] as ConnectDatabaseInput)
+    context.commands.registerCommand('connection.createConnection', (..._args: unknown[]) =>
+      createConnection(_args[0] as ConnectDatabaseInput)
     ),
-    context.commands.registerCommand('connection.testConnection', (...args: unknown[]) =>
-      testConnection(args[0] as string, args[1] as string)
+    context.commands.registerCommand('connection.testConnection', (..._args: unknown[]) =>
+      testConnection(_args[0] as string, _args[1] as string)
     ),
-    context.commands.registerCommand('connection.disconnect', (...args: unknown[]) =>
-      disconnectConnection(args[0] as string)
+    context.commands.registerCommand('connection.disconnect', (..._args: unknown[]) =>
+      disconnectConnection(_args[0] as string)
     ),
   ]
 

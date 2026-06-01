@@ -91,9 +91,11 @@ import {
 } from 'lucide-vue-next'
 import { ref, computed, onMounted } from 'vue'
 
+
 import { useFavorites } from '../composables/use-favorites'
 
 import type { IFavoriteItem } from '../composables/use-favorites'
+import type { Component } from 'vue'
 
 const favorites = useFavorites()
 
@@ -115,7 +117,7 @@ const filteredFavorites = computed(() => {
 const stats = computed(() => favorites.getStats())
 
 function getNodeIcon(type: string) {
-  const iconMap: Record<string, any> = {
+  const iconMap: Record<string, Component> = {
     table: Table,
     view: FileText,
     database: Database,
@@ -133,8 +135,10 @@ function handleDragStart(item: IFavoriteItem, event: DragEvent) {
     schemaName: item.schemaName,
     objectName: item.objectName,
   }
-  event.dataTransfer!.setData('application/x-rdatastation-favorite', JSON.stringify(dragData))
-  event.dataTransfer!.effectAllowed = 'copy'
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('application/x-rdatastation-favorite', JSON.stringify(dragData))
+    event.dataTransfer.effectAllowed = 'copy'
+  }
 }
 
 function handleOpen(item: IFavoriteItem) {
@@ -218,18 +222,33 @@ const contextMenuItems = computed(() => {
       id: 'open',
       label: '打开',
       icon: Table,
-      action: () => handleOpen(contextMenu.value.item!),
+      action: () => {
+        if (contextMenu.value.item) {
+          handleOpen(contextMenu.value.item)
+        }
+      },
     },
     {
       id: 'remove',
       label: '移除收藏',
       icon: X,
-      action: () => handleRemove(contextMenu.value.item!.key),
+      action: () => {
+        if (contextMenu.value.item) {
+          handleRemove(contextMenu.value.item.key)
+        }
+      },
     },
   ]
 })
 
-function handleMenuItemClick(menuItem: any) {
+interface MenuItem {
+  id: string
+  label: string
+  icon: Component
+  action: () => void
+}
+
+function handleMenuItemClick(menuItem: MenuItem) {
   menuItem.action?.()
   contextMenu.value.visible = false
 }

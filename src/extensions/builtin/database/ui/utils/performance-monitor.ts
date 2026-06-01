@@ -119,12 +119,18 @@ export class PerformanceMonitor {
    */
   logReport(): void {
     const metrics = this.getMetrics()
-    console.log('=== Database Navigator Performance Report ===')
-    console.log(`Node Load Time: ${metrics.nodeLoadTime.toFixed(2)}ms`)
-    console.log(`Render Time: ${metrics.renderTime.toFixed(2)}ms`)
-    console.log(`Request Count: ${metrics.requestCount}`)
-    console.log(`Cache Hit Rate: ${metrics.cacheHitRate.toFixed(1)}%`)
-    console.log('============================================')
+    // eslint-disable-next-line no-console
+    console.debug('=== Database Navigator Performance Report ===')
+    // eslint-disable-next-line no-console
+    console.debug(`Node Load Time: ${metrics.nodeLoadTime.toFixed(2)}ms`)
+    // eslint-disable-next-line no-console
+    console.debug(`Render Time: ${metrics.renderTime.toFixed(2)}ms`)
+    // eslint-disable-next-line no-console
+    console.debug(`Request Count: ${metrics.requestCount}`)
+    // eslint-disable-next-line no-console
+    console.debug(`Cache Hit Rate: ${metrics.cacheHitRate.toFixed(1)}%`)
+    // eslint-disable-next-line no-console
+    console.debug('============================================')
   }
 }
 

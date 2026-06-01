@@ -101,5 +101,5 @@ module.exports = {
       },
     },
   ],
-  ignorePatterns: ['dist', 'node_modules', '*.d.ts', 'src-tauri', '*.history.vue'],
+  ignorePatterns: ['dist', 'node_modules', '*.d.ts', 'src-tauri', '*.history.vue', 'src/generated'],
 }

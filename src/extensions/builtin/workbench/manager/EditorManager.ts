@@ -456,7 +456,7 @@ export const EditorManager = {
   destroy(): void {
     window.removeEventListener('keydown', onKeydown)
     const { saveSnapshot } = useEditorRecovery()
-    for (const [id, inst] of editorInstances) {
+    for (const [_id, inst] of editorInstances) {
       try {
         const stateJSON = inst.view.state.toJSON() as unknown as CodeMirrorStateJSON
         const info = openFiles.value.get(inst.filePath)
@@ -505,6 +505,7 @@ export const EditorManager = {
     if (openFiles.value.has(params.filePath)) {
       EditorManager.switchToFile(params.filePath)
       if (EditorManager.isFileOpenElsewhere(params.filePath)) {
+        // eslint-disable-next-line no-console
         console.debug(`[EditorManager] File already open in another group: ${params.filePath}`)
       }
       return

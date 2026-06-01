@@ -32,7 +32,8 @@ interface QueryHistoryItem {
 }
 
 const activate = (context: ExtensionContext): QueryExtensionAPI => {
-  console.log('[Query] Activating for project:', context.project.name)
+  // eslint-disable-next-line no-console
+  console.debug('[Query] Activating for project:', context.project.name)
 
   const activeQueries = new Map<string, AbortController>()
 
@@ -114,7 +115,7 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
     context.commands.registerCommand('query.cancel', (...args: unknown[]) =>
       cancel(args[0] as string)
     ),
-    context.commands.registerCommand('query.history', (...args: unknown[]) => getHistory()),
+    context.commands.registerCommand('query.history', (..._args: unknown[]) => getHistory()),
   ]
 
   return {
@@ -144,7 +145,8 @@ const activate = (context: ExtensionContext): QueryExtensionAPI => {
 }
 
 const deactivate = (): void => {
-  console.log('[Query] Deactivated')
+  // eslint-disable-next-line no-console
+  console.debug('[Query] Deactivated')
 }
 
 const extension: ExtensionModule = {

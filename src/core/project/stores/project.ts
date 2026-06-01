@@ -15,6 +15,7 @@ const DEBUG_PROJECT_STORE = false
 
 function debugLog(...args: unknown[]): void {
   if (DEBUG_PROJECT_STORE) {
+    // eslint-disable-next-line no-console
     console.log(...args)
   }
 }
@@ -132,7 +133,7 @@ export const useProjectStore = defineStore('project', () => {
   /**
    * 通用的项目打开逻辑
    */
-  async function openProjectInternal(openFn: () => Promise<any>): Promise<Project | null> {
+  async function openProjectInternal(openFn: () => Promise<unknown>): Promise<Project | null> {
     loading.value = true
     error.value = null
 

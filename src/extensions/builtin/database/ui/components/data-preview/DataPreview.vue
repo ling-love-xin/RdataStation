@@ -58,6 +58,12 @@ import PreviewPagination from './PreviewPagination.vue'
 import PreviewTable from './PreviewTable.vue'
 import PreviewToolbar from './PreviewToolbar.vue'
 
+interface QueryResult {
+  columns: Array<{ name: string; dataType: string }>
+  rows: Record<string, unknown>[]
+  rowCount?: number
+}
+
 interface Props {
   connectionId: string
   schemaName: string
@@ -103,7 +109,7 @@ async function loadData() {
 
     sql += ` LIMIT ${pageSize.value} OFFSET ${offset};`
 
-    const result = await invoke<any>('execute_query', {
+    const result = await invoke<QueryResult>('execute_query', {
       connectionId: props.connectionId,
       sql,
     })

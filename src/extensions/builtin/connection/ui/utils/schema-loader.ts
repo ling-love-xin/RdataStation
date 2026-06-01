@@ -5,8 +5,9 @@ export { generateDefaultFormData, validateFormData } from '../types/form-schema'
 const schemaCache = new Map<string, DriverFormSchema>()
 
 export async function loadDriverSchema(driverId: string): Promise<DriverFormSchema | null> {
-  if (schemaCache.has(driverId)) {
-    return schemaCache.get(driverId)!
+  const cached = schemaCache.get(driverId)
+  if (cached) {
+    return cached
   }
 
   const idsToTry = [driverId]

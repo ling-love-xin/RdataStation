@@ -27,7 +27,8 @@ export function getVueApp(): App | null {
  */
 export function registerGlobalComponent(name: string, component: unknown): void {
   if (vueAppInstance) {
-    vueAppInstance.component(name, component as any)
+    vueAppInstance.component(name, component as Parameters<typeof vueAppInstance.component>[1])
+    // eslint-disable-next-line no-console
     console.log(`[VueAppManager] Registered global component: ${name}`)
   } else {
     console.warn('[VueAppManager] Vue app instance not set, cannot register component:', name)

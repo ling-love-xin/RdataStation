@@ -264,6 +264,7 @@ const togglePin = () => {
 }
 
 // 图标映射
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const iconMap: Record<string, any> = {
   Play,
   Square,
@@ -434,6 +435,7 @@ const toolButtons = [
 
 // 处理按钮点击
 const handleClick = (action: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit(action as any)
 }
 </script>

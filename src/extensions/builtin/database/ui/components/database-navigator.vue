@@ -201,8 +201,8 @@ const groupManager = useGroupManager()
 const adjacentPreload = useAdjacentPreload()
 const connectionHandler = useConnectionHandler()
 const contextMenuActions = useContextMenuActions()
-const incrementalRefresh = useIncrementalRefresh()
-const favorites = useFavorites()
+const _incrementalRefresh = useIncrementalRefresh()
+const _favorites = useFavorites()
 const connectionStatusSync = useConnectionStatusSync()
 const dragDrop = useDragDrop()
 
@@ -256,12 +256,12 @@ function handleVirtualTreeToggle(node: VirtualTreeNode) {
 
 const {
   flatNodes: virtualTreeNodes,
-  selectedKey: virtualSelectedKey,
+  selectedKey: _virtualSelectedKey,
   setRootNodes,
   toggleNode,
   selectNode,
   clearConnection,
-  clearAll,
+  _clearAll,
 } = useVirtualTree({
   onLoadChildren: async (node: VirtualTreeNode) => handleVirtualTreeLoadChildrenRef.value(node),
   onSelect: (node: VirtualTreeNode) => handleVirtualTreeSelectRef.value(node),
@@ -563,7 +563,7 @@ function openCreateGroupDialog() {
   showGroupDialog.value = true
 }
 
-function openEditGroupDialog(groupId: string) {
+function _openEditGroupDialog(groupId: string) {
   isEditGroup.value = true
   editingGroupId.value = groupId
   showGroupDialog.value = true
@@ -600,7 +600,7 @@ function handleGroupSubmit(data: { name: string; description?: string; color?: s
   closeGroupDialog()
 }
 
-function handleDeleteGroup(groupId: string) {
+function _handleDeleteGroup(groupId: string) {
   groupManager.deleteGroup(groupId)
 }
 
@@ -707,7 +707,9 @@ function handleNodeDragStart(node: VirtualTreeNode, event: DragEvent) {
   }
 
   dragDrop.handleDragStart(node, event)
-  event.dataTransfer!.effectAllowed = 'copy'
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'copy'
+  }
 }
 
 function handleNodeDragEnd() {
@@ -742,7 +744,7 @@ function cleanupDragDropListeners() {
 
 function handleOpenCreateTable(event: Event) {
   const detail = (event as CustomEvent).detail
-  const { connectionId, dbName, schemaName } = detail
+  const { connectionId, dbName, schemaName: _schemaName } = detail
   if (!connectionId || !dbName) return
 
   dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
@@ -821,7 +823,7 @@ function handleOpenTableDdl(event: Event) {
 }
 
 function handleOpenConnectionEditor(event: Event) {
-  const detail = (event as CustomEvent).detail
+  const _detail = (event as CustomEvent).detail
   dispatchWorkbenchEvent(WorkbenchEvent.NewConnection)
 }
 
@@ -836,7 +838,7 @@ function handleShowConstraintProperties(event: Event) {
 }
 
 // 键盘快捷键 - 必须在所有函数定义之后初始化
-const keyboardShortcuts = useKeyboardShortcuts({
+const _keyboardShortcuts = useKeyboardShortcuts({
   onNewConnection: handleNewConnection,
   onDisconnect: handleDisconnect,
   onRefresh: handleRefresh,
@@ -846,7 +848,7 @@ const keyboardShortcuts = useKeyboardShortcuts({
   onRollbackTransaction: handleRollbackTransaction,
 })
 
-const handleContextMenuRefresh = async () => {
+const _handleContextMenuRefresh = async () => {
   if (contextMenuCurrentNode.value?.data?.connectionId) {
     const connId = contextMenuCurrentNode.value.data.connectionId as string
     clearConnection(connId)
@@ -855,7 +857,7 @@ const handleContextMenuRefresh = async () => {
   }
 }
 
-const handleContextMenuCopyName = () => {
+const _handleContextMenuCopyName = () => {
   const node = contextMenuCurrentNode.value
   if (!node) return
 
@@ -865,7 +867,7 @@ const handleContextMenuCopyName = () => {
   })
 }
 
-const handleContextMenuOpenTable = () => {
+const _handleContextMenuOpenTable = () => {
   const node = contextMenuCurrentNode.value
   if (!node || node.type !== 'table') return
 
@@ -875,7 +877,7 @@ const handleContextMenuOpenTable = () => {
   }
 }
 
-const handleContextMenuOpenView = () => {
+const _handleContextMenuOpenView = () => {
   const node = contextMenuCurrentNode.value
   if (!node || node.type !== 'view') return
 
@@ -885,7 +887,7 @@ const handleContextMenuOpenView = () => {
   }
 }
 
-const handleExpandAll = async () => {
+const _handleExpandAll = async () => {
   if (!virtualTreeRef.value) return
 
   const allNodes = virtualTreeNodes.value
@@ -896,7 +898,7 @@ const handleExpandAll = async () => {
   }
 }
 
-const handleCollapseAll = async () => {
+const _handleCollapseAll = async () => {
   if (!virtualTreeRef.value) return
 
   const allNodes = [...virtualTreeNodes.value]
@@ -907,7 +909,7 @@ const handleCollapseAll = async () => {
   }
 }
 
-const handleContextMenuRefreshSchema = async () => {
+const _handleContextMenuRefreshSchema = async () => {
   const node = contextMenuCurrentNode.value
   if (!node?.data) return
 
@@ -923,7 +925,7 @@ const handleContextMenuRefreshSchema = async () => {
   initializeRootNodes()
 }
 
-const handleContextMenuRefreshDatabase = async () => {
+const _handleContextMenuRefreshDatabase = async () => {
   const node = contextMenuCurrentNode.value
   if (!node?.data?.connectionId) return
 

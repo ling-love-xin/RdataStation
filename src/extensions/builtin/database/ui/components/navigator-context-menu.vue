@@ -28,10 +28,12 @@
 import { RefreshCw, Copy, Table, Eye, FolderPlus, FolderMinus } from 'lucide-vue-next'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
+import type { Component } from 'vue'
+
 interface MenuItem {
   key: string
   label: string
-  icon: any
+  icon: Component
   action: () => void
   visible?: boolean
   disabled?: boolean
@@ -174,7 +176,7 @@ function handleItemClick(item: MenuItem) {
   }
 }
 
-function handleClickOutside(event: MouseEvent) {
+function handleClickOutside(_event: MouseEvent) {
   hide()
 }
 

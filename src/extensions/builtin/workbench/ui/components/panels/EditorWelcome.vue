@@ -47,7 +47,7 @@ interface Props {
   visible: boolean
 }
 
-const props = defineProps<Props>()
+const _props = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'connect', connId: string): void

@@ -148,7 +148,8 @@ class CacheVersionManager {
           if (strategy.canRollback && strategy.rollback) {
             try {
               await strategy.rollback(connectionId)
-              console.log(`已回滚到版本 ${version - 1}`)
+              // eslint-disable-next-line no-console
+          console.log(`已回滚到版本 ${version - 1}`)
             } catch (rollbackError) {
               console.error(`回滚失败:`, rollbackError)
             }

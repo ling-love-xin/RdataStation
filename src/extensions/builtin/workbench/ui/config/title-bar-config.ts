@@ -13,8 +13,8 @@ import type { MenuConfig, ToolbarTool } from '../components/title-bar/title-bar-
  */
 export function createMenuConfig(
   t: (key: string) => string,
-  handleOpenProject: () => void,
-  handleOpenCommandPalette: () => void
+  _handleOpenProject: () => void,
+  _handleOpenCommandPalette: () => void
 ): MenuConfig[] {
   return [
     {
