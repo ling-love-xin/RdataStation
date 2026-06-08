@@ -856,7 +856,7 @@ const _keyboardShortcuts = useKeyboardShortcuts({
 
 const _handleContextMenuRefresh = async () => {
   if (contextMenuCurrentNode.value?.data?.connectionId) {
-    const connId = contextMenuCurrentNode.value.data.connectionId as string
+    const connId = contextMenuCurrentNode.value?.data.connectionId
     clearConnection(connId)
     await navigatorStore.loadCatalogs(connId)
     initializeRootNodes()
@@ -935,7 +935,8 @@ const _handleContextMenuRefreshDatabase = async () => {
   const node = contextMenuCurrentNode.value
   if (!node?.data?.connectionId) return
 
-  const connId = node.data.connectionId as string
+  const connId = node.data.connectionId
+  if (!connId) return
   clearConnectionNavigatorState(connId)
   clearConnection(connId)
   await navigatorStore.refreshMetadata(connId)
@@ -1088,8 +1089,9 @@ function saveAllNavigatorStates(): void {
   try {
     const connIds = new Set<string>()
     for (const node of virtualTreeNodes.value) {
-      if (node.data?.connectionId) {
-        connIds.add(node.data.connectionId as string)
+      const connId = node.data?.connectionId
+      if (connId) {
+        connIds.add(connId)
       }
     }
     for (const connId of connIds) {

@@ -441,32 +441,47 @@ interface ConfigSchemaField {
   options?: Array<{ label: string; value: unknown }>
 }
 
-/** config_schema 为空时的降级基础字段 */
-const FALLBACK_CONNECTION_FIELDS: ConfigSchemaField[] = [
-  { key: 'host', label: '主机', type: 'string', required: true, placeholder: '请输入主机地址', defaultValue: 'localhost', order: 1 },
-  { key: 'port', label: '端口', type: 'integer', required: true, placeholder: '请输入端口号', defaultValue: 3306, order: 2 },
-  { key: 'database', label: '数据库', type: 'string', required: true, placeholder: '请输入数据库名', defaultValue: '', order: 3 },
-  { key: 'username', label: '用户名', type: 'string', required: false, placeholder: 'root', defaultValue: 'root', order: 4 },
-  { key: 'password', label: '密码', type: 'string', required: false, placeholder: '****', defaultValue: '', order: 5, format: 'password' },
-]
+/** config_schema 为空时根据 driver_kind 返回不同的降级字段 */
+function getDefaultFields(driverKind?: string): ConfigSchemaField[] {
+  switch (driverKind) {
+    case 'http':
+      return [
+        { key: 'url', label: 'URL', type: 'string', required: true, order: 1, placeholder: 'https://api.example.com/v1', defaultValue: '' },
+        { key: 'headers', label: 'Headers', type: 'string', required: false, order: 2, placeholder: '{"Authorization": "Bearer ..."}', defaultValue: '' },
+      ]
+    case 'wasm':
+      return [
+        { key: 'wasmPath', label: 'WASM 路径', type: 'string', required: true, order: 1, placeholder: '', defaultValue: '' },
+      ]
+    default:
+      return [
+        { key: 'host', label: '主机', type: 'string', required: true, placeholder: '请输入主机地址', defaultValue: 'localhost', order: 1 },
+        { key: 'port', label: '端口', type: 'integer', required: true, placeholder: '请输入端口号', defaultValue: 3306, order: 2 },
+        { key: 'database', label: '数据库', type: 'string', required: false, placeholder: '请输入数据库名', defaultValue: '', order: 3 },
+        { key: 'username', label: '用户名', type: 'string', required: false, placeholder: 'root', defaultValue: 'root', order: 4 },
+        { key: 'password', label: '密码', type: 'string', required: false, placeholder: '****', defaultValue: '', order: 5, format: 'password' },
+      ]
+  }
+}
 
 /**
  * 解析 driver.config_schema (JSON Schema 字符串) → 表单字段列表
- * 按 order 排序；解析失败时返回降级基础字段
+ * 按 order 排序；解析失败时根据 driverKind 返回降级基础字段
  */
-function parseConfigSchema(schema: string): ConfigSchemaField[] {
-  if (!schema) return FALLBACK_CONNECTION_FIELDS
+function parseConfigSchema(schema: string, driverKind?: string): ConfigSchemaField[] {
+  const fallback = getDefaultFields(driverKind)
+  if (!schema) return fallback
 
   let parsed: Record<string, unknown>
   try {
     parsed = JSON.parse(schema) as Record<string, unknown>
   } catch {
     console.warn('[GeneralTab] config_schema JSON 解析失败，使用降级字段')
-    return FALLBACK_CONNECTION_FIELDS
+    return fallback
   }
 
   if (parsed.type !== 'object' || !parsed.properties) {
-    return FALLBACK_CONNECTION_FIELDS
+    return fallback
   }
 
   const propsMap = parsed.properties as Record<string, Record<string, unknown>>
@@ -507,7 +522,7 @@ function parseConfigSchema(schema: string): ConfigSchemaField[] {
   // 按 order 排序
   fields.sort((a, b) => a.order - b.order)
 
-  return fields.length > 0 ? fields : FALLBACK_CONNECTION_FIELDS
+  return fields.length > 0 ? fields : fallback
 }
 
 // ==================== Local Form State ====================
@@ -638,7 +653,7 @@ const AUTH_MANAGED_KEYS = new Set([
 /** 从 config_schema 解析的全部字段（主 v-for 渲染） */
 const configSchemaFields = computed<ConfigSchemaField[]>(() => {
   const schema = props.driver?.config_schema
-  const allFields = parseConfigSchema(schema || '')
+  const allFields = parseConfigSchema(schema || '', props.driver?.driver_kind)
   // 过滤掉认证管理区独立处理的字段
   return allFields.filter(f => !AUTH_MANAGED_KEYS.has(f.key))
 })

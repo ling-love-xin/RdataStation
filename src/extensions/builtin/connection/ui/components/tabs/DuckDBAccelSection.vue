@@ -1,5 +1,5 @@
 <template>
-  <div :class="['accel-card', { on: enabled }]">
+  <div v-if="isDuckDBSupported" :class="['accel-card', { on: enabled }]">
     <div class="accel-row">
       <span class="accel-icon">🦆</span>
       <div class="accel-body">
@@ -67,10 +67,11 @@
 
 <script setup lang="ts">
 import { NSelect, NInputNumber, NSwitch } from 'naive-ui'
+import { computed } from 'vue'
 
 import type { SelectOption } from 'naive-ui'
 
-defineProps<{
+const props = defineProps<{
   enabled: boolean
   sync: string
   interval: number
@@ -83,7 +84,15 @@ defineProps<{
   intervalLabel: string
   memoryLabel: string
   threadsLabel: string
+  driverId?: string
 }>()
+
+const isDuckDBSupported = computed(() => {
+  const driverId = (props.driverId || '').toLowerCase()
+  return ['mysql', 'postgresql', 'postgres', 'sqlite', 'duckdb'].some(id =>
+    driverId.includes(id)
+  )
+})
 
 defineEmits<{
   'update:enabled': [value: boolean]

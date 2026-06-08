@@ -3,6 +3,8 @@
  *
  * 提供搜索表/视图并定位到树节点的功能
  * 从 DatabaseNavigator.vue 中提取，实现业务逻辑与 UI 分离
+ *
+ * v2: 预建搜索索引（Map memorization），避免每次搜索 O(N) 遍历全部 catalogs/schemas/tables
  */
 
 import type { ProjectConnection } from '@/extensions/builtin/connection/ui/types/connection'
@@ -41,87 +43,152 @@ interface FilterConfig {
   showColumns: boolean
 }
 
-export function useDatabaseTreeSearch() {
-  const navigatorStore = useDatabaseNavigatorStore()
+/**
+ * 构建搜索索引：将所有表/视图展平为 Map<lowerName, SearchResult[]>
+ *
+ * 索引在每次 catalogs 更新时重建（惰性求值，O(E) 一次），
+ * 后续搜索变为 O(1) 查找 + O(M) 过滤（M = 匹配条目数）。
+ */
+function buildSearchIndex(
+  navigatorStore: ReturnType<typeof useDatabaseNavigatorStore>,
+  globalConnections: GlobalConnection[],
+  projectConnections: ProjectConnection[],
+  filterConfig: FilterConfig,
+): Map<string, SearchResult[]> {
+  const index = new Map<string, SearchResult[]>()
+  const allConnections = [...globalConnections, ...projectConnections]
 
-  /**
-   * 搜索表/视图
-   */
-  function searchTables(
-    query: string,
-    filterConfig: FilterConfig,
-    globalConnections: GlobalConnection[],
-    projectConnections: ProjectConnection[]
-  ): SearchResult[] {
-    if (!query || query.trim().length === 0) return []
+  for (const conn of allConnections) {
+    const catalogs = navigatorStore.getCatalogs(conn.id)
 
-    const lowerQuery = query.toLowerCase()
-    const results: SearchResult[] = []
+    for (const cat of catalogs) {
+      if (!cat.schemas) continue
 
-    const allConnections = [...globalConnections, ...projectConnections]
+      for (const schema of cat.schemas) {
+        if (
+          !filterConfig.showSystemSchemas &&
+          (schema.name === 'information_schema' || schema.name === 'pg_catalog')
+        ) {
+          continue
+        }
 
-    for (const conn of allConnections) {
-      const catalogs = navigatorStore.getCatalogs(conn.id)
-
-      for (const cat of catalogs) {
-        if (!cat.schemas) continue
-
-        for (const schema of cat.schemas) {
-          if (
-            !filterConfig.showSystemSchemas &&
-            (schema.name === 'information_schema' || schema.name === 'pg_catalog')
-          ) {
-            continue
-          }
-
-          if (filterConfig.showTables && schema.tables) {
-            for (const table of schema.tables) {
-              if (table.name.toLowerCase().includes(lowerQuery)) {
-                const tableKey = NodeKeyEncoder.encode([
-                  'table',
-                  conn.id,
-                  cat.name,
-                  schema.name,
-                  table.name,
-                ])
-                results.push({
-                  nodeKey: tableKey,
-                  tableName: table.name,
-                  path: `${conn.name} / ${cat.name} / ${schema.name} / ${table.name}`,
-                  connectionId: conn.id,
-                  dbName: cat.name,
-                  schemaName: schema.name,
-                })
-              }
+        if (filterConfig.showTables && schema.tables) {
+          for (const table of schema.tables) {
+            const key = table.name.toLowerCase()
+            const tableKey = NodeKeyEncoder.encode([
+              'table',
+              conn.id,
+              cat.name,
+              schema.name,
+              table.name,
+            ])
+            const entry: SearchResult = {
+              nodeKey: tableKey,
+              tableName: table.name,
+              path: `${conn.name} / ${cat.name} / ${schema.name} / ${table.name}`,
+              connectionId: conn.id,
+              dbName: cat.name,
+              schemaName: schema.name,
+            }
+            const existing = index.get(key)
+            if (existing) {
+              existing.push(entry)
+            } else {
+              index.set(key, [entry])
             }
           }
+        }
 
-          if (filterConfig.showViews && schema.views) {
-            for (const view of schema.views) {
-              if (view.name.toLowerCase().includes(lowerQuery)) {
-                const viewKey = NodeKeyEncoder.encode([
-                  'view',
-                  conn.id,
-                  cat.name,
-                  schema.name,
-                  view.name,
-                ])
-                results.push({
-                  nodeKey: viewKey,
-                  tableName: view.name,
-                  path: `${conn.name} / ${cat.name} / ${schema.name} / ${view.name} (视图)`,
-                  connectionId: conn.id,
-                  dbName: cat.name,
-                  schemaName: schema.name,
-                })
-              }
+        if (filterConfig.showViews && schema.views) {
+          for (const view of schema.views) {
+            const key = view.name.toLowerCase()
+            const viewKey = NodeKeyEncoder.encode([
+              'view',
+              conn.id,
+              cat.name,
+              schema.name,
+              view.name,
+            ])
+            const entry: SearchResult = {
+              nodeKey: viewKey,
+              tableName: view.name,
+              path: `${conn.name} / ${cat.name} / ${schema.name} / ${view.name} (视图)`,
+              connectionId: conn.id,
+              dbName: cat.name,
+              schemaName: schema.name,
+            }
+            const existing = index.get(key)
+            if (existing) {
+              existing.push(entry)
+            } else {
+              index.set(key, [entry])
             }
           }
         }
       }
     }
+  }
 
-    return results.slice(0, 50)
+  return index
+}
+
+export function useDatabaseTreeSearch() {
+  const navigatorStore = useDatabaseNavigatorStore()
+
+  /**
+   * 搜索表/视图 — 使用预建索引 O(1) 查找
+   *
+   * @param query 搜索关键词
+   * @param filterConfig 过滤配置
+   * @param globalConnections 全局连接列表
+   * @param projectConnections 项目连接列表
+   * @param prebuiltIndex 可选的预建索引（由外部提供，避免重复构建）
+   */
+  function searchTables(
+    query: string,
+    filterConfig: FilterConfig,
+    globalConnections: GlobalConnection[],
+    projectConnections: ProjectConnection[],
+    prebuiltIndex?: Map<string, SearchResult[]>,
+  ): SearchResult[] {
+    if (!query || query.trim().length === 0) return []
+
+    const lowerQuery = query.toLowerCase()
+
+    // 使用预建索引或临时构建
+    const index =
+      prebuiltIndex ??
+      buildSearchIndex(navigatorStore, globalConnections, projectConnections, filterConfig)
+
+    // O(1) 精确匹配
+    const exactMatch = index.get(lowerQuery)
+    if (exactMatch && exactMatch.length > 0) {
+      return exactMatch.slice(0, 50)
+    }
+
+    // 回退：模糊匹配（前缀/包含）
+    const results: SearchResult[] = []
+    for (const [name, entries] of index) {
+      if (name.includes(lowerQuery)) {
+        for (const entry of entries) {
+          results.push(entry)
+          if (results.length >= 50) return results
+        }
+      }
+    }
+
+    return results
+  }
+
+  /**
+   * 构建搜索索引（供外部缓存并复用）
+   */
+  function createSearchIndex(
+    globalConnections: GlobalConnection[],
+    projectConnections: ProjectConnection[],
+    filterConfig: FilterConfig,
+  ): Map<string, SearchResult[]> {
+    return buildSearchIndex(navigatorStore, globalConnections, projectConnections, filterConfig)
   }
 
   /**
@@ -131,7 +198,7 @@ export function useDatabaseTreeSearch() {
     connectionId: string,
     dbName: string,
     schemaName: string,
-    nodes: VirtualTreeNode[]
+    nodes: VirtualTreeNode[],
   ): VirtualTreeNode[] {
     const path: VirtualTreeNode[] = []
 
@@ -163,6 +230,7 @@ export function useDatabaseTreeSearch() {
 
   return {
     searchTables,
+    createSearchIndex,
     findNodePath,
   }
 }

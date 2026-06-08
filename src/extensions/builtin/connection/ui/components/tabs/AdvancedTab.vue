@@ -13,7 +13,7 @@
       />
 
       <!-- DuckDB acceleration -->
-      <div class="adv-sec">
+      <div v-if="showDuckDB" class="adv-sec">
         <div class="sec-title" style="color: var(--brand-warning)">
           ⚡ {{ $t('connection.advancedTab.localAccel') }} <span class="sec-sub">DuckDB</span>
         </div>
@@ -30,6 +30,7 @@
           :interval-label="$t('connection.advancedTab.syncInterval')"
           :memory-label="$t('connection.advancedTab.memoryLimit')"
           :threads-label="$t('connection.advancedTab.threads')"
+          :driver-id="props.driver?.id ?? ''"
         />
       </div>
 
@@ -57,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import EnvironmentSection from './advanced/EnvironmentSection.vue'
@@ -69,11 +70,18 @@ import type { Driver } from '../../../domain/types'
 
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   driver?: Driver | null
   formData?: Record<string, unknown>
   scope?: { global: boolean; project: boolean }
 }>()
+
+const showDuckDB = computed(() => {
+  const driverId = (props.driver?.id || '').toLowerCase()
+  return ['mysql', 'postgresql', 'postgres', 'sqlite', 'duckdb'].some(id =>
+    driverId.includes(id)
+  )
+})
 
 const emit = defineEmits<{
   'update:formData': [data: Record<string, unknown>]

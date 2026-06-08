@@ -5,6 +5,7 @@
  * 对应文档: docs/frontend/connection/add-datasource-frontend-plan.md (Phase 4-5)
  */
 
+import { useMessage } from 'naive-ui'
 import { v4 as uuidv4 } from 'uuid'
 import { reactive, ref, watch, onMounted } from 'vue'
 
@@ -38,7 +39,7 @@ export interface StagingItem {
   driverProperties?: string | null
   advancedOptions?: string | null
   environmentId?: string | null
-  scope?: 'global' | 'project'
+  scope?: 'global' | 'project' | 'both'
   description?: string
   schemaName?: string
   options?: string
@@ -291,6 +292,8 @@ function defaultPolicies(): EnvironmentPolicies {
 // ==================== Composable ====================
 
 export function useAddDataSource() {
+  const message = useMessage()
+
   // ========== 状态 ==========
   const headerData = reactive({
     name: '',
@@ -381,8 +384,13 @@ export function useAddDataSource() {
   }) {
     headerData.name = data.name ?? ''
     headerData.description = data.description ?? ''
-    scope.global = data.scope === 'global'
-    scope.project = data.scope === 'project'
+    if (data.scope === 'both') {
+      scope.global = true
+      scope.project = true
+    } else {
+      scope.global = data.scope === 'global'
+      scope.project = data.scope === 'project'
+    }
     generalData.host = data.host ?? ''
     generalData.port = data.port ?? 3306
     generalData.database = data.database ?? ''
@@ -628,8 +636,8 @@ export function useAddDataSource() {
         .replace('{host}', host || 'localhost')
         .replace('{port}', String(port || ''))
         .replace('{database}', database || '')
-        .replace('{username}', '')
-        .replace('{password}', '')
+        .replace('{username}', (formData.value.username as string) || '')
+        .replace('{password}', (formData.value.password as string) || '')
         .replace('{file_path}', database || '')
     }
     // Fallback for drivers without url_template
@@ -771,7 +779,7 @@ export function useAddDataSource() {
       driverProperties,
       advancedOptions,
       environmentId,
-      scope: scope.global ? 'global' : 'project',
+      scope: scope.global && scope.project ? 'both' : scope.global ? 'global' : 'project',
       description,
       schemaName,
       options,
@@ -790,8 +798,13 @@ export function useAddDataSource() {
     headerData.description = item.description || ''
     formData.value = item.formData ? { ...item.formData } : {}
     if (item.scope) {
-      scope.global = item.scope === 'global'
-      scope.project = item.scope === 'project'
+      if (item.scope === 'both') {
+        scope.global = true
+        scope.project = true
+      } else {
+        scope.global = item.scope === 'global'
+        scope.project = item.scope === 'project'
+      }
     }
     authConfigId.value = item.authConfigId ?? null
     authMethod.value = item.authMethod ?? 'password'
@@ -828,6 +841,7 @@ export function useAddDataSource() {
       localStorage.setItem(STAGING_STORAGE_KEY, JSON.stringify(stagingItems.value))
     } catch (e) {
       console.error('[Staging] 保存暂存项失败:', e)
+      message?.warning?.('暂存保存失败，请检查磁盘空间')
     }
   }
 
@@ -858,6 +872,10 @@ export function useAddDataSource() {
     metadataPath.value = null
     tags.value = null
     useDuckdbFed.value = null
+    formData.value = {}
+    protocolChain.value = getDefaultChain()
+    selectedEnvId.value = null
+    driverProps.value = {}
   }
 
   /**

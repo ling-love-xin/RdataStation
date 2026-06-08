@@ -4,7 +4,7 @@
 
 use crate::core::driver::connection::config::ConnectionMethod;
 use crate::core::driver::DriverConnectionConfig;
-use crate::core::error::CoreError;
+use crate::core::error::{CommonError, CoreError};
 use crate::core::services::connection_service::{
     parse_network_config_json, resolve_network_method, ConnectRequest,
 };
@@ -83,6 +83,20 @@ pub async fn connect_database(
 ) -> Result<ConnectDatabaseResponse, CoreError> {
     if input.url.is_empty() {
         return Err("Database URL cannot be empty".into());
+    }
+    if input.db_type.trim().is_empty() {
+        return Err(CoreError::common(CommonError::InvalidArgument {
+            param: "db_type".to_string(),
+            reason: "数据库类型不能为空".to_string(),
+        }));
+    }
+    if let Some(ref name) = input.name {
+        if name.trim().is_empty() {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "name".to_string(),
+                reason: "连接名称不能为空".to_string(),
+            }));
+        }
     }
 
     let manager = get_connection_manager().clone();

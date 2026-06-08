@@ -133,6 +133,18 @@
     :network-info="testNetworkInfo"
     @close="onTestModalClose"
   />
+  <!-- 关闭确认弹窗 -->
+  <NModal
+    v-model:show="showCloseConfirm"
+    preset="dialog"
+    :title="$t('navigator.unsavedChanges')"
+    positive-text="确定关闭"
+    :negative-text="$t('navigator.continueEditing')"
+    @positive-click="confirmClose"
+    @negative-click="cancelClose"
+  >
+    {{ $t('navigator.unsavedChangesHint') }}
+  </NModal>
 </template>
 
 <script setup lang="ts">
@@ -230,6 +242,9 @@ const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
 const editingConnId = ref<string | null>(null)
 const scopeChangedWarning = ref(false)
+
+// Close confirmation
+const showCloseConfirm = ref(false)
 
 // Extra config from child tabs (UI composition state — not in composable)
 const driverPropertiesExtra = ref<string | null>(null)
@@ -362,8 +377,13 @@ async function handleSelectStaging(i: number) {
   }
   formData.value = s.formData ? { ...s.formData } : {}
   if (s.scope) {
-    scope.global = s.scope === 'global'
-    scope.project = s.scope === 'project'
+    if (s.scope === 'both') {
+      scope.global = true
+      scope.project = true
+    } else {
+      scope.global = s.scope === 'global'
+      scope.project = s.scope === 'project'
+    }
   }
   networkConfigId.value = s.networkConfigId ?? null
   driverPropertiesExtra.value = s.driverProperties ?? null
@@ -600,11 +620,11 @@ function saveToStaging() {
     advancedOptions.value,
     selectedEnvId.value ?? null,
     headerData.description || undefined,
-    (formData.value.schema_name as string) || undefined,
-    (formData.value.options as string) || undefined,
-    (formData.value.metadata_path as string) || undefined,
-    (formData.value.tags as string) || undefined,
-    (formData.value.use_duckdb_fed as boolean) ?? false
+    schemaName.value || undefined,
+    options.value || undefined,
+    metadataPath.value || undefined,
+    tags.value || undefined,
+    useDuckdbFed.value ?? false
   )
 
   message.success(t('navigator.savedToStaging', { name }))
@@ -631,11 +651,11 @@ function syncCurrentToStaging() {
     advancedOptions.value,
     selectedEnvId.value ?? null,
     headerData.description || undefined,
-    (formData.value.schema_name as string) || undefined,
-    (formData.value.options as string) || undefined,
-    (formData.value.metadata_path as string) || undefined,
-    (formData.value.tags as string) || undefined,
-    (formData.value.use_duckdb_fed as boolean) ?? false
+    schemaName.value || undefined,
+    options.value || undefined,
+    metadataPath.value || undefined,
+    tags.value || undefined,
+    useDuckdbFed.value ?? false
   )
 }
 
@@ -762,17 +782,15 @@ async function handleCreateApply() {
 
     for (let idx = 0; idx < validItems.length; idx++) {
       const item = validItems[idx]
-      const originalIndex = stagingItems.value.findIndex(
-        (i, j) => i.id === item.id || (i.name === item.name && j === idx)
-      )
+      const originalIndex = stagingItems.value.findIndex(i => i.id === item.id)
 
       try {
         const driverName = item.driver || 'mysql'
         const url = item.url || ''
         const name = item.name
 
-        const shouldSaveGlobal = scope.global || item.scope === 'global'
-        const shouldSaveProject = scope.project || item.scope === 'project'
+        const shouldSaveGlobal = scope.global || item.scope === 'global' || item.scope === 'both'
+        const shouldSaveProject = scope.project || item.scope === 'project' || item.scope === 'both'
 
         let itemSuccess = false
 
@@ -834,8 +852,8 @@ async function handleCreateApply() {
                 driverName,
                 url,
                 name,
-                item.networkConfigId ?? null,
-                item.authConfigId ?? null,
+                snapshotNetId,
+                snapshotAuthId,
                 invoke
               )
             } catch (e) {
@@ -1118,7 +1136,21 @@ function resetAndClose() {
 }
 
 function handleClose() {
+  const hasChanges = stagingItems.value.some(item => !item.applied && item.name)
+  if (hasChanges) {
+    showCloseConfirm.value = true
+    return
+  }
   resetAndClose()
+}
+
+function confirmClose() {
+  showCloseConfirm.value = false
+  resetAndClose()
+}
+
+function cancelClose() {
+  showCloseConfirm.value = false
 }
 
 /** 从已有 ProjectConnection 初始化编辑表单 */

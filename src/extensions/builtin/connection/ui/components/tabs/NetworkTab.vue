@@ -1193,6 +1193,16 @@ onMounted(async () => {
 })
 
 watch(
+  () => props.scope?.project,
+  async (isProject) => {
+    if (isProject) {
+      const pp = await getProjectPath()
+      if (pp) await loadAllProject(pp)
+    }
+  }
+)
+
+watch(
   chain,
   () => {
     const enabledProfileIds = chain.value

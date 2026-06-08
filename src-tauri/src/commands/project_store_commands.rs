@@ -131,6 +131,28 @@ pub async fn create_project_connection(
 ) -> Result<ProjectConnectionResponse, CoreError> {
     let db_manager = get_db_manager(&input.project_path, state).await?;
 
+    // 输入校验
+    if input.name.trim().is_empty() {
+        return Err(CoreError::common(CommonError::InvalidArgument {
+            param: "name".to_string(),
+            reason: "连接名称不能为空".to_string(),
+        }));
+    }
+    if input.driver.trim().is_empty() {
+        return Err(CoreError::common(CommonError::InvalidArgument {
+            param: "driver".to_string(),
+            reason: "数据库驱动不能为空".to_string(),
+        }));
+    }
+    if let Some(port) = input.port {
+        if !(1..=65535).contains(&port) {
+            return Err(CoreError::common(CommonError::InvalidArgument {
+                param: "port".to_string(),
+                reason: format!("端口号 {} 不在 1-65535 范围内", port),
+            }));
+        }
+    }
+
     let now = chrono::Utc::now().to_rfc3339();
     let id = format!("project-{}-{}", input.driver, uuid::Uuid::new_v4());
 

@@ -381,3 +381,37 @@ useNetworkChain {
 ### Requirement: GeneralTab 旧 DriverField 表单系统
 **Reason**: 旧的 `DriverField[]` 类型和硬编码表单字段与 `config_schema` JSON Schema 驱动设计不一致。
 **Migration**: `GeneralTab.vue` 重写为 `config_schema` → JSON Schema 解析器 → 动态表单渲染。旧的 `DriverField`/`DriverOption` 类型保留向后兼容，但 `GeneralTab` 不再使用。
+
+## AUDIT FIX Requirements (2026-06-09)
+
+### Requirement: StagingItem scope SHALL support 'both'
+`StagingItem.scope` SHALL support `'global' | 'project' | 'both'` to preserve the user's intent when both checkboxes are selected. Recovery logic MUST set both `scope.global = true` and `scope.project = true` when scope is `'both'`.
+
+#### Scenario: User checks both global and project
+- **WHEN** user clicks "Save to Staging" with both `scope.global=true` and `scope.project=true`
+- **THEN** the resulting StagingItem has `scope: 'both'`
+- **AND** selecting this staging item restores both checkboxes to checked state
+
+### Requirement: saveToProject SHALL use snapshot IDs
+`handleCreateApply` SHALL pass `snapshotNetId` and `snapshotAuthId` (results from `snapshotIfNeeded`) to `saveToProject`, NOT the original `item.networkConfigId` / `item.authConfigId`.
+
+### Requirement: validate SHALL reject port/url/name on backend
+Backend connection creation commands SHALL validate:
+- `name` is non-empty
+- `url` is non-empty  
+- `port` is within 1-65535
+
+### Requirement: DuckDB acceleration SHALL only show for supported drivers
+`DuckDBAccelSection` SHALL only render when the driver is MySQL, PostgreSQL, SQLite, or DuckDB (drivers with DuckDB ATTACH extensions).
+
+### Requirement: handleClose SHALL confirm when staging has unapplied changes
+When staging items contain unapplied entries with names, `handleClose` SHALL show a confirmation modal before closing the dialog.
+
+### Requirement: saveToStaging SHALL use dedicated refs for advanced fields
+`saveToStaging()` and `syncCurrentToStaging()` SHALL read `schemaName`, `options`, `metadataPath`, `tags`, `useDuckdbFed` from the dedicated refs exported by `useAddDataSource`, not from `formData.value.schema_name` etc.
+
+### Requirement: addStaging SHALL fully reset form state
+`addStaging()` SHALL reset `formData`, `protocolChain`, `selectedEnvId`, and `driverProps` in addition to the already-reset auth/network/advanced fields.
+
+### Requirement: NetworkTab SHALL reload project configs when scope.project changes
+`NetworkTab.vue` SHALL watch `props.scope?.project` and reload project network configs when it becomes true after initial mount.

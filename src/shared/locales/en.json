@@ -912,7 +912,10 @@
     "directConnect": "Direct",
     "none": "None",
     "configured": "Configured",
-    "proxy": "Proxy"
+    "proxy": "Proxy",
+    "unsavedChanges": "Unsaved Changes",
+    "unsavedChangesHint": "You have unapplied staging items. Closing will lose these changes. Are you sure you want to close?",
+    "continueEditing": "Continue Editing"
   },
   "workbench": {
     "pin": "Pin",
