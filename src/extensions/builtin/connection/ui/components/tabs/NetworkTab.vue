@@ -655,7 +655,7 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 import { Database } from 'lucide-vue-next'
-import { NButton, NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
+import { NButton, NInput, NInputNumber, NSelect, NSwitch, useMessage } from 'naive-ui'
 import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -691,6 +691,7 @@ const {
   getProjectPath,
 } = useNetworkProfiles()
 const { t } = useI18n()
+const message = useMessage()
 
 // ===== Network profile bridge (SSH/SSL/Proxy CRUD) =====
 const {
@@ -1247,11 +1248,11 @@ async function testChainHop(hop: Hop) {
         { networkConfigId: hop.profileId }
       )
       if (result.success) {
-        alert(
-          `🧪 ${hop.protocol.toUpperCase()} ${t('navigator.testSuccess')}\n\n${result.message}\n延迟: ${result.response_time_ms}ms`
+        message.success(
+          `🧪 ${hop.protocol.toUpperCase()} ${t('navigator.testSuccess')}\n${result.message}\n延迟: ${result.response_time_ms}ms`
         )
       } else {
-        alert(`❌ ${hop.protocol.toUpperCase()} ${t('navigator.testFailed')}\n\n${result.message}`)
+        message.warning(`❌ ${hop.protocol.toUpperCase()} ${t('navigator.testFailed')}\n${result.message}`)
       }
     } else if (hop.mode === 'new') {
       // Save the new form first, then test
@@ -1260,14 +1261,14 @@ async function testChainHop(hop: Hop) {
         await testChainHop(hop)
         return
       }
-      alert(`⚠️ ${t('navigator.pleaseSaveFirst') || '请先保存配置'}`)
+      message.warning(`⚠️ ${t('navigator.pleaseSaveFirst') || '请先保存配置'}`)
     } else {
-      alert(
+      message.warning(
         `⚠️ ${t('navigator.customCannotTest') || '一次性自定义配置不支持单独测试，请保存后再测试'}`
       )
     }
   } catch (e) {
-    alert(`❌ ${t('navigator.testFailed')}: ${e instanceof Error ? e.message : String(e)}`)
+    message.error(`❌ ${t('navigator.testFailed')}: ${e instanceof Error ? e.message : String(e)}`)
   } finally {
     testingHop[hop.id] = false
   }

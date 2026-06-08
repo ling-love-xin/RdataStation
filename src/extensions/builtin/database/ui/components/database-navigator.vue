@@ -637,7 +637,9 @@ handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
     if (currentConn) {
       currentConnection.value = currentConn
       // 保存最后活跃连接，支持跨会话恢复
-      const scope = (node.data.scope as 'global' | 'project') || 'global'
+      const scopeRaw = node.data.scope
+      const scope: 'global' | 'project' =
+        scopeRaw === 'global' || scopeRaw === 'project' ? scopeRaw : 'global'
       saveLastActiveConnection(currentConn.id, scope, navigatorStore.getProjectPath(currentConn.id))
       // 同步到全局 connectionStore，打通 SQL 编辑器状态栏
       connectionStore.syncConnectionStatus(

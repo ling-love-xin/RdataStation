@@ -735,7 +735,7 @@ export function useContextMenuActions() {
       await navigatorStore.loadCatalogs(connectionId)
       const latency = Date.now() - startTime
       // eslint-disable-next-line no-console
-      console.log(`连接测试成功，延迟: ${latency}ms`)
+      console.debug(`连接测试成功，延迟: ${latency}ms`)
     } catch (error) {
       console.error('连接测试失败:', error)
     }

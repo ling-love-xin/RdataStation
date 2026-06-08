@@ -98,6 +98,7 @@ import { File, FileCode, X, EyeOff } from 'lucide-vue-next'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
+import { closeFileChecked } from '@/extensions/builtin/workbench/manager/file-manager'
 import { useCodeMirror } from '@/extensions/builtin/workbench/ui/composables/useCodeMirror'
 import {
   classifyFileSize,
@@ -212,14 +213,15 @@ function closeContextMenu() {
 
 function handleCloseFromMenu() {
   const fp = contextMenu.value.filePath
-  if (fp) EditorManager.closeFile(fp)
+  if (fp) handleTabClose(fp)
   closeContextMenu()
 }
 
 function handleCloseOthersFromMenu() {
   const fp = contextMenu.value.filePath
-  for (const [path] of EditorManager.openFiles) {
-    if (path !== fp) EditorManager.closeFile(path)
+  const paths = Array.from(EditorManager.openFiles.keys()).filter(p => p !== fp)
+  for (const path of paths) {
+    handleTabClose(path)
   }
   closeContextMenu()
 }
@@ -230,15 +232,16 @@ function handleCloseRightFromMenu() {
   const idx = paths.indexOf(fp)
   if (idx >= 0) {
     for (let i = idx + 1; i < paths.length; i++) {
-      EditorManager.closeFile(paths[i])
+      handleTabClose(paths[i])
     }
   }
   closeContextMenu()
 }
 
 function handleCloseAllFromMenu() {
-  for (const [path] of EditorManager.openFiles) {
-    EditorManager.closeFile(path)
+  const paths = Array.from(EditorManager.openFiles.keys())
+  for (const path of paths) {
+    handleTabClose(path)
   }
   closeContextMenu()
 }
@@ -257,7 +260,7 @@ function closeOnMiddleClick(e: MouseEvent, filePath: string) {
 }
 
 function handleTabClose(name: string) {
-  EditorManager.closeFile(name)
+  closeFileChecked(name)
 }
 
 function handleExecute() {

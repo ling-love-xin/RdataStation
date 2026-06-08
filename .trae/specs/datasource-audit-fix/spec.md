@@ -415,3 +415,52 @@ When staging items contain unapplied entries with names, `handleClose` SHALL sho
 
 ### Requirement: NetworkTab SHALL reload project configs when scope.project changes
 `NetworkTab.vue` SHALL watch `props.scope?.project` and reload project network configs when it becomes true after initial mount.
+
+## AUDIT R3 Requirements (2026-06-09)
+
+### Requirement: buildSavePayload SHALL support 'both' scope
+`buildSavePayload().scope` SHALL emit `'both'` when both `scope.global` and `scope.project` are true. `SaveConnectionInput.scope` type SHALL include `'both'`.
+
+### Requirement: formData SHALL use typed interface
+`formData` ref SHALL use `ConnectionFormData` interface (with `host/port/database/username/password/filePath/url` fields) instead of bare `Record<string, unknown>`.
+
+### Requirement: Driver/protocol whitelists SHALL use named constants
+`isFileDatabase` driver list and `validateUrl` protocol list SHALL be extracted as `KNOWN_FILE_DBS` and `KNOWN_DB_PROTOCOLS` named constants at module level.
+
+### Requirement: buildAuthData SHALL use declarative field mapping
+Auth type → field mapping SHALL use `AUTH_TYPE_FIELDS` constant object, not if-else chains. New auth types added by adding entries to the object.
+
+### Requirement: saveToStaging SHALL not overwrite wrong staging item
+When current `stagingIndex` points to an existing named item, `saveToStaging` SHALL append a new item rather than overwriting the existing one.
+
+### Requirement: addStaging SHALL not duplicate empty items
+When the current staging item is empty (no name, not applied), `addStaging` SHALL reset it in-place rather than pushing a new empty item.
+
+### Requirement: countNetworkHops SHALL exclude disabled hops
+`countNetworkHops()` SHALL filter `h.enabled !== false` in addition to `h.protocol !== 'ssl'`.
+
+### Requirement: handleTest SHALL validate before connecting
+`handleTest()` SHALL call `validate()` and block execution if validation fails, showing the first error to the user.
+
+### Requirement: Driver change SHALL skip redundant schema parse
+`onDriverChange` SHALL short-circuit when the driver ID hasn't changed, avoiding redundant `config_schema` / `capabilities` JSON parsing.
+
+## AUDIT R4 Requirements (2026-06-09)
+
+### Requirement: NetworkTab SHALL use naive-ui notification instead of alert()
+`testChainHop` SHALL use `useMessage()` (success/warning/error) instead of raw `alert()` for consistent desktop UI.
+
+### Requirement: saveChainToDb SHALL log errors before returning null
+`save_network_config` invocation SHALL use `.catch((e) => { console.error(...); return null })` instead of bare `.catch(() => null)`.
+
+### Requirement: GeneralTab SHALL use NModal instead of prompt()
+`createNewDbFile` SHALL render `NModal` + `NInput` with confirm/cancel buttons instead of `window.prompt()`.
+
+### Requirement: GeneralTab SHALL log warnings on file dialog unavailable
+Empty catch blocks in `browseFile`/`browseCert`/`browseKeytab` SHALL include `console.warn(...)` instead of bare comments.
+
+### Requirement: initFromEdit SHALL include raw data in parse error logs
+`advanced_options` JSON.parse catch block SHALL log the original `data.advanced_options` string alongside the error for debugging.
+
+### Requirement: handleCreateApply SHALL mark staged items immediately
+Each successfully applied staging item SHALL be marked via `markStagingApplied()` immediately after save, eliminating the `appliedIndices` array collection pattern.

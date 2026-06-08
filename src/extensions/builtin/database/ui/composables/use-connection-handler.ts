@@ -27,8 +27,12 @@ export function useConnectionHandler() {
     clearConnection: (connectionId: string) => void,
     initializeRootNodes: () => void
   ): Promise<ProjectConnection | null> {
-    const connectionId = node.data.connectionId as string
-    const scope = node.data.scope as 'global' | 'project'
+    const connectionId = node.data?.connectionId
+    const scopeRaw = node.data?.scope
+    const scope: 'global' | 'project' =
+      scopeRaw === 'global' || scopeRaw === 'project' ? scopeRaw : 'global'
+
+    if (!connectionId) return null
 
     // 尝试建立运行时连接
     let conn: ProjectConnection | undefined
@@ -113,7 +117,9 @@ export function useConnectionHandler() {
     schemaName?: string
   } | null {
     const { connectionId, dbName, schemaName } = node.data
-    const tableName = node.data.tableName || node.data.viewName || ''
+    const tableName = node.data.tableName || node.data.viewName
+
+    if (typeof tableName !== 'string') return null
 
     const conn = projectConnections.find(c => c.id === connectionId)
 

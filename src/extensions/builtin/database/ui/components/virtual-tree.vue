@@ -60,6 +60,7 @@ const containerRef = ref<HTMLElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(600)
 const selectedKeyRef = ref<string | null>(props.selectedKey)
+let scrollRafId: ReturnType<typeof requestAnimationFrame> | null = null
 
 // 同步外部 selectedKey
 watch(
@@ -90,10 +91,15 @@ const { handleKeydown } = useKeyboardNavigation({
 })
 
 function onScroll() {
-  if (containerRef.value) {
-    scrollTop.value = containerRef.value.scrollTop
-    emit('scroll', scrollTop.value)
-  }
+  // RAF 节流 — 避免高频 scroll 事件触发密集的 flatNodes 重算
+  if (scrollRafId !== null) return
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = null
+    if (containerRef.value) {
+      scrollTop.value = containerRef.value.scrollTop
+      emit('scroll', scrollTop.value)
+    }
+  })
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -128,6 +134,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (scrollRafId !== null) {
+    cancelAnimationFrame(scrollRafId)
+    scrollRafId = null
+  }
   window.removeEventListener('resize', updateContainerHeight)
 })
 

@@ -7,7 +7,6 @@ import {
   type OpenFileParams,
   type ResultSetCreateParams,
 } from '@/extensions/builtin/workbench/types/editor-types'
-import { useEditorPersistence } from '@/extensions/builtin/workbench/ui/composables/useEditorPersistence'
 import { useEditorRecovery } from '@/extensions/builtin/workbench/ui/composables/useEditorRecovery'
 
 import {
@@ -34,10 +33,14 @@ import {
 import {
   openFile as openFileImpl,
   closeFile as closeFileImpl,
+  closeFileChecked as closeFileCheckedImpl,
+  newFile as newFileImpl,
+  saveCurrentFileToDisk,
+  saveFileAs as saveFileAsImpl,
+  checkExternalFileChanges,
   switchToFile as switchToFileImpl,
   onPanelActivated as onPanelActivatedImpl,
   findCenterGroup as findCenterGroupImpl,
-  syncDirty,
 } from './file-manager'
 import {
   getEditorView,
@@ -243,10 +246,43 @@ export const EditorManager = {
 
   openFile(params: OpenFileParams): void {
     openFileImpl(params)
+    // 记录文件初始修改时间，用于外部变更检测
+    import('@tauri-apps/plugin-fs')
+      .then(({ stat }) =>
+        stat(params.filePath)
+          .then(m => {
+            const info = openFiles.value.get(params.filePath)
+            if (info) {
+              info.lastModifiedAt = (m as { mtime?: { ms: number } }).mtime?.ms ?? Date.now()
+            }
+          })
+          .catch(() => {
+            /* 不可达文件，不影响流程 */
+          })
+      )
+      .catch(() => {
+        /* plugin-fs 不可用 */
+      })
   },
 
   closeFile(filePath: string): void {
     closeFileImpl(filePath)
+  },
+
+  async closeFileChecked(filePath: string): Promise<boolean> {
+    return closeFileCheckedImpl(filePath)
+  },
+
+  newFile(language?: string, content?: string): string {
+    return newFileImpl(language, content)
+  },
+
+  async saveFileAs(filePath: string): Promise<void> {
+    return saveFileAsImpl(filePath)
+  },
+
+  async checkExternalFileChanges(): Promise<void> {
+    return checkExternalFileChanges()
   },
 
   panelIdToFilePath(panelId: string): string | null {
@@ -264,23 +300,11 @@ export const EditorManager = {
   async saveCurrentFile(): Promise<void> {
     const info = activeFileInfo.value
     if (!info) return
-    const ed = getEditorView(info.filePath)
-    if (!ed) return
-    const content = ed.state.doc.toString()
     try {
-      const { saveScratchpadFile } =
-        await import('@/extensions/builtin/scratchpad/infrastructure/api/scratchpad-api')
-      await saveScratchpadFile(info.filePath, content)
+      await saveCurrentFileToDisk(info.filePath)
     } catch (e) {
       console.warn('[EditorManager] Save:', e)
     }
-    info.isDirty = false
-    syncDirty(info.filePath, false)
-    const { notifyOpenFilesChanged } = await import('./editor-state')
-    notifyOpenFilesChanged()
-    const pid = `panel_editor_${info.filePath.replace(/[^a-zA-Z0-9_-]/g, '_')}`
-    const { draft } = useEditorPersistence(pid, info.filePath)
-    draft.remove()
     const { removeSnapshot } = useEditorRecovery()
     removeSnapshot(info.filePath)
   },

@@ -23,6 +23,18 @@ export interface ConnectionScope {
   project: boolean
 }
 
+/** 连接表单数据 */
+export interface ConnectionFormData {
+  host?: string
+  port?: number
+  database?: string
+  username?: string
+  password?: string
+  filePath?: string
+  url?: string
+  [key: string]: unknown
+}
+
 /** 暂存项 */
 export interface StagingItem {
   id: string
@@ -32,7 +44,7 @@ export interface StagingItem {
   /** 具体驱动实例 ID (e.g. "mysql_local_01") */
   driverId?: string
   url?: string
-  formData?: Record<string, unknown>
+  formData?: ConnectionFormData
   authConfigId?: string | null
   authMethod?: string
   networkConfigId?: string | null
@@ -75,6 +87,15 @@ const _STAGING_FIELDS = [
 
 /** localStorage 存储键 */
 const STAGING_STORAGE_KEY = 'rdata-station-staging-items'
+
+/** 已知文件型数据库驱动 ID */
+const KNOWN_FILE_DBS = ['sqlite', 'duckdb']
+
+/** 已知数据库协议白名单 */
+const KNOWN_DB_PROTOCOLS = [
+  'mysql', 'postgres', 'postgresql', 'sqlite', 'duckdb', 'mongodb', 'redis',
+  'mariadb', 'clickhouse', 'snowflake', 'bigquery', 'redshift', 'mssql', 'oracle',
+]
 
 /** 常规表单数据 */
 export interface GeneralFormData {
@@ -180,7 +201,7 @@ export interface DuckdbAccelConfig {
 export interface SaveConnectionInput {
   name: string
   description: string
-  scope: 'global' | 'project'
+  scope: 'global' | 'project' | 'both'
   driver_id: string
   host: string
   port: number
@@ -317,7 +338,7 @@ export function useAddDataSource() {
   const overriddenPolicies = ref<Partial<EnvironmentPolicies>>({})
   const duckdbAccel = reactive<DuckdbAccelConfig>(defaultDuckdbAccel())
   const driverProps = ref<Record<string, string>>({})
-  const formData = ref<Record<string, unknown>>({})
+  const formData = ref<ConnectionFormData>({})
 
   // Auth / Network / Extra — owned by composable, synced by dialog
   const authConfigId = ref<string | null>(null)
@@ -407,7 +428,9 @@ export function useAddDataSource() {
       } catch (err) {
         console.warn(
           '[useAddDataSource] 高级选项 JSON 解析失败:',
-          err instanceof Error ? err.message : String(err)
+          err instanceof Error ? err.message : String(err),
+          '原始数据:',
+          data.advanced_options
         )
       }
     }
@@ -440,11 +463,10 @@ export function useAddDataSource() {
 
   function onPolicyOverride(path: string, value: unknown) {
     const keys = path.split('.')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let obj: Record<string, unknown> = overriddenPolicies.value as Record<string, unknown>
+    let obj: Record<string, unknown> = overriddenPolicies.value as unknown as Record<string, unknown>
     for (let i = 0; i < keys.length - 1; i++) {
       if (!obj[keys[i]] || typeof obj[keys[i]] !== 'object') {
-        obj[keys[i]] = {}
+        obj[keys[i]] = {} as Record<string, unknown>
       }
       obj = obj[keys[i]] as Record<string, unknown>
     }
@@ -456,7 +478,7 @@ export function useAddDataSource() {
     return {
       name: headerData.name,
       description: headerData.description,
-      scope: scope.global ? 'global' : 'project',
+      scope: scope.global && scope.project ? 'both' : scope.global ? 'global' : 'project',
       driver_id: headerData.selectedDriverId,
       host: generalData.host,
       port: generalData.port,
@@ -564,9 +586,7 @@ export function useAddDataSource() {
     try {
       const urlObj = new URL(url)
       if (
-        !['mysql', 'postgres', 'postgresql', 'sqlite', 'duckdb', 'mongodb', 'redis'].some(p =>
-          urlObj.protocol.includes(p)
-        )
+        !KNOWN_DB_PROTOCOLS.some(p => urlObj.protocol.includes(p))
       ) {
         return { valid: false, error: '不支持的数据库协议' }
       }
@@ -606,7 +626,7 @@ export function useAddDataSource() {
 
   /** 判断是否为文件型数据库 */
   function isFileDatabase(driverId: string): boolean {
-    return ['sqlite', 'duckdb'].includes(driverId.toLowerCase())
+    return KNOWN_FILE_DBS.includes(driverId.toLowerCase())
   }
 
   /** 判断是否需要快照（全局配置引用） */
@@ -676,7 +696,7 @@ export function useAddDataSource() {
 
   // ========== 协议链操作 ==========
   function countNetworkHops(chain: ChainHopItem[]): number {
-    return chain.filter(h => h.protocol !== 'ssl').length
+    return chain.filter(h => h.protocol !== 'ssl' && h.enabled !== false).length
   }
 
   function ensureSslAtEnd() {
@@ -750,7 +770,7 @@ export function useAddDataSource() {
     driver: string | undefined,
     driverId: string | undefined,
     url: string,
-    formData: Record<string, unknown>,
+    formData: ConnectionFormData,
     authConfigId: string | null,
     authMethod: string,
     networkConfigId: string | null,
@@ -862,8 +882,14 @@ export function useAddDataSource() {
    * 添加暂存项（同时重置 auth/network/extra 状态）
    */
   function addStaging() {
-    stagingItems.value.push({ id: uuidv4(), name: '', applied: false })
-    stagingIndex.value = stagingItems.value.length - 1
+    const current = stagingItems.value[stagingIndex.value]
+    if (current && !current.name && !current.applied) {
+      // 当前项是空项 → 清空状态，不追加
+      stagingItems.value[stagingIndex.value] = { id: current.id, name: '', applied: false }
+    } else {
+      stagingItems.value.push({ id: uuidv4(), name: '', applied: false })
+      stagingIndex.value = stagingItems.value.length - 1
+    }
     authConfigId.value = null
     authMethod.value = 'password'
     networkConfigId.value = null
@@ -908,6 +934,9 @@ export function useAddDataSource() {
   // 初始化时加载暂存项
   onMounted(() => {
     loadStagingItems()
+    if (stagingItems.value.length > 0 && stagingItems.value[stagingItems.value.length - 1].name) {
+      stagingIndex.value = stagingItems.value.length - 1
+    }
   })
 
   // 监听暂存项变化，自动持久化

@@ -187,10 +187,8 @@ export function useIncrementalRefresh() {
     const affectedKeys: string[] = []
 
     try {
-      await Promise.all([
-        navigatorStore.loadTables(connectionId, dbName, schemaName),
-        navigatorStore.loadTables(connectionId, dbName, schemaName),
-      ])
+      // loadTables 内部同时加载 tables + views，单次调用即可
+      await navigatorStore.loadTables(connectionId, dbName, schemaName)
       affectedKeys.push(keyParts.join(':'))
 
       if (options.recursive) {
@@ -226,15 +224,11 @@ export function useIncrementalRefresh() {
     const connectionId = keyParts[1]
     const dbName = keyParts[2]
     const schemaName = keyParts[3]
-    const nodeType = keyParts[0]
     const affectedKeys: string[] = []
 
     try {
-      if (nodeType === 'tables-folder') {
-        await navigatorStore.loadTables(connectionId, dbName, schemaName)
-      } else if (nodeType === 'views-folder') {
-        await navigatorStore.loadTables(connectionId, dbName, schemaName)
-      }
+      // loadTables 内部同时加载 tables + views，因此 tables-folder 和 views-folder 均使用同一调用
+      await navigatorStore.loadTables(connectionId, dbName, schemaName)
 
       affectedKeys.push(keyParts.join(':'))
 

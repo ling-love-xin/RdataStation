@@ -102,13 +102,13 @@ export function useVirtualTree(options: UseVirtualTreeOptions) {
 
       flatNodes.value = [...nodes]
 
-      // 恢复已展开状态标记（子节点需要重新加载）
+      // 恢复已展开状态标记（isLoaded=false 强制下次展开时重新加载子节点）
       expandedNodes.forEach((oldNode, key) => {
         const newNode = nodeMap.get(key)
         if (newNode) {
           newNode.isExpanded = true
-          newNode.isLoaded = oldNode.isLoaded
-          newNode.childCount = oldNode.childCount
+          newNode.isLoaded = false
+          newNode.childCount = 0
         }
       })
     } catch (error) {

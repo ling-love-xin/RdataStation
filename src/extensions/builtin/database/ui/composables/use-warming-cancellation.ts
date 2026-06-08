@@ -89,7 +89,7 @@ export function useWarmingCancellation(config?: Partial<WarmingCancellationConfi
 
     if (cfg.value.showNotification) {
       // eslint-disable-next-line no-console
-      console.log(`已取消连接 ${connectionId} 的缓存预热：${reason}`)
+      console.debug(`已取消连接 ${connectionId} 的缓存预热：${reason}`)
     }
   }
 

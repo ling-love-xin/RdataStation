@@ -155,21 +155,8 @@ export function useConnectionStatusSync(options?: IConnectionStatusSyncOptions) 
 
     try {
       const dbType = navigatorStore.getDbType(connectionId)
-      let pingSql = 'SELECT 1'
-
-      if (dbType === 'oracle') {
-        pingSql = 'SELECT 1 FROM DUAL'
-      } else if (dbType === 'mysql') {
-        pingSql = 'SELECT 1'
-      } else if (dbType === 'postgresql') {
-        pingSql = 'SELECT 1'
-      } else if (dbType === 'sqlite') {
-        pingSql = 'SELECT 1'
-      } else if (dbType === 'duckdb') {
-        pingSql = 'SELECT 1'
-      } else if (dbType === 'sqlserver') {
-        pingSql = 'SELECT 1'
-      }
+      // Oracle 需要 FROM DUAL，其余数据库 SELECT 1 均有效
+      const pingSql = dbType === 'oracle' ? 'SELECT 1 FROM DUAL' : 'SELECT 1'
 
       await navigatorStore.executeSql(connectionId, 'master', pingSql)
       const latency = Date.now() - startTime

@@ -44,20 +44,40 @@ export function setupCrossWindowListeners(): void {
       console.warn('[CrossWindowService] listenMergeTransfer setup failed')
     })
 
-  listenStateSync((payload: StateSyncPayload) => {
+  listenStateSync(async (payload: StateSyncPayload) => {
+    const info = openFiles.value.get(payload.filePath)
+    if (!info) return
+
+    // 内容相同则跳过
     const ed = getEditorView(payload.filePath)
-    if (!ed) return
-    const currentDoc = ed.state.doc.toString()
-    if (payload.content !== currentDoc) {
+    if (ed) {
+      const localContent = ed.state.doc.toString()
+      if (payload.content === localContent) {
+        info.isDirty = payload.isDirty
+        notifyOpenFilesChanged()
+        return
+      }
+
+      // 有冲突 → 调用 reconcile
+      if (info.isDirty) {
+        const { reconcileCrossWindowConflict } = await import('./file-manager')
+        await reconcileCrossWindowConflict(
+          payload.filePath,
+          payload.content,
+          payload.isDirty
+        )
+        return
+      }
+    }
+
+    // 本地无修改 → 直接应用远端
+    if (ed) {
       ed.dispatch({
         changes: { from: 0, to: ed.state.doc.length, insert: payload.content },
       })
     }
-    const info = openFiles.value.get(payload.filePath)
-    if (info) {
-      info.isDirty = payload.isDirty
-      notifyOpenFilesChanged()
-    }
+    info.isDirty = payload.isDirty
+    notifyOpenFilesChanged()
   })
     .then(unlisten => {
       crossWindowUnlisteners.push(unlisten)

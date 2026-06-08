@@ -489,7 +489,10 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
           config: configStr,
           origin: scope,
         },
-      }).catch(() => null)
+      }).catch((e) => {
+        console.error('[useNetworkChain] 保存网络配置失败:', e)
+        return null
+      })
 
       return result?.id || null
     } catch (err) {

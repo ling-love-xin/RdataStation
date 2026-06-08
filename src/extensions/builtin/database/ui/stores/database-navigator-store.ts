@@ -12,6 +12,7 @@ import { useCatalogLoader } from './nav-loaders/use-catalog-loader'
 import { useColumnLoader } from './nav-loaders/use-column-loader'
 import { useObjectLoader } from './nav-loaders/use-object-loader'
 import { useTableLoader } from './nav-loaders/use-table-loader'
+import { NodeKeyEncoder } from '../types/virtual-tree'
 
 import type { IntrospectionLevel } from '../api/database-api'
 import type {
@@ -49,6 +50,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   const lastSyncTimes = ref<Map<string, number>>(new Map())
   const syncModes = ref<Map<string, 'full' | 'incremental'>>(new Map())
   const nodeErrors = ref<Map<string, string>>(new Map())
+  const warmingInProgress = ref<Set<string>>(new Set())
 
   // ====================================================================
   //  Sub-loader 实例化 — 传入共享 Ref，由 loader 直接操作
@@ -493,73 +495,89 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   }
 
   function selectNode(nodeKey: string): void {
-    const parts = nodeKey.split('_')
-    if (parts.length >= 3) {
-      setSelectedObject({
-        name: parts[parts.length - 1],
-        kind: 'table',
-        connectionId: parts[1],
-      } as SelectedObject)
-    }
+    const parts = NodeKeyEncoder.decode(nodeKey)
+    if (parts.length < 2) return
+
+    const nodeType = parts[0]
+    const connectionId = parts[1]
+    const name = parts[parts.length - 1]
+
+    setSelectedObject({
+      name,
+      kind: nodeType === 'view' ? 'view' : 'table',
+      connectionId,
+    } as SelectedObject)
   }
 
   async function startCacheWarming(connectionId: string): Promise<void> {
+    // 防止并发预热同一连接
+    if (warmingInProgress.value.has(connectionId)) return
+
     const catalogs = connectionCatalogs.value.get(connectionId)
     if (!catalogs || catalogs.length === 0) return
 
-    const t0 = performance.now()
+    warmingInProgress.value.add(connectionId)
 
-    const targetCatalogs = catalogs.filter(cat => cat.name !== 'default')
-    if (targetCatalogs.length === 0) return
+    try {
+      const t0 = performance.now()
 
-    // Phase 1: 并行加载所有 Catalog 的 Schema
-    const schemaResults = await Promise.allSettled(
-      targetCatalogs.map(cat => loadSchemas(connectionId, cat.name)),
-    )
+      const targetCatalogs = catalogs.filter(cat => cat.name !== 'default')
+      if (targetCatalogs.length === 0) return
 
-    // Phase 2: 收集所有 Schema，并行加载表
-    const tablePromises: Promise<void>[] = []
-    for (const cat of targetCatalogs) {
-      const schemas = getCatalogSchemas(connectionId, cat.name)
-      for (const schema of schemas) {
-        if (schema.name === 'default') continue
-        tablePromises.push(loadTables(connectionId, cat.name, schema.name).catch(() => {}))
-      }
-    }
-    await Promise.allSettled(tablePromises)
+      // Phase 1: 并行加载所有 Catalog 的 Schema
+      const schemaResults = await Promise.allSettled(
+        targetCatalogs.map(cat => loadSchemas(connectionId, cat.name)),
+      )
 
-    let colTaskCount = 0
-    // Phase 3: 根据内省级别决定是否加载列
-    const colLevel = introspectionLevels.value.get(connectionId) || 'level3'
-    if (colLevel !== 'level1') {
-      const columnPromises: Promise<void>[] = []
+      // Phase 2: 收集所有 Schema，并行加载表
+      const tablePromises: Promise<void>[] = []
       for (const cat of targetCatalogs) {
         const schemas = getCatalogSchemas(connectionId, cat.name)
         for (const schema of schemas) {
-          const tables = getSchemaTables(connectionId, cat.name, schema.name)
-          for (const table of tables.slice(0, 10)) {
-            columnPromises.push(
-              loadColumns(connectionId, cat.name, schema.name, table.name).catch(() => {}),
-            )
-          }
+          if (schema.name === 'default') continue
+          tablePromises.push(loadTables(connectionId, cat.name, schema.name).catch(() => {}))
         }
       }
+      await Promise.allSettled(tablePromises)
 
-      const BATCH_SIZE = 20
-      for (let i = 0; i < columnPromises.length; i += BATCH_SIZE) {
-        const batch = columnPromises.slice(i, i + BATCH_SIZE)
-        await Promise.allSettled(batch)
+      let colTaskCount = 0
+      // Phase 3: 根据内省级别决定是否加载列
+      const colLevel = introspectionLevels.value.get(connectionId) || 'level3'
+      if (colLevel !== 'level1') {
+        const columnPromises: Promise<void>[] = []
+        for (const cat of targetCatalogs) {
+          const schemas = getCatalogSchemas(connectionId, cat.name)
+          for (const schema of schemas) {
+            const tables = getSchemaTables(connectionId, cat.name, schema.name)
+            for (const table of tables.slice(0, 10)) {
+              columnPromises.push(
+                loadColumns(connectionId, cat.name, schema.name, table.name).catch(() => {}),
+              )
+            }
+          }
+        }
+
+        const BATCH_SIZE = 20
+        for (let i = 0; i < columnPromises.length; i += BATCH_SIZE) {
+          const batch = columnPromises.slice(i, i + BATCH_SIZE)
+          await Promise.allSettled(batch)
+        }
+        colTaskCount = columnPromises.length
       }
-      colTaskCount = columnPromises.length
-    }
 
-    const elapsed = (performance.now() - t0).toFixed(0)
-    // eslint-disable-next-line no-console
-    console.debug(
-      `[CacheWarming] 连接 ${connectionId} 缓存预热完成 ` +
-        `(耗时 ${elapsed}ms, Catalog=${targetCatalogs.length}, schema结果=${schemaResults.length}, ` +
-        `table任务=${tablePromises.length}, column任务=${colTaskCount})`,
-    )
+      const elapsed = (performance.now() - t0).toFixed(0)
+      // eslint-disable-next-line no-console
+      console.debug(
+        `[CacheWarming] 连接 ${connectionId} 缓存预热完成 ` +
+          `(耗时 ${elapsed}ms, Catalog=${targetCatalogs.length}, schema结果=${schemaResults.length}, ` +
+          `table任务=${tablePromises.length}, column任务=${colTaskCount})`,
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '缓存预热失败'
+      console.warn(`[CacheWarming] ${connectionId}:`, msg)
+    } finally {
+      warmingInProgress.value.delete(connectionId)
+    }
   }
 
   // ====================================================================

@@ -383,6 +383,22 @@
       @close="onAuthManagerClose"
       @select="onAuthConfigExternalSelect"
     />
+  <!-- New DB file dialog -->
+    <NModal
+      v-model:show="showNewDbDialog"
+      :title="($t('navigator.newDbFilePrompt') as string) || '新建数据库文件'"
+    >
+      <div style="padding: 16px">
+        <p style="margin-bottom: 12px; font-size: 13px; color: var(--n-text-color-2)">
+          {{ $t('navigator.newDbFileHint') || '请输入文件路径（已存在则复用，不存在则自动创建）' }}
+        </p>
+        <NInput v-model:value="newDbFilePath" placeholder="例如: data/mydb.db" />
+      </div>
+      <template #footer>
+        <NButton @click="showNewDbDialog = false">{{ $t('common.cancel') }}</NButton>
+        <NButton type="primary" @click="confirmNewDb">{{ $t('common.create') }}</NButton>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -392,6 +408,7 @@ import {
   NButton,
   NInput,
   NInputNumber,
+  NModal,
   NSelect,
   NSpace,
   NSwitch,
@@ -661,6 +678,10 @@ const configSchemaFields = computed<ConfigSchemaField[]>(() => {
 /** 高级参数字段（config_schema 定义的，但不属于主 v-for 基本字段） */
 const advancedSchemaFields = ref<FormFieldConfig[]>([])
 
+/** 新建数据库文件弹窗 */
+const showNewDbDialog = ref(false)
+const newDbFilePath = ref('')
+
 // ==================== Field Helpers ====================
 
 /** 获取字段当前值（优先 local，其次 schemaFormData） */
@@ -714,7 +735,7 @@ async function browseFile() {
       emitUpdate()
     }
   } catch {
-    /* dialog not available in browser */
+    console.warn('[GeneralTab] 文件对话框不可用（浏览器环境）')
   }
 }
 
@@ -766,14 +787,16 @@ async function browseKeytab() {
 function createNewDbFile() {
   const ext = props.driver?.name?.toLowerCase().includes('duckdb') ? 'duckdb' : 'db'
   const defaultName = `new_database.${ext}`
-  const newPath = prompt(
-    `${t('navigator.newDbFilePrompt') || '新建数据库文件\n请输入文件路径（已存在则复用，不存在则自动创建）：'}`,
-    local.file_path || defaultName
-  )
-  if (newPath) {
-    local.file_path = newPath
+  newDbFilePath.value = (local.file_path || defaultName) as string
+  showNewDbDialog.value = true
+}
+
+function confirmNewDb() {
+  if (newDbFilePath.value.trim()) {
+    local.file_path = newDbFilePath.value.trim()
     emitUpdate()
   }
+  showNewDbDialog.value = false
 }
 
 // ==================== Lifecycle ====================

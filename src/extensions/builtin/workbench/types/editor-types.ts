@@ -64,6 +64,8 @@ export interface OpenFileInfo {
   language: string
   type: FileType
   isDirty: boolean
+  exists: boolean
+  lastModifiedAt: number | null
   connectionId: string
   databaseName: string
   resultSets: ResultSetMetadata[]

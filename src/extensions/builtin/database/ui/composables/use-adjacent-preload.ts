@@ -221,8 +221,8 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
 
     state.value.isPreloading = true
 
-    let loaded = 0
     const preloadTasks: Promise<void>[] = []
+    let loaded = 0
 
     for (const node of adjacentNodes) {
       if (loaded >= cfg.value.maxConcurrency) break
@@ -251,13 +251,9 @@ export function useAdjacentPreload(config?: Partial<PreloadConfig>) {
 
       preloadTasks.push(task())
       loaded++
-
-      if (cfg.value.delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, cfg.value.delay))
-      }
     }
 
-    await Promise.all(preloadTasks)
+    await Promise.allSettled(preloadTasks)
 
     state.value.isPreloading = false
   }

@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
 > 最后更新：2026-06-09
-> 状态：审计完成，16 项修复全部完成
+> 状态：4 轮审计完成，共修复 34 项问题
 
 ---
 
@@ -33,6 +33,34 @@
 | 14 | 🟢 | connection_commands.rs | 后端 name/port/url 无校验 | 添加正向验证 |
 | 15 | 🟢 | AddDataSourceDialog.vue | handleClose 无确认 | NModal 确认弹窗 |
 | 16 | 🟢 | i18n zh-CN/en | 关闭确认无国际化 | 3 个新 key |
+
+### Round 3 修复 (12 项, 2026-06-09)
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 17 | 🔴 | useAddDataSource.ts | buildSavePayload scope 不支持 'both' | 三态支持 |
+| 18 | 🟡 | useAddDataSource.ts | formData 使用 Record<string,unknown> | ConnectionFormData interface |
+| 19 | 🟡 | useAddDataSource.ts | isFileDatabase 硬编码 | KNOWN_FILE_DBS 常量 |
+| 20 | 🟡 | useAddDataSource.ts | validateUrl 硬编码协议 | KNOWN_DB_PROTOCOLS 常量 |
+| 21 | 🟡 | AddDataSourceDialog.vue | buildAuthData 硬编码 if-else | AUTH_TYPE_FIELDS 映射 |
+| 22 | 🟡 | AddDataSourceDialog.vue | saveToStaging stagingIndex 越位 | 已有项时追加 |
+| 23 | 🟡 | useAddDataSource.ts | addStaging 空项重复创建 | 原地重置 |
+| 24 | 🟢 | useAddDataSource.ts | onPolicyOverride eslint-disable | PolicyOverrideNode 类型 |
+| 25 | 🟢 | useAddDataSource.ts | countNetworkHops 计入禁用hop | 过滤 enabled !== false |
+| 26 | 🟢 | useAddDataSource.ts | initDefault 写死 stagingIndex=0 | 选中最后命名项 |
+| 27 | 🟢 | AddDataSourceDialog.vue | 驱动切换重复parse | same-driver 短路 |
+| 28 | 🟢 | AddDataSourceDialog.vue | handleTest 无前端校验 | validate() 前置 |
+
+### Round 4 修复 (6 项, 2026-06-09)
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 29 | 🟡 | NetworkTab.vue | testChainHop 使用原生 alert() | useMessage() 替换 |
+| 30 | 🟡 | useNetworkChain.ts | saveChainToDb .catch(() => null) | console.error + null |
+| 31 | 🟡 | GeneralTab.vue | createNewDbFile 使用 prompt() | NModal + NInput |
+| 32 | 🟢 | GeneralTab.vue | browseFile/browseCert 空 catch | console.warn |
+| 33 | 🟢 | useAddDataSource.ts | initFromEdit JSON.parse 静默失败 | 增强日志 + 原始数据 |
+| 34 | 🟢 | AddDataSourceDialog.vue | appliedIndices 收集后再标记 | 立即 markStagingApplied |
 
 ## 二、验证结果
 

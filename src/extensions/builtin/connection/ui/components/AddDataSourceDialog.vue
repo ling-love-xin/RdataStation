@@ -297,15 +297,17 @@ const driverOptions = computed(() => {
 
 // Actions
 function onDriverChange(driverId: string) {
-  formData.value = {}
-  testResult.value = null
-  authConfigId.value = null
-  authMethod.value = 'password'
-  selectedEnvId.value = null
-  // Set file DB flag for URI preview
-  const d = drivers.value.find(x => x.id === driverId)
-  setFileDb(d?.is_file ?? false)
-}
+    // 同一驱动不重复 reset（防止子组件重复 parse schema）
+    if (driverId === headerData.selectedDriverId && Object.keys(formData.value).length > 0) return
+    formData.value = {}
+    testResult.value = null
+    authConfigId.value = null
+    authMethod.value = 'password'
+    selectedEnvId.value = null
+    // Set file DB flag for URI preview
+    const d = drivers.value.find(x => x.id === driverId)
+    setFileDb(d?.is_file ?? false)
+  }
 
 function onFormData(d: Record<string, unknown>) {
   formData.value = { ...formData.value, ...d }
@@ -401,7 +403,14 @@ async function handleSelectStaging(i: number) {
 }
 
 async function handleTest() {
-  if (!selectedDriver.value) {
+    const validation = validate()
+    if (!validation.valid) {
+      const firstError = Object.values(validation.errors)[0]
+      message.warning(firstError)
+      return
+    }
+
+    if (!selectedDriver.value) {
     message.warning(t('navigator.selectDbType'))
     return
   }
@@ -562,25 +571,24 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
   }
 }
 
+/** 认证类型字段映射 */
+const AUTH_TYPE_FIELDS: Record<string, string[]> = {
+  password: ['username', 'password'],
+  ldap: ['username', 'password'],
+  pg_class: ['certPath', 'certKeyPath'],
+  kerberos: ['principal', 'keytabPath'],
+  oauth2: ['tokenEndpoint', 'clientId', 'clientSecret'],
+  ssh_password: ['username', 'password'],
+  proxy_password: ['username', 'password'],
+}
+
 /** 构建认证数据对象 */
 function buildAuthData(authType: string, fd: Record<string, unknown>): Record<string, unknown> {
+  const fields = AUTH_TYPE_FIELDS[authType] ?? []
   const authData: Record<string, unknown> = {}
-
-  if (authType === 'password' || authType === 'ldap') {
-    if (fd.username) authData.username = String(fd.username)
-    if (fd.password) authData.password = String(fd.password)
-  } else if (authType === 'pg_class') {
-    if (fd.certPath) authData.certPath = String(fd.certPath)
-    if (fd.certKeyPath) authData.certKeyPath = String(fd.certKeyPath)
-  } else if (authType === 'kerberos') {
-    if (fd.principal) authData.principal = String(fd.principal)
-    if (fd.keytabPath) authData.keytabPath = String(fd.keytabPath)
-  } else if (authType === 'oauth2') {
-    if (fd.tokenEndpoint) authData.tokenEndpoint = String(fd.tokenEndpoint)
-    if (fd.clientId) authData.clientId = String(fd.clientId)
-    if (fd.clientSecret) authData.clientSecret = String(fd.clientSecret)
+  for (const f of fields) {
+    if (fd[f]) authData[f] = String(fd[f])
   }
-
   return authData
 }
 
@@ -607,7 +615,7 @@ function saveToStaging() {
   const name = headerData.name || selectedDriver.value.name
   const d = selectedDriver.value
 
-  stagingItems.value[stagingIndex.value] = buildStagingItem(
+  const item = buildStagingItem(
     name,
     d.id,
     headerData.selectedDriverId ?? undefined,
@@ -626,6 +634,16 @@ function saveToStaging() {
     tags.value || undefined,
     useDuckdbFed.value ?? false
   )
+
+  const current = stagingItems.value[stagingIndex.value]
+  if (current && current.name) {
+    // 当前项已有内容 → 追加新项
+    stagingItems.value.push(item)
+    stagingIndex.value = stagingItems.value.length - 1
+  } else {
+    // 当前项为空或不存在 → 原地覆盖
+    stagingItems.value[stagingIndex.value] = item
+  }
 
   message.success(t('navigator.savedToStaging', { name }))
 }
@@ -775,7 +793,6 @@ async function handleCreateApply() {
   saving.value = true
   let successCount = 0
   const errors: string[] = []
-  const appliedIndices: number[] = []
 
   try {
     const { invoke } = await import('@tauri-apps/api/core')
@@ -876,16 +893,13 @@ async function handleCreateApply() {
         if (itemSuccess) {
           successCount++
           if (originalIndex !== -1) {
-            appliedIndices.push(originalIndex)
+            markStagingApplied(originalIndex)
           }
         }
       } catch (e) {
         errors.push(`${name}: ${String(e)}`)
       }
     }
-
-    // 标记成功的项为已应用
-    appliedIndices.forEach(index => markStagingApplied(index))
 
     if (errors.length === 0) {
       message.success(t('navigator.applySuccess', { count: successCount }))
