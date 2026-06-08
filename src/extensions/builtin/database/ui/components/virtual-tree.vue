@@ -2,6 +2,8 @@
   <div
     ref="containerRef"
     class="virtual-tree-container"
+    role="tree"
+    aria-label="数据库导航树"
     tabindex="0"
     @scroll="onScroll"
     @keydown="onKeydown"

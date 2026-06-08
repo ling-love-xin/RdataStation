@@ -16,6 +16,7 @@ import {
   getDefaultNavigationConfig,
 } from '@/extensions/builtin/connection/ui/utils/schema-loader'
 
+import { nodeHandlers } from './nav-router'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
 
@@ -48,10 +49,8 @@ async function getNavConfig(dbType: string): Promise<NavigationConfig> {
 }
 
 function isFolderEnabled(config: NavigationConfig, folderKey: string): boolean {
-  const folder = config.folders[folderKey as keyof typeof config.folders] as
-    | NavigationFolderConfig
-    | undefined
-  return folder?.enabled ?? false
+  const folders = config.folders as Record<string, NavigationFolderConfig | undefined>
+  return folders[folderKey]?.enabled ?? false
 }
 
 /** 计算 NavigationConfig 中启用的文件夹数量 */
@@ -86,6 +85,9 @@ function countTableChildren(config: NavigationConfig, _columnCount: number): num
 export function useDatabaseTreeLoader() {
   const navigatorStore = useDatabaseNavigatorStore()
   const runtimeConnectionStore = useRuntimeConnectionStore()
+
+  // AbortController 用于取消进行中的加载请求（组件卸载时）
+  let currentAbortController: AbortController | null = null
 
   /**
    * 创建连接节点
@@ -834,234 +836,59 @@ export function useDatabaseTreeLoader() {
   }
 
   /**
-   * 加载子节点 - 核心加载逻辑（DBeaver 风格）
+   * 加载子节点 - 核心加载逻辑（路由分发模式）
    */
   async function loadChildren(node: VirtualTreeNode): Promise<VirtualTreeNode[]> {
+    // 取消前一次加载（避免快速展开/折叠导致状态竞争）
+    if (currentAbortController) {
+      currentAbortController.abort()
+    }
+    currentAbortController = new AbortController()
+
     const keyParts = NodeKeyEncoder.decode(node.key)
     if (keyParts.length === 0) return []
 
     const nodeType = keyParts[0]
-    let connectionId: string
-    let dbType: string
+    const handler = nodeHandlers[nodeType]
+    if (!handler) return []
 
     // connection 节点的 keyParts 结构不同：[type, scope, connId]
     // 其他节点：[type, connId, dbName, ...]
-    if (nodeType === 'connection') {
-      connectionId = keyParts[2]
-      dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
-    } else {
-      connectionId = keyParts[1]
-      dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
-    }
+    const connectionId = nodeType === 'connection' ? keyParts[2] : keyParts[1]
+    const dbType =
+      node.data.driver || navigatorStore.getDbType(connectionId) || ''
     const config = await getNavConfig(dbType)
 
     try {
-      // Level 0: 连接节点 -> Catalog 列表 或 直接对象文件夹
-      if (nodeType === 'connection') {
-        const scope = keyParts[1] as 'global' | 'project'
-        const connId = keyParts[2]
-
-        const hasRuntimeConn = runtimeConnectionStore.runtimeConnectionIds.has(connId)
-
-        // 在线：从数据库加载 catalogs
-        if (hasRuntimeConn) {
-          await navigatorStore.loadCatalogs(connId)
-        } else {
-          // 离线：尝试从 L2 缓存加载 catalogs
-          await navigatorStore.loadCatalogsFromCacheSilent(connId)
-        }
-
-        if (config.hasCatalogs) {
-          return createCatalogNodes(connId, scope)
-        }
-
-        const catalogs = navigatorStore.getCatalogs(connId)
-        const defaultCatalogName = catalogs[0]?.name || 'main'
-        const connKey = NodeKeyEncoder.encode(['connection', scope, connId])
-        return createCatalogObjectNodes(connId, defaultCatalogName, config, connKey, 1)
-      }
-
-      // Level 1: Catalog 节点 → Schema 或对象文件夹
-      if (nodeType === 'catalog') {
-        const dbName = keyParts[2]
-
-        if (config.hasSchemas) {
-          await navigatorStore.loadSchemas(connectionId, dbName)
-          return createSchemaNodes(connectionId, dbName, config)
-        } else {
-          return createCatalogObjectNodes(connectionId, dbName, config)
-        }
-      }
-
-      // Level 2: Schema 节点 -> 对象文件夹
-      if (nodeType === 'schema') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3]
-
-        await navigatorStore.loadTables(connectionId, dbName, schemaName)
-
-        return createSchemaObjectNodes(connectionId, dbName, schemaName, config)
-      }
-
-      // Level 2/3: Tables 文件夹 -> 表列表
-      if (nodeType === 'tables-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-
-        // 优化：如果 Schema 展开时已加载过表数据，跳过重复请求
-        const catalogs = navigatorStore.getCatalogs(connectionId)
-        const catalog = catalogs.find(c => c.name === dbName)
-        let hasTableData = false
-        if (catalog) {
-          if (schemaName) {
-            const schema = catalog.schemas?.find(s => s.name === schemaName)
-            hasTableData = !!(schema && (schema.tables.length > 0 || schema.views.length > 0))
-          } else {
-            hasTableData = !!(catalog.tables && catalog.tables.length > 0)
-          }
-        }
-
-        if (!hasTableData) {
-          if (schemaName) {
-            await navigatorStore.loadTables(connectionId, dbName, schemaName)
-          } else {
-            // MySQL 等无 Schema 的数据库：用 dbName 代替 schemaName
-            await navigatorStore.loadTables(connectionId, dbName, dbName)
-          }
-        }
-
-        return createTableNodes(connectionId, dbName, schemaName, config, node.level)
-      }
-
-      // Level 2/3: Views 文件夹 -> 视图列表
-      if (nodeType === 'views-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-
-        // 同上：如果表数据已加载，跳过重复请求
-        const catalogs = navigatorStore.getCatalogs(connectionId)
-        const catalog = catalogs.find(c => c.name === dbName)
-        let hasTableData = false
-        if (catalog && schemaName) {
-          const schema = catalog.schemas?.find(s => s.name === schemaName)
-          hasTableData = !!(schema && (schema.tables.length > 0 || schema.views.length > 0))
-        }
-
-        if (!hasTableData && schemaName) {
-          await navigatorStore.loadTables(connectionId, dbName, schemaName)
-        }
-
-        return createViewNodes(connectionId, dbName, schemaName, node.level)
-      }
-
-      // Level 2/3: Procedures 文件夹 -> 存储过程列表
-      if (nodeType === 'procedures-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-
-        if (schemaName) {
-          await navigatorStore.loadProcedures(connectionId, dbName, schemaName)
-        }
-
-        return createProcedureNodes(connectionId, dbName, schemaName)
-      }
-
-      // Level 2/3: Functions 文件夹 -> 函数列表
-      if (nodeType === 'functions-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-
-        if (schemaName) {
-          await navigatorStore.loadFunctions(connectionId, dbName, schemaName)
-        }
-
-        return createFunctionNodes(connectionId, dbName, schemaName)
-      }
-
-      // Level 2/3: Sequences 文件夹 -> 序列列表
-      if (nodeType === 'sequences-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-
-        if (schemaName) {
-          await navigatorStore.loadSequences(connectionId, dbName, schemaName)
-        }
-
-        return createSequenceNodes(connectionId, dbName, schemaName)
-      }
-
-      // Level 2/3: Triggers 文件夹 -> 触发器列表
-      if (nodeType === 'triggers-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-
-        if (schemaName) {
-          await navigatorStore.loadTriggers(connectionId, dbName, schemaName)
-        }
-
-        return createTriggerNodes(connectionId, dbName, schemaName)
-      }
-
-      // Level 3/4: 表节点 -> Columns/Indexes/Constraints 文件夹
-      if (nodeType === 'table') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-        const tableName = keyParts[4]
-
-        await navigatorStore.loadColumns(connectionId, dbName, schemaName || '', tableName)
-
-        return createTableSubFolderNodes(connectionId, dbName, schemaName, tableName, config)
-      }
-
-      // Level 3/4: 视图节点 -> 列列表
-      if (nodeType === 'view') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-        const viewName = keyParts[4]
-
-        await navigatorStore.loadColumns(connectionId, dbName, schemaName || '', viewName)
-
-        return createColumnNodes(connectionId, dbName, schemaName, viewName)
-      }
-
-      // Level 4/5: Columns 文件夹 -> 列列表
-      if (nodeType === 'columns-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-        const tableName = keyParts[4]
-        return createColumnNodes(connectionId, dbName, schemaName, tableName)
-      }
-
-      // Level 4/5: Indexes 文件夹 -> 索引列表
-      if (nodeType === 'indexes-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-        const tableName = keyParts[4]
-        if (schemaName) {
-          await navigatorStore.loadIndexes(connectionId, dbName, schemaName, tableName)
-        }
-        return createIndexNodes(connectionId, dbName, schemaName, tableName)
-      }
-
-      // Level 4/5: Constraints 文件夹 -> 约束列表
-      if (nodeType === 'constraints-folder') {
-        const dbName = keyParts[2]
-        const schemaName = keyParts[3] || undefined
-        const tableName = keyParts[4]
-        if (schemaName) {
-          await navigatorStore.loadConstraints(connectionId, dbName, schemaName, tableName)
-        }
-        return createConstraintNodes(connectionId, dbName, schemaName, tableName)
-      }
+      return await handler({
+        node,
+        keyParts,
+        connectionId,
+        dbType,
+        config,
+        navigatorStore,
+        runtimeConnectionStore,
+        createCatalogNodes,
+        createSchemaNodes,
+        createCatalogObjectNodes,
+        createSchemaObjectNodes,
+        createTableNodes,
+        createViewNodes,
+        createProcedureNodes,
+        createFunctionNodes,
+        createSequenceNodes,
+        createTriggerNodes,
+        createTableSubFolderNodes,
+        createColumnNodes,
+        createIndexNodes,
+        createConstraintNodes,
+      })
     } catch (error) {
       const msg = error instanceof Error ? error.message : '加载失败'
       console.error('加载树节点失败:', node.key, error)
       navigatorStore.setNodeError(node.key, msg)
-      // 返回一个错误占位节点，让用户看到错误并可以重试
       return [createErrorPlaceholderNode(node.key, msg)]
     }
-
-    return []
   }
 
   /**
@@ -1098,5 +925,12 @@ export function useDatabaseTreeLoader() {
     createConstraintNodes,
     loadChildren,
     createRootNodes,
+    /** 中止所有进行中的加载请求（组件卸载时调用） */
+    abortPendingLoads: () => {
+      if (currentAbortController) {
+        currentAbortController.abort()
+        currentAbortController = null
+      }
+    },
   }
 }

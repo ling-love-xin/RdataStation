@@ -1049,6 +1049,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  treeLoader.abortPendingLoads()
   if (persistTimer) clearTimeout(persistTimer)
   connectionStatusSync.cleanup()
   cleanupDragDropListeners()

@@ -1,18 +1,19 @@
 <template>
   <div class="dbeaver-toolbar">
-    <button class="toolbar-btn" title="新建连接" @click="$emit('new-connection')">
-      <Plug :size="16" />
+    <button class="toolbar-btn" title="新建连接" aria-label="新建连接" @click="$emit('new-connection')">
+      <Plug :size="16" aria-hidden="true" />
     </button>
-    <button class="toolbar-btn" title="新建分组" @click="$emit('new-group')">
-      <FolderPlus :size="16" />
+    <button class="toolbar-btn" title="新建分组" aria-label="新建分组" @click="$emit('new-group')">
+      <FolderPlus :size="16" aria-hidden="true" />
     </button>
     <button
       class="toolbar-btn"
       title="断开连接"
+      aria-label="断开连接"
       :disabled="!hasConnection"
       @click="$emit('disconnect')"
     >
-      <Unplug :size="16" />
+      <Unplug :size="16" aria-hidden="true" />
     </button>
     <div class="toolbar-separator"></div>
     <button
@@ -22,10 +23,11 @@
         'transaction-active': isInTransaction,
       }"
       title="开始事务"
+      aria-label="开始事务"
       :disabled="!hasConnection || isInTransaction"
       @click="$emit('begin-transaction')"
     >
-      <PlayCircle :size="16" />
+      <PlayCircle :size="16" aria-hidden="true" />
     </button>
     <button
       class="toolbar-btn"
@@ -34,10 +36,11 @@
         'transaction-active': isInTransaction,
       }"
       title="提交事务"
+      aria-label="提交事务"
       :disabled="!hasConnection || !isInTransaction"
       @click="$emit('commit-transaction')"
     >
-      <CheckCircle :size="16" />
+      <CheckCircle :size="16" aria-hidden="true" />
     </button>
     <button
       class="toolbar-btn"
@@ -47,25 +50,26 @@
         'transaction-warning': isInTransaction,
       }"
       title="回滚事务"
+      aria-label="回滚事务"
       :disabled="!hasConnection || !isInTransaction"
       @click="$emit('rollback-transaction')"
     >
-      <XCircle :size="16" />
+      <XCircle :size="16" aria-hidden="true" />
     </button>
     <div class="toolbar-separator"></div>
-    <button class="toolbar-btn" title="刷新" :disabled="isRefreshing" @click="$emit('refresh')">
-      <RefreshCw :size="16" :class="{ spinning: isRefreshing }" />
+    <button class="toolbar-btn" title="刷新" aria-label="刷新" :disabled="isRefreshing" @click="$emit('refresh')">
+      <RefreshCw :size="16" :class="{ spinning: isRefreshing }" aria-hidden="true" />
     </button>
     <div class="toolbar-separator"></div>
-    <button class="toolbar-btn" title="搜索" @click="$emit('focus-search')">
-      <Search :size="16" />
+    <button class="toolbar-btn" title="搜索" aria-label="搜索" @click="$emit('focus-search')">
+      <Search :size="16" aria-hidden="true" />
     </button>
     <div class="toolbar-separator"></div>
-    <button class="toolbar-btn" title="过滤器" @click="$emit('toggle-filter')">
-      <Filter :size="16" :class="{ active: showFilter }" />
+    <button class="toolbar-btn" title="过滤器" aria-label="过滤器" @click="$emit('toggle-filter')">
+      <Filter :size="16" :class="{ active: showFilter }" aria-hidden="true" />
     </button>
-    <button class="toolbar-btn" title="视图" @click="$emit('toggle-view')">
-      <LayoutTemplate :size="16" />
+    <button class="toolbar-btn" title="视图" aria-label="切换视图" @click="$emit('toggle-view')">
+      <LayoutTemplate :size="16" aria-hidden="true" />
     </button>
   </div>
 </template>

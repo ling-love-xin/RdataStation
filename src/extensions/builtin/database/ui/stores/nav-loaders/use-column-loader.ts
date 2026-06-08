@@ -211,8 +211,10 @@ export function useColumnLoader(
 
       await loadColumnsFromDb(connectionId, catalogName, schemaName, tableName)
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载列信息失败')
-      console.error('加载列信息失败:', e)
+      const msg = e instanceof Error ? e.message : '加载列信息失败'
+      console.error('[column-loader] 加载列信息失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingColumns.value.delete(key)
     }
@@ -261,8 +263,10 @@ export function useColumnLoader(
         },
       )
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载索引列表失败')
-      console.error('加载索引列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载索引列表失败'
+      console.error('[column-loader] 加载索引列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingColumns.value.delete(key)
     }
@@ -310,8 +314,10 @@ export function useColumnLoader(
         },
       )
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载约束列表失败')
-      console.error('加载约束列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载约束列表失败'
+      console.error('[column-loader] 加载约束列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingColumns.value.delete(key)
     }

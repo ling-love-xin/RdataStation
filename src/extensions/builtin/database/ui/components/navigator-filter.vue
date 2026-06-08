@@ -2,8 +2,8 @@
   <div v-if="show" class="filter-panel">
     <div class="filter-header">
       <span class="filter-title">{{ t('filter.title') }}</span>
-      <button class="filter-close-btn" @click="$emit('close')">
-        <X :size="14" />
+      <button class="filter-close-btn" :aria-label="t('common.close')" @click="$emit('close')">
+        <X :size="14" aria-hidden="true" />
       </button>
     </div>
     <div class="filter-options">

@@ -140,8 +140,9 @@ export function useCatalogLoader(
 
       await loadCatalogsFromDb(connectionId)
     } catch (e) {
-      nodeErrors.value.set(connectionId, e instanceof Error ? e.message : '加载 Catalog 列表失败')
-      console.error('加载 Catalog 列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载 Catalog 列表失败'
+      console.error('[catalog-loader] 加载 Catalog 列表失败:', connectionId, e)
+      nodeErrors.value.set(connectionId, msg)
       throw e
     } finally {
       loadingCatalogs.value.delete(connectionId)
@@ -270,12 +271,15 @@ export function useCatalogLoader(
 
       await loadSchemasFromDb(connectionId, catalogName)
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载 Schema 列表失败')
-      console.error('加载 Schema 列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载 Schema 列表失败'
+      console.error('[catalog-loader] 加载 Schema 列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      // 回退：至少显示一个默认 schema
       mutateCatalogNode(connectionCatalogs.value, connectionId, catalogName, (cat) => {
         cat.schemas = [{ name: catalogName, tables: [], views: [] }]
       })
       triggerReactivity()
+      throw e
     } finally {
       loadingSchemas.value.delete(key)
     }

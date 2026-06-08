@@ -1,19 +1,19 @@
 <template>
-  <div class="navigator-error" :class="{ visible: visible }">
+  <div class="navigator-error" :class="{ visible: visible }" role="alert">
     <div class="error-icon">
-      <AlertCircle :size="20" />
+      <AlertCircle :size="20" aria-hidden="true" />
     </div>
     <div class="error-content">
       <div class="error-title">{{ error?.title || '操作失败' }}</div>
       <div class="error-message">{{ error?.message || '发生未知错误' }}</div>
     </div>
     <div class="error-actions">
-      <button class="retry-btn" @click="$emit('retry')">
-        <RefreshCw :size="14" />
+      <button class="retry-btn" aria-label="重试" @click="$emit('retry')">
+        <RefreshCw :size="14" aria-hidden="true" />
         重试
       </button>
-      <button class="close-btn" @click="$emit('close')">
-        <X :size="14" />
+      <button class="close-btn" aria-label="关闭" @click="$emit('close')">
+        <X :size="14" aria-hidden="true" />
       </button>
     </div>
   </div>

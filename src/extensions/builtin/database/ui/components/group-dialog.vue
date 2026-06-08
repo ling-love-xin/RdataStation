@@ -3,8 +3,8 @@
     <div class="group-dialog" @click.stop>
       <div class="dialog-header">
         <h3>{{ isEdit ? t('navigator.editGroup') : t('navigator.newGroupTitle') }}</h3>
-        <button class="close-btn" @click="handleClose">
-          <X :size="16" />
+        <button class="close-btn" :aria-label="t('common.cancel')" @click="handleClose">
+          <X :size="16" aria-hidden="true" />
         </button>
       </div>
 

@@ -71,8 +71,10 @@ export function useObjectLoader(
         },
       )
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载存储过程列表失败')
-      console.error('加载存储过程列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载存储过程列表失败'
+      console.error('[object-loader] 加载存储过程列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingProcedures.value.delete(key)
     }
@@ -112,8 +114,10 @@ export function useObjectLoader(
         },
       )
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载函数列表失败')
-      console.error('加载函数列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载函数列表失败'
+      console.error('[object-loader] 加载函数列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingFunctions.value.delete(key)
     }
@@ -153,8 +157,10 @@ export function useObjectLoader(
         },
       )
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载序列列表失败')
-      console.error('加载序列列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载序列列表失败'
+      console.error('[object-loader] 加载序列列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingSequences.value.delete(key)
     }
@@ -198,8 +204,10 @@ export function useObjectLoader(
         },
       )
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载触发器列表失败')
-      console.error('加载触发器列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载触发器列表失败'
+      console.error('[object-loader] 加载触发器列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingTriggers.value.delete(key)
     }

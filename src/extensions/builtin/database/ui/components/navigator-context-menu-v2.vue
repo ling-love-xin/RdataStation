@@ -20,6 +20,7 @@
               v-if="item.icon"
               :size="14"
               class="context-menu-icon"
+              aria-hidden="true"
             />
             <span class="context-menu-label">{{ item.label }}</span>
             <span v-if="item.shortcut" class="context-menu-shortcut">{{ item.shortcut }}</span>

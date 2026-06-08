@@ -9,20 +9,25 @@
         'is-favorite': isFavorite,
       }"
       :style="{ paddingLeft: `${node.level * 16 + 8}px` }"
+      role="treeitem"
+      :aria-expanded="ariaExpanded"
+      :aria-level="node.level + 1"
+      :aria-selected="isSelected ? 'true' : 'false'"
+      :aria-label="node.label"
       @click="handleClick"
       @dblclick="handleDblClick"
       @contextmenu.prevent="handleContextMenu"
     >
-      <span class="expand-icon" @click.stop="handleExpand">
-        <ChevronRight v-if="!node.isExpanded && !node.isLeaf" :size="14" />
-        <ChevronDown v-if="node.isExpanded" :size="14" />
+      <span class="expand-icon" role="button" :aria-label="node.isExpanded ? '折叠' : '展开'" @click.stop="handleExpand">
+        <ChevronRight v-if="!node.isExpanded && !node.isLeaf" :size="14" aria-hidden="true" />
+        <ChevronDown v-if="node.isExpanded" :size="14" aria-hidden="true" />
         <span v-if="node.isLeaf" class="leaf-spacer" />
-        <Loader2 v-if="node.isLoading" :size="14" class="loading-icon" />
+        <Loader2 v-if="node.isLoading" :size="14" class="loading-icon" aria-label="加载中" role="img" />
       </span>
 
-      <component :is="iconConfig.icon" :size="14" class="node-icon" :style="{ color: iconColor }" />
+      <component :is="iconConfig.icon" :size="14" class="node-icon" :style="{ color: iconColor }" :aria-label="node.type" role="img" />
 
-      <Star v-if="isFavorite" :size="12" class="favorite-icon" />
+      <Star v-if="isFavorite" :size="12" class="favorite-icon" aria-label="已收藏" role="img" />
 
       <span class="node-label" :class="{ 'is-highlight': isHighlighted }">
         <template v-if="isHighlighted">
@@ -110,6 +115,11 @@ const iconColor = computed(() => {
 })
 
 const isFavorite = computed(() => props.favoriteKeys.has(props.node.key))
+
+const ariaExpanded = computed(() => {
+  if (props.node.isLeaf) return undefined
+  return props.node.isExpanded ? 'true' : 'false'
+})
 
 const isHighlighted = computed(() => {
   return (

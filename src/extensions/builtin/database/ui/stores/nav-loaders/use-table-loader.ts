@@ -169,7 +169,11 @@ export function useTableLoader(
 
       setLastSyncTime(connectionId, catalogName, schemaName)
     } catch (err) {
-      console.error('loadTablesFromDb 失败:', err)
+      const msg = err instanceof Error ? err.message : '从数据库加载表失败'
+      const key = `${connectionId}:${catalogName}:${schemaName}`
+      console.error('[table-loader] loadTablesFromDb 失败:', key, err)
+      nodeErrors.value.set(key, msg)
+      throw err
     }
   }
 
@@ -221,8 +225,10 @@ export function useTableLoader(
 
       await loadTablesFromDb(connectionId, catalogName, schemaName)
     } catch (e) {
-      nodeErrors.value.set(key, e instanceof Error ? e.message : '加载表列表失败')
-      console.error('加载表列表失败:', e)
+      const msg = e instanceof Error ? e.message : '加载表列表失败'
+      console.error('[table-loader] 加载表列表失败:', key, e)
+      nodeErrors.value.set(key, msg)
+      throw e
     } finally {
       loadingTables.value.delete(key)
     }

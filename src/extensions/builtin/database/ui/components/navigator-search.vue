@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="search-container">
     <div class="search-input-wrapper">
-      <Search :size="14" class="search-icon" />
+      <Search :size="14" class="search-icon" aria-label="搜索" role="img" />
       <input
         ref="searchInput"
         :value="query"
@@ -12,8 +12,8 @@
         @keydown.esc="$emit('clear')"
         @keydown.enter="handleEnter"
       />
-      <button v-if="query" class="clear-btn" @click="$emit('clear')">
-        <X :size="14" />
+      <button v-if="query" class="clear-btn" aria-label="清除搜索" @click="$emit('clear')">
+        <X :size="14" aria-hidden="true" />
       </button>
     </div>
     <div v-if="query && searchResults.length > 0" class="search-results">
@@ -25,7 +25,7 @@
         @click="handleSelectResult(result)"
         @mouseenter="activeIndex = index"
       >
-        <Table :size="12" class="result-icon" />
+        <Table :size="12" class="result-icon" aria-hidden="true" />
         <div class="result-info">
           <span class="result-name">{{ result.tableName }}</span>
           <span class="result-path">{{ result.path }}</span>
