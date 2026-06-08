@@ -251,9 +251,14 @@ impl DriverFactory for MySqlNativeDriverFactory {
             })?;
 
             if !url.contains("prefer_socket") {
+                let prefer_socket = config
+                    .driver_properties
+                    .get("prefer_socket")
+                    .map(|v| v == "true")
+                    .unwrap_or(false);
                 let sep = if url.contains('?') { '&' } else { '?' };
                 url.push(sep);
-                url.push_str("prefer_socket=false");
+                url.push_str(&format!("prefer_socket={}", prefer_socket));
             }
 
             let db = MySqlNativeDatabase::new(&url).await?;

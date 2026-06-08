@@ -302,7 +302,9 @@ impl ConnectionService {
             );
         }
 
-        let db = self.create_database(&db_type, &effective_url).await?;
+        let db = self
+            .create_database(&db_type, &effective_url, driver_properties.as_deref())
+            .await?;
         let server_version = db.meta().server_version.clone();
         let safe_url = Self::mask_password_in_url(&url_with_auth);
 
@@ -1208,9 +1210,16 @@ impl ConnectionService {
 
     /// 根据数据库类型创建对应的数据库实例
     /// 通过 DataSourceRouter 路由到 DriverRegistry 动态创建
-    async fn create_database(&self, db_type: &str, url: &str) -> Result<DynDatabase, CoreError> {
-        let config = DriverConnectionConfig::new(db_type).with_url_override(url);
-
+    async fn create_database(
+        &self,
+        db_type: &str,
+        url: &str,
+        driver_properties: Option<&str>,
+    ) -> Result<DynDatabase, CoreError> {
+        let mut config = DriverConnectionConfig::new(db_type).with_url_override(url);
+        if let Some(props_json) = driver_properties {
+            Self::apply_driver_properties(&mut config, props_json);
+        }
         DataSourceRouter::route(config).await
     }
 

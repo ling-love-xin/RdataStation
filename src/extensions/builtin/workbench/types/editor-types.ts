@@ -85,6 +85,17 @@ export interface OpenFileParams {
   type?: FileType
 }
 
+/** 编辑器面板 Props 统一类型 */
+export interface EditorPanelParams {
+  filePath: string
+  fileName: string
+  language: string
+  content?: string
+  connectionId?: string
+  databaseName?: string
+  type?: FileType
+}
+
 export interface ResultSetCreateParams {
   columns: string[]
   rows: unknown[][]

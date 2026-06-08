@@ -10,13 +10,26 @@
 - 分析编辑器新增联邦查询选择器，纯 DuckDB 引擎处理
 - 代码编辑器预留 LSP（Language Server Protocol）扩展点
 - 优化 IPC 数据链路：按需分页传输，附带列类型元数据
-- **BREAKING**: EditorManager.ts 拆分为多个职责单一的模块
+- **BREAKING**: EditorManager.ts 拆分为 editor-state / file-manager / result-set-manager / instance-service / cross-window-service 五个模块，EditorManager 转为门面
+- **DONE** (2026-05-31): 删除死代码 EditorInstanceRegistry.ts
+- **DONE** (2026-05-31): EditorPanelParams 统一类型接口替换所有 `Record<string, unknown>`
+- **DONE** (2026-05-31): EditorPanelFactory 改用 `computed` 响应式解析编辑器类型
+- **DONE** (2026-05-31): openAnalysisPanel 统一走 scratchpad API 持久化
 
 ## Impact
 - Affected specs: plugin-system-design（面板贡献点复用）
 - Affected code:
   - `src/extensions/builtin/workbench/ui/components/panels/EditorPanel.vue` — 重构为工厂组件
-  - `src/extensions/builtin/workbench/manager/EditorManager.ts` — 拆分为 FileStateStore + EditorInstanceRegistry + ResultSetManager
+  - ~~`src/extensions/builtin/workbench/manager/EditorManager.ts`~~ — **已拆分为**：
+    - `editor-state.ts` — 共享响应式状态（openFiles, activeFilePath, 运行时等）
+    - `file-manager.ts` — 文件 CRUD（openFile, closeFile, switchToFile）
+    - `result-set-manager.ts` — 结果集管理（createResultSet, detachResultPanel）
+    - `instance-service.ts` — 编辑器实例注册（registerFileEditor, getEditorView）
+    - `cross-window-service.ts` — 跨窗口同步（popout/merge, state sync）
+    - `EditorManager.ts` — 门面聚合 + SQL 执行（499行，was 973行）
+  - ~~`src/extensions/builtin/workbench/manager/EditorInstanceRegistry.ts`~~ — **已删除**（死代码，零引用）
+  - `src/extensions/builtin/workbench/types/editor-types.ts` — 新增 `EditorPanelParams` 统一接口
+  - `src/extensions/builtin/workbench/ui/components/panels/*.vue` — 所有面板 `Record<string,unknown>` → `EditorPanelParams`
   - `src/extensions/builtin/workbench/ui/composables/useSqlExecution.ts` — 新增三种执行模式分支
   - `src/extensions/builtin/query/ui/services/query.ts` — 消除 `as unknown as`，对齐 specta 类型
   - `src-tauri/src/core/models.rs` — QueryResult 序列化新增 `column_types` 字段

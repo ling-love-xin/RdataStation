@@ -7,24 +7,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 
 import { EditorModeResolver } from '@/extensions/builtin/workbench/manager/EditorModeResolver'
-import type { EditorType } from '@/extensions/builtin/workbench/types/editor-types'
+import type { EditorType, EditorPanelParams } from '@/extensions/builtin/workbench/types/editor-types'
 
 import AnalysisEditorPanel from './AnalysisEditorPanel.vue'
 import CodeEditorPanel from './CodeEditorPanel.vue'
 import QueryEditorPanel from './QueryEditorPanel.vue'
 
 const props = defineProps<{
-  params: Record<string, unknown>
+  params: EditorPanelParams
 }>()
 
-const currentFilePath = computed(() => String(props.params.filePath || ''))
-const currentLanguage = computed(() => String(props.params.language || 'sql'))
-
-const currentEditorType = ref<EditorType>(
-  EditorModeResolver.resolve(currentFilePath.value, currentLanguage.value)
+const currentEditorType = computed<EditorType>(() =>
+  EditorModeResolver.resolve(props.params.filePath, props.params.language)
 )
 </script>
 

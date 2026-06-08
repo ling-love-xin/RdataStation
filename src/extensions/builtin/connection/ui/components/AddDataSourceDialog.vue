@@ -388,7 +388,7 @@ async function handleTest() {
   try {
     const url = buildUrl()
     const driverName = selectedDriver.value.name
-    const dbType = selectedDriver.value.type_id // 使用 type_id 而非 name，避免 "mysql (native)" 含空格无法匹配后端注册表
+    const dbType = selectedDriver.value.id
     const { invoke } = await import('@tauri-apps/api/core')
     const params: Record<string, unknown> = {
       dbType: dbType,
@@ -588,7 +588,7 @@ function saveToStaging() {
 
   stagingItems.value[stagingIndex.value] = buildStagingItem(
     name,
-    d.type_id,
+    d.id,
     headerData.selectedDriverId ?? undefined,
     url,
     { ...formData.value },
@@ -619,7 +619,7 @@ function syncCurrentToStaging() {
 
   stagingItems.value[idx] = buildStagingItem(
     name,
-    selectedDriver.value?.type_id,
+    selectedDriver.value?.id,
     headerData.selectedDriverId ?? undefined,
     buildUrl(),
     { ...formData.value },
@@ -674,7 +674,7 @@ async function handleEditApply() {
       const conn: ProjectConnection = {
         id: editingConnId.value,
         name,
-        driver: selectedDriver.value?.type_id || '',
+        driver: selectedDriver.value?.id || '',
         host: String(fd.host || ''),
         port: Number(fd.port || 0),
         database: String(fd.database || ''),
@@ -704,7 +704,7 @@ async function handleEditApply() {
       await updateGlobalConnection({
         conn_id: editingConnId.value,
         name,
-        driver: selectedDriver.value?.type_id,
+        driver: selectedDriver.value?.id,
         host: String(fd.host || ''),
         port: Number(fd.port || 0),
         database: String(fd.database || ''),

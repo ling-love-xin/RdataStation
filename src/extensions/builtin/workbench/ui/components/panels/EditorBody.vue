@@ -82,6 +82,7 @@ import { File, FileCode, X, EyeOff } from 'lucide-vue-next'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
+import type { EditorPanelParams } from '@/extensions/builtin/workbench/types/editor-types'
 import { useCodeMirror } from '@/extensions/builtin/workbench/ui/composables/useCodeMirror'
 import {
   classifyFileSize,
@@ -97,7 +98,7 @@ const uiStore = useUiStore()
 const { createView, destroyView, setTheme, view, getEditorState, setEditorState, getValue, getSelection } = useCodeMirror()
 
 const props = defineProps<{
-  params: Record<string, unknown>
+  params: EditorPanelParams
 }>()
 
 const emit = defineEmits<{
@@ -112,8 +113,8 @@ const largeFileTier = ref<FileSizeTier>('normal')
 const largeFileSizeMB = ref(0)
 let domObserver: MutationObserver | null = null
 
-const currentFilePath = computed(() => String(props.params.filePath || ''))
-const currentLanguage = computed(() => String(props.params.language || 'sql'))
+const currentFilePath = computed(() => props.params.filePath)
+const currentLanguage = computed(() => props.params.language)
 
 const myFileInfo = computed(() => EditorManager.openFiles.get(currentFilePath.value))
 
@@ -237,7 +238,7 @@ onMounted(async () => {
   if (!el) return
 
   const theme = uiStore.theme === 'dark' ? 'dark' : 'light'
-  const content = String(props.params.content || '')
+  const content = props.params.content ?? ''
   const strategy = classifyFileSize(content)
   largeFileTier.value = strategy.tier
   largeFileSizeMB.value = strategy.sizeMB

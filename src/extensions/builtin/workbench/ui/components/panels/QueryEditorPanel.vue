@@ -32,17 +32,16 @@
 import { ref, computed, onMounted } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
+import type { EditorPanelParams } from '@/extensions/builtin/workbench/types/editor-types'
 import { useSqlExecution } from '@/extensions/builtin/workbench/ui/composables/useSqlExecution'
 
 import EditorBody from './EditorBody.vue'
 import QueryStatusBar from './QueryStatusBar.vue'
 import QueryToolbar from './QueryToolbar.vue'
 
-interface Props {
-  params: Record<string, unknown>
-}
-
-const props = defineProps<Props>()
+const props = defineProps<{
+  params: EditorPanelParams
+}>()
 
 const editorBodyRef = ref<InstanceType<typeof EditorBody> | null>(null)
 
@@ -62,7 +61,7 @@ const {
   commitTransaction,
   rollbackTransaction,
 } = useSqlExecution({
-  panelId: String(props.params.filePath ?? ''),
+  panelId: props.params.filePath,
   getEditorValue: () => editorBodyRef.value?.getEditorValue?.() ?? '',
   getSelectedText: () => editorBodyRef.value?.getSelectedText?.() ?? '',
   runtimeConnId,

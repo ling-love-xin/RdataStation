@@ -22,6 +22,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
+import type { EditorPanelParams } from '@/extensions/builtin/workbench/types/editor-types'
 import type { LspDiagnostic } from '@/extensions/builtin/workbench/types/lsp-types'
 
 import CodeStatusBar from './CodeStatusBar.vue'
@@ -30,14 +31,14 @@ import EditorBody from './EditorBody.vue'
 
 
 const props = defineProps<{
-  params: Record<string, unknown>
+  params: EditorPanelParams
 }>()
 
 const editorBodyRef = ref<InstanceType<typeof EditorBody> | null>(null)
 const isDirty = ref(false)
 const cursorPosition = ref('Ln 1, Col 1')
 const diagnostics = ref<LspDiagnostic[]>([])
-const language = computed(() => String(props.params.language || 'plaintext'))
+const language = computed(() => props.params.language || 'plaintext')
 const encoding = ref('UTF-8')
 const indent = ref('4空格')
 

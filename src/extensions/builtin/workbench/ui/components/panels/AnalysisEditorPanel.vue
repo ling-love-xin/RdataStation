@@ -21,6 +21,7 @@
 import { ref, computed } from 'vue'
 
 import { EditorManager } from '@/extensions/builtin/workbench/manager/EditorManager'
+import type { EditorPanelParams } from '@/extensions/builtin/workbench/types/editor-types'
 import { useSqlExecution } from '@/extensions/builtin/workbench/ui/composables/useSqlExecution'
 
 import AnalysisStatusBar from './AnalysisStatusBar.vue'
@@ -28,7 +29,7 @@ import AnalysisToolbar from './AnalysisToolbar.vue'
 import EditorBody from './EditorBody.vue'
 
 const props = defineProps<{
-  params: Record<string, unknown>
+  params: EditorPanelParams
 }>()
 
 const editorBodyRef = ref<InstanceType<typeof EditorBody> | null>(null)
@@ -43,7 +44,7 @@ const {
   executeNewTab,
   executeDuckDBAccelerated,
 } = useSqlExecution({
-  panelId: String(props.params.filePath || ''),
+  panelId: props.params.filePath,
   getEditorValue: () => editorBodyRef.value?.getEditorValue?.() ?? '',
   getSelectedText: () => editorBodyRef.value?.getSelectedText?.() ?? '',
   runtimeConnId,
