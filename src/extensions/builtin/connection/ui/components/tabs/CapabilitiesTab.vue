@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { NAlert } from 'naive-ui'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Driver } from '../../../domain/types'
@@ -45,6 +45,10 @@ interface Props {
   driver: Driver | null
 }
 const props = withDefaults(defineProps<Props>(), { driver: null })
+
+const emit = defineEmits<{
+  (e: 'extraConfig', config: Record<string, unknown>): void
+}>()
 
 interface CapItem {
   key: string
@@ -124,6 +128,16 @@ const capList = computed<CapItem[]>(() => {
     desc: meta.desc,
   }))
 })
+
+// 将解析后的能力标志包装为 driver_supports_xxx 格式发出
+watch(parsedCaps, (caps) => {
+  if (!props.driver) return
+  const driverCaps: Record<string, unknown> = {}
+  for (const cap of caps) {
+    driverCaps[`driver_supports_${cap}`] = true
+  }
+  emit('extraConfig', driverCaps)
+}, { immediate: true })
 </script>
 
 <style scoped>

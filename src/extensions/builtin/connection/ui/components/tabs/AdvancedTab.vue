@@ -376,12 +376,14 @@ import {
   envDefsAsEnvInfo,
   type EnvPolicyTag,
 } from '../../constants/envDefaults'
+import { useEnvironmentStore } from '../../stores/environmentStore'
 
 import type { EnvInfo } from './EnvironmentManager.vue'
 import type { Driver } from '../../../domain/types'
 import type { SelectOption } from 'naive-ui'
 
 const { t } = useI18n()
+const environmentStore = useEnvironmentStore()
 const props = defineProps<{
   driver?: Driver | null
   formData?: Record<string, unknown>
@@ -449,6 +451,7 @@ function onEnvChange(id: string) {
         applyEnvDefaults(id)
         loadPoliciesForEnv(gpId) // overlay persisted policies for snapshot
         loadEnvironments() // 刷新列表显示新快照
+        environmentStore.selectEnv(gpId) // 同步 environmentStore
       } finally {
         envSnapshotting.value = false
       }
@@ -458,6 +461,7 @@ function onEnvChange(id: string) {
   selectedEnvId.value = id
   applyEnvDefaults(id)
   loadPoliciesForEnv(id) // overlay persisted policies
+  environmentStore.selectEnv(id) // 同步 environmentStore
 }
 
 function applyEnvDefaults(id: string) {

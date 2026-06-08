@@ -14,7 +14,6 @@ import { useObjectLoader } from './nav-loaders/use-object-loader'
 import { useTableLoader } from './nav-loaders/use-table-loader'
 
 import type { IntrospectionLevel } from '../api/database-api'
-
 import type {
   CatalogNode,
   SchemaNode,

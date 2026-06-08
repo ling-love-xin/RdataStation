@@ -7,19 +7,18 @@
  * - 跳数上限检查与警告
  * - 配置文件管理（选择/新建/自定义三种模式）
  * - 拓扑预览数据生成
+ *
+ * 配置文件状态从 useNetworkProfiles 共享状态读取，不再维护独立副本。
  */
 import { invoke } from '@tauri-apps/api/core'
 import { ref, computed } from 'vue'
 
+import { useNetworkProfiles, type NetworkProfile } from './useNetworkProfiles'
 import {
-  backendConfigToSshProfile,
-  backendConfigToSslProfile,
-  backendConfigToProxyProfile,
   sshProfileToNetworkConfig,
   sslProfileToNetworkConfig,
   proxyProfileToNetworkConfig,
   protocolChainToChainHops,
-  type BackendNetworkConfig,
 } from '../adapters/network-adapter'
 import { MAX_NETWORK_HOPS, WARN_NETWORK_HOPS, createDefaultChain } from '../types/network-chain'
 
@@ -35,15 +34,94 @@ import type {
   AddHopOption,
 } from '../types/network-chain'
 
-// ==================== 配置文件存储（模拟数据，后续接 DB API） ====================
+// ==================== NetworkProfile → 类型化 Profile 转换 ====================
 
-const sshProfiles = ref<SshProfile[]>([])
-const sslProfiles = ref<SslProfile[]>([])
-const proxyProfiles = ref<ProxyProfile[]>([])
+function networkProfileToSshProfile(np: NetworkProfile): SshProfile | null {
+  const cfg = np.config as Record<string, unknown> | null
+  if (!cfg || typeof cfg !== 'object') return null
+  let auth: Record<string, unknown> | null = null
+  if (typeof cfg.auth === 'object' && cfg.auth !== null) {
+    auth = cfg.auth as Record<string, unknown>
+  }
+  return {
+    id: np.id,
+    name: np.name,
+    scope: (np.origin as ProfileScope) || 'project',
+    host: (cfg.host as string) || '',
+    port: (cfg.port as number) || 22,
+    username: (cfg.username as string) || '',
+    authType: auth?.type === 'password' ? 'password' : 'key',
+    password: auth?.password as string | undefined,
+    keyPath: auth?.key_path as string | undefined,
+    localPort: cfg.local_port as number | undefined,
+    remoteHost: cfg.remote_host as string | undefined,
+    remotePort: cfg.remote_port as number | undefined,
+    keepAlive: (cfg.timeout_secs as number) || 60,
+  }
+}
+
+function networkProfileToSslProfile(np: NetworkProfile): SslProfile | null {
+  const cfg = np.config as Record<string, unknown> | null
+  if (!cfg || typeof cfg !== 'object') return null
+  const verifyCert = cfg.verify_server_cert as boolean
+  return {
+    id: np.id,
+    name: np.name,
+    scope: (np.origin as ProfileScope) || 'project',
+    mode: verifyCert === false ? 'require' : 'verify-full',
+    ca: cfg.ca_cert_path as string | undefined,
+    cert: cfg.client_cert_path as string | undefined,
+    key: cfg.client_key_path as string | undefined,
+  }
+}
+
+function networkProfileToProxyProfile(np: NetworkProfile): ProxyProfile | null {
+  const cfg = np.config as Record<string, unknown> | null
+  if (!cfg || typeof cfg !== 'object') return null
+  let proxyType: 'socks5' | 'http' | 'socks4'
+  const rawType = np.type as string
+  if (rawType === 'http' || rawType === 'http_proxy') proxyType = 'http'
+  else if (rawType === 'socks4') proxyType = 'socks4'
+  else proxyType = 'socks5'
+  let auth: Record<string, unknown> | null = null
+  if (typeof cfg.auth === 'object' && cfg.auth !== null) {
+    auth = cfg.auth as Record<string, unknown>
+  }
+  return {
+    id: np.id,
+    name: np.name,
+    scope: (np.origin as ProfileScope) || 'project',
+    type: proxyType,
+    host: (cfg.host as string) || '',
+    port: (cfg.port as number) || 1080,
+    username: auth?.username as string | undefined,
+    password: auth?.password as string | undefined,
+  }
+}
 
 // ==================== Composable ====================
 
 export function useNetworkChain(initialChain?: ProtocolNode[]) {
+  const np = useNetworkProfiles()
+
+  // ===== 配置文件状态（从 useNetworkProfiles 共享状态派生） =====
+
+  const sshProfiles = computed(() =>
+    np.sshProfiles.value
+      .map(networkProfileToSshProfile)
+      .filter((p): p is SshProfile => p !== null)
+  )
+  const sslProfiles = computed(() =>
+    np.sslProfiles.value
+      .map(networkProfileToSslProfile)
+      .filter((p): p is SslProfile => p !== null)
+  )
+  const proxyProfiles = computed(() =>
+    np.proxyProfiles.value
+      .map(networkProfileToProxyProfile)
+      .filter((p): p is ProxyProfile => p !== null)
+  )
+
   // ===== 状态 =====
   const chain = ref<ProtocolNode[]>(initialChain ?? createDefaultChain())
   let hopIdCounter = chain.value.length + 1
@@ -295,23 +373,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         }).catch(() => null)
 
         if (result?.id) {
-          sshProfiles.value.push({
-            id: result.id,
-            name,
-            scope,
-            host: (data.host as string) || 'localhost',
-            port: (data.port as number) || 22,
-            username: (data.username as string) || 'root',
-            authType: (data.authType as 'password' | 'key') || 'key',
-            keyPath: data.keyPath as string | undefined,
-            password: data.password as string | undefined,
-            localPort: data.localPort as number | undefined,
-            remoteHost: data.remoteHost as string | undefined,
-            remotePort: data.remotePort as number | undefined,
-            keepAlive: (data.keepAlive as number) || 60,
-          })
           hop.mode = 'select'
           hop.profileId = result.id
+          await np.loadAll()
           return { profileId: result.id, name, scope }
         }
       } else if (hop.protocol === 'ssl') {
@@ -336,17 +400,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         }).catch(() => null)
 
         if (result?.id) {
-          sslProfiles.value.push({
-            id: result.id,
-            name,
-            scope,
-            mode: (data.mode as 'verify-full' | 'verify-ca' | 'require') || 'verify-full',
-            ca: data.ca as string | undefined,
-            cert: data.cert as string | undefined,
-            key: data.key as string | undefined,
-          })
           hop.mode = 'select'
           hop.profileId = result.id
+          await np.loadAll()
           return { profileId: result.id, name, scope }
         }
       } else {
@@ -372,18 +428,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
         }).catch(() => null)
 
         if (result?.id) {
-          proxyProfiles.value.push({
-            id: result.id,
-            name,
-            scope,
-            type: (data.type as 'socks5' | 'http' | 'socks4') || 'socks5',
-            host: (data.host as string) || '',
-            port: (data.port as number) || 1080,
-            username: data.username as string | undefined,
-            password: data.password as string | undefined,
-          })
           hop.mode = 'select'
           hop.profileId = result.id
+          await np.loadAll()
           return { profileId: result.id, name, scope }
         }
       }
@@ -394,34 +441,10 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
     return null
   }
 
-  /** 从后端 DB 加载已有配置文件 */
+  /** 从后端 DB 加载已有配置文件（委托给 useNetworkProfiles 共享状态） */
   async function loadProfilesFromDb() {
     try {
-      const sshNets = await invoke<BackendNetworkConfig[]>('list_network_configs', {
-        networkType: 'ssh',
-      }).catch(() => [] as BackendNetworkConfig[])
-      const sslNets = await invoke<BackendNetworkConfig[]>('list_network_configs', {
-        networkType: 'ssl',
-      }).catch(() => [] as BackendNetworkConfig[])
-
-      // 代理类型可能为 socks5/socks/http_proxy，分别查询
-      const socksNets = await invoke<BackendNetworkConfig[]>('list_network_configs', {
-        networkType: 'socks',
-      }).catch(() => [] as BackendNetworkConfig[])
-      const httpNets = await invoke<BackendNetworkConfig[]>('list_network_configs', {
-        networkType: 'http_proxy',
-      }).catch(() => [] as BackendNetworkConfig[])
-      const allProxyNets = [...socksNets, ...httpNets]
-
-      sshProfiles.value = sshNets
-        .map(backendConfigToSshProfile)
-        .filter((p): p is SshProfile => p !== null)
-      sslProfiles.value = sslNets
-        .map(backendConfigToSslProfile)
-        .filter((p): p is SslProfile => p !== null)
-      proxyProfiles.value = allProxyNets
-        .map(backendConfigToProxyProfile)
-        .filter((p): p is ProxyProfile => p !== null)
+      await np.loadAll()
     } catch (err) {
       console.error('加载网络配置文件失败:', err)
     }
@@ -431,10 +454,17 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
   async function deleteProfileInDb(protocol: ProtocolType, profileId: string) {
     try {
       await invoke('delete_network_config', { id: profileId })
+      // 清除引用此配置的节点
+      for (const hop of chain.value) {
+        if (hop.protocol === protocol && hop.profileId === profileId) {
+          hop.profileId = ''
+        }
+      }
+      // 刷新共享状态
+      await np.loadAll()
     } catch (err) {
       console.error('删除网络配置失败:', err)
     }
-    deleteProfile(protocol, profileId)
   }
 
   /**
@@ -505,14 +535,7 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
   // ===== 配置文件管理 =====
 
   function deleteProfile(protocol: ProtocolType, profileId: string) {
-    if (protocol === 'ssh') {
-      sshProfiles.value = sshProfiles.value.filter(p => p.id !== profileId)
-    } else if (protocol === 'ssl') {
-      sslProfiles.value = sslProfiles.value.filter(p => p.id !== profileId)
-    } else {
-      proxyProfiles.value = proxyProfiles.value.filter(p => p.id !== profileId)
-    }
-    // 清除引用此配置的节点
+    // 清除引用此配置的节点（配置文件列表由 useNetworkProfiles 共享状态管理）
     for (const hop of chain.value) {
       if (hop.protocol === protocol && hop.profileId === profileId) {
         hop.profileId = ''
@@ -570,10 +593,9 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
 
   // ===== 初始化配置文件 =====
 
-  function initProfiles(ssh?: SshProfile[], ssl?: SslProfile[], proxy?: ProxyProfile[]) {
-    if (ssh) sshProfiles.value = ssh
-    if (ssl) sslProfiles.value = ssl
-    if (proxy) proxyProfiles.value = proxy
+  /** @deprecated 配置文件状态已由 useNetworkProfiles 统一管理，此方法为空操作 */
+  function initProfiles(_ssh?: SshProfile[], _ssl?: SslProfile[], _proxy?: ProxyProfile[]) {
+    // no-op：配置文件状态由 useNetworkProfiles 共享状态统一管理
   }
 
   function resetChain(newChain?: ProtocolNode[]) {

@@ -68,12 +68,14 @@
         <template #icon><Edit :size="13" /></template>
       </NButton>
     </div>
+    <NAlert v-if="uriWarning" type="warning" :title="uriWarning" closable style="margin-top: 8px" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { Edit } from 'lucide-vue-next'
-import { NButton, NCheckbox, NInput, NSelect } from 'naive-ui'
+import { NAlert, NButton, NCheckbox, NInput, NSelect } from 'naive-ui'
+import { computed } from 'vue'
 
 import type { SelectOption } from 'naive-ui'
 
@@ -97,9 +99,10 @@ interface Props {
   driverPlaceholder: string
   uriLabel: string
   uriPlaceholder: string
+  urlTemplate?: string | null
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   name: '',
   description: '',
   scopeGlobal: true,
@@ -119,6 +122,7 @@ withDefaults(defineProps<Props>(), {
   driverPlaceholder: '',
   uriLabel: 'URI',
   uriPlaceholder: 'jdbc:mysql://...',
+  urlTemplate: null,
 })
 
 const emit = defineEmits<{
@@ -137,6 +141,46 @@ function onDriverSelect(value: string | number | null) {
   emit('update:selectedDriverId', driverId)
   emit('driver-change', driverId)
 }
+
+const uriWarning = computed<string | null>(() => {
+  if (!props.uriEditing) return null
+  const tmpl = props.urlTemplate
+  if (!tmpl) return null
+  const uri = props.manualUri.trim()
+  if (!uri) return null
+
+  // 提取 url_template 中的协议前缀（如 mysql、postgres、sqlite）
+  const schemeMatch = tmpl.match(/^(\w+):\/\//)
+  const expectedScheme = schemeMatch ? schemeMatch[1].toLowerCase() : null
+
+  // 检查 URL 是否包含 ://
+  if (!uri.includes('://')) {
+    return expectedScheme
+      ? `URL 格式不匹配：缺少 "://" 分隔符，期望格式以 "${expectedScheme}://" 开头`
+      : 'URL 格式不匹配：缺少 "://" 分隔符'
+  }
+
+  // 检查协议是否匹配
+  if (expectedScheme) {
+    const actualScheme = uri.split('://')[0].toLowerCase()
+    if (actualScheme !== expectedScheme) {
+      return `URL 协议不匹配：当前为 "${actualScheme}://"，驱动期望 "${expectedScheme}://"`
+    }
+  }
+
+  // 对网络数据库检查 host:port 段
+  if (tmpl.includes('{host}') && tmpl.includes('{port}')) {
+    const afterScheme = uri.substring(uri.indexOf('://') + 3)
+    // 去除认证信息部分 (@ 之前)
+    const hostPart = afterScheme.includes('@') ? afterScheme.split('@')[1] : afterScheme
+    const hostPortMatch = hostPart.match(/^[^/:]+(:\d+)?/)
+    if (!hostPortMatch) {
+      return 'URL 格式不匹配：缺少有效的 host:port 段'
+    }
+  }
+
+  return null
+})
 </script>
 
 <style scoped>

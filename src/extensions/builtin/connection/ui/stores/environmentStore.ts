@@ -112,8 +112,9 @@ export const useEnvironmentStore = defineStore('environment', () => {
     return environments.value
   }
 
-  function selectEnv(envId: string) {
+  async function selectEnv(envId: string) {
     currentEnvId.value = envId
+    await fetchPolicies(envId)
   }
 
   return {

@@ -1,8 +1,8 @@
 # 数据库导航栏整体架构深度分析
 
-> 版本：v1.0
+> 版本：v1.1
 > 日期：2026-06-09
-> 状态：分析文档
+> 状态：已完成 3/3 问题修复
 
 ---
 
@@ -672,4 +672,5 @@ database-navigator.vue
 | V10.3 | 2026-05 | 添加 navigator-persistence（localStorage 展开状态保存/恢复） |
 | V10.4 | 2026-05 | 添加 startCacheWarming（三阶段全量预热） |
 | V10.5 | 2026-05 | 添加 IntrospectionLevel（三级内省控制） |
+| **V10.7** | **2026-06** | **Bug 修复: schema loadTables 去重 + lastActive 跨会话恢复 + 搜索 debounceAsync 300ms** |
 | **V10.6** | **2026-06** | **Store 拆分(4 子 loader) + tree-mutation 工具 + LazyLoader 工厂 + loading 独立化 + nodeErrors** |

@@ -21,12 +21,10 @@ import {
 import { mutateTreeNode, mutateCatalogNode } from '../../utils/tree-mutation'
 
 import type { TableInput } from '../../services/metadata-cache-service'
-
 import type {
   CatalogNode,
   SchemaNode,
   TableNode,
-  ColumnNode,
 } from '../../types/nav-types'
 
 // ========== Composable ==========

@@ -1,6 +1,6 @@
 # IVM 数据库导航栏设计文档
 
-> 版本：v2.3
+> 版本：v2.5
 > 最后更新：2026-06-09
 > 状态：✅ 持续更新
 
@@ -55,6 +55,23 @@
 | **全局错误覆盖**                   | 新增 `nodeErrors: Map<string, string>`，子 loader 按节点 key 写入独立错误，暴露 `getNodeError`/`setNodeError` API | [database-navigator-store.ts](../../src/extensions/builtin/database/ui/stores/database-navigator-store.ts)                                                                                                                                                             |
 | **`loadViews` 冗余包装**           | 删除 `loadViews` 函数（仅是 `loadTables` 空包装），3 个调用方全部改用 `loadTables` | [database-navigator-store.ts](../../src/extensions/builtin/database/ui/stores/database-navigator-store.ts), [use-database-tree-loader.ts](../../src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts), [use-context-menu-actions.ts](../../src/extensions/builtin/database/ui/composables/use-context-menu-actions.ts), [use-incremental-refresh.ts](../../src/extensions/builtin/database/ui/composables/use-incremental-refresh.ts) |
 | **类型定义不一致**                 | 统一所有子 loader / tree loader / store 的类型导入源为 `nav-types.ts`，消除本地类型与共享类型冲突 | [nav-types.ts](../../src/extensions/builtin/database/ui/types/nav-types.ts), all nav-loaders |
+
+### ✅ V10.8 深度审计修复（2026-06-09）
+
+| 问题 | 修复内容 | 涉及文件 |
+|------|---------|---------|
+| **loadChildren catch 静默吞异常** | catch 中设置 nodeError + 返回 `⚠ 加载失败：{msg}` 错误占位节点，用户可见可重试 | [use-database-tree-loader.ts](../../src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts) |
+| **debouncedPersistSave timer 泄漏** | `onUnmounted` 添加 `clearTimeout(persistTimer)` | [database-navigator.vue](../../src/extensions/builtin/database/ui/components/database-navigator.vue) |
+| **connection 节点取错 connectionId** | connection 节点从 `keyParts[2]` 取 connId（非 `keyParts[1]`），`node.data.driver` 取 dbType | [use-database-tree-loader.ts](../../src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts) |
+| **tables/views-folder 重复 loadTables** | Schema 已加载表数据时，展开 folder 直接走 `create*Nodes()`，跳过 API 调用 | [use-database-tree-loader.ts](../../src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts) |
+
+### ✅ V10.7 Bug 修复（2026-06-09）
+
+| 问题                               | 修复内容                                                                                              | 涉及文件                                                                                                                                                                                                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Schema 节点 loadTables 重复调用** | 删除 `Promise.all` 双调 `loadTables`，改为单次 `await`（节省一次 RTT） | [use-database-tree-loader.ts](../../src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts:872)                                                                                                                                                   |
+| **树展开状态不跨会话持久化**        | 新增 `saveLastActiveConnection` / `getLastActiveConnection`，`onMounted` 自动恢复上次活跃连接 | [navigator-persistence.ts](../../src/extensions/builtin/database/ui/utils/navigator-persistence.ts), [database-navigator.vue](../../src/extensions/builtin/database/ui/components/database-navigator.vue)                                                              |
+| **搜索无防抖，逐字触发全树扫描**    | `onSearchQueryChange` 用 `debounceAsync` 包装，300ms 防抖 | [database-navigator.vue](../../src/extensions/builtin/database/ui/components/database-navigator.vue:394), [debounce.ts](../../src/extensions/builtin/database/ui/utils/debounce.ts)                                                                                     |
 
 ### 历史问题（已修复）
 
@@ -199,6 +216,8 @@ interface NavigatorStateEntry {
 
 | 版本     | 日期       | 说明                                                                                                                                                    |
 | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v2.5** | 2026-06-09 | **V10.8: loadChildren 异常不再静默吞噬(错误占位节点) + persistTimer cleanup + connectionId 修正 + tables/views-folder 跳过重复请求** |
+| **v2.4** | 2026-06-09 | **V10.7: 修复 schema loadTables 重复调用 + lastActive 跨会话恢复 + 搜索 300ms debounceAsync 防抖** |
 | **v2.3** | 2026-06-09 | **V10.6: Store 拆分(1267→4子loader)、LazyLoader 通用工厂、独立 loading 状态、nodeErrors 按节点追踪、tree-mutation 工具函数、nav-types 统一类型** |
 | **v2.2** | 2026-05-25 | **R5: 四驱动列元数据(extra HashMap)全覆盖; L2 indexes/fks 回写主流程接入; 前端 Tooltip/属性面板消费索引约束新字段; SQL迁移009 JDBC对齐; 打通率30%→82%** |
 | v2.1     | 2026-05-25 | 导航栏持久化架构（localStorage 双链路设计）                                                                                                             |

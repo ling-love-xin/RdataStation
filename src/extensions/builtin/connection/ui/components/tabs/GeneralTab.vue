@@ -18,42 +18,65 @@
       <!-- Network DB form -->
       <NSpace v-if="!driver.is_file" vertical :size="14">
         <div class="sec-title">{{ $t('navigator.connectionParams') }}</div>
-        <div class="form-row">
-          <div class="form-grp" style="flex: 2">
-            <span class="form-label">{{ $t('navigator.host') }}</span>
-            <NInput
-              v-model:value="local.host"
-              size="small"
-              placeholder="localhost"
-              :maxlength="255"
-              @update:value="emitUpdate"
-            />
-          </div>
+
+        <!-- Dynamic fields from config_schema -->
+        <div v-for="field in configSchemaFields" :key="field.key" class="form-row">
           <div class="form-grp" style="flex: 1">
-            <span class="form-label">{{ $t('navigator.port') }}</span>
+            <span class="form-label">{{ field.label }}</span>
+            <!-- Select (enum) -->
+            <NSelect
+              v-if="field.options"
+              :value="(getFieldValue(field.key) as string | number | null)"
+              size="small"
+              :placeholder="field.placeholder"
+              :options="(field.options as Array<{ label: string; value: string | number }>)"
+              :disabled="isFieldDisabled(field.key)"
+              @update:value="(v: string | number) => onFieldChange(field.key, v)"
+            />
+            <!-- Integer / Number -->
             <NInputNumber
-              v-model:value="local.port"
+              v-else-if="field.type === 'integer' || field.type === 'number'"
+              :value="(getFieldValue(field.key) as number)"
               size="small"
-              :min="1"
-              :max="65535"
-              @update:value="emitUpdate"
+              :min="field.type === 'integer' ? 1 : undefined"
+              :max="field.key === 'port' ? 65535 : undefined"
+              :placeholder="field.placeholder"
+              :disabled="isFieldDisabled(field.key)"
+              @update:value="(v: number | null) => onFieldChange(field.key, v ?? 0)"
             />
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-grp" style="flex: 1">
-            <span class="form-label">{{ $t('navigator.database') }}</span>
+            <!-- Boolean / Switch -->
+            <NSwitch
+              v-else-if="field.type === 'boolean'"
+              :value="(getFieldValue(field.key) as boolean)"
+              :disabled="isFieldDisabled(field.key)"
+              @update:value="(v: boolean) => onFieldChange(field.key, v)"
+            />
+            <!-- Password -->
             <NInput
-              v-model:value="local.database"
+              v-else-if="field.format === 'password'"
+              :value="(getFieldValue(field.key) as string)"
+              type="password"
               size="small"
-              placeholder="mydb"
-              :maxlength="128"
-              @update:value="emitUpdate"
+              show-password-on="click"
+              :placeholder="field.placeholder"
+              :maxlength="256"
+              :disabled="isFieldDisabled(field.key)"
+              @update:value="(v: string) => onFieldChange(field.key, v)"
+            />
+            <!-- Default Input -->
+            <NInput
+              v-else
+              :value="(getFieldValue(field.key) as string)"
+              size="small"
+              :placeholder="field.placeholder"
+              :maxlength="255"
+              :disabled="isFieldDisabled(field.key)"
+              @update:value="(v: string) => onFieldChange(field.key, v)"
             />
           </div>
         </div>
 
-        <!-- Database Auth: Two-column layout -->
+        <!-- Database Auth: Two-column layout (independent, above dynamic fields) -->
         <div class="sec-title" style="margin-top: 4px">{{
           $t('navigator.databaseAuth') || '数据库认证'
         }}</div>
@@ -95,7 +118,7 @@
           </div>
         </div>
 
-        <!-- Dynamic auth fields -->
+        <!-- Dynamic auth fields (not in v-for) -->
         <template v-if="!selectedAuthConfigId">
           <div v-if="authMethod === 'password' || authMethod === 'ldap'" class="form-row">
             <div class="form-grp" style="flex: 1">
@@ -271,7 +294,7 @@
         </div>
       </NSpace>
 
-      <!-- File DB form -->
+      <!-- File DB form (keeps existing logic) -->
       <NSpace v-else vertical :size="14">
         <div class="sec-title">{{ $t('navigator.databaseFile') }}</div>
         <div class="form-row">
@@ -297,31 +320,31 @@
         </div>
       </NSpace>
 
-      <!-- Dynamic config schema fields (高级连接参数) -->
-      <NSpace v-if="schemaFields.length > 0" vertical :size="14">
+      <!-- Advanced config schema fields (fields not rendered above) -->
+      <NSpace v-if="advancedSchemaFields.length > 0" vertical :size="14">
         <div class="sec-title">{{ $t('navigator.advancedParams') || '高级连接参数' }}</div>
-        <div v-for="field in schemaFields" :key="field.key" class="form-row">
+        <div v-for="field in advancedSchemaFields" :key="field.key" class="form-row">
           <div class="form-grp" style="flex: 1">
             <span class="form-label">{{ field.label }}</span>
             <!-- Select 类型 -->
             <NSelect
               v-if="field.type === 'select'"
-              v-model:value="(schemaFormData[field.key] as any)"
+              v-model:value="(schemaFormData[field.key] as string | number | null)"
               size="small"
               :placeholder="field.placeholder"
-              :options="(field.options as any)"
+              :options="(field.options as Array<{ label: string; value: string | number }>)"
               @update:value="emitUpdate"
             />
             <!-- Switch 类型 -->
             <NSwitch
               v-else-if="field.type === 'switch'"
-              v-model:value="(schemaFormData[field.key] as any)"
+              v-model:value="(schemaFormData[field.key] as boolean)"
               @update:value="emitUpdate"
             />
             <!-- Number 类型 -->
             <NInputNumber
               v-else-if="field.type === 'input-number'"
-              v-model:value="(schemaFormData[field.key] as any)"
+              v-model:value="(schemaFormData[field.key] as number | null)"
               size="small"
               :placeholder="field.placeholder"
               :min="field.min"
@@ -331,7 +354,7 @@
             <!-- Textarea 类型 -->
             <NInput
               v-else-if="field.type === 'textarea'"
-              v-model:value="(schemaFormData[field.key] as any)"
+              v-model:value="(schemaFormData[field.key] as string)"
               type="textarea"
               size="small"
               :placeholder="field.placeholder"
@@ -341,10 +364,10 @@
             <!-- 默认 Input 类型 -->
             <NInput
               v-else
-              v-model:value="(schemaFormData[field.key] as any)"
+              v-model:value="(schemaFormData[field.key] as string)"
               size="small"
               :placeholder="field.placeholder"
-              type="password"
+              :maxlength="255"
               @update:value="emitUpdate"
             />
             <div v-if="field.helpText" class="field-help">{{ field.helpText }}</div>
@@ -382,6 +405,8 @@ import AuthConfigManager from '../AuthConfigManager.vue'
 
 import type { Driver } from '../../../domain/types'
 
+// ==================== Props / Emits ====================
+
 interface Props {
   driver: Driver | null
   formData: Record<string, unknown>
@@ -400,6 +425,92 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// ==================== Config Schema Field Types ====================
+
+/** config_schema 解析出的表单字段 */
+interface ConfigSchemaField {
+  key: string
+  label: string
+  type: 'string' | 'integer' | 'number' | 'boolean'
+  required: boolean
+  placeholder: string
+  defaultValue: unknown
+  order: number
+  format?: string
+  options?: Array<{ label: string; value: unknown }>
+}
+
+/** config_schema 为空时的降级基础字段 */
+const FALLBACK_CONNECTION_FIELDS: ConfigSchemaField[] = [
+  { key: 'host', label: '主机', type: 'string', required: true, placeholder: '请输入主机地址', defaultValue: 'localhost', order: 1 },
+  { key: 'port', label: '端口', type: 'integer', required: true, placeholder: '请输入端口号', defaultValue: 3306, order: 2 },
+  { key: 'database', label: '数据库', type: 'string', required: true, placeholder: '请输入数据库名', defaultValue: '', order: 3 },
+  { key: 'username', label: '用户名', type: 'string', required: false, placeholder: 'root', defaultValue: 'root', order: 4 },
+  { key: 'password', label: '密码', type: 'string', required: false, placeholder: '****', defaultValue: '', order: 5, format: 'password' },
+]
+
+/**
+ * 解析 driver.config_schema (JSON Schema 字符串) → 表单字段列表
+ * 按 order 排序；解析失败时返回降级基础字段
+ */
+function parseConfigSchema(schema: string): ConfigSchemaField[] {
+  if (!schema) return FALLBACK_CONNECTION_FIELDS
+
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(schema) as Record<string, unknown>
+  } catch {
+    console.warn('[GeneralTab] config_schema JSON 解析失败，使用降级字段')
+    return FALLBACK_CONNECTION_FIELDS
+  }
+
+  if (parsed.type !== 'object' || !parsed.properties) {
+    return FALLBACK_CONNECTION_FIELDS
+  }
+
+  const propsMap = parsed.properties as Record<string, Record<string, unknown>>
+  const requiredSet = new Set<string>(
+    Array.isArray(parsed.required) ? (parsed.required as string[]) : []
+  )
+  const fields: ConfigSchemaField[] = []
+
+  for (const [key, prop] of Object.entries(propsMap)) {
+    const jsonType = String(prop.type ?? 'string')
+    let fieldType: ConfigSchemaField['type'] = 'string'
+    if (jsonType === 'integer') fieldType = 'integer'
+    else if (jsonType === 'number') fieldType = 'number'
+    else if (jsonType === 'boolean') fieldType = 'boolean'
+
+    const field: ConfigSchemaField = {
+      key,
+      label: (prop.title as string) || key,
+      type: fieldType,
+      required: requiredSet.has(key),
+      placeholder: (prop.description as string) || '',
+      defaultValue: prop.default,
+      order: typeof prop.order === 'number' ? (prop.order as number) : 999,
+      format: prop.format as string | undefined,
+    }
+
+    // 处理 enum → select options
+    if (Array.isArray(prop.enum)) {
+      field.options = (prop.enum as unknown[]).map((v: unknown) => ({
+        label: String(v),
+        value: v,
+      }))
+    }
+
+    fields.push(field)
+  }
+
+  // 按 order 排序
+  fields.sort((a, b) => a.order - b.order)
+
+  return fields.length > 0 ? fields : FALLBACK_CONNECTION_FIELDS
+}
+
+// ==================== Local Form State ====================
 
 interface LocalForm {
   host: string
@@ -433,7 +544,11 @@ const local = reactive<LocalForm>({
   clientSecret: '',
 })
 
-// Auth state (via composable)
+/** 动态表单数据（config_schema 定义但不在 LocalForm 中的字段） */
+const schemaFormData = reactive<Record<string, unknown>>({})
+
+// ==================== Auth State (via composable) ====================
+
 const {
   authMethod,
   selectedAuthConfigId,
@@ -507,10 +622,60 @@ const {
   onAuthConfigChange: (configId, authType) => emit('auth-config-change', configId, authType),
 })
 
+// ==================== Computed ====================
+
 const filePathPlaceholder = computed(() => {
   if (props.driver?.name?.toLowerCase().includes('duckdb')) return '~/data.duckdb'
   return '~/data.db'
 })
+
+/** 主 v-for 不渲染的字段 key 集合（由认证区独立处理） */
+const AUTH_MANAGED_KEYS = new Set([
+  'password', 'certPath', 'certKeyPath', 'principal',
+  'keytabPath', 'tokenEndpoint', 'clientId', 'clientSecret',
+])
+
+/** 从 config_schema 解析的全部字段（主 v-for 渲染） */
+const configSchemaFields = computed<ConfigSchemaField[]>(() => {
+  const schema = props.driver?.config_schema
+  const allFields = parseConfigSchema(schema || '')
+  // 过滤掉认证管理区独立处理的字段
+  return allFields.filter(f => !AUTH_MANAGED_KEYS.has(f.key))
+})
+
+/** 高级参数字段（config_schema 定义的，但不属于主 v-for 基本字段） */
+const advancedSchemaFields = ref<FormFieldConfig[]>([])
+
+// ==================== Field Helpers ====================
+
+/** 获取字段当前值（优先 local，其次 schemaFormData） */
+function getFieldValue(key: string): unknown {
+  const localRecord = local as unknown as Record<string, unknown>
+  if (localRecord[key] !== undefined) return localRecord[key]
+  return schemaFormData[key] ?? ''
+}
+
+/** 更新字段值并通知父组件 */
+function onFieldChange(key: string, value: unknown): void {
+  const localRecord = local as unknown as Record<string, unknown>
+  if (localRecord[key] !== undefined) {
+    localRecord[key] = value
+  } else {
+    schemaFormData[key] = value
+  }
+  emitUpdate()
+}
+
+/**
+ * 判断字段是否应禁用：当选择了已保存认证配置时，
+ * 用户名 / 密码字段应显示为禁用（凭据来自认证配置）
+ */
+function isFieldDisabled(key: string): boolean {
+  if (!selectedAuthConfigId.value) return false
+  return key === 'username' || key === 'password'
+}
+
+// ==================== Emit ====================
 
 function emitUpdate() {
   emit('update:form-data', {
@@ -520,6 +685,8 @@ function emitUpdate() {
     selectedAuthConfigId: selectedAuthConfigId.value,
   })
 }
+
+// ==================== File Dialogs ====================
 
 async function browseFile() {
   try {
@@ -547,7 +714,7 @@ async function browseCert() {
       emitUpdate()
     }
   } catch (err) {
-    console.warn('[loadAuthConfigs] Tauri不可用:', err)
+    console.warn('[GeneralTab] 证书文件选择失败:', err)
   }
 }
 
@@ -562,7 +729,7 @@ async function browseCertKey() {
       emitUpdate()
     }
   } catch (err) {
-    console.warn('[loadAuthConfigs] Tauri不可用:', err)
+    console.warn('[GeneralTab] 私钥文件选择失败:', err)
   }
 }
 
@@ -577,7 +744,7 @@ async function browseKeytab() {
       emitUpdate()
     }
   } catch (err) {
-    console.warn('[loadAuthConfigs] Tauri不可用:', err)
+    console.warn('[GeneralTab] Keytab 文件选择失败:', err)
   }
 }
 
@@ -593,6 +760,8 @@ function createNewDbFile() {
     emitUpdate()
   }
 }
+
+// ==================== Lifecycle ====================
 
 // Sync from props.formData on creation
 onMounted(async () => {
@@ -612,23 +781,21 @@ onMounted(async () => {
 
   // 从后端加载已保存的认证配置列表
   loadAuthConfigs(props.projectPath ?? undefined)
+
+  // 初始化高级 schema 字段
+  updateAdvancedSchemaFields()
 })
 
-// ==================== Config Schema 动态表单 ====================
-
-/** 从 config_schema 解析出的表单字段列表 */
-const schemaFields = ref<FormFieldConfig[]>([])
-
-/** 动态表单数据 */
-const schemaFormData = reactive<Record<string, unknown>>({})
-
-/** 更新 config_schema 字段 */
-function updateSchemaFields() {
+/** 更新 config_schema 衍生的高级参数字段 */
+function updateAdvancedSchemaFields() {
   const schema = props.driver?.config_schema
-  schemaFields.value = parseSchemaToFormFields(schema || '')
+  const allFields = parseSchemaToFormFields(schema || '')
+  // 只保留不在主 v-for 中的字段作为高级参数
+  const mainKeys = new Set(configSchemaFields.value.map(f => f.key))
+  advancedSchemaFields.value = allFields.filter(f => !mainKeys.has(f.key) && !AUTH_MANAGED_KEYS.has(f.key))
 
-  // 初始化表单数据
-  for (const field of schemaFields.value) {
+  // 初始化高级字段默认值
+  for (const field of advancedSchemaFields.value) {
     if (schemaFormData[field.key] === undefined) {
       schemaFormData[field.key] = field.defaultValue ?? ''
     }
@@ -642,7 +809,7 @@ function updateSchemaFields() {
   }
 }
 
-// Reset port and auth methods when driver changes
+// Watch driver changes: reset port, auth types, schema fields
 watch(
   () => props.driver?.id,
   () => {
@@ -650,8 +817,8 @@ watch(
     // 解析驱动支持的认证方式列表
     const types = parseSupportedAuthTypes(props.driver?.supported_auth_types)
     updateSupportedAuthTypes(types)
-    // 更新 config_schema 字段
-    updateSchemaFields()
+    // 更新 config_schema 衍生字段
+    updateAdvancedSchemaFields()
     emitUpdate()
   },
   { immediate: true }

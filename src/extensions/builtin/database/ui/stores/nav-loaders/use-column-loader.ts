@@ -18,10 +18,8 @@ import {
 import { mutateTreeNode } from '../../utils/tree-mutation'
 
 import type { ColumnInput } from '../../services/metadata-cache-service'
-
 import type {
   CatalogNode,
-  SchemaNode,
   TableNode,
   ColumnNode,
   IndexNode,

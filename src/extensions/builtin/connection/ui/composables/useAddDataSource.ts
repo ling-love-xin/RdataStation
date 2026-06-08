@@ -733,7 +733,6 @@ export function useAddDataSource() {
   // ========== StagingItem 管理 ==========
   const stagingItems = ref<StagingItem[]>([{ id: '', name: '' }])
   const stagingIndex = ref(0)
-  const isResetting = ref(false)
 
   /**
    * 构建 StagingItem（统一字段处理）
@@ -757,13 +756,15 @@ export function useAddDataSource() {
     tags: string | undefined,
     useDuckdbFed: boolean
   ): StagingItem {
+    const safeFormData = { ...formData }
+    delete safeFormData.password
     return {
       id: uuidv4(),
       name,
       driver,
       driverId,
       url,
-      formData: { ...formData },
+      formData: safeFormData,
       authConfigId,
       authMethod,
       networkConfigId,
@@ -785,7 +786,6 @@ export function useAddDataSource() {
    * 从 StagingItem 更新表单数据（含 auth/network/properties 恢复）
    */
   function applyStagingItem(item: StagingItem) {
-    isResetting.value = true
     headerData.name = item.name || ''
     headerData.description = item.description || ''
     formData.value = item.formData ? { ...item.formData } : {}
@@ -801,7 +801,6 @@ export function useAddDataSource() {
     metadataPath.value = item.metadataPath ?? null
     tags.value = item.tags ?? null
     useDuckdbFed.value = item.useDuckdbFed ?? null
-    isResetting.value = false
   }
 
   /**
@@ -920,7 +919,6 @@ export function useAddDataSource() {
     // 暂存项管理
     stagingItems,
     stagingIndex,
-    isResetting,
     buildStagingItem,
     applyStagingItem,
     addStaging,

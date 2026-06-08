@@ -19,7 +19,6 @@ import {
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
 
-import type { SchemaNode, TableNode, CatalogNode } from '../types/nav-types'
 import type { VirtualTreeNode } from '../types/virtual-tree'
 
 interface GlobalConnection {
@@ -111,6 +110,26 @@ export function useDatabaseTreeLoader() {
       childCount: catalogs.length,
       connectionTags: [scope === 'global' ? '全局' : '项目'],
       connectionStatus: hasRuntimeConn ? 'connected' : 'disconnected',
+    }
+  }
+
+  /**
+   * 创建错误占位节点（用户可见可重试）
+   */
+  function createErrorPlaceholderNode(
+    parentKey: string,
+    errorMessage: string
+  ): VirtualTreeNode {
+    return {
+      key: `${parentKey}::error`,
+      level: 0, // 由调用方覆盖
+      isExpanded: false,
+      isLeaf: true,
+      label: `⚠ 加载失败：${errorMessage}`,
+      type: 'placeholder',
+      data: { errorMessage, isError: true },
+      parentId: parentKey,
+      childCount: 0,
     }
   }
 
@@ -822,8 +841,18 @@ export function useDatabaseTreeLoader() {
     if (keyParts.length === 0) return []
 
     const nodeType = keyParts[0]
-    const connectionId = keyParts[1]
-    const dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
+    let connectionId: string
+    let dbType: string
+
+    // connection 节点的 keyParts 结构不同：[type, scope, connId]
+    // 其他节点：[type, connId, dbName, ...]
+    if (nodeType === 'connection') {
+      connectionId = keyParts[2]
+      dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
+    } else {
+      connectionId = keyParts[1]
+      dbType = node.data.driver || navigatorStore.getDbType(connectionId) || ''
+    }
     const config = await getNavConfig(dbType)
 
     try {
@@ -879,11 +908,26 @@ export function useDatabaseTreeLoader() {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
 
-        if (schemaName) {
-          await navigatorStore.loadTables(connectionId, dbName, schemaName)
-        } else {
-          // MySQL 等无 Schema 的数据库：用 dbName 代替 schemaName
-          await navigatorStore.loadTables(connectionId, dbName, dbName)
+        // 优化：如果 Schema 展开时已加载过表数据，跳过重复请求
+        const catalogs = navigatorStore.getCatalogs(connectionId)
+        const catalog = catalogs.find(c => c.name === dbName)
+        let hasTableData = false
+        if (catalog) {
+          if (schemaName) {
+            const schema = catalog.schemas?.find(s => s.name === schemaName)
+            hasTableData = !!(schema && (schema.tables.length > 0 || schema.views.length > 0))
+          } else {
+            hasTableData = !!(catalog.tables && catalog.tables.length > 0)
+          }
+        }
+
+        if (!hasTableData) {
+          if (schemaName) {
+            await navigatorStore.loadTables(connectionId, dbName, schemaName)
+          } else {
+            // MySQL 等无 Schema 的数据库：用 dbName 代替 schemaName
+            await navigatorStore.loadTables(connectionId, dbName, dbName)
+          }
         }
 
         return createTableNodes(connectionId, dbName, schemaName, config, node.level)
@@ -894,7 +938,16 @@ export function useDatabaseTreeLoader() {
         const dbName = keyParts[2]
         const schemaName = keyParts[3] || undefined
 
-        if (schemaName) {
+        // 同上：如果表数据已加载，跳过重复请求
+        const catalogs = navigatorStore.getCatalogs(connectionId)
+        const catalog = catalogs.find(c => c.name === dbName)
+        let hasTableData = false
+        if (catalog && schemaName) {
+          const schema = catalog.schemas?.find(s => s.name === schemaName)
+          hasTableData = !!(schema && (schema.tables.length > 0 || schema.views.length > 0))
+        }
+
+        if (!hasTableData && schemaName) {
           await navigatorStore.loadTables(connectionId, dbName, schemaName)
         }
 
@@ -1001,7 +1054,11 @@ export function useDatabaseTreeLoader() {
         return createConstraintNodes(connectionId, dbName, schemaName, tableName)
       }
     } catch (error) {
-      console.error('加载树节点失败:', error)
+      const msg = error instanceof Error ? error.message : '加载失败'
+      console.error('加载树节点失败:', node.key, error)
+      navigatorStore.setNodeError(node.key, msg)
+      // 返回一个错误占位节点，让用户看到错误并可以重试
+      return [createErrorPlaceholderNode(node.key, msg)]
     }
 
     return []

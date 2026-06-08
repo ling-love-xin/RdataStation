@@ -43,6 +43,7 @@
             :driver-placeholder="$t('navigator.selectDbType')"
             uri-label="URI"
             uri-placeholder="jdbc:mysql://..."
+            :url-template="selectedDriver?.url_template ?? null"
             @driver-change="onDriverChange"
           />
 
@@ -72,7 +73,7 @@
               <NetworkTab :driver="selectedDriver" :scope="scope" @extra-config="onExtraConfig" />
             </NTabPane>
             <NTabPane name="capabilities" :tab="$t('navigator.tabCapabilities')">
-              <CapabilitiesTab :driver="selectedDriver" />
+              <CapabilitiesTab :driver="selectedDriver" @extra-config="onCapabilityChange" />
             </NTabPane>
             <NTabPane name="properties" :tab="$t('navigator.tabDriverProps')">
               <DriverPropsTab
@@ -137,7 +138,7 @@
 <script setup lang="ts">
 import { Database } from 'lucide-vue-next'
 import { NButton, NModal, NTabs, NTabPane, NAlert, useMessage, useDialog } from 'naive-ui'
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useProjectStore } from '@/core/project/stores/project'
@@ -199,7 +200,6 @@ const {
   validate,
   stagingItems,
   stagingIndex,
-  isResetting,
   buildStagingItem,
   applyStagingItem: _applyStagingItem,
   addStaging,
@@ -282,7 +282,6 @@ const driverOptions = computed(() => {
 
 // Actions
 function onDriverChange(driverId: string) {
-  if (isResetting.value) return
   formData.value = {}
   testResult.value = null
   authConfigId.value = null
@@ -314,6 +313,11 @@ function onExtraConfig(config: Record<string, unknown>) {
   if (config.useDuckdbFed !== undefined) useDuckdbFed.value = config.useDuckdbFed as boolean
 }
 
+function onCapabilityChange(extra: Record<string, unknown>) {
+  const current = advancedOptions.value ? JSON.parse(advancedOptions.value) : {}
+  advancedOptions.value = JSON.stringify({ ...current, ...extra })
+}
+
 function onAuthConfigChange(authCfgId: string | null, method: string) {
   authConfigId.value = authCfgId
   authMethod.value = method
@@ -322,7 +326,6 @@ function onAuthConfigChange(authCfgId: string | null, method: string) {
 function handleAddStaging() {
   addStaging()
   // 新增时清空右侧表单
-  isResetting.value = true
   headerData.name = ''
   headerData.description = ''
   formData.value = {}
@@ -334,18 +337,16 @@ function handleAddStaging() {
   advancedOptions.value = null
   selectedEnvId.value = null
   activeTab.value = 'general'
-  isResetting.value = false
 }
 
 function handleRemoveStaging(i: number) {
   removeStaging(i)
 }
 
-function handleSelectStaging(i: number) {
+async function handleSelectStaging(i: number) {
   selectStaging(i)
   const s = stagingItems.value[i]
   if (!s) return
-  isResetting.value = true
   headerData.name = s.name || ''
   headerData.description = s.description || ''
   if (s.driver) {
@@ -376,7 +377,7 @@ function handleSelectStaging(i: number) {
   tags.value = s.tags ?? null
   useDuckdbFed.value = s.useDuckdbFed ?? null
   testResult.value = null
-  isResetting.value = false
+  await nextTick()
 }
 
 async function handleTest() {
@@ -1121,10 +1122,9 @@ function handleClose() {
 }
 
 /** 从已有 ProjectConnection 初始化编辑表单 */
-function initFromConnection(conn: ProjectConnection) {
+async function initFromConnection(conn: ProjectConnection) {
   isEditing.value = true
   editingConnId.value = conn.id
-  isResetting.value = true
 
   headerData.name = conn.name || ''
   headerData.description = conn.description || ''
@@ -1165,7 +1165,7 @@ function initFromConnection(conn: ProjectConnection) {
   useDuckdbFed.value = conn.use_duckdb_fed ?? false
 
   testResult.value = null
-  isResetting.value = false
+  await nextTick()
 }
 
 // Init
@@ -1209,11 +1209,10 @@ watch(uriEditing, editing => {
   }
 })
 
-// T1: 暂存列表名字实时跟随右侧名称（表单重置时跳过，flush:sync 确保表单重置时同步拦截）
+// T1: 暂存列表名字实时跟随右侧名称（flush:sync 确保表单重置时同步拦截）
 watch(
   () => headerData.name,
   name => {
-    if (isResetting.value) return
     if (stagingItems.value[stagingIndex.value]) {
       stagingItems.value[stagingIndex.value].name = name
     }

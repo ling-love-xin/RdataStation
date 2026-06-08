@@ -26,6 +26,7 @@ export type VirtualTreeNodeType =
   | 'index'
   | 'constraint'
   | 'trigger'
+  | 'placeholder'
 
 export interface ITreeNodeData {
   connectionId?: string

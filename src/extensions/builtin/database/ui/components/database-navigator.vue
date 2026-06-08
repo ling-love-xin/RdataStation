@@ -133,6 +133,7 @@ import { useKeyboardShortcuts } from '../composables/use-keyboard-shortcuts'
 import { useVirtualTree } from '../composables/use-virtual-tree'
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
+import { debounceAsync } from '../utils/debounce'
 import {
   clearConnectionNavigatorState,
   getConnectionNavigatorState,
@@ -140,7 +141,6 @@ import {
   saveLastActiveConnection,
   getLastActiveConnection,
 } from '../utils/navigator-persistence'
-import { debounceAsync } from '../utils/debounce'
 
 import type { NavigatorError as NavigatorErrorType } from './navigator-error.vue'
 import type { IContextMenuItem } from '../composables/use-context-menu-actions'
@@ -404,7 +404,7 @@ const onSearchQueryChange = debounceAsync(async (query: string) => {
   if (searchRef.value) {
     searchRef.value.setSearchResults(results)
   }
-}
+}, 300)
 
 const handleSearchSelect = async (result: {
   nodeKey: string
@@ -636,6 +636,9 @@ handleVirtualTreeSelectRef.value = async (node: VirtualTreeNode) => {
     )
     if (currentConn) {
       currentConnection.value = currentConn
+      // 保存最后活跃连接，支持跨会话恢复
+      const scope = (node.data.scope as 'global' | 'project') || 'global'
+      saveLastActiveConnection(currentConn.id, scope, navigatorStore.getProjectPath(currentConn.id))
       // 同步到全局 connectionStore，打通 SQL 编辑器状态栏
       connectionStore.syncConnectionStatus(
         currentConn.id,
@@ -1020,6 +1023,24 @@ onMounted(async () => {
 
   setupDragDropListeners()
 
+  // 恢复上次活跃连接（跨会话持久化）
+  try {
+    const lastActive = getLastActiveConnection()
+    if (lastActive) {
+      const scopeNode = virtualTreeNodes.value.find(n =>
+        n.type === 'connection' &&
+        n.data.connectionId === lastActive.connId &&
+        n.data.scope === lastActive.scope
+      )
+      if (scopeNode && !scopeNode.isExpanded) {
+        await toggleNode(scopeNode)
+        await handleVirtualTreeSelect(scopeNode)
+      }
+    }
+  } catch (e) {
+    console.warn('[navigator] 恢复上次活跃连接失败', e)
+  }
+
   const allConnections = [...globalConnections.value, ...projectConnectionStore.connections]
   for (const conn of allConnections) {
     connectionStatusSync.startHealthCheck(conn.id)
@@ -1028,6 +1049,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (persistTimer) clearTimeout(persistTimer)
   connectionStatusSync.cleanup()
   cleanupDragDropListeners()
   saveAllNavigatorStates()
