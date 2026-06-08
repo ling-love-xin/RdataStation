@@ -189,7 +189,7 @@ export function useIncrementalRefresh() {
     try {
       await Promise.all([
         navigatorStore.loadTables(connectionId, dbName, schemaName),
-        navigatorStore.loadViews(connectionId, dbName, schemaName),
+        navigatorStore.loadTables(connectionId, dbName, schemaName),
       ])
       affectedKeys.push(keyParts.join(':'))
 
@@ -233,7 +233,7 @@ export function useIncrementalRefresh() {
       if (nodeType === 'tables-folder') {
         await navigatorStore.loadTables(connectionId, dbName, schemaName)
       } else if (nodeType === 'views-folder') {
-        await navigatorStore.loadViews(connectionId, dbName, schemaName)
+        await navigatorStore.loadTables(connectionId, dbName, schemaName)
       }
 
       affectedKeys.push(keyParts.join(':'))

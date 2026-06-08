@@ -452,3 +452,34 @@ V10.5 遗留审计发现：`load_sequences` / `load_triggers` / `load_procedures
 ---
 
 **最后更新**: 2026-05-30 (V10.5.2 L2 缓存补齐 + V10.5.3 Specta 自动生成确认)
+
+## V10.6 前端 Store 重构（2026-06-09）
+
+### 重构动机
+
+数据库导航栏 Store（`database-navigator-store.ts`）经过多次迭代膨胀至 1267 行，存在以下问题：
+1. **代码重复**：8 处 `catalogs.find → schemas.find → mutate` 遍历模式
+2. **加载逻辑重复**：`loadCatalogs`/`loadSchemas`/`loadTables`/`loadColumns` 中相同的「查缓存→从缓存加载→从DB加载」三段式
+3. **状态共享**：procedures/functions/sequences/triggers 共享 `loadingTables`，互斥阻塞
+4. **类型冲突**：子模块各自定义本地类型，与 `tree-mutation.ts` / `nav-types.ts` 不一致
+
+### 重构方案
+
+| 组件 | 职责 | 行数 |
+|------|------|------|
+| `use-catalog-loader.ts` | catalogs + schemas 加载、缓存检查、从 DB 同步 | ~220 |
+| `use-table-loader.ts` | tables + views 加载（含视图与表合并）、Schema 统计计算 | ~260 |
+| `use-object-loader.ts` | procedures / functions / sequences / triggers 加载，各含独立 loading 状态 | ~250 |
+| `use-column-loader.ts` | columns + indexes + constraints 加载 | ~300 |
+| `database-navigator-store.ts` | 状态聚合、对外 API 委派 | ~600 |
+| `tree-mutation.ts` | 通用树遍历与变更工具 | ~136 |
+| `lazy-loader.ts` | 通用懒加载工厂 | ~70 |
+| `nav-types.ts` | 共享类型定义（单源真） | ~109 |
+
+### 关键优化
+
+- **Loading 状态独立化**：`useObjectLoader` 创建 4 个独立 `Ref<Set<string>>`，展开 Procedures 不会阻塞 Functions
+- **Per-node 错误追踪**：`nodeErrors: Map<string, string>` 替代单一 `error` 字符串，每个节点独立显示错误状态
+- **LazyLoader 工厂**：`createLazyLoader<T>()` 封装「L2 缓存有效 → 返回缓存 / L2 缓存无效 → 调用 API → 写入 Store」通用模式
+- **treeMutation 工具**：`mutateTreeNode(catalogs, connId, { catalogName, schemaName }, updater)` 一行替代 10 行手动遍历
+- **类型统一**：所有子 loader / tree loader / store 统一引用 `nav-types.ts`，消除类型冲突

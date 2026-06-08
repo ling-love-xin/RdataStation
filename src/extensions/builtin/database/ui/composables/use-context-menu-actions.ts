@@ -837,7 +837,7 @@ export function useContextMenuActions() {
   ): Promise<void> {
     await Promise.all([
       navigatorStore.loadTables(connectionId, dbName, schemaName),
-      navigatorStore.loadViews(connectionId, dbName, schemaName),
+      navigatorStore.loadTables(connectionId, dbName, schemaName),
     ])
   }
 
@@ -1076,7 +1076,7 @@ export function useContextMenuActions() {
     if (nodeType === 'tables-folder' && schemaName) {
       await navigatorStore.loadTables(connectionId, dbName, schemaName)
     } else if (nodeType === 'views-folder' && schemaName) {
-      await navigatorStore.loadViews(connectionId, dbName, schemaName)
+      await navigatorStore.loadTables(connectionId, dbName, schemaName)
     }
   }
 

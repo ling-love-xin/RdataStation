@@ -1,5 +1,6 @@
 const STATE_VERSION = 1
 const STORAGE_KEY_PREFIX = 'rds:navigator:'
+const LAST_ACTIVE_KEY = 'rds:navigator:lastActive'
 
 interface NavigatorStateEntry {
   expandedKeys: string[]
@@ -65,4 +66,43 @@ export function clearAllNavigatorStates(): void {
     }
   }
   keysToRemove.forEach(k => localStorage.removeItem(k))
+}
+
+// ========== Last Active Connection（跨会话恢复） ==========
+
+interface LastActiveConnection {
+  connId: string
+  scope: 'global' | 'project'
+  projectPath?: string
+}
+
+export function saveLastActiveConnection(
+  connId: string,
+  scope: 'global' | 'project',
+  projectPath?: string
+): void {
+  try {
+    const entry: LastActiveConnection = { connId, scope, projectPath }
+    localStorage.setItem(LAST_ACTIVE_KEY, JSON.stringify(entry))
+  } catch (e) {
+    console.warn('[navigator-persistence] 保存 lastActive 失败', e)
+  }
+}
+
+export function getLastActiveConnection(): LastActiveConnection | null {
+  try {
+    const raw = localStorage.getItem(LAST_ACTIVE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.connId) {
+      return { connId: parsed.connId, scope: parsed.scope || 'global', projectPath: parsed.projectPath }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function clearLastActiveConnection(): void {
+  localStorage.removeItem(LAST_ACTIVE_KEY)
 }

@@ -137,7 +137,10 @@ import {
   clearConnectionNavigatorState,
   getConnectionNavigatorState,
   saveConnectionNavigatorState,
+  saveLastActiveConnection,
+  getLastActiveConnection,
 } from '../utils/navigator-persistence'
+import { debounceAsync } from '../utils/debounce'
 
 import type { NavigatorError as NavigatorErrorType } from './navigator-error.vue'
 import type { IContextMenuItem } from '../composables/use-context-menu-actions'
@@ -388,7 +391,7 @@ function initializeRootNodes() {
   }
 }
 
-const onSearchQueryChange = async (query: string) => {
+const onSearchQueryChange = debounceAsync(async (query: string) => {
   searchQuery.value = query
 
   const results = treeSearch.searchTables(

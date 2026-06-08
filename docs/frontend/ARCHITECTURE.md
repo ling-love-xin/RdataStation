@@ -700,6 +700,40 @@ import type { NavigatorNode } from '../../types'
 
 ---
 
+### 数据库导航栏子模块架构（V10.6）
+
+V10.6 将数据库导航栏 Store 从 1267 行单体拆分为职责清晰的子模块架构。
+
+#### 四大子 Loader
+
+| 子 Loader | 职责 | 行数 |
+|-----------|------|------|
+| `useCatalogLoader` | catalogs + schemas 加载、缓存检查、从 DB 同步 | ~220 |
+| `useTableLoader` | tables + views 加载（含视图与表合并）、Schema 统计计算 | ~260 |
+| `useObjectLoader` | procedures / functions / sequences / triggers 加载，各含独立 loading 状态 | ~250 |
+| `useColumnLoader` | columns + indexes + constraints 加载 | ~300 |
+
+每个子 loader 独立管理自己的 loading 和 error 状态，通过 `database-navigator-store.ts`（~600 行）聚合对外暴露统一 API。
+
+#### 工具函数
+
+- **`tree-mutation.ts`**（~136 行）：提供 `mutateTreeNode` / `getTreeNode` 通用工具函数，统一 `catalogs.find → schemas.find → mutate` 遍历模式，一行替代 10 行手动遍历
+- **`lazy-loader.ts`**（~70 行）：`createLazyLoader<T>()` 通用懒加载工厂，封装「检查缓存 → 从缓存加载 → 从 DB 加载」三段式策略
+
+#### 共享类型系统
+
+- **`nav-types.ts`**（~109 行）：单一类型真源（Single Source of Truth），所有子 loader / tree loader / store 统一导入，消除此前各模块独立定义本地类型导致的不一致
+
+#### Loading 状态隔离
+
+V10.6 前，procedures / functions / sequences / triggers 共享 `loadingTables: Ref<Set<string>>`，展开任意一种对象类型会阻塞其他三种。V10.6 后，`useObjectLoader` 为四种对象各建独立 `Ref<Set<string>>` 加载状态，互不影响。
+
+#### Per-node 错误追踪
+
+替代单一全局 `error` 字符串，引入 `nodeErrors: Map<string, string>`，每个节点按 `key` 独立写入错误信息，暴露 `getNodeError(key)` / `setNodeError(key, message)` API，UI 按节点精准展示错误图标和 tooltip。
+
+---
+
 ## 优化记录
 
 ### v2.1 (2026-05-06) - V7 增量同步支持

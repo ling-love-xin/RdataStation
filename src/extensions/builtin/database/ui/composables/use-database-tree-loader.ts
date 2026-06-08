@@ -19,6 +19,7 @@ import {
 import { useDatabaseNavigatorStore } from '../stores/database-navigator-store'
 import { NodeKeyEncoder } from '../types/virtual-tree'
 
+import type { SchemaNode, TableNode, CatalogNode } from '../types/nav-types'
 import type { VirtualTreeNode } from '../types/virtual-tree'
 
 interface GlobalConnection {
@@ -868,10 +869,7 @@ export function useDatabaseTreeLoader() {
         const dbName = keyParts[2]
         const schemaName = keyParts[3]
 
-        await Promise.all([
-          navigatorStore.loadTables(connectionId, dbName, schemaName),
-          navigatorStore.loadViews(connectionId, dbName, schemaName),
-        ])
+        await navigatorStore.loadTables(connectionId, dbName, schemaName)
 
         return createSchemaObjectNodes(connectionId, dbName, schemaName, config)
       }
@@ -897,7 +895,7 @@ export function useDatabaseTreeLoader() {
         const schemaName = keyParts[3] || undefined
 
         if (schemaName) {
-          await navigatorStore.loadViews(connectionId, dbName, schemaName)
+          await navigatorStore.loadTables(connectionId, dbName, schemaName)
         }
 
         return createViewNodes(connectionId, dbName, schemaName, node.level)

@@ -1,7 +1,7 @@
 # IVM 数据库导航栏设计文档
 
-> 版本：v2.2
-> 最后更新：2026-05-25
+> 版本：v2.3
+> 最后更新：2026-06-09
 > 状态：✅ 持续更新
 
 ---
@@ -43,6 +43,18 @@
 | **10 个右键菜单/事件处理器为空壳** | 实现全部处理器：复制名称、打开表/视图、展开/折叠全部、刷新 Schema/Database、创建对象、打开 SQL 编辑器 | [database-navigator.vue](../../src/extensions/builtin/database/ui/components/database-navigator.vue)                                                                                                                                                                  |
 | **遗留双轨加载代码**               | 标记 `navigator-loader.ts` 为 @deprecated，指向当前主流程                                             | [navigator-loader.ts](../../src/extensions/builtin/database/domain/services/navigator-loader.ts)                                                                                                                                                                      |
 | **树展开状态不持久化**             | 新增 `navigator-persistence.ts`，基于 localStorage，支持 global/project 双链路，800ms 防抖保存        | [navigator-persistence.ts](../../src/extensions/builtin/database/ui/utils/navigator-persistence.ts), [database-navigator.vue](../../src/extensions/builtin/database/ui/components/database-navigator.vue)                                                             |
+
+### ✅ V10.6 Store 重构（2026-06-09）
+
+| 问题                               | 修复内容                                                                                              | 涉及文件                                                                                                                                                                                                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Store 1267行代码冗余**           | 拆分为 4 个子 loader：`useCatalogLoader` / `useTableLoader` / `useObjectLoader` / `useColumnLoader`，每种 loader 独立管理 loading 状态 | [nav-loaders/](../../src/extensions/builtin/database/ui/stores/nav-loaders/)                                                                                                                                                                                          |
+| **8 处重复树遍历模式**             | 新增 `tree-mutation.ts` 工具函数 `mutateTreeNode` / `getTreeNode`，统一 `catalogs.find → schemas.find → mutate` 遍历 | [tree-mutation.ts](../../src/extensions/builtin/database/ui/utils/tree-mutation.ts)                                                                                                                                                                                    |
+| **加载代码三段式重复**             | 新增 `lazy-loader.ts` 通用工厂 `createLazyLoader`，封装「检查缓存 → 从缓存加载 → 从 DB 加载」策略 | [lazy-loader.ts](../../src/extensions/builtin/database/ui/utils/lazy-loader.ts)                                                                                                                                                                                        |
+| **loadingTables 被共享**           | `useObjectLoader` 为 procedures / functions / sequences / triggers 各建独立 `Ref<Set<string>>` 加载状态 | [use-object-loader.ts](../../src/extensions/builtin/database/ui/stores/nav-loaders/use-object-loader.ts)                                                                                                                                                              |
+| **全局错误覆盖**                   | 新增 `nodeErrors: Map<string, string>`，子 loader 按节点 key 写入独立错误，暴露 `getNodeError`/`setNodeError` API | [database-navigator-store.ts](../../src/extensions/builtin/database/ui/stores/database-navigator-store.ts)                                                                                                                                                             |
+| **`loadViews` 冗余包装**           | 删除 `loadViews` 函数（仅是 `loadTables` 空包装），3 个调用方全部改用 `loadTables` | [database-navigator-store.ts](../../src/extensions/builtin/database/ui/stores/database-navigator-store.ts), [use-database-tree-loader.ts](../../src/extensions/builtin/database/ui/composables/use-database-tree-loader.ts), [use-context-menu-actions.ts](../../src/extensions/builtin/database/ui/composables/use-context-menu-actions.ts), [use-incremental-refresh.ts](../../src/extensions/builtin/database/ui/composables/use-incremental-refresh.ts) |
+| **类型定义不一致**                 | 统一所有子 loader / tree loader / store 的类型导入源为 `nav-types.ts`，消除本地类型与共享类型冲突 | [nav-types.ts](../../src/extensions/builtin/database/ui/types/nav-types.ts), all nav-loaders |
 
 ### 历史问题（已修复）
 
@@ -187,6 +199,7 @@ interface NavigatorStateEntry {
 
 | 版本     | 日期       | 说明                                                                                                                                                    |
 | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v2.3** | 2026-06-09 | **V10.6: Store 拆分(1267→4子loader)、LazyLoader 通用工厂、独立 loading 状态、nodeErrors 按节点追踪、tree-mutation 工具函数、nav-types 统一类型** |
 | **v2.2** | 2026-05-25 | **R5: 四驱动列元数据(extra HashMap)全覆盖; L2 indexes/fks 回写主流程接入; 前端 Tooltip/属性面板消费索引约束新字段; SQL迁移009 JDBC对齐; 打通率30%→82%** |
 | v2.1     | 2026-05-25 | 导航栏持久化架构（localStorage 双链路设计）                                                                                                             |
 | v2.0     | 2026-05-20 | IVM 架构重构，增量视图维护                                                                                                                              |
