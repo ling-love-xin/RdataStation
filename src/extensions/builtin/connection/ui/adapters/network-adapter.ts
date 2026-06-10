@@ -80,7 +80,7 @@ export function protocolChainToChainHops(
 function protocolNodeToChainHop(
   node: ProtocolNode,
   sshProfiles: SshProfile[],
-  _sslProfiles: SslProfile[],
+  sslProfiles: SslProfile[],
   proxyProfiles: ProxyProfile[]
 ): ChainHopJson | null {
   if (node.protocol === 'ssh') {
@@ -112,7 +112,7 @@ function protocolNodeToChainHop(
   }
 
   if (node.protocol === 'ssl') {
-    const profile = findProfile(node, _sslProfiles)
+    const profile = findProfile(node, sslProfiles)
     if (!profile && node.mode !== 'custom') return null
 
     const data = node.mode === 'custom' ? node.customData || {} : profile || {}

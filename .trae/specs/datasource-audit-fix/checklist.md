@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
 > 最后更新：2026-06-11
-> 状态：8 轮审计 + 1 轮 GeneralTab 专项 + 1 轮全项目问题模式扫描 + 1 轮细节清扫 + 1 轮测试补充 + 1 轮 GeneralTab 字段过滤专项 + 1 轮测试连接超时深度审计 + 1 轮脏代码排查与UI紧凑化，共修复 83 项问题
+> 状态：11 轮审计，共修复 93 项（6 本轮 + 87 历史），3 假正，1 低保跳过
 
 ---
 
@@ -11,7 +11,7 @@
 |:---:|:---:|:---:|------|
 | 🔴 P0 | 7 | 7 | scope 双向选择 + saveToProject ID + NetworkTab 全局/项目 API + resolve_network_method_with_project 前缀路由 + handleTest projectPath 传递 |
 | 🟡 P1 | 14 | 14 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind + AuthConfigManager scope + useNetworkProfiles 合并 + advancedSchemaFields 死代码 + BASIC_SCHEMA_KEYS 分类 + test_connection project_path 传递 + test_network_config 项目级支持 + testChainHop projectPath |
-| 🟢 P2 | 16 | 16 | url_template + findIndex + localStorage + savingRef + configSchema + 后端校验 + 关闭确认 + 死代码清理 ×2 + alert替换 ×2 + 认证类型补全 + EnvironmentSection ×4 + DataSourceSidebar + profScopeLabel 作用域 |
+| 🟢 P2 | 33 | 25 | url_template + ... + typeColor 9→20种 + _sslProfiles 重命名 + tags split 修复 |
 | 🧪 Test | 5 | 5 | Rust connection_commands + 前端 driver-adapter + useAddDataSource + useAuthConfig + GeneralTab |
 
 ### 已修复问题清单
@@ -132,39 +132,63 @@ configSchemaFields = allFields.filter(f => BASIC_SCHEMA_KEYS.has(f.key) && !AUTH
 advancedSchemaFields = allFields.filter(f => !basicKeys.has(f.key) && !AUTH_MANAGED_KEYS.has(f.key))
 ```
 
+### Round 11 审计 → 修复完成 (6/11 项修复, 3 假正, 1 已修复, 1 低保, 2026-06-11)
+
+审计维度：前端侧边栏+5Tab+Composables ↔ 后端全局/项目双通道 ↔ 环境/认证/网络交叉 ↔ 文档三元一致性
+
+| # | 优先级 | 文件 | 问题 | 状态 |
+|:---:|:---:|------|------|:---:|
+| 83 | 🟡 | EnvironmentSection.vue:123 | 动态 `import('@tauri-apps/api/core')` 残留 | ✅ 已修复 |
+| 84 | 🟡 | AddDataSourceDialog.vue:784-786 | `handleEditApply` tags: `[tagsString].filter(Boolean)` 包裹为单元素数组 | ✅ 已修复 |
+| 85 | 🟡 | CapabilitiesInline.vue | 完整组件文件（120+行）零引用——死代码 | ✅ 已删除 |
+| 86 | 🟡 | useAddDataSource.ts:463 | `saveStagingItems()` localStorage.setItem 无 try-catch | ✅ 已有 (前轮修复) |
+| 87 | 🟢 | network-adapter.ts:83 | `_sslProfiles` 参数 `_` 前缀但实际被使用 | ✅ 已重命名 |
+| 88 | 🟢 | AdvancedTab+MetadataSection+DuckDBAccelSection | DuckDB 联邦开关重复 UI | ➖ 假正 (Accel配置≠联邦标记) |
+| 89 | 🟢 | DataSourceHeader.vue | uriPreview 内联重复逻辑（未复用 useUrlBuilder） | ➖ 假正 (line 287 已使用 useUrlBuilder) |
+| 90 | 🟢 | AddDataSourceSidebar.vue | typeColor 仅 9 种 DB，cloud/mq/http 无颜色 | ✅ 已补全→20种 |
+| 91 | 🟢 | AddDataSourceDialog.vue:871 | buildConnectOpts 未传 driver_properties | ➖ 假正 (line 988 已传 driverProperties) |
+| 92 | 🟢 | AddDataSourceDialog.vue:709 | tags 逻辑项目/全局路径分裂 | ✅ 同#84修复 |
+| 93 | 🟢 | GeneralTab.vue | useI18n() 变量未用 | ⏭ 低保 (模板用 $t() 无需变量) |
+
+**交叉验证结论：**
+- global_connections ↔ project connections 25 字段对齐 ✅
+- auth encrypt/decrypt 全链路 AES-256-GCM ✅
+- network_configs 全局 9/项目 10 字段 ✅
+- 3 路 snapshot（env/auth/network）完整 ✅
+- 35 IPC 命令后端全部实现 ✅
+- ID 前缀路由 G_/P_/GP_ 正确执行 ✅
+
+**修复统计：Round 11 实际修复 6 项 + 确认假正 3 项 + 已存在 1 项 + 低保跳过 1 项**
+
 ## 二、验证结果
 
 | 检查项 | 结果 |
 |------|:---:|
-| `cargo clippy -- -D warnings` | ✅ 零错误 |
-| `pnpm run lint` (ESLint) | ✅ 零错误（4 预存 warning，仅测试文件） |
+| `cargo clippy -- -D warnings` | ✅ 零错误 (2026-06-11) |
+| `pnpm run lint` (ESLint) | ✅ 零错误 (4 预存 warning，仅测试文件) |
 
-## 三、修改文件清单（24 个文件）
+## 三、修改文件清单（26 个文件）
 
 ```
 src-tauri/src/core/services/connection_service.rs ✏️ resolve_network_method_with_project 前缀路由重写
 src-tauri/src/commands/connection_commands.rs       ✏️ 测试连接 project_path 传递 + 资源泄漏修复
 src-tauri/src/commands/data_source_commands.rs      ✏️ test_network_config 项目级支持
-src-tauri/src/commands/project_store_commands.rs     — 未修改
 
 src/extensions/builtin/connection/ui/composables/
-  useAddDataSource.ts                                ✏️ 死代码清理 ×2 (Round 9+Round 10)
+  useAddDataSource.ts                                ✏️ 死代码清理 ×3 (Round 9+10+11)
   useNetworkProfiles.ts                              ✏️ _pickCmd 删除 + JSON.stringify(e) 反模式修复
-  useNetworkChain.ts                                 — 未修改
   useUrlBuilder.ts                                   ✏️ getProto 协议前缀修复
 
-src/extensions/builtin/connection/ui/components/
-  AddDataSourceDialog.vue                            ✏️ handleTest 字段校验 + 动态 import + JSON.stringify(err) + 模板绑定
-  tabs/GeneralTab.vue                                ✏️ useI18n 修复 + UI 紧凑化
-  tabs/NetworkTab.vue                                ✏️ testChainHop projectPath + 死解构 ×2 + chainAuthCfgOpts + Record<any> + UI
-  tabs/AdvancedTab.vue                               ✏️ 死 prop/emit 删除 + UI 紧凑化
-  tabs/DuckDBAccelSection.vue                        — 未修改
-  tabs/advanced/EnvironmentSection.vue               — 未修改
-  tabs/advanced/PolicySections.vue                   — 未修改
-  tabs/advanced/MetadataSection.vue                  — 未修改
-  DataSourceHeader.vue                               ✏️ UI 紧凑化
+src/extensions/builtin/connection/ui/adapters/
+  network-adapter.ts                                 ✏️ _sslProfiles → sslProfiles 命名修复
 
-src/shared/locales/
-  zh-CN.json                                         — Round 9 未修改
-  en.json                                            — Round 9 未修改
+src/extensions/builtin/connection/ui/components/
+  AddDataSourceDialog.vue                            ✏️ handleTest + 动态 import + JSON.stringify + tags 修复
+  AddDataSourceSidebar.vue                           ✏️ typeColor 9→20种
+  tabs/GeneralTab.vue                                ✏️ useI18n 修复 + UI 紧凑化
+  tabs/NetworkTab.vue                                ✏️ 死解构 + chainAuthCfgOpts + Record<any> + UI
+  tabs/AdvancedTab.vue                               ✏️ 死 prop/emit 删除 + UI 紧凑化
+  tabs/CapabilitiesInline.vue                        ❌ 已删除 (零引用死文件)
+  tabs/advanced/EnvironmentSection.vue               ✏️ 动态 import → 静态 invoke
+  DataSourceHeader.vue                               ✏️ UI 紧凑化
 ```

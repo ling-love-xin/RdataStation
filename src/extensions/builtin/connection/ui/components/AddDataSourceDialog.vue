@@ -782,8 +782,8 @@ async function handleEditApply() {
         password: String(fd.password || ''),
         options: options.value || (fd.options as string) || undefined,
         tags:
-          tags.value || (fd.tags as string)
-            ? ([tags.value || (fd.tags as string)].filter(Boolean) as string[])
+          (tags.value || (fd.tags as string))
+            ? (tags.value || (fd.tags as string)).split(',').map(s => s.trim()).filter(Boolean)
             : undefined,
         use_duckdb_fed: useDuckdbFed.value ?? (fd.use_duckdb_fed as boolean) ?? undefined,
         metadata_path: metadataPath.value || (fd.metadata_path as string) || undefined,

@@ -64,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { useMessage } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 
@@ -120,29 +121,27 @@ async function onEnvChange(id: string) {
   // 项目级连接引用全局环境 → 触发快照
   if (props.scope?.project && id.startsWith('G_') && !id.startsWith('GP_')) {
     envSnapshotting.value = true
-    import('@tauri-apps/api/core').then(async ({ invoke }) => {
-      try {
-        const { useProjectStore } = await import('@/core/project/stores/project')
-        const pp = useProjectStore().currentProject?.path
-        const r = await invoke<{ snapshot_id: string }>('snapshot_global_env', {
-          globalEnvId: id,
-          projectPath: pp,
-        })
-        const gpId = r.snapshot_id
-        envSnapshotId.value = gpId
-        selectedEnvId.value = gpId
-        environmentStore.selectEnv(gpId)
-        loadEnvironments()
-        emit('update:environmentId', gpId)
-        emit('env-change', {
-          envId: id,
-          selectedEnvId: gpId,
-          envSnapshotId: gpId,
-        })
-      } finally {
-        envSnapshotting.value = false
-      }
-    })
+    try {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      const r = await invoke<{ snapshot_id: string }>('snapshot_global_env', {
+        globalEnvId: id,
+        projectPath: pp,
+      })
+      const gpId = r.snapshot_id
+      envSnapshotId.value = gpId
+      selectedEnvId.value = gpId
+      environmentStore.selectEnv(gpId)
+      loadEnvironments()
+      emit('update:environmentId', gpId)
+      emit('env-change', {
+        envId: id,
+        selectedEnvId: gpId,
+        envSnapshotId: gpId,
+      })
+    } finally {
+      envSnapshotting.value = false
+    }
     return
   }
   selectedEnvId.value = id

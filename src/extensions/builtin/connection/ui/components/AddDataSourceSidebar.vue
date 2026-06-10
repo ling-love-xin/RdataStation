@@ -159,6 +159,16 @@ const typeColors: Record<string, string> = {
   redis: '#dc382d',
   clickhouse: '#faff00',
   sqlserver: '#cc2927',
+  oracle: '#f80000',
+  couchbase: '#ea2328',
+  cockroachdb: '#6933ff',
+  snowflake: '#29b5e8',
+  bigquery: '#4285f4',
+  redshift: '#205b97',
+  h2: '#fc7303',
+  trino: '#dd00a1',
+  presto: '#5890ff',
+  elasticsearch: '#fed10a',
 }
 function typeColor(n?: string) {
   return n ? (typeColors[n.toLowerCase()] ?? '#555') : '#555'
