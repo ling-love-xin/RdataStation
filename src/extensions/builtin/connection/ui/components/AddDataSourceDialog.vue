@@ -85,9 +85,7 @@
             <NTabPane name="advanced" :tab="$t('navigator.tabAdvanced')">
               <AdvancedTab
                 :driver="selectedDriver"
-                :form-data="formData"
                 :scope="scope"
-                @update:form-data="onFormData"
                 @extra-config="onExtraConfig"
               />
             </NTabPane>
@@ -214,7 +212,6 @@ const {
   stagingItems,
   stagingIndex,
   buildStagingItem,
-  applyStagingItem: _applyStagingItem,
   addStaging,
   removeStaging,
   selectStaging,
@@ -478,7 +475,7 @@ async function handleTest() {
     }
     showTestModal.value = true
   } catch (err) {
-    const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err)
+    const msg = err instanceof Error ? err.message : typeof err === 'string' ? err : String(err)
     console.error('[test_connection] 失败:', msg)
     testResult.value = { success: false, message: msg }
     lastTestResult.value = { success: false, message: msg }
@@ -596,7 +593,7 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
       message.info(t('navigator.authSavedHint', { global: false, project: true }))
     }
   } catch (authErr) {
-    const msg = authErr instanceof Error ? authErr.message : JSON.stringify(authErr)
+    const msg = authErr instanceof Error ? authErr.message : String(authErr)
     console.error('[auth] 保存认证配置失败:', msg)
     message.error(`${t('navigator.authSaveFailed')}: ${msg}`)
   } finally {
@@ -844,7 +841,7 @@ async function handleCreateApply() {
         let itemSuccess = false
 
         if (shouldSaveProject && !shouldSaveGlobal) {
-          await saveToProjectOnly(item, driverName, url, name, errors, invoke)
+          await saveToProjectOnly(item, driverName, url, name, errors)
           itemSuccess = true
         } else {
           let snapshotNetId = item.networkConfigId ?? null
@@ -857,16 +854,14 @@ async function handleCreateApply() {
               'auth',
               pp,
               name,
-              errors,
-              invoke
+              errors
             )
             snapshotNetId = await snapshotIfNeeded(
               snapshotNetId,
               'network',
               pp,
               name,
-              errors,
-              invoke
+              errors
             )
 
             if (snapshotAuthId === 'failed' || snapshotNetId === 'failed') {
@@ -902,8 +897,7 @@ async function handleCreateApply() {
                 url,
                 name,
                 snapshotNetId,
-                snapshotAuthId,
-                invoke
+                snapshotAuthId
               )
             } catch (e) {
               errors.push(`${name} (项目): ${String(e)}`)
@@ -958,8 +952,7 @@ async function snapshotIfNeeded(
   type: 'auth' | 'network',
   projectPath: string | undefined,
   name: string,
-  errors: string[],
-  invoke: typeof invoke
+  errors: string[]
 ): Promise<string | null> {
   if (!configId?.startsWith('G_') || configId.startsWith('GP_')) {
     return configId
@@ -1009,8 +1002,7 @@ async function saveToProjectOnly(
   driverName: string,
   url: string,
   name: string,
-  errors: string[],
-  invoke: typeof invoke
+  errors: string[]
 ) {
   if (!projectStore.hasProject) {
     errors.push(`${name}: 没有打开的项目`)
@@ -1023,16 +1015,14 @@ async function saveToProjectOnly(
     'network',
     pp,
     name,
-    errors,
-    invoke
+    errors
   )
   const snapshotAuthId = await snapshotIfNeeded(
     item.authConfigId ?? null,
     'auth',
     pp,
     name,
-    errors,
-    invoke
+    errors
   )
 
   if (snapshotAuthId === 'failed' || snapshotNetId === 'failed') {
@@ -1112,14 +1102,13 @@ async function saveToProject(
   url: string,
   name: string,
   networkConfigId: string | null,
-  authConfigId: string | null,
-  invoke: typeof invoke
+  authConfigId: string | null
 ) {
   const pp = projectStore.currentProject?.path
 
   // 先对全局配置做快照
-  const snapshotNetId = await snapshotIfNeeded(networkConfigId, 'network', pp, name, [], invoke)
-  const snapshotAuthId = await snapshotIfNeeded(authConfigId, 'auth', pp, name, [], invoke)
+  const snapshotNetId = await snapshotIfNeeded(networkConfigId, 'network', pp, name, [])
+  const snapshotAuthId = await snapshotIfNeeded(authConfigId, 'auth', pp, name, [])
 
   const fd = item.formData || {}
   const conn = await projectConnectionStore.createConnection({
@@ -1348,7 +1337,7 @@ watch(
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 6px var(--spacing-lg);
+  padding: 4px var(--spacing-md);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
@@ -1359,7 +1348,7 @@ watch(
 }
 
 .card-title {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1367,8 +1356,8 @@ watch(
 
 .card-body {
   display: flex;
-  height: 520px;
-  min-height: 420px;
+  height: 460px;
+  min-height: 400px;
   overflow: hidden;
 }
 
@@ -1382,7 +1371,7 @@ watch(
 }
 
 .scope-warning {
-  margin: var(--spacing-sm) var(--spacing-sm) 0;
+  margin: var(--spacing-xs) var(--spacing-xs) 0;
   flex-shrink: 0;
 }
 
@@ -1397,7 +1386,7 @@ watch(
 
 .dlg-tabs :deep(.n-tabs-nav) {
   flex-shrink: 0;
-  padding-left: var(--spacing-sm);
+  padding-left: var(--spacing-xs);
 }
 .dlg-tabs :deep(.n-tabs-content) {
   flex: 1;
@@ -1406,7 +1395,7 @@ watch(
 .dlg-tabs :deep(.n-tab-pane) {
   height: 100%;
   overflow-y: auto;
-  padding: var(--spacing-md);
+  padding: 10px;
   box-sizing: border-box;
 }
 

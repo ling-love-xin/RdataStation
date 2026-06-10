@@ -95,40 +95,6 @@ async function getProjectPath(): Promise<string | null> {
   return useProjectStore().currentProject?.path ?? null
 }
 
-function _pickCmd(
-  globalCmd: string,
-  isProject: boolean
-): [string, (extra: Record<string, unknown>) => Record<string, unknown>] {
-  if (!isProject) {
-    return [globalCmd, e => e]
-  }
-  switch (globalCmd) {
-    case 'create_network_config':
-      return [
-        'project_create_network_config',
-        p => ({
-          name: p.name,
-          networkType: p.network_type,
-          config: p.config,
-        }),
-      ]
-    case 'update_network_config':
-      return [
-        'project_update_network_config',
-        p => ({
-          id: p.id,
-          name: p.name,
-          networkType: p.network_type,
-          config: p.config,
-        }),
-      ]
-    case 'delete_network_config':
-      return ['project_delete_network_config', p => ({ id: p.id })]
-    default:
-      return [globalCmd, e => e]
-  }
-}
-
 async function loadByType(type: 'ssh' | 'ssl' | 'proxy'): Promise<void> {
   try {
     const raws = await invoke<ConfigRaw[]>('list_network_configs', { networkType: type })
@@ -137,8 +103,8 @@ async function loadByType(type: 'ssh' | 'ssl' | 'proxy'): Promise<void> {
     else if (type === 'ssl') sslProfiles.value = profiles
     else proxyProfiles.value = profiles
   } catch (e) {
-    console.error(`[useNetworkProfiles] Failed to load ${type}:`, JSON.stringify(e))
-    error.value = e instanceof Error ? e.message : JSON.stringify(e)
+    console.error(`[useNetworkProfiles] Failed to load ${type}:`, e)
+    error.value = e instanceof Error ? e.message : String(e)
   }
 }
 

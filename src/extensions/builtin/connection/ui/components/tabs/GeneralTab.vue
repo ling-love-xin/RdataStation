@@ -16,7 +16,7 @@
 
     <template v-else>
       <!-- Network DB form -->
-      <NSpace v-if="!driver.is_file" vertical :size="14">
+      <NSpace v-if="!driver.is_file" vertical :size="12">
         <div class="sec-title">{{ $t('navigator.connectionParams') }}</div>
 
         <!-- Dynamic fields from config_schema -->
@@ -295,7 +295,7 @@
       </NSpace>
 
       <!-- File DB form (keeps existing logic) -->
-      <NSpace v-else vertical :size="14">
+      <NSpace v-else vertical :size="12">
         <div class="sec-title">{{ $t('navigator.databaseFile') }}</div>
         <div class="form-row">
           <div class="form-grp" style="flex: 1">
@@ -321,7 +321,7 @@
       </NSpace>
 
       <!-- Advanced config schema fields (fields not rendered above) -->
-      <NSpace v-if="advancedSchemaFields.length > 0" vertical :size="14">
+      <NSpace v-if="advancedSchemaFields.length > 0" vertical :size="12">
         <div class="sec-title">{{ $t('navigator.advancedParams') || '高级连接参数' }}</div>
         <div v-for="field in advancedSchemaFields" :key="field.key" class="form-row">
           <div class="form-grp" style="flex: 1">
@@ -430,7 +430,7 @@ const emit = defineEmits<{
   'auth-config-change': [authConfigId: string | null, authMethod: string]
 }>()
 
-const { t } = useI18n()
+useI18n() // initialize i18n for template $t()
 
 // ==================== Config Schema Field Types ====================
 
@@ -863,8 +863,8 @@ watch(
 .general-tab {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 4px 0;
+  gap: 10px;
+  padding: 2px 0;
 }
 .drv-banner {
   border-radius: 6px;

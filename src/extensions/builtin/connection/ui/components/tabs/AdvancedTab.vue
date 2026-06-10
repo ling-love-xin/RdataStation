@@ -72,7 +72,6 @@ const { t } = useI18n()
 
 const props = defineProps<{
   driver?: Driver | null
-  formData?: Record<string, unknown>
   scope?: { global: boolean; project: boolean }
 }>()
 
@@ -84,7 +83,6 @@ const showDuckDB = computed(() => {
 })
 
 const emit = defineEmits<{
-  'update:formData': [data: Record<string, unknown>]
   'extra-config': [config: Record<string, unknown>]
 }>()
 
@@ -173,8 +171,8 @@ watch(
 .adv-tab {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 4px 0;
+  gap: 12px;
+  padding: 2px 0;
 }
 .empty-hint {
   display: flex;

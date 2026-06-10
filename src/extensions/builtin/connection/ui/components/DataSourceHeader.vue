@@ -185,11 +185,11 @@ const uriWarning = computed<string | null>(() => {
 
 <style scoped>
 .right-header {
-  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+  padding: 8px var(--spacing-md) var(--spacing-xs);
   border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: 6px;
   flex-shrink: 0;
 }
 

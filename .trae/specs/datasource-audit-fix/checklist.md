@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
 > 最后更新：2026-06-11
-> 状态：8 轮审计 + 1 轮 GeneralTab 专项 + 1 轮全项目问题模式扫描 + 1 轮细节清扫 + 1 轮测试补充 + 1 轮 GeneralTab 字段过滤专项 + 1 轮测试连接超时深度审计，共修复 70 项问题
+> 状态：8 轮审计 + 1 轮 GeneralTab 专项 + 1 轮全项目问题模式扫描 + 1 轮细节清扫 + 1 轮测试补充 + 1 轮 GeneralTab 字段过滤专项 + 1 轮测试连接超时深度审计 + 1 轮脏代码排查与UI紧凑化，共修复 83 项问题
 
 ---
 
@@ -136,32 +136,33 @@ advancedSchemaFields = allFields.filter(f => !basicKeys.has(f.key) && !AUTH_MANA
 
 | 检查项 | 结果 |
 |------|:---:|
-| `cargo check` | ✅ 零错误 |
-| `pnpm run lint` (ESLint) | ✅ 零错误（5 预存 warning） |
+| `cargo clippy -- -D warnings` | ✅ 零错误 |
+| `pnpm run lint` (ESLint) | ✅ 零错误（4 预存 warning，仅测试文件） |
 
-## 三、修改文件清单（18 个文件）
+## 三、修改文件清单（24 个文件）
 
 ```
 src-tauri/src/core/services/connection_service.rs ✏️ resolve_network_method_with_project 前缀路由重写
-src-tauri/src/commands/connection_commands.rs       ✏️ 测试连接 project_path 传递 + 导入修复
+src-tauri/src/commands/connection_commands.rs       ✏️ 测试连接 project_path 传递 + 资源泄漏修复
 src-tauri/src/commands/data_source_commands.rs      ✏️ test_network_config 项目级支持
 src-tauri/src/commands/project_store_commands.rs     — 未修改
 
 src/extensions/builtin/connection/ui/composables/
-  useAddDataSource.ts                                — Round 9 未修改
+  useAddDataSource.ts                                ✏️ 死代码清理 ×2 (Round 9+Round 10)
+  useNetworkProfiles.ts                              ✏️ _pickCmd 删除 + JSON.stringify(e) 反模式修复
   useNetworkChain.ts                                 — 未修改
   useUrlBuilder.ts                                   ✏️ getProto 协议前缀修复
 
 src/extensions/builtin/connection/ui/components/
-  AddDataSourceDialog.vue                            ✏️ handleTest projectPath 传递 + 字段校验
-  tabs/GeneralTab.vue                                — Round 9 未修改
-  tabs/NetworkTab.vue                                ✏️ testChainHop projectPath + profScopeLabel 作用域
+  AddDataSourceDialog.vue                            ✏️ handleTest 字段校验 + 动态 import + JSON.stringify(err) + 模板绑定
+  tabs/GeneralTab.vue                                ✏️ useI18n 修复 + UI 紧凑化
+  tabs/NetworkTab.vue                                ✏️ testChainHop projectPath + 死解构 ×2 + chainAuthCfgOpts + Record<any> + UI
+  tabs/AdvancedTab.vue                               ✏️ 死 prop/emit 删除 + UI 紧凑化
   tabs/DuckDBAccelSection.vue                        — 未修改
-  tabs/AdvancedTab.vue                               — 未修改
   tabs/advanced/EnvironmentSection.vue               — 未修改
   tabs/advanced/PolicySections.vue                   — 未修改
   tabs/advanced/MetadataSection.vue                  — 未修改
-  DataSourceHeader.vue                               — 未修改
+  DataSourceHeader.vue                               ✏️ UI 紧凑化
 
 src/shared/locales/
   zh-CN.json                                         — Round 9 未修改

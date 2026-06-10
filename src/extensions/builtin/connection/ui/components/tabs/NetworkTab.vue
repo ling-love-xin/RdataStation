@@ -137,7 +137,7 @@
                     <NSelect
                       v-model:value="newFormData[hop.id].savedAuthId"
                       size="small"
-                      :options="chainSshAuthCfgOpts"
+                      :options="chainAuthCfgOpts"
                       :placeholder="t('navigator.manualFill') || '— 手动填写 —'"
                       clearable
                       filterable
@@ -335,7 +335,7 @@
                     <NSelect
                       v-model:value="newFormData[hop.id].savedAuthId"
                       size="small"
-                      :options="chainSshAuthCfgOpts"
+                      :options="chainAuthCfgOpts"
                       :placeholder="t('navigator.manualFill') || '— 手动填写 —'"
                       clearable
                       filterable
@@ -695,7 +695,6 @@ const message = useMessage()
 
 // ===== Network profile bridge (SSH/SSL/Proxy CRUD) =====
 const {
-  _buildNetworkCfg,
   createSshProfile: handleCreateSshProfile,
   createSslProfile: handleCreateSslProfile,
   createProxyProfile: handleCreateProxyProfile,
@@ -719,7 +718,6 @@ type Hop = ProtocolNode
 const {
   chain,
   menuOpen,
-  _networkHopCount,
   enabledNetworkHopCount: _enabledNetworkHopCount,
   hasSsl,
   isMaxNetworkHops,
@@ -1052,8 +1050,7 @@ async function saveNewProfile(hop: Hop) {
         (hop.protocol === 'ssh' && f.authType !== 'ssh_password' && f.keyPath))
     ) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const authData: Record<string, any> = {}
+        const authData: Record<string, unknown> = {}
         if (f.username) authData.username = f.username
         if (f.password) authData.password = f.password
         if (hop.protocol === 'ssh') {
@@ -1297,7 +1294,7 @@ const sshAuthTypeOpts = [
 const savedAuthConfigs = ref<AuthConfig[]>([])
 
 /** Dynamic auth config select options — fetched from backend */
-const chainSshAuthCfgOpts = computed(() => {
+const chainAuthCfgOpts = computed(() => {
   const opts: { label: string; value: string }[] = [{ label: '— 手动填写 —', value: '' }]
   for (const a of savedAuthConfigs.value) {
     const scopeIcon = a.scope === 'global' ? '🌐' : '📝'
@@ -1337,8 +1334,8 @@ function onChainAuthChange(hopId: string, _val: string) {
 .net-tab {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 4px 0;
+  gap: 10px;
+  padding: 2px 0;
 }
 .net-file-hint {
   text-align: center;

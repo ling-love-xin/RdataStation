@@ -14,8 +14,6 @@ import { useProjectStore } from '@/core/project/stores/project'
 
 import { useEnvironmentStore } from '../stores/environmentStore'
 
-import type { ConnectDatabaseInput } from '../../domain/types'
-
 // ==================== 类型定义 ====================
 
 /** 连接作用域 */
@@ -62,50 +60,8 @@ export interface StagingItem {
   applied?: boolean
 }
 
-/** StagingItem 字段列表 */
-const _STAGING_FIELDS = [
-  'id',
-  'name',
-  'driver',
-  'driverId',
-  'url',
-  'formData',
-  'authConfigId',
-  'authMethod',
-  'networkConfigId',
-  'driverProperties',
-  'advancedOptions',
-  'environmentId',
-  'scope',
-  'description',
-  'schemaName',
-  'options',
-  'metadataPath',
-  'tags',
-  'useDuckdbFed',
-  'applied',
-] as const
-
 /** localStorage 存储键 */
 const STAGING_STORAGE_KEY = 'rdata-station-staging-items'
-
-/** 已知文件型数据库驱动 ID */
-const KNOWN_FILE_DBS = ['sqlite', 'duckdb']
-
-/** 已知数据库协议白名单 */
-const KNOWN_DB_PROTOCOLS = [
-  'mysql', 'postgres', 'postgresql', 'sqlite', 'duckdb', 'mongodb', 'redis',
-  'mariadb', 'clickhouse', 'snowflake', 'bigquery', 'redshift', 'mssql', 'oracle',
-]
-
-/** 常规表单数据 */
-export interface GeneralFormData {
-  host: string
-  port: number
-  database: string
-  username: string
-  password: string
-}
 
 /** 协议类型 */
 export type ProtocolType = 'ssh' | 'proxy' | 'ssl'
@@ -198,30 +154,6 @@ export interface DuckdbAccelConfig {
   localPath: string
 }
 
-/** 提交载荷（含协议链/env策略/duckdb） */
-export interface SaveConnectionInput {
-  name: string
-  description: string
-  scope: 'global' | 'project' | 'both'
-  driver_id: string
-  host: string
-  port: number
-  database: string
-  username: string
-  password: string
-  environment_id: string | null
-  auth_config_id: string | null
-  auth_method: string | null
-  network_config_id: string | null
-  driver_properties: string
-  advanced_options: string
-  schema_name: string | null
-  options: string | null
-  metadata_path: string | null
-  tags: string | null
-  use_duckdb_fed: boolean | null
-}
-
 /** 校验结果 */
 export interface ValidationResult {
   valid: boolean
@@ -273,44 +205,6 @@ function defaultDuckdbAccel(): DuckdbAccelConfig {
   }
 }
 
-function defaultSecurityPolicy(): SecurityPolicy {
-  return {
-    readonly: false,
-    writeConfirm: true,
-    ddlConfirm: true,
-    dropConfirm: 'confirm',
-    autocommit: true,
-    rowLimit: 1000,
-    sizeLimit: 100,
-  }
-}
-
-function defaultSchemaPolicy(): SchemaPolicy {
-  return { autoLoad: true, loadDepth: 2, showSystem: false, refreshInterval: 300 }
-}
-
-function defaultPerformancePolicy(): PerformancePolicy {
-  return { poolSize: 5, queryTimeout: 30, connectTimeout: 10, heartbeat: 60, maxReconnect: 3 }
-}
-
-function defaultAuditPolicy(): AuditPolicy {
-  return { sqlLog: true, operationRecord: false, sensitiveTableAlert: true }
-}
-
-function defaultUiPolicy(): UiPolicy {
-  return { topBarColor: '', tabIndicator: true, sqlWarningBanner: true, writeBtnStyle: 'confirm' }
-}
-
-function defaultPolicies(): EnvironmentPolicies {
-  return {
-    security: defaultSecurityPolicy(),
-    schema: defaultSchemaPolicy(),
-    performance: defaultPerformancePolicy(),
-    audit: defaultAuditPolicy(),
-    ui: defaultUiPolicy(),
-  }
-}
-
 // ==================== Composable ====================
 
 export function useAddDataSource() {
@@ -324,14 +218,6 @@ export function useAddDataSource() {
   })
 
   const scope = reactive<ConnectionScope>({ global: true, project: false })
-
-  const generalData = reactive<GeneralFormData>({
-    host: '',
-    port: 3306,
-    database: '',
-    username: '',
-    password: '',
-  })
 
   const protocolChain = ref<ChainHopItem[]>(getDefaultChain())
   const selectedEnvId = ref<string | null>(null)
@@ -359,80 +245,6 @@ export function useAddDataSource() {
 
   function setFileDb(val: boolean) {
     isFileDb.value = val
-  }
-
-  // ========== 初始化 ==========
-  function initDefault() {
-    headerData.name = ''
-    headerData.description = ''
-    headerData.selectedDriverId = ''
-    scope.global = true
-    scope.project = false
-    generalData.host = ''
-    generalData.port = 3306
-    generalData.database = ''
-    generalData.username = ''
-    generalData.password = ''
-    protocolChain.value = getDefaultChain()
-    selectedEnvId.value = null
-    overriddenPolicies.value = {}
-    Object.assign(duckdbAccel, defaultDuckdbAccel())
-    driverProps.value = {}
-    authConfigId.value = null
-    authMethod.value = 'password'
-    networkConfigId.value = null
-    schemaName.value = null
-    options.value = null
-    metadataPath.value = null
-    tags.value = null
-    useDuckdbFed.value = null
-    saving.value = false
-    error.value = null
-  }
-
-  function initFromEdit(data: {
-    name?: string
-    description?: string
-    scope?: string
-    host?: string
-    port?: number
-    database?: string
-    username?: string
-    password?: string
-    environment_id?: string | null
-    advanced_options?: string | null
-  }) {
-    headerData.name = data.name ?? ''
-    headerData.description = data.description ?? ''
-    if (data.scope === 'both') {
-      scope.global = true
-      scope.project = true
-    } else {
-      scope.global = data.scope === 'global'
-      scope.project = data.scope === 'project'
-    }
-    generalData.host = data.host ?? ''
-    generalData.port = data.port ?? 3306
-    generalData.database = data.database ?? ''
-    generalData.username = data.username ?? ''
-    generalData.password = data.password ?? ''
-    selectedEnvId.value = data.environment_id ?? null
-
-    if (data.advanced_options) {
-      try {
-        const opts = JSON.parse(data.advanced_options)
-        if (opts.protocol_chain) protocolChain.value = opts.protocol_chain
-        if (opts.duckdb_accel) Object.assign(duckdbAccel, opts.duckdb_accel)
-        if (opts.env_policies) overriddenPolicies.value = opts.env_policies
-      } catch (err) {
-        console.warn(
-          '[useAddDataSource] 高级选项 JSON 解析失败:',
-          err instanceof Error ? err.message : String(err),
-          '原始数据:',
-          data.advanced_options
-        )
-      }
-    }
   }
 
   // ========== 环境联动 ==========
@@ -469,71 +281,6 @@ export function useAddDataSource() {
       obj = obj[keys[i]] as Record<string, unknown>
     }
     obj[keys[keys.length - 1]] = value
-  }
-
-  // ========== 提交载荷构建 ==========
-  function buildSavePayload(): SaveConnectionInput {
-    return {
-      name: headerData.name,
-      description: headerData.description,
-      scope: scope.global && scope.project ? 'both' : scope.global ? 'global' : 'project',
-      driver_id: headerData.selectedDriverId,
-      host: generalData.host,
-      port: generalData.port,
-      database: generalData.database,
-      username: generalData.username,
-      password: generalData.password,
-      environment_id: selectedEnvId.value,
-      auth_config_id: authConfigId.value,
-      auth_method: authMethod.value,
-      network_config_id: networkConfigId.value,
-      driver_properties: JSON.stringify(driverProps.value),
-      advanced_options: JSON.stringify({
-        protocol_chain: protocolChain.value.filter(h => h.enabled),
-        env_policies: overriddenPolicies.value,
-        duckdb_accel: duckdbAccel,
-      }),
-      schema_name: schemaName.value,
-      options: options.value,
-      metadata_path: metadataPath.value,
-      tags: tags.value,
-      use_duckdb_fed: useDuckdbFed.value,
-    }
-  }
-
-  /** 构建 connect_database IPC 调用所需的 ConnectDatabaseInput */
-  function buildSubmitPayload(params: {
-    dbType: string
-    url: string
-    driverId?: string | null
-    projectId?: string | null
-    authConfigId?: string | null
-    authMethod?: string
-    networkConfigId?: string | null
-  }): ConnectDatabaseInput {
-    const savePayload = buildSavePayload()
-    return {
-      conn_id: null,
-      db_type: params.dbType,
-      url: params.url,
-      name: savePayload.name,
-      connection_type: savePayload.scope,
-      project_id: params.projectId ?? undefined,
-      description: savePayload.description || null,
-      driver_id: params.driverId ?? null,
-      environment_id: savePayload.environment_id,
-      auth_config_id: params.authConfigId ?? savePayload.auth_config_id,
-      auth_method: params.authMethod ?? savePayload.auth_method ?? 'password',
-      network_config_id: params.networkConfigId ?? savePayload.network_config_id,
-      driver_properties: savePayload.driver_properties || null,
-      advanced_options: savePayload.advanced_options || null,
-      options: savePayload.options || null,
-      tags: savePayload.tags || null,
-      metadata_path: savePayload.metadata_path || null,
-      schema_name: savePayload.schema_name || null,
-      use_duckdb_fed: savePayload.use_duckdb_fed ?? null,
-      password: savePayload.password || null,
-    }
   }
 
   // ========== 校验 ==========
@@ -575,121 +322,6 @@ export function useAddDataSource() {
   function validate(): ValidationResult {
     const result = validateExtended()
     return { valid: result.valid, errors: result.errors }
-  }
-
-  /** URL 验证 */
-  function validateUrl(url: string): { valid: boolean; error?: string } {
-    if (!url) return { valid: false, error: 'URL 不能为空' }
-
-    try {
-      const urlObj = new URL(url)
-      if (
-        !KNOWN_DB_PROTOCOLS.some(p => urlObj.protocol.includes(p))
-      ) {
-        return { valid: false, error: '不支持的数据库协议' }
-      }
-      return { valid: true }
-    } catch {
-      return { valid: false, error: '无效的 URL 格式' }
-    }
-  }
-
-  /** 端口范围验证 */
-  function validatePort(port: number): { valid: boolean; error?: string } {
-    if (port < 1 || port > 65535) {
-      return { valid: false, error: '端口号必须在 1-65535 范围内' }
-    }
-    return { valid: true }
-  }
-
-  /** IP 地址验证 */
-  function validateHost(host: string): { valid: boolean; error?: string } {
-    if (!host) return { valid: false, error: '主机地址不能为空' }
-    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/
-    const hostnamePattern =
-      /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
-    if (ipv4Pattern.test(host) || hostnamePattern.test(host) || host === 'localhost') {
-      return { valid: true }
-    }
-    return { valid: false, error: '无效的主机地址格式' }
-  }
-
-  // ========== 类型守卫 ==========
-  /** 判断是否为有效的 StagingItem */
-  function isValidStagingItem(item: unknown): item is StagingItem {
-    if (!item || typeof item !== 'object') return false
-    const s = item as StagingItem
-    return typeof s.name === 'string' && s.name.length > 0
-  }
-
-  /** 判断是否为文件型数据库 */
-  function isFileDatabase(driverId: string): boolean {
-    return KNOWN_FILE_DBS.includes(driverId.toLowerCase())
-  }
-
-  /** 判断是否需要快照（全局配置引用） */
-  function needsSnapshot(configId: string | null | undefined): boolean {
-    return !!configId?.startsWith('G_') && !configId.startsWith('GP_')
-  }
-
-  // ========== 连接字符串构建 ==========
-  /** 构建 JDBC 连接字符串 */
-  function buildJdbcUrl(driverId: string, host: string, port: number, database: string): string {
-    if (isFileDatabase(driverId)) {
-      return `jdbc:${driverId}:${database}`
-    }
-    return `jdbc:${driverId}://${host}:${port}/${database}`
-  }
-
-  /** 构建标准连接 URL（优先使用 url_template，回退到硬编码模式） */
-  function buildStandardUrl(
-    driverId: string,
-    host: string,
-    port: number,
-    database: string,
-    urlTemplate?: string | null
-  ): string {
-    if (urlTemplate) {
-      return urlTemplate
-        .replace('{host}', host || 'localhost')
-        .replace('{port}', String(port || ''))
-        .replace('{database}', database || '')
-        .replace('{username}', (formData.value.username as string) || '')
-        .replace('{password}', (formData.value.password as string) || '')
-        .replace('{file_path}', database || '')
-    }
-    // Fallback for drivers without url_template
-    if (isFileDatabase(driverId)) {
-      return `${driverId}:${database}`
-    }
-    return `${driverId}://${host}:${port}/${database}`
-  }
-
-  /** 提取连接 URL 中的数据库名称 */
-  function extractDatabaseFromUrl(url: string): string | null {
-    try {
-      const urlObj = new URL(url)
-      const path = urlObj.pathname
-      if (path && path.length > 1) {
-        return decodeURIComponent(path.substring(1))
-      }
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  /** 从 URL 中提取主机和端口 */
-  function extractHostAndPort(url: string): { host: string; port: number } | null {
-    try {
-      const urlObj = new URL(url)
-      return {
-        host: urlObj.hostname,
-        port: parseInt(urlObj.port) || (urlObj.protocol.includes('mysql') ? 3306 : 5432),
-      }
-    } catch {
-      return null
-    }
   }
 
   // ========== 协议链操作 ==========
@@ -809,32 +441,6 @@ export function useAddDataSource() {
   }
 
   /**
-   * 从 StagingItem 更新表单数据（含 auth/network/properties 恢复）
-   */
-  function applyStagingItem(item: StagingItem) {
-    headerData.name = item.name || ''
-    headerData.description = item.description || ''
-    formData.value = item.formData ? { ...item.formData } : {}
-    if (item.scope) {
-      if (item.scope === 'both') {
-        scope.global = true
-        scope.project = true
-      } else {
-        scope.global = item.scope === 'global'
-        scope.project = item.scope === 'project'
-      }
-    }
-    authConfigId.value = item.authConfigId ?? null
-    authMethod.value = item.authMethod ?? 'password'
-    networkConfigId.value = item.networkConfigId ?? null
-    schemaName.value = item.schemaName ?? null
-    options.value = item.options ?? null
-    metadataPath.value = item.metadataPath ?? null
-    tags.value = item.tags ?? null
-    useDuckdbFed.value = item.useDuckdbFed ?? null
-  }
-
-  /**
    * 加载持久化的暂存项
    */
   function loadStagingItems() {
@@ -944,7 +550,6 @@ export function useAddDataSource() {
     // 状态
     headerData,
     scope,
-    generalData,
     protocolChain,
     selectedEnvId,
     overriddenPolicies,
@@ -965,7 +570,6 @@ export function useAddDataSource() {
     stagingItems,
     stagingIndex,
     buildStagingItem,
-    applyStagingItem,
     addStaging,
     removeStaging,
     selectStaging,
@@ -974,39 +578,16 @@ export function useAddDataSource() {
     // 计算
     isFileDb,
     setFileDb,
-    // 初始化
-    initDefault,
-    initFromEdit,
     // 环境
     selectEnv,
     onPolicyOverride,
-    // 提交
-    buildSavePayload,
-    buildSubmitPayload,
+    // 校验
     validate,
     validateExtended,
-    validateUrl,
-    validatePort,
-    validateHost,
     // 协议链
     addHop,
     removeHop,
     onDrop,
     toggleHop,
-    countNetworkHops,
-    ensureSslAtEnd,
-    // 类型守卫
-    isValidStagingItem,
-    isFileDatabase,
-    needsSnapshot,
-    // 连接字符串
-    buildJdbcUrl,
-    buildStandardUrl,
-    extractDatabaseFromUrl,
-    extractHostAndPort,
-    // 默认值工具
-    getDefaultChain,
-    defaultDuckdbAccel,
-    defaultPolicies,
   }
 }
