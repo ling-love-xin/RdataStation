@@ -6,7 +6,8 @@ use crate::core::driver::connection::config::ConnectionMethod;
 use crate::core::driver::DriverConnectionConfig;
 use crate::core::error::{CommonError, CoreError};
 use crate::core::services::connection_service::{
-    parse_network_config_json, resolve_network_method, ConnectRequest,
+    parse_network_config_json, resolve_network_method, resolve_network_method_with_project,
+    ConnectRequest,
 };
 use crate::core::services::{ConnectionService, ConnectionType};
 use crate::core::{get_connection_manager, DataSourceMeta};
@@ -734,6 +735,7 @@ pub async fn test_connection(
     network_config_id: Option<String>,
     auth_config_id: Option<String>,
     auth_method: Option<String>,
+    project_path: Option<String>,
 ) -> Result<TestConnectionResponse, CoreError> {
     use std::time::{Duration, Instant};
 
@@ -745,8 +747,10 @@ pub async fn test_connection(
     let manager = get_connection_manager().clone();
     let service = ConnectionService::new(manager.clone());
 
-    // 解析网络配置（如果有）
-    let network_method = resolve_network_method(network_config_id.as_deref()).await?;
+    // 解析网络配置（支持全局和项目级），跳过已有连接检查
+    let network_method =
+        resolve_network_method_with_project(network_config_id.as_deref(), project_path.as_deref())
+            .await?;
 
     // 检查是否已有相同 URL 的正式连接
     let all_connections = service.list_connections().await;
@@ -783,7 +787,7 @@ pub async fn test_connection(
         url: url.clone(),
         name: Some("test_connection".to_string()),
         connection_type: ConnectionType::Global,
-        project_path: None,                     // project_path
+        project_path: project_path.clone(),     // 支持项目级网络/认证配置解析
         description: None,                      // description
         driver_id: None,                        // driver_id
         environment_id: None,                   // environment_id
@@ -821,19 +825,12 @@ pub async fn test_connection(
 
     let response_time_ms = start.elapsed().as_millis() as u32;
 
-    // 显式从管理器移除连接，防止测试连接被持久化到 global_db
-    manager.remove_connection(&conn_id).await;
-    tracing::info!(
-        "测试连接：已从管理器移除临时连接（ID={}），跳过持久化",
-        conn_id
-    );
-
     // 关键：测试成功后，必须彻底关闭临时连接
     // 1. 先释放 db 的 Arc 引用
     drop(db);
     tracing::info!("测试连接：已释放数据库连接引用（ID={}）", conn_id);
 
-    // 2. 从连接管理器中关闭并移除连接
+    // 2. 通过 service 统一清理（移除连接 + 释放隧道守卫）
     if let Err(e) = service.close_connection(&conn_id).await {
         tracing::error!("测试连接：关闭临时连接失败（ID={}）：{}", conn_id, e);
         // 即使关闭失败，也返回成功（因为连接测试本身是成功的）

@@ -723,18 +723,14 @@ const {
   enabledNetworkHopCount: _enabledNetworkHopCount,
   hasSsl,
   isMaxNetworkHops,
-  _showHopWarning,
-  _estimatedLatency,
   remainingHops,
   countInstancesOfType,
-  _findHop,
   addHop: chainAddHop,
   deleteHop: chainDeleteHop,
   switchHopMode: composableSwitchHopMode,
   onDragStart: composableDragStart,
   onDragEnd: composableDragEnd,
   onDrop: composableDrop,
-  _ensureSslAtEnd,
 } = useNetworkChain([
   {
     id: 'h1',
@@ -889,16 +885,12 @@ const supportsProxy = computed(() => {
 
 // ==================== Computed ====================
 
-const _enabledHops = computed(() => chain.value.filter(h => h.enabled))
 const enabledHopCount = computed(() => _enabledNetworkHopCount.value)
 const sslInChain = computed(() => hasSsl.value)
 const canAddSshProxy = computed(
   () => !isMaxNetworkHops.value && (supportsSsh.value || supportsProxy.value)
 )
 const dbLabel = computed(() => props.driver?.name?.toUpperCase() || 'DB')
-
-/** 是否显示网络配置区域（文件型数据库不显示） */
-const _showNetworkConfig = computed(() => !props.driver?.is_file && !!props.driver)
 
 /** 是否可以添加 SSL（驱动支持且链中还没有 SSL） */
 const canAddSsl = computed(() => supportsSsl.value && !sslInChain.value)
@@ -927,11 +919,6 @@ const rawSshProfiles = computed(() => sshProfiles.value)
 const rawSslProfiles = computed(() => sslProfiles.value)
 const rawProxyProfiles = computed(() => proxyProfiles.value)
 
-const _authOpts = [
-  { label: '密码', value: 'password' },
-  { label: '密钥', value: 'key' },
-]
-
 const sslModeOpts = [
   { label: 'verify-full', value: 'verify-full' },
   { label: 'verify-ca', value: 'verify-ca' },
@@ -950,7 +937,7 @@ const proxyAuthTypeOpts = [
 ]
 
 function profScopeLabel(): string {
-  return `📝 ${t('navigator.project')}`
+  return props.scope?.global ? `🌐 ${t('navigator.global')}` : `📝 ${t('navigator.project')}`
 }
 
 // ==================== Profile Options ====================
@@ -1019,10 +1006,6 @@ function canDelete(hop: Hop) {
   return countInstancesOfType(hop.protocol) > 1
 }
 
-function _defPort(p: string): string {
-  return { ssh: '22', ssl: '443', proxy: '1080' }[p] || ''
-}
-
 // SSH forward info
 function getForwardInfo(profileId: string): string {
   const pf = findProfile('ssh', profileId)
@@ -1057,14 +1040,11 @@ async function saveNewProfile(hop: Hop) {
   creating[id] = true
   try {
     const f = newFormData[id]
-    const cfg: Record<string, unknown> = {
-      name: f.name || `未命名-${hop.protocol}`,
-      network_type: hop.protocol,
-      origin: props.scope?.project ? 'project' : 'global',
-      config: buildConfigJson(hop.protocol, f),
-    }
+    const isProject = !!props.scope?.project
+    const projectPath = isProject ? await getProjectPath() : null
 
     // SSH/Proxy 有认证凭据时，同步创建 auth_config 并注入引用
+    let savedAuthConfigId: string | null = null
     if (
       (hop.protocol === 'ssh' || hop.protocol === 'proxy') &&
       (f.username ||
@@ -1072,7 +1052,6 @@ async function saveNewProfile(hop: Hop) {
         (hop.protocol === 'ssh' && f.authType !== 'ssh_password' && f.keyPath))
     ) {
       try {
-        const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const authData: Record<string, any> = {}
         if (f.username) authData.username = f.username
@@ -1083,27 +1062,58 @@ async function saveNewProfile(hop: Hop) {
           if (f.passphrase) authData.passphrase = f.passphrase
         }
         const authName = `${f.name || '未命名'} — ${hop.protocol}认证`
+        const authType = hop.protocol === 'ssh' ? f.authType || 'ssh_password' : 'proxy_password'
 
-        const created = await invokeTauri<{ id: string }>('create_auth_config', {
-          ac: {
-            id: '',
+        if (isProject && projectPath) {
+          const created = await invoke<{ id: string }>('project_create_auth_config', {
             name: authName,
-            auth_type: hop.protocol === 'ssh' ? f.authType || 'ssh_password' : 'proxy_password',
-            auth_data: JSON.stringify(authData),
-            created_at: '',
-            updated_at: '',
-          },
-        })
-        ;(cfg as Record<string, unknown>).auth_config_id = created.id
+            authType,
+            authData: JSON.stringify(authData),
+            projectPath,
+          })
+          savedAuthConfigId = created.id
+        } else {
+          const created = await invoke<{ id: string }>('create_auth_config', {
+            ac: {
+              id: '',
+              name: authName,
+              auth_type: authType,
+              auth_data: JSON.stringify(authData),
+              created_at: '',
+              updated_at: '',
+            },
+          })
+          savedAuthConfigId = created.id
+        }
       } catch (authErr) {
         console.warn('[NetworkTab] 创建认证配置失败，继续保存网络配置:', authErr)
       }
     }
 
-    const createdNc = await invoke<NetworkProfile>('create_network_config', { nc: cfg })
-    await loadAll()
-    // Auto-select newly created profile using backend-generated ID
-    hop.profileId = createdNc.id
+    // 创建网络配置（根据作用域选择 API）
+    if (isProject && projectPath) {
+      const createdNc = await invoke<NetworkProfile>('project_create_network_config', {
+        name: f.name || `未命名-${hop.protocol}`,
+        networkType: hop.protocol,
+        config: buildConfigJson(hop.protocol, f),
+        authConfigId: savedAuthConfigId,
+        projectPath,
+      })
+      await loadAllProject(projectPath)
+      hop.profileId = createdNc.id
+    } else {
+      const cfg: Record<string, unknown> = {
+        name: f.name || `未命名-${hop.protocol}`,
+        network_type: hop.protocol,
+        origin: 'global',
+        config: buildConfigJson(hop.protocol, f),
+      }
+      if (savedAuthConfigId) (cfg as Record<string, unknown>).auth_config_id = savedAuthConfigId
+      const createdNc = await invoke<NetworkProfile>('create_network_config', { nc: cfg })
+      await loadAll()
+      hop.profileId = createdNc.id
+    }
+
     hop.mode = 'select'
   } catch (e) {
     console.error('[NetworkTab] Failed to create profile:', e)
@@ -1243,9 +1253,13 @@ async function testChainHop(hop: Hop) {
   try {
     if (hop.mode === 'select' && hop.profileId) {
       // Test saved network config on backend
+      const params: Record<string, unknown> = { networkConfigId: hop.profileId }
+      // 传递项目路径，支持项目级网络配置测试
+      const pp = await getProjectPath()
+      if (pp) params.projectPath = pp
       const result = await invoke<{ success: boolean; message: string; response_time_ms: number }>(
         'test_network_config',
-        { networkConfigId: hop.profileId }
+        params
       )
       if (result.success) {
         message.success(
@@ -1292,11 +1306,22 @@ const chainSshAuthCfgOpts = computed(() => {
   return opts
 })
 
-/** Load saved auth configs on mount */
+/** Load saved auth configs — merges global + project when scope includes project */
 async function loadSavedAuthConfigs() {
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    savedAuthConfigs.value = await invoke<AuthConfig[]>('list_auth_configs')
+    const globalConfigs = await invoke<AuthConfig[]>('list_auth_configs')
+    savedAuthConfigs.value = globalConfigs
+
+    if (props.scope?.project) {
+      const projectPath = await getProjectPath()
+      if (projectPath) {
+        const projectConfigs = await invoke<AuthConfig[]>(
+          'project_list_auth_configs',
+          { projectPath }
+        )
+        savedAuthConfigs.value = [...globalConfigs, ...projectConfigs]
+      }
+    }
   } catch {
     console.warn('[NetworkTab] list_auth_configs unavailable, auth config picker disabled')
   }

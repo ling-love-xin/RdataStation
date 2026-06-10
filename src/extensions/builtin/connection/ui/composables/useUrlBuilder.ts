@@ -42,6 +42,11 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
       .replace('{driver}', String(fd.driver || ''))
   }
 
+  /** 从驱动信息中获得协议前缀（id 即为协议名，如 mysql / postgresql） */
+  function getProto(d: DriverInfo): string {
+    return d.id.toLowerCase()
+  }
+
   /** URI 预览（展示用，密码用 **** 遮蔽） */
   const uriPreview = computed(() => {
     const d = selectedDriver.value
@@ -51,14 +56,14 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
       const masked = { ...fd, password: fd.password ? '****' : '' }
       return applyTemplate(d.url_template, masked)
     }
-    if (d.is_file) return `${d.name.toLowerCase()}://${fd.file_path || fd.database || './data.db'}`
+    if (d.is_file) return `${getProto(d)}://${fd.file_path || fd.database || './data.db'}`
     const usr = fd.username || 'user'
     const pw = fd.password ? '****' : ''
     const h = fd.host || 'localhost'
     const p = fd.port || d.default_port || ''
     const db = fd.database || ''
-    if (pw) return `${d.name.toLowerCase()}://${usr}:${pw}@${h}${p ? ':' + p : ''}/${db}`
-    return `${d.name.toLowerCase()}://${usr}@${h}${p ? ':' + p : ''}/${db}`
+    if (pw) return `${getProto(d)}://${usr}:${pw}@${h}${p ? ':' + p : ''}/${db}`
+    return `${getProto(d)}://${usr}@${h}${p ? ':' + p : ''}/${db}`
   })
 
   /** 构建实际连接 URL（用于测试/保存） */
@@ -70,7 +75,7 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
     if (d.url_template) {
       return applyTemplate(d.url_template, fd)
     }
-    const proto = d.type_id.toLowerCase()
+    const proto = getProto(d)
     if (d.is_file) return `${proto}://${fd.file_path || fd.database || './data.db'}`
     const h = String(fd.host || 'localhost')
     const po = String(fd.port || d.default_port || '')

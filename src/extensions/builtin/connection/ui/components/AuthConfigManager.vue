@@ -170,7 +170,7 @@
 
 <script setup lang="ts">
 import { Shield, X, Edit2, Trash2 } from 'lucide-vue-next'
-import { NButton, NInput, NSelect } from 'naive-ui'
+import { NButton, NInput, NSelect, useMessage } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -190,6 +190,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const message = useMessage()
 
 // ===== Auth type definitions =====
 interface AuthTypeDef {
@@ -204,6 +205,12 @@ const AUTH_TYPE_DEFS: Record<string, AuthTypeDef> = {
     category: 'database',
     icon: '🔑',
     label: 'SCRAM-SHA-256 / mysql_native_password',
+    fields: ['username', 'password'],
+  },
+  ldap: {
+    category: 'database',
+    icon: '📋',
+    label: 'LDAP / Active Directory',
     fields: ['username', 'password'],
   },
   pg_class: {
@@ -223,6 +230,18 @@ const AUTH_TYPE_DEFS: Record<string, AuthTypeDef> = {
     icon: '🔗',
     label: 'OAuth 2.0 Bearer Token',
     fields: ['tokenEndpoint', 'clientId', 'clientSecret'],
+  },
+  os_auth: {
+    category: 'database',
+    icon: '🖥',
+    label: '操作系统认证 (OS Auth)',
+    fields: [],
+  },
+  trust: {
+    category: 'database',
+    icon: '✅',
+    label: '无认证 (Trust)',
+    fields: [],
   },
   ssh_password: {
     category: 'ssh',
@@ -246,23 +265,29 @@ async function loadAuthConfigs() {
   loading.value = true
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    if (props.scope?.project) {
-      const { useProjectStore } = await import('@/core/project/stores/project')
-      const pp = useProjectStore().currentProject?.path
-      if (!pp) {
-        allConfigs.value = []
-        return
-      }
-      const raw = await invoke<BackendAuthConfig[]>('project_list_auth_configs', {
-        projectPath: pp,
-      })
-      allConfigs.value = raw.map(parseAuthConfig)
-    } else {
+    const isProject = !!props.scope?.project
+    const isGlobal = !!props.scope?.global
+
+    if (isGlobal) {
       const raw = await invoke<BackendAuthConfig[]>('list_auth_configs')
       allConfigs.value = raw.map(parseAuthConfig)
     }
-  } catch {
-    // API 不可用时静默降级
+
+    if (isProject) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (pp) {
+        const raw = await invoke<BackendAuthConfig[]>('project_list_auth_configs', {
+          projectPath: pp,
+        })
+        const projectConfigs = raw.map(parseAuthConfig)
+        allConfigs.value = isGlobal
+          ? [...allConfigs.value, ...projectConfigs]
+          : projectConfigs
+      }
+    }
+  } catch (e) {
+    console.warn('[AuthConfigManager] loadAuthConfigs failed:', e)
   } finally {
     loading.value = false
   }
@@ -405,7 +430,7 @@ async function saveNewCfg() {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
       if (!pp) {
-        alert('⚠️ 未打开项目')
+        message.warning('⚠️ 未打开项目')
         return
       }
       if (isEdit) {
@@ -444,7 +469,7 @@ async function saveNewCfg() {
     editingId.value = null
     await loadAuthConfigs()
   } catch (e) {
-    alert(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
+    message.error(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
   } finally {
     saving.value = false
   }
@@ -478,7 +503,7 @@ async function deleteCfg(id: string) {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
       if (!pp) {
-        alert('⚠️ 未打开项目')
+        message.warning('⚠️ 未打开项目')
         return
       }
       await invoke('project_delete_auth_config', { id, projectPath: pp })
@@ -487,7 +512,7 @@ async function deleteCfg(id: string) {
     }
     await loadAuthConfigs()
   } catch (e) {
-    alert(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
+    message.error(`❌ ${t('common.operationFailed')}: ${e instanceof Error ? e.message : String(e)}`)
   }
 }
 </script>

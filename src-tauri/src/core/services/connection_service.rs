@@ -1821,30 +1821,122 @@ async fn create_proxy_tunnel_port(
 pub async fn resolve_network_method(
     network_config_id: Option<&str>,
 ) -> Result<Option<ConnectionMethod>, CoreError> {
+    resolve_network_method_with_project(network_config_id, None).await
+}
+
+/// 从全局 + 项目 DB 解析 network_config_id → ConnectionMethod
+///
+/// 支持 ID 前缀路由：
+/// - `G_`: 全局 network_configs
+/// - `P_`: 项目 network_configs（需要 project_path）
+/// - `GP_`: 项目级全局快照配置（需要 project_path）
+/// - 无前缀: 先查全局，再查项目（向后兼容）
+pub async fn resolve_network_method_with_project(
+    network_config_id: Option<&str>,
+    project_path: Option<&str>,
+) -> Result<Option<ConnectionMethod>, CoreError> {
+    use std::path::Path;
+
     let Some(net_id) = network_config_id else {
         return Ok(None);
     };
 
-    let gdb = match crate::core::migration::get_global_db_manager() {
-        Some(gdb) => gdb,
-        None => return Ok(None),
-    };
-
-    let nets = gdb.list_network_configs(None).await?;
-    let net = match nets.iter().find(|n| n.id == net_id) {
-        Some(net) => net,
-        None => {
-            tracing::warn!("未找到网络配置 ID={}", net_id);
-            return Ok(None);
+    // ===== GP_ 前缀：项目级全局快照配置 =====
+    if net_id.starts_with("GP_") {
+        if let Some(pp) = project_path {
+            let db_path = Path::new(pp).join(".RSmeta").join("project.db");
+            if db_path.exists() {
+                if let Ok((network_type, config_str, auth_config_id)) =
+                    project_query_network_config_with_auth(&db_path, net_id)
+                {
+                    return parse_network_config_json(
+                        &network_type,
+                        &config_str,
+                        auth_config_id.as_deref(),
+                    )
+                    .await;
+                }
+            }
         }
-    };
+        tracing::warn!(net_id = %net_id, "GP_ 前缀网络配置未找到（project_path={:?}）", project_path);
+        return Ok(None);
+    }
 
-    parse_network_config_json(
-        &net.network_type,
-        &net.config,
-        net.auth_config_id.as_deref(),
+    // ===== P_ 前缀：项目级配置 =====
+    if net_id.starts_with("P_") {
+        if let Some(pp) = project_path {
+            let db_path = Path::new(pp).join(".RSmeta").join("project.db");
+            if db_path.exists() {
+                if let Ok((network_type, config_str, auth_config_id)) =
+                    project_query_network_config_with_auth(&db_path, net_id)
+                {
+                    return parse_network_config_json(
+                        &network_type,
+                        &config_str,
+                        auth_config_id.as_deref(),
+                    )
+                    .await;
+                }
+            }
+        }
+        tracing::warn!(net_id = %net_id, "P_ 前缀网络配置未找到（project_path={:?}）", project_path);
+        return Ok(None);
+    }
+
+    // ===== 全局配置（G_ 前缀或无前缀） =====
+    if let Some(gdb) = crate::core::migration::get_global_db_manager() {
+        if let Ok(nets) = gdb.list_network_configs(None).await {
+            if let Some(net) = nets.iter().find(|n| n.id == net_id) {
+                return parse_network_config_json(
+                    &net.network_type,
+                    &net.config,
+                    net.auth_config_id.as_deref(),
+                )
+                .await;
+            }
+        }
+    }
+
+    // ===== 向后兼容：无前缀时也查项目 DB =====
+    if !net_id.starts_with("G_") {
+        if let Some(pp) = project_path {
+            let db_path = Path::new(pp).join(".RSmeta").join("project.db");
+            if db_path.exists() {
+                if let Ok((network_type, config_str, auth_config_id)) =
+                    project_query_network_config_with_auth(&db_path, net_id)
+                {
+                    return parse_network_config_json(
+                        &network_type,
+                        &config_str,
+                        auth_config_id.as_deref(),
+                    )
+                    .await;
+                }
+            }
+        }
+    }
+
+    tracing::warn!(net_id = %net_id, "未找到网络配置");
+    Ok(None)
+}
+
+/// 查询项目网络配置，同时返回 network_type、config 和 auth_config_id
+fn project_query_network_config_with_auth(
+    db_path: &std::path::Path,
+    net_id: &str,
+) -> Result<(String, String, Option<String>), String> {
+    let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT network_type, config, auth_config_id FROM network_configs WHERE id = ?1",
+        rusqlite::params![net_id],
+        |row| {
+            let network_type: String = row.get(0)?;
+            let config: String = row.get(1)?;
+            let auth_config_id: Option<String> = row.get(2)?;
+            Ok((network_type, config, auth_config_id))
+        },
     )
-    .await
+    .map_err(|e| e.to_string())
 }
 
 /// 根据 network_type 将 config JSON 解析为 ConnectionMethod

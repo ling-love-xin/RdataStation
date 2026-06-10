@@ -140,7 +140,7 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
   )
 
   /** 是否达到网络跳上限 */
-  const isMaxNetworkHops = computed(() => networkHopCount.value >= MAX_NETWORK_HOPS)
+  const isMaxNetworkHops = computed(() => enabledNetworkHopCount.value >= MAX_NETWORK_HOPS)
 
   /** 是否存在 SSL 节点 */
   const hasSsl = computed(() => chain.value.some(h => h.protocol === 'ssl'))
@@ -155,7 +155,7 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
   const estimatedLatency = computed(() => enabledNetworkHopCount.value * 25)
 
   /** 剩余可用跳数 */
-  const remainingHops = computed(() => Math.max(0, MAX_NETWORK_HOPS - networkHopCount.value))
+  const remainingHops = computed(() => Math.max(0, MAX_NETWORK_HOPS - enabledNetworkHopCount.value))
 
   /** 添加菜单选项 */
   const addHopOptions = computed<AddHopOption[]>(() => [

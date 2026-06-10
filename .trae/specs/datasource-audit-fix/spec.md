@@ -464,3 +464,28 @@ Empty catch blocks in `browseFile`/`browseCert`/`browseKeytab` SHALL include `co
 
 ### Requirement: handleCreateApply SHALL mark staged items immediately
 Each successfully applied staging item SHALL be marked via `markStagingApplied()` immediately after save, eliminating the `appliedIndices` array collection pattern.
+
+## AUDIT R5 Requirements (2026-06-09)
+
+### Requirement: isMaxNetworkHops SHALL use enabledNetworkHopCount
+`isMaxNetworkHops` and `remainingHops` computed SHALL use `enabledNetworkHopCount` (which filters both `protocol !== 'ssl'` AND `enabled`) instead of `networkHopCount`.
+
+### Requirement: doSaveAuth SHALL warn when project path is missing
+When `scope.project` is true but `projectStore.currentProject?.path` is undefined during auth config save, the function SHALL show a warning message instead of silently returning.
+
+### Requirement: headerData SHALL not contain dead editUriMode field
+The `editUriMode` field in `headerData` reactive object SHALL be removed. The template uses the dialog-local `uriEditing` ref instead.
+
+## AUDIT R5 Extension: GeneralTab (2026-06-09)
+
+### Requirement: Config schema v-for SHALL not duplicate auth-managed fields
+`AUTH_MANAGED_KEYS` SHALL include `'username'` so the config_schema v-for does not render a second username input alongside the auth section's dedicated username field.
+
+### Requirement: Single schema parser for all form sections
+Both the main v-for fields and the advanced schema fields SHALL be rendered using the same `parseConfigSchema` function, eliminating the `parseSchemaToFormFields` dual-parser inconsistency.
+
+### Requirement: ConfigSchemaField SHALL carry layout metadata
+`ConfigSchemaField` interface SHALL include optional `helpText`, `min`, `max`, and `rows` properties to support advanced field rendering without an alternative parser.
+
+### Requirement: onMounted SHALL not duplicate watch-side-effect
+`updateAdvancedSchemaFields()` SHALL only be called from `watch(driver, {}, {immediate: true})`, not from `onMounted`, to avoid double emission.

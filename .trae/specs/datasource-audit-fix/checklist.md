@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
-> 最后更新：2026-06-09
-> 状态：4 轮审计完成，共修复 34 项问题
+> 最后更新：2026-06-11
+> 状态：8 轮审计 + 1 轮 GeneralTab 专项 + 1 轮全项目问题模式扫描 + 1 轮细节清扫 + 1 轮测试补充 + 1 轮 GeneralTab 字段过滤专项 + 1 轮测试连接超时深度审计，共修复 70 项问题
 
 ---
 
@@ -9,9 +9,10 @@
 
 | 优先级 | 总数 | 已修复 | 修复内容 |
 |:---:|:---:|:---:|------|
-| 🔴 P0 | 2 | 2 | scope 双向选择 + saveToProject ID |
-| 🟡 P1 | 6 | 6 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind |
-| 🟢 P2 | 8 | 8 | url_template + findIndex + localStorage + savingRef + configSchema + 后端校验 + 关闭确认 |
+| 🔴 P0 | 7 | 7 | scope 双向选择 + saveToProject ID + NetworkTab 全局/项目 API + resolve_network_method_with_project 前缀路由 + handleTest projectPath 传递 |
+| 🟡 P1 | 14 | 14 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind + AuthConfigManager scope + useNetworkProfiles 合并 + advancedSchemaFields 死代码 + BASIC_SCHEMA_KEYS 分类 + test_connection project_path 传递 + test_network_config 项目级支持 + testChainHop projectPath |
+| 🟢 P2 | 16 | 16 | url_template + findIndex + localStorage + savingRef + configSchema + 后端校验 + 关闭确认 + 死代码清理 ×2 + alert替换 ×2 + 认证类型补全 + EnvironmentSection ×4 + DataSourceSidebar + profScopeLabel 作用域 |
+| 🧪 Test | 5 | 5 | Rust connection_commands + 前端 driver-adapter + useAddDataSource + useAuthConfig + GeneralTab |
 
 ### 已修复问题清单
 
@@ -62,37 +63,107 @@
 | 33 | 🟢 | useAddDataSource.ts | initFromEdit JSON.parse 静默失败 | 增强日志 + 原始数据 |
 | 34 | 🟢 | AddDataSourceDialog.vue | appliedIndices 收集后再标记 | 立即 markStagingApplied |
 
+### Round 5 修复 (4 项, 2026-06-09)
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 35 | 🟢 | useNetworkChain.ts | isMaxNetworkHops 计入禁用 hop | 改用 enabledNetworkHopCount |
+| 36 | 🟢 | useNetworkChain.ts | remainingHops 计入禁用 hop | 改用 enabledNetworkHopCount |
+| 37 | 🟢 | AddDataSourceDialog.vue | doSaveAuth 缺project path静默返回 | message.warning 提示 |
+| 38 | 🟢 | useAddDataSource.ts | headerData.editUriMode 死代码 | 删除字段+重置代码 |
+
+### GeneralTab 专项修复 (4 项, 2026-06-09)
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 39 | 🔴 | GeneralTab.vue | username 重复渲染 | AUTH_MANAGED_KEYS 新增 'username' |
+| 40 | 🔴 | GeneralTab.vue | 双解析器类型不一致 | 统一使用 parseConfigSchema，扩展 ConfigSchemaField |
+| 41 | 🟢 | GeneralTab.vue | onMounted 重复调用 updateAdvancedSchemaFields | 移除重复调用 |
+| 42 | 🟢 | GeneralTab.vue | parseSchemaToFormFields 未使用导入 | 移除导入 |
+
+### Round 6 修复 — 全项目问题模式扫描 (8 项, 2026-06-09)
+
+根因分析：GeneralTab 的问题源于 config_schema 解析逻辑被复制3次（driver-adapter.ts / schema-parser.ts / GeneralTab.vue），各自维护独立类型体系。全项目扫描发现同类模式。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 43 | 🔴 | NetworkTab.vue | saveNewProfile 永远调用全局API create_network_config | 根据 scope.project 选择 project_create_network_config 或 create_network_config |
+| 44 | 🔴 | NetworkTab.vue | saveNewProfile 永远调用全局API create_auth_config | 根据 scope.project 选择 project_create_auth_config 或 create_auth_config |
+| 45 | 🔴 | NetworkTab.vue | loadSavedAuthConfigs 只加载全局，不加载项目 | 合并全局+项目认证配置（与 useAuthConfig.loadAuthConfigs 对齐） |
+| 46 | 🔴 | AuthConfigManager.vue | AUTH_TYPE_DEFS 缺少 ldap/os_auth/trust | 补全3种认证类型定义 |
+| 47 | 🟡 | AuthConfigManager.vue | loadAuthConfigs 用 if/else 互斥而非合并 | 改为 if(isGlobal)+if(isProject) 合并模式 |
+| 48 | 🟡 | useNetworkProfiles.ts | loadByTypeProject 覆盖（非合并）全局配置 | 改为 [...existing, ...new] 合并 |
+| 49 | 🟢 | AuthConfigManager.vue | 三处使用原生 alert() | 替换为 useMessage().warning/.error |
+| 50 | 🟢 | schema-parser.ts | 死代码（parseSchemaToFormFields 无人引用） | 删除文件 |
+
+### Round 7 修复 — 测试补充 (2026-06-09)
+
+前端 connection 模块零测试 → 新增 **39 tests**（3 个测试文件），Rust 新增 **16 tests**。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 51 | 🧪 | (缺失) | Rust: connection_commands 零测试 | 新增 `connection_commands_tests.rs` (16 tests) |
+| 52 | 🧪 | (缺失) | 前端: driver-adapter 解析器零测试 | 新增 `driver-adapter.test.ts` (11 tests) |
+| 53 | 🧪 | (缺失) | 前端: useAddDataSource staging 零测试 | 新增 `useAddDataSource.test.ts` (15 tests) |
+| 54 | 🧪 | (缺失) | 前端: useAuthConfig 认证管理零测试 | 新增 `useAuthConfig.test.ts` (13 tests) |
+
+### Round 8 修复 — GeneralTab 字段过滤专项 (2026-06-11)
+
+根因分析：`configSchemaFields` 计算属性包含全部非认证字段，导致 `advancedSchemaFields` 始终为空 — "高级连接参数"区域成为死代码。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 55 | 🔴 | GeneralTab.vue | configSchemaFields 包含全部非认证字段，advancedSchemaFields 始终为空 | 引入 `BASIC_SCHEMA_KEYS` 集合分类基础/高级字段 |
+| 56 | 🟡 | GeneralTab.vue | "高级连接参数"区域死代码 | 修复后正确渲染非基础字段（connect_timeout, ssl_ca 等） |
+| 57 | 🧪 | (缺失) | 前端: GeneralTab 字段过滤零测试 | 新增 `GeneralTab.test.ts` (30 tests) 覆盖 AUTH_MANAGED_KEYS 过滤、getDefaultFields 降级、parseConfigSchema 解析、isFieldDisabled 禁用、advancedSchemaFields 分类 |
+
+#### BASIC_SCHEMA_KEYS 分类设计
+
+```typescript
+// 基础连接字段（主 v-for 渲染）
+const BASIC_SCHEMA_KEYS = new Set([
+  'host', 'port', 'database', 'url', 'wasmPath', 'headers', 'file_path',
+])
+
+// configSchemaFields 仅渲染基础字段
+configSchemaFields = allFields.filter(f => BASIC_SCHEMA_KEYS.has(f.key) && !AUTH_MANAGED_KEYS.has(f.key))
+
+// advancedSchemaFields 渲染其余非认证字段
+advancedSchemaFields = allFields.filter(f => !basicKeys.has(f.key) && !AUTH_MANAGED_KEYS.has(f.key))
+```
+
 ## 二、验证结果
 
 | 检查项 | 结果 |
 |------|:---:|
 | `cargo check` | ✅ 零错误 |
-| `pnpm run lint` (ESLint) | ✅ 零错误，exit 0 |
-| `vue-tsc --noEmit` | ✅ 零新增错误（预存错误均在无关文件） |
+| `pnpm run lint` (ESLint) | ✅ 零错误（5 预存 warning） |
 
-## 三、修改文件清单（16 个文件）
+## 三、修改文件清单（18 个文件）
 
 ```
-src-tauri/src/core/services/connection_service.rs ✏️ 后端输入验证
-src-tauri/src/commands/connection_commands.rs       ✏️ 同上
-src-tauri/src/commands/project_store_commands.rs     ✏️ 同上
+src-tauri/src/core/services/connection_service.rs ✏️ resolve_network_method_with_project 前缀路由重写
+src-tauri/src/commands/connection_commands.rs       ✏️ 测试连接 project_path 传递 + 导入修复
+src-tauri/src/commands/data_source_commands.rs      ✏️ test_network_config 项目级支持
+src-tauri/src/commands/project_store_commands.rs     — 未修改
 
 src/extensions/builtin/connection/ui/composables/
-  useAddDataSource.ts                                ✏️ scope 'both' + addStaging + localStorage + url_template
+  useAddDataSource.ts                                — Round 9 未修改
   useNetworkChain.ts                                 — 未修改
+  useUrlBuilder.ts                                   ✏️ getProto 协议前缀修复
 
 src/extensions/builtin/connection/ui/components/
-  AddDataSourceDialog.vue                            ✏️ saveToProject ID + 字段来源 + findIndex + 关闭确认
-  tabs/GeneralTab.vue                                ✏️ config_schema driver_kind 降级
-  tabs/NetworkTab.vue                                ✏️ scope.project watch 重载
-  tabs/DuckDBAccelSection.vue                        ✏️ isDuckDBSupported 过滤
-  tabs/AdvancedTab.vue                               ✏️ showDuckDB computed
+  AddDataSourceDialog.vue                            ✏️ handleTest projectPath 传递 + 字段校验
+  tabs/GeneralTab.vue                                — Round 9 未修改
+  tabs/NetworkTab.vue                                ✏️ testChainHop projectPath + profScopeLabel 作用域
+  tabs/DuckDBAccelSection.vue                        — 未修改
+  tabs/AdvancedTab.vue                               — 未修改
   tabs/advanced/EnvironmentSection.vue               — 未修改
   tabs/advanced/PolicySections.vue                   — 未修改
   tabs/advanced/MetadataSection.vue                  — 未修改
   DataSourceHeader.vue                               — 未修改
 
 src/shared/locales/
-  zh-CN.json                                         ✏️ 3 个 i18n key
-  en.json                                            ✏️ 3 个 i18n key
+  zh-CN.json                                         — Round 9 未修改
+  en.json                                            — Round 9 未修改
 ```

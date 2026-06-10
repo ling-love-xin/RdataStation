@@ -64,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+import { useMessage } from 'naive-ui'
 import { ref, computed, onMounted } from 'vue'
 
 import { envDefs, envPolicyTagsMap, envDefsAsEnvInfo } from '../../../constants/envDefaults'
@@ -76,6 +77,7 @@ import type { EnvInfo } from '../EnvironmentManager.vue'
 import type { SelectOption } from 'naive-ui'
 
 const environmentStore = useEnvironmentStore()
+const message = useMessage()
 
 const props = defineProps<{
   environmentId: string
@@ -212,7 +214,7 @@ async function handleCreateEnv() {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
       if (!pp) {
-        alert('⚠️ 未打开项目')
+        message.warning('⚠️ 未打开项目')
         return
       }
       if (isEdit) {
@@ -261,7 +263,8 @@ async function handleCreateEnv() {
     resetEnvForm()
     showEnvCreateForm.value = false
     await loadEnvironments()
-  } catch {
+  } catch (e) {
+    console.warn('[EnvironmentSection] 保存环境失败，使用本地回退数据:', e)
     if (isEdit) {
       const idx = loadedEnvs.value.findIndex(e => e.id === editingEnvId.value)
       if (idx >= 0) {
@@ -319,7 +322,7 @@ async function handleDeleteEnv(id: string) {
       const { useProjectStore } = await import('@/core/project/stores/project')
       const pp = useProjectStore().currentProject?.path
       if (!pp) {
-        alert('⚠️ 未打开项目')
+        message.warning('⚠️ 未打开项目')
         return
       }
       await invoke('project_delete_environment', { id, projectPath: pp })
@@ -327,8 +330,9 @@ async function handleDeleteEnv(id: string) {
       await invoke('delete_environment', { id })
     }
     await loadEnvironments()
-  } catch {
-    loadedEnvs.value = loadedEnvs.value.filter(e => e.id !== id)
+  } catch (e) {
+    console.warn('[EnvironmentSection] 删除环境失败:', e)
+    loadedEnvs.value = loadedEnvs.value.filter(e2 => e2.id !== id)
   }
 }
 
@@ -336,31 +340,16 @@ async function loadEnvironments() {
   envListLoading.value = true
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    const scopeType = props.scope?.global ? 'global' : 'project'
 
     let remote: Array<{
       id: string
       name: string
       description: string
       properties?: Record<string, unknown>
-    }>
-    if (props.scope?.project) {
-      const { useProjectStore } = await import('@/core/project/stores/project')
-      const pp = useProjectStore().currentProject?.path
-      if (!pp) {
-        loadedEnvs.value = []
-        return
-      }
-      remote = await invoke<
-        Array<{
-          id: string
-          name: string
-          description: string
-          properties?: Record<string, unknown>
-        }>
-      >('project_list_environments', { projectPath: pp })
-    } else {
-      remote =
+    }> = []
+
+    if (props.scope?.global) {
+      const globalEnvs =
         await invoke<
           Array<{
             id: string
@@ -369,15 +358,28 @@ async function loadEnvironments() {
             properties?: Record<string, unknown>
           }>
         >('list_environments')
+      remote = [...remote, ...(globalEnvs || [])]
+    }
+
+    if (props.scope?.project) {
+      const { useProjectStore } = await import('@/core/project/stores/project')
+      const pp = useProjectStore().currentProject?.path
+      if (pp) {
+        const projectEnvs = await invoke<
+          Array<{
+            id: string
+            name: string
+            description: string
+            properties?: Record<string, unknown>
+          }>
+        >('project_list_environments', { projectPath: pp })
+        remote = [...remote, ...(projectEnvs || [])]
+      }
     }
     if (remote && remote.length > 0) {
       const colors = ['#a6e3a1', '#f9e2af', '#89b4fa', '#f38ba8', '#cba6f7']
       const icons = ['🟢', '🟡', '🔵', '🔴', '🟣']
       loadedEnvs.value = remote
-        .filter(e => {
-          if (scopeType === 'global') return e.id.startsWith('G_') && !e.id.startsWith('GP_')
-          return e.id.startsWith('P_') || e.id.startsWith('GP_') || e.id.startsWith('G_')
-        })
         .map((e, i) => ({
           id: e.id,
           name: e.name,
@@ -392,7 +394,8 @@ async function loadEnvironments() {
           ui: { summaryUI: (e.properties?.uiColor as string) || colors[i % colors.length] },
         }))
     }
-  } catch {
+  } catch (e) {
+    console.warn('[EnvironmentSection] 加载环境列表失败:', e)
     loadedEnvs.value = envDefsAsEnvInfo
   } finally {
     envListLoading.value = false

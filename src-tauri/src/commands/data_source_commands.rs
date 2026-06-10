@@ -690,18 +690,69 @@ pub struct TestNetworkConfigResponse {
 #[specta::specta]
 pub async fn test_network_config(
     network_config_id: String,
+    project_path: Option<String>,
 ) -> Result<TestNetworkConfigResponse, CoreError> {
     use crate::core::driver::connection::config::{ConnectionConfig, ProxyConfig, SshConfig};
     use crate::core::driver::connection::connector;
+    use std::path::Path;
     use std::time::Instant;
 
-    let db = get_global_db_manager()
-        .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
+    // 支持项目级网络配置（P_/GP_ 前缀）
+    let net = if network_config_id.starts_with("P_") || network_config_id.starts_with("GP_") {
+        if let Some(ref pp) = project_path {
+            let db_path = Path::new(pp).join(".RSmeta").join("project.db");
+            if db_path.exists() {
+                let conn = rusqlite::Connection::open(&db_path)
+                    .map_err(|e| CoreError::from(format!("打开项目数据库失败: {}", e)))?;
+                let row = conn.query_row(
+                    "SELECT network_type, config FROM network_configs WHERE id = ?1",
+                    rusqlite::params![network_config_id],
+                    |row| {
+                        let network_type: String = row.get(0)?;
+                        let config: String = row.get(1)?;
+                        Ok((network_type, config))
+                    },
+                );
+                match row {
+                    Ok((network_type, config)) => network_store::NetworkConfig {
+                        id: network_config_id.clone(),
+                        name: None,
+                        network_type,
+                        config,
+                        auth_config_id: None,
+                        origin: Some("project".to_string()),
+                        source_id: None,
+                        snapshot_at: None,
+                        created_at: String::new(),
+                        updated_at: String::new(),
+                    },
+                    Err(_) => {
+                        return Err(CoreError::from(format!(
+                            "项目网络配置 {} 不存在",
+                            network_config_id
+                        )));
+                    }
+                }
+            } else {
+                return Err(CoreError::from(format!(
+                    "项目路径不存在，无法加载网络配置 {}",
+                    network_config_id
+                )));
+            }
+        } else {
+            return Err(CoreError::from(format!(
+                "需要 project_path 来加载项目级网络配置 {}",
+                network_config_id
+            )));
+        }
+    } else {
+        let db = get_global_db_manager()
+            .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
 
-    let net = db
-        .get_network_config(&network_config_id)
-        .await?
-        .ok_or_else(|| CoreError::from(format!("网络配置 {} 不存在", network_config_id)))?;
+        db.get_network_config(&network_config_id)
+            .await?
+            .ok_or_else(|| CoreError::from(format!("网络配置 {} 不存在", network_config_id)))?
+    };
 
     let start = Instant::now();
 

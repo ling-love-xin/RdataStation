@@ -148,6 +148,7 @@
 </template>
 
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { Database } from 'lucide-vue-next'
 import { NButton, NModal, NTabs, NTabPane, NAlert, useMessage, useDialog } from 'naive-ui'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
@@ -414,12 +415,35 @@ async function handleTest() {
     message.warning(t('navigator.selectDbType'))
     return
   }
+
+  // 连接字段前置校验（防止空 host/port 导致超时）
+  if (!selectedDriver.value.is_file) {
+    const fd = formData.value
+    if (!fd.host || String(fd.host).trim() === '') {
+      message.warning(t('navigator.hostRequired') || '请输入主机地址')
+      return
+    }
+    const port = Number(fd.port || selectedDriver.value.default_port || 0)
+    if (port < 1 || port > 65535) {
+      message.warning(t('navigator.portInvalid') || '端口号必须在 1-65535 之间')
+      return
+    }
+    if (!fd.database || String(fd.database).trim() === '') {
+      message.warning(t('navigator.databaseRequired') || '请输入数据库名')
+      return
+    }
+  }
+
+  const url = buildUrl()
+  if (!url) {
+    message.warning(t('navigator.urlEmpty') || 'URL 构建失败，请检查连接参数')
+    return
+  }
+
   testing.value = true
   try {
-    const url = buildUrl()
     const driverName = selectedDriver.value.name
     const dbType = selectedDriver.value.id
-    const { invoke } = await import('@tauri-apps/api/core')
     const params: Record<string, unknown> = {
       dbType: dbType,
       url,
@@ -427,6 +451,10 @@ async function handleTest() {
     if (networkConfigId.value) params.networkConfigId = networkConfigId.value
     if (authConfigId.value) params.authConfigId = authConfigId.value
     if (authMethod.value) params.authMethod = authMethod.value
+    // 传递项目路径，支持项目级网络/认证配置解析
+    if (projectStore.currentProject?.path) {
+      params.projectPath = projectStore.currentProject.path
+    }
     const r = await invoke<{
       success: boolean
       message?: string
@@ -436,7 +464,7 @@ async function handleTest() {
     testResult.value = {
       success: r.success,
       message: r.success
-        ? `✓ ${t('navigator.connectionSuccess', { name: driverName })} — ${driverName} — [本机] → ${r.message || 'DB'}`
+        ? `\u2713 ${t('navigator.connectionSuccess', { name: driverName })} \u2014 ${driverName} \u2014 [本机] \u2192 ${r.message || 'DB'}`
         : r.message || t('navigator.connectionFailedGeneric'),
       latencyMs: r.success ? (r.response_time_ms ?? undefined) : undefined,
     }
@@ -500,7 +528,6 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
   if (savingAuth.value) return
   savingAuth.value = true
   try {
-    const { invoke: invokeTauri } = await import('@tauri-apps/api/core')
     const authData = buildAuthData(authType, fd)
 
     const driverName = selectedDriver.value?.name || ''
@@ -512,7 +539,7 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
     const shouldSaveProject = scope.project && projectStore.hasProject
 
     if (shouldSaveGlobal && shouldSaveProject) {
-      const _globalId = await invokeTauri<{ id: string }>('create_auth_config', {
+      const _globalId = await invoke<{ id: string }>('create_auth_config', {
         ac: {
           id: '',
           name: `${authName} (全局)`,
@@ -524,8 +551,11 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
       })
 
       const pp = projectStore.currentProject?.path
-      if (!pp) return
-      const projectId = await invokeTauri<{ id: string }>('project_create_auth_config', {
+      if (!pp) {
+        message.warning(t('navigator.noProjectPath') || '无法获取项目路径，跳过项目认证保存')
+        return
+      }
+      const projectId = await invoke<{ id: string }>('project_create_auth_config', {
         name: `${authName} (项目)`,
         authType,
         authData: authDataStr,
@@ -536,7 +566,7 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
       authMethod.value = authType
       message.info(t('navigator.authSavedHint', { global: true, project: true }))
     } else if (shouldSaveGlobal) {
-      const created = await invokeTauri<{ id: string }>('create_auth_config', {
+      const created = await invoke<{ id: string }>('create_auth_config', {
         ac: {
           id: '',
           name: authName,
@@ -551,8 +581,11 @@ async function doSaveAuth(authType: string, fd: Record<string, unknown>) {
       message.info(t('navigator.authSavedHint', { global: true, project: false }))
     } else if (shouldSaveProject) {
       const pp = projectStore.currentProject?.path
-      if (!pp) return
-      const created = await invokeTauri<{ id: string }>('project_create_auth_config', {
+      if (!pp) {
+        message.warning(t('navigator.noProjectPath') || '无法获取项目路径，跳过项目认证保存')
+        return
+      }
+      const created = await invoke<{ id: string }>('project_create_auth_config', {
         name: authName,
         authType,
         authData: authDataStr,
@@ -795,7 +828,6 @@ async function handleCreateApply() {
   const errors: string[] = []
 
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
 
     for (let idx = 0; idx < validItems.length; idx++) {
       const item = validItems[idx]
@@ -927,7 +959,7 @@ async function snapshotIfNeeded(
   projectPath: string | undefined,
   name: string,
   errors: string[],
-  invoke: typeof import('@tauri-apps/api/core').invoke
+  invoke: typeof invoke
 ): Promise<string | null> {
   if (!configId?.startsWith('G_') || configId.startsWith('GP_')) {
     return configId
@@ -978,7 +1010,7 @@ async function saveToProjectOnly(
   url: string,
   name: string,
   errors: string[],
-  invoke: typeof import('@tauri-apps/api/core').invoke
+  invoke: typeof invoke
 ) {
   if (!projectStore.hasProject) {
     errors.push(`${name}: 没有打开的项目`)
@@ -1081,7 +1113,7 @@ async function saveToProject(
   name: string,
   networkConfigId: string | null,
   authConfigId: string | null,
-  invoke: typeof import('@tauri-apps/api/core').invoke
+  invoke: typeof invoke
 ) {
   const pp = projectStore.currentProject?.path
 

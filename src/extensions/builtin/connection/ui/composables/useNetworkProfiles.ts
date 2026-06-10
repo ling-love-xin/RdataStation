@@ -164,9 +164,10 @@ async function loadByTypeProject(
       projectPath,
     })
     const profiles = raws.map(toProfile).filter((p): p is NetworkProfile => p !== null)
-    if (type === 'ssh') sshProfiles.value = profiles
-    else if (type === 'ssl') sslProfiles.value = profiles
-    else proxyProfiles.value = profiles
+    // Merge with existing global profiles (appended at end for scope visibility)
+    if (type === 'ssh') sshProfiles.value = [...sshProfiles.value, ...profiles]
+    else if (type === 'ssl') sslProfiles.value = [...sslProfiles.value, ...profiles]
+    else proxyProfiles.value = [...proxyProfiles.value, ...profiles]
   } catch (e) {
     console.error(`[useNetworkProfiles] Failed to load project ${type}:`, e)
     error.value = e instanceof Error ? e.message : String(e)

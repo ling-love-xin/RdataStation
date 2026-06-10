@@ -328,7 +328,7 @@
             <span class="form-label">{{ field.label }}</span>
             <!-- Select 类型 -->
             <NSelect
-              v-if="field.type === 'select'"
+              v-if="field.options"
               v-model:value="(schemaFormData[field.key] as string | number | null)"
               size="small"
               :placeholder="field.placeholder"
@@ -337,28 +337,18 @@
             />
             <!-- Switch 类型 -->
             <NSwitch
-              v-else-if="field.type === 'switch'"
+              v-else-if="field.type === 'boolean'"
               v-model:value="(schemaFormData[field.key] as boolean)"
               @update:value="emitUpdate"
             />
             <!-- Number 类型 -->
             <NInputNumber
-              v-else-if="field.type === 'input-number'"
+              v-else-if="field.type === 'integer' || field.type === 'number'"
               v-model:value="(schemaFormData[field.key] as number | null)"
               size="small"
               :placeholder="field.placeholder"
               :min="field.min"
               :max="field.max"
-              @update:value="emitUpdate"
-            />
-            <!-- Textarea 类型 -->
-            <NInput
-              v-else-if="field.type === 'textarea'"
-              v-model:value="(schemaFormData[field.key] as string)"
-              type="textarea"
-              size="small"
-              :placeholder="field.placeholder"
-              :rows="field.rows || 3"
               @update:value="emitUpdate"
             />
             <!-- 默认 Input 类型 -->
@@ -417,7 +407,6 @@ import { reactive, computed, watch, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useAuthConfig, parseSupportedAuthTypes } from '../../composables/useAuthConfig'
-import { parseSchemaToFormFields, type FormFieldConfig } from '../../utils/schema-parser'
 import AuthConfigManager from '../AuthConfigManager.vue'
 
 import type { Driver } from '../../../domain/types'
@@ -456,6 +445,10 @@ interface ConfigSchemaField {
   order: number
   format?: string
   options?: Array<{ label: string; value: unknown }>
+  helpText?: string
+  min?: number
+  max?: number
+  rows?: number
 }
 
 /** config_schema 为空时根据 driver_kind 返回不同的降级字段 */
@@ -532,6 +525,10 @@ function parseConfigSchema(schema: string, driverKind?: string): ConfigSchemaFie
         value: v,
       }))
     }
+
+    if (typeof prop.minimum === 'number') field.min = prop.minimum as number
+    if (typeof prop.maximum === 'number') field.max = prop.maximum as number
+    if (prop.description) field.helpText = prop.description as string
 
     fields.push(field)
   }
@@ -661,22 +658,27 @@ const filePathPlaceholder = computed(() => {
   return '~/data.db'
 })
 
-/** 主 v-for 不渲染的字段 key 集合（由认证区独立处理） */
+/** 由认证区独立处理的字段 key 集合 */
 const AUTH_MANAGED_KEYS = new Set([
-  'password', 'certPath', 'certKeyPath', 'principal',
+  'username', 'password', 'certPath', 'certKeyPath', 'principal',
   'keytabPath', 'tokenEndpoint', 'clientId', 'clientSecret',
 ])
 
-/** 从 config_schema 解析的全部字段（主 v-for 渲染） */
+/** 基础连接字段 key 集合（主 v-for 渲染，其余非认证字段进入高级参数区） */
+const BASIC_SCHEMA_KEYS = new Set([
+  'host', 'port', 'database', 'url', 'wasmPath', 'headers', 'file_path',
+])
+
+/** 从 config_schema 解析的基础连接字段（主 v-for 渲染） */
 const configSchemaFields = computed<ConfigSchemaField[]>(() => {
   const schema = props.driver?.config_schema
   const allFields = parseConfigSchema(schema || '', props.driver?.driver_kind)
-  // 过滤掉认证管理区独立处理的字段
-  return allFields.filter(f => !AUTH_MANAGED_KEYS.has(f.key))
+  // 仅渲染基础连接字段，过滤认证管理区和高级参数字段
+  return allFields.filter(f => BASIC_SCHEMA_KEYS.has(f.key) && !AUTH_MANAGED_KEYS.has(f.key))
 })
 
 /** 高级参数字段（config_schema 定义的，但不属于主 v-for 基本字段） */
-const advancedSchemaFields = ref<FormFieldConfig[]>([])
+const advancedSchemaFields = ref<ConfigSchemaField[]>([])
 
 /** 新建数据库文件弹窗 */
 const showNewDbDialog = ref(false)
@@ -819,27 +821,21 @@ onMounted(async () => {
 
   // 从后端加载已保存的认证配置列表
   loadAuthConfigs(props.projectPath ?? undefined)
-
-  // 初始化高级 schema 字段
-  updateAdvancedSchemaFields()
 })
 
 /** 更新 config_schema 衍生的高级参数字段 */
 function updateAdvancedSchemaFields() {
   const schema = props.driver?.config_schema
-  const allFields = parseSchemaToFormFields(schema || '')
-  // 只保留不在主 v-for 中的字段作为高级参数
+  const allFields = parseConfigSchema(schema || '', props.driver?.driver_kind)
   const mainKeys = new Set(configSchemaFields.value.map(f => f.key))
   advancedSchemaFields.value = allFields.filter(f => !mainKeys.has(f.key) && !AUTH_MANAGED_KEYS.has(f.key))
 
-  // 初始化高级字段默认值
   for (const field of advancedSchemaFields.value) {
     if (schemaFormData[field.key] === undefined) {
       schemaFormData[field.key] = field.defaultValue ?? ''
     }
   }
 
-  // 从 formData 恢复值
   for (const key of Object.keys(schemaFormData)) {
     if (props.formData[key] !== undefined) {
       schemaFormData[key] = props.formData[key]

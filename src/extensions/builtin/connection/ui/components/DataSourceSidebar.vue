@@ -218,8 +218,8 @@ async function loadGlobalConnectionList() {
         scope: 'global' as const,
       })
     )
-  } catch {
-    // 全局连接加载失败时静默
+  } catch (e) {
+    console.warn('[DataSourceSidebar] 全局连接加载失败:', e)
   }
 }
 

@@ -15,6 +15,14 @@
 - **DONE** (2026-05-31): EditorPanelParams 统一类型接口替换所有 `Record<string, unknown>`
 - **DONE** (2026-05-31): EditorPanelFactory 改用 `computed` 响应式解析编辑器类型
 - **DONE** (2026-05-31): openAnalysisPanel 统一走 scratchpad API 持久化
+- **DONE** (2026-06-09): 文件 CRUD 完善 — 脏关闭拦截 + 新建未保存文件 + 外部变更检测 + 多窗口冲突解决
+  - OpenFileInfo 新增 `exists: boolean`, `lastModifiedAt: number | null` 字段
+  - `file-manager.ts` 新增 `newFile()`, `closeFileChecked()`, `closeFilesChecked()`, `saveCurrentFileToDisk()`, `saveFileAs()`, `checkExternalFileChanges()`, `reconcileCrossWindowConflict()` 7 个函数
+  - 新增 `useFileDialogs.ts` — 提供 `confirmUnsavedClose()` / `confirmExternalChange()` / `confirmFileConflict()` 三种 naive-ui 确认对话框
+  - `cross-window-service.ts` `listenStateSync` 增加冲突检测逻辑，脏状态时调用 `reconcileCrossWindowConflict`
+  - `EditorPanel.vue` 所有关闭路径改用 `closeFileChecked()` 而非直接 `closeFile()`
+  - 安装 `@tauri-apps/plugin-fs@2.5.1` npm 依赖用于文件读写
+  - 安装 `@tauri-apps/plugin-dialog` (已有) 用于另存为对话框
 
 ## Impact
 - Affected specs: plugin-system-design（面板贡献点复用）
@@ -22,7 +30,7 @@
   - `src/extensions/builtin/workbench/ui/components/panels/EditorPanel.vue` — 重构为工厂组件
   - ~~`src/extensions/builtin/workbench/manager/EditorManager.ts`~~ — **已拆分为**：
     - `editor-state.ts` — 共享响应式状态（openFiles, activeFilePath, 运行时等）
-    - `file-manager.ts` — 文件 CRUD（openFile, closeFile, switchToFile）
+    - `file-manager.ts` — 文件 CRUD + 脏关闭拦截 + 新建未保存文件 + saveFileAs + 外部变更检测 + 跨窗口冲突解决
     - `result-set-manager.ts` — 结果集管理（createResultSet, detachResultPanel）
     - `instance-service.ts` — 编辑器实例注册（registerFileEditor, getEditorView）
     - `cross-window-service.ts` — 跨窗口同步（popout/merge, state sync）

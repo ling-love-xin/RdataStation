@@ -5,6 +5,7 @@
  * 对应文档: docs/frontend/connection/add-datasource-frontend-plan.md (Phase 4-5)
  */
 
+import { invoke } from '@tauri-apps/api/core'
 import { useMessage } from 'naive-ui'
 import { v4 as uuidv4 } from 'uuid'
 import { reactive, ref, watch, onMounted } from 'vue'
@@ -320,7 +321,6 @@ export function useAddDataSource() {
     name: '',
     description: '',
     selectedDriverId: '',
-    editUriMode: false,
   })
 
   const scope = reactive<ConnectionScope>({ global: true, project: false })
@@ -366,7 +366,6 @@ export function useAddDataSource() {
     headerData.name = ''
     headerData.description = ''
     headerData.selectedDriverId = ''
-    headerData.editUriMode = false
     scope.global = true
     scope.project = false
     generalData.host = ''
@@ -448,7 +447,6 @@ export function useAddDataSource() {
     // 引用全局环境时触发快照
     if (envId.startsWith('G_')) {
       try {
-        const { invoke } = await import('@tauri-apps/api/core')
         const pp = useProjectStore().currentProject?.path
         const r = await invoke<{ snapshot_id: string }>('snapshot_global_env', {
           globalEnvId: envId,
