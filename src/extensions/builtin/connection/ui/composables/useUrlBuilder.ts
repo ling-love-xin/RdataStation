@@ -43,14 +43,14 @@ export interface ParsedUrl {
 export function useUrlBuilder(opts: UseUrlBuilderOptions) {
   const { selectedDriver, formData, uriEditing, manualUri } = opts
 
-  /** 使用 url_template 构建 URL */
+  /** 使用 url_template 构建 URL（对用户名/密码进行编码） */
   function applyTemplate(template: string, fd: Record<string, unknown>): string {
     return template
       .replace('{host}', String(fd.host || 'localhost'))
       .replace('{port}', String(fd.port || ''))
       .replace('{database}', String(fd.database || ''))
-      .replace('{username}', String(fd.username || ''))
-      .replace('{password}', String(fd.password || ''))
+      .replace('{username}', encodeURIComponent(String(fd.username || '')))
+      .replace('{password}', encodeURIComponent(String(fd.password || '')))
       .replace('{file_path}', String(fd.file_path || fd.database || ''))
       .replace('{driver}', String(fd.driver || ''))
   }
@@ -79,7 +79,7 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
     return `${getProto(d)}://${usr}@${h}${p ? ':' + p : ''}/${db}`
   })
 
-  /** 构建实际连接 URL（用于测试/保存） */
+  /** 构建实际连接 URL（用于测试/保存），对用户名/密码特殊字符编码 */
   function buildUrl(): string {
     if (uriEditing.value && manualUri.value) return manualUri.value
     const d = selectedDriver.value
@@ -93,13 +93,13 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
     const h = String(fd.host || 'localhost')
     const po = String(fd.port || d.default_port || '')
     const db = String(fd.database || '')
-    const u = String(fd.username || '')
-    const pw = String(fd.password || '')
+    const u = encodeURIComponent(String(fd.username || ''))
+    const pw = encodeURIComponent(String(fd.password || ''))
     if (u && pw) return `${proto}://${u}:${pw}@${h}${po ? ':' + po : ''}/${db}`
     return `${proto}://${u}@${h}${po ? ':' + po : ''}/${db}`
   }
 
-  /** P1: 解析 JDBC/标准 URL → 提取数据库类型、主机、端口等 */
+  /** P1: 解析 JDBC/标准 URL → 提取数据库类型、主机、端口等（支持 IPv6） */
   function parseUrl(raw: string): ParsedUrl | null {
     if (!raw || !raw.trim()) return null
     const url = raw.trim()
@@ -120,15 +120,18 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
     }
 
     // 2. 标准 URL: proto://[user[:pass]@]host[:port][/database][?params]
+    //    支持 IPv6 地址（[::1]、[2001:db8::1] 等）
     try {
-      const match = url.match(/^(\w+):\/\/(?:([^:@]+)(?::([^@]*))?@)?([^:/]+)(?::(\d+))?(?:\/([^?\n]*))?(?:\?(.*))?$/)
+      const match = url.match(
+        /^(\w+):\/\/(?:([^:@]+)(?::([^@]*))?@)?(?:\[([^\]]+)\]|([^:/]+))(?::(\d+))?(?:\/([^?\n]*))?(?:\?(.*))?$/
+      )
       if (!match) return null
 
-      const [, proto, user, pass, host, port, db, queryStr] = match
+      const [, proto, user, pass, ipv6Host, host, port, db, queryStr] = match
 
       const result: ParsedUrl = {
         driver: proto.toLowerCase(),
-        host,
+        host: ipv6Host || host,
         port,
         database: db || undefined,
         username: user || undefined,

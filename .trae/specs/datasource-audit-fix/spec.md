@@ -707,3 +707,85 @@ When editing a connection with both project and global scope, each update SHALL 
 - **WHEN** any protocol chain operation is needed
 - **THEN** `useNetworkChain` is the single source of truth
 - **AND** `useAddDataSource` does not contain duplicate implementations
+
+## AUDIT R17 Requirements (2026-06-12)
+
+基于全链路可用性审计的 7 项修复，涵盖密码链路断裂、表单双向同步、URL 解析/构建健壮性、编辑模式安全性。
+
+### Requirement: connectDatabase service SHALL pass password to backend
+`connectDatabase` service function SHALL include `password` in its `opts` parameter and map it to `ConnectDatabaseInput.password`.
+
+#### Scenario: User applies a connection with password
+- **WHEN** `handleCreateApply` calls `connectDatabaseService` with password
+- **THEN** `ConnectDatabaseInput.password` is set to the user's password
+- **AND** the backend receives the password for encrypted storage
+
+### Requirement: Password SHALL survive the staging strip
+`buildStagingItem` strips password from `formData` for localStorage security. `handleCreateApply` SHALL capture `formData.value.password` before `syncCurrentToStaging()` and pass it via `currentPassword` to `buildConnectOpts`/`saveToProjectOnly`/`saveToProject`.
+
+#### Scenario: User fills password and clicks Apply
+- **WHEN** `handleCreateApply` runs
+- **THEN** password is captured before `syncCurrentToStaging()` strips it
+- **AND** password is passed to `buildConnectOpts` as `currentPassword`
+- **AND** password is passed to `saveToProjectOnly`/`saveToProject`
+- **AND** password reaches the backend via `ConnectDatabaseInput.password`
+
+### Requirement: stagingDirty SHALL monitor all editable fields
+The `stagingDirty` watch SHALL monitor all 13 editable state sources: `formData`, `headerData`, `selectedEnvId`, `networkConfigId`, `authConfigId`, `authMethod`, `driverPropertiesExtra`, `advancedOptions`, `schemaName`, `options`, `metadataPath`, `tags`, `useDuckdbFed`.
+
+#### Scenario: User edits DriverProps tab
+- **WHEN** `driverPropertiesExtra` changes
+- **THEN** `stagingDirty` is set to `true`
+- **AND** switching staging items prompts confirmation
+
+### Requirement: GeneralTab SHALL synchronize local form from external formData changes
+`GeneralTab` SHALL watch `props.formData` and call `syncFromFormData()` to update the `local` reactive object. This ensures URL parsing (`onParseUrl`) fills are reflected in input fields.
+
+#### Scenario: URL parsing fills form fields
+- **WHEN** `parseUrl` succeeds and `formData.value` is set
+- **THEN** `GeneralTab` detects the change via `watch(props.formData, ...)`
+- **AND** `local` reactive object is synchronized
+- **AND** input fields display the parsed values
+
+### Requirement: parseUrl SHALL support IPv6 addresses
+`parseUrl` regex SHALL match IPv6 addresses in brackets: `[::1]`, `[2001:db8::1]`, etc.
+
+#### Scenario: User pastes URL with IPv6 host
+- **WHEN** user pastes `mysql://root@[::1]:3306/mydb`
+- **THEN** `parseUrl` extracts host as `::1`
+- **AND** port as `3306`
+- **AND** database as `mydb`
+
+### Requirement: buildUrl SHALL encode special characters in credentials
+`buildUrl` and `applyTemplate` SHALL apply `encodeURIComponent()` to username and password values to prevent URL parsing ambiguity from `@`, `:`, `/` characters.
+
+#### Scenario: User enters password containing special characters
+- **WHEN** password is `p@ss:word`
+- **THEN** `buildUrl` encodes it as `p%40ss%3Aword`
+- **AND** the resulting URL is valid and parsable
+
+### Requirement: handleEditApply SHALL NOT overwrite password with empty string
+`handleEditApply` SHALL pass `undefined` (not `''`) when the user does not fill the password field, allowing the backend to preserve the existing encrypted password.
+
+#### Scenario: User edits a connection but leaves password blank
+- **WHEN** `handleEditApply` runs with empty password field
+- **THEN** `password` is `undefined`
+- **AND** backend preserves the existing encrypted password
+
+## AUDIT R18 Requirements (2026-06-12)
+
+基于功能完善度评估，修复测试连接流程中密码字段缺失问题。
+
+### Requirement: test_connection SHALL accept and pass through password
+`test_connection` Tauri command SHALL accept `password: Option<String>` parameter and pass it to `ConnectDatabaseInput` (previously hardcoded to `None`). This enables the test connection flow to verify the encrypted password storage chain.
+
+#### Scenario: User tests connection with password
+- **WHEN** `handleTest` calls `invoke('test_connection', params)` with `password` field
+- **THEN** backend receives `password` in `ConnectDatabaseInput`
+- **AND** `ConnectRequest.password` is set to the user's password
+- **AND** the connection test validates the full credential chain (URL + encrypted password)
+
+#### Scenario: User tests connection without password (e.g., os_auth/trust)
+- **WHEN** `handleTest` calls `invoke('test_connection', params)` without `password` field
+- **THEN** backend `password` is `None`
+- **AND** connection proceeds using only the URL-based authentication

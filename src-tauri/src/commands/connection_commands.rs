@@ -713,6 +713,7 @@ pub async fn test_connection(
     auth_config_id: Option<String>,
     auth_method: Option<String>,
     project_path: Option<String>,
+    password: Option<String>,
 ) -> Result<TestConnectionResponse, CoreError> {
     use std::time::{Duration, Instant};
 
@@ -779,7 +780,7 @@ pub async fn test_connection(
         metadata_path: None,
         schema_name: None,
         use_duckdb_fed: None,
-        password: None,
+        password,
     };
 
     let connect_future = service.connect_with_type(

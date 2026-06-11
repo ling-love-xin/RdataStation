@@ -515,6 +515,9 @@ async function handleTest() {
     if (networkConfigId.value) params.networkConfigId = networkConfigId.value
     if (authConfigId.value) params.authConfigId = authConfigId.value
     if (authMethod.value) params.authMethod = authMethod.value
+    // 传递密码字段，验证加密存储链路
+    const pw = formData.value.password
+    if (pw) params.password = String(pw)
     // 传递项目路径，支持项目级网络/认证配置解析
     if (projectStore.currentProject?.path) {
       params.projectPath = projectStore.currentProject.path
@@ -709,6 +712,10 @@ function saveToStaging() {
   }
 
   const url = buildUrl()
+  if (!url) {
+    message.warning(t('navigator.urlEmpty') || 'URL 构建失败，请检查连接参数')
+    return
+  }
   const name = headerData.name || selectedDriver.value.name
   const d = selectedDriver.value
 
@@ -823,7 +830,7 @@ async function handleEditApply() {
         database: String(fd.database || ''),
         schema_name: schemaName.value || (fd.schema_name as string) || undefined,
         username: String(fd.username || ''),
-        password: String(fd.password || ''),
+        password: fd.password ? String(fd.password) : undefined,
         options: options.value || (fd.options as string) || undefined,
         tags: tags.value || (fd.tags as string) || undefined,
         use_duckdb_fed: useDuckdbFed.value ?? (fd.use_duckdb_fed as boolean) ?? false,
@@ -858,7 +865,7 @@ async function handleEditApply() {
         database: String(fd.database || ''),
         schema_name: schemaName.value || (fd.schema_name as string) || undefined,
         username: String(fd.username || ''),
-        password: String(fd.password || ''),
+        password: fd.password ? String(fd.password) : undefined,
         options: options.value || (fd.options as string) || undefined,
         tags:
           (tags.value || (fd.tags as string))
@@ -907,6 +914,9 @@ async function handleEditApply() {
 
 /** 新增模式：批量应用所有暂存连接 → 写入数据库 */
 async function handleCreateApply() {
+  // P0: 在 syncCurrentToStaging 前捕获当前表单密码（暂存项 formData 会剥离密码）
+  const currentPassword = formData.value.password ? String(formData.value.password) : undefined
+
   syncCurrentToStaging()
 
   const validItems = stagingItems.value.filter(item => item.name)
@@ -949,7 +959,7 @@ async function handleCreateApply() {
         let itemSuccess = false
 
         if (shouldSaveProject && !shouldSaveGlobal) {
-          await saveToProjectOnly(item, driverName, url, name, errors)
+          await saveToProjectOnly(item, driverName, url, name, errors, currentPassword)
           itemSuccess = true
         } else {
           let snapshotNetId = item.networkConfigId ?? null
@@ -977,7 +987,7 @@ async function handleCreateApply() {
             }
           }
 
-          const connectOpts = buildConnectOpts(item, snapshotNetId, snapshotAuthId)
+          const connectOpts = buildConnectOpts(item, snapshotNetId, snapshotAuthId, currentPassword)
 
           let globalConnId: string | null = null
           if (shouldSaveGlobal) {
@@ -1005,7 +1015,8 @@ async function handleCreateApply() {
                 url,
                 name,
                 snapshotNetId,
-                snapshotAuthId
+                snapshotAuthId,
+                currentPassword
               )
             } catch (e) {
               errors.push(`${name} (项目): ${String(e)}`)
@@ -1084,7 +1095,9 @@ async function snapshotIfNeeded(
 function buildConnectOpts(
   item: StagingItem,
   networkConfigId: string | null,
-  authConfigId: string | null
+  authConfigId: string | null,
+  /** 当前表单密码（暂存项 formData 已剥离密码，需从当前表单独立传入） */
+  currentPassword?: string
 ) {
   const fd = item.formData || {}
   return {
@@ -1101,7 +1114,7 @@ function buildConnectOpts(
     metadataPath: item.metadataPath || undefined,
     schemaName: item.schemaName || undefined,
     useDuckdbFed: item.useDuckdbFed ?? false,
-    password: fd.password ? String(fd.password) : undefined,
+    password: currentPassword || (fd.password ? String(fd.password) : undefined),
   }
 }
 
@@ -1110,7 +1123,8 @@ async function saveToProjectOnly(
   driverName: string,
   url: string,
   name: string,
-  errors: string[]
+  errors: string[],
+  currentPassword?: string
 ) {
   if (!projectStore.hasProject) {
     errors.push(`${name}: 没有打开的项目`)
@@ -1168,7 +1182,7 @@ async function saveToProjectOnly(
     database: String(fd.database || ''),
     schema_name: item.schemaName || undefined,
     username: String(fd.username || ''),
-    password: String(fd.password || ''),
+    password: currentPassword || String(fd.password || ''),
     options: item.options || undefined,
     tags: item.tags || undefined,
     use_duckdb_fed: item.useDuckdbFed ?? false,
@@ -1194,7 +1208,7 @@ async function saveToProjectOnly(
         name,
         'project',
         pp,
-        buildConnectOpts(item, snapshotNetId, finalAuthConfigId)
+        buildConnectOpts(item, snapshotNetId, finalAuthConfigId, currentPassword)
       )
     } catch (e) {
       console.warn('[AddDataSource] 自动建立项目连接失败:', e)
@@ -1210,7 +1224,8 @@ async function saveToProject(
   url: string,
   name: string,
   networkConfigId: string | null,
-  authConfigId: string | null
+  authConfigId: string | null,
+  currentPassword?: string
 ) {
   const pp = projectStore.currentProject?.path
 
@@ -1227,7 +1242,7 @@ async function saveToProject(
     database: String(fd.database || ''),
     schema_name: item.schemaName || undefined,
     username: String(fd.username || ''),
-    password: String(fd.password || ''),
+    password: currentPassword || String(fd.password || ''),
     options: item.options || undefined,
     tags: item.tags || undefined,
     use_duckdb_fed: item.useDuckdbFed ?? false,
@@ -1256,7 +1271,8 @@ async function saveToProject(
         buildConnectOpts(
           item,
           snapshotNetId !== 'failed' ? snapshotNetId : networkConfigId,
-          snapshotAuthId !== 'failed' ? snapshotAuthId : authConfigId
+          snapshotAuthId !== 'failed' ? snapshotAuthId : authConfigId,
+          currentPassword
         )
       )
     } catch (e) {
@@ -1428,12 +1444,30 @@ watch(
     }
   }
 )
-// P0: 表单脏标记 — 暂存项切换前确认
+// P0: 表单脏标记 — 暂存项切换前确认（监控所有可编辑字段）
 const isRestoring = ref(false) // 数据恢复期间暂停脏标记
-watch([formData, headerData, selectedEnvId, networkConfigId, authConfigId, authMethod], () => {
-  if (isRestoring.value) return
-  stagingDirty.value = true
-}, { deep: true })
+watch(
+  [
+    formData,
+    headerData,
+    selectedEnvId,
+    networkConfigId,
+    authConfigId,
+    authMethod,
+    driverPropertiesExtra,
+    advancedOptions,
+    schemaName,
+    options,
+    metadataPath,
+    tags,
+    useDuckdbFed,
+  ],
+  () => {
+    if (isRestoring.value) return
+    stagingDirty.value = true
+  },
+  { deep: true }
+)
 
 </script>
 

@@ -176,3 +176,40 @@
   - [x] 28.4: 移除 `protocolChain` ref 声明
   - [x] 28.5: 移除 return 块中协议链相关导出
   - [x] 28.6: 移除 `AddDataSourceDialog.vue` 中 `protocolChain` 解构引用
+
+## Round 17 — 可用性深度审计修复 (2026-06-12)
+
+- [x] Task 29: P0 密码链路修复
+  - [x] 29.1: `connection.ts` `connectDatabase` 服务 `opts` 新增 `password?: string` 参数
+  - [x] 29.2: `ConnectDatabaseInput` 构造新增 `password: opts?.password ?? null` 映射
+  - [x] 29.3: `AddDataSourceDialog.vue` `buildConnectOpts` 新增 `currentPassword` 参数
+  - [x] 29.4: `handleCreateApply` 在 `syncCurrentToStaging()` 前捕获 `formData.value.password`
+  - [x] 29.5: `saveToProjectOnly` 接受 `currentPassword` 并传递至 `createConnection`/`buildConnectOpts`
+  - [x] 29.6: `saveToProject` 接受 `currentPassword` 并传递至 `createConnection`/`buildConnectOpts`
+  - [x] 29.7: `handleCreateApply` 循环体三处调用点传递 `currentPassword`
+  - [x] 29.8: ESLint + cargo check 通过
+
+- [x] Task 30: P1 表单与 URL 健壮性修复
+  - [x] 30.1: `stagingDirty` watch 数组扩展至 13 个源（补齐 driverPropertiesExtra/advancedOptions/schemaName/options/metadataPath/tags/useDuckdbFed）
+  - [x] 30.2: `GeneralTab` 抽取 `syncFromFormData()` 函数，新增 `watch(props.formData, ...)` 双向同步
+  - [x] 30.3: `useUrlBuilder.parseUrl` 正则新增 IPv6 分支 `(?:\[([^\]]+)\]\|([^:/]+))`
+  - [x] 30.4: `useUrlBuilder.buildUrl` 对 `username`/`password` 使用 `encodeURIComponent()`
+  - [x] 30.5: `useUrlBuilder.applyTemplate` 对 `{username}`/`{password}` 使用 `encodeURIComponent()`
+  - [x] 30.6: ESLint + cargo check 通过
+
+- [x] Task 31: P2 编辑与保存流程优化
+  - [x] 31.1: `handleEditApply` 项目/全局更新路径 `password` 改为 `fd.password ? String(fd.password) : undefined`（不传空字符串）
+  - [x] 31.2: `saveToStaging` 新增 `buildUrl()` 空值检查，失败时 `message.warning`
+  - [x] 31.3: ESLint + cargo check 通过
+
+## Round 18 — 测试连接密码链路补充 (2026-06-12)
+
+- [x] Task 32: 后端 test_connection 命令新增 password 参数
+  - [x] 32.1: `test_connection` 函数签名新增 `password: Option<String>` 参数
+  - [x] 32.2: `ConnectDatabaseInput` 中 `password` 从硬编码 `None` 改为参数透传
+  - [x] 32.3: `cargo check` 通过
+
+- [x] Task 33: 前端 handleTest 传递 password 字段
+  - [x] 33.1: 从 `formData.value.password` 读取密码
+  - [x] 33.2: 加入 `invoke('test_connection', params)` 的 `params` 对象
+  - [x] 33.3: ESLint 通过

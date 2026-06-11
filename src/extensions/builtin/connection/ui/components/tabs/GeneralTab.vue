@@ -805,23 +805,37 @@ function confirmNewDb() {
 
 // Sync from props.formData on creation
 onMounted(async () => {
-  if (props.formData) {
-    local.host = String(props.formData.host ?? '')
-    local.port = Number(props.formData.port ?? props.driver?.default_port ?? 0)
-    local.database = String(props.formData.database ?? '')
-    local.username = String(props.formData.username ?? '')
-    local.password = String(props.formData.password ?? '')
-    local.file_path = String(props.formData.file_path ?? '')
-    if (props.formData.authMethod) authMethod.value = String(props.formData.authMethod)
-    if (props.formData.selectedAuthConfigId)
-      selectedAuthConfigId.value = String(props.formData.selectedAuthConfigId)
-  } else if (props.driver?.default_port) {
-    local.port = props.driver.default_port
+  syncFromFormData()
+  if (!props.formData || Object.keys(props.formData).length === 0) {
+    if (props.driver?.default_port) {
+      local.port = props.driver.default_port
+    }
   }
 
   // 从后端加载已保存的认证配置列表
   loadAuthConfigs(props.projectPath ?? undefined)
 })
+
+/** 从 props.formData 同步到 local 响应式对象 */
+function syncFromFormData() {
+  if (!props.formData || Object.keys(props.formData).length === 0) return
+  local.host = String(props.formData.host ?? local.host)
+  local.port = Number(props.formData.port ?? props.driver?.default_port ?? local.port)
+  local.database = String(props.formData.database ?? local.database)
+  local.username = String(props.formData.username ?? local.username)
+  local.password = String(props.formData.password ?? local.password)
+  local.file_path = String(props.formData.file_path ?? local.file_path)
+  if (props.formData.authMethod) authMethod.value = String(props.formData.authMethod)
+  if (props.formData.selectedAuthConfigId)
+    selectedAuthConfigId.value = String(props.formData.selectedAuthConfigId)
+}
+
+// P1: 监听外部 formData 变更（如 URL 解析填充），同步到 local 响应式对象
+watch(
+  () => props.formData,
+  () => syncFromFormData(),
+  { deep: true }
+)
 
 /** 更新 config_schema 衍生的高级参数字段 */
 function updateAdvancedSchemaFields() {
