@@ -594,13 +594,6 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
     return result
   })
 
-  // ===== 初始化配置文件 =====
-
-  /** @deprecated 配置文件状态已由 useNetworkProfiles 统一管理，此方法为空操作 */
-  function initProfiles(_ssh?: SshProfile[], _ssl?: SslProfile[], _proxy?: ProxyProfile[]) {
-    // no-op：配置文件状态由 useNetworkProfiles 共享状态统一管理
-  }
-
   function resetChain(newChain?: ProtocolNode[]) {
     chain.value = newChain ?? createDefaultChain()
     hopIdCounter = chain.value.length + 1
@@ -645,7 +638,6 @@ export function useNetworkChain(initialChain?: ProtocolNode[]) {
     findHop,
     countInstancesOfType,
     ensureSslAtEnd,
-    initProfiles,
     resetChain,
 
     // 后端 API 操作

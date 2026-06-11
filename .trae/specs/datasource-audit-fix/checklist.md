@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
-> 最后更新：2026-06-11
-> 状态：11 轮审计，共修复 93 项（6 本轮 + 87 历史），3 假正，1 低保跳过
+> 最后更新：2026-06-12
+> 状态：17 轮审计，共修复 127 项（3 本轮 + 124 历史），6 假正
 
 ---
 
@@ -9,10 +9,11 @@
 
 | 优先级 | 总数 | 已修复 | 修复内容 |
 |:---:|:---:|:---:|------|
-| 🔴 P0 | 7 | 7 | scope 双向选择 + saveToProject ID + NetworkTab 全局/项目 API + resolve_network_method_with_project 前缀路由 + handleTest projectPath 传递 |
-| 🟡 P1 | 14 | 14 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind + AuthConfigManager scope + useNetworkProfiles 合并 + advancedSchemaFields 死代码 + BASIC_SCHEMA_KEYS 分类 + test_connection project_path 传递 + test_network_config 项目级支持 + testChainHop projectPath |
-| 🟢 P2 | 33 | 25 | url_template + ... + typeColor 9→20种 + _sslProfiles 重命名 + tags split 修复 |
+| 🔴 P0 | 12 | 12 | scope 双向选择 + saveToProject ID + NetworkTab 全局/项目 API + resolve_network_method_with_project 前缀路由 + handleTest projectPath 传递 + 连接名称重复校验 + 暂存项切换确认 + scope 覆盖逻辑修复 + loadAll await 异步竞态 ×2 |
+| 🟡 P1 | 22 | 22 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind + AuthConfigManager scope + useNetworkProfiles 合并 + advancedSchemaFields 死代码 + BASIC_SCHEMA_KEYS 分类 + test_connection project_path 传递 + test_network_config 项目级支持 + testChainHop projectPath + URL 自动解析填充 + authMethod ?? 修复 + stagingDirty isRestoring + handleClose 脏检查 + handleEditApply 部分成功提示 + useNetworkProfiles 双数组分离 |
+| 🟢 P2 | 34 | 34 | url_template + ... + typeColor 9→20种 + _sslProfiles 重命名 + tags split 修复 + i18n 硬编码 x3 + AdvancedTab envId null + environmentId key 统一 + 暂存项重载 + buildConnectOpts 死代码 + isSslConfig/isProxyConfig 类型守卫 + useDriverRegistry 防重 |
 | 🧪 Test | 5 | 5 | Rust connection_commands + 前端 driver-adapter + useAddDataSource + useAuthConfig + GeneralTab |
+| ❌ 假正 | 6 | — | getProto 误报 + CapabilitiesInline 删除 + handleEditApply 密码加密 + CAP_META t() + 网络跳数上限(设计如此) + P2-4 CAP_META |
 
 ### 已修复问题清单
 
@@ -160,6 +161,183 @@ advancedSchemaFields = allFields.filter(f => !basicKeys.has(f.key) && !AUTH_MANA
 
 **修复统计：Round 11 实际修复 6 项 + 确认假正 3 项 + 已存在 1 项 + 低保跳过 1 项**
 
+### Round 12 修复 — 用户体验痛点修复 (3 项, 2026-06-11)
+
+根据产品评估报告的 3 个核心痛点，修复连接名称重复、暂存项切换数据丢失、URL 自动解析问题。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 94 | 🔴 | AddDataSourceDialog.vue | 连接名称重复无校验（批内 + 后端唯一性） | `handleCreateApply` 新增 `nameSet` 批内去重；后端 `global_db.rs` / `project_connection_store.rs` SQL `SELECT COUNT(*)` 唯一性检查 |
+| 95 | 🔴 | AddDataSourceDialog.vue | 暂存项切换丢失表单数据 | 新增 `stagingDirty` ref 监听表单变化，`handleSelectStaging` 切换前弹确认对话框（`dialog.warning`），文案通过 `zh-CN.json` `stagingSwitchTitle`/`stagingSwitchHint` 国际化 |
+| 96 | 🟡 | useUrlBuilder.ts + DataSourceHeader.vue + AddDataSourceDialog.vue | URL 无法自动解析填充表单 | `useUrlBuilder` 新增 `parseUrl()` 函数（支持文件型 `sqlite:///path` 和标准 URL `mysql://user:pass@host:port/db?params` 解析）；`DataSourceHeader` 新增"解析"按钮 → emit `parseUrl`；`AddDataSourceDialog` 新增 `onParseUrl` 处理器匹配驱动 + 填充 `formData` |
+
+**核心实现：**
+
+```typescript
+// useUrlBuilder.ts — parseUrl 函数
+function parseUrl(raw: string): ParsedUrl | null {
+  // 文件型: sqlite:///path/to/db.sqlite → { driver, isFile, filePath, database }
+  // 标准型: mysql://user:pass@host:3306/db?k=v → { driver, host, port, database, username, password, params }
+}
+
+// AddDataSourceDialog.vue — 批内名称重复校验
+const nameSet = new Set<string>()
+for (const item of validItems) {
+  const lower = item.name.toLowerCase().trim()
+  if (nameSet.has(lower)) {
+    message.warning(`暂存列表中存在重复名称 "${item.name}"，请修改后再应用`)
+    return
+  }
+  nameSet.add(lower)
+}
+
+// AddDataSourceDialog.vue — 暂存项切换确认
+if (stagingDirty.value && i !== stagingIndex.value && stagingItems.value[stagingIndex.value]?.name) {
+  const confirmed = await new Promise<boolean>(resolve => {
+    dialog.warning({ /* ... */ })
+  })
+  if (!confirmed) return
+}
+```
+
+**修复统计：Round 12 实际修复 3 项（2 个 P0 + 1 个 P1）**
+
+### Round 13 修复 — 全链路审计修复 (10 项, 2026-06-11)
+
+全链路审计发现 12 个问题（2 P0 + 4 P1 + 6 P2），其中 2 个假正，实际修复 10 项 + 额外发现 1 个 key 不匹配。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 97 | ❌ | — | P0-1: handleEditApply 编辑密码未加密 | **假正**：后端 `update_global_connection` / `update_project_connection` 均调用 `encrypt_password()` 加密 |
+| 98 | 🔴 | AddDataSourceDialog.vue | P0-2: scope 覆盖逻辑 `\|\|` 导致取消勾选后仍创建全局连接 | 改为 `scope.global` / `scope.project` 为权威来源，StagingItem.scope 仅用于初始展示 |
+| 99 | 🟡 | AddDataSourceDialog.vue | P1-2: `finalAuthMethod` 使用 `\|\|` 空字符串回退到错误表单值 | 改为 `??` 仅 null/undefined 回退 |
+| 100 | 🟡 | AddDataSourceDialog.vue | P1-3: `stagingDirty` 数据恢复时被 watch 误触发 | 新增 `isRestoring` ref，watch 跳过恢复期，`handleSelectStaging` 包裹恢复逻辑 |
+| 101 | 🟡 | AddDataSourceDialog.vue | P1-4: `handleClose` 未检查 `stagingDirty` | 添加 `stagingDirty.value \|\|` 到 `hasChanges` 条件 |
+| 102 | 🟢 | DataSourceHeader.vue + AddDataSourceDialog.vue + zh-CN.json + en.json | P2-1~3: 3处硬编码中文无国际化 | `DataSourceHeader` 导入 `useI18n`；新增 i18n keys: `parseUrl`/`parseUrlFailed`/`parseUrlSuccess`/`duplicateName`/`unsavedCloseTitle`/`unsavedCloseHint`；中英双语 |
+| 103 | ❌ | CapabilitiesTab.vue | P2-4: `CAP_META` 顶层使用 `t()` | **非 bug**：`<script setup>` 在 `setup()` 上下文中执行，`t()` 通过 `useI18n()` 可用 |
+| 104 | 🔴🆕 | AdvancedTab.vue | P2-5b: **额外发现** emit `envId` 但 `onExtraConfig` 读取 `config.environmentId`，key 不匹配导致环境 ID 静默丢失 | emit `environmentId` 统一命名；`envId` 初始值 `'env-dev'` → `null` |
+| 105 | 🟢 | AdvancedTab.vue | P2-5a: `envId` 硬编码默认值 `'env-dev'` | 改为 `ref<string \| null>(null)`，由 EnvironmentSection v-model 动态设置 |
+| 106 | 🟢 | useAddDataSource.ts + AddDataSourceDialog.vue | P2-6: 对话框重开时暂存项不重新加载 | `loadStagingItems` 导出 → `watch open` 中调用 |
+
+**关键修复摘要：**
+
+```typescript
+// P0-2: scope 权威来源改为对话框勾选
+const shouldSaveGlobal = scope.global  // 原: scope.global || item.scope === 'global' || item.scope === 'both'
+const shouldSaveProject = scope.project
+
+// P1-3: isRestoring 避免 watch 误触发
+const isRestoring = ref(false)
+watch([formData, ...], () => {
+  if (isRestoring.value) return
+  stagingDirty.value = true
+}, { deep: true })
+// handleSelectStaging: isRestoring = true; ...恢复数据... await nextTick(); isRestoring = false
+
+// P2-5b: 环境 ID key 统一
+// AdvancedTab emit:  environmentId: envId.value  (原: envId: envId.value)
+// AddDataSourceDialog: config.environmentId !== undefined → selectedEnvId.value = ...
+```
+
+**修复统计：Round 13 实际修复 10 项（1 P0 + 3 P1 + 6 P2）+ 2 假正**
+
+### Round 14 修复 — 深层审计修复 (8 项, 2026-06-11)
+
+聚焦错误处理、异步竞态、状态管理一致性。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 108 | 🔴 | AddDataSourceDialog.vue:L1330 | P0-1: `watch open` 中 `loadAll()` 未 await → `initFromConnection` 执行时 drivers 未就绪 | 加 `await`，确保驱动列表先加载 |
+| 109 | 🔴 | NetworkTab.vue:L1193 | P0-2: `onMounted` 中 `loadAll()` 未 await → 与 `loadAllProject()` 竞态 | 加 `await`，先加载全局再加载项目 |
+| 110 | 🟡 | AddDataSourceDialog.vue:L804-905 | P1-3: `handleEditApply` project/global 先后更新，无事务性回滚，部分成功无提示 | 分拆 try/catch；全部成功 → success；全部失败 → error；部分成功 → warning + 提示哪边失败 |
+| 111 | 🟡 | useNetworkProfiles.ts | P1-1: 模块级单数组 + `loadAll` 替换 vs `loadAllProject` 追加冲突 | 双数组分离：`globalSshProfiles`/`projectSshProfiles` → 对外 `computed` 合并 |
+| 112 | 🟡 | useDriverRegistry.ts:L51 | P1-2: `fetched` 设置后从未用于防重加载 | `loadAll()` 开头加 `if (fetched.value) return` |
+| 113 | 🟢 | AddDataSourceDialog.vue:L1077 | P2-2: `String(fd.password \|\| '') \|\| undefined` — 永不到达 | 改为 `fd.password ? String(fd.password) : undefined` |
+| 114 | 🟢 | useNetworkProfiles.ts:L42-48 | P2-3: `isSslConfig`/`isProxyConfig` 互斥缺失，同时含 `mode` 和 `type` 时 SSL 优先匹配 | 添加 `!('type' in v)` / `!('mode' in v)` 互斥检查 |
+| 115 | 🟢 | zh-CN.json + en.json | i18n 补全：`applyPartialSuccess`/`projectConnection`/`globalConnection` | 中英双语 keys 添加 |
+
+**关键修复：**
+
+```typescript
+// P0-1+P0-2: 消除异步竞态（两处）
+await loadAll(...)  // 原: loadAll(...) — fire-and-forget
+
+// P1-1: useNetworkProfiles 双数组分离
+const globalSshProfiles = ref<NetworkProfile[]>([])
+const projectSshProfiles = ref<NetworkProfile[]>([])
+const sshProfiles = computed(() => [...globalSshProfiles.value, ...projectSshProfiles.value])
+// loadAll() → globalSshProfiles.value = profiles
+// loadAllProject() → projectSshProfiles.value = profiles (替换，不追加)
+
+// P1-3: handleEditApply 部分成功处理
+let projectOk = !scope.project, globalOk = !scope.global
+if (scope.project) { try { await ...; projectOk = true } catch(e) { projectErr = msg } }
+if (scope.global)  { try { await ...; globalOk = true  } catch(e) { globalErr = msg } }
+// if (!projectOk && globalOk) → warning(t('navigator.applyPartialSuccess', { success, failed, error }))
+```
+
+**修复统计：Round 14 实际修复 8 项（2 P0 + 3 P1 + 3 P2）**
+
+### Round 15 修复 — 死代码清除 + Bug 修复 (4 项, 2026-06-11)
+
+聚焦代码复用审计、死代码清除、TS 编译错误修复。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 116 | 🔴 | networkConfigStore.ts | 完整 106 行 Pinia Store 零外部引用，与 useNetworkProfiles 功能重叠 | 删除文件 |
+| 117 | 🔴 | connection_commands.rs:L431-436 | `project_query_network_config` 死函数，`#[allow(dead_code)]` 包装，调用方全走 `_with_auth` 版本 | 删除函数 |
+| 118 | 🟢 | useNetworkChain.ts:L599-602 | `initProfiles()` `@deprecated` no-op，零调用方 | 删除函数 + return 块移除 |
+| 119 | 🐛 | AddDataSourceDialog.vue:L1351 | `watch` 回调缺少 `async`，`await` 在非 async 函数中导致 TS1308 编译错误 | 回调签名 `open =>` → `async (open) =>` |
+
+**关键发现：**
+- `networkConfigStore.ts` 是重构前残留，与 `useNetworkProfiles` 功能完全重叠（SSH/SSL/Proxy 配置文件的 CRUD），但设计为 Pinia Store 而非 Composable，且使用动态 `import('@tauri-apps/api/core')` 而非静态导入
+- `project_query_network_config` 仅包装 `project_query_network_config_with_auth` 并丢弃 `network_type` 和 `auth_config_id`，调用方需要的是完整三元组，因此该函数从未被调用
+- `initProfiles` 在 Round 14 已标记 `@deprecated`，但函数体和 return 导出未清理
+- `watch` 回调的 async 缺失是 Round 14 修复的遗漏——虽然代码逻辑通过 `await` 暗示了异步意图，但 TS 编译器严格检查 async 上下文
+
+**修复统计：Round 15 实际修复 4 项（2 死代码 + 1 残留 + 1 Bug）**
+
+### Round 16 修复 — 代码复用消除双写 (5 项, 2026-06-12)
+
+聚焦代码复用审计，消除 `ConnectionInfoResponse` 和 `ConnectRequest` 两处重复构造逻辑，清理协议链死代码。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 120 | 🟡 | connection_commands.rs | `ConnectionInfoResponse` 在 `get_connections`、`get_active_connection`、`detect_global_connections_in_project` 三处重复构造（每个 17 字段） | 抽取 `ConnectionInfoResponse::from_info()` 关联函数，三处统一调用 |
+| 121 | 🟡 | connection_commands.rs | `connect_database` 和 `test_connection` 中 `ConnectRequest` 构造逻辑双写（各 21 字段 struct literal） | 新增 `ConnectDatabaseInput::into_connect_request()` 方法，两处统一调用，消除 42 行重复代码 |
+| 122 | 🟡 | useAddDataSource.ts | 协议链死代码：`ProtocolType` 类型、`ChainHopItem` 接口、`countNetworkHops`、`ensureSslAtEnd`、`addHop`、`removeHop`、`onDrop`、`toggleHop` 函数（80+ 行），与 `useNetworkChain` 完全重复 | 删除协议链相关定义和函数，`protocolChain` ref 及 return 导出 |
+| 123 | 🟡 | useAddDataSource.ts | `protocolChain` 响应式变量残留引用 | 移除 return 块中 `protocolChain` 导出 |
+| 124 | 🟡 | AddDataSourceDialog.vue | `protocolChain` 解构引用残留 | 移除 `protocolChain` 解构引用 |
+
+**关键修复：**
+
+```rust
+// C3: ConnectDatabaseInput::into_connect_request — 消除 21 字段 struct literal 双写
+impl ConnectDatabaseInput {
+    fn into_connect_request(
+        self,
+        connection_type: ConnectionType,
+        network_method: Option<ConnectionMethod>,
+        skip_persistence: Option<bool>,
+    ) -> ConnectRequest {
+        ConnectRequest {
+            conn_id: self.conn_id,
+            db_type: self.db_type,
+            // ... 21 字段自动映射
+            skip_persistence,
+            network_method,
+        }
+    }
+}
+
+// connect_database: 23 行 → 1 行
+service.connect_with_type(input.into_connect_request(connection_type, network_method, None))
+
+// test_connection: 23 行 → 先构造 ConnectDatabaseInput，再调用 into_connect_request(ConnectionType::Global, network_method, Some(true))
+```
+
+**修复统计：Round 16 实际修复 5 项（4 代码复用 + 1 死代码清理）**
+
 ## 二、验证结果
 
 | 检查项 | 结果 |
@@ -167,28 +345,39 @@ advancedSchemaFields = allFields.filter(f => !basicKeys.has(f.key) && !AUTH_MANA
 | `cargo clippy -- -D warnings` | ✅ 零错误 (2026-06-11) |
 | `pnpm run lint` (ESLint) | ✅ 零错误 (4 预存 warning，仅测试文件) |
 
-## 三、修改文件清单（26 个文件）
+## 三、修改文件清单（33 个文件）
 
 ```
 src-tauri/src/core/services/connection_service.rs ✏️ resolve_network_method_with_project 前缀路由重写
-src-tauri/src/commands/connection_commands.rs       ✏️ 测试连接 project_path 传递 + 资源泄漏修复
+src-tauri/src/commands/connection_commands.rs       ✏️ 测试连接 project_path 传递 + 资源泄漏修复 + ConnectionInfoResponse::from_info + ConnectDatabaseInput::into_connect_request (Round 15+16)
 src-tauri/src/commands/data_source_commands.rs      ✏️ test_network_config 项目级支持
+src-tauri/src/core/persistence/global_db.rs          ✏️ 连接名称唯一性校验 (Round 12)
+src-tauri/src/core/persistence/project_connection_store.rs ✏️ 项目级名称唯一性校验 (Round 12)
 
 src/extensions/builtin/connection/ui/composables/
-  useAddDataSource.ts                                ✏️ 死代码清理 ×3 (Round 9+10+11)
+  useAddDataSource.ts                                ✏️ 死代码清理 ×3 + loadStagingItems 导出 + 协议链死代码删除 (Round 13+16)
   useNetworkProfiles.ts                              ✏️ _pickCmd 删除 + JSON.stringify(e) 反模式修复
-  useUrlBuilder.ts                                   ✏️ getProto 协议前缀修复
+  useUrlBuilder.ts                                   ✏️ getProto 修复 + parseUrl 函数 (Round 12)
+  useNetworkChain.ts                                 ✏️ initProfiles 删除 (Round 15)
 
 src/extensions/builtin/connection/ui/adapters/
   network-adapter.ts                                 ✏️ _sslProfiles → sslProfiles 命名修复
 
 src/extensions/builtin/connection/ui/components/
-  AddDataSourceDialog.vue                            ✏️ handleTest + 动态 import + JSON.stringify + tags 修复
+  AddDataSourceDialog.vue                            ✏️ handleTest + stagingDirty + nameSet + onParseUrl + scope + isRestoring + handleClose (Round 12+13)
   AddDataSourceSidebar.vue                           ✏️ typeColor 9→20种
   tabs/GeneralTab.vue                                ✏️ useI18n 修复 + UI 紧凑化
   tabs/NetworkTab.vue                                ✏️ 死解构 + chainAuthCfgOpts + Record<any> + UI
-  tabs/AdvancedTab.vue                               ✏️ 死 prop/emit 删除 + UI 紧凑化
+  tabs/AdvancedTab.vue                               ✏️ 死 prop/emit 删除 + envId null + environmentId key 统一 (Round 13)
   tabs/CapabilitiesInline.vue                        ❌ 已删除 (零引用死文件)
   tabs/advanced/EnvironmentSection.vue               ✏️ 动态 import → 静态 invoke
-  DataSourceHeader.vue                               ✏️ UI 紧凑化
+  DataSourceHeader.vue                               ✏️ UI 紧凑化 + parseUrl emit + useI18n 导入 (Round 12+13)
+
+src/extensions/builtin/connection/ui/composables/
+  useNetworkProfiles.ts                              ✏️ 双数组分离 global·/project· (Round 14)
+  useDriverRegistry.ts                               ✏️ fetched 防重加载 (Round 14)
+
+src/shared/locales/
+  zh-CN.json                                         ✏️ stagingSwitchTitle/Hint + parseUrl/parseUrlFailed/parseUrlSuccess + duplicateName + applyPartialSuccess/projectConnection/globalConnection (Round 12+13+14)
+  en.json                                            ✏️ stagingSwitchTitle/Hint + parseUrl/Failed/Success + duplicateName + applyPartialSuccess (Round 13+14)
 ```

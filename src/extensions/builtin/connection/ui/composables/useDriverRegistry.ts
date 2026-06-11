@@ -49,6 +49,7 @@ async function fetchDrivers(projectPath?: string): Promise<Driver[]> {
  * 一次性加载数据源类型和驱动列表
  */
 async function loadAll(projectPath?: string): Promise<void> {
+  if (fetched.value) return // 已加载则跳过，避免重复网络请求
   loading.value = true
   error.value = null
   try {

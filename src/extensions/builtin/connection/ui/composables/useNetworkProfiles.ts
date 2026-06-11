@@ -40,20 +40,28 @@ function isSshConfig(v: unknown): v is { host?: string; port?: number } {
 }
 
 function isSslConfig(v: unknown): v is { mode?: string } {
-  return isRecord(v) && 'mode' in v
+  return isRecord(v) && 'mode' in v && !('type' in v)
 }
 
 function isProxyConfig(v: unknown): v is { host?: string; port?: number } {
-  return isRecord(v) && 'type' in v
+  return isRecord(v) && 'type' in v && !('mode' in v)
 }
 
-// ==================== 状态 ====================
+// ==================== 状态（全局/项目双数组分离） ====================
 
-const sshProfiles = ref<NetworkProfile[]>([])
-const sslProfiles = ref<NetworkProfile[]>([])
-const proxyProfiles = ref<NetworkProfile[]>([])
+const globalSshProfiles = ref<NetworkProfile[]>([])
+const globalSslProfiles = ref<NetworkProfile[]>([])
+const globalProxyProfiles = ref<NetworkProfile[]>([])
+const projectSshProfiles = ref<NetworkProfile[]>([])
+const projectSslProfiles = ref<NetworkProfile[]>([])
+const projectProxyProfiles = ref<NetworkProfile[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+// 对外暴露全局+项目合并后的计算列表
+const sshProfiles = computed(() => [...globalSshProfiles.value, ...projectSshProfiles.value])
+const sslProfiles = computed(() => [...globalSslProfiles.value, ...projectSslProfiles.value])
+const proxyProfiles = computed(() => [...globalProxyProfiles.value, ...projectProxyProfiles.value])
 
 // ==================== 工具函数 ====================
 
@@ -99,9 +107,9 @@ async function loadByType(type: 'ssh' | 'ssl' | 'proxy'): Promise<void> {
   try {
     const raws = await invoke<ConfigRaw[]>('list_network_configs', { networkType: type })
     const profiles = raws.map(toProfile).filter((p): p is NetworkProfile => p !== null)
-    if (type === 'ssh') sshProfiles.value = profiles
-    else if (type === 'ssl') sslProfiles.value = profiles
-    else proxyProfiles.value = profiles
+    if (type === 'ssh') globalSshProfiles.value = profiles
+    else if (type === 'ssl') globalSslProfiles.value = profiles
+    else globalProxyProfiles.value = profiles
   } catch (e) {
     console.error(`[useNetworkProfiles] Failed to load ${type}:`, e)
     error.value = e instanceof Error ? e.message : String(e)
@@ -130,10 +138,10 @@ async function loadByTypeProject(
       projectPath,
     })
     const profiles = raws.map(toProfile).filter((p): p is NetworkProfile => p !== null)
-    // Merge with existing global profiles (appended at end for scope visibility)
-    if (type === 'ssh') sshProfiles.value = [...sshProfiles.value, ...profiles]
-    else if (type === 'ssl') sslProfiles.value = [...sslProfiles.value, ...profiles]
-    else proxyProfiles.value = [...proxyProfiles.value, ...profiles]
+    // 替换项目级配置（不再追加，避免重复；全局与项目由 computed 合并）
+    if (type === 'ssh') projectSshProfiles.value = profiles
+    else if (type === 'ssl') projectSslProfiles.value = profiles
+    else projectProxyProfiles.value = profiles
   } catch (e) {
     console.error(`[useNetworkProfiles] Failed to load project ${type}:`, e)
     error.value = e instanceof Error ? e.message : String(e)
@@ -179,9 +187,9 @@ async function removeProjectProfile(id: string, projectPath: string): Promise<vo
 
 export function useNetworkProfiles() {
   return {
-    sshProfiles: computed(() => sshProfiles.value),
-    sslProfiles: computed(() => sslProfiles.value),
-    proxyProfiles: computed(() => proxyProfiles.value),
+    sshProfiles,
+    sslProfiles,
+    proxyProfiles,
     loading: readonly(loading),
     error: readonly(error),
     loadAll,

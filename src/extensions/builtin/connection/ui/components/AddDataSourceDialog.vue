@@ -45,6 +45,7 @@
             uri-placeholder="jdbc:mysql://..."
             :url-template="selectedDriver?.url_template ?? null"
             @driver-change="onDriverChange"
+            @parse-url="onParseUrl"
           />
 
           <NAlert
@@ -216,6 +217,7 @@ const {
   removeStaging,
   selectStaging,
   clearStagingItems,
+  loadStagingItems,
   markStagingApplied,
   formData,
   authConfigId,
@@ -240,6 +242,7 @@ const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
 const editingConnId = ref<string | null>(null)
 const scopeChangedWarning = ref(false)
+const stagingDirty = ref(false) // P0: 暂存项表单脏标记（切换前确认）
 
 // Close confirmation
 const showCloseConfirm = ref(false)
@@ -284,7 +287,7 @@ const selectedDriver = computed(
   () => drivers.value.find(d => d.id === headerData.selectedDriverId) ?? null
 )
 
-const { uriPreview, buildUrl } = useUrlBuilder({ selectedDriver, formData, uriEditing, manualUri })
+const { uriPreview, buildUrl, parseUrl } = useUrlBuilder({ selectedDriver, formData, uriEditing, manualUri })
 
 const driverOptions = computed(() => {
   if (!selectedTypeId.value) return []
@@ -306,6 +309,51 @@ function onDriverChange(driverId: string) {
     const d = drivers.value.find(x => x.id === driverId)
     setFileDb(d?.is_file ?? false)
   }
+
+/** P1: URL 解析 → 自动填充连接字段 */
+function onParseUrl(rawUrl: string) {
+  const parsed = parseUrl(rawUrl)
+  if (!parsed) {
+    message.warning(t('navigator.parseUrlFailed'))
+    return
+  }
+
+  // 匹配驱动
+  if (parsed.driver) {
+    const match = drivers.value.find(
+      d => d.id.toLowerCase() === parsed.driver || d.type_id.toLowerCase() === parsed.driver
+    )
+    if (match) {
+      headerData.selectedDriverId = match.id
+      selectedTypeId.value = match.type_id
+      if (match.is_file) setFileDb(true)
+    }
+  }
+
+  // 填充表单
+  const fd: Record<string, unknown> = {}
+  if (parsed.isFile) {
+    if (parsed.filePath) fd.file_path = parsed.filePath
+    if (parsed.database) fd.database = parsed.database
+  } else {
+    if (parsed.host) fd.host = parsed.host
+    if (parsed.port) fd.port = parsed.port
+    if (parsed.database) fd.database = parsed.database
+    if (parsed.username) fd.username = parsed.username
+    if (parsed.password) fd.password = parsed.password
+    if (parsed.params) {
+      for (const [k, v] of Object.entries(parsed.params)) {
+        fd[k] = v
+      }
+    }
+  }
+  formData.value = fd
+  testResult.value = null
+  message.success(t('navigator.parseUrlSuccess'))
+
+  // 关闭 URI 编辑模式
+  uriEditing.value = false
+}
 
 function onFormData(d: Record<string, unknown>) {
   formData.value = { ...formData.value, ...d }
@@ -359,7 +407,25 @@ function handleRemoveStaging(i: number) {
 }
 
 async function handleSelectStaging(i: number) {
+  // P0: 当前表单有未保存更改时确认切换
+  if (stagingDirty.value && i !== stagingIndex.value && stagingItems.value[stagingIndex.value]?.name) {
+    const confirmed = await new Promise<boolean>(resolve => {
+      dialog.warning({
+        title: t('navigator.stagingSwitchTitle') || '切换暂存项',
+        content: t('navigator.stagingSwitchHint') || '当前表单有未保存的更改，切换后将丢失。确定要切换吗？',
+        positiveText: t('common.confirm') || '确定切换',
+        negativeText: t('common.cancel') || '取消',
+        onPositiveClick: () => { resolve(true) },
+        onNegativeClick: () => { resolve(false) },
+        onClose: () => { resolve(false) },
+      })
+    })
+    if (!confirmed) return
+  }
+
   selectStaging(i)
+  stagingDirty.value = false
+  isRestoring.value = true
   const s = stagingItems.value[i]
   if (!s) return
   headerData.name = s.name || ''
@@ -398,6 +464,7 @@ async function handleSelectStaging(i: number) {
   useDuckdbFed.value = s.useDuckdbFed ?? null
   testResult.value = null
   await nextTick()
+  isRestoring.value = false
 }
 
 async function handleTest() {
@@ -676,6 +743,7 @@ function saveToStaging() {
   }
 
   message.success(t('navigator.savedToStaging', { name }))
+  stagingDirty.value = false
 }
 
 async function handleSave() {
@@ -739,8 +807,14 @@ async function handleEditApply() {
     const name = headerData.name || selectedDriver.value?.name || ''
     const fd = formData.value
 
+    let projectOk = !scope.project
+    let globalOk = !scope.global
+    let projectErr = ''
+    let globalErr = ''
+
     if (scope.project) {
-      const conn: ProjectConnection = {
+      try {
+        const conn: ProjectConnection = {
         id: editingConnId.value,
         name,
         driver: selectedDriver.value?.id || '',
@@ -767,10 +841,15 @@ async function handleEditApply() {
         updated_at: new Date().toISOString(),
       }
       await projectConnectionStore.updateConnection(conn)
+        projectOk = true
+      } catch (e: unknown) {
+        projectErr = e instanceof Error ? e.message : String(e)
+      }
     }
 
     if (scope.global) {
-      await updateGlobalConnection({
+      try {
+        await updateGlobalConnection({
         conn_id: editingConnId.value,
         name,
         driver: selectedDriver.value?.id,
@@ -797,12 +876,28 @@ async function handleEditApply() {
         description: headerData.description || undefined,
         server_version: (fd.server_version as string) || undefined,
       })
+        globalOk = true
+      } catch (e: unknown) {
+        globalErr = e instanceof Error ? e.message : String(e)
+      }
     }
 
-    message.success(t('navigator.applySuccess', { count: 1 }))
-    emit('save')
-    emit('connectionsChanged')
-    resetAndClose()
+    if (projectOk && globalOk) {
+      message.success(t('navigator.applySuccess', { count: 1 }))
+      emit('save')
+      emit('connectionsChanged')
+      resetAndClose()
+    } else if (!projectOk && !globalOk) {
+      message.error(t('navigator.applyFailed', { error: projectErr || globalErr }))
+    } else {
+      const failed = !projectOk ? t('navigator.projectConnection') : t('navigator.globalConnection')
+      const success = projectOk ? t('navigator.projectConnection') : t('navigator.globalConnection')
+      const errDetail = projectErr || globalErr
+      message.warning(t('navigator.applyPartialSuccess', { success, failed, error: errDetail }))
+      emit('save')
+      emit('connectionsChanged')
+      resetAndClose()
+    }
   } catch (e) {
     message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
   } finally {
@@ -820,6 +915,18 @@ async function handleCreateApply() {
     return
   }
 
+  // P0: 批内连接名称重复校验
+  const nameSet = new Set<string>()
+  for (const item of validItems) {
+    if (!item.name) continue
+    const lower = item.name.toLowerCase().trim()
+    if (nameSet.has(lower)) {
+      message.warning(t('navigator.duplicateName', { name: item.name }))
+      return
+    }
+    nameSet.add(lower)
+  }
+
   saving.value = true
   let successCount = 0
   const errors: string[] = []
@@ -835,8 +942,9 @@ async function handleCreateApply() {
         const url = item.url || ''
         const name = item.name
 
-        const shouldSaveGlobal = scope.global || item.scope === 'global' || item.scope === 'both'
-        const shouldSaveProject = scope.project || item.scope === 'project' || item.scope === 'both'
+        // 当前对话框 scope 勾选为权威来源，StagingItem.scope 仅用于初始展示
+        const shouldSaveGlobal = scope.global
+        const shouldSaveProject = scope.project
 
         let itemSuccess = false
 
@@ -993,7 +1101,7 @@ function buildConnectOpts(
     metadataPath: item.metadataPath || undefined,
     schemaName: item.schemaName || undefined,
     useDuckdbFed: item.useDuckdbFed ?? false,
-    password: String(fd.password || '') || undefined,
+    password: fd.password ? String(fd.password) : undefined,
   }
 }
 
@@ -1033,7 +1141,7 @@ async function saveToProjectOnly(
 
   // 如果没有使用已保存的认证配置，且用户填写了认证信息，则保存新的认证配置
   let finalAuthConfigId = snapshotAuthId
-  const finalAuthMethod = item.authMethod || authMethod.value
+  const finalAuthMethod = item.authMethod ?? authMethod.value
   const hasAuthData = (fd.username && fd.password) || fd.certPath || fd.principal
   if (!finalAuthConfigId && hasAuthData) {
     try {
@@ -1171,7 +1279,7 @@ function resetAndClose() {
 }
 
 function handleClose() {
-  const hasChanges = stagingItems.value.some(item => !item.applied && item.name)
+  const hasChanges = stagingDirty.value || stagingItems.value.some(item => !item.applied && item.name)
   if (hasChanges) {
     showCloseConfirm.value = true
     return
@@ -1242,9 +1350,11 @@ onMounted(async () => {
 
 watch(
   () => props.modelValue,
-  open => {
+  async (open) => {
     if (open) {
-      loadAll(projectStore.currentProject?.path)
+      stagingDirty.value = false
+      loadStagingItems()
+      await loadAll(projectStore.currentProject?.path)
       activeTab.value = 'general'
       testResult.value = null
       networkConfigId.value = null
@@ -1318,6 +1428,13 @@ watch(
     }
   }
 )
+// P0: 表单脏标记 — 暂存项切换前确认
+const isRestoring = ref(false) // 数据恢复期间暂停脏标记
+watch([formData, headerData, selectedEnvId, networkConfigId, authConfigId, authMethod], () => {
+  if (isRestoring.value) return
+  stagingDirty.value = true
+}, { deep: true })
+
 </script>
 
 <style scoped>

@@ -86,8 +86,8 @@ const emit = defineEmits<{
   'extra-config': [config: Record<string, unknown>]
 }>()
 
-const envId = ref('env-dev')
-const envDefaultsId = ref('env-dev')
+const envId = ref<string | null>(null)
+const envDefaultsId = ref<string | null>(null)
 function onEnvChange(payload: { envId: string; selectedEnvId: string; envSnapshotId: string | null }) {
   envDefaultsId.value = payload.envId
 }
@@ -136,7 +136,7 @@ watch(
   () => {
     const pc = policyConfig.value
     const opts: Record<string, unknown> = {
-      envId: envId.value,
+      environmentId: envId.value,
       duckdb: {
         enabled: duckdbEnabled.value,
         sync: duckdbSync.value,

@@ -489,3 +489,221 @@ Both the main v-for fields and the advanced schema fields SHALL be rendered usin
 
 ### Requirement: onMounted SHALL not duplicate watch-side-effect
 `updateAdvancedSchemaFields()` SHALL only be called from `watch(driver, {}, {immediate: true})`, not from `onMounted`, to avoid double emission.
+
+## AUDIT R12 Requirements (2026-06-11)
+
+基于产品评估报告的 3 个核心用户体验痛点，修复连接名称重复、暂存项切换数据丢失、URL 自动解析问题。
+
+### Requirement: handleCreateApply SHALL reject duplicate connection names
+`handleCreateApply` SHALL check for duplicate names within the staging batch before applying. Backend `global_db.rs` and `project_connection_store.rs` SHALL enforce name uniqueness at the database level via `SELECT COUNT(*) FROM ... WHERE name = ?1 AND is_active = 1`.
+
+#### Scenario: User adds two staging items with the same name
+- **WHEN** user clicks "Apply" with two staging items both named "MyDB"
+- **THEN** `handleCreateApply` detects the duplicate via `nameSet` and shows `message.warning("暂存列表中存在重复名称...")`
+- **AND** apply is blocked until the user renames one of the duplicates
+
+#### Scenario: User creates a connection with an existing name
+- **WHEN** user creates a connection named "production-db" that already exists in global_connections
+- **THEN** backend `create_connection` returns a `CoreError::DuplicateName` error
+- **AND** frontend shows the error to the user
+
+### Requirement: handleSelectStaging SHALL confirm before discarding unsaved changes
+`handleSelectStaging` SHALL check a `stagingDirty` ref before switching staging items. When `stagingDirty` is true and the current staging item has a name, a `dialog.warning` confirmation SHALL be shown. The form watcher SHALL set `stagingDirty = true` on any form/protocol chain change.
+
+#### Scenario: User switches staging item with unsaved changes
+- **WHEN** user has modified form fields on the current staging item
+- **AND** clicks another staging item in the sidebar
+- **THEN** a confirmation dialog appears with title "切换暂存项" and content "当前表单有未保存的更改，切换后将丢失。确定要切换吗？"
+- **AND** if user confirms, the switch proceeds and `stagingDirty` is reset
+- **AND** if user cancels, the switch is aborted
+
+### Requirement: URL parsing SHALL auto-fill connection form
+`useUrlBuilder` SHALL expose a `parseUrl(raw: string): ParsedUrl | null` function that parses both file-based database URLs (`sqlite:///path/to/db.sqlite`) and standard database URLs (`mysql://user:pass@host:3306/db?params`). `DataSourceHeader` SHALL emit a `parseUrl` event when a "解析" button is clicked. `AddDataSourceDialog` SHALL handle this event by matching the parsed driver, setting the driver selection, and populating `formData`.
+
+#### Scenario: User parses a MySQL URL
+- **WHEN** user enters `mysql://root:password@localhost:3306/mydb` in the URI field and clicks "解析"
+- **THEN** MySQL driver is selected automatically
+- **AND** `formData` is populated with host=localhost, port=3306, database=mydb, username=root, password=password
+- **AND** `message.success("URL 解析成功，已自动填充连接字段")` is shown
+
+#### Scenario: User parses an invalid URL
+- **WHEN** user enters a malformed URL that cannot be parsed
+- **THEN** `parseUrl` returns null
+- **AND** `message.warning("无法解析该 URL...")` is shown
+- **AND** form data is not modified
+
+## AUDIT R13 Requirements (2026-06-11)
+
+基于全链路审计的 10 项修复 + 2 项假正确认。
+
+### Requirement: handleCreateApply scope SHALL be authoritative
+Dialog scope checkboxes (`scope.global` / `scope.project`) SHALL be the sole authority for connection creation scope. `StagingItem.scope` SHALL only be used for initial display when a staging item is selected.
+
+#### Scenario: User unchecks global scope
+- **WHEN** a staging item was saved with `scope: 'both'` but user unchecks "全局连接" in dialog
+- **THEN** global connection is NOT created
+- **AND** only project connection is created (if project is checked)
+
+### Requirement: finalAuthMethod SHALL only fallback on null/undefined
+`saveToProjectOnly` SHALL use `??` operator instead of `||` for `finalAuthMethod` resolution, preventing empty string from falling through to the current dialog's authMethod.
+
+### Requirement: stagingDirty SHALL NOT be triggered during data restore
+An `isRestoring` ref SHALL suspend the stagingDirty watch during `handleSelectStaging` data restoration. `isRestoring` SHALL be set to `true` before restoring and `false` after `nextTick`.
+
+#### Scenario: User selects a staging item
+- **WHEN** user clicks a staging item in the sidebar
+- **THEN** form data, scope, authConfigId, etc. are restored
+- **AND** stagingDirty is NOT set to true during restore
+- **AND** subsequent form modifications correctly set stagingDirty
+
+### Requirement: handleClose SHALL check stagingDirty
+Dialog close handler SHALL include `stagingDirty.value` in the unsaved changes check, not just un-applied staging items.
+
+#### Scenario: User modifies form but doesn't save to staging
+- **WHEN** user edits form fields on the current staging item
+- **AND** clicks close without clicking "暂存"
+- **THEN** close confirmation dialog appears
+
+### Requirement: All user-facing strings SHALL be internationalized
+DataSourceHeader parse button, URL parse messages, and duplicate name warnings SHALL use `t()` from vue-i18n with corresponding keys in `zh-CN.json` and `en.json`.
+
+#### Scenario: User uses English locale
+- **WHEN** locale is set to English
+- **THEN** parse button shows "Parse", not "解析"
+- **AND** URL parse success shows "URL parsed successfully", not Chinese text
+
+### Requirement: AdvancedTab SHALL emit environmentId consistently
+AdvancedTab's `extra-config` emit SHALL use key `environmentId` (not `envId`) to match `AddDataSourceDialog.onExtraConfig` handler. The initial value SHALL be `null`, not a hardcoded `'env-dev'`.
+
+#### Scenario: User selects an environment in AdvancedTab
+- **WHEN** user changes environment in EnvironmentSection
+- **THEN** `selectedEnvId` in AddDataSourceDialog is updated via `onExtraConfig`
+- **AND** the environment ID is persisted when saving to staging
+
+### Requirement: Staging items SHALL reload when dialog reopens
+`watch(props.modelValue, ...)` SHALL call `loadStagingItems()` when the dialog opens, ensuring staging items from previous sessions and localStorage are properly loaded.
+
+#### Scenario: User closes and reopens the dialog
+- **WHEN** dialog is reopened after being closed
+- **THEN** staging items are reloaded from localStorage
+- **AND** the staging list in the sidebar reflects current state
+
+## AUDIT R14 Requirements (2026-06-11)
+
+基于深层审计的 8 项修复，聚焦异步竞态、错误处理、状态管理。
+
+### Requirement: loadAll SHALL be awaited before dependent operations
+`watch open` handler in AddDataSourceDialog and `onMounted` in NetworkTab SHALL `await loadAll()` before executing dependent operations (`initFromConnection`, `loadAllProject`).
+
+#### Scenario: Edit connection with initialConnection prop
+- **WHEN** dialog opens with `initialConnection` prop set
+- **THEN** drivers are loaded before `initFromConnection` is called
+- **AND** the driver is correctly matched by `driver_id`
+
+#### Scenario: NetworkTab loads global then project profiles
+- **WHEN** NetworkTab is mounted with project scope
+- **THEN** global profiles are loaded first
+- **AND** project profiles are loaded after
+- **AND** project profiles are NOT lost due to race condition
+
+### Requirement: useNetworkProfiles SHALL separate global and project profiles
+Network profiles SHALL be stored in separate `global*Profiles` and `project*Profiles` arrays, with exposed `computed` merged lists. `loadAll` SHALL replace global arrays; `loadAllProject` SHALL replace project arrays.
+
+#### Scenario: Dialog reopens with project context
+- **WHEN** `loadAll()` is called followed by `loadAllProject(path)`
+- **THEN** `sshProfiles` = global profiles + project profiles
+- **AND** calling `loadAll()` again does NOT clear project profiles (they are in separate storage)
+
+### Requirement: handleEditApply SHALL handle partial success
+When editing a connection with both project and global scope, each update SHALL be independently error-handled. If one succeeds and one fails, the user SHALL be notified which one failed.
+
+#### Scenario: Project update succeeds but global update fails
+- **WHEN** scope includes both project and global
+- **AND** `updateConnection()` succeeds
+- **AND** `updateGlobalConnection()` fails
+- **THEN** a warning message is shown: "Partial success: Project Connection saved, Global Connection failed"
+- **AND** the dialog is closed (project changes are committed)
+
+#### Scenario: Both updates fail
+- **WHEN** both project and global updates fail
+- **THEN** an error message is shown
+- **AND** the dialog remains open
+
+### Requirement: useDriverRegistry SHALL skip reload when already fetched
+`loadAll()` SHALL return immediately if `fetched.value` is true, avoiding redundant network requests.
+
+### Requirement: Password SHALL only be sent via IPC when non-empty
+`buildConnectOpts` SHALL use `fd.password ? String(fd.password) : undefined` to avoid sending empty strings through IPC. Similarly, `handleEditApply` password fields SHALL use the same pattern.
+
+### Requirement: Config type guards SHALL be mutually exclusive
+`isSslConfig` and `isProxyConfig` SHALL include mutual exclusion checks (`!('type' in v)` / `!('mode' in v)`) to prevent ambiguous configurations from being matched by the wrong guard.
+
+## AUDIT R15 Requirements (2026-06-11)
+
+基于代码复用审计和死代码扫描的 4 项修复（3 死代码 + 1 Bug）。
+
+### Requirement: Dead Pinia Store SHALL be removed
+`networkConfigStore.ts` (106 lines) SHALL be deleted. The store has zero external imports and its functionality (SSH/SSL/Proxy profile CRUD) is fully covered by `useNetworkProfiles`. The store also uses dynamic `import('@tauri-apps/api/core')` which is an anti-pattern compared to the static imports used by composables.
+
+#### Scenario: Grep for networkConfigStore imports
+- **WHEN** searching all files in the connection module for `from.*networkConfigStore` or `import.*networkConfigStore`
+- **THEN** zero matches are found
+- **AND** the file is safe to delete
+
+### Requirement: Dead Rust wrapper function SHALL be removed
+`project_query_network_config` (L431-436 of `connection_commands.rs`) SHALL be deleted. The function is annotated with `#[allow(dead_code)]` and merely wraps `project_query_network_config_with_auth`, discarding `network_type` and `auth_config_id` from the return tuple. All callers require the full triple and use `_with_auth` directly.
+
+#### Scenario: Dead code analysis
+- **WHEN** `project_query_network_config` is searched for callers
+- **THEN** only the definition and its `#[allow(dead_code)]` annotation are found
+- **AND** all actual callers use `project_query_network_config_with_auth`
+
+### Requirement: Deprecated no-op function SHALL be removed
+`useNetworkChain.initProfiles()` SHALL be deleted from both the function definition and the return block. The function was marked `@deprecated` in Round 14 indicating profile state management moved to `useNetworkProfiles`, but the function body and export were not cleaned up.
+
+#### Scenario: Verify zero callers
+- **WHEN** searching for `initProfiles(` across the entire project
+- **THEN** only the definition and return block export are found
+- **AND** no actual callers exist
+
+### Requirement: watch callback SHALL use async when containing await
+`AddDataSourceDialog.vue` watch callback for `props.modelValue` SHALL use `async (open) => {` instead of `open => {`. The callback contains `await loadAll(...)` which requires an async context. Without async, TypeScript emits TS1308: "'await' expressions are only allowed within async functions".
+
+#### Scenario: TypeScript compilation
+- **WHEN** `vue-tsc --noEmit` is run
+- **THEN** no TS1308 error is emitted for `AddDataSourceDialog.vue`
+- **AND** the watch callback correctly awaits driver loading before calling `initFromConnection`
+
+## AUDIT R16 Requirements (2026-06-12)
+
+基于代码复用审计的 5 项修复，消除 `ConnectionInfoResponse` 和 `ConnectRequest` 两处重复构造逻辑，清理协议链死代码。
+
+### Requirement: ConnectionInfoResponse SHALL have a single construction path
+`ConnectionInfoResponse` SHALL be constructed via `ConnectionInfoResponse::from_info(info, is_active)` rather than duplicated struct literals in `get_connections`, `get_active_connection`, and `detect_global_connections_in_project`.
+
+#### Scenario: New field added to ConnectionInfoResponse
+- **WHEN** a new field is added to `ConnectionInfoResponse`
+- **THEN** only `from_info` needs to be updated
+- **AND** all three callers automatically include the new field
+
+### Requirement: ConnectRequest SHALL be constructed via ConnectDatabaseInput::into_connect_request
+`ConnectDatabaseInput` SHALL expose `into_connect_request(connection_type, network_method, skip_persistence)` that converts itself to `ConnectRequest`. Both `connect_database` and `test_connection` SHALL use this method instead of duplicating the 21-field struct literal.
+
+#### Scenario: New field added to ConnectRequest
+- **WHEN** a new field is added to `ConnectRequest` and `ConnectDatabaseInput`
+- **THEN** only `into_connect_request` needs to be updated
+- **AND** both `connect_database` and `test_connection` automatically include the new field
+
+#### Scenario: test_connection creates a temporary connection
+- **WHEN** `test_connection` is called
+- **THEN** a `ConnectDatabaseInput` is constructed from individual params
+- **AND** `into_connect_request(ConnectionType::Global, network_method, Some(true))` is called
+- **AND** `skip_persistence` is set to `Some(true)` to prevent persisting test connections
+
+### Requirement: useAddDataSource SHALL NOT duplicate protocol chain logic
+`useAddDataSource.ts` SHALL NOT contain `ProtocolType`, `ChainHopItem`, `countNetworkHops`, `ensureSslAtEnd`, `addHop`, `removeHop`, `onDrop`, `toggleHop` definitions or functions. All protocol chain logic SHALL be delegated to `useNetworkChain`.
+
+#### Scenario: Protocol chain manipulation
+- **WHEN** any protocol chain operation is needed
+- **THEN** `useNetworkChain` is the single source of truth
+- **AND** `useAddDataSource` does not contain duplicate implementations

@@ -67,6 +67,15 @@
       >
         <template #icon><Edit :size="13" /></template>
       </NButton>
+      <NButton
+        v-if="uriEditing && manualUri"
+        size="tiny"
+        quaternary
+        type="primary"
+        @click="emit('parseUrl', manualUri)"
+      >
+        {{ t('navigator.parseUrl') }}
+      </NButton>
     </div>
     <NAlert v-if="uriWarning" type="warning" :title="uriWarning" closable style="margin-top: 8px" />
   </div>
@@ -76,6 +85,7 @@
 import { Edit } from 'lucide-vue-next'
 import { NAlert, NButton, NCheckbox, NInput, NSelect } from 'naive-ui'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { SelectOption } from 'naive-ui'
 
@@ -130,11 +140,14 @@ const emit = defineEmits<{
   (e: 'update:description', v: string): void
   (e: 'update:scopeGlobal', v: boolean): void
   (e: 'update:scopeProject', v: boolean): void
-  (e: 'update:selectedDriverId', v: string | null): void
+  (e: 'update:selectedDriverId', v: string): void
   (e: 'update:uriEditing', v: boolean): void
   (e: 'update:manualUri', v: string): void
+  (e: 'parseUrl', url: string): void
   (e: 'driver-change', driverId: string): void
 }>()
+
+const { t } = useI18n()
 
 function onDriverSelect(value: string | number | null) {
   const driverId = value as string

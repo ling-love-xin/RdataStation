@@ -60,6 +60,26 @@
   - [x] 8.6: 手动验证：选择环境 → 策略标签自动更新
   - [x] 8.7: 手动验证：保存暂存 → localStorage 检查无 password 键
 
+## Round 12 — 用户体验痛点修复 (2026-06-11)
+
+- [x] Task 9: 连接名称重复校验
+  - [x] 9.1: `handleCreateApply` 添加 `nameSet` 批内去重（AddDataSourceDialog.vue）
+  - [x] 9.2: 后端 `global_db.rs` SQL `SELECT COUNT(*) FROM global_connections WHERE name = ?1` 唯一性检查
+  - [x] 9.3: 后端 `project_connection_store.rs` SQL `SELECT COUNT(*) FROM connections WHERE name = ?1` 唯一性检查
+  - [x] 9.4: 重复名称弹出 `message.warning` 提示
+
+- [x] Task 10: 暂存项切换丢失数据确认
+  - [x] 10.1: 新增 `stagingDirty` ref，watch `formData`/`protocolChain` 变化时设为 true
+  - [x] 10.2: `handleSelectStaging` 切换前检查 `stagingDirty`，弹 `dialog.warning` 确认
+  - [x] 10.3: `zh-CN.json` 新增 `stagingSwitchTitle`/`stagingSwitchHint` 国际化文案
+  - [x] 10.4: `saveToStaging`/`selectStaging` 后重置 `stagingDirty = false`
+
+- [x] Task 11: URL 自动解析填充表单
+  - [x] 11.1: `useUrlBuilder` 新增 `parseUrl()` 函数，支持文件型和标准 URL 解析
+  - [x] 11.2: `ParsedUrl` 接口定义（driver/host/port/database/username/password/params/isFile/filePath）
+  - [x] 11.3: `DataSourceHeader` 新增"解析"按钮，emit `parseUrl(manualUri)`
+  - [x] 11.4: `AddDataSourceDialog` 新增 `onParseUrl` 处理器，匹配驱动 + 填充 `formData`
+
 # Task Dependencies
 - Task 2 独立执行（GeneralTab 不依赖 NetworkTab）
 - Task 5 依赖 Task 3（都改 AdvancedTab）
@@ -67,3 +87,92 @@
 - Task 6 独立执行
 - Task 7 独立执行
 - Task 8 依赖 Task 1-7 全部完成
+
+## Round 13 — 全链路审计修复 (2026-06-11)
+
+- [x] Task 12: scope 覆盖逻辑修复
+  - [x] 12.1: `handleCreateApply` 将 `scope.global \|\| item.scope === 'global' \|\| item.scope === 'both'` 改为 `scope.global`（对话框勾选为权威来源）
+
+- [x] Task 13: authMethod fallback 修复
+  - [x] 13.1: `saveToProjectOnly` `\|\|` → `??` 仅 null/undefined 回退
+
+- [x] Task 14: stagingDirty 误触发修复
+  - [x] 14.1: 新增 `isRestoring` ref
+  - [x] 14.2: watch 跳过 `isRestoring` 期间
+  - [x] 14.3: `handleSelectStaging` 恢复数据前后设置 `isRestoring`
+
+- [x] Task 15: handleClose 脏检查
+  - [x] 15.1: `hasChanges` 添加 `stagingDirty.value \|\|`
+
+- [x] Task 16: 国际化硬编码修复
+  - [x] 16.1: `DataSourceHeader.vue` "解析" → `{{ t('navigator.parseUrl') }}`
+  - [x] 16.2: `onParseUrl` 消息 → `t('navigator.parseUrlFailed')` / `t('navigator.parseUrlSuccess')`
+  - [x] 16.3: 重复名称提示 → `t('navigator.duplicateName', { name })`
+  - [x] 16.4: `zh-CN.json` 新增 6 keys
+  - [x] 16.5: `en.json` 新增 6 keys + stagingSwitchTitle/Hint
+
+- [x] Task 17: AdvancedTab 修复
+  - [x] 17.1: `envId` 初始值 `'env-dev'` → `ref<string | null>(null)`
+  - [x] 17.2: emit `envId` → `environmentId`（与 `onExtraConfig` 对齐，修复环境 ID 静默丢失）
+
+- [x] Task 18: 暂存项重载
+  - [x] 18.1: `useAddDataSource` 导出 `loadStagingItems`
+  - [x] 18.2: `watch open` 中调用 `loadStagingItems()`
+
+## Round 14 — 深层审计修复 (2026-06-11)
+
+- [x] Task 19: 消除异步竞态
+  - [x] 19.1: `AddDataSourceDialog` `watch open` 中 `loadAll()` → `await loadAll()`（确保 `initFromConnection` 执行时 drivers 已就绪）
+  - [x] 19.2: `NetworkTab` `onMounted` 中 `loadAll()` → `await loadAll()`（消除与 `loadAllProject()` 竞态）
+
+- [x] Task 20: handleEditApply 部分成功处理
+  - [x] 20.1: project/global 分拆 try/catch，分别跟踪 projectOk/globalOk
+  - [x] 20.2: 全部成功 → success；全部失败 → error；部分成功 → warning
+  - [x] 20.3: i18n keys: `applyPartialSuccess`/`projectConnection`/`globalConnection`
+
+- [x] Task 21: useNetworkProfiles 双数组分离
+  - [x] 21.1: `globalSshProfiles`/`projectSshProfiles` 等 6 个内部 ref
+  - [x] 21.2: `sshProfiles`/`sslProfiles`/`proxyProfiles` → `computed` 合并
+  - [x] 21.3: `loadByType` → 替换 `global*Profiles`
+  - [x] 21.4: `loadByTypeProject` → 替换 `project*Profiles`（不再追加）
+
+- [x] Task 22: useDriverRegistry 防重加载
+  - [x] 22.1: `loadAll()` 开头加 `if (fetched.value) return`
+
+- [x] Task 23: P2 细节修复
+  - [x] 23.1: `buildConnectOpts` `password` 死代码清理
+  - [x] 23.2: `isSslConfig`/`isProxyConfig` 类型守卫互斥检查
+
+## Round 15 — 死代码清除 + Bug 修复 (2026-06-11)
+
+- [x] Task 24: 死代码清除
+  - [x] 24.1: 删除 `networkConfigStore.ts` — 完整 Pinia Store 零外部引用，与 useNetworkProfiles 功能重叠
+  - [x] 24.2: 删除 `project_query_network_config` — `#[allow(dead_code)]` 包装函数，调用方全走 `_with_auth` 版本
+  - [x] 24.3: 删除 `useNetworkChain.initProfiles()` — `@deprecated` no-op，零调用方
+
+- [x] Task 25: Bug 修复
+  - [x] 25.1: `AddDataSourceDialog.vue` watch 回调添加 `async` — 修复 TS1308 编译错误
+
+## Round 16 — 代码复用消除双写 (2026-06-12)
+
+- [x] Task 26: 抽取 ConnectionInfoResponse::from_info 消除三处重复构造
+  - [x] 26.1: 新增 `ConnectionInfoResponse::from_info(info, is_active)` 关联函数
+  - [x] 26.2: `get_connections` 使用 `from_info`
+  - [x] 26.3: `get_active_connection` 使用 `from_info`
+  - [x] 26.4: `detect_global_connections_in_project` 使用 `from_info`
+  - [x] 26.5: `cargo check` 通过
+
+- [x] Task 27: 抽取 ConnectDatabaseInput::into_connect_request 消除双写
+  - [x] 27.1: 新增 `ConnectDatabaseInput::into_connect_request(connection_type, network_method, skip_persistence)` 方法
+  - [x] 27.2: `connect_database` 使用 `into_connect_request`（23 行 → 1 行）
+  - [x] 27.3: `test_connection` 重构为 `ConnectDatabaseInput` + `into_connect_request`（23 行 → 20 行）
+  - [x] 27.4: 修复 `input` move 后借用问题（提前提取 `safe_url`/`db_type`/`conn_name`）
+  - [x] 27.5: `cargo check` 通过
+
+- [x] Task 28: 清理 useAddDataSource.ts 协议链死代码
+  - [x] 28.1: 删除 `ProtocolType` 类型定义
+  - [x] 28.2: 删除 `ChainHopItem` 接口定义
+  - [x] 28.3: 删除 `countNetworkHops`/`ensureSslAtEnd`/`addHop`/`removeHop`/`onDrop`/`toggleHop` 函数（80+ 行）
+  - [x] 28.4: 移除 `protocolChain` ref 声明
+  - [x] 28.5: 移除 return 块中协议链相关导出
+  - [x] 28.6: 移除 `AddDataSourceDialog.vue` 中 `protocolChain` 解构引用

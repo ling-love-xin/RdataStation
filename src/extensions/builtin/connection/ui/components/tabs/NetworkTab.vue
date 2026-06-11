@@ -1190,7 +1190,7 @@ function openProfileMgr(hop: Hop) {
 // ==================== Lifecycle & Watch ====================
 
 onMounted(async () => {
-  loadAll()
+  await loadAll()
   if (props.scope?.project) {
     const pp = await getProjectPath()
     if (pp) await loadAllProject(pp)

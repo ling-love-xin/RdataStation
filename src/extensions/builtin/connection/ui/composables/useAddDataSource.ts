@@ -63,35 +63,6 @@ export interface StagingItem {
 /** localStorage 存储键 */
 const STAGING_STORAGE_KEY = 'rdata-station-staging-items'
 
-/** 协议类型 */
-export type ProtocolType = 'ssh' | 'proxy' | 'ssl'
-
-/** 协议链跳 */
-export interface ChainHopItem {
-  id: string
-  protocol: ProtocolType
-  enabled: boolean
-  mode: 'select' | 'new'
-  profileId: string | null
-  profileSource: 'global' | 'project' | null
-  customData: ChainHopCustom | null
-}
-
-/** 跳自定义配置 */
-export interface ChainHopCustom {
-  host?: string
-  port?: number
-  username?: string
-  password?: string
-  authType?: 'password' | 'key'
-  keyPath?: string
-  proxyType?: 'http' | 'socks5'
-  sslMode?: 'disable' | 'require' | 'verify-ca' | 'verify-full'
-  caCertPath?: string
-  clientCertPath?: string
-  clientKeyPath?: string
-}
-
 /** 安全策略 */
 export interface SecurityPolicy {
   readonly: boolean
@@ -162,38 +133,6 @@ export interface ValidationResult {
 
 // ==================== 辅助函数 ====================
 
-function getDefaultChain(): ChainHopItem[] {
-  return [
-    {
-      id: uuidv4(),
-      protocol: 'ssh',
-      enabled: false,
-      mode: 'select',
-      profileId: null,
-      profileSource: null,
-      customData: null,
-    },
-    {
-      id: uuidv4(),
-      protocol: 'proxy',
-      enabled: false,
-      mode: 'select',
-      profileId: null,
-      profileSource: null,
-      customData: null,
-    },
-    {
-      id: uuidv4(),
-      protocol: 'ssl',
-      enabled: false,
-      mode: 'select',
-      profileId: null,
-      profileSource: null,
-      customData: null,
-    },
-  ]
-}
-
 function defaultDuckdbAccel(): DuckdbAccelConfig {
   return {
     enabled: false,
@@ -219,7 +158,6 @@ export function useAddDataSource() {
 
   const scope = reactive<ConnectionScope>({ global: true, project: false })
 
-  const protocolChain = ref<ChainHopItem[]>(getDefaultChain())
   const selectedEnvId = ref<string | null>(null)
   const overriddenPolicies = ref<Partial<EnvironmentPolicies>>({})
   const duckdbAccel = reactive<DuckdbAccelConfig>(defaultDuckdbAccel())
@@ -298,19 +236,6 @@ export function useAddDataSource() {
     if (!headerData.selectedDriverId) errs.driver = '请选择数据驱动'
     if (!scope.global && !scope.project) errs.scope = '请至少选择一个作用域'
 
-    const hasEnabledChain = protocolChain.value.some(h => h.enabled)
-    if (hasEnabledChain) {
-      const sslIdx = protocolChain.value.findIndex(h => h.protocol === 'ssl' && h.enabled)
-      if (sslIdx >= 0 && sslIdx !== protocolChain.value.length - 1) {
-        errs.chain = 'SSL 必须在协议链末尾'
-      }
-
-      const nonSslCount = protocolChain.value.filter(h => h.enabled && h.protocol !== 'ssl').length
-      if (nonSslCount > 3) {
-        warnings.push('协议链超过 3 跳，可能影响连接性能')
-      }
-    }
-
     if (scope.project && !useProjectStore().currentProject) {
       errs.project = '请先打开一个项目'
     }
@@ -322,70 +247,6 @@ export function useAddDataSource() {
   function validate(): ValidationResult {
     const result = validateExtended()
     return { valid: result.valid, errors: result.errors }
-  }
-
-  // ========== 协议链操作 ==========
-  function countNetworkHops(chain: ChainHopItem[]): number {
-    return chain.filter(h => h.protocol !== 'ssl' && h.enabled !== false).length
-  }
-
-  function ensureSslAtEnd() {
-    const sslIdx = protocolChain.value.findIndex(h => h.protocol === 'ssl')
-    if (sslIdx >= 0 && sslIdx !== protocolChain.value.length - 1) {
-      const ssl = protocolChain.value.splice(sslIdx, 1)[0]
-      protocolChain.value.push(ssl)
-    }
-  }
-
-  function addHop(protocol: ProtocolType) {
-    if (protocol === 'ssl' && protocolChain.value.some(h => h.protocol === 'ssl')) {
-      return // SSL 已存在
-    }
-    if (protocol !== 'ssl' && countNetworkHops(protocolChain.value) >= 4) {
-      return // 已达 4 跳上限
-    }
-    const hop: ChainHopItem = {
-      id: uuidv4(),
-      protocol,
-      enabled: false,
-      mode: 'select',
-      profileId: null,
-      profileSource: null,
-      customData: null,
-    }
-    if (protocol === 'ssl') {
-      protocolChain.value.push(hop)
-    } else {
-      const sslIdx = protocolChain.value.findIndex(h => h.protocol === 'ssl')
-      if (sslIdx >= 0) {
-        protocolChain.value.splice(sslIdx, 0, hop)
-      } else {
-        protocolChain.value.push(hop)
-      }
-    }
-  }
-
-  function removeHop(id: string) {
-    const hop = protocolChain.value.find(h => h.id === id)
-    if (!hop) return
-    const sameCount = protocolChain.value.filter(h => h.protocol === hop.protocol).length
-    if (sameCount <= 1) return // 至少保留一个
-    protocolChain.value = protocolChain.value.filter(h => h.id !== id)
-  }
-
-  function onDrop(dragIdx: number, dropIdx: number) {
-    const dragged = protocolChain.value[dragIdx]
-    const target = protocolChain.value[dropIdx]
-    if (dragged.protocol === 'ssl' || target.protocol === 'ssl') return
-
-    const item = protocolChain.value.splice(dragIdx, 1)[0]
-    protocolChain.value.splice(dropIdx, 0, item)
-    ensureSslAtEnd()
-  }
-
-  function toggleHop(id: string, enabled: boolean) {
-    const hop = protocolChain.value.find(h => h.id === id)
-    if (hop) hop.enabled = enabled
   }
 
   // ========== StagingItem 管理 ==========
@@ -503,7 +364,6 @@ export function useAddDataSource() {
     tags.value = null
     useDuckdbFed.value = null
     formData.value = {}
-    protocolChain.value = getDefaultChain()
     selectedEnvId.value = null
     driverProps.value = {}
   }
@@ -550,7 +410,6 @@ export function useAddDataSource() {
     // 状态
     headerData,
     scope,
-    protocolChain,
     selectedEnvId,
     overriddenPolicies,
     duckdbAccel,
@@ -569,6 +428,7 @@ export function useAddDataSource() {
     // 暂存项管理
     stagingItems,
     stagingIndex,
+    loadStagingItems,
     buildStagingItem,
     addStaging,
     removeStaging,
@@ -584,10 +444,5 @@ export function useAddDataSource() {
     // 校验
     validate,
     validateExtended,
-    // 协议链
-    addHop,
-    removeHop,
-    onDrop,
-    toggleHop,
   }
 }

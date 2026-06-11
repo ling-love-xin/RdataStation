@@ -27,6 +27,19 @@ export interface UseUrlBuilderOptions {
   manualUri: Ref<string>
 }
 
+/// P1: URL 解析结果
+export interface ParsedUrl {
+  driver?: string
+  host?: string
+  port?: string
+  database?: string
+  username?: string
+  password?: string
+  params?: Record<string, string>
+  isFile?: boolean
+  filePath?: string
+}
+
 export function useUrlBuilder(opts: UseUrlBuilderOptions) {
   const { selectedDriver, formData, uriEditing, manualUri } = opts
 
@@ -86,5 +99,56 @@ export function useUrlBuilder(opts: UseUrlBuilderOptions) {
     return `${proto}://${u}@${h}${po ? ':' + po : ''}/${db}`
   }
 
-  return { uriPreview, buildUrl }
+  /** P1: 解析 JDBC/标准 URL → 提取数据库类型、主机、端口等 */
+  function parseUrl(raw: string): ParsedUrl | null {
+    if (!raw || !raw.trim()) return null
+    const url = raw.trim()
+
+    // 1. 文件型数据库（file:// 或 sqlite://path/to/file 等路径模式）
+    const fileMatch = url.match(/^(\w+):\/\/\/?(.+)$/)
+    if (fileMatch) {
+      const [_full, proto, path] = fileMatch
+      const knownFileDb = ['sqlite', 'duckdb', 'h2']
+      if (knownFileDb.includes(proto.toLowerCase()) || path.match(/\.(db|sqlite|duckdb|sqlite3)$/i)) {
+        return {
+          driver: proto.toLowerCase(),
+          isFile: true,
+          filePath: path,
+          database: path.split('/').pop() || path.split('\\').pop(),
+        }
+      }
+    }
+
+    // 2. 标准 URL: proto://[user[:pass]@]host[:port][/database][?params]
+    try {
+      const match = url.match(/^(\w+):\/\/(?:([^:@]+)(?::([^@]*))?@)?([^:/]+)(?::(\d+))?(?:\/([^?\n]*))?(?:\?(.*))?$/)
+      if (!match) return null
+
+      const [, proto, user, pass, host, port, db, queryStr] = match
+
+      const result: ParsedUrl = {
+        driver: proto.toLowerCase(),
+        host,
+        port,
+        database: db || undefined,
+        username: user || undefined,
+        password: pass || undefined,
+      }
+
+      if (queryStr) {
+        const params: Record<string, string> = {}
+        for (const pair of queryStr.split('&')) {
+          const [k, v] = pair.split('=')
+          if (k) params[decodeURIComponent(k)] = v ? decodeURIComponent(v) : ''
+        }
+        if (Object.keys(params).length > 0) result.params = params
+      }
+
+      return result
+    } catch {
+      return null
+    }
+  }
+
+  return { uriPreview, buildUrl, parseUrl }
 }

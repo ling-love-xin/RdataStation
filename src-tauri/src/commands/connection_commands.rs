@@ -39,6 +39,41 @@ pub struct ConnectDatabaseInput {
     pub password: Option<String>,
 }
 
+impl ConnectDatabaseInput {
+    /// 转换为 `ConnectRequest`，统一 `connect_database` 和 `test_connection` 的构造逻辑
+    fn into_connect_request(
+        self,
+        connection_type: ConnectionType,
+        network_method: Option<ConnectionMethod>,
+        skip_persistence: Option<bool>,
+    ) -> ConnectRequest {
+        ConnectRequest {
+            conn_id: self.conn_id,
+            db_type: self.db_type,
+            url: self.url,
+            name: self.name,
+            connection_type,
+            project_path: self.project_id,
+            description: self.description,
+            driver_id: self.driver_id,
+            environment_id: self.environment_id,
+            auth_config_id: self.auth_config_id,
+            auth_method: self.auth_method,
+            network_config_id: self.network_config_id,
+            driver_properties: self.driver_properties,
+            advanced_options: self.advanced_options,
+            options: self.options,
+            tags: self.tags,
+            metadata_path: self.metadata_path,
+            schema_name: self.schema_name,
+            use_duckdb_fed: self.use_duckdb_fed,
+            password: self.password,
+            skip_persistence,
+            network_method,
+        }
+    }
+}
+
 /// 连接响应
 #[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ConnectDatabaseResponse {
@@ -266,43 +301,24 @@ pub async fn connect_database(
     // ===== 数据源模块：解析网络配置为 ConnectionMethod =====
     let network_method = parse_network_method(&input).await?;
 
+    // 提取响应所需字段（input 将被 move 进 into_connect_request）
+    let safe_url = ConnectionService::mask_password_in_url(&input.url);
+    let db_type = input.db_type.clone();
+    let conn_name = input.name.clone();
+
     let (conn_id, db) = service
-        .connect_with_type(ConnectRequest {
-            conn_id: input.conn_id.clone(),
-            db_type: input.db_type.clone(),
-            url: input.url.clone(),
-            name: input.name.clone(),
-            connection_type,
-            project_path: input.project_id.clone(),
-            description: input.description.clone(),
-            driver_id: input.driver_id.clone(),
-            environment_id: input.environment_id.clone(),
-            auth_config_id: input.auth_config_id.clone(),
-            auth_method: input.auth_method.clone(),
-            network_config_id: input.network_config_id.clone(),
-            driver_properties: input.driver_properties.clone(),
-            advanced_options: input.advanced_options.clone(),
-            options: input.options.clone(),
-            tags: input.tags.clone(),
-            metadata_path: input.metadata_path.clone(),
-            schema_name: input.schema_name.clone(),
-            use_duckdb_fed: input.use_duckdb_fed,
-            password: input.password.clone(),
-            skip_persistence: None, // normal connections DO persist
-            network_method,
-        })
+        .connect_with_type(input.into_connect_request(connection_type, network_method, None))
         .await?;
 
     let meta = db.meta();
-    let safe_url = ConnectionService::mask_password_in_url(&input.url);
 
     // ===== 项目连接持久化：由前端 handleApply → create_project_connection 统一管理 =====
     // 此处不再重复写入，避免 conn_id 不一致和数据覆盖
 
     Ok(ConnectDatabaseResponse {
         conn_id,
-        name: input.name.unwrap_or_else(|| safe_url.clone()),
-        db_type: input.db_type,
+        name: conn_name.unwrap_or_else(|| safe_url.clone()),
+        db_type,
         url: safe_url,
         status: "connected".to_string(),
         meta: meta.into(),
@@ -428,13 +444,6 @@ fn project_query_network_config_with_auth(
     .map_err(|e| e.to_string())
 }
 
-/// 查询项目网络配置（只返回 config，向后兼容）
-#[allow(dead_code)]
-fn project_query_network_config(db_path: &std::path::Path, net_id: &str) -> Result<String, String> {
-    let (_, config, _) = project_query_network_config_with_auth(db_path, net_id)?;
-    Ok(config)
-}
-
 /// 连接信息响应
 #[derive(serde::Serialize, Debug, specta::Type)]
 pub struct ConnectionInfoResponse {
@@ -458,6 +467,31 @@ pub struct ConnectionInfoResponse {
     pub advanced_options: Option<String>,
 }
 
+impl ConnectionInfoResponse {
+    fn from_info(info: crate::core::services::connection_manager::ConnectionInfo, is_active: bool) -> Self {
+        Self {
+            id: info.id,
+            name: info.name,
+            db_type: info.db_type,
+            url: info.url,
+            connection_type: info.connection_type.to_string(),
+            project_id: info.project_id,
+            status: "connected".to_string(),
+            is_active,
+            created_at_ms: info.created_at.elapsed().as_millis() as f64,
+            server_version: info.server_version,
+            driver_id: info.driver_id,
+            environment_id: info.environment_id,
+            description: info.description,
+            auth_config_id: info.auth_config_id,
+            auth_method: info.auth_method,
+            network_config_id: info.network_config_id,
+            driver_properties: info.driver_properties,
+            advanced_options: info.advanced_options,
+        }
+    }
+}
+
 /// 获取所有连接
 #[tauri::command]
 #[specta::specta]
@@ -472,26 +506,7 @@ pub async fn get_connections() -> Result<Vec<ConnectionInfoResponse>, CoreError>
         .into_iter()
         .map(|info| {
             let is_active = active_id.as_ref() == Some(&info.id);
-            ConnectionInfoResponse {
-                id: info.id,
-                name: info.name,
-                db_type: info.db_type,
-                url: info.url,
-                connection_type: info.connection_type.to_string(),
-                project_id: info.project_id,
-                status: "connected".to_string(),
-                is_active,
-                created_at_ms: info.created_at.elapsed().as_millis() as f64,
-                server_version: info.server_version,
-                driver_id: info.driver_id,
-                environment_id: info.environment_id,
-                description: info.description,
-                auth_config_id: info.auth_config_id,
-                auth_method: info.auth_method,
-                network_config_id: info.network_config_id,
-                driver_properties: info.driver_properties,
-                advanced_options: info.advanced_options,
-            }
+            ConnectionInfoResponse::from_info(info, is_active)
         })
         .collect())
 }
@@ -539,26 +554,7 @@ pub async fn get_active_connection() -> Result<Option<ConnectionInfoResponse>, C
     Ok(connections
         .into_iter()
         .find(|info| active_id.as_ref() == Some(&info.id))
-        .map(|info| ConnectionInfoResponse {
-            id: info.id,
-            name: info.name,
-            db_type: info.db_type,
-            url: info.url,
-            connection_type: info.connection_type.to_string(),
-            project_id: info.project_id,
-            status: "connected".to_string(),
-            is_active: true,
-            created_at_ms: info.created_at.elapsed().as_millis() as f64,
-            server_version: info.server_version,
-            driver_id: info.driver_id,
-            environment_id: info.environment_id,
-            description: info.description,
-            auth_config_id: info.auth_config_id,
-            auth_method: info.auth_method,
-            network_config_id: info.network_config_id,
-            driver_properties: info.driver_properties,
-            advanced_options: info.advanced_options,
-        }))
+        .map(|info| ConnectionInfoResponse::from_info(info, true)))
 }
 
 /// 最近连接记录响应
@@ -693,26 +689,7 @@ pub async fn detect_global_connections_in_project(
         .into_iter()
         .map(|info| {
             let is_active = active_id.as_ref() == Some(&info.id);
-            ConnectionInfoResponse {
-                id: info.id,
-                name: info.name,
-                db_type: info.db_type,
-                url: info.url,
-                connection_type: info.connection_type.to_string(),
-                project_id: info.project_id,
-                status: "connected".to_string(),
-                is_active,
-                created_at_ms: info.created_at.elapsed().as_millis() as f64,
-                server_version: info.server_version,
-                driver_id: info.driver_id,
-                environment_id: info.environment_id,
-                description: info.description,
-                auth_config_id: info.auth_config_id,
-                auth_method: info.auth_method,
-                network_config_id: info.network_config_id,
-                driver_properties: info.driver_properties,
-                advanced_options: info.advanced_options,
-            }
+            ConnectionInfoResponse::from_info(info, is_active)
         })
         .collect())
 }
@@ -781,30 +758,33 @@ pub async fn test_connection(
         "测试连接：创建临时连接进行测试（URL={}，network_config={:?}，auth_config={:?}，auth_method={:?}）",
         url, network_config_id, auth_config_id, auth_method
     );
-    let connect_future = service.connect_with_type(ConnectRequest {
+
+    let test_input = ConnectDatabaseInput {
         conn_id: None,
         db_type: db_type.clone(),
         url: url.clone(),
         name: Some("test_connection".to_string()),
-        connection_type: ConnectionType::Global,
-        project_path: project_path.clone(),     // 支持项目级网络/认证配置解析
-        description: None,                      // description
-        driver_id: None,                        // driver_id
-        environment_id: None,                   // environment_id
-        auth_config_id: auth_config_id.clone(), // auth_config_id
-        auth_method: auth_method.clone(),       // auth_method
+        connection_type: Some("global".to_string()),
+        project_id: project_path.clone(),
+        description: None,
+        driver_id: None,
+        environment_id: None,
+        auth_config_id: auth_config_id.clone(),
+        auth_method: auth_method.clone(),
         network_config_id: network_config_id.clone(),
-        driver_properties: None,      // driver_properties
-        advanced_options: None,       // advanced_options
-        options: None,                // options
-        tags: None,                   // tags
-        metadata_path: None,          // metadata_path
-        schema_name: None,            // schema_name
-        use_duckdb_fed: None,         // use_duckdb_fed
-        password: None,               // test connections don't save password
-        skip_persistence: Some(true), // skip_persistence: test connections do NOT persist to DB
-        network_method,
-    });
+        driver_properties: None,
+        advanced_options: None,
+        options: None,
+        tags: None,
+        metadata_path: None,
+        schema_name: None,
+        use_duckdb_fed: None,
+        password: None,
+    };
+
+    let connect_future = service.connect_with_type(
+        test_input.into_connect_request(ConnectionType::Global, network_method, Some(true)),
+    );
 
     let (conn_id, db) = match tokio::time::timeout(Duration::from_secs(30), connect_future).await {
         Ok(Ok(result)) => result,
