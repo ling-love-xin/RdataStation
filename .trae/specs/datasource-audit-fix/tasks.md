@@ -213,3 +213,37 @@
   - [x] 33.1: 从 `formData.value.password` 读取密码
   - [x] 33.2: 加入 `invoke('test_connection', params)` 的 `params` 对象
   - [x] 33.3: ESLint 通过
+
+- [x] Task 34: P0 specta 绑定同步（Round 20）
+  - [x] 34.1: bindings.ts 中 `testConnection` 新增 `projectPath`/`password` 参数
+  - [x] 34.2: connection.ts `testConnection` service 函数同步更新
+  - [x] 34.3: ESLint 通过
+
+- [x] Task 35: P1 批量应用进度条（Round 20）
+  - [x] 35.1: 新增 `applyProgress` ref 状态
+  - [x] 35.2: `handleCreateApply` 循环中更新 `applyProgress`
+  - [x] 35.3: 模板 footer 新增进度文本 span
+  - [x] 35.4: CSS `.apply-progress` 样式
+  - [x] 35.5: `finally` 块重置 `applyProgress = null`
+
+- [x] Task 36: P2 对话框响应式宽度（Round 20）
+  - [x] 36.1: `.datasource-card` width 改为 `min(980px, calc(100vw - 48px))`
+
+- [x] Task 37: P2 驱动切换前确认（Round 20）
+  - [x] 37.1: `onDriverChange` 拆分为 `onDriverChange` + `doDriverChange`
+  - [x] 37.2: 表单有数据时 `dialog.warning` 确认弹窗
+  - [x] 37.3: 确认后调用 `doDriverChange`，取消则返回
+
+- [x] Task 38: P2 认证方式切换保留 username（Round 20）
+  - [x] 38.1: useAuthConfig.ts 新增 `isAuthMethodChanging` ref
+  - [x] 38.2: `onAuthMethodChange` 设置标志 + `nextTick` 重置
+  - [x] 38.3: `onAuthConfigSelect` 检测标志，跳过清空
+
+- [x] Task 39: P2 loadAll 缓存优化（Round 20）
+  - [x] 39.1: useDriverRegistry.ts 新增 `lastProjectPath` 变量
+  - [x] 39.2: `loadAll` 缓存命中逻辑改为 `fetched && lastProjectPath === projectPath`
+  - [x] 39.3: 项目切换时自动失效缓存
+
+- [x] Task 40: 编译验证（Round 20）
+  - [x] 40.1: ESLint 0 errors
+  - [x] 40.2: cargo check 0 errors

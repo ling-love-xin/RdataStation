@@ -45,16 +45,21 @@ async function fetchDrivers(projectPath?: string): Promise<Driver[]> {
   return response.drivers
 }
 
+/** 缓存：上次加载的项目路径，用于检测项目切换时失效缓存 */
+let lastProjectPath: string | undefined = undefined
+
 /**
  * 一次性加载数据源类型和驱动列表
  */
 async function loadAll(projectPath?: string): Promise<void> {
-  if (fetched.value) return // 已加载则跳过，避免重复网络请求
+  // 项目切换时失效缓存，确保加载新项目的驱动列表
+  if (fetched.value && lastProjectPath === projectPath) return
   loading.value = true
   error.value = null
   try {
     await Promise.all([fetchDataSourceTypes(), fetchDrivers(projectPath)])
     fetched.value = true
+    lastProjectPath = projectPath
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
     console.error('[useDriverRegistry] Failed to load drivers:', e)

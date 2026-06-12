@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
 > 最后更新：2026-06-12
-> 状态：19 轮审计，共修复 136 项（2 本轮 + 134 历史），6 假正
+> 状态：20 轮审计，共修复 142 项（2 本轮 + 140 历史），6 假正
 
 ---
 
@@ -10,7 +10,7 @@
 | 优先级 | 总数 | 已修复 | 修复内容 |
 |:---:|:---:|:---:|------|
 | 🔴 P0 | 12 | 12 | scope 双向选择 + saveToProject ID + NetworkTab 全局/项目 API + resolve_network_method_with_project 前缀路由 + handleTest projectPath 传递 + 连接名称重复校验 + 暂存项切换确认 + scope 覆盖逻辑修复 + loadAll await 异步竞态 ×2 |
-| 🟡 P1 | 22 | 22 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind + AuthConfigManager scope + useNetworkProfiles 合并 + advancedSchemaFields 死代码 + BASIC_SCHEMA_KEYS 分类 + test_connection project_path 传递 + test_network_config 项目级支持 + testChainHop projectPath + URL 自动解析填充 + authMethod ?? 修复 + stagingDirty isRestoring + handleClose 脏检查 + handleEditApply 部分成功提示 + useNetworkProfiles 双数组分离 |
+| 🟡 P1 | 28 | 28 | 字段一致性 + addStaging + NetworkTab + DuckDB + os_auth + driver_kind + AuthConfigManager scope + useNetworkProfiles 合并 + advancedSchemaFields 死代码 + BASIC_SCHEMA_KEYS 分类 + test_connection project_path 传递 + test_network_config 项目级支持 + testChainHop projectPath + URL 自动解析填充 + authMethod ?? 修复 + stagingDirty isRestoring + handleClose 脏检查 + handleEditApply 部分成功提示 + useNetworkProfiles 双数组分离 + 代码复用 from_info/into_connect_request + 协议链死代码 + 批量应用进度条 + specta 绑定同步 + 驱动切换确认 + 认证方式切换保留 username + loadAll 缓存优化 |
 | 🟢 P2 | 34 | 34 | url_template + ... + typeColor 9→20种 + _sslProfiles 重命名 + tags split 修复 + i18n 硬编码 x3 + AdvancedTab envId null + environmentId key 统一 + 暂存项重载 + buildConnectOpts 死代码 + isSslConfig/isProxyConfig 类型守卫 + useDriverRegistry 防重 |
 | 🧪 Test | 5 | 5 | Rust connection_commands + 前端 driver-adapter + useAddDataSource + useAuthConfig + GeneralTab |
 | ❌ 假正 | 6 | — | getProto 误报 + CapabilitiesInline 删除 + handleEditApply 密码加密 + CAP_META t() + 网络跳数上限(设计如此) + P2-4 CAP_META |
@@ -398,6 +398,42 @@ if (pw) params.password = String(pw)
 
 **修复统计：Round 18 实际修复 2 项（2 P0）**
 
+### Round 19 修复 — 深度可用性验证 (2026-06-12)
+
+逐链路追踪代码验证 10 项核心功能的可用性，从用户操作 → 前端 invoke → 后端命令 → 数据库写入 → 读回展示。
+
+| # | 优先级 | 验证项 | 结果 |
+|:---:|:---:|------|:---:|
+| 137 | 验证 | 暂存项批处理链路 | 19字段构建→localStorage持久化→加载恢复→选择切换→同步到暂存→批量应用→标记applied，完整可用 |
+| 138 | 验证 | 连接测试链路 | handleTest 7参数完整传递，后端30秒超时，复用已有连接，结构化结果 |
+| 139 | 验证 | 认证配置链路 | 7种认证类型，双域创建，AES-256-GCM加密，doSaveAuth捕获返回值 |
+| 140 | 验证 | 网络配置链路 | SSH/SSL/Proxy创建/选择/测试，5种ID前缀路由，逐跳loading反馈 |
+| 141 | 验证 | 全局/项目双域链路 | ConnectionType::Global/Project双路径，环境/认证/网络校验双域 |
+| 142 | 验证 | 环境策略 | 5种预设环境 + CRUD + 快照 + 安全策略管理 |
+| 143 | 验证 | 编辑已有连接 | 19字段恢复 + 密码保护 + 部分成功提示 |
+| 144 | 验证 | 侧边栏集成 | 连接列表/状态/全局项目标签/测试/编辑/打开 |
+
+**关键发现：**
+- DuckDB 联邦查询：仅数据模型透传（`use_duckdb_fed` 字段），后端 connection_manager.rs 无实际联邦查询实现。确认为预留字段，本地加速执行引擎为后续版本功能。
+- specta 绑定过期：`commands.testConnection` 仅有 5 参数（缺 `projectPath`/`password`），但 `handleTest` 使用 `invoke()` 直接调用绕过 specta，功能不受影响。Round 20 修复。
+
+**验证统计：Round 19 验证 8 项，核心链路可用率 100%（8/8）**
+
+### Round 20 修复 — UX 改进 (6 项, 2026-06-12)
+
+基于评估报告建议，修复 P0 + P1 + P2 共 6 项。
+
+| # | 优先级 | 文件 | 问题 | 修复 |
+|:---:|:---:|------|------|------|
+| 145 | 🔴 | bindings.ts + connection.ts | specta 绑定 `testConnection` 缺 `projectPath`/`password` 参数，与后端 7 参数不匹配 | 手动更新 bindings.ts 新增 2 参数，connection.ts service 函数同步更新 |
+| 146 | 🟡 | AddDataSourceDialog.vue | 批量应用无进度反馈，多暂存项同时应用时用户无法感知进度 | 新增 `applyProgress` ref + 模板 footer 进度文本 + CSS |
+| 147 | 🟢 | AddDataSourceDialog.vue | 对话框固定 980px，小屏幕溢出 | `width: min(980px, calc(100vw - 48px))` |
+| 148 | 🟢 | AddDataSourceDialog.vue | 驱动切换无确认，可能意外清空已填表单 | `doDriverChange` 抽取 + `dialog.warning` 确认弹窗 |
+| 149 | 🟢 | useAuthConfig.ts | 认证方式切换时 `onAuthConfigSelect(null)` 误清空 username | `isAuthMethodChanging` 标志 + `nextTick` 重置 |
+| 150 | 🟢 | useDriverRegistry.ts | `loadAll` 缓存不检测项目切换，项目变更后仍使用旧缓存 | `lastProjectPath` 跟踪，项目变更时自动失效缓存 |
+
+**修复统计：Round 20 实际修复 6 项（1 P0 + 1 P1 + 4 P2）**
+
 ## 二、验证结果
 
 | 检查项 | 结果 |
@@ -405,7 +441,7 @@ if (pw) params.password = String(pw)
 | `cargo clippy -- -D warnings` | ✅ 零错误 (2026-06-11) |
 | `pnpm run lint` (ESLint) | ✅ 零错误 (4 预存 warning，仅测试文件) |
 
-## 三、修改文件清单（36 个文件）
+## 三、修改文件清单（38 个文件）
 
 ```
 src-tauri/src/core/services/connection_service.rs ✏️ resolve_network_method_with_project 前缀路由重写
@@ -434,11 +470,15 @@ src/extensions/builtin/connection/ui/components/
   DataSourceHeader.vue                               ✏️ UI 紧凑化 + parseUrl emit + useI18n 导入 (Round 12+13)
 
 src/extensions/builtin/connection/ui/services/
-  connection.ts                                      ✏️ connectDatabase opts 新增 password 字段映射 (Round 17)
+  connection.ts                                      ✏️ connectDatabase opts 新增 password 字段映射 (Round 17) + testConnection 新增 projectPath/password 参数 (Round 20)
 
 src/extensions/builtin/connection/ui/composables/
   useNetworkProfiles.ts                              ✏️ 双数组分离 global·/project· (Round 14)
-  useDriverRegistry.ts                               ✏️ fetched 防重加载 (Round 14)
+  useDriverRegistry.ts                               ✏️ fetched 防重加载 + lastProjectPath 缓存失效 (Round 14+20)
+  useAuthConfig.ts                                   ✏️ isAuthMethodChanging 防止切换清空 username (Round 20)
+
+src/generated/specta/
+  bindings.ts                                        ✏️ testConnection 新增 projectPath/password 参数 (Round 20)
 
 src/shared/locales/
   zh-CN.json                                         ✏️ stagingSwitchTitle/Hint + parseUrl/parseUrlFailed/parseUrlSuccess + duplicateName + applyPartialSuccess/projectConnection/globalConnection (Round 12+13+14)

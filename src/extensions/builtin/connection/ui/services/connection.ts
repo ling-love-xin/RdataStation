@@ -127,7 +127,9 @@ export async function testConnection(
   url: string,
   networkConfigId?: string | null,
   authConfigId?: string | null,
-  authMethod?: string | null
+  authMethod?: string | null,
+  projectPath?: string | null,
+  password?: string | null
 ): Promise<TestConnectionResponse> {
   return typed(
     commands.testConnection(
@@ -135,7 +137,9 @@ export async function testConnection(
       url,
       networkConfigId ?? null,
       authConfigId ?? null,
-      authMethod ?? null
+      authMethod ?? null,
+      projectPath ?? null,
+      password ?? null
     )
   )
 }

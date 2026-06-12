@@ -10,7 +10,7 @@
  * 替代 NetworkTab.vue、AuthConfigManager.vue 中的内联定义。
  */
 import { invoke } from '@tauri-apps/api/core'
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 
 // ==================== Types (canonical) ====================
 
@@ -161,16 +161,24 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
     ]
   })
 
+  // 标记认证方式切换中，防止 onAuthConfigSelect 误清空表单字段
+  const isAuthMethodChanging = ref(false)
+
   // ===== Methods =====
 
   /** 切换认证方式时清空已选配置，并确保当前方式在驱动支持列表内 */
   function onAuthMethodChange() {
+    isAuthMethodChanging.value = true
     selectedAuthConfigId.value = null
+    // 在 nextTick 后重置标志，确保 v-model 触发的 onAuthConfigSelect 已执行完毕
+    nextTick(() => { isAuthMethodChanging.value = false })
     onFormUpdate()
   }
 
   /** 选择已保存的认证配置 → 预填表单字段 */
   function onAuthConfigSelect(configId: string | null) {
+    // 认证方式切换时跳过清空，保留已填写的 username 等字段
+    if (isAuthMethodChanging.value) return
     if (!configId) {
       selectedAuthConfigId.value = null
       local.username = ''

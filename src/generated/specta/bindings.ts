@@ -54,10 +54,12 @@ export const commands = {
     url: string,
     networkConfigId: string | null,
     authConfigId: string | null,
-    authMethod: string | null
+    authMethod: string | null,
+    projectPath: string | null,
+    password: string | null
   ) =>
     typedError<TestConnectionResponse, CoreError>(
-      __TAURI_INVOKE('test_connection', { dbType, url, networkConfigId, authConfigId, authMethod })
+      __TAURI_INVOKE('test_connection', { dbType, url, networkConfigId, authConfigId, authMethod, projectPath, password })
     ),
   /**  测试连接配置（不保存） */
   testConnectionConfig: (config: DriverConnectionConfig) =>

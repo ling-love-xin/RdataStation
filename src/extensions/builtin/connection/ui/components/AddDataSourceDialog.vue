@@ -104,6 +104,9 @@
               >
             </div>
             <div class="footer-spacer" />
+            <span v-if="applyProgress" class="apply-progress">
+              {{ $t('navigator.applying') || '应用进度' }} {{ applyProgress.current }}/{{ applyProgress.total }}
+            </span>
             <NButton @click="handleClose">{{ $t('navigator.cancel') }}</NButton>
             <NButton :loading="testing" @click="handleTest">{{
               $t('navigator.testConnection')
@@ -238,6 +241,7 @@ const manualUri = ref('')
 const testResult = ref<{ success: boolean; message: string; latencyMs?: number } | null>(null)
 const testing = ref(false)
 const saving = ref(false)
+const applyProgress = ref<{ current: number; total: number } | null>(null)
 const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
 const editingConnId = ref<string | null>(null)
@@ -300,6 +304,28 @@ const driverOptions = computed(() => {
 function onDriverChange(driverId: string) {
     // 同一驱动不重复 reset（防止子组件重复 parse schema）
     if (driverId === headerData.selectedDriverId && Object.keys(formData.value).length > 0) return
+
+    const hasData = Object.keys(formData.value).length > 0
+    if (hasData) {
+      const d = dialog.warning({
+        title: t('navigator.switchDriver') || '切换驱动',
+        content: t('navigator.switchDriverConfirm') || '切换驱动将清空已填写的表单数据，是否继续？',
+        positiveText: t('navigator.confirm') || '确认',
+        negativeText: t('navigator.cancel') || '取消',
+        onPositiveClick: () => {
+          d.destroy()
+          doDriverChange(driverId)
+        },
+        onNegativeClick: () => {
+          d.destroy()
+        },
+      })
+      return
+    }
+    doDriverChange(driverId)
+  }
+
+  function doDriverChange(driverId: string) {
     formData.value = {}
     testResult.value = null
     authConfigId.value = null
@@ -938,14 +964,16 @@ async function handleCreateApply() {
   }
 
   saving.value = true
-  let successCount = 0
-  const errors: string[] = []
+    let successCount = 0
+    const errors: string[] = []
+    applyProgress.value = { current: 0, total: validItems.length }
 
-  try {
+    try {
 
-    for (let idx = 0; idx < validItems.length; idx++) {
-      const item = validItems[idx]
-      const originalIndex = stagingItems.value.findIndex(i => i.id === item.id)
+      for (let idx = 0; idx < validItems.length; idx++) {
+        const item = validItems[idx]
+        const originalIndex = stagingItems.value.findIndex(i => i.id === item.id)
+        applyProgress.value = { current: idx + 1, total: validItems.length }
 
       try {
         const driverName = item.driver || 'mysql'
@@ -1063,6 +1091,7 @@ async function handleCreateApply() {
     message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
   } finally {
     saving.value = false
+    applyProgress.value = null
   }
 }
 
@@ -1476,7 +1505,7 @@ watch(
 .datasource-card {
   display: flex;
   flex-direction: column;
-  width: 980px;
+  width: min(980px, calc(100vw - 48px));
   max-height: 88vh;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -1591,5 +1620,11 @@ watch(
 
 .footer-spacer {
   flex: 1;
+}
+
+.apply-progress {
+  font-size: var(--font-size-xs);
+  color: var(--brand-accent);
+  white-space: nowrap;
 }
 </style>
