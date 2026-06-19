@@ -484,7 +484,7 @@ impl ConnectionService {
     }
 
     /// 脱敏 URL 中的密码，替换为 ***
-    pub(crate) fn mask_password_in_url(url: &str) -> String {
+    pub fn mask_password_in_url(url: &str) -> String {
         if let Some(scheme_end) = url.find("://") {
             let prefix = &url[..scheme_end + 3];
             let rest = &url[scheme_end + 3..];
