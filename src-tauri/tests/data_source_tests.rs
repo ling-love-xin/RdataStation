@@ -35,6 +35,7 @@ fn setup_in_memory_db() -> Connection {
             name TEXT,
             network_type TEXT NOT NULL,
             config TEXT NOT NULL,
+            auth_config_id TEXT,
             origin TEXT,
             source_id TEXT,
             snapshot_at TEXT,

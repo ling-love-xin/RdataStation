@@ -1,7 +1,7 @@
 # 新增数据源功能 — 全链路 Checklist + 进度分析
 
-> 最后更新：2026-06-12
-> 状态：20 轮审计，共修复 142 项（2 本轮 + 140 历史），6 假正
+> 最后更新：2026-06-19
+> 状态：22 轮审计，共修复 161 项（11 本轮 + 150 历史），6 假正
 
 ---
 
@@ -433,6 +433,50 @@ if (pw) params.password = String(pw)
 | 150 | 🟢 | useDriverRegistry.ts | `loadAll` 缓存不检测项目切换，项目变更后仍使用旧缓存 | `lastProjectPath` 跟踪，项目变更时自动失效缓存 |
 
 **修复统计：Round 20 实际修复 6 项（1 P0 + 1 P1 + 4 P2）**
+
+### Round 21 修复 — 安全审计 (7 项，2026-06-12)
+
+基于 TRAE-security-review 框架，对 8 个核心文件进行静态代码分析 + 数据流追踪。
+
+| # | 类别 | 严重度 | 置信度 | 文件 | 问题 | 证据（源 → 汇） | 修复 |
+|:---:|------|:---:|:---:|------|------|------|------|
+| 151 | 敏感数据泄露 | MEDIUM | 0.92 | connection_commands.rs:797 | `test_connection` 超时日志写入含明文密码的 URL | `url` 参数（L711）→ `tracing::error!("URL={}", url)`（L797） | `mask_password_in_url(&url)` 脱敏 |
+| 152 | 敏感数据泄露 | MEDIUM | 0.90 | connection_commands.rs:798 | 超时错误消息返回含明文密码的 URL 给前端 | `url` 参数 → `format!("无法在 30 秒内连接到 {}", url)`（L798） | `mask_password_in_url(&url)` 脱敏 |
+| 153 | 敏感数据泄露 | MEDIUM | 0.85 | connection_commands.rs:476 | `ConnectionInfoResponse::from_info` 返回可能含明文密码的 URL | `ConnectionInfo.url`（存储时注入）→ `info.url`（L476）→ 前端 API 响应 | `mask_password_in_url` 脱敏 |
+| 154 | 认证缺陷 | MEDIUM | 0.88 | connection_service.rs:2011-2025 | `load_auth_data_from_db_for_network` 仅查全局 DB，项目级网络认证配置无法加载 | `auth_config_id` → 仅查 `gdb.get_auth_config`（L2016）→ 项目级 auth 被跳过 | 增加项目 DB 回退查询 |
+| 155 | 敏感数据泄露 | LOW | 0.82 | connection_commands.rs:1077-1079 | `get_global_connections` 解密 password 并通过 API 返回明文 | `password_encrypted`（DB）→ `decrypt_password`（L1078）→ `GlobalConnectionInfoResponse.password` → 前端 | 标记为⚠️设计意图（编辑场景需要），建议前端用完即弃 |
+| 156 | 加密 | LOW | 0.80 | crypto.rs:101-115 | 机器 ID 派生自 hostname:user:home 可被同机进程推测 | `build_fallback_id()` → `get_machine_id()` → `derive_key()` | 已使用随机安装盐值（32字节）作为主熵源，机器 ID 为辅助因子 |
+| 157 | 数据泄露 | LOW | 0.82 | network_store.rs:33-51 | `network_configs.config` 列明文存储 SSH/Proxy/SSL 配置 JSON（含 host/port，不含凭据） | 前端 `JSON.stringify(configObj)` → `create_network_config` → `config` 列无加密 | 凭据已分离至 auth_configs（AES加密），config 仅含拓扑信息，风险可控 |
+
+**安全审计统计：7 项发现（0 HIGH / 4 MEDIUM / 3 LOW），0 假正**
+
+### Round 22 修复 — 扩展安全审计 (4 项，2026-06-19)
+
+基于扩展静态代码分析，发现 1 项编译阻断 Bug + 3 项安全/质量问题。
+
+| # | 类别 | 严重度 | 置信度 | 文件 | 问题 | 证据（源 → 汇） | 修复 |
+|:---:|------|:---:|:---:|------|------|------|------|
+| 158 | 编译阻断 | 🔴 CRITICAL | 1.0 | connection_service.rs:1852-1913 | `resolve_network_method_with_project` 内 4 处 `parse_network_config_json` 调用缺少 `project_path` 参数 | 函数签名含 `project_path: Option<&str>` 但 GP_/P_/全局/向后兼容 4 个分支均漏传 | 4 处调用补全 `project_path` 参数（全局分支传 `None`） |
+| 159 | 敏感数据泄露 | MEDIUM | 0.92 | connection_commands.rs:763-766 | `test_connection` 创建临时连接日志含明文密码 URL | `url` 参数（L765）→ `tracing::info!("URL={}", url)` | `mask_password_in_url(&url)` 脱敏 |
+| 160 | 敏感数据泄露 | MEDIUM | 0.90 | connection_commands.rs:939-943 | `test_connection_config` 日志含明文密码 URL | `url` 参数（L942）→ `tracing::info!("url={}", url)` | `mask_password_in_url(&url)` 脱敏 |
+| 161 | 代码质量 | LOW | 0.75 | connection_service.rs:505-514 | `url_has_plaintext_password()` 标记 `#[allow(dead_code)]`，未被调用，与 connection_store.rs 重复 | 死代码标记 | 建议清理或合并到统一位置 |
+
+**扩展审计统计：4 项新发现（1 CRITICAL / 2 MEDIUM / 1 LOW），全部已修复**
+
+**代码质量观察：**
+- `connection_service.rs`（2082 行）和 `connection_commands.rs`（1307 行）超长，建议后续拆分
+- 目标目录（commands/core/persistence/driver）中 `unwrap()/expect()` 仅存在于测试代码
+- 零 `unsafe` 块、零 SQL 注入、零硬编码凭据、零空 catch 块
+
+**豁免项（排除）：**
+- RBAC 缺失：属于未实现功能，非漏洞（§8.2）
+- 审计日志缺失：属于未实现功能，非漏洞（§8.1）
+- DoS/资源耗尽：不在审计范围（§8.1）
+- SQL 注入：100% 使用 rusqlite `params![]` 参数化查询，无注入点
+- XSS：Vue 模板自动转义，无 `v-html` 使用
+- 硬编码密钥：密钥派生自随机盐值 + 机器 ID，无硬编码密钥
+- 命令注入：无 shell 调用路径
+- 不安全反序列化：无 `eval`/`Function`/`exec` 使用
 
 ## 二、验证结果
 

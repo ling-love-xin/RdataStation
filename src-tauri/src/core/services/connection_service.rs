@@ -1853,6 +1853,7 @@ pub async fn resolve_network_method_with_project(
                         &network_type,
                         &config_str,
                         auth_config_id.as_deref(),
+                        project_path,
                     )
                     .await;
                 }
@@ -1874,6 +1875,7 @@ pub async fn resolve_network_method_with_project(
                         &network_type,
                         &config_str,
                         auth_config_id.as_deref(),
+                        project_path,
                     )
                     .await;
                 }
@@ -1891,6 +1893,7 @@ pub async fn resolve_network_method_with_project(
                     &net.network_type,
                     &net.config,
                     net.auth_config_id.as_deref(),
+                    None,
                 )
                 .await;
             }
@@ -1909,6 +1912,7 @@ pub async fn resolve_network_method_with_project(
                         &network_type,
                         &config_str,
                         auth_config_id.as_deref(),
+                        project_path,
                     )
                     .await;
                 }
@@ -1948,6 +1952,7 @@ pub async fn parse_network_config_json(
     network_type: &str,
     config_json: &str,
     auth_config_id: Option<&str>,
+    project_path: Option<&str>,
 ) -> Result<Option<ConnectionMethod>, CoreError> {
     match network_type {
         "chain" => {
@@ -1966,7 +1971,7 @@ pub async fn parse_network_config_json(
 
             // 如果有 auth_config_id，从 auth_configs 读取网络认证并注入
             if let Some(auth_id) = auth_config_id {
-                if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id).await? {
+                if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id, project_path).await? {
                     ssh_config = inject_ssh_auth_from_auth_data(ssh_config, &auth_data);
                 }
             }
@@ -1986,7 +1991,7 @@ pub async fn parse_network_config_json(
 
             // 如果有 auth_config_id，从 auth_configs 读取网络认证并注入
             if let Some(auth_id) = auth_config_id {
-                if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id).await? {
+                if let Some(auth_data) = load_auth_data_from_db_for_network(auth_id, project_path).await? {
                     proxy_config = inject_proxy_auth_from_auth_data(proxy_config, &auth_data);
                 }
             }
@@ -2010,6 +2015,7 @@ pub async fn parse_network_config_json(
 /// 而 `load_auth_data_from_db` 用于加载数据库认证
 async fn load_auth_data_from_db_for_network(
     auth_config_id: &str,
+    project_path: Option<&str>,
 ) -> Result<Option<String>, CoreError> {
     // 优先从全局数据库读取
     if let Some(gdb) = crate::core::migration::get_global_db_manager() {
@@ -2020,7 +2026,25 @@ async fn load_auth_data_from_db_for_network(
         }
     }
 
-    // 全局没有找到时返回 None
+    // 全局未找到，尝试从项目数据库读取（项目级网络认证配置）
+    if let Some(pp) = project_path {
+        let db_path = std::path::Path::new(pp)
+            .join(".RSmeta")
+            .join("project.db");
+        if db_path.exists() {
+            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                if let Ok(Some(auth_config)) =
+                    crate::core::persistence::auth_store::get_auth_config(&conn, auth_config_id)
+                {
+                    let auth_data = crate::core::persistence::auth_store::decrypt_auth_data(
+                        &auth_config.auth_data,
+                    )?;
+                    return Ok(Some(auth_data));
+                }
+            }
+        }
+    }
+
     Ok(None)
 }
 

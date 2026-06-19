@@ -192,9 +192,12 @@ impl DriverConnectionConfig {
     /// 转换为数据库连接 URL
     ///
     /// 优先级: url_override > url_template > hardcoded match (legacy fallback)
+    /// 无论哪个路径，始终追加 driver_properties / options / encoding 等查询参数
     pub fn to_url(&self) -> Result<String, CoreError> {
         if let Some(ref url) = self.url_override {
-            return Ok(url.clone());
+            let mut url = url.clone();
+            self.append_query_params(&mut url);
+            return Ok(url);
         }
         // Preferred: use url_template from driver descriptor
         if let Some(ref template) = self.url_template {

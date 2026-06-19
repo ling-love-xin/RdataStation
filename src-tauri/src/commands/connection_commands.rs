@@ -360,6 +360,7 @@ async fn parse_network_method(
                         &network_type,
                         &config_str,
                         auth_config_id.as_deref(),
+                        input.project_id.as_deref(),
                     )
                     .await;
                 }
@@ -381,6 +382,7 @@ async fn parse_network_method(
                         &network_type,
                         &config_str,
                         auth_config_id.as_deref(),
+                        input.project_id.as_deref(),
                     )
                     .await;
                 }
@@ -396,6 +398,7 @@ async fn parse_network_method(
                     &net.network_type,
                     &net.config,
                     net.auth_config_id.as_deref(),
+                    None,
                 )
                 .await;
             }
@@ -415,6 +418,7 @@ async fn parse_network_method(
                         &network_type,
                         &config_str,
                         auth_config_id.as_deref(),
+                        input.project_id.as_deref(),
                     )
                     .await;
                 }

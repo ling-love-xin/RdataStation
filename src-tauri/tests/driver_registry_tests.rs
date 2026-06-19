@@ -215,3 +215,112 @@ fn test_driver_descriptor_serialization() {
     let deserialized: DriverDescriptor = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.id, "mysql");
 }
+
+// ========== url_override + driver_properties 回归测试（Round 22 Bug 修复）==========
+
+#[test]
+fn test_url_override_preserves_driver_properties() {
+    // Bug: url_override 路径直接返回 URL，跳过 append_query_params()
+    // 修复: url_override 路径也调用 append_query_params() 追加 driver_properties
+    let mut config = DriverConnectionConfig::new("mysql")
+        .with_url_override("mysql://root:root@localhost:3306/testdb");
+    config.driver_properties.insert(
+        "allowPublicKeyRetrieval".to_string(),
+        "TRUE".to_string(),
+    );
+    config.driver_properties.insert(
+        "useSSL".to_string(),
+        "false".to_string(),
+    );
+
+    let url = config.to_url().unwrap();
+    assert!(
+        url.contains("allowPublicKeyRetrieval=TRUE"),
+        "url_override 路径应包含 driver_properties: {}",
+        url
+    );
+    assert!(
+        url.contains("useSSL=false"),
+        "url_override 路径应包含 driver_properties: {}",
+        url
+    );
+    assert!(
+        url.starts_with("mysql://root:root@localhost:3306/testdb?"),
+        "URL 应以问号分隔 query params: {}",
+        url
+    );
+}
+
+#[test]
+fn test_url_override_with_options_and_properties() {
+    let mut config = DriverConnectionConfig::new("mysql")
+        .with_url_override("mysql://root:root@localhost:3306/testdb")
+        .with_option("charset", "utf8mb4");
+    config.driver_properties.insert(
+        "allowPublicKeyRetrieval".to_string(),
+        "TRUE".to_string(),
+    );
+
+    let url = config.to_url().unwrap();
+    assert!(url.contains("charset=utf8mb4"));
+    assert!(url.contains("allowPublicKeyRetrieval=TRUE"));
+}
+
+#[test]
+fn test_url_override_with_encoding() {
+    let config = DriverConnectionConfig::new("mysql")
+        .with_url_override("mysql://root:root@localhost:3306/testdb")
+        .with_encoding("GBK");
+
+    let url = config.to_url().unwrap();
+    assert!(url.contains("charset=gbk"), "encoding GBK 应映射为 charset=gbk: {}", url);
+}
+
+#[test]
+fn test_url_override_with_connect_timeout() {
+    let config = DriverConnectionConfig::new("mysql")
+        .with_url_override("mysql://root:root@localhost:3306/testdb")
+        .with_connect_timeout(30);
+
+    let url = config.to_url().unwrap();
+    assert!(url.contains("connect_timeout=30"), "应包含 connect_timeout: {}", url);
+}
+
+#[test]
+fn test_url_override_no_duplicate_params() {
+    // 确保 options 中已有的 key 不被 driver_properties 覆盖
+    let mut config = DriverConnectionConfig::new("mysql")
+        .with_url_override("mysql://root:root@localhost:3306/testdb")
+        .with_option("allowPublicKeyRetrieval", "false");
+    config.driver_properties.insert(
+        "allowPublicKeyRetrieval".to_string(),
+        "TRUE".to_string(),
+    );
+
+    let url = config.to_url().unwrap();
+    // options 优先，driver_properties 不覆盖
+    assert!(
+        url.contains("allowPublicKeyRetrieval=false"),
+        "options 中的值应优先于 driver_properties: {}",
+        url
+    );
+}
+
+#[test]
+fn test_url_override_empty_driver_properties() {
+    // 空 driver_properties 不应导致 crash 或多余 ?
+    let config = DriverConnectionConfig::new("mysql")
+        .with_url_override("mysql://root:root@localhost:3306/testdb");
+
+    let url = config.to_url().unwrap();
+    assert_eq!(
+        url, "mysql://root:root@localhost:3306/testdb",
+        "空 driver_properties 时 URL 不应改变: {}",
+        url
+    );
+    assert!(
+        !url.contains('?'),
+        "空 params 时不应有问号: {}",
+        url
+    );
+}

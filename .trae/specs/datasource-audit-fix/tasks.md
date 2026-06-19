@@ -247,3 +247,23 @@
 - [x] Task 40: 编译验证（Round 20）
   - [x] 40.1: ESLint 0 errors
   - [x] 40.2: cargo check 0 errors
+
+- [x] Task 41: 安全审计 — 敏感数据泄露修复（Round 21）
+  - [x] 41.1: test_connection 超时日志脱敏（mask_password_in_url）
+  - [x] 41.2: test_connection 超时错误消息脱敏
+  - [x] 41.3: ConnectionInfoResponse::from_info URL 脱敏
+  - [x] 41.4: cargo check 通过
+
+- [x] Task 42: 安全审计 — 认证缺陷修复（Round 21）
+  - [x] 42.1: load_auth_data_from_db_for_network 增加项目 DB 回退查询
+  - [x] 42.2: cargo check 通过
+
+- [x] Task 43: 安全审计 — 文档更新（Round 21）
+  - [x] 43.1: checklist.md 新增 Round 21 安全审计 7 项发现
+  - [x] 43.2: 豁免项说明（SQL注入/XSS/硬编码密钥/命令注入/RBAC）
+
+- [x] Task 44: 扩展安全审计 — 编译阻断 + 日志泄露修复（Round 22）
+  - [x] 44.1: `resolve_network_method_with_project` 内 4 处 `parse_network_config_json` 调用补全 `project_path` 参数
+  - [x] 44.2: `test_connection` 创建临时连接日志脱敏（mask_password_in_url）
+  - [x] 44.3: `test_connection_config` 日志脱敏（mask_password_in_url）
+  - [x] 44.4: cargo check 通过
