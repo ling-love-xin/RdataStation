@@ -6,8 +6,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [vue()],
   test: {
-    environment: 'happy-dom',
+    environment: 'jsdom',
     globals: true,
+    setupFiles: ['src/test-setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.spec.ts', 'tests/**/*.spec.ts'],
     coverage: {
       reporter: ['text', 'json', 'html'],

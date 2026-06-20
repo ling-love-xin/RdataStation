@@ -343,7 +343,7 @@ impl SmartPool {
     }
 
     /// 检查是否需要扩容
-    async fn should_scale_up(&self) -> bool {
+    pub async fn should_scale_up(&self) -> bool {
         let inner = self.inner.lock().await;
         if !inner.config.enable_dynamic_scaling {
             return false;
@@ -362,7 +362,7 @@ impl SmartPool {
     }
 
     /// 检查是否需要缩容
-    async fn should_scale_down(&self) -> bool {
+    pub async fn should_scale_down(&self) -> bool {
         let inner = self.inner.lock().await;
         if !inner.config.enable_dynamic_scaling {
             return false;
@@ -455,7 +455,7 @@ impl SmartPool {
     }
 
     /// 执行扩容
-    async fn scale_up(&self) {
+    pub async fn scale_up(&self) {
         let mut inner = self.inner.lock().await;
         let step = inner.config.scale_up_step;
         let current_size = inner.connections.len() as u32;
@@ -473,7 +473,7 @@ impl SmartPool {
     }
 
     /// 执行缩容
-    async fn scale_down(&self) {
+    pub async fn scale_down(&self) {
         let mut inner = self.inner.lock().await;
         let step = inner.config.scale_down_step;
         let current_size = inner.connections.len() as u32;
@@ -576,7 +576,7 @@ impl SmartPool {
     }
 
     /// 记录连接获取
-    async fn record_acquire(&self, latency_ms: f64) {
+    pub async fn record_acquire(&self, latency_ms: f64) {
         let mut inner = self.inner.lock().await;
         inner.stats.total_acquires += 1;
         inner.stats.avg_acquire_ms = latency_ms;
