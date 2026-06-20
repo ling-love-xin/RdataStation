@@ -4,7 +4,7 @@
  * 测试 openSavedConnection / testSavedConnection 的纯逻辑流程，
  * 通过 mock deps 验证 URL 构建、状态更新、事件派发等调用链。
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import type { ProjectConnection } from '../../../types/connection'
 

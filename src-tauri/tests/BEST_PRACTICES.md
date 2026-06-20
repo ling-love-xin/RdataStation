@@ -1,6 +1,6 @@
 # RdataStation 数据库连接配置最佳实践
 
-> 版本：v2.0
+> 版本：v2.1
 > 日期：2026-06-20
 > 基于 v0.5.3 安全审计与测试结果
 
@@ -36,7 +36,7 @@ url_override > url_template > 硬编码匹配（legacy fallback）
 | 网络认证 | 网络认证配置支持全局 + 项目级双层查询 | `data_source_commands_integration_tests.rs` |
 | 驱动属性 | `url_override` 路径也正确追加 `driver_properties` | `connection_commands_tests.rs`（22 用例） |
 
-### 1.3 安全审计已知问题（v2.0 新增）
+### 1.3 安全审计已知问题（v2.1 更新）
 
 | 编号 | 问题 | 风险 | 状态 |
 |------|------|------|------|
@@ -48,6 +48,9 @@ url_override > url_template > 硬编码匹配（legacy fallback）
 | SEC-006 | `build_postgres_url` 不编码特殊字符密码 | 🟡 中危 | ⚠️ 已知限制 |
 | SEC-007 | `scale_down` 在空池下 u32 下溢 | 🟢 低危 | ✅ 已修复 |
 | SEC-008 | `SslConfig::default()` 的 `verify_server_cert` 默认为 `false` | 🟢 低危 | ⚠️ 已知限制 |
+| SEC-009 | `test_connection` 创建临时连接的日志含明文密码 URL | 🔴 高危 | ✅ 已修复 |
+| SEC-010 | `test_connection_config` 日志含明文密码 URL | 🔴 高危 | ✅ 已修复 |
+| SEC-011 | `get_recent_connections` 返回含明文密码 URL | 🔴 高危 | ✅ 已修复 |
 
 ---
 
@@ -643,9 +646,212 @@ cargo test --test connection_commands_tests mask_password -- --nocapture
 
 ---
 
-## 十一、版本历史
+## 十一、前端最佳实践（v2.1 新增）
+
+### 11.1 新增数据源对话框状态管理
+
+基于 v0.5.3 深度审计中发现的 8 个功能缺陷和 3 个 UI/UX 问题，总结以下最佳实践：
+
+#### 表单校验
+
+```typescript
+// ✅ 正确：保存前必须校验关键字段，与测试连接保持一致
+function saveToStaging() {
+  // 1. 驱动选择校验
+  if (!selectedDriver.value) return message.warning('请选择数据库类型')
+
+  // 2. 表单校验（validate 函数）
+  const validation = validate()
+  if (!validation.valid) return message.warning(firstError)
+
+  // 3. 作用域校验
+  if (!scope.global && !scope.project) return message.warning('请选择保存位置')
+
+  // 4. 连接字段前置校验（host/port/database，与 handleTest 保持一致）
+  if (!selectedDriver.value.is_file) {
+    if (!fd.host) return message.warning('请输入主机地址')
+    if (port < 1 || port > 65535) return message.warning('端口号必须在 1-65535 之间')
+    if (!fd.database) return message.warning('请输入数据库名')
+  }
+  // ... 后续保存逻辑
+}
+```
+
+#### 驱动切换状态清理
+
+```typescript
+// ✅ 正确：切换驱动时必须清空所有驱动相关状态
+function doDriverChange(driverId: string) {
+  formData.value = {}           // 表单数据
+  testResult.value = null       // 测试结果
+  authConfigId.value = null     // 认证配置
+  authMethod.value = 'password' // 认证方式（重置默认值）
+  selectedEnvId.value = null    // 环境
+  networkConfigId.value = null  // 网络配置
+  driverPropertiesExtra.value = null  // 驱动属性
+  advancedOptions.value = null  // 高级选项
+  schemaName.value = null       // Schema 名称
+  options.value = null          // 选项
+  metadataPath.value = null     // 元数据路径
+  tags.value = null             // 标签
+  useDuckdbFed.value = null     // DuckDB 联邦
+  manualUri.value = ''          // 手动 URI
+  uriEditing.value = false      // URI 编辑模式
+}
+```
+
+#### 初始化数据保护
+
+```typescript
+// ✅ 正确：使用 isRestoring 标志防止初始化时触发 dirty 状态
+const isRestoring = ref(false)
+
+watch(() => props.modelValue, async (open) => {
+  if (open) {
+    isRestoring.value = true
+    stagingDirty.value = false
+    // ... 初始化逻辑
+    await nextTick()
+    isRestoring.value = false  // 初始化完成后重置
+  }
+})
+
+// ✅ 正确：使用 try/finally 保证标志重置
+async function handleSelectStaging(i: number) {
+  isRestoring.value = true
+  try {
+    // ... 恢复暂存项逻辑
+  } finally {
+    isRestoring.value = false
+  }
+}
+```
+
+#### 编辑模式同步
+
+```typescript
+// ✅ 正确：编辑模式下先同步当前表单到暂存，再执行更新
+async function handleEditApply() {
+  if (!editingConnId.value) return
+
+  syncCurrentToStaging()  // 必须先同步
+
+  // ... 后续校验和更新逻辑
+}
+```
+
+#### 删除确认
+
+```typescript
+// ✅ 正确：删除操作必须有确认对话框
+function handleRemoveStaging(i: number) {
+  const item = stagingItems.value[i]
+  if (!item?.name) { removeStaging(i); return }
+
+  dialog.warning({
+    title: '删除暂存项',
+    content: `确定要删除暂存项 "${item.name}" 吗？此操作不可撤销。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: () => removeStaging(i),
+  })
+}
+```
+
+#### 网络配置作用域清理
+
+```typescript
+// ✅ 正确：作用域从"全局+项目"切到"仅全局"时，清除项目级配置缓存
+watch(
+  () => props.scope?.project,
+  async (isProject) => {
+    if (isProject) {
+      const pp = await getProjectPath()
+      if (pp) await loadAllProject(pp)
+    } else {
+      // 项目作用域取消时，重新加载全局配置，清除项目级配置缓存
+      await loadAll()
+    }
+  }
+)
+```
+
+#### 文件数据库默认路径
+
+```typescript
+// ✅ 正确：切换到文件数据库时自动填充默认路径
+watch(() => props.driver?.id, () => {
+  if (props.driver?.is_file && !local.file_path) {
+    const ext = props.driver.id === 'duckdb' ? 'duckdb' : 'db'
+    const defaultName = props.driver.id === 'duckdb' ? 'data.duckdb' : 'data.db'
+    local.file_path = homeDir ? `${homeDir}/${defaultName}` : `./${defaultName}`
+  }
+})
+```
+
+### 11.2 UI/UX 最佳实践
+
+#### 按钮状态分离
+
+```typescript
+// ✅ 正确：三个操作按钮各自独立 loading 状态
+const testing = ref(false)   // 测试连接
+const saving = ref(false)    // 保存
+const applying = ref(false)  // 应用
+
+// 模板中：
+// <NButton :loading="testing" @click="handleTest">测试连接</NButton>
+// <NButton type="primary" :loading="saving" @click="handleSave">保存</NButton>
+// <NButton type="primary" secondary :loading="applying" @click="handleApply">应用</NButton>
+```
+
+#### 测试成功自动同步
+
+```typescript
+// ✅ 正确：测试连接成功后自动同步当前表单到暂存
+async function onTestModalClose() {
+  showTestModal.value = false
+  if (!lastTestResult.value?.success) return
+
+  // 测试成功后自动同步当前表单到暂存
+  syncCurrentToStaging()
+
+  // 询问是否保存认证配置
+  // ...
+}
+```
+
+#### 实时警告提示
+
+```vue
+<!-- ✅ 正确：当勾选"项目连接"但未打开项目时，显示实时警告 -->
+<NAlert
+  v-if="scope.project && !projectStore.hasProject"
+  type="info"
+  class="scope-warning"
+  :bordered="false"
+>
+  请先打开或创建一个项目，才能使用项目连接功能
+</NAlert>
+```
+
+### 11.3 安全覆盖地图（v2.1 完整版）
+
+| 函数/方法 | 文件 | 脱敏状态 |
+|-----------|------|----------|
+| `test_connection` 超时日志 | `connection_service.rs` | ✅ 已脱敏 |
+| `test_connection` 超时错误消息 | `connection_service.rs` | ✅ 已脱敏 |
+| `test_connection` 临时连接日志 | `connection_commands.rs` | ✅ 已脱敏 |
+| `test_connection_config` 连接日志 | `connection_commands.rs` | ✅ 已脱敏 |
+| `ConnectionInfoResponse::from_info` | `connection_commands.rs` | ✅ 已脱敏 |
+| `get_recent_connections` | `connection_commands.rs` | ✅ 已脱敏 |
+
+---
+
+## 十二、版本历史
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v2.1 | 2026-06-20 | 深度审计补充：新增 SEC-009~SEC-011（3 个高危 URL 脱敏修复）、前端最佳实践（8 个功能缺陷 + 3 个 UI/UX 优化代码示例）、安全覆盖地图（6 处脱敏点完整清单） |
 | v2.0 | 2026-06-20 | 新增安全审计章节（SEC-001~SEC-008）、安全配置（SQLite/DuckDB/MySQL/PostgreSQL 生产环境）、密码脱敏代码示例、网络配置协议链引擎、前端测试指南、一键测试脚本 |
 | v1.0 | 2026-06-19 | 初始版本：SQLite/DuckDB/MySQL/PostgreSQL 配置、DriverConnectionConfig 通用规范、认证配置、常见问题排查 |

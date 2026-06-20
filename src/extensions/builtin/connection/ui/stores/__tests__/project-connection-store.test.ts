@@ -4,9 +4,12 @@
  * 测试所有 state / getters / actions
  * 依赖 @/core/project/stores/project、project-connection service 均 mock
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { ProjectConnection, ConnectionStatus } from '../../../types/connection'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+import { useProjectConnectionStore } from '../project-connection-store'
+
+import type { ProjectConnection } from '../../../types/connection'
 
 // ==================== Mock 数据 ====================
 
@@ -84,7 +87,6 @@ vi.mock('../../services/project-connection', () => ({
 
 // ==================== Store 导入 ====================
 
-import { useProjectConnectionStore } from '../project-connection-store'
 
 // ==================== 测试辅助 ====================
 

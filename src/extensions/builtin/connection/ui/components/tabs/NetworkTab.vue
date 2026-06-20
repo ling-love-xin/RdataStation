@@ -1206,6 +1206,9 @@ watch(
     if (isProject) {
       const pp = await getProjectPath()
       if (pp) await loadAllProject(pp)
+    } else {
+      // 项目作用域取消时，重新加载全局配置，清除项目级配置缓存
+      await loadAll()
     }
   }
 )

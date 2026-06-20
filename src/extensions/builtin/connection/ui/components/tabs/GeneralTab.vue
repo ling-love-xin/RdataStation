@@ -867,6 +867,12 @@ watch(
     updateSupportedAuthTypes(types)
     // 更新 config_schema 衍生字段
     updateAdvancedSchemaFields()
+    // 文件数据库：自动填充默认文件路径
+    if (props.driver?.is_file && !local.file_path) {
+      const defaultName = props.driver.id === 'duckdb' ? 'data.duckdb' : 'data.db'
+      const homeDir = typeof window !== 'undefined' ? (window as any).__TAURI_INTERNALS__?.metadata?.homeDir || '' : ''
+      local.file_path = homeDir ? `${homeDir}/${defaultName}` : `./${defaultName}`
+    }
     emitUpdate()
   },
   { immediate: true }

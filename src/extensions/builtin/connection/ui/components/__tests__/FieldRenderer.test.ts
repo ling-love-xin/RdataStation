@@ -3,6 +3,7 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+
 import FieldRenderer from '../FieldRenderer.vue'
 
 // Minimal mock for vue-i18n

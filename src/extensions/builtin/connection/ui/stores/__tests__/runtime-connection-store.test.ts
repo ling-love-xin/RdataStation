@@ -6,9 +6,10 @@
  *
  * buildConnectionUrl 是 store 私有函数，提取为纯函数独立测试
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { ProjectConnection } from '../../../types/connection'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+
 import type { Connection, ConnectionMeta, ConnectionType } from '@/shared/types'
 
 // ==================== 纯函数：buildConnectionUrl ====================
@@ -163,6 +164,8 @@ vi.mock('../../services/connection', () => ({
 // ==================== Store 导入 ====================
 
 import { useRuntimeConnectionStore } from '../runtime-connection-store'
+
+import type { ProjectConnection } from '../../../types/connection'
 
 // ==================== 测试辅助 ====================
 

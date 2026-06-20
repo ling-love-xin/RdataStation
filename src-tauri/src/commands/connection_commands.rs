@@ -473,11 +473,12 @@ pub struct ConnectionInfoResponse {
 
 impl ConnectionInfoResponse {
     fn from_info(info: crate::core::services::connection_manager::ConnectionInfo, is_active: bool) -> Self {
+        let masked_url = ConnectionService::mask_password_in_url(&info.url);
         Self {
             id: info.id,
             name: info.name,
             db_type: info.db_type,
-            url: info.url,
+            url: masked_url,
             connection_type: info.connection_type.to_string(),
             project_id: info.project_id,
             status: "connected".to_string(),
@@ -589,19 +590,22 @@ pub async fn get_recent_connections() -> Result<Vec<RecentConnectionResponse>, C
 
     Ok(connections
         .into_iter()
-        .map(|c| RecentConnectionResponse {
-            name: c.name,
-            db_type: c.db_type,
-            url: c.url,
-            last_used_at: c.last_used_at.to_rfc3339(),
-            description: c.description,
-            driver_id: c.driver_id,
-            environment_id: c.environment_id,
-            auth_config_id: c.auth_config_id,
-            auth_method: c.auth_method,
-            network_config_id: c.network_config_id,
-            driver_properties: c.driver_properties,
-            advanced_options: c.advanced_options,
+        .map(|c| {
+            let masked_url = ConnectionService::mask_password_in_url(&c.url);
+            RecentConnectionResponse {
+                name: c.name,
+                db_type: c.db_type,
+                url: masked_url,
+                last_used_at: c.last_used_at.to_rfc3339(),
+                description: c.description,
+                driver_id: c.driver_id,
+                environment_id: c.environment_id,
+                auth_config_id: c.auth_config_id,
+                auth_method: c.auth_method,
+                network_config_id: c.network_config_id,
+                driver_properties: c.driver_properties,
+                advanced_options: c.advanced_options,
+            }
         })
         .collect())
 }
@@ -759,9 +763,10 @@ pub async fn test_connection(
     }
 
     // 没有已有连接，创建临时测试连接（30秒超时保护）
+    let masked_url = ConnectionService::mask_password_in_url(&url);
     tracing::info!(
         "测试连接：创建临时连接进行测试（URL={}，network_config={:?}，auth_config={:?}，auth_method={:?}）",
-        url, network_config_id, auth_config_id, auth_method
+        masked_url, network_config_id, auth_config_id, auth_method
     );
 
     let test_input = ConnectDatabaseInput {
@@ -798,8 +803,8 @@ pub async fn test_connection(
             return Err(format!("连接失败: {}", e).into());
         }
         Err(_elapsed) => {
-            tracing::error!("测试连接超时（30秒），URL={}", url);
-            return Err(format!("连接超时（30秒）: 无法在 30 秒内连接到 {}", url).into());
+            tracing::error!("测试连接超时（30秒），URL={}", masked_url);
+            return Err(format!("连接超时（30秒）: 无法在 30 秒内连接到 {}", masked_url).into());
         }
     };
 
@@ -934,10 +939,11 @@ pub async fn test_connection_config(config: DriverConnectionConfig) -> Result<()
     let service = ConnectionService::new(manager);
 
     // 创建临时测试连接
+    let masked_url = ConnectionService::mask_password_in_url(&url);
     tracing::info!(
         "测试连接配置：创建临时连接（driver={}, url={}）",
         config.driver,
-        url
+        masked_url
     );
     let (conn_id, db) = service
         .connect(None, &config.driver, &url, Some("test".to_string()))

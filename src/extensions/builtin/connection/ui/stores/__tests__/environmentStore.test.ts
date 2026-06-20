@@ -4,7 +4,7 @@
  * 测试 forScope、getById、computed 属性等纯逻辑函数。
  * CRUD 操作依赖 Tauri invoke，仅测试错误处理逻辑流程。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
 import type { Environment, EnvironmentPolicy } from '../environmentStore'

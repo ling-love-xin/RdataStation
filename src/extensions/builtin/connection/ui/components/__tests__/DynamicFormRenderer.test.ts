@@ -3,6 +3,7 @@
  */
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
+
 import DynamicFormRenderer from '../DynamicFormRenderer.vue'
 
 vi.mock('vue-i18n', () => ({

@@ -5,7 +5,6 @@
  * applyPolicyConfig、dropOpts 等，通过直接操作 ref 来驱动 computed 重新计算。
  */
 import { describe, expect, it } from 'vitest'
-import { ref } from 'vue'
 
 import { useSecurityPolicies } from '../useSecurityPolicies'
 

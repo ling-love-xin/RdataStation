@@ -58,6 +58,15 @@
             {{ $t('navigator.scopeChangeWarning') }}
           </NAlert>
 
+          <NAlert
+            v-if="scope.project && !projectStore.hasProject"
+            type="info"
+            class="scope-warning"
+            :bordered="false"
+          >
+            {{ $t('navigator.projectScopeNoProject') || '请先打开或创建一个项目，才能使用项目连接功能' }}
+          </NAlert>
+
           <!-- Tabs -->
           <NTabs v-model:value="activeTab" type="line" size="small" class="dlg-tabs">
             <NTabPane name="general" :tab="$t('navigator.tabGeneral')">
@@ -114,7 +123,7 @@
             <NButton type="primary" :loading="saving" @click="handleSave">{{
               $t('navigator.save')
             }}</NButton>
-            <NButton type="primary" secondary :loading="saving" @click="handleApply">
+            <NButton type="primary" secondary :loading="applying" @click="handleApply">
               {{ $t('navigator.apply') }}
             </NButton>
           </div>
@@ -241,6 +250,7 @@ const manualUri = ref('')
 const testResult = ref<{ success: boolean; message: string; latencyMs?: number } | null>(null)
 const testing = ref(false)
 const saving = ref(false)
+const applying = ref(false)
 const applyProgress = ref<{ current: number; total: number } | null>(null)
 const savingAuth = ref(false) // 防重复调用 create_auth_config
 const isEditing = ref(false)
@@ -331,6 +341,16 @@ function onDriverChange(driverId: string) {
     authConfigId.value = null
     authMethod.value = 'password'
     selectedEnvId.value = null
+    networkConfigId.value = null
+    driverPropertiesExtra.value = null
+    advancedOptions.value = null
+    schemaName.value = null
+    options.value = null
+    metadataPath.value = null
+    tags.value = null
+    useDuckdbFed.value = null
+    manualUri.value = ''
+    uriEditing.value = false
     // Set file DB flag for URI preview
     const d = drivers.value.find(x => x.id === driverId)
     setFileDb(d?.is_file ?? false)
@@ -429,7 +449,20 @@ function handleAddStaging() {
 }
 
 function handleRemoveStaging(i: number) {
-  removeStaging(i)
+  const item = stagingItems.value[i]
+  if (!item || !item.name) {
+    removeStaging(i)
+    return
+  }
+  dialog.warning({
+    title: t('navigator.deleteStagingTitle') || '删除暂存项',
+    content: (t('navigator.deleteStagingConfirm') || '确定要删除暂存项 "{name}" 吗？此操作不可撤销。').replace('{name}', item.name || ''),
+    positiveText: t('navigator.confirm') || '确认删除',
+    negativeText: t('navigator.cancel') || '取消',
+    onPositiveClick: () => {
+      removeStaging(i)
+    },
+  })
 }
 
 async function handleSelectStaging(i: number) {
@@ -452,45 +485,48 @@ async function handleSelectStaging(i: number) {
   selectStaging(i)
   stagingDirty.value = false
   isRestoring.value = true
-  const s = stagingItems.value[i]
-  if (!s) return
-  headerData.name = s.name || ''
-  headerData.description = s.description || ''
-  if (s.driver) {
-    const d = drivers.value.find(x => x.name.toLowerCase() === s.driver?.toLowerCase())
-    if (d) {
-      selectedTypeId.value = d.type_id
-      headerData.selectedDriverId = d.id
+  try {
+    const s = stagingItems.value[i]
+    if (!s) return
+    headerData.name = s.name || ''
+    headerData.description = s.description || ''
+    if (s.driver) {
+      const d = drivers.value.find(x => x.name.toLowerCase() === s.driver?.toLowerCase())
+      if (d) {
+        selectedTypeId.value = d.type_id
+        headerData.selectedDriverId = d.id
+      }
+    } else if (s.driverId) {
+      headerData.selectedDriverId = s.driverId
+      const d = drivers.value.find(x => x.id === s.driverId)
+      if (d) selectedTypeId.value = d.type_id
     }
-  } else if (s.driverId) {
-    headerData.selectedDriverId = s.driverId
-    const d = drivers.value.find(x => x.id === s.driverId)
-    if (d) selectedTypeId.value = d.type_id
-  }
-  formData.value = s.formData ? { ...s.formData } : {}
-  if (s.scope) {
-    if (s.scope === 'both') {
-      scope.global = true
-      scope.project = true
-    } else {
-      scope.global = s.scope === 'global'
-      scope.project = s.scope === 'project'
+    formData.value = s.formData ? { ...s.formData } : {}
+    if (s.scope) {
+      if (s.scope === 'both') {
+        scope.global = true
+        scope.project = true
+      } else {
+        scope.global = s.scope === 'global'
+        scope.project = s.scope === 'project'
+      }
     }
+    networkConfigId.value = s.networkConfigId ?? null
+    driverPropertiesExtra.value = s.driverProperties ?? null
+    advancedOptions.value = s.advancedOptions ?? null
+    selectedEnvId.value = s.environmentId ?? null
+    authConfigId.value = s.authConfigId ?? null
+    authMethod.value = s.authMethod ?? 'password'
+    schemaName.value = s.schemaName ?? null
+    options.value = s.options ?? null
+    metadataPath.value = s.metadataPath ?? null
+    tags.value = s.tags ?? null
+    useDuckdbFed.value = s.useDuckdbFed ?? null
+    testResult.value = null
+    await nextTick()
+  } finally {
+    isRestoring.value = false
   }
-  networkConfigId.value = s.networkConfigId ?? null
-  driverPropertiesExtra.value = s.driverProperties ?? null
-  advancedOptions.value = s.advancedOptions ?? null
-  selectedEnvId.value = s.environmentId ?? null
-  authConfigId.value = s.authConfigId ?? null
-  authMethod.value = s.authMethod ?? 'password'
-  schemaName.value = s.schemaName ?? null
-  options.value = s.options ?? null
-  metadataPath.value = s.metadataPath ?? null
-  tags.value = s.tags ?? null
-  useDuckdbFed.value = s.useDuckdbFed ?? null
-  testResult.value = null
-  await nextTick()
-  isRestoring.value = false
 }
 
 async function handleTest() {
@@ -587,6 +623,9 @@ async function onTestModalClose() {
 
   if (savingAuth.value) return
   if (!lastTestResult.value?.success) return
+
+  // 测试成功后自动同步当前表单到暂存
+  syncCurrentToStaging()
 
   const fd = formData.value
   const authType = authMethod.value
@@ -737,6 +776,24 @@ function saveToStaging() {
     return
   }
 
+  // 连接字段前置校验（与 handleTest 保持一致，防止空 host/port 导致保存无效连接）
+  if (!selectedDriver.value.is_file) {
+    const fd = formData.value
+    if (!fd.host || String(fd.host).trim() === '') {
+      message.warning(t('navigator.hostRequired') || '请输入主机地址')
+      return
+    }
+    const port = Number(fd.port || selectedDriver.value.default_port || 0)
+    if (port < 1 || port > 65535) {
+      message.warning(t('navigator.portInvalid') || '端口号必须在 1-65535 之间')
+      return
+    }
+    if (!fd.database || String(fd.database).trim() === '') {
+      message.warning(t('navigator.databaseRequired') || '请输入数据库名')
+      return
+    }
+  }
+
   const url = buildUrl()
   if (!url) {
     message.warning(t('navigator.urlEmpty') || 'URL 构建失败，请检查连接参数')
@@ -822,6 +879,8 @@ async function handleApply() {
 async function handleEditApply() {
   if (!editingConnId.value) return
 
+  syncCurrentToStaging()
+
   const validation = validate()
   if (!validation.valid) {
     const firstError = Object.values(validation.errors)[0]
@@ -834,7 +893,7 @@ async function handleEditApply() {
     return
   }
 
-  saving.value = true
+  applying.value = true
   try {
     const _url = buildUrl()
     const name = headerData.name || selectedDriver.value?.name || ''
@@ -934,7 +993,7 @@ async function handleEditApply() {
   } catch (e) {
     message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
   } finally {
-    saving.value = false
+    applying.value = false
   }
 }
 
@@ -963,7 +1022,7 @@ async function handleCreateApply() {
     nameSet.add(lower)
   }
 
-  saving.value = true
+  applying.value = true
     let successCount = 0
     const errors: string[] = []
     applyProgress.value = { current: 0, total: validItems.length }
@@ -1090,7 +1149,7 @@ async function handleCreateApply() {
   } catch (e) {
     message.error(`${t('common.operationFailed')}: ${(e as Error).message}`)
   } finally {
-    saving.value = false
+    applying.value = false
     applyProgress.value = null
   }
 }
@@ -1397,6 +1456,7 @@ watch(
   () => props.modelValue,
   async (open) => {
     if (open) {
+      isRestoring.value = true
       stagingDirty.value = false
       loadStagingItems()
       await loadAll(projectStore.currentProject?.path)
@@ -1412,7 +1472,7 @@ watch(
       uriEditing.value = false
       editingConnId.value = null
       if (props.initialConnection) {
-        initFromConnection(props.initialConnection)
+        await initFromConnection(props.initialConnection)
       } else if (props.initialDriver) {
         isEditing.value = false
         selectedTypeId.value = props.initialDriver.type_id
@@ -1420,6 +1480,8 @@ watch(
       } else {
         isEditing.value = false
       }
+      await nextTick()
+      isRestoring.value = false
     }
   },
   { immediate: true }

@@ -4,8 +4,9 @@
  * 测试所有 state / getters / actions，包括事务管理
  * 依赖 @tauri-apps/api/core、connection service、runtime-connection-store、project store 均 mock
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
 import type { Connection, ConnectionMeta, ConnectionType } from '@/shared/types'
 
 // ==================== Mock 数据 ====================
