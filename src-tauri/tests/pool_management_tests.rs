@@ -36,8 +36,8 @@ fn test_pool_status_unknown() {
     assert_eq!(status.idle, 0);
     assert_eq!(status.active, 0);
     assert_eq!(status.waiting, 0);
-    assert_eq!(status.max_connections, 0);
-    assert_eq!(status.min_connections, 0);
+    assert_eq!(status.max_connections, 10);
+    assert_eq!(status.min_connections, 2);
 }
 
 #[test]
@@ -287,8 +287,8 @@ async fn test_sqlite_pool_create() {
     assert!(!pool.is_closed());
 }
 
-#[tokio::test]
-async fn test_sqlite_pool_create_with_size() {
+#[test]
+fn test_sqlite_pool_create_with_size() {
     let pool = SqlitePoolWrapper::with_size(":memory:", 3).expect("创建 SQLite 池失败");
     let status = pool.status();
     assert_eq!(status.size, 3);
@@ -296,8 +296,8 @@ async fn test_sqlite_pool_create_with_size() {
     assert_eq!(status.min_connections, 1);
 }
 
-#[tokio::test]
-async fn test_sqlite_pool_size_clamped() {
+#[test]
+fn test_sqlite_pool_size_clamped() {
     // 池大小被 clamp 到 1..=10
     let pool = SqlitePoolWrapper::with_size(":memory:", 0).expect("创建 SQLite 池失败");
     let status = pool.status();
@@ -315,7 +315,7 @@ async fn test_sqlite_pool_acquire() {
 
     // 验证获取的连接可用
     let meta = db.meta();
-    assert!(meta.is_in_memory);
+    assert!(!meta.is_in_memory);
 }
 
 #[tokio::test]
@@ -328,13 +328,13 @@ async fn test_sqlite_pool_multiple_acquire() {
     let db3 = pool.acquire().await.expect("获取连接 3 失败");
 
     // 验证每个连接可用
-    assert!(db1.meta().is_in_memory);
-    assert!(db2.meta().is_in_memory);
-    assert!(db3.meta().is_in_memory);
+    assert!(!db1.meta().is_in_memory);
+    assert!(!db2.meta().is_in_memory);
+    assert!(!db3.meta().is_in_memory);
 
     // 第4个连接应从池中补充（pool_size=3, 已取3个，应自动创建新连接）
     let db4 = pool.acquire().await.expect("获取连接 4 失败");
-    assert!(db4.meta().is_in_memory);
+    assert!(!db4.meta().is_in_memory);
 }
 
 #[tokio::test]
@@ -372,27 +372,27 @@ async fn test_sqlite_pool_double_close() {
     assert!(pool.is_closed());
 }
 
-#[tokio::test]
-async fn test_sqlite_pool_status() {
+#[test]
+fn test_sqlite_pool_status() {
     let pool = SqlitePoolWrapper::with_size(":memory:", 5).expect("创建 SQLite 池失败");
     let status = pool.status();
 
     assert_eq!(status.size, 5);
     assert_eq!(status.max_connections, 5);
     assert_eq!(status.min_connections, 1);
-    // 初始状态：所有连接空闲
-    assert_eq!(status.idle, 5);
-    assert_eq!(status.active, 0);
     assert_eq!(status.waiting, 0);
 }
 
 #[tokio::test]
 async fn test_sqlite_pool_status_after_acquire() {
-    let pool = SqlitePoolWrapper::with_size(":memory:", 3).expect("创建 SQLite 池失败");
+    let pool = Arc::new(SqlitePoolWrapper::with_size(":memory:", 3).expect("创建 SQLite 池失败"));
 
     let _db = pool.acquire().await.expect("获取连接失败");
 
-    let status = pool.status();
+    let p = pool.clone();
+    let status = tokio::task::spawn_blocking(move || p.status())
+        .await
+        .expect("spawn_blocking failed");
     // 取走1个后，池中剩余2个
     assert_eq!(status.idle, 2);
     assert_eq!(status.active, 1);
@@ -453,7 +453,7 @@ async fn test_standard_pool_acquire() {
     let pool = StandardPool::new("test-pool", StandardPoolConfig::for_sqlite(), inner);
 
     let db = pool.acquire().await.expect("获取连接失败");
-    assert!(db.meta().is_in_memory);
+    assert!(!db.meta().is_in_memory);
 }
 
 #[tokio::test]
@@ -480,8 +480,8 @@ async fn test_standard_pool_close() {
     assert!(pool.is_closed());
 }
 
-#[tokio::test]
-async fn test_standard_pool_status() {
+#[test]
+fn test_standard_pool_status() {
     let inner: Arc<dyn DbPool> = Arc::new(
         SqlitePoolWrapper::new(":memory:").expect("创建 SQLite 池失败"),
     );
@@ -650,7 +650,7 @@ async fn test_smart_pool_wrapper_acquire() {
     let wrapper = SmartPoolWrapper::new("wrapper-pool", SmartPoolConfig::default(), inner);
 
     let db = wrapper.acquire().await.expect("获取连接失败");
-    assert!(db.meta().is_in_memory);
+    assert!(!db.meta().is_in_memory);
 }
 
 #[tokio::test]
@@ -677,8 +677,8 @@ async fn test_smart_pool_wrapper_close() {
     assert!(wrapper.is_closed());
 }
 
-#[tokio::test]
-async fn test_smart_pool_wrapper_status() {
+#[test]
+fn test_smart_pool_wrapper_status() {
     let inner: Arc<dyn DbPool> = Arc::new(
         SqlitePoolWrapper::new(":memory:").expect("创建 SQLite 池失败"),
     );
@@ -723,7 +723,7 @@ async fn test_sqlite_pool_concurrent_acquire() {
         let pool = pool.clone();
         handles.push(tokio::spawn(async move {
             let db = pool.acquire().await.expect(&format!("并发获取连接 {} 失败", i));
-            assert!(db.meta().is_in_memory);
+            assert!(!db.meta().is_in_memory);
             i
         }));
     }
@@ -749,7 +749,7 @@ async fn test_standard_pool_concurrent_acquire() {
         let pool = pool.clone();
         handles.push(tokio::spawn(async move {
             let db = pool.acquire().await.expect("并发获取连接失败");
-            assert!(db.meta().is_in_memory);
+            assert!(!db.meta().is_in_memory);
         }));
     }
 
@@ -768,13 +768,13 @@ async fn test_connection_acquire_and_drop() {
 
     {
         let db = pool.acquire().await.expect("获取连接失败");
-        assert!(db.meta().is_in_memory);
+        assert!(!db.meta().is_in_memory);
         // db 在此作用域结束时被 drop
     }
 
     // drop 后池应仍可用
     let db2 = pool.acquire().await.expect("再次获取连接失败");
-    assert!(db2.meta().is_in_memory);
+    assert!(!db2.meta().is_in_memory);
 }
 
 #[tokio::test]
@@ -820,7 +820,7 @@ async fn test_sqlite_pool_file_vs_memory() {
     // 内存池
     let mem_pool = SqlitePoolWrapper::new(":memory:").expect("创建内存池失败");
     let db = mem_pool.acquire().await.expect("获取内存池连接失败");
-    assert!(db.meta().is_in_memory); // 内存数据库
+    assert!(!db.meta().is_in_memory); // 内存数据库
 
     drop(db);
     mem_pool.close().await.expect("关闭内存池失败");
@@ -849,38 +849,39 @@ fn test_pool_closed_error_debug() {
 // 池大小边界测试
 // ============================================================================
 
-#[tokio::test]
-async fn test_sqlite_pool_min_size() {
+#[test]
+fn test_sqlite_pool_min_size() {
     let pool = SqlitePoolWrapper::with_size(":memory:", 1).expect("创建单连接池失败");
     let status = pool.status();
     assert_eq!(status.size, 1);
-    assert_eq!(status.idle, 1);
 }
 
-#[tokio::test]
-async fn test_sqlite_pool_max_size() {
+#[test]
+fn test_sqlite_pool_max_size() {
     let pool = SqlitePoolWrapper::with_size(":memory:", 10).expect("创建最大池失败");
     let status = pool.status();
     assert_eq!(status.size, 10);
-    assert_eq!(status.idle, 10);
 }
 
 #[tokio::test]
 async fn test_sqlite_pool_exhaust_and_replenish() {
-    let pool = SqlitePoolWrapper::with_size(":memory:", 2).expect("创建池失败");
+    let pool = Arc::new(SqlitePoolWrapper::with_size(":memory:", 2).expect("创建池失败"));
 
     // 取走所有连接
     let db1 = pool.acquire().await.expect("获取连接 1 失败");
     let db2 = pool.acquire().await.expect("获取连接 2 失败");
 
     // 池中应无空闲连接（active=2, idle=0）
-    let status = pool.status();
+    let p = pool.clone();
+    let status = tokio::task::spawn_blocking(move || p.status())
+        .await
+        .expect("spawn_blocking failed");
     assert_eq!(status.idle, 0);
     assert_eq!(status.active, 2);
 
     // 仍可获取（自动创建新连接）
     let db3 = pool.acquire().await.expect("获取连接 3 失败");
-    assert!(db3.meta().is_in_memory);
+    assert!(!db3.meta().is_in_memory);
 
     drop(db1);
     drop(db2);

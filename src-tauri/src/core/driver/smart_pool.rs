@@ -477,7 +477,7 @@ impl SmartPool {
         let mut inner = self.inner.lock().await;
         let step = inner.config.scale_down_step;
         let current_size = inner.connections.len() as u32;
-        let new_size = (current_size - step).max(inner.config.min_connections);
+        let new_size = (current_size.saturating_sub(step)).max(inner.config.min_connections);
 
         info!(
             pool_name = %self.name,
@@ -498,7 +498,7 @@ impl SmartPool {
 
         idle_connections.sort_by_key(|(_, last_used)| *last_used);
 
-        let to_remove = (current_size - new_size) as usize;
+        let to_remove = (current_size.saturating_sub(new_size)) as usize;
         for (key, _) in idle_connections.into_iter().take(to_remove) {
             inner.connections.remove(&key);
             inner.stats.connections_destroyed += 1;

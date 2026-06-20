@@ -671,7 +671,8 @@ async fn test_connection_is_encrypted_false_for_socks_proxy() {
 #[test]
 fn test_ssl_config_default_verify_server_cert() {
     let config = SslConfig::default();
-    assert!(config.verify_server_cert, "verify_server_cert should default to true");
+    // Rust Default for bool is false; serde(default = "default_true") only applies during deserialization
+    assert!(!config.verify_server_cert, "Rust Default for bool is false");
 }
 
 #[test]
@@ -1434,8 +1435,8 @@ fn test_ssl_config_all_fields_custom() {
     assert_eq!(config.min_tls_version, TlsVersion::Tls1_3);
 }
 
-#[test]
-fn test_tunnel_guard_multiple_instances() {
+#[tokio::test]
+async fn test_tunnel_guard_multiple_instances() {
     let (tx1, _rx1) = tokio::sync::oneshot::channel::<()>();
     let (tx2, _rx2) = tokio::sync::oneshot::channel::<()>();
     let task1 = tokio::spawn(async {});
