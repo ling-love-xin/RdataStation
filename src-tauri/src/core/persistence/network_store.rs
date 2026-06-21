@@ -32,7 +32,7 @@ fn storage_err(op: &str, reason: String) -> CoreError {
 /// 创建网络配置（项目库，含快照溯源字段）
 pub fn create_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
     conn.execute(
-        "INSERT INTO network_configs (id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at)
+        "INSERT OR REPLACE INTO network_configs (id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             nc.id,

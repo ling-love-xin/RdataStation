@@ -1,7 +1,7 @@
 <template>
   <div class="policy-sections">
-    <!-- Security policies (extracted) -->
-    <div class="adv-sec">
+    <!-- Security policies (extracted, always visible) -->
+    <div class="adv-sec no-gap">
       <SecurityPolicySection
         v-model:readonly="polReadonly"
         v-model:write-confirm="polWriteConfirm"
@@ -24,184 +24,159 @@
       />
     </div>
 
-    <!-- Schema policies -->
-    <div class="adv-sec">
-      <NCollapse>
-        <NCollapseItem name="schema">
-          <template #header>
-            <span class="sec-title" style="margin-bottom: 0"
-              >📋 {{ $t('navigator.advancedSchema') || 'Schema 策略' }}</span
-            >
-            <span class="collapse-summary">{{ schemaSummary }}</span>
-          </template>
-          <div class="policy-grid">
-            <div class="policy-row">
-              <span class="pol-item"
-                >自动加载 <NSwitch v-model:value="schAutoLoad" size="small"
-              /></span>
-              <span class="pol-item"
-                >加载深度
-                <NInputNumber
-                  v-model:value="schLoadDepth"
-                  size="small"
-                  :min="1"
-                  :max="10"
-                  style="width: 80px"
-              /></span>
-              <span class="pol-item"
-                >显示系统表 <NSwitch v-model:value="schShowSystem" size="small"
-              /></span>
-            </div>
-            <div class="policy-row">
-              <span class="pol-item"
-                >刷新间隔(秒)
-                <NInputNumber
-                  v-model:value="schRefreshInterval"
-                  size="small"
-                  :min="0"
-                  :max="3600"
-                  style="width: 80px"
-              /></span>
-            </div>
+    <!-- Collapsible policies -->
+    <NCollapse>
+      <NCollapseItem name="schema">
+        <template #header>
+          <span class="coll-title">📋 {{ $t('navigator.advancedSchema') || 'Schema 策略' }}</span>
+          <span class="collapse-summary">{{ schemaSummary }}</span>
+        </template>
+        <div class="policy-grid">
+          <div class="policy-row">
+            <span class="pol-item"
+              >自动加载 <NSwitch v-model:value="schAutoLoad" size="small"
+            /></span>
+            <span class="pol-item"
+              >加载深度
+              <NInputNumber
+                v-model:value="schLoadDepth"
+                size="small"
+                :min="1"
+                :max="10"
+                style="width: 72px"
+            /></span>
+            <span class="pol-item"
+              >显示系统表 <NSwitch v-model:value="schShowSystem" size="small"
+            /></span>
           </div>
-        </NCollapseItem>
-      </NCollapse>
-    </div>
+          <div class="policy-row">
+            <span class="pol-item"
+              >刷新间隔(秒)
+              <NInputNumber
+                v-model:value="schRefreshInterval"
+                size="small"
+                :min="0"
+                :max="3600"
+                style="width: 72px"
+            /></span>
+          </div>
+        </div>
+      </NCollapseItem>
 
-    <!-- Performance policies -->
-    <div class="adv-sec">
-      <NCollapse>
-        <NCollapseItem name="perf">
-          <template #header>
-            <span class="sec-title" style="margin-bottom: 0"
-              >⚡ {{ $t('navigator.performance') || '性能策略' }}</span
-            >
-            <span class="collapse-summary">{{ perfSummary }}</span>
-          </template>
-          <div class="policy-grid">
-            <div class="policy-row">
-              <span class="pol-item"
-                >连接池大小
-                <NInputNumber
-                  v-model:value="perfPoolSize"
-                  size="small"
-                  :min="1"
-                  :max="100"
-                  style="width: 80px"
-              /></span>
-              <span class="pol-item"
-                >查询超时(秒)
-                <NInputNumber
-                  v-model:value="advQueryTimeout"
-                  size="small"
-                  :min="0"
-                  :max="3600"
-                  style="width: 80px"
-              /></span>
-              <span class="pol-item"
-                >连接超时(秒)
-                <NInputNumber
-                  v-model:value="advConnectTimeout"
-                  size="small"
-                  :min="1"
-                  :max="300"
-                  style="width: 80px"
-              /></span>
-            </div>
-            <div class="policy-row">
-              <span class="pol-item"
-                >心跳间隔(秒)
-                <NInputNumber
-                  v-model:value="advHeartbeat"
-                  size="small"
-                  :min="10"
-                  :max="600"
-                  style="width: 80px"
-              /></span>
-              <span class="pol-item"
-                >最大重连
-                <NInputNumber
-                  v-model:value="advMaxReconnect"
-                  size="small"
-                  :min="0"
-                  :max="20"
-                  style="width: 80px"
-              /></span>
-            </div>
+      <NCollapseItem name="perf">
+        <template #header>
+          <span class="coll-title">⚡ {{ $t('navigator.performance') || '性能策略' }}</span>
+          <span class="collapse-summary">{{ perfSummary }}</span>
+        </template>
+        <div class="policy-grid">
+          <div class="policy-row">
+            <span class="pol-item"
+              >连接池大小
+              <NInputNumber
+                v-model:value="perfPoolSize"
+                size="small"
+                :min="1"
+                :max="100"
+                style="width: 72px"
+            /></span>
+            <span class="pol-item"
+              >查询超时(s)
+              <NInputNumber
+                v-model:value="advQueryTimeout"
+                size="small"
+                :min="0"
+                :max="3600"
+                style="width: 72px"
+            /></span>
+            <span class="pol-item"
+              >连接超时(s)
+              <NInputNumber
+                v-model:value="advConnectTimeout"
+                size="small"
+                :min="1"
+                :max="300"
+                style="width: 72px"
+            /></span>
           </div>
-        </NCollapseItem>
-      </NCollapse>
-    </div>
+          <div class="policy-row">
+            <span class="pol-item"
+              >心跳间隔(s)
+              <NInputNumber
+                v-model:value="advHeartbeat"
+                size="small"
+                :min="10"
+                :max="600"
+                style="width: 72px"
+            /></span>
+            <span class="pol-item"
+              >最大重连
+              <NInputNumber
+                v-model:value="advMaxReconnect"
+                size="small"
+                :min="0"
+                :max="20"
+                style="width: 72px"
+            /></span>
+          </div>
+        </div>
+      </NCollapseItem>
 
-    <!-- Audit policies -->
-    <div class="adv-sec">
-      <NCollapse>
-        <NCollapseItem name="audit">
-          <template #header>
-            <span class="sec-title" style="margin-bottom: 0"
-              >📝 {{ $t('navigator.audit') || '审计策略' }}</span
-            >
-            <span class="collapse-summary">{{ auditSummary }}</span>
-          </template>
-          <div class="policy-grid">
-            <div class="policy-row">
-              <span class="pol-item"
-                >SQL 日志 <NSwitch v-model:value="audSqlLog" size="small"
-              /></span>
-              <span class="pol-item"
-                >操作记录 <NSwitch v-model:value="audOperationRecord" size="small"
-              /></span>
-              <span class="pol-item"
-                >敏感表告警 <NSwitch v-model:value="audSensitiveTableAlert" size="small"
-              /></span>
-            </div>
+      <NCollapseItem name="audit">
+        <template #header>
+          <span class="coll-title">📝 {{ $t('navigator.audit') || '审计策略' }}</span>
+          <span class="collapse-summary">{{ auditSummary }}</span>
+        </template>
+        <div class="policy-grid">
+          <div class="policy-row">
+            <span class="pol-item"
+              >SQL 日志 <NSwitch v-model:value="audSqlLog" size="small"
+            /></span>
+            <span class="pol-item"
+              >操作记录 <NSwitch v-model:value="audOperationRecord" size="small"
+            /></span>
+            <span class="pol-item"
+              >敏感表告警 <NSwitch v-model:value="audSensitiveTableAlert" size="small"
+            /></span>
           </div>
-        </NCollapseItem>
-      </NCollapse>
-    </div>
+        </div>
+      </NCollapseItem>
 
-    <!-- UI policies -->
-    <div class="adv-sec">
-      <NCollapse>
-        <NCollapseItem name="ui">
-          <template #header>
-            <span class="sec-title" style="margin-bottom: 0"
-              >🎨 {{ $t('navigator.uiPolicy') || 'UI 策略' }}</span
-            >
-            <span class="collapse-summary">{{ uiSummary }}</span>
-          </template>
-          <div class="policy-grid">
-            <div class="policy-row">
-              <span class="pol-item"
-                >顶栏颜色 <input v-model="uiTopBarColor" type="color" class="color-input-sm"
-              /></span>
-              <span class="pol-item"
-                >标签指示符
-                <NInput
-                  v-model:value="uiTabIndicator"
-                  size="small"
-                  style="width: 100px"
-                  placeholder="🔴"
-              /></span>
-            </div>
-            <div class="policy-row">
-              <span class="pol-item"
-                >SQL 警告横幅 <NSwitch v-model:value="uiSqlWarningBanner" size="small"
-              /></span>
-              <span class="pol-item"
-                >写入按钮样式
-                <NSelect
-                  v-model:value="uiWriteBtnStyle"
-                  size="small"
-                  :options="writeBtnStyleOpts"
-                  style="width: 120px"
-                />
-              </span>
-            </div>
+      <NCollapseItem name="ui">
+        <template #header>
+          <span class="coll-title">🎨 {{ $t('navigator.uiPolicy') || 'UI 策略' }}</span>
+          <span class="collapse-summary">{{ uiSummary }}</span>
+        </template>
+        <div class="policy-grid">
+          <div class="policy-row">
+            <span class="pol-item"
+              >顶栏颜色 <input v-model="uiTopBarColor" type="color" class="color-input-sm"
+            /></span>
+            <span class="pol-item"
+              >标签指示符
+              <NInput
+                v-model:value="uiTabIndicator"
+                size="small"
+                style="width: 80px"
+                placeholder="🔴"
+            /></span>
           </div>
-        </NCollapseItem>
-      </NCollapse>
-    </div>
+          <div class="policy-row">
+            <span class="pol-item"
+              >SQL 警告横幅 <NSwitch v-model:value="uiSqlWarningBanner" size="small"
+            /></span>
+            <span class="pol-item"
+              >写入按钮样式
+              <NSelect
+                v-model:value="uiWriteBtnStyle"
+                size="small"
+                :options="writeBtnStyleOpts"
+                style="width: 100px"
+              />
+            </span>
+          </div>
+        </div>
+      </NCollapseItem>
+    </NCollapse>
   </div>
 </template>
 
@@ -625,3 +600,51 @@ function collectFullConfig(): Record<string, unknown> {
 
 defineExpose({ collectFullConfig })
 </script>
+
+<style scoped>
+.policy-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adv-sec.no-gap {
+  gap: 0;
+}
+.coll-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.collapse-summary {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: 8px;
+}
+.policy-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+.policy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.pol-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.color-input-sm {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+</style>

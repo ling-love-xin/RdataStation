@@ -47,6 +47,35 @@ impl ProjectConnectionStore {
         Self { db_manager }
     }
 
+    /// 确保连接表包含所有必要列（回退修复：兼容迁移 010 可能因 ALTER TABLE 冲突而失败）
+    fn ensure_columns(conn: &rusqlite::Connection) -> Result<(), CoreError> {
+        let required_cols = [
+            "server_version TEXT",
+            "description TEXT",
+            "driver_id TEXT",
+            "environment_id TEXT",
+            "auth_config_id TEXT",
+            "auth_method TEXT",
+            "network_config_id TEXT",
+            "driver_properties TEXT",
+            "advanced_options TEXT",
+        ];
+        for col_def in &required_cols {
+            let col_name = col_def.split_whitespace().next().unwrap_or("");
+            // ALTER TABLE ADD COLUMN 在 SQLite 中不支持 IF NOT EXISTS，
+            // 如果列已存在会报错，忽略该错误即可
+            let _ = conn.execute(
+                &format!("ALTER TABLE connections ADD COLUMN {}", col_def),
+                [],
+            );
+            tracing::debug!(
+                "ensure_columns: attempted ALTER TABLE connections ADD COLUMN {}",
+                col_name
+            );
+        }
+        Ok(())
+    }
+
     pub async fn create_connection(&self, conn: &ProjectConnection) -> Result<(), CoreError> {
         // 输入校验：name、driver、host 不能为空
         if conn.name.is_empty() {
@@ -119,6 +148,9 @@ impl ProjectConnectionStore {
                 reason: format!("连接名称 \"{}\" 已存在，请使用其他名称", conn.name),
             }));
         }
+
+        // 确保连接表包含所有必要列（兼容迁移 010 可能因 ALTER TABLE 冲突而失败的情况）
+        Self::ensure_columns(sqlite.inner()?)?;
 
         sqlite
             .inner()?

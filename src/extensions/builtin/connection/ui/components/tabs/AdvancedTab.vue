@@ -172,8 +172,8 @@ watch(
 .adv-tab {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 2px 0;
+  gap: 8px;
+  padding: 0;
 }
 .empty-hint {
   display: flex;
@@ -186,7 +186,7 @@ watch(
 .adv-sec {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .sec-title {
   font-size: 11px;

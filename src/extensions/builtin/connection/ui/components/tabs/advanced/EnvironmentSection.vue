@@ -405,3 +405,50 @@ onMounted(() => {
   loadEnvironments()
 })
 </script>
+
+<style scoped>
+.env-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.env-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.epi-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.epi-tag.prod {
+  background: #fde8e8;
+  color: #c53030;
+}
+.epi-tag.staging {
+  background: #e8f0fe;
+  color: #2b6cb0;
+}
+.epi-tag.dev {
+  background: #e8fde8;
+  color: #276749;
+}
+.epi-tag.test {
+  background: #fefcbf;
+  color: #975a16;
+}
+.env-preset-indicator {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.env-override-hint {
+  font-size: 11px;
+  color: var(--brand-warning);
+}
+.env-snapshot-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+</style>

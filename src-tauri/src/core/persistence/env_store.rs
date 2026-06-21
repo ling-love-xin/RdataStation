@@ -37,6 +37,26 @@ fn storage_err(op: &str, reason: String) -> CoreError {
     })
 }
 
+/// 确保 environments 表存在（回退修复：兼容迁移 010 可能因 ALTER TABLE 冲突而失败）
+fn ensure_table(conn: &Connection) -> Result<(), CoreError> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS environments (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL UNIQUE,
+            description TEXT,
+            color       TEXT,
+            sort_order  INTEGER DEFAULT 0,
+            origin      TEXT,
+            source_id   TEXT,
+            snapshot_at TEXT,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )
+    .map_err(|e| storage_err("ensure_table", e.to_string()))?;
+    Ok(())
+}
+
 /// 创建新环境
 pub fn create_environment(conn: &Connection, env: &Environment) -> Result<(), CoreError> {
     conn.execute(
@@ -60,6 +80,17 @@ pub fn create_environment(conn: &Connection, env: &Environment) -> Result<(), Co
 
 /// 列出所有环境，按排序字段和名称排序
 pub fn list_environments(conn: &Connection) -> Result<Vec<Environment>, CoreError> {
+    // 尝试查询，如果表不存在则先创建
+    let result = query_environments(conn);
+    if result.is_err() {
+        // 表可能不存在，尝试创建并重试
+        ensure_table(conn)?;
+        return query_environments(conn);
+    }
+    result
+}
+
+fn query_environments(conn: &Connection) -> Result<Vec<Environment>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, description, color, sort_order, origin, source_id, snapshot_at, created_at

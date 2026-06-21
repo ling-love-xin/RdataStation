@@ -90,3 +90,41 @@ const encOpts = [
   { label: 'Latin-1', value: 'Latin-1' },
 ]
 </script>
+
+<style scoped>
+.metadata-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adv-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adv-inline {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.adv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.adv-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.adv-lbl {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.sec-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+</style>

@@ -111,7 +111,7 @@ pub fn decrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
 pub fn create_auth_config(conn: &Connection, ac: &AuthConfig) -> Result<(), CoreError> {
     let encrypted_data = encrypt_auth_data(&ac.auth_data)?;
     conn.execute(
-        "INSERT INTO auth_configs (id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at)
+        "INSERT OR REPLACE INTO auth_configs (id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             ac.id,
