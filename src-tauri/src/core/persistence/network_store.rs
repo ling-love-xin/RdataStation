@@ -29,8 +29,39 @@ fn storage_err(op: &str, reason: String) -> CoreError {
     })
 }
 
+/// 确保 network_configs 表存在（回退修复）
+fn ensure_table(conn: &Connection) -> Result<(), CoreError> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS network_configs (
+            id            TEXT PRIMARY KEY,
+            name          TEXT,
+            network_type  TEXT NOT NULL,
+            config        TEXT NOT NULL,
+            auth_config_id TEXT,
+            origin        TEXT,
+            source_id     TEXT,
+            snapshot_at   TEXT,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )
+    .map_err(|e| storage_err("ensure_table", e.to_string()))?;
+
+    // 补充：确保迁移可能遗漏的列（ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，忽略重复错误）
+    let extra_cols = ["auth_config_id TEXT", "origin TEXT", "source_id TEXT", "snapshot_at TEXT"];
+    for col_def in &extra_cols {
+        let _ = conn.execute(
+            &format!("ALTER TABLE network_configs ADD COLUMN {}", col_def),
+            [],
+        );
+    }
+    Ok(())
+}
+
 /// 创建网络配置（项目库，含快照溯源字段）
 pub fn create_network_config(conn: &Connection, nc: &NetworkConfig) -> Result<(), CoreError> {
+    let _ = ensure_table(conn);
     conn.execute(
         "INSERT OR REPLACE INTO network_configs (id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -56,6 +87,7 @@ pub fn list_network_configs(
     conn: &Connection,
     network_type: Option<&str>,
 ) -> Result<Vec<NetworkConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
         (
             "SELECT id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at
@@ -119,6 +151,7 @@ pub fn list_network_configs(
 
 /// 根据 ID 获取网络配置（项目库，含快照溯源字段）
 pub fn get_network_config(conn: &Connection, id: &str) -> Result<Option<NetworkConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let mut stmt = conn
         .prepare(
             "SELECT id, name, network_type, config, auth_config_id, origin, source_id, snapshot_at, created_at, updated_at
@@ -181,6 +214,7 @@ pub fn create_global_network_config(
     conn: &Connection,
     nc: &NetworkConfig,
 ) -> Result<(), CoreError> {
+    let _ = ensure_table(conn);
     conn.execute(
         "INSERT INTO network_configs (id, name, network_type, config, auth_config_id, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -203,6 +237,7 @@ pub fn list_global_network_configs(
     conn: &Connection,
     network_type: Option<&str>,
 ) -> Result<Vec<NetworkConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let (sql, param): (String, Option<String>) = if let Some(t) = network_type {
         (
             "SELECT id, name, network_type, config, auth_config_id, created_at, updated_at
@@ -231,7 +266,7 @@ pub fn list_global_network_configs(
                 network_type: row.get(2)?,
                 config: row.get(3)?,
                 auth_config_id: row.get(4)?,
-                origin: None,
+                origin: Some("global".to_string()),
                 source_id: None,
                 snapshot_at: None,
                 created_at: row.get(5)?,
@@ -249,7 +284,7 @@ pub fn list_global_network_configs(
                 network_type: row.get(2)?,
                 config: row.get(3)?,
                 auth_config_id: row.get(4)?,
-                origin: None,
+                origin: Some("global".to_string()),
                 source_id: None,
                 snapshot_at: None,
                 created_at: row.get(5)?,
@@ -269,6 +304,7 @@ pub fn get_global_network_config(
     conn: &Connection,
     id: &str,
 ) -> Result<Option<NetworkConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let mut stmt = conn
         .prepare(
             "SELECT id, name, network_type, config, auth_config_id, created_at, updated_at
@@ -283,7 +319,7 @@ pub fn get_global_network_config(
             network_type: row.get(2)?,
             config: row.get(3)?,
             auth_config_id: row.get(4)?,
-            origin: None,
+            origin: Some("global".to_string()),
             source_id: None,
             snapshot_at: None,
             created_at: row.get(5)?,

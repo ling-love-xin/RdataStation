@@ -58,10 +58,28 @@ const projectProxyProfiles = ref<NetworkProfile[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-// 对外暴露全局+项目合并后的计算列表
-const sshProfiles = computed(() => [...globalSshProfiles.value, ...projectSshProfiles.value])
-const sslProfiles = computed(() => [...globalSslProfiles.value, ...projectSslProfiles.value])
-const proxyProfiles = computed(() => [...globalProxyProfiles.value, ...projectProxyProfiles.value])
+// 对外暴露全局+项目合并后的计算列表（项目配置优先，按 ID 去重）
+const sshProfiles = computed(() => {
+  const seen = new Set(projectSshProfiles.value.map(p => p.id))
+  return [
+    ...projectSshProfiles.value,
+    ...globalSshProfiles.value.filter(p => !seen.has(p.id)),
+  ]
+})
+const sslProfiles = computed(() => {
+  const seen = new Set(projectSslProfiles.value.map(p => p.id))
+  return [
+    ...projectSslProfiles.value,
+    ...globalSslProfiles.value.filter(p => !seen.has(p.id)),
+  ]
+})
+const proxyProfiles = computed(() => {
+  const seen = new Set(projectProxyProfiles.value.map(p => p.id))
+  return [
+    ...projectProxyProfiles.value,
+    ...globalProxyProfiles.value.filter(p => !seen.has(p.id)),
+  ]
+})
 
 // ==================== 工具函数 ====================
 

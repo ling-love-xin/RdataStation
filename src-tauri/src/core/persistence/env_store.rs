@@ -54,11 +54,22 @@ fn ensure_table(conn: &Connection) -> Result<(), CoreError> {
         [],
     )
     .map_err(|e| storage_err("ensure_table", e.to_string()))?;
+
+    // 补充：确保迁移可能遗漏的列（ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，忽略重复错误）
+    let extra_cols = ["origin TEXT", "source_id TEXT", "snapshot_at TEXT"];
+    for col_def in &extra_cols {
+        let _ = conn.execute(
+            &format!("ALTER TABLE environments ADD COLUMN {}", col_def),
+            [],
+        );
+    }
     Ok(())
 }
 
 /// 创建新环境
 pub fn create_environment(conn: &Connection, env: &Environment) -> Result<(), CoreError> {
+    // 确保表存在
+    let _ = ensure_table(conn);
     conn.execute(
         "INSERT INTO environments (id, name, description, color, sort_order, origin, source_id, snapshot_at, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",

@@ -248,7 +248,23 @@ export function useAuthConfig(opts: UseAuthConfigOptions) {
         projectConfigs = projConfigs.map(parseAuthConfig)
       }
 
-      authConfigs.value = [...globalConfigs, ...projectConfigs]
+      // 按 ID 去重：项目配置优先（覆写同名全局配置），全局配置补充
+      const seenIds = new Set<string>()
+      const deduped: AuthConfig[] = []
+
+      // 先添加项目配置（优先级更高）
+      for (const c of projectConfigs) {
+        seenIds.add(c.id)
+        deduped.push(c)
+      }
+      // 再添加全局配置（仅当 ID 不在项目配置中）
+      for (const c of globalConfigs) {
+        if (!seenIds.has(c.id)) {
+          deduped.push(c)
+        }
+      }
+
+      authConfigs.value = deduped
     } catch (err) {
       console.warn('[useAuthConfig] loadAuthConfigs 失败:', err)
     }

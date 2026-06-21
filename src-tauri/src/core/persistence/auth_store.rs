@@ -26,6 +26,35 @@ fn storage_err(op: &str, reason: String) -> CoreError {
     })
 }
 
+/// 确保 auth_configs 表存在（回退修复）
+fn ensure_table(conn: &Connection) -> Result<(), CoreError> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS auth_configs (
+            id          TEXT PRIMARY KEY,
+            name        TEXT,
+            auth_type   TEXT NOT NULL,
+            auth_data   TEXT NOT NULL,
+            origin      TEXT,
+            source_id   TEXT,
+            snapshot_at TEXT,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )
+    .map_err(|e| storage_err("ensure_table", e.to_string()))?;
+
+    // 补充：确保迁移可能遗漏的列（ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，忽略重复错误）
+    let extra_cols = ["origin TEXT", "source_id TEXT", "snapshot_at TEXT"];
+    for col_def in &extra_cols {
+        let _ = conn.execute(
+            &format!("ALTER TABLE auth_configs ADD COLUMN {}", col_def),
+            [],
+        );
+    }
+    Ok(())
+}
+
 /// 加密 auth_data JSON 中的敏感字段（password、passphrase、clientSecret）
 /// 调用方在写入 DB 前调用此函数，确保敏感字段以密文存储
 pub fn encrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
@@ -109,6 +138,7 @@ pub fn decrypt_auth_data(auth_data: &str) -> Result<String, CoreError> {
 
 /// 创建认证配置（项目库，含快照溯源字段）
 pub fn create_auth_config(conn: &Connection, ac: &AuthConfig) -> Result<(), CoreError> {
+    let _ = ensure_table(conn);
     let encrypted_data = encrypt_auth_data(&ac.auth_data)?;
     conn.execute(
         "INSERT OR REPLACE INTO auth_configs (id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at)
@@ -134,6 +164,7 @@ pub fn list_auth_configs(
     conn: &Connection,
     auth_type: Option<&str>,
 ) -> Result<Vec<AuthConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let (sql, param): (String, Option<String>) = if let Some(t) = auth_type {
         (
             "SELECT id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at
@@ -199,6 +230,7 @@ pub fn list_auth_configs(
 
 /// 根据 ID 获取认证配置（返回解密后的 auth_data）
 pub fn get_auth_config(conn: &Connection, id: &str) -> Result<Option<AuthConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let mut stmt = conn
         .prepare(
             "SELECT id, name, auth_type, auth_data, origin, source_id, snapshot_at, created_at, updated_at
@@ -260,6 +292,7 @@ pub fn update_auth_config(conn: &Connection, ac: &AuthConfig) -> Result<(), Core
 
 /// 全局库：创建认证配置（不含快照溯源字段，加密敏感字段）
 pub fn create_global_auth_config(conn: &Connection, ac: &AuthConfig) -> Result<(), CoreError> {
+    let _ = ensure_table(conn);
     let encrypted_data = encrypt_auth_data(&ac.auth_data)?;
     conn.execute(
         "INSERT INTO auth_configs (id, name, auth_type, auth_data, created_at, updated_at)
@@ -282,6 +315,7 @@ pub fn list_global_auth_configs(
     conn: &Connection,
     auth_type: Option<&str>,
 ) -> Result<Vec<AuthConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let (sql, param): (String, Option<String>) = if let Some(t) = auth_type {
         (
             "SELECT id, name, auth_type, auth_data, created_at, updated_at
@@ -311,7 +345,7 @@ pub fn list_global_auth_configs(
                 name: row.get(1)?,
                 auth_type: row.get(2)?,
                 auth_data,
-                origin: None,
+                origin: Some("global".to_string()),
                 source_id: None,
                 snapshot_at: None,
                 created_at: row.get(4)?,
@@ -330,7 +364,7 @@ pub fn list_global_auth_configs(
                 name: row.get(1)?,
                 auth_type: row.get(2)?,
                 auth_data,
-                origin: None,
+                origin: Some("global".to_string()),
                 source_id: None,
                 snapshot_at: None,
                 created_at: row.get(4)?,
@@ -350,6 +384,7 @@ pub fn get_global_auth_config(
     conn: &Connection,
     id: &str,
 ) -> Result<Option<AuthConfig>, CoreError> {
+    let _ = ensure_table(conn);
     let mut stmt = conn
         .prepare(
             "SELECT id, name, auth_type, auth_data, created_at, updated_at
@@ -365,7 +400,7 @@ pub fn get_global_auth_config(
             name: row.get(1)?,
             auth_type: row.get(2)?,
             auth_data,
-            origin: None,
+            origin: Some("global".to_string()),
             source_id: None,
             snapshot_at: None,
             created_at: row.get(4)?,

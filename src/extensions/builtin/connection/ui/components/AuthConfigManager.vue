@@ -281,9 +281,16 @@ async function loadAuthConfigs() {
           projectPath: pp,
         })
         const projectConfigs = raw.map(parseAuthConfig)
-        allConfigs.value = isGlobal
-          ? [...allConfigs.value, ...projectConfigs]
-          : projectConfigs
+        if (isGlobal) {
+          // 按 ID 去重：项目配置优先，全局配置补充
+          const seenIds = new Set(projectConfigs.map(c => c.id))
+          allConfigs.value = [
+            ...projectConfigs,
+            ...allConfigs.value.filter(c => !seenIds.has(c.id)),
+          ]
+        } else {
+          allConfigs.value = projectConfigs
+        }
       }
     }
   } catch (e) {
