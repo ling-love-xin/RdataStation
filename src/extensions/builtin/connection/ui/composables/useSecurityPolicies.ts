@@ -20,7 +20,7 @@ const dropOpts: { label: string; value: string }[] = [
   { label: '禁用', value: 'disable' },
 ]
 
-export function useSecurityPolicies(envId: ReturnType<typeof ref<string>> | { value: string }) {
+export function useSecurityPolicies(envId: ReturnType<typeof ref<string | null>> | { value: string | null }) {
   // ===== 策略状态 =====
   const polReadonly = ref(false)
   const polWriteConfirm = ref(false)

@@ -54,11 +54,14 @@ function buildSearchIndex(
   globalConnections: GlobalConnection[],
   projectConnections: ProjectConnection[],
   filterConfig: FilterConfig,
+  connectionId?: string,
 ): Map<string, SearchResult[]> {
   const index = new Map<string, SearchResult[]>()
   const allConnections = [...globalConnections, ...projectConnections]
 
   for (const conn of allConnections) {
+    // 限定连接范围
+    if (connectionId && conn.id !== connectionId) continue
     const catalogs = navigatorStore.getCatalogs(conn.id)
 
     for (const cat of catalogs) {
@@ -150,15 +153,16 @@ export function useDatabaseTreeSearch() {
     globalConnections: GlobalConnection[],
     projectConnections: ProjectConnection[],
     prebuiltIndex?: Map<string, SearchResult[]>,
+    connectionId?: string,
   ): SearchResult[] {
     if (!query || query.trim().length === 0) return []
 
     const lowerQuery = query.toLowerCase()
 
-    // 使用预建索引或临时构建
+    // 使用预建索引或临时构建（限定连接范围）
     const index =
       prebuiltIndex ??
-      buildSearchIndex(navigatorStore, globalConnections, projectConnections, filterConfig)
+      buildSearchIndex(navigatorStore, globalConnections, projectConnections, filterConfig, connectionId)
 
     // O(1) 精确匹配
     const exactMatch = index.get(lowerQuery)
@@ -187,8 +191,9 @@ export function useDatabaseTreeSearch() {
     globalConnections: GlobalConnection[],
     projectConnections: ProjectConnection[],
     filterConfig: FilterConfig,
+    connectionId?: string,
   ): Map<string, SearchResult[]> {
-    return buildSearchIndex(navigatorStore, globalConnections, projectConnections, filterConfig)
+    return buildSearchIndex(navigatorStore, globalConnections, projectConnections, filterConfig, connectionId)
   }
 
   /**

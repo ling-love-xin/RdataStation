@@ -81,7 +81,7 @@ const environmentStore = useEnvironmentStore()
 const message = useMessage()
 
 const props = defineProps<{
-  environmentId: string
+  environmentId: string | null
   driver?: Driver | null
   scope?: { global: boolean; project: boolean }
 }>()
@@ -108,7 +108,7 @@ const currentEnvDef = computed(
   () => envDefs.find(e => e.id === props.environmentId) || envDefs[0]
 )
 
-const envPolicyTags = computed(() => envPolicyTagsMap[props.environmentId] || [])
+const envPolicyTags = computed(() => (props.environmentId ? envPolicyTagsMap[props.environmentId] : []) || [])
 
 // 策略覆盖检测（内联简化版，避免引入 useSecurityPolicies 的复杂度）
 const isPolicyOverridden = ref(false)

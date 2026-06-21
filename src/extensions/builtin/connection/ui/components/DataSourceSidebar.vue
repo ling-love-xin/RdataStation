@@ -168,7 +168,7 @@ import { useProjectConnectionStore } from '../stores/project-connection-store'
 import type { Driver } from '../../domain/types'
 import type { ProjectConnection, ConnectionStatus } from '../../types/connection'
 
-const { _t } = useI18n()
+const { t } = useI18n()
 const projectStore = useProjectStore()
 const projectConnectionStore = useProjectConnectionStore()
 const _connectionStore = useConnectionStore()
@@ -179,7 +179,7 @@ const { testingId, openSavedConnection, testSavedConnection } = useSidebarConnec
   loadConnections: () => projectConnectionStore.loadConnections(),
   currentProjectId: () => projectStore.currentProject?.id ?? null,
 })
-const { drivers, dataSourceTypes, loadAll, installDriver, _getDriverDetail } = useDriverRegistry()
+const { drivers, dataSourceTypes, loadAll, installDriver } = useDriverRegistry()
 
 const driverDetailCache = ref<Map<string, string>>(new Map()) // driver_id → availability
 const installingDriverId = ref<string | null>(null)
@@ -256,13 +256,22 @@ const selectedDriver = ref<Driver | null>(null)
 // Computed
 /** 合并连接：项目连接 + 全局连接，所有状态 */
 const connections = computed(() => {
-  const projectConns = (projectConnectionStore.connections as ProjectConnection[]).map(c => ({
-    ...c,
-    connection_type: (c.connection_type || 'project') as 'global' | 'project',
-    scope: 'project' as const,
-  }))
-  const globalConns = globalConnectionsRaw.value
-  return [...projectConns, ...globalConns]
+  const items: Array<ProjectConnection & { connection_type: string; scope: string }> = []
+  ;(projectConnectionStore.connections as ProjectConnection[]).forEach(c => {
+    items.push({
+      ...c,
+      connection_type: (c as any).connection_type || 'project',
+      scope: 'project',
+    })
+  })
+  globalConnectionsRaw.value.forEach(c => {
+    items.push({
+      ...c,
+      connection_type: (c as any).connection_type || 'global',
+      scope: 'global',
+    })
+  })
+  return items
 })
 
 const filteredTypes = computed(() => {

@@ -18,7 +18,7 @@ import { NSelect, NButton } from 'naive-ui'
 import type { SelectOption } from 'naive-ui'
 
 defineProps<{
-  modelValue: string
+  modelValue: string | null
   options: SelectOption[]
   label: string
   manageLabel: string

@@ -1431,6 +1431,7 @@ export type ConnectDatabaseInput = {
   metadata_path: string | null
   schema_name: string | null
   use_duckdb_fed: boolean | null
+  password: string | null
 }
 
 /**  连接响应 */

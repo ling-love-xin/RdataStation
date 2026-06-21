@@ -64,7 +64,7 @@
             class="scope-warning"
             :bordered="false"
           >
-            {{ $t('navigator.projectScopeNoProject') || '请先打开或创建一个项目，才能使用项目连接功能' }}
+            {{ $t('navigator.projectScopeNoProject') }}
           </NAlert>
 
           <!-- Tabs -->
@@ -114,7 +114,7 @@
             </div>
             <div class="footer-spacer" />
             <span v-if="applyProgress" class="apply-progress">
-              {{ $t('navigator.applying') || '应用进度' }} {{ applyProgress.current }}/{{ applyProgress.total }}
+              {{ $t('navigator.applying') }} {{ applyProgress.current }}/{{ applyProgress.total }}
             </span>
             <NButton @click="handleClose">{{ $t('navigator.cancel') }}</NButton>
             <NButton :loading="testing" @click="handleTest">{{
@@ -455,10 +455,10 @@ function handleRemoveStaging(i: number) {
     return
   }
   dialog.warning({
-    title: t('navigator.deleteStagingTitle') || '删除暂存项',
-    content: (t('navigator.deleteStagingConfirm') || '确定要删除暂存项 "{name}" 吗？此操作不可撤销。').replace('{name}', item.name || ''),
-    positiveText: t('navigator.confirm') || '确认删除',
-    negativeText: t('navigator.cancel') || '取消',
+    title: t('navigator.deleteStagingTitle'),
+    content: (t('navigator.deleteStagingConfirm')).replace('{name}', item.name || ''),
+    positiveText: t('navigator.confirm'),
+    negativeText: t('navigator.cancel'),
     onPositiveClick: () => {
       removeStaging(i)
     },
@@ -546,25 +546,26 @@ async function handleTest() {
   if (!selectedDriver.value.is_file) {
     const fd = formData.value
     if (!fd.host || String(fd.host).trim() === '') {
-      message.warning(t('navigator.hostRequired') || '请输入主机地址')
+      message.warning(t('navigator.validation.hostRequired'))
       return
     }
     const port = Number(fd.port || selectedDriver.value.default_port || 0)
     if (port < 1 || port > 65535) {
-      message.warning(t('navigator.portInvalid') || '端口号必须在 1-65535 之间')
-      return
-    }
-    if (!fd.database || String(fd.database).trim() === '') {
-      message.warning(t('navigator.databaseRequired') || '请输入数据库名')
+      message.warning(t('navigator.validation.portInvalid'))
       return
     }
   }
 
   const url = buildUrl()
   if (!url) {
-    message.warning(t('navigator.urlEmpty') || 'URL 构建失败，请检查连接参数')
+    message.warning(t('navigator.urlEmpty'))
     return
   }
+
+  // DEBUG: 检查 URL 是否包含凭据
+  console.log('[handleTest] URL has @:', url.includes('@'), 'URL has ://:', url.includes('://'), 'URL length:', url.length)
+  console.log('[handleTest] password from formData:', formData.value.password ? '***present***' : 'MISSING')
+  console.log('[handleTest] authConfigId:', authConfigId.value, 'authMethod:', authMethod.value)
 
   testing.value = true
   try {
@@ -633,6 +634,9 @@ async function onTestModalClose() {
     isAuthRequired(authType) &&
     (fd.username || fd.password || fd.certPath || fd.principal || fd.tokenEndpoint)
   if (!hasAuth) return
+
+  // 如果已经选择了认证配置，不需要再次询问保存
+  if (authConfigId.value) return
 
   const d = dialog.info({
     title: t('navigator.testSuccess'),
@@ -780,23 +784,19 @@ function saveToStaging() {
   if (!selectedDriver.value.is_file) {
     const fd = formData.value
     if (!fd.host || String(fd.host).trim() === '') {
-      message.warning(t('navigator.hostRequired') || '请输入主机地址')
+      message.warning(t('navigator.validation.hostRequired'))
       return
     }
     const port = Number(fd.port || selectedDriver.value.default_port || 0)
     if (port < 1 || port > 65535) {
-      message.warning(t('navigator.portInvalid') || '端口号必须在 1-65535 之间')
-      return
-    }
-    if (!fd.database || String(fd.database).trim() === '') {
-      message.warning(t('navigator.databaseRequired') || '请输入数据库名')
+      message.warning(t('navigator.validation.portInvalid'))
       return
     }
   }
 
   const url = buildUrl()
   if (!url) {
-    message.warning(t('navigator.urlEmpty') || 'URL 构建失败，请检查连接参数')
+    message.warning(t('navigator.urlEmpty'))
     return
   }
   const name = headerData.name || selectedDriver.value.name
@@ -1174,8 +1174,10 @@ async function snapshotIfNeeded(
       projectPath,
     })
     return r.snapshot_id
-  } catch {
-    errors.push(`${name}: ${type === 'auth' ? '认证' : '网络'}配置快照失败`)
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e)
+    console.error(`[snapshotIfNeeded] ${type} 快照失败:`, detail, e)
+    errors.push(`${name}: ${type === 'auth' ? '认证' : '网络'}配置快照失败 (${detail})`)
     return 'failed'
   }
 }

@@ -302,6 +302,12 @@ impl ConnectionService {
             );
         }
 
+        tracing::info!(
+            conn_id = %conn_id,
+            effective_url_has_creds = effective_url.contains('@'),
+            "即将创建数据库连接（URL凭据={}）",
+            effective_url.contains('@')
+        );
         let db = self
             .create_database(&db_type, &effective_url, driver_properties.as_deref())
             .await?;
@@ -518,6 +524,10 @@ impl ConnectionService {
     ///
     /// 根据连接类型和认证配置 ID，从全局或项目数据库中读取认证配置，
     /// 并返回解密后的 auth_data JSON。
+    ///
+    /// 查询优先级：全局 DB → 项目 DB（project_path 存在时，不依赖 connection_type，
+    /// 与 load_auth_data_from_db_for_network 行为一致，确保 test_connection（Global 类型）
+    /// 也能查询到项目级 P_/GP_ 认证配置）
     async fn load_auth_data_from_db(
         auth_id: &str,
         connection_type: ConnectionType,
@@ -533,8 +543,10 @@ impl ConnectionService {
             }
         }
 
-        // 如果是项目连接，尝试从项目数据库读取
-        if connection_type == ConnectionType::Project {
+        // 全局未找到，尝试从项目数据库读取（不依赖 connection_type，
+        // 确保 test_connection 等非 Project 类型也能查询到项目级认证配置）
+        let should_check_project = connection_type == ConnectionType::Project || project_path.is_some();
+        if should_check_project {
             if let Some(pp) = project_path {
                 let db_path = std::path::Path::new(pp).join(".RSmeta").join("project.db");
                 if db_path.exists() {
@@ -642,7 +654,8 @@ impl ConnectionService {
             let rest = &url[scheme_end + 3..];
 
             if let Some(at_pos) = rest.find('@') {
-                let host_part = &rest[at_pos..];
+                // 跳过 @ 符号，只取主机部分（否则 format 会再拼接一个 @ 导致双 @）
+                let host_part = &rest[at_pos + 1..];
                 return Ok(format!("{}{}:{}@{}", prefix, username, password, host_part));
             } else {
                 if let Some(path_start) = rest.find('/') {

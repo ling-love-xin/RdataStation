@@ -217,9 +217,9 @@ import type { SelectOption } from 'naive-ui'
 
 const props = defineProps<{
   /** 当前选中的环境ID（用于持久化策略的 save/load） */
-  activeEnvId: string
+  activeEnvId: string | null
   /** 原始环境 ID（用于应用 env 默认值，如 'env-prod'） */
-  defaultsEnvId: string
+  defaultsEnvId: string | null
   /** 连接作用域 */
   scope?: { global: boolean; project: boolean }
 }>()
@@ -527,24 +527,24 @@ function debounceSavePolicy(envId: string, policyType: string) {
 watch(
   [polReadonly, polWriteConfirm, polDdlConfirm, polAutocommit, polDrop, polRowLimit, polSizeLimit],
   () => {
-    debounceSavePolicy(props.activeEnvId, 'security')
+    if (props.activeEnvId) debounceSavePolicy(props.activeEnvId, 'security')
   }
 )
 // Schema
 watch([schAutoLoad, schLoadDepth, schShowSystem, schRefreshInterval], () => {
-  debounceSavePolicy(props.activeEnvId, 'schema')
+  if (props.activeEnvId) debounceSavePolicy(props.activeEnvId, 'schema')
 })
 // Performance
 watch([perfPoolSize, advQueryTimeout, advConnectTimeout, advHeartbeat, advMaxReconnect], () => {
-  debounceSavePolicy(props.activeEnvId, 'performance')
+  if (props.activeEnvId) debounceSavePolicy(props.activeEnvId, 'performance')
 })
 // Audit
 watch([audSqlLog, audOperationRecord, audSensitiveTableAlert], () => {
-  debounceSavePolicy(props.activeEnvId, 'audit')
+  if (props.activeEnvId) debounceSavePolicy(props.activeEnvId, 'audit')
 })
 // UI
 watch([uiTopBarColor, uiTabIndicator, uiSqlWarningBanner, uiWriteBtnStyle], () => {
-  debounceSavePolicy(props.activeEnvId, 'ui')
+  if (props.activeEnvId) debounceSavePolicy(props.activeEnvId, 'ui')
 })
 
 // ========== React to env change from parent ==========
@@ -552,7 +552,7 @@ watch([uiTopBarColor, uiTabIndicator, uiSqlWarningBanner, uiWriteBtnStyle], () =
 watch(
   () => props.defaultsEnvId,
   newId => {
-    applyEnvDefaults(newId)
+    if (newId) applyEnvDefaults(newId)
     emitConfig()
   }
 )
@@ -560,7 +560,7 @@ watch(
 watch(
   () => props.activeEnvId,
   (newId, oldId) => {
-    if (newId !== oldId) {
+    if (newId && newId !== oldId) {
       loadPoliciesForEnv(newId)
     }
   }

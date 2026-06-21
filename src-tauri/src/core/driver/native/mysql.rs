@@ -55,7 +55,33 @@ pub struct MySqlDatabase {
 
 impl MySqlDatabase {
     pub async fn new(url: &str) -> Result<Self, CoreError> {
-        let pool = Pool::connect(url).await.map_err(|e| {
+        // 对 URL 中的密码进行脱敏
+        let masked_url = if let Some(at_pos) = url.find('@') {
+            if let Some(colon_pos) = url[..at_pos].rfind(':') {
+                format!("{}:****{}", &url[..colon_pos], &url[at_pos..])
+            } else {
+                url.to_string()
+            }
+        } else {
+            url.to_string()
+        };
+        tracing::info!(
+            "MySqlDatabase::new: url_has_creds={}, url_len={}, masked_url={}",
+            url.contains('@'),
+            url.len(),
+            masked_url
+        );
+
+        // MySQL 8.0 默认使用 caching_sha2_password 认证插件，可能需要在 URL 中禁用 SSL
+        // 或配置 TLS。添加 ssl-mode=disabled 以兼容本地开发环境。
+        let effective_url = if url.contains("ssl-mode") || url.contains("ssl_mode") {
+            url.to_string()
+        } else {
+            let sep = if url.contains('?') { '&' } else { '?' };
+            format!("{}{}ssl-mode=disabled", url, sep)
+        };
+
+        let pool = Pool::connect(&effective_url).await.map_err(|e| {
             CoreError::database(DatabaseError::Driver {
                 db_type: "mysql".to_string(),
                 operation: "connect".to_string(),

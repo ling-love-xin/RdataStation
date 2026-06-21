@@ -155,6 +155,7 @@ watch(
     opts.encoding = encoding.value
 
     emit('extra-config', {
+      environmentId: envId.value,
       advancedOptions: JSON.stringify(opts),
       schemaName: schemaName.value || null,
       options: options.value || null,

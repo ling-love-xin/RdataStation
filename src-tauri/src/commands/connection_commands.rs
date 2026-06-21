@@ -764,9 +764,11 @@ pub async fn test_connection(
 
     // 没有已有连接，创建临时测试连接（30秒超时保护）
     let masked_url = ConnectionService::mask_password_in_url(&url);
+    let has_embedded_creds = url.contains('@') && url.contains("://");
+    let has_password_param = password.is_some();
     tracing::info!(
-        "测试连接：创建临时连接进行测试（URL={}，network_config={:?}，auth_config={:?}，auth_method={:?}）",
-        masked_url, network_config_id, auth_config_id, auth_method
+        "测试连接：创建临时连接进行测试（URL={}，has_creds={}，has_password_param={}，network_config={:?}，auth_config={:?}，auth_method={:?}）",
+        masked_url, has_embedded_creds, has_password_param, network_config_id, auth_config_id, auth_method
     );
 
     let test_input = ConnectDatabaseInput {

@@ -962,18 +962,45 @@ pub async fn snapshot_global_auth(
     project_path: String,
     state: tauri::State<'_, ProjectState>,
 ) -> Result<SnapshotResult, CoreError> {
+    tracing::info!(
+        "snapshot_global_auth: global_auth_id={}, project_path={}",
+        global_auth_id,
+        project_path
+    );
+
     let global_db = get_global_db_manager()
         .ok_or_else(|| CoreError::from("Global database not initialized".to_string()))?;
 
     let source = global_db
         .get_auth_config(&global_auth_id)
-        .await?
-        .ok_or_else(|| CoreError::from(format!("全局认证配置 {} 不存在", global_auth_id)))?;
+        .await
+        .map_err(|e| {
+            tracing::error!("snapshot_global_auth: 读取全局认证配置失败: {}", e);
+            e
+        })?
+        .ok_or_else(|| {
+            let err = format!("全局认证配置 {} 不存在", global_auth_id);
+            tracing::error!("snapshot_global_auth: {}", err);
+            CoreError::from(err)
+        })?;
 
-    let db_manager = get_project_db_manager(&project_path, &state).await?;
+    let db_manager = get_project_db_manager(&project_path, &state).await
+        .map_err(|e| {
+            tracing::error!("snapshot_global_auth: 获取项目DB管理器失败: {}", e);
+            e
+        })?;
     let snapshot_id = db_manager
         .snapshot_auth_config(&source, &global_auth_id)
-        .await?;
+        .await
+        .map_err(|e| {
+            tracing::error!("snapshot_global_auth: 写入快照失败: {}", e);
+            e
+        })?;
+
+    tracing::info!(
+        "snapshot_global_auth: 快照成功 snapshot_id={}",
+        snapshot_id
+    );
 
     Ok(SnapshotResult {
         snapshot_id,

@@ -366,17 +366,26 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
     }
   }
 
-  function searchObjects(query: string): SearchResult[] {
+  function searchObjects(query: string, connectionId?: string): SearchResult[] {
     if (!query || query.trim().length === 0) return []
 
     const results: SearchResult[] = []
     const lowerQuery = query.toLowerCase()
+    const MAX_RESULTS = 50
 
-    connectionCatalogs.value.forEach((catalogs, connectionId) => {
-      catalogs.forEach(cat => {
+    const catalogsToSearch = connectionId
+      ? [[connectionId, connectionCatalogs.value.get(connectionId)] as const]
+      : Array.from(connectionCatalogs.value.entries())
+
+    for (const [connId, catalogs] of catalogsToSearch) {
+      if (!catalogs) continue
+
+      for (const cat of catalogs) {
+        if (results.length >= MAX_RESULTS) return results
+
         if (cat.name.toLowerCase().includes(lowerQuery)) {
           results.push({
-            connectionId,
+            connectionId: connId,
             type: 'catalog',
             name: cat.name,
             path: cat.name,
@@ -384,10 +393,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
           })
         }
 
-        cat.schemas.forEach(schema => {
+        for (const schema of cat.schemas) {
+          if (results.length >= MAX_RESULTS) return results
+
           if (schema.name.toLowerCase().includes(lowerQuery)) {
             results.push({
-              connectionId,
+              connectionId: connId,
               type: 'schema',
               name: schema.name,
               path: `${cat.name}.${schema.name}`,
@@ -395,10 +406,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
             })
           }
 
-          schema.tables.forEach(table => {
+          for (const table of schema.tables) {
+            if (results.length >= MAX_RESULTS) return results
+
             if (table.name.toLowerCase().includes(lowerQuery)) {
               results.push({
-                connectionId,
+                connectionId: connId,
                 type: 'table',
                 name: table.name,
                 path: `${cat.name}.${schema.name}.${table.name}`,
@@ -406,10 +419,12 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
               })
             }
 
-            table.columns.forEach(col => {
+            // 列搜索仅在列已加载时有效（level1 内省时 columns 为空数组）
+            for (const col of table.columns) {
+              if (results.length >= MAX_RESULTS) return results
               if (col.name.toLowerCase().includes(lowerQuery)) {
                 results.push({
-                  connectionId,
+                  connectionId: connId,
                   type: 'column',
                   name: `${table.name}.${col.name}`,
                   path: `${cat.name}.${schema.name}.${table.name}.${col.name}`,
@@ -419,7 +434,7 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
               }
               if (col.dataType.toLowerCase().includes(lowerQuery)) {
                 results.push({
-                  connectionId,
+                  connectionId: connId,
                   type: 'column',
                   name: `${table.name}.${col.name}`,
                   path: `${cat.name}.${schema.name}.${table.name}.${col.name}`,
@@ -427,13 +442,15 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   parentTable: table.name,
                 })
               }
-            })
-          })
+            }
+          }
 
-          schema.views.forEach(view => {
+          for (const view of schema.views) {
+            if (results.length >= MAX_RESULTS) return results
+
             if (view.name.toLowerCase().includes(lowerQuery)) {
               results.push({
-                connectionId,
+                connectionId: connId,
                 type: 'view',
                 name: view.name,
                 path: `${cat.name}.${schema.name}.${view.name}`,
@@ -441,10 +458,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
               })
             }
 
-            view.columns.forEach(col => {
+            for (const col of view.columns) {
+              if (results.length >= MAX_RESULTS) return results
               if (col.name.toLowerCase().includes(lowerQuery)) {
                 results.push({
-                  connectionId,
+                  connectionId: connId,
                   type: 'column',
                   name: `${view.name}.${col.name}`,
                   path: `${cat.name}.${schema.name}.${view.name}.${col.name}`,
@@ -452,11 +470,11 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
                   parentTable: view.name,
                 })
               }
-            })
-          })
-        })
-      })
-    })
+            }
+          }
+        }
+      }
+    }
 
     return results
   }
@@ -491,7 +509,10 @@ export const useDatabaseNavigatorStore = defineStore('databaseNavigator', () => 
   }
 
   function expandToNode(_nodeKey: string): void {
-    // Tree expansion managed by database-navigator component
+    // V2: 树展开由 database-navigator 组件管理，store 无法直接操作虚拟树。
+    // 当前调用方（use-workbench-integration）期望展开到指定节点。
+    // 计划通过 ref-based event（expandRequest）让组件 watch 并展开。
+    // 参见: use-workbench-integration.ts L70-71
   }
 
   function selectNode(nodeKey: string): void {
